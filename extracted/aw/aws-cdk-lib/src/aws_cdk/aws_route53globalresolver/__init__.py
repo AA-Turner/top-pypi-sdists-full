@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,55 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_route53globalresolver import (
-    AccessSourceReference as _AccessSourceReference_3bb9cfc2,
-    AccessTokenReference as _AccessTokenReference_38473d18,
-    DnsViewReference as _DnsViewReference_5e401e00,
-    FirewallDomainListReference as _FirewallDomainListReference_6219a1bd,
-    FirewallRuleReference as _FirewallRuleReference_9ac24181,
-    GlobalResolverReference as _GlobalResolverReference_f82bf8b1,
-    HostedZoneAssociationReference as _HostedZoneAssociationReference_75cb03f5,
-    IAccessSourceRef as _IAccessSourceRef_1db97119,
-    IAccessTokenRef as _IAccessTokenRef_b08178a7,
-    IDnsViewRef as _IDnsViewRef_cc315308,
-    IFirewallDomainListRef as _IFirewallDomainListRef_9fe4e2fb,
-    IFirewallRuleRef as _IFirewallRuleRef_6295af58,
-    IGlobalResolverRef as _IGlobalResolverRef_e2deb39d,
-    IHostedZoneAssociationRef as _IHostedZoneAssociationRef_f6749a8d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_route53globalresolver as _aws_route53globalresolver_f2193788
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_route53globalresolver_f2193788 = _LazyImport("aws_cdk.interfaces.aws_route53globalresolver")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessSourceRef_1db97119, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IAccessSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAccessSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnAccessSource",
 ):
@@ -140,7 +123,7 @@ class CfnAccessSource(
         client_token: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::AccessSource``.
 
@@ -155,7 +138,7 @@ class CfnAccessSource(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e26e227e8b54f12cab6d99359743bad21bc5f9bb5d04e4c30fc1b3deea2b91d)
+            type_hints = cached_type_hints(_typecheckingstub__1e26e227e8b54f12cab6d99359743bad21bc5f9bb5d04e4c30fc1b3deea2b91d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessSourceProps(
@@ -174,13 +157,13 @@ class CfnAccessSource(
     @builtins.classmethod
     def arn_for_access_source(
         cls,
-        resource: "_IAccessSourceRef_1db97119",
+        resource: "_aws_route53globalresolver_f2193788.IAccessSourceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e03274618d5d2e93650f0be017e364784edc53006e272e106bb7cf38a7cfaf1)
+            type_hints = cached_type_hints(_typecheckingstub__5e03274618d5d2e93650f0be017e364784edc53006e272e106bb7cf38a7cfaf1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessSource", [resource]))
 
@@ -192,18 +175,18 @@ class CfnAccessSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05603aac4da0889d167bb1387eabd33b6fecfac386e077073db14ba1ac5905d1)
+            type_hints = cached_type_hints(_typecheckingstub__05603aac4da0889d167bb1387eabd33b6fecfac386e077073db14ba1ac5905d1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ccd8f9ba4eef07d166aece09cb53abc570035042a9b8212d3c028dac9d57409)
+            type_hints = cached_type_hints(_typecheckingstub__8ccd8f9ba4eef07d166aece09cb53abc570035042a9b8212d3c028dac9d57409)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -216,7 +199,7 @@ class CfnAccessSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7123f2aaf7effe01c513196a1156c24fcfd15a53b9d6db929d6bc3a36f3f9471)
+            type_hints = cached_type_hints(_typecheckingstub__7123f2aaf7effe01c513196a1156c24fcfd15a53b9d6db929d6bc3a36f3f9471)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -228,9 +211,11 @@ class CfnAccessSource(
 
     @builtins.property
     @jsii.member(jsii_name="accessSourceRef")
-    def access_source_ref(self) -> "_AccessSourceReference_3bb9cfc2":
+    def access_source_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.AccessSourceReference":
         '''A reference to a AccessSource resource.'''
-        return typing.cast("_AccessSourceReference_3bb9cfc2", jsii.get(self, "accessSourceRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.AccessSourceReference", jsii.get(self, "accessSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccessSourceId")
@@ -274,9 +259,9 @@ class CfnAccessSource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -296,7 +281,7 @@ class CfnAccessSource(
     @cidr.setter
     def cidr(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc)
+            type_hints = cached_type_hints(_typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cidr", value) # pyright: ignore[reportArgumentType]
 
@@ -308,7 +293,7 @@ class CfnAccessSource(
     @dns_view_id.setter
     def dns_view_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b8ccb772e4fc895f76707e5058eeed752ae1f36d776224e2363c15bd318c2a)
+            type_hints = cached_type_hints(_typecheckingstub__95b8ccb772e4fc895f76707e5058eeed752ae1f36d776224e2363c15bd318c2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnsViewId", value) # pyright: ignore[reportArgumentType]
 
@@ -320,7 +305,7 @@ class CfnAccessSource(
     @protocol.setter
     def protocol(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dde1a183981630a3fffc38ddff8a3f6febb6937b3c5949799453e30cbc7310a0)
+            type_hints = cached_type_hints(_typecheckingstub__dde1a183981630a3fffc38ddff8a3f6febb6937b3c5949799453e30cbc7310a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -332,7 +317,7 @@ class CfnAccessSource(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96ff0bae281a0a2532fce6d0ea5b7198a748c1e755f444a05f921f6932093028)
+            type_hints = cached_type_hints(_typecheckingstub__96ff0bae281a0a2532fce6d0ea5b7198a748c1e755f444a05f921f6932093028)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -344,7 +329,7 @@ class CfnAccessSource(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b05f8e72a9b2ca81a1f33202e71d4ddca48f4342a704a4421f5b0bb4a40fd1ef)
+            type_hints = cached_type_hints(_typecheckingstub__b05f8e72a9b2ca81a1f33202e71d4ddca48f4342a704a4421f5b0bb4a40fd1ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
@@ -356,19 +341,22 @@ class CfnAccessSource(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a41c9d2a0bbfe1d84266d379f49840e2dab332041118d9c1df05a2b456cced6d)
+            type_hints = cached_type_hints(_typecheckingstub__a41c9d2a0bbfe1d84266d379f49840e2dab332041118d9c1df05a2b456cced6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d0ecd9ff59b993b152a551949ae0b2ad042a6ef742c7fab5e74e60e49795dfd)
+            type_hints = cached_type_hints(_typecheckingstub__9d0ecd9ff59b993b152a551949ae0b2ad042a6ef742c7fab5e74e60e49795dfd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -396,7 +384,7 @@ class CfnAccessSourceProps:
         client_token: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessSource``.
 
@@ -434,7 +422,7 @@ class CfnAccessSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e2356855e49ab75da15cc0328069114313fafa0ff86a20d803b7c2be30c7b45)
+            type_hints = cached_type_hints(_typecheckingstub__3e2356855e49ab75da15cc0328069114313fafa0ff86a20d803b7c2be30c7b45)
             check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument dns_view_id", value=dns_view_id, expected_type=type_hints["dns_view_id"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
@@ -508,12 +496,12 @@ class CfnAccessSourceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -527,9 +515,9 @@ class CfnAccessSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessTokenRef_b08178a7, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IAccessTokenRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAccessToken(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnAccessToken",
 ):
@@ -569,7 +557,7 @@ class CfnAccessToken(
         client_token: typing.Optional[builtins.str] = None,
         expires_at: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::AccessToken``.
 
@@ -582,7 +570,7 @@ class CfnAccessToken(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82ba20f227121b366c42a9c098db67c39a85a9415f50b946dafad20209022b25)
+            type_hints = cached_type_hints(_typecheckingstub__82ba20f227121b366c42a9c098db67c39a85a9415f50b946dafad20209022b25)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessTokenProps(
@@ -599,13 +587,13 @@ class CfnAccessToken(
     @builtins.classmethod
     def arn_for_access_token(
         cls,
-        resource: "_IAccessTokenRef_b08178a7",
+        resource: "_aws_route53globalresolver_f2193788.IAccessTokenRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bd9a24451fa5b1382911f1e89ae8067a394ff17c9e74aa6e7f52032fd523cc4)
+            type_hints = cached_type_hints(_typecheckingstub__7bd9a24451fa5b1382911f1e89ae8067a394ff17c9e74aa6e7f52032fd523cc4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessToken", [resource]))
 
@@ -617,18 +605,18 @@ class CfnAccessToken(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c38c4bd39315438fbb6061db5804f6f55b7a3f1f8bc3fafa525198836eda5ee1)
+            type_hints = cached_type_hints(_typecheckingstub__c38c4bd39315438fbb6061db5804f6f55b7a3f1f8bc3fafa525198836eda5ee1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessToken", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04ef7a912a877531ae4298ea3f8bbf620dd209ba529c38ca67e6707431b584f8)
+            type_hints = cached_type_hints(_typecheckingstub__04ef7a912a877531ae4298ea3f8bbf620dd209ba529c38ca67e6707431b584f8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -641,7 +629,7 @@ class CfnAccessToken(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__882301402f4fbd8cac64cf2b9e02bcccd51a3c37d41129fc2914c0f40a7d0ee2)
+            type_hints = cached_type_hints(_typecheckingstub__882301402f4fbd8cac64cf2b9e02bcccd51a3c37d41129fc2914c0f40a7d0ee2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -653,9 +641,11 @@ class CfnAccessToken(
 
     @builtins.property
     @jsii.member(jsii_name="accessTokenRef")
-    def access_token_ref(self) -> "_AccessTokenReference_38473d18":
+    def access_token_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.AccessTokenReference":
         '''A reference to a AccessToken resource.'''
-        return typing.cast("_AccessTokenReference_38473d18", jsii.get(self, "accessTokenRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.AccessTokenReference", jsii.get(self, "accessTokenRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccessTokenId")
@@ -715,9 +705,9 @@ class CfnAccessToken(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -737,7 +727,7 @@ class CfnAccessToken(
     @dns_view_id.setter
     def dns_view_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1efd29213f22f5d27bdc1cc739dc8378215bc1eaa8894d05398b746c14b5f58)
+            type_hints = cached_type_hints(_typecheckingstub__f1efd29213f22f5d27bdc1cc739dc8378215bc1eaa8894d05398b746c14b5f58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnsViewId", value) # pyright: ignore[reportArgumentType]
 
@@ -749,7 +739,7 @@ class CfnAccessToken(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b704c3f64f2cbd55623b131a5af32dc3d8408a339cad0a16a258b0b8a6cccd09)
+            type_hints = cached_type_hints(_typecheckingstub__b704c3f64f2cbd55623b131a5af32dc3d8408a339cad0a16a258b0b8a6cccd09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -761,7 +751,7 @@ class CfnAccessToken(
     @expires_at.setter
     def expires_at(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05e6d199b63f268f056a2ec1768cde0c3075bc16623f4a5462963cebef8eed62)
+            type_hints = cached_type_hints(_typecheckingstub__05e6d199b63f268f056a2ec1768cde0c3075bc16623f4a5462963cebef8eed62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
 
@@ -773,19 +763,22 @@ class CfnAccessToken(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ceddf2530916a54b784424c359bbba7fb09d8ec8158118d8d6aaeac3513a2101)
+            type_hints = cached_type_hints(_typecheckingstub__ceddf2530916a54b784424c359bbba7fb09d8ec8158118d8d6aaeac3513a2101)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605d3f9cf55610f9b074c8814ec1cb33c3e2e73976521352747a92132b766b4c)
+            type_hints = cached_type_hints(_typecheckingstub__605d3f9cf55610f9b074c8814ec1cb33c3e2e73976521352747a92132b766b4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -809,7 +802,7 @@ class CfnAccessTokenProps:
         client_token: typing.Optional[builtins.str] = None,
         expires_at: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessToken``.
 
@@ -843,7 +836,7 @@ class CfnAccessTokenProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c886d3ce6884b3f680b0cccc4106854b2a78d4361077ac1940c2e5c6f37ece2)
+            type_hints = cached_type_hints(_typecheckingstub__3c886d3ce6884b3f680b0cccc4106854b2a78d4361077ac1940c2e5c6f37ece2)
             check_type(argname="argument dns_view_id", value=dns_view_id, expected_type=type_hints["dns_view_id"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
             check_type(argname="argument expires_at", value=expires_at, expected_type=type_hints["expires_at"])
@@ -895,12 +888,12 @@ class CfnAccessTokenProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesstoken.html#cfn-route53globalresolver-accesstoken-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -914,9 +907,9 @@ class CfnAccessTokenProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDnsViewRef_cc315308, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IDnsViewRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDnsView(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnDnsView",
 ):
@@ -962,7 +955,7 @@ class CfnDnsView(
         dnssec_validation: typing.Optional[builtins.str] = None,
         edns_client_subnet: typing.Optional[builtins.str] = None,
         firewall_rules_fail_open: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::DnsView``.
 
@@ -978,7 +971,7 @@ class CfnDnsView(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f4752adcdd6e72c7cd34b7681a4f92727b18fe01a3115c9611f42ee1775ee6)
+            type_hints = cached_type_hints(_typecheckingstub__f9f4752adcdd6e72c7cd34b7681a4f92727b18fe01a3115c9611f42ee1775ee6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDnsViewProps(
@@ -996,12 +989,15 @@ class CfnDnsView(
 
     @jsii.member(jsii_name="arnForDnsView")
     @builtins.classmethod
-    def arn_for_dns_view(cls, resource: "_IDnsViewRef_cc315308") -> builtins.str:
+    def arn_for_dns_view(
+        cls,
+        resource: "_aws_route53globalresolver_f2193788.IDnsViewRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc442efadfd1cffb86a82368e040b1113a0526c334e4ce810913bd4849e3b852)
+            type_hints = cached_type_hints(_typecheckingstub__bc442efadfd1cffb86a82368e040b1113a0526c334e4ce810913bd4849e3b852)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDnsView", [resource]))
 
@@ -1013,18 +1009,18 @@ class CfnDnsView(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b490856e9824a822de72942079e730d873721191b46d3867b0115aa63a0f0cb6)
+            type_hints = cached_type_hints(_typecheckingstub__b490856e9824a822de72942079e730d873721191b46d3867b0115aa63a0f0cb6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDnsView", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b49489960a5f211b491107ec4bfc87ea246355380d030e95060c24632c1e5bba)
+            type_hints = cached_type_hints(_typecheckingstub__b49489960a5f211b491107ec4bfc87ea246355380d030e95060c24632c1e5bba)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1037,7 +1033,7 @@ class CfnDnsView(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d035f1bbfd9ba07f376bc462754e909ab7a57439d520db08f74c23003e35854d)
+            type_hints = cached_type_hints(_typecheckingstub__d035f1bbfd9ba07f376bc462754e909ab7a57439d520db08f74c23003e35854d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1089,9 +1085,9 @@ class CfnDnsView(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1105,9 +1101,9 @@ class CfnDnsView(
 
     @builtins.property
     @jsii.member(jsii_name="dnsViewRef")
-    def dns_view_ref(self) -> "_DnsViewReference_5e401e00":
+    def dns_view_ref(self) -> "_aws_route53globalresolver_f2193788.DnsViewReference":
         '''A reference to a DnsView resource.'''
-        return typing.cast("_DnsViewReference_5e401e00", jsii.get(self, "dnsViewRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.DnsViewReference", jsii.get(self, "dnsViewRef"))
 
     @builtins.property
     @jsii.member(jsii_name="globalResolverId")
@@ -1117,7 +1113,7 @@ class CfnDnsView(
     @global_resolver_id.setter
     def global_resolver_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e41cd1cd94d8741ef44561111afff11465dce8754456d1c2c0987fe154e2e9d)
+            type_hints = cached_type_hints(_typecheckingstub__2e41cd1cd94d8741ef44561111afff11465dce8754456d1c2c0987fe154e2e9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalResolverId", value) # pyright: ignore[reportArgumentType]
 
@@ -1129,7 +1125,7 @@ class CfnDnsView(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d66be568aecf026fd401f159dca8b5c47f937b6ff71b44ac4c62ce5d7a3f589)
+            type_hints = cached_type_hints(_typecheckingstub__1d66be568aecf026fd401f159dca8b5c47f937b6ff71b44ac4c62ce5d7a3f589)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1141,7 +1137,7 @@ class CfnDnsView(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b8ff87145e371ec40ce7499f914ee608c1a6a6b3345c9dd2f5e20b9afa6d8a4)
+            type_hints = cached_type_hints(_typecheckingstub__2b8ff87145e371ec40ce7499f914ee608c1a6a6b3345c9dd2f5e20b9afa6d8a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -1153,7 +1149,7 @@ class CfnDnsView(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e85643d8d0b6b9b57cc22f783f11c470345f91c02f53a59d91316150515984e)
+            type_hints = cached_type_hints(_typecheckingstub__6e85643d8d0b6b9b57cc22f783f11c470345f91c02f53a59d91316150515984e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1165,7 +1161,7 @@ class CfnDnsView(
     @dnssec_validation.setter
     def dnssec_validation(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92b193bb7e640cfea3c0075dc77d73f04a82fb0538fe217dba438b07798d6491)
+            type_hints = cached_type_hints(_typecheckingstub__92b193bb7e640cfea3c0075dc77d73f04a82fb0538fe217dba438b07798d6491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnssecValidation", value) # pyright: ignore[reportArgumentType]
 
@@ -1177,7 +1173,7 @@ class CfnDnsView(
     @edns_client_subnet.setter
     def edns_client_subnet(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd9245b51907f66af0986bb95821f553943007f6946c5c3e7a22198fbc4d77e8)
+            type_hints = cached_type_hints(_typecheckingstub__bd9245b51907f66af0986bb95821f553943007f6946c5c3e7a22198fbc4d77e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ednsClientSubnet", value) # pyright: ignore[reportArgumentType]
 
@@ -1189,19 +1185,22 @@ class CfnDnsView(
     @firewall_rules_fail_open.setter
     def firewall_rules_fail_open(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4ac4a77283d843638e97abdf381cd9c32eba01be2e86932b682e2aeee7d1718)
+            type_hints = cached_type_hints(_typecheckingstub__e4ac4a77283d843638e97abdf381cd9c32eba01be2e86932b682e2aeee7d1718)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallRulesFailOpen", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42aed69fa5596ce5731b95fd083072e7a440119751d0837291fec5eb338ad3d2)
+            type_hints = cached_type_hints(_typecheckingstub__42aed69fa5596ce5731b95fd083072e7a440119751d0837291fec5eb338ad3d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1231,7 +1230,7 @@ class CfnDnsViewProps:
         dnssec_validation: typing.Optional[builtins.str] = None,
         edns_client_subnet: typing.Optional[builtins.str] = None,
         firewall_rules_fail_open: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDnsView``.
 
@@ -1271,7 +1270,7 @@ class CfnDnsViewProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be47ce035c982759ab526e0529caaa98a67680691f036975711a8fc5d4a202b3)
+            type_hints = cached_type_hints(_typecheckingstub__be47ce035c982759ab526e0529caaa98a67680691f036975711a8fc5d4a202b3)
             check_type(argname="argument global_resolver_id", value=global_resolver_id, expected_type=type_hints["global_resolver_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
@@ -1356,12 +1355,12 @@ class CfnDnsViewProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-dnsview.html#cfn-route53globalresolver-dnsview-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1375,9 +1374,9 @@ class CfnDnsViewProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFirewallDomainListRef_9fe4e2fb, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IFirewallDomainListRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFirewallDomainList(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnFirewallDomainList",
 ):
@@ -1421,7 +1420,7 @@ class CfnFirewallDomainList(
         description: typing.Optional[builtins.str] = None,
         domain_file_url: typing.Optional[builtins.str] = None,
         domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::FirewallDomainList``.
 
@@ -1436,7 +1435,7 @@ class CfnFirewallDomainList(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e446398d49f5f497ed38c697da2d836f26ea7124989f1921b6b1ef9c449f57d1)
+            type_hints = cached_type_hints(_typecheckingstub__e446398d49f5f497ed38c697da2d836f26ea7124989f1921b6b1ef9c449f57d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFirewallDomainListProps(
@@ -1455,13 +1454,13 @@ class CfnFirewallDomainList(
     @builtins.classmethod
     def arn_for_firewall_domain_list(
         cls,
-        resource: "_IFirewallDomainListRef_9fe4e2fb",
+        resource: "_aws_route53globalresolver_f2193788.IFirewallDomainListRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19474410306aa2384dcd6bdbcaaadf6b36be962c6d51ee32fe7036441649d773)
+            type_hints = cached_type_hints(_typecheckingstub__19474410306aa2384dcd6bdbcaaadf6b36be962c6d51ee32fe7036441649d773)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFirewallDomainList", [resource]))
 
@@ -1473,18 +1472,18 @@ class CfnFirewallDomainList(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3156089d9b1f04e4beb6cc12926d5b242645cce554891de44987a1184cd28b1)
+            type_hints = cached_type_hints(_typecheckingstub__a3156089d9b1f04e4beb6cc12926d5b242645cce554891de44987a1184cd28b1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFirewallDomainList", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60fd40c31a28b2d5ab6de007c5f03584b6e7e07b78aedd82036414b78dfc3017)
+            type_hints = cached_type_hints(_typecheckingstub__60fd40c31a28b2d5ab6de007c5f03584b6e7e07b78aedd82036414b78dfc3017)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1497,7 +1496,7 @@ class CfnFirewallDomainList(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04ecdcc4256b26330346af2135b7866fb7262051a1a5f74cc45c0981fdb59c69)
+            type_hints = cached_type_hints(_typecheckingstub__04ecdcc4256b26330346af2135b7866fb7262051a1a5f74cc45c0981fdb59c69)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1565,9 +1564,9 @@ class CfnFirewallDomainList(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1581,9 +1580,11 @@ class CfnFirewallDomainList(
 
     @builtins.property
     @jsii.member(jsii_name="firewallDomainListRef")
-    def firewall_domain_list_ref(self) -> "_FirewallDomainListReference_6219a1bd":
+    def firewall_domain_list_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.FirewallDomainListReference":
         '''A reference to a FirewallDomainList resource.'''
-        return typing.cast("_FirewallDomainListReference_6219a1bd", jsii.get(self, "firewallDomainListRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.FirewallDomainListReference", jsii.get(self, "firewallDomainListRef"))
 
     @builtins.property
     @jsii.member(jsii_name="globalResolverId")
@@ -1593,7 +1594,7 @@ class CfnFirewallDomainList(
     @global_resolver_id.setter
     def global_resolver_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b3677ff1f7ee302b88b5cb36d8b2dbb2aede7b72da92bcd6de78284559334f)
+            type_hints = cached_type_hints(_typecheckingstub__73b3677ff1f7ee302b88b5cb36d8b2dbb2aede7b72da92bcd6de78284559334f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalResolverId", value) # pyright: ignore[reportArgumentType]
 
@@ -1605,7 +1606,7 @@ class CfnFirewallDomainList(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__860763fdea89f756c6c90d95e5087d27a33ed47e8027548e3f61222562908c56)
+            type_hints = cached_type_hints(_typecheckingstub__860763fdea89f756c6c90d95e5087d27a33ed47e8027548e3f61222562908c56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1617,7 +1618,7 @@ class CfnFirewallDomainList(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d84eca686d85cb13c5722a2285bde95d87f6847e52d5fb465ef94942de5197cb)
+            type_hints = cached_type_hints(_typecheckingstub__d84eca686d85cb13c5722a2285bde95d87f6847e52d5fb465ef94942de5197cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -1629,7 +1630,7 @@ class CfnFirewallDomainList(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eea47993f183bb17d4d3b44850ff6b8583ee9017b513c8fbe2776ab8cda9579)
+            type_hints = cached_type_hints(_typecheckingstub__5eea47993f183bb17d4d3b44850ff6b8583ee9017b513c8fbe2776ab8cda9579)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1642,7 +1643,7 @@ class CfnFirewallDomainList(
     @domain_file_url.setter
     def domain_file_url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ef515883247b8072fc18a08dec90a59230966b8a0efa777e4fe6af7cb0d9fa8)
+            type_hints = cached_type_hints(_typecheckingstub__0ef515883247b8072fc18a08dec90a59230966b8a0efa777e4fe6af7cb0d9fa8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainFileUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -1655,19 +1656,22 @@ class CfnFirewallDomainList(
     @domains.setter
     def domains(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__070c5ecfb715828169cae58ca6834d54dfb1f94ad146cf4c311bdabeb5336560)
+            type_hints = cached_type_hints(_typecheckingstub__070c5ecfb715828169cae58ca6834d54dfb1f94ad146cf4c311bdabeb5336560)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domains", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a595596d23fe50bb26e322a036c3596920a5ce2e75e91f14b2a5eba1065e2645)
+            type_hints = cached_type_hints(_typecheckingstub__a595596d23fe50bb26e322a036c3596920a5ce2e75e91f14b2a5eba1065e2645)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1695,7 +1699,7 @@ class CfnFirewallDomainListProps:
         description: typing.Optional[builtins.str] = None,
         domain_file_url: typing.Optional[builtins.str] = None,
         domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFirewallDomainList``.
 
@@ -1733,7 +1737,7 @@ class CfnFirewallDomainListProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d198a7489a5e52354a6e7aa2cc4b677925fb253ffe4562fee89db32fca188fc)
+            type_hints = cached_type_hints(_typecheckingstub__7d198a7489a5e52354a6e7aa2cc4b677925fb253ffe4562fee89db32fca188fc)
             check_type(argname="argument global_resolver_id", value=global_resolver_id, expected_type=type_hints["global_resolver_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
@@ -1809,12 +1813,12 @@ class CfnFirewallDomainListProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-firewalldomainlist.html#cfn-route53globalresolver-firewalldomainlist-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1828,9 +1832,9 @@ class CfnFirewallDomainListProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFirewallRuleRef_6295af58)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IFirewallRuleRef)
 class CfnFirewallRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnFirewallRule",
 ):
@@ -1906,7 +1910,7 @@ class CfnFirewallRule(
         :param q_type: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6583b9c78ed44e0741a9157f77381d7e0d146fddaecf32085a2ec279acc3c2e6)
+            type_hints = cached_type_hints(_typecheckingstub__6583b9c78ed44e0741a9157f77381d7e0d146fddaecf32085a2ec279acc3c2e6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFirewallRuleProps(
@@ -1936,18 +1940,18 @@ class CfnFirewallRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f33d1a1948e0858fe4536c23a3492cecb0c4fc7517de4ac60ac9e802720c30e0)
+            type_hints = cached_type_hints(_typecheckingstub__f33d1a1948e0858fe4536c23a3492cecb0c4fc7517de4ac60ac9e802720c30e0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFirewallRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7e62d2bd41c552313dfa6ecccf16fcc964601515f9f78a4232df1e5c2385568)
+            type_hints = cached_type_hints(_typecheckingstub__f7e62d2bd41c552313dfa6ecccf16fcc964601515f9f78a4232df1e5c2385568)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1960,7 +1964,7 @@ class CfnFirewallRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b03320d9333ed0a6f4578084157955464912cd3481ba4e258fa9e6e4403f41b)
+            type_hints = cached_type_hints(_typecheckingstub__8b03320d9333ed0a6f4578084157955464912cd3481ba4e258fa9e6e4403f41b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2022,9 +2026,11 @@ class CfnFirewallRule(
 
     @builtins.property
     @jsii.member(jsii_name="firewallRuleRef")
-    def firewall_rule_ref(self) -> "_FirewallRuleReference_9ac24181":
+    def firewall_rule_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.FirewallRuleReference":
         '''A reference to a FirewallRule resource.'''
-        return typing.cast("_FirewallRuleReference_9ac24181", jsii.get(self, "firewallRuleRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.FirewallRuleReference", jsii.get(self, "firewallRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="action")
@@ -2034,7 +2040,7 @@ class CfnFirewallRule(
     @action.setter
     def action(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df53bebd126372c73837119fcb380b046153e8eba79d94322613b67d6538d1ba)
+            type_hints = cached_type_hints(_typecheckingstub__df53bebd126372c73837119fcb380b046153e8eba79d94322613b67d6538d1ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
 
@@ -2046,7 +2052,7 @@ class CfnFirewallRule(
     @dns_view_id.setter
     def dns_view_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebf9dd4c773dfb353399502591dc55c1f9260be931a82f6c050e1cda4772f95e)
+            type_hints = cached_type_hints(_typecheckingstub__ebf9dd4c773dfb353399502591dc55c1f9260be931a82f6c050e1cda4772f95e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnsViewId", value) # pyright: ignore[reportArgumentType]
 
@@ -2058,7 +2064,7 @@ class CfnFirewallRule(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a296c65c3bba86a2f84d9b49148c39a35f4cc07d53258ba1189913bdb9db65c7)
+            type_hints = cached_type_hints(_typecheckingstub__a296c65c3bba86a2f84d9b49148c39a35f4cc07d53258ba1189913bdb9db65c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2070,7 +2076,7 @@ class CfnFirewallRule(
     @block_override_dns_type.setter
     def block_override_dns_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4d2a00b7a7f3c8557c4d29a9084b0056e619989cad0c6d5e535086ee266f06b)
+            type_hints = cached_type_hints(_typecheckingstub__a4d2a00b7a7f3c8557c4d29a9084b0056e619989cad0c6d5e535086ee266f06b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockOverrideDnsType", value) # pyright: ignore[reportArgumentType]
 
@@ -2082,7 +2088,7 @@ class CfnFirewallRule(
     @block_override_domain.setter
     def block_override_domain(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2dcc3ab9abeb84a1233e0ed3dfc8a4ad7cf0ee0476b7e6508dfec7ebb39ffd)
+            type_hints = cached_type_hints(_typecheckingstub__ad2dcc3ab9abeb84a1233e0ed3dfc8a4ad7cf0ee0476b7e6508dfec7ebb39ffd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockOverrideDomain", value) # pyright: ignore[reportArgumentType]
 
@@ -2094,7 +2100,7 @@ class CfnFirewallRule(
     @block_override_ttl.setter
     def block_override_ttl(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__623f287e789666287232f4cdcfd802c7bca918fb304365a548202f5bf55a6253)
+            type_hints = cached_type_hints(_typecheckingstub__623f287e789666287232f4cdcfd802c7bca918fb304365a548202f5bf55a6253)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockOverrideTtl", value) # pyright: ignore[reportArgumentType]
 
@@ -2106,7 +2112,7 @@ class CfnFirewallRule(
     @block_response.setter
     def block_response(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c6e5756daa4edb39cdc5dd742884a967e531ef9f34ba1facf352ec6677ae832)
+            type_hints = cached_type_hints(_typecheckingstub__5c6e5756daa4edb39cdc5dd742884a967e531ef9f34ba1facf352ec6677ae832)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockResponse", value) # pyright: ignore[reportArgumentType]
 
@@ -2118,7 +2124,7 @@ class CfnFirewallRule(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab86dd47e7897a324abbcaeec22c0d6eeaf3762deeac7bc9a309d0151a9b81ee)
+            type_hints = cached_type_hints(_typecheckingstub__ab86dd47e7897a324abbcaeec22c0d6eeaf3762deeac7bc9a309d0151a9b81ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -2130,7 +2136,7 @@ class CfnFirewallRule(
     @confidence_threshold.setter
     def confidence_threshold(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d37fc845269f164fa0cf3e48990af182d9dc1686dbd3b7dbb7701b86396aa39)
+            type_hints = cached_type_hints(_typecheckingstub__9d37fc845269f164fa0cf3e48990af182d9dc1686dbd3b7dbb7701b86396aa39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "confidenceThreshold", value) # pyright: ignore[reportArgumentType]
 
@@ -2142,7 +2148,7 @@ class CfnFirewallRule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60c174302408bcfaa2815c8a3f8096e3837ee1bf6e8a7b7e38e29dfc2a3616c5)
+            type_hints = cached_type_hints(_typecheckingstub__60c174302408bcfaa2815c8a3f8096e3837ee1bf6e8a7b7e38e29dfc2a3616c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2154,7 +2160,7 @@ class CfnFirewallRule(
     @dns_advanced_protection.setter
     def dns_advanced_protection(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b77040a4e57b230dd8671210a76850893595b710bff3f20978a08200ddbb8ef)
+            type_hints = cached_type_hints(_typecheckingstub__3b77040a4e57b230dd8671210a76850893595b710bff3f20978a08200ddbb8ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnsAdvancedProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -2166,7 +2172,7 @@ class CfnFirewallRule(
     @firewall_domain_list_id.setter
     def firewall_domain_list_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__112a6c71e13eebf15e9566e12ee5442386f646f6017070613764c16fbd87a1ea)
+            type_hints = cached_type_hints(_typecheckingstub__112a6c71e13eebf15e9566e12ee5442386f646f6017070613764c16fbd87a1ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallDomainListId", value) # pyright: ignore[reportArgumentType]
 
@@ -2178,7 +2184,7 @@ class CfnFirewallRule(
     @priority.setter
     def priority(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac571aadf8e72a4bf0c10c3647247c011960f4fd372b4f5155fdf082977ca7ac)
+            type_hints = cached_type_hints(_typecheckingstub__ac571aadf8e72a4bf0c10c3647247c011960f4fd372b4f5155fdf082977ca7ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
@@ -2190,7 +2196,7 @@ class CfnFirewallRule(
     @q_type.setter
     def q_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af647b4d580894203899eba8b4aa5d78ceb0fa976874ea177ea5eb4020a98154)
+            type_hints = cached_type_hints(_typecheckingstub__af647b4d580894203899eba8b4aa5d78ceb0fa976874ea177ea5eb4020a98154)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "qType", value) # pyright: ignore[reportArgumentType]
 
@@ -2280,7 +2286,7 @@ class CfnFirewallRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed0b3cd14f9eb8ed481db1c0eb01b2961bc4aaf2fa720f8f0998729ce22ea47e)
+            type_hints = cached_type_hints(_typecheckingstub__ed0b3cd14f9eb8ed481db1c0eb01b2961bc4aaf2fa720f8f0998729ce22ea47e)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument dns_view_id", value=dns_view_id, expected_type=type_hints["dns_view_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2450,9 +2456,9 @@ class CfnFirewallRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGlobalResolverRef_e2deb39d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IGlobalResolverRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGlobalResolver(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnGlobalResolver",
 ):
@@ -2496,7 +2502,7 @@ class CfnGlobalResolver(
         description: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         observability_region: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::GlobalResolver``.
 
@@ -2511,7 +2517,7 @@ class CfnGlobalResolver(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da7e79855025c0b30f6623575b9427a70db31e48fe2bbbcb7afe985433e2ca60)
+            type_hints = cached_type_hints(_typecheckingstub__da7e79855025c0b30f6623575b9427a70db31e48fe2bbbcb7afe985433e2ca60)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGlobalResolverProps(
@@ -2530,13 +2536,13 @@ class CfnGlobalResolver(
     @builtins.classmethod
     def arn_for_global_resolver(
         cls,
-        resource: "_IGlobalResolverRef_e2deb39d",
+        resource: "_aws_route53globalresolver_f2193788.IGlobalResolverRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__586f8599fc720ab431e4bbff7f3f0e54c43a9c6e4c5e61ec51598ee274df065e)
+            type_hints = cached_type_hints(_typecheckingstub__586f8599fc720ab431e4bbff7f3f0e54c43a9c6e4c5e61ec51598ee274df065e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGlobalResolver", [resource]))
 
@@ -2548,18 +2554,18 @@ class CfnGlobalResolver(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1480ed04d9a64f793fbcb9b37f7bf0d263f0561598d9eae1efe6f4fd99627dad)
+            type_hints = cached_type_hints(_typecheckingstub__1480ed04d9a64f793fbcb9b37f7bf0d263f0561598d9eae1efe6f4fd99627dad)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGlobalResolver", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97d150f595f1701196870035d68c5f82f675b3f5b2179dcbcd83ed1ced124d77)
+            type_hints = cached_type_hints(_typecheckingstub__97d150f595f1701196870035d68c5f82f675b3f5b2179dcbcd83ed1ced124d77)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2572,7 +2578,7 @@ class CfnGlobalResolver(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0846fb5dc8a488f6d34e544d26c231a88b4a157f5b038a038db0139214418d2b)
+            type_hints = cached_type_hints(_typecheckingstub__0846fb5dc8a488f6d34e544d26c231a88b4a157f5b038a038db0139214418d2b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2648,9 +2654,9 @@ class CfnGlobalResolver(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2664,9 +2670,11 @@ class CfnGlobalResolver(
 
     @builtins.property
     @jsii.member(jsii_name="globalResolverRef")
-    def global_resolver_ref(self) -> "_GlobalResolverReference_f82bf8b1":
+    def global_resolver_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.GlobalResolverReference":
         '''A reference to a GlobalResolver resource.'''
-        return typing.cast("_GlobalResolverReference_f82bf8b1", jsii.get(self, "globalResolverRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.GlobalResolverReference", jsii.get(self, "globalResolverRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2676,7 +2684,7 @@ class CfnGlobalResolver(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b0b88d079d01a31e037efeb79e04d03e3f7da29d7941fcccd8de7adbc9b7b1a)
+            type_hints = cached_type_hints(_typecheckingstub__5b0b88d079d01a31e037efeb79e04d03e3f7da29d7941fcccd8de7adbc9b7b1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2689,7 +2697,7 @@ class CfnGlobalResolver(
     @regions.setter
     def regions(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f3bb4b7d0ee02337d106ffbb96ceb04b04cbdde26596fba5617fee79d9198a9)
+            type_hints = cached_type_hints(_typecheckingstub__7f3bb4b7d0ee02337d106ffbb96ceb04b04cbdde26596fba5617fee79d9198a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
 
@@ -2701,7 +2709,7 @@ class CfnGlobalResolver(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f5a9c32e120d7e538e67450c181d308e40dff28ea7634fa76434845ad86845f)
+            type_hints = cached_type_hints(_typecheckingstub__0f5a9c32e120d7e538e67450c181d308e40dff28ea7634fa76434845ad86845f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -2713,7 +2721,7 @@ class CfnGlobalResolver(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6686dda6b1be0eda3a74814ee144f9054a0a0fb013f592f6a0cc1f775872d119)
+            type_hints = cached_type_hints(_typecheckingstub__6686dda6b1be0eda3a74814ee144f9054a0a0fb013f592f6a0cc1f775872d119)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2725,7 +2733,7 @@ class CfnGlobalResolver(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9433c2948ee91ed9b3d248955e1206060c64874da48552c56de02de2bc0c6413)
+            type_hints = cached_type_hints(_typecheckingstub__9433c2948ee91ed9b3d248955e1206060c64874da48552c56de02de2bc0c6413)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
@@ -2737,19 +2745,22 @@ class CfnGlobalResolver(
     @observability_region.setter
     def observability_region(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1883445fceb6de947e1368c84caea5d6c108abbb4e30a6ac67ca90321709662b)
+            type_hints = cached_type_hints(_typecheckingstub__1883445fceb6de947e1368c84caea5d6c108abbb4e30a6ac67ca90321709662b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "observabilityRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d6cd6a2341e5166e822efce47afc74733f3e9cc782b993eb7d84b7f054a88d7)
+            type_hints = cached_type_hints(_typecheckingstub__5d6cd6a2341e5166e822efce47afc74733f3e9cc782b993eb7d84b7f054a88d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2777,7 +2788,7 @@ class CfnGlobalResolverProps:
         description: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         observability_region: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalResolver``.
 
@@ -2815,7 +2826,7 @@ class CfnGlobalResolverProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d94144306c30ab10b09fa1fa56f25eff66f288d01a5a061658e600765089cf3)
+            type_hints = cached_type_hints(_typecheckingstub__4d94144306c30ab10b09fa1fa56f25eff66f288d01a5a061658e600765089cf3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
@@ -2892,12 +2903,12 @@ class CfnGlobalResolverProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-globalresolver.html#cfn-route53globalresolver-globalresolver-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2911,9 +2922,9 @@ class CfnGlobalResolverProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IHostedZoneAssociationRef_f6749a8d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53globalresolver_f2193788.IHostedZoneAssociationRef)
 class CfnHostedZoneAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnHostedZoneAssociation",
 ):
@@ -2954,7 +2965,7 @@ class CfnHostedZoneAssociation(
         :param resource_arn: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86aca272912e382b469d5a6ebe30c8093c67fe4df8cac87a140c06ca9ba524ef)
+            type_hints = cached_type_hints(_typecheckingstub__86aca272912e382b469d5a6ebe30c8093c67fe4df8cac87a140c06ca9ba524ef)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHostedZoneAssociationProps(
@@ -2971,18 +2982,18 @@ class CfnHostedZoneAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee8a96623207e3c6d861f24a1f5272f8588cf8154f9d588b4ed1fa985bd315e)
+            type_hints = cached_type_hints(_typecheckingstub__6ee8a96623207e3c6d861f24a1f5272f8588cf8154f9d588b4ed1fa985bd315e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHostedZoneAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__477a0e76bde0ecc042a52896ee90e244d93fb83398556b5b877c940edcc781de)
+            type_hints = cached_type_hints(_typecheckingstub__477a0e76bde0ecc042a52896ee90e244d93fb83398556b5b877c940edcc781de)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2995,7 +3006,7 @@ class CfnHostedZoneAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3435c2d6adb1a07d9bbdea5368e2a8f54d7e26c2d6da1de3222a61e3469df57b)
+            type_hints = cached_type_hints(_typecheckingstub__3435c2d6adb1a07d9bbdea5368e2a8f54d7e26c2d6da1de3222a61e3469df57b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3057,9 +3068,11 @@ class CfnHostedZoneAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneAssociationRef")
-    def hosted_zone_association_ref(self) -> "_HostedZoneAssociationReference_75cb03f5":
+    def hosted_zone_association_ref(
+        self,
+    ) -> "_aws_route53globalresolver_f2193788.HostedZoneAssociationReference":
         '''A reference to a HostedZoneAssociation resource.'''
-        return typing.cast("_HostedZoneAssociationReference_75cb03f5", jsii.get(self, "hostedZoneAssociationRef"))
+        return typing.cast("_aws_route53globalresolver_f2193788.HostedZoneAssociationReference", jsii.get(self, "hostedZoneAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -3069,7 +3082,7 @@ class CfnHostedZoneAssociation(
     @hosted_zone_id.setter
     def hosted_zone_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb5a6954a76832bfa5c14791783f4bc2c24e7208fd17b213381ac5552bd6465)
+            type_hints = cached_type_hints(_typecheckingstub__fbb5a6954a76832bfa5c14791783f4bc2c24e7208fd17b213381ac5552bd6465)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -3081,7 +3094,7 @@ class CfnHostedZoneAssociation(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfd94f6bc8ede6ffd2798c84c13a8a4816676b86e722597b58bd30d0910ebbab)
+            type_hints = cached_type_hints(_typecheckingstub__cfd94f6bc8ede6ffd2798c84c13a8a4816676b86e722597b58bd30d0910ebbab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3093,7 +3106,7 @@ class CfnHostedZoneAssociation(
     @resource_arn.setter
     def resource_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52611d2cdfc48b952a63f9e11c8048c2c21550a2505957903d99faa929e34c15)
+            type_hints = cached_type_hints(_typecheckingstub__52611d2cdfc48b952a63f9e11c8048c2c21550a2505957903d99faa929e34c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3137,7 +3150,7 @@ class CfnHostedZoneAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f301180b16ce475b31d287759a5bcf71bfb875fbbf65e153c81976641304316d)
+            type_hints = cached_type_hints(_typecheckingstub__f301180b16ce475b31d287759a5bcf71bfb875fbbf65e153c81976641304316d)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
@@ -3215,13 +3228,13 @@ def _typecheckingstub__1e26e227e8b54f12cab6d99359743bad21bc5f9bb5d04e4c30fc1b3de
     client_token: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e03274618d5d2e93650f0be017e364784edc53006e272e106bb7cf38a7cfaf1(
-    resource: _IAccessSourceRef_1db97119,
+    resource: _aws_route53globalresolver_f2193788.IAccessSourceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3233,7 +3246,7 @@ def _typecheckingstub__05603aac4da0889d167bb1387eabd33b6fecfac386e077073db14ba1a
     pass
 
 def _typecheckingstub__8ccd8f9ba4eef07d166aece09cb53abc570035042a9b8212d3c028dac9d57409(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3281,7 +3294,7 @@ def _typecheckingstub__a41c9d2a0bbfe1d84266d379f49840e2dab332041118d9c1df05a2b45
     pass
 
 def _typecheckingstub__9d0ecd9ff59b993b152a551949ae0b2ad042a6ef742c7fab5e74e60e49795dfd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3294,7 +3307,7 @@ def _typecheckingstub__3e2356855e49ab75da15cc0328069114313fafa0ff86a20d803b7c2be
     client_token: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3307,13 +3320,13 @@ def _typecheckingstub__82ba20f227121b366c42a9c098db67c39a85a9415f50b946dafad2020
     client_token: typing.Optional[builtins.str] = None,
     expires_at: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7bd9a24451fa5b1382911f1e89ae8067a394ff17c9e74aa6e7f52032fd523cc4(
-    resource: _IAccessTokenRef_b08178a7,
+    resource: _aws_route53globalresolver_f2193788.IAccessTokenRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3325,7 +3338,7 @@ def _typecheckingstub__c38c4bd39315438fbb6061db5804f6f55b7a3f1f8bc3fafa525198836
     pass
 
 def _typecheckingstub__04ef7a912a877531ae4298ea3f8bbf620dd209ba529c38ca67e6707431b584f8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3361,7 +3374,7 @@ def _typecheckingstub__ceddf2530916a54b784424c359bbba7fb09d8ec8158118d8d6aaeac35
     pass
 
 def _typecheckingstub__605d3f9cf55610f9b074c8814ec1cb33c3e2e73976521352747a92132b766b4c(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3372,7 +3385,7 @@ def _typecheckingstub__3c886d3ce6884b3f680b0cccc4106854b2a78d4361077ac1940c2e5c6
     client_token: typing.Optional[builtins.str] = None,
     expires_at: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3388,13 +3401,13 @@ def _typecheckingstub__f9f4752adcdd6e72c7cd34b7681a4f92727b18fe01a3115c9611f42ee
     dnssec_validation: typing.Optional[builtins.str] = None,
     edns_client_subnet: typing.Optional[builtins.str] = None,
     firewall_rules_fail_open: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bc442efadfd1cffb86a82368e040b1113a0526c334e4ce810913bd4849e3b852(
-    resource: _IDnsViewRef_cc315308,
+    resource: _aws_route53globalresolver_f2193788.IDnsViewRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3406,7 +3419,7 @@ def _typecheckingstub__b490856e9824a822de72942079e730d873721191b46d3867b0115aa63
     pass
 
 def _typecheckingstub__b49489960a5f211b491107ec4bfc87ea246355380d030e95060c24632c1e5bba(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3460,7 +3473,7 @@ def _typecheckingstub__e4ac4a77283d843638e97abdf381cd9c32eba01be2e86932b682e2aee
     pass
 
 def _typecheckingstub__42aed69fa5596ce5731b95fd083072e7a440119751d0837291fec5eb338ad3d2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3474,7 +3487,7 @@ def _typecheckingstub__be47ce035c982759ab526e0529caaa98a67680691f036975711a8fc5d
     dnssec_validation: typing.Optional[builtins.str] = None,
     edns_client_subnet: typing.Optional[builtins.str] = None,
     firewall_rules_fail_open: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3489,13 +3502,13 @@ def _typecheckingstub__e446398d49f5f497ed38c697da2d836f26ea7124989f1921b6b1ef9c4
     description: typing.Optional[builtins.str] = None,
     domain_file_url: typing.Optional[builtins.str] = None,
     domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19474410306aa2384dcd6bdbcaaadf6b36be962c6d51ee32fe7036441649d773(
-    resource: _IFirewallDomainListRef_9fe4e2fb,
+    resource: _aws_route53globalresolver_f2193788.IFirewallDomainListRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3507,7 +3520,7 @@ def _typecheckingstub__a3156089d9b1f04e4beb6cc12926d5b242645cce554891de44987a118
     pass
 
 def _typecheckingstub__60fd40c31a28b2d5ab6de007c5f03584b6e7e07b78aedd82036414b78dfc3017(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3555,7 +3568,7 @@ def _typecheckingstub__070c5ecfb715828169cae58ca6834d54dfb1f94ad146cf4c311bdabeb
     pass
 
 def _typecheckingstub__a595596d23fe50bb26e322a036c3596920a5ce2e75e91f14b2a5eba1065e2645(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3568,7 +3581,7 @@ def _typecheckingstub__7d198a7489a5e52354a6e7aa2cc4b677925fb253ffe4562fee89db32f
     description: typing.Optional[builtins.str] = None,
     domain_file_url: typing.Optional[builtins.str] = None,
     domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3602,7 +3615,7 @@ def _typecheckingstub__f33d1a1948e0858fe4536c23a3492cecb0c4fc7517de4ac60ac9e8027
     pass
 
 def _typecheckingstub__f7e62d2bd41c552313dfa6ecccf16fcc964601515f9f78a4232df1e5c2385568(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3727,13 +3740,13 @@ def _typecheckingstub__da7e79855025c0b30f6623575b9427a70db31e48fe2bbbcb7afe98543
     description: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     observability_region: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__586f8599fc720ab431e4bbff7f3f0e54c43a9c6e4c5e61ec51598ee274df065e(
-    resource: _IGlobalResolverRef_e2deb39d,
+    resource: _aws_route53globalresolver_f2193788.IGlobalResolverRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3745,7 +3758,7 @@ def _typecheckingstub__1480ed04d9a64f793fbcb9b37f7bf0d263f0561598d9eae1efe6f4fd9
     pass
 
 def _typecheckingstub__97d150f595f1701196870035d68c5f82f675b3f5b2179dcbcd83ed1ced124d77(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3793,7 +3806,7 @@ def _typecheckingstub__1883445fceb6de947e1368c84caea5d6c108abbb4e30a6ac67ca90321
     pass
 
 def _typecheckingstub__5d6cd6a2341e5166e822efce47afc74733f3e9cc782b993eb7d84b7f054a88d7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3806,7 +3819,7 @@ def _typecheckingstub__4d94144306c30ab10b09fa1fa56f25eff66f288d01a5a061658e60076
     description: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     observability_region: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3829,7 +3842,7 @@ def _typecheckingstub__6ee8a96623207e3c6d861f24a1f5272f8588cf8154f9d588b4ed1fa98
     pass
 
 def _typecheckingstub__477a0e76bde0ecc042a52896ee90e244d93fb83398556b5b877c940edcc781de(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

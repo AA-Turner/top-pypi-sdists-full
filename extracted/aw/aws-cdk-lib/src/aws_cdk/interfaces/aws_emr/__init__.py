@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb26faf26da6b6e132c7248c008afeda83d3b7eb2e886a3e304114ba22354966)
+            type_hints = cached_type_hints(_typecheckingstub__eb26faf26da6b6e132c7248c008afeda83d3b7eb2e886a3e304114ba22354966)
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_id": cluster_id,
@@ -86,7 +90,7 @@ class ClusterReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -106,7 +110,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IInstanceFleetConfigRef")
 class IInstanceFleetConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceFleetConfig.
@@ -151,7 +155,7 @@ class IInstanceFleetConfigRef(
 
 class _IInstanceFleetConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceFleetConfig.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IInstanceFleetConfigRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IInstanceGroupConfigRef")
 class IInstanceGroupConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceGroupConfig.
@@ -196,7 +200,7 @@ class IInstanceGroupConfigRef(
 
 class _IInstanceGroupConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceGroupConfig.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IInstanceGroupConfigRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.ISecurityConfigurationRef")
 class ISecurityConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityConfiguration.
@@ -241,7 +245,7 @@ class ISecurityConfigurationRef(
 
 class _ISecurityConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityConfiguration.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, ISecurityConfigurationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IStepRef")
 class IStepRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Step.
@@ -286,7 +290,7 @@ class IStepRef(
 
 class _IStepRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Step.
 
@@ -311,7 +315,7 @@ typing.cast(typing.Any, IStepRef).__jsii_proxy_class__ = lambda : _IStepRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IStudioRef")
 class IStudioRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Studio.
@@ -331,7 +335,7 @@ class IStudioRef(
 
 class _IStudioRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Studio.
 
@@ -356,7 +360,7 @@ typing.cast(typing.Any, IStudioRef).__jsii_proxy_class__ = lambda : _IStudioRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IStudioSessionMappingRef")
 class IStudioSessionMappingRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StudioSessionMapping.
@@ -376,7 +380,7 @@ class IStudioSessionMappingRef(
 
 class _IStudioSessionMappingRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StudioSessionMapping.
 
@@ -401,7 +405,7 @@ typing.cast(typing.Any, IStudioSessionMappingRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emr.IWALWorkspaceRef")
 class IWALWorkspaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WALWorkspace.
@@ -421,7 +425,7 @@ class IWALWorkspaceRef(
 
 class _IWALWorkspaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WALWorkspace.
 
@@ -467,7 +471,7 @@ class InstanceFleetConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eab7877a2d45d234b1d3068bffb62e7ebde897f5a905ade3c3ea3d070f83dbb2)
+            type_hints = cached_type_hints(_typecheckingstub__eab7877a2d45d234b1d3068bffb62e7ebde897f5a905ade3c3ea3d070f83dbb2)
             check_type(argname="argument instance_fleet_config_id", value=instance_fleet_config_id, expected_type=type_hints["instance_fleet_config_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_fleet_config_id": instance_fleet_config_id,
@@ -516,7 +520,7 @@ class InstanceGroupConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2e30f6fa847b8c87ef7ee08003bc534b03a5fe699d12bbffc55fbfd68d6628a)
+            type_hints = cached_type_hints(_typecheckingstub__e2e30f6fa847b8c87ef7ee08003bc534b03a5fe699d12bbffc55fbfd68d6628a)
             check_type(argname="argument instance_group_config_id", value=instance_group_config_id, expected_type=type_hints["instance_group_config_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_group_config_id": instance_group_config_id,
@@ -565,7 +569,7 @@ class SecurityConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb700029a26f9af3fd64d96b6c5893bf9edb318eb93b8651a3d20e6bd81f9e34)
+            type_hints = cached_type_hints(_typecheckingstub__eb700029a26f9af3fd64d96b6c5893bf9edb318eb93b8651a3d20e6bd81f9e34)
             check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_configuration_name": security_configuration_name,
@@ -614,7 +618,7 @@ class StepReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__444fc315d7e16b117550af1e8318e44802b5a06f3fc0f7f20510a37113d8a87b)
+            type_hints = cached_type_hints(_typecheckingstub__444fc315d7e16b117550af1e8318e44802b5a06f3fc0f7f20510a37113d8a87b)
             check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "step_id": step_id,
@@ -665,7 +669,7 @@ class StudioReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a600ab6bdf8ffaa929e128dab66554f33dcfe16b4066fb6aa63bcc126770cda)
+            type_hints = cached_type_hints(_typecheckingstub__6a600ab6bdf8ffaa929e128dab66554f33dcfe16b4066fb6aa63bcc126770cda)
             check_type(argname="argument studio_arn", value=studio_arn, expected_type=type_hints["studio_arn"])
             check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -737,7 +741,7 @@ class StudioSessionMappingReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b27823da82ec66c90255b69477281f26ccdf943552114a84aad8f5a11659918d)
+            type_hints = cached_type_hints(_typecheckingstub__b27823da82ec66c90255b69477281f26ccdf943552114a84aad8f5a11659918d)
             check_type(argname="argument identity_name", value=identity_name, expected_type=type_hints["identity_name"])
             check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
             check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
@@ -804,7 +808,7 @@ class WALWorkspaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__017fbf9161ded0e36a82795be0af3523a833328b1deac1d84b1997641128cd10)
+            type_hints = cached_type_hints(_typecheckingstub__017fbf9161ded0e36a82795be0af3523a833328b1deac1d84b1997641128cd10)
             check_type(argname="argument wal_workspace_name", value=wal_workspace_name, expected_type=type_hints["wal_workspace_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "wal_workspace_name": wal_workspace_name,

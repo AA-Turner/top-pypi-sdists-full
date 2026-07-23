@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ExperimentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__273c4bc4d0d70940cbdab6b36e5b93c7f24f9c57e204c269796b7aa7921ede94)
+            type_hints = cached_type_hints(_typecheckingstub__273c4bc4d0d70940cbdab6b36e5b93c7f24f9c57e204c269796b7aa7921ede94)
             check_type(argname="argument experiment_arn", value=experiment_arn, expected_type=type_hints["experiment_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "experiment_arn": experiment_arn,
@@ -107,7 +111,7 @@ class FeatureReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__831b96d67d54f4b1e981cb5f35e608263e20010bc39182b493c862218f099dec)
+            type_hints = cached_type_hints(_typecheckingstub__831b96d67d54f4b1e981cb5f35e608263e20010bc39182b493c862218f099dec)
             check_type(argname="argument feature_arn", value=feature_arn, expected_type=type_hints["feature_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "feature_arn": feature_arn,
@@ -135,7 +139,7 @@ class FeatureReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_evidently.IExperimentRef")
 class IExperimentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Experiment.
@@ -155,7 +159,7 @@ class IExperimentRef(
 
 class _IExperimentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Experiment.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IExperimentRef).__jsii_proxy_class__ = lambda : _IExperi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_evidently.IFeatureRef")
 class IFeatureRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Feature.
@@ -200,7 +204,7 @@ class IFeatureRef(
 
 class _IFeatureRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Feature.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IFeatureRef).__jsii_proxy_class__ = lambda : _IFeatureRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_evidently.ILaunchRef")
 class ILaunchRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Launch.
@@ -245,7 +249,7 @@ class ILaunchRef(
 
 class _ILaunchRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Launch.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, ILaunchRef).__jsii_proxy_class__ = lambda : _ILaunchRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_evidently.IProjectRef")
 class IProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
@@ -290,7 +294,7 @@ class IProjectRef(
 
 class _IProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
 
@@ -315,7 +319,7 @@ typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_evidently.ISegmentRef")
 class ISegmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Segment.
@@ -335,7 +339,7 @@ class ISegmentRef(
 
 class _ISegmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Segment.
 
@@ -381,7 +385,7 @@ class LaunchReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f08fc370928445d3ab5aeef206978f42ea5a361de0c1103dcb07d75fccf1585)
+            type_hints = cached_type_hints(_typecheckingstub__0f08fc370928445d3ab5aeef206978f42ea5a361de0c1103dcb07d75fccf1585)
             check_type(argname="argument launch_arn", value=launch_arn, expected_type=type_hints["launch_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_arn": launch_arn,
@@ -430,7 +434,7 @@ class ProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a70a94b2940f4b0b37bcd06afa645bc43376effd49a6e6ac58020e7e136e5d9)
+            type_hints = cached_type_hints(_typecheckingstub__4a70a94b2940f4b0b37bcd06afa645bc43376effd49a6e6ac58020e7e136e5d9)
             check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "project_arn": project_arn,
@@ -479,7 +483,7 @@ class SegmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d494b13284010e96daa2c9f36f99557c7bd984967c16f4868e5aaafdf3a1e539)
+            type_hints = cached_type_hints(_typecheckingstub__d494b13284010e96daa2c9f36f99557c7bd984967c16f4868e5aaafdf3a1e539)
             check_type(argname="argument segment_arn", value=segment_arn, expected_type=type_hints["segment_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "segment_arn": segment_arn,

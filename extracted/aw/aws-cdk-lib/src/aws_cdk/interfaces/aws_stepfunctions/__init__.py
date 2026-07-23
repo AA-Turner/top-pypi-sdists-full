@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ActivityReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b883848654dc545ce6d6eba57ce8a8774e3bc4971af04c81e4cc73a2f39c176d)
+            type_hints = cached_type_hints(_typecheckingstub__b883848654dc545ce6d6eba57ce8a8774e3bc4971af04c81e4cc73a2f39c176d)
             check_type(argname="argument activity_arn", value=activity_arn, expected_type=type_hints["activity_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "activity_arn": activity_arn,
@@ -86,7 +90,7 @@ class ActivityReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_stepfunctions.IActivityRef")
 class IActivityRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Activity.
@@ -106,7 +110,7 @@ class IActivityRef(
 
 class _IActivityRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Activity.
 
@@ -133,7 +137,7 @@ typing.cast(typing.Any, IActivityRef).__jsii_proxy_class__ = lambda : _IActivity
 )
 class IStateMachineAliasRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachineAlias.
@@ -153,7 +157,7 @@ class IStateMachineAliasRef(
 
 class _IStateMachineAliasRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachineAlias.
 
@@ -178,7 +182,7 @@ typing.cast(typing.Any, IStateMachineAliasRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_stepfunctions.IStateMachineRef")
 class IStateMachineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachine.
@@ -198,7 +202,7 @@ class IStateMachineRef(
 
 class _IStateMachineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachine.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IStateMachineRef).__jsii_proxy_class__ = lambda : _IStat
 )
 class IStateMachineVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachineVersion.
@@ -245,7 +249,7 @@ class IStateMachineVersionRef(
 
 class _IStateMachineVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateMachineVersion.
 
@@ -291,7 +295,7 @@ class StateMachineAliasReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27983f4efaba15cf165f4fe31a4f13b29fea4be7879eab8b6f6c7bb9cfbfb9e8)
+            type_hints = cached_type_hints(_typecheckingstub__27983f4efaba15cf165f4fe31a4f13b29fea4be7879eab8b6f6c7bb9cfbfb9e8)
             check_type(argname="argument state_machine_alias_arn", value=state_machine_alias_arn, expected_type=type_hints["state_machine_alias_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "state_machine_alias_arn": state_machine_alias_arn,
@@ -340,7 +344,7 @@ class StateMachineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2721be2130eb41d822ade793fb6254f7b2fddbe1de8735abc27a9d55856b3d0a)
+            type_hints = cached_type_hints(_typecheckingstub__2721be2130eb41d822ade793fb6254f7b2fddbe1de8735abc27a9d55856b3d0a)
             check_type(argname="argument state_machine_arn", value=state_machine_arn, expected_type=type_hints["state_machine_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "state_machine_arn": state_machine_arn,
@@ -389,7 +393,7 @@ class StateMachineVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dca710712489355ac7f99ff3ffb691ef5446206776073003adf3a1cbdcd8e93)
+            type_hints = cached_type_hints(_typecheckingstub__5dca710712489355ac7f99ff3ffb691ef5446206776073003adf3a1cbdcd8e93)
             check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "state_machine_version_arn": state_machine_version_arn,

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,40 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.alexa_ask import (
-    ISkillRef as _ISkillRef_7086c21a, SkillReference as _SkillReference_eb5d54fa
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.alexa_ask as _alexa_ask_593d1bb4
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _alexa_ask_593d1bb4 = _LazyImport("aws_cdk.interfaces.alexa_ask")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ISkillRef_7086c21a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _alexa_ask_593d1bb4.ISkillRef)
 class CfnSkill(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.alexa_ask.CfnSkill",
 ):
@@ -117,8 +115,8 @@ class CfnSkill(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSkill.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        skill_package: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSkill.SkillPackageProperty", typing.Dict[builtins.str, typing.Any]]],
+        authentication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSkill.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        skill_package: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSkill.SkillPackageProperty", typing.Dict[builtins.str, typing.Any]]],
         vendor_id: builtins.str,
     ) -> None:
         '''Create a new ``Alexa::ASK::Skill``.
@@ -130,7 +128,7 @@ class CfnSkill(
         :param vendor_id: The vendor ID associated with the Amazon developer account that will host the skill. Details for retrieving the vendor ID are in . The provided LWA credentials must be linked to the developer account associated with this vendor ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d78aeecda8ab7b4c5c33f0fcee213f02875f3e3b528db0fdd0278c4f3e29d0c)
+            type_hints = cached_type_hints(_typecheckingstub__0d78aeecda8ab7b4c5c33f0fcee213f02875f3e3b528db0fdd0278c4f3e29d0c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSkillProps(
@@ -149,18 +147,18 @@ class CfnSkill(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dd8f7ac20a52edfb83ede893c043b149d3cc67c216744e403e92e5d5c16e537)
+            type_hints = cached_type_hints(_typecheckingstub__5dd8f7ac20a52edfb83ede893c043b149d3cc67c216744e403e92e5d5c16e537)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSkill", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d237b06ab57352cf7e8d1c4072d35efe097487a04851896ab60f8ca5d016dcf7)
+            type_hints = cached_type_hints(_typecheckingstub__d237b06ab57352cf7e8d1c4072d35efe097487a04851896ab60f8ca5d016dcf7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -173,7 +171,7 @@ class CfnSkill(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e003e0dd9b27e4ebcf016a5753a786b7abc1d6e5c77e28c8c2afd4d9aa0b9e00)
+            type_hints = cached_type_hints(_typecheckingstub__e003e0dd9b27e4ebcf016a5753a786b7abc1d6e5c77e28c8c2afd4d9aa0b9e00)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -203,25 +201,25 @@ class CfnSkill(
 
     @builtins.property
     @jsii.member(jsii_name="skillRef")
-    def skill_ref(self) -> "_SkillReference_eb5d54fa":
+    def skill_ref(self) -> "_alexa_ask_593d1bb4.SkillReference":
         '''A reference to a Skill resource.'''
-        return typing.cast("_SkillReference_eb5d54fa", jsii.get(self, "skillRef"))
+        return typing.cast("_alexa_ask_593d1bb4.SkillReference", jsii.get(self, "skillRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authenticationConfiguration")
     def authentication_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSkill.AuthenticationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.AuthenticationConfigurationProperty"]:
         '''Login with Amazon (LWA) configuration used to authenticate with the Alexa service.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSkill.AuthenticationConfigurationProperty"], jsii.get(self, "authenticationConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.AuthenticationConfigurationProperty"], jsii.get(self, "authenticationConfiguration"))
 
     @authentication_configuration.setter
     def authentication_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSkill.AuthenticationConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.AuthenticationConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f79ad56de5a233709bfa180b3886229464b9d28a88416bdaabab40400468843)
+            type_hints = cached_type_hints(_typecheckingstub__7f79ad56de5a233709bfa180b3886229464b9d28a88416bdaabab40400468843)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -229,17 +227,17 @@ class CfnSkill(
     @jsii.member(jsii_name="skillPackage")
     def skill_package(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSkill.SkillPackageProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.SkillPackageProperty"]:
         '''Configuration for the skill package that contains the components of the Alexa skill.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSkill.SkillPackageProperty"], jsii.get(self, "skillPackage"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.SkillPackageProperty"], jsii.get(self, "skillPackage"))
 
     @skill_package.setter
     def skill_package(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSkill.SkillPackageProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.SkillPackageProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1160f84c06aa4769b57c3cf0e89867f1c310c0c73387afad6e0e174defac367a)
+            type_hints = cached_type_hints(_typecheckingstub__1160f84c06aa4769b57c3cf0e89867f1c310c0c73387afad6e0e174defac367a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "skillPackage", value) # pyright: ignore[reportArgumentType]
 
@@ -252,7 +250,7 @@ class CfnSkill(
     @vendor_id.setter
     def vendor_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e19323a763e3e7ce004953363ef3f20809f72e8931c75312b88fc85064e5d44)
+            type_hints = cached_type_hints(_typecheckingstub__1e19323a763e3e7ce004953363ef3f20809f72e8931c75312b88fc85064e5d44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vendorId", value) # pyright: ignore[reportArgumentType]
 
@@ -299,7 +297,7 @@ class CfnSkill(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__754dd5f6039927c2e90b090339b3fb0321a11d25eeaf62d4c24a24dc6d93e784)
+                type_hints = cached_type_hints(_typecheckingstub__754dd5f6039927c2e90b090339b3fb0321a11d25eeaf62d4c24a24dc6d93e784)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument refresh_token", value=refresh_token, expected_type=type_hints["refresh_token"])
@@ -383,7 +381,7 @@ class CfnSkill(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3fab72aad4fe72a79ab52407ef75f2025944fa0bd45192ece25e9a3bf7f9107f)
+                type_hints = cached_type_hints(_typecheckingstub__3fab72aad4fe72a79ab52407ef75f2025944fa0bd45192ece25e9a3bf7f9107f)
                 check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if manifest is not None:
@@ -428,7 +426,7 @@ class CfnSkill(
             *,
             s3_bucket: builtins.str,
             s3_key: builtins.str,
-            overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSkill.OverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSkill.OverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_bucket_role: typing.Optional[builtins.str] = None,
             s3_object_version: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -468,7 +466,7 @@ class CfnSkill(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bd0d7fb4b090c6708f33e9e5a779b9bd5c8080853d2ec8486346a494e853b60)
+                type_hints = cached_type_hints(_typecheckingstub__9bd0d7fb4b090c6708f33e9e5a779b9bd5c8080853d2ec8486346a494e853b60)
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
                 check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
@@ -508,7 +506,7 @@ class CfnSkill(
         @builtins.property
         def overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSkill.OverridesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.OverridesProperty"]]:
             '''Overrides to the skill package to apply when creating or updating the skill.
 
             Values provided here do not modify the contents of the original skill package. Currently, only overriding values inside of the skill manifest component of the package is supported.
@@ -516,7 +514,7 @@ class CfnSkill(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ask-skill-skillpackage.html#cfn-ask-skill-skillpackage-overrides
             '''
             result = self._values.get("overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSkill.OverridesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.OverridesProperty"]], result)
 
         @builtins.property
         def s3_bucket_role(self) -> typing.Optional[builtins.str]:
@@ -561,8 +559,8 @@ class CfnSkillProps:
     def __init__(
         self,
         *,
-        authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSkill.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        skill_package: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSkill.SkillPackageProperty", typing.Dict[builtins.str, typing.Any]]],
+        authentication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSkill.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        skill_package: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSkill.SkillPackageProperty", typing.Dict[builtins.str, typing.Any]]],
         vendor_id: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnSkill``.
@@ -603,7 +601,7 @@ class CfnSkillProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18a03c0ba6c20d17a037e17f3d48ad3d5175e42d1b4d42294067c2c25cdf6e08)
+            type_hints = cached_type_hints(_typecheckingstub__18a03c0ba6c20d17a037e17f3d48ad3d5175e42d1b4d42294067c2c25cdf6e08)
             check_type(argname="argument authentication_configuration", value=authentication_configuration, expected_type=type_hints["authentication_configuration"])
             check_type(argname="argument skill_package", value=skill_package, expected_type=type_hints["skill_package"])
             check_type(argname="argument vendor_id", value=vendor_id, expected_type=type_hints["vendor_id"])
@@ -616,7 +614,7 @@ class CfnSkillProps:
     @builtins.property
     def authentication_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSkill.AuthenticationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.AuthenticationConfigurationProperty"]:
         '''Login with Amazon (LWA) configuration used to authenticate with the Alexa service.
 
         Only Login with Amazon clients created through the  are supported. The client ID, client secret, and refresh token are required.
@@ -625,12 +623,12 @@ class CfnSkillProps:
         '''
         result = self._values.get("authentication_configuration")
         assert result is not None, "Required property 'authentication_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSkill.AuthenticationConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.AuthenticationConfigurationProperty"], result)
 
     @builtins.property
     def skill_package(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSkill.SkillPackageProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.SkillPackageProperty"]:
         '''Configuration for the skill package that contains the components of the Alexa skill.
 
         Skill packages are retrieved from an Amazon S3 bucket and key and used to create and update the skill. For more information about the skill package format, see the  .
@@ -639,7 +637,7 @@ class CfnSkillProps:
         '''
         result = self._values.get("skill_package")
         assert result is not None, "Required property 'skill_package' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSkill.SkillPackageProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSkill.SkillPackageProperty"], result)
 
     @builtins.property
     def vendor_id(self) -> builtins.str:
@@ -676,8 +674,8 @@ def _typecheckingstub__0d78aeecda8ab7b4c5c33f0fcee213f02875f3e3b528db0fdd0278c4f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSkill.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    skill_package: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSkill.SkillPackageProperty, typing.Dict[builtins.str, typing.Any]]],
+    authentication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSkill.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    skill_package: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSkill.SkillPackageProperty, typing.Dict[builtins.str, typing.Any]]],
     vendor_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -690,7 +688,7 @@ def _typecheckingstub__5dd8f7ac20a52edfb83ede893c043b149d3cc67c216744e403e92e5d5
     pass
 
 def _typecheckingstub__d237b06ab57352cf7e8d1c4072d35efe097487a04851896ab60f8ca5d016dcf7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -702,13 +700,13 @@ def _typecheckingstub__e003e0dd9b27e4ebcf016a5753a786b7abc1d6e5c77e28c8c2afd4d9a
     pass
 
 def _typecheckingstub__7f79ad56de5a233709bfa180b3886229464b9d28a88416bdaabab40400468843(
-    value: typing.Union[_IResolvable_da3f097b, CfnSkill.AuthenticationConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSkill.AuthenticationConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1160f84c06aa4769b57c3cf0e89867f1c310c0c73387afad6e0e174defac367a(
-    value: typing.Union[_IResolvable_da3f097b, CfnSkill.SkillPackageProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSkill.SkillPackageProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -739,7 +737,7 @@ def _typecheckingstub__9bd0d7fb4b090c6708f33e9e5a779b9bd5c8080853d2ec8486346a494
     *,
     s3_bucket: builtins.str,
     s3_key: builtins.str,
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSkill.OverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSkill.OverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_bucket_role: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -748,8 +746,8 @@ def _typecheckingstub__9bd0d7fb4b090c6708f33e9e5a779b9bd5c8080853d2ec8486346a494
 
 def _typecheckingstub__18a03c0ba6c20d17a037e17f3d48ad3d5175e42d1b4d42294067c2c25cdf6e08(
     *,
-    authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSkill.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    skill_package: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSkill.SkillPackageProperty, typing.Dict[builtins.str, typing.Any]]],
+    authentication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSkill.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    skill_package: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSkill.SkillPackageProperty, typing.Dict[builtins.str, typing.Any]]],
     vendor_id: builtins.str,
 ) -> None:
     """Type checking stubs"""

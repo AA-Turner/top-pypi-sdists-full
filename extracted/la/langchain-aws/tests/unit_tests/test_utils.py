@@ -11,8 +11,11 @@ from pydantic import SecretStr
 from langchain_aws.utils import (
     count_tokens_api_supported_for_model,
     create_aws_client,
+    parse_model_provider,
+    thinking_disabled_in_params,
     thinking_forced_tool_use_unsupported,
     thinking_in_params,
+    thinking_on_by_default,
     trim_message_whitespace,
 )
 
@@ -485,6 +488,34 @@ def test_thinking_forced_tool_use_unsupported(
     assert thinking_forced_tool_use_unsupported(model_id) == expected_result
 
 
+@pytest.mark.parametrize(
+    "model_id,expected_result",
+    [
+        ("us.anthropic.claude-sonnet-5", True),
+        ("global.anthropic.claude-fable-5", True),
+        ("global.anthropic.claude-opus-4-8", False),
+        ("anthropic.claude-sonnet-4-6", False),
+        ("us.anthropic.claude-sonnet-4-5-20250929-v1:0", False),
+        ("us.anthropic.claude-haiku-4-5-20251001-v1:0", False),
+    ],
+)
+def test_thinking_on_by_default(model_id: str, expected_result: bool) -> None:
+    assert thinking_on_by_default(model_id) == expected_result
+
+
+@pytest.mark.parametrize(
+    "params,expected_result",
+    [
+        ({"thinking": {"type": "disabled"}}, True),
+        ({"thinking": {"type": "enabled", "budget_tokens": 1024}}, False),
+        ({"thinking": {"type": "adaptive"}}, False),
+        ({}, False),
+    ],
+)
+def test_thinking_disabled_in_params(params: dict, expected_result: bool) -> None:
+    assert thinking_disabled_in_params(params) == expected_result
+
+
 def test_api_key_uses_token_provider(
     mock_boto3: Tuple[mock.MagicMock, mock.MagicMock, mock.MagicMock],
 ) -> None:
@@ -680,6 +711,20 @@ def test_api_key_takes_precedence_over_creds(
 )
 def test_thinking_in_params(params: dict, expected: bool) -> None:
     assert thinking_in_params(params) == expected
+
+
+@pytest.mark.parametrize(
+    "model_id,expected_provider",
+    [
+        ("anthropic.claude-sonnet-5", "anthropic"),
+        ("global.anthropic.claude-fable-5", "anthropic"),
+        ("us-gov.anthropic.claude-haiku-4-5-20251001-v1:0", "anthropic"),
+        ("minimax.minimax-m2.5", "minimax"),
+        ("us.minimax.minimax-m2.5", "minimax"),
+    ],
+)
+def test_parse_model_provider(model_id: str, expected_provider: str) -> None:
+    assert parse_model_provider(model_id) == expected_provider
 
 
 @pytest.mark.parametrize("api_key", [SecretStr(""), None])

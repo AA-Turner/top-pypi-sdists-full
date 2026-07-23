@@ -9,12 +9,15 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{JsonType, JsonTypeSet};
 
+mod bound_cardinality;
+mod bound_integer;
 mod raw;
 
+pub(crate) use bound_cardinality::BoundCardinality;
+pub(crate) use bound_integer::BoundInteger;
 pub(crate) use raw::RawJson;
 
-/// A `Const`/`Enum` member with one spelling per JSON value: numbers are normalized at
-/// construction (`1.0` becomes `1`), so plain `Value` equality is value equality.
+/// A `Const`/`Enum` member normalized at construction (`1.0` becomes `1`) so `Value` equality is value equality.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CanonicalJson(Arc<Value>);
 
@@ -40,7 +43,7 @@ impl CanonicalJson {
             Value::Null => JsonType::Null,
             Value::Bool(_) => JsonType::Boolean,
             Value::Number(number) => {
-                if number.as_i64().is_some() || number.as_u64().is_some() {
+                if jsonschema_value::types::number_is_integer(number) {
                     JsonType::Integer
                 } else {
                     JsonType::Number
@@ -88,33 +91,17 @@ fn normalized(value: &Value) -> Value {
 /// Rewrite an integer-valued float (`1.0`, `-0.0`) to its integer form so `Number` equality is value equality.
 #[cfg(not(feature = "arbitrary-precision"))]
 fn normalized_number(number: &Number) -> Number {
-    use crate::canonical::json::{
-        I64_LOWER_INCLUSIVE_F64, I64_UPPER_EXCLUSIVE_F64, U64_UPPER_EXCLUSIVE_F64,
-    };
+    use crate::canonical::json::{integer_valued_i64, integer_valued_u64};
     let Some(float) = number
         .as_f64()
         .filter(|_| !number.is_i64() && !number.is_u64())
     else {
         return number.clone();
     };
-    if float.fract() == 0.0 {
-        if (0.0..U64_UPPER_EXCLUSIVE_F64).contains(&float) {
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "guarded by the `0.0..U64_UPPER_EXCLUSIVE_F64` range and zero fractional part"
-            )]
-            return Number::from(float as u64);
-        }
-        if (I64_LOWER_INCLUSIVE_F64..I64_UPPER_EXCLUSIVE_F64).contains(&float) {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "guarded by the `I64_LOWER_INCLUSIVE_F64..I64_UPPER_EXCLUSIVE_F64` range and zero fractional part"
-            )]
-            return Number::from(float as i64);
-        }
-    }
-    number.clone()
+    integer_valued_u64(float)
+        .map(Number::from)
+        .or_else(|| integer_valued_i64(float).map(Number::from))
+        .unwrap_or_else(|| number.clone())
 }
 
 /// Rewrite an integer-valued float (`1.0`, `-0.0`) to its integer form so `Number` equality is value equality.
@@ -143,6 +130,15 @@ impl Schema {
     pub(crate) fn kind(&self) -> &SchemaKind {
         &self.0.kind
     }
+
+    /// Take the kind out, cloning only when the node is shared.
+    #[must_use]
+    pub(crate) fn into_kind(self) -> SchemaKind {
+        match Arc::try_unwrap(self.0) {
+            Ok(data) => data.kind,
+            Err(shared) => shared.kind.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumDiscriminants)]
@@ -158,10 +154,16 @@ pub(crate) enum SchemaKind {
     MultiType(JsonTypeSet),
     /// A value matches iff its JSON type is `ty` *and* it satisfies `body` (Draft 4 `integer`, where `1.0` is not an integer).
     TypedGroup { ty: JsonType, body: Schema },
+    /// A string value within a length window; non-string values are matched by a surrounding union.
+    String(StringLeaf),
+    /// An integer value within a range; non-integer values are matched by a surrounding union.
+    Integer(IntegerBounds),
     /// Exactly one admitted value.
     Const(CanonicalJson),
     /// A sorted, deduplicated finite set of admitted values.
     Enum(Vec<CanonicalJson>),
+    /// A value matches iff at least one of the sorted, mutually unmergeable branches matches.
+    AnyOf(Vec<Schema>),
     /// Matches any value.
     True,
     /// Matches no value.
@@ -170,7 +172,67 @@ pub(crate) enum SchemaKind {
     Raw(RawJson),
 }
 
+/// The constraints a [`SchemaKind::String`] places on a string value.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub(crate) struct StringLeaf {
+    pub(crate) lengths: LengthBounds,
+    /// Sorted, deduplicated. A string must match every pattern.
+    pub(crate) patterns: Vec<Arc<str>>,
+}
+
+/// A closed interval; an absent side is unbounded.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub(crate) struct Bounds<T> {
+    pub(crate) minimum: Option<T>,
+    pub(crate) maximum: Option<T>,
+}
+
+impl<T: Ord> Bounds<T> {
+    /// The window both accept: the higher minimum, the lower maximum.
+    pub(crate) fn intersect(self, other: Self) -> Self {
+        Self {
+            minimum: tighter(self.minimum, other.minimum, Ord::max),
+            maximum: tighter(self.maximum, other.maximum, Ord::min),
+        }
+    }
+
+    pub(crate) fn contains(&self, value: &T) -> bool {
+        self.minimum.as_ref().is_none_or(|min| value >= min)
+            && self.maximum.as_ref().is_none_or(|max| value <= max)
+    }
+
+    /// Whether no value fits, i.e. `minimum > maximum`.
+    pub(crate) fn is_empty(&self) -> bool {
+        matches!((&self.minimum, &self.maximum), (Some(min), Some(max)) if min > max)
+    }
+}
+
+/// The bound present on both sides picked by `keep`; otherwise whichever side has one.
+pub(crate) fn tighter<T>(
+    first: Option<T>,
+    second: Option<T>,
+    keep: impl FnOnce(T, T) -> T,
+) -> Option<T> {
+    match (first, second) {
+        (Some(a), Some(b)) => Some(keep(a, b)),
+        (bound, None) | (None, bound) => bound,
+    }
+}
+
+pub(crate) type LengthBounds = Bounds<BoundCardinality>;
+pub(crate) type IntegerBounds = Bounds<BoundInteger>;
+
 impl SchemaKind {
+    /// The admitted values when this node is a finite value set (`Const`/`Enum`), else `None`.
+    #[must_use]
+    pub(crate) fn finite_values(&self) -> Option<&[CanonicalJson]> {
+        match self {
+            SchemaKind::Const(value) => Some(std::slice::from_ref(value)),
+            SchemaKind::Enum(values) => Some(values),
+            _ => None,
+        }
+    }
+
     /// Drop redundant entries from a type set: `Integer` is removed when `Number` is present.
     #[must_use]
     pub(crate) fn canonical_type_set(set: JsonTypeSet) -> JsonTypeSet {

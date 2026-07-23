@@ -1,10 +1,10 @@
 use crate::{
     compiler,
     error::ValidationError,
-    ext::cmp,
     keywords::CompilationResult,
     paths::Location,
     validator::{Validate, ValidationContext},
+    Json, JsonArrayAccess, JsonNode,
 };
 use serde_json::{Map, Number, Value};
 
@@ -16,38 +16,45 @@ struct ConstArrayValidator {
 }
 impl ConstArrayValidator {
     #[inline]
-    pub(crate) fn compile(value: &[Value], location: Location) -> CompilationResult<'_> {
+    pub(crate) fn compile<F: Json>(
+        value: &[Value],
+        location: Location,
+    ) -> CompilationResult<'_, F> {
         Ok(Box::new(ConstArrayValidator {
             value: value.to_vec(),
             location,
         }))
     }
 }
-impl Validate for ConstArrayValidator {
+impl<F: Json> Validate<F> for ConstArrayValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_array(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 &self.value,
             ))
         }
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(instance_value) = instance {
-            cmp::equal_arrays(&self.value, instance_value)
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(items) = instance.as_array() {
+            items.len() == self.value.len()
+                && items
+                    .elements()
+                    .zip(&self.value)
+                    .all(|(item, expected)| item.equals_value(expected))
         } else {
             false
         }
@@ -60,38 +67,37 @@ struct ConstBooleanValidator {
 }
 impl ConstBooleanValidator {
     #[inline]
-    pub(crate) fn compile<'a>(value: bool, location: Location) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        value: bool,
+        location: Location,
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(ConstBooleanValidator { value, location }))
     }
 }
-impl Validate for ConstBooleanValidator {
+impl<F: Json> Validate<F> for ConstBooleanValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_boolean(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 self.value,
             ))
         }
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Bool(instance_value) = instance {
-            &self.value == instance_value
-        } else {
-            false
-        }
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        instance.as_boolean() == Some(self.value)
     }
 }
 
@@ -100,31 +106,31 @@ struct ConstNullValidator {
 }
 impl ConstNullValidator {
     #[inline]
-    pub(crate) fn compile<'a>(location: Location) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(location: Location) -> CompilationResult<'a, F> {
         Ok(Box::new(ConstNullValidator { location }))
     }
 }
-impl Validate for ConstNullValidator {
+impl<F: Json> Validate<F> for ConstNullValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_null(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
             ))
         }
     }
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         instance.is_null()
     }
 }
@@ -137,7 +143,10 @@ struct ConstNumberValidator {
 
 impl ConstNumberValidator {
     #[inline]
-    pub(crate) fn compile(original_value: &Number, location: Location) -> CompilationResult<'_> {
+    pub(crate) fn compile<F: Json>(
+        original_value: &Number,
+        location: Location,
+    ) -> CompilationResult<'_, F> {
         Ok(Box::new(ConstNumberValidator {
             original_value: original_value.clone(),
             location,
@@ -145,31 +154,31 @@ impl ConstNumberValidator {
     }
 }
 
-impl Validate for ConstNumberValidator {
+impl<F: Json> Validate<F> for ConstNumberValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_number(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 &self.original_value,
             ))
         }
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Number(item) = instance {
-            crate::ext::cmp::equal_numbers(item, &self.original_value)
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_number() {
+            crate::ext::cmp::equal_numbers(&item, &self.original_value)
         } else {
             false
         }
@@ -177,48 +186,47 @@ impl Validate for ConstNumberValidator {
 }
 
 pub(crate) struct ConstObjectValidator {
-    value: Map<String, Value>,
+    value: Value,
     location: Location,
 }
 
 impl ConstObjectValidator {
     #[inline]
-    pub(crate) fn compile(value: &Map<String, Value>, location: Location) -> CompilationResult<'_> {
+    pub(crate) fn compile<F: Json>(
+        value: &Map<String, Value>,
+        location: Location,
+    ) -> CompilationResult<'_, F> {
         Ok(Box::new(ConstObjectValidator {
-            value: value.clone(),
+            value: Value::Object(value.clone()),
             location,
         }))
     }
 }
 
-impl Validate for ConstObjectValidator {
+impl<F: Json> Validate<F> for ConstObjectValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_object(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 &self.value,
             ))
         }
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
-            cmp::equal_objects(&self.value, item)
-        } else {
-            false
-        }
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        instance.equals_value(&self.value)
     }
 }
 
@@ -229,7 +237,7 @@ pub(crate) struct ConstStringValidator {
 
 impl ConstStringValidator {
     #[inline]
-    pub(crate) fn compile(value: &str, location: Location) -> CompilationResult<'_> {
+    pub(crate) fn compile<F: Json>(value: &str, location: Location) -> CompilationResult<'_, F> {
         Ok(Box::new(ConstStringValidator {
             value: value.to_string(),
             location,
@@ -237,31 +245,31 @@ impl ConstStringValidator {
     }
 }
 
-impl Validate for ConstStringValidator {
+impl<F: Json> Validate<F> for ConstStringValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::constant_string(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 &self.value,
             ))
         }
     }
 
     #[inline]
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::String(item) = instance {
-            &self.value == item
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_string() {
+            self.value == item.as_ref()
         } else {
             false
         }
@@ -269,11 +277,11 @@ impl Validate for ConstStringValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     let location = ctx.location().join("const");
     match schema {
         Value::Array(items) => Some(ConstArrayValidator::compile(items, location)),

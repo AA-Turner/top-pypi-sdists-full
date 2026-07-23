@@ -5,7 +5,7 @@ Command line tools
 import copy
 import json
 from datetime import datetime
-from typing import Optional, Set, cast
+from typing import Dict, Optional, Set, cast
 
 import click
 from click import Context, Option
@@ -156,6 +156,23 @@ def validate_json_callback(ctx_, param_, value):
         raise click.BadParameter(f"Malformed JSON - {err}")
     except TypeError:
         return value
+
+
+def prompt_for_hidden_values(changes: Optional[Dict]) -> Optional[Dict]:
+    """
+    Prompt (with hidden input) for any change value equal to the show-prompt sentinel.
+
+    Mirrors the per-option masked-secret UX that `add-*` commands provide via
+    `AdvancedOptions(prompt_if_requested=True)`, but applied per key to the `--changes`
+    JSON of `integrations update`. Any value equal to `settings.SHOW_PROMPT_VALUE` ("-1")
+    is replaced by a masked `click.prompt`, keeping the secret out of the visible command.
+    """
+    if not isinstance(changes, dict):
+        return changes
+    return {
+        key: (click.prompt(key, hide_input=True) if value == settings.SHOW_PROMPT_VALUE else value)
+        for key, value in changes.items()
+    }
 
 
 def convert_uuid_callback(ctx_, param_, value):

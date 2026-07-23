@@ -14,18 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import attr
+import attrs
 import pytest
 
 import environ
 
-from environ.exceptions import MissingSecretError
+from environ.exceptions import MissingEnvValueError, MissingSecretError
 from environ.secrets import (
     DirectorySecrets,
     INISecrets,
     VaultEnvSecrets,
-    _SecretStr,
 )
+from environ.secrets._utils import _SecretStr
 
 
 class TestSecretStr:
@@ -43,14 +43,14 @@ class TestSecretStr:
         """
         s = _SecretStr("abc")
 
-        @attr.s
+        @attrs.define
         class Cfg:
-            s = attr.ib()
+            s = attrs.field()
 
         assert "Cfg(s=<SECRET>)" == repr(Cfg(s))
 
 
-@pytest.fixture()
+@pytest.fixture
 def ini_file(tmpdir):
     f = tmpdir.join("foo.ini")
     f.write(
@@ -67,7 +67,7 @@ secret = qux
     return f
 
 
-@pytest.fixture()
+@pytest.fixture
 def ini(ini_file):
     return INISecrets.from_path(str(ini_file))
 
@@ -109,8 +109,8 @@ class TestIniSecret:
 
         @environ.config
         class Cfg:
-            password = ini.secret(default=attr.Factory(getpass))
-            secret = ini.secret(default=attr.Factory(getpass))
+            password = ini.secret(default=attrs.Factory(getpass))
+            secret = ini.secret(default=attrs.Factory(getpass))
 
         cfg = environ.to_config(Cfg, {})
 
@@ -176,8 +176,86 @@ class TestIniSecret:
 
         assert "foobar" == cfg.password
 
+    def test_group_missing_optional_var(self, ini):
+        """
+        If a missing env variable is part of an
+        optional group together with a secret,
+        raise MissingEnvValueError.
+        """
 
-@pytest.fixture()
+        @environ.config
+        class Cfg:
+            @environ.config
+            class OptSub:
+                another_option = environ.var()
+                password = ini.secret()
+
+            db = environ.group(OptSub, optional=True)
+
+        with pytest.raises(MissingEnvValueError) as e:
+            environ.to_config(Cfg, {})
+        assert ("APP_DB_ANOTHER_OPTION",) == e.value.args
+
+    def test_group_missing_optional_secret(self, ini):
+        """
+        If secret is part of a group and is missing,
+        raise MissingSecretError.
+        """
+
+        @environ.config
+        class Cfg:
+            @environ.config
+            class OptSub:
+                another_option = environ.var()
+                secret = ini.secret()
+
+            opt_sub = environ.group(OptSub, optional=True)
+
+        with pytest.raises(MissingSecretError) as e:
+            environ.to_config(Cfg, {"APP_OPT_SUB_ANOTHER_OPTION": "23"})
+        assert ("opt_sub_secret",) == e.value.args
+
+    def test_group_missing_optional_both_env_and_secret(self, ini):
+        """
+        If both a secret and an env var is missing from an optional group
+        raise MissingSecretError.
+        """
+
+        @environ.config
+        class Cfg:
+            @environ.config
+            class OptSub:
+                first_option = environ.var()
+                another_option = environ.var()
+                secret = ini.secret()
+
+            opt_sub = environ.group(OptSub, optional=True)
+
+        with pytest.raises(MissingSecretError) as e:
+            environ.to_config(Cfg, {"APP_OPT_SUB_ANOTHER_OPTION": "23"})
+        assert ("opt_sub_secret",) == e.value.args
+
+    def test_optional_group_missing_all(self, ini):
+        """
+        If secret is part of an optional group and is missing,
+        use implicit default.
+        """
+
+        @environ.config
+        class Cfg:
+            @environ.config
+            class OptSub:
+                another_option = environ.var(default=42)
+                secret = ini.secret()
+
+            opt_sub = environ.group(OptSub, optional=True)
+
+        cfg = environ.to_config(Cfg, {})
+
+        assert None is cfg.opt_sub
+
+
+@pytest.fixture
 def vault():
     return VaultEnvSecrets(vault_prefix="SECRET")
 
@@ -245,7 +323,7 @@ class TestVaultEnvSecrets:
         assert _SecretStr("foo") == cfg.pw
 
 
-@pytest.fixture()
+@pytest.fixture
 def secrets_dir(tmp_path):
     def make_secrets_file(name, content):
         secret_file = tmp_path / name

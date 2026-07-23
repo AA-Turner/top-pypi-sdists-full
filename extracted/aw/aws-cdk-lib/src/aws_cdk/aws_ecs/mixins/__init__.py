@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,32 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import CfnCluster as _CfnCluster_8e709f8b
-from ... import Mixin as _Mixin_d3d231df
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ecs as _aws_ecs_19c7ccd1
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ecs_19c7ccd1 = _LazyImport("aws_cdk.aws_ecs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class ClusterSettings(
-    _Mixin_d3d231df,
+    _aws_cdk_0cae9daa.Mixin,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecs.mixins.ClusterSettings",
 ):
@@ -53,13 +58,13 @@ class ClusterSettings(
 
     def __init__(
         self,
-        settings: typing.Sequence[typing.Union["_CfnCluster_8e709f8b.ClusterSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        settings: typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CfnCluster.ClusterSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''
         :param settings: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__330f6d3486223a52f5a9301c591ff3cfe4883f1d51f8ce905443a08bb36647d5)
+            type_hints = cached_type_hints(_typecheckingstub__330f6d3486223a52f5a9301c591ff3cfe4883f1d51f8ce905443a08bb36647d5)
             check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
         jsii.create(self.__class__, self, [settings])
 
@@ -70,7 +75,7 @@ class ClusterSettings(
         :param cluster: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb87ac656b0fc6c6c1f39c76c38e76a9578388765834a1eb500892a5ea99995d)
+            type_hints = cached_type_hints(_typecheckingstub__eb87ac656b0fc6c6c1f39c76c38e76a9578388765834a1eb500892a5ea99995d)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         return typing.cast(None, jsii.invoke(self, "applyTo", [cluster]))
 
@@ -81,7 +86,7 @@ class ClusterSettings(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__248294cdc37e84b78b4b04f9c8084680fbe83e1bb5e8432efc1cc19b1d8e9d29)
+            type_hints = cached_type_hints(_typecheckingstub__248294cdc37e84b78b4b04f9c8084680fbe83e1bb5e8432efc1cc19b1d8e9d29)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
 
@@ -93,7 +98,7 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__330f6d3486223a52f5a9301c591ff3cfe4883f1d51f8ce905443a08bb36647d5(
-    settings: typing.Sequence[typing.Union[_CfnCluster_8e709f8b.ClusterSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    settings: typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CfnCluster.ClusterSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

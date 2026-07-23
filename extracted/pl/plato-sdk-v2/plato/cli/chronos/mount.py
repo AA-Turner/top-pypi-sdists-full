@@ -37,11 +37,12 @@ from typing import TypeAlias
 
 from rich.console import Console
 
-from plato.chronos.sdk import AsyncChronos
+from plato.chronos.models import WorkspaceRepoCredentialsResponse
+from plato.chronos.sdk import AsyncChronos, workspace_credentials_env
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command_string, wait_for_ssh_reachable
 from plato.cli.chronos.settings import get_settings
 from plato.v2.utils.gateway_tunnel import GatewayTunnel
-from plato.worlds.dvc_models import DVCManifest, LazyDVCMount, S3Config
+from plato.worlds.dvc_models import DVCManifest, LazyDVCMount, S3Config, credential_refresh_config
 from plato.worlds.lazy_dvc import mount_lazy, unmount_lazy
 
 logger = logging.getLogger(__name__)
@@ -422,15 +423,41 @@ def _cleanup_stale_mount(record: MountRecord) -> None:
     _remove_mount_record(alias)
 
 
+def _parse_credentials_expires_at(creds_response: WorkspaceRepoCredentialsResponse) -> int:
+    """Extract the STS expiry from a workspace-credentials response as epoch seconds."""
+    return int(datetime.fromisoformat(creds_response.expires_at.replace("Z", "+00:00")).timestamp())
+
+
+def _fuse_s3_config(
+    repo_info: dict,
+    creds: dict[str, str],
+    credentials_expires_at: int,
+    api_key: str,
+) -> S3Config:
+    """Build the plato-fuse S3 config for a mount leg, with self-refresh wiring.
+
+    Both ``credential_refresh`` and ``credentials_expires_at`` must be set or the fuse
+    worker never refreshes STS credentials (see ``credential_refresh_config``) and lazy
+    reads start failing with EIO once the initial token expires (~1 day in).
+    """
+    return S3Config(
+        bucket=repo_info["s3_bucket"],
+        prefix=repo_info["s3_prefix"],
+        credentials={k: v for k, v in creds.items() if k.startswith("AWS_")},
+        credentials_expires_at=credentials_expires_at,
+        credential_refresh=credential_refresh_config(settings.chronos_url, repo_info["repo_id"], api_key),
+    )
+
+
 async def _resolve_workspace(
     session_id: str,
     repo_name: str | None,
     step_name: str | None,
     api_key: str,
-) -> tuple[str, dict, dict, dict[str, str]]:
+) -> tuple[str, dict, dict, dict[str, str], int]:
     """Resolve workspace ref to repo info, S3 creds, and raw DVC files.
 
-    Returns (repo_name, ref, repo_info, creds).
+    Returns (repo_name, ref, repo_info, creds, credentials_expires_at).
     """
     chronos_url = settings.chronos_url
     async with AsyncChronos(base_url=chronos_url, api_key=api_key) as chronos:
@@ -444,19 +471,20 @@ async def _resolve_workspace(
 
         repo_name_resolved, ref, dvc_files = chronos._resolve_pull_context(refs, repo_name, step_name)
         repo_info = await chronos.resolve_workspace_repo(repo_name_resolved)
-        creds = await chronos.get_workspace_credentials(repo_info["repo_id"])
+        creds_response = await chronos.get_workspace_credentials_response(repo_info["repo_id"])
 
     if not dvc_files:
         raise ValueError(f"Ref '{ref['step_name']}' has no DVC files")
 
-    return repo_name_resolved, ref, repo_info, creds
+    creds = workspace_credentials_env(creds_response)
+    credentials_expires_at = _parse_credentials_expires_at(creds_response)
+    return repo_name_resolved, ref, repo_info, creds, credentials_expires_at
 
 
 async def _setup_fuse_on_vm(
     env,
     ssh_key: SSHKeyPair,
-    repo_info: dict,
-    creds: dict[str, str],
+    s3_config: S3Config,
     dvc_files: dict[str, str],
     workspace_path: str = "/mnt/workspace",
 ) -> int:
@@ -467,13 +495,7 @@ async def _setup_fuse_on_vm(
     cache_dir_quoted = shlex.quote(cache_dir)
     config_path_quoted = shlex.quote(config_path)
 
-    s3_creds = {k: v for k, v in creds.items() if k.startswith("AWS_")}
     dvc_content = next(iter(dvc_files.values()))
-    s3_config = S3Config(
-        bucket=repo_info["s3_bucket"],
-        prefix=repo_info["s3_prefix"],
-        credentials=s3_creds,
-    )
 
     manifest = await DVCManifest.from_dvc_file(
         dvc_content,
@@ -887,18 +909,11 @@ def _wait_for_fuse_worker_exit(mount_dir: Path, fuse_pid: int | None, *, timeout
 async def _mount_workspace_local_fuse(
     mount_dir: Path,
     cache_dir: Path,
-    repo_info: dict,
-    creds: dict[str, str],
+    s3_config: S3Config,
     dvc_files: dict[str, str],
 ) -> tuple[int, LazyDVCMount]:
     """Mount the workspace with plato-fuse directly on the local machine."""
-    s3_creds = {k: v for k, v in creds.items() if k.startswith("AWS_")}
     dvc_content = next(iter(dvc_files.values()))
-    s3_config = S3Config(
-        bucket=repo_info["s3_bucket"],
-        prefix=repo_info["s3_prefix"],
-        credentials=s3_creds,
-    )
     manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
 
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -1027,7 +1042,9 @@ async def _run_local_fuse_daemon(
     try:
         started_at = time.monotonic()
         _append_mount_event(alias, kind="start", message="Resolving workspace")
-        repo_name_resolved, ref, repo_info, creds = await _resolve_workspace(session_id, repo_name, step_name, api_key)
+        repo_name_resolved, ref, repo_info, creds, credentials_expires_at = await _resolve_workspace(
+            session_id, repo_name, step_name, api_key
+        )
         step = ref.get("step_name", "")
         dvc_files = ref.get("dvc_files", {})
         _append_mount_event(
@@ -1056,8 +1073,7 @@ async def _run_local_fuse_daemon(
         file_count, mount = await _mount_workspace_local_fuse(
             mount_dir,
             cache_dir,
-            repo_info,
-            creds,
+            _fuse_s3_config(repo_info, creds, credentials_expires_at, api_key),
             dvc_files,
         )
         _append_mount_event(
@@ -1168,7 +1184,7 @@ async def run_mount_daemon(
     try:
         started_at = time.monotonic()
         _append_mount_event(alias, kind="start", message="Resolving workspace")
-        repo_name_resolved, ref, repo_info, creds = await _resolve_workspace(
+        repo_name_resolved, ref, repo_info, creds, credentials_expires_at = await _resolve_workspace(
             session_id, repo_name, step_name, resolved_api_key
         )
         step = ref.get("step_name", "")
@@ -1230,8 +1246,7 @@ async def run_mount_daemon(
         file_count = await _setup_fuse_on_vm(
             env,
             ssh_key,
-            repo_info,
-            creds,
+            _fuse_s3_config(repo_info, creds, credentials_expires_at, resolved_api_key),
             dvc_files,
             workspace_path,
         )

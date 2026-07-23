@@ -6,6 +6,7 @@ import time
 import unittest
 from concurrent.futures.process import ProcessPoolExecutor
 from contextlib import contextmanager
+from functools import partial
 from glob import glob
 from runpy import run_path
 from tempfile import NamedTemporaryFile, gettempdir
@@ -15,7 +16,7 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-from backtesting import Backtest, Strategy
+from backtesting import Backtest as _Backtest, Strategy
 from backtesting._stats import compute_drawdown_duration_peaks
 from backtesting._util import _Array, _as_str, _Indicator, patch, try_
 from backtesting.lib import (
@@ -34,6 +35,9 @@ from backtesting.lib import (
 from backtesting.test import BTCUSD, EURUSD, GOOG, SMA
 
 SHORT_DATA = GOOG.iloc[:20]  # Short data for fast tests with no indicator lag
+
+# Avoid the 'Some trades remain open' warning in many tests
+Backtest = partial(_Backtest, finalize_trades=True)
 
 
 @contextmanager
@@ -173,7 +177,9 @@ class TestBacktest(TestCase):
                 self.position.is_long
 
                 if crossover(self.sma, self.data.Close):
-                    self.orders.cancel()  # cancels only non-contingent
+                    for order in self.orders:
+                        if not order.is_contingent:
+                            order.cancel()
                     price = self.data.Close[-1]
                     sl, tp = 1.05 * price, .9 * price
 
@@ -222,12 +228,25 @@ class TestBacktest(TestCase):
         bt = Backtest(GOOG, Assertive)
         with self.assertWarns(UserWarning):
             stats = bt.run()
-        self.assertEqual(stats['# Trades'], 131)
+        self.assertEqual(stats['# Trades'], 132)
 
     def test_broker_params(self):
         bt = Backtest(GOOG.iloc[:100], SmaCross,
                       cash=1000, spread=.01, margin=.1, trade_on_close=True)
         bt.run()
+
+    def test_absolute_size_order_warns_on_insufficient_margin(self):
+        class S(Strategy):
+            def init(self):
+                pass
+
+            def next(self):
+                self.buy(size=10_000)
+
+        bt = Backtest(GOOG.iloc[:3], S, cash=1000)
+        with self.assertWarnsRegex(UserWarning, 'insufficient margin'):
+            stats = bt.run()
+        self.assertEqual(stats['# Trades'], 0)
 
     def test_spread_commission(self):
         class S(Strategy):
@@ -317,7 +336,7 @@ class TestBacktest(TestCase):
                 'Avg. Trade [%]': 2.531715975158555,
                 'Best Trade [%]': 53.59595229490424,
                 'Buy & Hold Return [%]': 522.0601851851852,
-                'Calmar Ratio': 0.4414380935608377,
+                'Calmar Ratio': 0.44166409202994605,
                 'Duration': pd.Timedelta('3116 days 00:00:00'),
                 'End': pd.Timestamp('2013-03-01 00:00:00'),
                 'Equity Final [$]': 51422.98999999996,
@@ -328,14 +347,14 @@ class TestBacktest(TestCase):
                 'Max. Drawdown [%]': -47.98012705007589,
                 'Max. Trade Duration': pd.Timedelta('183 days 00:00:00'),
                 'Profit Factor': 2.167945974262033,
-                'Return (Ann.) [%]': 21.180255813792282,
+                'Return (Ann.) [%]': 21.191099249053224,
                 'Return [%]': 414.2298999999996,
-                'Volatility (Ann.) [%]': 36.49390889140787,
-                'CAGR [%]': 14.159843619607383,
+                'Volatility (Ann.) [%]': 36.49716090702389,
+                'CAGR [%]': 21.160245705962623,
                 'SQN': 1.0766187356697705,
                 'Kelly Criterion': 0.1518705127029717,
-                'Sharpe Ratio': 0.5803778344714113,
-                'Sortino Ratio': 1.0847880675854096,
+                'Sharpe Ratio': 0.5806232244485349,
+                'Sortino Ratio': 1.0853434352488662,
                 'Start': pd.Timestamp('2004-08-19 00:00:00'),
                 'Win Rate [%]': 46.96969696969697,
                 'Worst Trade [%]': -18.39887353835481,
@@ -589,7 +608,7 @@ class TestOptimize(TestCase):
         res = bt.optimize(**OPT_PARAMS)
         self.assertIsInstance(res, pd.Series)
 
-        default_maximize = inspect.signature(Backtest.optimize).parameters['maximize'].default
+        default_maximize = inspect.signature(bt.optimize).parameters['maximize'].default
         res2 = bt.optimize(**OPT_PARAMS, maximize=lambda s: s[default_maximize])
         self.assertDictEqual(res.filter(regex='^[^_]').fillna(-1).to_dict(),
                              res2.filter(regex='^[^_]').fillna(-1).to_dict())
@@ -785,6 +804,70 @@ class TestPlot(TestCase):
             # Give browser time to open before tempfile is removed
             time.sleep(1)
 
+    def test_resample_trades_vectorized(self):
+        """Vectorized trade resampling produces correct weighted returns and bar indices."""
+        import backtesting._plotting as _plotting
+        from backtesting.lib import OHLCV_AGG, TRADES_AGG, _EQUITY_AGG
+
+        bt = Backtest(GOOG, SmaCross)
+        results = bt.run()
+        trades = results['_trades']
+        if trades.empty:
+            return
+
+        df_ohlcv = bt._data.copy()
+        equity_data = results['_equity_curve'].copy(deep=False)
+
+        freq = '1ME'
+        df_resampled = df_ohlcv.resample(
+            freq, label='right').agg(OHLCV_AGG).dropna()
+
+        # --- Reference (original callback) implementation ---
+        def _weighted_returns(s, _trades=trades):
+            d = _trades.loc[s.index]
+            return (
+                (d['Size'].abs() * d['ReturnPct'])
+                / d['Size'].abs().sum()
+            ).sum()
+
+        def _group_trades(column):
+            def f(s,
+                  new_index=pd.Index(
+                      df_resampled.index.astype(np.int64)),
+                  bars=trades[column]):
+                if s.size:
+                    mean_time = int(
+                        bars.loc[s.index].astype(np.int64).mean()
+                    )
+                    return new_index.get_indexer(
+                        [mean_time], method='nearest')[0]
+            return f
+
+        ref = trades.assign(count=1).resample(
+            freq, on='ExitTime', label='right',
+        ).agg(dict(
+            TRADES_AGG,
+            ReturnPct=_weighted_returns,
+            count='sum',
+            EntryBar=_group_trades('EntryTime'),
+            ExitBar=_group_trades('ExitTime'),
+        )).dropna()
+
+        # --- Vectorized implementation ---
+        eq = equity_data.resample(
+            freq, label='right').agg(_EQUITY_AGG).dropna(how='all')
+        _, _, _, vec_trades = _plotting._maybe_resample_data(
+            freq, df_ohlcv.copy(), [], eq, trades.copy(),
+        )
+
+        cols = ['Size', 'EntryBar', 'ExitBar', 'EntryPrice',
+                'ExitPrice', 'PnL', 'ReturnPct', 'count']
+        assert_frame_equal(
+            vec_trades[cols].reset_index(drop=True),
+            ref[cols].reset_index(drop=True),
+            check_exact=False, check_dtype=False, atol=1e-10,
+        )
+
     def test_indicator_name(self):
         test_self = self
 
@@ -933,8 +1016,9 @@ class TestLib(TestCase):
                 self.set_signal(self.data.Close > sma,
                                 self.data.Close < sma)
 
-        stats = Backtest(GOOG, S).run()
-        self.assertIn(stats['# Trades'], (1179, 1180))  # varies on different archs?
+        with self.assertWarnsRegex(UserWarning, 'margin'):
+            stats = Backtest(GOOG, S).run()
+        self.assertIn(stats['# Trades'], (1179, 1182))  # varies on different archs?
 
     def test_TrailingStrategy(self):
         class S(TrailingStrategy):
@@ -951,14 +1035,16 @@ class TestLib(TestCase):
                     self.buy()
 
         stats = Backtest(GOOG, S).run()
-        self.assertEqual(stats['# Trades'], 56)
+        self.assertEqual(stats['# Trades'], 57)
 
     def test_FractionalBacktest(self):
-        ubtc_bt = FractionalBacktest(BTCUSD['2015':], SmaCross, fractional_unit=1 / 1e6, cash=100)
+        ubtc_bt = FractionalBacktest(
+            BTCUSD['2015':], SmaCross, fractional_unit=1 / 1e6, cash=100,
+            finalize_trades=True)
         stats = ubtc_bt.run(fast=2, slow=3)
-        self.assertEqual(stats['# Trades'], 41)
+        self.assertEqual(stats['# Trades'], 42)
         trades = stats['_trades']
-        self.assertEqual(len(trades), 41)
+        self.assertEqual(len(trades), 42)
         trade = trades.iloc[0]
         self.assertAlmostEqual(trade['EntryPrice'], 236.69)
         self.assertAlmostEqual(stats['_strategy']._indicators[0][trade['EntryBar']], 234.14)
@@ -970,7 +1056,8 @@ class TestLib(TestCase):
             with self.subTest(start_method=start_method), \
                     patch(backtesting, 'Pool', mp.get_context(start_method).Pool):
                 start_time = time.monotonic()
-                btm = MultiBacktest([GOOG, EURUSD, BTCUSD], SmaCross, cash=100_000)
+                btm = MultiBacktest([GOOG, EURUSD, BTCUSD], SmaCross, cash=100_000,
+                                    finalize_trades=True)
                 res = btm.run(fast=2)
                 self.assertIsInstance(res, pd.DataFrame)
                 self.assertEqual(res.columns.tolist(), [0, 1, 2])
@@ -979,6 +1066,25 @@ class TestLib(TestCase):
                 self.assertEqual(heatmap.columns.tolist(), [0, 1, 2])
                 print(start_method, time.monotonic() - start_time)
         plot_heatmaps(heatmap.mean(axis=1), open_browser=False)
+
+    class SometimesNoTrade(Strategy):
+        def init(self):
+            self._will_trade = len(self.data) == 20
+
+        def next(self):
+            if not self._will_trade:
+                return
+            if self.position:
+                self.position.close()
+            elif not self.closed_trades:
+                self.buy()
+
+    def test_MultiBacktest_handles_mixed_no_trade_results(self):
+        btm = MultiBacktest([GOOG.iloc[:20], GOOG.iloc[:21], GOOG.iloc[:22]],
+                            self.SometimesNoTrade, cash=100_000)
+        res = btm.run()
+        self.assertEqual(res.loc['# Trades'].tolist(), [1, 0, 0])
+        self.assertNotIsInstance(res.iloc[0, 0], pd.Series)
 
 
 class TestUtil(TestCase):
@@ -1030,19 +1136,23 @@ class TestUtil(TestCase):
     def test_indicators_picklable(self):
         bt = Backtest(SHORT_DATA, SmaCross)
         with ProcessPoolExecutor() as executor:
-            stats = executor.submit(Backtest.run, bt).result()
+            stats = executor.submit(_Backtest.run, bt).result()
         assert stats._strategy._indicators[0]._opts, '._opts and .name were not unpickled'
-        bt.plot(results=stats, resample='2d', open_browser=False)
+        bt.plot(results=stats, resample='2D', open_browser=False)
 
 
 class TestDocs(TestCase):
     DOCS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'doc')
 
     @unittest.skipUnless(os.path.isdir(DOCS_DIR), "docs dir doesn't exist")
+    @unittest.skipUnless(sys.platform.startswith('linux'), "test_examples requires mp.start_method=fork")
     def test_examples(self):
+        import backtesting
         examples = glob(os.path.join(self.DOCS_DIR, 'examples', '*.py'))
         self.assertGreaterEqual(len(examples), 4)
-        with chdir(gettempdir()):
+        with chdir(gettempdir()), \
+                patch(backtesting, 'Pool', mp.get_context('fork').Pool), \
+                self.assertWarnsRegex(UserWarning, 'finalize_trades=True'):
             for file in examples:
                 with self.subTest(example=os.path.basename(file)):
                     run_path(file)
@@ -1050,7 +1160,7 @@ class TestDocs(TestCase):
     def test_backtest_run_docstring_contains_stats_keys(self):
         stats = Backtest(SHORT_DATA, SmaCross).run()
         for key in stats.index:
-            self.assertIn(key, Backtest.run.__doc__)
+            self.assertIn(key, _Backtest.run.__doc__)
 
     def test_readme_contains_stats_keys(self):
         with open(os.path.join(os.path.dirname(__file__),
@@ -1072,7 +1182,8 @@ class TestRegressions(TestCase):
         df = pd.DataFrame({'Open': arr, 'High': arr, 'Low': arr, 'Close': arr})
         with self.assertWarnsRegex(UserWarning, 'index is not datetime'):
             bt = Backtest(df, S, cash=100, trade_on_close=True)
-        self.assertEqual(bt.run()._trades['ExitPrice'][0], 50)
+        with self.assertWarnsRegex(UserWarning, 'margin'):
+            self.assertEqual(bt.run()._trades['ExitPrice'][0], 50)
 
     def test_stats_annualized(self):
         stats = Backtest(GOOG.resample('W').agg(OHLCV_AGG), SmaCross).run()
@@ -1172,3 +1283,21 @@ class TestRegressions(TestCase):
         trades = Backtest(SHORT_DATA, S).run()._trades
         self.assertEqual(trades['SL'].fillna(0).tolist(), [0, 99])
         self.assertEqual(trades['TP'].fillna(0).tolist(), [111, 0])
+
+    def test_sl_value_in_trades_df_when_gapped_through(self):
+        # An SL that is gapped through (the bar opens beyond the stop, so the
+        # fill price is worse than the stop price) must still be recorded in
+        # stats._trades["SL"]. See GH issue #1340.
+        class S(_S):
+            def next(self):
+                if len(self.data.index) == 9:
+                    self.buy(size=1, sl=99.5)
+
+        trades = Backtest(SHORT_DATA, S).run()._trades
+        self.assertEqual(len(trades), 1)
+        trade = trades.iloc[0]
+        # The long SL (99.5) is gapped through on the next bar's open, so the
+        # trade exits at that worse market price rather than at the stop price.
+        self.assertEqual(trade['ExitPrice'], 99.19)
+        # ... yet the SL value must be preserved in the trades data frame.
+        self.assertEqual(trade['SL'], 99.5)

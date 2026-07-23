@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mjlab
-Version: 1.5.2
+Version: 1.5.3
 Summary: Isaac Lab API, powered by MuJoCo-Warp, for RL and robotics research.
 Keywords: mujoco,mujoco-warp,simulation,reinforcement-learning,robotics
 Author: The MjLab Developers
@@ -26,7 +26,7 @@ Requires-Dist: tyro>=1.0.1
 Requires-Dist: torch>=2.7.0
 Requires-Dist: torchrunx>=0.3.4
 Requires-Dist: warp-lang>=1.14.0
-Requires-Dist: mujoco-warp~=3.10.0,>=3.10.0.2
+Requires-Dist: mujoco-warp~=3.10.0,>=3.10.0.3
 Requires-Dist: mujoco~=3.10.0
 Requires-Dist: trimesh>=4.8.3
 Requires-Dist: scipy>=1.15

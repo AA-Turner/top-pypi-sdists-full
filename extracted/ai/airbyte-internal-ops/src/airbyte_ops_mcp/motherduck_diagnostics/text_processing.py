@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import uuid
 
 _LEADING_COMMENT_RE = re.compile(r"^\s*/\*(.*?)\*/", re.DOTALL)
 """Match a leading C-style block comment (non-greedy).
@@ -163,3 +164,72 @@ def apply_query_text_treatment(
         else:
             result = result[: char_limit - 3] + "..."
     return result
+
+
+_ICEBERG_DATABASE_RE = re.compile(
+    r"iceberg_scan\(\s*['\"]s3[a-z0-9]*://[^'\"]*?/data/(?P<database>[A-Za-z0-9_]+)\.db/",
+    re.IGNORECASE,
+)
+"""Match the MotherDuck/Sonar database in an `iceberg_scan('s3://...')` path.
+
+Sonar's full-reload DDL reads iceberg data from an S3 namespace shaped like
+`s3://<bucket>/data/<database_name>.db/<table>/...`, so the database name is the
+`data/<database_name>.db/` segment. The S3 path (not the unqualified
+`CREATE ... TABLE "<table>"` target) is the reliable signal for which
+MotherDuck database (Sonar source schema) the query ran against.
+
+Examples:
+- `... FROM iceberg_scan('s3://bkt/data/postgres__<uuid>.db/users/...')`
+  captures `postgres__<uuid>`.
+- `SELECT 1` captures nothing (no match).
+"""
+
+
+def extract_database_name(query_text: str) -> str | None:
+    """Extract the MotherDuck database name from a query's `iceberg_scan` path.
+
+    Returns the `data/<database_name>.db/` segment of the first
+    `iceberg_scan('s3://...')` path in `query_text`, or `None` when no such path
+    is present. In Sonar each MotherDuck database is 1:1 with an Airbyte source,
+    so this is the source's database (schema) name.
+
+    This is derived from the raw query text on purpose: MotherDuck's
+    `QUERY_HISTORY` / `RECENT_QUERIES` views expose no native database/catalog
+    column, so the S3 iceberg path is the only in-band signal.
+    """
+    match = _ICEBERG_DATABASE_RE.search(query_text)
+    if not match:
+        return None
+    return match.group("database")
+
+
+def parse_source_id_from_database_name(database_name: str) -> str | None:
+    """Parse the Airbyte source UUID from a Sonar MotherDuck database name.
+
+    Sonar database names have the format `{env_prefix}{slug}__{source_id}`, where
+    `source_id` is the source UUID with hyphens replaced by underscores (see
+    `airbytehq/sonar` `backend/app/core/search/glue_schema.py`
+    `_build_prefixed_schema_name`). The `slug` may itself contain single
+    underscores, so the source UUID is the trailing component after the final
+    `__` (double-underscore) delimiter; any `env_prefix` stays on the leading
+    side and does not affect it.
+
+    Returns the canonical hyphenated UUID string, or `None` if `database_name`
+    has no `__` delimiter or the trailing segment is not a canonical
+    `uuid.UUID`. Fails closed: a malformed or non-UUID trailing segment yields
+    `None` rather than a guessed id.
+    """
+    if not database_name or "__" not in database_name:
+        return None
+    trailing = database_name.rsplit("__", 1)[-1]
+    candidate = trailing.replace("_", "-")
+    try:
+        parsed = uuid.UUID(candidate)
+    except ValueError:
+        return None
+    # Reject anything that is not already the canonical 8-4-4-4-12 form (e.g. a
+    # 32-char hyphenless hex or brace-wrapped value `uuid.UUID` would accept), so
+    # the result is a deterministic round-trip of a real Sonar database name.
+    if str(parsed) != candidate.lower():
+        return None
+    return str(parsed)

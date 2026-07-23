@@ -100,3 +100,85 @@ def test_query_connector_rollouts_keeps_definition_filter_when_unbounded(
 
     assert "LIMIT :limit" not in str(captured_statements[0].text)
     assert captured_parameters[0] == {"actor_definition_id": "definition-id"}
+
+
+def test_query_connections_by_connector_omits_limit_clause_when_unbounded(
+    monkeypatch,
+) -> None:
+    captured_statements: list[sqlalchemy.sql.elements.TextClause] = []
+    captured_parameters: list[dict[str, object]] = []
+
+    def fake_run_sql_query(
+        statement: sqlalchemy.sql.elements.TextClause,
+        parameters: dict[str, object],
+        **_kwargs: object,
+    ) -> list[dict[str, object]]:
+        captured_statements.append(statement)
+        captured_parameters.append(parameters)
+        return []
+
+    monkeypatch.setattr(queries, "_run_sql_query", fake_run_sql_query)
+
+    queries.query_connections_by_connector(
+        connector_definition_id="definition-id",
+        limit=None,
+        exclude_pinned=True,
+        enabled_schedules_only=True,
+    )
+
+    assert "LIMIT :limit" not in str(captured_statements[0].text)
+    assert captured_parameters[0] == {"connector_definition_id": "definition-id"}
+
+
+def test_query_connections_by_connector_keeps_limit_clause_when_limited(
+    monkeypatch,
+) -> None:
+    captured_statements: list[sqlalchemy.sql.elements.TextClause] = []
+    captured_parameters: list[dict[str, object]] = []
+
+    def fake_run_sql_query(
+        statement: sqlalchemy.sql.elements.TextClause,
+        parameters: dict[str, object],
+        **_kwargs: object,
+    ) -> list[dict[str, object]]:
+        captured_statements.append(statement)
+        captured_parameters.append(parameters)
+        return []
+
+    monkeypatch.setattr(queries, "_run_sql_query", fake_run_sql_query)
+
+    queries.query_connections_by_connector(
+        connector_definition_id="definition-id",
+        limit=500,
+    )
+
+    assert "LIMIT :limit" in str(captured_statements[0].text)
+    assert captured_parameters[0]["limit"] == 500
+
+
+def test_query_connections_by_destination_connector_omits_limit_when_unbounded(
+    monkeypatch,
+) -> None:
+    captured_statements: list[sqlalchemy.sql.elements.TextClause] = []
+    captured_parameters: list[dict[str, object]] = []
+
+    def fake_run_sql_query(
+        statement: sqlalchemy.sql.elements.TextClause,
+        parameters: dict[str, object],
+        **_kwargs: object,
+    ) -> list[dict[str, object]]:
+        captured_statements.append(statement)
+        captured_parameters.append(parameters)
+        return []
+
+    monkeypatch.setattr(queries, "_run_sql_query", fake_run_sql_query)
+
+    queries.query_connections_by_destination_connector(
+        connector_definition_id="definition-id",
+        limit=None,
+        exclude_pinned=True,
+        enabled_schedules_only=True,
+    )
+
+    assert "LIMIT :limit" not in str(captured_statements[0].text)
+    assert captured_parameters[0] == {"connector_definition_id": "definition-id"}

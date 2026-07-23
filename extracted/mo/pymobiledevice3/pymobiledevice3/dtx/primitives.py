@@ -26,14 +26,13 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from construct import (
     Bytes,
     Construct,
     ConstructError,
     Container,
-    ExplicitError,
     Float64l,
     Int32sl,
     Int32ul,
@@ -43,6 +42,9 @@ from construct import (
     stream_seek,
     stream_tell,
 )
+
+if TYPE_CHECKING:
+    from construct.core import Context
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -70,8 +72,13 @@ class _PrimitiveBase:
     _type_code: ClassVar[int]
 
     @classmethod
-    def _read(cls, stream, context, path) -> _PrimitiveBase:
-        """Parse this value's bytes from *stream* and return a new instance."""
+    def _read(cls, stream, context, path) -> Any:
+        """Parse this value's bytes from *stream* and return a new instance.
+
+        Return type is ``Any`` rather than ``_PrimitiveBase`` because
+        :class:`PrimitiveDictionary` decodes to a plain ``dict`` while every
+        other subclass returns a concrete ``_PrimitiveBase`` value.
+        """
         raise NotImplementedError
 
     def _write(self, stream, context, path) -> None:
@@ -83,7 +90,7 @@ class PrimitiveValue(Construct):
     """Construct for a single DTX primitive: u32 type tag followed by value bytes."""
 
     def _parse(self, stream, context, path) -> Any:
-        context = context or {}
+        context = context or cast("Context", Container())
         raw_type_code = Int32ul._parse(stream, context, path)
         context["type_code_and_flags"] = raw_type_code
         type_code = raw_type_code & _PRIMITIVE_TYPE_MASK
@@ -93,7 +100,7 @@ class PrimitiveValue(Construct):
             raise ConstructError(f"unknown primitive type code {raw_type_code:#x}", path)
         return cls._read(stream, context, path)
 
-    def _build(self, obj, stream, context, path):
+    def _build(self, obj, stream, context, path):  # pyright: ignore[reportIncompatibleMethodOverride]  # construct's stub types _build -> int, but our _write returns None; matching int would change behavior
         if not isinstance(obj, _PrimitiveBase):
             raise ConstructError(
                 f"Expected a _PrimitiveBase instance for PrimitiveValue, got {type(obj).__name__}", path
@@ -117,7 +124,7 @@ class PrimitiveNull(_PrimitiveBase):
     _type_code = 10
 
     @classmethod
-    def _read(cls, stream, context, path) -> None:  # type: ignore[override]
+    def _read(cls, stream, context, path) -> PrimitiveNull:
         return PNULL  # return the singleton instance for convenience
 
     def _write(self, stream, context, path) -> None:
@@ -236,7 +243,7 @@ class PrimitiveDictionary(_PrimitiveBase, dict[Any, list[Any]]):
         body_len = Int64ul._parse(stream, context, path)
         begin = stream_tell(stream, path)
         result: dict[Any, list[Any]] = {}
-        subcontext = Container()
+        subcontext = cast("Context", Container())
         subcontext._ = context
         i = 0
         while stream_tell(stream, path) - begin < body_len:
@@ -249,11 +256,6 @@ class PrimitiveDictionary(_PrimitiveBase, dict[Any, list[Any]]):
         return result
 
     def _write(self, stream, context, path):
-        if any(not isinstance(values, list) for values in self.values()):
-            raise ExplicitError(
-                f"Expected a dict[Any, list[Any]] for PrimitiveDictionary, got dict[Any, {type(next(iter(self.values()))).__name__}]: {self!r}",
-                path,
-            )
 
         start = stream_tell(stream, path)
         stream_seek(stream, self._HEADER_SIZE, io.SEEK_CUR, path)  # reserve space for header

@@ -6,19 +6,22 @@ use crate::{
     node::SchemaNode,
     paths::{LazyLocation, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
-    Draft,
+    Draft, Json, JsonArrayAccess, JsonNode, SerdeJson,
 };
 use serde_json::{Map, Value};
 
 use super::helpers::map_get_u64;
 
-pub(crate) struct ContainsValidator {
-    node: SchemaNode,
+pub(crate) struct ContainsValidator<F: Json = SerdeJson> {
+    node: SchemaNode<F>,
 }
 
 impl ContainsValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         let ctx = ctx.new_at_location("contains");
         Ok(Box::new(ContainsValidator {
             node: compiler::compile(&ctx, ctx.as_resource_ref(schema))?,
@@ -26,10 +29,10 @@ impl ContainsValidator {
     }
 }
 
-impl Validate for ContainsValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
-            items.iter().any(|i| self.node.is_valid(i, ctx))
+impl<F: Json> Validate<F> for ContainsValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
+            array.elements().any(|item| self.node.is_valid(&item, ctx))
         } else {
             true
         }
@@ -37,13 +40,13 @@ impl Validate for ContainsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
-            if items.iter().any(|i| self.node.is_valid(i, ctx)) {
+        if let Some(array) = instance.as_array() {
+            if array.elements().any(|item| self.node.is_valid(&item, ctx)) {
                 return Ok(());
             }
             let loc = self.node.location();
@@ -51,7 +54,7 @@ impl Validate for ContainsValidator {
                 loc.clone(),
                 crate::paths::capture_evaluation_path(tracker, loc),
                 location.into(),
-                instance,
+                instance.to_value(),
             ))
         } else {
             Ok(())
@@ -60,17 +63,17 @@ impl Validate for ContainsValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Array(items) = instance {
-            let mut results = Vec::with_capacity(items.len());
-            let mut indices = Vec::with_capacity(items.len());
-            for (idx, item) in items.iter().enumerate() {
+        if let Some(array) = instance.as_array() {
+            let mut results = Vec::with_capacity(array.len());
+            let mut indices = Vec::with_capacity(array.len());
+            for (idx, item) in array.elements().enumerate() {
                 let path = location.push(idx);
-                let result = self.node.evaluate_instance(item, &path, tracker, ctx);
+                let result = self.node.evaluate_instance(&item, &path, tracker, ctx);
                 if result.valid {
                     indices.push(idx);
                     results.push(result);
@@ -85,7 +88,7 @@ impl Validate for ContainsValidator {
                             loc.clone(),
                             eval_path,
                             location.into(),
-                            instance,
+                            instance.to_value(),
                         ),
                     )],
                     children: Vec::new(),
@@ -108,18 +111,18 @@ impl Validate for ContainsValidator {
 /// `minContains` validation. Used only if there is no `maxContains` present.
 ///
 /// Docs: <https://json-schema.org/draft/2019-09/json-schema-validation.html#rfc.section.6.4.5>
-pub(crate) struct MinContainsValidator {
-    node: SchemaNode,
+pub(crate) struct MinContainsValidator<F: Json = SerdeJson> {
+    node: SchemaNode<F>,
     min_contains: u64,
 }
 
 impl MinContainsValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         schema: &'a Value,
         min_contains: u64,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         let ctx = ctx.new_at_location("minContains");
         Ok(Box::new(MinContainsValidator {
             node: compiler::compile(&ctx, ctx.as_resource_ref(schema))?,
@@ -128,15 +131,15 @@ impl MinContainsValidator {
     }
 }
 
-impl Validate for MinContainsValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
+impl<F: Json> Validate<F> for MinContainsValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches >= self.min_contains {
@@ -152,18 +155,18 @@ impl Validate for MinContainsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
+        if let Some(array) = instance.as_array() {
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches >= self.min_contains {
@@ -177,7 +180,7 @@ impl Validate for MinContainsValidator {
                     loc.clone(),
                     crate::paths::capture_evaluation_path(tracker, loc),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                 ))
             } else {
                 Ok(())
@@ -191,18 +194,18 @@ impl Validate for MinContainsValidator {
 /// `maxContains` validation. Used only if there is no `minContains` present.
 ///
 /// Docs: <https://json-schema.org/draft/2019-09/json-schema-validation.html#rfc.section.6.4.4>
-pub(crate) struct MaxContainsValidator {
-    node: SchemaNode,
+pub(crate) struct MaxContainsValidator<F: Json = SerdeJson> {
+    node: SchemaNode<F>,
     max_contains: u64,
 }
 
 impl MaxContainsValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         schema: &'a Value,
         max_contains: u64,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         let ctx = ctx.new_at_location("maxContains");
         Ok(Box::new(MaxContainsValidator {
             node: compiler::compile(&ctx, ctx.as_resource_ref(schema))?,
@@ -211,15 +214,15 @@ impl MaxContainsValidator {
     }
 }
 
-impl Validate for MaxContainsValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
+impl<F: Json> Validate<F> for MaxContainsValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -235,19 +238,19 @@ impl Validate for MaxContainsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
+        if let Some(array) = instance.as_array() {
             let loc = self.node.location();
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -255,7 +258,7 @@ impl Validate for MaxContainsValidator {
                             loc.clone(),
                             crate::paths::capture_evaluation_path(tracker, loc),
                             location.into(),
-                            instance,
+                            instance.to_value(),
                         ));
                     }
                 }
@@ -267,7 +270,7 @@ impl Validate for MaxContainsValidator {
                     loc.clone(),
                     crate::paths::capture_evaluation_path(tracker, loc),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                 ))
             }
         } else {
@@ -281,20 +284,20 @@ impl Validate for MaxContainsValidator {
 /// Docs:
 ///   `maxContains` - <https://json-schema.org/draft/2019-09/json-schema-validation.html#rfc.section.6.4.4>
 ///   `minContains` - <https://json-schema.org/draft/2019-09/json-schema-validation.html#rfc.section.6.4.5>
-pub(crate) struct MinMaxContainsValidator {
-    node: SchemaNode,
+pub(crate) struct MinMaxContainsValidator<F: Json = SerdeJson> {
+    node: SchemaNode<F>,
     min_contains: u64,
     max_contains: u64,
 }
 
 impl MinMaxContainsValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         schema: &'a Value,
         min_contains: u64,
         max_contains: u64,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(MinMaxContainsValidator {
             node: compiler::compile(ctx, ctx.as_resource_ref(schema))?,
             min_contains,
@@ -303,15 +306,15 @@ impl MinMaxContainsValidator {
     }
 }
 
-impl Validate for MinMaxContainsValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
+impl<F: Json> Validate<F> for MinMaxContainsValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -327,18 +330,18 @@ impl Validate for MinMaxContainsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
+        if let Some(array) = instance.as_array() {
             let mut matches = 0;
-            for item in items {
+            for item in array.elements() {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item, ctx))
+                    .all(|validator| validator.is_valid(&item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -349,7 +352,7 @@ impl Validate for MinMaxContainsValidator {
                             max_location,
                             eval_path,
                             location.into(),
-                            instance,
+                            instance.to_value(),
                         ));
                     }
                 }
@@ -361,7 +364,7 @@ impl Validate for MinMaxContainsValidator {
                     min_location,
                     eval_path,
                     location.into(),
-                    instance,
+                    instance.to_value(),
                 ))
             } else {
                 Ok(())
@@ -373,11 +376,11 @@ impl Validate for MinMaxContainsValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     match ctx.draft() {
         Draft::Draft4 | Draft::Draft6 | Draft::Draft7 => {
             Some(ContainsValidator::compile(ctx, schema))
@@ -388,11 +391,11 @@ pub(crate) fn compile<'a>(
 }
 
 #[inline]
-fn compile_contains<'a>(
-    ctx: &compiler::Context,
+fn compile_contains<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     let min_contains = match map_get_u64(parent, ctx, "minContains").transpose() {
         Ok(n) => n,
         Err(err) => return Some(Err(err)),

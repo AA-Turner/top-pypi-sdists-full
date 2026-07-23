@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.170.1
+Version: 1.171.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Author-email: "Semgrep Inc." <support@semgrep.com>
 License-Expression: LGPL-2.1-or-later
@@ -26,7 +26,7 @@ License-File: LICENSE
 Requires-Dist: attrs>=21.3
 Requires-Dist: boltons~=21.0
 Requires-Dist: click-option-group~=0.5
-Requires-Dist: click~=8.1.8
+Requires-Dist: click~=8.4.2
 Requires-Dist: colorama~=0.4.0
 Requires-Dist: exceptiongroup~=1.2.0
 Requires-Dist: glom>=23.3

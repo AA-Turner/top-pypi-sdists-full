@@ -8,11 +8,47 @@ use pyo3::types::PyModule;
 use pyo3::types::PyType;
 use pyo3_stub_gen::derive::*;
 
-use statsig_rust::interned_values::InternedStore;
+use statsig_rust::interned_values::{InternedStore, MmapReaderMemorySnapshot};
 use statsig_rust::log_e;
 use statsig_rust::StatsigRuntime;
 
 const TAG: &str = stringify!(InternStorePy);
+
+#[gen_stub_pyclass]
+#[pyclass(name = "MmapReaderMemorySnapshot", module = "statsig_python_core")]
+pub struct MmapReaderMemorySnapshotPy {
+    #[pyo3(get)]
+    pub format_version: u32,
+    #[pyo3(get)]
+    pub mapped_bytes: u64,
+    #[pyo3(get)]
+    pub resident_bytes: Option<u64>,
+    #[pyo3(get)]
+    pub proportional_set_bytes: Option<u64>,
+    #[pyo3(get)]
+    pub private_dirty_bytes: Option<u64>,
+    #[pyo3(get)]
+    pub deleted_mapped_bytes: Option<u64>,
+    #[pyo3(get)]
+    pub loaded_generation_count: u64,
+    #[pyo3(get)]
+    pub vma_segment_count: Option<u64>,
+}
+
+impl From<MmapReaderMemorySnapshot> for MmapReaderMemorySnapshotPy {
+    fn from(snapshot: MmapReaderMemorySnapshot) -> Self {
+        Self {
+            format_version: snapshot.format_version,
+            mapped_bytes: snapshot.mapped_bytes,
+            resident_bytes: snapshot.resident_bytes,
+            proportional_set_bytes: snapshot.proportional_set_bytes,
+            private_dirty_bytes: snapshot.private_dirty_bytes,
+            deleted_mapped_bytes: snapshot.deleted_mapped_bytes,
+            loaded_generation_count: snapshot.loaded_generation_count,
+            vma_segment_count: snapshot.vma_segment_count,
+        }
+    }
+}
 
 #[gen_stub_pyclass]
 #[pyclass(name = "InternedStore", module = "statsig_python_core")]
@@ -98,6 +134,21 @@ impl InternedStorePy {
         }
 
         Ok(())
+    }
+
+    #[classmethod]
+    pub fn mmap_reader_memory_snapshot(
+        _cls: &Bound<'_, PyType>,
+        py: Python<'_>,
+    ) -> PyResult<Option<MmapReaderMemorySnapshotPy>> {
+        py.detach(|| {
+            InternedStore::mmap_reader_memory_snapshot().map_err(|error| error.to_string())
+        })
+        .map(|snapshot| snapshot.map(Into::into))
+        .map_err(|error| {
+            log_e!(TAG, "Failed to inspect mmap reader memory: {error}");
+            PyRuntimeError::new_err(error)
+        })
     }
 }
 

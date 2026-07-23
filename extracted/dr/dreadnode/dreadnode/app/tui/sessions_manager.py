@@ -86,7 +86,7 @@ from dreadnode.app.tui.widgets import (
     ToolProgress,
 )
 from dreadnode.app.tui.widgets.composer import ComposerInput
-from dreadnode.app.tui.widgets.tool import ToolCall
+from dreadnode.app.tui.widgets.tool import AGENT_OUTPUT_URL_LABEL, ToolCall
 from dreadnode.app.tui.wire_events import parse_wire_event
 from dreadnode.generators.message import Message
 
@@ -168,6 +168,7 @@ def _make_tool_message(
     error: str | None = None,
     error_type: str | None = None,
     report_url: str | None = None,
+    web_url_label: str | None = None,
 ) -> Message:
     """Build a ``role="tool"`` Message for the transcript.
 
@@ -181,7 +182,10 @@ def _make_tool_message(
     uncaught exceptions.
 
     ``report_url`` is UI-only context computed from the active platform
-    session. Report title/body/format stay in ``tool_args``.
+    session — the tool row's clickable web deep-link (the ``report`` tool's
+    session Reports tab, or ``report_item``'s Agent Output page). Report
+    title/body/format stay in ``tool_args``. ``web_url_label`` overrides the
+    link's label so ``report_item`` can name its destination.
     """
     metadata: dict[str, t.Any] = {"tool_name": tool_name, "tool_args": tool_args}
     if summary is not None:
@@ -192,6 +196,8 @@ def _make_tool_message(
         metadata["error_type"] = error_type
     if report_url:
         metadata["report_url"] = report_url
+    if web_url_label:
+        metadata["web_url_label"] = web_url_label
     return Message(
         role="tool",
         content=body,
@@ -215,6 +221,40 @@ def _make_error_message(*, title: str, body: str) -> Message:
     )
 
 
+# The TUI reader is the person who sent the prompt, so these name the next
+# move. The notice renders as ``⚠ model — <body>``, so the body neither repeats
+# "model" nor opens with a second em-dash.
+_GENERATION_STOP_NOTICES = {
+    # Rephrasing alone replays the blocked prompt, so the filter tends to fire
+    # again — /rewind drops the exchange from history first.
+    "content_filter": "response blocked by the content filter, /rewind and rephrase.",
+    "length": "response hit the output limit, ask it to continue.",
+}
+
+
+def _generation_stop_notice(stop_reason: str | None) -> Message | None:
+    """Build a user-facing warning for a provider generation outcome.
+
+    Stop reasons like ``content_filter`` and ``length`` leave empty or
+    truncated content and no tool calls, but the turn still completes cleanly —
+    so these are warnings rather than execution errors (ENG-7585). Every other
+    reason is a normal completion and surfaces nothing.
+    """
+    body = _GENERATION_STOP_NOTICES.get((stop_reason or "").strip().casefold())
+    if body is None:
+        return None
+    return Message(
+        role="system",
+        content=body,
+        metadata={"notice": True, "notice_title": "model"},
+    )
+
+
+def _generation_end_notice(data: we.GenerationEndData) -> Message | None:
+    """Build the live warning associated with a ``GenerationEnd`` event."""
+    return _generation_stop_notice(data.stop_reason)
+
+
 # =============================================================================
 # Transcript materialization from persisted messages
 # =============================================================================
@@ -224,6 +264,7 @@ def _transcript_from_messages(
     messages: list[dict[str, t.Any]],
     *,
     report_url: str | None = None,
+    agent_output_url: str | None = None,
     show_thinking: bool = True,
 ) -> list[Message]:
     """Build :class:`Message` objects from a server ``/messages`` response.
@@ -281,6 +322,9 @@ def _transcript_from_messages(
                 )
             if content.strip():
                 out.append(Message(role="assistant", content=content))
+            notice = _generation_stop_notice(metadata.get("generation_stop_reason"))
+            if notice is not None:
+                out.append(notice)
             continue
         if role == "tool":
             tool_name = msg.get("tool_name") or "tool"
@@ -295,6 +339,12 @@ def _transcript_from_messages(
             if tool_name == "report":
                 if report_url:
                     tool_metadata["report_url"] = report_url
+            elif tool_name == "report_item":
+                # Match the live path: a failed report_item wrote no items, so
+                # it gets no link (the ``error`` metadata is read below).
+                if agent_output_url and not metadata.get("error"):
+                    tool_metadata["report_url"] = agent_output_url
+                    tool_metadata["web_url_label"] = AGENT_OUTPUT_URL_LABEL
             # Surface persisted error metadata (set by Message.from_model
             # when the tool returned an ErrorModel) so transcript replay
             # renders failed calls with the same red treatment as the
@@ -551,6 +601,17 @@ class SessionsContextPort(t.Protocol):
         """
         ...
 
+    def agent_output_url(self, project: str | None) -> str | None:
+        """Build a deep-link URL into the platform's Agent Output page for the
+        given ``project`` (the one the session reported into — pass
+        ``SessionInfo.project``), or None when the platform context isn't
+        available. The manager uses this to render a clickable hyperlink under
+        ``report_item`` tool results. Passing the session's own project keeps a
+        reopened session's links pointing at the right page even after the user
+        switches their active project.
+        """
+        ...
+
 
 class SessionsTransportPort(t.Protocol):
     """Runtime transport access for the session subscription controller.
@@ -695,7 +756,7 @@ class SessionsManager:
         for si in session_infos:
             record = self._sessions.get(si.session_id)
             if record is None:
-                refreshed[si.session_id] = SessionRecord(info=si, model=current_model)
+                refreshed[si.session_id] = SessionRecord(info=si, model=si.model or current_model)
                 continue
             transcript = record.transcript
             if si.message_count != len(transcript):
@@ -747,7 +808,7 @@ class SessionsManager:
         info = await self._transport.get_session(session_id)
         if info is None:
             return None
-        record = SessionRecord(info=info, model=self._context.current_model())
+        record = SessionRecord(info=info, model=info.model or self._context.current_model())
         self._sessions[info.session_id] = record
         return record
 
@@ -1275,6 +1336,7 @@ class SessionsManager:
             session.transcript = _transcript_from_messages(
                 messages,
                 report_url=self._context.report_url(session_id),
+                agent_output_url=self._context.agent_output_url(session.info.project),
                 show_thinking=self._context.show_thinking(),
             )
             self._seed_state_from_session_info(session_id, session.info)
@@ -1492,7 +1554,24 @@ class SessionsManager:
                 self.sync_progress_indicator(next_state)
             return
 
-        if isinstance(wire_event, (we.GenerationEnd, we.GenerationStep, we.GenerationStart)):
+        if isinstance(wire_event, we.GenerationEnd):
+            notice = _generation_end_notice(wire_event.data)
+            if notice is not None:
+                if prev_state.draft_text:
+                    self.commit_session_draft_text(
+                        session_id,
+                        from_widget=is_active_session,
+                    )
+                if not is_active_session:
+                    self.mark_session_unread(session_id)
+                self._ui.append_transcript(notice, session_id)
+                if is_active_session:
+                    # Committing the draft flips the turn GENERATING -> IDLE;
+                    # repaint so the spinner does not keep claiming "streaming".
+                    self.sync_progress_indicator(next_state)
+            return
+
+        if isinstance(wire_event, (we.GenerationStep, we.GenerationStart)):
             return
 
         if isinstance(wire_event, we.ToolStart):
@@ -1566,6 +1645,7 @@ class SessionsManager:
                     self.sync_progress_indicator(next_state)
                 return
             report_url: str | None = None
+            web_url_label: str | None = None
             expanded_body: str | None = None
             expanded_body_format: str | None = None
             if tool_name == "report" and not tool_error:
@@ -1574,6 +1654,16 @@ class SessionsManager:
                 expanded_body = content_arg if isinstance(content_arg, str) else None
                 format_arg = tool_args.get("format")
                 expanded_body_format = format_arg if isinstance(format_arg, str) else "markdown"
+            elif tool_name == "report_item" and not tool_error:
+                # Point users at the web app's Agent Output page, where the
+                # structured items they just emitted land — the TUI renders them
+                # only as a tool row, so this is the discoverability handoff.
+                # The label only rides along when a URL was actually built, so
+                # an unauthenticated/local run leaves no orphan label behind.
+                session_project = session_record.info.project if session_record else None
+                report_url = self._context.agent_output_url(session_project)
+                if report_url:
+                    web_url_label = AGENT_OUTPUT_URL_LABEL
             tool_message = _make_tool_message(
                 tool_name=tool_name,
                 tool_args=tool_args,
@@ -1583,6 +1673,7 @@ class SessionsManager:
                 error=tool_error,
                 error_type=tool_error_type,
                 report_url=report_url,
+                web_url_label=web_url_label,
             )
             # Update the in-progress widget in place, or append a new one. The
             # conversation view is anchored, so it stays pinned to the bottom on
@@ -1597,6 +1688,7 @@ class SessionsManager:
                         details=full_details,
                         error=tool_error,
                         url=report_url,
+                        url_label=web_url_label,
                         expanded_body=expanded_body,
                         expanded_body_format=expanded_body_format,
                     )

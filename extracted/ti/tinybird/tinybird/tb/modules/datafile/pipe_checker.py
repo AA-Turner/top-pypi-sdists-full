@@ -162,12 +162,12 @@ class PipeChecker(unittest.TestCase):
 
         if self.ignore_order:
             current_data = (
-                sorted(normalize_array(current_data), key=itemgetter(*[k for k in current_data[0].keys()]))
+                sorted(normalize_array(current_data), key=itemgetter(*list(current_data[0].keys())))
                 if len(current_data) > 0
                 else current_data
             )
             checker_data = (
-                sorted(normalize_array(checker_data), key=itemgetter(*[k for k in checker_data[0].keys()]))
+                sorted(normalize_array(checker_data), key=itemgetter(*list(checker_data[0].keys())))
                 if len(checker_data) > 0
                 else checker_data
             )
@@ -282,6 +282,8 @@ class PipeCheckerRunner:
                         FROM {pipe_stats_rt}
                         WHERE
                             pipe_name = '{self.pipe_name}'
+                            -- pipe_stats_rt retains 3 months; recent requests are enough for checks
+                            AND start_datetime >= now() - INTERVAL 7 DAY
                             AND url IS NOT NULL
                             AND extractURLParameter(assumeNotNull(url), 'from') <> 'ui'
                             AND extractURLParameter(assumeNotNull(url), 'pipe_checker') <> 'true'
@@ -309,6 +311,8 @@ class PipeCheckerRunner:
                                     FROM {pipe_stats_rt}
                                     WHERE
                                         pipe_name = '{self.pipe_name}'
+                                        -- pipe_stats_rt retains 3 months; recent requests are enough for checks
+                                        AND start_datetime >= now() - INTERVAL 7 DAY
                                         AND url IS NOT NULL
                                         AND extractURLParameter(assumeNotNull(url), 'from') <> 'ui'
                                         AND extractURLParameter(assumeNotNull(url), 'pipe_checker') <> 'true'

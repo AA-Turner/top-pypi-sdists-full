@@ -1750,6 +1750,8 @@ cannot be remedied by CDK at this point. They are reproduced here for completene
   CloudFormation console before starting the pipeline again by clicking
   **Release Change**.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1763,73 +1765,53 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnOutput as _CfnOutput_7273f911,
-    Duration as _Duration_4839e8c3,
-    SecretValue as _SecretValue_3dd0ddae,
-    Stack as _Stack_2866e57f,
-    Stage as _Stage_7df8511b,
-)
-from ..aws_codebuild import (
-    BuildEnvironment as _BuildEnvironment_4ee6fb51,
-    BuildSpec as _BuildSpec_4961ea5b,
-    Cache as _Cache_ed12d453,
-    IFileSystemLocation as _IFileSystemLocation_acb87263,
-    IProject as _IProject_aafae30a,
-    LoggingOptions as _LoggingOptions_31668710,
-)
-from ..aws_codecommit import IRepository as _IRepository_e7c062a1
-from ..aws_codepipeline import (
-    Artifact as _Artifact_0cb05964,
-    IStage as _IStage_415fc571,
-    Pipeline as _Pipeline_ea38de84,
-    PipelineType as _PipelineType_b52f35be,
-)
-from ..aws_codepipeline_actions import (
-    Action as _Action_20e074ce,
-    CodeCommitTrigger as _CodeCommitTrigger_e1096919,
-    GitHubTrigger as _GitHubTrigger_0029a9bb,
-    S3Trigger as _S3Trigger_3ab49ad8,
-)
-from ..aws_ec2 import (
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_ecr import IRepository as _IRepository_e6004aa6
-from ..aws_iam import (
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_secretsmanager import ISecret as _ISecret_6e020e6a
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..cx_api import (
-    CloudFormationStackArtifact as _CloudFormationStackArtifact_97533dc8
-)
-from ..interfaces.aws_ecr import IRepositoryRef as _IRepositoryRef_f3b81117
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_codebuild as _aws_codebuild_492434fc
+    import aws_cdk.aws_codecommit as _aws_codecommit_2f988517
+    import aws_cdk.aws_codepipeline as _aws_codepipeline_decee548
+    import aws_cdk.aws_codepipeline_actions as _aws_codepipeline_actions_eff01f7c
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_ecr as _aws_ecr_7549cade
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_secretsmanager as _aws_secretsmanager_64b8a1c5
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.cx_api as _cx_api_57db5121
+    import aws_cdk.interfaces.aws_ecr as _aws_ecr_984bcfb2
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codebuild_492434fc = _LazyImport("aws_cdk.aws_codebuild")
+    _aws_codecommit_2f988517 = _LazyImport("aws_cdk.aws_codecommit")
+    _aws_codepipeline_actions_eff01f7c = _LazyImport("aws_cdk.aws_codepipeline_actions")
+    _aws_codepipeline_decee548 = _LazyImport("aws_cdk.aws_codepipeline")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ecr_7549cade = _LazyImport("aws_cdk.aws_ecr")
+    _aws_ecr_984bcfb2 = _LazyImport("aws_cdk.interfaces.aws_ecr")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_secretsmanager_64b8a1c5 = _LazyImport("aws_cdk.aws_secretsmanager")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _cx_api_57db5121 = _LazyImport("aws_cdk.cx_api")
 
 
 @jsii.data_type(
@@ -1871,7 +1853,7 @@ class AddStageOpts:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b9c1bc74292ecb27724ef07a41dc8f1b1ee5d9dc268940f2ec578982b596b0a)
+            type_hints = cached_type_hints(_typecheckingstub__1b9c1bc74292ecb27724ef07a41dc8f1b1ee5d9dc268940f2ec578982b596b0a)
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
             check_type(argname="argument pre", value=pre, expected_type=type_hints["pre"])
             check_type(argname="argument stack_steps", value=stack_steps, expected_type=type_hints["stack_steps"])
@@ -1943,15 +1925,15 @@ class ArtifactMap(
         jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="toCodePipeline")
-    def to_code_pipeline(self, x: "FileSet") -> "_Artifact_0cb05964":
+    def to_code_pipeline(self, x: "FileSet") -> "_aws_codepipeline_decee548.Artifact":
         '''Return the matching CodePipeline artifact for a FileSet.
 
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c25e392fc366b5e854a4d6ec5bf897ab0e51d041c4eae3089a12ab36474918e1)
+            type_hints = cached_type_hints(_typecheckingstub__c25e392fc366b5e854a4d6ec5bf897ab0e51d041c4eae3089a12ab36474918e1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast("_Artifact_0cb05964", jsii.invoke(self, "toCodePipeline", [x]))
+        return typing.cast("_aws_codepipeline_decee548.Artifact", jsii.invoke(self, "toCodePipeline", [x]))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.pipelines.AssetType")
@@ -1984,16 +1966,16 @@ class CodeBuildOptions:
     def __init__(
         self,
         *,
-        build_environment: typing.Optional[typing.Union["_BuildEnvironment_4ee6fb51", typing.Dict[builtins.str, typing.Any]]] = None,
-        cache: typing.Optional["_Cache_ed12d453"] = None,
-        file_system_locations: typing.Optional[typing.Sequence["_IFileSystemLocation_acb87263"]] = None,
-        logging: typing.Optional[typing.Union["_LoggingOptions_31668710", typing.Dict[builtins.str, typing.Any]]] = None,
-        partial_build_spec: typing.Optional["_BuildSpec_4961ea5b"] = None,
-        role_policy: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        build_environment: typing.Optional[typing.Union["_aws_codebuild_492434fc.BuildEnvironment", typing.Dict[builtins.str, typing.Any]]] = None,
+        cache: typing.Optional["_aws_codebuild_492434fc.Cache"] = None,
+        file_system_locations: typing.Optional[typing.Sequence["_aws_codebuild_492434fc.IFileSystemLocation"]] = None,
+        logging: typing.Optional[typing.Union["_aws_codebuild_492434fc.LoggingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        partial_build_spec: typing.Optional["_aws_codebuild_492434fc.BuildSpec"] = None,
+        role_policy: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.PolicyStatement"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Options for customizing a single CodeBuild project.
 
@@ -2047,13 +2029,13 @@ class CodeBuildOptions:
             )
         '''
         if isinstance(build_environment, dict):
-            build_environment = _BuildEnvironment_4ee6fb51(**build_environment)
+            build_environment = _aws_codebuild_492434fc.BuildEnvironment(**build_environment)
         if isinstance(logging, dict):
-            logging = _LoggingOptions_31668710(**logging)
+            logging = _aws_codebuild_492434fc.LoggingOptions(**logging)
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb14d0bc2bb7087520a3769dfb10a8c874fa4227208104c933f686486beec01c)
+            type_hints = cached_type_hints(_typecheckingstub__eb14d0bc2bb7087520a3769dfb10a8c874fa4227208104c933f686486beec01c)
             check_type(argname="argument build_environment", value=build_environment, expected_type=type_hints["build_environment"])
             check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
             check_type(argname="argument file_system_locations", value=file_system_locations, expected_type=type_hints["file_system_locations"])
@@ -2087,27 +2069,29 @@ class CodeBuildOptions:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def build_environment(self) -> typing.Optional["_BuildEnvironment_4ee6fb51"]:
+    def build_environment(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"]:
         '''Partial build environment, will be combined with other build environments that apply.
 
         :default: - Non-privileged build, SMALL instance, LinuxBuildImage.STANDARD_7_0
         '''
         result = self._values.get("build_environment")
-        return typing.cast(typing.Optional["_BuildEnvironment_4ee6fb51"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"], result)
 
     @builtins.property
-    def cache(self) -> typing.Optional["_Cache_ed12d453"]:
+    def cache(self) -> typing.Optional["_aws_codebuild_492434fc.Cache"]:
         '''Caching strategy to use.
 
         :default: - No cache
         '''
         result = self._values.get("cache")
-        return typing.cast(typing.Optional["_Cache_ed12d453"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.Cache"], result)
 
     @builtins.property
     def file_system_locations(
         self,
-    ) -> typing.Optional[typing.List["_IFileSystemLocation_acb87263"]]:
+    ) -> typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]]:
         '''ProjectFileSystemLocation objects for CodeBuild build projects.
 
         A ProjectFileSystemLocation object specifies the identifier, location, mountOptions, mountPoint,
@@ -2117,10 +2101,10 @@ class CodeBuildOptions:
         :default: - no file system locations
         '''
         result = self._values.get("file_system_locations")
-        return typing.cast(typing.Optional[typing.List["_IFileSystemLocation_acb87263"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggingOptions_31668710"]:
+    def logging(self) -> typing.Optional["_aws_codebuild_492434fc.LoggingOptions"]:
         '''Information about logs for CodeBuild projects.
 
         A CodeBuild project can create logs in Amazon CloudWatch Logs, an S3 bucket, or both.
@@ -2128,10 +2112,12 @@ class CodeBuildOptions:
         :default: - no log configuration is set
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggingOptions_31668710"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.LoggingOptions"], result)
 
     @builtins.property
-    def partial_build_spec(self) -> typing.Optional["_BuildSpec_4961ea5b"]:
+    def partial_build_spec(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildSpec"]:
         '''Partial buildspec, will be combined with other buildspecs that apply.
 
         The BuildSpec must be available inline--it cannot reference a file
@@ -2140,21 +2126,23 @@ class CodeBuildOptions:
         :default: - No initial BuildSpec
         '''
         result = self._values.get("partial_build_spec")
-        return typing.cast(typing.Optional["_BuildSpec_4961ea5b"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildSpec"], result)
 
     @builtins.property
-    def role_policy(self) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
+    def role_policy(
+        self,
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
         '''Policy statements to add to role.
 
         :default: - No policy statements added to CodeBuild Project Role
         '''
         result = self._values.get("role_policy")
-        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Which security group(s) to associate with the project network interfaces.
 
         Only used if 'vpc' is supplied.
@@ -2162,10 +2150,10 @@ class CodeBuildOptions:
         :default: - Security group will be automatically created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets to use.
 
         Only used if 'vpc' is supplied.
@@ -2173,10 +2161,10 @@ class CodeBuildOptions:
         :default: - All private subnets.
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of minutes after which AWS CodeBuild stops the build if it's not complete.
 
         For valid values, see the timeoutInMinutes field in the AWS
@@ -2185,16 +2173,16 @@ class CodeBuildOptions:
         :default: Duration.hours(1)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where to create the CodeBuild network interfaces in.
 
         :default: - No VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2224,8 +2212,8 @@ class CodeCommitSourceOptions:
         *,
         action_name: typing.Optional[builtins.str] = None,
         code_build_clone_output: typing.Optional[builtins.bool] = None,
-        event_role: typing.Optional["_IRole_235f5d8e"] = None,
-        trigger: typing.Optional["_CodeCommitTrigger_e1096919"] = None,
+        event_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger"] = None,
     ) -> None:
         '''Configuration options for a CodeCommit source.
 
@@ -2254,7 +2242,7 @@ class CodeCommitSourceOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e17ff0fc6dc5e2614664c26c6bd947f6c7d12e7871a3cb4f169cdb8abc431ab0)
+            type_hints = cached_type_hints(_typecheckingstub__e17ff0fc6dc5e2614664c26c6bd947f6c7d12e7871a3cb4f169cdb8abc431ab0)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument code_build_clone_output", value=code_build_clone_output, expected_type=type_hints["code_build_clone_output"])
             check_type(argname="argument event_role", value=event_role, expected_type=type_hints["event_role"])
@@ -2295,7 +2283,7 @@ class CodeCommitSourceOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def event_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role to be used by on commit event rule.
 
         Used only when trigger value is CodeCommitTrigger.EVENTS.
@@ -2303,16 +2291,18 @@ class CodeCommitSourceOptions:
         :default: a new role will be created.
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def trigger(self) -> typing.Optional["_CodeCommitTrigger_e1096919"]:
+    def trigger(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger"]:
         '''How should CodePipeline detect source changes for this Action.
 
         :default: CodeCommitTrigger.EVENTS
         '''
         result = self._values.get("trigger")
-        return typing.cast(typing.Optional["_CodeCommitTrigger_e1096919"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2336,7 +2326,7 @@ class CodePipelineActionFactoryResult:
         self,
         *,
         run_orders_consumed: jsii.Number,
-        project: typing.Optional["_IProject_aafae30a"] = None,
+        project: typing.Optional["_aws_codebuild_492434fc.IProject"] = None,
     ) -> None:
         '''The result of adding actions to the pipeline.
 
@@ -2362,7 +2352,7 @@ class CodePipelineActionFactoryResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9624d5022538eedc98a469f78de5916fac4ee13ff0d2f5f9a5e9d447ce9f909f)
+            type_hints = cached_type_hints(_typecheckingstub__9624d5022538eedc98a469f78de5916fac4ee13ff0d2f5f9a5e9d447ce9f909f)
             check_type(argname="argument run_orders_consumed", value=run_orders_consumed, expected_type=type_hints["run_orders_consumed"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2382,13 +2372,13 @@ class CodePipelineActionFactoryResult:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def project(self) -> typing.Optional["_IProject_aafae30a"]:
+    def project(self) -> typing.Optional["_aws_codebuild_492434fc.IProject"]:
         '''If a CodeBuild project got created, the project.
 
         :default: - This factory did not create a CodeBuild project
         '''
         result = self._values.get("project")
-        return typing.cast(typing.Optional["_IProject_aafae30a"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.IProject"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2436,23 +2426,23 @@ class CodePipelineProps:
         self,
         *,
         synth: "IFileSetProducer",
-        artifact_bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        artifact_bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         asset_publishing_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_assets_cli_version: typing.Optional[builtins.str] = None,
         cli_version: typing.Optional[builtins.str] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        code_pipeline: typing.Optional["_Pipeline_ea38de84"] = None,
+        code_pipeline: typing.Optional["_aws_codepipeline_decee548.Pipeline"] = None,
         cross_account_keys: typing.Optional[builtins.bool] = None,
-        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]] = None,
+        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_aws_s3_01158f40.IBucket"]] = None,
         docker_credentials: typing.Optional[typing.Sequence["DockerCredential"]] = None,
         docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
         docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
-        pipeline_type: typing.Optional["_PipelineType_b52f35be"] = None,
+        pipeline_type: typing.Optional["_aws_codepipeline_decee548.PipelineType"] = None,
         publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
         reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         self_mutation: typing.Optional[builtins.bool] = None,
         self_mutation_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         synth_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2511,7 +2501,7 @@ class CodePipelineProps:
         if isinstance(synth_code_build_defaults, dict):
             synth_code_build_defaults = CodeBuildOptions(**synth_code_build_defaults)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c46bc21ca63efb27c935c31017ebbc8c85b3b93ae1798e54892dd3eae41d99aa)
+            type_hints = cached_type_hints(_typecheckingstub__c46bc21ca63efb27c935c31017ebbc8c85b3b93ae1798e54892dd3eae41d99aa)
             check_type(argname="argument synth", value=synth, expected_type=type_hints["synth"])
             check_type(argname="argument artifact_bucket", value=artifact_bucket, expected_type=type_hints["artifact_bucket"])
             check_type(argname="argument asset_publishing_code_build_defaults", value=asset_publishing_code_build_defaults, expected_type=type_hints["asset_publishing_code_build_defaults"])
@@ -2598,13 +2588,13 @@ class CodePipelineProps:
         return typing.cast("IFileSetProducer", result)
 
     @builtins.property
-    def artifact_bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def artifact_bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''An existing S3 Bucket to use for storing the pipeline's artifact.
 
         :default: - A new S3 bucket will be created.
         '''
         result = self._values.get("artifact_bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def asset_publishing_code_build_defaults(
@@ -2669,7 +2659,7 @@ class CodePipelineProps:
         return typing.cast(typing.Optional["CodeBuildOptions"], result)
 
     @builtins.property
-    def code_pipeline(self) -> typing.Optional["_Pipeline_ea38de84"]:
+    def code_pipeline(self) -> typing.Optional["_aws_codepipeline_decee548.Pipeline"]:
         '''An existing Pipeline to be reused and built upon.
 
         [disable-awslint:ref-via-interface]
@@ -2677,7 +2667,7 @@ class CodePipelineProps:
         :default: - a new underlying pipeline is created.
         '''
         result = self._values.get("code_pipeline")
-        return typing.cast(typing.Optional["_Pipeline_ea38de84"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_decee548.Pipeline"], result)
 
     @builtins.property
     def cross_account_keys(self) -> typing.Optional[builtins.bool]:
@@ -2697,7 +2687,7 @@ class CodePipelineProps:
     @builtins.property
     def cross_region_replication_buckets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_s3_01158f40.IBucket"]]:
         '''A map of region to S3 bucket name used for cross-region CodePipeline.
 
         For every Action that you specify targeting a different region than the Pipeline itself,
@@ -2708,7 +2698,7 @@ class CodePipelineProps:
         :default: - no cross region replication buckets.
         '''
         result = self._values.get("cross_region_replication_buckets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_s3_01158f40.IBucket"]], result)
 
     @builtins.property
     def docker_credentials(self) -> typing.Optional[typing.List["DockerCredential"]]:
@@ -2789,7 +2779,9 @@ class CodePipelineProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def pipeline_type(self) -> typing.Optional["_PipelineType_b52f35be"]:
+    def pipeline_type(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_decee548.PipelineType"]:
         '''Type of the pipeline.
 
         :default:
@@ -2800,7 +2792,7 @@ class CodePipelineProps:
         :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/pipeline-types-planning.html
         '''
         result = self._values.get("pipeline_type")
-        return typing.cast(typing.Optional["_PipelineType_b52f35be"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_decee548.PipelineType"], result)
 
     @builtins.property
     def publish_assets_in_parallel(self) -> typing.Optional[builtins.bool]:
@@ -2829,13 +2821,13 @@ class CodePipelineProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role to be assumed by this Pipeline.
 
         :default: - A new role is created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def self_mutation(self) -> typing.Optional[builtins.bool]:
@@ -2962,7 +2954,7 @@ class ConnectionSourceOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f14ea58b20f21cf64b1c4567507d80ce40ed1cdc8e5831d98bd00ec1322a9ab5)
+            type_hints = cached_type_hints(_typecheckingstub__f14ea58b20f21cf64b1c4567507d80ce40ed1cdc8e5831d98bd00ec1322a9ab5)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument code_build_clone_output", value=code_build_clone_output, expected_type=type_hints["code_build_clone_output"])
@@ -3080,7 +3072,7 @@ class DockerCredential(
         :param usages: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4796d36763a8311889ba388377df25c49f4d460f74af5013bbfd7374dadc940)
+            type_hints = cached_type_hints(_typecheckingstub__b4796d36763a8311889ba388377df25c49f4d460f74af5013bbfd7374dadc940)
             check_type(argname="argument usages", value=usages, expected_type=type_hints["usages"])
         jsii.create(self.__class__, self, [usages])
 
@@ -3089,9 +3081,9 @@ class DockerCredential(
     def custom_registry(
         cls,
         registry_domain: builtins.str,
-        secret: "_ISecret_6e020e6a",
+        secret: "_aws_secretsmanager_64b8a1c5.ISecret",
         *,
-        assume_role: typing.Optional["_IRole_235f5d8e"] = None,
+        assume_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         secret_password_field: typing.Optional[builtins.str] = None,
         secret_username_field: typing.Optional[builtins.str] = None,
         usages: typing.Optional[typing.Sequence["DockerCredentialUsage"]] = None,
@@ -3106,7 +3098,7 @@ class DockerCredential(
         :param usages: Defines which stages of the pipeline should be granted access to these credentials. Default: - all relevant stages (synth, self-update, asset publishing) are granted access.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7c646af2493265594a1cf787d9e1152d57f57cc81c6c36614a8c7b6cd36d441)
+            type_hints = cached_type_hints(_typecheckingstub__f7c646af2493265594a1cf787d9e1152d57f57cc81c6c36614a8c7b6cd36d441)
             check_type(argname="argument registry_domain", value=registry_domain, expected_type=type_hints["registry_domain"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
         opts = ExternalDockerCredentialOptions(
@@ -3122,9 +3114,9 @@ class DockerCredential(
     @builtins.classmethod
     def docker_hub(
         cls,
-        secret: "_ISecret_6e020e6a",
+        secret: "_aws_secretsmanager_64b8a1c5.ISecret",
         *,
-        assume_role: typing.Optional["_IRole_235f5d8e"] = None,
+        assume_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         secret_password_field: typing.Optional[builtins.str] = None,
         secret_username_field: typing.Optional[builtins.str] = None,
         usages: typing.Optional[typing.Sequence["DockerCredentialUsage"]] = None,
@@ -3140,7 +3132,7 @@ class DockerCredential(
         :param usages: Defines which stages of the pipeline should be granted access to these credentials. Default: - all relevant stages (synth, self-update, asset publishing) are granted access.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e01732750f5b98b4a7cb4b141a1ef2d0c5e2042c8754d0cb0f829f0a2219577)
+            type_hints = cached_type_hints(_typecheckingstub__9e01732750f5b98b4a7cb4b141a1ef2d0c5e2042c8754d0cb0f829f0a2219577)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
         opts = ExternalDockerCredentialOptions(
             assume_role=assume_role,
@@ -3155,9 +3147,9 @@ class DockerCredential(
     @builtins.classmethod
     def ecr(
         cls,
-        repositories: typing.Sequence["_IRepository_e6004aa6"],
+        repositories: typing.Sequence["_aws_ecr_7549cade.IRepository"],
         *,
-        assume_role: typing.Optional["_IRole_235f5d8e"] = None,
+        assume_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         usages: typing.Optional[typing.Sequence["DockerCredentialUsage"]] = None,
     ) -> "DockerCredential":
         '''Creates a DockerCredential for one or more ECR repositories.
@@ -3173,7 +3165,7 @@ class DockerCredential(
         :param usages: Defines which stages of the pipeline should be granted access to these credentials. Default: - all relevant stages (synth, self-update, asset publishing) are granted access.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44075e2f8f9f423076a4b55e04677bdcd7ac2a9a1018ab4dc8116173bd7e1cf5)
+            type_hints = cached_type_hints(_typecheckingstub__44075e2f8f9f423076a4b55e04677bdcd7ac2a9a1018ab4dc8116173bd7e1cf5)
             check_type(argname="argument repositories", value=repositories, expected_type=type_hints["repositories"])
         opts = EcrDockerCredentialOptions(assume_role=assume_role, usages=usages)
 
@@ -3183,7 +3175,7 @@ class DockerCredential(
     @abc.abstractmethod
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         usage: "DockerCredentialUsage",
     ) -> None:
         '''Grant read-only access to the registry credentials.
@@ -3205,7 +3197,7 @@ class _DockerCredentialProxy(DockerCredential):
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         usage: "DockerCredentialUsage",
     ) -> None:
         '''Grant read-only access to the registry credentials.
@@ -3216,7 +3208,7 @@ class _DockerCredentialProxy(DockerCredential):
         :param usage: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__554247a15294fead54d7e6a1adaddf130cd8f655b45d31098bee6ef197e7f6b6)
+            type_hints = cached_type_hints(_typecheckingstub__554247a15294fead54d7e6a1adaddf130cd8f655b45d31098bee6ef197e7f6b6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument usage", value=usage, expected_type=type_hints["usage"])
         return typing.cast(None, jsii.invoke(self, "grantRead", [grantee, usage]))
@@ -3276,7 +3268,7 @@ class ECRSourceOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__833a04c7f2e7f664e66a7534f73736d4c5911188c503aaf662baf8c6f39cf208)
+            type_hints = cached_type_hints(_typecheckingstub__833a04c7f2e7f664e66a7534f73736d4c5911188c503aaf662baf8c6f39cf208)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument image_tag", value=image_tag, expected_type=type_hints["image_tag"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3324,7 +3316,7 @@ class EcrDockerCredentialOptions:
     def __init__(
         self,
         *,
-        assume_role: typing.Optional["_IRole_235f5d8e"] = None,
+        assume_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         usages: typing.Optional[typing.Sequence["DockerCredentialUsage"]] = None,
     ) -> None:
         '''Options for defining access for a Docker Credential composed of ECR repos.
@@ -3349,7 +3341,7 @@ class EcrDockerCredentialOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0b8aaeef2e17487ef54d1992c6a3a7e2349b4c4a5d93c775a043f2db02c5287)
+            type_hints = cached_type_hints(_typecheckingstub__b0b8aaeef2e17487ef54d1992c6a3a7e2349b4c4a5d93c775a043f2db02c5287)
             check_type(argname="argument assume_role", value=assume_role, expected_type=type_hints["assume_role"])
             check_type(argname="argument usages", value=usages, expected_type=type_hints["usages"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3359,13 +3351,13 @@ class EcrDockerCredentialOptions:
             self._values["usages"] = usages
 
     @builtins.property
-    def assume_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def assume_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role to assume prior to accessing the secret.
 
         :default: - none. The current execution role will be used.
         '''
         result = self._values.get("assume_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def usages(self) -> typing.Optional[typing.List["DockerCredentialUsage"]]:
@@ -3402,7 +3394,7 @@ class ExternalDockerCredentialOptions:
     def __init__(
         self,
         *,
-        assume_role: typing.Optional["_IRole_235f5d8e"] = None,
+        assume_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         secret_password_field: typing.Optional[builtins.str] = None,
         secret_username_field: typing.Optional[builtins.str] = None,
         usages: typing.Optional[typing.Sequence["DockerCredentialUsage"]] = None,
@@ -3425,7 +3417,7 @@ class ExternalDockerCredentialOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c359b9b78870cd0768aec95eba517b31efce3c0139487e9574671e537d4d9c8a)
+            type_hints = cached_type_hints(_typecheckingstub__c359b9b78870cd0768aec95eba517b31efce3c0139487e9574671e537d4d9c8a)
             check_type(argname="argument assume_role", value=assume_role, expected_type=type_hints["assume_role"])
             check_type(argname="argument secret_password_field", value=secret_password_field, expected_type=type_hints["secret_password_field"])
             check_type(argname="argument secret_username_field", value=secret_username_field, expected_type=type_hints["secret_username_field"])
@@ -3441,13 +3433,13 @@ class ExternalDockerCredentialOptions:
             self._values["usages"] = usages
 
     @builtins.property
-    def assume_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def assume_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role to assume prior to accessing the secret.
 
         :default: - none. The current execution role will be used.
         '''
         result = self._values.get("assume_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def secret_password_field(self) -> typing.Optional[builtins.str]:
@@ -3516,7 +3508,7 @@ class FileSetLocation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cf7e83b5d5ed6c40f4a63f11e08a6255275802428d4153f786e83b3477442f2)
+            type_hints = cached_type_hints(_typecheckingstub__4cf7e83b5d5ed6c40f4a63f11e08a6255275802428d4153f786e83b3477442f2)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
             check_type(argname="argument file_set", value=file_set, expected_type=type_hints["file_set"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3564,8 +3556,8 @@ class GitHubSourceOptions:
         self,
         *,
         action_name: typing.Optional[builtins.str] = None,
-        authentication: typing.Optional["_SecretValue_3dd0ddae"] = None,
-        trigger: typing.Optional["_GitHubTrigger_0029a9bb"] = None,
+        authentication: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.GitHubTrigger"] = None,
     ) -> None:
         '''Options for GitHub sources.
 
@@ -3583,7 +3575,7 @@ class GitHubSourceOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92035a41f512b5c8f05e89aaf8eff67c15b38e88a96495de7594813674d59c85)
+            type_hints = cached_type_hints(_typecheckingstub__92035a41f512b5c8f05e89aaf8eff67c15b38e88a96495de7594813674d59c85)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
             check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
@@ -3605,7 +3597,7 @@ class GitHubSourceOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def authentication(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def authentication(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''A GitHub OAuth token to use for authentication.
 
         It is recommended to use a Secrets Manager ``Secret`` to obtain the token::
@@ -3622,10 +3614,12 @@ class GitHubSourceOptions:
         :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/GitHub-create-personal-token-CLI.html
         '''
         result = self._values.get("authentication")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     @builtins.property
-    def trigger(self) -> typing.Optional["_GitHubTrigger_0029a9bb"]:
+    def trigger(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_actions_eff01f7c.GitHubTrigger"]:
         '''How AWS CodePipeline should be triggered.
 
         With the default value "WEBHOOK", a webhook is created in GitHub that triggers the action.
@@ -3638,7 +3632,7 @@ class GitHubSourceOptions:
         :default: GitHubTrigger.WEBHOOK
         '''
         result = self._values.get("trigger")
-        return typing.cast(typing.Optional["_GitHubTrigger_0029a9bb"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_actions_eff01f7c.GitHubTrigger"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3668,7 +3662,7 @@ class ICodePipelineActionFactory(typing_extensions.Protocol):
     @jsii.member(jsii_name="produceAction")
     def produce_action(
         self,
-        stage: "_IStage_415fc571",
+        stage: "_aws_codepipeline_decee548.IStage",
         *,
         action_name: builtins.str,
         artifacts: "ArtifactMap",
@@ -3678,7 +3672,7 @@ class ICodePipelineActionFactory(typing_extensions.Protocol):
         stack_outputs_map: "StackOutputsMap",
         before_self_mutation: typing.Optional[builtins.bool] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        fallback_artifact: typing.Optional["_Artifact_0cb05964"] = None,
+        fallback_artifact: typing.Optional["_aws_codepipeline_decee548.Artifact"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
     ) -> "CodePipelineActionFactoryResult":
         '''Create the desired Action and add it to the pipeline.
@@ -3715,7 +3709,7 @@ class _ICodePipelineActionFactoryProxy:
     @jsii.member(jsii_name="produceAction")
     def produce_action(
         self,
-        stage: "_IStage_415fc571",
+        stage: "_aws_codepipeline_decee548.IStage",
         *,
         action_name: builtins.str,
         artifacts: "ArtifactMap",
@@ -3725,7 +3719,7 @@ class _ICodePipelineActionFactoryProxy:
         stack_outputs_map: "StackOutputsMap",
         before_self_mutation: typing.Optional[builtins.bool] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        fallback_artifact: typing.Optional["_Artifact_0cb05964"] = None,
+        fallback_artifact: typing.Optional["_aws_codepipeline_decee548.Artifact"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
     ) -> "CodePipelineActionFactoryResult":
         '''Create the desired Action and add it to the pipeline.
@@ -3743,7 +3737,7 @@ class _ICodePipelineActionFactoryProxy:
         :param variables_namespace: If this step is producing outputs, the variables namespace assigned to it. Pass this on to the Action you are creating. Default: - Step doesn't produce any outputs
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758a61641f)
+            type_hints = cached_type_hints(_typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758a61641f)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ProduceActionOptions(
             action_name=action_name,
@@ -3816,7 +3810,7 @@ class ManualApprovalStepProps:
         self,
         *,
         comment: typing.Optional[builtins.str] = None,
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
         review_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Construction properties for a ``ManualApprovalStep``.
@@ -3852,7 +3846,7 @@ class ManualApprovalStepProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bde8793ed)
+            type_hints = cached_type_hints(_typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bde8793ed)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument notification_topic", value=notification_topic, expected_type=type_hints["notification_topic"])
             check_type(argname="argument review_url", value=review_url, expected_type=type_hints["review_url"])
@@ -3874,13 +3868,13 @@ class ManualApprovalStepProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def notification_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def notification_topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''Optional SNS topic to send notifications to when an approval is pending.
 
         :default: - No notifications
         '''
         result = self._values.get("notification_topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     @builtins.property
     def review_url(self) -> typing.Optional[builtins.str]:
@@ -3912,8 +3906,8 @@ class PermissionsBroadeningCheckProps:
     def __init__(
         self,
         *,
-        stage: "_Stage_7df8511b",
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        stage: "_aws_cdk_0cae9daa.Stage",
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''Properties for a ``PermissionsBroadeningCheck``.
 
@@ -3932,7 +3926,7 @@ class PermissionsBroadeningCheckProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a493d3747f3c71b362bc21e20cdcb176192a8ddabde715a88ac4943a53a03e8)
+            type_hints = cached_type_hints(_typecheckingstub__3a493d3747f3c71b362bc21e20cdcb176192a8ddabde715a88ac4943a53a03e8)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
             check_type(argname="argument notification_topic", value=notification_topic, expected_type=type_hints["notification_topic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3942,23 +3936,23 @@ class PermissionsBroadeningCheckProps:
             self._values["notification_topic"] = notification_topic
 
     @builtins.property
-    def stage(self) -> "_Stage_7df8511b":
+    def stage(self) -> "_aws_cdk_0cae9daa.Stage":
         '''The CDK Stage object to check the stacks of.
 
         This should be the same Stage object you are passing to ``addStage()``.
         '''
         result = self._values.get("stage")
         assert result is not None, "Required property 'stage' is missing"
-        return typing.cast("_Stage_7df8511b", result)
+        return typing.cast("_aws_cdk_0cae9daa.Stage", result)
 
     @builtins.property
-    def notification_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def notification_topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''Topic to send notifications when a human needs to give manual confirmation.
 
         :default: - no notification
         '''
         result = self._values.get("notification_topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4003,7 +3997,7 @@ class PipelineBase(
         :param synth: The build step that produces the CDK Cloud Assembly. The primary output of this step needs to be the ``cdk.out`` directory generated by the ``cdk synth`` command. If you use a ``ShellStep`` here and you don't configure an output directory, the output directory will automatically be assumed to be ``cdk.out``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d184a64a4ab9776e0cde448a4015acadcea743c3fc3b48f622df0afb4024c6e)
+            type_hints = cached_type_hints(_typecheckingstub__3d184a64a4ab9776e0cde448a4015acadcea743c3fc3b48f622df0afb4024c6e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PipelineBaseProps(synth=synth)
@@ -4020,14 +4014,14 @@ class PipelineBase(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f67cf9a317d65ff87cbc38b2a72ad26c2ee3899fb8a0b5068ccdc87b2c46b2da)
+            type_hints = cached_type_hints(_typecheckingstub__f67cf9a317d65ff87cbc38b2a72ad26c2ee3899fb8a0b5068ccdc87b2c46b2da)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isPipeline", [x]))
 
     @jsii.member(jsii_name="addStage")
     def add_stage(
         self,
-        stage: "_Stage_7df8511b",
+        stage: "_aws_cdk_0cae9daa.Stage",
         *,
         post: typing.Optional[typing.Sequence["Step"]] = None,
         pre: typing.Optional[typing.Sequence["Step"]] = None,
@@ -4045,7 +4039,7 @@ class PipelineBase(
         :param stack_steps: Instructions for stack level steps. Default: - No additional instructions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cfb2052bce20c2fa202ea358095de4d8c0da42de12b0481096f461291c33ee4)
+            type_hints = cached_type_hints(_typecheckingstub__2cfb2052bce20c2fa202ea358095de4d8c0da42de12b0481096f461291c33ee4)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = AddStageOpts(post=post, pre=pre, stack_steps=stack_steps)
 
@@ -4077,7 +4071,7 @@ class PipelineBase(
         :param pre: Additional steps to run before any of the stages in the wave. Default: - No additional steps
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ad54c6253f19ba3a870e05ab1a3c0f4069394612e1bb5e45764182211f8ce8f)
+            type_hints = cached_type_hints(_typecheckingstub__8ad54c6253f19ba3a870e05ab1a3c0f4069394612e1bb5e45764182211f8ce8f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = WaveOptions(post=post, pre=pre)
 
@@ -4155,7 +4149,7 @@ class PipelineBaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79842ef214ef2802f8ca77d0d6f69188566d39e1953e2067e21825205ad4e2d0)
+            type_hints = cached_type_hints(_typecheckingstub__79842ef214ef2802f8ca77d0d6f69188566d39e1953e2067e21825205ad4e2d0)
             check_type(argname="argument synth", value=synth, expected_type=type_hints["synth"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "synth": synth,
@@ -4215,7 +4209,7 @@ class ProduceActionOptions:
         stack_outputs_map: "StackOutputsMap",
         before_self_mutation: typing.Optional[builtins.bool] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        fallback_artifact: typing.Optional["_Artifact_0cb05964"] = None,
+        fallback_artifact: typing.Optional["_aws_codepipeline_decee548.Artifact"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for the ``CodePipelineActionFactory.produce()`` method.
@@ -4339,7 +4333,7 @@ class ProduceActionOptions:
         if isinstance(code_build_defaults, dict):
             code_build_defaults = CodeBuildOptions(**code_build_defaults)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93aef9a478cf51d0a19344db9575ea0a8f1c4048021aae6ecbd679f0230708cb)
+            type_hints = cached_type_hints(_typecheckingstub__93aef9a478cf51d0a19344db9575ea0a8f1c4048021aae6ecbd679f0230708cb)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
             check_type(argname="argument pipeline", value=pipeline, expected_type=type_hints["pipeline"])
@@ -4439,7 +4433,9 @@ class ProduceActionOptions:
         return typing.cast(typing.Optional["CodeBuildOptions"], result)
 
     @builtins.property
-    def fallback_artifact(self) -> typing.Optional["_Artifact_0cb05964"]:
+    def fallback_artifact(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_decee548.Artifact"]:
         '''An input artifact that CodeBuild projects that don't actually need an input artifact can use.
 
         CodeBuild Projects MUST have an input artifact in order to be added to the Pipeline. If
@@ -4449,7 +4445,7 @@ class ProduceActionOptions:
         :default: - A fallback artifact does not exist
         '''
         result = self._values.get("fallback_artifact")
-        return typing.cast(typing.Optional["_Artifact_0cb05964"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_decee548.Artifact"], result)
 
     @builtins.property
     def variables_namespace(self) -> typing.Optional[builtins.str]:
@@ -4484,8 +4480,8 @@ class S3SourceOptions:
         self,
         *,
         action_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        trigger: typing.Optional["_S3Trigger_3ab49ad8"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.S3Trigger"] = None,
     ) -> None:
         '''Options for S3 sources.
 
@@ -4512,7 +4508,7 @@ class S3SourceOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cae2e2afdaad184f628a943e938bcc586f2ec9060bde2ab497f96efaf7c265a7)
+            type_hints = cached_type_hints(_typecheckingstub__cae2e2afdaad184f628a943e938bcc586f2ec9060bde2ab497f96efaf7c265a7)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
@@ -4534,16 +4530,18 @@ class S3SourceOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role that will be assumed by the pipeline prior to executing the ``S3Source`` action.
 
         :default: - a new role will be generated
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def trigger(self) -> typing.Optional["_S3Trigger_3ab49ad8"]:
+    def trigger(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_actions_eff01f7c.S3Trigger"]:
         '''How should CodePipeline detect source changes for this Action.
 
         Note that if this is S3Trigger.EVENTS, you need to make sure to include the source Bucket in a CloudTrail Trail,
@@ -4554,7 +4552,7 @@ class S3SourceOptions:
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/log-s3-data-events.html
         '''
         result = self._values.get("trigger")
-        return typing.cast(typing.Optional["_S3Trigger_3ab49ad8"], result)
+        return typing.cast(typing.Optional["_aws_codepipeline_actions_eff01f7c.S3Trigger"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4588,7 +4586,7 @@ class ShellStepProps:
         commands: typing.Sequence[builtins.str],
         additional_inputs: typing.Optional[typing.Mapping[builtins.str, "IFileSetProducer"]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]] = None,
+        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]] = None,
         input: typing.Optional["IFileSetProducer"] = None,
         install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
         primary_output_directory: typing.Optional[builtins.str] = None,
@@ -4630,7 +4628,7 @@ class ShellStepProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__672600085b4c1f54d7e497f605a0be2945f1a2759aaf8632197707da6d73a55c)
+            type_hints = cached_type_hints(_typecheckingstub__672600085b4c1f54d7e497f605a0be2945f1a2759aaf8632197707da6d73a55c)
             check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
             check_type(argname="argument additional_inputs", value=additional_inputs, expected_type=type_hints["additional_inputs"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
@@ -4700,7 +4698,7 @@ class ShellStepProps:
     @builtins.property
     def env_from_cfn_outputs(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]]:
         '''Set environment variables based on Stack Outputs.
 
         ``ShellStep``s following stack or stage deployments may
@@ -4711,7 +4709,7 @@ class ShellStepProps:
         :default: - No environment variables created from stack outputs
         '''
         result = self._values.get("env_from_cfn_outputs")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]], result)
 
     @builtins.property
     def input(self) -> typing.Optional["IFileSetProducer"]:
@@ -4818,7 +4816,7 @@ class StackAsset:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b53846c07332af34759787d6881e8bb143a9ccedff4818aa7909126839e2a09)
+            type_hints = cached_type_hints(_typecheckingstub__0b53846c07332af34759787d6881e8bb143a9ccedff4818aa7909126839e2a09)
             check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
             check_type(argname="argument asset_manifest_path", value=asset_manifest_path, expected_type=type_hints["asset_manifest_path"])
             check_type(argname="argument asset_selector", value=asset_selector, expected_type=type_hints["asset_selector"])
@@ -4938,14 +4936,14 @@ class StackDeployment(
     @builtins.classmethod
     def from_artifact(
         cls,
-        stack_artifact: "_CloudFormationStackArtifact_97533dc8",
+        stack_artifact: "_cx_api_57db5121.CloudFormationStackArtifact",
     ) -> "StackDeployment":
         '''Build a ``StackDeployment`` from a Stack Artifact in a Cloud Assembly.
 
         :param stack_artifact: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40e4b846e8d3dadc7378b689c2dab6fb92e7f2100aef448009c9ec434fe88e2e)
+            type_hints = cached_type_hints(_typecheckingstub__40e4b846e8d3dadc7378b689c2dab6fb92e7f2100aef448009c9ec434fe88e2e)
             check_type(argname="argument stack_artifact", value=stack_artifact, expected_type=type_hints["stack_artifact"])
         return typing.cast("StackDeployment", jsii.sinvoke(cls, "fromArtifact", [stack_artifact]))
 
@@ -4956,7 +4954,7 @@ class StackDeployment(
         :param stack_deployment: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8ba0ab32a6826cbb7060a998d3ac3da2d06cd442d144b5ecf691e35278bb3a0)
+            type_hints = cached_type_hints(_typecheckingstub__c8ba0ab32a6826cbb7060a998d3ac3da2d06cd442d144b5ecf691e35278bb3a0)
             check_type(argname="argument stack_deployment", value=stack_deployment, expected_type=type_hints["stack_deployment"])
         return typing.cast(None, jsii.invoke(self, "addStackDependency", [stack_deployment]))
 
@@ -4974,7 +4972,7 @@ class StackDeployment(
         :param post: steps executed after stack.deploy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee2fbbf15668f466092e120cac329bba8450a234aeb44ff69f7e6d6118482210)
+            type_hints = cached_type_hints(_typecheckingstub__ee2fbbf15668f466092e120cac329bba8450a234aeb44ff69f7e6d6118482210)
             check_type(argname="argument pre", value=pre, expected_type=type_hints["pre"])
             check_type(argname="argument change_set", value=change_set, expected_type=type_hints["change_set"])
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
@@ -5185,7 +5183,7 @@ class StackDeploymentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee959d9efa16dfdb6813c606cf8d87ccf20db0aa7716242deca0a8be262c6f75)
+            type_hints = cached_type_hints(_typecheckingstub__ee959d9efa16dfdb6813c606cf8d87ccf20db0aa7716242deca0a8be262c6f75)
             check_type(argname="argument absolute_template_path", value=absolute_template_path, expected_type=type_hints["absolute_template_path"])
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument stack_artifact_id", value=stack_artifact_id, expected_type=type_hints["stack_artifact_id"])
@@ -5358,13 +5356,16 @@ class StackOutputReference(
 
     @jsii.member(jsii_name="fromCfnOutput")
     @builtins.classmethod
-    def from_cfn_output(cls, output: "_CfnOutput_7273f911") -> "StackOutputReference":
+    def from_cfn_output(
+        cls,
+        output: "_aws_cdk_0cae9daa.CfnOutput",
+    ) -> "StackOutputReference":
         '''Create a StackOutputReference that references the given CfnOutput.
 
         :param output: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d8745bc64df0b3aa6e7dfd1168c6139f2c024dac1d882f0d4af23b942b5ec34)
+            type_hints = cached_type_hints(_typecheckingstub__3d8745bc64df0b3aa6e7dfd1168c6139f2c024dac1d882f0d4af23b942b5ec34)
             check_type(argname="argument output", value=output, expected_type=type_hints["output"])
         return typing.cast("StackOutputReference", jsii.sinvoke(cls, "fromCfnOutput", [output]))
 
@@ -5375,7 +5376,7 @@ class StackOutputReference(
         :param stack: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b335ec5f93b8ed0338c0e4961948e8606ff0d3b66288aad78ffdd955b373584c)
+            type_hints = cached_type_hints(_typecheckingstub__b335ec5f93b8ed0338c0e4961948e8606ff0d3b66288aad78ffdd955b373584c)
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
         return typing.cast(builtins.bool, jsii.invoke(self, "isProducedBy", [stack]))
 
@@ -5416,7 +5417,7 @@ class StackOutputsMap(
         :param pipeline: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b50e71bc676eac9027f6ea818ba4d747ff0c565ffd3d254888a264b4c946d9bc)
+            type_hints = cached_type_hints(_typecheckingstub__b50e71bc676eac9027f6ea818ba4d747ff0c565ffd3d254888a264b4c946d9bc)
             check_type(argname="argument pipeline", value=pipeline, expected_type=type_hints["pipeline"])
         jsii.create(self.__class__, self, [pipeline])
 
@@ -5427,7 +5428,7 @@ class StackOutputsMap(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6208cae78a5089ece754de6bca07ee8e0f93d368525e449cb62ab9aa02d5387d)
+            type_hints = cached_type_hints(_typecheckingstub__6208cae78a5089ece754de6bca07ee8e0f93d368525e449cb62ab9aa02d5387d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.str, jsii.invoke(self, "toCodePipeline", [x]))
 
@@ -5446,7 +5447,7 @@ class StackSteps:
     def __init__(
         self,
         *,
-        stack: "_Stack_2866e57f",
+        stack: "_aws_cdk_0cae9daa.Stack",
         change_set: typing.Optional[typing.Sequence["Step"]] = None,
         post: typing.Optional[typing.Sequence["Step"]] = None,
         pre: typing.Optional[typing.Sequence["Step"]] = None,
@@ -5480,7 +5481,7 @@ class StackSteps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aca5d40f3edb2136fa92aadc52d7d0d639af5efa3c3907aa21900a78546472e9)
+            type_hints = cached_type_hints(_typecheckingstub__aca5d40f3edb2136fa92aadc52d7d0d639af5efa3c3907aa21900a78546472e9)
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
             check_type(argname="argument change_set", value=change_set, expected_type=type_hints["change_set"])
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
@@ -5496,11 +5497,11 @@ class StackSteps:
             self._values["pre"] = pre
 
     @builtins.property
-    def stack(self) -> "_Stack_2866e57f":
+    def stack(self) -> "_aws_cdk_0cae9daa.Stack":
         '''The stack you want the steps to run in.'''
         result = self._values.get("stack")
         assert result is not None, "Required property 'stack' is missing"
-        return typing.cast("_Stack_2866e57f", result)
+        return typing.cast("_aws_cdk_0cae9daa.Stack", result)
 
     @builtins.property
     def change_set(self) -> typing.Optional[typing.List["Step"]]:
@@ -5582,7 +5583,7 @@ class StageDeployment(
     @builtins.classmethod
     def from_stage(
         cls,
-        stage: "_Stage_7df8511b",
+        stage: "_aws_cdk_0cae9daa.Stage",
         *,
         post: typing.Optional[typing.Sequence["Step"]] = None,
         pre: typing.Optional[typing.Sequence["Step"]] = None,
@@ -5601,7 +5602,7 @@ class StageDeployment(
         :param stage_name: Stage name to use in the pipeline. Default: - Use Stage's construct ID
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a37efd4695086f03c4f48796707d94ae7caf71cecf52f15940e3a454ddce14cf)
+            type_hints = cached_type_hints(_typecheckingstub__a37efd4695086f03c4f48796707d94ae7caf71cecf52f15940e3a454ddce14cf)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         props = StageDeploymentProps(
             post=post, pre=pre, stack_steps=stack_steps, stage_name=stage_name
@@ -5616,7 +5617,7 @@ class StageDeployment(
         :param steps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7963424ad1d642071b0d2ad14e4d5fc16fe9da5684fa99810d45cdd45456ff78)
+            type_hints = cached_type_hints(_typecheckingstub__7963424ad1d642071b0d2ad14e4d5fc16fe9da5684fa99810d45cdd45456ff78)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPost", [*steps]))
 
@@ -5627,7 +5628,7 @@ class StageDeployment(
         :param steps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b5cab7f97e36643320ecd39f081f32d2abc1c31b1aaf8ce2dc42ca0656bd163)
+            type_hints = cached_type_hints(_typecheckingstub__3b5cab7f97e36643320ecd39f081f32d2abc1c31b1aaf8ce2dc42ca0656bd163)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPre", [*steps]))
 
@@ -5721,7 +5722,7 @@ class StageDeploymentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2996b2e68f1aa0af80a6355038a15e330c41d048b4db733659fb5dacf94c7fad)
+            type_hints = cached_type_hints(_typecheckingstub__2996b2e68f1aa0af80a6355038a15e330c41d048b4db733659fb5dacf94c7fad)
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
             check_type(argname="argument pre", value=pre, expected_type=type_hints["pre"])
             check_type(argname="argument stack_steps", value=stack_steps, expected_type=type_hints["stack_steps"])
@@ -5836,7 +5837,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param id: Identifier for this step.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68aaec030807cfbf351299f9c26e438985ce3f9e77a2ce6ee7cd9160ecaef59f)
+            type_hints = cached_type_hints(_typecheckingstub__68aaec030807cfbf351299f9c26e438985ce3f9e77a2ce6ee7cd9160ecaef59f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [id])
 
@@ -5852,7 +5853,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param steps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fa8ee52263a2c85e05e23d26dc40cc78dfc1127b9b95c510f018a6cfed478c6)
+            type_hints = cached_type_hints(_typecheckingstub__6fa8ee52263a2c85e05e23d26dc40cc78dfc1127b9b95c510f018a6cfed478c6)
             check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
         return typing.cast(typing.List["Step"], jsii.sinvoke(cls, "sequence", [steps]))
 
@@ -5865,7 +5866,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param fs: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb3c0f82c71c42c1f93221292b7dbffbe572c7ea5a260f598cb89a5fa77db6f9)
+            type_hints = cached_type_hints(_typecheckingstub__bb3c0f82c71c42c1f93221292b7dbffbe572c7ea5a260f598cb89a5fa77db6f9)
             check_type(argname="argument fs", value=fs, expected_type=type_hints["fs"])
         return typing.cast(None, jsii.invoke(self, "addDependencyFileSet", [fs]))
 
@@ -5876,7 +5877,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param step: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f54be98abfd0174d463663607bb14370b7402ee77874895f6bfed4c698e909)
+            type_hints = cached_type_hints(_typecheckingstub__78f54be98abfd0174d463663607bb14370b7402ee77874895f6bfed4c698e909)
             check_type(argname="argument step", value=step, expected_type=type_hints["step"])
         return typing.cast(None, jsii.invoke(self, "addStepDependency", [step]))
 
@@ -5887,7 +5888,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param fs: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a068aee785ec3c9e9f1809d52708b5df8f13355aa9740ec37f0a9ee74e1110d4)
+            type_hints = cached_type_hints(_typecheckingstub__a068aee785ec3c9e9f1809d52708b5df8f13355aa9740ec37f0a9ee74e1110d4)
             check_type(argname="argument fs", value=fs, expected_type=type_hints["fs"])
         return typing.cast(None, jsii.invoke(self, "configurePrimaryOutput", [fs]))
 
@@ -5903,7 +5904,7 @@ class Step(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.pipelines.St
         :param structure: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__861dc4a9082e25f4892e3dc0b3e109591bed56d6d69e131b65606d9ce139cfc4)
+            type_hints = cached_type_hints(_typecheckingstub__861dc4a9082e25f4892e3dc0b3e109591bed56d6d69e131b65606d9ce139cfc4)
             check_type(argname="argument structure", value=structure, expected_type=type_hints["structure"])
         return typing.cast(None, jsii.invoke(self, "discoverReferencedOutputs", [structure]))
 
@@ -5996,7 +5997,7 @@ class Wave(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.Wave"):
         :param pre: Additional steps to run before any of the stages in the wave. Default: - No additional steps
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b19399be49c5895136165e92f8d4f261ada55bda465bbe03748a50eeb2565059)
+            type_hints = cached_type_hints(_typecheckingstub__b19399be49c5895136165e92f8d4f261ada55bda465bbe03748a50eeb2565059)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaveProps(post=post, pre=pre)
 
@@ -6009,7 +6010,7 @@ class Wave(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.Wave"):
         :param steps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8581b4bbbe78eda4fb8dbcb1f3b771c7cf048db7cf5a72e03d64f96e57598299)
+            type_hints = cached_type_hints(_typecheckingstub__8581b4bbbe78eda4fb8dbcb1f3b771c7cf048db7cf5a72e03d64f96e57598299)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPost", [*steps]))
 
@@ -6020,14 +6021,14 @@ class Wave(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.Wave"):
         :param steps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66516b0f8ad368fac42e7dcdd790b28e1dfb19cb9b17305cf356abd5a2b9849a)
+            type_hints = cached_type_hints(_typecheckingstub__66516b0f8ad368fac42e7dcdd790b28e1dfb19cb9b17305cf356abd5a2b9849a)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPre", [*steps]))
 
     @jsii.member(jsii_name="addStage")
     def add_stage(
         self,
-        stage: "_Stage_7df8511b",
+        stage: "_aws_cdk_0cae9daa.Stage",
         *,
         post: typing.Optional[typing.Sequence["Step"]] = None,
         pre: typing.Optional[typing.Sequence["Step"]] = None,
@@ -6044,7 +6045,7 @@ class Wave(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.Wave"):
         :param stack_steps: Instructions for stack level steps. Default: - No additional instructions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7590cd60f1f21f8e0847610459550f1b62de25d7e9041a32e959d55e075a7f62)
+            type_hints = cached_type_hints(_typecheckingstub__7590cd60f1f21f8e0847610459550f1b62de25d7e9041a32e959d55e075a7f62)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = AddStageOpts(post=post, pre=pre, stack_steps=stack_steps)
 
@@ -6124,7 +6125,7 @@ class WaveOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2277271dc82c44ce8955ce65457db799bd6e52de92bcc11a17652ce9c46ab6a)
+            type_hints = cached_type_hints(_typecheckingstub__f2277271dc82c44ce8955ce65457db799bd6e52de92bcc11a17652ce9c46ab6a)
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
             check_type(argname="argument pre", value=pre, expected_type=type_hints["pre"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6196,7 +6197,7 @@ class WaveProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04297c0a279df0deb627a2db37c6345071a7dbd35ce5f96fbe3b3e08dacfc8a6)
+            type_hints = cached_type_hints(_typecheckingstub__04297c0a279df0deb627a2db37c6345071a7dbd35ce5f96fbe3b3e08dacfc8a6)
             check_type(argname="argument post", value=post, expected_type=type_hints["post"])
             check_type(argname="argument pre", value=pre, expected_type=type_hints["pre"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6268,23 +6269,23 @@ class CodeBuildStepProps(ShellStepProps):
         commands: typing.Sequence[builtins.str],
         additional_inputs: typing.Optional[typing.Mapping[builtins.str, "IFileSetProducer"]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]] = None,
+        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]] = None,
         input: typing.Optional["IFileSetProducer"] = None,
         install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
         primary_output_directory: typing.Optional[builtins.str] = None,
-        action_role: typing.Optional["_IRole_235f5d8e"] = None,
-        build_environment: typing.Optional[typing.Union["_BuildEnvironment_4ee6fb51", typing.Dict[builtins.str, typing.Any]]] = None,
-        cache: typing.Optional["_Cache_ed12d453"] = None,
-        file_system_locations: typing.Optional[typing.Sequence["_IFileSystemLocation_acb87263"]] = None,
-        logging: typing.Optional[typing.Union["_LoggingOptions_31668710", typing.Dict[builtins.str, typing.Any]]] = None,
-        partial_build_spec: typing.Optional["_BuildSpec_4961ea5b"] = None,
+        action_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        build_environment: typing.Optional[typing.Union["_aws_codebuild_492434fc.BuildEnvironment", typing.Dict[builtins.str, typing.Any]]] = None,
+        cache: typing.Optional["_aws_codebuild_492434fc.Cache"] = None,
+        file_system_locations: typing.Optional[typing.Sequence["_aws_codebuild_492434fc.IFileSystemLocation"]] = None,
+        logging: typing.Optional[typing.Union["_aws_codebuild_492434fc.LoggingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        partial_build_spec: typing.Optional["_aws_codebuild_492434fc.BuildSpec"] = None,
         project_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        role_policy_statements: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        role_policy_statements: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.PolicyStatement"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Construction props for a CodeBuildStep.
 
@@ -6341,13 +6342,13 @@ class CodeBuildStepProps(ShellStepProps):
             )
         '''
         if isinstance(build_environment, dict):
-            build_environment = _BuildEnvironment_4ee6fb51(**build_environment)
+            build_environment = _aws_codebuild_492434fc.BuildEnvironment(**build_environment)
         if isinstance(logging, dict):
-            logging = _LoggingOptions_31668710(**logging)
+            logging = _aws_codebuild_492434fc.LoggingOptions(**logging)
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ea003fb723e489b2aa741146d04bb6e1e31bf776d6e79aadf14deb5a715643)
+            type_hints = cached_type_hints(_typecheckingstub__d0ea003fb723e489b2aa741146d04bb6e1e31bf776d6e79aadf14deb5a715643)
             check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
             check_type(argname="argument additional_inputs", value=additional_inputs, expected_type=type_hints["additional_inputs"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
@@ -6456,7 +6457,7 @@ class CodeBuildStepProps(ShellStepProps):
     @builtins.property
     def env_from_cfn_outputs(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]]:
         '''Set environment variables based on Stack Outputs.
 
         ``ShellStep``s following stack or stage deployments may
@@ -6467,7 +6468,7 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - No environment variables created from stack outputs
         '''
         result = self._values.get("env_from_cfn_outputs")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]], result)
 
     @builtins.property
     def input(self) -> typing.Optional["IFileSetProducer"]:
@@ -6507,16 +6508,18 @@ class CodeBuildStepProps(ShellStepProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def action_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def action_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Custom execution role to be used for the Code Build Action.
 
         :default: - A role is automatically created
         '''
         result = self._values.get("action_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def build_environment(self) -> typing.Optional["_BuildEnvironment_4ee6fb51"]:
+    def build_environment(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"]:
         '''Changes to environment.
 
         This environment will be combined with the pipeline's default
@@ -6525,21 +6528,21 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - Use the pipeline's default build environment
         '''
         result = self._values.get("build_environment")
-        return typing.cast(typing.Optional["_BuildEnvironment_4ee6fb51"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"], result)
 
     @builtins.property
-    def cache(self) -> typing.Optional["_Cache_ed12d453"]:
+    def cache(self) -> typing.Optional["_aws_codebuild_492434fc.Cache"]:
         '''Caching strategy to use.
 
         :default: - No cache
         '''
         result = self._values.get("cache")
-        return typing.cast(typing.Optional["_Cache_ed12d453"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.Cache"], result)
 
     @builtins.property
     def file_system_locations(
         self,
-    ) -> typing.Optional[typing.List["_IFileSystemLocation_acb87263"]]:
+    ) -> typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]]:
         '''ProjectFileSystemLocation objects for CodeBuild build projects.
 
         A ProjectFileSystemLocation object specifies the identifier, location, mountOptions, mountPoint,
@@ -6548,10 +6551,10 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - no file system locations
         '''
         result = self._values.get("file_system_locations")
-        return typing.cast(typing.Optional[typing.List["_IFileSystemLocation_acb87263"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["_LoggingOptions_31668710"]:
+    def logging(self) -> typing.Optional["_aws_codebuild_492434fc.LoggingOptions"]:
         '''Information about logs for CodeBuild projects.
 
         A CodeBuild project can create logs in Amazon CloudWatch Logs, an S3 bucket, or both.
@@ -6559,10 +6562,12 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - no log configuration is set
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional["_LoggingOptions_31668710"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.LoggingOptions"], result)
 
     @builtins.property
-    def partial_build_spec(self) -> typing.Optional["_BuildSpec_4961ea5b"]:
+    def partial_build_spec(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildSpec"]:
         '''Additional configuration that can only be configured via BuildSpec.
 
         You should not use this to specify output artifacts; those
@@ -6578,7 +6583,7 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - BuildSpec completely derived from other properties
         '''
         result = self._values.get("partial_build_spec")
-        return typing.cast(typing.Optional["_BuildSpec_4961ea5b"], result)
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildSpec"], result)
 
     @builtins.property
     def project_name(self) -> typing.Optional[builtins.str]:
@@ -6590,18 +6595,18 @@ class CodeBuildStepProps(ShellStepProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Custom execution role to be used for the CodeBuild project.
 
         :default: - A role is automatically created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def role_policy_statements(
         self,
-    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
         '''Policy statements to add to role used during the synth.
 
         Can be used to add access to a CodeArtifact repository etc.
@@ -6609,12 +6614,12 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - No policy statements added to CodeBuild Project Role
         '''
         result = self._values.get("role_policy_statements")
-        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Which security group to associate with the script's project network interfaces.
 
         If no security group is identified, one will be created automatically.
@@ -6624,10 +6629,10 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - Security group will be automatically created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets to use.
 
         Only used if 'vpc' is supplied.
@@ -6635,10 +6640,10 @@ class CodeBuildStepProps(ShellStepProps):
         :default: - All private subnets.
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of minutes after which AWS CodeBuild stops the build if it's not complete.
 
         For valid values, see the timeoutInMinutes field in the AWS
@@ -6647,16 +6652,16 @@ class CodeBuildStepProps(ShellStepProps):
         :default: Duration.hours(1)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where to execute the SimpleSynth.
 
         :default: - No VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6705,23 +6710,23 @@ class CodePipeline(
         id: builtins.str,
         *,
         synth: "IFileSetProducer",
-        artifact_bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        artifact_bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         asset_publishing_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_assets_cli_version: typing.Optional[builtins.str] = None,
         cli_version: typing.Optional[builtins.str] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        code_pipeline: typing.Optional["_Pipeline_ea38de84"] = None,
+        code_pipeline: typing.Optional["_aws_codepipeline_decee548.Pipeline"] = None,
         cross_account_keys: typing.Optional[builtins.bool] = None,
-        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_IBucket_42e086fd"]] = None,
+        cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, "_aws_s3_01158f40.IBucket"]] = None,
         docker_credentials: typing.Optional[typing.Sequence["DockerCredential"]] = None,
         docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
         docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
-        pipeline_type: typing.Optional["_PipelineType_b52f35be"] = None,
+        pipeline_type: typing.Optional["_aws_codepipeline_decee548.PipelineType"] = None,
         publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
         reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         self_mutation: typing.Optional[builtins.bool] = None,
         self_mutation_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         synth_code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6756,7 +6761,7 @@ class CodePipeline(
         :param use_pipeline_role_for_actions: Use pipeline service role for actions if no action role configured. Default: - false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b4b4a0bcbd5fab3e4b78aa07ff9504469ae96c16799604ca3345bcb94480fc3)
+            type_hints = cached_type_hints(_typecheckingstub__7b4b4a0bcbd5fab3e4b78aa07ff9504469ae96c16799604ca3345bcb94480fc3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CodePipelineProps(
@@ -6794,12 +6799,12 @@ class CodePipeline(
 
     @builtins.property
     @jsii.member(jsii_name="pipeline")
-    def pipeline(self) -> "_Pipeline_ea38de84":
+    def pipeline(self) -> "_aws_codepipeline_decee548.Pipeline":
         '''The CodePipeline pipeline that deploys the CDK app.
 
         Only available after the pipeline has been built.
         '''
-        return typing.cast("_Pipeline_ea38de84", jsii.get(self, "pipeline"))
+        return typing.cast("_aws_codepipeline_decee548.Pipeline", jsii.get(self, "pipeline"))
 
     @builtins.property
     @jsii.member(jsii_name="selfMutationEnabled")
@@ -6809,22 +6814,22 @@ class CodePipeline(
 
     @builtins.property
     @jsii.member(jsii_name="selfMutationProject")
-    def self_mutation_project(self) -> "_IProject_aafae30a":
+    def self_mutation_project(self) -> "_aws_codebuild_492434fc.IProject":
         '''The CodeBuild project that performs the SelfMutation.
 
         Will throw an error if this is accessed before ``buildPipeline()``
         is called, or if selfMutation has been disabled.
         '''
-        return typing.cast("_IProject_aafae30a", jsii.get(self, "selfMutationProject"))
+        return typing.cast("_aws_codebuild_492434fc.IProject", jsii.get(self, "selfMutationProject"))
 
     @builtins.property
     @jsii.member(jsii_name="synthProject")
-    def synth_project(self) -> "_IProject_aafae30a":
+    def synth_project(self) -> "_aws_codebuild_492434fc.IProject":
         '''The CodeBuild project that performs the Synth.
 
         Only available after the pipeline has been built.
         '''
-        return typing.cast("_IProject_aafae30a", jsii.get(self, "synthProject"))
+        return typing.cast("_aws_codebuild_492434fc.IProject", jsii.get(self, "synthProject"))
 
     @builtins.property
     @jsii.member(jsii_name="usePipelineRoleForActions")
@@ -6867,7 +6872,7 @@ class CodePipelineSource(
         :param id: Identifier for this step.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62608213b8ca550c4cb784e6cfaa384d1ded1aad493897b1e7801849d41151a4)
+            type_hints = cached_type_hints(_typecheckingstub__62608213b8ca550c4cb784e6cfaa384d1ded1aad493897b1e7801849d41151a4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [id])
 
@@ -6875,13 +6880,13 @@ class CodePipelineSource(
     @builtins.classmethod
     def code_commit(
         cls,
-        repository: "_IRepository_e7c062a1",
+        repository: "_aws_codecommit_2f988517.IRepository",
         branch: builtins.str,
         *,
         action_name: typing.Optional[builtins.str] = None,
         code_build_clone_output: typing.Optional[builtins.bool] = None,
-        event_role: typing.Optional["_IRole_235f5d8e"] = None,
-        trigger: typing.Optional["_CodeCommitTrigger_e1096919"] = None,
+        event_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger"] = None,
     ) -> "CodePipelineSource":
         '''Returns a CodeCommit source.
 
@@ -6902,7 +6907,7 @@ class CodePipelineSource(
             pipelines.CodePipelineSource.code_commit(repository, "main")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f25220d63f26c49b4c196a3d31d631ccf312fd1e469b49c9f423dda4bedc6d69)
+            type_hints = cached_type_hints(_typecheckingstub__f25220d63f26c49b4c196a3d31d631ccf312fd1e469b49c9f423dda4bedc6d69)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         props = CodeCommitSourceOptions(
@@ -6956,7 +6961,7 @@ class CodePipelineSource(
         :see: https://docs.aws.amazon.com/dtconsole/latest/userguide/welcome-connections.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61f9c81f3f2616f051720bd0c8209831bc0b7aa25f736b93cc369f3dfecac29c)
+            type_hints = cached_type_hints(_typecheckingstub__61f9c81f3f2616f051720bd0c8209831bc0b7aa25f736b93cc369f3dfecac29c)
             check_type(argname="argument repo_string", value=repo_string, expected_type=type_hints["repo_string"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         props = ConnectionSourceOptions(
@@ -6972,7 +6977,7 @@ class CodePipelineSource(
     @builtins.classmethod
     def ecr(
         cls,
-        repository: "_IRepositoryRef_f3b81117",
+        repository: "_aws_ecr_984bcfb2.IRepositoryRef",
         *,
         action_name: typing.Optional[builtins.str] = None,
         image_tag: typing.Optional[builtins.str] = None,
@@ -6992,7 +6997,7 @@ class CodePipelineSource(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b33e9fc6a0d43b73cabe2ee725c5ebddcca32e8eb1b382e1e11a96004696b07)
+            type_hints = cached_type_hints(_typecheckingstub__8b33e9fc6a0d43b73cabe2ee725c5ebddcca32e8eb1b382e1e11a96004696b07)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         props = ECRSourceOptions(action_name=action_name, image_tag=image_tag)
 
@@ -7006,8 +7011,8 @@ class CodePipelineSource(
         branch: builtins.str,
         *,
         action_name: typing.Optional[builtins.str] = None,
-        authentication: typing.Optional["_SecretValue_3dd0ddae"] = None,
-        trigger: typing.Optional["_GitHubTrigger_0029a9bb"] = None,
+        authentication: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.GitHubTrigger"] = None,
     ) -> "CodePipelineSource":
         '''Returns a GitHub source, using OAuth tokens to authenticate with GitHub and a separate webhook to detect changes.
 
@@ -7040,7 +7045,7 @@ class CodePipelineSource(
         :param trigger: How AWS CodePipeline should be triggered. With the default value "WEBHOOK", a webhook is created in GitHub that triggers the action. With "POLL", CodePipeline periodically checks the source for changes. With "None", the action is not triggered through changes in the source. To use ``WEBHOOK``, your GitHub Personal Access Token should have **admin:repo_hook** scope (in addition to the regular **repo** scope). Default: GitHubTrigger.WEBHOOK
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dd7ae717610cf37a89d099e605a91936a55ac698e5cf82446ff150258850c98)
+            type_hints = cached_type_hints(_typecheckingstub__0dd7ae717610cf37a89d099e605a91936a55ac698e5cf82446ff150258850c98)
             check_type(argname="argument repo_string", value=repo_string, expected_type=type_hints["repo_string"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         props = GitHubSourceOptions(
@@ -7053,12 +7058,12 @@ class CodePipelineSource(
     @builtins.classmethod
     def s3(
         cls,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         object_key: builtins.str,
         *,
         action_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        trigger: typing.Optional["_S3Trigger_3ab49ad8"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        trigger: typing.Optional["_aws_codepipeline_actions_eff01f7c.S3Trigger"] = None,
     ) -> "CodePipelineSource":
         '''Returns an S3 source.
 
@@ -7075,7 +7080,7 @@ class CodePipelineSource(
             pipelines.CodePipelineSource.s3(bucket, "path/to/file.zip")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e839aa405e65eab030730a9018a88432d9e7ec389336d4a4ba152a629311f25)
+            type_hints = cached_type_hints(_typecheckingstub__9e839aa405e65eab030730a9018a88432d9e7ec389336d4a4ba152a629311f25)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
         props = S3SourceOptions(action_name=action_name, role=role, trigger=trigger)
@@ -7086,11 +7091,11 @@ class CodePipelineSource(
     @abc.abstractmethod
     def _get_action(
         self,
-        output: "_Artifact_0cb05964",
+        output: "_aws_codepipeline_decee548.Artifact",
         action_name: builtins.str,
         run_order: jsii.Number,
         variables_namespace: typing.Optional[builtins.str] = None,
-    ) -> "_Action_20e074ce":
+    ) -> "_aws_codepipeline_actions_eff01f7c.Action":
         '''
         :param output: -
         :param action_name: -
@@ -7102,7 +7107,7 @@ class CodePipelineSource(
     @jsii.member(jsii_name="produceAction")
     def produce_action(
         self,
-        stage: "_IStage_415fc571",
+        stage: "_aws_codepipeline_decee548.IStage",
         *,
         action_name: builtins.str,
         artifacts: "ArtifactMap",
@@ -7112,7 +7117,7 @@ class CodePipelineSource(
         stack_outputs_map: "StackOutputsMap",
         before_self_mutation: typing.Optional[builtins.bool] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        fallback_artifact: typing.Optional["_Artifact_0cb05964"] = None,
+        fallback_artifact: typing.Optional["_aws_codepipeline_decee548.Artifact"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
     ) -> "CodePipelineActionFactoryResult":
         '''Create the desired Action and add it to the pipeline.
@@ -7130,7 +7135,7 @@ class CodePipelineSource(
         :param variables_namespace: If this step is producing outputs, the variables namespace assigned to it. Pass this on to the Action you are creating. Default: - Step doesn't produce any outputs
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17abe85d134a8dfe23ca785d7db647ce27d0bfe5c838b2b3d423bad11ec9023f)
+            type_hints = cached_type_hints(_typecheckingstub__17abe85d134a8dfe23ca785d7db647ce27d0bfe5c838b2b3d423bad11ec9023f)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ProduceActionOptions(
             action_name=action_name,
@@ -7177,7 +7182,7 @@ class CodePipelineSource(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efac8cbc7f0ca706a3968547b0a9c6e6ca8f0902b5d725b8bd9e1de07841c50f)
+            type_hints = cached_type_hints(_typecheckingstub__efac8cbc7f0ca706a3968547b0a9c6e6ca8f0902b5d725b8bd9e1de07841c50f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(builtins.str, jsii.invoke(self, "sourceAttribute", [name]))
 
@@ -7198,11 +7203,11 @@ class _CodePipelineSourceProxy(
     @jsii.member(jsii_name="getAction")
     def _get_action(
         self,
-        output: "_Artifact_0cb05964",
+        output: "_aws_codepipeline_decee548.Artifact",
         action_name: builtins.str,
         run_order: jsii.Number,
         variables_namespace: typing.Optional[builtins.str] = None,
-    ) -> "_Action_20e074ce":
+    ) -> "_aws_codepipeline_actions_eff01f7c.Action":
         '''
         :param output: -
         :param action_name: -
@@ -7210,12 +7215,12 @@ class _CodePipelineSourceProxy(
         :param variables_namespace: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__350aa368c32d7a50a5693f64b5349e88b87a9978b26c084eb53efe0c9997aac8)
+            type_hints = cached_type_hints(_typecheckingstub__350aa368c32d7a50a5693f64b5349e88b87a9978b26c084eb53efe0c9997aac8)
             check_type(argname="argument output", value=output, expected_type=type_hints["output"])
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument run_order", value=run_order, expected_type=type_hints["run_order"])
             check_type(argname="argument variables_namespace", value=variables_namespace, expected_type=type_hints["variables_namespace"])
-        return typing.cast("_Action_20e074ce", jsii.invoke(self, "getAction", [output, action_name, run_order, variables_namespace]))
+        return typing.cast("_aws_codepipeline_actions_eff01f7c.Action", jsii.invoke(self, "getAction", [output, action_name, run_order, variables_namespace]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, CodePipelineSource).__jsii_proxy_class__ = lambda : _CodePipelineSourceProxy
@@ -7247,8 +7252,8 @@ class ConfirmPermissionsBroadening(
         self,
         id: builtins.str,
         *,
-        stage: "_Stage_7df8511b",
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        stage: "_aws_cdk_0cae9daa.Stage",
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''
         :param id: Identifier for this step.
@@ -7256,7 +7261,7 @@ class ConfirmPermissionsBroadening(
         :param notification_topic: Topic to send notifications when a human needs to give manual confirmation. Default: - no notification
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74f8758700f34f1f08997282e6c9eeb3ec7f0a892a166ab9cb89261bd2c3400e)
+            type_hints = cached_type_hints(_typecheckingstub__74f8758700f34f1f08997282e6c9eeb3ec7f0a892a166ab9cb89261bd2c3400e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PermissionsBroadeningCheckProps(
             stage=stage, notification_topic=notification_topic
@@ -7267,7 +7272,7 @@ class ConfirmPermissionsBroadening(
     @jsii.member(jsii_name="produceAction")
     def produce_action(
         self,
-        stage: "_IStage_415fc571",
+        stage: "_aws_codepipeline_decee548.IStage",
         *,
         action_name: builtins.str,
         artifacts: "ArtifactMap",
@@ -7277,7 +7282,7 @@ class ConfirmPermissionsBroadening(
         stack_outputs_map: "StackOutputsMap",
         before_self_mutation: typing.Optional[builtins.bool] = None,
         code_build_defaults: typing.Optional[typing.Union["CodeBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        fallback_artifact: typing.Optional["_Artifact_0cb05964"] = None,
+        fallback_artifact: typing.Optional["_aws_codepipeline_decee548.Artifact"] = None,
         variables_namespace: typing.Optional[builtins.str] = None,
     ) -> "CodePipelineActionFactoryResult":
         '''Create the desired Action and add it to the pipeline.
@@ -7295,7 +7300,7 @@ class ConfirmPermissionsBroadening(
         :param variables_namespace: If this step is producing outputs, the variables namespace assigned to it. Pass this on to the Action you are creating. Default: - Step doesn't produce any outputs
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa29dc3adc01937291bcdc656033c2cb644deb0651cba6f7b8de5f368bd482e0)
+            type_hints = cached_type_hints(_typecheckingstub__aa29dc3adc01937291bcdc656033c2cb644deb0651cba6f7b8de5f368bd482e0)
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         options = ProduceActionOptions(
             action_name=action_name,
@@ -7367,7 +7372,7 @@ class FileSet(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.FileSet"
         :param producer: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fb5c48bf8a3ffb83c6da98bbcea632055bb6515645a2fb39340bc9cb6e03c09)
+            type_hints = cached_type_hints(_typecheckingstub__4fb5c48bf8a3ffb83c6da98bbcea632055bb6515645a2fb39340bc9cb6e03c09)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument producer", value=producer, expected_type=type_hints["producer"])
         jsii.create(self.__class__, self, [id, producer])
@@ -7381,7 +7386,7 @@ class FileSet(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.pipelines.FileSet"
         :param producer: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ba363185b6eb39cdcda445644f226596b25b652ee4119d4eefa0d240136413d)
+            type_hints = cached_type_hints(_typecheckingstub__9ba363185b6eb39cdcda445644f226596b25b652ee4119d4eefa0d240136413d)
             check_type(argname="argument producer", value=producer, expected_type=type_hints["producer"])
         return typing.cast(None, jsii.invoke(self, "producedBy", [producer]))
 
@@ -7457,7 +7462,7 @@ class ManualApprovalStep(
         id: builtins.str,
         *,
         comment: typing.Optional[builtins.str] = None,
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
         review_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -7467,7 +7472,7 @@ class ManualApprovalStep(
         :param review_url: The URL for review associated with this manual approval. Default: - No URL
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1bf3ac4525b2831190c490c38deb9452f7e662bb66f5cb63ba43cdac1db0dc4)
+            type_hints = cached_type_hints(_typecheckingstub__e1bf3ac4525b2831190c490c38deb9452f7e662bb66f5cb63ba43cdac1db0dc4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ManualApprovalStepProps(
             comment=comment,
@@ -7488,12 +7493,12 @@ class ManualApprovalStep(
 
     @builtins.property
     @jsii.member(jsii_name="notificationTopic")
-    def notification_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def notification_topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''Optional SNS topic to send notifications.
 
         :default: - No notifications
         '''
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], jsii.get(self, "notificationTopic"))
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], jsii.get(self, "notificationTopic"))
 
     @builtins.property
     @jsii.member(jsii_name="reviewUrl")
@@ -7549,7 +7554,7 @@ class ShellStep(
         commands: typing.Sequence[builtins.str],
         additional_inputs: typing.Optional[typing.Mapping[builtins.str, "IFileSetProducer"]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]] = None,
+        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]] = None,
         input: typing.Optional["IFileSetProducer"] = None,
         install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
         primary_output_directory: typing.Optional[builtins.str] = None,
@@ -7565,7 +7570,7 @@ class ShellStep(
         :param primary_output_directory: The directory that will contain the primary output fileset. After running the script, the contents of the given directory will be treated as the primary output of this Step. Default: - No primary output
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a785abe4e7e83733166c7ba3cf01e6c6113101a74eff2d69d5881d6938c75525)
+            type_hints = cached_type_hints(_typecheckingstub__a785abe4e7e83733166c7ba3cf01e6c6113101a74eff2d69d5881d6938c75525)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ShellStepProps(
             commands=commands,
@@ -7593,7 +7598,7 @@ class ShellStep(
         :param directory: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd1965487f88c208c06b31eeb633d22b994394aedb266876224cba07f470f523)
+            type_hints = cached_type_hints(_typecheckingstub__fd1965487f88c208c06b31eeb633d22b994394aedb266876224cba07f470f523)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
         return typing.cast("FileSet", jsii.invoke(self, "addOutputDirectory", [directory]))
 
@@ -7609,7 +7614,7 @@ class ShellStep(
         :param directory: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d5ab0590ee60f9eff918af46389650a105120da24b50f6951d4ec1c317dd5e4)
+            type_hints = cached_type_hints(_typecheckingstub__3d5ab0590ee60f9eff918af46389650a105120da24b50f6951d4ec1c317dd5e4)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
         return typing.cast("FileSet", jsii.invoke(self, "primaryOutputDirectory", [directory]))
 
@@ -7730,23 +7735,23 @@ class CodeBuildStep(
         self,
         id: builtins.str,
         *,
-        action_role: typing.Optional["_IRole_235f5d8e"] = None,
-        build_environment: typing.Optional[typing.Union["_BuildEnvironment_4ee6fb51", typing.Dict[builtins.str, typing.Any]]] = None,
-        cache: typing.Optional["_Cache_ed12d453"] = None,
-        file_system_locations: typing.Optional[typing.Sequence["_IFileSystemLocation_acb87263"]] = None,
-        logging: typing.Optional[typing.Union["_LoggingOptions_31668710", typing.Dict[builtins.str, typing.Any]]] = None,
-        partial_build_spec: typing.Optional["_BuildSpec_4961ea5b"] = None,
+        action_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        build_environment: typing.Optional[typing.Union["_aws_codebuild_492434fc.BuildEnvironment", typing.Dict[builtins.str, typing.Any]]] = None,
+        cache: typing.Optional["_aws_codebuild_492434fc.Cache"] = None,
+        file_system_locations: typing.Optional[typing.Sequence["_aws_codebuild_492434fc.IFileSystemLocation"]] = None,
+        logging: typing.Optional[typing.Union["_aws_codebuild_492434fc.LoggingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        partial_build_spec: typing.Optional["_aws_codebuild_492434fc.BuildSpec"] = None,
         project_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        role_policy_statements: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        role_policy_statements: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.PolicyStatement"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         commands: typing.Sequence[builtins.str],
         additional_inputs: typing.Optional[typing.Mapping[builtins.str, "IFileSetProducer"]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_CfnOutput_7273f911"]] = None,
+        env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.CfnOutput"]] = None,
         input: typing.Optional["IFileSetProducer"] = None,
         install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
         primary_output_directory: typing.Optional[builtins.str] = None,
@@ -7775,7 +7780,7 @@ class CodeBuildStep(
         :param primary_output_directory: The directory that will contain the primary output fileset. After running the script, the contents of the given directory will be treated as the primary output of this Step. Default: - No primary output
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f99ccfa38ab852946e7a199c4d87afa67da2d007eac373a7c3b7028da4fca8ff)
+            type_hints = cached_type_hints(_typecheckingstub__f99ccfa38ab852946e7a199c4d87afa67da2d007eac373a7c3b7028da4fca8ff)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CodeBuildStepProps(
             action_role=action_role,
@@ -7829,57 +7834,59 @@ class CodeBuildStep(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba510e4eda683498de32392bbad670fabf1cbc35027297fd070669464ed607cd)
+            type_hints = cached_type_hints(_typecheckingstub__ba510e4eda683498de32392bbad670fabf1cbc35027297fd070669464ed607cd)
             check_type(argname="argument variable_name", value=variable_name, expected_type=type_hints["variable_name"])
         return typing.cast(builtins.str, jsii.invoke(self, "exportedVariable", [variable_name]))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The CodeBuild Project's principal.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="project")
-    def project(self) -> "_IProject_aafae30a":
+    def project(self) -> "_aws_codebuild_492434fc.IProject":
         '''CodeBuild Project generated for the pipeline.
 
         Will only be available after the pipeline has been built.
         '''
-        return typing.cast("_IProject_aafae30a", jsii.get(self, "project"))
+        return typing.cast("_aws_codebuild_492434fc.IProject", jsii.get(self, "project"))
 
     @builtins.property
     @jsii.member(jsii_name="actionRole")
-    def action_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def action_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Custom execution role to be used for the Code Build Action.
 
         :default: - A role is automatically created
         '''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "actionRole"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "actionRole"))
 
     @builtins.property
     @jsii.member(jsii_name="buildEnvironment")
-    def build_environment(self) -> typing.Optional["_BuildEnvironment_4ee6fb51"]:
+    def build_environment(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"]:
         '''Build environment.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional["_BuildEnvironment_4ee6fb51"], jsii.get(self, "buildEnvironment"))
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildEnvironment"], jsii.get(self, "buildEnvironment"))
 
     @builtins.property
     @jsii.member(jsii_name="cache")
-    def cache(self) -> typing.Optional["_Cache_ed12d453"]:
+    def cache(self) -> typing.Optional["_aws_codebuild_492434fc.Cache"]:
         '''Caching strategy to use.
 
         :default: - No cache
         '''
-        return typing.cast(typing.Optional["_Cache_ed12d453"], jsii.get(self, "cache"))
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.Cache"], jsii.get(self, "cache"))
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemLocations")
     def file_system_locations(
         self,
-    ) -> typing.Optional[typing.List["_IFileSystemLocation_acb87263"]]:
+    ) -> typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]]:
         '''ProjectFileSystemLocation objects for CodeBuild build projects.
 
         A ProjectFileSystemLocation object specifies the identifier, location, mountOptions, mountPoint,
@@ -7887,29 +7894,31 @@ class CodeBuildStep(
 
         :default: - no file system locations
         '''
-        return typing.cast(typing.Optional[typing.List["_IFileSystemLocation_acb87263"]], jsii.get(self, "fileSystemLocations"))
+        return typing.cast(typing.Optional[typing.List["_aws_codebuild_492434fc.IFileSystemLocation"]], jsii.get(self, "fileSystemLocations"))
 
     @builtins.property
     @jsii.member(jsii_name="logging")
-    def logging(self) -> typing.Optional["_LoggingOptions_31668710"]:
+    def logging(self) -> typing.Optional["_aws_codebuild_492434fc.LoggingOptions"]:
         '''Information about logs for CodeBuild projects.
 
         A CodeBuilde project can create logs in Amazon CloudWatch Logs, an S3 bucket, or both.
 
         :default: - no log configuration is set
         '''
-        return typing.cast(typing.Optional["_LoggingOptions_31668710"], jsii.get(self, "logging"))
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.LoggingOptions"], jsii.get(self, "logging"))
 
     @builtins.property
     @jsii.member(jsii_name="partialBuildSpec")
-    def partial_build_spec(self) -> typing.Optional["_BuildSpec_4961ea5b"]:
+    def partial_build_spec(
+        self,
+    ) -> typing.Optional["_aws_codebuild_492434fc.BuildSpec"]:
         '''Additional configuration that can only be configured via BuildSpec.
 
         Contains exported variables
 
         :default: - Contains the exported variables
         '''
-        return typing.cast(typing.Optional["_BuildSpec_4961ea5b"], jsii.get(self, "partialBuildSpec"))
+        return typing.cast(typing.Optional["_aws_codebuild_492434fc.BuildSpec"], jsii.get(self, "partialBuildSpec"))
 
     @builtins.property
     @jsii.member(jsii_name="projectName")
@@ -7922,47 +7931,47 @@ class CodeBuildStep(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Custom execution role to be used for the CodeBuild project.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="rolePolicyStatements")
     def role_policy_statements(
         self,
-    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
         '''Policy statements to add to role used during the synth.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], jsii.get(self, "rolePolicyStatements"))
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]], jsii.get(self, "rolePolicyStatements"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroups")
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Which security group to associate with the script's project network interfaces.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], jsii.get(self, "securityGroups"))
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], jsii.get(self, "securityGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="subnetSelection")
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets to use.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], jsii.get(self, "subnetSelection"))
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], jsii.get(self, "subnetSelection"))
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of minutes after which AWS CodeBuild stops the build if it's not complete.
 
         For valid values, see the timeoutInMinutes field in the AWS
@@ -7970,16 +7979,16 @@ class CodeBuildStep(
 
         :default: Duration.hours(1)
         '''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "timeout"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "timeout"))
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where to execute the SimpleSynth.
 
         :default: - No value specified at construction time, use defaults
         '''
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], jsii.get(self, "vpc"))
 
 
 class CodePipelineFileSet(
@@ -8012,13 +8021,16 @@ class CodePipelineFileSet(
 
     @jsii.member(jsii_name="fromArtifact")
     @builtins.classmethod
-    def from_artifact(cls, artifact: "_Artifact_0cb05964") -> "CodePipelineFileSet":
+    def from_artifact(
+        cls,
+        artifact: "_aws_codepipeline_decee548.Artifact",
+    ) -> "CodePipelineFileSet":
         '''Turn a CodePipeline Artifact into a FileSet.
 
         :param artifact: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4050a951f11df379d3f03171015f338d23cc9145a854d86f45352dbc03d023f)
+            type_hints = cached_type_hints(_typecheckingstub__a4050a951f11df379d3f03171015f338d23cc9145a854d86f45352dbc03d023f)
             check_type(argname="argument artifact", value=artifact, expected_type=type_hints["artifact"])
         return typing.cast("CodePipelineFileSet", jsii.sinvoke(cls, "fromArtifact", [artifact]))
 
@@ -8090,16 +8102,16 @@ def _typecheckingstub__c25e392fc366b5e854a4d6ec5bf897ab0e51d041c4eae3089a12ab364
 
 def _typecheckingstub__eb14d0bc2bb7087520a3769dfb10a8c874fa4227208104c933f686486beec01c(
     *,
-    build_environment: typing.Optional[typing.Union[_BuildEnvironment_4ee6fb51, typing.Dict[builtins.str, typing.Any]]] = None,
-    cache: typing.Optional[_Cache_ed12d453] = None,
-    file_system_locations: typing.Optional[typing.Sequence[_IFileSystemLocation_acb87263]] = None,
-    logging: typing.Optional[typing.Union[_LoggingOptions_31668710, typing.Dict[builtins.str, typing.Any]]] = None,
-    partial_build_spec: typing.Optional[_BuildSpec_4961ea5b] = None,
-    role_policy: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    build_environment: typing.Optional[typing.Union[_aws_codebuild_492434fc.BuildEnvironment, typing.Dict[builtins.str, typing.Any]]] = None,
+    cache: typing.Optional[_aws_codebuild_492434fc.Cache] = None,
+    file_system_locations: typing.Optional[typing.Sequence[_aws_codebuild_492434fc.IFileSystemLocation]] = None,
+    logging: typing.Optional[typing.Union[_aws_codebuild_492434fc.LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    partial_build_spec: typing.Optional[_aws_codebuild_492434fc.BuildSpec] = None,
+    role_policy: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.PolicyStatement]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8108,8 +8120,8 @@ def _typecheckingstub__e17ff0fc6dc5e2614664c26c6bd947f6c7d12e7871a3cb4f169cdb8ab
     *,
     action_name: typing.Optional[builtins.str] = None,
     code_build_clone_output: typing.Optional[builtins.bool] = None,
-    event_role: typing.Optional[_IRole_235f5d8e] = None,
-    trigger: typing.Optional[_CodeCommitTrigger_e1096919] = None,
+    event_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8117,7 +8129,7 @@ def _typecheckingstub__e17ff0fc6dc5e2614664c26c6bd947f6c7d12e7871a3cb4f169cdb8ab
 def _typecheckingstub__9624d5022538eedc98a469f78de5916fac4ee13ff0d2f5f9a5e9d447ce9f909f(
     *,
     run_orders_consumed: jsii.Number,
-    project: typing.Optional[_IProject_aafae30a] = None,
+    project: typing.Optional[_aws_codebuild_492434fc.IProject] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8125,23 +8137,23 @@ def _typecheckingstub__9624d5022538eedc98a469f78de5916fac4ee13ff0d2f5f9a5e9d447c
 def _typecheckingstub__c46bc21ca63efb27c935c31017ebbc8c85b3b93ae1798e54892dd3eae41d99aa(
     *,
     synth: IFileSetProducer,
-    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    artifact_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     asset_publishing_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cdk_assets_cli_version: typing.Optional[builtins.str] = None,
     cli_version: typing.Optional[builtins.str] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    code_pipeline: typing.Optional[_Pipeline_ea38de84] = None,
+    code_pipeline: typing.Optional[_aws_codepipeline_decee548.Pipeline] = None,
     cross_account_keys: typing.Optional[builtins.bool] = None,
-    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _aws_s3_01158f40.IBucket]] = None,
     docker_credentials: typing.Optional[typing.Sequence[DockerCredential]] = None,
     docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
     docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
     enable_key_rotation: typing.Optional[builtins.bool] = None,
     pipeline_name: typing.Optional[builtins.str] = None,
-    pipeline_type: typing.Optional[_PipelineType_b52f35be] = None,
+    pipeline_type: typing.Optional[_aws_codepipeline_decee548.PipelineType] = None,
     publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
     reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     self_mutation: typing.Optional[builtins.bool] = None,
     self_mutation_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     synth_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8169,9 +8181,9 @@ def _typecheckingstub__b4796d36763a8311889ba388377df25c49f4d460f74af5013bbfd7374
 
 def _typecheckingstub__f7c646af2493265594a1cf787d9e1152d57f57cc81c6c36614a8c7b6cd36d441(
     registry_domain: builtins.str,
-    secret: _ISecret_6e020e6a,
+    secret: _aws_secretsmanager_64b8a1c5.ISecret,
     *,
-    assume_role: typing.Optional[_IRole_235f5d8e] = None,
+    assume_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     secret_password_field: typing.Optional[builtins.str] = None,
     secret_username_field: typing.Optional[builtins.str] = None,
     usages: typing.Optional[typing.Sequence[DockerCredentialUsage]] = None,
@@ -8180,9 +8192,9 @@ def _typecheckingstub__f7c646af2493265594a1cf787d9e1152d57f57cc81c6c36614a8c7b6c
     pass
 
 def _typecheckingstub__9e01732750f5b98b4a7cb4b141a1ef2d0c5e2042c8754d0cb0f829f0a2219577(
-    secret: _ISecret_6e020e6a,
+    secret: _aws_secretsmanager_64b8a1c5.ISecret,
     *,
-    assume_role: typing.Optional[_IRole_235f5d8e] = None,
+    assume_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     secret_password_field: typing.Optional[builtins.str] = None,
     secret_username_field: typing.Optional[builtins.str] = None,
     usages: typing.Optional[typing.Sequence[DockerCredentialUsage]] = None,
@@ -8191,16 +8203,16 @@ def _typecheckingstub__9e01732750f5b98b4a7cb4b141a1ef2d0c5e2042c8754d0cb0f829f0a
     pass
 
 def _typecheckingstub__44075e2f8f9f423076a4b55e04677bdcd7ac2a9a1018ab4dc8116173bd7e1cf5(
-    repositories: typing.Sequence[_IRepository_e6004aa6],
+    repositories: typing.Sequence[_aws_ecr_7549cade.IRepository],
     *,
-    assume_role: typing.Optional[_IRole_235f5d8e] = None,
+    assume_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     usages: typing.Optional[typing.Sequence[DockerCredentialUsage]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__554247a15294fead54d7e6a1adaddf130cd8f655b45d31098bee6ef197e7f6b6(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     usage: DockerCredentialUsage,
 ) -> None:
     """Type checking stubs"""
@@ -8216,7 +8228,7 @@ def _typecheckingstub__833a04c7f2e7f664e66a7534f73736d4c5911188c503aaf662baf8c6f
 
 def _typecheckingstub__b0b8aaeef2e17487ef54d1992c6a3a7e2349b4c4a5d93c775a043f2db02c5287(
     *,
-    assume_role: typing.Optional[_IRole_235f5d8e] = None,
+    assume_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     usages: typing.Optional[typing.Sequence[DockerCredentialUsage]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8224,7 +8236,7 @@ def _typecheckingstub__b0b8aaeef2e17487ef54d1992c6a3a7e2349b4c4a5d93c775a043f2db
 
 def _typecheckingstub__c359b9b78870cd0768aec95eba517b31efce3c0139487e9574671e537d4d9c8a(
     *,
-    assume_role: typing.Optional[_IRole_235f5d8e] = None,
+    assume_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     secret_password_field: typing.Optional[builtins.str] = None,
     secret_username_field: typing.Optional[builtins.str] = None,
     usages: typing.Optional[typing.Sequence[DockerCredentialUsage]] = None,
@@ -8243,14 +8255,14 @@ def _typecheckingstub__4cf7e83b5d5ed6c40f4a63f11e08a6255275802428d4153f786e83b34
 def _typecheckingstub__92035a41f512b5c8f05e89aaf8eff67c15b38e88a96495de7594813674d59c85(
     *,
     action_name: typing.Optional[builtins.str] = None,
-    authentication: typing.Optional[_SecretValue_3dd0ddae] = None,
-    trigger: typing.Optional[_GitHubTrigger_0029a9bb] = None,
+    authentication: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.GitHubTrigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758a61641f(
-    stage: _IStage_415fc571,
+    stage: _aws_codepipeline_decee548.IStage,
     *,
     action_name: builtins.str,
     artifacts: ArtifactMap,
@@ -8260,7 +8272,7 @@ def _typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758
     stack_outputs_map: StackOutputsMap,
     before_self_mutation: typing.Optional[builtins.bool] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    fallback_artifact: typing.Optional[_Artifact_0cb05964] = None,
+    fallback_artifact: typing.Optional[_aws_codepipeline_decee548.Artifact] = None,
     variables_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8269,7 +8281,7 @@ def _typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758
 def _typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bde8793ed(
     *,
     comment: typing.Optional[builtins.str] = None,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
     review_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8277,8 +8289,8 @@ def _typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bd
 
 def _typecheckingstub__3a493d3747f3c71b362bc21e20cdcb176192a8ddabde715a88ac4943a53a03e8(
     *,
-    stage: _Stage_7df8511b,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    stage: _aws_cdk_0cae9daa.Stage,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8299,7 +8311,7 @@ def _typecheckingstub__f67cf9a317d65ff87cbc38b2a72ad26c2ee3899fb8a0b5068ccdc87b2
     pass
 
 def _typecheckingstub__2cfb2052bce20c2fa202ea358095de4d8c0da42de12b0481096f461291c33ee4(
-    stage: _Stage_7df8511b,
+    stage: _aws_cdk_0cae9daa.Stage,
     *,
     post: typing.Optional[typing.Sequence[Step]] = None,
     pre: typing.Optional[typing.Sequence[Step]] = None,
@@ -8334,7 +8346,7 @@ def _typecheckingstub__93aef9a478cf51d0a19344db9575ea0a8f1c4048021aae6ecbd679f02
     stack_outputs_map: StackOutputsMap,
     before_self_mutation: typing.Optional[builtins.bool] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    fallback_artifact: typing.Optional[_Artifact_0cb05964] = None,
+    fallback_artifact: typing.Optional[_aws_codepipeline_decee548.Artifact] = None,
     variables_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8343,8 +8355,8 @@ def _typecheckingstub__93aef9a478cf51d0a19344db9575ea0a8f1c4048021aae6ecbd679f02
 def _typecheckingstub__cae2e2afdaad184f628a943e938bcc586f2ec9060bde2ab497f96efaf7c265a7(
     *,
     action_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    trigger: typing.Optional[_S3Trigger_3ab49ad8] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.S3Trigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8354,7 +8366,7 @@ def _typecheckingstub__672600085b4c1f54d7e497f605a0be2945f1a2759aaf8632197707da6
     commands: typing.Sequence[builtins.str],
     additional_inputs: typing.Optional[typing.Mapping[builtins.str, IFileSetProducer]] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _CfnOutput_7273f911]] = None,
+    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.CfnOutput]] = None,
     input: typing.Optional[IFileSetProducer] = None,
     install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
     primary_output_directory: typing.Optional[builtins.str] = None,
@@ -8376,7 +8388,7 @@ def _typecheckingstub__0b53846c07332af34759787d6881e8bb143a9ccedff4818aa79091268
     pass
 
 def _typecheckingstub__40e4b846e8d3dadc7378b689c2dab6fb92e7f2100aef448009c9ec434fe88e2e(
-    stack_artifact: _CloudFormationStackArtifact_97533dc8,
+    stack_artifact: _cx_api_57db5121.CloudFormationStackArtifact,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8413,7 +8425,7 @@ def _typecheckingstub__ee959d9efa16dfdb6813c606cf8d87ccf20db0aa7716242deca0a8be2
     pass
 
 def _typecheckingstub__3d8745bc64df0b3aa6e7dfd1168c6139f2c024dac1d882f0d4af23b942b5ec34(
-    output: _CfnOutput_7273f911,
+    output: _aws_cdk_0cae9daa.CfnOutput,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8438,7 +8450,7 @@ def _typecheckingstub__6208cae78a5089ece754de6bca07ee8e0f93d368525e449cb62ab9aa0
 
 def _typecheckingstub__aca5d40f3edb2136fa92aadc52d7d0d639af5efa3c3907aa21900a78546472e9(
     *,
-    stack: _Stack_2866e57f,
+    stack: _aws_cdk_0cae9daa.Stack,
     change_set: typing.Optional[typing.Sequence[Step]] = None,
     post: typing.Optional[typing.Sequence[Step]] = None,
     pre: typing.Optional[typing.Sequence[Step]] = None,
@@ -8447,7 +8459,7 @@ def _typecheckingstub__aca5d40f3edb2136fa92aadc52d7d0d639af5efa3c3907aa21900a785
     pass
 
 def _typecheckingstub__a37efd4695086f03c4f48796707d94ae7caf71cecf52f15940e3a454ddce14cf(
-    stage: _Stage_7df8511b,
+    stage: _aws_cdk_0cae9daa.Stage,
     *,
     post: typing.Optional[typing.Sequence[Step]] = None,
     pre: typing.Optional[typing.Sequence[Step]] = None,
@@ -8537,7 +8549,7 @@ def _typecheckingstub__66516b0f8ad368fac42e7dcdd790b28e1dfb19cb9b17305cf356abd5a
     pass
 
 def _typecheckingstub__7590cd60f1f21f8e0847610459550f1b62de25d7e9041a32e959d55e075a7f62(
-    stage: _Stage_7df8511b,
+    stage: _aws_cdk_0cae9daa.Stage,
     *,
     post: typing.Optional[typing.Sequence[Step]] = None,
     pre: typing.Optional[typing.Sequence[Step]] = None,
@@ -8567,23 +8579,23 @@ def _typecheckingstub__d0ea003fb723e489b2aa741146d04bb6e1e31bf776d6e79aadf14deb5
     commands: typing.Sequence[builtins.str],
     additional_inputs: typing.Optional[typing.Mapping[builtins.str, IFileSetProducer]] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _CfnOutput_7273f911]] = None,
+    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.CfnOutput]] = None,
     input: typing.Optional[IFileSetProducer] = None,
     install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
     primary_output_directory: typing.Optional[builtins.str] = None,
-    action_role: typing.Optional[_IRole_235f5d8e] = None,
-    build_environment: typing.Optional[typing.Union[_BuildEnvironment_4ee6fb51, typing.Dict[builtins.str, typing.Any]]] = None,
-    cache: typing.Optional[_Cache_ed12d453] = None,
-    file_system_locations: typing.Optional[typing.Sequence[_IFileSystemLocation_acb87263]] = None,
-    logging: typing.Optional[typing.Union[_LoggingOptions_31668710, typing.Dict[builtins.str, typing.Any]]] = None,
-    partial_build_spec: typing.Optional[_BuildSpec_4961ea5b] = None,
+    action_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    build_environment: typing.Optional[typing.Union[_aws_codebuild_492434fc.BuildEnvironment, typing.Dict[builtins.str, typing.Any]]] = None,
+    cache: typing.Optional[_aws_codebuild_492434fc.Cache] = None,
+    file_system_locations: typing.Optional[typing.Sequence[_aws_codebuild_492434fc.IFileSystemLocation]] = None,
+    logging: typing.Optional[typing.Union[_aws_codebuild_492434fc.LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    partial_build_spec: typing.Optional[_aws_codebuild_492434fc.BuildSpec] = None,
     project_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    role_policy_statements: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    role_policy_statements: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.PolicyStatement]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8593,23 +8605,23 @@ def _typecheckingstub__7b4b4a0bcbd5fab3e4b78aa07ff9504469ae96c16799604ca3345bcb9
     id: builtins.str,
     *,
     synth: IFileSetProducer,
-    artifact_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    artifact_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     asset_publishing_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cdk_assets_cli_version: typing.Optional[builtins.str] = None,
     cli_version: typing.Optional[builtins.str] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    code_pipeline: typing.Optional[_Pipeline_ea38de84] = None,
+    code_pipeline: typing.Optional[_aws_codepipeline_decee548.Pipeline] = None,
     cross_account_keys: typing.Optional[builtins.bool] = None,
-    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _IBucket_42e086fd]] = None,
+    cross_region_replication_buckets: typing.Optional[typing.Mapping[builtins.str, _aws_s3_01158f40.IBucket]] = None,
     docker_credentials: typing.Optional[typing.Sequence[DockerCredential]] = None,
     docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
     docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
     enable_key_rotation: typing.Optional[builtins.bool] = None,
     pipeline_name: typing.Optional[builtins.str] = None,
-    pipeline_type: typing.Optional[_PipelineType_b52f35be] = None,
+    pipeline_type: typing.Optional[_aws_codepipeline_decee548.PipelineType] = None,
     publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
     reuse_cross_region_support_stacks: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     self_mutation: typing.Optional[builtins.bool] = None,
     self_mutation_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     synth_code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8626,13 +8638,13 @@ def _typecheckingstub__62608213b8ca550c4cb784e6cfaa384d1ded1aad493897b1e7801849d
     pass
 
 def _typecheckingstub__f25220d63f26c49b4c196a3d31d631ccf312fd1e469b49c9f423dda4bedc6d69(
-    repository: _IRepository_e7c062a1,
+    repository: _aws_codecommit_2f988517.IRepository,
     branch: builtins.str,
     *,
     action_name: typing.Optional[builtins.str] = None,
     code_build_clone_output: typing.Optional[builtins.bool] = None,
-    event_role: typing.Optional[_IRole_235f5d8e] = None,
-    trigger: typing.Optional[_CodeCommitTrigger_e1096919] = None,
+    event_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.CodeCommitTrigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8650,7 +8662,7 @@ def _typecheckingstub__61f9c81f3f2616f051720bd0c8209831bc0b7aa25f736b93cc369f3df
     pass
 
 def _typecheckingstub__8b33e9fc6a0d43b73cabe2ee725c5ebddcca32e8eb1b382e1e11a96004696b07(
-    repository: _IRepositoryRef_f3b81117,
+    repository: _aws_ecr_984bcfb2.IRepositoryRef,
     *,
     action_name: typing.Optional[builtins.str] = None,
     image_tag: typing.Optional[builtins.str] = None,
@@ -8663,25 +8675,25 @@ def _typecheckingstub__0dd7ae717610cf37a89d099e605a91936a55ac698e5cf82446ff15025
     branch: builtins.str,
     *,
     action_name: typing.Optional[builtins.str] = None,
-    authentication: typing.Optional[_SecretValue_3dd0ddae] = None,
-    trigger: typing.Optional[_GitHubTrigger_0029a9bb] = None,
+    authentication: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.GitHubTrigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9e839aa405e65eab030730a9018a88432d9e7ec389336d4a4ba152a629311f25(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     object_key: builtins.str,
     *,
     action_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    trigger: typing.Optional[_S3Trigger_3ab49ad8] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    trigger: typing.Optional[_aws_codepipeline_actions_eff01f7c.S3Trigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__17abe85d134a8dfe23ca785d7db647ce27d0bfe5c838b2b3d423bad11ec9023f(
-    stage: _IStage_415fc571,
+    stage: _aws_codepipeline_decee548.IStage,
     *,
     action_name: builtins.str,
     artifacts: ArtifactMap,
@@ -8691,7 +8703,7 @@ def _typecheckingstub__17abe85d134a8dfe23ca785d7db647ce27d0bfe5c838b2b3d423bad11
     stack_outputs_map: StackOutputsMap,
     before_self_mutation: typing.Optional[builtins.bool] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    fallback_artifact: typing.Optional[_Artifact_0cb05964] = None,
+    fallback_artifact: typing.Optional[_aws_codepipeline_decee548.Artifact] = None,
     variables_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8704,7 +8716,7 @@ def _typecheckingstub__efac8cbc7f0ca706a3968547b0a9c6e6ca8f0902b5d725b8bd9e1de07
     pass
 
 def _typecheckingstub__350aa368c32d7a50a5693f64b5349e88b87a9978b26c084eb53efe0c9997aac8(
-    output: _Artifact_0cb05964,
+    output: _aws_codepipeline_decee548.Artifact,
     action_name: builtins.str,
     run_order: jsii.Number,
     variables_namespace: typing.Optional[builtins.str] = None,
@@ -8715,14 +8727,14 @@ def _typecheckingstub__350aa368c32d7a50a5693f64b5349e88b87a9978b26c084eb53efe0c9
 def _typecheckingstub__74f8758700f34f1f08997282e6c9eeb3ec7f0a892a166ab9cb89261bd2c3400e(
     id: builtins.str,
     *,
-    stage: _Stage_7df8511b,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    stage: _aws_cdk_0cae9daa.Stage,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aa29dc3adc01937291bcdc656033c2cb644deb0651cba6f7b8de5f368bd482e0(
-    stage: _IStage_415fc571,
+    stage: _aws_codepipeline_decee548.IStage,
     *,
     action_name: builtins.str,
     artifacts: ArtifactMap,
@@ -8732,7 +8744,7 @@ def _typecheckingstub__aa29dc3adc01937291bcdc656033c2cb644deb0651cba6f7b8de5f368
     stack_outputs_map: StackOutputsMap,
     before_self_mutation: typing.Optional[builtins.bool] = None,
     code_build_defaults: typing.Optional[typing.Union[CodeBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    fallback_artifact: typing.Optional[_Artifact_0cb05964] = None,
+    fallback_artifact: typing.Optional[_aws_codepipeline_decee548.Artifact] = None,
     variables_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8755,7 +8767,7 @@ def _typecheckingstub__e1bf3ac4525b2831190c490c38deb9452f7e662bb66f5cb63ba43cdac
     id: builtins.str,
     *,
     comment: typing.Optional[builtins.str] = None,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
     review_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8767,7 +8779,7 @@ def _typecheckingstub__a785abe4e7e83733166c7ba3cf01e6c6113101a74eff2d69d5881d693
     commands: typing.Sequence[builtins.str],
     additional_inputs: typing.Optional[typing.Mapping[builtins.str, IFileSetProducer]] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _CfnOutput_7273f911]] = None,
+    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.CfnOutput]] = None,
     input: typing.Optional[IFileSetProducer] = None,
     install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
     primary_output_directory: typing.Optional[builtins.str] = None,
@@ -8790,23 +8802,23 @@ def _typecheckingstub__3d5ab0590ee60f9eff918af46389650a105120da24b50f6951d4ec1c3
 def _typecheckingstub__f99ccfa38ab852946e7a199c4d87afa67da2d007eac373a7c3b7028da4fca8ff(
     id: builtins.str,
     *,
-    action_role: typing.Optional[_IRole_235f5d8e] = None,
-    build_environment: typing.Optional[typing.Union[_BuildEnvironment_4ee6fb51, typing.Dict[builtins.str, typing.Any]]] = None,
-    cache: typing.Optional[_Cache_ed12d453] = None,
-    file_system_locations: typing.Optional[typing.Sequence[_IFileSystemLocation_acb87263]] = None,
-    logging: typing.Optional[typing.Union[_LoggingOptions_31668710, typing.Dict[builtins.str, typing.Any]]] = None,
-    partial_build_spec: typing.Optional[_BuildSpec_4961ea5b] = None,
+    action_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    build_environment: typing.Optional[typing.Union[_aws_codebuild_492434fc.BuildEnvironment, typing.Dict[builtins.str, typing.Any]]] = None,
+    cache: typing.Optional[_aws_codebuild_492434fc.Cache] = None,
+    file_system_locations: typing.Optional[typing.Sequence[_aws_codebuild_492434fc.IFileSystemLocation]] = None,
+    logging: typing.Optional[typing.Union[_aws_codebuild_492434fc.LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    partial_build_spec: typing.Optional[_aws_codebuild_492434fc.BuildSpec] = None,
     project_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    role_policy_statements: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    role_policy_statements: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.PolicyStatement]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     commands: typing.Sequence[builtins.str],
     additional_inputs: typing.Optional[typing.Mapping[builtins.str, IFileSetProducer]] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _CfnOutput_7273f911]] = None,
+    env_from_cfn_outputs: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.CfnOutput]] = None,
     input: typing.Optional[IFileSetProducer] = None,
     install_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
     primary_output_directory: typing.Optional[builtins.str] = None,
@@ -8821,7 +8833,7 @@ def _typecheckingstub__ba510e4eda683498de32392bbad670fabf1cbc35027297fd070669464
     pass
 
 def _typecheckingstub__a4050a951f11df379d3f03171015f338d23cc9145a854d86f45352dbc03d023f(
-    artifact: _Artifact_0cb05964,
+    artifact: _aws_codepipeline_decee548.Artifact,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -249,6 +249,7 @@ def _render_active_rollout_detail() -> None:
     ):
         H3("Rollout Status", css_class="text-sm mb-1")
         _pivoted_row("Version", STATE.rollout_summary.rc_version)
+        _pivoted_row("State", STATE.rollout_summary.state_display)
         _pivoted_row("Autopilot", STATE.rollout_summary.autopilot)
         _pivoted_row("Updated", STATE.rollout_summary.updated_at)
         # Connector-wide gated-eligible actor count (the backend's
@@ -260,8 +261,45 @@ def _render_active_rollout_detail() -> None:
         with ForEach(STATE.rollout_summary.tier_cards) as card:
             _render_tier_card(card)
 
+        # Needs-review cue (amber = settling/paused, red = errored)
+        _render_needs_review_banner()
+
         # Action buttons
         _render_rollout_action_buttons()
+
+
+_REVIEW_BANNER_BASE_STYLE: dict[str, str] = {
+    "padding": "0.5rem 0.625rem",
+    "borderRadius": "0.375rem",
+    "fontSize": "0.75rem",
+    "marginTop": "0.5rem",
+    "border": "1px solid",
+}
+
+
+def _render_needs_review_banner() -> None:
+    """Amber/red banner shown when the rollout is in a state needing review."""
+    with If(STATE.rollout_summary.needs_review):
+        with If(STATE.rollout_summary.needs_review_severity.__eq__("red")):
+            Text(
+                content=STATE.rollout_summary.needs_review_reason,
+                style={
+                    **_REVIEW_BANNER_BASE_STYLE,
+                    "backgroundColor": "rgba(180,35,24,0.15)",
+                    "borderColor": "rgba(180,35,24,0.5)",
+                    "color": "#fca5a5",
+                },
+            )
+        with If(STATE.rollout_summary.needs_review_severity.__eq__("amber")):
+            Text(
+                content=STATE.rollout_summary.needs_review_reason,
+                style={
+                    **_REVIEW_BANNER_BASE_STYLE,
+                    "backgroundColor": "rgba(217,119,6,0.15)",
+                    "borderColor": "rgba(217,119,6,0.5)",
+                    "color": "#fcd34d",
+                },
+            )
 
 
 def _render_rollout_action_buttons() -> None:
@@ -314,6 +352,20 @@ def _render_rollout_action_buttons() -> None:
                     SetState("rollout_modal_open", True),
                 ],
             )
+
+        # Row 3: Re-drive Finalize — only when a rollout is stuck finalizing
+        with If(STATE.rollout_summary.is_finalizing):
+            with Row(gap=2, css_class="flex-wrap"):
+                Button(
+                    "Re-drive Finalize",
+                    variant="info",
+                    css_class=BUTTON_INFO_CLASS,
+                    disabled=STATE.is_loading,
+                    on_click=[
+                        SetState("rollout_action", "redrive_finalize"),
+                        SetState("rollout_modal_open", True),
+                    ],
+                )
 
 
 _YANK_DETAIL_CARD_CLASS = (
@@ -613,6 +665,56 @@ def _render_rollout_confirmation_modal() -> None:
                                         on_success=rollout_action_success_actions(),
                                         on_error=fail_tool_call(
                                             "Cancel rollout failed."
+                                        ),
+                                    ),
+                                ]
+                            ),
+                        ],
+                    )
+
+        # --- Re-drive Finalize ---
+        with If(STATE.rollout_action.__eq__("redrive_finalize")):
+            with Column(gap=4):
+                Markdown(
+                    content="**Re-drive a stuck finalize?**\n\n"
+                    "This rollout is `finalizing`. If "
+                    + STATE.rollout_summary.finalizing_rc_docker_image_tag
+                    + " is already the registry default, re-finalizing spawns a "
+                    "fresh Temporal run that closes the rollout as succeeded. "
+                    "If the default has not flipped yet, wait for the promote "
+                    "workflow to publish it first."
+                )
+                with Row(justify="end", gap=2):
+                    Button(
+                        "Cancel",
+                        variant="outline",
+                        css_class=BUTTON_OUTLINE_CLASS,
+                        on_click=[SetState("rollout_modal_open", False)],
+                    )
+                    Button(
+                        "Confirm",
+                        variant="info",
+                        css_class=BUTTON_INFO_CLASS,
+                        disabled=STATE.is_loading,
+                        on_click=[
+                            SetState("rollout_modal_open", False),
+                            *start_tool_call("Re-driving finalize…"),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        finalize_rollout,
+                                        arguments={
+                                            "rollout_id": STATE.rollout_summary.finalizing_rollout_id,
+                                            "connector_id": STATE.rollout_summary.finalizing_connector_id,
+                                            "docker_repository": STATE.rollout_summary.finalizing_docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.finalizing_rc_docker_image_tag,
+                                            "state": "succeeded",
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Re-drive finalize failed."
                                         ),
                                     ),
                                 ]

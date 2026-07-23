@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,50 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_s3outposts import (
-    AccessPointReference as _AccessPointReference_d7311be4,
-    BucketPolicyReference as _BucketPolicyReference_5eb54b3d,
-    BucketReference as _BucketReference_652c67a9,
-    EndpointReference as _EndpointReference_3fc5227a,
-    IAccessPointRef as _IAccessPointRef_1158a8a6,
-    IBucketPolicyRef as _IBucketPolicyRef_14cec3b7,
-    IBucketRef as _IBucketRef_62ebb6b0,
-    IEndpointRef as _IEndpointRef_7b579f8b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_s3outposts as _aws_s3outposts_8e57e69d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_s3outposts_8e57e69d = _LazyImport("aws_cdk.interfaces.aws_s3outposts")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessPointRef_1158a8a6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3outposts_8e57e69d.IAccessPointRef)
 class CfnAccessPoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3outposts.CfnAccessPoint",
 ):
@@ -123,7 +111,7 @@ class CfnAccessPoint(
         *,
         bucket: builtins.str,
         name: builtins.str,
-        vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        vpc_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         policy: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::S3Outposts::AccessPoint``.
@@ -136,7 +124,7 @@ class CfnAccessPoint(
         :param policy: The access point policy associated with this access point.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49ce0f4ffe62c399adc97a97059924fb12bb82ce4aee91b030e12a91c6e7e762)
+            type_hints = cached_type_hints(_typecheckingstub__49ce0f4ffe62c399adc97a97059924fb12bb82ce4aee91b030e12a91c6e7e762)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessPointProps(
@@ -152,13 +140,13 @@ class CfnAccessPoint(
     @builtins.classmethod
     def arn_for_access_point(
         cls,
-        resource: "_IAccessPointRef_1158a8a6",
+        resource: "_aws_s3outposts_8e57e69d.IAccessPointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5024754f1020877e5d7bc79bb98cad9071bd2de119278c887463fd8b2e400408)
+            type_hints = cached_type_hints(_typecheckingstub__5024754f1020877e5d7bc79bb98cad9071bd2de119278c887463fd8b2e400408)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessPoint", [resource]))
 
@@ -170,18 +158,18 @@ class CfnAccessPoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fb0a9f10afd13d1f1802290f5f5180a965de7ef6a731ddbf612e3c055ce64b1)
+            type_hints = cached_type_hints(_typecheckingstub__1fb0a9f10afd13d1f1802290f5f5180a965de7ef6a731ddbf612e3c055ce64b1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessPoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7779eb15d81bd813ec5d30e13c9aedb76154b61675e7d4bc65e58f9db6ddce79)
+            type_hints = cached_type_hints(_typecheckingstub__7779eb15d81bd813ec5d30e13c9aedb76154b61675e7d4bc65e58f9db6ddce79)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -194,7 +182,7 @@ class CfnAccessPoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28911394a383f22624188434089c8ff9d451f267f5c014153d42fa62157d9248)
+            type_hints = cached_type_hints(_typecheckingstub__28911394a383f22624188434089c8ff9d451f267f5c014153d42fa62157d9248)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -206,9 +194,9 @@ class CfnAccessPoint(
 
     @builtins.property
     @jsii.member(jsii_name="accessPointRef")
-    def access_point_ref(self) -> "_AccessPointReference_d7311be4":
+    def access_point_ref(self) -> "_aws_s3outposts_8e57e69d.AccessPointReference":
         '''A reference to a AccessPoint resource.'''
-        return typing.cast("_AccessPointReference_d7311be4", jsii.get(self, "accessPointRef"))
+        return typing.cast("_aws_s3outposts_8e57e69d.AccessPointReference", jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -240,7 +228,7 @@ class CfnAccessPoint(
     @bucket.setter
     def bucket(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c65b8a25cb487d8c0393f3b844eb5ace314a436d88fbfdef93d5df1f215327ce)
+            type_hints = cached_type_hints(_typecheckingstub__c65b8a25cb487d8c0393f3b844eb5ace314a436d88fbfdef93d5df1f215327ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
 
@@ -253,7 +241,7 @@ class CfnAccessPoint(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8021398797d252dec5a923723349cc7067b5d1b7eb8e0583b457262fbdd7660a)
+            type_hints = cached_type_hints(_typecheckingstub__8021398797d252dec5a923723349cc7067b5d1b7eb8e0583b457262fbdd7660a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -266,7 +254,7 @@ class CfnAccessPoint(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70)
+            type_hints = cached_type_hints(_typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -274,17 +262,17 @@ class CfnAccessPoint(
     @jsii.member(jsii_name="vpcConfiguration")
     def vpc_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.VpcConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.VpcConfigurationProperty"]:
         '''The virtual private cloud (VPC) configuration for this access point, if one exists.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.VpcConfigurationProperty"], jsii.get(self, "vpcConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.VpcConfigurationProperty"], jsii.get(self, "vpcConfiguration"))
 
     @vpc_configuration.setter
     def vpc_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.VpcConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.VpcConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8)
+            type_hints = cached_type_hints(_typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +301,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6373f239cd33cf735848ce0486ac6581bfc5991eec9f4021c51d60abb6373929)
+                type_hints = cached_type_hints(_typecheckingstub__6373f239cd33cf735848ce0486ac6581bfc5991eec9f4021c51d60abb6373929)
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_id is not None:
@@ -356,7 +344,7 @@ class CfnAccessPointProps:
         *,
         bucket: builtins.str,
         name: builtins.str,
-        vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        vpc_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         policy: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessPoint``.
@@ -389,7 +377,7 @@ class CfnAccessPointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58)
+            type_hints = cached_type_hints(_typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
@@ -425,14 +413,14 @@ class CfnAccessPointProps:
     @builtins.property
     def vpc_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.VpcConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.VpcConfigurationProperty"]:
         '''The virtual private cloud (VPC) configuration for this access point, if one exists.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-vpcconfiguration
         '''
         result = self._values.get("vpc_configuration")
         assert result is not None, "Required property 'vpc_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.VpcConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.VpcConfigurationProperty"], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -455,9 +443,9 @@ class CfnAccessPointProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBucketRef_62ebb6b0, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3outposts_8e57e69d.IBucketRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnBucket(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucket",
 ):
@@ -518,8 +506,8 @@ class CfnBucket(
         *,
         bucket_name: builtins.str,
         outpost_id: builtins.str,
-        lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lifecycle_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::S3Outposts::Bucket``.
 
@@ -531,7 +519,7 @@ class CfnBucket(
         :param tags: Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ . Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ . .. epigraph:: Within a bucket, if you add a tag that has the same key as an existing tag, the new value overwrites the old value. For more information, see `Using cost allocation and bucket tags <https://docs.aws.amazon.com/AmazonS3/latest/userguide/CostAllocTagging.html>`_ . To use this resource, you must have permissions to perform the ``s3-outposts:PutBucketTagging`` . The S3 on Outposts bucket owner has this permission by default and can grant this permission to others. For more information about permissions, see `Permissions Related to Bucket Subresource Operations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html#using-with-s3-actions-related-to-bucket-subresources>`_ and `Managing access permissions to your Amazon S3 resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf1d42fbcf6bb5a0f5e890280a2441a347ecd7dab8da3eb19e1350f3c14556a2)
+            type_hints = cached_type_hints(_typecheckingstub__bf1d42fbcf6bb5a0f5e890280a2441a347ecd7dab8da3eb19e1350f3c14556a2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBucketProps(
@@ -545,12 +533,15 @@ class CfnBucket(
 
     @jsii.member(jsii_name="arnForBucket")
     @builtins.classmethod
-    def arn_for_bucket(cls, resource: "_IBucketRef_62ebb6b0") -> builtins.str:
+    def arn_for_bucket(
+        cls,
+        resource: "_aws_s3outposts_8e57e69d.IBucketRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dc84a900357dde5bcaa86038e026e2384165d779d2ced9520555ab0054f7d51)
+            type_hints = cached_type_hints(_typecheckingstub__2dc84a900357dde5bcaa86038e026e2384165d779d2ced9520555ab0054f7d51)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBucket", [resource]))
 
@@ -562,18 +553,18 @@ class CfnBucket(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f3e9ae72fe430927bbbc116eb6a307ce1edbcf484d72a911f64aa8d12787f0a)
+            type_hints = cached_type_hints(_typecheckingstub__6f3e9ae72fe430927bbbc116eb6a307ce1edbcf484d72a911f64aa8d12787f0a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBucket", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f5478e773800c0e3a9e46e5359a04e609da7a57b57d4c20e3856f64524a0ecb)
+            type_hints = cached_type_hints(_typecheckingstub__7f5478e773800c0e3a9e46e5359a04e609da7a57b57d4c20e3856f64524a0ecb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -586,7 +577,7 @@ class CfnBucket(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ef9aa822f380ab4bf22a4f517a759bff0a4fb217dcc8cde43d48e5fcabfd009)
+            type_hints = cached_type_hints(_typecheckingstub__4ef9aa822f380ab4bf22a4f517a759bff0a4fb217dcc8cde43d48e5fcabfd009)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -609,9 +600,9 @@ class CfnBucket(
 
     @builtins.property
     @jsii.member(jsii_name="bucketRef")
-    def bucket_ref(self) -> "_BucketReference_652c67a9":
+    def bucket_ref(self) -> "_aws_s3outposts_8e57e69d.BucketReference":
         '''A reference to a Bucket resource.'''
-        return typing.cast("_BucketReference_652c67a9", jsii.get(self, "bucketRef"))
+        return typing.cast("_aws_s3outposts_8e57e69d.BucketReference", jsii.get(self, "bucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -625,9 +616,9 @@ class CfnBucket(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="bucketName")
@@ -638,7 +629,7 @@ class CfnBucket(
     @bucket_name.setter
     def bucket_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2180edde9d93d3019e5731108884add564fe77fabc6c08824e2245584b5b612a)
+            type_hints = cached_type_hints(_typecheckingstub__2180edde9d93d3019e5731108884add564fe77fabc6c08824e2245584b5b612a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -651,7 +642,7 @@ class CfnBucket(
     @outpost_id.setter
     def outpost_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b304fffc77597e8560e34a222cb9354db0a5c85ba773db6493c92cf699f2bd6)
+            type_hints = cached_type_hints(_typecheckingstub__9b304fffc77597e8560e34a222cb9354db0a5c85ba773db6493c92cf699f2bd6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outpostId", value) # pyright: ignore[reportArgumentType]
 
@@ -659,33 +650,36 @@ class CfnBucket(
     @jsii.member(jsii_name="lifecycleConfiguration")
     def lifecycle_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.LifecycleConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.LifecycleConfigurationProperty"]]:
         '''Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.LifecycleConfigurationProperty"]], jsii.get(self, "lifecycleConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.LifecycleConfigurationProperty"]], jsii.get(self, "lifecycleConfiguration"))
 
     @lifecycle_configuration.setter
     def lifecycle_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.LifecycleConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.LifecycleConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1fafcae096376ac7aa48be114497eb8862c193af5a8157a978b9d9f1706bfb8)
+            type_hints = cached_type_hints(_typecheckingstub__a1fafcae096376ac7aa48be114497eb8862c193af5a8157a978b9d9f1706bfb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecycleConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Sets the tags for an S3 on Outposts bucket.
 
         For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ .
         '''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81e8ae0c57b3dd52dd1453514c9b8759d4f840cef51f71bf06e13f51ba93590b)
+            type_hints = cached_type_hints(_typecheckingstub__81e8ae0c57b3dd52dd1453514c9b8759d4f840cef51f71bf06e13f51ba93590b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -716,7 +710,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be2d2b572eeed3b97bba5f8b872acc83868b8f58781bb8d7901b64d7460b99a2)
+                type_hints = cached_type_hints(_typecheckingstub__be2d2b572eeed3b97bba5f8b872acc83868b8f58781bb8d7901b64d7460b99a2)
                 check_type(argname="argument days_after_initiation", value=days_after_initiation, expected_type=type_hints["days_after_initiation"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "days_after_initiation": days_after_initiation,
@@ -779,7 +773,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9d63ac5199ea9d78c5d66c09d78f4090bae2b2e111c754607530030f1c65df13)
+                type_hints = cached_type_hints(_typecheckingstub__9d63ac5199ea9d78c5d66c09d78f4090bae2b2e111c754607530030f1c65df13)
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -827,9 +821,9 @@ class CfnBucket(
         def __init__(
             self,
             *,
-            and_operator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.FilterAndOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            and_operator: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.FilterAndOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             prefix: typing.Optional[builtins.str] = None,
-            tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.FilterTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tag: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.FilterTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The container for the filter of the lifecycle rule.
 
@@ -864,7 +858,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8e106be77cf3a2b5f0cbf1b0c943ba7fca0b1a44e38db2a47467eaae9801bfa1)
+                type_hints = cached_type_hints(_typecheckingstub__8e106be77cf3a2b5f0cbf1b0c943ba7fca0b1a44e38db2a47467eaae9801bfa1)
                 check_type(argname="argument and_operator", value=and_operator, expected_type=type_hints["and_operator"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
                 check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
@@ -879,12 +873,12 @@ class CfnBucket(
         @builtins.property
         def and_operator(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.FilterAndOperatorProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.FilterAndOperatorProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3outposts-bucket-filter.html#cfn-s3outposts-bucket-filter-andoperator
             '''
             result = self._values.get("and_operator")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.FilterAndOperatorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.FilterAndOperatorProperty"]], result)
 
         @builtins.property
         def prefix(self) -> typing.Optional[builtins.str]:
@@ -898,13 +892,13 @@ class CfnBucket(
         @builtins.property
         def tag(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.FilterTagProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.FilterTagProperty"]]:
             '''Tag used to identify a subset of objects for an Amazon S3Outposts bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3outposts-bucket-filter.html#cfn-s3outposts-bucket-filter-tag
             '''
             result = self._values.get("tag")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.FilterTagProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.FilterTagProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -944,7 +938,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__68451c3f1315d3fcdc640e3ffbcebfd32cdf69f88403a9045997e68b1969e031)
+                type_hints = cached_type_hints(_typecheckingstub__68451c3f1315d3fcdc640e3ffbcebfd32cdf69f88403a9045997e68b1969e031)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -990,7 +984,7 @@ class CfnBucket(
         def __init__(
             self,
             *,
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The container for the lifecycle configuration for the objects stored in an S3 on Outposts bucket.
 
@@ -1023,7 +1017,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac9a6b7fa0d9b75b982f85c93773335ccad253ead21a004109aa36456f4e13dd)
+                type_hints = cached_type_hints(_typecheckingstub__ac9a6b7fa0d9b75b982f85c93773335ccad253ead21a004109aa36456f4e13dd)
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rules": rules,
@@ -1032,14 +1026,14 @@ class CfnBucket(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBucket.RuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.RuleProperty"]]]:
             '''The container for the lifecycle configuration rules for the objects stored in the S3 on Outposts bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3outposts-bucket-lifecycleconfiguration.html#cfn-s3outposts-bucket-lifecycleconfiguration-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBucket.RuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.RuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1069,7 +1063,7 @@ class CfnBucket(
             self,
             *,
             status: builtins.str,
-            abort_incomplete_multipart_upload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.AbortIncompleteMultipartUploadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            abort_incomplete_multipart_upload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.AbortIncompleteMultipartUploadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             expiration_date: typing.Optional[builtins.str] = None,
             expiration_in_days: typing.Optional[jsii.Number] = None,
             filter: typing.Any = None,
@@ -1109,7 +1103,7 @@ class CfnBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8e8643c47c6975c1b47c46b1e71cdfefd65aae1c18d477854613819b2c727449)
+                type_hints = cached_type_hints(_typecheckingstub__8e8643c47c6975c1b47c46b1e71cdfefd65aae1c18d477854613819b2c727449)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument abort_incomplete_multipart_upload", value=abort_incomplete_multipart_upload, expected_type=type_hints["abort_incomplete_multipart_upload"])
                 check_type(argname="argument expiration_date", value=expiration_date, expected_type=type_hints["expiration_date"])
@@ -1145,13 +1139,13 @@ class CfnBucket(
         @builtins.property
         def abort_incomplete_multipart_upload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.AbortIncompleteMultipartUploadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.AbortIncompleteMultipartUploadProperty"]]:
             '''The container for the abort incomplete multipart upload rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3outposts-bucket-rule.html#cfn-s3outposts-bucket-rule-abortincompletemultipartupload
             '''
             result = self._values.get("abort_incomplete_multipart_upload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.AbortIncompleteMultipartUploadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.AbortIncompleteMultipartUploadProperty"]], result)
 
         @builtins.property
         def expiration_date(self) -> typing.Optional[builtins.str]:
@@ -1203,9 +1197,9 @@ class CfnBucket(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBucketPolicyRef_14cec3b7)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3outposts_8e57e69d.IBucketPolicyRef)
 class CfnBucketPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucketPolicy",
 ):
@@ -1254,7 +1248,7 @@ class CfnBucketPolicy(
         :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53f953365552955c7ee2d2061c15cae6076889714399ed780e2e277c3663cfe9)
+            type_hints = cached_type_hints(_typecheckingstub__53f953365552955c7ee2d2061c15cae6076889714399ed780e2e277c3663cfe9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBucketPolicyProps(bucket=bucket, policy_document=policy_document)
@@ -1269,18 +1263,18 @@ class CfnBucketPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9eecb80b8185e7930b0ed1836bc9577d7fb78576af2223d7538db0d90624fef9)
+            type_hints = cached_type_hints(_typecheckingstub__9eecb80b8185e7930b0ed1836bc9577d7fb78576af2223d7538db0d90624fef9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBucketPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea0a5820a06d21a28fd87edf9cc3f5f80428504e14b65cdba397b3c9780fbc1b)
+            type_hints = cached_type_hints(_typecheckingstub__ea0a5820a06d21a28fd87edf9cc3f5f80428504e14b65cdba397b3c9780fbc1b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1293,7 +1287,7 @@ class CfnBucketPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a70a5cdf2ee8b96e1e2e37831e42dec48d83624f09fd3dc3bdc53dc325dd7526)
+            type_hints = cached_type_hints(_typecheckingstub__a70a5cdf2ee8b96e1e2e37831e42dec48d83624f09fd3dc3bdc53dc325dd7526)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1305,9 +1299,9 @@ class CfnBucketPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="bucketPolicyRef")
-    def bucket_policy_ref(self) -> "_BucketPolicyReference_5eb54b3d":
+    def bucket_policy_ref(self) -> "_aws_s3outposts_8e57e69d.BucketPolicyReference":
         '''A reference to a BucketPolicy resource.'''
-        return typing.cast("_BucketPolicyReference_5eb54b3d", jsii.get(self, "bucketPolicyRef"))
+        return typing.cast("_aws_s3outposts_8e57e69d.BucketPolicyReference", jsii.get(self, "bucketPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1328,7 +1322,7 @@ class CfnBucketPolicy(
     @bucket.setter
     def bucket(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__741de84e481a14821974a14f1888b5702ab089b6519d500d09e7dbd551b1fd18)
+            type_hints = cached_type_hints(_typecheckingstub__741de84e481a14821974a14f1888b5702ab089b6519d500d09e7dbd551b1fd18)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
 
@@ -1341,7 +1335,7 @@ class CfnBucketPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ffad2ccdd340afaf3b9f3e5724d20005a21c4915036ad7585f74447865c04cf)
+            type_hints = cached_type_hints(_typecheckingstub__4ffad2ccdd340afaf3b9f3e5724d20005a21c4915036ad7585f74447865c04cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -1375,7 +1369,7 @@ class CfnBucketPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d)
+            type_hints = cached_type_hints(_typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1433,8 +1427,8 @@ class CfnBucketProps:
         *,
         bucket_name: builtins.str,
         outpost_id: builtins.str,
-        lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lifecycle_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBucket``.
 
@@ -1481,7 +1475,7 @@ class CfnBucketProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7)
+            type_hints = cached_type_hints(_typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7)
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
@@ -1523,7 +1517,7 @@ class CfnBucketProps:
     @builtins.property
     def lifecycle_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.LifecycleConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.LifecycleConfigurationProperty"]]:
         '''Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration.
 
         Outposts buckets only support lifecycle configurations that delete/expire objects after a certain period of time and abort incomplete multipart uploads.
@@ -1531,10 +1525,10 @@ class CfnBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-lifecycleconfiguration
         '''
         result = self._values.get("lifecycle_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.LifecycleConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.LifecycleConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ .
 
         Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ .
@@ -1547,7 +1541,7 @@ class CfnBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1561,9 +1555,9 @@ class CfnBucketProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEndpointRef_7b579f8b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3outposts_8e57e69d.IEndpointRef)
 class CfnEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3outposts.CfnEndpoint",
 ):
@@ -1609,7 +1603,7 @@ class CfnEndpoint(
         subnet_id: builtins.str,
         access_type: typing.Optional[builtins.str] = None,
         customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-        failed_reason: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.FailedReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        failed_reason: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.FailedReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::S3Outposts::Endpoint``.
 
@@ -1623,7 +1617,7 @@ class CfnEndpoint(
         :param failed_reason: The failure reason, if any, for a create or delete endpoint operation.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__318ea1d78b8b7ecc9087263403bda92a5fe62c88a967ba59a389878a95c540d2)
+            type_hints = cached_type_hints(_typecheckingstub__318ea1d78b8b7ecc9087263403bda92a5fe62c88a967ba59a389878a95c540d2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEndpointProps(
@@ -1639,12 +1633,15 @@ class CfnEndpoint(
 
     @jsii.member(jsii_name="arnForEndpoint")
     @builtins.classmethod
-    def arn_for_endpoint(cls, resource: "_IEndpointRef_7b579f8b") -> builtins.str:
+    def arn_for_endpoint(
+        cls,
+        resource: "_aws_s3outposts_8e57e69d.IEndpointRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95bed78dc72ee84baee97501aaa19f3bbb322152990584a2b393bea7b615ca27)
+            type_hints = cached_type_hints(_typecheckingstub__95bed78dc72ee84baee97501aaa19f3bbb322152990584a2b393bea7b615ca27)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEndpoint", [resource]))
 
@@ -1656,18 +1653,18 @@ class CfnEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28ff061e3d8ee00a321d332b287c597c5322a5076947d8481c5c0eaeed396905)
+            type_hints = cached_type_hints(_typecheckingstub__28ff061e3d8ee00a321d332b287c597c5322a5076947d8481c5c0eaeed396905)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f72a7b32f829abc1ef9826f937cda6c873bf4629a0eaf0dbce234c5845a4dda0)
+            type_hints = cached_type_hints(_typecheckingstub__f72a7b32f829abc1ef9826f937cda6c873bf4629a0eaf0dbce234c5845a4dda0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1680,7 +1677,7 @@ class CfnEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1ab340ba912f823e4a6a3fecca7139c7e2bd8d531e573d054720e9695642007)
+            type_hints = cached_type_hints(_typecheckingstub__b1ab340ba912f823e4a6a3fecca7139c7e2bd8d531e573d054720e9695642007)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1728,12 +1725,12 @@ class CfnEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="attrNetworkInterfaces")
-    def attr_network_interfaces(self) -> "_IResolvable_da3f097b":
+    def attr_network_interfaces(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The network interface of the endpoint.
 
         :cloudformationAttribute: NetworkInterfaces
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNetworkInterfaces"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNetworkInterfaces"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
@@ -1756,9 +1753,9 @@ class CfnEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="endpointRef")
-    def endpoint_ref(self) -> "_EndpointReference_3fc5227a":
+    def endpoint_ref(self) -> "_aws_s3outposts_8e57e69d.EndpointReference":
         '''A reference to a Endpoint resource.'''
-        return typing.cast("_EndpointReference_3fc5227a", jsii.get(self, "endpointRef"))
+        return typing.cast("_aws_s3outposts_8e57e69d.EndpointReference", jsii.get(self, "endpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="outpostId")
@@ -1769,7 +1766,7 @@ class CfnEndpoint(
     @outpost_id.setter
     def outpost_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64fbe05fc52db7518c2b49b2447a29f7d6c035a079f160283b3ec578f126945)
+            type_hints = cached_type_hints(_typecheckingstub__f64fbe05fc52db7518c2b49b2447a29f7d6c035a079f160283b3ec578f126945)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outpostId", value) # pyright: ignore[reportArgumentType]
 
@@ -1782,7 +1779,7 @@ class CfnEndpoint(
     @security_group_id.setter
     def security_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ada6e5ad611d687272c2ae24ee27f4f10ad9a6551af1400b1cfb36a0878d83c)
+            type_hints = cached_type_hints(_typecheckingstub__3ada6e5ad611d687272c2ae24ee27f4f10ad9a6551af1400b1cfb36a0878d83c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -1795,7 +1792,7 @@ class CfnEndpoint(
     @subnet_id.setter
     def subnet_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a4fe87732bb7c9003a3e91c651a931b7cb2ed9f09a1d503b246f519b4bb174a)
+            type_hints = cached_type_hints(_typecheckingstub__1a4fe87732bb7c9003a3e91c651a931b7cb2ed9f09a1d503b246f519b4bb174a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
 
@@ -1808,7 +1805,7 @@ class CfnEndpoint(
     @access_type.setter
     def access_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a46c368db5f4fea107997ef85bff0897aa39b9179933dfb8326a94c11501854)
+            type_hints = cached_type_hints(_typecheckingstub__7a46c368db5f4fea107997ef85bff0897aa39b9179933dfb8326a94c11501854)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessType", value) # pyright: ignore[reportArgumentType]
 
@@ -1821,7 +1818,7 @@ class CfnEndpoint(
     @customer_owned_ipv4_pool.setter
     def customer_owned_ipv4_pool(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a04835a28042c16dff78d6ee722ced2b173f1d3db1db6c32099847ebb0ed3bc4)
+            type_hints = cached_type_hints(_typecheckingstub__a04835a28042c16dff78d6ee722ced2b173f1d3db1db6c32099847ebb0ed3bc4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerOwnedIpv4Pool", value) # pyright: ignore[reportArgumentType]
 
@@ -1829,17 +1826,17 @@ class CfnEndpoint(
     @jsii.member(jsii_name="failedReason")
     def failed_reason(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailedReasonProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailedReasonProperty"]]:
         '''The failure reason, if any, for a create or delete endpoint operation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailedReasonProperty"]], jsii.get(self, "failedReason"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailedReasonProperty"]], jsii.get(self, "failedReason"))
 
     @failed_reason.setter
     def failed_reason(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailedReasonProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailedReasonProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f52e5e14ec2f40630ed72fb53578bc8a6cbe6c59dcbb031096376848ff1acad)
+            type_hints = cached_type_hints(_typecheckingstub__7f52e5e14ec2f40630ed72fb53578bc8a6cbe6c59dcbb031096376848ff1acad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "failedReason", value) # pyright: ignore[reportArgumentType]
 
@@ -1875,7 +1872,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cefcf0227ba3f5441cbda4abb28ee44e8ed7a6036bee1479dcf2b9bcb6dc3081)
+                type_hints = cached_type_hints(_typecheckingstub__cefcf0227ba3f5441cbda4abb28ee44e8ed7a6036bee1479dcf2b9bcb6dc3081)
                 check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
                 check_type(argname="argument message", value=message, expected_type=type_hints["message"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1938,7 +1935,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__716f324c013a03cb5114197c4289096c6cfb4b86efb957ed96da99423bb4e82a)
+                type_hints = cached_type_hints(_typecheckingstub__716f324c013a03cb5114197c4289096c6cfb4b86efb957ed96da99423bb4e82a)
                 check_type(argname="argument network_interface_id", value=network_interface_id, expected_type=type_hints["network_interface_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "network_interface_id": network_interface_id,
@@ -1987,7 +1984,7 @@ class CfnEndpointProps:
         subnet_id: builtins.str,
         access_type: typing.Optional[builtins.str] = None,
         customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-        failed_reason: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.FailedReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        failed_reason: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.FailedReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEndpoint``.
 
@@ -2022,7 +2019,7 @@ class CfnEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56)
+            type_hints = cached_type_hints(_typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56)
             check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
             check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
@@ -2101,13 +2098,13 @@ class CfnEndpointProps:
     @builtins.property
     def failed_reason(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailedReasonProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailedReasonProperty"]]:
         '''The failure reason, if any, for a create or delete endpoint operation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-failedreason
         '''
         result = self._values.get("failed_reason")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailedReasonProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailedReasonProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2140,14 +2137,14 @@ def _typecheckingstub__49ce0f4ffe62c399adc97a97059924fb12bb82ce4aee91b030e12a91c
     *,
     bucket: builtins.str,
     name: builtins.str,
-    vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    vpc_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     policy: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5024754f1020877e5d7bc79bb98cad9071bd2de119278c887463fd8b2e400408(
-    resource: _IAccessPointRef_1158a8a6,
+    resource: _aws_s3outposts_8e57e69d.IAccessPointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2159,7 +2156,7 @@ def _typecheckingstub__1fb0a9f10afd13d1f1802290f5f5180a965de7ef6a731ddbf612e3c05
     pass
 
 def _typecheckingstub__7779eb15d81bd813ec5d30e13c9aedb76154b61675e7d4bc65e58f9db6ddce79(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2189,7 +2186,7 @@ def _typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb29724
     pass
 
 def _typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8(
-    value: typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAccessPoint.VpcConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2205,7 +2202,7 @@ def _typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab7
     *,
     bucket: builtins.str,
     name: builtins.str,
-    vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    vpc_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     policy: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -2217,14 +2214,14 @@ def _typecheckingstub__bf1d42fbcf6bb5a0f5e890280a2441a347ecd7dab8da3eb19e1350f3c
     *,
     bucket_name: builtins.str,
     outpost_id: builtins.str,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2dc84a900357dde5bcaa86038e026e2384165d779d2ced9520555ab0054f7d51(
-    resource: _IBucketRef_62ebb6b0,
+    resource: _aws_s3outposts_8e57e69d.IBucketRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2236,7 +2233,7 @@ def _typecheckingstub__6f3e9ae72fe430927bbbc116eb6a307ce1edbcf484d72a911f64aa8d1
     pass
 
 def _typecheckingstub__7f5478e773800c0e3a9e46e5359a04e609da7a57b57d4c20e3856f64524a0ecb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2260,13 +2257,13 @@ def _typecheckingstub__9b304fffc77597e8560e34a222cb9354db0a5c85ba773db6493c92cf6
     pass
 
 def _typecheckingstub__a1fafcae096376ac7aa48be114497eb8862c193af5a8157a978b9d9f1706bfb8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LifecycleConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBucket.LifecycleConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__81e8ae0c57b3dd52dd1453514c9b8759d4f840cef51f71bf06e13f51ba93590b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2288,9 +2285,9 @@ def _typecheckingstub__9d63ac5199ea9d78c5d66c09d78f4090bae2b2e111c754607530030f1
 
 def _typecheckingstub__8e106be77cf3a2b5f0cbf1b0c943ba7fca0b1a44e38db2a47467eaae9801bfa1(
     *,
-    and_operator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.FilterAndOperatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    and_operator: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.FilterAndOperatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     prefix: typing.Optional[builtins.str] = None,
-    tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.FilterTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tag: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.FilterTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2305,7 +2302,7 @@ def _typecheckingstub__68451c3f1315d3fcdc640e3ffbcebfd32cdf69f88403a9045997e68b1
 
 def _typecheckingstub__ac9a6b7fa0d9b75b982f85c93773335ccad253ead21a004109aa36456f4e13dd(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2313,7 +2310,7 @@ def _typecheckingstub__ac9a6b7fa0d9b75b982f85c93773335ccad253ead21a004109aa36456
 def _typecheckingstub__8e8643c47c6975c1b47c46b1e71cdfefd65aae1c18d477854613819b2c727449(
     *,
     status: builtins.str,
-    abort_incomplete_multipart_upload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AbortIncompleteMultipartUploadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    abort_incomplete_multipart_upload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.AbortIncompleteMultipartUploadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     expiration_date: typing.Optional[builtins.str] = None,
     expiration_in_days: typing.Optional[jsii.Number] = None,
     filter: typing.Any = None,
@@ -2339,7 +2336,7 @@ def _typecheckingstub__9eecb80b8185e7930b0ed1836bc9577d7fb78576af2223d7538db0d90
     pass
 
 def _typecheckingstub__ea0a5820a06d21a28fd87edf9cc3f5f80428504e14b65cdba397b3c9780fbc1b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2374,8 +2371,8 @@ def _typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e5
     *,
     bucket_name: builtins.str,
     outpost_id: builtins.str,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2389,13 +2386,13 @@ def _typecheckingstub__318ea1d78b8b7ecc9087263403bda92a5fe62c88a967ba59a389878a9
     subnet_id: builtins.str,
     access_type: typing.Optional[builtins.str] = None,
     customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-    failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    failed_reason: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__95bed78dc72ee84baee97501aaa19f3bbb322152990584a2b393bea7b615ca27(
-    resource: _IEndpointRef_7b579f8b,
+    resource: _aws_s3outposts_8e57e69d.IEndpointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2407,7 +2404,7 @@ def _typecheckingstub__28ff061e3d8ee00a321d332b287c597c5322a5076947d8481c5c0eaee
     pass
 
 def _typecheckingstub__f72a7b32f829abc1ef9826f937cda6c873bf4629a0eaf0dbce234c5845a4dda0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2449,7 +2446,7 @@ def _typecheckingstub__a04835a28042c16dff78d6ee722ced2b173f1d3db1db6c32099847ebb
     pass
 
 def _typecheckingstub__7f52e5e14ec2f40630ed72fb53578bc8a6cbe6c59dcbb031096376848ff1acad(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.FailedReasonProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpoint.FailedReasonProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2476,7 +2473,7 @@ def _typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbb
     subnet_id: builtins.str,
     access_type: typing.Optional[builtins.str] = None,
     customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-    failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    failed_reason: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

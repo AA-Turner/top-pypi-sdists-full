@@ -8,7 +8,10 @@
 //! schema compilation, using `Arc<OnceLock>` for circular reference handling.
 use referencing::{Draft, Vocabulary};
 use serde_json::{Map, Value};
-use std::sync::{Arc, OnceLock};
+use std::{
+    fmt,
+    sync::{Arc, OnceLock},
+};
 
 use crate::{
     compiler,
@@ -16,30 +19,29 @@ use crate::{
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
-    ValidationError,
+    Json, JsonArrayAccess, JsonNode, SerdeJson, ValidationError,
 };
 
 use super::CompilationResult;
 
 /// Lazy items validators that are compiled on first access.
 /// Used for $recursiveRef and circular references to handle cycles during compilation.
-pub(crate) type PendingItemsValidators = Arc<OnceLock<ItemsValidators>>;
+pub(crate) type PendingItemsValidators<F = SerdeJson> = Arc<OnceLock<ItemsValidators<F>>>;
 
 /// Holds compiled validators for items evaluation in unevaluatedItems.
 /// This structure is built during schema compilation and used during validation.
-#[derive(Debug, Clone)]
-pub(crate) struct ItemsValidators {
+pub(crate) struct ItemsValidators<F: Json = SerdeJson> {
     /// Validator from "unevaluatedItems" keyword itself
-    unevaluated: Option<SchemaNode>,
+    unevaluated: Option<SchemaNode<F>>,
     /// Validator from "contains" keyword
-    contains: Option<SchemaNode>,
+    contains: Option<SchemaNode<F>>,
     /// Reference validators from "$ref" keyword
-    ref_: Option<RefValidator>,
+    ref_: Option<RefValidator<F>>,
     /// Reference validators from "$dynamicRef" keyword (Draft 2020-12+)
     /// Uses pending pattern to handle circular references
-    dynamic_ref: Option<PendingItemsValidators>,
+    dynamic_ref: Option<PendingItemsValidators<F>>,
     /// Validators from "$recursiveRef" keyword (Draft 2019-09 only)
-    recursive_ref: Option<PendingItemsValidators>,
+    recursive_ref: Option<PendingItemsValidators<F>>,
     /// Items limit - for Draft 2019-09 "items" keyword behavior
     /// If present, marks first N items as evaluated
     items_limit: Option<usize>,
@@ -49,29 +51,83 @@ pub(crate) struct ItemsValidators {
     /// Prefix items count - from "prefixItems" keyword
     prefix_items: Option<usize>,
     /// Conditional validators from "if/then/else" keywords
-    conditional: Option<Box<ConditionalValidators>>,
+    conditional: Option<Box<ConditionalValidators<F>>>,
     /// Validators from "allOf" keyword
-    all_of: Option<Vec<(SchemaNode, ItemsValidators)>>,
+    all_of: Option<Vec<(SchemaNode<F>, ItemsValidators<F>)>>,
     /// Validators from "anyOf" keyword
-    any_of: Option<Vec<(SchemaNode, ItemsValidators)>>,
+    any_of: Option<Vec<(SchemaNode<F>, ItemsValidators<F>)>>,
     /// Validators from "oneOf" keyword
-    one_of: Option<Vec<(SchemaNode, ItemsValidators)>>,
+    one_of: Option<Vec<(SchemaNode<F>, ItemsValidators<F>)>>,
+}
+
+// Manual impls: derives would require `F: Clone` / `F: Debug` even though `F` is a marker type.
+impl<F: Json> Clone for ItemsValidators<F> {
+    fn clone(&self) -> Self {
+        ItemsValidators {
+            unevaluated: self.unevaluated.clone(),
+            contains: self.contains.clone(),
+            ref_: self.ref_.clone(),
+            dynamic_ref: self.dynamic_ref.clone(),
+            recursive_ref: self.recursive_ref.clone(),
+            items_limit: self.items_limit,
+            items_all: self.items_all,
+            prefix_items: self.prefix_items,
+            conditional: self.conditional.clone(),
+            all_of: self.all_of.clone(),
+            any_of: self.any_of.clone(),
+            one_of: self.one_of.clone(),
+        }
+    }
+}
+
+impl<F: Json> fmt::Debug for ItemsValidators<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ItemsValidators").finish_non_exhaustive()
+    }
 }
 
 /// Reference validator - wraps `ItemsValidators`
-#[derive(Debug, Clone)]
-struct RefValidator(Box<ItemsValidators>);
+struct RefValidator<F: Json = SerdeJson>(Box<ItemsValidators<F>>);
 
-/// Conditional validators from "if/then/else" keywords
-#[derive(Debug, Clone)]
-struct ConditionalValidators {
-    condition: SchemaNode,
-    if_: ItemsValidators,
-    then_: Option<ItemsValidators>,
-    else_: Option<ItemsValidators>,
+impl<F: Json> Clone for RefValidator<F> {
+    fn clone(&self) -> Self {
+        RefValidator(self.0.clone())
+    }
 }
 
-impl ItemsValidators {
+impl<F: Json> fmt::Debug for RefValidator<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("RefValidator").finish()
+    }
+}
+
+/// Conditional validators from "if/then/else" keywords
+struct ConditionalValidators<F: Json = SerdeJson> {
+    condition: SchemaNode<F>,
+    if_: ItemsValidators<F>,
+    then_: Option<ItemsValidators<F>>,
+    else_: Option<ItemsValidators<F>>,
+}
+
+impl<F: Json> Clone for ConditionalValidators<F> {
+    fn clone(&self) -> Self {
+        ConditionalValidators {
+            condition: self.condition.clone(),
+            if_: self.if_.clone(),
+            then_: self.then_.clone(),
+            else_: self.else_.clone(),
+        }
+    }
+}
+
+impl<F: Json> fmt::Debug for ConditionalValidators<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConditionalValidators")
+            .finish_non_exhaustive()
+    }
+}
+
+impl<F: Json> ItemsValidators<F> {
     /// Core implementation for marking evaluated indexes.
     ///
     /// When `include_unevaluated` is `true` (used by `is_valid`/`validate`), also marks
@@ -80,24 +136,27 @@ impl ItemsValidators {
     /// so `evaluate_instance()` is called on them to collect annotations.
     fn mark_evaluated_indexes_impl(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         indexes: &mut Vec<bool>,
         ctx: &mut ValidationContext,
         include_unevaluated: bool,
     ) {
         // Break cycles from self-referential `$dynamicRef`/`$recursiveRef` under
         // `unevaluatedItems`.
-        let validators_id = std::ptr::from_ref::<ItemsValidators>(self) as usize;
-        if ctx.enter_marking(validators_id, instance) {
+        let validators_id = std::ptr::from_ref::<ItemsValidators<F>>(self) as usize;
+        let identity = instance.cache_key();
+        if ctx.enter_marking(validators_id, identity) {
             return;
         }
         self.mark_evaluated_indexes_inner(instance, indexes, ctx, include_unevaluated);
-        ctx.exit_marking();
+        if identity.is_some() {
+            ctx.exit_marking();
+        }
     }
 
     fn mark_evaluated_indexes_inner(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         indexes: &mut Vec<bool>,
         ctx: &mut ValidationContext,
         include_unevaluated: bool,
@@ -151,14 +210,14 @@ impl ItemsValidators {
         }
 
         // Process contains and (optionally) unevaluatedItems
-        if let Value::Array(items) = instance {
-            for (item, is_evaluated) in items.iter().zip(indexes.iter_mut()) {
+        if let Some(array) = instance.as_array() {
+            for (item, is_evaluated) in array.elements().zip(indexes.iter_mut()) {
                 if *is_evaluated {
                     continue;
                 }
                 // contains marks items that match
                 if let Some(validator) = &self.contains {
-                    if validator.is_valid(item, ctx) {
+                    if validator.is_valid(&item, ctx) {
                         *is_evaluated = true;
                         continue;
                     }
@@ -167,7 +226,7 @@ impl ItemsValidators {
                 // Skipped when called from evaluate() so evaluate_instance() can collect annotations.
                 if include_unevaluated {
                     if let Some(validator) = &self.unevaluated {
-                        if validator.is_valid(item, ctx) {
+                        if validator.is_valid(&item, ctx) {
                             *is_evaluated = true;
                         }
                     }
@@ -223,7 +282,7 @@ impl ItemsValidators {
     /// Mark all items evaluated by this schema (including by `unevaluatedItems` itself).
     fn mark_evaluated_indexes(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         indexes: &mut Vec<bool>,
         ctx: &mut ValidationContext,
     ) {
@@ -236,7 +295,7 @@ impl ItemsValidators {
     /// are still visited by `evaluate_instance()`, allowing their annotations to be collected.
     fn mark_evaluated_indexes_by_other_keywords(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         indexes: &mut Vec<bool>,
         ctx: &mut ValidationContext,
     ) {
@@ -244,10 +303,10 @@ impl ItemsValidators {
     }
 }
 
-impl ConditionalValidators {
+impl<F: Json> ConditionalValidators<F> {
     fn mark_evaluated_indexes(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         indexes: &mut Vec<bool>,
         ctx: &mut ValidationContext,
     ) {
@@ -267,10 +326,10 @@ impl ConditionalValidators {
 /// Recursively builds the `ItemsValidators` tree by examining all keywords that
 /// can evaluate items. Handles circular references via pending nodes cached
 /// by location and schema pointer.
-fn compile_items_validators<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_items_validators<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<ItemsValidators, ValidationError<'a>> {
+) -> Result<ItemsValidators<F>, ValidationError<'a>> {
     // Create a pending node and cache it before compiling to handle circular refs
     let cache_key = ctx.location_cache_key();
     let pending = Arc::new(OnceLock::new());
@@ -344,10 +403,10 @@ fn compile_items_validators<'a>(
     Ok(validators)
 }
 
-fn compile_unevaluated<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_unevaluated<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<SchemaNode>, ValidationError<'a>> {
+) -> Result<Option<SchemaNode<F>>, ValidationError<'a>> {
     if let Some(subschema) = parent.get("unevaluatedItems") {
         let unevaluated_ctx = ctx.new_at_location("unevaluatedItems");
         Ok(Some(
@@ -359,10 +418,10 @@ fn compile_unevaluated<'a>(
     }
 }
 
-fn compile_contains<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_contains<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<SchemaNode>, ValidationError<'a>> {
+) -> Result<Option<SchemaNode<F>>, ValidationError<'a>> {
     if let Some(subschema) = parent.get("contains") {
         let contains_ctx = ctx.new_at_location("contains");
         Ok(Some(
@@ -374,10 +433,10 @@ fn compile_contains<'a>(
     }
 }
 
-fn compile_ref<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_ref<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<RefValidator>, ValidationError<'a>> {
+) -> Result<Option<RefValidator<F>>, ValidationError<'a>> {
     if let Some(Value::String(reference)) = parent.get("$ref") {
         let resolved = ctx.lookup(reference)?;
         if let Value::Object(subschema) = resolved.contents() {
@@ -389,10 +448,10 @@ fn compile_ref<'a>(
     Ok(None)
 }
 
-fn compile_dynamic_ref<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_dynamic_ref<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &Map<String, Value>,
-) -> Result<Option<PendingItemsValidators>, ValidationError<'a>> {
+) -> Result<Option<PendingItemsValidators<F>>, ValidationError<'a>> {
     let Some(Value::String(reference)) = parent.get("$dynamicRef") else {
         return Ok(None);
     };
@@ -420,10 +479,10 @@ fn compile_dynamic_ref<'a>(
     }
 }
 
-fn compile_recursive_ref<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_recursive_ref<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &Map<String, Value>,
-) -> Result<Option<PendingItemsValidators>, ValidationError<'a>> {
+) -> Result<Option<PendingItemsValidators<F>>, ValidationError<'a>> {
     if !parent.contains_key("$recursiveRef") {
         return Ok(None);
     }
@@ -462,8 +521,8 @@ fn compile_recursive_ref<'a>(
     }
 }
 
-fn compile_items<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_items<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
 ) -> Result<(Option<usize>, bool), ValidationError<'a>> {
     if let Some(subschema) = parent.get("items") {
@@ -488,8 +547,8 @@ fn compile_items<'a>(
     }
 }
 
-fn compile_prefix_items<'a>(
-    _ctx: &compiler::Context<'_>,
+fn compile_prefix_items<'a, F: Json>(
+    _ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
 ) -> Result<Option<usize>, ValidationError<'a>> {
     if let Some(Some(items)) = parent.get("prefixItems").map(Value::as_array) {
@@ -499,10 +558,10 @@ fn compile_prefix_items<'a>(
     }
 }
 
-fn compile_conditional<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_conditional<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<Box<ConditionalValidators>>, ValidationError<'a>> {
+) -> Result<Option<Box<ConditionalValidators<F>>>, ValidationError<'a>> {
     if let Some(subschema) = parent.get("if") {
         if let Value::Object(if_parent) = subschema {
             let if_ctx = ctx.new_at_location("if");
@@ -538,10 +597,12 @@ fn compile_conditional<'a>(
     Ok(None)
 }
 
-fn compile_all_of<'a>(
-    ctx: &compiler::Context<'_>,
+type CompiledItemsSubschemas<F> = Vec<(SchemaNode<F>, ItemsValidators<F>)>;
+
+fn compile_all_of<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<Vec<(SchemaNode, ItemsValidators)>>, ValidationError<'a>> {
+) -> Result<Option<CompiledItemsSubschemas<F>>, ValidationError<'a>> {
     if let Some(Some(subschemas)) = parent.get("allOf").map(Value::as_array) {
         let all_of_ctx = ctx.new_at_location("allOf");
         let mut result = Vec::with_capacity(subschemas.len());
@@ -564,10 +625,10 @@ fn compile_all_of<'a>(
     }
 }
 
-fn compile_any_of<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_any_of<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<Vec<(SchemaNode, ItemsValidators)>>, ValidationError<'a>> {
+) -> Result<Option<CompiledItemsSubschemas<F>>, ValidationError<'a>> {
     if let Some(Some(subschemas)) = parent.get("anyOf").map(Value::as_array) {
         let any_of_ctx = ctx.new_at_location("anyOf");
         let mut result = Vec::with_capacity(subschemas.len());
@@ -590,10 +651,10 @@ fn compile_any_of<'a>(
     }
 }
 
-fn compile_one_of<'a>(
-    ctx: &compiler::Context<'_>,
+fn compile_one_of<'a, F: Json>(
+    ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
-) -> Result<Option<Vec<(SchemaNode, ItemsValidators)>>, ValidationError<'a>> {
+) -> Result<Option<CompiledItemsSubschemas<F>>, ValidationError<'a>> {
     if let Some(Some(subschemas)) = parent.get("oneOf").map(Value::as_array) {
         let one_of_ctx = ctx.new_at_location("oneOf");
         let mut result = Vec::with_capacity(subschemas.len());
@@ -617,16 +678,16 @@ fn compile_one_of<'a>(
 }
 
 /// Validator for the `unevaluatedItems` keyword.
-pub(crate) struct UnevaluatedItemsValidator {
+pub(crate) struct UnevaluatedItemsValidator<F: Json = SerdeJson> {
     location: Location,
-    validators: ItemsValidators,
+    validators: ItemsValidators<F>,
 }
 
 impl UnevaluatedItemsValidator {
-    pub(crate) fn compile<'a>(
-        ctx: &'a compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &'a compiler::Context<F>,
         parent: &'a Map<String, Value>,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         let validators =
             compile_items_validators(ctx, parent).map_err(ValidationError::to_owned)?;
 
@@ -637,17 +698,17 @@ impl UnevaluatedItemsValidator {
     }
 }
 
-impl Validate for UnevaluatedItemsValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
-            let mut indexes = vec![false; items.len()];
+impl<F: Json> Validate<F> for UnevaluatedItemsValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
+            let mut indexes = vec![false; array.len()];
             self.validators
                 .mark_evaluated_indexes(instance, &mut indexes, ctx);
 
-            for (item, is_evaluated) in items.iter().zip(indexes) {
+            for (item, is_evaluated) in array.elements().zip(indexes) {
                 if !is_evaluated {
                     if let Some(validator) = &self.validators.unevaluated {
-                        if !validator.is_valid(item, ctx) {
+                        if !validator.is_valid(&item, ctx) {
                             return false;
                         }
                     } else {
@@ -662,27 +723,27 @@ impl Validate for UnevaluatedItemsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
-            let mut indexes = vec![false; items.len()];
+        if let Some(array) = instance.as_array() {
+            let mut indexes = vec![false; array.len()];
             self.validators
                 .mark_evaluated_indexes(instance, &mut indexes, ctx);
             let mut unevaluated = vec![];
 
-            for (item, is_evaluated) in items.iter().zip(indexes) {
+            for (item, is_evaluated) in array.elements().zip(indexes) {
                 if !is_evaluated {
                     let is_valid = if let Some(validator) = &self.validators.unevaluated {
-                        validator.is_valid(item, ctx)
+                        validator.is_valid(&item, ctx)
                     } else {
                         false
                     };
 
                     if !is_valid {
-                        unevaluated.push(item.to_string());
+                        unevaluated.push(item.to_value().to_string());
                     }
                 }
             }
@@ -692,7 +753,7 @@ impl Validate for UnevaluatedItemsValidator {
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     unevaluated,
                 ));
             }
@@ -702,34 +763,34 @@ impl Validate for UnevaluatedItemsValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Array(items) = instance {
-            let mut indexes = vec![false; items.len()];
+        if let Some(array) = instance.as_array() {
+            let mut indexes = vec![false; array.len()];
             self.validators
                 .mark_evaluated_indexes_by_other_keywords(instance, &mut indexes, ctx);
             let mut children = Vec::new();
             let mut unevaluated = Vec::new();
             let mut invalid = false;
 
-            for (idx, (item, is_evaluated)) in items.iter().zip(indexes.iter()).enumerate() {
+            for (idx, (item, is_evaluated)) in array.elements().zip(indexes.iter()).enumerate() {
                 if *is_evaluated {
                     continue;
                 }
                 if let Some(validator) = &self.validators.unevaluated {
                     let child =
-                        validator.evaluate_instance(item, &location.push(idx), tracker, ctx);
+                        validator.evaluate_instance(&item, &location.push(idx), tracker, ctx);
                     if !child.valid {
                         invalid = true;
-                        unevaluated.push(item.to_string());
+                        unevaluated.push(item.to_value().to_string());
                     }
                     children.push(child);
                 } else {
                     invalid = true;
-                    unevaluated.push(item.to_string());
+                    unevaluated.push(item.to_value().to_string());
                 }
             }
 
@@ -740,7 +801,7 @@ impl Validate for UnevaluatedItemsValidator {
                         self.location.clone(),
                         crate::paths::capture_evaluation_path(tracker, &self.location),
                         location.into(),
-                        instance,
+                        instance.to_value(),
                         unevaluated,
                     ),
                 ));
@@ -764,11 +825,11 @@ impl Validate for UnevaluatedItemsValidator {
     }
 }
 
-pub(crate) fn compile<'a>(
-    ctx: &'a compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &'a compiler::Context<F>,
     parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     match schema.as_bool() {
         Some(true) => None,
         _ => Some(UnevaluatedItemsValidator::compile(ctx, parent)),

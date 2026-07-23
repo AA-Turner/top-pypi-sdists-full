@@ -1420,8 +1420,20 @@ def validate(
             tools = cap.tools
             mcp = cap.mcp_server_defs
             workers = cap.worker_defs
+            # Hook and policy discovery is lazy — ``component_health`` only gains
+            # their entries once these properties are touched. Without this,
+            # validate never sees the very drops it was changed to catch.
+            hooks = cap.hooks
+            policies = cap.policies
 
-            health_errors = [h for h in cap.component_health if h.get("status") == "error"]
+            # Deliberately ``error`` only, not ``degraded``. Drops are now recorded
+            # rather than skipped silently, but they surface through
+            # ``component_health`` — the TUI and ``GET /api/runtime``. Gating
+            # ``--strict`` on them would fail CI for intentional shapes (a
+            # compatibility stub that exports nothing is the real-world case) with
+            # no way to suppress the finding short of renaming source files.
+            # Revisit once there is a suppression mechanism.
+            health_issues = [h for h in cap.component_health if h.get("status") == "error"]
             # Count loadable skills (one SKILL.md per skill), not manifest path
             # entries — `skills_paths` is a list of search roots and overstates
             # the count, especially when entries fail to parse.
@@ -1433,13 +1445,14 @@ def validate(
 
             summary = (
                 f"agents={len(agents)}, tools={len(tools)}, "
-                f"skills={skill_count}, mcp={len(mcp)}, workers={len(workers)}"
+                f"skills={skill_count}, mcp={len(mcp)}, workers={len(workers)}, "
+                f"hooks={len(hooks)}, policies={len(policies)}"
             )
 
-            if health_errors:
+            if health_issues:
                 warnings.append(cap.name)
                 print_warning(f"{cap.name}@{cap.version} ({summary})", indent=2)
-                for h in health_errors:
+                for h in health_issues:
                     kind = h.get("kind", "?")
                     name = h.get("name", "?")
                     console.print(f"       {kind}:{name}: {h.get('error', 'unknown')}")

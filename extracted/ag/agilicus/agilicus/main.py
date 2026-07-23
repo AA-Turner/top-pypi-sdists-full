@@ -684,6 +684,7 @@ def list_signups(ctx, **kwargs):
 @click.option("--attribute-id", default=None)
 @click.option("--attribute-org-id", default=None)
 @click.option("--show-column", multiple=True, default=None)
+@click.option("--cel-expression", default=None)
 @click.pass_context
 def list_audit_records(ctx, show_column, **kwargs):
     output_format = kwargs.pop("output_format", "")
@@ -716,6 +717,7 @@ def list_audit_records(ctx, show_column, **kwargs):
 @click.option("--stage", default=None)
 @click.option("--request-id", default=None)
 @click.option("--map-email", is_flag=True, default=False)
+@click.option("--cel-expression", default=None)
 @click.pass_context
 def list_auth_audit_records(ctx, **kwargs):
     records = audits.query_auth_audits(ctx, **kwargs)
@@ -1073,6 +1075,7 @@ def list_useful_orgs_(ctx, **kwargs):
 @click.option("--suborg-updated", default=False, type=bool)
 @click.option("--get-system-options", default=False)
 @click.option("--point-of-presence-name-list", multiple=True)
+@click.option("--region-name-list", multiple=True)
 @click.option(
     "--page-size",
     type=int,

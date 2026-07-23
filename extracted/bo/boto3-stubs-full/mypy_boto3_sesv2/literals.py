@@ -145,6 +145,8 @@ DkimSigningAttributesOriginType = Literal[
     "AWS_SES_SA_EAST_1",
     "AWS_SES_US_EAST_1",
     "AWS_SES_US_EAST_2",
+    "AWS_SES_US_GOV_EAST_1",
+    "AWS_SES_US_GOV_WEST_1",
     "AWS_SES_US_WEST_1",
     "AWS_SES_US_WEST_2",
     "EXTERNAL",

@@ -21,7 +21,15 @@ from airbyte_ops_mcp.motherduck_diagnostics.models import (
 
 
 class QueryRow(TypedDict):
-    """A privacy-safe projection of a `MotherDuckQueryRecord`."""
+    """A privacy-safe projection of a `MotherDuckQueryRecord`.
+
+    `database_name` is the MotherDuck database (= Sonar source schema) the query
+    ran against and `source_id` is the Airbyte source UUID parsed from it; both
+    are safe identifiers. `database_name` is `""` only when the query has no
+    `iceberg_scan` S3 path. `source_id` is `""` when `database_name` is absent
+    *or* present but its trailing segment is not a canonical UUID, so a
+    `database_name` can be populated while `source_id` is `""`.
+    """
 
     query_hash: str
     query_type: str
@@ -35,6 +43,8 @@ class QueryRow(TypedDict):
     error_type: str
     error_message: str
     query_text_treated: str
+    database_name: str
+    source_id: str
 
 
 class ConnectionRow(TypedDict):
@@ -44,6 +54,8 @@ class ConnectionRow(TypedDict):
     client_user_agent: str
     server_transaction_stage: str
     server_query_elapsed_time: str
+    database_name: str
+    source_id: str
 
 
 # Error types the mock distributes failures across, so the stacked "Failed
@@ -110,6 +122,13 @@ SAMPLE_COMPUTE_BUCKETS_DAILY: list[MotherDuckComputeUsageBucket] = [
 
 
 # Recent queries (QUERY_HISTORY, realtime=False). "Failed" == non-null error_type.
+#
+# `database_name` / `source_id` are populated only on the rows whose query reads
+# a Sonar source's iceberg data (e.g. the full-reload COPY/DDL and the failed
+# scan), mirroring live behavior: queries against internal/scratch tables carry
+# no source database, so those rows leave both blank to exercise the graceful
+# empty rendering. Each populated `source_id` is the exact UUID embedded in its
+# `database_name` (`{slug}__{source_id}`, underscores -> hyphens).
 SAMPLE_RECENT_QUERIES: list[QueryRow] = [
     {
         "query_hash": "a3f19c2b",
@@ -124,6 +143,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
         "error_type": "",
         "error_message": "",
         "query_text_treated": "SELECT id, name FROM connections WHERE org_id = ?",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "query_hash": "7e0d84af",
@@ -138,6 +159,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
         "error_type": "",
         "error_message": "",
         "query_text_treated": "INSERT INTO sync_runs (id, status) VALUES (?, ?)",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "query_hash": "c91b02de",
@@ -155,6 +178,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
             "(12.8 GiB/12.8 GiB used) while executing COPY into 'events'"
         ),
         "query_text_treated": "COPY events FROM ? (FORMAT parquet)",
+        "database_name": "postgres__2b1a9c40_5f3e_4c21_9d7a_8e6b0f1c2d3e",
+        "source_id": "2b1a9c40-5f3e-4c21-9d7a-8e6b0f1c2d3e",
     },
     {
         "query_hash": "1d5e6f70",
@@ -169,6 +194,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
         "error_type": "",
         "error_message": "",
         "query_text_treated": "SELECT count(*) FROM streams WHERE state = ?",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "query_hash": "b8a4c3d2",
@@ -183,6 +210,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
         "error_type": "",
         "error_message": "",
         "query_text_treated": "CREATE TABLE staging_events AS SELECT * FROM raw",
+        "database_name": "salesforce__f0e1d2c3_b4a5_4967_8879_6a5b4c3d2e1f",
+        "source_id": "f0e1d2c3-b4a5-4967-8879-6a5b4c3d2e1f",
     },
     {
         "query_hash": "44f7e19a",
@@ -200,6 +229,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
             "(scanned 4.2B rows across 'huge_join')"
         ),
         "query_text_treated": "SELECT * FROM huge_join WHERE ts > ? ORDER BY ts",
+        "database_name": "stripe__7c9d0e1f_2a3b_4c5d_6e7f_8a9b0c1d2e3f",
+        "source_id": "7c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f",
     },
     {
         "query_hash": "2c0b91fe",
@@ -214,6 +245,8 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
         "error_type": "",
         "error_message": "",
         "query_text_treated": "DELETE FROM tmp_scratch WHERE created_at < ?",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "query_hash": "9fa1207c",
@@ -231,34 +264,47 @@ SAMPLE_RECENT_QUERIES: list[QueryRow] = [
             "table 'audit_log' in schema 'main'"
         ),
         "query_text_treated": "INSERT INTO audit_log (actor, action) VALUES (?, ?)",
+        "database_name": "",
+        "source_id": "",
     },
 ]
 
 
 # Active server connections (md_active_server_connections). No client_query text.
+# `database_name` / `source_id` are populated only for connections whose running
+# statement scans a Sonar source's iceberg data; idle / non-scan connections
+# leave both blank.
 SAMPLE_ACTIVE_CONNECTIONS: list[ConnectionRow] = [
     {
         "client_connection_id": "3b1f…8a2c",
         "client_user_agent": "sonar_org_a1b2c3d4 / duckdb 1.1.3",
         "server_transaction_stage": "RUNNING",
         "server_query_elapsed_time": "0:00:12",
+        "database_name": "postgres__2b1a9c40_5f3e_4c21_9d7a_8e6b0f1c2d3e",
+        "source_id": "2b1a9c40-5f3e-4c21-9d7a-8e6b0f1c2d3e",
     },
     {
         "client_connection_id": "c74e…19bd",
         "client_user_agent": "sonar_org_5f6a7b8c / duckdb 1.1.3",
         "server_transaction_stage": "COMMITTING",
         "server_query_elapsed_time": "0:00:03",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "client_connection_id": "0a92…f5e1",
         "client_user_agent": "sonar_org_9e8d7c6b / duckdb 1.1.1",
         "server_transaction_stage": "IDLE_IN_TXN",
         "server_query_elapsed_time": "0:04:37",
+        "database_name": "",
+        "source_id": "",
     },
     {
         "client_connection_id": "e15d…6c40",
         "client_user_agent": "sonar_org_a1b2c3d4 / duckdb 1.1.3",
         "server_transaction_stage": "RUNNING",
         "server_query_elapsed_time": "0:00:48",
+        "database_name": "stripe__7c9d0e1f_2a3b_4c5d_6e7f_8a9b0c1d2e3f",
+        "source_id": "7c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f",
     },
 ]

@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,56 +45,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_location import (
-    APIKeyReference as _APIKeyReference_ecfb40ba,
-    GeofenceCollectionReference as _GeofenceCollectionReference_5894ab83,
-    IAPIKeyRef as _IAPIKeyRef_02c748d1,
-    IGeofenceCollectionRef as _IGeofenceCollectionRef_40bd2c98,
-    IMapRef as _IMapRef_a23859d8,
-    IPlaceIndexRef as _IPlaceIndexRef_a9b4878a,
-    IRouteCalculatorRef as _IRouteCalculatorRef_f2a132ab,
-    ITrackerConsumerRef as _ITrackerConsumerRef_624ec496,
-    ITrackerRef as _ITrackerRef_e22d1822,
-    MapReference as _MapReference_d6aa05aa,
-    PlaceIndexReference as _PlaceIndexReference_8dd06ddc,
-    RouteCalculatorReference as _RouteCalculatorReference_ca83e5a1,
-    TrackerConsumerReference as _TrackerConsumerReference_7cc2ab2f,
-    TrackerReference as _TrackerReference_50e103a4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_location as _aws_location_6a89e4d1
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_location_6a89e4d1 = _LazyImport("aws_cdk.interfaces.aws_location")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAPIKeyRef_02c748d1, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.IAPIKeyRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAPIKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnAPIKey",
 ):
@@ -145,13 +127,13 @@ class CfnAPIKey(
         id: builtins.str,
         *,
         key_name: builtins.str,
-        restrictions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAPIKey.ApiKeyRestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        restrictions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAPIKey.ApiKeyRestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         expire_time: typing.Optional[builtins.str] = None,
-        force_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        force_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        no_expiry: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        force_delete: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        force_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        no_expiry: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::APIKey``.
 
@@ -167,7 +149,7 @@ class CfnAPIKey(
         :param tags: Applies one or more tags to the map resource. A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2ae0e8c734c36fc4dfc2e50264fbc5e41cc44ca78d64c47f19cac56e4318d32)
+            type_hints = cached_type_hints(_typecheckingstub__e2ae0e8c734c36fc4dfc2e50264fbc5e41cc44ca78d64c47f19cac56e4318d32)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAPIKeyProps(
@@ -185,12 +167,15 @@ class CfnAPIKey(
 
     @jsii.member(jsii_name="arnForAPIKey")
     @builtins.classmethod
-    def arn_for_api_key(cls, resource: "_IAPIKeyRef_02c748d1") -> builtins.str:
+    def arn_for_api_key(
+        cls,
+        resource: "_aws_location_6a89e4d1.IAPIKeyRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b541bc5781d85442598cf2eab477446dbeda19573dd95ac194aeef954f1f276b)
+            type_hints = cached_type_hints(_typecheckingstub__b541bc5781d85442598cf2eab477446dbeda19573dd95ac194aeef954f1f276b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAPIKey", [resource]))
 
@@ -201,7 +186,7 @@ class CfnAPIKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IAPIKeyRef_02c748d1":
+    ) -> "_aws_location_6a89e4d1.IAPIKeyRef":
         '''Creates a new IAPIKeyRef from an ARN.
 
         :param scope: -
@@ -209,11 +194,11 @@ class CfnAPIKey(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39b592709b5b02e935f60d35f554a437c6039ddcaf32dd519ba463c1e60d2aa9)
+            type_hints = cached_type_hints(_typecheckingstub__39b592709b5b02e935f60d35f554a437c6039ddcaf32dd519ba463c1e60d2aa9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IAPIKeyRef_02c748d1", jsii.sinvoke(cls, "fromAPIKeyArn", [scope, id, arn]))
+        return typing.cast("_aws_location_6a89e4d1.IAPIKeyRef", jsii.sinvoke(cls, "fromAPIKeyArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromKeyName")
     @builtins.classmethod
@@ -222,7 +207,7 @@ class CfnAPIKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         key_name: builtins.str,
-    ) -> "_IAPIKeyRef_02c748d1":
+    ) -> "_aws_location_6a89e4d1.IAPIKeyRef":
         '''Creates a new IAPIKeyRef from a keyName.
 
         :param scope: -
@@ -230,11 +215,11 @@ class CfnAPIKey(
         :param key_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__252ed95f79a8e3f1207bcf22e30ccce54352607889625ae0c44f99f5ccd7e62e)
+            type_hints = cached_type_hints(_typecheckingstub__252ed95f79a8e3f1207bcf22e30ccce54352607889625ae0c44f99f5ccd7e62e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
-        return typing.cast("_IAPIKeyRef_02c748d1", jsii.sinvoke(cls, "fromKeyName", [scope, id, key_name]))
+        return typing.cast("_aws_location_6a89e4d1.IAPIKeyRef", jsii.sinvoke(cls, "fromKeyName", [scope, id, key_name]))
 
     @jsii.member(jsii_name="isCfnAPIKey")
     @builtins.classmethod
@@ -244,18 +229,18 @@ class CfnAPIKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd5f8c7319d59786154399d4d4317acb8af1c8046718646829764bfea8b1db37)
+            type_hints = cached_type_hints(_typecheckingstub__dd5f8c7319d59786154399d4d4317acb8af1c8046718646829764bfea8b1db37)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAPIKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90e4d83d582a33efc0dfeef244e5a4b84a90230cc485853b42d16a3e6f6609a7)
+            type_hints = cached_type_hints(_typecheckingstub__90e4d83d582a33efc0dfeef244e5a4b84a90230cc485853b42d16a3e6f6609a7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -268,7 +253,7 @@ class CfnAPIKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__099c2b5d173d474236a30915cc6fc0919b6fe1cf215f99e6636485c92a9af0ca)
+            type_hints = cached_type_hints(_typecheckingstub__099c2b5d173d474236a30915cc6fc0919b6fe1cf215f99e6636485c92a9af0ca)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -280,9 +265,9 @@ class CfnAPIKey(
 
     @builtins.property
     @jsii.member(jsii_name="apiKeyRef")
-    def api_key_ref(self) -> "_APIKeyReference_ecfb40ba":
+    def api_key_ref(self) -> "_aws_location_6a89e4d1.APIKeyReference":
         '''A reference to a APIKey resource.'''
-        return typing.cast("_APIKeyReference_ecfb40ba", jsii.get(self, "apiKeyRef"))
+        return typing.cast("_aws_location_6a89e4d1.APIKeyReference", jsii.get(self, "apiKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -326,9 +311,9 @@ class CfnAPIKey(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -349,7 +334,7 @@ class CfnAPIKey(
     @key_name.setter
     def key_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c00e03a38669285c7b235bbd87ec7317379694b0537c3a85e4741d27c54c9d3d)
+            type_hints = cached_type_hints(_typecheckingstub__c00e03a38669285c7b235bbd87ec7317379694b0537c3a85e4741d27c54c9d3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyName", value) # pyright: ignore[reportArgumentType]
 
@@ -357,17 +342,17 @@ class CfnAPIKey(
     @jsii.member(jsii_name="restrictions")
     def restrictions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAPIKey.ApiKeyRestrictionsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.ApiKeyRestrictionsProperty"]:
         '''The API key restrictions for the API key resource.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAPIKey.ApiKeyRestrictionsProperty"], jsii.get(self, "restrictions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.ApiKeyRestrictionsProperty"], jsii.get(self, "restrictions"))
 
     @restrictions.setter
     def restrictions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAPIKey.ApiKeyRestrictionsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.ApiKeyRestrictionsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65682d4a834f16510a57f21e8af7c41ba661e7d0f78293abcd483f9d45afba31)
+            type_hints = cached_type_hints(_typecheckingstub__65682d4a834f16510a57f21e8af7c41ba661e7d0f78293abcd483f9d45afba31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restrictions", value) # pyright: ignore[reportArgumentType]
 
@@ -380,7 +365,7 @@ class CfnAPIKey(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1957f4ade558178bedd1746c97b21ac5195a216695895f32ba33d6fe99216c5)
+            type_hints = cached_type_hints(_typecheckingstub__e1957f4ade558178bedd1746c97b21ac5195a216695895f32ba33d6fe99216c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -393,7 +378,7 @@ class CfnAPIKey(
     @expire_time.setter
     def expire_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8263b20b7b28c2712bf62bdacab9989763120af28d1e026f26e14f6e572ae7c9)
+            type_hints = cached_type_hints(_typecheckingstub__8263b20b7b28c2712bf62bdacab9989763120af28d1e026f26e14f6e572ae7c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expireTime", value) # pyright: ignore[reportArgumentType]
 
@@ -401,17 +386,17 @@ class CfnAPIKey(
     @jsii.member(jsii_name="forceDelete")
     def force_delete(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''ForceDelete bypasses an API key's expiry conditions and deletes the key.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "forceDelete"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "forceDelete"))
 
     @force_delete.setter
     def force_delete(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8379f2b16717a153383f6b36ff735d0d746008205280dddfc3ffe2f253f29a2)
+            type_hints = cached_type_hints(_typecheckingstub__c8379f2b16717a153383f6b36ff735d0d746008205280dddfc3ffe2f253f29a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceDelete", value) # pyright: ignore[reportArgumentType]
 
@@ -419,17 +404,17 @@ class CfnAPIKey(
     @jsii.member(jsii_name="forceUpdate")
     def force_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The boolean flag to be included for updating ``ExpireTime`` or Restrictions details.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "forceUpdate"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "forceUpdate"))
 
     @force_update.setter
     def force_update(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6402962818d046984829754f6a1e3957be1c7b7981fc92251adcdb9aaeefd493)
+            type_hints = cached_type_hints(_typecheckingstub__6402962818d046984829754f6a1e3957be1c7b7981fc92251adcdb9aaeefd493)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceUpdate", value) # pyright: ignore[reportArgumentType]
 
@@ -437,30 +422,33 @@ class CfnAPIKey(
     @jsii.member(jsii_name="noExpiry")
     def no_expiry(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the API key should expire.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "noExpiry"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "noExpiry"))
 
     @no_expiry.setter
     def no_expiry(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f2e8a3ec18117161377722f1dd02cee2566e5eb477a2de4cfbc6a270028941e)
+            type_hints = cached_type_hints(_typecheckingstub__7f2e8a3ec18117161377722f1dd02cee2566e5eb477a2de4cfbc6a270028941e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "noExpiry", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the map resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__297a793f153416e3131543d9b1a435c125bf1b45672e8ee10841ec34b14e6d66)
+            type_hints = cached_type_hints(_typecheckingstub__297a793f153416e3131543d9b1a435c125bf1b45672e8ee10841ec34b14e6d66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -498,7 +486,7 @@ class CfnAPIKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac402196df40fc9c8f7e5c45855f2e8baaca7baafae57dace9c396b3cba764d1)
+                type_hints = cached_type_hints(_typecheckingstub__ac402196df40fc9c8f7e5c45855f2e8baaca7baafae57dace9c396b3cba764d1)
                 check_type(argname="argument certificate_fingerprint", value=certificate_fingerprint, expected_type=type_hints["certificate_fingerprint"])
                 check_type(argname="argument package", value=package, expected_type=type_hints["package"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -552,8 +540,8 @@ class CfnAPIKey(
             *,
             allow_actions: typing.Sequence[builtins.str],
             allow_resources: typing.Sequence[builtins.str],
-            allow_android_apps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAPIKey.AndroidAppProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            allow_apple_apps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAPIKey.AppleAppProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            allow_android_apps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAPIKey.AndroidAppProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            allow_apple_apps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAPIKey.AppleAppProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             allow_referers: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''API Restrictions on the allowed actions, resources, and referers for an API key resource.
@@ -589,7 +577,7 @@ class CfnAPIKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c74737f1e32f7583c8c63e1c8de07d36792e8e3aee5f799d6c8a265f1a3bebb)
+                type_hints = cached_type_hints(_typecheckingstub__0c74737f1e32f7583c8c63e1c8de07d36792e8e3aee5f799d6c8a265f1a3bebb)
                 check_type(argname="argument allow_actions", value=allow_actions, expected_type=type_hints["allow_actions"])
                 check_type(argname="argument allow_resources", value=allow_resources, expected_type=type_hints["allow_resources"])
                 check_type(argname="argument allow_android_apps", value=allow_android_apps, expected_type=type_hints["allow_android_apps"])
@@ -672,22 +660,22 @@ class CfnAPIKey(
         @builtins.property
         def allow_android_apps(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAPIKey.AndroidAppProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.AndroidAppProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-location-apikey-apikeyrestrictions.html#cfn-location-apikey-apikeyrestrictions-allowandroidapps
             '''
             result = self._values.get("allow_android_apps")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAPIKey.AndroidAppProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.AndroidAppProperty"]]]], result)
 
         @builtins.property
         def allow_apple_apps(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAPIKey.AppleAppProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.AppleAppProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-location-apikey-apikeyrestrictions.html#cfn-location-apikey-apikeyrestrictions-allowappleapps
             '''
             result = self._values.get("allow_apple_apps")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAPIKey.AppleAppProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.AppleAppProperty"]]]], result)
 
         @builtins.property
         def allow_referers(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -747,7 +735,7 @@ class CfnAPIKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1fb4fe4c9ced074529c2f50a8ef9b1aa0732e7c0fe89c20e08f5865237361af7)
+                type_hints = cached_type_hints(_typecheckingstub__1fb4fe4c9ced074529c2f50a8ef9b1aa0732e7c0fe89c20e08f5865237361af7)
                 check_type(argname="argument bundle_id", value=bundle_id, expected_type=type_hints["bundle_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "bundle_id": bundle_id,
@@ -793,13 +781,13 @@ class CfnAPIKeyProps:
         self,
         *,
         key_name: builtins.str,
-        restrictions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAPIKey.ApiKeyRestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        restrictions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAPIKey.ApiKeyRestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         expire_time: typing.Optional[builtins.str] = None,
-        force_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        force_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        no_expiry: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        force_delete: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        force_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        no_expiry: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAPIKey``.
 
@@ -852,7 +840,7 @@ class CfnAPIKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4)
+            type_hints = cached_type_hints(_typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4)
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
             check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -897,14 +885,14 @@ class CfnAPIKeyProps:
     @builtins.property
     def restrictions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAPIKey.ApiKeyRestrictionsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.ApiKeyRestrictionsProperty"]:
         '''The API key restrictions for the API key resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-restrictions
         '''
         result = self._values.get("restrictions")
         assert result is not None, "Required property 'restrictions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAPIKey.ApiKeyRestrictionsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAPIKey.ApiKeyRestrictionsProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -927,7 +915,7 @@ class CfnAPIKeyProps:
     @builtins.property
     def force_delete(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''ForceDelete bypasses an API key's expiry conditions and deletes the key.
 
         Set the parameter ``true`` to delete the key or to ``false`` to not preemptively delete the API key.
@@ -940,12 +928,12 @@ class CfnAPIKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forcedelete
         '''
         result = self._values.get("force_delete")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def force_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The boolean flag to be included for updating ``ExpireTime`` or Restrictions details.
 
         Must be set to ``true`` to update an API key resource that has been used in the past 7 days. ``False`` if force update is not preferred.
@@ -953,12 +941,12 @@ class CfnAPIKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forceupdate
         '''
         result = self._values.get("force_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def no_expiry(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the API key should expire.
 
         Set to ``true`` to set the API key to have no expiration time.
@@ -966,10 +954,10 @@ class CfnAPIKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-noexpiry
         '''
         result = self._values.get("no_expiry")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the map resource.
 
         A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
@@ -977,7 +965,7 @@ class CfnAPIKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -991,9 +979,9 @@ class CfnAPIKeyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGeofenceCollectionRef_40bd2c98, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.IGeofenceCollectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGeofenceCollection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnGeofenceCollection",
 ):
@@ -1035,7 +1023,7 @@ class CfnGeofenceCollection(
         kms_key_id: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::GeofenceCollection``.
 
@@ -1049,7 +1037,7 @@ class CfnGeofenceCollection(
         :param tags: Applies one or more tags to the geofence collection. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e0601ccc1fece7d46bccf997c94a7f51bea09a1590d5ce84823ed5c0b2041c1)
+            type_hints = cached_type_hints(_typecheckingstub__8e0601ccc1fece7d46bccf997c94a7f51bea09a1590d5ce84823ed5c0b2041c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGeofenceCollectionProps(
@@ -1067,13 +1055,13 @@ class CfnGeofenceCollection(
     @builtins.classmethod
     def arn_for_geofence_collection(
         cls,
-        resource: "_IGeofenceCollectionRef_40bd2c98",
+        resource: "_aws_location_6a89e4d1.IGeofenceCollectionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93dd00d0af47e16860417840b84d8a174f9bedd1cb04423d80cce3ab6446726b)
+            type_hints = cached_type_hints(_typecheckingstub__93dd00d0af47e16860417840b84d8a174f9bedd1cb04423d80cce3ab6446726b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGeofenceCollection", [resource]))
 
@@ -1085,18 +1073,18 @@ class CfnGeofenceCollection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5461e88afdf404170bd031fdc6be5f4cfecf4007389d8acd1bb068a75dbeb745)
+            type_hints = cached_type_hints(_typecheckingstub__5461e88afdf404170bd031fdc6be5f4cfecf4007389d8acd1bb068a75dbeb745)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGeofenceCollection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66134049825423372dae82a0ee8b8c0bba09bda09682513f80795605e6e0bca6)
+            type_hints = cached_type_hints(_typecheckingstub__66134049825423372dae82a0ee8b8c0bba09bda09682513f80795605e6e0bca6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1109,7 +1097,7 @@ class CfnGeofenceCollection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f4d7847226c9732be9ccaa062a530dac9299d5b10abbda476dd87dbeb44b817)
+            type_hints = cached_type_hints(_typecheckingstub__0f4d7847226c9732be9ccaa062a530dac9299d5b10abbda476dd87dbeb44b817)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1165,9 +1153,9 @@ class CfnGeofenceCollection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1181,9 +1169,11 @@ class CfnGeofenceCollection(
 
     @builtins.property
     @jsii.member(jsii_name="geofenceCollectionRef")
-    def geofence_collection_ref(self) -> "_GeofenceCollectionReference_5894ab83":
+    def geofence_collection_ref(
+        self,
+    ) -> "_aws_location_6a89e4d1.GeofenceCollectionReference":
         '''A reference to a GeofenceCollection resource.'''
-        return typing.cast("_GeofenceCollectionReference_5894ab83", jsii.get(self, "geofenceCollectionRef"))
+        return typing.cast("_aws_location_6a89e4d1.GeofenceCollectionReference", jsii.get(self, "geofenceCollectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="collectionName")
@@ -1194,7 +1184,7 @@ class CfnGeofenceCollection(
     @collection_name.setter
     def collection_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e1fa37cb45ca3a446eacf95e0913ed3efd929171f9d39cc8468baf799adcc51)
+            type_hints = cached_type_hints(_typecheckingstub__0e1fa37cb45ca3a446eacf95e0913ed3efd929171f9d39cc8468baf799adcc51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "collectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -1207,7 +1197,7 @@ class CfnGeofenceCollection(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cbd649bd3182fd4727374b07a6677a62cad5c3336b33bc5e81d0dce2c17e57d)
+            type_hints = cached_type_hints(_typecheckingstub__8cbd649bd3182fd4727374b07a6677a62cad5c3336b33bc5e81d0dce2c17e57d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1220,7 +1210,7 @@ class CfnGeofenceCollection(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f66429d0739f2243b2062e0ca96d0b992ca5e6644989ca9e3620fec145d4c801)
+            type_hints = cached_type_hints(_typecheckingstub__f66429d0739f2243b2062e0ca96d0b992ca5e6644989ca9e3620fec145d4c801)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -1237,7 +1227,7 @@ class CfnGeofenceCollection(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeaf37bab42359e906370b69c4d7738d5d88e344697648948a0aafcf5751b8c2)
+            type_hints = cached_type_hints(_typecheckingstub__eeaf37bab42359e906370b69c4d7738d5d88e344697648948a0aafcf5751b8c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
@@ -1255,20 +1245,23 @@ class CfnGeofenceCollection(
     @pricing_plan_data_source.setter
     def pricing_plan_data_source(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac440741201f7074f72462a372fb1e02f934a32f1d63e4645ed0506f4d874c8e)
+            type_hints = cached_type_hints(_typecheckingstub__ac440741201f7074f72462a372fb1e02f934a32f1d63e4645ed0506f4d874c8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlanDataSource", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the geofence collection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73c685a12991ff080fc342ecb024cac707829ec5c29f69506f34e69631875f71)
+            type_hints = cached_type_hints(_typecheckingstub__73c685a12991ff080fc342ecb024cac707829ec5c29f69506f34e69631875f71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1294,7 +1287,7 @@ class CfnGeofenceCollectionProps:
         kms_key_id: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGeofenceCollection``.
 
@@ -1330,7 +1323,7 @@ class CfnGeofenceCollectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b)
+            type_hints = cached_type_hints(_typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b)
             check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
@@ -1411,7 +1404,7 @@ class CfnGeofenceCollectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the geofence collection.
 
         A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
@@ -1434,7 +1427,7 @@ class CfnGeofenceCollectionProps:
         - Cannot use "aws:" as a prefix for a key.
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1448,9 +1441,9 @@ class CfnGeofenceCollectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMapRef_a23859d8, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.IMapRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMap(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnMap",
 ):
@@ -1492,11 +1485,11 @@ class CfnMap(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMap.MapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMap.MapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         map_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::Map``.
 
@@ -1509,7 +1502,7 @@ class CfnMap(
         :param tags: Applies one or more tags to the map resource. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2dcb0428eb66932a1afc7be03e22130166237e903d48b7c13fc63dbc8f17b8a)
+            type_hints = cached_type_hints(_typecheckingstub__b2dcb0428eb66932a1afc7be03e22130166237e903d48b7c13fc63dbc8f17b8a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMapProps(
@@ -1524,12 +1517,12 @@ class CfnMap(
 
     @jsii.member(jsii_name="arnForMap")
     @builtins.classmethod
-    def arn_for_map(cls, resource: "_IMapRef_a23859d8") -> builtins.str:
+    def arn_for_map(cls, resource: "_aws_location_6a89e4d1.IMapRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58f5301737b58014c185ea87fef5bf06bbee4a99180365f1328934cf4c8763cb)
+            type_hints = cached_type_hints(_typecheckingstub__58f5301737b58014c185ea87fef5bf06bbee4a99180365f1328934cf4c8763cb)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMap", [resource]))
 
@@ -1540,7 +1533,7 @@ class CfnMap(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMapRef_a23859d8":
+    ) -> "_aws_location_6a89e4d1.IMapRef":
         '''Creates a new IMapRef from an ARN.
 
         :param scope: -
@@ -1548,11 +1541,11 @@ class CfnMap(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9debe2a73fd7a56527b10e74dc4d5dad2402d476504e9c52f9ea8690db4ce3b)
+            type_hints = cached_type_hints(_typecheckingstub__b9debe2a73fd7a56527b10e74dc4d5dad2402d476504e9c52f9ea8690db4ce3b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMapRef_a23859d8", jsii.sinvoke(cls, "fromMapArn", [scope, id, arn]))
+        return typing.cast("_aws_location_6a89e4d1.IMapRef", jsii.sinvoke(cls, "fromMapArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromMapName")
     @builtins.classmethod
@@ -1561,7 +1554,7 @@ class CfnMap(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         map_name: builtins.str,
-    ) -> "_IMapRef_a23859d8":
+    ) -> "_aws_location_6a89e4d1.IMapRef":
         '''Creates a new IMapRef from a mapName.
 
         :param scope: -
@@ -1569,11 +1562,11 @@ class CfnMap(
         :param map_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b60cdf883704a6b802821177f72dd20fb8c7309cece100f783ecb09733c8d0b1)
+            type_hints = cached_type_hints(_typecheckingstub__b60cdf883704a6b802821177f72dd20fb8c7309cece100f783ecb09733c8d0b1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
-        return typing.cast("_IMapRef_a23859d8", jsii.sinvoke(cls, "fromMapName", [scope, id, map_name]))
+        return typing.cast("_aws_location_6a89e4d1.IMapRef", jsii.sinvoke(cls, "fromMapName", [scope, id, map_name]))
 
     @jsii.member(jsii_name="isCfnMap")
     @builtins.classmethod
@@ -1583,18 +1576,18 @@ class CfnMap(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a83572ceb4f16a58d82f813899eff155be24882637bad7545f10597df62d35)
+            type_hints = cached_type_hints(_typecheckingstub__14a83572ceb4f16a58d82f813899eff155be24882637bad7545f10597df62d35)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMap", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9beda5dad2c7dda9e9e75c7563f1dd64ce2d95ee632f1f16c15c710cb2fcb9e0)
+            type_hints = cached_type_hints(_typecheckingstub__9beda5dad2c7dda9e9e75c7563f1dd64ce2d95ee632f1f16c15c710cb2fcb9e0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1607,7 +1600,7 @@ class CfnMap(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c81c05fd3d18494b5a67a26662df2ed22fb26a83114a2a0d33f71351eca462)
+            type_hints = cached_type_hints(_typecheckingstub__23c81c05fd3d18494b5a67a26662df2ed22fb26a83114a2a0d33f71351eca462)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1669,9 +1662,9 @@ class CfnMap(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1685,25 +1678,25 @@ class CfnMap(
 
     @builtins.property
     @jsii.member(jsii_name="mapRef")
-    def map_ref(self) -> "_MapReference_d6aa05aa":
+    def map_ref(self) -> "_aws_location_6a89e4d1.MapReference":
         '''A reference to a Map resource.'''
-        return typing.cast("_MapReference_d6aa05aa", jsii.get(self, "mapRef"))
+        return typing.cast("_aws_location_6a89e4d1.MapReference", jsii.get(self, "mapRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMap.MapConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMap.MapConfigurationProperty"]:
         '''Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMap.MapConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMap.MapConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMap.MapConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMap.MapConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a9f72d270eb9bf689ae6d9866174a230761748f72e7261987c4cc8c502029b1)
+            type_hints = cached_type_hints(_typecheckingstub__7a9f72d270eb9bf689ae6d9866174a230761748f72e7261987c4cc8c502029b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -1716,7 +1709,7 @@ class CfnMap(
     @map_name.setter
     def map_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54b14104c4a32a55719c593e2887df99cc3a37af1549a48dabd43c2e5d116df9)
+            type_hints = cached_type_hints(_typecheckingstub__54b14104c4a32a55719c593e2887df99cc3a37af1549a48dabd43c2e5d116df9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mapName", value) # pyright: ignore[reportArgumentType]
 
@@ -1729,7 +1722,7 @@ class CfnMap(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__031d91b8f14088e6516171c6244cb833bddde7d5749bd4d5e5ee39bfe0f17fe8)
+            type_hints = cached_type_hints(_typecheckingstub__031d91b8f14088e6516171c6244cb833bddde7d5749bd4d5e5ee39bfe0f17fe8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1745,20 +1738,23 @@ class CfnMap(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de864d7ca8c9af6ca27a35f5fb304092560e41a384b9dd782f1dd78cc16953b1)
+            type_hints = cached_type_hints(_typecheckingstub__de864d7ca8c9af6ca27a35f5fb304092560e41a384b9dd782f1dd78cc16953b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the map resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb33fbdbbd66a87cdef71cb76784ef3bcdea2208fa231444865a3178588b36c6)
+            type_hints = cached_type_hints(_typecheckingstub__bb33fbdbbd66a87cdef71cb76784ef3bcdea2208fa231444865a3178588b36c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1803,7 +1799,7 @@ class CfnMap(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f994438dc4a55ff175f7c8b92debb9548b8c21e2896a0380a521bcdba4e2a0d6)
+                type_hints = cached_type_hints(_typecheckingstub__f994438dc4a55ff175f7c8b92debb9548b8c21e2896a0380a521bcdba4e2a0d6)
                 check_type(argname="argument style", value=style, expected_type=type_hints["style"])
                 check_type(argname="argument custom_layers", value=custom_layers, expected_type=type_hints["custom_layers"])
                 check_type(argname="argument political_view", value=political_view, expected_type=type_hints["political_view"])
@@ -1917,11 +1913,11 @@ class CfnMapProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMap.MapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMap.MapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         map_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMap``.
 
@@ -1961,7 +1957,7 @@ class CfnMapProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8)
+            type_hints = cached_type_hints(_typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1981,7 +1977,7 @@ class CfnMapProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMap.MapConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMap.MapConfigurationProperty"]:
         '''Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create.
 
         The map style defines the look of maps and the data provider for your map resource.
@@ -1990,7 +1986,7 @@ class CfnMapProps:
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMap.MapConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMap.MapConfigurationProperty"], result)
 
     @builtins.property
     def map_name(self) -> builtins.str:
@@ -2029,7 +2025,7 @@ class CfnMapProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Applies one or more tags to the map resource.
 
         A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
@@ -2052,7 +2048,7 @@ class CfnMapProps:
         - Cannot use "aws:" as a prefix for a key.
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2066,9 +2062,9 @@ class CfnMapProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPlaceIndexRef_a9b4878a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.IPlaceIndexRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPlaceIndex(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnPlaceIndex",
 ):
@@ -2114,10 +2110,10 @@ class CfnPlaceIndex(
         *,
         data_source: builtins.str,
         index_name: builtins.str,
-        data_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaceIndex.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaceIndex.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::PlaceIndex``.
 
@@ -2131,7 +2127,7 @@ class CfnPlaceIndex(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a86efa72874938a7fdd56ee75ab5f3481754256c4e7be12dd321fb8179b36168)
+            type_hints = cached_type_hints(_typecheckingstub__a86efa72874938a7fdd56ee75ab5f3481754256c4e7be12dd321fb8179b36168)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPlaceIndexProps(
@@ -2147,12 +2143,15 @@ class CfnPlaceIndex(
 
     @jsii.member(jsii_name="arnForPlaceIndex")
     @builtins.classmethod
-    def arn_for_place_index(cls, resource: "_IPlaceIndexRef_a9b4878a") -> builtins.str:
+    def arn_for_place_index(
+        cls,
+        resource: "_aws_location_6a89e4d1.IPlaceIndexRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aad4e0fb25835fd69a5afd941dae64a5e94e867476776a120ac441d0f08fc69a)
+            type_hints = cached_type_hints(_typecheckingstub__aad4e0fb25835fd69a5afd941dae64a5e94e867476776a120ac441d0f08fc69a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPlaceIndex", [resource]))
 
@@ -2163,7 +2162,7 @@ class CfnPlaceIndex(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         index_name: builtins.str,
-    ) -> "_IPlaceIndexRef_a9b4878a":
+    ) -> "_aws_location_6a89e4d1.IPlaceIndexRef":
         '''Creates a new IPlaceIndexRef from a indexName.
 
         :param scope: -
@@ -2171,11 +2170,11 @@ class CfnPlaceIndex(
         :param index_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f622e282a16d5c0c89655a9198f2637165c96ec96943a67e5432383bcce576f)
+            type_hints = cached_type_hints(_typecheckingstub__4f622e282a16d5c0c89655a9198f2637165c96ec96943a67e5432383bcce576f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-        return typing.cast("_IPlaceIndexRef_a9b4878a", jsii.sinvoke(cls, "fromIndexName", [scope, id, index_name]))
+        return typing.cast("_aws_location_6a89e4d1.IPlaceIndexRef", jsii.sinvoke(cls, "fromIndexName", [scope, id, index_name]))
 
     @jsii.member(jsii_name="fromPlaceIndexArn")
     @builtins.classmethod
@@ -2184,7 +2183,7 @@ class CfnPlaceIndex(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IPlaceIndexRef_a9b4878a":
+    ) -> "_aws_location_6a89e4d1.IPlaceIndexRef":
         '''Creates a new IPlaceIndexRef from an ARN.
 
         :param scope: -
@@ -2192,11 +2191,11 @@ class CfnPlaceIndex(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38a00f836ed297fe9f6601dc3a96365eb13942e1ef45700edd7e4569a25e1a0a)
+            type_hints = cached_type_hints(_typecheckingstub__38a00f836ed297fe9f6601dc3a96365eb13942e1ef45700edd7e4569a25e1a0a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IPlaceIndexRef_a9b4878a", jsii.sinvoke(cls, "fromPlaceIndexArn", [scope, id, arn]))
+        return typing.cast("_aws_location_6a89e4d1.IPlaceIndexRef", jsii.sinvoke(cls, "fromPlaceIndexArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnPlaceIndex")
     @builtins.classmethod
@@ -2206,18 +2205,18 @@ class CfnPlaceIndex(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1629d733538c9f0f757280d8dc22e5f522a9a10f7786ada8489085329594aa9d)
+            type_hints = cached_type_hints(_typecheckingstub__1629d733538c9f0f757280d8dc22e5f522a9a10f7786ada8489085329594aa9d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPlaceIndex", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0c405c6a922a2896cb59706744382d2e74f7b74e7533c5078a63a01a0dda7f8)
+            type_hints = cached_type_hints(_typecheckingstub__e0c405c6a922a2896cb59706744382d2e74f7b74e7533c5078a63a01a0dda7f8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2230,7 +2229,7 @@ class CfnPlaceIndex(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6e6a62d57c55981d2561a3c18c99b7b68c42dd787f2ac2a05ef607b0d5c38be)
+            type_hints = cached_type_hints(_typecheckingstub__d6e6a62d57c55981d2561a3c18c99b7b68c42dd787f2ac2a05ef607b0d5c38be)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2284,9 +2283,9 @@ class CfnPlaceIndex(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2300,9 +2299,9 @@ class CfnPlaceIndex(
 
     @builtins.property
     @jsii.member(jsii_name="placeIndexRef")
-    def place_index_ref(self) -> "_PlaceIndexReference_8dd06ddc":
+    def place_index_ref(self) -> "_aws_location_6a89e4d1.PlaceIndexReference":
         '''A reference to a PlaceIndex resource.'''
-        return typing.cast("_PlaceIndexReference_8dd06ddc", jsii.get(self, "placeIndexRef"))
+        return typing.cast("_aws_location_6a89e4d1.PlaceIndexReference", jsii.get(self, "placeIndexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataSource")
@@ -2313,7 +2312,7 @@ class CfnPlaceIndex(
     @data_source.setter
     def data_source(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d7c1c6b9a81b0a961b6426f41c459172924ee226a1266f2c09e8bcee9f894dd)
+            type_hints = cached_type_hints(_typecheckingstub__9d7c1c6b9a81b0a961b6426f41c459172924ee226a1266f2c09e8bcee9f894dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSource", value) # pyright: ignore[reportArgumentType]
 
@@ -2326,7 +2325,7 @@ class CfnPlaceIndex(
     @index_name.setter
     def index_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80848c256675ce5115c146bfbde42fded11406ee451376e49955461fb6004b75)
+            type_hints = cached_type_hints(_typecheckingstub__80848c256675ce5115c146bfbde42fded11406ee451376e49955461fb6004b75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "indexName", value) # pyright: ignore[reportArgumentType]
 
@@ -2334,17 +2333,17 @@ class CfnPlaceIndex(
     @jsii.member(jsii_name="dataSourceConfiguration")
     def data_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaceIndex.DataSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaceIndex.DataSourceConfigurationProperty"]]:
         '''Specifies the data storage option requesting Places.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaceIndex.DataSourceConfigurationProperty"]], jsii.get(self, "dataSourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaceIndex.DataSourceConfigurationProperty"]], jsii.get(self, "dataSourceConfiguration"))
 
     @data_source_configuration.setter
     def data_source_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaceIndex.DataSourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaceIndex.DataSourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4cff8053f28ed6073e2b7c62ec72627c8ffc7b98c86bc2b7c5c4e9b177d8d4a)
+            type_hints = cached_type_hints(_typecheckingstub__a4cff8053f28ed6073e2b7c62ec72627c8ffc7b98c86bc2b7c5c4e9b177d8d4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2357,7 +2356,7 @@ class CfnPlaceIndex(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a59366c5536e4867cad1dd1e53981208d2606343698315f4ecfbe50ac0be1c27)
+            type_hints = cached_type_hints(_typecheckingstub__a59366c5536e4867cad1dd1e53981208d2606343698315f4ecfbe50ac0be1c27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2373,20 +2372,23 @@ class CfnPlaceIndex(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7653a99bc2f680ec231d78959d16db4997e472e731a68a554772f0e08b4fd925)
+            type_hints = cached_type_hints(_typecheckingstub__7653a99bc2f680ec231d78959d16db4997e472e731a68a554772f0e08b4fd925)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a88e3fcbc3fba96f937cf7669a81dcdb84f3dce7ddea1dd5143fcf5e7eaeb70e)
+            type_hints = cached_type_hints(_typecheckingstub__a88e3fcbc3fba96f937cf7669a81dcdb84f3dce7ddea1dd5143fcf5e7eaeb70e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2419,7 +2421,7 @@ class CfnPlaceIndex(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b631c3e00c6906f33efa721d356034e81e693d6aa037787fadb69355eaa4ef41)
+                type_hints = cached_type_hints(_typecheckingstub__b631c3e00c6906f33efa721d356034e81e693d6aa037787fadb69355eaa4ef41)
                 check_type(argname="argument intended_use", value=intended_use, expected_type=type_hints["intended_use"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if intended_use is not None:
@@ -2471,10 +2473,10 @@ class CfnPlaceIndexProps:
         *,
         data_source: builtins.str,
         index_name: builtins.str,
-        data_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaceIndex.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaceIndex.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPlaceIndex``.
 
@@ -2512,7 +2514,7 @@ class CfnPlaceIndexProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4)
+            type_hints = cached_type_hints(_typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4)
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
             check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
@@ -2577,13 +2579,13 @@ class CfnPlaceIndexProps:
     @builtins.property
     def data_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaceIndex.DataSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaceIndex.DataSourceConfigurationProperty"]]:
         '''Specifies the data storage option requesting Places.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-datasourceconfiguration
         '''
         result = self._values.get("data_source_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaceIndex.DataSourceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaceIndex.DataSourceConfigurationProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2606,13 +2608,13 @@ class CfnPlaceIndexProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2626,9 +2628,9 @@ class CfnPlaceIndexProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRouteCalculatorRef_f2a132ab, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.IRouteCalculatorRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRouteCalculator(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnRouteCalculator",
 ):
@@ -2673,7 +2675,7 @@ class CfnRouteCalculator(
         data_source: builtins.str,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::RouteCalculator``.
 
@@ -2686,7 +2688,7 @@ class CfnRouteCalculator(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a900f380dbd4e0012dcb474730041f91eeaecc9218db4d6163fd730394a66f3a)
+            type_hints = cached_type_hints(_typecheckingstub__a900f380dbd4e0012dcb474730041f91eeaecc9218db4d6163fd730394a66f3a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRouteCalculatorProps(
@@ -2703,13 +2705,13 @@ class CfnRouteCalculator(
     @builtins.classmethod
     def arn_for_route_calculator(
         cls,
-        resource: "_IRouteCalculatorRef_f2a132ab",
+        resource: "_aws_location_6a89e4d1.IRouteCalculatorRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9446993691f487ab7294e0a2aa321bee629e65fc81b90132786c64783288cb14)
+            type_hints = cached_type_hints(_typecheckingstub__9446993691f487ab7294e0a2aa321bee629e65fc81b90132786c64783288cb14)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRouteCalculator", [resource]))
 
@@ -2720,7 +2722,7 @@ class CfnRouteCalculator(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         calculator_name: builtins.str,
-    ) -> "_IRouteCalculatorRef_f2a132ab":
+    ) -> "_aws_location_6a89e4d1.IRouteCalculatorRef":
         '''Creates a new IRouteCalculatorRef from a calculatorName.
 
         :param scope: -
@@ -2728,11 +2730,11 @@ class CfnRouteCalculator(
         :param calculator_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1607bbf308ae75c768acc58ce4c5dcb1963975ab8b9ad76935d74461bbd636b5)
+            type_hints = cached_type_hints(_typecheckingstub__1607bbf308ae75c768acc58ce4c5dcb1963975ab8b9ad76935d74461bbd636b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
-        return typing.cast("_IRouteCalculatorRef_f2a132ab", jsii.sinvoke(cls, "fromCalculatorName", [scope, id, calculator_name]))
+        return typing.cast("_aws_location_6a89e4d1.IRouteCalculatorRef", jsii.sinvoke(cls, "fromCalculatorName", [scope, id, calculator_name]))
 
     @jsii.member(jsii_name="fromRouteCalculatorArn")
     @builtins.classmethod
@@ -2741,7 +2743,7 @@ class CfnRouteCalculator(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IRouteCalculatorRef_f2a132ab":
+    ) -> "_aws_location_6a89e4d1.IRouteCalculatorRef":
         '''Creates a new IRouteCalculatorRef from an ARN.
 
         :param scope: -
@@ -2749,11 +2751,11 @@ class CfnRouteCalculator(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2f2772368dd3b1946646c582d13424fefd6b9aa10c741a11047ddb1d7e2fa1e)
+            type_hints = cached_type_hints(_typecheckingstub__a2f2772368dd3b1946646c582d13424fefd6b9aa10c741a11047ddb1d7e2fa1e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IRouteCalculatorRef_f2a132ab", jsii.sinvoke(cls, "fromRouteCalculatorArn", [scope, id, arn]))
+        return typing.cast("_aws_location_6a89e4d1.IRouteCalculatorRef", jsii.sinvoke(cls, "fromRouteCalculatorArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnRouteCalculator")
     @builtins.classmethod
@@ -2763,18 +2765,18 @@ class CfnRouteCalculator(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__231d2b58e0973d958f7fb16ba0698cf4e188bd9b23cf1faf7b59f0992df237a8)
+            type_hints = cached_type_hints(_typecheckingstub__231d2b58e0973d958f7fb16ba0698cf4e188bd9b23cf1faf7b59f0992df237a8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRouteCalculator", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0f206fe9bb875d2c7acae9be0a23fa0286ad54fbd1bebff69010a95bea15fec)
+            type_hints = cached_type_hints(_typecheckingstub__d0f206fe9bb875d2c7acae9be0a23fa0286ad54fbd1bebff69010a95bea15fec)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2787,7 +2789,7 @@ class CfnRouteCalculator(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c6188d22ee31496bd1f61ea15dd8d141313349058c043549fd0dad11d02a49b)
+            type_hints = cached_type_hints(_typecheckingstub__0c6188d22ee31496bd1f61ea15dd8d141313349058c043549fd0dad11d02a49b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2843,9 +2845,9 @@ class CfnRouteCalculator(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2859,9 +2861,9 @@ class CfnRouteCalculator(
 
     @builtins.property
     @jsii.member(jsii_name="routeCalculatorRef")
-    def route_calculator_ref(self) -> "_RouteCalculatorReference_ca83e5a1":
+    def route_calculator_ref(self) -> "_aws_location_6a89e4d1.RouteCalculatorReference":
         '''A reference to a RouteCalculator resource.'''
-        return typing.cast("_RouteCalculatorReference_ca83e5a1", jsii.get(self, "routeCalculatorRef"))
+        return typing.cast("_aws_location_6a89e4d1.RouteCalculatorReference", jsii.get(self, "routeCalculatorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="calculatorName")
@@ -2872,7 +2874,7 @@ class CfnRouteCalculator(
     @calculator_name.setter
     def calculator_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9501128c2291eb0596cb61fa914f8f1f6ceb251748807dce9d7b778f46355373)
+            type_hints = cached_type_hints(_typecheckingstub__9501128c2291eb0596cb61fa914f8f1f6ceb251748807dce9d7b778f46355373)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "calculatorName", value) # pyright: ignore[reportArgumentType]
 
@@ -2885,7 +2887,7 @@ class CfnRouteCalculator(
     @data_source.setter
     def data_source(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__facb0538b630afd7ae0f1a08a48d6f92e23fb00dc53fd3e9bdedc88b3e17b6b6)
+            type_hints = cached_type_hints(_typecheckingstub__facb0538b630afd7ae0f1a08a48d6f92e23fb00dc53fd3e9bdedc88b3e17b6b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSource", value) # pyright: ignore[reportArgumentType]
 
@@ -2898,7 +2900,7 @@ class CfnRouteCalculator(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88fc3920b0a8018d893998ecb23006fd6c84ebcc44e8ca60c506b79ade39568)
+            type_hints = cached_type_hints(_typecheckingstub__d88fc3920b0a8018d893998ecb23006fd6c84ebcc44e8ca60c506b79ade39568)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2914,20 +2916,23 @@ class CfnRouteCalculator(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f40cb810c37a798bfec946670c6e7a33c338d2fe035b50de2d1bee9b1485bdc)
+            type_hints = cached_type_hints(_typecheckingstub__3f40cb810c37a798bfec946670c6e7a33c338d2fe035b50de2d1bee9b1485bdc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74454734a6df8a4308849a60f8d80541ab1a10fc08d73d9f6faa0474841ec604)
+            type_hints = cached_type_hints(_typecheckingstub__74454734a6df8a4308849a60f8d80541ab1a10fc08d73d9f6faa0474841ec604)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2951,7 +2956,7 @@ class CfnRouteCalculatorProps:
         data_source: builtins.str,
         description: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRouteCalculator``.
 
@@ -2985,7 +2990,7 @@ class CfnRouteCalculatorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9)
+            type_hints = cached_type_hints(_typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9)
             check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3064,13 +3069,13 @@ class CfnRouteCalculatorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3084,9 +3089,9 @@ class CfnRouteCalculatorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrackerRef_e22d1822, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.ITrackerRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTracker(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnTracker",
 ):
@@ -3128,13 +3133,13 @@ class CfnTracker(
         *,
         tracker_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         position_filtering: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Location::Tracker``.
 
@@ -3151,7 +3156,7 @@ class CfnTracker(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cd2e07bf97c42a45f9443da7edf34b075c2f9b41a262ae77aee4b2a82a30dc0)
+            type_hints = cached_type_hints(_typecheckingstub__1cd2e07bf97c42a45f9443da7edf34b075c2f9b41a262ae77aee4b2a82a30dc0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrackerProps(
@@ -3170,12 +3175,15 @@ class CfnTracker(
 
     @jsii.member(jsii_name="arnForTracker")
     @builtins.classmethod
-    def arn_for_tracker(cls, resource: "_ITrackerRef_e22d1822") -> builtins.str:
+    def arn_for_tracker(
+        cls,
+        resource: "_aws_location_6a89e4d1.ITrackerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__393e491ae5701ba18dbcd45bbf8598962f0206a993528403517acf97efa802b0)
+            type_hints = cached_type_hints(_typecheckingstub__393e491ae5701ba18dbcd45bbf8598962f0206a993528403517acf97efa802b0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTracker", [resource]))
 
@@ -3186,7 +3194,7 @@ class CfnTracker(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ITrackerRef_e22d1822":
+    ) -> "_aws_location_6a89e4d1.ITrackerRef":
         '''Creates a new ITrackerRef from an ARN.
 
         :param scope: -
@@ -3194,11 +3202,11 @@ class CfnTracker(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27090e7cdb1dab47fb0a7e3b870e1612755cdfa42971179797d8ea4693bb6d6b)
+            type_hints = cached_type_hints(_typecheckingstub__27090e7cdb1dab47fb0a7e3b870e1612755cdfa42971179797d8ea4693bb6d6b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ITrackerRef_e22d1822", jsii.sinvoke(cls, "fromTrackerArn", [scope, id, arn]))
+        return typing.cast("_aws_location_6a89e4d1.ITrackerRef", jsii.sinvoke(cls, "fromTrackerArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromTrackerName")
     @builtins.classmethod
@@ -3207,7 +3215,7 @@ class CfnTracker(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         tracker_name: builtins.str,
-    ) -> "_ITrackerRef_e22d1822":
+    ) -> "_aws_location_6a89e4d1.ITrackerRef":
         '''Creates a new ITrackerRef from a trackerName.
 
         :param scope: -
@@ -3215,11 +3223,11 @@ class CfnTracker(
         :param tracker_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__401c575e4494825351571dd08bdd2279e6de4c865a407e5d04e089f821479acd)
+            type_hints = cached_type_hints(_typecheckingstub__401c575e4494825351571dd08bdd2279e6de4c865a407e5d04e089f821479acd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
-        return typing.cast("_ITrackerRef_e22d1822", jsii.sinvoke(cls, "fromTrackerName", [scope, id, tracker_name]))
+        return typing.cast("_aws_location_6a89e4d1.ITrackerRef", jsii.sinvoke(cls, "fromTrackerName", [scope, id, tracker_name]))
 
     @jsii.member(jsii_name="isCfnTracker")
     @builtins.classmethod
@@ -3229,18 +3237,18 @@ class CfnTracker(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a3ab7791c21683bb00ac6f4ff9d557463bf3cbceee241963435d3d4c8fb4f60)
+            type_hints = cached_type_hints(_typecheckingstub__1a3ab7791c21683bb00ac6f4ff9d557463bf3cbceee241963435d3d4c8fb4f60)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTracker", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__606edf93b66473926b20e5a3b0af67fe5ed3f2fceae488ca1b2486f74e9beeb4)
+            type_hints = cached_type_hints(_typecheckingstub__606edf93b66473926b20e5a3b0af67fe5ed3f2fceae488ca1b2486f74e9beeb4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3253,7 +3261,7 @@ class CfnTracker(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1045c636e6d3b0f9dcbb0a4661afd9d9bfe2912562fdba49a3e87a5d8e522f9)
+            type_hints = cached_type_hints(_typecheckingstub__b1045c636e6d3b0f9dcbb0a4661afd9d9bfe2912562fdba49a3e87a5d8e522f9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3309,9 +3317,9 @@ class CfnTracker(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3325,9 +3333,9 @@ class CfnTracker(
 
     @builtins.property
     @jsii.member(jsii_name="trackerRef")
-    def tracker_ref(self) -> "_TrackerReference_50e103a4":
+    def tracker_ref(self) -> "_aws_location_6a89e4d1.TrackerReference":
         '''A reference to a Tracker resource.'''
-        return typing.cast("_TrackerReference_50e103a4", jsii.get(self, "trackerRef"))
+        return typing.cast("_aws_location_6a89e4d1.TrackerReference", jsii.get(self, "trackerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="trackerName")
@@ -3338,7 +3346,7 @@ class CfnTracker(
     @tracker_name.setter
     def tracker_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__704fbf855c65f61aeff35b9fcc74d9758e51af0bbee363ab356fea2602f904b6)
+            type_hints = cached_type_hints(_typecheckingstub__704fbf855c65f61aeff35b9fcc74d9758e51af0bbee363ab356fea2602f904b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trackerName", value) # pyright: ignore[reportArgumentType]
 
@@ -3351,7 +3359,7 @@ class CfnTracker(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__432656f1a3249889b4f6340d433951d4b03ec382b366b9cefc7f22db81828ad3)
+            type_hints = cached_type_hints(_typecheckingstub__432656f1a3249889b4f6340d433951d4b03ec382b366b9cefc7f22db81828ad3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3359,16 +3367,16 @@ class CfnTracker(
     @jsii.member(jsii_name="eventBridgeEnabled")
     def event_bridge_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "eventBridgeEnabled"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "eventBridgeEnabled"))
 
     @event_bridge_enabled.setter
     def event_bridge_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd4f7477042ce6ed75f0b9861b25a721854ba28f82072db60305830e07af0d42)
+            type_hints = cached_type_hints(_typecheckingstub__cd4f7477042ce6ed75f0b9861b25a721854ba28f82072db60305830e07af0d42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventBridgeEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3376,16 +3384,16 @@ class CfnTracker(
     @jsii.member(jsii_name="kmsKeyEnableGeospatialQueries")
     def kms_key_enable_geospatial_queries(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "kmsKeyEnableGeospatialQueries"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "kmsKeyEnableGeospatialQueries"))
 
     @kms_key_enable_geospatial_queries.setter
     def kms_key_enable_geospatial_queries(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2dd571749bac14762477ff49a8f135c7d6e5b9f96b1f45fdb2f11d55be863ce)
+            type_hints = cached_type_hints(_typecheckingstub__b2dd571749bac14762477ff49a8f135c7d6e5b9f96b1f45fdb2f11d55be863ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyEnableGeospatialQueries", value) # pyright: ignore[reportArgumentType]
 
@@ -3398,7 +3406,7 @@ class CfnTracker(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcc29257a761669c6cc236364e363b6512c47005e61ff4201e14badc85d4b49d)
+            type_hints = cached_type_hints(_typecheckingstub__dcc29257a761669c6cc236364e363b6512c47005e61ff4201e14badc85d4b49d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -3411,7 +3419,7 @@ class CfnTracker(
     @position_filtering.setter
     def position_filtering(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7f9e9ee70dc0e0f484224b53e37f910ac2fe681564c2ba665fb49c1f326e222)
+            type_hints = cached_type_hints(_typecheckingstub__b7f9e9ee70dc0e0f484224b53e37f910ac2fe681564c2ba665fb49c1f326e222)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "positionFiltering", value) # pyright: ignore[reportArgumentType]
 
@@ -3428,7 +3436,7 @@ class CfnTracker(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6ef71bd19b0038f0b7a053221674f1b6d79138bfb1150915529c7b0aefe900f)
+            type_hints = cached_type_hints(_typecheckingstub__e6ef71bd19b0038f0b7a053221674f1b6d79138bfb1150915529c7b0aefe900f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
@@ -3446,27 +3454,30 @@ class CfnTracker(
     @pricing_plan_data_source.setter
     def pricing_plan_data_source(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9f5b36993f4be81b2285747fed230ab9182b4393ef3b93d823765df23324c4c)
+            type_hints = cached_type_hints(_typecheckingstub__c9f5b36993f4be81b2285747fed230ab9182b4393ef3b93d823765df23324c4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlanDataSource", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd4f1b9ba5c51ac5a38d0876f790c1137595037fec38c3aacc1dd70bc872c126)
+            type_hints = cached_type_hints(_typecheckingstub__bd4f1b9ba5c51ac5a38d0876f790c1137595037fec38c3aacc1dd70bc872c126)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrackerConsumerRef_624ec496)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_location_6a89e4d1.ITrackerConsumerRef)
 class CfnTrackerConsumer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_location.CfnTrackerConsumer",
 ):
@@ -3509,7 +3520,7 @@ class CfnTrackerConsumer(
         :param tracker_name: The name for the tracker resource. Requirements: - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_). - Must be a unique tracker resource name. - No spaces allowed. For example, ``ExampleTracker`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__796f07ade0c1c21cf2be739abf72847e038c9c0f1fe6e69286fa0b51df24a022)
+            type_hints = cached_type_hints(_typecheckingstub__796f07ade0c1c21cf2be739abf72847e038c9c0f1fe6e69286fa0b51df24a022)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrackerConsumerProps(
@@ -3526,18 +3537,18 @@ class CfnTrackerConsumer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__838c9087b2ed63c199bc748958c21ee405f0361e202cbbff3639edd242584605)
+            type_hints = cached_type_hints(_typecheckingstub__838c9087b2ed63c199bc748958c21ee405f0361e202cbbff3639edd242584605)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrackerConsumer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7cf03d6794740801a069f1fdfdefcd95ab283d7bba980f64a30bc78e1155809)
+            type_hints = cached_type_hints(_typecheckingstub__c7cf03d6794740801a069f1fdfdefcd95ab283d7bba980f64a30bc78e1155809)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3550,7 +3561,7 @@ class CfnTrackerConsumer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db67e253b286d87476fb1aa3fa7c47f96dc2e0d9269d323e1ca1f4c17fb60c85)
+            type_hints = cached_type_hints(_typecheckingstub__db67e253b286d87476fb1aa3fa7c47f96dc2e0d9269d323e1ca1f4c17fb60c85)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3572,9 +3583,9 @@ class CfnTrackerConsumer(
 
     @builtins.property
     @jsii.member(jsii_name="trackerConsumerRef")
-    def tracker_consumer_ref(self) -> "_TrackerConsumerReference_7cc2ab2f":
+    def tracker_consumer_ref(self) -> "_aws_location_6a89e4d1.TrackerConsumerReference":
         '''A reference to a TrackerConsumer resource.'''
-        return typing.cast("_TrackerConsumerReference_7cc2ab2f", jsii.get(self, "trackerConsumerRef"))
+        return typing.cast("_aws_location_6a89e4d1.TrackerConsumerReference", jsii.get(self, "trackerConsumerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerArn")
@@ -3585,7 +3596,7 @@ class CfnTrackerConsumer(
     @consumer_arn.setter
     def consumer_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3101704451bf83d25aae3a96e950bccc978a403a238456dffbfa02203f3d5fad)
+            type_hints = cached_type_hints(_typecheckingstub__3101704451bf83d25aae3a96e950bccc978a403a238456dffbfa02203f3d5fad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "consumerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3598,7 +3609,7 @@ class CfnTrackerConsumer(
     @tracker_name.setter
     def tracker_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa34370ea71108b33b5119b9fcb8ca5029e1349c5ec4e2fb3d74745ed6952b4a)
+            type_hints = cached_type_hints(_typecheckingstub__aa34370ea71108b33b5119b9fcb8ca5029e1349c5ec4e2fb3d74745ed6952b4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trackerName", value) # pyright: ignore[reportArgumentType]
 
@@ -3635,7 +3646,7 @@ class CfnTrackerConsumerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8)
+            type_hints = cached_type_hints(_typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8)
             check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3706,13 +3717,13 @@ class CfnTrackerProps:
         *,
         tracker_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         position_filtering: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTracker``.
 
@@ -3754,7 +3765,7 @@ class CfnTrackerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9)
+            type_hints = cached_type_hints(_typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9)
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_bridge_enabled", value=event_bridge_enabled, expected_type=type_hints["event_bridge_enabled"])
@@ -3812,22 +3823,22 @@ class CfnTrackerProps:
     @builtins.property
     def event_bridge_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-eventbridgeenabled
         '''
         result = self._values.get("event_bridge_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kms_key_enable_geospatial_queries(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-kmskeyenablegeospatialqueries
         '''
         result = self._values.get("kms_key_enable_geospatial_queries")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -3881,13 +3892,13 @@ class CfnTrackerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3925,19 +3936,19 @@ def _typecheckingstub__e2ae0e8c734c36fc4dfc2e50264fbc5e41cc44ca78d64c47f19cac56e
     id: builtins.str,
     *,
     key_name: builtins.str,
-    restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    restrictions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     expire_time: typing.Optional[builtins.str] = None,
-    force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    force_delete: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    force_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    no_expiry: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b541bc5781d85442598cf2eab477446dbeda19573dd95ac194aeef954f1f276b(
-    resource: _IAPIKeyRef_02c748d1,
+    resource: _aws_location_6a89e4d1.IAPIKeyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3965,7 +3976,7 @@ def _typecheckingstub__dd5f8c7319d59786154399d4d4317acb8af1c8046718646829764bfea
     pass
 
 def _typecheckingstub__90e4d83d582a33efc0dfeef244e5a4b84a90230cc485853b42d16a3e6f6609a7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3983,7 +3994,7 @@ def _typecheckingstub__c00e03a38669285c7b235bbd87ec7317379694b0537c3a85e4741d27c
     pass
 
 def _typecheckingstub__65682d4a834f16510a57f21e8af7c41ba661e7d0f78293abcd483f9d45afba31(
-    value: typing.Union[_IResolvable_da3f097b, CfnAPIKey.ApiKeyRestrictionsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAPIKey.ApiKeyRestrictionsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4001,25 +4012,25 @@ def _typecheckingstub__8263b20b7b28c2712bf62bdacab9989763120af28d1e026f26e14f6e5
     pass
 
 def _typecheckingstub__c8379f2b16717a153383f6b36ff735d0d746008205280dddfc3ffe2f253f29a2(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6402962818d046984829754f6a1e3957be1c7b7981fc92251adcdb9aaeefd493(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7f2e8a3ec18117161377722f1dd02cee2566e5eb477a2de4cfbc6a270028941e(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__297a793f153416e3131543d9b1a435c125bf1b45672e8ee10841ec34b14e6d66(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4036,8 +4047,8 @@ def _typecheckingstub__0c74737f1e32f7583c8c63e1c8de07d36792e8e3aee5f799d6c8a265f
     *,
     allow_actions: typing.Sequence[builtins.str],
     allow_resources: typing.Sequence[builtins.str],
-    allow_android_apps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.AndroidAppProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    allow_apple_apps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.AppleAppProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allow_android_apps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAPIKey.AndroidAppProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allow_apple_apps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAPIKey.AppleAppProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     allow_referers: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4053,13 +4064,13 @@ def _typecheckingstub__1fb4fe4c9ced074529c2f50a8ef9b1aa0732e7c0fe89c20e08f586523
 def _typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4(
     *,
     key_name: builtins.str,
-    restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    restrictions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     expire_time: typing.Optional[builtins.str] = None,
-    force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    force_delete: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    force_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    no_expiry: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4073,13 +4084,13 @@ def _typecheckingstub__8e0601ccc1fece7d46bccf997c94a7f51bea09a1590d5ce84823ed5c0
     kms_key_id: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__93dd00d0af47e16860417840b84d8a174f9bedd1cb04423d80cce3ab6446726b(
-    resource: _IGeofenceCollectionRef_40bd2c98,
+    resource: _aws_location_6a89e4d1.IGeofenceCollectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4091,7 +4102,7 @@ def _typecheckingstub__5461e88afdf404170bd031fdc6be5f4cfecf4007389d8acd1bb068a75
     pass
 
 def _typecheckingstub__66134049825423372dae82a0ee8b8c0bba09bda09682513f80795605e6e0bca6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4133,7 +4144,7 @@ def _typecheckingstub__ac440741201f7074f72462a372fb1e02f934a32f1d63e4645ed0506f4
     pass
 
 def _typecheckingstub__73c685a12991ff080fc342ecb024cac707829ec5c29f69506f34e69631875f71(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4145,7 +4156,7 @@ def _typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36b
     kms_key_id: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4154,17 +4165,17 @@ def _typecheckingstub__b2dcb0428eb66932a1afc7be03e22130166237e903d48b7c13fc63dbc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     map_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__58f5301737b58014c185ea87fef5bf06bbee4a99180365f1328934cf4c8763cb(
-    resource: _IMapRef_a23859d8,
+    resource: _aws_location_6a89e4d1.IMapRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4192,7 +4203,7 @@ def _typecheckingstub__14a83572ceb4f16a58d82f813899eff155be24882637bad7545f10597
     pass
 
 def _typecheckingstub__9beda5dad2c7dda9e9e75c7563f1dd64ce2d95ee632f1f16c15c710cb2fcb9e0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4204,7 +4215,7 @@ def _typecheckingstub__23c81c05fd3d18494b5a67a26662df2ed22fb26a83114a2a0d33f7135
     pass
 
 def _typecheckingstub__7a9f72d270eb9bf689ae6d9866174a230761748f72e7261987c4cc8c502029b1(
-    value: typing.Union[_IResolvable_da3f097b, CfnMap.MapConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMap.MapConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4228,7 +4239,7 @@ def _typecheckingstub__de864d7ca8c9af6ca27a35f5fb304092560e41a384b9dd782f1dd78cc
     pass
 
 def _typecheckingstub__bb33fbdbbd66a87cdef71cb76784ef3bcdea2208fa231444865a3178588b36c6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4244,11 +4255,11 @@ def _typecheckingstub__f994438dc4a55ff175f7c8b92debb9548b8c21e2896a0380a521bcdba
 
 def _typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     map_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4259,16 +4270,16 @@ def _typecheckingstub__a86efa72874938a7fdd56ee75ab5f3481754256c4e7be12dd321fb817
     *,
     data_source: builtins.str,
     index_name: builtins.str,
-    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aad4e0fb25835fd69a5afd941dae64a5e94e867476776a120ac441d0f08fc69a(
-    resource: _IPlaceIndexRef_a9b4878a,
+    resource: _aws_location_6a89e4d1.IPlaceIndexRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4296,7 +4307,7 @@ def _typecheckingstub__1629d733538c9f0f757280d8dc22e5f522a9a10f7786ada8489085329
     pass
 
 def _typecheckingstub__e0c405c6a922a2896cb59706744382d2e74f7b74e7533c5078a63a01a0dda7f8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4320,7 +4331,7 @@ def _typecheckingstub__80848c256675ce5115c146bfbde42fded11406ee451376e49955461fb
     pass
 
 def _typecheckingstub__a4cff8053f28ed6073e2b7c62ec72627c8ffc7b98c86bc2b7c5c4e9b177d8d4a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaceIndex.DataSourceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaceIndex.DataSourceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4338,7 +4349,7 @@ def _typecheckingstub__7653a99bc2f680ec231d78959d16db4997e472e731a68a554772f0e08
     pass
 
 def _typecheckingstub__a88e3fcbc3fba96f937cf7669a81dcdb84f3dce7ddea1dd5143fcf5e7eaeb70e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4354,10 +4365,10 @@ def _typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885
     *,
     data_source: builtins.str,
     index_name: builtins.str,
-    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4370,13 +4381,13 @@ def _typecheckingstub__a900f380dbd4e0012dcb474730041f91eeaecc9218db4d6163fd73039
     data_source: builtins.str,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9446993691f487ab7294e0a2aa321bee629e65fc81b90132786c64783288cb14(
-    resource: _IRouteCalculatorRef_f2a132ab,
+    resource: _aws_location_6a89e4d1.IRouteCalculatorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4404,7 +4415,7 @@ def _typecheckingstub__231d2b58e0973d958f7fb16ba0698cf4e188bd9b23cf1faf7b59f0992
     pass
 
 def _typecheckingstub__d0f206fe9bb875d2c7acae9be0a23fa0286ad54fbd1bebff69010a95bea15fec(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4440,7 +4451,7 @@ def _typecheckingstub__3f40cb810c37a798bfec946670c6e7a33c338d2fe035b50de2d1bee9b
     pass
 
 def _typecheckingstub__74454734a6df8a4308849a60f8d80541ab1a10fc08d73d9f6faa0474841ec604(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4451,7 +4462,7 @@ def _typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b
     data_source: builtins.str,
     description: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4462,19 +4473,19 @@ def _typecheckingstub__1cd2e07bf97c42a45f9443da7edf34b075c2f9b41a262ae77aee4b2a8
     *,
     tracker_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     position_filtering: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__393e491ae5701ba18dbcd45bbf8598962f0206a993528403517acf97efa802b0(
-    resource: _ITrackerRef_e22d1822,
+    resource: _aws_location_6a89e4d1.ITrackerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4502,7 +4513,7 @@ def _typecheckingstub__1a3ab7791c21683bb00ac6f4ff9d557463bf3cbceee241963435d3d4c
     pass
 
 def _typecheckingstub__606edf93b66473926b20e5a3b0af67fe5ed3f2fceae488ca1b2486f74e9beeb4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4526,13 +4537,13 @@ def _typecheckingstub__432656f1a3249889b4f6340d433951d4b03ec382b366b9cefc7f22db8
     pass
 
 def _typecheckingstub__cd4f7477042ce6ed75f0b9861b25a721854ba28f82072db60305830e07af0d42(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b2dd571749bac14762477ff49a8f135c7d6e5b9f96b1f45fdb2f11d55be863ce(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4562,7 +4573,7 @@ def _typecheckingstub__c9f5b36993f4be81b2285747fed230ab9182b4393ef3b93d823765df2
     pass
 
 def _typecheckingstub__bd4f1b9ba5c51ac5a38d0876f790c1137595037fec38c3aacc1dd70bc872c126(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4584,7 +4595,7 @@ def _typecheckingstub__838c9087b2ed63c199bc748958c21ee405f0361e202cbbff3639edd24
     pass
 
 def _typecheckingstub__c7cf03d6794740801a069f1fdfdefcd95ab283d7bba980f64a30bc78e1155809(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4619,13 +4630,13 @@ def _typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e
     *,
     tracker_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     position_filtering: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

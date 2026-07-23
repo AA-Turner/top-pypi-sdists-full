@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class DestinationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01b22cebb6223a17a7839beb314e23234baaee086c51efa6fb71a1476d74032f)
+            type_hints = cached_type_hints(_typecheckingstub__01b22cebb6223a17a7839beb314e23234baaee086c51efa6fb71a1476d74032f)
             check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
             check_type(argname="argument destination_name", value=destination_name, expected_type=type_hints["destination_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -136,7 +140,7 @@ class DeviceProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__416166c6fcf10bef82f2351948ca45b4fad3dfa063b76d3a692d6b512f0a7b51)
+            type_hints = cached_type_hints(_typecheckingstub__416166c6fcf10bef82f2351948ca45b4fad3dfa063b76d3a692d6b512f0a7b51)
             check_type(argname="argument device_profile_arn", value=device_profile_arn, expected_type=type_hints["device_profile_arn"])
             check_type(argname="argument device_profile_id", value=device_profile_id, expected_type=type_hints["device_profile_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -201,7 +205,7 @@ class FuotaTaskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92f2d5a0a31b7ffdf6ba02963ee7578398c952802ece9c619e2b5bcab41093e)
+            type_hints = cached_type_hints(_typecheckingstub__b92f2d5a0a31b7ffdf6ba02963ee7578398c952802ece9c619e2b5bcab41093e)
             check_type(argname="argument fuota_task_arn", value=fuota_task_arn, expected_type=type_hints["fuota_task_arn"])
             check_type(argname="argument fuota_task_id", value=fuota_task_id, expected_type=type_hints["fuota_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -238,7 +242,7 @@ class FuotaTaskReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IDestinationRef")
 class IDestinationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Destination.
@@ -258,7 +262,7 @@ class IDestinationRef(
 
 class _IDestinationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Destination.
 
@@ -283,7 +287,7 @@ typing.cast(typing.Any, IDestinationRef).__jsii_proxy_class__ = lambda : _IDesti
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IDeviceProfileRef")
 class IDeviceProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceProfile.
@@ -303,7 +307,7 @@ class IDeviceProfileRef(
 
 class _IDeviceProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceProfile.
 
@@ -328,7 +332,7 @@ typing.cast(typing.Any, IDeviceProfileRef).__jsii_proxy_class__ = lambda : _IDev
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IFuotaTaskRef")
 class IFuotaTaskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FuotaTask.
@@ -348,7 +352,7 @@ class IFuotaTaskRef(
 
 class _IFuotaTaskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FuotaTask.
 
@@ -373,7 +377,7 @@ typing.cast(typing.Any, IFuotaTaskRef).__jsii_proxy_class__ = lambda : _IFuotaTa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IMulticastGroupRef")
 class IMulticastGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MulticastGroup.
@@ -393,7 +397,7 @@ class IMulticastGroupRef(
 
 class _IMulticastGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MulticastGroup.
 
@@ -420,7 +424,7 @@ typing.cast(typing.Any, IMulticastGroupRef).__jsii_proxy_class__ = lambda : _IMu
 )
 class INetworkAnalyzerConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAnalyzerConfiguration.
@@ -442,7 +446,7 @@ class INetworkAnalyzerConfigurationRef(
 
 class _INetworkAnalyzerConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAnalyzerConfiguration.
 
@@ -469,7 +473,7 @@ typing.cast(typing.Any, INetworkAnalyzerConfigurationRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IPartnerAccountRef")
 class IPartnerAccountRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PartnerAccount.
@@ -489,7 +493,7 @@ class IPartnerAccountRef(
 
 class _IPartnerAccountRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PartnerAccount.
 
@@ -514,7 +518,7 @@ typing.cast(typing.Any, IPartnerAccountRef).__jsii_proxy_class__ = lambda : _IPa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IServiceProfileRef")
 class IServiceProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceProfile.
@@ -534,7 +538,7 @@ class IServiceProfileRef(
 
 class _IServiceProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceProfile.
 
@@ -559,7 +563,7 @@ typing.cast(typing.Any, IServiceProfileRef).__jsii_proxy_class__ = lambda : _ISe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.ITaskDefinitionRef")
 class ITaskDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskDefinition.
@@ -579,7 +583,7 @@ class ITaskDefinitionRef(
 
 class _ITaskDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskDefinition.
 
@@ -606,7 +610,7 @@ typing.cast(typing.Any, ITaskDefinitionRef).__jsii_proxy_class__ = lambda : _ITa
 )
 class IWirelessDeviceImportTaskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessDeviceImportTask.
@@ -626,7 +630,7 @@ class IWirelessDeviceImportTaskRef(
 
 class _IWirelessDeviceImportTaskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessDeviceImportTask.
 
@@ -651,7 +655,7 @@ typing.cast(typing.Any, IWirelessDeviceImportTaskRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IWirelessDeviceRef")
 class IWirelessDeviceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessDevice.
@@ -671,7 +675,7 @@ class IWirelessDeviceRef(
 
 class _IWirelessDeviceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessDevice.
 
@@ -696,7 +700,7 @@ typing.cast(typing.Any, IWirelessDeviceRef).__jsii_proxy_class__ = lambda : _IWi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotwireless.IWirelessGatewayRef")
 class IWirelessGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessGateway.
@@ -716,7 +720,7 @@ class IWirelessGatewayRef(
 
 class _IWirelessGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WirelessGateway.
 
@@ -772,7 +776,7 @@ class MulticastGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d95417504e8a03f12d5ea08a41f157281d72dac4ea96cc7f7179cd8c85228897)
+            type_hints = cached_type_hints(_typecheckingstub__d95417504e8a03f12d5ea08a41f157281d72dac4ea96cc7f7179cd8c85228897)
             check_type(argname="argument multicast_group_arn", value=multicast_group_arn, expected_type=type_hints["multicast_group_arn"])
             check_type(argname="argument multicast_group_id", value=multicast_group_id, expected_type=type_hints["multicast_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -840,7 +844,7 @@ class NetworkAnalyzerConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e7e13771b47a12c5dacc1b7440d6477d8ca3e0df8eb03e86978fe5a35334c5)
+            type_hints = cached_type_hints(_typecheckingstub__d7e7e13771b47a12c5dacc1b7440d6477d8ca3e0df8eb03e86978fe5a35334c5)
             check_type(argname="argument network_analyzer_configuration_arn", value=network_analyzer_configuration_arn, expected_type=type_hints["network_analyzer_configuration_arn"])
             check_type(argname="argument network_analyzer_configuration_name", value=network_analyzer_configuration_name, expected_type=type_hints["network_analyzer_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -908,7 +912,7 @@ class PartnerAccountReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53ea1209b5c561fc95a2355ae6fcf2dd39bc1e082ec5bb66f413062a634a5eba)
+            type_hints = cached_type_hints(_typecheckingstub__53ea1209b5c561fc95a2355ae6fcf2dd39bc1e082ec5bb66f413062a634a5eba)
             check_type(argname="argument partner_account_arn", value=partner_account_arn, expected_type=type_hints["partner_account_arn"])
             check_type(argname="argument partner_account_id", value=partner_account_id, expected_type=type_hints["partner_account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -976,7 +980,7 @@ class ServiceProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00f2f4e7e00b305d12ba04cebc7d8570a89248a5a86461346058742a8e7a2bbe)
+            type_hints = cached_type_hints(_typecheckingstub__00f2f4e7e00b305d12ba04cebc7d8570a89248a5a86461346058742a8e7a2bbe)
             check_type(argname="argument service_profile_arn", value=service_profile_arn, expected_type=type_hints["service_profile_arn"])
             check_type(argname="argument service_profile_id", value=service_profile_id, expected_type=type_hints["service_profile_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1044,7 +1048,7 @@ class TaskDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c25a17474e35c3ceaaa0cef1f48d046cb1dc5f401db62af77d8ca4b325a0df3)
+            type_hints = cached_type_hints(_typecheckingstub__8c25a17474e35c3ceaaa0cef1f48d046cb1dc5f401db62af77d8ca4b325a0df3)
             check_type(argname="argument task_definition_arn", value=task_definition_arn, expected_type=type_hints["task_definition_arn"])
             check_type(argname="argument task_definition_id", value=task_definition_id, expected_type=type_hints["task_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1112,7 +1116,7 @@ class WirelessDeviceImportTaskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebb283cc09d3c3f1a6e1c30c5673f07346aeab3baf5caca7749b9ced237896fe)
+            type_hints = cached_type_hints(_typecheckingstub__ebb283cc09d3c3f1a6e1c30c5673f07346aeab3baf5caca7749b9ced237896fe)
             check_type(argname="argument wireless_device_import_task_arn", value=wireless_device_import_task_arn, expected_type=type_hints["wireless_device_import_task_arn"])
             check_type(argname="argument wireless_device_import_task_id", value=wireless_device_import_task_id, expected_type=type_hints["wireless_device_import_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1180,7 +1184,7 @@ class WirelessDeviceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17aca232b8799b171f0821cc808b515466fa8821bde82a64f5136ca4d95fece6)
+            type_hints = cached_type_hints(_typecheckingstub__17aca232b8799b171f0821cc808b515466fa8821bde82a64f5136ca4d95fece6)
             check_type(argname="argument wireless_device_arn", value=wireless_device_arn, expected_type=type_hints["wireless_device_arn"])
             check_type(argname="argument wireless_device_id", value=wireless_device_id, expected_type=type_hints["wireless_device_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1248,7 +1252,7 @@ class WirelessGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c455af05bd5f61d3649670ec07120475d0ecd6b1b30ce40ac5b4e24455958c0a)
+            type_hints = cached_type_hints(_typecheckingstub__c455af05bd5f61d3649670ec07120475d0ecd6b1b30ce40ac5b4e24455958c0a)
             check_type(argname="argument wireless_gateway_arn", value=wireless_gateway_arn, expected_type=type_hints["wireless_gateway_arn"])
             check_type(argname="argument wireless_gateway_id", value=wireless_gateway_id, expected_type=type_hints["wireless_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

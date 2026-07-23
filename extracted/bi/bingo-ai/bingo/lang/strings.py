@@ -87,6 +87,7 @@ _STRINGS = {
 /hint <메시지>           💬 AI 실행 도중 힌트 주입 (재실행 없이 방향 전환)
 /retry                   🔁 마지막 실패 단계만 재실행 (처음부터 재시작 불필요)
 /ctf <url>               🏁 웹 실습 환경 보안 점검 (--status / --resume=no / --headless=no)
+/scan <url>              빠른 정찰: WAF + 핑거프린트 + 민감파일
 /waf <url>               WAF 탐지 + 자동 우회 시도
 /crack [hash]            해시 크랙 — 온라인 조회 → 오프라인 크랙
 /stop                    실행 중인 크랙/스캔 중단
@@ -114,6 +115,7 @@ _STRINGS = {
 /hint <消息>             💬 执行中注入提示 (无需重启即可改变方向)
 /retry                   🔁 仅重试上次失败步骤 (无需从头重新启动)
 /ctf <url>               🏁 Web实验环境安全扫描 (--status / --resume=no / --headless=no)
+/scan <url>              快速侦察：WAF + 指纹识别 + 敏感文件
 /waf <url>               WAF 检测 + 自动绕过尝试
 /crack [hash]            哈希破解 — 在线查询 → 离线破解
 /stop                    停止正在运行的破解/扫描
@@ -141,6 +143,7 @@ _STRINGS = {
 /hint <message>          💬 Inject hint mid-execution (redirect without restart)
 /retry                   🔁 Retry only the last failed step (no full restart)
 /ctf <url>               🏁 Web lab security scan (--status / --resume=no / --headless=no)
+/scan <url>              Quick recon: WAF + fingerprint + sensitive files
 /waf <url>               WAF detection + auto bypass attempt
 /crack [hash]            Hash crack — online lookup → offline crack
 /stop                    Stop running crack/scan
@@ -833,31 +836,6 @@ _STRINGS = {
         "zh": "🔍 [自动校正] 报告内容与实际 Finding ID 不一致 — 已替换为证据报告",
         "en": "🔍 [Auto-correct] Report claims did not match Finding IDs — replaced with evidence report",
     },
-    "report_fix_no_verified": {
-        "ko": "확정 취약점은 없습니다. 접근 제어, 입력 검증, 로깅/탐지 기준선을 유지하세요.",
-        "zh": "未确认漏洞。继续维护访问控制、输入校验以及日志/检测基线。",
-        "en": "No verified vulnerabilities. Maintain access control, input validation, and logging/detection baselines.",
-    },
-    "report_fix_blocked": {
-        "ko": "WAF/차단 항목은 새 세션 쿠키와 깨끗한 baseline을 만든 뒤 다른 mutation family로 재시도하세요.",
-        "zh": "对被WAF/拦截的项目，先建立干净baseline和新会话cookie，再换mutation family复测。",
-        "en": "For blocked items, re-establish a clean baseline/session and retry with a different mutation family.",
-    },
-    "report_fix_xss_browser": {
-        "ko": "XSS 후보는 브라우저 실행(title/dialog/console 또는 sink 실행)으로만 확정하세요.",
-        "zh": "XSS候选项只能通过浏览器执行证据(title/dialog/console或sink执行)确认。",
-        "en": "Confirm XSS candidates only with browser execution evidence such as title/dialog/console or sink execution.",
-    },
-    "report_fix_sqli_crosscheck": {
-        "ko": "SQLi 후보는 안정 TRUE/FALSE oracle 또는 sqlmap/ghauri 동일 request profile 교차검증으로만 올리세요.",
-        "zh": "SQLi候选项需稳定TRUE/FALSE oracle或sqlmap/ghauri相同request profile交叉验证后再提升。",
-        "en": "Promote SQLi candidates only after a stable TRUE/FALSE oracle or sqlmap/ghauri cross-check with the same request profile.",
-    },
-    "report_fix_backlog_generic": {
-        "ko": "검증 대기 항목은 각 항목의 증거 tier에 맞는 재현 절차로 재검증하세요.",
-        "zh": "按每个待验证项的证据tier执行对应复测流程。",
-        "en": "Re-test backlog items with the verifier required by each evidence tier.",
-    },
     "finding_control_blocked": {
         "ko": "🔍 [자동 교정] 대조 요청이 WAF/보호 페이지로 차단됨 — SQLi 확정에서 제외",
         "zh": "🔍 [自动校正] 对照请求被 WAF/保护页拦截 — 已排除 SQLi 确认",
@@ -872,46 +850,6 @@ _STRINGS = {
         "ko": "🔁 SQLi 대조가 반복 차단됨 — JS/API/IDOR 벡터로 전환하고 후보는 보류",
         "zh": "🔁 SQLi 对照请求重复被拦截 — 切换到 JS/API/IDOR，保留候选待验证",
         "en": "🔁 Repeated SQLi control blocks — pivoting to JS/API/IDOR while preserving the candidate",
-    },
-    "sqli_cross_vector_guard": {
-        "ko": "[AI 주도 피벗 권고] SQLi 대조가 반복 차단됨. 현재 실행은 막지 않지만, 다음 판단은 sqli/waf_bypass skill 기반으로 새 검증기 또는 JS/API/IDOR/XSS/LFI/인증 벡터를 선택하세요.",
-        "zh": "[AI主导切换建议] SQLi 对照请求重复受阻。当前执行不被拦截；下一步请基于 sqli/waf_bypass skill 选择新的验证器或 JS/API/IDOR/XSS/LFI/认证向量。",
-        "en": "[AI-led pivot advisory] Repeated SQLi controls were blocked. Current execution is not suppressed; next choose a new verifier or JS/API/IDOR/XSS/LFI/auth vector using sqli/waf_bypass skills.",
-    },
-    "report_manual_artifact_blocked": {
-        "ko": "[보고서 요청 보류] 모델이 직접 작성한 보고서 파일을 건너뜁니다. TASK_COMPLETE를 출력하면 Bingo가 Finding ID 기준으로 생성합니다.",
-        "zh": "[报告请求已转交] 已跳过模型直接编写的报告文件。输出 TASK_COMPLETE 后，Bingo 将依据 Finding ID 生成报告。",
-        "en": "[Report request deferred] Manual model-authored report artifact skipped. Emit TASK_COMPLETE and Bingo will generate it from Finding IDs.",
-    },
-    "sqli_adaptive_profile": {
-        "ko": "[적응형 SQLi] 후보={count}, WAF={waf}, 반복 표본={samples}",
-        "zh": "[自适应 SQLi] 候选={count}，WAF={waf}，重复样本={samples}",
-        "en": "[Adaptive SQLi] candidates={count}, WAF={waf}, repeated samples={samples}",
-    },
-    "sqli_oracle_calibrated": {
-        "ko": "[Oracle 보정 완료] 표본={samples}, 본문 유사도={similarity:.3f}",
-        "zh": "[Oracle 校准完成] 样本={samples}，正文相似度={similarity:.3f}",
-        "en": "[Oracle calibrated] samples={samples}, body similarity={similarity:.3f}",
-    },
-    "sqli_dbms_detected": {
-        "ko": "[DBMS 프로필] 감지={dbms}, 힌트={hint}",
-        "zh": "[DBMS 配置] 检测={dbms}，提示={hint}",
-        "en": "[DBMS profile] detected={dbms}, hint={hint}",
-    },
-    "sqli_checkpoint_restored": {
-        "ko": "[SQLi 체크포인트] 재검증 후 복원: oracle={oracle}, DBMS={dbms}",
-        "zh": "[SQLi 检查点] 重新验证并恢复：oracle={oracle}，DBMS={dbms}",
-        "en": "[SQLi checkpoint] revalidated and restored: oracle={oracle}, DBMS={dbms}",
-    },
-    "sqli_external_handoff": {
-        "ko": "[외부 교차검증] 보정된 요청 프로필을 sqlmap/ghauri에 전달할 준비가 완료되었습니다.",
-        "zh": "[外部交叉验证] 已准备将校准后的请求配置传递给 sqlmap/ghauri。",
-        "en": "[External cross-check] Calibrated request profile is ready for sqlmap/ghauri.",
-    },
-    "sqli_candidate_only": {
-        "ko": "[SQLi 후보 유지] 안정적인 대조는 확인했지만 추출 증거가 부족합니다. 후보를 유지하고 외부 교차검증을 준비했습니다.",
-        "zh": "[保留 SQLi 候选] 对照稳定，但提取证据不足。候选已保留并准备外部交叉验证。",
-        "en": "[SQLi candidate retained] Controls are stable, but extraction proof is incomplete. External cross-check is prepared.",
     },
     "doom_progress_autocorrected": {
         "ko": "🔄 [자동 교정] 새 엔드포인트/파라미터 발견 — 무진전 카운터 초기화",
@@ -1005,6 +943,7 @@ _SLASH_DESC = {
     "/history": {"ko": "대화 기록 보기",               "zh": "查看对话历史",          "en": "View chat history"},
     "/export":  {"ko": "대화 기록 파일로 저장",         "zh": "导出对话为 .md 文件",   "en": "Export chat as .md"},
     "/lang":    {"ko": "언어 변경",                    "zh": "切换语言",             "en": "Change language"},
+    "/scan":    {"ko": "빠른 레드팀 스캔  /scan <url>", "zh": "快速侦察  /scan <url>","en": "Quick recon  /scan <url>"},
     "/waf":     {"ko": "WAF 탐지 + 자동 우회  /waf <url>","zh": "WAF检测+绕过  /waf <url>","en": "WAF detect + bypass  /waf <url>"},
     "/crack":   {"ko": "해시 크랙  /crack [hash]  (인자 없으면 자동 추출)",
                  "zh": "哈希破解  /crack [hash]  (省略则自动提取)",
@@ -2227,10 +2166,6 @@ _STRINGS.update({
     "script_killed_timeout":    {"ko": "[스크립트_종료: 타임아웃]\n스크립트가 {sec}초 제한을 초과하여 강제 종료되었습니다.\n스크립트를 더 작은 블록으로 나누거나 루프를 최적화하세요.",
                                   "zh": "[脚本已终止: 超时]\n脚本超过{sec}秒限制，已被强制终止。\n请将脚本拆分为更小的块或优化循环。",
                                   "en": "[SCRIPT_KILLED: TIMEOUT]\nScript exceeded {sec}s timeout and was forcibly terminated.\nSplit the script into smaller blocks or optimize the loop."},
-    "script_killed_idle_timeout": {
-                                  "ko": "[스크립트_종료: 유휴_타임아웃]\n스크립트가 {sec}초 동안 출력을 내지 않아 강제 종료되었습니다.\n요청별 타임아웃을 추가하거나, 루프를 줄이거나, 스크립트를 더 작은 블록으로 나누세요.",
-                                  "zh": "[脚本已终止: 空闲超时]\n脚本连续{sec}秒没有输出，已被强制终止。\n请为单个请求添加超时、减少循环或将脚本拆分为更小的块。",
-                                  "en": "[SCRIPT_KILLED: IDLE_TIMEOUT]\nScript produced no output for {sec}s and was forcibly terminated.\nAdd per-request timeouts, reduce loops, or split the script into smaller blocks."},
 
     # ── v5.1.6: 고아 curl 프로세스 wall-clock 타임아웃 (프로세스 그룹 강제 종료) ──
     "wallclock_timeout_killed": {"ko": "⚠ WALL-CLOCK 타임아웃 ({elapsed}s) — bash 종료 후 자식 curl 프로세스가 남아있어 프로세스 그룹 강제 종료",
@@ -7296,9 +7231,9 @@ _STRINGS.update({
         "en": "[v5.2.6] 403 false-positive fix — CORS/auth 403 no longer flagged as IP block; added IPBlockDetector cross-validation",
     },
     "forbidden_403_not_ipblock": {
-        "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 전체 IP 차단 아님; endpoint 권한 거부 또는 WAF/rate-state 가능",
-        "zh": "⚡ 检测到403但主站可访问 — 非全站IP封锁；可能是端点权限拒绝或WAF/rate状态",
-        "en": "⚡ 403 detected but main site accessible — not a site-wide IP block; endpoint denial or WAF/rate-state possible",
+        "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 인증/권한 거부 (IP 차단 아님)",
+        "zh": "⚡ 检测到403但主站可访问 — 认证/权限拒绝（非IP封锁）",
+        "en": "⚡ 403 detected but main site accessible — auth/permission denied, NOT IP block",
     },
     # v5.2.7: 스마트 출력 필터 관련 메시지
     "output_html_suppressed": {
@@ -7488,6 +7423,11 @@ _STRINGS.update({
         "zh": "🧬 Nuclei 结果:",
         "en": "🧬 Nuclei results:",
     },
+    "scan_usage": {
+        "ko": "사용법: /scan <url>  예) /scan https://target.com",
+        "zh": "用法: /scan <url>  示例: /scan https://target.com",
+        "en": "Usage: /scan <url>  e.g. /scan https://target.com",
+    },
     "mscan_usage": {
         "ko": "사용법: /mscan <url>  예) /mscan https://target.com",
         "zh": "用法: /mscan <url>  示例: /mscan https://target.com",
@@ -7579,11 +7519,6 @@ _STRINGS.update({
         "ko": "  Oracle 검증: 1=1→{t},  1=2→{f}",
         "zh": "  Oracle 验证: 1=1→{t},  1=2→{f}",
         "en": "  Oracle verify: 1=1→{t},  1=2→{f}",
-    },
-    "sqli_oracle_rejected": {
-        "ko": "[SQLI_ORACLE_REJECTED] TRUE/FALSE 대조가 차단되었거나 불안정합니다. Boolean 추출을 중단하고 다른 취약점 벡터로 전환합니다.",
-        "zh": "[SQLI_ORACLE_REJECTED] TRUE/FALSE 对照被拦截或不稳定。停止布尔提取并切换到其他漏洞向量。",
-        "en": "[SQLI_ORACLE_REJECTED] TRUE/FALSE controls were blocked or unstable. Boolean extraction stopped; pivot to another vulnerability vector.",
     },
     "sqli_oracle_bad": {
         "ko": "  ⚠ Boolean oracle 불안정(BAD) — boolean 비활성화, error/time-based 전환",
@@ -7909,21 +7844,6 @@ _STRINGS.update({
             "Stop all custom extraction loops immediately. Use sqli_autoexploit TOOL_CALL instead."
         ),
     },
-    "sqli_oracle_block_cutoff": {
-        "ko": "  ⚠ Boolean 대조군이 반복 차단됨({n}) — 남은 Boolean 후보군 조기 중단.",
-        "zh": "  ⚠ Boolean 对照请求重复被拦截({n}) — 提前停止剩余 Boolean 候选族。",
-        "en": "  ⚠ Repeated WAF-blocked Boolean controls ({n}) — stopping Boolean candidate family early.",
-    },
-    "sqli_oracle_pivot_fallback": {
-        "ko": "  → Boolean 채널 비활성화; error/time-based fallback 계속 진행.",
-        "zh": "  → Boolean 通道已禁用；继续执行 error/time-based fallback。",
-        "en": "  → Boolean channel disabled; continuing with error/time-based fallback.",
-    },
-    "sqli_all_channels_blocked": {
-        "ko": "[SQLI_NO_VALID_CHANNEL] Boolean, error-based, time-based 대조군 모두 안정적인 oracle을 만들지 못했습니다.",
-        "zh": "[SQLI_NO_VALID_CHANNEL] Boolean、error-based、time-based 对照均未形成稳定 oracle。",
-        "en": "[SQLI_NO_VALID_CHANNEL] Boolean, error-based, and time-based controls did not produce a stable oracle.",
-    },
     "autocorrect_runtime_pattern": {
         "ko": "[런타임 패턴 자동 교정 적용]",
         "zh": "[运行时模式自动修正已应用]",
@@ -7937,14 +7857,9 @@ _STRINGS.update({
 
     # ── v6.2.53: 자동화 공격 모듈 다국어 키 ──────────────────────────────────────
     "ae_lfi_found": {
-        "ko": "🗂  LFI 확인! {n}개 페이로드에서 파일별 증거 반환",
-        "zh": "🗂  LFI 已确认！{n} 个载荷返回文件特异证据",
-        "en": "🗂  LFI confirmed! {n} payload(s) returned file-specific proof",
-    },
-    "ae_lfi_candidate_only": {
-        "ko": "🗂  LFI 확정 없음 — 약한 후보 {n}개는 검토용으로 보관",
-        "zh": "🗂  未确认 LFI；{n} 个弱候选已保留待复核",
-        "en": "🗂  No confirmed LFI; {n} weak candidate(s) retained for review",
+        "ko": "🗂  LFI 취약점 발견! {n}개 페이로드 성공",
+        "zh": "🗂  发现 LFI 漏洞！{n} 个载荷成功",
+        "en": "🗂  LFI vulnerability found! {n} payload(s) succeeded",
     },
     "ae_lfi_not_found": {
         "ko": "🗂  LFI 취약점 미발견",
@@ -8175,11 +8090,6 @@ _STRINGS.update({
         "zh": "🟡 响应大小变化 {diff}B — payload={payload}",
         "en": "🟡 Size change {diff}B — payload={payload}",
     },
-    "ae_lfi_stats": {
-        "ko": "테스트: {tested}개 | 확인: {confirmed}개 | 후보: {candidate}개",
-        "zh": "测试: {tested}个 | 已确认: {confirmed}个 | 候选: {candidate}个",
-        "en": "Tested: {tested} | Confirmed: {confirmed} | Candidate: {candidate}",
-    },
     "ae_stats": {
         "ko": "테스트: {tested}개 | 발견: {found}개",
         "zh": "测试: {tested}个 | 发现: {found}个",
@@ -8279,11 +8189,6 @@ _STRINGS.update({
         "ko": "🔴 XSS 취약!",
         "zh": "🔴 XSS 漏洞！",
         "en": "🔴 XSS Vulnerable!",
-    },
-    "ae_xss_candidate": {
-        "ko": "🟡 XSS 반사 후보(브라우저 실행 검증 필요)",
-        "zh": "🟡 XSS 反射候选（需要浏览器执行验证）",
-        "en": "🟡 XSS reflection candidate (browser execution verification required)",
     },
     "ae_xss_hit": {
         "ko": "XSS 히트 |",
@@ -9677,9 +9582,9 @@ _STRINGS.update({
         "en": "requests install required",
     },
     "cve_log4shell_possible": {
-        "ko": "  🟡 Log4Shell 후보: {hdr}",
-        "zh": "  🟡 Log4Shell 候选: {hdr}",
-        "en": "  🟡 Log4Shell candidate: {hdr}",
+        "ko": "  🔴 Log4Shell 가능성: {hdr}",
+        "zh": "  🔴 可能存在 Log4Shell: {hdr}",
+        "en": "  🔴 Log4Shell possible: {hdr}",
     },
     "cve_path_traversal_step": {
         "ko": "  [5/5] Path Traversal (급속 탐지)...",
@@ -9882,9 +9787,9 @@ _STRINGS.update({
         "en": "  ⏱ Rate Limiting test...",
     },
     "rate_limit_none": {
-        "ko": "  🟡 Rate Limiting 미관찰 (관찰 항목)",
-        "zh": "  🟡 未观察到 Rate Limiting（仅观察项）",
-        "en": "  🟡 No Rate Limiting observed (observation only)",
+        "ko": "  🟡 Rate Limiting 없음",
+        "zh": "  🟡 无 Rate Limiting",
+        "en": "  🟡 No Rate Limiting",
     },
     "xmlrpc_default_creds": {
         "ko": "  🔴 [CRITICAL] XML-RPC 기본 크레덴셜!",

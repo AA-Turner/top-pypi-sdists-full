@@ -157,6 +157,17 @@ def run_speed_benchmark(
             rep=rep,
             quantiles=QUANTILES,
         )
+    elif mode == "no-grad-forward":
+
+        def no_grad_forward():
+            with torch.no_grad():
+                fwd_fn()
+
+        ms_50, ms_20, ms_80 = triton.testing.do_bench(
+            no_grad_forward,
+            rep=rep,
+            quantiles=QUANTILES,
+        )
     else:
         raise ValueError(f"Unsupported mode: {mode}. Use 'forward', 'backward', or 'full'.")
     return SingleBenchmarkRunOutput(y_20=ms_20, y_50=ms_50, y_80=ms_80)
@@ -189,6 +200,33 @@ def run_memory_benchmark(
     else:
         raise ValueError(f"Unsupported mode: {mode}. Use 'forward', 'backward', or 'full'.")
     return SingleBenchmarkRunOutput(y_20=mem_20, y_50=mem_50, y_80=mem_80)
+
+
+def default_forward_fn(*setup_out):
+    x, layer = setup_out[0], setup_out[1]
+    return layer(x)
+
+
+def build_speed_bench_fn(
+    setup_fn: Callable[["SingleBenchmarkRunInput"], Any],
+    forward_fn: Callable[..., torch.Tensor] = default_forward_fn,
+) -> Callable:
+    def bench_speed(input: "SingleBenchmarkRunInput") -> SingleBenchmarkRunOutput:
+        setup_out = setup_fn(input)
+        return run_speed_benchmark(lambda: forward_fn(*setup_out), input.kernel_operation_mode, [setup_out[0]])
+
+    return bench_speed
+
+
+def build_memory_bench_fn(
+    setup_fn: Callable[["SingleBenchmarkRunInput"], Any],
+    forward_fn: Callable[..., torch.Tensor] = default_forward_fn,
+) -> Callable:
+    def bench_memory(input: "SingleBenchmarkRunInput") -> SingleBenchmarkRunOutput:
+        setup_out = setup_fn(input)
+        return run_memory_benchmark(lambda: forward_fn(*setup_out), input.kernel_operation_mode)
+
+    return bench_memory
 
 
 def get_current_file_directory() -> str:
@@ -412,9 +450,22 @@ def run_benchmarks(
 
                 benchmark_data_list.append(benchmark_run_data)
 
+    # Output routing for comparison runs.
+    # LIGER_BENCH_TARGET selects the destination CSV (e.g. "cutile" -> all_benchmark_data_cutile.csv).
+    # LIGER_BENCH_PROVIDER_TAG renames the "liger" provider in this run (e.g. "liger_cutile") so
+    # multiple implementations can coexist in one CSV without colliding on the dedup key.
+    target = os.environ.get("LIGER_BENCH_TARGET", "").strip().lower()
+    provider_tag = os.environ.get("LIGER_BENCH_PROVIDER_TAG", "").strip().lower()
+
+    if provider_tag:
+        for bd in benchmark_data_list:
+            if bd.kernel_provider == "liger":
+                bd.kernel_provider = provider_tag
+
     print_benchmark_data(benchmark_data_list)
 
-    update_benchmark_data_csv(benchmark_data_list=benchmark_data_list, overwrite=overwrite)
+    file_name = f"all_benchmark_data_{target}.csv" if target else "all_benchmark_data.csv"
+    update_benchmark_data_csv(benchmark_data_list=benchmark_data_list, filename=file_name, overwrite=overwrite)
 
 
 def parse_benchmark_script_args():

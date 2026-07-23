@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DefaultViewAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b08810f946f0fb1b570baf7b85f43e0860ef69f9324c1bfc8cfd13ab2dcd64be)
+            type_hints = cached_type_hints(_typecheckingstub__b08810f946f0fb1b570baf7b85f43e0860ef69f9324c1bfc8cfd13ab2dcd64be)
             check_type(argname="argument associated_aws_principal", value=associated_aws_principal, expected_type=type_hints["associated_aws_principal"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "associated_aws_principal": associated_aws_principal,
@@ -88,7 +92,7 @@ class DefaultViewAssociationReference:
 )
 class IDefaultViewAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DefaultViewAssociation.
@@ -108,7 +112,7 @@ class IDefaultViewAssociationRef(
 
 class _IDefaultViewAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DefaultViewAssociation.
 
@@ -133,7 +137,7 @@ typing.cast(typing.Any, IDefaultViewAssociationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resourceexplorer2.IIndexRef")
 class IIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
@@ -153,7 +157,7 @@ class IIndexRef(
 
 class _IIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
 
@@ -178,7 +182,7 @@ typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resourceexplorer2.IViewRef")
 class IViewRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a View.
@@ -198,7 +202,7 @@ class IViewRef(
 
 class _IViewRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a View.
 
@@ -244,7 +248,7 @@ class IndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a1353eb6e2d887bce17fbab1e3e3d4177baffd8356bf99106755d5ecd0bf19a)
+            type_hints = cached_type_hints(_typecheckingstub__5a1353eb6e2d887bce17fbab1e3e3d4177baffd8356bf99106755d5ecd0bf19a)
             check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "index_arn": index_arn,
@@ -293,7 +297,7 @@ class ViewReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8553b12cc1b9d847467eaf5575a7d5d4915ade244c2062fb46bebe9d148e22f3)
+            type_hints = cached_type_hints(_typecheckingstub__8553b12cc1b9d847467eaf5575a7d5d4915ade244c2062fb46bebe9d148e22f3)
             check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "view_arn": view_arn,

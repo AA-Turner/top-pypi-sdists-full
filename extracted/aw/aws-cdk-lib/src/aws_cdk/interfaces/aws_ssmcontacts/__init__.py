@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ContactChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa33296c3c3670cc59adac83c271120f59a697b64d7328af8dd7b7a5c9a3672a)
+            type_hints = cached_type_hints(_typecheckingstub__aa33296c3c3670cc59adac83c271120f59a697b64d7328af8dd7b7a5c9a3672a)
             check_type(argname="argument contact_channel_arn", value=contact_channel_arn, expected_type=type_hints["contact_channel_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "contact_channel_arn": contact_channel_arn,
@@ -107,7 +111,7 @@ class ContactReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36216d76d7ce7b1898272e2065e78857ce44e7292b4fa42538900fc1bf4b8348)
+            type_hints = cached_type_hints(_typecheckingstub__36216d76d7ce7b1898272e2065e78857ce44e7292b4fa42538900fc1bf4b8348)
             check_type(argname="argument contact_arn", value=contact_arn, expected_type=type_hints["contact_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "contact_arn": contact_arn,
@@ -135,7 +139,7 @@ class ContactReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssmcontacts.IContactChannelRef")
 class IContactChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContactChannel.
@@ -155,7 +159,7 @@ class IContactChannelRef(
 
 class _IContactChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContactChannel.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IContactChannelRef).__jsii_proxy_class__ = lambda : _ICo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssmcontacts.IContactRef")
 class IContactRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Contact.
@@ -200,7 +204,7 @@ class IContactRef(
 
 class _IContactRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Contact.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IContactRef).__jsii_proxy_class__ = lambda : _IContactRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssmcontacts.IPlanRef")
 class IPlanRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Plan.
@@ -245,7 +249,7 @@ class IPlanRef(
 
 class _IPlanRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Plan.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IPlanRef).__jsii_proxy_class__ = lambda : _IPlanRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssmcontacts.IRotationRef")
 class IRotationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rotation.
@@ -290,7 +294,7 @@ class IRotationRef(
 
 class _IRotationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rotation.
 
@@ -336,7 +340,7 @@ class PlanReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae04ba0d8398024589495ed8155a06f04ac18d21bea51ef2b50e61a68f8d02f2)
+            type_hints = cached_type_hints(_typecheckingstub__ae04ba0d8398024589495ed8155a06f04ac18d21bea51ef2b50e61a68f8d02f2)
             check_type(argname="argument plan_arn", value=plan_arn, expected_type=type_hints["plan_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "plan_arn": plan_arn,
@@ -385,7 +389,7 @@ class RotationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16e671ce46f69cea0af715fd68a8feeebd2d94dc6541bbe8081404a485dbcc54)
+            type_hints = cached_type_hints(_typecheckingstub__16e671ce46f69cea0af715fd68a8feeebd2d94dc6541bbe8081404a485dbcc54)
             check_type(argname="argument rotation_arn", value=rotation_arn, expected_type=type_hints["rotation_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rotation_arn": rotation_arn,

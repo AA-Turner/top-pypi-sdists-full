@@ -51,15 +51,20 @@ def llm_refine(
         model_params: AnyDict | None = model_params,
     ) -> str:
         from dreadnode.generators.message import Message
+        from dreadnode.generators.proxy import resolve_dn_model_to_generator
+
+        # `dn/*` ids route through the platform gateway (get_generator can't resolve
+        # them); non-dn strings pass through unchanged.
+        resolved_model = resolve_dn_model_to_generator(model)
 
         generator: Generator
-        if isinstance(model, str):
+        if isinstance(resolved_model, str):
             generator = get_generator(
-                model,
+                resolved_model,
                 params=GenerateParams.model_validate(model_params) if model_params else None,
             )
-        elif isinstance(model, Generator):
-            generator = model
+        elif isinstance(resolved_model, Generator):
+            generator = resolved_model
         else:
             raise TypeError("Model must be a string identifier or a Generator instance.")
 

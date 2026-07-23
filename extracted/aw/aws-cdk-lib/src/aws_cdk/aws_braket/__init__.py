@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_braket import (
-    ISpendingLimitRef as _ISpendingLimitRef_c3305421,
-    SpendingLimitReference as _SpendingLimitReference_fac52b6f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_braket as _aws_braket_49bbd69d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_braket_49bbd69d = _LazyImport("aws_cdk.interfaces.aws_braket")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ISpendingLimitRef_c3305421, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_braket_49bbd69d.ISpendingLimitRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSpendingLimit(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_braket.CfnSpendingLimit",
 ):
@@ -127,8 +121,8 @@ class CfnSpendingLimit(
         *,
         device_arn: builtins.str,
         spending_limit: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSpendingLimit.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSpendingLimit.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Braket::SpendingLimit``.
 
@@ -140,7 +134,7 @@ class CfnSpendingLimit(
         :param time_period: Defines a time range for spending limits, specifying when the limit is active.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c35c7c6e8ca9e275973dad9bd6ceae11c5bfb55d638d0828c196300ab9d14fe)
+            type_hints = cached_type_hints(_typecheckingstub__1c35c7c6e8ca9e275973dad9bd6ceae11c5bfb55d638d0828c196300ab9d14fe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSpendingLimitProps(
@@ -156,13 +150,13 @@ class CfnSpendingLimit(
     @builtins.classmethod
     def arn_for_spending_limit(
         cls,
-        resource: "_ISpendingLimitRef_c3305421",
+        resource: "_aws_braket_49bbd69d.ISpendingLimitRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f300f7aff60a3c9cdaf9438a696c90b73bf3848c152ccbfa1b2299361415e51)
+            type_hints = cached_type_hints(_typecheckingstub__6f300f7aff60a3c9cdaf9438a696c90b73bf3848c152ccbfa1b2299361415e51)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSpendingLimit", [resource]))
 
@@ -174,18 +168,18 @@ class CfnSpendingLimit(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fb08e44816f639c1366677c788c1c7663da3bdeab949fa853e759c018c68363)
+            type_hints = cached_type_hints(_typecheckingstub__3fb08e44816f639c1366677c788c1c7663da3bdeab949fa853e759c018c68363)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSpendingLimit", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7836aabd9049cb0890dcfd861d30fc4a91909f9c9bddfb04418c2e8935fe92f5)
+            type_hints = cached_type_hints(_typecheckingstub__7836aabd9049cb0890dcfd861d30fc4a91909f9c9bddfb04418c2e8935fe92f5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -198,7 +192,7 @@ class CfnSpendingLimit(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8efc42070409da980e6fb943ee279a64a55bd7c598d8d5d7a13cf241d172b267)
+            type_hints = cached_type_hints(_typecheckingstub__8efc42070409da980e6fb943ee279a64a55bd7c598d8d5d7a13cf241d172b267)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -255,9 +249,9 @@ class CfnSpendingLimit(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -271,9 +265,9 @@ class CfnSpendingLimit(
 
     @builtins.property
     @jsii.member(jsii_name="spendingLimitRef")
-    def spending_limit_ref(self) -> "_SpendingLimitReference_fac52b6f":
+    def spending_limit_ref(self) -> "_aws_braket_49bbd69d.SpendingLimitReference":
         '''A reference to a SpendingLimit resource.'''
-        return typing.cast("_SpendingLimitReference_fac52b6f", jsii.get(self, "spendingLimitRef"))
+        return typing.cast("_aws_braket_49bbd69d.SpendingLimitReference", jsii.get(self, "spendingLimitRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deviceArn")
@@ -284,7 +278,7 @@ class CfnSpendingLimit(
     @device_arn.setter
     def device_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f6d466fba6fb5cff7f993a0ed644bfbb81208b7620fe51c2805da61528eccaa)
+            type_hints = cached_type_hints(_typecheckingstub__5f6d466fba6fb5cff7f993a0ed644bfbb81208b7620fe51c2805da61528eccaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deviceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -297,20 +291,23 @@ class CfnSpendingLimit(
     @spending_limit.setter
     def spending_limit(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__592d36586a0598b3a37d4c9242bce72e812df6669395ff61be0ccabc55ae48b0)
+            type_hints = cached_type_hints(_typecheckingstub__592d36586a0598b3a37d4c9242bce72e812df6669395ff61be0ccabc55ae48b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "spendingLimit", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to apply to the spending limit.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__577fd669a8435ef4fb18677e0b0ac3cc393d2c2a53b237359eb2fcf5ff4ab3ff)
+            type_hints = cached_type_hints(_typecheckingstub__577fd669a8435ef4fb18677e0b0ac3cc393d2c2a53b237359eb2fcf5ff4ab3ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -318,17 +315,17 @@ class CfnSpendingLimit(
     @jsii.member(jsii_name="timePeriod")
     def time_period(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSpendingLimit.TimePeriodProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpendingLimit.TimePeriodProperty"]]:
         '''Defines a time range for spending limits, specifying when the limit is active.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSpendingLimit.TimePeriodProperty"]], jsii.get(self, "timePeriod"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpendingLimit.TimePeriodProperty"]], jsii.get(self, "timePeriod"))
 
     @time_period.setter
     def time_period(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSpendingLimit.TimePeriodProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpendingLimit.TimePeriodProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f35f17e99f158d6d3f7600fabad60df67dbe994b5dc8fdaa2d5674aa0a1b4270)
+            type_hints = cached_type_hints(_typecheckingstub__f35f17e99f158d6d3f7600fabad60df67dbe994b5dc8fdaa2d5674aa0a1b4270)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timePeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -359,7 +356,7 @@ class CfnSpendingLimit(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c51c3cfb7b70039911e5320b94944c5ed6e1ee01b46dd11a73a5569cbc861d1a)
+                type_hints = cached_type_hints(_typecheckingstub__c51c3cfb7b70039911e5320b94944c5ed6e1ee01b46dd11a73a5569cbc861d1a)
                 check_type(argname="argument end_at", value=end_at, expected_type=type_hints["end_at"])
                 check_type(argname="argument start_at", value=start_at, expected_type=type_hints["start_at"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -415,8 +412,8 @@ class CfnSpendingLimitProps:
         *,
         device_arn: builtins.str,
         spending_limit: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSpendingLimit.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSpendingLimit.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSpendingLimit``.
 
@@ -451,7 +448,7 @@ class CfnSpendingLimitProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2856750c1b4e9bfabaacdc3d240dbdc8ec3d01b1c0bf9d961cf82c89cc9fdd56)
+            type_hints = cached_type_hints(_typecheckingstub__2856750c1b4e9bfabaacdc3d240dbdc8ec3d01b1c0bf9d961cf82c89cc9fdd56)
             check_type(argname="argument device_arn", value=device_arn, expected_type=type_hints["device_arn"])
             check_type(argname="argument spending_limit", value=spending_limit, expected_type=type_hints["spending_limit"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -486,24 +483,24 @@ class CfnSpendingLimitProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to apply to the spending limit.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-braket-spendinglimit.html#cfn-braket-spendinglimit-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def time_period(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSpendingLimit.TimePeriodProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpendingLimit.TimePeriodProperty"]]:
         '''Defines a time range for spending limits, specifying when the limit is active.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-braket-spendinglimit.html#cfn-braket-spendinglimit-timeperiod
         '''
         result = self._values.get("time_period")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSpendingLimit.TimePeriodProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpendingLimit.TimePeriodProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -530,14 +527,14 @@ def _typecheckingstub__1c35c7c6e8ca9e275973dad9bd6ceae11c5bfb55d638d0828c196300a
     *,
     device_arn: builtins.str,
     spending_limit: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSpendingLimit.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSpendingLimit.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6f300f7aff60a3c9cdaf9438a696c90b73bf3848c152ccbfa1b2299361415e51(
-    resource: _ISpendingLimitRef_c3305421,
+    resource: _aws_braket_49bbd69d.ISpendingLimitRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -549,7 +546,7 @@ def _typecheckingstub__3fb08e44816f639c1366677c788c1c7663da3bdeab949fa853e759c01
     pass
 
 def _typecheckingstub__7836aabd9049cb0890dcfd861d30fc4a91909f9c9bddfb04418c2e8935fe92f5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -573,13 +570,13 @@ def _typecheckingstub__592d36586a0598b3a37d4c9242bce72e812df6669395ff61be0ccabc5
     pass
 
 def _typecheckingstub__577fd669a8435ef4fb18677e0b0ac3cc393d2c2a53b237359eb2fcf5ff4ab3ff(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f35f17e99f158d6d3f7600fabad60df67dbe994b5dc8fdaa2d5674aa0a1b4270(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSpendingLimit.TimePeriodProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSpendingLimit.TimePeriodProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -596,8 +593,8 @@ def _typecheckingstub__2856750c1b4e9bfabaacdc3d240dbdc8ec3d01b1c0bf9d961cf82c89c
     *,
     device_arn: builtins.str,
     spending_limit: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSpendingLimit.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSpendingLimit.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

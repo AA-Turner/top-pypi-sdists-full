@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
@@ -13,6 +14,7 @@ import pytest
 import mindroom.tools  # noqa: F401
 from mindroom.commands.desktop_commands import DesktopCommandScope, handle_desktop_command
 from mindroom.config.main import Config
+from mindroom.desktop.identity import DesktopIdentityError
 from mindroom.desktop.pairing import (
     DesktopPairingError,
     claim_desktop_pairing,
@@ -30,6 +32,7 @@ from mindroom.desktop.protocol import (
     desktop_pairing_verification,
 )
 from mindroom.matrix.device_identity import PinnedMatrixDevice
+from mindroom.matrix.mentions import format_message_with_mentions
 from mindroom.matrix.to_device import AuthenticatedToDeviceEvent
 from tests.conftest import test_runtime_paths
 
@@ -283,7 +286,6 @@ def test_pairing_receiver_registration_owns_desktop_enablement_check(tmp_path: P
                 "computer": {
                     "display_name": "Computer",
                     "role": "Operate local apps",
-                    "private": {"per": "user_agent"},
                     "tools": ["desktop"],
                 },
                 "chat": {
@@ -319,11 +321,11 @@ def test_pairing_receiver_registration_owns_desktop_enablement_check(tmp_path: P
     assert event_type is AuthenticatedToDeviceEvent
 
 
-def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
+def test_setup_command_uses_public_homeserver_and_access_flag(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A confirmed chat flow becomes ready only for its exact private user-agent pair."""
+    """Hosted runtimes can print one reachable Desktop setup command."""
     runtime_paths = test_runtime_paths(tmp_path)
     config = Config.validate_with_runtime(
         {
@@ -332,7 +334,121 @@ def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
                 "computer": {
                     "display_name": "Computer",
                     "role": "Operate local apps",
-                    "private": {"per": "user_agent"},
+                    "tools": ["desktop"],
+                },
+            },
+        },
+        runtime_paths,
+    )
+    monkeypatch.setattr(
+        "mindroom.commands.desktop_commands.controller_identity_for_entity",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            user_id="@computer:example.org",
+            device_id="CLOUD",
+            ed25519="cloud-fingerprint",
+        ),
+    )
+    scope = DesktopCommandScope(
+        config=config,
+        runtime_paths=runtime_paths,
+        agent_name="computer",
+        requester_id="@alice:example.org",
+    )
+
+    setup_response = handle_desktop_command("setup", scope=scope)
+    setup_command = next(line for line in setup_response.splitlines() if line.startswith("mindroom desktop setup"))
+    assert setup_command.startswith(
+        "mindroom desktop setup --user-id @alice:example.org --homeserver http://localhost:8008 --code ",
+    )
+    assert "--controller-user-id @computer:example.org" in setup_command
+    assert "--cloudflare-access" not in setup_command
+
+    public_runtime_paths = replace(
+        runtime_paths,
+        process_env={
+            **runtime_paths.process_env,
+            "MINDROOM_DESKTOP_MATRIX_HOMESERVER": "https://matrix.example.org",
+            "MINDROOM_DESKTOP_CLOUDFLARE_ACCESS": "true",
+        },
+    )
+    public_setup_response = handle_desktop_command(
+        "setup",
+        scope=replace(scope, runtime_paths=public_runtime_paths),
+    )
+    public_setup_command = next(
+        line for line in public_setup_response.splitlines() if line.startswith("mindroom desktop setup")
+    )
+    assert "--homeserver https://matrix.example.org" in public_setup_command
+    assert public_setup_command.endswith("--cloudflare-access")
+    message_content = format_message_with_mentions(
+        config,
+        public_runtime_paths,
+        public_setup_response,
+    )
+    assert message_content["body"] == public_setup_response
+    assert "https://matrix.to/#/" not in message_content["formatted_body"]
+    assert "m.mentions" not in message_content
+
+
+def test_confirmation_keeps_claim_retryable_when_controller_lookup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Startup-guidance failure must not consume a valid pairing claim."""
+    runtime_paths = test_runtime_paths(tmp_path)
+    config = Config.validate_with_runtime(
+        {
+            "defaults": {"tools": []},
+            "agents": {"computer": {"display_name": "Computer", "role": "Operate apps", "tools": ["desktop"]}},
+        },
+        runtime_paths,
+    )
+    controller = SimpleNamespace(
+        user_id="@computer:example.org",
+        device_id="CLOUD",
+        ed25519="cloud-fingerprint",
+    )
+    identity_lookup = Mock(return_value=controller)
+    monkeypatch.setattr("mindroom.commands.desktop_commands.controller_identity_for_entity", identity_lookup)
+    scope = DesktopCommandScope(
+        config=config,
+        runtime_paths=runtime_paths,
+        agent_name="computer",
+        requester_id="@alice:example.org",
+    )
+    setup_response = handle_desktop_command("setup", scope=scope)
+    token_match = re.search(r"--code ([A-Za-z0-9_-]+)", setup_response)
+    assert token_match is not None
+    token = token_match.group(1)
+    claim_desktop_pairing(
+        runtime_paths,
+        token=token,
+        agent_name="computer",
+        device_user_id="@alice:example.org",
+        device_id="ALICE",
+        device_ed25519="alice-fingerprint",
+    )
+    verification = desktop_pairing_verification(token, "alice-fingerprint")
+
+    identity_lookup.side_effect = DesktopIdentityError("controller unavailable")
+    assert "controller unavailable" in handle_desktop_command(f"confirm {token} {verification}", scope=scope)
+    identity_lookup.side_effect = None
+    assert "Desktop paired" in handle_desktop_command(f"confirm {token} {verification}", scope=scope)
+
+
+def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A normal agent stores each requester's Desktop separately from every other scope."""
+    runtime_paths = test_runtime_paths(tmp_path)
+    config = Config.validate_with_runtime(
+        {
+            "defaults": {"tools": []},
+            "agents": {
+                "computer": {
+                    "display_name": "Computer",
+                    "role": "Operate local apps",
                     "tools": ["desktop"],
                 },
                 "other": {
@@ -358,27 +474,22 @@ def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
         runtime_paths=runtime_paths,
         agent_name="computer",
         requester_id="@alice:example.org",
-        room_id="!private:example.org",
-        thread_id=None,
     )
     bob_scope = DesktopCommandScope(
         config=config,
         runtime_paths=runtime_paths,
         agent_name="computer",
         requester_id="@bob:example.org",
-        room_id="!private:example.org",
-        thread_id=None,
     )
     alice_other_agent_scope = DesktopCommandScope(
         config=config,
         runtime_paths=runtime_paths,
         agent_name="other",
         requester_id="@alice:example.org",
-        room_id="!other-private:example.org",
-        thread_id=None,
     )
 
     setup_response = handle_desktop_command("setup", scope=alice_scope)
+    assert "mindroom desktop setup --user-id @alice:example.org --homeserver http://localhost:8008" in setup_response
     token_match = re.search(r"--code ([A-Za-z0-9_-]+)", setup_response)
     assert token_match is not None
     token = token_match.group(1)
@@ -394,7 +505,17 @@ def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
 
     assert "does not belong" in handle_desktop_command(f"confirm {token} {verification}", scope=bob_scope)
     assert "verification does not match" in handle_desktop_command(f"confirm {token} vérification", scope=alice_scope)
-    assert "Desktop paired" in handle_desktop_command(f"confirm {token} {verification}", scope=alice_scope)
+    confirmation = handle_desktop_command(f"confirm {token} {verification}", scope=alice_scope)
+    assert "Desktop paired" in confirmation
+    assert "mindroom desktop run \\" in confirmation
+    assert "--controller-user-id @computer:example.org" in confirmation
+    assert "--controller-device-id CLOUD" in confirmation
+    assert "--controller-ed25519 cloud-fingerprint" in confirmation
+    assert "--allow-requester @alice:example.org" in confirmation
+    assert "--allow-agent computer" in confirmation
+    assert "--allow-app APPLICATION_ID" in confirmation
+    assert "--allow-control" in confirmation
+    assert "add the same option" in confirmation
     assert "Desktop is configured" in handle_desktop_command("", scope=alice_scope)
     assert "Desktop is configured" in handle_desktop_command("status", scope=alice_scope)
     assert "setup is required" in handle_desktop_command("status", scope=bob_scope)
@@ -422,7 +543,7 @@ def test_chat_confirmation_saves_only_the_initiating_requester_agent_scope(
     pair_scope(bob_scope, device_id="BOB", fingerprint="bob-fingerprint")
     pair_scope(alice_other_agent_scope, device_id="ALICEOTHER", fingerprint="alice-other-fingerprint")
 
-    assert "mindroom desktop pair" in handle_desktop_command("rotate", scope=alice_scope)
+    assert "mindroom desktop setup" in handle_desktop_command("rotate", scope=alice_scope)
     assert "Usage:" in handle_desktop_command("unknown", scope=alice_scope)
     assert "disconnect confirm" in handle_desktop_command("disconnect", scope=alice_scope)
     assert "Desktop is configured" in handle_desktop_command("status", scope=alice_scope)

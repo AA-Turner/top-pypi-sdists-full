@@ -1317,11 +1317,18 @@ def _gateway_plugin_health() -> dict:
     its ``state`` (``"loaded"`` / ``"errored"`` / ``"disabled"``), and an
     optional ``type`` field (``"channel"`` / ``"provider"``).
 
-    Returns a dict with two keys when any plugin data is present:
-    - ``"gatewayPluginHealth"`` — the raw list of plugin entries
-      (``[{"name": str, "state": str, "type": str|None}, ...]``).
-    - ``"gatewayPluginHealthSummary"`` — a ``{state: count}`` tally for quick
-      health assessment (e.g. ``{"loaded": 3, "errored": 1}``).
+    As of harness 2026.7.21 (#3883), the shared plugin-SDK monitor introduces a
+    ``phase`` field per plugin entry (``"admission"``, ``"claim-identity"``,
+    ``"adoption-handoff"``, ``"pruning"``) so a plugin stuck mid-admission is
+    distinguishable from a healthy ``"loaded"`` one.  Per-step detail flags
+    (``admission``, ``claim_identity``, ``adoption_handoff``, ``pruning``) are
+    forwarded when present.
+
+    Returns a dict with keys when any plugin data is present:
+    - ``"gatewayPluginHealth"`` — the raw list of plugin entries.
+    - ``"gatewayPluginHealthSummary"`` — a ``{state: count}`` tally.
+    - ``"gatewayPluginPhaseSummary"`` — a ``{phase: count}`` tally (only present
+      when at least one entry carries a ``phase`` field).
 
     Returns ``{}`` when the gateway RPC returns nothing, the response contains
     no ``plugins`` key, or the list is empty. Never raises.
@@ -1339,6 +1346,7 @@ def _gateway_plugin_health() -> dict:
             return {}
         plugins = []
         summary: dict = {}
+        phase_summary: dict = {}
         for entry in raw_plugins:
             if not isinstance(entry, dict):
                 continue
@@ -1347,11 +1355,27 @@ def _gateway_plugin_health() -> dict:
             ptype = entry.get("type") or entry.get("kind") or None
             if not name or not state:
                 continue
-            plugins.append({"name": name, "state": state, **({"type": ptype} if ptype else {})})
+            plugin: dict = {"name": name, "state": state}
+            if ptype:
+                plugin["type"] = ptype
+            # Lifecycle phase from the shared plugin-SDK monitor (#3883)
+            phase = entry.get("phase") or None
+            if phase:
+                plugin["phase"] = str(phase).lower()
+                phase_summary[plugin["phase"]] = phase_summary.get(plugin["phase"], 0) + 1
+            # Per-step lifecycle detail flags (forwarded when present)
+            for detail_key in ("admission", "claim_identity", "adoption_handoff", "pruning"):
+                val = entry.get(detail_key)
+                if val is not None:
+                    plugin[detail_key] = val
+            plugins.append(plugin)
             summary[state] = summary.get(state, 0) + 1
         if not plugins:
             return {}
-        return {"gatewayPluginHealth": plugins, "gatewayPluginHealthSummary": summary}
+        result: dict = {"gatewayPluginHealth": plugins, "gatewayPluginHealthSummary": summary}
+        if phase_summary:
+            result["gatewayPluginPhaseSummary"] = phase_summary
+        return result
     except Exception:
         return {}
 
@@ -1454,6 +1478,276 @@ def _gateway_host_status() -> dict:
         return {}
 
 
+def _gateway_presence_roster() -> dict:
+    """Who's-online presence roster from the OpenClaw gateway.status RPC (#3884).
+
+    As of the Control UI who's-online roster release, the gateway.status response
+    includes a list of currently-connected users under a ``connectedUsers`` (or
+    ``onlineUsers`` / ``presence``) key.  Each entry carries at minimum an
+    ``email`` field; ``displayName`` and ``avatar`` (or ``avatarUrl``) are
+    included when the user's profile is populated.
+
+    Returns a dict with:
+    - ``"gatewayPresenceRoster"`` — list of normalized user dicts, each with
+      ``email`` (str), and optionally ``displayName`` (str) and ``avatar`` (str).
+    - ``"gatewayPresenceCount"`` — number of online users.
+
+    Returns ``{}`` when the RPC is unavailable, carries no user list, or the
+    list is empty. Never raises.
+    """
+    try:
+        d = _d()
+        rpc = getattr(d, "_gw_ws_rpc", None)
+        if rpc is None:
+            return {}
+        payload = rpc("gateway.status")
+        if not isinstance(payload, dict):
+            return {}
+        raw_users = (
+            payload.get("connectedUsers")
+            or payload.get("connected_users")
+            or payload.get("onlineUsers")
+            or payload.get("online_users")
+            or payload.get("presence")
+        )
+        if not isinstance(raw_users, list) or not raw_users:
+            return {}
+        roster = []
+        for entry in raw_users:
+            if not isinstance(entry, dict):
+                continue
+            email = (
+                entry.get("email")
+                or entry.get("emailAddress")
+                or entry.get("email_address")
+            )
+            if not email:
+                continue
+            user: dict = {"email": str(email)}
+            display_name = (
+                entry.get("displayName")
+                or entry.get("display_name")
+                or entry.get("name")
+            )
+            if display_name:
+                user["displayName"] = str(display_name)
+            avatar = (
+                entry.get("avatar")
+                or entry.get("avatarUrl")
+                or entry.get("avatar_url")
+                or entry.get("photoUrl")
+                or entry.get("photo_url")
+            )
+            if avatar:
+                user["avatar"] = str(avatar)
+            roster.append(user)
+        if not roster:
+            return {}
+        return {"gatewayPresenceRoster": roster, "gatewayPresenceCount": len(roster)}
+    except Exception:
+        return {}
+
+
+def _gateway_mcp_app_widgets() -> dict:
+    """Pinned MCP app dashboard widgets from the OpenClaw gateway.status RPC (#3882).
+
+    OpenClaw's Dashboard MCP apps feature (CHANGELOG.md 'Unreleased: Dashboard MCP
+    apps') lets MCP app views be pinned as persistent dashboard widgets from an
+    originating session.  Each widget has a view-lease that renews periodically and
+    tool interactivity gated behind revision-bound grants.
+
+    When the gateway exposes widget state the response carries the list under one of
+    the candidate keys below.  Each entry is normalised to:
+    - ``"widgetId"``               — stable widget identifier
+    - ``"sessionId"``              — originating session that pinned the widget
+    - ``"type"``                   — widget type / MCP app identifier (when present)
+    - ``"leaseState"``             — ``"active"``, ``"expired"``, or ``"pending"``
+    - ``"grantRevision"``          — revision token for the tool-interactivity grant
+    - ``"toolInteractivityEnabled"`` — bool; whether tool calls are currently allowed
+
+    Returns a dict with:
+    - ``"gatewayMcpAppWidgets"``    — list of normalised widget dicts
+    - ``"gatewayMcpAppWidgetCount"`` — total widget count
+    - ``"gatewayMcpAppWidgetSummary"`` — ``{leaseState: count}`` tally
+
+    Returns ``{}`` when the RPC is unavailable, carries no widget list, or the list
+    is empty.  Never raises.
+    """
+    try:
+        d = _d()
+        rpc = getattr(d, "_gw_ws_rpc", None)
+        if rpc is None:
+            return {}
+        payload = rpc("gateway.status")
+        if not isinstance(payload, dict):
+            return {}
+        raw_widgets = (
+            payload.get("mcp_app_widgets")
+            or payload.get("mcpAppWidgets")
+            or payload.get("dashboard_widgets")
+            or payload.get("dashboardWidgets")
+            or payload.get("pinned_widgets")
+            or payload.get("pinnedWidgets")
+        )
+        if not isinstance(raw_widgets, list) or not raw_widgets:
+            return {}
+        widgets = []
+        lease_summary: dict = {}
+        for entry in raw_widgets:
+            if not isinstance(entry, dict):
+                continue
+            widget_id = (
+                entry.get("widgetId")
+                or entry.get("widget_id")
+                or entry.get("id")
+            )
+            if not widget_id:
+                continue
+            widget: dict = {"widgetId": str(widget_id)}
+            session_id = entry.get("sessionId") or entry.get("session_id")
+            if session_id:
+                widget["sessionId"] = str(session_id)
+            widget_type = entry.get("type") or entry.get("appId") or entry.get("app_id")
+            if widget_type:
+                widget["type"] = str(widget_type)
+            lease_state = str(
+                entry.get("leaseState")
+                or entry.get("lease_state")
+                or entry.get("lease")
+                or ""
+            ).lower() or None
+            if lease_state:
+                widget["leaseState"] = lease_state
+                lease_summary[lease_state] = lease_summary.get(lease_state, 0) + 1
+            grant_rev = entry.get("grantRevision") or entry.get("grant_revision")
+            if grant_rev is not None:
+                widget["grantRevision"] = grant_rev
+            tool_ok = entry.get("toolInteractivityEnabled")
+            if tool_ok is None:
+                tool_ok = entry.get("tool_interactivity_enabled")
+            if tool_ok is not None:
+                widget["toolInteractivityEnabled"] = bool(tool_ok)
+            widgets.append(widget)
+        if not widgets:
+            return {}
+        result: dict = {
+            "gatewayMcpAppWidgets": widgets,
+            "gatewayMcpAppWidgetCount": len(widgets),
+        }
+        if lease_summary:
+            result["gatewayMcpAppWidgetSummary"] = lease_summary
+        return result
+    except Exception:
+        return {}
+
+
+def _gateway_trusted_proxy_devices() -> dict:
+    """Trusted-proxy device pairing state from the OpenClaw gateway (#3885).
+
+    As of OpenClaw CHANGELOG (Unreleased: 'Trusted-proxy browser pairing'),
+    devices (Control UI, WebChat) can be auto-approved from allowlisted
+    trusted-proxy identities with non-admin scope caps, distinct from
+    manually-approved existing-device upgrades.
+
+    Tries two sources in order:
+    1. ``gateway.status`` payload -- looks for a ``devices``,
+       ``trustedDevices``, ``pairedDevices``, or ``trustedProxies`` list.
+    2. A dedicated ``gateway.devices`` RPC as a fallback (anticipated in a
+       future harness release alongside the status key).
+
+    Returns a dict with keys when paired devices are present:
+    - ``"gatewayTrustedProxyDevices"`` -- list of dicts with ``id``,
+      ``autoApproved``, and optional ``label``, ``scopeCap``, ``approvedAt``.
+    - ``"gatewayTrustedProxyDeviceSummary"`` -- ``{auto: N, manual: N}`` tally.
+
+    Returns ``{}`` when the RPC is unavailable, returns no device data, or
+    the harness hasn't shipped the pairing surface yet. Never raises.
+    """
+    try:
+        d = _d()
+        rpc = getattr(d, "_gw_ws_rpc", None)
+        if rpc is None:
+            return {}
+
+        raw_devices = None
+        # Primary: gateway.status (avoids an extra round-trip)
+        payload = rpc("gateway.status")
+        if isinstance(payload, dict):
+            raw_devices = (
+                payload.get("devices")
+                or payload.get("trustedDevices")
+                or payload.get("pairedDevices")
+                or payload.get("trustedProxies")
+                or payload.get("proxyDevices")
+            )
+        # Fallback: dedicated gateway.devices RPC (future harness release)
+        if not raw_devices:
+            devices_payload = rpc("gateway.devices")
+            if isinstance(devices_payload, list):
+                raw_devices = devices_payload
+            elif isinstance(devices_payload, dict):
+                raw_devices = (
+                    devices_payload.get("devices")
+                    or devices_payload.get("items")
+                    or devices_payload.get("trustedDevices")
+                )
+
+        if not isinstance(raw_devices, list) or not raw_devices:
+            return {}
+
+        devices = []
+        summary: dict = {"auto": 0, "manual": 0}
+        for entry in raw_devices:
+            if not isinstance(entry, dict):
+                continue
+            device_id = str(
+                entry.get("id")
+                or entry.get("deviceId")
+                or entry.get("device_id")
+                or ""
+            )
+            if not device_id:
+                continue
+            auto_approved = bool(
+                entry.get("autoApproved")
+                or entry.get("auto_approved")
+                or entry.get("trustedProxy")
+                or entry.get("trusted_proxy")
+            )
+            device: dict = {"id": device_id, "autoApproved": auto_approved}
+            label = str(
+                entry.get("label")
+                or entry.get("name")
+                or entry.get("displayName")
+                or ""
+            )
+            if label:
+                device["label"] = label
+            scope_cap = entry.get("scopeCap") or entry.get("scope_cap") or entry.get("scopes")
+            if scope_cap is not None:
+                device["scopeCap"] = scope_cap
+            approved_at = (
+                entry.get("approvedAt")
+                or entry.get("approved_at")
+                or entry.get("createdAt")
+                or entry.get("created_at")
+            )
+            if approved_at is not None:
+                device["approvedAt"] = approved_at
+            devices.append(device)
+            if auto_approved:
+                summary["auto"] += 1
+            else:
+                summary["manual"] += 1
+
+        if not devices:
+            return {}
+        return {
+            "gatewayTrustedProxyDevices": devices,
+            "gatewayTrustedProxyDeviceSummary": summary,
+        }
+    except Exception:
+        return {}
 class OpenClawAdapter(AgentAdapter):
     name = "openclaw"
     display_name = "OpenClaw"
@@ -1531,6 +1825,16 @@ class OpenClawAdapter(AgentAdapter):
                 # Gateway host/system status (#3551): host name, OS, runtime,
                 # uptime, CPU, memory, disk from the same gateway.status RPC.
                 meta.update(_gateway_host_status())
+                # Who's-online presence roster (#3884): connected users from the
+                # Control UI facepile, via the same gateway.status RPC.
+                meta.update(_gateway_presence_roster())
+                # Pinned MCP app dashboard widgets (#3882): widget list, lease
+                # state, and revision-bound tool-grant status from the same RPC.
+                # Returns {} on installs predating the Dashboard MCP apps release.
+                meta.update(_gateway_mcp_app_widgets())
+                # Trusted-proxy device pairing (#3885): paired/approved devices,
+                # scope caps, and auto- vs manual-approval state.
+                meta.update(_gateway_trusted_proxy_devices())
             # Docker runtime health (#3390): the NemoClaw harness treats Docker
             # daemon liveness as a distinct signal from gateway liveness. Only
             # written when docker CLI is present so non-Docker environments are
@@ -1723,6 +2027,27 @@ class OpenClawAdapter(AgentAdapter):
             _cdcont = s.get("cronDeliveredContent") or s.get("deliveredContent")
             if _cdcont is not None:
                 extra["cronDeliveredContent"] = str(_cdcont)
+            # PTY relay state (#3839): PR #107335 ('macOS paired-node terminals')
+            # and PR #107086 ('Control UI catalog terminals') stamp relay state,
+            # resume command, viewer preference, and paired-node identity on
+            # session records so the Control UI can open native terminal sessions.
+            # All four reads silently no-op when the fields are absent.
+            _pty = s.get("ptyRelayState") or s.get("ptyRelay")
+            if _pty is not None:
+                extra["ptyRelayState"] = str(_pty)
+            _rc = s.get("resumeCommand") or s.get("resumeCmd")
+            if _rc is not None:
+                extra["resumeCommand"] = str(_rc)
+            _vp = s.get("viewerPreference") or s.get("terminalPreference")
+            if _vp is not None:
+                extra["viewerPreference"] = str(_vp)
+            _pn = (
+                s.get("pairedNodeId")
+                or s.get("pairNodeId")
+                or s.get("pairedNode")
+            )
+            if _pn is not None:
+                extra["pairedNodeId"] = str(_pn)
             # On-exit cron trigger kind (#3526): OpenClaw 2026.7.1 (#92037)
             # stamps the schedule kind that triggered this session delivery
             # ("on-exit", "every", "interval", "cron", …) so callers can

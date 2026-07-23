@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,46 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_paymentcryptography import (
-    AliasReference as _AliasReference_7c9b8e7b,
-    IAliasRef as _IAliasRef_265a1f77,
-    IKeyRef as _IKeyRef_3ba31f45,
-    KeyReference as _KeyReference_c2ca63d7,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_paymentcryptography as _aws_paymentcryptography_a91ca047
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_paymentcryptography_a91ca047 = _LazyImport("aws_cdk.interfaces.aws_paymentcryptography")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAliasRef_265a1f77)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_paymentcryptography_a91ca047.IAliasRef)
 class CfnAlias(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnAlias",
 ):
@@ -142,7 +134,7 @@ class CfnAlias(
         :param key_arn: The ``KeyARN`` of the key associated with the alias.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03e3543c569149d753dcca4f9aa62f90766372bafcd1f94b89e73d5b425564e5)
+            type_hints = cached_type_hints(_typecheckingstub__03e3543c569149d753dcca4f9aa62f90766372bafcd1f94b89e73d5b425564e5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAliasProps(alias_name=alias_name, key_arn=key_arn)
@@ -157,18 +149,18 @@ class CfnAlias(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bffdec8882dcbb9589356b4df70a53525e7236376153e231147455d4094233e)
+            type_hints = cached_type_hints(_typecheckingstub__8bffdec8882dcbb9589356b4df70a53525e7236376153e231147455d4094233e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlias", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ff200923cccd5fdae928ff708195bbced1ef4f7d50f668b5c73f249ed90f28f)
+            type_hints = cached_type_hints(_typecheckingstub__4ff200923cccd5fdae928ff708195bbced1ef4f7d50f668b5c73f249ed90f28f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -181,7 +173,7 @@ class CfnAlias(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8f80ee3646838aabf7e90939e0251f8840c956ccf920965fde8a918b4cbf79b)
+            type_hints = cached_type_hints(_typecheckingstub__b8f80ee3646838aabf7e90939e0251f8840c956ccf920965fde8a918b4cbf79b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -193,9 +185,9 @@ class CfnAlias(
 
     @builtins.property
     @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> "_AliasReference_7c9b8e7b":
+    def alias_ref(self) -> "_aws_paymentcryptography_a91ca047.AliasReference":
         '''A reference to a Alias resource.'''
-        return typing.cast("_AliasReference_7c9b8e7b", jsii.get(self, "aliasRef"))
+        return typing.cast("_aws_paymentcryptography_a91ca047.AliasReference", jsii.get(self, "aliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -219,7 +211,7 @@ class CfnAlias(
     @alias_name.setter
     def alias_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbda40ab380bdefcb4b1f97fbdfb383ed08815fcaf1d136e881314e872f7e42b)
+            type_hints = cached_type_hints(_typecheckingstub__dbda40ab380bdefcb4b1f97fbdfb383ed08815fcaf1d136e881314e872f7e42b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
 
@@ -232,7 +224,7 @@ class CfnAlias(
     @key_arn.setter
     def key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbafef3a7fe6a4ee77cdd86bde1df29b8df0e985f7099527ccce1ce9c0fb18d5)
+            type_hints = cached_type_hints(_typecheckingstub__fbafef3a7fe6a4ee77cdd86bde1df29b8df0e985f7099527ccce1ce9c0fb18d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -271,7 +263,7 @@ class CfnAliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428)
+            type_hints = cached_type_hints(_typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
             check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -315,9 +307,9 @@ class CfnAliasProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IKeyRef_3ba31f45, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_paymentcryptography_a91ca047.IKeyRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnKey",
 ):
@@ -391,14 +383,14 @@ class CfnKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        exportable: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        key_attributes: typing.Union["_IResolvable_da3f097b", typing.Union["CfnKey.KeyAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
+        exportable: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        key_attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKey.KeyAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
         derive_key_usage: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         key_check_value_algorithm: typing.Optional[builtins.str] = None,
         policy: typing.Optional[builtins.str] = None,
         replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::PaymentCryptography::Key``.
 
@@ -414,7 +406,7 @@ class CfnKey(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eae3f8af01ec3a496044e22e7d1ce2b96cf8f20736ded57ce899a918f81a9596)
+            type_hints = cached_type_hints(_typecheckingstub__eae3f8af01ec3a496044e22e7d1ce2b96cf8f20736ded57ce899a918f81a9596)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnKeyProps(
@@ -438,18 +430,18 @@ class CfnKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53b0abed938b2f60e07fd365caaa972774564f2d923cf9f42805b0705bf2e0c)
+            type_hints = cached_type_hints(_typecheckingstub__c53b0abed938b2f60e07fd365caaa972774564f2d923cf9f42805b0705bf2e0c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d0701d054ede99cce0d90b76ac7d1ff4eb40159e6fd502b56930a0b0a1cb63c)
+            type_hints = cached_type_hints(_typecheckingstub__3d0701d054ede99cce0d90b76ac7d1ff4eb40159e6fd502b56930a0b0a1cb63c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -462,7 +454,7 @@ class CfnKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67d0864ea174d57204bcc36c049839be306d7849f2c1c3dc30e1a6292d6885fd)
+            type_hints = cached_type_hints(_typecheckingstub__67d0864ea174d57204bcc36c049839be306d7849f2c1c3dc30e1a6292d6885fd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -502,17 +494,17 @@ class CfnKey(
 
     @builtins.property
     @jsii.member(jsii_name="attrReplicationStatus")
-    def attr_replication_status(self) -> "_IResolvable_da3f097b":
+    def attr_replication_status(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ReplicationStatus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReplicationStatus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrReplicationStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -526,23 +518,25 @@ class CfnKey(
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "_KeyReference_c2ca63d7":
+    def key_ref(self) -> "_aws_paymentcryptography_a91ca047.KeyReference":
         '''A reference to a Key resource.'''
-        return typing.cast("_KeyReference_c2ca63d7", jsii.get(self, "keyRef"))
+        return typing.cast("_aws_paymentcryptography_a91ca047.KeyReference", jsii.get(self, "keyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="exportable")
-    def exportable(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def exportable(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Specifies whether the key is exportable.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "exportable"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "exportable"))
 
     @exportable.setter
     def exportable(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f21c25b942e06e9156561ac93e6371242b5b4ddbcb85077df885feaa89b2b2a6)
+            type_hints = cached_type_hints(_typecheckingstub__f21c25b942e06e9156561ac93e6371242b5b4ddbcb85077df885feaa89b2b2a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "exportable", value) # pyright: ignore[reportArgumentType]
 
@@ -550,17 +544,17 @@ class CfnKey(
     @jsii.member(jsii_name="keyAttributes")
     def key_attributes(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnKey.KeyAttributesProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyAttributesProperty"]:
         '''The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnKey.KeyAttributesProperty"], jsii.get(self, "keyAttributes"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyAttributesProperty"], jsii.get(self, "keyAttributes"))
 
     @key_attributes.setter
     def key_attributes(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnKey.KeyAttributesProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyAttributesProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__509385bb900abd87d7e9680c46b008a76766e5f51864d21972df261f9db73156)
+            type_hints = cached_type_hints(_typecheckingstub__509385bb900abd87d7e9680c46b008a76766e5f51864d21972df261f9db73156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -573,7 +567,7 @@ class CfnKey(
     @derive_key_usage.setter
     def derive_key_usage(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__656be50ed219aff27971e773805f3ea7068f9738b74cc7d35f92f017614b969e)
+            type_hints = cached_type_hints(_typecheckingstub__656be50ed219aff27971e773805f3ea7068f9738b74cc7d35f92f017614b969e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deriveKeyUsage", value) # pyright: ignore[reportArgumentType]
 
@@ -581,17 +575,17 @@ class CfnKey(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the key is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1defb803536cf97ac83055a5760a6073dfc007fbfe2b34f9a774538091a30ef3)
+            type_hints = cached_type_hints(_typecheckingstub__1defb803536cf97ac83055a5760a6073dfc007fbfe2b34f9a774538091a30ef3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
@@ -604,7 +598,7 @@ class CfnKey(
     @key_check_value_algorithm.setter
     def key_check_value_algorithm(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__197ab67a28372d3c264e1414d929d0c2287a028faf7915197718c789307d1350)
+            type_hints = cached_type_hints(_typecheckingstub__197ab67a28372d3c264e1414d929d0c2287a028faf7915197718c789307d1350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyCheckValueAlgorithm", value) # pyright: ignore[reportArgumentType]
 
@@ -617,7 +611,7 @@ class CfnKey(
     @policy.setter
     def policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868580814ba43661ae6b57fce945c6240344e1666181c3478d34333fee153fc7)
+            type_hints = cached_type_hints(_typecheckingstub__868580814ba43661ae6b57fce945c6240344e1666181c3478d34333fee153fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -633,19 +627,22 @@ class CfnKey(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6737ec7c6dc52de6a998e922706b7479f62a7e2b4a5e50ef7fede37a4ce1776)
+            type_hints = cached_type_hints(_typecheckingstub__f6737ec7c6dc52de6a998e922706b7479f62a7e2b4a5e50ef7fede37a4ce1776)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationRegions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78d5368ca44b0ca5acba26b914716e9d9e8bb1acb0511f4f2a701cf6fcdd968d)
+            type_hints = cached_type_hints(_typecheckingstub__78d5368ca44b0ca5acba26b914716e9d9e8bb1acb0511f4f2a701cf6fcdd968d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -665,7 +662,7 @@ class CfnKey(
             *,
             key_algorithm: builtins.str,
             key_class: builtins.str,
-            key_modes_of_use: typing.Union["_IResolvable_da3f097b", typing.Union["CfnKey.KeyModesOfUseProperty", typing.Dict[builtins.str, typing.Any]]],
+            key_modes_of_use: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKey.KeyModesOfUseProperty", typing.Dict[builtins.str, typing.Any]]],
             key_usage: builtins.str,
         ) -> None:
             '''The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key.
@@ -704,7 +701,7 @@ class CfnKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b75d16f6c2607cb760edf67dc96a26bed574dca4a5534dd5e3593befcc5f0a6)
+                type_hints = cached_type_hints(_typecheckingstub__0b75d16f6c2607cb760edf67dc96a26bed574dca4a5534dd5e3593befcc5f0a6)
                 check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
                 check_type(argname="argument key_class", value=key_class, expected_type=type_hints["key_class"])
                 check_type(argname="argument key_modes_of_use", value=key_modes_of_use, expected_type=type_hints["key_modes_of_use"])
@@ -741,14 +738,14 @@ class CfnKey(
         @builtins.property
         def key_modes_of_use(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnKey.KeyModesOfUseProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyModesOfUseProperty"]:
             '''The list of cryptographic operations that you can perform using the key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keyattributes.html#cfn-paymentcryptography-key-keyattributes-keymodesofuse
             '''
             result = self._values.get("key_modes_of_use")
             assert result is not None, "Required property 'key_modes_of_use' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnKey.KeyModesOfUseProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyModesOfUseProperty"], result)
 
         @builtins.property
         def key_usage(self) -> builtins.str:
@@ -790,15 +787,15 @@ class CfnKey(
         def __init__(
             self,
             *,
-            decrypt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            derive_key: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            encrypt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            generate: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            no_restrictions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            sign: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            unwrap: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            verify: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            wrap: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            decrypt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            derive_key: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            encrypt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            generate: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            no_restrictions: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            sign: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            unwrap: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            verify: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            wrap: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The list of cryptographic operations that you can perform using the key.
 
@@ -836,7 +833,7 @@ class CfnKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851824cb05)
+                type_hints = cached_type_hints(_typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851824cb05)
                 check_type(argname="argument decrypt", value=decrypt, expected_type=type_hints["decrypt"])
                 check_type(argname="argument derive_key", value=derive_key, expected_type=type_hints["derive_key"])
                 check_type(argname="argument encrypt", value=encrypt, expected_type=type_hints["encrypt"])
@@ -869,7 +866,7 @@ class CfnKey(
         @builtins.property
         def decrypt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to decrypt data.
 
             :default: - false
@@ -877,12 +874,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-decrypt
             '''
             result = self._values.get("decrypt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def derive_key(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to derive new keys.
 
             :default: - false
@@ -890,12 +887,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-derivekey
             '''
             result = self._values.get("derive_key")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def encrypt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to encrypt data.
 
             :default: - false
@@ -903,12 +900,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-encrypt
             '''
             result = self._values.get("encrypt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def generate(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to generate and verify other card and PIN verification keys.
 
             :default: - false
@@ -916,12 +913,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-generate
             '''
             result = self._values.get("generate")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def no_restrictions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key has no special restrictions other than the restrictions implied by ``KeyUsage`` .
 
             :default: - false
@@ -929,12 +926,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-norestrictions
             '''
             result = self._values.get("no_restrictions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def sign(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used for signing.
 
             :default: - false
@@ -942,24 +939,24 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-sign
             '''
             result = self._values.get("sign")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def unwrap(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :default: - false
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-unwrap
             '''
             result = self._values.get("unwrap")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def verify(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to verify signatures.
 
             :default: - false
@@ -967,12 +964,12 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-verify
             '''
             result = self._values.get("verify")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def wrap(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Speciﬁes whether an AWS Payment Cryptography key can be used to wrap other keys.
 
             :default: - false
@@ -980,7 +977,7 @@ class CfnKey(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-keymodesofuse.html#cfn-paymentcryptography-key-keymodesofuse-wrap
             '''
             result = self._values.get("wrap")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1029,7 +1026,7 @@ class CfnKey(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03)
+                type_hints = cached_type_hints(_typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument status_message", value=status_message, expected_type=type_hints["status_message"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1091,14 +1088,14 @@ class CfnKeyProps:
     def __init__(
         self,
         *,
-        exportable: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        key_attributes: typing.Union["_IResolvable_da3f097b", typing.Union["CfnKey.KeyAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
+        exportable: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        key_attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKey.KeyAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
         derive_key_usage: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         key_check_value_algorithm: typing.Optional[builtins.str] = None,
         policy: typing.Optional[builtins.str] = None,
         replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnKey``.
 
@@ -1153,7 +1150,7 @@ class CfnKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78)
+            type_hints = cached_type_hints(_typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78)
             check_type(argname="argument exportable", value=exportable, expected_type=type_hints["exportable"])
             check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
             check_type(argname="argument derive_key_usage", value=derive_key_usage, expected_type=type_hints["derive_key_usage"])
@@ -1180,7 +1177,9 @@ class CfnKeyProps:
             self._values["tags"] = tags
 
     @builtins.property
-    def exportable(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def exportable(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Specifies whether the key is exportable.
 
         This data is immutable after the key is created.
@@ -1189,12 +1188,12 @@ class CfnKeyProps:
         '''
         result = self._values.get("exportable")
         assert result is not None, "Required property 'exportable' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def key_attributes(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnKey.KeyAttributesProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyAttributesProperty"]:
         '''The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key.
 
         This data is immutable after the key is created.
@@ -1203,7 +1202,7 @@ class CfnKeyProps:
         '''
         result = self._values.get("key_attributes")
         assert result is not None, "Required property 'key_attributes' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnKey.KeyAttributesProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKey.KeyAttributesProperty"], result)
 
     @builtins.property
     def derive_key_usage(self) -> typing.Optional[builtins.str]:
@@ -1217,13 +1216,13 @@ class CfnKeyProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the key is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def key_check_value_algorithm(self) -> typing.Optional[builtins.str]:
@@ -1259,12 +1258,12 @@ class CfnKeyProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1304,7 +1303,7 @@ def _typecheckingstub__8bffdec8882dcbb9589356b4df70a53525e7236376153e231147455d4
     pass
 
 def _typecheckingstub__4ff200923cccd5fdae928ff708195bbced1ef4f7d50f668b5c73f249ed90f28f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1339,14 +1338,14 @@ def _typecheckingstub__eae3f8af01ec3a496044e22e7d1ce2b96cf8f20736ded57ce899a918f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
+    exportable: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    key_attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
     derive_key_usage: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     key_check_value_algorithm: typing.Optional[builtins.str] = None,
     policy: typing.Optional[builtins.str] = None,
     replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1358,7 +1357,7 @@ def _typecheckingstub__c53b0abed938b2f60e07fd365caaa972774564f2d923cf9f42805b070
     pass
 
 def _typecheckingstub__3d0701d054ede99cce0d90b76ac7d1ff4eb40159e6fd502b56930a0b0a1cb63c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1370,13 +1369,13 @@ def _typecheckingstub__67d0864ea174d57204bcc36c049839be306d7849f2c1c3dc30e1a6292
     pass
 
 def _typecheckingstub__f21c25b942e06e9156561ac93e6371242b5b4ddbcb85077df885feaa89b2b2a6(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__509385bb900abd87d7e9680c46b008a76766e5f51864d21972df261f9db73156(
-    value: typing.Union[_IResolvable_da3f097b, CfnKey.KeyAttributesProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnKey.KeyAttributesProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1388,7 +1387,7 @@ def _typecheckingstub__656be50ed219aff27971e773805f3ea7068f9738b74cc7d35f92f0176
     pass
 
 def _typecheckingstub__1defb803536cf97ac83055a5760a6073dfc007fbfe2b34f9a774538091a30ef3(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1412,7 +1411,7 @@ def _typecheckingstub__f6737ec7c6dc52de6a998e922706b7479f62a7e2b4a5e50ef7fede37a
     pass
 
 def _typecheckingstub__78d5368ca44b0ca5acba26b914716e9d9e8bb1acb0511f4f2a701cf6fcdd968d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1421,7 +1420,7 @@ def _typecheckingstub__0b75d16f6c2607cb760edf67dc96a26bed574dca4a5534dd5e3593bef
     *,
     key_algorithm: builtins.str,
     key_class: builtins.str,
-    key_modes_of_use: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyModesOfUseProperty, typing.Dict[builtins.str, typing.Any]]],
+    key_modes_of_use: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKey.KeyModesOfUseProperty, typing.Dict[builtins.str, typing.Any]]],
     key_usage: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1429,15 +1428,15 @@ def _typecheckingstub__0b75d16f6c2607cb760edf67dc96a26bed574dca4a5534dd5e3593bef
 
 def _typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851824cb05(
     *,
-    decrypt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    derive_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encrypt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    generate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    no_restrictions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    sign: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    unwrap: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    verify: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    wrap: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    decrypt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    derive_key: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    encrypt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    generate: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    no_restrictions: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    sign: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    unwrap: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    verify: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    wrap: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1452,14 +1451,14 @@ def _typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532bef
 
 def _typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78(
     *,
-    exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
+    exportable: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    key_attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
     derive_key_usage: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     key_check_value_algorithm: typing.Optional[builtins.str] = None,
     policy: typing.Optional[builtins.str] = None,
     replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

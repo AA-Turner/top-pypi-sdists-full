@@ -1072,6 +1072,8 @@ developing it via IaC. The developer will, of course, still get feedback from
 the underlying Glue APIs as CloudFormation deploys the resources similar to the
 current CDK L1 Glue experience.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1085,37 +1087,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
-import aws_cdk.aws_glue as _aws_cdk_aws_glue_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
+    import aws_cdk.aws_glue as _aws_cdk_aws_glue_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_events_ceddda9d = _LazyImport("aws_cdk.aws_events")
+    _aws_cdk_aws_glue_ceddda9d = _LazyImport("aws_cdk.aws_glue")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_s3_assets_ceddda9d = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -1173,7 +1187,7 @@ class Action:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2f4a93f6fef99092c85fff7b69cf437be0c5a98d9e06afa00fb1ae1012f66d9)
+            type_hints = cached_type_hints(_typecheckingstub__e2f4a93f6fef99092c85fff7b69cf437be0c5a98d9e06afa00fb1ae1012f66d9)
             check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
             check_type(argname="argument crawler", value=crawler, expected_type=type_hints["crawler"])
             check_type(argname="argument job", value=job, expected_type=type_hints["job"])
@@ -1286,7 +1300,7 @@ class ClassificationString(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257eaebdfc)
+            type_hints = cached_type_hints(_typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257eaebdfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -1388,7 +1402,7 @@ class CloudWatchEncryption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f)
+            type_hints = cached_type_hints(_typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1534,7 +1548,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd7e88ca82e81ea6700503f28d9e5352c4a86e264d00afb35e761e591a7e0e24)
+            type_hints = cached_type_hints(_typecheckingstub__cd7e88ca82e81ea6700503f28d9e5352c4a86e264d00afb35e761e591a7e0e24)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
             deploy_time=deploy_time,
@@ -1566,7 +1580,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d23f6002340150960cebd70816482874d96a0de7d52265f1fcd0ab459eea2a61)
+            type_hints = cached_type_hints(_typecheckingstub__d23f6002340150960cebd70816482874d96a0de7d52265f1fcd0ab459eea2a61)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast("S3Code", jsii.sinvoke(cls, "fromBucket", [bucket, key]))
@@ -1603,7 +1617,7 @@ class _CodeProxy(Code):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b88388256be44082f9ce622ac393616c31af36dc246d0cb6ea3eb8e78b31dc1)
+            type_hints = cached_type_hints(_typecheckingstub__7b88388256be44082f9ce622ac393616c31af36dc246d0cb6ea3eb8e78b31dc1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument grantable", value=grantable, expected_type=type_hints["grantable"])
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, grantable]))
@@ -1650,7 +1664,7 @@ class CodeConfig:
         if isinstance(s3_location, dict):
             s3_location = _aws_cdk_aws_s3_ceddda9d.Location(**s3_location)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7667596ec33fb86df61ee9e5603a0bed57aa6e48e3795e84685966147e79b05e)
+            type_hints = cached_type_hints(_typecheckingstub__7667596ec33fb86df61ee9e5603a0bed57aa6e48e3795e84685966147e79b05e)
             check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "s3_location": s3_location,
@@ -1720,7 +1734,7 @@ class Column:
         if isinstance(type, dict):
             type = Type(**type)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__043c8b76c78332fa2f7a0e1444ad14734d788355c87767ffb0dd0aac9a19fbdf)
+            type_hints = cached_type_hints(_typecheckingstub__043c8b76c78332fa2f7a0e1444ad14734d788355c87767ffb0dd0aac9a19fbdf)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -1905,7 +1919,7 @@ class Condition:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b041a655f4373d135d58f5a2efa6cf794318f5c5e7237249c2ca94ebe40d818)
+            type_hints = cached_type_hints(_typecheckingstub__9b041a655f4373d135d58f5a2efa6cf794318f5c5e7237249c2ca94ebe40d818)
             check_type(argname="argument crawler_name", value=crawler_name, expected_type=type_hints["crawler_name"])
             check_type(argname="argument crawl_state", value=crawl_state, expected_type=type_hints["crawl_state"])
             check_type(argname="argument job", value=job, expected_type=type_hints["job"])
@@ -2061,7 +2075,7 @@ class ConnectionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3994b494)
+            type_hints = cached_type_hints(_typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3994b494)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
@@ -2219,7 +2233,7 @@ class ConnectionProps(ConnectionOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769cdb83e8)
+            type_hints = cached_type_hints(_typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769cdb83e8)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
@@ -2372,7 +2386,7 @@ class ConnectionType(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1f57c94567ffb3d89cdd8c9cd2b37bd37decd390b53c9bfdadd569dc797aa3f)
+            type_hints = cached_type_hints(_typecheckingstub__b1f57c94567ffb3d89cdd8c9cd2b37bd37decd390b53c9bfdadd569dc797aa3f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         jsii.create(self.__class__, self, [name])
 
@@ -2817,7 +2831,7 @@ class ContinuousLoggingProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be4bb41017f52f2aa453e36400fa3a47b2e6bf3a87cf64d46e0345d6f22428b)
+            type_hints = cached_type_hints(_typecheckingstub__6be4bb41017f52f2aa453e36400fa3a47b2e6bf3a87cf64d46e0345d6f22428b)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument conversion_pattern", value=conversion_pattern, expected_type=type_hints["conversion_pattern"])
             check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
@@ -3184,7 +3198,7 @@ class DataFormatProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5302ed9f621270e44cf453ed62f78ee39e66f12961a87e084ec3d874438a19f)
+            type_hints = cached_type_hints(_typecheckingstub__f5302ed9f621270e44cf453ed62f78ee39e66f12961a87e084ec3d874438a19f)
             check_type(argname="argument input_format", value=input_format, expected_type=type_hints["input_format"])
             check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
             check_type(argname="argument serialization_library", value=serialization_library, expected_type=type_hints["serialization_library"])
@@ -3307,7 +3321,7 @@ class DataQualityRulesetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a)
+            type_hints = cached_type_hints(_typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a)
             check_type(argname="argument ruleset_dqdl", value=ruleset_dqdl, expected_type=type_hints["ruleset_dqdl"])
             check_type(argname="argument target_table", value=target_table, expected_type=type_hints["target_table"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
@@ -3429,7 +3443,7 @@ class DataQualityTargetTable(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18073ec885df4d5126a63d11958df64b1c8b43f719ce0fd6c6c594b457b6d4af)
+            type_hints = cached_type_hints(_typecheckingstub__18073ec885df4d5126a63d11958df64b1c8b43f719ce0fd6c6c594b457b6d4af)
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         jsii.create(self.__class__, self, [database_name, table_name])
@@ -3486,7 +3500,7 @@ class DatabaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d42ecf38)
+            type_hints = cached_type_hints(_typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d42ecf38)
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument location_uri", value=location_uri, expected_type=type_hints["location_uri"])
@@ -3675,7 +3689,7 @@ class DatePartitionProjectionConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4d0542c1)
+            type_hints = cached_type_hints(_typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4d0542c1)
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
@@ -3818,7 +3832,7 @@ class EnumPartitionProjectionConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0708bfef4a9eae714823be37d2724452d991d2905bac88df563477a2d31a6a0)
+            type_hints = cached_type_hints(_typecheckingstub__f0708bfef4a9eae714823be37d2724452d991d2905bac88df563477a2d31a6a0)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "values": values,
@@ -3885,7 +3899,7 @@ class EventBatchingCondition:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a6476a566f1ad7de933c9775f8bec53c8e7f033a45532939c1c1a54885ac1f9)
+            type_hints = cached_type_hints(_typecheckingstub__8a6476a566f1ad7de933c9775f8bec53c8e7f033a45532939c1c1a54885ac1f9)
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument batch_window", value=batch_window, expected_type=type_hints["batch_window"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4592,7 +4606,7 @@ class _IJobProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f8eb7ba0850dad06f49887b6323e6019fa48cdf967d96e579591ff36e61765)
+            type_hints = cached_type_hints(_typecheckingstub__79f8eb7ba0850dad06f49887b6323e6019fa48cdf967d96e579591ff36e61765)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -4789,7 +4803,7 @@ class _IJobProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e9bb641a392e36442ae2624591822707bc3af7603043bcb85c82e6dde0aedff)
+            type_hints = cached_type_hints(_typecheckingstub__4e9bb641a392e36442ae2624591822707bc3af7603043bcb85c82e6dde0aedff)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -4825,7 +4839,7 @@ class _IJobProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__192bf1eecc268b3f759e65151917fb49666d5a0144c2df120f2dd72e3fd5e4f4)
+            type_hints = cached_type_hints(_typecheckingstub__192bf1eecc268b3f759e65151917fb49666d5a0144c2df120f2dd72e3fd5e4f4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -4861,7 +4875,7 @@ class _IJobProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b62843a9fea91eb93e6bf7bcd95a76fc790b72a6a7ae7024cf486b3fd9d20f7)
+            type_hints = cached_type_hints(_typecheckingstub__5b62843a9fea91eb93e6bf7bcd95a76fc790b72a6a7ae7024cf486b3fd9d20f7)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -4897,7 +4911,7 @@ class _IJobProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1fcdc972ccb29fe1572e8970cb83faccd76d7cee7f09ed3f5c9571bca7a886d)
+            type_hints = cached_type_hints(_typecheckingstub__b1fcdc972ccb29fe1572e8970cb83faccd76d7cee7f09ed3f5c9571bca7a886d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -5182,7 +5196,7 @@ class _IWorkflowProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a8edbbfff28a637c2d2402c799a91b553fb59c01157c4c70ffcf1a7f8f45444)
+            type_hints = cached_type_hints(_typecheckingstub__9a8edbbfff28a637c2d2402c799a91b553fb59c01157c4c70ffcf1a7f8f45444)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = CustomScheduledTriggerOptions(
             schedule=schedule,
@@ -5215,7 +5229,7 @@ class _IWorkflowProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f1754a6bb9ef8a06f85ce73f713622dbde979c66851e316ad959044406462da)
+            type_hints = cached_type_hints(_typecheckingstub__9f1754a6bb9ef8a06f85ce73f713622dbde979c66851e316ad959044406462da)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = DailyScheduleTriggerOptions(
             start_on_creation=start_on_creation,
@@ -5245,7 +5259,7 @@ class _IWorkflowProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69dd208a64d173519d3c260e4e253ed29f7a8284b2092d82c939efacfa84dd90)
+            type_hints = cached_type_hints(_typecheckingstub__69dd208a64d173519d3c260e4e253ed29f7a8284b2092d82c939efacfa84dd90)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnDemandTriggerOptions(
             actions=actions, description=description, name=name
@@ -5274,7 +5288,7 @@ class _IWorkflowProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd7c9b45aca9c890deb63491d41407ba6f9a686488058283d2b5539ac683f87)
+            type_hints = cached_type_hints(_typecheckingstub__0fd7c9b45aca9c890deb63491d41407ba6f9a686488058283d2b5539ac683f87)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = WeeklyScheduleTriggerOptions(
             start_on_creation=start_on_creation,
@@ -5314,7 +5328,7 @@ class InputFormat(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697ee4e4007ce058f39e7fc610b2c0c4457bbd6008e9287406b18505ed299434)
+            type_hints = cached_type_hints(_typecheckingstub__697ee4e4007ce058f39e7fc610b2c0c4457bbd6008e9287406b18505ed299434)
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
         jsii.create(self.__class__, self, [class_name])
 
@@ -5437,7 +5451,7 @@ class IntegerPartitionProjectionConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__484bb6f13c480ca05473538c8ef5310f40aa9e016608105d0c2d41420ae5ad10)
+            type_hints = cached_type_hints(_typecheckingstub__484bb6f13c480ca05473538c8ef5310f40aa9e016608105d0c2d41420ae5ad10)
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             check_type(argname="argument digits", value=digits, expected_type=type_hints["digits"])
@@ -5582,7 +5596,7 @@ class JobAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f1f5ae0406d4aaf443249ea9377b38a10b1814ed1f9c1fb9f0cbc5f489fd89e)
+            type_hints = cached_type_hints(_typecheckingstub__2f1f5ae0406d4aaf443249ea9377b38a10b1814ed1f9c1fb9f0cbc5f489fd89e)
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5659,7 +5673,7 @@ class JobBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec64ab0ae81822b13e49b0489227c1c72a38187366120386115835734b37e34a)
+            type_hints = cached_type_hints(_typecheckingstub__ec64ab0ae81822b13e49b0489227c1c72a38187366120386115835734b37e34a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -5685,7 +5699,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa70660931870737cb35ddc17084f527f23d25c7ed943938c3f22e4c0485f50a)
+            type_hints = cached_type_hints(_typecheckingstub__aa70660931870737cb35ddc17084f527f23d25c7ed943938c3f22e4c0485f50a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
         return typing.cast(builtins.str, jsii.invoke(self, "buildJobArn", [scope, job_name]))
@@ -5730,7 +5744,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b911d0b80d0ff56cbcc674f043e52b8311bc7400a829e448c3c3eda764d83491)
+            type_hints = cached_type_hints(_typecheckingstub__b911d0b80d0ff56cbcc674f043e52b8311bc7400a829e448c3c3eda764d83491)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -5933,7 +5947,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73cc7e2bbc6bf1373f7ea0648bd9ea98ea4128f5a8fc4e953c6ed045553241be)
+            type_hints = cached_type_hints(_typecheckingstub__73cc7e2bbc6bf1373f7ea0648bd9ea98ea4128f5a8fc4e953c6ed045553241be)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -5968,7 +5982,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77f5d668de04442221d5e3bba863cfe419f61129e07989d315192cb9d97f4db5)
+            type_hints = cached_type_hints(_typecheckingstub__77f5d668de04442221d5e3bba863cfe419f61129e07989d315192cb9d97f4db5)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -6005,7 +6019,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fda6a815caa9cab4dc3e6813b1bfd2b75320d67659c45911f873bdd5d36ebb7d)
+            type_hints = cached_type_hints(_typecheckingstub__fda6a815caa9cab4dc3e6813b1bfd2b75320d67659c45911f873bdd5d36ebb7d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument job_state", value=job_state, expected_type=type_hints["job_state"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
@@ -6041,7 +6055,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b222179ebf9f594ae469da9d52cf7fd0d5443aa5fd6dd0e5038d38dc0b3c00fb)
+            type_hints = cached_type_hints(_typecheckingstub__b222179ebf9f594ae469da9d52cf7fd0d5443aa5fd6dd0e5038d38dc0b3c00fb)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -6076,7 +6090,7 @@ class JobBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd05b1c1c)
+            type_hints = cached_type_hints(_typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd05b1c1c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
             target=target,
@@ -6189,7 +6203,7 @@ class JobBookmarksEncryption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e)
+            type_hints = cached_type_hints(_typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6399,7 +6413,7 @@ class JobProps:
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f47dc7b3a9514a79f7f82e52c4441b82161dce2eb5b67f22211660776beaa70)
+            type_hints = cached_type_hints(_typecheckingstub__9f47dc7b3a9514a79f7f82e52c4441b82161dce2eb5b67f22211660776beaa70)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -6885,7 +6899,7 @@ class OutputFormat(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8952681a040fc7931f48438a2e01cd3c2bed40202b6f32cd606344a5ea10e810)
+            type_hints = cached_type_hints(_typecheckingstub__8952681a040fc7931f48438a2e01cd3c2bed40202b6f32cd606344a5ea10e810)
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
         jsii.create(self.__class__, self, [class_name])
 
@@ -6968,7 +6982,7 @@ class PartitionIndex:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__854153aaeace5af7af75594677e850d114f911156b5cd93d50a01feeff4a76a8)
+            type_hints = cached_type_hints(_typecheckingstub__854153aaeace5af7af75594677e850d114f911156b5cd93d50a01feeff4a76a8)
             check_type(argname="argument key_names", value=key_names, expected_type=type_hints["key_names"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7283,7 +7297,7 @@ class Predicate:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5233ea5d1d11a87999051cc719f194e59b3cd7f55889538c9abae82b9130d1cb)
+            type_hints = cached_type_hints(_typecheckingstub__5233ea5d1d11a87999051cc719f194e59b3cd7f55889538c9abae82b9130d1cb)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument logical", value=logical, expected_type=type_hints["logical"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7434,7 +7448,7 @@ class PythonShellJobProps(JobProps):
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92a5b134cff0782ae2081737ca265c082c41e163672815acc2d80960f5f8a537)
+            type_hints = cached_type_hints(_typecheckingstub__92a5b134cff0782ae2081737ca265c082c41e163672815acc2d80960f5f8a537)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -7952,7 +7966,7 @@ class RayJobProps(JobProps):
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0688d93fe3342e908d24430e0cf83d44b81116d86a5789bf7fabe7d05be5fa4f)
+            type_hints = cached_type_hints(_typecheckingstub__0688d93fe3342e908d24430e0cf83d44b81116d86a5789bf7fabe7d05be5fa4f)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -8324,7 +8338,7 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7854e17fe796bdc5dc10fe3c8febb691186728550ca107493a43fc6979cafee)
+            type_hints = cached_type_hints(_typecheckingstub__f7854e17fe796bdc5dc10fe3c8febb691186728550ca107493a43fc6979cafee)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         jsii.create(self.__class__, self, [bucket, key])
@@ -8343,7 +8357,7 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f20075d71602)
+            type_hints = cached_type_hints(_typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f20075d71602)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument grantable", value=grantable, expected_type=type_hints["grantable"])
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [_scope, grantable]))
@@ -8384,7 +8398,7 @@ class S3Encryption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e)
+            type_hints = cached_type_hints(_typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8531,7 +8545,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4b92f46741e45dc5d5e256fe3738d53a8878b40fc430d149eec6fdbfe167229)
+            type_hints = cached_type_hints(_typecheckingstub__d4b92f46741e45dc5d5e256fe3738d53a8878b40fc430d149eec6fdbfe167229)
             check_type(argname="argument length", value=length, expected_type=type_hints["length"])
         return typing.cast("Type", jsii.sinvoke(cls, "char", [length]))
 
@@ -8552,7 +8566,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcdd8f07d6d5e4e87f54cd2104a8605a571a6abede0b42465e2352b51723b900)
+            type_hints = cached_type_hints(_typecheckingstub__fcdd8f07d6d5e4e87f54cd2104a8605a571a6abede0b42465e2352b51723b900)
             check_type(argname="argument precision", value=precision, expected_type=type_hints["precision"])
             check_type(argname="argument scale", value=scale, expected_type=type_hints["scale"])
         return typing.cast("Type", jsii.sinvoke(cls, "decimal", [precision, scale]))
@@ -8575,7 +8589,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc04f65c508e37fca936dfd67a8b4a0f84a73b9ef9c446edcd34f17c738c8dae)
+            type_hints = cached_type_hints(_typecheckingstub__fc04f65c508e37fca936dfd67a8b4a0f84a73b9ef9c446edcd34f17c738c8dae)
             check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
         value_type = Type(input_string=input_string, is_primitive=is_primitive)
 
@@ -8594,7 +8608,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33f94b4c838eb0e3d03de4da6b4f3fe8e873ef98895fb940645c459801c4bb50)
+            type_hints = cached_type_hints(_typecheckingstub__33f94b4c838eb0e3d03de4da6b4f3fe8e873ef98895fb940645c459801c4bb50)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
         return typing.cast("Type", jsii.sinvoke(cls, "struct", [columns]))
 
@@ -8608,7 +8622,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ba18137b7dd32100f635af375c8586adc2f9824c4ccd0a1b01168f5ba757da4)
+            type_hints = cached_type_hints(_typecheckingstub__0ba18137b7dd32100f635af375c8586adc2f9824c4ccd0a1b01168f5ba757da4)
             check_type(argname="argument length", value=length, expected_type=type_hints["length"])
         return typing.cast("Type", jsii.sinvoke(cls, "varchar", [length]))
 
@@ -8777,7 +8791,7 @@ class SecurityConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd628a6199f5b5fb7644771f78b6cc6d9230e3c38bba0463810d192bceb52e8d)
+            type_hints = cached_type_hints(_typecheckingstub__cd628a6199f5b5fb7644771f78b6cc6d9230e3c38bba0463810d192bceb52e8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SecurityConfigurationProps(
@@ -8806,7 +8820,7 @@ class SecurityConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a85db96fd444625c46f4574190ecd86214bed327c2f826ee3294853f69a42b6)
+            type_hints = cached_type_hints(_typecheckingstub__4a85db96fd444625c46f4574190ecd86214bed327c2f826ee3294853f69a42b6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
@@ -8914,7 +8928,7 @@ class SecurityConfigurationProps:
         if isinstance(s3_encryption, dict):
             s3_encryption = S3Encryption(**s3_encryption)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd2e94f36)
+            type_hints = cached_type_hints(_typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd2e94f36)
             check_type(argname="argument cloud_watch_encryption", value=cloud_watch_encryption, expected_type=type_hints["cloud_watch_encryption"])
             check_type(argname="argument job_bookmarks_encryption", value=job_bookmarks_encryption, expected_type=type_hints["job_bookmarks_encryption"])
             check_type(argname="argument s3_encryption", value=s3_encryption, expected_type=type_hints["s3_encryption"])
@@ -9011,7 +9025,7 @@ class SerializationLibrary(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44b6eea0230610f203e5d4ed1dbd871c9ecc76a60681d0500a51e2d3815f193e)
+            type_hints = cached_type_hints(_typecheckingstub__44b6eea0230610f203e5d4ed1dbd871c9ecc76a60681d0500a51e2d3815f193e)
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
         jsii.create(self.__class__, self, [class_name])
 
@@ -9159,7 +9173,7 @@ class SparkExtraCodeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cc4e50b691213e91705a9e68ea8a3e93a97ff3210e367b79a2d2a4d54775e68)
+            type_hints = cached_type_hints(_typecheckingstub__4cc4e50b691213e91705a9e68ea8a3e93a97ff3210e367b79a2d2a4d54775e68)
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
@@ -9367,7 +9381,7 @@ class SparkJobProps(JobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ffa813def4de32811719999bd6b7dba325e92cf2f2ca903cddce94612be51a0)
+            type_hints = cached_type_hints(_typecheckingstub__2ffa813def4de32811719999bd6b7dba325e92cf2f2ca903cddce94612be51a0)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -9708,7 +9722,7 @@ class SparkUILoggingLocation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5697eede3034b2366456fa6abdccec9640fd76f2916540c3a178d004e5cd680a)
+            type_hints = cached_type_hints(_typecheckingstub__5697eede3034b2366456fa6abdccec9640fd76f2916540c3a178d004e5cd680a)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9786,7 +9800,7 @@ class SparkUIProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c613959b2bc20f05aa8f4578d26e870c2d4044aaaee1a5248ed0ddf8d4b75776)
+            type_hints = cached_type_hints(_typecheckingstub__c613959b2bc20f05aa8f4578d26e870c2d4044aaaee1a5248ed0ddf8d4b75776)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9873,7 +9887,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f74283389af10eaf6da714f4aadddf86dec9f3da227641c23ae118f6dfd7b45)
+            type_hints = cached_type_hints(_typecheckingstub__0f74283389af10eaf6da714f4aadddf86dec9f3da227641c23ae118f6dfd7b45)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [key, value])
@@ -9893,7 +9907,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a39c7b662e4b538ebbd408dcac5b933ae4d1527472b30facbc0405a6a1d3bb14)
+            type_hints = cached_type_hints(_typecheckingstub__a39c7b662e4b538ebbd408dcac5b933ae4d1527472b30facbc0405a6a1d3bb14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "columnCountMismatchHandling", [value]))
 
@@ -9909,7 +9923,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__666d2a40474ee489c242320aca5600aa88eb0e9ff6b3f6f2523138d1febe5b9b)
+            type_hints = cached_type_hints(_typecheckingstub__666d2a40474ee489c242320aca5600aa88eb0e9ff6b3f6f2523138d1febe5b9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "compressionType", [value]))
 
@@ -9924,7 +9938,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972574c985d99d1bb6f6d431a08c62d778ff9dd7c7acaa151f9c4c535255e211)
+            type_hints = cached_type_hints(_typecheckingstub__972574c985d99d1bb6f6d431a08c62d778ff9dd7c7acaa151f9c4c535255e211)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "custom", [key, value]))
@@ -9939,7 +9953,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7446681fb6fa8d72452081fd5567c4cfb319974b0acc83e49ae911e49d15d02)
+            type_hints = cached_type_hints(_typecheckingstub__f7446681fb6fa8d72452081fd5567c4cfb319974b0acc83e49ae911e49d15d02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "dataCleansingEnabled", [value]))
 
@@ -9956,7 +9970,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4fecfebea5461d7e6230a0187c52f9a9d764b9e29971ed3414e1d84633f26ba)
+            type_hints = cached_type_hints(_typecheckingstub__c4fecfebea5461d7e6230a0187c52f9a9d764b9e29971ed3414e1d84633f26ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "invalidCharHandling", [value]))
 
@@ -9973,7 +9987,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bbe8806a487d42b3c7b3868e2419195fd8e623ea4a74692a316cc258efafb28)
+            type_hints = cached_type_hints(_typecheckingstub__5bbe8806a487d42b3c7b3868e2419195fd8e623ea4a74692a316cc258efafb28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "numericOverflowHandling", [value]))
 
@@ -9989,7 +10003,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0897c928202255a3b3383203c753ac3165280fbc81faec3dd559c25843d4d3d4)
+            type_hints = cached_type_hints(_typecheckingstub__0897c928202255a3b3383203c753ac3165280fbc81faec3dd559c25843d4d3d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "numRows", [value]))
 
@@ -10007,7 +10021,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb88780e26a940311a2cf44dd5d68de1ff362d2d0ca028f0443bba7e4bb06a8)
+            type_hints = cached_type_hints(_typecheckingstub__0eb88780e26a940311a2cf44dd5d68de1ff362d2d0ca028f0443bba7e4bb06a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "orcSchemaResolution", [value]))
 
@@ -10021,7 +10035,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4284890747f6d237b5fdefef7df7ed57b66bda672915eb23526cae4e1b45ac7b)
+            type_hints = cached_type_hints(_typecheckingstub__4284890747f6d237b5fdefef7df7ed57b66bda672915eb23526cae4e1b45ac7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "replacementChar", [value]))
 
@@ -10035,7 +10049,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51d196d1d149d7fb743eb77988c4d05f55b9e72876647220d0067b47caeab18a)
+            type_hints = cached_type_hints(_typecheckingstub__51d196d1d149d7fb743eb77988c4d05f55b9e72876647220d0067b47caeab18a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "serializationNullFormat", [value]))
 
@@ -10049,7 +10063,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf2e1fd759f08830451a50273269345e05b91bbd90e750e7b76b2bac5275870a)
+            type_hints = cached_type_hints(_typecheckingstub__cf2e1fd759f08830451a50273269345e05b91bbd90e750e7b76b2bac5275870a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "skipHeaderLineCount", [value]))
 
@@ -10068,7 +10082,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c04fd2fab2c9a95b1c92f9718dfe11ffeb2436d47a798d0f870aae58746f67a)
+            type_hints = cached_type_hints(_typecheckingstub__1c04fd2fab2c9a95b1c92f9718dfe11ffeb2436d47a798d0f870aae58746f67a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "surplusBytesHandling", [value]))
 
@@ -10087,7 +10101,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e1b9effa7f6a703549bb4dbdc074898313b647fe00864615574b5f4527a6efd)
+            type_hints = cached_type_hints(_typecheckingstub__1e1b9effa7f6a703549bb4dbdc074898313b647fe00864615574b5f4527a6efd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "surplusCharHandling", [value]))
 
@@ -10101,7 +10115,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__786b7e6901c19fc29fc68d4fe9cfd302c0d877d823b66a1fc00cd87af05bc1a9)
+            type_hints = cached_type_hints(_typecheckingstub__786b7e6901c19fc29fc68d4fe9cfd302c0d877d823b66a1fc00cd87af05bc1a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "writeKmsKeyId", [value]))
 
@@ -10117,7 +10131,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d6b28d6c7211b035722cff75146ec9b7f6d1ef3da62494976a7200ddf69ed8f)
+            type_hints = cached_type_hints(_typecheckingstub__7d6b28d6c7211b035722cff75146ec9b7f6d1ef3da62494976a7200ddf69ed8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "writeMaxFileSizeMb", [value]))
 
@@ -10135,7 +10149,7 @@ class StorageParameter(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__934bd25af2a5a54f5badd7296f8c59c0bd6be0399bcb84d225a10f0f5db755d5)
+            type_hints = cached_type_hints(_typecheckingstub__934bd25af2a5a54f5badd7296f8c59c0bd6be0399bcb84d225a10f0f5db755d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("StorageParameter", jsii.sinvoke(cls, "writeParallel", [value]))
 
@@ -10378,7 +10392,7 @@ class TableAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9a76a75ff6c3a793e7e5f24f77665e06ab62ec467008c0ae0a13c2537b6003d)
+            type_hints = cached_type_hints(_typecheckingstub__b9a76a75ff6c3a793e7e5f24f77665e06ab62ec467008c0ae0a13c2537b6003d)
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10475,7 +10489,7 @@ class TableBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3498ddd8b03f8ca1e3bea08a9f07832747b340c2a3681dc513148655f79ad155)
+            type_hints = cached_type_hints(_typecheckingstub__3498ddd8b03f8ca1e3bea08a9f07832747b340c2a3681dc513148655f79ad155)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TableBaseProps(
@@ -10512,7 +10526,7 @@ class TableBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02bd4969b95beb4e956637865cbc28ff5818c6ec54f938297add787350585c81)
+            type_hints = cached_type_hints(_typecheckingstub__02bd4969b95beb4e956637865cbc28ff5818c6ec54f938297add787350585c81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
@@ -10538,7 +10552,7 @@ class TableBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58099cdb2e6af7cafb7eb58d27cec43a72e06cce30052aef55c41e9f4574cb47)
+            type_hints = cached_type_hints(_typecheckingstub__58099cdb2e6af7cafb7eb58d27cec43a72e06cce30052aef55c41e9f4574cb47)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TableAttributes(table_arn=table_arn, table_name=table_name)
@@ -10584,7 +10598,7 @@ class TableBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b9362ce2360a32cd6ed5b3e0b6fb67c0eeb2fadb38c5ce618002656d772e776)
+            type_hints = cached_type_hints(_typecheckingstub__5b9362ce2360a32cd6ed5b3e0b6fb67c0eeb2fadb38c5ce618002656d772e776)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, actions]))
@@ -10632,7 +10646,7 @@ class TableBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fefdc4d880c6035cf74f0867c529fd1390e46d666f130f14ef71eeb28507b1c)
+            type_hints = cached_type_hints(_typecheckingstub__0fefdc4d880c6035cf74f0867c529fd1390e46d666f130f14ef71eeb28507b1c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantToUnderlyingResources", [grantee, actions]))
@@ -10777,7 +10791,7 @@ class _TableBaseProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daad53122858b1d79a2d9a51e22fe701058f7a4a9f5b6d813930d2e34d3f2c63)
+            type_hints = cached_type_hints(_typecheckingstub__daad53122858b1d79a2d9a51e22fe701058f7a4a9f5b6d813930d2e34d3f2c63)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -10792,7 +10806,7 @@ class _TableBaseProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__316a7ca269e4227039ebebd0789404fc7ab5c3f9b3787007562ce4edf5df8225)
+            type_hints = cached_type_hints(_typecheckingstub__316a7ca269e4227039ebebd0789404fc7ab5c3f9b3787007562ce4edf5df8225)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
@@ -10807,7 +10821,7 @@ class _TableBaseProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb08ef4e43dac45d9dc56da91de5195d72be73db28c81ee45853c2c2ac349abd)
+            type_hints = cached_type_hints(_typecheckingstub__bb08ef4e43dac45d9dc56da91de5195d72be73db28c81ee45853c2c2ac349abd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
@@ -10959,7 +10973,7 @@ class TableBaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b168483439de)
+            type_hints = cached_type_hints(_typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b168483439de)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
             check_type(argname="argument database", value=database, expected_type=type_hints["database"])
             check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
@@ -11293,7 +11307,7 @@ class TriggerOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2b6cfceeecd381878a32bb25b4a4cf4ed62bd37face059db45d932548b13b92)
+            type_hints = cached_type_hints(_typecheckingstub__a2b6cfceeecd381878a32bb25b4a4cf4ed62bd37face059db45d932548b13b92)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -11422,7 +11436,7 @@ class TriggerSchedule(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56ff882bc008a9c07c54cca389af52f69a512017f4daa61c64beb028d7e8c4cc)
+            type_hints = cached_type_hints(_typecheckingstub__56ff882bc008a9c07c54cca389af52f69a512017f4daa61c64beb028d7e8c4cc)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "expression", [expression]))
 
@@ -11483,7 +11497,7 @@ class Type:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5fb0ad30c447263aceddf4b77f71aec991966bf6e2dc3a181ff400914c16d85)
+            type_hints = cached_type_hints(_typecheckingstub__c5fb0ad30c447263aceddf4b77f71aec991966bf6e2dc3a181ff400914c16d85)
             check_type(argname="argument input_string", value=input_string, expected_type=type_hints["input_string"])
             check_type(argname="argument is_primitive", value=is_primitive, expected_type=type_hints["is_primitive"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11667,7 +11681,7 @@ class WorkflowAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3647977eeff03b91eada7606d08308b851f8e298d9a0897e6a26b9e392c8b0c4)
+            type_hints = cached_type_hints(_typecheckingstub__3647977eeff03b91eada7606d08308b851f8e298d9a0897e6a26b9e392c8b0c4)
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11740,7 +11754,7 @@ class WorkflowBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__056e61498e209dd87cfd11ace53b75d00c1472049d073269862025c5f3574ed6)
+            type_hints = cached_type_hints(_typecheckingstub__056e61498e209dd87cfd11ace53b75d00c1472049d073269862025c5f3574ed6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -11767,7 +11781,7 @@ class WorkflowBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e60bad0b098fdfdf2b691c49ccc19b0958d18a40071c1f2dc9876e4cb3f218ed)
+            type_hints = cached_type_hints(_typecheckingstub__e60bad0b098fdfdf2b691c49ccc19b0958d18a40071c1f2dc9876e4cb3f218ed)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "extractNameFromArn", [scope, workflow_arn]))
@@ -11798,7 +11812,7 @@ class WorkflowBase(
         :throws: If a job is provided without a job state, or if a crawler is provided without a crawler state for any condition.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__198f86d215161a42a7d94a66d9c0e12667e8bcffc4f46d5be57675e9ef4ead34)
+            type_hints = cached_type_hints(_typecheckingstub__198f86d215161a42a7d94a66d9c0e12667e8bcffc4f46d5be57675e9ef4ead34)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ConditionalTriggerOptions(
             predicate=predicate,
@@ -11836,7 +11850,7 @@ class WorkflowBase(
         :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b64c9ea4aa943f2aaa39146eead19ba4caefe548500334bcf049424b4d92e57)
+            type_hints = cached_type_hints(_typecheckingstub__4b64c9ea4aa943f2aaa39146eead19ba4caefe548500334bcf049424b4d92e57)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = CustomScheduledTriggerOptions(
             schedule=schedule,
@@ -11872,7 +11886,7 @@ class WorkflowBase(
         :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3089f7f1ae9a630008cac3ee8cee8316f8c951d601bb0a7198347784a373bea8)
+            type_hints = cached_type_hints(_typecheckingstub__3089f7f1ae9a630008cac3ee8cee8316f8c951d601bb0a7198347784a373bea8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = DailyScheduleTriggerOptions(
             start_on_creation=start_on_creation,
@@ -11907,7 +11921,7 @@ class WorkflowBase(
         :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcde671bf144ea3af2d4951815d73e1ed6c9fa50ab4cb6d1b1d8d392e35d7f5d)
+            type_hints = cached_type_hints(_typecheckingstub__dcde671bf144ea3af2d4951815d73e1ed6c9fa50ab4cb6d1b1d8d392e35d7f5d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = NotifyEventTriggerOptions(
             event_batching_condition=event_batching_condition,
@@ -11940,7 +11954,7 @@ class WorkflowBase(
         :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef2bb127a7095832cbabb03ab806137724c70a57726a996979493b4efd025d33)
+            type_hints = cached_type_hints(_typecheckingstub__ef2bb127a7095832cbabb03ab806137724c70a57726a996979493b4efd025d33)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnDemandTriggerOptions(
             actions=actions, description=description, name=name
@@ -11972,7 +11986,7 @@ class WorkflowBase(
         :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71fdd9a6acd531f0ce5498cb855150abf8fa05c19c53a2e5bdfcfc502238e659)
+            type_hints = cached_type_hints(_typecheckingstub__71fdd9a6acd531f0ce5498cb855150abf8fa05c19c53a2e5bdfcfc502238e659)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = WeeklyScheduleTriggerOptions(
             start_on_creation=start_on_creation,
@@ -11996,7 +12010,7 @@ class WorkflowBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8997679cd37044eb0d286e532b0259bfa39f780f2f0929b826fd149f746c5df0)
+            type_hints = cached_type_hints(_typecheckingstub__8997679cd37044eb0d286e532b0259bfa39f780f2f0929b826fd149f746c5df0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
         return typing.cast(builtins.str, jsii.invoke(self, "buildWorkflowArn", [scope, workflow_name]))
@@ -12093,7 +12107,7 @@ class WorkflowProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ac9d578a59efd97fae908eef2956d78e3fdb226bd17534f6b4b058ba53405af)
+            type_hints = cached_type_hints(_typecheckingstub__8ac9d578a59efd97fae908eef2956d78e3fdb226bd17534f6b4b058ba53405af)
             check_type(argname="argument default_run_properties", value=default_run_properties, expected_type=type_hints["default_run_properties"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
@@ -12282,7 +12296,7 @@ class AssetCode(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8659d1457c6b7393d9d7559014d5e5cf2fae91cdf81e1dcc8f010bdd5e6159d6)
+            type_hints = cached_type_hints(_typecheckingstub__8659d1457c6b7393d9d7559014d5e5cf2fae91cdf81e1dcc8f010bdd5e6159d6)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
             deploy_time=deploy_time,
@@ -12313,7 +12327,7 @@ class AssetCode(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02569161383966e61e7748be2a2760721daf0107762bdf02e3d7b51459e0adda)
+            type_hints = cached_type_hints(_typecheckingstub__02569161383966e61e7748be2a2760721daf0107762bdf02e3d7b51459e0adda)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument grantable", value=grantable, expected_type=type_hints["grantable"])
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, grantable]))
@@ -12387,7 +12401,7 @@ class Connection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a3a4d314)
+            type_hints = cached_type_hints(_typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a3a4d314)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ConnectionProps(
@@ -12419,7 +12433,7 @@ class Connection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a3a56fcf056a17ac1a36f3aeea6a054c7367495dbcff654385c491f79a8de6e)
+            type_hints = cached_type_hints(_typecheckingstub__0a3a56fcf056a17ac1a36f3aeea6a054c7367495dbcff654385c491f79a8de6e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
@@ -12442,7 +12456,7 @@ class Connection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2376990bb2b0fdc1652696730260ad95accfa020e78a7421e67836ad9c49c867)
+            type_hints = cached_type_hints(_typecheckingstub__2376990bb2b0fdc1652696730260ad95accfa020e78a7421e67836ad9c49c867)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
@@ -12458,7 +12472,7 @@ class Connection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__664a10af42e73be7ad7fc6b49fd43b23cdb7750d16ad9c795923ec494e582778)
+            type_hints = cached_type_hints(_typecheckingstub__664a10af42e73be7ad7fc6b49fd43b23cdb7750d16ad9c795923ec494e582778)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addProperty", [key, value]))
@@ -12550,7 +12564,7 @@ class DailyScheduleTriggerOptions(TriggerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82b5ccac754b61d190c2f59b0d706bf7ff5b249062c799856278c42ed61c98d8)
+            type_hints = cached_type_hints(_typecheckingstub__82b5ccac754b61d190c2f59b0d706bf7ff5b249062c799856278c42ed61c98d8)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -12678,7 +12692,7 @@ class DataQualityRuleset(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664f117653)
+            type_hints = cached_type_hints(_typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664f117653)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DataQualityRulesetProps(
@@ -12708,7 +12722,7 @@ class DataQualityRuleset(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02f0037b4150747a57e755360c767a1a492219225586c5381f7515e9f8675b60)
+            type_hints = cached_type_hints(_typecheckingstub__02f0037b4150747a57e755360c767a1a492219225586c5381f7515e9f8675b60)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ruleset_arn", value=ruleset_arn, expected_type=type_hints["ruleset_arn"])
@@ -12730,7 +12744,7 @@ class DataQualityRuleset(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73d686727005bdb9857f1aed58c7619b0390fa040ea2cf5eeef9e309883720e1)
+            type_hints = cached_type_hints(_typecheckingstub__73d686727005bdb9857f1aed58c7619b0390fa040ea2cf5eeef9e309883720e1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
@@ -12868,7 +12882,7 @@ class Database(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f4b410df1b0bf1116ce03c0e8a707776efd2f03da87fd718bf64b6a4964b2cd)
+            type_hints = cached_type_hints(_typecheckingstub__2f4b410df1b0bf1116ce03c0e8a707776efd2f03da87fd718bf64b6a4964b2cd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseProps(
@@ -12895,7 +12909,7 @@ class Database(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9b5a7b8d)
+            type_hints = cached_type_hints(_typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9b5a7b8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
@@ -12958,7 +12972,7 @@ class Database(
     @location_uri.setter
     def location_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa)
+            type_hints = cached_type_hints(_typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "locationUri", value) # pyright: ignore[reportArgumentType]
 
@@ -13035,7 +13049,7 @@ class ExternalTable(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f6882227)
+            type_hints = cached_type_hints(_typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f6882227)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ExternalTableProps(
@@ -13070,7 +13084,7 @@ class ExternalTable(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c617ebeabae95be649f31192a1508ef254d5bb2a8f19540978e253877af7dc16)
+            type_hints = cached_type_hints(_typecheckingstub__c617ebeabae95be649f31192a1508ef254d5bb2a8f19540978e253877af7dc16)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -13086,7 +13100,7 @@ class ExternalTable(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d8e02b4ae2bce8590c80e2ce7a5829b237b1f08f6385cd6a8b926b701f8156b)
+            type_hints = cached_type_hints(_typecheckingstub__2d8e02b4ae2bce8590c80e2ce7a5829b237b1f08f6385cd6a8b926b701f8156b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
@@ -13102,7 +13116,7 @@ class ExternalTable(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a161912810e7c25318614d340cf493d532bdbc1c20d5857baaa8e004b812df93)
+            type_hints = cached_type_hints(_typecheckingstub__a161912810e7c25318614d340cf493d532bdbc1c20d5857baaa8e004b812df93)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
@@ -13239,7 +13253,7 @@ class ExternalTableProps(TableBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a91c342ce35e1b47ced3892e3796a41cbe78a15258e691c0f83319c7bc95c8f0)
+            type_hints = cached_type_hints(_typecheckingstub__a91c342ce35e1b47ced3892e3796a41cbe78a15258e691c0f83319c7bc95c8f0)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
             check_type(argname="argument database", value=database, expected_type=type_hints["database"])
             check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
@@ -13550,7 +13564,7 @@ class Job(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6176c370f308e8911be636fb1acf643512dbe9ca58823d8267644ab7efc406c)
+            type_hints = cached_type_hints(_typecheckingstub__e6176c370f308e8911be636fb1acf643512dbe9ca58823d8267644ab7efc406c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -13582,7 +13596,7 @@ class Job(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd8db6c08c7bba32e81d8cda162918f634f3065c707bdd1ddfb404e329994882)
+            type_hints = cached_type_hints(_typecheckingstub__cd8db6c08c7bba32e81d8cda162918f634f3065c707bdd1ddfb404e329994882)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = JobAttributes(job_name=job_name, role=role)
@@ -13602,7 +13616,7 @@ class Job(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c73ae214298d84295ee298651aeb47e0e12bade619c1a92cdc6ccedaab1acbf2)
+            type_hints = cached_type_hints(_typecheckingstub__c73ae214298d84295ee298651aeb47e0e12bade619c1a92cdc6ccedaab1acbf2)
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.invoke(self, "checkNoReservedArgs", [default_arguments]))
 
@@ -13614,7 +13628,7 @@ class Job(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7671592b9386519b22e4789d3523141c6bcaf1227c681ea7d0218b405b0f4bc)
+            type_hints = cached_type_hints(_typecheckingstub__c7671592b9386519b22e4789d3523141c6bcaf1227c681ea7d0218b405b0f4bc)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast(builtins.str, jsii.invoke(self, "codeS3ObjectUrl", [code]))
 
@@ -13643,7 +13657,7 @@ class Job(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59)
+            type_hints = cached_type_hints(_typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         props = ContinuousLoggingProps(
             enabled=enabled,
@@ -13749,7 +13763,7 @@ class NotifyEventTriggerOptions(TriggerOptions):
         if isinstance(event_batching_condition, dict):
             event_batching_condition = EventBatchingCondition(**event_batching_condition)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a2e35d7e09d9d41b0d7306e094ad4e1de4f204e3577edd1b3af514e42003c5a)
+            type_hints = cached_type_hints(_typecheckingstub__4a2e35d7e09d9d41b0d7306e094ad4e1de4f204e3577edd1b3af514e42003c5a)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -13870,7 +13884,7 @@ class OnDemandTriggerOptions(TriggerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15255b02dd87303fcda3b755c6c6ead28d6802686c7672987555002615d7ea5d)
+            type_hints = cached_type_hints(_typecheckingstub__15255b02dd87303fcda3b755c6c6ead28d6802686c7672987555002615d7ea5d)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -14047,7 +14061,7 @@ class PySparkEtlJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde66d7729c)
+            type_hints = cached_type_hints(_typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde66d7729c)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -14548,7 +14562,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ef29eff48bb24670d76df296a115400d888e6edb0be2d4d7fe4f859401b1ff9)
+            type_hints = cached_type_hints(_typecheckingstub__1ef29eff48bb24670d76df296a115400d888e6edb0be2d4d7fe4f859401b1ff9)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -15029,7 +15043,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d84214ee15ab52fd8652e96b7efef9a28fd9d1e00434523677b07bd720c2b923)
+            type_hints = cached_type_hints(_typecheckingstub__d84214ee15ab52fd8652e96b7efef9a28fd9d1e00434523677b07bd720c2b923)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -15489,7 +15503,7 @@ class PythonShellJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b768f67f52)
+            type_hints = cached_type_hints(_typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b768f67f52)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PythonShellJobProps(
@@ -15687,7 +15701,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d7a173f4)
+            type_hints = cached_type_hints(_typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d7a173f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RayJobProps(
@@ -15846,7 +15860,7 @@ class S3Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e73ce95d)
+            type_hints = cached_type_hints(_typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e73ce95d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = S3TableProps(
@@ -15892,7 +15906,7 @@ class S3Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3909b8e18b4eb038d1349092a370f0791a90c6e7f8380b7439f83993e01d04f)
+            type_hints = cached_type_hints(_typecheckingstub__e3909b8e18b4eb038d1349092a370f0791a90c6e7f8380b7439f83993e01d04f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -15910,7 +15924,7 @@ class S3Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e7a94485fcfc5ef062186c7655669b475fac2ccac917edd1bd396de160cd227)
+            type_hints = cached_type_hints(_typecheckingstub__1e7a94485fcfc5ef062186c7655669b475fac2ccac917edd1bd396de160cd227)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
@@ -15928,7 +15942,7 @@ class S3Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea067213729fc1f1f124734239ce0d21ea4e77d3fecd8d14ab5363d59122770b)
+            type_hints = cached_type_hints(_typecheckingstub__ea067213729fc1f1f124734239ce0d21ea4e77d3fecd8d14ab5363d59122770b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
@@ -16109,7 +16123,7 @@ class S3TableProps(TableBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a30697598fc2a32c5e111aebc024dd5935b49f4f1807d70f75c9a4e8bff8268)
+            type_hints = cached_type_hints(_typecheckingstub__4a30697598fc2a32c5e111aebc024dd5935b49f4f1807d70f75c9a4e8bff8268)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
             check_type(argname="argument database", value=database, expected_type=type_hints["database"])
             check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
@@ -16565,7 +16579,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf06d88b9)
+            type_hints = cached_type_hints(_typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf06d88b9)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -17124,7 +17138,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8ceab9d0640505293413a9e030a887b86040fff73ca1bc6ccb20257953f0cf5)
+            type_hints = cached_type_hints(_typecheckingstub__c8ceab9d0640505293413a9e030a887b86040fff73ca1bc6ccb20257953f0cf5)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -17655,7 +17669,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__178abebbd3eb26dd5a8490688d5ab2b0ca85ce375356790e6e875c4666ecedd5)
+            type_hints = cached_type_hints(_typecheckingstub__178abebbd3eb26dd5a8490688d5ab2b0ca85ce375356790e6e875c4666ecedd5)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument script", value=script, expected_type=type_hints["script"])
             check_type(argname="argument connections", value=connections, expected_type=type_hints["connections"])
@@ -18112,7 +18126,7 @@ class SparkJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d48dbb9d)
+            type_hints = cached_type_hints(_typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d48dbb9d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SparkJobProps(
@@ -18231,7 +18245,7 @@ class SparkJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11a4f0418c818bdc6ba201303ceec4eaa6c9b8afe366e2d0a6ff2c79abb82595)
+            type_hints = cached_type_hints(_typecheckingstub__11a4f0418c818bdc6ba201303ceec4eaa6c9b8afe366e2d0a6ff2c79abb82595)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
         props = SparkExtraCodeProps(
             extra_files=extra_files,
@@ -18362,7 +18376,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be255411a3)
+            type_hints = cached_type_hints(_typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be255411a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = S3TableProps(
@@ -18529,7 +18543,7 @@ class TableProps(S3TableProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64019d606)
+            type_hints = cached_type_hints(_typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64019d606)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
             check_type(argname="argument database", value=database, expected_type=type_hints["database"])
             check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
@@ -18885,7 +18899,7 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__421814cc7a3c83ad1d6ba6614b0f3fdf714d8ee7700d159d714589b93a3b2d4b)
+            type_hints = cached_type_hints(_typecheckingstub__421814cc7a3c83ad1d6ba6614b0f3fdf714d8ee7700d159d714589b93a3b2d4b)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -19030,7 +19044,7 @@ class Workflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__143a4af02e3d0336bf030e8289627395ce8b6afffbd456a2d856c4cbd48415b7)
+            type_hints = cached_type_hints(_typecheckingstub__143a4af02e3d0336bf030e8289627395ce8b6afffbd456a2d856c4cbd48415b7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WorkflowProps(
@@ -19059,7 +19073,7 @@ class Workflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f0bb294849d569f6816f8d15062fd89d4e4aa2432b263a7fc73863923e176b5)
+            type_hints = cached_type_hints(_typecheckingstub__7f0bb294849d569f6816f8d15062fd89d4e4aa2432b263a7fc73863923e176b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
@@ -19085,7 +19099,7 @@ class Workflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a61fed5d3b53b16ed35106c2175eafc4ea7d630d0dcf94cb9edd8fae881982de)
+            type_hints = cached_type_hints(_typecheckingstub__a61fed5d3b53b16ed35106c2175eafc4ea7d630d0dcf94cb9edd8fae881982de)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = WorkflowAttributes(
@@ -19111,7 +19125,7 @@ class Workflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a1877b3d7d7ab2c5ddb7cf8f2c83c8d6a4692eae109a3bd5523d35c230b4ce1)
+            type_hints = cached_type_hints(_typecheckingstub__7a1877b3d7d7ab2c5ddb7cf8f2c83c8d6a4692eae109a3bd5523d35c230b4ce1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
@@ -19219,7 +19233,7 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
         if isinstance(predicate, dict):
             predicate = Predicate(**predicate)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab9d66fdc68f25e74903c66aafd5ff47580ab1d23718aa6b5cde4731b0412c1b)
+            type_hints = cached_type_hints(_typecheckingstub__ab9d66fdc68f25e74903c66aafd5ff47580ab1d23718aa6b5cde4731b0412c1b)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -19365,7 +19379,7 @@ class CustomScheduledTriggerOptions(WeeklyScheduleTriggerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8daef2dc0ba7c10827d6d01bb5947a4521514ecea9e7c5ac00c800c7a90eb465)
+            type_hints = cached_type_hints(_typecheckingstub__8daef2dc0ba7c10827d6d01bb5947a4521514ecea9e7c5ac00c800c7a90eb465)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -19555,7 +19569,7 @@ class PySparkEtlJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b2542c9b974)
+            type_hints = cached_type_hints(_typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b2542c9b974)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PySparkEtlJobProps(
@@ -19708,7 +19722,7 @@ class PySparkFlexEtlJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df8099e58d980930cb131b7b6143370cec5ab0c0d687c1577ad0f5bc93b48198)
+            type_hints = cached_type_hints(_typecheckingstub__df8099e58d980930cb131b7b6143370cec5ab0c0d687c1577ad0f5bc93b48198)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PySparkFlexEtlJobProps(
@@ -19860,7 +19874,7 @@ class PySparkStreamingJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0d9c08e93dc8ac4aa26bd9cbdc4f728b7fed72e75da00734b4bea75445f84f)
+            type_hints = cached_type_hints(_typecheckingstub__db0d9c08e93dc8ac4aa26bd9cbdc4f728b7fed72e75da00734b4bea75445f84f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PySparkStreamingJobProps(
@@ -20066,7 +20080,7 @@ class ScalaSparkEtlJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4f1ecbf0)
+            type_hints = cached_type_hints(_typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4f1ecbf0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScalaSparkEtlJobProps(
@@ -20270,7 +20284,7 @@ class ScalaSparkFlexEtlJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c45fb25248ac17e75b6beafe427e181daa7b993fc5b05859e6d9c0733a23c8de)
+            type_hints = cached_type_hints(_typecheckingstub__c45fb25248ac17e75b6beafe427e181daa7b993fc5b05859e6d9c0733a23c8de)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScalaSparkFlexEtlJobProps(
@@ -20473,7 +20487,7 @@ class ScalaSparkStreamingJob(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567cb476317)
+            type_hints = cached_type_hints(_typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567cb476317)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScalaSparkStreamingJobProps(

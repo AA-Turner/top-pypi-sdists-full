@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AgentSpaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__243d248446cd635e4d580c7e821c36a9651420cfff39e507c6e56843c8dfb804)
+            type_hints = cached_type_hints(_typecheckingstub__243d248446cd635e4d580c7e821c36a9651420cfff39e507c6e56843c8dfb804)
             check_type(argname="argument agent_space_arn", value=agent_space_arn, expected_type=type_hints["agent_space_arn"])
             check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -133,7 +137,7 @@ class AssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02318c63b2a10c35692903fce2e2a91bd6e6b83485fb019a8dd7f1e3e1a7d952)
+            type_hints = cached_type_hints(_typecheckingstub__02318c63b2a10c35692903fce2e2a91bd6e6b83485fb019a8dd7f1e3e1a7d952)
             check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -170,7 +174,7 @@ class AssociationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.IAgentSpaceRef")
 class IAgentSpaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AgentSpace.
@@ -190,7 +194,7 @@ class IAgentSpaceRef(
 
 class _IAgentSpaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AgentSpace.
 
@@ -215,7 +219,7 @@ typing.cast(typing.Any, IAgentSpaceRef).__jsii_proxy_class__ = lambda : _IAgentS
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.IAssociationRef")
 class IAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Association.
@@ -235,7 +239,7 @@ class IAssociationRef(
 
 class _IAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Association.
 
@@ -262,7 +266,7 @@ typing.cast(typing.Any, IAssociationRef).__jsii_proxy_class__ = lambda : _IAssoc
 )
 class IPrivateConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateConnection.
@@ -282,7 +286,7 @@ class IPrivateConnectionRef(
 
 class _IPrivateConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateConnection.
 
@@ -307,7 +311,7 @@ typing.cast(typing.Any, IPrivateConnectionRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.IServiceRef")
 class IServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
@@ -327,7 +331,7 @@ class IServiceRef(
 
 class _IServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
 
@@ -383,7 +387,7 @@ class PrivateConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2def640e7c2b099f513cf363f4461e9d56d50feb02228dac70b092330aafb258)
+            type_hints = cached_type_hints(_typecheckingstub__2def640e7c2b099f513cf363f4461e9d56d50feb02228dac70b092330aafb258)
             check_type(argname="argument private_connection_arn", value=private_connection_arn, expected_type=type_hints["private_connection_arn"])
             check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -443,7 +447,7 @@ class ServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07ccf3b3910b4e346e3aafaa8df25d00cb1ad66f67f835fb8c05b14d4cf5ce22)
+            type_hints = cached_type_hints(_typecheckingstub__07ccf3b3910b4e346e3aafaa8df25d00cb1ad66f67f835fb8c05b14d4cf5ce22)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

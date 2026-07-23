@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,58 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_omics import (
-    AnnotationStoreReference as _AnnotationStoreReference_bb5ff456,
-    ConfigurationReference as _ConfigurationReference_280e0710,
-    IAnnotationStoreRef as _IAnnotationStoreRef_c33c98b4,
-    IConfigurationRef as _IConfigurationRef_ce2c89fe,
-    IReferenceStoreRef as _IReferenceStoreRef_e44b493e,
-    IRunGroupRef as _IRunGroupRef_937b5363,
-    ISequenceStoreRef as _ISequenceStoreRef_d8ce7b6b,
-    IVariantStoreRef as _IVariantStoreRef_49e3cae7,
-    IWorkflowRef as _IWorkflowRef_c34b3fa1,
-    IWorkflowVersionRef as _IWorkflowVersionRef_8e877e7d,
-    ReferenceStoreReference as _ReferenceStoreReference_0fa98700,
-    RunGroupReference as _RunGroupReference_d14ed290,
-    SequenceStoreReference as _SequenceStoreReference_12ae1dcf,
-    VariantStoreReference as _VariantStoreReference_494e1db9,
-    WorkflowReference as _WorkflowReference_d2d5c008,
-    WorkflowVersionReference as _WorkflowVersionReference_1d5421a4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_omics as _aws_omics_49f0f1b2
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_omics_49f0f1b2 = _LazyImport("aws_cdk.interfaces.aws_omics")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAnnotationStoreRef_c33c98b4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IAnnotationStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAnnotationStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnAnnotationStore",
 ):
@@ -151,9 +131,9 @@ class CfnAnnotationStore(
         name: builtins.str,
         store_format: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        store_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.StoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        store_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.StoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Omics::AnnotationStore``.
@@ -169,7 +149,7 @@ class CfnAnnotationStore(
         :param tags: Tags for the store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba5dcb906702f10b4a247a16c504ec605912264b052a73f0ae664d93bee73764)
+            type_hints = cached_type_hints(_typecheckingstub__ba5dcb906702f10b4a247a16c504ec605912264b052a73f0ae664d93bee73764)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAnnotationStoreProps(
@@ -188,13 +168,13 @@ class CfnAnnotationStore(
     @builtins.classmethod
     def arn_for_annotation_store(
         cls,
-        resource: "_IAnnotationStoreRef_c33c98b4",
+        resource: "_aws_omics_49f0f1b2.IAnnotationStoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d081c3f84956f6e383e1daee886fd75ec67836196a107b0828cceab885d95c55)
+            type_hints = cached_type_hints(_typecheckingstub__d081c3f84956f6e383e1daee886fd75ec67836196a107b0828cceab885d95c55)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAnnotationStore", [resource]))
 
@@ -205,7 +185,7 @@ class CfnAnnotationStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         annotation_store_name: builtins.str,
-    ) -> "_IAnnotationStoreRef_c33c98b4":
+    ) -> "_aws_omics_49f0f1b2.IAnnotationStoreRef":
         '''Creates a new IAnnotationStoreRef from a annotationStoreName.
 
         :param scope: -
@@ -213,11 +193,11 @@ class CfnAnnotationStore(
         :param annotation_store_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea8d23b9f77f5d9216bba34b2f07ff06220a6053227128a855b380a90746d1fe)
+            type_hints = cached_type_hints(_typecheckingstub__ea8d23b9f77f5d9216bba34b2f07ff06220a6053227128a855b380a90746d1fe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument annotation_store_name", value=annotation_store_name, expected_type=type_hints["annotation_store_name"])
-        return typing.cast("_IAnnotationStoreRef_c33c98b4", jsii.sinvoke(cls, "fromAnnotationStoreName", [scope, id, annotation_store_name]))
+        return typing.cast("_aws_omics_49f0f1b2.IAnnotationStoreRef", jsii.sinvoke(cls, "fromAnnotationStoreName", [scope, id, annotation_store_name]))
 
     @jsii.member(jsii_name="isCfnAnnotationStore")
     @builtins.classmethod
@@ -227,18 +207,18 @@ class CfnAnnotationStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e5f634e0e551a9001147ebab16825824c6f25bedd18bb12f684ba868eccebf2)
+            type_hints = cached_type_hints(_typecheckingstub__9e5f634e0e551a9001147ebab16825824c6f25bedd18bb12f684ba868eccebf2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAnnotationStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d66bbde88d332dceb0812bb6bbf08c2418490d8b0e9774a97971a3b895f48b8)
+            type_hints = cached_type_hints(_typecheckingstub__3d66bbde88d332dceb0812bb6bbf08c2418490d8b0e9774a97971a3b895f48b8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -251,7 +231,7 @@ class CfnAnnotationStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa50ba289bb96ea508cb6a4202ffc1689e383887b754b989d8350c1e79bdf41c)
+            type_hints = cached_type_hints(_typecheckingstub__aa50ba289bb96ea508cb6a4202ffc1689e383887b754b989d8350c1e79bdf41c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -263,9 +243,9 @@ class CfnAnnotationStore(
 
     @builtins.property
     @jsii.member(jsii_name="annotationStoreRef")
-    def annotation_store_ref(self) -> "_AnnotationStoreReference_bb5ff456":
+    def annotation_store_ref(self) -> "_aws_omics_49f0f1b2.AnnotationStoreReference":
         '''A reference to a AnnotationStore resource.'''
-        return typing.cast("_AnnotationStoreReference_bb5ff456", jsii.get(self, "annotationStoreRef"))
+        return typing.cast("_aws_omics_49f0f1b2.AnnotationStoreReference", jsii.get(self, "annotationStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreationTime")
@@ -314,12 +294,12 @@ class CfnAnnotationStore(
 
     @builtins.property
     @jsii.member(jsii_name="attrStoreSizeBytes")
-    def attr_store_size_bytes(self) -> "_IResolvable_da3f097b":
+    def attr_store_size_bytes(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The store's size in bytes.
 
         :cloudformationAttribute: StoreSizeBytes
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStoreSizeBytes"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStoreSizeBytes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrUpdateTime")
@@ -342,9 +322,9 @@ class CfnAnnotationStore(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -355,7 +335,7 @@ class CfnAnnotationStore(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d9b73e29df1d36e34609deddf6492296be4ec0e0c99ae60a05f9cab95febd6e)
+            type_hints = cached_type_hints(_typecheckingstub__1d9b73e29df1d36e34609deddf6492296be4ec0e0c99ae60a05f9cab95febd6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -368,7 +348,7 @@ class CfnAnnotationStore(
     @store_format.setter
     def store_format(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39db05833c4ce77a84e366d7b58478b995b315232f05d9f9932602373f9c2c7f)
+            type_hints = cached_type_hints(_typecheckingstub__39db05833c4ce77a84e366d7b58478b995b315232f05d9f9932602373f9c2c7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storeFormat", value) # pyright: ignore[reportArgumentType]
 
@@ -381,7 +361,7 @@ class CfnAnnotationStore(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bf53e865a22afeab85ecdb04fcf364678cf903b5624472147bf80f81f04730f)
+            type_hints = cached_type_hints(_typecheckingstub__9bf53e865a22afeab85ecdb04fcf364678cf903b5624472147bf80f81f04730f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -389,17 +369,17 @@ class CfnAnnotationStore(
     @jsii.member(jsii_name="reference")
     def reference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.ReferenceItemProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.ReferenceItemProperty"]]:
         '''The genome reference for the store's annotations.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.ReferenceItemProperty"]], jsii.get(self, "reference"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.ReferenceItemProperty"]], jsii.get(self, "reference"))
 
     @reference.setter
     def reference(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.ReferenceItemProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.ReferenceItemProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59c0d69a72a95b731117630b98efd8729539c64fef15303dab4addb9eae6ffa4)
+            type_hints = cached_type_hints(_typecheckingstub__59c0d69a72a95b731117630b98efd8729539c64fef15303dab4addb9eae6ffa4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reference", value) # pyright: ignore[reportArgumentType]
 
@@ -407,17 +387,17 @@ class CfnAnnotationStore(
     @jsii.member(jsii_name="sseConfig")
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.SseConfigProperty"]]:
         '''The store's server-side encryption (SSE) settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
 
     @sse_config.setter
     def sse_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.SseConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.SseConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5edec3d71b0ff38cdce6ec8a872457ab8f95894314688d3b059e6b2fd20a3c07)
+            type_hints = cached_type_hints(_typecheckingstub__5edec3d71b0ff38cdce6ec8a872457ab8f95894314688d3b059e6b2fd20a3c07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sseConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -425,17 +405,17 @@ class CfnAnnotationStore(
     @jsii.member(jsii_name="storeOptions")
     def store_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.StoreOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.StoreOptionsProperty"]]:
         '''File parsing options for the annotation store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.StoreOptionsProperty"]], jsii.get(self, "storeOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.StoreOptionsProperty"]], jsii.get(self, "storeOptions"))
 
     @store_options.setter
     def store_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.StoreOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.StoreOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e84dfea35f835d11c086ac495c8e1952da55b4069d246ca2b527bb2a7655e94)
+            type_hints = cached_type_hints(_typecheckingstub__2e84dfea35f835d11c086ac495c8e1952da55b4069d246ca2b527bb2a7655e94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storeOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -451,7 +431,7 @@ class CfnAnnotationStore(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bd3f81b2e8f342de3db84fde3693c24cb6514a2f2b2e76534d5136fdc26945b)
+            type_hints = cached_type_hints(_typecheckingstub__2bd3f81b2e8f342de3db84fde3693c24cb6514a2f2b2e76534d5136fdc26945b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -480,7 +460,7 @@ class CfnAnnotationStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f161bf0df41584a24622d738207d338081faec41cddac7f0cda31f0cbf50b695)
+                type_hints = cached_type_hints(_typecheckingstub__f161bf0df41584a24622d738207d338081faec41cddac7f0cda31f0cbf50b695)
                 check_type(argname="argument reference_arn", value=reference_arn, expected_type=type_hints["reference_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "reference_arn": reference_arn,
@@ -541,7 +521,7 @@ class CfnAnnotationStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30b0283b46d5b34e1109c108b303d6ab3e549e041b5482192ec0ef37b83e6920)
+                type_hints = cached_type_hints(_typecheckingstub__30b0283b46d5b34e1109c108b303d6ab3e549e041b5482192ec0ef37b83e6920)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -589,7 +569,7 @@ class CfnAnnotationStore(
         def __init__(
             self,
             *,
-            tsv_store_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.TsvStoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            tsv_store_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.TsvStoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The store's file parsing options.
 
@@ -617,7 +597,7 @@ class CfnAnnotationStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__68b9968e466757cfc2e4ee7eb053201b466a44d185aa6082edce78e859f4f489)
+                type_hints = cached_type_hints(_typecheckingstub__68b9968e466757cfc2e4ee7eb053201b466a44d185aa6082edce78e859f4f489)
                 check_type(argname="argument tsv_store_options", value=tsv_store_options, expected_type=type_hints["tsv_store_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "tsv_store_options": tsv_store_options,
@@ -626,14 +606,14 @@ class CfnAnnotationStore(
         @builtins.property
         def tsv_store_options(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.TsvStoreOptionsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.TsvStoreOptionsProperty"]:
             '''Formatting options for a TSV file.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-annotationstore-storeoptions.html#cfn-omics-annotationstore-storeoptions-tsvstoreoptions
             '''
             result = self._values.get("tsv_store_options")
             assert result is not None, "Required property 'tsv_store_options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.TsvStoreOptionsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.TsvStoreOptionsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -660,7 +640,7 @@ class CfnAnnotationStore(
             self,
             *,
             annotation_type: typing.Optional[builtins.str] = None,
-            format_to_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            format_to_header: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             schema: typing.Any = None,
         ) -> None:
             '''The store's parsing options.
@@ -689,7 +669,7 @@ class CfnAnnotationStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__14b0c73be5d34083c239713770a8134020bc8cab75d4b0a1a82a28463074bb3d)
+                type_hints = cached_type_hints(_typecheckingstub__14b0c73be5d34083c239713770a8134020bc8cab75d4b0a1a82a28463074bb3d)
                 check_type(argname="argument annotation_type", value=annotation_type, expected_type=type_hints["annotation_type"])
                 check_type(argname="argument format_to_header", value=format_to_header, expected_type=type_hints["format_to_header"])
                 check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
@@ -713,13 +693,13 @@ class CfnAnnotationStore(
         @builtins.property
         def format_to_header(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The store's header key to column name mapping.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-annotationstore-tsvstoreoptions.html#cfn-omics-annotationstore-tsvstoreoptions-formattoheader
             '''
             result = self._values.get("format_to_header")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def schema(self) -> typing.Any:
@@ -762,9 +742,9 @@ class CfnAnnotationStoreProps:
         name: builtins.str,
         store_format: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        store_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnnotationStore.StoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        store_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnnotationStore.StoreOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAnnotationStore``.
@@ -818,7 +798,7 @@ class CfnAnnotationStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db27a54e4b1e96ecf8263cf950eaa96b8620641082ddea726be734d30e205831)
+            type_hints = cached_type_hints(_typecheckingstub__db27a54e4b1e96ecf8263cf950eaa96b8620641082ddea726be734d30e205831)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument store_format", value=store_format, expected_type=type_hints["store_format"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -873,35 +853,35 @@ class CfnAnnotationStoreProps:
     @builtins.property
     def reference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.ReferenceItemProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.ReferenceItemProperty"]]:
         '''The genome reference for the store's annotations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-annotationstore.html#cfn-omics-annotationstore-reference
         '''
         result = self._values.get("reference")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.ReferenceItemProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.ReferenceItemProperty"]], result)
 
     @builtins.property
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.SseConfigProperty"]]:
         '''The store's server-side encryption (SSE) settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-annotationstore.html#cfn-omics-annotationstore-sseconfig
         '''
         result = self._values.get("sse_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.SseConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.SseConfigProperty"]], result)
 
     @builtins.property
     def store_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.StoreOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.StoreOptionsProperty"]]:
         '''File parsing options for the annotation store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-annotationstore.html#cfn-omics-annotationstore-storeoptions
         '''
         result = self._values.get("store_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnnotationStore.StoreOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnnotationStore.StoreOptionsProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -924,9 +904,9 @@ class CfnAnnotationStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigurationRef_ce2c89fe, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnConfiguration",
 ):
@@ -965,7 +945,7 @@ class CfnConfiguration(
         id: builtins.str,
         *,
         name: builtins.str,
-        run_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+        run_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -979,7 +959,7 @@ class CfnConfiguration(
         :param tags: A map of resource tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e497259995ede81)
+            type_hints = cached_type_hints(_typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e497259995ede81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationProps(
@@ -995,13 +975,13 @@ class CfnConfiguration(
     @builtins.classmethod
     def arn_for_configuration(
         cls,
-        resource: "_IConfigurationRef_ce2c89fe",
+        resource: "_aws_omics_49f0f1b2.IConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53a9324baca4d137958281e4e4cc4621eaadab75d8a0d0beba0710fbed552c7)
+            type_hints = cached_type_hints(_typecheckingstub__e53a9324baca4d137958281e4e4cc4621eaadab75d8a0d0beba0710fbed552c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConfiguration", [resource]))
 
@@ -1013,18 +993,18 @@ class CfnConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26e6dec79dbb018f73bb6b8013dcdbc6e24f212df62f041cffd886cff4cbae7a)
+            type_hints = cached_type_hints(_typecheckingstub__26e6dec79dbb018f73bb6b8013dcdbc6e24f212df62f041cffd886cff4cbae7a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49fd8e42b090439d3158c78b30d89cd22cd586ddbb507019daa4a623dc770acf)
+            type_hints = cached_type_hints(_typecheckingstub__49fd8e42b090439d3158c78b30d89cd22cd586ddbb507019daa4a623dc770acf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1037,7 +1017,7 @@ class CfnConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1789add866a88eae476bfeb6593a81c9d85ed16fb197d94db1dcdeb8d129451)
+            type_hints = cached_type_hints(_typecheckingstub__e1789add866a88eae476bfeb6593a81c9d85ed16fb197d94db1dcdeb8d129451)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1085,9 +1065,9 @@ class CfnConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1101,9 +1081,9 @@ class CfnConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="configurationRef")
-    def configuration_ref(self) -> "_ConfigurationReference_280e0710":
+    def configuration_ref(self) -> "_aws_omics_49f0f1b2.ConfigurationReference":
         '''A reference to a Configuration resource.'''
-        return typing.cast("_ConfigurationReference_280e0710", jsii.get(self, "configurationRef"))
+        return typing.cast("_aws_omics_49f0f1b2.ConfigurationReference", jsii.get(self, "configurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1114,7 +1094,7 @@ class CfnConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f607ddac63b10850ad7058b02727ecb5c77eed8a13da317f43b79292e2b65023)
+            type_hints = cached_type_hints(_typecheckingstub__f607ddac63b10850ad7058b02727ecb5c77eed8a13da317f43b79292e2b65023)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1122,16 +1102,16 @@ class CfnConfiguration(
     @jsii.member(jsii_name="runConfigurations")
     def run_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"], jsii.get(self, "runConfigurations"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.RunConfigurationsProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.RunConfigurationsProperty"], jsii.get(self, "runConfigurations"))
 
     @run_configurations.setter
     def run_configurations(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.RunConfigurationsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98aec16a2a53d88d5a20a91967c18fcd8b0c90375e3e2f2ab16c39835745a615)
+            type_hints = cached_type_hints(_typecheckingstub__98aec16a2a53d88d5a20a91967c18fcd8b0c90375e3e2f2ab16c39835745a615)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -1144,7 +1124,7 @@ class CfnConfiguration(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52daebef1bf246e4639dc4600164041ef0f734d1b199c992c2d403bf949d6703)
+            type_hints = cached_type_hints(_typecheckingstub__52daebef1bf246e4639dc4600164041ef0f734d1b199c992c2d403bf949d6703)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1160,7 +1140,7 @@ class CfnConfiguration(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4c66eeb9250c940ed0ad145bf9c1f5e0acecd22e8b9fe2d60933b2d3b52894b)
+            type_hints = cached_type_hints(_typecheckingstub__b4c66eeb9250c940ed0ad145bf9c1f5e0acecd22e8b9fe2d60933b2d3b52894b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1173,7 +1153,7 @@ class CfnConfiguration(
         def __init__(
             self,
             *,
-            vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguration.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param vpc_config: 
@@ -1195,7 +1175,7 @@ class CfnConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc870135f8edf3aa7957db4360d70f8de8b091e3217f53aad7cbe4ee2460d946)
+                type_hints = cached_type_hints(_typecheckingstub__cc870135f8edf3aa7957db4360d70f8de8b091e3217f53aad7cbe4ee2460d946)
                 check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_config is not None:
@@ -1204,12 +1184,12 @@ class CfnConfiguration(
         @builtins.property
         def vpc_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfiguration.VpcConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.VpcConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-runconfigurations.html#cfn-omics-configuration-runconfigurations-vpcconfig
             '''
             result = self._values.get("vpc_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfiguration.VpcConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.VpcConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1256,7 +1236,7 @@ class CfnConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4716fe81)
+                type_hints = cached_type_hints(_typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4716fe81)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1308,7 +1288,7 @@ class CfnConfigurationProps:
         self,
         *,
         name: builtins.str,
-        run_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+        run_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -1345,7 +1325,7 @@ class CfnConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330afdf382)
+            type_hints = cached_type_hints(_typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330afdf382)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument run_configurations", value=run_configurations, expected_type=type_hints["run_configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1372,13 +1352,13 @@ class CfnConfigurationProps:
     @builtins.property
     def run_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.RunConfigurationsProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html#cfn-omics-configuration-runconfigurations
         '''
         result = self._values.get("run_configurations")
         assert result is not None, "Required property 'run_configurations' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguration.RunConfigurationsProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1410,9 +1390,9 @@ class CfnConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReferenceStoreRef_e44b493e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IReferenceStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnReferenceStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnReferenceStore",
 ):
@@ -1452,7 +1432,7 @@ class CfnReferenceStore(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReferenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReferenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Omics::ReferenceStore``.
@@ -1465,7 +1445,7 @@ class CfnReferenceStore(
         :param tags: Tags for the store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e38c503967033ff76d3e45880727cc62a1df749cb0aac8298f6d06d14d6e3320)
+            type_hints = cached_type_hints(_typecheckingstub__e38c503967033ff76d3e45880727cc62a1df749cb0aac8298f6d06d14d6e3320)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReferenceStoreProps(
@@ -1478,13 +1458,13 @@ class CfnReferenceStore(
     @builtins.classmethod
     def arn_for_reference_store(
         cls,
-        resource: "_IReferenceStoreRef_e44b493e",
+        resource: "_aws_omics_49f0f1b2.IReferenceStoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__183bf8595aa4fa216452da5239ca1639a58401e756cb23717c36ec75daa0a396)
+            type_hints = cached_type_hints(_typecheckingstub__183bf8595aa4fa216452da5239ca1639a58401e756cb23717c36ec75daa0a396)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReferenceStore", [resource]))
 
@@ -1495,7 +1475,7 @@ class CfnReferenceStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IReferenceStoreRef_e44b493e":
+    ) -> "_aws_omics_49f0f1b2.IReferenceStoreRef":
         '''Creates a new IReferenceStoreRef from an ARN.
 
         :param scope: -
@@ -1503,11 +1483,11 @@ class CfnReferenceStore(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03eab96b33743423157434263c495ecf4bb597bb49fcadef0690e503e3540689)
+            type_hints = cached_type_hints(_typecheckingstub__03eab96b33743423157434263c495ecf4bb597bb49fcadef0690e503e3540689)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IReferenceStoreRef_e44b493e", jsii.sinvoke(cls, "fromReferenceStoreArn", [scope, id, arn]))
+        return typing.cast("_aws_omics_49f0f1b2.IReferenceStoreRef", jsii.sinvoke(cls, "fromReferenceStoreArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromReferenceStoreId")
     @builtins.classmethod
@@ -1516,7 +1496,7 @@ class CfnReferenceStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         reference_store_id: builtins.str,
-    ) -> "_IReferenceStoreRef_e44b493e":
+    ) -> "_aws_omics_49f0f1b2.IReferenceStoreRef":
         '''Creates a new IReferenceStoreRef from a referenceStoreId.
 
         :param scope: -
@@ -1524,11 +1504,11 @@ class CfnReferenceStore(
         :param reference_store_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d3a144262ad49c5d6ecb97bcdeda753c5514368bac2ab437b403dd5ecbff176)
+            type_hints = cached_type_hints(_typecheckingstub__7d3a144262ad49c5d6ecb97bcdeda753c5514368bac2ab437b403dd5ecbff176)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument reference_store_id", value=reference_store_id, expected_type=type_hints["reference_store_id"])
-        return typing.cast("_IReferenceStoreRef_e44b493e", jsii.sinvoke(cls, "fromReferenceStoreId", [scope, id, reference_store_id]))
+        return typing.cast("_aws_omics_49f0f1b2.IReferenceStoreRef", jsii.sinvoke(cls, "fromReferenceStoreId", [scope, id, reference_store_id]))
 
     @jsii.member(jsii_name="isCfnReferenceStore")
     @builtins.classmethod
@@ -1538,18 +1518,18 @@ class CfnReferenceStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cb4b310cd2f37468be221e1f8c07466a5f9c1031fbf8c2b24f0722a58417c4)
+            type_hints = cached_type_hints(_typecheckingstub__37cb4b310cd2f37468be221e1f8c07466a5f9c1031fbf8c2b24f0722a58417c4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReferenceStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d75805be97b46dc8c38477db9eef63661d2478cb95cd31687daa2a21a351dfd)
+            type_hints = cached_type_hints(_typecheckingstub__1d75805be97b46dc8c38477db9eef63661d2478cb95cd31687daa2a21a351dfd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1562,7 +1542,7 @@ class CfnReferenceStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a01b78cf451516a0eb2572826af339a051c95495f454b03b62693537679d6e9)
+            type_hints = cached_type_hints(_typecheckingstub__7a01b78cf451516a0eb2572826af339a051c95495f454b03b62693537679d6e9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1611,15 +1591,15 @@ class CfnReferenceStore(
 
     @builtins.property
     @jsii.member(jsii_name="referenceStoreRef")
-    def reference_store_ref(self) -> "_ReferenceStoreReference_0fa98700":
+    def reference_store_ref(self) -> "_aws_omics_49f0f1b2.ReferenceStoreReference":
         '''A reference to a ReferenceStore resource.'''
-        return typing.cast("_ReferenceStoreReference_0fa98700", jsii.get(self, "referenceStoreRef"))
+        return typing.cast("_aws_omics_49f0f1b2.ReferenceStoreReference", jsii.get(self, "referenceStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1630,7 +1610,7 @@ class CfnReferenceStore(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42a1e17328f2c1518d508a235b2c42ef44e871bafb1772ad49e45f0b8d5583ae)
+            type_hints = cached_type_hints(_typecheckingstub__42a1e17328f2c1518d508a235b2c42ef44e871bafb1772ad49e45f0b8d5583ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1643,7 +1623,7 @@ class CfnReferenceStore(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c89d0da98832090d35c5574aec7e23cd54990b36f1507999a687aed1e0a56bbb)
+            type_hints = cached_type_hints(_typecheckingstub__c89d0da98832090d35c5574aec7e23cd54990b36f1507999a687aed1e0a56bbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1651,17 +1631,17 @@ class CfnReferenceStore(
     @jsii.member(jsii_name="sseConfig")
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReferenceStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReferenceStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReferenceStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReferenceStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
 
     @sse_config.setter
     def sse_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReferenceStore.SseConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReferenceStore.SseConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63bf4a022de72dc8d560891710d6dee497173e638e81419fd5d8b3c20d9a650b)
+            type_hints = cached_type_hints(_typecheckingstub__63bf4a022de72dc8d560891710d6dee497173e638e81419fd5d8b3c20d9a650b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sseConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1677,7 +1657,7 @@ class CfnReferenceStore(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5978dd78915de34b6caff418b41982c856f0f6071f77fc0f1306963a5cfe845e)
+            type_hints = cached_type_hints(_typecheckingstub__5978dd78915de34b6caff418b41982c856f0f6071f77fc0f1306963a5cfe845e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1715,7 +1695,7 @@ class CfnReferenceStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a277036a5a95a03f8b276d47ec8bcb3f25bf4f304bc5ee7452d8472c7e1ada3a)
+                type_hints = cached_type_hints(_typecheckingstub__a277036a5a95a03f8b276d47ec8bcb3f25bf4f304bc5ee7452d8472c7e1ada3a)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1771,7 +1751,7 @@ class CfnReferenceStoreProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReferenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReferenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReferenceStore``.
@@ -1807,7 +1787,7 @@ class CfnReferenceStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fa5ddefbb60b1902a7a8a0da56893c57cde7f27eb458a6b71907aad7ac2b4ca)
+            type_hints = cached_type_hints(_typecheckingstub__1fa5ddefbb60b1902a7a8a0da56893c57cde7f27eb458a6b71907aad7ac2b4ca)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument sse_config", value=sse_config, expected_type=type_hints["sse_config"])
@@ -1844,13 +1824,13 @@ class CfnReferenceStoreProps:
     @builtins.property
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReferenceStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReferenceStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-referencestore.html#cfn-omics-referencestore-sseconfig
         '''
         result = self._values.get("sse_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReferenceStore.SseConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReferenceStore.SseConfigProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1873,9 +1853,9 @@ class CfnReferenceStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRunGroupRef_937b5363, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IRunGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRunGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnRunGroup",
 ):
@@ -1929,7 +1909,7 @@ class CfnRunGroup(
         :param tags: Tags for the group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d92bdf2175b79063decd2ff3bbf2745e423b61fa98f3bf6b832b7632771b7e8)
+            type_hints = cached_type_hints(_typecheckingstub__5d92bdf2175b79063decd2ff3bbf2745e423b61fa98f3bf6b832b7632771b7e8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRunGroupProps(
@@ -1945,12 +1925,15 @@ class CfnRunGroup(
 
     @jsii.member(jsii_name="arnForRunGroup")
     @builtins.classmethod
-    def arn_for_run_group(cls, resource: "_IRunGroupRef_937b5363") -> builtins.str:
+    def arn_for_run_group(
+        cls,
+        resource: "_aws_omics_49f0f1b2.IRunGroupRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db1a82ee01daefb6257f7e73e38ab5b5e98e001181ab9869f5d6dd18e3cc3993)
+            type_hints = cached_type_hints(_typecheckingstub__db1a82ee01daefb6257f7e73e38ab5b5e98e001181ab9869f5d6dd18e3cc3993)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRunGroup", [resource]))
 
@@ -1962,18 +1945,18 @@ class CfnRunGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a98b2a8d393a5018138cf8c7c78a10435f63b2eea12b677df4c77fca4365013d)
+            type_hints = cached_type_hints(_typecheckingstub__a98b2a8d393a5018138cf8c7c78a10435f63b2eea12b677df4c77fca4365013d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRunGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34a9f76d09fa73ea3c0c86debaea039d1ecfeb5a751151276cc0002d8d2737c1)
+            type_hints = cached_type_hints(_typecheckingstub__34a9f76d09fa73ea3c0c86debaea039d1ecfeb5a751151276cc0002d8d2737c1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1986,7 +1969,7 @@ class CfnRunGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61e5e671b78fea2bdc872b82befc94adc6014522a707589b79b6dc63795f14c0)
+            type_hints = cached_type_hints(_typecheckingstub__61e5e671b78fea2bdc872b82befc94adc6014522a707589b79b6dc63795f14c0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2035,15 +2018,15 @@ class CfnRunGroup(
 
     @builtins.property
     @jsii.member(jsii_name="runGroupRef")
-    def run_group_ref(self) -> "_RunGroupReference_d14ed290":
+    def run_group_ref(self) -> "_aws_omics_49f0f1b2.RunGroupReference":
         '''A reference to a RunGroup resource.'''
-        return typing.cast("_RunGroupReference_d14ed290", jsii.get(self, "runGroupRef"))
+        return typing.cast("_aws_omics_49f0f1b2.RunGroupReference", jsii.get(self, "runGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="maxCpus")
@@ -2054,7 +2037,7 @@ class CfnRunGroup(
     @max_cpus.setter
     def max_cpus(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2024f9c040e790d1988694b9f616763247d6b00f2fdcd97552dbe2c3cae45b40)
+            type_hints = cached_type_hints(_typecheckingstub__2024f9c040e790d1988694b9f616763247d6b00f2fdcd97552dbe2c3cae45b40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxCpus", value) # pyright: ignore[reportArgumentType]
 
@@ -2067,7 +2050,7 @@ class CfnRunGroup(
     @max_duration.setter
     def max_duration(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6aa9c45084b47d1e497a843bdc464ca31516a118303fa388c0f5db7b5bbd3630)
+            type_hints = cached_type_hints(_typecheckingstub__6aa9c45084b47d1e497a843bdc464ca31516a118303fa388c0f5db7b5bbd3630)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxDuration", value) # pyright: ignore[reportArgumentType]
 
@@ -2080,7 +2063,7 @@ class CfnRunGroup(
     @max_gpus.setter
     def max_gpus(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1884be9d7a33f4597167d89c5fb81946a94d32f6879e4877ffa669c1ef0f4f7)
+            type_hints = cached_type_hints(_typecheckingstub__a1884be9d7a33f4597167d89c5fb81946a94d32f6879e4877ffa669c1ef0f4f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxGpus", value) # pyright: ignore[reportArgumentType]
 
@@ -2093,7 +2076,7 @@ class CfnRunGroup(
     @max_runs.setter
     def max_runs(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__235fda5a64dcc62cd14ad311c90dce78abbc930ce336e74e69a63f027c84b0c0)
+            type_hints = cached_type_hints(_typecheckingstub__235fda5a64dcc62cd14ad311c90dce78abbc930ce336e74e69a63f027c84b0c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxRuns", value) # pyright: ignore[reportArgumentType]
 
@@ -2106,7 +2089,7 @@ class CfnRunGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14846c448c724a5e0421b3370cbf6d8071cc9d1d1f7f635d8b528b854c1db3a1)
+            type_hints = cached_type_hints(_typecheckingstub__14846c448c724a5e0421b3370cbf6d8071cc9d1d1f7f635d8b528b854c1db3a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2122,7 +2105,7 @@ class CfnRunGroup(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64a1ae8ed7c7141ee2c0e9f12df462d424e227637fb190daac9751a95f18d1a)
+            type_hints = cached_type_hints(_typecheckingstub__f64a1ae8ed7c7141ee2c0e9f12df462d424e227637fb190daac9751a95f18d1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2180,7 +2163,7 @@ class CfnRunGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0687d84f98238d006185c8fc00317ac96c5244d8d1b550e56fda04cb4eca97f9)
+            type_hints = cached_type_hints(_typecheckingstub__0687d84f98238d006185c8fc00317ac96c5244d8d1b550e56fda04cb4eca97f9)
             check_type(argname="argument max_cpus", value=max_cpus, expected_type=type_hints["max_cpus"])
             check_type(argname="argument max_duration", value=max_duration, expected_type=type_hints["max_duration"])
             check_type(argname="argument max_gpus", value=max_gpus, expected_type=type_hints["max_gpus"])
@@ -2267,9 +2250,9 @@ class CfnRunGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISequenceStoreRef_d8ce7b6b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.ISequenceStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSequenceStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnSequenceStore",
 ):
@@ -2321,7 +2304,7 @@ class CfnSequenceStore(
         fallback_location: typing.Optional[builtins.str] = None,
         propagated_set_level_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         s3_access_policy: typing.Any = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSequenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSequenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Omics::SequenceStore``.
@@ -2339,7 +2322,7 @@ class CfnSequenceStore(
         :param tags: Tags for the store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a589aadb7c598845d5e4c6ef138fe8cbeb7253209ba9eb0e5e590611eec980dc)
+            type_hints = cached_type_hints(_typecheckingstub__a589aadb7c598845d5e4c6ef138fe8cbeb7253209ba9eb0e5e590611eec980dc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSequenceStoreProps(
@@ -2360,13 +2343,13 @@ class CfnSequenceStore(
     @builtins.classmethod
     def arn_for_sequence_store(
         cls,
-        resource: "_ISequenceStoreRef_d8ce7b6b",
+        resource: "_aws_omics_49f0f1b2.ISequenceStoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9a735aaa47b911b08cfd5af5019bd48d4f4d14bcdffa2fef80322b11f850d47)
+            type_hints = cached_type_hints(_typecheckingstub__f9a735aaa47b911b08cfd5af5019bd48d4f4d14bcdffa2fef80322b11f850d47)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSequenceStore", [resource]))
 
@@ -2377,7 +2360,7 @@ class CfnSequenceStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ISequenceStoreRef_d8ce7b6b":
+    ) -> "_aws_omics_49f0f1b2.ISequenceStoreRef":
         '''Creates a new ISequenceStoreRef from an ARN.
 
         :param scope: -
@@ -2385,11 +2368,11 @@ class CfnSequenceStore(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0401ce1b5169b8a6f265ee186bf5ea3e78a0a8a2b71e6256e2a1effe74e148d)
+            type_hints = cached_type_hints(_typecheckingstub__d0401ce1b5169b8a6f265ee186bf5ea3e78a0a8a2b71e6256e2a1effe74e148d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ISequenceStoreRef_d8ce7b6b", jsii.sinvoke(cls, "fromSequenceStoreArn", [scope, id, arn]))
+        return typing.cast("_aws_omics_49f0f1b2.ISequenceStoreRef", jsii.sinvoke(cls, "fromSequenceStoreArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromSequenceStoreId")
     @builtins.classmethod
@@ -2398,7 +2381,7 @@ class CfnSequenceStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         sequence_store_id: builtins.str,
-    ) -> "_ISequenceStoreRef_d8ce7b6b":
+    ) -> "_aws_omics_49f0f1b2.ISequenceStoreRef":
         '''Creates a new ISequenceStoreRef from a sequenceStoreId.
 
         :param scope: -
@@ -2406,11 +2389,11 @@ class CfnSequenceStore(
         :param sequence_store_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__939e1e0c5383ed843656a8c66c9eeac470cdb45344d2aa8c6353ab2273bb3618)
+            type_hints = cached_type_hints(_typecheckingstub__939e1e0c5383ed843656a8c66c9eeac470cdb45344d2aa8c6353ab2273bb3618)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument sequence_store_id", value=sequence_store_id, expected_type=type_hints["sequence_store_id"])
-        return typing.cast("_ISequenceStoreRef_d8ce7b6b", jsii.sinvoke(cls, "fromSequenceStoreId", [scope, id, sequence_store_id]))
+        return typing.cast("_aws_omics_49f0f1b2.ISequenceStoreRef", jsii.sinvoke(cls, "fromSequenceStoreId", [scope, id, sequence_store_id]))
 
     @jsii.member(jsii_name="isCfnSequenceStore")
     @builtins.classmethod
@@ -2420,18 +2403,18 @@ class CfnSequenceStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d2570829ea1706cde1490e1a50299861f8a0479fe93d29fc4d8c19b41689f96)
+            type_hints = cached_type_hints(_typecheckingstub__5d2570829ea1706cde1490e1a50299861f8a0479fe93d29fc4d8c19b41689f96)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSequenceStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea9a45fe9e84d5319386c1a777f6361e3fed5c916c543c8964323b54759ee470)
+            type_hints = cached_type_hints(_typecheckingstub__ea9a45fe9e84d5319386c1a777f6361e3fed5c916c543c8964323b54759ee470)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2444,7 +2427,7 @@ class CfnSequenceStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7932486ef43d64891becc28acf4d1c7abdf6063eb9aa69d9bffa95c24d2d9d9)
+            type_hints = cached_type_hints(_typecheckingstub__b7932486ef43d64891becc28acf4d1c7abdf6063eb9aa69d9bffa95c24d2d9d9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2538,15 +2521,15 @@ class CfnSequenceStore(
 
     @builtins.property
     @jsii.member(jsii_name="sequenceStoreRef")
-    def sequence_store_ref(self) -> "_SequenceStoreReference_12ae1dcf":
+    def sequence_store_ref(self) -> "_aws_omics_49f0f1b2.SequenceStoreReference":
         '''A reference to a SequenceStore resource.'''
-        return typing.cast("_SequenceStoreReference_12ae1dcf", jsii.get(self, "sequenceStoreRef"))
+        return typing.cast("_aws_omics_49f0f1b2.SequenceStoreReference", jsii.get(self, "sequenceStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2557,7 +2540,7 @@ class CfnSequenceStore(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8e53b0b20084e7e23dc393ceafe95167d7bce2ef95f48e5bca0556a29d78fa9)
+            type_hints = cached_type_hints(_typecheckingstub__f8e53b0b20084e7e23dc393ceafe95167d7bce2ef95f48e5bca0556a29d78fa9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2570,7 +2553,7 @@ class CfnSequenceStore(
     @s3_access_policy.setter
     def s3_access_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
+            type_hints = cached_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3AccessPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -2583,7 +2566,7 @@ class CfnSequenceStore(
     @access_log_location.setter
     def access_log_location(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7549c525ad472ac7db5f5282211a0aac7a47906e8ed893e7de2371f8677691f0)
+            type_hints = cached_type_hints(_typecheckingstub__7549c525ad472ac7db5f5282211a0aac7a47906e8ed893e7de2371f8677691f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessLogLocation", value) # pyright: ignore[reportArgumentType]
 
@@ -2596,7 +2579,7 @@ class CfnSequenceStore(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__128fafb1df9e961d7c5982e50a60c29fbada98403f437d20e8bab3669320ca5c)
+            type_hints = cached_type_hints(_typecheckingstub__128fafb1df9e961d7c5982e50a60c29fbada98403f437d20e8bab3669320ca5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2609,7 +2592,7 @@ class CfnSequenceStore(
     @e_tag_algorithm_family.setter
     def e_tag_algorithm_family(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0fd26684f557f3150b6eaf7b8b6f5ea741a5a2ba9e37d4a05ec66dea9e5c724)
+            type_hints = cached_type_hints(_typecheckingstub__a0fd26684f557f3150b6eaf7b8b6f5ea741a5a2ba9e37d4a05ec66dea9e5c724)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eTagAlgorithmFamily", value) # pyright: ignore[reportArgumentType]
 
@@ -2622,7 +2605,7 @@ class CfnSequenceStore(
     @fallback_location.setter
     def fallback_location(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f87faaa51a41810707e9283275d0283e54c3ebebf2803e01abef2984151aca1)
+            type_hints = cached_type_hints(_typecheckingstub__1f87faaa51a41810707e9283275d0283e54c3ebebf2803e01abef2984151aca1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fallbackLocation", value) # pyright: ignore[reportArgumentType]
 
@@ -2638,7 +2621,7 @@ class CfnSequenceStore(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93)
+            type_hints = cached_type_hints(_typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "propagatedSetLevelTags", value) # pyright: ignore[reportArgumentType]
 
@@ -2646,17 +2629,17 @@ class CfnSequenceStore(
     @jsii.member(jsii_name="sseConfig")
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSequenceStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSequenceStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSequenceStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSequenceStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
 
     @sse_config.setter
     def sse_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSequenceStore.SseConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSequenceStore.SseConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92eed2332efa6d161a72ca8ae646e24cacee45f7acbbbb2e0aacb4b034c468be)
+            type_hints = cached_type_hints(_typecheckingstub__92eed2332efa6d161a72ca8ae646e24cacee45f7acbbbb2e0aacb4b034c468be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sseConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2672,7 +2655,7 @@ class CfnSequenceStore(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ce2c9ded7857e7f4d2115b4b17528bedb51685351fbcf322f7727f4fcf76354)
+            type_hints = cached_type_hints(_typecheckingstub__5ce2c9ded7857e7f4d2115b4b17528bedb51685351fbcf322f7727f4fcf76354)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2710,7 +2693,7 @@ class CfnSequenceStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16d14d56ac16dd0c8b7ee5046e40e324719a67cf46d9a70bdf176e614b6904fc)
+                type_hints = cached_type_hints(_typecheckingstub__16d14d56ac16dd0c8b7ee5046e40e324719a67cf46d9a70bdf176e614b6904fc)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2776,7 +2759,7 @@ class CfnSequenceStoreProps:
         fallback_location: typing.Optional[builtins.str] = None,
         propagated_set_level_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         s3_access_policy: typing.Any = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSequenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSequenceStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSequenceStore``.
@@ -2824,7 +2807,7 @@ class CfnSequenceStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c912afa5be2bea750b085186b08f53bd688bc0a1dd08b1f1c6951a21015380fc)
+            type_hints = cached_type_hints(_typecheckingstub__c912afa5be2bea750b085186b08f53bd688bc0a1dd08b1f1c6951a21015380fc)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument access_log_location", value=access_log_location, expected_type=type_hints["access_log_location"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2921,13 +2904,13 @@ class CfnSequenceStoreProps:
     @builtins.property
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSequenceStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSequenceStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-sequencestore.html#cfn-omics-sequencestore-sseconfig
         '''
         result = self._values.get("sse_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSequenceStore.SseConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSequenceStore.SseConfigProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2950,9 +2933,9 @@ class CfnSequenceStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVariantStoreRef_49e3cae7, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IVariantStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVariantStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnVariantStore",
 ):
@@ -2994,9 +2977,9 @@ class CfnVariantStore(
         id: builtins.str,
         *,
         name: builtins.str,
-        reference: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVariantStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]],
+        reference: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVariantStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVariantStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVariantStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Omics::VariantStore``.
@@ -3010,7 +2993,7 @@ class CfnVariantStore(
         :param tags: Tags for the store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d38872c12590b13122bc23c110efd40d1aa8369a37e1015fcc0ee2529e01904)
+            type_hints = cached_type_hints(_typecheckingstub__6d38872c12590b13122bc23c110efd40d1aa8369a37e1015fcc0ee2529e01904)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVariantStoreProps(
@@ -3027,13 +3010,13 @@ class CfnVariantStore(
     @builtins.classmethod
     def arn_for_variant_store(
         cls,
-        resource: "_IVariantStoreRef_49e3cae7",
+        resource: "_aws_omics_49f0f1b2.IVariantStoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b7a9767f78947b0511605022e00727fbf04af579b424576a2d6c01b31b28ba8)
+            type_hints = cached_type_hints(_typecheckingstub__9b7a9767f78947b0511605022e00727fbf04af579b424576a2d6c01b31b28ba8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVariantStore", [resource]))
 
@@ -3044,7 +3027,7 @@ class CfnVariantStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         variant_store_name: builtins.str,
-    ) -> "_IVariantStoreRef_49e3cae7":
+    ) -> "_aws_omics_49f0f1b2.IVariantStoreRef":
         '''Creates a new IVariantStoreRef from a variantStoreName.
 
         :param scope: -
@@ -3052,11 +3035,11 @@ class CfnVariantStore(
         :param variant_store_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f419b3d012ad3960d3cb7ca202c16de7716902d7708b8a5f93c80ecc69b0794)
+            type_hints = cached_type_hints(_typecheckingstub__2f419b3d012ad3960d3cb7ca202c16de7716902d7708b8a5f93c80ecc69b0794)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument variant_store_name", value=variant_store_name, expected_type=type_hints["variant_store_name"])
-        return typing.cast("_IVariantStoreRef_49e3cae7", jsii.sinvoke(cls, "fromVariantStoreName", [scope, id, variant_store_name]))
+        return typing.cast("_aws_omics_49f0f1b2.IVariantStoreRef", jsii.sinvoke(cls, "fromVariantStoreName", [scope, id, variant_store_name]))
 
     @jsii.member(jsii_name="isCfnVariantStore")
     @builtins.classmethod
@@ -3066,18 +3049,18 @@ class CfnVariantStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__491360ac38318f0cc89b8ce7f0ac1b68853729c931ed3c5f800ae95f95f7dc86)
+            type_hints = cached_type_hints(_typecheckingstub__491360ac38318f0cc89b8ce7f0ac1b68853729c931ed3c5f800ae95f95f7dc86)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVariantStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ca6bc97e153eee8b1d732a90be1690a35fffe864b7b05aaaac9e52711640fed)
+            type_hints = cached_type_hints(_typecheckingstub__8ca6bc97e153eee8b1d732a90be1690a35fffe864b7b05aaaac9e52711640fed)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3090,7 +3073,7 @@ class CfnVariantStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570cd7098cbc0f8a1520e467e899d1d2ec7d6bc45da494a51344b868369142a6)
+            type_hints = cached_type_hints(_typecheckingstub__570cd7098cbc0f8a1520e467e899d1d2ec7d6bc45da494a51344b868369142a6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3147,12 +3130,12 @@ class CfnVariantStore(
 
     @builtins.property
     @jsii.member(jsii_name="attrStoreSizeBytes")
-    def attr_store_size_bytes(self) -> "_IResolvable_da3f097b":
+    def attr_store_size_bytes(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The store's size in bytes.
 
         :cloudformationAttribute: StoreSizeBytes
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStoreSizeBytes"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStoreSizeBytes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrUpdateTime")
@@ -3175,15 +3158,15 @@ class CfnVariantStore(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="variantStoreRef")
-    def variant_store_ref(self) -> "_VariantStoreReference_494e1db9":
+    def variant_store_ref(self) -> "_aws_omics_49f0f1b2.VariantStoreReference":
         '''A reference to a VariantStore resource.'''
-        return typing.cast("_VariantStoreReference_494e1db9", jsii.get(self, "variantStoreRef"))
+        return typing.cast("_aws_omics_49f0f1b2.VariantStoreReference", jsii.get(self, "variantStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3194,7 +3177,7 @@ class CfnVariantStore(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a7151068f14ce10b8b0f9147b1e5b5afd6f6b7308067934acd8af16a512c243)
+            type_hints = cached_type_hints(_typecheckingstub__4a7151068f14ce10b8b0f9147b1e5b5afd6f6b7308067934acd8af16a512c243)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3202,17 +3185,17 @@ class CfnVariantStore(
     @jsii.member(jsii_name="reference")
     def reference(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVariantStore.ReferenceItemProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.ReferenceItemProperty"]:
         '''The genome reference for the store's variants.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVariantStore.ReferenceItemProperty"], jsii.get(self, "reference"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.ReferenceItemProperty"], jsii.get(self, "reference"))
 
     @reference.setter
     def reference(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnVariantStore.ReferenceItemProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.ReferenceItemProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__088cb3f651ad7a064e751c97def87bcf2e6e4149c7bcf54b57474d4b8b7d1b6d)
+            type_hints = cached_type_hints(_typecheckingstub__088cb3f651ad7a064e751c97def87bcf2e6e4149c7bcf54b57474d4b8b7d1b6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reference", value) # pyright: ignore[reportArgumentType]
 
@@ -3225,7 +3208,7 @@ class CfnVariantStore(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b58e2ea0e9ae60ac9a3dd7935556c2d0e2dfe3ff2de0f2ef79c50a0f2cdc07d)
+            type_hints = cached_type_hints(_typecheckingstub__5b58e2ea0e9ae60ac9a3dd7935556c2d0e2dfe3ff2de0f2ef79c50a0f2cdc07d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3233,17 +3216,17 @@ class CfnVariantStore(
     @jsii.member(jsii_name="sseConfig")
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVariantStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVariantStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.SseConfigProperty"]], jsii.get(self, "sseConfig"))
 
     @sse_config.setter
     def sse_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVariantStore.SseConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.SseConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14ca86abdbf91bcd47e50c693a441fd60292ffbe1b4f732e112498a42712d29e)
+            type_hints = cached_type_hints(_typecheckingstub__14ca86abdbf91bcd47e50c693a441fd60292ffbe1b4f732e112498a42712d29e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sseConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3259,7 +3242,7 @@ class CfnVariantStore(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58acd4facff447c8ba521704b60e2e575ce07cca5086f7089300382b0d72deb1)
+            type_hints = cached_type_hints(_typecheckingstub__58acd4facff447c8ba521704b60e2e575ce07cca5086f7089300382b0d72deb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3288,7 +3271,7 @@ class CfnVariantStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9d03f1b71084719c634c1eec42eaa49cce433fd4e222652c52e9ca9afca86c44)
+                type_hints = cached_type_hints(_typecheckingstub__9d03f1b71084719c634c1eec42eaa49cce433fd4e222652c52e9ca9afca86c44)
                 check_type(argname="argument reference_arn", value=reference_arn, expected_type=type_hints["reference_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "reference_arn": reference_arn,
@@ -3349,7 +3332,7 @@ class CfnVariantStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__151f006e709dbecd4ae7c2469b6d65397d70b22812c239977c3f339440eefaf8)
+                type_hints = cached_type_hints(_typecheckingstub__151f006e709dbecd4ae7c2469b6d65397d70b22812c239977c3f339440eefaf8)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3405,9 +3388,9 @@ class CfnVariantStoreProps:
         self,
         *,
         name: builtins.str,
-        reference: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVariantStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]],
+        reference: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVariantStore.ReferenceItemProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        sse_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVariantStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVariantStore.SseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnVariantStore``.
@@ -3447,7 +3430,7 @@ class CfnVariantStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cee3839b5919ab156aab54490277c559d790311fd9ea2b761f99373fdb7eaec)
+            type_hints = cached_type_hints(_typecheckingstub__9cee3839b5919ab156aab54490277c559d790311fd9ea2b761f99373fdb7eaec)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument reference", value=reference, expected_type=type_hints["reference"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3477,14 +3460,14 @@ class CfnVariantStoreProps:
     @builtins.property
     def reference(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVariantStore.ReferenceItemProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.ReferenceItemProperty"]:
         '''The genome reference for the store's variants.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-variantstore.html#cfn-omics-variantstore-reference
         '''
         result = self._values.get("reference")
         assert result is not None, "Required property 'reference' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVariantStore.ReferenceItemProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.ReferenceItemProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3498,13 +3481,13 @@ class CfnVariantStoreProps:
     @builtins.property
     def sse_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVariantStore.SseConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.SseConfigProperty"]]:
         '''Server-side encryption (SSE) settings for the store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-variantstore.html#cfn-omics-variantstore-sseconfig
         '''
         result = self._values.get("sse_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVariantStore.SseConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVariantStore.SseConfigProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -3527,9 +3510,9 @@ class CfnVariantStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkflowRef_c34b3fa1, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IWorkflowRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkflow(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnWorkflow",
 ):
@@ -3607,15 +3590,15 @@ class CfnWorkflow(
         id: builtins.str,
         *,
         accelerators: typing.Optional[builtins.str] = None,
-        container_registry_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_registry_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         container_registry_map_uri: typing.Optional[builtins.str] = None,
-        definition_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        parameter_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         parameter_template_path: typing.Optional[builtins.str] = None,
         readme_markdown: typing.Optional[builtins.str] = None,
         readme_path: typing.Optional[builtins.str] = None,
@@ -3649,7 +3632,7 @@ class CfnWorkflow(
         :param workflow_bucket_owner_id: Optional workflow bucket owner ID to verify the workflow bucket.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9f00850d)
+            type_hints = cached_type_hints(_typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9f00850d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkflowProps(
@@ -3677,12 +3660,15 @@ class CfnWorkflow(
 
     @jsii.member(jsii_name="arnForWorkflow")
     @builtins.classmethod
-    def arn_for_workflow(cls, resource: "_IWorkflowRef_c34b3fa1") -> builtins.str:
+    def arn_for_workflow(
+        cls,
+        resource: "_aws_omics_49f0f1b2.IWorkflowRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67df20aaeaafc046258133711462983b03f7d276f5db7702f3acf0f303341182)
+            type_hints = cached_type_hints(_typecheckingstub__67df20aaeaafc046258133711462983b03f7d276f5db7702f3acf0f303341182)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkflow", [resource]))
 
@@ -3694,18 +3680,18 @@ class CfnWorkflow(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85eaacf4591f2168dc63862126dd9dd0579c6fdfc3c94bffdd6d2a411210f03e)
+            type_hints = cached_type_hints(_typecheckingstub__85eaacf4591f2168dc63862126dd9dd0579c6fdfc3c94bffdd6d2a411210f03e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkflow", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98655701238267dcfc2598ca58d2fdf3b94be0fdd6d36c6407b8c9216e530168)
+            type_hints = cached_type_hints(_typecheckingstub__98655701238267dcfc2598ca58d2fdf3b94be0fdd6d36c6407b8c9216e530168)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3718,7 +3704,7 @@ class CfnWorkflow(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3d18757469eec460375791b428b2b2a8ebd5be703fbc705cb706233f42a0050)
+            type_hints = cached_type_hints(_typecheckingstub__f3d18757469eec460375791b428b2b2a8ebd5be703fbc705cb706233f42a0050)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3793,15 +3779,15 @@ class CfnWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowRef")
-    def workflow_ref(self) -> "_WorkflowReference_d2d5c008":
+    def workflow_ref(self) -> "_aws_omics_49f0f1b2.WorkflowReference":
         '''A reference to a Workflow resource.'''
-        return typing.cast("_WorkflowReference_d2d5c008", jsii.get(self, "workflowRef"))
+        return typing.cast("_aws_omics_49f0f1b2.WorkflowReference", jsii.get(self, "workflowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accelerators")
@@ -3811,7 +3797,7 @@ class CfnWorkflow(
     @accelerators.setter
     def accelerators(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__286f71b00d1993ebc792c6e260606dac95cf17ec599b45b4cb2111b4ca57a0fe)
+            type_hints = cached_type_hints(_typecheckingstub__286f71b00d1993ebc792c6e260606dac95cf17ec599b45b4cb2111b4ca57a0fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accelerators", value) # pyright: ignore[reportArgumentType]
 
@@ -3819,17 +3805,17 @@ class CfnWorkflow(
     @jsii.member(jsii_name="containerRegistryMap")
     def container_registry_map(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ContainerRegistryMapProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ContainerRegistryMapProperty"]]:
         '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ContainerRegistryMapProperty"]], jsii.get(self, "containerRegistryMap"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ContainerRegistryMapProperty"]], jsii.get(self, "containerRegistryMap"))
 
     @container_registry_map.setter
     def container_registry_map(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ContainerRegistryMapProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ContainerRegistryMapProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d61321fc4a694dded60b8fceeeafd83e9ae3f79a0329bdba98cd03787f3daa3c)
+            type_hints = cached_type_hints(_typecheckingstub__d61321fc4a694dded60b8fceeeafd83e9ae3f79a0329bdba98cd03787f3daa3c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerRegistryMap", value) # pyright: ignore[reportArgumentType]
 
@@ -3841,7 +3827,7 @@ class CfnWorkflow(
     @container_registry_map_uri.setter
     def container_registry_map_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1466a9fdbdff03b1c7b3fd5e72f7386ca160db487d501609519ca1c35a987aca)
+            type_hints = cached_type_hints(_typecheckingstub__1466a9fdbdff03b1c7b3fd5e72f7386ca160db487d501609519ca1c35a987aca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerRegistryMapUri", value) # pyright: ignore[reportArgumentType]
 
@@ -3849,17 +3835,17 @@ class CfnWorkflow(
     @jsii.member(jsii_name="definitionRepository")
     def definition_repository(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.DefinitionRepositoryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.DefinitionRepositoryProperty"]]:
         '''Contains information about a source code repository that hosts the workflow definition files.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.DefinitionRepositoryProperty"]], jsii.get(self, "definitionRepository"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.DefinitionRepositoryProperty"]], jsii.get(self, "definitionRepository"))
 
     @definition_repository.setter
     def definition_repository(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.DefinitionRepositoryProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.DefinitionRepositoryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b6e4242f1457a50b9f5b17595e8985df9311b3b5ec98f525f390f9387770415)
+            type_hints = cached_type_hints(_typecheckingstub__6b6e4242f1457a50b9f5b17595e8985df9311b3b5ec98f525f390f9387770415)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionRepository", value) # pyright: ignore[reportArgumentType]
 
@@ -3872,7 +3858,7 @@ class CfnWorkflow(
     @definition_uri.setter
     def definition_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc102140c3b77bda25eda4edac3ddf245628b20791c9053f2a901ded02c9b780)
+            type_hints = cached_type_hints(_typecheckingstub__cc102140c3b77bda25eda4edac3ddf245628b20791c9053f2a901ded02c9b780)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionUri", value) # pyright: ignore[reportArgumentType]
 
@@ -3885,7 +3871,7 @@ class CfnWorkflow(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73c565083430765eb26563b0a57061f931b2ec1240d0b6c03b6bdad1003055c2)
+            type_hints = cached_type_hints(_typecheckingstub__73c565083430765eb26563b0a57061f931b2ec1240d0b6c03b6bdad1003055c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3898,7 +3884,7 @@ class CfnWorkflow(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2edee5dfbe37830cd0e2e70344c7e33e9cf08c5c243438272da4a5634eae529f)
+            type_hints = cached_type_hints(_typecheckingstub__2edee5dfbe37830cd0e2e70344c7e33e9cf08c5c243438272da4a5634eae529f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -3911,7 +3897,7 @@ class CfnWorkflow(
     @main.setter
     def main(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f791067dcd2f7a992bf37cf0c6c81e381b2e0344e60cf85051d19bb08c69bf13)
+            type_hints = cached_type_hints(_typecheckingstub__f791067dcd2f7a992bf37cf0c6c81e381b2e0344e60cf85051d19bb08c69bf13)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "main", value) # pyright: ignore[reportArgumentType]
 
@@ -3924,7 +3910,7 @@ class CfnWorkflow(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6845f053d191fb8caa10b651afe2128f50703f821981813813ed0bb9862dad7)
+            type_hints = cached_type_hints(_typecheckingstub__b6845f053d191fb8caa10b651afe2128f50703f821981813813ed0bb9862dad7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3932,17 +3918,17 @@ class CfnWorkflow(
     @jsii.member(jsii_name="parameterTemplate")
     def parameter_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflow.WorkflowParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowParameterProperty"]]]]:
         '''The workflow's parameter template.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflow.WorkflowParameterProperty"]]]], jsii.get(self, "parameterTemplate"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowParameterProperty"]]]], jsii.get(self, "parameterTemplate"))
 
     @parameter_template.setter
     def parameter_template(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflow.WorkflowParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowParameterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd71f853b8475a5b472d76bce0cd20afc1269357412bdaa83e29ea355af8f64b)
+            type_hints = cached_type_hints(_typecheckingstub__cd71f853b8475a5b472d76bce0cd20afc1269357412bdaa83e29ea355af8f64b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -3955,7 +3941,7 @@ class CfnWorkflow(
     @parameter_template_path.setter
     def parameter_template_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d41351b64d942ee30b08547c1780197e0df1eca59541df6f21ad720a36cb6716)
+            type_hints = cached_type_hints(_typecheckingstub__d41351b64d942ee30b08547c1780197e0df1eca59541df6f21ad720a36cb6716)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterTemplatePath", value) # pyright: ignore[reportArgumentType]
 
@@ -3968,7 +3954,7 @@ class CfnWorkflow(
     @readme_markdown.setter
     def readme_markdown(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc1997459356ed8d8ca95f01eab7bd4215d815bf69cff594388b6f7222e0c8a)
+            type_hints = cached_type_hints(_typecheckingstub__ecc1997459356ed8d8ca95f01eab7bd4215d815bf69cff594388b6f7222e0c8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmeMarkdown", value) # pyright: ignore[reportArgumentType]
 
@@ -3981,7 +3967,7 @@ class CfnWorkflow(
     @readme_path.setter
     def readme_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16e36c31f82073225a89cc2a0da972aba7908d4ad2dd686757120c7089f99861)
+            type_hints = cached_type_hints(_typecheckingstub__16e36c31f82073225a89cc2a0da972aba7908d4ad2dd686757120c7089f99861)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmePath", value) # pyright: ignore[reportArgumentType]
 
@@ -3994,7 +3980,7 @@ class CfnWorkflow(
     @readme_uri.setter
     def readme_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28c67e6013e7a108b99f462f48461025e53196240b5182ef0ee813188829ec6a)
+            type_hints = cached_type_hints(_typecheckingstub__28c67e6013e7a108b99f462f48461025e53196240b5182ef0ee813188829ec6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmeUri", value) # pyright: ignore[reportArgumentType]
 
@@ -4007,7 +3993,7 @@ class CfnWorkflow(
     @storage_capacity.setter
     def storage_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37c3d929054386cb4ebdbc60c2c3558d7cd34bed65861db5661f96d5d75ce7df)
+            type_hints = cached_type_hints(_typecheckingstub__37c3d929054386cb4ebdbc60c2c3558d7cd34bed65861db5661f96d5d75ce7df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -4019,7 +4005,7 @@ class CfnWorkflow(
     @storage_type.setter
     def storage_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82b78c9fdaf5e3e15a75209f5d891cf1513f47077977c45c2d020ffe13e990ac)
+            type_hints = cached_type_hints(_typecheckingstub__82b78c9fdaf5e3e15a75209f5d891cf1513f47077977c45c2d020ffe13e990ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
 
@@ -4035,7 +4021,7 @@ class CfnWorkflow(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__651d8f1caf8b2c987665acfeae50e19a5626bb723832dae7067c423aab3ac2b5)
+            type_hints = cached_type_hints(_typecheckingstub__651d8f1caf8b2c987665acfeae50e19a5626bb723832dae7067c423aab3ac2b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -4048,7 +4034,7 @@ class CfnWorkflow(
     @workflow_bucket_owner_id.setter
     def workflow_bucket_owner_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fec2ca5e32cee87eaac65d878c60669f18bb90724ac13ab05f21221ebd80766e)
+            type_hints = cached_type_hints(_typecheckingstub__fec2ca5e32cee87eaac65d878c60669f18bb90724ac13ab05f21221ebd80766e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workflowBucketOwnerId", value) # pyright: ignore[reportArgumentType]
 
@@ -4064,8 +4050,8 @@ class CfnWorkflow(
         def __init__(
             self,
             *,
-            image_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.ImageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            registry_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.RegistryMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            image_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.ImageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            registry_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.RegistryMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.
 
@@ -4097,7 +4083,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b93208b886c42793f6b22971c79ed50b456a125a28fedf2949548b0a03f82c3e)
+                type_hints = cached_type_hints(_typecheckingstub__b93208b886c42793f6b22971c79ed50b456a125a28fedf2949548b0a03f82c3e)
                 check_type(argname="argument image_mappings", value=image_mappings, expected_type=type_hints["image_mappings"])
                 check_type(argname="argument registry_mappings", value=registry_mappings, expected_type=type_hints["registry_mappings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4109,24 +4095,24 @@ class CfnWorkflow(
         @builtins.property
         def image_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ImageMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ImageMappingProperty"]]]]:
             '''Image mappings specify path mappings between the ECR private repository and their corresponding external repositories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-containerregistrymap.html#cfn-omics-workflow-containerregistrymap-imagemappings
             '''
             result = self._values.get("image_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ImageMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ImageMappingProperty"]]]], result)
 
         @builtins.property
         def registry_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.RegistryMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.RegistryMappingProperty"]]]]:
             '''Mapping that provides the ECR repository path where upstream container images are pulled and synchronized.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-containerregistrymap.html#cfn-omics-workflow-containerregistrymap-registrymappings
             '''
             result = self._values.get("registry_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.RegistryMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.RegistryMappingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4156,7 +4142,7 @@ class CfnWorkflow(
             connection_arn: typing.Optional[builtins.str] = None,
             exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
             full_repository_id: typing.Optional[builtins.str] = None,
-            source_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.SourceReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.SourceReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about a source code repository that hosts the workflow definition files.
 
@@ -4185,7 +4171,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a3c23b09e8f18584c69d282b6816697f2992e22dbf81773246b66875fbb0c0c8)
+                type_hints = cached_type_hints(_typecheckingstub__a3c23b09e8f18584c69d282b6816697f2992e22dbf81773246b66875fbb0c0c8)
                 check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
                 check_type(argname="argument exclude_file_patterns", value=exclude_file_patterns, expected_type=type_hints["exclude_file_patterns"])
                 check_type(argname="argument full_repository_id", value=full_repository_id, expected_type=type_hints["full_repository_id"])
@@ -4232,13 +4218,13 @@ class CfnWorkflow(
         @builtins.property
         def source_reference(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.SourceReferenceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.SourceReferenceProperty"]]:
             '''The source reference for the repository, such as a branch name, tag, or commit ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-definitionrepository.html#cfn-omics-workflow-definitionrepository-sourcereference
             '''
             result = self._values.get("source_reference")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.SourceReferenceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.SourceReferenceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4288,7 +4274,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__98f85817eb366199f668581daf61aabd43de777e1bd4110572941bbd0bb03687)
+                type_hints = cached_type_hints(_typecheckingstub__98f85817eb366199f668581daf61aabd43de777e1bd4110572941bbd0bb03687)
                 check_type(argname="argument destination_image", value=destination_image, expected_type=type_hints["destination_image"])
                 check_type(argname="argument source_image", value=source_image, expected_type=type_hints["source_image"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4369,7 +4355,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bf8725b8e4b50a33568267e8b0666f0c8b9e8a47c56098879cb0cdba27310fbf)
+                type_hints = cached_type_hints(_typecheckingstub__bf8725b8e4b50a33568267e8b0666f0c8b9e8a47c56098879cb0cdba27310fbf)
                 check_type(argname="argument ecr_account_id", value=ecr_account_id, expected_type=type_hints["ecr_account_id"])
                 check_type(argname="argument ecr_repository_prefix", value=ecr_repository_prefix, expected_type=type_hints["ecr_repository_prefix"])
                 check_type(argname="argument upstream_registry_url", value=upstream_registry_url, expected_type=type_hints["upstream_registry_url"])
@@ -4463,7 +4449,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f4e57d9f64919c2d451cd965846e1f5ee2aa3404611459632e4dd2699b4654d1)
+                type_hints = cached_type_hints(_typecheckingstub__f4e57d9f64919c2d451cd965846e1f5ee2aa3404611459632e4dd2699b4654d1)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4511,7 +4497,7 @@ class CfnWorkflow(
             self,
             *,
             description: typing.Optional[builtins.str] = None,
-            optional: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            optional: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A workflow parameter.
 
@@ -4533,7 +4519,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a694580a5)
+                type_hints = cached_type_hints(_typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a694580a5)
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument optional", value=optional, expected_type=type_hints["optional"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4554,13 +4540,13 @@ class CfnWorkflow(
         @builtins.property
         def optional(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether the parameter is optional.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflow-workflowparameter.html#cfn-omics-workflow-workflowparameter-optional
             '''
             result = self._values.get("optional")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4603,15 +4589,15 @@ class CfnWorkflowProps:
         self,
         *,
         accelerators: typing.Optional[builtins.str] = None,
-        container_registry_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_registry_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         container_registry_map_uri: typing.Optional[builtins.str] = None,
-        definition_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        parameter_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         parameter_template_path: typing.Optional[builtins.str] = None,
         readme_markdown: typing.Optional[builtins.str] = None,
         readme_path: typing.Optional[builtins.str] = None,
@@ -4699,7 +4685,7 @@ class CfnWorkflowProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09bedca50200dd06a4bbe4bb6135e76dacff76287249f3d28b8f285f8205f173)
+            type_hints = cached_type_hints(_typecheckingstub__09bedca50200dd06a4bbe4bb6135e76dacff76287249f3d28b8f285f8205f173)
             check_type(argname="argument accelerators", value=accelerators, expected_type=type_hints["accelerators"])
             check_type(argname="argument container_registry_map", value=container_registry_map, expected_type=type_hints["container_registry_map"])
             check_type(argname="argument container_registry_map_uri", value=container_registry_map_uri, expected_type=type_hints["container_registry_map_uri"])
@@ -4767,7 +4753,7 @@ class CfnWorkflowProps:
     @builtins.property
     def container_registry_map(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ContainerRegistryMapProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ContainerRegistryMapProperty"]]:
         '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.
 
         For more information, see `Container images <https://docs.aws.amazon.com/omics/latest/dev/workflows-ecr.html>`_ in the *AWS HealthOmics User Guide* .
@@ -4775,7 +4761,7 @@ class CfnWorkflowProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-containerregistrymap
         '''
         result = self._values.get("container_registry_map")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.ContainerRegistryMapProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.ContainerRegistryMapProperty"]], result)
 
     @builtins.property
     def container_registry_map_uri(self) -> typing.Optional[builtins.str]:
@@ -4788,13 +4774,13 @@ class CfnWorkflowProps:
     @builtins.property
     def definition_repository(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.DefinitionRepositoryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.DefinitionRepositoryProperty"]]:
         '''Contains information about a source code repository that hosts the workflow definition files.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-definitionrepository
         '''
         result = self._values.get("definition_repository")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.DefinitionRepositoryProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.DefinitionRepositoryProperty"]], result)
 
     @builtins.property
     def definition_uri(self) -> typing.Optional[builtins.str]:
@@ -4844,13 +4830,13 @@ class CfnWorkflowProps:
     @builtins.property
     def parameter_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflow.WorkflowParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowParameterProperty"]]]]:
         '''The workflow's parameter template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-parametertemplate
         '''
         result = self._values.get("parameter_template")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflow.WorkflowParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowParameterProperty"]]]], result)
 
     @builtins.property
     def parameter_template_path(self) -> typing.Optional[builtins.str]:
@@ -4943,9 +4929,9 @@ class CfnWorkflowProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkflowVersionRef_8e877e7d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_omics_49f0f1b2.IWorkflowVersionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkflowVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_omics.CfnWorkflowVersion",
 ):
@@ -5029,14 +5015,14 @@ class CfnWorkflowVersion(
         version_name: builtins.str,
         workflow_id: builtins.str,
         accelerators: typing.Optional[builtins.str] = None,
-        container_registry_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_registry_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         container_registry_map_uri: typing.Optional[builtins.str] = None,
-        definition_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
-        parameter_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         parameter_template_path: typing.Optional[builtins.str] = None,
         readme_markdown: typing.Optional[builtins.str] = None,
         readme_path: typing.Optional[builtins.str] = None,
@@ -5071,7 +5057,7 @@ class CfnWorkflowVersion(
         :param workflow_bucket_owner_id: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9bbd83c3821b6d01e1b0445c2a66c0e7c312d81583ae6cf8dbe78c8d6a4bf99)
+            type_hints = cached_type_hints(_typecheckingstub__f9bbd83c3821b6d01e1b0445c2a66c0e7c312d81583ae6cf8dbe78c8d6a4bf99)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkflowVersionProps(
@@ -5102,13 +5088,13 @@ class CfnWorkflowVersion(
     @builtins.classmethod
     def arn_for_workflow_version(
         cls,
-        resource: "_IWorkflowVersionRef_8e877e7d",
+        resource: "_aws_omics_49f0f1b2.IWorkflowVersionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba9428a8b7901e336eeab6247d137358ee9bc60145cd3f57cd9d69410752a02c)
+            type_hints = cached_type_hints(_typecheckingstub__ba9428a8b7901e336eeab6247d137358ee9bc60145cd3f57cd9d69410752a02c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkflowVersion", [resource]))
 
@@ -5120,18 +5106,18 @@ class CfnWorkflowVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c7054b8c2aebdab065713b2bf74644dd2b89b4b92f0f3161c76b3b26d5273ab)
+            type_hints = cached_type_hints(_typecheckingstub__6c7054b8c2aebdab065713b2bf74644dd2b89b4b92f0f3161c76b3b26d5273ab)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkflowVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a7de38e00c231b3afd92bbb59cad40657b334333096dde12413f391ade16867)
+            type_hints = cached_type_hints(_typecheckingstub__1a7de38e00c231b3afd92bbb59cad40657b334333096dde12413f391ade16867)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5144,7 +5130,7 @@ class CfnWorkflowVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1461fce0dec6c9339e6bbc0df050886fb1f30852661c80911b28268bdee03c9)
+            type_hints = cached_type_hints(_typecheckingstub__e1461fce0dec6c9339e6bbc0df050886fb1f30852661c80911b28268bdee03c9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5200,9 +5186,9 @@ class CfnWorkflowVersion(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5216,9 +5202,9 @@ class CfnWorkflowVersion(
 
     @builtins.property
     @jsii.member(jsii_name="workflowVersionRef")
-    def workflow_version_ref(self) -> "_WorkflowVersionReference_1d5421a4":
+    def workflow_version_ref(self) -> "_aws_omics_49f0f1b2.WorkflowVersionReference":
         '''A reference to a WorkflowVersion resource.'''
-        return typing.cast("_WorkflowVersionReference_1d5421a4", jsii.get(self, "workflowVersionRef"))
+        return typing.cast("_aws_omics_49f0f1b2.WorkflowVersionReference", jsii.get(self, "workflowVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="versionName")
@@ -5229,7 +5215,7 @@ class CfnWorkflowVersion(
     @version_name.setter
     def version_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a9f5bdcc4a225102f171d30f4738ab832792497c08ecb206114ad57125adf01)
+            type_hints = cached_type_hints(_typecheckingstub__4a9f5bdcc4a225102f171d30f4738ab832792497c08ecb206114ad57125adf01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "versionName", value) # pyright: ignore[reportArgumentType]
 
@@ -5242,7 +5228,7 @@ class CfnWorkflowVersion(
     @workflow_id.setter
     def workflow_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5def0afb0cd8ab9471e48b541cd9dceaeb6826bfe7a8a24d0c36614c73b1a6d6)
+            type_hints = cached_type_hints(_typecheckingstub__5def0afb0cd8ab9471e48b541cd9dceaeb6826bfe7a8a24d0c36614c73b1a6d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workflowId", value) # pyright: ignore[reportArgumentType]
 
@@ -5254,7 +5240,7 @@ class CfnWorkflowVersion(
     @accelerators.setter
     def accelerators(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b69952a53a68976751566fbcf17774d0dfa2d7ede106cb440b751f76c7eb99ef)
+            type_hints = cached_type_hints(_typecheckingstub__b69952a53a68976751566fbcf17774d0dfa2d7ede106cb440b751f76c7eb99ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accelerators", value) # pyright: ignore[reportArgumentType]
 
@@ -5262,17 +5248,17 @@ class CfnWorkflowVersion(
     @jsii.member(jsii_name="containerRegistryMap")
     def container_registry_map(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ContainerRegistryMapProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ContainerRegistryMapProperty"]]:
         '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ContainerRegistryMapProperty"]], jsii.get(self, "containerRegistryMap"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ContainerRegistryMapProperty"]], jsii.get(self, "containerRegistryMap"))
 
     @container_registry_map.setter
     def container_registry_map(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ContainerRegistryMapProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ContainerRegistryMapProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46a9bb90d987260f113e2b2c7bfe0d00e76229ce25afbfccf1a386b82f85e224)
+            type_hints = cached_type_hints(_typecheckingstub__46a9bb90d987260f113e2b2c7bfe0d00e76229ce25afbfccf1a386b82f85e224)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerRegistryMap", value) # pyright: ignore[reportArgumentType]
 
@@ -5284,7 +5270,7 @@ class CfnWorkflowVersion(
     @container_registry_map_uri.setter
     def container_registry_map_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65acb20ad98b8b631169a3db99c88bd3662a7e2bd947577b5265d087e4b8362d)
+            type_hints = cached_type_hints(_typecheckingstub__65acb20ad98b8b631169a3db99c88bd3662a7e2bd947577b5265d087e4b8362d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerRegistryMapUri", value) # pyright: ignore[reportArgumentType]
 
@@ -5292,17 +5278,17 @@ class CfnWorkflowVersion(
     @jsii.member(jsii_name="definitionRepository")
     def definition_repository(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.DefinitionRepositoryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.DefinitionRepositoryProperty"]]:
         '''Contains information about a source code repository that hosts the workflow definition files.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.DefinitionRepositoryProperty"]], jsii.get(self, "definitionRepository"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.DefinitionRepositoryProperty"]], jsii.get(self, "definitionRepository"))
 
     @definition_repository.setter
     def definition_repository(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.DefinitionRepositoryProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.DefinitionRepositoryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76f88fb7dbfba72f92fec4a64878a9e7fdd595353c2e76e5f675a9f318a5b5e6)
+            type_hints = cached_type_hints(_typecheckingstub__76f88fb7dbfba72f92fec4a64878a9e7fdd595353c2e76e5f675a9f318a5b5e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionRepository", value) # pyright: ignore[reportArgumentType]
 
@@ -5314,7 +5300,7 @@ class CfnWorkflowVersion(
     @definition_uri.setter
     def definition_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a8ff1e5a2ba3fcf1c5fb306e96445a76ec1ac6872615b206206a2a173f64978)
+            type_hints = cached_type_hints(_typecheckingstub__7a8ff1e5a2ba3fcf1c5fb306e96445a76ec1ac6872615b206206a2a173f64978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionUri", value) # pyright: ignore[reportArgumentType]
 
@@ -5327,7 +5313,7 @@ class CfnWorkflowVersion(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d26e61de900859028fd4b5aff7eb7fefa87386da043d620b3407bc69ef3f950b)
+            type_hints = cached_type_hints(_typecheckingstub__d26e61de900859028fd4b5aff7eb7fefa87386da043d620b3407bc69ef3f950b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5339,7 +5325,7 @@ class CfnWorkflowVersion(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ade62566da0dd0e16cdb86d20bb176d8778e02a5223101deea2467f1ee7cadc)
+            type_hints = cached_type_hints(_typecheckingstub__4ade62566da0dd0e16cdb86d20bb176d8778e02a5223101deea2467f1ee7cadc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -5351,7 +5337,7 @@ class CfnWorkflowVersion(
     @main.setter
     def main(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb201e46965fe4b385e0e52f84a505023c34c0c16c33aea7e75a09209c34d1af)
+            type_hints = cached_type_hints(_typecheckingstub__bb201e46965fe4b385e0e52f84a505023c34c0c16c33aea7e75a09209c34d1af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "main", value) # pyright: ignore[reportArgumentType]
 
@@ -5359,16 +5345,16 @@ class CfnWorkflowVersion(
     @jsii.member(jsii_name="parameterTemplate")
     def parameter_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.WorkflowParameterProperty"]]]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.WorkflowParameterProperty"]]]], jsii.get(self, "parameterTemplate"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.WorkflowParameterProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.WorkflowParameterProperty"]]]], jsii.get(self, "parameterTemplate"))
 
     @parameter_template.setter
     def parameter_template(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.WorkflowParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.WorkflowParameterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__909f80095cd6043c196e37a387a0f1f32bfcddcd8f9a81c5e8f5ac8b4874faa9)
+            type_hints = cached_type_hints(_typecheckingstub__909f80095cd6043c196e37a387a0f1f32bfcddcd8f9a81c5e8f5ac8b4874faa9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -5381,7 +5367,7 @@ class CfnWorkflowVersion(
     @parameter_template_path.setter
     def parameter_template_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1012e58717a3baf054312a40aba36847bbd98b702310ea8aff265f26caeab471)
+            type_hints = cached_type_hints(_typecheckingstub__1012e58717a3baf054312a40aba36847bbd98b702310ea8aff265f26caeab471)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterTemplatePath", value) # pyright: ignore[reportArgumentType]
 
@@ -5394,7 +5380,7 @@ class CfnWorkflowVersion(
     @readme_markdown.setter
     def readme_markdown(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cea66896cfd0dfa12a8b3d0b44794207352c9c78eb70c50e46466b4eea34898)
+            type_hints = cached_type_hints(_typecheckingstub__3cea66896cfd0dfa12a8b3d0b44794207352c9c78eb70c50e46466b4eea34898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmeMarkdown", value) # pyright: ignore[reportArgumentType]
 
@@ -5407,7 +5393,7 @@ class CfnWorkflowVersion(
     @readme_path.setter
     def readme_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40cad564b15c28b2c112ad54de257f81d4d31fdfe311871657ae5bd714eb9ee6)
+            type_hints = cached_type_hints(_typecheckingstub__40cad564b15c28b2c112ad54de257f81d4d31fdfe311871657ae5bd714eb9ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmePath", value) # pyright: ignore[reportArgumentType]
 
@@ -5420,7 +5406,7 @@ class CfnWorkflowVersion(
     @readme_uri.setter
     def readme_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abe09bb1e32d84773aaf309a744224900a63bf483fa24970e875c0b0a2f1b1cb)
+            type_hints = cached_type_hints(_typecheckingstub__abe09bb1e32d84773aaf309a744224900a63bf483fa24970e875c0b0a2f1b1cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readmeUri", value) # pyright: ignore[reportArgumentType]
 
@@ -5432,7 +5418,7 @@ class CfnWorkflowVersion(
     @storage_capacity.setter
     def storage_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba60096260fa288ca386a5b2841efb8fa9833ea893400efeba006766f392a7b7)
+            type_hints = cached_type_hints(_typecheckingstub__ba60096260fa288ca386a5b2841efb8fa9833ea893400efeba006766f392a7b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -5444,7 +5430,7 @@ class CfnWorkflowVersion(
     @storage_type.setter
     def storage_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ce9715f4efa14e458d6207fae79f6b0ebc36a3bf74435e024116d9f8060ca2)
+            type_hints = cached_type_hints(_typecheckingstub__50ce9715f4efa14e458d6207fae79f6b0ebc36a3bf74435e024116d9f8060ca2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
 
@@ -5460,7 +5446,7 @@ class CfnWorkflowVersion(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfbcbf729952f991d2243244c21c373b5bf1a3947ed2973ab1664037cdf636f8)
+            type_hints = cached_type_hints(_typecheckingstub__bfbcbf729952f991d2243244c21c373b5bf1a3947ed2973ab1664037cdf636f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5472,7 +5458,7 @@ class CfnWorkflowVersion(
     @workflow_bucket_owner_id.setter
     def workflow_bucket_owner_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc6b06c168132bf54bf849b9d49774230af45a049e67f52bc48dd0220c18775d)
+            type_hints = cached_type_hints(_typecheckingstub__bc6b06c168132bf54bf849b9d49774230af45a049e67f52bc48dd0220c18775d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workflowBucketOwnerId", value) # pyright: ignore[reportArgumentType]
 
@@ -5488,8 +5474,8 @@ class CfnWorkflowVersion(
         def __init__(
             self,
             *,
-            image_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.ImageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            registry_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.RegistryMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            image_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.ImageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            registry_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.RegistryMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.
 
@@ -5521,7 +5507,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32eb3bf30b3d01f44e56bdf643f62609b8cbc84d473cb19e3564543b645033d4)
+                type_hints = cached_type_hints(_typecheckingstub__32eb3bf30b3d01f44e56bdf643f62609b8cbc84d473cb19e3564543b645033d4)
                 check_type(argname="argument image_mappings", value=image_mappings, expected_type=type_hints["image_mappings"])
                 check_type(argname="argument registry_mappings", value=registry_mappings, expected_type=type_hints["registry_mappings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5533,24 +5519,24 @@ class CfnWorkflowVersion(
         @builtins.property
         def image_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ImageMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ImageMappingProperty"]]]]:
             '''Image mappings specify path mappings between the ECR private repository and their corresponding external repositories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflowversion-containerregistrymap.html#cfn-omics-workflowversion-containerregistrymap-imagemappings
             '''
             result = self._values.get("image_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ImageMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ImageMappingProperty"]]]], result)
 
         @builtins.property
         def registry_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.RegistryMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.RegistryMappingProperty"]]]]:
             '''Mapping that provides the ECR repository path where upstream container images are pulled and synchronized.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflowversion-containerregistrymap.html#cfn-omics-workflowversion-containerregistrymap-registrymappings
             '''
             result = self._values.get("registry_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.RegistryMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.RegistryMappingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5580,7 +5566,7 @@ class CfnWorkflowVersion(
             connection_arn: typing.Optional[builtins.str] = None,
             exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
             full_repository_id: typing.Optional[builtins.str] = None,
-            source_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.SourceReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.SourceReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about a source code repository that hosts the workflow definition files.
 
@@ -5609,7 +5595,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e0748aa0fb5a9a9d624696b0fc54ab2faf0941992918eb234ba6c3bb4a47aef5)
+                type_hints = cached_type_hints(_typecheckingstub__e0748aa0fb5a9a9d624696b0fc54ab2faf0941992918eb234ba6c3bb4a47aef5)
                 check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
                 check_type(argname="argument exclude_file_patterns", value=exclude_file_patterns, expected_type=type_hints["exclude_file_patterns"])
                 check_type(argname="argument full_repository_id", value=full_repository_id, expected_type=type_hints["full_repository_id"])
@@ -5656,13 +5642,13 @@ class CfnWorkflowVersion(
         @builtins.property
         def source_reference(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.SourceReferenceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.SourceReferenceProperty"]]:
             '''The source reference for the repository, such as a branch name, tag, or commit ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflowversion-definitionrepository.html#cfn-omics-workflowversion-definitionrepository-sourcereference
             '''
             result = self._values.get("source_reference")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.SourceReferenceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.SourceReferenceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5712,7 +5698,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__421f9ca400f5d5d6c3aa9a53dbe35757f3408b2b30be15794288deb51c48b293)
+                type_hints = cached_type_hints(_typecheckingstub__421f9ca400f5d5d6c3aa9a53dbe35757f3408b2b30be15794288deb51c48b293)
                 check_type(argname="argument destination_image", value=destination_image, expected_type=type_hints["destination_image"])
                 check_type(argname="argument source_image", value=source_image, expected_type=type_hints["source_image"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5793,7 +5779,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9eab95380e8258bf7a10a1ed8080d039134ac7daf1f5f0c979d28cb4f5c4f426)
+                type_hints = cached_type_hints(_typecheckingstub__9eab95380e8258bf7a10a1ed8080d039134ac7daf1f5f0c979d28cb4f5c4f426)
                 check_type(argname="argument ecr_account_id", value=ecr_account_id, expected_type=type_hints["ecr_account_id"])
                 check_type(argname="argument ecr_repository_prefix", value=ecr_repository_prefix, expected_type=type_hints["ecr_repository_prefix"])
                 check_type(argname="argument upstream_registry_url", value=upstream_registry_url, expected_type=type_hints["upstream_registry_url"])
@@ -5887,7 +5873,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd0032779911f1051b3896f001118256f2cbf0d060b22c10b5fdeb3b3e488c73)
+                type_hints = cached_type_hints(_typecheckingstub__bd0032779911f1051b3896f001118256f2cbf0d060b22c10b5fdeb3b3e488c73)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5935,7 +5921,7 @@ class CfnWorkflowVersion(
             self,
             *,
             description: typing.Optional[builtins.str] = None,
-            optional: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            optional: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A workflow parameter.
 
@@ -5957,7 +5943,7 @@ class CfnWorkflowVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3d434101b6df92e22ac3acf923cd7bb4105c1a82dad119b383839a4f14189485)
+                type_hints = cached_type_hints(_typecheckingstub__3d434101b6df92e22ac3acf923cd7bb4105c1a82dad119b383839a4f14189485)
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument optional", value=optional, expected_type=type_hints["optional"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5978,13 +5964,13 @@ class CfnWorkflowVersion(
         @builtins.property
         def optional(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether the parameter is optional.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-workflowversion-workflowparameter.html#cfn-omics-workflowversion-workflowparameter-optional
             '''
             result = self._values.get("optional")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6030,14 +6016,14 @@ class CfnWorkflowVersionProps:
         version_name: builtins.str,
         workflow_id: builtins.str,
         accelerators: typing.Optional[builtins.str] = None,
-        container_registry_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_registry_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.ContainerRegistryMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         container_registry_map_uri: typing.Optional[builtins.str] = None,
-        definition_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.DefinitionRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_uri: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         main: typing.Optional[builtins.str] = None,
-        parameter_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowVersion.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameter_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowVersion.WorkflowParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         parameter_template_path: typing.Optional[builtins.str] = None,
         readme_markdown: typing.Optional[builtins.str] = None,
         readme_path: typing.Optional[builtins.str] = None,
@@ -6129,7 +6115,7 @@ class CfnWorkflowVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32259ddc7b7d888918efaf09deb63ba780f3721ec1da9ea606ed8100a4b9fb3e)
+            type_hints = cached_type_hints(_typecheckingstub__32259ddc7b7d888918efaf09deb63ba780f3721ec1da9ea606ed8100a4b9fb3e)
             check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
             check_type(argname="argument workflow_id", value=workflow_id, expected_type=type_hints["workflow_id"])
             check_type(argname="argument accelerators", value=accelerators, expected_type=type_hints["accelerators"])
@@ -6219,7 +6205,7 @@ class CfnWorkflowVersionProps:
     @builtins.property
     def container_registry_map(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ContainerRegistryMapProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ContainerRegistryMapProperty"]]:
         '''Use a container registry map to specify mappings between the ECR private repository and one or more upstream registries.
 
         For more information, see `Container images <https://docs.aws.amazon.com/omics/latest/dev/workflows-ecr.html>`_ in the *AWS HealthOmics User Guide* .
@@ -6227,7 +6213,7 @@ class CfnWorkflowVersionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflowversion.html#cfn-omics-workflowversion-containerregistrymap
         '''
         result = self._values.get("container_registry_map")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.ContainerRegistryMapProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.ContainerRegistryMapProperty"]], result)
 
     @builtins.property
     def container_registry_map_uri(self) -> typing.Optional[builtins.str]:
@@ -6240,13 +6226,13 @@ class CfnWorkflowVersionProps:
     @builtins.property
     def definition_repository(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.DefinitionRepositoryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.DefinitionRepositoryProperty"]]:
         '''Contains information about a source code repository that hosts the workflow definition files.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflowversion.html#cfn-omics-workflowversion-definitionrepository
         '''
         result = self._values.get("definition_repository")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.DefinitionRepositoryProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.DefinitionRepositoryProperty"]], result)
 
     @builtins.property
     def definition_uri(self) -> typing.Optional[builtins.str]:
@@ -6284,12 +6270,12 @@ class CfnWorkflowVersionProps:
     @builtins.property
     def parameter_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.WorkflowParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.WorkflowParameterProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflowversion.html#cfn-omics-workflowversion-parametertemplate
         '''
         result = self._values.get("parameter_template")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWorkflowVersion.WorkflowParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowVersion.WorkflowParameterProperty"]]]], result)
 
     @builtins.property
     def parameter_template_path(self) -> typing.Optional[builtins.str]:
@@ -6406,16 +6392,16 @@ def _typecheckingstub__ba5dcb906702f10b4a247a16c504ec605912264b052a73f0ae664d93b
     name: builtins.str,
     store_format: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    store_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.StoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    store_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.StoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d081c3f84956f6e383e1daee886fd75ec67836196a107b0828cceab885d95c55(
-    resource: _IAnnotationStoreRef_c33c98b4,
+    resource: _aws_omics_49f0f1b2.IAnnotationStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6435,7 +6421,7 @@ def _typecheckingstub__9e5f634e0e551a9001147ebab16825824c6f25bedd18bb12f684ba868
     pass
 
 def _typecheckingstub__3d66bbde88d332dceb0812bb6bbf08c2418490d8b0e9774a97971a3b895f48b8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6465,19 +6451,19 @@ def _typecheckingstub__9bf53e865a22afeab85ecdb04fcf364678cf903b5624472147bf80f81
     pass
 
 def _typecheckingstub__59c0d69a72a95b731117630b98efd8729539c64fef15303dab4addb9eae6ffa4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnnotationStore.ReferenceItemProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnnotationStore.ReferenceItemProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5edec3d71b0ff38cdce6ec8a872457ab8f95894314688d3b059e6b2fd20a3c07(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnnotationStore.SseConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnnotationStore.SseConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2e84dfea35f835d11c086ac495c8e1952da55b4069d246ca2b527bb2a7655e94(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnnotationStore.StoreOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnnotationStore.StoreOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6505,7 +6491,7 @@ def _typecheckingstub__30b0283b46d5b34e1109c108b303d6ab3e549e041b5482192ec0ef37b
 
 def _typecheckingstub__68b9968e466757cfc2e4ee7eb053201b466a44d185aa6082edce78e859f4f489(
     *,
-    tsv_store_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.TsvStoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    tsv_store_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.TsvStoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6513,7 +6499,7 @@ def _typecheckingstub__68b9968e466757cfc2e4ee7eb053201b466a44d185aa6082edce78e85
 def _typecheckingstub__14b0c73be5d34083c239713770a8134020bc8cab75d4b0a1a82a28463074bb3d(
     *,
     annotation_type: typing.Optional[builtins.str] = None,
-    format_to_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    format_to_header: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     schema: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -6524,9 +6510,9 @@ def _typecheckingstub__db27a54e4b1e96ecf8263cf950eaa96b8620641082ddea726be734d30
     name: builtins.str,
     store_format: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    store_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.StoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    store_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnnotationStore.StoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6537,7 +6523,7 @@ def _typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e4972599
     id: builtins.str,
     *,
     name: builtins.str,
-    run_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    run_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -6545,7 +6531,7 @@ def _typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e4972599
     pass
 
 def _typecheckingstub__e53a9324baca4d137958281e4e4cc4621eaadab75d8a0d0beba0710fbed552c7(
-    resource: _IConfigurationRef_ce2c89fe,
+    resource: _aws_omics_49f0f1b2.IConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6557,7 +6543,7 @@ def _typecheckingstub__26e6dec79dbb018f73bb6b8013dcdbc6e24f212df62f041cffd886cff
     pass
 
 def _typecheckingstub__49fd8e42b090439d3158c78b30d89cd22cd586ddbb507019daa4a623dc770acf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6575,7 +6561,7 @@ def _typecheckingstub__f607ddac63b10850ad7058b02727ecb5c77eed8a13da317f43b79292e
     pass
 
 def _typecheckingstub__98aec16a2a53d88d5a20a91967c18fcd8b0c90375e3e2f2ab16c39835745a615(
-    value: typing.Union[_IResolvable_da3f097b, CfnConfiguration.RunConfigurationsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfiguration.RunConfigurationsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6594,7 +6580,7 @@ def _typecheckingstub__b4c66eeb9250c940ed0ad145bf9c1f5e0acecd22e8b9fe2d60933b2d3
 
 def _typecheckingstub__cc870135f8edf3aa7957db4360d70f8de8b091e3217f53aad7cbe4ee2460d946(
     *,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguration.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6610,7 +6596,7 @@ def _typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4
 def _typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330afdf382(
     *,
     name: builtins.str,
-    run_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    run_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -6623,14 +6609,14 @@ def _typecheckingstub__e38c503967033ff76d3e45880727cc62a1df749cb0aac8298f6d06d14
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReferenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReferenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__183bf8595aa4fa216452da5239ca1639a58401e756cb23717c36ec75daa0a396(
-    resource: _IReferenceStoreRef_e44b493e,
+    resource: _aws_omics_49f0f1b2.IReferenceStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6658,7 +6644,7 @@ def _typecheckingstub__37cb4b310cd2f37468be221e1f8c07466a5f9c1031fbf8c2b24f0722a
     pass
 
 def _typecheckingstub__1d75805be97b46dc8c38477db9eef63661d2478cb95cd31687daa2a21a351dfd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6682,7 +6668,7 @@ def _typecheckingstub__c89d0da98832090d35c5574aec7e23cd54990b36f1507999a687aed1e
     pass
 
 def _typecheckingstub__63bf4a022de72dc8d560891710d6dee497173e638e81419fd5d8b3c20d9a650b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnReferenceStore.SseConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReferenceStore.SseConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6705,7 +6691,7 @@ def _typecheckingstub__1fa5ddefbb60b1902a7a8a0da56893c57cde7f27eb458a6b71907aad7
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReferenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReferenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6726,7 +6712,7 @@ def _typecheckingstub__5d92bdf2175b79063decd2ff3bbf2745e423b61fa98f3bf6b832b7632
     pass
 
 def _typecheckingstub__db1a82ee01daefb6257f7e73e38ab5b5e98e001181ab9869f5d6dd18e3cc3993(
-    resource: _IRunGroupRef_937b5363,
+    resource: _aws_omics_49f0f1b2.IRunGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6738,7 +6724,7 @@ def _typecheckingstub__a98b2a8d393a5018138cf8c7c78a10435f63b2eea12b677df4c77fca4
     pass
 
 def _typecheckingstub__34a9f76d09fa73ea3c0c86debaea039d1ecfeb5a751151276cc0002d8d2737c1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6808,14 +6794,14 @@ def _typecheckingstub__a589aadb7c598845d5e4c6ef138fe8cbeb7253209ba9eb0e5e590611e
     fallback_location: typing.Optional[builtins.str] = None,
     propagated_set_level_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     s3_access_policy: typing.Any = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSequenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSequenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f9a735aaa47b911b08cfd5af5019bd48d4f4d14bcdffa2fef80322b11f850d47(
-    resource: _ISequenceStoreRef_d8ce7b6b,
+    resource: _aws_omics_49f0f1b2.ISequenceStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6843,7 +6829,7 @@ def _typecheckingstub__5d2570829ea1706cde1490e1a50299861f8a0479fe93d29fc4d8c19b4
     pass
 
 def _typecheckingstub__ea9a45fe9e84d5319386c1a777f6361e3fed5c916c543c8964323b54759ee470(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6897,7 +6883,7 @@ def _typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a5
     pass
 
 def _typecheckingstub__92eed2332efa6d161a72ca8ae646e24cacee45f7acbbbb2e0aacb4b034c468be(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSequenceStore.SseConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSequenceStore.SseConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6925,7 +6911,7 @@ def _typecheckingstub__c912afa5be2bea750b085186b08f53bd688bc0a1dd08b1f1c6951a210
     fallback_location: typing.Optional[builtins.str] = None,
     propagated_set_level_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     s3_access_policy: typing.Any = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSequenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSequenceStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6936,16 +6922,16 @@ def _typecheckingstub__6d38872c12590b13122bc23c110efd40d1aa8369a37e1015fcc0ee252
     id: builtins.str,
     *,
     name: builtins.str,
-    reference: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVariantStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]],
+    reference: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVariantStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVariantStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVariantStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9b7a9767f78947b0511605022e00727fbf04af579b424576a2d6c01b31b28ba8(
-    resource: _IVariantStoreRef_49e3cae7,
+    resource: _aws_omics_49f0f1b2.IVariantStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6965,7 +6951,7 @@ def _typecheckingstub__491360ac38318f0cc89b8ce7f0ac1b68853729c931ed3c5f800ae95f9
     pass
 
 def _typecheckingstub__8ca6bc97e153eee8b1d732a90be1690a35fffe864b7b05aaaac9e52711640fed(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6983,7 +6969,7 @@ def _typecheckingstub__4a7151068f14ce10b8b0f9147b1e5b5afd6f6b7308067934acd8af16a
     pass
 
 def _typecheckingstub__088cb3f651ad7a064e751c97def87bcf2e6e4149c7bcf54b57474d4b8b7d1b6d(
-    value: typing.Union[_IResolvable_da3f097b, CfnVariantStore.ReferenceItemProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVariantStore.ReferenceItemProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6995,7 +6981,7 @@ def _typecheckingstub__5b58e2ea0e9ae60ac9a3dd7935556c2d0e2dfe3ff2de0f2ef79c50a0f
     pass
 
 def _typecheckingstub__14ca86abdbf91bcd47e50c693a441fd60292ffbe1b4f732e112498a42712d29e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVariantStore.SseConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVariantStore.SseConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7024,9 +7010,9 @@ def _typecheckingstub__151f006e709dbecd4ae7c2469b6d65397d70b22812c239977c3f33944
 def _typecheckingstub__9cee3839b5919ab156aab54490277c559d790311fd9ea2b761f99373fdb7eaec(
     *,
     name: builtins.str,
-    reference: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVariantStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]],
+    reference: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVariantStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVariantStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVariantStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7037,15 +7023,15 @@ def _typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9
     id: builtins.str,
     *,
     accelerators: typing.Optional[builtins.str] = None,
-    container_registry_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_registry_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_registry_map_uri: typing.Optional[builtins.str] = None,
-    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     parameter_template_path: typing.Optional[builtins.str] = None,
     readme_markdown: typing.Optional[builtins.str] = None,
     readme_path: typing.Optional[builtins.str] = None,
@@ -7059,7 +7045,7 @@ def _typecheckingstub__b2d05cb293836959a925b22dbe1861bc4457d2d510bd3a480ae858ea9
     pass
 
 def _typecheckingstub__67df20aaeaafc046258133711462983b03f7d276f5db7702f3acf0f303341182(
-    resource: _IWorkflowRef_c34b3fa1,
+    resource: _aws_omics_49f0f1b2.IWorkflowRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7071,7 +7057,7 @@ def _typecheckingstub__85eaacf4591f2168dc63862126dd9dd0579c6fdfc3c94bffdd6d2a411
     pass
 
 def _typecheckingstub__98655701238267dcfc2598ca58d2fdf3b94be0fdd6d36c6407b8c9216e530168(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7089,7 +7075,7 @@ def _typecheckingstub__286f71b00d1993ebc792c6e260606dac95cf17ec599b45b4cb2111b4c
     pass
 
 def _typecheckingstub__d61321fc4a694dded60b8fceeeafd83e9ae3f79a0329bdba98cd03787f3daa3c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.ContainerRegistryMapProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.ContainerRegistryMapProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7101,7 +7087,7 @@ def _typecheckingstub__1466a9fdbdff03b1c7b3fd5e72f7386ca160db487d501609519ca1c35
     pass
 
 def _typecheckingstub__6b6e4242f1457a50b9f5b17595e8985df9311b3b5ec98f525f390f9387770415(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.DefinitionRepositoryProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.DefinitionRepositoryProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7137,7 +7123,7 @@ def _typecheckingstub__b6845f053d191fb8caa10b651afe2128f50703f821981813813ed0bb9
     pass
 
 def _typecheckingstub__cd71f853b8475a5b472d76bce0cd20afc1269357412bdaa83e29ea355af8f64b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowParameterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.WorkflowParameterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7192,8 +7178,8 @@ def _typecheckingstub__fec2ca5e32cee87eaac65d878c60669f18bb90724ac13ab05f21221eb
 
 def _typecheckingstub__b93208b886c42793f6b22971c79ed50b456a125a28fedf2949548b0a03f82c3e(
     *,
-    image_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.ImageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    registry_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.RegistryMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    image_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.ImageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    registry_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.RegistryMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7203,7 +7189,7 @@ def _typecheckingstub__a3c23b09e8f18584c69d282b6816697f2992e22dbf81773246b66875f
     connection_arn: typing.Optional[builtins.str] = None,
     exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     full_repository_id: typing.Optional[builtins.str] = None,
-    source_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.SourceReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.SourceReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7237,7 +7223,7 @@ def _typecheckingstub__f4e57d9f64919c2d451cd965846e1f5ee2aa3404611459632e4dd2699
 def _typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a694580a5(
     *,
     description: typing.Optional[builtins.str] = None,
-    optional: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    optional: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7245,15 +7231,15 @@ def _typecheckingstub__beb0e924d2102ff644fd2da920cdd60f013b66e8285db8ffc0ce774a6
 def _typecheckingstub__09bedca50200dd06a4bbe4bb6135e76dacff76287249f3d28b8f285f8205f173(
     *,
     accelerators: typing.Optional[builtins.str] = None,
-    container_registry_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_registry_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_registry_map_uri: typing.Optional[builtins.str] = None,
-    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     parameter_template_path: typing.Optional[builtins.str] = None,
     readme_markdown: typing.Optional[builtins.str] = None,
     readme_path: typing.Optional[builtins.str] = None,
@@ -7273,14 +7259,14 @@ def _typecheckingstub__f9bbd83c3821b6d01e1b0445c2a66c0e7c312d81583ae6cf8dbe78c8d
     version_name: builtins.str,
     workflow_id: builtins.str,
     accelerators: typing.Optional[builtins.str] = None,
-    container_registry_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_registry_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_registry_map_uri: typing.Optional[builtins.str] = None,
-    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
-    parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     parameter_template_path: typing.Optional[builtins.str] = None,
     readme_markdown: typing.Optional[builtins.str] = None,
     readme_path: typing.Optional[builtins.str] = None,
@@ -7294,7 +7280,7 @@ def _typecheckingstub__f9bbd83c3821b6d01e1b0445c2a66c0e7c312d81583ae6cf8dbe78c8d
     pass
 
 def _typecheckingstub__ba9428a8b7901e336eeab6247d137358ee9bc60145cd3f57cd9d69410752a02c(
-    resource: _IWorkflowVersionRef_8e877e7d,
+    resource: _aws_omics_49f0f1b2.IWorkflowVersionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7306,7 +7292,7 @@ def _typecheckingstub__6c7054b8c2aebdab065713b2bf74644dd2b89b4b92f0f3161c76b3b26
     pass
 
 def _typecheckingstub__1a7de38e00c231b3afd92bbb59cad40657b334333096dde12413f391ade16867(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7336,7 +7322,7 @@ def _typecheckingstub__b69952a53a68976751566fbcf17774d0dfa2d7ede106cb440b751f76c
     pass
 
 def _typecheckingstub__46a9bb90d987260f113e2b2c7bfe0d00e76229ce25afbfccf1a386b82f85e224(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflowVersion.ContainerRegistryMapProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflowVersion.ContainerRegistryMapProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7348,7 +7334,7 @@ def _typecheckingstub__65acb20ad98b8b631169a3db99c88bd3662a7e2bd947577b5265d087e
     pass
 
 def _typecheckingstub__76f88fb7dbfba72f92fec4a64878a9e7fdd595353c2e76e5f675a9f318a5b5e6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflowVersion.DefinitionRepositoryProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflowVersion.DefinitionRepositoryProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7378,7 +7364,7 @@ def _typecheckingstub__bb201e46965fe4b385e0e52f84a505023c34c0c16c33aea7e75a09209
     pass
 
 def _typecheckingstub__909f80095cd6043c196e37a387a0f1f32bfcddcd8f9a81c5e8f5ac8b4874faa9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnWorkflowVersion.WorkflowParameterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflowVersion.WorkflowParameterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7433,8 +7419,8 @@ def _typecheckingstub__bc6b06c168132bf54bf849b9d49774230af45a049e67f52bc48dd0220
 
 def _typecheckingstub__32eb3bf30b3d01f44e56bdf643f62609b8cbc84d473cb19e3564543b645033d4(
     *,
-    image_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.ImageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    registry_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.RegistryMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    image_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.ImageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    registry_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.RegistryMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7444,7 +7430,7 @@ def _typecheckingstub__e0748aa0fb5a9a9d624696b0fc54ab2faf0941992918eb234ba6c3bb4
     connection_arn: typing.Optional[builtins.str] = None,
     exclude_file_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     full_repository_id: typing.Optional[builtins.str] = None,
-    source_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.SourceReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.SourceReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7478,7 +7464,7 @@ def _typecheckingstub__bd0032779911f1051b3896f001118256f2cbf0d060b22c10b5fdeb3b3
 def _typecheckingstub__3d434101b6df92e22ac3acf923cd7bb4105c1a82dad119b383839a4f14189485(
     *,
     description: typing.Optional[builtins.str] = None,
-    optional: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    optional: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7488,14 +7474,14 @@ def _typecheckingstub__32259ddc7b7d888918efaf09deb63ba780f3721ec1da9ea606ed8100a
     version_name: builtins.str,
     workflow_id: builtins.str,
     accelerators: typing.Optional[builtins.str] = None,
-    container_registry_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_registry_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.ContainerRegistryMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_registry_map_uri: typing.Optional[builtins.str] = None,
-    definition_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.DefinitionRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     definition_uri: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     main: typing.Optional[builtins.str] = None,
-    parameter_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowVersion.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowVersion.WorkflowParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     parameter_template_path: typing.Optional[builtins.str] = None,
     readme_markdown: typing.Optional[builtins.str] = None,
     readme_path: typing.Optional[builtins.str] = None,

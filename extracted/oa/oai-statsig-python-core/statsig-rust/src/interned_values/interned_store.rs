@@ -22,8 +22,8 @@ use rkyv::{
     rancor::{Fallible, Source},
     ser::{Allocator, Writer},
     string::ArchivedString,
-    with::{ArchiveWith, DeserializeWith, Identity, SerializeWith, Unshare, With},
-    Archive, Deserialize as RkyvDeserialize, Place, Serialize as RkyvSerialize,
+    with::{ArchiveWith, DeserializeWith, SerializeWith, With},
+    Archive, Place, Serialize as RkyvSerialize,
 };
 use serde_json::value::RawValue;
 
@@ -52,9 +52,13 @@ use crate::{
 
 use super::mmap_data_v2::ArchivedMmapEvaluatorValue;
 
+mod mmap_artifact;
 mod mmap_manifest;
 mod mmap_reader;
 mod mmap_writer;
+
+pub use mmap_artifact::{MmapArtifactSnapshot, MmapArtifactState};
+pub use mmap_reader::MmapReaderMemorySnapshot;
 
 use mmap_manifest::open_committed_mmap_v2;
 #[cfg(all(test, any(unix, windows)))]
@@ -74,7 +78,28 @@ pub(crate) use mmap_writer::{acquire_mmap_write_lock_for_test, write_mmap_v2_for
 
 const TAG: &str = "InternedStore";
 const MMAP_DIRECTORY: &str = "statsig-interned-store";
+pub(crate) const LEGACY_MMAP_FORMAT_VERSION: u32 = 1;
 const WEAK_STORE_SWEEP_INTERVAL: usize = 4096;
+
+/// Controls optional work performed while installing an interned mmap reader.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct MmapPreloadOptions {
+    /// Precompute stable hashes for archived JSON returnables.
+    ///
+    /// This trades preload CPU and process heap for predictable checksum-enabled
+    /// GCIR latency. It does not change the mmap artifact and is disabled by
+    /// default.
+    pub precompute_returnable_stable_hashes: bool,
+}
+
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MmapPreloadReport {
+    /// Format version of the artifact validated and installed by the reader.
+    pub format_version: u32,
+    /// Number of artifacts installed. This is one for the single-key reader.
+    pub loaded: usize,
+}
 
 static IMMORTAL_DATA: OnceLock<ImmortalData> = OnceLock::new();
 static MMAP_EVALUATOR_OVERRIDE_EXISTS: AtomicBool = AtomicBool::new(false);
@@ -198,8 +223,8 @@ impl<T> MutableStore<T> {
     }
 }
 
-// Archives the compact live-entry vector directly as the existing V1
-// ArchivedHashMap layout, avoiding an intermediate owned hash table and rehash.
+// Archives compact live-entry vectors directly as ArchivedHashMaps, avoiding
+// intermediate owned hash tables and rehashing.
 pub(super) struct MapKVVec<A, B>(PhantomData<(A, B)>);
 
 struct WithKey<'a, K, A> {
@@ -319,65 +344,6 @@ where
     }
 }
 
-#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
-pub(crate) struct MmapDataV1 {
-    format_version: u32,
-    #[rkyv(with = MapKVVec<Identity, Unshare>)]
-    strings: Vec<(u64, Arc<String>)>,
-    #[rkyv(with = MapKVVec<Identity, Unshare>)]
-    returnables: Vec<(u64, Arc<HashMap<String, RkyvValue>>)>,
-}
-
-impl MmapDataV1 {
-    // Create MmapDataV2 and increment this when the archived layout or
-    // serialization semantics change.
-    pub(crate) const FORMAT_VERSION: u32 = 1;
-
-    #[cfg(test)]
-    pub(crate) fn empty_with_format_version(format_version: u32) -> Self {
-        Self {
-            format_version,
-            strings: Vec::new(),
-            returnables: Vec::new(),
-        }
-    }
-}
-
-impl ArchivedMmapDataV1 {
-    pub(crate) fn format_version(&self) -> u32 {
-        self.format_version.to_native()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn string_for_test(&self, hash: u64) -> Option<&str> {
-        let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-        self.strings.get(&archived_hash).map(|value| value.as_str())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn returnable_for_test(&self, hash: u64, key: &str) -> Option<&ArchivedRkyvValue> {
-        let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-        self.returnables.get(&archived_hash)?.get(key)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn find_returnable_value_for_test(&self, key: &str) -> Option<&ArchivedRkyvValue> {
-        self.returnables
-            .iter()
-            .find_map(|(_, returnable)| returnable.get(key))
-    }
-}
-
-impl Default for MmapDataV1 {
-    fn default() -> Self {
-        Self {
-            format_version: Self::FORMAT_VERSION,
-            strings: Vec::new(),
-            returnables: Vec::new(),
-        }
-    }
-}
-
 /// Immortal vs Mutable Data
 /// ------------------------------------------------------------
 /// -`ImmortalData` is static and never changes. It will only exist if a successful call to `preload` is made. It is intentionally
@@ -447,7 +413,7 @@ impl InternedStore {
         Ok(())
     }
 
-    /// Publishes compatible V1 and V2 mmap artifacts selected by `sdk_key`.
+    /// Publishes a V2 mmap artifact selected by `sdk_key`.
     ///
     /// On Unix, the finalized artifact is atomically published with mode `0644`
     /// so readers with unrelated UIDs can consume a read-only shared mount.
@@ -515,7 +481,6 @@ impl InternedStore {
         let result = write_mmap_artifacts(
             &mut response.data,
             previous,
-            &mmap_path_for_sdk_key(sdk_key),
             &mmap_v2_path_for_sdk_key(sdk_key),
             &mmap_manifest_path_for_sdk_key(sdk_key),
         );
@@ -528,20 +493,48 @@ impl InternedStore {
     }
 
     pub fn preload_mmap(sdk_key: &str) -> Result<(), StatsigErr> {
-        let v1_path = mmap_path_for_sdk_key(sdk_key);
+        Self::preload_mmap_with_options(sdk_key, &MmapPreloadOptions::default()).map(|_| ())
+    }
+
+    /// Reports memory accounting for the currently loaded mmap reader.
+    ///
+    /// Returns `None` before a reader has been installed. Linux reports RSS,
+    /// PSS, private dirty, deleted mapping bytes, and VMA segment count for the
+    /// exact retained mapping by reading `/proc/self/smaps`, so callers should
+    /// sample infrequently. Other platforms leave those optional fields unset.
+    pub fn mmap_reader_memory_snapshot() -> Result<Option<MmapReaderMemorySnapshot>, StatsigErr> {
+        mmap_reader::memory_snapshot()
+    }
+
+    /// Preloads the committed artifact with optional eager reader work and
+    /// reports the selected compatibility-reader format.
+    pub fn preload_mmap_with_options(
+        sdk_key: &str,
+        options: &MmapPreloadOptions,
+    ) -> Result<MmapPreloadReport, StatsigErr> {
         let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-        if let Some(v2_file) = open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)? {
-            return mmap_reader::preload_v2_file(v2_file);
-        }
-
-        mmap_reader::preload_v1(&v1_path)
+        let v2_file = open_committed_mmap_v2(
+            &manifest_path,
+            &legacy_mmap_v1_path_for_sdk_key(sdk_key),
+            &v2_path,
+        )?
+        .ok_or_else(|| {
+            StatsigErr::InvalidOperation(
+                "No committed interned mmap V2 artifact was found".to_string(),
+            )
+        })?;
+        mmap_reader::preload_v2_file(v2_file, options)?;
+        Ok(MmapPreloadReport {
+            format_version: super::mmap_data_v2::MmapDataV2::FORMAT_VERSION,
+            loaded: 1,
+        })
     }
 }
 
 #[cfg(test)]
 pub(crate) fn preload_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
-    mmap_reader::preload_v2(path)
+    mmap_reader::preload_v2(path, &MmapPreloadOptions::default())
 }
 
 #[cfg(test)]
@@ -549,8 +542,8 @@ pub(crate) fn validate_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
     mmap_reader::validate_v2(path)
 }
 
-pub(crate) fn mmap_path_for_sdk_key(sdk_key: &str) -> PathBuf {
-    mmap_path_for_sdk_key_version(sdk_key, MmapDataV1::FORMAT_VERSION)
+pub(crate) fn legacy_mmap_v1_path_for_sdk_key(sdk_key: &str) -> PathBuf {
+    mmap_path_for_sdk_key_version(sdk_key, 1)
 }
 
 pub(crate) fn mmap_v2_path_for_sdk_key(sdk_key: &str) -> PathBuf {
@@ -578,6 +571,10 @@ fn mmap_path_for_sdk_key_version(sdk_key: &str, version: u32) -> PathBuf {
 }
 
 impl InternedStore {
+    pub(crate) fn get_mmap_returnable_stable_hash(hash: u64) -> Option<u64> {
+        mmap_reader::get_returnable_stable_hash(hash)
+    }
+
     pub fn get_or_intern_string<T: AsRef<str> + ToString>(value: T) -> InternedString {
         let hash = hashing::hash_one(value.as_ref().as_bytes());
 

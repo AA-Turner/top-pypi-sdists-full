@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rarfile
-Version: 4.3
+Version: 4.4
 Summary: RAR archive reader for Python
 Home-page: https://github.com/markokr/rarfile
 Author: Marko Kreen
@@ -16,6 +16,16 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression
 Requires-Python: >=3.10
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 rarfile - RAR archive reader for Python
 =======================================
@@ -57,7 +67,7 @@ Backends:
 |             |                      | * Does not support RAR2 locked files.               |
 |             |                      | * Does not support RAR5 Blake2 hash checking.       |
 +-------------+----------------------+-----------------------------------------------------+
-| 7zip_       | Supported            | * RAR support not available on Debian/Ubuntu repos. |
+| 7zip_       | Supported            | * Requires ``7zip-rar`` package on Debian/Ubuntu.   |
 +-------------+----------------------+-----------------------------------------------------+
 | p7zip_      | Supported            | * Unmaintained?                                     |
 |             |                      | * Requires ``p7zip-rar`` package on Debian/Ubuntu.  |

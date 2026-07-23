@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class AliasReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81545cc04bebd1b6f40300f3243d262a46f42800620f495f5a38d3781e273702)
+            type_hints = cached_type_hints(_typecheckingstub__81545cc04bebd1b6f40300f3243d262a46f42800620f495f5a38d3781e273702)
             check_type(argname="argument alias_arn", value=alias_arn, expected_type=type_hints["alias_arn"])
             check_type(argname="argument alias_id", value=alias_id, expected_type=type_hints["alias_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -120,7 +124,7 @@ class BuildReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e39afd357979864cdb0a0e965025e9600edb7d1d723c5d80bd567e33674e4ad4)
+            type_hints = cached_type_hints(_typecheckingstub__e39afd357979864cdb0a0e965025e9600edb7d1d723c5d80bd567e33674e4ad4)
             check_type(argname="argument build_arn", value=build_arn, expected_type=type_hints["build_arn"])
             check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -180,7 +184,7 @@ class ContainerFleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16c358839d20499f02bc5631233f96eaee22a25eb9ec5256f6a4d30651735d82)
+            type_hints = cached_type_hints(_typecheckingstub__16c358839d20499f02bc5631233f96eaee22a25eb9ec5256f6a4d30651735d82)
             check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -248,7 +252,7 @@ class ContainerGroupDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c4025f74a8de88eb68bdfa436229cb4bd5b891982aea5a4f8f68d5c1b15ba09)
+            type_hints = cached_type_hints(_typecheckingstub__4c4025f74a8de88eb68bdfa436229cb4bd5b891982aea5a4f8f68d5c1b15ba09)
             check_type(argname="argument container_group_definition_arn", value=container_group_definition_arn, expected_type=type_hints["container_group_definition_arn"])
             check_type(argname="argument container_group_definition_name", value=container_group_definition_name, expected_type=type_hints["container_group_definition_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -308,7 +312,7 @@ class FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a0761deedfe27c2952d83b765671e1f2d64083fd6d00eeb8fa9cdcc6666860)
+            type_hints = cached_type_hints(_typecheckingstub__14a0761deedfe27c2952d83b765671e1f2d64083fd6d00eeb8fa9cdcc6666860)
             check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -366,7 +370,7 @@ class GameServerGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eed49d51771b830d643a4e4ffadaabeece46b2073ce63973239c01c9ae06f8b9)
+            type_hints = cached_type_hints(_typecheckingstub__eed49d51771b830d643a4e4ffadaabeece46b2073ce63973239c01c9ae06f8b9)
             check_type(argname="argument game_server_group_arn", value=game_server_group_arn, expected_type=type_hints["game_server_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "game_server_group_arn": game_server_group_arn,
@@ -425,7 +429,7 @@ class GameSessionQueueReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaba6b78f225d34505e094f1ef37186fa6df83a00d620b1928d86b244926c808)
+            type_hints = cached_type_hints(_typecheckingstub__aaba6b78f225d34505e094f1ef37186fa6df83a00d620b1928d86b244926c808)
             check_type(argname="argument game_session_queue_arn", value=game_session_queue_arn, expected_type=type_hints["game_session_queue_arn"])
             check_type(argname="argument game_session_queue_name", value=game_session_queue_name, expected_type=type_hints["game_session_queue_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -462,7 +466,7 @@ class GameSessionQueueReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IAliasRef")
 class IAliasRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alias.
@@ -482,7 +486,7 @@ class IAliasRef(
 
 class _IAliasRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alias.
 
@@ -507,7 +511,7 @@ typing.cast(typing.Any, IAliasRef).__jsii_proxy_class__ = lambda : _IAliasRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IBuildRef")
 class IBuildRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Build.
@@ -527,7 +531,7 @@ class IBuildRef(
 
 class _IBuildRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Build.
 
@@ -552,7 +556,7 @@ typing.cast(typing.Any, IBuildRef).__jsii_proxy_class__ = lambda : _IBuildRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IContainerFleetRef")
 class IContainerFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerFleet.
@@ -572,7 +576,7 @@ class IContainerFleetRef(
 
 class _IContainerFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerFleet.
 
@@ -599,7 +603,7 @@ typing.cast(typing.Any, IContainerFleetRef).__jsii_proxy_class__ = lambda : _ICo
 )
 class IContainerGroupDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerGroupDefinition.
@@ -619,7 +623,7 @@ class IContainerGroupDefinitionRef(
 
 class _IContainerGroupDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerGroupDefinition.
 
@@ -644,7 +648,7 @@ typing.cast(typing.Any, IContainerGroupDefinitionRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IFleetRef")
 class IFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
@@ -664,7 +668,7 @@ class IFleetRef(
 
 class _IFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
 
@@ -689,7 +693,7 @@ typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IGameServerGroupRef")
 class IGameServerGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GameServerGroup.
@@ -709,7 +713,7 @@ class IGameServerGroupRef(
 
 class _IGameServerGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GameServerGroup.
 
@@ -734,7 +738,7 @@ typing.cast(typing.Any, IGameServerGroupRef).__jsii_proxy_class__ = lambda : _IG
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IGameSessionQueueRef")
 class IGameSessionQueueRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GameSessionQueue.
@@ -754,7 +758,7 @@ class IGameSessionQueueRef(
 
 class _IGameSessionQueueRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GameSessionQueue.
 
@@ -779,7 +783,7 @@ typing.cast(typing.Any, IGameSessionQueueRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.ILocationRef")
 class ILocationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Location.
@@ -799,7 +803,7 @@ class ILocationRef(
 
 class _ILocationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Location.
 
@@ -826,7 +830,7 @@ typing.cast(typing.Any, ILocationRef).__jsii_proxy_class__ = lambda : _ILocation
 )
 class IMatchmakingConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MatchmakingConfiguration.
@@ -846,7 +850,7 @@ class IMatchmakingConfigurationRef(
 
 class _IMatchmakingConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MatchmakingConfiguration.
 
@@ -871,7 +875,7 @@ typing.cast(typing.Any, IMatchmakingConfigurationRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IMatchmakingRuleSetRef")
 class IMatchmakingRuleSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MatchmakingRuleSet.
@@ -891,7 +895,7 @@ class IMatchmakingRuleSetRef(
 
 class _IMatchmakingRuleSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MatchmakingRuleSet.
 
@@ -916,7 +920,7 @@ typing.cast(typing.Any, IMatchmakingRuleSetRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_gamelift.IScriptRef")
 class IScriptRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Script.
@@ -936,7 +940,7 @@ class IScriptRef(
 
 class _IScriptRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Script.
 
@@ -989,7 +993,7 @@ class LocationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d38962f536753d3d7e3ec8c20ecce982e21a10ac85e69ccfd9291df9452cdb2b)
+            type_hints = cached_type_hints(_typecheckingstub__d38962f536753d3d7e3ec8c20ecce982e21a10ac85e69ccfd9291df9452cdb2b)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
             check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1057,7 +1061,7 @@ class MatchmakingConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__652b9e6286ea4f923689b277ca538ac65edf1d5dec9f15e4e817dd492c877e95)
+            type_hints = cached_type_hints(_typecheckingstub__652b9e6286ea4f923689b277ca538ac65edf1d5dec9f15e4e817dd492c877e95)
             check_type(argname="argument matchmaking_configuration_arn", value=matchmaking_configuration_arn, expected_type=type_hints["matchmaking_configuration_arn"])
             check_type(argname="argument matchmaking_configuration_name", value=matchmaking_configuration_name, expected_type=type_hints["matchmaking_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1125,7 +1129,7 @@ class MatchmakingRuleSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ea758ab9c6c55fd32771d207aec1adbbafc4918621fb9f0331df1ff8d72b36e)
+            type_hints = cached_type_hints(_typecheckingstub__0ea758ab9c6c55fd32771d207aec1adbbafc4918621fb9f0331df1ff8d72b36e)
             check_type(argname="argument matchmaking_rule_set_arn", value=matchmaking_rule_set_arn, expected_type=type_hints["matchmaking_rule_set_arn"])
             check_type(argname="argument matchmaking_rule_set_name", value=matchmaking_rule_set_name, expected_type=type_hints["matchmaking_rule_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1185,7 +1189,7 @@ class ScriptReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e937f7ba8775875c3e775c0fe702df7d7e020dc7e88969fe496060f62e3c6094)
+            type_hints = cached_type_hints(_typecheckingstub__e937f7ba8775875c3e775c0fe702df7d7e020dc7e88969fe496060f62e3c6094)
             check_type(argname="argument script_arn", value=script_arn, expected_type=type_hints["script_arn"])
             check_type(argname="argument script_id", value=script_id, expected_type=type_hints["script_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

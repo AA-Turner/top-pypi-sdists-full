@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: subliminal
-Version: 2.7.0
+Version: 2.7.1
 Summary: Subtitles, faster than your thoughts
 Project-URL: homepage, https://github.com/Diaoul/subliminal
 Project-URL: repository, https://github.com/Diaoul/subliminal
@@ -55,6 +55,7 @@ Requires-Dist: rarfile>=2.7; extra == 'rar'
 Provides-Extra: tests
 Requires-Dist: colorama; extra == 'tests'
 Requires-Dist: coverage[toml]>=7; extra == 'tests'
+Requires-Dist: packaging; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
 Requires-Dist: pytest-xdist; extra == 'tests'
 Requires-Dist: pytest>=6.0; extra == 'tests'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.24
+Version: 0.25.25
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -67,7 +67,7 @@ Requires-Dist: pandas>=2.0.0
 Requires-Dist: sqlglot>=20.0
 Requires-Dist: numexpr==2.10.2
 Requires-Dist: faiss-cpu>=1.9.0
-Requires-Dist: navigator-eventbus>=0.1.0
+Requires-Dist: navigator-eventbus<0.2,>=0.1.0
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.4.2; extra == "notify-all"
 Provides-Extra: db
@@ -301,6 +301,7 @@ Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
 Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
 Requires-Dist: ruff>=0.4; extra == "dev"
+Requires-Dist: hypothesis>=6.100; extra == "dev"
 Provides-Extra: remote-tools
 Requires-Dist: kubernetes_asyncio>=29.0.0; extra == "remote-tools"
 Requires-Dist: aiodocker>=0.24.0; extra == "remote-tools"

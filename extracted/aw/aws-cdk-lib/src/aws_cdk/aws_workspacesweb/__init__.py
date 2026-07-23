@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,62 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_workspacesweb import (
-    BrowserSettingsReference as _BrowserSettingsReference_37e59681,
-    DataProtectionSettingsReference as _DataProtectionSettingsReference_3de93c3b,
-    IBrowserSettingsRef as _IBrowserSettingsRef_27fa755b,
-    IDataProtectionSettingsRef as _IDataProtectionSettingsRef_733dabd5,
-    IIdentityProviderRef as _IIdentityProviderRef_1989e7fb,
-    IIpAccessSettingsRef as _IIpAccessSettingsRef_5ce903cc,
-    INetworkSettingsRef as _INetworkSettingsRef_9fcb0139,
-    IPortalRef as _IPortalRef_cb17b713,
-    ISessionLoggerRef as _ISessionLoggerRef_0b36bc89,
-    ITrustStoreRef as _ITrustStoreRef_b3e9ed97,
-    IUserAccessLoggingSettingsRef as _IUserAccessLoggingSettingsRef_35b44bda,
-    IUserSettingsRef as _IUserSettingsRef_02671625,
-    IdentityProviderReference as _IdentityProviderReference_fb66eb46,
-    IpAccessSettingsReference as _IpAccessSettingsReference_456f1045,
-    NetworkSettingsReference as _NetworkSettingsReference_ed72cf7d,
-    PortalReference as _PortalReference_7c6ae828,
-    SessionLoggerReference as _SessionLoggerReference_21b78d4c,
-    TrustStoreReference as _TrustStoreReference_778699bf,
-    UserAccessLoggingSettingsReference as _UserAccessLoggingSettingsReference_b92d801e,
-    UserSettingsReference as _UserSettingsReference_9c05e0ee,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_workspacesweb as _aws_workspacesweb_947e28a2
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_workspacesweb_947e28a2 = _LazyImport("aws_cdk.interfaces.aws_workspacesweb")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IBrowserSettingsRef_27fa755b, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IBrowserSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBrowserSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnBrowserSettings",
 ):
@@ -145,11 +121,11 @@ class CfnBrowserSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         browser_policy: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        web_content_filtering_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserSettings.WebContentFilteringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_content_filtering_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBrowserSettings.WebContentFilteringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::BrowserSettings``.
 
@@ -162,7 +138,7 @@ class CfnBrowserSettings(
         :param web_content_filtering_policy: The policy that specifies which URLs end users are allowed to access or which URLs or domain categories they are restricted from accessing for enhanced security.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc041bb0f)
+            type_hints = cached_type_hints(_typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc041bb0f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBrowserSettingsProps(
@@ -179,13 +155,13 @@ class CfnBrowserSettings(
     @builtins.classmethod
     def arn_for_browser_settings(
         cls,
-        resource: "_IBrowserSettingsRef_27fa755b",
+        resource: "_aws_workspacesweb_947e28a2.IBrowserSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cd7bce9b40bf1170046b3a1be7953e06014e36c4c337f11899b6dbd61b72dce)
+            type_hints = cached_type_hints(_typecheckingstub__0cd7bce9b40bf1170046b3a1be7953e06014e36c4c337f11899b6dbd61b72dce)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBrowserSettings", [resource]))
 
@@ -197,18 +173,18 @@ class CfnBrowserSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eedad5eb955eda6279692890d7b7e558f10ad83bd3271e8fedc1750f1c8f85f8)
+            type_hints = cached_type_hints(_typecheckingstub__eedad5eb955eda6279692890d7b7e558f10ad83bd3271e8fedc1750f1c8f85f8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBrowserSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d4203cdc61a30c217fc2abe263c4776ac7f7dc3efdc691f65b8b0f98c469206)
+            type_hints = cached_type_hints(_typecheckingstub__7d4203cdc61a30c217fc2abe263c4776ac7f7dc3efdc691f65b8b0f98c469206)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -221,7 +197,7 @@ class CfnBrowserSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70bab862ee)
+            type_hints = cached_type_hints(_typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70bab862ee)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -251,15 +227,17 @@ class CfnBrowserSettings(
 
     @builtins.property
     @jsii.member(jsii_name="browserSettingsRef")
-    def browser_settings_ref(self) -> "_BrowserSettingsReference_37e59681":
+    def browser_settings_ref(
+        self,
+    ) -> "_aws_workspacesweb_947e28a2.BrowserSettingsReference":
         '''A reference to a BrowserSettings resource.'''
-        return typing.cast("_BrowserSettingsReference_37e59681", jsii.get(self, "browserSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.BrowserSettingsReference", jsii.get(self, "browserSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -275,17 +253,17 @@ class CfnBrowserSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the browser settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2)
+            type_hints = cached_type_hints(_typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -298,7 +276,7 @@ class CfnBrowserSettings(
     @browser_policy.setter
     def browser_policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1ed58b3fc2a2966bf9a096153c9b38b0a594ab0c629bf8b97e6011a61ebfb79)
+            type_hints = cached_type_hints(_typecheckingstub__e1ed58b3fc2a2966bf9a096153c9b38b0a594ab0c629bf8b97e6011a61ebfb79)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "browserPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -311,20 +289,23 @@ class CfnBrowserSettings(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa22a364c4)
+            type_hints = cached_type_hints(_typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa22a364c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the browser settings resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53)
+            type_hints = cached_type_hints(_typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -332,17 +313,17 @@ class CfnBrowserSettings(
     @jsii.member(jsii_name="webContentFilteringPolicy")
     def web_content_filtering_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]]:
         '''The policy that specifies which URLs end users are allowed to access or which URLs or domain categories they are restricted from accessing for enhanced security.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]], jsii.get(self, "webContentFilteringPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]], jsii.get(self, "webContentFilteringPolicy"))
 
     @web_content_filtering_policy.setter
     def web_content_filtering_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9edd8c2ec4653712f0db91c5e95215774b30f39e3b64d48b9b1715d58038dfa5)
+            type_hints = cached_type_hints(_typecheckingstub__9edd8c2ec4653712f0db91c5e95215774b30f39e3b64d48b9b1715d58038dfa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webContentFilteringPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -385,7 +366,7 @@ class CfnBrowserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d653fef38c8440747febeeb204a9a13be6c35357662ad8ba8ddb3e8f9e2f3dc4)
+                type_hints = cached_type_hints(_typecheckingstub__d653fef38c8440747febeeb204a9a13be6c35357662ad8ba8ddb3e8f9e2f3dc4)
                 check_type(argname="argument allowed_urls", value=allowed_urls, expected_type=type_hints["allowed_urls"])
                 check_type(argname="argument blocked_categories", value=blocked_categories, expected_type=type_hints["blocked_categories"])
                 check_type(argname="argument blocked_urls", value=blocked_urls, expected_type=type_hints["blocked_urls"])
@@ -451,11 +432,11 @@ class CfnBrowserSettingsProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         browser_policy: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        web_content_filtering_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserSettings.WebContentFilteringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_content_filtering_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBrowserSettings.WebContentFilteringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBrowserSettings``.
 
@@ -493,7 +474,7 @@ class CfnBrowserSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3)
+            type_hints = cached_type_hints(_typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3)
             check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
             check_type(argname="argument browser_policy", value=browser_policy, expected_type=type_hints["browser_policy"])
             check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
@@ -514,13 +495,13 @@ class CfnBrowserSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the browser settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html#cfn-workspacesweb-browsersettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def browser_policy(self) -> typing.Optional[builtins.str]:
@@ -543,7 +524,7 @@ class CfnBrowserSettingsProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the browser settings resource.
 
         A tag is a key-value pair.
@@ -551,18 +532,18 @@ class CfnBrowserSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html#cfn-workspacesweb-browsersettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def web_content_filtering_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]]:
         '''The policy that specifies which URLs end users are allowed to access or which URLs or domain categories they are restricted from accessing for enhanced security.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html#cfn-workspacesweb-browsersettings-webcontentfilteringpolicy
         '''
         result = self._values.get("web_content_filtering_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBrowserSettings.WebContentFilteringPolicyProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -576,9 +557,9 @@ class CfnBrowserSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataProtectionSettingsRef_733dabd5, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IDataProtectionSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDataProtectionSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnDataProtectionSettings",
 ):
@@ -643,12 +624,12 @@ class CfnDataProtectionSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        inline_redaction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProtectionSettings.InlineRedactionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        inline_redaction_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProtectionSettings.InlineRedactionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::DataProtectionSettings``.
 
@@ -662,7 +643,7 @@ class CfnDataProtectionSettings(
         :param tags: The tags of the data protection settings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__851565cba0af7c67b6951a864a7d6671af0039654a56671ed86d28919552d73e)
+            type_hints = cached_type_hints(_typecheckingstub__851565cba0af7c67b6951a864a7d6671af0039654a56671ed86d28919552d73e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataProtectionSettingsProps(
@@ -680,13 +661,13 @@ class CfnDataProtectionSettings(
     @builtins.classmethod
     def arn_for_data_protection_settings(
         cls,
-        resource: "_IDataProtectionSettingsRef_733dabd5",
+        resource: "_aws_workspacesweb_947e28a2.IDataProtectionSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a72ffc98354fb298da1a3bcd91c77a674b5263e2ddb30eea174f840cbb93013c)
+            type_hints = cached_type_hints(_typecheckingstub__a72ffc98354fb298da1a3bcd91c77a674b5263e2ddb30eea174f840cbb93013c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataProtectionSettings", [resource]))
 
@@ -698,18 +679,18 @@ class CfnDataProtectionSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e694262a37a7ad8f3cb6d4957467e508c9b2d410a5aa568cea5e843edf8a828c)
+            type_hints = cached_type_hints(_typecheckingstub__e694262a37a7ad8f3cb6d4957467e508c9b2d410a5aa568cea5e843edf8a828c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataProtectionSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3afc83d9e43528cc13b5abd50d4826acf870643c24640ed022e2bd621b1dec5f)
+            type_hints = cached_type_hints(_typecheckingstub__3afc83d9e43528cc13b5abd50d4826acf870643c24640ed022e2bd621b1dec5f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -722,7 +703,7 @@ class CfnDataProtectionSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__029b8eb91b5f7341d86b33581460523348eedfa665657364ac1293ba7954ad5e)
+            type_hints = cached_type_hints(_typecheckingstub__029b8eb91b5f7341d86b33581460523348eedfa665657364ac1293ba7954ad5e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -761,9 +742,9 @@ class CfnDataProtectionSettings(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -779,25 +760,25 @@ class CfnDataProtectionSettings(
     @jsii.member(jsii_name="dataProtectionSettingsRef")
     def data_protection_settings_ref(
         self,
-    ) -> "_DataProtectionSettingsReference_3de93c3b":
+    ) -> "_aws_workspacesweb_947e28a2.DataProtectionSettingsReference":
         '''A reference to a DataProtectionSettings resource.'''
-        return typing.cast("_DataProtectionSettingsReference_3de93c3b", jsii.get(self, "dataProtectionSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.DataProtectionSettingsReference", jsii.get(self, "dataProtectionSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the data protection settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fb99479367371b2a6c52e976d47a87740ba2c6f65f4fcf0c11ef7787923a279)
+            type_hints = cached_type_hints(_typecheckingstub__3fb99479367371b2a6c52e976d47a87740ba2c6f65f4fcf0c11ef7787923a279)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -810,7 +791,7 @@ class CfnDataProtectionSettings(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8794b55f834ff23fceefb4949f1c9ca0f88d0253e16fe02de823fd78e704f6a)
+            type_hints = cached_type_hints(_typecheckingstub__b8794b55f834ff23fceefb4949f1c9ca0f88d0253e16fe02de823fd78e704f6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
@@ -823,7 +804,7 @@ class CfnDataProtectionSettings(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e6f16d355910af3e0d25ae4869bb9019e44d7bb8454311659d9581fbff7ad5f)
+            type_hints = cached_type_hints(_typecheckingstub__7e6f16d355910af3e0d25ae4869bb9019e44d7bb8454311659d9581fbff7ad5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -836,7 +817,7 @@ class CfnDataProtectionSettings(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bbbc104f6c3d94f0c1f63bd93d3ec5849325aa58b7e06f06e3c37f6b101823f)
+            type_hints = cached_type_hints(_typecheckingstub__4bbbc104f6c3d94f0c1f63bd93d3ec5849325aa58b7e06f06e3c37f6b101823f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -844,30 +825,33 @@ class CfnDataProtectionSettings(
     @jsii.member(jsii_name="inlineRedactionConfiguration")
     def inline_redaction_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]]:
         '''The inline redaction configuration for the data protection settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]], jsii.get(self, "inlineRedactionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]], jsii.get(self, "inlineRedactionConfiguration"))
 
     @inline_redaction_configuration.setter
     def inline_redaction_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a80d3be6cd6ed07f4c7a5f51acbace505548a335789227fb3e70735f66c484f6)
+            type_hints = cached_type_hints(_typecheckingstub__a80d3be6cd6ed07f4c7a5f51acbace505548a335789227fb3e70735f66c484f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inlineRedactionConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the data protection settings.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d82a664a0d9b6e2a4f59784e5f13b3f39994ef205d8513718b40fba2b6daf513)
+            type_hints = cached_type_hints(_typecheckingstub__d82a664a0d9b6e2a4f59784e5f13b3f39994ef205d8513718b40fba2b6daf513)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -916,7 +900,7 @@ class CfnDataProtectionSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6114d751d2647346cb8b4fe7fc495c1b5e4ec1ffbe6904abf91d6b44adec7548)
+                type_hints = cached_type_hints(_typecheckingstub__6114d751d2647346cb8b4fe7fc495c1b5e4ec1ffbe6904abf91d6b44adec7548)
                 check_type(argname="argument pattern_name", value=pattern_name, expected_type=type_hints["pattern_name"])
                 check_type(argname="argument pattern_regex", value=pattern_regex, expected_type=type_hints["pattern_regex"])
                 check_type(argname="argument keyword_regex", value=keyword_regex, expected_type=type_hints["keyword_regex"])
@@ -997,7 +981,7 @@ class CfnDataProtectionSettings(
         def __init__(
             self,
             *,
-            inline_redaction_patterns: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProtectionSettings.InlineRedactionPatternProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            inline_redaction_patterns: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProtectionSettings.InlineRedactionPatternProperty", typing.Dict[builtins.str, typing.Any]]]]],
             global_confidence_level: typing.Optional[jsii.Number] = None,
             global_enforced_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
             global_exempt_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1049,7 +1033,7 @@ class CfnDataProtectionSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__552bfd927d431d6795b0b5add23e48f1a25b4db6addb149426e81afc6686dc63)
+                type_hints = cached_type_hints(_typecheckingstub__552bfd927d431d6795b0b5add23e48f1a25b4db6addb149426e81afc6686dc63)
                 check_type(argname="argument inline_redaction_patterns", value=inline_redaction_patterns, expected_type=type_hints["inline_redaction_patterns"])
                 check_type(argname="argument global_confidence_level", value=global_confidence_level, expected_type=type_hints["global_confidence_level"])
                 check_type(argname="argument global_enforced_urls", value=global_enforced_urls, expected_type=type_hints["global_enforced_urls"])
@@ -1067,14 +1051,14 @@ class CfnDataProtectionSettings(
         @builtins.property
         def inline_redaction_patterns(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionPatternProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionPatternProperty"]]]:
             '''The inline redaction patterns to be enabled for the inline redaction configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-dataprotectionsettings-inlineredactionconfiguration.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionconfiguration-inlineredactionpatterns
             '''
             result = self._values.get("inline_redaction_patterns")
             assert result is not None, "Required property 'inline_redaction_patterns' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionPatternProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionPatternProperty"]]], result)
 
         @builtins.property
         def global_confidence_level(self) -> typing.Optional[jsii.Number]:
@@ -1136,10 +1120,10 @@ class CfnDataProtectionSettings(
         def __init__(
             self,
             *,
-            redaction_place_holder: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProtectionSettings.RedactionPlaceHolderProperty", typing.Dict[builtins.str, typing.Any]]],
+            redaction_place_holder: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProtectionSettings.RedactionPlaceHolderProperty", typing.Dict[builtins.str, typing.Any]]],
             built_in_pattern_id: typing.Optional[builtins.str] = None,
             confidence_level: typing.Optional[jsii.Number] = None,
-            custom_pattern: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProtectionSettings.CustomPatternProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_pattern: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProtectionSettings.CustomPatternProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             enforced_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
             exempt_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -1185,7 +1169,7 @@ class CfnDataProtectionSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f28e305e326d3f4c9ac306ecac6e0d132c560d8cb368e6c1d255bce2256c5953)
+                type_hints = cached_type_hints(_typecheckingstub__f28e305e326d3f4c9ac306ecac6e0d132c560d8cb368e6c1d255bce2256c5953)
                 check_type(argname="argument redaction_place_holder", value=redaction_place_holder, expected_type=type_hints["redaction_place_holder"])
                 check_type(argname="argument built_in_pattern_id", value=built_in_pattern_id, expected_type=type_hints["built_in_pattern_id"])
                 check_type(argname="argument confidence_level", value=confidence_level, expected_type=type_hints["confidence_level"])
@@ -1209,14 +1193,14 @@ class CfnDataProtectionSettings(
         @builtins.property
         def redaction_place_holder(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.RedactionPlaceHolderProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.RedactionPlaceHolderProperty"]:
             '''The redaction placeholder that will replace the redacted text in session for the inline redaction pattern.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-dataprotectionsettings-inlineredactionpattern.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionpattern-redactionplaceholder
             '''
             result = self._values.get("redaction_place_holder")
             assert result is not None, "Required property 'redaction_place_holder' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.RedactionPlaceHolderProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.RedactionPlaceHolderProperty"], result)
 
         @builtins.property
         def built_in_pattern_id(self) -> typing.Optional[builtins.str]:
@@ -1243,7 +1227,7 @@ class CfnDataProtectionSettings(
         @builtins.property
         def custom_pattern(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.CustomPatternProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.CustomPatternProperty"]]:
             '''The configuration for a custom pattern.
 
             Either a customPattern or builtInPatternId is required.
@@ -1251,7 +1235,7 @@ class CfnDataProtectionSettings(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-dataprotectionsettings-inlineredactionpattern.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionpattern-custompattern
             '''
             result = self._values.get("custom_pattern")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.CustomPatternProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.CustomPatternProperty"]], result)
 
         @builtins.property
         def enforced_urls(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1323,7 +1307,7 @@ class CfnDataProtectionSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__93e3fa90dfeb5ed27de42632610186e3eec8e8ee42bce56d7f8dcb07d9c19f53)
+                type_hints = cached_type_hints(_typecheckingstub__93e3fa90dfeb5ed27de42632610186e3eec8e8ee42bce56d7f8dcb07d9c19f53)
                 check_type(argname="argument redaction_place_holder_type", value=redaction_place_holder_type, expected_type=type_hints["redaction_place_holder_type"])
                 check_type(argname="argument redaction_place_holder_text", value=redaction_place_holder_text, expected_type=type_hints["redaction_place_holder_text"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1379,12 +1363,12 @@ class CfnDataProtectionSettingsProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        inline_redaction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProtectionSettings.InlineRedactionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        inline_redaction_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProtectionSettings.InlineRedactionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataProtectionSettings``.
 
@@ -1448,7 +1432,7 @@ class CfnDataProtectionSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a)
+            type_hints = cached_type_hints(_typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a)
             check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
             check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1472,13 +1456,13 @@ class CfnDataProtectionSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the data protection settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -1510,22 +1494,22 @@ class CfnDataProtectionSettingsProps:
     @builtins.property
     def inline_redaction_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]]:
         '''The inline redaction configuration for the data protection settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionconfiguration
         '''
         result = self._values.get("inline_redaction_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the data protection settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1539,9 +1523,9 @@ class CfnDataProtectionSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIdentityProviderRef_1989e7fb, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IIdentityProviderRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIdentityProvider(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIdentityProvider",
 ):
@@ -1581,11 +1565,11 @@ class CfnIdentityProvider(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        identity_provider_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         identity_provider_name: builtins.str,
         identity_provider_type: builtins.str,
         portal_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::IdentityProvider``.
 
@@ -1598,7 +1582,7 @@ class CfnIdentityProvider(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__439cd32d129b1f0a69c13fb5a494170084be122497b619a7175debec51c3635e)
+            type_hints = cached_type_hints(_typecheckingstub__439cd32d129b1f0a69c13fb5a494170084be122497b619a7175debec51c3635e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIdentityProviderProps(
@@ -1615,13 +1599,13 @@ class CfnIdentityProvider(
     @builtins.classmethod
     def arn_for_identity_provider(
         cls,
-        resource: "_IIdentityProviderRef_1989e7fb",
+        resource: "_aws_workspacesweb_947e28a2.IIdentityProviderRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a342388c6d03d144babccb2dc1ae31af68aac6aee1478b9ea46fd0220f7d8753)
+            type_hints = cached_type_hints(_typecheckingstub__a342388c6d03d144babccb2dc1ae31af68aac6aee1478b9ea46fd0220f7d8753)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIdentityProvider", [resource]))
 
@@ -1633,18 +1617,18 @@ class CfnIdentityProvider(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13e6dd7ea0d018129717592349c895c59fa949f61e205ca63fcd2e1723b196a9)
+            type_hints = cached_type_hints(_typecheckingstub__13e6dd7ea0d018129717592349c895c59fa949f61e205ca63fcd2e1723b196a9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdentityProvider", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ace0da6a7e7e7a968ac58e8be1ce9dcb15a96bae8fad93e7c341ff5392bed56c)
+            type_hints = cached_type_hints(_typecheckingstub__ace0da6a7e7e7a968ac58e8be1ce9dcb15a96bae8fad93e7c341ff5392bed56c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1657,7 +1641,7 @@ class CfnIdentityProvider(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec876abe2e87a8e0cb2641e36f36bd29bb0a19b65cc2d8f6be54a630a22b3af8)
+            type_hints = cached_type_hints(_typecheckingstub__ec876abe2e87a8e0cb2641e36f36bd29bb0a19b65cc2d8f6be54a630a22b3af8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1678,9 +1662,9 @@ class CfnIdentityProvider(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1694,28 +1678,30 @@ class CfnIdentityProvider(
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderRef")
-    def identity_provider_ref(self) -> "_IdentityProviderReference_fb66eb46":
+    def identity_provider_ref(
+        self,
+    ) -> "_aws_workspacesweb_947e28a2.IdentityProviderReference":
         '''A reference to a IdentityProvider resource.'''
-        return typing.cast("_IdentityProviderReference_fb66eb46", jsii.get(self, "identityProviderRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.IdentityProviderReference", jsii.get(self, "identityProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderDetails")
     def identity_provider_details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''The identity provider details.
 
         The following list describes the provider detail keys for each identity provider type.
         '''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "identityProviderDetails"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "identityProviderDetails"))
 
     @identity_provider_details.setter
     def identity_provider_details(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ae08bcbb1d55c54b06801705e4c1effec06173b9d5c1ab7d0301258d84aa63a)
+            type_hints = cached_type_hints(_typecheckingstub__6ae08bcbb1d55c54b06801705e4c1effec06173b9d5c1ab7d0301258d84aa63a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderDetails", value) # pyright: ignore[reportArgumentType]
 
@@ -1728,7 +1714,7 @@ class CfnIdentityProvider(
     @identity_provider_name.setter
     def identity_provider_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47d337423f7a1ca0a276c2a641c1f67e69f1933efe04994ab3be413955030b14)
+            type_hints = cached_type_hints(_typecheckingstub__47d337423f7a1ca0a276c2a641c1f67e69f1933efe04994ab3be413955030b14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderName", value) # pyright: ignore[reportArgumentType]
 
@@ -1741,7 +1727,7 @@ class CfnIdentityProvider(
     @identity_provider_type.setter
     def identity_provider_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72551994233ed9e106da8e5840c9077e96c1a7cafc63617736585c1eb83fd2da)
+            type_hints = cached_type_hints(_typecheckingstub__72551994233ed9e106da8e5840c9077e96c1a7cafc63617736585c1eb83fd2da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderType", value) # pyright: ignore[reportArgumentType]
 
@@ -1754,19 +1740,22 @@ class CfnIdentityProvider(
     @portal_arn.setter
     def portal_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f17f07edd6f61424250e1f5f7df6f6cee024beb494ee700c6419c5642ebe36e1)
+            type_hints = cached_type_hints(_typecheckingstub__f17f07edd6f61424250e1f5f7df6f6cee024beb494ee700c6419c5642ebe36e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portalArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f529ceae5ebe64b079470ab15dfc0b78fc406f1eaba9be1f4902b355cd6e363f)
+            type_hints = cached_type_hints(_typecheckingstub__f529ceae5ebe64b079470ab15dfc0b78fc406f1eaba9be1f4902b355cd6e363f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1786,11 +1775,11 @@ class CfnIdentityProviderProps:
     def __init__(
         self,
         *,
-        identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        identity_provider_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         identity_provider_name: builtins.str,
         identity_provider_type: builtins.str,
         portal_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIdentityProvider``.
 
@@ -1826,7 +1815,7 @@ class CfnIdentityProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d)
+            type_hints = cached_type_hints(_typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d)
             check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
             check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
             check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
@@ -1845,7 +1834,7 @@ class CfnIdentityProviderProps:
     @builtins.property
     def identity_provider_details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''The identity provider details. The following list describes the provider detail keys for each identity provider type.
 
         - For Google and Login with Amazon:
@@ -1884,7 +1873,7 @@ class CfnIdentityProviderProps:
         '''
         result = self._values.get("identity_provider_details")
         assert result is not None, "Required property 'identity_provider_details' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def identity_provider_name(self) -> builtins.str:
@@ -1916,12 +1905,12 @@ class CfnIdentityProviderProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1935,9 +1924,9 @@ class CfnIdentityProviderProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIpAccessSettingsRef_5ce903cc, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IIpAccessSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIpAccessSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIpAccessSettings",
 ):
@@ -1983,12 +1972,12 @@ class CfnIpAccessSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ip_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ip_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::IpAccessSettings``.
 
@@ -2002,7 +1991,7 @@ class CfnIpAccessSettings(
         :param tags: The tags to add to the IP access settings resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e3f00304b675ee88c29734b1fad40f8e448afe808a4226188c1c74e8ed82fe0)
+            type_hints = cached_type_hints(_typecheckingstub__4e3f00304b675ee88c29734b1fad40f8e448afe808a4226188c1c74e8ed82fe0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIpAccessSettingsProps(
@@ -2020,13 +2009,13 @@ class CfnIpAccessSettings(
     @builtins.classmethod
     def arn_for_ip_access_settings(
         cls,
-        resource: "_IIpAccessSettingsRef_5ce903cc",
+        resource: "_aws_workspacesweb_947e28a2.IIpAccessSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a137e896709b65ca73cc91a08ed302ee9dc328dde50b7f025f794547fe28487)
+            type_hints = cached_type_hints(_typecheckingstub__5a137e896709b65ca73cc91a08ed302ee9dc328dde50b7f025f794547fe28487)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIpAccessSettings", [resource]))
 
@@ -2038,18 +2027,18 @@ class CfnIpAccessSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66371a8ab4b42af7155212cb791ffa515bb1805958efb0e2dad164a698277fb2)
+            type_hints = cached_type_hints(_typecheckingstub__66371a8ab4b42af7155212cb791ffa515bb1805958efb0e2dad164a698277fb2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIpAccessSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__522d314ff55f65afebb67835c03df17342b3167bed24e30c591f5aef150973f0)
+            type_hints = cached_type_hints(_typecheckingstub__522d314ff55f65afebb67835c03df17342b3167bed24e30c591f5aef150973f0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2062,7 +2051,7 @@ class CfnIpAccessSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd4736646712efdcfa8ece881cd4fa733fb537f01432db179870ed0f95ff0512)
+            type_hints = cached_type_hints(_typecheckingstub__dd4736646712efdcfa8ece881cd4fa733fb537f01432db179870ed0f95ff0512)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2101,9 +2090,9 @@ class CfnIpAccessSettings(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2117,25 +2106,27 @@ class CfnIpAccessSettings(
 
     @builtins.property
     @jsii.member(jsii_name="ipAccessSettingsRef")
-    def ip_access_settings_ref(self) -> "_IpAccessSettingsReference_456f1045":
+    def ip_access_settings_ref(
+        self,
+    ) -> "_aws_workspacesweb_947e28a2.IpAccessSettingsReference":
         '''A reference to a IpAccessSettings resource.'''
-        return typing.cast("_IpAccessSettingsReference_456f1045", jsii.get(self, "ipAccessSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.IpAccessSettingsReference", jsii.get(self, "ipAccessSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ipRules")
     def ip_rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIpAccessSettings.IpRuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIpAccessSettings.IpRuleProperty"]]]:
         '''The IP rules of the IP access settings.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIpAccessSettings.IpRuleProperty"]]], jsii.get(self, "ipRules"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIpAccessSettings.IpRuleProperty"]]], jsii.get(self, "ipRules"))
 
     @ip_rules.setter
     def ip_rules(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIpAccessSettings.IpRuleProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIpAccessSettings.IpRuleProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc300ade0369b0ab447aa7806a51ee2809fea6ffd0fffc0129fb173b7f3886cf)
+            type_hints = cached_type_hints(_typecheckingstub__dc300ade0369b0ab447aa7806a51ee2809fea6ffd0fffc0129fb173b7f3886cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipRules", value) # pyright: ignore[reportArgumentType]
 
@@ -2143,17 +2134,17 @@ class CfnIpAccessSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the IP access settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f120862dd3a18b3da3624f1bbb9a6b2ec04ea91c5a0d22f1306ab87a46a1e28)
+            type_hints = cached_type_hints(_typecheckingstub__5f120862dd3a18b3da3624f1bbb9a6b2ec04ea91c5a0d22f1306ab87a46a1e28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -2166,7 +2157,7 @@ class CfnIpAccessSettings(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__057facdda1fc071bcb0a19a16cf182f52ac2a874ba9674ab1e2f710144816eae)
+            type_hints = cached_type_hints(_typecheckingstub__057facdda1fc071bcb0a19a16cf182f52ac2a874ba9674ab1e2f710144816eae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
@@ -2179,7 +2170,7 @@ class CfnIpAccessSettings(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b724cabf90e359bbb06c7a32f43432bf7cb19a46eb5e9f240789471612d5b8b)
+            type_hints = cached_type_hints(_typecheckingstub__6b724cabf90e359bbb06c7a32f43432bf7cb19a46eb5e9f240789471612d5b8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2192,20 +2183,23 @@ class CfnIpAccessSettings(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98ac230b64daa6cce74b4ea14502d07e7a0dcc81bb5bd7c233a62ad5907f6083)
+            type_hints = cached_type_hints(_typecheckingstub__98ac230b64daa6cce74b4ea14502d07e7a0dcc81bb5bd7c233a62ad5907f6083)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the IP access settings resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6ebcd54b862693c4f7d257e8db3f90e6315f91bc32c16e7865b2e93f91ff381)
+            type_hints = cached_type_hints(_typecheckingstub__d6ebcd54b862693c4f7d257e8db3f90e6315f91bc32c16e7865b2e93f91ff381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2243,7 +2237,7 @@ class CfnIpAccessSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6ef91a56d003f837ee2a6f8431647b2dcdd5ff9d72afb0d6f7cb1c50cc1a6890)
+                type_hints = cached_type_hints(_typecheckingstub__6ef91a56d003f837ee2a6f8431647b2dcdd5ff9d72afb0d6f7cb1c50cc1a6890)
                 check_type(argname="argument ip_range", value=ip_range, expected_type=type_hints["ip_range"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2301,12 +2295,12 @@ class CfnIpAccessSettingsProps:
     def __init__(
         self,
         *,
-        ip_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ip_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIpAccessSettings``.
 
@@ -2349,7 +2343,7 @@ class CfnIpAccessSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475)
+            type_hints = cached_type_hints(_typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475)
             check_type(argname="argument ip_rules", value=ip_rules, expected_type=type_hints["ip_rules"])
             check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
             check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
@@ -2373,25 +2367,25 @@ class CfnIpAccessSettingsProps:
     @builtins.property
     def ip_rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIpAccessSettings.IpRuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIpAccessSettings.IpRuleProperty"]]]:
         '''The IP rules of the IP access settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-iprules
         '''
         result = self._values.get("ip_rules")
         assert result is not None, "Required property 'ip_rules' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIpAccessSettings.IpRuleProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIpAccessSettings.IpRuleProperty"]]], result)
 
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional encryption context of the IP access settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -2423,7 +2417,7 @@ class CfnIpAccessSettingsProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the IP access settings resource.
 
         A tag is a key-value pair.
@@ -2431,7 +2425,7 @@ class CfnIpAccessSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2445,9 +2439,9 @@ class CfnIpAccessSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _INetworkSettingsRef_9fcb0139, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.INetworkSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnNetworkSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnNetworkSettings",
 ):
@@ -2491,7 +2485,7 @@ class CfnNetworkSettings(
         security_group_ids: typing.Sequence[builtins.str],
         subnet_ids: typing.Sequence[builtins.str],
         vpc_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::NetworkSettings``.
 
@@ -2503,7 +2497,7 @@ class CfnNetworkSettings(
         :param tags: The tags to add to the network settings resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a61d7b0b1452fb7a5fdde6d41bbab0a1737a4628bbe5a201c16ce50a3e8a67)
+            type_hints = cached_type_hints(_typecheckingstub__95a61d7b0b1452fb7a5fdde6d41bbab0a1737a4628bbe5a201c16ce50a3e8a67)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNetworkSettingsProps(
@@ -2519,13 +2513,13 @@ class CfnNetworkSettings(
     @builtins.classmethod
     def arn_for_network_settings(
         cls,
-        resource: "_INetworkSettingsRef_9fcb0139",
+        resource: "_aws_workspacesweb_947e28a2.INetworkSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fa9fead8b05790cfeddcb8c1a4b10b5df916ecc72679228f21d2620cef9cd2e)
+            type_hints = cached_type_hints(_typecheckingstub__1fa9fead8b05790cfeddcb8c1a4b10b5df916ecc72679228f21d2620cef9cd2e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNetworkSettings", [resource]))
 
@@ -2537,18 +2531,18 @@ class CfnNetworkSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e51b66b51a69148b617f5e2570567183ac2c9daad942ed49e71ffc17c67538e)
+            type_hints = cached_type_hints(_typecheckingstub__7e51b66b51a69148b617f5e2570567183ac2c9daad942ed49e71ffc17c67538e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNetworkSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b18b2266ad8a399dab2a39759ddd4f261e866f9af5f84bd2281d2d5717327fc7)
+            type_hints = cached_type_hints(_typecheckingstub__b18b2266ad8a399dab2a39759ddd4f261e866f9af5f84bd2281d2d5717327fc7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2561,7 +2555,7 @@ class CfnNetworkSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e59ed5f61334e6922894c4c8b1588d6af1336b159abb632a02c51a1b16724fd0)
+            type_hints = cached_type_hints(_typecheckingstub__e59ed5f61334e6922894c4c8b1588d6af1336b159abb632a02c51a1b16724fd0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2591,9 +2585,9 @@ class CfnNetworkSettings(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2607,9 +2601,11 @@ class CfnNetworkSettings(
 
     @builtins.property
     @jsii.member(jsii_name="networkSettingsRef")
-    def network_settings_ref(self) -> "_NetworkSettingsReference_ed72cf7d":
+    def network_settings_ref(
+        self,
+    ) -> "_aws_workspacesweb_947e28a2.NetworkSettingsReference":
         '''A reference to a NetworkSettings resource.'''
-        return typing.cast("_NetworkSettingsReference_ed72cf7d", jsii.get(self, "networkSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.NetworkSettingsReference", jsii.get(self, "networkSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
@@ -2620,7 +2616,7 @@ class CfnNetworkSettings(
     @security_group_ids.setter
     def security_group_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3554fe26b5fd797fb5730682ce023c2460621ebeec517b2840620081484a64ab)
+            type_hints = cached_type_hints(_typecheckingstub__3554fe26b5fd797fb5730682ce023c2460621ebeec517b2840620081484a64ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -2633,7 +2629,7 @@ class CfnNetworkSettings(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b27a5b7c5de5fd73e2955aa73ff7e658050d13d9e84df9804b230c062f75d81)
+            type_hints = cached_type_hints(_typecheckingstub__9b27a5b7c5de5fd73e2955aa73ff7e658050d13d9e84df9804b230c062f75d81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -2646,20 +2642,23 @@ class CfnNetworkSettings(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e298ee4542dc4160ff007ee478b4d24dff6a5105564e454a0eacb28ac7aeab52)
+            type_hints = cached_type_hints(_typecheckingstub__e298ee4542dc4160ff007ee478b4d24dff6a5105564e454a0eacb28ac7aeab52)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the network settings resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07819661df503a5395aeb2f48e629b4742564eaa4d650197b66c74bb51c0efc3)
+            type_hints = cached_type_hints(_typecheckingstub__07819661df503a5395aeb2f48e629b4742564eaa4d650197b66c74bb51c0efc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2681,7 +2680,7 @@ class CfnNetworkSettingsProps:
         security_group_ids: typing.Sequence[builtins.str],
         subnet_ids: typing.Sequence[builtins.str],
         vpc_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnNetworkSettings``.
 
@@ -2713,7 +2712,7 @@ class CfnNetworkSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb)
+            type_hints = cached_type_hints(_typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb)
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
@@ -2765,7 +2764,7 @@ class CfnNetworkSettingsProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the network settings resource.
 
         A tag is a key-value pair.
@@ -2773,7 +2772,7 @@ class CfnNetworkSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2787,9 +2786,9 @@ class CfnNetworkSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPortalRef_cb17b713, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IPortalRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPortal(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnPortal",
 ):
@@ -2840,7 +2839,7 @@ class CfnPortal(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         authentication_type: typing.Optional[builtins.str] = None,
         browser_settings_arn: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -2852,7 +2851,7 @@ class CfnPortal(
         network_settings_arn: typing.Optional[builtins.str] = None,
         portal_custom_domain: typing.Optional[builtins.str] = None,
         session_logger_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
         user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
         user_settings_arn: typing.Optional[builtins.str] = None,
@@ -2879,7 +2878,7 @@ class CfnPortal(
         :param user_settings_arn: The ARN of the user settings that is associated with the web portal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0beba6f5)
+            type_hints = cached_type_hints(_typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0beba6f5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPortalProps(
@@ -2905,12 +2904,15 @@ class CfnPortal(
 
     @jsii.member(jsii_name="arnForPortal")
     @builtins.classmethod
-    def arn_for_portal(cls, resource: "_IPortalRef_cb17b713") -> builtins.str:
+    def arn_for_portal(
+        cls,
+        resource: "_aws_workspacesweb_947e28a2.IPortalRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df995820d4e10ff81feff7ccae3ec81ae54f1c858bf08046264368b6eb3ae0cf)
+            type_hints = cached_type_hints(_typecheckingstub__df995820d4e10ff81feff7ccae3ec81ae54f1c858bf08046264368b6eb3ae0cf)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPortal", [resource]))
 
@@ -2922,18 +2924,18 @@ class CfnPortal(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d679eae4c61e43155ac7a79bbce1a017a8df5c5c62c91b7fab27c611207f46e)
+            type_hints = cached_type_hints(_typecheckingstub__5d679eae4c61e43155ac7a79bbce1a017a8df5c5c62c91b7fab27c611207f46e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortal", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c60cd0cfa36720b34c125e3c88b5da82ebb6f29c673cdccf4de8f3e9c20d4191)
+            type_hints = cached_type_hints(_typecheckingstub__c60cd0cfa36720b34c125e3c88b5da82ebb6f29c673cdccf4de8f3e9c20d4191)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2946,7 +2948,7 @@ class CfnPortal(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5081fb673d60a8535462986536cbc12cbdb7c5238378c64aaee6592cb850e9f5)
+            type_hints = cached_type_hints(_typecheckingstub__5081fb673d60a8535462986536cbc12cbdb7c5238378c64aaee6592cb850e9f5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3030,9 +3032,9 @@ class CfnPortal(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3046,25 +3048,25 @@ class CfnPortal(
 
     @builtins.property
     @jsii.member(jsii_name="portalRef")
-    def portal_ref(self) -> "_PortalReference_7c6ae828":
+    def portal_ref(self) -> "_aws_workspacesweb_947e28a2.PortalReference":
         '''A reference to a Portal resource.'''
-        return typing.cast("_PortalReference_7c6ae828", jsii.get(self, "portalRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.PortalReference", jsii.get(self, "portalRef"))
 
     @builtins.property
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the portal.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e96df37d1cd0e854d8d279f26233ce4f30ad6bd4d9de076905b0443b8c425f03)
+            type_hints = cached_type_hints(_typecheckingstub__e96df37d1cd0e854d8d279f26233ce4f30ad6bd4d9de076905b0443b8c425f03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -3080,7 +3082,7 @@ class CfnPortal(
     @authentication_type.setter
     def authentication_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dff3b0f7b3f0ee0596a800c3994102823f6531aeb797b09198a5a79ed8d25e0f)
+            type_hints = cached_type_hints(_typecheckingstub__dff3b0f7b3f0ee0596a800c3994102823f6531aeb797b09198a5a79ed8d25e0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationType", value) # pyright: ignore[reportArgumentType]
 
@@ -3093,7 +3095,7 @@ class CfnPortal(
     @browser_settings_arn.setter
     def browser_settings_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__393d4ac20d540d6ed107a37a5f0ced856767591929eb053c3784984567584127)
+            type_hints = cached_type_hints(_typecheckingstub__393d4ac20d540d6ed107a37a5f0ced856767591929eb053c3784984567584127)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "browserSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3106,7 +3108,7 @@ class CfnPortal(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__319e821fe7e2a17153f7832a389ae0c48e1f0517453d29fa3e26fa73232a46bc)
+            type_hints = cached_type_hints(_typecheckingstub__319e821fe7e2a17153f7832a389ae0c48e1f0517453d29fa3e26fa73232a46bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
@@ -3122,7 +3124,7 @@ class CfnPortal(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfde357dad34994249d2ece8cb99322e6a84a2af5763685459271a2545a12e6f)
+            type_hints = cached_type_hints(_typecheckingstub__dfde357dad34994249d2ece8cb99322e6a84a2af5763685459271a2545a12e6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataProtectionSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3135,7 +3137,7 @@ class CfnPortal(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd1b9794e835c2ffeb3dc42a40224afa89d92cb7704c5a59dd75c1d3dd4ef495)
+            type_hints = cached_type_hints(_typecheckingstub__cd1b9794e835c2ffeb3dc42a40224afa89d92cb7704c5a59dd75c1d3dd4ef495)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -3148,7 +3150,7 @@ class CfnPortal(
     @instance_type.setter
     def instance_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2707a9d7f008c455546b27a146dac5ed1d57c34aff9249e7561ee09fdc92f357)
+            type_hints = cached_type_hints(_typecheckingstub__2707a9d7f008c455546b27a146dac5ed1d57c34aff9249e7561ee09fdc92f357)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -3161,7 +3163,7 @@ class CfnPortal(
     @ip_access_settings_arn.setter
     def ip_access_settings_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40134000fc007f2c29ea771d442eb2b959d8d3cccfedc0efa83e152c13cf3bda)
+            type_hints = cached_type_hints(_typecheckingstub__40134000fc007f2c29ea771d442eb2b959d8d3cccfedc0efa83e152c13cf3bda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAccessSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3174,7 +3176,7 @@ class CfnPortal(
     @max_concurrent_sessions.setter
     def max_concurrent_sessions(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dad94379f446f44b9f9dfc0281e9cf4564c37b144b841df727ed7e762cb1a19)
+            type_hints = cached_type_hints(_typecheckingstub__5dad94379f446f44b9f9dfc0281e9cf4564c37b144b841df727ed7e762cb1a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxConcurrentSessions", value) # pyright: ignore[reportArgumentType]
 
@@ -3187,7 +3189,7 @@ class CfnPortal(
     @network_settings_arn.setter
     def network_settings_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beaa575cd54d9de94a0201b4213524db5df052dd0b9e1605b88d4487f6acbbcd)
+            type_hints = cached_type_hints(_typecheckingstub__beaa575cd54d9de94a0201b4213524db5df052dd0b9e1605b88d4487f6acbbcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3199,7 +3201,7 @@ class CfnPortal(
     @portal_custom_domain.setter
     def portal_custom_domain(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dd9655d65e74a08cbc0100798417e3b3794b65f35009e280ccbc41b8775e856)
+            type_hints = cached_type_hints(_typecheckingstub__5dd9655d65e74a08cbc0100798417e3b3794b65f35009e280ccbc41b8775e856)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portalCustomDomain", value) # pyright: ignore[reportArgumentType]
 
@@ -3212,20 +3214,23 @@ class CfnPortal(
     @session_logger_arn.setter
     def session_logger_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad8463a43b6)
+            type_hints = cached_type_hints(_typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad8463a43b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sessionLoggerArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the web portal.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30535a8dcd75eba19481865deda3eac2505afe537e0650db0a95162feb2563e2)
+            type_hints = cached_type_hints(_typecheckingstub__30535a8dcd75eba19481865deda3eac2505afe537e0650db0a95162feb2563e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3238,7 +3243,7 @@ class CfnPortal(
     @trust_store_arn.setter
     def trust_store_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__839ba627519ce26d936d0b859d31cf9abe67bf78df232cea362df9240c350edd)
+            type_hints = cached_type_hints(_typecheckingstub__839ba627519ce26d936d0b859d31cf9abe67bf78df232cea362df9240c350edd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trustStoreArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3254,7 +3259,7 @@ class CfnPortal(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__225a01b45ee800a55ed118589c7eb5a4961d42af39924c022ca704030557cf15)
+            type_hints = cached_type_hints(_typecheckingstub__225a01b45ee800a55ed118589c7eb5a4961d42af39924c022ca704030557cf15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userAccessLoggingSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3267,7 +3272,7 @@ class CfnPortal(
     @user_settings_arn.setter
     def user_settings_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3c9a5aba1f82c8cb8d06dba7c424aabe0b4a862dd045ea1515145403fc27767)
+            type_hints = cached_type_hints(_typecheckingstub__e3c9a5aba1f82c8cb8d06dba7c424aabe0b4a862dd045ea1515145403fc27767)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userSettingsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3298,7 +3303,7 @@ class CfnPortalProps:
     def __init__(
         self,
         *,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         authentication_type: typing.Optional[builtins.str] = None,
         browser_settings_arn: typing.Optional[builtins.str] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
@@ -3310,7 +3315,7 @@ class CfnPortalProps:
         network_settings_arn: typing.Optional[builtins.str] = None,
         portal_custom_domain: typing.Optional[builtins.str] = None,
         session_logger_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
         user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
         user_settings_arn: typing.Optional[builtins.str] = None,
@@ -3369,7 +3374,7 @@ class CfnPortalProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283)
+            type_hints = cached_type_hints(_typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283)
             check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
             check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
             check_type(argname="argument browser_settings_arn", value=browser_settings_arn, expected_type=type_hints["browser_settings_arn"])
@@ -3423,13 +3428,13 @@ class CfnPortalProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the portal.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
@@ -3541,7 +3546,7 @@ class CfnPortalProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the web portal.
 
         A tag is a key-value pair.
@@ -3549,7 +3554,7 @@ class CfnPortalProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trust_store_arn(self) -> typing.Optional[builtins.str]:
@@ -3590,9 +3595,9 @@ class CfnPortalProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISessionLoggerRef_0b36bc89, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.ISessionLoggerRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSessionLogger(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger",
 ):
@@ -3646,12 +3651,12 @@ class CfnSessionLogger(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        event_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
-        log_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        event_filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        log_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::SessionLogger``.
 
@@ -3665,7 +3670,7 @@ class CfnSessionLogger(
         :param tags: The tags of the session logger.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d0085a29)
+            type_hints = cached_type_hints(_typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d0085a29)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSessionLoggerProps(
@@ -3683,13 +3688,13 @@ class CfnSessionLogger(
     @builtins.classmethod
     def arn_for_session_logger(
         cls,
-        resource: "_ISessionLoggerRef_0b36bc89",
+        resource: "_aws_workspacesweb_947e28a2.ISessionLoggerRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f65440edbc47aa7f31741ad177932773279bb07152effaa9d9cd5b0a8432706)
+            type_hints = cached_type_hints(_typecheckingstub__7f65440edbc47aa7f31741ad177932773279bb07152effaa9d9cd5b0a8432706)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSessionLogger", [resource]))
 
@@ -3701,18 +3706,18 @@ class CfnSessionLogger(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d6ae6c43d9a54b00fccc57bc14ef846a5991f57a49098ab676a2c502f7f8626)
+            type_hints = cached_type_hints(_typecheckingstub__6d6ae6c43d9a54b00fccc57bc14ef846a5991f57a49098ab676a2c502f7f8626)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSessionLogger", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32c2901f06899b3e8b2aed11d0479e80af4ae3bd2497852311c46da6edf80e41)
+            type_hints = cached_type_hints(_typecheckingstub__32c2901f06899b3e8b2aed11d0479e80af4ae3bd2497852311c46da6edf80e41)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3725,7 +3730,7 @@ class CfnSessionLogger(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02821e951e1a7ebffab0cee338cb22e018833b70a4b8b4db79eadb9491b74956)
+            type_hints = cached_type_hints(_typecheckingstub__02821e951e1a7ebffab0cee338cb22e018833b70a4b8b4db79eadb9491b74956)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3764,9 +3769,9 @@ class CfnSessionLogger(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3780,25 +3785,27 @@ class CfnSessionLogger(
 
     @builtins.property
     @jsii.member(jsii_name="sessionLoggerRef")
-    def session_logger_ref(self) -> "_SessionLoggerReference_21b78d4c":
+    def session_logger_ref(
+        self,
+    ) -> "_aws_workspacesweb_947e28a2.SessionLoggerReference":
         '''A reference to a SessionLogger resource.'''
-        return typing.cast("_SessionLoggerReference_21b78d4c", jsii.get(self, "sessionLoggerRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.SessionLoggerReference", jsii.get(self, "sessionLoggerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventFilter")
     def event_filter(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.EventFilterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.EventFilterProperty"]:
         '''The filter that specifies which events to monitor.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.EventFilterProperty"], jsii.get(self, "eventFilter"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.EventFilterProperty"], jsii.get(self, "eventFilter"))
 
     @event_filter.setter
     def event_filter(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.EventFilterProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.EventFilterProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f797a952eee0e5ef3c6c4e74102d30901b3a261e47539149a187359b0273935)
+            type_hints = cached_type_hints(_typecheckingstub__0f797a952eee0e5ef3c6c4e74102d30901b3a261e47539149a187359b0273935)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventFilter", value) # pyright: ignore[reportArgumentType]
 
@@ -3806,17 +3813,17 @@ class CfnSessionLogger(
     @jsii.member(jsii_name="logConfiguration")
     def log_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.LogConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.LogConfigurationProperty"]:
         '''The configuration that specifies where logs are fowarded.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.LogConfigurationProperty"], jsii.get(self, "logConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.LogConfigurationProperty"], jsii.get(self, "logConfiguration"))
 
     @log_configuration.setter
     def log_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.LogConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.LogConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889c6aa901)
+            type_hints = cached_type_hints(_typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889c6aa901)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3824,17 +3831,17 @@ class CfnSessionLogger(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the session logger.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0)
+            type_hints = cached_type_hints(_typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -3847,7 +3854,7 @@ class CfnSessionLogger(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6669ab733027174f86b8134ac28a12b3e8ce058fc6bb771f3ca2e6a1aa4a1ba0)
+            type_hints = cached_type_hints(_typecheckingstub__6669ab733027174f86b8134ac28a12b3e8ce058fc6bb771f3ca2e6a1aa4a1ba0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
@@ -3860,20 +3867,23 @@ class CfnSessionLogger(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae9fd345c1425b64f964d35fc511958d77a0f8f2e8685f0e6c4fca88750edc68)
+            type_hints = cached_type_hints(_typecheckingstub__ae9fd345c1425b64f964d35fc511958d77a0f8f2e8685f0e6c4fca88750edc68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the session logger.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85de43da52ead721682621ad8e0ec6970bf253d4dc82e6a8b363fb44db534497)
+            type_hints = cached_type_hints(_typecheckingstub__85de43da52ead721682621ad8e0ec6970bf253d4dc82e6a8b363fb44db534497)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3911,7 +3921,7 @@ class CfnSessionLogger(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f1530e33fd800f934515849e7a6b073e430e992de682bef2cf8a8e5c89aa2d7)
+                type_hints = cached_type_hints(_typecheckingstub__2f1530e33fd800f934515849e7a6b073e430e992de682bef2cf8a8e5c89aa2d7)
                 check_type(argname="argument all", value=all, expected_type=type_hints["all"])
                 check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3962,7 +3972,7 @@ class CfnSessionLogger(
         def __init__(
             self,
             *,
-            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.S3LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSessionLogger.S3LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the log.
 
@@ -3990,7 +4000,7 @@ class CfnSessionLogger(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5e673953fb604a5eaf695974e9bd912f04871f2cb0d15f4408568306f9d8913e)
+                type_hints = cached_type_hints(_typecheckingstub__5e673953fb604a5eaf695974e9bd912f04871f2cb0d15f4408568306f9d8913e)
                 check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if s3 is not None:
@@ -3999,13 +4009,13 @@ class CfnSessionLogger(
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.S3LogConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.S3LogConfigurationProperty"]]:
             '''The configuration for delivering the logs to S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-logconfiguration.html#cfn-workspacesweb-sessionlogger-logconfiguration-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.S3LogConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.S3LogConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4067,7 +4077,7 @@ class CfnSessionLogger(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480cca35f4f)
+                type_hints = cached_type_hints(_typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480cca35f4f)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument folder_structure", value=folder_structure, expected_type=type_hints["folder_structure"])
                 check_type(argname="argument log_file_format", value=log_file_format, expected_type=type_hints["log_file_format"])
@@ -4161,12 +4171,12 @@ class CfnSessionLoggerProps:
     def __init__(
         self,
         *,
-        event_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
-        log_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        event_filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        log_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSessionLogger``.
 
@@ -4219,7 +4229,7 @@ class CfnSessionLoggerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3)
+            type_hints = cached_type_hints(_typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3)
             check_type(argname="argument event_filter", value=event_filter, expected_type=type_hints["event_filter"])
             check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
             check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
@@ -4242,37 +4252,37 @@ class CfnSessionLoggerProps:
     @builtins.property
     def event_filter(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.EventFilterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.EventFilterProperty"]:
         '''The filter that specifies which events to monitor.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-eventfilter
         '''
         result = self._values.get("event_filter")
         assert result is not None, "Required property 'event_filter' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.EventFilterProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.EventFilterProperty"], result)
 
     @builtins.property
     def log_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.LogConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.LogConfigurationProperty"]:
         '''The configuration that specifies where logs are fowarded.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-logconfiguration
         '''
         result = self._values.get("log_configuration")
         assert result is not None, "Required property 'log_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSessionLogger.LogConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSessionLogger.LogConfigurationProperty"], result)
 
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the session logger.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -4293,13 +4303,13 @@ class CfnSessionLoggerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the session logger.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4313,9 +4323,9 @@ class CfnSessionLoggerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrustStoreRef_b3e9ed97, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.ITrustStoreRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTrustStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnTrustStore",
 ):
@@ -4351,7 +4361,7 @@ class CfnTrustStore(
         id: builtins.str,
         *,
         certificate_list: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::TrustStore``.
 
@@ -4361,7 +4371,7 @@ class CfnTrustStore(
         :param tags: The tags to add to the trust store. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9c8ead0938c5ad416a02ff1511be2c3cbf2519166e43c80e65e581fac2cab7)
+            type_hints = cached_type_hints(_typecheckingstub__cc9c8ead0938c5ad416a02ff1511be2c3cbf2519166e43c80e65e581fac2cab7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrustStoreProps(certificate_list=certificate_list, tags=tags)
@@ -4370,12 +4380,15 @@ class CfnTrustStore(
 
     @jsii.member(jsii_name="arnForTrustStore")
     @builtins.classmethod
-    def arn_for_trust_store(cls, resource: "_ITrustStoreRef_b3e9ed97") -> builtins.str:
+    def arn_for_trust_store(
+        cls,
+        resource: "_aws_workspacesweb_947e28a2.ITrustStoreRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27f28480da58b49065725489004b8ff212794c76cd5d9eb9932c6c69b39cbbad)
+            type_hints = cached_type_hints(_typecheckingstub__27f28480da58b49065725489004b8ff212794c76cd5d9eb9932c6c69b39cbbad)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrustStore", [resource]))
 
@@ -4387,18 +4400,18 @@ class CfnTrustStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74e1ebb735825d2eb4765a8aee4e90987a49100a719957a7b6248c0112c33232)
+            type_hints = cached_type_hints(_typecheckingstub__74e1ebb735825d2eb4765a8aee4e90987a49100a719957a7b6248c0112c33232)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrustStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb3d54892745fdc13234075ce86bd3f8d4acfe9ec88a393309766bcf833012b)
+            type_hints = cached_type_hints(_typecheckingstub__5fb3d54892745fdc13234075ce86bd3f8d4acfe9ec88a393309766bcf833012b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4411,7 +4424,7 @@ class CfnTrustStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__836cb2ee4e300cb4cb603faf540c0c6dad36379e65dad6d178875cdc39e56603)
+            type_hints = cached_type_hints(_typecheckingstub__836cb2ee4e300cb4cb603faf540c0c6dad36379e65dad6d178875cdc39e56603)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4441,9 +4454,9 @@ class CfnTrustStore(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4457,9 +4470,9 @@ class CfnTrustStore(
 
     @builtins.property
     @jsii.member(jsii_name="trustStoreRef")
-    def trust_store_ref(self) -> "_TrustStoreReference_778699bf":
+    def trust_store_ref(self) -> "_aws_workspacesweb_947e28a2.TrustStoreReference":
         '''A reference to a TrustStore resource.'''
-        return typing.cast("_TrustStoreReference_778699bf", jsii.get(self, "trustStoreRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.TrustStoreReference", jsii.get(self, "trustStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="certificateList")
@@ -4470,20 +4483,23 @@ class CfnTrustStore(
     @certificate_list.setter
     def certificate_list(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6c348f8d89e15637f5e7f299791ad808bd6fadfe67032f77e095b03cb3b19f1)
+            type_hints = cached_type_hints(_typecheckingstub__d6c348f8d89e15637f5e7f299791ad808bd6fadfe67032f77e095b03cb3b19f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateList", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the trust store.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__413cb334bb35253edc995584173eeea4b9dcaddccf8f42db23cff1eb1c57eba2)
+            type_hints = cached_type_hints(_typecheckingstub__413cb334bb35253edc995584173eeea4b9dcaddccf8f42db23cff1eb1c57eba2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4498,7 +4514,7 @@ class CfnTrustStoreProps:
         self,
         *,
         certificate_list: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrustStore``.
 
@@ -4526,7 +4542,7 @@ class CfnTrustStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18)
+            type_hints = cached_type_hints(_typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18)
             check_type(argname="argument certificate_list", value=certificate_list, expected_type=type_hints["certificate_list"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4546,7 +4562,7 @@ class CfnTrustStoreProps:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the trust store.
 
         A tag is a key-value pair.
@@ -4554,7 +4570,7 @@ class CfnTrustStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html#cfn-workspacesweb-truststore-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4568,9 +4584,9 @@ class CfnTrustStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserAccessLoggingSettingsRef_35b44bda, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IUserAccessLoggingSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnUserAccessLoggingSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserAccessLoggingSettings",
 ):
@@ -4610,7 +4626,7 @@ class CfnUserAccessLoggingSettings(
         id: builtins.str,
         *,
         kinesis_stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::UserAccessLoggingSettings``.
 
@@ -4620,7 +4636,7 @@ class CfnUserAccessLoggingSettings(
         :param tags: The tags to add to the user access logging settings resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aad2c57d166d3f137cf451bac17a21ea9bd59a5dafc004c63b60db12312c6ea6)
+            type_hints = cached_type_hints(_typecheckingstub__aad2c57d166d3f137cf451bac17a21ea9bd59a5dafc004c63b60db12312c6ea6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserAccessLoggingSettingsProps(
@@ -4633,13 +4649,13 @@ class CfnUserAccessLoggingSettings(
     @builtins.classmethod
     def arn_for_user_access_logging_settings(
         cls,
-        resource: "_IUserAccessLoggingSettingsRef_35b44bda",
+        resource: "_aws_workspacesweb_947e28a2.IUserAccessLoggingSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1265323eecc59e930fbc863aa5a7fd4f995580b1a4d419beff6ccf2c2dc756a6)
+            type_hints = cached_type_hints(_typecheckingstub__1265323eecc59e930fbc863aa5a7fd4f995580b1a4d419beff6ccf2c2dc756a6)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUserAccessLoggingSettings", [resource]))
 
@@ -4651,18 +4667,18 @@ class CfnUserAccessLoggingSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a45249329b852db0dd2e97cc700f7107725e6e2fd255c1729fd9cc5da121a09b)
+            type_hints = cached_type_hints(_typecheckingstub__a45249329b852db0dd2e97cc700f7107725e6e2fd255c1729fd9cc5da121a09b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserAccessLoggingSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9529f157bb0a06f8719fcc35be65d3271950825bff8e93dc8a42d103439e05ac)
+            type_hints = cached_type_hints(_typecheckingstub__9529f157bb0a06f8719fcc35be65d3271950825bff8e93dc8a42d103439e05ac)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4675,7 +4691,7 @@ class CfnUserAccessLoggingSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__696773979e88a009f291e28c35e0a9e8ca5f167e930af7cd1cdfeedbab8c2264)
+            type_hints = cached_type_hints(_typecheckingstub__696773979e88a009f291e28c35e0a9e8ca5f167e930af7cd1cdfeedbab8c2264)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4705,9 +4721,9 @@ class CfnUserAccessLoggingSettings(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4723,9 +4739,9 @@ class CfnUserAccessLoggingSettings(
     @jsii.member(jsii_name="userAccessLoggingSettingsRef")
     def user_access_logging_settings_ref(
         self,
-    ) -> "_UserAccessLoggingSettingsReference_b92d801e":
+    ) -> "_aws_workspacesweb_947e28a2.UserAccessLoggingSettingsReference":
         '''A reference to a UserAccessLoggingSettings resource.'''
-        return typing.cast("_UserAccessLoggingSettingsReference_b92d801e", jsii.get(self, "userAccessLoggingSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.UserAccessLoggingSettingsReference", jsii.get(self, "userAccessLoggingSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="kinesisStreamArn")
@@ -4736,20 +4752,23 @@ class CfnUserAccessLoggingSettings(
     @kinesis_stream_arn.setter
     def kinesis_stream_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9da0f05e734af1b537d4f6612a6e7f940d1c43dfc9bbc4879e3d92578ed0614)
+            type_hints = cached_type_hints(_typecheckingstub__c9da0f05e734af1b537d4f6612a6e7f940d1c43dfc9bbc4879e3d92578ed0614)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kinesisStreamArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the user access logging settings resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5891d11f0a657ca8579858eed7e0c8861e02aad2584f2928aa6f75f7966d4830)
+            type_hints = cached_type_hints(_typecheckingstub__5891d11f0a657ca8579858eed7e0c8861e02aad2584f2928aa6f75f7966d4830)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4764,7 +4783,7 @@ class CfnUserAccessLoggingSettingsProps:
         self,
         *,
         kinesis_stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserAccessLoggingSettings``.
 
@@ -4792,7 +4811,7 @@ class CfnUserAccessLoggingSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a)
+            type_hints = cached_type_hints(_typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a)
             check_type(argname="argument kinesis_stream_arn", value=kinesis_stream_arn, expected_type=type_hints["kinesis_stream_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4812,7 +4831,7 @@ class CfnUserAccessLoggingSettingsProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the user access logging settings resource.
 
         A tag is a key-value pair.
@@ -4820,7 +4839,7 @@ class CfnUserAccessLoggingSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html#cfn-workspacesweb-useraccessloggingsettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4834,9 +4853,9 @@ class CfnUserAccessLoggingSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserSettingsRef_02671625, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspacesweb_947e28a2.IUserSettingsRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnUserSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserSettings",
 ):
@@ -4948,15 +4967,15 @@ class CfnUserSettings(
         paste_allowed: builtins.str,
         print_allowed: builtins.str,
         upload_allowed: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        branding_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cookie_synchronization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        branding_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cookie_synchronization_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         deep_link_allowed: typing.Optional[builtins.str] = None,
         disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
         idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        toolbar_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.ToolbarConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        toolbar_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.ToolbarConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_authn_allowed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpacesWeb::UserSettings``.
@@ -4980,7 +4999,7 @@ class CfnUserSettings(
         :param web_authn_allowed: Specifies whether the user can use WebAuthn redirection for passwordless login to websites within the streaming session.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75a973eee52af75d8440f76e110a255d358bfa0d721a06403da3f4b3da691630)
+            type_hints = cached_type_hints(_typecheckingstub__75a973eee52af75d8440f76e110a255d358bfa0d721a06403da3f4b3da691630)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserSettingsProps(
@@ -5007,13 +5026,13 @@ class CfnUserSettings(
     @builtins.classmethod
     def arn_for_user_settings(
         cls,
-        resource: "_IUserSettingsRef_02671625",
+        resource: "_aws_workspacesweb_947e28a2.IUserSettingsRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e1d74d12404cccea1170dca42411cf5c14e881fff98fb4a3d3b40943d23a2f2)
+            type_hints = cached_type_hints(_typecheckingstub__5e1d74d12404cccea1170dca42411cf5c14e881fff98fb4a3d3b40943d23a2f2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUserSettings", [resource]))
 
@@ -5025,18 +5044,18 @@ class CfnUserSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__377c4063350d730d112e41ab7f2190ed2f5bb9c7de469fc5f315965c608fa70b)
+            type_hints = cached_type_hints(_typecheckingstub__377c4063350d730d112e41ab7f2190ed2f5bb9c7de469fc5f315965c608fa70b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__244f1fe2bee12ec9da43df9e03b84c572087c943a751c03dfad95754868e16bf)
+            type_hints = cached_type_hints(_typecheckingstub__244f1fe2bee12ec9da43df9e03b84c572087c943a751c03dfad95754868e16bf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5049,7 +5068,7 @@ class CfnUserSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d19192b77523bcab841bc3482080fb0b612b4a9432071dcb0bdcee59129de93e)
+            type_hints = cached_type_hints(_typecheckingstub__d19192b77523bcab841bc3482080fb0b612b4a9432071dcb0bdcee59129de93e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5070,36 +5089,42 @@ class CfnUserSettings(
 
     @builtins.property
     @jsii.member(jsii_name="attrBrandingConfigurationFaviconMetadata")
-    def attr_branding_configuration_favicon_metadata(self) -> "_IResolvable_da3f097b":
+    def attr_branding_configuration_favicon_metadata(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Read-only.
 
         Metadata for the favicon image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
 
         :cloudformationAttribute: BrandingConfiguration.FaviconMetadata
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrBrandingConfigurationFaviconMetadata"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrBrandingConfigurationFaviconMetadata"))
 
     @builtins.property
     @jsii.member(jsii_name="attrBrandingConfigurationLogoMetadata")
-    def attr_branding_configuration_logo_metadata(self) -> "_IResolvable_da3f097b":
+    def attr_branding_configuration_logo_metadata(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Read-only.
 
         Metadata for the logo image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
 
         :cloudformationAttribute: BrandingConfiguration.LogoMetadata
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrBrandingConfigurationLogoMetadata"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrBrandingConfigurationLogoMetadata"))
 
     @builtins.property
     @jsii.member(jsii_name="attrBrandingConfigurationWallpaperMetadata")
-    def attr_branding_configuration_wallpaper_metadata(self) -> "_IResolvable_da3f097b":
+    def attr_branding_configuration_wallpaper_metadata(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Read-only.
 
         Metadata for the wallpaper image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
 
         :cloudformationAttribute: BrandingConfiguration.WallpaperMetadata
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrBrandingConfigurationWallpaperMetadata"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrBrandingConfigurationWallpaperMetadata"))
 
     @builtins.property
     @jsii.member(jsii_name="attrUserSettingsArn")
@@ -5112,9 +5137,9 @@ class CfnUserSettings(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5128,9 +5153,9 @@ class CfnUserSettings(
 
     @builtins.property
     @jsii.member(jsii_name="userSettingsRef")
-    def user_settings_ref(self) -> "_UserSettingsReference_9c05e0ee":
+    def user_settings_ref(self) -> "_aws_workspacesweb_947e28a2.UserSettingsReference":
         '''A reference to a UserSettings resource.'''
-        return typing.cast("_UserSettingsReference_9c05e0ee", jsii.get(self, "userSettingsRef"))
+        return typing.cast("_aws_workspacesweb_947e28a2.UserSettingsReference", jsii.get(self, "userSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="copyAllowed")
@@ -5141,7 +5166,7 @@ class CfnUserSettings(
     @copy_allowed.setter
     def copy_allowed(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__246f5760229c3a961575cf587c3b4f4860166572ed6c563578054c49d5e3f491)
+            type_hints = cached_type_hints(_typecheckingstub__246f5760229c3a961575cf587c3b4f4860166572ed6c563578054c49d5e3f491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "copyAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5154,7 +5179,7 @@ class CfnUserSettings(
     @download_allowed.setter
     def download_allowed(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f9bc1f80036b3272572fd6a61db383c0f9a108ae4361245d67c2310033f6aca)
+            type_hints = cached_type_hints(_typecheckingstub__4f9bc1f80036b3272572fd6a61db383c0f9a108ae4361245d67c2310033f6aca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "downloadAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5167,7 +5192,7 @@ class CfnUserSettings(
     @paste_allowed.setter
     def paste_allowed(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b079c9f6c24d953ad04e32e9f5a560c7a3b8dfdcbd3fa9b20983ed520609684a)
+            type_hints = cached_type_hints(_typecheckingstub__b079c9f6c24d953ad04e32e9f5a560c7a3b8dfdcbd3fa9b20983ed520609684a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pasteAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5180,7 +5205,7 @@ class CfnUserSettings(
     @print_allowed.setter
     def print_allowed(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc2a40c59165855fc23939973d9bb8df39156dfc828b8f1c2c799acc9e9c534b)
+            type_hints = cached_type_hints(_typecheckingstub__bc2a40c59165855fc23939973d9bb8df39156dfc828b8f1c2c799acc9e9c534b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "printAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5193,7 +5218,7 @@ class CfnUserSettings(
     @upload_allowed.setter
     def upload_allowed(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab95c6b32fc019924a90410af98fcff3bd60af47435e3704bf57b385408f198c)
+            type_hints = cached_type_hints(_typecheckingstub__ab95c6b32fc019924a90410af98fcff3bd60af47435e3704bf57b385408f198c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "uploadAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5201,17 +5226,17 @@ class CfnUserSettings(
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the user settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalEncryptionContext"))
 
     @additional_encryption_context.setter
     def additional_encryption_context(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fca2cad6e9c549a52ed27d6e7203a4dde55fdf1eed387d37637b922c0743a318)
+            type_hints = cached_type_hints(_typecheckingstub__fca2cad6e9c549a52ed27d6e7203a4dde55fdf1eed387d37637b922c0743a318)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
 
@@ -5219,17 +5244,17 @@ class CfnUserSettings(
     @jsii.member(jsii_name="brandingConfiguration")
     def branding_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.BrandingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.BrandingConfigurationProperty"]]:
         '''The branding configuration that customizes the appearance of the web portal for end users.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.BrandingConfigurationProperty"]], jsii.get(self, "brandingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.BrandingConfigurationProperty"]], jsii.get(self, "brandingConfiguration"))
 
     @branding_configuration.setter
     def branding_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.BrandingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.BrandingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa8addda6d7fb3de74c130e89ce53bafa48d1c36a1977e9885e36185d4f738e0)
+            type_hints = cached_type_hints(_typecheckingstub__fa8addda6d7fb3de74c130e89ce53bafa48d1c36a1977e9885e36185d4f738e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "brandingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -5237,17 +5262,17 @@ class CfnUserSettings(
     @jsii.member(jsii_name="cookieSynchronizationConfiguration")
     def cookie_synchronization_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]]:
         '''The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]], jsii.get(self, "cookieSynchronizationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]], jsii.get(self, "cookieSynchronizationConfiguration"))
 
     @cookie_synchronization_configuration.setter
     def cookie_synchronization_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc519f4ed3ec11d3fe8c755f39fd066c05ebbf23ec90ba109c399972617b76b4)
+            type_hints = cached_type_hints(_typecheckingstub__fc519f4ed3ec11d3fe8c755f39fd066c05ebbf23ec90ba109c399972617b76b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cookieSynchronizationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -5260,7 +5285,7 @@ class CfnUserSettings(
     @customer_managed_key.setter
     def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33cbfd7d3c9ffee2a9508bf9733029fbcbc3bd298fd568503ef46ec94dde23df)
+            type_hints = cached_type_hints(_typecheckingstub__33cbfd7d3c9ffee2a9508bf9733029fbcbc3bd298fd568503ef46ec94dde23df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
 
@@ -5273,7 +5298,7 @@ class CfnUserSettings(
     @deep_link_allowed.setter
     def deep_link_allowed(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d75366e0e490cd8c610336b4c7c50fe98689c6d88fb3eed21744fa83752d179)
+            type_hints = cached_type_hints(_typecheckingstub__4d75366e0e490cd8c610336b4c7c50fe98689c6d88fb3eed21744fa83752d179)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deepLinkAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5289,7 +5314,7 @@ class CfnUserSettings(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c3d8570299b47cbfe2eac0be79eb57ec6ded28c76cb13fec1237f2daa26542)
+            type_hints = cached_type_hints(_typecheckingstub__65c3d8570299b47cbfe2eac0be79eb57ec6ded28c76cb13fec1237f2daa26542)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disconnectTimeoutInMinutes", value) # pyright: ignore[reportArgumentType]
 
@@ -5305,20 +5330,23 @@ class CfnUserSettings(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6ab43a1a32df42c47c0c8bf18b29db28c2b3d27d8be082f9408d80c09059346)
+            type_hints = cached_type_hints(_typecheckingstub__e6ab43a1a32df42c47c0c8bf18b29db28c2b3d27d8be082f9408d80c09059346)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idleDisconnectTimeoutInMinutes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the user settings resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e18af2707e3cbec353505ab884854a52028ac4039d4d38b2b7aff300b7e63b8a)
+            type_hints = cached_type_hints(_typecheckingstub__e18af2707e3cbec353505ab884854a52028ac4039d4d38b2b7aff300b7e63b8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5326,17 +5354,17 @@ class CfnUserSettings(
     @jsii.member(jsii_name="toolbarConfiguration")
     def toolbar_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ToolbarConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ToolbarConfigurationProperty"]]:
         '''The configuration of the toolbar.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ToolbarConfigurationProperty"]], jsii.get(self, "toolbarConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ToolbarConfigurationProperty"]], jsii.get(self, "toolbarConfiguration"))
 
     @toolbar_configuration.setter
     def toolbar_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ToolbarConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ToolbarConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04b9f4577cd065eea0c0b6a9c3f2be36f624017fbed6ec1b2c5e9de107dc25b4)
+            type_hints = cached_type_hints(_typecheckingstub__04b9f4577cd065eea0c0b6a9c3f2be36f624017fbed6ec1b2c5e9de107dc25b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "toolbarConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -5349,7 +5377,7 @@ class CfnUserSettings(
     @web_authn_allowed.setter
     def web_authn_allowed(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b945687d43bb9fddebe88685fb748497488afdb4a31fa2a585556f1a253b595a)
+            type_hints = cached_type_hints(_typecheckingstub__b945687d43bb9fddebe88685fb748497488afdb4a31fa2a585556f1a253b595a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webAuthnAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -5374,13 +5402,13 @@ class CfnUserSettings(
             *,
             color_theme: typing.Optional[builtins.str] = None,
             favicon: typing.Optional[builtins.str] = None,
-            favicon_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            localized_strings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.LocalizedBrandingStringsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            favicon_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            localized_strings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.LocalizedBrandingStringsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             logo: typing.Optional[builtins.str] = None,
-            logo_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            logo_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             terms_of_service: typing.Optional[builtins.str] = None,
             wallpaper: typing.Optional[builtins.str] = None,
-            wallpaper_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wallpaper_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.ImageMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The branding configuration that customizes the appearance of the web portal for end users.
 
@@ -5446,7 +5474,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0369687c0ce662b64501771fd1540d8f87c8a27e766defb6640bb2660b227084)
+                type_hints = cached_type_hints(_typecheckingstub__0369687c0ce662b64501771fd1540d8f87c8a27e766defb6640bb2660b227084)
                 check_type(argname="argument color_theme", value=color_theme, expected_type=type_hints["color_theme"])
                 check_type(argname="argument favicon", value=favicon, expected_type=type_hints["favicon"])
                 check_type(argname="argument favicon_metadata", value=favicon_metadata, expected_type=type_hints["favicon_metadata"])
@@ -5501,7 +5529,7 @@ class CfnUserSettings(
         @builtins.property
         def favicon_metadata(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]]:
             '''Read-only.
 
             Metadata for the favicon image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
@@ -5509,18 +5537,18 @@ class CfnUserSettings(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-brandingconfiguration.html#cfn-workspacesweb-usersettings-brandingconfiguration-faviconmetadata
             '''
             result = self._values.get("favicon_metadata")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]], result)
 
         @builtins.property
         def localized_strings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnUserSettings.LocalizedBrandingStringsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.LocalizedBrandingStringsProperty"]]]]:
             '''A map of localized text strings for different languages, allowing the portal to display content in the user's preferred language.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-brandingconfiguration.html#cfn-workspacesweb-usersettings-brandingconfiguration-localizedstrings
             '''
             result = self._values.get("localized_strings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnUserSettings.LocalizedBrandingStringsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.LocalizedBrandingStringsProperty"]]]], result)
 
         @builtins.property
         def logo(self) -> typing.Optional[builtins.str]:
@@ -5536,7 +5564,7 @@ class CfnUserSettings(
         @builtins.property
         def logo_metadata(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]]:
             '''Read-only.
 
             Metadata for the logo image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
@@ -5544,7 +5572,7 @@ class CfnUserSettings(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-brandingconfiguration.html#cfn-workspacesweb-usersettings-brandingconfiguration-logometadata
             '''
             result = self._values.get("logo_metadata")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]], result)
 
         @builtins.property
         def terms_of_service(self) -> typing.Optional[builtins.str]:
@@ -5569,7 +5597,7 @@ class CfnUserSettings(
         @builtins.property
         def wallpaper_metadata(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]]:
             '''Read-only.
 
             Metadata for the wallpaper image file, including the MIME type, file extension, and upload timestamp. This property is automatically populated by the service and cannot be specified in your template. It can be retrieved using the ``Fn::GetAtt`` intrinsic function.
@@ -5577,7 +5605,7 @@ class CfnUserSettings(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-brandingconfiguration.html#cfn-workspacesweb-usersettings-brandingconfiguration-wallpapermetadata
             '''
             result = self._values.get("wallpaper_metadata")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ImageMetadataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ImageMetadataProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5627,7 +5655,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__967130a98f5e1732af04891ba925fd71a0043477b770e4d98d817b932c896a45)
+                type_hints = cached_type_hints(_typecheckingstub__967130a98f5e1732af04891ba925fd71a0043477b770e4d98d817b932c896a45)
                 check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -5687,8 +5715,8 @@ class CfnUserSettings(
         def __init__(
             self,
             *,
-            allowlist: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            blocklist: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            allowlist: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.CookieSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            blocklist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.CookieSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
 
@@ -5724,7 +5752,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b03a784924e11f4debd206efd14cca98aa8e8242e4e834629b834539bd06258f)
+                type_hints = cached_type_hints(_typecheckingstub__b03a784924e11f4debd206efd14cca98aa8e8242e4e834629b834539bd06258f)
                 check_type(argname="argument allowlist", value=allowlist, expected_type=type_hints["allowlist"])
                 check_type(argname="argument blocklist", value=blocklist, expected_type=type_hints["blocklist"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5736,25 +5764,25 @@ class CfnUserSettings(
         @builtins.property
         def allowlist(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSpecificationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSpecificationProperty"]]]:
             '''The list of cookie specifications that are allowed to be synchronized to the remote browser.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-cookiesynchronizationconfiguration.html#cfn-workspacesweb-usersettings-cookiesynchronizationconfiguration-allowlist
             '''
             result = self._values.get("allowlist")
             assert result is not None, "Required property 'allowlist' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSpecificationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSpecificationProperty"]]], result)
 
         @builtins.property
         def blocklist(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSpecificationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSpecificationProperty"]]]]:
             '''The list of cookie specifications that are blocked from being synchronized to the remote browser.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-usersettings-cookiesynchronizationconfiguration.html#cfn-workspacesweb-usersettings-cookiesynchronizationconfiguration-blocklist
             '''
             result = self._values.get("blocklist")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSpecificationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSpecificationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5806,7 +5834,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__25a2726933234845696f97a412c4aa7b0384b8d83b633f640daeca2557762cbc)
+                type_hints = cached_type_hints(_typecheckingstub__25a2726933234845696f97a412c4aa7b0384b8d83b633f640daeca2557762cbc)
                 check_type(argname="argument file_extension", value=file_extension, expected_type=type_hints["file_extension"])
                 check_type(argname="argument last_upload_timestamp", value=last_upload_timestamp, expected_type=type_hints["last_upload_timestamp"])
                 check_type(argname="argument mime_type", value=mime_type, expected_type=type_hints["mime_type"])
@@ -5918,7 +5946,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__90337c6b6c197b8cff92a0354920aa2e92f1238f16f23c845669f324bf1ec168)
+                type_hints = cached_type_hints(_typecheckingstub__90337c6b6c197b8cff92a0354920aa2e92f1238f16f23c845669f324bf1ec168)
                 check_type(argname="argument browser_tab_title", value=browser_tab_title, expected_type=type_hints["browser_tab_title"])
                 check_type(argname="argument welcome_text", value=welcome_text, expected_type=type_hints["welcome_text"])
                 check_type(argname="argument contact_button_text", value=contact_button_text, expected_type=type_hints["contact_button_text"])
@@ -6086,7 +6114,7 @@ class CfnUserSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c34b0e8a8ab7ac6d4c9c7ebda522c320d7e5fd5dd3569da4020209d922bf92d)
+                type_hints = cached_type_hints(_typecheckingstub__2c34b0e8a8ab7ac6d4c9c7ebda522c320d7e5fd5dd3569da4020209d922bf92d)
                 check_type(argname="argument hidden_toolbar_items", value=hidden_toolbar_items, expected_type=type_hints["hidden_toolbar_items"])
                 check_type(argname="argument max_display_resolution", value=max_display_resolution, expected_type=type_hints["max_display_resolution"])
                 check_type(argname="argument toolbar_type", value=toolbar_type, expected_type=type_hints["toolbar_type"])
@@ -6179,15 +6207,15 @@ class CfnUserSettingsProps:
         paste_allowed: builtins.str,
         print_allowed: builtins.str,
         upload_allowed: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        branding_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cookie_synchronization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        additional_encryption_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        branding_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.BrandingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cookie_synchronization_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         customer_managed_key: typing.Optional[builtins.str] = None,
         deep_link_allowed: typing.Optional[builtins.str] = None,
         disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
         idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        toolbar_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserSettings.ToolbarConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        toolbar_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserSettings.ToolbarConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_authn_allowed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserSettings``.
@@ -6301,7 +6329,7 @@ class CfnUserSettingsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4)
+            type_hints = cached_type_hints(_typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4)
             check_type(argname="argument copy_allowed", value=copy_allowed, expected_type=type_hints["copy_allowed"])
             check_type(argname="argument download_allowed", value=download_allowed, expected_type=type_hints["download_allowed"])
             check_type(argname="argument paste_allowed", value=paste_allowed, expected_type=type_hints["paste_allowed"])
@@ -6398,18 +6426,18 @@ class CfnUserSettingsProps:
     @builtins.property
     def additional_encryption_context(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The additional encryption context of the user settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-additionalencryptioncontext
         '''
         result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def branding_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.BrandingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.BrandingConfigurationProperty"]]:
         '''The branding configuration that customizes the appearance of the web portal for end users.
 
         This includes a custom logo, favicon, wallpaper, localized strings, color theme, and an optional terms of service.
@@ -6417,18 +6445,18 @@ class CfnUserSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-brandingconfiguration
         '''
         result = self._values.get("branding_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.BrandingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.BrandingConfigurationProperty"]], result)
 
     @builtins.property
     def cookie_synchronization_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]]:
         '''The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-cookiesynchronizationconfiguration
         '''
         result = self._values.get("cookie_synchronization_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.CookieSynchronizationConfigurationProperty"]], result)
 
     @builtins.property
     def customer_managed_key(self) -> typing.Optional[builtins.str]:
@@ -6467,7 +6495,7 @@ class CfnUserSettingsProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the user settings resource.
 
         A tag is a key-value pair.
@@ -6475,12 +6503,12 @@ class CfnUserSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def toolbar_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ToolbarConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ToolbarConfigurationProperty"]]:
         '''The configuration of the toolbar.
 
         This allows administrators to select the toolbar type and visual mode, set maximum display resolution for sessions, and choose which items are visible to end users during their sessions. If administrators do not modify these settings, end users retain control over their toolbar preferences.
@@ -6488,7 +6516,7 @@ class CfnUserSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-toolbarconfiguration
         '''
         result = self._values.get("toolbar_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserSettings.ToolbarConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserSettings.ToolbarConfigurationProperty"]], result)
 
     @builtins.property
     def web_authn_allowed(self) -> typing.Optional[builtins.str]:
@@ -6540,17 +6568,17 @@ def _typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     browser_policy: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    web_content_filtering_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserSettings.WebContentFilteringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_content_filtering_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBrowserSettings.WebContentFilteringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0cd7bce9b40bf1170046b3a1be7953e06014e36c4c337f11899b6dbd61b72dce(
-    resource: _IBrowserSettingsRef_27fa755b,
+    resource: _aws_workspacesweb_947e28a2.IBrowserSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6562,7 +6590,7 @@ def _typecheckingstub__eedad5eb955eda6279692890d7b7e558f10ad83bd3271e8fedc1750f1
     pass
 
 def _typecheckingstub__7d4203cdc61a30c217fc2abe263c4776ac7f7dc3efdc691f65b8b0f98c469206(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6574,7 +6602,7 @@ def _typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70b
     pass
 
 def _typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6592,13 +6620,13 @@ def _typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa2
     pass
 
 def _typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9edd8c2ec4653712f0db91c5e95215774b30f39e3b64d48b9b1715d58038dfa5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBrowserSettings.WebContentFilteringPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBrowserSettings.WebContentFilteringPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6614,11 +6642,11 @@ def _typecheckingstub__d653fef38c8440747febeeb204a9a13be6c35357662ad8ba8ddb3e8f9
 
 def _typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     browser_policy: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    web_content_filtering_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserSettings.WebContentFilteringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_content_filtering_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBrowserSettings.WebContentFilteringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6627,18 +6655,18 @@ def _typecheckingstub__851565cba0af7c67b6951a864a7d6671af0039654a56671ed86d28919
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inline_redaction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a72ffc98354fb298da1a3bcd91c77a674b5263e2ddb30eea174f840cbb93013c(
-    resource: _IDataProtectionSettingsRef_733dabd5,
+    resource: _aws_workspacesweb_947e28a2.IDataProtectionSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6650,7 +6678,7 @@ def _typecheckingstub__e694262a37a7ad8f3cb6d4957467e508c9b2d410a5aa568cea5e843ed
     pass
 
 def _typecheckingstub__3afc83d9e43528cc13b5abd50d4826acf870643c24640ed022e2bd621b1dec5f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6662,7 +6690,7 @@ def _typecheckingstub__029b8eb91b5f7341d86b33581460523348eedfa665657364ac1293ba7
     pass
 
 def _typecheckingstub__3fb99479367371b2a6c52e976d47a87740ba2c6f65f4fcf0c11ef7787923a279(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6686,13 +6714,13 @@ def _typecheckingstub__4bbbc104f6c3d94f0c1f63bd93d3ec5849325aa58b7e06f06e3c37f6b
     pass
 
 def _typecheckingstub__a80d3be6cd6ed07f4c7a5f51acbace505548a335789227fb3e70735f66c484f6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataProtectionSettings.InlineRedactionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataProtectionSettings.InlineRedactionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d82a664a0d9b6e2a4f59784e5f13b3f39994ef205d8513718b40fba2b6daf513(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6709,7 +6737,7 @@ def _typecheckingstub__6114d751d2647346cb8b4fe7fc495c1b5e4ec1ffbe6904abf91d6b44a
 
 def _typecheckingstub__552bfd927d431d6795b0b5add23e48f1a25b4db6addb149426e81afc6686dc63(
     *,
-    inline_redaction_patterns: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionPatternProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    inline_redaction_patterns: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProtectionSettings.InlineRedactionPatternProperty, typing.Dict[builtins.str, typing.Any]]]]],
     global_confidence_level: typing.Optional[jsii.Number] = None,
     global_enforced_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
     global_exempt_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6719,10 +6747,10 @@ def _typecheckingstub__552bfd927d431d6795b0b5add23e48f1a25b4db6addb149426e81afc6
 
 def _typecheckingstub__f28e305e326d3f4c9ac306ecac6e0d132c560d8cb368e6c1d255bce2256c5953(
     *,
-    redaction_place_holder: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.RedactionPlaceHolderProperty, typing.Dict[builtins.str, typing.Any]]],
+    redaction_place_holder: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProtectionSettings.RedactionPlaceHolderProperty, typing.Dict[builtins.str, typing.Any]]],
     built_in_pattern_id: typing.Optional[builtins.str] = None,
     confidence_level: typing.Optional[jsii.Number] = None,
-    custom_pattern: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.CustomPatternProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_pattern: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProtectionSettings.CustomPatternProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enforced_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
     exempt_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -6739,12 +6767,12 @@ def _typecheckingstub__93e3fa90dfeb5ed27de42632610186e3eec8e8ee42bce56d7f8dcb07d
 
 def _typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inline_redaction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6753,17 +6781,17 @@ def _typecheckingstub__439cd32d129b1f0a69c13fb5a494170084be122497b619a7175debec5
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    identity_provider_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     identity_provider_name: builtins.str,
     identity_provider_type: builtins.str,
     portal_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a342388c6d03d144babccb2dc1ae31af68aac6aee1478b9ea46fd0220f7d8753(
-    resource: _IIdentityProviderRef_1989e7fb,
+    resource: _aws_workspacesweb_947e28a2.IIdentityProviderRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6775,7 +6803,7 @@ def _typecheckingstub__13e6dd7ea0d018129717592349c895c59fa949f61e205ca63fcd2e172
     pass
 
 def _typecheckingstub__ace0da6a7e7e7a968ac58e8be1ce9dcb15a96bae8fad93e7c341ff5392bed56c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6787,7 +6815,7 @@ def _typecheckingstub__ec876abe2e87a8e0cb2641e36f36bd29bb0a19b65cc2d8f6be54a630a
     pass
 
 def _typecheckingstub__6ae08bcbb1d55c54b06801705e4c1effec06173b9d5c1ab7d0301258d84aa63a(
-    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6811,18 +6839,18 @@ def _typecheckingstub__f17f07edd6f61424250e1f5f7df6f6cee024beb494ee700c6419c5642
     pass
 
 def _typecheckingstub__f529ceae5ebe64b079470ab15dfc0b78fc406f1eaba9be1f4902b355cd6e363f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d(
     *,
-    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    identity_provider_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     identity_provider_name: builtins.str,
     identity_provider_type: builtins.str,
     portal_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6831,18 +6859,18 @@ def _typecheckingstub__4e3f00304b675ee88c29734b1fad40f8e448afe808a4226188c1c74e8
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    ip_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5a137e896709b65ca73cc91a08ed302ee9dc328dde50b7f025f794547fe28487(
-    resource: _IIpAccessSettingsRef_5ce903cc,
+    resource: _aws_workspacesweb_947e28a2.IIpAccessSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6854,7 +6882,7 @@ def _typecheckingstub__66371a8ab4b42af7155212cb791ffa515bb1805958efb0e2dad164a69
     pass
 
 def _typecheckingstub__522d314ff55f65afebb67835c03df17342b3167bed24e30c591f5aef150973f0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6866,13 +6894,13 @@ def _typecheckingstub__dd4736646712efdcfa8ece881cd4fa733fb537f01432db179870ed0f9
     pass
 
 def _typecheckingstub__dc300ade0369b0ab447aa7806a51ee2809fea6ffd0fffc0129fb173b7f3886cf(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIpAccessSettings.IpRuleProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIpAccessSettings.IpRuleProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5f120862dd3a18b3da3624f1bbb9a6b2ec04ea91c5a0d22f1306ab87a46a1e28(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6896,7 +6924,7 @@ def _typecheckingstub__98ac230b64daa6cce74b4ea14502d07e7a0dcc81bb5bd7c233a62ad59
     pass
 
 def _typecheckingstub__d6ebcd54b862693c4f7d257e8db3f90e6315f91bc32c16e7865b2e93f91ff381(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6911,12 +6939,12 @@ def _typecheckingstub__6ef91a56d003f837ee2a6f8431647b2dcdd5ff9d72afb0d6f7cb1c50c
 
 def _typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475(
     *,
-    ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    ip_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6928,13 +6956,13 @@ def _typecheckingstub__95a61d7b0b1452fb7a5fdde6d41bbab0a1737a4628bbe5a201c16ce50
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1fa9fead8b05790cfeddcb8c1a4b10b5df916ecc72679228f21d2620cef9cd2e(
-    resource: _INetworkSettingsRef_9fcb0139,
+    resource: _aws_workspacesweb_947e28a2.INetworkSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6946,7 +6974,7 @@ def _typecheckingstub__7e51b66b51a69148b617f5e2570567183ac2c9daad942ed49e71ffc17
     pass
 
 def _typecheckingstub__b18b2266ad8a399dab2a39759ddd4f261e866f9af5f84bd2281d2d5717327fc7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6976,7 +7004,7 @@ def _typecheckingstub__e298ee4542dc4160ff007ee478b4d24dff6a5105564e454a0eacb28ac
     pass
 
 def _typecheckingstub__07819661df503a5395aeb2f48e629b4742564eaa4d650197b66c74bb51c0efc3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6986,7 +7014,7 @@ def _typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6995,7 +7023,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     authentication_type: typing.Optional[builtins.str] = None,
     browser_settings_arn: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
@@ -7007,7 +7035,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     network_settings_arn: typing.Optional[builtins.str] = None,
     portal_custom_domain: typing.Optional[builtins.str] = None,
     session_logger_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
     user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
     user_settings_arn: typing.Optional[builtins.str] = None,
@@ -7016,7 +7044,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     pass
 
 def _typecheckingstub__df995820d4e10ff81feff7ccae3ec81ae54f1c858bf08046264368b6eb3ae0cf(
-    resource: _IPortalRef_cb17b713,
+    resource: _aws_workspacesweb_947e28a2.IPortalRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7028,7 +7056,7 @@ def _typecheckingstub__5d679eae4c61e43155ac7a79bbce1a017a8df5c5c62c91b7fab27c611
     pass
 
 def _typecheckingstub__c60cd0cfa36720b34c125e3c88b5da82ebb6f29c673cdccf4de8f3e9c20d4191(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7040,7 +7068,7 @@ def _typecheckingstub__5081fb673d60a8535462986536cbc12cbdb7c5238378c64aaee6592cb
     pass
 
 def _typecheckingstub__e96df37d1cd0e854d8d279f26233ce4f30ad6bd4d9de076905b0443b8c425f03(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7112,7 +7140,7 @@ def _typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad84
     pass
 
 def _typecheckingstub__30535a8dcd75eba19481865deda3eac2505afe537e0650db0a95162feb2563e2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7137,7 +7165,7 @@ def _typecheckingstub__e3c9a5aba1f82c8cb8d06dba7c424aabe0b4a862dd045ea1515145403
 
 def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283(
     *,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     authentication_type: typing.Optional[builtins.str] = None,
     browser_settings_arn: typing.Optional[builtins.str] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
@@ -7149,7 +7177,7 @@ def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39
     network_settings_arn: typing.Optional[builtins.str] = None,
     portal_custom_domain: typing.Optional[builtins.str] = None,
     session_logger_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
     user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
     user_settings_arn: typing.Optional[builtins.str] = None,
@@ -7161,18 +7189,18 @@ def _typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
-    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    event_filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    log_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7f65440edbc47aa7f31741ad177932773279bb07152effaa9d9cd5b0a8432706(
-    resource: _ISessionLoggerRef_0b36bc89,
+    resource: _aws_workspacesweb_947e28a2.ISessionLoggerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7184,7 +7212,7 @@ def _typecheckingstub__6d6ae6c43d9a54b00fccc57bc14ef846a5991f57a49098ab676a2c502
     pass
 
 def _typecheckingstub__32c2901f06899b3e8b2aed11d0479e80af4ae3bd2497852311c46da6edf80e41(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7196,19 +7224,19 @@ def _typecheckingstub__02821e951e1a7ebffab0cee338cb22e018833b70a4b8b4db79eadb949
     pass
 
 def _typecheckingstub__0f797a952eee0e5ef3c6c4e74102d30901b3a261e47539149a187359b0273935(
-    value: typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSessionLogger.EventFilterProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889c6aa901(
-    value: typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSessionLogger.LogConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7226,7 +7254,7 @@ def _typecheckingstub__ae9fd345c1425b64f964d35fc511958d77a0f8f2e8685f0e6c4fca887
     pass
 
 def _typecheckingstub__85de43da52ead721682621ad8e0ec6970bf253d4dc82e6a8b363fb44db534497(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7241,7 +7269,7 @@ def _typecheckingstub__2f1530e33fd800f934515849e7a6b073e430e992de682bef2cf8a8e5c
 
 def _typecheckingstub__5e673953fb604a5eaf695974e9bd912f04871f2cb0d15f4408568306f9d8913e(
     *,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.S3LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSessionLogger.S3LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7259,12 +7287,12 @@ def _typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480c
 
 def _typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3(
     *,
-    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
-    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    event_filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    log_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7274,13 +7302,13 @@ def _typecheckingstub__cc9c8ead0938c5ad416a02ff1511be2c3cbf2519166e43c80e65e581f
     id: builtins.str,
     *,
     certificate_list: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__27f28480da58b49065725489004b8ff212794c76cd5d9eb9932c6c69b39cbbad(
-    resource: _ITrustStoreRef_b3e9ed97,
+    resource: _aws_workspacesweb_947e28a2.ITrustStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7292,7 +7320,7 @@ def _typecheckingstub__74e1ebb735825d2eb4765a8aee4e90987a49100a719957a7b6248c011
     pass
 
 def _typecheckingstub__5fb3d54892745fdc13234075ce86bd3f8d4acfe9ec88a393309766bcf833012b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7310,7 +7338,7 @@ def _typecheckingstub__d6c348f8d89e15637f5e7f299791ad808bd6fadfe67032f77e095b03c
     pass
 
 def _typecheckingstub__413cb334bb35253edc995584173eeea4b9dcaddccf8f42db23cff1eb1c57eba2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7318,7 +7346,7 @@ def _typecheckingstub__413cb334bb35253edc995584173eeea4b9dcaddccf8f42db23cff1eb1
 def _typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18(
     *,
     certificate_list: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7328,13 +7356,13 @@ def _typecheckingstub__aad2c57d166d3f137cf451bac17a21ea9bd59a5dafc004c63b60db123
     id: builtins.str,
     *,
     kinesis_stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1265323eecc59e930fbc863aa5a7fd4f995580b1a4d419beff6ccf2c2dc756a6(
-    resource: _IUserAccessLoggingSettingsRef_35b44bda,
+    resource: _aws_workspacesweb_947e28a2.IUserAccessLoggingSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7346,7 +7374,7 @@ def _typecheckingstub__a45249329b852db0dd2e97cc700f7107725e6e2fd255c1729fd9cc5da
     pass
 
 def _typecheckingstub__9529f157bb0a06f8719fcc35be65d3271950825bff8e93dc8a42d103439e05ac(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7364,7 +7392,7 @@ def _typecheckingstub__c9da0f05e734af1b537d4f6612a6e7f940d1c43dfc9bbc4879e3d9257
     pass
 
 def _typecheckingstub__5891d11f0a657ca8579858eed7e0c8861e02aad2584f2928aa6f75f7966d4830(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7372,7 +7400,7 @@ def _typecheckingstub__5891d11f0a657ca8579858eed7e0c8861e02aad2584f2928aa6f75f79
 def _typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a(
     *,
     kinesis_stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7386,22 +7414,22 @@ def _typecheckingstub__75a973eee52af75d8440f76e110a255d358bfa0d721a06403da3f4b3d
     paste_allowed: builtins.str,
     print_allowed: builtins.str,
     upload_allowed: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    branding_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    branding_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cookie_synchronization_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     deep_link_allowed: typing.Optional[builtins.str] = None,
     disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    toolbar_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_authn_allowed: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e1d74d12404cccea1170dca42411cf5c14e881fff98fb4a3d3b40943d23a2f2(
-    resource: _IUserSettingsRef_02671625,
+    resource: _aws_workspacesweb_947e28a2.IUserSettingsRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7413,7 +7441,7 @@ def _typecheckingstub__377c4063350d730d112e41ab7f2190ed2f5bb9c7de469fc5f315965c6
     pass
 
 def _typecheckingstub__244f1fe2bee12ec9da43df9e03b84c572087c943a751c03dfad95754868e16bf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7455,19 +7483,19 @@ def _typecheckingstub__ab95c6b32fc019924a90410af98fcff3bd60af47435e3704bf57b3854
     pass
 
 def _typecheckingstub__fca2cad6e9c549a52ed27d6e7203a4dde55fdf1eed387d37637b922c0743a318(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fa8addda6d7fb3de74c130e89ce53bafa48d1c36a1977e9885e36185d4f738e0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.BrandingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserSettings.BrandingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fc519f4ed3ec11d3fe8c755f39fd066c05ebbf23ec90ba109c399972617b76b4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.CookieSynchronizationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserSettings.CookieSynchronizationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7497,13 +7525,13 @@ def _typecheckingstub__e6ab43a1a32df42c47c0c8bf18b29db28c2b3d27d8be082f9408d80c0
     pass
 
 def _typecheckingstub__e18af2707e3cbec353505ab884854a52028ac4039d4d38b2b7aff300b7e63b8a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__04b9f4577cd065eea0c0b6a9c3f2be36f624017fbed6ec1b2c5e9de107dc25b4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.ToolbarConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserSettings.ToolbarConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7518,13 +7546,13 @@ def _typecheckingstub__0369687c0ce662b64501771fd1540d8f87c8a27e766defb6640bb2660
     *,
     color_theme: typing.Optional[builtins.str] = None,
     favicon: typing.Optional[builtins.str] = None,
-    favicon_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    localized_strings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.LocalizedBrandingStringsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    favicon_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    localized_strings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.LocalizedBrandingStringsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     logo: typing.Optional[builtins.str] = None,
-    logo_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logo_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     terms_of_service: typing.Optional[builtins.str] = None,
     wallpaper: typing.Optional[builtins.str] = None,
-    wallpaper_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wallpaper_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.ImageMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7540,8 +7568,8 @@ def _typecheckingstub__967130a98f5e1732af04891ba925fd71a0043477b770e4d98d817b932
 
 def _typecheckingstub__b03a784924e11f4debd206efd14cca98aa8e8242e4e834629b834539bd06258f(
     *,
-    allowlist: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    blocklist: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allowlist: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.CookieSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    blocklist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.CookieSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7586,15 +7614,15 @@ def _typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b58
     paste_allowed: builtins.str,
     print_allowed: builtins.str,
     upload_allowed: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    branding_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    additional_encryption_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    branding_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.BrandingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cookie_synchronization_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     customer_managed_key: typing.Optional[builtins.str] = None,
     deep_link_allowed: typing.Optional[builtins.str] = None,
     disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    toolbar_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_authn_allowed: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

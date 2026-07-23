@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,49 +45,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_amplify import (
-    AppReference as _AppReference_686f3527,
-    BranchReference as _BranchReference_535e0d4e,
-    DomainReference as _DomainReference_35937381,
-    IAppRef as _IAppRef_163401c8,
-    IBranchRef as _IBranchRef_ed7c2f5b,
-    IDomainRef as _IDomainRef_bdf20b9c,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_amplify as _aws_amplify_c332c42d
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_amplify_c332c42d = _LazyImport("aws_cdk.interfaces.aws_amplify")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAppRef_163401c8, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplify_c332c42d.IAppRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApp(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplify.CfnApp",
 ):
@@ -175,22 +166,22 @@ class CfnApp(
         *,
         name: builtins.str,
         access_token: typing.Optional[builtins.str] = None,
-        auto_branch_creation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.AutoBranchCreationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_branch_creation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.AutoBranchCreationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         build_spec: typing.Optional[builtins.str] = None,
-        cache_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.CacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.CacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         compute_role_arn: typing.Optional[builtins.str] = None,
         custom_headers: typing.Optional[builtins.str] = None,
-        custom_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.CustomRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.CustomRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        iam_service_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        job_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        iam_service_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        job_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         oauth_token: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Amplify::App``.
 
@@ -216,7 +207,7 @@ class CfnApp(
         :param tags: The tag for an Amplify app.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dc8d772047a068d22a76d907b344356448c6a26d23e419ed69cc622d02781ee)
+            type_hints = cached_type_hints(_typecheckingstub__8dc8d772047a068d22a76d907b344356448c6a26d23e419ed69cc622d02781ee)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAppProps(
@@ -244,12 +235,12 @@ class CfnApp(
 
     @jsii.member(jsii_name="arnForApp")
     @builtins.classmethod
-    def arn_for_app(cls, resource: "_IAppRef_163401c8") -> builtins.str:
+    def arn_for_app(cls, resource: "_aws_amplify_c332c42d.IAppRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74be0c58e8de49981a312c501f4d1c3e6215e9cbe5d40cb6c8c6f753882f2d21)
+            type_hints = cached_type_hints(_typecheckingstub__74be0c58e8de49981a312c501f4d1c3e6215e9cbe5d40cb6c8c6f753882f2d21)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApp", [resource]))
 
@@ -261,18 +252,18 @@ class CfnApp(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d698458ecd6766d61699c104ea1d514d928189e8217bc76645a0af80e471ebd)
+            type_hints = cached_type_hints(_typecheckingstub__6d698458ecd6766d61699c104ea1d514d928189e8217bc76645a0af80e471ebd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApp", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86430113f75e093324439a08235b05caf66a071c9480bffb7d367fe6c3214308)
+            type_hints = cached_type_hints(_typecheckingstub__86430113f75e093324439a08235b05caf66a071c9480bffb7d367fe6c3214308)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -285,7 +276,7 @@ class CfnApp(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a907b90c3eb27e674a931172d848655ba40852fd440d8525c2a6819779ce4b4)
+            type_hints = cached_type_hints(_typecheckingstub__0a907b90c3eb27e674a931172d848655ba40852fd440d8525c2a6819779ce4b4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -297,9 +288,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="appRef")
-    def app_ref(self) -> "_AppReference_686f3527":
+    def app_ref(self) -> "_aws_amplify_c332c42d.AppReference":
         '''A reference to a App resource.'''
-        return typing.cast("_AppReference_686f3527", jsii.get(self, "appRef"))
+        return typing.cast("_aws_amplify_c332c42d.AppReference", jsii.get(self, "appRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppId")
@@ -349,9 +340,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -362,7 +353,7 @@ class CfnApp(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdfa7791969585e493dc40e8ceb68db0f3860ba941690b779c4d50f75aebbbd7)
+            type_hints = cached_type_hints(_typecheckingstub__cdfa7791969585e493dc40e8ceb68db0f3860ba941690b779c4d50f75aebbbd7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -375,7 +366,7 @@ class CfnApp(
     @access_token.setter
     def access_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a34b8e83d25c0c26838033ec8d45694e410c5c28d0bf83263b9f9d0942496b2)
+            type_hints = cached_type_hints(_typecheckingstub__1a34b8e83d25c0c26838033ec8d45694e410c5c28d0bf83263b9f9d0942496b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessToken", value) # pyright: ignore[reportArgumentType]
 
@@ -383,17 +374,17 @@ class CfnApp(
     @jsii.member(jsii_name="autoBranchCreationConfig")
     def auto_branch_creation_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.AutoBranchCreationConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.AutoBranchCreationConfigProperty"]]:
         '''Sets the configuration for your automatic branch creation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.AutoBranchCreationConfigProperty"]], jsii.get(self, "autoBranchCreationConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.AutoBranchCreationConfigProperty"]], jsii.get(self, "autoBranchCreationConfig"))
 
     @auto_branch_creation_config.setter
     def auto_branch_creation_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.AutoBranchCreationConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.AutoBranchCreationConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f38a76185a264f75d2add648c8308477d491dddde9804ac7dfbe3bb22d6ea352)
+            type_hints = cached_type_hints(_typecheckingstub__f38a76185a264f75d2add648c8308477d491dddde9804ac7dfbe3bb22d6ea352)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoBranchCreationConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -401,17 +392,17 @@ class CfnApp(
     @jsii.member(jsii_name="basicAuthConfig")
     def basic_auth_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]]:
         '''The credentials for basic authorization for an Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]], jsii.get(self, "basicAuthConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]], jsii.get(self, "basicAuthConfig"))
 
     @basic_auth_config.setter
     def basic_auth_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c88becb37a9dd8239d9ff6aff490658ca182aff7fcab83a21ab6054c309a8432)
+            type_hints = cached_type_hints(_typecheckingstub__c88becb37a9dd8239d9ff6aff490658ca182aff7fcab83a21ab6054c309a8432)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "basicAuthConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -424,7 +415,7 @@ class CfnApp(
     @build_spec.setter
     def build_spec(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8d9c326dc2b610757cecc45608945b716d8ea6af4111bd656fb2927aa80d26c)
+            type_hints = cached_type_hints(_typecheckingstub__f8d9c326dc2b610757cecc45608945b716d8ea6af4111bd656fb2927aa80d26c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "buildSpec", value) # pyright: ignore[reportArgumentType]
 
@@ -432,17 +423,17 @@ class CfnApp(
     @jsii.member(jsii_name="cacheConfig")
     def cache_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.CacheConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CacheConfigProperty"]]:
         '''The cache configuration for the Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.CacheConfigProperty"]], jsii.get(self, "cacheConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CacheConfigProperty"]], jsii.get(self, "cacheConfig"))
 
     @cache_config.setter
     def cache_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.CacheConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CacheConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e0b47cf174f09e141957cc84bc0f442ba70bbfa96a59aad74b66dab16335177)
+            type_hints = cached_type_hints(_typecheckingstub__1e0b47cf174f09e141957cc84bc0f442ba70bbfa96a59aad74b66dab16335177)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -455,7 +446,7 @@ class CfnApp(
     @compute_role_arn.setter
     def compute_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d55f0c87bc50af5a1e7d9bf3f8fca41d5e5a849cb69dbf43ca51f24872058be8)
+            type_hints = cached_type_hints(_typecheckingstub__d55f0c87bc50af5a1e7d9bf3f8fca41d5e5a849cb69dbf43ca51f24872058be8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computeRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -468,7 +459,7 @@ class CfnApp(
     @custom_headers.setter
     def custom_headers(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__623b6d97b6b1967c76a0782c9ba61b276ee5ff570dad9ab0003baf0626317805)
+            type_hints = cached_type_hints(_typecheckingstub__623b6d97b6b1967c76a0782c9ba61b276ee5ff570dad9ab0003baf0626317805)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customHeaders", value) # pyright: ignore[reportArgumentType]
 
@@ -476,17 +467,17 @@ class CfnApp(
     @jsii.member(jsii_name="customRules")
     def custom_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.CustomRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CustomRuleProperty"]]]]:
         '''The custom rewrite and redirect rules for an Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.CustomRuleProperty"]]]], jsii.get(self, "customRules"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CustomRuleProperty"]]]], jsii.get(self, "customRules"))
 
     @custom_rules.setter
     def custom_rules(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.CustomRuleProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CustomRuleProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24f88ebda938286ba2d8ff036b7dcf3cb20a38f782c34c0484b66a2b916ac21f)
+            type_hints = cached_type_hints(_typecheckingstub__24f88ebda938286ba2d8ff036b7dcf3cb20a38f782c34c0484b66a2b916ac21f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customRules", value) # pyright: ignore[reportArgumentType]
 
@@ -499,7 +490,7 @@ class CfnApp(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f271970963b091aefd84c3ab3d2b252d3dca5e4789a892ae905ec8fbf52784e5)
+            type_hints = cached_type_hints(_typecheckingstub__f271970963b091aefd84c3ab3d2b252d3dca5e4789a892ae905ec8fbf52784e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -507,17 +498,17 @@ class CfnApp(
     @jsii.member(jsii_name="enableBranchAutoDeletion")
     def enable_branch_auto_deletion(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableBranchAutoDeletion"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableBranchAutoDeletion"))
 
     @enable_branch_auto_deletion.setter
     def enable_branch_auto_deletion(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dc6d20be8c1648863255ae7968af724a5e56aadb1ddf86b4126b4d6fc096bb6)
+            type_hints = cached_type_hints(_typecheckingstub__2dc6d20be8c1648863255ae7968af724a5e56aadb1ddf86b4126b4d6fc096bb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableBranchAutoDeletion", value) # pyright: ignore[reportArgumentType]
 
@@ -525,17 +516,17 @@ class CfnApp(
     @jsii.member(jsii_name="environmentVariables")
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]]:
         '''The environment variables for the Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]], jsii.get(self, "environmentVariables"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]], jsii.get(self, "environmentVariables"))
 
     @environment_variables.setter
     def environment_variables(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ffb3244739d356fab1ba7899722798d4558303d9d3e2a3caaa138b21a86181b)
+            type_hints = cached_type_hints(_typecheckingstub__8ffb3244739d356fab1ba7899722798d4558303d9d3e2a3caaa138b21a86181b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
 
@@ -548,7 +539,7 @@ class CfnApp(
     @iam_service_role.setter
     def iam_service_role(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__378909021f9642b2e612e1ecd4b62069a17df2eef9f3461fa46cd5337a44dae9)
+            type_hints = cached_type_hints(_typecheckingstub__378909021f9642b2e612e1ecd4b62069a17df2eef9f3461fa46cd5337a44dae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamServiceRole", value) # pyright: ignore[reportArgumentType]
 
@@ -556,17 +547,17 @@ class CfnApp(
     @jsii.member(jsii_name="jobConfig")
     def job_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.JobConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.JobConfigProperty"]]:
         '''The configuration details that apply to the jobs for an Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.JobConfigProperty"]], jsii.get(self, "jobConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.JobConfigProperty"]], jsii.get(self, "jobConfig"))
 
     @job_config.setter
     def job_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.JobConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.JobConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c5331757d4f14f0e25aa5a2af73920abaa3c57bb5542207c86cbd2511fb7ada)
+            type_hints = cached_type_hints(_typecheckingstub__0c5331757d4f14f0e25aa5a2af73920abaa3c57bb5542207c86cbd2511fb7ada)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -579,7 +570,7 @@ class CfnApp(
     @oauth_token.setter
     def oauth_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4f1a9875121cc669c475a05f9524db58d7e32e0b0134143bf750ceca8d2d6ec)
+            type_hints = cached_type_hints(_typecheckingstub__e4f1a9875121cc669c475a05f9524db58d7e32e0b0134143bf750ceca8d2d6ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "oauthToken", value) # pyright: ignore[reportArgumentType]
 
@@ -592,7 +583,7 @@ class CfnApp(
     @platform.setter
     def platform(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67a5adcc133fbd9a8b5cd704d8959ba2006e08994f5a37195cf965503b97fa28)
+            type_hints = cached_type_hints(_typecheckingstub__67a5adcc133fbd9a8b5cd704d8959ba2006e08994f5a37195cf965503b97fa28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
 
@@ -605,20 +596,23 @@ class CfnApp(
     @repository.setter
     def repository(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77810a604b4d1c18de17ffbf1fde3969ab827d2e901598428f49ecc37a16b28d)
+            type_hints = cached_type_hints(_typecheckingstub__77810a604b4d1c18de17ffbf1fde3969ab827d2e901598428f49ecc37a16b28d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag for an Amplify app.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8df0df5db275f36f972fd610984f160f89f4bdc11545dfef3ffa8b0e4dda0842)
+            type_hints = cached_type_hints(_typecheckingstub__8df0df5db275f36f972fd610984f160f89f4bdc11545dfef3ffa8b0e4dda0842)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -644,13 +638,13 @@ class CfnApp(
             self,
             *,
             auto_branch_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-            basic_auth_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            basic_auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             build_spec: typing.Optional[builtins.str] = None,
-            enable_auto_branch_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_auto_branch_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             framework: typing.Optional[builtins.str] = None,
             pull_request_environment_name: typing.Optional[builtins.str] = None,
             stage: typing.Optional[builtins.str] = None,
@@ -700,7 +694,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9f2d37f548867fe52cc8c3c461e27ca7411af070358e14a397f593a46ce69d2f)
+                type_hints = cached_type_hints(_typecheckingstub__9f2d37f548867fe52cc8c3c461e27ca7411af070358e14a397f593a46ce69d2f)
                 check_type(argname="argument auto_branch_creation_patterns", value=auto_branch_creation_patterns, expected_type=type_hints["auto_branch_creation_patterns"])
                 check_type(argname="argument basic_auth_config", value=basic_auth_config, expected_type=type_hints["basic_auth_config"])
                 check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
@@ -750,13 +744,13 @@ class CfnApp(
         @builtins.property
         def basic_auth_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]]:
             '''Sets password protection for your auto created branch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-basicauthconfig
             '''
             result = self._values.get("basic_auth_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]], result)
 
         @builtins.property
         def build_spec(self) -> typing.Optional[builtins.str]:
@@ -770,29 +764,29 @@ class CfnApp(
         @builtins.property
         def enable_auto_branch_creation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables automated branch creation for the Amplify app.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-enableautobranchcreation
             '''
             result = self._values.get("enable_auto_branch_creation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_auto_build(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables auto building for the auto created branch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-enableautobuild
             '''
             result = self._values.get("enable_auto_build")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_performance_mode(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables performance mode for the branch.
 
             Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
@@ -800,12 +794,12 @@ class CfnApp(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-enableperformancemode
             '''
             result = self._values.get("enable_performance_mode")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_pull_request_preview(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Sets whether pull request previews are enabled for each branch that Amplify Hosting automatically creates for your app.
 
             Amplify creates previews by deploying your app to a unique URL whenever a pull request is opened for the branch. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch.
@@ -817,18 +811,18 @@ class CfnApp(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-enablepullrequestpreview
             '''
             result = self._values.get("enable_pull_request_preview")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def environment_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]]:
             '''The environment variables for the autocreated branch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-autobranchcreationconfig.html#cfn-amplify-app-autobranchcreationconfig-environmentvariables
             '''
             result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]], result)
 
         @builtins.property
         def framework(self) -> typing.Optional[builtins.str]:
@@ -889,7 +883,7 @@ class CfnApp(
         def __init__(
             self,
             *,
-            enable_basic_auth: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_basic_auth: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             password: typing.Optional[builtins.str] = None,
             username: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -915,7 +909,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__44bbd6c7457829d13279657590a4d74f5306d440e4549b9168c72df5cff67af9)
+                type_hints = cached_type_hints(_typecheckingstub__44bbd6c7457829d13279657590a4d74f5306d440e4549b9168c72df5cff67af9)
                 check_type(argname="argument enable_basic_auth", value=enable_basic_auth, expected_type=type_hints["enable_basic_auth"])
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
@@ -930,13 +924,13 @@ class CfnApp(
         @builtins.property
         def enable_basic_auth(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables basic authorization for the Amplify app's branches.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-basicauthconfig.html#cfn-amplify-app-basicauthconfig-enablebasicauth
             '''
             result = self._values.get("enable_basic_auth")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def password(self) -> typing.Optional[builtins.str]:
@@ -994,7 +988,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__28dc09b5ae7365b5ffa5ce3f2d7ac4209800260d1a02305b42bd567bd53fe0d0)
+                type_hints = cached_type_hints(_typecheckingstub__28dc09b5ae7365b5ffa5ce3f2d7ac4209800260d1a02305b42bd567bd53fe0d0)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if type is not None:
@@ -1071,7 +1065,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca2210b3c179b77af8d9da860b10e6e93aafae9d4e268f8999f6ce252c3f2363)
+                type_hints = cached_type_hints(_typecheckingstub__ca2210b3c179b77af8d9da860b10e6e93aafae9d4e268f8999f6ce252c3f2363)
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
                 check_type(argname="argument target", value=target, expected_type=type_hints["target"])
                 check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -1169,7 +1163,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f76edc62ddffd84b573400931e580feb099c3a238dc1b312f88a08a681bc79a2)
+                type_hints = cached_type_hints(_typecheckingstub__f76edc62ddffd84b573400931e580feb099c3a238dc1b312f88a08a681bc79a2)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1235,7 +1229,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23396b8a9e988b0968a9bc45be771b246c847bee1770ffbdca295739ad4ede28)
+                type_hints = cached_type_hints(_typecheckingstub__23396b8a9e988b0968a9bc45be771b246c847bee1770ffbdca295739ad4ede28)
                 check_type(argname="argument build_compute_type", value=build_compute_type, expected_type=type_hints["build_compute_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "build_compute_type": build_compute_type,
@@ -1307,22 +1301,22 @@ class CfnAppProps:
         *,
         name: builtins.str,
         access_token: typing.Optional[builtins.str] = None,
-        auto_branch_creation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.AutoBranchCreationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_branch_creation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.AutoBranchCreationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         build_spec: typing.Optional[builtins.str] = None,
-        cache_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.CacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.CacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         compute_role_arn: typing.Optional[builtins.str] = None,
         custom_headers: typing.Optional[builtins.str] = None,
-        custom_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.CustomRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.CustomRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        iam_service_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        job_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        iam_service_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        job_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         oauth_token: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApp``.
 
@@ -1419,7 +1413,7 @@ class CfnAppProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db)
+            type_hints = cached_type_hints(_typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
             check_type(argname="argument auto_branch_creation_config", value=auto_branch_creation_config, expected_type=type_hints["auto_branch_creation_config"])
@@ -1506,18 +1500,18 @@ class CfnAppProps:
     @builtins.property
     def auto_branch_creation_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.AutoBranchCreationConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.AutoBranchCreationConfigProperty"]]:
         '''Sets the configuration for your automatic branch creation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-autobranchcreationconfig
         '''
         result = self._values.get("auto_branch_creation_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.AutoBranchCreationConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.AutoBranchCreationConfigProperty"]], result)
 
     @builtins.property
     def basic_auth_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]]:
         '''The credentials for basic authorization for an Amplify app.
 
         You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
@@ -1525,7 +1519,7 @@ class CfnAppProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-basicauthconfig
         '''
         result = self._values.get("basic_auth_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.BasicAuthConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.BasicAuthConfigProperty"]], result)
 
     @builtins.property
     def build_spec(self) -> typing.Optional[builtins.str]:
@@ -1539,7 +1533,7 @@ class CfnAppProps:
     @builtins.property
     def cache_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.CacheConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CacheConfigProperty"]]:
         '''The cache configuration for the Amplify app.
 
         If you don't specify the cache configuration ``type`` , Amplify uses the default ``AMPLIFY_MANAGED`` setting.
@@ -1547,7 +1541,7 @@ class CfnAppProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-cacheconfig
         '''
         result = self._values.get("cache_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.CacheConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CacheConfigProperty"]], result)
 
     @builtins.property
     def compute_role_arn(self) -> typing.Optional[builtins.str]:
@@ -1572,13 +1566,13 @@ class CfnAppProps:
     @builtins.property
     def custom_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.CustomRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CustomRuleProperty"]]]]:
         '''The custom rewrite and redirect rules for an Amplify app.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-customrules
         '''
         result = self._values.get("custom_rules")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.CustomRuleProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.CustomRuleProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1592,18 +1586,18 @@ class CfnAppProps:
     @builtins.property
     def enable_branch_auto_deletion(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-enablebranchautodeletion
         '''
         result = self._values.get("enable_branch_auto_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]]:
         '''The environment variables for the Amplify app.
 
         For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
@@ -1611,29 +1605,29 @@ class CfnAppProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-environmentvariables
         '''
         result = self._values.get("environment_variables")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EnvironmentVariableProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EnvironmentVariableProperty"]]]], result)
 
     @builtins.property
     def iam_service_role(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-iamservicerole
         '''
         result = self._values.get("iam_service_role")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def job_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.JobConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.JobConfigProperty"]]:
         '''The configuration details that apply to the jobs for an Amplify app.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-jobconfig
         '''
         result = self._values.get("job_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.JobConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.JobConfigProperty"]], result)
 
     @builtins.property
     def oauth_token(self) -> typing.Optional[builtins.str]:
@@ -1675,13 +1669,13 @@ class CfnAppProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag for an Amplify app.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1695,9 +1689,9 @@ class CfnAppProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBranchRef_ed7c2f5b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplify_c332c42d.IBranchRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnBranch(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplify.CfnBranch",
 ):
@@ -1757,20 +1751,20 @@ class CfnBranch(
         *,
         app_id: builtins.str,
         branch_name: builtins.str,
-        backend: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.BackendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        backend: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.BackendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         build_spec: typing.Optional[builtins.str] = None,
         compute_role_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         framework: typing.Optional[builtins.str] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         stage: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Amplify::Branch``.
 
@@ -1794,7 +1788,7 @@ class CfnBranch(
         :param tags: The tag for the branch.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859cd0a15aef1449f80ffe32589fdb895b13f3510c6905791c3eea0336ef1a99)
+            type_hints = cached_type_hints(_typecheckingstub__859cd0a15aef1449f80ffe32589fdb895b13f3510c6905791c3eea0336ef1a99)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBranchProps(
@@ -1820,12 +1814,15 @@ class CfnBranch(
 
     @jsii.member(jsii_name="arnForBranch")
     @builtins.classmethod
-    def arn_for_branch(cls, resource: "_IBranchRef_ed7c2f5b") -> builtins.str:
+    def arn_for_branch(
+        cls,
+        resource: "_aws_amplify_c332c42d.IBranchRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d720c8b28c9e2b27ea6f02f36552adaa5fdcdebd70164adf34cd10bc3519ad0d)
+            type_hints = cached_type_hints(_typecheckingstub__d720c8b28c9e2b27ea6f02f36552adaa5fdcdebd70164adf34cd10bc3519ad0d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBranch", [resource]))
 
@@ -1837,18 +1834,18 @@ class CfnBranch(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c287bef7bad6e6bb80633af69cb10bf0147c0dc8ac7a001412b271b9a5e3a92)
+            type_hints = cached_type_hints(_typecheckingstub__8c287bef7bad6e6bb80633af69cb10bf0147c0dc8ac7a001412b271b9a5e3a92)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBranch", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc71828b32564e7bfee35f76a534a0b840914bd4c468396d6b8980cc50ec7e4e)
+            type_hints = cached_type_hints(_typecheckingstub__bc71828b32564e7bfee35f76a534a0b840914bd4c468396d6b8980cc50ec7e4e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1861,7 +1858,7 @@ class CfnBranch(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__543fb1814e6e6dc2b2a566111532e52b3b918ec4a69887eb2bc5b8e84805596a)
+            type_hints = cached_type_hints(_typecheckingstub__543fb1814e6e6dc2b2a566111532e52b3b918ec4a69887eb2bc5b8e84805596a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1891,9 +1888,9 @@ class CfnBranch(
 
     @builtins.property
     @jsii.member(jsii_name="branchRef")
-    def branch_ref(self) -> "_BranchReference_535e0d4e":
+    def branch_ref(self) -> "_aws_amplify_c332c42d.BranchReference":
         '''A reference to a Branch resource.'''
-        return typing.cast("_BranchReference_535e0d4e", jsii.get(self, "branchRef"))
+        return typing.cast("_aws_amplify_c332c42d.BranchReference", jsii.get(self, "branchRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1907,9 +1904,9 @@ class CfnBranch(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -1920,7 +1917,7 @@ class CfnBranch(
     @app_id.setter
     def app_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972692afd9ab7e7b991e01833237c55c73059ffac2b6a78fea9664f5f74e725a)
+            type_hints = cached_type_hints(_typecheckingstub__972692afd9ab7e7b991e01833237c55c73059ffac2b6a78fea9664f5f74e725a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
 
@@ -1933,7 +1930,7 @@ class CfnBranch(
     @branch_name.setter
     def branch_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c4cf98b8fee11d8015201a67af685d75d6635cd6b821c934cbf30ef8b3f1c6b)
+            type_hints = cached_type_hints(_typecheckingstub__3c4cf98b8fee11d8015201a67af685d75d6635cd6b821c934cbf30ef8b3f1c6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "branchName", value) # pyright: ignore[reportArgumentType]
 
@@ -1941,20 +1938,20 @@ class CfnBranch(
     @jsii.member(jsii_name="backend")
     def backend(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BackendProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BackendProperty"]]:
         '''The backend for a ``Branch`` of an Amplify app.
 
         Use for a backend created from an CloudFormation stack.
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BackendProperty"]], jsii.get(self, "backend"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BackendProperty"]], jsii.get(self, "backend"))
 
     @backend.setter
     def backend(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BackendProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BackendProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfff95e066c7be08281471866edcbf24a5fe69dadc2d237c7be6b08b7d7ca8a7)
+            type_hints = cached_type_hints(_typecheckingstub__bfff95e066c7be08281471866edcbf24a5fe69dadc2d237c7be6b08b7d7ca8a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backend", value) # pyright: ignore[reportArgumentType]
 
@@ -1962,17 +1959,17 @@ class CfnBranch(
     @jsii.member(jsii_name="basicAuthConfig")
     def basic_auth_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BasicAuthConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BasicAuthConfigProperty"]]:
         '''The basic authorization credentials for a branch of an Amplify app.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BasicAuthConfigProperty"]], jsii.get(self, "basicAuthConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BasicAuthConfigProperty"]], jsii.get(self, "basicAuthConfig"))
 
     @basic_auth_config.setter
     def basic_auth_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BasicAuthConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BasicAuthConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c37375d7a595236b497b553716f1bf9273bb14c35be13e872b3614e8223292ad)
+            type_hints = cached_type_hints(_typecheckingstub__c37375d7a595236b497b553716f1bf9273bb14c35be13e872b3614e8223292ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "basicAuthConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1985,7 +1982,7 @@ class CfnBranch(
     @build_spec.setter
     def build_spec(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae472a508b2b0e4a122ae35d93c8733d00df3680d8823bd2ad857acc210e1c1e)
+            type_hints = cached_type_hints(_typecheckingstub__ae472a508b2b0e4a122ae35d93c8733d00df3680d8823bd2ad857acc210e1c1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "buildSpec", value) # pyright: ignore[reportArgumentType]
 
@@ -1998,7 +1995,7 @@ class CfnBranch(
     @compute_role_arn.setter
     def compute_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50c29bd1063cbc0e1fa76d9721d838c59c46a84f1257f3ced31f3d727d6f9e36)
+            type_hints = cached_type_hints(_typecheckingstub__50c29bd1063cbc0e1fa76d9721d838c59c46a84f1257f3ced31f3d727d6f9e36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computeRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2011,7 +2008,7 @@ class CfnBranch(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a71cabeaa4605532f47314006f7075821b92f53c6bdb0be7bbb3c0f09ff70ea2)
+            type_hints = cached_type_hints(_typecheckingstub__a71cabeaa4605532f47314006f7075821b92f53c6bdb0be7bbb3c0f09ff70ea2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2019,17 +2016,17 @@ class CfnBranch(
     @jsii.member(jsii_name="enableAutoBuild")
     def enable_auto_build(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables auto building for the branch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableAutoBuild"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableAutoBuild"))
 
     @enable_auto_build.setter
     def enable_auto_build(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__445b2b1767b882d1a1d22a895384690c61096ef43e57ace707417bc73d08195a)
+            type_hints = cached_type_hints(_typecheckingstub__445b2b1767b882d1a1d22a895384690c61096ef43e57ace707417bc73d08195a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableAutoBuild", value) # pyright: ignore[reportArgumentType]
 
@@ -2037,17 +2034,17 @@ class CfnBranch(
     @jsii.member(jsii_name="enablePerformanceMode")
     def enable_performance_mode(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables performance mode for the branch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enablePerformanceMode"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enablePerformanceMode"))
 
     @enable_performance_mode.setter
     def enable_performance_mode(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a674b2cc76c13d0c0fde7397bd241e62f175181642487615840d580e9e27dcca)
+            type_hints = cached_type_hints(_typecheckingstub__a674b2cc76c13d0c0fde7397bd241e62f175181642487615840d580e9e27dcca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enablePerformanceMode", value) # pyright: ignore[reportArgumentType]
 
@@ -2055,17 +2052,17 @@ class CfnBranch(
     @jsii.member(jsii_name="enablePullRequestPreview")
     def enable_pull_request_preview(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enablePullRequestPreview"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enablePullRequestPreview"))
 
     @enable_pull_request_preview.setter
     def enable_pull_request_preview(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c8216d12e1375a7227a3e83088f390c0e7d3575f804bea24c90bc6e4c251ace)
+            type_hints = cached_type_hints(_typecheckingstub__6c8216d12e1375a7227a3e83088f390c0e7d3575f804bea24c90bc6e4c251ace)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enablePullRequestPreview", value) # pyright: ignore[reportArgumentType]
 
@@ -2073,17 +2070,17 @@ class CfnBranch(
     @jsii.member(jsii_name="enableSkewProtection")
     def enable_skew_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the skew protection feature is enabled for the branch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableSkewProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSkewProtection"))
 
     @enable_skew_protection.setter
     def enable_skew_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__432a4942ceb7d62c4b8b4afa118592daeb5e524bc422ad19ea2bc1d797199dac)
+            type_hints = cached_type_hints(_typecheckingstub__432a4942ceb7d62c4b8b4afa118592daeb5e524bc422ad19ea2bc1d797199dac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableSkewProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -2091,17 +2088,17 @@ class CfnBranch(
     @jsii.member(jsii_name="environmentVariables")
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBranch.EnvironmentVariableProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.EnvironmentVariableProperty"]]]]:
         '''The environment variables for the branch.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBranch.EnvironmentVariableProperty"]]]], jsii.get(self, "environmentVariables"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.EnvironmentVariableProperty"]]]], jsii.get(self, "environmentVariables"))
 
     @environment_variables.setter
     def environment_variables(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBranch.EnvironmentVariableProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.EnvironmentVariableProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ff5456e47cd7b5d2fb38bcf736c28804423dcef024c2d036243fc28345dd532)
+            type_hints = cached_type_hints(_typecheckingstub__8ff5456e47cd7b5d2fb38bcf736c28804423dcef024c2d036243fc28345dd532)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
 
@@ -2114,7 +2111,7 @@ class CfnBranch(
     @framework.setter
     def framework(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b5b9fc9467a46609e53d8cdb56a6811e7e3f85181762874f2a6e91d5dd70f44)
+            type_hints = cached_type_hints(_typecheckingstub__0b5b9fc9467a46609e53d8cdb56a6811e7e3f85181762874f2a6e91d5dd70f44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "framework", value) # pyright: ignore[reportArgumentType]
 
@@ -2130,7 +2127,7 @@ class CfnBranch(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c0297c438693d937abee43985b9e9c331f79c1c85d337116afc192bca865a77)
+            type_hints = cached_type_hints(_typecheckingstub__7c0297c438693d937abee43985b9e9c331f79c1c85d337116afc192bca865a77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pullRequestEnvironmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -2143,20 +2140,23 @@ class CfnBranch(
     @stage.setter
     def stage(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0471f45903b00e5627732fe1b72dc860e5306e479204cad266ccfb5fb50fec5)
+            type_hints = cached_type_hints(_typecheckingstub__b0471f45903b00e5627732fe1b72dc860e5306e479204cad266ccfb5fb50fec5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stage", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag for the branch.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c012f8c2468f905d2733bdec6a2da61d5e329c6b93e5605a72648a60145eb2d4)
+            type_hints = cached_type_hints(_typecheckingstub__c012f8c2468f905d2733bdec6a2da61d5e329c6b93e5605a72648a60145eb2d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2187,7 +2187,7 @@ class CfnBranch(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de35d5311494de51a817d24471dc0ccbba93e09030e690388cb4684a67287227)
+                type_hints = cached_type_hints(_typecheckingstub__de35d5311494de51a817d24471dc0ccbba93e09030e690388cb4684a67287227)
                 check_type(argname="argument stack_arn", value=stack_arn, expected_type=type_hints["stack_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if stack_arn is not None:
@@ -2228,7 +2228,7 @@ class CfnBranch(
             *,
             password: builtins.str,
             username: builtins.str,
-            enable_basic_auth: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_basic_auth: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Use the BasicAuthConfig property type to set password protection for a specific branch.
 
@@ -2254,7 +2254,7 @@ class CfnBranch(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc69fa6a46b4e9f374d5854184021c668cb732b42f9661bb62550bea5b4db498)
+                type_hints = cached_type_hints(_typecheckingstub__cc69fa6a46b4e9f374d5854184021c668cb732b42f9661bb62550bea5b4db498)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
                 check_type(argname="argument enable_basic_auth", value=enable_basic_auth, expected_type=type_hints["enable_basic_auth"])
@@ -2287,13 +2287,13 @@ class CfnBranch(
         @builtins.property
         def enable_basic_auth(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables basic authorization for the branch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-branch-basicauthconfig.html#cfn-amplify-branch-basicauthconfig-enablebasicauth
             '''
             result = self._values.get("enable_basic_auth")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2335,7 +2335,7 @@ class CfnBranch(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5692be601b7d7aa14d2fdd9d64f48f458db4470a9da3bcd9c9e8bdbe7562e757)
+                type_hints = cached_type_hints(_typecheckingstub__5692be601b7d7aa14d2fdd9d64f48f458db4470a9da3bcd9c9e8bdbe7562e757)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2403,20 +2403,20 @@ class CfnBranchProps:
         *,
         app_id: builtins.str,
         branch_name: builtins.str,
-        backend: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.BackendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        backend: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.BackendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         build_spec: typing.Optional[builtins.str] = None,
         compute_role_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBranch.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        enable_auto_build: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBranch.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         framework: typing.Optional[builtins.str] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         stage: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBranch``.
 
@@ -2483,7 +2483,7 @@ class CfnBranchProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f)
+            type_hints = cached_type_hints(_typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             check_type(argname="argument backend", value=backend, expected_type=type_hints["backend"])
@@ -2556,7 +2556,7 @@ class CfnBranchProps:
     @builtins.property
     def backend(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BackendProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BackendProperty"]]:
         '''The backend for a ``Branch`` of an Amplify app. Use for a backend created from an CloudFormation stack.
 
         This field is available to Amplify Gen 2 apps only. When you deploy an application with Amplify Gen 2, you provision the app's backend infrastructure using Typescript code.
@@ -2564,12 +2564,12 @@ class CfnBranchProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-backend
         '''
         result = self._values.get("backend")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BackendProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BackendProperty"]], result)
 
     @builtins.property
     def basic_auth_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BasicAuthConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BasicAuthConfigProperty"]]:
         '''The basic authorization credentials for a branch of an Amplify app.
 
         You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
@@ -2577,7 +2577,7 @@ class CfnBranchProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-basicauthconfig
         '''
         result = self._values.get("basic_auth_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBranch.BasicAuthConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.BasicAuthConfigProperty"]], result)
 
     @builtins.property
     def build_spec(self) -> typing.Optional[builtins.str]:
@@ -2611,18 +2611,18 @@ class CfnBranchProps:
     @builtins.property
     def enable_auto_build(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables auto building for the branch.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableautobuild
         '''
         result = self._values.get("enable_auto_build")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_performance_mode(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables performance mode for the branch.
 
         Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
@@ -2630,12 +2630,12 @@ class CfnBranchProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableperformancemode
         '''
         result = self._values.get("enable_performance_mode")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_pull_request_preview(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch.
 
         If this property is enabled, Amplify deploys your app to a unique preview URL after each pull request is opened. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch.
@@ -2647,12 +2647,12 @@ class CfnBranchProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enablepullrequestpreview
         '''
         result = self._values.get("enable_pull_request_preview")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_skew_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the skew protection feature is enabled for the branch.
 
         Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. For more information about skew protection, see `Skew protection for Amplify deployments <https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html>`_ in the *Amplify User Guide* .
@@ -2660,18 +2660,18 @@ class CfnBranchProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableskewprotection
         '''
         result = self._values.get("enable_skew_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def environment_variables(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBranch.EnvironmentVariableProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.EnvironmentVariableProperty"]]]]:
         '''The environment variables for the branch.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-environmentvariables
         '''
         result = self._values.get("environment_variables")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBranch.EnvironmentVariableProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBranch.EnvironmentVariableProperty"]]]], result)
 
     @builtins.property
     def framework(self) -> typing.Optional[builtins.str]:
@@ -2709,13 +2709,13 @@ class CfnBranchProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag for the branch.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2729,9 +2729,9 @@ class CfnBranchProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDomainRef_bdf20b9c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplify_c332c42d.IDomainRef)
 class CfnDomain(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplify.CfnDomain",
 ):
@@ -2773,11 +2773,11 @@ class CfnDomain(
         *,
         app_id: builtins.str,
         domain_name: builtins.str,
-        sub_domain_settings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SubDomainSettingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        sub_domain_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SubDomainSettingProperty", typing.Dict[builtins.str, typing.Any]]]]],
         auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        certificate_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CertificateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        certificate_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.CertificateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Amplify::Domain``.
 
@@ -2792,7 +2792,7 @@ class CfnDomain(
         :param enable_auto_sub_domain: Enables the automated creation of subdomains for branches.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a92a80249ff3da7389619f6d46781e48a0d6d9fe2d6d8bc5754daa9ff3c2f0e6)
+            type_hints = cached_type_hints(_typecheckingstub__a92a80249ff3da7389619f6d46781e48a0d6d9fe2d6d8bc5754daa9ff3c2f0e6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(
@@ -2809,12 +2809,15 @@ class CfnDomain(
 
     @jsii.member(jsii_name="arnForDomain")
     @builtins.classmethod
-    def arn_for_domain(cls, resource: "_IDomainRef_bdf20b9c") -> builtins.str:
+    def arn_for_domain(
+        cls,
+        resource: "_aws_amplify_c332c42d.IDomainRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04a951034fe9df86063d796921c780405c41d1d9231395e2b92739a28f9124bd)
+            type_hints = cached_type_hints(_typecheckingstub__04a951034fe9df86063d796921c780405c41d1d9231395e2b92739a28f9124bd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomain", [resource]))
 
@@ -2826,18 +2829,18 @@ class CfnDomain(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db545406b4d73a5ed52b2bae51b2847b08f91b1f231d6a1bcfa3c8b014844ece)
+            type_hints = cached_type_hints(_typecheckingstub__db545406b4d73a5ed52b2bae51b2847b08f91b1f231d6a1bcfa3c8b014844ece)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1c7cb6bd1538d5b0adfbdfb98e3ba556f861cea42161c99c22f9113c1d13e10)
+            type_hints = cached_type_hints(_typecheckingstub__e1c7cb6bd1538d5b0adfbdfb98e3ba556f861cea42161c99c22f9113c1d13e10)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2850,7 +2853,7 @@ class CfnDomain(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a4cf442d812fd827ea5057369fefdbaf5cdbe474a7bfab62edd257cdb67165)
+            type_hints = cached_type_hints(_typecheckingstub__31a4cf442d812fd827ea5057369fefdbaf5cdbe474a7bfab62edd257cdb67165)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2889,11 +2892,11 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrCertificate")
-    def attr_certificate(self) -> "_IResolvable_da3f097b":
+    def attr_certificate(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: Certificate
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCertificate"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCertificate"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCertificateRecord")
@@ -2924,12 +2927,12 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrEnableAutoSubDomain")
-    def attr_enable_auto_sub_domain(self) -> "_IResolvable_da3f097b":
+    def attr_enable_auto_sub_domain(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Specifies whether the automated creation of subdomains for branches is enabled.
 
         :cloudformationAttribute: EnableAutoSubDomain
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEnableAutoSubDomain"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEnableAutoSubDomain"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatusReason")
@@ -2971,9 +2974,9 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> "_DomainReference_35937381":
+    def domain_ref(self) -> "_aws_amplify_c332c42d.DomainReference":
         '''A reference to a Domain resource.'''
-        return typing.cast("_DomainReference_35937381", jsii.get(self, "domainRef"))
+        return typing.cast("_aws_amplify_c332c42d.DomainReference", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -2984,7 +2987,7 @@ class CfnDomain(
     @app_id.setter
     def app_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad111c06ba39fd5ef23adb9b1caa5909da5ba2a2c2ae73108f5acdef9a233014)
+            type_hints = cached_type_hints(_typecheckingstub__ad111c06ba39fd5ef23adb9b1caa5909da5ba2a2c2ae73108f5acdef9a233014)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
 
@@ -2997,7 +3000,7 @@ class CfnDomain(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9159fc91129216a6edcebb97e058dd40f8c10e8c8ac3ee82f3e30fd3fd838fc1)
+            type_hints = cached_type_hints(_typecheckingstub__9159fc91129216a6edcebb97e058dd40f8c10e8c8ac3ee82f3e30fd3fd838fc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -3005,17 +3008,17 @@ class CfnDomain(
     @jsii.member(jsii_name="subDomainSettings")
     def sub_domain_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.SubDomainSettingProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SubDomainSettingProperty"]]]:
         '''The setting for the subdomain.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.SubDomainSettingProperty"]]], jsii.get(self, "subDomainSettings"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SubDomainSettingProperty"]]], jsii.get(self, "subDomainSettings"))
 
     @sub_domain_settings.setter
     def sub_domain_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.SubDomainSettingProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SubDomainSettingProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b936f87f557fe7bf52c60594221c93cd691bbd17bb4817dd3641ee604e257fb)
+            type_hints = cached_type_hints(_typecheckingstub__7b936f87f557fe7bf52c60594221c93cd691bbd17bb4817dd3641ee604e257fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subDomainSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -3033,7 +3036,7 @@ class CfnDomain(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61912070511222bed82564464c04f422d8826ae099f93887a8b1ec1d812d0115)
+            type_hints = cached_type_hints(_typecheckingstub__61912070511222bed82564464c04f422d8826ae099f93887a8b1ec1d812d0115)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoSubDomainCreationPatterns", value) # pyright: ignore[reportArgumentType]
 
@@ -3046,7 +3049,7 @@ class CfnDomain(
     @auto_sub_domain_iam_role.setter
     def auto_sub_domain_iam_role(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e5c09e14aff92aaea4fa282a2b672905afabe76a4faa8624943dade22291ebf)
+            type_hints = cached_type_hints(_typecheckingstub__7e5c09e14aff92aaea4fa282a2b672905afabe76a4faa8624943dade22291ebf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoSubDomainIamRole", value) # pyright: ignore[reportArgumentType]
 
@@ -3054,17 +3057,17 @@ class CfnDomain(
     @jsii.member(jsii_name="certificateSettings")
     def certificate_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CertificateSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CertificateSettingsProperty"]]:
         '''The type of SSL/TLS certificate to use for your custom domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CertificateSettingsProperty"]], jsii.get(self, "certificateSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CertificateSettingsProperty"]], jsii.get(self, "certificateSettings"))
 
     @certificate_settings.setter
     def certificate_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CertificateSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CertificateSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__336ac8621dd20637683f7ca375d9497feeb96edc3f6a2ac808032c99f9c04449)
+            type_hints = cached_type_hints(_typecheckingstub__336ac8621dd20637683f7ca375d9497feeb96edc3f6a2ac808032c99f9c04449)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -3072,17 +3075,17 @@ class CfnDomain(
     @jsii.member(jsii_name="enableAutoSubDomain")
     def enable_auto_sub_domain(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables the automated creation of subdomains for branches.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableAutoSubDomain"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableAutoSubDomain"))
 
     @enable_auto_sub_domain.setter
     def enable_auto_sub_domain(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5c15a94c5b8643d55b20a0fd990557b9f18fdec4e783bb03e0143f6e102d7a4)
+            type_hints = cached_type_hints(_typecheckingstub__a5c15a94c5b8643d55b20a0fd990557b9f18fdec4e783bb03e0143f6e102d7a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableAutoSubDomain", value) # pyright: ignore[reportArgumentType]
 
@@ -3129,7 +3132,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dfa007a3fb4a4fb8e40c976c064710502fa56b831e9a942426300a8a6396f9d6)
+                type_hints = cached_type_hints(_typecheckingstub__dfa007a3fb4a4fb8e40c976c064710502fa56b831e9a942426300a8a6396f9d6)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
                 check_type(argname="argument certificate_type", value=certificate_type, expected_type=type_hints["certificate_type"])
                 check_type(argname="argument certificate_verification_dns_record", value=certificate_verification_dns_record, expected_type=type_hints["certificate_verification_dns_record"])
@@ -3222,7 +3225,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__54aa903361cdb790af3898a4c625bd3677eca973ae0ee5c94471c721421b05df)
+                type_hints = cached_type_hints(_typecheckingstub__54aa903361cdb790af3898a4c625bd3677eca973ae0ee5c94471c721421b05df)
                 check_type(argname="argument certificate_type", value=certificate_type, expected_type=type_hints["certificate_type"])
                 check_type(argname="argument custom_certificate_arn", value=custom_certificate_arn, expected_type=type_hints["custom_certificate_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3293,7 +3296,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd38d5241efdfbfd6fe4d24eb582e27c45fd585058138e3d4ffa9e0774a76cd8)
+                type_hints = cached_type_hints(_typecheckingstub__dd38d5241efdfbfd6fe4d24eb582e27c45fd585058138e3d4ffa9e0774a76cd8)
                 check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3356,11 +3359,11 @@ class CfnDomainProps:
         *,
         app_id: builtins.str,
         domain_name: builtins.str,
-        sub_domain_settings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SubDomainSettingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        sub_domain_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SubDomainSettingProperty", typing.Dict[builtins.str, typing.Any]]]]],
         auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        certificate_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CertificateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        certificate_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.CertificateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
@@ -3400,7 +3403,7 @@ class CfnDomainProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776)
+            type_hints = cached_type_hints(_typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument sub_domain_settings", value=sub_domain_settings, expected_type=type_hints["sub_domain_settings"])
@@ -3445,14 +3448,14 @@ class CfnDomainProps:
     @builtins.property
     def sub_domain_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.SubDomainSettingProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SubDomainSettingProperty"]]]:
         '''The setting for the subdomain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-subdomainsettings
         '''
         result = self._values.get("sub_domain_settings")
         assert result is not None, "Required property 'sub_domain_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.SubDomainSettingProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SubDomainSettingProperty"]]], result)
 
     @builtins.property
     def auto_sub_domain_creation_patterns(
@@ -3468,18 +3471,18 @@ class CfnDomainProps:
     @builtins.property
     def auto_sub_domain_iam_role(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The required AWS Identity and Access Management (IAMlong) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-autosubdomainiamrole
         '''
         result = self._values.get("auto_sub_domain_iam_role")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def certificate_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CertificateSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CertificateSettingsProperty"]]:
         '''The type of SSL/TLS certificate to use for your custom domain.
 
         If you don't specify a certificate type, Amplify uses the default certificate that it provisions and manages for you.
@@ -3487,18 +3490,18 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-certificatesettings
         '''
         result = self._values.get("certificate_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CertificateSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CertificateSettingsProperty"]], result)
 
     @builtins.property
     def enable_auto_sub_domain(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables the automated creation of subdomains for branches.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-enableautosubdomain
         '''
         result = self._values.get("enable_auto_sub_domain")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3529,28 +3532,28 @@ def _typecheckingstub__8dc8d772047a068d22a76d907b344356448c6a26d23e419ed69cc622d
     *,
     name: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_branch_creation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     build_spec: typing.Optional[builtins.str] = None,
-    cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compute_role_arn: typing.Optional[builtins.str] = None,
     custom_headers: typing.Optional[builtins.str] = None,
-    custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    iam_service_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    iam_service_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    job_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     oauth_token: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__74be0c58e8de49981a312c501f4d1c3e6215e9cbe5d40cb6c8c6f753882f2d21(
-    resource: _IAppRef_163401c8,
+    resource: _aws_amplify_c332c42d.IAppRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3562,7 +3565,7 @@ def _typecheckingstub__6d698458ecd6766d61699c104ea1d514d928189e8217bc76645a0af80
     pass
 
 def _typecheckingstub__86430113f75e093324439a08235b05caf66a071c9480bffb7d367fe6c3214308(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3586,13 +3589,13 @@ def _typecheckingstub__1a34b8e83d25c0c26838033ec8d45694e410c5c28d0bf83263b9f9d09
     pass
 
 def _typecheckingstub__f38a76185a264f75d2add648c8308477d491dddde9804ac7dfbe3bb22d6ea352(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.AutoBranchCreationConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.AutoBranchCreationConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c88becb37a9dd8239d9ff6aff490658ca182aff7fcab83a21ab6054c309a8432(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.BasicAuthConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.BasicAuthConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3604,7 +3607,7 @@ def _typecheckingstub__f8d9c326dc2b610757cecc45608945b716d8ea6af4111bd656fb2927a
     pass
 
 def _typecheckingstub__1e0b47cf174f09e141957cc84bc0f442ba70bbfa96a59aad74b66dab16335177(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.CacheConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.CacheConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3622,7 +3625,7 @@ def _typecheckingstub__623b6d97b6b1967c76a0782c9ba61b276ee5ff570dad9ab0003baf062
     pass
 
 def _typecheckingstub__24f88ebda938286ba2d8ff036b7dcf3cb20a38f782c34c0484b66a2b916ac21f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.CustomRuleProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.CustomRuleProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3634,13 +3637,13 @@ def _typecheckingstub__f271970963b091aefd84c3ab3d2b252d3dca5e4789a892ae905ec8fbf
     pass
 
 def _typecheckingstub__2dc6d20be8c1648863255ae7968af724a5e56aadb1ddf86b4126b4d6fc096bb6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8ffb3244739d356fab1ba7899722798d4558303d9d3e2a3caaa138b21a86181b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EnvironmentVariableProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.EnvironmentVariableProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3652,7 +3655,7 @@ def _typecheckingstub__378909021f9642b2e612e1ecd4b62069a17df2eef9f3461fa46cd5337
     pass
 
 def _typecheckingstub__0c5331757d4f14f0e25aa5a2af73920abaa3c57bb5542207c86cbd2511fb7ada(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.JobConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3676,7 +3679,7 @@ def _typecheckingstub__77810a604b4d1c18de17ffbf1fde3969ab827d2e901598428f49ecc37
     pass
 
 def _typecheckingstub__8df0df5db275f36f972fd610984f160f89f4bdc11545dfef3ffa8b0e4dda0842(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3684,13 +3687,13 @@ def _typecheckingstub__8df0df5db275f36f972fd610984f160f89f4bdc11545dfef3ffa8b0e4
 def _typecheckingstub__9f2d37f548867fe52cc8c3c461e27ca7411af070358e14a397f593a46ce69d2f(
     *,
     auto_branch_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     build_spec: typing.Optional[builtins.str] = None,
-    enable_auto_branch_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_auto_branch_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     framework: typing.Optional[builtins.str] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     stage: typing.Optional[builtins.str] = None,
@@ -3700,7 +3703,7 @@ def _typecheckingstub__9f2d37f548867fe52cc8c3c461e27ca7411af070358e14a397f593a46
 
 def _typecheckingstub__44bbd6c7457829d13279657590a4d74f5306d440e4549b9168c72df5cff67af9(
     *,
-    enable_basic_auth: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_basic_auth: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     password: typing.Optional[builtins.str] = None,
     username: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3743,22 +3746,22 @@ def _typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd076
     *,
     name: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_branch_creation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     build_spec: typing.Optional[builtins.str] = None,
-    cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cache_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compute_role_arn: typing.Optional[builtins.str] = None,
     custom_headers: typing.Optional[builtins.str] = None,
-    custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    iam_service_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    iam_service_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    job_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     oauth_token: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3769,26 +3772,26 @@ def _typecheckingstub__859cd0a15aef1449f80ffe32589fdb895b13f3510c6905791c3eea033
     *,
     app_id: builtins.str,
     branch_name: builtins.str,
-    backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    backend: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     build_spec: typing.Optional[builtins.str] = None,
     compute_role_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     framework: typing.Optional[builtins.str] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     stage: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d720c8b28c9e2b27ea6f02f36552adaa5fdcdebd70164adf34cd10bc3519ad0d(
-    resource: _IBranchRef_ed7c2f5b,
+    resource: _aws_amplify_c332c42d.IBranchRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3800,7 +3803,7 @@ def _typecheckingstub__8c287bef7bad6e6bb80633af69cb10bf0147c0dc8ac7a001412b271b9
     pass
 
 def _typecheckingstub__bc71828b32564e7bfee35f76a534a0b840914bd4c468396d6b8980cc50ec7e4e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3824,13 +3827,13 @@ def _typecheckingstub__3c4cf98b8fee11d8015201a67af685d75d6635cd6b821c934cbf30ef8
     pass
 
 def _typecheckingstub__bfff95e066c7be08281471866edcbf24a5fe69dadc2d237c7be6b08b7d7ca8a7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BackendProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBranch.BackendProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c37375d7a595236b497b553716f1bf9273bb14c35be13e872b3614e8223292ad(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BasicAuthConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBranch.BasicAuthConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3854,31 +3857,31 @@ def _typecheckingstub__a71cabeaa4605532f47314006f7075821b92f53c6bdb0be7bbb3c0f09
     pass
 
 def _typecheckingstub__445b2b1767b882d1a1d22a895384690c61096ef43e57ace707417bc73d08195a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a674b2cc76c13d0c0fde7397bd241e62f175181642487615840d580e9e27dcca(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6c8216d12e1375a7227a3e83088f390c0e7d3575f804bea24c90bc6e4c251ace(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__432a4942ceb7d62c4b8b4afa118592daeb5e524bc422ad19ea2bc1d797199dac(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8ff5456e47cd7b5d2fb38bcf736c28804423dcef024c2d036243fc28345dd532(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBranch.EnvironmentVariableProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBranch.EnvironmentVariableProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3902,7 +3905,7 @@ def _typecheckingstub__b0471f45903b00e5627732fe1b72dc860e5306e479204cad266ccfb5f
     pass
 
 def _typecheckingstub__c012f8c2468f905d2733bdec6a2da61d5e329c6b93e5605a72648a60145eb2d4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3918,7 +3921,7 @@ def _typecheckingstub__cc69fa6a46b4e9f374d5854184021c668cb732b42f9661bb62550bea5
     *,
     password: builtins.str,
     username: builtins.str,
-    enable_basic_auth: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_basic_auth: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3935,20 +3938,20 @@ def _typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a3
     *,
     app_id: builtins.str,
     branch_name: builtins.str,
-    backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    backend: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     build_spec: typing.Optional[builtins.str] = None,
     compute_role_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     framework: typing.Optional[builtins.str] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     stage: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3959,17 +3962,17 @@ def _typecheckingstub__a92a80249ff3da7389619f6d46781e48a0d6d9fe2d6d8bc5754daa9ff
     *,
     app_id: builtins.str,
     domain_name: builtins.str,
-    sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    sub_domain_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    certificate_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__04a951034fe9df86063d796921c780405c41d1d9231395e2b92739a28f9124bd(
-    resource: _IDomainRef_bdf20b9c,
+    resource: _aws_amplify_c332c42d.IDomainRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3981,7 +3984,7 @@ def _typecheckingstub__db545406b4d73a5ed52b2bae51b2847b08f91b1f231d6a1bcfa3c8b01
     pass
 
 def _typecheckingstub__e1c7cb6bd1538d5b0adfbdfb98e3ba556f861cea42161c99c22f9113c1d13e10(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4005,7 +4008,7 @@ def _typecheckingstub__9159fc91129216a6edcebb97e058dd40f8c10e8c8ac3ee82f3e30fd3f
     pass
 
 def _typecheckingstub__7b936f87f557fe7bf52c60594221c93cd691bbd17bb4817dd3641ee604e257fb(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.SubDomainSettingProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.SubDomainSettingProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4023,13 +4026,13 @@ def _typecheckingstub__7e5c09e14aff92aaea4fa282a2b672905afabe76a4faa8624943dade2
     pass
 
 def _typecheckingstub__336ac8621dd20637683f7ca375d9497feeb96edc3f6a2ac808032c99f9c04449(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CertificateSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.CertificateSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a5c15a94c5b8643d55b20a0fd990557b9f18fdec4e783bb03e0143f6e102d7a4(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4063,11 +4066,11 @@ def _typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f
     *,
     app_id: builtins.str,
     domain_name: builtins.str,
-    sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    sub_domain_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_sub_domain_iam_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    certificate_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

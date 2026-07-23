@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 2.46.0
+Version: 2.47.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -31,8 +31,8 @@ Requires-Dist: sniffio
 Requires-Dist: tqdm>4
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Requires-Dist: aiohttp>=3.14.1; (python_version >= '3.10') and extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; (python_version >= '3.10') and extra == 'aiohttp'
 Provides-Extra: bedrock
 Requires-Dist: botocore<1.43,>=1.40.0; (python_version < '3.10') and extra == 'bedrock'
 Requires-Dist: botocore<2,>=1.40.0; (python_version >= '3.10') and extra == 'bedrock'
@@ -40,6 +40,10 @@ Provides-Extra: datalib
 Requires-Dist: numpy>=1; extra == 'datalib'
 Requires-Dist: pandas-stubs>=1.1.0.11; extra == 'datalib'
 Requires-Dist: pandas>=1.2.3; extra == 'datalib'
+Provides-Extra: httpx2
+Requires-Dist: anyio<5,>=4.10.0; (python_version >= '3.10') and extra == 'httpx2'
+Requires-Dist: httpx2<3,>=2.7.0; (python_version >= '3.10') and extra == 'httpx2'
+Requires-Dist: httpx<1,>=0.25.1; (python_version >= '3.10') and extra == 'httpx2'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=13; extra == 'realtime'
 Provides-Extra: voice-helpers
@@ -295,6 +299,8 @@ Functionality between the synchronous and asynchronous clients is otherwise iden
 
 By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
 
+The `aiohttp` backend requires Python 3.10 or later.
+
 You can enable this by installing `aiohttp`:
 
 ```sh
@@ -329,6 +335,33 @@ async def main() -> None:
 
 asyncio.run(main())
 ```
+
+### Experimental HTTPX2 support
+
+To opt in to experimental HTTPX2 support, install the optional extra on Python 3.10 or later:
+
+```sh
+pip install 'openai[httpx2]'
+```
+
+```python
+from openai import OpenAI, AsyncOpenAI, DefaultHttpx2Client, DefaultAsyncHttpx2Client
+
+client = OpenAI(http_client=DefaultHttpx2Client())
+async_client = AsyncOpenAI(http_client=DefaultAsyncHttpx2Client())
+```
+
+See [`examples/httpx2_client.py`](https://github.com/openai/openai-python/tree/main/examples/httpx2_client.py) for a minimal runnable example.
+
+The module-level client can be configured in the same way:
+
+```python
+import openai
+
+openai.http_client = openai.DefaultHttpx2Client()
+```
+
+Parsed API models are unchanged, but requests, raw and streaming responses, and transport-level exceptions may be HTTPX2 objects at runtime. Code that catches HTTPX exceptions or relies on HTTPX-specific mocks, transports, authentication, hooks, or instrumentation may need to be updated. Transport-facing type annotations may still describe HTTPX.
 
 ## Streaming responses
 

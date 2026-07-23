@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import warnings
-from operator import itemgetter
 from typing import Any
 from typing import TYPE_CHECKING
 
@@ -93,10 +92,10 @@ class BIC(common.Base):
 
         Examples:
             >>> bic_codes = BIC.candidates_from_bank_code("FR", "30004")
-            >>> bic_codes # doctest: +ELLIPSIS
+            >>> bic_codes  # doctest: +ELLIPSIS
             [<BIC=BNPAFRPPIFN>, <BIC=BNPAFRPPPAA>, <BIC=BNPAFRPPMED>, ...]
 
-            >>> BIC.candidates_from_bank_code("DE", "20070024") # doctest: +ELLIPSIS
+            >>> BIC.candidates_from_bank_code("DE", "20070024")  # doctest: +ELLIPSIS
             [<BIC=DEUTDEDBHAM>, <BIC=DEUTDEDB200>, ...]
 
             >>> BIC.candidates_from_bank_code("DE", "01010101")
@@ -163,17 +162,16 @@ class BIC(common.Base):
             * United Arab Emirates
             * United Kingdom
         """
-        try:
-            index = registry.get("bank_code")
-            assert isinstance(index, dict)
-            banks = sorted(
-                index[(country_code, bank_code)], key=itemgetter("primary"), reverse=True
-            )
-            return [cls(entry["bic"]) for entry in banks if entry["bic"]]
-        except KeyError as e:
+        banks = sorted(
+            registry.get_banks_by_code(country_code, bank_code),
+            key=lambda b: b.primary,
+            reverse=True,
+        )
+        if not banks:
             raise exceptions.InvalidBankCode(
                 f"Unknown bank code {bank_code!r} for country {country_code!r}"
-            ) from e
+            )
+        return [cls(entry.bic) for entry in banks if entry.bic]
 
     @classmethod
     def from_bank_code(cls, country_code: str, bank_code: str) -> BIC:
@@ -281,7 +279,7 @@ class BIC(common.Base):
 
     def _validate_structure(self, enforce_swift_compliance: bool = False) -> None:
         regex = _bic_swift_re if enforce_swift_compliance else _bic_iso9362_re
-        if not regex.match(str(self)):
+        if not regex.fullmatch(str(self)):
             raise exceptions.InvalidStructure(f"Invalid structure '{self!s}'")
 
     def _validate_country_code(self) -> None:
@@ -328,7 +326,7 @@ class BIC(common.Base):
         try:
             bic = cls(value)
         except exceptions.SchwiftyException as err:
-            raise PydanticCustomError("bic_format", str(err)) from err
+            raise PydanticCustomError("bic_format", "{err}", {"err": str(err)}) from err
         return handler(bic)
 
     @property
@@ -363,11 +361,9 @@ class BIC(common.Base):
             formatted += " " + self.branch_code
         return formatted
 
-    def _lookup_values(self, key: str) -> list:
-        spec = registry.get("bic")
-        assert isinstance(spec, dict)
-        entries = spec.get(str(self), [])
-        return sorted({entry[key] for entry in entries})
+    def _lookup_values(self, key: str) -> list[str]:
+        entries = registry.get_banks_by_bic(str(self))
+        return sorted({getattr(entry, key) for entry in entries if getattr(entry, key)})
 
     @property
     def domestic_bank_codes(self) -> list[str]:
@@ -441,9 +437,7 @@ class BIC(common.Base):
     @property
     def exists(self) -> bool:
         """bool: Indicates if the BIC is available in Schwifty's registry."""
-        spec = registry.get("bic")
-        assert isinstance(spec, dict)
-        return bool(spec.get(str(self)))
+        return bool(registry.get_banks_by_bic(str(self)))
 
     @property
     def type(self) -> str:
@@ -491,12 +485,3 @@ class BIC(common.Base):
     def branch_code(self) -> str:
         """str: The branch-code part of the BIC (if available)"""
         return self._get_slice(start=8, end=11)
-
-
-registry.build_index("bank", index_name="bic", key="bic", accumulate=True)
-registry.build_index(
-    "bank",
-    index_name="bank_code",
-    key=("country_code", "bank_code"),
-    accumulate=True,
-)

@@ -9387,7 +9387,7 @@ SWIGINTERN PyObject *_wrap_Layer_Rename(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -9961,7 +9961,7 @@ SWIGINTERN PyObject *_wrap_Layer_SetAttributeFilter(PyObject *self, PyObject *ar
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10397,7 +10397,7 @@ SWIGINTERN PyObject *_wrap_Layer_SetNextByIndex(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10471,7 +10471,7 @@ SWIGINTERN PyObject *_wrap_Layer_SetFeature(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10545,7 +10545,7 @@ SWIGINTERN PyObject *_wrap_Layer_CreateFeature(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10619,7 +10619,7 @@ SWIGINTERN PyObject *_wrap_Layer_UpsertFeature(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10727,7 +10727,7 @@ SWIGINTERN PyObject *_wrap_Layer_UpdateFeature(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10800,7 +10800,7 @@ SWIGINTERN PyObject *_wrap_Layer_DeleteFeature(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -10862,7 +10862,7 @@ SWIGINTERN PyObject *_wrap_Layer_SyncToDisk(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11324,7 +11324,7 @@ SWIGINTERN PyObject *_wrap_Layer_CreateField(PyObject *self, PyObject *args, PyO
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11393,7 +11393,7 @@ SWIGINTERN PyObject *_wrap_Layer_DeleteField(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11470,7 +11470,7 @@ SWIGINTERN PyObject *_wrap_Layer_ReorderField(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11544,7 +11544,7 @@ SWIGINTERN PyObject *_wrap_Layer_ReorderFields(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11638,7 +11638,7 @@ SWIGINTERN PyObject *_wrap_Layer_AlterFieldDefn(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11728,7 +11728,7 @@ SWIGINTERN PyObject *_wrap_Layer_AlterGeomFieldDefn(PyObject *self, PyObject *ar
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11817,7 +11817,7 @@ SWIGINTERN PyObject *_wrap_Layer_CreateGeomField(PyObject *self, PyObject *args,
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11879,7 +11879,7 @@ SWIGINTERN PyObject *_wrap_Layer_StartTransaction(PyObject *self, PyObject *args
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -11941,7 +11941,7 @@ SWIGINTERN PyObject *_wrap_Layer_CommitTransaction(PyObject *self, PyObject *arg
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12003,7 +12003,7 @@ SWIGINTERN PyObject *_wrap_Layer_RollbackTransaction(PyObject *self, PyObject *a
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12251,7 +12251,7 @@ SWIGINTERN PyObject *_wrap_Layer_SetIgnoredFields(PyObject *self, PyObject *args
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12347,7 +12347,7 @@ SWIGINTERN PyObject *_wrap_Layer_Intersection(PyObject *self, PyObject *args, Py
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -12430,7 +12430,7 @@ SWIGINTERN PyObject *_wrap_Layer_Intersection(PyObject *self, PyObject *args, Py
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12532,7 +12532,7 @@ SWIGINTERN PyObject *_wrap_Layer_Union(PyObject *self, PyObject *args, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -12615,7 +12615,7 @@ SWIGINTERN PyObject *_wrap_Layer_Union(PyObject *self, PyObject *args, PyObject 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12717,7 +12717,7 @@ SWIGINTERN PyObject *_wrap_Layer_SymDifference(PyObject *self, PyObject *args, P
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -12800,7 +12800,7 @@ SWIGINTERN PyObject *_wrap_Layer_SymDifference(PyObject *self, PyObject *args, P
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -12902,7 +12902,7 @@ SWIGINTERN PyObject *_wrap_Layer_Identity(PyObject *self, PyObject *args, PyObje
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -12985,7 +12985,7 @@ SWIGINTERN PyObject *_wrap_Layer_Identity(PyObject *self, PyObject *args, PyObje
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -13087,7 +13087,7 @@ SWIGINTERN PyObject *_wrap_Layer_Update(PyObject *self, PyObject *args, PyObject
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -13170,7 +13170,7 @@ SWIGINTERN PyObject *_wrap_Layer_Update(PyObject *self, PyObject *args, PyObject
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -13272,7 +13272,7 @@ SWIGINTERN PyObject *_wrap_Layer_Clip(PyObject *self, PyObject *args, PyObject *
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -13355,7 +13355,7 @@ SWIGINTERN PyObject *_wrap_Layer_Clip(PyObject *self, PyObject *args, PyObject *
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -13457,7 +13457,7 @@ SWIGINTERN PyObject *_wrap_Layer_Erase(PyObject *self, PyObject *args, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -13540,7 +13540,7 @@ SWIGINTERN PyObject *_wrap_Layer_Erase(PyObject *self, PyObject *args, PyObject 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14020,7 +14020,7 @@ SWIGINTERN PyObject *_wrap_Layer_CreateFieldFromArrowSchema(PyObject *self, PyOb
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14132,7 +14132,7 @@ SWIGINTERN PyObject *_wrap_Layer_WriteArrowBatch(PyObject *self, PyObject *args)
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14238,7 +14238,7 @@ SWIGINTERN PyObject *_wrap_Layer_WriteArrowStreamCapsule(PyObject *self, PyObjec
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14346,7 +14346,7 @@ SWIGINTERN PyObject *_wrap_Layer_WriteArrowSchemaAndArrowArrayCapsule(PyObject *
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14426,7 +14426,7 @@ SWIGINTERN PyObject *_wrap_Layer_GetGeometryTypes(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -14499,7 +14499,7 @@ SWIGINTERN PyObject *_wrap_Layer_GetGeometryTypes(PyObject *self, PyObject *args
     resultobj = PyDict_New();
     for(int i = 0; i < nEntryCount; ++ i)
     {
-      PyObject *key = PyInt_FromLong( (int)(pRet[i].eGeomType) );
+      PyObject *key = PyLong_FromLong( (int)(pRet[i].eGeomType) );
       PyObject *val = PyLong_FromLongLong( pRet[i].nCount );
       PyDict_SetItem(resultobj, key, val );
       Py_DECREF(key);
@@ -14699,7 +14699,7 @@ SWIGINTERN PyObject *_wrap_Layer_SetActiveSRS(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14919,7 +14919,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeometry(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -14986,7 +14986,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeometryDirectly(PyObject *self, PyObject 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -15108,7 +15108,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeomField__SWIG_0(PyObject *self, Py_ssize
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -15207,7 +15207,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeomField__SWIG_1(PyObject *self, Py_ssize
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -15342,7 +15342,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeomFieldDirectly__SWIG_0(PyObject *self, 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -15439,7 +15439,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetGeomFieldDirectly__SWIG_1(PyObject *self, 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -17605,7 +17605,7 @@ SWIGINTERN PyObject *_wrap_Feature_GetFieldAsIntegerList__SWIG_0(PyObject *self,
       SWIG_fail;
     }
     for( int i=0; i<*arg3; i++ ) {
-      PyObject *val = PyInt_FromLong( (*arg4)[i] );
+      PyObject *val = PyLong_FromLong( (*arg4)[i] );
       PyList_SetItem( out, i, val );
     }
     resultobj = out;
@@ -17696,7 +17696,7 @@ SWIGINTERN PyObject *_wrap_Feature_GetFieldAsIntegerList__SWIG_1(PyObject *self,
       SWIG_fail;
     }
     for( int i=0; i<*arg3; i++ ) {
-      PyObject *val = PyInt_FromLong( (*arg4)[i] );
+      PyObject *val = PyLong_FromLong( (*arg4)[i] );
       PyList_SetItem( out, i, val );
     }
     resultobj = out;
@@ -18197,7 +18197,7 @@ SWIGINTERN PyObject *_wrap_Feature_GetFieldAsBinary__SWIG_0(PyObject *self, Py_s
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -18310,7 +18310,7 @@ SWIGINTERN PyObject *_wrap_Feature_GetFieldAsBinary__SWIG_1(PyObject *self, Py_s
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -19174,7 +19174,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetFID(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -21176,7 +21176,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetFrom(PyObject *self, PyObject *args, PyObj
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -21271,7 +21271,7 @@ SWIGINTERN PyObject *_wrap_Feature_SetFromWithMap(PyObject *self, PyObject *args
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -22692,7 +22692,7 @@ SWIGINTERN PyObject *_wrap_FeatureDefn_DeleteGeomFieldDefn(PyObject *self, PyObj
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -26849,7 +26849,7 @@ SWIGINTERN PyObject *_wrap_Geometry_ExportToWkt(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -26943,7 +26943,7 @@ SWIGINTERN PyObject *_wrap_Geometry_ExportToIsoWkt(PyObject *self, PyObject *arg
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27047,7 +27047,7 @@ SWIGINTERN PyObject *_wrap_Geometry_ExportToWkb(PyObject *self, PyObject *args, 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27150,7 +27150,7 @@ SWIGINTERN PyObject *_wrap_Geometry_ExportToIsoWkb(PyObject *self, PyObject *arg
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27512,7 +27512,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddPoint(PyObject *self, PyObject *args, PyO
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27603,7 +27603,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddPointM(PyObject *self, PyObject *args, Py
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27703,7 +27703,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddPointZM(PyObject *self, PyObject *args, P
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27780,7 +27780,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddPoint_2D(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27852,7 +27852,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddGeometryDirectly(PyObject *self, PyObject
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27926,7 +27926,7 @@ SWIGINTERN PyObject *_wrap_Geometry_AddGeometry(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -27995,7 +27995,7 @@ SWIGINTERN PyObject *_wrap_Geometry_RemoveGeometry(PyObject *self, PyObject *arg
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29156,7 +29156,7 @@ SWIGINTERN PyObject *_wrap_Geometry_SetPoint(PyObject *self, PyObject *args, PyO
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29256,7 +29256,7 @@ SWIGINTERN PyObject *_wrap_Geometry_SetPointM(PyObject *self, PyObject *args, Py
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29365,7 +29365,7 @@ SWIGINTERN PyObject *_wrap_Geometry_SetPointZM(PyObject *self, PyObject *args, P
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29456,7 +29456,7 @@ SWIGINTERN PyObject *_wrap_Geometry_SetPoint_2D(PyObject *self, PyObject *args, 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -32024,7 +32024,7 @@ SWIGINTERN PyObject *_wrap_Geometry_TransformTo(PyObject *self, PyObject *args) 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -32097,7 +32097,7 @@ SWIGINTERN PyObject *_wrap_Geometry_Transform__SWIG_0(PyObject *self, Py_ssize_t
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -35893,7 +35893,7 @@ SWIGINTERN PyObject *_wrap_SetGenerate_DB2_V72_BYTE_ORDER(PyObject *self, PyObje
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }

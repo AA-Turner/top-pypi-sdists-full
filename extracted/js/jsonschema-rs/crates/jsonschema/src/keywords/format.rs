@@ -1,5 +1,6 @@
 //! Validator for `format` keyword.
 use std::{
+    borrow::Cow,
     net::{Ipv4Addr, Ipv6Addr},
     str::FromStr,
     sync::Arc,
@@ -18,7 +19,7 @@ use crate::{
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
-    Draft,
+    Draft, Json, JsonNode,
 };
 
 /// RFC 6570 Level 4 URI Template validator.
@@ -1021,7 +1022,7 @@ macro_rules! impl_format_evaluate {
     () => {
         fn evaluate(
             &self,
-            instance: &Value,
+            instance: &F::Node<'_>,
             location: &LazyLocation,
             tracker: Option<&RefTracker>,
             ctx: &mut ValidationContext,
@@ -1029,8 +1030,7 @@ macro_rules! impl_format_evaluate {
             if !instance.is_string() {
                 return EvaluationResult::valid_empty();
             }
-            let errors: Vec<_> = self
-                .iter_errors(instance, location, tracker, ctx)
+            let errors: Vec<_> = Validate::<F>::iter_errors(self, instance, location, tracker, ctx)
                 .map(|e| crate::evaluation::ErrorDescription::from_validation_error(&e))
                 .collect();
             let mut result = if errors.is_empty() {
@@ -1053,17 +1053,17 @@ macro_rules! format_validators {
             }
 
             impl $validator {
-                pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+                pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
                     let location = ctx.location().join("format");
                     let annotation = Arc::new(Value::String($format.to_owned()));
                     Ok(Box::new($validator { location, annotation }))
                 }
             }
 
-            impl Validate for $validator {
-                fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-                    if let Value::String(item) = instance {
-                        $validation_fn(item)
+            impl<F: Json> Validate<F> for $validator {
+                fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+                    if let Some(item) = instance.as_string() {
+                        $validation_fn(&item)
                     } else {
                         true
                     }
@@ -1071,18 +1071,18 @@ macro_rules! format_validators {
 
                 fn validate<'i>(
                     &self,
-                    instance: &'i Value,
+                    instance: &F::Node<'i>,
                     location: &LazyLocation,
                     tracker: Option<&RefTracker>,
                     ctx: &mut ValidationContext,
                 ) -> Result<(), ValidationError<'i>> {
-                    if let Value::String(_item) = instance {
-                        if !self.is_valid(instance, ctx) {
+                    if instance.is_string() {
+                        if !Validate::<F>::is_valid(self, instance, ctx) {
                             return Err(ValidationError::format(
                                 self.location.clone(),
                                 crate::paths::capture_evaluation_path(tracker, &self.location),
                                 location.into(),
-                                instance,
+                                instance.to_value(),
                                 $format,
                             ));
                         }
@@ -1138,7 +1138,7 @@ struct RegexValidator {
 }
 
 impl RegexValidator {
-    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
         let annotation = Arc::new(Value::String("regex".to_owned()));
         Ok(Box::new(RegexValidator {
@@ -1148,10 +1148,10 @@ impl RegexValidator {
     }
 }
 
-impl Validate for RegexValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::String(item) = instance {
-            ctx.is_valid_ecma_regex(item)
+impl<F: Json> Validate<F> for RegexValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_string() {
+            ctx.is_valid_ecma_regex(&item)
         } else {
             true
         }
@@ -1159,21 +1159,19 @@ impl Validate for RegexValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::String(_) = instance {
-            if !self.is_valid(instance, ctx) {
-                return Err(ValidationError::format(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance,
-                    "regex",
-                ));
-            }
+        if instance.is_string() && !Validate::<F>::is_valid(self, instance, ctx) {
+            return Err(ValidationError::format(
+                self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
+                location.into(),
+                instance.to_value(),
+                "regex",
+            ));
         }
         Ok(())
     }
@@ -1189,7 +1187,7 @@ struct EmailValidator {
 }
 
 impl EmailValidator {
-    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
         let annotation = Arc::new(Value::String("email".to_owned()));
         let email_options = ctx.config().email_options().copied();
@@ -1201,10 +1199,10 @@ impl EmailValidator {
     }
 }
 
-impl Validate for EmailValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::String(item) = instance {
-            is_valid_email(item, self.email_options.as_ref())
+impl<F: Json> Validate<F> for EmailValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_string() {
+            is_valid_email(&item, self.email_options.as_ref())
         } else {
             true
         }
@@ -1212,21 +1210,19 @@ impl Validate for EmailValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::String(_item) = instance {
-            if !self.is_valid(instance, ctx) {
-                return Err(ValidationError::format(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance,
-                    "email",
-                ));
-            }
+        if instance.is_string() && !Validate::<F>::is_valid(self, instance, ctx) {
+            return Err(ValidationError::format(
+                self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
+                location.into(),
+                instance.to_value(),
+                "email",
+            ));
         }
         Ok(())
     }
@@ -1242,7 +1238,7 @@ struct IdnEmailValidator {
 }
 
 impl IdnEmailValidator {
-    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
         let annotation = Arc::new(Value::String("idn-email".to_owned()));
         let email_options = ctx.config().email_options().copied();
@@ -1254,10 +1250,10 @@ impl IdnEmailValidator {
     }
 }
 
-impl Validate for IdnEmailValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::String(item) = instance {
-            is_valid_idn_email(item, self.email_options.as_ref())
+impl<F: Json> Validate<F> for IdnEmailValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_string() {
+            is_valid_idn_email(&item, self.email_options.as_ref())
         } else {
             true
         }
@@ -1265,21 +1261,19 @@ impl Validate for IdnEmailValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::String(_item) = instance {
-            if !self.is_valid(instance, ctx) {
-                return Err(ValidationError::format(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance,
-                    "idn-email",
-                ));
-            }
+        if instance.is_string() && !Validate::<F>::is_valid(self, instance, ctx) {
+            return Err(ValidationError::format(
+                self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
+                location.into(),
+                instance.to_value(),
+                "idn-email",
+            ));
         }
         Ok(())
     }
@@ -1294,11 +1288,11 @@ struct CustomFormatValidator {
     check: Arc<dyn Format>,
 }
 impl CustomFormatValidator {
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         format_name: String,
         check: Arc<dyn Format>,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
         let annotation = Arc::new(Value::String(format_name.clone()));
         Ok(Box::new(CustomFormatValidator {
@@ -1310,30 +1304,30 @@ impl CustomFormatValidator {
     }
 }
 
-impl Validate for CustomFormatValidator {
+impl<F: Json> Validate<F> for CustomFormatValidator {
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::format(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 self.format_name.clone(),
             ))
         }
     }
 
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::String(item) = instance {
-            self.check.is_valid(item)
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_string() {
+            self.check.is_valid(&item)
         } else {
             true
         }
@@ -1349,14 +1343,14 @@ struct AnnotationOnlyFormatValidator {
     annotation: Arc<Value>,
 }
 
-impl Validate for AnnotationOnlyFormatValidator {
-    fn is_valid(&self, _instance: &Value, _ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for AnnotationOnlyFormatValidator {
+    fn is_valid(&self, _instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         true
     }
 
     fn validate<'i>(
         &self,
-        _instance: &'i Value,
+        _instance: &F::Node<'i>,
         _location: &LazyLocation,
         _tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
@@ -1366,7 +1360,7 @@ impl Validate for AnnotationOnlyFormatValidator {
 
     fn iter_errors<'i>(
         &self,
-        _instance: &'i Value,
+        _instance: &F::Node<'i>,
         _location: &LazyLocation,
         _tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
@@ -1376,7 +1370,7 @@ impl Validate for AnnotationOnlyFormatValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         _location: &LazyLocation,
         _tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
@@ -1459,11 +1453,11 @@ fn builtin_format(draft: Draft, format: &str) -> Option<BuiltinFormat> {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     if let Value::String(format) = schema {
         if ctx.validates_formats_by_default() {
             // Format validation is enabled: each specific validator carries its own annotation
@@ -1507,7 +1501,7 @@ pub(crate) fn compile<'a>(
                             location.clone(),
                             location,
                             Location::new(),
-                            schema,
+                            Cow::Borrowed(schema),
                             format!(
                                 "Unknown format: '{format}'. Adjust configuration to ignore unrecognized formats"
                             ),
@@ -1527,7 +1521,7 @@ pub(crate) fn compile<'a>(
             location.clone(),
             location,
             Location::new(),
-            schema,
+            Cow::Borrowed(schema),
             JsonType::String,
         )))
     }

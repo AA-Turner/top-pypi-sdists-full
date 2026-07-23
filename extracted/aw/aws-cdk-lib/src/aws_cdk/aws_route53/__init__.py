@@ -697,6 +697,8 @@ route53.VpcEndpointServiceDomainName(self, "EndpointDomain",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -710,67 +712,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import IVpc as _IVpc_f30d5663
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    Role as _Role_e8c6e11f,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..interfaces.aws_ec2 import (
-    IVPCEndpointServiceRef as _IVPCEndpointServiceRef_90edcb87
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_route53 import (
-    CidrCollectionReference as _CidrCollectionReference_227b26e4,
-    DNSSECReference as _DNSSECReference_ef806ce9,
-    HealthCheckReference as _HealthCheckReference_95ea67d3,
-    HostedZoneReference as _HostedZoneReference_1c756d37,
-    ICidrCollectionRef as _ICidrCollectionRef_dedbf3b6,
-    IDNSSECRef as _IDNSSECRef_6c281f36,
-    IHealthCheckRef as _IHealthCheckRef_0389fb93,
-    IHostedZoneRef as _IHostedZoneRef_156b310f,
-    IKeySigningKeyRef as _IKeySigningKeyRef_4bded054,
-    IRecordSetGroupRef as _IRecordSetGroupRef_04aa756d,
-    IRecordSetRef as _IRecordSetRef_a2c21b67,
-    KeySigningKeyReference as _KeySigningKeyReference_6697db63,
-    RecordSetGroupReference as _RecordSetGroupReference_82a32fca,
-    RecordSetReference as _RecordSetReference_9c3693d0,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_route53 as _aws_route53_af70581a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_route53_af70581a = _LazyImport("aws_cdk.interfaces.aws_route53")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -799,7 +775,7 @@ class AlarmIdentifier:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcd95e6a7e14c758d746168914f9e2a2b5cd382fbfbc8277ef45a5aee3a652fa)
+            type_hints = cached_type_hints(_typecheckingstub__fcd95e6a7e14c758d746168914f9e2a2b5cd382fbfbc8277ef45a5aee3a652fa)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -873,7 +849,7 @@ class AliasRecordTargetConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__387b486cd004971b31128e4032ad0c37e74eea08888305d1660803aa68158e99)
+            type_hints = cached_type_hints(_typecheckingstub__387b486cd004971b31128e4032ad0c37e74eea08888305d1660803aa68158e99)
             check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument evaluate_target_health", value=evaluate_target_health, expected_type=type_hints["evaluate_target_health"])
@@ -956,7 +932,7 @@ class Alpn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_route53.Alpn"):
         :param protocol: The ALPN protocol identifier.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d9ef0a4a7247c6d4a71f3fa246dc19c356186767877913ae8a1b1123c46a69e)
+            type_hints = cached_type_hints(_typecheckingstub__5d9ef0a4a7247c6d4a71f3fa246dc19c356186767877913ae8a1b1123c46a69e)
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
         return typing.cast("Alpn", jsii.sinvoke(cls, "of", [protocol]))
 
@@ -1019,7 +995,7 @@ class CaaRecordValue:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__355c998e142d682fe0d90395cdf5ae7e566c2548633a9f8a48ab352707f13361)
+            type_hints = cached_type_hints(_typecheckingstub__355c998e142d682fe0d90395cdf5ae7e566c2548633a9f8a48ab352707f13361)
             check_type(argname="argument flag", value=flag, expected_type=type_hints["flag"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1074,9 +1050,9 @@ class CaaTag(enum.Enum):
     '''Specifies a URL to which a certificate authority may report policy violations.'''
 
 
-@jsii.implements(_IInspectable_c2943556, _ICidrCollectionRef_dedbf3b6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.ICidrCollectionRef)
 class CfnCidrCollection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnCidrCollection",
 ):
@@ -1116,7 +1092,7 @@ class CfnCidrCollection(
         id: builtins.str,
         *,
         name: builtins.str,
-        locations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCidrCollection.LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        locations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCidrCollection.LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53::CidrCollection``.
 
@@ -1126,7 +1102,7 @@ class CfnCidrCollection(
         :param locations: A complex type that contains information about the list of CIDR locations.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__720011c856c32f90a3b681a917c19dc88c61ef6e87f090867debab9dfca1faf1)
+            type_hints = cached_type_hints(_typecheckingstub__720011c856c32f90a3b681a917c19dc88c61ef6e87f090867debab9dfca1faf1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCidrCollectionProps(name=name, locations=locations)
@@ -1137,13 +1113,13 @@ class CfnCidrCollection(
     @builtins.classmethod
     def arn_for_cidr_collection(
         cls,
-        resource: "_ICidrCollectionRef_dedbf3b6",
+        resource: "_aws_route53_af70581a.ICidrCollectionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e5dd5496fd13aabce8caeee6e804660a1a4ac267823880a80ccc3fc582cf9e9)
+            type_hints = cached_type_hints(_typecheckingstub__5e5dd5496fd13aabce8caeee6e804660a1a4ac267823880a80ccc3fc582cf9e9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCidrCollection", [resource]))
 
@@ -1155,18 +1131,18 @@ class CfnCidrCollection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1eec1f003a53f5896f63867ff89ac5f04ca64ba5ab879e0332464d7bcaaf117)
+            type_hints = cached_type_hints(_typecheckingstub__c1eec1f003a53f5896f63867ff89ac5f04ca64ba5ab879e0332464d7bcaaf117)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCidrCollection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__865b77e8db2784e62d9e80de9ac08effc2203aeaed71fa8db00bdb6a95e02f25)
+            type_hints = cached_type_hints(_typecheckingstub__865b77e8db2784e62d9e80de9ac08effc2203aeaed71fa8db00bdb6a95e02f25)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1179,7 +1155,7 @@ class CfnCidrCollection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0eb630c9850982ace69736bf02f1ce226a32e6e83e5ba91717759cff2a08f89)
+            type_hints = cached_type_hints(_typecheckingstub__d0eb630c9850982ace69736bf02f1ce226a32e6e83e5ba91717759cff2a08f89)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1219,9 +1195,9 @@ class CfnCidrCollection(
 
     @builtins.property
     @jsii.member(jsii_name="cidrCollectionRef")
-    def cidr_collection_ref(self) -> "_CidrCollectionReference_227b26e4":
+    def cidr_collection_ref(self) -> "_aws_route53_af70581a.CidrCollectionReference":
         '''A reference to a CidrCollection resource.'''
-        return typing.cast("_CidrCollectionReference_227b26e4", jsii.get(self, "cidrCollectionRef"))
+        return typing.cast("_aws_route53_af70581a.CidrCollectionReference", jsii.get(self, "cidrCollectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1232,7 +1208,7 @@ class CfnCidrCollection(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e50d4b886f4c0718571d1dc70a97b0a1880f116a72668e2684b19ec718caa527)
+            type_hints = cached_type_hints(_typecheckingstub__e50d4b886f4c0718571d1dc70a97b0a1880f116a72668e2684b19ec718caa527)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1240,17 +1216,17 @@ class CfnCidrCollection(
     @jsii.member(jsii_name="locations")
     def locations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCidrCollection.LocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCidrCollection.LocationProperty"]]]]:
         '''A complex type that contains information about the list of CIDR locations.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCidrCollection.LocationProperty"]]]], jsii.get(self, "locations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCidrCollection.LocationProperty"]]]], jsii.get(self, "locations"))
 
     @locations.setter
     def locations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCidrCollection.LocationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCidrCollection.LocationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d1ed42461528e34721c33b3493a2297bae3e47c0fe29589882e2a685605d968)
+            type_hints = cached_type_hints(_typecheckingstub__7d1ed42461528e34721c33b3493a2297bae3e47c0fe29589882e2a685605d968)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "locations", value) # pyright: ignore[reportArgumentType]
 
@@ -1286,7 +1262,7 @@ class CfnCidrCollection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7cfc9caaf4289bb14df94cc4a6cf31b8d96395a13a1721c994701cc500d10b0d)
+                type_hints = cached_type_hints(_typecheckingstub__7cfc9caaf4289bb14df94cc4a6cf31b8d96395a13a1721c994701cc500d10b0d)
                 check_type(argname="argument cidr_list", value=cidr_list, expected_type=type_hints["cidr_list"])
                 check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1336,7 +1312,7 @@ class CfnCidrCollectionProps:
         self,
         *,
         name: builtins.str,
-        locations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCidrCollection.LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        locations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCidrCollection.LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCidrCollection``.
 
@@ -1370,7 +1346,7 @@ class CfnCidrCollectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24748dfd73812a9d4b13a11033c37a21e1e477a613964e42f30b373347e6bd62)
+            type_hints = cached_type_hints(_typecheckingstub__24748dfd73812a9d4b13a11033c37a21e1e477a613964e42f30b373347e6bd62)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1392,13 +1368,13 @@ class CfnCidrCollectionProps:
     @builtins.property
     def locations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCidrCollection.LocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCidrCollection.LocationProperty"]]]]:
         '''A complex type that contains information about the list of CIDR locations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-cidrcollection.html#cfn-route53-cidrcollection-locations
         '''
         result = self._values.get("locations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCidrCollection.LocationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCidrCollection.LocationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1412,9 +1388,9 @@ class CfnCidrCollectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDNSSECRef_6c281f36)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IDNSSECRef)
 class CfnDNSSEC(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnDNSSEC",
 ):
@@ -1449,7 +1425,7 @@ class CfnDNSSEC(
         :param hosted_zone_id: A unique string (ID) that is used to identify a hosted zone. For example: ``Z00001111A1ABCaaABC11`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e9e7f472bcf8cedfa8847e5068cd1eac8f74894399d2da52c0efb5f9d06b2bb)
+            type_hints = cached_type_hints(_typecheckingstub__7e9e7f472bcf8cedfa8847e5068cd1eac8f74894399d2da52c0efb5f9d06b2bb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDNSSECProps(hosted_zone_id=hosted_zone_id)
@@ -1464,18 +1440,18 @@ class CfnDNSSEC(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04b6b41f12d9cc8e060cb93dd228e395c2c7477becb1554217f6c5c7e0f92c3f)
+            type_hints = cached_type_hints(_typecheckingstub__04b6b41f12d9cc8e060cb93dd228e395c2c7477becb1554217f6c5c7e0f92c3f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDNSSEC", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec856d544beda6c45f1608de4feeffbddf087e8459029522c89b9df33f5cb959)
+            type_hints = cached_type_hints(_typecheckingstub__ec856d544beda6c45f1608de4feeffbddf087e8459029522c89b9df33f5cb959)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1488,7 +1464,7 @@ class CfnDNSSEC(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6989c5ddbfcb06ca392c2069a93d1577d4cf37dbb55219f8b2099854e7e6865)
+            type_hints = cached_type_hints(_typecheckingstub__f6989c5ddbfcb06ca392c2069a93d1577d4cf37dbb55219f8b2099854e7e6865)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1510,9 +1486,9 @@ class CfnDNSSEC(
 
     @builtins.property
     @jsii.member(jsii_name="dnssecRef")
-    def dnssec_ref(self) -> "_DNSSECReference_ef806ce9":
+    def dnssec_ref(self) -> "_aws_route53_af70581a.DNSSECReference":
         '''A reference to a DNSSEC resource.'''
-        return typing.cast("_DNSSECReference_ef806ce9", jsii.get(self, "dnssecRef"))
+        return typing.cast("_aws_route53_af70581a.DNSSECReference", jsii.get(self, "dnssecRef"))
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -1523,7 +1499,7 @@ class CfnDNSSEC(
     @hosted_zone_id.setter
     def hosted_zone_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49aa879587d46704e9e1a930ff6b1127ca5bcd3a356f6eb50d8324ca68c299b4)
+            type_hints = cached_type_hints(_typecheckingstub__49aa879587d46704e9e1a930ff6b1127ca5bcd3a356f6eb50d8324ca68c299b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -1553,7 +1529,7 @@ class CfnDNSSECProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2167da58835c803c2916942ed2ea650abb900936cf0014848489e6c72545f5ed)
+            type_hints = cached_type_hints(_typecheckingstub__2167da58835c803c2916942ed2ea650abb900936cf0014848489e6c72545f5ed)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hosted_zone_id": hosted_zone_id,
@@ -1583,9 +1559,9 @@ class CfnDNSSECProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IHealthCheckRef_0389fb93, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IHealthCheckRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnHealthCheck(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheck",
 ):
@@ -1657,7 +1633,7 @@ class CfnHealthCheck(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        health_check_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnHealthCheck.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        health_check_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheck.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         health_check_tags: typing.Optional[typing.Sequence[typing.Union["CfnHealthCheck.HealthCheckTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53::HealthCheck``.
@@ -1668,7 +1644,7 @@ class CfnHealthCheck(
         :param health_check_tags: The ``HealthCheckTags`` property describes key-value pairs that are associated with an ``AWS::Route53::HealthCheck`` resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__469f7fe3ad975c091ea64f8ce59060016c4769f6532660a91964f093088b495c)
+            type_hints = cached_type_hints(_typecheckingstub__469f7fe3ad975c091ea64f8ce59060016c4769f6532660a91964f093088b495c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHealthCheckProps(
@@ -1682,13 +1658,13 @@ class CfnHealthCheck(
     @builtins.classmethod
     def arn_for_health_check(
         cls,
-        resource: "_IHealthCheckRef_0389fb93",
+        resource: "_aws_route53_af70581a.IHealthCheckRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67cddfacf1156bd5a9f284376f06f62b4fbc016f6195ad6e86820746ea9b641e)
+            type_hints = cached_type_hints(_typecheckingstub__67cddfacf1156bd5a9f284376f06f62b4fbc016f6195ad6e86820746ea9b641e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHealthCheck", [resource]))
 
@@ -1700,18 +1676,18 @@ class CfnHealthCheck(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85215c1a67a9bf5fc9ea61938836633137b7fecb98dc541087538361e2a783e9)
+            type_hints = cached_type_hints(_typecheckingstub__85215c1a67a9bf5fc9ea61938836633137b7fecb98dc541087538361e2a783e9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHealthCheck", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92eef426989e6d56f38b29af5b8a36178998c16c96fb7222ce9f5538f6972709)
+            type_hints = cached_type_hints(_typecheckingstub__92eef426989e6d56f38b29af5b8a36178998c16c96fb7222ce9f5538f6972709)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1724,7 +1700,7 @@ class CfnHealthCheck(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0a64c35de99e287eed1f250bb5b41772f3dbba1a8ad5b6ced21bbde215943f8)
+            type_hints = cached_type_hints(_typecheckingstub__b0a64c35de99e287eed1f250bb5b41772f3dbba1a8ad5b6ced21bbde215943f8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1747,9 +1723,9 @@ class CfnHealthCheck(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1763,25 +1739,25 @@ class CfnHealthCheck(
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckRef")
-    def health_check_ref(self) -> "_HealthCheckReference_95ea67d3":
+    def health_check_ref(self) -> "_aws_route53_af70581a.HealthCheckReference":
         '''A reference to a HealthCheck resource.'''
-        return typing.cast("_HealthCheckReference_95ea67d3", jsii.get(self, "healthCheckRef"))
+        return typing.cast("_aws_route53_af70581a.HealthCheckReference", jsii.get(self, "healthCheckRef"))
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckConfig")
     def health_check_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.HealthCheckConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.HealthCheckConfigProperty"]:
         '''A complex type that contains detailed information about one health check.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.HealthCheckConfigProperty"], jsii.get(self, "healthCheckConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.HealthCheckConfigProperty"], jsii.get(self, "healthCheckConfig"))
 
     @health_check_config.setter
     def health_check_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.HealthCheckConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.HealthCheckConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b0df7baae49dfed1fb95576ba5c0e5d51660f268bef2a4d82fca32324f94689)
+            type_hints = cached_type_hints(_typecheckingstub__8b0df7baae49dfed1fb95576ba5c0e5d51660f268bef2a4d82fca32324f94689)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1799,7 +1775,7 @@ class CfnHealthCheck(
         value: typing.Optional[typing.List["CfnHealthCheck.HealthCheckTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d1493e762a114933a5a3775c215007c8d522e932362ff7c530eb00b515208ff)
+            type_hints = cached_type_hints(_typecheckingstub__1d1493e762a114933a5a3775c215007c8d522e932362ff7c530eb00b515208ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckTags", value) # pyright: ignore[reportArgumentType]
 
@@ -1830,7 +1806,7 @@ class CfnHealthCheck(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e113166210d02eb6e0f8c59a042f052d80d619370b1e9fe97a7a04b51014736)
+                type_hints = cached_type_hints(_typecheckingstub__0e113166210d02eb6e0f8c59a042f052d80d619370b1e9fe97a7a04b51014736)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1906,16 +1882,16 @@ class CfnHealthCheck(
             self,
             *,
             type: builtins.str,
-            alarm_identifier: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHealthCheck.AlarmIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            alarm_identifier: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheck.AlarmIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             child_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
-            enable_sni: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_sni: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             failure_threshold: typing.Optional[jsii.Number] = None,
             fully_qualified_domain_name: typing.Optional[builtins.str] = None,
             health_threshold: typing.Optional[jsii.Number] = None,
             insufficient_data_health_status: typing.Optional[builtins.str] = None,
-            inverted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            inverted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             ip_address: typing.Optional[builtins.str] = None,
-            measure_latency: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            measure_latency: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             port: typing.Optional[jsii.Number] = None,
             regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             request_interval: typing.Optional[jsii.Number] = None,
@@ -1978,7 +1954,7 @@ class CfnHealthCheck(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5f6870a18d2b0b32e1b106470763dd03bb4bfa75e0234e29a176b8b5127252e0)
+                type_hints = cached_type_hints(_typecheckingstub__5f6870a18d2b0b32e1b106470763dd03bb4bfa75e0234e29a176b8b5127252e0)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument alarm_identifier", value=alarm_identifier, expected_type=type_hints["alarm_identifier"])
                 check_type(argname="argument child_health_checks", value=child_health_checks, expected_type=type_hints["child_health_checks"])
@@ -2075,13 +2051,13 @@ class CfnHealthCheck(
         @builtins.property
         def alarm_identifier(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.AlarmIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.AlarmIdentifierProperty"]]:
             '''A complex type that identifies the CloudWatch alarm that you want Amazon Route 53 health checkers to use to determine whether the specified health check is healthy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthcheck-healthcheckconfig.html#cfn-route53-healthcheck-healthcheckconfig-alarmidentifier
             '''
             result = self._values.get("alarm_identifier")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.AlarmIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.AlarmIdentifierProperty"]], result)
 
         @builtins.property
         def child_health_checks(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2095,7 +2071,7 @@ class CfnHealthCheck(
         @builtins.property
         def enable_sni(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify whether you want Amazon Route 53 to send the value of ``FullyQualifiedDomainName`` to the endpoint in the ``client_hello`` message during TLS negotiation.
 
             This allows the endpoint to respond to ``HTTPS`` health check requests with the applicable SSL/TLS certificate.
@@ -2107,7 +2083,7 @@ class CfnHealthCheck(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthcheck-healthcheckconfig.html#cfn-route53-healthcheck-healthcheckconfig-enablesni
             '''
             result = self._values.get("enable_sni")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def failure_threshold(self) -> typing.Optional[jsii.Number]:
@@ -2190,13 +2166,13 @@ class CfnHealthCheck(
         @builtins.property
         def inverted(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify whether you want Amazon Route 53 to invert the status of a health check, for example, to consider a health check unhealthy when it otherwise would be considered healthy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthcheck-healthcheckconfig.html#cfn-route53-healthcheck-healthcheckconfig-inverted
             '''
             result = self._values.get("inverted")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def ip_address(self) -> typing.Optional[builtins.str]:
@@ -2229,7 +2205,7 @@ class CfnHealthCheck(
         @builtins.property
         def measure_latency(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify whether you want Amazon Route 53 to measure the latency between health checkers in multiple AWS regions and your endpoint, and to display CloudWatch latency graphs on the *Health Checks* page in the Route 53 console.
 
             ``MeasureLatency`` is not supported when you specify a value for ``Type`` of ``RECOVERY_CONTROL`` .
@@ -2240,7 +2216,7 @@ class CfnHealthCheck(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthcheck-healthcheckconfig.html#cfn-route53-healthcheck-healthcheckconfig-measurelatency
             '''
             result = self._values.get("measure_latency")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def port(self) -> typing.Optional[jsii.Number]:
@@ -2359,7 +2335,7 @@ class CfnHealthCheck(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b181f58da0d2eb6f8c9ba8be7f7b44f29a68b4d09e2f4c600ab9522e6f52f880)
+                type_hints = cached_type_hints(_typecheckingstub__b181f58da0d2eb6f8c9ba8be7f7b44f29a68b4d09e2f4c600ab9522e6f52f880)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2419,7 +2395,7 @@ class CfnHealthCheckProps:
     def __init__(
         self,
         *,
-        health_check_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnHealthCheck.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        health_check_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheck.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         health_check_tags: typing.Optional[typing.Sequence[typing.Union["CfnHealthCheck.HealthCheckTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHealthCheck``.
@@ -2470,7 +2446,7 @@ class CfnHealthCheckProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcc59bb963f4ce3a4eb461ecda6f194c9faa6eea0ca5960c91dfd950e626f687)
+            type_hints = cached_type_hints(_typecheckingstub__dcc59bb963f4ce3a4eb461ecda6f194c9faa6eea0ca5960c91dfd950e626f687)
             check_type(argname="argument health_check_config", value=health_check_config, expected_type=type_hints["health_check_config"])
             check_type(argname="argument health_check_tags", value=health_check_tags, expected_type=type_hints["health_check_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2482,7 +2458,7 @@ class CfnHealthCheckProps:
     @builtins.property
     def health_check_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.HealthCheckConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.HealthCheckConfigProperty"]:
         '''A complex type that contains detailed information about one health check.
 
         For the values to enter for ``HealthCheckConfig`` , see `HealthCheckConfig <https://docs.aws.amazon.com/Route53/latest/APIReference/API_HealthCheckConfig.html>`_
@@ -2491,7 +2467,7 @@ class CfnHealthCheckProps:
         '''
         result = self._values.get("health_check_config")
         assert result is not None, "Required property 'health_check_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnHealthCheck.HealthCheckConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheck.HealthCheckConfigProperty"], result)
 
     @builtins.property
     def health_check_tags(
@@ -2516,9 +2492,9 @@ class CfnHealthCheckProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IHostedZoneRef_156b310f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IHostedZoneRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnHostedZone(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnHostedZone",
 ):
@@ -2588,12 +2564,12 @@ class CfnHostedZone(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        hosted_zone_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        hosted_zone_features: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosted_zone_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosted_zone_features: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union["CfnHostedZone.HostedZoneTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        query_logging_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.QueryLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpcs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.VPCProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        query_logging_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.QueryLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpcs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.VPCProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53::HostedZone``.
 
@@ -2607,7 +2583,7 @@ class CfnHostedZone(
         :param vpcs: *Private hosted zones:* A complex type that contains information about the VPCs that are associated with the specified hosted zone. .. epigraph:: For public hosted zones, omit ``VPCs`` , ``VPCId`` , and ``VPCRegion`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07dce28bc78bd7a648e7920a0cb1bee52b579eae30c6d32918696dd2fecf73a0)
+            type_hints = cached_type_hints(_typecheckingstub__07dce28bc78bd7a648e7920a0cb1bee52b579eae30c6d32918696dd2fecf73a0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHostedZoneProps(
@@ -2623,12 +2599,15 @@ class CfnHostedZone(
 
     @jsii.member(jsii_name="arnForHostedZone")
     @builtins.classmethod
-    def arn_for_hosted_zone(cls, resource: "_IHostedZoneRef_156b310f") -> builtins.str:
+    def arn_for_hosted_zone(
+        cls,
+        resource: "_aws_route53_af70581a.IHostedZoneRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e0e03d1cbc9f750413f66bb43c5b02ff3e85d99da20eb4c76c48fb4fc8d05df)
+            type_hints = cached_type_hints(_typecheckingstub__1e0e03d1cbc9f750413f66bb43c5b02ff3e85d99da20eb4c76c48fb4fc8d05df)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHostedZone", [resource]))
 
@@ -2640,18 +2619,18 @@ class CfnHostedZone(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a4f45ce73bab9ae5bb66adc4a67da9904f954dd2e424af9f9247a4ac2614229)
+            type_hints = cached_type_hints(_typecheckingstub__5a4f45ce73bab9ae5bb66adc4a67da9904f954dd2e424af9f9247a4ac2614229)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHostedZone", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec471122074c4efc9cfaeb7b7bef0731889f8080ae94fce69befda5f9fe2e7af)
+            type_hints = cached_type_hints(_typecheckingstub__ec471122074c4efc9cfaeb7b7bef0731889f8080ae94fce69befda5f9fe2e7af)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2664,7 +2643,7 @@ class CfnHostedZone(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ef86462d5cfa65a428a6e6bb1b1ba218d87770c0e1448ff8d57375ca2a36ae7)
+            type_hints = cached_type_hints(_typecheckingstub__3ef86462d5cfa65a428a6e6bb1b1ba218d87770c0e1448ff8d57375ca2a36ae7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2706,31 +2685,31 @@ class CfnHostedZone(
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneRef")
-    def hosted_zone_ref(self) -> "_HostedZoneReference_1c756d37":
+    def hosted_zone_ref(self) -> "_aws_route53_af70581a.HostedZoneReference":
         '''A reference to a HostedZone resource.'''
-        return typing.cast("_HostedZoneReference_1c756d37", jsii.get(self, "hostedZoneRef"))
+        return typing.cast("_aws_route53_af70581a.HostedZoneReference", jsii.get(self, "hostedZoneRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneConfig")
     def hosted_zone_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneConfigProperty"]]:
         '''A complex type that contains an optional comment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneConfigProperty"]], jsii.get(self, "hostedZoneConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneConfigProperty"]], jsii.get(self, "hostedZoneConfig"))
 
     @hosted_zone_config.setter
     def hosted_zone_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e764c4ae257c91c5d5b032fbe4eb718b4851ccc5750ef5bd3b5214ef2b4684fd)
+            type_hints = cached_type_hints(_typecheckingstub__e764c4ae257c91c5d5b032fbe4eb718b4851ccc5750ef5bd3b5214ef2b4684fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2738,17 +2717,17 @@ class CfnHostedZone(
     @jsii.member(jsii_name="hostedZoneFeatures")
     def hosted_zone_features(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneFeaturesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneFeaturesProperty"]]:
         '''The features configuration for the hosted zone, including accelerated recovery settings and status information.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneFeaturesProperty"]], jsii.get(self, "hostedZoneFeatures"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneFeaturesProperty"]], jsii.get(self, "hostedZoneFeatures"))
 
     @hosted_zone_features.setter
     def hosted_zone_features(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneFeaturesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneFeaturesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__103df913d9dc30b8a72229c8397bf39942dc00698e6ee32c9e98ec8f10e62aea)
+            type_hints = cached_type_hints(_typecheckingstub__103df913d9dc30b8a72229c8397bf39942dc00698e6ee32c9e98ec8f10e62aea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneFeatures", value) # pyright: ignore[reportArgumentType]
 
@@ -2766,7 +2745,7 @@ class CfnHostedZone(
         value: typing.Optional[typing.List["CfnHostedZone.HostedZoneTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93e68861780d2e75a54677985f3c250e924418dc9e1ac1cc200b770e633acbb6)
+            type_hints = cached_type_hints(_typecheckingstub__93e68861780d2e75a54677985f3c250e924418dc9e1ac1cc200b770e633acbb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneTagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2779,7 +2758,7 @@ class CfnHostedZone(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91099dfc3159698491b9498cddba1ba706c12aeede11ee9ccadf937019c2ae08)
+            type_hints = cached_type_hints(_typecheckingstub__91099dfc3159698491b9498cddba1ba706c12aeede11ee9ccadf937019c2ae08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2787,17 +2766,17 @@ class CfnHostedZone(
     @jsii.member(jsii_name="queryLoggingConfig")
     def query_logging_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.QueryLoggingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.QueryLoggingConfigProperty"]]:
         '''Creates a configuration for DNS query logging.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.QueryLoggingConfigProperty"]], jsii.get(self, "queryLoggingConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.QueryLoggingConfigProperty"]], jsii.get(self, "queryLoggingConfig"))
 
     @query_logging_config.setter
     def query_logging_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.QueryLoggingConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.QueryLoggingConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d1784db152ce69ef63512574d41672ddd53e2038e23c71ff72325772d8b489)
+            type_hints = cached_type_hints(_typecheckingstub__02d1784db152ce69ef63512574d41672ddd53e2038e23c71ff72325772d8b489)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queryLoggingConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2805,17 +2784,17 @@ class CfnHostedZone(
     @jsii.member(jsii_name="vpcs")
     def vpcs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.VPCProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.VPCProperty"]]]]:
         '''*Private hosted zones:* A complex type that contains information about the VPCs that are associated with the specified hosted zone.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.VPCProperty"]]]], jsii.get(self, "vpcs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.VPCProperty"]]]], jsii.get(self, "vpcs"))
 
     @vpcs.setter
     def vpcs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.VPCProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.VPCProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45fa6589ea7645f299a1666ba66ea7f49172916fae56fe49b48ee2d8bfa87241)
+            type_hints = cached_type_hints(_typecheckingstub__45fa6589ea7645f299a1666ba66ea7f49172916fae56fe49b48ee2d8bfa87241)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcs", value) # pyright: ignore[reportArgumentType]
 
@@ -2846,7 +2825,7 @@ class CfnHostedZone(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b9b576716f26dcf7d2edeb0bc854e42f45e229b4fdb03469e0a6e4aa92f0c562)
+                type_hints = cached_type_hints(_typecheckingstub__b9b576716f26dcf7d2edeb0bc854e42f45e229b4fdb03469e0a6e4aa92f0c562)
                 check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if comment is not None:
@@ -2881,7 +2860,7 @@ class CfnHostedZone(
         def __init__(
             self,
             *,
-            enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Represents the features configuration for a hosted zone, including the status of various features and any associated failure reasons.
 
@@ -2901,7 +2880,7 @@ class CfnHostedZone(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__65b7e3792574e39c38d03eccca85840878de51f8638bf7e3eefde06b18ec6134)
+                type_hints = cached_type_hints(_typecheckingstub__65b7e3792574e39c38d03eccca85840878de51f8638bf7e3eefde06b18ec6134)
                 check_type(argname="argument enable_accelerated_recovery", value=enable_accelerated_recovery, expected_type=type_hints["enable_accelerated_recovery"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enable_accelerated_recovery is not None:
@@ -2910,12 +2889,12 @@ class CfnHostedZone(
         @builtins.property
         def enable_accelerated_recovery(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-hostedzone-hostedzonefeatures.html#cfn-route53-hostedzone-hostedzonefeatures-enableacceleratedrecovery
             '''
             result = self._values.get("enable_accelerated_recovery")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2955,7 +2934,7 @@ class CfnHostedZone(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ab436cec7f17cd6450fc80b9013e4f05f3f7a983561430595251215b5aedec6)
+                type_hints = cached_type_hints(_typecheckingstub__2ab436cec7f17cd6450fc80b9013e4f05f3f7a983561430595251215b5aedec6)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3027,7 +3006,7 @@ class CfnHostedZone(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3de80e7a9d7826feae12622cf83906c147b708a387e427ae161c27ac169ea16a)
+                type_hints = cached_type_hints(_typecheckingstub__3de80e7a9d7826feae12622cf83906c147b708a387e427ae161c27ac169ea16a)
                 check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cloud_watch_logs_log_group_arn": cloud_watch_logs_log_group_arn,
@@ -3086,7 +3065,7 @@ class CfnHostedZone(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c68e5afe07b3a7edc63a606f85f787c4486a2bfba1793f83271989294f5d6970)
+                type_hints = cached_type_hints(_typecheckingstub__c68e5afe07b3a7edc63a606f85f787c4486a2bfba1793f83271989294f5d6970)
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
                 check_type(argname="argument vpc_region", value=vpc_region, expected_type=type_hints["vpc_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3150,12 +3129,12 @@ class CfnHostedZoneProps:
     def __init__(
         self,
         *,
-        hosted_zone_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        hosted_zone_features: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosted_zone_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosted_zone_features: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union["CfnHostedZone.HostedZoneTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        query_logging_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.QueryLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpcs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHostedZone.VPCProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        query_logging_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.QueryLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpcs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.VPCProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHostedZone``.
 
@@ -3197,7 +3176,7 @@ class CfnHostedZoneProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__490d21becaf73ea78f8b34688d2d62e4e21d941f510e74d0a5acce1c9a8a35c3)
+            type_hints = cached_type_hints(_typecheckingstub__490d21becaf73ea78f8b34688d2d62e4e21d941f510e74d0a5acce1c9a8a35c3)
             check_type(argname="argument hosted_zone_config", value=hosted_zone_config, expected_type=type_hints["hosted_zone_config"])
             check_type(argname="argument hosted_zone_features", value=hosted_zone_features, expected_type=type_hints["hosted_zone_features"])
             check_type(argname="argument hosted_zone_tags", value=hosted_zone_tags, expected_type=type_hints["hosted_zone_tags"])
@@ -3221,7 +3200,7 @@ class CfnHostedZoneProps:
     @builtins.property
     def hosted_zone_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneConfigProperty"]]:
         '''A complex type that contains an optional comment.
 
         If you don't want to specify a comment, omit the ``HostedZoneConfig`` and ``Comment`` elements.
@@ -3229,18 +3208,18 @@ class CfnHostedZoneProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-hostedzone.html#cfn-route53-hostedzone-hostedzoneconfig
         '''
         result = self._values.get("hosted_zone_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneConfigProperty"]], result)
 
     @builtins.property
     def hosted_zone_features(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneFeaturesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneFeaturesProperty"]]:
         '''The features configuration for the hosted zone, including accelerated recovery settings and status information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-hostedzone.html#cfn-route53-hostedzone-hostedzonefeatures
         '''
         result = self._values.get("hosted_zone_features")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.HostedZoneFeaturesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.HostedZoneFeaturesProperty"]], result)
 
     @builtins.property
     def hosted_zone_tags(
@@ -3271,7 +3250,7 @@ class CfnHostedZoneProps:
     @builtins.property
     def query_logging_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.QueryLoggingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.QueryLoggingConfigProperty"]]:
         '''Creates a configuration for DNS query logging.
 
         After you create a query logging configuration, Amazon Route 53 begins to publish log data to an Amazon CloudWatch Logs log group.
@@ -3329,12 +3308,12 @@ class CfnHostedZoneProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-hostedzone.html#cfn-route53-hostedzone-queryloggingconfig
         '''
         result = self._values.get("query_logging_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.QueryLoggingConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.QueryLoggingConfigProperty"]], result)
 
     @builtins.property
     def vpcs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.VPCProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.VPCProperty"]]]]:
         '''*Private hosted zones:* A complex type that contains information about the VPCs that are associated with the specified hosted zone.
 
         .. epigraph::
@@ -3344,7 +3323,7 @@ class CfnHostedZoneProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-hostedzone.html#cfn-route53-hostedzone-vpcs
         '''
         result = self._values.get("vpcs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHostedZone.VPCProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHostedZone.VPCProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3358,9 +3337,9 @@ class CfnHostedZoneProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IKeySigningKeyRef_4bded054)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IKeySigningKeyRef)
 class CfnKeySigningKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnKeySigningKey",
 ):
@@ -3406,7 +3385,7 @@ class CfnKeySigningKey(
         :param status: A string that represents the current key-signing key (KSK) status. Status can have one of the following values: - **ACTIVE** - The KSK is being used for signing. - **INACTIVE** - The KSK is not being used for signing. - **DELETING** - The KSK is in the process of being deleted. - **ACTION_NEEDED** - There is a problem with the KSK that requires you to take action to resolve. For example, the customer managed key might have been deleted, or the permissions for the customer managed key might have been changed. - **INTERNAL_FAILURE** - There was an error during a request. Before you can continue to work with DNSSEC signing, including actions that involve this KSK, you must correct the problem. For example, you may need to activate or deactivate the KSK.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ab2cf8ecb830d1da730f1aa8733016826e21289a18b31b5c2960242217b6d2d)
+            type_hints = cached_type_hints(_typecheckingstub__1ab2cf8ecb830d1da730f1aa8733016826e21289a18b31b5c2960242217b6d2d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnKeySigningKeyProps(
@@ -3426,18 +3405,18 @@ class CfnKeySigningKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4c143d35daf9bc24ad6524ac0674868b7e4e4c2f566acea67229e08bbb4b64b)
+            type_hints = cached_type_hints(_typecheckingstub__d4c143d35daf9bc24ad6524ac0674868b7e4e4c2f566acea67229e08bbb4b64b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKeySigningKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cd424602d0e47520e23aa4bb0661d6d253dfaa1526f46b316cc886c1c8e3c90)
+            type_hints = cached_type_hints(_typecheckingstub__6cd424602d0e47520e23aa4bb0661d6d253dfaa1526f46b316cc886c1c8e3c90)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3450,7 +3429,7 @@ class CfnKeySigningKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a974a23e0b44cc31e19609aafb595755d873d5b149a168373eca42644ebb067)
+            type_hints = cached_type_hints(_typecheckingstub__0a974a23e0b44cc31e19609aafb595755d873d5b149a168373eca42644ebb067)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3472,9 +3451,9 @@ class CfnKeySigningKey(
 
     @builtins.property
     @jsii.member(jsii_name="keySigningKeyRef")
-    def key_signing_key_ref(self) -> "_KeySigningKeyReference_6697db63":
+    def key_signing_key_ref(self) -> "_aws_route53_af70581a.KeySigningKeyReference":
         '''A reference to a KeySigningKey resource.'''
-        return typing.cast("_KeySigningKeyReference_6697db63", jsii.get(self, "keySigningKeyRef"))
+        return typing.cast("_aws_route53_af70581a.KeySigningKeyReference", jsii.get(self, "keySigningKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -3485,7 +3464,7 @@ class CfnKeySigningKey(
     @hosted_zone_id.setter
     def hosted_zone_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a977d3e0b2b3f9a9e1ffa361297317c52032e041b63d5aea96d7b3236e1bcc76)
+            type_hints = cached_type_hints(_typecheckingstub__a977d3e0b2b3f9a9e1ffa361297317c52032e041b63d5aea96d7b3236e1bcc76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -3498,7 +3477,7 @@ class CfnKeySigningKey(
     @key_management_service_arn.setter
     def key_management_service_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b11e2fadcc2e7f8dd0b969ae638b6fef820af613ac524490a21fcfa87cbe4b1b)
+            type_hints = cached_type_hints(_typecheckingstub__b11e2fadcc2e7f8dd0b969ae638b6fef820af613ac524490a21fcfa87cbe4b1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyManagementServiceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3511,7 +3490,7 @@ class CfnKeySigningKey(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c99ca2799db6059925703f6f02ff9fa298bf7e6106b621b1f66a86e2928f1a56)
+            type_hints = cached_type_hints(_typecheckingstub__c99ca2799db6059925703f6f02ff9fa298bf7e6106b621b1f66a86e2928f1a56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3524,7 +3503,7 @@ class CfnKeySigningKey(
     @status.setter
     def status(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a53087887c17259968953d4112cc4979b6d97d83c742c614204a0840acd1951)
+            type_hints = cached_type_hints(_typecheckingstub__8a53087887c17259968953d4112cc4979b6d97d83c742c614204a0840acd1951)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -3572,7 +3551,7 @@ class CfnKeySigningKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34f881609091b0893ac028adbb4be46f434c735b3d01e67b1aefcf17bc0abb02)
+            type_hints = cached_type_hints(_typecheckingstub__34f881609091b0893ac028adbb4be46f434c735b3d01e67b1aefcf17bc0abb02)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument key_management_service_arn", value=key_management_service_arn, expected_type=type_hints["key_management_service_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3650,9 +3629,9 @@ class CfnKeySigningKeyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRecordSetRef_a2c21b67)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IRecordSetRef)
 class CfnRecordSet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnRecordSet",
 ):
@@ -3723,16 +3702,16 @@ class CfnRecordSet(
         *,
         name: builtins.str,
         type: builtins.str,
-        alias_target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cidr_routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alias_target: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cidr_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         comment: typing.Optional[builtins.str] = None,
         failover: typing.Optional[builtins.str] = None,
-        geo_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        geo_proximity_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        geo_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        geo_proximity_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_id: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
-        multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         region: typing.Optional[builtins.str] = None,
         resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
         set_identifier: typing.Optional[builtins.str] = None,
@@ -3762,7 +3741,7 @@ class CfnRecordSet(
         :param weight: *Weighted resource record sets only:* Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. Note the following: - You must specify a value for the ``Weight`` element for every weighted resource record set. - You can only specify one ``ResourceRecord`` per weighted resource record set. - You can't create latency, failover, or geolocation resource record sets that have the same values for the ``Name`` and ``Type`` elements as weighted resource record sets. - You can create a maximum of 100 weighted resource record sets that have the same values for the ``Name`` and ``Type`` elements. - For weighted (but not weighted alias) resource record sets, if you set ``Weight`` to ``0`` for a resource record set, Route 53 never responds to queries with the applicable value for that resource record set. However, if you set ``Weight`` to ``0`` for all resource record sets that have the same combination of DNS name and type, traffic is routed to all resources with equal probability. The effect of setting ``Weight`` to ``0`` is different when you associate health checks with weighted resource record sets. For more information, see `Options for Configuring Route 53 Active-Active and Active-Passive Failover <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-configuring-options.html>`_ in the *Amazon Route 53 Developer Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5260f62d2297374b2126da361d614f7922d306048a751f4287d4f7b25251b21f)
+            type_hints = cached_type_hints(_typecheckingstub__5260f62d2297374b2126da361d614f7922d306048a751f4287d4f7b25251b21f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRecordSetProps(
@@ -3795,18 +3774,18 @@ class CfnRecordSet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c8a0762efb7bb21b6984f364843a96e6111a9142e91e645b888a14add315fb2)
+            type_hints = cached_type_hints(_typecheckingstub__9c8a0762efb7bb21b6984f364843a96e6111a9142e91e645b888a14add315fb2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecordSet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b594e45af3ec7b4a87f2e38151e582ff1da92bd5457b214b477cfd403181bea)
+            type_hints = cached_type_hints(_typecheckingstub__3b594e45af3ec7b4a87f2e38151e582ff1da92bd5457b214b477cfd403181bea)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3819,7 +3798,7 @@ class CfnRecordSet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df3adfbdf92c6a814f5e524f14898f0c7ffdd8d142085c462e1fe287a77fe1ba)
+            type_hints = cached_type_hints(_typecheckingstub__df3adfbdf92c6a814f5e524f14898f0c7ffdd8d142085c462e1fe287a77fe1ba)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3850,9 +3829,9 @@ class CfnRecordSet(
 
     @builtins.property
     @jsii.member(jsii_name="recordSetRef")
-    def record_set_ref(self) -> "_RecordSetReference_9c3693d0":
+    def record_set_ref(self) -> "_aws_route53_af70581a.RecordSetReference":
         '''A reference to a RecordSet resource.'''
-        return typing.cast("_RecordSetReference_9c3693d0", jsii.get(self, "recordSetRef"))
+        return typing.cast("_aws_route53_af70581a.RecordSetReference", jsii.get(self, "recordSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3863,7 +3842,7 @@ class CfnRecordSet(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__173457195308ceadf9faa78064a52b9ebc4a356fcff5446dce5527a0f82366c1)
+            type_hints = cached_type_hints(_typecheckingstub__173457195308ceadf9faa78064a52b9ebc4a356fcff5446dce5527a0f82366c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3876,7 +3855,7 @@ class CfnRecordSet(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d764bdec1a7fb5aef453f572d560d1b8aed69fb8dcfec021e5660608a78cd63)
+            type_hints = cached_type_hints(_typecheckingstub__0d764bdec1a7fb5aef453f572d560d1b8aed69fb8dcfec021e5660608a78cd63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -3884,17 +3863,17 @@ class CfnRecordSet(
     @jsii.member(jsii_name="aliasTarget")
     def alias_target(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.AliasTargetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.AliasTargetProperty"]]:
         '''*Alias resource record sets only:* Information about the AWS resource, such as a CloudFront distribution or an Amazon S3 bucket, that you want to route traffic to.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.AliasTargetProperty"]], jsii.get(self, "aliasTarget"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.AliasTargetProperty"]], jsii.get(self, "aliasTarget"))
 
     @alias_target.setter
     def alias_target(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.AliasTargetProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.AliasTargetProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0a16cf391736226a70d1a59be2ffd652193be54e61b33e07b2b502b7444ebc0)
+            type_hints = cached_type_hints(_typecheckingstub__b0a16cf391736226a70d1a59be2ffd652193be54e61b33e07b2b502b7444ebc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aliasTarget", value) # pyright: ignore[reportArgumentType]
 
@@ -3902,17 +3881,17 @@ class CfnRecordSet(
     @jsii.member(jsii_name="cidrRoutingConfig")
     def cidr_routing_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CidrRoutingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CidrRoutingConfigProperty"]]:
         '''The object that is specified in resource record set object when you are linking a resource record set to a CIDR location.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CidrRoutingConfigProperty"]], jsii.get(self, "cidrRoutingConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CidrRoutingConfigProperty"]], jsii.get(self, "cidrRoutingConfig"))
 
     @cidr_routing_config.setter
     def cidr_routing_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CidrRoutingConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CidrRoutingConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9573d618d7f59fad50ecf9e676d892ccfe65d8be595e465b068eec35f7931458)
+            type_hints = cached_type_hints(_typecheckingstub__9573d618d7f59fad50ecf9e676d892ccfe65d8be595e465b068eec35f7931458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cidrRoutingConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3925,7 +3904,7 @@ class CfnRecordSet(
     @comment.setter
     def comment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8e87d623f2ac71368cf9931ccdeb8214817a43ef5c3db34b4027a16981eba4e)
+            type_hints = cached_type_hints(_typecheckingstub__d8e87d623f2ac71368cf9931ccdeb8214817a43ef5c3db34b4027a16981eba4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
 
@@ -3938,7 +3917,7 @@ class CfnRecordSet(
     @failover.setter
     def failover(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79006fc8c23dbed3ebc1e2c4a59dbaef71eada9146612d1d44ad17bf006a1f70)
+            type_hints = cached_type_hints(_typecheckingstub__79006fc8c23dbed3ebc1e2c4a59dbaef71eada9146612d1d44ad17bf006a1f70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "failover", value) # pyright: ignore[reportArgumentType]
 
@@ -3946,17 +3925,17 @@ class CfnRecordSet(
     @jsii.member(jsii_name="geoLocation")
     def geo_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]]:
         '''*Geolocation resource record sets only:* A complex type that lets you control how Amazon Route 53 responds to DNS queries based on the geographic origin of the query.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoLocationProperty"]], jsii.get(self, "geoLocation"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]], jsii.get(self, "geoLocation"))
 
     @geo_location.setter
     def geo_location(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoLocationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642)
+            type_hints = cached_type_hints(_typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "geoLocation", value) # pyright: ignore[reportArgumentType]
 
@@ -3964,17 +3943,17 @@ class CfnRecordSet(
     @jsii.member(jsii_name="geoProximityLocation")
     def geo_proximity_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoProximityLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]]:
         '''*GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoProximityLocationProperty"]], jsii.get(self, "geoProximityLocation"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]], jsii.get(self, "geoProximityLocation"))
 
     @geo_proximity_location.setter
     def geo_proximity_location(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoProximityLocationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac8d1aee0fc5c4e2eba653391bb8b61826a08b6708db398bae5b22b4e13fcf05)
+            type_hints = cached_type_hints(_typecheckingstub__ac8d1aee0fc5c4e2eba653391bb8b61826a08b6708db398bae5b22b4e13fcf05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "geoProximityLocation", value) # pyright: ignore[reportArgumentType]
 
@@ -3987,7 +3966,7 @@ class CfnRecordSet(
     @health_check_id.setter
     def health_check_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6008831249a60a522c31e8ed28371a87feee29b69976deadfbbb7939c49e5a0a)
+            type_hints = cached_type_hints(_typecheckingstub__6008831249a60a522c31e8ed28371a87feee29b69976deadfbbb7939c49e5a0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckId", value) # pyright: ignore[reportArgumentType]
 
@@ -4000,7 +3979,7 @@ class CfnRecordSet(
     @hosted_zone_id.setter
     def hosted_zone_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3afc428680f9605da623df52766517926597c1cedf85b11836d156e5b0492fff)
+            type_hints = cached_type_hints(_typecheckingstub__3afc428680f9605da623df52766517926597c1cedf85b11836d156e5b0492fff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -4013,7 +3992,7 @@ class CfnRecordSet(
     @hosted_zone_name.setter
     def hosted_zone_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7ed3b70491b7ea26f2195c97e2146c9f0e7366194f534e8a71a2dbcde9c7634)
+            type_hints = cached_type_hints(_typecheckingstub__a7ed3b70491b7ea26f2195c97e2146c9f0e7366194f534e8a71a2dbcde9c7634)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneName", value) # pyright: ignore[reportArgumentType]
 
@@ -4021,17 +4000,17 @@ class CfnRecordSet(
     @jsii.member(jsii_name="multiValueAnswer")
     def multi_value_answer(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''*Multivalue answer resource record sets only* : To route traffic approximately randomly to multiple resources, such as web servers, create one multivalue answer record for each resource and specify ``true`` for ``MultiValueAnswer`` .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiValueAnswer"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "multiValueAnswer"))
 
     @multi_value_answer.setter
     def multi_value_answer(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc829fb8c432409e77ff577c111238c3b8554f78a040b7ecdffeb62edb27cf24)
+            type_hints = cached_type_hints(_typecheckingstub__cc829fb8c432409e77ff577c111238c3b8554f78a040b7ecdffeb62edb27cf24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiValueAnswer", value) # pyright: ignore[reportArgumentType]
 
@@ -4044,7 +4023,7 @@ class CfnRecordSet(
     @region.setter
     def region(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e8e56811d430d9adaea085bb5b15a937d1a1a06eb6f77c3eb66770f6f8b5073)
+            type_hints = cached_type_hints(_typecheckingstub__4e8e56811d430d9adaea085bb5b15a937d1a1a06eb6f77c3eb66770f6f8b5073)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
@@ -4060,7 +4039,7 @@ class CfnRecordSet(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b020353bfb0b9ee7bc698effc5888164835bd548ead89bdc9fd99a31474d7cd)
+            type_hints = cached_type_hints(_typecheckingstub__5b020353bfb0b9ee7bc698effc5888164835bd548ead89bdc9fd99a31474d7cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceRecords", value) # pyright: ignore[reportArgumentType]
 
@@ -4073,7 +4052,7 @@ class CfnRecordSet(
     @set_identifier.setter
     def set_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b95c315d1a586fa24b707f1b31210ab6858b88d54fc32c5fab80e08220930c7)
+            type_hints = cached_type_hints(_typecheckingstub__1b95c315d1a586fa24b707f1b31210ab6858b88d54fc32c5fab80e08220930c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "setIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -4089,7 +4068,7 @@ class CfnRecordSet(
     @ttl.setter
     def ttl(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6235e7f8dad691c76887db81a7b5573fb5ed22b4706905208bbca87c9087002d)
+            type_hints = cached_type_hints(_typecheckingstub__6235e7f8dad691c76887db81a7b5573fb5ed22b4706905208bbca87c9087002d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ttl", value) # pyright: ignore[reportArgumentType]
 
@@ -4102,7 +4081,7 @@ class CfnRecordSet(
     @weight.setter
     def weight(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__166c0517a88d98d1b7fe07fa34082de049ec954fde21b5c1376524e3c7146134)
+            type_hints = cached_type_hints(_typecheckingstub__166c0517a88d98d1b7fe07fa34082de049ec954fde21b5c1376524e3c7146134)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "weight", value) # pyright: ignore[reportArgumentType]
 
@@ -4121,7 +4100,7 @@ class CfnRecordSet(
             *,
             dns_name: builtins.str,
             hosted_zone_id: builtins.str,
-            evaluate_target_health: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            evaluate_target_health: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''*Alias records only:* Information about the AWS resource, such as a CloudFront distribution or an Amazon S3 bucket, that you want to route traffic to.
 
@@ -4152,7 +4131,7 @@ class CfnRecordSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1143e059c44e7a7f16565322a7c9305d2eb0d507ef54d57d3dab326b7f69648)
+                type_hints = cached_type_hints(_typecheckingstub__a1143e059c44e7a7f16565322a7c9305d2eb0d507ef54d57d3dab326b7f69648)
                 check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
                 check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
                 check_type(argname="argument evaluate_target_health", value=evaluate_target_health, expected_type=type_hints["evaluate_target_health"])
@@ -4266,7 +4245,7 @@ class CfnRecordSet(
         @builtins.property
         def evaluate_target_health(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''*Applies only to alias, failover alias, geolocation alias, latency alias, and weighted alias resource record sets:* When ``EvaluateTargetHealth`` is ``true`` , an alias resource record set inherits the health of the referenced AWS resource, such as an ELB load balancer or another resource record set in the hosted zone.
 
             Note the following:
@@ -4300,7 +4279,7 @@ class CfnRecordSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-aliastarget.html#cfn-route53-recordset-aliastarget-evaluatetargethealth
             '''
             result = self._values.get("evaluate_target_health")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4350,7 +4329,7 @@ class CfnRecordSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc6569566583d30a42a983532b11cef6d6313d0666f46f50d599eabd1e5d4837)
+                type_hints = cached_type_hints(_typecheckingstub__cc6569566583d30a42a983532b11cef6d6313d0666f46f50d599eabd1e5d4837)
                 check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
                 check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4416,7 +4395,7 @@ class CfnRecordSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29683fc8d824969c71955a00cda4d10dde445180eb16e6a17c990ec1252a893a)
+                type_hints = cached_type_hints(_typecheckingstub__29683fc8d824969c71955a00cda4d10dde445180eb16e6a17c990ec1252a893a)
                 check_type(argname="argument latitude", value=latitude, expected_type=type_hints["latitude"])
                 check_type(argname="argument longitude", value=longitude, expected_type=type_hints["longitude"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4494,7 +4473,7 @@ class CfnRecordSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc6e59779782a9e8ecceda7a67dfa9c21d257bdac8db0558def7239dd1d167a5)
+                type_hints = cached_type_hints(_typecheckingstub__fc6e59779782a9e8ecceda7a67dfa9c21d257bdac8db0558def7239dd1d167a5)
                 check_type(argname="argument continent_code", value=continent_code, expected_type=type_hints["continent_code"])
                 check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
                 check_type(argname="argument subdivision_code", value=subdivision_code, expected_type=type_hints["subdivision_code"])
@@ -4576,7 +4555,7 @@ class CfnRecordSet(
             *,
             aws_region: typing.Optional[builtins.str] = None,
             bias: typing.Optional[jsii.Number] = None,
-            coordinates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.CoordinatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            coordinates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.CoordinatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             local_zone_group: typing.Optional[builtins.str] = None,
         ) -> None:
             '''(Resource record sets only): A complex type that lets you specify where your resources are located.
@@ -4610,7 +4589,7 @@ class CfnRecordSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bbef31bd9d19fea78e067206e8cea17ada33bda9853588d7a99d66d91f15555)
+                type_hints = cached_type_hints(_typecheckingstub__9bbef31bd9d19fea78e067206e8cea17ada33bda9853588d7a99d66d91f15555)
                 check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
                 check_type(argname="argument bias", value=bias, expected_type=type_hints["bias"])
                 check_type(argname="argument coordinates", value=coordinates, expected_type=type_hints["coordinates"])
@@ -4651,13 +4630,13 @@ class CfnRecordSet(
         @builtins.property
         def coordinates(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CoordinatesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CoordinatesProperty"]]:
             '''Contains the longitude and latitude for a geographic region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordset-geoproximitylocation.html#cfn-route53-recordset-geoproximitylocation-coordinates
             '''
             result = self._values.get("coordinates")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CoordinatesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CoordinatesProperty"]], result)
 
         @builtins.property
         def local_zone_group(self) -> typing.Optional[builtins.str]:
@@ -4686,9 +4665,9 @@ class CfnRecordSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRecordSetGroupRef_04aa756d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IRecordSetGroupRef)
 class CfnRecordSetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.CfnRecordSetGroup",
 ):
@@ -4760,7 +4739,7 @@ class CfnRecordSetGroup(
         comment: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
-        record_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.RecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        record_sets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.RecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53::RecordSetGroup``.
 
@@ -4772,7 +4751,7 @@ class CfnRecordSetGroup(
         :param record_sets: A complex type that contains one ``RecordSet`` element for each record that you want to create.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88410dc2301961a44d6910ee0de13aa8273ce0fa1b93daca4141c18b5fa3d03b)
+            type_hints = cached_type_hints(_typecheckingstub__88410dc2301961a44d6910ee0de13aa8273ce0fa1b93daca4141c18b5fa3d03b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRecordSetGroupProps(
@@ -4792,18 +4771,18 @@ class CfnRecordSetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6a85e397d40c84baa9678772c2f70eeeec43ef342a1f9bf8b5d6277fc80859e)
+            type_hints = cached_type_hints(_typecheckingstub__b6a85e397d40c84baa9678772c2f70eeeec43ef342a1f9bf8b5d6277fc80859e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecordSetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48ca705812043ff12ec21cb444124f3be1a7ab3431425e66de023724f6a298c6)
+            type_hints = cached_type_hints(_typecheckingstub__48ca705812043ff12ec21cb444124f3be1a7ab3431425e66de023724f6a298c6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4816,7 +4795,7 @@ class CfnRecordSetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a869585b3959be67c777f304411c15da58891cbbb6c3ffb41dcdf3dade3c2d)
+            type_hints = cached_type_hints(_typecheckingstub__14a869585b3959be67c777f304411c15da58891cbbb6c3ffb41dcdf3dade3c2d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4847,9 +4826,9 @@ class CfnRecordSetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="recordSetGroupRef")
-    def record_set_group_ref(self) -> "_RecordSetGroupReference_82a32fca":
+    def record_set_group_ref(self) -> "_aws_route53_af70581a.RecordSetGroupReference":
         '''A reference to a RecordSetGroup resource.'''
-        return typing.cast("_RecordSetGroupReference_82a32fca", jsii.get(self, "recordSetGroupRef"))
+        return typing.cast("_aws_route53_af70581a.RecordSetGroupReference", jsii.get(self, "recordSetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="comment")
@@ -4860,7 +4839,7 @@ class CfnRecordSetGroup(
     @comment.setter
     def comment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c97ac966771356be453e30c879df180c0ddc8815675496dd0165606bedf4c9e7)
+            type_hints = cached_type_hints(_typecheckingstub__c97ac966771356be453e30c879df180c0ddc8815675496dd0165606bedf4c9e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
 
@@ -4873,7 +4852,7 @@ class CfnRecordSetGroup(
     @hosted_zone_id.setter
     def hosted_zone_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1424150c5729da24929b30da713b6d33d1015579282157aecedd97e989f6938f)
+            type_hints = cached_type_hints(_typecheckingstub__1424150c5729da24929b30da713b6d33d1015579282157aecedd97e989f6938f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -4886,7 +4865,7 @@ class CfnRecordSetGroup(
     @hosted_zone_name.setter
     def hosted_zone_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f9f2119ab4a72afe07344595f0bb4fb1b9015e2e273b9dea6abcfbafa762ed4)
+            type_hints = cached_type_hints(_typecheckingstub__9f9f2119ab4a72afe07344595f0bb4fb1b9015e2e273b9dea6abcfbafa762ed4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedZoneName", value) # pyright: ignore[reportArgumentType]
 
@@ -4894,17 +4873,17 @@ class CfnRecordSetGroup(
     @jsii.member(jsii_name="recordSets")
     def record_sets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.RecordSetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.RecordSetProperty"]]]]:
         '''A complex type that contains one ``RecordSet`` element for each record that you want to create.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.RecordSetProperty"]]]], jsii.get(self, "recordSets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.RecordSetProperty"]]]], jsii.get(self, "recordSets"))
 
     @record_sets.setter
     def record_sets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.RecordSetProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.RecordSetProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fb00744f239be86927ab07333f9aa97d44af1dbaabd6b50dc186a5a6f344824)
+            type_hints = cached_type_hints(_typecheckingstub__9fb00744f239be86927ab07333f9aa97d44af1dbaabd6b50dc186a5a6f344824)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recordSets", value) # pyright: ignore[reportArgumentType]
 
@@ -4923,7 +4902,7 @@ class CfnRecordSetGroup(
             *,
             dns_name: builtins.str,
             hosted_zone_id: builtins.str,
-            evaluate_target_health: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            evaluate_target_health: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''*Alias records only:* Information about the AWS resource, such as a CloudFront distribution or an Amazon S3 bucket, that you want to route traffic to.
 
@@ -4954,7 +4933,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__47266159f3c04590ed7485f833b949a10c311800ebfa01351a5f55ffc0c4fcfe)
+                type_hints = cached_type_hints(_typecheckingstub__47266159f3c04590ed7485f833b949a10c311800ebfa01351a5f55ffc0c4fcfe)
                 check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
                 check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
                 check_type(argname="argument evaluate_target_health", value=evaluate_target_health, expected_type=type_hints["evaluate_target_health"])
@@ -5068,7 +5047,7 @@ class CfnRecordSetGroup(
         @builtins.property
         def evaluate_target_health(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''*Applies only to alias records with any routing policy:* When ``EvaluateTargetHealth`` is ``true`` , an alias record inherits the health of the referenced AWS resource, such as an ELB load balancer or another record in the hosted zone.
 
             Note the following:
@@ -5096,7 +5075,7 @@ class CfnRecordSetGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-aliastarget.html#cfn-route53-recordsetgroup-aliastarget-evaluatetargethealth
             '''
             result = self._values.get("evaluate_target_health")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5146,7 +5125,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c25a6f79ee876d62204e1e24470518bddae21e675bc5258cc7766c8a345ae1a2)
+                type_hints = cached_type_hints(_typecheckingstub__c25a6f79ee876d62204e1e24470518bddae21e675bc5258cc7766c8a345ae1a2)
                 check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
                 check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5212,7 +5191,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ebaae8a752b3b1dfff4bf671352e45cbd7c98fa0058ccfb5170085a3e53f8cb)
+                type_hints = cached_type_hints(_typecheckingstub__3ebaae8a752b3b1dfff4bf671352e45cbd7c98fa0058ccfb5170085a3e53f8cb)
                 check_type(argname="argument latitude", value=latitude, expected_type=type_hints["latitude"])
                 check_type(argname="argument longitude", value=longitude, expected_type=type_hints["longitude"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5290,7 +5269,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2815193fa29c379ea003dd9391a70d63f49989043e7f24e220ccebb1143c1026)
+                type_hints = cached_type_hints(_typecheckingstub__2815193fa29c379ea003dd9391a70d63f49989043e7f24e220ccebb1143c1026)
                 check_type(argname="argument continent_code", value=continent_code, expected_type=type_hints["continent_code"])
                 check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
                 check_type(argname="argument subdivision_code", value=subdivision_code, expected_type=type_hints["subdivision_code"])
@@ -5372,7 +5351,7 @@ class CfnRecordSetGroup(
             *,
             aws_region: typing.Optional[builtins.str] = None,
             bias: typing.Optional[jsii.Number] = None,
-            coordinates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.CoordinatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            coordinates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.CoordinatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             local_zone_group: typing.Optional[builtins.str] = None,
         ) -> None:
             '''(Resource record sets only): A complex type that lets you specify where your resources are located.
@@ -5406,7 +5385,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5430af5a2d4636b1244b53f4c6759f6d1ffde530908e449cf4bc90b0d9de5ec8)
+                type_hints = cached_type_hints(_typecheckingstub__5430af5a2d4636b1244b53f4c6759f6d1ffde530908e449cf4bc90b0d9de5ec8)
                 check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
                 check_type(argname="argument bias", value=bias, expected_type=type_hints["bias"])
                 check_type(argname="argument coordinates", value=coordinates, expected_type=type_hints["coordinates"])
@@ -5447,13 +5426,13 @@ class CfnRecordSetGroup(
         @builtins.property
         def coordinates(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.CoordinatesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.CoordinatesProperty"]]:
             '''Contains the longitude and latitude for a geographic region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-geoproximitylocation.html#cfn-route53-recordsetgroup-geoproximitylocation-coordinates
             '''
             result = self._values.get("coordinates")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.CoordinatesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.CoordinatesProperty"]], result)
 
         @builtins.property
         def local_zone_group(self) -> typing.Optional[builtins.str]:
@@ -5509,15 +5488,15 @@ class CfnRecordSetGroup(
             *,
             name: builtins.str,
             type: builtins.str,
-            alias_target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cidr_routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            alias_target: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cidr_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             failover: typing.Optional[builtins.str] = None,
-            geo_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            geo_proximity_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            geo_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            geo_proximity_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             health_check_id: typing.Optional[builtins.str] = None,
             hosted_zone_id: typing.Optional[builtins.str] = None,
             hosted_zone_name: typing.Optional[builtins.str] = None,
-            multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             region: typing.Optional[builtins.str] = None,
             resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
             set_identifier: typing.Optional[builtins.str] = None,
@@ -5595,7 +5574,7 @@ class CfnRecordSetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11ff291a729fd95a26a222e98e883239191c114a9dd6e70516ac2fe433d4b95d)
+                type_hints = cached_type_hints(_typecheckingstub__11ff291a729fd95a26a222e98e883239191c114a9dd6e70516ac2fe433d4b95d)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument alias_target", value=alias_target, expected_type=type_hints["alias_target"])
@@ -5710,7 +5689,7 @@ class CfnRecordSetGroup(
         @builtins.property
         def alias_target(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.AliasTargetProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.AliasTargetProperty"]]:
             '''*Alias resource record sets only:* Information about the AWS resource, such as a CloudFront distribution or an Amazon S3 bucket, that you want to route traffic to.
 
             If you're creating resource records sets for a private hosted zone, note the following:
@@ -5721,17 +5700,17 @@ class CfnRecordSetGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-recordset.html#cfn-route53-recordsetgroup-recordset-aliastarget
             '''
             result = self._values.get("alias_target")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.AliasTargetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.AliasTargetProperty"]], result)
 
         @builtins.property
         def cidr_routing_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.CidrRoutingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.CidrRoutingConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-recordset.html#cfn-route53-recordsetgroup-recordset-cidrroutingconfig
             '''
             result = self._values.get("cidr_routing_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.CidrRoutingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.CidrRoutingConfigProperty"]], result)
 
         @builtins.property
         def failover(self) -> typing.Optional[builtins.str]:
@@ -5763,7 +5742,7 @@ class CfnRecordSetGroup(
         @builtins.property
         def geo_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.GeoLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.GeoLocationProperty"]]:
             '''*Geolocation resource record sets only:* A complex type that lets you control how Amazon Route 53 responds to DNS queries based on the geographic origin of the query.
 
             For example, if you want all queries from Africa to be routed to a web server with an IP address of ``192.0.2.111`` , create a resource record set with a ``Type`` of ``A`` and a ``ContinentCode`` of ``AF`` .
@@ -5782,18 +5761,18 @@ class CfnRecordSetGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-recordset.html#cfn-route53-recordsetgroup-recordset-geolocation
             '''
             result = self._values.get("geo_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.GeoLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.GeoLocationProperty"]], result)
 
         @builtins.property
         def geo_proximity_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.GeoProximityLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.GeoProximityLocationProperty"]]:
             '''A complex type that contains information about a geographic location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-recordset.html#cfn-route53-recordsetgroup-recordset-geoproximitylocation
             '''
             result = self._values.get("geo_proximity_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.GeoProximityLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.GeoProximityLocationProperty"]], result)
 
         @builtins.property
         def health_check_id(self) -> typing.Optional[builtins.str]:
@@ -5893,7 +5872,7 @@ class CfnRecordSetGroup(
         @builtins.property
         def multi_value_answer(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''*Multivalue answer resource record sets only* : To route traffic approximately randomly to multiple resources, such as web servers, create one multivalue answer record for each resource and specify ``true`` for ``MultiValueAnswer`` .
 
             Note the following:
@@ -5910,7 +5889,7 @@ class CfnRecordSetGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup-recordset.html#cfn-route53-recordsetgroup-recordset-multivalueanswer
             '''
             result = self._values.get("multi_value_answer")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def region(self) -> typing.Optional[builtins.str]:
@@ -6016,7 +5995,7 @@ class CfnRecordSetGroupProps:
         comment: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
-        record_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSetGroup.RecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        record_sets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSetGroup.RecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRecordSetGroup``.
 
@@ -6082,7 +6061,7 @@ class CfnRecordSetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__550eb58db998305b4dd78ae1bd39e80af0e9376310d796614d4bcd99a1dd82b6)
+            type_hints = cached_type_hints(_typecheckingstub__550eb58db998305b4dd78ae1bd39e80af0e9376310d796614d4bcd99a1dd82b6)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument hosted_zone_name", value=hosted_zone_name, expected_type=type_hints["hosted_zone_name"])
@@ -6135,13 +6114,13 @@ class CfnRecordSetGroupProps:
     @builtins.property
     def record_sets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.RecordSetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.RecordSetProperty"]]]]:
         '''A complex type that contains one ``RecordSet`` element for each record that you want to create.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetgroup.html#cfn-route53-recordsetgroup-recordsets
         '''
         result = self._values.get("record_sets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecordSetGroup.RecordSetProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSetGroup.RecordSetProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6184,16 +6163,16 @@ class CfnRecordSetProps:
         *,
         name: builtins.str,
         type: builtins.str,
-        alias_target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cidr_routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alias_target: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.AliasTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cidr_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.CidrRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         comment: typing.Optional[builtins.str] = None,
         failover: typing.Optional[builtins.str] = None,
-        geo_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        geo_proximity_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        geo_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        geo_proximity_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecordSet.GeoProximityLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_id: typing.Optional[builtins.str] = None,
         hosted_zone_id: typing.Optional[builtins.str] = None,
         hosted_zone_name: typing.Optional[builtins.str] = None,
-        multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_value_answer: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         region: typing.Optional[builtins.str] = None,
         resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
         set_identifier: typing.Optional[builtins.str] = None,
@@ -6273,7 +6252,7 @@ class CfnRecordSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf4898a3d7d5)
+            type_hints = cached_type_hints(_typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf4898a3d7d5)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument alias_target", value=alias_target, expected_type=type_hints["alias_target"])
@@ -6391,7 +6370,7 @@ class CfnRecordSetProps:
     @builtins.property
     def alias_target(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.AliasTargetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.AliasTargetProperty"]]:
         '''*Alias resource record sets only:* Information about the AWS resource, such as a CloudFront distribution or an Amazon S3 bucket, that you want to route traffic to.
 
         If you're creating resource records sets for a private hosted zone, note the following:
@@ -6402,12 +6381,12 @@ class CfnRecordSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-aliastarget
         '''
         result = self._values.get("alias_target")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.AliasTargetProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.AliasTargetProperty"]], result)
 
     @builtins.property
     def cidr_routing_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CidrRoutingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CidrRoutingConfigProperty"]]:
         '''The object that is specified in resource record set object when you are linking a resource record set to a CIDR location.
 
         A ``LocationName`` with an asterisk “*” can be used to create a default CIDR record. ``CollectionId`` is still required for default record.
@@ -6415,7 +6394,7 @@ class CfnRecordSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-cidrroutingconfig
         '''
         result = self._values.get("cidr_routing_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.CidrRoutingConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.CidrRoutingConfigProperty"]], result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
@@ -6456,7 +6435,7 @@ class CfnRecordSetProps:
     @builtins.property
     def geo_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]]:
         '''*Geolocation resource record sets only:* A complex type that lets you control how Amazon Route 53 responds to DNS queries based on the geographic origin of the query.
 
         For example, if you want all queries from Africa to be routed to a web server with an IP address of ``192.0.2.111`` , create a resource record set with a ``Type`` of ``A`` and a ``ContinentCode`` of ``AF`` .
@@ -6475,18 +6454,18 @@ class CfnRecordSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-geolocation
         '''
         result = self._values.get("geo_location")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoLocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoLocationProperty"]], result)
 
     @builtins.property
     def geo_proximity_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoProximityLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]]:
         '''*GeoproximityLocation resource record sets only:* A complex type that lets you control how Route 53 responds to DNS queries based on the geographic origin of the query and your resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-geoproximitylocation
         '''
         result = self._values.get("geo_proximity_location")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecordSet.GeoProximityLocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecordSet.GeoProximityLocationProperty"]], result)
 
     @builtins.property
     def health_check_id(self) -> typing.Optional[builtins.str]:
@@ -6584,7 +6563,7 @@ class CfnRecordSetProps:
     @builtins.property
     def multi_value_answer(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''*Multivalue answer resource record sets only* : To route traffic approximately randomly to multiple resources, such as web servers, create one multivalue answer record for each resource and specify ``true`` for ``MultiValueAnswer`` .
 
         Note the following:
@@ -6601,7 +6580,7 @@ class CfnRecordSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-multivalueanswer
         '''
         result = self._values.get("multi_value_answer")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
@@ -6763,7 +6742,7 @@ class CidrRoutingConfig(
         :return: A new instance of CidrRoutingConfig with the default location name as ``*``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b3062acaf063c194e911820073130a65424f55f49053b79198d7fc79931f82d)
+            type_hints = cached_type_hints(_typecheckingstub__1b3062acaf063c194e911820073130a65424f55f49053b79198d7fc79931f82d)
             check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
         return typing.cast("CidrRoutingConfig", jsii.sinvoke(cls, "withDefaultLocationName", [collection_id]))
 
@@ -6823,7 +6802,7 @@ class CidrRoutingConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__510f03d6221534b2d6d0a4bda86f20f5ff3efa07a26a50f14673b2b5b5e13a0a)
+            type_hints = cached_type_hints(_typecheckingstub__510f03d6221534b2d6d0a4bda86f20f5ff3efa07a26a50f14673b2b5b5e13a0a)
             check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
             check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6904,7 +6883,7 @@ class CommonHostedZoneProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c0a60680828ad59f14d241729df78a8969a23a13155e2327837897bb4545149)
+            type_hints = cached_type_hints(_typecheckingstub__3c0a60680828ad59f14d241729df78a8969a23a13155e2327837897bb4545149)
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
             check_type(argname="argument add_trailing_dot", value=add_trailing_dot, expected_type=type_hints["add_trailing_dot"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -7070,12 +7049,12 @@ class CrossAccountZoneDelegationRecord(
         id: builtins.str,
         *,
         delegated_zone: "IHostedZone",
-        delegation_role: "_IRoleRef_8400221f",
+        delegation_role: "_aws_iam_632e20f6.IRoleRef",
         assume_role_region: typing.Optional[builtins.str] = None,
         parent_hosted_zone_id: typing.Optional[builtins.str] = None,
         parent_hosted_zone_name: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -7089,7 +7068,7 @@ class CrossAccountZoneDelegationRecord(
         :param ttl: The resource record cache time to live (TTL). Default: Duration.days(2)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4115d484cd67a76fbe1e4ea37dbe01bb97e2d8816dda058f0ba904769173c46)
+            type_hints = cached_type_hints(_typecheckingstub__f4115d484cd67a76fbe1e4ea37dbe01bb97e2d8816dda058f0ba904769173c46)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CrossAccountZoneDelegationRecordProps(
@@ -7123,12 +7102,12 @@ class CrossAccountZoneDelegationRecordProps:
         self,
         *,
         delegated_zone: "IHostedZone",
-        delegation_role: "_IRoleRef_8400221f",
+        delegation_role: "_aws_iam_632e20f6.IRoleRef",
         assume_role_region: typing.Optional[builtins.str] = None,
         parent_hosted_zone_id: typing.Optional[builtins.str] = None,
         parent_hosted_zone_name: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Construction properties for a CrossAccountZoneDelegationRecord.
 
@@ -7166,7 +7145,7 @@ class CrossAccountZoneDelegationRecordProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f26cbe17fefc3bd3765d1fcc9084ddb3aa18526e669cad5ba4011ccbc2b3d7f)
+            type_hints = cached_type_hints(_typecheckingstub__2f26cbe17fefc3bd3765d1fcc9084ddb3aa18526e669cad5ba4011ccbc2b3d7f)
             check_type(argname="argument delegated_zone", value=delegated_zone, expected_type=type_hints["delegated_zone"])
             check_type(argname="argument delegation_role", value=delegation_role, expected_type=type_hints["delegation_role"])
             check_type(argname="argument assume_role_region", value=assume_role_region, expected_type=type_hints["assume_role_region"])
@@ -7197,11 +7176,11 @@ class CrossAccountZoneDelegationRecordProps:
         return typing.cast("IHostedZone", result)
 
     @builtins.property
-    def delegation_role(self) -> "_IRoleRef_8400221f":
+    def delegation_role(self) -> "_aws_iam_632e20f6.IRoleRef":
         '''The delegation role in the parent account.'''
         result = self._values.get("delegation_role")
         assert result is not None, "Required property 'delegation_role' is missing"
-        return typing.cast("_IRoleRef_8400221f", result)
+        return typing.cast("_aws_iam_632e20f6.IRoleRef", result)
 
     @builtins.property
     def assume_role_region(self) -> typing.Optional[builtins.str]:
@@ -7231,22 +7210,22 @@ class CrossAccountZoneDelegationRecordProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the record set.
 
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.days(2)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7355,7 +7334,7 @@ class GeoLocation(
         :return: Continent-based geolocation record
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__082626770a86bf939ef1cae8f42886e56e872994e6ff75c90019d66a2dbbbbbe)
+            type_hints = cached_type_hints(_typecheckingstub__082626770a86bf939ef1cae8f42886e56e872994e6ff75c90019d66a2dbbbbbe)
             check_type(argname="argument continent_code", value=continent_code, expected_type=type_hints["continent_code"])
         return typing.cast("GeoLocation", jsii.sinvoke(cls, "continent", [continent_code]))
 
@@ -7371,7 +7350,7 @@ class GeoLocation(
         :see: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__634d2e960bf8ca83032f62602012c316f523f02ccdc11b960ac7a1818f6088f9)
+            type_hints = cached_type_hints(_typecheckingstub__634d2e960bf8ca83032f62602012c316f523f02ccdc11b960ac7a1818f6088f9)
             check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
         return typing.cast("GeoLocation", jsii.sinvoke(cls, "country", [country_code]))
 
@@ -7399,7 +7378,7 @@ class GeoLocation(
         :see: https://docs.aws.amazon.com/Route53/latest/APIReference/API_GeoLocation.html#Route53-Type-GeoLocation-SubdivisionCode
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13d57b34e60c4361c1d97c820e69f3a9c16ba208b123a261ee081931be34cf02)
+            type_hints = cached_type_hints(_typecheckingstub__13d57b34e60c4361c1d97c820e69f3a9c16ba208b123a261ee081931be34cf02)
             check_type(argname="argument subdivision_code", value=subdivision_code, expected_type=type_hints["subdivision_code"])
             check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
         return typing.cast("GeoLocation", jsii.sinvoke(cls, "subdivision", [subdivision_code, country_code]))
@@ -7453,7 +7432,7 @@ class GrantDelegationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38046cc745857012f26a1dd33df7a9adb28fcd6fc398761d762529373ae51744)
+            type_hints = cached_type_hints(_typecheckingstub__38046cc745857012f26a1dd33df7a9adb28fcd6fc398761d762529373ae51744)
             check_type(argname="argument delegated_zone_names", value=delegated_zone_names, expected_type=type_hints["delegated_zone_names"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if delegated_zone_names is not None:
@@ -7529,7 +7508,7 @@ class HealthCheckProps:
         measure_latency: typing.Optional[builtins.bool] = None,
         port: typing.Optional[jsii.Number] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        request_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        request_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         resource_path: typing.Optional[builtins.str] = None,
         routing_control: typing.Optional[builtins.str] = None,
         search_string: typing.Optional[builtins.str] = None,
@@ -7588,7 +7567,7 @@ class HealthCheckProps:
         if isinstance(alarm_identifier, dict):
             alarm_identifier = AlarmIdentifier(**alarm_identifier)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa97034136188f7866c26cd6fb12cf33983958b5147a7092dea7494be1142b56)
+            type_hints = cached_type_hints(_typecheckingstub__aa97034136188f7866c26cd6fb12cf33983958b5147a7092dea7494be1142b56)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument alarm_identifier", value=alarm_identifier, expected_type=type_hints["alarm_identifier"])
             check_type(argname="argument child_health_checks", value=child_health_checks, expected_type=type_hints["child_health_checks"])
@@ -7796,7 +7775,7 @@ class HealthCheckProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def request_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def request_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration between the time that Amazon Route 53 gets a response from your endpoint and the time that it sends the next health check request.
 
         Each Route 53 health checker makes requests at this interval.
@@ -7808,7 +7787,7 @@ class HealthCheckProps:
         - otherwise, the default value is 30 seconds.
         '''
         result = self._values.get("request_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def resource_path(self) -> typing.Optional[builtins.str]:
@@ -7991,7 +7970,7 @@ class HostedZoneAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5fad1cc6999b94bd845480426db92d5bb3ac0208bca78f9cf984e5ce4ccd701)
+            type_hints = cached_type_hints(_typecheckingstub__e5fad1cc6999b94bd845480426db92d5bb3ac0208bca78f9cf984e5ce4ccd701)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8052,30 +8031,30 @@ class HostedZoneGrants(
         :param hosted_zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ff92cc89a407db790189517024612ad356516c9279c5587ed3d54c30ff8b66c)
+            type_hints = cached_type_hints(_typecheckingstub__5ff92cc89a407db790189517024612ad356516c9279c5587ed3d54c30ff8b66c)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
         return typing.cast("HostedZoneGrants", jsii.sinvoke(cls, "fromHostedZone", [hosted_zone]))
 
     @jsii.member(jsii_name="delegation")
     def delegation(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *,
         delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to add delegation records to this zone.
 
         :param grantee: -
         :param delegated_zone_names: List of hosted zone names to allow delegation to in the grant permissions. If the delegated zone name contains an unresolved token, it must resolve to a zone name that satisfies the requirements according to the documentation: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/specifying-conditions-route53.html#route53_rrset_conditionkeys_normalization .. epigraph:: All letters must be lowercase. The DNS name must be without the trailing dot. Characters other than a–z, 0–9, - (hyphen), _ (underscore), and . (period, as a delimiter between labels) must use escape codes in the format \\three-digit octal code. For example, \\052 is the octal code for character *. Default: the grant allows delegation to any hosted zone
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b89c0b16bd4247e3bc59d7d9a2b918a0738ab4367a7cd428a28200b56497779)
+            type_hints = cached_type_hints(_typecheckingstub__6b89c0b16bd4247e3bc59d7d9a2b918a0738ab4367a7cd428a28200b56497779)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         delegation_options = GrantDelegationOptions(
             delegated_zone_names=delegated_zone_names
         )
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "delegation", [grantee, delegation_options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "delegation", [grantee, delegation_options]))
 
 
 @jsii.data_type(
@@ -8097,7 +8076,7 @@ class HostedZoneProps(CommonHostedZoneProps):
         add_trailing_dot: typing.Optional[builtins.bool] = None,
         comment: typing.Optional[builtins.str] = None,
         query_logs_log_group_arn: typing.Optional[builtins.str] = None,
-        vpcs: typing.Optional[typing.Sequence["_IVpc_f30d5663"]] = None,
+        vpcs: typing.Optional[typing.Sequence["_aws_ec2_09840e12.IVpc"]] = None,
     ) -> None:
         '''Properties of a new hosted zone.
 
@@ -8121,7 +8100,7 @@ class HostedZoneProps(CommonHostedZoneProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1711cf7af2ab26c7be8b7aad54fc7158d3e50d0205dd9b87989812878e88e96)
+            type_hints = cached_type_hints(_typecheckingstub__f1711cf7af2ab26c7be8b7aad54fc7158d3e50d0205dd9b87989812878e88e96)
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
             check_type(argname="argument add_trailing_dot", value=add_trailing_dot, expected_type=type_hints["add_trailing_dot"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -8178,7 +8157,7 @@ class HostedZoneProps(CommonHostedZoneProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpcs(self) -> typing.Optional[typing.List["_IVpc_f30d5663"]]:
+    def vpcs(self) -> typing.Optional[typing.List["_aws_ec2_09840e12.IVpc"]]:
         '''A VPC that you want to associate with this hosted zone.
 
         When you specify
@@ -8189,7 +8168,7 @@ class HostedZoneProps(CommonHostedZoneProps):
         :default: public (no VPCs associated)
         '''
         result = self._values.get("vpcs")
-        return typing.cast(typing.Optional[typing.List["_IVpc_f30d5663"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.IVpc"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8254,7 +8233,7 @@ class HostedZoneProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77dfce5cb4e026f34aa8dfde1dcd4aacac66aa9d7b2466bbb97ebb9db7b5de4c)
+            type_hints = cached_type_hints(_typecheckingstub__77dfce5cb4e026f34aa8dfde1dcd4aacac66aa9d7b2466bbb97ebb9db7b5de4c)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument private_zone", value=private_zone, expected_type=type_hints["private_zone"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
@@ -8346,7 +8325,7 @@ class HttpsRecordValue(
         :param target_name: The domain name of the alternative endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00426d6aef7715125de0a287a45d208ba1f76ffc095e09ee726de5a1536b46c9)
+            type_hints = cached_type_hints(_typecheckingstub__00426d6aef7715125de0a287a45d208ba1f76ffc095e09ee726de5a1536b46c9)
             check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
         return typing.cast("HttpsRecordValue", jsii.sinvoke(cls, "alias", [target_name]))
 
@@ -8429,7 +8408,7 @@ class _IAliasRecordTargetProxy:
         :param zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__162b54c0ae9f493edc12c5cba6aa323333c184d03d9332edaab8e4f75c7f74cd)
+            type_hints = cached_type_hints(_typecheckingstub__162b54c0ae9f493edc12c5cba6aa323333c184d03d9332edaab8e4f75c7f74cd)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
         return typing.cast("AliasRecordTargetConfig", jsii.invoke(self, "bind", [record, zone]))
@@ -8440,8 +8419,8 @@ typing.cast(typing.Any, IAliasRecordTarget).__jsii_proxy_class__ = lambda : _IAl
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.IHealthCheck")
 class IHealthCheck(
-    _IResource_c80c4260,
-    _IHealthCheckRef_0389fb93,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_route53_af70581a.IHealthCheckRef,
     typing_extensions.Protocol,
 ):
     '''Imported or created health check.'''
@@ -8457,8 +8436,8 @@ class IHealthCheck(
 
 
 class _IHealthCheckProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IHealthCheckRef_0389fb93), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_route53_af70581a.IHealthCheckRef), # type: ignore[misc]
 ):
     '''Imported or created health check.'''
 
@@ -8479,8 +8458,8 @@ typing.cast(typing.Any, IHealthCheck).__jsii_proxy_class__ = lambda : _IHealthCh
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.IKeySigningKey")
 class IKeySigningKey(
-    _IResource_c80c4260,
-    _IKeySigningKeyRef_4bded054,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_route53_af70581a.IKeySigningKeyRef,
     typing_extensions.Protocol,
 ):
     '''A Key Signing Key for a Route 53 Hosted Zone.'''
@@ -8514,8 +8493,8 @@ class IKeySigningKey(
 
 
 class _IKeySigningKeyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IKeySigningKeyRef_4bded054), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_route53_af70581a.IKeySigningKeyRef), # type: ignore[misc]
 ):
     '''A Key Signing Key for a Route 53 Hosted Zone.'''
 
@@ -8553,7 +8532,10 @@ typing.cast(typing.Any, IKeySigningKey).__jsii_proxy_class__ = lambda : _IKeySig
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.INamedHostedZoneRef")
-class INamedHostedZoneRef(_IHostedZoneRef_156b310f, typing_extensions.Protocol):
+class INamedHostedZoneRef(
+    _aws_route53_af70581a.IHostedZoneRef,
+    typing_extensions.Protocol,
+):
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
@@ -8561,7 +8543,7 @@ class INamedHostedZoneRef(_IHostedZoneRef_156b310f, typing_extensions.Protocol):
 
 
 class _INamedHostedZoneRefProxy(
-    jsii.proxy_for(_IHostedZoneRef_156b310f), # type: ignore[misc]
+    jsii.proxy_for(_aws_route53_af70581a.IHostedZoneRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53.INamedHostedZoneRef"
 
@@ -8576,8 +8558,8 @@ typing.cast(typing.Any, INamedHostedZoneRef).__jsii_proxy_class__ = lambda : _IN
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.IRecordSet")
 class IRecordSet(
-    _IResource_c80c4260,
-    _IRecordSetRef_a2c21b67,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_route53_af70581a.IRecordSetRef,
     typing_extensions.Protocol,
 ):
     '''A record set.'''
@@ -8590,8 +8572,8 @@ class IRecordSet(
 
 
 class _IRecordSetProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IRecordSetRef_a2c21b67), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_route53_af70581a.IRecordSetRef), # type: ignore[misc]
 ):
     '''A record set.'''
 
@@ -8621,7 +8603,7 @@ class InsufficientDataHealthStatusEnum(enum.Enum):
 
 @jsii.implements(IKeySigningKey)
 class KeySigningKey(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.KeySigningKey",
 ):
@@ -8649,7 +8631,7 @@ class KeySigningKey(
         id: builtins.str,
         *,
         hosted_zone: "IHostedZone",
-        kms_key: "_IKey_5f11635f",
+        kms_key: "_aws_kms_ff87d74a.IKey",
         key_signing_key_name: typing.Optional[builtins.str] = None,
         status: typing.Optional["KeySigningKeyStatus"] = None,
     ) -> None:
@@ -8662,7 +8644,7 @@ class KeySigningKey(
         :param status: The status of the key signing key. Default: ACTIVE
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63b944f82a919a5a1fc9b8c1ec885ffe1d509c5cec2bb324d9b5ed7df171b437)
+            type_hints = cached_type_hints(_typecheckingstub__63b944f82a919a5a1fc9b8c1ec885ffe1d509c5cec2bb324d9b5ed7df171b437)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KeySigningKeyProps(
@@ -8692,7 +8674,7 @@ class KeySigningKey(
         :param key_signing_key_name: The name of the key signing key.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aae6d3147d941495289a363f03a080316f20c479e0fa8646cf10ec995d1635a)
+            type_hints = cached_type_hints(_typecheckingstub__9aae6d3147d941495289a363f03a080316f20c479e0fa8646cf10ec995d1635a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = KeySigningKeyAttributes(
@@ -8727,9 +8709,9 @@ class KeySigningKey(
 
     @builtins.property
     @jsii.member(jsii_name="keySigningKeyRef")
-    def key_signing_key_ref(self) -> "_KeySigningKeyReference_6697db63":
+    def key_signing_key_ref(self) -> "_aws_route53_af70581a.KeySigningKeyReference":
         '''A reference to a KeySigningKey resource.'''
-        return typing.cast("_KeySigningKeyReference_6697db63", jsii.get(self, "keySigningKeyRef"))
+        return typing.cast("_aws_route53_af70581a.KeySigningKeyReference", jsii.get(self, "keySigningKeyRef"))
 
 
 @jsii.data_type(
@@ -8768,7 +8750,7 @@ class KeySigningKeyAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a1262fd4a880b25e9ef115da3b6b790a7b24acf9d121372595ab3087a5442d2)
+            type_hints = cached_type_hints(_typecheckingstub__1a1262fd4a880b25e9ef115da3b6b790a7b24acf9d121372595ab3087a5442d2)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
             check_type(argname="argument key_signing_key_name", value=key_signing_key_name, expected_type=type_hints["key_signing_key_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8823,7 +8805,7 @@ class KeySigningKeyProps:
         self,
         *,
         hosted_zone: "IHostedZone",
-        kms_key: "_IKey_5f11635f",
+        kms_key: "_aws_kms_ff87d74a.IKey",
         key_signing_key_name: typing.Optional[builtins.str] = None,
         status: typing.Optional["KeySigningKeyStatus"] = None,
     ) -> None:
@@ -8849,7 +8831,7 @@ class KeySigningKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e92b54737c8cb2969b649108716a37fd8e380a8e41cfefef3229c1d92acdf40)
+            type_hints = cached_type_hints(_typecheckingstub__3e92b54737c8cb2969b649108716a37fd8e380a8e41cfefef3229c1d92acdf40)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument key_signing_key_name", value=key_signing_key_name, expected_type=type_hints["key_signing_key_name"])
@@ -8871,7 +8853,7 @@ class KeySigningKeyProps:
         return typing.cast("IHostedZone", result)
 
     @builtins.property
-    def kms_key(self) -> "_IKey_5f11635f":
+    def kms_key(self) -> "_aws_kms_ff87d74a.IKey":
         '''The customer-managed KMS key that will be used to sign the records.
 
         The KMS Key must be unique for each KSK within a hosted zone. Additionally, the
@@ -8881,7 +8863,7 @@ class KeySigningKeyProps:
         '''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
-        return typing.cast("_IKey_5f11635f", result)
+        return typing.cast("_aws_kms_ff87d74a.IKey", result)
 
     @builtins.property
     def key_signing_key_name(self) -> typing.Optional[builtins.str]:
@@ -8966,7 +8948,7 @@ class MxRecordValue:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2600b3ca2027fe7d531738c20a112cef3282c7ef114758a51ee3863608c7aa72)
+            type_hints = cached_type_hints(_typecheckingstub__2600b3ca2027fe7d531738c20a112cef3282c7ef114758a51ee3863608c7aa72)
             check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9030,7 +9012,7 @@ class PrivateHostedZoneAttributes(HostedZoneAttributes):
             private_zone_from_id = route53.PrivateHostedZone.from_private_hosted_zone_id(self, "MyPrivateZone", "ZOJJZC49E0EPZ")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d59e6606b03cf3d00569e659297984570c743e09eb89316ce4d0048cd192732)
+            type_hints = cached_type_hints(_typecheckingstub__7d59e6606b03cf3d00569e659297984570c743e09eb89316ce4d0048cd192732)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9083,7 +9065,7 @@ class PrivateHostedZoneProps(CommonHostedZoneProps):
         add_trailing_dot: typing.Optional[builtins.bool] = None,
         comment: typing.Optional[builtins.str] = None,
         query_logs_log_group_arn: typing.Optional[builtins.str] = None,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
     ) -> None:
         '''Properties to create a Route 53 private hosted zone.
 
@@ -9106,7 +9088,7 @@ class PrivateHostedZoneProps(CommonHostedZoneProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dc8529d9382b27a0613e5ea30e125e3af07550dc23754412bd1f99368cfc62d)
+            type_hints = cached_type_hints(_typecheckingstub__3dc8529d9382b27a0613e5ea30e125e3af07550dc23754412bd1f99368cfc62d)
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
             check_type(argname="argument add_trailing_dot", value=add_trailing_dot, expected_type=type_hints["add_trailing_dot"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -9162,7 +9144,7 @@ class PrivateHostedZoneProps(CommonHostedZoneProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''A VPC that you want to associate with this hosted zone.
 
         Private hosted zones must be associated with at least one VPC. You can
@@ -9170,7 +9152,7 @@ class PrivateHostedZoneProps(CommonHostedZoneProps):
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9214,7 +9196,7 @@ class PublicHostedZoneAttributes(HostedZoneAttributes):
             zone_from_id = route53.PublicHostedZone.from_public_hosted_zone_id(self, "MyZone", "ZOJJZC49E0EPZ")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cb1c7902828774b44c85c0a2b07314a2458b9752803df59926e9e7cd9f9b4f4)
+            type_hints = cached_type_hints(_typecheckingstub__7cb1c7902828774b44c85c0a2b07314a2458b9752803df59926e9e7cd9f9b4f4)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9272,7 +9254,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
         query_logs_log_group_arn: typing.Optional[builtins.str] = None,
         accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
         caa_amazon: typing.Optional[builtins.bool] = None,
-        cross_account_zone_delegation_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
+        cross_account_zone_delegation_principal: typing.Optional["_aws_iam_1f54b5e8.IPrincipal"] = None,
         cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Construction properties for a PublicHostedZone.
@@ -9312,7 +9294,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b51e553dd18a8a033ac24f091492db4b2bc8c672421ced82613174be3995dcdf)
+            type_hints = cached_type_hints(_typecheckingstub__b51e553dd18a8a033ac24f091492db4b2bc8c672421ced82613174be3995dcdf)
             check_type(argname="argument zone_name", value=zone_name, expected_type=type_hints["zone_name"])
             check_type(argname="argument add_trailing_dot", value=add_trailing_dot, expected_type=type_hints["add_trailing_dot"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -9405,7 +9387,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
     @builtins.property
     def cross_account_zone_delegation_principal(
         self,
-    ) -> typing.Optional["_IPrincipal_539bb2fd"]:
+    ) -> typing.Optional["_aws_iam_1f54b5e8.IPrincipal"]:
         '''(deprecated) A principal which is trusted to assume a role for zone delegation.
 
         If supplied, this will create a Role in the same account as the Hosted
@@ -9427,7 +9409,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
         :stability: deprecated
         '''
         result = self._values.get("cross_account_zone_delegation_principal")
-        return typing.cast(typing.Optional["_IPrincipal_539bb2fd"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IPrincipal"], result)
 
     @builtins.property
     def cross_account_zone_delegation_role_name(self) -> typing.Optional[builtins.str]:
@@ -9456,7 +9438,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
 
 @jsii.implements(IRecordSet)
 class RecordSet(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.RecordSet",
 ):
@@ -9516,7 +9498,7 @@ class RecordSet(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -9539,7 +9521,7 @@ class RecordSet(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92f4bc0484ad6fe8cce3c7e37b4ee3cd051b8f325d16efd23f92476703d09ac)
+            type_hints = cached_type_hints(_typecheckingstub__b92f4bc0484ad6fe8cce3c7e37b4ee3cd051b8f325d16efd23f92476703d09ac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RecordSetProps(
@@ -9576,9 +9558,9 @@ class RecordSet(
 
     @builtins.property
     @jsii.member(jsii_name="recordSetRef")
-    def record_set_ref(self) -> "_RecordSetReference_9c3693d0":
+    def record_set_ref(self) -> "_aws_route53_af70581a.RecordSetReference":
         '''A reference to a RecordSet resource.'''
-        return typing.cast("_RecordSetReference_9c3693d0", jsii.get(self, "recordSetRef"))
+        return typing.cast("_aws_route53_af70581a.RecordSetReference", jsii.get(self, "recordSetRef"))
 
 
 @jsii.data_type(
@@ -9615,7 +9597,7 @@ class RecordSetOptions:
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Options for a RecordSet.
@@ -9667,7 +9649,7 @@ class RecordSetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c44f39638a001e90bc1175667e4764c4cbde27cade202d52a4f4d87246c57781)
+            type_hints = cached_type_hints(_typecheckingstub__c44f39638a001e90bc1175667e4764c4cbde27cade202d52a4f4d87246c57781)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -9851,13 +9833,13 @@ class RecordSetOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -9923,7 +9905,7 @@ class RecordSetProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         record_type: "RecordType",
         target: "RecordTarget",
@@ -9982,7 +9964,7 @@ class RecordSetProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__038200686c47ef30f81bc5289a6235e766372281295129670053b793d545dfca)
+            type_hints = cached_type_hints(_typecheckingstub__038200686c47ef30f81bc5289a6235e766372281295129670053b793d545dfca)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -10170,13 +10152,13 @@ class RecordSetProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -10255,7 +10237,7 @@ class RecordTarget(
         :param alias_target: alias for targets such as CloudFront distribution to route traffic to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93edac882a461453a0fceb6451d524a95c372910790d1fb9ddc60080e15f3ff7)
+            type_hints = cached_type_hints(_typecheckingstub__93edac882a461453a0fceb6451d524a95c372910790d1fb9ddc60080e15f3ff7)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             check_type(argname="argument alias_target", value=alias_target, expected_type=type_hints["alias_target"])
         jsii.create(self.__class__, self, [values, alias_target])
@@ -10268,7 +10250,7 @@ class RecordTarget(
         :param alias_target: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97eabbebabcd2acf6973571f8976591eb52a27f549b4c3abd23d91ac7ceba37e)
+            type_hints = cached_type_hints(_typecheckingstub__97eabbebabcd2acf6973571f8976591eb52a27f549b4c3abd23d91ac7ceba37e)
             check_type(argname="argument alias_target", value=alias_target, expected_type=type_hints["alias_target"])
         return typing.cast("RecordTarget", jsii.sinvoke(cls, "fromAlias", [alias_target]))
 
@@ -10280,7 +10262,7 @@ class RecordTarget(
         :param ip_addresses: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22a2cb83387a6785138daa53fc8099f2fd85af4d7ddd997da2d563ba3e4801d9)
+            type_hints = cached_type_hints(_typecheckingstub__22a2cb83387a6785138daa53fc8099f2fd85af4d7ddd997da2d563ba3e4801d9)
             check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=typing.Tuple[type_hints["ip_addresses"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("RecordTarget", jsii.sinvoke(cls, "fromIpAddresses", [*ip_addresses]))
 
@@ -10292,7 +10274,7 @@ class RecordTarget(
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d9f2d233732c1eae777eca34e2d8eeada36e28a2ad8db6f1b5673ec203a071c)
+            type_hints = cached_type_hints(_typecheckingstub__8d9f2d233732c1eae777eca34e2d8eeada36e28a2ad8db6f1b5673ec203a071c)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("RecordTarget", jsii.sinvoke(cls, "fromValues", [*values]))
 
@@ -10479,7 +10461,7 @@ class SrvRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -10501,7 +10483,7 @@ class SrvRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d52a70fbe22ca5e13acce72254719ea0dd37b436de0640b65774aadd9c6fe954)
+            type_hints = cached_type_hints(_typecheckingstub__d52a70fbe22ca5e13acce72254719ea0dd37b436de0640b65774aadd9c6fe954)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SrvRecordProps(
@@ -10565,7 +10547,7 @@ class SrvRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[typing.Union["SrvRecordValue", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
@@ -10625,7 +10607,7 @@ class SrvRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__803828161f541995c058596dab53102f2eccd14ba565bbe715a5ac29353f6db9)
+            type_hints = cached_type_hints(_typecheckingstub__803828161f541995c058596dab53102f2eccd14ba565bbe715a5ac29353f6db9)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -10811,13 +10793,13 @@ class SrvRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -10896,7 +10878,7 @@ class SrvRecordValue:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6c9da4f91ee9021e13a985564e2b781386a5d9cfc61b96742f9b71034f358a9)
+            type_hints = cached_type_hints(_typecheckingstub__c6c9da4f91ee9021e13a985564e2b781386a5d9cfc61b96742f9b71034f358a9)
             check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
@@ -11008,7 +10990,7 @@ class SvcbRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -11030,7 +11012,7 @@ class SvcbRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9061fb94be4da039b0429a165062a427f90914b268a3f15ef9424a45850e1a4c)
+            type_hints = cached_type_hints(_typecheckingstub__9061fb94be4da039b0429a165062a427f90914b268a3f15ef9424a45850e1a4c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SvcbRecordProps(
@@ -11094,7 +11076,7 @@ class SvcbRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence["SvcbRecordValue"],
     ) -> None:
@@ -11150,7 +11132,7 @@ class SvcbRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f178a06653341a87070700e1fbb7000faa1c8b33ac5fae5287b9cf8e15cdf6e)
+            type_hints = cached_type_hints(_typecheckingstub__1f178a06653341a87070700e1fbb7000faa1c8b33ac5fae5287b9cf8e15cdf6e)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -11336,13 +11318,13 @@ class SvcbRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -11439,7 +11421,7 @@ class SvcbRecordServiceModeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3501c5e879f1c27579f5bde50c7b03eb1a69ce693accf0c4c3f8605bb569e7d)
+            type_hints = cached_type_hints(_typecheckingstub__e3501c5e879f1c27579f5bde50c7b03eb1a69ce693accf0c4c3f8605bb569e7d)
             check_type(argname="argument alpn", value=alpn, expected_type=type_hints["alpn"])
             check_type(argname="argument ipv4hint", value=ipv4hint, expected_type=type_hints["ipv4hint"])
             check_type(argname="argument ipv6hint", value=ipv6hint, expected_type=type_hints["ipv6hint"])
@@ -11577,7 +11559,7 @@ class SvcbRecordValue(
         :param target_name: The domain name of the alternative endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e92bc3e42a3ca92b69d7539f184c7bdd1dfd88c7500ba82c13cb5cb137835c14)
+            type_hints = cached_type_hints(_typecheckingstub__e92bc3e42a3ca92b69d7539f184c7bdd1dfd88c7500ba82c13cb5cb137835c14)
             check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
         return typing.cast("SvcbRecordValue", jsii.sinvoke(cls, "alias", [target_name]))
 
@@ -11668,7 +11650,7 @@ class TxtRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -11690,7 +11672,7 @@ class TxtRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df1e0c1447d860a09246a7ec54507ca123346e57365df024460258839b4bd48b)
+            type_hints = cached_type_hints(_typecheckingstub__df1e0c1447d860a09246a7ec54507ca123346e57365df024460258839b4bd48b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TxtRecordProps(
@@ -11754,7 +11736,7 @@ class TxtRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[builtins.str],
     ) -> None:
@@ -11793,7 +11775,7 @@ class TxtRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1925dd23d881cbbf99625b9a5fe0ef65b92a92359376c46e49b6690f1a4a9dab)
+            type_hints = cached_type_hints(_typecheckingstub__1925dd23d881cbbf99625b9a5fe0ef65b92a92359376c46e49b6690f1a4a9dab)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -11979,13 +11961,13 @@ class TxtRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -12051,7 +12033,7 @@ class VpcEndpointServiceDomainName(
         id: builtins.str,
         *,
         domain_name: builtins.str,
-        endpoint_service: "_IVPCEndpointServiceRef_90edcb87",
+        endpoint_service: "_aws_ec2_18162e09.IVPCEndpointServiceRef",
         public_hosted_zone: "IPublicHostedZone",
     ) -> None:
         '''
@@ -12062,7 +12044,7 @@ class VpcEndpointServiceDomainName(
         :param public_hosted_zone: The public hosted zone to use for the domain.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0f1e0787b803b3e6b7bc1893af9e2bd854989d8ecc1ee95b572a359f686c4bd)
+            type_hints = cached_type_hints(_typecheckingstub__e0f1e0787b803b3e6b7bc1893af9e2bd854989d8ecc1ee95b572a359f686c4bd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = VpcEndpointServiceDomainNameProps(
@@ -12082,7 +12064,7 @@ class VpcEndpointServiceDomainName(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb8d9c4cf0d124563d17362021e80fc8fa146791616e752bd4a8ccb6df767280)
+            type_hints = cached_type_hints(_typecheckingstub__cb8d9c4cf0d124563d17362021e80fc8fa146791616e752bd4a8ccb6df767280)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -12101,7 +12083,7 @@ class VpcEndpointServiceDomainNameProps:
         self,
         *,
         domain_name: builtins.str,
-        endpoint_service: "_IVPCEndpointServiceRef_90edcb87",
+        endpoint_service: "_aws_ec2_18162e09.IVPCEndpointServiceRef",
         public_hosted_zone: "IPublicHostedZone",
     ) -> None:
         '''Properties to configure a VPC Endpoint Service domain name.
@@ -12126,7 +12108,7 @@ class VpcEndpointServiceDomainNameProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6355fbcde34ee994597b3b647c64b65eb32833843e3bc72c5479e8a6ad7fb623)
+            type_hints = cached_type_hints(_typecheckingstub__6355fbcde34ee994597b3b647c64b65eb32833843e3bc72c5479e8a6ad7fb623)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument endpoint_service", value=endpoint_service, expected_type=type_hints["endpoint_service"])
             check_type(argname="argument public_hosted_zone", value=public_hosted_zone, expected_type=type_hints["public_hosted_zone"])
@@ -12151,11 +12133,11 @@ class VpcEndpointServiceDomainNameProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def endpoint_service(self) -> "_IVPCEndpointServiceRef_90edcb87":
+    def endpoint_service(self) -> "_aws_ec2_18162e09.IVPCEndpointServiceRef":
         '''The VPC Endpoint Service to configure Private DNS for.'''
         result = self._values.get("endpoint_service")
         assert result is not None, "Required property 'endpoint_service' is missing"
-        return typing.cast("_IVPCEndpointServiceRef_90edcb87", result)
+        return typing.cast("_aws_ec2_18162e09.IVPCEndpointServiceRef", result)
 
     @builtins.property
     def public_hosted_zone(self) -> "IPublicHostedZone":
@@ -12186,7 +12168,7 @@ class ZoneDelegationOptions:
         self,
         *,
         comment: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options available when creating a delegation relationship from one PublicHostedZone to another.
 
@@ -12208,7 +12190,7 @@ class ZoneDelegationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0efd84c1e481104af0fc88e047ca0cffa51a834020eec2f9c9cfee5df2642f84)
+            type_hints = cached_type_hints(_typecheckingstub__0efd84c1e481104af0fc88e047ca0cffa51a834020eec2f9c9cfee5df2642f84)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12227,13 +12209,13 @@ class ZoneDelegationOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The TTL (Time To Live) of the DNS delegation record in DNS caches.
 
         :default: 172800
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12305,7 +12287,7 @@ class ZoneDelegationRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -12327,7 +12309,7 @@ class ZoneDelegationRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f8360676c13e2167bb58d36e1b6384ba70f036979aa9c80cac046e12779c594)
+            type_hints = cached_type_hints(_typecheckingstub__1f8360676c13e2167bb58d36e1b6384ba70f036979aa9c80cac046e12779c594)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ZoneDelegationRecordProps(
@@ -12391,7 +12373,7 @@ class ZoneDelegationRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         name_servers: typing.Sequence[builtins.str],
     ) -> None:
@@ -12446,7 +12428,7 @@ class ZoneDelegationRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__240a965753acb9488d02c120074027364f5e85a8ec585205a863174feadd7582)
+            type_hints = cached_type_hints(_typecheckingstub__240a965753acb9488d02c120074027364f5e85a8ec585205a863174feadd7582)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -12632,13 +12614,13 @@ class ZoneDelegationRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -12684,7 +12666,7 @@ class ZoneSigningOptions:
     def __init__(
         self,
         *,
-        kms_key: "_IKey_5f11635f",
+        kms_key: "_aws_kms_ff87d74a.IKey",
         key_signing_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for enabling key signing from a hosted zone.
@@ -12707,7 +12689,7 @@ class ZoneSigningOptions:
             hosted_zone.enable_dnssec(kms_key=kms_key)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c024f1ad9949a250bc85eb88751e2c625dd1a6679c33a35a4add759a0404b95c)
+            type_hints = cached_type_hints(_typecheckingstub__c024f1ad9949a250bc85eb88751e2c625dd1a6679c33a35a4add759a0404b95c)
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument key_signing_key_name", value=key_signing_key_name, expected_type=type_hints["key_signing_key_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12717,7 +12699,7 @@ class ZoneSigningOptions:
             self._values["key_signing_key_name"] = key_signing_key_name
 
     @builtins.property
-    def kms_key(self) -> "_IKey_5f11635f":
+    def kms_key(self) -> "_aws_kms_ff87d74a.IKey":
         '''The customer-managed KMS key that will be used to sign the records.
 
         The KMS Key must be unique for each KSK within a hosted zone. Additionally, the
@@ -12727,7 +12709,7 @@ class ZoneSigningOptions:
         '''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
-        return typing.cast("_IKey_5f11635f", result)
+        return typing.cast("_aws_kms_ff87d74a.IKey", result)
 
     @builtins.property
     def key_signing_key_name(self) -> typing.Optional[builtins.str]:
@@ -12793,7 +12775,7 @@ class ARecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -12815,7 +12797,7 @@ class ARecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca2e60ba6b2baeeff2cc875c86af94b4b26d6f11c1cfcca09280ac533b792230)
+            type_hints = cached_type_hints(_typecheckingstub__ca2e60ba6b2baeeff2cc875c86af94b4b26d6f11c1cfcca09280ac533b792230)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ARecordProps(
@@ -12856,7 +12838,7 @@ class ARecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> "ARecord":
         '''Creates new A record of type alias with target set to an existing A Record DNS.
@@ -12886,7 +12868,7 @@ class ARecord(
         :aws-cdk-lib: /aws-route53-targets/route53-record.ts
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c76ad72e64542d58d5e33c28ccaca560dac09b21c920d094b7a0c2386fe42886)
+            type_hints = cached_type_hints(_typecheckingstub__c76ad72e64542d58d5e33c28ccaca560dac09b21c920d094b7a0c2386fe42886)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ARecordAttrs(
@@ -12950,7 +12932,7 @@ class ARecordAttrs(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         target_dns: builtins.str,
     ) -> None:
@@ -12986,7 +12968,7 @@ class ARecordAttrs(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__514d7eccc21be019febe80e121fd7d979162668b63cb99051c629ef087f5fe9a)
+            type_hints = cached_type_hints(_typecheckingstub__514d7eccc21be019febe80e121fd7d979162668b63cb99051c629ef087f5fe9a)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -13172,13 +13154,13 @@ class ARecordAttrs(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -13250,7 +13232,7 @@ class ARecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         target: "RecordTarget",
     ) -> None:
@@ -13287,7 +13269,7 @@ class ARecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73a5c86411a0d853fcfad820ed58f5a5c19df65a7b2756560958db5cbe36569)
+            type_hints = cached_type_hints(_typecheckingstub__a73a5c86411a0d853fcfad820ed58f5a5c19df65a7b2756560958db5cbe36569)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -13473,13 +13455,13 @@ class ARecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -13556,7 +13538,7 @@ class AaaaRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -13578,7 +13560,7 @@ class AaaaRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d5345c027ebd51f32f58fdeb055904a5c4dd3f5523f55954f8a191ae8bf29ee)
+            type_hints = cached_type_hints(_typecheckingstub__4d5345c027ebd51f32f58fdeb055904a5c4dd3f5523f55954f8a191ae8bf29ee)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AaaaRecordProps(
@@ -13642,7 +13624,7 @@ class AaaaRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         target: "RecordTarget",
     ) -> None:
@@ -13678,7 +13660,7 @@ class AaaaRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c051ff70083b2ae68889d3f02be8344125acf64b4768d5f5df3298ba8a8d6a32)
+            type_hints = cached_type_hints(_typecheckingstub__c051ff70083b2ae68889d3f02be8344125acf64b4768d5f5df3298ba8a8d6a32)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -13864,13 +13846,13 @@ class AaaaRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -13941,7 +13923,7 @@ class CaaAmazonRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Construction properties for a CaaAmazonRecord.
@@ -13993,7 +13975,7 @@ class CaaAmazonRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14055fdb7d9f4b55091295996ec92db8d73fa789a21fca2664da1242ae89f859)
+            type_hints = cached_type_hints(_typecheckingstub__14055fdb7d9f4b55091295996ec92db8d73fa789a21fca2664da1242ae89f859)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -14177,13 +14159,13 @@ class CaaAmazonRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -14276,7 +14258,7 @@ class CaaRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -14298,7 +14280,7 @@ class CaaRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a2502cdc1fe021e837217ab0d96b9fa6ea450a68c089482935b695f7943ff3c)
+            type_hints = cached_type_hints(_typecheckingstub__3a2502cdc1fe021e837217ab0d96b9fa6ea450a68c089482935b695f7943ff3c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CaaRecordProps(
@@ -14362,7 +14344,7 @@ class CaaRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[typing.Union["CaaRecordValue", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
@@ -14421,7 +14403,7 @@ class CaaRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__349a94b990ddb833b270dc692692a8b37187c6f17114e02514f44accfb8de443)
+            type_hints = cached_type_hints(_typecheckingstub__349a94b990ddb833b270dc692692a8b37187c6f17114e02514f44accfb8de443)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -14607,13 +14589,13 @@ class CaaRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -14713,7 +14695,7 @@ class CnameRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -14735,7 +14717,7 @@ class CnameRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8dfccd8504bb3c0a779b42a665f362282b1083fe52a95b450d1ac1eb3622c80)
+            type_hints = cached_type_hints(_typecheckingstub__e8dfccd8504bb3c0a779b42a665f362282b1083fe52a95b450d1ac1eb3622c80)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CnameRecordProps(
@@ -14799,7 +14781,7 @@ class CnameRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         domain_name: builtins.str,
     ) -> None:
@@ -14858,7 +14840,7 @@ class CnameRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43b5fc8ccb719e2580c804225e8258b57b1700a701203416558eb2d76a86f86f)
+            type_hints = cached_type_hints(_typecheckingstub__43b5fc8ccb719e2580c804225e8258b57b1700a701203416558eb2d76a86f86f)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -15044,13 +15026,13 @@ class CnameRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -15128,7 +15110,7 @@ class DsRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -15150,7 +15132,7 @@ class DsRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24205d1a44dcefb992b7bd9b6d91d8b6396f8498224c30876fe8a0673c4dc790)
+            type_hints = cached_type_hints(_typecheckingstub__24205d1a44dcefb992b7bd9b6d91d8b6396f8498224c30876fe8a0673c4dc790)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DsRecordProps(
@@ -15214,7 +15196,7 @@ class DsRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[builtins.str],
     ) -> None:
@@ -15251,7 +15233,7 @@ class DsRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f86f16d9f2de8fe03cc1189a56a86c4888d20f69dc0f241aa21b50fdf34d4645)
+            type_hints = cached_type_hints(_typecheckingstub__f86f16d9f2de8fe03cc1189a56a86c4888d20f69dc0f241aa21b50fdf34d4645)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -15437,13 +15419,13 @@ class DsRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -15482,7 +15464,7 @@ class DsRecordProps(RecordSetOptions):
 
 @jsii.implements(IHealthCheck)
 class HealthCheck(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.HealthCheck",
 ):
@@ -15545,7 +15527,7 @@ class HealthCheck(
         measure_latency: typing.Optional[builtins.bool] = None,
         port: typing.Optional[jsii.Number] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        request_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        request_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         resource_path: typing.Optional[builtins.str] = None,
         routing_control: typing.Optional[builtins.str] = None,
         search_string: typing.Optional[builtins.str] = None,
@@ -15575,7 +15557,7 @@ class HealthCheck(
         :return: a reference to the newly created health check.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c6121b8faf9b7a92fd3086c1c307dea83166bfd534ca84bbad1637d8c9c1cbd)
+            type_hints = cached_type_hints(_typecheckingstub__8c6121b8faf9b7a92fd3086c1c307dea83166bfd534ca84bbad1637d8c9c1cbd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HealthCheckProps(
@@ -15617,7 +15599,7 @@ class HealthCheck(
         :return: a reference to the existing health check.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1574196dfbdf91938d0e48950e72c34106f7e4b227441de8b8df48978fa6c694)
+            type_hints = cached_type_hints(_typecheckingstub__1574196dfbdf91938d0e48950e72c34106f7e4b227441de8b8df48978fa6c694)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument health_check_id", value=health_check_id, expected_type=type_hints["health_check_id"])
@@ -15637,9 +15619,9 @@ class HealthCheck(
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckRef")
-    def health_check_ref(self) -> "_HealthCheckReference_95ea67d3":
+    def health_check_ref(self) -> "_aws_route53_af70581a.HealthCheckReference":
         '''A reference to a HealthCheck resource.'''
-        return typing.cast("_HealthCheckReference_95ea67d3", jsii.get(self, "healthCheckRef"))
+        return typing.cast("_aws_route53_af70581a.HealthCheckReference", jsii.get(self, "healthCheckRef"))
 
 
 class HttpsRecord(
@@ -15694,7 +15676,7 @@ class HttpsRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -15717,7 +15699,7 @@ class HttpsRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff083afb33933cff325e491e0f1834d5f30a115ee1b13b2886599061ee8f59fc)
+            type_hints = cached_type_hints(_typecheckingstub__ff083afb33933cff325e491e0f1834d5f30a115ee1b13b2886599061ee8f59fc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpsRecordProps(
@@ -15783,7 +15765,7 @@ class HttpsRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         target: typing.Optional["RecordTarget"] = None,
         values: typing.Optional[typing.Sequence["HttpsRecordValue"]] = None,
@@ -15832,7 +15814,7 @@ class HttpsRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cf6861ea84fe14136ab579991edb5a69203a95df9329264fb29805dcc4d64e6)
+            type_hints = cached_type_hints(_typecheckingstub__1cf6861ea84fe14136ab579991edb5a69203a95df9329264fb29805dcc4d64e6)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -16022,13 +16004,13 @@ class HttpsRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -16140,7 +16122,7 @@ class HttpsRecordServiceModeProps(SvcbRecordServiceModeProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__979e830ad3373e7fc0d0343a2f25a869ffc9da95f9a63de3403250963044e9cf)
+            type_hints = cached_type_hints(_typecheckingstub__979e830ad3373e7fc0d0343a2f25a869ffc9da95f9a63de3403250963044e9cf)
             check_type(argname="argument alpn", value=alpn, expected_type=type_hints["alpn"])
             check_type(argname="argument ipv4hint", value=ipv4hint, expected_type=type_hints["ipv4hint"])
             check_type(argname="argument ipv6hint", value=ipv6hint, expected_type=type_hints["ipv6hint"])
@@ -16254,7 +16236,11 @@ class HttpsRecordServiceModeProps(SvcbRecordServiceModeProps):
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.IHostedZone")
-class IHostedZone(_IResource_c80c4260, INamedHostedZoneRef, typing_extensions.Protocol):
+class IHostedZone(
+    _aws_cdk_0cae9daa.IResource,
+    INamedHostedZoneRef,
+    typing_extensions.Protocol,
+):
     '''Imported or created hosted zone.'''
 
     @builtins.property
@@ -16295,10 +16281,10 @@ class IHostedZone(_IResource_c80c4260, INamedHostedZoneRef, typing_extensions.Pr
     @jsii.member(jsii_name="grantDelegation")
     def grant_delegation(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *,
         delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to add delegation records to this zone.
 
         :param grantee: -
@@ -16308,7 +16294,7 @@ class IHostedZone(_IResource_c80c4260, INamedHostedZoneRef, typing_extensions.Pr
 
 
 class _IHostedZoneProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
     jsii.proxy_for(INamedHostedZoneRef), # type: ignore[misc]
 ):
     '''Imported or created hosted zone.'''
@@ -16353,21 +16339,21 @@ class _IHostedZoneProxy(
     @jsii.member(jsii_name="grantDelegation")
     def grant_delegation(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *,
         delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to add delegation records to this zone.
 
         :param grantee: -
         :param delegated_zone_names: List of hosted zone names to allow delegation to in the grant permissions. If the delegated zone name contains an unresolved token, it must resolve to a zone name that satisfies the requirements according to the documentation: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/specifying-conditions-route53.html#route53_rrset_conditionkeys_normalization .. epigraph:: All letters must be lowercase. The DNS name must be without the trailing dot. Characters other than a–z, 0–9, - (hyphen), _ (underscore), and . (period, as a delimiter between labels) must use escape codes in the format \\three-digit octal code. For example, \\052 is the octal code for character *. Default: the grant allows delegation to any hosted zone
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97ae48bcbfd92ef96c96db6d1d972ddd9b889f01bba1ab2a3819d9faa9eb4a18)
+            type_hints = cached_type_hints(_typecheckingstub__97ae48bcbfd92ef96c96db6d1d972ddd9b889f01bba1ab2a3819d9faa9eb4a18)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         options = GrantDelegationOptions(delegated_zone_names=delegated_zone_names)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDelegation", [grantee, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDelegation", [grantee, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IHostedZone).__jsii_proxy_class__ = lambda : _IHostedZoneProxy
@@ -16473,7 +16459,7 @@ class MxRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -16495,7 +16481,7 @@ class MxRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__615153e942ef5cdcb0022d4565e0ec8b8c5554594bfe7221366ad5c83a3b679e)
+            type_hints = cached_type_hints(_typecheckingstub__615153e942ef5cdcb0022d4565e0ec8b8c5554594bfe7221366ad5c83a3b679e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MxRecordProps(
@@ -16559,7 +16545,7 @@ class MxRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[typing.Union["MxRecordValue", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
@@ -16617,7 +16603,7 @@ class MxRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b259122626a3ba94eebff0b5f692944df4aa55dc550b7d113eec491e1c57307d)
+            type_hints = cached_type_hints(_typecheckingstub__b259122626a3ba94eebff0b5f692944df4aa55dc550b7d113eec491e1c57307d)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -16803,13 +16789,13 @@ class MxRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -16887,7 +16873,7 @@ class NsRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -16909,7 +16895,7 @@ class NsRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f3bbcb4bd5bcd8978ae60eaac5ea2c6ab0bb8357a389e9b981e63291cdcc3ab)
+            type_hints = cached_type_hints(_typecheckingstub__7f3bbcb4bd5bcd8978ae60eaac5ea2c6ab0bb8357a389e9b981e63291cdcc3ab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NsRecordProps(
@@ -16973,7 +16959,7 @@ class NsRecordProps(RecordSetOptions):
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
         values: typing.Sequence[builtins.str],
     ) -> None:
@@ -17010,7 +16996,7 @@ class NsRecordProps(RecordSetOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33cda5fac8572316158161da713e2ceea9d3f7f56b5ee9a2a25acf331e737e86)
+            type_hints = cached_type_hints(_typecheckingstub__33cda5fac8572316158161da713e2ceea9d3f7f56b5ee9a2a25acf331e737e86)
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -17196,13 +17182,13 @@ class NsRecordProps(RecordSetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The resource record cache time to live (TTL).
 
         :default: Duration.minutes(30)
         '''
         result = self._values.get("ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
@@ -17299,7 +17285,7 @@ class CaaAmazonRecord(
         record_name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         set_identifier: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -17320,7 +17306,7 @@ class CaaAmazonRecord(
         :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f189380057459afbeff6d38749625e3756c4572dec90f74ca7a400dcb8ac94da)
+            type_hints = cached_type_hints(_typecheckingstub__f189380057459afbeff6d38749625e3756c4572dec90f74ca7a400dcb8ac94da)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CaaAmazonRecordProps(
@@ -17350,7 +17336,7 @@ class CaaAmazonRecord(
 
 @jsii.implements(IHostedZone)
 class HostedZone(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53.HostedZone",
 ):
@@ -17383,7 +17369,7 @@ class HostedZone(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpcs: typing.Optional[typing.Sequence["_IVpc_f30d5663"]] = None,
+        vpcs: typing.Optional[typing.Sequence["_aws_ec2_09840e12.IVpc"]] = None,
         zone_name: builtins.str,
         add_trailing_dot: typing.Optional[builtins.bool] = None,
         comment: typing.Optional[builtins.str] = None,
@@ -17399,7 +17385,7 @@ class HostedZone(
         :param query_logs_log_group_arn: The Amazon Resource Name (ARN) for the log group that you want Amazon Route 53 to send query logs to. Default: disabled
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e5b9f9d7aa4bc16fced3cc22e63b14cbf590c498be223e588483a72fb0b4233)
+            type_hints = cached_type_hints(_typecheckingstub__1e5b9f9d7aa4bc16fced3cc22e63b14cbf590c498be223e588483a72fb0b4233)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HostedZoneProps(
@@ -17432,7 +17418,7 @@ class HostedZone(
         :param zone_name: Name of the hosted zone.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24a9e3565a26d4d6d8a3c0d4406ef8f6cce5e0e48dc1145dc090f7db4581c0ac)
+            type_hints = cached_type_hints(_typecheckingstub__24a9e3565a26d4d6d8a3c0d4406ef8f6cce5e0e48dc1145dc090f7db4581c0ac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = HostedZoneAttributes(
@@ -17459,7 +17445,7 @@ class HostedZone(
         :param hosted_zone_id: the ID of the hosted zone to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc5da03bfe3e7000e80ebfbe7cb3c5c23ab3e97f4e6c670a8eb0ef036d099c78)
+            type_hints = cached_type_hints(_typecheckingstub__dc5da03bfe3e7000e80ebfbe7cb3c5c23ab3e97f4e6c670a8eb0ef036d099c78)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
@@ -17491,7 +17477,7 @@ class HostedZone(
         :see: https://docs.aws.amazon.com/cdk/latest/guide/environments.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdb223a28519af08e8a4de265a9236844a06052261acd92d02cc9634acf56a8c)
+            type_hints = cached_type_hints(_typecheckingstub__bdb223a28519af08e8a4de265a9236844a06052261acd92d02cc9634acf56a8c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         query = HostedZoneProviderProps(
@@ -17501,13 +17487,13 @@ class HostedZone(
         return typing.cast("IHostedZone", jsii.sinvoke(cls, "fromLookup", [scope, id, query]))
 
     @jsii.member(jsii_name="addVpc")
-    def add_vpc(self, vpc: "_IVpc_f30d5663") -> None:
+    def add_vpc(self, vpc: "_aws_ec2_09840e12.IVpc") -> None:
         '''Add another VPC to this private hosted zone.
 
         :param vpc: the other VPC to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c63a3fccbc53f093c8e4d46a2848bf83b386d2ca5206e82ecd8ecd3d61a0ccb)
+            type_hints = cached_type_hints(_typecheckingstub__5c63a3fccbc53f093c8e4d46a2848bf83b386d2ca5206e82ecd8ecd3d61a0ccb)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
         return typing.cast(None, jsii.invoke(self, "addVpc", [vpc]))
 
@@ -17515,7 +17501,7 @@ class HostedZone(
     def enable_dnssec(
         self,
         *,
-        kms_key: "_IKey_5f11635f",
+        kms_key: "_aws_kms_ff87d74a.IKey",
         key_signing_key_name: typing.Optional[builtins.str] = None,
     ) -> "IKeySigningKey":
         '''Enable DNSSEC for this hosted zone.
@@ -17535,21 +17521,21 @@ class HostedZone(
     @jsii.member(jsii_name="grantDelegation")
     def grant_delegation(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *,
         delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param delegated_zone_names: List of hosted zone names to allow delegation to in the grant permissions. If the delegated zone name contains an unresolved token, it must resolve to a zone name that satisfies the requirements according to the documentation: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/specifying-conditions-route53.html#route53_rrset_conditionkeys_normalization .. epigraph:: All letters must be lowercase. The DNS name must be without the trailing dot. Characters other than a–z, 0–9, - (hyphen), _ (underscore), and . (period, as a delimiter between labels) must use escape codes in the format \\three-digit octal code. For example, \\052 is the octal code for character *. Default: the grant allows delegation to any hosted zone
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e256ece77d93011f031e05a119f03b248a4b68d267c298052b0cea131943ab5)
+            type_hints = cached_type_hints(_typecheckingstub__8e256ece77d93011f031e05a119f03b248a4b68d267c298052b0cea131943ab5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         options = GrantDelegationOptions(delegated_zone_names=delegated_zone_names)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDelegation", [grantee, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDelegation", [grantee, options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -17577,9 +17563,9 @@ class HostedZone(
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneRef")
-    def hosted_zone_ref(self) -> "_HostedZoneReference_1c756d37":
+    def hosted_zone_ref(self) -> "_aws_route53_af70581a.HostedZoneReference":
         '''A reference to a HostedZone resource.'''
-        return typing.cast("_HostedZoneReference_1c756d37", jsii.get(self, "hostedZoneRef"))
+        return typing.cast("_aws_route53_af70581a.HostedZoneReference", jsii.get(self, "hostedZoneRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -17638,7 +17624,7 @@ class PrivateHostedZone(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         zone_name: builtins.str,
         add_trailing_dot: typing.Optional[builtins.bool] = None,
         comment: typing.Optional[builtins.str] = None,
@@ -17654,7 +17640,7 @@ class PrivateHostedZone(
         :param query_logs_log_group_arn: The Amazon Resource Name (ARN) for the log group that you want Amazon Route 53 to send query logs to. Default: disabled
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5513b0f840f5eafaeee3e3a9c7776204d075ee417c3cce2c38a14213814eb75)
+            type_hints = cached_type_hints(_typecheckingstub__b5513b0f840f5eafaeee3e3a9c7776204d075ee417c3cce2c38a14213814eb75)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PrivateHostedZoneProps(
@@ -17687,7 +17673,7 @@ class PrivateHostedZone(
         :param zone_name: Name of the hosted zone.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2854fdc710e9385a23e0748e6a26b1a8050ddd16e7e432970959903de7650f09)
+            type_hints = cached_type_hints(_typecheckingstub__2854fdc710e9385a23e0748e6a26b1a8050ddd16e7e432970959903de7650f09)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PrivateHostedZoneAttributes(
@@ -17714,7 +17700,7 @@ class PrivateHostedZone(
         :param private_hosted_zone_id: the ID of the private hosted zone to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b376eac72cdb24a91e277cf6c9c277d3ed571280fb5b90bd23b7e1e1d5f88dac)
+            type_hints = cached_type_hints(_typecheckingstub__b376eac72cdb24a91e277cf6c9c277d3ed571280fb5b90bd23b7e1e1d5f88dac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument private_hosted_zone_id", value=private_hosted_zone_id, expected_type=type_hints["private_hosted_zone_id"])
@@ -17769,7 +17755,7 @@ class PublicHostedZone(
         *,
         accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
         caa_amazon: typing.Optional[builtins.bool] = None,
-        cross_account_zone_delegation_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
+        cross_account_zone_delegation_principal: typing.Optional["_aws_iam_1f54b5e8.IPrincipal"] = None,
         cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
         zone_name: builtins.str,
         add_trailing_dot: typing.Optional[builtins.bool] = None,
@@ -17789,7 +17775,7 @@ class PublicHostedZone(
         :param query_logs_log_group_arn: The Amazon Resource Name (ARN) for the log group that you want Amazon Route 53 to send query logs to. Default: disabled
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f67fd33cdf6043dd6c0a287fb380d5704e93c1d3a80eabf2da05bc363d681c5)
+            type_hints = cached_type_hints(_typecheckingstub__6f67fd33cdf6043dd6c0a287fb380d5704e93c1d3a80eabf2da05bc363d681c5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PublicHostedZoneProps(
@@ -17825,7 +17811,7 @@ class PublicHostedZone(
         :param zone_name: Name of the hosted zone.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8382b2aa9cdf1e089241eda9e9d1e17d1003056fa5fe78dfbc64017f2f83d5f)
+            type_hints = cached_type_hints(_typecheckingstub__d8382b2aa9cdf1e089241eda9e9d1e17d1003056fa5fe78dfbc64017f2f83d5f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PublicHostedZoneAttributes(
@@ -17852,7 +17838,7 @@ class PublicHostedZone(
         :param public_hosted_zone_id: the ID of the public hosted zone to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__919d0fe07f8f277a34fdf761ddcb6a1b0c7a81c9d3bd726e69bc5c6b6fbcd53e)
+            type_hints = cached_type_hints(_typecheckingstub__919d0fe07f8f277a34fdf761ddcb6a1b0c7a81c9d3bd726e69bc5c6b6fbcd53e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument public_hosted_zone_id", value=public_hosted_zone_id, expected_type=type_hints["public_hosted_zone_id"])
@@ -17864,7 +17850,7 @@ class PublicHostedZone(
         delegate: "IPublicHostedZone",
         *,
         comment: typing.Optional[builtins.str] = None,
-        ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Adds a delegation from this zone to a designated zone.
 
@@ -17873,20 +17859,20 @@ class PublicHostedZone(
         :param ttl: The TTL (Time To Live) of the DNS delegation record in DNS caches. Default: 172800
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca14815188563abe1058cb85558750303980b4542afbe253885064f9c3fff98c)
+            type_hints = cached_type_hints(_typecheckingstub__ca14815188563abe1058cb85558750303980b4542afbe253885064f9c3fff98c)
             check_type(argname="argument delegate", value=delegate, expected_type=type_hints["delegate"])
         opts = ZoneDelegationOptions(comment=comment, ttl=ttl)
 
         return typing.cast(None, jsii.invoke(self, "addDelegation", [delegate, opts]))
 
     @jsii.member(jsii_name="addVpc")
-    def add_vpc(self, _vpc: "_IVpc_f30d5663") -> None:
+    def add_vpc(self, _vpc: "_aws_ec2_09840e12.IVpc") -> None:
         '''Add another VPC to this private hosted zone.
 
         :param _vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3e8e9627c25114e462dc3af379684d0d3fba38262bae897187e8d8faa087102)
+            type_hints = cached_type_hints(_typecheckingstub__c3e8e9627c25114e462dc3af379684d0d3fba38262bae897187e8d8faa087102)
             check_type(argname="argument _vpc", value=_vpc, expected_type=type_hints["_vpc"])
         return typing.cast(None, jsii.invoke(self, "addVpc", [_vpc]))
 
@@ -17898,9 +17884,11 @@ class PublicHostedZone(
 
     @builtins.property
     @jsii.member(jsii_name="crossAccountZoneDelegationRole")
-    def cross_account_zone_delegation_role(self) -> typing.Optional["_Role_e8c6e11f"]:
+    def cross_account_zone_delegation_role(
+        self,
+    ) -> typing.Optional["_aws_iam_1f54b5e8.Role"]:
         '''Role for cross account zone delegation.'''
-        return typing.cast(typing.Optional["_Role_e8c6e11f"], jsii.get(self, "crossAccountZoneDelegationRole"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.Role"], jsii.get(self, "crossAccountZoneDelegationRole"))
 
 
 __all__ = [
@@ -18042,13 +18030,13 @@ def _typecheckingstub__720011c856c32f90a3b681a917c19dc88c61ef6e87f090867debab9df
     id: builtins.str,
     *,
     name: builtins.str,
-    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCidrCollection.LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    locations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCidrCollection.LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e5dd5496fd13aabce8caeee6e804660a1a4ac267823880a80ccc3fc582cf9e9(
-    resource: _ICidrCollectionRef_dedbf3b6,
+    resource: _aws_route53_af70581a.ICidrCollectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18060,7 +18048,7 @@ def _typecheckingstub__c1eec1f003a53f5896f63867ff89ac5f04ca64ba5ab879e0332464d7b
     pass
 
 def _typecheckingstub__865b77e8db2784e62d9e80de9ac08effc2203aeaed71fa8db00bdb6a95e02f25(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18078,7 +18066,7 @@ def _typecheckingstub__e50d4b886f4c0718571d1dc70a97b0a1880f116a72668e2684b19ec71
     pass
 
 def _typecheckingstub__7d1ed42461528e34721c33b3493a2297bae3e47c0fe29589882e2a685605d968(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCidrCollection.LocationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCidrCollection.LocationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18094,7 +18082,7 @@ def _typecheckingstub__7cfc9caaf4289bb14df94cc4a6cf31b8d96395a13a1721c994701cc50
 def _typecheckingstub__24748dfd73812a9d4b13a11033c37a21e1e477a613964e42f30b373347e6bd62(
     *,
     name: builtins.str,
-    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCidrCollection.LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    locations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCidrCollection.LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18115,7 +18103,7 @@ def _typecheckingstub__04b6b41f12d9cc8e060cb93dd228e395c2c7477becb1554217f6c5c7e
     pass
 
 def _typecheckingstub__ec856d544beda6c45f1608de4feeffbddf087e8459029522c89b9df33f5cb959(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18143,14 +18131,14 @@ def _typecheckingstub__469f7fe3ad975c091ea64f8ce59060016c4769f6532660a91964f0930
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    health_check_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__67cddfacf1156bd5a9f284376f06f62b4fbc016f6195ad6e86820746ea9b641e(
-    resource: _IHealthCheckRef_0389fb93,
+    resource: _aws_route53_af70581a.IHealthCheckRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18162,7 +18150,7 @@ def _typecheckingstub__85215c1a67a9bf5fc9ea61938836633137b7fecb98dc541087538361e
     pass
 
 def _typecheckingstub__92eef426989e6d56f38b29af5b8a36178998c16c96fb7222ce9f5538f6972709(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18174,7 +18162,7 @@ def _typecheckingstub__b0a64c35de99e287eed1f250bb5b41772f3dbba1a8ad5b6ced21bbde2
     pass
 
 def _typecheckingstub__8b0df7baae49dfed1fb95576ba5c0e5d51660f268bef2a4d82fca32324f94689(
-    value: typing.Union[_IResolvable_da3f097b, CfnHealthCheck.HealthCheckConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHealthCheck.HealthCheckConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18196,16 +18184,16 @@ def _typecheckingstub__0e113166210d02eb6e0f8c59a042f052d80d619370b1e9fe97a7a04b5
 def _typecheckingstub__5f6870a18d2b0b32e1b106470763dd03bb4bfa75e0234e29a176b8b5127252e0(
     *,
     type: builtins.str,
-    alarm_identifier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.AlarmIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_identifier: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheck.AlarmIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     child_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
-    enable_sni: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_sni: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     failure_threshold: typing.Optional[jsii.Number] = None,
     fully_qualified_domain_name: typing.Optional[builtins.str] = None,
     health_threshold: typing.Optional[jsii.Number] = None,
     insufficient_data_health_status: typing.Optional[builtins.str] = None,
-    inverted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    inverted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     ip_address: typing.Optional[builtins.str] = None,
-    measure_latency: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    measure_latency: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     port: typing.Optional[jsii.Number] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     request_interval: typing.Optional[jsii.Number] = None,
@@ -18226,7 +18214,7 @@ def _typecheckingstub__b181f58da0d2eb6f8c9ba8be7f7b44f29a68b4d09e2f4c600ab9522e6
 
 def _typecheckingstub__dcc59bb963f4ce3a4eb461ecda6f194c9faa6eea0ca5960c91dfd950e626f687(
     *,
-    health_check_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    health_check_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18236,18 +18224,18 @@ def _typecheckingstub__07dce28bc78bd7a648e7920a0cb1bee52b579eae30c6d32918696dd2f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    hosted_zone_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hosted_zone_features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosted_zone_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosted_zone_features: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union[CfnHostedZone.HostedZoneTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    query_logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.QueryLoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpcs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.VPCProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    query_logging_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.QueryLoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpcs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.VPCProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1e0e03d1cbc9f750413f66bb43c5b02ff3e85d99da20eb4c76c48fb4fc8d05df(
-    resource: _IHostedZoneRef_156b310f,
+    resource: _aws_route53_af70581a.IHostedZoneRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18259,7 +18247,7 @@ def _typecheckingstub__5a4f45ce73bab9ae5bb66adc4a67da9904f954dd2e424af9f9247a4ac
     pass
 
 def _typecheckingstub__ec471122074c4efc9cfaeb7b7bef0731889f8080ae94fce69befda5f9fe2e7af(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18271,13 +18259,13 @@ def _typecheckingstub__3ef86462d5cfa65a428a6e6bb1b1ba218d87770c0e1448ff8d57375ca
     pass
 
 def _typecheckingstub__e764c4ae257c91c5d5b032fbe4eb718b4851ccc5750ef5bd3b5214ef2b4684fd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHostedZone.HostedZoneConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHostedZone.HostedZoneConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__103df913d9dc30b8a72229c8397bf39942dc00698e6ee32c9e98ec8f10e62aea(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHostedZone.HostedZoneFeaturesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHostedZone.HostedZoneFeaturesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18295,13 +18283,13 @@ def _typecheckingstub__91099dfc3159698491b9498cddba1ba706c12aeede11ee9ccadf93701
     pass
 
 def _typecheckingstub__02d1784db152ce69ef63512574d41672ddd53e2038e23c71ff72325772d8b489(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHostedZone.QueryLoggingConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHostedZone.QueryLoggingConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45fa6589ea7645f299a1666ba66ea7f49172916fae56fe49b48ee2d8bfa87241(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHostedZone.VPCProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHostedZone.VPCProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18315,7 +18303,7 @@ def _typecheckingstub__b9b576716f26dcf7d2edeb0bc854e42f45e229b4fdb03469e0a6e4aa9
 
 def _typecheckingstub__65b7e3792574e39c38d03eccca85840878de51f8638bf7e3eefde06b18ec6134(
     *,
-    enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18345,12 +18333,12 @@ def _typecheckingstub__c68e5afe07b3a7edc63a606f85f787c4486a2bfba1793f83271989294
 
 def _typecheckingstub__490d21becaf73ea78f8b34688d2d62e4e21d941f510e74d0a5acce1c9a8a35c3(
     *,
-    hosted_zone_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hosted_zone_features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosted_zone_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosted_zone_features: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union[CfnHostedZone.HostedZoneTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    query_logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.QueryLoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpcs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHostedZone.VPCProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    query_logging_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.QueryLoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpcs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.VPCProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18374,7 +18362,7 @@ def _typecheckingstub__d4c143d35daf9bc24ad6524ac0674868b7e4e4c2f566acea67229e08b
     pass
 
 def _typecheckingstub__6cd424602d0e47520e23aa4bb0661d6d253dfaa1526f46b316cc886c1c8e3c90(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18425,16 +18413,16 @@ def _typecheckingstub__5260f62d2297374b2126da361d614f7922d306048a751f4287d4f7b25
     *,
     name: builtins.str,
     type: builtins.str,
-    alias_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cidr_routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alias_target: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cidr_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     comment: typing.Optional[builtins.str] = None,
     failover: typing.Optional[builtins.str] = None,
-    geo_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    geo_proximity_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_proximity_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_id: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
-    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     region: typing.Optional[builtins.str] = None,
     resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
     set_identifier: typing.Optional[builtins.str] = None,
@@ -18451,7 +18439,7 @@ def _typecheckingstub__9c8a0762efb7bb21b6984f364843a96e6111a9142e91e645b888a14ad
     pass
 
 def _typecheckingstub__3b594e45af3ec7b4a87f2e38151e582ff1da92bd5457b214b477cfd403181bea(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18475,13 +18463,13 @@ def _typecheckingstub__0d764bdec1a7fb5aef453f572d560d1b8aed69fb8dcfec021e5660608
     pass
 
 def _typecheckingstub__b0a16cf391736226a70d1a59be2ffd652193be54e61b33e07b2b502b7444ebc0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRecordSet.AliasTargetProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.AliasTargetProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9573d618d7f59fad50ecf9e676d892ccfe65d8be595e465b068eec35f7931458(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRecordSet.CidrRoutingConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.CidrRoutingConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18499,13 +18487,13 @@ def _typecheckingstub__79006fc8c23dbed3ebc1e2c4a59dbaef71eada9146612d1d44ad17bf0
     pass
 
 def _typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRecordSet.GeoLocationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.GeoLocationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ac8d1aee0fc5c4e2eba653391bb8b61826a08b6708db398bae5b22b4e13fcf05(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRecordSet.GeoProximityLocationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSet.GeoProximityLocationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18529,7 +18517,7 @@ def _typecheckingstub__a7ed3b70491b7ea26f2195c97e2146c9f0e7366194f534e8a71a2dbcd
     pass
 
 def _typecheckingstub__cc829fb8c432409e77ff577c111238c3b8554f78a040b7ecdffeb62edb27cf24(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18568,7 +18556,7 @@ def _typecheckingstub__a1143e059c44e7a7f16565322a7c9305d2eb0d507ef54d57d3dab326b
     *,
     dns_name: builtins.str,
     hosted_zone_id: builtins.str,
-    evaluate_target_health: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    evaluate_target_health: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18602,7 +18590,7 @@ def _typecheckingstub__9bbef31bd9d19fea78e067206e8cea17ada33bda9853588d7a99d66d9
     *,
     aws_region: typing.Optional[builtins.str] = None,
     bias: typing.Optional[jsii.Number] = None,
-    coordinates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.CoordinatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    coordinates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.CoordinatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     local_zone_group: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18615,7 +18603,7 @@ def _typecheckingstub__88410dc2301961a44d6910ee0de13aa8273ce0fa1b93daca4141c18b5
     comment: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
-    record_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.RecordSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    record_sets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.RecordSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18627,7 +18615,7 @@ def _typecheckingstub__b6a85e397d40c84baa9678772c2f70eeeec43ef342a1f9bf8b5d6277f
     pass
 
 def _typecheckingstub__48ca705812043ff12ec21cb444124f3be1a7ab3431425e66de023724f6a298c6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18657,7 +18645,7 @@ def _typecheckingstub__9f9f2119ab4a72afe07344595f0bb4fb1b9015e2e273b9dea6abcfbaf
     pass
 
 def _typecheckingstub__9fb00744f239be86927ab07333f9aa97d44af1dbaabd6b50dc186a5a6f344824(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRecordSetGroup.RecordSetProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecordSetGroup.RecordSetProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18666,7 +18654,7 @@ def _typecheckingstub__47266159f3c04590ed7485f833b949a10c311800ebfa01351a5f55ffc
     *,
     dns_name: builtins.str,
     hosted_zone_id: builtins.str,
-    evaluate_target_health: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    evaluate_target_health: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18700,7 +18688,7 @@ def _typecheckingstub__5430af5a2d4636b1244b53f4c6759f6d1ffde530908e449cf4bc90b0d
     *,
     aws_region: typing.Optional[builtins.str] = None,
     bias: typing.Optional[jsii.Number] = None,
-    coordinates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.CoordinatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    coordinates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.CoordinatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     local_zone_group: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18710,15 +18698,15 @@ def _typecheckingstub__11ff291a729fd95a26a222e98e883239191c114a9dd6e70516ac2fe43
     *,
     name: builtins.str,
     type: builtins.str,
-    alias_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cidr_routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alias_target: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cidr_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     failover: typing.Optional[builtins.str] = None,
-    geo_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    geo_proximity_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_proximity_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_id: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
-    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     region: typing.Optional[builtins.str] = None,
     resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
     set_identifier: typing.Optional[builtins.str] = None,
@@ -18733,7 +18721,7 @@ def _typecheckingstub__550eb58db998305b4dd78ae1bd39e80af0e9376310d796614d4bcd99a
     comment: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
-    record_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSetGroup.RecordSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    record_sets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSetGroup.RecordSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18742,16 +18730,16 @@ def _typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf489
     *,
     name: builtins.str,
     type: builtins.str,
-    alias_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cidr_routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alias_target: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.AliasTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cidr_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.CidrRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     comment: typing.Optional[builtins.str] = None,
     failover: typing.Optional[builtins.str] = None,
-    geo_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    geo_proximity_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_proximity_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecordSet.GeoProximityLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_id: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     hosted_zone_name: typing.Optional[builtins.str] = None,
-    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_value_answer: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     region: typing.Optional[builtins.str] = None,
     resource_records: typing.Optional[typing.Sequence[builtins.str]] = None,
     set_identifier: typing.Optional[builtins.str] = None,
@@ -18790,12 +18778,12 @@ def _typecheckingstub__f4115d484cd67a76fbe1e4ea37dbe01bb97e2d8816dda058f0ba90476
     id: builtins.str,
     *,
     delegated_zone: IHostedZone,
-    delegation_role: _IRoleRef_8400221f,
+    delegation_role: _aws_iam_632e20f6.IRoleRef,
     assume_role_region: typing.Optional[builtins.str] = None,
     parent_hosted_zone_id: typing.Optional[builtins.str] = None,
     parent_hosted_zone_name: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18803,12 +18791,12 @@ def _typecheckingstub__f4115d484cd67a76fbe1e4ea37dbe01bb97e2d8816dda058f0ba90476
 def _typecheckingstub__2f26cbe17fefc3bd3765d1fcc9084ddb3aa18526e669cad5ba4011ccbc2b3d7f(
     *,
     delegated_zone: IHostedZone,
-    delegation_role: _IRoleRef_8400221f,
+    delegation_role: _aws_iam_632e20f6.IRoleRef,
     assume_role_region: typing.Optional[builtins.str] = None,
     parent_hosted_zone_id: typing.Optional[builtins.str] = None,
     parent_hosted_zone_name: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18854,7 +18842,7 @@ def _typecheckingstub__aa97034136188f7866c26cd6fb12cf33983958b5147a7092dea7494be
     measure_latency: typing.Optional[builtins.bool] = None,
     port: typing.Optional[jsii.Number] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    request_interval: typing.Optional[_Duration_4839e8c3] = None,
+    request_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     resource_path: typing.Optional[builtins.str] = None,
     routing_control: typing.Optional[builtins.str] = None,
     search_string: typing.Optional[builtins.str] = None,
@@ -18877,7 +18865,7 @@ def _typecheckingstub__5ff92cc89a407db790189517024612ad356516c9279c5587ed3d54c30
     pass
 
 def _typecheckingstub__6b89c0b16bd4247e3bc59d7d9a2b918a0738ab4367a7cd428a28200b56497779(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *,
     delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -18890,7 +18878,7 @@ def _typecheckingstub__f1711cf7af2ab26c7be8b7aad54fc7158d3e50d0205dd9b8798981287
     add_trailing_dot: typing.Optional[builtins.bool] = None,
     comment: typing.Optional[builtins.str] = None,
     query_logs_log_group_arn: typing.Optional[builtins.str] = None,
-    vpcs: typing.Optional[typing.Sequence[_IVpc_f30d5663]] = None,
+    vpcs: typing.Optional[typing.Sequence[_aws_ec2_09840e12.IVpc]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18922,7 +18910,7 @@ def _typecheckingstub__63b944f82a919a5a1fc9b8c1ec885ffe1d509c5cec2bb324d9b5ed7df
     id: builtins.str,
     *,
     hosted_zone: IHostedZone,
-    kms_key: _IKey_5f11635f,
+    kms_key: _aws_kms_ff87d74a.IKey,
     key_signing_key_name: typing.Optional[builtins.str] = None,
     status: typing.Optional[KeySigningKeyStatus] = None,
 ) -> None:
@@ -18950,7 +18938,7 @@ def _typecheckingstub__1a1262fd4a880b25e9ef115da3b6b790a7b24acf9d121372595ab3087
 def _typecheckingstub__3e92b54737c8cb2969b649108716a37fd8e380a8e41cfefef3229c1d92acdf40(
     *,
     hosted_zone: IHostedZone,
-    kms_key: _IKey_5f11635f,
+    kms_key: _aws_kms_ff87d74a.IKey,
     key_signing_key_name: typing.Optional[builtins.str] = None,
     status: typing.Optional[KeySigningKeyStatus] = None,
 ) -> None:
@@ -18979,7 +18967,7 @@ def _typecheckingstub__3dc8529d9382b27a0613e5ea30e125e3af07550dc23754412bd1f9936
     add_trailing_dot: typing.Optional[builtins.bool] = None,
     comment: typing.Optional[builtins.str] = None,
     query_logs_log_group_arn: typing.Optional[builtins.str] = None,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19000,7 +18988,7 @@ def _typecheckingstub__b51e553dd18a8a033ac24f091492db4b2bc8c672421ced82613174be3
     query_logs_log_group_arn: typing.Optional[builtins.str] = None,
     accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
     caa_amazon: typing.Optional[builtins.bool] = None,
-    cross_account_zone_delegation_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
+    cross_account_zone_delegation_principal: typing.Optional[_aws_iam_1f54b5e8.IPrincipal] = None,
     cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19023,7 +19011,7 @@ def _typecheckingstub__b92f4bc0484ad6fe8cce3c7e37b4ee3cd051b8f325d16efd23f924767
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19042,7 +19030,7 @@ def _typecheckingstub__c44f39638a001e90bc1175667e4764c4cbde27cade202d52a4f4d8724
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19061,7 +19049,7 @@ def _typecheckingstub__038200686c47ef30f81bc5289a6235e766372281295129670053b793d
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     record_type: RecordType,
     target: RecordTarget,
@@ -19110,7 +19098,7 @@ def _typecheckingstub__d52a70fbe22ca5e13acce72254719ea0dd37b436de0640b65774aadd9
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19129,7 +19117,7 @@ def _typecheckingstub__803828161f541995c058596dab53102f2eccd14ba565bbe715a5ac293
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[typing.Union[SrvRecordValue, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
@@ -19162,7 +19150,7 @@ def _typecheckingstub__9061fb94be4da039b0429a165062a427f90914b268a3f15ef9424a458
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19181,7 +19169,7 @@ def _typecheckingstub__1f178a06653341a87070700e1fbb7000faa1c8b33ac5fae5287b9cf8e
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[SvcbRecordValue],
 ) -> None:
@@ -19224,7 +19212,7 @@ def _typecheckingstub__df1e0c1447d860a09246a7ec54507ca123346e57365df024460258839
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19243,7 +19231,7 @@ def _typecheckingstub__1925dd23d881cbbf99625b9a5fe0ef65b92a92359376c46e49b6690f1
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -19255,7 +19243,7 @@ def _typecheckingstub__e0f1e0787b803b3e6b7bc1893af9e2bd854989d8ecc1ee95b572a359f
     id: builtins.str,
     *,
     domain_name: builtins.str,
-    endpoint_service: _IVPCEndpointServiceRef_90edcb87,
+    endpoint_service: _aws_ec2_18162e09.IVPCEndpointServiceRef,
     public_hosted_zone: IPublicHostedZone,
 ) -> None:
     """Type checking stubs"""
@@ -19270,7 +19258,7 @@ def _typecheckingstub__cb8d9c4cf0d124563d17362021e80fc8fa146791616e752bd4a8ccb6d
 def _typecheckingstub__6355fbcde34ee994597b3b647c64b65eb32833843e3bc72c5479e8a6ad7fb623(
     *,
     domain_name: builtins.str,
-    endpoint_service: _IVPCEndpointServiceRef_90edcb87,
+    endpoint_service: _aws_ec2_18162e09.IVPCEndpointServiceRef,
     public_hosted_zone: IPublicHostedZone,
 ) -> None:
     """Type checking stubs"""
@@ -19279,7 +19267,7 @@ def _typecheckingstub__6355fbcde34ee994597b3b647c64b65eb32833843e3bc72c5479e8a6a
 def _typecheckingstub__0efd84c1e481104af0fc88e047ca0cffa51a834020eec2f9c9cfee5df2642f84(
     *,
     comment: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19300,7 +19288,7 @@ def _typecheckingstub__1f8360676c13e2167bb58d36e1b6384ba70f036979aa9c80cac046e12
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19319,7 +19307,7 @@ def _typecheckingstub__240a965753acb9488d02c120074027364f5e85a8ec585205a863174fe
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     name_servers: typing.Sequence[builtins.str],
 ) -> None:
@@ -19328,7 +19316,7 @@ def _typecheckingstub__240a965753acb9488d02c120074027364f5e85a8ec585205a863174fe
 
 def _typecheckingstub__c024f1ad9949a250bc85eb88751e2c625dd1a6679c33a35a4add759a0404b95c(
     *,
-    kms_key: _IKey_5f11635f,
+    kms_key: _aws_kms_ff87d74a.IKey,
     key_signing_key_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19350,7 +19338,7 @@ def _typecheckingstub__ca2e60ba6b2baeeff2cc875c86af94b4b26d6f11c1cfcca09280ac533
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19372,7 +19360,7 @@ def _typecheckingstub__c76ad72e64542d58d5e33c28ccaca560dac09b21c920d094b7a0c2386
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19391,7 +19379,7 @@ def _typecheckingstub__514d7eccc21be019febe80e121fd7d979162668b63cb99051c629ef08
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     target_dns: builtins.str,
 ) -> None:
@@ -19411,7 +19399,7 @@ def _typecheckingstub__a73a5c86411a0d853fcfad820ed58f5a5c19df65a7b2756560958db5c
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     target: RecordTarget,
 ) -> None:
@@ -19434,7 +19422,7 @@ def _typecheckingstub__4d5345c027ebd51f32f58fdeb055904a5c4dd3f5523f55954f8a191ae
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19453,7 +19441,7 @@ def _typecheckingstub__c051ff70083b2ae68889d3f02be8344125acf64b4768d5f5df3298ba8
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     target: RecordTarget,
 ) -> None:
@@ -19473,7 +19461,7 @@ def _typecheckingstub__14055fdb7d9f4b55091295996ec92db8d73fa789a21fca2664da1242a
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19495,7 +19483,7 @@ def _typecheckingstub__3a2502cdc1fe021e837217ab0d96b9fa6ea450a68c089482935b695f7
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19514,7 +19502,7 @@ def _typecheckingstub__349a94b990ddb833b270dc692692a8b37187c6f17114e02514f44accf
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[typing.Union[CaaRecordValue, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
@@ -19537,7 +19525,7 @@ def _typecheckingstub__e8dfccd8504bb3c0a779b42a665f362282b1083fe52a95b450d1ac1eb
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19556,7 +19544,7 @@ def _typecheckingstub__43b5fc8ccb719e2580c804225e8258b57b1700a701203416558eb2d76
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     domain_name: builtins.str,
 ) -> None:
@@ -19579,7 +19567,7 @@ def _typecheckingstub__24205d1a44dcefb992b7bd9b6d91d8b6396f8498224c30876fe8a0673
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19598,7 +19586,7 @@ def _typecheckingstub__f86f16d9f2de8fe03cc1189a56a86c4888d20f69dc0f241aa21b50fdf
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -19622,7 +19610,7 @@ def _typecheckingstub__8c6121b8faf9b7a92fd3086c1c307dea83166bfd534ca84bbad1637d8
     measure_latency: typing.Optional[builtins.bool] = None,
     port: typing.Optional[jsii.Number] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    request_interval: typing.Optional[_Duration_4839e8c3] = None,
+    request_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     resource_path: typing.Optional[builtins.str] = None,
     routing_control: typing.Optional[builtins.str] = None,
     search_string: typing.Optional[builtins.str] = None,
@@ -19655,7 +19643,7 @@ def _typecheckingstub__ff083afb33933cff325e491e0f1834d5f30a115ee1b13b2886599061e
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19674,7 +19662,7 @@ def _typecheckingstub__1cf6861ea84fe14136ab579991edb5a69203a95df9329264fb29805dc
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     target: typing.Optional[RecordTarget] = None,
     values: typing.Optional[typing.Sequence[HttpsRecordValue]] = None,
@@ -19697,7 +19685,7 @@ def _typecheckingstub__979e830ad3373e7fc0d0343a2f25a869ffc9da95f9a63de3403250963
     pass
 
 def _typecheckingstub__97ae48bcbfd92ef96c96db6d1d972ddd9b889f01bba1ab2a3819d9faa9eb4a18(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *,
     delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -19720,7 +19708,7 @@ def _typecheckingstub__615153e942ef5cdcb0022d4565e0ec8b8c5554594bfe7221366ad5c83
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19739,7 +19727,7 @@ def _typecheckingstub__b259122626a3ba94eebff0b5f692944df4aa55dc550b7d113eec491e1
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[typing.Union[MxRecordValue, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
@@ -19762,7 +19750,7 @@ def _typecheckingstub__7f3bbcb4bd5bcd8978ae60eaac5ea2c6ab0bb8357a389e9b981e63291
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19781,7 +19769,7 @@ def _typecheckingstub__33cda5fac8572316158161da713e2ceea9d3f7f56b5ee9a2a25acf331
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -19803,7 +19791,7 @@ def _typecheckingstub__f189380057459afbeff6d38749625e3756c4572dec90f74ca7a400dcb
     record_name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     set_identifier: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19813,7 +19801,7 @@ def _typecheckingstub__1e5b9f9d7aa4bc16fced3cc22e63b14cbf590c498be223e588483a72f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    vpcs: typing.Optional[typing.Sequence[_IVpc_f30d5663]] = None,
+    vpcs: typing.Optional[typing.Sequence[_aws_ec2_09840e12.IVpc]] = None,
     zone_name: builtins.str,
     add_trailing_dot: typing.Optional[builtins.bool] = None,
     comment: typing.Optional[builtins.str] = None,
@@ -19852,13 +19840,13 @@ def _typecheckingstub__bdb223a28519af08e8a4de265a9236844a06052261acd92d02cc9634a
     pass
 
 def _typecheckingstub__5c63a3fccbc53f093c8e4d46a2848bf83b386d2ca5206e82ecd8ecd3d61a0ccb(
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8e256ece77d93011f031e05a119f03b248a4b68d267c298052b0cea131943ab5(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *,
     delegated_zone_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -19869,7 +19857,7 @@ def _typecheckingstub__b5513b0f840f5eafaeee3e3a9c7776204d075ee417c3cce2c38a14213
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     zone_name: builtins.str,
     add_trailing_dot: typing.Optional[builtins.bool] = None,
     comment: typing.Optional[builtins.str] = None,
@@ -19902,7 +19890,7 @@ def _typecheckingstub__6f67fd33cdf6043dd6c0a287fb380d5704e93c1d3a80eabf2da05bc36
     *,
     accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
     caa_amazon: typing.Optional[builtins.bool] = None,
-    cross_account_zone_delegation_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
+    cross_account_zone_delegation_principal: typing.Optional[_aws_iam_1f54b5e8.IPrincipal] = None,
     cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
     zone_name: builtins.str,
     add_trailing_dot: typing.Optional[builtins.bool] = None,
@@ -19934,13 +19922,13 @@ def _typecheckingstub__ca14815188563abe1058cb85558750303980b4542afbe253885064f9c
     delegate: IPublicHostedZone,
     *,
     comment: typing.Optional[builtins.str] = None,
-    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c3e8e9627c25114e462dc3af379684d0d3fba38262bae897187e8d8faa087102(
-    _vpc: _IVpc_f30d5663,
+    _vpc: _aws_ec2_09840e12.IVpc,
 ) -> None:
     """Type checking stubs"""
     pass

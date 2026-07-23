@@ -7,9 +7,10 @@ import io
 import logging
 import os
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -25,26 +26,117 @@ from bernstein.core.cost.preflight import CostBand, compute_band, format_band
 from bernstein.core.plan_loader import load_plan_from_yaml
 from bernstein.core.runtime_state import directory_size_bytes
 
+if TYPE_CHECKING:
+    from rich.console import Console
+
 logger = logging.getLogger(__name__)
+
+#: When this module was imported, which is when the CLI process started.
+#: Used to ignore merge-refusal journal entries left over from previous runs
+#: when surfacing refusals in the end-of-run summary.
+_CLI_RUN_EPOCH = time.time()
 
 # ---------------------------------------------------------------------------
 # Post-run summary helper
 # ---------------------------------------------------------------------------
 
 
+def _abort_if_default_branch_merge_target(workdir: Path) -> None:
+    """Abort before any agent spawns when merges would land on the default branch.
+
+    The spawner merge guard (``spawner_merge._run_merge_and_push``) refuses to
+    merge agent work onto the repository's protected default branch. When the
+    run starts with that branch checked out and the override env var unset,
+    every agent would do its work and then have it silently discarded at
+    merge time (gh-2756). Detect that state up front and abort with the
+    remedy instead.
+
+    Only wired into run modes that merge agent work back into the checked-out
+    branch; ``--dry-run`` and ``--plan-only`` never reach this check.
+
+    Args:
+        workdir: Repository root the run would merge agent work into.
+
+    Raises:
+        SystemExit: When the checked-out branch is a protected default branch
+            and ``BERNSTEIN_ALLOW_MERGE_TO_DEFAULT_BRANCH`` is not set.
+    """
+    from bernstein.core.agents.spawner_merge import (
+        ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH,
+        _allow_merge_to_default_branch,
+    )
+    from bernstein.core.git_ops import current_branch, protected_default_branches
+
+    branch = current_branch(workdir)
+    if branch is None:
+        # Detached HEAD or not a git repo: mirror the merge guard, which only
+        # refuses when a named protected branch is checked out.
+        return
+    if branch not in protected_default_branches(workdir):
+        return
+    if _allow_merge_to_default_branch():
+        return
+    console.print(
+        f"[bold red]Refusing to start:[/bold red] the checked-out branch {branch!r} is the "
+        "repository default branch, so every agent's work would be refused by the merge "
+        "guard and discarded instead of merged."
+    )
+    console.print(
+        "Fix: check out a working branch first (git checkout -b <branch>), or set "
+        f"{ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH}=1 to explicitly allow merging to the default branch."
+    )
+    raise SystemExit(1)
+
+
+def _surface_merge_refusals(workdir: Path, *, since_ts: float, console: Console) -> None:
+    """Print a loud warning for agent merges the merge guard refused this run.
+
+    The spawner merge guard refuses to land agent work on the repository's
+    protected default branch and records each refusal to
+    ``.sdd/runtime/refused_merges.jsonl``. Without this warning the refusal
+    is only visible in the spawner log, so the run ends looking clean while
+    the work was discarded (gh-2756).
+
+    Args:
+        workdir: Repository root of the run.
+        since_ts: Only refusals recorded at or after this timestamp are
+            shown, filtering out journal entries from previous runs.
+        console: Console to print the warning to.
+    """
+    from bernstein.core.agents.spawner_merge import ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH
+    from bernstein.core.quality.retrospective import read_merge_refusals
+
+    refusals = read_merge_refusals(workdir / ".sdd" / "runtime", since_ts=since_ts)
+    if not refusals:
+        return
+    branches = sorted({r.branch for r in refusals if r.branch})
+    branch_note = f" onto default branch {', '.join(repr(b) for b in branches)}" if branches else ""
+    console.print(
+        f"[bold red]Merge refused:[/bold red] agent work from {len(refusals)} session(s) was NOT "
+        f"merged{branch_note} and was discarded (details: .sdd/runtime/refused_merges.jsonl)."
+    )
+    console.print(
+        "Check out a working branch first (git checkout -b <branch>), or set "
+        f"{ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH}=1 and re-run."
+    )
+
+
 def _show_run_summary() -> None:
     """Fetch final status from the task server and render a summary.
 
-    Silently returns if the server is unreachable (e.g. already stopped).
+    Silently skips the status table when the server is unreachable (e.g.
+    already stopped). Merge refusals recorded during this run are surfaced
+    even then -- a run whose work was discarded must not end with a clean,
+    silent summary (gh-2756).
     """
     from bernstein.cli.helpers import server_get
 
-    data = server_get("/status")
-    if data is None:
-        return
     force_no_color = not sys.stdout.isatty()
     con = make_console(no_color=force_no_color)
-    render_run_summary_from_dict(data, console=con)
+    data = server_get("/status")
+    if data is not None:
+        render_run_summary_from_dict(data, console=con)
+    _surface_merge_refusals(Path.cwd(), since_ts=_CLI_RUN_EPOCH, console=con)
 
 
 def _drain_completed_backlog_files() -> None:
@@ -82,7 +174,9 @@ class RunCostEstimate:
     """Preflight cost estimate for a pending run.
 
     Attributes:
-        task_count: Number of tasks the run will spawn.
+        task_count: Number of tasks the run will spawn, or ``None`` when the
+            count is not yet known (inline goal that the manager agent plans
+            after startup). ``low_usd``/``high_usd`` are then per-task rates.
         model: Display label for the model (``"adapter/model"`` or model).
         low_usd: Legacy single-point low estimate (kept for back-compat).
         high_usd: Legacy single-point high estimate (kept for back-compat).
@@ -90,22 +184,29 @@ class RunCostEstimate:
             legacy callers can leave it unset.
     """
 
-    task_count: int
+    task_count: int | None
     model: str
     low_usd: float
     high_usd: float
     band: CostBand | None = None
 
 
-def _estimate_task_count(workdir: Path, plan_file: Path | None, goal: str | None) -> int:
-    """Estimate the number of tasks from plan file or backlog."""
+def _estimate_task_count(workdir: Path, plan_file: Path | None, goal: str | None) -> int | None:
+    """Count tasks from the plan file or the synced backlog.
+
+    Returns:
+        The task count when it is knowable (explicit plan file or non-empty
+        backlog), or ``None`` when planning has not happened yet (inline
+        goal, unreadable plan file, empty backlog). ``None`` means unknown;
+        callers must not substitute a made-up number for display.
+    """
     if plan_file is not None:
         try:
             return max(1, len(load_plan_from_yaml(plan_file)))
         except Exception:
-            return 5
+            return None
     if goal is not None:
-        return 5
+        return None
     count = 0
     for subdir in ("open", "issues"):
         backlog_dir = workdir / ".sdd" / "backlog" / subdir
@@ -113,7 +214,7 @@ def _estimate_task_count(workdir: Path, plan_file: Path | None, goal: str | None
             count += len(list(backlog_dir.glob("*.md")))
             count += len(list(backlog_dir.glob("*.yaml")))
             count += len(list(backlog_dir.glob("*.yml")))
-    return max(1, count)
+    return count if count > 0 else None
 
 
 def _resolve_model_and_cli(
@@ -207,6 +308,9 @@ def _estimate_run_preview(
         Cost estimate using the best available task count and model hint.
     """
     est_task_count = _estimate_task_count(workdir, plan_file, goal)
+    # Unknown count: compute a per-task rate (count of 1) but keep
+    # ``task_count=None`` so display code says "unknown" instead of a number.
+    billable_count = est_task_count if est_task_count is not None else 1
     est_model, est_cli, est_role = _resolve_model_and_cli(seed_file, model_override)
 
     if est_cli in _FREE_ADAPTERS:
@@ -221,12 +325,12 @@ def _estimate_run_preview(
             model=est_model,
         )
     else:
-        low_usd, high_usd = estimate_run_cost(est_task_count, est_model)
+        low_usd, high_usd = estimate_run_cost(billable_count, est_model)
         band = compute_band(
             role=est_role,
             adapter=est_cli,
             model=est_model,
-            task_count=est_task_count,
+            task_count=billable_count,
             metrics_dir=workdir / ".sdd" / "metrics",
         )
     display_model = f"{est_cli}/{est_model}" if est_cli != "claude" else est_model
@@ -270,19 +374,22 @@ def _emit_preflight_runtime_warnings(
     disk_usage_gb = directory_size_bytes(sdd_dir) / (1024**3)
     band = estimate.band
     if not quiet:
+        # Only print a count that came from the plan/backlog; when the count
+        # is unknown (planning happens after startup) say so explicitly
+        # instead of substituting a made-up number.
+        if estimate.task_count is not None:
+            basis = f"based on {estimate.task_count} task(s) at {estimate.model} pricing"
+        else:
+            basis = f"per task at {estimate.model} pricing, task count not yet planned"
         if band is not None:
             console.print(f"[bold yellow]{format_band(band)}[/bold yellow]")
             samples_note = (
                 f"{band.samples} historical sample(s)" if not band.cold_start else "no history yet - using heuristic"
             )
-            console.print(
-                f"[dim]based on {estimate.task_count} task(s) at {estimate.model} pricing, {samples_note}[/dim]"
-            )
+            console.print(f"[dim]{basis}, {samples_note}[/dim]")
         else:
             console.print(
-                "[bold yellow]Estimated cost:[/bold yellow] "
-                f"${estimate.low_usd:.2f}-${estimate.high_usd:.2f} "
-                f"based on {estimate.task_count} task(s) at {estimate.model} pricing"
+                f"[bold yellow]Estimated cost:[/bold yellow] ${estimate.low_usd:.2f}-${estimate.high_usd:.2f} {basis}"
             )
         if disk_usage_gb >= 1.0:
             console.print(
@@ -410,7 +517,19 @@ def _finalize_run_output(*, quiet: bool) -> None:
             # TTY but Textual not supported -- use Rich fallback (TUI-003)
             _try_fallback_display()
         else:
+            # Non-interactive output detaches from the run immediately, so a
+            # spawn refusal in the background orchestrator would never reach
+            # the terminal (gh-2744).  Wait briefly for the first spawn
+            # outcome and surface a refusal as a non-zero exit.
+            from bernstein.cli.run_bootstrap import _await_first_spawn_outcome
+
+            outcome, reason = _await_first_spawn_outcome()
             _show_run_summary()
+            if outcome == "refused":
+                console.print(f"[red]Run failed before any work started:[/red] {reason}")
+                console.print("Details: run 'bernstein status' or read .sdd/runtime/retrospective.md")
+                raise SystemExit(1)
+            console.print("Run continues in the background (check: bernstein status).")
     finally:
         _drain_completed_backlog_files()
 

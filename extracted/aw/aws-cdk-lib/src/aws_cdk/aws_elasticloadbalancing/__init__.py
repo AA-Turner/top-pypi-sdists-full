@@ -63,6 +63,8 @@ instance = ec2.Instance(self, "targetInstance",
 lb.add_target(elb.InstanceTarget(instance))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -76,61 +78,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    Instance as _Instance_873cd165,
-    Port as _Port_85922693,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..interfaces.aws_ec2 import (
-    IInstanceRef as _IInstanceRef_b97803cb,
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-)
-from ..interfaces.aws_elasticloadbalancing import (
-    ILoadBalancerRef as _ILoadBalancerRef_6a68b4e1,
-    LoadBalancerReference as _LoadBalancerReference_35a92ab4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_elasticloadbalancing as _aws_elasticloadbalancing_5429ab1f
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_elasticloadbalancing_5429ab1f = _LazyImport("aws_cdk.interfaces.aws_elasticloadbalancing")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoadBalancerRef_6a68b4e1, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLoadBalancer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancing.CfnLoadBalancer",
 ):
@@ -224,22 +205,22 @@ class CfnLoadBalancer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        listeners: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ListenersProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        access_logging_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        app_cookie_stickiness_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.AppCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listeners: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ListenersProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        access_logging_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        app_cookie_stickiness_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.AppCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        connection_draining_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ConnectionDrainingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        connection_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ConnectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cross_zone: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        health_check: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.HealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IInstanceRef_b97803cb"]]] = None,
-        lb_cookie_stickiness_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.LBCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        connection_draining_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ConnectionDrainingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ConnectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_zone: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        health_check: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.HealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.IInstanceRef"]]] = None,
+        lb_cookie_stickiness_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.LBCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scheme: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancing::LoadBalancer``.
 
@@ -263,7 +244,7 @@ class CfnLoadBalancer(
         :param tags: The tags associated with a load balancer.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad4de01fae3e412612aab1283fdbc2d6f0e2fef6e20c971f887b72cbc2aa56a5)
+            type_hints = cached_type_hints(_typecheckingstub__ad4de01fae3e412612aab1283fdbc2d6f0e2fef6e20c971f887b72cbc2aa56a5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoadBalancerProps(
@@ -291,13 +272,13 @@ class CfnLoadBalancer(
     @builtins.classmethod
     def arn_for_load_balancer(
         cls,
-        resource: "_ILoadBalancerRef_6a68b4e1",
+        resource: "_aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e4ffef71ca18dfe3f31e74c55f93919aa7ffb9c2dfe24d92f6327824bc990da)
+            type_hints = cached_type_hints(_typecheckingstub__2e4ffef71ca18dfe3f31e74c55f93919aa7ffb9c2dfe24d92f6327824bc990da)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLoadBalancer", [resource]))
 
@@ -308,7 +289,7 @@ class CfnLoadBalancer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         load_balancer_name: builtins.str,
-    ) -> "_ILoadBalancerRef_6a68b4e1":
+    ) -> "_aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef":
         '''Creates a new ILoadBalancerRef from a loadBalancerName.
 
         :param scope: -
@@ -316,11 +297,11 @@ class CfnLoadBalancer(
         :param load_balancer_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b47e42384987eb10f5691f58706f7fea48e923c6e0765a426e20613c90069ce)
+            type_hints = cached_type_hints(_typecheckingstub__1b47e42384987eb10f5691f58706f7fea48e923c6e0765a426e20613c90069ce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument load_balancer_name", value=load_balancer_name, expected_type=type_hints["load_balancer_name"])
-        return typing.cast("_ILoadBalancerRef_6a68b4e1", jsii.sinvoke(cls, "fromLoadBalancerName", [scope, id, load_balancer_name]))
+        return typing.cast("_aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef", jsii.sinvoke(cls, "fromLoadBalancerName", [scope, id, load_balancer_name]))
 
     @jsii.member(jsii_name="isCfnLoadBalancer")
     @builtins.classmethod
@@ -330,18 +311,18 @@ class CfnLoadBalancer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8992f89439e67ec9ffadbd70334665686a9a72dca924c6c068a9f48e67f272f6)
+            type_hints = cached_type_hints(_typecheckingstub__8992f89439e67ec9ffadbd70334665686a9a72dca924c6c068a9f48e67f272f6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoadBalancer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8133f29413c7302d280be039986297bc6b736b470d4c0055db5f3001ba8db52f)
+            type_hints = cached_type_hints(_typecheckingstub__8133f29413c7302d280be039986297bc6b736b470d4c0055db5f3001ba8db52f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -354,7 +335,7 @@ class CfnLoadBalancer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd678379ff632d77b1f5d6c3650c598b12800c6258e887f75c42e9f832f209ff)
+            type_hints = cached_type_hints(_typecheckingstub__dd678379ff632d77b1f5d6c3650c598b12800c6258e887f75c42e9f832f209ff)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -395,11 +376,11 @@ class CfnLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="attrSourceSecurityGroup")
-    def attr_source_security_group(self) -> "_IResolvable_da3f097b":
+    def attr_source_security_group(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: SourceSecurityGroup
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrSourceSecurityGroup"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSourceSecurityGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSourceSecurityGroupGroupName")
@@ -431,34 +412,36 @@ class CfnLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerRef")
-    def load_balancer_ref(self) -> "_LoadBalancerReference_35a92ab4":
+    def load_balancer_ref(
+        self,
+    ) -> "_aws_elasticloadbalancing_5429ab1f.LoadBalancerReference":
         '''A reference to a LoadBalancer resource.'''
-        return typing.cast("_LoadBalancerReference_35a92ab4", jsii.get(self, "loadBalancerRef"))
+        return typing.cast("_aws_elasticloadbalancing_5429ab1f.LoadBalancerReference", jsii.get(self, "loadBalancerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="listeners")
     def listeners(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ListenersProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ListenersProperty"]]]:
         '''The listeners for the load balancer.
 
         You can specify at most one listener per port.
         '''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ListenersProperty"]]], jsii.get(self, "listeners"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ListenersProperty"]]], jsii.get(self, "listeners"))
 
     @listeners.setter
     def listeners(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ListenersProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ListenersProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cefee25e8b0f537b45df423ca07c96d91dbcfe75c2132742bd7a3f70638442d)
+            type_hints = cached_type_hints(_typecheckingstub__9cefee25e8b0f537b45df423ca07c96d91dbcfe75c2132742bd7a3f70638442d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listeners", value) # pyright: ignore[reportArgumentType]
 
@@ -466,17 +449,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="accessLoggingPolicy")
     def access_logging_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AccessLoggingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AccessLoggingPolicyProperty"]]:
         '''Information about where and how access logs are stored for the load balancer.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AccessLoggingPolicyProperty"]], jsii.get(self, "accessLoggingPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AccessLoggingPolicyProperty"]], jsii.get(self, "accessLoggingPolicy"))
 
     @access_logging_policy.setter
     def access_logging_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AccessLoggingPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AccessLoggingPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579f5fb75f3c27c7c35e0a5d723f8b4185ae0f87bba97bbc8456daeccad2b9f5)
+            type_hints = cached_type_hints(_typecheckingstub__579f5fb75f3c27c7c35e0a5d723f8b4185ae0f87bba97bbc8456daeccad2b9f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessLoggingPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -484,17 +467,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="appCookieStickinessPolicy")
     def app_cookie_stickiness_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]]:
         '''Information about a policy for application-controlled session stickiness.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]], jsii.get(self, "appCookieStickinessPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]], jsii.get(self, "appCookieStickinessPolicy"))
 
     @app_cookie_stickiness_policy.setter
     def app_cookie_stickiness_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d25d1719b1837e71272b11e48b9a2282ed158041bf547f386ca9ff57a6f2f544)
+            type_hints = cached_type_hints(_typecheckingstub__d25d1719b1837e71272b11e48b9a2282ed158041bf547f386ca9ff57a6f2f544)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appCookieStickinessPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -510,7 +493,7 @@ class CfnLoadBalancer(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a0aba84c157cc0228d869869b28e711084d1cf53521406326ea6b4ed41f17c)
+            type_hints = cached_type_hints(_typecheckingstub__31a0aba84c157cc0228d869869b28e711084d1cf53521406326ea6b4ed41f17c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
 
@@ -518,17 +501,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="connectionDrainingPolicy")
     def connection_draining_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]]:
         '''If enabled, the load balancer allows existing requests to complete before the load balancer shifts traffic away from a deregistered or unhealthy instance.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]], jsii.get(self, "connectionDrainingPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]], jsii.get(self, "connectionDrainingPolicy"))
 
     @connection_draining_policy.setter
     def connection_draining_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4162385b337d4c3391277d3ea3db6febdb7c9f850c44302c78269706ec797914)
+            type_hints = cached_type_hints(_typecheckingstub__4162385b337d4c3391277d3ea3db6febdb7c9f850c44302c78269706ec797914)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionDrainingPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -536,17 +519,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="connectionSettings")
     def connection_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionSettingsProperty"]]:
         '''If enabled, the load balancer allows the connections to remain idle (no data is sent over the connection) for the specified duration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionSettingsProperty"]], jsii.get(self, "connectionSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionSettingsProperty"]], jsii.get(self, "connectionSettings"))
 
     @connection_settings.setter
     def connection_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b809a660f8de6748c507d7ecd7dc1ec1ab66537dceffe59ecbb3a5fa08c50b9)
+            type_hints = cached_type_hints(_typecheckingstub__7b809a660f8de6748c507d7ecd7dc1ec1ab66537dceffe59ecbb3a5fa08c50b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -554,17 +537,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="crossZone")
     def cross_zone(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If enabled, the load balancer routes the request traffic evenly across all instances regardless of the Availability Zones.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "crossZone"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "crossZone"))
 
     @cross_zone.setter
     def cross_zone(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac935f76538de96a96670264bb3481821b35d2b7de1c274f54d5ed13f09e4b37)
+            type_hints = cached_type_hints(_typecheckingstub__ac935f76538de96a96670264bb3481821b35d2b7de1c274f54d5ed13f09e4b37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "crossZone", value) # pyright: ignore[reportArgumentType]
 
@@ -572,17 +555,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="healthCheck")
     def health_check(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.HealthCheckProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.HealthCheckProperty"]]:
         '''The health check settings to use when evaluating the health of your EC2 instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.HealthCheckProperty"]], jsii.get(self, "healthCheck"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.HealthCheckProperty"]], jsii.get(self, "healthCheck"))
 
     @health_check.setter
     def health_check(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.HealthCheckProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.HealthCheckProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__162325f8340d091c52bfaa968a78fff804fb052111feb6ddf941dd55e301dac8)
+            type_hints = cached_type_hints(_typecheckingstub__162325f8340d091c52bfaa968a78fff804fb052111feb6ddf941dd55e301dac8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheck", value) # pyright: ignore[reportArgumentType]
 
@@ -595,7 +578,7 @@ class CfnLoadBalancer(
     @instances.setter
     def instances(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67037d7ceea6f67274d44b3bf6321259087ba9e5770321888a3e086f24616372)
+            type_hints = cached_type_hints(_typecheckingstub__67037d7ceea6f67274d44b3bf6321259087ba9e5770321888a3e086f24616372)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instances", value) # pyright: ignore[reportArgumentType]
 
@@ -603,17 +586,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="lbCookieStickinessPolicy")
     def lb_cookie_stickiness_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]]:
         '''Information about a policy for duration-based session stickiness.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]], jsii.get(self, "lbCookieStickinessPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]], jsii.get(self, "lbCookieStickinessPolicy"))
 
     @lb_cookie_stickiness_policy.setter
     def lb_cookie_stickiness_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c0a06792e2e236386216c72db832eccf650d8a051dcb1bf68c023c3edc22310)
+            type_hints = cached_type_hints(_typecheckingstub__6c0a06792e2e236386216c72db832eccf650d8a051dcb1bf68c023c3edc22310)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lbCookieStickinessPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -626,7 +609,7 @@ class CfnLoadBalancer(
     @load_balancer_name.setter
     def load_balancer_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aa1ce8e882b1acb9715161212b83a48dfa0aa3b16a374a07c0507b97d20c106)
+            type_hints = cached_type_hints(_typecheckingstub__9aa1ce8e882b1acb9715161212b83a48dfa0aa3b16a374a07c0507b97d20c106)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancerName", value) # pyright: ignore[reportArgumentType]
 
@@ -634,17 +617,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.PoliciesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.PoliciesProperty"]]]]:
         '''The policies defined for your Classic Load Balancer.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.PoliciesProperty"]]]], jsii.get(self, "policies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.PoliciesProperty"]]]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.PoliciesProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.PoliciesProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf9bad7c093afad2982476996683bee331e6e2c5e031041354df4f08f71786ff)
+            type_hints = cached_type_hints(_typecheckingstub__bf9bad7c093afad2982476996683bee331e6e2c5e031041354df4f08f71786ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
@@ -660,7 +643,7 @@ class CfnLoadBalancer(
     @scheme.setter
     def scheme(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d037ecf708c4100ee148c7c54234b7f2d0f604bc7074f26d624ea4cfdc3919da)
+            type_hints = cached_type_hints(_typecheckingstub__d037ecf708c4100ee148c7c54234b7f2d0f604bc7074f26d624ea4cfdc3919da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheme", value) # pyright: ignore[reportArgumentType]
 
@@ -676,7 +659,7 @@ class CfnLoadBalancer(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8d8135978f5262cee30861151cd751ef53e7800cebc4a854a0b24eab591a155)
+            type_hints = cached_type_hints(_typecheckingstub__b8d8135978f5262cee30861151cd751ef53e7800cebc4a854a0b24eab591a155)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -692,20 +675,23 @@ class CfnLoadBalancer(
     @subnets.setter
     def subnets(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15492a4993f2ff5599338b08353c1b13581ea7713ffa3cee11ac0c9ebb8e408d)
+            type_hints = cached_type_hints(_typecheckingstub__15492a4993f2ff5599338b08353c1b13581ea7713ffa3cee11ac0c9ebb8e408d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with a load balancer.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cabc87ef2c07843253cef27fbe61546f3a063e65468df0fe2a5261255590139)
+            type_hints = cached_type_hints(_typecheckingstub__1cabc87ef2c07843253cef27fbe61546f3a063e65468df0fe2a5261255590139)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -723,7 +709,7 @@ class CfnLoadBalancer(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             s3_bucket_name: builtins.str,
             emit_interval: typing.Optional[jsii.Number] = None,
             s3_bucket_prefix: typing.Optional[builtins.str] = None,
@@ -754,7 +740,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c0ae2a56a834b7ec5f37d2f880c2d4517d58dabef6b97c47eb5eef7fa01fa2a)
+                type_hints = cached_type_hints(_typecheckingstub__8c0ae2a56a834b7ec5f37d2f880c2d4517d58dabef6b97c47eb5eef7fa01fa2a)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
                 check_type(argname="argument emit_interval", value=emit_interval, expected_type=type_hints["emit_interval"])
@@ -769,14 +755,16 @@ class CfnLoadBalancer(
                 self._values["s3_bucket_prefix"] = s3_bucket_prefix
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether access logs are enabled for the load balancer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-accessloggingpolicy.html#cfn-elasticloadbalancing-loadbalancer-accessloggingpolicy-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def s3_bucket_name(self) -> builtins.str:
@@ -855,7 +843,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1cc93e291ca227296bacaabcbe7e94faba7f69426a109a23d2b043402c0d0d26)
+                type_hints = cached_type_hints(_typecheckingstub__1cc93e291ca227296bacaabcbe7e94faba7f69426a109a23d2b043402c0d0d26)
                 check_type(argname="argument cookie_name", value=cookie_name, expected_type=type_hints["cookie_name"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -905,7 +893,7 @@ class CfnLoadBalancer(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Specifies the connection draining settings for your Classic Load Balancer.
@@ -930,7 +918,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__09658eb08b9fc61e7566bdbf6ab86ba2d5d718252d1abcdc6e9e5f2d863e9f7c)
+                type_hints = cached_type_hints(_typecheckingstub__09658eb08b9fc61e7566bdbf6ab86ba2d5d718252d1abcdc6e9e5f2d863e9f7c)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -940,14 +928,16 @@ class CfnLoadBalancer(
                 self._values["timeout"] = timeout
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether connection draining is enabled for the load balancer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-connectiondrainingpolicy.html#cfn-elasticloadbalancing-loadbalancer-connectiondrainingpolicy-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def timeout(self) -> typing.Optional[jsii.Number]:
@@ -994,7 +984,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__06c1cad9006d384ecb667637b966104c1b05a4b3c7508305da47a6ac6679cc93)
+                type_hints = cached_type_hints(_typecheckingstub__06c1cad9006d384ecb667637b966104c1b05a4b3c7508305da47a6ac6679cc93)
                 check_type(argname="argument idle_timeout", value=idle_timeout, expected_type=type_hints["idle_timeout"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "idle_timeout": idle_timeout,
@@ -1068,7 +1058,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6fc1d998584db746556a780393d46d2bae53a48aa0f580715c7504731dac17a3)
+                type_hints = cached_type_hints(_typecheckingstub__6fc1d998584db746556a780393d46d2bae53a48aa0f580715c7504731dac17a3)
                 check_type(argname="argument healthy_threshold", value=healthy_threshold, expected_type=type_hints["healthy_threshold"])
                 check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
                 check_type(argname="argument target", value=target, expected_type=type_hints["target"])
@@ -1192,7 +1182,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7715f7747dfdc0305257ba51c6caafbd17eef429286a65a3bbfae99c1bf82b0c)
+                type_hints = cached_type_hints(_typecheckingstub__7715f7747dfdc0305257ba51c6caafbd17eef429286a65a3bbfae99c1bf82b0c)
                 check_type(argname="argument cookie_expiration_period", value=cookie_expiration_period, expected_type=type_hints["cookie_expiration_period"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1289,7 +1279,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__329dcc7872c3c234a04dab4ddfe96c30001127cb845544578392e10583031441)
+                type_hints = cached_type_hints(_typecheckingstub__329dcc7872c3c234a04dab4ddfe96c30001127cb845544578392e10583031441)
                 check_type(argname="argument instance_port", value=instance_port, expected_type=type_hints["instance_port"])
                 check_type(argname="argument load_balancer_port", value=load_balancer_port, expected_type=type_hints["load_balancer_port"])
                 check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
@@ -1399,7 +1389,7 @@ class CfnLoadBalancer(
         def __init__(
             self,
             *,
-            attributes: typing.Union[typing.Sequence[typing.Any], "_IResolvable_da3f097b"],
+            attributes: typing.Union[typing.Sequence[typing.Any], "_aws_cdk_0cae9daa.IResolvable"],
             policy_name: builtins.str,
             policy_type: builtins.str,
             instance_ports: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1437,7 +1427,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__59a10349817ed5e601360f9aae1ffe6f0222e05d576372a8f753e036242c5d32)
+                type_hints = cached_type_hints(_typecheckingstub__59a10349817ed5e601360f9aae1ffe6f0222e05d576372a8f753e036242c5d32)
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
                 check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
@@ -1456,14 +1446,14 @@ class CfnLoadBalancer(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Union[typing.List[typing.Any], "_IResolvable_da3f097b"]:
+        ) -> typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]:
             '''The policy attributes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-policies.html#cfn-elasticloadbalancing-loadbalancer-policies-attributes
             '''
             result = self._values.get("attributes")
             assert result is not None, "Required property 'attributes' is missing"
-            return typing.cast(typing.Union[typing.List[typing.Any], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def policy_name(self) -> builtins.str:
@@ -1549,7 +1539,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__554b6b96c2695ba9d0e34f7f15cdf8493cb5a64c36750aeeedab3b028b3eb5c6)
+                type_hints = cached_type_hints(_typecheckingstub__554b6b96c2695ba9d0e34f7f15cdf8493cb5a64c36750aeeedab3b028b3eb5c6)
                 check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
                 check_type(argname="argument owner_alias", value=owner_alias, expected_type=type_hints["owner_alias"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1614,22 +1604,22 @@ class CfnLoadBalancerProps:
     def __init__(
         self,
         *,
-        listeners: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ListenersProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        access_logging_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        app_cookie_stickiness_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.AppCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listeners: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ListenersProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        access_logging_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        app_cookie_stickiness_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.AppCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        connection_draining_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ConnectionDrainingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        connection_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.ConnectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cross_zone: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        health_check: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.HealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IInstanceRef_b97803cb"]]] = None,
-        lb_cookie_stickiness_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.LBCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        connection_draining_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ConnectionDrainingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.ConnectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_zone: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        health_check: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.HealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.IInstanceRef"]]] = None,
+        lb_cookie_stickiness_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.LBCookieStickinessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scheme: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLoadBalancer``.
 
@@ -1730,7 +1720,7 @@ class CfnLoadBalancerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd1da7c70c0e221c24372bbc8f77dcf3db6604c10128921e49a0b9b14fb05992)
+            type_hints = cached_type_hints(_typecheckingstub__bd1da7c70c0e221c24372bbc8f77dcf3db6604c10128921e49a0b9b14fb05992)
             check_type(argname="argument listeners", value=listeners, expected_type=type_hints["listeners"])
             check_type(argname="argument access_logging_policy", value=access_logging_policy, expected_type=type_hints["access_logging_policy"])
             check_type(argname="argument app_cookie_stickiness_policy", value=app_cookie_stickiness_policy, expected_type=type_hints["app_cookie_stickiness_policy"])
@@ -1784,7 +1774,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def listeners(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ListenersProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ListenersProperty"]]]:
         '''The listeners for the load balancer. You can specify at most one listener per port.
 
         If you update the properties for a listener, AWS CloudFormation deletes the existing listener and creates a new one with the specified properties. While the new listener is being created, clients cannot connect to the load balancer.
@@ -1793,29 +1783,29 @@ class CfnLoadBalancerProps:
         '''
         result = self._values.get("listeners")
         assert result is not None, "Required property 'listeners' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ListenersProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ListenersProperty"]]], result)
 
     @builtins.property
     def access_logging_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AccessLoggingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AccessLoggingPolicyProperty"]]:
         '''Information about where and how access logs are stored for the load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-accessloggingpolicy
         '''
         result = self._values.get("access_logging_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AccessLoggingPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AccessLoggingPolicyProperty"]], result)
 
     @builtins.property
     def app_cookie_stickiness_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]]:
         '''Information about a policy for application-controlled session stickiness.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-appcookiestickinesspolicy
         '''
         result = self._values.get("app_cookie_stickiness_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.AppCookieStickinessPolicyProperty"]]]], result)
 
     @builtins.property
     def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1833,7 +1823,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def connection_draining_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]]:
         '''If enabled, the load balancer allows existing requests to complete before the load balancer shifts traffic away from a deregistered or unhealthy instance.
 
         For more information, see `Configure connection draining <https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/config-conn-drain.html>`_ in the *User Guide for Classic Load Balancers* .
@@ -1841,12 +1831,12 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-connectiondrainingpolicy
         '''
         result = self._values.get("connection_draining_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionDrainingPolicyProperty"]], result)
 
     @builtins.property
     def connection_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionSettingsProperty"]]:
         '''If enabled, the load balancer allows the connections to remain idle (no data is sent over the connection) for the specified duration.
 
         By default, Elastic Load Balancing maintains a 60-second idle connection timeout for both front-end and back-end connections of your load balancer. For more information, see `Configure idle connection timeout <https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/config-idle-timeout.html>`_ in the *User Guide for Classic Load Balancers* .
@@ -1854,12 +1844,12 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-connectionsettings
         '''
         result = self._values.get("connection_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.ConnectionSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.ConnectionSettingsProperty"]], result)
 
     @builtins.property
     def cross_zone(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If enabled, the load balancer routes the request traffic evenly across all instances regardless of the Availability Zones.
 
         For more information, see `Configure cross-zone load balancing <https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-disable-crosszone-lb.html>`_ in the *User Guide for Classic Load Balancers* .
@@ -1867,12 +1857,12 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-crosszone
         '''
         result = self._values.get("cross_zone")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def health_check(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.HealthCheckProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.HealthCheckProperty"]]:
         '''The health check settings to use when evaluating the health of your EC2 instances.
 
         Update requires replacement if you did not previously specify health check settings or if you are removing the health check settings. Otherwise, update requires no interruption.
@@ -1880,29 +1870,29 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-healthcheck
         '''
         result = self._values.get("health_check")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.HealthCheckProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.HealthCheckProperty"]], result)
 
     @builtins.property
     def instances(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IInstanceRef_b97803cb"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.IInstanceRef"]]]:
         '''The IDs of the instances for the load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-instances
         '''
         result = self._values.get("instances")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IInstanceRef_b97803cb"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.IInstanceRef"]]], result)
 
     @builtins.property
     def lb_cookie_stickiness_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]]:
         '''Information about a policy for duration-based session stickiness.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-lbcookiestickinesspolicy
         '''
         result = self._values.get("lb_cookie_stickiness_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LBCookieStickinessPolicyProperty"]]]], result)
 
     @builtins.property
     def load_balancer_name(self) -> typing.Optional[builtins.str]:
@@ -1920,7 +1910,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.PoliciesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.PoliciesProperty"]]]]:
         '''The policies defined for your Classic Load Balancer.
 
         Specify only back-end server policies.
@@ -1928,7 +1918,7 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.PoliciesProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.PoliciesProperty"]]]], result)
 
     @builtins.property
     def scheme(self) -> typing.Optional[builtins.str]:
@@ -1946,7 +1936,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''The security groups for the load balancer.
 
         Valid only for load balancers in a VPC.
@@ -1954,12 +1944,12 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-securitygroups
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
     def subnets(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]]:
         '''The IDs of the subnets for the load balancer. You can specify at most one subnet per Availability Zone.
 
         Update requires replacement if you did not previously specify a subnet or if you are removing all subnets. Otherwise, update requires no interruption. To update to a different subnet in the current Availability Zone, you must first update to a subnet in a different Availability Zone, then update to the new subnet in the original Availability Zone.
@@ -1967,16 +1957,16 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-subnets
         '''
         result = self._values.get("subnets")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with a load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancing-loadbalancer.html#cfn-elasticloadbalancing-loadbalancer-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2009,10 +1999,10 @@ class HealthCheck:
         *,
         port: jsii.Number,
         healthy_threshold: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         protocol: typing.Optional["LoadBalancingProtocol"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Describe the health check to a load balancer.
@@ -2046,7 +2036,7 @@ class HealthCheck:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e4c5b087f17037974778148d8c7d009c46a86a5a5b5e7f201d337d6e7cd2330)
+            type_hints = cached_type_hints(_typecheckingstub__0e4c5b087f17037974778148d8c7d009c46a86a5a5b5e7f201d337d6e7cd2330)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument healthy_threshold", value=healthy_threshold, expected_type=type_hints["healthy_threshold"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
@@ -2087,13 +2077,13 @@ class HealthCheck:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Number of seconds between health checks.
 
         :default: Duration.seconds(30)
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -2119,13 +2109,13 @@ class HealthCheck:
         return typing.cast(typing.Optional["LoadBalancingProtocol"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Health check timeout.
 
         :default: Duration.seconds(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
@@ -2150,8 +2140,8 @@ class HealthCheck:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancing.ILoadBalancer")
 class ILoadBalancer(
-    _IResource_c80c4260,
-    _ILoadBalancerRef_6a68b4e1,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef,
     typing_extensions.Protocol,
 ):
     '''Represents a load balancer.'''
@@ -2160,8 +2150,8 @@ class ILoadBalancer(
 
 
 class _ILoadBalancerProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ILoadBalancerRef_6a68b4e1), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef), # type: ignore[misc]
 ):
     '''Represents a load balancer.'''
 
@@ -2173,7 +2163,7 @@ typing.cast(typing.Any, ILoadBalancer).__jsii_proxy_class__ = lambda : _ILoadBal
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancing.ILoadBalancerTarget")
-class ILoadBalancerTarget(_IConnectable_10015a05, typing_extensions.Protocol):
+class ILoadBalancerTarget(_aws_ec2_09840e12.IConnectable, typing_extensions.Protocol):
     '''Interface that is going to be implemented by constructs that you can load balance to.'''
 
     @jsii.member(jsii_name="attachToClassicLB")
@@ -2186,7 +2176,7 @@ class ILoadBalancerTarget(_IConnectable_10015a05, typing_extensions.Protocol):
 
 
 class _ILoadBalancerTargetProxy(
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
 ):
     '''Interface that is going to be implemented by constructs that you can load balance to.'''
 
@@ -2199,7 +2189,7 @@ class _ILoadBalancerTargetProxy(
         :param load_balancer: [disable-awslint:ref-via-interface] The load balancer to attach the target to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69a6e853f4b44cfab0f3551fc4a1768d63cf4c0f9507e2405576054b2f509faa)
+            type_hints = cached_type_hints(_typecheckingstub__69a6e853f4b44cfab0f3551fc4a1768d63cf4c0f9507e2405576054b2f509faa)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         return typing.cast(None, jsii.invoke(self, "attachToClassicLB", [load_balancer]))
 
@@ -2234,13 +2224,13 @@ class InstanceTarget(
         lb.add_target(elb.InstanceTarget(instance))
     '''
 
-    def __init__(self, instance: "_Instance_873cd165") -> None:
+    def __init__(self, instance: "_aws_ec2_09840e12.Instance") -> None:
         '''Create a new Instance target.
 
         :param instance: Instance to register to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aeba2da3542e7a8cc64f921efbced63d98397a5c28f02e5d463f15fa60797a99)
+            type_hints = cached_type_hints(_typecheckingstub__aeba2da3542e7a8cc64f921efbced63d98397a5c28f02e5d463f15fa60797a99)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         jsii.create(self.__class__, self, [instance])
 
@@ -2251,24 +2241,24 @@ class InstanceTarget(
         :param load_balancer: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4601f45c650056cb94971a37922d1f5f9f298d7dd8061cdcd87049553cc54446)
+            type_hints = cached_type_hints(_typecheckingstub__4601f45c650056cb94971a37922d1f5f9f298d7dd8061cdcd87049553cc54446)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         return typing.cast(None, jsii.invoke(self, "attachToClassicLB", [load_balancer]))
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The network connections associated with this resource.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="instance")
-    def instance(self) -> "_Instance_873cd165":
+    def instance(self) -> "_aws_ec2_09840e12.Instance":
         '''Instance to register to.'''
-        return typing.cast("_Instance_873cd165", jsii.get(self, "instance"))
+        return typing.cast("_aws_ec2_09840e12.Instance", jsii.get(self, "instance"))
 
 
-@jsii.implements(_IConnectable_10015a05)
+@jsii.implements(_aws_ec2_09840e12.IConnectable)
 class ListenerPort(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancing.ListenerPort",
@@ -2302,29 +2292,29 @@ class ListenerPort(
 
     def __init__(
         self,
-        security_group: "_ISecurityGroup_acf8a799",
-        default_port: "_Port_85922693",
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
+        default_port: "_aws_ec2_09840e12.Port",
     ) -> None:
         '''
         :param security_group: -
         :param default_port: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3e9ae407abdb5bc7f30a3702a86f2d04933d7e60bb62575b6aa50fb86464402)
+            type_hints = cached_type_hints(_typecheckingstub__d3e9ae407abdb5bc7f30a3702a86f2d04933d7e60bb62575b6aa50fb86464402)
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
             check_type(argname="argument default_port", value=default_port, expected_type=type_hints["default_port"])
         jsii.create(self.__class__, self, [security_group, default_port])
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The network connections associated with this resource.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
 
-@jsii.implements(ILoadBalancer, _IConnectable_10015a05)
+@jsii.implements(ILoadBalancer, _aws_ec2_09840e12.IConnectable)
 class LoadBalancer(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancing.LoadBalancer",
 ):
@@ -2355,13 +2345,13 @@ class LoadBalancer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         access_logging_policy: typing.Optional[typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         cross_zone: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         listeners: typing.Optional[typing.Sequence[typing.Union["LoadBalancerListener", typing.Dict[builtins.str, typing.Any]]]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         targets: typing.Optional[typing.Sequence["ILoadBalancerTarget"]] = None,
     ) -> None:
         '''
@@ -2377,7 +2367,7 @@ class LoadBalancer(
         :param targets: What targets to load balance to. Can also be added by .addTarget() Default: - None.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3850a95b1999c6a13d0eecf56fd2972cafc65d6d20709f487fae3828c1b8f1b)
+            type_hints = cached_type_hints(_typecheckingstub__a3850a95b1999c6a13d0eecf56fd2972cafc65d6d20709f487fae3828c1b8f1b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LoadBalancerProps(
@@ -2398,7 +2388,7 @@ class LoadBalancer(
         self,
         *,
         external_port: jsii.Number,
-        allow_connections_from: typing.Optional[typing.Sequence["_IConnectable_10015a05"]] = None,
+        allow_connections_from: typing.Optional[typing.Sequence["_aws_ec2_09840e12.IConnectable"]] = None,
         external_protocol: typing.Optional["LoadBalancingProtocol"] = None,
         internal_port: typing.Optional[jsii.Number] = None,
         internal_protocol: typing.Optional["LoadBalancingProtocol"] = None,
@@ -2435,7 +2425,7 @@ class LoadBalancer(
         :param target: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1d67c68cfa70267fbd849b411bf36e8df3c94f47171b0d1d53104e7627f3246)
+            type_hints = cached_type_hints(_typecheckingstub__e1d67c68cfa70267fbd849b411bf36e8df3c94f47171b0d1d53104e7627f3246)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast(None, jsii.invoke(self, "addTarget", [target]))
 
@@ -2447,9 +2437,9 @@ class LoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Control all connections from and to this load balancer.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="listenerPorts")
@@ -2491,9 +2481,11 @@ class LoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerRef")
-    def load_balancer_ref(self) -> "_LoadBalancerReference_35a92ab4":
+    def load_balancer_ref(
+        self,
+    ) -> "_aws_elasticloadbalancing_5429ab1f.LoadBalancerReference":
         '''A reference to this LoadBalancer resource.'''
-        return typing.cast("_LoadBalancerReference_35a92ab4", jsii.get(self, "loadBalancerRef"))
+        return typing.cast("_aws_elasticloadbalancing_5429ab1f.LoadBalancerReference", jsii.get(self, "loadBalancerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerSourceSecurityGroupGroupName")
@@ -2530,7 +2522,7 @@ class LoadBalancerListener:
         self,
         *,
         external_port: jsii.Number,
-        allow_connections_from: typing.Optional[typing.Sequence["_IConnectable_10015a05"]] = None,
+        allow_connections_from: typing.Optional[typing.Sequence["_aws_ec2_09840e12.IConnectable"]] = None,
         external_protocol: typing.Optional["LoadBalancingProtocol"] = None,
         internal_port: typing.Optional[jsii.Number] = None,
         internal_protocol: typing.Optional["LoadBalancingProtocol"] = None,
@@ -2568,7 +2560,7 @@ class LoadBalancerListener:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__032bda43c0521b9f2651612692cc5dc0fadef6400d6be81e212a01044ef964c9)
+            type_hints = cached_type_hints(_typecheckingstub__032bda43c0521b9f2651612692cc5dc0fadef6400d6be81e212a01044ef964c9)
             check_type(argname="argument external_port", value=external_port, expected_type=type_hints["external_port"])
             check_type(argname="argument allow_connections_from", value=allow_connections_from, expected_type=type_hints["allow_connections_from"])
             check_type(argname="argument external_protocol", value=external_protocol, expected_type=type_hints["external_protocol"])
@@ -2602,7 +2594,7 @@ class LoadBalancerListener:
     @builtins.property
     def allow_connections_from(
         self,
-    ) -> typing.Optional[typing.List["_IConnectable_10015a05"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.IConnectable"]]:
         '''Allow connections to the load balancer from the given set of connection peers.
 
         By default, connections will be allowed from anywhere. Set this to an empty list
@@ -2612,7 +2604,7 @@ class LoadBalancerListener:
         :default: Anywhere
         '''
         result = self._values.get("allow_connections_from")
-        return typing.cast(typing.Optional[typing.List["_IConnectable_10015a05"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.IConnectable"]], result)
 
     @builtins.property
     def external_protocol(self) -> typing.Optional["LoadBalancingProtocol"]:
@@ -2696,13 +2688,13 @@ class LoadBalancerProps:
     def __init__(
         self,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         access_logging_policy: typing.Optional[typing.Union["CfnLoadBalancer.AccessLoggingPolicyProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         cross_zone: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         listeners: typing.Optional[typing.Sequence[typing.Union["LoadBalancerListener", typing.Dict[builtins.str, typing.Any]]]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         targets: typing.Optional[typing.Sequence["ILoadBalancerTarget"]] = None,
     ) -> None:
         '''Construction properties for a LoadBalancer.
@@ -2735,9 +2727,9 @@ class LoadBalancerProps:
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24b4c81055a8883e5d5e58c21898344055594c5189d0fd4f7fef884c280584a6)
+            type_hints = cached_type_hints(_typecheckingstub__24b4c81055a8883e5d5e58c21898344055594c5189d0fd4f7fef884c280584a6)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument access_logging_policy", value=access_logging_policy, expected_type=type_hints["access_logging_policy"])
             check_type(argname="argument cross_zone", value=cross_zone, expected_type=type_hints["cross_zone"])
@@ -2765,11 +2757,11 @@ class LoadBalancerProps:
             self._values["targets"] = targets
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''VPC network of the fleet instances.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def access_logging_policy(
@@ -2829,7 +2821,7 @@ class LoadBalancerProps:
         return typing.cast(typing.Optional[typing.List["LoadBalancerListener"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets to deploy the load balancer.
 
         Can be used to define a specific set of subnets to deploy the load balancer to.
@@ -2838,7 +2830,7 @@ class LoadBalancerProps:
         :default: - Public subnets if internetFacing, Private subnets otherwise
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
     def targets(self) -> typing.Optional[typing.List["ILoadBalancerTarget"]]:
@@ -2891,28 +2883,28 @@ def _typecheckingstub__ad4de01fae3e412612aab1283fdbc2d6f0e2fef6e20c971f887b72cbc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    listeners: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ListenersProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    access_logging_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    app_cookie_stickiness_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.AppCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listeners: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ListenersProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    access_logging_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_cookie_stickiness_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.AppCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    connection_draining_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ConnectionDrainingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connection_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ConnectionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cross_zone: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    health_check: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.HealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IInstanceRef_b97803cb]]] = None,
-    lb_cookie_stickiness_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LBCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    connection_draining_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ConnectionDrainingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ConnectionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_zone: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    health_check: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.HealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.IInstanceRef]]] = None,
+    lb_cookie_stickiness_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.LBCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scheme: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2e4ffef71ca18dfe3f31e74c55f93919aa7ffb9c2dfe24d92f6327824bc990da(
-    resource: _ILoadBalancerRef_6a68b4e1,
+    resource: _aws_elasticloadbalancing_5429ab1f.ILoadBalancerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2932,7 +2924,7 @@ def _typecheckingstub__8992f89439e67ec9ffadbd70334665686a9a72dca924c6c068a9f48e6
     pass
 
 def _typecheckingstub__8133f29413c7302d280be039986297bc6b736b470d4c0055db5f3001ba8db52f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2944,19 +2936,19 @@ def _typecheckingstub__dd678379ff632d77b1f5d6c3650c598b12800c6258e887f75c42e9f83
     pass
 
 def _typecheckingstub__9cefee25e8b0f537b45df423ca07c96d91dbcfe75c2132742bd7a3f70638442d(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.ListenersProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.ListenersProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__579f5fb75f3c27c7c35e0a5d723f8b4185ae0f87bba97bbc8456daeccad2b9f5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.AccessLoggingPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.AccessLoggingPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d25d1719b1837e71272b11e48b9a2282ed158041bf547f386ca9ff57a6f2f544(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.AppCookieStickinessPolicyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.AppCookieStickinessPolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2968,25 +2960,25 @@ def _typecheckingstub__31a0aba84c157cc0228d869869b28e711084d1cf53521406326ea6b4e
     pass
 
 def _typecheckingstub__4162385b337d4c3391277d3ea3db6febdb7c9f850c44302c78269706ec797914(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.ConnectionDrainingPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.ConnectionDrainingPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7b809a660f8de6748c507d7ecd7dc1ec1ab66537dceffe59ecbb3a5fa08c50b9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.ConnectionSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.ConnectionSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ac935f76538de96a96670264bb3481821b35d2b7de1c274f54d5ed13f09e4b37(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__162325f8340d091c52bfaa968a78fff804fb052111feb6ddf941dd55e301dac8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.HealthCheckProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.HealthCheckProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2998,7 +2990,7 @@ def _typecheckingstub__67037d7ceea6f67274d44b3bf6321259087ba9e5770321888a3e086f2
     pass
 
 def _typecheckingstub__6c0a06792e2e236386216c72db832eccf650d8a051dcb1bf68c023c3edc22310(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LBCookieStickinessPolicyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.LBCookieStickinessPolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3010,7 +3002,7 @@ def _typecheckingstub__9aa1ce8e882b1acb9715161212b83a48dfa0aa3b16a374a07c0507b97
     pass
 
 def _typecheckingstub__bf9bad7c093afad2982476996683bee331e6e2c5e031041354df4f08f71786ff(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.PoliciesProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.PoliciesProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3034,14 +3026,14 @@ def _typecheckingstub__15492a4993f2ff5599338b08353c1b13581ea7713ffa3cee11ac0c9eb
     pass
 
 def _typecheckingstub__1cabc87ef2c07843253cef27fbe61546f3a063e65468df0fe2a5261255590139(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8c0ae2a56a834b7ec5f37d2f880c2d4517d58dabef6b97c47eb5eef7fa01fa2a(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     s3_bucket_name: builtins.str,
     emit_interval: typing.Optional[jsii.Number] = None,
     s3_bucket_prefix: typing.Optional[builtins.str] = None,
@@ -3059,7 +3051,7 @@ def _typecheckingstub__1cc93e291ca227296bacaabcbe7e94faba7f69426a109a23d2b043402
 
 def _typecheckingstub__09658eb08b9fc61e7566bdbf6ab86ba2d5d718252d1abcdc6e9e5f2d863e9f7c(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3105,7 +3097,7 @@ def _typecheckingstub__329dcc7872c3c234a04dab4ddfe96c30001127cb845544578392e1058
 
 def _typecheckingstub__59a10349817ed5e601360f9aae1ffe6f0222e05d576372a8f753e036242c5d32(
     *,
-    attributes: typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b],
+    attributes: typing.Union[typing.Sequence[typing.Any], _aws_cdk_0cae9daa.IResolvable],
     policy_name: builtins.str,
     policy_type: builtins.str,
     instance_ports: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3124,22 +3116,22 @@ def _typecheckingstub__554b6b96c2695ba9d0e34f7f15cdf8493cb5a64c36750aeeedab3b028
 
 def _typecheckingstub__bd1da7c70c0e221c24372bbc8f77dcf3db6604c10128921e49a0b9b14fb05992(
     *,
-    listeners: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ListenersProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    access_logging_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    app_cookie_stickiness_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.AppCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listeners: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ListenersProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    access_logging_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_cookie_stickiness_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.AppCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    connection_draining_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ConnectionDrainingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connection_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.ConnectionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cross_zone: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    health_check: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.HealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IInstanceRef_b97803cb]]] = None,
-    lb_cookie_stickiness_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LBCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    connection_draining_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ConnectionDrainingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.ConnectionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_zone: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    health_check: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.HealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instances: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.IInstanceRef]]] = None,
+    lb_cookie_stickiness_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.LBCookieStickinessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scheme: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3148,10 +3140,10 @@ def _typecheckingstub__0e4c5b087f17037974778148d8c7d009c46a86a5a5b5e7f201d337d6e
     *,
     port: jsii.Number,
     healthy_threshold: typing.Optional[jsii.Number] = None,
-    interval: typing.Optional[_Duration_4839e8c3] = None,
+    interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     protocol: typing.Optional[LoadBalancingProtocol] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     unhealthy_threshold: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3164,7 +3156,7 @@ def _typecheckingstub__69a6e853f4b44cfab0f3551fc4a1768d63cf4c0f9507e2405576054b2
     pass
 
 def _typecheckingstub__aeba2da3542e7a8cc64f921efbced63d98397a5c28f02e5d463f15fa60797a99(
-    instance: _Instance_873cd165,
+    instance: _aws_ec2_09840e12.Instance,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3176,8 +3168,8 @@ def _typecheckingstub__4601f45c650056cb94971a37922d1f5f9f298d7dd8061cdcd87049553
     pass
 
 def _typecheckingstub__d3e9ae407abdb5bc7f30a3702a86f2d04933d7e60bb62575b6aa50fb86464402(
-    security_group: _ISecurityGroup_acf8a799,
-    default_port: _Port_85922693,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
+    default_port: _aws_ec2_09840e12.Port,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3186,13 +3178,13 @@ def _typecheckingstub__a3850a95b1999c6a13d0eecf56fd2972cafc65d6d20709f487fae3828
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     access_logging_policy: typing.Optional[typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     cross_zone: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     listeners: typing.Optional[typing.Sequence[typing.Union[LoadBalancerListener, typing.Dict[builtins.str, typing.Any]]]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     targets: typing.Optional[typing.Sequence[ILoadBalancerTarget]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3207,7 +3199,7 @@ def _typecheckingstub__e1d67c68cfa70267fbd849b411bf36e8df3c94f47171b0d1d53104e76
 def _typecheckingstub__032bda43c0521b9f2651612692cc5dc0fadef6400d6be81e212a01044ef964c9(
     *,
     external_port: jsii.Number,
-    allow_connections_from: typing.Optional[typing.Sequence[_IConnectable_10015a05]] = None,
+    allow_connections_from: typing.Optional[typing.Sequence[_aws_ec2_09840e12.IConnectable]] = None,
     external_protocol: typing.Optional[LoadBalancingProtocol] = None,
     internal_port: typing.Optional[jsii.Number] = None,
     internal_protocol: typing.Optional[LoadBalancingProtocol] = None,
@@ -3219,13 +3211,13 @@ def _typecheckingstub__032bda43c0521b9f2651612692cc5dc0fadef6400d6be81e212a01044
 
 def _typecheckingstub__24b4c81055a8883e5d5e58c21898344055594c5189d0fd4f7fef884c280584a6(
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     access_logging_policy: typing.Optional[typing.Union[CfnLoadBalancer.AccessLoggingPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     cross_zone: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     listeners: typing.Optional[typing.Sequence[typing.Union[LoadBalancerListener, typing.Dict[builtins.str, typing.Any]]]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     targets: typing.Optional[typing.Sequence[ILoadBalancerTarget]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,45 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_oam import (
-    ILinkRef as _ILinkRef_912f3726,
-    ISinkRef as _ISinkRef_52a08f4c,
-    LinkReference as _LinkReference_fbac1058,
-    SinkReference as _SinkReference_9bb22cf4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_oam as _aws_oam_b6b7d292
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_oam_b6b7d292 = _LazyImport("aws_cdk.interfaces.aws_oam")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ILinkRef_912f3726, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_oam_b6b7d292.ILinkRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_oam.CfnLink",
 ):
@@ -128,7 +121,7 @@ class CfnLink(
         resource_types: typing.Sequence[builtins.str],
         sink_identifier: builtins.str,
         label_template: typing.Optional[builtins.str] = None,
-        link_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Oam::Link``.
@@ -142,7 +135,7 @@ class CfnLink(
         :param tags: An array of key-value pairs to apply to the link. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ffbd6521de55eb2e3d4f2bc8edac2d144f850a53dbdfd3dac4b1591612aaeac)
+            type_hints = cached_type_hints(_typecheckingstub__2ffbd6521de55eb2e3d4f2bc8edac2d144f850a53dbdfd3dac4b1591612aaeac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLinkProps(
@@ -157,12 +150,12 @@ class CfnLink(
 
     @jsii.member(jsii_name="arnForLink")
     @builtins.classmethod
-    def arn_for_link(cls, resource: "_ILinkRef_912f3726") -> builtins.str:
+    def arn_for_link(cls, resource: "_aws_oam_b6b7d292.ILinkRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85cdff47ee463dee7cc5a14c599c5d62c05a57c04f1ce8ca6ac1513190b1024b)
+            type_hints = cached_type_hints(_typecheckingstub__85cdff47ee463dee7cc5a14c599c5d62c05a57c04f1ce8ca6ac1513190b1024b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLink", [resource]))
 
@@ -174,18 +167,18 @@ class CfnLink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ff028e19299e39ad82f1df8c42c44d37d9632e8b7c758c2d39ae08cf23dfdc6)
+            type_hints = cached_type_hints(_typecheckingstub__1ff028e19299e39ad82f1df8c42c44d37d9632e8b7c758c2d39ae08cf23dfdc6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c070a52405d10c02ca36373c6f7099717b46c4eeb9b9100704beaaf1d2c1ed20)
+            type_hints = cached_type_hints(_typecheckingstub__c070a52405d10c02ca36373c6f7099717b46c4eeb9b9100704beaaf1d2c1ed20)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -198,7 +191,7 @@ class CfnLink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a5a72fcba4df99c0a38699a0ae8d36072c85020c3e6c48585ff388860d46dd9)
+            type_hints = cached_type_hints(_typecheckingstub__3a5a72fcba4df99c0a38699a0ae8d36072c85020c3e6c48585ff388860d46dd9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -242,15 +235,15 @@ class CfnLink(
 
     @builtins.property
     @jsii.member(jsii_name="linkRef")
-    def link_ref(self) -> "_LinkReference_fbac1058":
+    def link_ref(self) -> "_aws_oam_b6b7d292.LinkReference":
         '''A reference to a Link resource.'''
-        return typing.cast("_LinkReference_fbac1058", jsii.get(self, "linkRef"))
+        return typing.cast("_aws_oam_b6b7d292.LinkReference", jsii.get(self, "linkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceTypes")
@@ -261,7 +254,7 @@ class CfnLink(
     @resource_types.setter
     def resource_types(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0132bd2ba8eaa5be7ac98303f37a6cd4af3e395ff83ff41a4b1d603604e6616)
+            type_hints = cached_type_hints(_typecheckingstub__f0132bd2ba8eaa5be7ac98303f37a6cd4af3e395ff83ff41a4b1d603604e6616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTypes", value) # pyright: ignore[reportArgumentType]
 
@@ -274,7 +267,7 @@ class CfnLink(
     @sink_identifier.setter
     def sink_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__333f53159fc6c2c5a53817b12e42df1c0c36eb1c4ce8b2f5ac882088416ddefb)
+            type_hints = cached_type_hints(_typecheckingstub__333f53159fc6c2c5a53817b12e42df1c0c36eb1c4ce8b2f5ac882088416ddefb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sinkIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -287,7 +280,7 @@ class CfnLink(
     @label_template.setter
     def label_template(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__997e0a25bd896cf32312772dad16f8a1714d949b05e540d8b70c8452ec128d2d)
+            type_hints = cached_type_hints(_typecheckingstub__997e0a25bd896cf32312772dad16f8a1714d949b05e540d8b70c8452ec128d2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "labelTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -295,17 +288,17 @@ class CfnLink(
     @jsii.member(jsii_name="linkConfiguration")
     def link_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkConfigurationProperty"]]:
         '''Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkConfigurationProperty"]], jsii.get(self, "linkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkConfigurationProperty"]], jsii.get(self, "linkConfiguration"))
 
     @link_configuration.setter
     def link_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27fdc6d36999b24ee51a7ee604dfe60c82600027c0449d54ba66cc13499ab90c)
+            type_hints = cached_type_hints(_typecheckingstub__27fdc6d36999b24ee51a7ee604dfe60c82600027c0449d54ba66cc13499ab90c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -321,7 +314,7 @@ class CfnLink(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db8d2dd2bb0af63f05d76d96179bc7f7bcb803b9dedeabd14ee88e08a8734269)
+            type_hints = cached_type_hints(_typecheckingstub__db8d2dd2bb0af63f05d76d96179bc7f7bcb803b9dedeabd14ee88e08a8734269)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -337,8 +330,8 @@ class CfnLink(
         def __init__(
             self,
             *,
-            log_group_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            metric_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_group_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
 
@@ -364,7 +357,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec2ec5a3ca147f06b311c2c2b0a7e72f655d6d296f564d1ae2c8d5d08d27c5d6)
+                type_hints = cached_type_hints(_typecheckingstub__ec2ec5a3ca147f06b311c2c2b0a7e72f655d6d296f564d1ae2c8d5d08d27c5d6)
                 check_type(argname="argument log_group_configuration", value=log_group_configuration, expected_type=type_hints["log_group_configuration"])
                 check_type(argname="argument metric_configuration", value=metric_configuration, expected_type=type_hints["metric_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -376,24 +369,24 @@ class CfnLink(
         @builtins.property
         def log_group_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkFilterProperty"]]:
             '''Use this structure to filter which log groups are to share log events from this source account to the monitoring account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-oam-link-linkconfiguration.html#cfn-oam-link-linkconfiguration-loggroupconfiguration
             '''
             result = self._values.get("log_group_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkFilterProperty"]], result)
 
         @builtins.property
         def metric_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkFilterProperty"]]:
             '''Use this structure to filter which metric namespaces are to be shared from the source account to the monitoring account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-oam-link-linkconfiguration.html#cfn-oam-link-linkconfiguration-metricconfiguration
             '''
             result = self._values.get("metric_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkFilterProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -433,7 +426,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a6822df441121f7f9fd0663c8f7c4745082bfd61605fab5fc6e5ce1c75b1f52)
+                type_hints = cached_type_hints(_typecheckingstub__3a6822df441121f7f9fd0663c8f7c4745082bfd61605fab5fc6e5ce1c75b1f52)
                 check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "filter": filter,
@@ -504,7 +497,7 @@ class CfnLinkProps:
         resource_types: typing.Sequence[builtins.str],
         sink_identifier: builtins.str,
         label_template: typing.Optional[builtins.str] = None,
-        link_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLink``.
@@ -544,7 +537,7 @@ class CfnLinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12)
+            type_hints = cached_type_hints(_typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12)
             check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
             check_type(argname="argument sink_identifier", value=sink_identifier, expected_type=type_hints["sink_identifier"])
             check_type(argname="argument label_template", value=label_template, expected_type=type_hints["label_template"])
@@ -607,13 +600,13 @@ class CfnLinkProps:
     @builtins.property
     def link_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkConfigurationProperty"]]:
         '''Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-linkconfiguration
         '''
         result = self._values.get("link_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -638,9 +631,9 @@ class CfnLinkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISinkRef_52a08f4c, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_oam_b6b7d292.ISinkRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_oam.CfnSink",
 ):
@@ -693,7 +686,7 @@ class CfnSink(
         :param tags: An array of key-value pairs to apply to the sink. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fc6909cf2fa64c817adc7144cbdc866a604a4bcf1e0859e6a2301142ad88158)
+            type_hints = cached_type_hints(_typecheckingstub__9fc6909cf2fa64c817adc7144cbdc866a604a4bcf1e0859e6a2301142ad88158)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSinkProps(name=name, policy=policy, tags=tags)
@@ -702,12 +695,12 @@ class CfnSink(
 
     @jsii.member(jsii_name="arnForSink")
     @builtins.classmethod
-    def arn_for_sink(cls, resource: "_ISinkRef_52a08f4c") -> builtins.str:
+    def arn_for_sink(cls, resource: "_aws_oam_b6b7d292.ISinkRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4c6b89e924e20e42bdcb116001de5e3f789c985592af20298d95db5db79b12c)
+            type_hints = cached_type_hints(_typecheckingstub__d4c6b89e924e20e42bdcb116001de5e3f789c985592af20298d95db5db79b12c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSink", [resource]))
 
@@ -719,18 +712,18 @@ class CfnSink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__090329fa36392b1e874e0e2c50f6d8aa0fb28cb64ec79ae0e4296d3f87d6653d)
+            type_hints = cached_type_hints(_typecheckingstub__090329fa36392b1e874e0e2c50f6d8aa0fb28cb64ec79ae0e4296d3f87d6653d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7efaf81f7f46e186f80b4548e1a30d7c79c4496664ca70dfb24821523ef350bb)
+            type_hints = cached_type_hints(_typecheckingstub__7efaf81f7f46e186f80b4548e1a30d7c79c4496664ca70dfb24821523ef350bb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -743,7 +736,7 @@ class CfnSink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4098b4b70e3b0125490695575d8b1c7e159ae8c920aaff402f579550bfa07ca2)
+            type_hints = cached_type_hints(_typecheckingstub__4098b4b70e3b0125490695575d8b1c7e159ae8c920aaff402f579550bfa07ca2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -776,15 +769,15 @@ class CfnSink(
 
     @builtins.property
     @jsii.member(jsii_name="sinkRef")
-    def sink_ref(self) -> "_SinkReference_9bb22cf4":
+    def sink_ref(self) -> "_aws_oam_b6b7d292.SinkReference":
         '''A reference to a Sink resource.'''
-        return typing.cast("_SinkReference_9bb22cf4", jsii.get(self, "sinkRef"))
+        return typing.cast("_aws_oam_b6b7d292.SinkReference", jsii.get(self, "sinkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -795,7 +788,7 @@ class CfnSink(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6c4525dee6f8a7375f1f7a92c71b0244885baf54d86723e2e625b150bee5f2c)
+            type_hints = cached_type_hints(_typecheckingstub__e6c4525dee6f8a7375f1f7a92c71b0244885baf54d86723e2e625b150bee5f2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -808,7 +801,7 @@ class CfnSink(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17b105d896dac211275e0427a07a7c1ef0096d9d405b1f2c26c9622c36b574a5)
+            type_hints = cached_type_hints(_typecheckingstub__17b105d896dac211275e0427a07a7c1ef0096d9d405b1f2c26c9622c36b574a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -824,7 +817,7 @@ class CfnSink(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce98d825cec971a8da063461fb01433d96941b6c426c46a2e2fb6fbe9a48d059)
+            type_hints = cached_type_hints(_typecheckingstub__ce98d825cec971a8da063461fb01433d96941b6c426c46a2e2fb6fbe9a48d059)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -870,7 +863,7 @@ class CfnSinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47)
+            type_hints = cached_type_hints(_typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -945,14 +938,14 @@ def _typecheckingstub__2ffbd6521de55eb2e3d4f2bc8edac2d144f850a53dbdfd3dac4b15916
     resource_types: typing.Sequence[builtins.str],
     sink_identifier: builtins.str,
     label_template: typing.Optional[builtins.str] = None,
-    link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__85cdff47ee463dee7cc5a14c599c5d62c05a57c04f1ce8ca6ac1513190b1024b(
-    resource: _ILinkRef_912f3726,
+    resource: _aws_oam_b6b7d292.ILinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -964,7 +957,7 @@ def _typecheckingstub__1ff028e19299e39ad82f1df8c42c44d37d9632e8b7c758c2d39ae08cf
     pass
 
 def _typecheckingstub__c070a52405d10c02ca36373c6f7099717b46c4eeb9b9100704beaaf1d2c1ed20(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -994,7 +987,7 @@ def _typecheckingstub__997e0a25bd896cf32312772dad16f8a1714d949b05e540d8b70c8452e
     pass
 
 def _typecheckingstub__27fdc6d36999b24ee51a7ee604dfe60c82600027c0449d54ba66cc13499ab90c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLink.LinkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLink.LinkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1007,8 +1000,8 @@ def _typecheckingstub__db8d2dd2bb0af63f05d76d96179bc7f7bcb803b9dedeabd14ee88e08a
 
 def _typecheckingstub__ec2ec5a3ca147f06b311c2c2b0a7e72f655d6d296f564d1ae2c8d5d08d27c5d6(
     *,
-    log_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_group_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1025,7 +1018,7 @@ def _typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdf
     resource_types: typing.Sequence[builtins.str],
     sink_identifier: builtins.str,
     label_template: typing.Optional[builtins.str] = None,
-    link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1043,7 +1036,7 @@ def _typecheckingstub__9fc6909cf2fa64c817adc7144cbdc866a604a4bcf1e0859e6a2301142
     pass
 
 def _typecheckingstub__d4c6b89e924e20e42bdcb116001de5e3f789c985592af20298d95db5db79b12c(
-    resource: _ISinkRef_52a08f4c,
+    resource: _aws_oam_b6b7d292.ISinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1055,7 +1048,7 @@ def _typecheckingstub__090329fa36392b1e874e0e2c50f6d8aa0fb28cb64ec79ae0e4296d3f8
     pass
 
 def _typecheckingstub__7efaf81f7f46e186f80b4548e1a30d7c79c4496664ca70dfb24821523ef350bb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

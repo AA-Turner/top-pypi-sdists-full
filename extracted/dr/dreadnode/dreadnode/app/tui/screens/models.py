@@ -638,6 +638,8 @@ class ModelBrowserScreen(Screen[str | None]):
         Binding("down", "cursor_down", "Down", show=False),
         Binding("pageup", "cursor_page_up", "Page Up", show=False),
         Binding("pagedown", "cursor_page_down", "Page Down", show=False),
+        Binding("ctrl+up", "cursor_page_up", "Page Up", show=False),
+        Binding("ctrl+down", "cursor_page_down", "Page Down", show=False),
         Binding("home", "cursor_home", "Home", show=False),
         Binding("end", "cursor_end", "End", show=False),
         Binding("enter", "select", "Select", show=False),
@@ -978,6 +980,9 @@ class ModelBrowserScreen(Screen[str | None]):
         text = Text()
         text.append(" ↑↓", style=FG_MUTED)
         text.append(" navigate", style=FG_FAINTEST)
+        text.append("  ")
+        text.append("Ctrl+↑↓", style=FG_MUTED)
+        text.append(" page", style=FG_FAINTEST)
         text.append("  ")
         text.append("Enter", style=FG_MUTED)
         text.append(" select", style=FG_FAINTEST)

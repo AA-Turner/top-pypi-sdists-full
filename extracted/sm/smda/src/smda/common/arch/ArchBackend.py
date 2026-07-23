@@ -11,6 +11,15 @@ supplies the capstone configuration, the architecture-specific collaborators
 analyzers, TF-IDF model) and the per-instruction control-flow analysis. The
 engine treats all of these abstractly, so new architectures (ARM, MIPS, ...)
 can be added by implementing this interface without touching the engine.
+
+Function-candidate discovery follows the same pattern: a backend's
+``createCandidateManager`` returns a subclass of the architecture-neutral
+:class:`smda.common.FunctionCandidateManager`, which supplies the byte-level
+scans and names its :class:`smda.common.FunctionCandidate` subclass via the
+``CANDIDATE_CLASS`` attribute. That candidate subclass is the per-architecture
+function-start scoring hook: ``getFunctionStartScore`` feeds the priority
+queue (AArch64 deliberately returns 0 so mid-function frame-record stores do
+not outrank call-ref seeds) and ``hasCommonFunctionStart`` feeds confidence.
 """
 
 from smda.utility.ElfFileLoader import ElfFileLoader
@@ -97,4 +106,6 @@ class ArchBackend:
 
     @classmethod
     def _getImportStubRanges(cls, binary_info):
-        return cls._getPltRanges(binary_info) + cls._getMachoStubRanges(binary_info)
+        if not hasattr(binary_info, "_import_stub_ranges"):
+            binary_info._import_stub_ranges = cls._getPltRanges(binary_info) + cls._getMachoStubRanges(binary_info)
+        return binary_info._import_stub_ranges

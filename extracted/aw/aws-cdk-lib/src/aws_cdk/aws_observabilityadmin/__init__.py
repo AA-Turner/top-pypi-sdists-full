@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,54 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_observabilityadmin import (
-    IOrganizationCentralizationRuleRef as _IOrganizationCentralizationRuleRef_c0e786ce,
-    IOrganizationTelemetryRuleRef as _IOrganizationTelemetryRuleRef_c536ab68,
-    IS3TableIntegrationRef as _IS3TableIntegrationRef_0d27be71,
-    ITelemetryEnrichmentRef as _ITelemetryEnrichmentRef_67eed03a,
-    ITelemetryPipelinesRef as _ITelemetryPipelinesRef_a5d8576e,
-    ITelemetryRuleRef as _ITelemetryRuleRef_9918195f,
-    OrganizationCentralizationRuleReference as _OrganizationCentralizationRuleReference_e0f14dd2,
-    OrganizationTelemetryRuleReference as _OrganizationTelemetryRuleReference_447c11d2,
-    S3TableIntegrationReference as _S3TableIntegrationReference_5391966c,
-    TelemetryEnrichmentReference as _TelemetryEnrichmentReference_a978d10d,
-    TelemetryPipelinesReference as _TelemetryPipelinesReference_c5feae72,
-    TelemetryRuleReference as _TelemetryRuleReference_35b2b664,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_observabilityadmin as _aws_observabilityadmin_3e93009d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_observabilityadmin_3e93009d = _LazyImport("aws_cdk.interfaces.aws_observabilityadmin")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationCentralizationRuleRef_c0e786ce, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.IOrganizationCentralizationRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOrganizationCentralizationRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule",
 ):
@@ -175,9 +159,9 @@ class CfnOrganizationCentralizationRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::OrganizationCentralizationRule``.
 
@@ -188,7 +172,7 @@ class CfnOrganizationCentralizationRule(
         :param tags: A key-value pair to filter resources based on tags associated with the resource. For more information about tags, see `What are tags? <https://docs.aws.amazon.com/whitepapers/latest/tagging-best-practices/what-are-tags.html>`_
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18acbc8917f3c4cbc8bb06f5fae76010e41ab5f0e9b157f4c324c214a180ef2e)
+            type_hints = cached_type_hints(_typecheckingstub__18acbc8917f3c4cbc8bb06f5fae76010e41ab5f0e9b157f4c324c214a180ef2e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationCentralizationRuleProps(
@@ -205,18 +189,18 @@ class CfnOrganizationCentralizationRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecabb5646d522a7c00aa40f3e19c4d2e5dccb6109cb58329723f9f47be7267d6)
+            type_hints = cached_type_hints(_typecheckingstub__ecabb5646d522a7c00aa40f3e19c4d2e5dccb6109cb58329723f9f47be7267d6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationCentralizationRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02b2ea8ec552fc96b3662b368fa64eea5f82839c3bd0f1aa52bd64bc495f5341)
+            type_hints = cached_type_hints(_typecheckingstub__02b2ea8ec552fc96b3662b368fa64eea5f82839c3bd0f1aa52bd64bc495f5341)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -229,7 +213,7 @@ class CfnOrganizationCentralizationRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f130448a4f76aff49b8e31a382ea5ab14eacdf34a74afe86be23352ded6622e1)
+            type_hints = cached_type_hints(_typecheckingstub__f130448a4f76aff49b8e31a382ea5ab14eacdf34a74afe86be23352ded6622e1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -250,9 +234,9 @@ class CfnOrganizationCentralizationRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -268,24 +252,24 @@ class CfnOrganizationCentralizationRule(
     @jsii.member(jsii_name="organizationCentralizationRuleRef")
     def organization_centralization_rule_ref(
         self,
-    ) -> "_OrganizationCentralizationRuleReference_e0f14dd2":
+    ) -> "_aws_observabilityadmin_3e93009d.OrganizationCentralizationRuleReference":
         '''A reference to a OrganizationCentralizationRule resource.'''
-        return typing.cast("_OrganizationCentralizationRuleReference_e0f14dd2", jsii.get(self, "organizationCentralizationRuleRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.OrganizationCentralizationRuleReference", jsii.get(self, "organizationCentralizationRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rule")
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"], jsii.get(self, "rule"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"], jsii.get(self, "rule"))
 
     @rule.setter
     def rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fbb5a84b6997cee28db4665d22fee83629861a1e51fe754b85b3858441e7c2d)
+            type_hints = cached_type_hints(_typecheckingstub__8fbb5a84b6997cee28db4665d22fee83629861a1e51fe754b85b3858441e7c2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
@@ -298,20 +282,23 @@ class CfnOrganizationCentralizationRule(
     @rule_name.setter
     def rule_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f42b1edd10be1da3c565db5f9585850487a7c51b5ad7ab0a72c1d4345b4ac7f8)
+            type_hints = cached_type_hints(_typecheckingstub__f42b1edd10be1da3c565db5f9585850487a7c51b5ad7ab0a72c1d4345b4ac7f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair to filter resources based on tags associated with the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a58679a9a3a800195cc0ecf82553695580c2dd2061901e27320b9025cb6ed262)
+            type_hints = cached_type_hints(_typecheckingstub__a58679a9a3a800195cc0ecf82553695580c2dd2061901e27320b9025cb6ed262)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -331,8 +318,8 @@ class CfnOrganizationCentralizationRule(
             *,
             region: builtins.str,
             account: typing.Optional[builtins.str] = None,
-            destination_logs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination_metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_logs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying the primary destination for centralized telemetry data.
 
@@ -381,7 +368,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__48736d0ec2563919af9b82675cbe965d2288bd15210b9c8b34911e7a89ae0f47)
+                type_hints = cached_type_hints(_typecheckingstub__48736d0ec2563919af9b82675cbe965d2288bd15210b9c8b34911e7a89ae0f47)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument account", value=account, expected_type=type_hints["account"])
                 check_type(argname="argument destination_logs_configuration", value=destination_logs_configuration, expected_type=type_hints["destination_logs_configuration"])
@@ -418,23 +405,23 @@ class CfnOrganizationCentralizationRule(
         @builtins.property
         def destination_logs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty"]]:
             '''Log specific configuration for centralization destination log groups.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationruledestination.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationruledestination-destinationlogsconfiguration
             '''
             result = self._values.get("destination_logs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty"]], result)
 
         @builtins.property
         def destination_metrics_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationruledestination.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationruledestination-destinationmetricsconfiguration
             '''
             result = self._values.get("destination_metrics_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -456,8 +443,8 @@ class CfnOrganizationCentralizationRule(
         def __init__(
             self,
             *,
-            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
-            source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Defines how telemetry data should be centralized across an AWS Organization, including source and destination configurations.
 
@@ -522,7 +509,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fb475427ce4a2316b8478f1c58d17ddd5783412b26cdfb98819c47313aa718dc)
+                type_hints = cached_type_hints(_typecheckingstub__fb475427ce4a2316b8478f1c58d17ddd5783412b26cdfb98819c47313aa718dc)
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -533,26 +520,26 @@ class CfnOrganizationCentralizationRule(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty"]:
             '''Configuration determining where the telemetry data should be centralized, backed up, as well as encryption configuration for the primary and backup destinations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrule.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationrule-destination
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty"], result)
 
         @builtins.property
         def source(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty"]:
             '''Configuration determining the source of the telemetry data to be centralized.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrule.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationrule-source
             '''
             result = self._values.get("source")
             assert result is not None, "Required property 'source' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -581,8 +568,8 @@ class CfnOrganizationCentralizationRule(
             *,
             regions: typing.Sequence[builtins.str],
             scope: typing.Optional[builtins.str] = None,
-            source_logs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            source_metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_logs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying the source of telemetry data to be centralized.
 
@@ -618,7 +605,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c4d1dff0252b97263e138c77bea2f698277762eeffd4fcf3911e496ac5762e4)
+                type_hints = cached_type_hints(_typecheckingstub__8c4d1dff0252b97263e138c77bea2f698277762eeffd4fcf3911e496ac5762e4)
                 check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
                 check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
                 check_type(argname="argument source_logs_configuration", value=source_logs_configuration, expected_type=type_hints["source_logs_configuration"])
@@ -655,23 +642,23 @@ class CfnOrganizationCentralizationRule(
         @builtins.property
         def source_logs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty"]]:
             '''Log specific configuration for centralization source log groups.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrulesource.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationrulesource-sourcelogsconfiguration
             '''
             result = self._values.get("source_logs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty"]], result)
 
         @builtins.property
         def source_metrics_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrulesource.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationrulesource-sourcemetricsconfiguration
             '''
             result = self._values.get("source_metrics_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -697,9 +684,9 @@ class CfnOrganizationCentralizationRule(
         def __init__(
             self,
             *,
-            backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            log_group_name_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            logs_encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            backup_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_group_name_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            logs_encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for centralization destination log groups, including encryption and backup settings.
 
@@ -736,7 +723,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd5befe41)
+                type_hints = cached_type_hints(_typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd5befe41)
                 check_type(argname="argument backup_configuration", value=backup_configuration, expected_type=type_hints["backup_configuration"])
                 check_type(argname="argument log_group_name_configuration", value=log_group_name_configuration, expected_type=type_hints["log_group_name_configuration"])
                 check_type(argname="argument logs_encryption_configuration", value=logs_encryption_configuration, expected_type=type_hints["logs_encryption_configuration"])
@@ -751,34 +738,34 @@ class CfnOrganizationCentralizationRule(
         @builtins.property
         def backup_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty"]]:
             '''Configuration defining the backup region and an optional KMS key for the backup destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration-backupconfiguration
             '''
             result = self._values.get("backup_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty"]], result)
 
         @builtins.property
         def log_group_name_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration-loggroupnameconfiguration
             '''
             result = self._values.get("log_group_name_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]], result)
 
         @builtins.property
         def logs_encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty"]]:
             '''The encryption configuration for centralization destination log groups.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration-logsencryptionconfiguration
             '''
             result = self._values.get("logs_encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -800,7 +787,7 @@ class CfnOrganizationCentralizationRule(
         def __init__(
             self,
             *,
-            backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            backup_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param backup_configuration: 
@@ -821,7 +808,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__12f498f9f25e327239522213ccc62495ae85e2f355fa6744ec71a746c7662a70)
+                type_hints = cached_type_hints(_typecheckingstub__12f498f9f25e327239522213ccc62495ae85e2f355fa6744ec71a746c7662a70)
                 check_type(argname="argument backup_configuration", value=backup_configuration, expected_type=type_hints["backup_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if backup_configuration is not None:
@@ -830,12 +817,12 @@ class CfnOrganizationCentralizationRule(
         @builtins.property
         def backup_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration-backupconfiguration
             '''
             result = self._values.get("backup_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -872,7 +859,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc628f661292ed8b216472c835d47a09fd581394061ab648aa685a81bcef75c8)
+                type_hints = cached_type_hints(_typecheckingstub__fc628f661292ed8b216472c835d47a09fd581394061ab648aa685a81bcef75c8)
                 check_type(argname="argument log_group_name_pattern", value=log_group_name_pattern, expected_type=type_hints["log_group_name_pattern"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_group_name_pattern": log_group_name_pattern,
@@ -932,7 +919,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35d26acca25f06381fb096b21a6f3791d0ef735549ac7bae5795f4e646184d86)
+                type_hints = cached_type_hints(_typecheckingstub__35d26acca25f06381fb096b21a6f3791d0ef735549ac7bae5795f4e646184d86)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1014,7 +1001,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2275828e)
+                type_hints = cached_type_hints(_typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2275828e)
                 check_type(argname="argument encryption_strategy", value=encryption_strategy, expected_type=type_hints["encryption_strategy"])
                 check_type(argname="argument encryption_conflict_resolution_strategy", value=encryption_conflict_resolution_strategy, expected_type=type_hints["encryption_conflict_resolution_strategy"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
@@ -1095,7 +1082,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__22d56f473919888a6a23633e9abfc37d785e51c92e9fb8942ce190af4b0bcc5e)
+                type_hints = cached_type_hints(_typecheckingstub__22d56f473919888a6a23633e9abfc37d785e51c92e9fb8942ce190af4b0bcc5e)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "region": region,
@@ -1162,7 +1149,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378a2b5d6c)
+                type_hints = cached_type_hints(_typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378a2b5d6c)
                 check_type(argname="argument encrypted_log_group_strategy", value=encrypted_log_group_strategy, expected_type=type_hints["encrypted_log_group_strategy"])
                 check_type(argname="argument data_source_selection_criteria", value=data_source_selection_criteria, expected_type=type_hints["data_source_selection_criteria"])
                 check_type(argname="argument log_group_selection_criteria", value=log_group_selection_criteria, expected_type=type_hints["log_group_selection_criteria"])
@@ -1244,7 +1231,7 @@ class CfnOrganizationCentralizationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87eb64e51)
+                type_hints = cached_type_hints(_typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87eb64e51)
                 check_type(argname="argument metrics_selection_criteria", value=metrics_selection_criteria, expected_type=type_hints["metrics_selection_criteria"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if metrics_selection_criteria is not None:
@@ -1279,9 +1266,9 @@ class CfnOrganizationCentralizationRuleProps:
     def __init__(
         self,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationCentralizationRule.CentralizationRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOrganizationCentralizationRule``.
 
@@ -1357,7 +1344,7 @@ class CfnOrganizationCentralizationRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00d0ecee2cd9ac728ca3e321203ce2e611e56b0b2d415ba2673a50599e4512cd)
+            type_hints = cached_type_hints(_typecheckingstub__00d0ecee2cd9ac728ca3e321203ce2e611e56b0b2d415ba2673a50599e4512cd)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1371,13 +1358,13 @@ class CfnOrganizationCentralizationRuleProps:
     @builtins.property
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-organizationcentralizationrule.html#cfn-observabilityadmin-organizationcentralizationrule-rule
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationCentralizationRule.CentralizationRuleProperty"], result)
 
     @builtins.property
     def rule_name(self) -> builtins.str:
@@ -1390,7 +1377,7 @@ class CfnOrganizationCentralizationRuleProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair to filter resources based on tags associated with the resource.
 
         For more information about tags, see `What are tags? <https://docs.aws.amazon.com/whitepapers/latest/tagging-best-practices/what-are-tags.html>`_
@@ -1398,7 +1385,7 @@ class CfnOrganizationCentralizationRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-organizationcentralizationrule.html#cfn-observabilityadmin-organizationcentralizationrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1412,9 +1399,9 @@ class CfnOrganizationCentralizationRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationTelemetryRuleRef_c536ab68, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.IOrganizationTelemetryRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOrganizationTelemetryRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule",
 ):
@@ -1520,9 +1507,9 @@ class CfnOrganizationTelemetryRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::OrganizationTelemetryRule``.
 
@@ -1533,7 +1520,7 @@ class CfnOrganizationTelemetryRule(
         :param tags: Lists all tags attached to the specified resource. Supports telemetry rule resources and telemetry pipeline resources.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a67d6a9dd82924a413b7d3435faeb8efa735048df0244b926e672def8c2d5f75)
+            type_hints = cached_type_hints(_typecheckingstub__a67d6a9dd82924a413b7d3435faeb8efa735048df0244b926e672def8c2d5f75)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationTelemetryRuleProps(
@@ -1550,18 +1537,18 @@ class CfnOrganizationTelemetryRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7ca13b7cccda36c5b43cead9ffee16b45fa649b63750b67cfc542107deb6702)
+            type_hints = cached_type_hints(_typecheckingstub__c7ca13b7cccda36c5b43cead9ffee16b45fa649b63750b67cfc542107deb6702)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationTelemetryRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cb893813673a29ee1f384593916d34bdcc440b816dfc54ad27097692c5a64e9)
+            type_hints = cached_type_hints(_typecheckingstub__0cb893813673a29ee1f384593916d34bdcc440b816dfc54ad27097692c5a64e9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1574,7 +1561,7 @@ class CfnOrganizationTelemetryRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c809c768027da00df4018694393faf5d77af9754b12923bf684ada119faecfc7)
+            type_hints = cached_type_hints(_typecheckingstub__c809c768027da00df4018694393faf5d77af9754b12923bf684ada119faecfc7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1586,12 +1573,12 @@ class CfnOrganizationTelemetryRule(
 
     @builtins.property
     @jsii.member(jsii_name="attrRegionStatuses")
-    def attr_region_statuses(self) -> "_IResolvable_da3f097b":
+    def attr_region_statuses(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Per-region replication status of the rule.
 
         :cloudformationAttribute: RegionStatuses
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRegionStatuses"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRegionStatuses"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleArn")
@@ -1604,9 +1591,9 @@ class CfnOrganizationTelemetryRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1622,25 +1609,25 @@ class CfnOrganizationTelemetryRule(
     @jsii.member(jsii_name="organizationTelemetryRuleRef")
     def organization_telemetry_rule_ref(
         self,
-    ) -> "_OrganizationTelemetryRuleReference_447c11d2":
+    ) -> "_aws_observabilityadmin_3e93009d.OrganizationTelemetryRuleReference":
         '''A reference to a OrganizationTelemetryRule resource.'''
-        return typing.cast("_OrganizationTelemetryRuleReference_447c11d2", jsii.get(self, "organizationTelemetryRuleRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.OrganizationTelemetryRuleReference", jsii.get(self, "organizationTelemetryRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rule")
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"]:
         '''The name of the organization telemetry rule.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"], jsii.get(self, "rule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"], jsii.get(self, "rule"))
 
     @rule.setter
     def rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97cf84910a3c46b94c3e90ddf73c07b304a029e413bebd1b7c5e7b2bbe5cd411)
+            type_hints = cached_type_hints(_typecheckingstub__97cf84910a3c46b94c3e90ddf73c07b304a029e413bebd1b7c5e7b2bbe5cd411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
@@ -1653,20 +1640,23 @@ class CfnOrganizationTelemetryRule(
     @rule_name.setter
     def rule_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84099afcf940dd46614099ecc03e181396a6d202813d1517bd79414c5aa2f5ae)
+            type_hints = cached_type_hints(_typecheckingstub__84099afcf940dd46614099ecc03e181396a6d202813d1517bd79414c5aa2f5ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Lists all tags attached to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d494e45ec3f03fbc2168c2e374f689615e98524c832aa6247ad243fabe01ffe7)
+            type_hints = cached_type_hints(_typecheckingstub__d494e45ec3f03fbc2168c2e374f689615e98524c832aa6247ad243fabe01ffe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1695,7 +1685,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b6b5585476ea575f5f355362e763f68412449ff22910a34eb3e7d80ceec7283)
+                type_hints = cached_type_hints(_typecheckingstub__0b6b5585476ea575f5f355362e763f68412449ff22910a34eb3e7d80ceec7283)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if action is not None:
@@ -1730,7 +1720,7 @@ class CfnOrganizationTelemetryRule(
         def __init__(
             self,
             *,
-            field_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Advanced event selectors let you create fine-grained selectors for management, data, and network activity events.
@@ -1763,7 +1753,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6a8d791206424757183daedc38dee2af439aaf16a9fafc6af1201043adf7c3de)
+                type_hints = cached_type_hints(_typecheckingstub__6a8d791206424757183daedc38dee2af439aaf16a9fafc6af1201043adf7c3de)
                 check_type(argname="argument field_selectors", value=field_selectors, expected_type=type_hints["field_selectors"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1775,14 +1765,14 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def field_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty"]]]:
             '''Contains all selector statements in an advanced event selector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-advancedeventselector.html#cfn-observabilityadmin-organizationtelemetryrule-advancedeventselector-fieldselectors
             '''
             result = self._values.get("field_selectors")
             assert result is not None, "Required property 'field_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty"]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -1859,7 +1849,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a750f509bbf975a3106e6633766b065ca671d998289bcba4ef16d2b9c83abab)
+                type_hints = cached_type_hints(_typecheckingstub__3a750f509bbf975a3106e6633766b065ca671d998289bcba4ef16d2b9c83abab)
                 check_type(argname="argument ends_with", value=ends_with, expected_type=type_hints["ends_with"])
                 check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
@@ -1966,7 +1956,7 @@ class CfnOrganizationTelemetryRule(
         def __init__(
             self,
             *,
-            advanced_event_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            advanced_event_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Parameters specific to AWS CloudTrail telemetry configuration.
 
@@ -1999,7 +1989,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6841a259b98239da9d79c07870bb6bcff9cbcac2a6f70f508616cce4cc82daa9)
+                type_hints = cached_type_hints(_typecheckingstub__6841a259b98239da9d79c07870bb6bcff9cbcac2a6f70f508616cce4cc82daa9)
                 check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "advanced_event_selectors": advanced_event_selectors,
@@ -2008,14 +1998,14 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def advanced_event_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty"]]]:
             '''The advanced event selectors to use for filtering AWS CloudTrail events.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-cloudtrailparameters.html#cfn-observabilityadmin-organizationtelemetryrule-cloudtrailparameters-advancedeventselectors
             '''
             result = self._values.get("advanced_event_selectors")
             assert result is not None, "Required property 'advanced_event_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2040,8 +2030,8 @@ class CfnOrganizationTelemetryRule(
         def __init__(
             self,
             *,
-            action_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_name_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            action_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_name_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A single condition that can match based on WAF rule action or label name.
 
@@ -2067,7 +2057,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__420adeb7464d458e2857bc92abac2bedbf48d00e02f72464d36b05d3d8e2eb70)
+                type_hints = cached_type_hints(_typecheckingstub__420adeb7464d458e2857bc92abac2bedbf48d00e02f72464d36b05d3d8e2eb70)
                 check_type(argname="argument action_condition", value=action_condition, expected_type=type_hints["action_condition"])
                 check_type(argname="argument label_name_condition", value=label_name_condition, expected_type=type_hints["label_name_condition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2079,24 +2069,24 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def action_condition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ActionConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ActionConditionProperty"]]:
             '''Matches log records based on the WAF rule action taken (ALLOW, BLOCK, COUNT, etc.).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-condition.html#cfn-observabilityadmin-organizationtelemetryrule-condition-actioncondition
             '''
             result = self._values.get("action_condition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ActionConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ActionConditionProperty"]], result)
 
         @builtins.property
         def label_name_condition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LabelNameConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LabelNameConditionProperty"]]:
             '''Matches log records based on WAF rule labels applied to the request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-condition.html#cfn-observabilityadmin-organizationtelemetryrule-condition-labelnamecondition
             '''
             result = self._values.get("label_name_condition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LabelNameConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LabelNameConditionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2144,7 +2134,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b56ef10916fda37562f5a73d7cca6d1cfc6daec018d9ce8b63aaaff139c12895)
+                type_hints = cached_type_hints(_typecheckingstub__b56ef10916fda37562f5a73d7cca6d1cfc6daec018d9ce8b63aaaff139c12895)
                 check_type(argname="argument field_delimiter", value=field_delimiter, expected_type=type_hints["field_delimiter"])
                 check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2198,7 +2188,7 @@ class CfnOrganizationTelemetryRule(
             *,
             method: typing.Optional[builtins.str] = None,
             query_string: typing.Optional[builtins.str] = None,
-            single_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.SingleHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            single_header: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.SingleHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies a field in the request to redact from WAF logs, such as headers, query parameters, or body content.
@@ -2227,7 +2217,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__131a6841535b3ea1a525c04136403368fbb8448ee443a93a42242015401ac5dc)
+                type_hints = cached_type_hints(_typecheckingstub__131a6841535b3ea1a525c04136403368fbb8448ee443a93a42242015401ac5dc)
                 check_type(argname="argument method", value=method, expected_type=type_hints["method"])
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
                 check_type(argname="argument single_header", value=single_header, expected_type=type_hints["single_header"])
@@ -2263,13 +2253,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def single_header(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.SingleHeaderProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.SingleHeaderProperty"]]:
             '''Redacts a specific header field by name from WAF logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-fieldtomatch.html#cfn-observabilityadmin-organizationtelemetryrule-fieldtomatch-singleheader
             '''
             result = self._values.get("single_header")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.SingleHeaderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.SingleHeaderProperty"]], result)
 
         @builtins.property
         def uri_path(self) -> typing.Optional[builtins.str]:
@@ -2305,7 +2295,7 @@ class CfnOrganizationTelemetryRule(
             self,
             *,
             behavior: typing.Optional[builtins.str] = None,
-            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             requirement: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A single filter condition that specifies behavior, requirement, and matching conditions for WAF log records.
@@ -2337,7 +2327,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__74122cf2cd3a4de6fe59f3acfea6ea55d497184459a9d73d02526969478c6d70)
+                type_hints = cached_type_hints(_typecheckingstub__74122cf2cd3a4de6fe59f3acfea6ea55d497184459a9d73d02526969478c6d70)
                 check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
                 check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
                 check_type(argname="argument requirement", value=requirement, expected_type=type_hints["requirement"])
@@ -2361,13 +2351,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ConditionProperty"]]]]:
             '''The list of conditions that determine if a log record matches this filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-filter.html#cfn-observabilityadmin-organizationtelemetryrule-filter-conditions
             '''
             result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ConditionProperty"]]]], result)
 
         @builtins.property
         def requirement(self) -> typing.Optional[builtins.str]:
@@ -2414,7 +2404,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1e1cb85478af2a0db2ff4e2c1201fbe45401829631a994c0a6593451b59b5c80)
+                type_hints = cached_type_hints(_typecheckingstub__1e1cb85478af2a0db2ff4e2c1201fbe45401829631a994c0a6593451b59b5c80)
                 check_type(argname="argument label_name", value=label_name, expected_type=type_hints["label_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if label_name is not None:
@@ -2469,7 +2459,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a183c154606401083ca822364b827272ff7c3ef3b6f8d8a6c81bc781343121f7)
+                type_hints = cached_type_hints(_typecheckingstub__a183c154606401083ca822364b827272ff7c3ef3b6f8d8a6c81bc781343121f7)
                 check_type(argname="argument log_types", value=log_types, expected_type=type_hints["log_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_types is not None:
@@ -2505,7 +2495,7 @@ class CfnOrganizationTelemetryRule(
             self,
             *,
             default_behavior: typing.Optional[builtins.str] = None,
-            filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration that determines which WAF log records to keep or drop based on specified conditions.
 
@@ -2538,7 +2528,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01b854904)
+                type_hints = cached_type_hints(_typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01b854904)
                 check_type(argname="argument default_behavior", value=default_behavior, expected_type=type_hints["default_behavior"])
                 check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2559,13 +2549,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def filters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.FilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.FilterProperty"]]]]:
             '''A list of filter conditions that determine log record handling behavior.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-loggingfilter.html#cfn-observabilityadmin-organizationtelemetryrule-loggingfilter-filters
             '''
             result = self._values.get("filters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.FilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.FilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2613,7 +2603,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39474ff06c29a0fa1bd91659fc00baf48b14f80d991ec59b6f0d4ac0ecf907e2)
+                type_hints = cached_type_hints(_typecheckingstub__39474ff06c29a0fa1bd91659fc00baf48b14f80d991ec59b6f0d4ac0ecf907e2)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -2688,7 +2678,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32eaac1f45f8f639979d1f81a515778d4b95e9e651411f27f6a838b958d2ac3d)
+                type_hints = cached_type_hints(_typecheckingstub__32eaac1f45f8f639979d1f81a515778d4b95e9e651411f27f6a838b958d2ac3d)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -2733,14 +2723,14 @@ class CfnOrganizationTelemetryRule(
         def __init__(
             self,
             *,
-            cloudtrail_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.CloudtrailParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloudtrail_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.CloudtrailParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination_pattern: typing.Optional[builtins.str] = None,
             destination_type: typing.Optional[builtins.str] = None,
-            elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            log_delivery_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
-            vpc_flow_log_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            waf_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            waf_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying where and how telemetry data should be delivered for AWS resources.
 
@@ -2823,7 +2813,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454b340171)
+                type_hints = cached_type_hints(_typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454b340171)
                 check_type(argname="argument cloudtrail_parameters", value=cloudtrail_parameters, expected_type=type_hints["cloudtrail_parameters"])
                 check_type(argname="argument destination_pattern", value=destination_pattern, expected_type=type_hints["destination_pattern"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
@@ -2853,13 +2843,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def cloudtrail_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.CloudtrailParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.CloudtrailParametersProperty"]]:
             '''Configuration parameters specific to AWS CloudTrail when CloudTrail is the source type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-cloudtrailparameters
             '''
             result = self._values.get("cloudtrail_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.CloudtrailParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.CloudtrailParametersProperty"]], result)
 
         @builtins.property
         def destination_pattern(self) -> typing.Optional[builtins.str]:
@@ -2882,24 +2872,24 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def elb_load_balancer_logging_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]]:
             '''Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-elbloadbalancerloggingparameters
             '''
             result = self._values.get("elb_load_balancer_logging_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
 
         @builtins.property
         def log_delivery_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]]:
             '''Parameters for log delivery configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-logdeliveryparameters
             '''
             result = self._values.get("log_delivery_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]], result)
 
         @builtins.property
         def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -2913,24 +2903,24 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def vpc_flow_log_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty"]]:
             '''Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-vpcflowlogparameters
             '''
             result = self._values.get("vpc_flow_log_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty"]], result)
 
         @builtins.property
         def waf_logging_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.WAFLoggingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.WAFLoggingParametersProperty"]]:
             '''Configuration parameters specific to WAF logging when WAF is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-wafloggingparameters
             '''
             result = self._values.get("waf_logging_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.WAFLoggingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.WAFLoggingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2964,9 +2954,9 @@ class CfnOrganizationTelemetryRule(
             *,
             resource_type: builtins.str,
             telemetry_type: builtins.str,
-            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            all_regions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            all_regions: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             scope: typing.Optional[builtins.str] = None,
             selection_criteria: typing.Optional[builtins.str] = None,
@@ -3066,7 +3056,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8febf24ebcbc00029972152d874df5e847a9f5cd45e05abb26e69f7a2cabc5bf)
+                type_hints = cached_type_hints(_typecheckingstub__8febf24ebcbc00029972152d874df5e847a9f5cd45e05abb26e69f7a2cabc5bf)
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
                 check_type(argname="argument telemetry_type", value=telemetry_type, expected_type=type_hints["telemetry_type"])
                 check_type(argname="argument allow_field_updates", value=allow_field_updates, expected_type=type_hints["allow_field_updates"])
@@ -3118,7 +3108,7 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def allow_field_updates(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields.
 
             :default: - false
@@ -3126,29 +3116,29 @@ class CfnOrganizationTelemetryRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-allowfieldupdates
             '''
             result = self._values.get("allow_field_updates")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def all_regions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, the rule is replicated to all supported regions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-allregions
             '''
             result = self._values.get("all_regions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def destination_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
             '''Configuration specifying where and how the telemetry data should be delivered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-destinationconfiguration
             '''
             result = self._values.get("destination_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
 
         @builtins.property
         def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3238,7 +3228,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__945b01222f6573dfd9bd365335b34de4d056db844b2fe9ffa6c9d40371eaff6e)
+                type_hints = cached_type_hints(_typecheckingstub__945b01222f6573dfd9bd365335b34de4d056db844b2fe9ffa6c9d40371eaff6e)
                 check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
                 check_type(argname="argument max_aggregation_interval", value=max_aggregation_interval, expected_type=type_hints["max_aggregation_interval"])
                 check_type(argname="argument traffic_type", value=traffic_type, expected_type=type_hints["traffic_type"])
@@ -3301,9 +3291,9 @@ class CfnOrganizationTelemetryRule(
         def __init__(
             self,
             *,
-            logging_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.LoggingFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            logging_filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.LoggingFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             log_type: typing.Optional[builtins.str] = None,
-            redacted_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            redacted_fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration parameters for WAF logging, including redacted fields and logging filters.
 
@@ -3348,7 +3338,7 @@ class CfnOrganizationTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__170d7139909f3f9728055df526e99eee9f0d1bbb7e2ffd7d9636e18c28848f0b)
+                type_hints = cached_type_hints(_typecheckingstub__170d7139909f3f9728055df526e99eee9f0d1bbb7e2ffd7d9636e18c28848f0b)
                 check_type(argname="argument logging_filter", value=logging_filter, expected_type=type_hints["logging_filter"])
                 check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
                 check_type(argname="argument redacted_fields", value=redacted_fields, expected_type=type_hints["redacted_fields"])
@@ -3363,13 +3353,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def logging_filter(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LoggingFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LoggingFilterProperty"]]:
             '''A filter configuration that determines which WAF log records to include or exclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-wafloggingparameters.html#cfn-observabilityadmin-organizationtelemetryrule-wafloggingparameters-loggingfilter
             '''
             result = self._values.get("logging_filter")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.LoggingFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LoggingFilterProperty"]], result)
 
         @builtins.property
         def log_type(self) -> typing.Optional[builtins.str]:
@@ -3383,13 +3373,13 @@ class CfnOrganizationTelemetryRule(
         @builtins.property
         def redacted_fields(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.FieldToMatchProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.FieldToMatchProperty"]]]]:
             '''The fields to redact from WAF logs to protect sensitive information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-wafloggingparameters.html#cfn-observabilityadmin-organizationtelemetryrule-wafloggingparameters-redactedfields
             '''
             result = self._values.get("redacted_fields")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.FieldToMatchProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.FieldToMatchProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3412,9 +3402,9 @@ class CfnOrganizationTelemetryRuleProps:
     def __init__(
         self,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOrganizationTelemetryRule``.
 
@@ -3514,7 +3504,7 @@ class CfnOrganizationTelemetryRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45c94381428dd096d5bd5b31c1a78b0ec6c66b125c46a889f389e957dbf9f76b)
+            type_hints = cached_type_hints(_typecheckingstub__45c94381428dd096d5bd5b31c1a78b0ec6c66b125c46a889f389e957dbf9f76b)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3528,14 +3518,14 @@ class CfnOrganizationTelemetryRuleProps:
     @builtins.property
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"]:
         '''The name of the organization telemetry rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-organizationtelemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-rule
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.TelemetryRuleProperty"], result)
 
     @builtins.property
     def rule_name(self) -> builtins.str:
@@ -3548,7 +3538,7 @@ class CfnOrganizationTelemetryRuleProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Lists all tags attached to the specified resource.
 
         Supports telemetry rule resources and telemetry pipeline resources.
@@ -3556,7 +3546,7 @@ class CfnOrganizationTelemetryRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-organizationtelemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3570,9 +3560,9 @@ class CfnOrganizationTelemetryRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IS3TableIntegrationRef_0d27be71, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.IS3TableIntegrationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnS3TableIntegration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnS3TableIntegration",
 ):
@@ -3620,10 +3610,10 @@ class CfnS3TableIntegration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        encryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3TableIntegration.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        encryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3TableIntegration.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        log_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3TableIntegration.LogSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3TableIntegration.LogSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::S3TableIntegration``.
 
@@ -3635,7 +3625,7 @@ class CfnS3TableIntegration(
         :param tags: The key-value pairs to associate with the S3 Table integration resource for categorization and management purposes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e613f2b4c0bd0fe05183ae10e1072f669e68ecf8da1370aa25246cc8572b5e2f)
+            type_hints = cached_type_hints(_typecheckingstub__e613f2b4c0bd0fe05183ae10e1072f669e68ecf8da1370aa25246cc8572b5e2f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnS3TableIntegrationProps(
@@ -3651,13 +3641,13 @@ class CfnS3TableIntegration(
     @builtins.classmethod
     def arn_for_s3_table_integration(
         cls,
-        resource: "_IS3TableIntegrationRef_0d27be71",
+        resource: "_aws_observabilityadmin_3e93009d.IS3TableIntegrationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de0e786e830272a9cd43196ab4d988d850d39e09ac6deece3f6f3fc217267fc9)
+            type_hints = cached_type_hints(_typecheckingstub__de0e786e830272a9cd43196ab4d988d850d39e09ac6deece3f6f3fc217267fc9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForS3TableIntegration", [resource]))
 
@@ -3669,18 +3659,18 @@ class CfnS3TableIntegration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f060eb6521743a2fee36ac86bf0a3ec88f3659183452e5bc1ed20405e82d070)
+            type_hints = cached_type_hints(_typecheckingstub__3f060eb6521743a2fee36ac86bf0a3ec88f3659183452e5bc1ed20405e82d070)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnS3TableIntegration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db8d8b6fa8e1af24ec5902bc335bccad34c4c808d7ce93702198c675306c9490)
+            type_hints = cached_type_hints(_typecheckingstub__db8d8b6fa8e1af24ec5902bc335bccad34c4c808d7ce93702198c675306c9490)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3693,7 +3683,7 @@ class CfnS3TableIntegration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1915c865e4c74d8cf78a70268ef686e156945564d8c734eae1c805be7b1dcca)
+            type_hints = cached_type_hints(_typecheckingstub__b1915c865e4c74d8cf78a70268ef686e156945564d8c734eae1c805be7b1dcca)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3714,9 +3704,9 @@ class CfnS3TableIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3730,25 +3720,27 @@ class CfnS3TableIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="s3TableIntegrationRef")
-    def s3_table_integration_ref(self) -> "_S3TableIntegrationReference_5391966c":
+    def s3_table_integration_ref(
+        self,
+    ) -> "_aws_observabilityadmin_3e93009d.S3TableIntegrationReference":
         '''A reference to a S3TableIntegration resource.'''
-        return typing.cast("_S3TableIntegrationReference_5391966c", jsii.get(self, "s3TableIntegrationRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.S3TableIntegrationReference", jsii.get(self, "s3TableIntegrationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryption")
     def encryption(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.EncryptionConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.EncryptionConfigProperty"]:
         '''Defines the encryption configuration for S3 Table integrations, including the encryption algorithm and KMS key settings.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.EncryptionConfigProperty"], jsii.get(self, "encryption"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.EncryptionConfigProperty"], jsii.get(self, "encryption"))
 
     @encryption.setter
     def encryption(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.EncryptionConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.EncryptionConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf60cf475e52ec2455d6bb2610fe113c13df025036010f81e85a0d6a8a9568df)
+            type_hints = cached_type_hints(_typecheckingstub__bf60cf475e52ec2455d6bb2610fe113c13df025036010f81e85a0d6a8a9568df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
 
@@ -3761,7 +3753,7 @@ class CfnS3TableIntegration(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9563b76b32841a10a2062025b5dc3f2c3e65ffaf4e26519dd2e2939d724590b)
+            type_hints = cached_type_hints(_typecheckingstub__e9563b76b32841a10a2062025b5dc3f2c3e65ffaf4e26519dd2e2939d724590b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3769,30 +3761,33 @@ class CfnS3TableIntegration(
     @jsii.member(jsii_name="logSources")
     def log_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.LogSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.LogSourceProperty"]]]]:
         '''A data source with an S3 Table integration for query access in the ``logs`` namespace.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.LogSourceProperty"]]]], jsii.get(self, "logSources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.LogSourceProperty"]]]], jsii.get(self, "logSources"))
 
     @log_sources.setter
     def log_sources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.LogSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.LogSourceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca350dbe6386e8726b94ecfb8ecdcec3eadaea66fddf8e9ace5f7364958e217a)
+            type_hints = cached_type_hints(_typecheckingstub__ca350dbe6386e8726b94ecfb8ecdcec3eadaea66fddf8e9ace5f7364958e217a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logSources", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key-value pairs to associate with the S3 Table integration resource for categorization and management purposes.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8d9af1b518d9d7c5df43afc2d1661b0c7f8c2f6e31ea999f0f18044da32c60a)
+            type_hints = cached_type_hints(_typecheckingstub__f8d9af1b518d9d7c5df43afc2d1661b0c7f8c2f6e31ea999f0f18044da32c60a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3830,7 +3825,7 @@ class CfnS3TableIntegration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__08cffef92f415425c011859c528aa6887003c25fca6427c36632c3e7f6effd76)
+                type_hints = cached_type_hints(_typecheckingstub__08cffef92f415425c011859c528aa6887003c25fca6427c36632c3e7f6effd76)
                 check_type(argname="argument sse_algorithm", value=sse_algorithm, expected_type=type_hints["sse_algorithm"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3906,7 +3901,7 @@ class CfnS3TableIntegration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b66342dc0f7b0ba6d95ddc850e30226765bf042a0bf8a8471a04ad534920ea96)
+                type_hints = cached_type_hints(_typecheckingstub__b66342dc0f7b0ba6d95ddc850e30226765bf042a0bf8a8471a04ad534920ea96)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
@@ -3972,10 +3967,10 @@ class CfnS3TableIntegrationProps:
     def __init__(
         self,
         *,
-        encryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3TableIntegration.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        encryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3TableIntegration.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        log_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3TableIntegration.LogSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3TableIntegration.LogSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnS3TableIntegration``.
 
@@ -4018,7 +4013,7 @@ class CfnS3TableIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__595e24a51b54bcce8c75e459e7e3581741d212973d102f13a7b1f8c21e64c7c6)
+            type_hints = cached_type_hints(_typecheckingstub__595e24a51b54bcce8c75e459e7e3581741d212973d102f13a7b1f8c21e64c7c6)
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument log_sources", value=log_sources, expected_type=type_hints["log_sources"])
@@ -4035,14 +4030,14 @@ class CfnS3TableIntegrationProps:
     @builtins.property
     def encryption(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.EncryptionConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.EncryptionConfigProperty"]:
         '''Defines the encryption configuration for S3 Table integrations, including the encryption algorithm and KMS key settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-s3tableintegration.html#cfn-observabilityadmin-s3tableintegration-encryption
         '''
         result = self._values.get("encryption")
         assert result is not None, "Required property 'encryption' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.EncryptionConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.EncryptionConfigProperty"], result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
@@ -4057,22 +4052,22 @@ class CfnS3TableIntegrationProps:
     @builtins.property
     def log_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.LogSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.LogSourceProperty"]]]]:
         '''A data source with an S3 Table integration for query access in the ``logs`` namespace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-s3tableintegration.html#cfn-observabilityadmin-s3tableintegration-logsources
         '''
         result = self._values.get("log_sources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3TableIntegration.LogSourceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3TableIntegration.LogSourceProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key-value pairs to associate with the S3 Table integration resource for categorization and management purposes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-s3tableintegration.html#cfn-observabilityadmin-s3tableintegration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4086,9 +4081,9 @@ class CfnS3TableIntegrationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITelemetryEnrichmentRef_67eed03a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.ITelemetryEnrichmentRef)
 class CfnTelemetryEnrichment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryEnrichment",
 ):
@@ -4125,7 +4120,7 @@ class CfnTelemetryEnrichment(
         :param scope: Scope of the Telemetry Enrichment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ba5a5e42f36c7fc17bb7c590d5a373046157a6ffaa63db0c471053a5201cc54)
+            type_hints = cached_type_hints(_typecheckingstub__9ba5a5e42f36c7fc17bb7c590d5a373046157a6ffaa63db0c471053a5201cc54)
             check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTelemetryEnrichmentProps(scope=scope)
@@ -4140,18 +4135,18 @@ class CfnTelemetryEnrichment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d44786bc813ad1d1367df2897bcbf68ea8108d60d0b9b59ae90578f776616814)
+            type_hints = cached_type_hints(_typecheckingstub__d44786bc813ad1d1367df2897bcbf68ea8108d60d0b9b59ae90578f776616814)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTelemetryEnrichment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38484b599c9d24b5b4e69eed67c6fd7eb0c385e9a31f8a1fcae3423b4a33c632)
+            type_hints = cached_type_hints(_typecheckingstub__38484b599c9d24b5b4e69eed67c6fd7eb0c385e9a31f8a1fcae3423b4a33c632)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4164,7 +4159,7 @@ class CfnTelemetryEnrichment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6032d2eee341171e71bf9783d5c8885f15fc5a7521d3788723939aaa746d10c9)
+            type_hints = cached_type_hints(_typecheckingstub__6032d2eee341171e71bf9783d5c8885f15fc5a7521d3788723939aaa746d10c9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4195,9 +4190,11 @@ class CfnTelemetryEnrichment(
 
     @builtins.property
     @jsii.member(jsii_name="telemetryEnrichmentRef")
-    def telemetry_enrichment_ref(self) -> "_TelemetryEnrichmentReference_a978d10d":
+    def telemetry_enrichment_ref(
+        self,
+    ) -> "_aws_observabilityadmin_3e93009d.TelemetryEnrichmentReference":
         '''A reference to a TelemetryEnrichment resource.'''
-        return typing.cast("_TelemetryEnrichmentReference_a978d10d", jsii.get(self, "telemetryEnrichmentRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.TelemetryEnrichmentReference", jsii.get(self, "telemetryEnrichmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -4208,7 +4205,7 @@ class CfnTelemetryEnrichment(
     @scope.setter
     def scope(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54)
+            type_hints = cached_type_hints(_typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
 
@@ -4238,7 +4235,7 @@ class CfnTelemetryEnrichmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4)
+            type_hints = cached_type_hints(_typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "scope": scope,
@@ -4266,9 +4263,9 @@ class CfnTelemetryEnrichmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITelemetryPipelinesRef_a5d8576e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.ITelemetryPipelinesRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTelemetryPipelines(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryPipelines",
 ):
@@ -4312,9 +4309,9 @@ class CfnTelemetryPipelines(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::TelemetryPipelines``.
 
@@ -4325,7 +4322,7 @@ class CfnTelemetryPipelines(
         :param tags: The key-value pairs to associate with the telemetry pipeline resource for categorization and management purposes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f612352088aa915560d9c73b4fc630a10a3f3706939f1998202a1ad9dcaa9b2e)
+            type_hints = cached_type_hints(_typecheckingstub__f612352088aa915560d9c73b4fc630a10a3f3706939f1998202a1ad9dcaa9b2e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTelemetryPipelinesProps(
@@ -4338,13 +4335,13 @@ class CfnTelemetryPipelines(
     @builtins.classmethod
     def arn_for_telemetry_pipelines(
         cls,
-        resource: "_ITelemetryPipelinesRef_a5d8576e",
+        resource: "_aws_observabilityadmin_3e93009d.ITelemetryPipelinesRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2734bd526aa4a19a2468ecd3f94c2f174bcdef0f646010e77d960f2aee980e1c)
+            type_hints = cached_type_hints(_typecheckingstub__2734bd526aa4a19a2468ecd3f94c2f174bcdef0f646010e77d960f2aee980e1c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTelemetryPipelines", [resource]))
 
@@ -4356,18 +4353,18 @@ class CfnTelemetryPipelines(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13e724affcae9c67447d564bf1f406f85952620e01688ec9374c2e240d21ce00)
+            type_hints = cached_type_hints(_typecheckingstub__13e724affcae9c67447d564bf1f406f85952620e01688ec9374c2e240d21ce00)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTelemetryPipelines", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b7b0d3ae71540f27e1eef685497e34fb8fa229fd184e2f79e2601bd982007f4)
+            type_hints = cached_type_hints(_typecheckingstub__3b7b0d3ae71540f27e1eef685497e34fb8fa229fd184e2f79e2601bd982007f4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4380,7 +4377,7 @@ class CfnTelemetryPipelines(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ef1a0ed45cdf50ec0b96e10e26fffd4fa055a06795675917f6bf670790ac26d)
+            type_hints = cached_type_hints(_typecheckingstub__8ef1a0ed45cdf50ec0b96e10e26fffd4fa055a06795675917f6bf670790ac26d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4401,11 +4398,11 @@ class CfnTelemetryPipelines(
 
     @builtins.property
     @jsii.member(jsii_name="attrPipeline")
-    def attr_pipeline(self) -> "_IResolvable_da3f097b":
+    def attr_pipeline(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: Pipeline
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPipeline"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPipeline"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPipelineIdentifier")
@@ -4427,17 +4424,17 @@ class CfnTelemetryPipelines(
 
     @builtins.property
     @jsii.member(jsii_name="attrStatusReason")
-    def attr_status_reason(self) -> "_IResolvable_da3f097b":
+    def attr_status_reason(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: StatusReason
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStatusReason"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStatusReason"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4451,25 +4448,27 @@ class CfnTelemetryPipelines(
 
     @builtins.property
     @jsii.member(jsii_name="telemetryPipelinesRef")
-    def telemetry_pipelines_ref(self) -> "_TelemetryPipelinesReference_c5feae72":
+    def telemetry_pipelines_ref(
+        self,
+    ) -> "_aws_observabilityadmin_3e93009d.TelemetryPipelinesReference":
         '''A reference to a TelemetryPipelines resource.'''
-        return typing.cast("_TelemetryPipelinesReference_c5feae72", jsii.get(self, "telemetryPipelinesRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.TelemetryPipelinesReference", jsii.get(self, "telemetryPipelinesRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]:
         '''The configuration that defines how the telemetry pipeline processes data, including sources, processors, and destinations.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0ea345d0670a42e8cd1fa5ccce024ab9a78b08ece4b335f587f586aa3446f66)
+            type_hints = cached_type_hints(_typecheckingstub__c0ea345d0670a42e8cd1fa5ccce024ab9a78b08ece4b335f587f586aa3446f66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -4482,20 +4481,23 @@ class CfnTelemetryPipelines(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05b27d7721bf16162cc6c8d3ddffb2e5ab5b3582d0e2acfae8e22f54d86e7f56)
+            type_hints = cached_type_hints(_typecheckingstub__05b27d7721bf16162cc6c8d3ddffb2e5ab5b3582d0e2acfae8e22f54d86e7f56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key-value pairs to associate with the telemetry pipeline resource for categorization and management purposes.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__481c302f9e6ff7c9111f4e3c3983ac44f104411494a50dcd0e8fbb96b18d733d)
+            type_hints = cached_type_hints(_typecheckingstub__481c302f9e6ff7c9111f4e3c3983ac44f104411494a50dcd0e8fbb96b18d733d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4535,7 +4537,7 @@ class CfnTelemetryPipelines(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bb4b947dbc757a669388b15cdcb2ebb178c00d3708260a46724a325f1525920)
+                type_hints = cached_type_hints(_typecheckingstub__9bb4b947dbc757a669388b15cdcb2ebb178c00d3708260a46724a325f1525920)
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "body": body,
@@ -4581,13 +4583,13 @@ class CfnTelemetryPipelines(
             self,
             *,
             arn: typing.Optional[builtins.str] = None,
-            configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             created_time_stamp: typing.Optional[jsii.Number] = None,
             last_update_time_stamp: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
             status: typing.Optional[builtins.str] = None,
-            status_reason: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            status_reason: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents a complete telemetry pipeline resource with configuration, status, and metadata for data processing and transformation.
 
@@ -4629,7 +4631,7 @@ class CfnTelemetryPipelines(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__521e5519bd3500dba951faf81c8c8ad63ae7bedb065325d66cf2300ff66789f8)
+                type_hints = cached_type_hints(_typecheckingstub__521e5519bd3500dba951faf81c8c8ad63ae7bedb065325d66cf2300ff66789f8)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
                 check_type(argname="argument created_time_stamp", value=created_time_stamp, expected_type=type_hints["created_time_stamp"])
@@ -4668,7 +4670,7 @@ class CfnTelemetryPipelines(
         @builtins.property
         def configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]]:
             '''The configuration that defines how the telemetry pipeline processes data.
 
             For more information, see the `Amazon CloudWatch User Guide <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Creating-pipelines.html>`_ .
@@ -4676,7 +4678,7 @@ class CfnTelemetryPipelines(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipeline.html#cfn-observabilityadmin-telemetrypipelines-telemetrypipeline-configuration
             '''
             result = self._values.get("configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]], result)
 
         @builtins.property
         def created_time_stamp(self) -> typing.Optional[jsii.Number]:
@@ -4717,22 +4719,22 @@ class CfnTelemetryPipelines(
         @builtins.property
         def status_reason(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty"]]:
             '''Additional information about the pipeline status, including reasons for failure states.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipeline.html#cfn-observabilityadmin-telemetrypipelines-telemetrypipeline-statusreason
             '''
             result = self._values.get("status_reason")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty"]], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''The key-value pairs associated with the telemetry pipeline resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipeline.html#cfn-observabilityadmin-telemetrypipelines-telemetrypipeline-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4774,7 +4776,7 @@ class CfnTelemetryPipelines(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8ac245ad25f1a31f025f3074cc38689cbc6eb0da13fbd131c2413958c035568e)
+                type_hints = cached_type_hints(_typecheckingstub__8ac245ad25f1a31f025f3074cc38689cbc6eb0da13fbd131c2413958c035568e)
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if description is not None:
@@ -4810,9 +4812,9 @@ class CfnTelemetryPipelinesProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTelemetryPipelines``.
 
@@ -4844,7 +4846,7 @@ class CfnTelemetryPipelinesProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5369e75735c42fa71fba44fea4843e2a7be2cb41f104bf1b5e5c9c21b640b915)
+            type_hints = cached_type_hints(_typecheckingstub__5369e75735c42fa71fba44fea4843e2a7be2cb41f104bf1b5e5c9c21b640b915)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4859,7 +4861,7 @@ class CfnTelemetryPipelinesProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"]:
         '''The configuration that defines how the telemetry pipeline processes data, including sources, processors, and destinations.
 
         For more information, see the `Amazon CloudWatch User Guide <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Creating-pipelines.html>`_ .
@@ -4868,7 +4870,7 @@ class CfnTelemetryPipelinesProps:
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -4882,13 +4884,13 @@ class CfnTelemetryPipelinesProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key-value pairs to associate with the telemetry pipeline resource for categorization and management purposes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetrypipelines.html#cfn-observabilityadmin-telemetrypipelines-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4902,9 +4904,9 @@ class CfnTelemetryPipelinesProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITelemetryRuleRef_9918195f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.ITelemetryRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTelemetryRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule",
 ):
@@ -5009,9 +5011,9 @@ class CfnTelemetryRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::TelemetryRule``.
 
@@ -5022,7 +5024,7 @@ class CfnTelemetryRule(
         :param tags: Lists all tags attached to the specified resource. Supports telemetry rule resources and telemetry pipeline resources.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb28d06ef60815f8488b771b64aca8e3671a315a3f6676ad80a414dcd296224)
+            type_hints = cached_type_hints(_typecheckingstub__1cb28d06ef60815f8488b771b64aca8e3671a315a3f6676ad80a414dcd296224)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTelemetryRuleProps(rule=rule, rule_name=rule_name, tags=tags)
@@ -5037,18 +5039,18 @@ class CfnTelemetryRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15d46db6be93b2acc11cf6216144d83efa879d1fceb7052f192fd6a434af63b9)
+            type_hints = cached_type_hints(_typecheckingstub__15d46db6be93b2acc11cf6216144d83efa879d1fceb7052f192fd6a434af63b9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTelemetryRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c971c1c4e8e03d4140674a22f18490c0a14f143dab5c9b15a801d0e69e908b92)
+            type_hints = cached_type_hints(_typecheckingstub__c971c1c4e8e03d4140674a22f18490c0a14f143dab5c9b15a801d0e69e908b92)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5061,7 +5063,7 @@ class CfnTelemetryRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adf48e055c256d6f5cb987ba3921807e211a303c3d38be6a02b6932f52a739fe)
+            type_hints = cached_type_hints(_typecheckingstub__adf48e055c256d6f5cb987ba3921807e211a303c3d38be6a02b6932f52a739fe)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5073,12 +5075,12 @@ class CfnTelemetryRule(
 
     @builtins.property
     @jsii.member(jsii_name="attrRegionStatuses")
-    def attr_region_statuses(self) -> "_IResolvable_da3f097b":
+    def attr_region_statuses(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Per-region replication status of the rule.
 
         :cloudformationAttribute: RegionStatuses
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRegionStatuses"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRegionStatuses"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleArn")
@@ -5091,9 +5093,9 @@ class CfnTelemetryRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5107,25 +5109,27 @@ class CfnTelemetryRule(
 
     @builtins.property
     @jsii.member(jsii_name="telemetryRuleRef")
-    def telemetry_rule_ref(self) -> "_TelemetryRuleReference_35b2b664":
+    def telemetry_rule_ref(
+        self,
+    ) -> "_aws_observabilityadmin_3e93009d.TelemetryRuleReference":
         '''A reference to a TelemetryRule resource.'''
-        return typing.cast("_TelemetryRuleReference_35b2b664", jsii.get(self, "telemetryRuleRef"))
+        return typing.cast("_aws_observabilityadmin_3e93009d.TelemetryRuleReference", jsii.get(self, "telemetryRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rule")
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryRuleProperty"]:
         '''Retrieves the details of a specific telemetry rule in your account.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryRuleProperty"], jsii.get(self, "rule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryRuleProperty"], jsii.get(self, "rule"))
 
     @rule.setter
     def rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryRuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryRuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__253115d76ca17e48e13df2aa679666bb12581680b457a45a7743f6a80d6dbfa1)
+            type_hints = cached_type_hints(_typecheckingstub__253115d76ca17e48e13df2aa679666bb12581680b457a45a7743f6a80d6dbfa1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
@@ -5138,20 +5142,23 @@ class CfnTelemetryRule(
     @rule_name.setter
     def rule_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c59aae5f9c690d805a52b4e5949569db025239eb21172f781673428651a87d80)
+            type_hints = cached_type_hints(_typecheckingstub__c59aae5f9c690d805a52b4e5949569db025239eb21172f781673428651a87d80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Lists all tags attached to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec4f4991901119d1b8ec2bf2b1d23daff9627e5f20b555f27ec8fd5bc58890b7)
+            type_hints = cached_type_hints(_typecheckingstub__ec4f4991901119d1b8ec2bf2b1d23daff9627e5f20b555f27ec8fd5bc58890b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5180,7 +5187,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__50557e914800706360d6a6d0fd3fa96ca54609369f32f1412635fd95de5c04fd)
+                type_hints = cached_type_hints(_typecheckingstub__50557e914800706360d6a6d0fd3fa96ca54609369f32f1412635fd95de5c04fd)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if action is not None:
@@ -5215,7 +5222,7 @@ class CfnTelemetryRule(
         def __init__(
             self,
             *,
-            field_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Advanced event selectors let you create fine-grained selectors for management, data, and network activity events.
@@ -5248,7 +5255,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__34e91e8b7bfb8885a361b9a019e847677797f97575e5c9e1c82c3ee8cb4fe68d)
+                type_hints = cached_type_hints(_typecheckingstub__34e91e8b7bfb8885a361b9a019e847677797f97575e5c9e1c82c3ee8cb4fe68d)
                 check_type(argname="argument field_selectors", value=field_selectors, expected_type=type_hints["field_selectors"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5260,14 +5267,14 @@ class CfnTelemetryRule(
         @builtins.property
         def field_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.AdvancedFieldSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.AdvancedFieldSelectorProperty"]]]:
             '''Contains all selector statements in an advanced event selector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-advancedeventselector.html#cfn-observabilityadmin-telemetryrule-advancedeventselector-fieldselectors
             '''
             result = self._values.get("field_selectors")
             assert result is not None, "Required property 'field_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.AdvancedFieldSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.AdvancedFieldSelectorProperty"]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -5344,7 +5351,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5faffd9294bd925fc19af734c530e3ea1568e156d6666558fb1e9a63ed9e319b)
+                type_hints = cached_type_hints(_typecheckingstub__5faffd9294bd925fc19af734c530e3ea1568e156d6666558fb1e9a63ed9e319b)
                 check_type(argname="argument ends_with", value=ends_with, expected_type=type_hints["ends_with"])
                 check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
@@ -5451,7 +5458,7 @@ class CfnTelemetryRule(
         def __init__(
             self,
             *,
-            advanced_event_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            advanced_event_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Parameters specific to AWS CloudTrail telemetry configuration.
 
@@ -5484,7 +5491,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__62ff49994749a104a46f12763305b7e1872bf64c00794dcd8ff06fff28ff5016)
+                type_hints = cached_type_hints(_typecheckingstub__62ff49994749a104a46f12763305b7e1872bf64c00794dcd8ff06fff28ff5016)
                 check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "advanced_event_selectors": advanced_event_selectors,
@@ -5493,14 +5500,14 @@ class CfnTelemetryRule(
         @builtins.property
         def advanced_event_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.AdvancedEventSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.AdvancedEventSelectorProperty"]]]:
             '''The advanced event selectors to use for filtering AWS CloudTrail events.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-cloudtrailparameters.html#cfn-observabilityadmin-telemetryrule-cloudtrailparameters-advancedeventselectors
             '''
             result = self._values.get("advanced_event_selectors")
             assert result is not None, "Required property 'advanced_event_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.AdvancedEventSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.AdvancedEventSelectorProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5525,8 +5532,8 @@ class CfnTelemetryRule(
         def __init__(
             self,
             *,
-            action_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_name_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            action_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_name_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A single condition that can match based on WAF rule action or label name.
 
@@ -5552,7 +5559,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c897e4ce5b2e29b5a786649170e489dde012e76b9528806d6868b20b58fbe044)
+                type_hints = cached_type_hints(_typecheckingstub__c897e4ce5b2e29b5a786649170e489dde012e76b9528806d6868b20b58fbe044)
                 check_type(argname="argument action_condition", value=action_condition, expected_type=type_hints["action_condition"])
                 check_type(argname="argument label_name_condition", value=label_name_condition, expected_type=type_hints["label_name_condition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5564,24 +5571,24 @@ class CfnTelemetryRule(
         @builtins.property
         def action_condition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ActionConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ActionConditionProperty"]]:
             '''Matches log records based on the WAF rule action taken (ALLOW, BLOCK, COUNT, etc.).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-condition.html#cfn-observabilityadmin-telemetryrule-condition-actioncondition
             '''
             result = self._values.get("action_condition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ActionConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ActionConditionProperty"]], result)
 
         @builtins.property
         def label_name_condition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LabelNameConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LabelNameConditionProperty"]]:
             '''Matches log records based on WAF rule labels applied to the request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-condition.html#cfn-observabilityadmin-telemetryrule-condition-labelnamecondition
             '''
             result = self._values.get("label_name_condition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LabelNameConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LabelNameConditionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5629,7 +5636,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__03a18a983d83cbe92b3f9982fcddc595f10337f8733ae0d29f3010716bab954c)
+                type_hints = cached_type_hints(_typecheckingstub__03a18a983d83cbe92b3f9982fcddc595f10337f8733ae0d29f3010716bab954c)
                 check_type(argname="argument field_delimiter", value=field_delimiter, expected_type=type_hints["field_delimiter"])
                 check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5683,7 +5690,7 @@ class CfnTelemetryRule(
             *,
             method: typing.Optional[builtins.str] = None,
             query_string: typing.Optional[builtins.str] = None,
-            single_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.SingleHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            single_header: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.SingleHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies a field in the request to redact from WAF logs, such as headers, query parameters, or body content.
@@ -5712,7 +5719,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3976476c0a0e097f45e5560dcbf47e3f22424da7ff8b7eeb81ddaa36b8424717)
+                type_hints = cached_type_hints(_typecheckingstub__3976476c0a0e097f45e5560dcbf47e3f22424da7ff8b7eeb81ddaa36b8424717)
                 check_type(argname="argument method", value=method, expected_type=type_hints["method"])
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
                 check_type(argname="argument single_header", value=single_header, expected_type=type_hints["single_header"])
@@ -5748,13 +5755,13 @@ class CfnTelemetryRule(
         @builtins.property
         def single_header(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.SingleHeaderProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.SingleHeaderProperty"]]:
             '''Redacts a specific header field by name from WAF logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-fieldtomatch.html#cfn-observabilityadmin-telemetryrule-fieldtomatch-singleheader
             '''
             result = self._values.get("single_header")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.SingleHeaderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.SingleHeaderProperty"]], result)
 
         @builtins.property
         def uri_path(self) -> typing.Optional[builtins.str]:
@@ -5790,7 +5797,7 @@ class CfnTelemetryRule(
             self,
             *,
             behavior: typing.Optional[builtins.str] = None,
-            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             requirement: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A single filter condition that specifies behavior, requirement, and matching conditions for WAF log records.
@@ -5822,7 +5829,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__49a49dafe52d9710a05d5e9354c3584d91d95a89fb01156df326d91c12f8e7aa)
+                type_hints = cached_type_hints(_typecheckingstub__49a49dafe52d9710a05d5e9354c3584d91d95a89fb01156df326d91c12f8e7aa)
                 check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
                 check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
                 check_type(argname="argument requirement", value=requirement, expected_type=type_hints["requirement"])
@@ -5846,13 +5853,13 @@ class CfnTelemetryRule(
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ConditionProperty"]]]]:
             '''The list of conditions that determine if a log record matches this filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-filter.html#cfn-observabilityadmin-telemetryrule-filter-conditions
             '''
             result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ConditionProperty"]]]], result)
 
         @builtins.property
         def requirement(self) -> typing.Optional[builtins.str]:
@@ -5899,7 +5906,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff01fa602d174a91ced1cb282fb0eb60b7d5109e9b2f83417d27bea0261462a3)
+                type_hints = cached_type_hints(_typecheckingstub__ff01fa602d174a91ced1cb282fb0eb60b7d5109e9b2f83417d27bea0261462a3)
                 check_type(argname="argument label_name", value=label_name, expected_type=type_hints["label_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if label_name is not None:
@@ -5954,7 +5961,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7324b57f326b27aa49521b6ab51d6cfe3f1c8e68c78bb51ad7e061edc92c0a8d)
+                type_hints = cached_type_hints(_typecheckingstub__7324b57f326b27aa49521b6ab51d6cfe3f1c8e68c78bb51ad7e061edc92c0a8d)
                 check_type(argname="argument log_types", value=log_types, expected_type=type_hints["log_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_types is not None:
@@ -5990,7 +5997,7 @@ class CfnTelemetryRule(
             self,
             *,
             default_behavior: typing.Optional[builtins.str] = None,
-            filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration that determines which WAF log records to keep or drop based on specified conditions.
 
@@ -6023,7 +6030,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec5b265219a09ae971954fc5efb55eeca562e31b03200d5a454f07b91730c0c0)
+                type_hints = cached_type_hints(_typecheckingstub__ec5b265219a09ae971954fc5efb55eeca562e31b03200d5a454f07b91730c0c0)
                 check_type(argname="argument default_behavior", value=default_behavior, expected_type=type_hints["default_behavior"])
                 check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6044,13 +6051,13 @@ class CfnTelemetryRule(
         @builtins.property
         def filters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.FilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.FilterProperty"]]]]:
             '''A list of filter conditions that determine log record handling behavior.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-loggingfilter.html#cfn-observabilityadmin-telemetryrule-loggingfilter-filters
             '''
             result = self._values.get("filters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.FilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.FilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6098,7 +6105,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5537a00308bab09ea31f9d63dfd37373fb989591c800bcebed8f9977dad4f21d)
+                type_hints = cached_type_hints(_typecheckingstub__5537a00308bab09ea31f9d63dfd37373fb989591c800bcebed8f9977dad4f21d)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -6173,7 +6180,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__52016d9c5461305a90cf833adbbbe8dfceb9080f12605147dcc5869d62c25ad4)
+                type_hints = cached_type_hints(_typecheckingstub__52016d9c5461305a90cf833adbbbe8dfceb9080f12605147dcc5869d62c25ad4)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -6218,14 +6225,14 @@ class CfnTelemetryRule(
         def __init__(
             self,
             *,
-            cloudtrail_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.CloudtrailParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloudtrail_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.CloudtrailParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination_pattern: typing.Optional[builtins.str] = None,
             destination_type: typing.Optional[builtins.str] = None,
-            elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            log_delivery_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
-            vpc_flow_log_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            waf_logging_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            waf_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying where and how telemetry data should be delivered for AWS resources.
 
@@ -6308,7 +6315,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__01ec7a824466c4f6343ec939656046b6c12a168edd9bbf6ebca41e4b5d1554d5)
+                type_hints = cached_type_hints(_typecheckingstub__01ec7a824466c4f6343ec939656046b6c12a168edd9bbf6ebca41e4b5d1554d5)
                 check_type(argname="argument cloudtrail_parameters", value=cloudtrail_parameters, expected_type=type_hints["cloudtrail_parameters"])
                 check_type(argname="argument destination_pattern", value=destination_pattern, expected_type=type_hints["destination_pattern"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
@@ -6338,13 +6345,13 @@ class CfnTelemetryRule(
         @builtins.property
         def cloudtrail_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.CloudtrailParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.CloudtrailParametersProperty"]]:
             '''Configuration parameters specific to AWS CloudTrail when CloudTrail is the source type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-cloudtrailparameters
             '''
             result = self._values.get("cloudtrail_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.CloudtrailParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.CloudtrailParametersProperty"]], result)
 
         @builtins.property
         def destination_pattern(self) -> typing.Optional[builtins.str]:
@@ -6367,24 +6374,24 @@ class CfnTelemetryRule(
         @builtins.property
         def elb_load_balancer_logging_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]]:
             '''Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-elbloadbalancerloggingparameters
             '''
             result = self._values.get("elb_load_balancer_logging_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty"]], result)
 
         @builtins.property
         def log_delivery_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LogDeliveryParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LogDeliveryParametersProperty"]]:
             '''Configuration parameters specific to Amazon Bedrock AgentCore logging when Amazon Bedrock AgentCore is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-logdeliveryparameters
             '''
             result = self._values.get("log_delivery_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LogDeliveryParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LogDeliveryParametersProperty"]], result)
 
         @builtins.property
         def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -6398,24 +6405,24 @@ class CfnTelemetryRule(
         @builtins.property
         def vpc_flow_log_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.VPCFlowLogParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.VPCFlowLogParametersProperty"]]:
             '''Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-vpcflowlogparameters
             '''
             result = self._values.get("vpc_flow_log_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.VPCFlowLogParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.VPCFlowLogParametersProperty"]], result)
 
         @builtins.property
         def waf_logging_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.WAFLoggingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.WAFLoggingParametersProperty"]]:
             '''Configuration parameters specific to WAF logging when WAF is the resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-wafloggingparameters
             '''
             result = self._values.get("waf_logging_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.WAFLoggingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.WAFLoggingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6448,9 +6455,9 @@ class CfnTelemetryRule(
             *,
             resource_type: builtins.str,
             telemetry_type: builtins.str,
-            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            all_regions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            all_regions: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             selection_criteria: typing.Optional[builtins.str] = None,
             telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6547,7 +6554,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__25d1c19a045d927560ccf78552c0595fbd7db1322a4e66f60e4d9cb5393b81c3)
+                type_hints = cached_type_hints(_typecheckingstub__25d1c19a045d927560ccf78552c0595fbd7db1322a4e66f60e4d9cb5393b81c3)
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
                 check_type(argname="argument telemetry_type", value=telemetry_type, expected_type=type_hints["telemetry_type"])
                 check_type(argname="argument allow_field_updates", value=allow_field_updates, expected_type=type_hints["allow_field_updates"])
@@ -6596,7 +6603,7 @@ class CfnTelemetryRule(
         @builtins.property
         def allow_field_updates(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields.
 
             :default: - false
@@ -6604,29 +6611,29 @@ class CfnTelemetryRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-allowfieldupdates
             '''
             result = self._values.get("allow_field_updates")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def all_regions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, the rule is replicated to all supported regions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-allregions
             '''
             result = self._values.get("all_regions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def destination_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
             '''Configuration specifying where and how the telemetry data should be delivered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-destinationconfiguration
             '''
             result = self._values.get("destination_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
 
         @builtins.property
         def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6707,7 +6714,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb426e63d8ddff6bc9e58865c89c023dbf7b61ef2e21b2f9ff902df9db830681)
+                type_hints = cached_type_hints(_typecheckingstub__cb426e63d8ddff6bc9e58865c89c023dbf7b61ef2e21b2f9ff902df9db830681)
                 check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
                 check_type(argname="argument max_aggregation_interval", value=max_aggregation_interval, expected_type=type_hints["max_aggregation_interval"])
                 check_type(argname="argument traffic_type", value=traffic_type, expected_type=type_hints["traffic_type"])
@@ -6770,9 +6777,9 @@ class CfnTelemetryRule(
         def __init__(
             self,
             *,
-            logging_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.LoggingFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            logging_filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.LoggingFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             log_type: typing.Optional[builtins.str] = None,
-            redacted_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            redacted_fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration parameters for WAF logging, including redacted fields and logging filters.
 
@@ -6817,7 +6824,7 @@ class CfnTelemetryRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fe797c9dc099285e31e1c64db2dde79d74254b16b68898be88f378c3f0acc959)
+                type_hints = cached_type_hints(_typecheckingstub__fe797c9dc099285e31e1c64db2dde79d74254b16b68898be88f378c3f0acc959)
                 check_type(argname="argument logging_filter", value=logging_filter, expected_type=type_hints["logging_filter"])
                 check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
                 check_type(argname="argument redacted_fields", value=redacted_fields, expected_type=type_hints["redacted_fields"])
@@ -6832,13 +6839,13 @@ class CfnTelemetryRule(
         @builtins.property
         def logging_filter(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LoggingFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LoggingFilterProperty"]]:
             '''A filter configuration that determines which WAF log records to include or exclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-wafloggingparameters.html#cfn-observabilityadmin-telemetryrule-wafloggingparameters-loggingfilter
             '''
             result = self._values.get("logging_filter")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.LoggingFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LoggingFilterProperty"]], result)
 
         @builtins.property
         def log_type(self) -> typing.Optional[builtins.str]:
@@ -6852,13 +6859,13 @@ class CfnTelemetryRule(
         @builtins.property
         def redacted_fields(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.FieldToMatchProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.FieldToMatchProperty"]]]]:
             '''The fields to redact from WAF logs to protect sensitive information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-wafloggingparameters.html#cfn-observabilityadmin-telemetryrule-wafloggingparameters-redactedfields
             '''
             result = self._values.get("redacted_fields")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.FieldToMatchProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.FieldToMatchProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6881,9 +6888,9 @@ class CfnTelemetryRuleProps:
     def __init__(
         self,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTelemetryRule``.
 
@@ -6982,7 +6989,7 @@ class CfnTelemetryRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7455cb845b044ed569a8ec8407abf811920062f00d1e54ad191e90dc9b7e2811)
+            type_hints = cached_type_hints(_typecheckingstub__7455cb845b044ed569a8ec8407abf811920062f00d1e54ad191e90dc9b7e2811)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -6996,14 +7003,14 @@ class CfnTelemetryRuleProps:
     @builtins.property
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryRuleProperty"]:
         '''Retrieves the details of a specific telemetry rule in your account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryrule.html#cfn-observabilityadmin-telemetryrule-rule
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryRuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.TelemetryRuleProperty"], result)
 
     @builtins.property
     def rule_name(self) -> builtins.str:
@@ -7016,7 +7023,7 @@ class CfnTelemetryRuleProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Lists all tags attached to the specified resource.
 
         Supports telemetry rule resources and telemetry pipeline resources.
@@ -7024,7 +7031,7 @@ class CfnTelemetryRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryrule.html#cfn-observabilityadmin-telemetryrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7059,9 +7066,9 @@ def _typecheckingstub__18acbc8917f3c4cbc8bb06f5fae76010e41ab5f0e9b157f4c324c214a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7073,7 +7080,7 @@ def _typecheckingstub__ecabb5646d522a7c00aa40f3e19c4d2e5dccb6109cb58329723f9f47b
     pass
 
 def _typecheckingstub__02b2ea8ec552fc96b3662b368fa64eea5f82839c3bd0f1aa52bd64bc495f5341(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7085,7 +7092,7 @@ def _typecheckingstub__f130448a4f76aff49b8e31a382ea5ab14eacdf34a74afe86be23352de
     pass
 
 def _typecheckingstub__8fbb5a84b6997cee28db4665d22fee83629861a1e51fe754b85b3858441e7c2d(
-    value: typing.Union[_IResolvable_da3f097b, CfnOrganizationCentralizationRule.CentralizationRuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOrganizationCentralizationRule.CentralizationRuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7097,7 +7104,7 @@ def _typecheckingstub__f42b1edd10be1da3c565db5f9585850487a7c51b5ad7ab0a72c1d4345
     pass
 
 def _typecheckingstub__a58679a9a3a800195cc0ecf82553695580c2dd2061901e27320b9025cb6ed262(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7106,16 +7113,16 @@ def _typecheckingstub__48736d0ec2563919af9b82675cbe965d2288bd15210b9c8b34911e7a8
     *,
     region: builtins.str,
     account: typing.Optional[builtins.str] = None,
-    destination_logs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    destination_metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_logs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fb475427ce4a2316b8478f1c58d17ddd5783412b26cdfb98819c47313aa718dc(
     *,
-    destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
-    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7124,24 +7131,24 @@ def _typecheckingstub__8c4d1dff0252b97263e138c77bea2f698277762eeffd4fcf3911e496a
     *,
     regions: typing.Sequence[builtins.str],
     scope: typing.Optional[builtins.str] = None,
-    source_logs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_logs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd5befe41(
     *,
-    backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_group_name_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logs_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    backup_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_group_name_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logs_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12f498f9f25e327239522213ccc62495ae85e2f355fa6744ec71a746c7662a70(
     *,
-    backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    backup_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7195,9 +7202,9 @@ def _typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87
 
 def _typecheckingstub__00d0ecee2cd9ac728ca3e321203ce2e611e56b0b2d415ba2673a50599e4512cd(
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationCentralizationRule.CentralizationRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7206,9 +7213,9 @@ def _typecheckingstub__a67d6a9dd82924a413b7d3435faeb8efa735048df0244b926e672def8
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7220,7 +7227,7 @@ def _typecheckingstub__c7ca13b7cccda36c5b43cead9ffee16b45fa649b63750b67cfc542107
     pass
 
 def _typecheckingstub__0cb893813673a29ee1f384593916d34bdcc440b816dfc54ad27097692c5a64e9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7232,7 +7239,7 @@ def _typecheckingstub__c809c768027da00df4018694393faf5d77af9754b12923bf684ada119
     pass
 
 def _typecheckingstub__97cf84910a3c46b94c3e90ddf73c07b304a029e413bebd1b7c5e7b2bbe5cd411(
-    value: typing.Union[_IResolvable_da3f097b, CfnOrganizationTelemetryRule.TelemetryRuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOrganizationTelemetryRule.TelemetryRuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7244,7 +7251,7 @@ def _typecheckingstub__84099afcf940dd46614099ecc03e181396a6d202813d1517bd79414c5
     pass
 
 def _typecheckingstub__d494e45ec3f03fbc2168c2e374f689615e98524c832aa6247ad243fabe01ffe7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7258,7 +7265,7 @@ def _typecheckingstub__0b6b5585476ea575f5f355362e763f68412449ff22910a34eb3e7d80c
 
 def _typecheckingstub__6a8d791206424757183daedc38dee2af439aaf16a9fafc6af1201043adf7c3de(
     *,
-    field_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    field_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7279,15 +7286,15 @@ def _typecheckingstub__3a750f509bbf975a3106e6633766b065ca671d998289bcba4ef16d2b9
 
 def _typecheckingstub__6841a259b98239da9d79c07870bb6bcff9cbcac2a6f70f508616cce4cc82daa9(
     *,
-    advanced_event_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    advanced_event_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__420adeb7464d458e2857bc92abac2bedbf48d00e02f72464d36b05d3d8e2eb70(
     *,
-    action_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.ActionConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    label_name_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.LabelNameConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    action_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.ActionConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    label_name_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.LabelNameConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7304,7 +7311,7 @@ def _typecheckingstub__131a6841535b3ea1a525c04136403368fbb8448ee443a93a422420154
     *,
     method: typing.Optional[builtins.str] = None,
     query_string: typing.Optional[builtins.str] = None,
-    single_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.SingleHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    single_header: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.SingleHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7313,7 +7320,7 @@ def _typecheckingstub__131a6841535b3ea1a525c04136403368fbb8448ee443a93a422420154
 def _typecheckingstub__74122cf2cd3a4de6fe59f3acfea6ea55d497184459a9d73d02526969478c6d70(
     *,
     behavior: typing.Optional[builtins.str] = None,
-    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     requirement: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7336,7 +7343,7 @@ def _typecheckingstub__a183c154606401083ca822364b827272ff7c3ef3b6f8d8a6c81bc7813
 def _typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01b854904(
     *,
     default_behavior: typing.Optional[builtins.str] = None,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7359,14 +7366,14 @@ def _typecheckingstub__32eaac1f45f8f639979d1f81a515778d4b95e9e651411f27f6a838b95
 
 def _typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454b340171(
     *,
-    cloudtrail_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.CloudtrailParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloudtrail_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.CloudtrailParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination_pattern: typing.Optional[builtins.str] = None,
     destination_type: typing.Optional[builtins.str] = None,
-    elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_delivery_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
-    vpc_flow_log_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    waf_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    waf_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7375,9 +7382,9 @@ def _typecheckingstub__8febf24ebcbc00029972152d874df5e847a9f5cd45e05abb26e69f7a2
     *,
     resource_type: builtins.str,
     telemetry_type: builtins.str,
-    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    all_regions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    all_regions: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     scope: typing.Optional[builtins.str] = None,
     selection_criteria: typing.Optional[builtins.str] = None,
@@ -7397,18 +7404,18 @@ def _typecheckingstub__945b01222f6573dfd9bd365335b34de4d056db844b2fe9ffa6c9d4037
 
 def _typecheckingstub__170d7139909f3f9728055df526e99eee9f0d1bbb7e2ffd7d9636e18c28848f0b(
     *,
-    logging_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.LoggingFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.LoggingFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_type: typing.Optional[builtins.str] = None,
-    redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    redacted_fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45c94381428dd096d5bd5b31c1a78b0ec6c66b125c46a889f389e957dbf9f76b(
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7417,16 +7424,16 @@ def _typecheckingstub__e613f2b4c0bd0fe05183ae10e1072f669e68ecf8da1370aa25246cc85
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    encryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3TableIntegration.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3TableIntegration.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    log_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3TableIntegration.LogSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3TableIntegration.LogSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__de0e786e830272a9cd43196ab4d988d850d39e09ac6deece3f6f3fc217267fc9(
-    resource: _IS3TableIntegrationRef_0d27be71,
+    resource: _aws_observabilityadmin_3e93009d.IS3TableIntegrationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7438,7 +7445,7 @@ def _typecheckingstub__3f060eb6521743a2fee36ac86bf0a3ec88f3659183452e5bc1ed20405
     pass
 
 def _typecheckingstub__db8d8b6fa8e1af24ec5902bc335bccad34c4c808d7ce93702198c675306c9490(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7450,7 +7457,7 @@ def _typecheckingstub__b1915c865e4c74d8cf78a70268ef686e156945564d8c734eae1c805be
     pass
 
 def _typecheckingstub__bf60cf475e52ec2455d6bb2610fe113c13df025036010f81e85a0d6a8a9568df(
-    value: typing.Union[_IResolvable_da3f097b, CfnS3TableIntegration.EncryptionConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnS3TableIntegration.EncryptionConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7462,13 +7469,13 @@ def _typecheckingstub__e9563b76b32841a10a2062025b5dc3f2c3e65ffaf4e26519dd2e2939d
     pass
 
 def _typecheckingstub__ca350dbe6386e8726b94ecfb8ecdcec3eadaea66fddf8e9ace5f7364958e217a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnS3TableIntegration.LogSourceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnS3TableIntegration.LogSourceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f8d9af1b518d9d7c5df43afc2d1661b0c7f8c2f6e31ea999f0f18044da32c60a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7492,10 +7499,10 @@ def _typecheckingstub__b66342dc0f7b0ba6d95ddc850e30226765bf042a0bf8a8471a04ad534
 
 def _typecheckingstub__595e24a51b54bcce8c75e459e7e3581741d212973d102f13a7b1f8c21e64c7c6(
     *,
-    encryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3TableIntegration.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3TableIntegration.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    log_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3TableIntegration.LogSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3TableIntegration.LogSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7516,7 +7523,7 @@ def _typecheckingstub__d44786bc813ad1d1367df2897bcbf68ea8108d60d0b9b59ae90578f77
     pass
 
 def _typecheckingstub__38484b599c9d24b5b4e69eed67c6fd7eb0c385e9a31f8a1fcae3423b4a33c632(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7544,15 +7551,15 @@ def _typecheckingstub__f612352088aa915560d9c73b4fc630a10a3f3706939f1998202a1ad9d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2734bd526aa4a19a2468ecd3f94c2f174bcdef0f646010e77d960f2aee980e1c(
-    resource: _ITelemetryPipelinesRef_a5d8576e,
+    resource: _aws_observabilityadmin_3e93009d.ITelemetryPipelinesRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7564,7 +7571,7 @@ def _typecheckingstub__13e724affcae9c67447d564bf1f406f85952620e01688ec9374c2e240
     pass
 
 def _typecheckingstub__3b7b0d3ae71540f27e1eef685497e34fb8fa229fd184e2f79e2601bd982007f4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7576,7 +7583,7 @@ def _typecheckingstub__8ef1a0ed45cdf50ec0b96e10e26fffd4fa055a06795675917f6bf6707
     pass
 
 def _typecheckingstub__c0ea345d0670a42e8cd1fa5ccce024ab9a78b08ece4b335f587f586aa3446f66(
-    value: typing.Union[_IResolvable_da3f097b, CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7588,7 +7595,7 @@ def _typecheckingstub__05b27d7721bf16162cc6c8d3ddffb2e5ab5b3582d0e2acfae8e22f54d
     pass
 
 def _typecheckingstub__481c302f9e6ff7c9111f4e3c3983ac44f104411494a50dcd0e8fbb96b18d733d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7603,13 +7610,13 @@ def _typecheckingstub__9bb4b947dbc757a669388b15cdcb2ebb178c00d3708260a46724a325f
 def _typecheckingstub__521e5519bd3500dba951faf81c8c8ad63ae7bedb065325d66cf2300ff66789f8(
     *,
     arn: typing.Optional[builtins.str] = None,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     created_time_stamp: typing.Optional[jsii.Number] = None,
     last_update_time_stamp: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
-    status_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status_reason: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryPipelines.TelemetryPipelineStatusReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7623,9 +7630,9 @@ def _typecheckingstub__8ac245ad25f1a31f025f3074cc38689cbc6eb0da13fbd131c2413958c
 
 def _typecheckingstub__5369e75735c42fa71fba44fea4843e2a7be2cb41f104bf1b5e5c9c21b640b915(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7634,9 +7641,9 @@ def _typecheckingstub__1cb28d06ef60815f8488b771b64aca8e3671a315a3f6676ad80a414dc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7648,7 +7655,7 @@ def _typecheckingstub__15d46db6be93b2acc11cf6216144d83efa879d1fceb7052f192fd6a43
     pass
 
 def _typecheckingstub__c971c1c4e8e03d4140674a22f18490c0a14f143dab5c9b15a801d0e69e908b92(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7660,7 +7667,7 @@ def _typecheckingstub__adf48e055c256d6f5cb987ba3921807e211a303c3d38be6a02b6932f5
     pass
 
 def _typecheckingstub__253115d76ca17e48e13df2aa679666bb12581680b457a45a7743f6a80d6dbfa1(
-    value: typing.Union[_IResolvable_da3f097b, CfnTelemetryRule.TelemetryRuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTelemetryRule.TelemetryRuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7672,7 +7679,7 @@ def _typecheckingstub__c59aae5f9c690d805a52b4e5949569db025239eb21172f78167342865
     pass
 
 def _typecheckingstub__ec4f4991901119d1b8ec2bf2b1d23daff9627e5f20b555f27ec8fd5bc58890b7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7686,7 +7693,7 @@ def _typecheckingstub__50557e914800706360d6a6d0fd3fa96ca54609369f32f1412635fd95d
 
 def _typecheckingstub__34e91e8b7bfb8885a361b9a019e847677797f97575e5c9e1c82c3ee8cb4fe68d(
     *,
-    field_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    field_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7707,15 +7714,15 @@ def _typecheckingstub__5faffd9294bd925fc19af734c530e3ea1568e156d6666558fb1e9a63e
 
 def _typecheckingstub__62ff49994749a104a46f12763305b7e1872bf64c00794dcd8ff06fff28ff5016(
     *,
-    advanced_event_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    advanced_event_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c897e4ce5b2e29b5a786649170e489dde012e76b9528806d6868b20b58fbe044(
     *,
-    action_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.ActionConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    label_name_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.LabelNameConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    action_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.ActionConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    label_name_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.LabelNameConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7732,7 +7739,7 @@ def _typecheckingstub__3976476c0a0e097f45e5560dcbf47e3f22424da7ff8b7eeb81ddaa36b
     *,
     method: typing.Optional[builtins.str] = None,
     query_string: typing.Optional[builtins.str] = None,
-    single_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.SingleHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    single_header: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.SingleHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7741,7 +7748,7 @@ def _typecheckingstub__3976476c0a0e097f45e5560dcbf47e3f22424da7ff8b7eeb81ddaa36b
 def _typecheckingstub__49a49dafe52d9710a05d5e9354c3584d91d95a89fb01156df326d91c12f8e7aa(
     *,
     behavior: typing.Optional[builtins.str] = None,
-    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     requirement: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7764,7 +7771,7 @@ def _typecheckingstub__7324b57f326b27aa49521b6ab51d6cfe3f1c8e68c78bb51ad7e061edc
 def _typecheckingstub__ec5b265219a09ae971954fc5efb55eeca562e31b03200d5a454f07b91730c0c0(
     *,
     default_behavior: typing.Optional[builtins.str] = None,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7787,14 +7794,14 @@ def _typecheckingstub__52016d9c5461305a90cf833adbbbe8dfceb9080f12605147dcc5869d6
 
 def _typecheckingstub__01ec7a824466c4f6343ec939656046b6c12a168edd9bbf6ebca41e4b5d1554d5(
     *,
-    cloudtrail_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.CloudtrailParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloudtrail_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.CloudtrailParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination_pattern: typing.Optional[builtins.str] = None,
     destination_type: typing.Optional[builtins.str] = None,
-    elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_delivery_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
-    vpc_flow_log_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    waf_logging_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    waf_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7803,9 +7810,9 @@ def _typecheckingstub__25d1c19a045d927560ccf78552c0595fbd7db1322a4e66f60e4d9cb53
     *,
     resource_type: builtins.str,
     telemetry_type: builtins.str,
-    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    all_regions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    all_regions: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     selection_criteria: typing.Optional[builtins.str] = None,
     telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7824,18 +7831,18 @@ def _typecheckingstub__cb426e63d8ddff6bc9e58865c89c023dbf7b61ef2e21b2f9ff902df9d
 
 def _typecheckingstub__fe797c9dc099285e31e1c64db2dde79d74254b16b68898be88f378c3f0acc959(
     *,
-    logging_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.LoggingFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.LoggingFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_type: typing.Optional[builtins.str] = None,
-    redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    redacted_fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7455cb845b044ed569a8ec8407abf811920062f00d1e54ad191e90dc9b7e2811(
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

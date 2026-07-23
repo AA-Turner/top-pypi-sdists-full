@@ -178,6 +178,7 @@ class ExtractJobsResource(V2ResourceMixin, SyncAPIResource):
         markdown_url: Optional[str] | Omit = omit,
         model: Optional[str] | Omit = omit,
         strict: Optional[bool] | Omit = omit,
+        output_save_url: Optional[str] | Omit = omit,
         service_tier: Optional[Literal["standard", "priority"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -207,6 +208,10 @@ class ExtractJobsResource(V2ResourceMixin, SyncAPIResource):
               False, prune unsupported fields and continue. Sent as
               `options.strict`.
 
+          output_save_url: URL the result should be saved to (e.g. a presigned S3 PUT
+              URL) instead of being returned inline. Async jobs only. When set, the
+              completed job reports `output_url` instead of an inline `result`.
+
           service_tier: Service tier for the job: ``standard`` or ``priority``.
 
           extra_headers: Send extra headers
@@ -218,6 +223,8 @@ class ExtractJobsResource(V2ResourceMixin, SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         body = _build_extract_body(schema, markdown, markdown_url, model, strict, service_tier)
+        if is_given(output_save_url) and output_save_url is not None:
+            body["output_save_url"] = output_save_url
         raw = self._post(
             self._v2_url("/v2/extract/jobs"),
             body=body,
@@ -319,6 +326,7 @@ class AsyncExtractJobsResource(V2ResourceMixin, AsyncAPIResource):
         markdown_url: Optional[str] | Omit = omit,
         model: Optional[str] | Omit = omit,
         strict: Optional[bool] | Omit = omit,
+        output_save_url: Optional[str] | Omit = omit,
         service_tier: Optional[Literal["standard", "priority"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -329,6 +337,8 @@ class AsyncExtractJobsResource(V2ResourceMixin, AsyncAPIResource):
     ) -> Job:
         """Async mirror of `ExtractJobsResource.create`. See there for full documentation."""
         body = _build_extract_body(schema, markdown, markdown_url, model, strict, service_tier)
+        if is_given(output_save_url) and output_save_url is not None:
+            body["output_save_url"] = output_save_url
         raw = await self._post(
             self._v2_url("/v2/extract/jobs"),
             body=body,

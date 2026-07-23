@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77586d2283f53dae8fe3468bf4af628757cef7faae5ddbe1d044a53eb7e04d5f)
+            type_hints = cached_type_hints(_typecheckingstub__77586d2283f53dae8fe3468bf4af628757cef7faae5ddbe1d044a53eb7e04d5f)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_arn": application_arn,
@@ -107,7 +111,7 @@ class DeploymentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd9436bd12baf97b13fde300d01d90ff60e82bba2fc973a77ac20037b850428d)
+            type_hints = cached_type_hints(_typecheckingstub__fd9436bd12baf97b13fde300d01d90ff60e82bba2fc973a77ac20037b850428d)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_id": application_id,
@@ -156,7 +160,7 @@ class EnvironmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd5ec1aac66edf34d1d2747a9c80344b878233fe69c015794f7b2ce302b9b2c4)
+            type_hints = cached_type_hints(_typecheckingstub__cd5ec1aac66edf34d1d2747a9c80344b878233fe69c015794f7b2ce302b9b2c4)
             check_type(argname="argument environment_arn", value=environment_arn, expected_type=type_hints["environment_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "environment_arn": environment_arn,
@@ -184,7 +188,7 @@ class EnvironmentReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_m2.IApplicationRef")
 class IApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
@@ -204,7 +208,7 @@ class IApplicationRef(
 
 class _IApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IAppli
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_m2.IDeploymentRef")
 class IDeploymentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Deployment.
@@ -249,7 +253,7 @@ class IDeploymentRef(
 
 class _IDeploymentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Deployment.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_m2.IEnvironmentRef")
 class IEnvironmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Environment.
@@ -294,7 +298,7 @@ class IEnvironmentRef(
 
 class _IEnvironmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Environment.
 

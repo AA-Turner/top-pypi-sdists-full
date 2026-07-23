@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc1baa45366df795416273ab50a10d994aba4b4bd3eaea1aad1724372ad7c0d)
+            type_hints = cached_type_hints(_typecheckingstub__ecc1baa45366df795416273ab50a10d994aba4b4bd3eaea1aad1724372ad7c0d)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "connection_arn": connection_arn,
@@ -107,7 +111,7 @@ class DirectConnectGatewayAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f3e59a2b0118d3f066d12696601397ea35c407bdf689d829eaad636f9e6defc)
+            type_hints = cached_type_hints(_typecheckingstub__5f3e59a2b0118d3f066d12696601397ea35c407bdf689d829eaad636f9e6defc)
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_id": association_id,
@@ -156,7 +160,7 @@ class DirectConnectGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c20f5c45ba60148433cd3c2e5af50999fe635c2e2e52eb9663f1741bd2a2b423)
+            type_hints = cached_type_hints(_typecheckingstub__c20f5c45ba60148433cd3c2e5af50999fe635c2e2e52eb9663f1741bd2a2b423)
             check_type(argname="argument direct_connect_gateway_arn", value=direct_connect_gateway_arn, expected_type=type_hints["direct_connect_gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "direct_connect_gateway_arn": direct_connect_gateway_arn,
@@ -184,7 +188,7 @@ class DirectConnectGatewayReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_directconnect.IConnectionRef")
 class IConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connection.
@@ -204,7 +208,7 @@ class IConnectionRef(
 
 class _IConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connection.
 
@@ -231,7 +235,7 @@ typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnec
 )
 class IDirectConnectGatewayAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectConnectGatewayAssociation.
@@ -253,7 +257,7 @@ class IDirectConnectGatewayAssociationRef(
 
 class _IDirectConnectGatewayAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectConnectGatewayAssociation.
 
@@ -282,7 +286,7 @@ typing.cast(typing.Any, IDirectConnectGatewayAssociationRef).__jsii_proxy_class_
 )
 class IDirectConnectGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectConnectGateway.
@@ -302,7 +306,7 @@ class IDirectConnectGatewayRef(
 
 class _IDirectConnectGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectConnectGateway.
 
@@ -327,7 +331,7 @@ typing.cast(typing.Any, IDirectConnectGatewayRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_directconnect.ILagRef")
 class ILagRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Lag.
@@ -347,7 +351,7 @@ class ILagRef(
 
 class _ILagRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Lag.
 
@@ -374,7 +378,7 @@ typing.cast(typing.Any, ILagRef).__jsii_proxy_class__ = lambda : _ILagRefProxy
 )
 class IPrivateVirtualInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateVirtualInterface.
@@ -394,7 +398,7 @@ class IPrivateVirtualInterfaceRef(
 
 class _IPrivateVirtualInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateVirtualInterface.
 
@@ -421,7 +425,7 @@ typing.cast(typing.Any, IPrivateVirtualInterfaceRef).__jsii_proxy_class__ = lamb
 )
 class IPublicVirtualInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicVirtualInterface.
@@ -441,7 +445,7 @@ class IPublicVirtualInterfaceRef(
 
 class _IPublicVirtualInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicVirtualInterface.
 
@@ -468,7 +472,7 @@ typing.cast(typing.Any, IPublicVirtualInterfaceRef).__jsii_proxy_class__ = lambd
 )
 class ITransitVirtualInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitVirtualInterface.
@@ -488,7 +492,7 @@ class ITransitVirtualInterfaceRef(
 
 class _ITransitVirtualInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitVirtualInterface.
 
@@ -534,7 +538,7 @@ class LagReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3bd2fbb85a32e0d60c41201599e82cea45179c54b82c95d72bfb2343ee49e91)
+            type_hints = cached_type_hints(_typecheckingstub__c3bd2fbb85a32e0d60c41201599e82cea45179c54b82c95d72bfb2343ee49e91)
             check_type(argname="argument lag_arn", value=lag_arn, expected_type=type_hints["lag_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "lag_arn": lag_arn,
@@ -562,13 +566,22 @@ class LagReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_directconnect.PrivateVirtualInterfaceReference",
     jsii_struct_bases=[],
-    name_mapping={"virtual_interface_arn": "virtualInterfaceArn"},
+    name_mapping={
+        "virtual_interface_arn": "virtualInterfaceArn",
+        "virtual_interface_id": "virtualInterfaceId",
+    },
 )
 class PrivateVirtualInterfaceReference:
-    def __init__(self, *, virtual_interface_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        virtual_interface_arn: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> None:
         '''A reference to a PrivateVirtualInterface resource.
 
         :param virtual_interface_arn: The VirtualInterfaceArn of the PrivateVirtualInterface resource.
+        :param virtual_interface_id: The VirtualInterfaceId of the PrivateVirtualInterface resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -579,14 +592,17 @@ class PrivateVirtualInterfaceReference:
             from aws_cdk.interfaces import aws_directconnect as interfaces_directconnect
             
             private_virtual_interface_reference = interfaces_directconnect.PrivateVirtualInterfaceReference(
-                virtual_interface_arn="virtualInterfaceArn"
+                virtual_interface_arn="virtualInterfaceArn",
+                virtual_interface_id="virtualInterfaceId"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be51fcf63a03cda0880ab055396fd4350c986ed29b67b2fe9ccbe13bd7eef635)
+            type_hints = cached_type_hints(_typecheckingstub__be51fcf63a03cda0880ab055396fd4350c986ed29b67b2fe9ccbe13bd7eef635)
             check_type(argname="argument virtual_interface_arn", value=virtual_interface_arn, expected_type=type_hints["virtual_interface_arn"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_interface_arn": virtual_interface_arn,
+            "virtual_interface_id": virtual_interface_id,
         }
 
     @builtins.property
@@ -594,6 +610,13 @@ class PrivateVirtualInterfaceReference:
         '''The VirtualInterfaceArn of the PrivateVirtualInterface resource.'''
         result = self._values.get("virtual_interface_arn")
         assert result is not None, "Required property 'virtual_interface_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def virtual_interface_id(self) -> builtins.str:
+        '''The VirtualInterfaceId of the PrivateVirtualInterface resource.'''
+        result = self._values.get("virtual_interface_id")
+        assert result is not None, "Required property 'virtual_interface_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -611,13 +634,22 @@ class PrivateVirtualInterfaceReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_directconnect.PublicVirtualInterfaceReference",
     jsii_struct_bases=[],
-    name_mapping={"virtual_interface_arn": "virtualInterfaceArn"},
+    name_mapping={
+        "virtual_interface_arn": "virtualInterfaceArn",
+        "virtual_interface_id": "virtualInterfaceId",
+    },
 )
 class PublicVirtualInterfaceReference:
-    def __init__(self, *, virtual_interface_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        virtual_interface_arn: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> None:
         '''A reference to a PublicVirtualInterface resource.
 
         :param virtual_interface_arn: The VirtualInterfaceArn of the PublicVirtualInterface resource.
+        :param virtual_interface_id: The VirtualInterfaceId of the PublicVirtualInterface resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -628,14 +660,17 @@ class PublicVirtualInterfaceReference:
             from aws_cdk.interfaces import aws_directconnect as interfaces_directconnect
             
             public_virtual_interface_reference = interfaces_directconnect.PublicVirtualInterfaceReference(
-                virtual_interface_arn="virtualInterfaceArn"
+                virtual_interface_arn="virtualInterfaceArn",
+                virtual_interface_id="virtualInterfaceId"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__931652cc8f8bd991d36eef258ac37b8e6d4b98d35ddec1b4412f379d31da0806)
+            type_hints = cached_type_hints(_typecheckingstub__931652cc8f8bd991d36eef258ac37b8e6d4b98d35ddec1b4412f379d31da0806)
             check_type(argname="argument virtual_interface_arn", value=virtual_interface_arn, expected_type=type_hints["virtual_interface_arn"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_interface_arn": virtual_interface_arn,
+            "virtual_interface_id": virtual_interface_id,
         }
 
     @builtins.property
@@ -643,6 +678,13 @@ class PublicVirtualInterfaceReference:
         '''The VirtualInterfaceArn of the PublicVirtualInterface resource.'''
         result = self._values.get("virtual_interface_arn")
         assert result is not None, "Required property 'virtual_interface_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def virtual_interface_id(self) -> builtins.str:
+        '''The VirtualInterfaceId of the PublicVirtualInterface resource.'''
+        result = self._values.get("virtual_interface_id")
+        assert result is not None, "Required property 'virtual_interface_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -660,13 +702,22 @@ class PublicVirtualInterfaceReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_directconnect.TransitVirtualInterfaceReference",
     jsii_struct_bases=[],
-    name_mapping={"virtual_interface_arn": "virtualInterfaceArn"},
+    name_mapping={
+        "virtual_interface_arn": "virtualInterfaceArn",
+        "virtual_interface_id": "virtualInterfaceId",
+    },
 )
 class TransitVirtualInterfaceReference:
-    def __init__(self, *, virtual_interface_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        virtual_interface_arn: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> None:
         '''A reference to a TransitVirtualInterface resource.
 
         :param virtual_interface_arn: The VirtualInterfaceArn of the TransitVirtualInterface resource.
+        :param virtual_interface_id: The VirtualInterfaceId of the TransitVirtualInterface resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -677,14 +728,17 @@ class TransitVirtualInterfaceReference:
             from aws_cdk.interfaces import aws_directconnect as interfaces_directconnect
             
             transit_virtual_interface_reference = interfaces_directconnect.TransitVirtualInterfaceReference(
-                virtual_interface_arn="virtualInterfaceArn"
+                virtual_interface_arn="virtualInterfaceArn",
+                virtual_interface_id="virtualInterfaceId"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0705d8064ea639011f2ee10d0baa0493bf0fc5c5bc6553bf778c002e716eaaa9)
+            type_hints = cached_type_hints(_typecheckingstub__0705d8064ea639011f2ee10d0baa0493bf0fc5c5bc6553bf778c002e716eaaa9)
             check_type(argname="argument virtual_interface_arn", value=virtual_interface_arn, expected_type=type_hints["virtual_interface_arn"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_interface_arn": virtual_interface_arn,
+            "virtual_interface_id": virtual_interface_id,
         }
 
     @builtins.property
@@ -692,6 +746,13 @@ class TransitVirtualInterfaceReference:
         '''The VirtualInterfaceArn of the TransitVirtualInterface resource.'''
         result = self._values.get("virtual_interface_arn")
         assert result is not None, "Required property 'virtual_interface_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def virtual_interface_id(self) -> builtins.str:
+        '''The VirtualInterfaceId of the TransitVirtualInterface resource.'''
+        result = self._values.get("virtual_interface_id")
+        assert result is not None, "Required property 'virtual_interface_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -756,6 +817,7 @@ def _typecheckingstub__c3bd2fbb85a32e0d60c41201599e82cea45179c54b82c95d72bfb2343
 def _typecheckingstub__be51fcf63a03cda0880ab055396fd4350c986ed29b67b2fe9ccbe13bd7eef635(
     *,
     virtual_interface_arn: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -763,6 +825,7 @@ def _typecheckingstub__be51fcf63a03cda0880ab055396fd4350c986ed29b67b2fe9ccbe13bd
 def _typecheckingstub__931652cc8f8bd991d36eef258ac37b8e6d4b98d35ddec1b4412f379d31da0806(
     *,
     virtual_interface_arn: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -770,6 +833,7 @@ def _typecheckingstub__931652cc8f8bd991d36eef258ac37b8e6d4b98d35ddec1b4412f379d3
 def _typecheckingstub__0705d8064ea639011f2ee10d0baa0493bf0fc5c5bc6553bf778c002e716eaaa9(
     *,
     virtual_interface_arn: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

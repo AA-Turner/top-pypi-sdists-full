@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AccessPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e9b62b3a35e2e33ea2fe71af556eefe7952c4e8fd6c2259e70f4f7929e793a4)
+            type_hints = cached_type_hints(_typecheckingstub__4e9b62b3a35e2e33ea2fe71af556eefe7952c4e8fd6c2259e70f4f7929e793a4)
             check_type(argname="argument access_policy_arn", value=access_policy_arn, expected_type=type_hints["access_policy_arn"])
             check_type(argname="argument access_policy_id", value=access_policy_id, expected_type=type_hints["access_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -136,7 +140,7 @@ class AssetModelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bab29450acde6214ed20346491b24158baa66cbaed5de6bb3a65d909c0c7d406)
+            type_hints = cached_type_hints(_typecheckingstub__bab29450acde6214ed20346491b24158baa66cbaed5de6bb3a65d909c0c7d406)
             check_type(argname="argument asset_model_arn", value=asset_model_arn, expected_type=type_hints["asset_model_arn"])
             check_type(argname="argument asset_model_id", value=asset_model_id, expected_type=type_hints["asset_model_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -196,7 +200,7 @@ class AssetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c074d028d8c3d8ddde5786d0c5bf418062568dba78879a698a0f7aa209f5f2a8)
+            type_hints = cached_type_hints(_typecheckingstub__c074d028d8c3d8ddde5786d0c5bf418062568dba78879a698a0f7aa209f5f2a8)
             check_type(argname="argument asset_arn", value=asset_arn, expected_type=type_hints["asset_arn"])
             check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -264,7 +268,7 @@ class ComputationModelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78a0a6223986863d3b15a3782a66961c8e28eded5d3045c5b0b733751bbbaf4e)
+            type_hints = cached_type_hints(_typecheckingstub__78a0a6223986863d3b15a3782a66961c8e28eded5d3045c5b0b733751bbbaf4e)
             check_type(argname="argument computation_model_arn", value=computation_model_arn, expected_type=type_hints["computation_model_arn"])
             check_type(argname="argument computation_model_id", value=computation_model_id, expected_type=type_hints["computation_model_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -329,7 +333,7 @@ class DashboardReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36e06a0e5feb5746f79588f3bb7ea7d2a372e4c9036763e6a9444485c779d511)
+            type_hints = cached_type_hints(_typecheckingstub__36e06a0e5feb5746f79588f3bb7ea7d2a372e4c9036763e6a9444485c779d511)
             check_type(argname="argument dashboard_arn", value=dashboard_arn, expected_type=type_hints["dashboard_arn"])
             check_type(argname="argument dashboard_id", value=dashboard_id, expected_type=type_hints["dashboard_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -389,7 +393,7 @@ class DatasetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3601882a0c740557c0a8716c914e6b15c3628888a9696f79714fae1d10449fa3)
+            type_hints = cached_type_hints(_typecheckingstub__3601882a0c740557c0a8716c914e6b15c3628888a9696f79714fae1d10449fa3)
             check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
             check_type(argname="argument dataset_id", value=dataset_id, expected_type=type_hints["dataset_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -447,7 +451,7 @@ class GatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__219fd8e8909bacd09e6fd45c24703df8b0ab052abec0e92596bc385088cc2ec0)
+            type_hints = cached_type_hints(_typecheckingstub__219fd8e8909bacd09e6fd45c24703df8b0ab052abec0e92596bc385088cc2ec0)
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "gateway_id": gateway_id,
@@ -475,7 +479,7 @@ class GatewayReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IAccessPolicyRef")
 class IAccessPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
@@ -495,7 +499,7 @@ class IAccessPolicyRef(
 
 class _IAccessPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
 
@@ -520,7 +524,7 @@ typing.cast(typing.Any, IAccessPolicyRef).__jsii_proxy_class__ = lambda : _IAcce
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IAssetModelRef")
 class IAssetModelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AssetModel.
@@ -540,7 +544,7 @@ class IAssetModelRef(
 
 class _IAssetModelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AssetModel.
 
@@ -565,7 +569,7 @@ typing.cast(typing.Any, IAssetModelRef).__jsii_proxy_class__ = lambda : _IAssetM
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IAssetRef")
 class IAssetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Asset.
@@ -585,7 +589,7 @@ class IAssetRef(
 
 class _IAssetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Asset.
 
@@ -612,7 +616,7 @@ typing.cast(typing.Any, IAssetRef).__jsii_proxy_class__ = lambda : _IAssetRefPro
 )
 class IComputationModelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ComputationModel.
@@ -632,7 +636,7 @@ class IComputationModelRef(
 
 class _IComputationModelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ComputationModel.
 
@@ -657,7 +661,7 @@ typing.cast(typing.Any, IComputationModelRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IDashboardRef")
 class IDashboardRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
@@ -677,7 +681,7 @@ class IDashboardRef(
 
 class _IDashboardRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
 
@@ -702,7 +706,7 @@ typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IDatasetRef")
 class IDatasetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
@@ -722,7 +726,7 @@ class IDatasetRef(
 
 class _IDatasetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
 
@@ -747,7 +751,7 @@ typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IGatewayRef")
 class IGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Gateway.
@@ -767,7 +771,7 @@ class IGatewayRef(
 
 class _IGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Gateway.
 
@@ -792,7 +796,7 @@ typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IPortalRef")
 class IPortalRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portal.
@@ -812,7 +816,7 @@ class IPortalRef(
 
 class _IPortalRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portal.
 
@@ -837,7 +841,7 @@ typing.cast(typing.Any, IPortalRef).__jsii_proxy_class__ = lambda : _IPortalRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IProjectRef")
 class IProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
@@ -857,7 +861,7 @@ class IProjectRef(
 
 class _IProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
 
@@ -905,7 +909,7 @@ class PortalReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e22d209b3458a45c845d0f086b6efe3ca2e75eed78de6397221a3f08157d8ccf)
+            type_hints = cached_type_hints(_typecheckingstub__e22d209b3458a45c845d0f086b6efe3ca2e75eed78de6397221a3f08157d8ccf)
             check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
             check_type(argname="argument portal_id", value=portal_id, expected_type=type_hints["portal_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -965,7 +969,7 @@ class ProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a8ae4c6854c75be3a7c7b370de23f31606b008da1f7c14d066fc1a1c17d480b)
+            type_hints = cached_type_hints(_typecheckingstub__4a8ae4c6854c75be3a7c7b370de23f31606b008da1f7c14d066fc1a1c17d480b)
             check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
             check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

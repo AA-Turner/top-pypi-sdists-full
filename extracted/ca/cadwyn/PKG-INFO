@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: cadwyn
-Version: 7.1.0
+Version: 7.1.1
 Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
 Project-URL: Source code, https://github.com/zmievsa/cadwyn
 Project-URL: Documentation, https://docs.cadwyn.dev
 Author-email: Stanislav Zmiev <zmievsa@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: api,api-versioning,code-generation,fastapi,hints,json-schema,pydantic,python,python310,python311,python312,python313,python314,python39,stripe,versioning
+Keywords: api,api-versioning,code-generation,fastapi,hints,json-schema,pydantic,python,python310,python311,python312,python313,python314,stripe,versioning
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO

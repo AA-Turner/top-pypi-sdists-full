@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,49 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_rekognition import (
-    CollectionReference as _CollectionReference_9d1f54b0,
-    ICollectionRef as _ICollectionRef_cd86fe44,
-    IProjectRef as _IProjectRef_fbe2a8df,
-    IStreamProcessorRef as _IStreamProcessorRef_a51f63be,
-    ProjectReference as _ProjectReference_369730e3,
-    StreamProcessorReference as _StreamProcessorReference_eef9970f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_rekognition as _aws_rekognition_7d0ef2f1
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_rekognition_7d0ef2f1 = _LazyImport("aws_cdk.interfaces.aws_rekognition")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICollectionRef_cd86fe44, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rekognition_7d0ef2f1.ICollectionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCollection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rekognition.CfnCollection",
 ):
@@ -116,7 +105,7 @@ class CfnCollection(
         id: builtins.str,
         *,
         collection_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Rekognition::Collection``.
 
@@ -126,7 +115,7 @@ class CfnCollection(
         :param tags: A set of tags (key-value pairs) that you want to attach to the collection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__001405b167561982ca01f91c85c5f23fd1bfd335896f67495614aef9fdc1ebbf)
+            type_hints = cached_type_hints(_typecheckingstub__001405b167561982ca01f91c85c5f23fd1bfd335896f67495614aef9fdc1ebbf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCollectionProps(collection_id=collection_id, tags=tags)
@@ -135,12 +124,15 @@ class CfnCollection(
 
     @jsii.member(jsii_name="arnForCollection")
     @builtins.classmethod
-    def arn_for_collection(cls, resource: "_ICollectionRef_cd86fe44") -> builtins.str:
+    def arn_for_collection(
+        cls,
+        resource: "_aws_rekognition_7d0ef2f1.ICollectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d52b0f443e5b4227ba7ab4c5121e872c8168541ad9c90c27833b47e404f23ef2)
+            type_hints = cached_type_hints(_typecheckingstub__d52b0f443e5b4227ba7ab4c5121e872c8168541ad9c90c27833b47e404f23ef2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCollection", [resource]))
 
@@ -151,7 +143,7 @@ class CfnCollection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ICollectionRef_cd86fe44":
+    ) -> "_aws_rekognition_7d0ef2f1.ICollectionRef":
         '''Creates a new ICollectionRef from an ARN.
 
         :param scope: -
@@ -159,11 +151,11 @@ class CfnCollection(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d3242f1abddcc1ee90dcbc46a3d9b120bee7e515a9b64e3c5e40a76de6243d8)
+            type_hints = cached_type_hints(_typecheckingstub__7d3242f1abddcc1ee90dcbc46a3d9b120bee7e515a9b64e3c5e40a76de6243d8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ICollectionRef_cd86fe44", jsii.sinvoke(cls, "fromCollectionArn", [scope, id, arn]))
+        return typing.cast("_aws_rekognition_7d0ef2f1.ICollectionRef", jsii.sinvoke(cls, "fromCollectionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromCollectionId")
     @builtins.classmethod
@@ -172,7 +164,7 @@ class CfnCollection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         collection_id: builtins.str,
-    ) -> "_ICollectionRef_cd86fe44":
+    ) -> "_aws_rekognition_7d0ef2f1.ICollectionRef":
         '''Creates a new ICollectionRef from a collectionId.
 
         :param scope: -
@@ -180,11 +172,11 @@ class CfnCollection(
         :param collection_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89f83cbadab9414e3b2967333d4e4e07e55a46297b44ac738dc482fd7c58c1e2)
+            type_hints = cached_type_hints(_typecheckingstub__89f83cbadab9414e3b2967333d4e4e07e55a46297b44ac738dc482fd7c58c1e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
-        return typing.cast("_ICollectionRef_cd86fe44", jsii.sinvoke(cls, "fromCollectionId", [scope, id, collection_id]))
+        return typing.cast("_aws_rekognition_7d0ef2f1.ICollectionRef", jsii.sinvoke(cls, "fromCollectionId", [scope, id, collection_id]))
 
     @jsii.member(jsii_name="isCfnCollection")
     @builtins.classmethod
@@ -194,18 +186,18 @@ class CfnCollection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5343300072174c7cce5b98df5df7902fe59129db8a7ab4749c39a12ed4352653)
+            type_hints = cached_type_hints(_typecheckingstub__5343300072174c7cce5b98df5df7902fe59129db8a7ab4749c39a12ed4352653)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCollection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b782257f4d64c4abcb4d4415ba27cde118213945920a4b2608a0dc326e124dc)
+            type_hints = cached_type_hints(_typecheckingstub__6b782257f4d64c4abcb4d4415ba27cde118213945920a4b2608a0dc326e124dc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -218,7 +210,7 @@ class CfnCollection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef7614d7ac1ab1a1108a4489935df88c874c2a92a6ca3448ab8aba35c8c23d2e)
+            type_hints = cached_type_hints(_typecheckingstub__ef7614d7ac1ab1a1108a4489935df88c874c2a92a6ca3448ab8aba35c8c23d2e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -249,15 +241,15 @@ class CfnCollection(
 
     @builtins.property
     @jsii.member(jsii_name="collectionRef")
-    def collection_ref(self) -> "_CollectionReference_9d1f54b0":
+    def collection_ref(self) -> "_aws_rekognition_7d0ef2f1.CollectionReference":
         '''A reference to a Collection resource.'''
-        return typing.cast("_CollectionReference_9d1f54b0", jsii.get(self, "collectionRef"))
+        return typing.cast("_aws_rekognition_7d0ef2f1.CollectionReference", jsii.get(self, "collectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="collectionId")
@@ -268,20 +260,23 @@ class CfnCollection(
     @collection_id.setter
     def collection_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8475d528ae41527da38a3e3ef20b3988703938f0440df9c74be2cd4234cdb6d2)
+            type_hints = cached_type_hints(_typecheckingstub__8475d528ae41527da38a3e3ef20b3988703938f0440df9c74be2cd4234cdb6d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "collectionId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags (key-value pairs) that you want to attach to the collection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c790bbbc)
+            type_hints = cached_type_hints(_typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c790bbbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -296,7 +291,7 @@ class CfnCollectionProps:
         self,
         *,
         collection_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCollection``.
 
@@ -324,7 +319,7 @@ class CfnCollectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064)
+            type_hints = cached_type_hints(_typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064)
             check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -344,13 +339,13 @@ class CfnCollectionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags (key-value pairs) that you want to attach to the collection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html#cfn-rekognition-collection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -364,9 +359,9 @@ class CfnCollectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IProjectRef_fbe2a8df, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rekognition_7d0ef2f1.IProjectRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProject(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rekognition.CfnProject",
 ):
@@ -402,7 +397,7 @@ class CfnProject(
         id: builtins.str,
         *,
         project_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Rekognition::Project``.
 
@@ -412,7 +407,7 @@ class CfnProject(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14434bd621070d38889fc701fc289b3379981bee9c73fd7502773f1ee6007596)
+            type_hints = cached_type_hints(_typecheckingstub__14434bd621070d38889fc701fc289b3379981bee9c73fd7502773f1ee6007596)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProjectProps(project_name=project_name, tags=tags)
@@ -421,12 +416,15 @@ class CfnProject(
 
     @jsii.member(jsii_name="arnForProject")
     @builtins.classmethod
-    def arn_for_project(cls, resource: "_IProjectRef_fbe2a8df") -> builtins.str:
+    def arn_for_project(
+        cls,
+        resource: "_aws_rekognition_7d0ef2f1.IProjectRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f0c2fed8fa2fb065ea66167ae02e2e889e7e38dc774eee4070b2802108e437)
+            type_hints = cached_type_hints(_typecheckingstub__78f0c2fed8fa2fb065ea66167ae02e2e889e7e38dc774eee4070b2802108e437)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProject", [resource]))
 
@@ -438,18 +436,18 @@ class CfnProject(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92ac91d358ed6a50cf39cb1da7b237191f43a495229949bcb407670ff9e7eaf)
+            type_hints = cached_type_hints(_typecheckingstub__b92ac91d358ed6a50cf39cb1da7b237191f43a495229949bcb407670ff9e7eaf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProject", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0172e641847a31da5e6877581313d2ece51b9650bcb74b1b80ba13e563323cc0)
+            type_hints = cached_type_hints(_typecheckingstub__0172e641847a31da5e6877581313d2ece51b9650bcb74b1b80ba13e563323cc0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -462,7 +460,7 @@ class CfnProject(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecd6c0ddb539c1c7c5df4ac80934172fad202067215980c77299274cd21f9555)
+            type_hints = cached_type_hints(_typecheckingstub__ecd6c0ddb539c1c7c5df4ac80934172fad202067215980c77299274cd21f9555)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -483,9 +481,9 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -499,9 +497,9 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> "_ProjectReference_369730e3":
+    def project_ref(self) -> "_aws_rekognition_7d0ef2f1.ProjectReference":
         '''A reference to a Project resource.'''
-        return typing.cast("_ProjectReference_369730e3", jsii.get(self, "projectRef"))
+        return typing.cast("_aws_rekognition_7d0ef2f1.ProjectReference", jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="projectName")
@@ -512,20 +510,23 @@ class CfnProject(
     @project_name.setter
     def project_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a1962fa2cac2e24ef346e8a95c9cce8b1cf9023aaeae155bf61e10c5dbddf83)
+            type_hints = cached_type_hints(_typecheckingstub__9a1962fa2cac2e24ef346e8a95c9cce8b1cf9023aaeae155bf61e10c5dbddf83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f76ffccbbdb561fc9875ae03156f8aa3928826112049f6a1dc78a9dee69dc1a)
+            type_hints = cached_type_hints(_typecheckingstub__9f76ffccbbdb561fc9875ae03156f8aa3928826112049f6a1dc78a9dee69dc1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -540,7 +541,7 @@ class CfnProjectProps:
         self,
         *,
         project_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProject``.
 
@@ -568,7 +569,7 @@ class CfnProjectProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3)
+            type_hints = cached_type_hints(_typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3)
             check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -588,13 +589,13 @@ class CfnProjectProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-project.html#cfn-rekognition-project-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -608,9 +609,9 @@ class CfnProjectProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStreamProcessorRef_a51f63be, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rekognition_7d0ef2f1.IStreamProcessorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStreamProcessor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rekognition.CfnStreamProcessor",
 ):
@@ -694,19 +695,19 @@ class CfnStreamProcessor(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        kinesis_video_stream: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.KinesisVideoStreamProperty", typing.Dict[builtins.str, typing.Any]]],
+        kinesis_video_stream: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.KinesisVideoStreamProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        bounding_box_regions_of_interest: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.BoundingBoxProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        connected_home_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.ConnectedHomeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_sharing_preference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.DataSharingPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        face_search_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.FaceSearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_data_stream: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.KinesisDataStreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bounding_box_regions_of_interest: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.BoundingBoxProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        connected_home_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.ConnectedHomeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_sharing_preference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.DataSharingPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        face_search_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.FaceSearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_data_stream: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.KinesisDataStreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        notification_channel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.NotificationChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_channel: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.NotificationChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         polygon_regions_of_interest: typing.Any = None,
-        s3_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Rekognition::StreamProcessor``.
 
@@ -727,7 +728,7 @@ class CfnStreamProcessor(
         :param tags: A set of tags (key-value pairs) that you want to attach to the stream processor. For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db29995773d1d6016b19ea60d9d43e43a080dc683708f8f6806c20b41de3b4e9)
+            type_hints = cached_type_hints(_typecheckingstub__db29995773d1d6016b19ea60d9d43e43a080dc683708f8f6806c20b41de3b4e9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStreamProcessorProps(
@@ -752,13 +753,13 @@ class CfnStreamProcessor(
     @builtins.classmethod
     def arn_for_stream_processor(
         cls,
-        resource: "_IStreamProcessorRef_a51f63be",
+        resource: "_aws_rekognition_7d0ef2f1.IStreamProcessorRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcb846764f929d72bf382a16d586668b1e6adb862070304acddb92d74a8d23e4)
+            type_hints = cached_type_hints(_typecheckingstub__bcb846764f929d72bf382a16d586668b1e6adb862070304acddb92d74a8d23e4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStreamProcessor", [resource]))
 
@@ -770,18 +771,18 @@ class CfnStreamProcessor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7efcae89d5ec0b054ffd8cc61a3e43439c7273b87a1ab4887582634cdfe1042f)
+            type_hints = cached_type_hints(_typecheckingstub__7efcae89d5ec0b054ffd8cc61a3e43439c7273b87a1ab4887582634cdfe1042f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStreamProcessor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40ab64ef7968d6308fa66fa8cd30426d2afa22a69cd4c0add4fad58d1123b3d8)
+            type_hints = cached_type_hints(_typecheckingstub__40ab64ef7968d6308fa66fa8cd30426d2afa22a69cd4c0add4fad58d1123b3d8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -794,7 +795,7 @@ class CfnStreamProcessor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__682d423a7e9ce2fa6f2875579551bac52247181a6905c21784d80a153db8261e)
+            type_hints = cached_type_hints(_typecheckingstub__682d423a7e9ce2fa6f2875579551bac52247181a6905c21784d80a153db8261e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -843,31 +844,33 @@ class CfnStreamProcessor(
 
     @builtins.property
     @jsii.member(jsii_name="streamProcessorRef")
-    def stream_processor_ref(self) -> "_StreamProcessorReference_eef9970f":
+    def stream_processor_ref(
+        self,
+    ) -> "_aws_rekognition_7d0ef2f1.StreamProcessorReference":
         '''A reference to a StreamProcessor resource.'''
-        return typing.cast("_StreamProcessorReference_eef9970f", jsii.get(self, "streamProcessorRef"))
+        return typing.cast("_aws_rekognition_7d0ef2f1.StreamProcessorReference", jsii.get(self, "streamProcessorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="kinesisVideoStream")
     def kinesis_video_stream(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisVideoStreamProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisVideoStreamProperty"]:
         '''The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisVideoStreamProperty"], jsii.get(self, "kinesisVideoStream"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisVideoStreamProperty"], jsii.get(self, "kinesisVideoStream"))
 
     @kinesis_video_stream.setter
     def kinesis_video_stream(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisVideoStreamProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisVideoStreamProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__544bd519e8f2f595255e1dda00353bdad3a1f366808872e2a020ab7ac0c68ede)
+            type_hints = cached_type_hints(_typecheckingstub__544bd519e8f2f595255e1dda00353bdad3a1f366808872e2a020ab7ac0c68ede)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kinesisVideoStream", value) # pyright: ignore[reportArgumentType]
 
@@ -880,7 +883,7 @@ class CfnStreamProcessor(
     @polygon_regions_of_interest.setter
     def polygon_regions_of_interest(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54)
+            type_hints = cached_type_hints(_typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "polygonRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
 
@@ -893,7 +896,7 @@ class CfnStreamProcessor(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ceb033b416a9b50d7e1f7b205e95dc9fc9eeaa5ebe8b01d77b8db945e1617e5)
+            type_hints = cached_type_hints(_typecheckingstub__6ceb033b416a9b50d7e1f7b205e95dc9fc9eeaa5ebe8b01d77b8db945e1617e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -901,17 +904,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="boundingBoxRegionsOfInterest")
     def bounding_box_regions_of_interest(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.BoundingBoxProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.BoundingBoxProperty"]]]]:
         '''List of BoundingBox objects, each of which denotes a region of interest on screen.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.BoundingBoxProperty"]]]], jsii.get(self, "boundingBoxRegionsOfInterest"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.BoundingBoxProperty"]]]], jsii.get(self, "boundingBoxRegionsOfInterest"))
 
     @bounding_box_regions_of_interest.setter
     def bounding_box_regions_of_interest(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.BoundingBoxProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.BoundingBoxProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acc75e18dc798eb00941485f051f88d386cbeab51667cb8be061da0b98c63396)
+            type_hints = cached_type_hints(_typecheckingstub__acc75e18dc798eb00941485f051f88d386cbeab51667cb8be061da0b98c63396)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "boundingBoxRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
 
@@ -919,17 +922,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="connectedHomeSettings")
     def connected_home_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]]:
         '''Connected home settings to use on a streaming video.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]], jsii.get(self, "connectedHomeSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]], jsii.get(self, "connectedHomeSettings"))
 
     @connected_home_settings.setter
     def connected_home_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8917bfe75ce52160b79d51e35bc32988d0117df4b4c5c2fcc5738d3adcbff9b9)
+            type_hints = cached_type_hints(_typecheckingstub__8917bfe75ce52160b79d51e35bc32988d0117df4b4c5c2fcc5738d3adcbff9b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectedHomeSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -937,17 +940,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="dataSharingPreference")
     def data_sharing_preference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.DataSharingPreferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.DataSharingPreferenceProperty"]]:
         '''Allows you to opt in or opt out to share data with Rekognition to improve model performance.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.DataSharingPreferenceProperty"]], jsii.get(self, "dataSharingPreference"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.DataSharingPreferenceProperty"]], jsii.get(self, "dataSharingPreference"))
 
     @data_sharing_preference.setter
     def data_sharing_preference(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.DataSharingPreferenceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.DataSharingPreferenceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb32e5089c11a4939bd2e9bee353c9a78566e808db896e1c677dd43c12926ebd)
+            type_hints = cached_type_hints(_typecheckingstub__cb32e5089c11a4939bd2e9bee353c9a78566e808db896e1c677dd43c12926ebd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSharingPreference", value) # pyright: ignore[reportArgumentType]
 
@@ -955,17 +958,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="faceSearchSettings")
     def face_search_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.FaceSearchSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.FaceSearchSettingsProperty"]]:
         '''The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.FaceSearchSettingsProperty"]], jsii.get(self, "faceSearchSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.FaceSearchSettingsProperty"]], jsii.get(self, "faceSearchSettings"))
 
     @face_search_settings.setter
     def face_search_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.FaceSearchSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.FaceSearchSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__566df51893024802a690a50b28be352b9fc757428a22f708bee01096b284279f)
+            type_hints = cached_type_hints(_typecheckingstub__566df51893024802a690a50b28be352b9fc757428a22f708bee01096b284279f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "faceSearchSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -973,17 +976,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="kinesisDataStream")
     def kinesis_data_stream(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisDataStreamProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisDataStreamProperty"]]:
         '''Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisDataStreamProperty"]], jsii.get(self, "kinesisDataStream"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisDataStreamProperty"]], jsii.get(self, "kinesisDataStream"))
 
     @kinesis_data_stream.setter
     def kinesis_data_stream(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisDataStreamProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisDataStreamProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__389631c246d3fdbe6ca66d4b9806147f81f4854193101c9c3341c10c3a06de51)
+            type_hints = cached_type_hints(_typecheckingstub__389631c246d3fdbe6ca66d4b9806147f81f4854193101c9c3341c10c3a06de51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kinesisDataStream", value) # pyright: ignore[reportArgumentType]
 
@@ -996,7 +999,7 @@ class CfnStreamProcessor(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9c6d353ba33bff601fce6ba9916bbea7fe2b890b0842c5ce26e962eb292dc57)
+            type_hints = cached_type_hints(_typecheckingstub__e9c6d353ba33bff601fce6ba9916bbea7fe2b890b0842c5ce26e962eb292dc57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -1009,7 +1012,7 @@ class CfnStreamProcessor(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eea2935c2a6e509f6f9b8bac8defe6d3a7c700401c6d0e1fed5c595cc78a49a1)
+            type_hints = cached_type_hints(_typecheckingstub__eea2935c2a6e509f6f9b8bac8defe6d3a7c700401c6d0e1fed5c595cc78a49a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1017,17 +1020,17 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="notificationChannel")
     def notification_channel(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.NotificationChannelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.NotificationChannelProperty"]]:
         '''The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.NotificationChannelProperty"]], jsii.get(self, "notificationChannel"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.NotificationChannelProperty"]], jsii.get(self, "notificationChannel"))
 
     @notification_channel.setter
     def notification_channel(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.NotificationChannelProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.NotificationChannelProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178)
+            type_hints = cached_type_hints(_typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationChannel", value) # pyright: ignore[reportArgumentType]
 
@@ -1035,30 +1038,33 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="s3Destination")
     def s3_destination(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.S3DestinationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.S3DestinationProperty"]]:
         '''The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.S3DestinationProperty"]], jsii.get(self, "s3Destination"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.S3DestinationProperty"]], jsii.get(self, "s3Destination"))
 
     @s3_destination.setter
     def s3_destination(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.S3DestinationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.S3DestinationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0366aae7f57073426925f9ebba0e5762ee7449ce53690b7fc2381679f27838c5)
+            type_hints = cached_type_hints(_typecheckingstub__0366aae7f57073426925f9ebba0e5762ee7449ce53690b7fc2381679f27838c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3Destination", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags (key-value pairs) that you want to attach to the stream processor.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a544bfd783dfe89e1f97d483f2cfa712d54a14e78538c5e39f6f4febe9970aeb)
+            type_hints = cached_type_hints(_typecheckingstub__a544bfd783dfe89e1f97d483f2cfa712d54a14e78538c5e39f6f4febe9970aeb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1114,7 +1120,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c7bad855b7d71ef59694b32449dc63de52f35f2ad462103fe21128c7c33206a1)
+                type_hints = cached_type_hints(_typecheckingstub__c7bad855b7d71ef59694b32449dc63de52f35f2ad462103fe21128c7c33206a1)
                 check_type(argname="argument height", value=height, expected_type=type_hints["height"])
                 check_type(argname="argument left", value=left, expected_type=type_hints["left"])
                 check_type(argname="argument top", value=top, expected_type=type_hints["top"])
@@ -1215,7 +1221,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__586438043baa3b2c31178aa9461612acb2d0d0ae0aac237b6e61cabac7e5de67)
+                type_hints = cached_type_hints(_typecheckingstub__586438043baa3b2c31178aa9461612acb2d0d0ae0aac237b6e61cabac7e5de67)
                 check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
                 check_type(argname="argument min_confidence", value=min_confidence, expected_type=type_hints["min_confidence"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1265,7 +1271,7 @@ class CfnStreamProcessor(
         def __init__(
             self,
             *,
-            opt_in: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            opt_in: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Allows you to opt in or opt out to share data with Rekognition to improve model performance.
 
@@ -1287,21 +1293,23 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ebd03a0efbe12d5f07382e61ebfcb962dda51221996e196f2b8497594573d49)
+                type_hints = cached_type_hints(_typecheckingstub__3ebd03a0efbe12d5f07382e61ebfcb962dda51221996e196f2b8497594573d49)
                 check_type(argname="argument opt_in", value=opt_in, expected_type=type_hints["opt_in"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "opt_in": opt_in,
             }
 
         @builtins.property
-        def opt_in(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def opt_in(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Describes the opt-in status applied to a stream processor's data sharing policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rekognition-streamprocessor-datasharingpreference.html#cfn-rekognition-streamprocessor-datasharingpreference-optin
             '''
             result = self._values.get("opt_in")
             assert result is not None, "Required property 'opt_in' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1353,7 +1361,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b1d920a4a5c5227a1362117b6d7177bc83ca757ab3ddf859bfaea3e1bf2b2128)
+                type_hints = cached_type_hints(_typecheckingstub__b1d920a4a5c5227a1362117b6d7177bc83ca757ab3ddf859bfaea3e1bf2b2128)
                 check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
                 check_type(argname="argument face_match_threshold", value=face_match_threshold, expected_type=type_hints["face_match_threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1421,7 +1429,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d1a9643f21ce9cd202be0cc632d42c8de7c3bc2d1ec5dc6e2a56db210204aa04)
+                type_hints = cached_type_hints(_typecheckingstub__d1a9643f21ce9cd202be0cc632d42c8de7c3bc2d1ec5dc6e2a56db210204aa04)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
@@ -1475,7 +1483,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11c5113726b14e2f510aef1499acb05b38edb79b09083d31795eefd5f67eaf71)
+                type_hints = cached_type_hints(_typecheckingstub__11c5113726b14e2f510aef1499acb05b38edb79b09083d31795eefd5f67eaf71)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
@@ -1529,7 +1537,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bf89b771464a553c692cbb9b3c1b09ca50ed7849163df9f19249032781e02e78)
+                type_hints = cached_type_hints(_typecheckingstub__bf89b771464a553c692cbb9b3c1b09ca50ed7849163df9f19249032781e02e78)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
@@ -1587,7 +1595,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e73e14e2930474187d1e5f6a0777aed81ad8438a2a23547a3ed5ca26b468afe6)
+                type_hints = cached_type_hints(_typecheckingstub__e73e14e2930474187d1e5f6a0777aed81ad8438a2a23547a3ed5ca26b468afe6)
                 check_type(argname="argument x", value=x, expected_type=type_hints["x"])
                 check_type(argname="argument y", value=y, expected_type=type_hints["y"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1665,7 +1673,7 @@ class CfnStreamProcessor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e523487c02bfde11953c715444eddb9f2ed729eec0aa81767c2868bf914262ce)
+                type_hints = cached_type_hints(_typecheckingstub__e523487c02bfde11953c715444eddb9f2ed729eec0aa81767c2868bf914262ce)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument object_key_prefix", value=object_key_prefix, expected_type=type_hints["object_key_prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1728,19 +1736,19 @@ class CfnStreamProcessorProps:
     def __init__(
         self,
         *,
-        kinesis_video_stream: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.KinesisVideoStreamProperty", typing.Dict[builtins.str, typing.Any]]],
+        kinesis_video_stream: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.KinesisVideoStreamProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        bounding_box_regions_of_interest: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.BoundingBoxProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        connected_home_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.ConnectedHomeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_sharing_preference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.DataSharingPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        face_search_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.FaceSearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_data_stream: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.KinesisDataStreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bounding_box_regions_of_interest: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.BoundingBoxProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        connected_home_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.ConnectedHomeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_sharing_preference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.DataSharingPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        face_search_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.FaceSearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_data_stream: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.KinesisDataStreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        notification_channel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.NotificationChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_channel: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.NotificationChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         polygon_regions_of_interest: typing.Any = None,
-        s3_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamProcessor.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamProcessor.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStreamProcessor``.
 
@@ -1820,7 +1828,7 @@ class CfnStreamProcessorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834)
+            type_hints = cached_type_hints(_typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834)
             check_type(argname="argument kinesis_video_stream", value=kinesis_video_stream, expected_type=type_hints["kinesis_video_stream"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument bounding_box_regions_of_interest", value=bounding_box_regions_of_interest, expected_type=type_hints["bounding_box_regions_of_interest"])
@@ -1864,7 +1872,7 @@ class CfnStreamProcessorProps:
     @builtins.property
     def kinesis_video_stream(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisVideoStreamProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisVideoStreamProperty"]:
         '''The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor.
 
         For more information, see `KinesisVideoStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisVideoStream>`_ .
@@ -1873,7 +1881,7 @@ class CfnStreamProcessorProps:
         '''
         result = self._values.get("kinesis_video_stream")
         assert result is not None, "Required property 'kinesis_video_stream' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisVideoStreamProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisVideoStreamProperty"], result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
@@ -1890,7 +1898,7 @@ class CfnStreamProcessorProps:
     @builtins.property
     def bounding_box_regions_of_interest(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.BoundingBoxProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.BoundingBoxProperty"]]]]:
         '''List of BoundingBox objects, each of which denotes a region of interest on screen.
 
         For more information, see the BoundingBox field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
@@ -1898,12 +1906,12 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-boundingboxregionsofinterest
         '''
         result = self._values.get("bounding_box_regions_of_interest")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.BoundingBoxProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.BoundingBoxProperty"]]]], result)
 
     @builtins.property
     def connected_home_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]]:
         '''Connected home settings to use on a streaming video.
 
         You can use a stream processor for connected home features and select what you want the stream processor to detect, such as people or pets. When the stream processor has started, one notification is sent for each object class specified. For more information, see the ConnectedHome section of `StreamProcessorSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorSettings>`_ .
@@ -1911,12 +1919,12 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-connectedhomesettings
         '''
         result = self._values.get("connected_home_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.ConnectedHomeSettingsProperty"]], result)
 
     @builtins.property
     def data_sharing_preference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.DataSharingPreferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.DataSharingPreferenceProperty"]]:
         '''Allows you to opt in or opt out to share data with Rekognition to improve model performance.
 
         You can choose this option at the account level or on a per-stream basis. Note that if you opt out at the account level this setting is ignored on individual streams. For more information, see `StreamProcessorDataSharingPreference <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorDataSharingPreference>`_ .
@@ -1924,12 +1932,12 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-datasharingpreference
         '''
         result = self._values.get("data_sharing_preference")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.DataSharingPreferenceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.DataSharingPreferenceProperty"]], result)
 
     @builtins.property
     def face_search_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.FaceSearchSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.FaceSearchSettingsProperty"]]:
         '''The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor.
 
         For more information regarding the contents of the parameters, see `FaceSearchSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_FaceSearchSettings>`_ .
@@ -1937,12 +1945,12 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-facesearchsettings
         '''
         result = self._values.get("face_search_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.FaceSearchSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.FaceSearchSettingsProperty"]], result)
 
     @builtins.property
     def kinesis_data_stream(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisDataStreamProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisDataStreamProperty"]]:
         '''Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input.
 
         This is the Amazon Kinesis Data Streams instance to which the Amazon Rekognition stream processor streams the analysis results. This must be created within the constraints specified at `KinesisDataStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisDataStream>`_ .
@@ -1950,7 +1958,7 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kinesisdatastream
         '''
         result = self._values.get("kinesis_data_stream")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.KinesisDataStreamProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.KinesisDataStreamProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -1975,7 +1983,7 @@ class CfnStreamProcessorProps:
     @builtins.property
     def notification_channel(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.NotificationChannelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.NotificationChannelProperty"]]:
         '''The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation.
 
         Amazon Rekognition publishes a notification the first time an object of interest or a person is detected in the video stream. Amazon Rekognition also publishes an end-of-session notification with a summary when the stream processing session is complete. For more information, see `StreamProcessorNotificationChannel <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorNotificationChannel>`_ .
@@ -1983,7 +1991,7 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-notificationchannel
         '''
         result = self._values.get("notification_channel")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.NotificationChannelProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.NotificationChannelProperty"]], result)
 
     @builtins.property
     def polygon_regions_of_interest(self) -> typing.Any:
@@ -1997,7 +2005,7 @@ class CfnStreamProcessorProps:
     @builtins.property
     def s3_destination(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.S3DestinationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.S3DestinationProperty"]]:
         '''The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation.
 
         For more information, see the S3Destination section of `StreamProcessorOutput <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorOutput>`_ .
@@ -2005,10 +2013,10 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-s3destination
         '''
         result = self._values.get("s3_destination")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamProcessor.S3DestinationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamProcessor.S3DestinationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags (key-value pairs) that you want to attach to the stream processor.
 
         For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
@@ -2016,7 +2024,7 @@ class CfnStreamProcessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2046,13 +2054,13 @@ def _typecheckingstub__001405b167561982ca01f91c85c5f23fd1bfd335896f67495614aef9f
     id: builtins.str,
     *,
     collection_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d52b0f443e5b4227ba7ab4c5121e872c8168541ad9c90c27833b47e404f23ef2(
-    resource: _ICollectionRef_cd86fe44,
+    resource: _aws_rekognition_7d0ef2f1.ICollectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2080,7 +2088,7 @@ def _typecheckingstub__5343300072174c7cce5b98df5df7902fe59129db8a7ab4749c39a12ed
     pass
 
 def _typecheckingstub__6b782257f4d64c4abcb4d4415ba27cde118213945920a4b2608a0dc326e124dc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2098,7 +2106,7 @@ def _typecheckingstub__8475d528ae41527da38a3e3ef20b3988703938f0440df9c74be2cd423
     pass
 
 def _typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c790bbbc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2106,7 +2114,7 @@ def _typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c
 def _typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064(
     *,
     collection_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2116,13 +2124,13 @@ def _typecheckingstub__14434bd621070d38889fc701fc289b3379981bee9c73fd7502773f1ee
     id: builtins.str,
     *,
     project_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__78f0c2fed8fa2fb065ea66167ae02e2e889e7e38dc774eee4070b2802108e437(
-    resource: _IProjectRef_fbe2a8df,
+    resource: _aws_rekognition_7d0ef2f1.IProjectRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2134,7 +2142,7 @@ def _typecheckingstub__b92ac91d358ed6a50cf39cb1da7b237191f43a495229949bcb407670f
     pass
 
 def _typecheckingstub__0172e641847a31da5e6877581313d2ece51b9650bcb74b1b80ba13e563323cc0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2152,7 +2160,7 @@ def _typecheckingstub__9a1962fa2cac2e24ef346e8a95c9cce8b1cf9023aaeae155bf61e10c5
     pass
 
 def _typecheckingstub__9f76ffccbbdb561fc9875ae03156f8aa3928826112049f6a1dc78a9dee69dc1a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2160,7 +2168,7 @@ def _typecheckingstub__9f76ffccbbdb561fc9875ae03156f8aa3928826112049f6a1dc78a9de
 def _typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3(
     *,
     project_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2169,25 +2177,25 @@ def _typecheckingstub__db29995773d1d6016b19ea60d9d43e43a080dc683708f8f6806c20b41
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_video_stream: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bounding_box_regions_of_interest: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    connected_home_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_sharing_preference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    face_search_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_data_stream: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_channel: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     polygon_regions_of_interest: typing.Any = None,
-    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bcb846764f929d72bf382a16d586668b1e6adb862070304acddb92d74a8d23e4(
-    resource: _IStreamProcessorRef_a51f63be,
+    resource: _aws_rekognition_7d0ef2f1.IStreamProcessorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2199,7 +2207,7 @@ def _typecheckingstub__7efcae89d5ec0b054ffd8cc61a3e43439c7273b87a1ab4887582634cd
     pass
 
 def _typecheckingstub__40ab64ef7968d6308fa66fa8cd30426d2afa22a69cd4c0add4fad58d1123b3d8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2211,7 +2219,7 @@ def _typecheckingstub__682d423a7e9ce2fa6f2875579551bac52247181a6905c21784d80a153
     pass
 
 def _typecheckingstub__544bd519e8f2f595255e1dda00353bdad3a1f366808872e2a020ab7ac0c68ede(
-    value: typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisVideoStreamProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.KinesisVideoStreamProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2229,31 +2237,31 @@ def _typecheckingstub__6ceb033b416a9b50d7e1f7b205e95dc9fc9eeaa5ebe8b01d77b8db945
     pass
 
 def _typecheckingstub__acc75e18dc798eb00941485f051f88d386cbeab51667cb8be061da0b98c63396(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.BoundingBoxProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.BoundingBoxProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8917bfe75ce52160b79d51e35bc32988d0117df4b4c5c2fcc5738d3adcbff9b9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.ConnectedHomeSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.ConnectedHomeSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cb32e5089c11a4939bd2e9bee353c9a78566e808db896e1c677dd43c12926ebd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.DataSharingPreferenceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.DataSharingPreferenceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__566df51893024802a690a50b28be352b9fc757428a22f708bee01096b284279f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.FaceSearchSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.FaceSearchSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__389631c246d3fdbe6ca66d4b9806147f81f4854193101c9c3341c10c3a06de51(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisDataStreamProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.KinesisDataStreamProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2271,19 +2279,19 @@ def _typecheckingstub__eea2935c2a6e509f6f9b8bac8defe6d3a7c700401c6d0e1fed5c595cc
     pass
 
 def _typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.NotificationChannelProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.NotificationChannelProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0366aae7f57073426925f9ebba0e5762ee7449ce53690b7fc2381679f27838c5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.S3DestinationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamProcessor.S3DestinationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a544bfd783dfe89e1f97d483f2cfa712d54a14e78538c5e39f6f4febe9970aeb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2308,7 +2316,7 @@ def _typecheckingstub__586438043baa3b2c31178aa9461612acb2d0d0ae0aac237b6e61cabac
 
 def _typecheckingstub__3ebd03a0efbe12d5f07382e61ebfcb962dda51221996e196f2b8497594573d49(
     *,
-    opt_in: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    opt_in: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2360,19 +2368,19 @@ def _typecheckingstub__e523487c02bfde11953c715444eddb9f2ed729eec0aa81767c2868bf9
 
 def _typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834(
     *,
-    kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_video_stream: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bounding_box_regions_of_interest: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    connected_home_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_sharing_preference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    face_search_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_data_stream: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_channel: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     polygon_regions_of_interest: typing.Any = None,
-    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

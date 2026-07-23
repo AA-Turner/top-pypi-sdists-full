@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -65,7 +69,7 @@ class BridgeOutputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73182f10d25757e57316dcdbde383b2563dd187db8a77ce9d9b64f432f3132b2)
+            type_hints = cached_type_hints(_typecheckingstub__73182f10d25757e57316dcdbde383b2563dd187db8a77ce9d9b64f432f3132b2)
             check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
             check_type(argname="argument bridge_output_name", value=bridge_output_name, expected_type=type_hints["bridge_output_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -123,7 +127,7 @@ class BridgeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7440fa6612c678dd575ec05ad66dc7948fc8c70e784c74785f80ab5356faec4)
+            type_hints = cached_type_hints(_typecheckingstub__a7440fa6612c678dd575ec05ad66dc7948fc8c70e784c74785f80ab5356faec4)
             check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bridge_arn": bridge_arn,
@@ -179,7 +183,7 @@ class BridgeSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a57ab8b2799544f17aecf266ba0a305c9946b460679a831f68a8cc2667ab5ce)
+            type_hints = cached_type_hints(_typecheckingstub__6a57ab8b2799544f17aecf266ba0a305c9946b460679a831f68a8cc2667ab5ce)
             check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
             check_type(argname="argument bridge_source_name", value=bridge_source_name, expected_type=type_hints["bridge_source_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -237,7 +241,7 @@ class FlowEntitlementReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0edc53b6b6e960dbdc6bd64c4eb6c4541ecc0a17bdd262b31812971a606f44ad)
+            type_hints = cached_type_hints(_typecheckingstub__0edc53b6b6e960dbdc6bd64c4eb6c4541ecc0a17bdd262b31812971a606f44ad)
             check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "entitlement_arn": entitlement_arn,
@@ -286,7 +290,7 @@ class FlowOutputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d86e4aa7f442e2ea027387f7ae0fa891b3494c4e892279cf982fa261e9fe71de)
+            type_hints = cached_type_hints(_typecheckingstub__d86e4aa7f442e2ea027387f7ae0fa891b3494c4e892279cf982fa261e9fe71de)
             check_type(argname="argument output_arn", value=output_arn, expected_type=type_hints["output_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "output_arn": output_arn,
@@ -335,7 +339,7 @@ class FlowReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b8601eaf471f9bacfb5f3d93788a33c0fcea9ec28ec13b3ec3b0a0e901ce8c3)
+            type_hints = cached_type_hints(_typecheckingstub__8b8601eaf471f9bacfb5f3d93788a33c0fcea9ec28ec13b3ec3b0a0e901ce8c3)
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "flow_arn": flow_arn,
@@ -384,7 +388,7 @@ class FlowSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324aca350b47900f430f689f94e3804fb4163b2fedf800ae93532fba0c81ff41)
+            type_hints = cached_type_hints(_typecheckingstub__324aca350b47900f430f689f94e3804fb4163b2fedf800ae93532fba0c81ff41)
             check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "source_arn": source_arn,
@@ -443,7 +447,7 @@ class FlowVpcInterfaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e0ee518d99cf6243e684c2f001fd1a4fe609ddc62da39d24153e3a1fd10a7b2)
+            type_hints = cached_type_hints(_typecheckingstub__3e0ee518d99cf6243e684c2f001fd1a4fe609ddc62da39d24153e3a1fd10a7b2)
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument flow_vpc_interface_name", value=flow_vpc_interface_name, expected_type=type_hints["flow_vpc_interface_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -501,7 +505,7 @@ class GatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44fc01aa24c69700318ae11a14f4daf44e0bf09d9678be7c8ad85380d73c70a1)
+            type_hints = cached_type_hints(_typecheckingstub__44fc01aa24c69700318ae11a14f4daf44e0bf09d9678be7c8ad85380d73c70a1)
             check_type(argname="argument gateway_arn", value=gateway_arn, expected_type=type_hints["gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "gateway_arn": gateway_arn,
@@ -529,7 +533,7 @@ class GatewayReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IBridgeOutputRef")
 class IBridgeOutputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BridgeOutput.
@@ -549,7 +553,7 @@ class IBridgeOutputRef(
 
 class _IBridgeOutputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BridgeOutput.
 
@@ -574,7 +578,7 @@ typing.cast(typing.Any, IBridgeOutputRef).__jsii_proxy_class__ = lambda : _IBrid
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IBridgeRef")
 class IBridgeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bridge.
@@ -594,7 +598,7 @@ class IBridgeRef(
 
 class _IBridgeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bridge.
 
@@ -619,7 +623,7 @@ typing.cast(typing.Any, IBridgeRef).__jsii_proxy_class__ = lambda : _IBridgeRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IBridgeSourceRef")
 class IBridgeSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BridgeSource.
@@ -639,7 +643,7 @@ class IBridgeSourceRef(
 
 class _IBridgeSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BridgeSource.
 
@@ -666,7 +670,7 @@ typing.cast(typing.Any, IBridgeSourceRef).__jsii_proxy_class__ = lambda : _IBrid
 )
 class IFlowEntitlementRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowEntitlement.
@@ -686,7 +690,7 @@ class IFlowEntitlementRef(
 
 class _IFlowEntitlementRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowEntitlement.
 
@@ -711,7 +715,7 @@ typing.cast(typing.Any, IFlowEntitlementRef).__jsii_proxy_class__ = lambda : _IF
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowOutputRef")
 class IFlowOutputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowOutput.
@@ -731,7 +735,7 @@ class IFlowOutputRef(
 
 class _IFlowOutputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowOutput.
 
@@ -756,7 +760,7 @@ typing.cast(typing.Any, IFlowOutputRef).__jsii_proxy_class__ = lambda : _IFlowOu
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowRef")
 class IFlowRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Flow.
@@ -776,7 +780,7 @@ class IFlowRef(
 
 class _IFlowRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Flow.
 
@@ -801,7 +805,7 @@ typing.cast(typing.Any, IFlowRef).__jsii_proxy_class__ = lambda : _IFlowRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowSourceRef")
 class IFlowSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowSource.
@@ -821,7 +825,7 @@ class IFlowSourceRef(
 
 class _IFlowSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowSource.
 
@@ -848,7 +852,7 @@ typing.cast(typing.Any, IFlowSourceRef).__jsii_proxy_class__ = lambda : _IFlowSo
 )
 class IFlowVpcInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowVpcInterface.
@@ -868,7 +872,7 @@ class IFlowVpcInterfaceRef(
 
 class _IFlowVpcInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowVpcInterface.
 
@@ -893,7 +897,7 @@ typing.cast(typing.Any, IFlowVpcInterfaceRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IGatewayRef")
 class IGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Gateway.
@@ -913,7 +917,7 @@ class IGatewayRef(
 
 class _IGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Gateway.
 
@@ -938,7 +942,7 @@ typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IRouterInputRef")
 class IRouterInputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterInput.
@@ -958,7 +962,7 @@ class IRouterInputRef(
 
 class _IRouterInputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterInput.
 
@@ -985,7 +989,7 @@ typing.cast(typing.Any, IRouterInputRef).__jsii_proxy_class__ = lambda : _IRoute
 )
 class IRouterNetworkInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterNetworkInterface.
@@ -1005,7 +1009,7 @@ class IRouterNetworkInterfaceRef(
 
 class _IRouterNetworkInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterNetworkInterface.
 
@@ -1030,7 +1034,7 @@ typing.cast(typing.Any, IRouterNetworkInterfaceRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IRouterOutputRef")
 class IRouterOutputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterOutput.
@@ -1050,7 +1054,7 @@ class IRouterOutputRef(
 
 class _IRouterOutputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouterOutput.
 
@@ -1096,7 +1100,7 @@ class RouterInputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ed9ce4be85dfab764f028608ee5a4495bcc6912e55aac3d482ac0f847879dd8)
+            type_hints = cached_type_hints(_typecheckingstub__0ed9ce4be85dfab764f028608ee5a4495bcc6912e55aac3d482ac0f847879dd8)
             check_type(argname="argument router_input_arn", value=router_input_arn, expected_type=type_hints["router_input_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "router_input_arn": router_input_arn,
@@ -1145,7 +1149,7 @@ class RouterNetworkInterfaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6402a2957d68c201351255b35b741d64087684d0195556ad2b446d5aea60393b)
+            type_hints = cached_type_hints(_typecheckingstub__6402a2957d68c201351255b35b741d64087684d0195556ad2b446d5aea60393b)
             check_type(argname="argument router_network_interface_arn", value=router_network_interface_arn, expected_type=type_hints["router_network_interface_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "router_network_interface_arn": router_network_interface_arn,
@@ -1194,7 +1198,7 @@ class RouterOutputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb1ab08a2a2f206b84e407515955ae1d24f39785cfe1e4e1df154f9ce21e292b)
+            type_hints = cached_type_hints(_typecheckingstub__eb1ab08a2a2f206b84e407515955ae1d24f39785cfe1e4e1df154f9ce21e292b)
             check_type(argname="argument router_output_arn", value=router_output_arn, expected_type=type_hints["router_output_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "router_output_arn": router_output_arn,

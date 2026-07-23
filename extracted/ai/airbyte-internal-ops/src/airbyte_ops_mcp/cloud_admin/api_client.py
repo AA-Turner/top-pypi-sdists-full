@@ -2019,4 +2019,19 @@ def get_actor_sync_info(
             },
         )
 
-    return response.json()
+    try:
+        return response.json()
+    except ValueError as e:
+        # A 200 with a non-JSON body is still a failure this function owns.
+        # Normalize it to the documented `PyAirbyteInputError` so callers'
+        # eligibility guards catch it alongside other request failures rather
+        # than leaking a raw `JSONDecodeError`.
+        raise PyAirbyteInputError(
+            message="Actor sync info response body is not valid JSON.",
+            context={
+                "rollout_id": rollout_id,
+                "endpoint": endpoint,
+                "status_code": response.status_code,
+                "response": response.text,
+            },
+        ) from e

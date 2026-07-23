@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,50 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_route53recoverycontrol import (
-    ClusterReference as _ClusterReference_f5a83c88,
-    ControlPanelReference as _ControlPanelReference_7bbd7885,
-    IClusterRef as _IClusterRef_ba4d90ac,
-    IControlPanelRef as _IControlPanelRef_064cd10b,
-    IRoutingControlRef as _IRoutingControlRef_af956175,
-    ISafetyRuleRef as _ISafetyRuleRef_ba2607a5,
-    RoutingControlReference as _RoutingControlReference_ba2b464e,
-    SafetyRuleReference as _SafetyRuleReference_11d22628,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_route53recoverycontrol as _aws_route53recoverycontrol_c2f5330b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_route53recoverycontrol_c2f5330b = _LazyImport("aws_cdk.interfaces.aws_route53recoverycontrol")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IClusterRef_ba4d90ac, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoverycontrol_c2f5330b.IClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoverycontrol.CfnCluster",
 ):
@@ -119,7 +107,7 @@ class CfnCluster(
         *,
         name: builtins.str,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryControl::Cluster``.
 
@@ -130,7 +118,7 @@ class CfnCluster(
         :param tags: The tags associated with the cluster.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a22ce3cb989f0084b0215729b9e32485e8f3c7d8c5b66e19c5d569e7319889ca)
+            type_hints = cached_type_hints(_typecheckingstub__a22ce3cb989f0084b0215729b9e32485e8f3c7d8c5b66e19c5d569e7319889ca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(name=name, network_type=network_type, tags=tags)
@@ -139,12 +127,15 @@ class CfnCluster(
 
     @jsii.member(jsii_name="arnForCluster")
     @builtins.classmethod
-    def arn_for_cluster(cls, resource: "_IClusterRef_ba4d90ac") -> builtins.str:
+    def arn_for_cluster(
+        cls,
+        resource: "_aws_route53recoverycontrol_c2f5330b.IClusterRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe9bb62bf51b4dcc9d49adb22fb1d50225a948b99746c377a84e0056fe7c5f4c)
+            type_hints = cached_type_hints(_typecheckingstub__fe9bb62bf51b4dcc9d49adb22fb1d50225a948b99746c377a84e0056fe7c5f4c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCluster", [resource]))
 
@@ -156,18 +147,18 @@ class CfnCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aff2e5c44ddd36efc1525cc392d830c753a280ab7f624a4274a9b3ceaad2f84)
+            type_hints = cached_type_hints(_typecheckingstub__9aff2e5c44ddd36efc1525cc392d830c753a280ab7f624a4274a9b3ceaad2f84)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1d5d3d9f3a1044ea448e47cbbc2078fcd16eda9541fc5415cf9d029dd4ebb80)
+            type_hints = cached_type_hints(_typecheckingstub__f1d5d3d9f3a1044ea448e47cbbc2078fcd16eda9541fc5415cf9d029dd4ebb80)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -180,7 +171,7 @@ class CfnCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__157cd2ce4f13202c3d86071a895cc645d726227e8e629edaa431247ba0c6394e)
+            type_hints = cached_type_hints(_typecheckingstub__157cd2ce4f13202c3d86071a895cc645d726227e8e629edaa431247ba0c6394e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -201,14 +192,14 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrClusterEndpoints")
-    def attr_cluster_endpoints(self) -> "_IResolvable_da3f097b":
+    def attr_cluster_endpoints(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''An array of endpoints for the cluster.
 
         You specify one of these endpoints when you want to set or retrieve a routing control state in the cluster.
 
         :cloudformationAttribute: ClusterEndpoints
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrClusterEndpoints"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrClusterEndpoints"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
@@ -233,15 +224,15 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> "_ClusterReference_f5a83c88":
+    def cluster_ref(self) -> "_aws_route53recoverycontrol_c2f5330b.ClusterReference":
         '''A reference to a Cluster resource.'''
-        return typing.cast("_ClusterReference_f5a83c88", jsii.get(self, "clusterRef"))
+        return typing.cast("_aws_route53recoverycontrol_c2f5330b.ClusterReference", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -252,7 +243,7 @@ class CfnCluster(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c1256c59e47b758559a89c3e22392b86499c611a6b2d3207ea90be4979bcc55)
+            type_hints = cached_type_hints(_typecheckingstub__1c1256c59e47b758559a89c3e22392b86499c611a6b2d3207ea90be4979bcc55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -265,20 +256,23 @@ class CfnCluster(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74c93f15d95285d08220407a27806cfcda4c141a344adc3ac15370b18b03a26c)
+            type_hints = cached_type_hints(_typecheckingstub__74c93f15d95285d08220407a27806cfcda4c141a344adc3ac15370b18b03a26c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07baed78448e49810892cf249edb0e6836f52fd39d85bd39a03b4d9a5c018f83)
+            type_hints = cached_type_hints(_typecheckingstub__07baed78448e49810892cf249edb0e6836f52fd39d85bd39a03b4d9a5c018f83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -318,7 +312,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__417623fb2e8bf530a95eb326a2e5d219300a55ce5482328b4bf15990d0310e22)
+                type_hints = cached_type_hints(_typecheckingstub__417623fb2e8bf530a95eb326a2e5d219300a55ce5482328b4bf15990d0310e22)
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -368,7 +362,7 @@ class CfnClusterProps:
         *,
         name: builtins.str,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
@@ -398,7 +392,7 @@ class CfnClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24ce2dce26c7c141f1b9e0e5bcda1dc9d1ab67320e0af4676b77cea0c5569d52)
+            type_hints = cached_type_hints(_typecheckingstub__24ce2dce26c7c141f1b9e0e5bcda1dc9d1ab67320e0af4676b77cea0c5569d52)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -432,13 +426,13 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-cluster.html#cfn-route53recoverycontrol-cluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -452,9 +446,9 @@ class CfnClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IControlPanelRef_064cd10b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoverycontrol_c2f5330b.IControlPanelRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnControlPanel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoverycontrol.CfnControlPanel",
 ):
@@ -491,8 +485,8 @@ class CfnControlPanel(
         id: builtins.str,
         *,
         name: builtins.str,
-        cluster_arn: typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cluster_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryControl::ControlPanel``.
 
@@ -503,7 +497,7 @@ class CfnControlPanel(
         :param tags: The tags associated with the control panel.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af4420a741fa687672aaafb49569b8fb25d0ae5baef4ea3a30346b1e29fdeddc)
+            type_hints = cached_type_hints(_typecheckingstub__af4420a741fa687672aaafb49569b8fb25d0ae5baef4ea3a30346b1e29fdeddc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnControlPanelProps(name=name, cluster_arn=cluster_arn, tags=tags)
@@ -514,13 +508,13 @@ class CfnControlPanel(
     @builtins.classmethod
     def arn_for_control_panel(
         cls,
-        resource: "_IControlPanelRef_064cd10b",
+        resource: "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96cd58aa70a25340fca6d017f96ca5e5a7562cb7b812359aa135cf07b88df18f)
+            type_hints = cached_type_hints(_typecheckingstub__96cd58aa70a25340fca6d017f96ca5e5a7562cb7b812359aa135cf07b88df18f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForControlPanel", [resource]))
 
@@ -532,18 +526,18 @@ class CfnControlPanel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c186d6f2c7edecda6a149a588e5f7bfbec3c5398c3e8da41f1a28a69c63c5392)
+            type_hints = cached_type_hints(_typecheckingstub__c186d6f2c7edecda6a149a588e5f7bfbec3c5398c3e8da41f1a28a69c63c5392)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnControlPanel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__906d7ee6c36bc3e1a47d63da18a0ef8f9dfc5b1b853e525b7b6f63b82e861c3b)
+            type_hints = cached_type_hints(_typecheckingstub__906d7ee6c36bc3e1a47d63da18a0ef8f9dfc5b1b853e525b7b6f63b82e861c3b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -556,7 +550,7 @@ class CfnControlPanel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf81ef33259a058090f6fa1cc9339f3649028db55e20370b7278b6b62060dffb)
+            type_hints = cached_type_hints(_typecheckingstub__cf81ef33259a058090f6fa1cc9339f3649028db55e20370b7278b6b62060dffb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -577,12 +571,12 @@ class CfnControlPanel(
 
     @builtins.property
     @jsii.member(jsii_name="attrDefaultControlPanel")
-    def attr_default_control_panel(self) -> "_IResolvable_da3f097b":
+    def attr_default_control_panel(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The boolean flag that is set to true for the default control panel in the cluster.
 
         :cloudformationAttribute: DefaultControlPanel
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDefaultControlPanel"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrDefaultControlPanel"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRoutingControlCount")
@@ -616,15 +610,17 @@ class CfnControlPanel(
 
     @builtins.property
     @jsii.member(jsii_name="controlPanelRef")
-    def control_panel_ref(self) -> "_ControlPanelReference_7bbd7885":
+    def control_panel_ref(
+        self,
+    ) -> "_aws_route53recoverycontrol_c2f5330b.ControlPanelReference":
         '''A reference to a ControlPanel resource.'''
-        return typing.cast("_ControlPanelReference_7bbd7885", jsii.get(self, "controlPanelRef"))
+        return typing.cast("_aws_route53recoverycontrol_c2f5330b.ControlPanelReference", jsii.get(self, "controlPanelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -635,7 +631,7 @@ class CfnControlPanel(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff1e4aff586d839998504ce3800e2d90978f6d2f2b4749548b04479b125b5876)
+            type_hints = cached_type_hints(_typecheckingstub__ff1e4aff586d839998504ce3800e2d90978f6d2f2b4749548b04479b125b5876)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -648,20 +644,23 @@ class CfnControlPanel(
     @cluster_arn.setter
     def cluster_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a03d1b0034ff93cad4c05e7991efc53df68fe3cdd2e75d6b622c9c79bdadb978)
+            type_hints = cached_type_hints(_typecheckingstub__a03d1b0034ff93cad4c05e7991efc53df68fe3cdd2e75d6b622c9c79bdadb978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the control panel.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e918a49aa511684305e6f0fb7fb172abe97ec14120062a0a7055abb8d3b11df)
+            type_hints = cached_type_hints(_typecheckingstub__3e918a49aa511684305e6f0fb7fb172abe97ec14120062a0a7055abb8d3b11df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -676,8 +675,8 @@ class CfnControlPanelProps:
         self,
         *,
         name: builtins.str,
-        cluster_arn: typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cluster_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnControlPanel``.
 
@@ -707,7 +706,7 @@ class CfnControlPanelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50e50657a1a484bf705523a13399e8ac229d80e2376b9afeb9094f2552d0e434)
+            type_hints = cached_type_hints(_typecheckingstub__50e50657a1a484bf705523a13399e8ac229d80e2376b9afeb9094f2552d0e434)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -734,22 +733,22 @@ class CfnControlPanelProps:
     @builtins.property
     def cluster_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]]:
         '''The Amazon Resource Name (ARN) of the cluster for the control panel.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-controlpanel.html#cfn-route53recoverycontrol-controlpanel-clusterarn
         '''
         result = self._values.get("cluster_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the control panel.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-controlpanel.html#cfn-route53recoverycontrol-controlpanel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -763,9 +762,9 @@ class CfnControlPanelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRoutingControlRef_af956175)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoverycontrol_c2f5330b.IRoutingControlRef)
 class CfnRoutingControl(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoverycontrol.CfnRoutingControl",
 ):
@@ -800,8 +799,8 @@ class CfnRoutingControl(
         id: builtins.str,
         *,
         name: builtins.str,
-        cluster_arn: typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]] = None,
-        control_panel_arn: typing.Optional[typing.Union[builtins.str, "_IControlPanelRef_064cd10b"]] = None,
+        cluster_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]] = None,
+        control_panel_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryControl::RoutingControl``.
 
@@ -812,7 +811,7 @@ class CfnRoutingControl(
         :param control_panel_arn: The Amazon Resource Name (ARN) of the control panel that includes the routing control.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8e66a23f93757dc3bc37d83299cb23ab412cab6e96d4afaf3456eb08bbe1384)
+            type_hints = cached_type_hints(_typecheckingstub__f8e66a23f93757dc3bc37d83299cb23ab412cab6e96d4afaf3456eb08bbe1384)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRoutingControlProps(
@@ -825,13 +824,13 @@ class CfnRoutingControl(
     @builtins.classmethod
     def arn_for_routing_control(
         cls,
-        resource: "_IRoutingControlRef_af956175",
+        resource: "_aws_route53recoverycontrol_c2f5330b.IRoutingControlRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90c010372b85b6d265c72d07236a5a955091211ccc6fa003d1dba45796b7b78c)
+            type_hints = cached_type_hints(_typecheckingstub__90c010372b85b6d265c72d07236a5a955091211ccc6fa003d1dba45796b7b78c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRoutingControl", [resource]))
 
@@ -843,18 +842,18 @@ class CfnRoutingControl(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1947d47b9f871291a727198234fdaea11d30d825214d1d67f9ef7900311d4cc)
+            type_hints = cached_type_hints(_typecheckingstub__b1947d47b9f871291a727198234fdaea11d30d825214d1d67f9ef7900311d4cc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRoutingControl", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cea52182bae1f52b300778ab2900344293265e4a0e849cdfe61a3dce971c102)
+            type_hints = cached_type_hints(_typecheckingstub__0cea52182bae1f52b300778ab2900344293265e4a0e849cdfe61a3dce971c102)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -867,7 +866,7 @@ class CfnRoutingControl(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76de149d457b1328783895c028b114f9744b7d58dd013e9640f5e3efd449753e)
+            type_hints = cached_type_hints(_typecheckingstub__76de149d457b1328783895c028b114f9744b7d58dd013e9640f5e3efd449753e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -909,9 +908,11 @@ class CfnRoutingControl(
 
     @builtins.property
     @jsii.member(jsii_name="routingControlRef")
-    def routing_control_ref(self) -> "_RoutingControlReference_ba2b464e":
+    def routing_control_ref(
+        self,
+    ) -> "_aws_route53recoverycontrol_c2f5330b.RoutingControlReference":
         '''A reference to a RoutingControl resource.'''
-        return typing.cast("_RoutingControlReference_ba2b464e", jsii.get(self, "routingControlRef"))
+        return typing.cast("_aws_route53recoverycontrol_c2f5330b.RoutingControlReference", jsii.get(self, "routingControlRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -922,7 +923,7 @@ class CfnRoutingControl(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ffc3a734bfe1d7ef78f014e4a963d3351e1c500ddba76301e057f64865b8d24)
+            type_hints = cached_type_hints(_typecheckingstub__0ffc3a734bfe1d7ef78f014e4a963d3351e1c500ddba76301e057f64865b8d24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -935,7 +936,7 @@ class CfnRoutingControl(
     @cluster_arn.setter
     def cluster_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a18f0809fa84cd7460c3453004605dc29ea8e93f869dcea8d169e007ab9dcc54)
+            type_hints = cached_type_hints(_typecheckingstub__a18f0809fa84cd7460c3453004605dc29ea8e93f869dcea8d169e007ab9dcc54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
 
@@ -948,7 +949,7 @@ class CfnRoutingControl(
     @control_panel_arn.setter
     def control_panel_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc7cd54715a8da344cf718e3f18f4ce00a90691ceb31d93f935d4046fa90a0a)
+            type_hints = cached_type_hints(_typecheckingstub__bdc7cd54715a8da344cf718e3f18f4ce00a90691ceb31d93f935d4046fa90a0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "controlPanelArn", value) # pyright: ignore[reportArgumentType]
 
@@ -967,8 +968,8 @@ class CfnRoutingControlProps:
         self,
         *,
         name: builtins.str,
-        cluster_arn: typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]] = None,
-        control_panel_arn: typing.Optional[typing.Union[builtins.str, "_IControlPanelRef_064cd10b"]] = None,
+        cluster_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]] = None,
+        control_panel_arn: typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRoutingControl``.
 
@@ -994,7 +995,7 @@ class CfnRoutingControlProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be91c55bdc0168798c12f7b90c6849a8a971899532b4c0d715d17dc211090cf9)
+            type_hints = cached_type_hints(_typecheckingstub__be91c55bdc0168798c12f7b90c6849a8a971899532b4c0d715d17dc211090cf9)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
             check_type(argname="argument control_panel_arn", value=control_panel_arn, expected_type=type_hints["control_panel_arn"])
@@ -1021,24 +1022,24 @@ class CfnRoutingControlProps:
     @builtins.property
     def cluster_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]]:
         '''The Amazon Resource Name (ARN) of the cluster that hosts the routing control.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-routingcontrol.html#cfn-route53recoverycontrol-routingcontrol-clusterarn
         '''
         result = self._values.get("cluster_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IClusterRef_ba4d90ac"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IClusterRef"]], result)
 
     @builtins.property
     def control_panel_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IControlPanelRef_064cd10b"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"]]:
         '''The Amazon Resource Name (ARN) of the control panel that includes the routing control.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-routingcontrol.html#cfn-route53recoverycontrol-routingcontrol-controlpanelarn
         '''
         result = self._values.get("control_panel_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IControlPanelRef_064cd10b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1052,9 +1053,9 @@ class CfnRoutingControlProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISafetyRuleRef_ba2607a5, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoverycontrol_c2f5330b.ISafetyRuleRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSafetyRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoverycontrol.CfnSafetyRule",
 ):
@@ -1112,12 +1113,12 @@ class CfnSafetyRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        control_panel_arn: typing.Union[builtins.str, "_IControlPanelRef_064cd10b"],
+        control_panel_arn: typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"],
         name: builtins.str,
-        rule_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.RuleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        assertion_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.AssertionRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        gating_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.GatingRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.RuleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        assertion_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.AssertionRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gating_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.GatingRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryControl::SafetyRule``.
 
@@ -1131,7 +1132,7 @@ class CfnSafetyRule(
         :param tags: The tags associated with the safety rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ada45d21faa78154fe211f8a129efa23cb89aef71314ca3d913f77b7503e67b3)
+            type_hints = cached_type_hints(_typecheckingstub__ada45d21faa78154fe211f8a129efa23cb89aef71314ca3d913f77b7503e67b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSafetyRuleProps(
@@ -1147,12 +1148,15 @@ class CfnSafetyRule(
 
     @jsii.member(jsii_name="arnForSafetyRule")
     @builtins.classmethod
-    def arn_for_safety_rule(cls, resource: "_ISafetyRuleRef_ba2607a5") -> builtins.str:
+    def arn_for_safety_rule(
+        cls,
+        resource: "_aws_route53recoverycontrol_c2f5330b.ISafetyRuleRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf5c742a518663e3cbd729bbc3165921cbeb224a6b2d457f0b6eb38dc0979345)
+            type_hints = cached_type_hints(_typecheckingstub__bf5c742a518663e3cbd729bbc3165921cbeb224a6b2d457f0b6eb38dc0979345)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSafetyRule", [resource]))
 
@@ -1164,18 +1168,18 @@ class CfnSafetyRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a97dc21c259e34ef6efe568065b2ddd430513186f4ecadb9fb59e0ff005d92d)
+            type_hints = cached_type_hints(_typecheckingstub__4a97dc21c259e34ef6efe568065b2ddd430513186f4ecadb9fb59e0ff005d92d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSafetyRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dc0ff8959fc7098a93ba8121b62c4604117277cfc3c24b5083e009b52708acb)
+            type_hints = cached_type_hints(_typecheckingstub__8dc0ff8959fc7098a93ba8121b62c4604117277cfc3c24b5083e009b52708acb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1188,7 +1192,7 @@ class CfnSafetyRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca9d90b4e6e7c5b8904a7f97b5817b9a5a99144110b842ba64d728b8930aad14)
+            type_hints = cached_type_hints(_typecheckingstub__ca9d90b4e6e7c5b8904a7f97b5817b9a5a99144110b842ba64d728b8930aad14)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1230,15 +1234,17 @@ class CfnSafetyRule(
 
     @builtins.property
     @jsii.member(jsii_name="safetyRuleRef")
-    def safety_rule_ref(self) -> "_SafetyRuleReference_11d22628":
+    def safety_rule_ref(
+        self,
+    ) -> "_aws_route53recoverycontrol_c2f5330b.SafetyRuleReference":
         '''A reference to a SafetyRule resource.'''
-        return typing.cast("_SafetyRuleReference_11d22628", jsii.get(self, "safetyRuleRef"))
+        return typing.cast("_aws_route53recoverycontrol_c2f5330b.SafetyRuleReference", jsii.get(self, "safetyRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="controlPanelArn")
@@ -1249,7 +1255,7 @@ class CfnSafetyRule(
     @control_panel_arn.setter
     def control_panel_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac7fd6aa767c97d5a44cdfccf8155e0d77251d8c9591d85dcdc48e3400d9a988)
+            type_hints = cached_type_hints(_typecheckingstub__ac7fd6aa767c97d5a44cdfccf8155e0d77251d8c9591d85dcdc48e3400d9a988)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "controlPanelArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1262,7 +1268,7 @@ class CfnSafetyRule(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a87cb89df1aa33fe1c8db7fb822d3e7f34782e740bfb2ca584bafa663cb5807c)
+            type_hints = cached_type_hints(_typecheckingstub__a87cb89df1aa33fe1c8db7fb822d3e7f34782e740bfb2ca584bafa663cb5807c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1270,17 +1276,17 @@ class CfnSafetyRule(
     @jsii.member(jsii_name="ruleConfig")
     def rule_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.RuleConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.RuleConfigProperty"]:
         '''The criteria that you set for specific assertion controls (routing controls) that designate how many control states must be ``ON`` as the result of a transaction.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.RuleConfigProperty"], jsii.get(self, "ruleConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.RuleConfigProperty"], jsii.get(self, "ruleConfig"))
 
     @rule_config.setter
     def rule_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.RuleConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.RuleConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7aad314d51748eb191ea9b0e9889d83df03cd198fc13eed992ee56efe980963)
+            type_hints = cached_type_hints(_typecheckingstub__a7aad314d51748eb191ea9b0e9889d83df03cd198fc13eed992ee56efe980963)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1288,17 +1294,17 @@ class CfnSafetyRule(
     @jsii.member(jsii_name="assertionRule")
     def assertion_rule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.AssertionRuleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.AssertionRuleProperty"]]:
         '''An assertion rule enforces that, when you change a routing control state, that the criteria that you set in the rule configuration is met.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.AssertionRuleProperty"]], jsii.get(self, "assertionRule"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.AssertionRuleProperty"]], jsii.get(self, "assertionRule"))
 
     @assertion_rule.setter
     def assertion_rule(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.AssertionRuleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.AssertionRuleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19b243601ac621ff529a9f1e0672f5662b990b3a10fa6c3709439314ee34ea4d)
+            type_hints = cached_type_hints(_typecheckingstub__19b243601ac621ff529a9f1e0672f5662b990b3a10fa6c3709439314ee34ea4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "assertionRule", value) # pyright: ignore[reportArgumentType]
 
@@ -1306,30 +1312,33 @@ class CfnSafetyRule(
     @jsii.member(jsii_name="gatingRule")
     def gating_rule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.GatingRuleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.GatingRuleProperty"]]:
         '''A gating rule verifies that a gating routing control or set of gating routing controls, evaluates as true, based on a rule configuration that you specify, which allows a set of routing control state changes to complete.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.GatingRuleProperty"]], jsii.get(self, "gatingRule"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.GatingRuleProperty"]], jsii.get(self, "gatingRule"))
 
     @gating_rule.setter
     def gating_rule(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.GatingRuleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.GatingRuleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8620a5842adbe4ff4519c97bca27014d017f98e271369a1d1e6cef3f4026c19a)
+            type_hints = cached_type_hints(_typecheckingstub__8620a5842adbe4ff4519c97bca27014d017f98e271369a1d1e6cef3f4026c19a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatingRule", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the safety rule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bd1e26d09f647010d0e1f98f3c76cc6cdcae0897c20573ffc9e57371f980308)
+            type_hints = cached_type_hints(_typecheckingstub__7bd1e26d09f647010d0e1f98f3c76cc6cdcae0897c20573ffc9e57371f980308)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1370,7 +1379,7 @@ class CfnSafetyRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed41f1b03917d2b555857972db2d17c822ab6a52a6d97abe4bbccf0372d0c1ea)
+                type_hints = cached_type_hints(_typecheckingstub__ed41f1b03917d2b555857972db2d17c822ab6a52a6d97abe4bbccf0372d0c1ea)
                 check_type(argname="argument asserted_controls", value=asserted_controls, expected_type=type_hints["asserted_controls"])
                 check_type(argname="argument wait_period_ms", value=wait_period_ms, expected_type=type_hints["wait_period_ms"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1454,7 +1463,7 @@ class CfnSafetyRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5c5117f2c875821616bc202779e0c96aa6802dceac68d7e79a315ebc7478c010)
+                type_hints = cached_type_hints(_typecheckingstub__5c5117f2c875821616bc202779e0c96aa6802dceac68d7e79a315ebc7478c010)
                 check_type(argname="argument gating_controls", value=gating_controls, expected_type=type_hints["gating_controls"])
                 check_type(argname="argument target_controls", value=target_controls, expected_type=type_hints["target_controls"])
                 check_type(argname="argument wait_period_ms", value=wait_period_ms, expected_type=type_hints["wait_period_ms"])
@@ -1524,7 +1533,7 @@ class CfnSafetyRule(
         def __init__(
             self,
             *,
-            inverted: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            inverted: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             threshold: jsii.Number,
             type: builtins.str,
         ) -> None:
@@ -1552,7 +1561,7 @@ class CfnSafetyRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e9c7596694f51a191b407b4cf7800cd696d05a6cbbcb4f0a2890c69a7758ace)
+                type_hints = cached_type_hints(_typecheckingstub__6e9c7596694f51a191b407b4cf7800cd696d05a6cbbcb4f0a2890c69a7758ace)
                 check_type(argname="argument inverted", value=inverted, expected_type=type_hints["inverted"])
                 check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1563,7 +1572,9 @@ class CfnSafetyRule(
             }
 
         @builtins.property
-        def inverted(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def inverted(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Logical negation of the rule.
 
             If the rule would usually evaluate true, it's evaluated as false, and vice versa.
@@ -1572,7 +1583,7 @@ class CfnSafetyRule(
             '''
             result = self._values.get("inverted")
             assert result is not None, "Required property 'inverted' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def threshold(self) -> jsii.Number:
@@ -1624,12 +1635,12 @@ class CfnSafetyRuleProps:
     def __init__(
         self,
         *,
-        control_panel_arn: typing.Union[builtins.str, "_IControlPanelRef_064cd10b"],
+        control_panel_arn: typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"],
         name: builtins.str,
-        rule_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.RuleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        assertion_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.AssertionRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        gating_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSafetyRule.GatingRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.RuleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        assertion_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.AssertionRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gating_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSafetyRule.GatingRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSafetyRule``.
 
@@ -1676,7 +1687,7 @@ class CfnSafetyRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b44e00780d2bb00de407ed35a33395166d559891130b782d5658fb973337fbe9)
+            type_hints = cached_type_hints(_typecheckingstub__b44e00780d2bb00de407ed35a33395166d559891130b782d5658fb973337fbe9)
             check_type(argname="argument control_panel_arn", value=control_panel_arn, expected_type=type_hints["control_panel_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument rule_config", value=rule_config, expected_type=type_hints["rule_config"])
@@ -1698,14 +1709,14 @@ class CfnSafetyRuleProps:
     @builtins.property
     def control_panel_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IControlPanelRef_064cd10b"]:
+    ) -> typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"]:
         '''The Amazon Resource Name (ARN) of the control panel.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-safetyrule.html#cfn-route53recoverycontrol-safetyrule-controlpanelarn
         '''
         result = self._values.get("control_panel_arn")
         assert result is not None, "Required property 'control_panel_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IControlPanelRef_064cd10b"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_route53recoverycontrol_c2f5330b.IControlPanelRef"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1722,7 +1733,7 @@ class CfnSafetyRuleProps:
     @builtins.property
     def rule_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.RuleConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.RuleConfigProperty"]:
         '''The criteria that you set for specific assertion controls (routing controls) that designate how many control states must be ``ON`` as the result of a transaction.
 
         For example, if you have three assertion controls, you might specify ``ATLEAST 2`` for your rule configuration. This means that at least two assertion controls must be ``ON`` , so that at least two AWS Regions have traffic flowing to them.
@@ -1731,12 +1742,12 @@ class CfnSafetyRuleProps:
         '''
         result = self._values.get("rule_config")
         assert result is not None, "Required property 'rule_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.RuleConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.RuleConfigProperty"], result)
 
     @builtins.property
     def assertion_rule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.AssertionRuleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.AssertionRuleProperty"]]:
         '''An assertion rule enforces that, when you change a routing control state, that the criteria that you set in the rule configuration is met.
 
         Otherwise, the change to the routing control is not accepted. For example, the criteria might be that at least one routing control state is ``On`` after the transaction so that traffic continues to flow to at least one cell for the application. This ensures that you avoid a fail-open scenario.
@@ -1744,12 +1755,12 @@ class CfnSafetyRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-safetyrule.html#cfn-route53recoverycontrol-safetyrule-assertionrule
         '''
         result = self._values.get("assertion_rule")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.AssertionRuleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.AssertionRuleProperty"]], result)
 
     @builtins.property
     def gating_rule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.GatingRuleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.GatingRuleProperty"]]:
         '''A gating rule verifies that a gating routing control or set of gating routing controls, evaluates as true, based on a rule configuration that you specify, which allows a set of routing control state changes to complete.
 
         For example, if you specify one gating routing control and you set the ``Type`` in the rule configuration to ``OR`` , that indicates that you must set the gating routing control to ``On`` for the rule to evaluate as true; that is, for the gating control switch to be On. When you do that, then you can update the routing control states for the target routing controls that you specify in the gating rule.
@@ -1757,16 +1768,16 @@ class CfnSafetyRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-safetyrule.html#cfn-route53recoverycontrol-safetyrule-gatingrule
         '''
         result = self._values.get("gating_rule")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSafetyRule.GatingRuleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSafetyRule.GatingRuleProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the safety rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoverycontrol-safetyrule.html#cfn-route53recoverycontrol-safetyrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1799,13 +1810,13 @@ def _typecheckingstub__a22ce3cb989f0084b0215729b9e32485e8f3c7d8c5b66e19c5d569e73
     *,
     name: builtins.str,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe9bb62bf51b4dcc9d49adb22fb1d50225a948b99746c377a84e0056fe7c5f4c(
-    resource: _IClusterRef_ba4d90ac,
+    resource: _aws_route53recoverycontrol_c2f5330b.IClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1817,7 +1828,7 @@ def _typecheckingstub__9aff2e5c44ddd36efc1525cc392d830c753a280ab7f624a4274a9b3ce
     pass
 
 def _typecheckingstub__f1d5d3d9f3a1044ea448e47cbbc2078fcd16eda9541fc5415cf9d029dd4ebb80(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1841,7 +1852,7 @@ def _typecheckingstub__74c93f15d95285d08220407a27806cfcda4c141a344adc3ac15370b18
     pass
 
 def _typecheckingstub__07baed78448e49810892cf249edb0e6836f52fd39d85bd39a03b4d9a5c018f83(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1858,7 +1869,7 @@ def _typecheckingstub__24ce2dce26c7c141f1b9e0e5bcda1dc9d1ab67320e0af4676b77cea0c
     *,
     name: builtins.str,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1868,14 +1879,14 @@ def _typecheckingstub__af4420a741fa687672aaafb49569b8fb25d0ae5baef4ea3a30346b1e2
     id: builtins.str,
     *,
     name: builtins.str,
-    cluster_arn: typing.Optional[typing.Union[builtins.str, _IClusterRef_ba4d90ac]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cluster_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IClusterRef]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__96cd58aa70a25340fca6d017f96ca5e5a7562cb7b812359aa135cf07b88df18f(
-    resource: _IControlPanelRef_064cd10b,
+    resource: _aws_route53recoverycontrol_c2f5330b.IControlPanelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1887,7 +1898,7 @@ def _typecheckingstub__c186d6f2c7edecda6a149a588e5f7bfbec3c5398c3e8da41f1a28a69c
     pass
 
 def _typecheckingstub__906d7ee6c36bc3e1a47d63da18a0ef8f9dfc5b1b853e525b7b6f63b82e861c3b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1911,7 +1922,7 @@ def _typecheckingstub__a03d1b0034ff93cad4c05e7991efc53df68fe3cdd2e75d6b622c9c79b
     pass
 
 def _typecheckingstub__3e918a49aa511684305e6f0fb7fb172abe97ec14120062a0a7055abb8d3b11df(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1919,8 +1930,8 @@ def _typecheckingstub__3e918a49aa511684305e6f0fb7fb172abe97ec14120062a0a7055abb8
 def _typecheckingstub__50e50657a1a484bf705523a13399e8ac229d80e2376b9afeb9094f2552d0e434(
     *,
     name: builtins.str,
-    cluster_arn: typing.Optional[typing.Union[builtins.str, _IClusterRef_ba4d90ac]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cluster_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IClusterRef]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1930,14 +1941,14 @@ def _typecheckingstub__f8e66a23f93757dc3bc37d83299cb23ab412cab6e96d4afaf3456eb08
     id: builtins.str,
     *,
     name: builtins.str,
-    cluster_arn: typing.Optional[typing.Union[builtins.str, _IClusterRef_ba4d90ac]] = None,
-    control_panel_arn: typing.Optional[typing.Union[builtins.str, _IControlPanelRef_064cd10b]] = None,
+    cluster_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IClusterRef]] = None,
+    control_panel_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IControlPanelRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__90c010372b85b6d265c72d07236a5a955091211ccc6fa003d1dba45796b7b78c(
-    resource: _IRoutingControlRef_af956175,
+    resource: _aws_route53recoverycontrol_c2f5330b.IRoutingControlRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1949,7 +1960,7 @@ def _typecheckingstub__b1947d47b9f871291a727198234fdaea11d30d825214d1d67f9ef7900
     pass
 
 def _typecheckingstub__0cea52182bae1f52b300778ab2900344293265e4a0e849cdfe61a3dce971c102(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1981,8 +1992,8 @@ def _typecheckingstub__bdc7cd54715a8da344cf718e3f18f4ce00a90691ceb31d93f935d4046
 def _typecheckingstub__be91c55bdc0168798c12f7b90c6849a8a971899532b4c0d715d17dc211090cf9(
     *,
     name: builtins.str,
-    cluster_arn: typing.Optional[typing.Union[builtins.str, _IClusterRef_ba4d90ac]] = None,
-    control_panel_arn: typing.Optional[typing.Union[builtins.str, _IControlPanelRef_064cd10b]] = None,
+    cluster_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IClusterRef]] = None,
+    control_panel_arn: typing.Optional[typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IControlPanelRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1991,18 +2002,18 @@ def _typecheckingstub__ada45d21faa78154fe211f8a129efa23cb89aef71314ca3d913f77b75
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    control_panel_arn: typing.Union[builtins.str, _IControlPanelRef_064cd10b],
+    control_panel_arn: typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IControlPanelRef],
     name: builtins.str,
-    rule_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.RuleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    assertion_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.AssertionRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    gating_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.GatingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.RuleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    assertion_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.AssertionRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gating_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.GatingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bf5c742a518663e3cbd729bbc3165921cbeb224a6b2d457f0b6eb38dc0979345(
-    resource: _ISafetyRuleRef_ba2607a5,
+    resource: _aws_route53recoverycontrol_c2f5330b.ISafetyRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2014,7 +2025,7 @@ def _typecheckingstub__4a97dc21c259e34ef6efe568065b2ddd430513186f4ecadb9fb59e0ff
     pass
 
 def _typecheckingstub__8dc0ff8959fc7098a93ba8121b62c4604117277cfc3c24b5083e009b52708acb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2038,25 +2049,25 @@ def _typecheckingstub__a87cb89df1aa33fe1c8db7fb822d3e7f34782e740bfb2ca584bafa663
     pass
 
 def _typecheckingstub__a7aad314d51748eb191ea9b0e9889d83df03cd198fc13eed992ee56efe980963(
-    value: typing.Union[_IResolvable_da3f097b, CfnSafetyRule.RuleConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSafetyRule.RuleConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19b243601ac621ff529a9f1e0672f5662b990b3a10fa6c3709439314ee34ea4d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSafetyRule.AssertionRuleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSafetyRule.AssertionRuleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8620a5842adbe4ff4519c97bca27014d017f98e271369a1d1e6cef3f4026c19a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSafetyRule.GatingRuleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSafetyRule.GatingRuleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7bd1e26d09f647010d0e1f98f3c76cc6cdcae0897c20573ffc9e57371f980308(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2080,7 +2091,7 @@ def _typecheckingstub__5c5117f2c875821616bc202779e0c96aa6802dceac68d7e79a315ebc7
 
 def _typecheckingstub__6e9c7596694f51a191b407b4cf7800cd696d05a6cbbcb4f0a2890c69a7758ace(
     *,
-    inverted: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    inverted: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     threshold: jsii.Number,
     type: builtins.str,
 ) -> None:
@@ -2089,12 +2100,12 @@ def _typecheckingstub__6e9c7596694f51a191b407b4cf7800cd696d05a6cbbcb4f0a2890c69a
 
 def _typecheckingstub__b44e00780d2bb00de407ed35a33395166d559891130b782d5658fb973337fbe9(
     *,
-    control_panel_arn: typing.Union[builtins.str, _IControlPanelRef_064cd10b],
+    control_panel_arn: typing.Union[builtins.str, _aws_route53recoverycontrol_c2f5330b.IControlPanelRef],
     name: builtins.str,
-    rule_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.RuleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    assertion_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.AssertionRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    gating_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSafetyRule.GatingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.RuleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    assertion_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.AssertionRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gating_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSafetyRule.GatingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

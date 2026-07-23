@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,31 +13,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from ... import Mixin as _Mixin_d3d231df
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class RepositoryAutoDeleteImages(
-    _Mixin_d3d231df,
+    _aws_cdk_0cae9daa.Mixin,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.mixins.RepositoryAutoDeleteImages",
 ):
@@ -60,7 +64,7 @@ class RepositoryAutoDeleteImages(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22e2455beb109b896cd9727519758382be52ce357885d67e10f2c7fd9b7900dd)
+            type_hints = cached_type_hints(_typecheckingstub__22e2455beb109b896cd9727519758382be52ce357885d67e10f2c7fd9b7900dd)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(None, jsii.invoke(self, "applyTo", [construct]))
 
@@ -71,7 +75,7 @@ class RepositoryAutoDeleteImages(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b56051b831cc1c1e9c65622167285b02ef56c08a6c2f46b6cd3a0fa9a223d70)
+            type_hints = cached_type_hints(_typecheckingstub__7b56051b831cc1c1e9c65622167285b02ef56c08a6c2f46b6cd3a0fa9a223d70)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
 

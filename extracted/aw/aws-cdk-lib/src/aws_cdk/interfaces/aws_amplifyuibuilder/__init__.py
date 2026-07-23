@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class ComponentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3db2cf173de1ecd1b81095e2f9e746f608829598ca99e775cb93df9c8e0769b)
+            type_hints = cached_type_hints(_typecheckingstub__c3db2cf173de1ecd1b81095e2f9e746f608829598ca99e775cb93df9c8e0769b)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument component_id", value=component_id, expected_type=type_hints["component_id"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
@@ -153,7 +157,7 @@ class FormReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eea402a898cb91c9699c35d33ddc6857343d860854d4a480e50dbe9b5addc026)
+            type_hints = cached_type_hints(_typecheckingstub__eea402a898cb91c9699c35d33ddc6857343d860854d4a480e50dbe9b5addc026)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
             check_type(argname="argument form_id", value=form_id, expected_type=type_hints["form_id"])
@@ -199,7 +203,7 @@ class FormReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_amplifyuibuilder.IComponentRef")
 class IComponentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Component.
@@ -219,7 +223,7 @@ class IComponentRef(
 
 class _IComponentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Component.
 
@@ -244,7 +248,7 @@ typing.cast(typing.Any, IComponentRef).__jsii_proxy_class__ = lambda : _ICompone
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_amplifyuibuilder.IFormRef")
 class IFormRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Form.
@@ -264,7 +268,7 @@ class IFormRef(
 
 class _IFormRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Form.
 
@@ -289,7 +293,7 @@ typing.cast(typing.Any, IFormRef).__jsii_proxy_class__ = lambda : _IFormRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_amplifyuibuilder.IThemeRef")
 class IThemeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Theme.
@@ -309,7 +313,7 @@ class IThemeRef(
 
 class _IThemeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Theme.
 
@@ -369,7 +373,7 @@ class ThemeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__586ab3e86d97387a47bc7f44c2e6233cbe06e304bb8afa0beab77965fc5131cd)
+            type_hints = cached_type_hints(_typecheckingstub__586ab3e86d97387a47bc7f44c2e6233cbe06e304bb8afa0beab77965fc5131cd)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
             check_type(argname="argument theme_id", value=theme_id, expected_type=type_hints["theme_id"])

@@ -2,7 +2,9 @@ mod utils;
 
 use assert_json_diff::{assert_json_matches, CompareMode, Config, NumericMode};
 use serde_json::Value;
-use statsig_rust::specs_response::spec_types::SpecsResponseFull;
+use statsig_rust::{
+    interned_string::InternedString, specs_response::spec_types::SpecsResponseFull,
+};
 
 use crate::utils::helpers::load_contents;
 
@@ -23,6 +25,24 @@ fn test_full_response_serialization_from_value() {
     let specs_response = serde_json::from_value::<SpecsResponseFull>(raw_dcs).unwrap();
 
     assert!(specs_response.has_updates)
+}
+
+#[test]
+fn test_session_update_mode_deserialization() {
+    let mut raw_dcs = serde_json::from_str::<Value>(&load_contents("eval_proj_dcs.json")).unwrap();
+    raw_dcs["dynamic_configs"]["test_experiment_no_targeting"]["sessionUpdateMode"] =
+        Value::String("live".to_string());
+
+    let specs_response = serde_json::from_value::<SpecsResponseFull>(raw_dcs).unwrap();
+    let spec = specs_response
+        .dynamic_configs
+        .get(&InternedString::from_str_ref(
+            "test_experiment_no_targeting",
+        ))
+        .unwrap()
+        .as_spec_ref();
+
+    assert_eq!(spec.session_update_mode.as_deref(), Some("live"));
 }
 
 #[test]

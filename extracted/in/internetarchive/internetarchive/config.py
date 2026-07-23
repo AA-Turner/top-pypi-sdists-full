@@ -23,13 +23,14 @@ internetarchive.config
 :copyright: (C) 2012-2024 by Internet Archive.
 :license: AGPL 3, see LICENSE for more details.
 """
+
 from __future__ import annotations
 
 import os
 from collections import defaultdict
+from collections.abc import Mapping
 from configparser import RawConfigParser
 from time import sleep
-from typing import DefaultDict, Dict, Mapping
 
 import requests
 
@@ -79,7 +80,7 @@ def get_auth_config(email: str, password: str, host: str = 'archive.org') -> dic
         },
         'general': {
             'screenname': j['values']['screenname'],
-        }
+        },
     }
     return auth_config
 
@@ -222,9 +223,7 @@ def get_config(config=None, config_file=None) -> dict:
     _config = config or {}
     config_file, _is_xdg, config_parser = parse_config_file(config_file)
 
-    # TODO: Use typing.TypedDict when we drop Python 3.8 support
-    # to get rid of noqa: UP006
-    config_dict: DefaultDict[str, Dict[str, str]] = defaultdict(dict)  # noqa: UP006
+    config_dict: defaultdict[str, dict[str, str]] = defaultdict(dict)
 
     # Read from config file if it exists
     if os.path.isfile(config_file):
@@ -242,7 +241,9 @@ def get_config(config=None, config_file=None) -> dict:
     env_secret_key = os.environ.get('IA_SECRET_ACCESS_KEY')
 
     # Check if only one environment variable is set
-    if (env_access_key and not env_secret_key) or (not env_access_key and env_secret_key):
+    if (env_access_key and not env_secret_key) or (
+        not env_access_key and env_secret_key
+    ):
         raise ValueError(
             "Both IA_ACCESS_KEY_ID and IA_SECRET_ACCESS_KEY environment variables "
             "must be set together, or neither should be set."

@@ -23,19 +23,24 @@ import {
 } from "./config.js";
 import { countFontsPresent, WINDOWS_FONT_TELLS, OFFICE_FONT_TELLS } from "./fonts.js";
 import { resolveLicenseKey, validateLicense, getProLatestVersion, getActiveSessionCount, type LicenseInfo } from "./license.js";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+import readline from "node:readline";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const UPGRADE_HINT =
-  "→ Get the latest Pro binary (Chromium 150) + newest patches: https://cloakbrowser.dev";
+const UPGRADE_HINT = "For more than one concurrent session → https://cloakbrowser.dev";
+const FREE_LATEST_HINT =
+  "Get the latest binary free → run 'cloakbrowser login' or https://cloakbrowser.dev/free";
+const FREE_LOGIN_URL = "https://cloakbrowser.dev/api/license/free/github/start";
 
 const USAGE = `Usage: cloakbrowser <command>
 
 Commands:
+  login        Save a license key (or get a free key via GitHub)
+  logout       Remove the saved license key (revert to free binary)
   install      Download the Chromium binary
   info         Environment + binary diagnostics (--quick, --json)
   doctor       Alias for info
@@ -323,8 +328,14 @@ function printDiagnostics(diag: Record<string, any>): void {
   }
 
   const lic = diag.license;
-  if (lic.tier === "free") {
-    console.log("License:   Free");
+  if (lic.tier === "free" && lic.valid) {
+    // Validated free-tier key (GitHub login): the latest binary, 1 session.
+    console.log("License:   Free (latest binary, 1 concurrent session)");
+    console.log(`           ${UPGRADE_HINT}`);
+  } else if (lic.tier === "free") {
+    // Keyless: running the older free binary — invite the free-latest login.
+    console.log("License:   Free (no key)");
+    console.log(`           ${FREE_LATEST_HINT}`);
     console.log(`           ${UPGRADE_HINT}`);
   } else if (lic.error) {
     console.log(`License:   ${lic.tier} (${lic.error})`);
@@ -390,6 +401,124 @@ function cmdClearCache(): void {
   console.log("Cache cleared.");
 }
 
+/** Persist a validated key to <cacheDir>/license.key (0600). */
+function saveLicenseKey(key: string): void {
+  const cacheDir = getCacheDir();
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const keyFile = path.join(cacheDir, "license.key");
+  fs.writeFileSync(keyFile, key.trim() + "\n");
+  try {
+    fs.chmodSync(keyFile, 0o600);
+  } catch {
+    // Non-fatal
+  }
+}
+
+/** Prompt for a single line of input, resolving "" on EOF. */
+function promptLine(question: string): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise<string>((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+    rl.on("close", () => resolve(""));
+  });
+}
+
+/** Best-effort open a URL in the platform browser (silent on failure). */
+function openUrl(url: string): void {
+  try {
+    const cmd =
+      process.platform === "darwin"
+        ? "open"
+        : process.platform === "win32"
+          ? "start"
+          : "xdg-open";
+    spawn(cmd, [url], {
+      stdio: "ignore",
+      detached: true,
+      shell: process.platform === "win32",
+    }).unref();
+  } catch {
+    // Non-fatal
+  }
+}
+
+/** Open the GitHub free-key page and read back the emailed key. */
+async function promptFreeGithubLogin(): Promise<string> {
+  console.log(`Opening GitHub sign-in: ${FREE_LOGIN_URL}`);
+  openUrl(FREE_LOGIN_URL);
+  console.log("If your browser did not open, visit the URL above and authorize with GitHub.");
+  console.log("We'll email your free CloakBrowser key to your GitHub email.");
+  return promptLine("Paste the key from that email here: ");
+}
+
+/**
+ * Activate any key. `login <key>` saves a pasted key; bare `login` prompts to
+ * paste a key or press ENTER to get a free key via GitHub.
+ */
+async function cmdLogin(rest: string[]): Promise<void> {
+  let key = (rest[0] ?? "").trim();
+
+  if (!key) {
+    if (!process.stdin.isTTY) {
+      console.error(
+        "Usage: cloakbrowser login <key>  (or run it interactively for a free key)."
+      );
+      process.exit(2);
+    }
+    const entered = await promptLine(
+      "Paste your license key, or press ENTER to get a free key via GitHub: "
+    );
+    key = entered || (await promptFreeGithubLogin());
+  }
+
+  if (!key) {
+    console.error("No key entered. Nothing saved.");
+    process.exit(1);
+  }
+
+  const info = await validateLicense(key);
+  if (info === null) {
+    console.error(
+      "Could not reach the license server to verify the key. Check your connection and retry."
+    );
+    process.exit(1);
+  }
+  if (!info.valid) {
+    console.error("That license key is invalid or expired. Nothing was saved.");
+    process.exit(1);
+  }
+
+  saveLicenseKey(key);
+  if (info.plan === "free") {
+    console.log(
+      "Saved. Free tier active: latest binary, 1 concurrent session (one browser at a time)."
+    );
+    console.log("Need to run more at once? See the plans at https://cloakbrowser.dev");
+  } else {
+    const plan = info.plan.charAt(0).toUpperCase() + info.plan.slice(1);
+    console.log(`Saved. ${plan} key active: latest binary, full plan limits.`);
+  }
+}
+
+/** Remove the saved license key (revert to the free binary). */
+function cmdLogout(): void {
+  const keyFile = path.join(getCacheDir(), "license.key");
+  if (fs.existsSync(keyFile)) {
+    try {
+      fs.unlinkSync(keyFile);
+    } catch (err) {
+      console.error(`Could not remove ${keyFile}: ${(err as Error).message}`);
+      process.exit(1);
+    }
+    console.log("Logged out. Removed the saved key; launches revert to the free binary.");
+  } else {
+    console.log("No saved license key found.");
+  }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2];
   const rest = process.argv.slice(3);
@@ -401,6 +530,12 @@ async function main(): Promise<void> {
 
   try {
     switch (command) {
+      case "login":
+        await cmdLogin(rest);
+        break;
+      case "logout":
+        cmdLogout();
+        break;
       case "install":
         await cmdInstall();
         break;

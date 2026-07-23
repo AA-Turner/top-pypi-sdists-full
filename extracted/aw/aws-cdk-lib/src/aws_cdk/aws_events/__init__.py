@@ -388,6 +388,8 @@ bus = EventBus(self, "Bus",
 
 See more [Specifying event bus log level](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-bus-logs-level)
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -401,68 +403,39 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResolveContext as _IResolveContext_b2df1921,
-    IResource as _IResource_c80c4260,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    PermissionsOptions as _PermissionsOptions_0351e60e,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IResourceWithPolicy as _IResourceWithPolicy_720d64fc,
-    IRole as _IRole_235f5d8e,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_sqs import IQueue as _IQueue_7ed6f679
-from ..interfaces.aws_events import (
-    ApiDestinationReference as _ApiDestinationReference_6371608b,
-    ArchiveReference as _ArchiveReference_40db88e4,
-    ConnectionReference as _ConnectionReference_d427d036,
-    EndpointReference as _EndpointReference_091493df,
-    EventBusPolicyReference as _EventBusPolicyReference_9bb2c85f,
-    EventBusReference as _EventBusReference_f9e830e1,
-    IApiDestinationRef as _IApiDestinationRef_8cd0a954,
-    IArchiveRef as _IArchiveRef_e95a5adc,
-    IConnectionRef as _IConnectionRef_bea3332b,
-    IEndpointRef as _IEndpointRef_c14d05f7,
-    IEventBusPolicyRef as _IEventBusPolicyRef_308d5d57,
-    IEventBusRef as _IEventBusRef_aa86e9b4,
-    IRuleRef as _IRuleRef_4038a611,
-    RuleReference as _RuleReference_38eeaae2,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
+    import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_events_49a540ff = _LazyImport("aws_cdk.interfaces.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -479,7 +452,7 @@ class ApiDestinationAttributes:
         self,
         *,
         api_destination_arn: builtins.str,
-        connection: "_IConnectionRef_bea3332b",
+        connection: "_aws_events_49a540ff.IConnectionRef",
         api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''The properties to import an existing Api Destination.
@@ -508,7 +481,7 @@ class ApiDestinationAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f61949617c8303)
+            type_hints = cached_type_hints(_typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f61949617c8303)
             check_type(argname="argument api_destination_arn", value=api_destination_arn, expected_type=type_hints["api_destination_arn"])
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
             check_type(argname="argument api_destination_arn_for_policy", value=api_destination_arn_for_policy, expected_type=type_hints["api_destination_arn_for_policy"])
@@ -527,11 +500,11 @@ class ApiDestinationAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def connection(self) -> "_IConnectionRef_bea3332b":
+    def connection(self) -> "_aws_events_49a540ff.IConnectionRef":
         '''The Connection to associate with the Api Destination.'''
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
-        return typing.cast("_IConnectionRef_bea3332b", result)
+        return typing.cast("_aws_events_49a540ff.IConnectionRef", result)
 
     @builtins.property
     def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
@@ -570,7 +543,7 @@ class ApiDestinationProps:
     def __init__(
         self,
         *,
-        connection: "_IConnectionRef_bea3332b",
+        connection: "_aws_events_49a540ff.IConnectionRef",
         endpoint: builtins.str,
         api_destination_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -607,7 +580,7 @@ class ApiDestinationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce93e81ddac7a0ebc3fe6cf2783ea61dde8338f099332864ff087db25f7e83f2)
+            type_hints = cached_type_hints(_typecheckingstub__ce93e81ddac7a0ebc3fe6cf2783ea61dde8338f099332864ff087db25f7e83f2)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
             check_type(argname="argument api_destination_name", value=api_destination_name, expected_type=type_hints["api_destination_name"])
@@ -628,11 +601,11 @@ class ApiDestinationProps:
             self._values["rate_limit_per_second"] = rate_limit_per_second
 
     @builtins.property
-    def connection(self) -> "_IConnectionRef_bea3332b":
+    def connection(self) -> "_aws_events_49a540ff.IConnectionRef":
         '''The ARN of the connection to use for the API destination.'''
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
-        return typing.cast("_IConnectionRef_bea3332b", result)
+        return typing.cast("_aws_events_49a540ff.IConnectionRef", result)
 
     @builtins.property
     def endpoint(self) -> builtins.str:
@@ -690,7 +663,7 @@ class ApiDestinationProps:
 
 
 class Archive(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.Archive",
 ):
@@ -725,12 +698,12 @@ class Archive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        source_event_bus: "_IEventBusRef_aa86e9b4",
+        source_event_bus: "_aws_events_49a540ff.IEventBusRef",
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -743,7 +716,7 @@ class Archive(
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996beb9c94e)
+            type_hints = cached_type_hints(_typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996beb9c94e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ArchiveProps(
@@ -817,7 +790,7 @@ class Authorization(
     def api_key(
         cls,
         api_key_name: builtins.str,
-        api_key_value: "_SecretValue_3dd0ddae",
+        api_key_value: "_aws_cdk_0cae9daa.SecretValue",
     ) -> "Authorization":
         '''Use API key authorization.
 
@@ -828,7 +801,7 @@ class Authorization(
         :param api_key_value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1331281a4d4f30a55bbc4c2df4724214f80ba502a79887809dcaea60d199ad6)
+            type_hints = cached_type_hints(_typecheckingstub__c1331281a4d4f30a55bbc4c2df4724214f80ba502a79887809dcaea60d199ad6)
             check_type(argname="argument api_key_name", value=api_key_name, expected_type=type_hints["api_key_name"])
             check_type(argname="argument api_key_value", value=api_key_value, expected_type=type_hints["api_key_value"])
         return typing.cast("Authorization", jsii.sinvoke(cls, "apiKey", [api_key_name, api_key_value]))
@@ -838,7 +811,7 @@ class Authorization(
     def basic(
         cls,
         username: builtins.str,
-        password: "_SecretValue_3dd0ddae",
+        password: "_aws_cdk_0cae9daa.SecretValue",
     ) -> "Authorization":
         '''Use username and password authorization.
 
@@ -846,7 +819,7 @@ class Authorization(
         :param password: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93976c44807796885af88c4eb7f87febdf6c37a2b7f6b43be5ef6b5de408f5b7)
+            type_hints = cached_type_hints(_typecheckingstub__93976c44807796885af88c4eb7f87febdf6c37a2b7f6b43be5ef6b5de408f5b7)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
         return typing.cast("Authorization", jsii.sinvoke(cls, "basic", [username, password]))
@@ -858,7 +831,7 @@ class Authorization(
         *,
         authorization_endpoint: builtins.str,
         client_id: builtins.str,
-        client_secret: "_SecretValue_3dd0ddae",
+        client_secret: "_aws_cdk_0cae9daa.SecretValue",
         http_method: "HttpMethod",
         body_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
@@ -912,8 +885,8 @@ class BaseArchiveProps:
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''The event archive base properties.
 
@@ -944,7 +917,7 @@ class BaseArchiveProps:
         if isinstance(event_pattern, dict):
             event_pattern = EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74aa160eedb5cb0d834ff82193fc6747b652d04f044891f2ad16f69e1b288b67)
+            type_hints = cached_type_hints(_typecheckingstub__74aa160eedb5cb0d834ff82193fc6747b652d04f044891f2ad16f69e1b288b67)
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -988,16 +961,16 @@ class BaseArchiveProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer managed key that encrypts this archive.
 
         :default: - Use an AWS managed key
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
-    def retention(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of days to retain events for.
 
         Default value is 0. If set to 0, events are retained indefinitely.
@@ -1005,7 +978,7 @@ class BaseArchiveProps:
         :default: - Infinite
         '''
         result = self._values.get("retention")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1019,9 +992,9 @@ class BaseArchiveProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApiDestinationRef_8cd0a954)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IApiDestinationRef)
 class CfnApiDestination(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnApiDestination",
 ):
@@ -1085,7 +1058,7 @@ class CfnApiDestination(
         :param name: The name for the API destination to create.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c7f09c3557e2395656d23b74c8de1fbe1e4a3b537284c9d270edc631fd5c381)
+            type_hints = cached_type_hints(_typecheckingstub__0c7f09c3557e2395656d23b74c8de1fbe1e4a3b537284c9d270edc631fd5c381)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApiDestinationProps(
@@ -1103,13 +1076,13 @@ class CfnApiDestination(
     @builtins.classmethod
     def arn_for_api_destination(
         cls,
-        resource: "_IApiDestinationRef_8cd0a954",
+        resource: "_aws_events_49a540ff.IApiDestinationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0cae8b33c8b49b1bead3c0542aea7eb4c47c3be3a5a1f83b4ec2b74afcf156e)
+            type_hints = cached_type_hints(_typecheckingstub__a0cae8b33c8b49b1bead3c0542aea7eb4c47c3be3a5a1f83b4ec2b74afcf156e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApiDestination", [resource]))
 
@@ -1120,7 +1093,7 @@ class CfnApiDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IApiDestinationRef_8cd0a954":
+    ) -> "_aws_events_49a540ff.IApiDestinationRef":
         '''Creates a new IApiDestinationRef from an ARN.
 
         :param scope: -
@@ -1128,11 +1101,11 @@ class CfnApiDestination(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4d067d14eb4986a791825f5574a2a1b7996e52c30d1c10ce8e7b59e60ddb769)
+            type_hints = cached_type_hints(_typecheckingstub__e4d067d14eb4986a791825f5574a2a1b7996e52c30d1c10ce8e7b59e60ddb769)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IApiDestinationRef_8cd0a954", jsii.sinvoke(cls, "fromApiDestinationArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IApiDestinationRef", jsii.sinvoke(cls, "fromApiDestinationArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromApiDestinationName")
     @builtins.classmethod
@@ -1141,7 +1114,7 @@ class CfnApiDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         api_destination_name: builtins.str,
-    ) -> "_IApiDestinationRef_8cd0a954":
+    ) -> "_aws_events_49a540ff.IApiDestinationRef":
         '''Creates a new IApiDestinationRef from a apiDestinationName.
 
         :param scope: -
@@ -1149,11 +1122,11 @@ class CfnApiDestination(
         :param api_destination_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f7e79e48e08b958f9ad095544607e87dd2f1aa8eef727bec93c1ee0def4c583)
+            type_hints = cached_type_hints(_typecheckingstub__2f7e79e48e08b958f9ad095544607e87dd2f1aa8eef727bec93c1ee0def4c583)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument api_destination_name", value=api_destination_name, expected_type=type_hints["api_destination_name"])
-        return typing.cast("_IApiDestinationRef_8cd0a954", jsii.sinvoke(cls, "fromApiDestinationName", [scope, id, api_destination_name]))
+        return typing.cast("_aws_events_49a540ff.IApiDestinationRef", jsii.sinvoke(cls, "fromApiDestinationName", [scope, id, api_destination_name]))
 
     @jsii.member(jsii_name="isCfnApiDestination")
     @builtins.classmethod
@@ -1163,18 +1136,18 @@ class CfnApiDestination(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03852a348e44939388fe432a4f88399e34da1c9348e0dc7d975b92d39e4fb8e7)
+            type_hints = cached_type_hints(_typecheckingstub__03852a348e44939388fe432a4f88399e34da1c9348e0dc7d975b92d39e4fb8e7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApiDestination", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__158c0bb8fa8e9ef1c2e58e89a44ebad609986b410e381f81aedd0308a9e35b28)
+            type_hints = cached_type_hints(_typecheckingstub__158c0bb8fa8e9ef1c2e58e89a44ebad609986b410e381f81aedd0308a9e35b28)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1187,7 +1160,7 @@ class CfnApiDestination(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0f2e973aeeb184a33b784b368926fdb617424f826092c6e70ccf86a37581596)
+            type_hints = cached_type_hints(_typecheckingstub__b0f2e973aeeb184a33b784b368926fdb617424f826092c6e70ccf86a37581596)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1199,9 +1172,9 @@ class CfnApiDestination(
 
     @builtins.property
     @jsii.member(jsii_name="apiDestinationRef")
-    def api_destination_ref(self) -> "_ApiDestinationReference_6371608b":
+    def api_destination_ref(self) -> "_aws_events_49a540ff.ApiDestinationReference":
         '''A reference to a ApiDestination resource.'''
-        return typing.cast("_ApiDestinationReference_6371608b", jsii.get(self, "apiDestinationRef"))
+        return typing.cast("_aws_events_49a540ff.ApiDestinationReference", jsii.get(self, "apiDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1246,7 +1219,7 @@ class CfnApiDestination(
     @connection_arn.setter
     def connection_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9501e856d3f68b4ded9a308e792cdcecf0340171c8b9d14fd716a17af7518d9d)
+            type_hints = cached_type_hints(_typecheckingstub__9501e856d3f68b4ded9a308e792cdcecf0340171c8b9d14fd716a17af7518d9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1259,7 +1232,7 @@ class CfnApiDestination(
     @http_method.setter
     def http_method(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3dd44ad831630a84328af4ec169ba7d0d104f0da3e75ce7db348f157cef540c)
+            type_hints = cached_type_hints(_typecheckingstub__f3dd44ad831630a84328af4ec169ba7d0d104f0da3e75ce7db348f157cef540c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
 
@@ -1272,7 +1245,7 @@ class CfnApiDestination(
     @invocation_endpoint.setter
     def invocation_endpoint(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7668deb1cc151c41fb734ca6f771eb305e7a0f4bf19d57321e46db09cd22a0f1)
+            type_hints = cached_type_hints(_typecheckingstub__7668deb1cc151c41fb734ca6f771eb305e7a0f4bf19d57321e46db09cd22a0f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "invocationEndpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -1285,7 +1258,7 @@ class CfnApiDestination(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d76989d48f92cde7f07576f0a60e184723262c7effa5c3daff9008386921b88)
+            type_hints = cached_type_hints(_typecheckingstub__6d76989d48f92cde7f07576f0a60e184723262c7effa5c3daff9008386921b88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1301,7 +1274,7 @@ class CfnApiDestination(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9158b78e5f7961eb499fbf284d15087f9205e259120ad3cdf7a14469525e5df2)
+            type_hints = cached_type_hints(_typecheckingstub__9158b78e5f7961eb499fbf284d15087f9205e259120ad3cdf7a14469525e5df2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "invocationRateLimitPerSecond", value) # pyright: ignore[reportArgumentType]
 
@@ -1314,7 +1287,7 @@ class CfnApiDestination(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5205bc5753f69d2aea87688685a5236a470f7cba4982bd2e636e55fe8d95121)
+            type_hints = cached_type_hints(_typecheckingstub__b5205bc5753f69d2aea87688685a5236a470f7cba4982bd2e636e55fe8d95121)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1372,7 +1345,7 @@ class CfnApiDestinationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e7d825d7eeb86aa2b5e2143acb08acce01195746d86ae81d1b165bac0bc8135)
+            type_hints = cached_type_hints(_typecheckingstub__3e7d825d7eeb86aa2b5e2143acb08acce01195746d86ae81d1b165bac0bc8135)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
             check_type(argname="argument http_method", value=http_method, expected_type=type_hints["http_method"])
             check_type(argname="argument invocation_endpoint", value=invocation_endpoint, expected_type=type_hints["invocation_endpoint"])
@@ -1462,9 +1435,9 @@ class CfnApiDestinationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IArchiveRef_e95a5adc)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IArchiveRef)
 class CfnArchive(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnArchive",
 ):
@@ -1506,7 +1479,7 @@ class CfnArchive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
+        source_arn: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         event_pattern: typing.Any = None,
@@ -1525,7 +1498,7 @@ class CfnArchive(
         :param retention_days: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db58d059f)
+            type_hints = cached_type_hints(_typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db58d059f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnArchiveProps(
@@ -1541,12 +1514,15 @@ class CfnArchive(
 
     @jsii.member(jsii_name="arnForArchive")
     @builtins.classmethod
-    def arn_for_archive(cls, resource: "_IArchiveRef_e95a5adc") -> builtins.str:
+    def arn_for_archive(
+        cls,
+        resource: "_aws_events_49a540ff.IArchiveRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__161b63ac9964567b1ba2caf77f9e06c3631ebb1a6e4a30c2cdf293b2361d5a3e)
+            type_hints = cached_type_hints(_typecheckingstub__161b63ac9964567b1ba2caf77f9e06c3631ebb1a6e4a30c2cdf293b2361d5a3e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForArchive", [resource]))
 
@@ -1557,7 +1533,7 @@ class CfnArchive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IArchiveRef_e95a5adc":
+    ) -> "_aws_events_49a540ff.IArchiveRef":
         '''Creates a new IArchiveRef from an ARN.
 
         :param scope: -
@@ -1565,11 +1541,11 @@ class CfnArchive(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e8ead948e3f54f53c0d21e22906517bc78f6bc7b15975a7503199c89c0cc2d8)
+            type_hints = cached_type_hints(_typecheckingstub__8e8ead948e3f54f53c0d21e22906517bc78f6bc7b15975a7503199c89c0cc2d8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IArchiveRef_e95a5adc", jsii.sinvoke(cls, "fromArchiveArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IArchiveRef", jsii.sinvoke(cls, "fromArchiveArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromArchiveName")
     @builtins.classmethod
@@ -1578,7 +1554,7 @@ class CfnArchive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         archive_name: builtins.str,
-    ) -> "_IArchiveRef_e95a5adc":
+    ) -> "_aws_events_49a540ff.IArchiveRef":
         '''Creates a new IArchiveRef from a archiveName.
 
         :param scope: -
@@ -1586,11 +1562,11 @@ class CfnArchive(
         :param archive_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f94b64dd5cb2b916b6680e63c92384270a55a857a32d8c25ec445a22c5a86f62)
+            type_hints = cached_type_hints(_typecheckingstub__f94b64dd5cb2b916b6680e63c92384270a55a857a32d8c25ec445a22c5a86f62)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
-        return typing.cast("_IArchiveRef_e95a5adc", jsii.sinvoke(cls, "fromArchiveName", [scope, id, archive_name]))
+        return typing.cast("_aws_events_49a540ff.IArchiveRef", jsii.sinvoke(cls, "fromArchiveName", [scope, id, archive_name]))
 
     @jsii.member(jsii_name="isCfnArchive")
     @builtins.classmethod
@@ -1600,18 +1576,18 @@ class CfnArchive(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62e68cb7d7bd3c03c192afc468cfc689af9ad7931588c293e0e3ecaf6b46a788)
+            type_hints = cached_type_hints(_typecheckingstub__62e68cb7d7bd3c03c192afc468cfc689af9ad7931588c293e0e3ecaf6b46a788)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnArchive", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7da996869ac9a69e8a63a58883200e217a1913f5d321926f7ab5c4ebb3e56a6)
+            type_hints = cached_type_hints(_typecheckingstub__c7da996869ac9a69e8a63a58883200e217a1913f5d321926f7ab5c4ebb3e56a6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1624,7 +1600,7 @@ class CfnArchive(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b70dabfc4299a157456f9345f439a1627afc2b7ffb0bb20c33e1a1bc17baaac)
+            type_hints = cached_type_hints(_typecheckingstub__7b70dabfc4299a157456f9345f439a1627afc2b7ffb0bb20c33e1a1bc17baaac)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1636,9 +1612,9 @@ class CfnArchive(
 
     @builtins.property
     @jsii.member(jsii_name="archiveRef")
-    def archive_ref(self) -> "_ArchiveReference_40db88e4":
+    def archive_ref(self) -> "_aws_events_49a540ff.ArchiveReference":
         '''A reference to a Archive resource.'''
-        return typing.cast("_ArchiveReference_40db88e4", jsii.get(self, "archiveRef"))
+        return typing.cast("_aws_events_49a540ff.ArchiveReference", jsii.get(self, "archiveRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1668,7 +1644,7 @@ class CfnArchive(
     @event_pattern.setter
     def event_pattern(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
+            type_hints = cached_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
 
@@ -1681,7 +1657,7 @@ class CfnArchive(
     @source_arn.setter
     def source_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f400bdbd4fcd20b44476556f9ef5225de9092a59cb55cbedae0a7f07ba71e1a)
+            type_hints = cached_type_hints(_typecheckingstub__2f400bdbd4fcd20b44476556f9ef5225de9092a59cb55cbedae0a7f07ba71e1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1694,7 +1670,7 @@ class CfnArchive(
     @archive_name.setter
     def archive_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7757fdbaf1d2ce3f07d1aac83abcdb1f4659013282005e66b7d1b79b72459f87)
+            type_hints = cached_type_hints(_typecheckingstub__7757fdbaf1d2ce3f07d1aac83abcdb1f4659013282005e66b7d1b79b72459f87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "archiveName", value) # pyright: ignore[reportArgumentType]
 
@@ -1707,7 +1683,7 @@ class CfnArchive(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898)
+            type_hints = cached_type_hints(_typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1720,7 +1696,7 @@ class CfnArchive(
     @kms_key_identifier.setter
     def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afc87131b030ea9e94a54d65380d8caa92af44402dd0a1c9ec3e6c55aa14bbad)
+            type_hints = cached_type_hints(_typecheckingstub__afc87131b030ea9e94a54d65380d8caa92af44402dd0a1c9ec3e6c55aa14bbad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -1733,7 +1709,7 @@ class CfnArchive(
     @retention_days.setter
     def retention_days(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743453e352)
+            type_hints = cached_type_hints(_typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743453e352)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "retentionDays", value) # pyright: ignore[reportArgumentType]
 
@@ -1754,7 +1730,7 @@ class CfnArchiveProps:
     def __init__(
         self,
         *,
-        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
+        source_arn: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         event_pattern: typing.Any = None,
@@ -1793,7 +1769,7 @@ class CfnArchiveProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8d605e2ff54dddadf4166fbd47f7e65ae554a5e5f40fa2fffd0d8af83ab1a27)
+            type_hints = cached_type_hints(_typecheckingstub__f8d605e2ff54dddadf4166fbd47f7e65ae554a5e5f40fa2fffd0d8af83ab1a27)
             check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1815,14 +1791,16 @@ class CfnArchiveProps:
             self._values["retention_days"] = retention_days
 
     @builtins.property
-    def source_arn(self) -> typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]:
+    def source_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]:
         '''The ARN of the event bus that sends events to the archive.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-archive.html#cfn-events-archive-sourcearn
         '''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"], result)
 
     @builtins.property
     def archive_name(self) -> typing.Optional[builtins.str]:
@@ -1894,9 +1872,9 @@ class CfnArchiveProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionRef_bea3332b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IConnectionRef)
 class CfnConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnConnection",
 ):
@@ -2012,9 +1990,9 @@ class CfnConnection(
         id: builtins.str,
         *,
         authorization_type: typing.Optional[builtins.str] = None,
-        auth_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auth_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.AuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        invocation_connectivity_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.InvocationConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        invocation_connectivity_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.InvocationConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2030,7 +2008,7 @@ class CfnConnection(
         :param name: The name for the connection to create.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65bde9b35de094b905dd335652d04503af85c50ac027a006a1d7ec9260a6cb94)
+            type_hints = cached_type_hints(_typecheckingstub__65bde9b35de094b905dd335652d04503af85c50ac027a006a1d7ec9260a6cb94)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionProps(
@@ -2046,12 +2024,15 @@ class CfnConnection(
 
     @jsii.member(jsii_name="arnForConnection")
     @builtins.classmethod
-    def arn_for_connection(cls, resource: "_IConnectionRef_bea3332b") -> builtins.str:
+    def arn_for_connection(
+        cls,
+        resource: "_aws_events_49a540ff.IConnectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2ce066c4a5776b233d8f4b573d46a37a1d8d445cfddda110ef4bb5fcc33d95e)
+            type_hints = cached_type_hints(_typecheckingstub__b2ce066c4a5776b233d8f4b573d46a37a1d8d445cfddda110ef4bb5fcc33d95e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
 
@@ -2062,7 +2043,7 @@ class CfnConnection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IConnectionRef_bea3332b":
+    ) -> "_aws_events_49a540ff.IConnectionRef":
         '''Creates a new IConnectionRef from an ARN.
 
         :param scope: -
@@ -2070,11 +2051,11 @@ class CfnConnection(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__630a9669f06abf4f4e8bad75138d45b4182263c18c97fb22a426fbc0a2bbcdc2)
+            type_hints = cached_type_hints(_typecheckingstub__630a9669f06abf4f4e8bad75138d45b4182263c18c97fb22a426fbc0a2bbcdc2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IConnectionRef_bea3332b", jsii.sinvoke(cls, "fromConnectionArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IConnectionRef", jsii.sinvoke(cls, "fromConnectionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromConnectionName")
     @builtins.classmethod
@@ -2083,7 +2064,7 @@ class CfnConnection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         connection_name: builtins.str,
-    ) -> "_IConnectionRef_bea3332b":
+    ) -> "_aws_events_49a540ff.IConnectionRef":
         '''Creates a new IConnectionRef from a connectionName.
 
         :param scope: -
@@ -2091,11 +2072,11 @@ class CfnConnection(
         :param connection_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d14cab009a8170454a66a3e141b7bf3bd9913cd1520a24a6bd2047517dc43bca)
+            type_hints = cached_type_hints(_typecheckingstub__d14cab009a8170454a66a3e141b7bf3bd9913cd1520a24a6bd2047517dc43bca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
-        return typing.cast("_IConnectionRef_bea3332b", jsii.sinvoke(cls, "fromConnectionName", [scope, id, connection_name]))
+        return typing.cast("_aws_events_49a540ff.IConnectionRef", jsii.sinvoke(cls, "fromConnectionName", [scope, id, connection_name]))
 
     @jsii.member(jsii_name="isCfnConnection")
     @builtins.classmethod
@@ -2105,18 +2086,18 @@ class CfnConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b6bcbbdae5d8b84fd207336ebe856ec8e0508ade868885cb0dbbfe7a6ae1d8)
+            type_hints = cached_type_hints(_typecheckingstub__85b6bcbbdae5d8b84fd207336ebe856ec8e0508ade868885cb0dbbfe7a6ae1d8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__192a6c229918a43504bd57de4e35ae7938880d0c805afe4cc4c5905924754719)
+            type_hints = cached_type_hints(_typecheckingstub__192a6c229918a43504bd57de4e35ae7938880d0c805afe4cc4c5905924754719)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2129,7 +2110,7 @@ class CfnConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9baa06fe2df5d5855b8fea8613ae753f8301c4cdb9f83ba3f45fd540710f2764)
+            type_hints = cached_type_hints(_typecheckingstub__9baa06fe2df5d5855b8fea8613ae753f8301c4cdb9f83ba3f45fd540710f2764)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2214,9 +2195,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_d427d036":
+    def connection_ref(self) -> "_aws_events_49a540ff.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_d427d036", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_events_49a540ff.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -2227,7 +2208,7 @@ class CfnConnection(
     @authorization_type.setter
     def authorization_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f51f33cc16a16fcb52edb95bbc7ef5dd0bb5f97e31dd1f331adaf42e9cd3668)
+            type_hints = cached_type_hints(_typecheckingstub__4f51f33cc16a16fcb52edb95bbc7ef5dd0bb5f97e31dd1f331adaf42e9cd3668)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authorizationType", value) # pyright: ignore[reportArgumentType]
 
@@ -2235,17 +2216,17 @@ class CfnConnection(
     @jsii.member(jsii_name="authParameters")
     def auth_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AuthParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AuthParametersProperty"]]:
         '''The authorization parameters to use to authorize with the endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AuthParametersProperty"]], jsii.get(self, "authParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AuthParametersProperty"]], jsii.get(self, "authParameters"))
 
     @auth_parameters.setter
     def auth_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AuthParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AuthParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57b3dc84742623dcc9dcc433aac0b117093002aa9686131e642748038958b67c)
+            type_hints = cached_type_hints(_typecheckingstub__57b3dc84742623dcc9dcc433aac0b117093002aa9686131e642748038958b67c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -2258,7 +2239,7 @@ class CfnConnection(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54690fb07d8735df46ac3a0fbbb08bc7751c169d7f6279762e7c5a75a5f22258)
+            type_hints = cached_type_hints(_typecheckingstub__54690fb07d8735df46ac3a0fbbb08bc7751c169d7f6279762e7c5a75a5f22258)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2266,17 +2247,17 @@ class CfnConnection(
     @jsii.member(jsii_name="invocationConnectivityParameters")
     def invocation_connectivity_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.InvocationConnectivityParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.InvocationConnectivityParametersProperty"]]:
         '''For connections to private APIs, the parameters to use for invoking the API.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.InvocationConnectivityParametersProperty"]], jsii.get(self, "invocationConnectivityParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.InvocationConnectivityParametersProperty"]], jsii.get(self, "invocationConnectivityParameters"))
 
     @invocation_connectivity_parameters.setter
     def invocation_connectivity_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.InvocationConnectivityParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.InvocationConnectivityParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81977d37ca8e880d59a06a5f2212ea535fd65a2615c824916ce07bd93b7898c6)
+            type_hints = cached_type_hints(_typecheckingstub__81977d37ca8e880d59a06a5f2212ea535fd65a2615c824916ce07bd93b7898c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "invocationConnectivityParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -2289,7 +2270,7 @@ class CfnConnection(
     @kms_key_identifier.setter
     def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579f1ad92b1c0b7657d928d388da032a83ada8c6564dd3ab6da98459fced8ae1)
+            type_hints = cached_type_hints(_typecheckingstub__579f1ad92b1c0b7657d928d388da032a83ada8c6564dd3ab6da98459fced8ae1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -2302,7 +2283,7 @@ class CfnConnection(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d93a7e7bebc6e390076ef7174623c4da1c018543554603bbb442c270a532a536)
+            type_hints = cached_type_hints(_typecheckingstub__d93a7e7bebc6e390076ef7174623c4da1c018543554603bbb442c270a532a536)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2338,7 +2319,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9a07e0adada885b28691df62967d623089f87e9ad21364c3157fda510f1e85eb)
+                type_hints = cached_type_hints(_typecheckingstub__9a07e0adada885b28691df62967d623089f87e9ad21364c3157fda510f1e85eb)
                 check_type(argname="argument api_key_name", value=api_key_name, expected_type=type_hints["api_key_name"])
                 check_type(argname="argument api_key_value", value=api_key_value, expected_type=type_hints["api_key_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2392,11 +2373,11 @@ class CfnConnection(
         def __init__(
             self,
             *,
-            api_key_auth_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ApiKeyAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            basic_auth_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.BasicAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            connectivity_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            invocation_http_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ConnectionHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            o_auth_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.OAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            api_key_auth_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ApiKeyAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            basic_auth_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.BasicAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connectivity_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            invocation_http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ConnectionHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.OAuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Tthe authorization parameters to use for the connection.
 
@@ -2491,7 +2472,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__275274c5764ab04c0351742be5fa771325f59e577af1fd2bd8c5306778231c93)
+                type_hints = cached_type_hints(_typecheckingstub__275274c5764ab04c0351742be5fa771325f59e577af1fd2bd8c5306778231c93)
                 check_type(argname="argument api_key_auth_parameters", value=api_key_auth_parameters, expected_type=type_hints["api_key_auth_parameters"])
                 check_type(argname="argument basic_auth_parameters", value=basic_auth_parameters, expected_type=type_hints["basic_auth_parameters"])
                 check_type(argname="argument connectivity_parameters", value=connectivity_parameters, expected_type=type_hints["connectivity_parameters"])
@@ -2512,29 +2493,29 @@ class CfnConnection(
         @builtins.property
         def api_key_auth_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ApiKeyAuthParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ApiKeyAuthParametersProperty"]]:
             '''The API Key parameters to use for authorization.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-authparameters.html#cfn-events-connection-authparameters-apikeyauthparameters
             '''
             result = self._values.get("api_key_auth_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ApiKeyAuthParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ApiKeyAuthParametersProperty"]], result)
 
         @builtins.property
         def basic_auth_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.BasicAuthParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.BasicAuthParametersProperty"]]:
             '''The authorization parameters for Basic authorization.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-authparameters.html#cfn-events-connection-authparameters-basicauthparameters
             '''
             result = self._values.get("basic_auth_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.BasicAuthParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.BasicAuthParametersProperty"]], result)
 
         @builtins.property
         def connectivity_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectivityParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectivityParametersProperty"]]:
             '''For private OAuth authentication endpoints. The parameters EventBridge uses to authenticate against the endpoint.
 
             For more information, see `Authorization methods for connections <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-target-connection-auth.html>`_ in the **Amazon EventBridge User Guide** .
@@ -2542,29 +2523,29 @@ class CfnConnection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-authparameters.html#cfn-events-connection-authparameters-connectivityparameters
             '''
             result = self._values.get("connectivity_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectivityParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectivityParametersProperty"]], result)
 
         @builtins.property
         def invocation_http_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionHttpParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectionHttpParametersProperty"]]:
             '''Additional parameters for the connection that are passed through with every invocation to the HTTP endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-authparameters.html#cfn-events-connection-authparameters-invocationhttpparameters
             '''
             result = self._values.get("invocation_http_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionHttpParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectionHttpParametersProperty"]], result)
 
         @builtins.property
         def o_auth_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.OAuthParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.OAuthParametersProperty"]]:
             '''The OAuth parameters to use for authorization.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-authparameters.html#cfn-events-connection-authparameters-oauthparameters
             '''
             result = self._values.get("o_auth_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.OAuthParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.OAuthParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2604,7 +2585,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4dfb0a146f17dd8a202ccc4c5387cf122000d9304983c1e8afd5d63d775d3b5c)
+                type_hints = cached_type_hints(_typecheckingstub__4dfb0a146f17dd8a202ccc4c5387cf122000d9304983c1e8afd5d63d775d3b5c)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2675,7 +2656,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dcc207d1f7d2c244f2a4824bd91d64f8a0b2e06e54d27db44713f7222e54367f)
+                type_hints = cached_type_hints(_typecheckingstub__dcc207d1f7d2c244f2a4824bd91d64f8a0b2e06e54d27db44713f7222e54367f)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2727,9 +2708,9 @@ class CfnConnection(
         def __init__(
             self,
             *,
-            body_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            body_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            header_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Any additional parameters for the connection.
 
@@ -2771,7 +2752,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b9ae8ee23a5317795bd33d0e7fc34a3c5640054e2c0935aae4946e13db2924a9)
+                type_hints = cached_type_hints(_typecheckingstub__b9ae8ee23a5317795bd33d0e7fc34a3c5640054e2c0935aae4946e13db2924a9)
                 check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
                 check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
                 check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
@@ -2786,35 +2767,35 @@ class CfnConnection(
         @builtins.property
         def body_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]]:
             '''Any additional body string parameters for the connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-connectionhttpparameters.html#cfn-events-connection-connectionhttpparameters-bodyparameters
             '''
             result = self._values.get("body_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]], result)
 
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]]:
             '''Any additional header parameters for the connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-connectionhttpparameters.html#cfn-events-connection-connectionhttpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]], result)
 
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]]:
             '''Any additional query string parameters for the connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-connectionhttpparameters.html#cfn-events-connection-connectionhttpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2836,7 +2817,7 @@ class CfnConnection(
         def __init__(
             self,
             *,
-            resource_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ResourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+            resource_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ResourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''If you specify a private OAuth endpoint, the parameters for EventBridge to use when authenticating against the endpoint.
 
@@ -2863,7 +2844,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33c7d626f351801c0e5c2a06bd389d7558efdda62a9c5e57e56c95f7346a6705)
+                type_hints = cached_type_hints(_typecheckingstub__33c7d626f351801c0e5c2a06bd389d7558efdda62a9c5e57e56c95f7346a6705)
                 check_type(argname="argument resource_parameters", value=resource_parameters, expected_type=type_hints["resource_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_parameters": resource_parameters,
@@ -2872,14 +2853,14 @@ class CfnConnection(
         @builtins.property
         def resource_parameters(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnection.ResourceParametersProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ResourceParametersProperty"]:
             '''The parameters for EventBridge to use when invoking the resource endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-connectivityparameters.html#cfn-events-connection-connectivityparameters-resourceparameters
             '''
             result = self._values.get("resource_parameters")
             assert result is not None, "Required property 'resource_parameters' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnection.ResourceParametersProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ResourceParametersProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2901,7 +2882,7 @@ class CfnConnection(
         def __init__(
             self,
             *,
-            resource_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ResourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+            resource_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ResourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''For connections to private APIs, the parameters to use for invoking the API.
 
@@ -2928,7 +2909,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__324fa6a8fead2e11e8b201f6b9228a1d65a475ee71a64e3091b494c74aac5047)
+                type_hints = cached_type_hints(_typecheckingstub__324fa6a8fead2e11e8b201f6b9228a1d65a475ee71a64e3091b494c74aac5047)
                 check_type(argname="argument resource_parameters", value=resource_parameters, expected_type=type_hints["resource_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_parameters": resource_parameters,
@@ -2937,14 +2918,14 @@ class CfnConnection(
         @builtins.property
         def resource_parameters(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnection.ResourceParametersProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ResourceParametersProperty"]:
             '''The parameters for EventBridge to use when invoking the resource endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-invocationconnectivityparameters.html#cfn-events-connection-invocationconnectivityparameters-resourceparameters
             '''
             result = self._values.get("resource_parameters")
             assert result is not None, "Required property 'resource_parameters' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnection.ResourceParametersProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ResourceParametersProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2972,9 +2953,9 @@ class CfnConnection(
             self,
             *,
             authorization_endpoint: builtins.str,
-            client_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ClientParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+            client_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ClientParametersProperty", typing.Dict[builtins.str, typing.Any]]],
             http_method: builtins.str,
-            o_auth_http_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ConnectionHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.ConnectionHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the OAuth authorization parameters to use for the connection.
 
@@ -3027,7 +3008,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff4894a687d225d2abe4e8f40bbb8da3ca3008e8c5ef15ab97ea71d1c1bdc016)
+                type_hints = cached_type_hints(_typecheckingstub__ff4894a687d225d2abe4e8f40bbb8da3ca3008e8c5ef15ab97ea71d1c1bdc016)
                 check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
                 check_type(argname="argument client_parameters", value=client_parameters, expected_type=type_hints["client_parameters"])
                 check_type(argname="argument http_method", value=http_method, expected_type=type_hints["http_method"])
@@ -3053,14 +3034,14 @@ class CfnConnection(
         @builtins.property
         def client_parameters(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnection.ClientParametersProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ClientParametersProperty"]:
             '''The client parameters for OAuth authorization.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-oauthparameters.html#cfn-events-connection-oauthparameters-clientparameters
             '''
             result = self._values.get("client_parameters")
             assert result is not None, "Required property 'client_parameters' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnection.ClientParametersProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ClientParametersProperty"], result)
 
         @builtins.property
         def http_method(self) -> builtins.str:
@@ -3075,13 +3056,13 @@ class CfnConnection(
         @builtins.property
         def o_auth_http_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionHttpParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectionHttpParametersProperty"]]:
             '''Details about the additional parameters to use for the connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-oauthparameters.html#cfn-events-connection-oauthparameters-oauthhttpparameters
             '''
             result = self._values.get("o_auth_http_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionHttpParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.ConnectionHttpParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3109,7 +3090,7 @@ class CfnConnection(
             *,
             key: builtins.str,
             value: builtins.str,
-            is_value_secret: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_value_secret: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Any additional query string parameter for the connection.
 
@@ -3137,7 +3118,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8ef124487a6c31dc58a802230e7bf50f962f08be9cde1fb39c45b429d78352c6)
+                type_hints = cached_type_hints(_typecheckingstub__8ef124487a6c31dc58a802230e7bf50f962f08be9cde1fb39c45b429d78352c6)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument is_value_secret", value=is_value_secret, expected_type=type_hints["is_value_secret"])
@@ -3171,7 +3152,7 @@ class CfnConnection(
         @builtins.property
         def is_value_secret(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the value is secret.
 
             :default: - true
@@ -3179,7 +3160,7 @@ class CfnConnection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-connection-parameter.html#cfn-events-connection-parameter-isvaluesecret
             '''
             result = self._values.get("is_value_secret")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3229,7 +3210,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__143ae1a5978f064d9c3d0cf9135ec11575d46a15edec3f754457cec0c4db31bf)
+                type_hints = cached_type_hints(_typecheckingstub__143ae1a5978f064d9c3d0cf9135ec11575d46a15edec3f754457cec0c4db31bf)
                 check_type(argname="argument resource_configuration_arn", value=resource_configuration_arn, expected_type=type_hints["resource_configuration_arn"])
                 check_type(argname="argument resource_association_arn", value=resource_association_arn, expected_type=type_hints["resource_association_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3290,9 +3271,9 @@ class CfnConnectionProps:
         self,
         *,
         authorization_type: typing.Optional[builtins.str] = None,
-        auth_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auth_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.AuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        invocation_connectivity_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.InvocationConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        invocation_connectivity_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.InvocationConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3404,7 +3385,7 @@ class CfnConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394)
+            type_hints = cached_type_hints(_typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394)
             check_type(argname="argument authorization_type", value=authorization_type, expected_type=type_hints["authorization_type"])
             check_type(argname="argument auth_parameters", value=auth_parameters, expected_type=type_hints["auth_parameters"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3441,7 +3422,7 @@ class CfnConnectionProps:
     @builtins.property
     def auth_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AuthParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AuthParametersProperty"]]:
         '''The authorization parameters to use to authorize with the endpoint.
 
         You must include only authorization parameters for the ``AuthorizationType`` you specify.
@@ -3449,7 +3430,7 @@ class CfnConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-authparameters
         '''
         result = self._values.get("auth_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AuthParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AuthParametersProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3463,7 +3444,7 @@ class CfnConnectionProps:
     @builtins.property
     def invocation_connectivity_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.InvocationConnectivityParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.InvocationConnectivityParametersProperty"]]:
         '''For connections to private APIs, the parameters to use for invoking the API.
 
         For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
@@ -3471,7 +3452,7 @@ class CfnConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-invocationconnectivityparameters
         '''
         result = self._values.get("invocation_connectivity_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.InvocationConnectivityParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.InvocationConnectivityParametersProperty"]], result)
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
@@ -3509,9 +3490,9 @@ class CfnConnectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEndpointRef_c14d05f7)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IEndpointRef)
 class CfnEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnEndpoint",
 ):
@@ -3559,11 +3540,11 @@ class CfnEndpoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        event_buses: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.EndpointEventBusProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        routing_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        event_buses: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.EndpointEventBusProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        routing_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        replication_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.ReplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.ReplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Events::Endpoint``.
@@ -3578,7 +3559,7 @@ class CfnEndpoint(
         :param role_arn: The ARN of the role used by event replication for the endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66aefb2196270463c6a9f2eea0dcb5bb280d90c63f36870b21785e675d41792b)
+            type_hints = cached_type_hints(_typecheckingstub__66aefb2196270463c6a9f2eea0dcb5bb280d90c63f36870b21785e675d41792b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEndpointProps(
@@ -3594,12 +3575,15 @@ class CfnEndpoint(
 
     @jsii.member(jsii_name="arnForEndpoint")
     @builtins.classmethod
-    def arn_for_endpoint(cls, resource: "_IEndpointRef_c14d05f7") -> builtins.str:
+    def arn_for_endpoint(
+        cls,
+        resource: "_aws_events_49a540ff.IEndpointRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f8ddc899f477e5672e02d37bba97ef20e204d1e86007175c85b66e50ffa82e8)
+            type_hints = cached_type_hints(_typecheckingstub__2f8ddc899f477e5672e02d37bba97ef20e204d1e86007175c85b66e50ffa82e8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEndpoint", [resource]))
 
@@ -3610,7 +3594,7 @@ class CfnEndpoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IEndpointRef_c14d05f7":
+    ) -> "_aws_events_49a540ff.IEndpointRef":
         '''Creates a new IEndpointRef from an ARN.
 
         :param scope: -
@@ -3618,11 +3602,11 @@ class CfnEndpoint(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8df0737b10ec98bf62c1be2c67715f159dc221d2935abd8e8ae6669ca458d7f)
+            type_hints = cached_type_hints(_typecheckingstub__b8df0737b10ec98bf62c1be2c67715f159dc221d2935abd8e8ae6669ca458d7f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IEndpointRef_c14d05f7", jsii.sinvoke(cls, "fromEndpointArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IEndpointRef", jsii.sinvoke(cls, "fromEndpointArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromEndpointName")
     @builtins.classmethod
@@ -3631,7 +3615,7 @@ class CfnEndpoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         endpoint_name: builtins.str,
-    ) -> "_IEndpointRef_c14d05f7":
+    ) -> "_aws_events_49a540ff.IEndpointRef":
         '''Creates a new IEndpointRef from a endpointName.
 
         :param scope: -
@@ -3639,11 +3623,11 @@ class CfnEndpoint(
         :param endpoint_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__777109eec20698d982fd6e8cd9ad182871f5e151603cba27527f7f96a6fb3f5e)
+            type_hints = cached_type_hints(_typecheckingstub__777109eec20698d982fd6e8cd9ad182871f5e151603cba27527f7f96a6fb3f5e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
-        return typing.cast("_IEndpointRef_c14d05f7", jsii.sinvoke(cls, "fromEndpointName", [scope, id, endpoint_name]))
+        return typing.cast("_aws_events_49a540ff.IEndpointRef", jsii.sinvoke(cls, "fromEndpointName", [scope, id, endpoint_name]))
 
     @jsii.member(jsii_name="isCfnEndpoint")
     @builtins.classmethod
@@ -3653,18 +3637,18 @@ class CfnEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33f28ab4c0c6992718dc6190e8e62615f27f5defa131d01638af62d2d659b223)
+            type_hints = cached_type_hints(_typecheckingstub__33f28ab4c0c6992718dc6190e8e62615f27f5defa131d01638af62d2d659b223)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__575b3a669c9a519cfd6641ef37eb4e16de10be20251ac40d8d954a8cac93bb17)
+            type_hints = cached_type_hints(_typecheckingstub__575b3a669c9a519cfd6641ef37eb4e16de10be20251ac40d8d954a8cac93bb17)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3677,7 +3661,7 @@ class CfnEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__716352ea7fa8084ecd957a59639fb88407f626778738f2762eefd8ae105f4ea0)
+            type_hints = cached_type_hints(_typecheckingstub__716352ea7fa8084ecd957a59639fb88407f626778738f2762eefd8ae105f4ea0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3744,25 +3728,25 @@ class CfnEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="endpointRef")
-    def endpoint_ref(self) -> "_EndpointReference_091493df":
+    def endpoint_ref(self) -> "_aws_events_49a540ff.EndpointReference":
         '''A reference to a Endpoint resource.'''
-        return typing.cast("_EndpointReference_091493df", jsii.get(self, "endpointRef"))
+        return typing.cast("_aws_events_49a540ff.EndpointReference", jsii.get(self, "endpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventBuses")
     def event_buses(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.EndpointEventBusProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.EndpointEventBusProperty"]]]:
         '''The event buses being used by the endpoint.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.EndpointEventBusProperty"]]], jsii.get(self, "eventBuses"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.EndpointEventBusProperty"]]], jsii.get(self, "eventBuses"))
 
     @event_buses.setter
     def event_buses(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.EndpointEventBusProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.EndpointEventBusProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972c29f2305a2ffc4c61e64280a4cc1c7a9f28b7849723ebfeb9e3449e71c464)
+            type_hints = cached_type_hints(_typecheckingstub__972c29f2305a2ffc4c61e64280a4cc1c7a9f28b7849723ebfeb9e3449e71c464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventBuses", value) # pyright: ignore[reportArgumentType]
 
@@ -3770,17 +3754,17 @@ class CfnEndpoint(
     @jsii.member(jsii_name="routingConfig")
     def routing_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RoutingConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.RoutingConfigProperty"]:
         '''The routing configuration of the endpoint.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RoutingConfigProperty"], jsii.get(self, "routingConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.RoutingConfigProperty"], jsii.get(self, "routingConfig"))
 
     @routing_config.setter
     def routing_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RoutingConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.RoutingConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5bef1b7f72abe13cf04f54e260d2e6a569b0e8ede87c0a74a572abc5b25ee79)
+            type_hints = cached_type_hints(_typecheckingstub__d5bef1b7f72abe13cf04f54e260d2e6a569b0e8ede87c0a74a572abc5b25ee79)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routingConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3793,7 +3777,7 @@ class CfnEndpoint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aca0a008fe87e5ace84c9dd926b9497cea1d509d826ba0bd4466c6bb3138f090)
+            type_hints = cached_type_hints(_typecheckingstub__aca0a008fe87e5ace84c9dd926b9497cea1d509d826ba0bd4466c6bb3138f090)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3806,7 +3790,7 @@ class CfnEndpoint(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11fe922782f50568e3ebd4d2ac2bb6bc2d08b472b1fde20240989a6bb710f31a)
+            type_hints = cached_type_hints(_typecheckingstub__11fe922782f50568e3ebd4d2ac2bb6bc2d08b472b1fde20240989a6bb710f31a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3814,17 +3798,17 @@ class CfnEndpoint(
     @jsii.member(jsii_name="replicationConfig")
     def replication_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ReplicationConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.ReplicationConfigProperty"]]:
         '''Whether event replication was enabled or disabled for this endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ReplicationConfigProperty"]], jsii.get(self, "replicationConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.ReplicationConfigProperty"]], jsii.get(self, "replicationConfig"))
 
     @replication_config.setter
     def replication_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ReplicationConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.ReplicationConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ecb7f890854a348489c6940c1dfe6066330e5f35de49b82f8b873e94d071696)
+            type_hints = cached_type_hints(_typecheckingstub__9ecb7f890854a348489c6940c1dfe6066330e5f35de49b82f8b873e94d071696)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3837,7 +3821,7 @@ class CfnEndpoint(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83812dc274fb27d77286f3396fd94b8b2e3d9a652da6311b090413c45adccdbe)
+            type_hints = cached_type_hints(_typecheckingstub__83812dc274fb27d77286f3396fd94b8b2e3d9a652da6311b090413c45adccdbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3866,7 +3850,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e1f21223690e2ba328df68f2bf47433c220f98cfbc82eb4a85e51234f9322b9f)
+                type_hints = cached_type_hints(_typecheckingstub__e1f21223690e2ba328df68f2bf47433c220f98cfbc82eb4a85e51234f9322b9f)
                 check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "event_bus_arn": event_bus_arn,
@@ -3902,8 +3886,8 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            primary: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.PrimaryProperty", typing.Dict[builtins.str, typing.Any]]],
-            secondary: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.SecondaryProperty", typing.Dict[builtins.str, typing.Any]]],
+            primary: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.PrimaryProperty", typing.Dict[builtins.str, typing.Any]]],
+            secondary: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.SecondaryProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The failover configuration for an endpoint.
 
@@ -3931,7 +3915,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b42916db1b95f2e6d0cd64280c17a2f7714b89f772aceb1a2e79d3ad8f91100c)
+                type_hints = cached_type_hints(_typecheckingstub__b42916db1b95f2e6d0cd64280c17a2f7714b89f772aceb1a2e79d3ad8f91100c)
                 check_type(argname="argument primary", value=primary, expected_type=type_hints["primary"])
                 check_type(argname="argument secondary", value=secondary, expected_type=type_hints["secondary"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3942,26 +3926,26 @@ class CfnEndpoint(
         @builtins.property
         def primary(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PrimaryProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.PrimaryProperty"]:
             '''The main Region of the endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-endpoint-failoverconfig.html#cfn-events-endpoint-failoverconfig-primary
             '''
             result = self._values.get("primary")
             assert result is not None, "Required property 'primary' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PrimaryProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.PrimaryProperty"], result)
 
         @builtins.property
         def secondary(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SecondaryProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.SecondaryProperty"]:
             '''The Region that events are routed to when failover is triggered or event replication is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-endpoint-failoverconfig.html#cfn-events-endpoint-failoverconfig-secondary
             '''
             result = self._values.get("secondary")
             assert result is not None, "Required property 'secondary' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SecondaryProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.SecondaryProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3999,7 +3983,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c9166e1bb493a771e6b09f2fba0bfd92acf5c26037ae0be3de5e32665ee2382)
+                type_hints = cached_type_hints(_typecheckingstub__8c9166e1bb493a771e6b09f2fba0bfd92acf5c26037ae0be3de5e32665ee2382)
                 check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "health_check": health_check,
@@ -4051,7 +4035,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__da130899a302d15593848daea18ba36c0ec934f696625579c49dc27f82a0bd30)
+                type_hints = cached_type_hints(_typecheckingstub__da130899a302d15593848daea18ba36c0ec934f696625579c49dc27f82a0bd30)
                 check_type(argname="argument state", value=state, expected_type=type_hints["state"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "state": state,
@@ -4087,7 +4071,7 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            failover_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            failover_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The routing configuration of the endpoint.
 
@@ -4114,7 +4098,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bb920c43205382c47b384a4f5a95790c721c305fbce0e81779b6196d4dbab724)
+                type_hints = cached_type_hints(_typecheckingstub__bb920c43205382c47b384a4f5a95790c721c305fbce0e81779b6196d4dbab724)
                 check_type(argname="argument failover_config", value=failover_config, expected_type=type_hints["failover_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "failover_config": failover_config,
@@ -4123,7 +4107,7 @@ class CfnEndpoint(
         @builtins.property
         def failover_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailoverConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailoverConfigProperty"]:
             '''The failover configuration for an endpoint.
 
             This includes what triggers failover and what happens when it's triggered.
@@ -4132,7 +4116,7 @@ class CfnEndpoint(
             '''
             result = self._values.get("failover_config")
             assert result is not None, "Required property 'failover_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEndpoint.FailoverConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.FailoverConfigProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4170,7 +4154,7 @@ class CfnEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__10ed22a75ce918facd2cde1e3af59f0911c13aa279839f3d5a348cfb7b819433)
+                type_hints = cached_type_hints(_typecheckingstub__10ed22a75ce918facd2cde1e3af59f0911c13aa279839f3d5a348cfb7b819433)
                 check_type(argname="argument route", value=route, expected_type=type_hints["route"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "route": route,
@@ -4214,11 +4198,11 @@ class CfnEndpointProps:
     def __init__(
         self,
         *,
-        event_buses: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.EndpointEventBusProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        routing_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        event_buses: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.EndpointEventBusProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        routing_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        replication_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.ReplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpoint.ReplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnEndpoint``.
@@ -4264,7 +4248,7 @@ class CfnEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144)
+            type_hints = cached_type_hints(_typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144)
             check_type(argname="argument event_buses", value=event_buses, expected_type=type_hints["event_buses"])
             check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -4287,7 +4271,7 @@ class CfnEndpointProps:
     @builtins.property
     def event_buses(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.EndpointEventBusProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.EndpointEventBusProperty"]]]:
         '''The event buses being used by the endpoint.
 
         *Exactly* : ``2``
@@ -4296,19 +4280,19 @@ class CfnEndpointProps:
         '''
         result = self._values.get("event_buses")
         assert result is not None, "Required property 'event_buses' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.EndpointEventBusProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.EndpointEventBusProperty"]]], result)
 
     @builtins.property
     def routing_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RoutingConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.RoutingConfigProperty"]:
         '''The routing configuration of the endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-routingconfig
         '''
         result = self._values.get("routing_config")
         assert result is not None, "Required property 'routing_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RoutingConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.RoutingConfigProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4331,7 +4315,7 @@ class CfnEndpointProps:
     @builtins.property
     def replication_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ReplicationConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.ReplicationConfigProperty"]]:
         '''Whether event replication was enabled or disabled for this endpoint.
 
         The default state is ``ENABLED`` which means you must supply a ``RoleArn`` . If you don't have a ``RoleArn`` or you don't want event replication enabled, set the state to ``DISABLED`` .
@@ -4339,7 +4323,7 @@ class CfnEndpointProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-replicationconfig
         '''
         result = self._values.get("replication_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ReplicationConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpoint.ReplicationConfigProperty"]], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
@@ -4362,9 +4346,9 @@ class CfnEndpointProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEventBusRef_aa86e9b4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IEventBusRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEventBus(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnEventBus",
 ):
@@ -4416,13 +4400,13 @@ class CfnEventBus(
         id: builtins.str,
         *,
         name: builtins.str,
-        dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBus.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBus.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Events::EventBus``.
 
@@ -4438,7 +4422,7 @@ class CfnEventBus(
         :param tags: Tags to associate with the event bus.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5766595a149723459145d9f55c6afa7ed3017d49f4af7cec85e0fffe2f5d4196)
+            type_hints = cached_type_hints(_typecheckingstub__5766595a149723459145d9f55c6afa7ed3017d49f4af7cec85e0fffe2f5d4196)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEventBusProps(
@@ -4456,12 +4440,15 @@ class CfnEventBus(
 
     @jsii.member(jsii_name="arnForEventBus")
     @builtins.classmethod
-    def arn_for_event_bus(cls, resource: "_IEventBusRef_aa86e9b4") -> builtins.str:
+    def arn_for_event_bus(
+        cls,
+        resource: "_aws_events_49a540ff.IEventBusRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f0fbdf4c12588b3a856d5449204a8cf2b449b8010d4f1e89075b9a88eba5ff8)
+            type_hints = cached_type_hints(_typecheckingstub__1f0fbdf4c12588b3a856d5449204a8cf2b449b8010d4f1e89075b9a88eba5ff8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventBus", [resource]))
 
@@ -4472,7 +4459,7 @@ class CfnEventBus(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IEventBusRef_aa86e9b4":
+    ) -> "_aws_events_49a540ff.IEventBusRef":
         '''Creates a new IEventBusRef from an ARN.
 
         :param scope: -
@@ -4480,11 +4467,11 @@ class CfnEventBus(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52da9c5fdac4b9a20af016bb86d96bb717169d7d2f8789450b948f3ae2849d73)
+            type_hints = cached_type_hints(_typecheckingstub__52da9c5fdac4b9a20af016bb86d96bb717169d7d2f8789450b948f3ae2849d73)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IEventBusRef_aa86e9b4", jsii.sinvoke(cls, "fromEventBusArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IEventBusRef", jsii.sinvoke(cls, "fromEventBusArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromEventBusName")
     @builtins.classmethod
@@ -4493,7 +4480,7 @@ class CfnEventBus(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         event_bus_name: builtins.str,
-    ) -> "_IEventBusRef_aa86e9b4":
+    ) -> "_aws_events_49a540ff.IEventBusRef":
         '''Creates a new IEventBusRef from a eventBusName.
 
         :param scope: -
@@ -4501,11 +4488,11 @@ class CfnEventBus(
         :param event_bus_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c06912850ab4232d75f46bf4e7fc5fb53350cab9f80c585bec5b376767c64960)
+            type_hints = cached_type_hints(_typecheckingstub__c06912850ab4232d75f46bf4e7fc5fb53350cab9f80c585bec5b376767c64960)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
-        return typing.cast("_IEventBusRef_aa86e9b4", jsii.sinvoke(cls, "fromEventBusName", [scope, id, event_bus_name]))
+        return typing.cast("_aws_events_49a540ff.IEventBusRef", jsii.sinvoke(cls, "fromEventBusName", [scope, id, event_bus_name]))
 
     @jsii.member(jsii_name="isCfnEventBus")
     @builtins.classmethod
@@ -4515,18 +4502,18 @@ class CfnEventBus(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__091f7eff38f5ea99cb84c9fb7f831326037f2f17dc70be10bcdecaf9116ebc01)
+            type_hints = cached_type_hints(_typecheckingstub__091f7eff38f5ea99cb84c9fb7f831326037f2f17dc70be10bcdecaf9116ebc01)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventBus", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__505cff6efff7c5a6d5cba375be4fe0f0f9042abf1bfc4636e8e005ac832fdd64)
+            type_hints = cached_type_hints(_typecheckingstub__505cff6efff7c5a6d5cba375be4fe0f0f9042abf1bfc4636e8e005ac832fdd64)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4539,7 +4526,7 @@ class CfnEventBus(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26bff281bca127165472b6b3babbda75ec5fa5f803c98b0001d7b845dc1ff562)
+            type_hints = cached_type_hints(_typecheckingstub__26bff281bca127165472b6b3babbda75ec5fa5f803c98b0001d7b845dc1ff562)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4577,9 +4564,9 @@ class CfnEventBus(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4593,9 +4580,9 @@ class CfnEventBus(
 
     @builtins.property
     @jsii.member(jsii_name="eventBusRef")
-    def event_bus_ref(self) -> "_EventBusReference_f9e830e1":
+    def event_bus_ref(self) -> "_aws_events_49a540ff.EventBusReference":
         '''A reference to a EventBus resource.'''
-        return typing.cast("_EventBusReference_f9e830e1", jsii.get(self, "eventBusRef"))
+        return typing.cast("_aws_events_49a540ff.EventBusReference", jsii.get(self, "eventBusRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4606,7 +4593,7 @@ class CfnEventBus(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2680ef109a97ceadd954f8fe5661198157b1e148558350afc664835013721289)
+            type_hints = cached_type_hints(_typecheckingstub__2680ef109a97ceadd954f8fe5661198157b1e148558350afc664835013721289)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -4619,7 +4606,7 @@ class CfnEventBus(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24)
+            type_hints = cached_type_hints(_typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -4627,17 +4614,17 @@ class CfnEventBus(
     @jsii.member(jsii_name="deadLetterConfig")
     def dead_letter_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.DeadLetterConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.DeadLetterConfigProperty"]]:
         '''Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ).'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.DeadLetterConfigProperty"]], jsii.get(self, "deadLetterConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.DeadLetterConfigProperty"]], jsii.get(self, "deadLetterConfig"))
 
     @dead_letter_config.setter
     def dead_letter_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.DeadLetterConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.DeadLetterConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc97dfb9dbc0d381febd2f96730220d379dd42692f2f5998d93180f615e3faf2)
+            type_hints = cached_type_hints(_typecheckingstub__fc97dfb9dbc0d381febd2f96730220d379dd42692f2f5998d93180f615e3faf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deadLetterConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -4650,7 +4637,7 @@ class CfnEventBus(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12daea1a97de9fdcc62356b01478c286131a64c32156d150d334eaa095132837)
+            type_hints = cached_type_hints(_typecheckingstub__12daea1a97de9fdcc62356b01478c286131a64c32156d150d334eaa095132837)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -4663,7 +4650,7 @@ class CfnEventBus(
     @event_source_name.setter
     def event_source_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c09871ed225f5073f64a2472bb4ad2653f751351d1d800cc2db527a49057b5c)
+            type_hints = cached_type_hints(_typecheckingstub__1c09871ed225f5073f64a2472bb4ad2653f751351d1d800cc2db527a49057b5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventSourceName", value) # pyright: ignore[reportArgumentType]
 
@@ -4676,7 +4663,7 @@ class CfnEventBus(
     @kms_key_identifier.setter
     def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1899d0d8378d7d8ade574708aa2d0221794e2fcd5f946287a6f238e594717360)
+            type_hints = cached_type_hints(_typecheckingstub__1899d0d8378d7d8ade574708aa2d0221794e2fcd5f946287a6f238e594717360)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -4684,30 +4671,33 @@ class CfnEventBus(
     @jsii.member(jsii_name="logConfig")
     def log_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.LogConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.LogConfigProperty"]]:
         '''The logging configuration settings for the event bus.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.LogConfigProperty"]], jsii.get(self, "logConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.LogConfigProperty"]], jsii.get(self, "logConfig"))
 
     @log_config.setter
     def log_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.LogConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.LogConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1)
+            type_hints = cached_type_hints(_typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to associate with the event bus.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7839bb5f17e47516f1a7287848eb4905b08ca899cd21b2544645df1f4bedb748)
+            type_hints = cached_type_hints(_typecheckingstub__7839bb5f17e47516f1a7287848eb4905b08ca899cd21b2544645df1f4bedb748)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4738,7 +4728,7 @@ class CfnEventBus(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__19cc778177531cf61ae62a46e1a008d0fb9f91cd857dc37c522f0cd73c2cda44)
+                type_hints = cached_type_hints(_typecheckingstub__19cc778177531cf61ae62a46e1a008d0fb9f91cd857dc37c522f0cd73c2cda44)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
@@ -4798,7 +4788,7 @@ class CfnEventBus(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__325c97a9fc2ec199dfb4fb51645bc16dde3cf1f257d1bcf5c86f7cd3a0b2d77c)
+                type_hints = cached_type_hints(_typecheckingstub__325c97a9fc2ec199dfb4fb51645bc16dde3cf1f257d1bcf5c86f7cd3a0b2d77c)
                 check_type(argname="argument include_detail", value=include_detail, expected_type=type_hints["include_detail"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4843,9 +4833,9 @@ class CfnEventBus(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEventBusPolicyRef_308d5d57)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IEventBusPolicyRef)
 class CfnEventBusPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnEventBusPolicy",
 ):
@@ -4896,7 +4886,7 @@ class CfnEventBusPolicy(
         *,
         statement_id: builtins.str,
         action: typing.Optional[builtins.str] = None,
-        condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBusPolicy.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBusPolicy.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         event_bus_name: typing.Optional[builtins.str] = None,
         principal: typing.Optional[builtins.str] = None,
         statement: typing.Any = None,
@@ -4913,7 +4903,7 @@ class CfnEventBusPolicy(
         :param statement: A JSON string that describes the permission policy statement. You can include a ``Policy`` parameter in the request instead of using the ``StatementId`` , ``Action`` , ``Principal`` , or ``Condition`` parameters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6df7e81a60de40e0e425694b7757e614a634ac89c7c10147ca4c807819a6b71)
+            type_hints = cached_type_hints(_typecheckingstub__c6df7e81a60de40e0e425694b7757e614a634ac89c7c10147ca4c807819a6b71)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEventBusPolicyProps(
@@ -4935,18 +4925,18 @@ class CfnEventBusPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__383f48122273cac320bdfe62008ed104ed6254446e174c375c50c29645e329be)
+            type_hints = cached_type_hints(_typecheckingstub__383f48122273cac320bdfe62008ed104ed6254446e174c375c50c29645e329be)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventBusPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43660ff79c4bb5d3dcfccef7663666ea8471435b4e127736142c8674ff831a94)
+            type_hints = cached_type_hints(_typecheckingstub__43660ff79c4bb5d3dcfccef7663666ea8471435b4e127736142c8674ff831a94)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4959,7 +4949,7 @@ class CfnEventBusPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73a509ce8b222cb1fd2cc6812fed309aab3ba25bb6b34bfc063e77a98e0bd559)
+            type_hints = cached_type_hints(_typecheckingstub__73a509ce8b222cb1fd2cc6812fed309aab3ba25bb6b34bfc063e77a98e0bd559)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4981,9 +4971,9 @@ class CfnEventBusPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="eventBusPolicyRef")
-    def event_bus_policy_ref(self) -> "_EventBusPolicyReference_9bb2c85f":
+    def event_bus_policy_ref(self) -> "_aws_events_49a540ff.EventBusPolicyReference":
         '''A reference to a EventBusPolicy resource.'''
-        return typing.cast("_EventBusPolicyReference_9bb2c85f", jsii.get(self, "eventBusPolicyRef"))
+        return typing.cast("_aws_events_49a540ff.EventBusPolicyReference", jsii.get(self, "eventBusPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="statement")
@@ -4994,7 +4984,7 @@ class CfnEventBusPolicy(
     @statement.setter
     def statement(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741)
+            type_hints = cached_type_hints(_typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statement", value) # pyright: ignore[reportArgumentType]
 
@@ -5007,7 +4997,7 @@ class CfnEventBusPolicy(
     @statement_id.setter
     def statement_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b244b9d43796ba0505af03623e41837e277b422489856009f2b06955c3a8158)
+            type_hints = cached_type_hints(_typecheckingstub__3b244b9d43796ba0505af03623e41837e277b422489856009f2b06955c3a8158)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statementId", value) # pyright: ignore[reportArgumentType]
 
@@ -5025,7 +5015,7 @@ class CfnEventBusPolicy(
     @action.setter
     def action(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcd347224161e85adfa279f5dab03f537e7906903484fdcf448b1743f6d2f51b)
+            type_hints = cached_type_hints(_typecheckingstub__bcd347224161e85adfa279f5dab03f537e7906903484fdcf448b1743f6d2f51b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
 
@@ -5033,22 +5023,22 @@ class CfnEventBusPolicy(
     @jsii.member(jsii_name="condition")
     def condition(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBusPolicy.ConditionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBusPolicy.ConditionProperty"]]:
         '''(deprecated) This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization.
 
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBusPolicy.ConditionProperty"]], jsii.get(self, "condition"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBusPolicy.ConditionProperty"]], jsii.get(self, "condition"))
 
     @condition.setter
     def condition(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBusPolicy.ConditionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBusPolicy.ConditionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__943673445f639e091d2714db2c8444519639dcb838909fe5e10e37f077e90315)
+            type_hints = cached_type_hints(_typecheckingstub__943673445f639e091d2714db2c8444519639dcb838909fe5e10e37f077e90315)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "condition", value) # pyright: ignore[reportArgumentType]
 
@@ -5061,7 +5051,7 @@ class CfnEventBusPolicy(
     @event_bus_name.setter
     def event_bus_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f51ad0dea4c6d9f35b7bad0fc73f95da63a16eb1cd3116e7c281f77035a41708)
+            type_hints = cached_type_hints(_typecheckingstub__f51ad0dea4c6d9f35b7bad0fc73f95da63a16eb1cd3116e7c281f77035a41708)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventBusName", value) # pyright: ignore[reportArgumentType]
 
@@ -5079,7 +5069,7 @@ class CfnEventBusPolicy(
     @principal.setter
     def principal(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca0d24eece87fe806a8007f31944754f32102b12c8bb0f010a3e7283a54b4fef)
+            type_hints = cached_type_hints(_typecheckingstub__ca0d24eece87fe806a8007f31944754f32102b12c8bb0f010a3e7283a54b4fef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
 
@@ -5118,7 +5108,7 @@ class CfnEventBusPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3e41a269da2fb6be79dba262c14fe9cd63999eb75c8619f894174c0e0870283e)
+                type_hints = cached_type_hints(_typecheckingstub__3e41a269da2fb6be79dba262c14fe9cd63999eb75c8619f894174c0e0870283e)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5193,7 +5183,7 @@ class CfnEventBusPolicyProps:
         *,
         statement_id: builtins.str,
         action: typing.Optional[builtins.str] = None,
-        condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBusPolicy.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBusPolicy.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         event_bus_name: typing.Optional[builtins.str] = None,
         principal: typing.Optional[builtins.str] = None,
         statement: typing.Any = None,
@@ -5234,7 +5224,7 @@ class CfnEventBusPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2)
+            type_hints = cached_type_hints(_typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2)
             check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -5285,7 +5275,7 @@ class CfnEventBusPolicyProps:
     @builtins.property
     def condition(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBusPolicy.ConditionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBusPolicy.ConditionProperty"]]:
         '''(deprecated) This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization.
 
         :deprecated: this property has been deprecated
@@ -5294,7 +5284,7 @@ class CfnEventBusPolicyProps:
         :stability: deprecated
         '''
         result = self._values.get("condition")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBusPolicy.ConditionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBusPolicy.ConditionProperty"]], result)
 
     @builtins.property
     def event_bus_name(self) -> typing.Optional[builtins.str]:
@@ -5363,13 +5353,13 @@ class CfnEventBusProps:
         self,
         *,
         name: builtins.str,
-        dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBus.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBus.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEventBus``.
 
@@ -5416,7 +5406,7 @@ class CfnEventBusProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9)
+            type_hints = cached_type_hints(_typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5460,7 +5450,7 @@ class CfnEventBusProps:
     @builtins.property
     def dead_letter_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.DeadLetterConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.DeadLetterConfigProperty"]]:
         '''Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ).
 
         For more information, see `Using dead-letter queues to process undelivered events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq>`_ in the *EventBridge User Guide* .
@@ -5468,7 +5458,7 @@ class CfnEventBusProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-deadletterconfig
         '''
         result = self._values.get("dead_letter_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.DeadLetterConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.DeadLetterConfigProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -5516,7 +5506,7 @@ class CfnEventBusProps:
     @builtins.property
     def log_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.LogConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.LogConfigProperty"]]:
         '''The logging configuration settings for the event bus.
 
         For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
@@ -5524,7 +5514,7 @@ class CfnEventBusProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-logconfig
         '''
         result = self._values.get("log_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventBus.LogConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventBus.LogConfigProperty"]], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -5536,13 +5526,13 @@ class CfnEventBusProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to associate with the event bus.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5556,9 +5546,9 @@ class CfnEventBusProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRuleRef_4038a611, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.CfnRule",
 ):
@@ -5628,14 +5618,14 @@ class CfnRule(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        event_bus_name: typing.Optional[typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]] = None,
+        event_bus_name: typing.Optional[typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]] = None,
         event_pattern: typing.Any = None,
         name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         schedule_expression: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Events::Rule``.
 
@@ -5652,7 +5642,7 @@ class CfnRule(
         :param targets: Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule. Targets are the resources that are invoked when a rule is triggered. The maximum number of entries per request is 10. .. epigraph:: Each rule can have up to five (5) targets associated with it at one time. For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** . Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are: - ``Amazon EBS CreateSnapshot API call`` - ``Amazon EC2 RebootInstances API call`` - ``Amazon EC2 StopInstances API call`` - ``Amazon EC2 TerminateInstances API call`` For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field. To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions: - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies. - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` . For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** . If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ . .. epigraph:: ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account. If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* . .. epigraph:: If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role. For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ . *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event: - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target). - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant. - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed). - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target. When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation. When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect. This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e06314755e55e41a2976ff974daa36bbbb473330c92c9fef111b716f2fe49cce)
+            type_hints = cached_type_hints(_typecheckingstub__e06314755e55e41a2976ff974daa36bbbb473330c92c9fef111b716f2fe49cce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRuleProps(
@@ -5671,12 +5661,12 @@ class CfnRule(
 
     @jsii.member(jsii_name="arnForRule")
     @builtins.classmethod
-    def arn_for_rule(cls, resource: "_IRuleRef_4038a611") -> builtins.str:
+    def arn_for_rule(cls, resource: "_aws_events_49a540ff.IRuleRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47ddfdaa73e35b2bbb6599aa98e79e69ad6f7c74c287b09d3525d778ee3c984a)
+            type_hints = cached_type_hints(_typecheckingstub__47ddfdaa73e35b2bbb6599aa98e79e69ad6f7c74c287b09d3525d778ee3c984a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRule", [resource]))
 
@@ -5687,7 +5677,7 @@ class CfnRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IRuleRef_4038a611":
+    ) -> "_aws_events_49a540ff.IRuleRef":
         '''Creates a new IRuleRef from an ARN.
 
         :param scope: -
@@ -5695,11 +5685,11 @@ class CfnRule(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c98bba385ad30c7d90d7374cf6895452caa709aa7ce71519fe9e783513f1b9b)
+            type_hints = cached_type_hints(_typecheckingstub__8c98bba385ad30c7d90d7374cf6895452caa709aa7ce71519fe9e783513f1b9b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IRuleRef_4038a611", jsii.sinvoke(cls, "fromRuleArn", [scope, id, arn]))
+        return typing.cast("_aws_events_49a540ff.IRuleRef", jsii.sinvoke(cls, "fromRuleArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnRule")
     @builtins.classmethod
@@ -5709,18 +5699,18 @@ class CfnRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__964d4d619e63da02ff655b74f91097fab7fe500578cb6d7addb2614736bbdc71)
+            type_hints = cached_type_hints(_typecheckingstub__964d4d619e63da02ff655b74f91097fab7fe500578cb6d7addb2614736bbdc71)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddbfbd801b401354321b5360dd9e23260e0e36736b18305fcaefba787fb928e1)
+            type_hints = cached_type_hints(_typecheckingstub__ddbfbd801b401354321b5360dd9e23260e0e36736b18305fcaefba787fb928e1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5733,7 +5723,7 @@ class CfnRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e5b9584b8a11a53f3da48aa655dc3c5f1e732686ca98a767a38dccd1283dce2)
+            type_hints = cached_type_hints(_typecheckingstub__2e5b9584b8a11a53f3da48aa655dc3c5f1e732686ca98a767a38dccd1283dce2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5754,9 +5744,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5770,9 +5760,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "_RuleReference_38eeaae2":
+    def rule_ref(self) -> "_aws_events_49a540ff.RuleReference":
         '''A reference to a Rule resource.'''
-        return typing.cast("_RuleReference_38eeaae2", jsii.get(self, "ruleRef"))
+        return typing.cast("_aws_events_49a540ff.RuleReference", jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventPattern")
@@ -5783,7 +5773,7 @@ class CfnRule(
     @event_pattern.setter
     def event_pattern(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925)
+            type_hints = cached_type_hints(_typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
 
@@ -5796,7 +5786,7 @@ class CfnRule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e78457ec7631c0e3dc885fab0f0951e6dd59c773d0711961b0bc9340abbad081)
+            type_hints = cached_type_hints(_typecheckingstub__e78457ec7631c0e3dc885fab0f0951e6dd59c773d0711961b0bc9340abbad081)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5809,7 +5799,7 @@ class CfnRule(
     @event_bus_name.setter
     def event_bus_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cbc6e93f4327ab36adfdd83f38be0cbf8eb345b53d9651e8cf282ed0e0b9af9)
+            type_hints = cached_type_hints(_typecheckingstub__1cbc6e93f4327ab36adfdd83f38be0cbf8eb345b53d9651e8cf282ed0e0b9af9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventBusName", value) # pyright: ignore[reportArgumentType]
 
@@ -5822,7 +5812,7 @@ class CfnRule(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__011f10fd61b1f696e54062b8886b72bf5ec299a458e199f9efde8603061a99d3)
+            type_hints = cached_type_hints(_typecheckingstub__011f10fd61b1f696e54062b8886b72bf5ec299a458e199f9efde8603061a99d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5835,7 +5825,7 @@ class CfnRule(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868005cb50ba998529737dfcc30fab357cfe3bc8af6190bebe8dfb7b15ba2747)
+            type_hints = cached_type_hints(_typecheckingstub__868005cb50ba998529737dfcc30fab357cfe3bc8af6190bebe8dfb7b15ba2747)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5848,7 +5838,7 @@ class CfnRule(
     @schedule_expression.setter
     def schedule_expression(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__899750a6d5aa9b18ef60c565a105a9e226927b6acd37aa5e51339248ad93563a)
+            type_hints = cached_type_hints(_typecheckingstub__899750a6d5aa9b18ef60c565a105a9e226927b6acd37aa5e51339248ad93563a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduleExpression", value) # pyright: ignore[reportArgumentType]
 
@@ -5861,20 +5851,23 @@ class CfnRule(
     @state.setter
     def state(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08542b68c4470a8f44e4a04ee382bb40e94dc161aad2f92bfa79298da9d13832)
+            type_hints = cached_type_hints(_typecheckingstub__08542b68c4470a8f44e4a04ee382bb40e94dc161aad2f92bfa79298da9d13832)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Any tags assigned to the event rule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4daedf0bf9c9ce5671a843d87568d852259b36183898da9f395d6fb1b1a1e974)
+            type_hints = cached_type_hints(_typecheckingstub__4daedf0bf9c9ce5671a843d87568d852259b36183898da9f395d6fb1b1a1e974)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5882,17 +5875,17 @@ class CfnRule(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.TargetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.TargetProperty"]]]]:
         '''Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.TargetProperty"]]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.TargetProperty"]]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.TargetProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.TargetProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b3ddab1471338782440504c486a52daa0e3a535b2209abca3766744b2fabcfc)
+            type_hints = cached_type_hints(_typecheckingstub__0b3ddab1471338782440504c486a52daa0e3a535b2209abca3766744b2fabcfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
 
@@ -5921,7 +5914,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f159ea8ed563d4fc99f66ed5a99d9b913e8ba48a2c6bb55b4d3008f8d8b93c40)
+                type_hints = cached_type_hints(_typecheckingstub__f159ea8ed563d4fc99f66ed5a99d9b913e8ba48a2c6bb55b4d3008f8d8b93c40)
                 check_type(argname="argument graph_ql_operation", value=graph_ql_operation, expected_type=type_hints["graph_ql_operation"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "graph_ql_operation": graph_ql_operation,
@@ -5993,7 +5986,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__79f8121b45ee88764612186e90f44db0aa3248e12d3f0c2fd29eab967afb9900)
+                type_hints = cached_type_hints(_typecheckingstub__79f8121b45ee88764612186e90f44db0aa3248e12d3f0c2fd29eab967afb9900)
                 check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
                 check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -6077,7 +6070,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf5184717856dec2cb0af7dde6c2f83120efa0c79d5779881fedc997eff2f2ec)
+                type_hints = cached_type_hints(_typecheckingstub__cf5184717856dec2cb0af7dde6c2f83120efa0c79d5779881fedc997eff2f2ec)
                 check_type(argname="argument size", value=size, expected_type=type_hints["size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if size is not None:
@@ -6121,8 +6114,8 @@ class CfnRule(
             *,
             job_definition: builtins.str,
             job_name: builtins.str,
-            array_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.BatchArrayPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.BatchRetryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            array_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.BatchArrayPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.BatchRetryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The custom parameters to be used when the target is an AWS Batch job.
 
@@ -6154,7 +6147,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d0089b34c40cfca04fac3f5986b0a65a2d11af3d33de0b070d18a10dab020c0)
+                type_hints = cached_type_hints(_typecheckingstub__8d0089b34c40cfca04fac3f5986b0a65a2d11af3d33de0b070d18a10dab020c0)
                 check_type(argname="argument job_definition", value=job_definition, expected_type=type_hints["job_definition"])
                 check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
                 check_type(argname="argument array_properties", value=array_properties, expected_type=type_hints["array_properties"])
@@ -6193,7 +6186,7 @@ class CfnRule(
         @builtins.property
         def array_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchArrayPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchArrayPropertiesProperty"]]:
             '''The array properties for the submitted job, such as the size of the array.
 
             The array size can be between 2 and 10,000. If you specify array properties for a job, it becomes an array job. This parameter is used only if the target is an AWS Batch job.
@@ -6201,12 +6194,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-batchparameters.html#cfn-events-rule-batchparameters-arrayproperties
             '''
             result = self._values.get("array_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchArrayPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchArrayPropertiesProperty"]], result)
 
         @builtins.property
         def retry_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchRetryStrategyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchRetryStrategyProperty"]]:
             '''The retry strategy to use for failed jobs, if the target is an AWS Batch job.
 
             The retry strategy is the number of times to retry the failed job execution. Valid values are 1–10. When you specify a retry strategy here, it overrides the retry strategy defined in the job definition.
@@ -6214,7 +6207,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-batchparameters.html#cfn-events-rule-batchparameters-retrystrategy
             '''
             result = self._values.get("retry_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchRetryStrategyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchRetryStrategyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6254,7 +6247,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__096e54f8fb0eda5fe8e23384c881399b817a4138a685df009086cac0662e2b0d)
+                type_hints = cached_type_hints(_typecheckingstub__096e54f8fb0eda5fe8e23384c881399b817a4138a685df009086cac0662e2b0d)
                 check_type(argname="argument attempts", value=attempts, expected_type=type_hints["attempts"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if attempts is not None:
@@ -6325,7 +6318,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7d77652673a5785530d0c07b7cbdb02c31cc5ffeafbbc591fc8f62a3b6941e06)
+                type_hints = cached_type_hints(_typecheckingstub__7d77652673a5785530d0c07b7cbdb02c31cc5ffeafbbc591fc8f62a3b6941e06)
                 check_type(argname="argument capacity_provider", value=capacity_provider, expected_type=type_hints["capacity_provider"])
                 check_type(argname="argument base", value=base, expected_type=type_hints["base"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
@@ -6407,7 +6400,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6ba31e7177aeb828112cd7e43f85c22b5debfb1b73bc843f93f39600d5a87836)
+                type_hints = cached_type_hints(_typecheckingstub__6ba31e7177aeb828112cd7e43f85c22b5debfb1b73bc843f93f39600d5a87836)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
@@ -6458,18 +6451,18 @@ class CfnRule(
             self,
             *,
             task_definition_arn: builtins.str,
-            capacity_provider_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            capacity_provider_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             group: typing.Optional[builtins.str] = None,
             launch_type: typing.Optional[builtins.str] = None,
-            network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            placement_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            placement_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            placement_constraints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            placement_strategies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             platform_version: typing.Optional[builtins.str] = None,
             propagate_tags: typing.Optional[builtins.str] = None,
             reference_id: typing.Optional[builtins.str] = None,
-            tag_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            tag_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             task_count: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The custom parameters to be used when the target is an Amazon ECS task.
@@ -6542,7 +6535,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca7c7356595fbbf690b3042b0aca8ce2d8827d85b48a9a2f58a4f05f1dd77037)
+                type_hints = cached_type_hints(_typecheckingstub__ca7c7356595fbbf690b3042b0aca8ce2d8827d85b48a9a2f58a4f05f1dd77037)
                 check_type(argname="argument task_definition_arn", value=task_definition_arn, expected_type=type_hints["task_definition_arn"])
                 check_type(argname="argument capacity_provider_strategy", value=capacity_provider_strategy, expected_type=type_hints["capacity_provider_strategy"])
                 check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
@@ -6600,7 +6593,7 @@ class CfnRule(
         @builtins.property
         def capacity_provider_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.CapacityProviderStrategyItemProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.CapacityProviderStrategyItemProperty"]]]]:
             '''The capacity provider strategy to use for the task.
 
             If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or launchType is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used.
@@ -6608,12 +6601,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-capacityproviderstrategy
             '''
             result = self._values.get("capacity_provider_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.CapacityProviderStrategyItemProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.CapacityProviderStrategyItemProperty"]]]], result)
 
         @builtins.property
         def enable_ecs_managed_tags(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to enable Amazon ECS managed tags for the task.
 
             For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the Amazon Elastic Container Service Developer Guide.
@@ -6621,12 +6614,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-enableecsmanagedtags
             '''
             result = self._values.get("enable_ecs_managed_tags")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_execute_command(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not to enable the execute command functionality for the containers in this task.
 
             If true, this enables execute command functionality on all containers in the task.
@@ -6634,7 +6627,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-enableexecutecommand
             '''
             result = self._values.get("enable_execute_command")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def group(self) -> typing.Optional[builtins.str]:
@@ -6661,7 +6654,7 @@ class CfnRule(
         @builtins.property
         def network_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.NetworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.NetworkConfigurationProperty"]]:
             '''Use this structure if the Amazon ECS task uses the ``awsvpc`` network mode.
 
             This structure specifies the VPC subnets and security groups associated with the task, and whether a public IP address is to be used. This structure is required if ``LaunchType`` is ``FARGATE`` because the ``awsvpc`` mode is required for Fargate tasks.
@@ -6671,12 +6664,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-networkconfiguration
             '''
             result = self._values.get("network_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.NetworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.NetworkConfigurationProperty"]], result)
 
         @builtins.property
         def placement_constraints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PlacementConstraintProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.PlacementConstraintProperty"]]]]:
             '''An array of placement constraint objects to use for the task.
 
             You can specify up to 10 constraints per task (including constraints in the task definition and those specified at runtime).
@@ -6684,12 +6677,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-placementconstraints
             '''
             result = self._values.get("placement_constraints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PlacementConstraintProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.PlacementConstraintProperty"]]]], result)
 
         @builtins.property
         def placement_strategies(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PlacementStrategyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.PlacementStrategyProperty"]]]]:
             '''The placement strategy objects to use for the task.
 
             You can specify a maximum of five strategy rules per task.
@@ -6697,7 +6690,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-placementstrategies
             '''
             result = self._values.get("placement_strategies")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PlacementStrategyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.PlacementStrategyProperty"]]]], result)
 
         @builtins.property
         def platform_version(self) -> typing.Optional[builtins.str]:
@@ -6735,7 +6728,7 @@ class CfnRule(
         @builtins.property
         def tag_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]]:
             '''The metadata that you apply to the task to help you categorize and organize them.
 
             Each tag consists of a key and an optional value, both of which you define. To learn more, see `RunTask <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html#ECS-RunTask-request-tags>`_ in the Amazon ECS API Reference.
@@ -6743,7 +6736,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-ecsparameters.html#cfn-events-rule-ecsparameters-taglist
             '''
             result = self._values.get("tag_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], result)
 
         @builtins.property
         def task_count(self) -> typing.Optional[jsii.Number]:
@@ -6780,9 +6773,9 @@ class CfnRule(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            header_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway APIs or EventBridge ApiDestinations.
 
@@ -6812,7 +6805,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413603e262)
+                type_hints = cached_type_hints(_typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413603e262)
                 check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
                 check_type(argname="argument path_parameter_values", value=path_parameter_values, expected_type=type_hints["path_parameter_values"])
                 check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
@@ -6827,13 +6820,13 @@ class CfnRule(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-httpparameters.html#cfn-events-rule-httpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6847,13 +6840,13 @@ class CfnRule(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-httpparameters.html#cfn-events-rule-httpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6879,7 +6872,7 @@ class CfnRule(
             self,
             *,
             input_template: builtins.str,
-            input_paths_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            input_paths_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains the parameters needed for you to provide custom input to a target based on one or more pieces of data extracted from the event.
 
@@ -6905,7 +6898,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8522462011c60f4061bf027a1209a1ecdeb26e93459566abb5448778090139f1)
+                type_hints = cached_type_hints(_typecheckingstub__8522462011c60f4061bf027a1209a1ecdeb26e93459566abb5448778090139f1)
                 check_type(argname="argument input_template", value=input_template, expected_type=type_hints["input_template"])
                 check_type(argname="argument input_paths_map", value=input_paths_map, expected_type=type_hints["input_paths_map"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6969,7 +6962,7 @@ class CfnRule(
         @builtins.property
         def input_paths_map(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Map of JSON paths to be extracted from the event.
 
             You can then insert these in the template in ``InputTemplate`` to produce the output you want to be sent to the target.
@@ -6981,7 +6974,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-inputtransformer.html#cfn-events-rule-inputtransformer-inputpathsmap
             '''
             result = self._values.get("input_paths_map")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7021,7 +7014,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__829bff3d03625c441fc8300a5d63a901487be45624b5f4fb28b115918bdabff5)
+                type_hints = cached_type_hints(_typecheckingstub__829bff3d03625c441fc8300a5d63a901487be45624b5f4fb28b115918bdabff5)
                 check_type(argname="argument partition_key_path", value=partition_key_path, expected_type=type_hints["partition_key_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "partition_key_path": partition_key_path,
@@ -7059,7 +7052,7 @@ class CfnRule(
         def __init__(
             self,
             *,
-            aws_vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''This structure specifies the network configuration for an ECS task.
 
@@ -7085,7 +7078,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4cd75303a5d5d6f5cc40a933fd3738e5ad3f5f00e114c2f135db668e1b35ebe0)
+                type_hints = cached_type_hints(_typecheckingstub__4cd75303a5d5d6f5cc40a933fd3738e5ad3f5f00e114c2f135db668e1b35ebe0)
                 check_type(argname="argument aws_vpc_configuration", value=aws_vpc_configuration, expected_type=type_hints["aws_vpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if aws_vpc_configuration is not None:
@@ -7094,7 +7087,7 @@ class CfnRule(
         @builtins.property
         def aws_vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.AwsVpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.AwsVpcConfigurationProperty"]]:
             '''Use this structure to specify the VPC subnets and security groups for the task, and whether a public IP address is to be used.
 
             This structure is relevant only for ECS tasks that use the ``awsvpc`` network mode.
@@ -7102,7 +7095,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-networkconfiguration.html#cfn-events-rule-networkconfiguration-awsvpcconfiguration
             '''
             result = self._values.get("aws_vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.AwsVpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.AwsVpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7149,7 +7142,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__56d35aec7c078be3fe2ed11d780fb6b742030a1ec26640630e62ae5458f40db5)
+                type_hints = cached_type_hints(_typecheckingstub__56d35aec7c078be3fe2ed11d780fb6b742030a1ec26640630e62ae5458f40db5)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7225,7 +7218,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5afeea0700837787f7604e94c2a895774d94b03b3dad8d3efb678d588e1e806a)
+                type_hints = cached_type_hints(_typecheckingstub__5afeea0700837787f7604e94c2a895774d94b03b3dad8d3efb678d588e1e806a)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7290,7 +7283,7 @@ class CfnRule(
             sql: typing.Optional[builtins.str] = None,
             sqls: typing.Optional[typing.Sequence[builtins.str]] = None,
             statement_name: typing.Optional[builtins.str] = None,
-            with_event: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            with_event: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''These are custom parameters to be used when the target is a Amazon Redshift cluster to invoke the Amazon Redshift Data API ExecuteStatement based on EventBridge events.
 
@@ -7324,7 +7317,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__183646a052d824f887b6e170455aff3fbf5557ac2188f001395f11ea46cfb390)
+                type_hints = cached_type_hints(_typecheckingstub__183646a052d824f887b6e170455aff3fbf5557ac2188f001395f11ea46cfb390)
                 check_type(argname="argument database", value=database, expected_type=type_hints["database"])
                 check_type(argname="argument db_user", value=db_user, expected_type=type_hints["db_user"])
                 check_type(argname="argument secret_manager_arn", value=secret_manager_arn, expected_type=type_hints["secret_manager_arn"])
@@ -7416,13 +7409,13 @@ class CfnRule(
         @builtins.property
         def with_event(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to send an event back to EventBridge after the SQL statement runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-redshiftdataparameters.html#cfn-events-rule-redshiftdataparameters-withevent
             '''
             result = self._values.get("with_event")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7470,7 +7463,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d7e2f390319b907344c9d4e1c06839acfbd0380b76b994eba693de458d16207)
+                type_hints = cached_type_hints(_typecheckingstub__5d7e2f390319b907344c9d4e1c06839acfbd0380b76b994eba693de458d16207)
                 check_type(argname="argument maximum_event_age_in_seconds", value=maximum_event_age_in_seconds, expected_type=type_hints["maximum_event_age_in_seconds"])
                 check_type(argname="argument maximum_retry_attempts", value=maximum_retry_attempts, expected_type=type_hints["maximum_retry_attempts"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7519,7 +7512,7 @@ class CfnRule(
         def __init__(
             self,
             *,
-            run_command_targets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RunCommandTargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            run_command_targets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RunCommandTargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''This parameter contains the criteria (either InstanceIds or a tag) used to specify which EC2 instances are to be sent the command.
 
@@ -7542,7 +7535,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba2c466b6c37f78405e07895ca35deca7f4905633684a6022656f9421cbf97da)
+                type_hints = cached_type_hints(_typecheckingstub__ba2c466b6c37f78405e07895ca35deca7f4905633684a6022656f9421cbf97da)
                 check_type(argname="argument run_command_targets", value=run_command_targets, expected_type=type_hints["run_command_targets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "run_command_targets": run_command_targets,
@@ -7551,14 +7544,14 @@ class CfnRule(
         @builtins.property
         def run_command_targets(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.RunCommandTargetProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RunCommandTargetProperty"]]]:
             '''Currently, we support including only one RunCommandTarget block, which specifies either an array of InstanceIds or a tag.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-runcommandparameters.html#cfn-events-rule-runcommandparameters-runcommandtargets
             '''
             result = self._values.get("run_command_targets")
             assert result is not None, "Required property 'run_command_targets' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.RunCommandTargetProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RunCommandTargetProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7605,7 +7598,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f21010b051b6186d44d99b66fbb0fecf0adc84939d0ac36e5ce483122ab0be1f)
+                type_hints = cached_type_hints(_typecheckingstub__f21010b051b6186d44d99b66fbb0fecf0adc84939d0ac36e5ce483122ab0be1f)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7673,7 +7666,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1c9a0352987f0249e3a0dfc847384bb6956d68f2cec367886e69813c9ead2a7)
+                type_hints = cached_type_hints(_typecheckingstub__a1c9a0352987f0249e3a0dfc847384bb6956d68f2cec367886e69813c9ead2a7)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7721,7 +7714,7 @@ class CfnRule(
         def __init__(
             self,
             *,
-            pipeline_parameter_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            pipeline_parameter_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''These are custom parameters to use when the target is a SageMaker AI Model Building Pipeline that starts based on EventBridge events.
 
@@ -7744,7 +7737,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f80c01dd29d706ded8cb6af7adf4f6ad1dc7be401fc156c8baefd62ef50fe49)
+                type_hints = cached_type_hints(_typecheckingstub__4f80c01dd29d706ded8cb6af7adf4f6ad1dc7be401fc156c8baefd62ef50fe49)
                 check_type(argname="argument pipeline_parameter_list", value=pipeline_parameter_list, expected_type=type_hints["pipeline_parameter_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if pipeline_parameter_list is not None:
@@ -7753,13 +7746,13 @@ class CfnRule(
         @builtins.property
         def pipeline_parameter_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.SageMakerPipelineParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SageMakerPipelineParameterProperty"]]]]:
             '''List of Parameter names and values for SageMaker AI Model Building Pipeline execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-sagemakerpipelineparameters.html#cfn-events-rule-sagemakerpipelineparameters-pipelineparameterlist
             '''
             result = self._values.get("pipeline_parameter_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.SageMakerPipelineParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SageMakerPipelineParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7797,7 +7790,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c3b4b126e08cc64ec28ca363e425756d47fd556f940c55bffd86e3adab64289)
+                type_hints = cached_type_hints(_typecheckingstub__0c3b4b126e08cc64ec28ca363e425756d47fd556f940c55bffd86e3adab64289)
                 check_type(argname="argument message_group_id", value=message_group_id, expected_type=type_hints["message_group_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "message_group_id": message_group_id,
@@ -7861,7 +7854,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__631f1d2d2d85524250006a517cca6b338bebc43b645c2702b2ce2831b61f317a)
+                type_hints = cached_type_hints(_typecheckingstub__631f1d2d2d85524250006a517cca6b338bebc43b645c2702b2ce2831b61f317a)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7930,21 +7923,21 @@ class CfnRule(
             *,
             arn: builtins.str,
             id: builtins.str,
-            app_sync_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.AppSyncParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            batch_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.BatchParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ecs_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.HttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            app_sync_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.AppSyncParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            batch_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.BatchParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ecs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.HttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input: typing.Optional[builtins.str] = None,
             input_path: typing.Optional[builtins.str] = None,
-            input_transformer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.InputTransformerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift_data_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_transformer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.InputTransformerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift_data_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             role_arn: typing.Optional[builtins.str] = None,
-            run_command_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.SageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            run_command_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.SageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Targets are the resources to be invoked when a rule is triggered.
 
@@ -8100,7 +8093,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0bb173839da3c22730cab96567bb586361722029ca0fab74f2c0ebd9eea2ed31)
+                type_hints = cached_type_hints(_typecheckingstub__0bb173839da3c22730cab96567bb586361722029ca0fab74f2c0ebd9eea2ed31)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument app_sync_parameters", value=app_sync_parameters, expected_type=type_hints["app_sync_parameters"])
@@ -8178,18 +8171,18 @@ class CfnRule(
         @builtins.property
         def app_sync_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.AppSyncParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.AppSyncParametersProperty"]]:
             '''Contains the GraphQL operation to be parsed and executed, if the event target is an AWS AppSync API.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-appsyncparameters
             '''
             result = self._values.get("app_sync_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.AppSyncParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.AppSyncParametersProperty"]], result)
 
         @builtins.property
         def batch_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchParametersProperty"]]:
             '''If the event target is an AWS Batch job, this contains the job definition, job name, and other parameters.
 
             For more information, see `Jobs <https://docs.aws.amazon.com/batch/latest/userguide/jobs.html>`_ in the *AWS Batch User Guide* .
@@ -8197,23 +8190,23 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-batchparameters
             '''
             result = self._values.get("batch_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.BatchParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.BatchParametersProperty"]], result)
 
         @builtins.property
         def dead_letter_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.DeadLetterConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.DeadLetterConfigProperty"]]:
             '''The ``DeadLetterConfig`` that defines the target queue to send dead-letter queue events to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-deadletterconfig
             '''
             result = self._values.get("dead_letter_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.DeadLetterConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.DeadLetterConfigProperty"]], result)
 
         @builtins.property
         def ecs_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.EcsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.EcsParametersProperty"]]:
             '''Contains the Amazon ECS task definition and task count to be used, if the event target is an Amazon ECS task.
 
             For more information about Amazon ECS tasks, see `Task Definitions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html>`_ in the *Amazon EC2 Container Service Developer Guide* .
@@ -8221,12 +8214,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-ecsparameters
             '''
             result = self._values.get("ecs_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.EcsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.EcsParametersProperty"]], result)
 
         @builtins.property
         def http_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.HttpParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.HttpParametersProperty"]]:
             '''Contains the HTTP parameters to use when the target is a API Gateway endpoint or EventBridge ApiDestination.
 
             If you specify an API Gateway API or EventBridge ApiDestination as a target, you can use this parameter to specify headers, path parameters, and query string keys/values as part of your target invoking request. If you're using ApiDestinations, the corresponding Connection can also have these values configured. In case of any conflicting keys, values from the Connection take precedence.
@@ -8234,7 +8227,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-httpparameters
             '''
             result = self._values.get("http_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.HttpParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.HttpParametersProperty"]], result)
 
         @builtins.property
         def input(self) -> typing.Optional[builtins.str]:
@@ -8261,7 +8254,7 @@ class CfnRule(
         @builtins.property
         def input_transformer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.InputTransformerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.InputTransformerProperty"]]:
             '''Settings to enable you to provide custom input to a target based on certain event data.
 
             You can extract one or more key-value pairs from the event and then use that data to send customized input to the target.
@@ -8269,12 +8262,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-inputtransformer
             '''
             result = self._values.get("input_transformer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.InputTransformerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.InputTransformerProperty"]], result)
 
         @builtins.property
         def kinesis_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.KinesisParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.KinesisParametersProperty"]]:
             '''The custom parameter you can use to control the shard assignment, when the target is a Kinesis data stream.
 
             If you do not include this parameter, the default is to use the ``eventId`` as the partition key.
@@ -8282,12 +8275,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-kinesisparameters
             '''
             result = self._values.get("kinesis_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.KinesisParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.KinesisParametersProperty"]], result)
 
         @builtins.property
         def redshift_data_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RedshiftDataParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RedshiftDataParametersProperty"]]:
             '''Contains the Amazon Redshift Data API parameters to use when the target is a Amazon Redshift cluster.
 
             If you specify a Amazon Redshift Cluster as a Target, you can use this to specify parameters to invoke the Amazon Redshift Data API ExecuteStatement based on EventBridge events.
@@ -8295,18 +8288,18 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-redshiftdataparameters
             '''
             result = self._values.get("redshift_data_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RedshiftDataParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RedshiftDataParametersProperty"]], result)
 
         @builtins.property
         def retry_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RetryPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetryPolicyProperty"]]:
             '''The retry policy configuration to use for the dead-letter queue.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-retrypolicy
             '''
             result = self._values.get("retry_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RetryPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetryPolicyProperty"]], result)
 
         @builtins.property
         def role_arn(self) -> typing.Optional[builtins.str]:
@@ -8322,18 +8315,18 @@ class CfnRule(
         @builtins.property
         def run_command_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RunCommandParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RunCommandParametersProperty"]]:
             '''Parameters used when you are using the rule to invoke Amazon EC2 Run Command.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-runcommandparameters
             '''
             result = self._values.get("run_command_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.RunCommandParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RunCommandParametersProperty"]], result)
 
         @builtins.property
         def sage_maker_pipeline_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.SageMakerPipelineParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SageMakerPipelineParametersProperty"]]:
             '''Contains the SageMaker AI Model Building Pipeline parameters to start execution of a SageMaker AI Model Building Pipeline.
 
             If you specify a SageMaker AI Model Building Pipeline as a target, you can use this to specify parameters to start a pipeline execution based on EventBridge events.
@@ -8341,12 +8334,12 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-sagemakerpipelineparameters
             '''
             result = self._values.get("sage_maker_pipeline_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.SageMakerPipelineParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SageMakerPipelineParametersProperty"]], result)
 
         @builtins.property
         def sqs_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.SqsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SqsParametersProperty"]]:
             '''Contains the message group ID to use when the target is an Amazon SQS fair or FIFO queue.
 
             If you specify a fair or FIFO queue as a target, the queue must have content-based deduplication enabled.
@@ -8354,7 +8347,7 @@ class CfnRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-rule-target.html#cfn-events-rule-target-sqsparameters
             '''
             result = self._values.get("sqs_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.SqsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.SqsParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8388,14 +8381,14 @@ class CfnRuleProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        event_bus_name: typing.Optional[typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]] = None,
+        event_bus_name: typing.Optional[typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]] = None,
         event_pattern: typing.Any = None,
         name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         schedule_expression: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRule``.
 
@@ -8445,7 +8438,7 @@ class CfnRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf)
+            type_hints = cached_type_hints(_typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -8487,7 +8480,7 @@ class CfnRuleProps:
     @builtins.property
     def event_bus_name(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]]:
         '''The name or ARN of the event bus associated with the rule.
 
         If you omit this, the default event bus is used.
@@ -8495,7 +8488,7 @@ class CfnRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-eventbusname
         '''
         result = self._values.get("event_bus_name")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]], result)
 
     @builtins.property
     def event_pattern(self) -> typing.Any:
@@ -8520,7 +8513,7 @@ class CfnRuleProps:
     @builtins.property
     def role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The Amazon Resource Name (ARN) of the role that is used for target invocation.
 
         If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
@@ -8528,7 +8521,7 @@ class CfnRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-rolearn
         '''
         result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def schedule_expression(self) -> typing.Optional[builtins.str]:
@@ -8561,18 +8554,18 @@ class CfnRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Any tags assigned to the event rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.TargetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.TargetProperty"]]]]:
         '''Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule.
 
         Targets are the resources that are invoked when a rule is triggered.
@@ -8628,7 +8621,7 @@ class CfnRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-targets
         '''
         result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.TargetProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.TargetProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8680,7 +8673,7 @@ class ConnectionAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630)
+            type_hints = cached_type_hints(_typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument connection_secret_arn", value=connection_secret_arn, expected_type=type_hints["connection_secret_arn"])
@@ -8778,7 +8771,7 @@ class ConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd)
+            type_hints = cached_type_hints(_typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd)
             check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
             check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
@@ -8920,7 +8913,7 @@ class CronOptions:
             rule.add_target(targets.LambdaFunction(fn))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de)
+            type_hints = cached_type_hints(_typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -9051,7 +9044,7 @@ class EventBusAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda)
+            type_hints = cached_type_hints(_typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda)
             check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
             check_type(argname="argument event_bus_policy", value=event_bus_policy, expected_type=type_hints["event_bus_policy"])
@@ -9139,24 +9132,27 @@ class EventBusGrants(
 
     @jsii.member(jsii_name="fromEventBus")
     @builtins.classmethod
-    def from_event_bus(cls, resource: "_IEventBusRef_aa86e9b4") -> "EventBusGrants":
+    def from_event_bus(
+        cls,
+        resource: "_aws_events_49a540ff.IEventBusRef",
+    ) -> "EventBusGrants":
         '''Creates grants for EventBusGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba7a45aeb8041abf98c164c1fefb79c4cfd2e21b154605ca852ffc2f1c0510d)
+            type_hints = cached_type_hints(_typecheckingstub__6ba7a45aeb8041abf98c164c1fefb79c4cfd2e21b154605ca852ffc2f1c0510d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("EventBusGrants", jsii.sinvoke(cls, "fromEventBus", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -9164,32 +9160,35 @@ class EventBusGrants(
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2ad5fe5a)
+            type_hints = cached_type_hints(_typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2ad5fe5a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="allPutEvents")
-    def all_put_events(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def all_put_events(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Permits an IAM Principal to send custom events to EventBridge so that they can be matched to rules.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d6d6e7cddbeeb94453138dae1073cb20bfce4e82a1d2aa1aec209ce5b28aead)
+            type_hints = cached_type_hints(_typecheckingstub__0d6d6e7cddbeeb94453138dae1073cb20bfce4e82a1d2aa1aec209ce5b28aead)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "allPutEvents", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "allPutEvents", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IEventBusRef_aa86e9b4":
-        return typing.cast("_IEventBusRef_aa86e9b4", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_events_49a540ff.IEventBusRef":
+        return typing.cast("_aws_events_49a540ff.IEventBusRef", jsii.get(self, "resource"))
 
 
 class EventBusPolicy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.EventBusPolicy",
 ):
@@ -9231,7 +9230,7 @@ class EventBusPolicy(
         id: builtins.str,
         *,
         event_bus: "IEventBus",
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         statement_id: builtins.str,
     ) -> None:
         '''
@@ -9242,7 +9241,7 @@ class EventBusPolicy(
         :param statement_id: An identifier string for the external account that you are granting permissions to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1)
+            type_hints = cached_type_hints(_typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EventBusPolicyProps(
@@ -9272,7 +9271,7 @@ class EventBusPolicyProps:
         self,
         *,
         event_bus: "IEventBus",
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         statement_id: builtins.str,
     ) -> None:
         '''Properties to associate Event Buses with a policy.
@@ -9300,7 +9299,7 @@ class EventBusPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da)
+            type_hints = cached_type_hints(_typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da)
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
@@ -9318,11 +9317,11 @@ class EventBusPolicyProps:
         return typing.cast("IEventBus", result)
 
     @builtins.property
-    def statement(self) -> "_PolicyStatement_0fe33853":
+    def statement(self) -> "_aws_iam_1f54b5e8.PolicyStatement":
         '''An IAM Policy Statement to apply to the Event Bus.'''
         result = self._values.get("statement")
         assert result is not None, "Required property 'statement' is missing"
-        return typing.cast("_PolicyStatement_0fe33853", result)
+        return typing.cast("_aws_iam_1f54b5e8.PolicyStatement", result)
 
     @builtins.property
     def statement_id(self) -> builtins.str:
@@ -9359,11 +9358,11 @@ class EventBusProps:
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
         description: typing.Optional[builtins.str] = None,
         event_bus_name: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         log_config: typing.Optional[typing.Union["LogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties to define an event bus.
@@ -9400,7 +9399,7 @@ class EventBusProps:
         if isinstance(log_config, dict):
             log_config = LogConfig(**log_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743)
+            type_hints = cached_type_hints(_typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
@@ -9422,7 +9421,7 @@ class EventBusProps:
             self._values["log_config"] = log_config
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Dead-letter queue for the event bus.
 
         :default: - no dead-letter queue
@@ -9430,7 +9429,7 @@ class EventBusProps:
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -9468,13 +9467,13 @@ class EventBusProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer managed key that encrypt events on this event bus.
 
         :default: - Use an AWS managed key
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def log_config(self) -> typing.Optional["LogConfig"]:
@@ -9557,7 +9556,7 @@ class EventCommonOptions:
         if isinstance(event_pattern, dict):
             event_pattern = EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433)
+            type_hints = cached_type_hints(_typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -9628,7 +9627,7 @@ class EventCommonOptions:
         )
 
 
-@jsii.implements(_IResolvable_da3f097b)
+@jsii.implements(_aws_cdk_0cae9daa.IResolvable)
 class EventField(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.EventField",
@@ -9660,18 +9659,18 @@ class EventField(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7)
+            type_hints = cached_type_hints(_typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "fromPath", [path]))
 
     @jsii.member(jsii_name="resolve")
-    def resolve(self, _ctx: "_IResolveContext_b2df1921") -> typing.Any:
+    def resolve(self, _ctx: "_aws_cdk_0cae9daa.IResolveContext") -> typing.Any:
         '''Produce the Token's value at resolution time.
 
         :param _ctx: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3)
+            type_hints = cached_type_hints(_typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3)
             check_type(argname="argument _ctx", value=_ctx, expected_type=type_hints["_ctx"])
         return typing.cast(typing.Any, jsii.invoke(self, "resolve", [_ctx]))
 
@@ -9830,7 +9829,7 @@ class EventPattern:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944)
+            type_hints = cached_type_hints(_typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
             check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
@@ -10026,13 +10025,13 @@ class HttpParameter(
 
     @jsii.member(jsii_name="fromSecret")
     @builtins.classmethod
-    def from_secret(cls, value: "_SecretValue_3dd0ddae") -> "HttpParameter":
+    def from_secret(cls, value: "_aws_cdk_0cae9daa.SecretValue") -> "HttpParameter":
         '''Make an OAuthParameter from a secret.
 
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749)
+            type_hints = cached_type_hints(_typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromSecret", [value]))
 
@@ -10046,7 +10045,7 @@ class HttpParameter(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5)
+            type_hints = cached_type_hints(_typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromString", [value]))
 
@@ -10060,8 +10059,8 @@ typing.cast(typing.Any, HttpParameter).__jsii_proxy_class__ = lambda : _HttpPara
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_events.IApiDestination")
 class IApiDestination(
-    _IResource_c80c4260,
-    _IApiDestinationRef_8cd0a954,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_events_49a540ff.IApiDestinationRef,
     typing_extensions.Protocol,
 ):
     '''Interface for API Destinations.'''
@@ -10096,8 +10095,8 @@ class IApiDestination(
 
 
 class _IApiDestinationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IApiDestinationRef_8cd0a954), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_events_49a540ff.IApiDestinationRef), # type: ignore[misc]
 ):
     '''Interface for API Destinations.'''
 
@@ -10137,8 +10136,8 @@ typing.cast(typing.Any, IApiDestination).__jsii_proxy_class__ = lambda : _IApiDe
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_events.IConnection")
 class IConnection(
-    _IResource_c80c4260,
-    _IConnectionRef_bea3332b,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_events_49a540ff.IConnectionRef,
     typing_extensions.Protocol,
 ):
     '''Interface for EventBus Connections.'''
@@ -10172,8 +10171,8 @@ class IConnection(
 
 
 class _IConnectionProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IConnectionRef_bea3332b), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_events_49a540ff.IConnectionRef), # type: ignore[misc]
 ):
     '''Interface for EventBus Connections.'''
 
@@ -10212,8 +10211,8 @@ typing.cast(typing.Any, IConnection).__jsii_proxy_class__ = lambda : _IConnectio
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEventBus")
 class IEventBus(
-    _IResource_c80c4260,
-    _IEventBusRef_aa86e9b4,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_events_49a540ff.IEventBusRef,
     typing_extensions.Protocol,
 ):
     '''Interface which all EventBus based classes MUST implement.'''
@@ -10265,8 +10264,8 @@ class IEventBus(
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Archive":
         '''Create an EventBridge archive to send events to.
 
@@ -10285,9 +10284,9 @@ class IEventBus(
     @jsii.member(jsii_name="grantPutEventsTo")
     def grant_put_events_to(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         sid: typing.Optional[builtins.str] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
 
         :param grantee: The principal (no-op if undefined).
@@ -10297,8 +10296,8 @@ class IEventBus(
 
 
 class _IEventBusProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IEventBusRef_aa86e9b4), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_events_49a540ff.IEventBusRef), # type: ignore[misc]
 ):
     '''Interface which all EventBus based classes MUST implement.'''
 
@@ -10351,8 +10350,8 @@ class _IEventBusProxy(
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Archive":
         '''Create an EventBridge archive to send events to.
 
@@ -10367,7 +10366,7 @@ class _IEventBusProxy(
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20)
+            type_hints = cached_type_hints(_typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseArchiveProps(
             event_pattern=event_pattern,
@@ -10382,26 +10381,30 @@ class _IEventBusProxy(
     @jsii.member(jsii_name="grantPutEventsTo")
     def grant_put_events_to(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         sid: typing.Optional[builtins.str] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
 
         :param grantee: The principal (no-op if undefined).
         :param sid: The Statement ID used if we need to add a trust policy on the event bus.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f)
+            type_hints = cached_type_hints(_typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IEventBus).__jsii_proxy_class__ = lambda : _IEventBusProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRule")
-class IRule(_IResource_c80c4260, _IRuleRef_4038a611, typing_extensions.Protocol):
+class IRule(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_events_49a540ff.IRuleRef,
+    typing_extensions.Protocol,
+):
     '''Represents an EventBridge Rule.'''
 
     @builtins.property
@@ -10424,8 +10427,8 @@ class IRule(_IResource_c80c4260, _IRuleRef_4038a611, typing_extensions.Protocol)
 
 
 class _IRuleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IRuleRef_4038a611), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_events_49a540ff.IRuleRef), # type: ignore[misc]
 ):
     '''Represents an EventBridge Rule.'''
 
@@ -10460,7 +10463,7 @@ class IRuleTarget(typing_extensions.Protocol):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: "_IRuleRef_4038a611",
+        rule: "_aws_events_49a540ff.IRuleRef",
         id: typing.Optional[builtins.str] = None,
     ) -> "RuleTargetConfig":
         '''Returns the rule target specification.
@@ -10481,7 +10484,7 @@ class _IRuleTargetProxy:
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: "_IRuleRef_4038a611",
+        rule: "_aws_events_49a540ff.IRuleRef",
         id: typing.Optional[builtins.str] = None,
     ) -> "RuleTargetConfig":
         '''Returns the rule target specification.
@@ -10492,7 +10495,7 @@ class _IRuleTargetProxy:
         :param id: The id of the target that will be attached to the rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb)
+            type_hints = cached_type_hints(_typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("RuleTargetConfig", jsii.invoke(self, "bind", [rule, id]))
@@ -10598,7 +10601,7 @@ class LogConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__198ca7d856a2573ae11c3570c27c6ff5d3b3d059abd28650a790b698a11f30b9)
+            type_hints = cached_type_hints(_typecheckingstub__198ca7d856a2573ae11c3570c27c6ff5d3b3d059abd28650a790b698a11f30b9)
             check_type(argname="argument include_detail", value=include_detail, expected_type=type_hints["include_detail"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10637,7 +10640,7 @@ class LogConfig:
         )
 
 
-@jsii.implements(_IResolvable_da3f097b)
+@jsii.implements(_aws_cdk_0cae9daa.IResolvable)
 class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
     '''An event pattern matcher.
 
@@ -10677,7 +10680,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param matchers: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa)
+            type_hints = cached_type_hints(_typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa)
             check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "allOf", [*matchers]))
 
@@ -10689,7 +10692,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param matchers: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae)
+            type_hints = cached_type_hints(_typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae)
             check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anyOf", [*matchers]))
 
@@ -10704,7 +10707,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6)
+            type_hints = cached_type_hints(_typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingBut", [*values]))
 
@@ -10719,7 +10722,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7)
+            type_hints = cached_type_hints(_typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButEqualsIgnoreCase", [*values]))
 
@@ -10731,7 +10734,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090)
+            type_hints = cached_type_hints(_typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButPrefix", [*values]))
 
@@ -10743,7 +10746,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9)
+            type_hints = cached_type_hints(_typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButSuffix", [*values]))
 
@@ -10755,7 +10758,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01)
+            type_hints = cached_type_hints(_typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButWildcard", [*values]))
 
@@ -10767,7 +10770,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50)
+            type_hints = cached_type_hints(_typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50)
             check_type(argname="argument range", value=range, expected_type=type_hints["range"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "cidr", [range]))
 
@@ -10785,7 +10788,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89)
+            type_hints = cached_type_hints(_typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equal", [value]))
 
@@ -10797,7 +10800,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758)
+            type_hints = cached_type_hints(_typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equalsIgnoreCase", [value]))
 
@@ -10809,7 +10812,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e)
+            type_hints = cached_type_hints(_typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "exactString", [value]))
 
@@ -10827,7 +10830,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868)
+            type_hints = cached_type_hints(_typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThan", [value]))
 
@@ -10839,7 +10842,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833)
+            type_hints = cached_type_hints(_typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThanOrEqual", [value]))
 
@@ -10858,7 +10861,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param upper: Upper bound (inclusive).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7)
+            type_hints = cached_type_hints(_typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7)
             check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
             check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "interval", [lower, upper]))
@@ -10873,7 +10876,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc)
+            type_hints = cached_type_hints(_typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc)
             check_type(argname="argument range", value=range, expected_type=type_hints["range"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "ipAddressRange", [range]))
 
@@ -10885,7 +10888,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904)
+            type_hints = cached_type_hints(_typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThan", [value]))
 
@@ -10897,7 +10900,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386)
+            type_hints = cached_type_hints(_typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThanOrEqual", [value]))
 
@@ -10915,7 +10918,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586)
+            type_hints = cached_type_hints(_typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefix", [value]))
 
@@ -10930,7 +10933,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf)
+            type_hints = cached_type_hints(_typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefixEqualsIgnoreCase", [value]))
 
@@ -10942,7 +10945,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2)
+            type_hints = cached_type_hints(_typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffix", [value]))
 
@@ -10957,7 +10960,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad)
+            type_hints = cached_type_hints(_typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffixEqualsIgnoreCase", [value]))
 
@@ -10969,7 +10972,7 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2)
+            type_hints = cached_type_hints(_typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "wildcard", [value]))
 
@@ -10979,13 +10982,13 @@ class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "asList", []))
 
     @jsii.member(jsii_name="resolve")
-    def resolve(self, context: "_IResolveContext_b2df1921") -> typing.Any:
+    def resolve(self, context: "_aws_cdk_0cae9daa.IResolveContext") -> typing.Any:
         '''Produce the Token's value at resolution time.
 
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840)
+            type_hints = cached_type_hints(_typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(typing.Any, jsii.invoke(self, "resolve", [context]))
 
@@ -11027,7 +11030,7 @@ class OAuthAuthorizationProps:
         *,
         authorization_endpoint: builtins.str,
         client_id: builtins.str,
-        client_secret: "_SecretValue_3dd0ddae",
+        client_secret: "_aws_cdk_0cae9daa.SecretValue",
         http_method: "HttpMethod",
         body_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
@@ -11074,7 +11077,7 @@ class OAuthAuthorizationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4)
+            type_hints = cached_type_hints(_typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4)
             check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
@@ -11110,11 +11113,11 @@ class OAuthAuthorizationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def client_secret(self) -> "_SecretValue_3dd0ddae":
+    def client_secret(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The client secret associated with the client ID to use for OAuth authorization for the connection.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
-        return typing.cast("_SecretValue_3dd0ddae", result)
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", result)
 
     @builtins.property
     def http_method(self) -> "HttpMethod":
@@ -11222,7 +11225,7 @@ class OnEventOptions(EventCommonOptions):
         if isinstance(event_pattern, dict):
             event_pattern = EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24)
+            type_hints = cached_type_hints(_typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -11307,7 +11310,7 @@ class OnEventOptions(EventCommonOptions):
 
 @jsii.implements(IRule)
 class Rule(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.Rule",
 ):
@@ -11342,8 +11345,8 @@ class Rule(
         id: builtins.str,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        event_bus: typing.Optional["_aws_events_49a540ff.IEventBusRef"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
         schedule: typing.Optional["Schedule"] = None,
         targets: typing.Optional[typing.Sequence["IRuleTarget"]] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
@@ -11365,7 +11368,7 @@ class Rule(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4)
+            type_hints = cached_type_hints(_typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RuleProps(
@@ -11397,7 +11400,7 @@ class Rule(
         :param event_rule_arn: Event Rule ARN (i.e. arn:aws:events:::rule/MyScheduledRule).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e)
+            type_hints = cached_type_hints(_typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_rule_arn", value=event_rule_arn, expected_type=type_hints["event_rule_arn"])
@@ -11483,7 +11486,7 @@ class Rule(
         :param target: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3)
+            type_hints = cached_type_hints(_typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast(None, jsii.invoke(self, "addTarget", [target]))
 
@@ -11511,9 +11514,9 @@ class Rule(
 
     @builtins.property
     @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "_RuleReference_38eeaae2":
+    def rule_ref(self) -> "_aws_events_49a540ff.RuleReference":
         '''A reference to a Rule resource.'''
-        return typing.cast("_RuleReference_38eeaae2", jsii.get(self, "ruleRef"))
+        return typing.cast("_aws_events_49a540ff.RuleReference", jsii.get(self, "ruleRef"))
 
 
 @jsii.data_type(
@@ -11540,8 +11543,8 @@ class RuleProps(EventCommonOptions):
         event_pattern: typing.Optional[typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional["_IEventBusRef_aa86e9b4"] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        event_bus: typing.Optional["_aws_events_49a540ff.IEventBusRef"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
         schedule: typing.Optional["Schedule"] = None,
         targets: typing.Optional[typing.Sequence["IRuleTarget"]] = None,
     ) -> None:
@@ -11581,7 +11584,7 @@ class RuleProps(EventCommonOptions):
         if isinstance(event_pattern, dict):
             event_pattern = EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830)
+            type_hints = cached_type_hints(_typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -11665,16 +11668,16 @@ class RuleProps(EventCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def event_bus(self) -> typing.Optional["_IEventBusRef_aa86e9b4"]:
+    def event_bus(self) -> typing.Optional["_aws_events_49a540ff.IEventBusRef"]:
         '''The event bus to associate with this rule.
 
         :default: - The default event bus.
         '''
         result = self._values.get("event_bus")
-        return typing.cast(typing.Optional["_IEventBusRef_aa86e9b4"], result)
+        return typing.cast(typing.Optional["_aws_events_49a540ff.IEventBusRef"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The role that is used for target invocation.
 
         Must be assumable by principal ``events.amazonaws.com``.
@@ -11682,7 +11685,7 @@ class RuleProps(EventCommonOptions):
         :default: - No role associated
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional["Schedule"]:
@@ -11758,7 +11761,7 @@ class RuleTargetConfig:
         kinesis_parameters: typing.Optional[typing.Union["CfnRule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         redshift_data_parameters: typing.Optional[typing.Union["CfnRule.RedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         retry_policy: typing.Optional[typing.Union["CfnRule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         run_command_parameters: typing.Optional[typing.Union["CfnRule.RunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         sqs_parameters: typing.Optional[typing.Union["CfnRule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         target_resource: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
@@ -11920,7 +11923,7 @@ class RuleTargetConfig:
         if isinstance(sqs_parameters, dict):
             sqs_parameters = CfnRule.SqsParametersProperty(**sqs_parameters)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab)
+            type_hints = cached_type_hints(_typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             check_type(argname="argument app_sync_parameters", value=app_sync_parameters, expected_type=type_hints["app_sync_parameters"])
             check_type(argname="argument batch_parameters", value=batch_parameters, expected_type=type_hints["batch_parameters"])
@@ -12058,10 +12061,10 @@ class RuleTargetConfig:
         return typing.cast(typing.Optional["CfnRule.RetryPolicyProperty"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role to use to invoke this event target.'''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def run_command_parameters(
@@ -12150,7 +12153,7 @@ class RuleTargetInput(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023)
+            type_hints = cached_type_hints(_typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromEventPath", [path]))
 
@@ -12168,7 +12171,7 @@ class RuleTargetInput(
         :param text: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a)
+            type_hints = cached_type_hints(_typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a)
             check_type(argname="argument text", value=text, expected_type=type_hints["text"])
         return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromMultilineText", [text]))
 
@@ -12185,7 +12188,7 @@ class RuleTargetInput(
         :return: RuleTargetInput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0)
+            type_hints = cached_type_hints(_typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
 
@@ -12204,13 +12207,16 @@ class RuleTargetInput(
         :param text: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a)
+            type_hints = cached_type_hints(_typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a)
             check_type(argname="argument text", value=text, expected_type=type_hints["text"])
         return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, rule: "_IRuleRef_4038a611") -> "RuleTargetInputProperties":
+    def bind(
+        self,
+        rule: "_aws_events_49a540ff.IRuleRef",
+    ) -> "RuleTargetInputProperties":
         '''Return the input properties for this input object.
 
         :param rule: -
@@ -12220,13 +12226,16 @@ class RuleTargetInput(
 
 class _RuleTargetInputProxy(RuleTargetInput):
     @jsii.member(jsii_name="bind")
-    def bind(self, rule: "_IRuleRef_4038a611") -> "RuleTargetInputProperties":
+    def bind(
+        self,
+        rule: "_aws_events_49a540ff.IRuleRef",
+    ) -> "RuleTargetInputProperties":
         '''Return the input properties for this input object.
 
         :param rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6)
+            type_hints = cached_type_hints(_typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
         return typing.cast("RuleTargetInputProperties", jsii.invoke(self, "bind", [rule]))
 
@@ -12278,7 +12287,7 @@ class RuleTargetInputProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93)
+            type_hints = cached_type_hints(_typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93)
             check_type(argname="argument input", value=input, expected_type=type_hints["input"])
             check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
             check_type(argname="argument input_paths_map", value=input_paths_map, expected_type=type_hints["input_paths_map"])
@@ -12420,13 +12429,13 @@ class Schedule(
         :param expression: The expression to use. Must be in a format that EventBridge will recognize
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de)
+            type_hints = cached_type_hints(_typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
 
     @jsii.member(jsii_name="rate")
     @builtins.classmethod
-    def rate(cls, duration: "_Duration_4839e8c3") -> "Schedule":
+    def rate(cls, duration: "_aws_cdk_0cae9daa.Duration") -> "Schedule":
         '''Construct a schedule from an interval and a time unit.
 
         Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
@@ -12434,7 +12443,7 @@ class Schedule(
         :param duration: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775)
+            type_hints = cached_type_hints(_typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
         return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [duration]))
 
@@ -12459,7 +12468,7 @@ typing.cast(typing.Any, Schedule).__jsii_proxy_class__ = lambda : _ScheduleProxy
 
 @jsii.implements(IApiDestination)
 class ApiDestination(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.ApiDestination",
 ):
@@ -12492,7 +12501,7 @@ class ApiDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connection: "_IConnectionRef_bea3332b",
+        connection: "_aws_events_49a540ff.IConnectionRef",
         endpoint: builtins.str,
         api_destination_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -12510,7 +12519,7 @@ class ApiDestination(
         :param rate_limit_per_second: The maximum number of requests per second to send to the HTTP invocation endpoint. Default: - Not rate limited
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248)
+            type_hints = cached_type_hints(_typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApiDestinationProps(
@@ -12532,7 +12541,7 @@ class ApiDestination(
         id: builtins.str,
         *,
         api_destination_arn: builtins.str,
-        connection: "_IConnectionRef_bea3332b",
+        connection: "_aws_events_49a540ff.IConnectionRef",
         api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
     ) -> "IApiDestination":
         '''Create an Api Destination construct from an existing Api Destination ARN.
@@ -12544,7 +12553,7 @@ class ApiDestination(
         :param api_destination_arn_for_policy: The Amazon Resource Name (ARN) of an API destination in resource format. Default: undefined - Imported API destination does not have ARN in resource format
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55)
+            type_hints = cached_type_hints(_typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApiDestinationAttributes(
@@ -12581,9 +12590,9 @@ class ApiDestination(
 
     @builtins.property
     @jsii.member(jsii_name="apiDestinationRef")
-    def api_destination_ref(self) -> "_ApiDestinationReference_6371608b":
+    def api_destination_ref(self) -> "_aws_events_49a540ff.ApiDestinationReference":
         '''A reference to a ApiDestination resource.'''
-        return typing.cast("_ApiDestinationReference_6371608b", jsii.get(self, "apiDestinationRef"))
+        return typing.cast("_aws_events_49a540ff.ApiDestinationReference", jsii.get(self, "apiDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connection")
@@ -12620,9 +12629,9 @@ class ArchiveProps(BaseArchiveProps):
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
-        source_event_bus: "_IEventBusRef_aa86e9b4",
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        source_event_bus: "_aws_events_49a540ff.IEventBusRef",
     ) -> None:
         '''The event archive properties.
 
@@ -12658,7 +12667,7 @@ class ArchiveProps(BaseArchiveProps):
         if isinstance(event_pattern, dict):
             event_pattern = EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a)
+            type_hints = cached_type_hints(_typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a)
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -12704,16 +12713,16 @@ class ArchiveProps(BaseArchiveProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer managed key that encrypts this archive.
 
         :default: - Use an AWS managed key
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
-    def retention(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of days to retain events for.
 
         Default value is 0. If set to 0, events are retained indefinitely.
@@ -12721,14 +12730,14 @@ class ArchiveProps(BaseArchiveProps):
         :default: - Infinite
         '''
         result = self._values.get("retention")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def source_event_bus(self) -> "_IEventBusRef_aa86e9b4":
+    def source_event_bus(self) -> "_aws_events_49a540ff.IEventBusRef":
         '''The event source associated with the archive.'''
         result = self._values.get("source_event_bus")
         assert result is not None, "Required property 'source_event_bus' is missing"
-        return typing.cast("_IEventBusRef_aa86e9b4", result)
+        return typing.cast("_aws_events_49a540ff.IEventBusRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12744,7 +12753,7 @@ class ArchiveProps(BaseArchiveProps):
 
 @jsii.implements(IConnection)
 class Connection(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.Connection",
 ):
@@ -12795,7 +12804,7 @@ class Connection(
         :param query_string_parameters: Additional string parameters to add to the invocation query strings. Default: - No additional parameters
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da2fbb9d9aca6e4bdd83f7fbdc28dd04bfbd545aac1b8b461f82276fe5c37590)
+            type_hints = cached_type_hints(_typecheckingstub__da2fbb9d9aca6e4bdd83f7fbdc28dd04bfbd545aac1b8b461f82276fe5c37590)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ConnectionProps(
@@ -12829,7 +12838,7 @@ class Connection(
         :param connection_secret_arn: The ARN for the secret created for the connection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39546e202f8b904a9f429bdfe5d4774d35950d1c879b9afa942e2b072e1d2f96)
+            type_hints = cached_type_hints(_typecheckingstub__39546e202f8b904a9f429bdfe5d4774d35950d1c879b9afa942e2b072e1d2f96)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ConnectionAttributes(
@@ -12857,7 +12866,7 @@ class Connection(
         :param connection_secret_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6b837c9a3eb8a178063667e0fd7ca578ad6afdf5543e2dff2ab7cb9cfe23479)
+            type_hints = cached_type_hints(_typecheckingstub__a6b837c9a3eb8a178063667e0fd7ca578ad6afdf5543e2dff2ab7cb9cfe23479)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
@@ -12890,9 +12899,9 @@ class Connection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_d427d036":
+    def connection_ref(self) -> "_aws_events_49a540ff.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_d427d036", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_events_49a540ff.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionSecretArn")
@@ -12904,9 +12913,9 @@ class Connection(
         return typing.cast(builtins.str, jsii.get(self, "connectionSecretArn"))
 
 
-@jsii.implements(IEventBus, _IResourceWithPolicy_720d64fc)
+@jsii.implements(IEventBus, _aws_iam_1f54b5e8.IResourceWithPolicy)
 class EventBus(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events.EventBus",
 ):
@@ -12934,11 +12943,11 @@ class EventBus(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
         description: typing.Optional[builtins.str] = None,
         event_bus_name: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         log_config: typing.Optional[typing.Union["LogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -12952,7 +12961,7 @@ class EventBus(
         :param log_config: The Logging Configuration of the Èvent Bus. Default: - no logging
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a51d19a0503daf5e05f08738b44a6276eaa23c373c99735de37b1247783380)
+            type_hints = cached_type_hints(_typecheckingstub__95a51d19a0503daf5e05f08738b44a6276eaa23c373c99735de37b1247783380)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EventBusProps(
@@ -12981,7 +12990,7 @@ class EventBus(
         :param event_bus_arn: ARN of imported event bus.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c01d0d6109dc6c32062005a38a921ee3bd9ec0310a58b9bf040e5e110ad6662)
+            type_hints = cached_type_hints(_typecheckingstub__4c01d0d6109dc6c32062005a38a921ee3bd9ec0310a58b9bf040e5e110ad6662)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
@@ -13009,7 +13018,7 @@ class EventBus(
         :param event_source_name: The partner event source to associate with this event bus resource. Default: - no partner event source
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__312487800830b8336739bba829e9940273f688f53a85243cb67da19a08500f8a)
+            type_hints = cached_type_hints(_typecheckingstub__312487800830b8336739bba829e9940273f688f53a85243cb67da19a08500f8a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = EventBusAttributes(
@@ -13036,7 +13045,7 @@ class EventBus(
         :param event_bus_name: Name of imported event bus.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aaf817b3285a0a2f2d1e46bc7656e850adf53e5e8bf835d338405389e80cc83)
+            type_hints = cached_type_hints(_typecheckingstub__1aaf817b3285a0a2f2d1e46bc7656e850adf53e5e8bf835d338405389e80cc83)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
@@ -13044,29 +13053,32 @@ class EventBus(
 
     @jsii.member(jsii_name="grantAllPutEvents")
     @builtins.classmethod
-    def grant_all_put_events(cls, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_all_put_events(
+        cls,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Permits an IAM Principal to send custom events to EventBridge so that they can be matched to rules.
 
         :param grantee: The principal (no-op if undefined).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fed9a8cccfdc1457b0341354bb8be1e6aebf5409ceb8ed23d53caca9855da556)
+            type_hints = cached_type_hints(_typecheckingstub__fed9a8cccfdc1457b0341354bb8be1e6aebf5409ceb8ed23d53caca9855da556)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.sinvoke(cls, "grantAllPutEvents", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.sinvoke(cls, "grantAllPutEvents", [grantee]))
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this event bus.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcda98e9db8fbe81fa193241696958b25fbecea76202994665f1248cb6047edb)
+            type_hints = cached_type_hints(_typecheckingstub__dcda98e9db8fbe81fa193241696958b25fbecea76202994665f1248cb6047edb)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="archive")
     def archive(
@@ -13076,8 +13088,8 @@ class EventBus(
         event_pattern: typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]],
         archive_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        retention: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Archive":
         '''Create an EventBridge archive to send events to.
 
@@ -13092,7 +13104,7 @@ class EventBus(
         :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7330918630167c372966fe4a86452f34a261c80460ae944bcce168d6bd12a42e)
+            type_hints = cached_type_hints(_typecheckingstub__7330918630167c372966fe4a86452f34a261c80460ae944bcce168d6bd12a42e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseArchiveProps(
             event_pattern=event_pattern,
@@ -13107,19 +13119,19 @@ class EventBus(
     @jsii.member(jsii_name="grantPutEventsTo")
     def grant_put_events_to(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         sid: typing.Optional[builtins.str] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param sid: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f55b55b311ab4cc3f0aabb9339086b97d1f1340dcc28209fe5e78777c8287a4f)
+            type_hints = cached_type_hints(_typecheckingstub__f55b55b311ab4cc3f0aabb9339086b97d1f1340dcc28209fe5e78777c8287a4f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -13147,9 +13159,9 @@ class EventBus(
 
     @builtins.property
     @jsii.member(jsii_name="eventBusRef")
-    def event_bus_ref(self) -> "_EventBusReference_f9e830e1":
+    def event_bus_ref(self) -> "_aws_events_49a540ff.EventBusReference":
         '''A reference to a EventBus resource.'''
-        return typing.cast("_EventBusReference_f9e830e1", jsii.get(self, "eventBusRef"))
+        return typing.cast("_aws_events_49a540ff.EventBusReference", jsii.get(self, "eventBusRef"))
 
     @builtins.property
     @jsii.member(jsii_name="grants")
@@ -13225,7 +13237,7 @@ publication.publish()
 def _typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f61949617c8303(
     *,
     api_destination_arn: builtins.str,
-    connection: _IConnectionRef_bea3332b,
+    connection: _aws_events_49a540ff.IConnectionRef,
     api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13233,7 +13245,7 @@ def _typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f619496
 
 def _typecheckingstub__ce93e81ddac7a0ebc3fe6cf2783ea61dde8338f099332864ff087db25f7e83f2(
     *,
-    connection: _IConnectionRef_bea3332b,
+    connection: _aws_events_49a540ff.IConnectionRef,
     endpoint: builtins.str,
     api_destination_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -13247,26 +13259,26 @@ def _typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    source_event_bus: _IEventBusRef_aa86e9b4,
+    source_event_bus: _aws_events_49a540ff.IEventBusRef,
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c1331281a4d4f30a55bbc4c2df4724214f80ba502a79887809dcaea60d199ad6(
     api_key_name: builtins.str,
-    api_key_value: _SecretValue_3dd0ddae,
+    api_key_value: _aws_cdk_0cae9daa.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__93976c44807796885af88c4eb7f87febdf6c37a2b7f6b43be5ef6b5de408f5b7(
     username: builtins.str,
-    password: _SecretValue_3dd0ddae,
+    password: _aws_cdk_0cae9daa.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13276,8 +13288,8 @@ def _typecheckingstub__74aa160eedb5cb0d834ff82193fc6747b652d04f044891f2ad16f69e1
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13297,7 +13309,7 @@ def _typecheckingstub__0c7f09c3557e2395656d23b74c8de1fbe1e4a3b537284c9d270edc631
     pass
 
 def _typecheckingstub__a0cae8b33c8b49b1bead3c0542aea7eb4c47c3be3a5a1f83b4ec2b74afcf156e(
-    resource: _IApiDestinationRef_8cd0a954,
+    resource: _aws_events_49a540ff.IApiDestinationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13325,7 +13337,7 @@ def _typecheckingstub__03852a348e44939388fe432a4f88399e34da1c9348e0dc7d975b92d39
     pass
 
 def _typecheckingstub__158c0bb8fa8e9ef1c2e58e89a44ebad609986b410e381f81aedd0308a9e35b28(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13388,7 +13400,7 @@ def _typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
+    source_arn: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     event_pattern: typing.Any = None,
@@ -13399,7 +13411,7 @@ def _typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db
     pass
 
 def _typecheckingstub__161b63ac9964567b1ba2caf77f9e06c3631ebb1a6e4a30c2cdf293b2361d5a3e(
-    resource: _IArchiveRef_e95a5adc,
+    resource: _aws_events_49a540ff.IArchiveRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13427,7 +13439,7 @@ def _typecheckingstub__62e68cb7d7bd3c03c192afc468cfc689af9ad7931588c293e0e3ecaf6
     pass
 
 def _typecheckingstub__c7da996869ac9a69e8a63a58883200e217a1913f5d321926f7ab5c4ebb3e56a6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13476,7 +13488,7 @@ def _typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743
 
 def _typecheckingstub__f8d605e2ff54dddadf4166fbd47f7e65ae554a5e5f40fa2fffd0d8af83ab1a27(
     *,
-    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
+    source_arn: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     event_pattern: typing.Any = None,
@@ -13491,9 +13503,9 @@ def _typecheckingstub__65bde9b35de094b905dd335652d04503af85c50ac027a006a1d7ec926
     id: builtins.str,
     *,
     authorization_type: typing.Optional[builtins.str] = None,
-    auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auth_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    invocation_connectivity_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13501,7 +13513,7 @@ def _typecheckingstub__65bde9b35de094b905dd335652d04503af85c50ac027a006a1d7ec926
     pass
 
 def _typecheckingstub__b2ce066c4a5776b233d8f4b573d46a37a1d8d445cfddda110ef4bb5fcc33d95e(
-    resource: _IConnectionRef_bea3332b,
+    resource: _aws_events_49a540ff.IConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13529,7 +13541,7 @@ def _typecheckingstub__85b6bcbbdae5d8b84fd207336ebe856ec8e0508ade868885cb0dbbfe7
     pass
 
 def _typecheckingstub__192a6c229918a43504bd57de4e35ae7938880d0c805afe4cc4c5905924754719(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13547,7 +13559,7 @@ def _typecheckingstub__4f51f33cc16a16fcb52edb95bbc7ef5dd0bb5f97e31dd1f331adaf42e
     pass
 
 def _typecheckingstub__57b3dc84742623dcc9dcc433aac0b117093002aa9686131e642748038958b67c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.AuthParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnection.AuthParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13559,7 +13571,7 @@ def _typecheckingstub__54690fb07d8735df46ac3a0fbbb08bc7751c169d7f6279762e7c5a75a
     pass
 
 def _typecheckingstub__81977d37ca8e880d59a06a5f2212ea535fd65a2615c824916ce07bd93b7898c6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.InvocationConnectivityParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnection.InvocationConnectivityParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13586,11 +13598,11 @@ def _typecheckingstub__9a07e0adada885b28691df62967d623089f87e9ad21364c3157fda510
 
 def _typecheckingstub__275274c5764ab04c0351742be5fa771325f59e577af1fd2bd8c5306778231c93(
     *,
-    api_key_auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ApiKeyAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.BasicAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    invocation_http_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ConnectionHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    o_auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.OAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key_auth_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ApiKeyAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.BasicAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connectivity_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    invocation_http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ConnectionHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.OAuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13613,23 +13625,23 @@ def _typecheckingstub__dcc207d1f7d2c244f2a4824bd91d64f8a0b2e06e54d27db44713f7222
 
 def _typecheckingstub__b9ae8ee23a5317795bd33d0e7fc34a3c5640054e2c0935aae4946e13db2924a9(
     *,
-    body_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    body_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    header_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__33c7d626f351801c0e5c2a06bd389d7558efdda62a9c5e57e56c95f7346a6705(
     *,
-    resource_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ResourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ResourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__324fa6a8fead2e11e8b201f6b9228a1d65a475ee71a64e3091b494c74aac5047(
     *,
-    resource_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ResourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ResourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13637,9 +13649,9 @@ def _typecheckingstub__324fa6a8fead2e11e8b201f6b9228a1d65a475ee71a64e3091b494c74
 def _typecheckingstub__ff4894a687d225d2abe4e8f40bbb8da3ca3008e8c5ef15ab97ea71d1c1bdc016(
     *,
     authorization_endpoint: builtins.str,
-    client_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ClientParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    client_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ClientParametersProperty, typing.Dict[builtins.str, typing.Any]]],
     http_method: builtins.str,
-    o_auth_http_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ConnectionHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ConnectionHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13648,7 +13660,7 @@ def _typecheckingstub__8ef124487a6c31dc58a802230e7bf50f962f08be9cde1fb39c45b429d
     *,
     key: builtins.str,
     value: builtins.str,
-    is_value_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_value_secret: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13664,9 +13676,9 @@ def _typecheckingstub__143ae1a5978f064d9c3d0cf9135ec11575d46a15edec3f754457cec0c
 def _typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394(
     *,
     authorization_type: typing.Optional[builtins.str] = None,
-    auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auth_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    invocation_connectivity_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13677,18 +13689,18 @@ def _typecheckingstub__66aefb2196270463c6a9f2eea0dcb5bb280d90c63f36870b21785e675
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    routing_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    event_buses: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    routing_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f8ddc899f477e5672e02d37bba97ef20e204d1e86007175c85b66e50ffa82e8(
-    resource: _IEndpointRef_c14d05f7,
+    resource: _aws_events_49a540ff.IEndpointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13716,7 +13728,7 @@ def _typecheckingstub__33f28ab4c0c6992718dc6190e8e62615f27f5defa131d01638af62d2d
     pass
 
 def _typecheckingstub__575b3a669c9a519cfd6641ef37eb4e16de10be20251ac40d8d954a8cac93bb17(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13728,13 +13740,13 @@ def _typecheckingstub__716352ea7fa8084ecd957a59639fb88407f626778738f2762eefd8ae1
     pass
 
 def _typecheckingstub__972c29f2305a2ffc4c61e64280a4cc1c7a9f28b7849723ebfeb9e3449e71c464(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEndpoint.EndpointEventBusProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpoint.EndpointEventBusProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d5bef1b7f72abe13cf04f54e260d2e6a569b0e8ede87c0a74a572abc5b25ee79(
-    value: typing.Union[_IResolvable_da3f097b, CfnEndpoint.RoutingConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpoint.RoutingConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13752,7 +13764,7 @@ def _typecheckingstub__11fe922782f50568e3ebd4d2ac2bb6bc2d08b472b1fde20240989a6bb
     pass
 
 def _typecheckingstub__9ecb7f890854a348489c6940c1dfe6066330e5f35de49b82f8b873e94d071696(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.ReplicationConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpoint.ReplicationConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13772,8 +13784,8 @@ def _typecheckingstub__e1f21223690e2ba328df68f2bf47433c220f98cfbc82eb4a85e51234f
 
 def _typecheckingstub__b42916db1b95f2e6d0cd64280c17a2f7714b89f772aceb1a2e79d3ad8f91100c(
     *,
-    primary: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.PrimaryProperty, typing.Dict[builtins.str, typing.Any]]],
-    secondary: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.SecondaryProperty, typing.Dict[builtins.str, typing.Any]]],
+    primary: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.PrimaryProperty, typing.Dict[builtins.str, typing.Any]]],
+    secondary: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.SecondaryProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13794,7 +13806,7 @@ def _typecheckingstub__da130899a302d15593848daea18ba36c0ec934f696625579c49dc27f8
 
 def _typecheckingstub__bb920c43205382c47b384a4f5a95790c721c305fbce0e81779b6196d4dbab724(
     *,
-    failover_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    failover_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13808,11 +13820,11 @@ def _typecheckingstub__10ed22a75ce918facd2cde1e3af59f0911c13aa279839f3d5a348cfb7
 
 def _typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144(
     *,
-    event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    routing_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    event_buses: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    routing_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13823,19 +13835,19 @@ def _typecheckingstub__5766595a149723459145d9f55c6afa7ed3017d49f4af7cec85e0fffe2
     id: builtins.str,
     *,
     name: builtins.str,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1f0fbdf4c12588b3a856d5449204a8cf2b449b8010d4f1e89075b9a88eba5ff8(
-    resource: _IEventBusRef_aa86e9b4,
+    resource: _aws_events_49a540ff.IEventBusRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13863,7 +13875,7 @@ def _typecheckingstub__091f7eff38f5ea99cb84c9fb7f831326037f2f17dc70be10bcdecaf91
     pass
 
 def _typecheckingstub__505cff6efff7c5a6d5cba375be4fe0f0f9042abf1bfc4636e8e005ac832fdd64(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13887,7 +13899,7 @@ def _typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8
     pass
 
 def _typecheckingstub__fc97dfb9dbc0d381febd2f96730220d379dd42692f2f5998d93180f615e3faf2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.DeadLetterConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventBus.DeadLetterConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13911,13 +13923,13 @@ def _typecheckingstub__1899d0d8378d7d8ade574708aa2d0221794e2fcd5f946287a6f238e59
     pass
 
 def _typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventBus.LogConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7839bb5f17e47516f1a7287848eb4905b08ca899cd21b2544645df1f4bedb748(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13943,7 +13955,7 @@ def _typecheckingstub__c6df7e81a60de40e0e425694b7757e614a634ac89c7c10147ca4c8078
     *,
     statement_id: builtins.str,
     action: typing.Optional[builtins.str] = None,
-    condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     event_bus_name: typing.Optional[builtins.str] = None,
     principal: typing.Optional[builtins.str] = None,
     statement: typing.Any = None,
@@ -13958,7 +13970,7 @@ def _typecheckingstub__383f48122273cac320bdfe62008ed104ed6254446e174c375c50c2964
     pass
 
 def _typecheckingstub__43660ff79c4bb5d3dcfccef7663666ea8471435b4e127736142c8674ff831a94(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13988,7 +14000,7 @@ def _typecheckingstub__bcd347224161e85adfa279f5dab03f537e7906903484fdcf448b1743f
     pass
 
 def _typecheckingstub__943673445f639e091d2714db2c8444519639dcb838909fe5e10e37f077e90315(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBusPolicy.ConditionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventBusPolicy.ConditionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14018,7 +14030,7 @@ def _typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b
     *,
     statement_id: builtins.str,
     action: typing.Optional[builtins.str] = None,
-    condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     event_bus_name: typing.Optional[builtins.str] = None,
     principal: typing.Optional[builtins.str] = None,
     statement: typing.Any = None,
@@ -14029,13 +14041,13 @@ def _typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b
 def _typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9(
     *,
     name: builtins.str,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14045,20 +14057,20 @@ def _typecheckingstub__e06314755e55e41a2976ff974daa36bbbb473330c92c9fef111b716f2
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    event_bus_name: typing.Optional[typing.Union[builtins.str, _IEventBusRef_aa86e9b4]] = None,
+    event_bus_name: typing.Optional[typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef]] = None,
     event_pattern: typing.Any = None,
     name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47ddfdaa73e35b2bbb6599aa98e79e69ad6f7c74c287b09d3525d778ee3c984a(
-    resource: _IRuleRef_4038a611,
+    resource: _aws_events_49a540ff.IRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14078,7 +14090,7 @@ def _typecheckingstub__964d4d619e63da02ff655b74f91097fab7fe500578cb6d7addb261473
     pass
 
 def _typecheckingstub__ddbfbd801b401354321b5360dd9e23260e0e36736b18305fcaefba787fb928e1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14132,13 +14144,13 @@ def _typecheckingstub__08542b68c4470a8f44e4a04ee382bb40e94dc161aad2f92bfa79298da
     pass
 
 def _typecheckingstub__4daedf0bf9c9ce5671a843d87568d852259b36183898da9f395d6fb1b1a1e974(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0b3ddab1471338782440504c486a52daa0e3a535b2209abca3766744b2fabcfc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRule.TargetProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRule.TargetProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14170,8 +14182,8 @@ def _typecheckingstub__8d0089b34c40cfca04fac3f5986b0a65a2d11af3d33de0b070d18a10d
     *,
     job_definition: builtins.str,
     job_name: builtins.str,
-    array_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.BatchArrayPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.BatchRetryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    array_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.BatchArrayPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.BatchRetryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14202,18 +14214,18 @@ def _typecheckingstub__6ba31e7177aeb828112cd7e43f85c22b5debfb1b73bc843f93f39600d
 def _typecheckingstub__ca7c7356595fbbf690b3042b0aca8ce2d8827d85b48a9a2f58a4f05f1dd77037(
     *,
     task_definition_arn: builtins.str,
-    capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    capacity_provider_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     group: typing.Optional[builtins.str] = None,
     launch_type: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    placement_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement_constraints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_strategies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     platform_version: typing.Optional[builtins.str] = None,
     propagate_tags: typing.Optional[builtins.str] = None,
     reference_id: typing.Optional[builtins.str] = None,
-    tag_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tag_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     task_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14221,9 +14233,9 @@ def _typecheckingstub__ca7c7356595fbbf690b3042b0aca8ce2d8827d85b48a9a2f58a4f05f1
 
 def _typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413603e262(
     *,
-    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    header_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14231,7 +14243,7 @@ def _typecheckingstub__e070c286b05f9b8c290e58cc12a24f67364e1027f09cd3d5f4b4a7413
 def _typecheckingstub__8522462011c60f4061bf027a1209a1ecdeb26e93459566abb5448778090139f1(
     *,
     input_template: builtins.str,
-    input_paths_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    input_paths_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14245,7 +14257,7 @@ def _typecheckingstub__829bff3d03625c441fc8300a5d63a901487be45624b5f4fb28b115918
 
 def _typecheckingstub__4cd75303a5d5d6f5cc40a933fd3738e5ad3f5f00e114c2f135db668e1b35ebe0(
     *,
-    aws_vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14274,7 +14286,7 @@ def _typecheckingstub__183646a052d824f887b6e170455aff3fbf5557ac2188f001395f11ea4
     sql: typing.Optional[builtins.str] = None,
     sqls: typing.Optional[typing.Sequence[builtins.str]] = None,
     statement_name: typing.Optional[builtins.str] = None,
-    with_event: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    with_event: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14289,7 +14301,7 @@ def _typecheckingstub__5d7e2f390319b907344c9d4e1c06839acfbd0380b76b994eba693de45
 
 def _typecheckingstub__ba2c466b6c37f78405e07895ca35deca7f4905633684a6022656f9421cbf97da(
     *,
-    run_command_targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RunCommandTargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    run_command_targets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RunCommandTargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14312,7 +14324,7 @@ def _typecheckingstub__a1c9a0352987f0249e3a0dfc847384bb6956d68f2cec367886e69813c
 
 def _typecheckingstub__4f80c01dd29d706ded8cb6af7adf4f6ad1dc7be401fc156c8baefd62ef50fe49(
     *,
-    pipeline_parameter_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    pipeline_parameter_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14336,21 +14348,21 @@ def _typecheckingstub__0bb173839da3c22730cab96567bb586361722029ca0fab74f2c0ebd9e
     *,
     arn: builtins.str,
     id: builtins.str,
-    app_sync_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.AppSyncParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    batch_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.BatchParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_sync_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.AppSyncParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    batch_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.BatchParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input: typing.Optional[builtins.str] = None,
     input_path: typing.Optional[builtins.str] = None,
-    input_transformer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.InputTransformerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift_data_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_transformer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.InputTransformerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift_data_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    run_command_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_command_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14358,14 +14370,14 @@ def _typecheckingstub__0bb173839da3c22730cab96567bb586361722029ca0fab74f2c0ebd9e
 def _typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf(
     *,
     description: typing.Optional[builtins.str] = None,
-    event_bus_name: typing.Optional[typing.Union[builtins.str, _IEventBusRef_aa86e9b4]] = None,
+    event_bus_name: typing.Optional[typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef]] = None,
     event_pattern: typing.Any = None,
     name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14414,13 +14426,13 @@ def _typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a79033
     pass
 
 def _typecheckingstub__6ba7a45aeb8041abf98c164c1fefb79c4cfd2e21b154605ca852ffc2f1c0510d(
-    resource: _IEventBusRef_aa86e9b4,
+    resource: _aws_events_49a540ff.IEventBusRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2ad5fe5a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14429,7 +14441,7 @@ def _typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2
     pass
 
 def _typecheckingstub__0d6d6e7cddbeeb94453138dae1073cb20bfce4e82a1d2aa1aec209ce5b28aead(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14439,7 +14451,7 @@ def _typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def95
     id: builtins.str,
     *,
     event_bus: IEventBus,
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
     statement_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -14448,7 +14460,7 @@ def _typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def95
 def _typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da(
     *,
     event_bus: IEventBus,
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
     statement_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -14456,11 +14468,11 @@ def _typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd78
 
 def _typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
     description: typing.Optional[builtins.str] = None,
     event_bus_name: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14483,7 +14495,7 @@ def _typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b
     pass
 
 def _typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3(
-    _ctx: _IResolveContext_b2df1921,
+    _ctx: _aws_cdk_0cae9daa.IResolveContext,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14504,7 +14516,7 @@ def _typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc
     pass
 
 def _typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749(
-    value: _SecretValue_3dd0ddae,
+    value: _aws_cdk_0cae9daa.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14521,21 +14533,21 @@ def _typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     sid: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb(
-    rule: _IRuleRef_4038a611,
+    rule: _aws_events_49a540ff.IRuleRef,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14683,7 +14695,7 @@ def _typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caa
     pass
 
 def _typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840(
-    context: _IResolveContext_b2df1921,
+    context: _aws_cdk_0cae9daa.IResolveContext,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14692,7 +14704,7 @@ def _typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd2070271
     *,
     authorization_endpoint: builtins.str,
     client_id: builtins.str,
-    client_secret: _SecretValue_3dd0ddae,
+    client_secret: _aws_cdk_0cae9daa.SecretValue,
     http_method: HttpMethod,
     body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
     header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
@@ -14717,8 +14729,8 @@ def _typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9
     id: builtins.str,
     *,
     enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[_IEventBusRef_aa86e9b4] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    event_bus: typing.Optional[_aws_events_49a540ff.IEventBusRef] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
     schedule: typing.Optional[Schedule] = None,
     targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
@@ -14750,8 +14762,8 @@ def _typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586
     event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[_IEventBusRef_aa86e9b4] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    event_bus: typing.Optional[_aws_events_49a540ff.IEventBusRef] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
     schedule: typing.Optional[Schedule] = None,
     targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
 ) -> None:
@@ -14770,7 +14782,7 @@ def _typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f124
     kinesis_parameters: typing.Optional[typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     redshift_data_parameters: typing.Optional[typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     retry_policy: typing.Optional[typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     run_command_parameters: typing.Optional[typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     sqs_parameters: typing.Optional[typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     target_resource: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
@@ -14803,7 +14815,7 @@ def _typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f
     pass
 
 def _typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6(
-    rule: _IRuleRef_4038a611,
+    rule: _aws_events_49a540ff.IRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14825,7 +14837,7 @@ def _typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b371
     pass
 
 def _typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775(
-    duration: _Duration_4839e8c3,
+    duration: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14834,7 +14846,7 @@ def _typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade8
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    connection: _IConnectionRef_bea3332b,
+    connection: _aws_events_49a540ff.IConnectionRef,
     endpoint: builtins.str,
     api_destination_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -14849,7 +14861,7 @@ def _typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110f
     id: builtins.str,
     *,
     api_destination_arn: builtins.str,
-    connection: _IConnectionRef_bea3332b,
+    connection: _aws_events_49a540ff.IConnectionRef,
     api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14860,9 +14872,9 @@ def _typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421a
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
-    source_event_bus: _IEventBusRef_aa86e9b4,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    source_event_bus: _aws_events_49a540ff.IEventBusRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14905,11 +14917,11 @@ def _typecheckingstub__95a51d19a0503daf5e05f08738b44a6276eaa23c373c99735de37b124
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
     description: typing.Optional[builtins.str] = None,
     event_bus_name: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14944,13 +14956,13 @@ def _typecheckingstub__1aaf817b3285a0a2f2d1e46bc7656e850adf53e5e8bf835d338405389
     pass
 
 def _typecheckingstub__fed9a8cccfdc1457b0341354bb8be1e6aebf5409ceb8ed23d53caca9855da556(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dcda98e9db8fbe81fa193241696958b25fbecea76202994665f1248cb6047edb(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14961,14 +14973,14 @@ def _typecheckingstub__7330918630167c372966fe4a86452f34a261c80460ae944bcce168d6b
     event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
     archive_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f55b55b311ab4cc3f0aabb9339086b97d1f1340dcc28209fe5e78777c8287a4f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     sid: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

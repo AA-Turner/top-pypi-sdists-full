@@ -109,6 +109,8 @@ queue2 = sqs.Queue(self, "Queue",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -122,73 +124,44 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    EncryptedPermissionsOptions as _EncryptedPermissionsOptions_b31d980a,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    GrantOnKeyResult as _GrantOnKeyResult_35320c49,
-    IEncryptedResource as _IEncryptedResource_8e9bf351,
-    IGrantable as _IGrantable_71c4f5de,
-    IResourceWithPolicyV2 as _IResourceWithPolicyV2_01035ec6,
-    PolicyDocument as _PolicyDocument_3ac34393,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..interfaces.aws_kms import (
-    IAliasRef as _IAliasRef_43fafabd, IKeyRef as _IKeyRef_d4fc6ef3
-)
-from ..interfaces.aws_sqs import (
-    IQueueInlinePolicyRef as _IQueueInlinePolicyRef_be43bfb1,
-    IQueuePolicyRef as _IQueuePolicyRef_dc2b5987,
-    IQueueRef as _IQueueRef_fa8b2198,
-    QueueInlinePolicyReference as _QueueInlinePolicyReference_cb191fd1,
-    QueuePolicyReference as _QueuePolicyReference_358cc47f,
-    QueueReference as _QueueReference_f2e39de6,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_sqs as _aws_sqs_5e3fc237
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_sqs_5e3fc237 = _LazyImport("aws_cdk.interfaces.aws_sqs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueRef_fa8b2198, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sqs_5e3fc237.IQueueRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnQueue(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sqs.CfnQueue",
 ):
@@ -250,21 +223,21 @@ class CfnQueue(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         deduplication_scope: typing.Optional[builtins.str] = None,
         delay_seconds: typing.Optional[jsii.Number] = None,
-        fifo_queue: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        fifo_queue: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         fifo_throughput_limit: typing.Optional[builtins.str] = None,
         kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-        kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]] = None,
+        kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
         maximum_message_size: typing.Optional[jsii.Number] = None,
         message_retention_period: typing.Optional[jsii.Number] = None,
         queue_name: typing.Optional[builtins.str] = None,
         receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
         redrive_allow_policy: typing.Any = None,
         redrive_policy: typing.Any = None,
-        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         visibility_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::SQS::Queue``.
@@ -289,7 +262,7 @@ class CfnQueue(
         :param visibility_timeout: The length of time during which a message will be unavailable after a message is delivered from the queue. This blocks other components from receiving the same message and gives the initial component time to process and delete the message from the queue. Values must be from 0 to 43,200 seconds (12 hours). If you don't specify a value, AWS CloudFormation uses the default value of 30 seconds. For more information about Amazon SQS queue visibility timeouts, see `Visibility timeout <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>`_ in the *Amazon SQS Developer Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409e2c9f3a)
+            type_hints = cached_type_hints(_typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409e2c9f3a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueProps(
@@ -315,12 +288,12 @@ class CfnQueue(
 
     @jsii.member(jsii_name="arnForQueue")
     @builtins.classmethod
-    def arn_for_queue(cls, resource: "_IQueueRef_fa8b2198") -> builtins.str:
+    def arn_for_queue(cls, resource: "_aws_sqs_5e3fc237.IQueueRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__722a92eb0cd4ca74862788bfdd1e2c8f0a2a7b6e0dbce380469836d36ed717ad)
+            type_hints = cached_type_hints(_typecheckingstub__722a92eb0cd4ca74862788bfdd1e2c8f0a2a7b6e0dbce380469836d36ed717ad)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForQueue", [resource]))
 
@@ -332,18 +305,18 @@ class CfnQueue(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7060868a08b81bbb2617d578c1ba0a42166eea4bc6de349534e007a6ef2dab9c)
+            type_hints = cached_type_hints(_typecheckingstub__7060868a08b81bbb2617d578c1ba0a42166eea4bc6de349534e007a6ef2dab9c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueue", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2edac588147bdde110e32931a1f527ce029c9c91623ac9467d77dfcabed1ecf)
+            type_hints = cached_type_hints(_typecheckingstub__e2edac588147bdde110e32931a1f527ce029c9c91623ac9467d77dfcabed1ecf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -356,7 +329,7 @@ class CfnQueue(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__236dcd91758bc5c11159f148d82348c81a166a523238d27a181e043a66bcc984)
+            type_hints = cached_type_hints(_typecheckingstub__236dcd91758bc5c11159f148d82348c81a166a523238d27a181e043a66bcc984)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -409,15 +382,15 @@ class CfnQueue(
 
     @builtins.property
     @jsii.member(jsii_name="queueRef")
-    def queue_ref(self) -> "_QueueReference_f2e39de6":
+    def queue_ref(self) -> "_aws_sqs_5e3fc237.QueueReference":
         '''A reference to a Queue resource.'''
-        return typing.cast("_QueueReference_f2e39de6", jsii.get(self, "queueRef"))
+        return typing.cast("_aws_sqs_5e3fc237.QueueReference", jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="redriveAllowPolicy")
@@ -428,7 +401,7 @@ class CfnQueue(
     @redrive_allow_policy.setter
     def redrive_allow_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
+            type_hints = cached_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -441,7 +414,7 @@ class CfnQueue(
     @redrive_policy.setter
     def redrive_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
+            type_hints = cached_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -449,17 +422,17 @@ class CfnQueue(
     @jsii.member(jsii_name="contentBasedDeduplication")
     def content_based_deduplication(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "contentBasedDeduplication"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "contentBasedDeduplication"))
 
     @content_based_deduplication.setter
     def content_based_deduplication(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a)
+            type_hints = cached_type_hints(_typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contentBasedDeduplication", value) # pyright: ignore[reportArgumentType]
 
@@ -472,7 +445,7 @@ class CfnQueue(
     @deduplication_scope.setter
     def deduplication_scope(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0abc4529ef387826e6c0bff9743cc2c96bf5954528897f415976030c126eb284)
+            type_hints = cached_type_hints(_typecheckingstub__0abc4529ef387826e6c0bff9743cc2c96bf5954528897f415976030c126eb284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deduplicationScope", value) # pyright: ignore[reportArgumentType]
 
@@ -485,7 +458,7 @@ class CfnQueue(
     @delay_seconds.setter
     def delay_seconds(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c5037721)
+            type_hints = cached_type_hints(_typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c5037721)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "delaySeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -493,17 +466,17 @@ class CfnQueue(
     @jsii.member(jsii_name="fifoQueue")
     def fifo_queue(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If set to true, creates a FIFO queue.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "fifoQueue"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "fifoQueue"))
 
     @fifo_queue.setter
     def fifo_queue(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462)
+            type_hints = cached_type_hints(_typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fifoQueue", value) # pyright: ignore[reportArgumentType]
 
@@ -516,7 +489,7 @@ class CfnQueue(
     @fifo_throughput_limit.setter
     def fifo_throughput_limit(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d81525207b63d054bcd4ad3923d013ce7a65791f9a60cd09fcd751ba890a497)
+            type_hints = cached_type_hints(_typecheckingstub__0d81525207b63d054bcd4ad3923d013ce7a65791f9a60cd09fcd751ba890a497)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fifoThroughputLimit", value) # pyright: ignore[reportArgumentType]
 
@@ -532,7 +505,7 @@ class CfnQueue(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40f27d3914d194bf6b93118da1158c0d806d038253664b21c384b71b0b744cad)
+            type_hints = cached_type_hints(_typecheckingstub__40f27d3914d194bf6b93118da1158c0d806d038253664b21c384b71b0b744cad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsDataKeyReusePeriodSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -545,7 +518,7 @@ class CfnQueue(
     @kms_master_key_id.setter
     def kms_master_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1edd65cddbda9f734e1f85edbd60c8f32a77bb83366989f21ee37ba463ea4730)
+            type_hints = cached_type_hints(_typecheckingstub__1edd65cddbda9f734e1f85edbd60c8f32a77bb83366989f21ee37ba463ea4730)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsMasterKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -558,7 +531,7 @@ class CfnQueue(
     @maximum_message_size.setter
     def maximum_message_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0937348e9f5cb274266edef6ef289172f6dbb7546a90caff469f117d34471978)
+            type_hints = cached_type_hints(_typecheckingstub__0937348e9f5cb274266edef6ef289172f6dbb7546a90caff469f117d34471978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumMessageSize", value) # pyright: ignore[reportArgumentType]
 
@@ -571,7 +544,7 @@ class CfnQueue(
     @message_retention_period.setter
     def message_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21a661a987567c72d08c78c8144420eba8cbb11eb7636f08fc060fd84e608fce)
+            type_hints = cached_type_hints(_typecheckingstub__21a661a987567c72d08c78c8144420eba8cbb11eb7636f08fc060fd84e608fce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "messageRetentionPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -584,7 +557,7 @@ class CfnQueue(
     @queue_name.setter
     def queue_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61dd4da399)
+            type_hints = cached_type_hints(_typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61dd4da399)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queueName", value) # pyright: ignore[reportArgumentType]
 
@@ -600,7 +573,7 @@ class CfnQueue(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
+            type_hints = cached_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "receiveMessageWaitTimeSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -608,30 +581,33 @@ class CfnQueue(
     @jsii.member(jsii_name="sqsManagedSseEnabled")
     def sqs_managed_sse_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables server-side queue encryption using SQS owned encryption keys.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "sqsManagedSseEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "sqsManagedSseEnabled"))
 
     @sqs_managed_sse_enabled.setter
     def sqs_managed_sse_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186)
+            type_hints = cached_type_hints(_typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sqsManagedSseEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you attach to this queue.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b)
+            type_hints = cached_type_hints(_typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -644,14 +620,14 @@ class CfnQueue(
     @visibility_timeout.setter
     def visibility_timeout(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48cda16b71aad6d8bf96a8fd88f815146f039d81c6d0d808d2369955e4d3538f)
+            type_hints = cached_type_hints(_typecheckingstub__48cda16b71aad6d8bf96a8fd88f815146f039d81c6d0d808d2369955e4d3538f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visibilityTimeout", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueInlinePolicyRef_be43bfb1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sqs_5e3fc237.IQueueInlinePolicyRef)
 class CfnQueueInlinePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sqs.CfnQueueInlinePolicy",
 ):
@@ -691,7 +667,7 @@ class CfnQueueInlinePolicy(
         :param queue: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html)`` resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a4a58f0061e5bc1b45f4a41f066d63064e48860dda7c96bf6a78c07d708be3e)
+            type_hints = cached_type_hints(_typecheckingstub__5a4a58f0061e5bc1b45f4a41f066d63064e48860dda7c96bf6a78c07d708be3e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueInlinePolicyProps(policy_document=policy_document, queue=queue)
@@ -706,18 +682,18 @@ class CfnQueueInlinePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e41b828a0c06179aa89228128eee8515c5c8d09477d1bbddbd89adfd24d7154)
+            type_hints = cached_type_hints(_typecheckingstub__6e41b828a0c06179aa89228128eee8515c5c8d09477d1bbddbd89adfd24d7154)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueueInlinePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c076ea64b445e3d9bfc6e9a477574b1c255cf5b418bca5369a75bae6dd0d4c0f)
+            type_hints = cached_type_hints(_typecheckingstub__c076ea64b445e3d9bfc6e9a477574b1c255cf5b418bca5369a75bae6dd0d4c0f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -730,7 +706,7 @@ class CfnQueueInlinePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0acb8c97b52293a176d172b05d5b2fdd9fe43cb2bf6842374eef4f6e6c7d3ca)
+            type_hints = cached_type_hints(_typecheckingstub__c0acb8c97b52293a176d172b05d5b2fdd9fe43cb2bf6842374eef4f6e6c7d3ca)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -752,9 +728,9 @@ class CfnQueueInlinePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="queueInlinePolicyRef")
-    def queue_inline_policy_ref(self) -> "_QueueInlinePolicyReference_cb191fd1":
+    def queue_inline_policy_ref(self) -> "_aws_sqs_5e3fc237.QueueInlinePolicyReference":
         '''A reference to a QueueInlinePolicy resource.'''
-        return typing.cast("_QueueInlinePolicyReference_cb191fd1", jsii.get(self, "queueInlinePolicyRef"))
+        return typing.cast("_aws_sqs_5e3fc237.QueueInlinePolicyReference", jsii.get(self, "queueInlinePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -765,7 +741,7 @@ class CfnQueueInlinePolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aac3822f2f3ec918fc858517bd93cecb6a600209491929c794eccc0e1e537ca)
+            type_hints = cached_type_hints(_typecheckingstub__1aac3822f2f3ec918fc858517bd93cecb6a600209491929c794eccc0e1e537ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -778,7 +754,7 @@ class CfnQueueInlinePolicy(
     @queue.setter
     def queue(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4d38d11b)
+            type_hints = cached_type_hints(_typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4d38d11b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queue", value) # pyright: ignore[reportArgumentType]
 
@@ -812,7 +788,7 @@ class CfnQueueInlinePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a76413e8e4d74861fa5e81d44930c6b14048fb5d7282c90c3b79ab22ad70f0)
+            type_hints = cached_type_hints(_typecheckingstub__02a76413e8e4d74861fa5e81d44930c6b14048fb5d7282c90c3b79ab22ad70f0)
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -856,9 +832,9 @@ class CfnQueueInlinePolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueuePolicyRef_dc2b5987)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sqs_5e3fc237.IQueuePolicyRef)
 class CfnQueuePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sqs.CfnQueuePolicy",
 ):
@@ -900,7 +876,7 @@ class CfnQueuePolicy(
         :param queues: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html)`` resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf0938ca02c83217053a748eaced04a040ecea55f727e4a44ff3eff90a9ea987)
+            type_hints = cached_type_hints(_typecheckingstub__cf0938ca02c83217053a748eaced04a040ecea55f727e4a44ff3eff90a9ea987)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueuePolicyProps(policy_document=policy_document, queues=queues)
@@ -915,18 +891,18 @@ class CfnQueuePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c72ef4b40a0179ae873c04bb3ffd839742965b348dad00f6d4f0730497f15822)
+            type_hints = cached_type_hints(_typecheckingstub__c72ef4b40a0179ae873c04bb3ffd839742965b348dad00f6d4f0730497f15822)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueuePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d559da0e8ce42a9494dc47b11b1fa822e7527d123a88ce573a75312016b2724)
+            type_hints = cached_type_hints(_typecheckingstub__0d559da0e8ce42a9494dc47b11b1fa822e7527d123a88ce573a75312016b2724)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -939,7 +915,7 @@ class CfnQueuePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd0cd9a724185c298ed861735fbe510352de3936c44fb3421515423fc1bf35f)
+            type_hints = cached_type_hints(_typecheckingstub__0fd0cd9a724185c298ed861735fbe510352de3936c44fb3421515423fc1bf35f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -970,9 +946,9 @@ class CfnQueuePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="queuePolicyRef")
-    def queue_policy_ref(self) -> "_QueuePolicyReference_358cc47f":
+    def queue_policy_ref(self) -> "_aws_sqs_5e3fc237.QueuePolicyReference":
         '''A reference to a QueuePolicy resource.'''
-        return typing.cast("_QueuePolicyReference_358cc47f", jsii.get(self, "queuePolicyRef"))
+        return typing.cast("_aws_sqs_5e3fc237.QueuePolicyReference", jsii.get(self, "queuePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -983,7 +959,7 @@ class CfnQueuePolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b9b0dce5)
+            type_hints = cached_type_hints(_typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b9b0dce5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -996,7 +972,7 @@ class CfnQueuePolicy(
     @queues.setter
     def queues(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d)
+            type_hints = cached_type_hints(_typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queues", value) # pyright: ignore[reportArgumentType]
 
@@ -1035,7 +1011,7 @@ class CfnQueuePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aea0967b759b2f27be1496e2fdd3f2d8ccffc42a6f0c89bee2521656680b104)
+            type_hints = cached_type_hints(_typecheckingstub__8aea0967b759b2f27be1496e2fdd3f2d8ccffc42a6f0c89bee2521656680b104)
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument queues", value=queues, expected_type=type_hints["queues"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1105,21 +1081,21 @@ class CfnQueueProps:
     def __init__(
         self,
         *,
-        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         deduplication_scope: typing.Optional[builtins.str] = None,
         delay_seconds: typing.Optional[jsii.Number] = None,
-        fifo_queue: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        fifo_queue: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         fifo_throughput_limit: typing.Optional[builtins.str] = None,
         kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-        kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]] = None,
+        kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
         maximum_message_size: typing.Optional[jsii.Number] = None,
         message_retention_period: typing.Optional[jsii.Number] = None,
         queue_name: typing.Optional[builtins.str] = None,
         receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
         redrive_allow_policy: typing.Any = None,
         redrive_policy: typing.Any = None,
-        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         visibility_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnQueue``.
@@ -1177,7 +1153,7 @@ class CfnQueueProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fdefcde5dbe865461bead4520126014a0ec05bd2ffb75d2c2800ff3030754b3)
+            type_hints = cached_type_hints(_typecheckingstub__8fdefcde5dbe865461bead4520126014a0ec05bd2ffb75d2c2800ff3030754b3)
             check_type(argname="argument content_based_deduplication", value=content_based_deduplication, expected_type=type_hints["content_based_deduplication"])
             check_type(argname="argument deduplication_scope", value=deduplication_scope, expected_type=type_hints["deduplication_scope"])
             check_type(argname="argument delay_seconds", value=delay_seconds, expected_type=type_hints["delay_seconds"])
@@ -1231,7 +1207,7 @@ class CfnQueueProps:
     @builtins.property
     def content_based_deduplication(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication.
 
         During the deduplication interval, Amazon SQS treats messages that are sent with identical content as duplicates and delivers only one copy of the message. For more information, see the ``ContentBasedDeduplication`` attribute for the ``[CreateQueue](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html)`` action in the *Amazon SQS API Reference* .
@@ -1239,7 +1215,7 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html#cfn-sqs-queue-contentbaseddeduplication
         '''
         result = self._values.get("content_based_deduplication")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def deduplication_scope(self) -> typing.Optional[builtins.str]:
@@ -1268,7 +1244,7 @@ class CfnQueueProps:
     @builtins.property
     def fifo_queue(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If set to true, creates a FIFO queue.
 
         If you don't specify this property, Amazon SQS creates a standard queue. For more information, see `Amazon SQS FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html>`_ in the *Amazon SQS Developer Guide* .
@@ -1276,7 +1252,7 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html#cfn-sqs-queue-fifoqueue
         '''
         result = self._values.get("fifo_queue")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def fifo_throughput_limit(self) -> typing.Optional[builtins.str]:
@@ -1308,7 +1284,7 @@ class CfnQueueProps:
     @builtins.property
     def kms_master_key_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]]:
         '''The ID of an AWS Key Management Service (KMS) for Amazon SQS , or a custom KMS.
 
         To use the AWS managed KMS for Amazon SQS , specify a (default) alias ARN, alias name (for example ``alias/aws/sqs`` ), key ARN, or key ID. For more information, see the following:
@@ -1321,7 +1297,7 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html#cfn-sqs-queue-kmsmasterkeyid
         '''
         result = self._values.get("kms_master_key_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def maximum_message_size(self) -> typing.Optional[jsii.Number]:
@@ -1421,7 +1397,7 @@ class CfnQueueProps:
     @builtins.property
     def sqs_managed_sse_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables server-side queue encryption using SQS owned encryption keys.
 
         Only one server-side encryption option is supported per queue (for example, `SSE-KMS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html>`_ or `SSE-SQS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html>`_ ). When ``SqsManagedSseEnabled`` is not defined, ``SSE-SQS`` encryption is enabled by default.
@@ -1429,10 +1405,10 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html#cfn-sqs-queue-sqsmanagedsseenabled
         '''
         result = self._values.get("sqs_managed_sse_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you attach to this queue.
 
         For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *CloudFormation User Guide* .
@@ -1440,7 +1416,7 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html#cfn-sqs-queue-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def visibility_timeout(self) -> typing.Optional[jsii.Number]:
@@ -1497,7 +1473,7 @@ class DeadLetterQueue:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0da853146e002899643e154ec7e028c4d8126479377d4ec0f4604053d8341c65)
+            type_hints = cached_type_hints(_typecheckingstub__0da853146e002899643e154ec7e028c4d8126479377d4ec0f4604053d8341c65)
             check_type(argname="argument max_receive_count", value=max_receive_count, expected_type=type_hints["max_receive_count"])
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1552,7 +1528,11 @@ class FifoThroughputLimit(enum.Enum):
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_sqs.IQueue")
-class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protocol):
+class IQueue(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_sqs_5e3fc237.IQueueRef,
+    typing_extensions.Protocol,
+):
     '''Represents an SQS queue.'''
 
     @builtins.property
@@ -1593,7 +1573,7 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
 
     @builtins.property
     @jsii.member(jsii_name="encryptionMasterKey")
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''If this queue is server-side encrypted, this is the KMS encryption key.'''
         ...
 
@@ -1606,8 +1586,8 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this queue.
 
         If this queue was created in this stack (``new Queue``), a queue policy
@@ -1621,9 +1601,9 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *queue_actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in queueActions to the identity Principal given on this SQS queue resource.
 
         :param grantee: Principal to grant right to.
@@ -1634,8 +1614,8 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
     @jsii.member(jsii_name="grantConsumeMessages")
     def grant_consume_messages(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to consume messages from a queue.
 
         This will grant the following permissions:
@@ -1651,7 +1631,10 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         ...
 
     @jsii.member(jsii_name="grantPurge")
-    def grant_purge(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_purge(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant an IAM principal permissions to purge all messages from the queue.
 
         This will grant the following permissions:
@@ -1665,7 +1648,10 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         ...
 
     @jsii.member(jsii_name="grantSendMessages")
-    def grant_send_messages(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_messages(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to send messages to a queue to the given identity.
 
         This will grant the following permissions:
@@ -1688,14 +1674,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Queue.
 
         :param metric_name: -
@@ -1723,14 +1709,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The approximate age of the oldest non-deleted message in the queue.
 
         Maximum over 5 minutes
@@ -1759,14 +1745,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages in the queue that are delayed and not available for reading immediately.
 
         Maximum over 5 minutes
@@ -1795,14 +1781,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages that are in flight.
 
         Maximum over 5 minutes
@@ -1831,14 +1817,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages available for retrieval from the queue.
 
         Maximum over 5 minutes
@@ -1867,14 +1853,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of ReceiveMessage API calls that did not return a message.
 
         Sum over 5 minutes
@@ -1903,14 +1889,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages deleted from the queue.
 
         Sum over 5 minutes
@@ -1939,14 +1925,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages returned by calls to the ReceiveMessage action.
 
         Sum over 5 minutes
@@ -1975,14 +1961,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages added to a queue.
 
         Sum over 5 minutes
@@ -2011,14 +1997,14 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The size of messages added to a queue.
 
         Average over 5 minutes
@@ -2040,8 +2026,8 @@ class IQueue(_IResource_c80c4260, _IQueueRef_fa8b2198, typing_extensions.Protoco
 
 
 class _IQueueProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IQueueRef_fa8b2198), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_sqs_5e3fc237.IQueueRef), # type: ignore[misc]
 ):
     '''Represents an SQS queue.'''
 
@@ -2085,9 +2071,9 @@ class _IQueueProxy(
 
     @builtins.property
     @jsii.member(jsii_name="encryptionMasterKey")
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''If this queue is server-side encrypted, this is the KMS encryption key.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionMasterKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionMasterKey"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
@@ -2098,8 +2084,8 @@ class _IQueueProxy(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this queue.
 
         If this queue was created in this stack (``new Queue``), a queue policy
@@ -2109,32 +2095,32 @@ class _IQueueProxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea0451819e2455c6ee9b50f403e68931b5e90e379366b4341546882871994f5d)
+            type_hints = cached_type_hints(_typecheckingstub__ea0451819e2455c6ee9b50f403e68931b5e90e379366b4341546882871994f5d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *queue_actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in queueActions to the identity Principal given on this SQS queue resource.
 
         :param grantee: Principal to grant right to.
         :param queue_actions: The actions to grant.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a27eed791bc165454bda377834d5e6dc523a1816052181a1d4e6edf424e7744f)
+            type_hints = cached_type_hints(_typecheckingstub__a27eed791bc165454bda377834d5e6dc523a1816052181a1d4e6edf424e7744f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument queue_actions", value=queue_actions, expected_type=typing.Tuple[type_hints["queue_actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *queue_actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *queue_actions]))
 
     @jsii.member(jsii_name="grantConsumeMessages")
     def grant_consume_messages(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to consume messages from a queue.
 
         This will grant the following permissions:
@@ -2148,12 +2134,15 @@ class _IQueueProxy(
         :param grantee: Principal to grant consume rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5da94a52ae7998debd568a5368198659935145c2960a17f24cdcc61e106618b)
+            type_hints = cached_type_hints(_typecheckingstub__e5da94a52ae7998debd568a5368198659935145c2960a17f24cdcc61e106618b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantConsumeMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantConsumeMessages", [grantee]))
 
     @jsii.member(jsii_name="grantPurge")
-    def grant_purge(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_purge(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant an IAM principal permissions to purge all messages from the queue.
 
         This will grant the following permissions:
@@ -2165,12 +2154,15 @@ class _IQueueProxy(
         :param grantee: Principal to grant send rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__259c1cbbca404fd7b306bfb8e05e77c1d36743bd55e1212ceecf383f245d6244)
+            type_hints = cached_type_hints(_typecheckingstub__259c1cbbca404fd7b306bfb8e05e77c1d36743bd55e1212ceecf383f245d6244)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPurge", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPurge", [grantee]))
 
     @jsii.member(jsii_name="grantSendMessages")
-    def grant_send_messages(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_messages(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to send messages to a queue to the given identity.
 
         This will grant the following permissions:
@@ -2182,9 +2174,9 @@ class _IQueueProxy(
         :param grantee: Principal to grant send rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c96217067b025063a2c6673c914a427a61983f12646083c578096402bb248abb)
+            type_hints = cached_type_hints(_typecheckingstub__c96217067b025063a2c6673c914a427a61983f12646083c578096402bb248abb)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSendMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSendMessages", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -2196,14 +2188,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Queue.
 
         :param metric_name: -
@@ -2221,9 +2213,9 @@ class _IQueueProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dc9d740764123624195584bb5156ec848518db29961d3251cb049c755259d70)
+            type_hints = cached_type_hints(_typecheckingstub__0dc9d740764123624195584bb5156ec848518db29961d3251cb049c755259d70)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2238,7 +2230,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricApproximateAgeOfOldestMessage")
     def metric_approximate_age_of_oldest_message(
@@ -2249,14 +2241,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The approximate age of the oldest non-deleted message in the queue.
 
         Maximum over 5 minutes
@@ -2274,7 +2266,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2289,7 +2281,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateAgeOfOldestMessage", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateAgeOfOldestMessage", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesDelayed")
     def metric_approximate_number_of_messages_delayed(
@@ -2300,14 +2292,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages in the queue that are delayed and not available for reading immediately.
 
         Maximum over 5 minutes
@@ -2325,7 +2317,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2340,7 +2332,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesDelayed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesDelayed", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesNotVisible")
     def metric_approximate_number_of_messages_not_visible(
@@ -2351,14 +2343,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages that are in flight.
 
         Maximum over 5 minutes
@@ -2376,7 +2368,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2391,7 +2383,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesVisible")
     def metric_approximate_number_of_messages_visible(
@@ -2402,14 +2394,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages available for retrieval from the queue.
 
         Maximum over 5 minutes
@@ -2427,7 +2419,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2442,7 +2434,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesVisible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesVisible", [props]))
 
     @jsii.member(jsii_name="metricNumberOfEmptyReceives")
     def metric_number_of_empty_receives(
@@ -2453,14 +2445,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of ReceiveMessage API calls that did not return a message.
 
         Sum over 5 minutes
@@ -2478,7 +2470,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2493,7 +2485,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfEmptyReceives", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfEmptyReceives", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesDeleted")
     def metric_number_of_messages_deleted(
@@ -2504,14 +2496,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages deleted from the queue.
 
         Sum over 5 minutes
@@ -2529,7 +2521,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2544,7 +2536,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesDeleted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesDeleted", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesReceived")
     def metric_number_of_messages_received(
@@ -2555,14 +2547,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages returned by calls to the ReceiveMessage action.
 
         Sum over 5 minutes
@@ -2580,7 +2572,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2595,7 +2587,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesReceived", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesReceived", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesSent")
     def metric_number_of_messages_sent(
@@ -2606,14 +2598,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages added to a queue.
 
         Sum over 5 minutes
@@ -2631,7 +2623,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2646,7 +2638,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesSent", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesSent", [props]))
 
     @jsii.member(jsii_name="metricSentMessageSize")
     def metric_sent_message_size(
@@ -2657,14 +2649,14 @@ class _IQueueProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The size of messages added to a queue.
 
         Average over 5 minutes
@@ -2682,7 +2674,7 @@ class _IQueueProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2697,7 +2689,7 @@ class _IQueueProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentMessageSize", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentMessageSize", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IQueue).__jsii_proxy_class__ = lambda : _IQueueProxy
@@ -2751,7 +2743,7 @@ class QueueAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee8edffb48f3fc9ffd5062b78d7caac31c2d7bc4368f11fd9ecebf59e5d531cd)
+            type_hints = cached_type_hints(_typecheckingstub__ee8edffb48f3fc9ffd5062b78d7caac31c2d7bc4368f11fd9ecebf59e5d531cd)
             check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
             check_type(argname="argument fifo", value=fifo, expected_type=type_hints["fifo"])
             check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
@@ -2828,9 +2820,9 @@ class QueueAttributes:
         )
 
 
-@jsii.implements(IQueue, _IEncryptedResource_8e9bf351)
+@jsii.implements(IQueue, _aws_iam_1f54b5e8.IEncryptedResource)
 class QueueBase(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_sqs.QueueBase",
 ):
@@ -2855,10 +2847,10 @@ class QueueBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa206ab8c58ba435f5c1def7c5a542d929e9974133736af9b77e4b133777e98a)
+            type_hints = cached_type_hints(_typecheckingstub__aa206ab8c58ba435f5c1def7c5a542d929e9974133736af9b77e4b133777e98a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -2870,8 +2862,8 @@ class QueueBase(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this queue.
 
         If this queue was created in this stack (``new Queue``), a queue policy
@@ -2881,16 +2873,16 @@ class QueueBase(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6c886fa7695bf0fd2e55e28767c6c53578faafa0492da24fadb1af9092075fa)
+            type_hints = cached_type_hints(_typecheckingstub__f6c886fa7695bf0fd2e55e28767c6c53578faafa0492da24fadb1af9092075fa)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in queueActions to the identity Principal given on this SQS queue resource.
 
         [disable-awslint:no-grants]
@@ -2899,16 +2891,16 @@ class QueueBase(
         :param actions: The actions to grant.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ccb1295772d7c42db85d59f3c6462ecdb405d599f31d6f5f2cfbab034371366)
+            type_hints = cached_type_hints(_typecheckingstub__6ccb1295772d7c42db85d59f3c6462ecdb405d599f31d6f5f2cfbab034371366)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantConsumeMessages")
     def grant_consume_messages(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to consume messages from a queue.
 
         This will grant the following permissions:
@@ -2932,29 +2924,32 @@ class QueueBase(
         :param grantee: Principal to grant consume rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5a5ff7c810718528837ec11092f8e03040d6e612831c88a6e7076dbc91fefde)
+            type_hints = cached_type_hints(_typecheckingstub__e5a5ff7c810718528837ec11092f8e03040d6e612831c88a6e7076dbc91fefde)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantConsumeMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantConsumeMessages", [grantee]))
 
     @jsii.member(jsii_name="grantOnKey")
     def grant_on_key(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_GrantOnKeyResult_35320c49":
+    ) -> "_aws_iam_1f54b5e8.GrantOnKeyResult":
         '''Gives permissions to a grantable entity to perform actions on the encryption key.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0462575b26d9a0a6e126eea464f42b3c49cf8a5ce7d9a227dc46d6d4b4e52f6a)
+            type_hints = cached_type_hints(_typecheckingstub__0462575b26d9a0a6e126eea464f42b3c49cf8a5ce7d9a227dc46d6d4b4e52f6a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_GrantOnKeyResult_35320c49", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.GrantOnKeyResult", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPurge")
-    def grant_purge(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_purge(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant an IAM principal permissions to purge all messages from the queue.
 
         This will grant the following permissions:
@@ -2970,12 +2965,15 @@ class QueueBase(
         :param grantee: Principal to grant send rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfd8b992fb1933e6301f1bd505a1e614230868a1ad14e16c1798998235c1918c)
+            type_hints = cached_type_hints(_typecheckingstub__bfd8b992fb1933e6301f1bd505a1e614230868a1ad14e16c1798998235c1918c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPurge", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPurge", [grantee]))
 
     @jsii.member(jsii_name="grantSendMessages")
-    def grant_send_messages(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_messages(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to send messages to a queue to the given identity.
 
         This will grant the following permissions:
@@ -3000,9 +2998,9 @@ class QueueBase(
         :param grantee: Principal to grant send rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__000d6e6399155667ed0303df2ba4fb206e3ad9c268260ad60726c9690b5409e3)
+            type_hints = cached_type_hints(_typecheckingstub__000d6e6399155667ed0303df2ba4fb206e3ad9c268260ad60726c9690b5409e3)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSendMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSendMessages", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -3014,14 +3012,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Queue.
 
         :param metric_name: -
@@ -3039,9 +3037,9 @@ class QueueBase(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ffb259ebfbf10975a9ae041468c8a95370628f64ddfb35eda3c5a406f766edf)
+            type_hints = cached_type_hints(_typecheckingstub__9ffb259ebfbf10975a9ae041468c8a95370628f64ddfb35eda3c5a406f766edf)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3056,7 +3054,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricApproximateAgeOfOldestMessage")
     def metric_approximate_age_of_oldest_message(
@@ -3067,14 +3065,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The approximate age of the oldest non-deleted message in the queue.
 
         Maximum over 5 minutes
@@ -3092,7 +3090,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3107,7 +3105,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateAgeOfOldestMessage", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateAgeOfOldestMessage", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesDelayed")
     def metric_approximate_number_of_messages_delayed(
@@ -3118,14 +3116,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages in the queue that are delayed and not available for reading immediately.
 
         Maximum over 5 minutes
@@ -3143,7 +3141,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3158,7 +3156,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesDelayed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesDelayed", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesNotVisible")
     def metric_approximate_number_of_messages_not_visible(
@@ -3169,14 +3167,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages that are in flight.
 
         Maximum over 5 minutes
@@ -3194,7 +3192,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3209,7 +3207,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesVisible")
     def metric_approximate_number_of_messages_visible(
@@ -3220,14 +3218,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages available for retrieval from the queue.
 
         Maximum over 5 minutes
@@ -3245,7 +3243,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3260,7 +3258,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricApproximateNumberOfMessagesVisible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesVisible", [props]))
 
     @jsii.member(jsii_name="metricNumberOfEmptyReceives")
     def metric_number_of_empty_receives(
@@ -3271,14 +3269,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of ReceiveMessage API calls that did not return a message.
 
         Sum over 5 minutes
@@ -3296,7 +3294,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3311,7 +3309,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfEmptyReceives", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfEmptyReceives", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesDeleted")
     def metric_number_of_messages_deleted(
@@ -3322,14 +3320,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages deleted from the queue.
 
         Sum over 5 minutes
@@ -3347,7 +3345,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3362,7 +3360,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesDeleted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesDeleted", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesReceived")
     def metric_number_of_messages_received(
@@ -3373,14 +3371,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages returned by calls to the ReceiveMessage action.
 
         Sum over 5 minutes
@@ -3398,7 +3396,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3413,7 +3411,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesReceived", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesReceived", [props]))
 
     @jsii.member(jsii_name="metricNumberOfMessagesSent")
     def metric_number_of_messages_sent(
@@ -3424,14 +3422,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of messages added to a queue.
 
         Sum over 5 minutes
@@ -3449,7 +3447,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3464,7 +3462,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNumberOfMessagesSent", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNumberOfMessagesSent", [props]))
 
     @jsii.member(jsii_name="metricSentMessageSize")
     def metric_sent_message_size(
@@ -3475,14 +3473,14 @@ class QueueBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The size of messages added to a queue.
 
         Average over 5 minutes
@@ -3500,7 +3498,7 @@ class QueueBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3515,7 +3513,7 @@ class QueueBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentMessageSize", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentMessageSize", [props]))
 
     @builtins.property
     @jsii.member(jsii_name="autoCreatePolicy")
@@ -3559,9 +3557,9 @@ class QueueBase(
 
     @builtins.property
     @jsii.member(jsii_name="queueRef")
-    def queue_ref(self) -> "_QueueReference_f2e39de6":
+    def queue_ref(self) -> "_aws_sqs_5e3fc237.QueueReference":
         '''A reference to a Queue resource.'''
-        return typing.cast("_QueueReference_f2e39de6", jsii.get(self, "queueRef"))
+        return typing.cast("_aws_sqs_5e3fc237.QueueReference", jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="queueUrl")
@@ -3573,7 +3571,7 @@ class QueueBase(
     @builtins.property
     @jsii.member(jsii_name="encryptionMasterKey")
     @abc.abstractmethod
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''If this queue is server-side encrypted, this is the KMS encryption key.'''
         ...
 
@@ -3587,7 +3585,7 @@ class QueueBase(
 
 class _QueueBaseProxy(
     QueueBase,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @builtins.property
     @jsii.member(jsii_name="autoCreatePolicy")
@@ -3627,9 +3625,9 @@ class _QueueBaseProxy(
 
     @builtins.property
     @jsii.member(jsii_name="encryptionMasterKey")
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''If this queue is server-side encrypted, this is the KMS encryption key.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionMasterKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionMasterKey"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
@@ -3709,25 +3707,25 @@ class QueueGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.QueueG
 
     @jsii.member(jsii_name="fromQueue")
     @builtins.classmethod
-    def from_queue(cls, resource: "_IQueueRef_fa8b2198") -> "QueueGrants":
+    def from_queue(cls, resource: "_aws_sqs_5e3fc237.IQueueRef") -> "QueueGrants":
         '''Creates grants for QueueGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08434b501101166e7b3cee8c95e2b67fb1d57c2c72090a010e04e35ecfa89a4)
+            type_hints = cached_type_hints(_typecheckingstub__c08434b501101166e7b3cee8c95e2b67fb1d57c2c72090a010e04e35ecfa89a4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("QueueGrants", jsii.sinvoke(cls, "fromQueue", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -3736,17 +3734,20 @@ class QueueGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.QueueG
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b847a82fcee71a69ce3bfb41f8fbfbfd9e7ac49f8792fff5924d399d0a4678b)
+            type_hints = cached_type_hints(_typecheckingstub__2b847a82fcee71a69ce3bfb41f8fbfbfd9e7ac49f8792fff5924d399d0a4678b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _EncryptedPermissionsOptions_b31d980a(
+        options = _aws_cdk_0cae9daa.EncryptedPermissionsOptions(
             key_actions=key_actions, resource_arns=resource_arns
         )
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="consumeMessages")
-    def consume_messages(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def consume_messages(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to consume messages from a queue.
 
         This will grant the following permissions:
@@ -3766,23 +3767,29 @@ class QueueGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.QueueG
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e8dfe45bed9f0d42dd136c0b65cbd04007888a955edb2cc0e24c372e922668f)
+            type_hints = cached_type_hints(_typecheckingstub__7e8dfe45bed9f0d42dd136c0b65cbd04007888a955edb2cc0e24c372e922668f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "consumeMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "consumeMessages", [grantee]))
 
     @jsii.member(jsii_name="purge")
-    def purge(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def purge(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants purge permissions.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e89108b582f144dc33eb6fadfda0d6f7453427c9bafe90a490ac1c210c32f461)
+            type_hints = cached_type_hints(_typecheckingstub__e89108b582f144dc33eb6fadfda0d6f7453427c9bafe90a490ac1c210c32f461)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "purge", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "purge", [grantee]))
 
     @jsii.member(jsii_name="sendMessages")
-    def send_messages(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def send_messages(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to send messages to a queue to the given identity.
 
         This will grant the following permissions:
@@ -3803,28 +3810,32 @@ class QueueGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.QueueG
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2d8d71ea37d7ec94c7e189585531197b71dc4c5af628d4a98ddfbdeb7d54766)
+            type_hints = cached_type_hints(_typecheckingstub__c2d8d71ea37d7ec94c7e189585531197b71dc4c5af628d4a98ddfbdeb7d54766)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "sendMessages", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "sendMessages", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IQueueRef_fa8b2198":
-        return typing.cast("_IQueueRef_fa8b2198", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_sqs_5e3fc237.IQueueRef":
+        return typing.cast("_aws_sqs_5e3fc237.IQueueRef", jsii.get(self, "resource"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptedResource")
-    def _encrypted_resource(self) -> typing.Optional["_IEncryptedResource_8e9bf351"]:
-        return typing.cast(typing.Optional["_IEncryptedResource_8e9bf351"], jsii.get(self, "encryptedResource"))
+    def _encrypted_resource(
+        self,
+    ) -> typing.Optional["_aws_iam_1f54b5e8.IEncryptedResource"]:
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IEncryptedResource"], jsii.get(self, "encryptedResource"))
 
     @builtins.property
     @jsii.member(jsii_name="policyResource")
-    def _policy_resource(self) -> typing.Optional["_IResourceWithPolicyV2_01035ec6"]:
-        return typing.cast(typing.Optional["_IResourceWithPolicyV2_01035ec6"], jsii.get(self, "policyResource"))
+    def _policy_resource(
+        self,
+    ) -> typing.Optional["_aws_iam_1f54b5e8.IResourceWithPolicyV2"]:
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IResourceWithPolicyV2"], jsii.get(self, "policyResource"))
 
 
 class QueuePolicy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sqs.QueuePolicy",
 ):
@@ -3869,7 +3880,7 @@ class QueuePolicy(
         :param queues: The set of queues this policy applies to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b4ac77ae6599f1fc32eef37d5d035abed4dfa01de0a450178293ec02890e37d)
+            type_hints = cached_type_hints(_typecheckingstub__6b4ac77ae6599f1fc32eef37d5d035abed4dfa01de0a450178293ec02890e37d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = QueuePolicyProps(queues=queues)
@@ -3884,9 +3895,9 @@ class QueuePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="document")
-    def document(self) -> "_PolicyDocument_3ac34393":
+    def document(self) -> "_aws_iam_1f54b5e8.PolicyDocument":
         '''The IAM policy document for this policy.'''
-        return typing.cast("_PolicyDocument_3ac34393", jsii.get(self, "document"))
+        return typing.cast("_aws_iam_1f54b5e8.PolicyDocument", jsii.get(self, "document"))
 
     @builtins.property
     @jsii.member(jsii_name="queuePolicyId")
@@ -3926,7 +3937,7 @@ class QueuePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2f3a9369d50afefd40ef9004e8bd6890c82e4bb8762d2f52bc61e32a0a56ed)
+            type_hints = cached_type_hints(_typecheckingstub__ad2f3a9369d50afefd40ef9004e8bd6890c82e4bb8762d2f52bc61e32a0a56ed)
             check_type(argname="argument queues", value=queues, expected_type=type_hints["queues"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "queues": queues,
@@ -3979,22 +3990,22 @@ class QueueProps:
         self,
         *,
         content_based_deduplication: typing.Optional[builtins.bool] = None,
-        data_key_reuse: typing.Optional["_Duration_4839e8c3"] = None,
+        data_key_reuse: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         dead_letter_queue: typing.Optional[typing.Union["DeadLetterQueue", typing.Dict[builtins.str, typing.Any]]] = None,
         deduplication_scope: typing.Optional["DeduplicationScope"] = None,
-        delivery_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        delivery_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         encryption: typing.Optional["QueueEncryption"] = None,
-        encryption_master_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_master_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         enforce_ssl: typing.Optional[builtins.bool] = None,
         fifo: typing.Optional[builtins.bool] = None,
         fifo_throughput_limit: typing.Optional["FifoThroughputLimit"] = None,
         max_message_size_bytes: typing.Optional[jsii.Number] = None,
         queue_name: typing.Optional[builtins.str] = None,
-        receive_message_wait_time: typing.Optional["_Duration_4839e8c3"] = None,
+        receive_message_wait_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         redrive_allow_policy: typing.Optional[typing.Union["RedriveAllowPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for creating a new Queue.
 
@@ -4038,7 +4049,7 @@ class QueueProps:
         if isinstance(redrive_allow_policy, dict):
             redrive_allow_policy = RedriveAllowPolicy(**redrive_allow_policy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cc541a1a72c528b56f0602d369e4a26dcd2a75c1de2089bcfd282f0118aa3b7)
+            type_hints = cached_type_hints(_typecheckingstub__7cc541a1a72c528b56f0602d369e4a26dcd2a75c1de2089bcfd282f0118aa3b7)
             check_type(argname="argument content_based_deduplication", value=content_based_deduplication, expected_type=type_hints["content_based_deduplication"])
             check_type(argname="argument data_key_reuse", value=data_key_reuse, expected_type=type_hints["data_key_reuse"])
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
@@ -4111,7 +4122,7 @@ class QueueProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def data_key_reuse(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def data_key_reuse(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time that Amazon SQS reuses a data key before calling KMS again.
 
         The value must be an integer between 60 (1 minute) and 86,400 (24
@@ -4120,7 +4131,7 @@ class QueueProps:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("data_key_reuse")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def dead_letter_queue(self) -> typing.Optional["DeadLetterQueue"]:
@@ -4143,7 +4154,7 @@ class QueueProps:
         return typing.cast(typing.Optional["DeduplicationScope"], result)
 
     @builtins.property
-    def delivery_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def delivery_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The time in seconds that the delivery of all messages in the queue is delayed.
 
         You can specify an integer value of 0 to 900 (15 minutes). The default
@@ -4152,7 +4163,7 @@ class QueueProps:
         :default: 0
         '''
         result = self._values.get("delivery_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def encryption(self) -> typing.Optional["QueueEncryption"]:
@@ -4167,7 +4178,7 @@ class QueueProps:
         return typing.cast(typing.Optional["QueueEncryption"], result)
 
     @builtins.property
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''External KMS key to use for queue encryption.
 
         Individual messages will be encrypted using data keys. The data keys in
@@ -4180,7 +4191,7 @@ class QueueProps:
         :default: If encryption is set to KMS and not specified, a key will be created.
         '''
         result = self._values.get("encryption_master_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def enforce_ssl(self) -> typing.Optional[builtins.bool]:
@@ -4237,7 +4248,9 @@ class QueueProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def receive_message_wait_time(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def receive_message_wait_time(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Default wait time for ReceiveMessage calls.
 
         Does not wait if set to 0, otherwise waits this amount of seconds
@@ -4248,7 +4261,7 @@ class QueueProps:
         :default: 0
         '''
         result = self._values.get("receive_message_wait_time")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def redrive_allow_policy(self) -> typing.Optional["RedriveAllowPolicy"]:
@@ -4260,7 +4273,7 @@ class QueueProps:
         return typing.cast(typing.Optional["RedriveAllowPolicy"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the queue is removed from the stack.
 
         Even though queues are technically stateful, their contents are transient and it
@@ -4271,10 +4284,10 @@ class QueueProps:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of seconds that Amazon SQS retains a message.
 
         You can specify an integer value from 60 seconds (1 minute) to 1209600
@@ -4283,10 +4296,10 @@ class QueueProps:
         :default: Duration.days(4)
         '''
         result = self._values.get("retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def visibility_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def visibility_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout of processing a single message.
 
         After dequeuing, the processor has this much time to handle the message
@@ -4299,7 +4312,7 @@ class QueueProps:
         :default: Duration.seconds(30)
         '''
         result = self._values.get("visibility_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4355,7 +4368,7 @@ class RedriveAllowPolicy:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d4d5d927b345a46d0dfa5a41792aa2178d115c36b82fd6fe9bd4534e1f7379d)
+            type_hints = cached_type_hints(_typecheckingstub__1d4d5d927b345a46d0dfa5a41792aa2178d115c36b82fd6fe9bd4534e1f7379d)
             check_type(argname="argument redrive_permission", value=redrive_permission, expected_type=type_hints["redrive_permission"])
             check_type(argname="argument source_queues", value=source_queues, expected_type=type_hints["source_queues"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4468,22 +4481,22 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
         id: builtins.str,
         *,
         content_based_deduplication: typing.Optional[builtins.bool] = None,
-        data_key_reuse: typing.Optional["_Duration_4839e8c3"] = None,
+        data_key_reuse: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         dead_letter_queue: typing.Optional[typing.Union["DeadLetterQueue", typing.Dict[builtins.str, typing.Any]]] = None,
         deduplication_scope: typing.Optional["DeduplicationScope"] = None,
-        delivery_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        delivery_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         encryption: typing.Optional["QueueEncryption"] = None,
-        encryption_master_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_master_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         enforce_ssl: typing.Optional[builtins.bool] = None,
         fifo: typing.Optional[builtins.bool] = None,
         fifo_throughput_limit: typing.Optional["FifoThroughputLimit"] = None,
         max_message_size_bytes: typing.Optional[jsii.Number] = None,
         queue_name: typing.Optional[builtins.str] = None,
-        receive_message_wait_time: typing.Optional["_Duration_4839e8c3"] = None,
+        receive_message_wait_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         redrive_allow_policy: typing.Optional[typing.Union["RedriveAllowPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4507,7 +4520,7 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
         :param visibility_timeout: Timeout of processing a single message. After dequeuing, the processor has this much time to handle the message and delete it from the queue before it becomes visible again for dequeueing by another processor. Values must be from 0 to 43200 seconds (12 hours). If you don't specify a value, AWS CloudFormation uses the default value of 30 seconds. Default: Duration.seconds(30)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aea5e98b4c67341da2b46516a3d20edebda66a092d6c5920d60f455baf203eca)
+            type_hints = cached_type_hints(_typecheckingstub__aea5e98b4c67341da2b46516a3d20edebda66a092d6c5920d60f455baf203eca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = QueueProps(
@@ -4547,7 +4560,7 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
         :param queue_arn: queue ARN (i.e. arn:aws:sqs:us-east-2:444455556666:queue1).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52385132041a055144e7ca9a107ec8cf866c608e7175aba286587fb567e5d762)
+            type_hints = cached_type_hints(_typecheckingstub__52385132041a055144e7ca9a107ec8cf866c608e7175aba286587fb567e5d762)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
@@ -4577,7 +4590,7 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
         :param queue_url: The URL of the queue. Default: - 'https://sqs.//'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9862e31528c34c2563e80d85bfa20a337a750e48c60eb6be0292ef82a8f8dd9)
+            type_hints = cached_type_hints(_typecheckingstub__a9862e31528c34c2563e80d85bfa20a337a750e48c60eb6be0292ef82a8f8dd9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = QueueAttributes(
@@ -4640,9 +4653,9 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
 
     @builtins.property
     @jsii.member(jsii_name="encryptionMasterKey")
-    def encryption_master_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_master_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''If this queue is encrypted, this is the KMS key.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionMasterKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionMasterKey"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
@@ -4680,28 +4693,28 @@ def _typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     deduplication_scope: typing.Optional[builtins.str] = None,
     delay_seconds: typing.Optional[jsii.Number] = None,
-    fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fifo_queue: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     fifo_throughput_limit: typing.Optional[builtins.str] = None,
     kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-    kms_master_key_id: typing.Optional[typing.Union[builtins.str, _IAliasRef_43fafabd, _IKeyRef_d4fc6ef3]] = None,
+    kms_master_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
     maximum_message_size: typing.Optional[jsii.Number] = None,
     message_retention_period: typing.Optional[jsii.Number] = None,
     queue_name: typing.Optional[builtins.str] = None,
     receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
     redrive_allow_policy: typing.Any = None,
     redrive_policy: typing.Any = None,
-    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     visibility_timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__722a92eb0cd4ca74862788bfdd1e2c8f0a2a7b6e0dbce380469836d36ed717ad(
-    resource: _IQueueRef_fa8b2198,
+    resource: _aws_sqs_5e3fc237.IQueueRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4713,7 +4726,7 @@ def _typecheckingstub__7060868a08b81bbb2617d578c1ba0a42166eea4bc6de349534e007a6e
     pass
 
 def _typecheckingstub__e2edac588147bdde110e32931a1f527ce029c9c91623ac9467d77dfcabed1ecf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4737,7 +4750,7 @@ def _typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8
     pass
 
 def _typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4755,7 +4768,7 @@ def _typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c
     pass
 
 def _typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4803,13 +4816,13 @@ def _typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a1
     pass
 
 def _typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4837,7 +4850,7 @@ def _typecheckingstub__6e41b828a0c06179aa89228128eee8515c5c8d09477d1bbddbd89adfd
     pass
 
 def _typecheckingstub__c076ea64b445e3d9bfc6e9a477574b1c255cf5b418bca5369a75bae6dd0d4c0f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4885,7 +4898,7 @@ def _typecheckingstub__c72ef4b40a0179ae873c04bb3ffd839742965b348dad00f6d4f073049
     pass
 
 def _typecheckingstub__0d559da0e8ce42a9494dc47b11b1fa822e7527d123a88ce573a75312016b2724(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4918,21 +4931,21 @@ def _typecheckingstub__8aea0967b759b2f27be1496e2fdd3f2d8ccffc42a6f0c89bee2521656
 
 def _typecheckingstub__8fdefcde5dbe865461bead4520126014a0ec05bd2ffb75d2c2800ff3030754b3(
     *,
-    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     deduplication_scope: typing.Optional[builtins.str] = None,
     delay_seconds: typing.Optional[jsii.Number] = None,
-    fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fifo_queue: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     fifo_throughput_limit: typing.Optional[builtins.str] = None,
     kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-    kms_master_key_id: typing.Optional[typing.Union[builtins.str, _IAliasRef_43fafabd, _IKeyRef_d4fc6ef3]] = None,
+    kms_master_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
     maximum_message_size: typing.Optional[jsii.Number] = None,
     message_retention_period: typing.Optional[jsii.Number] = None,
     queue_name: typing.Optional[builtins.str] = None,
     receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
     redrive_allow_policy: typing.Any = None,
     redrive_policy: typing.Any = None,
-    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     visibility_timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4947,32 +4960,32 @@ def _typecheckingstub__0da853146e002899643e154ec7e028c4d8126479377d4ec0f4604053d
     pass
 
 def _typecheckingstub__ea0451819e2455c6ee9b50f403e68931b5e90e379366b4341546882871994f5d(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a27eed791bc165454bda377834d5e6dc523a1816052181a1d4e6edf424e7744f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *queue_actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e5da94a52ae7998debd568a5368198659935145c2960a17f24cdcc61e106618b(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__259c1cbbca404fd7b306bfb8e05e77c1d36743bd55e1212ceecf383f245d6244(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c96217067b025063a2c6673c914a427a61983f12646083c578096402bb248abb(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4985,12 +4998,12 @@ def _typecheckingstub__0dc9d740764123624195584bb5156ec848518db29961d3251cb049c75
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5020,39 +5033,39 @@ def _typecheckingstub__aa206ab8c58ba435f5c1def7c5a542d929e9974133736af9b77e4b133
     pass
 
 def _typecheckingstub__f6c886fa7695bf0fd2e55e28767c6c53578faafa0492da24fadb1af9092075fa(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6ccb1295772d7c42db85d59f3c6462ecdb405d599f31d6f5f2cfbab034371366(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e5a5ff7c810718528837ec11092f8e03040d6e612831c88a6e7076dbc91fefde(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0462575b26d9a0a6e126eea464f42b3c49cf8a5ce7d9a227dc46d6d4b4e52f6a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfd8b992fb1933e6301f1bd505a1e614230868a1ad14e16c1798998235c1918c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__000d6e6399155667ed0303df2ba4fb206e3ad9c268260ad60726c9690b5409e3(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5065,25 +5078,25 @@ def _typecheckingstub__9ffb259ebfbf10975a9ae041468c8a95370628f64ddfb35eda3c5a406
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c08434b501101166e7b3cee8c95e2b67fb1d57c2c72090a010e04e35ecfa89a4(
-    resource: _IQueueRef_fa8b2198,
+    resource: _aws_sqs_5e3fc237.IQueueRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2b847a82fcee71a69ce3bfb41f8fbfbfd9e7ac49f8792fff5924d399d0a4678b(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5093,19 +5106,19 @@ def _typecheckingstub__2b847a82fcee71a69ce3bfb41f8fbfbfd9e7ac49f8792fff5924d399d
     pass
 
 def _typecheckingstub__7e8dfe45bed9f0d42dd136c0b65cbd04007888a955edb2cc0e24c372e922668f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e89108b582f144dc33eb6fadfda0d6f7453427c9bafe90a490ac1c210c32f461(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c2d8d71ea37d7ec94c7e189585531197b71dc4c5af628d4a98ddfbdeb7d54766(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5129,22 +5142,22 @@ def _typecheckingstub__ad2f3a9369d50afefd40ef9004e8bd6890c82e4bb8762d2f52bc61e32
 def _typecheckingstub__7cc541a1a72c528b56f0602d369e4a26dcd2a75c1de2089bcfd282f0118aa3b7(
     *,
     content_based_deduplication: typing.Optional[builtins.bool] = None,
-    data_key_reuse: typing.Optional[_Duration_4839e8c3] = None,
+    data_key_reuse: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     dead_letter_queue: typing.Optional[typing.Union[DeadLetterQueue, typing.Dict[builtins.str, typing.Any]]] = None,
     deduplication_scope: typing.Optional[DeduplicationScope] = None,
-    delivery_delay: typing.Optional[_Duration_4839e8c3] = None,
+    delivery_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     encryption: typing.Optional[QueueEncryption] = None,
-    encryption_master_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_master_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     enforce_ssl: typing.Optional[builtins.bool] = None,
     fifo: typing.Optional[builtins.bool] = None,
     fifo_throughput_limit: typing.Optional[FifoThroughputLimit] = None,
     max_message_size_bytes: typing.Optional[jsii.Number] = None,
     queue_name: typing.Optional[builtins.str] = None,
-    receive_message_wait_time: typing.Optional[_Duration_4839e8c3] = None,
+    receive_message_wait_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     redrive_allow_policy: typing.Optional[typing.Union[RedriveAllowPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5162,22 +5175,22 @@ def _typecheckingstub__aea5e98b4c67341da2b46516a3d20edebda66a092d6c5920d60f455ba
     id: builtins.str,
     *,
     content_based_deduplication: typing.Optional[builtins.bool] = None,
-    data_key_reuse: typing.Optional[_Duration_4839e8c3] = None,
+    data_key_reuse: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     dead_letter_queue: typing.Optional[typing.Union[DeadLetterQueue, typing.Dict[builtins.str, typing.Any]]] = None,
     deduplication_scope: typing.Optional[DeduplicationScope] = None,
-    delivery_delay: typing.Optional[_Duration_4839e8c3] = None,
+    delivery_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     encryption: typing.Optional[QueueEncryption] = None,
-    encryption_master_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_master_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     enforce_ssl: typing.Optional[builtins.bool] = None,
     fifo: typing.Optional[builtins.bool] = None,
     fifo_throughput_limit: typing.Optional[FifoThroughputLimit] = None,
     max_message_size_bytes: typing.Optional[jsii.Number] = None,
     queue_name: typing.Optional[builtins.str] = None,
-    receive_message_wait_time: typing.Optional[_Duration_4839e8c3] = None,
+    receive_message_wait_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     redrive_allow_policy: typing.Optional[typing.Union[RedriveAllowPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass

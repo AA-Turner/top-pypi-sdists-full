@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-try:  # pragma: no cover - exercised when the optional sklearn extra is installed.
+try:  # pragma: no cover - exercised when the sklearn dependency is installed.
     from sklearn.base import BaseEstimator, RegressorMixin
 except ImportError:  # pragma: no cover - lightweight fallback for core installs.
 
@@ -37,6 +37,7 @@ from ._native import (
     categorical_transform as _native_categorical_transform,
 )
 from .config import (
+    Backend,
     ExplanationAlgorithm,
     ExplanationDecomposition,
     FuzzyKernel,
@@ -84,8 +85,14 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         random_state: int | None = None,
         n_threads: int | None = None,
         monotonic_constraints: list[int] | None = None,
+        graph_indptr: list[int] | None = None,
+        graph_indices: list[int] | None = None,
+        graph_weights: list[float] | None = None,
+        graph_smoothing: float = 0.0,
+        graph_smoothing_iterations: int = 4,
         tensorboard_log_dir: str | Path | None = None,
         tensorboard_run_name: str | None = None,
+        backend: Backend | str = Backend.CPU,
     ) -> None:
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
@@ -108,8 +115,14 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         self.random_state = random_state
         self.n_threads = n_threads
         self.monotonic_constraints = monotonic_constraints
+        self.graph_indptr = graph_indptr
+        self.graph_indices = graph_indices
+        self.graph_weights = graph_weights
+        self.graph_smoothing = graph_smoothing
+        self.graph_smoothing_iterations = graph_smoothing_iterations
         self.tensorboard_log_dir = tensorboard_log_dir
         self.tensorboard_run_name = tensorboard_run_name
+        self.backend = str(backend)
         self._model: Any | None = None
         self._backend_used: str | None = None
 
@@ -136,8 +149,14 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
             "random_state": self.random_state,
             "n_threads": self.n_threads,
             "monotonic_constraints": self.monotonic_constraints,
+            "graph_indptr": self.graph_indptr,
+            "graph_indices": self.graph_indices,
+            "graph_weights": self.graph_weights,
+            "graph_smoothing": self.graph_smoothing,
+            "graph_smoothing_iterations": self.graph_smoothing_iterations,
             "tensorboard_log_dir": self.tensorboard_log_dir,
             "tensorboard_run_name": self.tensorboard_run_name,
+            "backend": self.backend,
         }
 
     def set_params(self, **params: Any) -> CartoBoostRegressor:
@@ -214,6 +233,11 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         self.categorical_encoder_ = categorical_encoder
         if feature_names is not None:
             self.feature_names_in_ = np.asarray(feature_names, dtype=object)
+        self.feature_name_ = (
+            [str(name) for name in feature_names]
+            if feature_names is not None
+            else [f"feature_{index}" for index in range(self.n_features_in_)]
+        )
 
         model = _NativeRegressorModel(
             n_estimators=int(self.n_estimators),
@@ -246,6 +270,20 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
                 if self.monotonic_constraints is None
                 else [int(value) for value in self.monotonic_constraints]
             ),
+            graph_indptr=(
+                None if self.graph_indptr is None else [int(value) for value in self.graph_indptr]
+            ),
+            graph_indices=(
+                None if self.graph_indices is None else [int(value) for value in self.graph_indices]
+            ),
+            graph_weights=(
+                None
+                if self.graph_weights is None
+                else [float(value) for value in self.graph_weights]
+            ),
+            graph_smoothing=float(self.graph_smoothing),
+            graph_smoothing_iterations=int(self.graph_smoothing_iterations),
+            backend=self.backend,
         )
         _fit_native(
             model,
@@ -264,6 +302,7 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         )
         self.metadata_ = _json_attr(model, "metadata_json")
         self.training_config_ = _json_attr(model, "training_config_json")
+        self.selected_backend_ = str(getattr(model, "selected_backend", self.backend))
         self.training_history_ = _json_attr(model, "training_history_json") or []
         write_training_history(
             model,
@@ -305,7 +344,16 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: Iterable[Iterable[float]], sparse_sets: Any | None = None) -> np.ndarray:
+    def predict(
+        self,
+        X: Iterable[Iterable[float]],
+        sparse_sets: Any | None = None,
+        *,
+        pred_contrib: bool = False,
+    ) -> np.ndarray:
+        """Predict targets or LightGBM-compatible per-feature contributions."""
+        if pred_contrib:
+            return self.predict_feature_contributions(X, sparse_sets=sparse_sets)
         if self._model is None:
             raise RuntimeError("CartoBoostRegressor is not fitted")
         expected_sparse_count = getattr(self, "n_sparse_sets_in_", 0)
@@ -374,6 +422,49 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
             predict_arrays(dense_array, sparse_offsets, sparse_ids),
             dtype=float,
         )
+
+    def predict_feature_contributions(
+        self,
+        X: Iterable[Iterable[float]],
+        sparse_sets: Any | None = None,
+    ) -> np.ndarray:
+        """Return exact feature SHAP values followed by the expected prediction.
+
+        The result has shape ``(n_rows, n_features + 1)``. Its final column is
+        the background-free, training-cover-weighted base value, matching
+        LightGBM's ``pred_contrib=True`` layout.
+        """
+        if self._model is None:
+            raise RuntimeError("CartoBoostRegressor is not fitted")
+        dense_array, _, _, _ = self._prediction_inputs(X, sparse_sets)
+        predict_contributions = getattr(
+            self._model,
+            "predict_feature_contributions_arrays",
+            None,
+        )
+        if not callable(predict_contributions):
+            raise RuntimeError(
+                "cartoboost._native model is missing the typed feature-contribution binding; "
+                "rebuild the native extension with `maturin develop`"
+            )
+        encoded_values = np.asarray(predict_contributions(dense_array), dtype=float)
+        encoded_shape = (dense_array.shape[0], dense_array.shape[1] + 1)
+        if encoded_values.shape != encoded_shape:
+            raise RuntimeError(
+                "native feature contributions returned shape "
+                f"{encoded_values.shape}, expected {encoded_shape}"
+            )
+        values = _aggregate_encoded_feature_contributions(
+            encoded_values,
+            getattr(self, "categorical_encoder_", None),
+            int(self.n_features_in_),
+        )
+        expected_shape = (dense_array.shape[0], int(self.n_features_in_) + 1)
+        if values.shape != expected_shape:
+            raise RuntimeError(
+                f"feature contributions returned shape {values.shape}, expected {expected_shape}"
+            )
+        return values
 
     def score(
         self,
@@ -471,7 +562,7 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
 
     def make_shap_explainer(
         self,
-        background: Any,
+        background: Any | None = None,
         *,
         sparse_sets: Any | None = None,
         sparse_id_vocabulary: dict[str, list[int]] | None = None,
@@ -498,7 +589,7 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         self,
         X: Any,
         *,
-        background: Any,
+        background: Any | None = None,
         sparse_sets: Any | None = None,
         background_sparse_sets: Any | None = None,
         sparse_id_vocabulary: dict[str, list[int]] | None = None,
@@ -538,6 +629,7 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
                 training_config=native_payload.get("training_config", {}),
                 payload={
                     "categorical_encoder": getattr(self, "categorical_encoder_", None),
+                    "feature_names": list(getattr(self, "feature_name_", [])),
                     "native_model": native_payload,
                 },
             )
@@ -590,6 +682,7 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         payload = state.pop("_cartoboost_pickle_artifact", None)
+        saved_feature_names = state.get("feature_name_", state.get("feature_names_in_"))
         self.__dict__.update(state)
         if payload is None:
             return
@@ -598,6 +691,11 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
             path.write_bytes(payload)
             restored = type(self).load(path)
         self.__dict__.update(restored.__dict__)
+        if saved_feature_names is not None:
+            names = [str(name) for name in saved_feature_names]
+            if len(names) == int(self.n_features_in_):
+                self.feature_name_ = names
+                self.feature_names_in_ = np.asarray(names, dtype=object)
 
     @classmethod
     def load(cls, path: str | Path) -> CartoBoostRegressor:
@@ -619,6 +717,14 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         if estimator.categorical_encoder_ is not None:
             estimator.n_features_in_ = int(estimator.categorical_encoder_["original_feature_count"])
         estimator.encoded_n_features_in_ = native_model.feature_count
+        saved_feature_names = inner.get("feature_names")
+        estimator.feature_name_ = (
+            [str(name) for name in saved_feature_names]
+            if isinstance(saved_feature_names, list)
+            and len(saved_feature_names) == int(estimator.n_features_in_)
+            else _fitted_feature_names(estimator)
+        )
+        estimator.feature_names_in_ = np.asarray(estimator.feature_name_, dtype=object)
         return estimator
 
     @classmethod
@@ -655,6 +761,12 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
                 getattr(native_model, "constant_l2_regularization", 0.0)
             ),
             monotonic_constraints=list(getattr(native_model, "monotonic_constraints", [])) or None,
+            graph_indptr=getattr(native_model, "graph_indptr", None),
+            graph_indices=getattr(native_model, "graph_indices", None),
+            graph_weights=getattr(native_model, "graph_weights", None),
+            graph_smoothing=float(getattr(native_model, "graph_smoothing", 0.0)),
+            graph_smoothing_iterations=int(getattr(native_model, "graph_smoothing_iterations", 4)),
+            backend=str(getattr(native_model, "backend", "cpu")),
         )
         estimator._model = native_model
         estimator._backend_used = "rust"
@@ -662,10 +774,15 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         estimator.encoded_n_features_in_ = native_model.feature_count
         estimator.categorical_encoder_ = None
         estimator.feature_schema_ = _json_attr(native_model, "feature_schema_json")
+        estimator.feature_name_ = _fitted_feature_names(estimator)
+        estimator.feature_names_in_ = np.asarray(estimator.feature_name_, dtype=object)
         estimator.sparse_set_names_ = _sparse_names_from_feature_schema(estimator.feature_schema_)
         estimator.n_sparse_sets_in_ = len(estimator.sparse_set_names_)
         estimator.metadata_ = _json_attr(native_model, "metadata_json")
         estimator.training_config_ = _json_attr(native_model, "training_config_json")
+        estimator.selected_backend_ = str(
+            getattr(native_model, "selected_backend", estimator.backend)
+        )
         estimator.training_history_ = _json_attr(native_model, "training_history_json") or []
         estimator.requires_sparse_sets_ = bool(getattr(native_model, "requires_sparse_sets", False))
         estimator.is_fitted_ = True
@@ -680,6 +797,18 @@ class CartoBoostRegressor(RegressorMixin, BaseEstimator):
         raise NotImplementedError("native model does not support save_weights")
 
     def _validate_params(self) -> None:
+        graph_parts = (self.graph_indptr, self.graph_indices, self.graph_weights)
+        if any(part is not None for part in graph_parts) and not all(
+            part is not None for part in graph_parts
+        ):
+            raise ValueError(
+                "graph_indptr, graph_indices, and graph_weights must be provided together"
+            )
+        graph_smoothing = float(self.graph_smoothing)
+        if not math.isfinite(graph_smoothing) or graph_smoothing < 0.0:
+            raise ValueError("graph_smoothing must be finite and non-negative")
+        if self.graph_indptr is not None and int(self.graph_smoothing_iterations) <= 0:
+            raise ValueError("graph_smoothing_iterations must be positive when a graph is provided")
         if int(self.n_estimators) <= 0:
             raise ValueError("n_estimators must be positive")
         learning_rate = float(self.learning_rate)
@@ -924,6 +1053,35 @@ def _transform_categorical_features(
         else:
             raise ValueError(f"unknown categorical encoding strategy {strategy!r}")
     return np.ascontiguousarray(np.column_stack(encoded_columns), dtype=np.float64)
+
+
+def _aggregate_encoded_feature_contributions(
+    values: np.ndarray,
+    encoder: dict[str, Any] | None,
+    original_width: int,
+) -> np.ndarray:
+    if not encoder:
+        return values
+    column_encoders = {int(column["index"]): column for column in encoder.get("columns", [])}
+    output = np.zeros((values.shape[0], original_width + 1), dtype=float)
+    encoded_index = 0
+    for original_index in range(original_width):
+        column_encoder = column_encoders.get(original_index)
+        width = 1
+        if column_encoder is not None:
+            strategy = column_encoder.get("strategy")
+            if strategy in {"OneHot", "one_hot"}:
+                width = len(column_encoder.get("categories", []))
+            elif strategy in {"Partition", "partition"}:
+                width = len(column_encoder.get("partitions", []))
+        if width <= 0 or encoded_index + width > values.shape[1] - 1:
+            raise RuntimeError("categorical encoder does not match native contribution width")
+        output[:, original_index] = values[:, encoded_index : encoded_index + width].sum(axis=1)
+        encoded_index += width
+    if encoded_index != values.shape[1] - 1:
+        raise RuntimeError("categorical encoder does not consume every native contribution column")
+    output[:, -1] = values[:, -1]
+    return output
 
 
 def _encoded_feature_schema(
@@ -1608,6 +1766,42 @@ def _json_attr(model: Any, attr: str) -> Any | None:
     return json.loads(payload)
 
 
+def _fitted_feature_names(estimator: Any) -> list[str]:
+    encoder = getattr(estimator, "categorical_encoder_", None)
+    if isinstance(encoder, dict):
+        original_width = int(encoder.get("original_feature_count", estimator.n_features_in_))
+        column_encoders = {int(column["index"]): column for column in encoder.get("columns", [])}
+        encoded_names = [str(name) for name in encoder.get("encoded_feature_names", [])]
+        names: list[str] = []
+        encoded_index = 0
+        for original_index in range(original_width):
+            column_encoder = column_encoders.get(original_index)
+            if column_encoder is None:
+                names.append(
+                    encoded_names[encoded_index]
+                    if encoded_index < len(encoded_names)
+                    else f"feature_{original_index}"
+                )
+                encoded_index += 1
+                continue
+            names.append(str(column_encoder.get("name", f"feature_{original_index}")))
+            strategy = column_encoder.get("strategy")
+            if strategy in {"OneHot", "one_hot"}:
+                encoded_index += len(column_encoder.get("categories", []))
+            elif strategy in {"Partition", "partition"}:
+                encoded_index += len(column_encoder.get("partitions", []))
+            else:
+                encoded_index += 1
+        return names
+
+    schema = getattr(estimator, "feature_schema_", None)
+    if isinstance(schema, dict) and isinstance(schema.get("names"), list):
+        names = [str(name) for name in schema["names"][: int(estimator.n_features_in_)]]
+        if len(names) == int(estimator.n_features_in_):
+            return names
+    return [f"feature_{index}" for index in range(int(estimator.n_features_in_))]
+
+
 def _sparse_names_from_feature_schema(feature_schema: Any | None) -> list[str]:
     if not isinstance(feature_schema, dict):
         return []
@@ -1656,7 +1850,7 @@ def _save_weights_onnx(artifact: dict[str, Any], path: Path) -> None:
     try:
         import onnx
         from onnx import TensorProto, helper
-    except ImportError as exc:  # pragma: no cover - depends on optional extra
+    except ImportError as exc:  # pragma: no cover - depends on optional dependency
         raise ImportError("ONNX export requires installing the optional 'onnx' package") from exc
 
     model_payload = _onnx_model_payload(artifact)

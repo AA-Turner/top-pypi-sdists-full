@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class ConnectorDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feb9810004ef139e502c8c7585fc5a9a71826a3a6accf002663d062bf230968a)
+            type_hints = cached_type_hints(_typecheckingstub__feb9810004ef139e502c8c7585fc5a9a71826a3a6accf002663d062bf230968a)
             check_type(argname="argument connector_definition_arn", value=connector_definition_arn, expected_type=type_hints["connector_definition_arn"])
             check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class ConnectorDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f74039bd2f530231f7a7ae93595569080ed17728d1fc6d45adce7975096633ad)
+            type_hints = cached_type_hints(_typecheckingstub__f74039bd2f530231f7a7ae93595569080ed17728d1fc6d45adce7975096633ad)
             check_type(argname="argument connector_definition_version_id", value=connector_definition_version_id, expected_type=type_hints["connector_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "connector_definition_version_id": connector_definition_version_id,
@@ -185,7 +189,7 @@ class CoreDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86f703c2321804962693391e080e2978cccb8e1757b5e4a7ac4832b2aae04afc)
+            type_hints = cached_type_hints(_typecheckingstub__86f703c2321804962693391e080e2978cccb8e1757b5e4a7ac4832b2aae04afc)
             check_type(argname="argument core_definition_arn", value=core_definition_arn, expected_type=type_hints["core_definition_arn"])
             check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -243,7 +247,7 @@ class CoreDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__938bf6eb990871c55f16debdd2682f40477380d9195265ea7dc7c9c30094d493)
+            type_hints = cached_type_hints(_typecheckingstub__938bf6eb990871c55f16debdd2682f40477380d9195265ea7dc7c9c30094d493)
             check_type(argname="argument core_definition_version_id", value=core_definition_version_id, expected_type=type_hints["core_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "core_definition_version_id": core_definition_version_id,
@@ -302,7 +306,7 @@ class DeviceDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8cc0e0a2939088dbe7c387a73930acca8f35728c09b8788203bbd136f05e272)
+            type_hints = cached_type_hints(_typecheckingstub__b8cc0e0a2939088dbe7c387a73930acca8f35728c09b8788203bbd136f05e272)
             check_type(argname="argument device_definition_arn", value=device_definition_arn, expected_type=type_hints["device_definition_arn"])
             check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -360,7 +364,7 @@ class DeviceDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__643844e9ccd4b63fbf6f2f3b4431d096e30496ff653396912844a7380037e89c)
+            type_hints = cached_type_hints(_typecheckingstub__643844e9ccd4b63fbf6f2f3b4431d096e30496ff653396912844a7380037e89c)
             check_type(argname="argument device_definition_version_id", value=device_definition_version_id, expected_type=type_hints["device_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "device_definition_version_id": device_definition_version_id,
@@ -419,7 +423,7 @@ class FunctionDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e09a59a60ec473f7bb0f6db9138716f5d5dacf733ad8c43df3865687ff692d5)
+            type_hints = cached_type_hints(_typecheckingstub__8e09a59a60ec473f7bb0f6db9138716f5d5dacf733ad8c43df3865687ff692d5)
             check_type(argname="argument function_definition_arn", value=function_definition_arn, expected_type=type_hints["function_definition_arn"])
             check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -477,7 +481,7 @@ class FunctionDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4ab37888b9562f928140377091b63ce70c367d4d017e04d2d6b9593c49ab63d)
+            type_hints = cached_type_hints(_typecheckingstub__c4ab37888b9562f928140377091b63ce70c367d4d017e04d2d6b9593c49ab63d)
             check_type(argname="argument function_definition_version_id", value=function_definition_version_id, expected_type=type_hints["function_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_definition_version_id": function_definition_version_id,
@@ -528,7 +532,7 @@ class GroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81d3637e624e6270d769ba20892614a7bdab10b9fff0a8d202f4b9335d6629f8)
+            type_hints = cached_type_hints(_typecheckingstub__81d3637e624e6270d769ba20892614a7bdab10b9fff0a8d202f4b9335d6629f8)
             check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -586,7 +590,7 @@ class GroupVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a277c2f9ad12beb76a85e8c6302f931893206339e834fb5d12a2a0fced88730)
+            type_hints = cached_type_hints(_typecheckingstub__3a277c2f9ad12beb76a85e8c6302f931893206339e834fb5d12a2a0fced88730)
             check_type(argname="argument group_version_id", value=group_version_id, expected_type=type_hints["group_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "group_version_id": group_version_id,
@@ -616,7 +620,7 @@ class GroupVersionReference:
 )
 class IConnectorDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinition.
@@ -636,7 +640,7 @@ class IConnectorDefinitionRef(
 
 class _IConnectorDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinition.
 
@@ -663,7 +667,7 @@ typing.cast(typing.Any, IConnectorDefinitionRef).__jsii_proxy_class__ = lambda :
 )
 class IConnectorDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinitionVersion.
@@ -683,7 +687,7 @@ class IConnectorDefinitionVersionRef(
 
 class _IConnectorDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinitionVersion.
 
@@ -708,7 +712,7 @@ typing.cast(typing.Any, IConnectorDefinitionVersionRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrass.ICoreDefinitionRef")
 class ICoreDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CoreDefinition.
@@ -728,7 +732,7 @@ class ICoreDefinitionRef(
 
 class _ICoreDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CoreDefinition.
 
@@ -755,7 +759,7 @@ typing.cast(typing.Any, ICoreDefinitionRef).__jsii_proxy_class__ = lambda : _ICo
 )
 class ICoreDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CoreDefinitionVersion.
@@ -775,7 +779,7 @@ class ICoreDefinitionVersionRef(
 
 class _ICoreDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CoreDefinitionVersion.
 
@@ -800,7 +804,7 @@ typing.cast(typing.Any, ICoreDefinitionVersionRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrass.IDeviceDefinitionRef")
 class IDeviceDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceDefinition.
@@ -820,7 +824,7 @@ class IDeviceDefinitionRef(
 
 class _IDeviceDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceDefinition.
 
@@ -847,7 +851,7 @@ typing.cast(typing.Any, IDeviceDefinitionRef).__jsii_proxy_class__ = lambda : _I
 )
 class IDeviceDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceDefinitionVersion.
@@ -867,7 +871,7 @@ class IDeviceDefinitionVersionRef(
 
 class _IDeviceDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeviceDefinitionVersion.
 
@@ -894,7 +898,7 @@ typing.cast(typing.Any, IDeviceDefinitionVersionRef).__jsii_proxy_class__ = lamb
 )
 class IFunctionDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionDefinition.
@@ -914,7 +918,7 @@ class IFunctionDefinitionRef(
 
 class _IFunctionDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionDefinition.
 
@@ -941,7 +945,7 @@ typing.cast(typing.Any, IFunctionDefinitionRef).__jsii_proxy_class__ = lambda : 
 )
 class IFunctionDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionDefinitionVersion.
@@ -961,7 +965,7 @@ class IFunctionDefinitionVersionRef(
 
 class _IFunctionDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionDefinitionVersion.
 
@@ -986,7 +990,7 @@ typing.cast(typing.Any, IFunctionDefinitionVersionRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrass.IGroupRef")
 class IGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
@@ -1006,7 +1010,7 @@ class IGroupRef(
 
 class _IGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
 
@@ -1031,7 +1035,7 @@ typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrass.IGroupVersionRef")
 class IGroupVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupVersion.
@@ -1051,7 +1055,7 @@ class IGroupVersionRef(
 
 class _IGroupVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupVersion.
 
@@ -1076,7 +1080,7 @@ typing.cast(typing.Any, IGroupVersionRef).__jsii_proxy_class__ = lambda : _IGrou
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_greengrass.ILoggerDefinitionRef")
 class ILoggerDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggerDefinition.
@@ -1096,7 +1100,7 @@ class ILoggerDefinitionRef(
 
 class _ILoggerDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggerDefinition.
 
@@ -1123,7 +1127,7 @@ typing.cast(typing.Any, ILoggerDefinitionRef).__jsii_proxy_class__ = lambda : _I
 )
 class ILoggerDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggerDefinitionVersion.
@@ -1143,7 +1147,7 @@ class ILoggerDefinitionVersionRef(
 
 class _ILoggerDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggerDefinitionVersion.
 
@@ -1170,7 +1174,7 @@ typing.cast(typing.Any, ILoggerDefinitionVersionRef).__jsii_proxy_class__ = lamb
 )
 class IResourceDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefinition.
@@ -1190,7 +1194,7 @@ class IResourceDefinitionRef(
 
 class _IResourceDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefinition.
 
@@ -1217,7 +1221,7 @@ typing.cast(typing.Any, IResourceDefinitionRef).__jsii_proxy_class__ = lambda : 
 )
 class IResourceDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefinitionVersion.
@@ -1237,7 +1241,7 @@ class IResourceDefinitionVersionRef(
 
 class _IResourceDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefinitionVersion.
 
@@ -1264,7 +1268,7 @@ typing.cast(typing.Any, IResourceDefinitionVersionRef).__jsii_proxy_class__ = la
 )
 class ISubscriptionDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinition.
@@ -1284,7 +1288,7 @@ class ISubscriptionDefinitionRef(
 
 class _ISubscriptionDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinition.
 
@@ -1311,7 +1315,7 @@ typing.cast(typing.Any, ISubscriptionDefinitionRef).__jsii_proxy_class__ = lambd
 )
 class ISubscriptionDefinitionVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinitionVersion.
@@ -1333,7 +1337,7 @@ class ISubscriptionDefinitionVersionRef(
 
 class _ISubscriptionDefinitionVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinitionVersion.
 
@@ -1391,7 +1395,7 @@ class LoggerDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6811b44d8327c7a7c12ae2a598aeb4a37fcdadf5b235433d292e858d5d55ade0)
+            type_hints = cached_type_hints(_typecheckingstub__6811b44d8327c7a7c12ae2a598aeb4a37fcdadf5b235433d292e858d5d55ade0)
             check_type(argname="argument logger_definition_arn", value=logger_definition_arn, expected_type=type_hints["logger_definition_arn"])
             check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1449,7 +1453,7 @@ class LoggerDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2df9b1c3f8f75951a3e8db5d5828fdefc2ea77bc0c2fdea644a34d2c0aecb916)
+            type_hints = cached_type_hints(_typecheckingstub__2df9b1c3f8f75951a3e8db5d5828fdefc2ea77bc0c2fdea644a34d2c0aecb916)
             check_type(argname="argument logger_definition_version_id", value=logger_definition_version_id, expected_type=type_hints["logger_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "logger_definition_version_id": logger_definition_version_id,
@@ -1508,7 +1512,7 @@ class ResourceDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15421579579b23b2ee6fde536cb3484a2f69b5e9f47c32bc1079dd3564f90342)
+            type_hints = cached_type_hints(_typecheckingstub__15421579579b23b2ee6fde536cb3484a2f69b5e9f47c32bc1079dd3564f90342)
             check_type(argname="argument resource_definition_arn", value=resource_definition_arn, expected_type=type_hints["resource_definition_arn"])
             check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1566,7 +1570,7 @@ class ResourceDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f40c0364a1f82a6ba84b221ba716f60bf66d385cfd833e44e30e41e523ed1370)
+            type_hints = cached_type_hints(_typecheckingstub__f40c0364a1f82a6ba84b221ba716f60bf66d385cfd833e44e30e41e523ed1370)
             check_type(argname="argument resource_definition_version_id", value=resource_definition_version_id, expected_type=type_hints["resource_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_definition_version_id": resource_definition_version_id,
@@ -1625,7 +1629,7 @@ class SubscriptionDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5efc59acdfcec0fc8652b8011f4b750cfd2b275ff5958378b6092b3cfaa7801d)
+            type_hints = cached_type_hints(_typecheckingstub__5efc59acdfcec0fc8652b8011f4b750cfd2b275ff5958378b6092b3cfaa7801d)
             check_type(argname="argument subscription_definition_arn", value=subscription_definition_arn, expected_type=type_hints["subscription_definition_arn"])
             check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1685,7 +1689,7 @@ class SubscriptionDefinitionVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__467fab44fe227f2955017bb8546314831f4a65f9fdc6edc4a3f6aa2cd96eb67e)
+            type_hints = cached_type_hints(_typecheckingstub__467fab44fe227f2955017bb8546314831f4a65f9fdc6edc4a3f6aa2cd96eb67e)
             check_type(argname="argument subscription_definition_version_id", value=subscription_definition_version_id, expected_type=type_hints["subscription_definition_version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subscription_definition_version_id": subscription_definition_version_id,

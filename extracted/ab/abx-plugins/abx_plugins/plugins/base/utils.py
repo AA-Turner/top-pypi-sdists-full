@@ -307,7 +307,8 @@ def _resolve_schema_payload(
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
     resolved = dict(resolved_config or {})
-    explicit_config_keys = explicit_config_keys or set()
+    if explicit_config_keys is None:
+        explicit_config_keys = set()
     payload: dict[str, Any] = {}
 
     for _ in range(max(len(properties), 1) + 1):
@@ -324,6 +325,7 @@ def _resolve_schema_payload(
                 resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
                 if isinstance(resolved_value, str) and "{" in resolved_value:
                     resolved_value = _hydrate_value(resolved_value, resolved)
+                explicit_config_keys.add(key)
                 if payload.get(key) != resolved_value:
                     payload[key] = resolved_value
                     resolved[key] = resolved_value
@@ -347,13 +349,15 @@ def _resolve_schema_payload(
                     )
                     if isinstance(fallback_value, str) and "{" in fallback_value:
                         fallback_value = _hydrate_value(fallback_value, resolved)
+                    explicit_config_keys.add(key)
                     if payload.get(key) != fallback_value:
                         payload[key] = fallback_value
                         resolved[key] = fallback_value
                         changed = True
                     continue
-                if fallback_key in resolved:
+                if fallback_key in resolved and fallback_key in explicit_config_keys:
                     fallback_value = resolved[fallback_key]
+                    explicit_config_keys.add(key)
                     if payload.get(key) != fallback_value:
                         payload[key] = fallback_value
                         resolved[key] = fallback_value
@@ -473,15 +477,25 @@ def _abxpkg_provider_kwargs(
     provider_name: str,
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
+    provider_root_value = str(
+        payload.get(f"ABXPKG_{provider_name.upper()}_ROOT") or "",
+    ).strip()
+    provider_root = (
+        Path(provider_root_value).expanduser() if provider_root_value else None
+    )
     lib_dir_value = str(payload.get("ABXPKG_LIB_DIR") or "").strip()
     lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
     if provider_name == "env":
         kwargs: dict[str, Any] = {
             "PATH": str(payload.get("PATH") or os.environ.get("PATH", "")),
         }
-        if lib_dir is not None:
+        if provider_root is not None:
+            kwargs["install_root"] = provider_root
+        elif lib_dir is not None:
             kwargs["install_root"] = lib_dir / "env"
         return kwargs
+    if provider_root is not None:
+        return {"install_root": provider_root}
     if lib_dir is not None and provider_name != "env":
         return {"install_root": lib_dir / provider_name}
     return {}
@@ -718,12 +732,17 @@ def resolve_plugin_configs(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, dict[str, Any]]:
+    """Resolve schemas from effective global state plus explicit user inputs.
+
+    ``global_config`` seeds already-resolved shared values. Only values supplied
+    through ``user_config`` or ``environ`` propagate through ``x-fallback``.
+    """
     resolved_sections: dict[str, dict[str, Any]] = {}
     resolved_values = {
         key: normalize_config_value(value)
         for key, value in (global_config or {}).items()
     }
-    explicit_config_keys = set(resolved_values)
+    explicit_config_keys: set[str] = set()
     resolved_payloads: dict[str, dict[str, Any]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
@@ -792,7 +811,7 @@ def _resolve_config_payload(
     payload = _resolve_schema_payload(
         properties,
         resolved_config=dict(global_config or {}),
-        explicit_config_keys=set(global_config or {}),
+        explicit_config_keys=set(),
         user_config=user_config,
         environ=environ,
     )
@@ -926,7 +945,7 @@ def load_config(
 
     1. process environment
     2. explicit `user_config`
-    3. `x-fallback`
+    3. an explicitly configured `x-fallback`
     4. schema defaults
     """
     resolved_path, title, properties, payload = _resolve_config_payload(

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.261.0",
+    "version": "2.262.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -104,10 +104,12 @@ kwargs = json.loads(
         "aws_cdk.aws_connect",
         "aws_cdk.aws_connectcampaigns",
         "aws_cdk.aws_connectcampaignsv2",
+        "aws_cdk.aws_controlcatalog",
         "aws_cdk.aws_controltower",
         "aws_cdk.aws_cur",
         "aws_cdk.aws_customerprofiles",
         "aws_cdk.aws_databrew",
+        "aws_cdk.aws_dataexchange",
         "aws_cdk.aws_datapipeline",
         "aws_cdk.aws_datasync",
         "aws_cdk.aws_datazone",
@@ -247,6 +249,7 @@ kwargs = json.loads(
         "aws_cdk.aws_opsworkscm",
         "aws_cdk.aws_organizations",
         "aws_cdk.aws_osis",
+        "aws_cdk.aws_outposts",
         "aws_cdk.aws_panorama",
         "aws_cdk.aws_paymentcryptography",
         "aws_cdk.aws_pcaconnectorad",
@@ -419,10 +422,12 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_connect",
         "aws_cdk.interfaces.aws_connectcampaigns",
         "aws_cdk.interfaces.aws_connectcampaignsv2",
+        "aws_cdk.interfaces.aws_controlcatalog",
         "aws_cdk.interfaces.aws_controltower",
         "aws_cdk.interfaces.aws_cur",
         "aws_cdk.interfaces.aws_customerprofiles",
         "aws_cdk.interfaces.aws_databrew",
+        "aws_cdk.interfaces.aws_dataexchange",
         "aws_cdk.interfaces.aws_datapipeline",
         "aws_cdk.interfaces.aws_datasync",
         "aws_cdk.interfaces.aws_datazone",
@@ -549,6 +554,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_opsworkscm",
         "aws_cdk.interfaces.aws_organizations",
         "aws_cdk.interfaces.aws_osis",
+        "aws_cdk.interfaces.aws_outposts",
         "aws_cdk.interfaces.aws_panorama",
         "aws_cdk.interfaces.aws_paymentcryptography",
         "aws_cdk.interfaces.aws_pcaconnectorad",
@@ -641,7 +647,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.261.0.jsii.tgz"
+            "aws-cdk-lib@2.262.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -651,11 +657,10 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk.asset-awscli-v1==2.2.282",
         "aws-cdk.asset-node-proxy-agent-v6>=2.1.2, <3.0.0",
-        "aws-cdk.cloud-assembly-schema>=54.0.0, <55.0.0",
+        "aws-cdk.cloud-assembly-schema>=54.11.0, <55.0.0",
         "constructs>=10.5.0, <11.0.0",
-        "jsii>=1.133.0, <2.0.0",
-        "publication>=0.0.3",
-        "typeguard==2.13.3"
+        "jsii>=1.138.0, <2.0.0",
+        "publication>=0.0.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

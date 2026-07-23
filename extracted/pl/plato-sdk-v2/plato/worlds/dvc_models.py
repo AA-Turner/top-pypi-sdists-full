@@ -89,6 +89,33 @@ class S3Config:
         )
 
 
+# How many seconds before STS expiry the plato-fuse binary refreshes its credentials.
+DEFAULT_CREDENTIAL_REFRESH_MARGIN_S = 300
+
+
+def credential_refresh_config(
+    chronos_url: str,
+    repo_id: str,
+    api_key: str,
+    refresh_margin_seconds: int = DEFAULT_CREDENTIAL_REFRESH_MARGIN_S,
+) -> dict[str, str | int]:
+    """Build the ``credential_refresh`` block of an :class:`S3Config`.
+
+    Canonical constructor for the contract consumed by the plato-fuse binary
+    (``plato-fuse/src/config.rs::CredentialRefreshConfig``): before a lazy download it POSTs
+    ``{chronos_url}/api/workspace-repos/{repo_id}/credentials`` with ``X-API-Key: {api_key}``
+    to swap in fresh STS credentials. The binary only self-refreshes when the config carries
+    BOTH this block and ``credentials_expires_at`` — without either, it silently keeps the
+    initial credentials and lazy reads fail with EIO once they expire.
+    """
+    return {
+        "chronos_url": chronos_url.rstrip("/"),
+        "repo_id": repo_id,
+        "api_key": api_key,
+        "refresh_margin_seconds": refresh_margin_seconds,
+    }
+
+
 @dataclass
 class DVCManifest:
     entries_list: list[DVCManifestEntry]

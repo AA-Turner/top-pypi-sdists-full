@@ -3,6 +3,10 @@ docsig._stub
 ============
 
 Stub types for parsed docstrings and signatures.
+
+``Signature`` and ``Docstring`` are the two sides docsig compares. Each
+is a ``Params`` collection plus return information, built from the
+function's AST with ``from_ast``.
 """
 
 from __future__ import annotations as _
@@ -38,6 +42,49 @@ _NO_RETURN = ("NoReturn", "Never")
 #: closing token
 _FIELD_WORD = r"(?:\\?\*){0,2}\w+(?:[.,|\[\]]+\w+)*[,\[\]]*"
 
+#: a ``..`` directive and its indented block, which may be indented
+#: arbitrarily and so never counts as a param indent anomaly
+_DIRECTIVE = _re.compile(r"^[ \t]*\.\..*\n(?:[ \t]+.*\n)*", _re.MULTILINE)
+
+#: an rst field such as ``:param:``, marking a docstring as already rst
+_RST_FIELD = _re.compile(r"^:\w+", _re.MULTILINE)
+
+#: a numpy section header such as ``Returns`` underlined with dashes
+_NUMPY_SECTION = _re.compile(
+    r"^(Parameters|Other Parameters|Returns|Yields|Raises|"
+    r"See Also|Notes|Examples|Attributes|Methods)\n"
+    r"\s*-{3,}\s*$",
+    _re.MULTILINE,
+)
+
+#: a Google section header such as ``Args:``
+_GOOGLE_SECTION = _re.compile(
+    r"^(Args|Arguments|Keyword Args|Keyword Arguments|Parameters|"
+    r"Returns|Yields|Raises|Attributes|Example|Examples):\s*$",
+    _re.MULTILINE,
+)
+
+#: a return field such as ``:return:``, capturing its description
+_RETURN_FIELD = _re.compile(
+    r"^[ \t]*:(?:returns?|yields?|rtype):\s*(.*)",
+    _re.IGNORECASE | _re.MULTILINE,
+)
+
+#: a param field such as ``:param name: description``, in three groups:
+#: the keyword with the (possibly starred) name, the token closing the
+#: name (a colon when written correctly), and the description running
+#: up to the next field or the end of the docstring
+# the suggestion is broken
+# noinspection RegExpSingleCharAlternation
+_PARAM_FIELD = _re.compile(
+    r"^[ \t]*:((?:\\?\*){0,2}[\w]+"
+    rf"(?:\s+{_FIELD_WORD}|"
+    rf"\s\|\s{_FIELD_WORD})*)"
+    r"([^\w\s\\*])"
+    r"((?:.|\n)*?)(?=\n[ \t]*:|\Z)",
+    _re.MULTILINE,
+)
+
 
 class RetType(_Enum):
     """Possible kinds of return annotation."""
@@ -49,6 +96,15 @@ class RetType(_Enum):
     @staticmethod
     def _annotates_none(returns: _ast.nodes.NodeNG | None) -> bool:
         if isinstance(returns, _ast.nodes.Const):
+            if isinstance(returns.value, str):
+                # a quoted annotation, e.g. -> "None", is legal
+                # forward-reference style and annotates whatever the
+                # string names
+                return returns.value.split(".")[-1] in (
+                    "None",
+                    *_NO_RETURN,
+                )
+
             return returns.value is None
 
         if isinstance(returns, _ast.nodes.Name):
@@ -138,8 +194,14 @@ class Param:
         return str(self.name).startswith("_")
 
 
-# single return from a docstring or function signature
 class _Return(_t.NamedTuple):
+    # single return from a docstring or function signature
+    #
+    # returns - a return value is declared (signature) or documented
+    #     (docstring)
+    # type - the kind of return annotation (signatures only)
+    # description_missing - return is documented without a description
+    #     (docstrings only)
     returns: bool = False
     type: RetType = RetType.UNTYPED
     description_missing: bool = False
@@ -148,6 +210,9 @@ class _Return(_t.NamedTuple):
 class Params(list[Param]):
     """A list-like collection of params.
 
+    Appends are filtered: protected params, and param kinds the
+    configuration says to ignore, are silently dropped.
+
     :param ignore: Configuration object for what to ignore.
     """
 
@@ -155,20 +220,23 @@ class Params(list[Param]):
         super().__init__()
         self._ignore = ignore
 
+    def _accepts(self, value: Param) -> bool:
+        if value.isprotected:
+            return False
+
+        if value.kind == DocType.ARG:
+            return not self._ignore.args
+
+        if value.kind == DocType.KWARG:
+            # only one **kwargs can exist, so only the first is kept
+            return not self._ignore.kwargs and not any(
+                i.kind == DocType.KWARG for i in self
+            )
+
+        return value.kind == DocType.PARAM
+
     def append(self, value: Param) -> None:
-        if not value.isprotected and any(
-            (
-                value.kind == DocType.PARAM,
-                (value.kind == DocType.ARG and not self._ignore.args),
-                (
-                    value.kind == DocType.KWARG
-                    and not (
-                        self._ignore.kwargs
-                        or any(i.kind == DocType.KWARG for i in self)
-                    )
-                ),
-            ),
-        ):
+        if self._accepts(value):
             super().append(value)
 
     def get(self, index: int) -> Param:
@@ -197,6 +265,8 @@ class Params(list[Param]):
 
 
 class _Stub:
+    # what a signature and a docstring have in common: a collection of
+    # params and a return
     def __init__(
         self,
         returns: _Return | None = None,
@@ -217,18 +287,35 @@ class _Stub:
 
 
 class Signature(_Stub):
-    """Parsed function signature (args and return type).
+    """Parsed function signature (args and return type)."""
 
-    :param returns: True if return is declared in the signature.
-    :param ignore: Configuration object for what to ignore.
-    """
+    @staticmethod
+    def _params_from_args(
+        args: _ast.nodes.Arguments,
+        skip_bound_arg: bool,
+    ) -> _t.Iterator[Param]:
+        # yield params in the order they are documented: positional,
+        # *args, keyword-only, then **kwargs
+        posonlyargs = list(args.posonlyargs)
+        positional = list(args.args)
+        if skip_bound_arg:
+            # drop self or cls without mutating the AST node
+            if posonlyargs:
+                posonlyargs = posonlyargs[1:]
+            elif positional:
+                positional = positional[1:]
 
-    def __init__(
-        self,
-        returns: _Return | None = None,
-        ignore: _Ignore | None = None,
-    ) -> None:
-        super().__init__(returns, ignore or _Ignore())
+        for arg in (*posonlyargs, *positional):
+            yield Param(name=arg.name)
+
+        if args.vararg:
+            yield Param(DocType.ARG, name=args.vararg)
+
+        for arg in args.kwonlyargs:
+            yield Param(name=arg.name)
+
+        if args.kwarg:
+            yield Param(DocType.KWARG, name=args.kwarg)
 
     @classmethod
     def from_ast(
@@ -246,30 +333,10 @@ class Signature(_Stub):
         :return: Signature with args and return type.
         """
         rettype = RetType.from_ast(node.returns)
-        returns = _Return(rettype == RetType.SOME, rettype)
-        signature = cls(returns, ignore)
-        posonlyargs = list(node.args.posonlyargs)
+        signature = cls(_Return(rettype == RetType.SOME, rettype), ignore)
         if node.args.args is not None:
-            args = list(node.args.args)
-            if skip_bound_arg:
-                if posonlyargs:
-                    posonlyargs = posonlyargs[1:]
-                elif args:
-                    args = args[1:]
-
-            # noinspection PyUnresolvedReferences
-            for i in [
-                a if isinstance(a, Param) else Param(name=a.name)
-                for a in [
-                    *posonlyargs,
-                    *args,
-                    Param(DocType.ARG, name=node.args.vararg),
-                    *node.args.kwonlyargs,
-                    Param(DocType.KWARG, name=node.args.kwarg),
-                ]
-                if a is not None and a.name
-            ]:
-                signature.args.append(i)
+            for param in cls._params_from_args(node.args, skip_bound_arg):
+                signature.args.append(param)
 
         return signature
 
@@ -288,67 +355,6 @@ class Docstring(_Stub):
     :param returns: True if a return or yield section is present.
     """
 
-    @staticmethod
-    def _indent_anomaly(string: str) -> bool:
-        # strip double dot directives from docstring, which can be
-        # indented arbitrarily
-        string = _re.sub(
-            r"^[ \t]*\.\..*\n(?:[ \t]+.*\n)*",
-            "",
-            string,
-            flags=_re.MULTILINE,
-        )
-        for line in string.splitlines():
-            # only check params
-            # description or anything else is out of scope
-            if line.lstrip().startswith(":"):
-                match = _re.match(r"^\s*", line)
-                if match is not None:
-                    spaces = len(match.group())
-                    if spaces > 0:
-                        return spaces % 2 != 0
-
-        return False
-
-    @staticmethod
-    def _docstring_style(string: str) -> str:
-        # prefer existing rst fields over napoleon section headers
-        if _re.search(r"^:\w+", string, _re.MULTILINE):
-            return "rst"
-
-        if _re.search(
-            r"^(Parameters|Other Parameters|Returns|Yields|Raises|"
-            r"See Also|Notes|Examples|Attributes|Methods)\n"
-            r"\s*-{3,}\s*$",
-            string,
-            _re.MULTILINE,
-        ):
-            return "numpy"
-
-        if _re.search(
-            r"^(Args|Arguments|Keyword Args|Keyword Arguments|Parameters|"
-            r"Returns|Yields|Raises|Attributes|Example|Examples):\s*$",
-            string,
-            _re.MULTILINE,
-        ):
-            return "google"
-
-        return "rst"
-
-    @staticmethod
-    def _normalize_docstring(string: str) -> str:
-        # convert Google or numpy style to rst when detected
-        # leave rst (including field lists) unchanged
-        string = _inspect.cleandoc(string)
-        style = Docstring._docstring_style(string)
-        if style == "google":
-            return str(_s.GoogleDocstring(string))  # type: ignore
-
-        if style == "numpy":
-            return str(_s.NumpyDocstring(string))  # type: ignore
-
-        return string
-
     def __init__(
         self,
         string: str | None = None,
@@ -357,6 +363,80 @@ class Docstring(_Stub):
         super().__init__(returns)
         self._string = string
 
+    @staticmethod
+    def _indent_anomaly(string: str) -> bool:
+        # report whether the first indented param field is indented
+        # with an odd number of spaces relative to the docstring's own
+        # margin, so a uniformly indented docstring, e.g. one indented
+        # with tabs, is not an anomaly
+        # tabs are expanded as cleandoc expands them for parsing
+        # description or anything else is out of scope
+        string = _DIRECTIVE.sub("", string.expandtabs())
+        lines = string.splitlines()
+        # the margin is the least indent below the summary line; the
+        # last line is counted even when blank as it carries the
+        # indent of the closing quotes
+        indents = [
+            len(line) - len(line.lstrip())
+            for line in lines[1:]
+            if line.strip() or line is lines[-1]
+        ]
+        margin = min(indents, default=0)
+        for line in lines:
+            if line.lstrip().startswith(":"):
+                indent = len(line) - len(line.lstrip()) - margin
+                if indent > 0:
+                    return indent % 2 != 0
+
+        return False
+
+    @staticmethod
+    def _normalize_docstring(string: str) -> str:
+        # convert Google or numpy style to rst when detected, preferring
+        # existing rst fields over napoleon section headers
+        string = _inspect.cleandoc(string)
+        if _RST_FIELD.search(string):
+            return string
+
+        if _NUMPY_SECTION.search(string):
+            return str(_s.NumpyDocstring(string))  # type: ignore
+
+        if _GOOGLE_SECTION.search(string):
+            return str(_s.GoogleDocstring(string))  # type: ignore
+
+        return string
+
+    @staticmethod
+    def _parse_returns(string: str) -> _Return:
+        match = _RETURN_FIELD.search(string)
+        return _Return(
+            bool(match),
+            description_missing=not match or not match.group(1),
+        )
+
+    @staticmethod
+    def _parse_param(
+        field: str,
+        closing_token: str,
+        description: str,
+        indent: int,
+    ) -> Param:
+        # field is the keyword with the param name if one is given,
+        # e.g. "param src" -> kind "param", name "src"
+        words = field.split()
+        name = UNNAMED
+        if len(words) > 1:
+            # drop * / ** / napoleon-escaped stars on the name
+            name = words[-1].lstrip("\\*")
+
+        return Param(
+            DocType.from_str(words[0]),
+            name,
+            description or None,
+            indent,
+            closing_token,
+        )
+
     @classmethod
     def from_ast(cls, node: _ast.Const) -> Docstring:
         """Build Docstring from the function's docstring AST node.
@@ -364,45 +444,15 @@ class Docstring(_Stub):
         :param node: Const node holding the docstring string.
         :return: Docstring with args and return flag.
         """
-        indent_anomaly = cls._indent_anomaly(node.value)
+        indent = int(cls._indent_anomaly(node.value))
         string = cls._normalize_docstring(node.value)
-        match = _re.search(
-            r"^[ \t]*:(?:returns?|yields?|rtype):\s*(.*)",
+        docstring = cls(string, cls._parse_returns(string))
+        for field, closing_token, description in _PARAM_FIELD.findall(
             string,
-            _re.IGNORECASE | _re.MULTILINE,
-        )
-        returns = _Return(
-            bool(match),
-            description_missing=not match or not match.group(1),
-        )
-        docstring = cls(string, returns)
-        # the suggestion is broken
-        # noinspection RegExpSingleCharAlternation
-        for match in _re.findall(
-            r"^[ \t]*:((?:\\?\*){0,2}[\w]+"
-            rf"(?:\s+{_FIELD_WORD}|"
-            rf"\s\|\s{_FIELD_WORD})*)"
-            r"([^\w\s\\*])"
-            r"((?:.|\n)*?)(?=\n[ \t]*:|\Z)",
-            string,
-            _re.MULTILINE,
         ):
-            if match:
-                kinds = match[0].split()
-                if kinds:
-                    name = None
-                    if len(kinds) > 1:
-                        # drop * / ** / napoleon-escaped stars on the name
-                        name = kinds[-1].lstrip("\\*")
-                    docstring.args.append(
-                        Param(
-                            DocType.from_str(kinds[0]),
-                            UNNAMED if name is None else name,
-                            match[2] or None,
-                            int(indent_anomaly),
-                            match[1],
-                        ),
-                    )
+            docstring.args.append(
+                cls._parse_param(field, closing_token, description, indent),
+            )
 
         return docstring
 

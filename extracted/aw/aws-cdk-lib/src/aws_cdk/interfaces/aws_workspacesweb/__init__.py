@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class BrowserSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a86f83cb991212444d3914144c22ba1dc691d5dee8f106349739cab5ff64b4a)
+            type_hints = cached_type_hints(_typecheckingstub__0a86f83cb991212444d3914144c22ba1dc691d5dee8f106349739cab5ff64b4a)
             check_type(argname="argument browser_settings_arn", value=browser_settings_arn, expected_type=type_hints["browser_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "browser_settings_arn": browser_settings_arn,
@@ -107,7 +111,7 @@ class DataProtectionSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1f3632e4487bac999312f4a7bf06ce08cb7b3d71d0411d0bb8a1b296dd3c57b)
+            type_hints = cached_type_hints(_typecheckingstub__f1f3632e4487bac999312f4a7bf06ce08cb7b3d71d0411d0bb8a1b296dd3c57b)
             check_type(argname="argument data_protection_settings_arn", value=data_protection_settings_arn, expected_type=type_hints["data_protection_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_protection_settings_arn": data_protection_settings_arn,
@@ -137,7 +141,7 @@ class DataProtectionSettingsReference:
 )
 class IBrowserSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BrowserSettings.
@@ -157,7 +161,7 @@ class IBrowserSettingsRef(
 
 class _IBrowserSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BrowserSettings.
 
@@ -184,7 +188,7 @@ typing.cast(typing.Any, IBrowserSettingsRef).__jsii_proxy_class__ = lambda : _IB
 )
 class IDataProtectionSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataProtectionSettings.
@@ -204,7 +208,7 @@ class IDataProtectionSettingsRef(
 
 class _IDataProtectionSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataProtectionSettings.
 
@@ -231,7 +235,7 @@ typing.cast(typing.Any, IDataProtectionSettingsRef).__jsii_proxy_class__ = lambd
 )
 class IIdentityProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityProvider.
@@ -251,7 +255,7 @@ class IIdentityProviderRef(
 
 class _IIdentityProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityProvider.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IIdentityProviderRef).__jsii_proxy_class__ = lambda : _I
 )
 class IIpAccessSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IpAccessSettings.
@@ -298,7 +302,7 @@ class IIpAccessSettingsRef(
 
 class _IIpAccessSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IpAccessSettings.
 
@@ -325,7 +329,7 @@ typing.cast(typing.Any, IIpAccessSettingsRef).__jsii_proxy_class__ = lambda : _I
 )
 class INetworkSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkSettings.
@@ -345,7 +349,7 @@ class INetworkSettingsRef(
 
 class _INetworkSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkSettings.
 
@@ -370,7 +374,7 @@ typing.cast(typing.Any, INetworkSettingsRef).__jsii_proxy_class__ = lambda : _IN
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspacesweb.IPortalRef")
 class IPortalRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portal.
@@ -390,7 +394,7 @@ class IPortalRef(
 
 class _IPortalRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portal.
 
@@ -415,7 +419,7 @@ typing.cast(typing.Any, IPortalRef).__jsii_proxy_class__ = lambda : _IPortalRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspacesweb.ISessionLoggerRef")
 class ISessionLoggerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SessionLogger.
@@ -435,7 +439,7 @@ class ISessionLoggerRef(
 
 class _ISessionLoggerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SessionLogger.
 
@@ -460,7 +464,7 @@ typing.cast(typing.Any, ISessionLoggerRef).__jsii_proxy_class__ = lambda : _ISes
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspacesweb.ITrustStoreRef")
 class ITrustStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrustStore.
@@ -480,7 +484,7 @@ class ITrustStoreRef(
 
 class _ITrustStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrustStore.
 
@@ -507,7 +511,7 @@ typing.cast(typing.Any, ITrustStoreRef).__jsii_proxy_class__ = lambda : _ITrustS
 )
 class IUserAccessLoggingSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserAccessLoggingSettings.
@@ -527,7 +531,7 @@ class IUserAccessLoggingSettingsRef(
 
 class _IUserAccessLoggingSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserAccessLoggingSettings.
 
@@ -552,7 +556,7 @@ typing.cast(typing.Any, IUserAccessLoggingSettingsRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspacesweb.IUserSettingsRef")
 class IUserSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserSettings.
@@ -572,7 +576,7 @@ class IUserSettingsRef(
 
 class _IUserSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserSettings.
 
@@ -618,7 +622,7 @@ class IdentityProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d06a54ff8ceeaae4c4158181d934d8e147b1c9743c60c74bdf6fd682edcf3636)
+            type_hints = cached_type_hints(_typecheckingstub__d06a54ff8ceeaae4c4158181d934d8e147b1c9743c60c74bdf6fd682edcf3636)
             check_type(argname="argument identity_provider_arn", value=identity_provider_arn, expected_type=type_hints["identity_provider_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "identity_provider_arn": identity_provider_arn,
@@ -667,7 +671,7 @@ class IpAccessSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83929b7ec7392cc5bbd9b90982729d0fd7528f39bc08e8d857f58293db8c397b)
+            type_hints = cached_type_hints(_typecheckingstub__83929b7ec7392cc5bbd9b90982729d0fd7528f39bc08e8d857f58293db8c397b)
             check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ip_access_settings_arn": ip_access_settings_arn,
@@ -716,7 +720,7 @@ class NetworkSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b481c867b1f52384ef579bc94fecc53088b5d9b42cbf8fd48ae69a4f3eba7614)
+            type_hints = cached_type_hints(_typecheckingstub__b481c867b1f52384ef579bc94fecc53088b5d9b42cbf8fd48ae69a4f3eba7614)
             check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_settings_arn": network_settings_arn,
@@ -765,7 +769,7 @@ class PortalReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e663ea314aede92b25306c3859d2d29050477dc0a13e30bad8966d0295d92ddc)
+            type_hints = cached_type_hints(_typecheckingstub__e663ea314aede92b25306c3859d2d29050477dc0a13e30bad8966d0295d92ddc)
             check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "portal_arn": portal_arn,
@@ -814,7 +818,7 @@ class SessionLoggerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__093e66dd03530c70c2cad4c0f448985c476bc2060565e5166b6df4c62767aa17)
+            type_hints = cached_type_hints(_typecheckingstub__093e66dd03530c70c2cad4c0f448985c476bc2060565e5166b6df4c62767aa17)
             check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "session_logger_arn": session_logger_arn,
@@ -863,7 +867,7 @@ class TrustStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f89506317979fe315a43fa5d8074f96c94b1d554fda4754a3be13cf61c32164)
+            type_hints = cached_type_hints(_typecheckingstub__7f89506317979fe315a43fa5d8074f96c94b1d554fda4754a3be13cf61c32164)
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "trust_store_arn": trust_store_arn,
@@ -912,7 +916,7 @@ class UserAccessLoggingSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d5e1a279ef19952e911a4b1d07cccfd213091ece112e6e4d62b76fd9fc991aa)
+            type_hints = cached_type_hints(_typecheckingstub__3d5e1a279ef19952e911a4b1d07cccfd213091ece112e6e4d62b76fd9fc991aa)
             check_type(argname="argument user_access_logging_settings_arn", value=user_access_logging_settings_arn, expected_type=type_hints["user_access_logging_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_access_logging_settings_arn": user_access_logging_settings_arn,
@@ -961,7 +965,7 @@ class UserSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81697bb362c73df236f633996ec44c352ab35bdb7ad0f499d04e1d627cd2c7f3)
+            type_hints = cached_type_hints(_typecheckingstub__81697bb362c73df236f633996ec44c352ab35bdb7ad0f499d04e1d627cd2c7f3)
             check_type(argname="argument user_settings_arn", value=user_settings_arn, expected_type=type_hints["user_settings_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_settings_arn": user_settings_arn,

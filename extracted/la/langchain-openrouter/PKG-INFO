@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-openrouter
-Version: 0.2.6
+Version: 0.2.7
 Summary: An integration package connecting OpenRouter and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/openrouter
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_openrouter/

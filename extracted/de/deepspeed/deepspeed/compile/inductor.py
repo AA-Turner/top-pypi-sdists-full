@@ -22,6 +22,29 @@ from .graph_param import DSGraphParamManager
 from .partitioner import get_wrapped_partitioner
 
 
+def _get_graphsafe_run_with_rng_state():
+    try:
+        from torch._prims import rng_prims
+    except ImportError:
+        return None
+    return getattr(rng_prims, "graphsafe_run_with_rng_state", None)
+
+
+def _register_graphsafe_rng_state_no_reuse(register_fallback_no_reuse):
+    graphsafe_run_with_rng_state = _get_graphsafe_run_with_rng_state()
+    if graphsafe_run_with_rng_state is None:
+        return False
+
+    register_fallback_no_reuse(graphsafe_run_with_rng_state, never_reuse_output=True)
+    return True
+
+
+def _mark_output_never_reuse(out, *, enabled):
+    if enabled and isinstance(out, IRNode):
+        V.graph.never_reuse_buffers.add(out.get_name())
+    return out
+
+
 def patch_compiler(original_compiler, dc_compiler, z3_partition: bool, graph_id, graph_param_manager, bwd: bool):
 
     def wrapped_compiler(gm, fake_inputs):
@@ -167,9 +190,7 @@ def register_custom_ops():
 
             def wrap_tensors(x):
                 out = TensorBox.create(x) if isinstance(x, torch._inductor.ir.IRNode) else x
-                if out is not None and never_reuse_output:
-                    V.graph.never_reuse_buffers.add(out.get_name())
-                return out
+                return _mark_output_never_reuse(out, enabled=never_reuse_output)
 
             class CustomDCKernel(FallbackKernel):
 
@@ -243,6 +264,7 @@ def register_custom_ops():
                                force_free_input=True)
     register_fallback_no_reuse(torch.ops.dc.free_tensors.default, never_reuse_input=True, never_reuse_output=True)
     register_fallback_no_reuse(torch.ops.dc.end_backward.default, never_reuse_input=True, never_reuse_output=False)
+    _register_graphsafe_rng_state_no_reuse(register_fallback_no_reuse)
 
     if not hasattr(Scheduler, "is_dc_patched") or not Scheduler.is_dc_patched:
         Scheduler.is_dc_patched = True

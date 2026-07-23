@@ -46,22 +46,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
@@ -147,7 +133,7 @@ class ResourceEnvironment:
             ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5aaa43a6d0a198f8a3f9e8ab7ee8ce8d940df80e550839a285b920b7d6e816f)
+            type_hints = cached_type_hints(_typecheckingstub__c5aaa43a6d0a198f8a3f9e8ab7ee8ce8d940df80e550839a285b920b7d6e816f)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -268,10 +254,12 @@ __all__ = [
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
+    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -398,6 +386,7 @@ __all__ = [
     "aws_opsworkscm",
     "aws_organizations",
     "aws_osis",
+    "aws_outposts",
     "aws_panorama",
     "aws_paymentcryptography",
     "aws_pcaconnectorad",
@@ -560,10 +549,12 @@ if typing.TYPE_CHECKING:
     from . import aws_connect as aws_connect
     from . import aws_connectcampaigns as aws_connectcampaigns
     from . import aws_connectcampaignsv2 as aws_connectcampaignsv2
+    from . import aws_controlcatalog as aws_controlcatalog
     from . import aws_controltower as aws_controltower
     from . import aws_cur as aws_cur
     from . import aws_customerprofiles as aws_customerprofiles
     from . import aws_databrew as aws_databrew
+    from . import aws_dataexchange as aws_dataexchange
     from . import aws_datapipeline as aws_datapipeline
     from . import aws_datasync as aws_datasync
     from . import aws_datazone as aws_datazone
@@ -690,6 +681,7 @@ if typing.TYPE_CHECKING:
     from . import aws_opsworkscm as aws_opsworkscm
     from . import aws_organizations as aws_organizations
     from . import aws_osis as aws_osis
+    from . import aws_outposts as aws_outposts
     from . import aws_panorama as aws_panorama
     from . import aws_paymentcryptography as aws_paymentcryptography
     from . import aws_pcaconnectorad as aws_pcaconnectorad
@@ -851,10 +843,12 @@ _SUBMODULES = {
     "aws_connect",
     "aws_connectcampaigns",
     "aws_connectcampaignsv2",
+    "aws_controlcatalog",
     "aws_controltower",
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
+    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -981,6 +975,7 @@ _SUBMODULES = {
     "aws_opsworkscm",
     "aws_organizations",
     "aws_osis",
+    "aws_outposts",
     "aws_panorama",
     "aws_paymentcryptography",
     "aws_pcaconnectorad",

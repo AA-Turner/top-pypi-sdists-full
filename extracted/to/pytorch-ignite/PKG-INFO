@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytorch-ignite
-Version: 0.5.4
+Version: 0.5.5
 Summary: A lightweight library to help with training neural networks in PyTorch.
 Project-URL: Homepage, https://pytorch-ignite.ai
 Project-URL: Repository, https://github.com/pytorch/ignite
@@ -8,7 +8,7 @@ Author-email: PyTorch-Ignite Team <contact@pytorch-ignite.ai>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <=3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: packaging
 Requires-Dist: torch<3,>=2.2
 Description-Content-Type: text/markdown
@@ -17,7 +17,13 @@ Description-Content-Type: text/markdown
 
 <!-- ![Ignite Logo](assets/logo/ignite_logo_mixed.svg) -->
 
-<img src="https://raw.githubusercontent.com/pytorch/ignite/master/assets/logo/ignite_logo_mixed.svg" width=512>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pytorch/ignite/master/assets/logo/ignite_logo_mixed_light.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/pytorch/ignite/master/assets/logo/ignite_logo_mixed.svg">
+  <img src="https://raw.githubusercontent.com/pytorch/ignite/master/assets/logo/ignite_logo_mixed.svg"
+       alt="PyTorch-Ignite logo"
+       width="512">
+</picture>
 
 <!-- [![image](https://travis-ci.com/pytorch/ignite.svg?branch=master)](https://travis-ci.com/pytorch/ignite) -->
 

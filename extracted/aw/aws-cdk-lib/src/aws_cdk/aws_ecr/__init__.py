@@ -312,6 +312,8 @@ Automatically deletes all images from a repository when it is removed from the s
 ecr.CfnRepository(self, "Repo").with(ecr.mixins.RepositoryAutoDeleteImages())
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -326,73 +328,37 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_events import (
-    EventPattern as _EventPattern_fe557901,
-    IRuleTarget as _IRuleTarget_7a91f454,
-    OnEventOptions as _OnEventOptions_8711b8b3,
-    Rule as _Rule_334ed2b5,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..interfaces.aws_ecr import (
-    IPublicRepositoryRef as _IPublicRepositoryRef_fef651e6,
-    IPullThroughCacheRuleRef as _IPullThroughCacheRuleRef_6d4698a2,
-    IPullTimeUpdateExclusionRef as _IPullTimeUpdateExclusionRef_4c002da0,
-    IRegistryPolicyRef as _IRegistryPolicyRef_42ef4743,
-    IRegistryScanningConfigurationRef as _IRegistryScanningConfigurationRef_777252de,
-    IReplicationConfigurationRef as _IReplicationConfigurationRef_a2ce7034,
-    IRepositoryCreationTemplateRef as _IRepositoryCreationTemplateRef_b7cd8f39,
-    IRepositoryRef as _IRepositoryRef_f3b81117,
-    ISigningConfigurationRef as _ISigningConfigurationRef_0c353858,
-    PublicRepositoryReference as _PublicRepositoryReference_b2001418,
-    PullThroughCacheRuleReference as _PullThroughCacheRuleReference_c998144d,
-    PullTimeUpdateExclusionReference as _PullTimeUpdateExclusionReference_61dc265f,
-    RegistryPolicyReference as _RegistryPolicyReference_2d2e9fdc,
-    RegistryScanningConfigurationReference as _RegistryScanningConfigurationReference_4b2666f2,
-    ReplicationConfigurationReference as _ReplicationConfigurationReference_d963555d,
-    RepositoryCreationTemplateReference as _RepositoryCreationTemplateReference_4a34e559,
-    RepositoryReference as _RepositoryReference_af4d81f0,
-    SigningConfigurationReference as _SigningConfigurationReference_56e7e84d,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.interfaces.aws_ecr as _aws_ecr_984bcfb2
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ecr_984bcfb2 = _LazyImport("aws_cdk.interfaces.aws_ecr")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class AuthorizationToken(
@@ -412,20 +378,20 @@ class AuthorizationToken(
 
     @jsii.member(jsii_name="grantRead")
     @builtins.classmethod
-    def grant_read(cls, grantee: "_IGrantable_71c4f5de") -> None:
+    def grant_read(cls, grantee: "_aws_iam_1f54b5e8.IGrantable") -> None:
         '''Grant access to retrieve an authorization token.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b189c1467d2bda9405aa4cabd8bab18d9bb346d049339366389c70f4216e7822)
+            type_hints = cached_type_hints(_typecheckingstub__b189c1467d2bda9405aa4cabd8bab18d9bb346d049339366389c70f4216e7822)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast(None, jsii.sinvoke(cls, "grantRead", [grantee]))
 
 
-@jsii.implements(_IInspectable_c2943556, _IPublicRepositoryRef_fef651e6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IPublicRepositoryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPublicRepository(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnPublicRepository",
 ):
@@ -466,7 +432,7 @@ class CfnPublicRepository(
         repository_catalog_data: typing.Any = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ECR::PublicRepository``.
 
@@ -478,7 +444,7 @@ class CfnPublicRepository(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5b1b0a44f7b903d10d3e873896cf1709943b67e3503cc3918e4e98f04ed2c17)
+            type_hints = cached_type_hints(_typecheckingstub__a5b1b0a44f7b903d10d3e873896cf1709943b67e3503cc3918e4e98f04ed2c17)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPublicRepositoryProps(
@@ -494,13 +460,13 @@ class CfnPublicRepository(
     @builtins.classmethod
     def arn_for_public_repository(
         cls,
-        resource: "_IPublicRepositoryRef_fef651e6",
+        resource: "_aws_ecr_984bcfb2.IPublicRepositoryRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb6d6b8f11ff5aa7e76e99989e1f74e816dd5ace2f447821d96bf4422c72b154)
+            type_hints = cached_type_hints(_typecheckingstub__bb6d6b8f11ff5aa7e76e99989e1f74e816dd5ace2f447821d96bf4422c72b154)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPublicRepository", [resource]))
 
@@ -511,7 +477,7 @@ class CfnPublicRepository(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IPublicRepositoryRef_fef651e6":
+    ) -> "_aws_ecr_984bcfb2.IPublicRepositoryRef":
         '''Creates a new IPublicRepositoryRef from an ARN.
 
         :param scope: -
@@ -519,11 +485,11 @@ class CfnPublicRepository(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df08363dd3d49b4b281729649cda34a42b796ed2c1c7a9e6c28145049dcd5bf9)
+            type_hints = cached_type_hints(_typecheckingstub__df08363dd3d49b4b281729649cda34a42b796ed2c1c7a9e6c28145049dcd5bf9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IPublicRepositoryRef_fef651e6", jsii.sinvoke(cls, "fromPublicRepositoryArn", [scope, id, arn]))
+        return typing.cast("_aws_ecr_984bcfb2.IPublicRepositoryRef", jsii.sinvoke(cls, "fromPublicRepositoryArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromRepositoryName")
     @builtins.classmethod
@@ -532,7 +498,7 @@ class CfnPublicRepository(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         repository_name: builtins.str,
-    ) -> "_IPublicRepositoryRef_fef651e6":
+    ) -> "_aws_ecr_984bcfb2.IPublicRepositoryRef":
         '''Creates a new IPublicRepositoryRef from a repositoryName.
 
         :param scope: -
@@ -540,11 +506,11 @@ class CfnPublicRepository(
         :param repository_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a12c8d1af48bfd21b0af8b54f0dfaf211699928aac8fb0ffb2e0ff8ce482ac1a)
+            type_hints = cached_type_hints(_typecheckingstub__a12c8d1af48bfd21b0af8b54f0dfaf211699928aac8fb0ffb2e0ff8ce482ac1a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
-        return typing.cast("_IPublicRepositoryRef_fef651e6", jsii.sinvoke(cls, "fromRepositoryName", [scope, id, repository_name]))
+        return typing.cast("_aws_ecr_984bcfb2.IPublicRepositoryRef", jsii.sinvoke(cls, "fromRepositoryName", [scope, id, repository_name]))
 
     @jsii.member(jsii_name="isCfnPublicRepository")
     @builtins.classmethod
@@ -554,18 +520,18 @@ class CfnPublicRepository(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be487b156d21b376fa970d80f46ab5f81e0cd19b26308b8723a0f2dfc626b463)
+            type_hints = cached_type_hints(_typecheckingstub__be487b156d21b376fa970d80f46ab5f81e0cd19b26308b8723a0f2dfc626b463)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPublicRepository", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__317b166576f7593305ca27885da5cd7a621d59c15390c40d8de8d3e3c28eb94b)
+            type_hints = cached_type_hints(_typecheckingstub__317b166576f7593305ca27885da5cd7a621d59c15390c40d8de8d3e3c28eb94b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -578,7 +544,7 @@ class CfnPublicRepository(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3890a4bb017b2e52f74cb2ffb17f575b120d2d4a4d312e0c59290c8145be664)
+            type_hints = cached_type_hints(_typecheckingstub__e3890a4bb017b2e52f74cb2ffb17f575b120d2d4a4d312e0c59290c8145be664)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -611,15 +577,15 @@ class CfnPublicRepository(
 
     @builtins.property
     @jsii.member(jsii_name="publicRepositoryRef")
-    def public_repository_ref(self) -> "_PublicRepositoryReference_b2001418":
+    def public_repository_ref(self) -> "_aws_ecr_984bcfb2.PublicRepositoryReference":
         '''A reference to a PublicRepository resource.'''
-        return typing.cast("_PublicRepositoryReference_b2001418", jsii.get(self, "publicRepositoryRef"))
+        return typing.cast("_aws_ecr_984bcfb2.PublicRepositoryReference", jsii.get(self, "publicRepositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryCatalogData")
@@ -630,7 +596,7 @@ class CfnPublicRepository(
     @repository_catalog_data.setter
     def repository_catalog_data(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff52c4c89f76461de2458e82c2bfd20f4de3951ad8eab58aec1b52004c07cea7)
+            type_hints = cached_type_hints(_typecheckingstub__ff52c4c89f76461de2458e82c2bfd20f4de3951ad8eab58aec1b52004c07cea7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryCatalogData", value) # pyright: ignore[reportArgumentType]
 
@@ -643,7 +609,7 @@ class CfnPublicRepository(
     @repository_policy_text.setter
     def repository_policy_text(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a5d0a391359eb22e8e450fd43d68011135dcfa6d843724b27da64f19e19aad7)
+            type_hints = cached_type_hints(_typecheckingstub__3a5d0a391359eb22e8e450fd43d68011135dcfa6d843724b27da64f19e19aad7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryPolicyText", value) # pyright: ignore[reportArgumentType]
 
@@ -656,20 +622,23 @@ class CfnPublicRepository(
     @repository_name.setter
     def repository_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a)
+            type_hints = cached_type_hints(_typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e01e3d955755b76bef4d0ce1b9a558313454d69c44cb97d65b4fcb564602a54d)
+            type_hints = cached_type_hints(_typecheckingstub__e01e3d955755b76bef4d0ce1b9a558313454d69c44cb97d65b4fcb564602a54d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -722,7 +691,7 @@ class CfnPublicRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc5ac22c59e9479a770d5c069f616e21f7babce6447100492c58de88f31b34d6)
+                type_hints = cached_type_hints(_typecheckingstub__fc5ac22c59e9479a770d5c069f616e21f7babce6447100492c58de88f31b34d6)
                 check_type(argname="argument about_text", value=about_text, expected_type=type_hints["about_text"])
                 check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
                 check_type(argname="argument operating_systems", value=operating_systems, expected_type=type_hints["operating_systems"])
@@ -818,7 +787,7 @@ class CfnPublicRepositoryProps:
         repository_catalog_data: typing.Any = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPublicRepository``.
 
@@ -851,7 +820,7 @@ class CfnPublicRepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92fbf4d1252b7ea335bc4ed7360447e55242ed532586420ec9671bdac83ae8d8)
+            type_hints = cached_type_hints(_typecheckingstub__92fbf4d1252b7ea335bc4ed7360447e55242ed532586420ec9671bdac83ae8d8)
             check_type(argname="argument repository_catalog_data", value=repository_catalog_data, expected_type=type_hints["repository_catalog_data"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument repository_policy_text", value=repository_policy_text, expected_type=type_hints["repository_policy_text"])
@@ -903,13 +872,13 @@ class CfnPublicRepositoryProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-publicrepository.html#cfn-ecr-publicrepository-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -923,9 +892,9 @@ class CfnPublicRepositoryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPullThroughCacheRuleRef_6d4698a2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IPullThroughCacheRuleRef)
 class CfnPullThroughCacheRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnPullThroughCacheRule",
 ):
@@ -977,7 +946,7 @@ class CfnPullThroughCacheRule(
         :param upstream_repository_prefix: The upstream repository prefix associated with the pull through cache rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d43871e7810dc89346a08c3c9c24a04a2b82bf02da0d8fa05ef0df564aea4986)
+            type_hints = cached_type_hints(_typecheckingstub__d43871e7810dc89346a08c3c9c24a04a2b82bf02da0d8fa05ef0df564aea4986)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPullThroughCacheRuleProps(
@@ -999,18 +968,18 @@ class CfnPullThroughCacheRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82b0f88a2e5cc3c56b672d18f8b93192f31a4a7ddc18192430b768e783607871)
+            type_hints = cached_type_hints(_typecheckingstub__82b0f88a2e5cc3c56b672d18f8b93192f31a4a7ddc18192430b768e783607871)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPullThroughCacheRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d8119fd2e97a8168e1c38fa9f34bcdb5556aadec2158866fb3fdc43828f6206)
+            type_hints = cached_type_hints(_typecheckingstub__9d8119fd2e97a8168e1c38fa9f34bcdb5556aadec2158866fb3fdc43828f6206)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1023,7 +992,7 @@ class CfnPullThroughCacheRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4a9a8ae5483bccddfb96a4fda4c50b5e880bc70af4044cf5bd93d1432c10c1d)
+            type_hints = cached_type_hints(_typecheckingstub__c4a9a8ae5483bccddfb96a4fda4c50b5e880bc70af4044cf5bd93d1432c10c1d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1045,9 +1014,11 @@ class CfnPullThroughCacheRule(
 
     @builtins.property
     @jsii.member(jsii_name="pullThroughCacheRuleRef")
-    def pull_through_cache_rule_ref(self) -> "_PullThroughCacheRuleReference_c998144d":
+    def pull_through_cache_rule_ref(
+        self,
+    ) -> "_aws_ecr_984bcfb2.PullThroughCacheRuleReference":
         '''A reference to a PullThroughCacheRule resource.'''
-        return typing.cast("_PullThroughCacheRuleReference_c998144d", jsii.get(self, "pullThroughCacheRuleRef"))
+        return typing.cast("_aws_ecr_984bcfb2.PullThroughCacheRuleReference", jsii.get(self, "pullThroughCacheRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="credentialArn")
@@ -1058,7 +1029,7 @@ class CfnPullThroughCacheRule(
     @credential_arn.setter
     def credential_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a379fdfcc316f1fba45c0243614513599bd6a9e9b599a9e279a8cc606e4bf382)
+            type_hints = cached_type_hints(_typecheckingstub__a379fdfcc316f1fba45c0243614513599bd6a9e9b599a9e279a8cc606e4bf382)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "credentialArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1071,7 +1042,7 @@ class CfnPullThroughCacheRule(
     @custom_role_arn.setter
     def custom_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfdbe9596057e097bfe1b7f8a0aa5e6c64ae2382eeabb10b892cc46dd20f8291)
+            type_hints = cached_type_hints(_typecheckingstub__bfdbe9596057e097bfe1b7f8a0aa5e6c64ae2382eeabb10b892cc46dd20f8291)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1084,7 +1055,7 @@ class CfnPullThroughCacheRule(
     @ecr_repository_prefix.setter
     def ecr_repository_prefix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97e7364a9d8ce3c9c0a95d7d650a21956fb29a984bd55c4450ace32814a23728)
+            type_hints = cached_type_hints(_typecheckingstub__97e7364a9d8ce3c9c0a95d7d650a21956fb29a984bd55c4450ace32814a23728)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ecrRepositoryPrefix", value) # pyright: ignore[reportArgumentType]
 
@@ -1097,7 +1068,7 @@ class CfnPullThroughCacheRule(
     @upstream_registry.setter
     def upstream_registry(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e6176654c03645cd104e31d54362eb32d0b3856b8d7015586ea920e9ef9cc77)
+            type_hints = cached_type_hints(_typecheckingstub__9e6176654c03645cd104e31d54362eb32d0b3856b8d7015586ea920e9ef9cc77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "upstreamRegistry", value) # pyright: ignore[reportArgumentType]
 
@@ -1110,7 +1081,7 @@ class CfnPullThroughCacheRule(
     @upstream_registry_url.setter
     def upstream_registry_url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eb1d214154bb7e817af1779f0f5bf9f4b1c880ec0a8357fa98987f1063b451f)
+            type_hints = cached_type_hints(_typecheckingstub__7eb1d214154bb7e817af1779f0f5bf9f4b1c880ec0a8357fa98987f1063b451f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "upstreamRegistryUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -1123,7 +1094,7 @@ class CfnPullThroughCacheRule(
     @upstream_repository_prefix.setter
     def upstream_repository_prefix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5acaf55fdc7a202ee1e0b91a061ceea344f717ca76a78fbb62ae05bdbc30add0)
+            type_hints = cached_type_hints(_typecheckingstub__5acaf55fdc7a202ee1e0b91a061ceea344f717ca76a78fbb62ae05bdbc30add0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "upstreamRepositoryPrefix", value) # pyright: ignore[reportArgumentType]
 
@@ -1179,7 +1150,7 @@ class CfnPullThroughCacheRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53d5495feeae3bec08dd309eceed79d390d73c31e234c306abd812ec670db16)
+            type_hints = cached_type_hints(_typecheckingstub__e53d5495feeae3bec08dd309eceed79d390d73c31e234c306abd812ec670db16)
             check_type(argname="argument credential_arn", value=credential_arn, expected_type=type_hints["credential_arn"])
             check_type(argname="argument custom_role_arn", value=custom_role_arn, expected_type=type_hints["custom_role_arn"])
             check_type(argname="argument ecr_repository_prefix", value=ecr_repository_prefix, expected_type=type_hints["ecr_repository_prefix"])
@@ -1266,9 +1237,9 @@ class CfnPullThroughCacheRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPullTimeUpdateExclusionRef_4c002da0)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IPullTimeUpdateExclusionRef)
 class CfnPullTimeUpdateExclusion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnPullTimeUpdateExclusion",
 ):
@@ -1303,7 +1274,7 @@ class CfnPullTimeUpdateExclusion(
         :param principal_arn: The ARN of the IAM principal to remove from the pull time update exclusion list.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6255980647f29ac8e203692be6da643c7ebf04a23199750b76c7298cd92795f)
+            type_hints = cached_type_hints(_typecheckingstub__e6255980647f29ac8e203692be6da643c7ebf04a23199750b76c7298cd92795f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPullTimeUpdateExclusionProps(principal_arn=principal_arn)
@@ -1318,18 +1289,18 @@ class CfnPullTimeUpdateExclusion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__551f10b31c294ea936e7ef8074a6634a83cb9c0a3a72281010e52e9a5de1d385)
+            type_hints = cached_type_hints(_typecheckingstub__551f10b31c294ea936e7ef8074a6634a83cb9c0a3a72281010e52e9a5de1d385)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPullTimeUpdateExclusion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10ff65c5f542ca588c9c426fdec6b6e57a95f212760a4d24b0929c1c8bfc2b3a)
+            type_hints = cached_type_hints(_typecheckingstub__10ff65c5f542ca588c9c426fdec6b6e57a95f212760a4d24b0929c1c8bfc2b3a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1342,7 +1313,7 @@ class CfnPullTimeUpdateExclusion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e71e62ac171cdd2ab4610431a1d83c48bce797e4e244cce90f3d5f8c6b89f134)
+            type_hints = cached_type_hints(_typecheckingstub__e71e62ac171cdd2ab4610431a1d83c48bce797e4e244cce90f3d5f8c6b89f134)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1366,9 +1337,9 @@ class CfnPullTimeUpdateExclusion(
     @jsii.member(jsii_name="pullTimeUpdateExclusionRef")
     def pull_time_update_exclusion_ref(
         self,
-    ) -> "_PullTimeUpdateExclusionReference_61dc265f":
+    ) -> "_aws_ecr_984bcfb2.PullTimeUpdateExclusionReference":
         '''A reference to a PullTimeUpdateExclusion resource.'''
-        return typing.cast("_PullTimeUpdateExclusionReference_61dc265f", jsii.get(self, "pullTimeUpdateExclusionRef"))
+        return typing.cast("_aws_ecr_984bcfb2.PullTimeUpdateExclusionReference", jsii.get(self, "pullTimeUpdateExclusionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="principalArn")
@@ -1379,7 +1350,7 @@ class CfnPullTimeUpdateExclusion(
     @principal_arn.setter
     def principal_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c3d8a9551adf64adbe37dbb04d37a06b4b49ef252e4f98bd23938d7a698bd7e)
+            type_hints = cached_type_hints(_typecheckingstub__1c3d8a9551adf64adbe37dbb04d37a06b4b49ef252e4f98bd23938d7a698bd7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principalArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1409,7 +1380,7 @@ class CfnPullTimeUpdateExclusionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d052c6f52c54c511a5aafdf72a4c6364fb5b88c81f66d958eac6220ed443b5a)
+            type_hints = cached_type_hints(_typecheckingstub__3d052c6f52c54c511a5aafdf72a4c6364fb5b88c81f66d958eac6220ed443b5a)
             check_type(argname="argument principal_arn", value=principal_arn, expected_type=type_hints["principal_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "principal_arn": principal_arn,
@@ -1437,9 +1408,9 @@ class CfnPullTimeUpdateExclusionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRegistryPolicyRef_42ef4743)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IRegistryPolicyRef)
 class CfnRegistryPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryPolicy",
 ):
@@ -1478,7 +1449,7 @@ class CfnRegistryPolicy(
         :param policy_text: The JSON policy text for your registry.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46ab6d6ee08d8397c3ef5738c56a6b991e46657e46e9bb7db4c65859782e8b95)
+            type_hints = cached_type_hints(_typecheckingstub__46ab6d6ee08d8397c3ef5738c56a6b991e46657e46e9bb7db4c65859782e8b95)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRegistryPolicyProps(policy_text=policy_text)
@@ -1493,18 +1464,18 @@ class CfnRegistryPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8a7ff32b23d11ac7a23b1d46e72dbfba40a0a5355f25aff259d873121f6d2c5)
+            type_hints = cached_type_hints(_typecheckingstub__d8a7ff32b23d11ac7a23b1d46e72dbfba40a0a5355f25aff259d873121f6d2c5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistryPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__518326f401673fc075bc36aad49fa8c732bf800dcb0a35c514296a4680b8b006)
+            type_hints = cached_type_hints(_typecheckingstub__518326f401673fc075bc36aad49fa8c732bf800dcb0a35c514296a4680b8b006)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1517,7 +1488,7 @@ class CfnRegistryPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b830f40efb29b77f187b8cdd48dd5f42b9758bdfaa5f26f17a5410aaba10f2a2)
+            type_hints = cached_type_hints(_typecheckingstub__b830f40efb29b77f187b8cdd48dd5f42b9758bdfaa5f26f17a5410aaba10f2a2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1548,9 +1519,9 @@ class CfnRegistryPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="registryPolicyRef")
-    def registry_policy_ref(self) -> "_RegistryPolicyReference_2d2e9fdc":
+    def registry_policy_ref(self) -> "_aws_ecr_984bcfb2.RegistryPolicyReference":
         '''A reference to a RegistryPolicy resource.'''
-        return typing.cast("_RegistryPolicyReference_2d2e9fdc", jsii.get(self, "registryPolicyRef"))
+        return typing.cast("_aws_ecr_984bcfb2.RegistryPolicyReference", jsii.get(self, "registryPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyText")
@@ -1561,7 +1532,7 @@ class CfnRegistryPolicy(
     @policy_text.setter
     def policy_text(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22f296a7fd25dcbd0e6d71e5f19c5a64bea31bc39494f50b1a2fdceb3a96d82b)
+            type_hints = cached_type_hints(_typecheckingstub__22f296a7fd25dcbd0e6d71e5f19c5a64bea31bc39494f50b1a2fdceb3a96d82b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyText", value) # pyright: ignore[reportArgumentType]
 
@@ -1593,7 +1564,7 @@ class CfnRegistryPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61caec2d35981c77552d8e7762d2c96379773ad1cbd183c24427fd9006273d94)
+            type_hints = cached_type_hints(_typecheckingstub__61caec2d35981c77552d8e7762d2c96379773ad1cbd183c24427fd9006273d94)
             check_type(argname="argument policy_text", value=policy_text, expected_type=type_hints["policy_text"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "policy_text": policy_text,
@@ -1621,9 +1592,9 @@ class CfnRegistryPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRegistryScanningConfigurationRef_777252de)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IRegistryScanningConfigurationRef)
 class CfnRegistryScanningConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfiguration",
 ):
@@ -1656,7 +1627,7 @@ class CfnRegistryScanningConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRegistryScanningConfiguration.ScanningRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryScanningConfiguration.ScanningRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         scan_type: builtins.str,
     ) -> None:
         '''Create a new ``AWS::ECR::RegistryScanningConfiguration``.
@@ -1667,7 +1638,7 @@ class CfnRegistryScanningConfiguration(
         :param scan_type: The type of scanning configured for the registry.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b68a41065b53c404ecfbf77d1c1dca4759228bec8020c901ec850026c1f0f7f)
+            type_hints = cached_type_hints(_typecheckingstub__6b68a41065b53c404ecfbf77d1c1dca4759228bec8020c901ec850026c1f0f7f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRegistryScanningConfigurationProps(rules=rules, scan_type=scan_type)
@@ -1682,18 +1653,18 @@ class CfnRegistryScanningConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01e087b257184f43bf69587c5b0d66243f5883fa92eca47e5d86e66d4e0df350)
+            type_hints = cached_type_hints(_typecheckingstub__01e087b257184f43bf69587c5b0d66243f5883fa92eca47e5d86e66d4e0df350)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistryScanningConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4d08cae9fcc3be8b1528f23c35bc9a22ca0fba2fab068fc08b75c1cfe389e24)
+            type_hints = cached_type_hints(_typecheckingstub__c4d08cae9fcc3be8b1528f23c35bc9a22ca0fba2fab068fc08b75c1cfe389e24)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1706,7 +1677,7 @@ class CfnRegistryScanningConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcd0a067b02317e542152310e0b6796223c0fe4536450fbf2cdfa3673b5fac6f)
+            type_hints = cached_type_hints(_typecheckingstub__fcd0a067b02317e542152310e0b6796223c0fe4536450fbf2cdfa3673b5fac6f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1739,25 +1710,25 @@ class CfnRegistryScanningConfiguration(
     @jsii.member(jsii_name="registryScanningConfigurationRef")
     def registry_scanning_configuration_ref(
         self,
-    ) -> "_RegistryScanningConfigurationReference_4b2666f2":
+    ) -> "_aws_ecr_984bcfb2.RegistryScanningConfigurationReference":
         '''A reference to a RegistryScanningConfiguration resource.'''
-        return typing.cast("_RegistryScanningConfigurationReference_4b2666f2", jsii.get(self, "registryScanningConfigurationRef"))
+        return typing.cast("_aws_ecr_984bcfb2.RegistryScanningConfigurationReference", jsii.get(self, "registryScanningConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]]:
         '''The scanning rules associated with the registry.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__921150d6d5faa8474ec7f3be3b2d6d58c6eb0b5024b547f0c929470055982457)
+            type_hints = cached_type_hints(_typecheckingstub__921150d6d5faa8474ec7f3be3b2d6d58c6eb0b5024b547f0c929470055982457)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
 
@@ -1770,7 +1741,7 @@ class CfnRegistryScanningConfiguration(
     @scan_type.setter
     def scan_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94a43f834f1cd998ab3369a817b4af2fe53258974556dc78b9e2c75aaeaaa5ac)
+            type_hints = cached_type_hints(_typecheckingstub__94a43f834f1cd998ab3369a817b4af2fe53258974556dc78b9e2c75aaeaaa5ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scanType", value) # pyright: ignore[reportArgumentType]
 
@@ -1803,7 +1774,7 @@ class CfnRegistryScanningConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9ff81a98ae71376276df972cda0909207513e4f0b7a1f6fea94a077f86e2b2f5)
+                type_hints = cached_type_hints(_typecheckingstub__9ff81a98ae71376276df972cda0909207513e4f0b7a1f6fea94a077f86e2b2f5)
                 check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
                 check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1854,7 +1825,7 @@ class CfnRegistryScanningConfiguration(
         def __init__(
             self,
             *,
-            repository_filters: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRegistryScanningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            repository_filters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryScanningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
             scan_frequency: builtins.str,
         ) -> None:
             '''The scanning rules associated with the registry.
@@ -1880,7 +1851,7 @@ class CfnRegistryScanningConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fbb8950bd)
+                type_hints = cached_type_hints(_typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fbb8950bd)
                 check_type(argname="argument repository_filters", value=repository_filters, expected_type=type_hints["repository_filters"])
                 check_type(argname="argument scan_frequency", value=scan_frequency, expected_type=type_hints["scan_frequency"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1891,7 +1862,7 @@ class CfnRegistryScanningConfiguration(
         @builtins.property
         def repository_filters(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]]:
             '''The details of a scanning repository filter.
 
             For more information on how to use filters, see `Using filters <https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html#image-scanning-filters>`_ in the *Amazon Elastic Container Registry User Guide* .
@@ -1900,7 +1871,7 @@ class CfnRegistryScanningConfiguration(
             '''
             result = self._values.get("repository_filters")
             assert result is not None, "Required property 'repository_filters' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]], result)
 
         @builtins.property
         def scan_frequency(self) -> builtins.str:
@@ -1935,7 +1906,7 @@ class CfnRegistryScanningConfigurationProps:
     def __init__(
         self,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRegistryScanningConfiguration.ScanningRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryScanningConfiguration.ScanningRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         scan_type: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnRegistryScanningConfiguration``.
@@ -1964,7 +1935,7 @@ class CfnRegistryScanningConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0cb9229bec3c4ef027deaf853b1b19296c230ef0a56be8bdbedc54630c259c5)
+            type_hints = cached_type_hints(_typecheckingstub__c0cb9229bec3c4ef027deaf853b1b19296c230ef0a56be8bdbedc54630c259c5)
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument scan_type", value=scan_type, expected_type=type_hints["scan_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1975,14 +1946,14 @@ class CfnRegistryScanningConfigurationProps:
     @builtins.property
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]]:
         '''The scanning rules associated with the registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html#cfn-ecr-registryscanningconfiguration-rules
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]], result)
 
     @builtins.property
     def scan_type(self) -> builtins.str:
@@ -2006,9 +1977,9 @@ class CfnRegistryScanningConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReplicationConfigurationRef_a2ce7034)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IReplicationConfigurationRef)
 class CfnReplicationConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnReplicationConfiguration",
 ):
@@ -2052,7 +2023,7 @@ class CfnReplicationConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        replication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfiguration.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        replication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::ECR::ReplicationConfiguration``.
 
@@ -2061,7 +2032,7 @@ class CfnReplicationConfiguration(
         :param replication_configuration: The replication configuration for a registry.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ec8853622a7046906439da72fd8cf7dc34848650d739a637e7ae30cf30d26db)
+            type_hints = cached_type_hints(_typecheckingstub__9ec8853622a7046906439da72fd8cf7dc34848650d739a637e7ae30cf30d26db)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReplicationConfigurationProps(
@@ -2078,18 +2049,18 @@ class CfnReplicationConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__292d5e557b7761852b695d1a5d68f24bc1684966f22d7ca9e9012d14f5f9d5d3)
+            type_hints = cached_type_hints(_typecheckingstub__292d5e557b7761852b695d1a5d68f24bc1684966f22d7ca9e9012d14f5f9d5d3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf6794ecc113ab8e22e20dce72c6d4af221f57c5e7b6d95be1fa395b94eb50bb)
+            type_hints = cached_type_hints(_typecheckingstub__cf6794ecc113ab8e22e20dce72c6d4af221f57c5e7b6d95be1fa395b94eb50bb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2102,7 +2073,7 @@ class CfnReplicationConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcdbbdadfe76a214299f1bf1546cbf834942546e6a1a187654f56c7a28e6ee9c)
+            type_hints = cached_type_hints(_typecheckingstub__fcdbbdadfe76a214299f1bf1546cbf834942546e6a1a187654f56c7a28e6ee9c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2135,25 +2106,25 @@ class CfnReplicationConfiguration(
     @jsii.member(jsii_name="replicationConfigurationRef")
     def replication_configuration_ref(
         self,
-    ) -> "_ReplicationConfigurationReference_d963555d":
+    ) -> "_aws_ecr_984bcfb2.ReplicationConfigurationReference":
         '''A reference to a ReplicationConfiguration resource.'''
-        return typing.cast("_ReplicationConfigurationReference_d963555d", jsii.get(self, "replicationConfigurationRef"))
+        return typing.cast("_aws_ecr_984bcfb2.ReplicationConfigurationReference", jsii.get(self, "replicationConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="replicationConfiguration")
     def replication_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationConfigurationProperty"]:
         '''The replication configuration for a registry.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationConfigurationProperty"], jsii.get(self, "replicationConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationConfigurationProperty"], jsii.get(self, "replicationConfiguration"))
 
     @replication_configuration.setter
     def replication_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99f4c1062f6a81bbbbbb1ec51556be75ca089974820458f2cf7c2b6ef30a1f4b)
+            type_hints = cached_type_hints(_typecheckingstub__99f4c1062f6a81bbbbbb1ec51556be75ca089974820458f2cf7c2b6ef30a1f4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2166,7 +2137,7 @@ class CfnReplicationConfiguration(
         def __init__(
             self,
             *,
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfiguration.ReplicationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.ReplicationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The replication configuration for a registry.
 
@@ -2197,7 +2168,7 @@ class CfnReplicationConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f1a61ec35ac6455ef5be103b0ad56cd75e35b592381509aff016aeca6fc509b)
+                type_hints = cached_type_hints(_typecheckingstub__4f1a61ec35ac6455ef5be103b0ad56cd75e35b592381509aff016aeca6fc509b)
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rules": rules,
@@ -2206,14 +2177,14 @@ class CfnReplicationConfiguration(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationRuleProperty"]]]:
             '''An array of objects representing the replication destinations and repository filters for a replication configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-replicationconfiguration.html#cfn-ecr-replicationconfiguration-replicationconfiguration-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2253,7 +2224,7 @@ class CfnReplicationConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be71124f033e3826f4c32205bda1d3adb39ad2e783cc193fc52ee22d7f1e2eab)
+                type_hints = cached_type_hints(_typecheckingstub__be71124f033e3826f4c32205bda1d3adb39ad2e783cc193fc52ee22d7f1e2eab)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2306,8 +2277,8 @@ class CfnReplicationConfiguration(
         def __init__(
             self,
             *,
-            destinations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfiguration.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            repository_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destinations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            repository_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''An array of objects representing the replication destinations and repository filters for a replication configuration.
 
@@ -2337,7 +2308,7 @@ class CfnReplicationConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__db6d7133bf506488b87a4ed998e2db1455e219e9bfa903d0880e4240a48da3c6)
+                type_hints = cached_type_hints(_typecheckingstub__db6d7133bf506488b87a4ed998e2db1455e219e9bfa903d0880e4240a48da3c6)
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
                 check_type(argname="argument repository_filters", value=repository_filters, expected_type=type_hints["repository_filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2349,19 +2320,19 @@ class CfnReplicationConfiguration(
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationDestinationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationDestinationProperty"]]]:
             '''An array of objects representing the destination for a replication rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-replicationrule.html#cfn-ecr-replicationconfiguration-replicationrule-destinations
             '''
             result = self._values.get("destinations")
             assert result is not None, "Required property 'destinations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationDestinationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationDestinationProperty"]]], result)
 
         @builtins.property
         def repository_filters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.RepositoryFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.RepositoryFilterProperty"]]]]:
             '''An array of objects representing the filters for a replication rule.
 
             Specifying a repository filter for a replication rule provides a method for controlling which repositories in a private registry are replicated.
@@ -2369,7 +2340,7 @@ class CfnReplicationConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-replicationrule.html#cfn-ecr-replicationconfiguration-replicationrule-repositoryfilters
             '''
             result = self._values.get("repository_filters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.RepositoryFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.RepositoryFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2411,7 +2382,7 @@ class CfnReplicationConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__81091e3ace4bd61ec67e8544391ccaefe639b2950197c427c9804e66f026b577)
+                type_hints = cached_type_hints(_typecheckingstub__81091e3ace4bd61ec67e8544391ccaefe639b2950197c427c9804e66f026b577)
                 check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
                 check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2464,7 +2435,7 @@ class CfnReplicationConfigurationProps:
     def __init__(
         self,
         *,
-        replication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfiguration.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        replication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnReplicationConfiguration``.
 
@@ -2497,7 +2468,7 @@ class CfnReplicationConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d245b9cf8a9f1459a5c0b6311093064a71adab6058193aba296fc0fff15d6a8)
+            type_hints = cached_type_hints(_typecheckingstub__8d245b9cf8a9f1459a5c0b6311093064a71adab6058193aba296fc0fff15d6a8)
             check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_configuration": replication_configuration,
@@ -2506,14 +2477,14 @@ class CfnReplicationConfigurationProps:
     @builtins.property
     def replication_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationConfigurationProperty"]:
         '''The replication configuration for a registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-replicationconfiguration.html#cfn-ecr-replicationconfiguration-replicationconfiguration
         '''
         result = self._values.get("replication_configuration")
         assert result is not None, "Required property 'replication_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicationConfiguration.ReplicationConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationConfigurationProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2527,9 +2498,9 @@ class CfnReplicationConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRepositoryRef_f3b81117, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IRepositoryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRepository(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnRepository",
 ):
@@ -2551,15 +2522,15 @@ class CfnRepository(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        empty_on_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_scanning_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        empty_on_delete: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_scanning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
-        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lifecycle_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.LifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lifecycle_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.LifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ECR::Repository``.
 
@@ -2576,7 +2547,7 @@ class CfnRepository(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c4027f87eb46bfdc341ea831d36476b6bcb3d7c3adf8e4193a6f82d2e5e98f4)
+            type_hints = cached_type_hints(_typecheckingstub__0c4027f87eb46bfdc341ea831d36476b6bcb3d7c3adf8e4193a6f82d2e5e98f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRepositoryProps(
@@ -2595,12 +2566,15 @@ class CfnRepository(
 
     @jsii.member(jsii_name="arnForRepository")
     @builtins.classmethod
-    def arn_for_repository(cls, resource: "_IRepositoryRef_f3b81117") -> builtins.str:
+    def arn_for_repository(
+        cls,
+        resource: "_aws_ecr_984bcfb2.IRepositoryRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0be76f9a52a9442ed56dd04b8009a2dea664eb59f76125c179f2eef67c94ed57)
+            type_hints = cached_type_hints(_typecheckingstub__0be76f9a52a9442ed56dd04b8009a2dea664eb59f76125c179f2eef67c94ed57)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRepository", [resource]))
 
@@ -2611,7 +2585,7 @@ class CfnRepository(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IRepositoryRef_f3b81117":
+    ) -> "_aws_ecr_984bcfb2.IRepositoryRef":
         '''Creates a new IRepositoryRef from an ARN.
 
         :param scope: -
@@ -2619,11 +2593,11 @@ class CfnRepository(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f2c393f48c21407d644d8d180231f771c0008028a3e7f9a341eb877c7400902)
+            type_hints = cached_type_hints(_typecheckingstub__6f2c393f48c21407d644d8d180231f771c0008028a3e7f9a341eb877c7400902)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IRepositoryRef_f3b81117", jsii.sinvoke(cls, "fromRepositoryArn", [scope, id, arn]))
+        return typing.cast("_aws_ecr_984bcfb2.IRepositoryRef", jsii.sinvoke(cls, "fromRepositoryArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromRepositoryName")
     @builtins.classmethod
@@ -2632,7 +2606,7 @@ class CfnRepository(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         repository_name: builtins.str,
-    ) -> "_IRepositoryRef_f3b81117":
+    ) -> "_aws_ecr_984bcfb2.IRepositoryRef":
         '''Creates a new IRepositoryRef from a repositoryName.
 
         :param scope: -
@@ -2640,11 +2614,11 @@ class CfnRepository(
         :param repository_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__400aec98ced3fb3a08c4f62facc37becec6934bd630cb120fe1d6d380272f46f)
+            type_hints = cached_type_hints(_typecheckingstub__400aec98ced3fb3a08c4f62facc37becec6934bd630cb120fe1d6d380272f46f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
-        return typing.cast("_IRepositoryRef_f3b81117", jsii.sinvoke(cls, "fromRepositoryName", [scope, id, repository_name]))
+        return typing.cast("_aws_ecr_984bcfb2.IRepositoryRef", jsii.sinvoke(cls, "fromRepositoryName", [scope, id, repository_name]))
 
     @jsii.member(jsii_name="isCfnRepository")
     @builtins.classmethod
@@ -2654,18 +2628,18 @@ class CfnRepository(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6086cdc33387338c21c38628f631583d34153e38a2191b194e5475fd15fccc2c)
+            type_hints = cached_type_hints(_typecheckingstub__6086cdc33387338c21c38628f631583d34153e38a2191b194e5475fd15fccc2c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRepository", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2248718d73b3c7bcee12085148b85f05a4c458576be92459e450678dd33ba17a)
+            type_hints = cached_type_hints(_typecheckingstub__2248718d73b3c7bcee12085148b85f05a4c458576be92459e450678dd33ba17a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2678,7 +2652,7 @@ class CfnRepository(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ddcf78870d9e7c9d8fc7a3b39e380fe70edfa62cae47c7ae43d73f1d4e5f7c7)
+            type_hints = cached_type_hints(_typecheckingstub__6ddcf78870d9e7c9d8fc7a3b39e380fe70edfa62cae47c7ae43d73f1d4e5f7c7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2722,15 +2696,15 @@ class CfnRepository(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryRef")
-    def repository_ref(self) -> "_RepositoryReference_af4d81f0":
+    def repository_ref(self) -> "_aws_ecr_984bcfb2.RepositoryReference":
         '''A reference to a Repository resource.'''
-        return typing.cast("_RepositoryReference_af4d81f0", jsii.get(self, "repositoryRef"))
+        return typing.cast("_aws_ecr_984bcfb2.RepositoryReference", jsii.get(self, "repositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryPolicyText")
@@ -2741,7 +2715,7 @@ class CfnRepository(
     @repository_policy_text.setter
     def repository_policy_text(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432)
+            type_hints = cached_type_hints(_typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryPolicyText", value) # pyright: ignore[reportArgumentType]
 
@@ -2749,17 +2723,17 @@ class CfnRepository(
     @jsii.member(jsii_name="emptyOnDelete")
     def empty_on_delete(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If true, deleting the repository force deletes the contents of the repository.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "emptyOnDelete"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "emptyOnDelete"))
 
     @empty_on_delete.setter
     def empty_on_delete(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cdf31a68d1403243dabdc584938d9cf5b1769c665a1d405daaaa8438f7d0367)
+            type_hints = cached_type_hints(_typecheckingstub__0cdf31a68d1403243dabdc584938d9cf5b1769c665a1d405daaaa8438f7d0367)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emptyOnDelete", value) # pyright: ignore[reportArgumentType]
 
@@ -2767,17 +2741,17 @@ class CfnRepository(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for the repository.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf78a5a76e0710f9d352977f8ee877ef0fc7f3c43b6cd9839d2fbeaff522caa1)
+            type_hints = cached_type_hints(_typecheckingstub__cf78a5a76e0710f9d352977f8ee877ef0fc7f3c43b6cd9839d2fbeaff522caa1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2785,19 +2759,19 @@ class CfnRepository(
     @jsii.member(jsii_name="imageScanningConfiguration")
     def image_scanning_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageScanningConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageScanningConfigurationProperty"]]:
         '''.. epigraph::
 
    The ``imageScanningConfiguration`` parameter is being deprecated, in favor of specifying the image scanning configuration at the registry level.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageScanningConfigurationProperty"]], jsii.get(self, "imageScanningConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageScanningConfigurationProperty"]], jsii.get(self, "imageScanningConfiguration"))
 
     @image_scanning_configuration.setter
     def image_scanning_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageScanningConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageScanningConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ae9439aabd4d324bf1d5bdb5b430c995fa4f0fdc0cb44daa41909d48e778564)
+            type_hints = cached_type_hints(_typecheckingstub__0ae9439aabd4d324bf1d5bdb5b430c995fa4f0fdc0cb44daa41909d48e778564)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageScanningConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2810,7 +2784,7 @@ class CfnRepository(
     @image_tag_mutability.setter
     def image_tag_mutability(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d75698f85ccefe489f53d4f155b619c9c3df1026fe201828f3f0ccc7b5fda28)
+            type_hints = cached_type_hints(_typecheckingstub__6d75698f85ccefe489f53d4f155b619c9c3df1026fe201828f3f0ccc7b5fda28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageTagMutability", value) # pyright: ignore[reportArgumentType]
 
@@ -2818,17 +2792,17 @@ class CfnRepository(
     @jsii.member(jsii_name="imageTagMutabilityExclusionFilters")
     def image_tag_mutability_exclusion_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]]:
         '''A list of filters that specify which image tags are excluded from the repository's image tag mutability setting.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
 
     @image_tag_mutability_exclusion_filters.setter
     def image_tag_mutability_exclusion_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28c5038f217a4c1109664243a2d67cd421822e67f8352aa51ee8780d8e6fbe3e)
+            type_hints = cached_type_hints(_typecheckingstub__28c5038f217a4c1109664243a2d67cd421822e67f8352aa51ee8780d8e6fbe3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageTagMutabilityExclusionFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -2836,17 +2810,17 @@ class CfnRepository(
     @jsii.member(jsii_name="lifecyclePolicy")
     def lifecycle_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.LifecyclePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.LifecyclePolicyProperty"]]:
         '''Creates or updates a lifecycle policy.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.LifecyclePolicyProperty"]], jsii.get(self, "lifecyclePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.LifecyclePolicyProperty"]], jsii.get(self, "lifecyclePolicy"))
 
     @lifecycle_policy.setter
     def lifecycle_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.LifecyclePolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.LifecyclePolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47418c52de9eb82b5a96dfa3524d84345309cf3a2f06fbbc30eaa7da852a33fa)
+            type_hints = cached_type_hints(_typecheckingstub__47418c52de9eb82b5a96dfa3524d84345309cf3a2f06fbbc30eaa7da852a33fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecyclePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -2859,20 +2833,23 @@ class CfnRepository(
     @repository_name.setter
     def repository_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__320e28aebae3ff1053b4006047e990e27e37c3a2753340ee0372d4f8e354bc2b)
+            type_hints = cached_type_hints(_typecheckingstub__320e28aebae3ff1053b4006047e990e27e37c3a2753340ee0372d4f8e354bc2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a187140649b7378ce5c825b26017544130f832c6f44250242ffcc01b801ada76)
+            type_hints = cached_type_hints(_typecheckingstub__a187140649b7378ce5c825b26017544130f832c6f44250242ffcc01b801ada76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2914,7 +2891,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3784a36a4911b348cdf5fe0a9dc355e52973bde3ecafee9df5e1242b07da7d08)
+                type_hints = cached_type_hints(_typecheckingstub__3784a36a4911b348cdf5fe0a9dc355e52973bde3ecafee9df5e1242b07da7d08)
                 check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
                 check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2972,7 +2949,7 @@ class CfnRepository(
         def __init__(
             self,
             *,
-            scan_on_push: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            scan_on_push: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The image scanning configuration for a repository.
 
@@ -2992,7 +2969,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c75cd2b6ec01cb2a5879c051b4088257f2aa69c2f3db3f6435eba0c0b6fd191d)
+                type_hints = cached_type_hints(_typecheckingstub__c75cd2b6ec01cb2a5879c051b4088257f2aa69c2f3db3f6435eba0c0b6fd191d)
                 check_type(argname="argument scan_on_push", value=scan_on_push, expected_type=type_hints["scan_on_push"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if scan_on_push is not None:
@@ -3001,7 +2978,7 @@ class CfnRepository(
         @builtins.property
         def scan_on_push(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The setting that determines whether images are scanned after being pushed to a repository.
 
             If set to ``true`` , images will be scanned after being pushed. If this parameter is not specified, it will default to ``false`` and images will not be scanned unless a scan is manually started.
@@ -3009,7 +2986,7 @@ class CfnRepository(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repository-imagescanningconfiguration.html#cfn-ecr-repository-imagescanningconfiguration-scanonpush
             '''
             result = self._values.get("scan_on_push")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3057,7 +3034,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca135861d33d78962bcab351d8e2048fc1f831afc1ade25d2fcc2f2024c72abd)
+                type_hints = cached_type_hints(_typecheckingstub__ca135861d33d78962bcab351d8e2048fc1f831afc1ade25d2fcc2f2024c72abd)
                 check_type(argname="argument image_tag_mutability_exclusion_filter_type", value=image_tag_mutability_exclusion_filter_type, expected_type=type_hints["image_tag_mutability_exclusion_filter_type"])
                 check_type(argname="argument image_tag_mutability_exclusion_filter_value", value=image_tag_mutability_exclusion_filter_value, expected_type=type_hints["image_tag_mutability_exclusion_filter_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3133,7 +3110,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e19a186a43de423097984e8a515b442413c2fa31fe895650e26f9f349987264e)
+                type_hints = cached_type_hints(_typecheckingstub__e19a186a43de423097984e8a515b442413c2fa31fe895650e26f9f349987264e)
                 check_type(argname="argument lifecycle_policy_text", value=lifecycle_policy_text, expected_type=type_hints["lifecycle_policy_text"])
                 check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3174,9 +3151,9 @@ class CfnRepository(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRepositoryCreationTemplateRef_b7cd8f39)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.IRepositoryCreationTemplateRef)
 class CfnRepositoryCreationTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnRepositoryCreationTemplate",
 ):
@@ -3229,12 +3206,12 @@ class CfnRepositoryCreationTemplate(
         prefix: builtins.str,
         custom_role_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepositoryCreationTemplate.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepositoryCreationTemplate.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
-        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ECR::RepositoryCreationTemplate``.
 
@@ -3252,7 +3229,7 @@ class CfnRepositoryCreationTemplate(
         :param resource_tags: The metadata to apply to the repository to help you categorize and organize. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__494445c3594e6c48becf87b896b56289e6923275ed1be048e55a955aad19112e)
+            type_hints = cached_type_hints(_typecheckingstub__494445c3594e6c48becf87b896b56289e6923275ed1be048e55a955aad19112e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRepositoryCreationTemplateProps(
@@ -3278,18 +3255,18 @@ class CfnRepositoryCreationTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce256b5e9e34e523ff83aa576574fee15b577259ac53e6a702f78992576eaa2)
+            type_hints = cached_type_hints(_typecheckingstub__6ce256b5e9e34e523ff83aa576574fee15b577259ac53e6a702f78992576eaa2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRepositoryCreationTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de25621df06cd38b2a7712beec393825dd8540c7ddd5884bcdd2f43c88cc6a9f)
+            type_hints = cached_type_hints(_typecheckingstub__de25621df06cd38b2a7712beec393825dd8540c7ddd5884bcdd2f43c88cc6a9f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3302,7 +3279,7 @@ class CfnRepositoryCreationTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7346b42c53608f40e97cb9640d25fec5f2bfffc755ff8390a4f399e8fec8c41)
+            type_hints = cached_type_hints(_typecheckingstub__d7346b42c53608f40e97cb9640d25fec5f2bfffc755ff8390a4f399e8fec8c41)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3344,9 +3321,9 @@ class CfnRepositoryCreationTemplate(
     @jsii.member(jsii_name="repositoryCreationTemplateRef")
     def repository_creation_template_ref(
         self,
-    ) -> "_RepositoryCreationTemplateReference_4a34e559":
+    ) -> "_aws_ecr_984bcfb2.RepositoryCreationTemplateReference":
         '''A reference to a RepositoryCreationTemplate resource.'''
-        return typing.cast("_RepositoryCreationTemplateReference_4a34e559", jsii.get(self, "repositoryCreationTemplateRef"))
+        return typing.cast("_aws_ecr_984bcfb2.RepositoryCreationTemplateReference", jsii.get(self, "repositoryCreationTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appliedFor")
@@ -3357,7 +3334,7 @@ class CfnRepositoryCreationTemplate(
     @applied_for.setter
     def applied_for(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d70128c5c73464a6960bdf3e12180f730d72102eeb954991a5ee91b6ced476e1)
+            type_hints = cached_type_hints(_typecheckingstub__d70128c5c73464a6960bdf3e12180f730d72102eeb954991a5ee91b6ced476e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appliedFor", value) # pyright: ignore[reportArgumentType]
 
@@ -3370,7 +3347,7 @@ class CfnRepositoryCreationTemplate(
     @prefix.setter
     def prefix(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7421fb0840fe7d5bdb7ebafbc563d2498adfea23d49797835c3b7262cf06acbe)
+            type_hints = cached_type_hints(_typecheckingstub__7421fb0840fe7d5bdb7ebafbc563d2498adfea23d49797835c3b7262cf06acbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "prefix", value) # pyright: ignore[reportArgumentType]
 
@@ -3383,7 +3360,7 @@ class CfnRepositoryCreationTemplate(
     @custom_role_arn.setter
     def custom_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f311f608554230e0e0d247def1a5aa1b17b63e6e3d1eff562fa5d4d2be6645db)
+            type_hints = cached_type_hints(_typecheckingstub__f311f608554230e0e0d247def1a5aa1b17b63e6e3d1eff562fa5d4d2be6645db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3396,7 +3373,7 @@ class CfnRepositoryCreationTemplate(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5438699040b3663de96ef1aac64ac4344fe755ea3bb114b36fdb20c66eeb12e)
+            type_hints = cached_type_hints(_typecheckingstub__e5438699040b3663de96ef1aac64ac4344fe755ea3bb114b36fdb20c66eeb12e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3404,17 +3381,17 @@ class CfnRepositoryCreationTemplate(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]]:
         '''The encryption configuration associated with the repository creation template.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc9a1c0060c4bcb98843249551561d40d0d01c6137b55d2fc6b20909c4d50df4)
+            type_hints = cached_type_hints(_typecheckingstub__dc9a1c0060c4bcb98843249551561d40d0d01c6137b55d2fc6b20909c4d50df4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3427,7 +3404,7 @@ class CfnRepositoryCreationTemplate(
     @image_tag_mutability.setter
     def image_tag_mutability(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d03ac6e7b2975934cbd1c8b2470015fc671509b1b82834732e60abe440bad58)
+            type_hints = cached_type_hints(_typecheckingstub__0d03ac6e7b2975934cbd1c8b2470015fc671509b1b82834732e60abe440bad58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageTagMutability", value) # pyright: ignore[reportArgumentType]
 
@@ -3435,17 +3412,17 @@ class CfnRepositoryCreationTemplate(
     @jsii.member(jsii_name="imageTagMutabilityExclusionFilters")
     def image_tag_mutability_exclusion_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]]:
         '''A list of filters that specify which image tags are excluded from the repository creation template's image tag mutability setting.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
 
     @image_tag_mutability_exclusion_filters.setter
     def image_tag_mutability_exclusion_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__686708849f7a8d060ba78b1f975486b8f424fe3ede8590146ea58544a5f10f12)
+            type_hints = cached_type_hints(_typecheckingstub__686708849f7a8d060ba78b1f975486b8f424fe3ede8590146ea58544a5f10f12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageTagMutabilityExclusionFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -3458,7 +3435,7 @@ class CfnRepositoryCreationTemplate(
     @lifecycle_policy.setter
     def lifecycle_policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2e08b01e66ab87aacff8f76d06c2abf47c27bd4366b69a73969d43a0b0b636a)
+            type_hints = cached_type_hints(_typecheckingstub__e2e08b01e66ab87aacff8f76d06c2abf47c27bd4366b69a73969d43a0b0b636a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecyclePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3471,7 +3448,7 @@ class CfnRepositoryCreationTemplate(
     @repository_policy.setter
     def repository_policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6133d22d20cb78fbb430ebd26935743e57cfc66d8da0d8b426c625527396018f)
+            type_hints = cached_type_hints(_typecheckingstub__6133d22d20cb78fbb430ebd26935743e57cfc66d8da0d8b426c625527396018f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3479,17 +3456,17 @@ class CfnRepositoryCreationTemplate(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]]:
         '''The metadata to apply to the repository to help you categorize and organize.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2fb99e1f96881ee2eeb1081388dcf7c16b80d047a366d3bbc0d4a883ac0e52b)
+            type_hints = cached_type_hints(_typecheckingstub__c2fb99e1f96881ee2eeb1081388dcf7c16b80d047a366d3bbc0d4a883ac0e52b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -3531,7 +3508,7 @@ class CfnRepositoryCreationTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0f48a77de88f0d76d55768806e65efb655f325c51435a78fe46978432e8610ec)
+                type_hints = cached_type_hints(_typecheckingstub__0f48a77de88f0d76d55768806e65efb655f325c51435a78fe46978432e8610ec)
                 check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
                 check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3615,7 +3592,7 @@ class CfnRepositoryCreationTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86a83c57e1c4d3066aaec203ce5a6efdfad7a3c3f4adffc2b0326304ae7a11f1)
+                type_hints = cached_type_hints(_typecheckingstub__86a83c57e1c4d3066aaec203ce5a6efdfad7a3c3f4adffc2b0326304ae7a11f1)
                 check_type(argname="argument image_tag_mutability_exclusion_filter_type", value=image_tag_mutability_exclusion_filter_type, expected_type=type_hints["image_tag_mutability_exclusion_filter_type"])
                 check_type(argname="argument image_tag_mutability_exclusion_filter_value", value=image_tag_mutability_exclusion_filter_value, expected_type=type_hints["image_tag_mutability_exclusion_filter_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3677,12 +3654,12 @@ class CfnRepositoryCreationTemplateProps:
         prefix: builtins.str,
         custom_role_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepositoryCreationTemplate.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepositoryCreationTemplate.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
-        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepositoryCreationTemplate``.
 
@@ -3734,7 +3711,7 @@ class CfnRepositoryCreationTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__623a27e5bf9e58dfa2c0c25d5b312731cce32386963e30de33e3bd636fb982d3)
+            type_hints = cached_type_hints(_typecheckingstub__623a27e5bf9e58dfa2c0c25d5b312731cce32386963e30de33e3bd636fb982d3)
             check_type(argname="argument applied_for", value=applied_for, expected_type=type_hints["applied_for"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
             check_type(argname="argument custom_role_arn", value=custom_role_arn, expected_type=type_hints["custom_role_arn"])
@@ -3811,13 +3788,13 @@ class CfnRepositoryCreationTemplateProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]]:
         '''The encryption configuration associated with the repository creation template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repositorycreationtemplate.html#cfn-ecr-repositorycreationtemplate-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def image_tag_mutability(self) -> typing.Optional[builtins.str]:
@@ -3833,13 +3810,13 @@ class CfnRepositoryCreationTemplateProps:
     @builtins.property
     def image_tag_mutability_exclusion_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]]:
         '''A list of filters that specify which image tags are excluded from the repository creation template's image tag mutability setting.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repositorycreationtemplate.html#cfn-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilters
         '''
         result = self._values.get("image_tag_mutability_exclusion_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]], result)
 
     @builtins.property
     def lifecycle_policy(self) -> typing.Optional[builtins.str]:
@@ -3864,7 +3841,7 @@ class CfnRepositoryCreationTemplateProps:
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]]:
         '''The metadata to apply to the repository to help you categorize and organize.
 
         Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -3872,7 +3849,7 @@ class CfnRepositoryCreationTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repositorycreationtemplate.html#cfn-ecr-repositorycreationtemplate-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3905,15 +3882,15 @@ class CfnRepositoryProps:
     def __init__(
         self,
         *,
-        empty_on_delete: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_scanning_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        empty_on_delete: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_scanning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
-        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lifecycle_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.LifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lifecycle_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.LifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepository``.
 
@@ -3968,7 +3945,7 @@ class CfnRepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6887f05f59c4e061f761607002ffdf5b7ad09f76abbf4b7be49513c3ea20ebad)
+            type_hints = cached_type_hints(_typecheckingstub__6887f05f59c4e061f761607002ffdf5b7ad09f76abbf4b7be49513c3ea20ebad)
             check_type(argname="argument empty_on_delete", value=empty_on_delete, expected_type=type_hints["empty_on_delete"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
@@ -4001,7 +3978,7 @@ class CfnRepositoryProps:
     @builtins.property
     def empty_on_delete(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If true, deleting the repository force deletes the contents of the repository.
 
         If false, the repository must be empty before attempting to delete it.
@@ -4009,12 +3986,12 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-emptyondelete
         '''
         result = self._values.get("empty_on_delete")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for the repository.
 
         This determines how the contents of your repository are encrypted at rest.
@@ -4022,12 +3999,12 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def image_scanning_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageScanningConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageScanningConfigurationProperty"]]:
         '''.. epigraph::
 
    The ``imageScanningConfiguration`` parameter is being deprecated, in favor of specifying the image scanning configuration at the registry level.
@@ -4039,7 +4016,7 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-imagescanningconfiguration
         '''
         result = self._values.get("image_scanning_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageScanningConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageScanningConfigurationProperty"]], result)
 
     @builtins.property
     def image_tag_mutability(self) -> typing.Optional[builtins.str]:
@@ -4055,18 +4032,18 @@ class CfnRepositoryProps:
     @builtins.property
     def image_tag_mutability_exclusion_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]]:
         '''A list of filters that specify which image tags are excluded from the repository's image tag mutability setting.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-imagetagmutabilityexclusionfilters
         '''
         result = self._values.get("image_tag_mutability_exclusion_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]], result)
 
     @builtins.property
     def lifecycle_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.LifecyclePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.LifecyclePolicyProperty"]]:
         '''Creates or updates a lifecycle policy.
 
         For information about lifecycle policy syntax, see `Lifecycle policy template <https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html>`_ .
@@ -4074,7 +4051,7 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-lifecyclepolicy
         '''
         result = self._values.get("lifecycle_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.LifecyclePolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.LifecyclePolicyProperty"]], result)
 
     @builtins.property
     def repository_name(self) -> typing.Optional[builtins.str]:
@@ -4104,13 +4081,13 @@ class CfnRepositoryProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4124,9 +4101,9 @@ class CfnRepositoryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISigningConfigurationRef_0c353858)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecr_984bcfb2.ISigningConfigurationRef)
 class CfnSigningConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnSigningConfiguration",
 ):
@@ -4160,7 +4137,7 @@ class CfnSigningConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSigningConfiguration.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSigningConfiguration.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::ECR::SigningConfiguration``.
 
@@ -4169,7 +4146,7 @@ class CfnSigningConfiguration(
         :param rules: A list of signing rules. Each rule defines a signing profile and optional repository filters that determine which images are automatically signed.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f20ec4657cd146c0a7e33dfdc0f7d958c63808be594382cc1c8b832f54fe8a4)
+            type_hints = cached_type_hints(_typecheckingstub__8f20ec4657cd146c0a7e33dfdc0f7d958c63808be594382cc1c8b832f54fe8a4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSigningConfigurationProps(rules=rules)
@@ -4184,18 +4161,18 @@ class CfnSigningConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__242fc3cdbcdbe041f6d2a3ed76b7f725a0a06e4e1bb771065ee8df0fc3c5dc2e)
+            type_hints = cached_type_hints(_typecheckingstub__242fc3cdbcdbe041f6d2a3ed76b7f725a0a06e4e1bb771065ee8df0fc3c5dc2e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSigningConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7cb13a791d6edd150d33a424d85c9e0868d9ad35bcce061c68072d0e0ab9a44)
+            type_hints = cached_type_hints(_typecheckingstub__c7cb13a791d6edd150d33a424d85c9e0868d9ad35bcce061c68072d0e0ab9a44)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4208,7 +4185,7 @@ class CfnSigningConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__023965728e28fcf57693949bcc410da35ebea17213b68ac14ddbd03bf2a799ae)
+            type_hints = cached_type_hints(_typecheckingstub__023965728e28fcf57693949bcc410da35ebea17213b68ac14ddbd03bf2a799ae)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4239,25 +4216,27 @@ class CfnSigningConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="signingConfigurationRef")
-    def signing_configuration_ref(self) -> "_SigningConfigurationReference_56e7e84d":
+    def signing_configuration_ref(
+        self,
+    ) -> "_aws_ecr_984bcfb2.SigningConfigurationReference":
         '''A reference to a SigningConfiguration resource.'''
-        return typing.cast("_SigningConfigurationReference_56e7e84d", jsii.get(self, "signingConfigurationRef"))
+        return typing.cast("_aws_ecr_984bcfb2.SigningConfigurationReference", jsii.get(self, "signingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RuleProperty"]]]:
         '''A list of signing rules.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RuleProperty"]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RuleProperty"]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RuleProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RuleProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4bcef62f5b0eb74ec0fd850761728249600513301f24cd3b16b7fc93b8db93a)
+            type_hints = cached_type_hints(_typecheckingstub__a4bcef62f5b0eb74ec0fd850761728249600513301f24cd3b16b7fc93b8db93a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
 
@@ -4290,7 +4269,7 @@ class CfnSigningConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a8fbe0910d3e8a4220a616d58d1164e59e14d806a43213b1e16da05fee49ff3f)
+                type_hints = cached_type_hints(_typecheckingstub__a8fbe0910d3e8a4220a616d58d1164e59e14d806a43213b1e16da05fee49ff3f)
                 check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
                 check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4352,7 +4331,7 @@ class CfnSigningConfiguration(
             self,
             *,
             signing_profile_arn: builtins.str,
-            repository_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSigningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            repository_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSigningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A signing rule that specifies a signing profile and optional repository filters.
 
@@ -4381,7 +4360,7 @@ class CfnSigningConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2306287dfaf53816c996b679f6795adf1b5cbe05605c8685f73e2a9516c16957)
+                type_hints = cached_type_hints(_typecheckingstub__2306287dfaf53816c996b679f6795adf1b5cbe05605c8685f73e2a9516c16957)
                 check_type(argname="argument signing_profile_arn", value=signing_profile_arn, expected_type=type_hints["signing_profile_arn"])
                 check_type(argname="argument repository_filters", value=repository_filters, expected_type=type_hints["repository_filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4405,7 +4384,7 @@ class CfnSigningConfiguration(
         @builtins.property
         def repository_filters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RepositoryFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RepositoryFilterProperty"]]]]:
             '''A list of repository filters that determine which repositories have their images signed on push.
 
             If no filters are specified, all images pushed to the registry are signed using the rule's signing profile. Maximum of 100 filters per rule.
@@ -4413,7 +4392,7 @@ class CfnSigningConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-signingconfiguration-rule.html#cfn-ecr-signingconfiguration-rule-repositoryfilters
             '''
             result = self._values.get("repository_filters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RepositoryFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RepositoryFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4436,7 +4415,7 @@ class CfnSigningConfigurationProps:
     def __init__(
         self,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSigningConfiguration.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSigningConfiguration.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnSigningConfiguration``.
 
@@ -4464,7 +4443,7 @@ class CfnSigningConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__852cfe5a252c5cea1762366bf0b721b756c19dc5b55de25493e8802a027f4734)
+            type_hints = cached_type_hints(_typecheckingstub__852cfe5a252c5cea1762366bf0b721b756c19dc5b55de25493e8802a027f4734)
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rules": rules,
@@ -4473,7 +4452,7 @@ class CfnSigningConfigurationProps:
     @builtins.property
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RuleProperty"]]]:
         '''A list of signing rules.
 
         Each rule defines a signing profile and optional repository filters that determine which images are automatically signed.
@@ -4482,7 +4461,7 @@ class CfnSigningConfigurationProps:
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSigningConfiguration.RuleProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningConfiguration.RuleProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4498,8 +4477,8 @@ class CfnSigningConfigurationProps:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ecr.IRepository")
 class IRepository(
-    _IResource_c80c4260,
-    _IRepositoryRef_f3b81117,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ecr_984bcfb2.IRepositoryRef,
     typing_extensions.Protocol,
 ):
     '''Represents an ECR repository.'''
@@ -4547,8 +4526,8 @@ class IRepository(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Add a policy statement to the repository's resource policy.
 
         :param statement: -
@@ -4558,9 +4537,9 @@ class IRepository(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given principal identity permissions to perform the actions on this repository.
 
         :param grantee: -
@@ -4569,7 +4548,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull images in this repository.
 
         :param grantee: -
@@ -4577,7 +4559,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull and push images to this repository.
 
         :param grantee: -
@@ -4585,7 +4570,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantPush")
-    def grant_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to push images in this repository.
 
         :param grantee: -
@@ -4593,7 +4581,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read images in this repository.
 
         :param grantee: -
@@ -4605,12 +4596,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Define a CloudWatch event that triggers when something happens to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -4631,12 +4622,12 @@ class IRepository(
         id: builtins.str,
         *,
         image_tag: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when an image is pushed to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -4657,12 +4648,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -4683,12 +4674,12 @@ class IRepository(
         id: builtins.str,
         *,
         image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when the image scan is completed.
 
         :param id: The id of the rule.
@@ -4745,8 +4736,8 @@ class IRepository(
 
 
 class _IRepositoryProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IRepositoryRef_f3b81117), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ecr_984bcfb2.IRepositoryRef), # type: ignore[misc]
 ):
     '''Represents an ECR repository.'''
 
@@ -4795,89 +4786,101 @@ class _IRepositoryProxy(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Add a policy statement to the repository's resource policy.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b93b76e3ed83c647651e88dbe69b68aa31811ba690fb413bbf493b24ddae92f)
+            type_hints = cached_type_hints(_typecheckingstub__1b93b76e3ed83c647651e88dbe69b68aa31811ba690fb413bbf493b24ddae92f)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given principal identity permissions to perform the actions on this repository.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18f0b3f711a06661adb3c2b503f084f1e6774a4c435313ce60aeb9b9c0862a78)
+            type_hints = cached_type_hints(_typecheckingstub__18f0b3f711a06661adb3c2b503f084f1e6774a4c435313ce60aeb9b9c0862a78)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull images in this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14c48998ec9021e98f12464e9359edb24e2b0f539ca596d1d12fb187b8364316)
+            type_hints = cached_type_hints(_typecheckingstub__14c48998ec9021e98f12464e9359edb24e2b0f539ca596d1d12fb187b8364316)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPull", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPull", [grantee]))
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull and push images to this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73c31def1a2c005caef141293abd28f7d52bc6b3cd34b9aab72ad4461456bf52)
+            type_hints = cached_type_hints(_typecheckingstub__73c31def1a2c005caef141293abd28f7d52bc6b3cd34b9aab72ad4461456bf52)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPullPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPullPush", [grantee]))
 
     @jsii.member(jsii_name="grantPush")
-    def grant_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to push images in this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40780df047155d20f169a5f7d2e3cec9d737795fbd2fd65bfbfbff880a95f552)
+            type_hints = cached_type_hints(_typecheckingstub__40780df047155d20f169a5f7d2e3cec9d737795fbd2fd65bfbfbff880a95f552)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPush", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read images in this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03f9678bf6d1275cad4a69c4327c5ec4e50a698bcb71b91bc565ec5c00d17ebd)
+            type_hints = cached_type_hints(_typecheckingstub__03f9678bf6d1275cad4a69c4327c5ec4e50a698bcb71b91bc565ec5c00d17ebd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="onCloudTrailEvent")
     def on_cloud_trail_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Define a CloudWatch event that triggers when something happens to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -4891,9 +4894,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__581481b04818144d35c370c8364691c22c75abf889fbbde93425ef00df6eb66a)
+            type_hints = cached_type_hints(_typecheckingstub__581481b04818144d35c370c8364691c22c75abf889fbbde93425ef00df6eb66a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -4901,7 +4904,7 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
 
     @jsii.member(jsii_name="onCloudTrailImagePushed")
     def on_cloud_trail_image_pushed(
@@ -4909,12 +4912,12 @@ class _IRepositoryProxy(
         id: builtins.str,
         *,
         image_tag: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when an image is pushed to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -4929,7 +4932,7 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6682a5de5f017cf245f225ab2ffa20f3d976bd0d01ff908575d68289ea5cb92e)
+            type_hints = cached_type_hints(_typecheckingstub__6682a5de5f017cf245f225ab2ffa20f3d976bd0d01ff908575d68289ea5cb92e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnCloudTrailImagePushedOptions(
             image_tag=image_tag,
@@ -4940,19 +4943,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCloudTrailImagePushed", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCloudTrailImagePushed", [id, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -4966,9 +4969,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05e48b88e3cb8ff8071e5137a10ebf822f9a67fee50365cc9ad50d0e5ef048be)
+            type_hints = cached_type_hints(_typecheckingstub__05e48b88e3cb8ff8071e5137a10ebf822f9a67fee50365cc9ad50d0e5ef048be)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -4976,7 +4979,7 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onImageScanCompleted")
     def on_image_scan_completed(
@@ -4984,12 +4987,12 @@ class _IRepositoryProxy(
         id: builtins.str,
         *,
         image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when the image scan is completed.
 
         :param id: The id of the rule.
@@ -5001,7 +5004,7 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e891aed9e9c072461bf707e41c6a0f85f0bf27b1d49dd72a2380d2f74650b37)
+            type_hints = cached_type_hints(_typecheckingstub__8e891aed9e9c072461bf707e41c6a0f85f0bf27b1d49dd72a2380d2f74650b37)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnImageScanCompletedOptions(
             image_tags=image_tags,
@@ -5012,7 +5015,7 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onImageScanCompleted", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onImageScanCompleted", [id, options]))
 
     @jsii.member(jsii_name="repositoryUriForDigest")
     def repository_uri_for_digest(
@@ -5026,7 +5029,7 @@ class _IRepositoryProxy(
         :param digest: Image digest to use (tools usually default to the image with the "latest" tag if omitted).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6efec5eaaaff5e5a00be5c12bb1466927bb81353f89902e1dd5c4af405620db8)
+            type_hints = cached_type_hints(_typecheckingstub__6efec5eaaaff5e5a00be5c12bb1466927bb81353f89902e1dd5c4af405620db8)
             check_type(argname="argument digest", value=digest, expected_type=type_hints["digest"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForDigest", [digest]))
 
@@ -5042,7 +5045,7 @@ class _IRepositoryProxy(
         :param tag: Image tag to use (tools usually default to "latest" if omitted).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43ac1e08a24281d72c0ed626aa4a3d8becdaeb21dc0117029ed9cb5e93568fb5)
+            type_hints = cached_type_hints(_typecheckingstub__43ac1e08a24281d72c0ed626aa4a3d8becdaeb21dc0117029ed9cb5e93568fb5)
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForTag", [tag]))
 
@@ -5061,7 +5064,7 @@ class _IRepositoryProxy(
         :param tag_or_digest: Image tag or digest to use (tools usually default to the image with the "latest" tag if omitted).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__894e1dc0284d8788d4bcf980d7755525e14fbcec8b305670af1a388f39980974)
+            type_hints = cached_type_hints(_typecheckingstub__894e1dc0284d8788d4bcf980d7755525e14fbcec8b305670af1a388f39980974)
             check_type(argname="argument tag_or_digest", value=tag_or_digest, expected_type=type_hints["tag_or_digest"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForTagOrDigest", [tag_or_digest]))
 
@@ -5097,7 +5100,7 @@ class ImageTagMutabilityExclusionFilter(
         :param pattern: The wildcard pattern to match image tags (e.g., 'dev-*', 'release-v*').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__506e41b81658bfe386f74207c24c3216542f105c02a9deeef0aa17031ffd52ef)
+            type_hints = cached_type_hints(_typecheckingstub__506e41b81658bfe386f74207c24c3216542f105c02a9deeef0aa17031ffd52ef)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("ImageTagMutabilityExclusionFilter", jsii.sinvoke(cls, "wildcard", [pattern]))
 
@@ -5120,7 +5123,7 @@ class LifecycleRule:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        max_image_age: typing.Optional["_Duration_4839e8c3"] = None,
+        max_image_age: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_image_count: typing.Optional[jsii.Number] = None,
         rule_priority: typing.Optional[jsii.Number] = None,
         tag_pattern_list: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5147,7 +5150,7 @@ class LifecycleRule:
             repository.add_lifecycle_rule(max_image_age=Duration.days(30))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daefc01ac58c056180e96357fa989faf5de713c6f5bd46bb023e2579bcaf8de0)
+            type_hints = cached_type_hints(_typecheckingstub__daefc01ac58c056180e96357fa989faf5de713c6f5bd46bb023e2579bcaf8de0)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument max_image_age", value=max_image_age, expected_type=type_hints["max_image_age"])
             check_type(argname="argument max_image_count", value=max_image_count, expected_type=type_hints["max_image_count"])
@@ -5181,13 +5184,13 @@ class LifecycleRule:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def max_image_age(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_image_age(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum age of images to retain. The value must represent a number of days.
 
         Specify exactly one of maxImageCount and maxImageAge.
         '''
         result = self._values.get("max_image_age")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def max_image_count(self) -> typing.Optional[jsii.Number]:
@@ -5273,7 +5276,7 @@ class LifecycleRule:
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecr.OnCloudTrailImagePushedOptions",
-    jsii_struct_bases=[_OnEventOptions_8711b8b3],
+    jsii_struct_bases=[_aws_events_27c08586.OnEventOptions],
     name_mapping={
         "cross_stack_scope": "crossStackScope",
         "description": "description",
@@ -5283,15 +5286,15 @@ class LifecycleRule:
         "image_tag": "imageTag",
     },
 )
-class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
+class OnCloudTrailImagePushedOptions(_aws_events_27c08586.OnEventOptions):
     def __init__(
         self,
         *,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         image_tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for the onCloudTrailImagePushed method.
@@ -5339,9 +5342,9 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
             )
         '''
         if isinstance(event_pattern, dict):
-            event_pattern = _EventPattern_fe557901(**event_pattern)
+            event_pattern = _aws_events_27c08586.EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29ce751d750234300d3a95f38312d7cd333a8c93f40235199d6b35a3379922d7)
+            type_hints = cached_type_hints(_typecheckingstub__29ce751d750234300d3a95f38312d7cd333a8c93f40235199d6b35a3379922d7)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -5383,7 +5386,7 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def event_pattern(self) -> typing.Optional["_EventPattern_fe557901"]:
+    def event_pattern(self) -> typing.Optional["_aws_events_27c08586.EventPattern"]:
         '''Additional restrictions for the event to route to the specified target.
 
         The method that generates the rule probably imposes some type of event
@@ -5395,7 +5398,7 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
         '''
         result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional["_EventPattern_fe557901"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.EventPattern"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -5407,13 +5410,13 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def target(self) -> typing.Optional["_IRuleTarget_7a91f454"]:
+    def target(self) -> typing.Optional["_aws_events_27c08586.IRuleTarget"]:
         '''The target to register for the event.
 
         :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
         '''
         result = self._values.get("target")
-        return typing.cast(typing.Optional["_IRuleTarget_7a91f454"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.IRuleTarget"], result)
 
     @builtins.property
     def image_tag(self) -> typing.Optional[builtins.str]:
@@ -5438,7 +5441,7 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecr.OnImageScanCompletedOptions",
-    jsii_struct_bases=[_OnEventOptions_8711b8b3],
+    jsii_struct_bases=[_aws_events_27c08586.OnEventOptions],
     name_mapping={
         "cross_stack_scope": "crossStackScope",
         "description": "description",
@@ -5448,15 +5451,15 @@ class OnCloudTrailImagePushedOptions(_OnEventOptions_8711b8b3):
         "image_tags": "imageTags",
     },
 )
-class OnImageScanCompletedOptions(_OnEventOptions_8711b8b3):
+class OnImageScanCompletedOptions(_aws_events_27c08586.OnEventOptions):
     def __init__(
         self,
         *,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Options for the OnImageScanCompleted method.
@@ -5504,9 +5507,9 @@ class OnImageScanCompletedOptions(_OnEventOptions_8711b8b3):
             )
         '''
         if isinstance(event_pattern, dict):
-            event_pattern = _EventPattern_fe557901(**event_pattern)
+            event_pattern = _aws_events_27c08586.EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7008a301b5d27c21d26fff448212766f7f8c0067ab03fc3eb8bb5bd100c32277)
+            type_hints = cached_type_hints(_typecheckingstub__7008a301b5d27c21d26fff448212766f7f8c0067ab03fc3eb8bb5bd100c32277)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -5548,7 +5551,7 @@ class OnImageScanCompletedOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def event_pattern(self) -> typing.Optional["_EventPattern_fe557901"]:
+    def event_pattern(self) -> typing.Optional["_aws_events_27c08586.EventPattern"]:
         '''Additional restrictions for the event to route to the specified target.
 
         The method that generates the rule probably imposes some type of event
@@ -5560,7 +5563,7 @@ class OnImageScanCompletedOptions(_OnEventOptions_8711b8b3):
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
         '''
         result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional["_EventPattern_fe557901"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.EventPattern"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -5572,13 +5575,13 @@ class OnImageScanCompletedOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def target(self) -> typing.Optional["_IRuleTarget_7a91f454"]:
+    def target(self) -> typing.Optional["_aws_events_27c08586.IRuleTarget"]:
         '''The target to register for the event.
 
         :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
         '''
         result = self._values.get("target")
-        return typing.cast(typing.Optional["_IRuleTarget_7a91f454"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.IRuleTarget"], result)
 
     @builtins.property
     def image_tags(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5620,13 +5623,13 @@ class PublicGalleryAuthorizationToken(
 
     @jsii.member(jsii_name="grantRead")
     @builtins.classmethod
-    def grant_read(cls, grantee: "_IGrantable_71c4f5de") -> None:
+    def grant_read(cls, grantee: "_aws_iam_1f54b5e8.IGrantable") -> None:
         '''Grant access to retrieve an authorization token.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fd77e7b53fca07660d5412cd9d20f56fac4fdb4d2e19b7941335059053bf70c)
+            type_hints = cached_type_hints(_typecheckingstub__7fd77e7b53fca07660d5412cd9d20f56fac4fdb4d2e19b7941335059053bf70c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast(None, jsii.sinvoke(cls, "grantRead", [grantee]))
 
@@ -5664,7 +5667,7 @@ class RepositoryAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e7e79b01d862fd1beb9d23e3ac604e86944e354ddaa5cefb7cead2845a54dc6)
+            type_hints = cached_type_hints(_typecheckingstub__6e7e79b01d862fd1beb9d23e3ac604e86944e354ddaa5cefb7cead2845a54dc6)
             check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5698,7 +5701,7 @@ class RepositoryAttributes:
 
 @jsii.implements(IRepository)
 class RepositoryBase(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_ecr.RepositoryBase",
 ):
@@ -5726,10 +5729,10 @@ class RepositoryBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a38c5ca8c70073b00eab7631b4fe1e84b9d8307578ae544e69bb8e01e082e536)
+            type_hints = cached_type_hints(_typecheckingstub__a38c5ca8c70073b00eab7631b4fe1e84b9d8307578ae544e69bb8e01e082e536)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -5742,8 +5745,8 @@ class RepositoryBase(
     @abc.abstractmethod
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Add a policy statement to the repository's resource policy.
 
         :param statement: -
@@ -5753,33 +5756,39 @@ class RepositoryBase(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given principal identity permissions to perform the actions on this repository [disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0332d345aba5679afe9fb0b7ab696008671005f2f0d37df9b84a4e6c8e76114a)
+            type_hints = cached_type_hints(_typecheckingstub__0332d345aba5679afe9fb0b7ab696008671005f2f0d37df9b84a4e6c8e76114a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to use the images in this repository [disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73c5a3d57036dda31cb310868d740db73df050bd928d1f98a2aa6dc7f8f8195)
+            type_hints = cached_type_hints(_typecheckingstub__a73c5a3d57036dda31cb310868d740db73df050bd928d1f98a2aa6dc7f8f8195)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPull", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPull", [grantee]))
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull and push images to this repository.
 
         [disable-awslint:no-grants]
@@ -5787,43 +5796,49 @@ class RepositoryBase(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee46b08a597ed3ce199cf26924cf11ab5fabd9d17bedcc7efc476d1d1c700e2c)
+            type_hints = cached_type_hints(_typecheckingstub__ee46b08a597ed3ce199cf26924cf11ab5fabd9d17bedcc7efc476d1d1c700e2c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPullPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPullPush", [grantee]))
 
     @jsii.member(jsii_name="grantPush")
-    def grant_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to use the images in this repository [disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b0273082d293ef1f0dde5de95fd611df83c06e41660b7409f297f562363e104)
+            type_hints = cached_type_hints(_typecheckingstub__7b0273082d293ef1f0dde5de95fd611df83c06e41660b7409f297f562363e104)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPush", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read the images in this repository [disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a099ab10f2924b872f9278330820dffe9b52373bfaa3e8885d4ff563eac580)
+            type_hints = cached_type_hints(_typecheckingstub__31a099ab10f2924b872f9278330820dffe9b52373bfaa3e8885d4ff563eac580)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="onCloudTrailEvent")
     def on_cloud_trail_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Define a CloudWatch event that triggers when something happens to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -5837,9 +5852,9 @@ class RepositoryBase(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c139a9b31fe3e7f708003b6e9681fb4646f332fdded0d9490a28ed070894122)
+            type_hints = cached_type_hints(_typecheckingstub__8c139a9b31fe3e7f708003b6e9681fb4646f332fdded0d9490a28ed070894122)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -5847,7 +5862,7 @@ class RepositoryBase(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
 
     @jsii.member(jsii_name="onCloudTrailImagePushed")
     def on_cloud_trail_image_pushed(
@@ -5855,12 +5870,12 @@ class RepositoryBase(
         id: builtins.str,
         *,
         image_tag: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when an image is pushed to this repository.
 
         Requires that there exists at least one CloudTrail Trail in your account
@@ -5875,7 +5890,7 @@ class RepositoryBase(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0d2ebb124849d81a392bd26c0bce7b3b3cf10151d71b5907fb7bd4fafbff603)
+            type_hints = cached_type_hints(_typecheckingstub__f0d2ebb124849d81a392bd26c0bce7b3b3cf10151d71b5907fb7bd4fafbff603)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnCloudTrailImagePushedOptions(
             image_tag=image_tag,
@@ -5886,19 +5901,19 @@ class RepositoryBase(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCloudTrailImagePushed", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCloudTrailImagePushed", [id, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -5912,9 +5927,9 @@ class RepositoryBase(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51f97041baa3939cfb2ce34fc3fa53b516f3c6e0c4aa588c04f69ec9c7f5c4c2)
+            type_hints = cached_type_hints(_typecheckingstub__51f97041baa3939cfb2ce34fc3fa53b516f3c6e0c4aa588c04f69ec9c7f5c4c2)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -5922,7 +5937,7 @@ class RepositoryBase(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onImageScanCompleted")
     def on_image_scan_completed(
@@ -5930,12 +5945,12 @@ class RepositoryBase(
         id: builtins.str,
         *,
         image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines an AWS CloudWatch event rule that can trigger a target when an image scan is completed.
 
         :param id: The id of the rule.
@@ -5947,7 +5962,7 @@ class RepositoryBase(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60f3c389878e84cfc27eacd079e1260fe1c75a68121b98730f3af9e704635af9)
+            type_hints = cached_type_hints(_typecheckingstub__60f3c389878e84cfc27eacd079e1260fe1c75a68121b98730f3af9e704635af9)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnImageScanCompletedOptions(
             image_tags=image_tags,
@@ -5958,7 +5973,7 @@ class RepositoryBase(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onImageScanCompleted", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onImageScanCompleted", [id, options]))
 
     @jsii.member(jsii_name="repositoryUriForDigest")
     def repository_uri_for_digest(
@@ -5972,7 +5987,7 @@ class RepositoryBase(
         :param digest: Optional image digest.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1cd01de98d564bf59abc17d6fde8add4f2d946d00d87164b7209d02c893dfee)
+            type_hints = cached_type_hints(_typecheckingstub__b1cd01de98d564bf59abc17d6fde8add4f2d946d00d87164b7209d02c893dfee)
             check_type(argname="argument digest", value=digest, expected_type=type_hints["digest"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForDigest", [digest]))
 
@@ -5988,7 +6003,7 @@ class RepositoryBase(
         :param tag: Optional image tag.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9de3aee1b153dc478086c6f0e5f5e48cb31aaaa05063a0617ec682978677806)
+            type_hints = cached_type_hints(_typecheckingstub__c9de3aee1b153dc478086c6f0e5f5e48cb31aaaa05063a0617ec682978677806)
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForTag", [tag]))
 
@@ -6005,7 +6020,7 @@ class RepositoryBase(
         :param tag_or_digest: Optional image tag or digest (digests must start with ``sha256:``).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__737ee8e7775488279e9f1051f87dc9b1d6c752b8154e3381c9b62a3cc696f8d2)
+            type_hints = cached_type_hints(_typecheckingstub__737ee8e7775488279e9f1051f87dc9b1d6c752b8154e3381c9b62a3cc696f8d2)
             check_type(argname="argument tag_or_digest", value=tag_or_digest, expected_type=type_hints["tag_or_digest"])
         return typing.cast(builtins.str, jsii.invoke(self, "repositoryUriForTagOrDigest", [tag_or_digest]))
 
@@ -6034,9 +6049,9 @@ class RepositoryBase(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryRef")
-    def repository_ref(self) -> "_RepositoryReference_af4d81f0":
+    def repository_ref(self) -> "_aws_ecr_984bcfb2.RepositoryReference":
         '''A reference to this repository.'''
-        return typing.cast("_RepositoryReference_af4d81f0", jsii.get(self, "repositoryRef"))
+        return typing.cast("_aws_ecr_984bcfb2.RepositoryReference", jsii.get(self, "repositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryUri")
@@ -6050,21 +6065,21 @@ class RepositoryBase(
 
 class _RepositoryBaseProxy(
     RepositoryBase,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Add a policy statement to the repository's resource policy.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6698dcafdf5c8416d9634135d68ec261fb74e16ec8e5fa780d78a8a8fa822ee6)
+            type_hints = cached_type_hints(_typecheckingstub__6698dcafdf5c8416d9634135d68ec261fb74e16ec8e5fa780d78a8a8fa822ee6)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryArn")
@@ -6103,7 +6118,7 @@ class RepositoryEncryption(
         :param value: the string value of the encryption.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__144b557444508fc0a954f4a654cd03105778da2972bab34f799be4e543750902)
+            type_hints = cached_type_hints(_typecheckingstub__144b557444508fc0a954f4a654cd03105778da2972bab34f799be4e543750902)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -6170,7 +6185,7 @@ class RepositoryLookupOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a658f6a6920e4ade279233d8cf708713d19d0c9d50f843184a34d0f926b41442)
+            type_hints = cached_type_hints(_typecheckingstub__a658f6a6920e4ade279233d8cf708713d19d0c9d50f843184a34d0f926b41442)
             check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6233,13 +6248,13 @@ class RepositoryProps:
         auto_delete_images: typing.Optional[builtins.bool] = None,
         empty_on_delete: typing.Optional[builtins.bool] = None,
         encryption: typing.Optional["RepositoryEncryption"] = None,
-        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         image_scan_on_push: typing.Optional[builtins.bool] = None,
         image_tag_mutability: typing.Optional["TagMutability"] = None,
         image_tag_mutability_exclusion_filters: typing.Optional[typing.Sequence["ImageTagMutabilityExclusionFilter"]] = None,
         lifecycle_registry_id: typing.Optional[builtins.str] = None,
         lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["LifecycleRule", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -6272,7 +6287,7 @@ class RepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__638b63dd5eb589e01019ee47c63d6335810d02b0d769f767f2bf2fddc285af28)
+            type_hints = cached_type_hints(_typecheckingstub__638b63dd5eb589e01019ee47c63d6335810d02b0d769f767f2bf2fddc285af28)
             check_type(argname="argument auto_delete_images", value=auto_delete_images, expected_type=type_hints["auto_delete_images"])
             check_type(argname="argument empty_on_delete", value=empty_on_delete, expected_type=type_hints["empty_on_delete"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
@@ -6347,7 +6362,7 @@ class RepositoryProps:
         return typing.cast(typing.Optional["RepositoryEncryption"], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''External KMS key to use for repository encryption.
 
         The 'encryption' property must be either not specified or set to "KMS".
@@ -6359,7 +6374,7 @@ class RepositoryProps:
         an AWS managed KMS key is used.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
     def image_scan_on_push(self) -> typing.Optional[builtins.bool]:
@@ -6417,13 +6432,13 @@ class RepositoryProps:
         return typing.cast(typing.Optional[typing.List["LifecycleRule"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Determine what happens to the repository when the resource/stack is deleted.
 
         :default: RemovalPolicy.Retain
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def repository_name(self) -> typing.Optional[builtins.str]:
@@ -6524,13 +6539,13 @@ class Repository(
         auto_delete_images: typing.Optional[builtins.bool] = None,
         empty_on_delete: typing.Optional[builtins.bool] = None,
         encryption: typing.Optional["RepositoryEncryption"] = None,
-        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         image_scan_on_push: typing.Optional[builtins.bool] = None,
         image_tag_mutability: typing.Optional["TagMutability"] = None,
         image_tag_mutability_exclusion_filters: typing.Optional[typing.Sequence["ImageTagMutabilityExclusionFilter"]] = None,
         lifecycle_registry_id: typing.Optional[builtins.str] = None,
         lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["LifecycleRule", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -6549,7 +6564,7 @@ class Repository(
         :param repository_name: Name for this repository. The repository name must start with a letter and can only contain lowercase letters, numbers, hyphens, underscores, and forward slashes. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. Default: Automatically generated name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fcb489ea7ac91914ff0429ef13d64f8bd29978872d9ce4754ee9d39730a8048)
+            type_hints = cached_type_hints(_typecheckingstub__0fcb489ea7ac91914ff0429ef13d64f8bd29978872d9ce4754ee9d39730a8048)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RepositoryProps(
@@ -6583,7 +6598,7 @@ class Repository(
         :param account: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50aa60495dfd0ac59e7bbbb1d22e4d7dd496bad018fa9790d09cb317dc57b0e5)
+            type_hints = cached_type_hints(_typecheckingstub__50aa60495dfd0ac59e7bbbb1d22e4d7dd496bad018fa9790d09cb317dc57b0e5)
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
@@ -6607,7 +6622,7 @@ class Repository(
         :param repository_name: The name of the repository. Default: - Do not filter on repository name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d54cc6352f8c9a17166980b2836dc621d78b7af64b87c2ed63ad8a9c274f3591)
+            type_hints = cached_type_hints(_typecheckingstub__d54cc6352f8c9a17166980b2836dc621d78b7af64b87c2ed63ad8a9c274f3591)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RepositoryLookupOptions(
@@ -6630,7 +6645,7 @@ class Repository(
         :param repository_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb580f927f8776b0abfc35ebe773b5e9b7f5332fd46fd5a456e0b23e497c660e)
+            type_hints = cached_type_hints(_typecheckingstub__eb580f927f8776b0abfc35ebe773b5e9b7f5332fd46fd5a456e0b23e497c660e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
@@ -6654,7 +6669,7 @@ class Repository(
         :param repository_name: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84e95ff8ffc142b6c58fd88e86bd423928c5064f45adb93cb53f66970f9f3391)
+            type_hints = cached_type_hints(_typecheckingstub__84e95ff8ffc142b6c58fd88e86bd423928c5064f45adb93cb53f66970f9f3391)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = RepositoryAttributes(
@@ -6677,7 +6692,7 @@ class Repository(
         :param repository_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ca0477b2fd49bba346d8aca88c7718dd03d03afcf74fa24cc6e13d86937685)
+            type_hints = cached_type_hints(_typecheckingstub__d5ca0477b2fd49bba346d8aca88c7718dd03d03afcf74fa24cc6e13d86937685)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
@@ -6688,7 +6703,7 @@ class Repository(
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        max_image_age: typing.Optional["_Duration_4839e8c3"] = None,
+        max_image_age: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_image_count: typing.Optional[jsii.Number] = None,
         rule_priority: typing.Optional[jsii.Number] = None,
         tag_pattern_list: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6723,8 +6738,8 @@ class Repository(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Add a policy statement to the repository's resource policy.
 
         While other resources policies in AWS either require or accept a resource section,
@@ -6734,9 +6749,9 @@ class Repository(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4c2e425a71ed909d2a0bfefe861aad7c34b251f3ef1f93f5dd7f2be5afffd6b)
+            type_hints = cached_type_hints(_typecheckingstub__a4c2e425a71ed909d2a0bfefe861aad7c34b251f3ef1f93f5dd7f2be5afffd6b)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -6820,7 +6835,7 @@ setattr(_sys.modules[__name__], "__getattr__", __getattr__)
 setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__b189c1467d2bda9405aa4cabd8bab18d9bb346d049339366389c70f4216e7822(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6832,13 +6847,13 @@ def _typecheckingstub__a5b1b0a44f7b903d10d3e873896cf1709943b67e3503cc3918e4e98f0
     repository_catalog_data: typing.Any = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb6d6b8f11ff5aa7e76e99989e1f74e816dd5ace2f447821d96bf4422c72b154(
-    resource: _IPublicRepositoryRef_fef651e6,
+    resource: _aws_ecr_984bcfb2.IPublicRepositoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6866,7 +6881,7 @@ def _typecheckingstub__be487b156d21b376fa970d80f46ab5f81e0cd19b26308b8723a0f2dfc
     pass
 
 def _typecheckingstub__317b166576f7593305ca27885da5cd7a621d59c15390c40d8de8d3e3c28eb94b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6896,7 +6911,7 @@ def _typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0
     pass
 
 def _typecheckingstub__e01e3d955755b76bef4d0ce1b9a558313454d69c44cb97d65b4fcb564602a54d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6917,7 +6932,7 @@ def _typecheckingstub__92fbf4d1252b7ea335bc4ed7360447e55242ed532586420ec9671bdac
     repository_catalog_data: typing.Any = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6943,7 +6958,7 @@ def _typecheckingstub__82b0f88a2e5cc3c56b672d18f8b93192f31a4a7ddc18192430b768e78
     pass
 
 def _typecheckingstub__9d8119fd2e97a8168e1c38fa9f34bcdb5556aadec2158866fb3fdc43828f6206(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7018,7 +7033,7 @@ def _typecheckingstub__551f10b31c294ea936e7ef8074a6634a83cb9c0a3a72281010e52e9a5
     pass
 
 def _typecheckingstub__10ff65c5f542ca588c9c426fdec6b6e57a95f212760a4d24b0929c1c8bfc2b3a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7058,7 +7073,7 @@ def _typecheckingstub__d8a7ff32b23d11ac7a23b1d46e72dbfba40a0a5355f25aff259d87312
     pass
 
 def _typecheckingstub__518326f401673fc075bc36aad49fa8c732bf800dcb0a35c514296a4680b8b006(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7086,7 +7101,7 @@ def _typecheckingstub__6b68a41065b53c404ecfbf77d1c1dca4759228bec8020c901ec850026
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     scan_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -7099,7 +7114,7 @@ def _typecheckingstub__01e087b257184f43bf69587c5b0d66243f5883fa92eca47e5d86e66d4
     pass
 
 def _typecheckingstub__c4d08cae9fcc3be8b1528f23c35bc9a22ca0fba2fab068fc08b75c1cfe389e24(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7111,7 +7126,7 @@ def _typecheckingstub__fcd0a067b02317e542152310e0b6796223c0fe4536450fbf2cdfa3673
     pass
 
 def _typecheckingstub__921150d6d5faa8474ec7f3be3b2d6d58c6eb0b5024b547f0c929470055982457(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRegistryScanningConfiguration.ScanningRuleProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRegistryScanningConfiguration.ScanningRuleProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7132,7 +7147,7 @@ def _typecheckingstub__9ff81a98ae71376276df972cda0909207513e4f0b7a1f6fea94a077f8
 
 def _typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fbb8950bd(
     *,
-    repository_filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    repository_filters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryScanningConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
     scan_frequency: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -7140,7 +7155,7 @@ def _typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fb
 
 def _typecheckingstub__c0cb9229bec3c4ef027deaf853b1b19296c230ef0a56be8bdbedc54630c259c5(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     scan_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -7150,7 +7165,7 @@ def _typecheckingstub__9ec8853622a7046906439da72fd8cf7dc34848650d739a637e7ae30cf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    replication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfiguration.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    replication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7162,7 +7177,7 @@ def _typecheckingstub__292d5e557b7761852b695d1a5d68f24bc1684966f22d7ca9e9012d14f
     pass
 
 def _typecheckingstub__cf6794ecc113ab8e22e20dce72c6d4af221f57c5e7b6d95be1fa395b94eb50bb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7174,14 +7189,14 @@ def _typecheckingstub__fcdbbdadfe76a214299f1bf1546cbf834942546e6a1a187654f56c7a2
     pass
 
 def _typecheckingstub__99f4c1062f6a81bbbbbb1ec51556be75ca089974820458f2cf7c2b6ef30a1f4b(
-    value: typing.Union[_IResolvable_da3f097b, CfnReplicationConfiguration.ReplicationConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReplicationConfiguration.ReplicationConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4f1a61ec35ac6455ef5be103b0ad56cd75e35b592381509aff016aeca6fc509b(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfiguration.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7196,8 +7211,8 @@ def _typecheckingstub__be71124f033e3826f4c32205bda1d3adb39ad2e783cc193fc52ee22d7
 
 def _typecheckingstub__db6d7133bf506488b87a4ed998e2db1455e219e9bfa903d0880e4240a48da3c6(
     *,
-    destinations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfiguration.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    repository_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destinations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    repository_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7212,7 +7227,7 @@ def _typecheckingstub__81091e3ace4bd61ec67e8544391ccaefe639b2950197c427c9804e66f
 
 def _typecheckingstub__8d245b9cf8a9f1459a5c0b6311093064a71adab6058193aba296fc0fff15d6a8(
     *,
-    replication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfiguration.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    replication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7221,21 +7236,21 @@ def _typecheckingstub__0c4027f87eb46bfdc341ea831d36476b6bcb3d7c3adf8e4193a6f82d2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    empty_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    empty_on_delete: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_scanning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
-    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lifecycle_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0be76f9a52a9442ed56dd04b8009a2dea664eb59f76125c179f2eef67c94ed57(
-    resource: _IRepositoryRef_f3b81117,
+    resource: _aws_ecr_984bcfb2.IRepositoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7263,7 +7278,7 @@ def _typecheckingstub__6086cdc33387338c21c38628f631583d34153e38a2191b194e5475fd1
     pass
 
 def _typecheckingstub__2248718d73b3c7bcee12085148b85f05a4c458576be92459e450678dd33ba17a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7281,19 +7296,19 @@ def _typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46e
     pass
 
 def _typecheckingstub__0cdf31a68d1403243dabdc584938d9cf5b1769c665a1d405daaaa8438f7d0367(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf78a5a76e0710f9d352977f8ee877ef0fc7f3c43b6cd9839d2fbeaff522caa1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ae9439aabd4d324bf1d5bdb5b430c995fa4f0fdc0cb44daa41909d48e778564(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.ImageScanningConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.ImageScanningConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7305,13 +7320,13 @@ def _typecheckingstub__6d75698f85ccefe489f53d4f155b619c9c3df1026fe201828f3f0ccc7
     pass
 
 def _typecheckingstub__28c5038f217a4c1109664243a2d67cd421822e67f8352aa51ee8780d8e6fbe3e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.ImageTagMutabilityExclusionFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.ImageTagMutabilityExclusionFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47418c52de9eb82b5a96dfa3524d84345309cf3a2f06fbbc30eaa7da852a33fa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.LifecyclePolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.LifecyclePolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7323,7 +7338,7 @@ def _typecheckingstub__320e28aebae3ff1053b4006047e990e27e37c3a2753340ee0372d4f8e
     pass
 
 def _typecheckingstub__a187140649b7378ce5c825b26017544130f832c6f44250242ffcc01b801ada76(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7338,7 +7353,7 @@ def _typecheckingstub__3784a36a4911b348cdf5fe0a9dc355e52973bde3ecafee9df5e1242b0
 
 def _typecheckingstub__c75cd2b6ec01cb2a5879c051b4088257f2aa69c2f3db3f6435eba0c0b6fd191d(
     *,
-    scan_on_push: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    scan_on_push: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7367,12 +7382,12 @@ def _typecheckingstub__494445c3594e6c48becf87b896b56289e6923275ed1be048e55a955aa
     prefix: builtins.str,
     custom_role_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
-    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7384,7 +7399,7 @@ def _typecheckingstub__6ce256b5e9e34e523ff83aa576574fee15b577259ac53e6a702f78992
     pass
 
 def _typecheckingstub__de25621df06cd38b2a7712beec393825dd8540c7ddd5884bcdd2f43c88cc6a9f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7420,7 +7435,7 @@ def _typecheckingstub__e5438699040b3663de96ef1aac64ac4344fe755ea3bb114b36fdb20c6
     pass
 
 def _typecheckingstub__dc9a1c0060c4bcb98843249551561d40d0d01c6137b55d2fc6b20909c4d50df4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepositoryCreationTemplate.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepositoryCreationTemplate.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7432,7 +7447,7 @@ def _typecheckingstub__0d03ac6e7b2975934cbd1c8b2470015fc671509b1b82834732e60abe4
     pass
 
 def _typecheckingstub__686708849f7a8d060ba78b1f975486b8f424fe3ede8590146ea58544a5f10f12(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7450,7 +7465,7 @@ def _typecheckingstub__6133d22d20cb78fbb430ebd26935743e57cfc66d8da0d8b426c625527
     pass
 
 def _typecheckingstub__c2fb99e1f96881ee2eeb1081388dcf7c16b80d047a366d3bbc0d4a883ac0e52b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, _aws_cdk_0cae9daa.CfnTag]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7477,27 +7492,27 @@ def _typecheckingstub__623a27e5bf9e58dfa2c0c25d5b312731cce32386963e30de33e3bd636
     prefix: builtins.str,
     custom_role_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
-    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6887f05f59c4e061f761607002ffdf5b7ad09f76abbf4b7be49513c3ea20ebad(
     *,
-    empty_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    empty_on_delete: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_scanning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
-    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lifecycle_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7506,7 +7521,7 @@ def _typecheckingstub__8f20ec4657cd146c0a7e33dfdc0f7d958c63808be594382cc1c8b832f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSigningConfiguration.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSigningConfiguration.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7518,7 +7533,7 @@ def _typecheckingstub__242fc3cdbcdbe041f6d2a3ed76b7f725a0a06e4e1bb771065ee8df0fc
     pass
 
 def _typecheckingstub__c7cb13a791d6edd150d33a424d85c9e0868d9ad35bcce061c68072d0e0ab9a44(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7530,7 +7545,7 @@ def _typecheckingstub__023965728e28fcf57693949bcc410da35ebea17213b68ac14ddbd03bf
     pass
 
 def _typecheckingstub__a4bcef62f5b0eb74ec0fd850761728249600513301f24cd3b16b7fc93b8db93a(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSigningConfiguration.RuleProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSigningConfiguration.RuleProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7546,51 +7561,51 @@ def _typecheckingstub__a8fbe0910d3e8a4220a616d58d1164e59e14d806a43213b1e16da05fe
 def _typecheckingstub__2306287dfaf53816c996b679f6795adf1b5cbe05605c8685f73e2a9516c16957(
     *,
     signing_profile_arn: builtins.str,
-    repository_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSigningConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    repository_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSigningConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__852cfe5a252c5cea1762366bf0b721b756c19dc5b55de25493e8802a027f4734(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSigningConfiguration.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSigningConfiguration.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1b93b76e3ed83c647651e88dbe69b68aa31811ba690fb413bbf493b24ddae92f(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__18f0b3f711a06661adb3c2b503f084f1e6774a4c435313ce60aeb9b9c0862a78(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__14c48998ec9021e98f12464e9359edb24e2b0f539ca596d1d12fb187b8364316(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__73c31def1a2c005caef141293abd28f7d52bc6b3cd34b9aab72ad4461456bf52(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__40780df047155d20f169a5f7d2e3cec9d737795fbd2fd65bfbfbff880a95f552(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__03f9678bf6d1275cad4a69c4327c5ec4e50a698bcb71b91bc565ec5c00d17ebd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7598,10 +7613,10 @@ def _typecheckingstub__03f9678bf6d1275cad4a69c4327c5ec4e50a698bcb71b91bc565ec5c0
 def _typecheckingstub__581481b04818144d35c370c8364691c22c75abf889fbbde93425ef00df6eb66a(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7611,10 +7626,10 @@ def _typecheckingstub__6682a5de5f017cf245f225ab2ffa20f3d976bd0d01ff908575d68289e
     id: builtins.str,
     *,
     image_tag: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7623,10 +7638,10 @@ def _typecheckingstub__6682a5de5f017cf245f225ab2ffa20f3d976bd0d01ff908575d68289e
 def _typecheckingstub__05e48b88e3cb8ff8071e5137a10ebf822f9a67fee50365cc9ad50d0e5ef048be(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7636,10 +7651,10 @@ def _typecheckingstub__8e891aed9e9c072461bf707e41c6a0f85f0bf27b1d49dd72a2380d2f7
     id: builtins.str,
     *,
     image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7672,7 +7687,7 @@ def _typecheckingstub__506e41b81658bfe386f74207c24c3216542f105c02a9deeef0aa17031
 def _typecheckingstub__daefc01ac58c056180e96357fa989faf5de713c6f5bd46bb023e2579bcaf8de0(
     *,
     description: typing.Optional[builtins.str] = None,
-    max_image_age: typing.Optional[_Duration_4839e8c3] = None,
+    max_image_age: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     max_image_count: typing.Optional[jsii.Number] = None,
     rule_priority: typing.Optional[jsii.Number] = None,
     tag_pattern_list: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7686,9 +7701,9 @@ def _typecheckingstub__29ce751d750234300d3a95f38312d7cd333a8c93f40235199d6b35a33
     *,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     image_tag: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7698,16 +7713,16 @@ def _typecheckingstub__7008a301b5d27c21d26fff448212766f7f8c0067ab03fc3eb8bb5bd10
     *,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7fd77e7b53fca07660d5412cd9d20f56fac4fdb4d2e19b7941335059053bf70c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7733,32 +7748,32 @@ def _typecheckingstub__a38c5ca8c70073b00eab7631b4fe1e84b9d8307578ae544e69bb8e01e
     pass
 
 def _typecheckingstub__0332d345aba5679afe9fb0b7ab696008671005f2f0d37df9b84a4e6c8e76114a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a73c5a3d57036dda31cb310868d740db73df050bd928d1f98a2aa6dc7f8f8195(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee46b08a597ed3ce199cf26924cf11ab5fabd9d17bedcc7efc476d1d1c700e2c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7b0273082d293ef1f0dde5de95fd611df83c06e41660b7409f297f562363e104(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31a099ab10f2924b872f9278330820dffe9b52373bfaa3e8885d4ff563eac580(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7766,10 +7781,10 @@ def _typecheckingstub__31a099ab10f2924b872f9278330820dffe9b52373bfaa3e8885d4ff56
 def _typecheckingstub__8c139a9b31fe3e7f708003b6e9681fb4646f332fdded0d9490a28ed070894122(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7779,10 +7794,10 @@ def _typecheckingstub__f0d2ebb124849d81a392bd26c0bce7b3b3cf10151d71b5907fb7bd4fa
     id: builtins.str,
     *,
     image_tag: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7791,10 +7806,10 @@ def _typecheckingstub__f0d2ebb124849d81a392bd26c0bce7b3b3cf10151d71b5907fb7bd4fa
 def _typecheckingstub__51f97041baa3939cfb2ce34fc3fa53b516f3c6e0c4aa588c04f69ec9c7f5c4c2(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7804,10 +7819,10 @@ def _typecheckingstub__60f3c389878e84cfc27eacd079e1260fe1c75a68121b98730f3af9e70
     id: builtins.str,
     *,
     image_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7832,7 +7847,7 @@ def _typecheckingstub__737ee8e7775488279e9f1051f87dc9b1d6c752b8154e3381c9b62a3cc
     pass
 
 def _typecheckingstub__6698dcafdf5c8416d9634135d68ec261fb74e16ec8e5fa780d78a8a8fa822ee6(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7856,13 +7871,13 @@ def _typecheckingstub__638b63dd5eb589e01019ee47c63d6335810d02b0d769f767f2bf2fddc
     auto_delete_images: typing.Optional[builtins.bool] = None,
     empty_on_delete: typing.Optional[builtins.bool] = None,
     encryption: typing.Optional[RepositoryEncryption] = None,
-    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     image_scan_on_push: typing.Optional[builtins.bool] = None,
     image_tag_mutability: typing.Optional[TagMutability] = None,
     image_tag_mutability_exclusion_filters: typing.Optional[typing.Sequence[ImageTagMutabilityExclusionFilter]] = None,
     lifecycle_registry_id: typing.Optional[builtins.str] = None,
     lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[LifecycleRule, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7875,13 +7890,13 @@ def _typecheckingstub__0fcb489ea7ac91914ff0429ef13d64f8bd29978872d9ce4754ee9d397
     auto_delete_images: typing.Optional[builtins.bool] = None,
     empty_on_delete: typing.Optional[builtins.bool] = None,
     encryption: typing.Optional[RepositoryEncryption] = None,
-    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     image_scan_on_push: typing.Optional[builtins.bool] = None,
     image_tag_mutability: typing.Optional[TagMutability] = None,
     image_tag_mutability_exclusion_filters: typing.Optional[typing.Sequence[ImageTagMutabilityExclusionFilter]] = None,
     lifecycle_registry_id: typing.Optional[builtins.str] = None,
     lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[LifecycleRule, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7932,7 +7947,7 @@ def _typecheckingstub__d5ca0477b2fd49bba346d8aca88c7718dd03d03afcf74fa24cc6e13d8
     pass
 
 def _typecheckingstub__a4c2e425a71ed909d2a0bfefe861aad7c34b251f3ef1f93f5dd7f2be5afffd6b(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass

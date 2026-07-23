@@ -97,7 +97,18 @@ def _packing_cache_key(kind: str, raw: PackedRawTensor, device) -> Tuple[Any, ..
     :return: cache key for layout metadata of the packing.
         The dims go in directly (the Cache handles the value semantics, see above).
     """
-    return kind, raw.orig_dims, raw.gap, raw.align, _layout_lens_key(raw.layout_lens), str(device)
+    # packed_dim.dimension (the static buffer capacity)
+    # distinguishes a bounded (over-allocated) packing from the exact one with the same orig layout
+    # -- else their seq-id / block-mask caches collide.
+    return (
+        kind,
+        raw.orig_dims,
+        raw.packed_dim.dimension,
+        raw.gap,
+        raw.align,
+        _layout_lens_key(raw.layout_lens),
+        str(device),
+    )
 
 
 def _layout_lens_key(layout_lens):
@@ -105,6 +116,43 @@ def _layout_lens_key(layout_lens):
     if layout_lens is None:
         return None
     return tuple(int(v) for v in layout_lens.raw_tensor.flatten())
+
+
+def _device_lens(raw: PackedRawTensor):
+    """
+    :return: the device-resident content seq-lens raw tensor (flat, one per seq)
+        if this packing is in the capture-safe device-lens regime, else None.
+        The regime: torch inner backend,
+        static packed dim (an upper-bound buffer, see :func:`pack` total_bound),
+        the seq lens live on the same (non-cpu) device as the data,
+        layout_lens either None or also device-resident,
+        and the standard (seqs, frames) two-level packing.
+        In this regime, the layout helpers recompute per call as pure device ops
+        and skip the layout caches:
+        async (no host sync),
+        and CUDA-graph capture records the recompute,
+        so one captured graph replays correctly across varying lengths (<= the bound).
+    """
+    if raw.inner_backend.name != "torch":
+        return None
+    if raw.packed_dim.dimension is None:
+        return None
+    if len(raw.orig_dims) != 2:
+        return None
+    last = raw.orig_dims[-1]
+    if last.dyn_size_ext is None or last.dyn_size_ext.raw_tensor is None:
+        return None
+    if last.dyn_size_ext.dims != (raw.orig_dims[0],):
+        return None
+    lens_raw = last.dyn_size_ext.raw_tensor
+    inner_raw = raw.inner.raw_tensor
+    if inner_raw is None or lens_raw.device != inner_raw.device or inner_raw.device.type == "cpu":
+        return None
+    if raw.layout_lens is not None:
+        ll = raw.layout_lens.raw_tensor
+        if ll is None or ll.device != inner_raw.device:
+            return None
+    return lens_raw
 
 
 class PackedRawTensor:
@@ -196,7 +244,12 @@ class PackedRawTensor:
         if hit is not None:
             return hit
         starts, seqs_dim = self.seq_starts()
-        total = rf.cast(self.packed_dim.get_dim_value_tensor(), starts.dtype)
+        total = self.packed_dim.get_dim_value_tensor()
+        if isinstance(total, Tensor):
+            total = rf.cast(total, starts.dtype)
+        else:
+            # a static packed dim (e.g. built by the data pipeline) yields a python int, not a tensor
+            total = rf.copy_to_device(rf.constant(int(total), dims=(), dtype=starts.dtype), starts.device)
         end_dim = Dim(1, name="cu_seqlens_end")
         cu, cu_dim = rf.concat((starts, seqs_dim), (rf.expand_dim(total, dim=end_dim), end_dim))
         cu = rf.cast(cu, "int32")
@@ -245,9 +298,10 @@ class PackedRawTensor:
         # else: no explicit feature_dim, so the outer Tensor applies the usual default heuristic --
         # the inner tensor often loses the implicit feature dim (its heuristic fails without a batch dim),
         # while the virtual (unpacked) dims match what the padded op would produce.
+        vdims = self.virtual_dims(inner_out)
         out = Tensor(
             name=name or inner_out.name,
-            dims=self.virtual_dims(inner_out),
+            dims=vdims,
             dtype=inner_out.dtype,
             sparse_dim=inner_out.sparse_dim,
             **opts,
@@ -256,6 +310,7 @@ class PackedRawTensor:
             inner=inner_out,
             packed_dim=self.packed_dim,
             orig_dims=self.orig_dims,
+            dims=vdims,
             gap=self.gap,
             align=self.align,
             layout_lens=self.layout_lens,
@@ -520,7 +575,7 @@ def _padded_positions(
         if starts.device != pos.device:
             # starts derive from the dyn sizes (often cpu), pos follows the default device
             starts = rf.copy_to_device(starts, pos.device)
-        pos = starts + pos
+        pos = rf.combine_bc(starts, "add", pos)  # cross-dim (seqs x frames) broadcast
     return pos
 
 
@@ -542,6 +597,33 @@ def _frame_coords(template: PackedRawTensor, d: Dim) -> Tensor:
         (gap frames get 0 -- only meaningful on sequence frames).
         Cheap: only an int grid over the packed dims is scattered, no feature-sized data.
     """
+    dev_lens = _device_lens(template)
+    if dev_lens is not None:
+        # device-lens regime (see _device_lens): pure device ops per call, uncached, capture-safe.
+        # Directly over the static bound buffer, no padded (seqs, max-frames) grid.
+        # Junk/gap frames get an arbitrary in-bounds coord (clamped into the seq),
+        # only meaningful on sequence frames -- like the cached variant (0 there).
+        import torch
+
+        starts_rf, _ = _seq_starts_math(
+            template.orig_dims, template.gap, template.align, layout_lens=template.layout_lens
+        )
+        rows = torch.arange(template.packed_dim.dimension, device=dev_lens.device)
+        lens_flat = dev_lens.flatten().long()
+        if starts_rf is None:
+            seq = torch.zeros_like(rows)
+            local = rows
+        else:
+            starts = starts_rf.raw_tensor.flatten().long()
+            seq = torch.searchsorted(starts, rows, right=True) - 1
+            local = rows - starts[seq]
+        if d == template.orig_dims[-1]:
+            coord = torch.minimum(local.clamp(min=0), (lens_flat[seq] - 1).clamp(min=0))
+        else:
+            coord = seq.clamp(min=0)
+        out = Tensor("frame_coords", dims=[template.packed_dim], dtype="int32", sparse_dim=d)
+        out.raw_tensor = coord.int()
+        return out
     # The result is Tensor over template.packed_dim,
     # so the key must include that dim (the Cache remaps it on equal-valued hits).
     # The full layout must be in the key too:
@@ -585,6 +667,26 @@ def _frame_mask(template: PackedRawTensor) -> Optional[Tensor]:
     """
     if not template.has_gap_frames:
         return None
+    dev_lens = _device_lens(template)
+    if dev_lens is not None:
+        # device-lens regime (see _device_lens): pure device ops per call, uncached, capture-safe.
+        # Directly over the static bound buffer (searchsorted on the in-graph starts),
+        # no padded (seqs, max-frames) grid -- that grid's size would need a host read.
+        import torch
+
+        starts_rf, _ = _seq_starts_math(
+            template.orig_dims, template.gap, template.align, layout_lens=template.layout_lens
+        )
+        rows = torch.arange(template.packed_dim.dimension, device=dev_lens.device)
+        if starts_rf is None:
+            valid = rows < dev_lens.flatten().long()
+        else:
+            starts = starts_rf.raw_tensor.flatten().long()
+            seq = torch.searchsorted(starts, rows, right=True) - 1
+            valid = (rows - starts[seq]) < dev_lens.flatten().long()[seq]
+        out = Tensor("frame_mask", dims=[template.packed_dim], dtype="bool")
+        out.raw_tensor = valid
+        return out
     # full layout in the key, see _frame_coords
     key = (
         "frame_mask",
@@ -626,7 +728,13 @@ def _pack_like(x: Tensor, template: PackedRawTensor) -> Optional[Tensor]:
     idx = None
     for d in in_dims:
         coords = _frame_coords(template, d)
-        idx = coords if idx is None else idx * d.get_dim_value_tensor() + coords
+        if idx is not None:
+            # stride from x's BACKED raw shape (a plain int, no get_dim_value host read):
+            # it must match the actual flat buffer layout,
+            # and under CUDA-graph capture a dyn-size read would sync / go stale on replay.
+            idx = idx * x.raw_tensor.shape[x.dims.index(d)] + coords
+        else:
+            idx = coords
     return rf.gather(x_flat, indices=idx, axis=flat_dim)
 
 
@@ -763,8 +871,19 @@ def _batch_norm_gapped(source: Tensor, kwargs) -> Optional[Tensor]:
     if raw.inner_backend.name != "torch":
         return None  # the in-place running-stat update below is raw torch
     mask = _frame_mask(raw)
-    n_t = _packed_total(raw.orig_dims, 0, 1)  # number of valid frames (cpu, from the dyn sizes)
-    n = rf.cast(rf.copy_to_device(n_t, inner.device), inner.dtype)
+    n_t = _packed_total(raw.orig_dims, 0, 1)  # valid-frame count (from the dyn sizes; used for running stats below)
+    dev_lens = _device_lens(raw)
+    if dev_lens is not None:
+        # device-lens regime (see _device_lens): the count is already a device tensor, uncached
+        n_dev = n_t
+    else:
+        # cache the on-device count (deterministic per packing) -> no per-step H2D sync (capture-safe)
+        n_key = _packing_cache_key("bn_count", raw, inner.device)
+        n_dev = _layout_cache.get(n_key)
+        if n_dev is None:
+            n_dev = rf.copy_to_device(n_t, inner.device)
+            _layout_cache.set(n_key, n_dev)
+    n = rf.cast(n_dev, inner.dtype)
     x0 = rf.where(mask, inner, 0.0)
     mean = rf.reduce_sum(x0, axis=raw.packed_dim, use_mask=False) / n
     diff = rf.where(mask, inner - mean, 0.0)
@@ -773,11 +892,18 @@ def _batch_norm_gapped(source: Tensor, kwargs) -> Optional[Tensor]:
         import torch
 
         with torch.no_grad():
-            n_f = float(n_t.raw_tensor)
-            unbiased = n_f / max(n_f - 1.0, 1.0)
             rm, rv = running_mean.raw_tensor, running_variance.raw_tensor
-            rm.mul_(1.0 - momentum).add_(mean.raw_tensor.detach().to(rm.dtype), alpha=momentum)
-            rv.mul_(1.0 - momentum).add_(var.raw_tensor.detach().to(rv.dtype) * unbiased, alpha=momentum)
+            if dev_lens is not None:
+                # fully on device (no float(n) host read -> no sync, capture-safe)
+                n_f_t = n_dev.raw_tensor.float()
+                unbiased_t = n_f_t / (n_f_t - 1.0).clamp(min=1.0)
+                rm.mul_(1.0 - momentum).add_(mean.raw_tensor.detach().to(rm.dtype) * momentum)
+                rv.mul_(1.0 - momentum).add_(var.raw_tensor.detach().to(rv.dtype) * unbiased_t.to(rv.dtype) * momentum)
+            else:
+                n_f = float(n_t.raw_tensor)
+                unbiased = n_f / max(n_f - 1.0, 1.0)
+                rm.mul_(1.0 - momentum).add_(mean.raw_tensor.detach().to(rm.dtype), alpha=momentum)
+                rv.mul_(1.0 - momentum).add_(var.raw_tensor.detach().to(rv.dtype) * unbiased, alpha=momentum)
     out_inner = (inner - mean) / rf.sqrt(var + epsilon)
     if affine:
         out_inner = out_inner * gamma + beta
@@ -1668,10 +1794,6 @@ def _triton_rel_pos_attention(
         return None
     if set(bd_inner.dims) - {heads_dim} != {bd_raw.packed_dim, pos_emb_spatial_dim}:
         return None
-    max_len = int(query_spatial_dim.get_dim_value())
-    r_size = int(pos_emb_spatial_dim.get_dim_value())
-    if r_size != 2 * max_len - 1:
-        return None  # only the standard centered layout
     q_t = q_inner.copy_transpose([qu_raw.packed_dim, heads_dim, qk_feat_dim]).raw_tensor
     k_t = k_inner.copy_transpose([k_raw.packed_dim, heads_dim, qk_feat_dim]).raw_tensor
     v_t = v_inner.copy_transpose([v_raw.packed_dim, heads_dim, v_feat_dim]).raw_tensor
@@ -1695,17 +1817,44 @@ def _triton_rel_pos_attention(
         bd_t = bd_t.unsqueeze(1).expand(-1, heads_dim.dimension, -1)
     # pre-scale the bias like the content-based term (the kernel scales only q k^T)
     bd_t = (bd_t * qk_feat_dim.dimension**-0.5).to(q_t.dtype)
-    starts_key = _packing_cache_key("triton_starts_lens", q_raw, query.device)
-    hit = _layout_cache.get(starts_key)
-    if hit is not None:
-        starts, lens = hit
-    else:
+    dev_lens = _device_lens(q_raw)
+    if dev_lens is not None:
+        # Device-lens regime (see _device_lens): recompute starts/lens as pure device ops on every call
+        # (async, no host sync, no cache).
+        # CUDA-graph capture then records the recompute,
+        # so one captured graph replays correctly across varying lengths (<= the buffer bound):
+        # the kernel reads starts/lens from device buffers and early-exits per block beyond a seq len.
+        # max_len comes from the backed raw shape of the b+d term (host metadata, no sync);
+        # pos_emb must be the centered 2*max_len-1 layout (the rel_pos_self_attention contract).
+        r_size = bd_t.shape[-1]
+        if r_size % 2 != 1:
+            return None
+        max_len = (r_size + 1) // 2
         starts_rf, _ = _seq_starts_math(q_raw.orig_dims, q_raw.gap, q_raw.align, layout_lens=q_raw.layout_lens)
         if starts_rf is None:
             return None
-        starts = rf.copy_to_device(starts_rf, query.device).raw_tensor.int().flatten()
-        lens = rf.copy_to_device(query_spatial_dim.dyn_size_ext, query.device).raw_tensor.int().flatten()
-        _layout_cache.set(starts_key, (starts, lens))
+        starts = starts_rf.raw_tensor.int().flatten()
+        lens = dev_lens.int().flatten()
+    else:
+        # Host-side seq lens: starts/lens/max_len are cached together.
+        # the host reads here (int(get_dim_value), copy_to_device) are per-call GPU syncs otherwise,
+        # which break CUDA-graph capture;
+        # computed once at warm-up, later calls hit the cache -- no sync.
+        starts_key = _packing_cache_key("triton_starts_lens", q_raw, query.device)
+        hit = _layout_cache.get(starts_key)
+        if hit is not None:
+            starts, lens, max_len = hit
+        else:
+            max_len = int(query_spatial_dim.get_dim_value())
+            r_size = int(pos_emb_spatial_dim.get_dim_value())
+            if r_size != 2 * max_len - 1:
+                return None  # only the standard centered layout
+            starts_rf, _ = _seq_starts_math(q_raw.orig_dims, q_raw.gap, q_raw.align, layout_lens=q_raw.layout_lens)
+            if starts_rf is None:
+                return None
+            starts = rf.copy_to_device(starts_rf, query.device).raw_tensor.int().flatten()
+            lens = rf.copy_to_device(query_spatial_dim.dyn_size_ext, query.device).raw_tensor.int().flatten()
+            _layout_cache.set(starts_key, (starts, lens, max_len))
     try:
         out_t = rel_pos_att_triton.rel_pos_att_varlen(
             q_t, k_t, v_t, bd_t, starts, lens, max_len, dropout_p=att_dropout, scale=qk_feat_dim.dimension**-0.5
@@ -1839,37 +1988,63 @@ def _strided_out_wrapper(
             inner=out_inner, packed_dim=out_packed_dim, orig_dims=(out_time,), gap=0, align=align_out
         )
         return helper.rewrap(out_inner, name="conv")
-    lens_out = out_time.dyn_size_ext
-    for d in raw.orig_dims[:-1]:
-        if d not in lens_out.dims:
-            lens_out = rf.expand_dim(lens_out, dim=d)
-    if len(raw.orig_dims) > 2:
-        lens_out, _ = rf.merge_dims(lens_out, dims=raw.orig_dims[:-1])
-    residual = footprints // st - lens_out
-    residual0 = int(residual.raw_tensor.flatten()[0])
-    if residual0 >= 0 and bool(rf.reduce_all(residual == residual0, axis=list(residual.dims)).raw_tensor):
-        # uniform residual: expressible as the plain (lens, gap, align) form
+    gap_out = raw.gap // st
+    if raw.align % st == 0 and _device_lens(raw) is not None:
+        # device-lens regime (see _device_lens): skip the verdict entirely
+        # (it reads per-batch values on the host -- a sync, and baked-wrong under varying-length replay)
+        # and go straight to the always-exact per-seq layout lens, computed on device:
+        # layout_len + gap_out = footprint // st (exact: st | align | footprint).
+        out_orig_dims = tuple(raw.orig_dims[:-1]) + (out_time,)
         helper = PackedRawTensor(
             inner=out_inner,
             packed_dim=out_packed_dim,
-            orig_dims=tuple(raw.orig_dims[:-1]) + (out_time,),
-            gap=residual0,
+            orig_dims=out_orig_dims,
+            gap=gap_out,
             align=align_out,
+            layout_lens=footprints // st - gap_out,
         )
         return helper.rewrap(out_inner, name="conv")
-    gap_out = raw.gap // st
-    if len(raw.orig_dims) != 2 or not bool(rf.reduce_all(residual >= gap_out, axis=list(residual.dims)).raw_tensor):
+    # the closed-form verdict (uniform residual?) is deterministic per packing+stride -> cache it.
+    # the check needs host syncs (int/bool of a device tensor), which also break CUDA-graph capture;
+    # computed once, cache hits then skip the syncs (faster eager too, capture-safe).
+    key = _packing_cache_key("strided_out", raw, out_inner.device) + (st,)
+    verdict = _layout_cache.get(key)
+    if verdict is None:
+        lens_out = out_time.dyn_size_ext
+        for d in raw.orig_dims[:-1]:
+            if d not in lens_out.dims:
+                lens_out = rf.expand_dim(lens_out, dim=d)
+        if len(raw.orig_dims) > 2:
+            lens_out, _ = rf.merge_dims(lens_out, dims=raw.orig_dims[:-1])
+        residual = footprints // st - lens_out
+        residual0 = int(residual.raw_tensor.flatten()[0])
+        if residual0 >= 0 and bool(rf.reduce_all(residual == residual0, axis=list(residual.dims)).raw_tensor):
+            verdict = ("uniform", residual0)
+        elif len(raw.orig_dims) == 2 and bool(rf.reduce_all(residual >= gap_out, axis=list(residual.dims)).raw_tensor):
+            verdict = ("perseq", 0)
+        else:
+            verdict = ("none", 0)
+        _layout_cache.set(key, verdict)
+    kind, residual0 = verdict
+    if kind == "none":
         return None
-    # Non-uniform residuals (mixed seq-len residuals mod stride):
-    # exact via per-seq layout lens, layout_len + gap_out = footprint // st. No re-layout needed.
-    helper = PackedRawTensor(
-        inner=out_inner,
-        packed_dim=out_packed_dim,
-        orig_dims=tuple(raw.orig_dims[:-1]) + (out_time,),
-        gap=gap_out,
-        align=align_out,
-        layout_lens=footprints // st - gap_out,
-    )
+    out_orig_dims = tuple(raw.orig_dims[:-1]) + (out_time,)
+    if kind == "uniform":
+        # uniform residual: expressible as the plain (lens, gap, align) form
+        helper = PackedRawTensor(
+            inner=out_inner, packed_dim=out_packed_dim, orig_dims=out_orig_dims, gap=residual0, align=align_out
+        )
+    else:
+        # non-uniform residuals (mixed seq-len residuals mod stride): exact via per-seq layout lens,
+        # layout_len + gap_out = footprint // st. No re-layout needed.
+        helper = PackedRawTensor(
+            inner=out_inner,
+            packed_dim=out_packed_dim,
+            orig_dims=out_orig_dims,
+            gap=gap_out,
+            align=align_out,
+            layout_lens=footprints // st - gap_out,
+        )
     return helper.rewrap(out_inner, name="conv")
 
 
@@ -2439,17 +2614,47 @@ class PackedBackend(Backend[PackedRawTensor]):
         pos_emb_spatial_dim: Dim,
     ):
         """
-        Self-attention with relative positional encoding. Packed specialization:
-        torch FlexAttention over the flat packed buffer with a document block mask
-        and the position-based term (matrix b+d) as score_mod, see :func:`_flex_rel_pos_attention`.
-        FlexAttention has no dropout support, so with att_dropout active in training
-        the generic fallback runs (which then uses the packed op handling).
+        Self-attention with relative positional encoding.
+        Packed specialization: prefer our Triton varlen kernel (:func:`_triton_rel_pos_attention`)
+        over the packed buffer.
+        It indexes per-seq valid frames,
+        so it also runs on a bounded (static) buffer for CUDA-graph capture.
+        FlexAttention (:func:`_flex_rel_pos_attention`, document block mask + matrix b+d as score_mod)
+        is the fallback when the Triton kernel is unavailable/unsupported and dropout is inactive
+        (Flex has no dropout support).
+        Otherwise the per-seq / once-unpack path runs.
         """
         dropout_active = False
         if att_dropout:
             train_flag = rf.get_run_ctx().is_train_flag_enabled(func=rf.dropout)
             # for a dynamic (tensor) train flag, conservatively assume training
             dropout_active = train_flag if isinstance(train_flag, bool) else True
+        # Prefer our own Triton varlen kernel:
+        # fastest CUDA path,
+        # and the only one that runs on a bounded (static, over-allocated) packed buffer
+        # -- it indexes per-seq valid frames, so junk/gap frames are never read.
+        # (FlexAttention instead sizes its block mask to the exact total,
+        # which a fixed CUDA-graph buffer breaks.)
+        # It expresses no-dropout and per-element (non-broadcast) dropout;
+        # broadcast dropout it cannot, so only that case skips it.
+        if not (dropout_active and att_dropout_broadcast):
+            out = _triton_rel_pos_attention(
+                query,
+                key,
+                value,
+                pos_emb,
+                pos_bias_u=pos_bias_u,
+                pos_bias_v=pos_bias_v,
+                att_dropout=att_dropout if dropout_active else 0.0,
+                v_feat_dim=v_feat_dim,
+                qk_feat_dim=qk_feat_dim,
+                kv_spatial_dim=kv_spatial_dim,
+                query_spatial_dim=query_spatial_dim,
+                pos_emb_spatial_dim=pos_emb_spatial_dim,
+            )
+            if out is not None:
+                return out
+        # FlexAttention fallback (no dropout support), so only when dropout is inactive.
         if not dropout_active:
             out = _flex_rel_pos_attention(
                 query,
@@ -2467,24 +2672,6 @@ class PackedBackend(Backend[PackedRawTensor]):
             if out is not None:
                 return out
         else:
-            # the kernel drops per-element, so only the non-broadcast dropout matches
-            if not att_dropout_broadcast:
-                out = _triton_rel_pos_attention(
-                    query,
-                    key,
-                    value,
-                    pos_emb,
-                    pos_bias_u=pos_bias_u,
-                    pos_bias_v=pos_bias_v,
-                    att_dropout=att_dropout,
-                    v_feat_dim=v_feat_dim,
-                    qk_feat_dim=qk_feat_dim,
-                    kv_spatial_dim=kv_spatial_dim,
-                    query_spatial_dim=query_spatial_dim,
-                    pos_emb_spatial_dim=pos_emb_spatial_dim,
-                )
-                if out is not None:
-                    return out
             _flex_no("att_dropout active in training (FlexAttention has no dropout support)")
         if is_packed(query) and query.raw_tensor.inner.device == "cpu":
             # CPU: per-seq slice loop over the packed buffer, no unpack
@@ -2978,15 +3165,15 @@ class PackedBackend(Backend[PackedRawTensor]):
             import torch
             from returnn.torch.util import native_op as torch_native_op
 
-            if raw.has_gap_frames:
-                logits = regap(logits, 0, align=1)
-                raw = logits.raw_tensor
             batch_dim = raw.orig_dims[0]
             logits_t = raw.inner.copy_transpose([raw.packed_dim, logits.feature_dim]).raw_tensor
             if logits_t.dtype != torch.float32:
                 logits_t = logits_t.to(torch.float32)  # the native op is float32-only
             device = logits_t.device
-            seq_starts = raw.cu_seqlens(device=logits.device)[0].raw_tensor[:-1]
+            # per-seq start offsets into the packed buffer (gapped or dense): the native op reads each
+            # seq at [start, start+len), so the gap frames are never touched -- no regap needed.
+            starts_rf, _ = raw.seq_starts()
+            seq_starts = rf.copy_to_device(starts_rf, device).raw_tensor.to(torch.int32).flatten()
             in_lens = input_spatial_dim.dyn_size_ext.copy_compatible_to_dims_raw([batch_dim]).to(device)
             targets_raw = targets_.copy_compatible_to_dims_raw([batch_dim, targets_spatial_dim]).to(device)
             tgt_lens = targets_spatial_dim.dyn_size_ext.copy_compatible_to_dims_raw([batch_dim]).to(device)
@@ -3107,6 +3294,7 @@ def pack(
     out_dim: Optional[Dim] = None,
     gap: int = 0,
     align: int = 1,
+    total_bound: Optional[int] = None,
 ) -> Tensor:
     """
     Pack the given dims of source into packed storage.
@@ -3124,6 +3312,11 @@ def pack(
         (see :class:`PackedRawTensor`; e.g. for packed conv, specify by hand what the model needs).
     :param align: per-seq footprint alignment (see :class:`PackedRawTensor`;
         for strided ops, use the total downsampling factor of the model, and gap a multiple of it).
+    :param total_bound: if given, allocate a fixed (upper-bound) packed buffer of this many frames
+        instead of the exact total,
+        so the packed dim is static (e.g. for CUDA-graph capture, where the buffer size must not vary per batch).
+        The real-length layout fills the first frames,
+        the rest are gap/padding (masked out like any gap frames).
     :return: tensor with same dims as source, packed storage
     """
     if dims is None:
@@ -3134,7 +3327,13 @@ def pack(
         last = dims[-1]
         assert last.dyn_size_ext is not None, f"pack: innermost packed dim {last} needs dyn sizes"
         if out_dim is None:
-            out_dim = Dim(_packed_total(dims, gap, align), name="packed_gap")
+            # total_bound: allocate a fixed (upper-bound) buffer instead of the exact total,
+            # so the packed dim is STATIC -> capturable in a CUDA graph.
+            # The real-length layout fills the first frames,
+            # the rest are gap/padding (masked out like any gap frames).
+            out_dim = Dim(
+                total_bound if total_bound is not None else _packed_total(dims, gap, align), name="packed_gap"
+            )
         pos = _padded_positions(dims, gap, align)
         inner = rf.scatter(source, indices=pos, indices_dim=list(dims), out_dim=out_dim, use_mask=True)
         packed_dim = out_dim
@@ -3166,15 +3365,25 @@ def regap(source: Tensor, gap: int, *, align: Optional[int] = None, layout_lens:
     new_starts, seqs_dim = _seq_starts_math(raw.orig_dims, gap, align, layout_lens=layout_lens)
     t_coords = _frame_coords(raw, last)
     seg, _, _ = _segment_index(raw, others)
-    if new_starts.device != seg.device:
-        # starts derive from the dyn sizes (often cpu), the coords live on the data device
-        new_starts = rf.copy_to_device(new_starts, seg.device)
+    # cache the on-device starts + total (deterministic per target layout) -> no per-step H2D sync (capture-safe)
+    dev_key = _packing_cache_key("regap_dev", raw, seg.device) + (gap, align, _layout_lens_key(layout_lens))
+    hit = _layout_cache.get(dev_key)
+    if hit is not None:
+        new_starts, total_dev = hit
+    else:
+        if new_starts.device != seg.device:
+            # starts derive from the dyn sizes (often cpu), the coords live on the data device
+            new_starts = rf.copy_to_device(new_starts, seg.device)
+        total_dev = new_dim.get_dim_value_tensor()
+        if isinstance(total_dev, Tensor) and total_dev.device != seg.device:
+            total_dev = rf.copy_to_device(total_dev, seg.device)
+        _layout_cache.set(dev_key, (new_starts, total_dev))
     pos = rf.gather(new_starts, indices=seg, axis=seqs_dim, clip_to_valid=True) + t_coords
     mask = _frame_mask(raw)
     if mask is not None:
         # route old gap frames to a dump slot, then slice it off
         ext_dim = new_dim + 1
-        pos = rf.where(mask, pos, rf.cast(new_dim.get_dim_value_tensor(), pos.dtype))
+        pos = rf.where(mask, pos, rf.cast(total_dev, pos.dtype))
         inner_ext = rf.scatter(raw.inner, indices=pos, indices_dim=raw.packed_dim, out_dim=ext_dim, use_mask=False)
         inner_new, _ = rf.slice(inner_ext, axis=ext_dim, size=new_dim)
     else:

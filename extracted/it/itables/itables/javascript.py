@@ -12,7 +12,12 @@ from typing import Any, Literal, Mapping, Optional, Sequence, Union, cast
 
 import itables.options as opt
 
-from .datatables_format import datatables_rows, escape_html_chars
+from .datatables_format import (
+    _narwhals_categories,
+    _polars_categories,
+    datatables_rows,
+    escape_html_chars,
+)
 from .downsample import downsample
 from .typing import (
     DataFrameModuleName,
@@ -416,7 +421,7 @@ def to_html_datatable(
     display_logo_when_loading = dt_args.pop("display_logo_when_loading", False)
 
     check_itable_arguments(cast(dict[str, Any], dt_args), DTForITablesOptions)
-    fallback_html = _simple_html_table_from_dt_args(dt_args)
+    fallback_html = _simple_html_table_from_dt_args(dt_args, include_trust_hint=True)
     return html_table_from_template(
         table_id=table_id,
         dt_url=dt_url,
@@ -430,11 +435,30 @@ def to_html_datatable(
 _STATIC_PREVIEW_HELP_URL = "https://itables.org/fallbacks/static_preview.html"
 
 
-def _static_preview_message() -> str:
-    return (
-        f"<sup><a href={_STATIC_PREVIEW_HELP_URL} "
-        f'title="ITables v{itables_version} static preview">ⓘ</a></sup>'
+def _static_preview_message(include_trust_hint: bool) -> str:
+    # Wrapped in <noscript>: browsers (and JupyterLab's own sanitizer for
+    # untrusted output) only parse/show this as real, visible content when
+    # scripting isn't actually active for this fragment - which is exactly
+    # the case we want the hint for (an untrusted notebook). Once trusted
+    # (script runs) or on GitHub (page-level scripting is on, even though
+    # our own <script> tag stays inert - see html_table_from_template()),
+    # a <noscript> block is parsed as inert, invisible text instead.
+    trust_hint = (
+        (
+            "<noscript>"
+            '<span title="JavaScript not allowed. '
+            'Please trust this notebook to get interactive tables.">'
+            "🔒</span>"
+            "</noscript>"
+        )
+        if include_trust_hint
+        else ""
     )
+    info = (
+        f"<a href={_STATIC_PREVIEW_HELP_URL} "
+        f'title="ITables v{itables_version} static preview">ⓘ</a>'
+    )
+    return f"<sup>{trust_hint}{info}</sup>"
 
 
 def _html_not_supported_message() -> str:
@@ -810,21 +834,32 @@ def _caption_as_row(
 _FIRST_TH_RE = re.compile(r"<th\b([^>]*)>(.*?)</th>", re.DOTALL)
 
 
-def _add_static_preview_marker(html: str) -> str:
-    """Add the static-preview marker - a small, linked 'ⓘ' with a title
-    tooltip - to the first header cell, rather than a sentence of
-    always-visible text in the table's footer: now that it's just that one
-    symbol, it reads more naturally right where a reader's eye starts - ahead
-    of that cell's own text, so it's the first thing read."""
+def _add_static_preview_marker(html: str, include_trust_hint: bool) -> str:
+    """Add the static-preview marker - optionally a small "🔒" tooltip
+    explaining that JavaScript did not run (and hinting at trusting the
+    notebook, the fix when that's the cause), followed by a linked 'ⓘ' with
+    its own tooltip - to the first header cell, rather than a sentence of
+    always-visible text in the table's footer: it reads more naturally right
+    where a reader's eye starts - ahead of that cell's own text, so it's the
+    first thing read.
+
+    include_trust_hint is only set when this static preview is paired with a
+    hidden interactive table and a swap script (see
+    html_table_from_template()), so the "🔒" only shows up where it's
+    actually meaningful: it stays visible for as long as that script hasn't
+    run, e.g. on GitHub or in an untrusted notebook. A standalone
+    to_html_static_preview() call has no such script to wait for."""
 
     def add_marker(m: "re.Match[str]") -> str:
         attrs, content = m.group(1), m.group(2)
-        return f"<th{attrs}>{_static_preview_message()}{content}</th>"
+        return f"<th{attrs}>{_static_preview_message(include_trust_hint)}{content}</th>"
 
     return _FIRST_TH_RE.sub(add_marker, html, count=1)
 
 
-def _simple_html_table_from_dt_args(dt_args: DTForITablesOptions) -> str:
+def _simple_html_table_from_dt_args(
+    dt_args: DTForITablesOptions, include_trust_hint: bool = False
+) -> str:
     """Build a plain HTML <table> (no DataTables, no JavaScript) that is
     shown by default, ahead of the interactive table - see
     to_html_datatable() and #575. This reuses table_html's <thead> as-is,
@@ -833,7 +868,8 @@ def _simple_html_table_from_dt_args(dt_args: DTForITablesOptions) -> str:
     row (see _caption_as_row); the static-preview marker goes in the first
     header cell. The table gets light cell delimiters via inline styles (not
     a <style> tag, which may not survive a sanitizer), so it's readable even
-    with no surrounding stylesheet."""
+    with no surrounding stylesheet. See _add_static_preview_marker() for
+    include_trust_hint."""
     caption_html = _table_caption(cast(Optional[str], dt_args.get("caption")))
 
     if "data_json" not in dt_args:
@@ -850,7 +886,7 @@ def _simple_html_table_from_dt_args(dt_args: DTForITablesOptions) -> str:
         )
         table_html = table_html.replace("<table", f'<table style="{_TABLE_STYLE}"', 1)
         table_html = _add_cell_borders(table_html)
-        table_html = _add_static_preview_marker(table_html)
+        table_html = _add_static_preview_marker(table_html, include_trust_hint)
         col_count = (
             len(_header_labels_from_table_html(cast(str, dt_args.get("table_html"))))
             or 1
@@ -881,7 +917,7 @@ def _simple_html_table_from_dt_args(dt_args: DTForITablesOptions) -> str:
         "\n</tbody></table>"
     )
     table_html = _add_cell_borders(table_html)
-    table_html = _add_static_preview_marker(table_html)
+    table_html = _add_static_preview_marker(table_html, include_trust_hint)
     col_count = (
         len(_header_labels_from_table_html(cast(str, dt_args.get("table_html")))) or 1
     )
@@ -943,6 +979,27 @@ def _evaluate_show_dtypes(
 
         return pl.Config.state()["POLARS_FMT_TABLE_HIDE_COLUMN_DATA_TYPES"] is None
     return False
+
+
+def _check_column_defs(
+    columnDefs: Sequence[Mapping[str, Any]],
+) -> Sequence[Mapping[str, Any]]:
+    """Make sure that columnDefs is a sequence of column definitions.
+
+    Most DataTables options are simply passed on to DataTables, but columnDefs
+    is one that itables reads, and to which it adds its own column definitions,
+    so we can't do anything sensible with an invalid value (#601)."""
+    invalid = [col_def for col_def in columnDefs if not isinstance(col_def, Mapping)]
+    if invalid:
+        msg = (
+            "The 'columnDefs' option must be a sequence of column definitions "
+            "(see https://datatables.net/reference/option/columnDefs), i.e. of dicts "
+            f"like {{'targets': 0, 'className': 'dt-center'}}, but it contains {invalid[0]!r}."
+        )
+        if isinstance(invalid[0], (list, tuple)):
+            msg += " Did you wrap the column definitions in an extra list or tuple?"
+        raise TypeError(msg)
+    return columnDefs
 
 
 def _remove_columns_with_render_in_columndefs(
@@ -1039,7 +1096,7 @@ def get_categorical_columns_to_be_represented_through_their_rank(
         pl = sys.modules["polars"]
 
         categorical_columns = {
-            i: df[col].cat.get_categories().to_list()
+            i: _polars_categories(df[col])
             for i, col in enumerate(df.columns)
             if df[col].dtype in (pl.Categorical, pl.Enum)
         }
@@ -1049,7 +1106,7 @@ def get_categorical_columns_to_be_represented_through_their_rank(
         nw_df = nw.from_native(df, eager_only=True, allow_series=True)
 
         categorical_columns = {
-            i: nw_df[col].cat.get_categories().to_list()
+            i: _narwhals_categories(nw_df[col])
             for i, col in enumerate(nw_df.columns)
             if isinstance(nw_df[col].dtype, (nw.Categorical, nw.Enum))
         }
@@ -1216,7 +1273,7 @@ def get_itable_arguments(
         # an extra empty column in the table data #141
         column_count = _column_count_in_header(table_header)
         dt_args["table_html"] = table_header
-        columnDefs = dt_args.get("columnDefs") or []
+        columnDefs = _check_column_defs(dt_args.get("columnDefs") or [])
         float_columns_to_be_formatted_in_python: set[int] = (
             get_float_columns_to_be_formatted_in_python(
                 df_module_name, df, format_floats_in_python, columnDefs
@@ -1499,15 +1556,11 @@ def set_default_options(
                 )
             )
 
-    # The options for ITable in dt_for_itables will be checked later on
-    check_itable_arguments(
-        {
-            k: v
-            for k, v in kwargs.items()
-            if k not in DTForITablesOptions.__optional_keys__
-        },
-        ITableOptions,
-    )
+    # We check every option here, including the ones that will be passed on to
+    # ITable in dt_for_itables and checked again there, because some of them
+    # (e.g. columnDefs) are transformed in between - checking them here is what
+    # lets us report the option as the user wrote it (#601)
+    check_itable_arguments(cast(dict[str, Any], kwargs), ITableOptions)
 
 
 def html_table_from_template(

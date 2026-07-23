@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testit-python-commons
-Version: 4.3.2.post580
+Version: 5.0.0.post580
 Summary: Python commons for Test IT
 Home-page: https://github.com/testit-tms/adapters-python/
 Author: Integration team
@@ -17,7 +17,8 @@ Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 Requires-Dist: pluggy
 Requires-Dist: tomli
-Requires-Dist: testit-api-client==7.6.1.post580
+Requires-Dist: urllib3
+Requires-Dist: python-dateutil
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

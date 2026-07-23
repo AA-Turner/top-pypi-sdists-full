@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,51 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kinesisanalyticsv2 import (
-    ApplicationCloudWatchLoggingOptionReference as _ApplicationCloudWatchLoggingOptionReference_7dfe072d,
-    ApplicationOutputReference as _ApplicationOutputReference_157ab52d,
-    ApplicationReference as _ApplicationReference_46694a3d,
-    ApplicationReferenceDataSourceReference as _ApplicationReferenceDataSourceReference_462bf76c,
-    IApplicationCloudWatchLoggingOptionRef as _IApplicationCloudWatchLoggingOptionRef_5d86d4f5,
-    IApplicationOutputRef as _IApplicationOutputRef_301c8930,
-    IApplicationRef as _IApplicationRef_f869ed37,
-    IApplicationReferenceDataSourceRef as _IApplicationReferenceDataSourceRef_b0fa28ee,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kinesisanalyticsv2 as _aws_kinesisanalyticsv2_6a4c8ff3
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kinesisanalyticsv2_6a4c8ff3 = _LazyImport("aws_cdk.interfaces.aws_kinesisanalyticsv2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_f869ed37, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisanalyticsv2_6a4c8ff3.IApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplication",
 ):
@@ -283,14 +272,14 @@ class CfnApplication(
         id: builtins.str,
         *,
         runtime_environment: builtins.str,
-        service_execution_role: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_execution_role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_description: typing.Optional[builtins.str] = None,
-        application_maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_mode: typing.Optional[builtins.str] = None,
         application_name: typing.Optional[builtins.str] = None,
-        run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        run_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KinesisAnalyticsV2::Application``.
 
@@ -307,7 +296,7 @@ class CfnApplication(
         :param tags: A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c8b2c6c7d478ea7b78b40516077a829373526fa660eddd97eaf1bd6d5ba8fd5)
+            type_hints = cached_type_hints(_typecheckingstub__7c8b2c6c7d478ea7b78b40516077a829373526fa660eddd97eaf1bd6d5ba8fd5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
@@ -326,12 +315,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_f869ed37") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_kinesisanalyticsv2_6a4c8ff3.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f8bc337ab4bc24217b441b0da79cc843bb27998e49aa105fdd6726112592d7a)
+            type_hints = cached_type_hints(_typecheckingstub__9f8bc337ab4bc24217b441b0da79cc843bb27998e49aa105fdd6726112592d7a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -342,7 +334,7 @@ class CfnApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_name: builtins.str,
-    ) -> "_IApplicationRef_f869ed37":
+    ) -> "_aws_kinesisanalyticsv2_6a4c8ff3.IApplicationRef":
         '''Creates a new IApplicationRef from a applicationName.
 
         :param scope: -
@@ -350,11 +342,11 @@ class CfnApplication(
         :param application_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9a0ebdcc66a0570c262d92570b65f5b0951e044a932dd8cd82de9aac1283b9)
+            type_hints = cached_type_hints(_typecheckingstub__9c9a0ebdcc66a0570c262d92570b65f5b0951e044a932dd8cd82de9aac1283b9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-        return typing.cast("_IApplicationRef_f869ed37", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.IApplicationRef", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
 
     @jsii.member(jsii_name="isCfnApplication")
     @builtins.classmethod
@@ -364,18 +356,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa8c6793e621ff68f3ceed39ccd8f7bb07ea0f16ab605274d9ab737c50cfd527)
+            type_hints = cached_type_hints(_typecheckingstub__fa8c6793e621ff68f3ceed39ccd8f7bb07ea0f16ab605274d9ab737c50cfd527)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97309c6f402e280964f725459e9a30e5481a8634812a35f109d54712867d0245)
+            type_hints = cached_type_hints(_typecheckingstub__97309c6f402e280964f725459e9a30e5481a8634812a35f109d54712867d0245)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -388,7 +380,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c69e9c877d77d5d6f9406950c3234e1667623916bb6f789ab27843bf91531cd)
+            type_hints = cached_type_hints(_typecheckingstub__0c69e9c877d77d5d6f9406950c3234e1667623916bb6f789ab27843bf91531cd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -400,9 +392,11 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_46694a3d":
+    def application_ref(
+        self,
+    ) -> "_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_46694a3d", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -416,9 +410,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="runtimeEnvironment")
@@ -429,7 +423,7 @@ class CfnApplication(
     @runtime_environment.setter
     def runtime_environment(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7148067517f6b6de40ed30c5a0fdac68044f03fffc71a5f8f9fdd55c081d0d9)
+            type_hints = cached_type_hints(_typecheckingstub__a7148067517f6b6de40ed30c5a0fdac68044f03fffc71a5f8f9fdd55c081d0d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runtimeEnvironment", value) # pyright: ignore[reportArgumentType]
 
@@ -442,7 +436,7 @@ class CfnApplication(
     @service_execution_role.setter
     def service_execution_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d24441160515eed3388062ef8e386c2eda84eaf2ad285588d25e09549bbd8ef)
+            type_hints = cached_type_hints(_typecheckingstub__4d24441160515eed3388062ef8e386c2eda84eaf2ad285588d25e09549bbd8ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceExecutionRole", value) # pyright: ignore[reportArgumentType]
 
@@ -450,17 +444,17 @@ class CfnApplication(
     @jsii.member(jsii_name="applicationConfiguration")
     def application_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationConfigurationProperty"]]:
         '''Use this parameter to configure the application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigurationProperty"]], jsii.get(self, "applicationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationConfigurationProperty"]], jsii.get(self, "applicationConfiguration"))
 
     @application_configuration.setter
     def application_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef341da760092c81d8ebf75b2a8fcc6001c1d5719c23f1cb678b9ae9829a47d8)
+            type_hints = cached_type_hints(_typecheckingstub__ef341da760092c81d8ebf75b2a8fcc6001c1d5719c23f1cb678b9ae9829a47d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -473,7 +467,7 @@ class CfnApplication(
     @application_description.setter
     def application_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15ee506f0e268b3217d518c632168f0f78619635cbb44786899acf6ea4f77611)
+            type_hints = cached_type_hints(_typecheckingstub__15ee506f0e268b3217d518c632168f0f78619635cbb44786899acf6ea4f77611)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -481,17 +475,17 @@ class CfnApplication(
     @jsii.member(jsii_name="applicationMaintenanceConfiguration")
     def application_maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]]:
         '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]], jsii.get(self, "applicationMaintenanceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]], jsii.get(self, "applicationMaintenanceConfiguration"))
 
     @application_maintenance_configuration.setter
     def application_maintenance_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bade165998cfb0cb1db2203ff570e24577c9fc19f9a0588e2643ebb1b53632bb)
+            type_hints = cached_type_hints(_typecheckingstub__bade165998cfb0cb1db2203ff570e24577c9fc19f9a0588e2643ebb1b53632bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationMaintenanceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -504,7 +498,7 @@ class CfnApplication(
     @application_mode.setter
     def application_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5197fa7a3d224bad5e59543a63ffbb05cd4cd4abad27f35d85f6c8d4187c7812)
+            type_hints = cached_type_hints(_typecheckingstub__5197fa7a3d224bad5e59543a63ffbb05cd4cd4abad27f35d85f6c8d4187c7812)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationMode", value) # pyright: ignore[reportArgumentType]
 
@@ -517,7 +511,7 @@ class CfnApplication(
     @application_name.setter
     def application_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1052b47ef606174b4d24d235ac49823f3654e1382b7e20de8d01125d5bfdaf0a)
+            type_hints = cached_type_hints(_typecheckingstub__1052b47ef606174b4d24d235ac49823f3654e1382b7e20de8d01125d5bfdaf0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -525,30 +519,33 @@ class CfnApplication(
     @jsii.member(jsii_name="runConfiguration")
     def run_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.RunConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RunConfigurationProperty"]]:
         '''Describes the starting parameters for an Managed Service for Apache Flink application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.RunConfigurationProperty"]], jsii.get(self, "runConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RunConfigurationProperty"]], jsii.get(self, "runConfiguration"))
 
     @run_configuration.setter
     def run_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.RunConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RunConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e2a695c3236110568fdc3f1dc24c7e36181eb38a5ed880f710def9c8ec15a0b)
+            type_hints = cached_type_hints(_typecheckingstub__2e2a695c3236110568fdc3f1dc24c7e36181eb38a5ed880f710def9c8ec15a0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of one or more tags to assign to the application.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da9bbc4a3bcbdc3e98d0c40d2f192d8f85a4239ce18348cde735a4a71b7a5b85)
+            type_hints = cached_type_hints(_typecheckingstub__da9bbc4a3bcbdc3e98d0c40d2f192d8f85a4239ce18348cde735a4a71b7a5b85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -564,7 +561,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            code_content: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CodeContentProperty", typing.Dict[builtins.str, typing.Any]]],
+            code_content: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.CodeContentProperty", typing.Dict[builtins.str, typing.Any]]],
             code_content_type: builtins.str,
         ) -> None:
             '''Describes code configuration for an application.
@@ -597,7 +594,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d7e73ac02523930b5016e0bf2bb2c85d746cb8caa198b78210930825bf418b01)
+                type_hints = cached_type_hints(_typecheckingstub__d7e73ac02523930b5016e0bf2bb2c85d746cb8caa198b78210930825bf418b01)
                 check_type(argname="argument code_content", value=code_content, expected_type=type_hints["code_content"])
                 check_type(argname="argument code_content_type", value=code_content_type, expected_type=type_hints["code_content_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -608,14 +605,14 @@ class CfnApplication(
         @builtins.property
         def code_content(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.CodeContentProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CodeContentProperty"]:
             '''The location and type of the application code.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationcodeconfiguration.html#cfn-kinesisanalyticsv2-application-applicationcodeconfiguration-codecontent
             '''
             result = self._values.get("code_content")
             assert result is not None, "Required property 'code_content' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.CodeContentProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CodeContentProperty"], result)
 
         @builtins.property
         def code_content_type(self) -> builtins.str:
@@ -657,15 +654,15 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            application_code_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationCodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            application_encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            application_snapshot_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationSnapshotConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            application_system_rollback_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationSystemRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            environment_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.EnvironmentPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            flink_application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.FlinkApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sql_application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.SqlApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            vpc_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            zeppelin_application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ZeppelinApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_code_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationCodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_snapshot_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationSnapshotConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_system_rollback_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationSystemRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            environment_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.EnvironmentPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flink_application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.FlinkApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sql_application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.SqlApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            zeppelin_application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ZeppelinApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the creation parameters for a Managed Service for Apache Flink application.
 
@@ -837,7 +834,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f319eab92e)
+                type_hints = cached_type_hints(_typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f319eab92e)
                 check_type(argname="argument application_code_configuration", value=application_code_configuration, expected_type=type_hints["application_code_configuration"])
                 check_type(argname="argument application_encryption_configuration", value=application_encryption_configuration, expected_type=type_hints["application_encryption_configuration"])
                 check_type(argname="argument application_snapshot_configuration", value=application_snapshot_configuration, expected_type=type_hints["application_snapshot_configuration"])
@@ -870,101 +867,101 @@ class CfnApplication(
         @builtins.property
         def application_code_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationCodeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationCodeConfigurationProperty"]]:
             '''The code location and type parameters for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-applicationcodeconfiguration
             '''
             result = self._values.get("application_code_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationCodeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationCodeConfigurationProperty"]], result)
 
         @builtins.property
         def application_encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationEncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationEncryptionConfigurationProperty"]]:
             '''The configuration to manage encryption at rest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-applicationencryptionconfiguration
             '''
             result = self._values.get("application_encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationEncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationEncryptionConfigurationProperty"]], result)
 
         @builtins.property
         def application_snapshot_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationSnapshotConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationSnapshotConfigurationProperty"]]:
             '''Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-applicationsnapshotconfiguration
             '''
             result = self._values.get("application_snapshot_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationSnapshotConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationSnapshotConfigurationProperty"]], result)
 
         @builtins.property
         def application_system_rollback_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationSystemRollbackConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationSystemRollbackConfigurationProperty"]]:
             '''Describes whether system rollbacks are enabled for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-applicationsystemrollbackconfiguration
             '''
             result = self._values.get("application_system_rollback_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationSystemRollbackConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationSystemRollbackConfigurationProperty"]], result)
 
         @builtins.property
         def environment_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.EnvironmentPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.EnvironmentPropertiesProperty"]]:
             '''Describes execution properties for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-environmentproperties
             '''
             result = self._values.get("environment_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.EnvironmentPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.EnvironmentPropertiesProperty"]], result)
 
         @builtins.property
         def flink_application_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.FlinkApplicationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.FlinkApplicationConfigurationProperty"]]:
             '''The creation and update parameters for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-flinkapplicationconfiguration
             '''
             result = self._values.get("flink_application_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.FlinkApplicationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.FlinkApplicationConfigurationProperty"]], result)
 
         @builtins.property
         def sql_application_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.SqlApplicationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.SqlApplicationConfigurationProperty"]]:
             '''The creation and update parameters for a SQL-based Kinesis Data Analytics application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-sqlapplicationconfiguration
             '''
             result = self._values.get("sql_application_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.SqlApplicationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.SqlApplicationConfigurationProperty"]], result)
 
         @builtins.property
         def vpc_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.VpcConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.VpcConfigurationProperty"]]]]:
             '''The array of descriptions of VPC configurations available to the application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-vpcconfigurations
             '''
             result = self._values.get("vpc_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.VpcConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.VpcConfigurationProperty"]]]], result)
 
         @builtins.property
         def zeppelin_application_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ZeppelinApplicationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ZeppelinApplicationConfigurationProperty"]]:
             '''The configuration parameters for a Kinesis Data Analytics Studio notebook.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationconfiguration.html#cfn-kinesisanalyticsv2-application-applicationconfiguration-zeppelinapplicationconfiguration
             '''
             result = self._values.get("zeppelin_application_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ZeppelinApplicationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ZeppelinApplicationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1011,7 +1008,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0ca4d5bf924da35d1c2af5b8fecbbfa4b49c7928e20d9651037bdc17b94a906)
+                type_hints = cached_type_hints(_typecheckingstub__b0ca4d5bf924da35d1c2af5b8fecbbfa4b49c7928e20d9651037bdc17b94a906)
                 check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
                 check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1081,7 +1078,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f3c92164cbdeb93d721e3ad077b7cfaf7e3fe963e4d848fcb982da0e2a40e65f)
+                type_hints = cached_type_hints(_typecheckingstub__f3c92164cbdeb93d721e3ad077b7cfaf7e3fe963e4d848fcb982da0e2a40e65f)
                 check_type(argname="argument application_maintenance_window_start_time", value=application_maintenance_window_start_time, expected_type=type_hints["application_maintenance_window_start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_maintenance_window_start_time": application_maintenance_window_start_time,
@@ -1147,7 +1144,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe7d1592a)
+                type_hints = cached_type_hints(_typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe7d1592a)
                 check_type(argname="argument application_restore_type", value=application_restore_type, expected_type=type_hints["application_restore_type"])
                 check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1197,7 +1194,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            snapshots_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            snapshots_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
 
@@ -1217,7 +1214,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5f66e88b392ad6e96fd8993aab7ebfcb6114196e28b0010ff3dd9f341da30b3e)
+                type_hints = cached_type_hints(_typecheckingstub__5f66e88b392ad6e96fd8993aab7ebfcb6114196e28b0010ff3dd9f341da30b3e)
                 check_type(argname="argument snapshots_enabled", value=snapshots_enabled, expected_type=type_hints["snapshots_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "snapshots_enabled": snapshots_enabled,
@@ -1226,14 +1223,14 @@ class CfnApplication(
         @builtins.property
         def snapshots_enabled(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationsnapshotconfiguration.html#cfn-kinesisanalyticsv2-application-applicationsnapshotconfiguration-snapshotsenabled
             '''
             result = self._values.get("snapshots_enabled")
             assert result is not None, "Required property 'snapshots_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1255,7 +1252,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            rollback_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            rollback_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Describes the system rollback configuration for a Managed Service for Apache Flink application.
 
@@ -1275,7 +1272,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__319202ab63dbf7bdcf2f18f6a9d7f153d9897a68e3fc4e860c0966819863f702)
+                type_hints = cached_type_hints(_typecheckingstub__319202ab63dbf7bdcf2f18f6a9d7f153d9897a68e3fc4e860c0966819863f702)
                 check_type(argname="argument rollback_enabled", value=rollback_enabled, expected_type=type_hints["rollback_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rollback_enabled": rollback_enabled,
@@ -1284,14 +1281,14 @@ class CfnApplication(
         @builtins.property
         def rollback_enabled(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Describes whether system rollbacks are enabled for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationsystemrollbackconfiguration.html#cfn-kinesisanalyticsv2-application-applicationsystemrollbackconfiguration-rollbackenabled
             '''
             result = self._values.get("rollback_enabled")
             assert result is not None, "Required property 'rollback_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1345,7 +1342,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ad5d113530c65d01a08453aaaf825605d653b8dcfe9de451673bf40f008e7c6b)
+                type_hints = cached_type_hints(_typecheckingstub__ad5d113530c65d01a08453aaaf825605d653b8dcfe9de451673bf40f008e7c6b)
                 check_type(argname="argument record_column_delimiter", value=record_column_delimiter, expected_type=type_hints["record_column_delimiter"])
                 check_type(argname="argument record_row_delimiter", value=record_row_delimiter, expected_type=type_hints["record_row_delimiter"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1399,7 +1396,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            glue_data_catalog_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.GlueDataCatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            glue_data_catalog_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.GlueDataCatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration parameters for the default Amazon Glue database.
 
@@ -1423,7 +1420,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2374283fe12149ac33873bb9b032886bca0a44b5d9bb094d0a43ad8142915010)
+                type_hints = cached_type_hints(_typecheckingstub__2374283fe12149ac33873bb9b032886bca0a44b5d9bb094d0a43ad8142915010)
                 check_type(argname="argument glue_data_catalog_configuration", value=glue_data_catalog_configuration, expected_type=type_hints["glue_data_catalog_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if glue_data_catalog_configuration is not None:
@@ -1432,7 +1429,7 @@ class CfnApplication(
         @builtins.property
         def glue_data_catalog_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.GlueDataCatalogConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.GlueDataCatalogConfigurationProperty"]]:
             '''The configuration parameters for the default Amazon Glue database.
 
             You use this database for Apache Flink SQL queries and table API transforms that you write in a Kinesis Data Analytics Studio notebook.
@@ -1440,7 +1437,7 @@ class CfnApplication(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-catalogconfiguration.html#cfn-kinesisanalyticsv2-application-catalogconfiguration-gluedatacatalogconfiguration
             '''
             result = self._values.get("glue_data_catalog_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.GlueDataCatalogConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.GlueDataCatalogConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1468,7 +1465,7 @@ class CfnApplication(
             self,
             *,
             configuration_type: builtins.str,
-            checkpointing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            checkpointing_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             checkpoint_interval: typing.Optional[jsii.Number] = None,
             min_pause_between_checkpoints: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -1500,7 +1497,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8edf9e4e66a570821842f5f46887fbcb3d5ed48c47428131a46ee6cd7f5b2b40)
+                type_hints = cached_type_hints(_typecheckingstub__8edf9e4e66a570821842f5f46887fbcb3d5ed48c47428131a46ee6cd7f5b2b40)
                 check_type(argname="argument configuration_type", value=configuration_type, expected_type=type_hints["configuration_type"])
                 check_type(argname="argument checkpointing_enabled", value=checkpointing_enabled, expected_type=type_hints["checkpointing_enabled"])
                 check_type(argname="argument checkpoint_interval", value=checkpoint_interval, expected_type=type_hints["checkpoint_interval"])
@@ -1537,7 +1534,7 @@ class CfnApplication(
         @builtins.property
         def checkpointing_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Describes whether checkpointing is enabled for a Managed Service for Apache Flink application.
 
             .. epigraph::
@@ -1547,7 +1544,7 @@ class CfnApplication(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-checkpointconfiguration.html#cfn-kinesisanalyticsv2-application-checkpointconfiguration-checkpointingenabled
             '''
             result = self._values.get("checkpointing_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def checkpoint_interval(self) -> typing.Optional[jsii.Number]:
@@ -1600,7 +1597,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            s3_content_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.S3ContentLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_content_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.S3ContentLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             text_content: typing.Optional[builtins.str] = None,
             zip_file_content: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1632,7 +1629,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d1cb87db0189a9d90b34c50ffbb80ee2f4bd2c2fb87b230a2a01f5d51799d10)
+                type_hints = cached_type_hints(_typecheckingstub__5d1cb87db0189a9d90b34c50ffbb80ee2f4bd2c2fb87b230a2a01f5d51799d10)
                 check_type(argname="argument s3_content_location", value=s3_content_location, expected_type=type_hints["s3_content_location"])
                 check_type(argname="argument text_content", value=text_content, expected_type=type_hints["text_content"])
                 check_type(argname="argument zip_file_content", value=zip_file_content, expected_type=type_hints["zip_file_content"])
@@ -1647,13 +1644,13 @@ class CfnApplication(
         @builtins.property
         def s3_content_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentLocationProperty"]]:
             '''Information about the Amazon S3 bucket that contains the application code.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-codecontent.html#cfn-kinesisanalyticsv2-application-codecontent-s3contentlocation
             '''
             result = self._values.get("s3_content_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentLocationProperty"]], result)
 
         @builtins.property
         def text_content(self) -> typing.Optional[builtins.str]:
@@ -1698,8 +1695,8 @@ class CfnApplication(
             self,
             *,
             artifact_type: builtins.str,
-            maven_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.MavenReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_content_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.S3ContentLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maven_reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.MavenReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_content_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.S3ContentLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of connectors and user-defined functions.
 
@@ -1735,7 +1732,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__89e5f6b2693be5dc38a3301ba675d46fac2c63e244428d4206f223d25a39b346)
+                type_hints = cached_type_hints(_typecheckingstub__89e5f6b2693be5dc38a3301ba675d46fac2c63e244428d4206f223d25a39b346)
                 check_type(argname="argument artifact_type", value=artifact_type, expected_type=type_hints["artifact_type"])
                 check_type(argname="argument maven_reference", value=maven_reference, expected_type=type_hints["maven_reference"])
                 check_type(argname="argument s3_content_location", value=s3_content_location, expected_type=type_hints["s3_content_location"])
@@ -1762,24 +1759,24 @@ class CfnApplication(
         @builtins.property
         def maven_reference(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MavenReferenceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MavenReferenceProperty"]]:
             '''The parameters required to fully specify a Maven reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-customartifactconfiguration.html#cfn-kinesisanalyticsv2-application-customartifactconfiguration-mavenreference
             '''
             result = self._values.get("maven_reference")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MavenReferenceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MavenReferenceProperty"]], result)
 
         @builtins.property
         def s3_content_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentLocationProperty"]]:
             '''The location of the custom artifacts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-customartifactconfiguration.html#cfn-kinesisanalyticsv2-application-customartifactconfiguration-s3contentlocation
             '''
             result = self._values.get("s3_content_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentLocationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1801,7 +1798,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            s3_content_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.S3ContentBaseLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_content_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.S3ContentBaseLocationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The information required to deploy a Kinesis Data Analytics Studio notebook as an application with durable state.
 
@@ -1826,7 +1823,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__743e4b6990fed5d0b9abfdebed0b9c6d9e2feb782b1ee4069b18fc166798ece4)
+                type_hints = cached_type_hints(_typecheckingstub__743e4b6990fed5d0b9abfdebed0b9c6d9e2feb782b1ee4069b18fc166798ece4)
                 check_type(argname="argument s3_content_location", value=s3_content_location, expected_type=type_hints["s3_content_location"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_content_location": s3_content_location,
@@ -1835,14 +1832,14 @@ class CfnApplication(
         @builtins.property
         def s3_content_location(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentBaseLocationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentBaseLocationProperty"]:
             '''The description of an Amazon S3 object that contains the Amazon Data Analytics application, including the Amazon Resource Name (ARN) of the S3 bucket, the name of the Amazon S3 object that contains the data, and the version number of the Amazon S3 object that contains the data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-deployasapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-deployasapplicationconfiguration-s3contentlocation
             '''
             result = self._values.get("s3_content_location")
             assert result is not None, "Required property 's3_content_location' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.S3ContentBaseLocationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.S3ContentBaseLocationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1864,7 +1861,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            property_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.PropertyGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            property_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.PropertyGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Describes execution properties for a Managed Service for Apache Flink application.
 
@@ -1889,7 +1886,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9412684bdb135558a4ce52a80f2c08eae61ae3092e951d44375b47f512775fe1)
+                type_hints = cached_type_hints(_typecheckingstub__9412684bdb135558a4ce52a80f2c08eae61ae3092e951d44375b47f512775fe1)
                 check_type(argname="argument property_groups", value=property_groups, expected_type=type_hints["property_groups"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if property_groups is not None:
@@ -1898,13 +1895,13 @@ class CfnApplication(
         @builtins.property
         def property_groups(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.PropertyGroupProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.PropertyGroupProperty"]]]]:
             '''Describes the execution property groups.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-environmentproperties.html#cfn-kinesisanalyticsv2-application-environmentproperties-propertygroups
             '''
             result = self._values.get("property_groups")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.PropertyGroupProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.PropertyGroupProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1930,9 +1927,9 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            checkpoint_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CheckpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            monitoring_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            parallelism_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ParallelismConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            checkpoint_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.CheckpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monitoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parallelism_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ParallelismConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes configuration parameters for a Managed Service for Apache Flink application or a Studio notebook.
 
@@ -1976,7 +1973,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6876d535d6a15a9b8f42b2e1e0ec6bd42e90d012f15cfe084943407b1385a506)
+                type_hints = cached_type_hints(_typecheckingstub__6876d535d6a15a9b8f42b2e1e0ec6bd42e90d012f15cfe084943407b1385a506)
                 check_type(argname="argument checkpoint_configuration", value=checkpoint_configuration, expected_type=type_hints["checkpoint_configuration"])
                 check_type(argname="argument monitoring_configuration", value=monitoring_configuration, expected_type=type_hints["monitoring_configuration"])
                 check_type(argname="argument parallelism_configuration", value=parallelism_configuration, expected_type=type_hints["parallelism_configuration"])
@@ -1991,7 +1988,7 @@ class CfnApplication(
         @builtins.property
         def checkpoint_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CheckpointConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CheckpointConfigurationProperty"]]:
             '''Describes an application's checkpointing configuration.
 
             Checkpointing is the process of persisting application state for fault tolerance. For more information, see `Checkpoints for Fault Tolerance <https://docs.aws.amazon.com/https://ci.apache.org/projects/flink/flink-docs-release-1.8/concepts/programming-model.html#checkpoints-for-fault-tolerance>`_ in the `Apache Flink Documentation <https://docs.aws.amazon.com/https://ci.apache.org/projects/flink/flink-docs-release-1.8/>`_ .
@@ -1999,29 +1996,29 @@ class CfnApplication(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-flinkapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-flinkapplicationconfiguration-checkpointconfiguration
             '''
             result = self._values.get("checkpoint_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CheckpointConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CheckpointConfigurationProperty"]], result)
 
         @builtins.property
         def monitoring_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MonitoringConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MonitoringConfigurationProperty"]]:
             '''Describes configuration parameters for Amazon CloudWatch logging for an application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-flinkapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-flinkapplicationconfiguration-monitoringconfiguration
             '''
             result = self._values.get("monitoring_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MonitoringConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MonitoringConfigurationProperty"]], result)
 
         @builtins.property
         def parallelism_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ParallelismConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ParallelismConfigurationProperty"]]:
             '''Describes parameters for how an application executes multiple tasks simultaneously.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-flinkapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-flinkapplicationconfiguration-parallelismconfiguration
             '''
             result = self._values.get("parallelism_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ParallelismConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ParallelismConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2043,7 +2040,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            allow_non_restored_state: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            allow_non_restored_state: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Describes the starting parameters for a Managed Service for Apache Flink application.
 
@@ -2063,7 +2060,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9347f1f226f6d5c0ae4dc1f782f15477ac17c4d583d85052b28382f2795f03fa)
+                type_hints = cached_type_hints(_typecheckingstub__9347f1f226f6d5c0ae4dc1f782f15477ac17c4d583d85052b28382f2795f03fa)
                 check_type(argname="argument allow_non_restored_state", value=allow_non_restored_state, expected_type=type_hints["allow_non_restored_state"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if allow_non_restored_state is not None:
@@ -2072,7 +2069,7 @@ class CfnApplication(
         @builtins.property
         def allow_non_restored_state(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When restoring from a snapshot, specifies whether the runtime is allowed to skip a state that cannot be mapped to the new program.
 
             This will happen if the program is updated between snapshots to remove stateful parameters, and state data in the snapshot no longer corresponds to valid application data. For more information, see `Allowing Non-Restored State <https://docs.aws.amazon.com/https://nightlies.apache.org/flink/flink-docs-master/docs/ops/state/savepoints/#allowing-non-restored-state>`_ in the `Apache Flink documentation <https://docs.aws.amazon.com/https://nightlies.apache.org/flink/flink-docs-master>`_ .
@@ -2083,7 +2080,7 @@ class CfnApplication(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-flinkrunconfiguration.html#cfn-kinesisanalyticsv2-application-flinkrunconfiguration-allownonrestoredstate
             '''
             result = self._values.get("allow_non_restored_state")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2125,7 +2122,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6aa21a23e322e13b9b0611f1ac1cf43f7f4adec8b5b8b154fe609a90c5f0e4cd)
+                type_hints = cached_type_hints(_typecheckingstub__6aa21a23e322e13b9b0611f1ac1cf43f7f4adec8b5b8b154fe609a90c5f0e4cd)
                 check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if database_arn is not None:
@@ -2176,7 +2173,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1fc9efbc7dc1fd988af8152db59ec4fe47fc39e45e406725fbd6bea5a5886cf0)
+                type_hints = cached_type_hints(_typecheckingstub__1fc9efbc7dc1fd988af8152db59ec4fe47fc39e45e406725fbd6bea5a5886cf0)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -2232,7 +2229,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6161bd5701548ff424f57f7752916a946580fc9010ff3df1fe5c46ecd15fa06a)
+                type_hints = cached_type_hints(_typecheckingstub__6161bd5701548ff424f57f7752916a946580fc9010ff3df1fe5c46ecd15fa06a)
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if count is not None:
@@ -2267,7 +2264,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            input_lambda_processor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.InputLambdaProcessorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_lambda_processor: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.InputLambdaProcessorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''For an SQL-based Amazon Kinesis Data Analytics application, describes a processor that is used to preprocess the records in the stream before being processed by your application code.
 
@@ -2291,7 +2288,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d537f266d5537a511fda360f2e48a6cd108a0441b7d608919964d450cd9f9cd6)
+                type_hints = cached_type_hints(_typecheckingstub__d537f266d5537a511fda360f2e48a6cd108a0441b7d608919964d450cd9f9cd6)
                 check_type(argname="argument input_lambda_processor", value=input_lambda_processor, expected_type=type_hints["input_lambda_processor"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if input_lambda_processor is not None:
@@ -2300,13 +2297,13 @@ class CfnApplication(
         @builtins.property
         def input_lambda_processor(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputLambdaProcessorProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputLambdaProcessorProperty"]]:
             '''The `InputLambdaProcessor <https://docs.aws.amazon.com/managed-flink/latest/apiv2/API_InputLambdaProcessor.html>`_ that is used to preprocess the records in the stream before being processed by your application code.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-inputprocessingconfiguration.html#cfn-kinesisanalyticsv2-application-inputprocessingconfiguration-inputlambdaprocessor
             '''
             result = self._values.get("input_lambda_processor")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputLambdaProcessorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputLambdaProcessorProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2335,12 +2332,12 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            input_schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.InputSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
+            input_schema: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.InputSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
             name_prefix: builtins.str,
-            input_parallelism: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.InputParallelismProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            input_processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.InputProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_firehose_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.KinesisFirehoseInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_streams_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.KinesisStreamsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_parallelism: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.InputParallelismProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.InputProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_firehose_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.KinesisFirehoseInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_streams_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.KinesisStreamsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''When you configure the application input for a SQL-based Kinesis Data Analytics application, you specify the streaming source, the in-application stream name that is created, and the mapping between the two.
 
@@ -2407,7 +2404,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8d87c8c3831396e5245d63d3371ff2d14373bf924e0458fc2f5181e0e8f119d)
+                type_hints = cached_type_hints(_typecheckingstub__b8d87c8c3831396e5245d63d3371ff2d14373bf924e0458fc2f5181e0e8f119d)
                 check_type(argname="argument input_schema", value=input_schema, expected_type=type_hints["input_schema"])
                 check_type(argname="argument name_prefix", value=name_prefix, expected_type=type_hints["name_prefix"])
                 check_type(argname="argument input_parallelism", value=input_parallelism, expected_type=type_hints["input_parallelism"])
@@ -2430,7 +2427,7 @@ class CfnApplication(
         @builtins.property
         def input_schema(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.InputSchemaProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputSchemaProperty"]:
             '''Describes the format of the data in the streaming source, and how each data element maps to corresponding columns in the in-application stream that is being created.
 
             Also used to describe the format of the reference data source.
@@ -2439,7 +2436,7 @@ class CfnApplication(
             '''
             result = self._values.get("input_schema")
             assert result is not None, "Required property 'input_schema' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.InputSchemaProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputSchemaProperty"], result)
 
         @builtins.property
         def name_prefix(self) -> builtins.str:
@@ -2456,46 +2453,46 @@ class CfnApplication(
         @builtins.property
         def input_parallelism(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputParallelismProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputParallelismProperty"]]:
             '''Describes the number of in-application streams to create.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-input.html#cfn-kinesisanalyticsv2-application-input-inputparallelism
             '''
             result = self._values.get("input_parallelism")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputParallelismProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputParallelismProperty"]], result)
 
         @builtins.property
         def input_processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputProcessingConfigurationProperty"]]:
             '''The `InputProcessingConfiguration <https://docs.aws.amazon.com/managed-flink/latest/apiv2/API_InputProcessingConfiguration.html>`_ for the input. An input processor transforms records as they are received from the stream, before the application's SQL code executes. Currently, the only input processing configuration available is `InputLambdaProcessor <https://docs.aws.amazon.com/managed-flink/latest/apiv2/API_InputLambdaProcessor.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-input.html#cfn-kinesisanalyticsv2-application-input-inputprocessingconfiguration
             '''
             result = self._values.get("input_processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def kinesis_firehose_input(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.KinesisFirehoseInputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.KinesisFirehoseInputProperty"]]:
             '''If the streaming source is an Amazon Kinesis Data Firehose delivery stream, identifies the delivery stream's ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-input.html#cfn-kinesisanalyticsv2-application-input-kinesisfirehoseinput
             '''
             result = self._values.get("kinesis_firehose_input")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.KinesisFirehoseInputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.KinesisFirehoseInputProperty"]], result)
 
         @builtins.property
         def kinesis_streams_input(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.KinesisStreamsInputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.KinesisStreamsInputProperty"]]:
             '''If the streaming source is an Amazon Kinesis data stream, identifies the stream's Amazon Resource Name (ARN).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-input.html#cfn-kinesisanalyticsv2-application-input-kinesisstreamsinput
             '''
             result = self._values.get("kinesis_streams_input")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.KinesisStreamsInputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.KinesisStreamsInputProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2521,8 +2518,8 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            record_columns: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RecordColumnProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            record_format: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RecordFormatProperty", typing.Dict[builtins.str, typing.Any]]],
+            record_columns: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RecordColumnProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            record_format: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RecordFormatProperty", typing.Dict[builtins.str, typing.Any]]],
             record_encoding: typing.Optional[builtins.str] = None,
         ) -> None:
             '''For a SQL-based Kinesis Data Analytics application, describes the format of the data in the streaming source, and how each data element maps to corresponding columns created in the in-application stream.
@@ -2568,7 +2565,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d1c564224255352eb428407a807a8719fe9a43aaaedc071535cb60b15ba201e6)
+                type_hints = cached_type_hints(_typecheckingstub__d1c564224255352eb428407a807a8719fe9a43aaaedc071535cb60b15ba201e6)
                 check_type(argname="argument record_columns", value=record_columns, expected_type=type_hints["record_columns"])
                 check_type(argname="argument record_format", value=record_format, expected_type=type_hints["record_format"])
                 check_type(argname="argument record_encoding", value=record_encoding, expected_type=type_hints["record_encoding"])
@@ -2582,26 +2579,26 @@ class CfnApplication(
         @builtins.property
         def record_columns(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.RecordColumnProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RecordColumnProperty"]]]:
             '''A list of ``RecordColumn`` objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-inputschema.html#cfn-kinesisanalyticsv2-application-inputschema-recordcolumns
             '''
             result = self._values.get("record_columns")
             assert result is not None, "Required property 'record_columns' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.RecordColumnProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RecordColumnProperty"]]], result)
 
         @builtins.property
         def record_format(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.RecordFormatProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RecordFormatProperty"]:
             '''Specifies the format of the records on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-inputschema.html#cfn-kinesisanalyticsv2-application-inputschema-recordformat
             '''
             result = self._values.get("record_format")
             assert result is not None, "Required property 'record_format' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.RecordFormatProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RecordFormatProperty"], result)
 
         @builtins.property
         def record_encoding(self) -> typing.Optional[builtins.str]:
@@ -2650,7 +2647,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b2159f995c24c8ed3d165f883a8cabde8c3f7f97488e48ca7fb11b2c6dd75f26)
+                type_hints = cached_type_hints(_typecheckingstub__b2159f995c24c8ed3d165f883a8cabde8c3f7f97488e48ca7fb11b2c6dd75f26)
                 check_type(argname="argument record_row_path", value=record_row_path, expected_type=type_hints["record_row_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "record_row_path": record_row_path,
@@ -2704,7 +2701,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1cdb9e7668afa7a5806646fe637c4aaafd9facdc1c35c892fdb9f23da3ae73e9)
+                type_hints = cached_type_hints(_typecheckingstub__1cdb9e7668afa7a5806646fe637c4aaafd9facdc1c35c892fdb9f23da3ae73e9)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -2758,7 +2755,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c47518ea0beb301c338bdf150b3144bc66ac8ec67dfd62aee5b8349eec16ac8)
+                type_hints = cached_type_hints(_typecheckingstub__8c47518ea0beb301c338bdf150b3144bc66ac8ec67dfd62aee5b8349eec16ac8)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -2797,8 +2794,8 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            csv_mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CSVMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            json_mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.JSONMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            csv_mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.CSVMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            json_mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.JSONMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''When you configure a SQL-based Kinesis Data Analytics application's input at the time of creating or updating an application, provides additional mapping information specific to the record format (such as JSON, CSV, or record fields delimited by some delimiter) on the streaming source.
 
@@ -2825,7 +2822,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__45f1d49b0a51b2236554fa7c7f377035261b6f0dfd94df8aa1fddc66c1b3e1ef)
+                type_hints = cached_type_hints(_typecheckingstub__45f1d49b0a51b2236554fa7c7f377035261b6f0dfd94df8aa1fddc66c1b3e1ef)
                 check_type(argname="argument csv_mapping_parameters", value=csv_mapping_parameters, expected_type=type_hints["csv_mapping_parameters"])
                 check_type(argname="argument json_mapping_parameters", value=json_mapping_parameters, expected_type=type_hints["json_mapping_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2837,24 +2834,24 @@ class CfnApplication(
         @builtins.property
         def csv_mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CSVMappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CSVMappingParametersProperty"]]:
             '''Provides additional mapping information when the record format uses delimiters (for example, CSV).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-mappingparameters.html#cfn-kinesisanalyticsv2-application-mappingparameters-csvmappingparameters
             '''
             result = self._values.get("csv_mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CSVMappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CSVMappingParametersProperty"]], result)
 
         @builtins.property
         def json_mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.JSONMappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.JSONMappingParametersProperty"]]:
             '''Provides additional mapping information when JSON is the record format on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-mappingparameters.html#cfn-kinesisanalyticsv2-application-mappingparameters-jsonmappingparameters
             '''
             result = self._values.get("json_mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.JSONMappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.JSONMappingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2908,7 +2905,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5c48f5687dbc33f13d4fa2d7c1e98a2ce29864b20fd5ca57b90fd8062b83b4a6)
+                type_hints = cached_type_hints(_typecheckingstub__5c48f5687dbc33f13d4fa2d7c1e98a2ce29864b20fd5ca57b90fd8062b83b4a6)
                 check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
                 check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -3002,7 +2999,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2a4fb9437988370af3c311d561ba71f41f5f9c8e587e62d887d5834318d59f87)
+                type_hints = cached_type_hints(_typecheckingstub__2a4fb9437988370af3c311d561ba71f41f5f9c8e587e62d887d5834318d59f87)
                 check_type(argname="argument configuration_type", value=configuration_type, expected_type=type_hints["configuration_type"])
                 check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
                 check_type(argname="argument metrics_level", value=metrics_level, expected_type=type_hints["metrics_level"])
@@ -3072,7 +3069,7 @@ class CfnApplication(
             self,
             *,
             configuration_type: builtins.str,
-            auto_scaling_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            auto_scaling_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             parallelism: typing.Optional[jsii.Number] = None,
             parallelism_per_kpu: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -3104,7 +3101,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__831ef847ba6b4aa05d6b5eddcd63d92edc89cba0fb5fe37ab1699d158bcba123)
+                type_hints = cached_type_hints(_typecheckingstub__831ef847ba6b4aa05d6b5eddcd63d92edc89cba0fb5fe37ab1699d158bcba123)
                 check_type(argname="argument configuration_type", value=configuration_type, expected_type=type_hints["configuration_type"])
                 check_type(argname="argument auto_scaling_enabled", value=auto_scaling_enabled, expected_type=type_hints["auto_scaling_enabled"])
                 check_type(argname="argument parallelism", value=parallelism, expected_type=type_hints["parallelism"])
@@ -3134,13 +3131,13 @@ class CfnApplication(
         @builtins.property
         def auto_scaling_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Describes whether the Managed Service for Apache Flink service can increase the parallelism of the application in response to increased throughput.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-parallelismconfiguration.html#cfn-kinesisanalyticsv2-application-parallelismconfiguration-autoscalingenabled
             '''
             result = self._values.get("auto_scaling_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def parallelism(self) -> typing.Optional[jsii.Number]:
@@ -3188,7 +3185,7 @@ class CfnApplication(
             self,
             *,
             property_group_id: typing.Optional[builtins.str] = None,
-            property_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            property_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Property key-value pairs passed into an application.
 
@@ -3212,7 +3209,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__213ae8cfea97ade17215f173649c99e44895c452433fa86c5a403daa110690b1)
+                type_hints = cached_type_hints(_typecheckingstub__213ae8cfea97ade17215f173649c99e44895c452433fa86c5a403daa110690b1)
                 check_type(argname="argument property_group_id", value=property_group_id, expected_type=type_hints["property_group_id"])
                 check_type(argname="argument property_map", value=property_map, expected_type=type_hints["property_map"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3233,13 +3230,13 @@ class CfnApplication(
         @builtins.property
         def property_map(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Describes the value of an application execution property key-value pair.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-propertygroup.html#cfn-kinesisanalyticsv2-application-propertygroup-propertymap
             '''
             result = self._values.get("property_map")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3291,7 +3288,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc99833221ffd3a6ef3abe50bd4ab346e64d874213a8713d89e5379c724ee65b)
+                type_hints = cached_type_hints(_typecheckingstub__cc99833221ffd3a6ef3abe50bd4ab346e64d874213a8713d89e5379c724ee65b)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument sql_type", value=sql_type, expected_type=type_hints["sql_type"])
                 check_type(argname="argument mapping", value=mapping, expected_type=type_hints["mapping"])
@@ -3355,7 +3352,7 @@ class CfnApplication(
             self,
             *,
             record_format_type: builtins.str,
-            mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.MappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.MappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''For a SQL-based Kinesis Data Analytics application, describes the record format and relevant mapping information that should be applied to schematize the records on the stream.
 
@@ -3387,7 +3384,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5280d47f947bcabc1b30a4019ef3a1258344eb51f0538200e2ef757d472415ca)
+                type_hints = cached_type_hints(_typecheckingstub__5280d47f947bcabc1b30a4019ef3a1258344eb51f0538200e2ef757d472415ca)
                 check_type(argname="argument record_format_type", value=record_format_type, expected_type=type_hints["record_format_type"])
                 check_type(argname="argument mapping_parameters", value=mapping_parameters, expected_type=type_hints["mapping_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3409,13 +3406,13 @@ class CfnApplication(
         @builtins.property
         def mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MappingParametersProperty"]]:
             '''When you configure application input at the time of creating or updating an application, provides additional mapping information specific to the record format (such as JSON, CSV, or record fields delimited by some delimiter) on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-recordformat.html#cfn-kinesisanalyticsv2-application-recordformat-mappingparameters
             '''
             result = self._values.get("mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.MappingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3440,8 +3437,8 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            application_restore_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationRestoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            flink_run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.FlinkRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            application_restore_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationRestoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flink_run_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.FlinkRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the starting parameters for an Managed Service for Apache Flink application.
 
@@ -3470,7 +3467,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5c59d5c9a6bfc0d92662cad6b2935cceea6c31c01a9f32a3c38c2c4b61992487)
+                type_hints = cached_type_hints(_typecheckingstub__5c59d5c9a6bfc0d92662cad6b2935cceea6c31c01a9f32a3c38c2c4b61992487)
                 check_type(argname="argument application_restore_configuration", value=application_restore_configuration, expected_type=type_hints["application_restore_configuration"])
                 check_type(argname="argument flink_run_configuration", value=flink_run_configuration, expected_type=type_hints["flink_run_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3482,24 +3479,24 @@ class CfnApplication(
         @builtins.property
         def application_restore_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationRestoreConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationRestoreConfigurationProperty"]]:
             '''Describes the restore behavior of a restarting application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-runconfiguration.html#cfn-kinesisanalyticsv2-application-runconfiguration-applicationrestoreconfiguration
             '''
             result = self._values.get("application_restore_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationRestoreConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationRestoreConfigurationProperty"]], result)
 
         @builtins.property
         def flink_run_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.FlinkRunConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.FlinkRunConfigurationProperty"]]:
             '''Describes the starting parameters for a Managed Service for Apache Flink application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-runconfiguration.html#cfn-kinesisanalyticsv2-application-runconfiguration-flinkrunconfiguration
             '''
             result = self._values.get("flink_run_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.FlinkRunConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.FlinkRunConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3546,7 +3543,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6f34cf8cf63bda26a478bf4af8ed638db92e0c9d790d6178561f37add0ea0580)
+                type_hints = cached_type_hints(_typecheckingstub__6f34cf8cf63bda26a478bf4af8ed638db92e0c9d790d6178561f37add0ea0580)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument base_path", value=base_path, expected_type=type_hints["base_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3626,7 +3623,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5fb385573577c7d3b4796d36d94f5b0559a3a7a68ef7043fb7ad051daa5a5696)
+                type_hints = cached_type_hints(_typecheckingstub__5fb385573577c7d3b4796d36d94f5b0559a3a7a68ef7043fb7ad051daa5a5696)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument file_key", value=file_key, expected_type=type_hints["file_key"])
                 check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -3686,7 +3683,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            inputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.InputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            inputs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.InputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Describes the inputs, outputs, and reference data sources for a SQL-based Kinesis Data Analytics application.
 
@@ -3750,7 +3747,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de416b40a750f4a4c18f2d1859d083894f7bafd4b10f885101feba0377574b4b)
+                type_hints = cached_type_hints(_typecheckingstub__de416b40a750f4a4c18f2d1859d083894f7bafd4b10f885101feba0377574b4b)
                 check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if inputs is not None:
@@ -3759,13 +3756,13 @@ class CfnApplication(
         @builtins.property
         def inputs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputProperty"]]]]:
             '''The array of `Input <https://docs.aws.amazon.com/managed-flink/latest/apiv2/API_Input.html>`_ objects describing the input streams used by the application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-sqlapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-sqlapplicationconfiguration-inputs
             '''
             result = self._values.get("inputs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.InputProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.InputProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3813,7 +3810,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eaae3d1c0bfdb140c907817ca25610614b0776ce087948877c395f42bf8060b1)
+                type_hints = cached_type_hints(_typecheckingstub__eaae3d1c0bfdb140c907817ca25610614b0776ce087948877c395f42bf8060b1)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3866,10 +3863,10 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            catalog_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_artifacts_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CustomArtifactConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            deploy_as_application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.DeployAsApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            monitoring_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ZeppelinMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            catalog_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.CatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_artifacts_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.CustomArtifactConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            deploy_as_application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.DeployAsApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monitoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ZeppelinMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of a Kinesis Data Analytics Studio notebook.
 
@@ -3924,7 +3921,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__167100507172eacc21ecc9bcf41aef67d4d2f8daf2b0068fe4696f6bccd03f7c)
+                type_hints = cached_type_hints(_typecheckingstub__167100507172eacc21ecc9bcf41aef67d4d2f8daf2b0068fe4696f6bccd03f7c)
                 check_type(argname="argument catalog_configuration", value=catalog_configuration, expected_type=type_hints["catalog_configuration"])
                 check_type(argname="argument custom_artifacts_configuration", value=custom_artifacts_configuration, expected_type=type_hints["custom_artifacts_configuration"])
                 check_type(argname="argument deploy_as_application_configuration", value=deploy_as_application_configuration, expected_type=type_hints["deploy_as_application_configuration"])
@@ -3942,46 +3939,46 @@ class CfnApplication(
         @builtins.property
         def catalog_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CatalogConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CatalogConfigurationProperty"]]:
             '''The Amazon Glue Data Catalog that you use in queries in a Kinesis Data Analytics Studio notebook.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-zeppelinapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-zeppelinapplicationconfiguration-catalogconfiguration
             '''
             result = self._values.get("catalog_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.CatalogConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CatalogConfigurationProperty"]], result)
 
         @builtins.property
         def custom_artifacts_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CustomArtifactConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CustomArtifactConfigurationProperty"]]]]:
             '''A list of ``CustomArtifactConfiguration`` objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-zeppelinapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-zeppelinapplicationconfiguration-customartifactsconfiguration
             '''
             result = self._values.get("custom_artifacts_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CustomArtifactConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.CustomArtifactConfigurationProperty"]]]], result)
 
         @builtins.property
         def deploy_as_application_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.DeployAsApplicationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DeployAsApplicationConfigurationProperty"]]:
             '''The information required to deploy a Kinesis Data Analytics Studio notebook as an application with durable state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-zeppelinapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-zeppelinapplicationconfiguration-deployasapplicationconfiguration
             '''
             result = self._values.get("deploy_as_application_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.DeployAsApplicationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DeployAsApplicationConfigurationProperty"]], result)
 
         @builtins.property
         def monitoring_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ZeppelinMonitoringConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ZeppelinMonitoringConfigurationProperty"]]:
             '''The monitoring configuration of a Kinesis Data Analytics Studio notebook.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-zeppelinapplicationconfiguration.html#cfn-kinesisanalyticsv2-application-zeppelinapplicationconfiguration-monitoringconfiguration
             '''
             result = self._values.get("monitoring_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ZeppelinMonitoringConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ZeppelinMonitoringConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4021,7 +4018,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7355d55186745f1c95124762a391d450340d8da2a7dab944aba28a83e98c9592)
+                type_hints = cached_type_hints(_typecheckingstub__7355d55186745f1c95124762a391d450340d8da2a7dab944aba28a83e98c9592)
                 check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_level is not None:
@@ -4050,9 +4047,9 @@ class CfnApplication(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationCloudWatchLoggingOptionRef_5d86d4f5)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisanalyticsv2_6a4c8ff3.IApplicationCloudWatchLoggingOptionRef)
 class CfnApplicationCloudWatchLoggingOption(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplicationCloudWatchLoggingOption",
 ):
@@ -4086,7 +4083,7 @@ class CfnApplicationCloudWatchLoggingOption(
         id: builtins.str,
         *,
         application_name: builtins.str,
-        cloud_watch_logging_option: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
+        cloud_watch_logging_option: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::KinesisAnalyticsV2::ApplicationCloudWatchLoggingOption``.
 
@@ -4096,7 +4093,7 @@ class CfnApplicationCloudWatchLoggingOption(
         :param cloud_watch_logging_option: Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__baa6f8398390fcaee155011b224e9c5daef96e3c5a48ec6b6b712c30700a656a)
+            type_hints = cached_type_hints(_typecheckingstub__baa6f8398390fcaee155011b224e9c5daef96e3c5a48ec6b6b712c30700a656a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationCloudWatchLoggingOptionProps(
@@ -4117,18 +4114,18 @@ class CfnApplicationCloudWatchLoggingOption(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc49b1edc6b85067b4ffd3c399a11d43de621b3cff742ac9c77c349708e23aaf)
+            type_hints = cached_type_hints(_typecheckingstub__cc49b1edc6b85067b4ffd3c399a11d43de621b3cff742ac9c77c349708e23aaf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationCloudWatchLoggingOption", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfff846ed49d05b95e336481c5f9ece4a79ef09498150130647cae54d02ebe8e)
+            type_hints = cached_type_hints(_typecheckingstub__cfff846ed49d05b95e336481c5f9ece4a79ef09498150130647cae54d02ebe8e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4141,7 +4138,7 @@ class CfnApplicationCloudWatchLoggingOption(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ec9f6f2d304a703855644435cc5fc18fd9f52ab912f4a3b6c3016e819aa14e)
+            type_hints = cached_type_hints(_typecheckingstub__d5ec9f6f2d304a703855644435cc5fc18fd9f52ab912f4a3b6c3016e819aa14e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4155,9 +4152,9 @@ class CfnApplicationCloudWatchLoggingOption(
     @jsii.member(jsii_name="applicationCloudWatchLoggingOptionRef")
     def application_cloud_watch_logging_option_ref(
         self,
-    ) -> "_ApplicationCloudWatchLoggingOptionReference_7dfe072d":
+    ) -> "_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationCloudWatchLoggingOptionReference":
         '''A reference to a ApplicationCloudWatchLoggingOption resource.'''
-        return typing.cast("_ApplicationCloudWatchLoggingOptionReference_7dfe072d", jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationCloudWatchLoggingOptionReference", jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -4186,7 +4183,7 @@ class CfnApplicationCloudWatchLoggingOption(
     @application_name.setter
     def application_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52ff32358d383c4235eb40319d5ca2f68313b97f0ff51065a822b6ebfc428944)
+            type_hints = cached_type_hints(_typecheckingstub__52ff32358d383c4235eb40319d5ca2f68313b97f0ff51065a822b6ebfc428944)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -4194,17 +4191,17 @@ class CfnApplicationCloudWatchLoggingOption(
     @jsii.member(jsii_name="cloudWatchLoggingOption")
     def cloud_watch_logging_option(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"]:
         '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"], jsii.get(self, "cloudWatchLoggingOption"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"], jsii.get(self, "cloudWatchLoggingOption"))
 
     @cloud_watch_logging_option.setter
     def cloud_watch_logging_option(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__416cee59c53a666f8bbc01b2942491b8081db5bb65364b11078b16f208a3e7bd)
+            type_hints = cached_type_hints(_typecheckingstub__416cee59c53a666f8bbc01b2942491b8081db5bb65364b11078b16f208a3e7bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cloudWatchLoggingOption", value) # pyright: ignore[reportArgumentType]
 
@@ -4233,7 +4230,7 @@ class CfnApplicationCloudWatchLoggingOption(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a828b165b05058680c0c755531074aa43e38a58c0afce6dc35dfc8b7c0e54c46)
+                type_hints = cached_type_hints(_typecheckingstub__a828b165b05058680c0c755531074aa43e38a58c0afce6dc35dfc8b7c0e54c46)
                 check_type(argname="argument log_stream_arn", value=log_stream_arn, expected_type=type_hints["log_stream_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_stream_arn": log_stream_arn,
@@ -4274,7 +4271,7 @@ class CfnApplicationCloudWatchLoggingOptionProps:
         self,
         *,
         application_name: builtins.str,
-        cloud_watch_logging_option: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
+        cloud_watch_logging_option: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnApplicationCloudWatchLoggingOption``.
 
@@ -4298,7 +4295,7 @@ class CfnApplicationCloudWatchLoggingOptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cc190c16a7f15d29709504de1c88da761438e48bbcf0fa615cc2815cd41baec)
+            type_hints = cached_type_hints(_typecheckingstub__1cc190c16a7f15d29709504de1c88da761438e48bbcf0fa615cc2815cd41baec)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument cloud_watch_logging_option", value=cloud_watch_logging_option, expected_type=type_hints["cloud_watch_logging_option"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4319,14 +4316,14 @@ class CfnApplicationCloudWatchLoggingOptionProps:
     @builtins.property
     def cloud_watch_logging_option(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"]:
         '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-cloudwatchloggingoption
         '''
         result = self._values.get("cloud_watch_logging_option")
         assert result is not None, "Required property 'cloud_watch_logging_option' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4340,9 +4337,9 @@ class CfnApplicationCloudWatchLoggingOptionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationOutputRef_301c8930)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisanalyticsv2_6a4c8ff3.IApplicationOutputRef)
 class CfnApplicationOutput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplicationOutput",
 ):
@@ -4395,7 +4392,7 @@ class CfnApplicationOutput(
         id: builtins.str,
         *,
         application_name: builtins.str,
-        output: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
+        output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::KinesisAnalyticsV2::ApplicationOutput``.
 
@@ -4405,7 +4402,7 @@ class CfnApplicationOutput(
         :param output: Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b6c4651a68664e2470a6cb86b70db02370f72a5c551bf6751038d448e8995c3)
+            type_hints = cached_type_hints(_typecheckingstub__5b6c4651a68664e2470a6cb86b70db02370f72a5c551bf6751038d448e8995c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationOutputProps(
@@ -4422,18 +4419,18 @@ class CfnApplicationOutput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00809dd0d5b0aa865fd3eac5be95a9f10c5bb07175695e81f8f102ef7bfea072)
+            type_hints = cached_type_hints(_typecheckingstub__00809dd0d5b0aa865fd3eac5be95a9f10c5bb07175695e81f8f102ef7bfea072)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationOutput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e3173f0bc698157563cf6512d7faae1cced4047e46e140e7a7e477794758f89)
+            type_hints = cached_type_hints(_typecheckingstub__7e3173f0bc698157563cf6512d7faae1cced4047e46e140e7a7e477794758f89)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4446,7 +4443,7 @@ class CfnApplicationOutput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c72c61412680f4d7f5a4adf2ada67fc60c69f7d0abccb3a7eef971ff548d917e)
+            type_hints = cached_type_hints(_typecheckingstub__c72c61412680f4d7f5a4adf2ada67fc60c69f7d0abccb3a7eef971ff548d917e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4458,9 +4455,11 @@ class CfnApplicationOutput(
 
     @builtins.property
     @jsii.member(jsii_name="applicationOutputRef")
-    def application_output_ref(self) -> "_ApplicationOutputReference_157ab52d":
+    def application_output_ref(
+        self,
+    ) -> "_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationOutputReference":
         '''A reference to a ApplicationOutput resource.'''
-        return typing.cast("_ApplicationOutputReference_157ab52d", jsii.get(self, "applicationOutputRef"))
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationOutputReference", jsii.get(self, "applicationOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -4489,7 +4488,7 @@ class CfnApplicationOutput(
     @application_name.setter
     def application_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73cd887a02464782ba9e8db9d412cecbbc27287567a358c986c359757be33b02)
+            type_hints = cached_type_hints(_typecheckingstub__73cd887a02464782ba9e8db9d412cecbbc27287567a358c986c359757be33b02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -4497,17 +4496,17 @@ class CfnApplicationOutput(
     @jsii.member(jsii_name="output")
     def output(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.OutputProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.OutputProperty"]:
         '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.OutputProperty"], jsii.get(self, "output"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.OutputProperty"], jsii.get(self, "output"))
 
     @output.setter
     def output(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.OutputProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.OutputProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91bb8a65adbac2b94993092f229f8eb3db0475a55b5e4205baea5c25e71e80fb)
+            type_hints = cached_type_hints(_typecheckingstub__91bb8a65adbac2b94993092f229f8eb3db0475a55b5e4205baea5c25e71e80fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "output", value) # pyright: ignore[reportArgumentType]
 
@@ -4540,7 +4539,7 @@ class CfnApplicationOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__217f02906e80935beedf979a286bab6952eeceded7e30733622da4f46341e92e)
+                type_hints = cached_type_hints(_typecheckingstub__217f02906e80935beedf979a286bab6952eeceded7e30733622da4f46341e92e)
                 check_type(argname="argument record_format_type", value=record_format_type, expected_type=type_hints["record_format_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if record_format_type is not None:
@@ -4593,7 +4592,7 @@ class CfnApplicationOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6c113ed8e3854b7c4637e167100903226df531d5f97b74eb6b532af1b2dbeaca)
+                type_hints = cached_type_hints(_typecheckingstub__6c113ed8e3854b7c4637e167100903226df531d5f97b74eb6b532af1b2dbeaca)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -4647,7 +4646,7 @@ class CfnApplicationOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1762ba38794b93bb292cfb78b1ff59294be57a06aff1519d64e361b22bf3442d)
+                type_hints = cached_type_hints(_typecheckingstub__1762ba38794b93bb292cfb78b1ff59294be57a06aff1519d64e361b22bf3442d)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -4701,7 +4700,7 @@ class CfnApplicationOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a56fb6fdf29388db608a6095a720ccbd064facf49f4bfb421ecaeb9c53669772)
+                type_hints = cached_type_hints(_typecheckingstub__a56fb6fdf29388db608a6095a720ccbd064facf49f4bfb421ecaeb9c53669772)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -4747,10 +4746,10 @@ class CfnApplicationOutput(
         def __init__(
             self,
             *,
-            destination_schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.DestinationSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
-            kinesis_firehose_output: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.KinesisFirehoseOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_streams_output: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.KinesisStreamsOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lambda_output: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.LambdaOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_schema: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.DestinationSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
+            kinesis_firehose_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.KinesisFirehoseOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_streams_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.KinesisStreamsOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.LambdaOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
@@ -4791,7 +4790,7 @@ class CfnApplicationOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dffa61c95c9d67896080f64e83b9206d5f4a7d1aca9c6f8fc34558ff5a00270b)
+                type_hints = cached_type_hints(_typecheckingstub__dffa61c95c9d67896080f64e83b9206d5f4a7d1aca9c6f8fc34558ff5a00270b)
                 check_type(argname="argument destination_schema", value=destination_schema, expected_type=type_hints["destination_schema"])
                 check_type(argname="argument kinesis_firehose_output", value=kinesis_firehose_output, expected_type=type_hints["kinesis_firehose_output"])
                 check_type(argname="argument kinesis_streams_output", value=kinesis_streams_output, expected_type=type_hints["kinesis_streams_output"])
@@ -4812,47 +4811,47 @@ class CfnApplicationOutput(
         @builtins.property
         def destination_schema(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.DestinationSchemaProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.DestinationSchemaProperty"]:
             '''Describes the data format when records are written to the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationoutput-output.html#cfn-kinesisanalyticsv2-applicationoutput-output-destinationschema
             '''
             result = self._values.get("destination_schema")
             assert result is not None, "Required property 'destination_schema' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.DestinationSchemaProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.DestinationSchemaProperty"], result)
 
         @builtins.property
         def kinesis_firehose_output(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.KinesisFirehoseOutputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.KinesisFirehoseOutputProperty"]]:
             '''Identifies a Kinesis Data Firehose delivery stream as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationoutput-output.html#cfn-kinesisanalyticsv2-applicationoutput-output-kinesisfirehoseoutput
             '''
             result = self._values.get("kinesis_firehose_output")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.KinesisFirehoseOutputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.KinesisFirehoseOutputProperty"]], result)
 
         @builtins.property
         def kinesis_streams_output(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.KinesisStreamsOutputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.KinesisStreamsOutputProperty"]]:
             '''Identifies a Kinesis data stream as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationoutput-output.html#cfn-kinesisanalyticsv2-applicationoutput-output-kinesisstreamsoutput
             '''
             result = self._values.get("kinesis_streams_output")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.KinesisStreamsOutputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.KinesisStreamsOutputProperty"]], result)
 
         @builtins.property
         def lambda_output(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.LambdaOutputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.LambdaOutputProperty"]]:
             '''Identifies an Amazon Lambda function as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationoutput-output.html#cfn-kinesisanalyticsv2-applicationoutput-output-lambdaoutput
             '''
             result = self._values.get("lambda_output")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.LambdaOutputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.LambdaOutputProperty"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -4885,7 +4884,7 @@ class CfnApplicationOutputProps:
         self,
         *,
         application_name: builtins.str,
-        output: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationOutput.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
+        output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationOutput.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnApplicationOutput``.
 
@@ -4923,7 +4922,7 @@ class CfnApplicationOutputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab53bf322f4d836bf11dd6009f9301db2389ef834eed9f7d666779302de88759)
+            type_hints = cached_type_hints(_typecheckingstub__ab53bf322f4d836bf11dd6009f9301db2389ef834eed9f7d666779302de88759)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument output", value=output, expected_type=type_hints["output"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4944,7 +4943,7 @@ class CfnApplicationOutputProps:
     @builtins.property
     def output(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.OutputProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.OutputProperty"]:
         '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
 
         The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
@@ -4953,7 +4952,7 @@ class CfnApplicationOutputProps:
         '''
         result = self._values.get("output")
         assert result is not None, "Required property 'output' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationOutput.OutputProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationOutput.OutputProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4987,14 +4986,14 @@ class CfnApplicationProps:
         self,
         *,
         runtime_environment: builtins.str,
-        service_execution_role: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        application_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_execution_role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_description: typing.Optional[builtins.str] = None,
-        application_maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_mode: typing.Optional[builtins.str] = None,
         application_name: typing.Optional[builtins.str] = None,
-        run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        run_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
@@ -5194,7 +5193,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a8c37d3aa14d2be4ee34651f1a08832a97729d54b381d3780f6fc93f45de193)
+            type_hints = cached_type_hints(_typecheckingstub__1a8c37d3aa14d2be4ee34651f1a08832a97729d54b381d3780f6fc93f45de193)
             check_type(argname="argument runtime_environment", value=runtime_environment, expected_type=type_hints["runtime_environment"])
             check_type(argname="argument service_execution_role", value=service_execution_role, expected_type=type_hints["service_execution_role"])
             check_type(argname="argument application_configuration", value=application_configuration, expected_type=type_hints["application_configuration"])
@@ -5236,25 +5235,25 @@ class CfnApplicationProps:
     @builtins.property
     def service_execution_role(
         self,
-    ) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    ) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''Specifies the IAM role that the application uses to access external resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-serviceexecutionrole
         '''
         result = self._values.get("service_execution_role")
         assert result is not None, "Required property 'service_execution_role' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def application_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationConfigurationProperty"]]:
         '''Use this parameter to configure the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationconfiguration
         '''
         result = self._values.get("application_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationConfigurationProperty"]], result)
 
     @builtins.property
     def application_description(self) -> typing.Optional[builtins.str]:
@@ -5270,13 +5269,13 @@ class CfnApplicationProps:
     @builtins.property
     def application_maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]]:
         '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmaintenanceconfiguration
         '''
         result = self._values.get("application_maintenance_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ApplicationMaintenanceConfigurationProperty"]], result)
 
     @builtins.property
     def application_mode(self) -> typing.Optional[builtins.str]:
@@ -5301,16 +5300,16 @@ class CfnApplicationProps:
     @builtins.property
     def run_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.RunConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RunConfigurationProperty"]]:
         '''Describes the starting parameters for an Managed Service for Apache Flink application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runconfiguration
         '''
         result = self._values.get("run_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.RunConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RunConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of one or more tags to assign to the application.
 
         A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
@@ -5318,7 +5317,7 @@ class CfnApplicationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5332,9 +5331,9 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationReferenceDataSourceRef_b0fa28ee)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisanalyticsv2_6a4c8ff3.IApplicationReferenceDataSourceRef)
 class CfnApplicationReferenceDataSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplicationReferenceDataSource",
 ):
@@ -5398,7 +5397,7 @@ class CfnApplicationReferenceDataSource(
         id: builtins.str,
         *,
         application_name: builtins.str,
-        reference_data_source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        reference_data_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::KinesisAnalyticsV2::ApplicationReferenceDataSource``.
 
@@ -5408,7 +5407,7 @@ class CfnApplicationReferenceDataSource(
         :param reference_data_source: For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0135dc8e1b370a7451f4be786334b437787e811ef0545c454dc50a42dca5b3fe)
+            type_hints = cached_type_hints(_typecheckingstub__0135dc8e1b370a7451f4be786334b437787e811ef0545c454dc50a42dca5b3fe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationReferenceDataSourceProps(
@@ -5426,18 +5425,18 @@ class CfnApplicationReferenceDataSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae23ef25264a4544a5bb9b7ae5f10f9c25f2c467e22fd39ddd45e1e743125fd)
+            type_hints = cached_type_hints(_typecheckingstub__1ae23ef25264a4544a5bb9b7ae5f10f9c25f2c467e22fd39ddd45e1e743125fd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationReferenceDataSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e382ae8b830d53c25854c38001b33e4fe037db8efbd35ef19604a3cd9f839a54)
+            type_hints = cached_type_hints(_typecheckingstub__e382ae8b830d53c25854c38001b33e4fe037db8efbd35ef19604a3cd9f839a54)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5450,7 +5449,7 @@ class CfnApplicationReferenceDataSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebe6d3372510955b5f6509881ba8955f27c89ebef7bb305c07817b80c9fd9ee7)
+            type_hints = cached_type_hints(_typecheckingstub__ebe6d3372510955b5f6509881ba8955f27c89ebef7bb305c07817b80c9fd9ee7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5464,9 +5463,9 @@ class CfnApplicationReferenceDataSource(
     @jsii.member(jsii_name="applicationReferenceDataSourceRef")
     def application_reference_data_source_ref(
         self,
-    ) -> "_ApplicationReferenceDataSourceReference_462bf76c":
+    ) -> "_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationReferenceDataSourceReference":
         '''A reference to a ApplicationReferenceDataSource resource.'''
-        return typing.cast("_ApplicationReferenceDataSourceReference_462bf76c", jsii.get(self, "applicationReferenceDataSourceRef"))
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.ApplicationReferenceDataSourceReference", jsii.get(self, "applicationReferenceDataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -5495,7 +5494,7 @@ class CfnApplicationReferenceDataSource(
     @application_name.setter
     def application_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e5969122cd3be3236d4ce280d1a6b71230431a339a6bdb67c54ea56f1e53a63)
+            type_hints = cached_type_hints(_typecheckingstub__7e5969122cd3be3236d4ce280d1a6b71230431a339a6bdb67c54ea56f1e53a63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -5503,17 +5502,17 @@ class CfnApplicationReferenceDataSource(
     @jsii.member(jsii_name="referenceDataSource")
     def reference_data_source(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"]:
         '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"], jsii.get(self, "referenceDataSource"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"], jsii.get(self, "referenceDataSource"))
 
     @reference_data_source.setter
     def reference_data_source(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33c2b40d772882c9571cbc56ba5fc9e7ec6ec48c7133c8292964c2b9b0f1a608)
+            type_hints = cached_type_hints(_typecheckingstub__33c2b40d772882c9571cbc56ba5fc9e7ec6ec48c7133c8292964c2b9b0f1a608)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "referenceDataSource", value) # pyright: ignore[reportArgumentType]
 
@@ -5558,7 +5557,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc907801c588964928ff73c3bf33cbea8013164e32a4cd1c4d3dff77565ed86a)
+                type_hints = cached_type_hints(_typecheckingstub__fc907801c588964928ff73c3bf33cbea8013164e32a4cd1c4d3dff77565ed86a)
                 check_type(argname="argument record_column_delimiter", value=record_column_delimiter, expected_type=type_hints["record_column_delimiter"])
                 check_type(argname="argument record_row_delimiter", value=record_row_delimiter, expected_type=type_hints["record_row_delimiter"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5626,7 +5625,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c3bda5351f68deb04458f59c71e57b61b2ab098b927f96226e19cbb1a4d14727)
+                type_hints = cached_type_hints(_typecheckingstub__c3bda5351f68deb04458f59c71e57b61b2ab098b927f96226e19cbb1a4d14727)
                 check_type(argname="argument record_row_path", value=record_row_path, expected_type=type_hints["record_row_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "record_row_path": record_row_path,
@@ -5665,8 +5664,8 @@ class CfnApplicationReferenceDataSource(
         def __init__(
             self,
             *,
-            csv_mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.CSVMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            json_mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.JSONMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            csv_mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.CSVMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            json_mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.JSONMappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''When you configure a SQL-based Kinesis Data Analytics application's input at the time of creating or updating an application, provides additional mapping information specific to the record format (such as JSON, CSV, or record fields delimited by some delimiter) on the streaming source.
 
@@ -5693,7 +5692,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e2fd30d911c2337758d98897e61a3f04a1093e214acc3379a369349c3c87599a)
+                type_hints = cached_type_hints(_typecheckingstub__e2fd30d911c2337758d98897e61a3f04a1093e214acc3379a369349c3c87599a)
                 check_type(argname="argument csv_mapping_parameters", value=csv_mapping_parameters, expected_type=type_hints["csv_mapping_parameters"])
                 check_type(argname="argument json_mapping_parameters", value=json_mapping_parameters, expected_type=type_hints["json_mapping_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5705,24 +5704,24 @@ class CfnApplicationReferenceDataSource(
         @builtins.property
         def csv_mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.CSVMappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.CSVMappingParametersProperty"]]:
             '''Provides additional mapping information when the record format uses delimiters (for example, CSV).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-mappingparameters.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-mappingparameters-csvmappingparameters
             '''
             result = self._values.get("csv_mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.CSVMappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.CSVMappingParametersProperty"]], result)
 
         @builtins.property
         def json_mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.JSONMappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.JSONMappingParametersProperty"]]:
             '''Provides additional mapping information when JSON is the record format on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-mappingparameters.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-mappingparameters-jsonmappingparameters
             '''
             result = self._values.get("json_mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.JSONMappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.JSONMappingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5774,7 +5773,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__55f6ac2ab04185fadffef3530c953882f16e57ebec293b28ced11792acf671a2)
+                type_hints = cached_type_hints(_typecheckingstub__55f6ac2ab04185fadffef3530c953882f16e57ebec293b28ced11792acf671a2)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument sql_type", value=sql_type, expected_type=type_hints["sql_type"])
                 check_type(argname="argument mapping", value=mapping, expected_type=type_hints["mapping"])
@@ -5838,7 +5837,7 @@ class CfnApplicationReferenceDataSource(
             self,
             *,
             record_format_type: builtins.str,
-            mapping_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.MappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mapping_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.MappingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''For a SQL-based Kinesis Data Analytics application, describes the record format and relevant mapping information that should be applied to schematize the records on the stream.
 
@@ -5870,7 +5869,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__83637bae5562cd2d327f3e41fc76f3907c3a7975f02fe953b077d2d4c8118cc1)
+                type_hints = cached_type_hints(_typecheckingstub__83637bae5562cd2d327f3e41fc76f3907c3a7975f02fe953b077d2d4c8118cc1)
                 check_type(argname="argument record_format_type", value=record_format_type, expected_type=type_hints["record_format_type"])
                 check_type(argname="argument mapping_parameters", value=mapping_parameters, expected_type=type_hints["mapping_parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5892,13 +5891,13 @@ class CfnApplicationReferenceDataSource(
         @builtins.property
         def mapping_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.MappingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.MappingParametersProperty"]]:
             '''When you configure application input at the time of creating or updating an application, provides additional mapping information specific to the record format (such as JSON, CSV, or record fields delimited by some delimiter) on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-recordformat.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-recordformat-mappingparameters
             '''
             result = self._values.get("mapping_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.MappingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.MappingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5924,8 +5923,8 @@ class CfnApplicationReferenceDataSource(
         def __init__(
             self,
             *,
-            reference_schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.ReferenceSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
-            s3_reference_data_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            reference_schema: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.ReferenceSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_reference_data_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             table_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
@@ -5980,7 +5979,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__357187c3ef0c32a0ec2e42be004c555a474e53e10c7df5d1f98c05801c31d046)
+                type_hints = cached_type_hints(_typecheckingstub__357187c3ef0c32a0ec2e42be004c555a474e53e10c7df5d1f98c05801c31d046)
                 check_type(argname="argument reference_schema", value=reference_schema, expected_type=type_hints["reference_schema"])
                 check_type(argname="argument s3_reference_data_source", value=s3_reference_data_source, expected_type=type_hints["s3_reference_data_source"])
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -5995,19 +5994,19 @@ class CfnApplicationReferenceDataSource(
         @builtins.property
         def reference_schema(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceSchemaProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceSchemaProperty"]:
             '''Describes the format of the data in the streaming source, and how each data element maps to corresponding columns created in the in-application stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource-referenceschema
             '''
             result = self._values.get("reference_schema")
             assert result is not None, "Required property 'reference_schema' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceSchemaProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceSchemaProperty"], result)
 
         @builtins.property
         def s3_reference_data_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty"]]:
             '''Identifies the S3 bucket and object that contains the reference data.
 
             A Kinesis Data Analytics application loads reference data only once. If the data changes, you call the `UpdateApplication <https://docs.aws.amazon.com/managed-flink/latest/apiv2/API_UpdateApplication.html>`_ operation to trigger reloading of data into your application.
@@ -6015,7 +6014,7 @@ class CfnApplicationReferenceDataSource(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource-s3referencedatasource
             '''
             result = self._values.get("s3_reference_data_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty"]], result)
 
         @builtins.property
         def table_name(self) -> typing.Optional[builtins.str]:
@@ -6050,8 +6049,8 @@ class CfnApplicationReferenceDataSource(
         def __init__(
             self,
             *,
-            record_columns: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.RecordColumnProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            record_format: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.RecordFormatProperty", typing.Dict[builtins.str, typing.Any]]],
+            record_columns: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.RecordColumnProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            record_format: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.RecordFormatProperty", typing.Dict[builtins.str, typing.Any]]],
             record_encoding: typing.Optional[builtins.str] = None,
         ) -> None:
             '''For a SQL-based Kinesis Data Analytics application, describes the format of the data in the streaming source, and how each data element maps to corresponding columns created in the in-application stream.
@@ -6097,7 +6096,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cbb165c01ccec098b0f05c5a197020feee05f059af0b4ccb3640ef38d264510a)
+                type_hints = cached_type_hints(_typecheckingstub__cbb165c01ccec098b0f05c5a197020feee05f059af0b4ccb3640ef38d264510a)
                 check_type(argname="argument record_columns", value=record_columns, expected_type=type_hints["record_columns"])
                 check_type(argname="argument record_format", value=record_format, expected_type=type_hints["record_format"])
                 check_type(argname="argument record_encoding", value=record_encoding, expected_type=type_hints["record_encoding"])
@@ -6111,26 +6110,26 @@ class CfnApplicationReferenceDataSource(
         @builtins.property
         def record_columns(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.RecordColumnProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.RecordColumnProperty"]]]:
             '''A list of ``RecordColumn`` objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-referenceschema.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referenceschema-recordcolumns
             '''
             result = self._values.get("record_columns")
             assert result is not None, "Required property 'record_columns' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.RecordColumnProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.RecordColumnProperty"]]], result)
 
         @builtins.property
         def record_format(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.RecordFormatProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.RecordFormatProperty"]:
             '''Specifies the format of the records on the streaming source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-applicationreferencedatasource-referenceschema.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referenceschema-recordformat
             '''
             result = self._values.get("record_format")
             assert result is not None, "Required property 'record_format' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.RecordFormatProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.RecordFormatProperty"], result)
 
         @builtins.property
         def record_encoding(self) -> typing.Optional[builtins.str]:
@@ -6183,7 +6182,7 @@ class CfnApplicationReferenceDataSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ce14f4d3da6df5476af40e00f0774c5f92756d3d0525ec2ed8df494d4f80013)
+                type_hints = cached_type_hints(_typecheckingstub__3ce14f4d3da6df5476af40e00f0774c5f92756d3d0525ec2ed8df494d4f80013)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument file_key", value=file_key, expected_type=type_hints["file_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6236,7 +6235,7 @@ class CfnApplicationReferenceDataSourceProps:
         self,
         *,
         application_name: builtins.str,
-        reference_data_source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationReferenceDataSource.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        reference_data_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationReferenceDataSource.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnApplicationReferenceDataSource``.
 
@@ -6292,7 +6291,7 @@ class CfnApplicationReferenceDataSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35273442239da04f9822cc1118ce780b5116be6cd9b38ef3351996f2b66b739b)
+            type_hints = cached_type_hints(_typecheckingstub__35273442239da04f9822cc1118ce780b5116be6cd9b38ef3351996f2b66b739b)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument reference_data_source", value=reference_data_source, expected_type=type_hints["reference_data_source"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6313,14 +6312,14 @@ class CfnApplicationReferenceDataSourceProps:
     @builtins.property
     def reference_data_source(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"]:
         '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource
         '''
         result = self._values.get("reference_data_source")
         assert result is not None, "Required property 'reference_data_source' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6352,20 +6351,20 @@ def _typecheckingstub__7c8b2c6c7d478ea7b78b40516077a829373526fa660eddd97eaf1bd6d
     id: builtins.str,
     *,
     runtime_environment: builtins.str,
-    service_execution_role: typing.Union[builtins.str, _IRoleRef_8400221f],
-    application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_execution_role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_description: typing.Optional[builtins.str] = None,
-    application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_mode: typing.Optional[builtins.str] = None,
     application_name: typing.Optional[builtins.str] = None,
-    run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9f8bc337ab4bc24217b441b0da79cc843bb27998e49aa105fdd6726112592d7a(
-    resource: _IApplicationRef_f869ed37,
+    resource: _aws_kinesisanalyticsv2_6a4c8ff3.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6385,7 +6384,7 @@ def _typecheckingstub__fa8c6793e621ff68f3ceed39ccd8f7bb07ea0f16ab605274d9ab737c5
     pass
 
 def _typecheckingstub__97309c6f402e280964f725459e9a30e5481a8634812a35f109d54712867d0245(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6409,7 +6408,7 @@ def _typecheckingstub__4d24441160515eed3388062ef8e386c2eda84eaf2ad285588d25e0954
     pass
 
 def _typecheckingstub__ef341da760092c81d8ebf75b2a8fcc6001c1d5719c23f1cb678b9ae9829a47d8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.ApplicationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6421,7 +6420,7 @@ def _typecheckingstub__15ee506f0e268b3217d518c632168f0f78619635cbb44786899acf6ea
     pass
 
 def _typecheckingstub__bade165998cfb0cb1db2203ff570e24577c9fc19f9a0588e2643ebb1b53632bb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationMaintenanceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.ApplicationMaintenanceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6439,20 +6438,20 @@ def _typecheckingstub__1052b47ef606174b4d24d235ac49823f3654e1382b7e20de8d01125d5
     pass
 
 def _typecheckingstub__2e2a695c3236110568fdc3f1dc24c7e36181eb38a5ed880f710def9c8ec15a0b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.RunConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.RunConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da9bbc4a3bcbdc3e98d0c40d2f192d8f85a4239ce18348cde735a4a71b7a5b85(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d7e73ac02523930b5016e0bf2bb2c85d746cb8caa198b78210930825bf418b01(
     *,
-    code_content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CodeContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    code_content: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.CodeContentProperty, typing.Dict[builtins.str, typing.Any]]],
     code_content_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -6460,15 +6459,15 @@ def _typecheckingstub__d7e73ac02523930b5016e0bf2bb2c85d746cb8caa198b78210930825b
 
 def _typecheckingstub__f151639867cd18992486d0c66987d85f5e478c0efc26c1385486b8f319eab92e(
     *,
-    application_code_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationCodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_snapshot_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSnapshotConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_system_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSystemRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.EnvironmentPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    flink_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.FlinkApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sql_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.SqlApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    zeppelin_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ZeppelinApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_code_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationCodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_snapshot_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationSnapshotConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_system_rollback_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationSystemRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.EnvironmentPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flink_application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.FlinkApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sql_application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.SqlApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    zeppelin_application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ZeppelinApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6498,14 +6497,14 @@ def _typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe
 
 def _typecheckingstub__5f66e88b392ad6e96fd8993aab7ebfcb6114196e28b0010ff3dd9f341da30b3e(
     *,
-    snapshots_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    snapshots_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__319202ab63dbf7bdcf2f18f6a9d7f153d9897a68e3fc4e860c0966819863f702(
     *,
-    rollback_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    rollback_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6520,7 +6519,7 @@ def _typecheckingstub__ad5d113530c65d01a08453aaaf825605d653b8dcfe9de451673bf40f0
 
 def _typecheckingstub__2374283fe12149ac33873bb9b032886bca0a44b5d9bb094d0a43ad8142915010(
     *,
-    glue_data_catalog_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.GlueDataCatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    glue_data_catalog_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.GlueDataCatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6528,7 +6527,7 @@ def _typecheckingstub__2374283fe12149ac33873bb9b032886bca0a44b5d9bb094d0a43ad814
 def _typecheckingstub__8edf9e4e66a570821842f5f46887fbcb3d5ed48c47428131a46ee6cd7f5b2b40(
     *,
     configuration_type: builtins.str,
-    checkpointing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    checkpointing_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     checkpoint_interval: typing.Optional[jsii.Number] = None,
     min_pause_between_checkpoints: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6537,7 +6536,7 @@ def _typecheckingstub__8edf9e4e66a570821842f5f46887fbcb3d5ed48c47428131a46ee6cd7
 
 def _typecheckingstub__5d1cb87db0189a9d90b34c50ffbb80ee2f4bd2c2fb87b230a2a01f5d51799d10(
     *,
-    s3_content_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3ContentLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_content_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.S3ContentLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     text_content: typing.Optional[builtins.str] = None,
     zip_file_content: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6547,38 +6546,38 @@ def _typecheckingstub__5d1cb87db0189a9d90b34c50ffbb80ee2f4bd2c2fb87b230a2a01f5d5
 def _typecheckingstub__89e5f6b2693be5dc38a3301ba675d46fac2c63e244428d4206f223d25a39b346(
     *,
     artifact_type: builtins.str,
-    maven_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MavenReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_content_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3ContentLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maven_reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.MavenReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_content_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.S3ContentLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__743e4b6990fed5d0b9abfdebed0b9c6d9e2feb782b1ee4069b18fc166798ece4(
     *,
-    s3_content_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3ContentBaseLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_content_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.S3ContentBaseLocationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9412684bdb135558a4ce52a80f2c08eae61ae3092e951d44375b47f512775fe1(
     *,
-    property_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PropertyGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    property_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.PropertyGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6876d535d6a15a9b8f42b2e1e0ec6bd42e90d012f15cfe084943407b1385a506(
     *,
-    checkpoint_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CheckpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parallelism_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ParallelismConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    checkpoint_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.CheckpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monitoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parallelism_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ParallelismConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9347f1f226f6d5c0ae4dc1f782f15477ac17c4d583d85052b28382f2795f03fa(
     *,
-    allow_non_restored_state: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_non_restored_state: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6606,27 +6605,27 @@ def _typecheckingstub__6161bd5701548ff424f57f7752916a946580fc9010ff3df1fe5c46ecd
 
 def _typecheckingstub__d537f266d5537a511fda360f2e48a6cd108a0441b7d608919964d450cd9f9cd6(
     *,
-    input_lambda_processor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputLambdaProcessorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_lambda_processor: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.InputLambdaProcessorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b8d87c8c3831396e5245d63d3371ff2d14373bf924e0458fc2f5181e0e8f119d(
     *,
-    input_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_schema: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.InputSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
     name_prefix: builtins.str,
-    input_parallelism: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputParallelismProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    input_processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_firehose_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.KinesisFirehoseInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_streams_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.KinesisStreamsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_parallelism: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.InputParallelismProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.InputProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_firehose_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.KinesisFirehoseInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_streams_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.KinesisStreamsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d1c564224255352eb428407a807a8719fe9a43aaaedc071535cb60b15ba201e6(
     *,
-    record_columns: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RecordColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    record_format: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RecordFormatProperty, typing.Dict[builtins.str, typing.Any]]],
+    record_columns: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RecordColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    record_format: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RecordFormatProperty, typing.Dict[builtins.str, typing.Any]]],
     record_encoding: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6655,8 +6654,8 @@ def _typecheckingstub__8c47518ea0beb301c338bdf150b3144bc66ac8ec67dfd62aee5b8349e
 
 def _typecheckingstub__45f1d49b0a51b2236554fa7c7f377035261b6f0dfd94df8aa1fddc66c1b3e1ef(
     *,
-    csv_mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CSVMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    json_mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.JSONMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    csv_mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.CSVMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    json_mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.JSONMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6682,7 +6681,7 @@ def _typecheckingstub__2a4fb9437988370af3c311d561ba71f41f5f9c8e587e62d887d583431
 def _typecheckingstub__831ef847ba6b4aa05d6b5eddcd63d92edc89cba0fb5fe37ab1699d158bcba123(
     *,
     configuration_type: builtins.str,
-    auto_scaling_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_scaling_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     parallelism: typing.Optional[jsii.Number] = None,
     parallelism_per_kpu: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6692,7 +6691,7 @@ def _typecheckingstub__831ef847ba6b4aa05d6b5eddcd63d92edc89cba0fb5fe37ab1699d158
 def _typecheckingstub__213ae8cfea97ade17215f173649c99e44895c452433fa86c5a403daa110690b1(
     *,
     property_group_id: typing.Optional[builtins.str] = None,
-    property_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    property_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6709,15 +6708,15 @@ def _typecheckingstub__cc99833221ffd3a6ef3abe50bd4ab346e64d874213a8713d89e5379c7
 def _typecheckingstub__5280d47f947bcabc1b30a4019ef3a1258344eb51f0538200e2ef757d472415ca(
     *,
     record_format_type: builtins.str,
-    mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.MappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5c59d5c9a6bfc0d92662cad6b2935cceea6c31c01a9f32a3c38c2c4b61992487(
     *,
-    application_restore_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationRestoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    flink_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.FlinkRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_restore_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationRestoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flink_run_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.FlinkRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6741,7 +6740,7 @@ def _typecheckingstub__5fb385573577c7d3b4796d36d94f5b0559a3a7a68ef7043fb7ad051da
 
 def _typecheckingstub__de416b40a750f4a4c18f2d1859d083894f7bafd4b10f885101feba0377574b4b(
     *,
-    inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    inputs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.InputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6756,10 +6755,10 @@ def _typecheckingstub__eaae3d1c0bfdb140c907817ca25610614b0776ce087948877c395f42b
 
 def _typecheckingstub__167100507172eacc21ecc9bcf41aef67d4d2f8daf2b0068fe4696f6bccd03f7c(
     *,
-    catalog_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_artifacts_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CustomArtifactConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    deploy_as_application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DeployAsApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ZeppelinMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    catalog_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.CatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_artifacts_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.CustomArtifactConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    deploy_as_application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.DeployAsApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monitoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ZeppelinMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6776,7 +6775,7 @@ def _typecheckingstub__baa6f8398390fcaee155011b224e9c5daef96e3c5a48ec6b6b712c307
     id: builtins.str,
     *,
     application_name: builtins.str,
-    cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    cloud_watch_logging_option: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6788,7 +6787,7 @@ def _typecheckingstub__cc49b1edc6b85067b4ffd3c399a11d43de621b3cff742ac9c77c34970
     pass
 
 def _typecheckingstub__cfff846ed49d05b95e336481c5f9ece4a79ef09498150130647cae54d02ebe8e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6806,7 +6805,7 @@ def _typecheckingstub__52ff32358d383c4235eb40319d5ca2f68313b97f0ff51065a822b6ebf
     pass
 
 def _typecheckingstub__416cee59c53a666f8bbc01b2942491b8081db5bb65364b11078b16f208a3e7bd(
-    value: typing.Union[_IResolvable_da3f097b, CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6821,7 +6820,7 @@ def _typecheckingstub__a828b165b05058680c0c755531074aa43e38a58c0afce6dc35dfc8b7c
 def _typecheckingstub__1cc190c16a7f15d29709504de1c88da761438e48bbcf0fa615cc2815cd41baec(
     *,
     application_name: builtins.str,
-    cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    cloud_watch_logging_option: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationCloudWatchLoggingOption.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6831,7 +6830,7 @@ def _typecheckingstub__5b6c4651a68664e2470a6cb86b70db02370f72a5c551bf6751038d448
     id: builtins.str,
     *,
     application_name: builtins.str,
-    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
+    output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6843,7 +6842,7 @@ def _typecheckingstub__00809dd0d5b0aa865fd3eac5be95a9f10c5bb07175695e81f8f102ef7
     pass
 
 def _typecheckingstub__7e3173f0bc698157563cf6512d7faae1cced4047e46e140e7a7e477794758f89(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6861,7 +6860,7 @@ def _typecheckingstub__73cd887a02464782ba9e8db9d412cecbbc27287567a358c986c359757
     pass
 
 def _typecheckingstub__91bb8a65adbac2b94993092f229f8eb3db0475a55b5e4205baea5c25e71e80fb(
-    value: typing.Union[_IResolvable_da3f097b, CfnApplicationOutput.OutputProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationOutput.OutputProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6896,10 +6895,10 @@ def _typecheckingstub__a56fb6fdf29388db608a6095a720ccbd064facf49f4bfb421ecaeb9c5
 
 def _typecheckingstub__dffa61c95c9d67896080f64e83b9206d5f4a7d1aca9c6f8fc34558ff5a00270b(
     *,
-    destination_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.DestinationSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
-    kinesis_firehose_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.KinesisFirehoseOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_streams_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.KinesisStreamsOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lambda_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.LambdaOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_schema: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.DestinationSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_firehose_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.KinesisFirehoseOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_streams_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.KinesisStreamsOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.LambdaOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6908,7 +6907,7 @@ def _typecheckingstub__dffa61c95c9d67896080f64e83b9206d5f4a7d1aca9c6f8fc34558ff5
 def _typecheckingstub__ab53bf322f4d836bf11dd6009f9301db2389ef834eed9f7d666779302de88759(
     *,
     application_name: builtins.str,
-    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
+    output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6916,14 +6915,14 @@ def _typecheckingstub__ab53bf322f4d836bf11dd6009f9301db2389ef834eed9f7d666779302
 def _typecheckingstub__1a8c37d3aa14d2be4ee34651f1a08832a97729d54b381d3780f6fc93f45de193(
     *,
     runtime_environment: builtins.str,
-    service_execution_role: typing.Union[builtins.str, _IRoleRef_8400221f],
-    application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_execution_role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_description: typing.Optional[builtins.str] = None,
-    application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_mode: typing.Optional[builtins.str] = None,
     application_name: typing.Optional[builtins.str] = None,
-    run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6933,7 +6932,7 @@ def _typecheckingstub__0135dc8e1b370a7451f4be786334b437787e811ef0545c454dc50a42d
     id: builtins.str,
     *,
     application_name: builtins.str,
-    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    reference_data_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6945,7 +6944,7 @@ def _typecheckingstub__1ae23ef25264a4544a5bb9b7ae5f10f9c25f2c467e22fd39ddd45e1e7
     pass
 
 def _typecheckingstub__e382ae8b830d53c25854c38001b33e4fe037db8efbd35ef19604a3cd9f839a54(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6963,7 +6962,7 @@ def _typecheckingstub__7e5969122cd3be3236d4ce280d1a6b71230431a339a6bdb67c54ea56f
     pass
 
 def _typecheckingstub__33c2b40d772882c9571cbc56ba5fc9e7ec6ec48c7133c8292964c2b9b0f1a608(
-    value: typing.Union[_IResolvable_da3f097b, CfnApplicationReferenceDataSource.ReferenceDataSourceProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationReferenceDataSource.ReferenceDataSourceProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6985,8 +6984,8 @@ def _typecheckingstub__c3bda5351f68deb04458f59c71e57b61b2ab098b927f96226e19cbb1a
 
 def _typecheckingstub__e2fd30d911c2337758d98897e61a3f04a1093e214acc3379a369349c3c87599a(
     *,
-    csv_mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.CSVMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    json_mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.JSONMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    csv_mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.CSVMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    json_mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.JSONMappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7003,15 +7002,15 @@ def _typecheckingstub__55f6ac2ab04185fadffef3530c953882f16e57ebec293b28ced11792a
 def _typecheckingstub__83637bae5562cd2d327f3e41fc76f3907c3a7975f02fe953b077d2d4c8118cc1(
     *,
     record_format_type: builtins.str,
-    mapping_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.MappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.MappingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__357187c3ef0c32a0ec2e42be004c555a474e53e10c7df5d1f98c05801c31d046(
     *,
-    reference_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
-    s3_reference_data_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reference_schema: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.ReferenceSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_reference_data_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7019,8 +7018,8 @@ def _typecheckingstub__357187c3ef0c32a0ec2e42be004c555a474e53e10c7df5d1f98c05801
 
 def _typecheckingstub__cbb165c01ccec098b0f05c5a197020feee05f059af0b4ccb3640ef38d264510a(
     *,
-    record_columns: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.RecordColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    record_format: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.RecordFormatProperty, typing.Dict[builtins.str, typing.Any]]],
+    record_columns: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.RecordColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    record_format: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.RecordFormatProperty, typing.Dict[builtins.str, typing.Any]]],
     record_encoding: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7037,7 +7036,7 @@ def _typecheckingstub__3ce14f4d3da6df5476af40e00f0774c5f92756d3d0525ec2ed8df494d
 def _typecheckingstub__35273442239da04f9822cc1118ce780b5116be6cd9b38ef3351996f2b66b739b(
     *,
     application_name: builtins.str,
-    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    reference_data_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

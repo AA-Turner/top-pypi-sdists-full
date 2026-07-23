@@ -48,9 +48,7 @@ async def get_usbmux_pairing_record(identifier: str, usbmux_address: Optional[st
         mux = await usbmux.create_mux(usbmux_address=usbmux_address)
         try:
             if isinstance(mux, PlistMuxConnection):
-                pair_record = await mux.get_pair_record(identifier)
-                if pair_record is not None:
-                    return pair_record
+                return await mux.get_pair_record(identifier)
         finally:
             await mux.close()
     return None
@@ -95,7 +93,7 @@ def get_local_pairing_record(identifier: str, pairing_records_cache_folder: Path
 
 async def get_preferred_pair_record(
     identifier: str, pairing_records_cache_folder: Path, usbmux_address: Optional[str] = None
-) -> dict:
+) -> Optional[dict]:
     """
     Look for an existing pair record for the connected device in the following order:
     - usbmuxd
@@ -108,8 +106,8 @@ async def get_preferred_pair_record(
     :type pairing_records_cache_folder: Path
     :param usbmux_address: The address of the usbmuxd server.
     :type usbmux_address: Optional[str], optional
-    :return: The preferred pairing record.
-    :rtype: dict
+    :return: The preferred pairing record, or None if no record was found.
+    :rtype: Optional[dict]
     """
     # usbmuxd
     pair_record = await get_usbmux_pairing_record(identifier=identifier, usbmux_address=usbmux_address)

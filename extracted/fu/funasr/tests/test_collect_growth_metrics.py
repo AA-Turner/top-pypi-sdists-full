@@ -128,11 +128,11 @@ def test_default_integration_prs_include_high_star_awesome_discovery_lanes():
         "bharathgs/Awesome-pytorch-list#164",
         "owainlewis/awesome-artificial-intelligence#243",
         "steven2358/awesome-generative-ai#821",
-        "WangRongsheng/awesome-LLM-resources#162",
         "crownpku/Awesome-Chinese-NLP#32",
     }
 
     assert expected_prs.issubset(set(module.DEFAULT_INTEGRATION_PRS))
+    assert "WangRongsheng/awesome-LLM-resources#162" not in module.DEFAULT_INTEGRATION_PRS
 
 
 def test_high_star_awesome_discovery_lanes_wait_for_maintainer_review():
@@ -153,11 +153,11 @@ def test_high_star_awesome_discovery_lanes_wait_for_maintainer_review():
         "bharathgs/Awesome-pytorch-list#164",
         "owainlewis/awesome-artificial-intelligence#243",
         "steven2358/awesome-generative-ai#821",
-        "WangRongsheng/awesome-LLM-resources#162",
         "crownpku/Awesome-Chinese-NLP#32",
     }
 
     assert expected_prs.issubset(set(module.KNOWN_ASSISTED_REVIEW_REQUESTS))
+    assert "WangRongsheng/awesome-LLM-resources#162" not in module.KNOWN_ASSISTED_REVIEW_REQUESTS
 
 
 def test_default_integration_prs_include_missing_validated_discovery_lanes():
@@ -476,6 +476,50 @@ def test_collect_integration_metrics_classifies_known_external_ci_failure(monkey
     assert integration["next_action"] == "wait for maintainer rerun"
 
 
+def test_collect_integration_metrics_classifies_ray_docs_infra_failure(monkeypatch):
+    module = load_growth_metrics_module()
+
+    def fake_fetch_json(url, headers=None):
+        if url == "https://api.github.com/repos/ray-project/ray/pulls/64053":
+            return {
+                "number": 64053,
+                "title": "docs(serve): add FunASR ASR integration example",
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "blocked",
+                "html_url": "https://github.com/ray-project/ray/pull/64053",
+                "updated_at": "2026-07-22T13:46:40Z",
+                "head": {"sha": "9b2a3b3", "ref": "issue-64052"},
+                "base": {"ref": "master"},
+                "user": {"login": "nh-atuan"},
+            }
+        if url == "https://api.github.com/repos/ray-project/ray/commits/9b2a3b3/status":
+            return {
+                "state": "failure",
+                "statuses": [
+                    {"context": "buildkite/microcheck", "state": "failure"},
+                    {"context": "docs/readthedocs.com:anyscale-ray", "state": "failure"},
+                ],
+            }
+        if url == "https://api.github.com/repos/ray-project/ray/commits/9b2a3b3/check-runs?per_page=100":
+            return {"total_count": 0, "check_runs": []}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    monkeypatch.setattr(module, "fetch_json", fake_fetch_json)
+
+    metrics = module.collect_integration_metrics(["ray-project/ray#64053"])
+
+    integration = metrics["integrations"][0]
+    assert integration["checks"]["state"] == "failure"
+    assert integration["known_external_failure_reason"] == (
+        "Current Ray failures are Buildkite/ReadTheDocs gates already triaged; "
+        "the remaining PR-local Black fix is waiting on the contributor branch owner"
+    )
+    assert integration["known_external_failure_action"] == "wait for contributor branch update"
+    assert integration["next_action"] == "wait for contributor branch update"
+
+
 def test_collect_integration_metrics_handles_known_external_ci_aggregate_race(monkeypatch):
     module = load_growth_metrics_module()
 
@@ -520,6 +564,46 @@ def test_collect_integration_metrics_handles_known_external_ci_aggregate_race(mo
     )
     assert integration["known_external_failure_action"] == "wait for maintainer rerun"
     assert integration["next_action"] == "wait for maintainer rerun"
+
+
+def test_collect_integration_metrics_treats_transformers_review_gate_as_passive_wait(monkeypatch):
+    module = load_growth_metrics_module()
+
+    def fake_fetch_json(url, headers=None):
+        if url == "https://api.github.com/repos/huggingface/transformers/pulls/46180":
+            return {
+                "number": 46180,
+                "title": "Add Fun-ASR-Nano model",
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "blocked",
+                "html_url": "https://github.com/huggingface/transformers/pull/46180",
+                "updated_at": "2026-07-22T04:24:15Z",
+                "head": {"sha": "5efce76", "ref": "add-fun-asr-nano"},
+                "base": {"ref": "main"},
+                "user": {"login": "LauraGPT"},
+            }
+        if url == "https://api.github.com/repos/huggingface/transformers/commits/5efce76/status":
+            return {"state": "success", "statuses": []}
+        if url == "https://api.github.com/repos/huggingface/transformers/commits/5efce76/check-runs?per_page=100":
+            return {
+                "total_count": 2,
+                "check_runs": [
+                    {"name": "pr-ci / Check code quality", "status": "completed", "conclusion": "success"},
+                    {"name": "pr-ci / PR CI status", "status": "completed", "conclusion": "success"},
+                ],
+            }
+        raise AssertionError(f"unexpected URL: {url}")
+
+    monkeypatch.setattr(module, "fetch_json", fake_fetch_json)
+
+    metrics = module.collect_integration_metrics(["huggingface/transformers#46180"])
+
+    integration = metrics["integrations"][0]
+    assert integration["checks"]["state"] == "success"
+    assert integration["next_action"] == "wait for maintainer review"
+    assert "active maintainer-held review thread" in integration["known_assisted_review_reason"]
 
 
 def test_format_ecosystem_markdown_includes_open_pull_requests():
@@ -697,8 +781,8 @@ def test_collect_integration_metrics_applies_known_review_gate(monkeypatch):
 
     integration = metrics["integrations"][0]
     assert integration["checks"]["state"] == "success"
-    assert integration["known_review_gate_reason"] == "Glama listing and score badge required before review"
-    assert integration["next_action"] == "submit Glama"
+    assert integration["known_review_gate_reason"] == "Glama listing and score badge are live"
+    assert integration["next_action"] == "wait for maintainer review"
 
 
 def test_collect_integration_metrics_surfaces_pending_cla_status(monkeypatch):
@@ -1246,7 +1330,7 @@ def test_format_integration_markdown_lists_active_operator_queue():
     assert "wait for maintainer preliminary PR" not in active_queue
 
 
-def test_format_integration_markdown_lists_manual_handoff_gates():
+def test_format_integration_markdown_excludes_satisfied_review_gates_from_handoff():
     module = load_growth_metrics_module()
     metrics = {
         "collected_at_utc": "2026-07-02T00:00:00+00:00",
@@ -1260,8 +1344,8 @@ def test_format_integration_markdown_lists_manual_handoff_gates():
                 "repo_forks": 12_000,
                 "updated_at": "2026-06-16T04:21:55Z",
                 "updated_age_days": 16,
-                "next_action": "submit Glama",
-                "known_review_gate_reason": "Glama listing and score badge required before review",
+                "next_action": "wait for maintainer review",
+                "known_review_gate_reason": "Glama listing and score badge are live",
                 "checks": {"state": "success", "failed_check_runs": [], "pending_check_runs": []},
             },
             {
@@ -1281,14 +1365,9 @@ def test_format_integration_markdown_lists_manual_handoff_gates():
 
     output = module.format_integration_markdown(metrics)
 
-    active_queue = output.split("## Active operator queue", 1)[1].split("## Manual handoff gates", 1)[0]
-    manual_gates = output.split("## Manual handoff gates", 1)[1].split("## Manual review gates", 1)[0]
+    active_queue = output.split("## Active operator queue", 1)[1].split("## Manual review gates", 1)[0]
     assert "punkpeye/awesome-mcp-servers#7153" not in active_queue
-    assert (
-        "- [punkpeye/awesome-mcp-servers#7153](https://github.com/punkpeye/awesome-mcp-servers/pull/7153): "
-        "submit Glama; Glama listing and score badge required before review"
-    ) in manual_gates
-    assert "huggingface/optimum-intel#1801" not in manual_gates
+    assert "## Manual handoff gates" not in output
 
 
 def test_format_integration_markdown_lists_known_review_gates():
@@ -1305,8 +1384,8 @@ def test_format_integration_markdown_lists_known_review_gates():
                 "repo_forks": 12_000,
                 "updated_at": "2026-06-16T04:21:55Z",
                 "updated_age_days": 14,
-                "next_action": "submit Glama",
-                "known_review_gate_reason": "Glama listing and score badge required before review",
+                "next_action": "wait for maintainer review",
+                "known_review_gate_reason": "Glama listing and score badge are live",
                 "checks": {"state": "success", "failed_check_runs": [], "pending_check_runs": []},
             }
         ],
@@ -1317,7 +1396,7 @@ def test_format_integration_markdown_lists_known_review_gates():
     assert "## Manual review gates" in output
     assert (
         "- [punkpeye/awesome-mcp-servers#7153](https://github.com/punkpeye/awesome-mcp-servers/pull/7153): "
-        "Glama listing and score badge required before review"
+        "Glama listing and score badge are live"
     ) in output
 
 

@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,46 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_chime import (
-    AppInstanceBotReference as _AppInstanceBotReference_0e9addb1,
-    AppInstanceReference as _AppInstanceReference_8414b2a0,
-    IAppInstanceBotRef as _IAppInstanceBotRef_519ced67,
-    IAppInstanceRef as _IAppInstanceRef_43d18bab,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_chime as _aws_chime_58870695
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_chime_58870695 = _LazyImport("aws_cdk.interfaces.aws_chime")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAppInstanceRef_43d18bab, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IAppInstanceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAppInstance(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chime.CfnAppInstance",
 ):
@@ -123,7 +115,7 @@ class CfnAppInstance(
         *,
         name: builtins.str,
         metadata: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Chime::AppInstance``.
 
@@ -134,7 +126,7 @@ class CfnAppInstance(
         :param tags: Tags assigned to the AppInstance.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d337d6c149cc789c0b6f05ba4ba90f831464295606b004354b7815daaed0c77)
+            type_hints = cached_type_hints(_typecheckingstub__6d337d6c149cc789c0b6f05ba4ba90f831464295606b004354b7815daaed0c77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAppInstanceProps(name=name, metadata=metadata, tags=tags)
@@ -145,13 +137,13 @@ class CfnAppInstance(
     @builtins.classmethod
     def arn_for_app_instance(
         cls,
-        resource: "_IAppInstanceRef_43d18bab",
+        resource: "_aws_chime_58870695.IAppInstanceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f74b0e7014ea5c23e28103a5fb5867813697fd8201279c330a3aa769bc126a1)
+            type_hints = cached_type_hints(_typecheckingstub__4f74b0e7014ea5c23e28103a5fb5867813697fd8201279c330a3aa769bc126a1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppInstance", [resource]))
 
@@ -163,18 +155,18 @@ class CfnAppInstance(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0a664656abafe2adc6e2a0a9db5e06dc33b5b3b6a0fa2a5ca0b61b7b95d0c32)
+            type_hints = cached_type_hints(_typecheckingstub__c0a664656abafe2adc6e2a0a9db5e06dc33b5b3b6a0fa2a5ca0b61b7b95d0c32)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppInstance", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__400a60274a57ac76d314b93fb263163beba6942cc730e90588d6f74e739f4eb0)
+            type_hints = cached_type_hints(_typecheckingstub__400a60274a57ac76d314b93fb263163beba6942cc730e90588d6f74e739f4eb0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -187,7 +179,7 @@ class CfnAppInstance(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c4ccf5db0f869956272a9d89ee82b1cfb49e2aacbbc94b43a595151f8b37e60)
+            type_hints = cached_type_hints(_typecheckingstub__9c4ccf5db0f869956272a9d89ee82b1cfb49e2aacbbc94b43a595151f8b37e60)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -199,9 +191,9 @@ class CfnAppInstance(
 
     @builtins.property
     @jsii.member(jsii_name="appInstanceRef")
-    def app_instance_ref(self) -> "_AppInstanceReference_8414b2a0":
+    def app_instance_ref(self) -> "_aws_chime_58870695.AppInstanceReference":
         '''A reference to a AppInstance resource.'''
-        return typing.cast("_AppInstanceReference_8414b2a0", jsii.get(self, "appInstanceRef"))
+        return typing.cast("_aws_chime_58870695.AppInstanceReference", jsii.get(self, "appInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppInstanceArn")
@@ -214,31 +206,31 @@ class CfnAppInstance(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTimestamp")
-    def attr_created_timestamp(self) -> "_IResolvable_da3f097b":
+    def attr_created_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The time at which an AppInstance was created.
 
         In epoch milliseconds.
 
         :cloudformationAttribute: CreatedTimestamp
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCreatedTimestamp"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedTimestamp")
-    def attr_last_updated_timestamp(self) -> "_IResolvable_da3f097b":
+    def attr_last_updated_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The time an AppInstance was last updated.
 
         In epoch milliseconds.
 
         :cloudformationAttribute: LastUpdatedTimestamp
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLastUpdatedTimestamp"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastUpdatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -259,7 +251,7 @@ class CfnAppInstance(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b72de3b84f85f89b400c53dced98e7828184761f13429f1028134b5727fe38e7)
+            type_hints = cached_type_hints(_typecheckingstub__b72de3b84f85f89b400c53dced98e7828184761f13429f1028134b5727fe38e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -272,27 +264,30 @@ class CfnAppInstance(
     @metadata.setter
     def metadata(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4d28a89759474ddf9cf296e1da1bbf9afe7e7c1413d9a4d175db15deaca419f)
+            type_hints = cached_type_hints(_typecheckingstub__a4d28a89759474ddf9cf296e1da1bbf9afe7e7c1413d9a4d175db15deaca419f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to the AppInstance.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc357af54a794ca273668787f93dac3a63d2f85c8108d86aa56926b60d6aac5a)
+            type_hints = cached_type_hints(_typecheckingstub__dc357af54a794ca273668787f93dac3a63d2f85c8108d86aa56926b60d6aac5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IAppInstanceBotRef_519ced67, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IAppInstanceBotRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAppInstanceBot(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chime.CfnAppInstanceBot",
 ):
@@ -342,10 +337,10 @@ class CfnAppInstanceBot(
         id: builtins.str,
         *,
         app_instance_arn: builtins.str,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppInstanceBot.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceBot.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         metadata: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Chime::AppInstanceBot``.
 
@@ -358,7 +353,7 @@ class CfnAppInstanceBot(
         :param tags: The tags assigned to the AppInstanceBot.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fca75944f6ceb69180d3b0f352517267777aeee7ffaa12b2f1a465cf9b6a3e00)
+            type_hints = cached_type_hints(_typecheckingstub__fca75944f6ceb69180d3b0f352517267777aeee7ffaa12b2f1a465cf9b6a3e00)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAppInstanceBotProps(
@@ -375,13 +370,13 @@ class CfnAppInstanceBot(
     @builtins.classmethod
     def arn_for_app_instance_bot(
         cls,
-        resource: "_IAppInstanceBotRef_519ced67",
+        resource: "_aws_chime_58870695.IAppInstanceBotRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49c5faf3dcf2887594ff746db96b49d9757db79f86e9d6f358d9f275ee8c8210)
+            type_hints = cached_type_hints(_typecheckingstub__49c5faf3dcf2887594ff746db96b49d9757db79f86e9d6f358d9f275ee8c8210)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppInstanceBot", [resource]))
 
@@ -393,18 +388,18 @@ class CfnAppInstanceBot(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0255372b69a195b0351367c082f9533519223c17e242b93716f61ed8e55dea62)
+            type_hints = cached_type_hints(_typecheckingstub__0255372b69a195b0351367c082f9533519223c17e242b93716f61ed8e55dea62)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppInstanceBot", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__427e24f474e9d78b560301eb631ab4ec523303c4565f63f29c83299fe5abafb1)
+            type_hints = cached_type_hints(_typecheckingstub__427e24f474e9d78b560301eb631ab4ec523303c4565f63f29c83299fe5abafb1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -417,7 +412,7 @@ class CfnAppInstanceBot(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0f31284f1d604da54c34b53acb2ff3863b786fb7370f15d19da68df814cd8ad)
+            type_hints = cached_type_hints(_typecheckingstub__d0f31284f1d604da54c34b53acb2ff3863b786fb7370f15d19da68df814cd8ad)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -429,9 +424,9 @@ class CfnAppInstanceBot(
 
     @builtins.property
     @jsii.member(jsii_name="appInstanceBotRef")
-    def app_instance_bot_ref(self) -> "_AppInstanceBotReference_0e9addb1":
+    def app_instance_bot_ref(self) -> "_aws_chime_58870695.AppInstanceBotReference":
         '''A reference to a AppInstanceBot resource.'''
-        return typing.cast("_AppInstanceBotReference_0e9addb1", jsii.get(self, "appInstanceBotRef"))
+        return typing.cast("_aws_chime_58870695.AppInstanceBotReference", jsii.get(self, "appInstanceBotRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppInstanceBotArn")
@@ -444,31 +439,31 @@ class CfnAppInstanceBot(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTimestamp")
-    def attr_created_timestamp(self) -> "_IResolvable_da3f097b":
+    def attr_created_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The time at which the AppInstanceBot was created.
 
         In epoch milliseconds.
 
         :cloudformationAttribute: CreatedTimestamp
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCreatedTimestamp"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedTimestamp")
-    def attr_last_updated_timestamp(self) -> "_IResolvable_da3f097b":
+    def attr_last_updated_timestamp(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The time at which the AppInstanceBot was last updated.
 
         In epoch milliseconds.
 
         :cloudformationAttribute: LastUpdatedTimestamp
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLastUpdatedTimestamp"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLastUpdatedTimestamp"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -489,7 +484,7 @@ class CfnAppInstanceBot(
     @app_instance_arn.setter
     def app_instance_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13a53900f75f263ec868d4efe44340a9273169b155a8e54a68fe8cde3818baec)
+            type_hints = cached_type_hints(_typecheckingstub__13a53900f75f263ec868d4efe44340a9273169b155a8e54a68fe8cde3818baec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appInstanceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -497,17 +492,17 @@ class CfnAppInstanceBot(
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.ConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.ConfigurationProperty"]:
         '''A structure that contains configuration data.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.ConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.ConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.ConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.ConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d36a14f99ec95cd590d6c1757bb41c8b9235cf6b317fa73e6692074ed033195a)
+            type_hints = cached_type_hints(_typecheckingstub__d36a14f99ec95cd590d6c1757bb41c8b9235cf6b317fa73e6692074ed033195a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -520,7 +515,7 @@ class CfnAppInstanceBot(
     @metadata.setter
     def metadata(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45024baca15a880d713b7458c08c15471a9b4b4bc485fcaa496535c2d75a30a8)
+            type_hints = cached_type_hints(_typecheckingstub__45024baca15a880d713b7458c08c15471a9b4b4bc485fcaa496535c2d75a30a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
 
@@ -533,20 +528,23 @@ class CfnAppInstanceBot(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13ad6a83eab879d92eb2609e2f37735b3c2383bb2e7e24c6cefbec192e42c39e)
+            type_hints = cached_type_hints(_typecheckingstub__13ad6a83eab879d92eb2609e2f37735b3c2383bb2e7e24c6cefbec192e42c39e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the AppInstanceBot.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d87e45b7d9459784717058ca252a094c146e5656ea14d9da51f1cf05f4aa56d4)
+            type_hints = cached_type_hints(_typecheckingstub__d87e45b7d9459784717058ca252a094c146e5656ea14d9da51f1cf05f4aa56d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -559,7 +557,7 @@ class CfnAppInstanceBot(
         def __init__(
             self,
             *,
-            lex: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppInstanceBot.LexConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            lex: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceBot.LexConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A structure that contains configuration data.
 
@@ -590,7 +588,7 @@ class CfnAppInstanceBot(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__09ff343ee28319a719419e7819c467b339964da524abd8a8f50f44edd43b11a8)
+                type_hints = cached_type_hints(_typecheckingstub__09ff343ee28319a719419e7819c467b339964da524abd8a8f50f44edd43b11a8)
                 check_type(argname="argument lex", value=lex, expected_type=type_hints["lex"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "lex": lex,
@@ -599,14 +597,14 @@ class CfnAppInstanceBot(
         @builtins.property
         def lex(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.LexConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.LexConfigurationProperty"]:
             '''The configuration for an Amazon Lex V2 bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-appinstancebot-configuration.html#cfn-chime-appinstancebot-configuration-lex
             '''
             result = self._values.get("lex")
             assert result is not None, "Required property 'lex' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.LexConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.LexConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -654,7 +652,7 @@ class CfnAppInstanceBot(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e0a8291bb53d368f6b1012fdd17317226c377241787e7d74d9371e641c527be4)
+                type_hints = cached_type_hints(_typecheckingstub__e0a8291bb53d368f6b1012fdd17317226c377241787e7d74d9371e641c527be4)
                 check_type(argname="argument standard_messages", value=standard_messages, expected_type=type_hints["standard_messages"])
                 check_type(argname="argument targeted_messages", value=targeted_messages, expected_type=type_hints["targeted_messages"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -710,7 +708,7 @@ class CfnAppInstanceBot(
             *,
             lex_bot_alias_arn: builtins.str,
             locale_id: builtins.str,
-            invoked_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppInstanceBot.InvokedByProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            invoked_by: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceBot.InvokedByProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             responds_to: typing.Optional[builtins.str] = None,
             welcome_intent: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -745,7 +743,7 @@ class CfnAppInstanceBot(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__59e9097c00a1cff69d67ed6937aea0b11010ff23c371f50b9ae25d98378dbf55)
+                type_hints = cached_type_hints(_typecheckingstub__59e9097c00a1cff69d67ed6937aea0b11010ff23c371f50b9ae25d98378dbf55)
                 check_type(argname="argument lex_bot_alias_arn", value=lex_bot_alias_arn, expected_type=type_hints["lex_bot_alias_arn"])
                 check_type(argname="argument locale_id", value=locale_id, expected_type=type_hints["locale_id"])
                 check_type(argname="argument invoked_by", value=invoked_by, expected_type=type_hints["invoked_by"])
@@ -785,13 +783,13 @@ class CfnAppInstanceBot(
         @builtins.property
         def invoked_by(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.InvokedByProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.InvokedByProperty"]]:
             '''Specifies the type of message that triggers a bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-appinstancebot-lexconfiguration.html#cfn-chime-appinstancebot-lexconfiguration-invokedby
             '''
             result = self._values.get("invoked_by")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.InvokedByProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.InvokedByProperty"]], result)
 
         @builtins.property
         def responds_to(self) -> typing.Optional[builtins.str]:
@@ -841,10 +839,10 @@ class CfnAppInstanceBotProps:
         self,
         *,
         app_instance_arn: builtins.str,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppInstanceBot.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceBot.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         metadata: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAppInstanceBot``.
 
@@ -891,7 +889,7 @@ class CfnAppInstanceBotProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d900ae3a9eb6a587e47f3e534920839a7bec4e3fc41d625d3e3b8eb9d31d4eae)
+            type_hints = cached_type_hints(_typecheckingstub__d900ae3a9eb6a587e47f3e534920839a7bec4e3fc41d625d3e3b8eb9d31d4eae)
             check_type(argname="argument app_instance_arn", value=app_instance_arn, expected_type=type_hints["app_instance_arn"])
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
@@ -921,14 +919,14 @@ class CfnAppInstanceBotProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.ConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.ConfigurationProperty"]:
         '''A structure that contains configuration data.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstancebot.html#cfn-chime-appinstancebot-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAppInstanceBot.ConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceBot.ConfigurationProperty"], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[builtins.str]:
@@ -949,13 +947,13 @@ class CfnAppInstanceBotProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the AppInstanceBot.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstancebot.html#cfn-chime-appinstancebot-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -980,7 +978,7 @@ class CfnAppInstanceProps:
         *,
         name: builtins.str,
         metadata: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAppInstance``.
 
@@ -1010,7 +1008,7 @@ class CfnAppInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__551f6928f9d6a158547ebe3a9d4b368b45ad66d983bfb330b063b77c078ca90e)
+            type_hints = cached_type_hints(_typecheckingstub__551f6928f9d6a158547ebe3a9d4b368b45ad66d983bfb330b063b77c078ca90e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1044,13 +1042,13 @@ class CfnAppInstanceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to the AppInstance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstance.html#cfn-chime-appinstance-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1064,11 +1062,470 @@ class CfnAppInstanceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IAppInstanceUserRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAppInstanceUser(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnAppInstanceUser",
+):
+    '''Resource Type definition for AWS::Chime::AppInstanceUser.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html
+    :cloudformationResource: AWS::Chime::AppInstanceUser
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_app_instance_user = chime.CfnAppInstanceUser(self, "MyCfnAppInstanceUser",
+            app_instance_arn="appInstanceArn",
+            app_instance_user_id="appInstanceUserId",
+        
+            # the properties below are optional
+            expiration_settings=chime.CfnAppInstanceUser.ExpirationSettingsProperty(
+                expiration_criterion="expirationCriterion",
+                expiration_days=123
+            ),
+            metadata="metadata",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        app_instance_arn: builtins.str,
+        app_instance_user_id: builtins.str,
+        expiration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceUser.ExpirationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::AppInstanceUser``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param app_instance_arn: 
+        :param app_instance_user_id: 
+        :param expiration_settings: 
+        :param metadata: 
+        :param name: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2085cb61a0928e322527b02fa835e93ae1473637b82fc400d98124c9f4ea85ef)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAppInstanceUserProps(
+            app_instance_arn=app_instance_arn,
+            app_instance_user_id=app_instance_user_id,
+            expiration_settings=expiration_settings,
+            metadata=metadata,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAppInstanceUser")
+    @builtins.classmethod
+    def arn_for_app_instance_user(
+        cls,
+        resource: "_aws_chime_58870695.IAppInstanceUserRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__834453efdb4b627060834867c4d4be14cef2b1616cd26510f95ad19700c58e71)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppInstanceUser", [resource]))
+
+    @jsii.member(jsii_name="isCfnAppInstanceUser")
+    @builtins.classmethod
+    def is_cfn_app_instance_user(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAppInstanceUser.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8249e724ed1b8ced6af4d14e2e058e7d87c556d2f34822d2c13ef2eae05db6f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppInstanceUser", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__863252a597952f489269b67d81cb8b94673d4899994aee030ef3ab18f84474cf)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2319035bf7a04fca46bccb72f782d57c44957ca4561f7cd63c521a103cb24570)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceUserRef")
+    def app_instance_user_ref(self) -> "_aws_chime_58870695.AppInstanceUserReference":
+        '''A reference to a AppInstanceUser resource.'''
+        return typing.cast("_aws_chime_58870695.AppInstanceUserReference", jsii.get(self, "appInstanceUserRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAppInstanceUserArn")
+    def attr_app_instance_user_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: AppInstanceUserArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAppInstanceUserArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceArn")
+    def app_instance_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "appInstanceArn"))
+
+    @app_instance_arn.setter
+    def app_instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b20a22b966f7df8751e06019df44b290ea5ac0f00632c5f0800d1ac32bc198eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceUserId")
+    def app_instance_user_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "appInstanceUserId"))
+
+    @app_instance_user_id.setter
+    def app_instance_user_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cfdd12ef0fd7a56e531e08fb8f66900a90956c52b40bad7b1a5bc196cc3b9f45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appInstanceUserId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expirationSettings")
+    def expiration_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceUser.ExpirationSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceUser.ExpirationSettingsProperty"]], jsii.get(self, "expirationSettings"))
+
+    @expiration_settings.setter
+    def expiration_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceUser.ExpirationSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11df1f0a14380b6e64d70d38f2d2279aa0cad03492a1c3ea2c336851c1379cd8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expirationSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metadata"))
+
+    @metadata.setter
+    def metadata(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__503686b1a9877ef8aef136c790c2be6a495abcde2081aa874974aba213155b4a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__94ed3eda3e56547fc67748fa6d649fea23db4fd56781e44025b0e46a5857c8a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9051ba4c8c7a02ae24d26117b6b0c144f5b530848f9f9411655d4461d5883b41)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnAppInstanceUser.ExpirationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "expiration_criterion": "expirationCriterion",
+            "expiration_days": "expirationDays",
+        },
+    )
+    class ExpirationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            expiration_criterion: builtins.str,
+            expiration_days: jsii.Number,
+        ) -> None:
+            '''
+            :param expiration_criterion: 
+            :param expiration_days: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-appinstanceuser-expirationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                expiration_settings_property = chime.CfnAppInstanceUser.ExpirationSettingsProperty(
+                    expiration_criterion="expirationCriterion",
+                    expiration_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e650d9ca25019153fe4e2391b149c6b4c2a2336449a5886a3b94f66bf8ccb812)
+                check_type(argname="argument expiration_criterion", value=expiration_criterion, expected_type=type_hints["expiration_criterion"])
+                check_type(argname="argument expiration_days", value=expiration_days, expected_type=type_hints["expiration_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expiration_criterion": expiration_criterion,
+                "expiration_days": expiration_days,
+            }
+
+        @builtins.property
+        def expiration_criterion(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-appinstanceuser-expirationsettings.html#cfn-chime-appinstanceuser-expirationsettings-expirationcriterion
+            '''
+            result = self._values.get("expiration_criterion")
+            assert result is not None, "Required property 'expiration_criterion' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expiration_days(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-appinstanceuser-expirationsettings.html#cfn-chime-appinstanceuser-expirationsettings-expirationdays
+            '''
+            result = self._values.get("expiration_days")
+            assert result is not None, "Required property 'expiration_days' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExpirationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnAppInstanceUserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_instance_arn": "appInstanceArn",
+        "app_instance_user_id": "appInstanceUserId",
+        "expiration_settings": "expirationSettings",
+        "metadata": "metadata",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnAppInstanceUserProps:
+    def __init__(
+        self,
+        *,
+        app_instance_arn: builtins.str,
+        app_instance_user_id: builtins.str,
+        expiration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppInstanceUser.ExpirationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAppInstanceUser``.
+
+        :param app_instance_arn: 
+        :param app_instance_user_id: 
+        :param expiration_settings: 
+        :param metadata: 
+        :param name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_app_instance_user_props = chime.CfnAppInstanceUserProps(
+                app_instance_arn="appInstanceArn",
+                app_instance_user_id="appInstanceUserId",
+            
+                # the properties below are optional
+                expiration_settings=chime.CfnAppInstanceUser.ExpirationSettingsProperty(
+                    expiration_criterion="expirationCriterion",
+                    expiration_days=123
+                ),
+                metadata="metadata",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c191e7d70c48f14aeb5305a9541ebc0cb899fc4cc9efe9e64a380ae2098e7b6e)
+            check_type(argname="argument app_instance_arn", value=app_instance_arn, expected_type=type_hints["app_instance_arn"])
+            check_type(argname="argument app_instance_user_id", value=app_instance_user_id, expected_type=type_hints["app_instance_user_id"])
+            check_type(argname="argument expiration_settings", value=expiration_settings, expected_type=type_hints["expiration_settings"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_instance_arn": app_instance_arn,
+            "app_instance_user_id": app_instance_user_id,
+        }
+        if expiration_settings is not None:
+            self._values["expiration_settings"] = expiration_settings
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_instance_arn(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-appinstancearn
+        '''
+        result = self._values.get("app_instance_arn")
+        assert result is not None, "Required property 'app_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_instance_user_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-appinstanceuserid
+        '''
+        result = self._values.get("app_instance_user_id")
+        assert result is not None, "Required property 'app_instance_user_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def expiration_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceUser.ExpirationSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-expirationsettings
+        '''
+        result = self._values.get("expiration_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppInstanceUser.ExpirationSettingsProperty"]], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-appinstanceuser.html#cfn-chime-appinstanceuser-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppInstanceUserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAppInstance",
     "CfnAppInstanceBot",
     "CfnAppInstanceBotProps",
     "CfnAppInstanceProps",
+    "CfnAppInstanceUser",
+    "CfnAppInstanceUserProps",
 ]
 
 publication.publish()
@@ -1079,13 +1536,13 @@ def _typecheckingstub__6d337d6c149cc789c0b6f05ba4ba90f831464295606b004354b7815da
     *,
     name: builtins.str,
     metadata: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4f74b0e7014ea5c23e28103a5fb5867813697fd8201279c330a3aa769bc126a1(
-    resource: _IAppInstanceRef_43d18bab,
+    resource: _aws_chime_58870695.IAppInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1097,7 +1554,7 @@ def _typecheckingstub__c0a664656abafe2adc6e2a0a9db5e06dc33b5b3b6a0fa2a5ca0b61b7b
     pass
 
 def _typecheckingstub__400a60274a57ac76d314b93fb263163beba6942cc730e90588d6f74e739f4eb0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1121,7 +1578,7 @@ def _typecheckingstub__a4d28a89759474ddf9cf296e1da1bbf9afe7e7c1413d9a4d175db15de
     pass
 
 def _typecheckingstub__dc357af54a794ca273668787f93dac3a63d2f85c8108d86aa56926b60d6aac5a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1131,16 +1588,16 @@ def _typecheckingstub__fca75944f6ceb69180d3b0f352517267777aeee7ffaa12b2f1a465cf9
     id: builtins.str,
     *,
     app_instance_arn: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppInstanceBot.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceBot.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     metadata: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__49c5faf3dcf2887594ff746db96b49d9757db79f86e9d6f358d9f275ee8c8210(
-    resource: _IAppInstanceBotRef_519ced67,
+    resource: _aws_chime_58870695.IAppInstanceBotRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1152,7 +1609,7 @@ def _typecheckingstub__0255372b69a195b0351367c082f9533519223c17e242b93716f61ed8e
     pass
 
 def _typecheckingstub__427e24f474e9d78b560301eb631ab4ec523303c4565f63f29c83299fe5abafb1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1170,7 +1627,7 @@ def _typecheckingstub__13a53900f75f263ec868d4efe44340a9273169b155a8e54a68fe8cde3
     pass
 
 def _typecheckingstub__d36a14f99ec95cd590d6c1757bb41c8b9235cf6b317fa73e6692074ed033195a(
-    value: typing.Union[_IResolvable_da3f097b, CfnAppInstanceBot.ConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppInstanceBot.ConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1188,14 +1645,14 @@ def _typecheckingstub__13ad6a83eab879d92eb2609e2f37735b3c2383bb2e7e24c6cefbec192
     pass
 
 def _typecheckingstub__d87e45b7d9459784717058ca252a094c146e5656ea14d9da51f1cf05f4aa56d4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__09ff343ee28319a719419e7819c467b339964da524abd8a8f50f44edd43b11a8(
     *,
-    lex: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppInstanceBot.LexConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    lex: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceBot.LexConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1212,7 +1669,7 @@ def _typecheckingstub__59e9097c00a1cff69d67ed6937aea0b11010ff23c371f50b9ae25d983
     *,
     lex_bot_alias_arn: builtins.str,
     locale_id: builtins.str,
-    invoked_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppInstanceBot.InvokedByProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    invoked_by: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceBot.InvokedByProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     responds_to: typing.Optional[builtins.str] = None,
     welcome_intent: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1222,10 +1679,10 @@ def _typecheckingstub__59e9097c00a1cff69d67ed6937aea0b11010ff23c371f50b9ae25d983
 def _typecheckingstub__d900ae3a9eb6a587e47f3e534920839a7bec4e3fc41d625d3e3b8eb9d31d4eae(
     *,
     app_instance_arn: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppInstanceBot.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceBot.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     metadata: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1234,7 +1691,101 @@ def _typecheckingstub__551f6928f9d6a158547ebe3a9d4b368b45ad66d983bfb330b063b77c0
     *,
     name: builtins.str,
     metadata: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2085cb61a0928e322527b02fa835e93ae1473637b82fc400d98124c9f4ea85ef(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    app_instance_arn: builtins.str,
+    app_instance_user_id: builtins.str,
+    expiration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceUser.ExpirationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__834453efdb4b627060834867c4d4be14cef2b1616cd26510f95ad19700c58e71(
+    resource: _aws_chime_58870695.IAppInstanceUserRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8249e724ed1b8ced6af4d14e2e058e7d87c556d2f34822d2c13ef2eae05db6f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__863252a597952f489269b67d81cb8b94673d4899994aee030ef3ab18f84474cf(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2319035bf7a04fca46bccb72f782d57c44957ca4561f7cd63c521a103cb24570(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b20a22b966f7df8751e06019df44b290ea5ac0f00632c5f0800d1ac32bc198eb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfdd12ef0fd7a56e531e08fb8f66900a90956c52b40bad7b1a5bc196cc3b9f45(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11df1f0a14380b6e64d70d38f2d2279aa0cad03492a1c3ea2c336851c1379cd8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppInstanceUser.ExpirationSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__503686b1a9877ef8aef136c790c2be6a495abcde2081aa874974aba213155b4a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94ed3eda3e56547fc67748fa6d649fea23db4fd56781e44025b0e46a5857c8a5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9051ba4c8c7a02ae24d26117b6b0c144f5b530848f9f9411655d4461d5883b41(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e650d9ca25019153fe4e2391b149c6b4c2a2336449a5886a3b94f66bf8ccb812(
+    *,
+    expiration_criterion: builtins.str,
+    expiration_days: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c191e7d70c48f14aeb5305a9541ebc0cb899fc4cc9efe9e64a380ae2098e7b6e(
+    *,
+    app_instance_arn: builtins.str,
+    app_instance_user_id: builtins.str,
+    expiration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppInstanceUser.ExpirationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

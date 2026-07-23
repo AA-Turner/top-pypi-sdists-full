@@ -61,6 +61,29 @@ class TestVersions:
             compatibility_date="2021-01-01",
             compatibility_flags=["nodejs_compat"],
             containers=[{"class_name": "MyDurableObject"}],
+            exports={
+                "Admin": {
+                    "type": "worker",
+                    "cache": {"enabled": True},
+                    "state": "created",
+                },
+                "Counter": {
+                    "storage": "sqlite",
+                    "type": "durable-object",
+                    "container": "my-container",
+                    "state": "created",
+                },
+                "OldCounter": {
+                    "renamed_to": "Counter",
+                    "state": "renamed",
+                    "type": "durable-object",
+                },
+                "default": {
+                    "type": "worker",
+                    "cache": {"enabled": False},
+                    "state": "created",
+                },
+            },
             limits={
                 "cpu_ms": 50,
                 "subrequests": 1000,
@@ -379,6 +402,29 @@ class TestAsyncVersions:
             compatibility_date="2021-01-01",
             compatibility_flags=["nodejs_compat"],
             containers=[{"class_name": "MyDurableObject"}],
+            exports={
+                "Admin": {
+                    "type": "worker",
+                    "cache": {"enabled": True},
+                    "state": "created",
+                },
+                "Counter": {
+                    "storage": "sqlite",
+                    "type": "durable-object",
+                    "container": "my-container",
+                    "state": "created",
+                },
+                "OldCounter": {
+                    "renamed_to": "Counter",
+                    "state": "renamed",
+                    "type": "durable-object",
+                },
+                "default": {
+                    "type": "worker",
+                    "cache": {"enabled": False},
+                    "state": "created",
+                },
+            },
             limits={
                 "cpu_ms": 50,
                 "subrequests": 1000,

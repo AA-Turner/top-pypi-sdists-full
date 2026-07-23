@@ -194,6 +194,8 @@ monthly_audit = iot.ScheduledAudit(self, "MonthlyAudit",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -207,29 +209,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_iot as _aws_cdk_aws_iot_ceddda9d
-import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_iot as _aws_cdk_aws_iot_ceddda9d
+    import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_iot_ceddda9d = _LazyImport("aws_cdk.aws_iot")
+    _aws_cdk_aws_sns_ceddda9d = _LazyImport("aws_cdk.aws_sns")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -272,7 +278,7 @@ class AccountAuditConfigurationProps:
         if isinstance(check_configuration, dict):
             check_configuration = CheckConfiguration(**check_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91ef57f1dae6189d9b6717339eb57703831b4cdca305db4315a06756bad305b2)
+            type_hints = cached_type_hints(_typecheckingstub__91ef57f1dae6189d9b6717339eb57703831b4cdca305db4315a06756bad305b2)
             check_type(argname="argument check_configuration", value=check_configuration, expected_type=type_hints["check_configuration"])
             check_type(argname="argument target_topic", value=target_topic, expected_type=type_hints["target_topic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -618,7 +624,7 @@ class ActionConfig:
         if isinstance(configuration, dict):
             configuration = _aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty(**configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db72c5f97249b79d721bcd6a87436f822fe27caf16ccc0ae7aaa3671a54e7e5f)
+            type_hints = cached_type_hints(_typecheckingstub__db72c5f97249b79d721bcd6a87436f822fe27caf16ccc0ae7aaa3671a54e7e5f)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration": configuration,
@@ -872,7 +878,7 @@ class CheckConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e9c5c9d3626b3241033eaae1616063003470252ba449cc0716435adb7ac0c89)
+            type_hints = cached_type_hints(_typecheckingstub__7e9c5c9d3626b3241033eaae1616063003470252ba449cc0716435adb7ac0c89)
             check_type(argname="argument authenticated_cognito_role_overly_permissive_check", value=authenticated_cognito_role_overly_permissive_check, expected_type=type_hints["authenticated_cognito_role_overly_permissive_check"])
             check_type(argname="argument ca_certificate_expiring_check", value=ca_certificate_expiring_check, expected_type=type_hints["ca_certificate_expiring_check"])
             check_type(argname="argument ca_certificate_key_quality_check", value=ca_certificate_key_quality_check, expected_type=type_hints["ca_certificate_key_quality_check"])
@@ -1228,7 +1234,7 @@ class DayOfMonth(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bb73a8431c3f75f699052b2df93d897fdf174897f29d4825684600931e6f035)
+            type_hints = cached_type_hints(_typecheckingstub__1bb73a8431c3f75f699052b2df93d897fdf174897f29d4825684600931e6f035)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
         return typing.cast("DayOfMonth", jsii.sinvoke(cls, "of", [day]))
 
@@ -1671,7 +1677,7 @@ class IotSql(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40b60afd6a89f56eb454ee327bd143df85ea1ea9518d995f338ac85c6f9172ef)
+            type_hints = cached_type_hints(_typecheckingstub__40b60afd6a89f56eb454ee327bd143df85ea1ea9518d995f338ac85c6f9172ef)
             check_type(argname="argument sql", value=sql, expected_type=type_hints["sql"])
         return typing.cast("IotSql", jsii.sinvoke(cls, "fromStringAsVer20151008", [sql]))
 
@@ -1687,7 +1693,7 @@ class IotSql(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__246c805677b75001ec2445224c8ee29056b92709ee8d3bb168587a48bc5d0fb5)
+            type_hints = cached_type_hints(_typecheckingstub__246c805677b75001ec2445224c8ee29056b92709ee8d3bb168587a48bc5d0fb5)
             check_type(argname="argument sql", value=sql, expected_type=type_hints["sql"])
         return typing.cast("IotSql", jsii.sinvoke(cls, "fromStringAsVer20160323", [sql]))
 
@@ -1706,7 +1712,7 @@ class IotSql(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__715467063ed924cc91a9fa5b60c44d4b1b82edbc8eb085d68321fd0014a32067)
+            type_hints = cached_type_hints(_typecheckingstub__715467063ed924cc91a9fa5b60c44d4b1b82edbc8eb085d68321fd0014a32067)
             check_type(argname="argument sql", value=sql, expected_type=type_hints["sql"])
         return typing.cast("IotSql", jsii.sinvoke(cls, "fromStringAsVerNewestUnstable", [sql]))
 
@@ -1732,7 +1738,7 @@ class _IotSqlProxy(IotSql):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d3862c5242014e403c7a2af3ffcf5d3a77ce6e5376d651493716a5b5061bd9a)
+            type_hints = cached_type_hints(_typecheckingstub__7d3862c5242014e403c7a2af3ffcf5d3a77ce6e5376d651493716a5b5061bd9a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("IotSqlConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -1767,7 +1773,7 @@ class IotSqlConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__887fb9654c4aa0ba71be51a8acf671f0dc89cdb21899f13ebce575d2da566e05)
+            type_hints = cached_type_hints(_typecheckingstub__887fb9654c4aa0ba71be51a8acf671f0dc89cdb21899f13ebce575d2da566e05)
             check_type(argname="argument aws_iot_sql_version", value=aws_iot_sql_version, expected_type=type_hints["aws_iot_sql_version"])
             check_type(argname="argument sql", value=sql, expected_type=type_hints["sql"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1889,7 +1895,7 @@ class Logging(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e352fb2a762be72085ea51f1a46a8e422901ecf3dbeaa4d542bc8e765ede38c)
+            type_hints = cached_type_hints(_typecheckingstub__1e352fb2a762be72085ea51f1a46a8e422901ecf3dbeaa4d542bc8e765ede38c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LoggingProps(log_level=log_level)
@@ -1913,7 +1919,7 @@ class Logging(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99da511bd810901da44a2d46c1b46942903f1621bdf2704460e995700e2fe1e4)
+            type_hints = cached_type_hints(_typecheckingstub__99da511bd810901da44a2d46c1b46942903f1621bdf2704460e995700e2fe1e4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument log_id", value=log_id, expected_type=type_hints["log_id"])
@@ -1960,7 +1966,7 @@ class LoggingProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c40b8e7e00237816e95880f570241f023097cd35cee2a70c6572617e8534056c)
+            type_hints = cached_type_hints(_typecheckingstub__c40b8e7e00237816e95880f570241f023097cd35cee2a70c6572617e8534056c)
             check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if log_level is not None:
@@ -2057,7 +2063,7 @@ class ScheduledAudit(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fe70deb5f2117b5167fbc54c0f3804db0558b4f51ed7326da4904fd6db84b28)
+            type_hints = cached_type_hints(_typecheckingstub__8fe70deb5f2117b5167fbc54c0f3804db0558b4f51ed7326da4904fd6db84b28)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduledAuditProps(
@@ -2088,7 +2094,7 @@ class ScheduledAudit(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8915542465bf341fcdbf13f7cb50020d6357ea6919124ae06915fb51694d8890)
+            type_hints = cached_type_hints(_typecheckingstub__8915542465bf341fcdbf13f7cb50020d6357ea6919124ae06915fb51694d8890)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument scheduled_audit_arn", value=scheduled_audit_arn, expected_type=type_hints["scheduled_audit_arn"])
@@ -2114,7 +2120,7 @@ class ScheduledAudit(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebd4dbeddc9751449b7be522e3e80c0310244510fbcd2f8541c6088349b2fb1e)
+            type_hints = cached_type_hints(_typecheckingstub__ebd4dbeddc9751449b7be522e3e80c0310244510fbcd2f8541c6088349b2fb1e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ScheduledAuditAttributes(
@@ -2189,7 +2195,7 @@ class ScheduledAuditAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ad0f3087ab74e23760b9e73acddd4e907b0e15c156e17b4a99310e0c141f0db)
+            type_hints = cached_type_hints(_typecheckingstub__4ad0f3087ab74e23760b9e73acddd4e907b0e15c156e17b4a99310e0c141f0db)
             check_type(argname="argument scheduled_audit_arn", value=scheduled_audit_arn, expected_type=type_hints["scheduled_audit_arn"])
             check_type(argname="argument scheduled_audit_name", value=scheduled_audit_name, expected_type=type_hints["scheduled_audit_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2296,7 +2302,7 @@ class ScheduledAuditProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ce3ff21c49ce66bfc46926d58b6c0194629b53bae7ffa22dd7039080d31025d)
+            type_hints = cached_type_hints(_typecheckingstub__8ce3ff21c49ce66bfc46926d58b6c0194629b53bae7ffa22dd7039080d31025d)
             check_type(argname="argument account_audit_configuration", value=account_audit_configuration, expected_type=type_hints["account_audit_configuration"])
             check_type(argname="argument audit_checks", value=audit_checks, expected_type=type_hints["audit_checks"])
             check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
@@ -2449,7 +2455,7 @@ class TopicRule(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5629ae4086674af1b4cd4c3b55a1d2cd04d194fe7dd7d9a1a08478dc69d9ac5f)
+            type_hints = cached_type_hints(_typecheckingstub__5629ae4086674af1b4cd4c3b55a1d2cd04d194fe7dd7d9a1a08478dc69d9ac5f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TopicRuleProps(
@@ -2480,7 +2486,7 @@ class TopicRule(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92a02640c49b9d9e3824df915f05b77c597b5dfd5d900377ada5b2b60b004bbf)
+            type_hints = cached_type_hints(_typecheckingstub__92a02640c49b9d9e3824df915f05b77c597b5dfd5d900377ada5b2b60b004bbf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument topic_rule_arn", value=topic_rule_arn, expected_type=type_hints["topic_rule_arn"])
@@ -2495,7 +2501,7 @@ class TopicRule(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e6d84c555ae6d88e9f422f5418183ec42014991c6a48af643a3d0341a35a73a)
+            type_hints = cached_type_hints(_typecheckingstub__4e6d84c555ae6d88e9f422f5418183ec42014991c6a48af643a3d0341a35a73a)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
         return typing.cast(None, jsii.invoke(self, "addAction", [action]))
 
@@ -2581,7 +2587,7 @@ class TopicRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590edde80b67943632c721759786da252d24ea6e116cd451e3e93bb968888414)
+            type_hints = cached_type_hints(_typecheckingstub__590edde80b67943632c721759786da252d24ea6e116cd451e3e93bb968888414)
             check_type(argname="argument sql", value=sql, expected_type=type_hints["sql"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2723,7 +2729,7 @@ class AccountAuditConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5770f1ef794fc5270fd80ca239780b8bbda72293489a6c4bde130ea0c17cb0f)
+            type_hints = cached_type_hints(_typecheckingstub__a5770f1ef794fc5270fd80ca239780b8bbda72293489a6c4bde130ea0c17cb0f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AccountAuditConfigurationProps(
@@ -2749,7 +2755,7 @@ class AccountAuditConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3712cb14c2a0307906b9375e5b0b298caf9a979068b6e55717fe108f0ce164f3)
+            type_hints = cached_type_hints(_typecheckingstub__3712cb14c2a0307906b9375e5b0b298caf9a979068b6e55717fe108f0ce164f3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])

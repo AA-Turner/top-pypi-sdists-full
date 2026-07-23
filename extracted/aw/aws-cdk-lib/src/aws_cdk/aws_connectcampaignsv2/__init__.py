@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_connectcampaignsv2 import (
-    CampaignReference as _CampaignReference_e022fcab,
-    ICampaignRef as _ICampaignRef_408c1832,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_connectcampaignsv2 as _aws_connectcampaignsv2_c3f57c4e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_connectcampaignsv2_c3f57c4e = _LazyImport("aws_cdk.interfaces.aws_connectcampaignsv2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICampaignRef_408c1832, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connectcampaignsv2_c3f57c4e.ICampaignRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCampaign(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connectcampaignsv2.CfnCampaign",
 ):
@@ -333,14 +327,14 @@ class CfnCampaign(
         *,
         connect_instance_id: builtins.str,
         name: builtins.str,
-        channel_subtype_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        communication_limits_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        communication_time_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_subtype_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        communication_limits_override: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        communication_time_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
-        entry_limits_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        entry_limits_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ConnectCampaignsV2::Campaign``.
@@ -360,7 +354,7 @@ class CfnCampaign(
         :param type: The type of campaign.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__228f2b3a0b621ad8a32effe36abeb2d513f50077bd0ad5de7f33f1ea81da26bf)
+            type_hints = cached_type_hints(_typecheckingstub__228f2b3a0b621ad8a32effe36abeb2d513f50077bd0ad5de7f33f1ea81da26bf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCampaignProps(
@@ -381,12 +375,15 @@ class CfnCampaign(
 
     @jsii.member(jsii_name="arnForCampaign")
     @builtins.classmethod
-    def arn_for_campaign(cls, resource: "_ICampaignRef_408c1832") -> builtins.str:
+    def arn_for_campaign(
+        cls,
+        resource: "_aws_connectcampaignsv2_c3f57c4e.ICampaignRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fc69a65d7e6e3f42c04772f0ea86d7fe04188e3e9db32e64d4478bc1964e332)
+            type_hints = cached_type_hints(_typecheckingstub__9fc69a65d7e6e3f42c04772f0ea86d7fe04188e3e9db32e64d4478bc1964e332)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCampaign", [resource]))
 
@@ -398,18 +395,18 @@ class CfnCampaign(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5e7fbab4dbaaa56b414f9d8ef055f52f7b21d16d5e38d7ccd0e211a452accc1)
+            type_hints = cached_type_hints(_typecheckingstub__f5e7fbab4dbaaa56b414f9d8ef055f52f7b21d16d5e38d7ccd0e211a452accc1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCampaign", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a3569f68d4e1cebb6aa0c64e1d5986831e6aae0db4d29cfdc75c914d15ffdce)
+            type_hints = cached_type_hints(_typecheckingstub__7a3569f68d4e1cebb6aa0c64e1d5986831e6aae0db4d29cfdc75c914d15ffdce)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -422,7 +419,7 @@ class CfnCampaign(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c76203b12deea4c92c4180a4c58e9869df456b6f2b525019f1464142d4eec24c)
+            type_hints = cached_type_hints(_typecheckingstub__c76203b12deea4c92c4180a4c58e9869df456b6f2b525019f1464142d4eec24c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -443,15 +440,15 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> "_CampaignReference_e022fcab":
+    def campaign_ref(self) -> "_aws_connectcampaignsv2_c3f57c4e.CampaignReference":
         '''A reference to a Campaign resource.'''
-        return typing.cast("_CampaignReference_e022fcab", jsii.get(self, "campaignRef"))
+        return typing.cast("_aws_connectcampaignsv2_c3f57c4e.CampaignReference", jsii.get(self, "campaignRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -472,7 +469,7 @@ class CfnCampaign(
     @connect_instance_id.setter
     def connect_instance_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dea841111eb9715b7977d34769972a35f4ff12770a8fd30c5e8756c52e2315dd)
+            type_hints = cached_type_hints(_typecheckingstub__dea841111eb9715b7977d34769972a35f4ff12770a8fd30c5e8756c52e2315dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectInstanceId", value) # pyright: ignore[reportArgumentType]
 
@@ -485,7 +482,7 @@ class CfnCampaign(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a6ee2c8ab1041b75d3fc61f47c640e057770a39c0cd0f8b43528a1df4134a14)
+            type_hints = cached_type_hints(_typecheckingstub__8a6ee2c8ab1041b75d3fc61f47c640e057770a39c0cd0f8b43528a1df4134a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -493,17 +490,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="channelSubtypeConfig")
     def channel_subtype_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ChannelSubtypeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ChannelSubtypeConfigProperty"]]:
         '''Contains channel subtype configuration for an outbound campaign.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ChannelSubtypeConfigProperty"]], jsii.get(self, "channelSubtypeConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ChannelSubtypeConfigProperty"]], jsii.get(self, "channelSubtypeConfig"))
 
     @channel_subtype_config.setter
     def channel_subtype_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ChannelSubtypeConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ChannelSubtypeConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5b5c43e63bf2a0bf41f238db2ecf2eed8032758072a77ebd8c459798f74fa0c)
+            type_hints = cached_type_hints(_typecheckingstub__a5b5c43e63bf2a0bf41f238db2ecf2eed8032758072a77ebd8c459798f74fa0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelSubtypeConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -511,17 +508,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="communicationLimitsOverride")
     def communication_limits_override(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsConfigProperty"]]:
         '''Communication limits configuration for an outbound campaign.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsConfigProperty"]], jsii.get(self, "communicationLimitsOverride"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsConfigProperty"]], jsii.get(self, "communicationLimitsOverride"))
 
     @communication_limits_override.setter
     def communication_limits_override(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9a4f9850d67cc76e259c5826fc9085afbf3a202dbe3ba9f6af537bfd18c830a)
+            type_hints = cached_type_hints(_typecheckingstub__e9a4f9850d67cc76e259c5826fc9085afbf3a202dbe3ba9f6af537bfd18c830a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "communicationLimitsOverride", value) # pyright: ignore[reportArgumentType]
 
@@ -529,17 +526,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="communicationTimeConfig")
     def communication_time_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationTimeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationTimeConfigProperty"]]:
         '''Contains communication time configuration for an outbound campaign.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationTimeConfigProperty"]], jsii.get(self, "communicationTimeConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationTimeConfigProperty"]], jsii.get(self, "communicationTimeConfig"))
 
     @communication_time_config.setter
     def communication_time_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationTimeConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationTimeConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f04ec307144a013ae0d78d8747dea1d25d0ab7e9abc18aaab84c15553a5bb868)
+            type_hints = cached_type_hints(_typecheckingstub__f04ec307144a013ae0d78d8747dea1d25d0ab7e9abc18aaab84c15553a5bb868)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "communicationTimeConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -552,7 +549,7 @@ class CfnCampaign(
     @connect_campaign_flow_arn.setter
     def connect_campaign_flow_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a888b73c)
+            type_hints = cached_type_hints(_typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a888b73c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectCampaignFlowArn", value) # pyright: ignore[reportArgumentType]
 
@@ -560,17 +557,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="entryLimitsConfig")
     def entry_limits_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EntryLimitsConfigProperty"]]:
         '''Entry limits config for a campaign.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]], jsii.get(self, "entryLimitsConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EntryLimitsConfigProperty"]], jsii.get(self, "entryLimitsConfig"))
 
     @entry_limits_config.setter
     def entry_limits_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EntryLimitsConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472)
+            type_hints = cached_type_hints(_typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "entryLimitsConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -578,17 +575,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="schedule")
     def schedule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ScheduleProperty"]]:
         '''Contains the schedule configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]], jsii.get(self, "schedule"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ScheduleProperty"]], jsii.get(self, "schedule"))
 
     @schedule.setter
     def schedule(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ScheduleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96d94c4ddf36f3ab10421fbfcb861afdc6852b09a0b0783e33f602560dc90a87)
+            type_hints = cached_type_hints(_typecheckingstub__96d94c4ddf36f3ab10421fbfcb861afdc6852b09a0b0783e33f602560dc90a87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
 
@@ -596,30 +593,33 @@ class CfnCampaign(
     @jsii.member(jsii_name="source")
     def source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SourceProperty"]]:
         '''Contains source configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SourceProperty"]], jsii.get(self, "source"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SourceProperty"]], jsii.get(self, "source"))
 
     @source.setter
     def source(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dd88e602a1609757680509707feb43ec965d5628d820f7eb876dc6ac055b404)
+            type_hints = cached_type_hints(_typecheckingstub__1dd88e602a1609757680509707feb43ec965d5628d820f7eb876dc6ac055b404)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7a5de836c29e94a66b86ab16ab9047f892319b5f0f4bb59a47dc977cdb0fb0b)
+            type_hints = cached_type_hints(_typecheckingstub__c7a5de836c29e94a66b86ab16ab9047f892319b5f0f4bb59a47dc977cdb0fb0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -632,7 +632,7 @@ class CfnCampaign(
     @type.setter
     def type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc91a952f7aebed17a437c26b2bcce43ed0f9a5f2aaaba7301baa654ee8dfce1)
+            type_hints = cached_type_hints(_typecheckingstub__fc91a952f7aebed17a437c26b2bcce43ed0f9a5f2aaaba7301baa654ee8dfce1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -648,8 +648,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            enable_answer_machine_detection: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-            await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_answer_machine_detection: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Contains answering machine detection configuration.
 
@@ -673,7 +673,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc9e20500646db1cdb84f99ed95755110a841a334cc195de359fe87f9f7051d5)
+                type_hints = cached_type_hints(_typecheckingstub__cc9e20500646db1cdb84f99ed95755110a841a334cc195de359fe87f9f7051d5)
                 check_type(argname="argument enable_answer_machine_detection", value=enable_answer_machine_detection, expected_type=type_hints["enable_answer_machine_detection"])
                 check_type(argname="argument await_answer_machine_prompt", value=await_answer_machine_prompt, expected_type=type_hints["await_answer_machine_prompt"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -685,25 +685,25 @@ class CfnCampaign(
         @builtins.property
         def enable_answer_machine_detection(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Enables answering machine detection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-answermachinedetectionconfig.html#cfn-connectcampaignsv2-campaign-answermachinedetectionconfig-enableanswermachinedetection
             '''
             result = self._values.get("enable_answer_machine_detection")
             assert result is not None, "Required property 'enable_answer_machine_detection' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def await_answer_machine_prompt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not waiting for an answer machine prompt is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-answermachinedetectionconfig.html#cfn-connectcampaignsv2-campaign-answermachinedetectionconfig-awaitanswermachineprompt
             '''
             result = self._values.get("await_answer_machine_prompt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -730,10 +730,10 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            email: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EmailChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SmsChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            telephony: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TelephonyChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            whats_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.WhatsAppChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            email: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EmailChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SmsChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            telephony: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TelephonyChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            whats_app: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.WhatsAppChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains channel subtype configuration for an outbound campaign.
 
@@ -833,7 +833,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aae9c62c36e7d18a87df32d56bbdc6f7740c287aaac55c92832b7ca366aa6b5b)
+                type_hints = cached_type_hints(_typecheckingstub__aae9c62c36e7d18a87df32d56bbdc6f7740c287aaac55c92832b7ca366aa6b5b)
                 check_type(argname="argument email", value=email, expected_type=type_hints["email"])
                 check_type(argname="argument sms", value=sms, expected_type=type_hints["sms"])
                 check_type(argname="argument telephony", value=telephony, expected_type=type_hints["telephony"])
@@ -851,46 +851,46 @@ class CfnCampaign(
         @builtins.property
         def email(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailChannelSubtypeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailChannelSubtypeConfigProperty"]]:
             '''The configuration of the email channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-channelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-channelsubtypeconfig-email
             '''
             result = self._values.get("email")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailChannelSubtypeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailChannelSubtypeConfigProperty"]], result)
 
         @builtins.property
         def sms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsChannelSubtypeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsChannelSubtypeConfigProperty"]]:
             '''The configuration of the SMS channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-channelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-channelsubtypeconfig-sms
             '''
             result = self._values.get("sms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsChannelSubtypeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsChannelSubtypeConfigProperty"]], result)
 
         @builtins.property
         def telephony(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyChannelSubtypeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyChannelSubtypeConfigProperty"]]:
             '''The configuration of the telephony channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-channelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-channelsubtypeconfig-telephony
             '''
             result = self._values.get("telephony")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyChannelSubtypeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyChannelSubtypeConfigProperty"]], result)
 
         @builtins.property
         def whats_app(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppChannelSubtypeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppChannelSubtypeConfigProperty"]]:
             '''The configuration of the WhatsApp channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-channelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-channelsubtypeconfig-whatsapp
             '''
             result = self._values.get("whats_app")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppChannelSubtypeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppChannelSubtypeConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -942,7 +942,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7a4b2b207bce63b0696bef9d14a808bcf3bd9ae2746f645e72a80348100b732b)
+                type_hints = cached_type_hints(_typecheckingstub__7a4b2b207bce63b0696bef9d14a808bcf3bd9ae2746f645e72a80348100b732b)
                 check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
                 check_type(argname="argument max_count_per_recipient", value=max_count_per_recipient, expected_type=type_hints["max_count_per_recipient"])
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
@@ -1005,7 +1005,7 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            all_channels_subtypes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            all_channels_subtypes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_limits_handling: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains the communication limits configuration for an outbound campaign.
@@ -1034,7 +1034,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7a7d93be)
+                type_hints = cached_type_hints(_typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7a7d93be)
                 check_type(argname="argument all_channels_subtypes", value=all_channels_subtypes, expected_type=type_hints["all_channels_subtypes"])
                 check_type(argname="argument instance_limits_handling", value=instance_limits_handling, expected_type=type_hints["instance_limits_handling"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1046,13 +1046,13 @@ class CfnCampaign(
         @builtins.property
         def all_channels_subtypes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsProperty"]]:
             '''The CommunicationLimits that apply to all channel subtypes defined in an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationlimitsconfig.html#cfn-connectcampaignsv2-campaign-communicationlimitsconfig-allchannelssubtypes
             '''
             result = self._values.get("all_channels_subtypes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsProperty"]], result)
 
         @builtins.property
         def instance_limits_handling(self) -> typing.Optional[builtins.str]:
@@ -1083,7 +1083,7 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            communication_limit_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            communication_limit_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationLimitProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about communication limits.
 
@@ -1107,7 +1107,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__063b98187bfe10fef303f184ab9d1c8b1d41a5388eb6da2529b64fee8106550c)
+                type_hints = cached_type_hints(_typecheckingstub__063b98187bfe10fef303f184ab9d1c8b1d41a5388eb6da2529b64fee8106550c)
                 check_type(argname="argument communication_limit_list", value=communication_limit_list, expected_type=type_hints["communication_limit_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if communication_limit_list is not None:
@@ -1116,13 +1116,13 @@ class CfnCampaign(
         @builtins.property
         def communication_limit_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitProperty"]]]]:
             '''The list of CommunicationLimits.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationlimits.html#cfn-connectcampaignsv2-campaign-communicationlimits-communicationlimitlist
             '''
             result = self._values.get("communication_limit_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1150,11 +1150,11 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            local_time_zone_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.LocalTimeZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            email: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            telephony: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            whats_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_time_zone_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.LocalTimeZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            email: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            telephony: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            whats_app: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Communication time configuration for an outbound campaign.
 
@@ -1272,7 +1272,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3f2f2fbfc83eeac20d115af03889d47eb55561494e8fc488eeec30eb2e47752)
+                type_hints = cached_type_hints(_typecheckingstub__e3f2f2fbfc83eeac20d115af03889d47eb55561494e8fc488eeec30eb2e47752)
                 check_type(argname="argument local_time_zone_config", value=local_time_zone_config, expected_type=type_hints["local_time_zone_config"])
                 check_type(argname="argument email", value=email, expected_type=type_hints["email"])
                 check_type(argname="argument sms", value=sms, expected_type=type_hints["sms"])
@@ -1293,58 +1293,58 @@ class CfnCampaign(
         @builtins.property
         def local_time_zone_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.LocalTimeZoneConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.LocalTimeZoneConfigProperty"]:
             '''The local timezone configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationtimeconfig.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig-localtimezoneconfig
             '''
             result = self._values.get("local_time_zone_config")
             assert result is not None, "Required property 'local_time_zone_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.LocalTimeZoneConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.LocalTimeZoneConfigProperty"], result)
 
         @builtins.property
         def email(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]]:
             '''The communication time configuration for the email channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationtimeconfig.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig-email
             '''
             result = self._values.get("email")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]], result)
 
         @builtins.property
         def sms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]]:
             '''The communication time configuration for the SMS channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationtimeconfig.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig-sms
             '''
             result = self._values.get("sms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]], result)
 
         @builtins.property
         def telephony(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]]:
             '''The communication time configuration for the telephony channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationtimeconfig.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig-telephony
             '''
             result = self._values.get("telephony")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]], result)
 
         @builtins.property
         def whats_app(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]]:
             '''The communication time configuration for the WhatsApp channel subtype.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationtimeconfig.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig-whatsapp
             '''
             result = self._values.get("whats_app")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeWindowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeWindowProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1367,7 +1367,7 @@ class CfnCampaign(
             self,
             *,
             key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The daily hours configuration.
 
@@ -1392,7 +1392,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35e6acb6b0c0424f51f610f7f0a2abd4c482306c13db09f191eae079682c9f5c)
+                type_hints = cached_type_hints(_typecheckingstub__35e6acb6b0c0424f51f610f7f0a2abd4c482306c13db09f191eae079682c9f5c)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1413,13 +1413,13 @@ class CfnCampaign(
         @builtins.property
         def value(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeRangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeRangeProperty"]]]]:
             '''The value for DailyHour.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-dailyhour.html#cfn-connectcampaignsv2-campaign-dailyhour-value
             '''
             result = self._values.get("value")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeRangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeRangeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1445,8 +1445,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            default_outbound_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EmailOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            outbound_mode: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EmailOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
+            default_outbound_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EmailOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            outbound_mode: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EmailOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for the email channel subtype.
@@ -1483,7 +1483,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff9274643abefe2ecd29ff0322f3b49479b574757b18fe4f15225f01a19ef7ea)
+                type_hints = cached_type_hints(_typecheckingstub__ff9274643abefe2ecd29ff0322f3b49479b574757b18fe4f15225f01a19ef7ea)
                 check_type(argname="argument default_outbound_config", value=default_outbound_config, expected_type=type_hints["default_outbound_config"])
                 check_type(argname="argument outbound_mode", value=outbound_mode, expected_type=type_hints["outbound_mode"])
                 check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
@@ -1497,26 +1497,26 @@ class CfnCampaign(
         @builtins.property
         def default_outbound_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailOutboundConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailOutboundConfigProperty"]:
             '''The default email outbound configuration of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-emailchannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-emailchannelsubtypeconfig-defaultoutboundconfig
             '''
             result = self._values.get("default_outbound_config")
             assert result is not None, "Required property 'default_outbound_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailOutboundConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailOutboundConfigProperty"], result)
 
         @builtins.property
         def outbound_mode(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailOutboundModeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailOutboundModeProperty"]:
             '''The outbound mode for email of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-emailchannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-emailchannelsubtypeconfig-outboundmode
             '''
             result = self._values.get("outbound_mode")
             assert result is not None, "Required property 'outbound_mode' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.EmailOutboundModeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EmailOutboundModeProperty"], result)
 
         @builtins.property
         def capacity(self) -> typing.Optional[jsii.Number]:
@@ -1579,7 +1579,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7b2c45c48dd3f984623dbcc344a83d9c26e929cd6947cc9f868ffe1b4d0341d1)
+                type_hints = cached_type_hints(_typecheckingstub__7b2c45c48dd3f984623dbcc344a83d9c26e929cd6947cc9f868ffe1b4d0341d1)
                 check_type(argname="argument connect_source_email_address", value=connect_source_email_address, expected_type=type_hints["connect_source_email_address"])
                 check_type(argname="argument wisdom_template_arn", value=wisdom_template_arn, expected_type=type_hints["wisdom_template_arn"])
                 check_type(argname="argument source_email_address_display_name", value=source_email_address_display_name, expected_type=type_hints["source_email_address_display_name"])
@@ -1657,7 +1657,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__016ccd411110b9f8510f586be6901ef480857575d80a38ed7c7e81cae2ad5e94)
+                type_hints = cached_type_hints(_typecheckingstub__016ccd411110b9f8510f586be6901ef480857575d80a38ed7c7e81cae2ad5e94)
                 check_type(argname="argument agentless_config", value=agentless_config, expected_type=type_hints["agentless_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if agentless_config is not None:
@@ -1718,7 +1718,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a5dfe5b0455f78872c1a649fd04429977f2a84ab11299a328c596f937163da5)
+                type_hints = cached_type_hints(_typecheckingstub__0a5dfe5b0455f78872c1a649fd04429977f2a84ab11299a328c596f937163da5)
                 check_type(argname="argument max_entry_count", value=max_entry_count, expected_type=type_hints["max_entry_count"])
                 check_type(argname="argument min_entry_interval", value=min_entry_interval, expected_type=type_hints["min_entry_interval"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1788,7 +1788,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5c63db70e1b49ff8c093902378da25d9e1f34010626b2eeb9d25d6da292eb2c)
+                type_hints = cached_type_hints(_typecheckingstub__c5c63db70e1b49ff8c093902378da25d9e1f34010626b2eeb9d25d6da292eb2c)
                 check_type(argname="argument customer_profiles_domain_arn", value=customer_profiles_domain_arn, expected_type=type_hints["customer_profiles_domain_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if customer_profiles_domain_arn is not None:
@@ -1853,7 +1853,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c03234f264094d68479c6e1cf3801d50627e839a73b2f0cbeb95c82522f9a66e)
+                type_hints = cached_type_hints(_typecheckingstub__c03234f264094d68479c6e1cf3801d50627e839a73b2f0cbeb95c82522f9a66e)
                 check_type(argname="argument default_time_zone", value=default_time_zone, expected_type=type_hints["default_time_zone"])
                 check_type(argname="argument local_time_zone_detection", value=local_time_zone_detection, expected_type=type_hints["local_time_zone_detection"])
                 check_type(argname="argument local_time_zone_detection_scope", value=local_time_zone_detection_scope, expected_type=type_hints["local_time_zone_detection_scope"])
@@ -1914,7 +1914,7 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            daily_hours: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DailyHourProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            daily_hours: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DailyHourProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains information about open hours.
 
@@ -1940,7 +1940,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9a34ace5bfcc35c52d69e6dd7ef3c38abf4d254290d5470f5104e49f2d115b39)
+                type_hints = cached_type_hints(_typecheckingstub__9a34ace5bfcc35c52d69e6dd7ef3c38abf4d254290d5470f5104e49f2d115b39)
                 check_type(argname="argument daily_hours", value=daily_hours, expected_type=type_hints["daily_hours"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "daily_hours": daily_hours,
@@ -1949,14 +1949,14 @@ class CfnCampaign(
         @builtins.property
         def daily_hours(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DailyHourProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DailyHourProperty"]]]:
             '''The daily hours configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-openhours.html#cfn-connectcampaignsv2-campaign-openhours-dailyhours
             '''
             result = self._values.get("daily_hours")
             assert result is not None, "Required property 'daily_hours' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DailyHourProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DailyHourProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1994,7 +1994,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a27014c548ec13c6446b07f461be7ed43556a2cb77433713ef38f272a14459fd)
+                type_hints = cached_type_hints(_typecheckingstub__a27014c548ec13c6446b07f461be7ed43556a2cb77433713ef38f272a14459fd)
                 check_type(argname="argument bandwidth_allocation", value=bandwidth_allocation, expected_type=type_hints["bandwidth_allocation"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "bandwidth_allocation": bandwidth_allocation,
@@ -2035,7 +2035,7 @@ class CfnCampaign(
             self,
             *,
             bandwidth_allocation: jsii.Number,
-            timeout_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            timeout_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             agent_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Contains preview outbound mode configuration.
@@ -2064,7 +2064,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__18b1e139a46a0f962696d8f0b9855ce9765fe26cd9d798683a7176550e0dc592)
+                type_hints = cached_type_hints(_typecheckingstub__18b1e139a46a0f962696d8f0b9855ce9765fe26cd9d798683a7176550e0dc592)
                 check_type(argname="argument bandwidth_allocation", value=bandwidth_allocation, expected_type=type_hints["bandwidth_allocation"])
                 check_type(argname="argument timeout_config", value=timeout_config, expected_type=type_hints["timeout_config"])
                 check_type(argname="argument agent_actions", value=agent_actions, expected_type=type_hints["agent_actions"])
@@ -2088,14 +2088,14 @@ class CfnCampaign(
         @builtins.property
         def timeout_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeoutConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeoutConfigProperty"]:
             '''Countdown timer configuration for preview outbound mode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-previewconfig.html#cfn-connectcampaignsv2-campaign-previewconfig-timeoutconfig
             '''
             result = self._values.get("timeout_config")
             assert result is not None, "Required property 'timeout_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeoutConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeoutConfigProperty"], result)
 
         @builtins.property
         def agent_actions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2142,7 +2142,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6504302e8d20b62038efca8c5dfe9bbddfc485cc88de44f995d599a39017ddbe)
+                type_hints = cached_type_hints(_typecheckingstub__6504302e8d20b62038efca8c5dfe9bbddfc485cc88de44f995d599a39017ddbe)
                 check_type(argname="argument bandwidth_allocation", value=bandwidth_allocation, expected_type=type_hints["bandwidth_allocation"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "bandwidth_allocation": bandwidth_allocation,
@@ -2210,7 +2210,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f2a36f6fa12d741457cf955ef79fa845b855e1b170b7ea44a157f8f120f9b67)
+                type_hints = cached_type_hints(_typecheckingstub__4f2a36f6fa12d741457cf955ef79fa845b855e1b170b7ea44a157f8f120f9b67)
                 check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
                 check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2270,7 +2270,7 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            restricted_period_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.RestrictedPeriodProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            restricted_period_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.RestrictedPeriodProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains information about restricted periods.
 
@@ -2296,7 +2296,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f30a61789fda85a4bb2aa71fc64566047bab737aa5220ee60d91e1e08d9a84dd)
+                type_hints = cached_type_hints(_typecheckingstub__f30a61789fda85a4bb2aa71fc64566047bab737aa5220ee60d91e1e08d9a84dd)
                 check_type(argname="argument restricted_period_list", value=restricted_period_list, expected_type=type_hints["restricted_period_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "restricted_period_list": restricted_period_list,
@@ -2305,14 +2305,14 @@ class CfnCampaign(
         @builtins.property
         def restricted_period_list(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.RestrictedPeriodProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.RestrictedPeriodProperty"]]]:
             '''The restricted period list.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-restrictedperiods.html#cfn-connectcampaignsv2-campaign-restrictedperiods-restrictedperiodlist
             '''
             result = self._values.get("restricted_period_list")
             assert result is not None, "Required property 'restricted_period_list' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.RestrictedPeriodProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.RestrictedPeriodProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2366,7 +2366,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b6a4567c8e5f09b06087beafe0e729f0ae431ebcefbe37d716e547d333cb24b)
+                type_hints = cached_type_hints(_typecheckingstub__8b6a4567c8e5f09b06087beafe0e729f0ae431ebcefbe37d716e547d333cb24b)
                 check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
                 check_type(argname="argument refresh_frequency", value=refresh_frequency, expected_type=type_hints["refresh_frequency"])
@@ -2430,8 +2430,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            default_outbound_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SmsOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            outbound_mode: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SmsOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
+            default_outbound_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SmsOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            outbound_mode: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SmsOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for the SMS channel subtype.
@@ -2465,7 +2465,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0d42ae0232d954af9167d51954642098f71dd226d554f1b2fab39b2c46726ee)
+                type_hints = cached_type_hints(_typecheckingstub__b0d42ae0232d954af9167d51954642098f71dd226d554f1b2fab39b2c46726ee)
                 check_type(argname="argument default_outbound_config", value=default_outbound_config, expected_type=type_hints["default_outbound_config"])
                 check_type(argname="argument outbound_mode", value=outbound_mode, expected_type=type_hints["outbound_mode"])
                 check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
@@ -2479,26 +2479,26 @@ class CfnCampaign(
         @builtins.property
         def default_outbound_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsOutboundConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsOutboundConfigProperty"]:
             '''The default SMS outbound configuration of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-smschannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-smschannelsubtypeconfig-defaultoutboundconfig
             '''
             result = self._values.get("default_outbound_config")
             assert result is not None, "Required property 'default_outbound_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsOutboundConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsOutboundConfigProperty"], result)
 
         @builtins.property
         def outbound_mode(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsOutboundModeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsOutboundModeProperty"]:
             '''The outbound mode of SMS for an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-smschannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-smschannelsubtypeconfig-outboundmode
             '''
             result = self._values.get("outbound_mode")
             assert result is not None, "Required property 'outbound_mode' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.SmsOutboundModeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SmsOutboundModeProperty"], result)
 
         @builtins.property
         def capacity(self) -> typing.Optional[jsii.Number]:
@@ -2555,7 +2555,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__874dedca8982d2204aa531b3a554ca0a994b9ce64825e83b31a7a7563d08f262)
+                type_hints = cached_type_hints(_typecheckingstub__874dedca8982d2204aa531b3a554ca0a994b9ce64825e83b31a7a7563d08f262)
                 check_type(argname="argument connect_source_phone_number_arn", value=connect_source_phone_number_arn, expected_type=type_hints["connect_source_phone_number_arn"])
                 check_type(argname="argument wisdom_template_arn", value=wisdom_template_arn, expected_type=type_hints["wisdom_template_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2621,7 +2621,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67957d238e403659f29fa8bf2db2164d694d327a14b84df3d61c10b2b3afd954)
+                type_hints = cached_type_hints(_typecheckingstub__67957d238e403659f29fa8bf2db2164d694d327a14b84df3d61c10b2b3afd954)
                 check_type(argname="argument agentless_config", value=agentless_config, expected_type=type_hints["agentless_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if agentless_config is not None:
@@ -2660,7 +2660,7 @@ class CfnCampaign(
             self,
             *,
             customer_profiles_segment_arn: typing.Optional[builtins.str] = None,
-            event_trigger: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EventTriggerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            event_trigger: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EventTriggerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains source configuration.
 
@@ -2684,7 +2684,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__48dbe2dd9c0147e5b2bea173aba4c056f8a83ba308e89c654331a4a77f46636d)
+                type_hints = cached_type_hints(_typecheckingstub__48dbe2dd9c0147e5b2bea173aba4c056f8a83ba308e89c654331a4a77f46636d)
                 check_type(argname="argument customer_profiles_segment_arn", value=customer_profiles_segment_arn, expected_type=type_hints["customer_profiles_segment_arn"])
                 check_type(argname="argument event_trigger", value=event_trigger, expected_type=type_hints["event_trigger"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2705,13 +2705,13 @@ class CfnCampaign(
         @builtins.property
         def event_trigger(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EventTriggerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EventTriggerProperty"]]:
             '''The event trigger of the campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-source.html#cfn-connectcampaignsv2-campaign-source-eventtrigger
             '''
             result = self._values.get("event_trigger")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EventTriggerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EventTriggerProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2738,8 +2738,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            default_outbound_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TelephonyOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            outbound_mode: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TelephonyOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
+            default_outbound_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TelephonyOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            outbound_mode: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TelephonyOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity: typing.Optional[jsii.Number] = None,
             connect_queue_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2800,7 +2800,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__19c776b12e28122b49a867e83503b94bf286d46879c32085c60a17f0213dc948)
+                type_hints = cached_type_hints(_typecheckingstub__19c776b12e28122b49a867e83503b94bf286d46879c32085c60a17f0213dc948)
                 check_type(argname="argument default_outbound_config", value=default_outbound_config, expected_type=type_hints["default_outbound_config"])
                 check_type(argname="argument outbound_mode", value=outbound_mode, expected_type=type_hints["outbound_mode"])
                 check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
@@ -2817,26 +2817,26 @@ class CfnCampaign(
         @builtins.property
         def default_outbound_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyOutboundConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyOutboundConfigProperty"]:
             '''The default telephony outbound configuration of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonychannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-telephonychannelsubtypeconfig-defaultoutboundconfig
             '''
             result = self._values.get("default_outbound_config")
             assert result is not None, "Required property 'default_outbound_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyOutboundConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyOutboundConfigProperty"], result)
 
         @builtins.property
         def outbound_mode(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyOutboundModeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyOutboundModeProperty"]:
             '''The outbound mode of telephony for an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonychannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-telephonychannelsubtypeconfig-outboundmode
             '''
             result = self._values.get("outbound_mode")
             assert result is not None, "Required property 'outbound_mode' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.TelephonyOutboundModeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TelephonyOutboundModeProperty"], result)
 
         @builtins.property
         def capacity(self) -> typing.Optional[jsii.Number]:
@@ -2882,7 +2882,7 @@ class CfnCampaign(
             self,
             *,
             connect_contact_flow_id: builtins.str,
-            answer_machine_detection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.AnswerMachineDetectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            answer_machine_detection_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.AnswerMachineDetectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             connect_source_phone_number: typing.Optional[builtins.str] = None,
             ring_timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -2917,7 +2917,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2751a1c01ea2bfaf5fe6806fe1a585daea66baf82d5fe0a4cec77a9b592d901a)
+                type_hints = cached_type_hints(_typecheckingstub__2751a1c01ea2bfaf5fe6806fe1a585daea66baf82d5fe0a4cec77a9b592d901a)
                 check_type(argname="argument connect_contact_flow_id", value=connect_contact_flow_id, expected_type=type_hints["connect_contact_flow_id"])
                 check_type(argname="argument answer_machine_detection_config", value=answer_machine_detection_config, expected_type=type_hints["answer_machine_detection_config"])
                 check_type(argname="argument connect_source_phone_number", value=connect_source_phone_number, expected_type=type_hints["connect_source_phone_number"])
@@ -2945,13 +2945,13 @@ class CfnCampaign(
         @builtins.property
         def answer_machine_detection_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AnswerMachineDetectionConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AnswerMachineDetectionConfigProperty"]]:
             '''The answering machine detection configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonyoutboundconfig.html#cfn-connectcampaignsv2-campaign-telephonyoutboundconfig-answermachinedetectionconfig
             '''
             result = self._values.get("answer_machine_detection_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AnswerMachineDetectionConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AnswerMachineDetectionConfigProperty"]], result)
 
         @builtins.property
         def connect_source_phone_number(self) -> typing.Optional[builtins.str]:
@@ -2999,9 +2999,9 @@ class CfnCampaign(
             self,
             *,
             agentless_config: typing.Any = None,
-            predictive_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.PredictiveConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            preview_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.PreviewConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            progressive_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ProgressiveConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predictive_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.PredictiveConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            preview_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.PreviewConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            progressive_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ProgressiveConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about telephony outbound mode.
 
@@ -3041,7 +3041,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7582ea451819f82369b8beb09bc8c872c5424040d69392d7bc3ab56ee8813053)
+                type_hints = cached_type_hints(_typecheckingstub__7582ea451819f82369b8beb09bc8c872c5424040d69392d7bc3ab56ee8813053)
                 check_type(argname="argument agentless_config", value=agentless_config, expected_type=type_hints["agentless_config"])
                 check_type(argname="argument predictive_config", value=predictive_config, expected_type=type_hints["predictive_config"])
                 check_type(argname="argument preview_config", value=preview_config, expected_type=type_hints["preview_config"])
@@ -3068,35 +3068,35 @@ class CfnCampaign(
         @builtins.property
         def predictive_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PredictiveConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PredictiveConfigProperty"]]:
             '''Contains predictive outbound mode configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonyoutboundmode.html#cfn-connectcampaignsv2-campaign-telephonyoutboundmode-predictiveconfig
             '''
             result = self._values.get("predictive_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PredictiveConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PredictiveConfigProperty"]], result)
 
         @builtins.property
         def preview_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PreviewConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PreviewConfigProperty"]]:
             '''Contains preview outbound mode configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonyoutboundmode.html#cfn-connectcampaignsv2-campaign-telephonyoutboundmode-previewconfig
             '''
             result = self._values.get("preview_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PreviewConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PreviewConfigProperty"]], result)
 
         @builtins.property
         def progressive_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ProgressiveConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ProgressiveConfigProperty"]]:
             '''Contains progressive telephony outbound mode configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-telephonyoutboundmode.html#cfn-connectcampaignsv2-campaign-telephonyoutboundmode-progressiveconfig
             '''
             result = self._values.get("progressive_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ProgressiveConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ProgressiveConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3136,7 +3136,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fbaac78f440293f26b08d1c7d41436b21833649d5569bb99f4e6c2bda8bd9a4e)
+                type_hints = cached_type_hints(_typecheckingstub__fbaac78f440293f26b08d1c7d41436b21833649d5569bb99f4e6c2bda8bd9a4e)
                 check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3187,8 +3187,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            open_hours: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.OpenHoursProperty", typing.Dict[builtins.str, typing.Any]]],
-            restricted_periods: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.RestrictedPeriodsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            open_hours: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.OpenHoursProperty", typing.Dict[builtins.str, typing.Any]]],
+            restricted_periods: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.RestrictedPeriodsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about a time window.
 
@@ -3228,7 +3228,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__738a8f46b804533de9d82348af38a0b7f7c37f641c9240bef005d4c22b396f09)
+                type_hints = cached_type_hints(_typecheckingstub__738a8f46b804533de9d82348af38a0b7f7c37f641c9240bef005d4c22b396f09)
                 check_type(argname="argument open_hours", value=open_hours, expected_type=type_hints["open_hours"])
                 check_type(argname="argument restricted_periods", value=restricted_periods, expected_type=type_hints["restricted_periods"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3240,25 +3240,25 @@ class CfnCampaign(
         @builtins.property
         def open_hours(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.OpenHoursProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OpenHoursProperty"]:
             '''The open hours configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-timewindow.html#cfn-connectcampaignsv2-campaign-timewindow-openhours
             '''
             result = self._values.get("open_hours")
             assert result is not None, "Required property 'open_hours' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.OpenHoursProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OpenHoursProperty"], result)
 
         @builtins.property
         def restricted_periods(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.RestrictedPeriodsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.RestrictedPeriodsProperty"]]:
             '''The restricted periods configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-timewindow.html#cfn-connectcampaignsv2-campaign-timewindow-restrictedperiods
             '''
             result = self._values.get("restricted_periods")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.RestrictedPeriodsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.RestrictedPeriodsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3300,7 +3300,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__50c6d60934a17c910bf659882748981ec00bd3f91d69165aff0db47e10820afd)
+                type_hints = cached_type_hints(_typecheckingstub__50c6d60934a17c910bf659882748981ec00bd3f91d69165aff0db47e10820afd)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -3339,8 +3339,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            default_outbound_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.WhatsAppOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            outbound_mode: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.WhatsAppOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
+            default_outbound_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.WhatsAppOutboundConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            outbound_mode: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.WhatsAppOutboundModeProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for the WhatsApp channel subtype.
@@ -3374,7 +3374,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec41c9b0085cff69bc80fac9d57d4d4434d11dc74ea7465ba9644c3c93577737)
+                type_hints = cached_type_hints(_typecheckingstub__ec41c9b0085cff69bc80fac9d57d4d4434d11dc74ea7465ba9644c3c93577737)
                 check_type(argname="argument default_outbound_config", value=default_outbound_config, expected_type=type_hints["default_outbound_config"])
                 check_type(argname="argument outbound_mode", value=outbound_mode, expected_type=type_hints["outbound_mode"])
                 check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
@@ -3388,26 +3388,26 @@ class CfnCampaign(
         @builtins.property
         def default_outbound_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppOutboundConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppOutboundConfigProperty"]:
             '''The default WhatsApp outbound configuration of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-whatsappchannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-whatsappchannelsubtypeconfig-defaultoutboundconfig
             '''
             result = self._values.get("default_outbound_config")
             assert result is not None, "Required property 'default_outbound_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppOutboundConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppOutboundConfigProperty"], result)
 
         @builtins.property
         def outbound_mode(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppOutboundModeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppOutboundModeProperty"]:
             '''The outbound mode for WhatsApp of an outbound campaign.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-whatsappchannelsubtypeconfig.html#cfn-connectcampaignsv2-campaign-whatsappchannelsubtypeconfig-outboundmode
             '''
             result = self._values.get("outbound_mode")
             assert result is not None, "Required property 'outbound_mode' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.WhatsAppOutboundModeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.WhatsAppOutboundModeProperty"], result)
 
         @builtins.property
         def capacity(self) -> typing.Optional[jsii.Number]:
@@ -3464,7 +3464,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__593aa3cb3f33b87f59db17e1fdfbd798b16e098610ceae6b3c5e89c1bd1ad14c)
+                type_hints = cached_type_hints(_typecheckingstub__593aa3cb3f33b87f59db17e1fdfbd798b16e098610ceae6b3c5e89c1bd1ad14c)
                 check_type(argname="argument connect_source_phone_number_arn", value=connect_source_phone_number_arn, expected_type=type_hints["connect_source_phone_number_arn"])
                 check_type(argname="argument wisdom_template_arn", value=wisdom_template_arn, expected_type=type_hints["wisdom_template_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3530,7 +3530,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5fea8f673bade270a7fca966384981111da24c78f7a022b47fe5480e5be4457d)
+                type_hints = cached_type_hints(_typecheckingstub__5fea8f673bade270a7fca966384981111da24c78f7a022b47fe5480e5be4457d)
                 check_type(argname="argument agentless_config", value=agentless_config, expected_type=type_hints["agentless_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if agentless_config is not None:
@@ -3580,14 +3580,14 @@ class CfnCampaignProps:
         *,
         connect_instance_id: builtins.str,
         name: builtins.str,
-        channel_subtype_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        communication_limits_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        communication_time_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_subtype_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ChannelSubtypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        communication_limits_override: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        communication_time_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CommunicationTimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
-        entry_limits_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        entry_limits_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.EntryLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnCampaign``.
@@ -3832,7 +3832,7 @@ class CfnCampaignProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c58eb40b443fce35feb659905089795642547d367bd583cc8addd65c75034e8)
+            type_hints = cached_type_hints(_typecheckingstub__3c58eb40b443fce35feb659905089795642547d367bd583cc8addd65c75034e8)
             check_type(argname="argument connect_instance_id", value=connect_instance_id, expected_type=type_hints["connect_instance_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument channel_subtype_config", value=channel_subtype_config, expected_type=type_hints["channel_subtype_config"])
@@ -3892,35 +3892,35 @@ class CfnCampaignProps:
     @builtins.property
     def channel_subtype_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ChannelSubtypeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ChannelSubtypeConfigProperty"]]:
         '''Contains channel subtype configuration for an outbound campaign.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-channelsubtypeconfig
         '''
         result = self._values.get("channel_subtype_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ChannelSubtypeConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ChannelSubtypeConfigProperty"]], result)
 
     @builtins.property
     def communication_limits_override(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsConfigProperty"]]:
         '''Communication limits configuration for an outbound campaign.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-communicationlimitsoverride
         '''
         result = self._values.get("communication_limits_override")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationLimitsConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationLimitsConfigProperty"]], result)
 
     @builtins.property
     def communication_time_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationTimeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationTimeConfigProperty"]]:
         '''Contains communication time configuration for an outbound campaign.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-communicationtimeconfig
         '''
         result = self._values.get("communication_time_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.CommunicationTimeConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CommunicationTimeConfigProperty"]], result)
 
     @builtins.property
     def connect_campaign_flow_arn(self) -> typing.Optional[builtins.str]:
@@ -3934,38 +3934,38 @@ class CfnCampaignProps:
     @builtins.property
     def entry_limits_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EntryLimitsConfigProperty"]]:
         '''Entry limits config for a campaign.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-entrylimitsconfig
         '''
         result = self._values.get("entry_limits_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.EntryLimitsConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.EntryLimitsConfigProperty"]], result)
 
     @builtins.property
     def schedule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ScheduleProperty"]]:
         '''Contains the schedule configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-schedule
         '''
         result = self._values.get("schedule")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ScheduleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ScheduleProperty"]], result)
 
     @builtins.property
     def source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SourceProperty"]]:
         '''Contains source configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-source
         '''
         result = self._values.get("source")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SourceProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for this resource.
 
         For example, ``{ "tags": {"key1":"value1", "key2":"value2"} }`` .
@@ -3973,7 +3973,7 @@ class CfnCampaignProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaignsv2-campaign.html#cfn-connectcampaignsv2-campaign-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
@@ -4009,21 +4009,21 @@ def _typecheckingstub__228f2b3a0b621ad8a32effe36abeb2d513f50077bd0ad5de7f33f1ea8
     *,
     connect_instance_id: builtins.str,
     name: builtins.str,
-    channel_subtype_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    communication_limits_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    communication_time_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_subtype_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    communication_limits_override: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    communication_time_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
-    entry_limits_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entry_limits_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9fc69a65d7e6e3f42c04772f0ea86d7fe04188e3e9db32e64d4478bc1964e332(
-    resource: _ICampaignRef_408c1832,
+    resource: _aws_connectcampaignsv2_c3f57c4e.ICampaignRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4035,7 +4035,7 @@ def _typecheckingstub__f5e7fbab4dbaaa56b414f9d8ef055f52f7b21d16d5e38d7ccd0e211a4
     pass
 
 def _typecheckingstub__7a3569f68d4e1cebb6aa0c64e1d5986831e6aae0db4d29cfdc75c914d15ffdce(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4059,19 +4059,19 @@ def _typecheckingstub__8a6ee2c8ab1041b75d3fc61f47c640e057770a39c0cd0f8b43528a1df
     pass
 
 def _typecheckingstub__a5b5c43e63bf2a0bf41f238db2ecf2eed8032758072a77ebd8c459798f74fa0c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.ChannelSubtypeConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.ChannelSubtypeConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e9a4f9850d67cc76e259c5826fc9085afbf3a202dbe3ba9f6af537bfd18c830a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CommunicationLimitsConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.CommunicationLimitsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f04ec307144a013ae0d78d8747dea1d25d0ab7e9abc18aaab84c15553a5bb868(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CommunicationTimeConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.CommunicationTimeConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4083,25 +4083,25 @@ def _typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a
     pass
 
 def _typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.EntryLimitsConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.EntryLimitsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__96d94c4ddf36f3ab10421fbfcb861afdc6852b09a0b0783e33f602560dc90a87(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.ScheduleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.ScheduleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1dd88e602a1609757680509707feb43ec965d5628d820f7eb876dc6ac055b404(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.SourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.SourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7a5de836c29e94a66b86ab16ab9047f892319b5f0f4bb59a47dc977cdb0fb0b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4114,18 +4114,18 @@ def _typecheckingstub__fc91a952f7aebed17a437c26b2bcce43ed0f9a5f2aaaba7301baa654e
 
 def _typecheckingstub__cc9e20500646db1cdb84f99ed95755110a841a334cc195de359fe87f9f7051d5(
     *,
-    enable_answer_machine_detection: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_answer_machine_detection: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aae9c62c36e7d18a87df32d56bbdc6f7740c287aaac55c92832b7ca366aa6b5b(
     *,
-    email: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EmailChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SmsChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    telephony: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TelephonyChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    whats_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WhatsAppChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    email: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EmailChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SmsChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telephony: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TelephonyChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    whats_app: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.WhatsAppChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4141,7 +4141,7 @@ def _typecheckingstub__7a4b2b207bce63b0696bef9d14a808bcf3bd9ae2746f645e72a803481
 
 def _typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7a7d93be(
     *,
-    all_channels_subtypes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    all_channels_subtypes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_limits_handling: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4149,18 +4149,18 @@ def _typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7
 
 def _typecheckingstub__063b98187bfe10fef303f184ab9d1c8b1d41a5388eb6da2529b64fee8106550c(
     *,
-    communication_limit_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    communication_limit_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationLimitProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e3f2f2fbfc83eeac20d115af03889d47eb55561494e8fc488eeec30eb2e47752(
     *,
-    local_time_zone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.LocalTimeZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    email: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    telephony: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    whats_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_time_zone_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.LocalTimeZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    email: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telephony: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    whats_app: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4168,15 +4168,15 @@ def _typecheckingstub__e3f2f2fbfc83eeac20d115af03889d47eb55561494e8fc488eeec30eb
 def _typecheckingstub__35e6acb6b0c0424f51f610f7f0a2abd4c482306c13db09f191eae079682c9f5c(
     *,
     key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ff9274643abefe2ecd29ff0322f3b49479b574757b18fe4f15225f01a19ef7ea(
     *,
-    default_outbound_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EmailOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    outbound_mode: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EmailOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
+    default_outbound_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EmailOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    outbound_mode: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EmailOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4224,7 +4224,7 @@ def _typecheckingstub__c03234f264094d68479c6e1cf3801d50627e839a73b2f0cbeb95c8252
 
 def _typecheckingstub__9a34ace5bfcc35c52d69e6dd7ef3c38abf4d254290d5470f5104e49f2d115b39(
     *,
-    daily_hours: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DailyHourProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    daily_hours: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DailyHourProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4239,7 +4239,7 @@ def _typecheckingstub__a27014c548ec13c6446b07f461be7ed43556a2cb77433713ef38f272a
 def _typecheckingstub__18b1e139a46a0f962696d8f0b9855ce9765fe26cd9d798683a7176550e0dc592(
     *,
     bandwidth_allocation: jsii.Number,
-    timeout_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    timeout_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     agent_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4263,7 +4263,7 @@ def _typecheckingstub__4f2a36f6fa12d741457cf955ef79fa845b855e1b170b7ea44a157f8f1
 
 def _typecheckingstub__f30a61789fda85a4bb2aa71fc64566047bab737aa5220ee60d91e1e08d9a84dd(
     *,
-    restricted_period_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.RestrictedPeriodProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    restricted_period_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.RestrictedPeriodProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4279,8 +4279,8 @@ def _typecheckingstub__8b6a4567c8e5f09b06087beafe0e729f0ae431ebcefbe37d716e547d3
 
 def _typecheckingstub__b0d42ae0232d954af9167d51954642098f71dd226d554f1b2fab39b2c46726ee(
     *,
-    default_outbound_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SmsOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    outbound_mode: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SmsOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
+    default_outbound_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SmsOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    outbound_mode: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SmsOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4304,15 +4304,15 @@ def _typecheckingstub__67957d238e403659f29fa8bf2db2164d694d327a14b84df3d61c10b2b
 def _typecheckingstub__48dbe2dd9c0147e5b2bea173aba4c056f8a83ba308e89c654331a4a77f46636d(
     *,
     customer_profiles_segment_arn: typing.Optional[builtins.str] = None,
-    event_trigger: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EventTriggerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_trigger: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EventTriggerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19c776b12e28122b49a867e83503b94bf286d46879c32085c60a17f0213dc948(
     *,
-    default_outbound_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TelephonyOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    outbound_mode: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TelephonyOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
+    default_outbound_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TelephonyOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    outbound_mode: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TelephonyOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity: typing.Optional[jsii.Number] = None,
     connect_queue_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4322,7 +4322,7 @@ def _typecheckingstub__19c776b12e28122b49a867e83503b94bf286d46879c32085c60a17f02
 def _typecheckingstub__2751a1c01ea2bfaf5fe6806fe1a585daea66baf82d5fe0a4cec77a9b592d901a(
     *,
     connect_contact_flow_id: builtins.str,
-    answer_machine_detection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.AnswerMachineDetectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    answer_machine_detection_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.AnswerMachineDetectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_source_phone_number: typing.Optional[builtins.str] = None,
     ring_timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -4332,9 +4332,9 @@ def _typecheckingstub__2751a1c01ea2bfaf5fe6806fe1a585daea66baf82d5fe0a4cec77a9b5
 def _typecheckingstub__7582ea451819f82369b8beb09bc8c872c5424040d69392d7bc3ab56ee8813053(
     *,
     agentless_config: typing.Any = None,
-    predictive_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.PredictiveConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    preview_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.PreviewConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    progressive_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ProgressiveConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predictive_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.PredictiveConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preview_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.PreviewConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    progressive_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ProgressiveConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4349,8 +4349,8 @@ def _typecheckingstub__fbaac78f440293f26b08d1c7d41436b21833649d5569bb99f4e6c2bda
 
 def _typecheckingstub__738a8f46b804533de9d82348af38a0b7f7c37f641c9240bef005d4c22b396f09(
     *,
-    open_hours: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.OpenHoursProperty, typing.Dict[builtins.str, typing.Any]]],
-    restricted_periods: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.RestrictedPeriodsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_hours: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.OpenHoursProperty, typing.Dict[builtins.str, typing.Any]]],
+    restricted_periods: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.RestrictedPeriodsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4364,8 +4364,8 @@ def _typecheckingstub__50c6d60934a17c910bf659882748981ec00bd3f91d69165aff0db47e1
 
 def _typecheckingstub__ec41c9b0085cff69bc80fac9d57d4d4434d11dc74ea7465ba9644c3c93577737(
     *,
-    default_outbound_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WhatsAppOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    outbound_mode: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WhatsAppOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
+    default_outbound_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.WhatsAppOutboundConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    outbound_mode: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.WhatsAppOutboundModeProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4390,14 +4390,14 @@ def _typecheckingstub__3c58eb40b443fce35feb659905089795642547d367bd583cc8addd65c
     *,
     connect_instance_id: builtins.str,
     name: builtins.str,
-    channel_subtype_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    communication_limits_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    communication_time_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_subtype_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ChannelSubtypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    communication_limits_override: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    communication_time_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CommunicationTimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_campaign_flow_arn: typing.Optional[builtins.str] = None,
-    entry_limits_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entry_limits_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.EntryLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

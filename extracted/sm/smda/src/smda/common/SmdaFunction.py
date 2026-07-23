@@ -29,6 +29,11 @@ LOGGER = logging.getLogger(__name__)
 # (nibble-keep-mask) so that relocated instructions produce the same pic_hash.
 AARCH64_PIC_HASH_ESCAPE_VERSION = [4, 2, 0]
 
+# Intel PIC hashing changed in 4.3.5 when escapeBinary's immediate regex was widened
+# to match 64-bit immediates (previously truncated to the first 8 hex digits, so an
+# in-image mov r64, imm64 constant was never escaped and stayed relocation-variant).
+INTEL_PIC_HASH_ESCAPE_VERSION = [4, 3, 5]
+
 
 class LazyIntKeyDict(dict):
     def __new__(cls, data=None):
@@ -79,6 +84,22 @@ class LazyIntKeyDict(dict):
     def __contains__(self, key):
         self._convert()
         return dict.__contains__(self, key)
+
+    def __eq__(self, other):
+        self._convert()
+        if isinstance(other, LazyIntKeyDict):
+            other._convert()
+        return dict.__eq__(self, other)
+
+    def __ne__(self, other):
+        self._convert()
+        if isinstance(other, LazyIntKeyDict):
+            other._convert()
+        return dict.__ne__(self, other)
+
+    def __repr__(self):
+        self._convert()
+        return dict.__repr__(self)
 
     def get(self, key, default=None):
         self._convert()
@@ -582,6 +603,12 @@ class SmdaFunction:
                 not recalculate_pic_hash
                 and function_architecture == "aarch64"
                 and version < AARCH64_PIC_HASH_ESCAPE_VERSION
+            ):
+                recalculate_pic_hash = True
+            if (
+                not recalculate_pic_hash
+                and function_architecture == "intel"
+                and version < INTEL_PIC_HASH_ESCAPE_VERSION
             ):
                 recalculate_pic_hash = True
             if recalculate_pic_hash:

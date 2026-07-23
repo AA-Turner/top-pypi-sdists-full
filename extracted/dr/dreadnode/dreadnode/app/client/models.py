@@ -216,6 +216,7 @@ class SessionInfo:
     session_dir: str | None = None
     capability: str | None = None
     agent: str | None = None
+    model: str | None = None
     title: str | None = None
     preview: str | None = None
     policy_name: str = "interactive"
@@ -265,6 +266,7 @@ class SessionInfo:
             session_dir=str(data["session_dir"]) if data.get("session_dir") else None,
             capability=str(data["capability"]) if data.get("capability") else None,
             agent=str(data["agent"]) if data.get("agent") else None,
+            model=str(data["model"]) if data.get("model") else None,
             title=str(data["title"]) if data.get("title") else None,
             preview=str(data["preview"]) if data.get("preview") else None,
             policy_name=str(data.get("policy_name", "interactive")),

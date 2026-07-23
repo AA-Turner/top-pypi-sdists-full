@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_interconnect import (
-    ConnectionReference as _ConnectionReference_047fec56,
-    IConnectionRef as _IConnectionRef_0c40873a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_interconnect as _aws_interconnect_20857c52
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_interconnect_20857c52 = _LazyImport("aws_cdk.interfaces.aws_interconnect")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionRef_0c40873a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_interconnect_20857c52.IConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_interconnect.CfnConnection",
 ):
@@ -131,14 +125,14 @@ class CfnConnection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        attach_point: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AttachPointProperty", typing.Dict[builtins.str, typing.Any]]],
+        attach_point: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.AttachPointProperty", typing.Dict[builtins.str, typing.Any]]],
         activation_key: typing.Optional[builtins.str] = None,
         bandwidth: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         environment_id: typing.Optional[builtins.str] = None,
-        remote_account: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        remote_account: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_owner_account: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Interconnect::Connection``.
 
@@ -154,7 +148,7 @@ class CfnConnection(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5322b288c96cd17f9fbc54392674c0dccc316142d9aef64c4d019d598f73055c)
+            type_hints = cached_type_hints(_typecheckingstub__5322b288c96cd17f9fbc54392674c0dccc316142d9aef64c4d019d598f73055c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionProps(
@@ -172,12 +166,15 @@ class CfnConnection(
 
     @jsii.member(jsii_name="arnForConnection")
     @builtins.classmethod
-    def arn_for_connection(cls, resource: "_IConnectionRef_0c40873a") -> builtins.str:
+    def arn_for_connection(
+        cls,
+        resource: "_aws_interconnect_20857c52.IConnectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eac7fb1098204c93e8f09de8d57d46dcea98c572828c0892375111cbc6e86887)
+            type_hints = cached_type_hints(_typecheckingstub__eac7fb1098204c93e8f09de8d57d46dcea98c572828c0892375111cbc6e86887)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
 
@@ -189,18 +186,18 @@ class CfnConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ed20d9f56b8304bed259a8524a69b8f26458779e2ca99bef55d1392a7e5db03)
+            type_hints = cached_type_hints(_typecheckingstub__7ed20d9f56b8304bed259a8524a69b8f26458779e2ca99bef55d1392a7e5db03)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e437b186458bf9fb8c98d0499ca7e4edf0b54f2ffdeb0f43b50eb1412622741b)
+            type_hints = cached_type_hints(_typecheckingstub__e437b186458bf9fb8c98d0499ca7e4edf0b54f2ffdeb0f43b50eb1412622741b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -213,7 +210,7 @@ class CfnConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a6b9d3e4f8accf2e72caafac67f65894e3b9732d3f36f395fa94c06b31a3acb)
+            type_hints = cached_type_hints(_typecheckingstub__6a6b9d3e4f8accf2e72caafac67f65894e3b9732d3f36f395fa94c06b31a3acb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -261,12 +258,12 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="attrProvider")
-    def attr_provider(self) -> "_IResolvable_da3f097b":
+    def attr_provider(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The partner cloud service provider.
 
         :cloudformationAttribute: Provider
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrProvider"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProvider"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSharedId")
@@ -297,9 +294,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -313,25 +310,25 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_047fec56":
+    def connection_ref(self) -> "_aws_interconnect_20857c52.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_047fec56", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_interconnect_20857c52.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attachPoint")
     def attach_point(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnection.AttachPointProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AttachPointProperty"]:
         '''The logical attachment point in your AWS network where the managed connection will be connected.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnection.AttachPointProperty"], jsii.get(self, "attachPoint"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AttachPointProperty"], jsii.get(self, "attachPoint"))
 
     @attach_point.setter
     def attach_point(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnection.AttachPointProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AttachPointProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39c80d063ffb285bf84baa9239f57f5d87fc438aa3f332f516b2d65fb1ec4060)
+            type_hints = cached_type_hints(_typecheckingstub__39c80d063ffb285bf84baa9239f57f5d87fc438aa3f332f516b2d65fb1ec4060)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attachPoint", value) # pyright: ignore[reportArgumentType]
 
@@ -344,7 +341,7 @@ class CfnConnection(
     @activation_key.setter
     def activation_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8664aa84e91d29ecc699ec958553a69e044af56762112f809f6928150178dd21)
+            type_hints = cached_type_hints(_typecheckingstub__8664aa84e91d29ecc699ec958553a69e044af56762112f809f6928150178dd21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "activationKey", value) # pyright: ignore[reportArgumentType]
 
@@ -357,7 +354,7 @@ class CfnConnection(
     @bandwidth.setter
     def bandwidth(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ce84311dc1fd6f57c60190aa10351aaa48c21fbd679fbe809aefb6f7f25f95d)
+            type_hints = cached_type_hints(_typecheckingstub__7ce84311dc1fd6f57c60190aa10351aaa48c21fbd679fbe809aefb6f7f25f95d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bandwidth", value) # pyright: ignore[reportArgumentType]
 
@@ -370,7 +367,7 @@ class CfnConnection(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e22080276e4ef4897625bd06a5d83a96f9117b6bbe341f253670dbd3f925a6ae)
+            type_hints = cached_type_hints(_typecheckingstub__e22080276e4ef4897625bd06a5d83a96f9117b6bbe341f253670dbd3f925a6ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -383,7 +380,7 @@ class CfnConnection(
     @environment_id.setter
     def environment_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30654aa478a8acabb61aa09f432905f049778c774ffa31f2c091a08bc504b8e7)
+            type_hints = cached_type_hints(_typecheckingstub__30654aa478a8acabb61aa09f432905f049778c774ffa31f2c091a08bc504b8e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentId", value) # pyright: ignore[reportArgumentType]
 
@@ -391,17 +388,17 @@ class CfnConnection(
     @jsii.member(jsii_name="remoteAccount")
     def remote_account(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.RemoteAccountProperty"]]:
         '''The remote account identifier for the connection.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]], jsii.get(self, "remoteAccount"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.RemoteAccountProperty"]], jsii.get(self, "remoteAccount"))
 
     @remote_account.setter
     def remote_account(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.RemoteAccountProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc119233dd6ab664e727bbaa8b4cfc09635149aad9daf7d35b6f1496b3f7630e)
+            type_hints = cached_type_hints(_typecheckingstub__fc119233dd6ab664e727bbaa8b4cfc09635149aad9daf7d35b6f1496b3f7630e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "remoteAccount", value) # pyright: ignore[reportArgumentType]
 
@@ -419,20 +416,23 @@ class CfnConnection(
     @remote_owner_account.setter
     def remote_owner_account(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73cac1b1c84365dc4a0fec3786c9b3ed3dc6b6ee937776a548294d2b000bb848)
+            type_hints = cached_type_hints(_typecheckingstub__73cac1b1c84365dc4a0fec3786c9b3ed3dc6b6ee937776a548294d2b000bb848)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "remoteOwnerAccount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1af4d1b1015450c3da10b12c3a7fadb981f662fa7b38e03b6dd1718c96d24949)
+            type_hints = cached_type_hints(_typecheckingstub__1af4d1b1015450c3da10b12c3a7fadb981f662fa7b38e03b6dd1718c96d24949)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -468,7 +468,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__91163144a780d720177f5433f006c18ac1a50c0c43e4683613a19f41d4e14f42)
+                type_hints = cached_type_hints(_typecheckingstub__91163144a780d720177f5433f006c18ac1a50c0c43e4683613a19f41d4e14f42)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument direct_connect_gateway", value=direct_connect_gateway, expected_type=type_hints["direct_connect_gateway"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -541,7 +541,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e79d4c39ca0048c28c9c9e4ba53d1acb9c018bfd06ffdae81292fd94a39eeb5f)
+                type_hints = cached_type_hints(_typecheckingstub__e79d4c39ca0048c28c9c9e4ba53d1acb9c018bfd06ffdae81292fd94a39eeb5f)
                 check_type(argname="argument cloud_service_provider", value=cloud_service_provider, expected_type=type_hints["cloud_service_provider"])
                 check_type(argname="argument last_mile_provider", value=last_mile_provider, expected_type=type_hints["last_mile_provider"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -606,7 +606,7 @@ class CfnConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a6bc77c98392571754d9a62f8f27d8d9a1b87e5cbd17e73dfaf34789cc747f4)
+                type_hints = cached_type_hints(_typecheckingstub__4a6bc77c98392571754d9a62f8f27d8d9a1b87e5cbd17e73dfaf34789cc747f4)
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "identifier": identifier,
@@ -652,14 +652,14 @@ class CfnConnectionProps:
     def __init__(
         self,
         *,
-        attach_point: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AttachPointProperty", typing.Dict[builtins.str, typing.Any]]],
+        attach_point: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.AttachPointProperty", typing.Dict[builtins.str, typing.Any]]],
         activation_key: typing.Optional[builtins.str] = None,
         bandwidth: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         environment_id: typing.Optional[builtins.str] = None,
-        remote_account: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        remote_account: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_owner_account: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnection``.
 
@@ -704,7 +704,7 @@ class CfnConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d36102c989a8481b5f4d0aa7d5e93231210a776a41ca90ae2e2a0c1d6ec24e5)
+            type_hints = cached_type_hints(_typecheckingstub__3d36102c989a8481b5f4d0aa7d5e93231210a776a41ca90ae2e2a0c1d6ec24e5)
             check_type(argname="argument attach_point", value=attach_point, expected_type=type_hints["attach_point"])
             check_type(argname="argument activation_key", value=activation_key, expected_type=type_hints["activation_key"])
             check_type(argname="argument bandwidth", value=bandwidth, expected_type=type_hints["bandwidth"])
@@ -734,14 +734,14 @@ class CfnConnectionProps:
     @builtins.property
     def attach_point(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnection.AttachPointProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AttachPointProperty"]:
         '''The logical attachment point in your AWS network where the managed connection will be connected.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-attachpoint
         '''
         result = self._values.get("attach_point")
         assert result is not None, "Required property 'attach_point' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnection.AttachPointProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.AttachPointProperty"], result)
 
     @builtins.property
     def activation_key(self) -> typing.Optional[builtins.str]:
@@ -786,7 +786,7 @@ class CfnConnectionProps:
     @builtins.property
     def remote_account(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.RemoteAccountProperty"]]:
         '''The remote account identifier for the connection.
 
         Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
@@ -794,7 +794,7 @@ class CfnConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-remoteaccount
         '''
         result = self._values.get("remote_account")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnection.RemoteAccountProperty"]], result)
 
     @builtins.property
     def remote_owner_account(self) -> typing.Optional[builtins.str]:
@@ -811,13 +811,13 @@ class CfnConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -842,20 +842,20 @@ def _typecheckingstub__5322b288c96cd17f9fbc54392674c0dccc316142d9aef64c4d019d598
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    attach_point: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AttachPointProperty, typing.Dict[builtins.str, typing.Any]]],
+    attach_point: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.AttachPointProperty, typing.Dict[builtins.str, typing.Any]]],
     activation_key: typing.Optional[builtins.str] = None,
     bandwidth: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     environment_id: typing.Optional[builtins.str] = None,
-    remote_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    remote_account: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_owner_account: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eac7fb1098204c93e8f09de8d57d46dcea98c572828c0892375111cbc6e86887(
-    resource: _IConnectionRef_0c40873a,
+    resource: _aws_interconnect_20857c52.IConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -867,7 +867,7 @@ def _typecheckingstub__7ed20d9f56b8304bed259a8524a69b8f26458779e2ca99bef55d1392a
     pass
 
 def _typecheckingstub__e437b186458bf9fb8c98d0499ca7e4edf0b54f2ffdeb0f43b50eb1412622741b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -879,7 +879,7 @@ def _typecheckingstub__6a6b9d3e4f8accf2e72caafac67f65894e3b9732d3f36f395fa94c06b
     pass
 
 def _typecheckingstub__39c80d063ffb285bf84baa9239f57f5d87fc438aa3f332f516b2d65fb1ec4060(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnection.AttachPointProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnection.AttachPointProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -909,7 +909,7 @@ def _typecheckingstub__30654aa478a8acabb61aa09f432905f049778c774ffa31f2c091a08bc
     pass
 
 def _typecheckingstub__fc119233dd6ab664e727bbaa8b4cfc09635149aad9daf7d35b6f1496b3f7630e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.RemoteAccountProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnection.RemoteAccountProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -921,7 +921,7 @@ def _typecheckingstub__73cac1b1c84365dc4a0fec3786c9b3ed3dc6b6ee937776a548294d2b0
     pass
 
 def _typecheckingstub__1af4d1b1015450c3da10b12c3a7fadb981f662fa7b38e03b6dd1718c96d24949(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -951,14 +951,14 @@ def _typecheckingstub__4a6bc77c98392571754d9a62f8f27d8d9a1b87e5cbd17e73dfaf34789
 
 def _typecheckingstub__3d36102c989a8481b5f4d0aa7d5e93231210a776a41ca90ae2e2a0c1d6ec24e5(
     *,
-    attach_point: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AttachPointProperty, typing.Dict[builtins.str, typing.Any]]],
+    attach_point: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.AttachPointProperty, typing.Dict[builtins.str, typing.Any]]],
     activation_key: typing.Optional[builtins.str] = None,
     bandwidth: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     environment_id: typing.Optional[builtins.str] = None,
-    remote_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    remote_account: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_owner_account: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

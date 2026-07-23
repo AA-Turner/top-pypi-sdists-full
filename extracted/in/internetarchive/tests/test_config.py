@@ -30,8 +30,9 @@ def test_get_auth_config():
             "screenname":"jakej"
         },
         "version": 1}"""
-    responses.add(responses.POST, 'https://archive.org/services/xauthn/',
-                  body=test_body)
+    responses.add(
+        responses.POST, 'https://archive.org/services/xauthn/', body=test_body
+    )
     r = internetarchive.config.get_auth_config('test@example.com', 'password1')
     assert r['s3']['access'] == 'Ac3ssK3y'
     assert r['s3']['secret'] == 'S3cretK3y'
@@ -42,14 +43,18 @@ def test_get_auth_config():
 @responses.activate
 def test_get_auth_config_auth_fail():
     # No logged-in-sig cookie set raises AuthenticationError.
-    responses.add(responses.POST, 'https://archive.org/services/xauthn/',
-                  body='{"error": "failed"}')
+    responses.add(
+        responses.POST,
+        'https://archive.org/services/xauthn/',
+        body='{"error": "failed"}',
+    )
     try:
         r = internetarchive.config.get_auth_config('test@example.com', 'password1')
     except AuthenticationError as exc:
         return
-        assert str(exc) == ('Authentication failed. Please check your credentials '
-                            'and try again.')
+        assert str(exc) == (
+            'Authentication failed. Please check your credentials and try again.'
+        )
 
 
 def test_get_config():
@@ -58,19 +63,22 @@ def test_get_config():
 
 
 def test_get_config_with_config_file(tmpdir):
-    test_conf = ('[s3]\n'
-                 'access = test-access\n'
-                 'secret = test-secret\n'
-                 '[cookies]\n'
-                 'logged-in-sig = test-sig\n'
-                 'logged-in-user = test@archive.org\n')
+    test_conf = (
+        '[s3]\n'
+        'access = test-access\n'
+        'secret = test-secret\n'
+        '[cookies]\n'
+        'logged-in-sig = test-sig\n'
+        'logged-in-user = test@archive.org\n'
+    )
 
     tmpdir.chdir()
     with open('ia_test.ini', 'w') as fp:
         fp.write(test_conf)
 
-    config = internetarchive.config.get_config(config_file='ia_test.ini',
-                                               config={'custom': 'test'})
+    config = internetarchive.config.get_config(
+        config_file='ia_test.ini', config={'custom': 'test'}
+    )
     assert config['cookies']['logged-in-sig'] == 'test-sig'
     assert config['cookies']['logged-in-user'] == 'test@archive.org'
     assert config['s3']['access'] == 'test-access'
@@ -79,8 +87,8 @@ def test_get_config_with_config_file(tmpdir):
 
 
 def test_get_config_no_config_file():
-    os.environ['HOME'] = ''
-    config = internetarchive.config.get_config()
+    with _environ(HOME='', XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
+        config = internetarchive.config.get_config()
     assert config == {}
 
 
@@ -96,8 +104,8 @@ def test_get_config_with_config():
         },
     }
 
-    os.environ['HOME'] = ''
-    config = internetarchive.config.get_config(config=test_conf)
+    with _environ(HOME='', XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
+        config = internetarchive.config.get_config(config=test_conf)
     assert config['cookies']['logged-in-sig'] == 'test-sig'
     assert config['cookies']['logged-in-user'] == 'test@archive.org'
     assert config['s3']['access'] == 'custom-access'
@@ -105,8 +113,8 @@ def test_get_config_with_config():
 
 
 def test_get_config_home_not_set():
-    os.environ['HOME'] = '/none'
-    config = internetarchive.config.get_config()
+    with _environ(HOME='/none', XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
+        config = internetarchive.config.get_config()
     assert isinstance(config, dict)
 
 
@@ -117,20 +125,22 @@ def test_get_config_home_not_set_with_config():
             'secret': 'no-home-secret',
         },
     }
-    os.environ['HOME'] = '/none'
-    config = internetarchive.config.get_config(config=test_conf)
+    with _environ(HOME='/none', XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
+        config = internetarchive.config.get_config(config=test_conf)
     assert isinstance(config, dict)
     assert config['s3']['access'] == 'no-home-access'
     assert config['s3']['secret'] == 'no-home-secret'
 
 
 def test_get_config_config_and_config_file(tmpdir):
-    test_conf = ('[s3]\n'
-                 'access = test-access\n'
-                 'secret = test-secret\n'
-                 '[cookies]\n'
-                 'logged-in-sig = test-sig\n'
-                 'logged-in-user = test@archive.org\n')
+    test_conf = (
+        '[s3]\n'
+        'access = test-access\n'
+        'secret = test-secret\n'
+        '[cookies]\n'
+        'logged-in-sig = test-sig\n'
+        'logged-in-user = test@archive.org\n'
+    )
 
     tmpdir.chdir()
 
@@ -148,8 +158,9 @@ def test_get_config_config_and_config_file(tmpdir):
         },
     }
     del test_conf['s3']['access']
-    config = internetarchive.config.get_config(config_file='ia_test.ini',
-                                               config=test_conf)
+    config = internetarchive.config.get_config(
+        config_file='ia_test.ini', config=test_conf
+    )
     assert config['cookies']['logged-in-sig'] == 'test-sig'
     assert config['cookies']['logged-in-user'] == 'test@archive.org'
     assert config['s3']['access'] == 'test-access'
@@ -158,41 +169,48 @@ def test_get_config_config_and_config_file(tmpdir):
 
 @contextlib.contextmanager
 def _environ(**kwargs):
+    # A value of None means "ensure the variable is unset".
     old_values = {k: os.environ.get(k) for k in kwargs}
     try:
         for k, v in kwargs.items():
             if v is not None:
                 os.environ[k] = v
             else:
-                del os.environ[k]
+                os.environ.pop(k, None)
         yield
     finally:
         for k, v in old_values.items():
             if v is not None:
                 os.environ[k] = v
             else:
-                del os.environ[k]
+                os.environ.pop(k, None)
 
 
 def _test_parse_config_file(
-        expected_result,
-        config_file_contents='',
-        config_file_paths=None,
-        home=None,
-        xdg_config_home=None,
-        config_file_param=None):
+    expected_result,
+    config_file_contents='',
+    config_file_paths=None,
+    home=None,
+    xdg_config_home=None,
+    config_file_param=None,
+    ia_config_file=None,
+):
     # expected_result: (config_file_path, is_xdg); config isn't compared.
     # config_file_contents: str
     # config_file_paths: list of filenames to write config_file_contents to
     # home: str, override HOME env var; default: path of the temporary dir
-    # xdg_config_home: str, set XDG_CONFIG_HOME
+    # xdg_config_home: str, set XDG_CONFIG_HOME; unset if None
     # config_file_param: str, filename to pass to parse_config_file
+    # ia_config_file: str, set IA_CONFIG_FILE; unset if None
     # All paths starting with '$TMPTESTDIR/' get evaluated relative to the temp dir.
+    # XDG_CONFIG_HOME and IA_CONFIG_FILE are cleared unless explicitly given, so
+    # the host environment (e.g. GitHub runners set XDG_CONFIG_HOME) can't leak in.
 
     if not config_file_paths:
         config_file_paths = []
 
     with tempfile.TemporaryDirectory() as tmp_test_dir:
+
         def _replace_path(s):
             if s and s.startswith('$TMPTESTDIR/'):
                 return os.path.join(tmp_test_dir, s.split('/', 1)[1])
@@ -211,12 +229,15 @@ def _test_parse_config_file(
 
         if home is None:
             home = tmp_test_dir
-        env = {'HOME': home}
-        if xdg_config_home is not None:
-            env['XDG_CONFIG_HOME'] = xdg_config_home
+        env = {
+            'HOME': home,
+            'XDG_CONFIG_HOME': xdg_config_home,
+            'IA_CONFIG_FILE': ia_config_file,
+        }
         with _environ(**env):
-            config_file_path, is_xdg, _config = internetarchive.config.parse_config_file(
-                config_file=config_file_param)
+            config_file_path, is_xdg, _config = (
+                internetarchive.config.parse_config_file(config_file=config_file_param)
+            )
 
     assert (config_file_path, is_xdg) == expected_result[0:2]
 
@@ -254,7 +275,7 @@ def test_parse_config_file_existing_all():
         config_file_paths=[
             '$TMPTESTDIR/.config/internetarchive/ia.ini',
             '$TMPTESTDIR/.config/ia.ini',
-            '$TMPTESTDIR/.ia'
+            '$TMPTESTDIR/.ia',
         ],
     )
 
@@ -288,33 +309,34 @@ def test_parse_config_file_direct_path_overrides_existing_files():
         config_file_paths=[
             '$TMPTESTDIR/.config/internetarchive/ia.ini',
             '$TMPTESTDIR/.config/ia.ini',
-            '$TMPTESTDIR/.ia'
+            '$TMPTESTDIR/.ia',
         ],
         config_file_param='/path/to/ia.ini',
     )
 
 
 def test_parse_config_file_with_environment_variable():
-    with _environ(IA_CONFIG_FILE='/inexistent.ia.ini'):
-        _test_parse_config_file(
-            expected_result=('/inexistent.ia.ini', False),
-        )
+    _test_parse_config_file(
+        expected_result=('/inexistent.ia.ini', False),
+        ia_config_file='/inexistent.ia.ini',
+    )
 
 
 def test_parse_config_file_with_environment_variable_and_parameter():
-    with _environ(IA_CONFIG_FILE='/inexistent.ia.ini'):
-        _test_parse_config_file(
-            expected_result=('/inexistent.other.ia.ini', False),
-            config_file_param='/inexistent.other.ia.ini',
-        )
+    _test_parse_config_file(
+        expected_result=('/inexistent.other.ia.ini', False),
+        config_file_param='/inexistent.other.ia.ini',
+        ia_config_file='/inexistent.ia.ini',
+    )
 
 
 def _test_write_config_file(
-        expected_config_file,
-        expected_modes,
-        dirs=None,
-        create_expected_file=False,
-        config_file_param=None):
+    expected_config_file,
+    expected_modes,
+    dirs=None,
+    create_expected_file=False,
+    config_file_param=None,
+):
     # expected_config_file: str
     # expected_modes: list of (path, mode) tuples
     # dirs: list of str, directories to create before running write_config_file
@@ -328,10 +350,12 @@ def _test_write_config_file(
         expected_config_file = os.path.join(temp_home_dir, expected_config_file)
         if dirs:
             dirs = [os.path.join(temp_home_dir, d) for d in dirs]
-        expected_modes = [(os.path.join(temp_home_dir, p), m) for p, m in expected_modes]
+        expected_modes = [
+            (os.path.join(temp_home_dir, p), m) for p, m in expected_modes
+        ]
         if config_file_param:
             config_file_param = os.path.join(temp_home_dir, config_file_param)
-        with _environ(HOME=temp_home_dir):
+        with _environ(HOME=temp_home_dir, XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
             # Need to account for the umask in the expected_modes comparisons.
             # The umask can't just be retrieved, so set and then restore previous value.
             umask = os.umask(0)
@@ -342,7 +366,9 @@ def _test_write_config_file(
             if create_expected_file:
                 with open(expected_config_file, 'w') as fp:
                     os.chmod(expected_config_file, 0o777)
-            config_file = internetarchive.config.write_config_file({}, config_file_param)
+            config_file = internetarchive.config.write_config_file(
+                {}, config_file_param
+            )
             assert config_file == expected_config_file
             assert os.path.isfile(config_file)
             for path, mode in expected_modes:
@@ -432,7 +458,7 @@ def test_write_config_file_custom_path_existing():
 def test_write_config_file_custom_path_not_existing():
     """Ensure that an exception is thrown if the custom path dir doesn't exist"""
     with tempfile.TemporaryDirectory() as temp_home_dir:
-        with _environ(HOME=temp_home_dir):
+        with _environ(HOME=temp_home_dir, XDG_CONFIG_HOME=None, IA_CONFIG_FILE=None):
             config_file = os.path.join(temp_home_dir, 'foo/ia.ini')
             with pytest.raises(IOError):
                 internetarchive.config.write_config_file({}, config_file)

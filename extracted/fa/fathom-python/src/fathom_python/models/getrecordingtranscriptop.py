@@ -5,14 +5,14 @@ from .callbackresponse import CallbackResponse, CallbackResponseTypedDict
 from .transcriptitem import TranscriptItem, TranscriptItemTypedDict
 from fathom_python.types import BaseModel
 from fathom_python.utils import FieldMetadata, PathParamMetadata, QueryParamMetadata
-from typing import List, Union
-from typing_extensions import Annotated, TypeAliasType, TypedDict
+from typing import List, Optional, Union
+from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
 
 class GetRecordingTranscriptRequestTypedDict(TypedDict):
     recording_id: int
     r"""The ID of the meeting recording to fetch the transcript for."""
-    destination_url: str
+    destination_url: NotRequired[str]
     r"""Destination URL for where we'll POST the transcript. If not sent, this endpoint will return the data directly."""
 
 
@@ -23,8 +23,9 @@ class GetRecordingTranscriptRequest(BaseModel):
     r"""The ID of the meeting recording to fetch the transcript for."""
 
     destination_url: Annotated[
-        str, FieldMetadata(query=QueryParamMetadata(style="form", explode=True))
-    ]
+        Optional[str],
+        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
+    ] = None
     r"""Destination URL for where we'll POST the transcript. If not sent, this endpoint will return the data directly."""
 
 

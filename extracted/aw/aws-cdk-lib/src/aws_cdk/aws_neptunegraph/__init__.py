@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,48 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_neptunegraph import (
-    GraphReference as _GraphReference_cf154cc8,
-    GraphSnapshotReference as _GraphSnapshotReference_e2527c22,
-    IGraphRef as _IGraphRef_799f5749,
-    IGraphSnapshotRef as _IGraphSnapshotRef_845bb971,
-    IPrivateGraphEndpointRef as _IPrivateGraphEndpointRef_2aef1eff,
-    PrivateGraphEndpointReference as _PrivateGraphEndpointReference_1f09acbb,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_neptunegraph as _aws_neptunegraph_1ac4a341
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_neptunegraph_1ac4a341 = _LazyImport("aws_cdk.interfaces.aws_neptunegraph")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IGraphRef_799f5749, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptunegraph_1ac4a341.IGraphRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGraph(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph",
 ):
@@ -135,13 +125,13 @@ class CfnGraph(
         id: builtins.str,
         *,
         provisioned_memory: jsii.Number,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        public_connectivity: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        public_connectivity: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vector_search_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraph.VectorSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_search_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.VectorSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NeptuneGraph::Graph``.
 
@@ -157,7 +147,7 @@ class CfnGraph(
         :param vector_search_configuration: Specifies the number of dimensions for vector embeddings that will be loaded into the graph. The value is specified as ``dimension=`` value. Max = 65,535
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89330e04b)
+            type_hints = cached_type_hints(_typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89330e04b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGraphProps(
@@ -175,12 +165,15 @@ class CfnGraph(
 
     @jsii.member(jsii_name="arnForGraph")
     @builtins.classmethod
-    def arn_for_graph(cls, resource: "_IGraphRef_799f5749") -> builtins.str:
+    def arn_for_graph(
+        cls,
+        resource: "_aws_neptunegraph_1ac4a341.IGraphRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c6900d1428655c3b11dde92fc61e291887db2224b4c48e95c00434783fbaa82)
+            type_hints = cached_type_hints(_typecheckingstub__7c6900d1428655c3b11dde92fc61e291887db2224b4c48e95c00434783fbaa82)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGraph", [resource]))
 
@@ -192,18 +185,18 @@ class CfnGraph(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__662fdced53feab93a21bfab8705f4ece37d75547b77b86412aa52a5e0ffea475)
+            type_hints = cached_type_hints(_typecheckingstub__662fdced53feab93a21bfab8705f4ece37d75547b77b86412aa52a5e0ffea475)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGraph", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf52fbc1feb3cff366f97eb4e18219365009dc4166140b56dc094f0ff30060e4)
+            type_hints = cached_type_hints(_typecheckingstub__bf52fbc1feb3cff366f97eb4e18219365009dc4166140b56dc094f0ff30060e4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -216,7 +209,7 @@ class CfnGraph(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a52af3501a45e0012cf5459541c03326347319e68fa62eb909482cdc27da744c)
+            type_hints = cached_type_hints(_typecheckingstub__a52af3501a45e0012cf5459541c03326347319e68fa62eb909482cdc27da744c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -261,9 +254,9 @@ class CfnGraph(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -277,9 +270,9 @@ class CfnGraph(
 
     @builtins.property
     @jsii.member(jsii_name="graphRef")
-    def graph_ref(self) -> "_GraphReference_cf154cc8":
+    def graph_ref(self) -> "_aws_neptunegraph_1ac4a341.GraphReference":
         '''A reference to a Graph resource.'''
-        return typing.cast("_GraphReference_cf154cc8", jsii.get(self, "graphRef"))
+        return typing.cast("_aws_neptunegraph_1ac4a341.GraphReference", jsii.get(self, "graphRef"))
 
     @builtins.property
     @jsii.member(jsii_name="provisionedMemory")
@@ -290,7 +283,7 @@ class CfnGraph(
     @provisioned_memory.setter
     def provisioned_memory(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be08bf40b529ebc7ced68a048b332cc2239437062acb120b333ae55ee1a28087)
+            type_hints = cached_type_hints(_typecheckingstub__be08bf40b529ebc7ced68a048b332cc2239437062acb120b333ae55ee1a28087)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisionedMemory", value) # pyright: ignore[reportArgumentType]
 
@@ -298,17 +291,17 @@ class CfnGraph(
     @jsii.member(jsii_name="deletionProtection")
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A value that indicates whether the graph has deletion protection enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deletionProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
     def deletion_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d4dc803566213a64093ff7c2e80aeb4a54bbf259b51aa0f56875846630453c9)
+            type_hints = cached_type_hints(_typecheckingstub__8d4dc803566213a64093ff7c2e80aeb4a54bbf259b51aa0f56875846630453c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -324,7 +317,7 @@ class CfnGraph(
     @graph_name.setter
     def graph_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e36e1cbffa42257001fdc31d1dd6378f3a98ce8e7f3bcd68a4772b9cb33cbbe7)
+            type_hints = cached_type_hints(_typecheckingstub__e36e1cbffa42257001fdc31d1dd6378f3a98ce8e7f3bcd68a4772b9cb33cbbe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "graphName", value) # pyright: ignore[reportArgumentType]
 
@@ -337,7 +330,7 @@ class CfnGraph(
     @kms_key_identifier.setter
     def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586)
+            type_hints = cached_type_hints(_typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -345,20 +338,20 @@ class CfnGraph(
     @jsii.member(jsii_name="publicConnectivity")
     def public_connectivity(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether or not the graph can be reachable over the internet.
 
         All access to graphs is IAM authenticated.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publicConnectivity"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "publicConnectivity"))
 
     @public_connectivity.setter
     def public_connectivity(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9704e1ee452151e117b8f45f27e9257936bf4012fb73bd4445e9f623dce33af6)
+            type_hints = cached_type_hints(_typecheckingstub__9704e1ee452151e117b8f45f27e9257936bf4012fb73bd4445e9f623dce33af6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publicConnectivity", value) # pyright: ignore[reportArgumentType]
 
@@ -371,20 +364,23 @@ class CfnGraph(
     @replica_count.setter
     def replica_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f28b1503d0209026da409a25c88bd8a02abf6c3c5ad8dd42afd261c716df1e27)
+            type_hints = cached_type_hints(_typecheckingstub__f28b1503d0209026da409a25c88bd8a02abf6c3c5ad8dd42afd261c716df1e27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicaCount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Adds metadata tags to the new graph.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49f939472207baf1bb12ed3155e6d6c9c7b0a5427a254d271f09e144b617f439)
+            type_hints = cached_type_hints(_typecheckingstub__49f939472207baf1bb12ed3155e6d6c9c7b0a5427a254d271f09e144b617f439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -392,17 +388,17 @@ class CfnGraph(
     @jsii.member(jsii_name="vectorSearchConfiguration")
     def vector_search_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGraph.VectorSearchConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.VectorSearchConfigurationProperty"]]:
         '''Specifies the number of dimensions for vector embeddings that will be loaded into the graph.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGraph.VectorSearchConfigurationProperty"]], jsii.get(self, "vectorSearchConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.VectorSearchConfigurationProperty"]], jsii.get(self, "vectorSearchConfiguration"))
 
     @vector_search_configuration.setter
     def vector_search_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGraph.VectorSearchConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.VectorSearchConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f52f361f4f645382b2e53faccee1b1e685b8665ddcc9f188eae9dec9c26ae9af)
+            type_hints = cached_type_hints(_typecheckingstub__f52f361f4f645382b2e53faccee1b1e685b8665ddcc9f188eae9dec9c26ae9af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorSearchConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -431,7 +427,7 @@ class CfnGraph(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a4625f08e1fb2af5a059a020fbbe4f9b64ced8f30cb593a275b3af90d3b579b)
+                type_hints = cached_type_hints(_typecheckingstub__0a4625f08e1fb2af5a059a020fbbe4f9b64ced8f30cb593a275b3af90d3b579b)
                 check_type(argname="argument vector_search_dimension", value=vector_search_dimension, expected_type=type_hints["vector_search_dimension"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "vector_search_dimension": vector_search_dimension,
@@ -478,13 +474,13 @@ class CfnGraphProps:
         self,
         *,
         provisioned_memory: jsii.Number,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        public_connectivity: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        public_connectivity: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vector_search_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGraph.VectorSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_search_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.VectorSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGraph``.
 
@@ -526,7 +522,7 @@ class CfnGraphProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71)
+            type_hints = cached_type_hints(_typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71)
             check_type(argname="argument provisioned_memory", value=provisioned_memory, expected_type=type_hints["provisioned_memory"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument graph_name", value=graph_name, expected_type=type_hints["graph_name"])
@@ -568,7 +564,7 @@ class CfnGraphProps:
     @builtins.property
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A value that indicates whether the graph has deletion protection enabled.
 
         The graph can't be deleted when deletion protection is enabled.
@@ -576,7 +572,7 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-deletionprotection
         '''
         result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def graph_name(self) -> typing.Optional[builtins.str]:
@@ -605,7 +601,7 @@ class CfnGraphProps:
     @builtins.property
     def public_connectivity(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated.
 
         When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC.
@@ -618,7 +614,7 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-publicconnectivity
         '''
         result = self._values.get("public_connectivity")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def replica_count(self) -> typing.Optional[jsii.Number]:
@@ -632,7 +628,7 @@ class CfnGraphProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Adds metadata tags to the new graph.
 
         These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
@@ -640,12 +636,12 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vector_search_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGraph.VectorSearchConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.VectorSearchConfigurationProperty"]]:
         '''Specifies the number of dimensions for vector embeddings that will be loaded into the graph.
 
         The value is specified as ``dimension=`` value. Max = 65,535
@@ -653,7 +649,7 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-vectorsearchconfiguration
         '''
         result = self._values.get("vector_search_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGraph.VectorSearchConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.VectorSearchConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -667,9 +663,9 @@ class CfnGraphProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGraphSnapshotRef_845bb971, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptunegraph_1ac4a341.IGraphSnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGraphSnapshot(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphSnapshot",
 ):
@@ -705,7 +701,7 @@ class CfnGraphSnapshot(
         *,
         graph_identifier: builtins.str,
         snapshot_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NeptuneGraph::GraphSnapshot``.
 
@@ -716,7 +712,7 @@ class CfnGraphSnapshot(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca21783091)
+            type_hints = cached_type_hints(_typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca21783091)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGraphSnapshotProps(
@@ -729,13 +725,13 @@ class CfnGraphSnapshot(
     @builtins.classmethod
     def arn_for_graph_snapshot(
         cls,
-        resource: "_IGraphSnapshotRef_845bb971",
+        resource: "_aws_neptunegraph_1ac4a341.IGraphSnapshotRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aff3a2c55c3bbe27cabdbfaa250e29f997c15921435adb7a60a31f2f31fca5c)
+            type_hints = cached_type_hints(_typecheckingstub__2aff3a2c55c3bbe27cabdbfaa250e29f997c15921435adb7a60a31f2f31fca5c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGraphSnapshot", [resource]))
 
@@ -747,18 +743,18 @@ class CfnGraphSnapshot(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e2bd7fcc1af7512968450d56fdf837bfd34ea119dd1947bf8f40cb404864066)
+            type_hints = cached_type_hints(_typecheckingstub__8e2bd7fcc1af7512968450d56fdf837bfd34ea119dd1947bf8f40cb404864066)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGraphSnapshot", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__284080f94127e9c5751055c8ea194858d64a90afce11d6e15332d395ce48ce5a)
+            type_hints = cached_type_hints(_typecheckingstub__284080f94127e9c5751055c8ea194858d64a90afce11d6e15332d395ce48ce5a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -771,7 +767,7 @@ class CfnGraphSnapshot(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__366a7e3e25a64a38592f5cf1a057d02a05e8a02c41172807c4bc20679afd3737)
+            type_hints = cached_type_hints(_typecheckingstub__366a7e3e25a64a38592f5cf1a057d02a05e8a02c41172807c4bc20679afd3737)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -828,9 +824,9 @@ class CfnGraphSnapshot(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -844,9 +840,9 @@ class CfnGraphSnapshot(
 
     @builtins.property
     @jsii.member(jsii_name="graphSnapshotRef")
-    def graph_snapshot_ref(self) -> "_GraphSnapshotReference_e2527c22":
+    def graph_snapshot_ref(self) -> "_aws_neptunegraph_1ac4a341.GraphSnapshotReference":
         '''A reference to a GraphSnapshot resource.'''
-        return typing.cast("_GraphSnapshotReference_e2527c22", jsii.get(self, "graphSnapshotRef"))
+        return typing.cast("_aws_neptunegraph_1ac4a341.GraphSnapshotReference", jsii.get(self, "graphSnapshotRef"))
 
     @builtins.property
     @jsii.member(jsii_name="graphIdentifier")
@@ -857,7 +853,7 @@ class CfnGraphSnapshot(
     @graph_identifier.setter
     def graph_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
+            type_hints = cached_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -870,20 +866,23 @@ class CfnGraphSnapshot(
     @snapshot_name.setter
     def snapshot_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd)
+            type_hints = cached_type_hints(_typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9)
+            type_hints = cached_type_hints(_typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -903,7 +902,7 @@ class CfnGraphSnapshotProps:
         *,
         graph_identifier: builtins.str,
         snapshot_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGraphSnapshot``.
 
@@ -933,7 +932,7 @@ class CfnGraphSnapshotProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c)
+            type_hints = cached_type_hints(_typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c)
             check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
             check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -965,13 +964,13 @@ class CfnGraphSnapshotProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -985,9 +984,9 @@ class CfnGraphSnapshotProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPrivateGraphEndpointRef_2aef1eff)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptunegraph_1ac4a341.IPrivateGraphEndpointRef)
 class CfnPrivateGraphEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptunegraph.CfnPrivateGraphEndpoint",
 ):
@@ -1038,7 +1037,7 @@ class CfnPrivateGraphEndpoint(
         :param subnet_ids: Subnets in which private graph endpoint ENIs are created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01fbeae7e1567a93f602c30b996e949980cb85f4a6668a45a57e1fc68b7c6e1c)
+            type_hints = cached_type_hints(_typecheckingstub__01fbeae7e1567a93f602c30b996e949980cb85f4a6668a45a57e1fc68b7c6e1c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPrivateGraphEndpointProps(
@@ -1058,18 +1057,18 @@ class CfnPrivateGraphEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfd209f3d87c37a5a51e5ade8b2de4174a1ca2ccc4a29860df749049641c96cb)
+            type_hints = cached_type_hints(_typecheckingstub__cfd209f3d87c37a5a51e5ade8b2de4174a1ca2ccc4a29860df749049641c96cb)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrivateGraphEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb2f8751fc71246393259a24b1f5b2dbf9fcd4b4b036f2fbc0dd9c938d27ed6b)
+            type_hints = cached_type_hints(_typecheckingstub__cb2f8751fc71246393259a24b1f5b2dbf9fcd4b4b036f2fbc0dd9c938d27ed6b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1082,7 +1081,7 @@ class CfnPrivateGraphEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8799795ac3d65adbbfd8af3b354287148d6f330fe76c184e9d21cc479404fe7c)
+            type_hints = cached_type_hints(_typecheckingstub__8799795ac3d65adbbfd8af3b354287148d6f330fe76c184e9d21cc479404fe7c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1126,9 +1125,11 @@ class CfnPrivateGraphEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="privateGraphEndpointRef")
-    def private_graph_endpoint_ref(self) -> "_PrivateGraphEndpointReference_1f09acbb":
+    def private_graph_endpoint_ref(
+        self,
+    ) -> "_aws_neptunegraph_1ac4a341.PrivateGraphEndpointReference":
         '''A reference to a PrivateGraphEndpoint resource.'''
-        return typing.cast("_PrivateGraphEndpointReference_1f09acbb", jsii.get(self, "privateGraphEndpointRef"))
+        return typing.cast("_aws_neptunegraph_1ac4a341.PrivateGraphEndpointReference", jsii.get(self, "privateGraphEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="graphIdentifier")
@@ -1139,7 +1140,7 @@ class CfnPrivateGraphEndpoint(
     @graph_identifier.setter
     def graph_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c521eedd758be47324602ff294b6442e60a3e36064525b070eda655dce79b56)
+            type_hints = cached_type_hints(_typecheckingstub__3c521eedd758be47324602ff294b6442e60a3e36064525b070eda655dce79b56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -1152,7 +1153,7 @@ class CfnPrivateGraphEndpoint(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cead657efa4cbd411fd2fce0f1d5a3ce1d6da29415a8974e2a94651164cccd)
+            type_hints = cached_type_hints(_typecheckingstub__c8cead657efa4cbd411fd2fce0f1d5a3ce1d6da29415a8974e2a94651164cccd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -1168,7 +1169,7 @@ class CfnPrivateGraphEndpoint(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__682bcd6c1c60a24355d9121c725518329acfd29ac4c1e75c30476fa597fb3235)
+            type_hints = cached_type_hints(_typecheckingstub__682bcd6c1c60a24355d9121c725518329acfd29ac4c1e75c30476fa597fb3235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1181,7 +1182,7 @@ class CfnPrivateGraphEndpoint(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4fc8bb9e26efd06ea5bc87d6e7358de98fcb83d1fb96fc3f74ed77165366cd5)
+            type_hints = cached_type_hints(_typecheckingstub__b4fc8bb9e26efd06ea5bc87d6e7358de98fcb83d1fb96fc3f74ed77165366cd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1231,7 +1232,7 @@ class CfnPrivateGraphEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186)
+            type_hints = cached_type_hints(_typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186)
             check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -1311,19 +1312,19 @@ def _typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89
     id: builtins.str,
     *,
     provisioned_memory: jsii.Number,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     graph_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    public_connectivity: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_search_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7c6900d1428655c3b11dde92fc61e291887db2224b4c48e95c00434783fbaa82(
-    resource: _IGraphRef_799f5749,
+    resource: _aws_neptunegraph_1ac4a341.IGraphRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1335,7 +1336,7 @@ def _typecheckingstub__662fdced53feab93a21bfab8705f4ece37d75547b77b86412aa52a5e0
     pass
 
 def _typecheckingstub__bf52fbc1feb3cff366f97eb4e18219365009dc4166140b56dc094f0ff30060e4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1353,7 +1354,7 @@ def _typecheckingstub__be08bf40b529ebc7ced68a048b332cc2239437062acb120b333ae55ee
     pass
 
 def _typecheckingstub__8d4dc803566213a64093ff7c2e80aeb4a54bbf259b51aa0f56875846630453c9(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1371,7 +1372,7 @@ def _typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84
     pass
 
 def _typecheckingstub__9704e1ee452151e117b8f45f27e9257936bf4012fb73bd4445e9f623dce33af6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1383,13 +1384,13 @@ def _typecheckingstub__f28b1503d0209026da409a25c88bd8a02abf6c3c5ad8dd42afd261c71
     pass
 
 def _typecheckingstub__49f939472207baf1bb12ed3155e6d6c9c7b0a5427a254d271f09e144b617f439(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f52f361f4f645382b2e53faccee1b1e685b8665ddcc9f188eae9dec9c26ae9af(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGraph.VectorSearchConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGraph.VectorSearchConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1404,13 +1405,13 @@ def _typecheckingstub__0a4625f08e1fb2af5a059a020fbbe4f9b64ced8f30cb593a275b3af90
 def _typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71(
     *,
     provisioned_memory: jsii.Number,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     graph_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    public_connectivity: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_search_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1421,13 +1422,13 @@ def _typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca2
     *,
     graph_identifier: builtins.str,
     snapshot_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2aff3a2c55c3bbe27cabdbfaa250e29f997c15921435adb7a60a31f2f31fca5c(
-    resource: _IGraphSnapshotRef_845bb971,
+    resource: _aws_neptunegraph_1ac4a341.IGraphSnapshotRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1439,7 +1440,7 @@ def _typecheckingstub__8e2bd7fcc1af7512968450d56fdf837bfd34ea119dd1947bf8f40cb40
     pass
 
 def _typecheckingstub__284080f94127e9c5751055c8ea194858d64a90afce11d6e15332d395ce48ce5a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1463,7 +1464,7 @@ def _typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a
     pass
 
 def _typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1472,7 +1473,7 @@ def _typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db
     *,
     graph_identifier: builtins.str,
     snapshot_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1496,7 +1497,7 @@ def _typecheckingstub__cfd209f3d87c37a5a51e5ade8b2de4174a1ca2ccc4a29860df7490496
     pass
 
 def _typecheckingstub__cb2f8751fc71246393259a24b1f5b2dbf9fcd4b4b036f2fbc0dd9c938d27ed6b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

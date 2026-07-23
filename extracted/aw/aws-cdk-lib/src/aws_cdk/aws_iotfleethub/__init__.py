@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,43 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iotfleethub import (
-    ApplicationReference as _ApplicationReference_5cf37b87,
-    IApplicationRef as _IApplicationRef_acbdc0fc,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iotfleethub as _aws_iotfleethub_cf9efdf5
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iotfleethub_cf9efdf5 = _LazyImport("aws_cdk.interfaces.aws_iotfleethub")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_acbdc0fc, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleethub_cf9efdf5.IApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleethub.CfnApplication",
 ):
@@ -112,7 +107,7 @@ class CfnApplication(
         application_name: builtins.str,
         role_arn: builtins.str,
         application_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetHub::Application``.
 
@@ -124,7 +119,7 @@ class CfnApplication(
         :param tags: A set of key/value pairs that you can use to manage the web application resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0980596631cbe713d270d139797274438ec1f918af98c8c9381e0d2b26b29f4)
+            type_hints = cached_type_hints(_typecheckingstub__b0980596631cbe713d270d139797274438ec1f918af98c8c9381e0d2b26b29f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
@@ -138,12 +133,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_acbdc0fc") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_iotfleethub_cf9efdf5.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daddc7bf9dbe9c634b123431ba51b43c538323ae78e1edf32af6df6d5684ecca)
+            type_hints = cached_type_hints(_typecheckingstub__daddc7bf9dbe9c634b123431ba51b43c538323ae78e1edf32af6df6d5684ecca)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -155,18 +153,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0cf5b706d06c0dd6b1e93b0309f4e55fd74c03a64b97a9ac60c848b9632643d)
+            type_hints = cached_type_hints(_typecheckingstub__b0cf5b706d06c0dd6b1e93b0309f4e55fd74c03a64b97a9ac60c848b9632643d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d788f8f33dfde95e87a2d7f9c9fe70c4519c3ce0b5ec69fbc24f19aada67864)
+            type_hints = cached_type_hints(_typecheckingstub__4d788f8f33dfde95e87a2d7f9c9fe70c4519c3ce0b5ec69fbc24f19aada67864)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -179,7 +177,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__442f80064aa13b6df7fa4a39c9c398987c00bb4bb6cb7b2999daf383d0ad97a6)
+            type_hints = cached_type_hints(_typecheckingstub__442f80064aa13b6df7fa4a39c9c398987c00bb4bb6cb7b2999daf383d0ad97a6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -191,9 +189,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_5cf37b87":
+    def application_ref(self) -> "_aws_iotfleethub_cf9efdf5.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_5cf37b87", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_iotfleethub_cf9efdf5.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -281,9 +279,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -294,7 +292,7 @@ class CfnApplication(
     @application_name.setter
     def application_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__627c8d52ac876c82fff86c2f2362dd3074e6324726664f6476b1dfad7bb57a38)
+            type_hints = cached_type_hints(_typecheckingstub__627c8d52ac876c82fff86c2f2362dd3074e6324726664f6476b1dfad7bb57a38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -307,7 +305,7 @@ class CfnApplication(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dffcb7cd6f26450a156f43406a23266d95946e948b339f1a118cdf665741cbc6)
+            type_hints = cached_type_hints(_typecheckingstub__dffcb7cd6f26450a156f43406a23266d95946e948b339f1a118cdf665741cbc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -320,20 +318,23 @@ class CfnApplication(
     @application_description.setter
     def application_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d72c646dc51aafdf0fd091cd5157b37d4b41fa584fc63ffd301d847b1acd6030)
+            type_hints = cached_type_hints(_typecheckingstub__d72c646dc51aafdf0fd091cd5157b37d4b41fa584fc63ffd301d847b1acd6030)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationDescription", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of key/value pairs that you can use to manage the web application resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b43c026e02cc2c3b3b72623cb3ba7d19a57e7fc258e370d84051f810254158d)
+            type_hints = cached_type_hints(_typecheckingstub__7b43c026e02cc2c3b3b72623cb3ba7d19a57e7fc258e370d84051f810254158d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -355,7 +356,7 @@ class CfnApplicationProps:
         application_name: builtins.str,
         role_arn: builtins.str,
         application_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
@@ -387,7 +388,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433)
+            type_hints = cached_type_hints(_typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
@@ -437,13 +438,13 @@ class CfnApplicationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of key/value pairs that you can use to manage the web application resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -471,13 +472,13 @@ def _typecheckingstub__b0980596631cbe713d270d139797274438ec1f918af98c8c9381e0d2b
     application_name: builtins.str,
     role_arn: builtins.str,
     application_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__daddc7bf9dbe9c634b123431ba51b43c538323ae78e1edf32af6df6d5684ecca(
-    resource: _IApplicationRef_acbdc0fc,
+    resource: _aws_iotfleethub_cf9efdf5.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -489,7 +490,7 @@ def _typecheckingstub__b0cf5b706d06c0dd6b1e93b0309f4e55fd74c03a64b97a9ac60c848b9
     pass
 
 def _typecheckingstub__4d788f8f33dfde95e87a2d7f9c9fe70c4519c3ce0b5ec69fbc24f19aada67864(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -519,7 +520,7 @@ def _typecheckingstub__d72c646dc51aafdf0fd091cd5157b37d4b41fa584fc63ffd301d847b1
     pass
 
 def _typecheckingstub__7b43c026e02cc2c3b3b72623cb3ba7d19a57e7fc258e370d84051f810254158d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -529,7 +530,7 @@ def _typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9
     application_name: builtins.str,
     role_arn: builtins.str,
     application_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

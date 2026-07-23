@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,69 +40,44 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-    IVPCRef as _IVPCRef_f02a11df,
-)
-from ..interfaces.aws_emr import (
-    ClusterReference as _ClusterReference_090aa1e1,
-    IClusterRef as _IClusterRef_bdda5e5c,
-    IInstanceFleetConfigRef as _IInstanceFleetConfigRef_5e9ddfa4,
-    IInstanceGroupConfigRef as _IInstanceGroupConfigRef_36d51a37,
-    ISecurityConfigurationRef as _ISecurityConfigurationRef_fa75e801,
-    IStepRef as _IStepRef_0555f3e7,
-    IStudioRef as _IStudioRef_7dcfa17b,
-    IStudioSessionMappingRef as _IStudioSessionMappingRef_95665000,
-    IWALWorkspaceRef as _IWALWorkspaceRef_3581ba04,
-    InstanceFleetConfigReference as _InstanceFleetConfigReference_cd00a6a7,
-    InstanceGroupConfigReference as _InstanceGroupConfigReference_3f22feb5,
-    SecurityConfigurationReference as _SecurityConfigurationReference_b5113def,
-    StepReference as _StepReference_33646d42,
-    StudioReference as _StudioReference_c68370f9,
-    StudioSessionMappingReference as _StudioSessionMappingReference_88a23d15,
-    WALWorkspaceReference as _WALWorkspaceReference_4058c36e,
-)
-from ..interfaces.aws_iam import (
-    IManagedPolicyRef as _IManagedPolicyRef_a7a65687, IRoleRef as _IRoleRef_8400221f
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_emr as _aws_emr_b5476279
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_emr_b5476279 = _LazyImport("aws_cdk.interfaces.aws_emr")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IClusterRef_bdda5e5c, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnCluster",
 ):
@@ -124,33 +101,33 @@ class CfnCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        instances: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.JobFlowInstancesConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        instances: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.JobFlowInstancesConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         job_flow_role: builtins.str,
         name: builtins.str,
         service_role: builtins.str,
         additional_info: typing.Any = None,
-        applications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        applications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         auto_scaling_role: typing.Optional[builtins.str] = None,
-        auto_termination_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.AutoTerminationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bootstrap_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.BootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        auto_termination_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AutoTerminationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bootstrap_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.BootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_ami_id: typing.Optional[builtins.str] = None,
         ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
         ebs_root_volume_size: typing.Optional[jsii.Number] = None,
         ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-        kerberos_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.KerberosAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kerberos_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KerberosAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
         log_uri: typing.Optional[builtins.str] = None,
-        managed_scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ManagedScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ManagedScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         os_release_label: typing.Optional[builtins.str] = None,
-        placement_group_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.PlacementGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        placement_group_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.PlacementGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         release_label: typing.Optional[builtins.str] = None,
         scale_down_behavior: typing.Optional[builtins.str] = None,
         security_configuration: typing.Optional[builtins.str] = None,
         step_concurrency_level: typing.Optional[jsii.Number] = None,
-        steps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        steps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::EMR::Cluster``.
 
@@ -185,7 +162,7 @@ class CfnCluster(
         :param visible_to_all_users: Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__078ec582504b982aedaecb6e8181c3cf53ae51c1b43cd59a31f8379e104620a3)
+            type_hints = cached_type_hints(_typecheckingstub__078ec582504b982aedaecb6e8181c3cf53ae51c1b43cd59a31f8379e104620a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(
@@ -222,12 +199,12 @@ class CfnCluster(
 
     @jsii.member(jsii_name="arnForCluster")
     @builtins.classmethod
-    def arn_for_cluster(cls, resource: "_IClusterRef_bdda5e5c") -> builtins.str:
+    def arn_for_cluster(cls, resource: "_aws_emr_b5476279.IClusterRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab2709723877d7011eafccda10941b963db87bb16d93e9b593904ed03178f54a)
+            type_hints = cached_type_hints(_typecheckingstub__ab2709723877d7011eafccda10941b963db87bb16d93e9b593904ed03178f54a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCluster", [resource]))
 
@@ -238,7 +215,7 @@ class CfnCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cluster_id: builtins.str,
-    ) -> "_IClusterRef_bdda5e5c":
+    ) -> "_aws_emr_b5476279.IClusterRef":
         '''Creates a new IClusterRef from a clusterId.
 
         :param scope: -
@@ -246,11 +223,11 @@ class CfnCluster(
         :param cluster_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e27223ababb66815a1fc03ea8f520f2c9e326c44c677e676f3e8d3e626d3f88)
+            type_hints = cached_type_hints(_typecheckingstub__2e27223ababb66815a1fc03ea8f520f2c9e326c44c677e676f3e8d3e626d3f88)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-        return typing.cast("_IClusterRef_bdda5e5c", jsii.sinvoke(cls, "fromClusterId", [scope, id, cluster_id]))
+        return typing.cast("_aws_emr_b5476279.IClusterRef", jsii.sinvoke(cls, "fromClusterId", [scope, id, cluster_id]))
 
     @jsii.member(jsii_name="isCfnCluster")
     @builtins.classmethod
@@ -260,18 +237,18 @@ class CfnCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e2068f0d08a08db7a7984082b1d6b1883955eb8b1fca11994b23a2d3376106a)
+            type_hints = cached_type_hints(_typecheckingstub__5e2068f0d08a08db7a7984082b1d6b1883955eb8b1fca11994b23a2d3376106a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bbe2decc930b4772f0407223e119030f3892221da6840065798499363723d31)
+            type_hints = cached_type_hints(_typecheckingstub__7bbe2decc930b4772f0407223e119030f3892221da6840065798499363723d31)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -284,7 +261,7 @@ class CfnCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee2b9fd8d133889786966e4e13fa9f42593ed4a152172b2a5f46f008717ed56a)
+            type_hints = cached_type_hints(_typecheckingstub__ee2b9fd8d133889786966e4e13fa9f42593ed4a152172b2a5f46f008717ed56a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -324,15 +301,15 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> "_ClusterReference_090aa1e1":
+    def cluster_ref(self) -> "_aws_emr_b5476279.ClusterReference":
         '''A reference to a Cluster resource.'''
-        return typing.cast("_ClusterReference_090aa1e1", jsii.get(self, "clusterRef"))
+        return typing.cast("_aws_emr_b5476279.ClusterReference", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="additionalInfo")
@@ -343,7 +320,7 @@ class CfnCluster(
     @additional_info.setter
     def additional_info(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
+            type_hints = cached_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalInfo", value) # pyright: ignore[reportArgumentType]
 
@@ -351,17 +328,17 @@ class CfnCluster(
     @jsii.member(jsii_name="instances")
     def instances(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.JobFlowInstancesConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.JobFlowInstancesConfigProperty"]:
         '''A specification of the number and type of Amazon EC2 instances.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.JobFlowInstancesConfigProperty"], jsii.get(self, "instances"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.JobFlowInstancesConfigProperty"], jsii.get(self, "instances"))
 
     @instances.setter
     def instances(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCluster.JobFlowInstancesConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.JobFlowInstancesConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3db10eb80ac95a4595d858fdb0ef7856bf908495b5881a437e2418e12ef04e2f)
+            type_hints = cached_type_hints(_typecheckingstub__3db10eb80ac95a4595d858fdb0ef7856bf908495b5881a437e2418e12ef04e2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instances", value) # pyright: ignore[reportArgumentType]
 
@@ -374,7 +351,7 @@ class CfnCluster(
     @job_flow_role.setter
     def job_flow_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97d15d32b487b49d5a8c2e21737709401b2e456ae4a474e281d2be42453fe4e5)
+            type_hints = cached_type_hints(_typecheckingstub__97d15d32b487b49d5a8c2e21737709401b2e456ae4a474e281d2be42453fe4e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobFlowRole", value) # pyright: ignore[reportArgumentType]
 
@@ -387,7 +364,7 @@ class CfnCluster(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f422fb80835fbbe27ca5ef52cdf0b51d324e042c174b5bbf7f5b6c241f060238)
+            type_hints = cached_type_hints(_typecheckingstub__f422fb80835fbbe27ca5ef52cdf0b51d324e042c174b5bbf7f5b6c241f060238)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -400,7 +377,7 @@ class CfnCluster(
     @service_role.setter
     def service_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711)
+            type_hints = cached_type_hints(_typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
 
@@ -408,17 +385,17 @@ class CfnCluster(
     @jsii.member(jsii_name="applications")
     def applications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ApplicationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ApplicationProperty"]]]]:
         '''The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ApplicationProperty"]]]], jsii.get(self, "applications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ApplicationProperty"]]]], jsii.get(self, "applications"))
 
     @applications.setter
     def applications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ApplicationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ApplicationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4e5be2002d09889a797c9582ab789359945687c870580656dbe722e89affc8a)
+            type_hints = cached_type_hints(_typecheckingstub__e4e5be2002d09889a797c9582ab789359945687c870580656dbe722e89affc8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applications", value) # pyright: ignore[reportArgumentType]
 
@@ -431,7 +408,7 @@ class CfnCluster(
     @auto_scaling_role.setter
     def auto_scaling_role(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__220e0794f7e50696a7bce5f1cf4265710a3841db26e170a75b462acb7db4953a)
+            type_hints = cached_type_hints(_typecheckingstub__220e0794f7e50696a7bce5f1cf4265710a3841db26e170a75b462acb7db4953a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingRole", value) # pyright: ignore[reportArgumentType]
 
@@ -439,17 +416,17 @@ class CfnCluster(
     @jsii.member(jsii_name="autoTerminationPolicy")
     def auto_termination_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoTerminationPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoTerminationPolicyProperty"]]:
         '''An auto-termination policy for an Amazon EMR cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoTerminationPolicyProperty"]], jsii.get(self, "autoTerminationPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoTerminationPolicyProperty"]], jsii.get(self, "autoTerminationPolicy"))
 
     @auto_termination_policy.setter
     def auto_termination_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoTerminationPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoTerminationPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e8b03bd44a0739c6fca421ce3e85b26ae46c02940e43a578dfece166b4cbb3)
+            type_hints = cached_type_hints(_typecheckingstub__a9e8b03bd44a0739c6fca421ce3e85b26ae46c02940e43a578dfece166b4cbb3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoTerminationPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -457,17 +434,17 @@ class CfnCluster(
     @jsii.member(jsii_name="bootstrapActions")
     def bootstrap_actions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.BootstrapActionConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BootstrapActionConfigProperty"]]]]:
         '''A list of bootstrap actions to run before Hadoop starts on the cluster nodes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.BootstrapActionConfigProperty"]]]], jsii.get(self, "bootstrapActions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BootstrapActionConfigProperty"]]]], jsii.get(self, "bootstrapActions"))
 
     @bootstrap_actions.setter
     def bootstrap_actions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.BootstrapActionConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BootstrapActionConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07a761eb62509f84f3cbdff36a01487f8fb05f47b8241a831edf6b50a7bbaff9)
+            type_hints = cached_type_hints(_typecheckingstub__07a761eb62509f84f3cbdff36a01487f8fb05f47b8241a831edf6b50a7bbaff9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bootstrapActions", value) # pyright: ignore[reportArgumentType]
 
@@ -475,17 +452,17 @@ class CfnCluster(
     @jsii.member(jsii_name="configurations")
     def configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]]:
         '''Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]], jsii.get(self, "configurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]], jsii.get(self, "configurations"))
 
     @configurations.setter
     def configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4961b9c02eb65b76747f3388b3687aa1f18bf2da62820618bea64915a04b6954)
+            type_hints = cached_type_hints(_typecheckingstub__4961b9c02eb65b76747f3388b3687aa1f18bf2da62820618bea64915a04b6954)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurations", value) # pyright: ignore[reportArgumentType]
 
@@ -498,7 +475,7 @@ class CfnCluster(
     @custom_ami_id.setter
     def custom_ami_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a91e39dff57dc0abc6e50e192e054139d45c74fc3bc1945999d3f9468c228a5)
+            type_hints = cached_type_hints(_typecheckingstub__6a91e39dff57dc0abc6e50e192e054139d45c74fc3bc1945999d3f9468c228a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customAmiId", value) # pyright: ignore[reportArgumentType]
 
@@ -511,7 +488,7 @@ class CfnCluster(
     @ebs_root_volume_iops.setter
     def ebs_root_volume_iops(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54a5180c93c70a8f43ed9835c3357a42eafc25f6dc6c5aa034d474e2f615dd1f)
+            type_hints = cached_type_hints(_typecheckingstub__54a5180c93c70a8f43ed9835c3357a42eafc25f6dc6c5aa034d474e2f615dd1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsRootVolumeIops", value) # pyright: ignore[reportArgumentType]
 
@@ -524,7 +501,7 @@ class CfnCluster(
     @ebs_root_volume_size.setter
     def ebs_root_volume_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec1be0c0b7c99ca4316b39ef88877cc04569c66abbd6ae83da0946947f1bf063)
+            type_hints = cached_type_hints(_typecheckingstub__ec1be0c0b7c99ca4316b39ef88877cc04569c66abbd6ae83da0946947f1bf063)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsRootVolumeSize", value) # pyright: ignore[reportArgumentType]
 
@@ -537,7 +514,7 @@ class CfnCluster(
     @ebs_root_volume_throughput.setter
     def ebs_root_volume_throughput(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__951b4ef3a48c5da248736a1dd98ab6d527bce3f6de302ca2d84d41ee7e213288)
+            type_hints = cached_type_hints(_typecheckingstub__951b4ef3a48c5da248736a1dd98ab6d527bce3f6de302ca2d84d41ee7e213288)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsRootVolumeThroughput", value) # pyright: ignore[reportArgumentType]
 
@@ -545,17 +522,17 @@ class CfnCluster(
     @jsii.member(jsii_name="kerberosAttributes")
     def kerberos_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.KerberosAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KerberosAttributesProperty"]]:
         '''Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.KerberosAttributesProperty"]], jsii.get(self, "kerberosAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KerberosAttributesProperty"]], jsii.get(self, "kerberosAttributes"))
 
     @kerberos_attributes.setter
     def kerberos_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.KerberosAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KerberosAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb6e8fa078ddb5d5ca597385e37e266a7ee1587d10523bea725cff21909211bd)
+            type_hints = cached_type_hints(_typecheckingstub__fb6e8fa078ddb5d5ca597385e37e266a7ee1587d10523bea725cff21909211bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kerberosAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -568,7 +545,7 @@ class CfnCluster(
     @log_encryption_kms_key_id.setter
     def log_encryption_kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1529c639be8052f81bd05a31b6b01a4b1b48080f7c84fe0c477a646c6ce50a4e)
+            type_hints = cached_type_hints(_typecheckingstub__1529c639be8052f81bd05a31b6b01a4b1b48080f7c84fe0c477a646c6ce50a4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logEncryptionKmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -581,7 +558,7 @@ class CfnCluster(
     @log_uri.setter
     def log_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c8b1a2acb54ad4aaccda0d0052a50ac533bed40115aa8e00fc6fd90bb390c42)
+            type_hints = cached_type_hints(_typecheckingstub__5c8b1a2acb54ad4aaccda0d0052a50ac533bed40115aa8e00fc6fd90bb390c42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logUri", value) # pyright: ignore[reportArgumentType]
 
@@ -589,17 +566,17 @@ class CfnCluster(
     @jsii.member(jsii_name="managedScalingPolicy")
     def managed_scaling_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ManagedScalingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ManagedScalingPolicyProperty"]]:
         '''Creates or updates a managed scaling policy for an Amazon EMR cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ManagedScalingPolicyProperty"]], jsii.get(self, "managedScalingPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ManagedScalingPolicyProperty"]], jsii.get(self, "managedScalingPolicy"))
 
     @managed_scaling_policy.setter
     def managed_scaling_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ManagedScalingPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ManagedScalingPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5679f4b15ba00e5797a6ca36888a09881f956e47615cd9f237382bdc765ab756)
+            type_hints = cached_type_hints(_typecheckingstub__5679f4b15ba00e5797a6ca36888a09881f956e47615cd9f237382bdc765ab756)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedScalingPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -612,7 +589,7 @@ class CfnCluster(
     @os_release_label.setter
     def os_release_label(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d4c0fd8467e6006f700dcbf1ba5095561e1d0287c44dc0c0a3753aaeb3d7d14)
+            type_hints = cached_type_hints(_typecheckingstub__6d4c0fd8467e6006f700dcbf1ba5095561e1d0287c44dc0c0a3753aaeb3d7d14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "osReleaseLabel", value) # pyright: ignore[reportArgumentType]
 
@@ -620,16 +597,16 @@ class CfnCluster(
     @jsii.member(jsii_name="placementGroupConfigs")
     def placement_group_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]], jsii.get(self, "placementGroupConfigs"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementGroupConfigProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementGroupConfigProperty"]]]], jsii.get(self, "placementGroupConfigs"))
 
     @placement_group_configs.setter
     def placement_group_configs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementGroupConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__398553fa8e4e3f5661ed1198260a3a1fcc13ee30c6c2bc59bacdcffe873be756)
+            type_hints = cached_type_hints(_typecheckingstub__398553fa8e4e3f5661ed1198260a3a1fcc13ee30c6c2bc59bacdcffe873be756)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "placementGroupConfigs", value) # pyright: ignore[reportArgumentType]
 
@@ -642,7 +619,7 @@ class CfnCluster(
     @release_label.setter
     def release_label(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34f4881cac49b58e2914939050f8e5a864a826f6035515c68f81b50fc7b14ded)
+            type_hints = cached_type_hints(_typecheckingstub__34f4881cac49b58e2914939050f8e5a864a826f6035515c68f81b50fc7b14ded)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "releaseLabel", value) # pyright: ignore[reportArgumentType]
 
@@ -655,7 +632,7 @@ class CfnCluster(
     @scale_down_behavior.setter
     def scale_down_behavior(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__443405bdf72dbf025ed25339eeb1475e84c960ad6bef75c4e466da4f43b5863b)
+            type_hints = cached_type_hints(_typecheckingstub__443405bdf72dbf025ed25339eeb1475e84c960ad6bef75c4e466da4f43b5863b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scaleDownBehavior", value) # pyright: ignore[reportArgumentType]
 
@@ -668,7 +645,7 @@ class CfnCluster(
     @security_configuration.setter
     def security_configuration(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__882ded38da76716522321aa83b05c78696444dba276a265637df5234777b2852)
+            type_hints = cached_type_hints(_typecheckingstub__882ded38da76716522321aa83b05c78696444dba276a265637df5234777b2852)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -681,7 +658,7 @@ class CfnCluster(
     @step_concurrency_level.setter
     def step_concurrency_level(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0c077452ad77e4b3be4546305a02b64cce648e3837e39a0361e2855285b9db9)
+            type_hints = cached_type_hints(_typecheckingstub__c0c077452ad77e4b3be4546305a02b64cce648e3837e39a0361e2855285b9db9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stepConcurrencyLevel", value) # pyright: ignore[reportArgumentType]
 
@@ -689,30 +666,33 @@ class CfnCluster(
     @jsii.member(jsii_name="steps")
     def steps(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.StepConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StepConfigProperty"]]]]:
         '''A list of steps to run.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.StepConfigProperty"]]]], jsii.get(self, "steps"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StepConfigProperty"]]]], jsii.get(self, "steps"))
 
     @steps.setter
     def steps(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.StepConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StepConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6535ae4fb40b89a54ff36a07d45179b7d6e5504f674a8a532cde5bea87edd59e)
+            type_hints = cached_type_hints(_typecheckingstub__6535ae4fb40b89a54ff36a07d45179b7d6e5504f674a8a532cde5bea87edd59e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "steps", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags associated with a cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4038da1c46af7e2d9b50fc2521906fa041359d46aa05b24162a709acb1504d63)
+            type_hints = cached_type_hints(_typecheckingstub__4038da1c46af7e2d9b50fc2521906fa041359d46aa05b24162a709acb1504d63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -720,17 +700,17 @@ class CfnCluster(
     @jsii.member(jsii_name="visibleToAllUsers")
     def visible_to_all_users(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "visibleToAllUsers"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "visibleToAllUsers"))
 
     @visible_to_all_users.setter
     def visible_to_all_users(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3181237e04f1f3e57ab37ac5dcdd9cf1f158ae1015ef97f820a75179d324a382)
+            type_hints = cached_type_hints(_typecheckingstub__3181237e04f1f3e57ab37ac5dcdd9cf1f158ae1015ef97f820a75179d324a382)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visibleToAllUsers", value) # pyright: ignore[reportArgumentType]
 
@@ -748,7 +728,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            additional_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            additional_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             args: typing.Optional[typing.Sequence[builtins.str]] = None,
             name: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
@@ -785,7 +765,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf8b605c327fe9a55d7a90674524f316b8f070940e929c53e1c966b8f68a18e5)
+                type_hints = cached_type_hints(_typecheckingstub__cf8b605c327fe9a55d7a90674524f316b8f070940e929c53e1c966b8f68a18e5)
                 check_type(argname="argument additional_info", value=additional_info, expected_type=type_hints["additional_info"])
                 check_type(argname="argument args", value=args, expected_type=type_hints["args"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -803,7 +783,7 @@ class CfnCluster(
         @builtins.property
         def additional_info(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''This option is for advanced users only.
 
             This is meta information about clusters and applications that are used for testing and troubleshooting.
@@ -811,7 +791,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-application.html#cfn-emr-cluster-application-additionalinfo
             '''
             result = self._values.get("additional_info")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def args(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -860,8 +840,8 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            constraints: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScalingConstraintsProperty", typing.Dict[builtins.str, typing.Any]]],
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScalingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            constraints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScalingConstraintsProperty", typing.Dict[builtins.str, typing.Any]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScalingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` .
 
@@ -923,7 +903,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8aa5bb304f42582274159985dd72e5294f3a513707f7460a42aafb194433c6af)
+                type_hints = cached_type_hints(_typecheckingstub__8aa5bb304f42582274159985dd72e5294f3a513707f7460a42aafb194433c6af)
                 check_type(argname="argument constraints", value=constraints, expected_type=type_hints["constraints"])
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -934,7 +914,7 @@ class CfnCluster(
         @builtins.property
         def constraints(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingConstraintsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingConstraintsProperty"]:
             '''The upper and lower Amazon EC2 instance limits for an automatic scaling policy.
 
             Automatic scaling activity will not cause an instance group to grow above or below these limits.
@@ -943,19 +923,19 @@ class CfnCluster(
             '''
             result = self._values.get("constraints")
             assert result is not None, "Required property 'constraints' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingConstraintsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingConstraintsProperty"], result)
 
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingRuleProperty"]]]:
             '''The scale-in and scale-out rules that comprise the automatic scaling policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-autoscalingpolicy.html#cfn-emr-cluster-autoscalingpolicy-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -999,7 +979,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__118dc21c4af3ce0236b744a2f6b058f706aa70e288450a8771ef8efb27c9245c)
+                type_hints = cached_type_hints(_typecheckingstub__118dc21c4af3ce0236b744a2f6b058f706aa70e288450a8771ef8efb27c9245c)
                 check_type(argname="argument idle_timeout", value=idle_timeout, expected_type=type_hints["idle_timeout"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if idle_timeout is not None:
@@ -1040,7 +1020,7 @@ class CfnCluster(
             self,
             *,
             name: builtins.str,
-            script_bootstrap_action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScriptBootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            script_bootstrap_action: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScriptBootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''``BootstrapActionConfig`` is a property of ``AWS::EMR::Cluster`` that can be used to run bootstrap actions on EMR clusters.
 
@@ -1069,7 +1049,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8aa9f35ad922816267708196f89ee674f80a176c000f51f281f78aeea56c3575)
+                type_hints = cached_type_hints(_typecheckingstub__8aa9f35ad922816267708196f89ee674f80a176c000f51f281f78aeea56c3575)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument script_bootstrap_action", value=script_bootstrap_action, expected_type=type_hints["script_bootstrap_action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1090,14 +1070,14 @@ class CfnCluster(
         @builtins.property
         def script_bootstrap_action(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ScriptBootstrapActionConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScriptBootstrapActionConfigProperty"]:
             '''The script run by the bootstrap action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-bootstrapactionconfig.html#cfn-emr-cluster-bootstrapactionconfig-scriptbootstrapaction
             '''
             result = self._values.get("script_bootstrap_action")
             assert result is not None, "Required property 'script_bootstrap_action' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ScriptBootstrapActionConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScriptBootstrapActionConfigProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1133,7 +1113,7 @@ class CfnCluster(
             metric_name: builtins.str,
             period: jsii.Number,
             threshold: jsii.Number,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             evaluation_periods: typing.Optional[jsii.Number] = None,
             namespace: typing.Optional[builtins.str] = None,
             statistic: typing.Optional[builtins.str] = None,
@@ -1180,7 +1160,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0c6e9b1e6ddd9e7394a707f10838024730233a6162319152afb182065f469e4)
+                type_hints = cached_type_hints(_typecheckingstub__b0c6e9b1e6ddd9e7394a707f10838024730233a6162319152afb182065f469e4)
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -1252,13 +1232,13 @@ class CfnCluster(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricDimensionProperty"]]]]:
             '''A CloudWatch metric dimension.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchalarmdefinition.html#cfn-emr-cluster-cloudwatchalarmdefinition-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricDimensionProperty"]]]], result)
 
         @builtins.property
         def evaluation_periods(self) -> typing.Optional[jsii.Number]:
@@ -1366,7 +1346,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ecc8cf0c083fcbbc2c4e1910146ba4c6c959a6e36991ec830a52e0262a1b06e8)
+                type_hints = cached_type_hints(_typecheckingstub__ecc8cf0c083fcbbc2c4e1910146ba4c6c959a6e36991ec830a52e0262a1b06e8)
                 check_type(argname="argument maximum_capacity_units", value=maximum_capacity_units, expected_type=type_hints["maximum_capacity_units"])
                 check_type(argname="argument minimum_capacity_units", value=minimum_capacity_units, expected_type=type_hints["minimum_capacity_units"])
                 check_type(argname="argument unit_type", value=unit_type, expected_type=type_hints["unit_type"])
@@ -1463,8 +1443,8 @@ class CfnCluster(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configuration_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''.. epigraph::
 
@@ -1496,7 +1476,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__762e4654096c644b1ccf34d3832fa5e53cc3647761f6d0a0ed19865f7efb39db)
+                type_hints = cached_type_hints(_typecheckingstub__762e4654096c644b1ccf34d3832fa5e53cc3647761f6d0a0ed19865f7efb39db)
                 check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
                 check_type(argname="argument configuration_properties", value=configuration_properties, expected_type=type_hints["configuration_properties"])
                 check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
@@ -1520,24 +1500,24 @@ class CfnCluster(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''A list of additional configurations to apply within a configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-configuration.html#cfn-emr-cluster-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]]:
             '''A list of additional configurations to apply within a configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-configuration.html#cfn-emr-cluster-configuration-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1562,7 +1542,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            volume_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            volume_specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
             volumes_per_instance: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''``EbsBlockDeviceConfig`` is a subproperty of the ``EbsConfiguration`` property type.
@@ -1596,7 +1576,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5126d3ffa8a013f43ff9f99f79a23a9a3d3aa03919b6fe5d784b7a28817bf3f0)
+                type_hints = cached_type_hints(_typecheckingstub__5126d3ffa8a013f43ff9f99f79a23a9a3d3aa03919b6fe5d784b7a28817bf3f0)
                 check_type(argname="argument volume_specification", value=volume_specification, expected_type=type_hints["volume_specification"])
                 check_type(argname="argument volumes_per_instance", value=volumes_per_instance, expected_type=type_hints["volumes_per_instance"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1608,14 +1588,14 @@ class CfnCluster(
         @builtins.property
         def volume_specification(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.VolumeSpecificationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.VolumeSpecificationProperty"]:
             '''EBS volume specifications such as volume type, IOPS, size (GiB) and throughput (MiB/s) that are requested for the EBS volume attached to an Amazon EC2 instance in the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-ebsblockdeviceconfig.html#cfn-emr-cluster-ebsblockdeviceconfig-volumespecification
             '''
             result = self._values.get("volume_specification")
             assert result is not None, "Required property 'volume_specification' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.VolumeSpecificationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.VolumeSpecificationProperty"], result)
 
         @builtins.property
         def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
@@ -1649,8 +1629,8 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            ebs_block_device_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ebs_block_device_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''``EbsConfiguration`` is a subproperty of ``InstanceFleetConfig`` or ``InstanceGroupConfig`` .
 
@@ -1686,7 +1666,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__289a0cf33d6f771401695f26c373e2ed078bce1f2750d4690cc1d0b1c482e235)
+                type_hints = cached_type_hints(_typecheckingstub__289a0cf33d6f771401695f26c373e2ed078bce1f2750d4690cc1d0b1c482e235)
                 check_type(argname="argument ebs_block_device_configs", value=ebs_block_device_configs, expected_type=type_hints["ebs_block_device_configs"])
                 check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1698,18 +1678,18 @@ class CfnCluster(
         @builtins.property
         def ebs_block_device_configs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsBlockDeviceConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsBlockDeviceConfigProperty"]]]]:
             '''An array of Amazon EBS volume specifications attached to a cluster instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-ebsconfiguration.html#cfn-emr-cluster-ebsconfiguration-ebsblockdeviceconfigs
             '''
             result = self._values.get("ebs_block_device_configs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsBlockDeviceConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsBlockDeviceConfigProperty"]]]], result)
 
         @builtins.property
         def ebs_optimized(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether an Amazon EBS volume is EBS-optimized.
 
             The default is false. You should explicitly set this value to true to enable the Amazon EBS-optimized setting for an EC2 instance.
@@ -1717,7 +1697,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-ebsconfiguration.html#cfn-emr-cluster-ebsconfiguration-ebsoptimized
             '''
             result = self._values.get("ebs_optimized")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1747,7 +1727,7 @@ class CfnCluster(
             jar: builtins.str,
             args: typing.Optional[typing.Sequence[builtins.str]] = None,
             main_class: typing.Optional[builtins.str] = None,
-            step_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            step_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed.
 
@@ -1780,7 +1760,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c3086fca1cb7ccf0ee3e0ba36727f8170913cea7fcd41960c212cbe4f26f9fea)
+                type_hints = cached_type_hints(_typecheckingstub__c3086fca1cb7ccf0ee3e0ba36727f8170913cea7fcd41960c212cbe4f26f9fea)
                 check_type(argname="argument jar", value=jar, expected_type=type_hints["jar"])
                 check_type(argname="argument args", value=args, expected_type=type_hints["args"])
                 check_type(argname="argument main_class", value=main_class, expected_type=type_hints["main_class"])
@@ -1828,7 +1808,7 @@ class CfnCluster(
         @builtins.property
         def step_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KeyValueProperty"]]]]:
             '''A list of Java properties that are set when the step runs.
 
             You can use these properties to pass key-value pairs to your main function.
@@ -1836,7 +1816,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-hadoopjarstepconfig.html#cfn-emr-cluster-hadoopjarstepconfig-stepproperties
             '''
             result = self._values.get("step_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KeyValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1865,10 +1845,10 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            instance_type_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            launch_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            instance_type_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            launch_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
-            resize_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resize_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             target_on_demand_capacity: typing.Optional[jsii.Number] = None,
             target_spot_capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -1972,7 +1952,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b48fe88bfe7ab8726e3ed373177e22463a0bb5c19fdfb6f4bb239aedc4a5d1ac)
+                type_hints = cached_type_hints(_typecheckingstub__b48fe88bfe7ab8726e3ed373177e22463a0bb5c19fdfb6f4bb239aedc4a5d1ac)
                 check_type(argname="argument instance_type_configs", value=instance_type_configs, expected_type=type_hints["instance_type_configs"])
                 check_type(argname="argument launch_specifications", value=launch_specifications, expected_type=type_hints["launch_specifications"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -1996,24 +1976,24 @@ class CfnCluster(
         @builtins.property
         def instance_type_configs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceTypeConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceTypeConfigProperty"]]]]:
             '''The instance type configurations that define the Amazon EC2 instances in the instance fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetconfig.html#cfn-emr-cluster-instancefleetconfig-instancetypeconfigs
             '''
             result = self._values.get("instance_type_configs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceTypeConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceTypeConfigProperty"]]]], result)
 
         @builtins.property
         def launch_specifications(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetProvisioningSpecificationsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetProvisioningSpecificationsProperty"]]:
             '''The launch specification for the instance fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetconfig.html#cfn-emr-cluster-instancefleetconfig-launchspecifications
             '''
             result = self._values.get("launch_specifications")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetProvisioningSpecificationsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetProvisioningSpecificationsProperty"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -2027,13 +2007,13 @@ class CfnCluster(
         @builtins.property
         def resize_specifications(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetResizingSpecificationsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetResizingSpecificationsProperty"]]:
             '''The resize specification for the instance fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetconfig.html#cfn-emr-cluster-instancefleetconfig-resizespecifications
             '''
             result = self._values.get("resize_specifications")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetResizingSpecificationsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetResizingSpecificationsProperty"]], result)
 
         @builtins.property
         def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
@@ -2086,8 +2066,8 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            on_demand_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OnDemandProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            spot_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SpotProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_demand_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OnDemandProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spot_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.SpotProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''``InstanceFleetProvisioningSpecification`` is a subproperty of ``InstanceFleetConfig`` .
 
@@ -2130,7 +2110,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b138f924cf93d1337c2cb3bdd25dfbcf94457589d616a6f7829b0bcd0a10149)
+                type_hints = cached_type_hints(_typecheckingstub__0b138f924cf93d1337c2cb3bdd25dfbcf94457589d616a6f7829b0bcd0a10149)
                 check_type(argname="argument on_demand_specification", value=on_demand_specification, expected_type=type_hints["on_demand_specification"])
                 check_type(argname="argument spot_specification", value=spot_specification, expected_type=type_hints["spot_specification"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2142,7 +2122,7 @@ class CfnCluster(
         @builtins.property
         def on_demand_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandProvisioningSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandProvisioningSpecificationProperty"]]:
             '''The launch specification for On-Demand Instances in the instance fleet, which determines the allocation strategy and capacity reservation options.
 
             .. epigraph::
@@ -2152,18 +2132,18 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetprovisioningspecifications.html#cfn-emr-cluster-instancefleetprovisioningspecifications-ondemandspecification
             '''
             result = self._values.get("on_demand_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandProvisioningSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandProvisioningSpecificationProperty"]], result)
 
         @builtins.property
         def spot_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.SpotProvisioningSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SpotProvisioningSpecificationProperty"]]:
             '''The launch specification for Spot instances in the fleet, which determines the allocation strategy, defined duration, and provisioning timeout behavior.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetprovisioningspecifications.html#cfn-emr-cluster-instancefleetprovisioningspecifications-spotspecification
             '''
             result = self._values.get("spot_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.SpotProvisioningSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SpotProvisioningSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2188,8 +2168,8 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            on_demand_resize_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OnDemandResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            spot_resize_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SpotResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_demand_resize_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OnDemandResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spot_resize_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.SpotResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The resize specification for On-Demand and Spot Instances in the fleet.
 
@@ -2222,7 +2202,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc71a634c0dd2f06a4c7bd13805c70eb8b460b69cfec6e27bc559c40c907f3b9)
+                type_hints = cached_type_hints(_typecheckingstub__cc71a634c0dd2f06a4c7bd13805c70eb8b460b69cfec6e27bc559c40c907f3b9)
                 check_type(argname="argument on_demand_resize_specification", value=on_demand_resize_specification, expected_type=type_hints["on_demand_resize_specification"])
                 check_type(argname="argument spot_resize_specification", value=spot_resize_specification, expected_type=type_hints["spot_resize_specification"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2234,24 +2214,24 @@ class CfnCluster(
         @builtins.property
         def on_demand_resize_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandResizingSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandResizingSpecificationProperty"]]:
             '''The resize specification for On-Demand Instances in the instance fleet, which contains the allocation strategy, capacity reservation options, and the resize timeout period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetresizingspecifications.html#cfn-emr-cluster-instancefleetresizingspecifications-ondemandresizespecification
             '''
             result = self._values.get("on_demand_resize_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandResizingSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandResizingSpecificationProperty"]], result)
 
         @builtins.property
         def spot_resize_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.SpotResizingSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SpotResizingSpecificationProperty"]]:
             '''The resize specification for Spot Instances in the instance fleet, which contains the allocation strategy and the resize timeout period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancefleetresizingspecifications.html#cfn-emr-cluster-instancefleetresizingspecifications-spotresizespecification
             '''
             result = self._values.get("spot_resize_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.SpotResizingSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SpotResizingSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2285,11 +2265,11 @@ class CfnCluster(
             *,
             instance_count: jsii.Number,
             instance_type: builtins.str,
-            auto_scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             bid_price: typing.Optional[builtins.str] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_ami_id: typing.Optional[builtins.str] = None,
-            ebs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ebs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             market: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2395,7 +2375,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16e3a62519b2b5fb87993923e143b12cd90ce3e00aa04b8e01ea10a6242471d9)
+                type_hints = cached_type_hints(_typecheckingstub__16e3a62519b2b5fb87993923e143b12cd90ce3e00aa04b8e01ea10a6242471d9)
                 check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument auto_scaling_policy", value=auto_scaling_policy, expected_type=type_hints["auto_scaling_policy"])
@@ -2447,13 +2427,13 @@ class CfnCluster(
         @builtins.property
         def auto_scaling_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoScalingPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoScalingPolicyProperty"]]:
             '''``AutoScalingPolicy`` is a subproperty of the `InstanceGroupConfig <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig-instancegroupconfig.html>`_ property type that specifies the constraints and rules of an automatic scaling policy in Amazon EMR . The automatic scaling policy defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. Only core and task instance groups can use automatic scaling policies. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancegroupconfig.html#cfn-emr-cluster-instancegroupconfig-autoscalingpolicy
             '''
             result = self._values.get("auto_scaling_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoScalingPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoScalingPolicyProperty"]], result)
 
         @builtins.property
         def bid_price(self) -> typing.Optional[builtins.str]:
@@ -2469,7 +2449,7 @@ class CfnCluster(
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]]:
             '''.. epigraph::
 
    Amazon EMR releases 4.x or later.
@@ -2479,7 +2459,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancegroupconfig.html#cfn-emr-cluster-instancegroupconfig-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]], result)
 
         @builtins.property
         def custom_ami_id(self) -> typing.Optional[builtins.str]:
@@ -2493,13 +2473,13 @@ class CfnCluster(
         @builtins.property
         def ebs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsConfigurationProperty"]]:
             '''EBS configurations that will be attached to each Amazon EC2 instance in the instance group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancegroupconfig.html#cfn-emr-cluster-instancegroupconfig-ebsconfiguration
             '''
             result = self._values.get("ebs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsConfigurationProperty"]], result)
 
         @builtins.property
         def market(self) -> typing.Optional[builtins.str]:
@@ -2551,9 +2531,9 @@ class CfnCluster(
             instance_type: builtins.str,
             bid_price: typing.Optional[builtins.str] = None,
             bid_price_as_percentage_of_on_demand_price: typing.Optional[jsii.Number] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_ami_id: typing.Optional[builtins.str] = None,
-            ebs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ebs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority: typing.Optional[jsii.Number] = None,
             weighted_capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -2618,7 +2598,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2e04c7cf6db409085e044ff55b4223b3cfbcb9f86e3c1e3385c072880c8a6af8)
+                type_hints = cached_type_hints(_typecheckingstub__2e04c7cf6db409085e044ff55b4223b3cfbcb9f86e3c1e3385c072880c8a6af8)
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument bid_price", value=bid_price, expected_type=type_hints["bid_price"])
                 check_type(argname="argument bid_price_as_percentage_of_on_demand_price", value=bid_price_as_percentage_of_on_demand_price, expected_type=type_hints["bid_price_as_percentage_of_on_demand_price"])
@@ -2682,13 +2662,13 @@ class CfnCluster(
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]]:
             '''A configuration classification that applies when provisioning cluster instances, which can include configurations for applications and software that run on the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancetypeconfig.html#cfn-emr-cluster-instancetypeconfig-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]], result)
 
         @builtins.property
         def custom_ami_id(self) -> typing.Optional[builtins.str]:
@@ -2702,13 +2682,13 @@ class CfnCluster(
         @builtins.property
         def ebs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsConfigurationProperty"]]:
             '''The configuration of Amazon Elastic Block Store (Amazon EBS) attached to each instance as defined by ``InstanceType`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-instancetypeconfig.html#cfn-emr-cluster-instancetypeconfig-ebsconfiguration
             '''
             result = self._values.get("ebs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EbsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EbsConfigurationProperty"]], result)
 
         @builtins.property
         def priority(self) -> typing.Optional[jsii.Number]:
@@ -2774,23 +2754,23 @@ class CfnCluster(
             *,
             additional_master_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
             additional_slave_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-            core_instance_fleet: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            core_instance_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            core_instance_fleet: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            core_instance_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ec2_key_name: typing.Optional[builtins.str] = None,
             ec2_subnet_id: typing.Optional[builtins.str] = None,
             ec2_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             emr_managed_master_security_group: typing.Optional[builtins.str] = None,
             emr_managed_slave_security_group: typing.Optional[builtins.str] = None,
             hadoop_version: typing.Optional[builtins.str] = None,
-            keep_job_flow_alive_when_no_steps: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            master_instance_fleet: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            master_instance_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            placement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.PlacementTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            keep_job_flow_alive_when_no_steps: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            master_instance_fleet: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            master_instance_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            placement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.PlacementTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_access_security_group: typing.Optional[builtins.str] = None,
-            task_instance_fleets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            task_instance_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            termination_protected: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            unhealthy_node_replacement: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            task_instance_fleets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceFleetConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            task_instance_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            termination_protected: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            unhealthy_node_replacement: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''``JobFlowInstancesConfig`` is a property of the ``AWS::EMR::Cluster`` resource.
 
@@ -3292,7 +3272,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__97053e1923915e0068df7012383808d225b615a5d3590985b1aa4048ba43f0e9)
+                type_hints = cached_type_hints(_typecheckingstub__97053e1923915e0068df7012383808d225b615a5d3590985b1aa4048ba43f0e9)
                 check_type(argname="argument additional_master_security_groups", value=additional_master_security_groups, expected_type=type_hints["additional_master_security_groups"])
                 check_type(argname="argument additional_slave_security_groups", value=additional_slave_security_groups, expected_type=type_hints["additional_slave_security_groups"])
                 check_type(argname="argument core_instance_fleet", value=core_instance_fleet, expected_type=type_hints["core_instance_fleet"])
@@ -3377,24 +3357,24 @@ class CfnCluster(
         @builtins.property
         def core_instance_fleet(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]]:
             '''Describes the EC2 instances and instance configurations for the core instance fleet when using clusters with the instance fleet configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-coreinstancefleet
             '''
             result = self._values.get("core_instance_fleet")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]], result)
 
         @builtins.property
         def core_instance_group(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]]:
             '''Describes the EC2 instances and instance configurations for core instance groups when using clusters with the uniform instance group configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-coreinstancegroup
             '''
             result = self._values.get("core_instance_group")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]], result)
 
         @builtins.property
         def ec2_key_name(self) -> typing.Optional[builtins.str]:
@@ -3464,7 +3444,7 @@ class CfnCluster(
         @builtins.property
         def keep_job_flow_alive_when_no_steps(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the cluster should remain available after completing all steps.
 
             Defaults to ``false`` . For more information about configuring cluster termination, see `Control Cluster Termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ in the *EMR Management Guide* .
@@ -3472,40 +3452,40 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-keepjobflowalivewhennosteps
             '''
             result = self._values.get("keep_job_flow_alive_when_no_steps")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def master_instance_fleet(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]]:
             '''Describes the EC2 instances and instance configurations for the master instance fleet when using clusters with the instance fleet configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-masterinstancefleet
             '''
             result = self._values.get("master_instance_fleet")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]], result)
 
         @builtins.property
         def master_instance_group(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]]:
             '''Describes the EC2 instances and instance configurations for the master instance group when using clusters with the uniform instance group configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-masterinstancegroup
             '''
             result = self._values.get("master_instance_group")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]], result)
 
         @builtins.property
         def placement(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementTypeProperty"]]:
             '''The Availability Zone in which the cluster runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-placement
             '''
             result = self._values.get("placement")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementTypeProperty"]], result)
 
         @builtins.property
         def service_access_security_group(self) -> typing.Optional[builtins.str]:
@@ -3519,7 +3499,7 @@ class CfnCluster(
         @builtins.property
         def task_instance_fleets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]]]]:
             '''Describes the EC2 instances and instance configurations for the task instance fleets when using clusters with the instance fleet configuration.
 
             These task instance fleets are added to the cluster as part of the cluster launch. Each task instance fleet must have a unique name specified so that CloudFormation can differentiate between the task instance fleets.
@@ -3530,12 +3510,12 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-taskinstancefleets
             '''
             result = self._values.get("task_instance_fleets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceFleetConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceFleetConfigProperty"]]]], result)
 
         @builtins.property
         def task_instance_groups(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]]]]:
             '''Describes the EC2 instances and instance configurations for task instance groups when using clusters with the uniform instance group configuration.
 
             These task instance groups are added to the cluster as part of the cluster launch. Each task instance group must have a unique name specified so that CloudFormation can differentiate between the task instance groups.
@@ -3546,29 +3526,29 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-taskinstancegroups
             '''
             result = self._values.get("task_instance_groups")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceGroupConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.InstanceGroupConfigProperty"]]]], result)
 
         @builtins.property
         def termination_protected(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to lock the cluster to prevent the Amazon EC2 instances from being terminated by API call, user intervention, or in the event of a job-flow error.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-terminationprotected
             '''
             result = self._values.get("termination_protected")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def unhealthy_node_replacement(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether Amazon EMR should gracefully replace core nodes that have degraded within the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-jobflowinstancesconfig.html#cfn-emr-cluster-jobflowinstancesconfig-unhealthynodereplacement
             '''
             result = self._values.get("unhealthy_node_replacement")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3632,7 +3612,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__540522543a1aa0db8a729abe18e5fa2372c90f5f9e05e3165a2dd6cd869f3bb0)
+                type_hints = cached_type_hints(_typecheckingstub__540522543a1aa0db8a729abe18e5fa2372c90f5f9e05e3165a2dd6cd869f3bb0)
                 check_type(argname="argument kdc_admin_password", value=kdc_admin_password, expected_type=type_hints["kdc_admin_password"])
                 check_type(argname="argument realm", value=realm, expected_type=type_hints["realm"])
                 check_type(argname="argument ad_domain_join_password", value=ad_domain_join_password, expected_type=type_hints["ad_domain_join_password"])
@@ -3747,7 +3727,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0de77f42d53bb5f752f54244451586c821de421f64b6929630c898540f71641a)
+                type_hints = cached_type_hints(_typecheckingstub__0de77f42d53bb5f752f54244451586c821de421f64b6929630c898540f71641a)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3798,7 +3778,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            compute_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ComputeLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            compute_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ComputeLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scaling_strategy: typing.Optional[builtins.str] = None,
             utilization_performance_index: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -3834,7 +3814,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0286741b316b450e24ed1eff9bc726fec190a69e54cee78ab3a340bcde86cafe)
+                type_hints = cached_type_hints(_typecheckingstub__0286741b316b450e24ed1eff9bc726fec190a69e54cee78ab3a340bcde86cafe)
                 check_type(argname="argument compute_limits", value=compute_limits, expected_type=type_hints["compute_limits"])
                 check_type(argname="argument scaling_strategy", value=scaling_strategy, expected_type=type_hints["scaling_strategy"])
                 check_type(argname="argument utilization_performance_index", value=utilization_performance_index, expected_type=type_hints["utilization_performance_index"])
@@ -3849,7 +3829,7 @@ class CfnCluster(
         @builtins.property
         def compute_limits(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ComputeLimitsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ComputeLimitsProperty"]]:
             '''The Amazon EC2 unit limits for a managed scaling policy.
 
             The managed scaling activity of a cluster is not allowed to go above or below these limits. The limit only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
@@ -3857,7 +3837,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-managedscalingpolicy.html#cfn-emr-cluster-managedscalingpolicy-computelimits
             '''
             result = self._values.get("compute_limits")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ComputeLimitsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ComputeLimitsProperty"]], result)
 
         @builtins.property
         def scaling_strategy(self) -> typing.Optional[builtins.str]:
@@ -3921,7 +3901,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5489079058853fbeec63f1c1e106aede50410429a2d603a5ab90b22e3c39dca)
+                type_hints = cached_type_hints(_typecheckingstub__a5489079058853fbeec63f1c1e106aede50410429a2d603a5ab90b22e3c39dca)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3999,7 +3979,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c251fc57d8c13bb8fa86bb594d3bcb511b2361d65853d128d833936c9dbdc102)
+                type_hints = cached_type_hints(_typecheckingstub__c251fc57d8c13bb8fa86bb594d3bcb511b2361d65853d128d833936c9dbdc102)
                 check_type(argname="argument capacity_reservation_preference", value=capacity_reservation_preference, expected_type=type_hints["capacity_reservation_preference"])
                 check_type(argname="argument capacity_reservation_resource_group_arn", value=capacity_reservation_resource_group_arn, expected_type=type_hints["capacity_reservation_resource_group_arn"])
                 check_type(argname="argument usage_strategy", value=usage_strategy, expected_type=type_hints["usage_strategy"])
@@ -4071,7 +4051,7 @@ class CfnCluster(
             self,
             *,
             allocation_strategy: builtins.str,
-            capacity_reservation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capacity_reservation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The launch specification for On-Demand Instances in the instance fleet, which determines the allocation strategy.
 
@@ -4103,7 +4083,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2a2b2b082993c86b69c150a13684b12a05c6ed2134f215a73050d14afc94e510)
+                type_hints = cached_type_hints(_typecheckingstub__2a2b2b082993c86b69c150a13684b12a05c6ed2134f215a73050d14afc94e510)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument capacity_reservation_options", value=capacity_reservation_options, expected_type=type_hints["capacity_reservation_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4127,13 +4107,13 @@ class CfnCluster(
         @builtins.property
         def capacity_reservation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]]:
             '''The launch specification for On-Demand instances in the instance fleet, which determines the allocation strategy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-ondemandprovisioningspecification.html#cfn-emr-cluster-ondemandprovisioningspecification-capacityreservationoptions
             '''
             result = self._values.get("capacity_reservation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4160,7 +4140,7 @@ class CfnCluster(
             self,
             *,
             allocation_strategy: typing.Optional[builtins.str] = None,
-            capacity_reservation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capacity_reservation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timeout_duration_minutes: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The resize specification for On-Demand Instances in the instance fleet, which contains the resize timeout period.
@@ -4189,7 +4169,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36928a5d58219afbdfbf854b2d4338c90650e515ad0eadca149006c7b35fea9c)
+                type_hints = cached_type_hints(_typecheckingstub__36928a5d58219afbdfbf854b2d4338c90650e515ad0eadca149006c7b35fea9c)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument capacity_reservation_options", value=capacity_reservation_options, expected_type=type_hints["capacity_reservation_options"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
@@ -4215,12 +4195,12 @@ class CfnCluster(
         @builtins.property
         def capacity_reservation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-ondemandresizingspecification.html#cfn-emr-cluster-ondemandresizingspecification-capacityreservationoptions
             '''
             result = self._values.get("capacity_reservation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.OnDemandCapacityReservationOptionsProperty"]], result)
 
         @builtins.property
         def timeout_duration_minutes(self) -> typing.Optional[jsii.Number]:
@@ -4285,7 +4265,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9024d4ca1b091fc3350c52943f87c19e6db412c0ba54cd4b2061955ab335200d)
+                type_hints = cached_type_hints(_typecheckingstub__9024d4ca1b091fc3350c52943f87c19e6db412c0ba54cd4b2061955ab335200d)
                 check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
                 check_type(argname="argument placement_strategy", value=placement_strategy, expected_type=type_hints["placement_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4355,7 +4335,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c2a2af5f8dbc7ce16a771e9390fe33448839574f71eaa2acb2f7b7050a1ca0da)
+                type_hints = cached_type_hints(_typecheckingstub__c2a2af5f8dbc7ce16a771e9390fe33448839574f71eaa2acb2f7b7050a1ca0da)
                 check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "availability_zone": availability_zone,
@@ -4396,7 +4376,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            simple_scaling_policy_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SimpleScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            simple_scaling_policy_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.SimpleScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             market: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``ScalingAction`` is a subproperty of the ``ScalingRule`` property type.
@@ -4429,7 +4409,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1902e04b59a5603a2ae4aafc06afece2ee3bdbd353692541d87ac7261ae3a892)
+                type_hints = cached_type_hints(_typecheckingstub__1902e04b59a5603a2ae4aafc06afece2ee3bdbd353692541d87ac7261ae3a892)
                 check_type(argname="argument simple_scaling_policy_configuration", value=simple_scaling_policy_configuration, expected_type=type_hints["simple_scaling_policy_configuration"])
                 check_type(argname="argument market", value=market, expected_type=type_hints["market"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4441,14 +4421,14 @@ class CfnCluster(
         @builtins.property
         def simple_scaling_policy_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.SimpleScalingPolicyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SimpleScalingPolicyConfigurationProperty"]:
             '''The type of adjustment the automatic scaling activity makes when triggered, and the periodicity of the adjustment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-scalingaction.html#cfn-emr-cluster-scalingaction-simplescalingpolicyconfiguration
             '''
             result = self._values.get("simple_scaling_policy_configuration")
             assert result is not None, "Required property 'simple_scaling_policy_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.SimpleScalingPolicyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.SimpleScalingPolicyConfigurationProperty"], result)
 
         @builtins.property
         def market(self) -> typing.Optional[builtins.str]:
@@ -4506,7 +4486,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__218f86c887a6386b3a9f268232cf2402b2c01961c7dc4b1c5c54cd37b45f7f72)
+                type_hints = cached_type_hints(_typecheckingstub__218f86c887a6386b3a9f268232cf2402b2c01961c7dc4b1c5c54cd37b45f7f72)
                 check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
                 check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4563,9 +4543,9 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScalingActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScalingActionProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
-            trigger: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScalingTriggerProperty", typing.Dict[builtins.str, typing.Any]]],
+            trigger: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ScalingTriggerProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``ScalingRule`` is a subproperty of the ``AutoScalingPolicy`` property type.
@@ -4624,7 +4604,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0906d3de6d43ea3035952bd939199d7b858dfba3dba2c95200e70324783fce7f)
+                type_hints = cached_type_hints(_typecheckingstub__0906d3de6d43ea3035952bd939199d7b858dfba3dba2c95200e70324783fce7f)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
@@ -4640,14 +4620,14 @@ class CfnCluster(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingActionProperty"]:
             '''The conditions that trigger an automatic scaling activity.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-scalingrule.html#cfn-emr-cluster-scalingrule-action
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingActionProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4664,14 +4644,14 @@ class CfnCluster(
         @builtins.property
         def trigger(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingTriggerProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingTriggerProperty"]:
             '''The CloudWatch alarm definition that determines when automatic scaling activity is triggered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-scalingrule.html#cfn-emr-cluster-scalingrule-trigger
             '''
             result = self._values.get("trigger")
             assert result is not None, "Required property 'trigger' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ScalingTriggerProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ScalingTriggerProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -4702,7 +4682,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            cloud_watch_alarm_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.CloudWatchAlarmDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            cloud_watch_alarm_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.CloudWatchAlarmDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''``ScalingTrigger`` is a subproperty of the ``ScalingRule`` property type.
 
@@ -4739,7 +4719,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3df2b0de5a8f69682866a7f7b93de987151394068d2650e0ae0ed982b81f2b30)
+                type_hints = cached_type_hints(_typecheckingstub__3df2b0de5a8f69682866a7f7b93de987151394068d2650e0ae0ed982b81f2b30)
                 check_type(argname="argument cloud_watch_alarm_definition", value=cloud_watch_alarm_definition, expected_type=type_hints["cloud_watch_alarm_definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cloud_watch_alarm_definition": cloud_watch_alarm_definition,
@@ -4748,7 +4728,7 @@ class CfnCluster(
         @builtins.property
         def cloud_watch_alarm_definition(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.CloudWatchAlarmDefinitionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CloudWatchAlarmDefinitionProperty"]:
             '''The definition of a CloudWatch metric alarm.
 
             When the defined alarm conditions are met along with other trigger parameters, scaling activity begins.
@@ -4757,7 +4737,7 @@ class CfnCluster(
             '''
             result = self._values.get("cloud_watch_alarm_definition")
             assert result is not None, "Required property 'cloud_watch_alarm_definition' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.CloudWatchAlarmDefinitionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.CloudWatchAlarmDefinitionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4806,7 +4786,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7fa367b9637052cae9251c15612e003865ebda21afaf560950bb477d8b49253c)
+                type_hints = cached_type_hints(_typecheckingstub__7fa367b9637052cae9251c15612e003865ebda21afaf560950bb477d8b49253c)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4888,7 +4868,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4ab5f63d2f26fa03522ac8c3decfe23ac709ffdb5e6d508b478156d95d4e841c)
+                type_hints = cached_type_hints(_typecheckingstub__4ab5f63d2f26fa03522ac8c3decfe23ac709ffdb5e6d508b478156d95d4e841c)
                 check_type(argname="argument scaling_adjustment", value=scaling_adjustment, expected_type=type_hints["scaling_adjustment"])
                 check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
                 check_type(argname="argument cool_down", value=cool_down, expected_type=type_hints["cool_down"])
@@ -4995,7 +4975,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__208fcd2396b27638e4993cac386f565d58d969b0cecd86940902156a2329b2d9)
+                type_hints = cached_type_hints(_typecheckingstub__208fcd2396b27638e4993cac386f565d58d969b0cecd86940902156a2329b2d9)
                 check_type(argname="argument timeout_action", value=timeout_action, expected_type=type_hints["timeout_action"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
@@ -5107,7 +5087,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b4e871a649437c0e29cc5434620df22f0642b9fd024fdc40ba82e86701c6020)
+                type_hints = cached_type_hints(_typecheckingstub__8b4e871a649437c0e29cc5434620df22f0642b9fd024fdc40ba82e86701c6020)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5162,7 +5142,7 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            hadoop_jar_step: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            hadoop_jar_step: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
             action_on_failure: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5202,7 +5182,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d3f0e87741e903ab6e6acc98e6f4de31edf9b395d6ec0ca0e9561069b8e799c7)
+                type_hints = cached_type_hints(_typecheckingstub__d3f0e87741e903ab6e6acc98e6f4de31edf9b395d6ec0ca0e9561069b8e799c7)
                 check_type(argname="argument hadoop_jar_step", value=hadoop_jar_step, expected_type=type_hints["hadoop_jar_step"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument action_on_failure", value=action_on_failure, expected_type=type_hints["action_on_failure"])
@@ -5216,14 +5196,14 @@ class CfnCluster(
         @builtins.property
         def hadoop_jar_step(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.HadoopJarStepConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.HadoopJarStepConfigProperty"]:
             '''The JAR file used for the step.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-stepconfig.html#cfn-emr-cluster-stepconfig-hadoopjarstep
             '''
             result = self._values.get("hadoop_jar_step")
             assert result is not None, "Required property 'hadoop_jar_step' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.HadoopJarStepConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.HadoopJarStepConfigProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -5304,7 +5284,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1d9df61da11f931c34aa6af7c0e9bf71cf070f0a0d48100f43043b2adcdbcd5)
+                type_hints = cached_type_hints(_typecheckingstub__c1d9df61da11f931c34aa6af7c0e9bf71cf070f0a0d48100f43043b2adcdbcd5)
                 check_type(argname="argument size_in_gb", value=size_in_gb, expected_type=type_hints["size_in_gb"])
                 check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -5411,33 +5391,33 @@ class CfnClusterProps:
     def __init__(
         self,
         *,
-        instances: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.JobFlowInstancesConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        instances: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.JobFlowInstancesConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         job_flow_role: builtins.str,
         name: builtins.str,
         service_role: builtins.str,
         additional_info: typing.Any = None,
-        applications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        applications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         auto_scaling_role: typing.Optional[builtins.str] = None,
-        auto_termination_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.AutoTerminationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bootstrap_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.BootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        auto_termination_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AutoTerminationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bootstrap_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.BootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_ami_id: typing.Optional[builtins.str] = None,
         ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
         ebs_root_volume_size: typing.Optional[jsii.Number] = None,
         ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-        kerberos_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.KerberosAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kerberos_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.KerberosAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
         log_uri: typing.Optional[builtins.str] = None,
-        managed_scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ManagedScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ManagedScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         os_release_label: typing.Optional[builtins.str] = None,
-        placement_group_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.PlacementGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        placement_group_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.PlacementGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         release_label: typing.Optional[builtins.str] = None,
         scale_down_behavior: typing.Optional[builtins.str] = None,
         security_configuration: typing.Optional[builtins.str] = None,
         step_concurrency_level: typing.Optional[jsii.Number] = None,
-        steps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        steps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
@@ -5477,7 +5457,7 @@ class CfnClusterProps:
             
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f)
+            type_hints = cached_type_hints(_typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f)
             check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
             check_type(argname="argument job_flow_role", value=job_flow_role, expected_type=type_hints["job_flow_role"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5561,14 +5541,14 @@ class CfnClusterProps:
     @builtins.property
     def instances(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.JobFlowInstancesConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.JobFlowInstancesConfigProperty"]:
         '''A specification of the number and type of Amazon EC2 instances.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-instances
         '''
         result = self._values.get("instances")
         assert result is not None, "Required property 'instances' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.JobFlowInstancesConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.JobFlowInstancesConfigProperty"], result)
 
     @builtins.property
     def job_flow_role(self) -> builtins.str:
@@ -5616,13 +5596,13 @@ class CfnClusterProps:
     @builtins.property
     def applications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ApplicationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ApplicationProperty"]]]]:
         '''The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-applications
         '''
         result = self._values.get("applications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ApplicationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ApplicationProperty"]]]], result)
 
     @builtins.property
     def auto_scaling_role(self) -> typing.Optional[builtins.str]:
@@ -5638,7 +5618,7 @@ class CfnClusterProps:
     @builtins.property
     def auto_termination_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoTerminationPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoTerminationPolicyProperty"]]:
         '''An auto-termination policy for an Amazon EMR cluster.
 
         An auto-termination policy defines the amount of idle time in seconds after which a cluster automatically terminates. For alternative cluster termination options, see `Control cluster termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ .
@@ -5646,29 +5626,29 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-autoterminationpolicy
         '''
         result = self._values.get("auto_termination_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AutoTerminationPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AutoTerminationPolicyProperty"]], result)
 
     @builtins.property
     def bootstrap_actions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.BootstrapActionConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BootstrapActionConfigProperty"]]]]:
         '''A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-bootstrapactions
         '''
         result = self._values.get("bootstrap_actions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.BootstrapActionConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BootstrapActionConfigProperty"]]]], result)
 
     @builtins.property
     def configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]]:
         '''Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-configurations
         '''
         result = self._values.get("configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ConfigurationProperty"]]]], result)
 
     @builtins.property
     def custom_ami_id(self) -> typing.Optional[builtins.str]:
@@ -5715,7 +5695,7 @@ class CfnClusterProps:
     @builtins.property
     def kerberos_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.KerberosAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KerberosAttributesProperty"]]:
         '''Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration.
 
         For more information see `Use Kerberos Authentication <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-kerberos.html>`_ in the *Amazon EMR Management Guide* .
@@ -5723,7 +5703,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-kerberosattributes
         '''
         result = self._values.get("kerberos_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.KerberosAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.KerberosAttributesProperty"]], result)
 
     @builtins.property
     def log_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -5748,7 +5728,7 @@ class CfnClusterProps:
     @builtins.property
     def managed_scaling_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ManagedScalingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ManagedScalingPolicyProperty"]]:
         '''Creates or updates a managed scaling policy for an Amazon EMR cluster.
 
         The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
@@ -5756,7 +5736,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-managedscalingpolicy
         '''
         result = self._values.get("managed_scaling_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ManagedScalingPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ManagedScalingPolicyProperty"]], result)
 
     @builtins.property
     def os_release_label(self) -> typing.Optional[builtins.str]:
@@ -5772,12 +5752,12 @@ class CfnClusterProps:
     @builtins.property
     def placement_group_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementGroupConfigProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-placementgroupconfigs
         '''
         result = self._values.get("placement_group_configs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.PlacementGroupConfigProperty"]]]], result)
 
     @builtins.property
     def release_label(self) -> typing.Optional[builtins.str]:
@@ -5824,27 +5804,27 @@ class CfnClusterProps:
     @builtins.property
     def steps(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.StepConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StepConfigProperty"]]]]:
         '''A list of steps to run.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-steps
         '''
         result = self._values.get("steps")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.StepConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StepConfigProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags associated with a cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def visible_to_all_users(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
 
         If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action.
@@ -5855,7 +5835,7 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-visibletoallusers
         '''
         result = self._values.get("visible_to_all_users")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5869,9 +5849,9 @@ class CfnClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInstanceFleetConfigRef_5e9ddfa4)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IInstanceFleetConfigRef)
 class CfnInstanceFleetConfig(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnInstanceFleetConfig",
 ):
@@ -5980,10 +5960,10 @@ class CfnInstanceFleetConfig(
         *,
         cluster_id: builtins.str,
         instance_fleet_type: builtins.str,
-        instance_type_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        launch_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_type_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        launch_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        resize_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resize_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_on_demand_capacity: typing.Optional[jsii.Number] = None,
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -6001,7 +5981,7 @@ class CfnInstanceFleetConfig(
         :param target_spot_capacity: The target capacity of Spot units for the instance fleet, which determines how many Spot instances to provision. When the instance fleet launches, Amazon EMR tries to provision Spot instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When a Spot instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units. .. epigraph:: If not specified or set to 0, only On-Demand instances are provisioned for the instance fleet. At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25473c0968868f7cb7ae13c5d07084fdff34429497e0ea823b7527eea6ce494f)
+            type_hints = cached_type_hints(_typecheckingstub__25473c0968868f7cb7ae13c5d07084fdff34429497e0ea823b7527eea6ce494f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInstanceFleetConfigProps(
@@ -6025,18 +6005,18 @@ class CfnInstanceFleetConfig(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91c608afc726ea28a38f645c97398cfe005470534cfc9a9981d124552ea45efb)
+            type_hints = cached_type_hints(_typecheckingstub__91c608afc726ea28a38f645c97398cfe005470534cfc9a9981d124552ea45efb)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceFleetConfig", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1ed3f5cbfeb698332e274bbe7785722e739d9dec509f54283e0495cf8900e71)
+            type_hints = cached_type_hints(_typecheckingstub__d1ed3f5cbfeb698332e274bbe7785722e739d9dec509f54283e0495cf8900e71)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6049,7 +6029,7 @@ class CfnInstanceFleetConfig(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e98716d54c69df2f9bc4a900903b8690bf3dbe75423a21ead9ce4d36cbd0443f)
+            type_hints = cached_type_hints(_typecheckingstub__e98716d54c69df2f9bc4a900903b8690bf3dbe75423a21ead9ce4d36cbd0443f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6079,9 +6059,11 @@ class CfnInstanceFleetConfig(
 
     @builtins.property
     @jsii.member(jsii_name="instanceFleetConfigRef")
-    def instance_fleet_config_ref(self) -> "_InstanceFleetConfigReference_cd00a6a7":
+    def instance_fleet_config_ref(
+        self,
+    ) -> "_aws_emr_b5476279.InstanceFleetConfigReference":
         '''A reference to a InstanceFleetConfig resource.'''
-        return typing.cast("_InstanceFleetConfigReference_cd00a6a7", jsii.get(self, "instanceFleetConfigRef"))
+        return typing.cast("_aws_emr_b5476279.InstanceFleetConfigReference", jsii.get(self, "instanceFleetConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -6092,7 +6074,7 @@ class CfnInstanceFleetConfig(
     @cluster_id.setter
     def cluster_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__400bee2e9ad25af5bc5503b31db6f8c647cc75941195dd29846c6d2ff917cf27)
+            type_hints = cached_type_hints(_typecheckingstub__400bee2e9ad25af5bc5503b31db6f8c647cc75941195dd29846c6d2ff917cf27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterId", value) # pyright: ignore[reportArgumentType]
 
@@ -6105,7 +6087,7 @@ class CfnInstanceFleetConfig(
     @instance_fleet_type.setter
     def instance_fleet_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e599502a138f8a9158bcc5bbc77fd3cb1fa6aacdcda3c340c2bc35cdb54c5ac)
+            type_hints = cached_type_hints(_typecheckingstub__7e599502a138f8a9158bcc5bbc77fd3cb1fa6aacdcda3c340c2bc35cdb54c5ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceFleetType", value) # pyright: ignore[reportArgumentType]
 
@@ -6113,17 +6095,17 @@ class CfnInstanceFleetConfig(
     @jsii.member(jsii_name="instanceTypeConfigs")
     def instance_type_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]]:
         '''``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]], jsii.get(self, "instanceTypeConfigs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]], jsii.get(self, "instanceTypeConfigs"))
 
     @instance_type_configs.setter
     def instance_type_configs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__888820cb4f4a0c9a1efd66dd14e34f331d9e75498488017d37693b4ca8f07e10)
+            type_hints = cached_type_hints(_typecheckingstub__888820cb4f4a0c9a1efd66dd14e34f331d9e75498488017d37693b4ca8f07e10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceTypeConfigs", value) # pyright: ignore[reportArgumentType]
 
@@ -6131,17 +6113,17 @@ class CfnInstanceFleetConfig(
     @jsii.member(jsii_name="launchSpecifications")
     def launch_specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]]:
         '''The launch specification for the instance fleet.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]], jsii.get(self, "launchSpecifications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]], jsii.get(self, "launchSpecifications"))
 
     @launch_specifications.setter
     def launch_specifications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__037e3da780812285c831d0eb45598c2c6a76b22d073c1e4a83b5d4529a0e479c)
+            type_hints = cached_type_hints(_typecheckingstub__037e3da780812285c831d0eb45598c2c6a76b22d073c1e4a83b5d4529a0e479c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "launchSpecifications", value) # pyright: ignore[reportArgumentType]
 
@@ -6154,7 +6136,7 @@ class CfnInstanceFleetConfig(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46de029a613d830d1cd5aafc306617484db5e788259a5eb5e20ddfdb18290125)
+            type_hints = cached_type_hints(_typecheckingstub__46de029a613d830d1cd5aafc306617484db5e788259a5eb5e20ddfdb18290125)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6162,17 +6144,17 @@ class CfnInstanceFleetConfig(
     @jsii.member(jsii_name="resizeSpecifications")
     def resize_specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]]:
         '''The resize specification for the instance fleet.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]], jsii.get(self, "resizeSpecifications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]], jsii.get(self, "resizeSpecifications"))
 
     @resize_specifications.setter
     def resize_specifications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1e548ecaa094224c5fe98e7f953c0c6b0015f3e1cb966d8dc0a7e123adef723)
+            type_hints = cached_type_hints(_typecheckingstub__e1e548ecaa094224c5fe98e7f953c0c6b0015f3e1cb966d8dc0a7e123adef723)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resizeSpecifications", value) # pyright: ignore[reportArgumentType]
 
@@ -6185,7 +6167,7 @@ class CfnInstanceFleetConfig(
     @target_on_demand_capacity.setter
     def target_on_demand_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__822a16f54dafb22c28528e47fdb7a49930c485e6f54b9eeb4a03467e03af3a7a)
+            type_hints = cached_type_hints(_typecheckingstub__822a16f54dafb22c28528e47fdb7a49930c485e6f54b9eeb4a03467e03af3a7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetOnDemandCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -6198,7 +6180,7 @@ class CfnInstanceFleetConfig(
     @target_spot_capacity.setter
     def target_spot_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8c47404264830e50e7ddaef51024f8f530b123b3a2c96dd8fc19683b81e6fc0)
+            type_hints = cached_type_hints(_typecheckingstub__d8c47404264830e50e7ddaef51024f8f530b123b3a2c96dd8fc19683b81e6fc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetSpotCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -6216,8 +6198,8 @@ class CfnInstanceFleetConfig(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configuration_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''.. epigraph::
 
@@ -6249,7 +6231,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9cb99c46a2e6804e68d48ee2a2882e72c00713be16c2a7eb0c1ffda179a4964d)
+                type_hints = cached_type_hints(_typecheckingstub__9cb99c46a2e6804e68d48ee2a2882e72c00713be16c2a7eb0c1ffda179a4964d)
                 check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
                 check_type(argname="argument configuration_properties", value=configuration_properties, expected_type=type_hints["configuration_properties"])
                 check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
@@ -6273,7 +6255,7 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Within a configuration classification, a set of properties that represent the settings that you want to change in the configuration file.
 
             Duplicates not allowed.
@@ -6281,18 +6263,18 @@ class CfnInstanceFleetConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-configuration.html#cfn-emr-instancefleetconfig-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.ConfigurationProperty"]]]]:
             '''A list of additional configurations to apply within a configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-configuration.html#cfn-emr-instancefleetconfig-configuration-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.ConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6317,7 +6299,7 @@ class CfnInstanceFleetConfig(
         def __init__(
             self,
             *,
-            volume_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            volume_specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
             volumes_per_instance: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''``EbsBlockDeviceConfig`` is a subproperty of the ``EbsConfiguration`` property type.
@@ -6351,7 +6333,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3279a4aeccde870f13ef700abffb5a21dac69394e7342602659de2e9d001b6fb)
+                type_hints = cached_type_hints(_typecheckingstub__3279a4aeccde870f13ef700abffb5a21dac69394e7342602659de2e9d001b6fb)
                 check_type(argname="argument volume_specification", value=volume_specification, expected_type=type_hints["volume_specification"])
                 check_type(argname="argument volumes_per_instance", value=volumes_per_instance, expected_type=type_hints["volumes_per_instance"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6363,14 +6345,14 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def volume_specification(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.VolumeSpecificationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.VolumeSpecificationProperty"]:
             '''EBS volume specifications such as volume type, IOPS, size (GiB) and throughput (MiB/s) that are requested for the EBS volume attached to an Amazon EC2 instance in the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ebsblockdeviceconfig.html#cfn-emr-instancefleetconfig-ebsblockdeviceconfig-volumespecification
             '''
             result = self._values.get("volume_specification")
             assert result is not None, "Required property 'volume_specification' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.VolumeSpecificationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.VolumeSpecificationProperty"], result)
 
         @builtins.property
         def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
@@ -6404,8 +6386,8 @@ class CfnInstanceFleetConfig(
         def __init__(
             self,
             *,
-            ebs_block_device_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ebs_block_device_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
 
@@ -6439,7 +6421,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c7c01313df17cf722f93042eafce67680bfdf5243bba4058c5cc9d54139c1124)
+                type_hints = cached_type_hints(_typecheckingstub__c7c01313df17cf722f93042eafce67680bfdf5243bba4058c5cc9d54139c1124)
                 check_type(argname="argument ebs_block_device_configs", value=ebs_block_device_configs, expected_type=type_hints["ebs_block_device_configs"])
                 check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6451,18 +6433,18 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def ebs_block_device_configs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty"]]]]:
             '''An array of Amazon EBS volume specifications attached to a cluster instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ebsconfiguration.html#cfn-emr-instancefleetconfig-ebsconfiguration-ebsblockdeviceconfigs
             '''
             result = self._values.get("ebs_block_device_configs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty"]]]], result)
 
         @builtins.property
         def ebs_optimized(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether an Amazon EBS volume is EBS-optimized.
 
             The default is false. You should explicitly set this value to true to enable the Amazon EBS-optimized setting for an EC2 instance.
@@ -6470,7 +6452,7 @@ class CfnInstanceFleetConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ebsconfiguration.html#cfn-emr-instancefleetconfig-ebsconfiguration-ebsoptimized
             '''
             result = self._values.get("ebs_optimized")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6495,8 +6477,8 @@ class CfnInstanceFleetConfig(
         def __init__(
             self,
             *,
-            on_demand_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            spot_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_demand_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spot_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''.. epigraph::
 
@@ -6538,7 +6520,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__08a22ec5152d77e43e0a91e7ac72349bff7b323c77ba7af7b916a7565bc1a759)
+                type_hints = cached_type_hints(_typecheckingstub__08a22ec5152d77e43e0a91e7ac72349bff7b323c77ba7af7b916a7565bc1a759)
                 check_type(argname="argument on_demand_specification", value=on_demand_specification, expected_type=type_hints["on_demand_specification"])
                 check_type(argname="argument spot_specification", value=spot_specification, expected_type=type_hints["spot_specification"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6550,7 +6532,7 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def on_demand_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty"]]:
             '''The launch specification for On-Demand Instances in the instance fleet, which determines the allocation strategy and capacity reservation options.
 
             .. epigraph::
@@ -6560,18 +6542,18 @@ class CfnInstanceFleetConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetprovisioningspecifications.html#cfn-emr-instancefleetconfig-instancefleetprovisioningspecifications-ondemandspecification
             '''
             result = self._values.get("on_demand_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty"]], result)
 
         @builtins.property
         def spot_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty"]]:
             '''The launch specification for Spot instances in the fleet, which determines the allocation strategy, defined duration, and provisioning timeout behavior.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetprovisioningspecifications.html#cfn-emr-instancefleetconfig-instancefleetprovisioningspecifications-spotspecification
             '''
             result = self._values.get("spot_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6596,8 +6578,8 @@ class CfnInstanceFleetConfig(
         def __init__(
             self,
             *,
-            on_demand_resize_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            spot_resize_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.SpotResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_demand_resize_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spot_resize_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.SpotResizingSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The resize specification for On-Demand and Spot Instances in the fleet.
 
@@ -6630,7 +6612,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a826d1b0ce4c7448bd47db2f7daad5833794267a6eb2b97e6803890ff960c5ee)
+                type_hints = cached_type_hints(_typecheckingstub__a826d1b0ce4c7448bd47db2f7daad5833794267a6eb2b97e6803890ff960c5ee)
                 check_type(argname="argument on_demand_resize_specification", value=on_demand_resize_specification, expected_type=type_hints["on_demand_resize_specification"])
                 check_type(argname="argument spot_resize_specification", value=spot_resize_specification, expected_type=type_hints["spot_resize_specification"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6642,24 +6624,24 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def on_demand_resize_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty"]]:
             '''The resize specification for On-Demand Instances in the instance fleet, which contains the allocation strategy, capacity reservation options, and the resize timeout period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetresizingspecifications.html#cfn-emr-instancefleetconfig-instancefleetresizingspecifications-ondemandresizespecification
             '''
             result = self._values.get("on_demand_resize_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty"]], result)
 
         @builtins.property
         def spot_resize_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.SpotResizingSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.SpotResizingSpecificationProperty"]]:
             '''The resize specification for Spot Instances in the instance fleet, which contains the allocation strategy and the resize timeout period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetresizingspecifications.html#cfn-emr-instancefleetconfig-instancefleetresizingspecifications-spotresizespecification
             '''
             result = self._values.get("spot_resize_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.SpotResizingSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.SpotResizingSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6693,9 +6675,9 @@ class CfnInstanceFleetConfig(
             instance_type: builtins.str,
             bid_price: typing.Optional[builtins.str] = None,
             bid_price_as_percentage_of_on_demand_price: typing.Optional[jsii.Number] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_ami_id: typing.Optional[builtins.str] = None,
-            ebs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ebs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority: typing.Optional[jsii.Number] = None,
             weighted_capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -6761,7 +6743,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__051c3b44a825d0f79c73260ba9c4b6395a44dae707c2d0ae1291df31ee520108)
+                type_hints = cached_type_hints(_typecheckingstub__051c3b44a825d0f79c73260ba9c4b6395a44dae707c2d0ae1291df31ee520108)
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument bid_price", value=bid_price, expected_type=type_hints["bid_price"])
                 check_type(argname="argument bid_price_as_percentage_of_on_demand_price", value=bid_price_as_percentage_of_on_demand_price, expected_type=type_hints["bid_price_as_percentage_of_on_demand_price"])
@@ -6825,7 +6807,7 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.ConfigurationProperty"]]]]:
             '''.. epigraph::
 
    Amazon EMR releases 4.x or later.
@@ -6835,7 +6817,7 @@ class CfnInstanceFleetConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancetypeconfig.html#cfn-emr-instancefleetconfig-instancetypeconfig-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.ConfigurationProperty"]]]], result)
 
         @builtins.property
         def custom_ami_id(self) -> typing.Optional[builtins.str]:
@@ -6849,13 +6831,13 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def ebs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.EbsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.EbsConfigurationProperty"]]:
             '''The configuration of Amazon Elastic Block Store (Amazon EBS) attached to each instance as defined by ``InstanceType`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancetypeconfig.html#cfn-emr-instancefleetconfig-instancetypeconfig-ebsconfiguration
             '''
             result = self._values.get("ebs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.EbsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.EbsConfigurationProperty"]], result)
 
         @builtins.property
         def priority(self) -> typing.Optional[jsii.Number]:
@@ -6929,7 +6911,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2daf349eae7a75cebafd6398bd26a0eba694700d56d24427480742b80028c3f2)
+                type_hints = cached_type_hints(_typecheckingstub__2daf349eae7a75cebafd6398bd26a0eba694700d56d24427480742b80028c3f2)
                 check_type(argname="argument capacity_reservation_preference", value=capacity_reservation_preference, expected_type=type_hints["capacity_reservation_preference"])
                 check_type(argname="argument capacity_reservation_resource_group_arn", value=capacity_reservation_resource_group_arn, expected_type=type_hints["capacity_reservation_resource_group_arn"])
                 check_type(argname="argument usage_strategy", value=usage_strategy, expected_type=type_hints["usage_strategy"])
@@ -7001,7 +6983,7 @@ class CfnInstanceFleetConfig(
             self,
             *,
             allocation_strategy: builtins.str,
-            capacity_reservation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capacity_reservation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The launch specification for On-Demand Instances in the instance fleet, which determines the allocation strategy.
 
@@ -7033,7 +7015,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf71b5c7658598ec550bf1195bd742cbfb6e455c0c782143392a53f88bfdf172)
+                type_hints = cached_type_hints(_typecheckingstub__cf71b5c7658598ec550bf1195bd742cbfb6e455c0c782143392a53f88bfdf172)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument capacity_reservation_options", value=capacity_reservation_options, expected_type=type_hints["capacity_reservation_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7057,13 +7039,13 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def capacity_reservation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]]:
             '''The launch specification for On-Demand instances in the instance fleet, which determines the allocation strategy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ondemandprovisioningspecification.html#cfn-emr-instancefleetconfig-ondemandprovisioningspecification-capacityreservationoptions
             '''
             result = self._values.get("capacity_reservation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7090,7 +7072,7 @@ class CfnInstanceFleetConfig(
             self,
             *,
             allocation_strategy: typing.Optional[builtins.str] = None,
-            capacity_reservation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capacity_reservation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timeout_duration_minutes: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The resize specification for On-Demand Instances in the instance fleet, which contains the resize timeout period.
@@ -7119,7 +7101,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a2835e8aca00d3c7be991da1f61613d6f9210f46229f8788af07c1fda31204d7)
+                type_hints = cached_type_hints(_typecheckingstub__a2835e8aca00d3c7be991da1f61613d6f9210f46229f8788af07c1fda31204d7)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument capacity_reservation_options", value=capacity_reservation_options, expected_type=type_hints["capacity_reservation_options"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
@@ -7145,12 +7127,12 @@ class CfnInstanceFleetConfig(
         @builtins.property
         def capacity_reservation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ondemandresizingspecification.html#cfn-emr-instancefleetconfig-ondemandresizingspecification-capacityreservationoptions
             '''
             result = self._values.get("capacity_reservation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty"]], result)
 
         @builtins.property
         def timeout_duration_minutes(self) -> typing.Optional[jsii.Number]:
@@ -7224,7 +7206,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6b61d9945e0ef7f9b80bb5d1375dc8b2f9f8655abbb01833fe74ef1cafbfcd8d)
+                type_hints = cached_type_hints(_typecheckingstub__6b61d9945e0ef7f9b80bb5d1375dc8b2f9f8655abbb01833fe74ef1cafbfcd8d)
                 check_type(argname="argument timeout_action", value=timeout_action, expected_type=type_hints["timeout_action"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
@@ -7336,7 +7318,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6040a19e3b4a0366274df87626b09183d63bafea38c55e7bae9c7c1e7390453a)
+                type_hints = cached_type_hints(_typecheckingstub__6040a19e3b4a0366274df87626b09183d63bafea38c55e7bae9c7c1e7390453a)
                 check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
                 check_type(argname="argument timeout_duration_minutes", value=timeout_duration_minutes, expected_type=type_hints["timeout_duration_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7425,7 +7407,7 @@ class CfnInstanceFleetConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cbcefec98bf4df26aee8c4c32035c6379883a9a1f189bbc763cba54f8f73d579)
+                type_hints = cached_type_hints(_typecheckingstub__cbcefec98bf4df26aee8c4c32035c6379883a9a1f189bbc763cba54f8f73d579)
                 check_type(argname="argument size_in_gb", value=size_in_gb, expected_type=type_hints["size_in_gb"])
                 check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -7515,10 +7497,10 @@ class CfnInstanceFleetConfigProps:
         *,
         cluster_id: builtins.str,
         instance_fleet_type: builtins.str,
-        instance_type_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        launch_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_type_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        launch_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        resize_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resize_specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_on_demand_capacity: typing.Optional[jsii.Number] = None,
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -7623,7 +7605,7 @@ class CfnInstanceFleetConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6)
+            type_hints = cached_type_hints(_typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6)
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
             check_type(argname="argument instance_fleet_type", value=instance_fleet_type, expected_type=type_hints["instance_fleet_type"])
             check_type(argname="argument instance_type_configs", value=instance_type_configs, expected_type=type_hints["instance_type_configs"])
@@ -7674,7 +7656,7 @@ class CfnInstanceFleetConfigProps:
     @builtins.property
     def instance_type_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]]:
         '''``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities.
 
         .. epigraph::
@@ -7684,18 +7666,18 @@ class CfnInstanceFleetConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-instancetypeconfigs
         '''
         result = self._values.get("instance_type_configs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]], result)
 
     @builtins.property
     def launch_specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]]:
         '''The launch specification for the instance fleet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-launchspecifications
         '''
         result = self._values.get("launch_specifications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -7709,13 +7691,13 @@ class CfnInstanceFleetConfigProps:
     @builtins.property
     def resize_specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]]:
         '''The resize specification for the instance fleet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-resizespecifications
         '''
         result = self._values.get("resize_specifications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]], result)
 
     @builtins.property
     def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
@@ -7757,9 +7739,9 @@ class CfnInstanceFleetConfigProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInstanceGroupConfigRef_36d51a37)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IInstanceGroupConfigRef)
 class CfnInstanceGroupConfig(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnInstanceGroupConfig",
 ):
@@ -7870,11 +7852,11 @@ class CfnInstanceGroupConfig(
         instance_role: builtins.str,
         instance_type: builtins.str,
         job_flow_id: builtins.str,
-        auto_scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bid_price: typing.Optional[builtins.str] = None,
-        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_ami_id: typing.Optional[builtins.str] = None,
-        ebs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         market: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7895,7 +7877,7 @@ class CfnInstanceGroupConfig(
         :param name: Friendly name given to the instance group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b03c1e96b01aafd31c257702f4a9ed7a4281e8d9ba0f2f19a20ccc53465d08e)
+            type_hints = cached_type_hints(_typecheckingstub__1b03c1e96b01aafd31c257702f4a9ed7a4281e8d9ba0f2f19a20ccc53465d08e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInstanceGroupConfigProps(
@@ -7922,18 +7904,18 @@ class CfnInstanceGroupConfig(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9dd2270de874ff7caf2817b3fdf01008cab287fc7d48fa4929691a600a6f36b9)
+            type_hints = cached_type_hints(_typecheckingstub__9dd2270de874ff7caf2817b3fdf01008cab287fc7d48fa4929691a600a6f36b9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceGroupConfig", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de17e348f1473656fa16b6154e6ecc550f06d756f34e0dd16848f80c72fe2bd)
+            type_hints = cached_type_hints(_typecheckingstub__1de17e348f1473656fa16b6154e6ecc550f06d756f34e0dd16848f80c72fe2bd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7946,7 +7928,7 @@ class CfnInstanceGroupConfig(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6c371e1ed73cea2b17a5b42ab80c40254e3489b4218c3d85de868719ecf4c39)
+            type_hints = cached_type_hints(_typecheckingstub__c6c371e1ed73cea2b17a5b42ab80c40254e3489b4218c3d85de868719ecf4c39)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7976,9 +7958,11 @@ class CfnInstanceGroupConfig(
 
     @builtins.property
     @jsii.member(jsii_name="instanceGroupConfigRef")
-    def instance_group_config_ref(self) -> "_InstanceGroupConfigReference_3f22feb5":
+    def instance_group_config_ref(
+        self,
+    ) -> "_aws_emr_b5476279.InstanceGroupConfigReference":
         '''A reference to a InstanceGroupConfig resource.'''
-        return typing.cast("_InstanceGroupConfigReference_3f22feb5", jsii.get(self, "instanceGroupConfigRef"))
+        return typing.cast("_aws_emr_b5476279.InstanceGroupConfigReference", jsii.get(self, "instanceGroupConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceCount")
@@ -7989,7 +7973,7 @@ class CfnInstanceGroupConfig(
     @instance_count.setter
     def instance_count(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a56b526bb946892e98d3d7d2b105ae4d7b95c59bf23590bba4cb3f57e014a87b)
+            type_hints = cached_type_hints(_typecheckingstub__a56b526bb946892e98d3d7d2b105ae4d7b95c59bf23590bba4cb3f57e014a87b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceCount", value) # pyright: ignore[reportArgumentType]
 
@@ -8002,7 +7986,7 @@ class CfnInstanceGroupConfig(
     @instance_role.setter
     def instance_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d176dc92e6cc9a7943f8591598418735b47fe6599a6a87375ce8047e23f2582c)
+            type_hints = cached_type_hints(_typecheckingstub__d176dc92e6cc9a7943f8591598418735b47fe6599a6a87375ce8047e23f2582c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceRole", value) # pyright: ignore[reportArgumentType]
 
@@ -8015,7 +7999,7 @@ class CfnInstanceGroupConfig(
     @instance_type.setter
     def instance_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce5c0de0de6b187413fc259ce830ca1a4cb07874c4e2e4614d43b9806c442a8b)
+            type_hints = cached_type_hints(_typecheckingstub__ce5c0de0de6b187413fc259ce830ca1a4cb07874c4e2e4614d43b9806c442a8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -8028,7 +8012,7 @@ class CfnInstanceGroupConfig(
     @job_flow_id.setter
     def job_flow_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69245f4d15e2a5dae10e27b298ff011d20580fac579b2b51dfb574b9538d9552)
+            type_hints = cached_type_hints(_typecheckingstub__69245f4d15e2a5dae10e27b298ff011d20580fac579b2b51dfb574b9538d9552)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobFlowId", value) # pyright: ignore[reportArgumentType]
 
@@ -8036,17 +8020,17 @@ class CfnInstanceGroupConfig(
     @jsii.member(jsii_name="autoScalingPolicy")
     def auto_scaling_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]]:
         '''``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]], jsii.get(self, "autoScalingPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]], jsii.get(self, "autoScalingPolicy"))
 
     @auto_scaling_policy.setter
     def auto_scaling_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ef90a0dcff109aaa0f7a46baf739816f26a3ccb9669240606f89552508d0ca8)
+            type_hints = cached_type_hints(_typecheckingstub__1ef90a0dcff109aaa0f7a46baf739816f26a3ccb9669240606f89552508d0ca8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -8059,7 +8043,7 @@ class CfnInstanceGroupConfig(
     @bid_price.setter
     def bid_price(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab690714e1919e92ed20dc7aa3e5315a2b1bfbcee89fc65c09ea7168c130b1dc)
+            type_hints = cached_type_hints(_typecheckingstub__ab690714e1919e92ed20dc7aa3e5315a2b1bfbcee89fc65c09ea7168c130b1dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bidPrice", value) # pyright: ignore[reportArgumentType]
 
@@ -8067,19 +8051,19 @@ class CfnInstanceGroupConfig(
     @jsii.member(jsii_name="configurations")
     def configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
         '''.. epigraph::
 
    Amazon EMR releases 4.x or later.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], jsii.get(self, "configurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], jsii.get(self, "configurations"))
 
     @configurations.setter
     def configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0131144525f35798c3b6081d980630003a3d1b9f1c3aae652f676206e8aeaa8)
+            type_hints = cached_type_hints(_typecheckingstub__c0131144525f35798c3b6081d980630003a3d1b9f1c3aae652f676206e8aeaa8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurations", value) # pyright: ignore[reportArgumentType]
 
@@ -8092,7 +8076,7 @@ class CfnInstanceGroupConfig(
     @custom_ami_id.setter
     def custom_ami_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__303cab696a08592b720c8e8be64275a3bbf6b789e1077ee4c162c6c0712653e8)
+            type_hints = cached_type_hints(_typecheckingstub__303cab696a08592b720c8e8be64275a3bbf6b789e1077ee4c162c6c0712653e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customAmiId", value) # pyright: ignore[reportArgumentType]
 
@@ -8100,17 +8084,17 @@ class CfnInstanceGroupConfig(
     @jsii.member(jsii_name="ebsConfiguration")
     def ebs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsConfigurationProperty"]]:
         '''``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsConfigurationProperty"]], jsii.get(self, "ebsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsConfigurationProperty"]], jsii.get(self, "ebsConfiguration"))
 
     @ebs_configuration.setter
     def ebs_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07cf75fd968a10f65fd11c71b6efc052932bd414a38416da34ccff0a4335fd8e)
+            type_hints = cached_type_hints(_typecheckingstub__07cf75fd968a10f65fd11c71b6efc052932bd414a38416da34ccff0a4335fd8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -8123,7 +8107,7 @@ class CfnInstanceGroupConfig(
     @market.setter
     def market(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05359e9787323de816895b743b6af3dd8f21fcc6a67f534dd7684d66581d93c1)
+            type_hints = cached_type_hints(_typecheckingstub__05359e9787323de816895b743b6af3dd8f21fcc6a67f534dd7684d66581d93c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "market", value) # pyright: ignore[reportArgumentType]
 
@@ -8136,7 +8120,7 @@ class CfnInstanceGroupConfig(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58871e6eae621e6fbe1e15c4166ad29e07293a9a1d2305d7fe9ca365634fb809)
+            type_hints = cached_type_hints(_typecheckingstub__58871e6eae621e6fbe1e15c4166ad29e07293a9a1d2305d7fe9ca365634fb809)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -8149,8 +8133,8 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            constraints: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ScalingConstraintsProperty", typing.Dict[builtins.str, typing.Any]]],
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ScalingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            constraints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ScalingConstraintsProperty", typing.Dict[builtins.str, typing.Any]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ScalingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric.
 
@@ -8212,7 +8196,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7ccf52c4a35db129b92c587555ec8d0f67a3d97092e5307fa0ddcb0b2106c137)
+                type_hints = cached_type_hints(_typecheckingstub__7ccf52c4a35db129b92c587555ec8d0f67a3d97092e5307fa0ddcb0b2106c137)
                 check_type(argname="argument constraints", value=constraints, expected_type=type_hints["constraints"])
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8223,7 +8207,7 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def constraints(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingConstraintsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingConstraintsProperty"]:
             '''The upper and lower Amazon EC2 instance limits for an automatic scaling policy.
 
             Automatic scaling activity will not cause an instance group to grow above or below these limits.
@@ -8232,19 +8216,19 @@ class CfnInstanceGroupConfig(
             '''
             result = self._values.get("constraints")
             assert result is not None, "Required property 'constraints' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingConstraintsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingConstraintsProperty"], result)
 
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingRuleProperty"]]]:
             '''The scale-in and scale-out rules that comprise the automatic scaling policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-autoscalingpolicy.html#cfn-emr-instancegroupconfig-autoscalingpolicy-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8280,7 +8264,7 @@ class CfnInstanceGroupConfig(
             metric_name: builtins.str,
             period: jsii.Number,
             threshold: jsii.Number,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             evaluation_periods: typing.Optional[jsii.Number] = None,
             namespace: typing.Optional[builtins.str] = None,
             statistic: typing.Optional[builtins.str] = None,
@@ -8327,7 +8311,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5ef36d052fd1c73f3c150fc370cea09f7f8cfa0fed7c5d3618650d6f138e57d9)
+                type_hints = cached_type_hints(_typecheckingstub__5ef36d052fd1c73f3c150fc370cea09f7f8cfa0fed7c5d3618650d6f138e57d9)
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -8399,13 +8383,13 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.MetricDimensionProperty"]]]]:
             '''A CloudWatch metric dimension.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-cloudwatchalarmdefinition.html#cfn-emr-instancegroupconfig-cloudwatchalarmdefinition-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.MetricDimensionProperty"]]]], result)
 
         @builtins.property
         def evaluation_periods(self) -> typing.Optional[jsii.Number]:
@@ -8476,8 +8460,8 @@ class CfnInstanceGroupConfig(
             self,
             *,
             classification: typing.Optional[builtins.str] = None,
-            configuration_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            configuration_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''``Configurations`` is a property of the ``AWS::EMR::Cluster`` resource that specifies the configuration of applications on an Amazon EMR cluster.
 
@@ -8510,7 +8494,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ac2b0b1a65e34f3c9e098b6f75c278daa93d377b96cededa4517b4fa7759d9e)
+                type_hints = cached_type_hints(_typecheckingstub__3ac2b0b1a65e34f3c9e098b6f75c278daa93d377b96cededa4517b4fa7759d9e)
                 check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
                 check_type(argname="argument configuration_properties", value=configuration_properties, expected_type=type_hints["configuration_properties"])
                 check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
@@ -8534,7 +8518,7 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def configuration_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Within a configuration classification, a set of properties that represent the settings that you want to change in the configuration file.
 
             Duplicates not allowed.
@@ -8542,18 +8526,18 @@ class CfnInstanceGroupConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-configuration.html#cfn-emr-instancegroupconfig-configuration-configurationproperties
             '''
             result = self._values.get("configuration_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
             '''A list of additional configurations to apply within a configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-configuration.html#cfn-emr-instancegroupconfig-configuration-configurations
             '''
             result = self._values.get("configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8578,7 +8562,7 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            volume_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            volume_specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.VolumeSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
             volumes_per_instance: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Configuration of requested EBS block device associated with the instance group with count of volumes that are associated to every instance.
@@ -8610,7 +8594,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee72789132b4e90a1d6a90327a95ec789abc3a6724fa23b1de25280e805781c2)
+                type_hints = cached_type_hints(_typecheckingstub__ee72789132b4e90a1d6a90327a95ec789abc3a6724fa23b1de25280e805781c2)
                 check_type(argname="argument volume_specification", value=volume_specification, expected_type=type_hints["volume_specification"])
                 check_type(argname="argument volumes_per_instance", value=volumes_per_instance, expected_type=type_hints["volumes_per_instance"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8622,14 +8606,14 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def volume_specification(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.VolumeSpecificationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.VolumeSpecificationProperty"]:
             '''EBS volume specifications such as volume type, IOPS, size (GiB) and throughput (MiB/s) that are requested for the EBS volume attached to an Amazon EC2 instance in the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-ebsblockdeviceconfig.html#cfn-emr-instancegroupconfig-ebsblockdeviceconfig-volumespecification
             '''
             result = self._values.get("volume_specification")
             assert result is not None, "Required property 'volume_specification' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.VolumeSpecificationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.VolumeSpecificationProperty"], result)
 
         @builtins.property
         def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
@@ -8663,8 +8647,8 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            ebs_block_device_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ebs_block_device_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The Amazon EBS configuration of a cluster instance.
 
@@ -8698,7 +8682,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0f334f21b45a80c7afc87361f15a522c7fcfaa41b4f7ab73dce958c051806dc9)
+                type_hints = cached_type_hints(_typecheckingstub__0f334f21b45a80c7afc87361f15a522c7fcfaa41b4f7ab73dce958c051806dc9)
                 check_type(argname="argument ebs_block_device_configs", value=ebs_block_device_configs, expected_type=type_hints["ebs_block_device_configs"])
                 check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8710,18 +8694,18 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def ebs_block_device_configs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty"]]]]:
             '''An array of Amazon EBS volume specifications attached to a cluster instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-ebsconfiguration.html#cfn-emr-instancegroupconfig-ebsconfiguration-ebsblockdeviceconfigs
             '''
             result = self._values.get("ebs_block_device_configs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty"]]]], result)
 
         @builtins.property
         def ebs_optimized(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether an Amazon EBS volume is EBS-optimized.
 
             The default is false. You should explicitly set this value to true to enable the Amazon EBS-optimized setting for an EC2 instance.
@@ -8729,7 +8713,7 @@ class CfnInstanceGroupConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-ebsconfiguration.html#cfn-emr-instancegroupconfig-ebsconfiguration-ebsoptimized
             '''
             result = self._values.get("ebs_optimized")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8771,7 +8755,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c2113ac9fdc707bb27249d54043fd206f25a93101010e5b771e1e0958839cdc0)
+                type_hints = cached_type_hints(_typecheckingstub__c2113ac9fdc707bb27249d54043fd206f25a93101010e5b771e1e0958839cdc0)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8822,7 +8806,7 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            simple_scaling_policy_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            simple_scaling_policy_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             market: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``ScalingAction`` is a subproperty of the ``ScalingRule`` property type.
@@ -8855,7 +8839,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__724cf187947d5b03301bf75eb59a7228254024fd628805c879916c536c7c6051)
+                type_hints = cached_type_hints(_typecheckingstub__724cf187947d5b03301bf75eb59a7228254024fd628805c879916c536c7c6051)
                 check_type(argname="argument simple_scaling_policy_configuration", value=simple_scaling_policy_configuration, expected_type=type_hints["simple_scaling_policy_configuration"])
                 check_type(argname="argument market", value=market, expected_type=type_hints["market"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8867,14 +8851,14 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def simple_scaling_policy_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty"]:
             '''The type of adjustment the automatic scaling activity makes when triggered, and the periodicity of the adjustment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingaction.html#cfn-emr-instancegroupconfig-scalingaction-simplescalingpolicyconfiguration
             '''
             result = self._values.get("simple_scaling_policy_configuration")
             assert result is not None, "Required property 'simple_scaling_policy_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty"], result)
 
         @builtins.property
         def market(self) -> typing.Optional[builtins.str]:
@@ -8932,7 +8916,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e6ff3b5d35320ac919544d56e90ea12239b9eb3d0d7419c51f8fb0d37bc989b5)
+                type_hints = cached_type_hints(_typecheckingstub__e6ff3b5d35320ac919544d56e90ea12239b9eb3d0d7419c51f8fb0d37bc989b5)
                 check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
                 check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8989,9 +8973,9 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ScalingActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ScalingActionProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
-            trigger: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ScalingTriggerProperty", typing.Dict[builtins.str, typing.Any]]],
+            trigger: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ScalingTriggerProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``ScalingRule`` is a subproperty of the ``AutoScalingPolicy`` property type.
@@ -9050,7 +9034,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e22fd5263f7ede9f4022ec6e5f459bb132aca11720ec7f0ee2967d60e7c1ba80)
+                type_hints = cached_type_hints(_typecheckingstub__e22fd5263f7ede9f4022ec6e5f459bb132aca11720ec7f0ee2967d60e7c1ba80)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
@@ -9066,14 +9050,14 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingActionProperty"]:
             '''The conditions that trigger an automatic scaling activity.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingrule.html#cfn-emr-instancegroupconfig-scalingrule-action
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingActionProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -9090,14 +9074,14 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def trigger(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingTriggerProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingTriggerProperty"]:
             '''The CloudWatch alarm definition that determines when automatic scaling activity is triggered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingrule.html#cfn-emr-instancegroupconfig-scalingrule-trigger
             '''
             result = self._values.get("trigger")
             assert result is not None, "Required property 'trigger' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ScalingTriggerProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ScalingTriggerProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -9128,7 +9112,7 @@ class CfnInstanceGroupConfig(
         def __init__(
             self,
             *,
-            cloud_watch_alarm_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            cloud_watch_alarm_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''``ScalingTrigger`` is a subproperty of the ``ScalingRule`` property type.
 
@@ -9165,7 +9149,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5071bc066eda67f0957ff3f0cfffd8ee81b66fdad65755907ee755e7ac063c3d)
+                type_hints = cached_type_hints(_typecheckingstub__5071bc066eda67f0957ff3f0cfffd8ee81b66fdad65755907ee755e7ac063c3d)
                 check_type(argname="argument cloud_watch_alarm_definition", value=cloud_watch_alarm_definition, expected_type=type_hints["cloud_watch_alarm_definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cloud_watch_alarm_definition": cloud_watch_alarm_definition,
@@ -9174,7 +9158,7 @@ class CfnInstanceGroupConfig(
         @builtins.property
         def cloud_watch_alarm_definition(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty"]:
             '''The definition of a CloudWatch metric alarm.
 
             When the defined alarm conditions are met along with other trigger parameters, scaling activity begins.
@@ -9183,7 +9167,7 @@ class CfnInstanceGroupConfig(
             '''
             result = self._values.get("cloud_watch_alarm_definition")
             assert result is not None, "Required property 'cloud_watch_alarm_definition' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9239,7 +9223,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6268a4e2bfec2bdc60b96553635aab203a6017b3189fca1955213d254af9194c)
+                type_hints = cached_type_hints(_typecheckingstub__6268a4e2bfec2bdc60b96553635aab203a6017b3189fca1955213d254af9194c)
                 check_type(argname="argument scaling_adjustment", value=scaling_adjustment, expected_type=type_hints["scaling_adjustment"])
                 check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
                 check_type(argname="argument cool_down", value=cool_down, expected_type=type_hints["cool_down"])
@@ -9343,7 +9327,7 @@ class CfnInstanceGroupConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__243316d3b741ddf8c20750398e178fdc490d62e22eb2efacb27623b9fd5ad95c)
+                type_hints = cached_type_hints(_typecheckingstub__243316d3b741ddf8c20750398e178fdc490d62e22eb2efacb27623b9fd5ad95c)
                 check_type(argname="argument size_in_gb", value=size_in_gb, expected_type=type_hints["size_in_gb"])
                 check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -9438,11 +9422,11 @@ class CfnInstanceGroupConfigProps:
         instance_role: builtins.str,
         instance_type: builtins.str,
         job_flow_id: builtins.str,
-        auto_scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_scaling_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bid_price: typing.Optional[builtins.str] = None,
-        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_ami_id: typing.Optional[builtins.str] = None,
-        ebs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInstanceGroupConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         market: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9550,7 +9534,7 @@ class CfnInstanceGroupConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f)
+            type_hints = cached_type_hints(_typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f)
             check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
             check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -9628,7 +9612,7 @@ class CfnInstanceGroupConfigProps:
     @builtins.property
     def auto_scaling_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]]:
         '''``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` .
 
         ``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ in the *Amazon EMR Management Guide* .
@@ -9636,7 +9620,7 @@ class CfnInstanceGroupConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-autoscalingpolicy
         '''
         result = self._values.get("auto_scaling_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]], result)
 
     @builtins.property
     def bid_price(self) -> typing.Optional[builtins.str]:
@@ -9652,7 +9636,7 @@ class CfnInstanceGroupConfigProps:
     @builtins.property
     def configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
         '''.. epigraph::
 
    Amazon EMR releases 4.x or later.
@@ -9662,7 +9646,7 @@ class CfnInstanceGroupConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-configurations
         '''
         result = self._values.get("configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.ConfigurationProperty"]]]], result)
 
     @builtins.property
     def custom_ami_id(self) -> typing.Optional[builtins.str]:
@@ -9676,13 +9660,13 @@ class CfnInstanceGroupConfigProps:
     @builtins.property
     def ebs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsConfigurationProperty"]]:
         '''``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-ebsconfiguration
         '''
         result = self._values.get("ebs_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInstanceGroupConfig.EbsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.EbsConfigurationProperty"]], result)
 
     @builtins.property
     def market(self) -> typing.Optional[builtins.str]:
@@ -9714,9 +9698,9 @@ class CfnInstanceGroupConfigProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISecurityConfigurationRef_fa75e801)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.ISecurityConfigurationRef)
 class CfnSecurityConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnSecurityConfiguration",
 ):
@@ -9806,7 +9790,7 @@ class CfnSecurityConfiguration(
         :param name: The name of the security configuration.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1cd635a9a933efd41bee8e26ecb06319993c2aa7e459d0f829c5f4dfc58cfd3)
+            type_hints = cached_type_hints(_typecheckingstub__d1cd635a9a933efd41bee8e26ecb06319993c2aa7e459d0f829c5f4dfc58cfd3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSecurityConfigurationProps(
@@ -9823,18 +9807,18 @@ class CfnSecurityConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b812a8037bb8bae73a6ca2ff36d54edbebdf919f4b6ec6106cd98b0df25f2c73)
+            type_hints = cached_type_hints(_typecheckingstub__b812a8037bb8bae73a6ca2ff36d54edbebdf919f4b6ec6106cd98b0df25f2c73)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSecurityConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da2a55d9947c59bcec537c0802a40401320b5d449dfc60b08045fa36fb13f4ea)
+            type_hints = cached_type_hints(_typecheckingstub__da2a55d9947c59bcec537c0802a40401320b5d449dfc60b08045fa36fb13f4ea)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9847,7 +9831,7 @@ class CfnSecurityConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c082b9ccfa1abd822893594a5e87725508bfea7dc1f24c5da500060202b08e9)
+            type_hints = cached_type_hints(_typecheckingstub__9c082b9ccfa1abd822893594a5e87725508bfea7dc1f24c5da500060202b08e9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9869,9 +9853,11 @@ class CfnSecurityConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="securityConfigurationRef")
-    def security_configuration_ref(self) -> "_SecurityConfigurationReference_b5113def":
+    def security_configuration_ref(
+        self,
+    ) -> "_aws_emr_b5476279.SecurityConfigurationReference":
         '''A reference to a SecurityConfiguration resource.'''
-        return typing.cast("_SecurityConfigurationReference_b5113def", jsii.get(self, "securityConfigurationRef"))
+        return typing.cast("_aws_emr_b5476279.SecurityConfigurationReference", jsii.get(self, "securityConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="securityConfiguration")
@@ -9882,7 +9868,7 @@ class CfnSecurityConfiguration(
     @security_configuration.setter
     def security_configuration(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7354895da5b819c64c60ddab0fd091d5bb8338e636d169481d06071803d0542)
+            type_hints = cached_type_hints(_typecheckingstub__b7354895da5b819c64c60ddab0fd091d5bb8338e636d169481d06071803d0542)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -9895,7 +9881,7 @@ class CfnSecurityConfiguration(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63794c5d363b5670a95b0dc55f674f81972d2ee1de87f02f8020599aecac3fef)
+            type_hints = cached_type_hints(_typecheckingstub__63794c5d363b5670a95b0dc55f674f81972d2ee1de87f02f8020599aecac3fef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -9984,7 +9970,7 @@ class CfnSecurityConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d)
+            type_hints = cached_type_hints(_typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d)
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10026,9 +10012,9 @@ class CfnSecurityConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStepRef_0555f3e7)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IStepRef)
 class CfnStep(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnStep",
 ):
@@ -10074,7 +10060,7 @@ class CfnStep(
         id: builtins.str,
         *,
         action_on_failure: builtins.str,
-        hadoop_jar_step: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStep.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        hadoop_jar_step: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStep.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         job_flow_id: builtins.str,
         name: builtins.str,
         encryption_key_arn: typing.Optional[builtins.str] = None,
@@ -10092,7 +10078,7 @@ class CfnStep(
         :param log_uri: The Amazon S3 destination URI for log publishing. When omitted, EMR falls back to cluster-level logging behavior.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56108bb804f44dbb5230a71c020ff2994411f1d5f6f4226d7d5f948d62af211e)
+            type_hints = cached_type_hints(_typecheckingstub__56108bb804f44dbb5230a71c020ff2994411f1d5f6f4226d7d5f948d62af211e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStepProps(
@@ -10114,18 +10100,18 @@ class CfnStep(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4738c9b08234388f56fda88e726828ea2e7222bc76dd3a99529e91c58039164)
+            type_hints = cached_type_hints(_typecheckingstub__d4738c9b08234388f56fda88e726828ea2e7222bc76dd3a99529e91c58039164)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStep", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78d97da37e72bd1bfccd5d003f6661e19aad059f59b1713075323b6ecf0eaa3d)
+            type_hints = cached_type_hints(_typecheckingstub__78d97da37e72bd1bfccd5d003f6661e19aad059f59b1713075323b6ecf0eaa3d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10138,7 +10124,7 @@ class CfnStep(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d849d8f81968063aa29a34df211088e584a4a24f713c36ff0a67515ffe9ba8c)
+            type_hints = cached_type_hints(_typecheckingstub__1d849d8f81968063aa29a34df211088e584a4a24f713c36ff0a67515ffe9ba8c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10169,9 +10155,9 @@ class CfnStep(
 
     @builtins.property
     @jsii.member(jsii_name="stepRef")
-    def step_ref(self) -> "_StepReference_33646d42":
+    def step_ref(self) -> "_aws_emr_b5476279.StepReference":
         '''A reference to a Step resource.'''
-        return typing.cast("_StepReference_33646d42", jsii.get(self, "stepRef"))
+        return typing.cast("_aws_emr_b5476279.StepReference", jsii.get(self, "stepRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actionOnFailure")
@@ -10182,7 +10168,7 @@ class CfnStep(
     @action_on_failure.setter
     def action_on_failure(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8246842b6fd3a6be5c74b6bfbc1bdfc328b214cf32fb8108cc06cf5793ea2a2)
+            type_hints = cached_type_hints(_typecheckingstub__c8246842b6fd3a6be5c74b6bfbc1bdfc328b214cf32fb8108cc06cf5793ea2a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionOnFailure", value) # pyright: ignore[reportArgumentType]
 
@@ -10190,17 +10176,17 @@ class CfnStep(
     @jsii.member(jsii_name="hadoopJarStep")
     def hadoop_jar_step(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStep.HadoopJarStepConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.HadoopJarStepConfigProperty"]:
         '''The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStep.HadoopJarStepConfigProperty"], jsii.get(self, "hadoopJarStep"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.HadoopJarStepConfigProperty"], jsii.get(self, "hadoopJarStep"))
 
     @hadoop_jar_step.setter
     def hadoop_jar_step(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnStep.HadoopJarStepConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.HadoopJarStepConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7ec64ae90b5233e23c51213eae7a3c1c03f9b635bef0f8e61032198c670bc9a)
+            type_hints = cached_type_hints(_typecheckingstub__a7ec64ae90b5233e23c51213eae7a3c1c03f9b635bef0f8e61032198c670bc9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hadoopJarStep", value) # pyright: ignore[reportArgumentType]
 
@@ -10213,7 +10199,7 @@ class CfnStep(
     @job_flow_id.setter
     def job_flow_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99aff04b3096ab830115c2e81c573c3777b7b1cd6b5ba49de734510fe54bd41f)
+            type_hints = cached_type_hints(_typecheckingstub__99aff04b3096ab830115c2e81c573c3777b7b1cd6b5ba49de734510fe54bd41f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobFlowId", value) # pyright: ignore[reportArgumentType]
 
@@ -10226,7 +10212,7 @@ class CfnStep(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66c3d15d09a73ee52be1d687a48f7a81900a69ccc44fb1cabb8a54adfa580c22)
+            type_hints = cached_type_hints(_typecheckingstub__66c3d15d09a73ee52be1d687a48f7a81900a69ccc44fb1cabb8a54adfa580c22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -10239,7 +10225,7 @@ class CfnStep(
     @encryption_key_arn.setter
     def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51a7d6066ac157df87adfae05ff37ba748d51b05c66597d62d437151ff59da99)
+            type_hints = cached_type_hints(_typecheckingstub__51a7d6066ac157df87adfae05ff37ba748d51b05c66597d62d437151ff59da99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -10252,7 +10238,7 @@ class CfnStep(
     @log_uri.setter
     def log_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c09e03349e34529744f3c5b78024c2a8cf634ac24fa8e5cbc9bddcd0db18c86c)
+            type_hints = cached_type_hints(_typecheckingstub__c09e03349e34529744f3c5b78024c2a8cf634ac24fa8e5cbc9bddcd0db18c86c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logUri", value) # pyright: ignore[reportArgumentType]
 
@@ -10273,7 +10259,7 @@ class CfnStep(
             jar: builtins.str,
             args: typing.Optional[typing.Sequence[builtins.str]] = None,
             main_class: typing.Optional[builtins.str] = None,
-            step_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStep.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            step_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStep.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A job flow step consisting of a JAR file whose main function will be executed.
 
@@ -10306,7 +10292,7 @@ class CfnStep(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17116dab64c1f998800a3972016d6de90f0339e27d783be01c9aa002d894436e)
+                type_hints = cached_type_hints(_typecheckingstub__17116dab64c1f998800a3972016d6de90f0339e27d783be01c9aa002d894436e)
                 check_type(argname="argument jar", value=jar, expected_type=type_hints["jar"])
                 check_type(argname="argument args", value=args, expected_type=type_hints["args"])
                 check_type(argname="argument main_class", value=main_class, expected_type=type_hints["main_class"])
@@ -10354,7 +10340,7 @@ class CfnStep(
         @builtins.property
         def step_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStep.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.KeyValueProperty"]]]]:
             '''A list of Java properties that are set when the step runs.
 
             You can use these properties to pass key value pairs to your main function.
@@ -10362,7 +10348,7 @@ class CfnStep(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-step-hadoopjarstepconfig.html#cfn-emr-step-hadoopjarstepconfig-stepproperties
             '''
             result = self._values.get("step_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStep.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.KeyValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10409,7 +10395,7 @@ class CfnStep(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c45d46cddf4cc72fa52f0b95e0f250b3363c3d0ca8542a73ce888bcefb498379)
+                type_hints = cached_type_hints(_typecheckingstub__c45d46cddf4cc72fa52f0b95e0f250b3363c3d0ca8542a73ce888bcefb498379)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10465,7 +10451,7 @@ class CfnStepProps:
         self,
         *,
         action_on_failure: builtins.str,
-        hadoop_jar_step: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStep.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        hadoop_jar_step: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStep.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         job_flow_id: builtins.str,
         name: builtins.str,
         encryption_key_arn: typing.Optional[builtins.str] = None,
@@ -10511,7 +10497,7 @@ class CfnStepProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d)
+            type_hints = cached_type_hints(_typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d)
             check_type(argname="argument action_on_failure", value=action_on_failure, expected_type=type_hints["action_on_failure"])
             check_type(argname="argument hadoop_jar_step", value=hadoop_jar_step, expected_type=type_hints["hadoop_jar_step"])
             check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
@@ -10544,7 +10530,7 @@ class CfnStepProps:
     @builtins.property
     def hadoop_jar_step(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStep.HadoopJarStepConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.HadoopJarStepConfigProperty"]:
         '''The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed.
 
         The main function submits a job for the cluster to execute as a step on the master node, and then waits for the job to finish or fail before executing subsequent steps.
@@ -10553,7 +10539,7 @@ class CfnStepProps:
         '''
         result = self._values.get("hadoop_jar_step")
         assert result is not None, "Required property 'hadoop_jar_step' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStep.HadoopJarStepConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStep.HadoopJarStepConfigProperty"], result)
 
     @builtins.property
     def job_flow_id(self) -> builtins.str:
@@ -10609,9 +10595,9 @@ class CfnStepProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStudioRef_7dcfa17b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IStudioRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStudio(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnStudio",
 ):
@@ -10662,22 +10648,22 @@ class CfnStudio(
         id: builtins.str,
         *,
         auth_mode: builtins.str,
-        default_s3_location: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
-        engine_security_group_id: typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"],
+        default_s3_location: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
+        engine_security_group_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"],
         name: builtins.str,
-        service_role: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
-        workspace_security_group_id: typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"],
+        service_role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
+        workspace_security_group_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"],
         description: typing.Optional[builtins.str] = None,
-        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         idc_instance_arn: typing.Optional[builtins.str] = None,
         idc_user_assignment: typing.Optional[builtins.str] = None,
         idp_auth_url: typing.Optional[builtins.str] = None,
         idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        user_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        user_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::EMR::Studio``.
 
@@ -10702,7 +10688,7 @@ class CfnStudio(
         :param user_role: The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio. The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e5fa63dd56ed829e4898f84009809f50f4125ac18a4dd04d1928420267568a3)
+            type_hints = cached_type_hints(_typecheckingstub__9e5fa63dd56ed829e4898f84009809f50f4125ac18a4dd04d1928420267568a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStudioProps(
@@ -10729,12 +10715,12 @@ class CfnStudio(
 
     @jsii.member(jsii_name="arnForStudio")
     @builtins.classmethod
-    def arn_for_studio(cls, resource: "_IStudioRef_7dcfa17b") -> builtins.str:
+    def arn_for_studio(cls, resource: "_aws_emr_b5476279.IStudioRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba1f95282f86f0bfc8656dfc6fc176c08b9b3190538cb0cae082156213a5bbdb)
+            type_hints = cached_type_hints(_typecheckingstub__ba1f95282f86f0bfc8656dfc6fc176c08b9b3190538cb0cae082156213a5bbdb)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStudio", [resource]))
 
@@ -10745,7 +10731,7 @@ class CfnStudio(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IStudioRef_7dcfa17b":
+    ) -> "_aws_emr_b5476279.IStudioRef":
         '''Creates a new IStudioRef from an ARN.
 
         :param scope: -
@@ -10753,11 +10739,11 @@ class CfnStudio(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18af80ae311cd75bd42e9e025054ae8fe4c14b9c209e71381086c85839dd91e5)
+            type_hints = cached_type_hints(_typecheckingstub__18af80ae311cd75bd42e9e025054ae8fe4c14b9c209e71381086c85839dd91e5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IStudioRef_7dcfa17b", jsii.sinvoke(cls, "fromStudioArn", [scope, id, arn]))
+        return typing.cast("_aws_emr_b5476279.IStudioRef", jsii.sinvoke(cls, "fromStudioArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromStudioId")
     @builtins.classmethod
@@ -10766,7 +10752,7 @@ class CfnStudio(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         studio_id: builtins.str,
-    ) -> "_IStudioRef_7dcfa17b":
+    ) -> "_aws_emr_b5476279.IStudioRef":
         '''Creates a new IStudioRef from a studioId.
 
         :param scope: -
@@ -10774,11 +10760,11 @@ class CfnStudio(
         :param studio_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__197887eba05e26dd2d1162e18bd192b5f97b69e18850199c9d5f54f8f0f9d39e)
+            type_hints = cached_type_hints(_typecheckingstub__197887eba05e26dd2d1162e18bd192b5f97b69e18850199c9d5f54f8f0f9d39e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
-        return typing.cast("_IStudioRef_7dcfa17b", jsii.sinvoke(cls, "fromStudioId", [scope, id, studio_id]))
+        return typing.cast("_aws_emr_b5476279.IStudioRef", jsii.sinvoke(cls, "fromStudioId", [scope, id, studio_id]))
 
     @jsii.member(jsii_name="isCfnStudio")
     @builtins.classmethod
@@ -10788,18 +10774,18 @@ class CfnStudio(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d7a89460b4a3a1f7cd3b25dc5c1337482f0b3ccb56e5b27cce32dbbe49bae29)
+            type_hints = cached_type_hints(_typecheckingstub__1d7a89460b4a3a1f7cd3b25dc5c1337482f0b3ccb56e5b27cce32dbbe49bae29)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStudio", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12811625403d85ab8e027c82784f88c03aadb1a85e1a21e6db4a277a59011534)
+            type_hints = cached_type_hints(_typecheckingstub__12811625403d85ab8e027c82784f88c03aadb1a85e1a21e6db4a277a59011534)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10812,7 +10798,7 @@ class CfnStudio(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ff2c045eee2499998e72b32d6123b1b4b00a854ea2337ba6394499ce8db13a7)
+            type_hints = cached_type_hints(_typecheckingstub__5ff2c045eee2499998e72b32d6123b1b4b00a854ea2337ba6394499ce8db13a7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10867,15 +10853,15 @@ class CfnStudio(
 
     @builtins.property
     @jsii.member(jsii_name="studioRef")
-    def studio_ref(self) -> "_StudioReference_c68370f9":
+    def studio_ref(self) -> "_aws_emr_b5476279.StudioReference":
         '''A reference to a Studio resource.'''
-        return typing.cast("_StudioReference_c68370f9", jsii.get(self, "studioRef"))
+        return typing.cast("_aws_emr_b5476279.StudioReference", jsii.get(self, "studioRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="authMode")
@@ -10886,7 +10872,7 @@ class CfnStudio(
     @auth_mode.setter
     def auth_mode(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29b15ad22555e04d2d23005c30126435e4966620a2c12755f0b0fdd6726aa11e)
+            type_hints = cached_type_hints(_typecheckingstub__29b15ad22555e04d2d23005c30126435e4966620a2c12755f0b0fdd6726aa11e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authMode", value) # pyright: ignore[reportArgumentType]
 
@@ -10899,7 +10885,7 @@ class CfnStudio(
     @default_s3_location.setter
     def default_s3_location(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb47bd6bd91d8355415cdc4cfdba08f13b080cf9846d2422d09e8b62265748c)
+            type_hints = cached_type_hints(_typecheckingstub__fbb47bd6bd91d8355415cdc4cfdba08f13b080cf9846d2422d09e8b62265748c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultS3Location", value) # pyright: ignore[reportArgumentType]
 
@@ -10912,7 +10898,7 @@ class CfnStudio(
     @engine_security_group_id.setter
     def engine_security_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90414b22e6e56647e9dbf693bbce0fdae1c28c236ecd929441a47f2d0f435d5b)
+            type_hints = cached_type_hints(_typecheckingstub__90414b22e6e56647e9dbf693bbce0fdae1c28c236ecd929441a47f2d0f435d5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineSecurityGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -10925,7 +10911,7 @@ class CfnStudio(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13d52feab7f5ee099c16a0c05ed2b3e7cee18c472c41ac764589c397b620b299)
+            type_hints = cached_type_hints(_typecheckingstub__13d52feab7f5ee099c16a0c05ed2b3e7cee18c472c41ac764589c397b620b299)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -10938,7 +10924,7 @@ class CfnStudio(
     @service_role.setter
     def service_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cde7348c01a014ad19a7b3939357f0a15ad6204c8bfbe78489ef31850e579062)
+            type_hints = cached_type_hints(_typecheckingstub__cde7348c01a014ad19a7b3939357f0a15ad6204c8bfbe78489ef31850e579062)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
 
@@ -10951,7 +10937,7 @@ class CfnStudio(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__838f9f7dee3119f5c14aec74fc776ee2d173f127e4c1405cf253a925c408ae27)
+            type_hints = cached_type_hints(_typecheckingstub__838f9f7dee3119f5c14aec74fc776ee2d173f127e4c1405cf253a925c408ae27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -10964,7 +10950,7 @@ class CfnStudio(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e38a2a11b003b0f2c09b646ba28b0e59e56e5f4f7217dbedff8c6c3108b678f)
+            type_hints = cached_type_hints(_typecheckingstub__7e38a2a11b003b0f2c09b646ba28b0e59e56e5f4f7217dbedff8c6c3108b678f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -10977,7 +10963,7 @@ class CfnStudio(
     @workspace_security_group_id.setter
     def workspace_security_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6702095c850e5c6efc6f9b86ca71364b17fad2b801e0c3aa76a7482e99a295b0)
+            type_hints = cached_type_hints(_typecheckingstub__6702095c850e5c6efc6f9b86ca71364b17fad2b801e0c3aa76a7482e99a295b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workspaceSecurityGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -10990,7 +10976,7 @@ class CfnStudio(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b57cfedf6d1b9357fb99a22fb68853be1bf68349d342ae1b382a911a55e0a0e1)
+            type_hints = cached_type_hints(_typecheckingstub__b57cfedf6d1b9357fb99a22fb68853be1bf68349d342ae1b382a911a55e0a0e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -11003,7 +10989,7 @@ class CfnStudio(
     @encryption_key_arn.setter
     def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a934c05c196d0eda57d2ba0bd9c2811612942f47baa70b9def4583964bf21ef7)
+            type_hints = cached_type_hints(_typecheckingstub__a934c05c196d0eda57d2ba0bd9c2811612942f47baa70b9def4583964bf21ef7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -11016,7 +11002,7 @@ class CfnStudio(
     @idc_instance_arn.setter
     def idc_instance_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac14b0d933a01aa925ef079cc75e4ff2fb649c283f4c3356a21f14dae6f52d24)
+            type_hints = cached_type_hints(_typecheckingstub__ac14b0d933a01aa925ef079cc75e4ff2fb649c283f4c3356a21f14dae6f52d24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idcInstanceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -11029,7 +11015,7 @@ class CfnStudio(
     @idc_user_assignment.setter
     def idc_user_assignment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a96ab30aad484feea76068949481bec25db0a532494456bfbb1db494aebf3926)
+            type_hints = cached_type_hints(_typecheckingstub__a96ab30aad484feea76068949481bec25db0a532494456bfbb1db494aebf3926)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idcUserAssignment", value) # pyright: ignore[reportArgumentType]
 
@@ -11042,7 +11028,7 @@ class CfnStudio(
     @idp_auth_url.setter
     def idp_auth_url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bdf046decc7d9dcf4942916a9fd82f3ddf403adfc79905c187b32915e71a92e)
+            type_hints = cached_type_hints(_typecheckingstub__5bdf046decc7d9dcf4942916a9fd82f3ddf403adfc79905c187b32915e71a92e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idpAuthUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -11058,20 +11044,23 @@ class CfnStudio(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1cfcbc2226f4548db4b1c3cdf608c158cf7718b53ca11e14bae09dd099353f5)
+            type_hints = cached_type_hints(_typecheckingstub__c1cfcbc2226f4548db4b1c3cdf608c158cf7718b53ca11e14bae09dd099353f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idpRelayStateParameterName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93c87ee05567302bb00141c45d4f778440c0196380fbcf0ea86580e0f69c98ad)
+            type_hints = cached_type_hints(_typecheckingstub__93c87ee05567302bb00141c45d4f778440c0196380fbcf0ea86580e0f69c98ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -11079,17 +11068,17 @@ class CfnStudio(
     @jsii.member(jsii_name="trustedIdentityPropagationEnabled")
     def trusted_identity_propagation_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the Studio has Trusted identity propagation enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "trustedIdentityPropagationEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "trustedIdentityPropagationEnabled"))
 
     @trusted_identity_propagation_enabled.setter
     def trusted_identity_propagation_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d97a907912a2a6d42177e06668874b62f8bb494e07b5e9659287db646faa1236)
+            type_hints = cached_type_hints(_typecheckingstub__d97a907912a2a6d42177e06668874b62f8bb494e07b5e9659287db646faa1236)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trustedIdentityPropagationEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -11102,7 +11091,7 @@ class CfnStudio(
     @user_role.setter
     def user_role(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4497b6d90d344f7cce9a12d862f813109f2ee695a175caef4ea9fba74f1175a8)
+            type_hints = cached_type_hints(_typecheckingstub__4497b6d90d344f7cce9a12d862f813109f2ee695a175caef4ea9fba74f1175a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userRole", value) # pyright: ignore[reportArgumentType]
 
@@ -11135,22 +11124,22 @@ class CfnStudioProps:
         self,
         *,
         auth_mode: builtins.str,
-        default_s3_location: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
-        engine_security_group_id: typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"],
+        default_s3_location: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
+        engine_security_group_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"],
         name: builtins.str,
-        service_role: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
-        workspace_security_group_id: typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"],
+        service_role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
+        workspace_security_group_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"],
         description: typing.Optional[builtins.str] = None,
-        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         idc_instance_arn: typing.Optional[builtins.str] = None,
         idc_user_assignment: typing.Optional[builtins.str] = None,
         idp_auth_url: typing.Optional[builtins.str] = None,
         idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        user_role: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        user_role: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStudio``.
 
@@ -11208,7 +11197,7 @@ class CfnStudioProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4)
+            type_hints = cached_type_hints(_typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4)
             check_type(argname="argument auth_mode", value=auth_mode, expected_type=type_hints["auth_mode"])
             check_type(argname="argument default_s3_location", value=default_s3_location, expected_type=type_hints["default_s3_location"])
             check_type(argname="argument engine_security_group_id", value=engine_security_group_id, expected_type=type_hints["engine_security_group_id"])
@@ -11266,19 +11255,21 @@ class CfnStudioProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def default_s3_location(self) -> typing.Union[builtins.str, "_IBucketRef_3debe44e"]:
+    def default_s3_location(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]:
         '''The Amazon S3 location to back up EMR Studio Workspaces and notebook files.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-defaults3location
         '''
         result = self._values.get("default_s3_location")
         assert result is not None, "Required property 'default_s3_location' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IBucketRef_3debe44e"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"], result)
 
     @builtins.property
     def engine_security_group_id(
         self,
-    ) -> typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]:
+    ) -> typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]:
         '''The ID of the Amazon EMR Studio Engine security group.
 
         The Engine security group allows inbound network traffic from the Workspace security group, and it must be in the same VPC specified by ``VpcId`` .
@@ -11287,7 +11278,7 @@ class CfnStudioProps:
         '''
         result = self._values.get("engine_security_group_id")
         assert result is not None, "Required property 'engine_security_group_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -11300,7 +11291,7 @@ class CfnStudioProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def service_role(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def service_role(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The Amazon Resource Name (ARN) of the IAM role that will be assumed by the Amazon EMR Studio.
 
         The service role provides a way for Amazon EMR Studio to interoperate with other AWS services.
@@ -11309,12 +11300,12 @@ class CfnStudioProps:
         '''
         result = self._values.get("service_role")
         assert result is not None, "Required property 'service_role' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]:
         '''A list of subnet IDs to associate with the Amazon EMR Studio.
 
         A Studio can have a maximum of 5 subnets. The subnets must belong to the VPC specified by ``VpcId`` . Studio users can create a Workspace in any of the specified subnets.
@@ -11323,22 +11314,22 @@ class CfnStudioProps:
         '''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]], result)
 
     @builtins.property
-    def vpc_id(self) -> typing.Union[builtins.str, "_IVPCRef_f02a11df"]:
+    def vpc_id(self) -> typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]:
         '''The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-vpcid
         '''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IVPCRef_f02a11df"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"], result)
 
     @builtins.property
     def workspace_security_group_id(
         self,
-    ) -> typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]:
+    ) -> typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]:
         '''The ID of the Workspace security group associated with the Amazon EMR Studio.
 
         The Workspace security group allows outbound network traffic to resources in the Engine security group and to the internet.
@@ -11347,7 +11338,7 @@ class CfnStudioProps:
         '''
         result = self._values.get("workspace_security_group_id")
         assert result is not None, "Required property 'workspace_security_group_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -11361,13 +11352,13 @@ class CfnStudioProps:
     @builtins.property
     def encryption_key_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The AWS  key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-encryptionkeyarn
         '''
         result = self._values.get("encryption_key_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def idc_instance_arn(self) -> typing.Optional[builtins.str]:
@@ -11410,7 +11401,7 @@ class CfnStudioProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -11418,12 +11409,12 @@ class CfnStudioProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trusted_identity_propagation_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the Studio has Trusted identity propagation enabled.
 
         The default value is ``false`` .
@@ -11431,12 +11422,12 @@ class CfnStudioProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-trustedidentitypropagationenabled
         '''
         result = self._values.get("trusted_identity_propagation_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def user_role(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio.
 
         The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
@@ -11444,7 +11435,7 @@ class CfnStudioProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-userrole
         '''
         result = self._values.get("user_role")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11458,9 +11449,9 @@ class CfnStudioProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStudioSessionMappingRef_95665000)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IStudioSessionMappingRef)
 class CfnStudioSessionMapping(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnStudioSessionMapping",
 ):
@@ -11491,8 +11482,8 @@ class CfnStudioSessionMapping(
         *,
         identity_name: builtins.str,
         identity_type: builtins.str,
-        session_policy_arn: typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"],
-        studio_id: typing.Union[builtins.str, "_IStudioRef_7dcfa17b"],
+        session_policy_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"],
+        studio_id: typing.Union[builtins.str, "_aws_emr_b5476279.IStudioRef"],
     ) -> None:
         '''Create a new ``AWS::EMR::StudioSessionMapping``.
 
@@ -11504,7 +11495,7 @@ class CfnStudioSessionMapping(
         :param studio_id: The ID of the Amazon EMR Studio to which the user or group will be mapped.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e47b505b0a4a624d7bbc7e6f0b97d1cb4bc72a6ca97f9fba72f1fd63a5544d6)
+            type_hints = cached_type_hints(_typecheckingstub__3e47b505b0a4a624d7bbc7e6f0b97d1cb4bc72a6ca97f9fba72f1fd63a5544d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStudioSessionMappingProps(
@@ -11524,18 +11515,18 @@ class CfnStudioSessionMapping(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba78a978daa6b899e54368e513663d591049eab02d654ef2e589c4388471ea5e)
+            type_hints = cached_type_hints(_typecheckingstub__ba78a978daa6b899e54368e513663d591049eab02d654ef2e589c4388471ea5e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStudioSessionMapping", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__153edf7b110ebe9d0c9cd9ba4efa10acec007161e12e38d6e9b66a4f81fd64d0)
+            type_hints = cached_type_hints(_typecheckingstub__153edf7b110ebe9d0c9cd9ba4efa10acec007161e12e38d6e9b66a4f81fd64d0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -11548,7 +11539,7 @@ class CfnStudioSessionMapping(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc7c9cb99a4061de76a53ac99eca669470f2c63506aa6313684786d25560afd)
+            type_hints = cached_type_hints(_typecheckingstub__adc7c9cb99a4061de76a53ac99eca669470f2c63506aa6313684786d25560afd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -11570,9 +11561,11 @@ class CfnStudioSessionMapping(
 
     @builtins.property
     @jsii.member(jsii_name="studioSessionMappingRef")
-    def studio_session_mapping_ref(self) -> "_StudioSessionMappingReference_88a23d15":
+    def studio_session_mapping_ref(
+        self,
+    ) -> "_aws_emr_b5476279.StudioSessionMappingReference":
         '''A reference to a StudioSessionMapping resource.'''
-        return typing.cast("_StudioSessionMappingReference_88a23d15", jsii.get(self, "studioSessionMappingRef"))
+        return typing.cast("_aws_emr_b5476279.StudioSessionMappingReference", jsii.get(self, "studioSessionMappingRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identityName")
@@ -11583,7 +11576,7 @@ class CfnStudioSessionMapping(
     @identity_name.setter
     def identity_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5feea587008e0e1c0549b46859852be4a2ae481e639401abe2b886234153fc1)
+            type_hints = cached_type_hints(_typecheckingstub__a5feea587008e0e1c0549b46859852be4a2ae481e639401abe2b886234153fc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityName", value) # pyright: ignore[reportArgumentType]
 
@@ -11596,7 +11589,7 @@ class CfnStudioSessionMapping(
     @identity_type.setter
     def identity_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e7e1b5f29fb4ef82a3f45ccd1dc1210bfec29f167cd477284aa3b96257256b8)
+            type_hints = cached_type_hints(_typecheckingstub__0e7e1b5f29fb4ef82a3f45ccd1dc1210bfec29f167cd477284aa3b96257256b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityType", value) # pyright: ignore[reportArgumentType]
 
@@ -11609,7 +11602,7 @@ class CfnStudioSessionMapping(
     @session_policy_arn.setter
     def session_policy_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3859eb45dacb565c5ba65788173f464996ebc788e3cc6302de95fb0f00ef960)
+            type_hints = cached_type_hints(_typecheckingstub__d3859eb45dacb565c5ba65788173f464996ebc788e3cc6302de95fb0f00ef960)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sessionPolicyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -11622,7 +11615,7 @@ class CfnStudioSessionMapping(
     @studio_id.setter
     def studio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce585291954018d8d1dc1c7c090b303e853cefe2e95a5e5948014cb2d1a8f9a8)
+            type_hints = cached_type_hints(_typecheckingstub__ce585291954018d8d1dc1c7c090b303e853cefe2e95a5e5948014cb2d1a8f9a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "studioId", value) # pyright: ignore[reportArgumentType]
 
@@ -11643,8 +11636,8 @@ class CfnStudioSessionMappingProps:
         *,
         identity_name: builtins.str,
         identity_type: builtins.str,
-        session_policy_arn: typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"],
-        studio_id: typing.Union[builtins.str, "_IStudioRef_7dcfa17b"],
+        session_policy_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"],
+        studio_id: typing.Union[builtins.str, "_aws_emr_b5476279.IStudioRef"],
     ) -> None:
         '''Properties for defining a ``CfnStudioSessionMapping``.
 
@@ -11670,7 +11663,7 @@ class CfnStudioSessionMappingProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8)
+            type_hints = cached_type_hints(_typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8)
             check_type(argname="argument identity_name", value=identity_name, expected_type=type_hints["identity_name"])
             check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
             check_type(argname="argument session_policy_arn", value=session_policy_arn, expected_type=type_hints["session_policy_arn"])
@@ -11707,7 +11700,7 @@ class CfnStudioSessionMappingProps:
     @builtins.property
     def session_policy_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]:
+    ) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]:
         '''The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group.
 
         Session policies refine Studio user permissions without the need to use multiple IAM user roles. For more information, see `Create an EMR Studio user role with session policies <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-user-role.html>`_ in the *Amazon EMR Management Guide* .
@@ -11716,17 +11709,17 @@ class CfnStudioSessionMappingProps:
         '''
         result = self._values.get("session_policy_arn")
         assert result is not None, "Required property 'session_policy_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"], result)
 
     @builtins.property
-    def studio_id(self) -> typing.Union[builtins.str, "_IStudioRef_7dcfa17b"]:
+    def studio_id(self) -> typing.Union[builtins.str, "_aws_emr_b5476279.IStudioRef"]:
         '''The ID of the Amazon EMR Studio to which the user or group will be mapped.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-studioid
         '''
         result = self._values.get("studio_id")
         assert result is not None, "Required property 'studio_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IStudioRef_7dcfa17b"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_emr_b5476279.IStudioRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11740,9 +11733,9 @@ class CfnStudioSessionMappingProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWALWorkspaceRef_3581ba04, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emr_b5476279.IWALWorkspaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWALWorkspace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_emr.CfnWALWorkspace",
 ):
@@ -11773,7 +11766,7 @@ class CfnWALWorkspace(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         wal_workspace_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::EMR::WALWorkspace``.
@@ -11784,7 +11777,7 @@ class CfnWALWorkspace(
         :param wal_workspace_name: The name of the emrwal container.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1985a11480d9771f4adca96d86b169aa02281678db75bca99cae188da64db2af)
+            type_hints = cached_type_hints(_typecheckingstub__1985a11480d9771f4adca96d86b169aa02281678db75bca99cae188da64db2af)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWALWorkspaceProps(tags=tags, wal_workspace_name=wal_workspace_name)
@@ -11799,18 +11792,18 @@ class CfnWALWorkspace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9a1b0bca3e07b3ab716281c605a32f50b94bae5e03a2de5552d3892850d1b0)
+            type_hints = cached_type_hints(_typecheckingstub__3e9a1b0bca3e07b3ab716281c605a32f50b94bae5e03a2de5552d3892850d1b0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWALWorkspace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecd0531bb1865d8e422006dd70518e7e6c3206a1606b5c3c0b65c97287946fb5)
+            type_hints = cached_type_hints(_typecheckingstub__ecd0531bb1865d8e422006dd70518e7e6c3206a1606b5c3c0b65c97287946fb5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -11823,7 +11816,7 @@ class CfnWALWorkspace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fee275f760ca07b82a676d0d77ce668eff171e2b3d5ce80fd4e2914f6edb7a2)
+            type_hints = cached_type_hints(_typecheckingstub__8fee275f760ca07b82a676d0d77ce668eff171e2b3d5ce80fd4e2914f6edb7a2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -11835,9 +11828,9 @@ class CfnWALWorkspace(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -11851,20 +11844,23 @@ class CfnWALWorkspace(
 
     @builtins.property
     @jsii.member(jsii_name="walWorkspaceRef")
-    def wal_workspace_ref(self) -> "_WALWorkspaceReference_4058c36e":
+    def wal_workspace_ref(self) -> "_aws_emr_b5476279.WALWorkspaceReference":
         '''A reference to a WALWorkspace resource.'''
-        return typing.cast("_WALWorkspaceReference_4058c36e", jsii.get(self, "walWorkspaceRef"))
+        return typing.cast("_aws_emr_b5476279.WALWorkspaceReference", jsii.get(self, "walWorkspaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__851c8fb8c44fa83f73dc5f006c4f65169726f6269fd062e84490d5cf26077add)
+            type_hints = cached_type_hints(_typecheckingstub__851c8fb8c44fa83f73dc5f006c4f65169726f6269fd062e84490d5cf26077add)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -11877,7 +11873,7 @@ class CfnWALWorkspace(
     @wal_workspace_name.setter
     def wal_workspace_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b841633928ec99eb6a369ad7d4f47c19b8160c69cd85540afdfe71238c44294)
+            type_hints = cached_type_hints(_typecheckingstub__0b841633928ec99eb6a369ad7d4f47c19b8160c69cd85540afdfe71238c44294)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "walWorkspaceName", value) # pyright: ignore[reportArgumentType]
 
@@ -11891,7 +11887,7 @@ class CfnWALWorkspaceProps:
     def __init__(
         self,
         *,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         wal_workspace_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnWALWorkspace``.
@@ -11918,7 +11914,7 @@ class CfnWALWorkspaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63)
+            type_hints = cached_type_hints(_typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument wal_workspace_name", value=wal_workspace_name, expected_type=type_hints["wal_workspace_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11928,13 +11924,13 @@ class CfnWALWorkspaceProps:
             self._values["wal_workspace_name"] = wal_workspace_name
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html#cfn-emr-walworkspace-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def wal_workspace_name(self) -> typing.Optional[builtins.str]:
@@ -11982,39 +11978,39 @@ def _typecheckingstub__078ec582504b982aedaecb6e8181c3cf53ae51c1b43cd59a31f8379e1
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    instances: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    instances: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     job_flow_role: builtins.str,
     name: builtins.str,
     service_role: builtins.str,
     additional_info: typing.Any = None,
-    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    applications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     auto_scaling_role: typing.Optional[builtins.str] = None,
-    auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    auto_termination_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bootstrap_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
     ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
     ebs_root_volume_size: typing.Optional[jsii.Number] = None,
     ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-    kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kerberos_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
     log_uri: typing.Optional[builtins.str] = None,
-    managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     os_release_label: typing.Optional[builtins.str] = None,
-    placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_group_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     release_label: typing.Optional[builtins.str] = None,
     scale_down_behavior: typing.Optional[builtins.str] = None,
     security_configuration: typing.Optional[builtins.str] = None,
     step_concurrency_level: typing.Optional[jsii.Number] = None,
-    steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    steps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ab2709723877d7011eafccda10941b963db87bb16d93e9b593904ed03178f54a(
-    resource: _IClusterRef_bdda5e5c,
+    resource: _aws_emr_b5476279.IClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12034,7 +12030,7 @@ def _typecheckingstub__5e2068f0d08a08db7a7984082b1d6b1883955eb8b1fca11994b23a2d3
     pass
 
 def _typecheckingstub__7bbe2decc930b4772f0407223e119030f3892221da6840065798499363723d31(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12052,7 +12048,7 @@ def _typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd3
     pass
 
 def _typecheckingstub__3db10eb80ac95a4595d858fdb0ef7856bf908495b5881a437e2418e12ef04e2f(
-    value: typing.Union[_IResolvable_da3f097b, CfnCluster.JobFlowInstancesConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.JobFlowInstancesConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12076,7 +12072,7 @@ def _typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23
     pass
 
 def _typecheckingstub__e4e5be2002d09889a797c9582ab789359945687c870580656dbe722e89affc8a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ApplicationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.ApplicationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12088,19 +12084,19 @@ def _typecheckingstub__220e0794f7e50696a7bce5f1cf4265710a3841db26e170a75b462acb7
     pass
 
 def _typecheckingstub__a9e8b03bd44a0739c6fca421ce3e85b26ae46c02940e43a578dfece166b4cbb3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.AutoTerminationPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.AutoTerminationPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__07a761eb62509f84f3cbdff36a01487f8fb05f47b8241a831edf6b50a7bbaff9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.BootstrapActionConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.BootstrapActionConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4961b9c02eb65b76747f3388b3687aa1f18bf2da62820618bea64915a04b6954(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.ConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12130,7 +12126,7 @@ def _typecheckingstub__951b4ef3a48c5da248736a1dd98ab6d527bce3f6de302ca2d84d41ee7
     pass
 
 def _typecheckingstub__fb6e8fa078ddb5d5ca597385e37e266a7ee1587d10523bea725cff21909211bd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.KerberosAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.KerberosAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12148,7 +12144,7 @@ def _typecheckingstub__5c8b1a2acb54ad4aaccda0d0052a50ac533bed40115aa8e00fc6fd90b
     pass
 
 def _typecheckingstub__5679f4b15ba00e5797a6ca36888a09881f956e47615cd9f237382bdc765ab756(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ManagedScalingPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.ManagedScalingPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12160,7 +12156,7 @@ def _typecheckingstub__6d4c0fd8467e6006f700dcbf1ba5095561e1d0287c44dc0c0a3753aae
     pass
 
 def _typecheckingstub__398553fa8e4e3f5661ed1198260a3a1fcc13ee30c6c2bc59bacdcffe873be756(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.PlacementGroupConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.PlacementGroupConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12190,26 +12186,26 @@ def _typecheckingstub__c0c077452ad77e4b3be4546305a02b64cce648e3837e39a0361e28552
     pass
 
 def _typecheckingstub__6535ae4fb40b89a54ff36a07d45179b7d6e5504f674a8a532cde5bea87edd59e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.StepConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.StepConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4038da1c46af7e2d9b50fc2521906fa041359d46aa05b24162a709acb1504d63(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3181237e04f1f3e57ab37ac5dcdd9cf1f158ae1015ef97f820a75179d324a382(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf8b605c327fe9a55d7a90674524f316b8f070940e929c53e1c966b8f68a18e5(
     *,
-    additional_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    additional_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -12219,8 +12215,8 @@ def _typecheckingstub__cf8b605c327fe9a55d7a90674524f316b8f070940e929c53e1c966b8f
 
 def _typecheckingstub__8aa5bb304f42582274159985dd72e5294f3a513707f7460a42aafb194433c6af(
     *,
-    constraints: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScalingConstraintsProperty, typing.Dict[builtins.str, typing.Any]]],
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScalingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    constraints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScalingConstraintsProperty, typing.Dict[builtins.str, typing.Any]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScalingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12235,7 +12231,7 @@ def _typecheckingstub__118dc21c4af3ce0236b744a2f6b058f706aa70e288450a8771ef8efb2
 def _typecheckingstub__8aa9f35ad922816267708196f89ee674f80a176c000f51f281f78aeea56c3575(
     *,
     name: builtins.str,
-    script_bootstrap_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScriptBootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    script_bootstrap_action: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScriptBootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12246,7 +12242,7 @@ def _typecheckingstub__b0c6e9b1e6ddd9e7394a707f10838024730233a6162319152afb18206
     metric_name: builtins.str,
     period: jsii.Number,
     threshold: jsii.Number,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     namespace: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
@@ -12269,15 +12265,15 @@ def _typecheckingstub__ecc8cf0c083fcbbc2c4e1910146ba4c6c959a6e36991ec830a52e0262
 def _typecheckingstub__762e4654096c644b1ccf34d3832fa5e53cc3647761f6d0a0ed19865f7efb39db(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configuration_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5126d3ffa8a013f43ff9f99f79a23a9a3d3aa03919b6fe5d784b7a28817bf3f0(
     *,
-    volume_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    volume_specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     volumes_per_instance: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12285,8 +12281,8 @@ def _typecheckingstub__5126d3ffa8a013f43ff9f99f79a23a9a3d3aa03919b6fe5d784b7a288
 
 def _typecheckingstub__289a0cf33d6f771401695f26c373e2ed078bce1f2750d4690cc1d0b1c482e235(
     *,
-    ebs_block_device_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ebs_block_device_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12296,17 +12292,17 @@ def _typecheckingstub__c3086fca1cb7ccf0ee3e0ba36727f8170913cea7fcd41960c212cbe4f
     jar: builtins.str,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     main_class: typing.Optional[builtins.str] = None,
-    step_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    step_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b48fe88bfe7ab8726e3ed373177e22463a0bb5c19fdfb6f4bb239aedc4a5d1ac(
     *,
-    instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_type_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    launch_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resize_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_on_demand_capacity: typing.Optional[jsii.Number] = None,
     target_spot_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12315,16 +12311,16 @@ def _typecheckingstub__b48fe88bfe7ab8726e3ed373177e22463a0bb5c19fdfb6f4bb239aedc
 
 def _typecheckingstub__0b138f924cf93d1337c2cb3bdd25dfbcf94457589d616a6f7829b0bcd0a10149(
     *,
-    on_demand_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OnDemandProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spot_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SpotProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_demand_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OnDemandProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spot_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.SpotProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cc71a634c0dd2f06a4c7bd13805c70eb8b460b69cfec6e27bc559c40c907f3b9(
     *,
-    on_demand_resize_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OnDemandResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spot_resize_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SpotResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_demand_resize_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OnDemandResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spot_resize_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.SpotResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12333,11 +12329,11 @@ def _typecheckingstub__16e3a62519b2b5fb87993923e143b12cd90ce3e00aa04b8e01ea10a62
     *,
     instance_count: jsii.Number,
     instance_type: builtins.str,
-    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bid_price: typing.Optional[builtins.str] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     market: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -12349,9 +12345,9 @@ def _typecheckingstub__2e04c7cf6db409085e044ff55b4223b3cfbcb9f86e3c1e3385c072880
     instance_type: builtins.str,
     bid_price: typing.Optional[builtins.str] = None,
     bid_price_as_percentage_of_on_demand_price: typing.Optional[jsii.Number] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[jsii.Number] = None,
     weighted_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12362,23 +12358,23 @@ def _typecheckingstub__97053e1923915e0068df7012383808d225b615a5d3590985b1aa4048b
     *,
     additional_master_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     additional_slave_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    core_instance_fleet: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    core_instance_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    core_instance_fleet: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    core_instance_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ec2_key_name: typing.Optional[builtins.str] = None,
     ec2_subnet_id: typing.Optional[builtins.str] = None,
     ec2_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     emr_managed_master_security_group: typing.Optional[builtins.str] = None,
     emr_managed_slave_security_group: typing.Optional[builtins.str] = None,
     hadoop_version: typing.Optional[builtins.str] = None,
-    keep_job_flow_alive_when_no_steps: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    master_instance_fleet: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    master_instance_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    keep_job_flow_alive_when_no_steps: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    master_instance_fleet: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    master_instance_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.PlacementTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_access_security_group: typing.Optional[builtins.str] = None,
-    task_instance_fleets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    task_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    termination_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    unhealthy_node_replacement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    task_instance_fleets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceFleetConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    task_instance_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    termination_protected: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    unhealthy_node_replacement: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12404,7 +12400,7 @@ def _typecheckingstub__0de77f42d53bb5f752f54244451586c821de421f64b6929630c898540
 
 def _typecheckingstub__0286741b316b450e24ed1eff9bc726fec190a69e54cee78ab3a340bcde86cafe(
     *,
-    compute_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ComputeLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compute_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ComputeLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scaling_strategy: typing.Optional[builtins.str] = None,
     utilization_performance_index: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12431,7 +12427,7 @@ def _typecheckingstub__c251fc57d8c13bb8fa86bb594d3bcb511b2361d65853d128d833936c9
 def _typecheckingstub__2a2b2b082993c86b69c150a13684b12a05c6ed2134f215a73050d14afc94e510(
     *,
     allocation_strategy: builtins.str,
-    capacity_reservation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_reservation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12439,7 +12435,7 @@ def _typecheckingstub__2a2b2b082993c86b69c150a13684b12a05c6ed2134f215a73050d14af
 def _typecheckingstub__36928a5d58219afbdfbf854b2d4338c90650e515ad0eadca149006c7b35fea9c(
     *,
     allocation_strategy: typing.Optional[builtins.str] = None,
-    capacity_reservation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_reservation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_duration_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12462,7 +12458,7 @@ def _typecheckingstub__c2a2af5f8dbc7ce16a771e9390fe33448839574f71eaa2acb2f7b7050
 
 def _typecheckingstub__1902e04b59a5603a2ae4aafc06afece2ee3bdbd353692541d87ac7261ae3a892(
     *,
-    simple_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SimpleScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    simple_scaling_policy_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.SimpleScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     market: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12478,9 +12474,9 @@ def _typecheckingstub__218f86c887a6386b3a9f268232cf2402b2c01961c7dc4b1c5c54cd37b
 
 def _typecheckingstub__0906d3de6d43ea3035952bd939199d7b858dfba3dba2c95200e70324783fce7f(
     *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScalingActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    action: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScalingActionProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    trigger: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScalingTriggerProperty, typing.Dict[builtins.str, typing.Any]]],
+    trigger: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ScalingTriggerProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12488,7 +12484,7 @@ def _typecheckingstub__0906d3de6d43ea3035952bd939199d7b858dfba3dba2c95200e703247
 
 def _typecheckingstub__3df2b0de5a8f69682866a7f7b93de987151394068d2650e0ae0ed982b81f2b30(
     *,
-    cloud_watch_alarm_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CloudWatchAlarmDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    cloud_watch_alarm_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.CloudWatchAlarmDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12530,7 +12526,7 @@ def _typecheckingstub__8b4e871a649437c0e29cc5434620df22f0642b9fd024fdc40ba82e867
 
 def _typecheckingstub__d3f0e87741e903ab6e6acc98e6f4de31edf9b395d6ec0ca0e9561069b8e799c7(
     *,
-    hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    hadoop_jar_step: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     action_on_failure: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -12549,33 +12545,33 @@ def _typecheckingstub__c1d9df61da11f931c34aa6af7c0e9bf71cf070f0a0d48100f43043b2a
 
 def _typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f(
     *,
-    instances: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    instances: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     job_flow_role: builtins.str,
     name: builtins.str,
     service_role: builtins.str,
     additional_info: typing.Any = None,
-    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    applications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     auto_scaling_role: typing.Optional[builtins.str] = None,
-    auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    auto_termination_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bootstrap_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
     ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
     ebs_root_volume_size: typing.Optional[jsii.Number] = None,
     ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-    kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kerberos_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
     log_uri: typing.Optional[builtins.str] = None,
-    managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     os_release_label: typing.Optional[builtins.str] = None,
-    placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_group_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     release_label: typing.Optional[builtins.str] = None,
     scale_down_behavior: typing.Optional[builtins.str] = None,
     security_configuration: typing.Optional[builtins.str] = None,
     step_concurrency_level: typing.Optional[jsii.Number] = None,
-    steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    steps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12586,10 +12582,10 @@ def _typecheckingstub__25473c0968868f7cb7ae13c5d07084fdff34429497e0ea823b7527eea
     *,
     cluster_id: builtins.str,
     instance_fleet_type: builtins.str,
-    instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_type_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    launch_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resize_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_on_demand_capacity: typing.Optional[jsii.Number] = None,
     target_spot_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12603,7 +12599,7 @@ def _typecheckingstub__91c608afc726ea28a38f645c97398cfe005470534cfc9a9981d124552
     pass
 
 def _typecheckingstub__d1ed3f5cbfeb698332e274bbe7785722e739d9dec509f54283e0495cf8900e71(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12627,13 +12623,13 @@ def _typecheckingstub__7e599502a138f8a9158bcc5bbc77fd3cb1fa6aacdcda3c340c2bc35cd
     pass
 
 def _typecheckingstub__888820cb4f4a0c9a1efd66dd14e34f331d9e75498488017d37693b4ca8f07e10(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceTypeConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceFleetConfig.InstanceTypeConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__037e3da780812285c831d0eb45598c2c6a76b22d073c1e4a83b5d4529a0e479c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12645,7 +12641,7 @@ def _typecheckingstub__46de029a613d830d1cd5aafc306617484db5e788259a5eb5e20ddfdb1
     pass
 
 def _typecheckingstub__e1e548ecaa094224c5fe98e7f953c0c6b0015f3e1cb966d8dc0a7e123adef723(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12665,15 +12661,15 @@ def _typecheckingstub__d8c47404264830e50e7ddaef51024f8f530b123b3a2c96dd8fc19683b
 def _typecheckingstub__9cb99c46a2e6804e68d48ee2a2882e72c00713be16c2a7eb0c1ffda179a4964d(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configuration_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3279a4aeccde870f13ef700abffb5a21dac69394e7342602659de2e9d001b6fb(
     *,
-    volume_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    volume_specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     volumes_per_instance: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12681,24 +12677,24 @@ def _typecheckingstub__3279a4aeccde870f13ef700abffb5a21dac69394e7342602659de2e9d
 
 def _typecheckingstub__c7c01313df17cf722f93042eafce67680bfdf5243bba4058c5cc9d54139c1124(
     *,
-    ebs_block_device_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ebs_block_device_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__08a22ec5152d77e43e0a91e7ac72349bff7b323c77ba7af7b916a7565bc1a759(
     *,
-    on_demand_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spot_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_demand_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spot_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a826d1b0ce4c7448bd47db2f7daad5833794267a6eb2b97e6803890ff960c5ee(
     *,
-    on_demand_resize_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spot_resize_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.SpotResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_demand_resize_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spot_resize_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.SpotResizingSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12708,9 +12704,9 @@ def _typecheckingstub__051c3b44a825d0f79c73260ba9c4b6395a44dae707c2d0ae1291df31e
     instance_type: builtins.str,
     bid_price: typing.Optional[builtins.str] = None,
     bid_price_as_percentage_of_on_demand_price: typing.Optional[jsii.Number] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[jsii.Number] = None,
     weighted_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12729,7 +12725,7 @@ def _typecheckingstub__2daf349eae7a75cebafd6398bd26a0eba694700d56d24427480742b80
 def _typecheckingstub__cf71b5c7658598ec550bf1195bd742cbfb6e455c0c782143392a53f88bfdf172(
     *,
     allocation_strategy: builtins.str,
-    capacity_reservation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_reservation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12737,7 +12733,7 @@ def _typecheckingstub__cf71b5c7658598ec550bf1195bd742cbfb6e455c0c782143392a53f88
 def _typecheckingstub__a2835e8aca00d3c7be991da1f61613d6f9210f46229f8788af07c1fda31204d7(
     *,
     allocation_strategy: typing.Optional[builtins.str] = None,
-    capacity_reservation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_reservation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_duration_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12775,10 +12771,10 @@ def _typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb
     *,
     cluster_id: builtins.str,
     instance_fleet_type: builtins.str,
-    instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_type_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    launch_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resize_specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_on_demand_capacity: typing.Optional[jsii.Number] = None,
     target_spot_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -12793,11 +12789,11 @@ def _typecheckingstub__1b03c1e96b01aafd31c257702f4a9ed7a4281e8d9ba0f2f19a20ccc53
     instance_role: builtins.str,
     instance_type: builtins.str,
     job_flow_id: builtins.str,
-    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bid_price: typing.Optional[builtins.str] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     market: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -12811,7 +12807,7 @@ def _typecheckingstub__9dd2270de874ff7caf2817b3fdf01008cab287fc7d48fa4929691a600
     pass
 
 def _typecheckingstub__1de17e348f1473656fa16b6154e6ecc550f06d756f34e0dd16848f80c72fe2bd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12847,7 +12843,7 @@ def _typecheckingstub__69245f4d15e2a5dae10e27b298ff011d20580fac579b2b51dfb574b95
     pass
 
 def _typecheckingstub__1ef90a0dcff109aaa0f7a46baf739816f26a3ccb9669240606f89552508d0ca8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.AutoScalingPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceGroupConfig.AutoScalingPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12859,7 +12855,7 @@ def _typecheckingstub__ab690714e1919e92ed20dc7aa3e5315a2b1bfbcee89fc65c09ea7168c
     pass
 
 def _typecheckingstub__c0131144525f35798c3b6081d980630003a3d1b9f1c3aae652f676206e8aeaa8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.ConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceGroupConfig.ConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12871,7 +12867,7 @@ def _typecheckingstub__303cab696a08592b720c8e8be64275a3bbf6b789e1077ee4c162c6c07
     pass
 
 def _typecheckingstub__07cf75fd968a10f65fd11c71b6efc052932bd414a38416da34ccff0a4335fd8e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.EbsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstanceGroupConfig.EbsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12890,8 +12886,8 @@ def _typecheckingstub__58871e6eae621e6fbe1e15c4166ad29e07293a9a1d2305d7fe9ca3656
 
 def _typecheckingstub__7ccf52c4a35db129b92c587555ec8d0f67a3d97092e5307fa0ddcb0b2106c137(
     *,
-    constraints: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ScalingConstraintsProperty, typing.Dict[builtins.str, typing.Any]]],
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ScalingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    constraints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ScalingConstraintsProperty, typing.Dict[builtins.str, typing.Any]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ScalingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12902,7 +12898,7 @@ def _typecheckingstub__5ef36d052fd1c73f3c150fc370cea09f7f8cfa0fed7c5d3618650d6f1
     metric_name: builtins.str,
     period: jsii.Number,
     threshold: jsii.Number,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     namespace: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
@@ -12914,15 +12910,15 @@ def _typecheckingstub__5ef36d052fd1c73f3c150fc370cea09f7f8cfa0fed7c5d3618650d6f1
 def _typecheckingstub__3ac2b0b1a65e34f3c9e098b6f75c278daa93d377b96cededa4517b4fa7759d9e(
     *,
     classification: typing.Optional[builtins.str] = None,
-    configuration_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configuration_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee72789132b4e90a1d6a90327a95ec789abc3a6724fa23b1de25280e805781c2(
     *,
-    volume_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    volume_specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.VolumeSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
     volumes_per_instance: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12930,8 +12926,8 @@ def _typecheckingstub__ee72789132b4e90a1d6a90327a95ec789abc3a6724fa23b1de25280e8
 
 def _typecheckingstub__0f334f21b45a80c7afc87361f15a522c7fcfaa41b4f7ab73dce958c051806dc9(
     *,
-    ebs_block_device_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ebs_block_device_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12946,7 +12942,7 @@ def _typecheckingstub__c2113ac9fdc707bb27249d54043fd206f25a93101010e5b771e1e0958
 
 def _typecheckingstub__724cf187947d5b03301bf75eb59a7228254024fd628805c879916c536c7c6051(
     *,
-    simple_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    simple_scaling_policy_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     market: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12962,9 +12958,9 @@ def _typecheckingstub__e6ff3b5d35320ac919544d56e90ea12239b9eb3d0d7419c51f8fb0d37
 
 def _typecheckingstub__e22fd5263f7ede9f4022ec6e5f459bb132aca11720ec7f0ee2967d60e7c1ba80(
     *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ScalingActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    action: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ScalingActionProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    trigger: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ScalingTriggerProperty, typing.Dict[builtins.str, typing.Any]]],
+    trigger: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ScalingTriggerProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12972,7 +12968,7 @@ def _typecheckingstub__e22fd5263f7ede9f4022ec6e5f459bb132aca11720ec7f0ee2967d60e
 
 def _typecheckingstub__5071bc066eda67f0957ff3f0cfffd8ee81b66fdad65755907ee755e7ac063c3d(
     *,
-    cloud_watch_alarm_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    cloud_watch_alarm_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13002,11 +12998,11 @@ def _typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f8
     instance_role: builtins.str,
     instance_type: builtins.str,
     job_flow_id: builtins.str,
-    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bid_price: typing.Optional[builtins.str] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     market: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13030,7 +13026,7 @@ def _typecheckingstub__b812a8037bb8bae73a6ca2ff36d54edbebdf919f4b6ec6106cd98b0df
     pass
 
 def _typecheckingstub__da2a55d9947c59bcec537c0802a40401320b5d449dfc60b08045fa36fb13f4ea(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13066,7 +13062,7 @@ def _typecheckingstub__56108bb804f44dbb5230a71c020ff2994411f1d5f6f4226d7d5f948d6
     id: builtins.str,
     *,
     action_on_failure: builtins.str,
-    hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    hadoop_jar_step: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     job_flow_id: builtins.str,
     name: builtins.str,
     encryption_key_arn: typing.Optional[builtins.str] = None,
@@ -13082,7 +13078,7 @@ def _typecheckingstub__d4738c9b08234388f56fda88e726828ea2e7222bc76dd3a99529e91c5
     pass
 
 def _typecheckingstub__78d97da37e72bd1bfccd5d003f6661e19aad059f59b1713075323b6ecf0eaa3d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13100,7 +13096,7 @@ def _typecheckingstub__c8246842b6fd3a6be5c74b6bfbc1bdfc328b214cf32fb8108cc06cf57
     pass
 
 def _typecheckingstub__a7ec64ae90b5233e23c51213eae7a3c1c03f9b635bef0f8e61032198c670bc9a(
-    value: typing.Union[_IResolvable_da3f097b, CfnStep.HadoopJarStepConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStep.HadoopJarStepConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13134,7 +13130,7 @@ def _typecheckingstub__17116dab64c1f998800a3972016d6de90f0339e27d783be01c9aa002d
     jar: builtins.str,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     main_class: typing.Optional[builtins.str] = None,
-    step_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    step_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStep.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13150,7 +13146,7 @@ def _typecheckingstub__c45d46cddf4cc72fa52f0b95e0f250b3363c3d0ca8542a73ce888bcef
 def _typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d(
     *,
     action_on_failure: builtins.str,
-    hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    hadoop_jar_step: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     job_flow_id: builtins.str,
     name: builtins.str,
     encryption_key_arn: typing.Optional[builtins.str] = None,
@@ -13164,28 +13160,28 @@ def _typecheckingstub__9e5fa63dd56ed829e4898f84009809f50f4125ac18a4dd04d19284202
     id: builtins.str,
     *,
     auth_mode: builtins.str,
-    default_s3_location: typing.Union[builtins.str, _IBucketRef_3debe44e],
-    engine_security_group_id: typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18],
+    default_s3_location: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
+    engine_security_group_id: typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef],
     name: builtins.str,
-    service_role: typing.Union[builtins.str, _IRoleRef_8400221f],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
-    workspace_security_group_id: typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18],
+    service_role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
+    workspace_security_group_id: typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef],
     description: typing.Optional[builtins.str] = None,
-    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     idc_instance_arn: typing.Optional[builtins.str] = None,
     idc_user_assignment: typing.Optional[builtins.str] = None,
     idp_auth_url: typing.Optional[builtins.str] = None,
     idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    user_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    user_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ba1f95282f86f0bfc8656dfc6fc176c08b9b3190538cb0cae082156213a5bbdb(
-    resource: _IStudioRef_7dcfa17b,
+    resource: _aws_emr_b5476279.IStudioRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13213,7 +13209,7 @@ def _typecheckingstub__1d7a89460b4a3a1f7cd3b25dc5c1337482f0b3ccb56e5b27cce32dbbe
     pass
 
 def _typecheckingstub__12811625403d85ab8e027c82784f88c03aadb1a85e1a21e6db4a277a59011534(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13309,13 +13305,13 @@ def _typecheckingstub__c1cfcbc2226f4548db4b1c3cdf608c158cf7718b53ca11e14bae09dd0
     pass
 
 def _typecheckingstub__93c87ee05567302bb00141c45d4f778440c0196380fbcf0ea86580e0f69c98ad(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d97a907912a2a6d42177e06668874b62f8bb494e07b5e9659287db646faa1236(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13329,22 +13325,22 @@ def _typecheckingstub__4497b6d90d344f7cce9a12d862f813109f2ee695a175caef4ea9fba74
 def _typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4(
     *,
     auth_mode: builtins.str,
-    default_s3_location: typing.Union[builtins.str, _IBucketRef_3debe44e],
-    engine_security_group_id: typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18],
+    default_s3_location: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
+    engine_security_group_id: typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef],
     name: builtins.str,
-    service_role: typing.Union[builtins.str, _IRoleRef_8400221f],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
-    workspace_security_group_id: typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18],
+    service_role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
+    workspace_security_group_id: typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef],
     description: typing.Optional[builtins.str] = None,
-    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     idc_instance_arn: typing.Optional[builtins.str] = None,
     idc_user_assignment: typing.Optional[builtins.str] = None,
     idp_auth_url: typing.Optional[builtins.str] = None,
     idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    user_role: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    user_role: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13355,8 +13351,8 @@ def _typecheckingstub__3e47b505b0a4a624d7bbc7e6f0b97d1cb4bc72a6ca97f9fba72f1fd63
     *,
     identity_name: builtins.str,
     identity_type: builtins.str,
-    session_policy_arn: typing.Union[builtins.str, _IManagedPolicyRef_a7a65687],
-    studio_id: typing.Union[builtins.str, _IStudioRef_7dcfa17b],
+    session_policy_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef],
+    studio_id: typing.Union[builtins.str, _aws_emr_b5476279.IStudioRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13368,7 +13364,7 @@ def _typecheckingstub__ba78a978daa6b899e54368e513663d591049eab02d654ef2e589c4388
     pass
 
 def _typecheckingstub__153edf7b110ebe9d0c9cd9ba4efa10acec007161e12e38d6e9b66a4f81fd64d0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13407,8 +13403,8 @@ def _typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a
     *,
     identity_name: builtins.str,
     identity_type: builtins.str,
-    session_policy_arn: typing.Union[builtins.str, _IManagedPolicyRef_a7a65687],
-    studio_id: typing.Union[builtins.str, _IStudioRef_7dcfa17b],
+    session_policy_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef],
+    studio_id: typing.Union[builtins.str, _aws_emr_b5476279.IStudioRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13417,7 +13413,7 @@ def _typecheckingstub__1985a11480d9771f4adca96d86b169aa02281678db75bca99cae188da
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     wal_workspace_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13430,7 +13426,7 @@ def _typecheckingstub__3e9a1b0bca3e07b3ab716281c605a32f50b94bae5e03a2de5552d3892
     pass
 
 def _typecheckingstub__ecd0531bb1865d8e422006dd70518e7e6c3206a1606b5c3c0b65c97287946fb5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13442,7 +13438,7 @@ def _typecheckingstub__8fee275f760ca07b82a676d0d77ce668eff171e2b3d5ce80fd4e2914f
     pass
 
 def _typecheckingstub__851c8fb8c44fa83f73dc5f006c4f65169726f6269fd062e84490d5cf26077add(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13455,7 +13451,7 @@ def _typecheckingstub__0b841633928ec99eb6a369ad7d4f47c19b8160c69cd85540afdfe7123
 
 def _typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63(
     *,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     wal_workspace_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

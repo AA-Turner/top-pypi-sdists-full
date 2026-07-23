@@ -16,6 +16,8 @@ Currently supported are:
 
 See the README of `aws-cdk-lib/aws-ses` for more information.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -29,37 +31,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_ses import (
-    IReceiptRuleAction as _IReceiptRuleAction_941d7a8d,
-    ReceiptRuleActionConfig as _ReceiptRuleActionConfig_6feb97ed,
-)
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_ses import IReceiptRuleRef as _IReceiptRuleRef_0f93d846
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_ses as _aws_ses_8da83014
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_ses as _aws_ses_9999e6ba
+else:
+
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_ses_8da83014 = _LazyImport("aws_cdk.aws_ses")
+    _aws_ses_9999e6ba = _LazyImport("aws_cdk.interfaces.aws_ses")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class AddHeader(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses_actions.AddHeader",
@@ -115,16 +120,16 @@ class AddHeader(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        _rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param _rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__105fc3c3cd165ab670ed7315f6f8772759f997da89c1f47dcd5abcdd5b8a67d4)
+            type_hints = cached_type_hints(_typecheckingstub__105fc3c3cd165ab670ed7315f6f8772759f997da89c1f47dcd5abcdd5b8a67d4)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [_rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [_rule]))
 
 
 @jsii.data_type(
@@ -176,7 +181,7 @@ class AddHeaderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8074b8d36e00e09d13e403cb0144597d401c4b4212de69cf794e357f2044bbc6)
+            type_hints = cached_type_hints(_typecheckingstub__8074b8d36e00e09d13e403cb0144597d401c4b4212de69cf794e357f2044bbc6)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -219,7 +224,7 @@ class AddHeaderProps:
         )
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class Bounce(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Bounce"):
     '''Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon SNS.
 
@@ -249,7 +254,7 @@ class Bounce(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Bou
         *,
         sender: builtins.str,
         template: "BounceTemplate",
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''
         :param sender: The email address of the sender of the bounced email. This is the address from which the bounce message will be sent.
@@ -263,16 +268,16 @@ class Bounce(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Bou
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        _rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param _rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2f996c58d36c8115f8cab70b8032eaa964550fcbc5df1791bde6faa8deaf815)
+            type_hints = cached_type_hints(_typecheckingstub__a2f996c58d36c8115f8cab70b8032eaa964550fcbc5df1791bde6faa8deaf815)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [_rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [_rule]))
 
 
 @jsii.data_type(
@@ -286,7 +291,7 @@ class BounceProps:
         *,
         sender: builtins.str,
         template: "BounceTemplate",
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''Construction properties for a bounce action.
 
@@ -315,7 +320,7 @@ class BounceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10becc64374e762d000b185a3f737684b96a3b21fb43c820f58bbcad29f8dfef)
+            type_hints = cached_type_hints(_typecheckingstub__10becc64374e762d000b185a3f737684b96a3b21fb43c820f58bbcad29f8dfef)
             check_type(argname="argument sender", value=sender, expected_type=type_hints["sender"])
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
@@ -345,13 +350,13 @@ class BounceProps:
         return typing.cast("BounceTemplate", result)
 
     @builtins.property
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''The SNS topic to notify when the bounce action is taken.
 
         :default: no notification
         '''
         result = self._values.get("topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -471,7 +476,7 @@ class BounceTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a3bcf1f5997a06acbd35725068d819e7cc13cc462249861c26d1b6c72cfd29)
+            type_hints = cached_type_hints(_typecheckingstub__14a3bcf1f5997a06acbd35725068d819e7cc13cc462249861c26d1b6c72cfd29)
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
             check_type(argname="argument smtp_reply_code", value=smtp_reply_code, expected_type=type_hints["smtp_reply_code"])
             check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
@@ -530,7 +535,7 @@ class EmailEncoding(enum.Enum):
     '''UTF-8.'''
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class Lambda(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Lambda"):
     '''Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.
 
@@ -559,9 +564,9 @@ class Lambda(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Lam
     def __init__(
         self,
         *,
-        function: "_IFunction_6adb0ab8",
+        function: "_aws_lambda_b8f2f472.IFunction",
         invocation_type: typing.Optional["LambdaInvocationType"] = None,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''
         :param function: The Lambda function to invoke.
@@ -577,16 +582,16 @@ class Lambda(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Lam
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d93726e71fd780c819e83cd0e14b221830680dac424ed3f6cfaf667ae223bd1)
+            type_hints = cached_type_hints(_typecheckingstub__5d93726e71fd780c819e83cd0e14b221830680dac424ed3f6cfaf667ae223bd1)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [rule]))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_ses_actions.LambdaInvocationType")
@@ -617,9 +622,9 @@ class LambdaProps:
     def __init__(
         self,
         *,
-        function: "_IFunction_6adb0ab8",
+        function: "_aws_lambda_b8f2f472.IFunction",
         invocation_type: typing.Optional["LambdaInvocationType"] = None,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''Construction properties for a Lambda action.
 
@@ -649,7 +654,7 @@ class LambdaProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b90a6708b72eec383955e1dee897c153062b0d56e272e25d405eb8bb889276f7)
+            type_hints = cached_type_hints(_typecheckingstub__b90a6708b72eec383955e1dee897c153062b0d56e272e25d405eb8bb889276f7)
             check_type(argname="argument function", value=function, expected_type=type_hints["function"])
             check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
@@ -662,11 +667,11 @@ class LambdaProps:
             self._values["topic"] = topic
 
     @builtins.property
-    def function(self) -> "_IFunction_6adb0ab8":
+    def function(self) -> "_aws_lambda_b8f2f472.IFunction":
         '''The Lambda function to invoke.'''
         result = self._values.get("function")
         assert result is not None, "Required property 'function' is missing"
-        return typing.cast("_IFunction_6adb0ab8", result)
+        return typing.cast("_aws_lambda_b8f2f472.IFunction", result)
 
     @builtins.property
     def invocation_type(self) -> typing.Optional["LambdaInvocationType"]:
@@ -678,13 +683,13 @@ class LambdaProps:
         return typing.cast(typing.Optional["LambdaInvocationType"], result)
 
     @builtins.property
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''The SNS topic to notify when the Lambda action is taken.
 
         :default: no notification
         '''
         result = self._values.get("topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -698,7 +703,7 @@ class LambdaProps:
         )
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class S3(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.S3"):
     '''Saves the received message to an Amazon S3 bucket and, optionally, publishes a notification to Amazon SNS.
 
@@ -742,10 +747,10 @@ class S3(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.S3"):
     def __init__(
         self,
         *,
-        bucket: "_IBucket_42e086fd",
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        bucket: "_aws_s3_01158f40.IBucket",
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         object_key_prefix: typing.Optional[builtins.str] = None,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''
         :param bucket: The S3 bucket that incoming email will be saved to.
@@ -765,16 +770,16 @@ class S3(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.S3"):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f2e6c8d98ea2e24878b8790662d46dbd681afc3be87064c425c1be30d91c1a4)
+            type_hints = cached_type_hints(_typecheckingstub__2f2e6c8d98ea2e24878b8790662d46dbd681afc3be87064c425c1be30d91c1a4)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [rule]))
 
 
 @jsii.data_type(
@@ -791,10 +796,10 @@ class S3Props:
     def __init__(
         self,
         *,
-        bucket: "_IBucket_42e086fd",
-        kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        bucket: "_aws_s3_01158f40.IBucket",
+        kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         object_key_prefix: typing.Optional[builtins.str] = None,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''Construction properties for a S3 action.
 
@@ -840,7 +845,7 @@ class S3Props:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c3ffb5d7305f7f8cdd0eda6dbf1af4894ccfe04c1d809df6e1bc2c3d2678903)
+            type_hints = cached_type_hints(_typecheckingstub__0c3ffb5d7305f7f8cdd0eda6dbf1af4894ccfe04c1d809df6e1bc2c3d2678903)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument object_key_prefix", value=object_key_prefix, expected_type=type_hints["object_key_prefix"])
@@ -856,20 +861,20 @@ class S3Props:
             self._values["topic"] = topic
 
     @builtins.property
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''The S3 bucket that incoming email will be saved to.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucket_42e086fd", result)
+        return typing.cast("_aws_s3_01158f40.IBucket", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The master key that SES should use to encrypt your emails before saving them to the S3 bucket.
 
         :default: no encryption
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def object_key_prefix(self) -> typing.Optional[builtins.str]:
@@ -881,13 +886,13 @@ class S3Props:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''The SNS topic to notify when the S3 action is taken.
 
         :default: no notification
         '''
         result = self._values.get("topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -901,7 +906,7 @@ class S3Props:
         )
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class Sns(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Sns"):
     '''Publishes the email content within a notification to Amazon SNS.
 
@@ -945,7 +950,7 @@ class Sns(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Sns"):
     def __init__(
         self,
         *,
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         encoding: typing.Optional["EmailEncoding"] = None,
     ) -> None:
         '''
@@ -959,16 +964,16 @@ class Sns(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Sns"):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        _rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param _rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ff99cf1ca046ba2b5e78b383a458654e8e7ed33211833f3e2c32db58c5fb6da)
+            type_hints = cached_type_hints(_typecheckingstub__4ff99cf1ca046ba2b5e78b383a458654e8e7ed33211833f3e2c32db58c5fb6da)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [_rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [_rule]))
 
 
 @jsii.data_type(
@@ -980,7 +985,7 @@ class SnsProps:
     def __init__(
         self,
         *,
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         encoding: typing.Optional["EmailEncoding"] = None,
     ) -> None:
         '''Construction properties for a SNS action.
@@ -1025,7 +1030,7 @@ class SnsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4dd57a2c36b5d96081bf27df6a5f5dc9664fb1e62b39c68b0245127c87131ee)
+            type_hints = cached_type_hints(_typecheckingstub__e4dd57a2c36b5d96081bf27df6a5f5dc9664fb1e62b39c68b0245127c87131ee)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
             check_type(argname="argument encoding", value=encoding, expected_type=type_hints["encoding"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1035,11 +1040,11 @@ class SnsProps:
             self._values["encoding"] = encoding
 
     @builtins.property
-    def topic(self) -> "_ITopic_9eca4852":
+    def topic(self) -> "_aws_sns_07ffc8ab.ITopic":
         '''The SNS topic to notify.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
-        return typing.cast("_ITopic_9eca4852", result)
+        return typing.cast("_aws_sns_07ffc8ab.ITopic", result)
 
     @builtins.property
     def encoding(self) -> typing.Optional["EmailEncoding"]:
@@ -1062,7 +1067,7 @@ class SnsProps:
         )
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class Stop(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Stop"):
     '''Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.
 
@@ -1082,7 +1087,11 @@ class Stop(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Stop"
         )
     '''
 
-    def __init__(self, *, topic: typing.Optional["_ITopic_9eca4852"] = None) -> None:
+    def __init__(
+        self,
+        *,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
+    ) -> None:
         '''
         :param topic: The SNS topic to notify when the stop action is taken.
         '''
@@ -1093,16 +1102,16 @@ class Stop(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Stop"
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        _rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param _rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d7cfda51e1b6dca326f94431fbe823fade0f7fc9f4b9974e8c545b215ce3a8c)
+            type_hints = cached_type_hints(_typecheckingstub__7d7cfda51e1b6dca326f94431fbe823fade0f7fc9f4b9974e8c545b215ce3a8c)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [_rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [_rule]))
 
 
 @jsii.data_type(
@@ -1111,7 +1120,11 @@ class Stop(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_ses_actions.Stop"
     name_mapping={"topic": "topic"},
 )
 class StopProps:
-    def __init__(self, *, topic: typing.Optional["_ITopic_9eca4852"] = None) -> None:
+    def __init__(
+        self,
+        *,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
+    ) -> None:
         '''Construction properties for a stop action.
 
         :param topic: The SNS topic to notify when the stop action is taken.
@@ -1132,17 +1145,17 @@ class StopProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73591009ec257744526587f77beba227d032486c4c60371ab35e8f381e2ef341)
+            type_hints = cached_type_hints(_typecheckingstub__73591009ec257744526587f77beba227d032486c4c60371ab35e8f381e2ef341)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if topic is not None:
             self._values["topic"] = topic
 
     @builtins.property
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''The SNS topic to notify when the stop action is taken.'''
         result = self._values.get("topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1156,7 +1169,7 @@ class StopProps:
         )
 
 
-@jsii.implements(_IReceiptRuleAction_941d7a8d)
+@jsii.implements(_aws_ses_8da83014.IReceiptRuleAction)
 class WorkMail(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses_actions.WorkMail",
@@ -1191,7 +1204,7 @@ class WorkMail(
         self,
         *,
         organization_arn: builtins.str,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''
         :param organization_arn: The WorkMail organization ARN. Amazon WorkMail organization ARNs are in the form ``arn:aws:workmail:region:account_ID:organization/organization_ID``
@@ -1204,16 +1217,16 @@ class WorkMail(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: "_IReceiptRuleRef_0f93d846",
-    ) -> "_ReceiptRuleActionConfig_6feb97ed":
+        _rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
+    ) -> "_aws_ses_8da83014.ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param _rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f080cf4ee15d472001a0397f98592fa7c3d2f44cc23e0af0b37e2d22590adb8)
+            type_hints = cached_type_hints(_typecheckingstub__8f080cf4ee15d472001a0397f98592fa7c3d2f44cc23e0af0b37e2d22590adb8)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
-        return typing.cast("_ReceiptRuleActionConfig_6feb97ed", jsii.invoke(self, "bind", [_rule]))
+        return typing.cast("_aws_ses_8da83014.ReceiptRuleActionConfig", jsii.invoke(self, "bind", [_rule]))
 
 
 @jsii.data_type(
@@ -1226,7 +1239,7 @@ class WorkMailProps:
         self,
         *,
         organization_arn: builtins.str,
-        topic: typing.Optional["_ITopic_9eca4852"] = None,
+        topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
     ) -> None:
         '''Construction properties for a WorkMail action.
 
@@ -1252,7 +1265,7 @@ class WorkMailProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0399d4e0f3bee3c7826f6038a069221acf83ae5060ede7c972898e0e1424b20)
+            type_hints = cached_type_hints(_typecheckingstub__a0399d4e0f3bee3c7826f6038a069221acf83ae5060ede7c972898e0e1424b20)
             check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1277,13 +1290,13 @@ class WorkMailProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''The SNS topic to notify when the WorkMail action is taken.
 
         :default: - no topic will be attached to the action
         '''
         result = self._values.get("topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1321,7 +1334,7 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__105fc3c3cd165ab670ed7315f6f8772759f997da89c1f47dcd5abcdd5b8a67d4(
-    _rule: _IReceiptRuleRef_0f93d846,
+    _rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1335,7 +1348,7 @@ def _typecheckingstub__8074b8d36e00e09d13e403cb0144597d401c4b4212de69cf794e357f2
     pass
 
 def _typecheckingstub__a2f996c58d36c8115f8cab70b8032eaa964550fcbc5df1791bde6faa8deaf815(
-    _rule: _IReceiptRuleRef_0f93d846,
+    _rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1344,7 +1357,7 @@ def _typecheckingstub__10becc64374e762d000b185a3f737684b96a3b21fb43c820f58bbcad2
     *,
     sender: builtins.str,
     template: BounceTemplate,
-    topic: typing.Optional[_ITopic_9eca4852] = None,
+    topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1359,65 +1372,65 @@ def _typecheckingstub__14a3bcf1f5997a06acbd35725068d819e7cc13cc462249861c26d1b6c
     pass
 
 def _typecheckingstub__5d93726e71fd780c819e83cd0e14b221830680dac424ed3f6cfaf667ae223bd1(
-    rule: _IReceiptRuleRef_0f93d846,
+    rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b90a6708b72eec383955e1dee897c153062b0d56e272e25d405eb8bb889276f7(
     *,
-    function: _IFunction_6adb0ab8,
+    function: _aws_lambda_b8f2f472.IFunction,
     invocation_type: typing.Optional[LambdaInvocationType] = None,
-    topic: typing.Optional[_ITopic_9eca4852] = None,
+    topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f2e6c8d98ea2e24878b8790662d46dbd681afc3be87064c425c1be30d91c1a4(
-    rule: _IReceiptRuleRef_0f93d846,
+    rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0c3ffb5d7305f7f8cdd0eda6dbf1af4894ccfe04c1d809df6e1bc2c3d2678903(
     *,
-    bucket: _IBucket_42e086fd,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    bucket: _aws_s3_01158f40.IBucket,
+    kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     object_key_prefix: typing.Optional[builtins.str] = None,
-    topic: typing.Optional[_ITopic_9eca4852] = None,
+    topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4ff99cf1ca046ba2b5e78b383a458654e8e7ed33211833f3e2c32db58c5fb6da(
-    _rule: _IReceiptRuleRef_0f93d846,
+    _rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e4dd57a2c36b5d96081bf27df6a5f5dc9664fb1e62b39c68b0245127c87131ee(
     *,
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
     encoding: typing.Optional[EmailEncoding] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7d7cfda51e1b6dca326f94431fbe823fade0f7fc9f4b9974e8c545b215ce3a8c(
-    _rule: _IReceiptRuleRef_0f93d846,
+    _rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__73591009ec257744526587f77beba227d032486c4c60371ab35e8f381e2ef341(
     *,
-    topic: typing.Optional[_ITopic_9eca4852] = None,
+    topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8f080cf4ee15d472001a0397f98592fa7c3d2f44cc23e0af0b37e2d22590adb8(
-    _rule: _IReceiptRuleRef_0f93d846,
+    _rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1425,7 +1438,7 @@ def _typecheckingstub__8f080cf4ee15d472001a0397f98592fa7c3d2f44cc23e0af0b37e2d22
 def _typecheckingstub__a0399d4e0f3bee3c7826f6038a069221acf83ae5060ede7c972898e0e1424b20(
     *,
     organization_arn: builtins.str,
-    topic: typing.Optional[_ITopic_9eca4852] = None,
+    topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
 ) -> None:
     """Type checking stubs"""
     pass

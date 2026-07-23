@@ -378,7 +378,7 @@ class SignalStrategy(Strategy):
     This makes the backtest of the strategy simulate a [vectorized backtest].
     See [tutorials] for usage examples.
 
-    [vectorized backtest]: https://www.google.com/search?q=vectorized+backtest
+    [vectorized backtest]: https://altpower.app/?q=vectorized+backtest
     [tutorials]: index.html#tutorials
 
     To use this helper strategy, subclass it, override its
@@ -539,8 +539,8 @@ class FractionalBacktest(Backtest):
             self.__data[col] = self.__data[col] * self._fractional_unit
         for col in ('Volume',):
             self.__data[col] = self.__data[col] / self._fractional_unit
-        with warnings.catch_warnings(record=True):
-            warnings.filterwarnings(action='ignore', message='frac')
+        with warnings.catch_warnings():
+            warnings.filterwarnings(action='ignore', message='.*?fraction')
             super().__init__(data, *args, **kwargs)
 
     def run(self, **kwargs) -> pd.Series:
@@ -552,9 +552,9 @@ class FractionalBacktest(Backtest):
         trades[['EntryPrice', 'ExitPrice', 'TP', 'SL']] /= self._fractional_unit
 
         indicators = result['_strategy']._indicators
-        for indicator in indicators:
+        for i, indicator in enumerate(indicators):
             if indicator._opts['overlay']:
-                indicator /= self._fractional_unit
+                indicators[i] = indicator / self._fractional_unit
 
         return result
 
@@ -608,7 +608,7 @@ class MultiBacktest:
         data_shm, strategy, bt_kwargs, run_kwargs = args
         dfs, shms = zip(*(SharedMemoryManager.shm2df(i) for i in data_shm))
         try:
-            return [stats.filter(regex='^[^_]') if stats['# Trades'] else None
+            return [stats.filter(regex='^[^_]')
                     for stats in (Backtest(df, strategy, **bt_kwargs).run(**run_kwargs)
                                   for df in dfs)]
         finally:

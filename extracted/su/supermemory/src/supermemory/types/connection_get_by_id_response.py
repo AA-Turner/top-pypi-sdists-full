@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Dict, List, Optional
+from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
 
@@ -15,6 +16,10 @@ class LastSyncRun(BaseModel):
     completed_at: Optional[str] = FieldInfo(alias="completedAt", default=None)
 
     error: Optional[str] = None
+
+    error_code: Optional[
+        Literal["auth_expired", "rate_limited", "plan_required", "provider_unavailable", "internal"]
+    ] = FieldInfo(alias="errorCode", default=None)
 
     started_at: Optional[str] = FieldInfo(alias="startedAt", default=None)
 

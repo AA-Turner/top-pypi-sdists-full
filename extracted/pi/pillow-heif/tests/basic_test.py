@@ -18,7 +18,7 @@ def test_libheif_info():
         assert key in info
 
     version = pillow_heif.libheif_version()
-    valid_prefixes = ["1.19.", "1.20.", "1.21", "1.22", "1.23"]
+    valid_prefixes = ["1.23"]
     assert any(version.startswith(prefix) for prefix in valid_prefixes)
 
 
@@ -100,31 +100,25 @@ def test_heif_str():
     assert str(heif_file2) == f"<HeifFile with 1 images: ['{str_img_l_1}']>"
 
 
-@pytest.mark.skipif(not helpers.RELEASE_FULL_FLAG, reason="Only when building full release")
+@pytest.mark.skipif(not helpers.RELEASE_TESTS_FLAG, reason="Only when running release tests")
 def test_full_build():
     info = pillow_heif.libheif_info()
     assert not info["AVIF"]
     assert info["HEIF"]
     assert info["encoders"]
     assert info["decoders"]
-    expected_version = os.getenv("EXP_PH_LIBHEIF_VERSION", "1.23.0")
-    if expected_version:
-        assert info["libheif"] == expected_version
-
-
-@pytest.mark.skipif(not helpers.RELEASE_LIGHT_FLAG, reason="Only when building light release")
-def test_light_build():
-    info = pillow_heif.libheif_info()
-    assert not info["AVIF"]
-    assert not info["HEIF"]
-    assert info["decoders"]
-    expected_version = os.getenv("EXP_PH_LIBHEIF_VERSION", "1.23.0")
+    expected_version = os.getenv("EXP_PH_LIBHEIF_VERSION", "1.23.1")
     if expected_version:
         assert info["libheif"] == expected_version
 
 
 @pytest.mark.skipif(not os.getenv("TEST_PLUGIN_LOAD"), reason="Only when plugins present")
 def test_load_plugin():
+    info_before = pillow_heif.libheif_info()
     pillow_heif.load_libheif_plugin(os.environ["TEST_PLUGIN_LOAD"])
+    info_after = pillow_heif.libheif_info()
+    decoders_registered = set(info_before["decoders"]) < set(info_after["decoders"])
+    encoders_registered = set(info_before["encoders"]) < set(info_after["encoders"])
+    assert decoders_registered or encoders_registered
     with pytest.raises(RuntimeError):
         pillow_heif.load_libheif_plugin("invalid path")

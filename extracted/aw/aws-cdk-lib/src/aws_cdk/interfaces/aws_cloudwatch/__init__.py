@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AlarmMuteRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a96a894c3e3ce3a85ad1fdae64962a99174f720bb052efd2e1096d6fde57c59)
+            type_hints = cached_type_hints(_typecheckingstub__3a96a894c3e3ce3a85ad1fdae64962a99174f720bb052efd2e1096d6fde57c59)
             check_type(argname="argument alarm_mute_rule_arn", value=alarm_mute_rule_arn, expected_type=type_hints["alarm_mute_rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alarm_mute_rule_arn": alarm_mute_rule_arn,
@@ -109,7 +113,7 @@ class AlarmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a217ba13c11edc5835368167ddbaa01cba65af05c8b67482c46acd94b5fc5758)
+            type_hints = cached_type_hints(_typecheckingstub__a217ba13c11edc5835368167ddbaa01cba65af05c8b67482c46acd94b5fc5758)
             check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -167,7 +171,7 @@ class AnomalyDetectorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08bbcba6a5b09a6a3e92c9b464ff62ea24aa01e023d7db746485a8f8bc579a4d)
+            type_hints = cached_type_hints(_typecheckingstub__08bbcba6a5b09a6a3e92c9b464ff62ea24aa01e023d7db746485a8f8bc579a4d)
             check_type(argname="argument anomaly_detector_id", value=anomaly_detector_id, expected_type=type_hints["anomaly_detector_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "anomaly_detector_id": anomaly_detector_id,
@@ -226,7 +230,7 @@ class CompositeAlarmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1042889d771e7e4d3b68678612b0204f4e8b84ad00f0672fd7f96a4d3095e8e8)
+            type_hints = cached_type_hints(_typecheckingstub__1042889d771e7e4d3b68678612b0204f4e8b84ad00f0672fd7f96a4d3095e8e8)
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
             check_type(argname="argument composite_alarm_arn", value=composite_alarm_arn, expected_type=type_hints["composite_alarm_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -284,7 +288,7 @@ class DashboardReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8a69e4049e357c44415bff967a5b2a7dd2e87def21cda4b468303b1a5be2771)
+            type_hints = cached_type_hints(_typecheckingstub__b8a69e4049e357c44415bff967a5b2a7dd2e87def21cda4b468303b1a5be2771)
             check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dashboard_name": dashboard_name,
@@ -312,7 +316,7 @@ class DashboardReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmMuteRuleRef")
 class IAlarmMuteRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AlarmMuteRule.
@@ -332,7 +336,7 @@ class IAlarmMuteRuleRef(
 
 class _IAlarmMuteRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AlarmMuteRule.
 
@@ -357,7 +361,7 @@ typing.cast(typing.Any, IAlarmMuteRuleRef).__jsii_proxy_class__ = lambda : _IAla
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmRef")
 class IAlarmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alarm.
@@ -377,7 +381,7 @@ class IAlarmRef(
 
 class _IAlarmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alarm.
 
@@ -402,7 +406,7 @@ typing.cast(typing.Any, IAlarmRef).__jsii_proxy_class__ = lambda : _IAlarmRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAnomalyDetectorRef")
 class IAnomalyDetectorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
@@ -422,7 +426,7 @@ class IAnomalyDetectorRef(
 
 class _IAnomalyDetectorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
 
@@ -447,7 +451,7 @@ typing.cast(typing.Any, IAnomalyDetectorRef).__jsii_proxy_class__ = lambda : _IA
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ICompositeAlarmRef")
 class ICompositeAlarmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CompositeAlarm.
@@ -467,7 +471,7 @@ class ICompositeAlarmRef(
 
 class _ICompositeAlarmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CompositeAlarm.
 
@@ -492,7 +496,7 @@ typing.cast(typing.Any, ICompositeAlarmRef).__jsii_proxy_class__ = lambda : _ICo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IDashboardRef")
 class IDashboardRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
@@ -512,7 +516,7 @@ class IDashboardRef(
 
 class _IDashboardRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
 
@@ -537,7 +541,7 @@ typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IInsightRuleRef")
 class IInsightRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InsightRule.
@@ -557,7 +561,7 @@ class IInsightRuleRef(
 
 class _IInsightRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InsightRule.
 
@@ -582,7 +586,7 @@ typing.cast(typing.Any, IInsightRuleRef).__jsii_proxy_class__ = lambda : _IInsig
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ILogAlarmRef")
 class ILogAlarmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogAlarm.
@@ -602,7 +606,7 @@ class ILogAlarmRef(
 
 class _ILogAlarmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogAlarm.
 
@@ -627,7 +631,7 @@ typing.cast(typing.Any, ILogAlarmRef).__jsii_proxy_class__ = lambda : _ILogAlarm
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IMetricStreamRef")
 class IMetricStreamRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MetricStream.
@@ -647,7 +651,7 @@ class IMetricStreamRef(
 
 class _IMetricStreamRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MetricStream.
 
@@ -672,7 +676,7 @@ typing.cast(typing.Any, IMetricStreamRef).__jsii_proxy_class__ = lambda : _IMetr
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IOTelEnrichmentRef")
 class IOTelEnrichmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OTelEnrichment.
@@ -692,7 +696,7 @@ class IOTelEnrichmentRef(
 
 class _IOTelEnrichmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OTelEnrichment.
 
@@ -738,7 +742,7 @@ class InsightRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c9eaae14b7b5fd4caa9ee9685f1e4ff2ed87f7d35cc2260e8e46c3852afb6be)
+            type_hints = cached_type_hints(_typecheckingstub__5c9eaae14b7b5fd4caa9ee9685f1e4ff2ed87f7d35cc2260e8e46c3852afb6be)
             check_type(argname="argument insight_rule_arn", value=insight_rule_arn, expected_type=type_hints["insight_rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "insight_rule_arn": insight_rule_arn,
@@ -794,7 +798,7 @@ class LogAlarmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28e9a8e96824ec45b3c3ea530f8f54c48a10639b7f1722f186ef9cc69f7355f4)
+            type_hints = cached_type_hints(_typecheckingstub__28e9a8e96824ec45b3c3ea530f8f54c48a10639b7f1722f186ef9cc69f7355f4)
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
             check_type(argname="argument log_alarm_arn", value=log_alarm_arn, expected_type=type_hints["log_alarm_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -862,7 +866,7 @@ class MetricStreamReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a27ad715)
+            type_hints = cached_type_hints(_typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a27ad715)
             check_type(argname="argument metric_stream_arn", value=metric_stream_arn, expected_type=type_hints["metric_stream_arn"])
             check_type(argname="argument metric_stream_name", value=metric_stream_name, expected_type=type_hints["metric_stream_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -920,7 +924,7 @@ class OTelEnrichmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c013550f10)
+            type_hints = cached_type_hints(_typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c013550f10)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,

@@ -177,8 +177,11 @@ def test_info_json_is_valid(capsys):
 def test_free_license_shows_upgrade_hint(capsys):
     _run(Namespace(quick=True, json=False))
     out = capsys.readouterr().out
-    assert "License:   Free" in out
-    assert "newest patches" in out
+    # Keyless free: invite the free-latest login + point at paid for more sessions.
+    assert "License:   Free (no key)" in out
+    assert "cloakbrowser login" in out
+    assert "For more than one concurrent session" in out
+    assert "cloakbrowser.dev" in out
 
 
 # ---------------------------------------------------------------------------

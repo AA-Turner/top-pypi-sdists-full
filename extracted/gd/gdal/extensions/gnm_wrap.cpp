@@ -5430,7 +5430,7 @@ SWIGINTERN PyObject *_wrap_Network_DeleteLayer(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -5718,7 +5718,7 @@ SWIGINTERN PyObject *_wrap_Network_StartTransaction(PyObject *self, PyObject *ar
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -5780,7 +5780,7 @@ SWIGINTERN PyObject *_wrap_Network_CommitTransaction(PyObject *self, PyObject *a
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -5842,7 +5842,7 @@ SWIGINTERN PyObject *_wrap_Network_RollbackTransaction(PyObject *self, PyObject 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }

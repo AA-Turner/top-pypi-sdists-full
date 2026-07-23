@@ -10,6 +10,7 @@ each poll so monitors track YAML edits.
 from __future__ import annotations
 
 import logging
+import ssl
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -25,9 +26,11 @@ from ..helpers.device_yaml import (
     _resolve_substitutions,
     load_device_yaml,
 )
+from ..helpers.subscriber_presence import SubscriberPresence
 from ..helpers.yaml import FastestSafeLoader, load_yaml_fast_then_esphome
 from ..models import Device
 from ._device_mqtt_monitor import (
+    BrokerKey,
     DeviceMqttMonitor,
     IPCallback,
     MqttBrokerConfig,
@@ -40,7 +43,22 @@ _DEFAULT_PORT = 1883
 
 # ``mqtt:`` fields read into an MqttBrokerConfig, each resolved through
 # the same !secret + substitution pipeline.
-_BROKER_FIELDS = ("broker", "port", "username", "password")
+_BROKER_FIELDS = ("broker", "port", "username", "password", "certificate_authority")
+# TLS client-certificate auth has no paho path that accepts in-memory
+# PEM (``load_cert_chain`` wants files), so these blocks are skipped
+# with a warning instead of looping unreachable.
+_CLIENT_CERT_FIELDS = ("client_certificate", "client_certificate_key")
+
+_PEM_CERT_MARKER = "-----BEGIN CERTIFICATE-----"
+
+
+class _ClientCertUnsupported:
+    """Sentinel: the ``mqtt:`` block uses client-certificate auth."""
+
+    __slots__ = ()
+
+
+CLIENT_CERT_UNSUPPORTED = _ClientCertUnsupported()
 
 
 class DeviceMqttCoordinator:
@@ -58,23 +76,30 @@ class DeviceMqttCoordinator:
         get_devices: Callable[[], list[Device]],
         on_state_change: StateCallback,
         on_ip_change: IPCallback,
+        presence: SubscriberPresence | None = None,
     ) -> None:
         self._config_dir = config_dir
         self._get_devices = get_devices
         self._on_state_change = on_state_change
         self._on_ip_change = on_ip_change
-        self._monitors: dict[tuple[str, int, str | None], DeviceMqttMonitor] = {}
+        self._presence = presence
+        self._monitors: dict[BrokerKey, DeviceMqttMonitor] = {}
         # Positive-only slow-path cache keyed on ``(yaml_mtime,
         # secrets_mtime)``. Package / ``!include`` edits on a
         # previously-cached device won't invalidate — user needs a
         # device-YAML touch or dashboard restart for those.
-        self._broker_cache: dict[str, tuple[tuple[float, float], MqttBrokerConfig]] = {}
+        self._broker_cache: dict[
+            str, tuple[tuple[float, float], MqttBrokerConfig | _ClientCertUnsupported]
+        ] = {}
         # Per-device dedupe for the broker-unresolvable WARNING —
         # WARNING once, DEBUG on repeats.
         self._unresolved_logged: set[str] = set()
+        # Per-device dedupe for the client-certificate-unsupported
+        # WARNING — WARNING once, DEBUG on repeats.
+        self._client_cert_logged: set[str] = set()
         # Per-login dedupe for the same-username/different-password
         # WARNING — WARNING once, DEBUG on repeats.
-        self._conflict_logged: set[tuple[str, int, str | None]] = set()
+        self._conflict_logged: set[BrokerKey] = set()
 
     @property
     def active_brokers(self) -> int:
@@ -86,7 +111,7 @@ class DeviceMqttCoordinator:
         if not DeviceMqttMonitor.is_available():
             if any(d.uses_mqtt for d in self._get_devices()):
                 _LOGGER.warning(
-                    "aiomqtt not installed — MQTT device discovery disabled despite "
+                    "paho-mqtt not installed — MQTT device discovery disabled despite "
                     "devices declaring mqtt: blocks"
                 )
             return
@@ -96,15 +121,30 @@ class DeviceMqttCoordinator:
         existing_keys = set(self._monitors.keys())
 
         for key in existing_keys - wanted_keys:
-            host, port, username = key
-            _LOGGER.info("Stopping MQTT monitor for %s:%s user %r", host, port, username)
+            _LOGGER.info(
+                "Stopping MQTT monitor for %s:%s user %r", key.host, key.port, key.username
+            )
             await self._monitors.pop(key).stop()
 
+        new_monitors: list[DeviceMqttMonitor] = []
         for broker in brokers:
             if broker.key in self._monitors:
                 continue
-            monitor = DeviceMqttMonitor(broker, self._on_state_change, self._on_ip_change)
+            monitor = DeviceMqttMonitor(
+                broker,
+                self._on_state_change,
+                self._on_ip_change,
+                presence=self._presence,
+                on_connection_change=self._assign_publishers,
+            )
             self._monitors[broker.key] = monitor
+            new_monitors.append(monitor)
+
+        # Election runs before start() so a new monitor never connects
+        # wearing the default publisher flag, and again on every
+        # connection change via the callback above.
+        self._assign_publishers()
+        for monitor in new_monitors:
             await monitor.start()
 
     async def stop(self) -> None:
@@ -117,12 +157,43 @@ class DeviceMqttCoordinator:
     # Internals
     # ------------------------------------------------------------------
 
+    def _assign_publishers(self) -> None:
+        """
+        Designate one discover broadcaster per (host, port).
+
+        Same-broker monitors under other logins subscribe but stay
+        silent — the fleet answers every broadcast, so N logins must
+        not mean N× the traffic. Connected sessions win over down ones
+        (a login stuck in reconnect must not silence the broker), the
+        incumbent wins over healthy siblings (no churn), then
+        anonymous-first / lowest-username keeps the pick stable.
+        """
+
+        def order(key: BrokerKey) -> tuple[bool, bool, bool, str, str, bool]:
+            monitor = self._monitors[key]
+            incumbent = monitor.is_publisher
+            return (
+                not monitor.connected,
+                not incumbent,
+                key.username is not None,
+                key.username or "",
+                key.ca_digest or "",
+                key.skip_cn,
+            )
+
+        elected: dict[tuple[str, int], DeviceMqttMonitor] = {}
+        for key in sorted(self._monitors, key=order):
+            elected.setdefault(key[:2], self._monitors[key])
+        for key, monitor in self._monitors.items():
+            monitor.set_publisher(value=elected[key[:2]] is monitor)
+
     def _collect_brokers(self) -> list[MqttBrokerConfig]:
         secrets_map = _load_secrets(self._config_dir)
         secrets_mtime = _safe_mtime(self._config_dir / SECRETS_FILENAME)
-        seen: dict[tuple[str, int, str | None], MqttBrokerConfig] = {}
+        seen: dict[BrokerKey, MqttBrokerConfig] = {}
         seen_devices: set[str] = set()
-        conflicts: set[tuple[str, int, str | None]] = set()
+        client_cert_devices: set[str] = set()
+        conflicts: set[BrokerKey] = set()
         for device in self._get_devices():
             if not device.uses_mqtt:
                 continue
@@ -139,10 +210,15 @@ class DeviceMqttCoordinator:
             broker = self._resolve_broker(
                 yaml_path, yaml_content, yaml_mtime, secrets_mtime, secrets_map
             )
+            if isinstance(broker, _ClientCertUnsupported):
+                client_cert_devices.add(device.configuration)
+                self._log_client_cert_unsupported(device.configuration)
+                continue
             if broker is None:
                 self._log_broker_unresolved(device.configuration)
                 continue
             self._unresolved_logged.discard(device.configuration)
+            self._client_cert_logged.discard(device.configuration)
             existing = seen.get(broker.key)
             if existing is None:
                 seen[broker.key] = broker
@@ -155,6 +231,7 @@ class DeviceMqttCoordinator:
         # Drop tracking for devices no longer declaring ``mqtt:`` and
         # logins that no longer conflict, so a recurrence re-warns.
         self._unresolved_logged &= seen_devices
+        self._client_cert_logged &= client_cert_devices
         self._conflict_logged &= conflicts
         self._broker_cache = {k: v for k, v in self._broker_cache.items() if k in seen_devices}
         return list(seen.values())
@@ -166,8 +243,8 @@ class DeviceMqttCoordinator:
         yaml_mtime: float,
         secrets_mtime: float,
         secrets_map: dict[str, Any],
-    ) -> MqttBrokerConfig | None:
-        """Return the broker for *yaml_path*, or None if unresolvable."""
+    ) -> MqttBrokerConfig | _ClientCertUnsupported | None:
+        """Return *yaml_path*'s broker, ``CLIENT_CERT_UNSUPPORTED``, or None if unresolvable."""
         broker = parse_mqtt_block(yaml_content, secrets_map)
         if broker is not None:
             return broker
@@ -184,36 +261,46 @@ class DeviceMqttCoordinator:
         return broker
 
     def _log_broker_unresolved(self, configuration: str) -> None:
-        if configuration in self._unresolved_logged:
-            _LOGGER.debug(
-                "Device %s declares mqtt: but broker still could not be resolved",
-                configuration,
-            )
-            return
-        _LOGGER.warning(
+        self._warn_once(
+            self._unresolved_logged,
+            configuration,
             "Device %s declares mqtt: but broker could not be resolved "
-            "(missing secret or invalid config)",
+            "(missing secret, invalid config, or a certificate_authority "
+            "that is not valid inline PEM content)",
+            "Device %s declares mqtt: but broker still could not be resolved",
             configuration,
         )
-        self._unresolved_logged.add(configuration)
+
+    def _log_client_cert_unsupported(self, configuration: str) -> None:
+        self._warn_once(
+            self._client_cert_logged,
+            configuration,
+            "Device %s uses MQTT client-certificate authentication, which is not "
+            "supported for MQTT discovery — skipping this device's broker",
+            "Device %s still uses MQTT client-certificate auth — discovery skipped",
+            configuration,
+        )
 
     def _log_credential_conflict(self, broker: MqttBrokerConfig) -> None:
-        if broker.key in self._conflict_logged:
-            _LOGGER.debug(
-                "Broker %s:%s user %r still referenced with different passwords — using the first",
-                broker.host,
-                broker.port,
-                broker.username,
-            )
-            return
-        _LOGGER.warning(
+        self._warn_once(
+            self._conflict_logged,
+            broker.key,
             "Multiple devices reference broker %s:%s as user %r with different passwords — "
             "using the password from the first device",
+            "Broker %s:%s user %r still referenced with different passwords — using the first",
             broker.host,
             broker.port,
             broker.username,
         )
-        self._conflict_logged.add(broker.key)
+
+    @staticmethod
+    def _warn_once(gate: set[Any], key: Any, warning: str, debug: str, *args: Any) -> None:
+        """WARNING the first time *key* lands in *gate*, DEBUG while it persists."""
+        if key in gate:
+            _LOGGER.debug(debug, *args)
+            return
+        _LOGGER.warning(warning, *args)
+        gate.add(key)
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +343,7 @@ _TolerantYamlLoader.add_multi_constructor("!", _ignore_unknown_tag)
 def parse_mqtt_block(
     yaml_content: str,
     secrets_map: dict[str, Any] | None = None,
-) -> MqttBrokerConfig | None:
+) -> MqttBrokerConfig | _ClientCertUnsupported | None:
     """
     Extract broker connection parameters from a device YAML.
 
@@ -266,6 +353,8 @@ def parse_mqtt_block(
     substitutions from the file's own ``substitutions:`` block are
     resolved; a broker still carrying an unresolved token returns
     ``None`` so the caller falls through to the package-aware slow path.
+    ``CLIENT_CERT_UNSUPPORTED`` flags a block using client-certificate
+    auth, which discovery cannot do.
     """
     secrets_map = secrets_map or {}
     try:
@@ -282,11 +371,17 @@ def parse_mqtt_block(
     mqtt = data.get("mqtt")
     if not isinstance(mqtt, dict):
         return None
-    subs = _extract_resolved_substitutions(data)
-    return _broker_from_block(_resolve_broker_fields(mqtt, secrets_map, subs))
+    # Presence alone signals intent — the value may be an ignored
+    # ``!include`` (None) or an unresolved ``!secret``, and neither
+    # changes the verdict.
+    if any(f in mqtt for f in _CLIENT_CERT_FIELDS):
+        return CLIENT_CERT_UNSUPPORTED
+    return _broker_from_block(mqtt, secrets_map, _extract_resolved_substitutions(data))
 
 
-def _extract_broker_from_config(config: dict | None) -> MqttBrokerConfig | None:
+def _extract_broker_from_config(
+    config: dict | None,
+) -> MqttBrokerConfig | _ClientCertUnsupported | None:
     """Extract broker parameters from a fully-resolved ESPHome config.
 
     ``load_device_yaml`` merges ``packages:`` / ``!include`` but skips the
@@ -298,27 +393,46 @@ def _extract_broker_from_config(config: dict | None) -> MqttBrokerConfig | None:
     mqtt = config.get("mqtt")
     if not isinstance(mqtt, dict):
         return None
-    subs = _extract_resolved_substitutions(config)
-    return _broker_from_block(_resolve_broker_fields(mqtt, {}, subs))
+    if any(f in mqtt for f in _CLIENT_CERT_FIELDS):
+        return CLIENT_CERT_UNSUPPORTED
+    return _broker_from_block(mqtt, {}, _extract_resolved_substitutions(config))
 
 
-def _resolve_broker_fields(
-    mqtt: dict, secrets_map: dict[str, Any], subs: dict[str, str]
-) -> dict[str, str | None]:
-    """Resolve each broker field through ``!secret`` then ``${var}`` substitution."""
-    return {
-        k: _resolve_substitutions(_resolve(mqtt.get(k), secrets_map), subs) for k in _BROKER_FIELDS
+def _broker_from_block(
+    raw_mqtt: dict, secrets_map: dict[str, Any], subs: dict[str, str]
+) -> MqttBrokerConfig | None:
+    """
+    Resolve *raw_mqtt*'s broker fields and build an :class:`MqttBrokerConfig`.
+
+    A declared ``certificate_authority`` that resolves to nothing or to
+    non-PEM content fails the parse instead of degrading to plaintext.
+    """
+    mqtt = {
+        k: _resolve_substitutions(_resolve(raw_mqtt.get(k), secrets_map), subs)
+        for k in _BROKER_FIELDS
     }
-
-
-def _broker_from_block(mqtt: dict) -> MqttBrokerConfig | None:
-    """Build an :class:`MqttBrokerConfig` from a resolved ``mqtt:`` block."""
     host = mqtt.get("broker")
     if not host:
         return None
     # An unresolved ``${var}`` / ``$var`` token would otherwise become a
     # bogus host and loop the monitor on DNS failure.
     if isinstance(host, str) and _UNRESOLVED_SUBSTITUTION_RE.search(host):
+        return None
+    certificate_authority = mqtt.get("certificate_authority") or None
+    # esphome's ``certificate_authority`` is PEM content; a file path or
+    # a corrupt cert would hand paho garbage and loop on SSLError forever.
+    if "certificate_authority" in raw_mqtt and (
+        certificate_authority is None
+        or _PEM_CERT_MARKER not in certificate_authority
+        or not _ca_pem_is_loadable(certificate_authority)
+    ):
+        return None
+    # The YAML loader already resolves the boolean vocabulary
+    # (true/yes/on/...), so anything non-bool is a typo or an
+    # indirection this flag doesn't support — refuse, don't silently
+    # keep hostname verification on for a user who mistyped the value.
+    skip_cert_cn_check = raw_mqtt.get("skip_cert_cn_check", False)
+    if not isinstance(skip_cert_cn_check, bool):
         return None
     port_raw = mqtt.get("port")
     try:
@@ -332,6 +446,8 @@ def _broker_from_block(mqtt: dict) -> MqttBrokerConfig | None:
         port=port,
         username=str(username) if username is not None else None,
         password=str(password) if password is not None else None,
+        certificate_authority=certificate_authority,
+        skip_cert_cn_check=skip_cert_cn_check,
     )
 
 
@@ -360,6 +476,25 @@ def _safe_mtime(path: Path) -> float:
         return path.stat().st_mtime
     except OSError:
         return 0.0
+
+
+def _ca_pem_is_loadable(certificate_authority: str) -> bool:
+    """
+    Validate the CA at parse time so a corrupt PEM fails loudly.
+
+    A cert that only fails inside the monitor's connect loop reads as
+    an unreachable broker forever; refusing here routes it to the gated
+    unresolved warning instead. Blocking (cert parsing), so callers run
+    on the executor.
+    """
+    try:
+        ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).load_verify_locations(cadata=certificate_authority)
+    except ssl.SSLError as err:
+        # The gated unresolved warning is generic; keep the concrete
+        # parse failure recoverable from the logs.
+        _LOGGER.debug("certificate_authority failed to parse: %s", err)
+        return False
+    return True
 
 
 def _resolve(value: Any, secrets_map: dict[str, Any]) -> str | None:

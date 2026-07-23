@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: environ-config
-Version: 24.1.0
+Version: 26.1.0
 Summary: Boilerplate-free configuration with env variables.
 Project-URL: Documentation, https://environ-config.readthedocs.io/
 Project-URL: Changelog, https://environ-config.rtfd.io/en/stable/changelog.html
@@ -16,36 +16,15 @@ License-File: NOTICE
 Keywords: app,cfg,config,env
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: attrs>=17.4.0
-Requires-Dist: importlib-metadata; python_version < '3.8'
-Provides-Extra: aws
-Requires-Dist: boto3; extra == 'aws'
-Provides-Extra: cov
-Requires-Dist: coverage[toml]>=7.2.0; extra == 'cov'
-Requires-Dist: moto; extra == 'cov'
-Requires-Dist: pytest; extra == 'cov'
-Provides-Extra: dev
-Requires-Dist: moto; extra == 'dev'
-Requires-Dist: nox; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: boto3; extra == 'docs'
-Requires-Dist: furo; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: sphinx; extra == 'docs'
-Requires-Dist: sphinx-notfound-page; extra == 'docs'
-Provides-Extra: tests
-Requires-Dist: moto; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
+Requires-Python: >=3.10
+Requires-Dist: attrs>=21.3.0
 Description-Content-Type: text/markdown
 
 # *environ-config*: Application Configuration With Env Variables
@@ -53,6 +32,7 @@ Description-Content-Type: text/markdown
 [![Documentation](https://img.shields.io/badge/Docs-Read%20The%20Docs-black)](https://environ-config.readthedocs.io/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-C06524)](https://github.com/hynek/environ-config/blob/main/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/environ-config)](https://pypi.org/project/environ-config/)
+[![No AI slop inside.](https://img.shields.io/badge/no-slop-purple)](https://github.com/hynek/environ-config/blob/main/.github/AI_POLICY.md)
 [![Downloads / Month](https://static.pepy.tech/personalized-badge/environ-config?period=month&units=international_system&left_color=grey&right_color=blue&left_text=Downloads%20/%20Month)](https://pepy.tech/project/environ-config)
 
 <!-- teaser-begin -->
@@ -112,7 +92,7 @@ AppConfig(env='dev', lang='C', db=AppConfig.DB(name='default_db', host='localhos
 
   - [HashiCorp Vault](https://www.vaultproject.io) support via [*envconsul*](https://github.com/hashicorp/envconsul).
   - [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) (needs [*boto3*](https://pypi.org/project/boto3/))
-  - INI files, because secrets in env variables are [icky](https://blog.diogomonica.com//2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/).
+  - INI files, because secrets in env variables are [icky](https://blog.diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/).
 
 - Helpful debug logging that will tell you which variables are present and what *environ-config* is looking for.
 
@@ -135,26 +115,44 @@ The development is kindly supported by [Variomedia AG](https://www.variomedia.de
 
 ## *environ-config* for Enterprise
 
-Available as part of the Tidelift Subscription.
+Available as part of the [Tidelift Subscription](https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek).
 
 The maintainers of *environ-config* and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open source packages you use to build your applications.
 Save time, reduce risk, and improve code health, while paying the maintainers of the exact packages you use.
-[Learn more](https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek).
 
 
 ## Release Information
 
-### Added
-
-- Support for Python 3.13.
-
-- Support for Moto 5.
-  [#76](https://github.com/hynek/environ-config/pull/76)
-
-
 ### Removed
 
-- Support for Python 3.7.
+- Support for Python 3.8 and 3.9.
+  [#134](https://github.com/hynek/environ-config/pull/134)
+
+- Support for *attrs* older than 21.3.0 (the one that introduced the `attrs` namespace).
+  [#134](https://github.com/hynek/environ-config/pull/134)
+
+
+### Added
+
+- Support for Python 3.14 and 3.15.
+  [#134](https://github.com/hynek/environ-config/pull/134)
+
+
+### Changed
+
+- *environ-config* now uses `@attrs.define` et al instead of `@attr.s` to help with typing support.
+  This should not make any difference in practice, but people doing weird things (I know y'all are out there!) might run into paper cuts.
+  [#134](https://github.com/hynek/environ-config/pull/134)
+
+- Secrets are now handled like environment variables in optional groups, so that if all secrets (and environment variables) are missing, the group becomes `None`.
+  This change also causes the `MissingSecretError` exceptions to include *all* missing secrets, not just the first one.
+  [#100](https://github.com/hynek/environ-config/pull/100)
+
+
+### Fixed
+
+- Type hints for `environ.group()` now respects the `optional` argument.
+  [#98](https://github.com/hynek/environ-config/pull/98)
 
 
  ---

@@ -5737,7 +5737,7 @@ class CFTC(System.Object):
         _10_YEAR_ERIS_SWAP: str = "343601"
         """10-YEAR ERIS SWAP"""
 
-        _13_WEEK_U_S_TREASURY_BILLS: str = "041741"
+        _13_WEEK_US_TREASURY_BILLS: str = "041741"
         """13-WEEK U.S. TREASURY BILLS"""
 
         _1_FUEL_OIL_NWE_CRACK_SPR: str = "86565D"
@@ -5758,16 +5758,16 @@ class CFTC(System.Object):
         _2_YEAR_ERIS_SWAP: str = "342601"
         """2 YEAR ERIS SWAP"""
 
-        _2_YEAR_U_S_T_NOTES_DORMANT: str = "042661"
+        _2_YEAR_UST_NOTES_DORMANT: str = "042661"
         """2 YEAR U.S. T-NOTES-dormant"""
 
         _30_DAY_FED_FUND_RATES: str = "045741"
         """30-DAY FED FUND RATES"""
 
-        _3_5_FUEL_OIL_RDAM_CRACK_SPR: str = "86565C"
+        _35_FUEL_OIL_RDAM_CRACK_SPR: str = "86565C"
         """3.5% FUEL OIL RDAM CRACK SPR"""
 
-        _3_5_FUEL_OIL_RDAM_V_FOB_MED: str = "02165L"
+        _35_FUEL_OIL_RDAM_V_FOB_MED: str = "02165L"
         """3.5% FUEL OIL RDAM V. FOB MED"""
 
         _3_MO_EURO_CANADA_TIME_DEPOSITS: str = "390741"
@@ -5800,10 +5800,10 @@ class CFTC(System.Object):
         _5_YEAR_ERIS_SWAP: str = "344601"
         """5 YEAR ERIS SWAP"""
 
-        _5_YEAR_U_S_T_NOTES_RENAMED: str = "044661"
+        _5_YEAR_UST_NOTES_RENAMED: str = "044661"
         """5 YEAR U.S. T-NOTES-renamed"""
 
-        _5_YEAR_U_S_TREASURY_NOTES_OLD: str = "044662"
+        _5_YEAR_US_TREASURY_NOTES_OLD: str = "044662"
         """5 YEAR U.S. TREASURY NOTES-OLD"""
 
         _7_YEAR_ERIS_SOFR_SWAP: str = "344607"
@@ -5815,7 +5815,7 @@ class CFTC(System.Object):
         _91_DAY_MEXICAN_T_BILLS: str = "271741"
         """91-DAY MEXICAN T-BILLS"""
 
-        ADJUSTED_INT_RATE_S_P_500_TOTL: str = "13874W"
+        ADJUSTED_INT_RATE_SP_500_TOTL: str = "13874W"
         """ADJUSTED INT RATE S&P 500 TOTL"""
 
         AECO_FIN_BASIS: str = "023396"
@@ -5995,7 +5995,7 @@ class CFTC(System.Object):
         CAISO_SP_15_DA_OFF_PK_FIXED: str = "064396"
         """CAISO SP-15 DA OFF-PK FIXED"""
 
-        CAISO_SP_15_PEAK_0900_1600_HE: str = "0643HS"
+        CAISO_SP_15_PEAK_09001600_HE: str = "0643HS"
         """CAISO SP-15 PEAK 0900-1600 HE"""
 
         CALIF_CARBON_21: str = "0063CJ"
@@ -6019,13 +6019,13 @@ class CFTC(System.Object):
         CALIF_CARBON_ALLOWANCE_V_2024: str = "0063E2"
         """CALIF CARBON ALLOWANCE V2024"""
 
-        CALIF_CARBON_ALLOWANCE_V_2024_006_NGQ: str = "006NGQ"
+        CALIF_CARBON_ALLOWANCE_V_2024006_NGQ: str = "006NGQ"
         """CALIF CARBON ALLOWANCE V2024"""
 
         CALIF_CARBON_ALLOWANCE_V_2025: str = "0063E5"
         """CALIF CARBON ALLOWANCE V2025"""
 
-        CALIF_CARBON_ALLOWANCE_V_2025_006_NGR: str = "006NGR"
+        CALIF_CARBON_ALLOWANCE_V_2025006_NGR: str = "006NGR"
         """CALIF CARBON ALLOWANCE V2025"""
 
         CALIF_CARBON_ALLOWANCE_V_2026: str = "0063EL"
@@ -6187,7 +6187,7 @@ class CFTC(System.Object):
         COLUMBIA_GULF_ONSHORE: str = "02365T"
         """COLUMBIA GULF ONSHORE"""
 
-        CONDENSATE_DIF_TMX_C_5_1_A_INDEX: str = "06743A"
+        CONDENSATE_DIF_TMX_C_51_A_INDEX: str = "06743A"
         """CONDENSATE DIF-TMX C5 1A INDEX"""
 
         CONTINUOUS_COMMODITY_INDEX: str = "218771"
@@ -6262,13 +6262,13 @@ class CFTC(System.Object):
         CSX_COAL: str = "024652"
         """CSX COAL"""
 
-        CT_RECS_CLASS_1: str = "0063DK"
+        CT_RE_CS_CLASS_1: str = "0063DK"
         """CT RECs CLASS 1"""
 
-        D_4_BIODIESEL_RINS_OPIS_CURR_YR: str = "0063DG"
+        D_4_BIODIESEL_RI_NS_OPIS_CURR_YR: str = "0063DG"
         """D4 BIODIESEL RINs OPIS CURR YR"""
 
-        D_6_RINS_OPIS_CURRENT_YEAR: str = "0063CW"
+        D_6_RI_NS_OPIS_CURRENT_YEAR: str = "0063CW"
         """D6 RINs OPIS CURRENT YEAR"""
 
         DATED_TO_FRONTLINE_BRENT: str = "06765M"
@@ -6322,7 +6322,7 @@ class CFTC(System.Object):
         DOW_JONES_TAIWAN_STOCK_INDEX: str = "270741"
         """DOW JONES TAIWAN STOCK INDEX"""
 
-        DOW_JONES_U_S_REAL_ESTATE_IDX: str = "124606"
+        DOW_JONES_US_REAL_ESTATE_IDX: str = "124606"
         """DOW JONES U.S. REAL ESTATE IDX"""
 
         DRY_WHEY: str = "052645"
@@ -6384,43 +6384,43 @@ class CFTC(System.Object):
         EMINI_RUSSELL_1000_VALUE_INDEX: str = "239744"
         """EMINI RUSSELL 1000 VALUE INDEX"""
 
-        E_MINI_S_P_400_STOCK_INDEX: str = "33874A"
+        E_MINI_SP_400_STOCK_INDEX: str = "33874A"
         """E-MINI S&P 400 STOCK INDEX"""
 
-        E_MINI_S_P_500: str = "13874A"
+        E_MINI_SP_500: str = "13874A"
         """E-MINI S&P 500"""
 
-        E_MINI_S_P_COMMUNICATION_INDEX: str = "13874P"
+        E_MINI_SP_COMMUNICATION_INDEX: str = "13874P"
         """E-MINI S&P COMMUNICATION INDEX"""
 
-        E_MINI_S_P_CONSUMER_DISC_INDEX: str = "138747"
+        E_MINI_SP_CONSUMER_DISC_INDEX: str = "138747"
         """E-MINI S&P CONSUMER DISC INDEX"""
 
-        E_MINI_S_P_CONSU_STAPLES_INDEX: str = "138748"
+        E_MINI_SP_CONSU_STAPLES_INDEX: str = "138748"
         """E-MINI S&P CONSU STAPLES INDEX"""
 
-        E_MINI_S_P_ENERGY_INDEX: str = "138749"
+        E_MINI_SP_ENERGY_INDEX: str = "138749"
         """E-MINI S&P ENERGY INDEX"""
 
-        E_MINI_S_P_FINANCIAL_INDEX: str = "13874C"
+        E_MINI_SP_FINANCIAL_INDEX: str = "13874C"
         """E-MINI S&P FINANCIAL INDEX"""
 
-        E_MINI_S_P_HEALTH_CARE_INDEX: str = "13874E"
+        E_MINI_SP_HEALTH_CARE_INDEX: str = "13874E"
         """E-MINI S&P HEALTH CARE INDEX"""
 
-        E_MINI_S_P_INDUSTRIAL_INDEX: str = "13874F"
+        E_MINI_SP_INDUSTRIAL_INDEX: str = "13874F"
         """E-MINI S&P INDUSTRIAL INDEX"""
 
-        E_MINI_S_P_MATERIALS_INDEX: str = "13874H"
+        E_MINI_SP_MATERIALS_INDEX: str = "13874H"
         """E-MINI S&P MATERIALS INDEX"""
 
-        E_MINI_S_P_REAL_ESTATE_INDEX: str = "13874R"
+        E_MINI_SP_REAL_ESTATE_INDEX: str = "13874R"
         """E-MINI S&P REAL ESTATE INDEX"""
 
-        E_MINI_S_P_TECHNOLOGY_INDEX: str = "13874I"
+        E_MINI_SP_TECHNOLOGY_INDEX: str = "13874I"
         """E-MINI S&P TECHNOLOGY INDEX"""
 
-        E_MINI_S_P_UTILITIES_INDEX: str = "13874J"
+        E_MINI_SP_UTILITIES_INDEX: str = "13874J"
         """E-MINI S&P UTILITIES INDEX"""
 
         EP_SAN_JUAN_BASIS: str = "0233A8"
@@ -6429,7 +6429,7 @@ class CFTC(System.Object):
         ERCOT_HB_HOUSTON_MONTH_ON_RTP: str = "064FOI"
         """ERCOT.HB_HOUSTON_month_on_rtp"""
 
-        ERCOT_HB_NORTH_MONTH_7_X_8_RTP: str = "064GBD"
+        ERCOT_HB_NORTH_MONTH_7X_8_RTP: str = "064GBD"
         """ERCOT.HB_NORTH_month_7x8_rtp"""
 
         ERCOT_HB_NORTH_MONTH_OFF_RTP: str = "064FOL"
@@ -6438,7 +6438,7 @@ class CFTC(System.Object):
         ERCOT_HB_NORTH_MONTH_ON_RTP: str = "064FOK"
         """ERCOT.HB_NORTH_month_on_rtp"""
 
-        ERCOT_HOUSTON_345_KV_HUB_RT_7_X_8: str = "0643IL"
+        ERCOT_HOUSTON_345_KV_HUB_RT_7X_8: str = "0643IL"
         """ERCOT Houston 345KV Hub RT 7x8"""
 
         ERCOT_HOUSTON_345_KV_RT_OFF_FIX: str = "06439Q"
@@ -6447,7 +6447,7 @@ class CFTC(System.Object):
         ERCOT_HOUSTON_345_KV_RT_PK_FIX: str = "06439N"
         """ERCOT HOUSTON 345KV RT PK FIX"""
 
-        ERCOT_N_345_KV_REAL_T_PK_2_X_16: str = "0643ID"
+        ERCOT_N_345_KV_REAL_T_PK_2X_16: str = "0643ID"
         """ERCOT N 345KV REAL T PK 2x16"""
 
         ERCOT_N_345_KV_REAL_T_PK_DALY_M: str = "0643IB"
@@ -6462,10 +6462,13 @@ class CFTC(System.Object):
         ERCOT_NORTH_345_KV_DA_PK_DLY_FI: str = "0643A5"
         """ERCOT NORTH 345KV DA PK DLY FI"""
 
-        ERCOT_NORTH_345_KV_HUB_RT_7_X_16: str = "064IBM"
+        ERCOT_NORTH_345_KV_HUB_RT_10X_17: str = "064ED7"
+        """ERCOT North 345KV Hub RT 10x17"""
+
+        ERCOT_NORTH_345_KV_HUB_RT_7X_16: str = "064IBM"
         """ERCOT North 345KV Hub RT 7x16"""
 
-        ERCOT_NORTH_345_KV_HUB_RT_7_X_8: str = "0643IK"
+        ERCOT_NORTH_345_KV_HUB_RT_7X_8: str = "0643IK"
         """ERCOT North 345KV Hub RT 7x8"""
 
         ERCOT_NORTH_345_KV_REAL_TIME_PK: str = "064IAN"
@@ -6504,7 +6507,7 @@ class CFTC(System.Object):
         EUR_1_FUEL_OIL_NWE_CAL: str = "02165C"
         """EUR 1% FUEL OIL NWE CAL"""
 
-        EUR_3_5_FUEL_OIL_RTD_CAL: str = "02165E"
+        EUR_35_FUEL_OIL_RTD_CAL: str = "02165E"
         """EUR 3.5% FUEL OIL RTD CAL"""
 
         EUROBOB_OXY_NWE_CRK_SPR: str = "967654"
@@ -6576,7 +6579,7 @@ class CFTC(System.Object):
         EVENT_EMINI_NASDAQ_100: str = "C20901"
         """EVENT - EMINI NASDAQ 100"""
 
-        EVENT_EMINI_S_P_500: str = "C13801"
+        EVENT_EMINI_SP_500: str = "C13801"
         """EVENT - EMINI S+P 500"""
 
         FAM_BIODIESEL_V_GASOIL_SPR: str = "869652"
@@ -6618,10 +6621,10 @@ class CFTC(System.Object):
         FRZN_PORK_BELLIES: str = "056641"
         """FRZN PORK BELLIES"""
 
-        FUEL_OIL_380_CST_SING_3_5_RDAM: str = "021A56"
+        FUEL_OIL_380_CST_SING_35_RDAM: str = "021A56"
         """FUEL OIL-380cst SING/3.5% RDAM"""
 
-        FUEL_OIL_3_USGC_3_5_FOB_RDAM: str = "02141C"
+        FUEL_OIL_3_USGC_35_FOB_RDAM: str = "02141C"
         """FUEL OIL-3% USGC/3.5% FOB RDAM"""
 
         FUEL_OIL_CARGOES_B_PLATTS: str = "02165H"
@@ -6633,7 +6636,7 @@ class CFTC(System.Object):
         FUEL_OIL_USGC_HSFO_PLATTS_BALM: str = "021391"
         """FUEL OIL USGC HSFO PLATTS BALM"""
 
-        GASOIL_0_1_BARGE_FOB_RDM_V_ICE: str = "022A26"
+        GASOIL_01_BARGE_FOB_RDM_V_ICE: str = "022A26"
         """GASOIL 0.1 BARGE FOB RDM V ICE"""
 
         GASOIL_AVG_PRICE_OPTIONS: str = "022A46"
@@ -6651,7 +6654,7 @@ class CFTC(System.Object):
         GASOLINE_RBOB: str = "111659"
         """GASOLINE RBOB"""
 
-        GNMA_9_1_2: str = "06260E"
+        GNMA_912: str = "06260E"
         """GNMA 9 1/2 %"""
 
         GNMA_MORTGAGES_CDR: str = "062601"
@@ -6684,7 +6687,7 @@ class CFTC(System.Object):
         GULF_3_FUEL_OIL_BALMO: str = "02165R"
         """GULF 3% FUEL OIL BALMO"""
 
-        GULF_6_FUEL_3_0_SULFUR: str = "02165A"
+        GULF_6_FUEL_30_SULFUR: str = "02165A"
         """GULF # 6 FUEL 3.0% SULFUR"""
 
         GULF_6_FUELOIL_BRENT_CRACK: str = "86565N"
@@ -6714,7 +6717,7 @@ class CFTC(System.Object):
         GULF_JET_NY_HEAT_OIL_SPR: str = "86465A"
         """GULF JET NY HEAT OIL SPR"""
 
-        GULF_NO_6_FO_3_V_EUR_3_5_RDAM: str = "021A28"
+        GULF_NO_6_FO_3_V_EUR_35_RDAM: str = "021A28"
         """GULF NO6 FO 3% v EUR 3.5% RDAM"""
 
         HARD_AMBER_DURUM_WHEAT: str = "001623"
@@ -6867,10 +6870,10 @@ class CFTC(System.Object):
         ITAL_LIRA_MARK_XRATE: str = "694661"
         """ITAL. LIRA/MARK XRATE"""
 
-        JAPAN_C_F_NAPHTHA: str = "03265C"
+        JAPAN_CF_NAPHTHA: str = "03265C"
         """JAPAN C&F NAPHTHA"""
 
-        JAPAN_C_F_NAPHTHA_CRK_SPR: str = "86665B"
+        JAPAN_CF_NAPHTHA_CRK_SPR: str = "86665B"
         """JAPAN C&F NAPHTHA CRK SPR"""
 
         JAPANESE_YEN: str = "097741"
@@ -6888,7 +6891,7 @@ class CFTC(System.Object):
         JET_UP_DOWN_BALMO: str = "86465K"
         """JET UP-DOWN BALMO"""
 
-        LEADED_GASOLINE_N_Y_HARBOR: str = "111651"
+        LEADED_GASOLINE_NY_HARBOR: str = "111651"
         """LEADED GASOLINE- N.Y. HARBOR"""
 
         LEAN_HOGS: str = "054642"
@@ -6933,7 +6936,7 @@ class CFTC(System.Object):
         MARINE_5_USGC_5_RDAM_BG: str = "02139D"
         """MARINE .5% USGC/.5% RDAM BG"""
 
-        MARINE_FUEL_OIL_0_5_FOB_USGC: str = "021397"
+        MARINE_FUEL_OIL_05_FOB_USGC: str = "021397"
         """MARINE FUEL OIL 0.5% FOB USGC"""
 
         MARK_YEN_CROSSRATE: str = "397742"
@@ -6948,16 +6951,16 @@ class CFTC(System.Object):
         MARYLAND_SOLAR_REC: str = "0063DN"
         """MARYLAND SOLAR REC"""
 
-        MASS_COMPLIANCE_RECS_CLASS_1: str = "0063DL"
+        MASS_COMPLIANCE_RE_CS_CLASS_1: str = "0063DL"
         """MASS COMPLIANCE RECs CLASS 1"""
 
-        MASS_RECS_CLASS_1_VIN_2018: str = "0063AM"
+        MASS_RE_CS_CLASS_1_VIN_2018: str = "0063AM"
         """MASS RECs CLASS 1 Vin 2018"""
 
-        MASS_RECS_CLASS_1_VIN_2019: str = "0063AQ"
+        MASS_RE_CS_CLASS_1_VIN_2019: str = "0063AQ"
         """MASS RECs CLASS 1 Vin 2019"""
 
-        MASS_RECS_CLASS_1_VIN_2020: str = "0063BY"
+        MASS_RE_CS_CLASS_1_VIN_2020: str = "0063BY"
         """MASS RECs CLASS 1 Vin 2020"""
 
         MASS_SREC_CARVE_OUT_1: str = "0063DP"
@@ -6987,7 +6990,7 @@ class CFTC(System.Object):
         MICRO_COPPER: str = "085699"
         """MICRO COPPER"""
 
-        MICRO_E_MINI_DJIA_X_0_5: str = "124608"
+        MICRO_E_MINI_DJIA_X_05: str = "124608"
         """MICRO E-MINI DJIA (x$0.5)"""
 
         MICRO_E_MINI_NASDAQ_100_INDEX: str = "209747"
@@ -6996,7 +6999,7 @@ class CFTC(System.Object):
         MICRO_E_MINI_RUSSELL_2000_INDX: str = "239747"
         """MICRO E-MINI RUSSELL 2000 INDX"""
 
-        MICRO_E_MINI_S_P_500_INDEX: str = "13874U"
+        MICRO_E_MINI_SP_500_INDEX: str = "13874U"
         """MICRO E-MINI S&P 500 INDEX"""
 
         MICRO_ETHER: str = "146022"
@@ -7041,16 +7044,16 @@ class CFTC(System.Object):
         MILK_INDEX_MJ: str = "052733"
         """MILK INDEX (MJ)"""
 
-        MINIARGUS_PROPANE_FAR_EAST_INX: str = "066A21"
+        MINI_ARGUS_PROPANE_FAR_EAST_INX: str = "066A21"
         """MiniARGUS PROPANE FAR EAST INX"""
 
         MINI_CORN: str = "002603"
         """MINI CORN"""
 
-        MINI_EUR_3_5_FOIL_RTD_BALMO: str = "021A18"
+        MINI_EUR_35_FOIL_RTD_BALMO: str = "021A18"
         """MINI EUR 3.5%FOIL RTD BALMO"""
 
-        MINI_EUR_3_5_FOIL_RTD_CAL: str = "021A17"
+        MINI_EUR_35_FOIL_RTD_CAL: str = "021A17"
         """MINI EUR 3.5%FOIL RTD CAL"""
 
         MINI_EUR_NAPHTHA_CIF_NEW: str = "03265J"
@@ -7062,7 +7065,7 @@ class CFTC(System.Object):
         MINI_EUROPE_NAPHTHA_BALMO: str = "86665G"
         """MINI EUROPE NAPHTHA BALMO"""
 
-        MINI_JAPAN_C_F_NAPHTHA: str = "86665E"
+        MINI_JAPAN_CF_NAPHTHA: str = "86665E"
         """MINI JAPAN C&F NAPHTHA"""
 
         MINI_MSCI_ACWI_NTR_INDEX: str = "24477M"
@@ -7071,7 +7074,7 @@ class CFTC(System.Object):
         MINI_SING_380_FUEL_OIL: str = "021A35"
         """MINI SING 380 FUEL OIL"""
 
-        MINI_SING_FOB_MARINE_FUEL_0_5: str = "021A65"
+        MINI_SING_FOB_MARINE_FUEL_05: str = "021A65"
         """MINI SING FOB MARINE FUEL 0.5%"""
 
         MINI_SING_FUELOIL_180_CAL: str = "021A19"
@@ -7263,17 +7266,20 @@ class CFTC(System.Object):
         NEAR_PROTOCAL_PERP_STYLE: str = "180LM7"
         """NEAR PROTOCAL PERP STYLE"""
 
-        NEPOOL_DUAL_RECS_CLASS_1: str = "0063DQ"
+        NEPOOL_DUAL_RE_CS_CLASS_1: str = "0063DQ"
         """NEPOOL DUAL RECs CLASS 1"""
 
-        NEW_JERSEY_RECS_CLASS_2_V_2025: str = "006NKV"
+        NEW_JERSEY_RE_CS_CLASS_2_V_2025: str = "006NKV"
         """NEW JERSEY RECs CLASS 2 V2025"""
 
-        NEW_JERSEY_RECS_CLASS_2_V_2026: str = "006NLD"
+        NEW_JERSEY_RE_CS_CLASS_2_V_2026: str = "006NLD"
         """NEW JERSEY RECs CLASS 2 V2026"""
 
-        NEW_JERSEY_RECS_CLASS_2_V_2027: str = "006NMM"
+        NEW_JERSEY_RE_CS_CLASS_2_V_2027: str = "006NMM"
         """NEW JERSEY RECs CLASS 2 V2027"""
+
+        NEW_JERSEY_RE_CS_CLASS_2_V_2028: str = "006NMW"
+        """NEW JERSEY RECs CLASS 2 V2028"""
 
         NEW_YORK_CDD: str = "16264C"
         """NEW YORK CDD"""
@@ -7320,7 +7326,7 @@ class CFTC(System.Object):
         NITROGEN_FIN_INS_ANNUAL_2009: str = "00626F"
         """NITROGEN FIN INS ANNUAL 2009"""
 
-        NJ_COMPLIANCE_RECS_CLASS_1: str = "0063DR"
+        NJ_COMPLIANCE_RE_CS_CLASS_1: str = "0063DR"
         """NJ COMPLIANCE RECs CLASS 1"""
 
         NJ_SRECS: str = "0063CC"
@@ -7404,10 +7410,10 @@ class CFTC(System.Object):
         NYISO_HUD_VL_MONTH_ON_DAP: str = "064CXO"
         """NYISO.HUD VL_month_on_dap"""
 
-        NYISO_N_Y_C_MONTH_OFF_DAP: str = "064CZT"
+        NYISO_NYC_MONTH_OFF_DAP: str = "064CZT"
         """NYISO.N.Y.C._month_off_dap"""
 
-        NYISO_N_Y_C_MONTH_ON_DAP: str = "064CZS"
+        NYISO_NYC_MONTH_ON_DAP: str = "064CZS"
         """NYISO.N.Y.C._month_on_dap"""
 
         NYISO_WEST_MONTH_OFF_DAP: str = "064DEV"
@@ -7497,7 +7503,7 @@ class CFTC(System.Object):
         NYMEX_HEATING_OIL_RDAM_GASOIL: str = "02265U"
         """NYMEX HEATING OIL/RDAM GASOIL"""
 
-        NY_RES_FUEL_1_0_SULFUR: str = "02165B"
+        NY_RES_FUEL_10_SULFUR: str = "02165B"
         """NY RES FUEL 1.0% SULFUR"""
 
         NYSE_CMP_INDEX_LARGE: str = "148771"
@@ -7533,13 +7539,13 @@ class CFTC(System.Object):
         OVERNIGHT_FED_FUND_RATES: str = "047741"
         """OVERNIGHT FED FUND RATES"""
 
-        PA_COMPLIANCE_AECS_TIER_1: str = "0063DT"
+        PA_COMPLIANCE_AE_CS_TIER_1: str = "0063DT"
         """PA COMPLIANCE AECs TIER1"""
 
         PALLADIUM: str = "075651"
         """PALLADIUM"""
 
-        PALO_VERDE_DA_OFF_PK_FIXED_PR: str = "0643CC"
+        PALO_VERDE_DA_OFF_PK_FI_XED_PR: str = "0643CC"
         """PALO VERDE DA OFF-PK FiXED PR"""
 
         PALO_VERDE_DA_PEAK: str = "0643CB"
@@ -7860,31 +7866,31 @@ class CFTC(System.Object):
         PJM_RT_PEAK_CAL_1X: str = "0643CL"
         """PJM RT PEAK CAL 1X"""
 
-        PJM_TRI_Q_RECS_CLASS_1_V_2022: str = "006NDF"
+        PJM_TRI_QRE_CS_CLASS_1_V_2022: str = "006NDF"
         """PJM TRI-Q RECs CLASS 1 V2022"""
 
-        PJM_TRI_Q_RECS_CLASS_1_V_2023: str = "006NDG"
+        PJM_TRI_QRE_CS_CLASS_1_V_2023: str = "006NDG"
         """PJM TRI-Q RECs CLASS 1 V2023"""
 
-        PJM_TRI_RECS_CLASS_1: str = "0063CH"
+        PJM_TRI_RE_CS_CLASS_1: str = "0063CH"
         """PJM TRI-RECs CLASS 1"""
 
-        PJM_TRI_RECS_CLASS_1_PRIOR_YR: str = "0063DU"
+        PJM_TRI_RE_CS_CLASS_1_PRIOR_YR: str = "0063DU"
         """PJM TRI-RECs CLASS 1 PRIOR YR"""
 
-        PJM_TRI_RECS_CLASS_1_VIN_2017: str = "0063AA"
+        PJM_TRI_RE_CS_CLASS_1_VIN_2017: str = "0063AA"
         """PJM TRI-RECs CLASS 1 Vin 2017"""
 
-        PJM_TRI_RECS_CLASS_1_VIN_2018: str = "0063AB"
+        PJM_TRI_RE_CS_CLASS_1_VIN_2018: str = "0063AB"
         """PJM TRI-RECs CLASS 1 Vin 2018"""
 
-        PJM_TRI_RECS_CLASS_1_VIN_2019: str = "0063AD"
+        PJM_TRI_RE_CS_CLASS_1_VIN_2019: str = "0063AD"
         """PJM TRI-RECs CLASS 1 Vin 2019"""
 
-        PJM_TRI_RECS_CLASS_1_VIN_2020: str = "0063AN"
+        PJM_TRI_RE_CS_CLASS_1_VIN_2020: str = "0063AN"
         """PJM TRI-RECs CLASS 1 Vin 2020"""
 
-        PJM_TRI_RECS_CLASS_1_VIN_2021: str = "0063B1"
+        PJM_TRI_RE_CS_CLASS_1_VIN_2021: str = "0063B1"
         """PJM TRI-RECs CLASS 1 Vin 2021"""
 
         PJM_WESTERN_HUB_DA_OFF_PK: str = "0643DB"
@@ -7896,7 +7902,7 @@ class CFTC(System.Object):
         PJM_WESTERN_HUB_DA_PEAK: str = "0643DC"
         """PJM WESTERN HUB DA PEAK"""
 
-        PJM_WESTERN_HUB_MONTH_2_X_16_DAP: str = "064GBY"
+        PJM_WESTERN_HUB_MONTH_2X_16_DAP: str = "064GBY"
         """PJM.WESTERN HUB_month_2x16_dap"""
 
         PJM_WESTERN_HUB_MONTH_OFF_DAP: str = "064FHL"
@@ -7920,7 +7926,7 @@ class CFTC(System.Object):
         PJM_WESTERN_HUB_RT_OFF_PK_MINI: str = "0643DK"
         """PJM WESTERN HUB RT OFF-PK MINI"""
 
-        PJM_WESTERN_HUB_RT_PEAK_2_5_MW: str = "064657"
+        PJM_WESTERN_HUB_RT_PEAK_25_MW: str = "064657"
         """PJM WESTERN HUB RT PEAK 2.5MW"""
 
         PJM_WESTERN_HUB_RT_PEAK_MINI: str = "0643DF"
@@ -8058,7 +8064,7 @@ class CFTC(System.Object):
         RGGI_V_2025: str = "0063EG"
         """RGGI V2025"""
 
-        RGGI_V_2025_006_NGL: str = "006NGL"
+        RGGI_V_2025006_NGL: str = "006NGL"
         """RGGI V2025"""
 
         RGGI_V_2026: str = "0063EM"
@@ -8097,7 +8103,7 @@ class CFTC(System.Object):
         ROUND_WHITE_POTATOES: str = "030653"
         """ROUND WHITE POTATOES"""
 
-        RTD_3_5_FUEL_OIL_CRK_SPD: str = "86565G"
+        RTD_35_FUEL_OIL_CRK_SPD: str = "86565G"
         """RTD 3.5% FUEL OIL CRK SPD"""
 
         RUSSELL_1000_MINI_INDEX_FUTURE: str = "239772"
@@ -8142,7 +8148,7 @@ class CFTC(System.Object):
         SILVER_5000_TROY_OZ: str = "084605"
         """SILVER, 5000 TROY OZ"""
 
-        SING_180_380_FUEL_OIL_SPR: str = "02165J"
+        SING_180380_FUEL_OIL_SPR: str = "02165J"
         """SING 180 380 FUEL OIL SPR"""
 
         SINGAPORE_MOGUS_92_UNLEADED: str = "111A11"
@@ -8235,34 +8241,34 @@ class CFTC(System.Object):
         SP_15_FIN_DA_PEAK_FIXED: str = "064395"
         """SP15 FIN DA PEAK FIXED"""
 
-        S_P_400_MIDCAP_STOCK_INDEX: str = "338741"
+        SP_400_MIDCAP_STOCK_INDEX: str = "338741"
         """S&P 400 MIDCAP STOCK INDEX"""
 
-        S_P_500_ANNUAL_DIVIDEND_INDEX: str = "43874A"
+        SP_500_ANNUAL_DIVIDEND_INDEX: str = "43874A"
         """S&P 500 ANNUAL DIVIDEND INDEX"""
 
-        S_P_500_CONSOLIDATED: str = "13874+"
+        SP_500_CONSOLIDATED: str = "13874+"
         """S&P 500 Consolidated"""
 
-        S_P_500_GROWTH_FUTURES: str = "13874G"
+        SP_500_GROWTH_FUTURES: str = "13874G"
         """S&P 500 Growth Futures"""
 
-        S_P_500_QUARTERLY_DIVIDEND_IND: str = "43874Q"
+        SP_500_QUARTERLY_DIVIDEND_IND: str = "43874Q"
         """S&P 500 QUARTERLY DIVIDEND IND"""
 
-        S_P_500_STOCK_INDEX: str = "138741"
+        SP_500_STOCK_INDEX: str = "138741"
         """S&P 500 STOCK INDEX"""
 
-        S_P_500_TOTAL_RETURN_INDEX: str = "13874N"
+        SP_500_TOTAL_RETURN_INDEX: str = "13874N"
         """S&P 500 TOTAL RETURN INDEX"""
 
-        S_P_500_VALUE_INDEX: str = "13874V"
+        SP_500_VALUE_INDEX: str = "13874V"
         """S&P 500 VALUE INDEX"""
 
-        S_P_GSCI: str = "256741"
+        SP_GSCI: str = "256741"
         """S&P GSCI"""
 
-        S_P_OVER_THE_COUNTER_INDEX: str = "210741"
+        SP_OVER_THE_COUNTER_INDEX: str = "210741"
         """S&P OVER THE COUNTER INDEX"""
 
         SPP_SOUTH_HUB_DA_PEAK_FIXED: str = "0643F4"
@@ -8352,7 +8358,7 @@ class CFTC(System.Object):
         TENNESSEE_500_L_BASIS: str = "0233C9"
         """TENNESSEE 500L BASIS"""
 
-        TENNESSEE_ZONE_4_300_L_BASIS: str = "0233DU"
+        TENNESSEE_ZONE_4300_L_BASIS: str = "0233DU"
         """TENNESSEE ZONE 4 300L BASIS"""
 
         TEN_YEAR_AGENCY_NOTE: str = "049601"
@@ -8373,7 +8379,7 @@ class CFTC(System.Object):
         TETCO_M_3_INDEX: str = "023A26"
         """TETCO M-3 INDEX"""
 
-        TETCO_M_3_INDEX: str = "0233CG"
+        TETCO_M_3_INDEX_0233_CG: str = "0233CG"
         """TETCO M3 INDEX"""
 
         TETCO_WLA_BASIS: str = "0233CC"
@@ -8508,7 +8514,7 @@ class CFTC(System.Object):
         UNLEADED_GASOLINE_GULF_COAST: str = "111655"
         """UNLEADED GASOLINE- GULF COAST"""
 
-        UNLEADED_GASOLINE_N_Y_HARBOR: str = "111652"
+        UNLEADED_GASOLINE_NY_HARBOR: str = "111652"
         """UNLEADED GASOLINE- N.Y. HARBOR"""
 
         UNL_GAS_CRACK_SPRD_CAL: str = "96765A"
@@ -8532,10 +8538,10 @@ class CFTC(System.Object):
         USD_MALAYSIAN_CRUDE_PALM_OIL_C: str = "037021"
         """USD Malaysian Crude Palm Oil C"""
 
-        U_S_DOLLAR_DEUTSCHE_MARK: str = "094772"
+        US_DOLLAR_DEUTSCHE_MARK: str = "094772"
         """U.S. DOLLAR-DEUTSCHE MARK"""
 
-        U_S_DOLLAR_ECU: str = "099661"
+        US_DOLLAR_ECU: str = "099661"
         """U.S. DOLLAR-ECU"""
 
         USGC_HSFO_PLATTS: str = "02141B"
@@ -8547,7 +8553,7 @@ class CFTC(System.Object):
         USGC_HSFO_PLATTS_VS_WTI_1_ST: str = "02141X"
         """USGC HSFO PLATTS vs WTI 1st"""
 
-        U_S_INDEX_OLD: str = "098661"
+        US_INDEX_OLD: str = "098661"
         """U.S. $ INDEX - OLD"""
 
         UST_10_Y_NOTE: str = "043602"
@@ -8562,7 +8568,7 @@ class CFTC(System.Object):
         UST_BOND: str = "020601"
         """UST BOND"""
 
-        U_S_TREASURY_BONDS: str = "020631"
+        US_TREASURY_BONDS: str = "020631"
         """U.S. TREASURY BONDS"""
 
         VALUE_LINE_STOCK_INDEX: str = "136611"
@@ -8616,7 +8622,7 @@ class CFTC(System.Object):
         WHEAT: str = "001631"
         """WHEAT"""
 
-        WHEAT_HRSPRING: str = "001626"
+        WHEAT_HR_SPRING: str = "001626"
         """WHEAT-HRSpring"""
 
         WHEAT_HRW: str = "001612"
@@ -8685,10 +8691,10 @@ class CFTC(System.Object):
         YEN_MARK_CROSSRATE: str = "397661"
         """YEN/MARK CROSSRATE"""
 
-        YIELD_CURVE_30_10: str = "531601"
+        YIELD_CURVE_3010: str = "531601"
         """YIELD CURVE 30-10"""
 
-        YIELD_CURVE_30_2: str = "532601"
+        YIELD_CURVE_302: str = "532601"
         """YIELD CURVE 30-2"""
 
         ZCASH_PERP_STYLE: str = "180LMB"
@@ -10950,7 +10956,7 @@ class EIA(System.Object):
         LOS_ANGELES_DEPARTMENT_OF_WATER_AND_POWER: str = "LDWP"
         """Los Angeles Department of Water and Power"""
 
-        LGE_AND_KU_SERVICES_COMPANY_AS_AGENT_FOR_LOUISVILLE_GAS_AND_ELECTRIC_COMPANY_AND_KENTUCKY_UTILITIES_COMPANY: str = "LGEE"
+        LG_E_AND_KU_SERVICES_COMPANY_AS_AGENT_FOR_LOUISVILLE_GAS_AND_ELECTRIC_COMPANY_AND_KENTUCKY_UTILITIES_COMPANY: str = "LGEE"
         """LG&E and KU Services Company as agent for Louisville Gas and Electric Company and Kentucky Utilities Company"""
 
         MID_ATLANTIC: str = "MIDA"
@@ -53837,6 +53843,520 @@ class EODHDEconomicEvent(QuantConnect.Data.BaseData):
     def to_string(self) -> str:
         """Converts the instance to string"""
         ...
+
+
+class BEAGDPByIndustry(QuantConnect.Data.BaseData):
+    """
+    BEA GDP by Industry. The full picture for one industry per period (quarterly from 2005): its
+    contribution to GDP (Value Added), its total sales (Gross Output), and what it buys from other
+    industries to produce that output (Intermediate Inputs). The three measures satisfy the identity
+    Gross Output = Value Added + Intermediate Inputs. Each measure comes with a nominal level, an
+    inflation-adjusted (real) level, and chain-type price and quantity indexes.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        Publication date of the estimate, the day BEA released it. This is when LEAN delivers the
+        data point.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def value_added(self) -> typing.Optional[float]:
+        """Value added, in billions of dollars. This is also the data point's Value."""
+        ...
+
+    @value_added.setter
+    def value_added(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def real_value_added(self) -> typing.Optional[float]:
+        """Real (chained) value added, in billions of dollars."""
+        ...
+
+    @real_value_added.setter
+    def real_value_added(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value_added_price_index(self) -> typing.Optional[float]:
+        """Chain-type price index for value added."""
+        ...
+
+    @value_added_price_index.setter
+    def value_added_price_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value_added_quantity_index(self) -> typing.Optional[float]:
+        """Chain-type quantity index for value added."""
+        ...
+
+    @value_added_quantity_index.setter
+    def value_added_quantity_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def share_of_gdp(self) -> typing.Optional[float]:
+        """Value added as a percentage of gross domestic product."""
+        ...
+
+    @share_of_gdp.setter
+    def share_of_gdp(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gross_output(self) -> typing.Optional[float]:
+        """Gross output, in billions of dollars."""
+        ...
+
+    @gross_output.setter
+    def gross_output(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def real_gross_output(self) -> typing.Optional[float]:
+        """Real (chained) gross output, in billions of dollars."""
+        ...
+
+    @real_gross_output.setter
+    def real_gross_output(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gross_output_price_index(self) -> typing.Optional[float]:
+        """Chain-type price index for gross output."""
+        ...
+
+    @gross_output_price_index.setter
+    def gross_output_price_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gross_output_quantity_index(self) -> typing.Optional[float]:
+        """Chain-type quantity index for gross output."""
+        ...
+
+    @gross_output_quantity_index.setter
+    def gross_output_quantity_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intermediate_inputs(self) -> typing.Optional[float]:
+        """Intermediate inputs, in billions of dollars."""
+        ...
+
+    @intermediate_inputs.setter
+    def intermediate_inputs(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def real_intermediate_inputs(self) -> typing.Optional[float]:
+        """Real (chained) intermediate inputs, in billions of dollars."""
+        ...
+
+    @real_intermediate_inputs.setter
+    def real_intermediate_inputs(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intermediate_inputs_price_index(self) -> typing.Optional[float]:
+        """Chain-type price index for intermediate inputs."""
+        ...
+
+    @intermediate_inputs_price_index.setter
+    def intermediate_inputs_price_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intermediate_inputs_quantity_index(self) -> typing.Optional[float]:
+        """Chain-type quantity index for intermediate inputs."""
+        ...
+
+    @intermediate_inputs_quantity_index.setter
+    def intermediate_inputs_quantity_index(self, value: typing.Optional[float]) -> None:
+        ...
+
+    RAW_TABLES: typing.Sequence[System.ValueTuple[str, int]]
+    """
+    The BEA GDPbyIndustry tables that feed each CSV column, in the exact order the processor
+    writes them (csv<2> onward) and the BEAGDPByIndustry(string) parser reads them
+    back. Single source of truth for the column layout, kept next to the parser.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required by LEAN."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """Parses one CSV line into a data point."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern - BEA release time)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: alternative/bea/gdpbyindustry/{code}.csv"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse: one file per industry, suppress missing-file logs."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Unlinked (keyed by BEA industry code, not a mapped equity)."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only - quarterly cadence)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class BEA(System.Object):
+    """
+    Readable named constants for BEA GDP-by-Industry codes, for use as the ticker in
+    AddData<BEAGDPByIndustry>(BEA.Industries.X). Mirrors the USEnergy helper pattern.
+    """
+
+    class Industries(System.Object):
+        """BEA industry codes by readable name."""
+
+        AGRICULTURE_FORESTRY_FISHING_AND_HUNTING: str = "11"
+        """Agriculture, forestry, fishing, and hunting"""
+
+        FARMS: str = "111CA"
+        """Farms"""
+
+        FORESTRY_FISHING_AND_RELATED_ACTIVITIES: str = "113FF"
+        """Forestry, fishing, and related activities"""
+
+        MINING: str = "21"
+        """Mining"""
+
+        OIL_AND_GAS_EXTRACTION: str = "211"
+        """Oil and gas extraction"""
+
+        MINING_EXCEPT_OIL_AND_GAS: str = "212"
+        """Mining, except oil and gas"""
+
+        SUPPORT_ACTIVITIES_FOR_MINING: str = "213"
+        """Support activities for mining"""
+
+        UTILITIES: str = "22"
+        """Utilities"""
+
+        CONSTRUCTION: str = "23"
+        """Construction"""
+
+        FOOD_AND_BEVERAGE_AND_TOBACCO_PRODUCTS: str = "311FT"
+        """Food and beverage and tobacco products"""
+
+        TEXTILE_MILLS_AND_TEXTILE_PRODUCT_MILLS: str = "313TT"
+        """Textile mills and textile product mills"""
+
+        APPAREL_AND_LEATHER_AND_ALLIED_PRODUCTS: str = "315AL"
+        """Apparel and leather and allied products"""
+
+        MANUFACTURING: str = "31G"
+        """Manufacturing"""
+
+        NONDURABLE_GOODS: str = "31ND"
+        """Nondurable goods"""
+
+        WOOD_PRODUCTS: str = "321"
+        """Wood products"""
+
+        PAPER_PRODUCTS: str = "322"
+        """Paper products"""
+
+        PRINTING_AND_RELATED_SUPPORT_ACTIVITIES: str = "323"
+        """Printing and related support activities"""
+
+        PETROLEUM_AND_COAL_PRODUCTS: str = "324"
+        """Petroleum and coal products"""
+
+        CHEMICAL_PRODUCTS: str = "325"
+        """Chemical products"""
+
+        PLASTICS_AND_RUBBER_PRODUCTS: str = "326"
+        """Plastics and rubber products"""
+
+        NONMETALLIC_MINERAL_PRODUCTS: str = "327"
+        """Nonmetallic mineral products"""
+
+        PRIMARY_METALS: str = "331"
+        """Primary metals"""
+
+        FABRICATED_METAL_PRODUCTS: str = "332"
+        """Fabricated metal products"""
+
+        MACHINERY: str = "333"
+        """Machinery"""
+
+        COMPUTER_AND_ELECTRONIC_PRODUCTS: str = "334"
+        """Computer and electronic products"""
+
+        ELECTRICAL_EQUIPMENT_APPLIANCES_AND_COMPONENTS: str = "335"
+        """Electrical equipment, appliances, and components"""
+
+        MOTOR_VEHICLES_BODIES_AND_TRAILERS_AND_PARTS: str = "3361MV"
+        """Motor vehicles, bodies and trailers, and parts"""
+
+        OTHER_TRANSPORTATION_EQUIPMENT: str = "3364OT"
+        """Other transportation equipment"""
+
+        FURNITURE_AND_RELATED_PRODUCTS: str = "337"
+        """Furniture and related products"""
+
+        MISCELLANEOUS_MANUFACTURING: str = "339"
+        """Miscellaneous manufacturing"""
+
+        DURABLE_GOODS: str = "33DG"
+        """Durable goods"""
+
+        WHOLESALE_TRADE: str = "42"
+        """Wholesale trade"""
+
+        MOTOR_VEHICLE_AND_PARTS_DEALERS: str = "441"
+        """Motor vehicle and parts dealers"""
+
+        FOOD_AND_BEVERAGE_STORES: str = "445"
+        """Food and beverage stores"""
+
+        RETAIL_TRADE: str = "44RT"
+        """Retail trade"""
+
+        GENERAL_MERCHANDISE_STORES: str = "452"
+        """General merchandise stores"""
+
+        AIR_TRANSPORTATION: str = "481"
+        """Air transportation"""
+
+        RAIL_TRANSPORTATION: str = "482"
+        """Rail transportation"""
+
+        WATER_TRANSPORTATION: str = "483"
+        """Water transportation"""
+
+        TRUCK_TRANSPORTATION: str = "484"
+        """Truck transportation"""
+
+        TRANSIT_AND_GROUND_PASSENGER_TRANSPORTATION: str = "485"
+        """Transit and ground passenger transportation"""
+
+        PIPELINE_TRANSPORTATION: str = "486"
+        """Pipeline transportation"""
+
+        OTHER_TRANSPORTATION_AND_SUPPORT_ACTIVITIES: str = "487OS"
+        """Other transportation and support activities"""
+
+        TRANSPORTATION_AND_WAREHOUSING: str = "48TW"
+        """Transportation and warehousing"""
+
+        WAREHOUSING_AND_STORAGE: str = "493"
+        """Warehousing and storage"""
+
+        OTHER_RETAIL: str = "4A0"
+        """Other retail"""
+
+        INFORMATION: str = "51"
+        """Information"""
+
+        PUBLISHING_INDUSTRIES_EXCEPT_INTERNET_INCLUDES_SOFTWARE: str = "511"
+        """Publishing industries, except internet (includes software)"""
+
+        MOTION_PICTURE_AND_SOUND_RECORDING_INDUSTRIES: str = "512"
+        """Motion picture and sound recording industries"""
+
+        BROADCASTING_AND_TELECOMMUNICATIONS: str = "513"
+        """Broadcasting and telecommunications"""
+
+        DATA_PROCESSING_INTERNET_PUBLISHING_AND_OTHER_INFORMATION_SERVICES: str = "514"
+        """Data processing, internet publishing, and other information services"""
+
+        FINANCE_AND_INSURANCE: str = "52"
+        """Finance and insurance"""
+
+        FEDERAL_RESERVE_BANKS_CREDIT_INTERMEDIATION_AND_RELATED_ACTIVITIES: str = "521CI"
+        """Federal Reserve banks, credit intermediation, and related activities"""
+
+        SECURITIES_COMMODITY_CONTRACTS_AND_INVESTMENTS: str = "523"
+        """Securities, commodity contracts, and investments"""
+
+        INSURANCE_CARRIERS_AND_RELATED_ACTIVITIES: str = "524"
+        """Insurance carriers and related activities"""
+
+        FUNDS_TRUSTS_AND_OTHER_FINANCIAL_VEHICLES: str = "525"
+        """Funds, trusts, and other financial vehicles"""
+
+        REAL_ESTATE_AND_RENTAL_AND_LEASING: str = "53"
+        """Real estate and rental and leasing"""
+
+        REAL_ESTATE: str = "531"
+        """Real estate"""
+
+        RENTAL_AND_LEASING_SERVICES_AND_LESSORS_OF_INTANGIBLE_ASSETS: str = "532RL"
+        """Rental and leasing services and lessors of intangible assets"""
+
+        PROFESSIONAL_SCIENTIFIC_AND_TECHNICAL_SERVICES: str = "54"
+        """Professional, scientific, and technical services"""
+
+        LEGAL_SERVICES: str = "5411"
+        """Legal services"""
+
+        MISCELLANEOUS_PROFESSIONAL_SCIENTIFIC_AND_TECHNICAL_SERVICES: str = "5412OP"
+        """Miscellaneous professional, scientific, and technical services"""
+
+        COMPUTER_SYSTEMS_DESIGN_AND_RELATED_SERVICES: str = "5415"
+        """Computer systems design and related services"""
+
+        MANAGEMENT_OF_COMPANIES_AND_ENTERPRISES: str = "55"
+        """Management of companies and enterprises"""
+
+        ADMINISTRATIVE_AND_WASTE_MANAGEMENT_SERVICES: str = "56"
+        """Administrative and waste management services"""
+
+        ADMINISTRATIVE_AND_SUPPORT_SERVICES: str = "561"
+        """Administrative and support services"""
+
+        WASTE_MANAGEMENT_AND_REMEDIATION_SERVICES: str = "562"
+        """Waste management and remediation services"""
+
+        EDUCATIONAL_SERVICES_HEALTH_CARE_AND_SOCIAL_ASSISTANCE: str = "6"
+        """Educational services, health care, and social assistance"""
+
+        EDUCATIONAL_SERVICES: str = "61"
+        """Educational services"""
+
+        HEALTH_CARE_AND_SOCIAL_ASSISTANCE: str = "62"
+        """Health care and social assistance"""
+
+        AMBULATORY_HEALTH_CARE_SERVICES: str = "621"
+        """Ambulatory health care services"""
+
+        HOSPITALS: str = "622"
+        """Hospitals"""
+
+        HOSPITALS_AND_NURSING_AND_RESIDENTIAL_CARE_FACILITIES: str = "622HO"
+        """Hospitals and nursing and residential care facilities"""
+
+        NURSING_AND_RESIDENTIAL_CARE_FACILITIES: str = "623"
+        """Nursing and residential care facilities"""
+
+        SOCIAL_ASSISTANCE: str = "624"
+        """Social assistance"""
+
+        ARTS_ENTERTAINMENT_RECREATION_ACCOMMODATION_AND_FOOD_SERVICES: str = "7"
+        """Arts, entertainment, recreation, accommodation, and food services"""
+
+        ARTS_ENTERTAINMENT_AND_RECREATION: str = "71"
+        """Arts, entertainment, and recreation"""
+
+        PERFORMING_ARTS_SPECTATOR_SPORTS_MUSEUMS_AND_RELATED_ACTIVITIES: str = "711AS"
+        """Performing arts, spectator sports, museums, and related activities"""
+
+        AMUSEMENTS_GAMBLING_AND_RECREATION_INDUSTRIES: str = "713"
+        """Amusements, gambling, and recreation industries"""
+
+        ACCOMMODATION_AND_FOOD_SERVICES: str = "72"
+        """Accommodation and food services"""
+
+        ACCOMMODATION: str = "721"
+        """Accommodation"""
+
+        FOOD_SERVICES_AND_DRINKING_PLACES: str = "722"
+        """Food services and drinking places"""
+
+        OTHER_SERVICES_EXCEPT_GOVERNMENT: str = "81"
+        """Other services, except government"""
+
+        FINANCE_INSURANCE_REAL_ESTATE_RENTAL_AND_LEASING: str = "FIRE"
+        """Finance, insurance, real estate, rental, and leasing"""
+
+        GOVERNMENT: str = "G"
+        """Government"""
+
+        GROSS_DOMESTIC_PRODUCT: str = "GDP"
+        """Gross domestic product"""
+
+        FEDERAL: str = "GF"
+        """Federal"""
+
+        GOVERNMENT_ENTERPRISES: str = "GFE"
+        """Government enterprises"""
+
+        GENERAL_GOVERNMENT: str = "GFG"
+        """General government"""
+
+        NATIONAL_DEFENSE: str = "GFGD"
+        """National defense"""
+
+        NONDEFENSE: str = "GFGN"
+        """Nondefense"""
+
+        STATE_AND_LOCAL: str = "GSL"
+        """State and local"""
+
+        GOVERNMENT_ENTERPRISES_GSLE: str = "GSLE"
+        """Government enterprises"""
+
+        GENERAL_GOVERNMENT_GSLG: str = "GSLG"
+        """General government"""
+
+        HOUSING: str = "HS"
+        """Housing"""
+
+        INFORMATION_COMMUNICATIONS_TECHNOLOGY_PRODUCING_INDUSTRIES: str = "ICT"
+        """Information-communications-technology-producing industries"""
+
+        INFORMATION_COMMUNICATIONS_TECHNOLOGY_PRODUCING_INDUSTRIES_SUP_4_SUP: str = "ICT"
+        """Information-communications-technology-producing industries 4"""
+
+        ALL_INDUSTRIES: str = "II"
+        """All industries"""
+
+        NOT_ALLOCATED_BY_INDUSTRY: str = "NABI"
+        """Not allocated by industry"""
+
+        OTHER_REAL_ESTATE: str = "ORE"
+        """Other real estate"""
+
+        PRIVATE_GOODS_PRODUCING_INDUSTRIES: str = "PGOOD"
+        """Private goods-producing industries"""
+
+        PROFESSIONAL_AND_BUSINESS_SERVICES: str = "PROF"
+        """Professional and business services"""
+
+        PRIVATE_SERVICES_PRODUCING_INDUSTRIES: str = "PSERV"
+        """Private services-producing industries"""
+
+        PRIVATE_INDUSTRIES: str = "PVT"
+        """Private industries"""
 
 
 class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):

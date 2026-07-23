@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.11.262
+Version: 1.11.264
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -41,9 +41,9 @@ Project-URL: Donate, https://github.com/ArchiveBox/ArchiveBox/wiki/Donations
 Requires-Python: >=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: abxbus==2.5.28
-Requires-Dist: abxpkg>=1.11.271
-Requires-Dist: abx-plugins>=1.11.288
+Requires-Dist: abxbus==2.5.40
+Requires-Dist: abxpkg==1.11.288
+Requires-Dist: abx-plugins==1.11.303
 Requires-Dist: jambo>=0.1.7
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
@@ -363,7 +363,7 @@ abx-dl install wget singlefile ytdlp      # installs dependencies for specific p
 abx-dl plugins                            # checks which dependencies are available/missing
 ```
 
-Successful preflight installs are cached for 24 hours in `derived.env` under `ABX_INSTALL_CACHE`, keyed by binary name. If a binary was installed successfully recently, `abx-dl` skips re-running the install preflight for that binary. Cached abspaths are still validated at use time, and stale cache entries fall back to `abxpkg` provider resolution.
+Every preflight request is resolved through `abxpkg`. Compatible host binaries are selected first and projected into `ABXPKG_LIB_DIR/env/bin`; otherwise the configured managed provider installs and projects the dependency. `abxpkg` owns the validated provider cache, while the runtime derived configuration exposes resolved paths to plugins.
 
 The normal runtime flow after dependency preflight is:
 - `CrawlEvent` (internal lifecycle root)

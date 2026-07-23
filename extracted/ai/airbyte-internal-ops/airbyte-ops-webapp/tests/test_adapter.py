@@ -615,6 +615,122 @@ def test_admin_user_options_fall_back_when_query_fails(
     assert options[0]["value"] == helpers_module.DEFAULT_ADMIN_USER_EMAIL
 
 
+@pytest.mark.parametrize(
+    "states,expected_review,expected_severity,expected_finalizing",
+    [
+        pytest.param(["in_progress"], False, "", False, id="healthy_in_progress"),
+        pytest.param(["finalizing"], True, "amber", True, id="finalizing_amber"),
+        pytest.param(["paused"], True, "amber", False, id="paused_amber"),
+        pytest.param(["errored"], True, "red", False, id="errored_red"),
+        pytest.param(
+            ["finalizing", "errored"],
+            True,
+            "red",
+            True,
+            id="red_outranks_amber_but_keeps_finalizing_flag",
+        ),
+        pytest.param(["FINALIZING"], True, "amber", True, id="case_insensitive"),
+        pytest.param([], False, "", False, id="no_rollouts"),
+    ],
+)
+def test_classify_rollout_health(
+    states: list[str],
+    expected_review: bool,
+    expected_severity: str,
+    expected_finalizing: bool,
+) -> None:
+    result = helpers_module.classify_rollout_health(states)
+    assert result["needs_review"] is expected_review
+    assert result["needs_review_severity"] == expected_severity
+    assert result["is_finalizing"] is expected_finalizing
+
+
+def test_build_rollout_summary_surfaces_finalizing_review_cue() -> None:
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "rollout_id": "rollout-abc",
+                "connector_id": "source-faker-id",
+                "connector_name": "source-faker",
+                "docker_repository": "airbyte/source-faker",
+                "rc_docker_image_tag": "7.2.0-rc.2",
+                "tier": "TIER_2",
+                "state": "finalizing",
+                "current_target_rollout_pct": "100",
+                "rc_pin_count": 3,
+            }
+        ]
+    )
+    assert summary["state"] == "finalizing"
+    assert summary["state_display"] == "Finalizing"
+    assert summary["needs_review"] is True
+    assert summary["needs_review_severity"] == "amber"
+    assert summary["is_finalizing"] is True
+    assert summary["finalizing_rollout_id"] == "rollout-abc"
+    assert summary["finalizing_connector_id"] == "source-faker-id"
+    assert summary["finalizing_docker_repository"] == "airbyte/source-faker"
+    assert summary["finalizing_rc_docker_image_tag"] == "7.2.0-rc.2"
+
+
+def test_build_rollout_summary_finalizing_fields_come_from_finalizing_row() -> None:
+    # The finalizing rollout is on a lower tier with a different RC tag than the
+    # highest-tier rollout; the Re-drive Finalize fields must track the
+    # finalizing row, not the highest-tier row.
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "rollout_id": "rollout-low",
+                "connector_id": "conn-low",
+                "connector_name": "source-faker",
+                "docker_repository": "airbyte/source-faker",
+                "rc_docker_image_tag": "7.2.0-rc.1",
+                "tier": "TIER_2",
+                "state": "finalizing",
+                "current_target_rollout_pct": "100",
+            },
+            {
+                "rollout_id": "rollout-high",
+                "connector_id": "conn-high",
+                "connector_name": "source-faker",
+                "docker_repository": "airbyte/source-faker",
+                "rc_docker_image_tag": "7.3.0-rc.1",
+                "tier": "TIER_1",
+                "state": "in_progress",
+                "current_target_rollout_pct": "25",
+            },
+        ]
+    )
+    # Highest-tier fields still reflect the highest tier row.
+    assert summary["rc_docker_image_tag"] == "7.3.0-rc.1"
+    # Finalizing fields all come from the finalizing (lower-tier) row.
+    assert summary["finalizing_rollout_id"] == "rollout-low"
+    assert summary["finalizing_connector_id"] == "conn-low"
+    assert summary["finalizing_docker_repository"] == "airbyte/source-faker"
+    assert summary["finalizing_rc_docker_image_tag"] == "7.2.0-rc.1"
+
+
+def test_build_rollout_summary_healthy_has_no_review_cue() -> None:
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "rollout_id": "rollout-xyz",
+                "connector_id": "source-faker-id",
+                "connector_name": "source-faker",
+                "docker_repository": "airbyte/source-faker",
+                "rc_docker_image_tag": "7.2.0-rc.2",
+                "tier": "TIER_2",
+                "state": "in_progress",
+                "current_target_rollout_pct": "50",
+                "rc_pin_count": 1,
+            }
+        ]
+    )
+    assert summary["needs_review"] is False
+    assert summary["needs_review_severity"] == ""
+    assert summary["is_finalizing"] is False
+    assert summary["finalizing_rollout_id"] == ""
+
+
 def test_rollout_rows_fall_back_when_query_fails() -> None:
     connector = ConnectorOption(
         id="source-postgres-id",
@@ -701,10 +817,13 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "search_orgs_workspaces",
         "load_org_pin_versions",
         "load_org_pins",
-        # Rollout actions: advance, promote next stage, promote GA, cancel
+        # Rollout actions: advance, promote next stage, promote GA, cancel,
+        # re-drive finalize
         "advance_rollout",
         "load_connector_context",
         "promote_to_next_stage",
+        "load_connector_context",
+        "finalize_rollout",
         "load_connector_context",
         "finalize_rollout",
         "load_connector_context",
@@ -1190,6 +1309,60 @@ def _factors(
         addressable=active,
         addressable_gated=pinned + gate_pass,
     )
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        pytest.param(
+            {"customerTierFilters": [{"name": "TIER", "value": ["TIER_2"]}]},
+            "TIER_2",
+            id="explicit_tier_2",
+        ),
+        pytest.param(
+            {"customerTierFilters": [{"name": "TIER", "value": ["TIER_0"]}]},
+            "TIER_0",
+            id="explicit_tier_0",
+        ),
+        pytest.param(
+            json.dumps(
+                {"customerTierFilters": [{"name": "TIER", "value": ["TIER_1"]}]}
+            ),
+            "TIER_1",
+            id="json_string_tier_1",
+        ),
+        pytest.param(
+            {"tierFilter": {"tier": "TIER_1"}},
+            "TIER_1",
+            id="legacy_tier_filter_dict",
+        ),
+        pytest.param(
+            {"customerTierFilters": [{"name": "TIER", "value": ["TIER_2", "TIER_1"]}]},
+            "TIER_2, TIER_1",
+            id="multi_tier_filter_joins_not_terminal_default",
+        ),
+        pytest.param(
+            {"customerTierFilters": [{"name": "TIER", "value": ["ALL"]}]},
+            "TIER_0",
+            id="explicit_all_normalizes_to_tier_0",
+        ),
+        pytest.param(
+            {"tierFilter": {"tier": "ALL"}},
+            "TIER_0",
+            id="legacy_all_normalizes_to_tier_0",
+        ),
+        pytest.param(
+            {"customerTierFilters": []},
+            "TIER_0",
+            id="empty_filters_default_to_tier_0_not_tier_2",
+        ),
+        pytest.param(None, "TIER_0", id="absent_filters_default_to_tier_0"),
+        pytest.param("not-json", "TIER_0", id="malformed_json_defaults_to_tier_0"),
+    ],
+)
+def test_tier_from_filters(raw: object, expected: str) -> None:
+    """Empty/absent/`ALL` filters resolve to the `TIER_0` terminal cohort, never `TIER_2`."""
+    assert OpsMcpAdapter._tier_from_filters(raw) == expected
 
 
 def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> None:

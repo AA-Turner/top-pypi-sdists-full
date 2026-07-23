@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/cartoboost-core", "crates/cartoboost-geo-core", "crates/cartoboost-geo-causal", "crates/cartoboost-geostats", "crates/cartoboost-prob", "crates/cartoboost-geo-st", "crates/cartoboost-spatial-econ", "crates/cartoboost-neural", "crates/cartoboost-py"]
+members = ["crates/cartoboost-accelerator", "crates/cartoboost-core", "crates/cartoboost-geo-core", "crates/cartoboost-geo-causal", "crates/cartoboost-geostats", "crates/cartoboost-prob", "crates/cartoboost-geo-st", "crates/cartoboost-spatial-econ", "crates/cartoboost-neural", "crates/cartoboost-py"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.10"
+version = "0.3.11"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
@@ -27,7 +27,7 @@ unwrap_used = "warn"
 anyhow = "1"
 thiserror = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 chrono = { version = "0.4", features = ["serde"] }
 pyo3 = "0.26"
 clap = { version = "4", features = ["derive"] }

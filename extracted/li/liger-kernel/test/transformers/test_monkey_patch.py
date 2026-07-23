@@ -210,6 +210,15 @@ def is_paligemma_available():
         return False
 
 
+def is_deepseek_v4_available():
+    try:
+        import transformers.models.deepseek_v4  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def is_falcon_h1_available():
     try:
         import transformers.models.falcon_h1  # noqa: F401
@@ -1601,6 +1610,60 @@ def test_apply_liger_kernel_to_instance_for_mixtral():
             pytest.fail(f"An exception occured in extra_expr: {type(e).__name__} - {e}")
 
 
+@pytest.mark.skipif(not is_deepseek_v4_available(), reason="deepseek_v4 module not available")
+def test_apply_liger_kernel_to_instance_for_deepseek_v4():
+    with patch("transformers.models.deepseek_v4.modeling_deepseek_v4"):
+        from liger_kernel.transformers.model.deepseek_v4 import lce_forward as deepseek_v4_lce_forward
+
+        config = transformers.models.deepseek_v4.configuration_deepseek_v4.DeepseekV4Config(
+            vocab_size=1024,
+            hidden_size=32,
+            moe_intermediate_size=64,
+            num_hidden_layers=4,
+            num_attention_heads=2,
+            num_key_value_heads=1,
+            head_dim=16,
+            q_lora_rank=8,
+            num_experts_per_tok=2,
+            n_routed_experts=4,
+            hc_mult=2,
+            sliding_window=8,
+            o_groups=2,
+            o_lora_rank=8,
+            index_n_heads=2,
+            index_head_dim=8,
+            index_topk=4,
+            layer_types=[
+                "heavily_compressed_attention",
+                "compressed_sparse_attention",
+                "sliding_attention",
+                "sliding_attention",
+            ],
+            mlp_layer_types=["hash_moe", "hash_moe", "moe", "moe"],
+            max_position_embeddings=128,
+        )
+        dummy_model_instance = AutoModelForCausalLM.from_config(config)
+
+        assert inspect.getsource(dummy_model_instance.forward) != inspect.getsource(deepseek_v4_lce_forward)
+        assert inspect.getsource(dummy_model_instance.model.norm.forward) != inspect.getsource(LigerRMSNorm.forward)
+        for layer in dummy_model_instance.model.layers:
+            assert inspect.getsource(layer.input_layernorm.forward) != inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_attention_layernorm.forward) != inspect.getsource(LigerRMSNorm.forward)
+
+        _apply_liger_kernel_to_instance(model=dummy_model_instance)
+
+        assert inspect.getsource(dummy_model_instance.forward) == inspect.getsource(deepseek_v4_lce_forward)
+        assert inspect.getsource(dummy_model_instance.model.norm.forward) == inspect.getsource(LigerRMSNorm.forward)
+        for layer in dummy_model_instance.model.layers:
+            assert inspect.getsource(layer.input_layernorm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_attention_layernorm.forward) == inspect.getsource(LigerRMSNorm.forward)
+
+        try:
+            print(dummy_model_instance)
+        except Exception as e:
+            pytest.fail(f"An exception occured in extra_expr: {type(e).__name__} - {e}")
+
+
 def test_apply_liger_kernel_to_instance_for_gemma():
     # Ensure any monkey patching is cleaned up for subsequent tests
     with patch("transformers.models.gemma.modeling_gemma"):
@@ -1713,14 +1776,17 @@ def test_apply_liger_kernel_to_instance_for_paligemma():
 
         dummy_model_instance = PaliGemmaForConditionalGeneration(config)
         assert isinstance(dummy_model_instance, PaliGemmaForConditionalGeneration)
+        siglip_vision_model = getattr(
+            dummy_model_instance.model.vision_tower, "vision_model", dummy_model_instance.model.vision_tower
+        )
 
         # Check that model instance variables are not yet patched with Liger modules
         assert inspect.getsource(dummy_model_instance.forward) != inspect.getsource(paligemma_lce_forward)
-        assert inspect.getsource(
-            dummy_model_instance.model.vision_tower.vision_model.post_layernorm.forward
-        ) != inspect.getsource(LigerLayerNorm.forward)
+        assert inspect.getsource(siglip_vision_model.post_layernorm.forward) != inspect.getsource(
+            LigerLayerNorm.forward
+        )
 
-        for layer in dummy_model_instance.model.vision_tower.vision_model.encoder.layers:
+        for layer in siglip_vision_model.encoder.layers:
             assert inspect.getsource(layer.layer_norm1.forward) != inspect.getsource(LigerLayerNorm.forward)
             assert inspect.getsource(layer.layer_norm2.forward) != inspect.getsource(LigerLayerNorm.forward)
 
@@ -1729,11 +1795,11 @@ def test_apply_liger_kernel_to_instance_for_paligemma():
 
         # Check that the model's instance variables were correctly patched with Liger modules
         assert inspect.getsource(dummy_model_instance.forward) == inspect.getsource(paligemma_lce_forward)
-        assert inspect.getsource(
-            dummy_model_instance.model.vision_tower.vision_model.post_layernorm.forward
-        ) == inspect.getsource(LigerLayerNorm.forward)
+        assert inspect.getsource(siglip_vision_model.post_layernorm.forward) == inspect.getsource(
+            LigerLayerNorm.forward
+        )
 
-        for layer in dummy_model_instance.model.vision_tower.vision_model.encoder.layers:
+        for layer in siglip_vision_model.encoder.layers:
             assert inspect.getsource(layer.layer_norm1.forward) == inspect.getsource(LigerLayerNorm.forward)
             assert inspect.getsource(layer.layer_norm2.forward) == inspect.getsource(LigerLayerNorm.forward)
 
@@ -1818,18 +1884,23 @@ def test_apply_liger_kernel_to_instance_for_gemma3_conditional_generation():
             hidden_size=48,
             intermediate_size=64,
         )
-        config = transformers.models.gemma3.configuration_gemma3.Gemma3Config(text_config, vision_config)
+        config = transformers.models.gemma3.configuration_gemma3.Gemma3Config(
+            text_config=text_config, vision_config=vision_config
+        )
 
         dummy_model_instance = Gemma3ForConditionalGeneration._from_config(config)
         assert isinstance(dummy_model_instance, Gemma3ForConditionalGeneration)
+        siglip_vision_model = getattr(
+            dummy_model_instance.model.vision_tower, "vision_model", dummy_model_instance.model.vision_tower
+        )
 
         # Check that model instance variables are not yet patched with Liger modules
         assert inspect.getsource(dummy_model_instance.forward) != inspect.getsource(gemma3_multimodal_forward)
-        assert inspect.getsource(
-            dummy_model_instance.model.vision_tower.vision_model.post_layernorm.forward
-        ) != inspect.getsource(LigerLayerNorm.forward)
+        assert inspect.getsource(siglip_vision_model.post_layernorm.forward) != inspect.getsource(
+            LigerLayerNorm.forward
+        )
 
-        for layer in dummy_model_instance.model.vision_tower.vision_model.encoder.layers:
+        for layer in siglip_vision_model.encoder.layers:
             assert inspect.getsource(layer.layer_norm1.forward) != inspect.getsource(LigerLayerNorm.forward)
             assert inspect.getsource(layer.layer_norm2.forward) != inspect.getsource(LigerLayerNorm.forward)
 
@@ -1857,11 +1928,11 @@ def test_apply_liger_kernel_to_instance_for_gemma3_conditional_generation():
 
         # Check that the model's instance variables were correctly patched with Liger modules
         assert inspect.getsource(dummy_model_instance.forward) == inspect.getsource(gemma3_multimodal_forward)
-        assert inspect.getsource(
-            dummy_model_instance.model.vision_tower.vision_model.post_layernorm.forward
-        ) == inspect.getsource(LigerLayerNorm.forward)
+        assert inspect.getsource(siglip_vision_model.post_layernorm.forward) == inspect.getsource(
+            LigerLayerNorm.forward
+        )
 
-        for layer in dummy_model_instance.model.vision_tower.vision_model.encoder.layers:
+        for layer in siglip_vision_model.encoder.layers:
             assert inspect.getsource(layer.layer_norm1.forward) == inspect.getsource(LigerLayerNorm.forward)
             assert inspect.getsource(layer.layer_norm2.forward) == inspect.getsource(LigerLayerNorm.forward)
 
@@ -1949,6 +2020,89 @@ def test_apply_liger_kernel_to_instance_for_gemma4_text():
             # intentionally skips it, so the instance must retain the HF forward.
             v_norm = getattr(layer.self_attn, "v_norm", None)
             if v_norm is not None:
+                assert inspect.getsource(v_norm.forward) != inspect.getsource(LigerRMSNorm.forward)
+
+        try:
+            print(dummy_model_instance)
+        except Exception as e:
+            pytest.fail(f"An exception occured in extra_expr: {type(e).__name__} - {e}")
+
+
+@pytest.mark.skipif(not is_gemma4_available(), reason="gemma4 module not available")
+def test_apply_liger_kernel_to_instance_for_gemma4_conditional_generation():
+    # Ensure any monkey patching is cleaned up for subsequent tests
+    with patch("transformers.models.gemma4.modeling_gemma4"):
+        from transformers.models.gemma4.modeling_gemma4 import Gemma4ForConditionalGeneration
+
+        from liger_kernel.transformers.model.gemma4 import multimodal_forward as gemma4_multimodal_forward
+
+        # Minimal dense-path text config — same knobs pinned off as the
+        # text-only test below (no PLE, MoE, KV-share, double-wide MLP).
+        text_config = transformers.models.gemma4.configuration_gemma4.Gemma4TextConfig(
+            dtype=torch.bfloat16,
+            rms_norm_eps=1e-5,
+            hidden_size=32,
+            intermediate_size=64,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            num_key_value_heads=1,
+            head_dim=16,
+            num_kv_shared_layers=0,
+            use_double_wide_mlp=False,
+            enable_moe_block=False,
+            hidden_size_per_layer_input=0,
+        )
+        # Vision/audio configs left as None — Gemma4Model wraps both towers in
+        # `if config.<m>_config is not None`, so a None-towers model still
+        # constructs as Gemma4ForConditionalGeneration and exercises the
+        # multimodal forward we're patching. The towers themselves are
+        # polymorphic (AutoModel.from_config) and not in this PR's scope.
+        config = transformers.models.gemma4.configuration_gemma4.Gemma4Config(
+            text_config=text_config,
+            vision_config=None,
+            audio_config=None,
+        )
+
+        dummy_model_instance = Gemma4ForConditionalGeneration._from_config(config)
+        assert isinstance(dummy_model_instance, Gemma4ForConditionalGeneration)
+
+        # Pre-patch: forward and language-model norms must NOT be Liger.
+        assert inspect.getsource(dummy_model_instance.forward) != inspect.getsource(gemma4_multimodal_forward)
+        assert inspect.getsource(dummy_model_instance.model.language_model.norm.forward) != inspect.getsource(
+            LigerRMSNorm.forward
+        )
+        for layer in dummy_model_instance.model.language_model.layers:
+            assert inspect.getsource(layer.mlp.forward) != inspect.getsource(LigerGEGLUMLP.forward)
+            assert inspect.getsource(layer.input_layernorm.forward) != inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_attention_layernorm.forward) != inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.pre_feedforward_layernorm.forward) != inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_feedforward_layernorm.forward) != inspect.getsource(
+                LigerRMSNorm.forward
+            )
+            assert inspect.getsource(layer.self_attn.q_norm.forward) != inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.self_attn.k_norm.forward) != inspect.getsource(LigerRMSNorm.forward)
+
+        _apply_liger_kernel_to_instance(model=dummy_model_instance)
+
+        # Post-patch: top-level forward is multimodal_forward, language_model
+        # norms / MLPs are Liger.
+        assert inspect.getsource(dummy_model_instance.forward) == inspect.getsource(gemma4_multimodal_forward)
+        assert inspect.getsource(dummy_model_instance.model.language_model.norm.forward) == inspect.getsource(
+            LigerRMSNorm.forward
+        )
+        for layer in dummy_model_instance.model.language_model.layers:
+            assert inspect.getsource(layer.mlp.forward) == inspect.getsource(LigerGEGLUMLP.forward)
+            assert inspect.getsource(layer.input_layernorm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_attention_layernorm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.pre_feedforward_layernorm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.post_feedforward_layernorm.forward) == inspect.getsource(
+                LigerRMSNorm.forward
+            )
+            assert inspect.getsource(layer.self_attn.q_norm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            assert inspect.getsource(layer.self_attn.k_norm.forward) == inspect.getsource(LigerRMSNorm.forward)
+            v_norm = getattr(layer.self_attn, "v_norm", None)
+            if v_norm is not None:
+                # with_scale=False → intentionally not patched.
                 assert inspect.getsource(v_norm.forward) != inspect.getsource(LigerRMSNorm.forward)
 
         try:

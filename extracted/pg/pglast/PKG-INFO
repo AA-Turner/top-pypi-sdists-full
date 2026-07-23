@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 8.2
+Version: 8.4
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later
@@ -25,17 +25,17 @@ Provides-Extra: dev
 Requires-Dist: bump-my-version==1.4.1; extra == "dev"
 Requires-Dist: cython==3.2.8; extra == "dev"
 Requires-Dist: pycparser==3.0; extra == "dev"
-Requires-Dist: readme-renderer==44.0; extra == "dev"
-Requires-Dist: setuptools==82.0.1; extra == "dev"
+Requires-Dist: readme-renderer==45.0; extra == "dev"
+Requires-Dist: setuptools==83.0.0; extra == "dev"
 Requires-Dist: sphinx==9.0.4; extra == "dev"
 Requires-Dist: twine==6.2.0; extra == "dev"
 Provides-Extra: test
-Requires-Dist: coverage==7.15.0; extra == "test"
-Requires-Dist: mypy==2.1.0; extra == "test"
+Requires-Dist: coverage==7.15.2; extra == "test"
+Requires-Dist: mypy==2.3.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: sphinx==9.0.4; extra == "test"
-Requires-Dist: ty==0.0.56; extra == "test"
+Requires-Dist: ty==0.0.62; extra == "test"
 
 .. -*- coding: utf-8 -*-
 .. :Project:   pglast — PostgreSQL Languages AST

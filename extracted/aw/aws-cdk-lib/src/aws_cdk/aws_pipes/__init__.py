@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,53 +40,52 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_events import IEventBusRef as _IEventBusRef_aa86e9b4
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kinesis import IStreamRef as _IStreamRef_b484e253
-from ..interfaces.aws_lambda import IFunctionRef as _IFunctionRef_2601eb33
-from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
-from ..interfaces.aws_pipes import (
-    IPipeRef as _IPipeRef_ab8f7bb0, PipeReference as _PipeReference_92f1927d
-)
-from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
-from ..interfaces.aws_sqs import IQueueRef as _IQueueRef_fa8b2198
-from ..interfaces.aws_stepfunctions import (
-    IStateMachineRef as _IStateMachineRef_65490661
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kinesis as _aws_kinesis_40f1d96a
+    import aws_cdk.interfaces.aws_lambda as _aws_lambda_aaab8031
+    import aws_cdk.interfaces.aws_logs as _aws_logs_8e99d4be
+    import aws_cdk.interfaces.aws_pipes as _aws_pipes_3e5c1529
+    import aws_cdk.interfaces.aws_sns as _aws_sns_c06cc191
+    import aws_cdk.interfaces.aws_sqs as _aws_sqs_5e3fc237
+    import aws_cdk.interfaces.aws_stepfunctions as _aws_stepfunctions_322ef9fd
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_events_49a540ff = _LazyImport("aws_cdk.interfaces.aws_events")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kinesis_40f1d96a = _LazyImport("aws_cdk.interfaces.aws_kinesis")
+    _aws_lambda_aaab8031 = _LazyImport("aws_cdk.interfaces.aws_lambda")
+    _aws_logs_8e99d4be = _LazyImport("aws_cdk.interfaces.aws_logs")
+    _aws_pipes_3e5c1529 = _LazyImport("aws_cdk.interfaces.aws_pipes")
+    _aws_sns_c06cc191 = _LazyImport("aws_cdk.interfaces.aws_sns")
+    _aws_sqs_5e3fc237 = _LazyImport("aws_cdk.interfaces.aws_sqs")
+    _aws_stepfunctions_322ef9fd = _LazyImport("aws_cdk.interfaces.aws_stepfunctions")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IPipeRef_ab8f7bb0, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_pipes_3e5c1529.IPipeRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPipe(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_pipes.CfnPipe",
 ):
@@ -434,19 +435,19 @@ class CfnPipe(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        source: typing.Union[builtins.str, "_IStreamRef_b484e253", "_IQueueRef_fa8b2198"],
-        target: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198", "_IStateMachineRef_65490661"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        source: typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_sqs_5e3fc237.IQueueRef"],
+        target: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef", "_aws_stepfunctions_322ef9fd.IStateMachineRef"],
         description: typing.Optional[builtins.str] = None,
         desired_state: typing.Optional[builtins.str] = None,
-        enrichment: typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]] = None,
-        enrichment_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeEnrichmentParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enrichment: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]] = None,
+        enrichment_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeEnrichmentParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        source_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        target_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Pipes::Pipe``.
 
@@ -467,7 +468,7 @@ class CfnPipe(
         :param target_parameters: The parameters required to set up a target for your pipe. For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2590746a77e697feb25a71ec367eb957a7632f9fe5a46ae7e30476068534d683)
+            type_hints = cached_type_hints(_typecheckingstub__2590746a77e697feb25a71ec367eb957a7632f9fe5a46ae7e30476068534d683)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPipeProps(
@@ -490,12 +491,12 @@ class CfnPipe(
 
     @jsii.member(jsii_name="arnForPipe")
     @builtins.classmethod
-    def arn_for_pipe(cls, resource: "_IPipeRef_ab8f7bb0") -> builtins.str:
+    def arn_for_pipe(cls, resource: "_aws_pipes_3e5c1529.IPipeRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aa2484c1e22e6cf64fdfb316fdb55c0359ae58d82a97d15a4a479fe61d7255b)
+            type_hints = cached_type_hints(_typecheckingstub__1aa2484c1e22e6cf64fdfb316fdb55c0359ae58d82a97d15a4a479fe61d7255b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPipe", [resource]))
 
@@ -507,18 +508,18 @@ class CfnPipe(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__101c5d45c6402f52ecc6286bb7d127e2f671877d92f2d10e8011407ea2e366cc)
+            type_hints = cached_type_hints(_typecheckingstub__101c5d45c6402f52ecc6286bb7d127e2f671877d92f2d10e8011407ea2e366cc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPipe", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__281eb4cd67e1ba036145aebcc10997c29984daadd10b66bef8033e25a39f3531)
+            type_hints = cached_type_hints(_typecheckingstub__281eb4cd67e1ba036145aebcc10997c29984daadd10b66bef8033e25a39f3531)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -531,7 +532,7 @@ class CfnPipe(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c41a04b3c491b0925941962d0b7177857e979073f71bd9b6de38556def4efe12)
+            type_hints = cached_type_hints(_typecheckingstub__c41a04b3c491b0925941962d0b7177857e979073f71bd9b6de38556def4efe12)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -598,15 +599,15 @@ class CfnPipe(
 
     @builtins.property
     @jsii.member(jsii_name="pipeRef")
-    def pipe_ref(self) -> "_PipeReference_92f1927d":
+    def pipe_ref(self) -> "_aws_pipes_3e5c1529.PipeReference":
         '''A reference to a Pipe resource.'''
-        return typing.cast("_PipeReference_92f1927d", jsii.get(self, "pipeRef"))
+        return typing.cast("_aws_pipes_3e5c1529.PipeReference", jsii.get(self, "pipeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -617,7 +618,7 @@ class CfnPipe(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__985ad2a14f580dd4275038980cbc387943f87211abf3e68fdb2f4755fdba5354)
+            type_hints = cached_type_hints(_typecheckingstub__985ad2a14f580dd4275038980cbc387943f87211abf3e68fdb2f4755fdba5354)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -630,7 +631,7 @@ class CfnPipe(
     @source.setter
     def source(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1fe18602cacd79eabcd3ef5565eda6cf280acd9362fd60e8a8059ed4ce59822)
+            type_hints = cached_type_hints(_typecheckingstub__a1fe18602cacd79eabcd3ef5565eda6cf280acd9362fd60e8a8059ed4ce59822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
 
@@ -643,7 +644,7 @@ class CfnPipe(
     @target.setter
     def target(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__727f36b3af534d289c37e337ba67c6310e4420f9572ad6bbc62222fb26ecbb05)
+            type_hints = cached_type_hints(_typecheckingstub__727f36b3af534d289c37e337ba67c6310e4420f9572ad6bbc62222fb26ecbb05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
 
@@ -656,7 +657,7 @@ class CfnPipe(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25b696da604f323ac1a92ddfcc7ef102957b3d092e8137378e91cea16ea39501)
+            type_hints = cached_type_hints(_typecheckingstub__25b696da604f323ac1a92ddfcc7ef102957b3d092e8137378e91cea16ea39501)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -669,7 +670,7 @@ class CfnPipe(
     @desired_state.setter
     def desired_state(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed87f6faacd73494b95f46c464263cf5f41d189f47daddc0b4607b7e1b5d9d0)
+            type_hints = cached_type_hints(_typecheckingstub__9ed87f6faacd73494b95f46c464263cf5f41d189f47daddc0b4607b7e1b5d9d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredState", value) # pyright: ignore[reportArgumentType]
 
@@ -682,7 +683,7 @@ class CfnPipe(
     @enrichment.setter
     def enrichment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e73385dfe68409f0392cc314d936a945ec4656e8ef2f8c5b48def81168da23aa)
+            type_hints = cached_type_hints(_typecheckingstub__e73385dfe68409f0392cc314d936a945ec4656e8ef2f8c5b48def81168da23aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enrichment", value) # pyright: ignore[reportArgumentType]
 
@@ -690,17 +691,17 @@ class CfnPipe(
     @jsii.member(jsii_name="enrichmentParameters")
     def enrichment_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentParametersProperty"]]:
         '''The parameters required to set up enrichment on your pipe.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentParametersProperty"]], jsii.get(self, "enrichmentParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentParametersProperty"]], jsii.get(self, "enrichmentParameters"))
 
     @enrichment_parameters.setter
     def enrichment_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75aa67d8831c93b78f85f7319ad758289b207fec83baf9b92034cab4451f63d2)
+            type_hints = cached_type_hints(_typecheckingstub__75aa67d8831c93b78f85f7319ad758289b207fec83baf9b92034cab4451f63d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enrichmentParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -713,7 +714,7 @@ class CfnPipe(
     @kms_key_identifier.setter
     def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1052edd5ce80236ce4a971335ad896a6630839b27758cef9a2858368e2da759b)
+            type_hints = cached_type_hints(_typecheckingstub__1052edd5ce80236ce4a971335ad896a6630839b27758cef9a2858368e2da759b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -721,17 +722,17 @@ class CfnPipe(
     @jsii.member(jsii_name="logConfiguration")
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeLogConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeLogConfigurationProperty"]]:
         '''The logging configuration settings for the pipe.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeLogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeLogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
 
     @log_configuration.setter
     def log_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeLogConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeLogConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3975e792335934f36dcb66bc10ba0ab93afe079dae88c2011a2bacc35a8fe756)
+            type_hints = cached_type_hints(_typecheckingstub__3975e792335934f36dcb66bc10ba0ab93afe079dae88c2011a2bacc35a8fe756)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -744,7 +745,7 @@ class CfnPipe(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e90ad70ab6477fe6112b4879f928b790cb38e40964bc2dde8bed7a3ba8008c71)
+            type_hints = cached_type_hints(_typecheckingstub__e90ad70ab6477fe6112b4879f928b790cb38e40964bc2dde8bed7a3ba8008c71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -752,17 +753,17 @@ class CfnPipe(
     @jsii.member(jsii_name="sourceParameters")
     def source_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceParametersProperty"]]:
         '''The parameters required to set up a source for your pipe.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceParametersProperty"]], jsii.get(self, "sourceParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceParametersProperty"]], jsii.get(self, "sourceParameters"))
 
     @source_parameters.setter
     def source_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef7a2d44f21af0c5ebeb25368be2b069abd76c8c64ba1cef587c3e219c88bec1)
+            type_hints = cached_type_hints(_typecheckingstub__ef7a2d44f21af0c5ebeb25368be2b069abd76c8c64ba1cef587c3e219c88bec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -778,7 +779,7 @@ class CfnPipe(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dba8d7cbad9d88d28d6a41b286be656a8aba98a10b5a338c7d175eab7061f25)
+            type_hints = cached_type_hints(_typecheckingstub__4dba8d7cbad9d88d28d6a41b286be656a8aba98a10b5a338c7d175eab7061f25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -786,17 +787,17 @@ class CfnPipe(
     @jsii.member(jsii_name="targetParameters")
     def target_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetParametersProperty"]]:
         '''The parameters required to set up a target for your pipe.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetParametersProperty"]], jsii.get(self, "targetParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetParametersProperty"]], jsii.get(self, "targetParameters"))
 
     @target_parameters.setter
     def target_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6b5bbabe5f41fcd217d39a2fe0a41e5a7dcac510b412ddae1d12e74d71a1995)
+            type_hints = cached_type_hints(_typecheckingstub__d6b5bbabe5f41fcd217d39a2fe0a41e5a7dcac510b412ddae1d12e74d71a1995)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -843,7 +844,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5332578c4ac56ef4e1fdb629bb8be713eff47af3ee812e54c579d58784e9f78b)
+                type_hints = cached_type_hints(_typecheckingstub__5332578c4ac56ef4e1fdb629bb8be713eff47af3ee812e54c579d58784e9f78b)
                 check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
                 check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -927,7 +928,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__92192a261db9a36c55fcb7448e0173123454bca2fe715ba9d9aeb07eadf0530f)
+                type_hints = cached_type_hints(_typecheckingstub__92192a261db9a36c55fcb7448e0173123454bca2fe715ba9d9aeb07eadf0530f)
                 check_type(argname="argument size", value=size, expected_type=type_hints["size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if size is not None:
@@ -970,9 +971,9 @@ class CfnPipe(
             self,
             *,
             command: typing.Optional[typing.Sequence[builtins.str]] = None,
-            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchEnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchEnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             instance_type: typing.Optional[builtins.str] = None,
-            resource_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchResourceRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchResourceRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The overrides that are sent to a container.
 
@@ -1004,7 +1005,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4e744d7df8a35e07450afdd20e33f3cfb5db1e9415e8c69615b236bf713417a3)
+                type_hints = cached_type_hints(_typecheckingstub__4e744d7df8a35e07450afdd20e33f3cfb5db1e9415e8c69615b236bf713417a3)
                 check_type(argname="argument command", value=command, expected_type=type_hints["command"])
                 check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -1031,7 +1032,7 @@ class CfnPipe(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchEnvironmentVariableProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchEnvironmentVariableProperty"]]]]:
             '''The environment variables to send to the container.
 
             You can add new environment variables, which are added to the container at launch, or you can override the existing environment variables from the Docker image or the task definition.
@@ -1042,7 +1043,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-batchcontaineroverrides.html#cfn-pipes-pipe-batchcontaineroverrides-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchEnvironmentVariableProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchEnvironmentVariableProperty"]]]], result)
 
         @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
@@ -1060,7 +1061,7 @@ class CfnPipe(
         @builtins.property
         def resource_requirements(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchResourceRequirementProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchResourceRequirementProperty"]]]]:
             '''The type and amount of resources to assign to a container.
 
             This overrides the settings in the job definition. The supported resources include ``GPU`` , ``MEMORY`` , and ``VCPU`` .
@@ -1068,7 +1069,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-batchcontaineroverrides.html#cfn-pipes-pipe-batchcontaineroverrides-resourcerequirements
             '''
             result = self._values.get("resource_requirements")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchResourceRequirementProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchResourceRequirementProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1118,7 +1119,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d6e3194d0527ccc74e30382a7dd1882664fde72ee15efb33743f945bf0a54b89)
+                type_hints = cached_type_hints(_typecheckingstub__d6e3194d0527ccc74e30382a7dd1882664fde72ee15efb33743f945bf0a54b89)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1192,7 +1193,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ea3de2ed5a4136d6fdec008bfc4898c56abd060a326a424ca01385c613d8a3b)
+                type_hints = cached_type_hints(_typecheckingstub__2ea3de2ed5a4136d6fdec008bfc4898c56abd060a326a424ca01385c613d8a3b)
                 check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1259,7 +1260,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff7ddf004d2156fbb4d6695cf8b70ebe68fd7dbeaa600ae631bdfb7cc39c9f7c)
+                type_hints = cached_type_hints(_typecheckingstub__ff7ddf004d2156fbb4d6695cf8b70ebe68fd7dbeaa600ae631bdfb7cc39c9f7c)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1369,7 +1370,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6d623eb197750cfc3e70926318810b6905af52604196157974285f7aa990f4bd)
+                type_hints = cached_type_hints(_typecheckingstub__6d623eb197750cfc3e70926318810b6905af52604196157974285f7aa990f4bd)
                 check_type(argname="argument attempts", value=attempts, expected_type=type_hints["attempts"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if attempts is not None:
@@ -1442,7 +1443,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7a0a6c552a3434ea82161f20199d02513f09432e81ead4005d7f813754024e4b)
+                type_hints = cached_type_hints(_typecheckingstub__7a0a6c552a3434ea82161f20199d02513f09432e81ead4005d7f813754024e4b)
                 check_type(argname="argument capacity_provider", value=capacity_provider, expected_type=type_hints["capacity_provider"])
                 check_type(argname="argument base", value=base, expected_type=type_hints["base"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
@@ -1530,7 +1531,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7fcaf667064eeae949a2b411c39d860bfd847c21fbdaaffccb0267266f85864)
+                type_hints = cached_type_hints(_typecheckingstub__e7fcaf667064eeae949a2b411c39d860bfd847c21fbdaaffccb0267266f85864)
                 check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_group_arn is not None:
@@ -1581,7 +1582,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c77be0d58acf260e66916991ed848b46a2c0c50751145a9186710668a20838df)
+                type_hints = cached_type_hints(_typecheckingstub__c77be0d58acf260e66916991ed848b46a2c0c50751145a9186710668a20838df)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
@@ -1650,7 +1651,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__90445059775fe670e3c9c4a62b04819c3b1b38303ab6fd3fa549dd8bfd50f665)
+                type_hints = cached_type_hints(_typecheckingstub__90445059775fe670e3c9c4a62b04819c3b1b38303ab6fd3fa549dd8bfd50f665)
                 check_type(argname="argument dimension_name", value=dimension_name, expected_type=type_hints["dimension_name"])
                 check_type(argname="argument dimension_value", value=dimension_value, expected_type=type_hints["dimension_value"])
                 check_type(argname="argument dimension_value_type", value=dimension_value_type, expected_type=type_hints["dimension_value_type"])
@@ -1723,12 +1724,12 @@ class CfnPipe(
             *,
             command: typing.Optional[typing.Sequence[builtins.str]] = None,
             cpu: typing.Optional[jsii.Number] = None,
-            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsEnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            environment_files: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsEnvironmentFileProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsEnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            environment_files: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsEnvironmentFileProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             memory: typing.Optional[jsii.Number] = None,
             memory_reservation: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
-            resource_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsResourceRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsResourceRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The overrides that are sent to a container.
 
@@ -1773,7 +1774,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2aa9c9e99af21330a73d690bfbb31c0ded547e5a62886d6682815f5910e00e65)
+                type_hints = cached_type_hints(_typecheckingstub__2aa9c9e99af21330a73d690bfbb31c0ded547e5a62886d6682815f5910e00e65)
                 check_type(argname="argument command", value=command, expected_type=type_hints["command"])
                 check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
                 check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -1825,7 +1826,7 @@ class CfnPipe(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEnvironmentVariableProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEnvironmentVariableProperty"]]]]:
             '''The environment variables to send to the container.
 
             You can add new environment variables, which are added to the container at launch, or you can override the existing environment variables from the Docker image or the task definition. You must also specify a container name.
@@ -1833,18 +1834,18 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecscontaineroverride.html#cfn-pipes-pipe-ecscontaineroverride-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEnvironmentVariableProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEnvironmentVariableProperty"]]]], result)
 
         @builtins.property
         def environment_files(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEnvironmentFileProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEnvironmentFileProperty"]]]]:
             '''A list of files containing the environment variables to pass to a container, instead of the value from the container definition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecscontaineroverride.html#cfn-pipes-pipe-ecscontaineroverride-environmentfiles
             '''
             result = self._values.get("environment_files")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEnvironmentFileProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEnvironmentFileProperty"]]]], result)
 
         @builtins.property
         def memory(self) -> typing.Optional[jsii.Number]:
@@ -1882,7 +1883,7 @@ class CfnPipe(
         @builtins.property
         def resource_requirements(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsResourceRequirementProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsResourceRequirementProperty"]]]]:
             '''The type and amount of a resource to assign to a container, instead of the default value from the task definition.
 
             The only supported resource is a GPU.
@@ -1890,7 +1891,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecscontaineroverride.html#cfn-pipes-pipe-ecscontaineroverride-resourcerequirements
             '''
             result = self._values.get("resource_requirements")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsResourceRequirementProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsResourceRequirementProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1939,7 +1940,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__01bada1fe04905f47a26a5965d040f55b22a98d3ef168a973e3a38a0c3937836)
+                type_hints = cached_type_hints(_typecheckingstub__01bada1fe04905f47a26a5965d040f55b22a98d3ef168a973e3a38a0c3937836)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2014,7 +2015,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5916c016388a7f5303579d1368d4dcbda171aeb41921023cbc0b22b49997fb59)
+                type_hints = cached_type_hints(_typecheckingstub__5916c016388a7f5303579d1368d4dcbda171aeb41921023cbc0b22b49997fb59)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2086,7 +2087,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__caa763e1eb6274b4829763db1a11d6c4d69679f0c1c56e86833c464b209d7d2b)
+                type_hints = cached_type_hints(_typecheckingstub__caa763e1eb6274b4829763db1a11d6c4d69679f0c1c56e86833c464b209d7d2b)
                 check_type(argname="argument size_in_gib", value=size_in_gib, expected_type=type_hints["size_in_gib"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "size_in_gib": size_in_gib,
@@ -2151,7 +2152,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9920d06ed2da3a222b25b6b174db7eb43e6983e29183224a1b0d86f3ae79a3fc)
+                type_hints = cached_type_hints(_typecheckingstub__9920d06ed2da3a222b25b6b174db7eb43e6983e29183224a1b0d86f3ae79a3fc)
                 check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
                 check_type(argname="argument device_type", value=device_type, expected_type=type_hints["device_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2220,7 +2221,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b2bd11ae2d133e2ae4a3b3bbf1130a6396a05fe6a948341ca3d1fbe22cfb752)
+                type_hints = cached_type_hints(_typecheckingstub__0b2bd11ae2d133e2ae4a3b3bbf1130a6396a05fe6a948341ca3d1fbe22cfb752)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2282,11 +2283,11 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            container_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsContainerOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            container_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsContainerOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             cpu: typing.Optional[builtins.str] = None,
-            ephemeral_storage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsEphemeralStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ephemeral_storage: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsEphemeralStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             execution_role_arn: typing.Optional[builtins.str] = None,
-            inference_accelerator_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsInferenceAcceleratorOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            inference_accelerator_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsInferenceAcceleratorOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             memory: typing.Optional[builtins.str] = None,
             task_role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2343,7 +2344,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac29bac5fb5186aee7c9d8a3a767986fee27a65cfa4b10cb45878a777a141ee5)
+                type_hints = cached_type_hints(_typecheckingstub__ac29bac5fb5186aee7c9d8a3a767986fee27a65cfa4b10cb45878a777a141ee5)
                 check_type(argname="argument container_overrides", value=container_overrides, expected_type=type_hints["container_overrides"])
                 check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
                 check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
@@ -2370,13 +2371,13 @@ class CfnPipe(
         @builtins.property
         def container_overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsContainerOverrideProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsContainerOverrideProperty"]]]]:
             '''One or more container overrides that are sent to a task.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecstaskoverride.html#cfn-pipes-pipe-ecstaskoverride-containeroverrides
             '''
             result = self._values.get("container_overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsContainerOverrideProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsContainerOverrideProperty"]]]], result)
 
         @builtins.property
         def cpu(self) -> typing.Optional[builtins.str]:
@@ -2390,7 +2391,7 @@ class CfnPipe(
         @builtins.property
         def ephemeral_storage(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEphemeralStorageProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEphemeralStorageProperty"]]:
             '''The ephemeral storage setting override for the task.
 
             .. epigraph::
@@ -2403,7 +2404,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecstaskoverride.html#cfn-pipes-pipe-ecstaskoverride-ephemeralstorage
             '''
             result = self._values.get("ephemeral_storage")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsEphemeralStorageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsEphemeralStorageProperty"]], result)
 
         @builtins.property
         def execution_role_arn(self) -> typing.Optional[builtins.str]:
@@ -2419,13 +2420,13 @@ class CfnPipe(
         @builtins.property
         def inference_accelerator_overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsInferenceAcceleratorOverrideProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsInferenceAcceleratorOverrideProperty"]]]]:
             '''The Elastic Inference accelerator override for the task.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-ecstaskoverride.html#cfn-pipes-pipe-ecstaskoverride-inferenceacceleratoroverrides
             '''
             result = self._values.get("inference_accelerator_overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsInferenceAcceleratorOverrideProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsInferenceAcceleratorOverrideProperty"]]]], result)
 
         @builtins.property
         def memory(self) -> typing.Optional[builtins.str]:
@@ -2467,7 +2468,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The collection of event patterns used to filter events.
 
@@ -2493,7 +2494,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__004b9f76dd8a2c227817a517c0d05d104afc0af72ef6cb0c3c89fbc4b6c922a5)
+                type_hints = cached_type_hints(_typecheckingstub__004b9f76dd8a2c227817a517c0d05d104afc0af72ef6cb0c3c89fbc4b6c922a5)
                 check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if filters is not None:
@@ -2502,13 +2503,13 @@ class CfnPipe(
         @builtins.property
         def filters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.FilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FilterProperty"]]]]:
             '''The event patterns.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-filtercriteria.html#cfn-pipes-pipe-filtercriteria-filters
             '''
             result = self._values.get("filters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.FilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2548,7 +2549,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9f00591753ff21d2f36f1936733014c6b5ee6e0461229e20051346fba671bc2b)
+                type_hints = cached_type_hints(_typecheckingstub__9f00591753ff21d2f36f1936733014c6b5ee6e0461229e20051346fba671bc2b)
                 check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if pattern is not None:
@@ -2603,7 +2604,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__debe1fd10d907031fe99a3f76db2e5a127e103de0cfb29f11bf57a42822b27b1)
+                type_hints = cached_type_hints(_typecheckingstub__debe1fd10d907031fe99a3f76db2e5a127e103de0cfb29f11bf57a42822b27b1)
                 check_type(argname="argument delivery_stream_arn", value=delivery_stream_arn, expected_type=type_hints["delivery_stream_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if delivery_stream_arn is not None:
@@ -2654,7 +2655,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1cb1a557465a40a3893ac95a9d03f8e5ebb12253739b129caf5e762c94e574c8)
+                type_hints = cached_type_hints(_typecheckingstub__1cb1a557465a40a3893ac95a9d03f8e5ebb12253739b129caf5e762c94e574c8)
                 check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "basic_auth": basic_auth,
@@ -2716,7 +2717,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__46261e68c3c1fb4bc41f7b2debe372659b86c5d9845e6857c0ad7b9046c0c987)
+                type_hints = cached_type_hints(_typecheckingstub__46261e68c3c1fb4bc41f7b2debe372659b86c5d9845e6857c0ad7b9046c0c987)
                 check_type(argname="argument client_certificate_tls_auth", value=client_certificate_tls_auth, expected_type=type_hints["client_certificate_tls_auth"])
                 check_type(argname="argument sasl_scram512_auth", value=sasl_scram512_auth, expected_type=type_hints["sasl_scram512_auth"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2793,7 +2794,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__212f99ab798061b4358af8078ee7d62d5efcb557ac65d28bae84405218a7bdb0)
+                type_hints = cached_type_hints(_typecheckingstub__212f99ab798061b4358af8078ee7d62d5efcb557ac65d28bae84405218a7bdb0)
                 check_type(argname="argument measure_value", value=measure_value, expected_type=type_hints["measure_value"])
                 check_type(argname="argument measure_value_type", value=measure_value_type, expected_type=type_hints["measure_value_type"])
                 check_type(argname="argument multi_measure_attribute_name", value=multi_measure_attribute_name, expected_type=type_hints["multi_measure_attribute_name"])
@@ -2856,7 +2857,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            multi_measure_attribute_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.MultiMeasureAttributeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            multi_measure_attribute_mappings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.MultiMeasureAttributeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
             multi_measure_name: builtins.str,
         ) -> None:
             '''Maps multiple measures from the source event to the same Timestream for LiveAnalytics record.
@@ -2885,7 +2886,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b2807dcf94bfcf7b833ff6fa9c78c231e51d400fb78dd507b6fd4742dd6ee65c)
+                type_hints = cached_type_hints(_typecheckingstub__b2807dcf94bfcf7b833ff6fa9c78c231e51d400fb78dd507b6fd4742dd6ee65c)
                 check_type(argname="argument multi_measure_attribute_mappings", value=multi_measure_attribute_mappings, expected_type=type_hints["multi_measure_attribute_mappings"])
                 check_type(argname="argument multi_measure_name", value=multi_measure_name, expected_type=type_hints["multi_measure_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2896,14 +2897,14 @@ class CfnPipe(
         @builtins.property
         def multi_measure_attribute_mappings(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.MultiMeasureAttributeMappingProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MultiMeasureAttributeMappingProperty"]]]:
             '''Mappings that represent multiple source event fields mapped to measures in the same Timestream for LiveAnalytics record.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-multimeasuremapping.html#cfn-pipes-pipe-multimeasuremapping-multimeasureattributemappings
             '''
             result = self._values.get("multi_measure_attribute_mappings")
             assert result is not None, "Required property 'multi_measure_attribute_mappings' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.MultiMeasureAttributeMappingProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MultiMeasureAttributeMappingProperty"]]], result)
 
         @builtins.property
         def multi_measure_name(self) -> builtins.str:
@@ -2935,7 +2936,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            awsvpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            awsvpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''This structure specifies the network configuration for an Amazon ECS task.
 
@@ -2961,7 +2962,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d27b7177804b8a4677a880ec362095763e2c62871f3c70d4aadd38189dedd0ac)
+                type_hints = cached_type_hints(_typecheckingstub__d27b7177804b8a4677a880ec362095763e2c62871f3c70d4aadd38189dedd0ac)
                 check_type(argname="argument awsvpc_configuration", value=awsvpc_configuration, expected_type=type_hints["awsvpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if awsvpc_configuration is not None:
@@ -2970,7 +2971,7 @@ class CfnPipe(
         @builtins.property
         def awsvpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.AwsVpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.AwsVpcConfigurationProperty"]]:
             '''Use this structure to specify the VPC subnets and security groups for the task, and whether a public IP address is to be used.
 
             This structure is relevant only for ECS tasks that use the ``awsvpc`` network mode.
@@ -2978,7 +2979,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-networkconfiguration.html#cfn-pipes-pipe-networkconfiguration-awsvpcconfiguration
             '''
             result = self._values.get("awsvpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.AwsVpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.AwsVpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3004,9 +3005,9 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            header_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway REST APIs or EventBridge ApiDestinations.
 
@@ -3036,7 +3037,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1c0ef57785475dd0f00d9483a37fb4e2993490bc25effa27f975d3eb152d45a0)
+                type_hints = cached_type_hints(_typecheckingstub__1c0ef57785475dd0f00d9483a37fb4e2993490bc25effa27f975d3eb152d45a0)
                 check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
                 check_type(argname="argument path_parameter_values", value=path_parameter_values, expected_type=type_hints["path_parameter_values"])
                 check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
@@ -3051,13 +3052,13 @@ class CfnPipe(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipeenrichmenthttpparameters.html#cfn-pipes-pipe-pipeenrichmenthttpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3071,13 +3072,13 @@ class CfnPipe(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipeenrichmenthttpparameters.html#cfn-pipes-pipe-pipeenrichmenthttpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3102,7 +3103,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            http_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeEnrichmentHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeEnrichmentHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_template: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The parameters required to set up enrichment on your pipe.
@@ -3129,7 +3130,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c41c854101e445a9a64950cf1ae31f47633329bb0e1d2188fc8a4013b114b09)
+                type_hints = cached_type_hints(_typecheckingstub__0c41c854101e445a9a64950cf1ae31f47633329bb0e1d2188fc8a4013b114b09)
                 check_type(argname="argument http_parameters", value=http_parameters, expected_type=type_hints["http_parameters"])
                 check_type(argname="argument input_template", value=input_template, expected_type=type_hints["input_template"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3141,7 +3142,7 @@ class CfnPipe(
         @builtins.property
         def http_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentHttpParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentHttpParametersProperty"]]:
             '''Contains the HTTP parameters to use when the target is a API Gateway REST endpoint or EventBridge ApiDestination.
 
             If you specify an API Gateway REST API or EventBridge ApiDestination as a target, you can use this parameter to specify headers, path parameters, and query string keys/values as part of your target invoking request. If you're using ApiDestinations, the corresponding Connection can also have these values configured. In case of any conflicting keys, values from the Connection take precedence.
@@ -3149,7 +3150,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipeenrichmentparameters.html#cfn-pipes-pipe-pipeenrichmentparameters-httpparameters
             '''
             result = self._values.get("http_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentHttpParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentHttpParametersProperty"]], result)
 
         @builtins.property
         def input_template(self) -> typing.Optional[builtins.str]:
@@ -3190,11 +3191,11 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            cloudwatch_logs_log_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.CloudwatchLogsLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            firehose_log_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.FirehoseLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloudwatch_logs_log_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.CloudwatchLogsLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose_log_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.FirehoseLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             include_execution_data: typing.Optional[typing.Sequence[builtins.str]] = None,
             level: typing.Optional[builtins.str] = None,
-            s3_log_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.S3LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_log_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.S3LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the configuration settings for the logs to which this pipe should report events.
 
@@ -3231,7 +3232,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__306252f91f65dd02a7e0e602af22016c4fe25b4159b0ed1f2ec374f280216abd)
+                type_hints = cached_type_hints(_typecheckingstub__306252f91f65dd02a7e0e602af22016c4fe25b4159b0ed1f2ec374f280216abd)
                 check_type(argname="argument cloudwatch_logs_log_destination", value=cloudwatch_logs_log_destination, expected_type=type_hints["cloudwatch_logs_log_destination"])
                 check_type(argname="argument firehose_log_destination", value=firehose_log_destination, expected_type=type_hints["firehose_log_destination"])
                 check_type(argname="argument include_execution_data", value=include_execution_data, expected_type=type_hints["include_execution_data"])
@@ -3252,24 +3253,24 @@ class CfnPipe(
         @builtins.property
         def cloudwatch_logs_log_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.CloudwatchLogsLogDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.CloudwatchLogsLogDestinationProperty"]]:
             '''The logging configuration settings for the pipe.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipelogconfiguration.html#cfn-pipes-pipe-pipelogconfiguration-cloudwatchlogslogdestination
             '''
             result = self._values.get("cloudwatch_logs_log_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.CloudwatchLogsLogDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.CloudwatchLogsLogDestinationProperty"]], result)
 
         @builtins.property
         def firehose_log_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.FirehoseLogDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FirehoseLogDestinationProperty"]]:
             '''The Amazon Data Firehose logging configuration settings for the pipe.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipelogconfiguration.html#cfn-pipes-pipe-pipelogconfiguration-firehoselogdestination
             '''
             result = self._values.get("firehose_log_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.FirehoseLogDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FirehoseLogDestinationProperty"]], result)
 
         @builtins.property
         def include_execution_data(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3300,13 +3301,13 @@ class CfnPipe(
         @builtins.property
         def s3_log_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.S3LogDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.S3LogDestinationProperty"]]:
             '''The Amazon S3 logging configuration settings for the pipe.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipelogconfiguration.html#cfn-pipes-pipe-pipelogconfiguration-s3logdestination
             '''
             result = self._values.get("s3_log_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.S3LogDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.S3LogDestinationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3333,7 +3334,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            credentials: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.MQBrokerAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]],
+            credentials: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.MQBrokerAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]],
             queue_name: builtins.str,
             batch_size: typing.Optional[jsii.Number] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
@@ -3366,7 +3367,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0146fc05725151ab0272065e74d8b279e41669f4c12c21bf5b654dc4ea4e0db3)
+                type_hints = cached_type_hints(_typecheckingstub__0146fc05725151ab0272065e74d8b279e41669f4c12c21bf5b654dc4ea4e0db3)
                 check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
                 check_type(argname="argument queue_name", value=queue_name, expected_type=type_hints["queue_name"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
@@ -3383,14 +3384,14 @@ class CfnPipe(
         @builtins.property
         def credentials(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPipe.MQBrokerAccessCredentialsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MQBrokerAccessCredentialsProperty"]:
             '''The credentials needed to access the resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceactivemqbrokerparameters.html#cfn-pipes-pipe-pipesourceactivemqbrokerparameters-credentials
             '''
             result = self._values.get("credentials")
             assert result is not None, "Required property 'credentials' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPipe.MQBrokerAccessCredentialsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MQBrokerAccessCredentialsProperty"], result)
 
         @builtins.property
         def queue_name(self) -> builtins.str:
@@ -3451,7 +3452,7 @@ class CfnPipe(
             *,
             starting_position: builtins.str,
             batch_size: typing.Optional[jsii.Number] = None,
-            dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
             maximum_record_age_in_seconds: typing.Optional[jsii.Number] = None,
             maximum_retry_attempts: typing.Optional[jsii.Number] = None,
@@ -3494,7 +3495,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c3914232e5e779f01bede413661456f0566bb16bbb4b0a9f9e7c7abf0a20b55f)
+                type_hints = cached_type_hints(_typecheckingstub__c3914232e5e779f01bede413661456f0566bb16bbb4b0a9f9e7c7abf0a20b55f)
                 check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
                 check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
@@ -3545,13 +3546,13 @@ class CfnPipe(
         @builtins.property
         def dead_letter_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.DeadLetterConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DeadLetterConfigProperty"]]:
             '''Define the target queue to send dead-letter queue events to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourcedynamodbstreamparameters.html#cfn-pipes-pipe-pipesourcedynamodbstreamparameters-deadletterconfig
             '''
             result = self._values.get("dead_letter_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.DeadLetterConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DeadLetterConfigProperty"]], result)
 
         @builtins.property
         def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3638,7 +3639,7 @@ class CfnPipe(
             *,
             starting_position: builtins.str,
             batch_size: typing.Optional[jsii.Number] = None,
-            dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
             maximum_record_age_in_seconds: typing.Optional[jsii.Number] = None,
             maximum_retry_attempts: typing.Optional[jsii.Number] = None,
@@ -3684,7 +3685,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6b24786dafb795146de150a5ba8bedca4b5929c018392ddade565e7bf6a2a819)
+                type_hints = cached_type_hints(_typecheckingstub__6b24786dafb795146de150a5ba8bedca4b5929c018392ddade565e7bf6a2a819)
                 check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
                 check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
@@ -3736,13 +3737,13 @@ class CfnPipe(
         @builtins.property
         def dead_letter_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.DeadLetterConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DeadLetterConfigProperty"]]:
             '''Define the target queue to send dead-letter queue events to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourcekinesisstreamparameters.html#cfn-pipes-pipe-pipesourcekinesisstreamparameters-deadletterconfig
             '''
             result = self._values.get("dead_letter_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.DeadLetterConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DeadLetterConfigProperty"]], result)
 
         @builtins.property
         def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3836,7 +3837,7 @@ class CfnPipe(
             topic_name: builtins.str,
             batch_size: typing.Optional[jsii.Number] = None,
             consumer_group_id: typing.Optional[builtins.str] = None,
-            credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.MSKAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.MSKAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
             starting_position: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3873,7 +3874,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8fa065b1f4c1a49a0c34029f20edbcee0895067597c39e79f08e5cb70c545116)
+                type_hints = cached_type_hints(_typecheckingstub__8fa065b1f4c1a49a0c34029f20edbcee0895067597c39e79f08e5cb70c545116)
                 check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
                 check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
@@ -3925,13 +3926,13 @@ class CfnPipe(
         @builtins.property
         def credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.MSKAccessCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MSKAccessCredentialsProperty"]]:
             '''The credentials needed to access the resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourcemanagedstreamingkafkaparameters.html#cfn-pipes-pipe-pipesourcemanagedstreamingkafkaparameters-credentials
             '''
             result = self._values.get("credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.MSKAccessCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MSKAccessCredentialsProperty"]], result)
 
         @builtins.property
         def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3980,14 +3981,14 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            active_mq_broker_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceActiveMQBrokerParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynamo_db_stream_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceDynamoDBStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            filter_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_stream_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceKinesisStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            managed_streaming_kafka_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rabbit_mq_broker_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceRabbitMQBrokerParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            self_managed_kafka_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceSelfManagedKafkaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs_queue_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceSqsQueueParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            active_mq_broker_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceActiveMQBrokerParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamo_db_stream_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceDynamoDBStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_stream_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceKinesisStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_streaming_kafka_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rabbit_mq_broker_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceRabbitMQBrokerParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            self_managed_kafka_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceSelfManagedKafkaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs_queue_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceSqsQueueParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The parameters required to set up a source for your pipe.
 
@@ -4106,7 +4107,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f69eae8cb9c31c50f3f84207511653ea968efd2ef99df30157d160dff080c77f)
+                type_hints = cached_type_hints(_typecheckingstub__f69eae8cb9c31c50f3f84207511653ea968efd2ef99df30157d160dff080c77f)
                 check_type(argname="argument active_mq_broker_parameters", value=active_mq_broker_parameters, expected_type=type_hints["active_mq_broker_parameters"])
                 check_type(argname="argument dynamo_db_stream_parameters", value=dynamo_db_stream_parameters, expected_type=type_hints["dynamo_db_stream_parameters"])
                 check_type(argname="argument filter_criteria", value=filter_criteria, expected_type=type_hints["filter_criteria"])
@@ -4136,29 +4137,29 @@ class CfnPipe(
         @builtins.property
         def active_mq_broker_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceActiveMQBrokerParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceActiveMQBrokerParametersProperty"]]:
             '''The parameters for using an Active MQ broker as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-activemqbrokerparameters
             '''
             result = self._values.get("active_mq_broker_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceActiveMQBrokerParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceActiveMQBrokerParametersProperty"]], result)
 
         @builtins.property
         def dynamo_db_stream_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceDynamoDBStreamParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceDynamoDBStreamParametersProperty"]]:
             '''The parameters for using a DynamoDB stream as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-dynamodbstreamparameters
             '''
             result = self._values.get("dynamo_db_stream_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceDynamoDBStreamParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceDynamoDBStreamParametersProperty"]], result)
 
         @builtins.property
         def filter_criteria(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.FilterCriteriaProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FilterCriteriaProperty"]]:
             '''The collection of event patterns used to filter events.
 
             To remove a filter, specify a ``FilterCriteria`` object with an empty array of ``Filter`` objects.
@@ -4168,45 +4169,45 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-filtercriteria
             '''
             result = self._values.get("filter_criteria")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.FilterCriteriaProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.FilterCriteriaProperty"]], result)
 
         @builtins.property
         def kinesis_stream_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceKinesisStreamParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceKinesisStreamParametersProperty"]]:
             '''The parameters for using a Kinesis stream as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-kinesisstreamparameters
             '''
             result = self._values.get("kinesis_stream_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceKinesisStreamParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceKinesisStreamParametersProperty"]], result)
 
         @builtins.property
         def managed_streaming_kafka_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty"]]:
             '''The parameters for using an MSK stream as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-managedstreamingkafkaparameters
             '''
             result = self._values.get("managed_streaming_kafka_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty"]], result)
 
         @builtins.property
         def rabbit_mq_broker_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceRabbitMQBrokerParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceRabbitMQBrokerParametersProperty"]]:
             '''The parameters for using a Rabbit MQ broker as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-rabbitmqbrokerparameters
             '''
             result = self._values.get("rabbit_mq_broker_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceRabbitMQBrokerParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceRabbitMQBrokerParametersProperty"]], result)
 
         @builtins.property
         def self_managed_kafka_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceSelfManagedKafkaParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceSelfManagedKafkaParametersProperty"]]:
             '''The parameters for using a self-managed Apache Kafka stream as a source.
 
             A *self managed* cluster refers to any Apache Kafka cluster not hosted by AWS . This includes both clusters you manage yourself, as well as those hosted by a third-party provider, such as `Confluent Cloud <https://docs.aws.amazon.com/https://www.confluent.io/>`_ , `CloudKarafka <https://docs.aws.amazon.com/https://www.cloudkarafka.com/>`_ , or `Redpanda <https://docs.aws.amazon.com/https://redpanda.com/>`_ . For more information, see `Apache Kafka streams as a source <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-kafka.html>`_ in the *Amazon EventBridge User Guide* .
@@ -4214,18 +4215,18 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-selfmanagedkafkaparameters
             '''
             result = self._values.get("self_managed_kafka_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceSelfManagedKafkaParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceSelfManagedKafkaParametersProperty"]], result)
 
         @builtins.property
         def sqs_queue_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceSqsQueueParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceSqsQueueParametersProperty"]]:
             '''The parameters for using a Amazon SQS stream as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceparameters.html#cfn-pipes-pipe-pipesourceparameters-sqsqueueparameters
             '''
             result = self._values.get("sqs_queue_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceSqsQueueParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceSqsQueueParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4253,7 +4254,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            credentials: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.MQBrokerAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]],
+            credentials: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.MQBrokerAccessCredentialsProperty", typing.Dict[builtins.str, typing.Any]]],
             queue_name: builtins.str,
             batch_size: typing.Optional[jsii.Number] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
@@ -4289,7 +4290,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c74f43f119c84e728ccfcb7abb732d38519873fb7ec729b9fdf249f2c0e5bddd)
+                type_hints = cached_type_hints(_typecheckingstub__c74f43f119c84e728ccfcb7abb732d38519873fb7ec729b9fdf249f2c0e5bddd)
                 check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
                 check_type(argname="argument queue_name", value=queue_name, expected_type=type_hints["queue_name"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
@@ -4309,14 +4310,14 @@ class CfnPipe(
         @builtins.property
         def credentials(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPipe.MQBrokerAccessCredentialsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MQBrokerAccessCredentialsProperty"]:
             '''The credentials needed to access the resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourcerabbitmqbrokerparameters.html#cfn-pipes-pipe-pipesourcerabbitmqbrokerparameters-credentials
             '''
             result = self._values.get("credentials")
             assert result is not None, "Required property 'credentials' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPipe.MQBrokerAccessCredentialsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MQBrokerAccessCredentialsProperty"], result)
 
         @builtins.property
         def queue_name(self) -> builtins.str:
@@ -4389,11 +4390,11 @@ class CfnPipe(
             additional_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
             batch_size: typing.Optional[jsii.Number] = None,
             consumer_group_id: typing.Optional[builtins.str] = None,
-            credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
             server_root_ca_certificate: typing.Optional[builtins.str] = None,
             starting_position: typing.Optional[builtins.str] = None,
-            vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The parameters for using a self-managed Apache Kafka stream as a source.
 
@@ -4441,7 +4442,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__66a0aa3e5511ea04d388f45c3036c4936d03c059f1ffad52b097b33a19a33603)
+                type_hints = cached_type_hints(_typecheckingstub__66a0aa3e5511ea04d388f45c3036c4936d03c059f1ffad52b097b33a19a33603)
                 check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
                 check_type(argname="argument additional_bootstrap_servers", value=additional_bootstrap_servers, expected_type=type_hints["additional_bootstrap_servers"])
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
@@ -4513,13 +4514,13 @@ class CfnPipe(
         @builtins.property
         def credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty"]]:
             '''The credentials needed to access the resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceselfmanagedkafkaparameters.html#cfn-pipes-pipe-pipesourceselfmanagedkafkaparameters-credentials
             '''
             result = self._values.get("credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty"]], result)
 
         @builtins.property
         def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -4551,13 +4552,13 @@ class CfnPipe(
         @builtins.property
         def vpc(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty"]]:
             '''This structure specifies the VPC subnets and security groups for the stream, and whether a public IP address is to be used.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipesourceselfmanagedkafkaparameters.html#cfn-pipes-pipe-pipesourceselfmanagedkafkaparameters-vpc
             '''
             result = self._values.get("vpc")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4605,7 +4606,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67e4be2db1ed30e406fb7818b3884b7726611e447c0cbe62b206747477440cf9)
+                type_hints = cached_type_hints(_typecheckingstub__67e4be2db1ed30e406fb7818b3884b7726611e447c0cbe62b206747477440cf9)
                 check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
                 check_type(argname="argument maximum_batching_window_in_seconds", value=maximum_batching_window_in_seconds, expected_type=type_hints["maximum_batching_window_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4662,11 +4663,11 @@ class CfnPipe(
             *,
             job_definition: builtins.str,
             job_name: builtins.str,
-            array_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchArrayPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            container_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchContainerOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            depends_on: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchJobDependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            retry_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.BatchRetryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            array_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchArrayPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchContainerOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            depends_on: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchJobDependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            retry_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.BatchRetryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The parameters for using an AWS Batch job as a target.
 
@@ -4720,7 +4721,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1cb92272e9e571b199ec86e09734d9a3e51183f8515940ff8f8fb18edb8487c)
+                type_hints = cached_type_hints(_typecheckingstub__a1cb92272e9e571b199ec86e09734d9a3e51183f8515940ff8f8fb18edb8487c)
                 check_type(argname="argument job_definition", value=job_definition, expected_type=type_hints["job_definition"])
                 check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
                 check_type(argname="argument array_properties", value=array_properties, expected_type=type_hints["array_properties"])
@@ -4770,7 +4771,7 @@ class CfnPipe(
         @builtins.property
         def array_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchArrayPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchArrayPropertiesProperty"]]:
             '''The array properties for the submitted job, such as the size of the array.
 
             The array size can be between 2 and 10,000. If you specify array properties for a job, it becomes an array job. This parameter is used only if the target is an AWS Batch job.
@@ -4778,23 +4779,23 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-arrayproperties
             '''
             result = self._values.get("array_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchArrayPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchArrayPropertiesProperty"]], result)
 
         @builtins.property
         def container_overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchContainerOverridesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchContainerOverridesProperty"]]:
             '''The overrides that are sent to a container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-containeroverrides
             '''
             result = self._values.get("container_overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchContainerOverridesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchContainerOverridesProperty"]], result)
 
         @builtins.property
         def depends_on(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchJobDependencyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchJobDependencyProperty"]]]]:
             '''A list of dependencies for the job.
 
             A job can depend upon a maximum of 20 jobs. You can specify a ``SEQUENTIAL`` type dependency without specifying a job ID for array jobs so that each child array job completes sequentially, starting at index 0. You can also specify an ``N_TO_N`` type dependency with a job ID for array jobs. In that case, each index child of this job must wait for the corresponding index child of each dependency to complete before it can begin.
@@ -4802,12 +4803,12 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-dependson
             '''
             result = self._values.get("depends_on")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchJobDependencyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchJobDependencyProperty"]]]], result)
 
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Additional parameters passed to the job that replace parameter substitution placeholders that are set in the job definition.
 
             Parameters are specified as a key and value pair mapping. Parameters included here override any corresponding parameter defaults from the job definition.
@@ -4815,12 +4816,12 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def retry_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchRetryStrategyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchRetryStrategyProperty"]]:
             '''The retry strategy to use for failed jobs.
 
             When a retry strategy is specified here, it overrides the retry strategy defined in the job definition.
@@ -4828,7 +4829,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetbatchjobparameters.html#cfn-pipes-pipe-pipetargetbatchjobparameters-retrystrategy
             '''
             result = self._values.get("retry_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.BatchRetryStrategyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.BatchRetryStrategyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4873,7 +4874,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9be904989c92536dbb91aa23e3469c4c06a8919cf641a798da1e9c78b51b2156)
+                type_hints = cached_type_hints(_typecheckingstub__9be904989c92536dbb91aa23e3469c4c06a8919cf641a798da1e9c78b51b2156)
                 check_type(argname="argument log_stream_name", value=log_stream_name, expected_type=type_hints["log_stream_name"])
                 check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4941,19 +4942,19 @@ class CfnPipe(
             self,
             *,
             task_definition_arn: builtins.str,
-            capacity_provider_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            capacity_provider_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             group: typing.Optional[builtins.str] = None,
             launch_type: typing.Optional[builtins.str] = None,
-            network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.EcsTaskOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            placement_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            placement_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.EcsTaskOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            placement_constraints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            placement_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             platform_version: typing.Optional[builtins.str] = None,
             propagate_tags: typing.Optional[builtins.str] = None,
             reference_id: typing.Optional[builtins.str] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
             task_count: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The parameters for using an Amazon ECS task as a target.
@@ -5059,7 +5060,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__da21f6b180d5c707968fc953abf6c9b6a20c14a97bb988159e2bff9f1252dc07)
+                type_hints = cached_type_hints(_typecheckingstub__da21f6b180d5c707968fc953abf6c9b6a20c14a97bb988159e2bff9f1252dc07)
                 check_type(argname="argument task_definition_arn", value=task_definition_arn, expected_type=type_hints["task_definition_arn"])
                 check_type(argname="argument capacity_provider_strategy", value=capacity_provider_strategy, expected_type=type_hints["capacity_provider_strategy"])
                 check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
@@ -5120,7 +5121,7 @@ class CfnPipe(
         @builtins.property
         def capacity_provider_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.CapacityProviderStrategyItemProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.CapacityProviderStrategyItemProperty"]]]]:
             '''The capacity provider strategy to use for the task.
 
             If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or launchType is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used.
@@ -5128,12 +5129,12 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-capacityproviderstrategy
             '''
             result = self._values.get("capacity_provider_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.CapacityProviderStrategyItemProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.CapacityProviderStrategyItemProperty"]]]], result)
 
         @builtins.property
         def enable_ecs_managed_tags(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to enable Amazon ECS managed tags for the task.
 
             For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the Amazon Elastic Container Service Developer Guide.
@@ -5143,12 +5144,12 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-enableecsmanagedtags
             '''
             result = self._values.get("enable_ecs_managed_tags")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_execute_command(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not to enable the execute command functionality for the containers in this task.
 
             If true, this enables execute command functionality on all containers in the task.
@@ -5158,7 +5159,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-enableexecutecommand
             '''
             result = self._values.get("enable_execute_command")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def group(self) -> typing.Optional[builtins.str]:
@@ -5185,7 +5186,7 @@ class CfnPipe(
         @builtins.property
         def network_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.NetworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.NetworkConfigurationProperty"]]:
             '''Use this structure if the Amazon ECS task uses the ``awsvpc`` network mode.
 
             This structure specifies the VPC subnets and security groups associated with the task, and whether a public IP address is to be used. This structure is required if ``LaunchType`` is ``FARGATE`` because the ``awsvpc`` mode is required for Fargate tasks.
@@ -5195,23 +5196,23 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-networkconfiguration
             '''
             result = self._values.get("network_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.NetworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.NetworkConfigurationProperty"]], result)
 
         @builtins.property
         def overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsTaskOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsTaskOverrideProperty"]]:
             '''The overrides that are associated with a task.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-overrides
             '''
             result = self._values.get("overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.EcsTaskOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.EcsTaskOverrideProperty"]], result)
 
         @builtins.property
         def placement_constraints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.PlacementConstraintProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PlacementConstraintProperty"]]]]:
             '''An array of placement constraint objects to use for the task.
 
             You can specify up to 10 constraints per task (including constraints in the task definition and those specified at runtime).
@@ -5219,12 +5220,12 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-placementconstraints
             '''
             result = self._values.get("placement_constraints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.PlacementConstraintProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PlacementConstraintProperty"]]]], result)
 
         @builtins.property
         def placement_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.PlacementStrategyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PlacementStrategyProperty"]]]]:
             '''The placement strategy objects to use for the task.
 
             You can specify a maximum of five strategy rules per task.
@@ -5232,7 +5233,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-placementstrategy
             '''
             result = self._values.get("placement_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.PlacementStrategyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PlacementStrategyProperty"]]]], result)
 
         @builtins.property
         def platform_version(self) -> typing.Optional[builtins.str]:
@@ -5268,7 +5269,7 @@ class CfnPipe(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''The metadata that you apply to the task to help you categorize and organize them.
 
             Each tag consists of a key and an optional value, both of which you define. To learn more, see `RunTask <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html#ECS-RunTask-request-tags>`_ in the Amazon ECS API Reference.
@@ -5276,7 +5277,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetecstaskparameters.html#cfn-pipes-pipe-pipetargetecstaskparameters-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         @builtins.property
         def task_count(self) -> typing.Optional[jsii.Number]:
@@ -5347,7 +5348,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e4ff5c800b247e08d889440f1b30d658847593d507da887052e6a07cd035a3a8)
+                type_hints = cached_type_hints(_typecheckingstub__e4ff5c800b247e08d889440f1b30d658847593d507da887052e6a07cd035a3a8)
                 check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
                 check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
                 check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
@@ -5438,9 +5439,9 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            header_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            header_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            query_string_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''These are custom parameter to be used when the target is an API Gateway REST APIs or EventBridge ApiDestinations.
 
@@ -5468,7 +5469,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7188f5bfc90d5dba8acd880f5c8ab24cadd75972f9cc901fb933192887a73e08)
+                type_hints = cached_type_hints(_typecheckingstub__7188f5bfc90d5dba8acd880f5c8ab24cadd75972f9cc901fb933192887a73e08)
                 check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
                 check_type(argname="argument path_parameter_values", value=path_parameter_values, expected_type=type_hints["path_parameter_values"])
                 check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
@@ -5483,13 +5484,13 @@ class CfnPipe(
         @builtins.property
         def header_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargethttpparameters.html#cfn-pipes-pipe-pipetargethttpparameters-headerparameters
             '''
             result = self._values.get("header_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5503,13 +5504,13 @@ class CfnPipe(
         @builtins.property
         def query_string_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query string keys/values that need to be sent as part of request invoking the API Gateway REST API or EventBridge ApiDestination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargethttpparameters.html#cfn-pipes-pipe-pipetargethttpparameters-querystringparameters
             '''
             result = self._values.get("query_string_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5547,7 +5548,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1f6573d105d52fd2f7280462dfe30eaedfc28e7d968c7cfb9b734b2d7b3df87d)
+                type_hints = cached_type_hints(_typecheckingstub__1f6573d105d52fd2f7280462dfe30eaedfc28e7d968c7cfb9b734b2d7b3df87d)
                 check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "partition_key": partition_key,
@@ -5605,7 +5606,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bb748756b23b0347b9022c2e96a5ec829bfa9e34d4d712d757794e89d1cb2d37)
+                type_hints = cached_type_hints(_typecheckingstub__bb748756b23b0347b9022c2e96a5ec829bfa9e34d4d712d757794e89d1cb2d37)
                 check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if invocation_type is not None:
@@ -5659,19 +5660,19 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            batch_job_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetBatchJobParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logs_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetCloudWatchLogsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ecs_task_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetEcsTaskParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            event_bridge_event_bus_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetEventBridgeEventBusParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            batch_job_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetBatchJobParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetCloudWatchLogsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ecs_task_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetEcsTaskParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            event_bridge_event_bus_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetEventBridgeEventBusParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetHttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_template: typing.Optional[builtins.str] = None,
-            kinesis_stream_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetKinesisStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lambda_function_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetLambdaFunctionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift_data_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetRedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetSageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs_queue_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetSqsQueueParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            step_function_state_machine_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetStateMachineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timestream_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetTimestreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_stream_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetKinesisStreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_function_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetLambdaFunctionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift_data_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetRedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetSageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs_queue_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetSqsQueueParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            step_function_state_machine_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetStateMachineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timestream_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetTimestreamParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The parameters required to set up a target for your pipe.
 
@@ -5710,7 +5711,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__165d2153d77ee319562b47678485053dec4a8dbcb94c274abe1d78488c0de760)
+                type_hints = cached_type_hints(_typecheckingstub__165d2153d77ee319562b47678485053dec4a8dbcb94c274abe1d78488c0de760)
                 check_type(argname="argument batch_job_parameters", value=batch_job_parameters, expected_type=type_hints["batch_job_parameters"])
                 check_type(argname="argument cloud_watch_logs_parameters", value=cloud_watch_logs_parameters, expected_type=type_hints["cloud_watch_logs_parameters"])
                 check_type(argname="argument ecs_task_parameters", value=ecs_task_parameters, expected_type=type_hints["ecs_task_parameters"])
@@ -5755,57 +5756,57 @@ class CfnPipe(
         @builtins.property
         def batch_job_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetBatchJobParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetBatchJobParametersProperty"]]:
             '''The parameters for using an AWS Batch job as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-batchjobparameters
             '''
             result = self._values.get("batch_job_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetBatchJobParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetBatchJobParametersProperty"]], result)
 
         @builtins.property
         def cloud_watch_logs_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetCloudWatchLogsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetCloudWatchLogsParametersProperty"]]:
             '''The parameters for using an CloudWatch Logs log stream as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-cloudwatchlogsparameters
             '''
             result = self._values.get("cloud_watch_logs_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetCloudWatchLogsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetCloudWatchLogsParametersProperty"]], result)
 
         @builtins.property
         def ecs_task_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetEcsTaskParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetEcsTaskParametersProperty"]]:
             '''The parameters for using an Amazon ECS task as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-ecstaskparameters
             '''
             result = self._values.get("ecs_task_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetEcsTaskParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetEcsTaskParametersProperty"]], result)
 
         @builtins.property
         def event_bridge_event_bus_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetEventBridgeEventBusParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetEventBridgeEventBusParametersProperty"]]:
             '''The parameters for using an EventBridge event bus as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-eventbridgeeventbusparameters
             '''
             result = self._values.get("event_bridge_event_bus_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetEventBridgeEventBusParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetEventBridgeEventBusParametersProperty"]], result)
 
         @builtins.property
         def http_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetHttpParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetHttpParametersProperty"]]:
             '''These are custom parameter to be used when the target is an API Gateway REST APIs or EventBridge ApiDestinations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-httpparameters
             '''
             result = self._values.get("http_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetHttpParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetHttpParametersProperty"]], result)
 
         @builtins.property
         def input_template(self) -> typing.Optional[builtins.str]:
@@ -5823,79 +5824,79 @@ class CfnPipe(
         @builtins.property
         def kinesis_stream_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetKinesisStreamParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetKinesisStreamParametersProperty"]]:
             '''The parameters for using a Kinesis stream as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-kinesisstreamparameters
             '''
             result = self._values.get("kinesis_stream_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetKinesisStreamParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetKinesisStreamParametersProperty"]], result)
 
         @builtins.property
         def lambda_function_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetLambdaFunctionParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetLambdaFunctionParametersProperty"]]:
             '''The parameters for using a Lambda function as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-lambdafunctionparameters
             '''
             result = self._values.get("lambda_function_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetLambdaFunctionParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetLambdaFunctionParametersProperty"]], result)
 
         @builtins.property
         def redshift_data_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetRedshiftDataParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetRedshiftDataParametersProperty"]]:
             '''These are custom parameters to be used when the target is a Amazon Redshift cluster to invoke the Amazon Redshift Data API BatchExecuteStatement.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-redshiftdataparameters
             '''
             result = self._values.get("redshift_data_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetRedshiftDataParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetRedshiftDataParametersProperty"]], result)
 
         @builtins.property
         def sage_maker_pipeline_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetSageMakerPipelineParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetSageMakerPipelineParametersProperty"]]:
             '''The parameters for using a SageMaker AI pipeline as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-sagemakerpipelineparameters
             '''
             result = self._values.get("sage_maker_pipeline_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetSageMakerPipelineParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetSageMakerPipelineParametersProperty"]], result)
 
         @builtins.property
         def sqs_queue_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetSqsQueueParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetSqsQueueParametersProperty"]]:
             '''The parameters for using a Amazon SQS stream as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-sqsqueueparameters
             '''
             result = self._values.get("sqs_queue_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetSqsQueueParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetSqsQueueParametersProperty"]], result)
 
         @builtins.property
         def step_function_state_machine_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetStateMachineParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetStateMachineParametersProperty"]]:
             '''The parameters for using a Step Functions state machine as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-stepfunctionstatemachineparameters
             '''
             result = self._values.get("step_function_state_machine_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetStateMachineParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetStateMachineParametersProperty"]], result)
 
         @builtins.property
         def timestream_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetTimestreamParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetTimestreamParametersProperty"]]:
             '''The parameters for using a Timestream for LiveAnalytics table as a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetparameters.html#cfn-pipes-pipe-pipetargetparameters-timestreamparameters
             '''
             result = self._values.get("timestream_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetTimestreamParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetTimestreamParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5929,7 +5930,7 @@ class CfnPipe(
             db_user: typing.Optional[builtins.str] = None,
             secret_manager_arn: typing.Optional[builtins.str] = None,
             statement_name: typing.Optional[builtins.str] = None,
-            with_event: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            with_event: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''These are custom parameters to be used when the target is a Amazon Redshift cluster to invoke the Amazon Redshift Data API BatchExecuteStatement.
 
@@ -5961,7 +5962,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7ea6dedf4af0c373d420ab7d2ec651a184123217d353843d2015cd78c2e412a)
+                type_hints = cached_type_hints(_typecheckingstub__b7ea6dedf4af0c373d420ab7d2ec651a184123217d353843d2015cd78c2e412a)
                 check_type(argname="argument database", value=database, expected_type=type_hints["database"])
                 check_type(argname="argument sqls", value=sqls, expected_type=type_hints["sqls"])
                 check_type(argname="argument db_user", value=db_user, expected_type=type_hints["db_user"])
@@ -6039,7 +6040,7 @@ class CfnPipe(
         @builtins.property
         def with_event(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to send an event back to EventBridge after the SQL statement runs.
 
             :default: - false
@@ -6047,7 +6048,7 @@ class CfnPipe(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetredshiftdataparameters.html#cfn-pipes-pipe-pipetargetredshiftdataparameters-withevent
             '''
             result = self._values.get("with_event")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6069,7 +6070,7 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            pipeline_parameter_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            pipeline_parameter_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The parameters for using a SageMaker AI pipeline as a target.
 
@@ -6092,7 +6093,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a0605c1a90997b245e51ad3fb0e2d8178d3a57cc7250323bcd66289779b8c17b)
+                type_hints = cached_type_hints(_typecheckingstub__a0605c1a90997b245e51ad3fb0e2d8178d3a57cc7250323bcd66289779b8c17b)
                 check_type(argname="argument pipeline_parameter_list", value=pipeline_parameter_list, expected_type=type_hints["pipeline_parameter_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if pipeline_parameter_list is not None:
@@ -6101,13 +6102,13 @@ class CfnPipe(
         @builtins.property
         def pipeline_parameter_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.SageMakerPipelineParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SageMakerPipelineParameterProperty"]]]]:
             '''List of Parameter names and values for SageMaker AI Model Building Pipeline execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargetsagemakerpipelineparameters.html#cfn-pipes-pipe-pipetargetsagemakerpipelineparameters-pipelineparameterlist
             '''
             result = self._values.get("pipeline_parameter_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.SageMakerPipelineParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SageMakerPipelineParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6155,7 +6156,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a65dfb99d32c62fab8dad285f75fc0a48cf44d2b3a47fdc95ccf3a2120c2817)
+                type_hints = cached_type_hints(_typecheckingstub__3a65dfb99d32c62fab8dad285f75fc0a48cf44d2b3a47fdc95ccf3a2120c2817)
                 check_type(argname="argument message_deduplication_id", value=message_deduplication_id, expected_type=type_hints["message_deduplication_id"])
                 check_type(argname="argument message_group_id", value=message_group_id, expected_type=type_hints["message_group_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6224,7 +6225,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9ec503fded11cbbc4dab0b1613c3577e5cd2103bb82744fbf161f720dcc71eea)
+                type_hints = cached_type_hints(_typecheckingstub__9ec503fded11cbbc4dab0b1613c3577e5cd2103bb82744fbf161f720dcc71eea)
                 check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if invocation_type is not None:
@@ -6278,12 +6279,12 @@ class CfnPipe(
         def __init__(
             self,
             *,
-            dimension_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.DimensionMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            dimension_mappings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.DimensionMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
             time_value: builtins.str,
             version_value: builtins.str,
             epoch_time_unit: typing.Optional[builtins.str] = None,
-            multi_measure_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.MultiMeasureMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            single_measure_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.SingleMeasureMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            multi_measure_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.MultiMeasureMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            single_measure_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.SingleMeasureMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             time_field_type: typing.Optional[builtins.str] = None,
             timestamp_format: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -6336,7 +6337,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b206852e9e433f381f61fd5ad5dfd0470a8f2f2d91b1c9d47ec9f3911f90b705)
+                type_hints = cached_type_hints(_typecheckingstub__b206852e9e433f381f61fd5ad5dfd0470a8f2f2d91b1c9d47ec9f3911f90b705)
                 check_type(argname="argument dimension_mappings", value=dimension_mappings, expected_type=type_hints["dimension_mappings"])
                 check_type(argname="argument time_value", value=time_value, expected_type=type_hints["time_value"])
                 check_type(argname="argument version_value", value=version_value, expected_type=type_hints["version_value"])
@@ -6364,7 +6365,7 @@ class CfnPipe(
         @builtins.property
         def dimension_mappings(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.DimensionMappingProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DimensionMappingProperty"]]]:
             '''Map source data to dimensions in the target Timestream for LiveAnalytics table.
 
             For more information, see `Amazon Timestream for LiveAnalytics concepts <https://docs.aws.amazon.com/timestream/latest/developerguide/concepts.html>`_
@@ -6373,7 +6374,7 @@ class CfnPipe(
             '''
             result = self._values.get("dimension_mappings")
             assert result is not None, "Required property 'dimension_mappings' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.DimensionMappingProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.DimensionMappingProperty"]]], result)
 
         @builtins.property
         def time_value(self) -> builtins.str:
@@ -6420,24 +6421,24 @@ class CfnPipe(
         @builtins.property
         def multi_measure_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.MultiMeasureMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MultiMeasureMappingProperty"]]]]:
             '''Maps multiple measures from the source event to the same record in the specified Timestream for LiveAnalytics table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargettimestreamparameters.html#cfn-pipes-pipe-pipetargettimestreamparameters-multimeasuremappings
             '''
             result = self._values.get("multi_measure_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.MultiMeasureMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.MultiMeasureMappingProperty"]]]], result)
 
         @builtins.property
         def single_measure_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.SingleMeasureMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SingleMeasureMappingProperty"]]]]:
             '''Mappings of single source data fields to individual records in the specified Timestream for LiveAnalytics table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pipes-pipe-pipetargettimestreamparameters.html#cfn-pipes-pipe-pipetargettimestreamparameters-singlemeasuremappings
             '''
             result = self._values.get("single_measure_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPipe.SingleMeasureMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.SingleMeasureMappingProperty"]]]], result)
 
         @builtins.property
         def time_field_type(self) -> typing.Optional[builtins.str]:
@@ -6506,7 +6507,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29749098783763739ea7f446fdc50033c069cafa812e55482d1793fc10995a4b)
+                type_hints = cached_type_hints(_typecheckingstub__29749098783763739ea7f446fdc50033c069cafa812e55482d1793fc10995a4b)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6582,7 +6583,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__41016c173f52ab604960ddef7dd10ba081bf43fe6b79a3449b991c6e580a6b31)
+                type_hints = cached_type_hints(_typecheckingstub__41016c173f52ab604960ddef7dd10ba081bf43fe6b79a3449b991c6e580a6b31)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6667,7 +6668,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c319ecbfef3f3f4f0396c9f93fb73d31e31de12dc99872261356def9a66887b)
+                type_hints = cached_type_hints(_typecheckingstub__7c319ecbfef3f3f4f0396c9f93fb73d31e31de12dc99872261356def9a66887b)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
                 check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
@@ -6760,7 +6761,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2b7219cb450fe6061989c0273d80ba8ae6685a3c905f3de4c65a3b25e44d886a)
+                type_hints = cached_type_hints(_typecheckingstub__2b7219cb450fe6061989c0273d80ba8ae6685a3c905f3de4c65a3b25e44d886a)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6842,7 +6843,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fbe8d3d5ef589741952141cbe10471b8f44008a53170ba93ec8d8a3945e4dcd7)
+                type_hints = cached_type_hints(_typecheckingstub__fbe8d3d5ef589741952141cbe10471b8f44008a53170ba93ec8d8a3945e4dcd7)
                 check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
                 check_type(argname="argument client_certificate_tls_auth", value=client_certificate_tls_auth, expected_type=type_hints["client_certificate_tls_auth"])
                 check_type(argname="argument sasl_scram256_auth", value=sasl_scram256_auth, expected_type=type_hints["sasl_scram256_auth"])
@@ -6936,7 +6937,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__93a7c0e9afe409ba0c90cb07ebece11a8dbddefa4be80b9479ca7514bb7dd61f)
+                type_hints = cached_type_hints(_typecheckingstub__93a7c0e9afe409ba0c90cb07ebece11a8dbddefa4be80b9479ca7514bb7dd61f)
                 check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
                 check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7019,7 +7020,7 @@ class CfnPipe(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6f2cbc8cdc4847f4898a4137ea8b22908f1ad5c472f632396cf65a72af05bda9)
+                type_hints = cached_type_hints(_typecheckingstub__6f2cbc8cdc4847f4898a4137ea8b22908f1ad5c472f632396cf65a72af05bda9)
                 check_type(argname="argument measure_name", value=measure_name, expected_type=type_hints["measure_name"])
                 check_type(argname="argument measure_value", value=measure_value, expected_type=type_hints["measure_value"])
                 check_type(argname="argument measure_value_type", value=measure_value_type, expected_type=type_hints["measure_value_type"])
@@ -7094,19 +7095,19 @@ class CfnPipeProps:
     def __init__(
         self,
         *,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        source: typing.Union[builtins.str, "_IStreamRef_b484e253", "_IQueueRef_fa8b2198"],
-        target: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198", "_IStateMachineRef_65490661"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        source: typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_sqs_5e3fc237.IQueueRef"],
+        target: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef", "_aws_stepfunctions_322ef9fd.IStateMachineRef"],
         description: typing.Optional[builtins.str] = None,
         desired_state: typing.Optional[builtins.str] = None,
-        enrichment: typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]] = None,
-        enrichment_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeEnrichmentParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enrichment: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]] = None,
+        enrichment_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeEnrichmentParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        source_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        target_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPipe``.
 
@@ -7457,7 +7458,7 @@ class CfnPipeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0)
+            type_hints = cached_type_hints(_typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0)
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
@@ -7498,38 +7499,38 @@ class CfnPipeProps:
             self._values["target_parameters"] = target_parameters
 
     @builtins.property
-    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The ARN of the role that allows the pipe to send data to the target.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-rolearn
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def source(
         self,
-    ) -> typing.Union[builtins.str, "_IStreamRef_b484e253", "_IQueueRef_fa8b2198"]:
+    ) -> typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_sqs_5e3fc237.IQueueRef"]:
         '''The ARN of the source resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-source
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IStreamRef_b484e253", "_IQueueRef_fa8b2198"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_sqs_5e3fc237.IQueueRef"], result)
 
     @builtins.property
     def target(
         self,
-    ) -> typing.Union[builtins.str, "_IEventBusRef_aa86e9b4", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198", "_IStateMachineRef_65490661"]:
+    ) -> typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef", "_aws_stepfunctions_322ef9fd.IStateMachineRef"]:
         '''The ARN of the target resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-target
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IEventBusRef_aa86e9b4", "_IFunctionRef_2601eb33", "_ILogGroupRef_874d025a", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198", "_IStateMachineRef_65490661"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef", "_aws_stepfunctions_322ef9fd.IStateMachineRef"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -7552,24 +7553,24 @@ class CfnPipeProps:
     @builtins.property
     def enrichment(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]]:
         '''The ARN of the enrichment resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichment
         '''
         result = self._values.get("enrichment")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]], result)
 
     @builtins.property
     def enrichment_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentParametersProperty"]]:
         '''The parameters required to set up enrichment on your pipe.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichmentparameters
         '''
         result = self._values.get("enrichment_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeEnrichmentParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeEnrichmentParametersProperty"]], result)
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
@@ -7591,13 +7592,13 @@ class CfnPipeProps:
     @builtins.property
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeLogConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeLogConfigurationProperty"]]:
         '''The logging configuration settings for the pipe.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-logconfiguration
         '''
         result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeLogConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeLogConfigurationProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -7611,13 +7612,13 @@ class CfnPipeProps:
     @builtins.property
     def source_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceParametersProperty"]]:
         '''The parameters required to set up a source for your pipe.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-sourceparameters
         '''
         result = self._values.get("source_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeSourceParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeSourceParametersProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -7631,7 +7632,7 @@ class CfnPipeProps:
     @builtins.property
     def target_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetParametersProperty"]]:
         '''The parameters required to set up a target for your pipe.
 
         For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
@@ -7639,7 +7640,7 @@ class CfnPipeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-targetparameters
         '''
         result = self._values.get("target_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPipe.PipeTargetParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipe.PipeTargetParametersProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7664,25 +7665,25 @@ def _typecheckingstub__2590746a77e697feb25a71ec367eb957a7632f9fe5a46ae7e30476068
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
-    source: typing.Union[builtins.str, _IStreamRef_b484e253, _IQueueRef_fa8b2198],
-    target: typing.Union[builtins.str, _IEventBusRef_aa86e9b4, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198, _IStateMachineRef_65490661],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    source: typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef, _aws_sqs_5e3fc237.IQueueRef],
+    target: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef, _aws_stepfunctions_322ef9fd.IStateMachineRef],
     description: typing.Optional[builtins.str] = None,
     desired_state: typing.Optional[builtins.str] = None,
-    enrichment: typing.Optional[typing.Union[builtins.str, _IFunctionRef_2601eb33]] = None,
-    enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enrichment: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef]] = None,
+    enrichment_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1aa2484c1e22e6cf64fdfb316fdb55c0359ae58d82a97d15a4a479fe61d7255b(
-    resource: _IPipeRef_ab8f7bb0,
+    resource: _aws_pipes_3e5c1529.IPipeRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7694,7 +7695,7 @@ def _typecheckingstub__101c5d45c6402f52ecc6286bb7d127e2f671877d92f2d10e8011407ea
     pass
 
 def _typecheckingstub__281eb4cd67e1ba036145aebcc10997c29984daadd10b66bef8033e25a39f3531(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7742,7 +7743,7 @@ def _typecheckingstub__e73385dfe68409f0392cc314d936a945ec4656e8ef2f8c5b48def8116
     pass
 
 def _typecheckingstub__75aa67d8831c93b78f85f7319ad758289b207fec83baf9b92034cab4451f63d2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeEnrichmentParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipe.PipeEnrichmentParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7754,7 +7755,7 @@ def _typecheckingstub__1052edd5ce80236ce4a971335ad896a6630839b27758cef9a2858368e
     pass
 
 def _typecheckingstub__3975e792335934f36dcb66bc10ba0ab93afe079dae88c2011a2bacc35a8fe756(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeLogConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipe.PipeLogConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7766,7 +7767,7 @@ def _typecheckingstub__e90ad70ab6477fe6112b4879f928b790cb38e40964bc2dde8bed7a3ba
     pass
 
 def _typecheckingstub__ef7a2d44f21af0c5ebeb25368be2b069abd76c8c64ba1cef587c3e219c88bec1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeSourceParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipe.PipeSourceParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7778,7 +7779,7 @@ def _typecheckingstub__4dba8d7cbad9d88d28d6a41b286be656a8aba98a10b5a338c7d175eab
     pass
 
 def _typecheckingstub__d6b5bbabe5f41fcd217d39a2fe0a41e5a7dcac510b412ddae1d12e74d71a1995(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeTargetParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipe.PipeTargetParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7802,9 +7803,9 @@ def _typecheckingstub__92192a261db9a36c55fcb7448e0173123454bca2fe715ba9d9aeb07ea
 def _typecheckingstub__4e744d7df8a35e07450afdd20e33f3cfb5db1e9415e8c69615b236bf713417a3(
     *,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchEnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchEnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     instance_type: typing.Optional[builtins.str] = None,
-    resource_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchResourceRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchResourceRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7876,12 +7877,12 @@ def _typecheckingstub__2aa9c9e99af21330a73d690bfbb31c0ded547e5a62886d6682815f591
     *,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
     cpu: typing.Optional[jsii.Number] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsEnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    environment_files: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsEnvironmentFileProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsEnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    environment_files: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsEnvironmentFileProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     memory: typing.Optional[jsii.Number] = None,
     memory_reservation: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
-    resource_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsResourceRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsResourceRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7927,11 +7928,11 @@ def _typecheckingstub__0b2bd11ae2d133e2ae4a3b3bbf1130a6396a05fe6a948341ca3d1fbe2
 
 def _typecheckingstub__ac29bac5fb5186aee7c9d8a3a767986fee27a65cfa4b10cb45878a777a141ee5(
     *,
-    container_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsContainerOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    container_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsContainerOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     cpu: typing.Optional[builtins.str] = None,
-    ephemeral_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsEphemeralStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ephemeral_storage: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsEphemeralStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
-    inference_accelerator_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsInferenceAcceleratorOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    inference_accelerator_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsInferenceAcceleratorOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     memory: typing.Optional[builtins.str] = None,
     task_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7940,7 +7941,7 @@ def _typecheckingstub__ac29bac5fb5186aee7c9d8a3a767986fee27a65cfa4b10cb45878a777
 
 def _typecheckingstub__004b9f76dd8a2c227817a517c0d05d104afc0af72ef6cb0c3c89fbc4b6c922a5(
     *,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7985,7 +7986,7 @@ def _typecheckingstub__212f99ab798061b4358af8078ee7d62d5efcb557ac65d28bae8440521
 
 def _typecheckingstub__b2807dcf94bfcf7b833ff6fa9c78c231e51d400fb78dd507b6fd4742dd6ee65c(
     *,
-    multi_measure_attribute_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.MultiMeasureAttributeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    multi_measure_attribute_mappings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.MultiMeasureAttributeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     multi_measure_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -7993,23 +7994,23 @@ def _typecheckingstub__b2807dcf94bfcf7b833ff6fa9c78c231e51d400fb78dd507b6fd4742d
 
 def _typecheckingstub__d27b7177804b8a4677a880ec362095763e2c62871f3c70d4aadd38189dedd0ac(
     *,
-    awsvpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    awsvpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1c0ef57785475dd0f00d9483a37fb4e2993490bc25effa27f975d3eb152d45a0(
     *,
-    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    header_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0c41c854101e445a9a64950cf1ae31f47633329bb0e1d2188fc8a4013b114b09(
     *,
-    http_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeEnrichmentHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_template: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8017,18 +8018,18 @@ def _typecheckingstub__0c41c854101e445a9a64950cf1ae31f47633329bb0e1d2188fc8a4013
 
 def _typecheckingstub__306252f91f65dd02a7e0e602af22016c4fe25b4159b0ed1f2ec374f280216abd(
     *,
-    cloudwatch_logs_log_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.CloudwatchLogsLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    firehose_log_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.FirehoseLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloudwatch_logs_log_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.CloudwatchLogsLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose_log_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.FirehoseLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     include_execution_data: typing.Optional[typing.Sequence[builtins.str]] = None,
     level: typing.Optional[builtins.str] = None,
-    s3_log_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.S3LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_log_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.S3LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0146fc05725151ab0272065e74d8b279e41669f4c12c21bf5b654dc4ea4e0db3(
     *,
-    credentials: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.MQBrokerAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
+    credentials: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.MQBrokerAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
     queue_name: builtins.str,
     batch_size: typing.Optional[jsii.Number] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
@@ -8040,7 +8041,7 @@ def _typecheckingstub__c3914232e5e779f01bede413661456f0566bb16bbb4b0a9f9e7c7abf0
     *,
     starting_position: builtins.str,
     batch_size: typing.Optional[jsii.Number] = None,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     maximum_record_age_in_seconds: typing.Optional[jsii.Number] = None,
     maximum_retry_attempts: typing.Optional[jsii.Number] = None,
@@ -8054,7 +8055,7 @@ def _typecheckingstub__6b24786dafb795146de150a5ba8bedca4b5929c018392ddade565e7bf
     *,
     starting_position: builtins.str,
     batch_size: typing.Optional[jsii.Number] = None,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     maximum_record_age_in_seconds: typing.Optional[jsii.Number] = None,
     maximum_retry_attempts: typing.Optional[jsii.Number] = None,
@@ -8070,7 +8071,7 @@ def _typecheckingstub__8fa065b1f4c1a49a0c34029f20edbcee0895067597c39e79f08e5cb70
     topic_name: builtins.str,
     batch_size: typing.Optional[jsii.Number] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
-    credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.MSKAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.MSKAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     starting_position: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -8079,21 +8080,21 @@ def _typecheckingstub__8fa065b1f4c1a49a0c34029f20edbcee0895067597c39e79f08e5cb70
 
 def _typecheckingstub__f69eae8cb9c31c50f3f84207511653ea968efd2ef99df30157d160dff080c77f(
     *,
-    active_mq_broker_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceActiveMQBrokerParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamo_db_stream_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceDynamoDBStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    filter_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_stream_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceKinesisStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_streaming_kafka_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rabbit_mq_broker_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceRabbitMQBrokerParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    self_managed_kafka_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceSelfManagedKafkaParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs_queue_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceSqsQueueParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    active_mq_broker_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceActiveMQBrokerParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_db_stream_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceDynamoDBStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceKinesisStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_streaming_kafka_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rabbit_mq_broker_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceRabbitMQBrokerParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    self_managed_kafka_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceSelfManagedKafkaParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_queue_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceSqsQueueParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c74f43f119c84e728ccfcb7abb732d38519873fb7ec729b9fdf249f2c0e5bddd(
     *,
-    credentials: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.MQBrokerAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
+    credentials: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.MQBrokerAccessCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
     queue_name: builtins.str,
     batch_size: typing.Optional[jsii.Number] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
@@ -8108,11 +8109,11 @@ def _typecheckingstub__66a0aa3e5511ea04d388f45c3036c4936d03c059f1ffad52b097b33a1
     additional_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     batch_size: typing.Optional[jsii.Number] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
-    credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     server_root_ca_certificate: typing.Optional[builtins.str] = None,
     starting_position: typing.Optional[builtins.str] = None,
-    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8129,11 +8130,11 @@ def _typecheckingstub__a1cb92272e9e571b199ec86e09734d9a3e51183f8515940ff8f8fb18e
     *,
     job_definition: builtins.str,
     job_name: builtins.str,
-    array_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchArrayPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    container_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchContainerOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    depends_on: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchJobDependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    retry_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.BatchRetryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    array_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchArrayPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchContainerOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    depends_on: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchJobDependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    retry_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.BatchRetryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8149,19 +8150,19 @@ def _typecheckingstub__9be904989c92536dbb91aa23e3469c4c06a8919cf641a798da1e9c78b
 def _typecheckingstub__da21f6b180d5c707968fc953abf6c9b6a20c14a97bb988159e2bff9f1252dc07(
     *,
     task_definition_arn: builtins.str,
-    capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    capacity_provider_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     group: typing.Optional[builtins.str] = None,
     launch_type: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.EcsTaskOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    placement_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.EcsTaskOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement_constraints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     platform_version: typing.Optional[builtins.str] = None,
     propagate_tags: typing.Optional[builtins.str] = None,
     reference_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8180,9 +8181,9 @@ def _typecheckingstub__e4ff5c800b247e08d889440f1b30d658847593d507da887052e6a07cd
 
 def _typecheckingstub__7188f5bfc90d5dba8acd880f5c8ab24cadd75972f9cc901fb933192887a73e08(
     *,
-    header_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    header_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    query_string_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8203,19 +8204,19 @@ def _typecheckingstub__bb748756b23b0347b9022c2e96a5ec829bfa9e34d4d712d757794e89d
 
 def _typecheckingstub__165d2153d77ee319562b47678485053dec4a8dbcb94c274abe1d78488c0de760(
     *,
-    batch_job_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetBatchJobParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetCloudWatchLogsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_task_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetEcsTaskParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_bridge_event_bus_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetEventBridgeEventBusParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    batch_job_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetBatchJobParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetCloudWatchLogsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_task_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetEcsTaskParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_event_bus_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetEventBridgeEventBusParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetHttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_template: typing.Optional[builtins.str] = None,
-    kinesis_stream_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetKinesisStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lambda_function_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetLambdaFunctionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift_data_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetRedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetSageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs_queue_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetSqsQueueParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    step_function_state_machine_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetStateMachineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timestream_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetTimestreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetKinesisStreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_function_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetLambdaFunctionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift_data_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetRedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetSageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_queue_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetSqsQueueParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    step_function_state_machine_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetStateMachineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timestream_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetTimestreamParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8227,14 +8228,14 @@ def _typecheckingstub__b7ea6dedf4af0c373d420ab7d2ec651a184123217d353843d2015cd78
     db_user: typing.Optional[builtins.str] = None,
     secret_manager_arn: typing.Optional[builtins.str] = None,
     statement_name: typing.Optional[builtins.str] = None,
-    with_event: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    with_event: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a0605c1a90997b245e51ad3fb0e2d8178d3a57cc7250323bcd66289779b8c17b(
     *,
-    pipeline_parameter_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    pipeline_parameter_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8256,12 +8257,12 @@ def _typecheckingstub__9ec503fded11cbbc4dab0b1613c3577e5cd2103bb82744fbf161f720d
 
 def _typecheckingstub__b206852e9e433f381f61fd5ad5dfd0470a8f2f2d91b1c9d47ec9f3911f90b705(
     *,
-    dimension_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.DimensionMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dimension_mappings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.DimensionMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     time_value: builtins.str,
     version_value: builtins.str,
     epoch_time_unit: typing.Optional[builtins.str] = None,
-    multi_measure_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.MultiMeasureMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    single_measure_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.SingleMeasureMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multi_measure_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.MultiMeasureMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    single_measure_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.SingleMeasureMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     time_field_type: typing.Optional[builtins.str] = None,
     timestamp_format: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -8331,19 +8332,19 @@ def _typecheckingstub__6f2cbc8cdc4847f4898a4137ea8b22908f1ad5c472f632396cf65a72a
 
 def _typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0(
     *,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
-    source: typing.Union[builtins.str, _IStreamRef_b484e253, _IQueueRef_fa8b2198],
-    target: typing.Union[builtins.str, _IEventBusRef_aa86e9b4, _IFunctionRef_2601eb33, _ILogGroupRef_874d025a, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198, _IStateMachineRef_65490661],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    source: typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef, _aws_sqs_5e3fc237.IQueueRef],
+    target: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef, _aws_stepfunctions_322ef9fd.IStateMachineRef],
     description: typing.Optional[builtins.str] = None,
     desired_state: typing.Optional[builtins.str] = None,
-    enrichment: typing.Optional[typing.Union[builtins.str, _IFunctionRef_2601eb33]] = None,
-    enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enrichment: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef]] = None,
+    enrichment_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

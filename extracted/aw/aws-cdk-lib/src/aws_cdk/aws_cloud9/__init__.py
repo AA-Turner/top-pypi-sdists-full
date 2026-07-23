@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,44 +45,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_cloud9 import (
-    EnvironmentEC2Reference as _EnvironmentEC2Reference_742b8017,
-    IEnvironmentEC2Ref as _IEnvironmentEC2Ref_cc598673,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_cloud9 as _aws_cloud9_93be2764
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloud9_93be2764 = _LazyImport("aws_cdk.interfaces.aws_cloud9")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentEC2Ref_cc598673, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloud9_93be2764.IEnvironmentEC2Ref, _aws_cdk_0cae9daa.ITaggable)
 class CfnEnvironmentEC2(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloud9.CfnEnvironmentEC2",
 ):
@@ -133,9 +127,9 @@ class CfnEnvironmentEC2(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         owner_arn: typing.Optional[builtins.str] = None,
-        repositories: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cloud9::EnvironmentEC2``.
 
@@ -153,7 +147,7 @@ class CfnEnvironmentEC2(
         :param tags: An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20e60d53a3580dabcd8f88a1195a515fcbefe92a9ea846ab6ed1b1bce8546b4)
+            type_hints = cached_type_hints(_typecheckingstub__f20e60d53a3580dabcd8f88a1195a515fcbefe92a9ea846ab6ed1b1bce8546b4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentEC2Props(
@@ -175,13 +169,13 @@ class CfnEnvironmentEC2(
     @builtins.classmethod
     def arn_for_environment_ec2(
         cls,
-        resource: "_IEnvironmentEC2Ref_cc598673",
+        resource: "_aws_cloud9_93be2764.IEnvironmentEC2Ref",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea0a984348b4497a06bfd797080466465d37de9cd3db0d85c6de0b4584f03d45)
+            type_hints = cached_type_hints(_typecheckingstub__ea0a984348b4497a06bfd797080466465d37de9cd3db0d85c6de0b4584f03d45)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironmentEC2", [resource]))
 
@@ -193,18 +187,18 @@ class CfnEnvironmentEC2(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cefbb00b84816f9d3049ada69c832b67d39e37fc5c1a3aa4c127310811ca6ca)
+            type_hints = cached_type_hints(_typecheckingstub__9cefbb00b84816f9d3049ada69c832b67d39e37fc5c1a3aa4c127310811ca6ca)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironmentEC2", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01c351d373b56f412cb07a01f554414870b3008fa4e878bdefe92eb62620b54a)
+            type_hints = cached_type_hints(_typecheckingstub__01c351d373b56f412cb07a01f554414870b3008fa4e878bdefe92eb62620b54a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -217,7 +211,7 @@ class CfnEnvironmentEC2(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63d75ed9eee88e5c262f2f922913144295062e6e1adb8a8b0bfbf3a9138cb6f8)
+            type_hints = cached_type_hints(_typecheckingstub__63d75ed9eee88e5c262f2f922913144295062e6e1adb8a8b0bfbf3a9138cb6f8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -265,15 +259,15 @@ class CfnEnvironmentEC2(
 
     @builtins.property
     @jsii.member(jsii_name="environmentEc2Ref")
-    def environment_ec2_ref(self) -> "_EnvironmentEC2Reference_742b8017":
+    def environment_ec2_ref(self) -> "_aws_cloud9_93be2764.EnvironmentEC2Reference":
         '''A reference to a EnvironmentEC2 resource.'''
-        return typing.cast("_EnvironmentEC2Reference_742b8017", jsii.get(self, "environmentEc2Ref"))
+        return typing.cast("_aws_cloud9_93be2764.EnvironmentEC2Reference", jsii.get(self, "environmentEc2Ref"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="imageId")
@@ -284,7 +278,7 @@ class CfnEnvironmentEC2(
     @image_id.setter
     def image_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b)
+            type_hints = cached_type_hints(_typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
 
@@ -297,7 +291,7 @@ class CfnEnvironmentEC2(
     @instance_type.setter
     def instance_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b)
+            type_hints = cached_type_hints(_typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -310,7 +304,7 @@ class CfnEnvironmentEC2(
     @automatic_stop_time_minutes.setter
     def automatic_stop_time_minutes(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__870f873862daac21573a9c7df2ce1ef3a0b18ce6b1f57830f1fd4ff7bd49aed8)
+            type_hints = cached_type_hints(_typecheckingstub__870f873862daac21573a9c7df2ce1ef3a0b18ce6b1f57830f1fd4ff7bd49aed8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "automaticStopTimeMinutes", value) # pyright: ignore[reportArgumentType]
 
@@ -323,7 +317,7 @@ class CfnEnvironmentEC2(
     @connection_type.setter
     def connection_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__471cb7549dde284de51de47ad092b1e1639f724188faf55e1c31bcfa8f53fcc7)
+            type_hints = cached_type_hints(_typecheckingstub__471cb7549dde284de51de47ad092b1e1639f724188faf55e1c31bcfa8f53fcc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
 
@@ -336,7 +330,7 @@ class CfnEnvironmentEC2(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccf8f26efd4e6d0e3ba3ed8bbaa9a66f737394e715521e96209b513a2501b43f)
+            type_hints = cached_type_hints(_typecheckingstub__ccf8f26efd4e6d0e3ba3ed8bbaa9a66f737394e715521e96209b513a2501b43f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -349,7 +343,7 @@ class CfnEnvironmentEC2(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76adb15f6285c07cc9dbfcdd9c2db131f58b9629fa95eb0dfba0864178a1e3a0)
+            type_hints = cached_type_hints(_typecheckingstub__76adb15f6285c07cc9dbfcdd9c2db131f58b9629fa95eb0dfba0864178a1e3a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -362,7 +356,7 @@ class CfnEnvironmentEC2(
     @owner_arn.setter
     def owner_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3ed6f600bbd525a5d366e8411b6f2c26e9945c1e1dd78ea3125c82b3ca3a85e)
+            type_hints = cached_type_hints(_typecheckingstub__d3ed6f600bbd525a5d366e8411b6f2c26e9945c1e1dd78ea3125c82b3ca3a85e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ownerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -370,17 +364,17 @@ class CfnEnvironmentEC2(
     @jsii.member(jsii_name="repositories")
     def repositories(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironmentEC2.RepositoryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironmentEC2.RepositoryProperty"]]]]:
         '''Any AWS CodeCommit source code repositories to be cloned into the development environment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironmentEC2.RepositoryProperty"]]]], jsii.get(self, "repositories"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironmentEC2.RepositoryProperty"]]]], jsii.get(self, "repositories"))
 
     @repositories.setter
     def repositories(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironmentEC2.RepositoryProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironmentEC2.RepositoryProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33cc7cfcf14da7cc801212fb0f6bde87f66f7a89bbb8b1431ff0da977a8adfbb)
+            type_hints = cached_type_hints(_typecheckingstub__33cc7cfcf14da7cc801212fb0f6bde87f66f7a89bbb8b1431ff0da977a8adfbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositories", value) # pyright: ignore[reportArgumentType]
 
@@ -393,20 +387,23 @@ class CfnEnvironmentEC2(
     @subnet_id.setter
     def subnet_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba7d365716a0cf05b85a3c0a55e7302dbb4657fd3bf42b5f280ee69f29e2eda0)
+            type_hints = cached_type_hints(_typecheckingstub__ba7d365716a0cf05b85a3c0a55e7302dbb4657fd3bf42b5f280ee69f29e2eda0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6e91291aa91d4092e5d643c1959f01ebac2b9c2b63e175fe396fc6fa242c91e)
+            type_hints = cached_type_hints(_typecheckingstub__f6e91291aa91d4092e5d643c1959f01ebac2b9c2b63e175fe396fc6fa242c91e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -445,7 +442,7 @@ class CfnEnvironmentEC2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1f170b124bae07e704d39551c1b3c66810f3a968e777ec40f4c806bb7805fc7b)
+                type_hints = cached_type_hints(_typecheckingstub__1f170b124bae07e704d39551c1b3c66810f3a968e777ec40f4c806bb7805fc7b)
                 check_type(argname="argument path_component", value=path_component, expected_type=type_hints["path_component"])
                 check_type(argname="argument repository_url", value=repository_url, expected_type=type_hints["repository_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -516,9 +513,9 @@ class CfnEnvironmentEC2Props:
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         owner_arn: typing.Optional[builtins.str] = None,
-        repositories: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentEC2``.
 
@@ -565,7 +562,7 @@ class CfnEnvironmentEC2Props:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca)
+            type_hints = cached_type_hints(_typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca)
             check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument automatic_stop_time_minutes", value=automatic_stop_time_minutes, expected_type=type_hints["automatic_stop_time_minutes"])
@@ -689,13 +686,13 @@ class CfnEnvironmentEC2Props:
     @builtins.property
     def repositories(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironmentEC2.RepositoryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironmentEC2.RepositoryProperty"]]]]:
         '''Any AWS CodeCommit source code repositories to be cloned into the development environment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-repositories
         '''
         result = self._values.get("repositories")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironmentEC2.RepositoryProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironmentEC2.RepositoryProperty"]]]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
@@ -707,13 +704,13 @@ class CfnEnvironmentEC2Props:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -745,15 +742,15 @@ def _typecheckingstub__f20e60d53a3580dabcd8f88a1195a515fcbefe92a9ea846ab6ed1b1bc
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     owner_arn: typing.Optional[builtins.str] = None,
-    repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ea0a984348b4497a06bfd797080466465d37de9cd3db0d85c6de0b4584f03d45(
-    resource: _IEnvironmentEC2Ref_cc598673,
+    resource: _aws_cloud9_93be2764.IEnvironmentEC2Ref,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -765,7 +762,7 @@ def _typecheckingstub__9cefbb00b84816f9d3049ada69c832b67d39e37fc5c1a3aa4c1273108
     pass
 
 def _typecheckingstub__01c351d373b56f412cb07a01f554414870b3008fa4e878bdefe92eb62620b54a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -819,7 +816,7 @@ def _typecheckingstub__d3ed6f600bbd525a5d366e8411b6f2c26e9945c1e1dd78ea3125c82b3
     pass
 
 def _typecheckingstub__33cc7cfcf14da7cc801212fb0f6bde87f66f7a89bbb8b1431ff0da977a8adfbb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironmentEC2.RepositoryProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironmentEC2.RepositoryProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -831,7 +828,7 @@ def _typecheckingstub__ba7d365716a0cf05b85a3c0a55e7302dbb4657fd3bf42b5f280ee69f2
     pass
 
 def _typecheckingstub__f6e91291aa91d4092e5d643c1959f01ebac2b9c2b63e175fe396fc6fa242c91e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -853,9 +850,9 @@ def _typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     owner_arn: typing.Optional[builtins.str] = None,
-    repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

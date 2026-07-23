@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,64 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iotwireless import (
-    DestinationReference as _DestinationReference_9d4269c0,
-    DeviceProfileReference as _DeviceProfileReference_298fa115,
-    FuotaTaskReference as _FuotaTaskReference_07067dc6,
-    IDestinationRef as _IDestinationRef_4b0181ca,
-    IDeviceProfileRef as _IDeviceProfileRef_265b7e10,
-    IFuotaTaskRef as _IFuotaTaskRef_f399e9d4,
-    IMulticastGroupRef as _IMulticastGroupRef_aa211041,
-    INetworkAnalyzerConfigurationRef as _INetworkAnalyzerConfigurationRef_342e1d7d,
-    IPartnerAccountRef as _IPartnerAccountRef_d86f33ac,
-    IServiceProfileRef as _IServiceProfileRef_7a1bbf25,
-    ITaskDefinitionRef as _ITaskDefinitionRef_d217db00,
-    IWirelessDeviceImportTaskRef as _IWirelessDeviceImportTaskRef_84dee71f,
-    IWirelessDeviceRef as _IWirelessDeviceRef_3a65f428,
-    IWirelessGatewayRef as _IWirelessGatewayRef_9d22b38e,
-    MulticastGroupReference as _MulticastGroupReference_1a215afe,
-    NetworkAnalyzerConfigurationReference as _NetworkAnalyzerConfigurationReference_736c312d,
-    PartnerAccountReference as _PartnerAccountReference_500c3c15,
-    ServiceProfileReference as _ServiceProfileReference_95036c40,
-    TaskDefinitionReference as _TaskDefinitionReference_261ca0ac,
-    WirelessDeviceImportTaskReference as _WirelessDeviceImportTaskReference_d0333f7e,
-    WirelessDeviceReference as _WirelessDeviceReference_df0e3e52,
-    WirelessGatewayReference as _WirelessGatewayReference_4bc55775,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iotwireless as _aws_iotwireless_7664edfb
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iotwireless_7664edfb = _LazyImport("aws_cdk.interfaces.aws_iotwireless")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDestinationRef_4b0181ca, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IDestinationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDestination(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnDestination",
 ):
@@ -137,7 +111,7 @@ class CfnDestination(
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::Destination``.
 
@@ -151,7 +125,7 @@ class CfnDestination(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f61ecfaf93e3a5ee3c176667153d7633c25d7bc246a1af5b6801966503ffc10e)
+            type_hints = cached_type_hints(_typecheckingstub__f61ecfaf93e3a5ee3c176667153d7633c25d7bc246a1af5b6801966503ffc10e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDestinationProps(
@@ -167,12 +141,15 @@ class CfnDestination(
 
     @jsii.member(jsii_name="arnForDestination")
     @builtins.classmethod
-    def arn_for_destination(cls, resource: "_IDestinationRef_4b0181ca") -> builtins.str:
+    def arn_for_destination(
+        cls,
+        resource: "_aws_iotwireless_7664edfb.IDestinationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ad3e91f1f14bc613d89e8b3feb876c3f630889cbe1ad27a65b6c6e38b6e0ff3)
+            type_hints = cached_type_hints(_typecheckingstub__5ad3e91f1f14bc613d89e8b3feb876c3f630889cbe1ad27a65b6c6e38b6e0ff3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDestination", [resource]))
 
@@ -183,7 +160,7 @@ class CfnDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDestinationRef_4b0181ca":
+    ) -> "_aws_iotwireless_7664edfb.IDestinationRef":
         '''Creates a new IDestinationRef from an ARN.
 
         :param scope: -
@@ -191,11 +168,11 @@ class CfnDestination(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f90b1341ca0e815545f34b7f61706cf3669652ab00f4418fee6873861329272)
+            type_hints = cached_type_hints(_typecheckingstub__7f90b1341ca0e815545f34b7f61706cf3669652ab00f4418fee6873861329272)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDestinationRef_4b0181ca", jsii.sinvoke(cls, "fromDestinationArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IDestinationRef", jsii.sinvoke(cls, "fromDestinationArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDestinationName")
     @builtins.classmethod
@@ -204,7 +181,7 @@ class CfnDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         destination_name: builtins.str,
-    ) -> "_IDestinationRef_4b0181ca":
+    ) -> "_aws_iotwireless_7664edfb.IDestinationRef":
         '''Creates a new IDestinationRef from a destinationName.
 
         :param scope: -
@@ -212,11 +189,11 @@ class CfnDestination(
         :param destination_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90d6cabd015389efbea6112d678cc639ad2faf00a54ab0570fa07ca3a427b194)
+            type_hints = cached_type_hints(_typecheckingstub__90d6cabd015389efbea6112d678cc639ad2faf00a54ab0570fa07ca3a427b194)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument destination_name", value=destination_name, expected_type=type_hints["destination_name"])
-        return typing.cast("_IDestinationRef_4b0181ca", jsii.sinvoke(cls, "fromDestinationName", [scope, id, destination_name]))
+        return typing.cast("_aws_iotwireless_7664edfb.IDestinationRef", jsii.sinvoke(cls, "fromDestinationName", [scope, id, destination_name]))
 
     @jsii.member(jsii_name="isCfnDestination")
     @builtins.classmethod
@@ -226,18 +203,18 @@ class CfnDestination(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57a94d4d7394b5a288e30f431c769d0fb38211e2cb138351dbb3d43588a88bfd)
+            type_hints = cached_type_hints(_typecheckingstub__57a94d4d7394b5a288e30f431c769d0fb38211e2cb138351dbb3d43588a88bfd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDestination", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abcdef1ef5b37ae8d863fbd6e43535b7b8fb98b01e8f63d2e11a2ac69ae40d2b)
+            type_hints = cached_type_hints(_typecheckingstub__abcdef1ef5b37ae8d863fbd6e43535b7b8fb98b01e8f63d2e11a2ac69ae40d2b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -250,7 +227,7 @@ class CfnDestination(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daceed9db31617342b2ad6da1a597d489d32ddd44aa99d40185846a28691e1a6)
+            type_hints = cached_type_hints(_typecheckingstub__daceed9db31617342b2ad6da1a597d489d32ddd44aa99d40185846a28691e1a6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -281,15 +258,15 @@ class CfnDestination(
 
     @builtins.property
     @jsii.member(jsii_name="destinationRef")
-    def destination_ref(self) -> "_DestinationReference_9d4269c0":
+    def destination_ref(self) -> "_aws_iotwireless_7664edfb.DestinationReference":
         '''A reference to a Destination resource.'''
-        return typing.cast("_DestinationReference_9d4269c0", jsii.get(self, "destinationRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.DestinationReference", jsii.get(self, "destinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="expression")
@@ -300,7 +277,7 @@ class CfnDestination(
     @expression.setter
     def expression(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0635097b142a55f017574117ff21a283060521e721f605e4ff6e5a9ed13e63d4)
+            type_hints = cached_type_hints(_typecheckingstub__0635097b142a55f017574117ff21a283060521e721f605e4ff6e5a9ed13e63d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expression", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +290,7 @@ class CfnDestination(
     @expression_type.setter
     def expression_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c52fb059cb57908dccbf654243c0e24547fefae3afcee7f9441366e93f7368f8)
+            type_hints = cached_type_hints(_typecheckingstub__c52fb059cb57908dccbf654243c0e24547fefae3afcee7f9441366e93f7368f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expressionType", value) # pyright: ignore[reportArgumentType]
 
@@ -326,7 +303,7 @@ class CfnDestination(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4a7e2be1c3626a0831a317f8384bfaac10f081d96e1d52fdf7e7d168b531e14)
+            type_hints = cached_type_hints(_typecheckingstub__e4a7e2be1c3626a0831a317f8384bfaac10f081d96e1d52fdf7e7d168b531e14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -339,7 +316,7 @@ class CfnDestination(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54343b07a7027d746812e326d1dd346e2f583fb1042ea98ffa3720e14655d56f)
+            type_hints = cached_type_hints(_typecheckingstub__54343b07a7027d746812e326d1dd346e2f583fb1042ea98ffa3720e14655d56f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -352,20 +329,23 @@ class CfnDestination(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b60aa4ef5f47c4662f7208269db494d81166701afac30be03ebe87711d08ef4)
+            type_hints = cached_type_hints(_typecheckingstub__7b60aa4ef5f47c4662f7208269db494d81166701afac30be03ebe87711d08ef4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28773e7cb2f78fe606bd46c478d428f25a9d6768b2384a0d5eabc8886d06f5d4)
+            type_hints = cached_type_hints(_typecheckingstub__28773e7cb2f78fe606bd46c478d428f25a9d6768b2384a0d5eabc8886d06f5d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -391,7 +371,7 @@ class CfnDestinationProps:
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDestination``.
 
@@ -427,7 +407,7 @@ class CfnDestinationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7257e0c4b674f84972a8cd47754e3ce09588804469529ea8a4efd68a9ae0aae)
+            type_hints = cached_type_hints(_typecheckingstub__f7257e0c4b674f84972a8cd47754e3ce09588804469529ea8a4efd68a9ae0aae)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             check_type(argname="argument expression_type", value=expression_type, expected_type=type_hints["expression_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -497,7 +477,7 @@ class CfnDestinationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -505,7 +485,7 @@ class CfnDestinationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-destination.html#cfn-iotwireless-destination-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -519,9 +499,9 @@ class CfnDestinationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeviceProfileRef_265b7e10, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IDeviceProfileRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDeviceProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnDeviceProfile",
 ):
@@ -573,9 +553,9 @@ class CfnDeviceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceProfile.LoRaWANDeviceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceProfile.LoRaWANDeviceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::DeviceProfile``.
 
@@ -586,7 +566,7 @@ class CfnDeviceProfile(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8067f9295f2cbc045aef3949460556f66763c80bd130293a84c601e6d1cc0b67)
+            type_hints = cached_type_hints(_typecheckingstub__8067f9295f2cbc045aef3949460556f66763c80bd130293a84c601e6d1cc0b67)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeviceProfileProps(lo_ra_wan=lo_ra_wan, name=name, tags=tags)
@@ -597,13 +577,13 @@ class CfnDeviceProfile(
     @builtins.classmethod
     def arn_for_device_profile(
         cls,
-        resource: "_IDeviceProfileRef_265b7e10",
+        resource: "_aws_iotwireless_7664edfb.IDeviceProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c3eb713326e5e4f4a3747c9819fcc6cfae774e22e4d7b2a0aaf47b6e8e2eb3f)
+            type_hints = cached_type_hints(_typecheckingstub__1c3eb713326e5e4f4a3747c9819fcc6cfae774e22e4d7b2a0aaf47b6e8e2eb3f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeviceProfile", [resource]))
 
@@ -614,7 +594,7 @@ class CfnDeviceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDeviceProfileRef_265b7e10":
+    ) -> "_aws_iotwireless_7664edfb.IDeviceProfileRef":
         '''Creates a new IDeviceProfileRef from an ARN.
 
         :param scope: -
@@ -622,11 +602,11 @@ class CfnDeviceProfile(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f767caa1409edfe0d12fd463e46429b33dfeec37e09a1d290185cb1cef3c5fb)
+            type_hints = cached_type_hints(_typecheckingstub__9f767caa1409edfe0d12fd463e46429b33dfeec37e09a1d290185cb1cef3c5fb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDeviceProfileRef_265b7e10", jsii.sinvoke(cls, "fromDeviceProfileArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IDeviceProfileRef", jsii.sinvoke(cls, "fromDeviceProfileArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDeviceProfileId")
     @builtins.classmethod
@@ -635,7 +615,7 @@ class CfnDeviceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         device_profile_id: builtins.str,
-    ) -> "_IDeviceProfileRef_265b7e10":
+    ) -> "_aws_iotwireless_7664edfb.IDeviceProfileRef":
         '''Creates a new IDeviceProfileRef from a deviceProfileId.
 
         :param scope: -
@@ -643,11 +623,11 @@ class CfnDeviceProfile(
         :param device_profile_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7652403130ffac7914293b30e214110a79c1cd3127749a0b4e59672ef3f5b261)
+            type_hints = cached_type_hints(_typecheckingstub__7652403130ffac7914293b30e214110a79c1cd3127749a0b4e59672ef3f5b261)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument device_profile_id", value=device_profile_id, expected_type=type_hints["device_profile_id"])
-        return typing.cast("_IDeviceProfileRef_265b7e10", jsii.sinvoke(cls, "fromDeviceProfileId", [scope, id, device_profile_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IDeviceProfileRef", jsii.sinvoke(cls, "fromDeviceProfileId", [scope, id, device_profile_id]))
 
     @jsii.member(jsii_name="isCfnDeviceProfile")
     @builtins.classmethod
@@ -657,18 +637,18 @@ class CfnDeviceProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a144ca012920c4913d70a34af6cd6e3fa54254bdc179009f5f47d5c3dd79172)
+            type_hints = cached_type_hints(_typecheckingstub__0a144ca012920c4913d70a34af6cd6e3fa54254bdc179009f5f47d5c3dd79172)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeviceProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e5a8081b4b2646cf2e301e2afffc795ab7e32d6a6b52b07e5de54e172bbe245)
+            type_hints = cached_type_hints(_typecheckingstub__6e5a8081b4b2646cf2e301e2afffc795ab7e32d6a6b52b07e5de54e172bbe245)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -681,7 +661,7 @@ class CfnDeviceProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23fa48b9862be61ca24ddc5be9d3d852c088e91af603908b772a0f6b98d3bb60)
+            type_hints = cached_type_hints(_typecheckingstub__23fa48b9862be61ca24ddc5be9d3d852c088e91af603908b772a0f6b98d3bb60)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -721,31 +701,31 @@ class CfnDeviceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="deviceProfileRef")
-    def device_profile_ref(self) -> "_DeviceProfileReference_298fa115":
+    def device_profile_ref(self) -> "_aws_iotwireless_7664edfb.DeviceProfileReference":
         '''A reference to a DeviceProfile resource.'''
-        return typing.cast("_DeviceProfileReference_298fa115", jsii.get(self, "deviceProfileRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.DeviceProfileReference", jsii.get(self, "deviceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]]:
         '''LoRaWAN device profile object.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37bc58d63a4729db23e942a768b31134889d07403a53d90d57a88c269501d5fa)
+            type_hints = cached_type_hints(_typecheckingstub__37bc58d63a4729db23e942a768b31134889d07403a53d90d57a88c269501d5fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -758,20 +738,23 @@ class CfnDeviceProfile(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25caee2a3bcdb77269d5e10d73ce9e629c40f7a63107b51012a8ae652ea849bf)
+            type_hints = cached_type_hints(_typecheckingstub__25caee2a3bcdb77269d5e10d73ce9e629c40f7a63107b51012a8ae652ea849bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4afbd69995e29e676f14b8919081a76892c1a3dd232747696d84a67dd728424a)
+            type_hints = cached_type_hints(_typecheckingstub__4afbd69995e29e676f14b8919081a76892c1a3dd232747696d84a67dd728424a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -806,7 +789,7 @@ class CfnDeviceProfile(
             *,
             class_b_timeout: typing.Optional[jsii.Number] = None,
             class_c_timeout: typing.Optional[jsii.Number] = None,
-            factory_preset_freqs_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            factory_preset_freqs_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             mac_version: typing.Optional[builtins.str] = None,
             max_duty_cycle: typing.Optional[jsii.Number] = None,
             max_eirp: typing.Optional[jsii.Number] = None,
@@ -819,10 +802,10 @@ class CfnDeviceProfile(
             rx_delay1: typing.Optional[jsii.Number] = None,
             rx_dr_offset1: typing.Optional[jsii.Number] = None,
             rx_freq2: typing.Optional[jsii.Number] = None,
-            supports32_bit_f_cnt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            supports_class_b: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            supports_class_c: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            supports_join: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            supports32_bit_f_cnt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            supports_class_b: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            supports_class_c: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            supports_join: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''LoRaWAN device profile object.
 
@@ -878,7 +861,7 @@ class CfnDeviceProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0558c6321ef1b0db79fd3fb29f490ef770458d60ef008b53201feac226735893)
+                type_hints = cached_type_hints(_typecheckingstub__0558c6321ef1b0db79fd3fb29f490ef770458d60ef008b53201feac226735893)
                 check_type(argname="argument class_b_timeout", value=class_b_timeout, expected_type=type_hints["class_b_timeout"])
                 check_type(argname="argument class_c_timeout", value=class_c_timeout, expected_type=type_hints["class_c_timeout"])
                 check_type(argname="argument factory_preset_freqs_list", value=factory_preset_freqs_list, expected_type=type_hints["factory_preset_freqs_list"])
@@ -959,7 +942,7 @@ class CfnDeviceProfile(
         @builtins.property
         def factory_preset_freqs_list(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The list of values that make up the FactoryPresetFreqs value.
 
             Valid range of values include a minimum value of 1000000 and a maximum value of 16700000.
@@ -967,7 +950,7 @@ class CfnDeviceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-deviceprofile-lorawandeviceprofile.html#cfn-iotwireless-deviceprofile-lorawandeviceprofile-factorypresetfreqslist
             '''
             result = self._values.get("factory_preset_freqs_list")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def mac_version(self) -> typing.Optional[builtins.str]:
@@ -1080,46 +1063,46 @@ class CfnDeviceProfile(
         @builtins.property
         def supports32_bit_f_cnt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The Supports32BitFCnt value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-deviceprofile-lorawandeviceprofile.html#cfn-iotwireless-deviceprofile-lorawandeviceprofile-supports32bitfcnt
             '''
             result = self._values.get("supports32_bit_f_cnt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def supports_class_b(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The SupportsClassB value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-deviceprofile-lorawandeviceprofile.html#cfn-iotwireless-deviceprofile-lorawandeviceprofile-supportsclassb
             '''
             result = self._values.get("supports_class_b")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def supports_class_c(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The SupportsClassC value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-deviceprofile-lorawandeviceprofile.html#cfn-iotwireless-deviceprofile-lorawandeviceprofile-supportsclassc
             '''
             result = self._values.get("supports_class_c")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def supports_join(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The SupportsJoin value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-deviceprofile-lorawandeviceprofile.html#cfn-iotwireless-deviceprofile-lorawandeviceprofile-supportsjoin
             '''
             result = self._values.get("supports_join")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1142,9 +1125,9 @@ class CfnDeviceProfileProps:
     def __init__(
         self,
         *,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceProfile.LoRaWANDeviceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceProfile.LoRaWANDeviceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDeviceProfile``.
 
@@ -1192,7 +1175,7 @@ class CfnDeviceProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5943b1bf4799db06aae66d299d5e86b23f1003e16376a69594302b4e4054ee8)
+            type_hints = cached_type_hints(_typecheckingstub__d5943b1bf4799db06aae66d299d5e86b23f1003e16376a69594302b4e4054ee8)
             check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1207,13 +1190,13 @@ class CfnDeviceProfileProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]]:
         '''LoRaWAN device profile object.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-deviceprofile.html#cfn-iotwireless-deviceprofile-lorawan
         '''
         result = self._values.get("lo_ra_wan")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceProfile.LoRaWANDeviceProfileProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1225,7 +1208,7 @@ class CfnDeviceProfileProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -1233,7 +1216,7 @@ class CfnDeviceProfileProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-deviceprofile.html#cfn-iotwireless-deviceprofile-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1247,9 +1230,9 @@ class CfnDeviceProfileProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFuotaTaskRef_f399e9d4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IFuotaTaskRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFuotaTask(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnFuotaTask",
 ):
@@ -1297,14 +1280,14 @@ class CfnFuotaTask(
         *,
         firmware_update_image: builtins.str,
         firmware_update_role: builtins.str,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFuotaTask.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFuotaTask.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
         associate_multicast_group: typing.Optional[builtins.str] = None,
         associate_wireless_device: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         disassociate_multicast_group: typing.Optional[builtins.str] = None,
         disassociate_wireless_device: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::FuotaTask``.
 
@@ -1322,7 +1305,7 @@ class CfnFuotaTask(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dc14d9e108784569e33639b9546be6bf6547039fdbf1476a6e6dc24a391c8ec)
+            type_hints = cached_type_hints(_typecheckingstub__7dc14d9e108784569e33639b9546be6bf6547039fdbf1476a6e6dc24a391c8ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFuotaTaskProps(
@@ -1342,12 +1325,15 @@ class CfnFuotaTask(
 
     @jsii.member(jsii_name="arnForFuotaTask")
     @builtins.classmethod
-    def arn_for_fuota_task(cls, resource: "_IFuotaTaskRef_f399e9d4") -> builtins.str:
+    def arn_for_fuota_task(
+        cls,
+        resource: "_aws_iotwireless_7664edfb.IFuotaTaskRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c8860725bf293f2e4fe93018ddca41909f04dd99aec3275623aa15b4932aba)
+            type_hints = cached_type_hints(_typecheckingstub__12c8860725bf293f2e4fe93018ddca41909f04dd99aec3275623aa15b4932aba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFuotaTask", [resource]))
 
@@ -1358,7 +1344,7 @@ class CfnFuotaTask(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IFuotaTaskRef_f399e9d4":
+    ) -> "_aws_iotwireless_7664edfb.IFuotaTaskRef":
         '''Creates a new IFuotaTaskRef from an ARN.
 
         :param scope: -
@@ -1366,11 +1352,11 @@ class CfnFuotaTask(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9baa4f17b04928248889fc6bd2f40ea334749b2154aefe303a0f9e411c17c61f)
+            type_hints = cached_type_hints(_typecheckingstub__9baa4f17b04928248889fc6bd2f40ea334749b2154aefe303a0f9e411c17c61f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IFuotaTaskRef_f399e9d4", jsii.sinvoke(cls, "fromFuotaTaskArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IFuotaTaskRef", jsii.sinvoke(cls, "fromFuotaTaskArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromFuotaTaskId")
     @builtins.classmethod
@@ -1379,7 +1365,7 @@ class CfnFuotaTask(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         fuota_task_id: builtins.str,
-    ) -> "_IFuotaTaskRef_f399e9d4":
+    ) -> "_aws_iotwireless_7664edfb.IFuotaTaskRef":
         '''Creates a new IFuotaTaskRef from a fuotaTaskId.
 
         :param scope: -
@@ -1387,11 +1373,11 @@ class CfnFuotaTask(
         :param fuota_task_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5413a72b992e28c7495ac3658022b28b47bbf685f763b0054413546fa9b71a04)
+            type_hints = cached_type_hints(_typecheckingstub__5413a72b992e28c7495ac3658022b28b47bbf685f763b0054413546fa9b71a04)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument fuota_task_id", value=fuota_task_id, expected_type=type_hints["fuota_task_id"])
-        return typing.cast("_IFuotaTaskRef_f399e9d4", jsii.sinvoke(cls, "fromFuotaTaskId", [scope, id, fuota_task_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IFuotaTaskRef", jsii.sinvoke(cls, "fromFuotaTaskId", [scope, id, fuota_task_id]))
 
     @jsii.member(jsii_name="isCfnFuotaTask")
     @builtins.classmethod
@@ -1401,18 +1387,18 @@ class CfnFuotaTask(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c17c8d20122d4b702d3772c220261d1804038c66ffa89699075d37690486a68c)
+            type_hints = cached_type_hints(_typecheckingstub__c17c8d20122d4b702d3772c220261d1804038c66ffa89699075d37690486a68c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFuotaTask", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b980d91ff24dc028c16177ae311632139802ed07c63559bc60b6b0a7017f8724)
+            type_hints = cached_type_hints(_typecheckingstub__b980d91ff24dc028c16177ae311632139802ed07c63559bc60b6b0a7017f8724)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1425,7 +1411,7 @@ class CfnFuotaTask(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35e7b39665fb6873e720d392fdd079f7eb20ed523e0aa7f027788b71f4f36fa0)
+            type_hints = cached_type_hints(_typecheckingstub__35e7b39665fb6873e720d392fdd079f7eb20ed523e0aa7f027788b71f4f36fa0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1483,15 +1469,15 @@ class CfnFuotaTask(
 
     @builtins.property
     @jsii.member(jsii_name="fuotaTaskRef")
-    def fuota_task_ref(self) -> "_FuotaTaskReference_07067dc6":
+    def fuota_task_ref(self) -> "_aws_iotwireless_7664edfb.FuotaTaskReference":
         '''A reference to a FuotaTask resource.'''
-        return typing.cast("_FuotaTaskReference_07067dc6", jsii.get(self, "fuotaTaskRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.FuotaTaskReference", jsii.get(self, "fuotaTaskRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="firmwareUpdateImage")
@@ -1502,7 +1488,7 @@ class CfnFuotaTask(
     @firmware_update_image.setter
     def firmware_update_image(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78c1e683ef261ca9a0e323098857bde336b7b232a1debbe4ce45dedb26ca8745)
+            type_hints = cached_type_hints(_typecheckingstub__78c1e683ef261ca9a0e323098857bde336b7b232a1debbe4ce45dedb26ca8745)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firmwareUpdateImage", value) # pyright: ignore[reportArgumentType]
 
@@ -1515,7 +1501,7 @@ class CfnFuotaTask(
     @firmware_update_role.setter
     def firmware_update_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__461c299fc6e5ef170d9d68ec3a0d4fd23e292ad17e487e422fa0ced5654b660c)
+            type_hints = cached_type_hints(_typecheckingstub__461c299fc6e5ef170d9d68ec3a0d4fd23e292ad17e487e422fa0ced5654b660c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firmwareUpdateRole", value) # pyright: ignore[reportArgumentType]
 
@@ -1523,17 +1509,17 @@ class CfnFuotaTask(
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFuotaTask.LoRaWANProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFuotaTask.LoRaWANProperty"]:
         '''The LoRaWAN information used with a FUOTA task.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFuotaTask.LoRaWANProperty"], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFuotaTask.LoRaWANProperty"], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFuotaTask.LoRaWANProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFuotaTask.LoRaWANProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53ced8500df8e27b1785fe0afc435e424754dde0dc634914ed9fd44ab5b30ce8)
+            type_hints = cached_type_hints(_typecheckingstub__53ced8500df8e27b1785fe0afc435e424754dde0dc634914ed9fd44ab5b30ce8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -1546,7 +1532,7 @@ class CfnFuotaTask(
     @associate_multicast_group.setter
     def associate_multicast_group(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51d57cfccba3878e495806e2629c1b347cbfd7e7defe8b5465dd6bb995d141ac)
+            type_hints = cached_type_hints(_typecheckingstub__51d57cfccba3878e495806e2629c1b347cbfd7e7defe8b5465dd6bb995d141ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associateMulticastGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -1559,7 +1545,7 @@ class CfnFuotaTask(
     @associate_wireless_device.setter
     def associate_wireless_device(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__379374179bd98cbed6826061ba79e2ccdcb8f9d331dfad677cfb8ed97f739ee4)
+            type_hints = cached_type_hints(_typecheckingstub__379374179bd98cbed6826061ba79e2ccdcb8f9d331dfad677cfb8ed97f739ee4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associateWirelessDevice", value) # pyright: ignore[reportArgumentType]
 
@@ -1572,7 +1558,7 @@ class CfnFuotaTask(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbd259b9067a68c41327baaabf15d262b9fb84d09030f1cf4a7f0dd8e202ee92)
+            type_hints = cached_type_hints(_typecheckingstub__bbd259b9067a68c41327baaabf15d262b9fb84d09030f1cf4a7f0dd8e202ee92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1588,7 +1574,7 @@ class CfnFuotaTask(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c01c498cd349d14eb10d07e4f5e44c09c897b78b93d259561e5a16ba5e042381)
+            type_hints = cached_type_hints(_typecheckingstub__c01c498cd349d14eb10d07e4f5e44c09c897b78b93d259561e5a16ba5e042381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disassociateMulticastGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -1604,7 +1590,7 @@ class CfnFuotaTask(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9cb4e1ac40f6c4cb8557e33d35c0e1b17c7dca5a1e5af474d269743b81f4c32)
+            type_hints = cached_type_hints(_typecheckingstub__b9cb4e1ac40f6c4cb8557e33d35c0e1b17c7dca5a1e5af474d269743b81f4c32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disassociateWirelessDevice", value) # pyright: ignore[reportArgumentType]
 
@@ -1617,20 +1603,23 @@ class CfnFuotaTask(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eacacaf44fc0b79b61f7bfe0ff15f515d32d411b03d265dc1950da37d4e1df4)
+            type_hints = cached_type_hints(_typecheckingstub__2eacacaf44fc0b79b61f7bfe0ff15f515d32d411b03d265dc1950da37d4e1df4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af87398fea4c8098bb165637d1ed67059206096bfeaa74f0f7e4bc4f155438a5)
+            type_hints = cached_type_hints(_typecheckingstub__af87398fea4c8098bb165637d1ed67059206096bfeaa74f0f7e4bc4f155438a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1668,7 +1657,7 @@ class CfnFuotaTask(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a94393e5e1d51d161120515f2e9774caa190b7efe4ebfe8fa4779de1b04a5107)
+                type_hints = cached_type_hints(_typecheckingstub__a94393e5e1d51d161120515f2e9774caa190b7efe4ebfe8fa4779de1b04a5107)
                 check_type(argname="argument rf_region", value=rf_region, expected_type=type_hints["rf_region"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1730,14 +1719,14 @@ class CfnFuotaTaskProps:
         *,
         firmware_update_image: builtins.str,
         firmware_update_role: builtins.str,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFuotaTask.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFuotaTask.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
         associate_multicast_group: typing.Optional[builtins.str] = None,
         associate_wireless_device: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         disassociate_multicast_group: typing.Optional[builtins.str] = None,
         disassociate_wireless_device: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFuotaTask``.
 
@@ -1786,7 +1775,7 @@ class CfnFuotaTaskProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1c3e107aa1ac02161284f43f789dead141c5600532a3e5692ad63f38b6fe334)
+            type_hints = cached_type_hints(_typecheckingstub__f1c3e107aa1ac02161284f43f789dead141c5600532a3e5692ad63f38b6fe334)
             check_type(argname="argument firmware_update_image", value=firmware_update_image, expected_type=type_hints["firmware_update_image"])
             check_type(argname="argument firmware_update_role", value=firmware_update_role, expected_type=type_hints["firmware_update_role"])
             check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
@@ -1840,14 +1829,14 @@ class CfnFuotaTaskProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFuotaTask.LoRaWANProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFuotaTask.LoRaWANProperty"]:
         '''The LoRaWAN information used with a FUOTA task.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-fuotatask.html#cfn-iotwireless-fuotatask-lorawan
         '''
         result = self._values.get("lo_ra_wan")
         assert result is not None, "Required property 'lo_ra_wan' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFuotaTask.LoRaWANProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFuotaTask.LoRaWANProperty"], result)
 
     @builtins.property
     def associate_multicast_group(self) -> typing.Optional[builtins.str]:
@@ -1904,7 +1893,7 @@ class CfnFuotaTaskProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -1912,7 +1901,7 @@ class CfnFuotaTaskProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-fuotatask.html#cfn-iotwireless-fuotatask-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1926,9 +1915,9 @@ class CfnFuotaTaskProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMulticastGroupRef_aa211041, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IMulticastGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnMulticastGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnMulticastGroup",
 ):
@@ -1972,12 +1961,12 @@ class CfnMulticastGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMulticastGroup.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMulticastGroup.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
         associate_wireless_device: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         disassociate_wireless_device: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::MulticastGroup``.
 
@@ -1991,7 +1980,7 @@ class CfnMulticastGroup(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6fc3915d7fdc89e5cd965ebe2f8ae8013d87d86fae4860debc0123a0b130f24)
+            type_hints = cached_type_hints(_typecheckingstub__e6fc3915d7fdc89e5cd965ebe2f8ae8013d87d86fae4860debc0123a0b130f24)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMulticastGroupProps(
@@ -2009,13 +1998,13 @@ class CfnMulticastGroup(
     @builtins.classmethod
     def arn_for_multicast_group(
         cls,
-        resource: "_IMulticastGroupRef_aa211041",
+        resource: "_aws_iotwireless_7664edfb.IMulticastGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ab751e4598f78fa05a205d003273c4e163bdee0b7dfb77acbce1c985c24cfbe)
+            type_hints = cached_type_hints(_typecheckingstub__5ab751e4598f78fa05a205d003273c4e163bdee0b7dfb77acbce1c985c24cfbe)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMulticastGroup", [resource]))
 
@@ -2026,7 +2015,7 @@ class CfnMulticastGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMulticastGroupRef_aa211041":
+    ) -> "_aws_iotwireless_7664edfb.IMulticastGroupRef":
         '''Creates a new IMulticastGroupRef from an ARN.
 
         :param scope: -
@@ -2034,11 +2023,11 @@ class CfnMulticastGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e4574ee422fcf0ef4c4120eeea226e4a20bc0c14e7912579fde2c129dbfae77)
+            type_hints = cached_type_hints(_typecheckingstub__1e4574ee422fcf0ef4c4120eeea226e4a20bc0c14e7912579fde2c129dbfae77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMulticastGroupRef_aa211041", jsii.sinvoke(cls, "fromMulticastGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IMulticastGroupRef", jsii.sinvoke(cls, "fromMulticastGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromMulticastGroupId")
     @builtins.classmethod
@@ -2047,7 +2036,7 @@ class CfnMulticastGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         multicast_group_id: builtins.str,
-    ) -> "_IMulticastGroupRef_aa211041":
+    ) -> "_aws_iotwireless_7664edfb.IMulticastGroupRef":
         '''Creates a new IMulticastGroupRef from a multicastGroupId.
 
         :param scope: -
@@ -2055,11 +2044,11 @@ class CfnMulticastGroup(
         :param multicast_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cb4a666e5935beca9843c41fd7ff0d33a1dabbb2513bba5f00ba1140a17af61)
+            type_hints = cached_type_hints(_typecheckingstub__5cb4a666e5935beca9843c41fd7ff0d33a1dabbb2513bba5f00ba1140a17af61)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument multicast_group_id", value=multicast_group_id, expected_type=type_hints["multicast_group_id"])
-        return typing.cast("_IMulticastGroupRef_aa211041", jsii.sinvoke(cls, "fromMulticastGroupId", [scope, id, multicast_group_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IMulticastGroupRef", jsii.sinvoke(cls, "fromMulticastGroupId", [scope, id, multicast_group_id]))
 
     @jsii.member(jsii_name="isCfnMulticastGroup")
     @builtins.classmethod
@@ -2069,18 +2058,18 @@ class CfnMulticastGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b7a2466a77c304ce920bcc220a10b5563a1cb060179a3d402aa1e712d2b19c3)
+            type_hints = cached_type_hints(_typecheckingstub__5b7a2466a77c304ce920bcc220a10b5563a1cb060179a3d402aa1e712d2b19c3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMulticastGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ea85117dcaae87f7c258e9db5b97562bfa9d3134ac4257066b0b99c150b670a)
+            type_hints = cached_type_hints(_typecheckingstub__0ea85117dcaae87f7c258e9db5b97562bfa9d3134ac4257066b0b99c150b670a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2093,7 +2082,7 @@ class CfnMulticastGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fcd2888d21219d187de015a688eab431ac6138768b481256a7336154497d286)
+            type_hints = cached_type_hints(_typecheckingstub__8fcd2888d21219d187de015a688eab431ac6138768b481256a7336154497d286)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2160,31 +2149,33 @@ class CfnMulticastGroup(
 
     @builtins.property
     @jsii.member(jsii_name="multicastGroupRef")
-    def multicast_group_ref(self) -> "_MulticastGroupReference_1a215afe":
+    def multicast_group_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.MulticastGroupReference":
         '''A reference to a MulticastGroup resource.'''
-        return typing.cast("_MulticastGroupReference_1a215afe", jsii.get(self, "multicastGroupRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.MulticastGroupReference", jsii.get(self, "multicastGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMulticastGroup.LoRaWANProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMulticastGroup.LoRaWANProperty"]:
         '''The LoRaWAN information that is to be used with the multicast group.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMulticastGroup.LoRaWANProperty"], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMulticastGroup.LoRaWANProperty"], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMulticastGroup.LoRaWANProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMulticastGroup.LoRaWANProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c294e487d95b07e085a91c7f8a13feb7802783382655634e559a8b45c99c8ed1)
+            type_hints = cached_type_hints(_typecheckingstub__c294e487d95b07e085a91c7f8a13feb7802783382655634e559a8b45c99c8ed1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -2197,7 +2188,7 @@ class CfnMulticastGroup(
     @associate_wireless_device.setter
     def associate_wireless_device(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae2c095360e3b3956ec27a5a0391c8b9c6a1066c9419e78b18a128b1dce39cd3)
+            type_hints = cached_type_hints(_typecheckingstub__ae2c095360e3b3956ec27a5a0391c8b9c6a1066c9419e78b18a128b1dce39cd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associateWirelessDevice", value) # pyright: ignore[reportArgumentType]
 
@@ -2210,7 +2201,7 @@ class CfnMulticastGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8546711d1c48df42c3459de0d74a8bd074a39920589e487cf369cb45db970959)
+            type_hints = cached_type_hints(_typecheckingstub__8546711d1c48df42c3459de0d74a8bd074a39920589e487cf369cb45db970959)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2226,7 +2217,7 @@ class CfnMulticastGroup(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c14cccbedbde81f7eab76271cf8904f266f0740eeae3b16d6d56f4c841f9bf2)
+            type_hints = cached_type_hints(_typecheckingstub__7c14cccbedbde81f7eab76271cf8904f266f0740eeae3b16d6d56f4c841f9bf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disassociateWirelessDevice", value) # pyright: ignore[reportArgumentType]
 
@@ -2239,20 +2230,23 @@ class CfnMulticastGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9827482ae6bbc3367a4ad1ad70db1f6720ac74a9a8bff8d777c1b9974f2a0c22)
+            type_hints = cached_type_hints(_typecheckingstub__9827482ae6bbc3367a4ad1ad70db1f6720ac74a9a8bff8d777c1b9974f2a0c22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27a605465487f3c8166eed5c794a991aa0323a4e726e6135514d21538a40f38a)
+            type_hints = cached_type_hints(_typecheckingstub__27a605465487f3c8166eed5c794a991aa0323a4e726e6135514d21538a40f38a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2301,7 +2295,7 @@ class CfnMulticastGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a226fea2e98276efaf2b644d1722fe1463b41172c734829c58e4752c3acd34f5)
+                type_hints = cached_type_hints(_typecheckingstub__a226fea2e98276efaf2b644d1722fe1463b41172c734829c58e4752c3acd34f5)
                 check_type(argname="argument dl_class", value=dl_class, expected_type=type_hints["dl_class"])
                 check_type(argname="argument rf_region", value=rf_region, expected_type=type_hints["rf_region"])
                 check_type(argname="argument number_of_devices_in_group", value=number_of_devices_in_group, expected_type=type_hints["number_of_devices_in_group"])
@@ -2383,12 +2377,12 @@ class CfnMulticastGroupProps:
     def __init__(
         self,
         *,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMulticastGroup.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMulticastGroup.LoRaWANProperty", typing.Dict[builtins.str, typing.Any]]],
         associate_wireless_device: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         disassociate_wireless_device: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMulticastGroup``.
 
@@ -2431,7 +2425,7 @@ class CfnMulticastGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c4e6fa1a2a0807dcecf7101bb34c083b7ea47e91b475851efefdc2219a41c6d)
+            type_hints = cached_type_hints(_typecheckingstub__6c4e6fa1a2a0807dcecf7101bb34c083b7ea47e91b475851efefdc2219a41c6d)
             check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
             check_type(argname="argument associate_wireless_device", value=associate_wireless_device, expected_type=type_hints["associate_wireless_device"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2455,14 +2449,14 @@ class CfnMulticastGroupProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMulticastGroup.LoRaWANProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMulticastGroup.LoRaWANProperty"]:
         '''The LoRaWAN information that is to be used with the multicast group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-multicastgroup.html#cfn-iotwireless-multicastgroup-lorawan
         '''
         result = self._values.get("lo_ra_wan")
         assert result is not None, "Required property 'lo_ra_wan' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMulticastGroup.LoRaWANProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMulticastGroup.LoRaWANProperty"], result)
 
     @builtins.property
     def associate_wireless_device(self) -> typing.Optional[builtins.str]:
@@ -2501,7 +2495,7 @@ class CfnMulticastGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -2509,7 +2503,7 @@ class CfnMulticastGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-multicastgroup.html#cfn-iotwireless-multicastgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2523,9 +2517,9 @@ class CfnMulticastGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _INetworkAnalyzerConfigurationRef_342e1d7d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnNetworkAnalyzerConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnNetworkAnalyzerConfiguration",
 ):
@@ -2566,7 +2560,7 @@ class CfnNetworkAnalyzerConfiguration(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trace_content: typing.Any = None,
         wireless_devices: typing.Optional[typing.Sequence[builtins.str]] = None,
         wireless_gateways: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2583,7 +2577,7 @@ class CfnNetworkAnalyzerConfiguration(
         :param wireless_gateways: Wireless gateway resources to add to the network analyzer configuration. Provide the ``WirelessGatewayId`` of the resource to add in the input array.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef76e8561696d18827326b858a29c7a5bd71d6c55e2e8bf310bff5db6a892786)
+            type_hints = cached_type_hints(_typecheckingstub__ef76e8561696d18827326b858a29c7a5bd71d6c55e2e8bf310bff5db6a892786)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNetworkAnalyzerConfigurationProps(
@@ -2601,13 +2595,13 @@ class CfnNetworkAnalyzerConfiguration(
     @builtins.classmethod
     def arn_for_network_analyzer_configuration(
         cls,
-        resource: "_INetworkAnalyzerConfigurationRef_342e1d7d",
+        resource: "_aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__813e6d4c900b137307e046df6a4e926e2df7f732220322c231125bb6e701fe87)
+            type_hints = cached_type_hints(_typecheckingstub__813e6d4c900b137307e046df6a4e926e2df7f732220322c231125bb6e701fe87)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNetworkAnalyzerConfiguration", [resource]))
 
@@ -2618,7 +2612,7 @@ class CfnNetworkAnalyzerConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_INetworkAnalyzerConfigurationRef_342e1d7d":
+    ) -> "_aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef":
         '''Creates a new INetworkAnalyzerConfigurationRef from an ARN.
 
         :param scope: -
@@ -2626,11 +2620,11 @@ class CfnNetworkAnalyzerConfiguration(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55eef13b6d441bbc43c205b400be4f483a5971f2f70cac62f8197d0a6ca28da1)
+            type_hints = cached_type_hints(_typecheckingstub__55eef13b6d441bbc43c205b400be4f483a5971f2f70cac62f8197d0a6ca28da1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_INetworkAnalyzerConfigurationRef_342e1d7d", jsii.sinvoke(cls, "fromNetworkAnalyzerConfigurationArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef", jsii.sinvoke(cls, "fromNetworkAnalyzerConfigurationArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromNetworkAnalyzerConfigurationName")
     @builtins.classmethod
@@ -2639,7 +2633,7 @@ class CfnNetworkAnalyzerConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         network_analyzer_configuration_name: builtins.str,
-    ) -> "_INetworkAnalyzerConfigurationRef_342e1d7d":
+    ) -> "_aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef":
         '''Creates a new INetworkAnalyzerConfigurationRef from a networkAnalyzerConfigurationName.
 
         :param scope: -
@@ -2647,11 +2641,11 @@ class CfnNetworkAnalyzerConfiguration(
         :param network_analyzer_configuration_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__139ea6cda9ef479e2b37118b138dec28773cc58607df63ece1bf7b432c1c3f45)
+            type_hints = cached_type_hints(_typecheckingstub__139ea6cda9ef479e2b37118b138dec28773cc58607df63ece1bf7b432c1c3f45)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument network_analyzer_configuration_name", value=network_analyzer_configuration_name, expected_type=type_hints["network_analyzer_configuration_name"])
-        return typing.cast("_INetworkAnalyzerConfigurationRef_342e1d7d", jsii.sinvoke(cls, "fromNetworkAnalyzerConfigurationName", [scope, id, network_analyzer_configuration_name]))
+        return typing.cast("_aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef", jsii.sinvoke(cls, "fromNetworkAnalyzerConfigurationName", [scope, id, network_analyzer_configuration_name]))
 
     @jsii.member(jsii_name="isCfnNetworkAnalyzerConfiguration")
     @builtins.classmethod
@@ -2661,18 +2655,18 @@ class CfnNetworkAnalyzerConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4bd3d1bd4737fa3a3482ff6c2ed61037b1b5c95439f38c6f921ef9c53ab7ea8)
+            type_hints = cached_type_hints(_typecheckingstub__b4bd3d1bd4737fa3a3482ff6c2ed61037b1b5c95439f38c6f921ef9c53ab7ea8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNetworkAnalyzerConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb735453542fc1eee5534899adaa88277e0a12f532d40466da5d9007b540f43c)
+            type_hints = cached_type_hints(_typecheckingstub__fb735453542fc1eee5534899adaa88277e0a12f532d40466da5d9007b540f43c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2685,7 +2679,7 @@ class CfnNetworkAnalyzerConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d3ff277ab1c23aa596a504d2383a5cf86d5bc2401250de37145267f78d0739)
+            type_hints = cached_type_hints(_typecheckingstub__89d3ff277ab1c23aa596a504d2383a5cf86d5bc2401250de37145267f78d0739)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2718,15 +2712,15 @@ class CfnNetworkAnalyzerConfiguration(
     @jsii.member(jsii_name="networkAnalyzerConfigurationRef")
     def network_analyzer_configuration_ref(
         self,
-    ) -> "_NetworkAnalyzerConfigurationReference_736c312d":
+    ) -> "_aws_iotwireless_7664edfb.NetworkAnalyzerConfigurationReference":
         '''A reference to a NetworkAnalyzerConfiguration resource.'''
-        return typing.cast("_NetworkAnalyzerConfigurationReference_736c312d", jsii.get(self, "networkAnalyzerConfigurationRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.NetworkAnalyzerConfigurationReference", jsii.get(self, "networkAnalyzerConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2737,7 +2731,7 @@ class CfnNetworkAnalyzerConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c86a3d802557338c300cca0ece6752eb71025ac87c6ef07829166d2ff477df9)
+            type_hints = cached_type_hints(_typecheckingstub__8c86a3d802557338c300cca0ece6752eb71025ac87c6ef07829166d2ff477df9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2750,7 +2744,7 @@ class CfnNetworkAnalyzerConfiguration(
     @trace_content.setter
     def trace_content(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6)
+            type_hints = cached_type_hints(_typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "traceContent", value) # pyright: ignore[reportArgumentType]
 
@@ -2763,20 +2757,23 @@ class CfnNetworkAnalyzerConfiguration(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22eabf9156)
+            type_hints = cached_type_hints(_typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22eabf9156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e)
+            type_hints = cached_type_hints(_typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2792,7 +2789,7 @@ class CfnNetworkAnalyzerConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__345530c2c6feaa99816a9ee99013b64ff606afb8afa94b821fff9b5acdaf603b)
+            type_hints = cached_type_hints(_typecheckingstub__345530c2c6feaa99816a9ee99013b64ff606afb8afa94b821fff9b5acdaf603b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wirelessDevices", value) # pyright: ignore[reportArgumentType]
 
@@ -2808,7 +2805,7 @@ class CfnNetworkAnalyzerConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2a89da82bb29c60f2cbd481009d94f8a49db119e080583ebad6fe6b40308f21)
+            type_hints = cached_type_hints(_typecheckingstub__c2a89da82bb29c60f2cbd481009d94f8a49db119e080583ebad6fe6b40308f21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wirelessGateways", value) # pyright: ignore[reportArgumentType]
 
@@ -2847,7 +2844,7 @@ class CfnNetworkAnalyzerConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__45bcacb642e8b830d381b062a8db3fed1fc9995b8d0083e17def729766ceaa1f)
+                type_hints = cached_type_hints(_typecheckingstub__45bcacb642e8b830d381b062a8db3fed1fc9995b8d0083e17def729766ceaa1f)
                 check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
                 check_type(argname="argument wireless_device_frame_info", value=wireless_device_frame_info, expected_type=type_hints["wireless_device_frame_info"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2908,7 +2905,7 @@ class CfnNetworkAnalyzerConfigurationProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trace_content: typing.Any = None,
         wireless_devices: typing.Optional[typing.Sequence[builtins.str]] = None,
         wireless_gateways: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2949,7 +2946,7 @@ class CfnNetworkAnalyzerConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de35d2504c45d0e78e2b671e6fad33a1e14e8aa548b7e508caaa7a23bf523bd5)
+            type_hints = cached_type_hints(_typecheckingstub__de35d2504c45d0e78e2b671e6fad33a1e14e8aa548b7e508caaa7a23bf523bd5)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2990,7 +2987,7 @@ class CfnNetworkAnalyzerConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to attach to the specified resource.
 
         Tags are metadata that you can use to manage a resource.
@@ -2998,7 +2995,7 @@ class CfnNetworkAnalyzerConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-networkanalyzerconfiguration.html#cfn-iotwireless-networkanalyzerconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trace_content(self) -> typing.Any:
@@ -3043,9 +3040,9 @@ class CfnNetworkAnalyzerConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPartnerAccountRef_d86f33ac, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IPartnerAccountRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPartnerAccount(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnPartnerAccount",
 ):
@@ -3091,13 +3088,13 @@ class CfnPartnerAccount(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        account_linked: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        account_linked: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         partner_account_id: typing.Optional[builtins.str] = None,
         partner_type: typing.Optional[builtins.str] = None,
-        sidewalk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkAccountInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sidewalk_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sidewalk_update: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkUpdateAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkAccountInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk_response: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk_update: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkUpdateAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::PartnerAccount``.
 
@@ -3112,7 +3109,7 @@ class CfnPartnerAccount(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23050117a6e6495f26306a5fff82479bd5fc0476b02f8ebd675aaba8825caf23)
+            type_hints = cached_type_hints(_typecheckingstub__23050117a6e6495f26306a5fff82479bd5fc0476b02f8ebd675aaba8825caf23)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPartnerAccountProps(
@@ -3131,13 +3128,13 @@ class CfnPartnerAccount(
     @builtins.classmethod
     def arn_for_partner_account(
         cls,
-        resource: "_IPartnerAccountRef_d86f33ac",
+        resource: "_aws_iotwireless_7664edfb.IPartnerAccountRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4206c7d458aec088921a510596977bef15902377cdfb5e1626fad9cd2fe3d251)
+            type_hints = cached_type_hints(_typecheckingstub__4206c7d458aec088921a510596977bef15902377cdfb5e1626fad9cd2fe3d251)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPartnerAccount", [resource]))
 
@@ -3149,18 +3146,18 @@ class CfnPartnerAccount(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17e39ab0249ecefac9cb24aee27959ca3ac07f8c8b31662537cbd48d9d4cd5bb)
+            type_hints = cached_type_hints(_typecheckingstub__17e39ab0249ecefac9cb24aee27959ca3ac07f8c8b31662537cbd48d9d4cd5bb)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPartnerAccount", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__614820e59436cd5cb89f1931fa964da150fbdf2e6b823323674e6cef8ab4bb79)
+            type_hints = cached_type_hints(_typecheckingstub__614820e59436cd5cb89f1931fa964da150fbdf2e6b823323674e6cef8ab4bb79)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3173,7 +3170,7 @@ class CfnPartnerAccount(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7087c5f1c74d1220271f38d1f9ff76843a565709c5a8c4011156d03dc8163b3a)
+            type_hints = cached_type_hints(_typecheckingstub__7087c5f1c74d1220271f38d1f9ff76843a565709c5a8c4011156d03dc8163b3a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3213,31 +3210,33 @@ class CfnPartnerAccount(
 
     @builtins.property
     @jsii.member(jsii_name="partnerAccountRef")
-    def partner_account_ref(self) -> "_PartnerAccountReference_500c3c15":
+    def partner_account_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.PartnerAccountReference":
         '''A reference to a PartnerAccount resource.'''
-        return typing.cast("_PartnerAccountReference_500c3c15", jsii.get(self, "partnerAccountRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.PartnerAccountReference", jsii.get(self, "partnerAccountRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="accountLinked")
     def account_linked(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the partner account is linked to the AWS account.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "accountLinked"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "accountLinked"))
 
     @account_linked.setter
     def account_linked(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aaf826ad1c2a370b17963e90c6207f7bb7314d3e7dc5cae931ff248746ba3fa)
+            type_hints = cached_type_hints(_typecheckingstub__8aaf826ad1c2a370b17963e90c6207f7bb7314d3e7dc5cae931ff248746ba3fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountLinked", value) # pyright: ignore[reportArgumentType]
 
@@ -3250,7 +3249,7 @@ class CfnPartnerAccount(
     @partner_account_id.setter
     def partner_account_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3e0bac11a48ea18aaab6b58e90043f92d7be541f658cdee62741f6c3c496ad6)
+            type_hints = cached_type_hints(_typecheckingstub__c3e0bac11a48ea18aaab6b58e90043f92d7be541f658cdee62741f6c3c496ad6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "partnerAccountId", value) # pyright: ignore[reportArgumentType]
 
@@ -3263,7 +3262,7 @@ class CfnPartnerAccount(
     @partner_type.setter
     def partner_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b67a184faefbbc21a96bb714ed21601a9e1f59ee99b131697db7927e94ab59)
+            type_hints = cached_type_hints(_typecheckingstub__95b67a184faefbbc21a96bb714ed21601a9e1f59ee99b131697db7927e94ab59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "partnerType", value) # pyright: ignore[reportArgumentType]
 
@@ -3271,17 +3270,17 @@ class CfnPartnerAccount(
     @jsii.member(jsii_name="sidewalk")
     def sidewalk(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoProperty"]]:
         '''The Sidewalk account credentials.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoProperty"]], jsii.get(self, "sidewalk"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoProperty"]], jsii.get(self, "sidewalk"))
 
     @sidewalk.setter
     def sidewalk(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dfc9914aae89e0f8eb197d8ffe2bc096aa60a82245d8f1a8724edd051f7d100)
+            type_hints = cached_type_hints(_typecheckingstub__5dfc9914aae89e0f8eb197d8ffe2bc096aa60a82245d8f1a8724edd051f7d100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sidewalk", value) # pyright: ignore[reportArgumentType]
 
@@ -3289,17 +3288,17 @@ class CfnPartnerAccount(
     @jsii.member(jsii_name="sidewalkResponse")
     def sidewalk_response(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]]:
         '''Information about a Sidewalk account.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]], jsii.get(self, "sidewalkResponse"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]], jsii.get(self, "sidewalkResponse"))
 
     @sidewalk_response.setter
     def sidewalk_response(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe1611d5cb899b19b3746136128a84710ec89f4b9d8628afa53281d1714b6abb)
+            type_hints = cached_type_hints(_typecheckingstub__fe1611d5cb899b19b3746136128a84710ec89f4b9d8628afa53281d1714b6abb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sidewalkResponse", value) # pyright: ignore[reportArgumentType]
 
@@ -3307,30 +3306,33 @@ class CfnPartnerAccount(
     @jsii.member(jsii_name="sidewalkUpdate")
     def sidewalk_update(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]]:
         '''Sidewalk update.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]], jsii.get(self, "sidewalkUpdate"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]], jsii.get(self, "sidewalkUpdate"))
 
     @sidewalk_update.setter
     def sidewalk_update(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31e0971bf93851f4e3f9a7278252a08cda6e44ea93a8e7a0b793f3aa5bc028fa)
+            type_hints = cached_type_hints(_typecheckingstub__31e0971bf93851f4e3f9a7278252a08cda6e44ea93a8e7a0b793f3aa5bc028fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sidewalkUpdate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da5c265354d811dc09b785b9e46927998e11bca13038834b76f0874d18d38cfa)
+            type_hints = cached_type_hints(_typecheckingstub__da5c265354d811dc09b785b9e46927998e11bca13038834b76f0874d18d38cfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3359,7 +3361,7 @@ class CfnPartnerAccount(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2026302496a7f825e68ebe0f409dc67f03e56d91b85c6e9620df1d14531c2cd8)
+                type_hints = cached_type_hints(_typecheckingstub__2026302496a7f825e68ebe0f409dc67f03e56d91b85c6e9620df1d14531c2cd8)
                 check_type(argname="argument app_server_private_key", value=app_server_private_key, expected_type=type_hints["app_server_private_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "app_server_private_key": app_server_private_key,
@@ -3427,7 +3429,7 @@ class CfnPartnerAccount(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ad67c351551efbad19725dfc18b31f0e8ac440e2de3a4b1505f542c76cb7dd5)
+                type_hints = cached_type_hints(_typecheckingstub__2ad67c351551efbad19725dfc18b31f0e8ac440e2de3a4b1505f542c76cb7dd5)
                 check_type(argname="argument amazon_id", value=amazon_id, expected_type=type_hints["amazon_id"])
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument fingerprint", value=fingerprint, expected_type=type_hints["fingerprint"])
@@ -3506,7 +3508,7 @@ class CfnPartnerAccount(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__419d83ee7d8c9559933db42ce308a1fff6731f91c044b636c9b8c0111ed95630)
+                type_hints = cached_type_hints(_typecheckingstub__419d83ee7d8c9559933db42ce308a1fff6731f91c044b636c9b8c0111ed95630)
                 check_type(argname="argument app_server_private_key", value=app_server_private_key, expected_type=type_hints["app_server_private_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if app_server_private_key is not None:
@@ -3550,13 +3552,13 @@ class CfnPartnerAccountProps:
     def __init__(
         self,
         *,
-        account_linked: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        account_linked: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         partner_account_id: typing.Optional[builtins.str] = None,
         partner_type: typing.Optional[builtins.str] = None,
-        sidewalk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkAccountInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sidewalk_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sidewalk_update: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnerAccount.SidewalkUpdateAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkAccountInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk_response: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk_update: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnerAccount.SidewalkUpdateAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPartnerAccount``.
 
@@ -3600,7 +3602,7 @@ class CfnPartnerAccountProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c81ac7b24f2d30b6f882858ea510845d9241758d5fd74e60160c9d089bc1de6)
+            type_hints = cached_type_hints(_typecheckingstub__8c81ac7b24f2d30b6f882858ea510845d9241758d5fd74e60160c9d089bc1de6)
             check_type(argname="argument account_linked", value=account_linked, expected_type=type_hints["account_linked"])
             check_type(argname="argument partner_account_id", value=partner_account_id, expected_type=type_hints["partner_account_id"])
             check_type(argname="argument partner_type", value=partner_type, expected_type=type_hints["partner_type"])
@@ -3627,13 +3629,13 @@ class CfnPartnerAccountProps:
     @builtins.property
     def account_linked(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the partner account is linked to the AWS account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-partneraccount.html#cfn-iotwireless-partneraccount-accountlinked
         '''
         result = self._values.get("account_linked")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def partner_account_id(self) -> typing.Optional[builtins.str]:
@@ -3656,38 +3658,38 @@ class CfnPartnerAccountProps:
     @builtins.property
     def sidewalk(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoProperty"]]:
         '''The Sidewalk account credentials.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-partneraccount.html#cfn-iotwireless-partneraccount-sidewalk
         '''
         result = self._values.get("sidewalk")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoProperty"]], result)
 
     @builtins.property
     def sidewalk_response(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]]:
         '''Information about a Sidewalk account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-partneraccount.html#cfn-iotwireless-partneraccount-sidewalkresponse
         '''
         result = self._values.get("sidewalk_response")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty"]], result)
 
     @builtins.property
     def sidewalk_update(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]]:
         '''Sidewalk update.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-partneraccount.html#cfn-iotwireless-partneraccount-sidewalkupdate
         '''
         result = self._values.get("sidewalk_update")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnerAccount.SidewalkUpdateAccountProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -3695,7 +3697,7 @@ class CfnPartnerAccountProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-partneraccount.html#cfn-iotwireless-partneraccount-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3709,9 +3711,9 @@ class CfnPartnerAccountProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceProfileRef_7a1bbf25, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IServiceProfileRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnServiceProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnServiceProfile",
 ):
@@ -3763,9 +3765,9 @@ class CfnServiceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceProfile.LoRaWANServiceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceProfile.LoRaWANServiceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::ServiceProfile``.
 
@@ -3776,7 +3778,7 @@ class CfnServiceProfile(
         :param tags: The tags are an array of key-value pairs to attach to the specified resource. Tags can have a minimum of 0 and a maximum of 50 items.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca074f221eda320f2c5d116c9446f9cd7110e09a78394cec71fb5ba026bbf22d)
+            type_hints = cached_type_hints(_typecheckingstub__ca074f221eda320f2c5d116c9446f9cd7110e09a78394cec71fb5ba026bbf22d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceProfileProps(lo_ra_wan=lo_ra_wan, name=name, tags=tags)
@@ -3787,13 +3789,13 @@ class CfnServiceProfile(
     @builtins.classmethod
     def arn_for_service_profile(
         cls,
-        resource: "_IServiceProfileRef_7a1bbf25",
+        resource: "_aws_iotwireless_7664edfb.IServiceProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9a173257cb1be86609a3378fb513c0be3f0124bad6754574db7fb0a9844518e)
+            type_hints = cached_type_hints(_typecheckingstub__b9a173257cb1be86609a3378fb513c0be3f0124bad6754574db7fb0a9844518e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServiceProfile", [resource]))
 
@@ -3804,7 +3806,7 @@ class CfnServiceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IServiceProfileRef_7a1bbf25":
+    ) -> "_aws_iotwireless_7664edfb.IServiceProfileRef":
         '''Creates a new IServiceProfileRef from an ARN.
 
         :param scope: -
@@ -3812,11 +3814,11 @@ class CfnServiceProfile(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__720fa82707a0285118cc342620b6896bcee6d5a0bc95e1fc8d0ac2b93733a884)
+            type_hints = cached_type_hints(_typecheckingstub__720fa82707a0285118cc342620b6896bcee6d5a0bc95e1fc8d0ac2b93733a884)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IServiceProfileRef_7a1bbf25", jsii.sinvoke(cls, "fromServiceProfileArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IServiceProfileRef", jsii.sinvoke(cls, "fromServiceProfileArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromServiceProfileId")
     @builtins.classmethod
@@ -3825,7 +3827,7 @@ class CfnServiceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         service_profile_id: builtins.str,
-    ) -> "_IServiceProfileRef_7a1bbf25":
+    ) -> "_aws_iotwireless_7664edfb.IServiceProfileRef":
         '''Creates a new IServiceProfileRef from a serviceProfileId.
 
         :param scope: -
@@ -3833,11 +3835,11 @@ class CfnServiceProfile(
         :param service_profile_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a55e82941f32b55596c816b7ff203f043b09ce160be22cf23558adeeb914118f)
+            type_hints = cached_type_hints(_typecheckingstub__a55e82941f32b55596c816b7ff203f043b09ce160be22cf23558adeeb914118f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument service_profile_id", value=service_profile_id, expected_type=type_hints["service_profile_id"])
-        return typing.cast("_IServiceProfileRef_7a1bbf25", jsii.sinvoke(cls, "fromServiceProfileId", [scope, id, service_profile_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IServiceProfileRef", jsii.sinvoke(cls, "fromServiceProfileId", [scope, id, service_profile_id]))
 
     @jsii.member(jsii_name="isCfnServiceProfile")
     @builtins.classmethod
@@ -3847,18 +3849,18 @@ class CfnServiceProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c5b7cd5f8dc00a5277aac63572546f6e43b6999bbdf1739417c721dd1f44eff)
+            type_hints = cached_type_hints(_typecheckingstub__0c5b7cd5f8dc00a5277aac63572546f6e43b6999bbdf1739417c721dd1f44eff)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__315dce048c406077b559684777c77b5922185f7618f6e7f04028b47d32b7baf3)
+            type_hints = cached_type_hints(_typecheckingstub__315dce048c406077b559684777c77b5922185f7618f6e7f04028b47d32b7baf3)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3871,7 +3873,7 @@ class CfnServiceProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3507ca4e4302d93d3394415217c34a0e9785c7d2280e3ed5952192a94d1fe9eb)
+            type_hints = cached_type_hints(_typecheckingstub__3507ca4e4302d93d3394415217c34a0e9785c7d2280e3ed5952192a94d1fe9eb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3964,12 +3966,12 @@ class CfnServiceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanHrAllowed")
-    def attr_lo_ra_wan_hr_allowed(self) -> "_IResolvable_da3f097b":
+    def attr_lo_ra_wan_hr_allowed(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The HRAllowed value that describes whether handover roaming is allowed.
 
         :cloudformationAttribute: LoRaWAN.HrAllowed
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLoRaWanHrAllowed"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLoRaWanHrAllowed"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanMinGwDiversity")
@@ -3982,38 +3984,42 @@ class CfnServiceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanNwkGeoLoc")
-    def attr_lo_ra_wan_nwk_geo_loc(self) -> "_IResolvable_da3f097b":
+    def attr_lo_ra_wan_nwk_geo_loc(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The NwkGeoLoc value.
 
         :cloudformationAttribute: LoRaWAN.NwkGeoLoc
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLoRaWanNwkGeoLoc"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLoRaWanNwkGeoLoc"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanReportDevStatusBattery")
-    def attr_lo_ra_wan_report_dev_status_battery(self) -> "_IResolvable_da3f097b":
+    def attr_lo_ra_wan_report_dev_status_battery(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The ReportDevStatusBattery value.
 
         :cloudformationAttribute: LoRaWAN.ReportDevStatusBattery
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLoRaWanReportDevStatusBattery"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLoRaWanReportDevStatusBattery"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanReportDevStatusMargin")
-    def attr_lo_ra_wan_report_dev_status_margin(self) -> "_IResolvable_da3f097b":
+    def attr_lo_ra_wan_report_dev_status_margin(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The ReportDevStatusMargin value.
 
         :cloudformationAttribute: LoRaWAN.ReportDevStatusMargin
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLoRaWanReportDevStatusMargin"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLoRaWanReportDevStatusMargin"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanResponse")
-    def attr_lo_ra_wan_response(self) -> "_IResolvable_da3f097b":
+    def attr_lo_ra_wan_response(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: LoRaWANResponse
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLoRaWanResponse"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLoRaWanResponse"))
 
     @builtins.property
     @jsii.member(jsii_name="attrLoRaWanTargetPer")
@@ -4063,31 +4069,33 @@ class CfnServiceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="serviceProfileRef")
-    def service_profile_ref(self) -> "_ServiceProfileReference_95036c40":
+    def service_profile_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.ServiceProfileReference":
         '''A reference to a ServiceProfile resource.'''
-        return typing.cast("_ServiceProfileReference_95036c40", jsii.get(self, "serviceProfileRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.ServiceProfileReference", jsii.get(self, "serviceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceProfile.LoRaWANServiceProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceProfile.LoRaWANServiceProfileProperty"]]:
         '''LoRaWAN service profile object.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceProfile.LoRaWANServiceProfileProperty"]], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceProfile.LoRaWANServiceProfileProperty"]], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceProfile.LoRaWANServiceProfileProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceProfile.LoRaWANServiceProfileProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d12a1731df94a26c15c2c629e69f05069e78147796ed92c827d35da4720ce385)
+            type_hints = cached_type_hints(_typecheckingstub__d12a1731df94a26c15c2c629e69f05069e78147796ed92c827d35da4720ce385)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -4100,20 +4108,23 @@ class CfnServiceProfile(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__495ecf85f557b8fb320530fa172728080da4333c5d1daf49554895e2ede03448)
+            type_hints = cached_type_hints(_typecheckingstub__495ecf85f557b8fb320530fa172728080da4333c5d1daf49554895e2ede03448)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e06c705f6bfd3ea15e35dda8a1e29b0c43e6f15d22947389e98e820e46ad578)
+            type_hints = cached_type_hints(_typecheckingstub__6e06c705f6bfd3ea15e35dda8a1e29b0c43e6f15d22947389e98e820e46ad578)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -4146,7 +4157,7 @@ class CfnServiceProfile(
         def __init__(
             self,
             *,
-            add_gw_metadata: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            add_gw_metadata: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             channel_mask: typing.Optional[builtins.str] = None,
             dev_status_req_freq: typing.Optional[jsii.Number] = None,
             dl_bucket_size: typing.Optional[jsii.Number] = None,
@@ -4154,13 +4165,13 @@ class CfnServiceProfile(
             dl_rate_policy: typing.Optional[builtins.str] = None,
             dr_max: typing.Optional[jsii.Number] = None,
             dr_min: typing.Optional[jsii.Number] = None,
-            hr_allowed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            hr_allowed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             min_gw_diversity: typing.Optional[jsii.Number] = None,
-            nwk_geo_loc: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            pr_allowed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            ra_allowed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            report_dev_status_battery: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            report_dev_status_margin: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            nwk_geo_loc: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            pr_allowed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            ra_allowed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            report_dev_status_battery: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            report_dev_status_margin: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             target_per: typing.Optional[jsii.Number] = None,
             ul_bucket_size: typing.Optional[jsii.Number] = None,
             ul_rate: typing.Optional[jsii.Number] = None,
@@ -4220,7 +4231,7 @@ class CfnServiceProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__80e153375dd84b74afa9419878247da802f9f8a8a199383f8d5fd7a83461c9d9)
+                type_hints = cached_type_hints(_typecheckingstub__80e153375dd84b74afa9419878247da802f9f8a8a199383f8d5fd7a83461c9d9)
                 check_type(argname="argument add_gw_metadata", value=add_gw_metadata, expected_type=type_hints["add_gw_metadata"])
                 check_type(argname="argument channel_mask", value=channel_mask, expected_type=type_hints["channel_mask"])
                 check_type(argname="argument dev_status_req_freq", value=dev_status_req_freq, expected_type=type_hints["dev_status_req_freq"])
@@ -4283,13 +4294,13 @@ class CfnServiceProfile(
         @builtins.property
         def add_gw_metadata(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The AddGWMetaData value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-addgwmetadata
             '''
             result = self._values.get("add_gw_metadata")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def channel_mask(self) -> typing.Optional[builtins.str]:
@@ -4371,7 +4382,7 @@ class CfnServiceProfile(
         @builtins.property
         def hr_allowed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The HRAllowed value that describes whether handover roaming is allowed.
 
             This property is ``ReadOnly`` and can't be inputted for create. It's returned with ``Fn::GetAtt``
@@ -4379,7 +4390,7 @@ class CfnServiceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-hrallowed
             '''
             result = self._values.get("hr_allowed")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def min_gw_diversity(self) -> typing.Optional[jsii.Number]:
@@ -4395,7 +4406,7 @@ class CfnServiceProfile(
         @builtins.property
         def nwk_geo_loc(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The NwkGeoLoc value.
 
             This property is ``ReadOnly`` and can't be inputted for create. It's returned with ``Fn::GetAtt``
@@ -4403,12 +4414,12 @@ class CfnServiceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-nwkgeoloc
             '''
             result = self._values.get("nwk_geo_loc")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def pr_allowed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The PRAllowed value that describes whether passive roaming is allowed.
 
             This property is ``ReadOnly`` and can't be inputted for create. It's returned with ``Fn::GetAtt``
@@ -4416,23 +4427,23 @@ class CfnServiceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-prallowed
             '''
             result = self._values.get("pr_allowed")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def ra_allowed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The RAAllowed value that describes whether roaming activation is allowed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-raallowed
             '''
             result = self._values.get("ra_allowed")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def report_dev_status_battery(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The ReportDevStatusBattery value.
 
             This property is ``ReadOnly`` and can't be inputted for create. It's returned with ``Fn::GetAtt``
@@ -4440,12 +4451,12 @@ class CfnServiceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-reportdevstatusbattery
             '''
             result = self._values.get("report_dev_status_battery")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def report_dev_status_margin(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The ReportDevStatusMargin value.
 
             This property is ``ReadOnly`` and can't be inputted for create. It's returned with ``Fn::GetAtt``
@@ -4453,7 +4464,7 @@ class CfnServiceProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-serviceprofile-lorawanserviceprofile.html#cfn-iotwireless-serviceprofile-lorawanserviceprofile-reportdevstatusmargin
             '''
             result = self._values.get("report_dev_status_margin")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def target_per(self) -> typing.Optional[jsii.Number]:
@@ -4520,9 +4531,9 @@ class CfnServiceProfileProps:
     def __init__(
         self,
         *,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceProfile.LoRaWANServiceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceProfile.LoRaWANServiceProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServiceProfile``.
 
@@ -4570,7 +4581,7 @@ class CfnServiceProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c50b2c760a33d8243522ebcd46655f17e5c27bf15d6038dbf0c68cf36232ecb)
+            type_hints = cached_type_hints(_typecheckingstub__4c50b2c760a33d8243522ebcd46655f17e5c27bf15d6038dbf0c68cf36232ecb)
             check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4585,13 +4596,13 @@ class CfnServiceProfileProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceProfile.LoRaWANServiceProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceProfile.LoRaWANServiceProfileProperty"]]:
         '''LoRaWAN service profile object.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-serviceprofile.html#cfn-iotwireless-serviceprofile-lorawan
         '''
         result = self._values.get("lo_ra_wan")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceProfile.LoRaWANServiceProfileProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceProfile.LoRaWANServiceProfileProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -4603,7 +4614,7 @@ class CfnServiceProfileProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -4611,7 +4622,7 @@ class CfnServiceProfileProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-serviceprofile.html#cfn-iotwireless-serviceprofile-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4625,9 +4636,9 @@ class CfnServiceProfileProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaskDefinitionRef_d217db00, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.ITaskDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnTaskDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnTaskDefinition",
 ):
@@ -4692,12 +4703,12 @@ class CfnTaskDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_create_tasks: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_create_tasks: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_definition_type: typing.Optional[builtins.str] = None,
-        update: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        update: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::TaskDefinition``.
 
@@ -4711,7 +4722,7 @@ class CfnTaskDefinition(
         :param update: Information about the gateways to update.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d10e64d4deea928b0f793f0894101d94fa8dbafc82f1f64d5fabc09fe26aca6)
+            type_hints = cached_type_hints(_typecheckingstub__3d10e64d4deea928b0f793f0894101d94fa8dbafc82f1f64d5fabc09fe26aca6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTaskDefinitionProps(
@@ -4729,13 +4740,13 @@ class CfnTaskDefinition(
     @builtins.classmethod
     def arn_for_task_definition(
         cls,
-        resource: "_ITaskDefinitionRef_d217db00",
+        resource: "_aws_iotwireless_7664edfb.ITaskDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39b4f2511962115259cd3a343b1d8dc3013daa030a79b379ab443e3b15e94ffe)
+            type_hints = cached_type_hints(_typecheckingstub__39b4f2511962115259cd3a343b1d8dc3013daa030a79b379ab443e3b15e94ffe)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTaskDefinition", [resource]))
 
@@ -4747,18 +4758,18 @@ class CfnTaskDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da9016b5799d00badd162157d3ea07c7b047c5eada93e2a1068a1dbfe222e103)
+            type_hints = cached_type_hints(_typecheckingstub__da9016b5799d00badd162157d3ea07c7b047c5eada93e2a1068a1dbfe222e103)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTaskDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9de16cdf43d0eedc9a4ca88788b721ffd3a0f35e0585fe70fc2a8d9d2f698aaa)
+            type_hints = cached_type_hints(_typecheckingstub__9de16cdf43d0eedc9a4ca88788b721ffd3a0f35e0585fe70fc2a8d9d2f698aaa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4771,7 +4782,7 @@ class CfnTaskDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce022de682a811bfe3b20f7d040c6f58cab74a9722d6b628e9086aee7a863dc8)
+            type_hints = cached_type_hints(_typecheckingstub__ce022de682a811bfe3b20f7d040c6f58cab74a9722d6b628e9086aee7a863dc8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4811,29 +4822,33 @@ class CfnTaskDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinitionRef")
-    def task_definition_ref(self) -> "_TaskDefinitionReference_261ca0ac":
+    def task_definition_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.TaskDefinitionReference":
         '''A reference to a TaskDefinition resource.'''
-        return typing.cast("_TaskDefinitionReference_261ca0ac", jsii.get(self, "taskDefinitionRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.TaskDefinitionReference", jsii.get(self, "taskDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoCreateTasks")
-    def auto_create_tasks(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def auto_create_tasks(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether to automatically create tasks using this task definition for all gateways with the specified current version.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "autoCreateTasks"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "autoCreateTasks"))
 
     @auto_create_tasks.setter
     def auto_create_tasks(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e2140f6dd2fd5b773e37d8f7300ca14605b82d89631076e6aa400f13c633cc9)
+            type_hints = cached_type_hints(_typecheckingstub__7e2140f6dd2fd5b773e37d8f7300ca14605b82d89631076e6aa400f13c633cc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoCreateTasks", value) # pyright: ignore[reportArgumentType]
 
@@ -4841,17 +4856,17 @@ class CfnTaskDefinition(
     @jsii.member(jsii_name="loRaWanUpdateGatewayTaskEntry")
     def lo_ra_wan_update_gateway_task_entry(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]]:
         '''LoRaWANUpdateGatewayTaskEntry object.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]], jsii.get(self, "loRaWanUpdateGatewayTaskEntry"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]], jsii.get(self, "loRaWanUpdateGatewayTaskEntry"))
 
     @lo_ra_wan_update_gateway_task_entry.setter
     def lo_ra_wan_update_gateway_task_entry(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dba999a41533710976a33b0a1023c1222f1541c811f550a29499fa6d5675bf40)
+            type_hints = cached_type_hints(_typecheckingstub__dba999a41533710976a33b0a1023c1222f1541c811f550a29499fa6d5675bf40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWanUpdateGatewayTaskEntry", value) # pyright: ignore[reportArgumentType]
 
@@ -4864,20 +4879,23 @@ class CfnTaskDefinition(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb88f2db89785cd3e23338b9b79cdcdfeb8e47dcfc703bccb73087cc7c530dac)
+            type_hints = cached_type_hints(_typecheckingstub__fb88f2db89785cd3e23338b9b79cdcdfeb8e47dcfc703bccb73087cc7c530dac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__302c9856183cfc94540db93d88e4bc1e952c85bd9598afb0ef7bed2bc6a84411)
+            type_hints = cached_type_hints(_typecheckingstub__302c9856183cfc94540db93d88e4bc1e952c85bd9598afb0ef7bed2bc6a84411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -4890,7 +4908,7 @@ class CfnTaskDefinition(
     @task_definition_type.setter
     def task_definition_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fd5d538e8d4ed460e65c9ddac2d1d68fd4345c4afe7e403b77fa77f80136dee)
+            type_hints = cached_type_hints(_typecheckingstub__6fd5d538e8d4ed460e65c9ddac2d1d68fd4345c4afe7e403b77fa77f80136dee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "taskDefinitionType", value) # pyright: ignore[reportArgumentType]
 
@@ -4898,17 +4916,17 @@ class CfnTaskDefinition(
     @jsii.member(jsii_name="update")
     def update(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]]:
         '''Information about the gateways to update.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]], jsii.get(self, "update"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]], jsii.get(self, "update"))
 
     @update.setter
     def update(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7873ddd4c5f9c059a1c30910bb0374ee468e180657a2870e1598db17895e714b)
+            type_hints = cached_type_hints(_typecheckingstub__7873ddd4c5f9c059a1c30910bb0374ee468e180657a2870e1598db17895e714b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "update", value) # pyright: ignore[reportArgumentType]
 
@@ -4951,7 +4969,7 @@ class CfnTaskDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9eead759e83004a38194e11d8a25d0f709bff70ca8565202c9519e20c74bbb29)
+                type_hints = cached_type_hints(_typecheckingstub__9eead759e83004a38194e11d8a25d0f709bff70ca8565202c9519e20c74bbb29)
                 check_type(argname="argument model", value=model, expected_type=type_hints["model"])
                 check_type(argname="argument package_version", value=package_version, expected_type=type_hints["package_version"])
                 check_type(argname="argument station", value=station, expected_type=type_hints["station"])
@@ -5015,10 +5033,10 @@ class CfnTaskDefinition(
         def __init__(
             self,
             *,
-            current_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            current_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             sig_key_crc: typing.Optional[jsii.Number] = None,
             update_signature: typing.Optional[builtins.str] = None,
-            update_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            update_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The signature used to verify the update firmware.
 
@@ -5052,7 +5070,7 @@ class CfnTaskDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__afc21f41ee9ebd8dda0283e11946044bf70b6c27b33a3abce3ff415c7ff703f6)
+                type_hints = cached_type_hints(_typecheckingstub__afc21f41ee9ebd8dda0283e11946044bf70b6c27b33a3abce3ff415c7ff703f6)
                 check_type(argname="argument current_version", value=current_version, expected_type=type_hints["current_version"])
                 check_type(argname="argument sig_key_crc", value=sig_key_crc, expected_type=type_hints["sig_key_crc"])
                 check_type(argname="argument update_signature", value=update_signature, expected_type=type_hints["update_signature"])
@@ -5070,13 +5088,13 @@ class CfnTaskDefinition(
         @builtins.property
         def current_version(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
             '''The version of the gateways that should receive the update.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-taskdefinition-lorawanupdategatewaytaskcreate.html#cfn-iotwireless-taskdefinition-lorawanupdategatewaytaskcreate-currentversion
             '''
             result = self._values.get("current_version")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
 
         @builtins.property
         def sig_key_crc(self) -> typing.Optional[jsii.Number]:
@@ -5099,13 +5117,13 @@ class CfnTaskDefinition(
         @builtins.property
         def update_version(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
             '''The firmware version to update the gateway to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-taskdefinition-lorawanupdategatewaytaskcreate.html#cfn-iotwireless-taskdefinition-lorawanupdategatewaytaskcreate-updateversion
             '''
             result = self._values.get("update_version")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5130,8 +5148,8 @@ class CfnTaskDefinition(
         def __init__(
             self,
             *,
-            current_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            update_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            current_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            update_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANGatewayVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''LoRaWANUpdateGatewayTaskEntry object.
 
@@ -5161,7 +5179,7 @@ class CfnTaskDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d6341594bc267055b9e38191ae8ee71808f7e74d40bfa33ef01f6c1710119fe9)
+                type_hints = cached_type_hints(_typecheckingstub__d6341594bc267055b9e38191ae8ee71808f7e74d40bfa33ef01f6c1710119fe9)
                 check_type(argname="argument current_version", value=current_version, expected_type=type_hints["current_version"])
                 check_type(argname="argument update_version", value=update_version, expected_type=type_hints["update_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5173,24 +5191,24 @@ class CfnTaskDefinition(
         @builtins.property
         def current_version(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
             '''The version of the gateways that should receive the update.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-taskdefinition-lorawanupdategatewaytaskentry.html#cfn-iotwireless-taskdefinition-lorawanupdategatewaytaskentry-currentversion
             '''
             result = self._values.get("current_version")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
 
         @builtins.property
         def update_version(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]]:
             '''The firmware version to update the gateway to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-taskdefinition-lorawanupdategatewaytaskentry.html#cfn-iotwireless-taskdefinition-lorawanupdategatewaytaskentry-updateversion
             '''
             result = self._values.get("update_version")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANGatewayVersionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5216,7 +5234,7 @@ class CfnTaskDefinition(
         def __init__(
             self,
             *,
-            lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             update_data_role: typing.Optional[builtins.str] = None,
             update_data_source: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5255,7 +5273,7 @@ class CfnTaskDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2395a28ee7e4fa7cb268ed190fa8f9e55566832b4de59e0f97aadf1c082f3ac7)
+                type_hints = cached_type_hints(_typecheckingstub__2395a28ee7e4fa7cb268ed190fa8f9e55566832b4de59e0f97aadf1c082f3ac7)
                 check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
                 check_type(argname="argument update_data_role", value=update_data_role, expected_type=type_hints["update_data_role"])
                 check_type(argname="argument update_data_source", value=update_data_source, expected_type=type_hints["update_data_source"])
@@ -5270,13 +5288,13 @@ class CfnTaskDefinition(
         @builtins.property
         def lo_ra_wan(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty"]]:
             '''The properties that relate to the LoRaWAN wireless gateway.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-taskdefinition-updatewirelessgatewaytaskcreate.html#cfn-iotwireless-taskdefinition-updatewirelessgatewaytaskcreate-lorawan
             '''
             result = self._values.get("lo_ra_wan")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty"]], result)
 
         @builtins.property
         def update_data_role(self) -> typing.Optional[builtins.str]:
@@ -5324,12 +5342,12 @@ class CfnTaskDefinitionProps:
     def __init__(
         self,
         *,
-        auto_create_tasks: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_create_tasks: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_definition_type: typing.Optional[builtins.str] = None,
-        update: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        update: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTaskDefinition``.
 
@@ -5393,7 +5411,7 @@ class CfnTaskDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__375ac4d1ecfc288b9e4e324b136b3fca6fc5ce7a227ca417eea320f867d83eaa)
+            type_hints = cached_type_hints(_typecheckingstub__375ac4d1ecfc288b9e4e324b136b3fca6fc5ce7a227ca417eea320f867d83eaa)
             check_type(argname="argument auto_create_tasks", value=auto_create_tasks, expected_type=type_hints["auto_create_tasks"])
             check_type(argname="argument lo_ra_wan_update_gateway_task_entry", value=lo_ra_wan_update_gateway_task_entry, expected_type=type_hints["lo_ra_wan_update_gateway_task_entry"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5415,7 +5433,9 @@ class CfnTaskDefinitionProps:
             self._values["update"] = update
 
     @builtins.property
-    def auto_create_tasks(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def auto_create_tasks(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether to automatically create tasks using this task definition for all gateways with the specified current version.
 
         If ``false`` , the task must be created by calling ``CreateWirelessGatewayTask`` .
@@ -5424,18 +5444,18 @@ class CfnTaskDefinitionProps:
         '''
         result = self._values.get("auto_create_tasks")
         assert result is not None, "Required property 'auto_create_tasks' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def lo_ra_wan_update_gateway_task_entry(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]]:
         '''LoRaWANUpdateGatewayTaskEntry object.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-taskdefinition.html#cfn-iotwireless-taskdefinition-lorawanupdategatewaytaskentry
         '''
         result = self._values.get("lo_ra_wan_update_gateway_task_entry")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -5447,7 +5467,7 @@ class CfnTaskDefinitionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -5455,7 +5475,7 @@ class CfnTaskDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-taskdefinition.html#cfn-iotwireless-taskdefinition-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def task_definition_type(self) -> typing.Optional[builtins.str]:
@@ -5469,13 +5489,13 @@ class CfnTaskDefinitionProps:
     @builtins.property
     def update(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]]:
         '''Information about the gateways to update.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-taskdefinition.html#cfn-iotwireless-taskdefinition-update
         '''
         result = self._values.get("update")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5489,9 +5509,9 @@ class CfnTaskDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWirelessDeviceRef_3a65f428, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IWirelessDeviceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWirelessDevice(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessDevice",
 ):
@@ -5571,10 +5591,10 @@ class CfnWirelessDevice(
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
         last_uplink_received_at: typing.Optional[builtins.str] = None,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.LoRaWANDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.LoRaWANDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         positioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thing_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::WirelessDevice``.
@@ -5592,7 +5612,7 @@ class CfnWirelessDevice(
         :param thing_arn: The ARN of the thing to associate with the wireless device.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a785469cac62290b28ca4347d5562cd8f4e0d3d2543a08bb415fcdfcda69c6e6)
+            type_hints = cached_type_hints(_typecheckingstub__a785469cac62290b28ca4347d5562cd8f4e0d3d2543a08bb415fcdfcda69c6e6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWirelessDeviceProps(
@@ -5613,13 +5633,13 @@ class CfnWirelessDevice(
     @builtins.classmethod
     def arn_for_wireless_device(
         cls,
-        resource: "_IWirelessDeviceRef_3a65f428",
+        resource: "_aws_iotwireless_7664edfb.IWirelessDeviceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5a01643821488706b05510eceb2bc8b596f1f10517c32d2280650a5e05bb83d)
+            type_hints = cached_type_hints(_typecheckingstub__b5a01643821488706b05510eceb2bc8b596f1f10517c32d2280650a5e05bb83d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessDevice", [resource]))
 
@@ -5630,7 +5650,7 @@ class CfnWirelessDevice(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IWirelessDeviceRef_3a65f428":
+    ) -> "_aws_iotwireless_7664edfb.IWirelessDeviceRef":
         '''Creates a new IWirelessDeviceRef from an ARN.
 
         :param scope: -
@@ -5638,11 +5658,11 @@ class CfnWirelessDevice(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d15074685f98c6bfa7945c41a66e50fbde498e9d184fb1ba1b88757d34ec3980)
+            type_hints = cached_type_hints(_typecheckingstub__d15074685f98c6bfa7945c41a66e50fbde498e9d184fb1ba1b88757d34ec3980)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWirelessDeviceRef_3a65f428", jsii.sinvoke(cls, "fromWirelessDeviceArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessDeviceRef", jsii.sinvoke(cls, "fromWirelessDeviceArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromWirelessDeviceId")
     @builtins.classmethod
@@ -5651,7 +5671,7 @@ class CfnWirelessDevice(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         wireless_device_id: builtins.str,
-    ) -> "_IWirelessDeviceRef_3a65f428":
+    ) -> "_aws_iotwireless_7664edfb.IWirelessDeviceRef":
         '''Creates a new IWirelessDeviceRef from a wirelessDeviceId.
 
         :param scope: -
@@ -5659,11 +5679,11 @@ class CfnWirelessDevice(
         :param wireless_device_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cb2ecba3472e44a3144ab715b3dfa1808fb1a73285b399a58ca15b734dadc5e)
+            type_hints = cached_type_hints(_typecheckingstub__2cb2ecba3472e44a3144ab715b3dfa1808fb1a73285b399a58ca15b734dadc5e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument wireless_device_id", value=wireless_device_id, expected_type=type_hints["wireless_device_id"])
-        return typing.cast("_IWirelessDeviceRef_3a65f428", jsii.sinvoke(cls, "fromWirelessDeviceId", [scope, id, wireless_device_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessDeviceRef", jsii.sinvoke(cls, "fromWirelessDeviceId", [scope, id, wireless_device_id]))
 
     @jsii.member(jsii_name="isCfnWirelessDevice")
     @builtins.classmethod
@@ -5673,18 +5693,18 @@ class CfnWirelessDevice(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__994df05ffee94cba1b6f7ecb1605052d352d5597b884b47949262d9527274a22)
+            type_hints = cached_type_hints(_typecheckingstub__994df05ffee94cba1b6f7ecb1605052d352d5597b884b47949262d9527274a22)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWirelessDevice", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c3f9623871804482a281e90ea9c41a1af250f5169c286db6bc7ab0e057fb788)
+            type_hints = cached_type_hints(_typecheckingstub__8c3f9623871804482a281e90ea9c41a1af250f5169c286db6bc7ab0e057fb788)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5697,7 +5717,7 @@ class CfnWirelessDevice(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cac17e63441404903d9dae8730314dcfb4bdedf123d43ee74bc1d52bf06f9c24)
+            type_hints = cached_type_hints(_typecheckingstub__cac17e63441404903d9dae8730314dcfb4bdedf123d43ee74bc1d52bf06f9c24)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5748,15 +5768,17 @@ class CfnWirelessDevice(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="wirelessDeviceRef")
-    def wireless_device_ref(self) -> "_WirelessDeviceReference_df0e3e52":
+    def wireless_device_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.WirelessDeviceReference":
         '''A reference to a WirelessDevice resource.'''
-        return typing.cast("_WirelessDeviceReference_df0e3e52", jsii.get(self, "wirelessDeviceRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.WirelessDeviceReference", jsii.get(self, "wirelessDeviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationName")
@@ -5767,7 +5789,7 @@ class CfnWirelessDevice(
     @destination_name.setter
     def destination_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8061cf48768d2d28b9433ea6b1db3222bac9893ee1a0c96bcdb98226cc2f3d03)
+            type_hints = cached_type_hints(_typecheckingstub__8061cf48768d2d28b9433ea6b1db3222bac9893ee1a0c96bcdb98226cc2f3d03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinationName", value) # pyright: ignore[reportArgumentType]
 
@@ -5780,7 +5802,7 @@ class CfnWirelessDevice(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b70c988e1950493c52e44208f809dafc1d545d18b89e9e2227674650c390bc4f)
+            type_hints = cached_type_hints(_typecheckingstub__b70c988e1950493c52e44208f809dafc1d545d18b89e9e2227674650c390bc4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -5793,7 +5815,7 @@ class CfnWirelessDevice(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fc0b1687f73dd9eca4c02d192704c2293c20941495c350b0e122eea76052901)
+            type_hints = cached_type_hints(_typecheckingstub__6fc0b1687f73dd9eca4c02d192704c2293c20941495c350b0e122eea76052901)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5806,7 +5828,7 @@ class CfnWirelessDevice(
     @last_uplink_received_at.setter
     def last_uplink_received_at(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6eb1d5a6add55c4de31d6a02d93e5a6c7b8f13ebd8c3e95893448a2464af2a4)
+            type_hints = cached_type_hints(_typecheckingstub__c6eb1d5a6add55c4de31d6a02d93e5a6c7b8f13ebd8c3e95893448a2464af2a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lastUplinkReceivedAt", value) # pyright: ignore[reportArgumentType]
 
@@ -5814,17 +5836,17 @@ class CfnWirelessDevice(
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.LoRaWANDeviceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.LoRaWANDeviceProperty"]]:
         '''The device configuration information to use to create the wireless device.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.LoRaWANDeviceProperty"]], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.LoRaWANDeviceProperty"]], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.LoRaWANDeviceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.LoRaWANDeviceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a9387fe5c912c19442cf1a22d4b80b3bfec7bfaeaeedfde3a48464707ac5e94)
+            type_hints = cached_type_hints(_typecheckingstub__8a9387fe5c912c19442cf1a22d4b80b3bfec7bfaeaeedfde3a48464707ac5e94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -5837,7 +5859,7 @@ class CfnWirelessDevice(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79b8e8d3143dce00df934e2b0287a3a53fc9839551772e6cc273d592d0bc262f)
+            type_hints = cached_type_hints(_typecheckingstub__79b8e8d3143dce00df934e2b0287a3a53fc9839551772e6cc273d592d0bc262f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5850,20 +5872,23 @@ class CfnWirelessDevice(
     @positioning.setter
     def positioning(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8c7b7fcf5ba7730b0ce3b8c924fe1fe208985f6c0d4fd68b55353bbe9d05b61)
+            type_hints = cached_type_hints(_typecheckingstub__e8c7b7fcf5ba7730b0ce3b8c924fe1fe208985f6c0d4fd68b55353bbe9d05b61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "positioning", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de98087af9f5a2df8b9078aef4604fb7a5d9b8ce62eab7c135763cdcf4911075)
+            type_hints = cached_type_hints(_typecheckingstub__de98087af9f5a2df8b9078aef4604fb7a5d9b8ce62eab7c135763cdcf4911075)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5876,7 +5901,7 @@ class CfnWirelessDevice(
     @thing_arn.setter
     def thing_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1062e2a4111f3f10850a14272256ebd97067e00cf02bb987304ac070474dc47f)
+            type_hints = cached_type_hints(_typecheckingstub__1062e2a4111f3f10850a14272256ebd97067e00cf02bb987304ac070474dc47f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thingArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5890,7 +5915,7 @@ class CfnWirelessDevice(
             self,
             *,
             dev_addr: builtins.str,
-            session_keys: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.SessionKeysAbpV10xProperty", typing.Dict[builtins.str, typing.Any]]],
+            session_keys: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.SessionKeysAbpV10xProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''ABP device object for LoRaWAN specification v1.0.x.
 
@@ -5915,7 +5940,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f3c7c33ac394ea769fdff09d74d18df5199694a0b192de0112bc6fc8bad01ac)
+                type_hints = cached_type_hints(_typecheckingstub__2f3c7c33ac394ea769fdff09d74d18df5199694a0b192de0112bc6fc8bad01ac)
                 check_type(argname="argument dev_addr", value=dev_addr, expected_type=type_hints["dev_addr"])
                 check_type(argname="argument session_keys", value=session_keys, expected_type=type_hints["session_keys"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5936,14 +5961,14 @@ class CfnWirelessDevice(
         @builtins.property
         def session_keys(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.SessionKeysAbpV10xProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.SessionKeysAbpV10xProperty"]:
             '''Session keys for ABP v1.0.x.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-abpv10x.html#cfn-iotwireless-wirelessdevice-abpv10x-sessionkeys
             '''
             result = self._values.get("session_keys")
             assert result is not None, "Required property 'session_keys' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.SessionKeysAbpV10xProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.SessionKeysAbpV10xProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5966,7 +5991,7 @@ class CfnWirelessDevice(
             self,
             *,
             dev_addr: builtins.str,
-            session_keys: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.SessionKeysAbpV11Property", typing.Dict[builtins.str, typing.Any]]],
+            session_keys: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.SessionKeysAbpV11Property", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''ABP device object for create APIs for v1.1.
 
@@ -5993,7 +6018,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__60d86251ec9e15886b39ab32d3b20d4a624d17a6f00dd271dfc743f0d050ca1e)
+                type_hints = cached_type_hints(_typecheckingstub__60d86251ec9e15886b39ab32d3b20d4a624d17a6f00dd271dfc743f0d050ca1e)
                 check_type(argname="argument dev_addr", value=dev_addr, expected_type=type_hints["dev_addr"])
                 check_type(argname="argument session_keys", value=session_keys, expected_type=type_hints["session_keys"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6014,14 +6039,14 @@ class CfnWirelessDevice(
         @builtins.property
         def session_keys(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.SessionKeysAbpV11Property"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.SessionKeysAbpV11Property"]:
             '''Session keys for ABP v1.1.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-abpv11.html#cfn-iotwireless-wirelessdevice-abpv11-sessionkeys
             '''
             result = self._values.get("session_keys")
             assert result is not None, "Required property 'session_keys' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.SessionKeysAbpV11Property"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.SessionKeysAbpV11Property"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6073,7 +6098,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5c88af7524b9cc032696918a6b08702ccb76f6a1981e42878b6e121d64e5c1be)
+                type_hints = cached_type_hints(_typecheckingstub__5c88af7524b9cc032696918a6b08702ccb76f6a1981e42878b6e121d64e5c1be)
                 check_type(argname="argument destination_name", value=destination_name, expected_type=type_hints["destination_name"])
                 check_type(argname="argument f_port", value=f_port, expected_type=type_hints["f_port"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -6132,7 +6157,7 @@ class CfnWirelessDevice(
         def __init__(
             self,
             *,
-            applications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            applications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''List of FPorts assigned for different LoRaWAN application packages to use.
 
@@ -6156,7 +6181,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__838fed2bee84917cc559f987ebb1aa7ea4d2dcfc17565a509e75cc47c8ae02b2)
+                type_hints = cached_type_hints(_typecheckingstub__838fed2bee84917cc559f987ebb1aa7ea4d2dcfc17565a509e75cc47c8ae02b2)
                 check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if applications is not None:
@@ -6165,13 +6190,13 @@ class CfnWirelessDevice(
         @builtins.property
         def applications(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.ApplicationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.ApplicationProperty"]]]]:
             '''LoRaWAN application configuration, which can be used to perform geolocation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-fports.html#cfn-iotwireless-wirelessdevice-fports-applications
             '''
             result = self._values.get("applications")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.ApplicationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.ApplicationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6202,13 +6227,13 @@ class CfnWirelessDevice(
         def __init__(
             self,
             *,
-            abp_v10_x: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.AbpV10xProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            abp_v11: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.AbpV11Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            abp_v10_x: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.AbpV10xProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            abp_v11: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.AbpV11Property", typing.Dict[builtins.str, typing.Any]]]] = None,
             dev_eui: typing.Optional[builtins.str] = None,
             device_profile_id: typing.Optional[builtins.str] = None,
-            f_ports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.FPortsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            otaa_v10_x: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.OtaaV10xProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            otaa_v11: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.OtaaV11Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            f_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.FPortsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            otaa_v10_x: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.OtaaV10xProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            otaa_v11: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.OtaaV11Property", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_profile_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''LoRaWAN object for create functions.
@@ -6270,7 +6295,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__79b613fcb6e4bec4dd04e0ec3aefb63244dbaff286fed6d7327bebfa7aed6cba)
+                type_hints = cached_type_hints(_typecheckingstub__79b613fcb6e4bec4dd04e0ec3aefb63244dbaff286fed6d7327bebfa7aed6cba)
                 check_type(argname="argument abp_v10_x", value=abp_v10_x, expected_type=type_hints["abp_v10_x"])
                 check_type(argname="argument abp_v11", value=abp_v11, expected_type=type_hints["abp_v11"])
                 check_type(argname="argument dev_eui", value=dev_eui, expected_type=type_hints["dev_eui"])
@@ -6300,24 +6325,24 @@ class CfnWirelessDevice(
         @builtins.property
         def abp_v10_x(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.AbpV10xProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.AbpV10xProperty"]]:
             '''ABP device object for LoRaWAN specification v1.0.x.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-lorawandevice.html#cfn-iotwireless-wirelessdevice-lorawandevice-abpv10x
             '''
             result = self._values.get("abp_v10_x")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.AbpV10xProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.AbpV10xProperty"]], result)
 
         @builtins.property
         def abp_v11(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.AbpV11Property"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.AbpV11Property"]]:
             '''ABP device object for create APIs for v1.1.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-lorawandevice.html#cfn-iotwireless-wirelessdevice-lorawandevice-abpv11
             '''
             result = self._values.get("abp_v11")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.AbpV11Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.AbpV11Property"]], result)
 
         @builtins.property
         def dev_eui(self) -> typing.Optional[builtins.str]:
@@ -6340,35 +6365,35 @@ class CfnWirelessDevice(
         @builtins.property
         def f_ports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.FPortsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.FPortsProperty"]]:
             '''List of FPort assigned for different LoRaWAN application packages to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-lorawandevice.html#cfn-iotwireless-wirelessdevice-lorawandevice-fports
             '''
             result = self._values.get("f_ports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.FPortsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.FPortsProperty"]], result)
 
         @builtins.property
         def otaa_v10_x(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.OtaaV10xProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.OtaaV10xProperty"]]:
             '''OTAA device object for create APIs for v1.0.x.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-lorawandevice.html#cfn-iotwireless-wirelessdevice-lorawandevice-otaav10x
             '''
             result = self._values.get("otaa_v10_x")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.OtaaV10xProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.OtaaV10xProperty"]], result)
 
         @builtins.property
         def otaa_v11(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.OtaaV11Property"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.OtaaV11Property"]]:
             '''OTAA device object for v1.1 for create APIs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotwireless-wirelessdevice-lorawandevice.html#cfn-iotwireless-wirelessdevice-lorawandevice-otaav11
             '''
             result = self._values.get("otaa_v11")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.OtaaV11Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.OtaaV11Property"]], result)
 
         @builtins.property
         def service_profile_id(self) -> typing.Optional[builtins.str]:
@@ -6417,7 +6442,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c6f728528b682776f461be6bf8de1ecea138fb90d8be311ecd7db6e21a872a5)
+                type_hints = cached_type_hints(_typecheckingstub__0c6f728528b682776f461be6bf8de1ecea138fb90d8be311ecd7db6e21a872a5)
                 check_type(argname="argument app_eui", value=app_eui, expected_type=type_hints["app_eui"])
                 check_type(argname="argument app_key", value=app_key, expected_type=type_hints["app_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6493,7 +6518,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1f6d8664fed104b7d07bc47a661096fbb46189f806c5b81cf0e8fb36eed4eb05)
+                type_hints = cached_type_hints(_typecheckingstub__1f6d8664fed104b7d07bc47a661096fbb46189f806c5b81cf0e8fb36eed4eb05)
                 check_type(argname="argument app_key", value=app_key, expected_type=type_hints["app_key"])
                 check_type(argname="argument join_eui", value=join_eui, expected_type=type_hints["join_eui"])
                 check_type(argname="argument nwk_key", value=nwk_key, expected_type=type_hints["nwk_key"])
@@ -6575,7 +6600,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dedcdca7a2f761fdd916265e3946276cbb099297d1b724f7bb420d585d30380a)
+                type_hints = cached_type_hints(_typecheckingstub__dedcdca7a2f761fdd916265e3946276cbb099297d1b724f7bb420d585d30380a)
                 check_type(argname="argument app_s_key", value=app_s_key, expected_type=type_hints["app_s_key"])
                 check_type(argname="argument nwk_s_key", value=nwk_s_key, expected_type=type_hints["nwk_s_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6657,7 +6682,7 @@ class CfnWirelessDevice(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ddc0e655d9778b4919d40faf860f91332e540a826df9ed46a21a69dcbb3396e1)
+                type_hints = cached_type_hints(_typecheckingstub__ddc0e655d9778b4919d40faf860f91332e540a826df9ed46a21a69dcbb3396e1)
                 check_type(argname="argument app_s_key", value=app_s_key, expected_type=type_hints["app_s_key"])
                 check_type(argname="argument f_nwk_s_int_key", value=f_nwk_s_int_key, expected_type=type_hints["f_nwk_s_int_key"])
                 check_type(argname="argument nwk_s_enc_key", value=nwk_s_enc_key, expected_type=type_hints["nwk_s_enc_key"])
@@ -6729,9 +6754,9 @@ class CfnWirelessDevice(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWirelessDeviceImportTaskRef_84dee71f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWirelessDeviceImportTask(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessDeviceImportTask",
 ):
@@ -6773,8 +6798,8 @@ class CfnWirelessDeviceImportTask(
         id: builtins.str,
         *,
         destination_name: builtins.str,
-        sidewalk: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDeviceImportTask.SidewalkProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDeviceImportTask.SidewalkProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTWireless::WirelessDeviceImportTask``.
 
@@ -6785,7 +6810,7 @@ class CfnWirelessDeviceImportTask(
         :param tags: Adds to or modifies the tags of the given resource. Tags are metadata that you can use to manage a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76ede92d3)
+            type_hints = cached_type_hints(_typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76ede92d3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWirelessDeviceImportTaskProps(
@@ -6798,57 +6823,15 @@ class CfnWirelessDeviceImportTask(
     @builtins.classmethod
     def arn_for_wireless_device_import_task(
         cls,
-        resource: "_IWirelessDeviceImportTaskRef_84dee71f",
+        resource: "_aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba)
+            type_hints = cached_type_hints(_typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessDeviceImportTask", [resource]))
-
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskArn")
-    @builtins.classmethod
-    def from_wireless_device_import_task_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromWirelessDeviceImportTaskId")
-    @builtins.classmethod
-    def from_wireless_device_import_task_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        wireless_device_import_task_id: builtins.str,
-    ) -> "_IWirelessDeviceImportTaskRef_84dee71f":
-        '''Creates a new IWirelessDeviceImportTaskRef from a wirelessDeviceImportTaskId.
-
-        :param scope: -
-        :param id: -
-        :param wireless_device_import_task_id: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument wireless_device_import_task_id", value=wireless_device_import_task_id, expected_type=type_hints["wireless_device_import_task_id"])
-        return typing.cast("_IWirelessDeviceImportTaskRef_84dee71f", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskId", [scope, id, wireless_device_import_task_id]))
 
     @jsii.member(jsii_name="isCfnWirelessDeviceImportTask")
     @builtins.classmethod
@@ -6858,18 +6841,18 @@ class CfnWirelessDeviceImportTask(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__901ca1e74a95695678800363fb9764092701dc15a1a65e674f91f1bea401cdc4)
+            type_hints = cached_type_hints(_typecheckingstub__901ca1e74a95695678800363fb9764092701dc15a1a65e674f91f1bea401cdc4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWirelessDeviceImportTask", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__198856489aba15c5acfb8dfab7e2b4a71dc22d665121a8744c5ee52b5a33b0d1)
+            type_hints = cached_type_hints(_typecheckingstub__198856489aba15c5acfb8dfab7e2b4a71dc22d665121a8744c5ee52b5a33b0d1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6882,7 +6865,7 @@ class CfnWirelessDeviceImportTask(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31463d1c87fa93be4bb6828c4ea87fb1b208830b87cc7a58cb158e2b3a492e7e)
+            type_hints = cached_type_hints(_typecheckingstub__31463d1c87fa93be4bb6828c4ea87fb1b208830b87cc7a58cb158e2b3a492e7e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6996,17 +6979,17 @@ class CfnWirelessDeviceImportTask(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="wirelessDeviceImportTaskRef")
     def wireless_device_import_task_ref(
         self,
-    ) -> "_WirelessDeviceImportTaskReference_d0333f7e":
+    ) -> "_aws_iotwireless_7664edfb.WirelessDeviceImportTaskReference":
         '''A reference to a WirelessDeviceImportTask resource.'''
-        return typing.cast("_WirelessDeviceImportTaskReference_d0333f7e", jsii.get(self, "wirelessDeviceImportTaskRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.WirelessDeviceImportTaskReference", jsii.get(self, "wirelessDeviceImportTaskRef"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationName")
@@ -7017,7 +7000,7 @@ class CfnWirelessDeviceImportTask(
     @destination_name.setter
     def destination_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ededfdd755af77ac21339c21b25ba1960365538a55f8efb323ccb407643c330)
+            type_hints = cached_type_hints(_typecheckingstub__3ededfdd755af77ac21339c21b25ba1960365538a55f8efb323ccb407643c330)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinationName", value) # pyright: ignore[reportArgumentType]
 
@@ -7025,30 +7008,33 @@ class CfnWirelessDeviceImportTask(
     @jsii.member(jsii_name="sidewalk")
     def sidewalk(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessDeviceImportTask.SidewalkProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDeviceImportTask.SidewalkProperty"]:
         '''The Sidewalk-related information of the wireless device import task.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessDeviceImportTask.SidewalkProperty"], jsii.get(self, "sidewalk"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDeviceImportTask.SidewalkProperty"], jsii.get(self, "sidewalk"))
 
     @sidewalk.setter
     def sidewalk(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnWirelessDeviceImportTask.SidewalkProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDeviceImportTask.SidewalkProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b94dcee288462d05aefdffb188ba06832b12dcea7d955f135c110c087bb3874)
+            type_hints = cached_type_hints(_typecheckingstub__3b94dcee288462d05aefdffb188ba06832b12dcea7d955f135c110c087bb3874)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sidewalk", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Adds to or modifies the tags of the given resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37f67b5df03fc789e404057fa4c7dc3cb0bf29a0dd71d20ccd91e499b959af24)
+            type_hints = cached_type_hints(_typecheckingstub__37f67b5df03fc789e404057fa4c7dc3cb0bf29a0dd71d20ccd91e499b959af24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7095,7 +7081,7 @@ class CfnWirelessDeviceImportTask(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7674cfa92498ab342f9eac20d079b4999526cab4026edf48f0397de16cd53bd)
+                type_hints = cached_type_hints(_typecheckingstub__b7674cfa92498ab342f9eac20d079b4999526cab4026edf48f0397de16cd53bd)
                 check_type(argname="argument device_creation_file", value=device_creation_file, expected_type=type_hints["device_creation_file"])
                 check_type(argname="argument device_creation_file_list", value=device_creation_file_list, expected_type=type_hints["device_creation_file_list"])
                 check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -7174,8 +7160,8 @@ class CfnWirelessDeviceImportTaskProps:
         self,
         *,
         destination_name: builtins.str,
-        sidewalk: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDeviceImportTask.SidewalkProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sidewalk: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDeviceImportTask.SidewalkProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWirelessDeviceImportTask``.
 
@@ -7210,7 +7196,7 @@ class CfnWirelessDeviceImportTaskProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae6e4053bc6cd657f874e13d1418635c416bc4ffa544969dd87a3e3f37282189)
+            type_hints = cached_type_hints(_typecheckingstub__ae6e4053bc6cd657f874e13d1418635c416bc4ffa544969dd87a3e3f37282189)
             check_type(argname="argument destination_name", value=destination_name, expected_type=type_hints["destination_name"])
             check_type(argname="argument sidewalk", value=sidewalk, expected_type=type_hints["sidewalk"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -7234,17 +7220,17 @@ class CfnWirelessDeviceImportTaskProps:
     @builtins.property
     def sidewalk(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessDeviceImportTask.SidewalkProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDeviceImportTask.SidewalkProperty"]:
         '''The Sidewalk-related information of the wireless device import task.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessdeviceimporttask.html#cfn-iotwireless-wirelessdeviceimporttask-sidewalk
         '''
         result = self._values.get("sidewalk")
         assert result is not None, "Required property 'sidewalk' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessDeviceImportTask.SidewalkProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDeviceImportTask.SidewalkProperty"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Adds to or modifies the tags of the given resource.
 
         Tags are metadata that you can use to manage a resource.
@@ -7252,7 +7238,7 @@ class CfnWirelessDeviceImportTaskProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessdeviceimporttask.html#cfn-iotwireless-wirelessdeviceimporttask-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7289,10 +7275,10 @@ class CfnWirelessDeviceProps:
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
         last_uplink_received_at: typing.Optional[builtins.str] = None,
-        lo_ra_wan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessDevice.LoRaWANDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lo_ra_wan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessDevice.LoRaWANDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         positioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thing_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnWirelessDevice``.
@@ -7371,7 +7357,7 @@ class CfnWirelessDeviceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c132064eaadc8906efb4c94784760c71f0e1de304300dc1e66377c449d5892ee)
+            type_hints = cached_type_hints(_typecheckingstub__c132064eaadc8906efb4c94784760c71f0e1de304300dc1e66377c449d5892ee)
             check_type(argname="argument destination_name", value=destination_name, expected_type=type_hints["destination_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -7445,7 +7431,7 @@ class CfnWirelessDeviceProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.LoRaWANDeviceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.LoRaWANDeviceProperty"]]:
         '''The device configuration information to use to create the wireless device.
 
         Must be at least one of OtaaV10x, OtaaV11, AbpV11, or AbpV10x.
@@ -7453,7 +7439,7 @@ class CfnWirelessDeviceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessdevice.html#cfn-iotwireless-wirelessdevice-lorawan
         '''
         result = self._values.get("lo_ra_wan")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWirelessDevice.LoRaWANDeviceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessDevice.LoRaWANDeviceProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -7474,7 +7460,7 @@ class CfnWirelessDeviceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -7482,7 +7468,7 @@ class CfnWirelessDeviceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessdevice.html#cfn-iotwireless-wirelessdevice-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def thing_arn(self) -> typing.Optional[builtins.str]:
@@ -7505,9 +7491,9 @@ class CfnWirelessDeviceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWirelessGatewayRef_9d22b38e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotwireless_7664edfb.IWirelessGatewayRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWirelessGateway(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessGateway",
 ):
@@ -7548,11 +7534,11 @@ class CfnWirelessGateway(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessGateway.LoRaWANGatewayProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessGateway.LoRaWANGatewayProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         last_uplink_received_at: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thing_arn: typing.Optional[builtins.str] = None,
         thing_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7569,7 +7555,7 @@ class CfnWirelessGateway(
         :param thing_name: The name of the thing associated with the wireless gateway. The value is empty if a thing isn't associated with the gateway.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83cf451292782ed7cf2ebb2ff51643f50a0853d30208d953201e94c64036e0de)
+            type_hints = cached_type_hints(_typecheckingstub__83cf451292782ed7cf2ebb2ff51643f50a0853d30208d953201e94c64036e0de)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWirelessGatewayProps(
@@ -7588,13 +7574,13 @@ class CfnWirelessGateway(
     @builtins.classmethod
     def arn_for_wireless_gateway(
         cls,
-        resource: "_IWirelessGatewayRef_9d22b38e",
+        resource: "_aws_iotwireless_7664edfb.IWirelessGatewayRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52e87db16172f969742b18c45b053883b10eb16912c8a34ed2774528056b9a29)
+            type_hints = cached_type_hints(_typecheckingstub__52e87db16172f969742b18c45b053883b10eb16912c8a34ed2774528056b9a29)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessGateway", [resource]))
 
@@ -7605,7 +7591,7 @@ class CfnWirelessGateway(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IWirelessGatewayRef_9d22b38e":
+    ) -> "_aws_iotwireless_7664edfb.IWirelessGatewayRef":
         '''Creates a new IWirelessGatewayRef from an ARN.
 
         :param scope: -
@@ -7613,11 +7599,11 @@ class CfnWirelessGateway(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__291f0fee6d310631395abd51c8a1b9258be14bee81a41b1d439f6d1f26e92170)
+            type_hints = cached_type_hints(_typecheckingstub__291f0fee6d310631395abd51c8a1b9258be14bee81a41b1d439f6d1f26e92170)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWirelessGatewayRef_9d22b38e", jsii.sinvoke(cls, "fromWirelessGatewayArn", [scope, id, arn]))
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessGatewayRef", jsii.sinvoke(cls, "fromWirelessGatewayArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromWirelessGatewayId")
     @builtins.classmethod
@@ -7626,7 +7612,7 @@ class CfnWirelessGateway(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         wireless_gateway_id: builtins.str,
-    ) -> "_IWirelessGatewayRef_9d22b38e":
+    ) -> "_aws_iotwireless_7664edfb.IWirelessGatewayRef":
         '''Creates a new IWirelessGatewayRef from a wirelessGatewayId.
 
         :param scope: -
@@ -7634,11 +7620,11 @@ class CfnWirelessGateway(
         :param wireless_gateway_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a9a5933f30d3950a45dc79fc4b3cff162429d964c98890c859c36b8cb6fdfcd)
+            type_hints = cached_type_hints(_typecheckingstub__7a9a5933f30d3950a45dc79fc4b3cff162429d964c98890c859c36b8cb6fdfcd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument wireless_gateway_id", value=wireless_gateway_id, expected_type=type_hints["wireless_gateway_id"])
-        return typing.cast("_IWirelessGatewayRef_9d22b38e", jsii.sinvoke(cls, "fromWirelessGatewayId", [scope, id, wireless_gateway_id]))
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessGatewayRef", jsii.sinvoke(cls, "fromWirelessGatewayId", [scope, id, wireless_gateway_id]))
 
     @jsii.member(jsii_name="isCfnWirelessGateway")
     @builtins.classmethod
@@ -7648,18 +7634,18 @@ class CfnWirelessGateway(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75888b58bd7cc88576b9b93d1e19523fcdc0c7a00c48ca00743181ca0ae05ecc)
+            type_hints = cached_type_hints(_typecheckingstub__75888b58bd7cc88576b9b93d1e19523fcdc0c7a00c48ca00743181ca0ae05ecc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWirelessGateway", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69dede8ca1182ed73a8de2fda4268a2b26721b01a1dca9ad4762a6b85fc46a7b)
+            type_hints = cached_type_hints(_typecheckingstub__69dede8ca1182ed73a8de2fda4268a2b26721b01a1dca9ad4762a6b85fc46a7b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7672,7 +7658,7 @@ class CfnWirelessGateway(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25b4ec1cc0c08824c4c5350c2f1641929aa02b1e3dc040cd37dc55da56700ac0)
+            type_hints = cached_type_hints(_typecheckingstub__25b4ec1cc0c08824c4c5350c2f1641929aa02b1e3dc040cd37dc55da56700ac0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7712,31 +7698,33 @@ class CfnWirelessGateway(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="wirelessGatewayRef")
-    def wireless_gateway_ref(self) -> "_WirelessGatewayReference_4bc55775":
+    def wireless_gateway_ref(
+        self,
+    ) -> "_aws_iotwireless_7664edfb.WirelessGatewayReference":
         '''A reference to a WirelessGateway resource.'''
-        return typing.cast("_WirelessGatewayReference_4bc55775", jsii.get(self, "wirelessGatewayRef"))
+        return typing.cast("_aws_iotwireless_7664edfb.WirelessGatewayReference", jsii.get(self, "wirelessGatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessGateway.LoRaWANGatewayProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessGateway.LoRaWANGatewayProperty"]:
         '''The gateway configuration information to use to create the wireless gateway.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessGateway.LoRaWANGatewayProperty"], jsii.get(self, "loRaWan"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessGateway.LoRaWANGatewayProperty"], jsii.get(self, "loRaWan"))
 
     @lo_ra_wan.setter
     def lo_ra_wan(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnWirelessGateway.LoRaWANGatewayProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessGateway.LoRaWANGatewayProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbc33250d661f7557837e50ada87180167d8574118707d139d2eb4fa49602882)
+            type_hints = cached_type_hints(_typecheckingstub__bbc33250d661f7557837e50ada87180167d8574118707d139d2eb4fa49602882)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
 
@@ -7749,7 +7737,7 @@ class CfnWirelessGateway(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eca333f4fa126f8730b33bcbb64820d18aa68f08be068891c6a435cd321aa4d)
+            type_hints = cached_type_hints(_typecheckingstub__8eca333f4fa126f8730b33bcbb64820d18aa68f08be068891c6a435cd321aa4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -7762,7 +7750,7 @@ class CfnWirelessGateway(
     @last_uplink_received_at.setter
     def last_uplink_received_at(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__900eeac2e5cfdb156d0e28f493a73b729234aa361c7336134d543a0a22f3b460)
+            type_hints = cached_type_hints(_typecheckingstub__900eeac2e5cfdb156d0e28f493a73b729234aa361c7336134d543a0a22f3b460)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lastUplinkReceivedAt", value) # pyright: ignore[reportArgumentType]
 
@@ -7775,20 +7763,23 @@ class CfnWirelessGateway(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc344d26426421b59939c05527ffa4450645002aaa7008eec620471cb3665ac8)
+            type_hints = cached_type_hints(_typecheckingstub__fc344d26426421b59939c05527ffa4450645002aaa7008eec620471cb3665ac8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__493d37495ffc45845617d2e1ba953b01719cb48c69682d0a6e27d0773456852b)
+            type_hints = cached_type_hints(_typecheckingstub__493d37495ffc45845617d2e1ba953b01719cb48c69682d0a6e27d0773456852b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7801,7 +7792,7 @@ class CfnWirelessGateway(
     @thing_arn.setter
     def thing_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff85efe4d13e96f495f18cda698b13ce262995db3a45e1f87de3a4d37d73aff8)
+            type_hints = cached_type_hints(_typecheckingstub__ff85efe4d13e96f495f18cda698b13ce262995db3a45e1f87de3a4d37d73aff8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thingArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7814,7 +7805,7 @@ class CfnWirelessGateway(
     @thing_name.setter
     def thing_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3306c2dcc0fb9f5711e347f7795bc7c414ed553dac4e7c1a4de936a98fb073ac)
+            type_hints = cached_type_hints(_typecheckingstub__3306c2dcc0fb9f5711e347f7795bc7c414ed553dac4e7c1a4de936a98fb073ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thingName", value) # pyright: ignore[reportArgumentType]
 
@@ -7850,7 +7841,7 @@ class CfnWirelessGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ddc162c67799ffa5b9f0b75305d65763275f726ca096abf2be6e97d8d5507d8a)
+                type_hints = cached_type_hints(_typecheckingstub__ddc162c67799ffa5b9f0b75305d65763275f726ca096abf2be6e97d8d5507d8a)
                 check_type(argname="argument gateway_eui", value=gateway_eui, expected_type=type_hints["gateway_eui"])
                 check_type(argname="argument rf_region", value=rf_region, expected_type=type_hints["rf_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7907,11 +7898,11 @@ class CfnWirelessGatewayProps:
     def __init__(
         self,
         *,
-        lo_ra_wan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWirelessGateway.LoRaWANGatewayProperty", typing.Dict[builtins.str, typing.Any]]],
+        lo_ra_wan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWirelessGateway.LoRaWANGatewayProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         last_uplink_received_at: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thing_arn: typing.Optional[builtins.str] = None,
         thing_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7954,7 +7945,7 @@ class CfnWirelessGatewayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c638b98661b74de194655d6ea9f1ffd6ff2285ebce875290921403545f2fde80)
+            type_hints = cached_type_hints(_typecheckingstub__c638b98661b74de194655d6ea9f1ffd6ff2285ebce875290921403545f2fde80)
             check_type(argname="argument lo_ra_wan", value=lo_ra_wan, expected_type=type_hints["lo_ra_wan"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument last_uplink_received_at", value=last_uplink_received_at, expected_type=type_hints["last_uplink_received_at"])
@@ -7981,14 +7972,14 @@ class CfnWirelessGatewayProps:
     @builtins.property
     def lo_ra_wan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWirelessGateway.LoRaWANGatewayProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessGateway.LoRaWANGatewayProperty"]:
         '''The gateway configuration information to use to create the wireless gateway.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessgateway.html#cfn-iotwireless-wirelessgateway-lorawan
         '''
         result = self._values.get("lo_ra_wan")
         assert result is not None, "Required property 'lo_ra_wan' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWirelessGateway.LoRaWANGatewayProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWirelessGateway.LoRaWANGatewayProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -8020,7 +8011,7 @@ class CfnWirelessGatewayProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags are an array of key-value pairs to attach to the specified resource.
 
         Tags can have a minimum of 0 and a maximum of 50 items.
@@ -8028,7 +8019,7 @@ class CfnWirelessGatewayProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotwireless-wirelessgateway.html#cfn-iotwireless-wirelessgateway-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def thing_arn(self) -> typing.Optional[builtins.str]:
@@ -8098,13 +8089,13 @@ def _typecheckingstub__f61ecfaf93e3a5ee3c176667153d7633c25d7bc246a1af5b680196650
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5ad3e91f1f14bc613d89e8b3feb876c3f630889cbe1ad27a65b6c6e38b6e0ff3(
-    resource: _IDestinationRef_4b0181ca,
+    resource: _aws_iotwireless_7664edfb.IDestinationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8132,7 +8123,7 @@ def _typecheckingstub__57a94d4d7394b5a288e30f431c769d0fb38211e2cb138351dbb3d4358
     pass
 
 def _typecheckingstub__abcdef1ef5b37ae8d863fbd6e43535b7b8fb98b01e8f63d2e11a2ac69ae40d2b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8174,7 +8165,7 @@ def _typecheckingstub__7b60aa4ef5f47c4662f7208269db494d81166701afac30be03ebe8771
     pass
 
 def _typecheckingstub__28773e7cb2f78fe606bd46c478d428f25a9d6768b2384a0d5eabc8886d06f5d4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8186,7 +8177,7 @@ def _typecheckingstub__f7257e0c4b674f84972a8cd47754e3ce09588804469529ea8a4efd68a
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8195,15 +8186,15 @@ def _typecheckingstub__8067f9295f2cbc045aef3949460556f66763c80bd130293a84c601e6d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceProfile.LoRaWANDeviceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceProfile.LoRaWANDeviceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1c3eb713326e5e4f4a3747c9819fcc6cfae774e22e4d7b2a0aaf47b6e8e2eb3f(
-    resource: _IDeviceProfileRef_265b7e10,
+    resource: _aws_iotwireless_7664edfb.IDeviceProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8231,7 +8222,7 @@ def _typecheckingstub__0a144ca012920c4913d70a34af6cd6e3fa54254bdc179009f5f47d5c3
     pass
 
 def _typecheckingstub__6e5a8081b4b2646cf2e301e2afffc795ab7e32d6a6b52b07e5de54e172bbe245(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8243,7 +8234,7 @@ def _typecheckingstub__23fa48b9862be61ca24ddc5be9d3d852c088e91af603908b772a0f6b9
     pass
 
 def _typecheckingstub__37bc58d63a4729db23e942a768b31134889d07403a53d90d57a88c269501d5fa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceProfile.LoRaWANDeviceProfileProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeviceProfile.LoRaWANDeviceProfileProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8255,7 +8246,7 @@ def _typecheckingstub__25caee2a3bcdb77269d5e10d73ce9e629c40f7a63107b51012a8ae652
     pass
 
 def _typecheckingstub__4afbd69995e29e676f14b8919081a76892c1a3dd232747696d84a67dd728424a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8264,7 +8255,7 @@ def _typecheckingstub__0558c6321ef1b0db79fd3fb29f490ef770458d60ef008b53201feac22
     *,
     class_b_timeout: typing.Optional[jsii.Number] = None,
     class_c_timeout: typing.Optional[jsii.Number] = None,
-    factory_preset_freqs_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    factory_preset_freqs_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
     mac_version: typing.Optional[builtins.str] = None,
     max_duty_cycle: typing.Optional[jsii.Number] = None,
     max_eirp: typing.Optional[jsii.Number] = None,
@@ -8277,19 +8268,19 @@ def _typecheckingstub__0558c6321ef1b0db79fd3fb29f490ef770458d60ef008b53201feac22
     rx_delay1: typing.Optional[jsii.Number] = None,
     rx_dr_offset1: typing.Optional[jsii.Number] = None,
     rx_freq2: typing.Optional[jsii.Number] = None,
-    supports32_bit_f_cnt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    supports_class_b: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    supports_class_c: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    supports_join: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    supports32_bit_f_cnt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    supports_class_b: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    supports_class_c: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    supports_join: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d5943b1bf4799db06aae66d299d5e86b23f1003e16376a69594302b4e4054ee8(
     *,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceProfile.LoRaWANDeviceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceProfile.LoRaWANDeviceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8300,20 +8291,20 @@ def _typecheckingstub__7dc14d9e108784569e33639b9546be6bf6547039fdbf1476a6e6dc24a
     *,
     firmware_update_image: builtins.str,
     firmware_update_role: builtins.str,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFuotaTask.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFuotaTask.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
     associate_multicast_group: typing.Optional[builtins.str] = None,
     associate_wireless_device: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     disassociate_multicast_group: typing.Optional[builtins.str] = None,
     disassociate_wireless_device: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12c8860725bf293f2e4fe93018ddca41909f04dd99aec3275623aa15b4932aba(
-    resource: _IFuotaTaskRef_f399e9d4,
+    resource: _aws_iotwireless_7664edfb.IFuotaTaskRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8341,7 +8332,7 @@ def _typecheckingstub__c17c8d20122d4b702d3772c220261d1804038c66ffa89699075d37690
     pass
 
 def _typecheckingstub__b980d91ff24dc028c16177ae311632139802ed07c63559bc60b6b0a7017f8724(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8365,7 +8356,7 @@ def _typecheckingstub__461c299fc6e5ef170d9d68ec3a0d4fd23e292ad17e487e422fa0ced56
     pass
 
 def _typecheckingstub__53ced8500df8e27b1785fe0afc435e424754dde0dc634914ed9fd44ab5b30ce8(
-    value: typing.Union[_IResolvable_da3f097b, CfnFuotaTask.LoRaWANProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFuotaTask.LoRaWANProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8407,7 +8398,7 @@ def _typecheckingstub__2eacacaf44fc0b79b61f7bfe0ff15f515d32d411b03d265dc1950da37
     pass
 
 def _typecheckingstub__af87398fea4c8098bb165637d1ed67059206096bfeaa74f0f7e4bc4f155438a5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8424,14 +8415,14 @@ def _typecheckingstub__f1c3e107aa1ac02161284f43f789dead141c5600532a3e5692ad63f38
     *,
     firmware_update_image: builtins.str,
     firmware_update_role: builtins.str,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFuotaTask.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFuotaTask.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
     associate_multicast_group: typing.Optional[builtins.str] = None,
     associate_wireless_device: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     disassociate_multicast_group: typing.Optional[builtins.str] = None,
     disassociate_wireless_device: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8440,18 +8431,18 @@ def _typecheckingstub__e6fc3915d7fdc89e5cd965ebe2f8ae8013d87d86fae4860debc0123a0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMulticastGroup.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMulticastGroup.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
     associate_wireless_device: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     disassociate_wireless_device: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5ab751e4598f78fa05a205d003273c4e163bdee0b7dfb77acbce1c985c24cfbe(
-    resource: _IMulticastGroupRef_aa211041,
+    resource: _aws_iotwireless_7664edfb.IMulticastGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8479,7 +8470,7 @@ def _typecheckingstub__5b7a2466a77c304ce920bcc220a10b5563a1cb060179a3d402aa1e712
     pass
 
 def _typecheckingstub__0ea85117dcaae87f7c258e9db5b97562bfa9d3134ac4257066b0b99c150b670a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8491,7 +8482,7 @@ def _typecheckingstub__8fcd2888d21219d187de015a688eab431ac6138768b481256a7336154
     pass
 
 def _typecheckingstub__c294e487d95b07e085a91c7f8a13feb7802783382655634e559a8b45c99c8ed1(
-    value: typing.Union[_IResolvable_da3f097b, CfnMulticastGroup.LoRaWANProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMulticastGroup.LoRaWANProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8521,7 +8512,7 @@ def _typecheckingstub__9827482ae6bbc3367a4ad1ad70db1f6720ac74a9a8bff8d777c1b9974
     pass
 
 def _typecheckingstub__27a605465487f3c8166eed5c794a991aa0323a4e726e6135514d21538a40f38a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8538,12 +8529,12 @@ def _typecheckingstub__a226fea2e98276efaf2b644d1722fe1463b41172c734829c58e4752c3
 
 def _typecheckingstub__6c4e6fa1a2a0807dcecf7101bb34c083b7ea47e91b475851efefdc2219a41c6d(
     *,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMulticastGroup.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMulticastGroup.LoRaWANProperty, typing.Dict[builtins.str, typing.Any]]],
     associate_wireless_device: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     disassociate_wireless_device: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8554,7 +8545,7 @@ def _typecheckingstub__ef76e8561696d18827326b858a29c7a5bd71d6c55e2e8bf310bff5db6
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trace_content: typing.Any = None,
     wireless_devices: typing.Optional[typing.Sequence[builtins.str]] = None,
     wireless_gateways: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8563,7 +8554,7 @@ def _typecheckingstub__ef76e8561696d18827326b858a29c7a5bd71d6c55e2e8bf310bff5db6
     pass
 
 def _typecheckingstub__813e6d4c900b137307e046df6a4e926e2df7f732220322c231125bb6e701fe87(
-    resource: _INetworkAnalyzerConfigurationRef_342e1d7d,
+    resource: _aws_iotwireless_7664edfb.INetworkAnalyzerConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8591,7 +8582,7 @@ def _typecheckingstub__b4bd3d1bd4737fa3a3482ff6c2ed61037b1b5c95439f38c6f921ef9c5
     pass
 
 def _typecheckingstub__fb735453542fc1eee5534899adaa88277e0a12f532d40466da5d9007b540f43c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8621,7 +8612,7 @@ def _typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22e
     pass
 
 def _typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8650,7 +8641,7 @@ def _typecheckingstub__de35d2504c45d0e78e2b671e6fad33a1e14e8aa548b7e508caaa7a23b
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trace_content: typing.Any = None,
     wireless_devices: typing.Optional[typing.Sequence[builtins.str]] = None,
     wireless_gateways: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8662,19 +8653,19 @@ def _typecheckingstub__23050117a6e6495f26306a5fff82479bd5fc0476b02f8ebd675aaba88
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    account_linked: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    account_linked: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     partner_account_id: typing.Optional[builtins.str] = None,
     partner_type: typing.Optional[builtins.str] = None,
-    sidewalk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkAccountInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sidewalk_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sidewalk_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkUpdateAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkAccountInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk_response: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk_update: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkUpdateAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4206c7d458aec088921a510596977bef15902377cdfb5e1626fad9cd2fe3d251(
-    resource: _IPartnerAccountRef_d86f33ac,
+    resource: _aws_iotwireless_7664edfb.IPartnerAccountRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8686,7 +8677,7 @@ def _typecheckingstub__17e39ab0249ecefac9cb24aee27959ca3ac07f8c8b31662537cbd48d9
     pass
 
 def _typecheckingstub__614820e59436cd5cb89f1931fa964da150fbdf2e6b823323674e6cef8ab4bb79(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8698,7 +8689,7 @@ def _typecheckingstub__7087c5f1c74d1220271f38d1f9ff76843a565709c5a8c4011156d03dc
     pass
 
 def _typecheckingstub__8aaf826ad1c2a370b17963e90c6207f7bb7314d3e7dc5cae931ff248746ba3fa(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8716,25 +8707,25 @@ def _typecheckingstub__95b67a184faefbbc21a96bb714ed21601a9e1f59ee99b131697db7927
     pass
 
 def _typecheckingstub__5dfc9914aae89e0f8eb197d8ffe2bc096aa60a82245d8f1a8724edd051f7d100(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnerAccount.SidewalkAccountInfoProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPartnerAccount.SidewalkAccountInfoProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe1611d5cb899b19b3746136128a84710ec89f4b9d8628afa53281d1714b6abb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31e0971bf93851f4e3f9a7278252a08cda6e44ea93a8e7a0b793f3aa5bc028fa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnerAccount.SidewalkUpdateAccountProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPartnerAccount.SidewalkUpdateAccountProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da5c265354d811dc09b785b9e46927998e11bca13038834b76f0874d18d38cfa(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8764,13 +8755,13 @@ def _typecheckingstub__419d83ee7d8c9559933db42ce308a1fff6731f91c044b636c9b8c0111
 
 def _typecheckingstub__8c81ac7b24f2d30b6f882858ea510845d9241758d5fd74e60160c9d089bc1de6(
     *,
-    account_linked: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    account_linked: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     partner_account_id: typing.Optional[builtins.str] = None,
     partner_type: typing.Optional[builtins.str] = None,
-    sidewalk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkAccountInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sidewalk_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sidewalk_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnerAccount.SidewalkUpdateAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkAccountInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk_response: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkAccountInfoWithFingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk_update: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnerAccount.SidewalkUpdateAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8779,15 +8770,15 @@ def _typecheckingstub__ca074f221eda320f2c5d116c9446f9cd7110e09a78394cec71fb5ba02
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceProfile.LoRaWANServiceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceProfile.LoRaWANServiceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b9a173257cb1be86609a3378fb513c0be3f0124bad6754574db7fb0a9844518e(
-    resource: _IServiceProfileRef_7a1bbf25,
+    resource: _aws_iotwireless_7664edfb.IServiceProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8815,7 +8806,7 @@ def _typecheckingstub__0c5b7cd5f8dc00a5277aac63572546f6e43b6999bbdf1739417c721dd
     pass
 
 def _typecheckingstub__315dce048c406077b559684777c77b5922185f7618f6e7f04028b47d32b7baf3(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8827,7 +8818,7 @@ def _typecheckingstub__3507ca4e4302d93d3394415217c34a0e9785c7d2280e3ed5952192a94
     pass
 
 def _typecheckingstub__d12a1731df94a26c15c2c629e69f05069e78147796ed92c827d35da4720ce385(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceProfile.LoRaWANServiceProfileProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceProfile.LoRaWANServiceProfileProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8839,14 +8830,14 @@ def _typecheckingstub__495ecf85f557b8fb320530fa172728080da4333c5d1daf49554895e2e
     pass
 
 def _typecheckingstub__6e06c705f6bfd3ea15e35dda8a1e29b0c43e6f15d22947389e98e820e46ad578(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__80e153375dd84b74afa9419878247da802f9f8a8a199383f8d5fd7a83461c9d9(
     *,
-    add_gw_metadata: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    add_gw_metadata: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     channel_mask: typing.Optional[builtins.str] = None,
     dev_status_req_freq: typing.Optional[jsii.Number] = None,
     dl_bucket_size: typing.Optional[jsii.Number] = None,
@@ -8854,13 +8845,13 @@ def _typecheckingstub__80e153375dd84b74afa9419878247da802f9f8a8a199383f8d5fd7a83
     dl_rate_policy: typing.Optional[builtins.str] = None,
     dr_max: typing.Optional[jsii.Number] = None,
     dr_min: typing.Optional[jsii.Number] = None,
-    hr_allowed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    hr_allowed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     min_gw_diversity: typing.Optional[jsii.Number] = None,
-    nwk_geo_loc: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    pr_allowed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ra_allowed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    report_dev_status_battery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    report_dev_status_margin: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    nwk_geo_loc: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    pr_allowed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    ra_allowed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    report_dev_status_battery: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    report_dev_status_margin: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     target_per: typing.Optional[jsii.Number] = None,
     ul_bucket_size: typing.Optional[jsii.Number] = None,
     ul_rate: typing.Optional[jsii.Number] = None,
@@ -8871,9 +8862,9 @@ def _typecheckingstub__80e153375dd84b74afa9419878247da802f9f8a8a199383f8d5fd7a83
 
 def _typecheckingstub__4c50b2c760a33d8243522ebcd46655f17e5c27bf15d6038dbf0c68cf36232ecb(
     *,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceProfile.LoRaWANServiceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceProfile.LoRaWANServiceProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8882,18 +8873,18 @@ def _typecheckingstub__3d10e64d4deea928b0f793f0894101d94fa8dbafc82f1f64d5fabc09f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_create_tasks: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_create_tasks: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_definition_type: typing.Optional[builtins.str] = None,
-    update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    update: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__39b4f2511962115259cd3a343b1d8dc3013daa030a79b379ab443e3b15e94ffe(
-    resource: _ITaskDefinitionRef_d217db00,
+    resource: _aws_iotwireless_7664edfb.ITaskDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8905,7 +8896,7 @@ def _typecheckingstub__da9016b5799d00badd162157d3ea07c7b047c5eada93e2a1068a1dbfe
     pass
 
 def _typecheckingstub__9de16cdf43d0eedc9a4ca88788b721ffd3a0f35e0585fe70fc2a8d9d2f698aaa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8917,13 +8908,13 @@ def _typecheckingstub__ce022de682a811bfe3b20f7d040c6f58cab74a9722d6b628e9086aee7
     pass
 
 def _typecheckingstub__7e2140f6dd2fd5b773e37d8f7300ca14605b82d89631076e6aa400f13c633cc9(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dba999a41533710976a33b0a1023c1222f1541c811f550a29499fa6d5675bf40(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8935,7 +8926,7 @@ def _typecheckingstub__fb88f2db89785cd3e23338b9b79cdcdfeb8e47dcfc703bccb73087cc7
     pass
 
 def _typecheckingstub__302c9856183cfc94540db93d88e4bc1e952c85bd9598afb0ef7bed2bc6a84411(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8947,7 +8938,7 @@ def _typecheckingstub__6fd5d538e8d4ed460e65c9ddac2d1d68fd4345c4afe7e403b77fa77f8
     pass
 
 def _typecheckingstub__7873ddd4c5f9c059a1c30910bb0374ee468e180657a2870e1598db17895e714b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8963,25 +8954,25 @@ def _typecheckingstub__9eead759e83004a38194e11d8a25d0f709bff70ca8565202c9519e20c
 
 def _typecheckingstub__afc21f41ee9ebd8dda0283e11946044bf70b6c27b33a3abce3ff415c7ff703f6(
     *,
-    current_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sig_key_crc: typing.Optional[jsii.Number] = None,
     update_signature: typing.Optional[builtins.str] = None,
-    update_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    update_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d6341594bc267055b9e38191ae8ee71808f7e74d40bfa33ef01f6c1710119fe9(
     *,
-    current_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    update_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    update_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANGatewayVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2395a28ee7e4fa7cb268ed190fa8f9e55566832b4de59e0f97aadf1c082f3ac7(
     *,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     update_data_role: typing.Optional[builtins.str] = None,
     update_data_source: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -8990,12 +8981,12 @@ def _typecheckingstub__2395a28ee7e4fa7cb268ed190fa8f9e55566832b4de59e0f97aadf1c0
 
 def _typecheckingstub__375ac4d1ecfc288b9e4e324b136b3fca6fc5ce7a227ca417eea320f867d83eaa(
     *,
-    auto_create_tasks: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_create_tasks: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    lo_ra_wan_update_gateway_task_entry: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.LoRaWANUpdateGatewayTaskEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_definition_type: typing.Optional[builtins.str] = None,
-    update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    update: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.UpdateWirelessGatewayTaskCreateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9008,17 +8999,17 @@ def _typecheckingstub__a785469cac62290b28ca4347d5562cd8f4e0d3d2543a08bb415fcdfcd
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
     last_uplink_received_at: typing.Optional[builtins.str] = None,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.LoRaWANDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.LoRaWANDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     positioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thing_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b5a01643821488706b05510eceb2bc8b596f1f10517c32d2280650a5e05bb83d(
-    resource: _IWirelessDeviceRef_3a65f428,
+    resource: _aws_iotwireless_7664edfb.IWirelessDeviceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9046,7 +9037,7 @@ def _typecheckingstub__994df05ffee94cba1b6f7ecb1605052d352d5597b884b47949262d952
     pass
 
 def _typecheckingstub__8c3f9623871804482a281e90ea9c41a1af250f5169c286db6bc7ab0e057fb788(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9082,7 +9073,7 @@ def _typecheckingstub__c6eb1d5a6add55c4de31d6a02d93e5a6c7b8f13ebd8c3e95893448a24
     pass
 
 def _typecheckingstub__8a9387fe5c912c19442cf1a22d4b80b3bfec7bfaeaeedfde3a48464707ac5e94(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWirelessDevice.LoRaWANDeviceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWirelessDevice.LoRaWANDeviceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9100,7 +9091,7 @@ def _typecheckingstub__e8c7b7fcf5ba7730b0ce3b8c924fe1fe208985f6c0d4fd68b55353bbe
     pass
 
 def _typecheckingstub__de98087af9f5a2df8b9078aef4604fb7a5d9b8ce62eab7c135763cdcf4911075(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9114,7 +9105,7 @@ def _typecheckingstub__1062e2a4111f3f10850a14272256ebd97067e00cf02bb987304ac0704
 def _typecheckingstub__2f3c7c33ac394ea769fdff09d74d18df5199694a0b192de0112bc6fc8bad01ac(
     *,
     dev_addr: builtins.str,
-    session_keys: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.SessionKeysAbpV10xProperty, typing.Dict[builtins.str, typing.Any]]],
+    session_keys: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.SessionKeysAbpV10xProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9122,7 +9113,7 @@ def _typecheckingstub__2f3c7c33ac394ea769fdff09d74d18df5199694a0b192de0112bc6fc8
 def _typecheckingstub__60d86251ec9e15886b39ab32d3b20d4a624d17a6f00dd271dfc743f0d050ca1e(
     *,
     dev_addr: builtins.str,
-    session_keys: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.SessionKeysAbpV11Property, typing.Dict[builtins.str, typing.Any]]],
+    session_keys: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.SessionKeysAbpV11Property, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9138,20 +9129,20 @@ def _typecheckingstub__5c88af7524b9cc032696918a6b08702ccb76f6a1981e42878b6e121d6
 
 def _typecheckingstub__838fed2bee84917cc559f987ebb1aa7ea4d2dcfc17565a509e75cc47c8ae02b2(
     *,
-    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    applications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__79b613fcb6e4bec4dd04e0ec3aefb63244dbaff286fed6d7327bebfa7aed6cba(
     *,
-    abp_v10_x: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.AbpV10xProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    abp_v11: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.AbpV11Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    abp_v10_x: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.AbpV10xProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    abp_v11: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.AbpV11Property, typing.Dict[builtins.str, typing.Any]]]] = None,
     dev_eui: typing.Optional[builtins.str] = None,
     device_profile_id: typing.Optional[builtins.str] = None,
-    f_ports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.FPortsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    otaa_v10_x: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.OtaaV10xProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    otaa_v11: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.OtaaV11Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    f_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.FPortsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    otaa_v10_x: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.OtaaV10xProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    otaa_v11: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.OtaaV11Property, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_profile_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9197,30 +9188,14 @@ def _typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76
     id: builtins.str,
     *,
     destination_name: builtins.str,
-    sidewalk: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDeviceImportTask.SidewalkProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDeviceImportTask.SidewalkProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba(
-    resource: _IWirelessDeviceImportTaskRef_84dee71f,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    wireless_device_import_task_id: builtins.str,
+    resource: _aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9232,7 +9207,7 @@ def _typecheckingstub__901ca1e74a95695678800363fb9764092701dc15a1a65e674f91f1bea
     pass
 
 def _typecheckingstub__198856489aba15c5acfb8dfab7e2b4a71dc22d665121a8744c5ee52b5a33b0d1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9250,13 +9225,13 @@ def _typecheckingstub__3ededfdd755af77ac21339c21b25ba1960365538a55f8efb323ccb407
     pass
 
 def _typecheckingstub__3b94dcee288462d05aefdffb188ba06832b12dcea7d955f135c110c087bb3874(
-    value: typing.Union[_IResolvable_da3f097b, CfnWirelessDeviceImportTask.SidewalkProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWirelessDeviceImportTask.SidewalkProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37f67b5df03fc789e404057fa4c7dc3cb0bf29a0dd71d20ccd91e499b959af24(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9274,8 +9249,8 @@ def _typecheckingstub__b7674cfa92498ab342f9eac20d079b4999526cab4026edf48f0397de1
 def _typecheckingstub__ae6e4053bc6cd657f874e13d1418635c416bc4ffa544969dd87a3e3f37282189(
     *,
     destination_name: builtins.str,
-    sidewalk: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDeviceImportTask.SidewalkProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sidewalk: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDeviceImportTask.SidewalkProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9286,10 +9261,10 @@ def _typecheckingstub__c132064eaadc8906efb4c94784760c71f0e1de304300dc1e66377c449
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
     last_uplink_received_at: typing.Optional[builtins.str] = None,
-    lo_ra_wan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessDevice.LoRaWANDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lo_ra_wan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessDevice.LoRaWANDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     positioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thing_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9299,11 +9274,11 @@ def _typecheckingstub__83cf451292782ed7cf2ebb2ff51643f50a0853d30208d953201e94c64
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessGateway.LoRaWANGatewayProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessGateway.LoRaWANGatewayProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     last_uplink_received_at: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thing_arn: typing.Optional[builtins.str] = None,
     thing_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -9311,7 +9286,7 @@ def _typecheckingstub__83cf451292782ed7cf2ebb2ff51643f50a0853d30208d953201e94c64
     pass
 
 def _typecheckingstub__52e87db16172f969742b18c45b053883b10eb16912c8a34ed2774528056b9a29(
-    resource: _IWirelessGatewayRef_9d22b38e,
+    resource: _aws_iotwireless_7664edfb.IWirelessGatewayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9339,7 +9314,7 @@ def _typecheckingstub__75888b58bd7cc88576b9b93d1e19523fcdc0c7a00c48ca00743181ca0
     pass
 
 def _typecheckingstub__69dede8ca1182ed73a8de2fda4268a2b26721b01a1dca9ad4762a6b85fc46a7b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9351,7 +9326,7 @@ def _typecheckingstub__25b4ec1cc0c08824c4c5350c2f1641929aa02b1e3dc040cd37dc55da5
     pass
 
 def _typecheckingstub__bbc33250d661f7557837e50ada87180167d8574118707d139d2eb4fa49602882(
-    value: typing.Union[_IResolvable_da3f097b, CfnWirelessGateway.LoRaWANGatewayProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWirelessGateway.LoRaWANGatewayProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9375,7 +9350,7 @@ def _typecheckingstub__fc344d26426421b59939c05527ffa4450645002aaa7008eec620471cb
     pass
 
 def _typecheckingstub__493d37495ffc45845617d2e1ba953b01719cb48c69682d0a6e27d0773456852b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9402,11 +9377,11 @@ def _typecheckingstub__ddc162c67799ffa5b9f0b75305d65763275f726ca096abf2be6e97d8d
 
 def _typecheckingstub__c638b98661b74de194655d6ea9f1ffd6ff2285ebce875290921403545f2fde80(
     *,
-    lo_ra_wan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWirelessGateway.LoRaWANGatewayProperty, typing.Dict[builtins.str, typing.Any]]],
+    lo_ra_wan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWirelessGateway.LoRaWANGatewayProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     last_uplink_received_at: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thing_arn: typing.Optional[builtins.str] = None,
     thing_name: typing.Optional[builtins.str] = None,
 ) -> None:

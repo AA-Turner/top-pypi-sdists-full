@@ -251,12 +251,11 @@ fusion_embedding_1_2b_preview = ModelMeta(
     },
     model_type=["dense"],
     citation="""
-@software{fusion_embedding_2026,
-  title  = {Fusion Embedding: A Unified Embedding Space for Text,
-            Image, Video, and Audio},
-  author = {Tonmoy, Abdul Basit},
-  year   = {2026},
-  url    = {https://github.com/Eximius-Labs/fusion-embedding}
+@article{tonmoy2026fusion,
+  title   = {Fusion Embedding: A Unified Embedding Space for Text, Image, Video, and Audio},
+  author  = {Tonmoy, Abdul Basit and Hoque, Kazi Fardinul and Arham, Md. Shahrier Islam and Luthra, Arman},
+  journal = {arXiv preprint arXiv:2607.18666},
+  year    = {2026}
 }
 """,
     extra_requirements_groups=["fusion-embedding"],
@@ -267,7 +266,7 @@ fusion_embedding_2_2b_preview = ModelMeta(
     name="EximiusLabs/fusion-embedding-2-2b-preview",
     languages=["eng-Latn"],
     open_weights=True,
-    revision="2d30494e4ef581ccad66e9d90b55dc4a84b96bc4",
+    revision="9451b840f0d1d95440f3836e9a7f600a833d663f",
     release_date="2026-07-12",
     modalities=["audio", "image", "text", "video"],
     n_parameters=2_800_000_000,
@@ -309,12 +308,11 @@ fusion_embedding_2_2b_preview = ModelMeta(
     },
     model_type=["dense"],
     citation="""
-@software{fusion_embedding_2026,
-  title  = {Fusion Embedding: A Unified Embedding Space for Text,
-            Image, Video, and Audio},
-  author = {Tonmoy, Abdul Basit},
-  year   = {2026},
-  url    = {https://github.com/Eximius-Labs/fusion-embedding}
+@article{tonmoy2026fusion,
+  title   = {Fusion Embedding: A Unified Embedding Space for Text, Image, Video, and Audio},
+  author  = {Tonmoy, Abdul Basit and Hoque, Kazi Fardinul and Arham, Md. Shahrier Islam and Luthra, Arman},
+  journal = {arXiv preprint arXiv:2607.18666},
+  year    = {2026}
 }
 """,
     extra_requirements_groups=["fusion-embedding"],

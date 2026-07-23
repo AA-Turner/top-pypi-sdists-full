@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AppReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0c551713e40277c55a6aa34fecf93fc68a27bf62797d47dc60613cd2a435b38)
+            type_hints = cached_type_hints(_typecheckingstub__e0c551713e40277c55a6aa34fecf93fc68a27bf62797d47dc60613cd2a435b38)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_id": app_id,
@@ -109,7 +113,7 @@ class ElasticLoadBalancerAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d3c8dd924ad4994b9195afd966c18d0950398fb10f8078b91f2679d74e08117)
+            type_hints = cached_type_hints(_typecheckingstub__8d3c8dd924ad4994b9195afd966c18d0950398fb10f8078b91f2679d74e08117)
             check_type(argname="argument elastic_load_balancer_attachment_id", value=elastic_load_balancer_attachment_id, expected_type=type_hints["elastic_load_balancer_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "elastic_load_balancer_attachment_id": elastic_load_balancer_attachment_id,
@@ -137,7 +141,7 @@ class ElasticLoadBalancerAttachmentReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.IAppRef")
 class IAppRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a App.
@@ -157,7 +161,7 @@ class IAppRef(
 
 class _IAppRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a App.
 
@@ -184,7 +188,7 @@ typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
 )
 class IElasticLoadBalancerAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ElasticLoadBalancerAttachment.
@@ -206,7 +210,7 @@ class IElasticLoadBalancerAttachmentRef(
 
 class _IElasticLoadBalancerAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ElasticLoadBalancerAttachment.
 
@@ -233,7 +237,7 @@ typing.cast(typing.Any, IElasticLoadBalancerAttachmentRef).__jsii_proxy_class__ 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.IInstanceRef")
 class IInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
@@ -253,7 +257,7 @@ class IInstanceRef(
 
 class _IInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstance
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.ILayerRef")
 class ILayerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Layer.
@@ -298,7 +302,7 @@ class ILayerRef(
 
 class _ILayerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Layer.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, ILayerRef).__jsii_proxy_class__ = lambda : _ILayerRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.IStackRef")
 class IStackRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
@@ -343,7 +347,7 @@ class IStackRef(
 
 class _IStackRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.IUserProfileRef")
 class IUserProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserProfile.
@@ -388,7 +392,7 @@ class IUserProfileRef(
 
 class _IUserProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserProfile.
 
@@ -413,7 +417,7 @@ typing.cast(typing.Any, IUserProfileRef).__jsii_proxy_class__ = lambda : _IUserP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opsworks.IVolumeRef")
 class IVolumeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
@@ -433,7 +437,7 @@ class IVolumeRef(
 
 class _IVolumeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
 
@@ -479,7 +483,7 @@ class InstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__895cec226c11fff5e2501bf617655014b5c476842d77743c043755d94cf4902a)
+            type_hints = cached_type_hints(_typecheckingstub__895cec226c11fff5e2501bf617655014b5c476842d77743c043755d94cf4902a)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
@@ -528,7 +532,7 @@ class LayerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f515be01b79f66817a8720fdb1c48591d298d39dd85b86723b2cfa226000e98)
+            type_hints = cached_type_hints(_typecheckingstub__6f515be01b79f66817a8720fdb1c48591d298d39dd85b86723b2cfa226000e98)
             check_type(argname="argument layer_id", value=layer_id, expected_type=type_hints["layer_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "layer_id": layer_id,
@@ -577,7 +581,7 @@ class StackReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2cc53fe8368ff29f02f3d4cfd0cd430b913740167ad005b9f6aeaf877419c17)
+            type_hints = cached_type_hints(_typecheckingstub__a2cc53fe8368ff29f02f3d4cfd0cd430b913740167ad005b9f6aeaf877419c17)
             check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_id": stack_id,
@@ -626,7 +630,7 @@ class UserProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07032bd286f2c6831af6600508d1b6611c89b34e96e91eb295766dbd00a81ba5)
+            type_hints = cached_type_hints(_typecheckingstub__07032bd286f2c6831af6600508d1b6611c89b34e96e91eb295766dbd00a81ba5)
             check_type(argname="argument user_profile_id", value=user_profile_id, expected_type=type_hints["user_profile_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_profile_id": user_profile_id,
@@ -675,7 +679,7 @@ class VolumeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1d2a127f5d0d2cf3cb22749134f0f85e3e64120f84467645be864337323c6bf)
+            type_hints = cached_type_hints(_typecheckingstub__f1d2a127f5d0d2cf3cb22749134f0f85e3e64120f84467645be864337323c6bf)
             check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "volume_id": volume_id,

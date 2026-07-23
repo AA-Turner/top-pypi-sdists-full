@@ -7677,7 +7677,7 @@ static PyObject *
 CreateTupleFromIntArray( const int *first, size_t size ) {
   PyObject *out = PyTuple_New( size );
   for( unsigned int i=0; i<size; i++ ) {
-    PyObject *val = PyInt_FromLong( *first );
+    PyObject *val = PyLong_FromLong( *first );
     ++first;
     PyTuple_SetItem( out, i, val );
   }
@@ -14622,7 +14622,7 @@ SWIGINTERN PyObject *_wrap_FileFromMemBuffer(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -14724,7 +14724,7 @@ SWIGINTERN PyObject *_wrap_Unlink(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -14967,7 +14967,7 @@ SWIGINTERN PyObject *_wrap_Mkdir(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15060,7 +15060,7 @@ SWIGINTERN PyObject *_wrap_Rmdir(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15160,7 +15160,7 @@ SWIGINTERN PyObject *_wrap_MkdirRecursive(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15253,7 +15253,7 @@ SWIGINTERN PyObject *_wrap_RmdirRecursive(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15381,7 +15381,7 @@ SWIGINTERN PyObject *_wrap_Rename(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15509,7 +15509,7 @@ SWIGINTERN PyObject *_wrap_Move(PyObject *self, PyObject *args, PyObject *kwargs
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -15611,7 +15611,7 @@ SWIGINTERN PyObject *_wrap_Move(PyObject *self, PyObject *args, PyObject *kwargs
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -15749,7 +15749,7 @@ SWIGINTERN PyObject *_wrap_Sync(PyObject *self, PyObject *args, PyObject *kwargs
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -16072,7 +16072,7 @@ SWIGINTERN PyObject *_wrap_CopyFile(PyObject *self, PyObject *args, PyObject *kw
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -16303,7 +16303,7 @@ SWIGINTERN PyObject *_wrap_CopyFileRestartable(PyObject *self, PyObject *args) {
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[4]) || PyInt_Check(swig_obj[4]) )
+      if ( PyLong_Check(swig_obj[4]) )
       {
         if( PyLong_AsLong(swig_obj[4]) == 0 )
         {
@@ -18006,7 +18006,7 @@ SWIGINTERN PyObject *_wrap_VSIFCloseL(PyObject *self, PyObject *args) {
   }
   {
     /* %typemap(ret) VSI_RETVAL */
-    resultobj = PyInt_FromLong( result );
+    resultobj = PyLong_FromLong( result );
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
@@ -20271,9 +20271,9 @@ SWIGINTERN PyObject *_wrap_Driver_Create(PyObject *self, PyObject *args, PyObjec
   }
   if (obj5) {
     {
-      if (PyInt_Check(obj5))
+      if (PyLong_Check(obj5))
       {
-        arg6 = static_cast<GDALDataType>(PyInt_AsLong(obj5));
+        arg6 = static_cast<GDALDataType>(PyLong_AsLong(obj5));
       }
       else
       {
@@ -20285,9 +20285,9 @@ SWIGINTERN PyObject *_wrap_Driver_Create(PyObject *self, PyObject *args, PyObjec
           PyObject* type_code = PyObject_CallFunctionObjArgs(fn, obj5, NULL);
           
           Py_DECREF(gdal_array);
-          if (type_code && PyInt_Check(type_code))
+          if (type_code && PyLong_Check(type_code))
           {
-            arg6 = static_cast<GDALDataType>(PyInt_AsLong(type_code));
+            arg6 = static_cast<GDALDataType>(PyLong_AsLong(type_code));
             Py_DECREF(type_code);
           }
           else
@@ -20783,7 +20783,7 @@ SWIGINTERN PyObject *_wrap_Driver_CreateCopy(PyObject *self, PyObject *args, PyO
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -24499,7 +24499,7 @@ SWIGINTERN PyObject *_wrap_Dataset_Close(PyObject *self, PyObject *args, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj1) || PyInt_Check(obj1) )
+      if ( PyLong_Check(obj1) )
       {
         if( PyLong_AsLong(obj1) == 0 )
         {
@@ -24655,7 +24655,7 @@ SWIGINTERN PyObject *_wrap_Dataset__RunCloseWithoutDestroying(PyObject *self, Py
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[1]) || PyInt_Check(swig_obj[1]) )
+      if ( PyLong_Check(swig_obj[1]) )
       {
         if( PyLong_AsLong(swig_obj[1]) == 0 )
         {
@@ -25705,7 +25705,7 @@ SWIGINTERN PyObject *_wrap_Dataset_BuildOverviews(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -27308,7 +27308,7 @@ SWIGINTERN PyObject *_wrap_Dataset_GetInterBandCovarianceMatrix(PyObject *self, 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj6) || PyInt_Check(obj6) )
+      if ( PyLong_Check(obj6) )
       {
         if( PyLong_AsLong(obj6) == 0 )
         {
@@ -27531,7 +27531,7 @@ SWIGINTERN PyObject *_wrap_Dataset_ComputeInterBandCovarianceMatrix(PyObject *se
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -28450,7 +28450,7 @@ SWIGINTERN PyObject *_wrap_Dataset_DeleteLayer(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -28580,7 +28580,7 @@ SWIGINTERN PyObject *_wrap_Dataset_GetNextFeature(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -29254,7 +29254,7 @@ SWIGINTERN PyObject *_wrap_Dataset_AbortSQL(PyObject *self, PyObject *args) {
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29329,7 +29329,7 @@ SWIGINTERN PyObject *_wrap_Dataset_StartTransaction(PyObject *self, PyObject *ar
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29391,7 +29391,7 @@ SWIGINTERN PyObject *_wrap_Dataset_CommitTransaction(PyObject *self, PyObject *a
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -29453,7 +29453,7 @@ SWIGINTERN PyObject *_wrap_Dataset_RollbackTransaction(PyObject *self, PyObject 
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -30477,7 +30477,7 @@ SWIGINTERN PyObject *_wrap_Dataset_ReadRaster1(PyObject *self, PyObject *args, P
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj14) || PyInt_Check(obj14) )
+      if ( PyLong_Check(obj14) )
       {
         if( PyLong_AsLong(obj14) == 0 )
         {
@@ -39514,7 +39514,7 @@ SWIGINTERN PyObject *_wrap_MDArray_SetSpatialRef(PyObject *self, PyObject *args)
   {
     /* %typemap(ret) OGRErr */
     if ( ReturnSame(resultobj == Py_None || resultobj == 0) ) {
-      resultobj = PyInt_FromLong( result );
+      resultobj = PyLong_FromLong( result );
     }
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
@@ -40168,7 +40168,7 @@ SWIGINTERN PyObject *_wrap_MDArray_GetStatistics(PyObject *self, PyObject *args,
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -40296,7 +40296,7 @@ SWIGINTERN PyObject *_wrap_MDArray_ComputeStatistics(PyObject *self, PyObject *a
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj2) || PyInt_Check(obj2) )
+      if ( PyLong_Check(obj2) )
       {
         if( PyLong_AsLong(obj2) == 0 )
         {
@@ -41009,7 +41009,7 @@ SWIGINTERN PyObject *_wrap_MDArray_BuildOverviews(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -46025,7 +46025,7 @@ SWIGINTERN PyObject *_wrap_Band_ComputeStatistics(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj2) || PyInt_Check(obj2) )
+      if ( PyLong_Check(obj2) )
       {
         if( PyLong_AsLong(obj2) == 0 )
         {
@@ -47555,7 +47555,7 @@ SWIGINTERN PyObject *_wrap_Band_GetHistogram(PyObject *self, PyObject *args, PyO
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj6) || PyInt_Check(obj6) )
+      if ( PyLong_Check(obj6) )
       {
         if( PyLong_AsLong(obj6) == 0 )
         {
@@ -47776,7 +47776,7 @@ SWIGINTERN PyObject *_wrap_Band_GetDefaultHistogram(PyObject *self, PyObject *ar
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj6) || PyInt_Check(obj6) )
+      if ( PyLong_Check(obj6) )
       {
         if( PyLong_AsLong(obj6) == 0 )
         {
@@ -50226,7 +50226,7 @@ SWIGINTERN PyObject *_wrap_Band_ReadRaster1(PyObject *self, PyObject *args, PyOb
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj12) || PyInt_Check(obj12) )
+      if ( PyLong_Check(obj12) )
       {
         if( PyLong_AsLong(obj12) == 0 )
         {
@@ -52892,7 +52892,7 @@ SWIGINTERN PyObject *_wrap_ComputeMedianCutPCT(PyObject *self, PyObject *args, P
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -53063,7 +53063,7 @@ SWIGINTERN PyObject *_wrap_DitherRGB2PCT(PyObject *self, PyObject *args, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -53271,7 +53271,7 @@ SWIGINTERN PyObject *_wrap_ReprojectImage(PyObject *self, PyObject *args, PyObje
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj7) || PyInt_Check(obj7) )
+      if ( PyLong_Check(obj7) )
       {
         if( PyLong_AsLong(obj7) == 0 )
         {
@@ -53471,7 +53471,7 @@ SWIGINTERN PyObject *_wrap_ComputeProximity(PyObject *self, PyObject *args, PyOb
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -53681,7 +53681,7 @@ SWIGINTERN PyObject *_wrap_RasterizeLayer(PyObject *self, PyObject *args, PyObje
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj7) || PyInt_Check(obj7) )
+      if ( PyLong_Check(obj7) )
       {
         if( PyLong_AsLong(obj7) == 0 )
         {
@@ -53885,7 +53885,7 @@ SWIGINTERN PyObject *_wrap_Polygonize(PyObject *self, PyObject *args, PyObject *
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -54073,7 +54073,7 @@ SWIGINTERN PyObject *_wrap_FPolygonize(PyObject *self, PyObject *args, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -54261,7 +54261,7 @@ SWIGINTERN PyObject *_wrap_FillNodata(PyObject *self, PyObject *args, PyObject *
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj5) || PyInt_Check(obj5) )
+      if ( PyLong_Check(obj5) )
       {
         if( PyLong_AsLong(obj5) == 0 )
         {
@@ -54455,7 +54455,7 @@ SWIGINTERN PyObject *_wrap_SieveFilter(PyObject *self, PyObject *args, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj6) || PyInt_Check(obj6) )
+      if ( PyLong_Check(obj6) )
       {
         if( PyLong_AsLong(obj6) == 0 )
         {
@@ -54639,7 +54639,7 @@ SWIGINTERN PyObject *_wrap_RegenerateOverviews(PyObject *self, PyObject *args, P
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -54790,7 +54790,7 @@ SWIGINTERN PyObject *_wrap_RegenerateOverview(PyObject *self, PyObject *args, Py
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -54990,7 +54990,7 @@ SWIGINTERN PyObject *_wrap_ContourGenerate(PyObject *self, PyObject *args, PyObj
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj9) || PyInt_Check(obj9) )
+      if ( PyLong_Check(obj9) )
       {
         if( PyLong_AsLong(obj9) == 0 )
         {
@@ -55160,7 +55160,7 @@ SWIGINTERN PyObject *_wrap_ContourGenerateEx(PyObject *self, PyObject *args, PyO
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj3) || PyInt_Check(obj3) )
+      if ( PyLong_Check(obj3) )
       {
         if( PyLong_AsLong(obj3) == 0 )
         {
@@ -55444,7 +55444,7 @@ SWIGINTERN PyObject *_wrap_ViewshedGenerate(PyObject *self, PyObject *args, PyOb
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj15) || PyInt_Check(obj15) )
+      if ( PyLong_Check(obj15) )
       {
         if( PyLong_AsLong(obj15) == 0 )
         {
@@ -56475,7 +56475,7 @@ SWIGINTERN PyObject *_wrap_GDALTransformerInfoShadow_TransformGeolocations(PyObj
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj4) || PyInt_Check(obj4) )
+      if ( PyLong_Check(obj4) )
       {
         if( PyLong_AsLong(obj4) == 0 )
         {
@@ -58573,7 +58573,7 @@ SWIGINTERN PyObject *_wrap_AlgorithmArg_GetDefaultAsIntegerList(PyObject *self, 
       SWIG_fail;
     }
     for( int i=0; i<*arg2; i++ ) {
-      PyObject *val = PyInt_FromLong( (*arg3)[i] );
+      PyObject *val = PyLong_FromLong( (*arg3)[i] );
       PyList_SetItem( out, i, val );
     }
     resultobj = out;
@@ -59551,7 +59551,7 @@ SWIGINTERN PyObject *_wrap_AlgorithmArg_GetAsIntegerList(PyObject *self, PyObjec
       SWIG_fail;
     }
     for( int i=0; i<*arg2; i++ ) {
-      PyObject *val = PyInt_FromLong( (*arg3)[i] );
+      PyObject *val = PyLong_FromLong( (*arg3)[i] );
       PyList_SetItem( out, i, val );
     }
     resultobj = out;
@@ -60938,7 +60938,7 @@ SWIGINTERN PyObject *_wrap_Algorithm_Run(PyObject *self, PyObject *args) {
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[1]) || PyInt_Check(swig_obj[1]) )
+      if ( PyLong_Check(swig_obj[1]) )
       {
         if( PyLong_AsLong(swig_obj[1]) == 0 )
         {
@@ -61119,7 +61119,7 @@ SWIGINTERN PyObject *_wrap_Algorithm_ParseRunAndFinalize(PyObject *self, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[2]) || PyInt_Check(swig_obj[2]) )
+      if ( PyLong_Check(swig_obj[2]) )
       {
         if( PyLong_AsLong(swig_obj[2]) == 0 )
         {
@@ -65382,7 +65382,7 @@ SWIGINTERN PyObject *_wrap_TranslateInternal(PyObject *self, PyObject *args) {
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -65685,7 +65685,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALWarpDestDS(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -65872,7 +65872,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALWarpDestName(PyObject *self, PyObject *ar
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -66148,7 +66148,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALVectorTranslateDestDS(PyObject *self, PyO
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -66292,7 +66292,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALVectorTranslateDestName(PyObject *self, P
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -66596,7 +66596,7 @@ SWIGINTERN PyObject *_wrap_DEMProcessingInternal(PyObject *self, PyObject *args)
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[5]) || PyInt_Check(swig_obj[5]) )
+      if ( PyLong_Check(swig_obj[5]) )
       {
         if( PyLong_AsLong(swig_obj[5]) == 0 )
         {
@@ -66878,7 +66878,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALNearblackDestDS(PyObject *self, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -67022,7 +67022,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALNearblackDestName(PyObject *self, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -67308,7 +67308,7 @@ SWIGINTERN PyObject *_wrap_GridInternal(PyObject *self, PyObject *args) {
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -67581,7 +67581,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALContourDestDS(PyObject *self, PyObject *a
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -67725,7 +67725,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALContourDestName(PyObject *self, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -67993,7 +67993,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALRasterizeDestDS(PyObject *self, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -68137,7 +68137,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALRasterizeDestName(PyObject *self, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -68405,7 +68405,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALFootprintDestDS(PyObject *self, PyObject 
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -68549,7 +68549,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALFootprintDestName(PyObject *self, PyObjec
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -68865,7 +68865,7 @@ SWIGINTERN PyObject *_wrap_BuildVRTInternalObjects(PyObject *self, PyObject *arg
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -69049,7 +69049,7 @@ SWIGINTERN PyObject *_wrap_BuildVRTInternalNames(PyObject *self, PyObject *args)
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -69360,7 +69360,7 @@ SWIGINTERN PyObject *_wrap_TileIndexInternalNames(PyObject *self, PyObject *args
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {
@@ -69684,7 +69684,7 @@ SWIGINTERN PyObject *_wrap_wrapper_GDALMultiDimTranslateDestName(PyObject *self,
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(swig_obj[3]) || PyInt_Check(swig_obj[3]) )
+      if ( PyLong_Check(swig_obj[3]) )
       {
         if( PyLong_AsLong(swig_obj[3]) == 0 )
         {

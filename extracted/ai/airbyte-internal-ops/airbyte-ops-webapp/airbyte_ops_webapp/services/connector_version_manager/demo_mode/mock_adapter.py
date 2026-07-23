@@ -668,7 +668,7 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             updated_at="2026-06-21T10:45:00Z",
             rollout_strategy="auto",
             rc_pin_count=1,
-            tier=CustomerTier.ALL,
+            tier=CustomerTier.TIER_0,
         ),
     ),
 }
@@ -1188,8 +1188,8 @@ class MockPinningAdapter(OpsMcpAdapter):
             "b5ea17b1-f170-46dc-bc31-cc744ca984c1": _mock_population(
                 (90, 45), (36, 12), (6, 0)
             ),
-            # destination-snowflake (only the ALL/T0 stage is rolling out; T2/T1
-            # have no rollout row, so their pinned counts are 0)
+            # destination-snowflake (only the T0 terminal stage is rolling out;
+            # T2/T1 have no rollout row, so their pinned counts are 0)
             "25c5221d-dce2-4163-ade9-739ef790f503": _mock_population(
                 (50, 0), (20, 0), (40, 12)
             ),

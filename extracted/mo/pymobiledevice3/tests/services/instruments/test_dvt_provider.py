@@ -82,6 +82,9 @@ async def test_kill(dvt, service_provider) -> None:
     await asyncio.sleep(3)
     async with type(dvt)(service_provider) as second_dvt, DeviceInfo(second_dvt) as device_info:
         aggregated_after_kill = await get_process_data(device_info, "SpringBoard")
+    # the kill must have taken effect: SpringBoard respawns under a fresh pid. Asserting this
+    # unconditionally guards against a silently-dropped kill (the process would keep its pid).
+    assert aggregated["pid"] != aggregated_after_kill["pid"]
     if "startDate" in aggregated:
         assert aggregated["startDate"] < aggregated_after_kill["startDate"]
 
@@ -107,10 +110,12 @@ async def test_observe(dvt, service_provider) -> None:
     """
     Test observing a launched process and receiving its termination callback.
     """
-    process_terminated: asyncio.Future[tuple[int, int, Optional[int]]] = asyncio.get_event_loop().create_future()
+    process_terminated: asyncio.Future[tuple[int, Optional[int], Optional[int]]] = (
+        asyncio.get_event_loop().create_future()
+    )
     signature_received: asyncio.Future[dict] = asyncio.get_event_loop().create_future()
 
-    async def on_process_terminated(pid: int, exit_code: int, crashing_signal: Optional[int]) -> None:
+    async def on_process_terminated(pid: int, exit_code: Optional[int], crashing_signal: Optional[int]) -> None:
         process_terminated.set_result((pid, exit_code, crashing_signal))
 
     async def on_tracking_signature(obj: dict) -> None:
@@ -121,7 +126,7 @@ async def test_observe(dvt, service_provider) -> None:
         process_control.service._on_process_terminated = on_process_terminated
 
         # manually add a @dtx_on_invoke
-        device_info.service._on_tracking_signature = on_tracking_signature
+        device_info.service._on_tracking_signature = on_tracking_signature  # pyright: ignore[reportAttributeAccessIssue]
         device_info.service._dtx_dispatch["trackProcess:"] = "_on_tracking_signature"
         device_info.service._channel.on_invoke = device_info.service.__on_dispatch__
 

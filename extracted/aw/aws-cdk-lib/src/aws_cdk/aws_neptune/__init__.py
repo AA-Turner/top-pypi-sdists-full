@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,59 +45,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import ISecurityGroupRef as _ISecurityGroupRef_efa4ff18
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_neptune import (
-    DBClusterParameterGroupReference as _DBClusterParameterGroupReference_da7b4f10,
-    DBClusterReference as _DBClusterReference_46880dce,
-    DBInstanceReference as _DBInstanceReference_84c4879a,
-    DBParameterGroupReference as _DBParameterGroupReference_9bb44206,
-    DBSubnetGroupReference as _DBSubnetGroupReference_27cd8411,
-    EventSubscriptionReference as _EventSubscriptionReference_8038a89c,
-    GlobalClusterReference as _GlobalClusterReference_ae43b63a,
-    IDBClusterParameterGroupRef as _IDBClusterParameterGroupRef_be75ec22,
-    IDBClusterRef as _IDBClusterRef_14961392,
-    IDBInstanceRef as _IDBInstanceRef_5e0e3745,
-    IDBParameterGroupRef as _IDBParameterGroupRef_9e461d1a,
-    IDBSubnetGroupRef as _IDBSubnetGroupRef_b2b07796,
-    IEventSubscriptionRef as _IEventSubscriptionRef_21b725e3,
-    IGlobalClusterRef as _IGlobalClusterRef_ea1eccd8,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_neptune as _aws_neptune_309a5d71
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_neptune_309a5d71 = _LazyImport("aws_cdk.interfaces.aws_neptune")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDBClusterRef_14961392, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IDBClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDBCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnDBCluster",
 ):
@@ -167,33 +150,33 @@ class CfnDBCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        associated_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDBCluster.DBClusterRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        associated_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBCluster.DBClusterRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
         backup_retention_period: typing.Optional[jsii.Number] = None,
-        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
         db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
         db_port: typing.Optional[jsii.Number] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_cluster_identifier: typing.Optional[builtins.str] = None,
-        iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         network_type: typing.Optional[builtins.str] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         restore_to_time: typing.Optional[builtins.str] = None,
         restore_type: typing.Optional[builtins.str] = None,
-        serverless_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDBCluster.ServerlessScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        serverless_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBCluster.ServerlessScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::DBCluster``.
 
@@ -228,7 +211,7 @@ class CfnDBCluster(
         :param vpc_security_group_ids: Provides a list of VPC security groups that the DB cluster belongs to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c02a97dc4524b23c97bacdafe22108ee784060ff42aa0df48684293836e87f79)
+            type_hints = cached_type_hints(_typecheckingstub__c02a97dc4524b23c97bacdafe22108ee784060ff42aa0df48684293836e87f79)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDBClusterProps(
@@ -271,18 +254,18 @@ class CfnDBCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c5051cfcc069fadb9390db5addfa7cc515c8c2e7a2ea2b2ac7d97c1f137db50)
+            type_hints = cached_type_hints(_typecheckingstub__9c5051cfcc069fadb9390db5addfa7cc515c8c2e7a2ea2b2ac7d97c1f137db50)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2b93870f57e4dfbfef8083da92bbb9920aa612cd5b74bc89c8bf35ac4bdc9a8)
+            type_hints = cached_type_hints(_typecheckingstub__c2b93870f57e4dfbfef8083da92bbb9920aa612cd5b74bc89c8bf35ac4bdc9a8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -295,7 +278,7 @@ class CfnDBCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77ab9285b5e24793bea189ac67d28d3814f52f65052e951283adbe3ba5adfe3a)
+            type_hints = cached_type_hints(_typecheckingstub__77ab9285b5e24793bea189ac67d28d3814f52f65052e951283adbe3ba5adfe3a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -359,31 +342,31 @@ class CfnDBCluster(
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterRef")
-    def db_cluster_ref(self) -> "_DBClusterReference_46880dce":
+    def db_cluster_ref(self) -> "_aws_neptune_309a5d71.DBClusterReference":
         '''A reference to a DBCluster resource.'''
-        return typing.cast("_DBClusterReference_46880dce", jsii.get(self, "dbClusterRef"))
+        return typing.cast("_aws_neptune_309a5d71.DBClusterReference", jsii.get(self, "dbClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="associatedRoles")
     def associated_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.DBClusterRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.DBClusterRoleProperty"]]]]:
         '''Provides a list of the Amazon Identity and Access Management (IAM) roles that are associated with the DB cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.DBClusterRoleProperty"]]]], jsii.get(self, "associatedRoles"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.DBClusterRoleProperty"]]]], jsii.get(self, "associatedRoles"))
 
     @associated_roles.setter
     def associated_roles(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.DBClusterRoleProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.DBClusterRoleProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b457abeb7b755eacbe5a947e982353faa8aad9de6cbe4e8f6f61fc27055d61)
+            type_hints = cached_type_hints(_typecheckingstub__d3b457abeb7b755eacbe5a947e982353faa8aad9de6cbe4e8f6f61fc27055d61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associatedRoles", value) # pyright: ignore[reportArgumentType]
 
@@ -399,7 +382,7 @@ class CfnDBCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7831d07bca50a39836b787f951e7c1ed0b4469af915ae66e9e6e4dd3acaf1023)
+            type_hints = cached_type_hints(_typecheckingstub__7831d07bca50a39836b787f951e7c1ed0b4469af915ae66e9e6e4dd3acaf1023)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
 
@@ -412,7 +395,7 @@ class CfnDBCluster(
     @backup_retention_period.setter
     def backup_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__928064d369d82659348d3d08be0e6589589c34878ba9f261ff432ba9f99fc1a4)
+            type_hints = cached_type_hints(_typecheckingstub__928064d369d82659348d3d08be0e6589589c34878ba9f261ff432ba9f99fc1a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -420,17 +403,17 @@ class CfnDBCluster(
     @jsii.member(jsii_name="copyTagsToSnapshot")
     def copy_tags_to_snapshot(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''*If set to ``true`` , tags are copied to any snapshot of the DB cluster that is created.*.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "copyTagsToSnapshot"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "copyTagsToSnapshot"))
 
     @copy_tags_to_snapshot.setter
     def copy_tags_to_snapshot(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__435b1da4ea01388f9eb362da8fb7659b3188f26c2238e1bd435d44894cec896f)
+            type_hints = cached_type_hints(_typecheckingstub__435b1da4ea01388f9eb362da8fb7659b3188f26c2238e1bd435d44894cec896f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
 
@@ -443,7 +426,7 @@ class CfnDBCluster(
     @db_cluster_identifier.setter
     def db_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4512bb572b25f1499b1cd739e19f88804b9a01588db560368dcdbfb727b06e89)
+            type_hints = cached_type_hints(_typecheckingstub__4512bb572b25f1499b1cd739e19f88804b9a01588db560368dcdbfb727b06e89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -459,7 +442,7 @@ class CfnDBCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db1adb3beecc10e887e5eebc7ec389b0493dcd337adc90175f86616fab5d1bb4)
+            type_hints = cached_type_hints(_typecheckingstub__db1adb3beecc10e887e5eebc7ec389b0493dcd337adc90175f86616fab5d1bb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -475,7 +458,7 @@ class CfnDBCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c186c4614db9be8c852ad3d3c8ab6517035df8439912adcc0e83aaa004908842)
+            type_hints = cached_type_hints(_typecheckingstub__c186c4614db9be8c852ad3d3c8ab6517035df8439912adcc0e83aaa004908842)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbInstanceParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -488,7 +471,7 @@ class CfnDBCluster(
     @db_port.setter
     def db_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0f0d7bbb91a39632f40ea00c24223e7aa6262064271a96996cf0ea6f670703f)
+            type_hints = cached_type_hints(_typecheckingstub__b0f0d7bbb91a39632f40ea00c24223e7aa6262064271a96996cf0ea6f670703f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbPort", value) # pyright: ignore[reportArgumentType]
 
@@ -501,7 +484,7 @@ class CfnDBCluster(
     @db_subnet_group_name.setter
     def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39ffff25b642ad83a01dfc91b7ba187a1ae5d3962dacd5760881be5ada216ff6)
+            type_hints = cached_type_hints(_typecheckingstub__39ffff25b642ad83a01dfc91b7ba187a1ae5d3962dacd5760881be5ada216ff6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -509,17 +492,17 @@ class CfnDBCluster(
     @jsii.member(jsii_name="deletionProtection")
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether or not the DB cluster has deletion protection enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deletionProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
     def deletion_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d7e2c20b2fd6ab62f2ed52fcb7e1f68aed8c6f570dc8c6923be3f8f26244964)
+            type_hints = cached_type_hints(_typecheckingstub__9d7e2c20b2fd6ab62f2ed52fcb7e1f68aed8c6f570dc8c6923be3f8f26244964)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -537,7 +520,7 @@ class CfnDBCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adf9d76a87107337805eeed6cfee1c6dd8caa376e14b131a628d85b7e2d2fa3d)
+            type_hints = cached_type_hints(_typecheckingstub__adf9d76a87107337805eeed6cfee1c6dd8caa376e14b131a628d85b7e2d2fa3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
 
@@ -550,7 +533,7 @@ class CfnDBCluster(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac0ffa0cb5e6cb96f0ac41b0ad60f41fec7830c2c78b28087b7ad47eb16571e1)
+            type_hints = cached_type_hints(_typecheckingstub__ac0ffa0cb5e6cb96f0ac41b0ad60f41fec7830c2c78b28087b7ad47eb16571e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -563,7 +546,7 @@ class CfnDBCluster(
     @global_cluster_identifier.setter
     def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d24a7e61cc203496aed46c5e445a79dcdeecc3a482e6952dfecbbe2f3377913)
+            type_hints = cached_type_hints(_typecheckingstub__0d24a7e61cc203496aed46c5e445a79dcdeecc3a482e6952dfecbbe2f3377913)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -571,17 +554,17 @@ class CfnDBCluster(
     @jsii.member(jsii_name="iamAuthEnabled")
     def iam_auth_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''True if mapping of Amazon Identity and Access Management (IAM) accounts to database accounts is enabled, and otherwise false.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "iamAuthEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "iamAuthEnabled"))
 
     @iam_auth_enabled.setter
     def iam_auth_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09c179ddac73df63b3357ed10cb368f7009ffc4f4639e0086cdec01ad3f89c08)
+            type_hints = cached_type_hints(_typecheckingstub__09c179ddac73df63b3357ed10cb368f7009ffc4f4639e0086cdec01ad3f89c08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamAuthEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -594,7 +577,7 @@ class CfnDBCluster(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93cb5809ab54e2bc5a79b4ccc486c495436b940752d1a61e435b1d141fd4fe48)
+            type_hints = cached_type_hints(_typecheckingstub__93cb5809ab54e2bc5a79b4ccc486c495436b940752d1a61e435b1d141fd4fe48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -607,7 +590,7 @@ class CfnDBCluster(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3069414028714ea9e8ef5c2ccb00f163c59ee83477b3d452d0d692cef6dd44e6)
+            type_hints = cached_type_hints(_typecheckingstub__3069414028714ea9e8ef5c2ccb00f163c59ee83477b3d452d0d692cef6dd44e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -620,7 +603,7 @@ class CfnDBCluster(
     @preferred_backup_window.setter
     def preferred_backup_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14ebba902edd79c8370d122c16719c6db0a0a131ee6543b067a779112d36b082)
+            type_hints = cached_type_hints(_typecheckingstub__14ebba902edd79c8370d122c16719c6db0a0a131ee6543b067a779112d36b082)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -636,7 +619,7 @@ class CfnDBCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c829771f41115154c3ce30f25a4915c06df8ecd9c7aae9a9abd4930da3dded65)
+            type_hints = cached_type_hints(_typecheckingstub__c829771f41115154c3ce30f25a4915c06df8ecd9c7aae9a9abd4930da3dded65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -649,7 +632,7 @@ class CfnDBCluster(
     @restore_to_time.setter
     def restore_to_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19f687dfa9aa99acaaac69a01feffe25bee02b7a48404bd8b267784c0e78562c)
+            type_hints = cached_type_hints(_typecheckingstub__19f687dfa9aa99acaaac69a01feffe25bee02b7a48404bd8b267784c0e78562c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreToTime", value) # pyright: ignore[reportArgumentType]
 
@@ -662,7 +645,7 @@ class CfnDBCluster(
     @restore_type.setter
     def restore_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bc8ca915f793ae6ee141d79567c5cd15fe762d8cfb31f2f309bb869fde7aa4c)
+            type_hints = cached_type_hints(_typecheckingstub__0bc8ca915f793ae6ee141d79567c5cd15fe762d8cfb31f2f309bb869fde7aa4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreType", value) # pyright: ignore[reportArgumentType]
 
@@ -670,17 +653,17 @@ class CfnDBCluster(
     @jsii.member(jsii_name="serverlessScalingConfiguration")
     def serverless_scaling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.ServerlessScalingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.ServerlessScalingConfigurationProperty"]]:
         '''Contains the scaling configuration of an Neptune Serverless DB cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.ServerlessScalingConfigurationProperty"]], jsii.get(self, "serverlessScalingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.ServerlessScalingConfigurationProperty"]], jsii.get(self, "serverlessScalingConfiguration"))
 
     @serverless_scaling_configuration.setter
     def serverless_scaling_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.ServerlessScalingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.ServerlessScalingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abd209f57c97ae7f622bfdf39a49771d36bd97272ef4be86c30d09889cb8b5de)
+            type_hints = cached_type_hints(_typecheckingstub__abd209f57c97ae7f622bfdf39a49771d36bd97272ef4be86c30d09889cb8b5de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverlessScalingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -696,7 +679,7 @@ class CfnDBCluster(
     @snapshot_identifier.setter
     def snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f6317492feeefdaa8da5e08da225d98977dae0787c36e2ce5f7c7863ed53ca8)
+            type_hints = cached_type_hints(_typecheckingstub__0f6317492feeefdaa8da5e08da225d98977dae0787c36e2ce5f7c7863ed53ca8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -712,7 +695,7 @@ class CfnDBCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aa4d7ed0943199b04ae6d5e305f15c4b421f67ea949728da17df3570c0898d1)
+            type_hints = cached_type_hints(_typecheckingstub__5aa4d7ed0943199b04ae6d5e305f15c4b421f67ea949728da17df3570c0898d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -720,30 +703,33 @@ class CfnDBCluster(
     @jsii.member(jsii_name="storageEncrypted")
     def storage_encrypted(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the DB cluster is encrypted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "storageEncrypted"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "storageEncrypted"))
 
     @storage_encrypted.setter
     def storage_encrypted(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1b1b75d306738921d00a793b4a471baf44bacf0ead3cd17c183ebfe2fb8a0b)
+            type_hints = cached_type_hints(_typecheckingstub__2b1b1b75d306738921d00a793b4a471baf44bacf0ead3cd17c183ebfe2fb8a0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to this cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfb671f2b6489e81719b1e566b9755387dec28cd67be89a233894ba1cb79f0b0)
+            type_hints = cached_type_hints(_typecheckingstub__bfb671f2b6489e81719b1e566b9755387dec28cd67be89a233894ba1cb79f0b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -751,17 +737,17 @@ class CfnDBCluster(
     @jsii.member(jsii_name="useLatestRestorableTime")
     def use_latest_restorable_time(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Creates a new DB cluster from a DB snapshot or DB cluster snapshot.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useLatestRestorableTime"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "useLatestRestorableTime"))
 
     @use_latest_restorable_time.setter
     def use_latest_restorable_time(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e00a2f7f2634085f716d41accde2cdb2f52bf48c2395fed790a5eacd58c46579)
+            type_hints = cached_type_hints(_typecheckingstub__e00a2f7f2634085f716d41accde2cdb2f52bf48c2395fed790a5eacd58c46579)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
 
@@ -777,7 +763,7 @@ class CfnDBCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5322ef7d3eeaacdb7f8e4d9c6c5c6ad1cede32afec024343022f4d38c70cedc4)
+            type_hints = cached_type_hints(_typecheckingstub__5322ef7d3eeaacdb7f8e4d9c6c5c6ad1cede32afec024343022f4d38c70cedc4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -815,7 +801,7 @@ class CfnDBCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e2a8e43f7c7cdbf5b87130599ff93dc65d00fb20c3b8d8a6d280bf15b0863b3)
+                type_hints = cached_type_hints(_typecheckingstub__0e2a8e43f7c7cdbf5b87130599ff93dc65d00fb20c3b8d8a6d280bf15b0863b3)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument feature_name", value=feature_name, expected_type=type_hints["feature_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -888,7 +874,7 @@ class CfnDBCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1c528bf64e9d959427e90da0ce4e8ca60029ec01d0cdb84656c01e398275443)
+                type_hints = cached_type_hints(_typecheckingstub__a1c528bf64e9d959427e90da0ce4e8ca60029ec01d0cdb84656c01e398275443)
                 check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
                 check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -932,9 +918,9 @@ class CfnDBCluster(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDBClusterParameterGroupRef_be75ec22, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IDBClusterParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDBClusterParameterGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnDBClusterParameterGroup",
 ):
@@ -980,7 +966,7 @@ class CfnDBClusterParameterGroup(
         family: builtins.str,
         parameters: typing.Any,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::DBClusterParameterGroup``.
 
@@ -993,7 +979,7 @@ class CfnDBClusterParameterGroup(
         :param tags: The tags that you want to attach to this parameter group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82d0bd5cd20191b36090c7b3b6bd12aa5f1bd3d032c5058d891981813d6781a8)
+            type_hints = cached_type_hints(_typecheckingstub__82d0bd5cd20191b36090c7b3b6bd12aa5f1bd3d032c5058d891981813d6781a8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDBClusterParameterGroupProps(
@@ -1014,18 +1000,18 @@ class CfnDBClusterParameterGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31684060f1a713bb3b33af2ca34a71356bce04c3107f5602d6f3fa753270da25)
+            type_hints = cached_type_hints(_typecheckingstub__31684060f1a713bb3b33af2ca34a71356bce04c3107f5602d6f3fa753270da25)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBClusterParameterGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb1a172dac75648110ecd20c954349af1a6a2ec39929831dd00a35196e9da5b7)
+            type_hints = cached_type_hints(_typecheckingstub__cb1a172dac75648110ecd20c954349af1a6a2ec39929831dd00a35196e9da5b7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1038,7 +1024,7 @@ class CfnDBClusterParameterGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23be3ba47835fdb28681df5d325521f2ce74db8bfcc54c4638545cabbbf24867)
+            type_hints = cached_type_hints(_typecheckingstub__23be3ba47835fdb28681df5d325521f2ce74db8bfcc54c4638545cabbbf24867)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1062,15 +1048,15 @@ class CfnDBClusterParameterGroup(
     @jsii.member(jsii_name="dbClusterParameterGroupRef")
     def db_cluster_parameter_group_ref(
         self,
-    ) -> "_DBClusterParameterGroupReference_da7b4f10":
+    ) -> "_aws_neptune_309a5d71.DBClusterParameterGroupReference":
         '''A reference to a DBClusterParameterGroup resource.'''
-        return typing.cast("_DBClusterParameterGroupReference_da7b4f10", jsii.get(self, "dbClusterParameterGroupRef"))
+        return typing.cast("_aws_neptune_309a5d71.DBClusterParameterGroupReference", jsii.get(self, "dbClusterParameterGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1081,7 +1067,7 @@ class CfnDBClusterParameterGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__277792df99edba102f70da2bcd6e81193fb20a2424b12a87602c5412956bc443)
+            type_hints = cached_type_hints(_typecheckingstub__277792df99edba102f70da2bcd6e81193fb20a2424b12a87602c5412956bc443)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1094,7 +1080,7 @@ class CfnDBClusterParameterGroup(
     @family.setter
     def family(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2642491d5cc8388f6c9a41448ab9044d3199f8e79634cbe9a819447a46236dc3)
+            type_hints = cached_type_hints(_typecheckingstub__2642491d5cc8388f6c9a41448ab9044d3199f8e79634cbe9a819447a46236dc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
@@ -1107,7 +1093,7 @@ class CfnDBClusterParameterGroup(
     @parameters.setter
     def parameters(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70471c4b476a223b2c851441e04d2212f003f9a035b7b41eebfc4a633556f723)
+            type_hints = cached_type_hints(_typecheckingstub__70471c4b476a223b2c851441e04d2212f003f9a035b7b41eebfc4a633556f723)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
@@ -1120,20 +1106,23 @@ class CfnDBClusterParameterGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6415f75e9ae67a75f700dd7410d04e6fc4eebee0ffc78d649bccb3a32d5523ca)
+            type_hints = cached_type_hints(_typecheckingstub__6415f75e9ae67a75f700dd7410d04e6fc4eebee0ffc78d649bccb3a32d5523ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to this parameter group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c29faf1f531f72a61ec9694e6feb38a23abca37795aed924c4b84c9c5b7cef3f)
+            type_hints = cached_type_hints(_typecheckingstub__c29faf1f531f72a61ec9694e6feb38a23abca37795aed924c4b84c9c5b7cef3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1157,7 +1146,7 @@ class CfnDBClusterParameterGroupProps:
         family: builtins.str,
         parameters: typing.Any,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBClusterParameterGroup``.
 
@@ -1193,7 +1182,7 @@ class CfnDBClusterParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc71d209d4a8e49edca84c75f5f3e453b94e1ceaf55ce979d9474afb156ed5da)
+            type_hints = cached_type_hints(_typecheckingstub__fc71d209d4a8e49edca84c75f5f3e453b94e1ceaf55ce979d9474afb156ed5da)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -1253,13 +1242,13 @@ class CfnDBClusterParameterGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to this parameter group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbclusterparametergroup.html#cfn-neptune-dbclusterparametergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1310,33 +1299,33 @@ class CfnDBClusterProps:
     def __init__(
         self,
         *,
-        associated_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDBCluster.DBClusterRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        associated_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBCluster.DBClusterRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
         backup_retention_period: typing.Optional[jsii.Number] = None,
-        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
         db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
         db_port: typing.Optional[jsii.Number] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_cluster_identifier: typing.Optional[builtins.str] = None,
-        iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         network_type: typing.Optional[builtins.str] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         restore_to_time: typing.Optional[builtins.str] = None,
         restore_type: typing.Optional[builtins.str] = None,
-        serverless_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDBCluster.ServerlessScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        serverless_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBCluster.ServerlessScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBCluster``.
 
@@ -1420,7 +1409,7 @@ class CfnDBClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88c4bf370341b0e8b113f0ee9d80be6e0b45183ba249011ead676b8c5334e65c)
+            type_hints = cached_type_hints(_typecheckingstub__88c4bf370341b0e8b113f0ee9d80be6e0b45183ba249011ead676b8c5334e65c)
             check_type(argname="argument associated_roles", value=associated_roles, expected_type=type_hints["associated_roles"])
             check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
             check_type(argname="argument backup_retention_period", value=backup_retention_period, expected_type=type_hints["backup_retention_period"])
@@ -1507,7 +1496,7 @@ class CfnDBClusterProps:
     @builtins.property
     def associated_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.DBClusterRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.DBClusterRoleProperty"]]]]:
         '''Provides a list of the Amazon Identity and Access Management (IAM) roles that are associated with the DB cluster.
 
         IAM roles that are associated with a DB cluster grant permission for the DB cluster to access other Amazon services on your behalf.
@@ -1515,7 +1504,7 @@ class CfnDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-associatedroles
         '''
         result = self._values.get("associated_roles")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.DBClusterRoleProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.DBClusterRoleProperty"]]]], result)
 
     @builtins.property
     def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1542,13 +1531,13 @@ class CfnDBClusterProps:
     @builtins.property
     def copy_tags_to_snapshot(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''*If set to ``true`` , tags are copied to any snapshot of the DB cluster that is created.*.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-copytagstosnapshot
         '''
         result = self._values.get("copy_tags_to_snapshot")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def db_cluster_identifier(self) -> typing.Optional[builtins.str]:
@@ -1615,7 +1604,7 @@ class CfnDBClusterProps:
     @builtins.property
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether or not the DB cluster has deletion protection enabled.
 
         The database can't be deleted when deletion protection is enabled.
@@ -1623,7 +1612,7 @@ class CfnDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-deletionprotection
         '''
         result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_cloudwatch_logs_exports(
@@ -1657,18 +1646,18 @@ class CfnDBClusterProps:
     @builtins.property
     def iam_auth_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''True if mapping of Amazon Identity and Access Management (IAM) accounts to database accounts is enabled, and otherwise false.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-iamauthenabled
         '''
         result = self._values.get("iam_auth_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kms_key_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The Amazon Resource Name (ARN) of the KMS key that is used to encrypt the database instances in the DB cluster, such as ``arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef`` .
 
         If you enable the ``StorageEncrypted`` property but don't specify this property, the default KMS key is used. If you specify this property, you must set the ``StorageEncrypted`` property to ``true`` .
@@ -1676,7 +1665,7 @@ class CfnDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-kmskeyid
         '''
         result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
@@ -1738,13 +1727,13 @@ class CfnDBClusterProps:
     @builtins.property
     def serverless_scaling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.ServerlessScalingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.ServerlessScalingConfigurationProperty"]]:
         '''Contains the scaling configuration of an Neptune Serverless DB cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-serverlessscalingconfiguration
         '''
         result = self._values.get("serverless_scaling_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDBCluster.ServerlessScalingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDBCluster.ServerlessScalingConfigurationProperty"]], result)
 
     @builtins.property
     def snapshot_identifier(self) -> typing.Optional[builtins.str]:
@@ -1775,7 +1764,7 @@ class CfnDBClusterProps:
     @builtins.property
     def storage_encrypted(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the DB cluster is encrypted.
 
         If you specify the ``KmsKeyId`` property, then you must enable encryption and set this property to ``true`` .
@@ -1789,21 +1778,21 @@ class CfnDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-storageencrypted
         '''
         result = self._values.get("storage_encrypted")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to this cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def use_latest_restorable_time(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Creates a new DB cluster from a DB snapshot or DB cluster snapshot.
 
         If a DB snapshot is specified, the target DB cluster is created from the source DB snapshot with a default configuration and default security group.
@@ -1813,18 +1802,18 @@ class CfnDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-uselatestrestorabletime
         '''
         result = self._values.get("use_latest_restorable_time")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def vpc_security_group_ids(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''Provides a list of VPC security groups that the DB cluster belongs to.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-vpcsecuritygroupids
         '''
         result = self._values.get("vpc_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1838,9 +1827,9 @@ class CfnDBClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDBInstanceRef_5e0e3745, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IDBInstanceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDBInstance(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnDBInstance",
 ):
@@ -1906,8 +1895,8 @@ class CfnDBInstance(
         id: builtins.str,
         *,
         db_instance_class: builtins.str,
-        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_instance_identifier: typing.Optional[builtins.str] = None,
@@ -1915,8 +1904,8 @@ class CfnDBInstance(
         db_snapshot_identifier: typing.Optional[builtins.str] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::DBInstance``.
 
@@ -1936,7 +1925,7 @@ class CfnDBInstance(
         :param tags: An arbitrary set of tags (key-value pairs) for this DB instance.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__018494df8760995ee1cfd5d6678e28db8bf415a10efea4384de0e660a013e528)
+            type_hints = cached_type_hints(_typecheckingstub__018494df8760995ee1cfd5d6678e28db8bf415a10efea4384de0e660a013e528)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDBInstanceProps(
@@ -1964,18 +1953,18 @@ class CfnDBInstance(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dce55acc1a1ae5b955d97f826eff5fe74f64164efdc8de0c561a336d066c681)
+            type_hints = cached_type_hints(_typecheckingstub__4dce55acc1a1ae5b955d97f826eff5fe74f64164efdc8de0c561a336d066c681)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBInstance", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__147259e3863b2529275d1e77a6ac4d4a07ad9e94af2ef7432418b90bf70503e0)
+            type_hints = cached_type_hints(_typecheckingstub__147259e3863b2529275d1e77a6ac4d4a07ad9e94af2ef7432418b90bf70503e0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1988,7 +1977,7 @@ class CfnDBInstance(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e70f07e1a31c91b2a8748d6b360a9347660cf54554eed26890ab81e0b7b8df82)
+            type_hints = cached_type_hints(_typecheckingstub__e70f07e1a31c91b2a8748d6b360a9347660cf54554eed26890ab81e0b7b8df82)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2032,15 +2021,15 @@ class CfnDBInstance(
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceRef")
-    def db_instance_ref(self) -> "_DBInstanceReference_84c4879a":
+    def db_instance_ref(self) -> "_aws_neptune_309a5d71.DBInstanceReference":
         '''A reference to a DBInstance resource.'''
-        return typing.cast("_DBInstanceReference_84c4879a", jsii.get(self, "dbInstanceRef"))
+        return typing.cast("_aws_neptune_309a5d71.DBInstanceReference", jsii.get(self, "dbInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceClass")
@@ -2051,7 +2040,7 @@ class CfnDBInstance(
     @db_instance_class.setter
     def db_instance_class(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d57248b3dd0fad00c8d1e26232404e1474b22afc05b9e217e4f807177b43ef8)
+            type_hints = cached_type_hints(_typecheckingstub__1d57248b3dd0fad00c8d1e26232404e1474b22afc05b9e217e4f807177b43ef8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbInstanceClass", value) # pyright: ignore[reportArgumentType]
 
@@ -2059,17 +2048,17 @@ class CfnDBInstance(
     @jsii.member(jsii_name="allowMajorVersionUpgrade")
     def allow_major_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates that major version upgrades are allowed.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowMajorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowMajorVersionUpgrade"))
 
     @allow_major_version_upgrade.setter
     def allow_major_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2f05810bb63a0c1902d09acb543e88f126fd57967e023939e7210a0c9fde18b)
+            type_hints = cached_type_hints(_typecheckingstub__a2f05810bb63a0c1902d09acb543e88f126fd57967e023939e7210a0c9fde18b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowMajorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -2077,17 +2066,17 @@ class CfnDBInstance(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates that minor version patches are applied automatically.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a8e387d6fa74e3755374bdf2d7e688b4c0a6208c1a47e5afcca2b424d4c767c)
+            type_hints = cached_type_hints(_typecheckingstub__1a8e387d6fa74e3755374bdf2d7e688b4c0a6208c1a47e5afcca2b424d4c767c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -2100,7 +2089,7 @@ class CfnDBInstance(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce5381ad71906917a06367c69bd4f43298f9c476a919c6ce1aa12f8d5da24ac5)
+            type_hints = cached_type_hints(_typecheckingstub__ce5381ad71906917a06367c69bd4f43298f9c476a919c6ce1aa12f8d5da24ac5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -2113,7 +2102,7 @@ class CfnDBInstance(
     @db_cluster_identifier.setter
     def db_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d77854675952fa3f0f4d34d7adc4692b2970e264122d898f01890ae985beccf)
+            type_hints = cached_type_hints(_typecheckingstub__4d77854675952fa3f0f4d34d7adc4692b2970e264122d898f01890ae985beccf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -2126,7 +2115,7 @@ class CfnDBInstance(
     @db_instance_identifier.setter
     def db_instance_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2d22cfe2656146d5f23a6c1fb486a5b9b62478131f289e444d8d4331861ee6d)
+            type_hints = cached_type_hints(_typecheckingstub__b2d22cfe2656146d5f23a6c1fb486a5b9b62478131f289e444d8d4331861ee6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -2139,7 +2128,7 @@ class CfnDBInstance(
     @db_parameter_group_name.setter
     def db_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__953d085043fa0a3a00ed9700f310f0efed7b1f82813fa5e57df4f6455c104870)
+            type_hints = cached_type_hints(_typecheckingstub__953d085043fa0a3a00ed9700f310f0efed7b1f82813fa5e57df4f6455c104870)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2157,7 +2146,7 @@ class CfnDBInstance(
     @db_snapshot_identifier.setter
     def db_snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8453e985d0f89c27cf7def1d48d8b88228aa2b1931d5053db9899af671c4a316)
+            type_hints = cached_type_hints(_typecheckingstub__8453e985d0f89c27cf7def1d48d8b88228aa2b1931d5053db9899af671c4a316)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -2170,7 +2159,7 @@ class CfnDBInstance(
     @db_subnet_group_name.setter
     def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2053b4a3ff977691dc0668d445906736e3150716670837779e5121e6d7c335c3)
+            type_hints = cached_type_hints(_typecheckingstub__2053b4a3ff977691dc0668d445906736e3150716670837779e5121e6d7c335c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2186,7 +2175,7 @@ class CfnDBInstance(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0aad195d28ba72af4643cabac33c6e2d3d623be5e2b7f21c8bffae8d78cb509)
+            type_hints = cached_type_hints(_typecheckingstub__e0aad195d28ba72af4643cabac33c6e2d3d623be5e2b7f21c8bffae8d78cb509)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -2194,30 +2183,33 @@ class CfnDBInstance(
     @jsii.member(jsii_name="publiclyAccessible")
     def publicly_accessible(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the DB instance is publicly accessible.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publiclyAccessible"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "publiclyAccessible"))
 
     @publicly_accessible.setter
     def publicly_accessible(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b67e50f3b4a51cbbe6d8beb4e55dcbb888cd70ccbf3854e7be69ae66ee18267d)
+            type_hints = cached_type_hints(_typecheckingstub__b67e50f3b4a51cbbe6d8beb4e55dcbb888cd70ccbf3854e7be69ae66ee18267d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key-value pairs) for this DB instance.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__804ae68d35a8f4acf9b250c8866d8f27b0ea5aaabf0c9991c5e12b4c5414d569)
+            type_hints = cached_type_hints(_typecheckingstub__804ae68d35a8f4acf9b250c8866d8f27b0ea5aaabf0c9991c5e12b4c5414d569)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2245,8 +2237,8 @@ class CfnDBInstanceProps:
         self,
         *,
         db_instance_class: builtins.str,
-        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_instance_identifier: typing.Optional[builtins.str] = None,
@@ -2254,8 +2246,8 @@ class CfnDBInstanceProps:
         db_snapshot_identifier: typing.Optional[builtins.str] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBInstance``.
 
@@ -2303,7 +2295,7 @@ class CfnDBInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f97fae676e40e6f9b786d435eb3f1534d54b6bfccf982c2ddf6802fc906bcceb)
+            type_hints = cached_type_hints(_typecheckingstub__f97fae676e40e6f9b786d435eb3f1534d54b6bfccf982c2ddf6802fc906bcceb)
             check_type(argname="argument db_instance_class", value=db_instance_class, expected_type=type_hints["db_instance_class"])
             check_type(argname="argument allow_major_version_upgrade", value=allow_major_version_upgrade, expected_type=type_hints["allow_major_version_upgrade"])
             check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
@@ -2357,7 +2349,7 @@ class CfnDBInstanceProps:
     @builtins.property
     def allow_major_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates that major version upgrades are allowed.
 
         Changing this parameter doesn't result in an outage and the change is asynchronously applied as soon as possible. This parameter must be set to true when specifying a value for the EngineVersion parameter that is a different major version than the DB instance's current version.
@@ -2367,12 +2359,12 @@ class CfnDBInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbinstance.html#cfn-neptune-dbinstance-allowmajorversionupgrade
         '''
         result = self._values.get("allow_major_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates that minor version patches are applied automatically.
 
         When updating this property, some interruptions may occur.
@@ -2380,7 +2372,7 @@ class CfnDBInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbinstance.html#cfn-neptune-dbinstance-autominorversionupgrade
         '''
         result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
@@ -2461,7 +2453,7 @@ class CfnDBInstanceProps:
     @builtins.property
     def publicly_accessible(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the DB instance is publicly accessible.
 
         When the DB instance is publicly accessible and you connect from outside of the DB instance's virtual private cloud (VPC), its Domain Name System (DNS) endpoint resolves to the public IP address. When you connect from within the same VPC as the DB instance, the endpoint resolves to the private IP address. Access to the DB instance is ultimately controlled by the security group it uses. That public access isn't permitted if the security group assigned to the DB cluster doesn't permit it.
@@ -2471,16 +2463,16 @@ class CfnDBInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbinstance.html#cfn-neptune-dbinstance-publiclyaccessible
         '''
         result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key-value pairs) for this DB instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbinstance.html#cfn-neptune-dbinstance-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2494,9 +2486,9 @@ class CfnDBInstanceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDBParameterGroupRef_9e461d1a, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IDBParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDBParameterGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnDBParameterGroup",
 ):
@@ -2548,7 +2540,7 @@ class CfnDBParameterGroup(
         family: builtins.str,
         parameters: typing.Any,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::DBParameterGroup``.
 
@@ -2561,7 +2553,7 @@ class CfnDBParameterGroup(
         :param tags: The tags that you want to attach to this parameter group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08418417856fd89567d053856e9b74130ec7c80562c5be8987ca378a98f7eb62)
+            type_hints = cached_type_hints(_typecheckingstub__08418417856fd89567d053856e9b74130ec7c80562c5be8987ca378a98f7eb62)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDBParameterGroupProps(
@@ -2578,13 +2570,13 @@ class CfnDBParameterGroup(
     @builtins.classmethod
     def arn_for_db_parameter_group(
         cls,
-        resource: "_IDBParameterGroupRef_9e461d1a",
+        resource: "_aws_neptune_309a5d71.IDBParameterGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86b266a8a2f302c72fa10bc34397814cf898556aa7e32914168054919c950131)
+            type_hints = cached_type_hints(_typecheckingstub__86b266a8a2f302c72fa10bc34397814cf898556aa7e32914168054919c950131)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
 
@@ -2595,7 +2587,7 @@ class CfnDBParameterGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         db_parameter_group_name: builtins.str,
-    ) -> "_IDBParameterGroupRef_9e461d1a":
+    ) -> "_aws_neptune_309a5d71.IDBParameterGroupRef":
         '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
 
         :param scope: -
@@ -2603,11 +2595,11 @@ class CfnDBParameterGroup(
         :param db_parameter_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ea160ad497350e10a8cb4a3023c5c2725abb97ed7d2cf4d403b368f86f19082)
+            type_hints = cached_type_hints(_typecheckingstub__3ea160ad497350e10a8cb4a3023c5c2725abb97ed7d2cf4d403b368f86f19082)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
-        return typing.cast("_IDBParameterGroupRef_9e461d1a", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
+        return typing.cast("_aws_neptune_309a5d71.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
 
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
@@ -2617,18 +2609,18 @@ class CfnDBParameterGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fd5f0a685b43ffd5d56abb535b0dacc389dc80f136d3d06c6df1570e65541fd)
+            type_hints = cached_type_hints(_typecheckingstub__3fd5f0a685b43ffd5d56abb535b0dacc389dc80f136d3d06c6df1570e65541fd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBParameterGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7be85d338ac817d3285e8eb35c8373eefdaa8cba112e48eb2107857e2518b8bf)
+            type_hints = cached_type_hints(_typecheckingstub__7be85d338ac817d3285e8eb35c8373eefdaa8cba112e48eb2107857e2518b8bf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2641,7 +2633,7 @@ class CfnDBParameterGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95c6c4366d3dd8927e351debe764b22456ab66c6a27d568547cb00093a908cd6)
+            type_hints = cached_type_hints(_typecheckingstub__95c6c4366d3dd8927e351debe764b22456ab66c6a27d568547cb00093a908cd6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2663,15 +2655,17 @@ class CfnDBParameterGroup(
 
     @builtins.property
     @jsii.member(jsii_name="dbParameterGroupRef")
-    def db_parameter_group_ref(self) -> "_DBParameterGroupReference_9bb44206":
+    def db_parameter_group_ref(
+        self,
+    ) -> "_aws_neptune_309a5d71.DBParameterGroupReference":
         '''A reference to a DBParameterGroup resource.'''
-        return typing.cast("_DBParameterGroupReference_9bb44206", jsii.get(self, "dbParameterGroupRef"))
+        return typing.cast("_aws_neptune_309a5d71.DBParameterGroupReference", jsii.get(self, "dbParameterGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2682,7 +2676,7 @@ class CfnDBParameterGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__878fe442b55df9ac5799a5220039472b468141cec186137715be6a3ad21fb678)
+            type_hints = cached_type_hints(_typecheckingstub__878fe442b55df9ac5799a5220039472b468141cec186137715be6a3ad21fb678)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2695,7 +2689,7 @@ class CfnDBParameterGroup(
     @family.setter
     def family(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d551bbc2f615e277a16a8e6176496b7bdeddf8b4e88524d87eefb3d1f53e9ef2)
+            type_hints = cached_type_hints(_typecheckingstub__d551bbc2f615e277a16a8e6176496b7bdeddf8b4e88524d87eefb3d1f53e9ef2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
@@ -2708,7 +2702,7 @@ class CfnDBParameterGroup(
     @parameters.setter
     def parameters(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__809d736cf3fdd7a6b0bd5a75d21aeb124e61f2a5b5713f49403b3166da04fce5)
+            type_hints = cached_type_hints(_typecheckingstub__809d736cf3fdd7a6b0bd5a75d21aeb124e61f2a5b5713f49403b3166da04fce5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
@@ -2721,20 +2715,23 @@ class CfnDBParameterGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19e9e3731d27e94cf575e2ebcba3391e437597ad4cbf87da1421d3aeff51d524)
+            type_hints = cached_type_hints(_typecheckingstub__19e9e3731d27e94cf575e2ebcba3391e437597ad4cbf87da1421d3aeff51d524)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to this parameter group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4565e9cd6c53cc12b47f6133e2edbd92122f0e138c69b79efef04ecdb9796aa3)
+            type_hints = cached_type_hints(_typecheckingstub__4565e9cd6c53cc12b47f6133e2edbd92122f0e138c69b79efef04ecdb9796aa3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2758,7 +2755,7 @@ class CfnDBParameterGroupProps:
         family: builtins.str,
         parameters: typing.Any,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBParameterGroup``.
 
@@ -2794,7 +2791,7 @@ class CfnDBParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4528e974fd8cb347cabbbf84fd7018f743e7e93d03828031d597ff5a1cf213f6)
+            type_hints = cached_type_hints(_typecheckingstub__4528e974fd8cb347cabbbf84fd7018f743e7e93d03828031d597ff5a1cf213f6)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -2854,13 +2851,13 @@ class CfnDBParameterGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to this parameter group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbparametergroup.html#cfn-neptune-dbparametergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2874,9 +2871,9 @@ class CfnDBParameterGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDBSubnetGroupRef_b2b07796, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IDBSubnetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDBSubnetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnDBSubnetGroup",
 ):
@@ -2916,7 +2913,7 @@ class CfnDBSubnetGroup(
         db_subnet_group_description: builtins.str,
         subnet_ids: typing.Sequence[builtins.str],
         db_subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::DBSubnetGroup``.
 
@@ -2928,7 +2925,7 @@ class CfnDBSubnetGroup(
         :param tags: The tags that you want to attach to the DB subnet group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4de94ec08febbdf5429a4f954610793e1cf3af238fc669508af03dd121df91ce)
+            type_hints = cached_type_hints(_typecheckingstub__4de94ec08febbdf5429a4f954610793e1cf3af238fc669508af03dd121df91ce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDBSubnetGroupProps(
@@ -2948,18 +2945,18 @@ class CfnDBSubnetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff25c180e9603ad82c6f789e2f74f133c225a31a130290682626c61344ba13c7)
+            type_hints = cached_type_hints(_typecheckingstub__ff25c180e9603ad82c6f789e2f74f133c225a31a130290682626c61344ba13c7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBSubnetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f15733ccc79e72b2cf3475b585821dc9ef9dca56e8ac4c4e09b6714d88188462)
+            type_hints = cached_type_hints(_typecheckingstub__f15733ccc79e72b2cf3475b585821dc9ef9dca56e8ac4c4e09b6714d88188462)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2972,7 +2969,7 @@ class CfnDBSubnetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcda18e2c9824c0482dbe3d813280041969aa557a5c06a0bca253a74337bb622)
+            type_hints = cached_type_hints(_typecheckingstub__fcda18e2c9824c0482dbe3d813280041969aa557a5c06a0bca253a74337bb622)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2994,15 +2991,15 @@ class CfnDBSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupRef")
-    def db_subnet_group_ref(self) -> "_DBSubnetGroupReference_27cd8411":
+    def db_subnet_group_ref(self) -> "_aws_neptune_309a5d71.DBSubnetGroupReference":
         '''A reference to a DBSubnetGroup resource.'''
-        return typing.cast("_DBSubnetGroupReference_27cd8411", jsii.get(self, "dbSubnetGroupRef"))
+        return typing.cast("_aws_neptune_309a5d71.DBSubnetGroupReference", jsii.get(self, "dbSubnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupDescription")
@@ -3013,7 +3010,7 @@ class CfnDBSubnetGroup(
     @db_subnet_group_description.setter
     def db_subnet_group_description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8843f3bdba69f6ec37a03768c139170e0c72a96a30929ad7f1865855ba7a1a6c)
+            type_hints = cached_type_hints(_typecheckingstub__8843f3bdba69f6ec37a03768c139170e0c72a96a30929ad7f1865855ba7a1a6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSubnetGroupDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -3026,7 +3023,7 @@ class CfnDBSubnetGroup(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__730a5ed0bca349444868372070a36cffc20aacbbce0d538e8489f7a192327a7b)
+            type_hints = cached_type_hints(_typecheckingstub__730a5ed0bca349444868372070a36cffc20aacbbce0d538e8489f7a192327a7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3039,20 +3036,23 @@ class CfnDBSubnetGroup(
     @db_subnet_group_name.setter
     def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38ff104a8c675b3756624b7bf857facb64f11d8843555f0c34fdebfc37091c97)
+            type_hints = cached_type_hints(_typecheckingstub__38ff104a8c675b3756624b7bf857facb64f11d8843555f0c34fdebfc37091c97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to the DB subnet group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47e524d624c00c2dc0cd8a58308fa7a64cba3e3ed0a485d442c4bf7b4bed23cd)
+            type_hints = cached_type_hints(_typecheckingstub__47e524d624c00c2dc0cd8a58308fa7a64cba3e3ed0a485d442c4bf7b4bed23cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3074,7 +3074,7 @@ class CfnDBSubnetGroupProps:
         db_subnet_group_description: builtins.str,
         subnet_ids: typing.Sequence[builtins.str],
         db_subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBSubnetGroup``.
 
@@ -3106,7 +3106,7 @@ class CfnDBSubnetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82ebea6599fb4b541844cf24f7d771410b52af442a682c2ccec51eabebc01fda)
+            type_hints = cached_type_hints(_typecheckingstub__82ebea6599fb4b541844cf24f7d771410b52af442a682c2ccec51eabebc01fda)
             check_type(argname="argument db_subnet_group_description", value=db_subnet_group_description, expected_type=type_hints["db_subnet_group_description"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument db_subnet_group_name", value=db_subnet_group_name, expected_type=type_hints["db_subnet_group_name"])
@@ -3150,13 +3150,13 @@ class CfnDBSubnetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags that you want to attach to the DB subnet group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbsubnetgroup.html#cfn-neptune-dbsubnetgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3170,9 +3170,9 @@ class CfnDBSubnetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEventSubscriptionRef_21b725e3, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IEventSubscriptionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEventSubscription(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnEventSubscription",
 ):
@@ -3217,12 +3217,12 @@ class CfnEventSubscription(
         id: builtins.str,
         *,
         sns_topic_arn: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
         subscription_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::EventSubscription``.
 
@@ -3237,7 +3237,7 @@ class CfnEventSubscription(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0cc64fe78)
+            type_hints = cached_type_hints(_typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0cc64fe78)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEventSubscriptionProps(
@@ -3256,13 +3256,13 @@ class CfnEventSubscription(
     @builtins.classmethod
     def arn_for_event_subscription(
         cls,
-        resource: "_IEventSubscriptionRef_21b725e3",
+        resource: "_aws_neptune_309a5d71.IEventSubscriptionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ced737b83dd031094f4cbeb51ba9b8c285ab20351ceb0c54e638575ca9d3dc8)
+            type_hints = cached_type_hints(_typecheckingstub__4ced737b83dd031094f4cbeb51ba9b8c285ab20351ceb0c54e638575ca9d3dc8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventSubscription", [resource]))
 
@@ -3273,7 +3273,7 @@ class CfnEventSubscription(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         subscription_name: builtins.str,
-    ) -> "_IEventSubscriptionRef_21b725e3":
+    ) -> "_aws_neptune_309a5d71.IEventSubscriptionRef":
         '''Creates a new IEventSubscriptionRef from a subscriptionName.
 
         :param scope: -
@@ -3281,11 +3281,11 @@ class CfnEventSubscription(
         :param subscription_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27280155afd819687d76f3c14ab5808cb674b1597b1575974a69d6f3820f2ab1)
+            type_hints = cached_type_hints(_typecheckingstub__27280155afd819687d76f3c14ab5808cb674b1597b1575974a69d6f3820f2ab1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
-        return typing.cast("_IEventSubscriptionRef_21b725e3", jsii.sinvoke(cls, "fromSubscriptionName", [scope, id, subscription_name]))
+        return typing.cast("_aws_neptune_309a5d71.IEventSubscriptionRef", jsii.sinvoke(cls, "fromSubscriptionName", [scope, id, subscription_name]))
 
     @jsii.member(jsii_name="isCfnEventSubscription")
     @builtins.classmethod
@@ -3295,18 +3295,18 @@ class CfnEventSubscription(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__513be60a2453aaa978a4dedfab0cbd691e650600e4d3ba90e9deb1e3c55a65c4)
+            type_hints = cached_type_hints(_typecheckingstub__513be60a2453aaa978a4dedfab0cbd691e650600e4d3ba90e9deb1e3c55a65c4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventSubscription", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41a813e751b1426b53fa005cd45581db52f93b6c9a4cb6522d89aba1b5474e62)
+            type_hints = cached_type_hints(_typecheckingstub__41a813e751b1426b53fa005cd45581db52f93b6c9a4cb6522d89aba1b5474e62)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3319,7 +3319,7 @@ class CfnEventSubscription(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1019778da33af7ffea07d0dcfdddf9f4e6bab96359db115e025cbeb9fd3f769b)
+            type_hints = cached_type_hints(_typecheckingstub__1019778da33af7ffea07d0dcfdddf9f4e6bab96359db115e025cbeb9fd3f769b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3331,9 +3331,9 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3347,9 +3347,11 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> "_EventSubscriptionReference_8038a89c":
+    def event_subscription_ref(
+        self,
+    ) -> "_aws_neptune_309a5d71.EventSubscriptionReference":
         '''A reference to a EventSubscription resource.'''
-        return typing.cast("_EventSubscriptionReference_8038a89c", jsii.get(self, "eventSubscriptionRef"))
+        return typing.cast("_aws_neptune_309a5d71.EventSubscriptionReference", jsii.get(self, "eventSubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="snsTopicArn")
@@ -3360,7 +3362,7 @@ class CfnEventSubscription(
     @sns_topic_arn.setter
     def sns_topic_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52fb458cc4803abc3d472f5ca4edf22c2f9a84d5d6055ac52d01dea8a313e013)
+            type_hints = cached_type_hints(_typecheckingstub__52fb458cc4803abc3d472f5ca4edf22c2f9a84d5d6055ac52d01dea8a313e013)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3368,17 +3370,17 @@ class CfnEventSubscription(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A Boolean value indicating if the subscription is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ef5fdcd4988a6fa95d4be96d80a0234938bc2612ec11dbfcc406afee49f7d89)
+            type_hints = cached_type_hints(_typecheckingstub__2ef5fdcd4988a6fa95d4be96d80a0234938bc2612ec11dbfcc406afee49f7d89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3394,7 +3396,7 @@ class CfnEventSubscription(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__111e4034140f86ff26410f58eebe254ec0df2120150f6443532c2f1053082699)
+            type_hints = cached_type_hints(_typecheckingstub__111e4034140f86ff26410f58eebe254ec0df2120150f6443532c2f1053082699)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventCategories", value) # pyright: ignore[reportArgumentType]
 
@@ -3407,7 +3409,7 @@ class CfnEventSubscription(
     @source_ids.setter
     def source_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694d5c85265f82875056645d86b38bbe96fc0e3b1cdffa52f881898ae8bc2edb)
+            type_hints = cached_type_hints(_typecheckingstub__694d5c85265f82875056645d86b38bbe96fc0e3b1cdffa52f881898ae8bc2edb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3420,7 +3422,7 @@ class CfnEventSubscription(
     @source_type.setter
     def source_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4743dbdfbbc96ad79cdb0ad58c8eb57c79460b33c86861de97ff6a633921e5db)
+            type_hints = cached_type_hints(_typecheckingstub__4743dbdfbbc96ad79cdb0ad58c8eb57c79460b33c86861de97ff6a633921e5db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
 
@@ -3433,20 +3435,23 @@ class CfnEventSubscription(
     @subscription_name.setter
     def subscription_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__093da317650d77ec45933024165e4f9a2676b7fdeca4b47386fba06b268a1e67)
+            type_hints = cached_type_hints(_typecheckingstub__093da317650d77ec45933024165e4f9a2676b7fdeca4b47386fba06b268a1e67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a2214e33715f7b8a810325132d1442eca1b2f768a72caf683442503561e8b4c)
+            type_hints = cached_type_hints(_typecheckingstub__1a2214e33715f7b8a810325132d1442eca1b2f768a72caf683442503561e8b4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3469,12 +3474,12 @@ class CfnEventSubscriptionProps:
         self,
         *,
         sns_topic_arn: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
         subscription_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEventSubscription``.
 
@@ -3512,7 +3517,7 @@ class CfnEventSubscriptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28f572237)
+            type_hints = cached_type_hints(_typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28f572237)
             check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
@@ -3549,7 +3554,7 @@ class CfnEventSubscriptionProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A Boolean value indicating if the subscription is enabled.
 
         True indicates the subscription is enabled.
@@ -3559,7 +3564,7 @@ class CfnEventSubscriptionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-eventsubscription.html#cfn-neptune-eventsubscription-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3602,13 +3607,13 @@ class CfnEventSubscriptionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-eventsubscription.html#cfn-neptune-eventsubscription-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3622,9 +3627,9 @@ class CfnEventSubscriptionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGlobalClusterRef_ea1eccd8, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_neptune_309a5d71.IGlobalClusterRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGlobalCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_neptune.CfnGlobalCluster",
 ):
@@ -3660,13 +3665,13 @@ class CfnGlobalCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_cluster_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Neptune::GlobalCluster``.
 
@@ -3681,7 +3686,7 @@ class CfnGlobalCluster(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__606962d9b88ee761d4fa4c63ab1d624bfd7c886743ea4e51fc406864e4f321d9)
+            type_hints = cached_type_hints(_typecheckingstub__606962d9b88ee761d4fa4c63ab1d624bfd7c886743ea4e51fc406864e4f321d9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGlobalClusterProps(
@@ -3704,18 +3709,18 @@ class CfnGlobalCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7d0d8e06edd20a6b3aade4e8ec97aa6df27ed01c64cdcb94744a9d4e24da1f4)
+            type_hints = cached_type_hints(_typecheckingstub__b7d0d8e06edd20a6b3aade4e8ec97aa6df27ed01c64cdcb94744a9d4e24da1f4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGlobalCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f11eccadb595608a5c0c184cfd939fe8ae4cddfc84cf1e7efb4c4c4b9f12922)
+            type_hints = cached_type_hints(_typecheckingstub__5f11eccadb595608a5c0c184cfd939fe8ae4cddfc84cf1e7efb4c4c4b9f12922)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3728,7 +3733,7 @@ class CfnGlobalCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__074238b06642f255a9ad86e72c5ac6ab1a30ccb1f8959b82ac11edf8bb33e8c2)
+            type_hints = cached_type_hints(_typecheckingstub__074238b06642f255a9ad86e72c5ac6ab1a30ccb1f8959b82ac11edf8bb33e8c2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3740,9 +3745,9 @@ class CfnGlobalCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3756,25 +3761,25 @@ class CfnGlobalCluster(
 
     @builtins.property
     @jsii.member(jsii_name="globalClusterRef")
-    def global_cluster_ref(self) -> "_GlobalClusterReference_ae43b63a":
+    def global_cluster_ref(self) -> "_aws_neptune_309a5d71.GlobalClusterReference":
         '''A reference to a GlobalCluster resource.'''
-        return typing.cast("_GlobalClusterReference_ae43b63a", jsii.get(self, "globalClusterRef"))
+        return typing.cast("_aws_neptune_309a5d71.GlobalClusterReference", jsii.get(self, "globalClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether deletion protection is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deletionProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
     def deletion_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1abec91200bbf44b1b8c20402669c6c105d8be230d5bba71e06ffd66b0f54e3d)
+            type_hints = cached_type_hints(_typecheckingstub__1abec91200bbf44b1b8c20402669c6c105d8be230d5bba71e06ffd66b0f54e3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -3787,7 +3792,7 @@ class CfnGlobalCluster(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c7df92c4ae2e585ba5aec7a1fad7ed34a66c3154869696988ebd18e3be13c62)
+            type_hints = cached_type_hints(_typecheckingstub__1c7df92c4ae2e585ba5aec7a1fad7ed34a66c3154869696988ebd18e3be13c62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -3800,7 +3805,7 @@ class CfnGlobalCluster(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8810cd4cb9e83a4e840ef20b67ea0d50554a79ac12cb8a2c6e0acb6dfee87787)
+            type_hints = cached_type_hints(_typecheckingstub__8810cd4cb9e83a4e840ef20b67ea0d50554a79ac12cb8a2c6e0acb6dfee87787)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -3813,7 +3818,7 @@ class CfnGlobalCluster(
     @global_cluster_identifier.setter
     def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__043e1e122833f3cc8031a370be94b07fa8e316f621efce737bb83cb3f859137e)
+            type_hints = cached_type_hints(_typecheckingstub__043e1e122833f3cc8031a370be94b07fa8e316f621efce737bb83cb3f859137e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -3829,7 +3834,7 @@ class CfnGlobalCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11a459f864d2a17054bb44649efcb8d439927d059de326a81fec308c18cce4aa)
+            type_hints = cached_type_hints(_typecheckingstub__11a459f864d2a17054bb44649efcb8d439927d059de326a81fec308c18cce4aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -3837,30 +3842,33 @@ class CfnGlobalCluster(
     @jsii.member(jsii_name="storageEncrypted")
     def storage_encrypted(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the global database cluster is storage encrypted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "storageEncrypted"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "storageEncrypted"))
 
     @storage_encrypted.setter
     def storage_encrypted(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe62e10d18bab6713cc486efda9f2bc2497e42ee6153afbb38397a168b606221)
+            type_hints = cached_type_hints(_typecheckingstub__fe62e10d18bab6713cc486efda9f2bc2497e42ee6153afbb38397a168b606221)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da0826eb96697e3449063631b1edc0e56631f8c6b93519ca1c600a4cb81acfb7)
+            type_hints = cached_type_hints(_typecheckingstub__da0826eb96697e3449063631b1edc0e56631f8c6b93519ca1c600a4cb81acfb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3882,13 +3890,13 @@ class CfnGlobalClusterProps:
     def __init__(
         self,
         *,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_cluster_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalCluster``.
 
@@ -3924,7 +3932,7 @@ class CfnGlobalClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab87ed42ec0c0abef208c5513b7f5e22c6719d9246acce13a1b225bbddb51daa)
+            type_hints = cached_type_hints(_typecheckingstub__ab87ed42ec0c0abef208c5513b7f5e22c6719d9246acce13a1b225bbddb51daa)
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
@@ -3951,13 +3959,13 @@ class CfnGlobalClusterProps:
     @builtins.property
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether deletion protection is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-deletionprotection
         '''
         result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def engine(self) -> typing.Optional[builtins.str]:
@@ -3998,22 +4006,22 @@ class CfnGlobalClusterProps:
     @builtins.property
     def storage_encrypted(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether the global database cluster is storage encrypted.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-storageencrypted
         '''
         result = self._values.get("storage_encrypted")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4050,33 +4058,33 @@ def _typecheckingstub__c02a97dc4524b23c97bacdafe22108ee784060ff42aa0df4868429383
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    associated_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.DBClusterRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    associated_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBCluster.DBClusterRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     backup_retention_period: typing.Optional[jsii.Number] = None,
-    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
     db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
     db_port: typing.Optional[jsii.Number] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_cluster_identifier: typing.Optional[builtins.str] = None,
-    iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     network_type: typing.Optional[builtins.str] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     restore_to_time: typing.Optional[builtins.str] = None,
     restore_type: typing.Optional[builtins.str] = None,
-    serverless_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    serverless_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBCluster.ServerlessScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4088,7 +4096,7 @@ def _typecheckingstub__9c5051cfcc069fadb9390db5addfa7cc515c8c2e7a2ea2b2ac7d97c1f
     pass
 
 def _typecheckingstub__c2b93870f57e4dfbfef8083da92bbb9920aa612cd5b74bc89c8bf35ac4bdc9a8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4100,7 +4108,7 @@ def _typecheckingstub__77ab9285b5e24793bea189ac67d28d3814f52f65052e951283adbe3ba
     pass
 
 def _typecheckingstub__d3b457abeb7b755eacbe5a947e982353faa8aad9de6cbe4e8f6f61fc27055d61(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBCluster.DBClusterRoleProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDBCluster.DBClusterRoleProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4118,7 +4126,7 @@ def _typecheckingstub__928064d369d82659348d3d08be0e6589589c34878ba9f261ff432ba9f
     pass
 
 def _typecheckingstub__435b1da4ea01388f9eb362da8fb7659b3188f26c2238e1bd435d44894cec896f(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4154,7 +4162,7 @@ def _typecheckingstub__39ffff25b642ad83a01dfc91b7ba187a1ae5d3962dacd5760881be5ad
     pass
 
 def _typecheckingstub__9d7e2c20b2fd6ab62f2ed52fcb7e1f68aed8c6f570dc8c6923be3f8f26244964(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4178,7 +4186,7 @@ def _typecheckingstub__0d24a7e61cc203496aed46c5e445a79dcdeecc3a482e6952dfecbbe2f
     pass
 
 def _typecheckingstub__09c179ddac73df63b3357ed10cb368f7009ffc4f4639e0086cdec01ad3f89c08(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4220,7 +4228,7 @@ def _typecheckingstub__0bc8ca915f793ae6ee141d79567c5cd15fe762d8cfb31f2f309bb869f
     pass
 
 def _typecheckingstub__abd209f57c97ae7f622bfdf39a49771d36bd97272ef4be86c30d09889cb8b5de(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDBCluster.ServerlessScalingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDBCluster.ServerlessScalingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4238,19 +4246,19 @@ def _typecheckingstub__5aa4d7ed0943199b04ae6d5e305f15c4b421f67ea949728da17df3570
     pass
 
 def _typecheckingstub__2b1b1b75d306738921d00a793b4a471baf44bacf0ead3cd17c183ebfe2fb8a0b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfb671f2b6489e81719b1e566b9755387dec28cd67be89a233894ba1cb79f0b0(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e00a2f7f2634085f716d41accde2cdb2f52bf48c2395fed790a5eacd58c46579(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4285,7 +4293,7 @@ def _typecheckingstub__82d0bd5cd20191b36090c7b3b6bd12aa5f1bd3d032c5058d891981813
     family: builtins.str,
     parameters: typing.Any,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4297,7 +4305,7 @@ def _typecheckingstub__31684060f1a713bb3b33af2ca34a71356bce04c3107f5602d6f3fa753
     pass
 
 def _typecheckingstub__cb1a172dac75648110ecd20c954349af1a6a2ec39929831dd00a35196e9da5b7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4333,7 +4341,7 @@ def _typecheckingstub__6415f75e9ae67a75f700dd7410d04e6fc4eebee0ffc78d649bccb3a32
     pass
 
 def _typecheckingstub__c29faf1f531f72a61ec9694e6feb38a23abca37795aed924c4b84c9c5b7cef3f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4344,40 +4352,40 @@ def _typecheckingstub__fc71d209d4a8e49edca84c75f5f3e453b94e1ceaf55ce979d9474afb1
     family: builtins.str,
     parameters: typing.Any,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__88c4bf370341b0e8b113f0ee9d80be6e0b45183ba249011ead676b8c5334e65c(
     *,
-    associated_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.DBClusterRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    associated_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBCluster.DBClusterRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     backup_retention_period: typing.Optional[jsii.Number] = None,
-    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
     db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
     db_port: typing.Optional[jsii.Number] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_cluster_identifier: typing.Optional[builtins.str] = None,
-    iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     network_type: typing.Optional[builtins.str] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     restore_to_time: typing.Optional[builtins.str] = None,
     restore_type: typing.Optional[builtins.str] = None,
-    serverless_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    serverless_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBCluster.ServerlessScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4387,8 +4395,8 @@ def _typecheckingstub__018494df8760995ee1cfd5d6678e28db8bf415a10efea4384de0e660a
     id: builtins.str,
     *,
     db_instance_class: builtins.str,
-    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_instance_identifier: typing.Optional[builtins.str] = None,
@@ -4396,8 +4404,8 @@ def _typecheckingstub__018494df8760995ee1cfd5d6678e28db8bf415a10efea4384de0e660a
     db_snapshot_identifier: typing.Optional[builtins.str] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4409,7 +4417,7 @@ def _typecheckingstub__4dce55acc1a1ae5b955d97f826eff5fe74f64164efdc8de0c561a336d
     pass
 
 def _typecheckingstub__147259e3863b2529275d1e77a6ac4d4a07ad9e94af2ef7432418b90bf70503e0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4427,13 +4435,13 @@ def _typecheckingstub__1d57248b3dd0fad00c8d1e26232404e1474b22afc05b9e217e4f80717
     pass
 
 def _typecheckingstub__a2f05810bb63a0c1902d09acb543e88f126fd57967e023939e7210a0c9fde18b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1a8e387d6fa74e3755374bdf2d7e688b4c0a6208c1a47e5afcca2b424d4c767c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4481,13 +4489,13 @@ def _typecheckingstub__e0aad195d28ba72af4643cabac33c6e2d3d623be5e2b7f21c8bffae8d
     pass
 
 def _typecheckingstub__b67e50f3b4a51cbbe6d8beb4e55dcbb888cd70ccbf3854e7be69ae66ee18267d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__804ae68d35a8f4acf9b250c8866d8f27b0ea5aaabf0c9991c5e12b4c5414d569(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4495,8 +4503,8 @@ def _typecheckingstub__804ae68d35a8f4acf9b250c8866d8f27b0ea5aaabf0c9991c5e12b4c5
 def _typecheckingstub__f97fae676e40e6f9b786d435eb3f1534d54b6bfccf982c2ddf6802fc906bcceb(
     *,
     db_instance_class: builtins.str,
-    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_instance_identifier: typing.Optional[builtins.str] = None,
@@ -4504,8 +4512,8 @@ def _typecheckingstub__f97fae676e40e6f9b786d435eb3f1534d54b6bfccf982c2ddf6802fc9
     db_snapshot_identifier: typing.Optional[builtins.str] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4518,13 +4526,13 @@ def _typecheckingstub__08418417856fd89567d053856e9b74130ec7c80562c5be8987ca378a9
     family: builtins.str,
     parameters: typing.Any,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__86b266a8a2f302c72fa10bc34397814cf898556aa7e32914168054919c950131(
-    resource: _IDBParameterGroupRef_9e461d1a,
+    resource: _aws_neptune_309a5d71.IDBParameterGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4544,7 +4552,7 @@ def _typecheckingstub__3fd5f0a685b43ffd5d56abb535b0dacc389dc80f136d3d06c6df1570e
     pass
 
 def _typecheckingstub__7be85d338ac817d3285e8eb35c8373eefdaa8cba112e48eb2107857e2518b8bf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4580,7 +4588,7 @@ def _typecheckingstub__19e9e3731d27e94cf575e2ebcba3391e437597ad4cbf87da1421d3aef
     pass
 
 def _typecheckingstub__4565e9cd6c53cc12b47f6133e2edbd92122f0e138c69b79efef04ecdb9796aa3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4591,7 +4599,7 @@ def _typecheckingstub__4528e974fd8cb347cabbbf84fd7018f743e7e93d03828031d597ff5a1
     family: builtins.str,
     parameters: typing.Any,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4603,7 +4611,7 @@ def _typecheckingstub__4de94ec08febbdf5429a4f954610793e1cf3af238fc669508af03dd12
     db_subnet_group_description: builtins.str,
     subnet_ids: typing.Sequence[builtins.str],
     db_subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4615,7 +4623,7 @@ def _typecheckingstub__ff25c180e9603ad82c6f789e2f74f133c225a31a130290682626c6134
     pass
 
 def _typecheckingstub__f15733ccc79e72b2cf3475b585821dc9ef9dca56e8ac4c4e09b6714d88188462(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4645,7 +4653,7 @@ def _typecheckingstub__38ff104a8c675b3756624b7bf857facb64f11d8843555f0c34fdebfc3
     pass
 
 def _typecheckingstub__47e524d624c00c2dc0cd8a58308fa7a64cba3e3ed0a485d442c4bf7b4bed23cd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4655,7 +4663,7 @@ def _typecheckingstub__82ebea6599fb4b541844cf24f7d771410b52af442a682c2ccec51eabe
     db_subnet_group_description: builtins.str,
     subnet_ids: typing.Sequence[builtins.str],
     db_subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4665,18 +4673,18 @@ def _typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0c
     id: builtins.str,
     *,
     sns_topic_arn: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4ced737b83dd031094f4cbeb51ba9b8c285ab20351ceb0c54e638575ca9d3dc8(
-    resource: _IEventSubscriptionRef_21b725e3,
+    resource: _aws_neptune_309a5d71.IEventSubscriptionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4696,7 +4704,7 @@ def _typecheckingstub__513be60a2453aaa978a4dedfab0cbd691e650600e4d3ba90e9deb1e3c
     pass
 
 def _typecheckingstub__41a813e751b1426b53fa005cd45581db52f93b6c9a4cb6522d89aba1b5474e62(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4714,7 +4722,7 @@ def _typecheckingstub__52fb458cc4803abc3d472f5ca4edf22c2f9a84d5d6055ac52d01dea8a
     pass
 
 def _typecheckingstub__2ef5fdcd4988a6fa95d4be96d80a0234938bc2612ec11dbfcc406afee49f7d89(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4744,7 +4752,7 @@ def _typecheckingstub__093da317650d77ec45933024165e4f9a2676b7fdeca4b47386fba06b2
     pass
 
 def _typecheckingstub__1a2214e33715f7b8a810325132d1442eca1b2f768a72caf683442503561e8b4c(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4752,12 +4760,12 @@ def _typecheckingstub__1a2214e33715f7b8a810325132d1442eca1b2f768a72caf6834425035
 def _typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28f572237(
     *,
     sns_topic_arn: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4766,13 +4774,13 @@ def _typecheckingstub__606962d9b88ee761d4fa4c63ab1d624bfd7c886743ea4e51fc406864e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_cluster_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4784,7 +4792,7 @@ def _typecheckingstub__b7d0d8e06edd20a6b3aade4e8ec97aa6df27ed01c64cdcb94744a9d4e
     pass
 
 def _typecheckingstub__5f11eccadb595608a5c0c184cfd939fe8ae4cddfc84cf1e7efb4c4c4b9f12922(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4796,7 +4804,7 @@ def _typecheckingstub__074238b06642f255a9ad86e72c5ac6ab1a30ccb1f8959b82ac11edf8b
     pass
 
 def _typecheckingstub__1abec91200bbf44b1b8c20402669c6c105d8be230d5bba71e06ffd66b0f54e3d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4826,26 +4834,26 @@ def _typecheckingstub__11a459f864d2a17054bb44649efcb8d439927d059de326a81fec308c1
     pass
 
 def _typecheckingstub__fe62e10d18bab6713cc486efda9f2bc2497e42ee6153afbb38397a168b606221(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da0826eb96697e3449063631b1edc0e56631f8c6b93519ca1c600a4cb81acfb7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ab87ed42ec0c0abef208c5513b7f5e22c6719d9246acce13a1b225bbddb51daa(
     *,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_cluster_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

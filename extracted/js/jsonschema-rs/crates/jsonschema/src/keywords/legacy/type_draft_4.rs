@@ -5,9 +5,10 @@ use crate::{
     paths::{LazyLocation, Location, RefTracker},
     types::{JsonType, JsonTypeSet},
     validator::{Validate, ValidationContext},
+    Json, JsonNode,
 };
 use serde_json::{json, Map, Number, Value};
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 pub(crate) struct MultipleTypesValidator {
     types: JsonTypeSet,
@@ -16,7 +17,10 @@ pub(crate) struct MultipleTypesValidator {
 
 impl MultipleTypesValidator {
     #[inline]
-    pub(crate) fn compile(items: &[Value], location: Location) -> CompilationResult<'_> {
+    pub(crate) fn compile<F: Json>(
+        items: &[Value],
+        location: Location,
+    ) -> CompilationResult<'_, F> {
         let mut types = JsonTypeSet::empty();
         for item in items {
             match item {
@@ -28,7 +32,7 @@ impl MultipleTypesValidator {
                             location.clone(),
                             location,
                             Location::new(),
-                            item,
+                            Cow::Borrowed(item),
                             &json!([
                                 "array", "boolean", "integer", "null", "number", "object", "string"
                             ]),
@@ -40,7 +44,7 @@ impl MultipleTypesValidator {
                         location.clone(),
                         location,
                         Location::new(),
-                        item,
+                        Cow::Borrowed(item),
                         JsonType::String,
                     ))
                 }
@@ -50,38 +54,37 @@ impl MultipleTypesValidator {
     }
 }
 
-impl Validate for MultipleTypesValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        match instance {
-            Value::Array(_) => self.types.contains(JsonType::Array),
-            Value::Bool(_) => self.types.contains(JsonType::Boolean),
-            Value::Null => self.types.contains(JsonType::Null),
-            Value::Number(n) => {
-                if is_integer(n) {
+impl<F: Json> Validate<F> for MultipleTypesValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        match instance.json_type() {
+            JsonType::Number => {
+                let Some(n) = instance.as_number() else {
+                    return false;
+                };
+                if is_integer(&n) {
                     self.types.contains(JsonType::Integer) || self.types.contains(JsonType::Number)
                 } else {
                     self.types.contains(JsonType::Number)
                 }
             }
-            Value::Object(_) => self.types.contains(JsonType::Object),
-            Value::String(_) => self.types.contains(JsonType::String),
+            other => self.types.contains(other),
         }
     }
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::multiple_type_error(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 self.types,
             ))
         }
@@ -94,34 +97,34 @@ pub(crate) struct IntegerTypeValidator {
 
 impl IntegerTypeValidator {
     #[inline]
-    pub(crate) fn compile<'a>(location: Location) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(location: Location) -> CompilationResult<'a, F> {
         Ok(Box::new(IntegerTypeValidator { location }))
     }
 }
 
-impl Validate for IntegerTypeValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Number(num) = instance {
-            is_integer(num)
+impl<F: Json> Validate<F> for IntegerTypeValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(num) = instance.as_number() {
+            is_integer(&num)
         } else {
             false
         }
     }
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if Validate::<F>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::single_type_error(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 JsonType::Integer,
             ))
         }
@@ -153,11 +156,15 @@ pub(crate) fn is_integer(num: &Number) -> bool {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
-    _: &'a Map<String, Value>,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
+    parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
+    // Absorbed by the fused array-shape validator emitted from `items`.
+    if crate::keywords::items::array_shape_fusion(ctx, parent) {
+        return None;
+    }
     let location = ctx.location().join("type");
     match schema {
         Value::String(item) => Some(compile_single_type(item.as_str(), location, schema)),
@@ -171,7 +178,7 @@ pub(crate) fn compile<'a>(
                         location.clone(),
                         location,
                         Location::new(),
-                        item,
+                        Cow::Borrowed(item),
                         JsonType::String,
                     )))
                 }
@@ -185,18 +192,18 @@ pub(crate) fn compile<'a>(
                 location.clone(),
                 location,
                 Location::new(),
-                schema,
+                Cow::Borrowed(schema),
                 JsonTypeSet::from(JsonType::String).insert(JsonType::Array),
             )))
         }
     }
 }
 
-fn compile_single_type<'a>(
+fn compile_single_type<'a, F: Json>(
     item: &str,
     location: Location,
     instance: &'a Value,
-) -> CompilationResult<'a> {
+) -> CompilationResult<'a, F> {
     match JsonType::from_str(item) {
         Ok(JsonType::Array) => type_::ArrayTypeValidator::compile(location),
         Ok(JsonType::Boolean) => type_::BooleanTypeValidator::compile(location),
@@ -209,7 +216,7 @@ fn compile_single_type<'a>(
             location.clone(),
             location,
             Location::new(),
-            instance,
+            Cow::Borrowed(instance),
             "Unexpected type",
         )),
     }

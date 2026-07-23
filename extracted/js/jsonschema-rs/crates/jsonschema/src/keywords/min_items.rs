@@ -6,6 +6,7 @@ use crate::{
     keywords::{helpers::fail_on_non_positive_integer, CompilationResult},
     paths::{LazyLocation, Location, RefTracker},
     validator::{Validate, ValidationContext},
+    Json, JsonArrayAccess, JsonNode,
 };
 use serde_json::{Map, Value};
 
@@ -16,11 +17,11 @@ pub(crate) struct MinItemsValidator {
 
 impl MinItemsValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         schema: &'a Value,
         location: Location,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         if let Some(limit) = schema.as_u64() {
             return Ok(Box::new(MinItemsValidator { limit, location }));
         }
@@ -40,10 +41,10 @@ impl MinItemsValidator {
     }
 }
 
-impl Validate for MinItemsValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
-            if (items.len() as u64) < self.limit {
+impl<F: Json> Validate<F> for MinItemsValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
+            if (array.len() as u64) < self.limit {
                 return false;
             }
         }
@@ -52,18 +53,18 @@ impl Validate for MinItemsValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
-            if (items.len() as u64) < self.limit {
+        if let Some(array) = instance.as_array() {
+            if (array.len() as u64) < self.limit {
                 return Err(ValidationError::min_items(
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     self.limit,
                 ));
             }
@@ -73,11 +74,15 @@ impl Validate for MinItemsValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
-    _: &'a Map<String, Value>,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
+    parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
+    // Absorbed by the fused array-shape validator emitted from `items`.
+    if crate::keywords::items::array_shape_fusion(ctx, parent) {
+        return None;
+    }
     let location = ctx.location().join("minItems");
     Some(MinItemsValidator::compile(ctx, schema, location))
 }

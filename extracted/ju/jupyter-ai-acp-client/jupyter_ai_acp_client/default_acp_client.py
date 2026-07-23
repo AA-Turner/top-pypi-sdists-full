@@ -21,6 +21,7 @@ from acp.schema import (
     AudioContentBlock,
     AvailableCommandsUpdate,
     ClientCapabilities,
+    ConfigOptionUpdate,
     CreateTerminalResponse,
     CurrentModeUpdate,
     EmbeddedResourceContentBlock,
@@ -43,6 +44,7 @@ from acp.schema import (
     ToolCall,
     ToolCallProgress,
     ToolCallStart,
+    UsageUpdate,
     UserMessageChunk,
     WaitForTerminalExitResponse,
     WriteTextFileResponse,
@@ -51,7 +53,7 @@ from acp.schema import (
     AllowedOutcome,
     DeniedOutcome
 )
-from jupyter_ai_persona_manager import BasePersona, McpServerStdio
+from jupyter_ai_persona_manager import BasePersona, CommandOption, McpServerStdio
 from jupyterlab_chat.models import Message
 from jupyterlab_chat.utils import find_mentions
 from asyncio.subprocess import Process
@@ -174,6 +176,26 @@ class JaiAcpClient(Client):
         session = await conn.new_session(cwd=persona.get_chat_dir(), mcp_servers=mcp_servers)
         self._personas_by_session[session.session_id] = persona
         return session
+
+    async def set_session_mode(self, mode_id: str, session_id: str) -> None:
+        """
+        Set the mode for an ACP session. Sends a `session/set_mode` request to
+        the ACP agent.
+        """
+        conn = await self.get_connection()
+        await conn.set_session_mode(mode_id=mode_id, session_id=session_id)
+
+    async def set_config_option(
+        self, config_id: str, value: str | bool, session_id: str
+    ) -> None:
+        """
+        Set a session config option for an ACP session. Sends a
+        `session/set_config_option` request to the ACP agent.
+        """
+        conn = await self.get_connection()
+        await conn.set_config_option(
+            config_id=config_id, value=value, session_id=session_id
+        )
 
     def _is_session_loading(self, session_id: str) -> bool:
         task = self._loading_sessions.get(session_id)
@@ -301,6 +323,12 @@ class JaiAcpClient(Client):
                     session_id=session_id,
                 )
 
+                # Store the cumulative session token usage when the agent
+                # reports it on the response.
+                if response.usage is not None:
+                    persona.update_acp_session_usage(response.usage)
+                    self._sync_awareness_usage(persona)
+
                 # If cancelled, message already finalized by stop_streaming()
                 if self._cancel_requested.get(session_id, False):
                     return response
@@ -365,7 +393,9 @@ class JaiAcpClient(Client):
         | ToolCallProgress
         | AgentPlanUpdate
         | AvailableCommandsUpdate
-        | CurrentModeUpdate,
+        | CurrentModeUpdate
+        | ConfigOptionUpdate
+        | UsageUpdate,
         **kwargs: Any,
     ) -> None:
         """
@@ -386,6 +416,38 @@ class JaiAcpClient(Client):
                 return
             if persona and hasattr(persona, 'acp_slash_commands'):
                 persona.acp_slash_commands = update.available_commands
+            # Also advertise the commands over the awareness channel.
+            if persona is not None:
+                persona.report_slash_commands([
+                    CommandOption(
+                        name=cmd.name if cmd.name.startswith("/") else "/" + cmd.name,
+                        description=cmd.description,
+                    )
+                    for cmd in update.available_commands
+                ])
+            return
+
+        # Keep the persona's mode/config state in sync when the agent changes it
+        # itself (e.g. a slash command that switches mode), so the toolbar
+        # controls reflect the current values.
+        if isinstance(update, CurrentModeUpdate):
+            if persona is not None:
+                persona.update_acp_current_mode(update.current_mode_id)
+                self._sync_awareness_config(persona)
+            return
+
+        if isinstance(update, ConfigOptionUpdate):
+            if persona is not None:
+                persona.update_acp_config_options(update.config_options)
+                self._sync_awareness_config(persona)
+            return
+
+        # Keep the persona's context usage current so the toolbar can show how
+        # full the agent's context window is.
+        if isinstance(update, UsageUpdate):
+            if persona is not None:
+                persona.update_acp_context_usage(update)
+                self._sync_awareness_usage(persona)
             return
 
         # Skip message/tool events when cancellation has been requested
@@ -409,6 +471,23 @@ class JaiAcpClient(Client):
         if isinstance(update, AgentMessageChunk):
             self._handle_agent_message_chunk(session_id, update)
             return
+
+    @staticmethod
+    def _sync_awareness_config(persona: BasePersona) -> None:
+        """
+        Ask the persona to rebuild and rebroadcast its awareness model/settings
+        config.
+        """
+        persona._sync_awareness_config()
+
+    @staticmethod
+    def _sync_awareness_usage(persona: BasePersona) -> None:
+        """
+        Ask the persona to map its raw ACP usage onto the awareness `Usage` model
+        and rebroadcast.
+        """
+        persona._sync_awareness_usage()
+
     def includes_session(self, session_id: str) -> bool:
         """Returns whether this client manages the given session."""
         return session_id in self._personas_by_session

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,33 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.IIPSetRef")
 class IIPSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPSet.
@@ -57,7 +61,7 @@ class IIPSetRef(
 
 class _IIPSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPSet.
 
@@ -82,7 +86,7 @@ typing.cast(typing.Any, IIPSetRef).__jsii_proxy_class__ = lambda : _IIPSetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.ILoggingConfigurationRef")
 class ILoggingConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
@@ -102,7 +106,7 @@ class ILoggingConfigurationRef(
 
 class _ILoggingConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
 
@@ -166,7 +170,7 @@ class IPSetReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14da68e48e2759634fcb6d667f58e1f3455fdbcdc35a8d57126e96392bffb906)
+            type_hints = cached_type_hints(_typecheckingstub__14da68e48e2759634fcb6d667f58e1f3455fdbcdc35a8d57126e96392bffb906)
             check_type(argname="argument ip_set_arn", value=ip_set_arn, expected_type=type_hints["ip_set_arn"])
             check_type(argname="argument ip_set_id", value=ip_set_id, expected_type=type_hints["ip_set_id"])
             check_type(argname="argument ip_set_name", value=ip_set_name, expected_type=type_hints["ip_set_name"])
@@ -221,7 +225,7 @@ class IPSetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.IRegexPatternSetRef")
 class IRegexPatternSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
@@ -241,7 +245,7 @@ class IRegexPatternSetRef(
 
 class _IRegexPatternSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, IRegexPatternSetRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.IRuleGroupRef")
 class IRuleGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
@@ -286,7 +290,7 @@ class IRuleGroupRef(
 
 class _IRuleGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
 
@@ -311,7 +315,7 @@ typing.cast(typing.Any, IRuleGroupRef).__jsii_proxy_class__ = lambda : _IRuleGro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.IWebACLAssociationRef")
 class IWebACLAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
@@ -331,7 +335,7 @@ class IWebACLAssociationRef(
 
 class _IWebACLAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
 
@@ -356,7 +360,7 @@ typing.cast(typing.Any, IWebACLAssociationRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wafv2.IWebACLRef")
 class IWebACLRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACL.
@@ -376,7 +380,7 @@ class IWebACLRef(
 
 class _IWebACLRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACL.
 
@@ -422,7 +426,7 @@ class LoggingConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4859d0350218b56ebbc8a74d6bcb2403960e6f3670ca0d6acf5f1459043e8ca1)
+            type_hints = cached_type_hints(_typecheckingstub__4859d0350218b56ebbc8a74d6bcb2403960e6f3670ca0d6acf5f1459043e8ca1)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_arn": resource_arn,
@@ -489,7 +493,7 @@ class RegexPatternSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6eda1259f5a2452f2a4a8269ea6fd32d99cbde97603d6e2aba9faae69a159f7)
+            type_hints = cached_type_hints(_typecheckingstub__c6eda1259f5a2452f2a4a8269ea6fd32d99cbde97603d6e2aba9faae69a159f7)
             check_type(argname="argument regex_pattern_set_arn", value=regex_pattern_set_arn, expected_type=type_hints["regex_pattern_set_arn"])
             check_type(argname="argument regex_pattern_set_id", value=regex_pattern_set_id, expected_type=type_hints["regex_pattern_set_id"])
             check_type(argname="argument regex_pattern_set_name", value=regex_pattern_set_name, expected_type=type_hints["regex_pattern_set_name"])
@@ -583,7 +587,7 @@ class RuleGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bf76cfdfd6afba6918b3ce47752f91fcc44704d0247d474e30612f5149f2406)
+            type_hints = cached_type_hints(_typecheckingstub__4bf76cfdfd6afba6918b3ce47752f91fcc44704d0247d474e30612f5149f2406)
             check_type(argname="argument rule_group_arn", value=rule_group_arn, expected_type=type_hints["rule_group_arn"])
             check_type(argname="argument rule_group_id", value=rule_group_id, expected_type=type_hints["rule_group_id"])
             check_type(argname="argument rule_group_name", value=rule_group_name, expected_type=type_hints["rule_group_name"])
@@ -666,7 +670,7 @@ class WebACLAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9367e8c7c3f396f7d9dfa4cf2f55e4e2c21e1d9e67d8a37c42c4c3646fef66c)
+            type_hints = cached_type_hints(_typecheckingstub__d9367e8c7c3f396f7d9dfa4cf2f55e4e2c21e1d9e67d8a37c42c4c3646fef66c)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -742,7 +746,7 @@ class WebACLReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61d452f06c88f870c265edc3923363f145d35580ac212156b5e078800454ce22)
+            type_hints = cached_type_hints(_typecheckingstub__61d452f06c88f870c265edc3923363f145d35580ac212156b5e078800454ce22)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
             check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])

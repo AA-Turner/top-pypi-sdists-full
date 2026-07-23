@@ -5,18 +5,22 @@ use crate::{
     node::SchemaNode,
     paths::{LazyLocation, RefTracker},
     validator::{Validate, ValidationContext},
+    Json, JsonNode, SerdeJson,
 };
 use serde_json::{Map, Value};
 
-pub(crate) struct NotValidator {
+pub(crate) struct NotValidator<F: Json> {
     // needed only for error representation
     original: Value,
-    node: SchemaNode,
+    node: SchemaNode<F>,
 }
 
-impl NotValidator {
+impl NotValidator<SerdeJson> {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         let ctx = ctx.new_at_location("not");
         Ok(Box::new(NotValidator {
             original: schema.clone(),
@@ -25,14 +29,14 @@ impl NotValidator {
     }
 }
 
-impl Validate for NotValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for NotValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         !self.node.is_valid(instance, ctx)
     }
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
@@ -44,7 +48,7 @@ impl Validate for NotValidator {
                 self.node.location().clone(),
                 crate::paths::capture_evaluation_path(tracker, self.node.location()),
                 location.into(),
-                instance,
+                instance.to_value(),
                 self.original.clone(),
             ))
         }
@@ -52,11 +56,11 @@ impl Validate for NotValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     Some(NotValidator::compile(ctx, schema))
 }
 

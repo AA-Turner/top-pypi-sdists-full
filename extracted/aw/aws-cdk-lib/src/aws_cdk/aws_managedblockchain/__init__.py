@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_managedblockchain import (
-    AccessorReference as _AccessorReference_b1253e7e,
-    IAccessorRef as _IAccessorRef_6ea8c0bb,
-    IMemberRef as _IMemberRef_eb79b2aa,
-    INodeRef as _INodeRef_c51264f7,
-    MemberReference as _MemberReference_b28a4bbd,
-    NodeReference as _NodeReference_7fb78253,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_managedblockchain as _aws_managedblockchain_0387b7b3
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_managedblockchain_0387b7b3 = _LazyImport("aws_cdk.interfaces.aws_managedblockchain")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessorRef_6ea8c0bb, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_managedblockchain_0387b7b3.IAccessorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAccessor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_managedblockchain.CfnAccessor",
 ):
@@ -117,7 +107,7 @@ class CfnAccessor(
         *,
         accessor_type: builtins.str,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ManagedBlockchain::Accessor``.
 
@@ -128,7 +118,7 @@ class CfnAccessor(
         :param tags: The tags assigned to the Accessor. For more information about tags, see `Tagging Resources <https://docs.aws.amazon.com/managed-blockchain/latest/ethereum-dev/tagging-resources.html>`_ in the *Amazon Managed Blockchain Ethereum Developer Guide* , or `Tagging Resources <https://docs.aws.amazon.com/managed-blockchain/latest/hyperledger-fabric-dev/tagging-resources.html>`_ in the *Amazon Managed Blockchain Hyperledger Fabric Developer Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7fae27137bea89baceda53b3dc015adf08084fe0dc7addf5f6ceece106c4e98)
+            type_hints = cached_type_hints(_typecheckingstub__d7fae27137bea89baceda53b3dc015adf08084fe0dc7addf5f6ceece106c4e98)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessorProps(
@@ -139,12 +129,15 @@ class CfnAccessor(
 
     @jsii.member(jsii_name="arnForAccessor")
     @builtins.classmethod
-    def arn_for_accessor(cls, resource: "_IAccessorRef_6ea8c0bb") -> builtins.str:
+    def arn_for_accessor(
+        cls,
+        resource: "_aws_managedblockchain_0387b7b3.IAccessorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ff210b7b7b1954aea9777a2d2cea89336754de2d57302b375d70e48d74103a6)
+            type_hints = cached_type_hints(_typecheckingstub__0ff210b7b7b1954aea9777a2d2cea89336754de2d57302b375d70e48d74103a6)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessor", [resource]))
 
@@ -155,7 +148,7 @@ class CfnAccessor(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IAccessorRef_6ea8c0bb":
+    ) -> "_aws_managedblockchain_0387b7b3.IAccessorRef":
         '''Creates a new IAccessorRef from an ARN.
 
         :param scope: -
@@ -163,11 +156,11 @@ class CfnAccessor(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18014559eefd9327a42c84c5955cef0a421d0c4fa24df7d1efd5782023c267c1)
+            type_hints = cached_type_hints(_typecheckingstub__18014559eefd9327a42c84c5955cef0a421d0c4fa24df7d1efd5782023c267c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IAccessorRef_6ea8c0bb", jsii.sinvoke(cls, "fromAccessorArn", [scope, id, arn]))
+        return typing.cast("_aws_managedblockchain_0387b7b3.IAccessorRef", jsii.sinvoke(cls, "fromAccessorArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromAccessorId")
     @builtins.classmethod
@@ -176,7 +169,7 @@ class CfnAccessor(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         accessor_id: builtins.str,
-    ) -> "_IAccessorRef_6ea8c0bb":
+    ) -> "_aws_managedblockchain_0387b7b3.IAccessorRef":
         '''Creates a new IAccessorRef from a accessorId.
 
         :param scope: -
@@ -184,11 +177,11 @@ class CfnAccessor(
         :param accessor_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__000563a5f642669e02e4a434645050e993d4c6550cb58d65714fdb2561b76338)
+            type_hints = cached_type_hints(_typecheckingstub__000563a5f642669e02e4a434645050e993d4c6550cb58d65714fdb2561b76338)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument accessor_id", value=accessor_id, expected_type=type_hints["accessor_id"])
-        return typing.cast("_IAccessorRef_6ea8c0bb", jsii.sinvoke(cls, "fromAccessorId", [scope, id, accessor_id]))
+        return typing.cast("_aws_managedblockchain_0387b7b3.IAccessorRef", jsii.sinvoke(cls, "fromAccessorId", [scope, id, accessor_id]))
 
     @jsii.member(jsii_name="isCfnAccessor")
     @builtins.classmethod
@@ -198,18 +191,18 @@ class CfnAccessor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ac0c648e2a68713edf05fd3424ad76c7a8efe8911f6261feae1b81d5abad3f6)
+            type_hints = cached_type_hints(_typecheckingstub__7ac0c648e2a68713edf05fd3424ad76c7a8efe8911f6261feae1b81d5abad3f6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5153df6ae42b13ade5f6af5da4867255659df0827b4417004b7a82730c0859b9)
+            type_hints = cached_type_hints(_typecheckingstub__5153df6ae42b13ade5f6af5da4867255659df0827b4417004b7a82730c0859b9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -222,7 +215,7 @@ class CfnAccessor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf45e744d1073e04bf260ac0e246b67106c9252520e66af089bcd62cd5981e1d)
+            type_hints = cached_type_hints(_typecheckingstub__cf45e744d1073e04bf260ac0e246b67106c9252520e66af089bcd62cd5981e1d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -234,9 +227,9 @@ class CfnAccessor(
 
     @builtins.property
     @jsii.member(jsii_name="accessorRef")
-    def accessor_ref(self) -> "_AccessorReference_b1253e7e":
+    def accessor_ref(self) -> "_aws_managedblockchain_0387b7b3.AccessorReference":
         '''A reference to a Accessor resource.'''
-        return typing.cast("_AccessorReference_b1253e7e", jsii.get(self, "accessorRef"))
+        return typing.cast("_aws_managedblockchain_0387b7b3.AccessorReference", jsii.get(self, "accessorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -299,9 +292,9 @@ class CfnAccessor(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="accessorType")
@@ -312,7 +305,7 @@ class CfnAccessor(
     @accessor_type.setter
     def accessor_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f365afcb88911500be6e93d816f42644c24c17bcb5b2575a6c29211d979af24)
+            type_hints = cached_type_hints(_typecheckingstub__5f365afcb88911500be6e93d816f42644c24c17bcb5b2575a6c29211d979af24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessorType", value) # pyright: ignore[reportArgumentType]
 
@@ -325,20 +318,23 @@ class CfnAccessor(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebcc19a367c52e96e151064284bb60e46304b8fba8b14490f920328c2750009b)
+            type_hints = cached_type_hints(_typecheckingstub__ebcc19a367c52e96e151064284bb60e46304b8fba8b14490f920328c2750009b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the Accessor.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d00a94224f7b2053cf776b7c92b3c8493560dc542f67879e3e30b42f708eead5)
+            type_hints = cached_type_hints(_typecheckingstub__d00a94224f7b2053cf776b7c92b3c8493560dc542f67879e3e30b42f708eead5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -358,7 +354,7 @@ class CfnAccessorProps:
         *,
         accessor_type: builtins.str,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessor``.
 
@@ -388,7 +384,7 @@ class CfnAccessorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3924b13245ef775193266263be34e02070f7b9a94ed734a446b67796d28e6199)
+            type_hints = cached_type_hints(_typecheckingstub__3924b13245ef775193266263be34e02070f7b9a94ed734a446b67796d28e6199)
             check_type(argname="argument accessor_type", value=accessor_type, expected_type=type_hints["accessor_type"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -433,7 +429,7 @@ class CfnAccessorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the Accessor.
 
         For more information about tags, see `Tagging Resources <https://docs.aws.amazon.com/managed-blockchain/latest/ethereum-dev/tagging-resources.html>`_ in the *Amazon Managed Blockchain Ethereum Developer Guide* , or `Tagging Resources <https://docs.aws.amazon.com/managed-blockchain/latest/hyperledger-fabric-dev/tagging-resources.html>`_ in the *Amazon Managed Blockchain Hyperledger Fabric Developer Guide* .
@@ -441,7 +437,7 @@ class CfnAccessorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-managedblockchain-accessor.html#cfn-managedblockchain-accessor-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -455,9 +451,9 @@ class CfnAccessorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMemberRef_eb79b2aa)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_managedblockchain_0387b7b3.IMemberRef)
 class CfnMember(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_managedblockchain.CfnMember",
 ):
@@ -520,9 +516,9 @@ class CfnMember(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        member_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.MemberConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        member_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.MemberConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         invitation_id: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ManagedBlockchain::Member``.
@@ -535,7 +531,7 @@ class CfnMember(
         :param network_id: The unique identifier of the network to which the member belongs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f440aedf38983e9bd6c40a21512108e2511416c6c14702ff310a996c2d3c8090)
+            type_hints = cached_type_hints(_typecheckingstub__f440aedf38983e9bd6c40a21512108e2511416c6c14702ff310a996c2d3c8090)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMemberProps(
@@ -549,12 +545,15 @@ class CfnMember(
 
     @jsii.member(jsii_name="arnForMember")
     @builtins.classmethod
-    def arn_for_member(cls, resource: "_IMemberRef_eb79b2aa") -> builtins.str:
+    def arn_for_member(
+        cls,
+        resource: "_aws_managedblockchain_0387b7b3.IMemberRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55c5824bd099d17d4dee4b049ddbeb9bba1e8a220dbc9af5fc352e15fcad154d)
+            type_hints = cached_type_hints(_typecheckingstub__55c5824bd099d17d4dee4b049ddbeb9bba1e8a220dbc9af5fc352e15fcad154d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMember", [resource]))
 
@@ -565,7 +564,7 @@ class CfnMember(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         member_id: builtins.str,
-    ) -> "_IMemberRef_eb79b2aa":
+    ) -> "_aws_managedblockchain_0387b7b3.IMemberRef":
         '''Creates a new IMemberRef from a memberId.
 
         :param scope: -
@@ -573,11 +572,11 @@ class CfnMember(
         :param member_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__855c1186b74f31cddccd7acf185228efdea46e50137ca8cb48467981c77b09a8)
+            type_hints = cached_type_hints(_typecheckingstub__855c1186b74f31cddccd7acf185228efdea46e50137ca8cb48467981c77b09a8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
-        return typing.cast("_IMemberRef_eb79b2aa", jsii.sinvoke(cls, "fromMemberId", [scope, id, member_id]))
+        return typing.cast("_aws_managedblockchain_0387b7b3.IMemberRef", jsii.sinvoke(cls, "fromMemberId", [scope, id, member_id]))
 
     @jsii.member(jsii_name="isCfnMember")
     @builtins.classmethod
@@ -587,18 +586,18 @@ class CfnMember(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58d521e2bdf9a8ed7302c6f8ee8a7d0e8890ef5bd4d715e406d5ffc68738e060)
+            type_hints = cached_type_hints(_typecheckingstub__58d521e2bdf9a8ed7302c6f8ee8a7d0e8890ef5bd4d715e406d5ffc68738e060)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMember", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46a9dd6743a85bd3e4a8e4cd1e70d4394c71e0592b92008a8d4ead6f921817bd)
+            type_hints = cached_type_hints(_typecheckingstub__46a9dd6743a85bd3e4a8e4cd1e70d4394c71e0592b92008a8d4ead6f921817bd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -611,7 +610,7 @@ class CfnMember(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__422ce170be4ab6b24dec58576ce57919dadd194701d6f0efe583539b675dc413)
+            type_hints = cached_type_hints(_typecheckingstub__422ce170be4ab6b24dec58576ce57919dadd194701d6f0efe583539b675dc413)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -651,25 +650,25 @@ class CfnMember(
 
     @builtins.property
     @jsii.member(jsii_name="memberRef")
-    def member_ref(self) -> "_MemberReference_b28a4bbd":
+    def member_ref(self) -> "_aws_managedblockchain_0387b7b3.MemberReference":
         '''A reference to a Member resource.'''
-        return typing.cast("_MemberReference_b28a4bbd", jsii.get(self, "memberRef"))
+        return typing.cast("_aws_managedblockchain_0387b7b3.MemberReference", jsii.get(self, "memberRef"))
 
     @builtins.property
     @jsii.member(jsii_name="memberConfiguration")
     def member_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMember.MemberConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberConfigurationProperty"]:
         '''Configuration properties of the member.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMember.MemberConfigurationProperty"], jsii.get(self, "memberConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberConfigurationProperty"], jsii.get(self, "memberConfiguration"))
 
     @member_configuration.setter
     def member_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMember.MemberConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e24495100bf25afd24d813b99fff4af16320194e2dd30a50b0952045777315fb)
+            type_hints = cached_type_hints(_typecheckingstub__e24495100bf25afd24d813b99fff4af16320194e2dd30a50b0952045777315fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memberConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -682,7 +681,7 @@ class CfnMember(
     @invitation_id.setter
     def invitation_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c06c817eef5c6850a2fb97f59cc2644d04847835af445f0fd00e77528462baa2)
+            type_hints = cached_type_hints(_typecheckingstub__c06c817eef5c6850a2fb97f59cc2644d04847835af445f0fd00e77528462baa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "invitationId", value) # pyright: ignore[reportArgumentType]
 
@@ -690,17 +689,17 @@ class CfnMember(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkConfigurationProperty"]]:
         '''Configuration properties of the network to which the member belongs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b38bc2452a008056f7d9695d2f2aa5c754336deb3398e3ac24b7db0b0e515bb8)
+            type_hints = cached_type_hints(_typecheckingstub__b38bc2452a008056f7d9695d2f2aa5c754336deb3398e3ac24b7db0b0e515bb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -713,7 +712,7 @@ class CfnMember(
     @network_id.setter
     def network_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf7db9bb09cf2b486e4ee7d51e16f18507645763161c21100ce0b0bccc37fe6e)
+            type_hints = cached_type_hints(_typecheckingstub__cf7db9bb09cf2b486e4ee7d51e16f18507645763161c21100ce0b0bccc37fe6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkId", value) # pyright: ignore[reportArgumentType]
 
@@ -760,7 +759,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__02cea2c83641ac318cbb1c6438d76d5b709ab88ac8944d419dc7c76a4d5afe98)
+                type_hints = cached_type_hints(_typecheckingstub__02cea2c83641ac318cbb1c6438d76d5b709ab88ac8944d419dc7c76a4d5afe98)
                 check_type(argname="argument proposal_duration_in_hours", value=proposal_duration_in_hours, expected_type=type_hints["proposal_duration_in_hours"])
                 check_type(argname="argument threshold_comparator", value=threshold_comparator, expected_type=type_hints["threshold_comparator"])
                 check_type(argname="argument threshold_percentage", value=threshold_percentage, expected_type=type_hints["threshold_percentage"])
@@ -829,7 +828,7 @@ class CfnMember(
             *,
             name: builtins.str,
             description: typing.Optional[builtins.str] = None,
-            member_framework_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.MemberFrameworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            member_framework_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.MemberFrameworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration properties of the member.
 
@@ -862,7 +861,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51367f640e718063d1e630299be0afb17c875b3b308a048f746cac3c699a5f99)
+                type_hints = cached_type_hints(_typecheckingstub__51367f640e718063d1e630299be0afb17c875b3b308a048f746cac3c699a5f99)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument member_framework_configuration", value=member_framework_configuration, expected_type=type_hints["member_framework_configuration"])
@@ -896,13 +895,13 @@ class CfnMember(
         @builtins.property
         def member_framework_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.MemberFrameworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberFrameworkConfigurationProperty"]]:
             '''Configuration properties of the blockchain framework relevant to the member.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-memberconfiguration.html#cfn-managedblockchain-member-memberconfiguration-memberframeworkconfiguration
             '''
             result = self._values.get("member_framework_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.MemberFrameworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberFrameworkConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -950,7 +949,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__37e983734011eb49a2c46ca3def8c6bfcb990bded4c5b014249a9eeecaab157d)
+                type_hints = cached_type_hints(_typecheckingstub__37e983734011eb49a2c46ca3def8c6bfcb990bded4c5b014249a9eeecaab157d)
                 check_type(argname="argument admin_password", value=admin_password, expected_type=type_hints["admin_password"])
                 check_type(argname="argument admin_username", value=admin_username, expected_type=type_hints["admin_username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1001,7 +1000,7 @@ class CfnMember(
         def __init__(
             self,
             *,
-            member_fabric_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.MemberFabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            member_fabric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.MemberFabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration properties relevant to a member for the blockchain framework that the Managed Blockchain network uses.
 
@@ -1024,7 +1023,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b491217906f30cb4191d01752451ada84d5ea4301b6220726758f96d896e06cf)
+                type_hints = cached_type_hints(_typecheckingstub__b491217906f30cb4191d01752451ada84d5ea4301b6220726758f96d896e06cf)
                 check_type(argname="argument member_fabric_configuration", value=member_fabric_configuration, expected_type=type_hints["member_fabric_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if member_fabric_configuration is not None:
@@ -1033,13 +1032,13 @@ class CfnMember(
         @builtins.property
         def member_fabric_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.MemberFabricConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberFabricConfigurationProperty"]]:
             '''Configuration properties for Hyperledger Fabric.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-memberframeworkconfiguration.html#cfn-managedblockchain-member-memberframeworkconfiguration-memberfabricconfiguration
             '''
             result = self._values.get("member_fabric_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.MemberFabricConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberFabricConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1071,9 +1070,9 @@ class CfnMember(
             framework: builtins.str,
             framework_version: builtins.str,
             name: builtins.str,
-            voting_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.VotingPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            voting_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.VotingPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
-            network_framework_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.NetworkFrameworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_framework_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.NetworkFrameworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration properties of the network to which the member belongs.
 
@@ -1115,7 +1114,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__04f1d8c07c23e365bc54ad25776dbc36fa43df91de362da315b8515f9df8d802)
+                type_hints = cached_type_hints(_typecheckingstub__04f1d8c07c23e365bc54ad25776dbc36fa43df91de362da315b8515f9df8d802)
                 check_type(argname="argument framework", value=framework, expected_type=type_hints["framework"])
                 check_type(argname="argument framework_version", value=framework_version, expected_type=type_hints["framework_version"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -1166,14 +1165,14 @@ class CfnMember(
         @builtins.property
         def voting_policy(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMember.VotingPolicyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.VotingPolicyProperty"]:
             '''The voting rules that the network uses to decide if a proposal is accepted.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-networkconfiguration.html#cfn-managedblockchain-member-networkconfiguration-votingpolicy
             '''
             result = self._values.get("voting_policy")
             assert result is not None, "Required property 'voting_policy' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMember.VotingPolicyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.VotingPolicyProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -1187,13 +1186,13 @@ class CfnMember(
         @builtins.property
         def network_framework_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkFrameworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkFrameworkConfigurationProperty"]]:
             '''Configuration properties relevant to the network for the blockchain framework that the network uses.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-networkconfiguration.html#cfn-managedblockchain-member-networkconfiguration-networkframeworkconfiguration
             '''
             result = self._values.get("network_framework_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkFrameworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkFrameworkConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1231,7 +1230,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cd3f379780118ac508a3d57d16dcdde085bac183f3ac71d031313c234626e7c7)
+                type_hints = cached_type_hints(_typecheckingstub__cd3f379780118ac508a3d57d16dcdde085bac183f3ac71d031313c234626e7c7)
                 check_type(argname="argument edition", value=edition, expected_type=type_hints["edition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "edition": edition,
@@ -1269,7 +1268,7 @@ class CfnMember(
         def __init__(
             self,
             *,
-            network_fabric_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.NetworkFabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_fabric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.NetworkFabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration properties relevant to the network for the blockchain framework that the network uses.
 
@@ -1291,7 +1290,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8773f0a05758e613681da54a9e276d174cf38cbd9be1372a0cb1ed08ec6a6e2b)
+                type_hints = cached_type_hints(_typecheckingstub__8773f0a05758e613681da54a9e276d174cf38cbd9be1372a0cb1ed08ec6a6e2b)
                 check_type(argname="argument network_fabric_configuration", value=network_fabric_configuration, expected_type=type_hints["network_fabric_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if network_fabric_configuration is not None:
@@ -1300,13 +1299,13 @@ class CfnMember(
         @builtins.property
         def network_fabric_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkFabricConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkFabricConfigurationProperty"]]:
             '''Configuration properties for Hyperledger Fabric for a member in a Managed Blockchain network that is using the Hyperledger Fabric framework.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-networkframeworkconfiguration.html#cfn-managedblockchain-member-networkframeworkconfiguration-networkfabricconfiguration
             '''
             result = self._values.get("network_fabric_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkFabricConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkFabricConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1328,7 +1327,7 @@ class CfnMember(
         def __init__(
             self,
             *,
-            approval_threshold_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.ApprovalThresholdPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            approval_threshold_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.ApprovalThresholdPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The voting rules for the network to decide if a proposal is accepted.
 
@@ -1354,7 +1353,7 @@ class CfnMember(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c68c8e4a9368be2e89a33105aa99ab4212e33852ff178527742919731a930d87)
+                type_hints = cached_type_hints(_typecheckingstub__c68c8e4a9368be2e89a33105aa99ab4212e33852ff178527742919731a930d87)
                 check_type(argname="argument approval_threshold_policy", value=approval_threshold_policy, expected_type=type_hints["approval_threshold_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if approval_threshold_policy is not None:
@@ -1363,7 +1362,7 @@ class CfnMember(
         @builtins.property
         def approval_threshold_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.ApprovalThresholdPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.ApprovalThresholdPolicyProperty"]]:
             '''Defines the rules for the network for voting on proposals, such as the percentage of ``YES`` votes required for the proposal to be approved and the duration of the proposal.
 
             The policy applies to all proposals and is specified when the network is created.
@@ -1371,7 +1370,7 @@ class CfnMember(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-managedblockchain-member-votingpolicy.html#cfn-managedblockchain-member-votingpolicy-approvalthresholdpolicy
             '''
             result = self._values.get("approval_threshold_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.ApprovalThresholdPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.ApprovalThresholdPolicyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1399,9 +1398,9 @@ class CfnMemberProps:
     def __init__(
         self,
         *,
-        member_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.MemberConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        member_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.MemberConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         invitation_id: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMember.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMember.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMember``.
@@ -1460,7 +1459,7 @@ class CfnMemberProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e66a18793d1c75e230157cc8b1b1b82fe1269a8b280b51df9b9f4c5c751dea9c)
+            type_hints = cached_type_hints(_typecheckingstub__e66a18793d1c75e230157cc8b1b1b82fe1269a8b280b51df9b9f4c5c751dea9c)
             check_type(argname="argument member_configuration", value=member_configuration, expected_type=type_hints["member_configuration"])
             check_type(argname="argument invitation_id", value=invitation_id, expected_type=type_hints["invitation_id"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
@@ -1478,14 +1477,14 @@ class CfnMemberProps:
     @builtins.property
     def member_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMember.MemberConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberConfigurationProperty"]:
         '''Configuration properties of the member.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-managedblockchain-member.html#cfn-managedblockchain-member-memberconfiguration
         '''
         result = self._values.get("member_configuration")
         assert result is not None, "Required property 'member_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMember.MemberConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.MemberConfigurationProperty"], result)
 
     @builtins.property
     def invitation_id(self) -> typing.Optional[builtins.str]:
@@ -1499,13 +1498,13 @@ class CfnMemberProps:
     @builtins.property
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkConfigurationProperty"]]:
         '''Configuration properties of the network to which the member belongs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-managedblockchain-member.html#cfn-managedblockchain-member-networkconfiguration
         '''
         result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMember.NetworkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMember.NetworkConfigurationProperty"]], result)
 
     @builtins.property
     def network_id(self) -> typing.Optional[builtins.str]:
@@ -1528,9 +1527,9 @@ class CfnMemberProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _INodeRef_c51264f7)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_managedblockchain_0387b7b3.INodeRef)
 class CfnNode(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_managedblockchain.CfnNode",
 ):
@@ -1566,7 +1565,7 @@ class CfnNode(
         id: builtins.str,
         *,
         network_id: builtins.str,
-        node_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNode.NodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        node_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnNode.NodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         member_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ManagedBlockchain::Node``.
@@ -1578,7 +1577,7 @@ class CfnNode(
         :param member_id: The unique identifier of the member to which the node belongs. Applies only to Hyperledger Fabric.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48dbd6ef5c42666453e84796d418e81144be49dedf064e93bf40d44fb4dc0cab)
+            type_hints = cached_type_hints(_typecheckingstub__48dbd6ef5c42666453e84796d418e81144be49dedf064e93bf40d44fb4dc0cab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNodeProps(
@@ -1591,12 +1590,15 @@ class CfnNode(
 
     @jsii.member(jsii_name="arnForNode")
     @builtins.classmethod
-    def arn_for_node(cls, resource: "_INodeRef_c51264f7") -> builtins.str:
+    def arn_for_node(
+        cls,
+        resource: "_aws_managedblockchain_0387b7b3.INodeRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64fdff5699b4b9b21a27180b7c1b5f528d57ad325e56e62f6eb3d97855c2bb9e)
+            type_hints = cached_type_hints(_typecheckingstub__64fdff5699b4b9b21a27180b7c1b5f528d57ad325e56e62f6eb3d97855c2bb9e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNode", [resource]))
 
@@ -1607,7 +1609,7 @@ class CfnNode(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_INodeRef_c51264f7":
+    ) -> "_aws_managedblockchain_0387b7b3.INodeRef":
         '''Creates a new INodeRef from an ARN.
 
         :param scope: -
@@ -1615,11 +1617,11 @@ class CfnNode(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f97825ebb79ef394585f9383b1f2bd49aa45d4ced3ff8fd99910d665c2dd49ba)
+            type_hints = cached_type_hints(_typecheckingstub__f97825ebb79ef394585f9383b1f2bd49aa45d4ced3ff8fd99910d665c2dd49ba)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_INodeRef_c51264f7", jsii.sinvoke(cls, "fromNodeArn", [scope, id, arn]))
+        return typing.cast("_aws_managedblockchain_0387b7b3.INodeRef", jsii.sinvoke(cls, "fromNodeArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromNodeId")
     @builtins.classmethod
@@ -1628,7 +1630,7 @@ class CfnNode(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         node_id: builtins.str,
-    ) -> "_INodeRef_c51264f7":
+    ) -> "_aws_managedblockchain_0387b7b3.INodeRef":
         '''Creates a new INodeRef from a nodeId.
 
         :param scope: -
@@ -1636,11 +1638,11 @@ class CfnNode(
         :param node_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30937c1235a7aea357734b98848584aa6a47076d93af0589d79568706d7d4243)
+            type_hints = cached_type_hints(_typecheckingstub__30937c1235a7aea357734b98848584aa6a47076d93af0589d79568706d7d4243)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument node_id", value=node_id, expected_type=type_hints["node_id"])
-        return typing.cast("_INodeRef_c51264f7", jsii.sinvoke(cls, "fromNodeId", [scope, id, node_id]))
+        return typing.cast("_aws_managedblockchain_0387b7b3.INodeRef", jsii.sinvoke(cls, "fromNodeId", [scope, id, node_id]))
 
     @jsii.member(jsii_name="isCfnNode")
     @builtins.classmethod
@@ -1650,18 +1652,18 @@ class CfnNode(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f269a60e15cd9022700a65ba07edad8837dae4fc7a67b66918ddc586842484d1)
+            type_hints = cached_type_hints(_typecheckingstub__f269a60e15cd9022700a65ba07edad8837dae4fc7a67b66918ddc586842484d1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNode", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c388501c993f487cedc15db18e2da552e99448b2fbbb73df0c86ca6b0ff1f9c9)
+            type_hints = cached_type_hints(_typecheckingstub__c388501c993f487cedc15db18e2da552e99448b2fbbb73df0c86ca6b0ff1f9c9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1674,7 +1676,7 @@ class CfnNode(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddb1eca2d00ac1be0c81a50a971bbb0d2c013f62f102ab0af5b3b2de742953ba)
+            type_hints = cached_type_hints(_typecheckingstub__ddb1eca2d00ac1be0c81a50a971bbb0d2c013f62f102ab0af5b3b2de742953ba)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1734,9 +1736,9 @@ class CfnNode(
 
     @builtins.property
     @jsii.member(jsii_name="nodeRef")
-    def node_ref(self) -> "_NodeReference_7fb78253":
+    def node_ref(self) -> "_aws_managedblockchain_0387b7b3.NodeReference":
         '''A reference to a Node resource.'''
-        return typing.cast("_NodeReference_7fb78253", jsii.get(self, "nodeRef"))
+        return typing.cast("_aws_managedblockchain_0387b7b3.NodeReference", jsii.get(self, "nodeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="networkId")
@@ -1747,7 +1749,7 @@ class CfnNode(
     @network_id.setter
     def network_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e973c708787ea875c475d8d5e3d65d9fabaadd752c9985d2ef28c9fb514ec25a)
+            type_hints = cached_type_hints(_typecheckingstub__e973c708787ea875c475d8d5e3d65d9fabaadd752c9985d2ef28c9fb514ec25a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkId", value) # pyright: ignore[reportArgumentType]
 
@@ -1755,17 +1757,17 @@ class CfnNode(
     @jsii.member(jsii_name="nodeConfiguration")
     def node_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnNode.NodeConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNode.NodeConfigurationProperty"]:
         '''Configuration properties of a peer node.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNode.NodeConfigurationProperty"], jsii.get(self, "nodeConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNode.NodeConfigurationProperty"], jsii.get(self, "nodeConfiguration"))
 
     @node_configuration.setter
     def node_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnNode.NodeConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNode.NodeConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a01c3ae152356712a3452a2f9b3ad805619970b05a968191d4ccda7f6fe9c951)
+            type_hints = cached_type_hints(_typecheckingstub__a01c3ae152356712a3452a2f9b3ad805619970b05a968191d4ccda7f6fe9c951)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1778,7 +1780,7 @@ class CfnNode(
     @member_id.setter
     def member_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d89f5294a350105d930c39902dc2d9e7d7bb6e37ace303d0b49609bd81e60b25)
+            type_hints = cached_type_hints(_typecheckingstub__d89f5294a350105d930c39902dc2d9e7d7bb6e37ace303d0b49609bd81e60b25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
 
@@ -1817,7 +1819,7 @@ class CfnNode(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17aa04ca4abfb63493c324177d7e99bb4c80136ba0c4e225db7ff9fd5f085bc6)
+                type_hints = cached_type_hints(_typecheckingstub__17aa04ca4abfb63493c324177d7e99bb4c80136ba0c4e225db7ff9fd5f085bc6)
                 check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1873,7 +1875,7 @@ class CfnNodeProps:
         self,
         *,
         network_id: builtins.str,
-        node_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNode.NodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        node_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnNode.NodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         member_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnNode``.
@@ -1903,7 +1905,7 @@ class CfnNodeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06cdf753357136b8f6ace00b35f059256fbc98e2c163d6c1eee33fcfacb0e64b)
+            type_hints = cached_type_hints(_typecheckingstub__06cdf753357136b8f6ace00b35f059256fbc98e2c163d6c1eee33fcfacb0e64b)
             check_type(argname="argument network_id", value=network_id, expected_type=type_hints["network_id"])
             check_type(argname="argument node_configuration", value=node_configuration, expected_type=type_hints["node_configuration"])
             check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
@@ -1931,14 +1933,14 @@ class CfnNodeProps:
     @builtins.property
     def node_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnNode.NodeConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNode.NodeConfigurationProperty"]:
         '''Configuration properties of a peer node.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-managedblockchain-node.html#cfn-managedblockchain-node-nodeconfiguration
         '''
         result = self._values.get("node_configuration")
         assert result is not None, "Required property 'node_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNode.NodeConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNode.NodeConfigurationProperty"], result)
 
     @builtins.property
     def member_id(self) -> typing.Optional[builtins.str]:
@@ -1980,13 +1982,13 @@ def _typecheckingstub__d7fae27137bea89baceda53b3dc015adf08084fe0dc7addf5f6ceece1
     *,
     accessor_type: builtins.str,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ff210b7b7b1954aea9777a2d2cea89336754de2d57302b375d70e48d74103a6(
-    resource: _IAccessorRef_6ea8c0bb,
+    resource: _aws_managedblockchain_0387b7b3.IAccessorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2014,7 +2016,7 @@ def _typecheckingstub__7ac0c648e2a68713edf05fd3424ad76c7a8efe8911f6261feae1b81d5
     pass
 
 def _typecheckingstub__5153df6ae42b13ade5f6af5da4867255659df0827b4417004b7a82730c0859b9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2038,7 +2040,7 @@ def _typecheckingstub__ebcc19a367c52e96e151064284bb60e46304b8fba8b14490f920328c2
     pass
 
 def _typecheckingstub__d00a94224f7b2053cf776b7c92b3c8493560dc542f67879e3e30b42f708eead5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2047,7 +2049,7 @@ def _typecheckingstub__3924b13245ef775193266263be34e02070f7b9a94ed734a446b67796d
     *,
     accessor_type: builtins.str,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2056,16 +2058,16 @@ def _typecheckingstub__f440aedf38983e9bd6c40a21512108e2511416c6c14702ff310a996c2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    member_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.MemberConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    member_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.MemberConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     invitation_id: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__55c5824bd099d17d4dee4b049ddbeb9bba1e8a220dbc9af5fc352e15fcad154d(
-    resource: _IMemberRef_eb79b2aa,
+    resource: _aws_managedblockchain_0387b7b3.IMemberRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2085,7 +2087,7 @@ def _typecheckingstub__58d521e2bdf9a8ed7302c6f8ee8a7d0e8890ef5bd4d715e406d5ffc68
     pass
 
 def _typecheckingstub__46a9dd6743a85bd3e4a8e4cd1e70d4394c71e0592b92008a8d4ead6f921817bd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2097,7 +2099,7 @@ def _typecheckingstub__422ce170be4ab6b24dec58576ce57919dadd194701d6f0efe583539b6
     pass
 
 def _typecheckingstub__e24495100bf25afd24d813b99fff4af16320194e2dd30a50b0952045777315fb(
-    value: typing.Union[_IResolvable_da3f097b, CfnMember.MemberConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMember.MemberConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2109,7 +2111,7 @@ def _typecheckingstub__c06c817eef5c6850a2fb97f59cc2644d04847835af445f0fd00e77528
     pass
 
 def _typecheckingstub__b38bc2452a008056f7d9695d2f2aa5c754336deb3398e3ac24b7db0b0e515bb8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMember.NetworkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMember.NetworkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2133,7 +2135,7 @@ def _typecheckingstub__51367f640e718063d1e630299be0afb17c875b3b308a048f746cac3c6
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    member_framework_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.MemberFrameworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    member_framework_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.MemberFrameworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2148,7 +2150,7 @@ def _typecheckingstub__37e983734011eb49a2c46ca3def8c6bfcb990bded4c5b014249a9eeec
 
 def _typecheckingstub__b491217906f30cb4191d01752451ada84d5ea4301b6220726758f96d896e06cf(
     *,
-    member_fabric_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.MemberFabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    member_fabric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.MemberFabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2158,9 +2160,9 @@ def _typecheckingstub__04f1d8c07c23e365bc54ad25776dbc36fa43df91de362da315b8515f9
     framework: builtins.str,
     framework_version: builtins.str,
     name: builtins.str,
-    voting_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.VotingPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    voting_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.VotingPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    network_framework_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.NetworkFrameworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_framework_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.NetworkFrameworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2174,23 +2176,23 @@ def _typecheckingstub__cd3f379780118ac508a3d57d16dcdde085bac183f3ac71d031313c234
 
 def _typecheckingstub__8773f0a05758e613681da54a9e276d174cf38cbd9be1372a0cb1ed08ec6a6e2b(
     *,
-    network_fabric_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.NetworkFabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_fabric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.NetworkFabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c68c8e4a9368be2e89a33105aa99ab4212e33852ff178527742919731a930d87(
     *,
-    approval_threshold_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.ApprovalThresholdPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    approval_threshold_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.ApprovalThresholdPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e66a18793d1c75e230157cc8b1b1b82fe1269a8b280b51df9b9f4c5c751dea9c(
     *,
-    member_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.MemberConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    member_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.MemberConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     invitation_id: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMember.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMember.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2201,14 +2203,14 @@ def _typecheckingstub__48dbd6ef5c42666453e84796d418e81144be49dedf064e93bf40d44fb
     id: builtins.str,
     *,
     network_id: builtins.str,
-    node_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNode.NodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    node_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNode.NodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     member_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__64fdff5699b4b9b21a27180b7c1b5f528d57ad325e56e62f6eb3d97855c2bb9e(
-    resource: _INodeRef_c51264f7,
+    resource: _aws_managedblockchain_0387b7b3.INodeRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2236,7 +2238,7 @@ def _typecheckingstub__f269a60e15cd9022700a65ba07edad8837dae4fc7a67b66918ddc5868
     pass
 
 def _typecheckingstub__c388501c993f487cedc15db18e2da552e99448b2fbbb73df0c86ca6b0ff1f9c9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2254,7 +2256,7 @@ def _typecheckingstub__e973c708787ea875c475d8d5e3d65d9fabaadd752c9985d2ef28c9fb5
     pass
 
 def _typecheckingstub__a01c3ae152356712a3452a2f9b3ad805619970b05a968191d4ccda7f6fe9c951(
-    value: typing.Union[_IResolvable_da3f097b, CfnNode.NodeConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnNode.NodeConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2276,7 +2278,7 @@ def _typecheckingstub__17aa04ca4abfb63493c324177d7e99bb4c80136ba0c4e225db7ff9fd5
 def _typecheckingstub__06cdf753357136b8f6ace00b35f059256fbc98e2c163d6c1eee33fcfacb0e64b(
     *,
     network_id: builtins.str,
-    node_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNode.NodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    node_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNode.NodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     member_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

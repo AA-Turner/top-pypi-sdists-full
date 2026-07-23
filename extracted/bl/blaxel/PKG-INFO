@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blaxel
-Version: 0.3.1
+Version: 0.3.2
 Summary: Blaxel - AI development platform SDK
 Project-URL: Homepage, https://blaxel.ai
 Project-URL: Documentation, https://docs.blaxel.ai
@@ -32,6 +32,7 @@ Requires-Dist: uv; extra == 'dev'
 Provides-Extra: googleadk
 Requires-Dist: google-adk>=1.4.0; extra == 'googleadk'
 Requires-Dist: litellm>=1.63.11; extra == 'googleadk'
+Requires-Dist: orjson<4.0,>=3.11.6; extra == 'googleadk'
 Provides-Extra: langgraph
 Requires-Dist: langchain-anthropic>=0.3.10; extra == 'langgraph'
 Requires-Dist: langchain-cohere>=0.4.3; extra == 'langgraph'
@@ -567,7 +568,7 @@ import blaxel.telemetry
 
 ### Error tracking
 
-The SDK includes error tracking that captures exceptions originating from the SDK itself (not your application code). It collects data including the error type, message, stack trace, SDK version, workspace name, and so on. No user or application data is collected.
+The SDK includes error tracking for unhandled exceptions originating from the SDK itself (not your application code). It collects a sanitized error type and HTTP/error code, package-relative SDK stack frames, SDK version, commit, and workspace name. It does not collect application stack frames, raw exception messages, response bodies, or local filesystem paths.
 
 Error tracking is off by default since v0.2.46. To explicitly disable it in older versions:
 

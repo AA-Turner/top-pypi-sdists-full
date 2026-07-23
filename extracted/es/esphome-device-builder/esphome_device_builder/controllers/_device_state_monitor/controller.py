@@ -29,6 +29,7 @@ from functools import partial
 from typing import Any, Protocol
 
 from ...helpers.async_ import create_eager_task, drain_tasks, log_task_exit
+from ...helpers.ip import drop_unspecified_addresses, is_unspecified_address
 from ...helpers.subscriber_presence import SubscriberPresence
 from ...models import (
     RUNTIME_STATE_FIELD_NAMES,
@@ -205,7 +206,7 @@ class DeviceStateMonitor(TaskControllerBase):
         # dashboard, which paused ICMP on an empty subscriber set.
         # ``None`` means "always run the loop" so existing tests
         # without a presence gate keep working.
-        self._presence = presence
+        self.presence = presence
         self.importable = ImportableDiscovery(self)
         # One Native API worker dial at a time across every API source
         # (api_info + reviver): each dial spawns an interpreter and
@@ -382,6 +383,8 @@ class DeviceStateMonitor(TaskControllerBase):
         """
         if not ip:
             raise ValueError("empty ip; use clear_resolved_addresses")
+        if is_unspecified_address(ip):
+            return False
         devices = self._get_devices_by_name(name)
         if not devices:
             return False
@@ -403,7 +406,10 @@ class DeviceStateMonitor(TaskControllerBase):
         """
         if not addresses:
             raise ValueError("empty addresses; use clear_resolved_addresses")
-        return self._dispatch_ip(name, _pick_ipv4(addresses), addresses)
+        usable = drop_unspecified_addresses(addresses)
+        if not usable:
+            return False
+        return self._dispatch_ip(name, _pick_ipv4(usable), usable)
 
     def clear_resolved_addresses(self, name: str) -> bool:
         """

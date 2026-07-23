@@ -8,9 +8,11 @@ repos:
     rev: v2.0.0
     hooks:
       - id: doc8
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+  - repo: local
     hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-requests
+      - id: pyrefly-check
+        name: pyrefly
+        entry: uv run pyrefly check
+        language: system
+        types: [python]
+        pass_filenames: false

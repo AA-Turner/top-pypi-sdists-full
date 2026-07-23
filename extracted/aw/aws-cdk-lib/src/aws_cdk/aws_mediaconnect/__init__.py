@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,66 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mediaconnect import (
-    BridgeOutputReference as _BridgeOutputReference_4ac2cf5a,
-    BridgeReference as _BridgeReference_7039ca9d,
-    BridgeSourceReference as _BridgeSourceReference_fdd405eb,
-    FlowEntitlementReference as _FlowEntitlementReference_2242862f,
-    FlowOutputReference as _FlowOutputReference_30ed8edf,
-    FlowReference as _FlowReference_cf80a510,
-    FlowSourceReference as _FlowSourceReference_0d57ee68,
-    FlowVpcInterfaceReference as _FlowVpcInterfaceReference_74070c82,
-    GatewayReference as _GatewayReference_91ca4e85,
-    IBridgeOutputRef as _IBridgeOutputRef_d8763e78,
-    IBridgeRef as _IBridgeRef_2f2ab872,
-    IBridgeSourceRef as _IBridgeSourceRef_8b16438d,
-    IFlowEntitlementRef as _IFlowEntitlementRef_83db35bc,
-    IFlowOutputRef as _IFlowOutputRef_be0a9d75,
-    IFlowRef as _IFlowRef_c5e8f48d,
-    IFlowSourceRef as _IFlowSourceRef_b94a8321,
-    IFlowVpcInterfaceRef as _IFlowVpcInterfaceRef_d5bcec46,
-    IGatewayRef as _IGatewayRef_4783a0c6,
-    IRouterInputRef as _IRouterInputRef_6915df50,
-    IRouterNetworkInterfaceRef as _IRouterNetworkInterfaceRef_05bd061c,
-    IRouterOutputRef as _IRouterOutputRef_afa317cd,
-    RouterInputReference as _RouterInputReference_b71c2141,
-    RouterNetworkInterfaceReference as _RouterNetworkInterfaceReference_fdc8b08c,
-    RouterOutputReference as _RouterOutputReference_12c4ea61,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mediaconnect as _aws_mediaconnect_6374326e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mediaconnect_6374326e = _LazyImport("aws_cdk.interfaces.aws_mediaconnect")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IBridgeRef_2f2ab872)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IBridgeRef)
 class CfnBridge(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridge",
 ):
@@ -179,11 +151,11 @@ class CfnBridge(
         *,
         name: builtins.str,
         placement_arn: builtins.str,
-        sources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        egress_gateway_bridge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.EgressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ingress_gateway_bridge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.IngressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        outputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        egress_gateway_bridge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.EgressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_gateway_bridge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.IngressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outputs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        source_failover_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::Bridge``.
 
@@ -198,7 +170,7 @@ class CfnBridge(
         :param source_failover_config: The settings for source failover.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21d1f093ae6c3ef104fbfbb93b13b3338230662ddb218fed6d74e5040acf931c)
+            type_hints = cached_type_hints(_typecheckingstub__21d1f093ae6c3ef104fbfbb93b13b3338230662ddb218fed6d74e5040acf931c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBridgeProps(
@@ -215,12 +187,15 @@ class CfnBridge(
 
     @jsii.member(jsii_name="arnForBridge")
     @builtins.classmethod
-    def arn_for_bridge(cls, resource: "_IBridgeRef_2f2ab872") -> builtins.str:
+    def arn_for_bridge(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.IBridgeRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61c94f5a708599ab90700dbc916f984911d2356933cecac7cb8883e4716ef8e3)
+            type_hints = cached_type_hints(_typecheckingstub__61c94f5a708599ab90700dbc916f984911d2356933cecac7cb8883e4716ef8e3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBridge", [resource]))
 
@@ -232,18 +207,18 @@ class CfnBridge(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efc0ae85c0d5def613a48526ecb28ec24a692b3f96ffc4f3733d1a84d3727827)
+            type_hints = cached_type_hints(_typecheckingstub__efc0ae85c0d5def613a48526ecb28ec24a692b3f96ffc4f3733d1a84d3727827)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBridge", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e83409273af3b66857452f9f32805fa3650ea56dd8bccf1a4cae459f1669317)
+            type_hints = cached_type_hints(_typecheckingstub__7e83409273af3b66857452f9f32805fa3650ea56dd8bccf1a4cae459f1669317)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -256,7 +231,7 @@ class CfnBridge(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34788268cca3ef6b9f17b00e64981600b0697ff2af1a873da5b2521e55e8f627)
+            type_hints = cached_type_hints(_typecheckingstub__34788268cca3ef6b9f17b00e64981600b0697ff2af1a873da5b2521e55e8f627)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -288,9 +263,9 @@ class CfnBridge(
 
     @builtins.property
     @jsii.member(jsii_name="bridgeRef")
-    def bridge_ref(self) -> "_BridgeReference_7039ca9d":
+    def bridge_ref(self) -> "_aws_mediaconnect_6374326e.BridgeReference":
         '''A reference to a Bridge resource.'''
-        return typing.cast("_BridgeReference_7039ca9d", jsii.get(self, "bridgeRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.BridgeReference", jsii.get(self, "bridgeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -311,7 +286,7 @@ class CfnBridge(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__897e5b31abf5fb8064d23feda8e8dab6abc8fc04b479fede8ec2f5a8f11283ae)
+            type_hints = cached_type_hints(_typecheckingstub__897e5b31abf5fb8064d23feda8e8dab6abc8fc04b479fede8ec2f5a8f11283ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -324,7 +299,7 @@ class CfnBridge(
     @placement_arn.setter
     def placement_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6c0d91a8143e25d3431f038cc493b72ff78caeb2aae6a8de25ef906162ed203)
+            type_hints = cached_type_hints(_typecheckingstub__b6c0d91a8143e25d3431f038cc493b72ff78caeb2aae6a8de25ef906162ed203)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "placementArn", value) # pyright: ignore[reportArgumentType]
 
@@ -332,17 +307,17 @@ class CfnBridge(
     @jsii.member(jsii_name="sources")
     def sources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeSourceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeSourceProperty"]]]:
         '''The sources that you want to add to this bridge.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeSourceProperty"]]], jsii.get(self, "sources"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeSourceProperty"]]], jsii.get(self, "sources"))
 
     @sources.setter
     def sources(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeSourceProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeSourceProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c151228d22c29de1b22fb11c72513278ae8b19faf50c26128a49b5bb5cd8231e)
+            type_hints = cached_type_hints(_typecheckingstub__c151228d22c29de1b22fb11c72513278ae8b19faf50c26128a49b5bb5cd8231e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
 
@@ -350,17 +325,17 @@ class CfnBridge(
     @jsii.member(jsii_name="egressGatewayBridge")
     def egress_gateway_bridge(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.EgressGatewayBridgeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.EgressGatewayBridgeProperty"]]:
         '''An egress bridge is a cloud-to-ground bridge.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.EgressGatewayBridgeProperty"]], jsii.get(self, "egressGatewayBridge"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.EgressGatewayBridgeProperty"]], jsii.get(self, "egressGatewayBridge"))
 
     @egress_gateway_bridge.setter
     def egress_gateway_bridge(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.EgressGatewayBridgeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.EgressGatewayBridgeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8744f4915b3da8a1fb0b28e71cdd2260912dbea385353bb4a2378a0dcf2e1a19)
+            type_hints = cached_type_hints(_typecheckingstub__8744f4915b3da8a1fb0b28e71cdd2260912dbea385353bb4a2378a0dcf2e1a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "egressGatewayBridge", value) # pyright: ignore[reportArgumentType]
 
@@ -368,17 +343,17 @@ class CfnBridge(
     @jsii.member(jsii_name="ingressGatewayBridge")
     def ingress_gateway_bridge(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.IngressGatewayBridgeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.IngressGatewayBridgeProperty"]]:
         '''An ingress bridge is a ground-to-cloud bridge.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.IngressGatewayBridgeProperty"]], jsii.get(self, "ingressGatewayBridge"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.IngressGatewayBridgeProperty"]], jsii.get(self, "ingressGatewayBridge"))
 
     @ingress_gateway_bridge.setter
     def ingress_gateway_bridge(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.IngressGatewayBridgeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.IngressGatewayBridgeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2370206c3aaeddbbe4f170d30b717ce583cd273a4a651e68abaf2042096869bf)
+            type_hints = cached_type_hints(_typecheckingstub__2370206c3aaeddbbe4f170d30b717ce583cd273a4a651e68abaf2042096869bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingressGatewayBridge", value) # pyright: ignore[reportArgumentType]
 
@@ -386,17 +361,17 @@ class CfnBridge(
     @jsii.member(jsii_name="outputs")
     def outputs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeOutputProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeOutputProperty"]]]]:
         '''The outputs that you want to add to this bridge.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeOutputProperty"]]]], jsii.get(self, "outputs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeOutputProperty"]]]], jsii.get(self, "outputs"))
 
     @outputs.setter
     def outputs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeOutputProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeOutputProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f0f04e00fdc529449b6434bd02be499c861ae34a03215caf6afedaf59974ca0)
+            type_hints = cached_type_hints(_typecheckingstub__0f0f04e00fdc529449b6434bd02be499c861ae34a03215caf6afedaf59974ca0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputs", value) # pyright: ignore[reportArgumentType]
 
@@ -404,17 +379,17 @@ class CfnBridge(
     @jsii.member(jsii_name="sourceFailoverConfig")
     def source_failover_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.FailoverConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.FailoverConfigProperty"]]:
         '''The settings for source failover.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.FailoverConfigProperty"]], jsii.get(self, "sourceFailoverConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.FailoverConfigProperty"]], jsii.get(self, "sourceFailoverConfig"))
 
     @source_failover_config.setter
     def source_failover_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.FailoverConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.FailoverConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a1d3ccb8b1bf31380b43926b18329ad07b95b13cfd50c81dfdcb52ed4700194)
+            type_hints = cached_type_hints(_typecheckingstub__0a1d3ccb8b1bf31380b43926b18329ad07b95b13cfd50c81dfdcb52ed4700194)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceFailoverConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -433,7 +408,7 @@ class CfnBridge(
             *,
             flow_arn: builtins.str,
             name: builtins.str,
-            flow_vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flow_vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source of the bridge.
 
@@ -463,7 +438,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c9a85716cc44ad0d338a783771f76c5420792553cd40338bc48069294fac934)
+                type_hints = cached_type_hints(_typecheckingstub__2c9a85716cc44ad0d338a783771f76c5420792553cd40338bc48069294fac934)
                 check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument flow_vpc_interface_attachment", value=flow_vpc_interface_attachment, expected_type=type_hints["flow_vpc_interface_attachment"])
@@ -497,13 +472,13 @@ class CfnBridge(
         @builtins.property
         def flow_vpc_interface_attachment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.VpcInterfaceAttachmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.VpcInterfaceAttachmentProperty"]]:
             '''The name of the VPC interface attachment to use for this source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-bridgeflowsource.html#cfn-mediaconnect-bridge-bridgeflowsource-flowvpcinterfaceattachment
             '''
             result = self._values.get("flow_vpc_interface_attachment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.VpcInterfaceAttachmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.VpcInterfaceAttachmentProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -569,7 +544,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__621a738d7654729dd7b3374ce4f5872ae1b369d023ed93a125315923bc53acb5)
+                type_hints = cached_type_hints(_typecheckingstub__621a738d7654729dd7b3374ce4f5872ae1b369d023ed93a125315923bc53acb5)
                 check_type(argname="argument ip_address", value=ip_address, expected_type=type_hints["ip_address"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
@@ -681,7 +656,7 @@ class CfnBridge(
             network_name: builtins.str,
             port: jsii.Number,
             protocol: builtins.str,
-            multicast_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.MulticastSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multicast_source_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.MulticastSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source of the bridge.
 
@@ -717,7 +692,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1642b43f3173ebc33fe250c935a5af5006fe555caff2d5246139c99d6cfb0d9b)
+                type_hints = cached_type_hints(_typecheckingstub__1642b43f3173ebc33fe250c935a5af5006fe555caff2d5246139c99d6cfb0d9b)
                 check_type(argname="argument multicast_ip", value=multicast_ip, expected_type=type_hints["multicast_ip"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
@@ -791,13 +766,13 @@ class CfnBridge(
         @builtins.property
         def multicast_source_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.MulticastSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.MulticastSourceSettingsProperty"]]:
             '''The settings related to the multicast source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-bridgenetworksource.html#cfn-mediaconnect-bridge-bridgenetworksource-multicastsourcesettings
             '''
             result = self._values.get("multicast_source_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.MulticastSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.MulticastSourceSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -819,7 +794,7 @@ class CfnBridge(
         def __init__(
             self,
             *,
-            network_output: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The output of the bridge.
 
@@ -846,7 +821,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dff659c89b605c1b1a727af90c48784adba90b01104dfd2da4ea33b042b8e12f)
+                type_hints = cached_type_hints(_typecheckingstub__dff659c89b605c1b1a727af90c48784adba90b01104dfd2da4ea33b042b8e12f)
                 check_type(argname="argument network_output", value=network_output, expected_type=type_hints["network_output"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if network_output is not None:
@@ -855,7 +830,7 @@ class CfnBridge(
         @builtins.property
         def network_output(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeNetworkOutputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeNetworkOutputProperty"]]:
             '''The output of the bridge.
 
             A network output is delivered to your premises.
@@ -863,7 +838,7 @@ class CfnBridge(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-bridgeoutput.html#cfn-mediaconnect-bridge-bridgeoutput-networkoutput
             '''
             result = self._values.get("network_output")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeNetworkOutputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeNetworkOutputProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -885,8 +860,8 @@ class CfnBridge(
         def __init__(
             self,
             *,
-            flow_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            network_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flow_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The bridge's source.
 
@@ -927,7 +902,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__048c12dd6c2d1c5e61292ef13f12e16c2c87cce382b5d57ada270cfd08a1b24d)
+                type_hints = cached_type_hints(_typecheckingstub__048c12dd6c2d1c5e61292ef13f12e16c2c87cce382b5d57ada270cfd08a1b24d)
                 check_type(argname="argument flow_source", value=flow_source, expected_type=type_hints["flow_source"])
                 check_type(argname="argument network_source", value=network_source, expected_type=type_hints["network_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -939,7 +914,7 @@ class CfnBridge(
         @builtins.property
         def flow_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeFlowSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeFlowSourceProperty"]]:
             '''The source of the bridge.
 
             A flow source originates in MediaConnect as an existing cloud flow.
@@ -947,12 +922,12 @@ class CfnBridge(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-bridgesource.html#cfn-mediaconnect-bridge-bridgesource-flowsource
             '''
             result = self._values.get("flow_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeFlowSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeFlowSourceProperty"]], result)
 
         @builtins.property
         def network_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeNetworkSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeNetworkSourceProperty"]]:
             '''The source of the bridge.
 
             A network source originates at your premises.
@@ -960,7 +935,7 @@ class CfnBridge(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-bridgesource.html#cfn-mediaconnect-bridge-bridgesource-networksource
             '''
             result = self._values.get("network_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeNetworkSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeNetworkSourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1000,7 +975,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b88384d6e7eaf984035fe7a0fba90d12833212086c785ad13a9117af87f05ec0)
+                type_hints = cached_type_hints(_typecheckingstub__b88384d6e7eaf984035fe7a0fba90d12833212086c785ad13a9117af87f05ec0)
                 check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_bitrate": max_bitrate,
@@ -1041,7 +1016,7 @@ class CfnBridge(
             self,
             *,
             failover_mode: builtins.str,
-            source_priority: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.SourcePriorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_priority: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.SourcePriorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             state: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for source failover.
@@ -1070,7 +1045,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2344e6b90e667c45e503f080b931cc817ed70f01054abb50495f2670d204d2b3)
+                type_hints = cached_type_hints(_typecheckingstub__2344e6b90e667c45e503f080b931cc817ed70f01054abb50495f2670d204d2b3)
                 check_type(argname="argument failover_mode", value=failover_mode, expected_type=type_hints["failover_mode"])
                 check_type(argname="argument source_priority", value=source_priority, expected_type=type_hints["source_priority"])
                 check_type(argname="argument state", value=state, expected_type=type_hints["state"])
@@ -1097,7 +1072,7 @@ class CfnBridge(
         @builtins.property
         def source_priority(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.SourcePriorityProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.SourcePriorityProperty"]]:
             '''The priority you want to assign to a source.
 
             You can have a primary stream and a backup stream or two equally prioritized streams.
@@ -1105,7 +1080,7 @@ class CfnBridge(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridge-failoverconfig.html#cfn-mediaconnect-bridge-failoverconfig-sourcepriority
             '''
             result = self._values.get("source_priority")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.SourcePriorityProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.SourcePriorityProperty"]], result)
 
         @builtins.property
         def state(self) -> typing.Optional[builtins.str]:
@@ -1163,7 +1138,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__167e9f3b8055cd05eb90612891a377cb4cde612ba7f0ec6b9e69f7d2df6ce8e6)
+                type_hints = cached_type_hints(_typecheckingstub__167e9f3b8055cd05eb90612891a377cb4cde612ba7f0ec6b9e69f7d2df6ce8e6)
                 check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
                 check_type(argname="argument max_outputs", value=max_outputs, expected_type=type_hints["max_outputs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1231,7 +1206,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e23d21827eb73665886579f4c9de765df4e5ab5b7f9a9d2336b912b8e357707)
+                type_hints = cached_type_hints(_typecheckingstub__6e23d21827eb73665886579f4c9de765df4e5ab5b7f9a9d2336b912b8e357707)
                 check_type(argname="argument multicast_source_ip", value=multicast_source_ip, expected_type=type_hints["multicast_source_ip"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if multicast_source_ip is not None:
@@ -1288,7 +1263,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__58ccd453e30991d345c7d1533308b0d3e5827af4b03a42b43534f313026666a0)
+                type_hints = cached_type_hints(_typecheckingstub__58ccd453e30991d345c7d1533308b0d3e5827af4b03a42b43534f313026666a0)
                 check_type(argname="argument primary_source", value=primary_source, expected_type=type_hints["primary_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if primary_source is not None:
@@ -1343,7 +1318,7 @@ class CfnBridge(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d7119bd5cac44e94824a018e0819faa64fdc04125060ad413d57b0a00d0a8066)
+                type_hints = cached_type_hints(_typecheckingstub__d7119bd5cac44e94824a018e0819faa64fdc04125060ad413d57b0a00d0a8066)
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_interface_name is not None:
@@ -1370,9 +1345,9 @@ class CfnBridge(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBridgeOutputRef_d8763e78)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IBridgeOutputRef)
 class CfnBridgeOutput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeOutput",
 ):
@@ -1408,7 +1383,7 @@ class CfnBridgeOutput(
         *,
         bridge_arn: builtins.str,
         name: builtins.str,
-        network_output: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeOutput.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]],
+        network_output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeOutput.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::MediaConnect::BridgeOutput``.
 
@@ -1419,7 +1394,7 @@ class CfnBridgeOutput(
         :param network_output: The network output of the bridge. A network output is delivered to your premises.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37400ec0d6ede2ac41f09e81db31275470bfb18f7999012a07d588a5abfc45e7)
+            type_hints = cached_type_hints(_typecheckingstub__37400ec0d6ede2ac41f09e81db31275470bfb18f7999012a07d588a5abfc45e7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBridgeOutputProps(
@@ -1436,18 +1411,18 @@ class CfnBridgeOutput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc406bff1020285bbe72922bef2d2aefa766c79f162aca8ee2e4a24ff7ff76ef)
+            type_hints = cached_type_hints(_typecheckingstub__bc406bff1020285bbe72922bef2d2aefa766c79f162aca8ee2e4a24ff7ff76ef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBridgeOutput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb205f08441d39d8e1889501076cfae52006c266e0dcc55675d37bdd36eecce7)
+            type_hints = cached_type_hints(_typecheckingstub__fb205f08441d39d8e1889501076cfae52006c266e0dcc55675d37bdd36eecce7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1460,7 +1435,7 @@ class CfnBridgeOutput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dfc4c93ee2ec8174192f41cba8f3d6deeacc3ee4b3eeb41940e9f61c1b8c0a5)
+            type_hints = cached_type_hints(_typecheckingstub__8dfc4c93ee2ec8174192f41cba8f3d6deeacc3ee4b3eeb41940e9f61c1b8c0a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1472,9 +1447,9 @@ class CfnBridgeOutput(
 
     @builtins.property
     @jsii.member(jsii_name="bridgeOutputRef")
-    def bridge_output_ref(self) -> "_BridgeOutputReference_4ac2cf5a":
+    def bridge_output_ref(self) -> "_aws_mediaconnect_6374326e.BridgeOutputReference":
         '''A reference to a BridgeOutput resource.'''
-        return typing.cast("_BridgeOutputReference_4ac2cf5a", jsii.get(self, "bridgeOutputRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.BridgeOutputReference", jsii.get(self, "bridgeOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1495,7 +1470,7 @@ class CfnBridgeOutput(
     @bridge_arn.setter
     def bridge_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__238bd53ec2ae6381eaaf2c652a080561d1722805471e9d898d9d8e2b66530295)
+            type_hints = cached_type_hints(_typecheckingstub__238bd53ec2ae6381eaaf2c652a080561d1722805471e9d898d9d8e2b66530295)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bridgeArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1508,7 +1483,7 @@ class CfnBridgeOutput(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4567364d21ca9ebe1a2f33abcf1e7bc00c0f6b671c2062fd3c6766537faf1fa0)
+            type_hints = cached_type_hints(_typecheckingstub__4567364d21ca9ebe1a2f33abcf1e7bc00c0f6b671c2062fd3c6766537faf1fa0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1516,17 +1491,17 @@ class CfnBridgeOutput(
     @jsii.member(jsii_name="networkOutput")
     def network_output(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBridgeOutput.BridgeNetworkOutputProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeOutput.BridgeNetworkOutputProperty"]:
         '''The network output of the bridge.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBridgeOutput.BridgeNetworkOutputProperty"], jsii.get(self, "networkOutput"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeOutput.BridgeNetworkOutputProperty"], jsii.get(self, "networkOutput"))
 
     @network_output.setter
     def network_output(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBridgeOutput.BridgeNetworkOutputProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeOutput.BridgeNetworkOutputProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78fe544a540a0346bab7b296adf77b0088521ed5104d3678ee517ee4d8b43eb1)
+            type_hints = cached_type_hints(_typecheckingstub__78fe544a540a0346bab7b296adf77b0088521ed5104d3678ee517ee4d8b43eb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkOutput", value) # pyright: ignore[reportArgumentType]
 
@@ -1579,7 +1554,7 @@ class CfnBridgeOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c8d614c4eaf3e7a9715a54c7d8f6d68001dfdd34bed46af49b236cf97208c5b)
+                type_hints = cached_type_hints(_typecheckingstub__2c8d614c4eaf3e7a9715a54c7d8f6d68001dfdd34bed46af49b236cf97208c5b)
                 check_type(argname="argument ip_address", value=ip_address, expected_type=type_hints["ip_address"])
                 check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -1674,7 +1649,7 @@ class CfnBridgeOutputProps:
         *,
         bridge_arn: builtins.str,
         name: builtins.str,
-        network_output: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeOutput.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]],
+        network_output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeOutput.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnBridgeOutput``.
 
@@ -1704,7 +1679,7 @@ class CfnBridgeOutputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a)
+            type_hints = cached_type_hints(_typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a)
             check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_output", value=network_output, expected_type=type_hints["network_output"])
@@ -1739,7 +1714,7 @@ class CfnBridgeOutputProps:
     @builtins.property
     def network_output(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBridgeOutput.BridgeNetworkOutputProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeOutput.BridgeNetworkOutputProperty"]:
         '''The network output of the bridge.
 
         A network output is delivered to your premises.
@@ -1748,7 +1723,7 @@ class CfnBridgeOutputProps:
         '''
         result = self._values.get("network_output")
         assert result is not None, "Required property 'network_output' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBridgeOutput.BridgeNetworkOutputProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeOutput.BridgeNetworkOutputProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1781,11 +1756,11 @@ class CfnBridgeProps:
         *,
         name: builtins.str,
         placement_arn: builtins.str,
-        sources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        egress_gateway_bridge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.EgressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ingress_gateway_bridge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.IngressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        outputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.BridgeOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridge.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        egress_gateway_bridge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.EgressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_gateway_bridge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.IngressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outputs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.BridgeOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        source_failover_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridge.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBridge``.
 
@@ -1863,7 +1838,7 @@ class CfnBridgeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef)
+            type_hints = cached_type_hints(_typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument placement_arn", value=placement_arn, expected_type=type_hints["placement_arn"])
             check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
@@ -1910,19 +1885,19 @@ class CfnBridgeProps:
     @builtins.property
     def sources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeSourceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeSourceProperty"]]]:
         '''The sources that you want to add to this bridge.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sources
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeSourceProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeSourceProperty"]]], result)
 
     @builtins.property
     def egress_gateway_bridge(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.EgressGatewayBridgeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.EgressGatewayBridgeProperty"]]:
         '''An egress bridge is a cloud-to-ground bridge.
 
         The content comes from an existing MediaConnect flow and is delivered to your premises.
@@ -1930,12 +1905,12 @@ class CfnBridgeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-egressgatewaybridge
         '''
         result = self._values.get("egress_gateway_bridge")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.EgressGatewayBridgeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.EgressGatewayBridgeProperty"]], result)
 
     @builtins.property
     def ingress_gateway_bridge(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.IngressGatewayBridgeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.IngressGatewayBridgeProperty"]]:
         '''An ingress bridge is a ground-to-cloud bridge.
 
         The content originates at your premises and is delivered to the cloud.
@@ -1943,29 +1918,29 @@ class CfnBridgeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-ingressgatewaybridge
         '''
         result = self._values.get("ingress_gateway_bridge")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.IngressGatewayBridgeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.IngressGatewayBridgeProperty"]], result)
 
     @builtins.property
     def outputs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeOutputProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeOutputProperty"]]]]:
         '''The outputs that you want to add to this bridge.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-outputs
         '''
         result = self._values.get("outputs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBridge.BridgeOutputProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.BridgeOutputProperty"]]]], result)
 
     @builtins.property
     def source_failover_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.FailoverConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.FailoverConfigProperty"]]:
         '''The settings for source failover.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sourcefailoverconfig
         '''
         result = self._values.get("source_failover_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridge.FailoverConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridge.FailoverConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1979,9 +1954,9 @@ class CfnBridgeProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBridgeSourceRef_8b16438d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IBridgeSourceRef)
 class CfnBridgeSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeSource",
 ):
@@ -2031,8 +2006,8 @@ class CfnBridgeSource(
         *,
         bridge_arn: builtins.str,
         name: builtins.str,
-        flow_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        flow_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::BridgeSource``.
 
@@ -2044,7 +2019,7 @@ class CfnBridgeSource(
         :param network_source: The source of the network.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e36e10c04a0f01de7ebc0521a5800daea1daa62e3bd343704ff6e84525f6f408)
+            type_hints = cached_type_hints(_typecheckingstub__e36e10c04a0f01de7ebc0521a5800daea1daa62e3bd343704ff6e84525f6f408)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBridgeSourceProps(
@@ -2064,18 +2039,18 @@ class CfnBridgeSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c9c15695da88b46044324b66fa4fc2c80ce78a1c90ef0b5016473957483a3e8)
+            type_hints = cached_type_hints(_typecheckingstub__2c9c15695da88b46044324b66fa4fc2c80ce78a1c90ef0b5016473957483a3e8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBridgeSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ee6617fa681b5aaf625fc2493bb4ea5b5e578a01029bdd7ba2b8647be429130)
+            type_hints = cached_type_hints(_typecheckingstub__8ee6617fa681b5aaf625fc2493bb4ea5b5e578a01029bdd7ba2b8647be429130)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2088,7 +2063,7 @@ class CfnBridgeSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64ce37bd7d5055cf2fb388e369c965f5e01fd162753e68839b53dd0443911c4b)
+            type_hints = cached_type_hints(_typecheckingstub__64ce37bd7d5055cf2fb388e369c965f5e01fd162753e68839b53dd0443911c4b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2100,9 +2075,9 @@ class CfnBridgeSource(
 
     @builtins.property
     @jsii.member(jsii_name="bridgeSourceRef")
-    def bridge_source_ref(self) -> "_BridgeSourceReference_fdd405eb":
+    def bridge_source_ref(self) -> "_aws_mediaconnect_6374326e.BridgeSourceReference":
         '''A reference to a BridgeSource resource.'''
-        return typing.cast("_BridgeSourceReference_fdd405eb", jsii.get(self, "bridgeSourceRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.BridgeSourceReference", jsii.get(self, "bridgeSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2123,7 +2098,7 @@ class CfnBridgeSource(
     @bridge_arn.setter
     def bridge_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28bb545b11a59b0c10f19770b49da21586071508bfbed47b6b137ab43e2aaa5d)
+            type_hints = cached_type_hints(_typecheckingstub__28bb545b11a59b0c10f19770b49da21586071508bfbed47b6b137ab43e2aaa5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bridgeArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2136,7 +2111,7 @@ class CfnBridgeSource(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26ff480997cae96d755e2b7e83019229c27702f843cafce3fc5647020ec7d7a7)
+            type_hints = cached_type_hints(_typecheckingstub__26ff480997cae96d755e2b7e83019229c27702f843cafce3fc5647020ec7d7a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2144,17 +2119,17 @@ class CfnBridgeSource(
     @jsii.member(jsii_name="flowSource")
     def flow_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeFlowSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeFlowSourceProperty"]]:
         '''The source of the flow.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeFlowSourceProperty"]], jsii.get(self, "flowSource"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeFlowSourceProperty"]], jsii.get(self, "flowSource"))
 
     @flow_source.setter
     def flow_source(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeFlowSourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeFlowSourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa9a2d6952ebe510d69e3877d36b01cb4f6aa83e11dfcf61576bdfaffa0dea74)
+            type_hints = cached_type_hints(_typecheckingstub__fa9a2d6952ebe510d69e3877d36b01cb4f6aa83e11dfcf61576bdfaffa0dea74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowSource", value) # pyright: ignore[reportArgumentType]
 
@@ -2162,17 +2137,17 @@ class CfnBridgeSource(
     @jsii.member(jsii_name="networkSource")
     def network_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeNetworkSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeNetworkSourceProperty"]]:
         '''The source of the network.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeNetworkSourceProperty"]], jsii.get(self, "networkSource"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeNetworkSourceProperty"]], jsii.get(self, "networkSource"))
 
     @network_source.setter
     def network_source(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeNetworkSourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeNetworkSourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afb1ff783738c431282bcaa0dec602d425b3f5a39195a1f65e4e683ba344caea)
+            type_hints = cached_type_hints(_typecheckingstub__afb1ff783738c431282bcaa0dec602d425b3f5a39195a1f65e4e683ba344caea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkSource", value) # pyright: ignore[reportArgumentType]
 
@@ -2189,7 +2164,7 @@ class CfnBridgeSource(
             self,
             *,
             flow_arn: builtins.str,
-            flow_vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flow_vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source of the bridge.
 
@@ -2217,7 +2192,7 @@ class CfnBridgeSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8bb9109e42561a117540865cd31be3adb19651461f90f2af2ac7c6ce75a0c13e)
+                type_hints = cached_type_hints(_typecheckingstub__8bb9109e42561a117540865cd31be3adb19651461f90f2af2ac7c6ce75a0c13e)
                 check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
                 check_type(argname="argument flow_vpc_interface_attachment", value=flow_vpc_interface_attachment, expected_type=type_hints["flow_vpc_interface_attachment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2239,13 +2214,13 @@ class CfnBridgeSource(
         @builtins.property
         def flow_vpc_interface_attachment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.VpcInterfaceAttachmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.VpcInterfaceAttachmentProperty"]]:
             '''The name of the VPC interface attachment to use for this source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridgesource-bridgeflowsource.html#cfn-mediaconnect-bridgesource-bridgeflowsource-flowvpcinterfaceattachment
             '''
             result = self._values.get("flow_vpc_interface_attachment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.VpcInterfaceAttachmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.VpcInterfaceAttachmentProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2277,7 +2252,7 @@ class CfnBridgeSource(
             network_name: builtins.str,
             port: jsii.Number,
             protocol: builtins.str,
-            multicast_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.MulticastSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multicast_source_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.MulticastSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source of the bridge.
 
@@ -2311,7 +2286,7 @@ class CfnBridgeSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__93b2199f774afbb32a622ba44ca26954c8e46e149f1bc0836b1dda198de28020)
+                type_hints = cached_type_hints(_typecheckingstub__93b2199f774afbb32a622ba44ca26954c8e46e149f1bc0836b1dda198de28020)
                 check_type(argname="argument multicast_ip", value=multicast_ip, expected_type=type_hints["multicast_ip"])
                 check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -2373,13 +2348,13 @@ class CfnBridgeSource(
         @builtins.property
         def multicast_source_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.MulticastSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.MulticastSourceSettingsProperty"]]:
             '''The settings related to the multicast source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-bridgesource-bridgenetworksource.html#cfn-mediaconnect-bridgesource-bridgenetworksource-multicastsourcesettings
             '''
             result = self._values.get("multicast_source_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.MulticastSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.MulticastSourceSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2421,7 +2396,7 @@ class CfnBridgeSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__43fa91d86269952c92522f3e880b2f507aa1cc51cd5dbe28fb9249f61e4324cd)
+                type_hints = cached_type_hints(_typecheckingstub__43fa91d86269952c92522f3e880b2f507aa1cc51cd5dbe28fb9249f61e4324cd)
                 check_type(argname="argument multicast_source_ip", value=multicast_source_ip, expected_type=type_hints["multicast_source_ip"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if multicast_source_ip is not None:
@@ -2476,7 +2451,7 @@ class CfnBridgeSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e6d9b48314e46735258c941180d8e92fa25af944c2b991fb6827ccc97fa800b4)
+                type_hints = cached_type_hints(_typecheckingstub__e6d9b48314e46735258c941180d8e92fa25af944c2b991fb6827ccc97fa800b4)
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_interface_name is not None:
@@ -2519,8 +2494,8 @@ class CfnBridgeSourceProps:
         *,
         bridge_arn: builtins.str,
         name: builtins.str,
-        flow_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBridgeSource.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        flow_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBridgeSource.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBridgeSource``.
 
@@ -2565,7 +2540,7 @@ class CfnBridgeSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23)
+            type_hints = cached_type_hints(_typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23)
             check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument flow_source", value=flow_source, expected_type=type_hints["flow_source"])
@@ -2604,24 +2579,24 @@ class CfnBridgeSourceProps:
     @builtins.property
     def flow_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeFlowSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeFlowSourceProperty"]]:
         '''The source of the flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-flowsource
         '''
         result = self._values.get("flow_source")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeFlowSourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeFlowSourceProperty"]], result)
 
     @builtins.property
     def network_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeNetworkSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeNetworkSourceProperty"]]:
         '''The source of the network.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-networksource
         '''
         result = self._values.get("network_source")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBridgeSource.BridgeNetworkSourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBridgeSource.BridgeNetworkSourceProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2635,9 +2610,9 @@ class CfnBridgeSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowRef_c5e8f48d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlow(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow",
 ):
@@ -2839,17 +2814,17 @@ class CfnFlow(
         id: builtins.str,
         *,
         name: builtins.str,
-        source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         availability_zone: typing.Optional[builtins.str] = None,
-        encoding_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encoding_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         flow_size: typing.Optional[builtins.str] = None,
-        maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        media_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ndi_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_monitoring_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        maintenance: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        media_streams: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ndi_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_failover_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_monitoring_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_interfaces: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::Flow``.
 
@@ -2869,7 +2844,7 @@ class CfnFlow(
         :param vpc_interfaces: The VPC Interfaces for this flow.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3568a95be2a886825b3db731f10e2fdea8be142c554d1e2055d7e22f5e6a3991)
+            type_hints = cached_type_hints(_typecheckingstub__3568a95be2a886825b3db731f10e2fdea8be142c554d1e2055d7e22f5e6a3991)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowProps(
@@ -2891,12 +2866,15 @@ class CfnFlow(
 
     @jsii.member(jsii_name="arnForFlow")
     @builtins.classmethod
-    def arn_for_flow(cls, resource: "_IFlowRef_c5e8f48d") -> builtins.str:
+    def arn_for_flow(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.IFlowRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c54b3021fd089afdcef76ee7ca3c18274773c4b4384f46a6700f34b567e51aa4)
+            type_hints = cached_type_hints(_typecheckingstub__c54b3021fd089afdcef76ee7ca3c18274773c4b4384f46a6700f34b567e51aa4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFlow", [resource]))
 
@@ -2908,18 +2886,18 @@ class CfnFlow(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b34fb3378a823873473e36770156bfc974eb22a36bab11daaf47bd382948fda7)
+            type_hints = cached_type_hints(_typecheckingstub__b34fb3378a823873473e36770156bfc974eb22a36bab11daaf47bd382948fda7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlow", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3bf65a3dfd8c719cb8ba7cde45e0dc8693f2306db4dba4cd6da5e4727579cc7)
+            type_hints = cached_type_hints(_typecheckingstub__e3bf65a3dfd8c719cb8ba7cde45e0dc8693f2306db4dba4cd6da5e4727579cc7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2932,7 +2910,7 @@ class CfnFlow(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8244ccdcee08a7984c185f2ee476300520ed80658ec1efcbcb9634a230a0687a)
+            type_hints = cached_type_hints(_typecheckingstub__8244ccdcee08a7984c185f2ee476300520ed80658ec1efcbcb9634a230a0687a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3013,9 +2991,9 @@ class CfnFlow(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3029,9 +3007,9 @@ class CfnFlow(
 
     @builtins.property
     @jsii.member(jsii_name="flowRef")
-    def flow_ref(self) -> "_FlowReference_cf80a510":
+    def flow_ref(self) -> "_aws_mediaconnect_6374326e.FlowReference":
         '''A reference to a Flow resource.'''
-        return typing.cast("_FlowReference_cf80a510", jsii.get(self, "flowRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.FlowReference", jsii.get(self, "flowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3042,23 +3020,25 @@ class CfnFlow(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b9dd07005f4a1ea040eea97dccca156a16f5e9f3f6686139fbd52108ac4c3b7)
+            type_hints = cached_type_hints(_typecheckingstub__7b9dd07005f4a1ea040eea97dccca156a16f5e9f3f6686139fbd52108ac4c3b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="source")
-    def source(self) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceProperty"]:
+    def source(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceProperty"]:
         '''The settings for the source that you want to use for the new flow.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceProperty"], jsii.get(self, "source"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceProperty"], jsii.get(self, "source"))
 
     @source.setter
     def source(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__869299c75adeb5a7d478686f55b98acba18c279372a76486ab2c6231b1e54e54)
+            type_hints = cached_type_hints(_typecheckingstub__869299c75adeb5a7d478686f55b98acba18c279372a76486ab2c6231b1e54e54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
 
@@ -3071,7 +3051,7 @@ class CfnFlow(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e52c280c)
+            type_hints = cached_type_hints(_typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e52c280c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -3079,16 +3059,16 @@ class CfnFlow(
     @jsii.member(jsii_name="encodingConfig")
     def encoding_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]], jsii.get(self, "encodingConfig"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncodingConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncodingConfigProperty"]], jsii.get(self, "encodingConfig"))
 
     @encoding_config.setter
     def encoding_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncodingConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385)
+            type_hints = cached_type_hints(_typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encodingConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3101,7 +3081,7 @@ class CfnFlow(
     @flow_size.setter
     def flow_size(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18797920a62f69ac5303a95d3356fc95d49473634b7f27d9e7ef811a4ad6cb34)
+            type_hints = cached_type_hints(_typecheckingstub__18797920a62f69ac5303a95d3356fc95d49473634b7f27d9e7ef811a4ad6cb34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowSize", value) # pyright: ignore[reportArgumentType]
 
@@ -3109,17 +3089,17 @@ class CfnFlow(
     @jsii.member(jsii_name="maintenance")
     def maintenance(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MaintenanceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MaintenanceProperty"]]:
         '''The maintenance settings you want to use for the flow.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MaintenanceProperty"]], jsii.get(self, "maintenance"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MaintenanceProperty"]], jsii.get(self, "maintenance"))
 
     @maintenance.setter
     def maintenance(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MaintenanceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MaintenanceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddd188e9c2d5f8f194cf0b4c16e8b355b0ebcec43d953e6b0c8b77128e640aab)
+            type_hints = cached_type_hints(_typecheckingstub__ddd188e9c2d5f8f194cf0b4c16e8b355b0ebcec43d953e6b0c8b77128e640aab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenance", value) # pyright: ignore[reportArgumentType]
 
@@ -3127,17 +3107,17 @@ class CfnFlow(
     @jsii.member(jsii_name="mediaStreams")
     def media_streams(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamProperty"]]]]:
         '''The media streams that are associated with the flow.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamProperty"]]]], jsii.get(self, "mediaStreams"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamProperty"]]]], jsii.get(self, "mediaStreams"))
 
     @media_streams.setter
     def media_streams(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c580931c160d15b8c0f43f0fe96dc390b640ae81cbc1900b00f369aaa3c3f6e4)
+            type_hints = cached_type_hints(_typecheckingstub__c580931c160d15b8c0f43f0fe96dc390b640ae81cbc1900b00f369aaa3c3f6e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mediaStreams", value) # pyright: ignore[reportArgumentType]
 
@@ -3145,17 +3125,17 @@ class CfnFlow(
     @jsii.member(jsii_name="ndiConfig")
     def ndi_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiConfigProperty"]]:
         '''Specifies the configuration settings for NDI outputs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiConfigProperty"]], jsii.get(self, "ndiConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiConfigProperty"]], jsii.get(self, "ndiConfig"))
 
     @ndi_config.setter
     def ndi_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f78a65c7535e71bd81a721df5718188077330f02b6d7cdd75ebb5693c7db1cf)
+            type_hints = cached_type_hints(_typecheckingstub__2f78a65c7535e71bd81a721df5718188077330f02b6d7cdd75ebb5693c7db1cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ndiConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3163,17 +3143,17 @@ class CfnFlow(
     @jsii.member(jsii_name="sourceFailoverConfig")
     def source_failover_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FailoverConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FailoverConfigProperty"]]:
         '''The settings for source failover.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FailoverConfigProperty"]], jsii.get(self, "sourceFailoverConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FailoverConfigProperty"]], jsii.get(self, "sourceFailoverConfig"))
 
     @source_failover_config.setter
     def source_failover_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FailoverConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FailoverConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d7deae7edf526ef9a6af2e16b592ef198ecb0cc777d1c7d97f392933ad97ef6)
+            type_hints = cached_type_hints(_typecheckingstub__9d7deae7edf526ef9a6af2e16b592ef198ecb0cc777d1c7d97f392933ad97ef6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceFailoverConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -3181,30 +3161,33 @@ class CfnFlow(
     @jsii.member(jsii_name="sourceMonitoringConfig")
     def source_monitoring_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceMonitoringConfigProperty"]]:
         '''The settings for source monitoring.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]], jsii.get(self, "sourceMonitoringConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceMonitoringConfigProperty"]], jsii.get(self, "sourceMonitoringConfig"))
 
     @source_monitoring_config.setter
     def source_monitoring_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceMonitoringConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad475822621b98)
+            type_hints = cached_type_hints(_typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad475822621b98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceMonitoringConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag this flow.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4)
+            type_hints = cached_type_hints(_typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3212,17 +3195,17 @@ class CfnFlow(
     @jsii.member(jsii_name="vpcInterfaces")
     def vpc_interfaces(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceProperty"]]]]:
         '''The VPC Interfaces for this flow.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]], jsii.get(self, "vpcInterfaces"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceProperty"]]]], jsii.get(self, "vpcInterfaces"))
 
     @vpc_interfaces.setter
     def vpc_interfaces(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e75424871a1b67422fa8fe727bf0720abe8ea217c131244844ca71d14e25f4d)
+            type_hints = cached_type_hints(_typecheckingstub__7e75424871a1b67422fa8fe727bf0720abe8ea217c131244844ca71d14e25f4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcInterfaces", value) # pyright: ignore[reportArgumentType]
 
@@ -3235,7 +3218,7 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            silent_audio: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SilentAudioProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            silent_audio: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SilentAudioProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the configuration for audio stream metrics monitoring.
 
@@ -3258,7 +3241,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ac15d313eb79141f926e0599cfa8d16a302729713ebc92bf0a1af7adbf56f21)
+                type_hints = cached_type_hints(_typecheckingstub__1ac15d313eb79141f926e0599cfa8d16a302729713ebc92bf0a1af7adbf56f21)
                 check_type(argname="argument silent_audio", value=silent_audio, expected_type=type_hints["silent_audio"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if silent_audio is not None:
@@ -3267,13 +3250,13 @@ class CfnFlow(
         @builtins.property
         def silent_audio(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SilentAudioProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SilentAudioProperty"]]:
             '''Detects periods of silence.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-audiomonitoringsetting.html#cfn-mediaconnect-flow-audiomonitoringsetting-silentaudio
             '''
             result = self._values.get("silent_audio")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SilentAudioProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SilentAudioProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3318,7 +3301,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8eed2a01102ad4205f67e0e6efdd3aaeca33633021098b7b3d1d73054d386f3)
+                type_hints = cached_type_hints(_typecheckingstub__b8eed2a01102ad4205f67e0e6efdd3aaeca33633021098b7b3d1d73054d386f3)
                 check_type(argname="argument state", value=state, expected_type=type_hints["state"])
                 check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3390,7 +3373,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__911d27170bc266c5f96a54e26bdcfaf57f7eda7c80e52e6e083d90805aced3cf)
+                type_hints = cached_type_hints(_typecheckingstub__911d27170bc266c5f96a54e26bdcfaf57f7eda7c80e52e6e083d90805aced3cf)
                 check_type(argname="argument encoding_profile", value=encoding_profile, expected_type=type_hints["encoding_profile"])
                 check_type(argname="argument video_max_bitrate", value=video_max_bitrate, expected_type=type_hints["video_max_bitrate"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3497,7 +3480,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__023b62e8b380bcfa878c2a07568bc0d0f9912919827c329972ee2130250892b3)
+                type_hints = cached_type_hints(_typecheckingstub__023b62e8b380bcfa878c2a07568bc0d0f9912919827c329972ee2130250892b3)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
                 check_type(argname="argument constant_initialization_vector", value=constant_initialization_vector, expected_type=type_hints["constant_initialization_vector"])
@@ -3654,7 +3637,7 @@ class CfnFlow(
             *,
             failover_mode: typing.Optional[builtins.str] = None,
             recovery_window: typing.Optional[jsii.Number] = None,
-            source_priority: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourcePriorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_priority: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourcePriorityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             state: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for source failover.
@@ -3683,7 +3666,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__60d936fe41cb44293e591fd7a9b89da19bc9fc2509d0dacf4ad7a22a54e1bae9)
+                type_hints = cached_type_hints(_typecheckingstub__60d936fe41cb44293e591fd7a9b89da19bc9fc2509d0dacf4ad7a22a54e1bae9)
                 check_type(argname="argument failover_mode", value=failover_mode, expected_type=type_hints["failover_mode"])
                 check_type(argname="argument recovery_window", value=recovery_window, expected_type=type_hints["recovery_window"])
                 check_type(argname="argument source_priority", value=source_priority, expected_type=type_hints["source_priority"])
@@ -3721,7 +3704,7 @@ class CfnFlow(
         @builtins.property
         def source_priority(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourcePriorityProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourcePriorityProperty"]]:
             '''The priority you want to assign to a source.
 
             You can have a primary stream and a backup stream or two equally prioritized streams.
@@ -3729,7 +3712,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-failoverconfig.html#cfn-mediaconnect-flow-failoverconfig-sourcepriority
             '''
             result = self._values.get("source_priority")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourcePriorityProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourcePriorityProperty"]], result)
 
         @builtins.property
         def state(self) -> typing.Optional[builtins.str]:
@@ -3763,7 +3746,7 @@ class CfnFlow(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -3789,7 +3772,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b52880d31b637a0af3233aa7f316659377893fb1e181334df40136a484a6a792)
+                type_hints = cached_type_hints(_typecheckingstub__b52880d31b637a0af3233aa7f316659377893fb1e181334df40136a484a6a792)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3810,13 +3793,13 @@ class CfnFlow(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption of a flow source using AWS Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-flow-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3841,7 +3824,7 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
@@ -3874,7 +3857,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ed20d2d2ea0c830d5eb7613de0a9e624da82a886e597f4f6c66d0b5c6c3259f)
+                type_hints = cached_type_hints(_typecheckingstub__1ed20d2d2ea0c830d5eb7613de0a9e624da82a886e597f4f6c66d0b5c6c3259f)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3886,14 +3869,14 @@ class CfnFlow(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.FlowTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FlowTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for flow transit encryption keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-flowtransitencryption.html#cfn-mediaconnect-flow-flowtransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.FlowTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FlowTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -3969,7 +3952,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c34da6d27a4d46f87384739bd6ec7bcc9bf7866bb051703aa63a4b21e8b38dc)
+                type_hints = cached_type_hints(_typecheckingstub__2c34da6d27a4d46f87384739bd6ec7bcc9bf7866bb051703aa63a4b21e8b38dc)
                 check_type(argname="argument channel_order", value=channel_order, expected_type=type_hints["channel_order"])
                 check_type(argname="argument colorimetry", value=colorimetry, expected_type=type_hints["colorimetry"])
                 check_type(argname="argument exact_framerate", value=exact_framerate, expected_type=type_hints["exact_framerate"])
@@ -4101,7 +4084,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__261e148d056da084128b3530c69f370bb4b4b5d73098e06d42eb6c5c4d6025e5)
+                type_hints = cached_type_hints(_typecheckingstub__261e148d056da084128b3530c69f370bb4b4b5d73098e06d42eb6c5c4d6025e5)
                 check_type(argname="argument state", value=state, expected_type=type_hints["state"])
                 check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4152,7 +4135,7 @@ class CfnFlow(
             self,
             *,
             bridge_arn: builtins.str,
-            vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source configuration for cloud flows receiving a stream from a bridge.
 
@@ -4178,7 +4161,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__00bf15dc37f493c33d6b2109cfa6283d2bb14bdc23b0ae4fd75a67ca60084ea8)
+                type_hints = cached_type_hints(_typecheckingstub__00bf15dc37f493c33d6b2109cfa6283d2bb14bdc23b0ae4fd75a67ca60084ea8)
                 check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
                 check_type(argname="argument vpc_interface_attachment", value=vpc_interface_attachment, expected_type=type_hints["vpc_interface_attachment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4200,13 +4183,13 @@ class CfnFlow(
         @builtins.property
         def vpc_interface_attachment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceAttachmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceAttachmentProperty"]]:
             '''The name of the VPC interface attachment to use for this bridge source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-gatewaybridgesource.html#cfn-mediaconnect-flow-gatewaybridgesource-vpcinterfaceattachment
             '''
             result = self._values.get("vpc_interface_attachment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceAttachmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceAttachmentProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4229,7 +4212,7 @@ class CfnFlow(
             self,
             *,
             input_port: jsii.Number,
-            interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.InterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            interface: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.InterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The transport parameters that are associated with an incoming media stream.
 
@@ -4253,7 +4236,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fbb4a04e87ed2fedc67d03bbbab23670facee0c55014d0c5d234881ded41ec58)
+                type_hints = cached_type_hints(_typecheckingstub__fbb4a04e87ed2fedc67d03bbbab23670facee0c55014d0c5d234881ded41ec58)
                 check_type(argname="argument input_port", value=input_port, expected_type=type_hints["input_port"])
                 check_type(argname="argument interface", value=interface, expected_type=type_hints["interface"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4274,14 +4257,14 @@ class CfnFlow(
         @builtins.property
         def interface(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.InterfaceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InterfaceProperty"]:
             '''The VPC interface where the media stream comes in from.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-inputconfiguration.html#cfn-mediaconnect-flow-inputconfiguration-interface
             '''
             result = self._values.get("interface")
             assert result is not None, "Required property 'interface' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.InterfaceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InterfaceProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4319,7 +4302,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0ca0a6498a5e542f31081d78420cae2b37457c94dbd68dcead2dc4af50843b27)
+                type_hints = cached_type_hints(_typecheckingstub__0ca0a6498a5e542f31081d78420cae2b37457c94dbd68dcead2dc4af50843b27)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -4381,7 +4364,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57efc1d88b4fa5a6e6df4c17678237b4420bf63b5cd14e340198e67ed5a1ee60)
+                type_hints = cached_type_hints(_typecheckingstub__57efc1d88b4fa5a6e6df4c17678237b4420bf63b5cd14e340198e67ed5a1ee60)
                 check_type(argname="argument maintenance_day", value=maintenance_day, expected_type=type_hints["maintenance_day"])
                 check_type(argname="argument maintenance_start_hour", value=maintenance_start_hour, expected_type=type_hints["maintenance_start_hour"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4433,7 +4416,7 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            fmtp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FmtpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fmtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FmtpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lang: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Attributes that are related to the media stream.
@@ -4464,7 +4447,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__98c9c952274e74dd38a0129bccf9e3c8688c812151f95c826ce99e20158cfe87)
+                type_hints = cached_type_hints(_typecheckingstub__98c9c952274e74dd38a0129bccf9e3c8688c812151f95c826ce99e20158cfe87)
                 check_type(argname="argument fmtp", value=fmtp, expected_type=type_hints["fmtp"])
                 check_type(argname="argument lang", value=lang, expected_type=type_hints["lang"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4476,13 +4459,13 @@ class CfnFlow(
         @builtins.property
         def fmtp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FmtpProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FmtpProperty"]]:
             '''The settings that you want to use to define the media stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastreamattributes.html#cfn-mediaconnect-flow-mediastreamattributes-fmtp
             '''
             result = self._values.get("fmtp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FmtpProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FmtpProperty"]], result)
 
         @builtins.property
         def lang(self) -> typing.Optional[builtins.str]:
@@ -4526,11 +4509,11 @@ class CfnFlow(
             media_stream_id: jsii.Number,
             media_stream_name: builtins.str,
             media_stream_type: builtins.str,
-            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MediaStreamAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             clock_rate: typing.Optional[jsii.Number] = None,
             description: typing.Optional[builtins.str] = None,
             fmt: typing.Optional[jsii.Number] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
             video_format: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A media stream represents one component of your content, such as video, audio, or ancillary data.
@@ -4586,7 +4569,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc935e241ba7a00b3f70633b9ca54a5bca516c17065e6c6d8eeb7ab2523359be)
+                type_hints = cached_type_hints(_typecheckingstub__bc935e241ba7a00b3f70633b9ca54a5bca516c17065e6c6d8eeb7ab2523359be)
                 check_type(argname="argument media_stream_id", value=media_stream_id, expected_type=type_hints["media_stream_id"])
                 check_type(argname="argument media_stream_name", value=media_stream_name, expected_type=type_hints["media_stream_name"])
                 check_type(argname="argument media_stream_type", value=media_stream_type, expected_type=type_hints["media_stream_type"])
@@ -4647,13 +4630,13 @@ class CfnFlow(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamAttributesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamAttributesProperty"]]:
             '''Attributes that are related to the media stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastream.html#cfn-mediaconnect-flow-mediastream-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamAttributesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamAttributesProperty"]], result)
 
         @builtins.property
         def clock_rate(self) -> typing.Optional[jsii.Number]:
@@ -4687,13 +4670,13 @@ class CfnFlow(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''Key-value pairs that can be used to tag this media stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastream.html#cfn-mediaconnect-flow-mediastream-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         @builtins.property
         def video_format(self) -> typing.Optional[builtins.str]:
@@ -4730,7 +4713,7 @@ class CfnFlow(
             *,
             encoding_name: builtins.str,
             media_stream_name: builtins.str,
-            input_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            input_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The media stream that is associated with the source, and the parameters for that association.
 
@@ -4761,7 +4744,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c288224888dcd985ea78c20d06801a00405d4260bf960e8dbcac65f3e669aa4f)
+                type_hints = cached_type_hints(_typecheckingstub__c288224888dcd985ea78c20d06801a00405d4260bf960e8dbcac65f3e669aa4f)
                 check_type(argname="argument encoding_name", value=encoding_name, expected_type=type_hints["encoding_name"])
                 check_type(argname="argument media_stream_name", value=media_stream_name, expected_type=type_hints["media_stream_name"])
                 check_type(argname="argument input_configurations", value=input_configurations, expected_type=type_hints["input_configurations"])
@@ -4797,13 +4780,13 @@ class CfnFlow(
         @builtins.property
         def input_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.InputConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InputConfigurationProperty"]]]]:
             '''The media streams that you want to associate with the source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastreamsourceconfiguration.html#cfn-mediaconnect-flow-mediastreamsourceconfiguration-inputconfigurations
             '''
             result = self._values.get("input_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.InputConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InputConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4830,7 +4813,7 @@ class CfnFlow(
             self,
             *,
             machine_name: typing.Optional[builtins.str] = None,
-            ndi_discovery_servers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiDiscoveryServerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ndi_discovery_servers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.NdiDiscoveryServerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ndi_state: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the configuration settings for NDI outputs.
@@ -4863,7 +4846,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__69742b949cc5728340bd262c9cb8f8127e5a045369699ab15384d6ad5532a7f7)
+                type_hints = cached_type_hints(_typecheckingstub__69742b949cc5728340bd262c9cb8f8127e5a045369699ab15384d6ad5532a7f7)
                 check_type(argname="argument machine_name", value=machine_name, expected_type=type_hints["machine_name"])
                 check_type(argname="argument ndi_discovery_servers", value=ndi_discovery_servers, expected_type=type_hints["ndi_discovery_servers"])
                 check_type(argname="argument ndi_state", value=ndi_state, expected_type=type_hints["ndi_state"])
@@ -4889,7 +4872,7 @@ class CfnFlow(
         @builtins.property
         def ndi_discovery_servers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiDiscoveryServerConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiDiscoveryServerConfigProperty"]]]]:
             '''A list of up to three NDI discovery server configurations.
 
             While not required by the API, this configuration is necessary for NDI functionality to work properly.
@@ -4897,7 +4880,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndiconfig.html#cfn-mediaconnect-flow-ndiconfig-ndidiscoveryservers
             '''
             result = self._values.get("ndi_discovery_servers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiDiscoveryServerConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiDiscoveryServerConfigProperty"]]]], result)
 
         @builtins.property
         def ndi_state(self) -> typing.Optional[builtins.str]:
@@ -4964,7 +4947,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cbd4bce903dd6a95ae93f0b2ca90f98d0d48bb24eebe475acf326160c51d3435)
+                type_hints = cached_type_hints(_typecheckingstub__cbd4bce903dd6a95ae93f0b2ca90f98d0d48bb24eebe475acf326160c51d3435)
                 check_type(argname="argument discovery_server_address", value=discovery_server_address, expected_type=type_hints["discovery_server_address"])
                 check_type(argname="argument vpc_interface_adapter", value=vpc_interface_adapter, expected_type=type_hints["vpc_interface_adapter"])
                 check_type(argname="argument discovery_server_port", value=discovery_server_port, expected_type=type_hints["discovery_server_port"])
@@ -5045,7 +5028,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d)
+                type_hints = cached_type_hints(_typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d)
                 check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if source_name is not None:
@@ -5097,7 +5080,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6448e00f3099cbc8bc0d9c871cb06fad1c988a5fae8ed52ee99e7b4398735c6e)
+                type_hints = cached_type_hints(_typecheckingstub__6448e00f3099cbc8bc0d9c871cb06fad1c988a5fae8ed52ee99e7b4398735c6e)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5168,7 +5151,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e28708aca7aa0aae7b96e1c58983b1ac8f27275c71b78ca026802bea4a53ffd6)
+                type_hints = cached_type_hints(_typecheckingstub__e28708aca7aa0aae7b96e1c58983b1ac8f27275c71b78ca026802bea4a53ffd6)
                 check_type(argname="argument state", value=state, expected_type=type_hints["state"])
                 check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5220,10 +5203,10 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            audio_monitoring_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.AudioMonitoringSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_monitoring_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.AudioMonitoringSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             content_quality_analysis_state: typing.Optional[builtins.str] = None,
             thumbnail_state: typing.Optional[builtins.str] = None,
-            video_monitoring_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VideoMonitoringSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            video_monitoring_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.VideoMonitoringSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``SourceMonitoringConfig`` property type specifies the source monitoring settings for an ``AWS::MediaConnect::Flow`` .
 
@@ -5263,7 +5246,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__462b2e03950e94b47455b1cc22dd388c278a29615998512d70aa7513e3c8d698)
+                type_hints = cached_type_hints(_typecheckingstub__462b2e03950e94b47455b1cc22dd388c278a29615998512d70aa7513e3c8d698)
                 check_type(argname="argument audio_monitoring_settings", value=audio_monitoring_settings, expected_type=type_hints["audio_monitoring_settings"])
                 check_type(argname="argument content_quality_analysis_state", value=content_quality_analysis_state, expected_type=type_hints["content_quality_analysis_state"])
                 check_type(argname="argument thumbnail_state", value=thumbnail_state, expected_type=type_hints["thumbnail_state"])
@@ -5281,13 +5264,13 @@ class CfnFlow(
         @builtins.property
         def audio_monitoring_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.AudioMonitoringSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AudioMonitoringSettingProperty"]]]]:
             '''Contains the settings for audio stream metrics monitoring.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-sourcemonitoringconfig.html#cfn-mediaconnect-flow-sourcemonitoringconfig-audiomonitoringsettings
             '''
             result = self._values.get("audio_monitoring_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.AudioMonitoringSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AudioMonitoringSettingProperty"]]]], result)
 
         @builtins.property
         def content_quality_analysis_state(self) -> typing.Optional[builtins.str]:
@@ -5313,13 +5296,13 @@ class CfnFlow(
         @builtins.property
         def video_monitoring_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VideoMonitoringSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VideoMonitoringSettingProperty"]]]]:
             '''Contains the settings for video stream metrics monitoring.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-sourcemonitoringconfig.html#cfn-mediaconnect-flow-sourcemonitoringconfig-videomonitoringsettings
             '''
             result = self._values.get("video_monitoring_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VideoMonitoringSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VideoMonitoringSettingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5359,7 +5342,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a502d8c706596e3abd881dc963357d969893e22e8d25e78085445e09c58ac78b)
+                type_hints = cached_type_hints(_typecheckingstub__a502d8c706596e3abd881dc963357d969893e22e8d25e78085445e09c58ac78b)
                 check_type(argname="argument primary_source", value=primary_source, expected_type=type_hints["primary_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "primary_source": primary_source,
@@ -5422,22 +5405,22 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            decryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
             entitlement_arn: typing.Optional[builtins.str] = None,
-            gateway_bridge_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gateway_bridge_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ingest_ip: typing.Optional[builtins.str] = None,
             ingest_port: typing.Optional[jsii.Number] = None,
             max_bitrate: typing.Optional[jsii.Number] = None,
             max_latency: typing.Optional[jsii.Number] = None,
             max_sync_buffer: typing.Optional[jsii.Number] = None,
-            media_stream_source_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            media_stream_source_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MediaStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             min_latency: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
-            ndi_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ndi_source_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.NdiSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             protocol: typing.Optional[builtins.str] = None,
             router_integration_state: typing.Optional[builtins.str] = None,
-            router_integration_transit_decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            router_integration_transit_decryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             sender_control_port: typing.Optional[jsii.Number] = None,
             sender_ip_address: typing.Optional[builtins.str] = None,
             source_arn: typing.Optional[builtins.str] = None,
@@ -5445,7 +5428,7 @@ class CfnFlow(
             source_listener_address: typing.Optional[builtins.str] = None,
             source_listener_port: typing.Optional[jsii.Number] = None,
             stream_id: typing.Optional[builtins.str] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
             vpc_interface_name: typing.Optional[builtins.str] = None,
             whitelist_cidr: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5572,7 +5555,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefcac2bdf0c)
+                type_hints = cached_type_hints(_typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefcac2bdf0c)
                 check_type(argname="argument decryption", value=decryption, expected_type=type_hints["decryption"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
@@ -5656,13 +5639,13 @@ class CfnFlow(
         @builtins.property
         def decryption(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncryptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncryptionProperty"]]:
             '''The type of encryption that is used on the content ingested from this source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-decryption
             '''
             result = self._values.get("decryption")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncryptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncryptionProperty"]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -5689,13 +5672,13 @@ class CfnFlow(
         @builtins.property
         def gateway_bridge_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GatewayBridgeSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GatewayBridgeSourceProperty"]]:
             '''The source configuration for cloud flows receiving a stream from a bridge.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-gatewaybridgesource
             '''
             result = self._values.get("gateway_bridge_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GatewayBridgeSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GatewayBridgeSourceProperty"]], result)
 
         @builtins.property
         def ingest_ip(self) -> typing.Optional[builtins.str]:
@@ -5745,13 +5728,13 @@ class CfnFlow(
         @builtins.property
         def media_stream_source_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamSourceConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamSourceConfigurationProperty"]]]]:
             '''The media streams that are associated with the source, and the parameters for those associations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-mediastreamsourceconfigurations
             '''
             result = self._values.get("media_stream_source_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamSourceConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamSourceConfigurationProperty"]]]], result)
 
         @builtins.property
         def min_latency(self) -> typing.Optional[jsii.Number]:
@@ -5776,12 +5759,12 @@ class CfnFlow(
         @builtins.property
         def ndi_source_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiSourceSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-ndisourcesettings
             '''
             result = self._values.get("ndi_source_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiSourceSettingsProperty"]], result)
 
         @builtins.property
         def protocol(self) -> typing.Optional[builtins.str]:
@@ -5809,13 +5792,13 @@ class CfnFlow(
         @builtins.property
         def router_integration_transit_decryption(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FlowTransitEncryptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FlowTransitEncryptionProperty"]]:
             '''The decryption configuration for the flow source when router integration is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-routerintegrationtransitdecryption
             '''
             result = self._values.get("router_integration_transit_decryption")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FlowTransitEncryptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FlowTransitEncryptionProperty"]], result)
 
         @builtins.property
         def sender_control_port(self) -> typing.Optional[jsii.Number]:
@@ -5885,13 +5868,13 @@ class CfnFlow(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''Key-value pairs that can be used to tag this source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         @builtins.property
         def vpc_interface_name(self) -> typing.Optional[builtins.str]:
@@ -5933,8 +5916,8 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            black_frames: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.BlackFramesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frozen_frames: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FrozenFramesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            black_frames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.BlackFramesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frozen_frames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FrozenFramesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the configuration for video stream metrics monitoring.
 
@@ -5962,7 +5945,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b18d7f5756a7359dc9028ca35bdb8d048195959b43a7f2ac5c0f4b71d0b8761)
+                type_hints = cached_type_hints(_typecheckingstub__8b18d7f5756a7359dc9028ca35bdb8d048195959b43a7f2ac5c0f4b71d0b8761)
                 check_type(argname="argument black_frames", value=black_frames, expected_type=type_hints["black_frames"])
                 check_type(argname="argument frozen_frames", value=frozen_frames, expected_type=type_hints["frozen_frames"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5974,24 +5957,24 @@ class CfnFlow(
         @builtins.property
         def black_frames(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.BlackFramesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.BlackFramesProperty"]]:
             '''Detects video frames that are black.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-videomonitoringsetting.html#cfn-mediaconnect-flow-videomonitoringsetting-blackframes
             '''
             result = self._values.get("black_frames")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.BlackFramesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.BlackFramesProperty"]], result)
 
         @builtins.property
         def frozen_frames(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FrozenFramesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FrozenFramesProperty"]]:
             '''Detects video frames that have not changed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-videomonitoringsetting.html#cfn-mediaconnect-flow-videomonitoringsetting-frozenframes
             '''
             result = self._values.get("frozen_frames")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FrozenFramesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FrozenFramesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6033,7 +6016,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__866ca963188936c1dd8965fb722dc7f781261eab36e78ecdb20a9d41b146ef40)
+                type_hints = cached_type_hints(_typecheckingstub__866ca963188936c1dd8965fb722dc7f781261eab36e78ecdb20a9d41b146ef40)
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_interface_name is not None:
@@ -6082,7 +6065,7 @@ class CfnFlow(
             subnet_id: builtins.str,
             network_interface_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             network_interface_type: typing.Optional[builtins.str] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The details of a VPC interface.
 
@@ -6129,7 +6112,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d976d1dab1b395c0026dcc2152c4dd635ae54d817a1f10c4d8f2725ac4862ad4)
+                type_hints = cached_type_hints(_typecheckingstub__d976d1dab1b395c0026dcc2152c4dd635ae54d817a1f10c4d8f2725ac4862ad4)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -6209,13 +6192,13 @@ class CfnFlow(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''Key-value pairs that can be used to tag this VPC interface.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-vpcinterface.html#cfn-mediaconnect-flow-vpcinterface-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6229,9 +6212,9 @@ class CfnFlow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowEntitlementRef_83db35bc, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowEntitlementRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlowEntitlement(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowEntitlement",
 ):
@@ -6289,9 +6272,9 @@ class CfnFlowEntitlement(
         name: builtins.str,
         subscribers: typing.Sequence[builtins.str],
         data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-        encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowEntitlement``.
 
@@ -6307,7 +6290,7 @@ class CfnFlowEntitlement(
         :param tags: Key-value pairs that can be used to tag and organize this flow entitlement.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17ecd85086df3a96cb74577c3e3a831ea91a89b617bcd18f7684fd357569ebd4)
+            type_hints = cached_type_hints(_typecheckingstub__17ecd85086df3a96cb74577c3e3a831ea91a89b617bcd18f7684fd357569ebd4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowEntitlementProps(
@@ -6331,18 +6314,18 @@ class CfnFlowEntitlement(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbbd0b319bddb33c17b2662fae7caf55246f72dd2fa82c3bf38238c549f8a7e4)
+            type_hints = cached_type_hints(_typecheckingstub__dbbd0b319bddb33c17b2662fae7caf55246f72dd2fa82c3bf38238c549f8a7e4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowEntitlement", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc2981b84449358974725cfa5726c974127f55b1d0ed785957f4a1db25fbaf37)
+            type_hints = cached_type_hints(_typecheckingstub__fc2981b84449358974725cfa5726c974127f55b1d0ed785957f4a1db25fbaf37)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6355,7 +6338,7 @@ class CfnFlowEntitlement(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fa54f5d69b72c125e54c71a8aa7a22fc52b087370efdb65ece275ef52b680b8)
+            type_hints = cached_type_hints(_typecheckingstub__2fa54f5d69b72c125e54c71a8aa7a22fc52b087370efdb65ece275ef52b680b8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6376,9 +6359,9 @@ class CfnFlowEntitlement(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6392,9 +6375,11 @@ class CfnFlowEntitlement(
 
     @builtins.property
     @jsii.member(jsii_name="flowEntitlementRef")
-    def flow_entitlement_ref(self) -> "_FlowEntitlementReference_2242862f":
+    def flow_entitlement_ref(
+        self,
+    ) -> "_aws_mediaconnect_6374326e.FlowEntitlementReference":
         '''A reference to a FlowEntitlement resource.'''
-        return typing.cast("_FlowEntitlementReference_2242862f", jsii.get(self, "flowEntitlementRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.FlowEntitlementReference", jsii.get(self, "flowEntitlementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -6405,7 +6390,7 @@ class CfnFlowEntitlement(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba5eab3ebe302e351ac5ac0d66029f44599f4749a72395abe65585f0a24955a1)
+            type_hints = cached_type_hints(_typecheckingstub__ba5eab3ebe302e351ac5ac0d66029f44599f4749a72395abe65585f0a24955a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -6418,7 +6403,7 @@ class CfnFlowEntitlement(
     @flow_arn.setter
     def flow_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e11924d752092913d6e2606c9cde4c9d3a676e93d2cdf59e192e9e6c293bfe35)
+            type_hints = cached_type_hints(_typecheckingstub__e11924d752092913d6e2606c9cde4c9d3a676e93d2cdf59e192e9e6c293bfe35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6431,7 +6416,7 @@ class CfnFlowEntitlement(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__916ef20a18bd718e63e193a4bfe9a47ef0a3fa7c7d6eb6a74a9f583ad5834eb2)
+            type_hints = cached_type_hints(_typecheckingstub__916ef20a18bd718e63e193a4bfe9a47ef0a3fa7c7d6eb6a74a9f583ad5834eb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6444,7 +6429,7 @@ class CfnFlowEntitlement(
     @subscribers.setter
     def subscribers(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9ffb421693bf57958756eb013d4d8a721597fcd6b5c4d155ff98a2fc1ee7f4e)
+            type_hints = cached_type_hints(_typecheckingstub__a9ffb421693bf57958756eb013d4d8a721597fcd6b5c4d155ff98a2fc1ee7f4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
 
@@ -6460,7 +6445,7 @@ class CfnFlowEntitlement(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__440918e3c472d10f8c3846eeee04790645912cc1f354752fcf74610c24a956dc)
+            type_hints = cached_type_hints(_typecheckingstub__440918e3c472d10f8c3846eeee04790645912cc1f354752fcf74610c24a956dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataTransferSubscriberFeePercent", value) # pyright: ignore[reportArgumentType]
 
@@ -6468,17 +6453,17 @@ class CfnFlowEntitlement(
     @jsii.member(jsii_name="encryption")
     def encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowEntitlement.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowEntitlement.EncryptionProperty"]]:
         '''Encryption information.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowEntitlement.EncryptionProperty"]], jsii.get(self, "encryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowEntitlement.EncryptionProperty"]], jsii.get(self, "encryption"))
 
     @encryption.setter
     def encryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowEntitlement.EncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowEntitlement.EncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e186a635819e5284e2d58b4d8e7f8c317f8ef3dcaf08d3a66dfe0e4f1b061e89)
+            type_hints = cached_type_hints(_typecheckingstub__e186a635819e5284e2d58b4d8e7f8c317f8ef3dcaf08d3a66dfe0e4f1b061e89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
 
@@ -6491,20 +6476,23 @@ class CfnFlowEntitlement(
     @entitlement_status.setter
     def entitlement_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68556a89a)
+            type_hints = cached_type_hints(_typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68556a89a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "entitlementStatus", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow entitlement.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8)
+            type_hints = cached_type_hints(_typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6573,7 +6561,7 @@ class CfnFlowEntitlement(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a86c4f896040118c2a4fab234e2a7101cc609c650cf5a8c91892db664909f050)
+                type_hints = cached_type_hints(_typecheckingstub__a86c4f896040118c2a4fab234e2a7101cc609c650cf5a8c91892db664909f050)
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument constant_initialization_vector", value=constant_initialization_vector, expected_type=type_hints["constant_initialization_vector"])
@@ -6738,9 +6726,9 @@ class CfnFlowEntitlementProps:
         name: builtins.str,
         subscribers: typing.Sequence[builtins.str],
         data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-        encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowEntitlement``.
 
@@ -6792,7 +6780,7 @@ class CfnFlowEntitlementProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055)
+            type_hints = cached_type_hints(_typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -6876,13 +6864,13 @@ class CfnFlowEntitlementProps:
     @builtins.property
     def encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowEntitlement.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowEntitlement.EncryptionProperty"]]:
         '''Encryption information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-encryption
         '''
         result = self._values.get("encryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowEntitlement.EncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowEntitlement.EncryptionProperty"]], result)
 
     @builtins.property
     def entitlement_status(self) -> typing.Optional[builtins.str]:
@@ -6896,13 +6884,13 @@ class CfnFlowEntitlementProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow entitlement.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6916,9 +6904,9 @@ class CfnFlowEntitlementProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowOutputRef_be0a9d75, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowOutputRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlowOutput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput",
 ):
@@ -7017,9 +7005,9 @@ class CfnFlowOutput(
         cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         destination: typing.Optional[builtins.str] = None,
-        encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_latency: typing.Optional[jsii.Number] = None,
-        media_stream_output_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        media_stream_output_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
         ndi_output_timecode_source: typing.Optional[builtins.str] = None,
@@ -7030,11 +7018,11 @@ class CfnFlowOutput(
         protocol: typing.Optional[builtins.str] = None,
         remote_id: typing.Optional[builtins.str] = None,
         router_integration_state: typing.Optional[builtins.str] = None,
-        router_integration_transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        router_integration_transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowOutput``.
 
@@ -7064,7 +7052,7 @@ class CfnFlowOutput(
         :param vpc_interface_attachment: The name of the VPC interface attachment to use for this output.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e9dd9bf1)
+            type_hints = cached_type_hints(_typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e9dd9bf1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowOutputProps(
@@ -7102,18 +7090,18 @@ class CfnFlowOutput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc12c2292179153951e36b26c5ca33a4865934ab09aaab3ef3247a4db0208245)
+            type_hints = cached_type_hints(_typecheckingstub__dc12c2292179153951e36b26c5ca33a4865934ab09aaab3ef3247a4db0208245)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowOutput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99f7a6ea2f782501225c570fc34c141a4efdd391bd9340c51c8bd1b59b8a807b)
+            type_hints = cached_type_hints(_typecheckingstub__99f7a6ea2f782501225c570fc34c141a4efdd391bd9340c51c8bd1b59b8a807b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7126,7 +7114,7 @@ class CfnFlowOutput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fe52bb8ba629a55d8f6926893cc92e58afb2df918e7d368aeddb04aa5bb1855)
+            type_hints = cached_type_hints(_typecheckingstub__8fe52bb8ba629a55d8f6926893cc92e58afb2df918e7d368aeddb04aa5bb1855)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7147,9 +7135,9 @@ class CfnFlowOutput(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7163,9 +7151,9 @@ class CfnFlowOutput(
 
     @builtins.property
     @jsii.member(jsii_name="flowOutputRef")
-    def flow_output_ref(self) -> "_FlowOutputReference_30ed8edf":
+    def flow_output_ref(self) -> "_aws_mediaconnect_6374326e.FlowOutputReference":
         '''A reference to a FlowOutput resource.'''
-        return typing.cast("_FlowOutputReference_30ed8edf", jsii.get(self, "flowOutputRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.FlowOutputReference", jsii.get(self, "flowOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -7176,7 +7164,7 @@ class CfnFlowOutput(
     @flow_arn.setter
     def flow_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b58a8b918485e48f2bd2cbf5a806a141e4d5ae34f2cf830391b88420333717)
+            type_hints = cached_type_hints(_typecheckingstub__15b58a8b918485e48f2bd2cbf5a806a141e4d5ae34f2cf830391b88420333717)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7192,7 +7180,7 @@ class CfnFlowOutput(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07f3031245a81d1c4e02553eaeb7fc62e38e625e4d2cfe7b7ff3ecce31ce6ef5)
+            type_hints = cached_type_hints(_typecheckingstub__07f3031245a81d1c4e02553eaeb7fc62e38e625e4d2cfe7b7ff3ecce31ce6ef5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cidrAllowList", value) # pyright: ignore[reportArgumentType]
 
@@ -7205,7 +7193,7 @@ class CfnFlowOutput(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04edd4c6554768eef7ffa49af9bf9fdec351390bdef1d2d14056f7b2afa9b477)
+            type_hints = cached_type_hints(_typecheckingstub__04edd4c6554768eef7ffa49af9bf9fdec351390bdef1d2d14056f7b2afa9b477)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -7218,7 +7206,7 @@ class CfnFlowOutput(
     @destination.setter
     def destination(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3f2991cc0ce7b9368aefbf86c1373167ce7a90e3225db313dd6d35540907285)
+            type_hints = cached_type_hints(_typecheckingstub__b3f2991cc0ce7b9368aefbf86c1373167ce7a90e3225db313dd6d35540907285)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destination", value) # pyright: ignore[reportArgumentType]
 
@@ -7226,17 +7214,17 @@ class CfnFlowOutput(
     @jsii.member(jsii_name="encryption")
     def encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncryptionProperty"]]:
         '''The type of key used for the encryption.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncryptionProperty"]], jsii.get(self, "encryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncryptionProperty"]], jsii.get(self, "encryption"))
 
     @encryption.setter
     def encryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78a7a7ea75faea54e857e52b24703069f4dd92643ca1173b27422c3504eee69b)
+            type_hints = cached_type_hints(_typecheckingstub__78a7a7ea75faea54e857e52b24703069f4dd92643ca1173b27422c3504eee69b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
 
@@ -7249,7 +7237,7 @@ class CfnFlowOutput(
     @max_latency.setter
     def max_latency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9801fdc6b598fc4f2e913edc8984f374a7594553b0a1ef32ea0fa7be05bb61db)
+            type_hints = cached_type_hints(_typecheckingstub__9801fdc6b598fc4f2e913edc8984f374a7594553b0a1ef32ea0fa7be05bb61db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxLatency", value) # pyright: ignore[reportArgumentType]
 
@@ -7257,17 +7245,17 @@ class CfnFlowOutput(
     @jsii.member(jsii_name="mediaStreamOutputConfigurations")
     def media_stream_output_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]]:
         '''The media streams that are associated with the output, and the parameters for those associations.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]], jsii.get(self, "mediaStreamOutputConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]], jsii.get(self, "mediaStreamOutputConfigurations"))
 
     @media_stream_output_configurations.setter
     def media_stream_output_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c99ca24b6208e72328e18819b003e97cbf14fb0f94304256c59924c6e02ae32d)
+            type_hints = cached_type_hints(_typecheckingstub__c99ca24b6208e72328e18819b003e97cbf14fb0f94304256c59924c6e02ae32d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mediaStreamOutputConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -7280,7 +7268,7 @@ class CfnFlowOutput(
     @min_latency.setter
     def min_latency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddb7401a37f3ff6ff7dc25a56db1a28806074c96fc3f42a6bd90cc4feab9b693)
+            type_hints = cached_type_hints(_typecheckingstub__ddb7401a37f3ff6ff7dc25a56db1a28806074c96fc3f42a6bd90cc4feab9b693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minLatency", value) # pyright: ignore[reportArgumentType]
 
@@ -7293,7 +7281,7 @@ class CfnFlowOutput(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231)
+            type_hints = cached_type_hints(_typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -7306,7 +7294,7 @@ class CfnFlowOutput(
     @ndi_output_timecode_source.setter
     def ndi_output_timecode_source(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af2b939b9b012e6dcf17cf926a350589ca560617a3a127882859512aa977722d)
+            type_hints = cached_type_hints(_typecheckingstub__af2b939b9b012e6dcf17cf926a350589ca560617a3a127882859512aa977722d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ndiOutputTimecodeSource", value) # pyright: ignore[reportArgumentType]
 
@@ -7319,7 +7307,7 @@ class CfnFlowOutput(
     @ndi_program_name.setter
     def ndi_program_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726c61d1e734fe3825d1f969a727f62f0da47c2684038a9b2dd3b004d823f5a0)
+            type_hints = cached_type_hints(_typecheckingstub__726c61d1e734fe3825d1f969a727f62f0da47c2684038a9b2dd3b004d823f5a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ndiProgramName", value) # pyright: ignore[reportArgumentType]
 
@@ -7332,7 +7320,7 @@ class CfnFlowOutput(
     @ndi_speed_hq_quality.setter
     def ndi_speed_hq_quality(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce18d034d798847cffb7feeb7c46dad4031db9cee117a778fb30fb59f6e3cde2)
+            type_hints = cached_type_hints(_typecheckingstub__ce18d034d798847cffb7feeb7c46dad4031db9cee117a778fb30fb59f6e3cde2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ndiSpeedHqQuality", value) # pyright: ignore[reportArgumentType]
 
@@ -7345,7 +7333,7 @@ class CfnFlowOutput(
     @output_status.setter
     def output_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b4c653e5fd4b3a28c65a69d506d6616ef027aa50bccc2d72a02bc2ff7c57c1b)
+            type_hints = cached_type_hints(_typecheckingstub__6b4c653e5fd4b3a28c65a69d506d6616ef027aa50bccc2d72a02bc2ff7c57c1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -7358,7 +7346,7 @@ class CfnFlowOutput(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__082204a6d2f259b91fea6a581b0aa8a534b0e447853734806818dfa91f967458)
+            type_hints = cached_type_hints(_typecheckingstub__082204a6d2f259b91fea6a581b0aa8a534b0e447853734806818dfa91f967458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -7371,7 +7359,7 @@ class CfnFlowOutput(
     @protocol.setter
     def protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a09f7a6d8ae99d18b6e3bb11284fa5b865ca2146c5efb07536e593ee9a05bc7)
+            type_hints = cached_type_hints(_typecheckingstub__9a09f7a6d8ae99d18b6e3bb11284fa5b865ca2146c5efb07536e593ee9a05bc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -7384,7 +7372,7 @@ class CfnFlowOutput(
     @remote_id.setter
     def remote_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f19d4552e8cf70ccb26264cc49b216d391ddef580a3635679d644bda9f8dabf)
+            type_hints = cached_type_hints(_typecheckingstub__0f19d4552e8cf70ccb26264cc49b216d391ddef580a3635679d644bda9f8dabf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "remoteId", value) # pyright: ignore[reportArgumentType]
 
@@ -7396,7 +7384,7 @@ class CfnFlowOutput(
     @router_integration_state.setter
     def router_integration_state(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a92363a82d416caa03ccab5a501ed2d648ae0c5a5733439e18d20b4fab0532be)
+            type_hints = cached_type_hints(_typecheckingstub__a92363a82d416caa03ccab5a501ed2d648ae0c5a5733439e18d20b4fab0532be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routerIntegrationState", value) # pyright: ignore[reportArgumentType]
 
@@ -7404,17 +7392,17 @@ class CfnFlowOutput(
     @jsii.member(jsii_name="routerIntegrationTransitEncryption")
     def router_integration_transit_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]]:
         '''Encryption information.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionProperty"]], jsii.get(self, "routerIntegrationTransitEncryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]], jsii.get(self, "routerIntegrationTransitEncryption"))
 
     @router_integration_transit_encryption.setter
     def router_integration_transit_encryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd058f123d)
+            type_hints = cached_type_hints(_typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd058f123d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routerIntegrationTransitEncryption", value) # pyright: ignore[reportArgumentType]
 
@@ -7427,7 +7415,7 @@ class CfnFlowOutput(
     @smoothing_latency.setter
     def smoothing_latency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a7c12acde851480773f720ab16362e6f6dd272465bbe84d6b60322c1bfd207d)
+            type_hints = cached_type_hints(_typecheckingstub__2a7c12acde851480773f720ab16362e6f6dd272465bbe84d6b60322c1bfd207d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "smoothingLatency", value) # pyright: ignore[reportArgumentType]
 
@@ -7440,20 +7428,23 @@ class CfnFlowOutput(
     @stream_id.setter
     def stream_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1ee2a381)
+            type_hints = cached_type_hints(_typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1ee2a381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow output.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172)
+            type_hints = cached_type_hints(_typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -7461,17 +7452,17 @@ class CfnFlowOutput(
     @jsii.member(jsii_name="vpcInterfaceAttachment")
     def vpc_interface_attachment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
         '''The name of the VPC interface attachment to use for this output.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]], jsii.get(self, "vpcInterfaceAttachment"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]], jsii.get(self, "vpcInterfaceAttachment"))
 
     @vpc_interface_attachment.setter
     def vpc_interface_attachment(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65a3e058407bcf8bd6fa065c9fd3cd66a1c54e7edb3b48af25c7893fd72db21d)
+            type_hints = cached_type_hints(_typecheckingstub__65a3e058407bcf8bd6fa065c9fd3cd66a1c54e7edb3b48af25c7893fd72db21d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcInterfaceAttachment", value) # pyright: ignore[reportArgumentType]
 
@@ -7490,7 +7481,7 @@ class CfnFlowOutput(
             *,
             destination_ip: builtins.str,
             destination_port: jsii.Number,
-            interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.InterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            interface: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.InterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The transport parameters that you want to associate with an outbound media stream.
 
@@ -7516,7 +7507,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b62fc10e1fb76cee67ab63dde918a0006c11ce38e8af823e4d2f2770e4d5765)
+                type_hints = cached_type_hints(_typecheckingstub__8b62fc10e1fb76cee67ab63dde918a0006c11ce38e8af823e4d2f2770e4d5765)
                 check_type(argname="argument destination_ip", value=destination_ip, expected_type=type_hints["destination_ip"])
                 check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
                 check_type(argname="argument interface", value=interface, expected_type=type_hints["interface"])
@@ -7549,14 +7540,14 @@ class CfnFlowOutput(
         @builtins.property
         def interface(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.InterfaceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.InterfaceProperty"]:
             '''The VPC interface that you want to use for the media stream associated with the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-destinationconfiguration.html#cfn-mediaconnect-flowoutput-destinationconfiguration-interface
             '''
             result = self._values.get("interface")
             assert result is not None, "Required property 'interface' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.InterfaceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.InterfaceProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7608,7 +7599,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d7e858c0a050e7b9bf4f84c7f6034ad1cf704a2a9a2b07a5b472d598f1b62d5f)
+                type_hints = cached_type_hints(_typecheckingstub__d7e858c0a050e7b9bf4f84c7f6034ad1cf704a2a9a2b07a5b472d598f1b62d5f)
                 check_type(argname="argument compression_factor", value=compression_factor, expected_type=type_hints["compression_factor"])
                 check_type(argname="argument encoder_profile", value=encoder_profile, expected_type=type_hints["encoder_profile"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7696,7 +7687,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__12ea6e5693abf5b0e777cf50bd86212ef7db4809c0713169b65c0d055bed2f19)
+                type_hints = cached_type_hints(_typecheckingstub__12ea6e5693abf5b0e777cf50bd86212ef7db4809c0713169b65c0d055bed2f19)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
@@ -7777,7 +7768,7 @@ class CfnFlowOutput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -7803,7 +7794,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__227e17acb559f1129e2d38ac109471667c1611bee1eedb7dec31ff9273ece0c9)
+                type_hints = cached_type_hints(_typecheckingstub__227e17acb559f1129e2d38ac109471667c1611bee1eedb7dec31ff9273ece0c9)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7824,13 +7815,13 @@ class CfnFlowOutput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption of a flow output using AWS Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-flowoutput-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7855,7 +7846,7 @@ class CfnFlowOutput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
@@ -7888,7 +7879,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51ad067d64c5f2d51cca478c548fe0d1bac8cb1160599558be1e0c768ec74342)
+                type_hints = cached_type_hints(_typecheckingstub__51ad067d64c5f2d51cca478c548fe0d1bac8cb1160599558be1e0c768ec74342)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7900,14 +7891,14 @@ class CfnFlowOutput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for flow transit encryption keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-flowtransitencryption.html#cfn-mediaconnect-flowoutput-flowtransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -7953,7 +7944,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5cc7770548eb391a3e7796f01956da0a9add137c57ab671911bb6c1a675e3dcd)
+                type_hints = cached_type_hints(_typecheckingstub__5cc7770548eb391a3e7796f01956da0a9add137c57ab671911bb6c1a675e3dcd)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -7996,8 +7987,8 @@ class CfnFlowOutput(
             *,
             encoding_name: builtins.str,
             media_stream_name: builtins.str,
-            destination_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            encoding_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.EncodingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            encoding_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.EncodingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The media stream that is associated with the output, and the parameters for that association.
 
@@ -8036,7 +8027,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__faa5e437983e66807a96f2eedebbdd774906faf99c35e9c25ec0ff0f66c49af3)
+                type_hints = cached_type_hints(_typecheckingstub__faa5e437983e66807a96f2eedebbdd774906faf99c35e9c25ec0ff0f66c49af3)
                 check_type(argname="argument encoding_name", value=encoding_name, expected_type=type_hints["encoding_name"])
                 check_type(argname="argument media_stream_name", value=media_stream_name, expected_type=type_hints["media_stream_name"])
                 check_type(argname="argument destination_configurations", value=destination_configurations, expected_type=type_hints["destination_configurations"])
@@ -8075,18 +8066,18 @@ class CfnFlowOutput(
         @builtins.property
         def destination_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.DestinationConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.DestinationConfigurationProperty"]]]]:
             '''The transport parameters that are associated with each outbound media stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-mediastreamoutputconfiguration.html#cfn-mediaconnect-flowoutput-mediastreamoutputconfiguration-destinationconfigurations
             '''
             result = self._values.get("destination_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.DestinationConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.DestinationConfigurationProperty"]]]], result)
 
         @builtins.property
         def encoding_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncodingParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncodingParametersProperty"]]:
             '''A collection of parameters that determine how MediaConnect will convert the content.
 
             These fields only apply to outputs on flows that have a CDI source.
@@ -8094,7 +8085,7 @@ class CfnFlowOutput(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-mediastreamoutputconfiguration.html#cfn-mediaconnect-flowoutput-mediastreamoutputconfiguration-encodingparameters
             '''
             result = self._values.get("encoding_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncodingParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncodingParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8134,7 +8125,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__006c867b16e13c1b73b4efbe08794e9b0fe37a42ca38d09660e0ccef770f44f2)
+                type_hints = cached_type_hints(_typecheckingstub__006c867b16e13c1b73b4efbe08794e9b0fe37a42ca38d09660e0ccef770f44f2)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8202,7 +8193,7 @@ class CfnFlowOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7072f99adeda4341a6581cacf2975b777cc5b063364d5416156250ca7f1e5619)
+                type_hints = cached_type_hints(_typecheckingstub__7072f99adeda4341a6581cacf2975b777cc5b063364d5416156250ca7f1e5619)
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_interface_name is not None:
@@ -8265,9 +8256,9 @@ class CfnFlowOutputProps:
         cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         destination: typing.Optional[builtins.str] = None,
-        encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_latency: typing.Optional[jsii.Number] = None,
-        media_stream_output_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        media_stream_output_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
         ndi_output_timecode_source: typing.Optional[builtins.str] = None,
@@ -8278,11 +8269,11 @@ class CfnFlowOutputProps:
         protocol: typing.Optional[builtins.str] = None,
         remote_id: typing.Optional[builtins.str] = None,
         router_integration_state: typing.Optional[builtins.str] = None,
-        router_integration_transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        router_integration_transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowOutput``.
 
@@ -8390,7 +8381,7 @@ class CfnFlowOutputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d)
+            type_hints = cached_type_hints(_typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d)
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument cidr_allow_list", value=cidr_allow_list, expected_type=type_hints["cidr_allow_list"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -8503,7 +8494,7 @@ class CfnFlowOutputProps:
     @builtins.property
     def encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncryptionProperty"]]:
         '''The type of key used for the encryption.
 
         If no ``keyType`` is provided, the service will use the default setting (static-key). Allowable encryption types: static-key.
@@ -8511,7 +8502,7 @@ class CfnFlowOutputProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-encryption
         '''
         result = self._values.get("encryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.EncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.EncryptionProperty"]], result)
 
     @builtins.property
     def max_latency(self) -> typing.Optional[jsii.Number]:
@@ -8527,13 +8518,13 @@ class CfnFlowOutputProps:
     @builtins.property
     def media_stream_output_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]]:
         '''The media streams that are associated with the output, and the parameters for those associations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-mediastreamoutputconfigurations
         '''
         result = self._values.get("media_stream_output_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]], result)
 
     @builtins.property
     def min_latency(self) -> typing.Optional[jsii.Number]:
@@ -8635,13 +8626,13 @@ class CfnFlowOutputProps:
     @builtins.property
     def router_integration_transit_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]]:
         '''Encryption information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-routerintegrationtransitencryption
         '''
         result = self._values.get("router_integration_transit_encryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.FlowTransitEncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]], result)
 
     @builtins.property
     def smoothing_latency(self) -> typing.Optional[jsii.Number]:
@@ -8664,24 +8655,24 @@ class CfnFlowOutputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_interface_attachment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
         '''The name of the VPC interface attachment to use for this output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-vpcinterfaceattachment
         '''
         result = self._values.get("vpc_interface_attachment")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8718,17 +8709,17 @@ class CfnFlowProps:
         self,
         *,
         name: builtins.str,
-        source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         availability_zone: typing.Optional[builtins.str] = None,
-        encoding_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encoding_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         flow_size: typing.Optional[builtins.str] = None,
-        maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        media_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ndi_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_monitoring_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        maintenance: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        media_streams: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ndi_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_failover_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_monitoring_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_interfaces: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlow``.
 
@@ -8932,7 +8923,7 @@ class CfnFlowProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24)
+            type_hints = cached_type_hints(_typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
@@ -8981,14 +8972,16 @@ class CfnFlowProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def source(self) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceProperty"]:
+    def source(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceProperty"]:
         '''The settings for the source that you want to use for the new flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-source
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceProperty"], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
@@ -9004,12 +8997,12 @@ class CfnFlowProps:
     @builtins.property
     def encoding_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncodingConfigProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-encodingconfig
         '''
         result = self._values.get("encoding_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EncodingConfigProperty"]], result)
 
     @builtins.property
     def flow_size(self) -> typing.Optional[builtins.str]:
@@ -9025,18 +9018,18 @@ class CfnFlowProps:
     @builtins.property
     def maintenance(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MaintenanceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MaintenanceProperty"]]:
         '''The maintenance settings you want to use for the flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-maintenance
         '''
         result = self._values.get("maintenance")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MaintenanceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MaintenanceProperty"]], result)
 
     @builtins.property
     def media_streams(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamProperty"]]]]:
         '''The media streams that are associated with the flow.
 
         After you associate a media stream with a source, you can also associate it with outputs on the flow.
@@ -9044,12 +9037,12 @@ class CfnFlowProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-mediastreams
         '''
         result = self._values.get("media_streams")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.MediaStreamProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MediaStreamProperty"]]]], result)
 
     @builtins.property
     def ndi_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiConfigProperty"]]:
         '''Specifies the configuration settings for NDI outputs.
 
         Required when the flow includes NDI outputs.
@@ -9057,49 +9050,49 @@ class CfnFlowProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-ndiconfig
         '''
         result = self._values.get("ndi_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.NdiConfigProperty"]], result)
 
     @builtins.property
     def source_failover_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FailoverConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FailoverConfigProperty"]]:
         '''The settings for source failover.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcefailoverconfig
         '''
         result = self._values.get("source_failover_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.FailoverConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FailoverConfigProperty"]], result)
 
     @builtins.property
     def source_monitoring_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceMonitoringConfigProperty"]]:
         '''The settings for source monitoring.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcemonitoringconfig
         '''
         result = self._values.get("source_monitoring_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceMonitoringConfigProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag this flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_interfaces(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceProperty"]]]]:
         '''The VPC Interfaces for this flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-vpcinterfaces
         '''
         result = self._values.get("vpc_interfaces")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VpcInterfaceProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9113,9 +9106,9 @@ class CfnFlowProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowSourceRef_b94a8321, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlowSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource",
 ):
@@ -9189,9 +9182,9 @@ class CfnFlowSource(
         description: builtins.str,
         flow_arn: builtins.str,
         name: builtins.str,
-        decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        decryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_arn: typing.Optional[builtins.str] = None,
-        gateway_bridge_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gateway_bridge_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingest_port: typing.Optional[jsii.Number] = None,
         max_bitrate: typing.Optional[jsii.Number] = None,
         max_latency: typing.Optional[jsii.Number] = None,
@@ -9202,7 +9195,7 @@ class CfnFlowSource(
         source_listener_address: typing.Optional[builtins.str] = None,
         source_listener_port: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_name: typing.Optional[builtins.str] = None,
         whitelist_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9231,7 +9224,7 @@ class CfnFlowSource(
         :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb193c6d3f)
+            type_hints = cached_type_hints(_typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb193c6d3f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowSourceProps(
@@ -9266,18 +9259,18 @@ class CfnFlowSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__516c9ee96b7a84e3798e10ffbf9f23be95e407b2f0376f64a16b0109b33586e9)
+            type_hints = cached_type_hints(_typecheckingstub__516c9ee96b7a84e3798e10ffbf9f23be95e407b2f0376f64a16b0109b33586e9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db3fd76f8220dae1a8772091086f599345d67d89097d2f85b9307e60f66eebda)
+            type_hints = cached_type_hints(_typecheckingstub__db3fd76f8220dae1a8772091086f599345d67d89097d2f85b9307e60f66eebda)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9290,7 +9283,7 @@ class CfnFlowSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8852c4ff5ee8f7563716bed6f284156dda285971d2136f38033b85a389bd073b)
+            type_hints = cached_type_hints(_typecheckingstub__8852c4ff5ee8f7563716bed6f284156dda285971d2136f38033b85a389bd073b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9331,9 +9324,9 @@ class CfnFlowSource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -9347,9 +9340,9 @@ class CfnFlowSource(
 
     @builtins.property
     @jsii.member(jsii_name="flowSourceRef")
-    def flow_source_ref(self) -> "_FlowSourceReference_0d57ee68":
+    def flow_source_ref(self) -> "_aws_mediaconnect_6374326e.FlowSourceReference":
         '''A reference to a FlowSource resource.'''
-        return typing.cast("_FlowSourceReference_0d57ee68", jsii.get(self, "flowSourceRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.FlowSourceReference", jsii.get(self, "flowSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -9360,7 +9353,7 @@ class CfnFlowSource(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__169574c8d258397d0753838843606fa3a6f2792dbfbe9f805a3263cc2ce8bf99)
+            type_hints = cached_type_hints(_typecheckingstub__169574c8d258397d0753838843606fa3a6f2792dbfbe9f805a3263cc2ce8bf99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -9373,7 +9366,7 @@ class CfnFlowSource(
     @flow_arn.setter
     def flow_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294)
+            type_hints = cached_type_hints(_typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
@@ -9386,7 +9379,7 @@ class CfnFlowSource(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56248647932d6154f5cc0ea3f1df2a2bb25f298ef25872b32e9b4dd6f8e0ff07)
+            type_hints = cached_type_hints(_typecheckingstub__56248647932d6154f5cc0ea3f1df2a2bb25f298ef25872b32e9b4dd6f8e0ff07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -9394,17 +9387,17 @@ class CfnFlowSource(
     @jsii.member(jsii_name="decryption")
     def decryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.EncryptionProperty"]]:
         '''The type of encryption that is used on the content ingested from this source.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.EncryptionProperty"]], jsii.get(self, "decryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.EncryptionProperty"]], jsii.get(self, "decryption"))
 
     @decryption.setter
     def decryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.EncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.EncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__713d2beba8d5285adfd07ee3f7ca737392fb89294806031a6cc288bb72c8f180)
+            type_hints = cached_type_hints(_typecheckingstub__713d2beba8d5285adfd07ee3f7ca737392fb89294806031a6cc288bb72c8f180)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "decryption", value) # pyright: ignore[reportArgumentType]
 
@@ -9422,7 +9415,7 @@ class CfnFlowSource(
     @entitlement_arn.setter
     def entitlement_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e4386302dc)
+            type_hints = cached_type_hints(_typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e4386302dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "entitlementArn", value) # pyright: ignore[reportArgumentType]
 
@@ -9430,17 +9423,17 @@ class CfnFlowSource(
     @jsii.member(jsii_name="gatewayBridgeSource")
     def gateway_bridge_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.GatewayBridgeSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.GatewayBridgeSourceProperty"]]:
         '''The bridge's source.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.GatewayBridgeSourceProperty"]], jsii.get(self, "gatewayBridgeSource"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.GatewayBridgeSourceProperty"]], jsii.get(self, "gatewayBridgeSource"))
 
     @gateway_bridge_source.setter
     def gateway_bridge_source(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.GatewayBridgeSourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.GatewayBridgeSourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5cf895711559ebd9f3d9816442bc2258d4ed6f493bb32badf0ea76f038dd16a)
+            type_hints = cached_type_hints(_typecheckingstub__d5cf895711559ebd9f3d9816442bc2258d4ed6f493bb32badf0ea76f038dd16a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayBridgeSource", value) # pyright: ignore[reportArgumentType]
 
@@ -9453,7 +9446,7 @@ class CfnFlowSource(
     @ingest_port.setter
     def ingest_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8065f994df3b6b1f35a330146835da3506ebb87915688c1139a725cf72b5f618)
+            type_hints = cached_type_hints(_typecheckingstub__8065f994df3b6b1f35a330146835da3506ebb87915688c1139a725cf72b5f618)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingestPort", value) # pyright: ignore[reportArgumentType]
 
@@ -9466,7 +9459,7 @@ class CfnFlowSource(
     @max_bitrate.setter
     def max_bitrate(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e362dd143dad56909dafd2e42bfcb4f36d21b914a7b90872305a01bec7758a1f)
+            type_hints = cached_type_hints(_typecheckingstub__e362dd143dad56909dafd2e42bfcb4f36d21b914a7b90872305a01bec7758a1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxBitrate", value) # pyright: ignore[reportArgumentType]
 
@@ -9479,7 +9472,7 @@ class CfnFlowSource(
     @max_latency.setter
     def max_latency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59ebbbae1ffe64a0b2ace0c589cfc271c5cf5155fb97c05e5866f905264c33c3)
+            type_hints = cached_type_hints(_typecheckingstub__59ebbbae1ffe64a0b2ace0c589cfc271c5cf5155fb97c05e5866f905264c33c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxLatency", value) # pyright: ignore[reportArgumentType]
 
@@ -9492,7 +9485,7 @@ class CfnFlowSource(
     @min_latency.setter
     def min_latency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99ef8a4669e860fa72d8e2f4dc3ad3fe414a8d53d7156d84af37cde5562fb88d)
+            type_hints = cached_type_hints(_typecheckingstub__99ef8a4669e860fa72d8e2f4dc3ad3fe414a8d53d7156d84af37cde5562fb88d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minLatency", value) # pyright: ignore[reportArgumentType]
 
@@ -9505,7 +9498,7 @@ class CfnFlowSource(
     @protocol.setter
     def protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb57175f10a9dd5a4e263ec48354d53559458e760a13228af2bc8b2d5a738add)
+            type_hints = cached_type_hints(_typecheckingstub__eb57175f10a9dd5a4e263ec48354d53559458e760a13228af2bc8b2d5a738add)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -9523,7 +9516,7 @@ class CfnFlowSource(
     @sender_control_port.setter
     def sender_control_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cb25d08779ab67d6811a557f48cd15bde00000d84c5ba57f8165f13a3f72f99)
+            type_hints = cached_type_hints(_typecheckingstub__2cb25d08779ab67d6811a557f48cd15bde00000d84c5ba57f8165f13a3f72f99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "senderControlPort", value) # pyright: ignore[reportArgumentType]
 
@@ -9541,7 +9534,7 @@ class CfnFlowSource(
     @sender_ip_address.setter
     def sender_ip_address(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce59a08878045e4b8bc6ff139a2307a1a5d3d8b55ad67c907a140517d9fdee00)
+            type_hints = cached_type_hints(_typecheckingstub__ce59a08878045e4b8bc6ff139a2307a1a5d3d8b55ad67c907a140517d9fdee00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "senderIpAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -9554,7 +9547,7 @@ class CfnFlowSource(
     @source_listener_address.setter
     def source_listener_address(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f71f744022b312b3b4bc69179b8e4ce2cdb7fdeb46c179d7c72e3db30ac42e6c)
+            type_hints = cached_type_hints(_typecheckingstub__f71f744022b312b3b4bc69179b8e4ce2cdb7fdeb46c179d7c72e3db30ac42e6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceListenerAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -9567,7 +9560,7 @@ class CfnFlowSource(
     @source_listener_port.setter
     def source_listener_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc08edbf9070870e3f4ff641570a5fbe7bd92875ead1c75b9697e32c94084f4f)
+            type_hints = cached_type_hints(_typecheckingstub__fc08edbf9070870e3f4ff641570a5fbe7bd92875ead1c75b9697e32c94084f4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceListenerPort", value) # pyright: ignore[reportArgumentType]
 
@@ -9580,20 +9573,23 @@ class CfnFlowSource(
     @stream_id.setter
     def stream_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f30f5ae00)
+            type_hints = cached_type_hints(_typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f30f5ae00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow source.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306)
+            type_hints = cached_type_hints(_typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -9606,7 +9602,7 @@ class CfnFlowSource(
     @vpc_interface_name.setter
     def vpc_interface_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaca9be06dd26e302844cbceb849d87c083af662bbe659afe5a1819fd6ac9f7b)
+            type_hints = cached_type_hints(_typecheckingstub__aaca9be06dd26e302844cbceb849d87c083af662bbe659afe5a1819fd6ac9f7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcInterfaceName", value) # pyright: ignore[reportArgumentType]
 
@@ -9619,7 +9615,7 @@ class CfnFlowSource(
     @whitelist_cidr.setter
     def whitelist_cidr(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45499d5b323bea3d710e7e2165d62c80e1951ab949967a5138abfc7e37f673dc)
+            type_hints = cached_type_hints(_typecheckingstub__45499d5b323bea3d710e7e2165d62c80e1951ab949967a5138abfc7e37f673dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "whitelistCidr", value) # pyright: ignore[reportArgumentType]
 
@@ -9688,7 +9684,7 @@ class CfnFlowSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc2e1b7c07a7a0aadaba7f4f2e0a0214eedc45460e5f4d6b8a4e1af4b33ff561)
+                type_hints = cached_type_hints(_typecheckingstub__bc2e1b7c07a7a0aadaba7f4f2e0a0214eedc45460e5f4d6b8a4e1af4b33ff561)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
                 check_type(argname="argument constant_initialization_vector", value=constant_initialization_vector, expected_type=type_hints["constant_initialization_vector"])
@@ -9842,7 +9838,7 @@ class CfnFlowSource(
             self,
             *,
             bridge_arn: builtins.str,
-            vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_interface_attachment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The source configuration for cloud flows receiving a stream from a bridge.
 
@@ -9868,7 +9864,7 @@ class CfnFlowSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30ed56e867002e6d71070cfe3db49514b39a97f4380a7b126282076647a88405)
+                type_hints = cached_type_hints(_typecheckingstub__30ed56e867002e6d71070cfe3db49514b39a97f4380a7b126282076647a88405)
                 check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
                 check_type(argname="argument vpc_interface_attachment", value=vpc_interface_attachment, expected_type=type_hints["vpc_interface_attachment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9890,13 +9886,13 @@ class CfnFlowSource(
         @builtins.property
         def vpc_interface_attachment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.VpcInterfaceAttachmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.VpcInterfaceAttachmentProperty"]]:
             '''The name of the VPC interface attachment to use for this bridge source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-gatewaybridgesource.html#cfn-mediaconnect-flowsource-gatewaybridgesource-vpcinterfaceattachment
             '''
             result = self._values.get("vpc_interface_attachment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.VpcInterfaceAttachmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.VpcInterfaceAttachmentProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9938,7 +9934,7 @@ class CfnFlowSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__91f29aa73d1270b98bef9297507fc5368a6213455c4fab06ce82317542ccbecb)
+                type_hints = cached_type_hints(_typecheckingstub__91f29aa73d1270b98bef9297507fc5368a6213455c4fab06ce82317542ccbecb)
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if vpc_interface_name is not None:
@@ -9997,9 +9993,9 @@ class CfnFlowSourceProps:
         description: builtins.str,
         flow_arn: builtins.str,
         name: builtins.str,
-        decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        decryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_arn: typing.Optional[builtins.str] = None,
-        gateway_bridge_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gateway_bridge_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingest_port: typing.Optional[jsii.Number] = None,
         max_bitrate: typing.Optional[jsii.Number] = None,
         max_latency: typing.Optional[jsii.Number] = None,
@@ -10010,7 +10006,7 @@ class CfnFlowSourceProps:
         source_listener_address: typing.Optional[builtins.str] = None,
         source_listener_port: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_name: typing.Optional[builtins.str] = None,
         whitelist_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -10093,7 +10089,7 @@ class CfnFlowSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1)
+            type_hints = cached_type_hints(_typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -10188,7 +10184,7 @@ class CfnFlowSourceProps:
     @builtins.property
     def decryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.EncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.EncryptionProperty"]]:
         '''The type of encryption that is used on the content ingested from this source.
 
         Allowable encryption types: static-key.
@@ -10196,7 +10192,7 @@ class CfnFlowSourceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-decryption
         '''
         result = self._values.get("decryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.EncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.EncryptionProperty"]], result)
 
     @builtins.property
     def entitlement_arn(self) -> typing.Optional[builtins.str]:
@@ -10215,13 +10211,13 @@ class CfnFlowSourceProps:
     @builtins.property
     def gateway_bridge_source(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.GatewayBridgeSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.GatewayBridgeSourceProperty"]]:
         '''The bridge's source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-gatewaybridgesource
         '''
         result = self._values.get("gateway_bridge_source")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowSource.GatewayBridgeSourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.GatewayBridgeSourceProperty"]], result)
 
     @builtins.property
     def ingest_port(self) -> typing.Optional[jsii.Number]:
@@ -10332,13 +10328,13 @@ class CfnFlowSourceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this flow source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_interface_name(self) -> typing.Optional[builtins.str]:
@@ -10372,9 +10368,9 @@ class CfnFlowSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowVpcInterfaceRef_d5bcec46, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowVpcInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlowVpcInterface(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowVpcInterface",
 ):
@@ -10428,7 +10424,7 @@ class CfnFlowVpcInterface(
         role_arn: builtins.str,
         security_group_ids: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowVpcInterface``.
 
@@ -10442,7 +10438,7 @@ class CfnFlowVpcInterface(
         :param tags: Key-value pairs that can be used to tag and organize this VPC network interface.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3bc310582)
+            type_hints = cached_type_hints(_typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3bc310582)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowVpcInterfaceProps(
@@ -10464,18 +10460,18 @@ class CfnFlowVpcInterface(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fa6b7ee310467cbf1b90d72ac662a880ec46f0ff1d93db17be2b22f898219cd)
+            type_hints = cached_type_hints(_typecheckingstub__8fa6b7ee310467cbf1b90d72ac662a880ec46f0ff1d93db17be2b22f898219cd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowVpcInterface", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2669da051110c0f17f8e796d79785f21a3eedb15f26aad564f80d786fc0b5008)
+            type_hints = cached_type_hints(_typecheckingstub__2669da051110c0f17f8e796d79785f21a3eedb15f26aad564f80d786fc0b5008)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10488,7 +10484,7 @@ class CfnFlowVpcInterface(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb4bbb0359f95aef0014b12311830a206a9476a44d94de97d750a09771a603ae)
+            type_hints = cached_type_hints(_typecheckingstub__bb4bbb0359f95aef0014b12311830a206a9476a44d94de97d750a09771a603ae)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10509,9 +10505,9 @@ class CfnFlowVpcInterface(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -10525,9 +10521,11 @@ class CfnFlowVpcInterface(
 
     @builtins.property
     @jsii.member(jsii_name="flowVpcInterfaceRef")
-    def flow_vpc_interface_ref(self) -> "_FlowVpcInterfaceReference_74070c82":
+    def flow_vpc_interface_ref(
+        self,
+    ) -> "_aws_mediaconnect_6374326e.FlowVpcInterfaceReference":
         '''A reference to a FlowVpcInterface resource.'''
-        return typing.cast("_FlowVpcInterfaceReference_74070c82", jsii.get(self, "flowVpcInterfaceRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.FlowVpcInterfaceReference", jsii.get(self, "flowVpcInterfaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -10538,7 +10536,7 @@ class CfnFlowVpcInterface(
     @flow_arn.setter
     def flow_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01b2ebce5fcf204059015d9ab2acd7dd1255fb422e85ba46d8372e7ed14634e7)
+            type_hints = cached_type_hints(_typecheckingstub__01b2ebce5fcf204059015d9ab2acd7dd1255fb422e85ba46d8372e7ed14634e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
@@ -10551,7 +10549,7 @@ class CfnFlowVpcInterface(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__315756aca1be9462393133e8a1bd030c6830be9cd62201141209ba92bca00733)
+            type_hints = cached_type_hints(_typecheckingstub__315756aca1be9462393133e8a1bd030c6830be9cd62201141209ba92bca00733)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -10564,7 +10562,7 @@ class CfnFlowVpcInterface(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25d1a6f274a5840002030ca9431469bb3346277b4320449fb605700060689db4)
+            type_hints = cached_type_hints(_typecheckingstub__25d1a6f274a5840002030ca9431469bb3346277b4320449fb605700060689db4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -10577,7 +10575,7 @@ class CfnFlowVpcInterface(
     @security_group_ids.setter
     def security_group_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22fe25e82013a9b0baddbe815abf51918a6107457c49b594041bb09b37e6db29)
+            type_hints = cached_type_hints(_typecheckingstub__22fe25e82013a9b0baddbe815abf51918a6107457c49b594041bb09b37e6db29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -10590,20 +10588,23 @@ class CfnFlowVpcInterface(
     @subnet_id.setter
     def subnet_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6bde77b87)
+            type_hints = cached_type_hints(_typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6bde77b87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this VPC network interface.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf)
+            type_hints = cached_type_hints(_typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -10629,7 +10630,7 @@ class CfnFlowVpcInterfaceProps:
         role_arn: builtins.str,
         security_group_ids: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowVpcInterface``.
 
@@ -10665,7 +10666,7 @@ class CfnFlowVpcInterfaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410)
+            type_hints = cached_type_hints(_typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410)
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -10737,13 +10738,13 @@ class CfnFlowVpcInterfaceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this VPC network interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10757,9 +10758,9 @@ class CfnFlowVpcInterfaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGatewayRef_4783a0c6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IGatewayRef)
 class CfnGateway(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnGateway",
 ):
@@ -10794,7 +10795,7 @@ class CfnGateway(
         *,
         egress_cidr_blocks: typing.Sequence[builtins.str],
         name: builtins.str,
-        networks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        networks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::MediaConnect::Gateway``.
 
@@ -10805,7 +10806,7 @@ class CfnGateway(
         :param networks: The list of networks in the gateway.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a889ede67aac65e3ba7da8735ec09aa46c53edb047800db832cc8f049ee063d)
+            type_hints = cached_type_hints(_typecheckingstub__4a889ede67aac65e3ba7da8735ec09aa46c53edb047800db832cc8f049ee063d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGatewayProps(
@@ -10816,12 +10817,15 @@ class CfnGateway(
 
     @jsii.member(jsii_name="arnForGateway")
     @builtins.classmethod
-    def arn_for_gateway(cls, resource: "_IGatewayRef_4783a0c6") -> builtins.str:
+    def arn_for_gateway(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.IGatewayRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__846fb03e786e5db212456f5e176807bc8fa26425b8fcdcd3acceeb914a80546a)
+            type_hints = cached_type_hints(_typecheckingstub__846fb03e786e5db212456f5e176807bc8fa26425b8fcdcd3acceeb914a80546a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGateway", [resource]))
 
@@ -10833,18 +10837,18 @@ class CfnGateway(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7afaeb3693b7233ba298147075a68f93109f71fb9d4533fc43cf919f16fe45b)
+            type_hints = cached_type_hints(_typecheckingstub__e7afaeb3693b7233ba298147075a68f93109f71fb9d4533fc43cf919f16fe45b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGateway", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b19201085d642ad5919470c92f83f2874346dacf31c924443c14fa4ce8557e)
+            type_hints = cached_type_hints(_typecheckingstub__15b19201085d642ad5919470c92f83f2874346dacf31c924443c14fa4ce8557e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10857,7 +10861,7 @@ class CfnGateway(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__309d2649c79792783a657ac296a1e3f1559ca3d115f8d29a00fcf51ab5b9eea1)
+            type_hints = cached_type_hints(_typecheckingstub__309d2649c79792783a657ac296a1e3f1559ca3d115f8d29a00fcf51ab5b9eea1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10899,9 +10903,9 @@ class CfnGateway(
 
     @builtins.property
     @jsii.member(jsii_name="gatewayRef")
-    def gateway_ref(self) -> "_GatewayReference_91ca4e85":
+    def gateway_ref(self) -> "_aws_mediaconnect_6374326e.GatewayReference":
         '''A reference to a Gateway resource.'''
-        return typing.cast("_GatewayReference_91ca4e85", jsii.get(self, "gatewayRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.GatewayReference", jsii.get(self, "gatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="egressCidrBlocks")
@@ -10912,7 +10916,7 @@ class CfnGateway(
     @egress_cidr_blocks.setter
     def egress_cidr_blocks(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c756c6472ede1cbb1eb656c10e07629e0cf818e434b2e8f9c94de41e295b332e)
+            type_hints = cached_type_hints(_typecheckingstub__c756c6472ede1cbb1eb656c10e07629e0cf818e434b2e8f9c94de41e295b332e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "egressCidrBlocks", value) # pyright: ignore[reportArgumentType]
 
@@ -10925,7 +10929,7 @@ class CfnGateway(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f455f9a25731428a340c77bb14b2965a474f55740a64090450ee7dee16709ce)
+            type_hints = cached_type_hints(_typecheckingstub__2f455f9a25731428a340c77bb14b2965a474f55740a64090450ee7dee16709ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -10933,17 +10937,17 @@ class CfnGateway(
     @jsii.member(jsii_name="networks")
     def networks(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayNetworkProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayNetworkProperty"]]]:
         '''The list of networks in the gateway.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayNetworkProperty"]]], jsii.get(self, "networks"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayNetworkProperty"]]], jsii.get(self, "networks"))
 
     @networks.setter
     def networks(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayNetworkProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayNetworkProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87886ff9eadfa80377e79911ce74141941af595ecff54249e0b94a2aa4f4fdb6)
+            type_hints = cached_type_hints(_typecheckingstub__87886ff9eadfa80377e79911ce74141941af595ecff54249e0b94a2aa4f4fdb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networks", value) # pyright: ignore[reportArgumentType]
 
@@ -10974,7 +10978,7 @@ class CfnGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f67f020f764410bf45106fcabf15d8329d4bbbd3768cac4cd170ba1032378127)
+                type_hints = cached_type_hints(_typecheckingstub__f67f020f764410bf45106fcabf15d8329d4bbbd3768cac4cd170ba1032378127)
                 check_type(argname="argument cidr_block", value=cidr_block, expected_type=type_hints["cidr_block"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11033,7 +11037,7 @@ class CfnGatewayProps:
         *,
         egress_cidr_blocks: typing.Sequence[builtins.str],
         name: builtins.str,
-        networks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        networks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnGateway``.
 
@@ -11060,7 +11064,7 @@ class CfnGatewayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450)
+            type_hints = cached_type_hints(_typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450)
             check_type(argname="argument egress_cidr_blocks", value=egress_cidr_blocks, expected_type=type_hints["egress_cidr_blocks"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument networks", value=networks, expected_type=type_hints["networks"])
@@ -11097,14 +11101,14 @@ class CfnGatewayProps:
     @builtins.property
     def networks(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayNetworkProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayNetworkProperty"]]]:
         '''The list of networks in the gateway.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-networks
         '''
         result = self._values.get("networks")
         assert result is not None, "Required property 'networks' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayNetworkProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayNetworkProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11118,9 +11122,9 @@ class CfnGatewayProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRouterInputRef_6915df50, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IRouterInputRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRouterInput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput",
 ):
@@ -11292,6 +11296,22 @@ class CfnRouterInput(
         
             # the properties below are optional
             availability_zone="availabilityZone",
+            content_quality_analysis_configuration=mediaconnect.CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty(
+                content_level=mediaconnect.CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty(
+                    black_frames=mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    ),
+                    frozen_frames=mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    ),
+                    silent_audio=mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    )
+                )
+            ),
             maintenance_configuration=mediaconnect.CfnRouterInput.MaintenanceConfigurationProperty(
                 default=default_,
                 preferred_day_time=mediaconnect.CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty(
@@ -11324,16 +11344,17 @@ class CfnRouterInput(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         maximum_bitrate: jsii.Number,
         name: builtins.str,
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
-        maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        content_quality_analysis_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::RouterInput``.
 
@@ -11345,13 +11366,14 @@ class CfnRouterInput(
         :param routing_scope: Indicates whether the router input is configured for Regional or global routing.
         :param tier: The tier level of the router input.
         :param availability_zone: The Availability Zone of the router input.
+        :param content_quality_analysis_configuration: The content quality analysis configuration for the router input. The content quality analysis feature only monitors the first video stream and the first audio stream it encounters within the router input source.
         :param maintenance_configuration: The maintenance configuration settings applied to this router input.
         :param region_name: The AWS Region where the router input is located.
         :param tags: Key-value pairs that can be used to tag and organize this router input.
         :param transit_encryption: Encryption information.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fa24b13aaffdcfc1e47f3ced2e884afe1fe974cb91ceb3f0702e3ed196e0855)
+            type_hints = cached_type_hints(_typecheckingstub__8fa24b13aaffdcfc1e47f3ced2e884afe1fe974cb91ceb3f0702e3ed196e0855)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRouterInputProps(
@@ -11361,6 +11383,7 @@ class CfnRouterInput(
             routing_scope=routing_scope,
             tier=tier,
             availability_zone=availability_zone,
+            content_quality_analysis_configuration=content_quality_analysis_configuration,
             maintenance_configuration=maintenance_configuration,
             region_name=region_name,
             tags=tags,
@@ -11373,13 +11396,13 @@ class CfnRouterInput(
     @builtins.classmethod
     def arn_for_router_input(
         cls,
-        resource: "_IRouterInputRef_6915df50",
+        resource: "_aws_mediaconnect_6374326e.IRouterInputRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b62b590ea740d308b838213af0b2cd196493374e80cd7c3686bd872b19cfdfeb)
+            type_hints = cached_type_hints(_typecheckingstub__b62b590ea740d308b838213af0b2cd196493374e80cd7c3686bd872b19cfdfeb)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRouterInput", [resource]))
 
@@ -11391,18 +11414,18 @@ class CfnRouterInput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bc6c871ed8b6d73be81a2ae1d1e2c9d9b137109612e38abd34e5848294dbc27)
+            type_hints = cached_type_hints(_typecheckingstub__9bc6c871ed8b6d73be81a2ae1d1e2c9d9b137109612e38abd34e5848294dbc27)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRouterInput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c944fb547e87f295306d8735bbf0eeac4ac8a0b6018a5739d3a31d2e1e718ef6)
+            type_hints = cached_type_hints(_typecheckingstub__c944fb547e87f295306d8735bbf0eeac4ac8a0b6018a5739d3a31d2e1e718ef6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -11415,7 +11438,7 @@ class CfnRouterInput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e30a6d884b369ff6382f442459ba4c11662a15636af2d199fbc1aa1a790ea21)
+            type_hints = cached_type_hints(_typecheckingstub__8e30a6d884b369ff6382f442459ba4c11662a15636af2d199fbc1aa1a790ea21)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -11433,6 +11456,14 @@ class CfnRouterInput(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentQualityAnalysisType")
+    def attr_content_quality_analysis_type(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ContentQualityAnalysisType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentQualityAnalysisType"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -11508,9 +11539,9 @@ class CfnRouterInput(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -11524,25 +11555,25 @@ class CfnRouterInput(
 
     @builtins.property
     @jsii.member(jsii_name="routerInputRef")
-    def router_input_ref(self) -> "_RouterInputReference_b71c2141":
+    def router_input_ref(self) -> "_aws_mediaconnect_6374326e.RouterInputReference":
         '''A reference to a RouterInput resource.'''
-        return typing.cast("_RouterInputReference_b71c2141", jsii.get(self, "routerInputRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.RouterInputReference", jsii.get(self, "routerInputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputConfigurationProperty"]:
         '''The configuration settings for a router input.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc19a3af1b324b171b747b68112c85cb261bd6957bab7764b849ca52d9245142)
+            type_hints = cached_type_hints(_typecheckingstub__dc19a3af1b324b171b747b68112c85cb261bd6957bab7764b849ca52d9245142)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -11555,7 +11586,7 @@ class CfnRouterInput(
     @maximum_bitrate.setter
     def maximum_bitrate(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9b9c8e82a356b3f89719f6bbfe30b90040f8129a03f8ce150ad2a8b87ed8246)
+            type_hints = cached_type_hints(_typecheckingstub__a9b9c8e82a356b3f89719f6bbfe30b90040f8129a03f8ce150ad2a8b87ed8246)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumBitrate", value) # pyright: ignore[reportArgumentType]
 
@@ -11568,7 +11599,7 @@ class CfnRouterInput(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cad73940b17fe84f1f0b506b19a2f76e3972f6d1b1a71c747442330ba7cdd4b)
+            type_hints = cached_type_hints(_typecheckingstub__8cad73940b17fe84f1f0b506b19a2f76e3972f6d1b1a71c747442330ba7cdd4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -11581,7 +11612,7 @@ class CfnRouterInput(
     @routing_scope.setter
     def routing_scope(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00684f4fd383ed48bfa0345b412a77ecbdd623ac32a218fb0294e30e4ed401bc)
+            type_hints = cached_type_hints(_typecheckingstub__00684f4fd383ed48bfa0345b412a77ecbdd623ac32a218fb0294e30e4ed401bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routingScope", value) # pyright: ignore[reportArgumentType]
 
@@ -11594,7 +11625,7 @@ class CfnRouterInput(
     @tier.setter
     def tier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84d00c9475e25cd260ddceb328a82f02a2cb361571f2a5fd671818fb15dd8cd3)
+            type_hints = cached_type_hints(_typecheckingstub__84d00c9475e25cd260ddceb328a82f02a2cb361571f2a5fd671818fb15dd8cd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
 
@@ -11607,25 +11638,43 @@ class CfnRouterInput(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d3dc1a9f3d38364d1ad15584e3cfaccae3ba843735b9a10bd75fa94a9736e60)
+            type_hints = cached_type_hints(_typecheckingstub__1d3dc1a9f3d38364d1ad15584e3cfaccae3ba843735b9a10bd75fa94a9736e60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contentQualityAnalysisConfiguration")
+    def content_quality_analysis_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty"]]:
+        '''The content quality analysis configuration for the router input.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty"]], jsii.get(self, "contentQualityAnalysisConfiguration"))
+
+    @content_quality_analysis_configuration.setter
+    def content_quality_analysis_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d8381b95a45e53c50dc01b45d78adad0f5f3f247cde271d4cd6f13de8a298ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentQualityAnalysisConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceConfiguration")
     def maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MaintenanceConfigurationProperty"]]:
         '''The maintenance configuration settings applied to this router input.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MaintenanceConfigurationProperty"]], jsii.get(self, "maintenanceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MaintenanceConfigurationProperty"]], jsii.get(self, "maintenanceConfiguration"))
 
     @maintenance_configuration.setter
     def maintenance_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MaintenanceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MaintenanceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c1170f7ba129480fda3e3b9954bf9b3bab26579ad56ca54217519dd369f2de8)
+            type_hints = cached_type_hints(_typecheckingstub__7c1170f7ba129480fda3e3b9954bf9b3bab26579ad56ca54217519dd369f2de8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -11638,20 +11687,23 @@ class CfnRouterInput(
     @region_name.setter
     def region_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74fded60926c739a4b66f4bd6fdd901f417bee400d49f669f01a8545de0e3052)
+            type_hints = cached_type_hints(_typecheckingstub__74fded60926c739a4b66f4bd6fdd901f417bee400d49f669f01a8545de0e3052)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router input.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a824b54cbbdf5489ae89810bc583b0c20d4cfb25aeb8745e7f408d889b008ac)
+            type_hints = cached_type_hints(_typecheckingstub__5a824b54cbbdf5489ae89810bc583b0c20d4cfb25aeb8745e7f408d889b008ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -11659,19 +11711,193 @@ class CfnRouterInput(
     @jsii.member(jsii_name="transitEncryption")
     def transit_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionProperty"]]:
         '''Encryption information.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionProperty"]], jsii.get(self, "transitEncryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionProperty"]], jsii.get(self, "transitEncryption"))
 
     @transit_encryption.setter
     def transit_encryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b52cf5469dfc840d14b0db5fb2454e8064b964427f444c618452b6c06465337)
+            type_hints = cached_type_hints(_typecheckingstub__2b52cf5469dfc840d14b0db5fb2454e8064b964427f444c618452b6c06465337)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transitEncryption", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state": "state", "threshold_seconds": "thresholdSeconds"},
+    )
+    class BlackFramesConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            state: builtins.str,
+            threshold_seconds: jsii.Number,
+        ) -> None:
+            '''Detects black frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :param state: 
+            :param threshold_seconds: The number of consecutive seconds of black frames that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-blackframesconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                black_frames_configuration_property = mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty(
+                    state="state",
+                    threshold_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__876d2124c62d13d4d717232543edd026c15d6eb7cc6a313012ab562cd9d21d8c)
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "state": state,
+                "threshold_seconds": threshold_seconds,
+            }
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-blackframesconfiguration.html#cfn-mediaconnect-routerinput-blackframesconfiguration-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def threshold_seconds(self) -> jsii.Number:
+            '''The number of consecutive seconds of black frames that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-blackframesconfiguration.html#cfn-mediaconnect-routerinput-blackframesconfiguration-thresholdseconds
+            '''
+            result = self._values.get("threshold_seconds")
+            assert result is not None, "Required property 'threshold_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BlackFramesConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "black_frames": "blackFrames",
+            "frozen_frames": "frozenFrames",
+            "silent_audio": "silentAudio",
+        },
+    )
+    class ContentQualityAnalysisFeatureConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            black_frames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.BlackFramesConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frozen_frames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FrozenFramesConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            silent_audio: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SilentAudioConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configures the content quality analysis features for the router input.
+
+            :param black_frames: Detects black frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+            :param frozen_frames: Detects frozen video frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+            :param silent_audio: Detects silent audio in the router input's source content and reports it through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                content_quality_analysis_feature_configuration_property = mediaconnect.CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty(
+                    black_frames=mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    ),
+                    frozen_frames=mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    ),
+                    silent_audio=mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty(
+                        state="state",
+                        threshold_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8d53a483665d52f231cb569ee34ca6378bdf20b1bffcfa05c2ee103159c0d55a)
+                check_type(argname="argument black_frames", value=black_frames, expected_type=type_hints["black_frames"])
+                check_type(argname="argument frozen_frames", value=frozen_frames, expected_type=type_hints["frozen_frames"])
+                check_type(argname="argument silent_audio", value=silent_audio, expected_type=type_hints["silent_audio"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if black_frames is not None:
+                self._values["black_frames"] = black_frames
+            if frozen_frames is not None:
+                self._values["frozen_frames"] = frozen_frames
+            if silent_audio is not None:
+                self._values["silent_audio"] = silent_audio
+
+        @builtins.property
+        def black_frames(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.BlackFramesConfigurationProperty"]]:
+            '''Detects black frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration.html#cfn-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration-blackframes
+            '''
+            result = self._values.get("black_frames")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.BlackFramesConfigurationProperty"]], result)
+
+        @builtins.property
+        def frozen_frames(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FrozenFramesConfigurationProperty"]]:
+            '''Detects frozen video frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration.html#cfn-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration-frozenframes
+            '''
+            result = self._values.get("frozen_frames")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FrozenFramesConfigurationProperty"]], result)
+
+        @builtins.property
+        def silent_audio(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SilentAudioConfigurationProperty"]]:
+            '''Detects silent audio in the router input's source content and reports it through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration.html#cfn-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration-silentaudio
+            '''
+            result = self._values.get("silent_audio")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SilentAudioConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentQualityAnalysisFeatureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.FailoverRouterInputConfigurationProperty",
@@ -11688,7 +11914,7 @@ class CfnRouterInput(
             self,
             *,
             network_interface_arn: builtins.str,
-            protocol_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            protocol_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             source_priority_mode: builtins.str,
             primary_source_index: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -11755,7 +11981,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf5425707945361655)
+                type_hints = cached_type_hints(_typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf5425707945361655)
                 check_type(argname="argument network_interface_arn", value=network_interface_arn, expected_type=type_hints["network_interface_arn"])
                 check_type(argname="argument protocol_configurations", value=protocol_configurations, expected_type=type_hints["protocol_configurations"])
                 check_type(argname="argument source_priority_mode", value=source_priority_mode, expected_type=type_hints["source_priority_mode"])
@@ -11781,7 +12007,7 @@ class CfnRouterInput(
         @builtins.property
         def protocol_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty"]]]:
             '''A list of exactly two protocol configurations for the failover input sources.
 
             Both must use the same protocol type.
@@ -11790,7 +12016,7 @@ class CfnRouterInput(
             '''
             result = self._values.get("protocol_configurations")
             assert result is not None, "Required property 'protocol_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty"]]], result)
 
         @builtins.property
         def source_priority_mode(self) -> builtins.str:
@@ -11837,10 +12063,10 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            rist: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_caller: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_listener: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
@@ -11897,7 +12123,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631d35cdea)
+                type_hints = cached_type_hints(_typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631d35cdea)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
@@ -11915,46 +12141,46 @@ class CfnRouterInput(
         @builtins.property
         def rist(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration-rist
             '''
             result = self._values.get("rist")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
             '''The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration-rtp
             '''
             result = self._values.get("rtp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_caller(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration-srtcaller
             '''
             result = self._values.get("srt_caller")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_listener(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration-srtlistener
             '''
             result = self._values.get("srt_listener")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11977,7 +12203,7 @@ class CfnRouterInput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -12003,7 +12229,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f46fb21f29424f9cdada7e8baeb37950068c69dd5988f39da2d4d57ad111304)
+                type_hints = cached_type_hints(_typecheckingstub__2f46fb21f29424f9cdada7e8baeb37950068c69dd5988f39da2d4d57ad111304)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12024,13 +12250,13 @@ class CfnRouterInput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12055,7 +12281,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
@@ -12088,7 +12314,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee7cb3dd62027be3aaef58d8e915eab27767b66fa11f87aff2f38eb8e4f62449)
+                type_hints = cached_type_hints(_typecheckingstub__ee7cb3dd62027be3aaef58d8e915eab27767b66fa11f87aff2f38eb8e4f62449)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12100,14 +12326,14 @@ class CfnRouterInput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for flow transit encryption keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-flowtransitencryption.html#cfn-mediaconnect-routerinput-flowtransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -12129,6 +12355,76 @@ class CfnRouterInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state": "state", "threshold_seconds": "thresholdSeconds"},
+    )
+    class FrozenFramesConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            state: builtins.str,
+            threshold_seconds: jsii.Number,
+        ) -> None:
+            '''Detects frozen video frames in the router input's source content and reports them through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :param state: 
+            :param threshold_seconds: The number of consecutive seconds of a frozen frame that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-frozenframesconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                frozen_frames_configuration_property = mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty(
+                    state="state",
+                    threshold_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0392659348f58fec79a7975c974737b452d8f0431e205c612888a8dac348a997)
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "state": state,
+                "threshold_seconds": threshold_seconds,
+            }
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-frozenframesconfiguration.html#cfn-mediaconnect-routerinput-frozenframesconfiguration-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def threshold_seconds(self) -> jsii.Number:
+            '''The number of consecutive seconds of a frozen frame that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-frozenframesconfiguration.html#cfn-mediaconnect-routerinput-frozenframesconfiguration-thresholdseconds
+            '''
+            result = self._values.get("threshold_seconds")
+            assert result is not None, "Required property 'threshold_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FrozenFramesConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MaintenanceConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"default": "default", "preferred_day_time": "preferredDayTime"},
@@ -12138,7 +12434,7 @@ class CfnRouterInput(
             self,
             *,
             default: typing.Any = None,
-            preferred_day_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            preferred_day_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param default: Configuration settings for default maintenance scheduling.
@@ -12164,7 +12460,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a02453ffb5787750cf8b7c68ece86b453aeac195bd6b7a67d442069cdfaf86c1)
+                type_hints = cached_type_hints(_typecheckingstub__a02453ffb5787750cf8b7c68ece86b453aeac195bd6b7a67d442069cdfaf86c1)
                 check_type(argname="argument default", value=default, expected_type=type_hints["default"])
                 check_type(argname="argument preferred_day_time", value=preferred_day_time, expected_type=type_hints["preferred_day_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12185,13 +12481,13 @@ class CfnRouterInput(
         @builtins.property
         def preferred_day_time(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty"]]:
             '''Configuration for preferred day and time maintenance settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-maintenanceconfiguration.html#cfn-mediaconnect-routerinput-maintenanceconfiguration-preferreddaytime
             '''
             result = self._values.get("preferred_day_time")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12217,7 +12513,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            source_transit_decryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_transit_decryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
             flow_arn: typing.Optional[builtins.str] = None,
             flow_output_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -12258,7 +12554,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07cd74860f626ccccd2d7b9722c16c895a7f51382af41cc9a3aa3da275bb3b5f)
+                type_hints = cached_type_hints(_typecheckingstub__07cd74860f626ccccd2d7b9722c16c895a7f51382af41cc9a3aa3da275bb3b5f)
                 check_type(argname="argument source_transit_decryption", value=source_transit_decryption, expected_type=type_hints["source_transit_decryption"])
                 check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
                 check_type(argname="argument flow_output_arn", value=flow_output_arn, expected_type=type_hints["flow_output_arn"])
@@ -12273,14 +12569,14 @@ class CfnRouterInput(
         @builtins.property
         def source_transit_decryption(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FlowTransitEncryptionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FlowTransitEncryptionProperty"]:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mediaconnectflowrouterinputconfiguration.html#cfn-mediaconnect-routerinput-mediaconnectflowrouterinputconfiguration-sourcetransitdecryption
             '''
             result = self._values.get("source_transit_decryption")
             assert result is not None, "Required property 'source_transit_decryption' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FlowTransitEncryptionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FlowTransitEncryptionProperty"], result)
 
         @builtins.property
         def flow_arn(self) -> typing.Optional[builtins.str]:
@@ -12325,7 +12621,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            source_transit_decryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_transit_decryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
             media_live_channel_arn: typing.Optional[builtins.str] = None,
             media_live_channel_output_name: typing.Optional[builtins.str] = None,
             media_live_pipeline_id: typing.Optional[builtins.str] = None,
@@ -12369,7 +12665,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b896f0735)
+                type_hints = cached_type_hints(_typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b896f0735)
                 check_type(argname="argument source_transit_decryption", value=source_transit_decryption, expected_type=type_hints["source_transit_decryption"])
                 check_type(argname="argument media_live_channel_arn", value=media_live_channel_arn, expected_type=type_hints["media_live_channel_arn"])
                 check_type(argname="argument media_live_channel_output_name", value=media_live_channel_output_name, expected_type=type_hints["media_live_channel_output_name"])
@@ -12387,7 +12683,7 @@ class CfnRouterInput(
         @builtins.property
         def source_transit_decryption(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveTransitEncryptionProperty"]:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
 
             This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
@@ -12396,7 +12692,7 @@ class CfnRouterInput(
             '''
             result = self._values.get("source_transit_decryption")
             assert result is not None, "Required property 'source_transit_decryption' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveTransitEncryptionProperty"], result)
 
         @builtins.property
         def media_live_channel_arn(self) -> typing.Optional[builtins.str]:
@@ -12445,7 +12741,7 @@ class CfnRouterInput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -12471,7 +12767,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed65de0b474672156e612783c6e60babe3b082f649c2c1ee8aa99f2febef28c5)
+                type_hints = cached_type_hints(_typecheckingstub__ed65de0b474672156e612783c6e60babe3b082f649c2c1ee8aa99f2febef28c5)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12492,13 +12788,13 @@ class CfnRouterInput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12523,7 +12819,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
@@ -12558,7 +12854,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__964a0641d54ca9b3931c99857b3cbb193dd32758f7c19fc986a3b2c9e7a8d2ab)
+                type_hints = cached_type_hints(_typecheckingstub__964a0641d54ca9b3931c99857b3cbb193dd32758f7c19fc986a3b2c9e7a8d2ab)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12570,14 +12866,14 @@ class CfnRouterInput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for the MediaLive transit encryption key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryption.html#cfn-mediaconnect-routerinput-medialivetransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -12613,7 +12909,7 @@ class CfnRouterInput(
             *,
             merge_recovery_window_milliseconds: jsii.Number,
             network_interface_arn: builtins.str,
-            protocol_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MergeRouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            protocol_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MergeRouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Configuration settings for a merge router input that combines two input sources.
 
@@ -12648,7 +12944,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c207577b6eab68f0d1c3f7593cc0b00c18a7e10d165eed0314d6bcb41a434578)
+                type_hints = cached_type_hints(_typecheckingstub__c207577b6eab68f0d1c3f7593cc0b00c18a7e10d165eed0314d6bcb41a434578)
                 check_type(argname="argument merge_recovery_window_milliseconds", value=merge_recovery_window_milliseconds, expected_type=type_hints["merge_recovery_window_milliseconds"])
                 check_type(argname="argument network_interface_arn", value=network_interface_arn, expected_type=type_hints["network_interface_arn"])
                 check_type(argname="argument protocol_configurations", value=protocol_configurations, expected_type=type_hints["protocol_configurations"])
@@ -12681,7 +12977,7 @@ class CfnRouterInput(
         @builtins.property
         def protocol_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MergeRouterInputProtocolConfigurationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputProtocolConfigurationProperty"]]]:
             '''A list of exactly two protocol configurations for the merge input sources.
 
             Both must use the same protocol type.
@@ -12690,7 +12986,7 @@ class CfnRouterInput(
             '''
             result = self._values.get("protocol_configurations")
             assert result is not None, "Required property 'protocol_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MergeRouterInputProtocolConfigurationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputProtocolConfigurationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12712,8 +13008,8 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            rist: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
@@ -12742,7 +13038,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4bff0ea4788435a62555083659b5a3393ff9c2dc3b37396f56d5473c1b65763)
+                type_hints = cached_type_hints(_typecheckingstub__d4bff0ea4788435a62555083659b5a3393ff9c2dc3b37396f56d5473c1b65763)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12754,24 +13050,24 @@ class CfnRouterInput(
         @builtins.property
         def rist(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-mergerouterinputprotocolconfiguration-rist
             '''
             result = self._values.get("rist")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
             '''The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-mergerouterinputprotocolconfiguration-rtp
             '''
             result = self._values.get("rtp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12811,7 +13107,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc21d5c65ee1f7e8a6d879dc6bdeea6e77c637daf5b2e9885e67ec9a9279f8d5)
+                type_hints = cached_type_hints(_typecheckingstub__bc21d5c65ee1f7e8a6d879dc6bdeea6e77c637daf5b2e9885e67ec9a9279f8d5)
                 check_type(argname="argument day", value=day, expected_type=type_hints["day"])
                 check_type(argname="argument time", value=time, expected_type=type_hints["time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12884,7 +13180,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__53b65288b7279c56646f36579c820e91edb724a5c19852f9a2b528f0d5893abd)
+                type_hints = cached_type_hints(_typecheckingstub__53b65288b7279c56646f36579c820e91edb724a5c19852f9a2b528f0d5893abd)
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument recovery_latency_milliseconds", value=recovery_latency_milliseconds, expected_type=type_hints["recovery_latency_milliseconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12924,6 +13220,79 @@ class CfnRouterInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"content_level": "contentLevel"},
+    )
+    class RouterContentQualityAnalysisConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            content_level: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The content quality analysis configuration for the router input.
+
+            The content quality analysis feature only monitors the first video stream and the first audio stream it encounters within the router input source.
+
+            :param content_level: Configures the content quality analysis features for the router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routercontentqualityanalysisconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                router_content_quality_analysis_configuration_property = mediaconnect.CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty(
+                    content_level=mediaconnect.CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty(
+                        black_frames=mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        ),
+                        frozen_frames=mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        ),
+                        silent_audio=mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d424854eca5818145479db8807f8033d93ec2fba52d4a1c87fabb497c697127)
+                check_type(argname="argument content_level", value=content_level, expected_type=type_hints["content_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "content_level": content_level,
+            }
+
+        @builtins.property
+        def content_level(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty"]:
+            '''Configures the content quality analysis features for the router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routercontentqualityanalysisconfiguration.html#cfn-mediaconnect-routerinput-routercontentqualityanalysisconfiguration-contentlevel
+            '''
+            result = self._values.get("content_level")
+            assert result is not None, "Required property 'content_level' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterContentQualityAnalysisConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RouterInputConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -12938,11 +13307,11 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            failover: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.FailoverRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            media_connect_flow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            media_live_channel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            merge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MergeRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            standard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.StandardRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failover: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_connect_flow: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_live_channel: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            merge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MergeRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.StandardRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param failover: Configuration settings for a failover router input that allows switching between two input sources.
@@ -13108,7 +13477,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b)
+                type_hints = cached_type_hints(_typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b)
                 check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
                 check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
                 check_type(argname="argument media_live_channel", value=media_live_channel, expected_type=type_hints["media_live_channel"])
@@ -13129,57 +13498,57 @@ class CfnRouterInput(
         @builtins.property
         def failover(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FailoverRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputConfigurationProperty"]]:
             '''Configuration settings for a failover router input that allows switching between two input sources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-failover
             '''
             result = self._values.get("failover")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.FailoverRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def media_connect_flow(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]]:
             '''Configuration settings for connecting a router input to a flow output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-mediaconnectflow
             '''
             result = self._values.get("media_connect_flow")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def media_live_channel(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]]:
             '''Configuration settings for connecting a router input to a MediaLive channel output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-medialivechannel
             '''
             result = self._values.get("media_live_channel")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def merge(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MergeRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputConfigurationProperty"]]:
             '''Configuration settings for a merge router input that combines two input sources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-merge
             '''
             result = self._values.get("merge")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MergeRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def standard(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.StandardRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.StandardRouterInputConfigurationProperty"]]:
             '''The configuration settings for a standard router input, including the protocol, protocol-specific configuration, network interface, and availability zone.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-standard
             '''
             result = self._values.get("standard")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.StandardRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.StandardRouterInputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13206,10 +13575,10 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            rist: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_caller: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_listener: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
@@ -13266,7 +13635,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb637773d1069c)
+                type_hints = cached_type_hints(_typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb637773d1069c)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
@@ -13284,46 +13653,46 @@ class CfnRouterInput(
         @builtins.property
         def rist(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-routerinputprotocolconfiguration-rist
             '''
             result = self._values.get("rist")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]]:
             '''The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-routerinputprotocolconfiguration-rtp
             '''
             result = self._values.get("rtp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_caller(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-routerinputprotocolconfiguration-srtcaller
             '''
             result = self._values.get("srt_caller")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_listener(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]]:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-routerinputprotocolconfiguration-srtlistener
             '''
             result = self._values.get("srt_listener")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13346,7 +13715,7 @@ class CfnRouterInput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -13372,7 +13741,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fcc66546aaf31b61e1efa68ba13e70820ab56b959d9cce333b0e5b3482a1bc09)
+                type_hints = cached_type_hints(_typecheckingstub__fcc66546aaf31b61e1efa68ba13e70820ab56b959d9cce333b0e5b3482a1bc09)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13393,13 +13762,13 @@ class CfnRouterInput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-routerinputtransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13424,7 +13793,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The transit encryption settings for a router input.
@@ -13457,7 +13826,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__85f5061e2ce8c42b22b7dc305382ea9bfa145cf532ef8f62591b3684205d6713)
+                type_hints = cached_type_hints(_typecheckingstub__85f5061e2ce8c42b22b7dc305382ea9bfa145cf532ef8f62591b3684205d6713)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13469,14 +13838,14 @@ class CfnRouterInput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty"]:
             '''Defines the configuration settings for transit encryption keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputtransitencryption.html#cfn-mediaconnect-routerinput-routerinputtransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -13534,7 +13903,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3cb7da58ee58865b37c64051cce4480a789d51b84a87b3f8c0bb5c8c54eaed49)
+                type_hints = cached_type_hints(_typecheckingstub__3cb7da58ee58865b37c64051cce4480a789d51b84a87b3f8c0bb5c8c54eaed49)
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument forward_error_correction", value=forward_error_correction, expected_type=type_hints["forward_error_correction"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13599,7 +13968,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__656ecf17b2aa0c4612970c8eb2678158214e80be3a6040146c524608d6fe0ffc)
+                type_hints = cached_type_hints(_typecheckingstub__656ecf17b2aa0c4612970c8eb2678158214e80be3a6040146c524608d6fe0ffc)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13639,6 +14008,76 @@ class CfnRouterInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state": "state", "threshold_seconds": "thresholdSeconds"},
+    )
+    class SilentAudioConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            state: builtins.str,
+            threshold_seconds: jsii.Number,
+        ) -> None:
+            '''Detects silent audio in the router input's source content and reports it through a CloudWatch metric, an EventBridge event, and a router input message.
+
+            :param state: 
+            :param threshold_seconds: The number of consecutive seconds of silence that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-silentaudioconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                silent_audio_configuration_property = mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty(
+                    state="state",
+                    threshold_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__93028399aea6047b6b4b068b6b8bce109443dda744d608a0befdcd0fb1a4bd3e)
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument threshold_seconds", value=threshold_seconds, expected_type=type_hints["threshold_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "state": state,
+                "threshold_seconds": threshold_seconds,
+            }
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-silentaudioconfiguration.html#cfn-mediaconnect-routerinput-silentaudioconfiguration-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def threshold_seconds(self) -> jsii.Number:
+            '''The number of consecutive seconds of silence that MediaConnect must detect before it reports an issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-silentaudioconfiguration.html#cfn-mediaconnect-routerinput-silentaudioconfiguration-thresholdseconds
+            '''
+            result = self._values.get("threshold_seconds")
+            assert result is not None, "Required property 'threshold_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SilentAudioConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -13656,7 +14095,7 @@ class CfnRouterInput(
             minimum_latency_milliseconds: jsii.Number,
             source_address: builtins.str,
             source_port: jsii.Number,
-            decryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtDecryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            decryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtDecryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stream_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
@@ -13692,7 +14131,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__beeb94f30bd48ba57793ec4ae9b1de79893c6af67077601ee991d8325f1c1155)
+                type_hints = cached_type_hints(_typecheckingstub__beeb94f30bd48ba57793ec4ae9b1de79893c6af67077601ee991d8325f1c1155)
                 check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
                 check_type(argname="argument source_address", value=source_address, expected_type=type_hints["source_address"])
                 check_type(argname="argument source_port", value=source_port, expected_type=type_hints["source_port"])
@@ -13741,13 +14180,13 @@ class CfnRouterInput(
         @builtins.property
         def decryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtDecryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtDecryptionConfigurationProperty"]]:
             '''Contains the configuration settings for decrypting SRT streams, including the encryption key details and decryption parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-srtcallerrouterinputconfiguration.html#cfn-mediaconnect-routerinput-srtcallerrouterinputconfiguration-decryptionconfiguration
             '''
             result = self._values.get("decryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtDecryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtDecryptionConfigurationProperty"]], result)
 
         @builtins.property
         def stream_id(self) -> typing.Optional[builtins.str]:
@@ -13778,7 +14217,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
-            encryption_key: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains the configuration settings for decrypting SRT streams, including the encryption key details and decryption parameters.
 
@@ -13801,7 +14240,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b8e55bc2cc629dfc624dfe6751b96283b3f6c08591aba80e4005288f47ee98a)
+                type_hints = cached_type_hints(_typecheckingstub__9b8e55bc2cc629dfc624dfe6751b96283b3f6c08591aba80e4005288f47ee98a)
                 check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encryption_key": encryption_key,
@@ -13810,14 +14249,14 @@ class CfnRouterInput(
         @builtins.property
         def encryption_key(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-srtdecryptionconfiguration.html#cfn-mediaconnect-routerinput-srtdecryptionconfiguration-encryptionkey
             '''
             result = self._values.get("encryption_key")
             assert result is not None, "Required property 'encryption_key' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13845,7 +14284,7 @@ class CfnRouterInput(
             *,
             minimum_latency_milliseconds: jsii.Number,
             port: jsii.Number,
-            decryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SrtDecryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            decryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtDecryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
 
@@ -13876,7 +14315,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2020f903810fd45bfaa02594fdb1a23bdb3bcc4a9ac870d479f9756284d1f45d)
+                type_hints = cached_type_hints(_typecheckingstub__2020f903810fd45bfaa02594fdb1a23bdb3bcc4a9ac870d479f9756284d1f45d)
                 check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument decryption_configuration", value=decryption_configuration, expected_type=type_hints["decryption_configuration"])
@@ -13910,13 +14349,13 @@ class CfnRouterInput(
         @builtins.property
         def decryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtDecryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtDecryptionConfigurationProperty"]]:
             '''Contains the configuration settings for decrypting SRT streams, including the encryption key details and decryption parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-srtlistenerrouterinputconfiguration.html#cfn-mediaconnect-routerinput-srtlistenerrouterinputconfiguration-decryptionconfiguration
             '''
             result = self._values.get("decryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SrtDecryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtDecryptionConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13943,7 +14382,7 @@ class CfnRouterInput(
             self,
             *,
             network_interface_arn: builtins.str,
-            protocol_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            protocol_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             protocol: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration settings for a standard router input, including the protocol, protocol-specific configuration, network interface, and availability zone.
@@ -14007,7 +14446,7 @@ class CfnRouterInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__95ce52cf6881e0f95e336a6920de1725ead5c20a78c3b050791def2f0629d492)
+                type_hints = cached_type_hints(_typecheckingstub__95ce52cf6881e0f95e336a6920de1725ead5c20a78c3b050791def2f0629d492)
                 check_type(argname="argument network_interface_arn", value=network_interface_arn, expected_type=type_hints["network_interface_arn"])
                 check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
                 check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
@@ -14031,14 +14470,14 @@ class CfnRouterInput(
         @builtins.property
         def protocol_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputProtocolConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputProtocolConfigurationProperty"]:
             '''The protocol configuration settings for a router input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-standardrouterinputconfiguration.html#cfn-mediaconnect-routerinput-standardrouterinputconfiguration-protocolconfiguration
             '''
             result = self._values.get("protocol_configuration")
             assert result is not None, "Required property 'protocol_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputProtocolConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputProtocolConfigurationProperty"], result)
 
         @builtins.property
         def protocol(self) -> typing.Optional[builtins.str]:
@@ -14070,6 +14509,7 @@ class CfnRouterInput(
         "routing_scope": "routingScope",
         "tier": "tier",
         "availability_zone": "availabilityZone",
+        "content_quality_analysis_configuration": "contentQualityAnalysisConfiguration",
         "maintenance_configuration": "maintenanceConfiguration",
         "region_name": "regionName",
         "tags": "tags",
@@ -14080,16 +14520,17 @@ class CfnRouterInputProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         maximum_bitrate: jsii.Number,
         name: builtins.str,
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
-        maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        content_quality_analysis_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.RouterInputTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RouterInputTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRouterInput``.
 
@@ -14099,6 +14540,7 @@ class CfnRouterInputProps:
         :param routing_scope: Indicates whether the router input is configured for Regional or global routing.
         :param tier: The tier level of the router input.
         :param availability_zone: The Availability Zone of the router input.
+        :param content_quality_analysis_configuration: The content quality analysis configuration for the router input. The content quality analysis feature only monitors the first video stream and the first audio stream it encounters within the router input source.
         :param maintenance_configuration: The maintenance configuration settings applied to this router input.
         :param region_name: The AWS Region where the router input is located.
         :param tags: Key-value pairs that can be used to tag and organize this router input.
@@ -14269,6 +14711,22 @@ class CfnRouterInputProps:
             
                 # the properties below are optional
                 availability_zone="availabilityZone",
+                content_quality_analysis_configuration=mediaconnect.CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty(
+                    content_level=mediaconnect.CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty(
+                        black_frames=mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        ),
+                        frozen_frames=mediaconnect.CfnRouterInput.FrozenFramesConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        ),
+                        silent_audio=mediaconnect.CfnRouterInput.SilentAudioConfigurationProperty(
+                            state="state",
+                            threshold_seconds=123
+                        )
+                    )
+                ),
                 maintenance_configuration=mediaconnect.CfnRouterInput.MaintenanceConfigurationProperty(
                     default=default_,
                     preferred_day_time=mediaconnect.CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty(
@@ -14296,13 +14754,14 @@ class CfnRouterInputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__629abd36e1d3f5d9a60304da2c55389ba519de279616eb9eae24baa19310f5f4)
+            type_hints = cached_type_hints(_typecheckingstub__629abd36e1d3f5d9a60304da2c55389ba519de279616eb9eae24baa19310f5f4)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument maximum_bitrate", value=maximum_bitrate, expected_type=type_hints["maximum_bitrate"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument routing_scope", value=routing_scope, expected_type=type_hints["routing_scope"])
             check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument content_quality_analysis_configuration", value=content_quality_analysis_configuration, expected_type=type_hints["content_quality_analysis_configuration"])
             check_type(argname="argument maintenance_configuration", value=maintenance_configuration, expected_type=type_hints["maintenance_configuration"])
             check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -14316,6 +14775,8 @@ class CfnRouterInputProps:
         }
         if availability_zone is not None:
             self._values["availability_zone"] = availability_zone
+        if content_quality_analysis_configuration is not None:
+            self._values["content_quality_analysis_configuration"] = content_quality_analysis_configuration
         if maintenance_configuration is not None:
             self._values["maintenance_configuration"] = maintenance_configuration
         if region_name is not None:
@@ -14328,14 +14789,14 @@ class CfnRouterInputProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputConfigurationProperty"]:
         '''The configuration settings for a router input.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routerinput.html#cfn-mediaconnect-routerinput-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputConfigurationProperty"], result)
 
     @builtins.property
     def maximum_bitrate(self) -> jsii.Number:
@@ -14387,15 +14848,28 @@ class CfnRouterInputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def content_quality_analysis_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty"]]:
+        '''The content quality analysis configuration for the router input.
+
+        The content quality analysis feature only monitors the first video stream and the first audio stream it encounters within the router input source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routerinput.html#cfn-mediaconnect-routerinput-contentqualityanalysisconfiguration
+        '''
+        result = self._values.get("content_quality_analysis_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty"]], result)
+
+    @builtins.property
     def maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MaintenanceConfigurationProperty"]]:
         '''The maintenance configuration settings applied to this router input.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routerinput.html#cfn-mediaconnect-routerinput-maintenanceconfiguration
         '''
         result = self._values.get("maintenance_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MaintenanceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MaintenanceConfigurationProperty"]], result)
 
     @builtins.property
     def region_name(self) -> typing.Optional[builtins.str]:
@@ -14407,24 +14881,24 @@ class CfnRouterInputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router input.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routerinput.html#cfn-mediaconnect-routerinput-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transit_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionProperty"]]:
         '''Encryption information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routerinput.html#cfn-mediaconnect-routerinput-transitencryption
         '''
         result = self._values.get("transit_encryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.RouterInputTransitEncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RouterInputTransitEncryptionProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14438,9 +14912,9 @@ class CfnRouterInputProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRouterNetworkInterfaceRef_05bd061c, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IRouterNetworkInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRouterNetworkInterface(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterNetworkInterface",
 ):
@@ -14485,10 +14959,10 @@ class CfnRouterNetworkInterface(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::RouterNetworkInterface``.
 
@@ -14500,7 +14974,7 @@ class CfnRouterNetworkInterface(
         :param tags: Key-value pairs that can be used to tag and organize this router network interface.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24310ca09a20908bd3bbf12dedeae64057a241ad260d0173c063494e94a5e372)
+            type_hints = cached_type_hints(_typecheckingstub__24310ca09a20908bd3bbf12dedeae64057a241ad260d0173c063494e94a5e372)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRouterNetworkInterfaceProps(
@@ -14513,13 +14987,13 @@ class CfnRouterNetworkInterface(
     @builtins.classmethod
     def arn_for_router_network_interface(
         cls,
-        resource: "_IRouterNetworkInterfaceRef_05bd061c",
+        resource: "_aws_mediaconnect_6374326e.IRouterNetworkInterfaceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31cc864547a94937d2c7f541798d2155fb714db7022c9ef5c73db0655c89a985)
+            type_hints = cached_type_hints(_typecheckingstub__31cc864547a94937d2c7f541798d2155fb714db7022c9ef5c73db0655c89a985)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRouterNetworkInterface", [resource]))
 
@@ -14531,18 +15005,18 @@ class CfnRouterNetworkInterface(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58580bda8f3f828588ff2afcfe7bb604e0dda1e286e8115e82a78cd696a8501c)
+            type_hints = cached_type_hints(_typecheckingstub__58580bda8f3f828588ff2afcfe7bb604e0dda1e286e8115e82a78cd696a8501c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRouterNetworkInterface", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c99813ca43090ccca654d469e7c1278029c90800fa145e079a4c1a327ab3e09c)
+            type_hints = cached_type_hints(_typecheckingstub__c99813ca43090ccca654d469e7c1278029c90800fa145e079a4c1a327ab3e09c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -14555,7 +15029,7 @@ class CfnRouterNetworkInterface(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4249152775ddcb28eec7583b5299fb11c67a758dbbd05886d4cb11ac3c3cf26)
+            type_hints = cached_type_hints(_typecheckingstub__e4249152775ddcb28eec7583b5299fb11c67a758dbbd05886d4cb11ac3c3cf26)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -14639,9 +15113,9 @@ class CfnRouterNetworkInterface(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -14657,25 +15131,25 @@ class CfnRouterNetworkInterface(
     @jsii.member(jsii_name="routerNetworkInterfaceRef")
     def router_network_interface_ref(
         self,
-    ) -> "_RouterNetworkInterfaceReference_fdc8b08c":
+    ) -> "_aws_mediaconnect_6374326e.RouterNetworkInterfaceReference":
         '''A reference to a RouterNetworkInterface resource.'''
-        return typing.cast("_RouterNetworkInterfaceReference_fdc8b08c", jsii.get(self, "routerNetworkInterfaceRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.RouterNetworkInterfaceReference", jsii.get(self, "routerNetworkInterfaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"]:
         '''The configuration settings for a router network interface.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ada01cdf0843f372e2358efd8825753add57ec0a85c656d8730df8fe11d675f8)
+            type_hints = cached_type_hints(_typecheckingstub__ada01cdf0843f372e2358efd8825753add57ec0a85c656d8730df8fe11d675f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -14688,7 +15162,7 @@ class CfnRouterNetworkInterface(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43e368d1cada7b7c423f1301292b045fe35c167df6909c271c310814e384d2f2)
+            type_hints = cached_type_hints(_typecheckingstub__43e368d1cada7b7c423f1301292b045fe35c167df6909c271c310814e384d2f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -14701,20 +15175,23 @@ class CfnRouterNetworkInterface(
     @region_name.setter
     def region_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__640023b56bd3332877d359f440c6fc815950e5fd32985dc6f11c1892bd7cfaaf)
+            type_hints = cached_type_hints(_typecheckingstub__640023b56bd3332877d359f440c6fc815950e5fd32985dc6f11c1892bd7cfaaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router network interface.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70255a3ae365875252abf102dc0c10255d13f5d5552ee11bd61363fcd195a6d8)
+            type_hints = cached_type_hints(_typecheckingstub__70255a3ae365875252abf102dc0c10255d13f5d5552ee11bd61363fcd195a6d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -14727,7 +15204,7 @@ class CfnRouterNetworkInterface(
         def __init__(
             self,
             *,
-            allow_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            allow_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The configuration settings for a public router network interface, including the list of allowed CIDR blocks.
 
@@ -14749,7 +15226,7 @@ class CfnRouterNetworkInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86b2b80a7d574588364b855dababd894760b38396c485dd9b78bbd7b36199e16)
+                type_hints = cached_type_hints(_typecheckingstub__86b2b80a7d574588364b855dababd894760b38396c485dd9b78bbd7b36199e16)
                 check_type(argname="argument allow_rules", value=allow_rules, expected_type=type_hints["allow_rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "allow_rules": allow_rules,
@@ -14758,14 +15235,14 @@ class CfnRouterNetworkInterface(
         @builtins.property
         def allow_rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty"]]]:
             '''The list of allowed CIDR blocks for the public router network interface.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routernetworkinterface-publicrouternetworkinterfaceconfiguration.html#cfn-mediaconnect-routernetworkinterface-publicrouternetworkinterfaceconfiguration-allowrules
             '''
             result = self._values.get("allow_rules")
             assert result is not None, "Required property 'allow_rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14803,7 +15280,7 @@ class CfnRouterNetworkInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b16b6a0a6e17ced0af99bf04d82b87f0ed226b2b3a5459757c42969b81e58901)
+                type_hints = cached_type_hints(_typecheckingstub__b16b6a0a6e17ced0af99bf04d82b87f0ed226b2b3a5459757c42969b81e58901)
                 check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cidr": cidr,
@@ -14839,8 +15316,8 @@ class CfnRouterNetworkInterface(
         def __init__(
             self,
             *,
-            public: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            public: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param public: The configuration settings for a public router network interface, including the list of allowed CIDR blocks.
@@ -14868,7 +15345,7 @@ class CfnRouterNetworkInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed1657ecdbbe74a0573f76b57267bb3e8bae064809e9330b8325b2050859af13)
+                type_hints = cached_type_hints(_typecheckingstub__ed1657ecdbbe74a0573f76b57267bb3e8bae064809e9330b8325b2050859af13)
                 check_type(argname="argument public", value=public, expected_type=type_hints["public"])
                 check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -14880,24 +15357,24 @@ class CfnRouterNetworkInterface(
         @builtins.property
         def public(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty"]]:
             '''The configuration settings for a public router network interface, including the list of allowed CIDR blocks.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routernetworkinterface-routernetworkinterfaceconfiguration.html#cfn-mediaconnect-routernetworkinterface-routernetworkinterfaceconfiguration-public
             '''
             result = self._values.get("public")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty"]], result)
 
         @builtins.property
         def vpc(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty"]]:
             '''The configuration settings for a router network interface within a VPC, including the security group IDs and subnet ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routernetworkinterface-routernetworkinterfaceconfiguration.html#cfn-mediaconnect-routernetworkinterface-routernetworkinterfaceconfiguration-vpc
             '''
             result = self._values.get("vpc")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14945,7 +15422,7 @@ class CfnRouterNetworkInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e100934f67ad4ab390b48cc7ed268e9b09228c57ff83fdda79b86e4a8e736125)
+                type_hints = cached_type_hints(_typecheckingstub__e100934f67ad4ab390b48cc7ed268e9b09228c57ff83fdda79b86e4a8e736125)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14999,10 +15476,10 @@ class CfnRouterNetworkInterfaceProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRouterNetworkInterface``.
 
@@ -15044,7 +15521,7 @@ class CfnRouterNetworkInterfaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c96298441d1fa6afb4e99a0f43137a8859e8ca44045c1e46e91194e38b1ef1c)
+            type_hints = cached_type_hints(_typecheckingstub__0c96298441d1fa6afb4e99a0f43137a8859e8ca44045c1e46e91194e38b1ef1c)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
@@ -15061,14 +15538,14 @@ class CfnRouterNetworkInterfaceProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"]:
         '''The configuration settings for a router network interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routernetworkinterface.html#cfn-mediaconnect-routernetworkinterface-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -15090,13 +15567,13 @@ class CfnRouterNetworkInterfaceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router network interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routernetworkinterface.html#cfn-mediaconnect-routernetworkinterface-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15110,9 +15587,9 @@ class CfnRouterNetworkInterfaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRouterOutputRef_afa317cd, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IRouterOutputRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRouterOutput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput",
 ):
@@ -15243,15 +15720,15 @@ class CfnRouterOutput(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.RouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         maximum_bitrate: jsii.Number,
         name: builtins.str,
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
-        maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::RouterOutput``.
 
@@ -15268,7 +15745,7 @@ class CfnRouterOutput(
         :param tags: Key-value pairs that can be used to tag and organize this router output.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0723832b1d0cb17f5bcd9018d140834abd5e94bc96fb3fb67d22f77fb5439c3)
+            type_hints = cached_type_hints(_typecheckingstub__d0723832b1d0cb17f5bcd9018d140834abd5e94bc96fb3fb67d22f77fb5439c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRouterOutputProps(
@@ -15289,13 +15766,13 @@ class CfnRouterOutput(
     @builtins.classmethod
     def arn_for_router_output(
         cls,
-        resource: "_IRouterOutputRef_afa317cd",
+        resource: "_aws_mediaconnect_6374326e.IRouterOutputRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24a2fbac160b0fd704ba7504535f3e38f1a17f7911da11e6a5c0eb4336436bbc)
+            type_hints = cached_type_hints(_typecheckingstub__24a2fbac160b0fd704ba7504535f3e38f1a17f7911da11e6a5c0eb4336436bbc)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRouterOutput", [resource]))
 
@@ -15307,18 +15784,18 @@ class CfnRouterOutput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76381601efd880f1b3fc396253c86e23a095f42a58d2fdaf834228f3d26a1240)
+            type_hints = cached_type_hints(_typecheckingstub__76381601efd880f1b3fc396253c86e23a095f42a58d2fdaf834228f3d26a1240)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRouterOutput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46c254968a788990028c9b84207c991e7dbd51c1a2e4cd0ceb7a94af8e32e549)
+            type_hints = cached_type_hints(_typecheckingstub__46c254968a788990028c9b84207c991e7dbd51c1a2e4cd0ceb7a94af8e32e549)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -15331,7 +15808,7 @@ class CfnRouterOutput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96ef8ccb0c5e0eb94acef4319249f97dfa0ce9d3c9e57dbf2db800211064be5d)
+            type_hints = cached_type_hints(_typecheckingstub__96ef8ccb0c5e0eb94acef4319249f97dfa0ce9d3c9e57dbf2db800211064be5d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -15424,9 +15901,9 @@ class CfnRouterOutput(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -15440,25 +15917,25 @@ class CfnRouterOutput(
 
     @builtins.property
     @jsii.member(jsii_name="routerOutputRef")
-    def router_output_ref(self) -> "_RouterOutputReference_12c4ea61":
+    def router_output_ref(self) -> "_aws_mediaconnect_6374326e.RouterOutputReference":
         '''A reference to a RouterOutput resource.'''
-        return typing.cast("_RouterOutputReference_12c4ea61", jsii.get(self, "routerOutputRef"))
+        return typing.cast("_aws_mediaconnect_6374326e.RouterOutputReference", jsii.get(self, "routerOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputConfigurationProperty"]:
         '''The configuration settings for a router output.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f147da00aaf1cdc7014a62b08d8cdc0f9cfce3df5d377973424d2f11377219c)
+            type_hints = cached_type_hints(_typecheckingstub__7f147da00aaf1cdc7014a62b08d8cdc0f9cfce3df5d377973424d2f11377219c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -15471,7 +15948,7 @@ class CfnRouterOutput(
     @maximum_bitrate.setter
     def maximum_bitrate(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6343c02a4b0b9d5d865add8c4d996a26f8389b83b214b7350ac7818a31991557)
+            type_hints = cached_type_hints(_typecheckingstub__6343c02a4b0b9d5d865add8c4d996a26f8389b83b214b7350ac7818a31991557)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumBitrate", value) # pyright: ignore[reportArgumentType]
 
@@ -15484,7 +15961,7 @@ class CfnRouterOutput(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4216c7d780d8fb5794084f06923c5c5b6e06951c7c74d95e570b19c17f16c07d)
+            type_hints = cached_type_hints(_typecheckingstub__4216c7d780d8fb5794084f06923c5c5b6e06951c7c74d95e570b19c17f16c07d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -15497,7 +15974,7 @@ class CfnRouterOutput(
     @routing_scope.setter
     def routing_scope(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31256d5031051647600a9f3e6d4c7348c96db2131b170cbb3b84d03cb08508d9)
+            type_hints = cached_type_hints(_typecheckingstub__31256d5031051647600a9f3e6d4c7348c96db2131b170cbb3b84d03cb08508d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routingScope", value) # pyright: ignore[reportArgumentType]
 
@@ -15510,7 +15987,7 @@ class CfnRouterOutput(
     @tier.setter
     def tier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1241eacdcaad6a0aadee10ac0ca9c13dd7f59cf1e7f5d785c7c1fc63190e220)
+            type_hints = cached_type_hints(_typecheckingstub__e1241eacdcaad6a0aadee10ac0ca9c13dd7f59cf1e7f5d785c7c1fc63190e220)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
 
@@ -15523,7 +16000,7 @@ class CfnRouterOutput(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b8371a3dd1aa326607abab281477f883dfadb45d27717b05bafb937c2ca7c31)
+            type_hints = cached_type_hints(_typecheckingstub__8b8371a3dd1aa326607abab281477f883dfadb45d27717b05bafb937c2ca7c31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -15531,17 +16008,17 @@ class CfnRouterOutput(
     @jsii.member(jsii_name="maintenanceConfiguration")
     def maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MaintenanceConfigurationProperty"]]:
         '''The maintenance configuration settings applied to this router output.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MaintenanceConfigurationProperty"]], jsii.get(self, "maintenanceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MaintenanceConfigurationProperty"]], jsii.get(self, "maintenanceConfiguration"))
 
     @maintenance_configuration.setter
     def maintenance_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MaintenanceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MaintenanceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2d9d66ea8cc6f7fb9f2d963cee39b38487405038346bed562a4282d170af87a)
+            type_hints = cached_type_hints(_typecheckingstub__e2d9d66ea8cc6f7fb9f2d963cee39b38487405038346bed562a4282d170af87a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -15554,20 +16031,23 @@ class CfnRouterOutput(
     @region_name.setter
     def region_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f23a2bac43b9e1bd96cf5c900f5ae7d229b5b15428c990a76f5392b3623edc92)
+            type_hints = cached_type_hints(_typecheckingstub__f23a2bac43b9e1bd96cf5c900f5ae7d229b5b15428c990a76f5392b3623edc92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router output.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808)
+            type_hints = cached_type_hints(_typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -15581,7 +16061,7 @@ class CfnRouterOutput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -15607,7 +16087,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d2919cc0452cea1b6c29eff661620544fa1903342e65d8def16c87e34ebac3af)
+                type_hints = cached_type_hints(_typecheckingstub__d2919cc0452cea1b6c29eff661620544fa1903342e65d8def16c87e34ebac3af)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15628,13 +16108,13 @@ class CfnRouterOutput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15659,7 +16139,7 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
@@ -15692,7 +16172,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eb7cec781c17f5df2ca2950847ce1a86c7e216d13b67c9830306688dd24f423c)
+                type_hints = cached_type_hints(_typecheckingstub__eb7cec781c17f5df2ca2950847ce1a86c7e216d13b67c9830306688dd24f423c)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15704,14 +16184,14 @@ class CfnRouterOutput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for flow transit encryption keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-flowtransitencryption.html#cfn-mediaconnect-routeroutput-flowtransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -15742,7 +16222,7 @@ class CfnRouterOutput(
             self,
             *,
             default: typing.Any = None,
-            preferred_day_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            preferred_day_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param default: Configuration settings for default maintenance scheduling.
@@ -15768,7 +16248,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3168eb6355c5a713c93dcf1c47b10105621a55ece693c6e8524178049155072b)
+                type_hints = cached_type_hints(_typecheckingstub__3168eb6355c5a713c93dcf1c47b10105621a55ece693c6e8524178049155072b)
                 check_type(argname="argument default", value=default, expected_type=type_hints["default"])
                 check_type(argname="argument preferred_day_time", value=preferred_day_time, expected_type=type_hints["preferred_day_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15789,13 +16269,13 @@ class CfnRouterOutput(
         @builtins.property
         def preferred_day_time(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty"]]:
             '''Configuration for preferred day and time maintenance settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-maintenanceconfiguration.html#cfn-mediaconnect-routeroutput-maintenanceconfiguration-preferreddaytime
             '''
             result = self._values.get("preferred_day_time")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15821,7 +16301,7 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            destination_transit_encryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_transit_encryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
             flow_arn: typing.Optional[builtins.str] = None,
             flow_source_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -15862,7 +16342,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c91e97d97b93eb546e4ca89c6248ae26ae42ceadf35a6181ea7b383b55804b49)
+                type_hints = cached_type_hints(_typecheckingstub__c91e97d97b93eb546e4ca89c6248ae26ae42ceadf35a6181ea7b383b55804b49)
                 check_type(argname="argument destination_transit_encryption", value=destination_transit_encryption, expected_type=type_hints["destination_transit_encryption"])
                 check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
                 check_type(argname="argument flow_source_arn", value=flow_source_arn, expected_type=type_hints["flow_source_arn"])
@@ -15877,14 +16357,14 @@ class CfnRouterOutput(
         @builtins.property
         def destination_transit_encryption(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.FlowTransitEncryptionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FlowTransitEncryptionProperty"]:
             '''The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-mediaconnectflowrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-mediaconnectflowrouteroutputconfiguration-destinationtransitencryption
             '''
             result = self._values.get("destination_transit_encryption")
             assert result is not None, "Required property 'destination_transit_encryption' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.FlowTransitEncryptionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FlowTransitEncryptionProperty"], result)
 
         @builtins.property
         def flow_arn(self) -> typing.Optional[builtins.str]:
@@ -15928,7 +16408,7 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            destination_transit_encryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MediaLiveTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_transit_encryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaLiveTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
             media_live_input_arn: typing.Optional[builtins.str] = None,
             media_live_pipeline_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -15969,7 +16449,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__296fe8c5575c6daa0aee10695b4fa916e9cc5d0a13736ad1ed6b81b458d5454e)
+                type_hints = cached_type_hints(_typecheckingstub__296fe8c5575c6daa0aee10695b4fa916e9cc5d0a13736ad1ed6b81b458d5454e)
                 check_type(argname="argument destination_transit_encryption", value=destination_transit_encryption, expected_type=type_hints["destination_transit_encryption"])
                 check_type(argname="argument media_live_input_arn", value=media_live_input_arn, expected_type=type_hints["media_live_input_arn"])
                 check_type(argname="argument media_live_pipeline_id", value=media_live_pipeline_id, expected_type=type_hints["media_live_pipeline_id"])
@@ -15984,7 +16464,7 @@ class CfnRouterOutput(
         @builtins.property
         def destination_transit_encryption(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveTransitEncryptionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveTransitEncryptionProperty"]:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
 
             This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
@@ -15993,7 +16473,7 @@ class CfnRouterOutput(
             '''
             result = self._values.get("destination_transit_encryption")
             assert result is not None, "Required property 'destination_transit_encryption' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveTransitEncryptionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveTransitEncryptionProperty"], result)
 
         @builtins.property
         def media_live_input_arn(self) -> typing.Optional[builtins.str]:
@@ -16033,7 +16513,7 @@ class CfnRouterOutput(
             self,
             *,
             automatic: typing.Any = None,
-            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
@@ -16059,7 +16539,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__15fd9e770cad7633d1755bc0f3ee7c7619085574f4779ab136bccba68f8b110e)
+                type_hints = cached_type_hints(_typecheckingstub__15fd9e770cad7633d1755bc0f3ee7c7619085574f4779ab136bccba68f8b110e)
                 check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
                 check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -16080,13 +16560,13 @@ class CfnRouterOutput(
         @builtins.property
         def secrets_manager(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration-secretsmanager
             '''
             result = self._values.get("secrets_manager")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16111,7 +16591,7 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             encryption_key_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
@@ -16146,7 +16626,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bca59142eba771d1b11d62bea50d63c8ea9c3e3f701bc82dec8d3053a8e335a9)
+                type_hints = cached_type_hints(_typecheckingstub__bca59142eba771d1b11d62bea50d63c8ea9c3e3f701bc82dec8d3053a8e335a9)
                 check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
                 check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -16158,14 +16638,14 @@ class CfnRouterOutput(
         @builtins.property
         def encryption_key_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty"]:
             '''Configuration settings for the MediaLive transit encryption key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryption.html#cfn-mediaconnect-routeroutput-medialivetransitencryption-encryptionkeyconfiguration
             '''
             result = self._values.get("encryption_key_configuration")
             assert result is not None, "Required property 'encryption_key_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty"], result)
 
         @builtins.property
         def encryption_key_type(self) -> typing.Optional[builtins.str]:
@@ -16213,7 +16693,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__06a3dadf828214b14502e7163f28e97ca8eaba7fe6816f85989f565bc4e469d7)
+                type_hints = cached_type_hints(_typecheckingstub__06a3dadf828214b14502e7163f28e97ca8eaba7fe6816f85989f565bc4e469d7)
                 check_type(argname="argument day", value=day, expected_type=type_hints["day"])
                 check_type(argname="argument time", value=time, expected_type=type_hints["time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -16286,7 +16766,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ae36a4a425b1a376a579bc881963342c2907067c5765e9a309cac9c1792dec7c)
+                type_hints = cached_type_hints(_typecheckingstub__ae36a4a425b1a376a579bc881963342c2907067c5765e9a309cac9c1792dec7c)
                 check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
                 check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -16338,9 +16818,9 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            media_connect_flow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            media_live_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            standard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.StandardRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_connect_flow: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_live_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.StandardRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param media_connect_flow: Configuration settings for connecting a router output to a MediaConnect flow source.
@@ -16443,7 +16923,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a490a7d3d)
+                type_hints = cached_type_hints(_typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a490a7d3d)
                 check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
                 check_type(argname="argument media_live_input", value=media_live_input, expected_type=type_hints["media_live_input"])
                 check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
@@ -16458,35 +16938,35 @@ class CfnRouterOutput(
         @builtins.property
         def media_connect_flow(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty"]]:
             '''Configuration settings for connecting a router output to a MediaConnect flow source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-mediaconnectflow
             '''
             result = self._values.get("media_connect_flow")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def media_live_input(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]]:
             '''Configuration settings for connecting a router output to a MediaLive input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-medialiveinput
             '''
             result = self._values.get("media_live_input")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def standard(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.StandardRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.StandardRouterOutputConfigurationProperty"]]:
             '''The configuration settings for a standard router output, including the protocol, protocol-specific configuration, network interface, and availability zone.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-standard
             '''
             result = self._values.get("standard")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.StandardRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.StandardRouterOutputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16513,10 +16993,10 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            rist: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.RistRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.RtpRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_caller: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_listener: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RistRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RtpRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router output using the RIST (Reliable Internet Stream Transport) protocol, including the destination address and port.
@@ -16574,7 +17054,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__562d01ca7d13c69f8bd962654080b4d33fa8642743ff71dd15962ebd61569f3d)
+                type_hints = cached_type_hints(_typecheckingstub__562d01ca7d13c69f8bd962654080b4d33fa8642743ff71dd15962ebd61569f3d)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
@@ -16592,46 +17072,46 @@ class CfnRouterOutput(
         @builtins.property
         def rist(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RistRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RistRouterOutputConfigurationProperty"]]:
             '''The configuration settings for a router output using the RIST (Reliable Internet Stream Transport) protocol, including the destination address and port.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputprotocolconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputprotocolconfiguration-rist
             '''
             result = self._values.get("rist")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RistRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RistRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RtpRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RtpRouterOutputConfigurationProperty"]]:
             '''The configuration settings for a router output using the RTP (Real-Time Transport Protocol) protocol, including the destination address and port, and forward error correction state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputprotocolconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputprotocolconfiguration-rtp
             '''
             result = self._values.get("rtp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RtpRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RtpRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_caller(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty"]]:
             '''The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in caller mode, including the destination address and port, minimum latency, stream ID, and encryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputprotocolconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputprotocolconfiguration-srtcaller
             '''
             result = self._values.get("srt_caller")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def srt_listener(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty"]]:
             '''The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and encryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputprotocolconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputprotocolconfiguration-srtlistener
             '''
             result = self._values.get("srt_listener")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16685,7 +17165,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__979ac0b18bf0bc76a507f9f24868b0ff8e68ab9d4bf73ca30f060372ccbea196)
+                type_hints = cached_type_hints(_typecheckingstub__979ac0b18bf0bc76a507f9f24868b0ff8e68ab9d4bf73ca30f060372ccbea196)
                 check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
                 check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
                 check_type(argname="argument forward_error_correction", value=forward_error_correction, expected_type=type_hints["forward_error_correction"])
@@ -16762,7 +17242,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__066db337f47042a13b7d50a298df594df0a3bcbe095ae9b4f093e6805b55e954)
+                type_hints = cached_type_hints(_typecheckingstub__066db337f47042a13b7d50a298df594df0a3bcbe095ae9b4f093e6805b55e954)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -16819,7 +17299,7 @@ class CfnRouterOutput(
             destination_address: builtins.str,
             destination_port: jsii.Number,
             minimum_latency_milliseconds: jsii.Number,
-            encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SrtEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stream_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in caller mode, including the destination address and port, minimum latency, stream ID, and encryption key configuration.
@@ -16855,7 +17335,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c3254adaa7e8d0f5267957a6b36ec0a736bd46e05edb0d526175da04f002a94)
+                type_hints = cached_type_hints(_typecheckingstub__7c3254adaa7e8d0f5267957a6b36ec0a736bd46e05edb0d526175da04f002a94)
                 check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
                 check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
                 check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
@@ -16904,13 +17384,13 @@ class CfnRouterOutput(
         @builtins.property
         def encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]]:
             '''Contains the configuration settings for encrypting SRT streams, including the encryption key details and encryption parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-srtcallerrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-srtcallerrouteroutputconfiguration-encryptionconfiguration
             '''
             result = self._values.get("encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]], result)
 
         @builtins.property
         def stream_id(self) -> typing.Optional[builtins.str]:
@@ -16941,7 +17421,7 @@ class CfnRouterOutput(
         def __init__(
             self,
             *,
-            encryption_key: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains the configuration settings for encrypting SRT streams, including the encryption key details and encryption parameters.
 
@@ -16964,7 +17444,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd76c0aac777140ccfdcd9b8dde075deccd8b20e8fb2f4ae5c88addc5b54ccef)
+                type_hints = cached_type_hints(_typecheckingstub__bd76c0aac777140ccfdcd9b8dde075deccd8b20e8fb2f4ae5c88addc5b54ccef)
                 check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encryption_key": encryption_key,
@@ -16973,14 +17453,14 @@ class CfnRouterOutput(
         @builtins.property
         def encryption_key(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]:
             '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-srtencryptionconfiguration.html#cfn-mediaconnect-routeroutput-srtencryptionconfiguration-encryptionkey
             '''
             result = self._values.get("encryption_key")
             assert result is not None, "Required property 'encryption_key' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17008,7 +17488,7 @@ class CfnRouterOutput(
             *,
             minimum_latency_milliseconds: jsii.Number,
             port: jsii.Number,
-            encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.SrtEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and encryption key configuration.
 
@@ -17039,7 +17519,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__46a504c749dcd4fafe4de2e4d8b321ec6c39bf1a1cb6ef1c43a2b6dbee93549e)
+                type_hints = cached_type_hints(_typecheckingstub__46a504c749dcd4fafe4de2e4d8b321ec6c39bf1a1cb6ef1c43a2b6dbee93549e)
                 check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
@@ -17073,13 +17553,13 @@ class CfnRouterOutput(
         @builtins.property
         def encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]]:
             '''Contains the configuration settings for encrypting SRT streams, including the encryption key details and encryption parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-srtlistenerrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-srtlistenerrouteroutputconfiguration-encryptionconfiguration
             '''
             result = self._values.get("encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SrtEncryptionConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17106,7 +17586,7 @@ class CfnRouterOutput(
             self,
             *,
             network_interface_arn: builtins.str,
-            protocol_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.RouterOutputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            protocol_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RouterOutputProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             protocol: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration settings for a standard router output, including the protocol, protocol-specific configuration, network interface, and availability zone.
@@ -17171,7 +17651,7 @@ class CfnRouterOutput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__010befd5e2660537f2f9db5cecf3b56ab325c13eace710cabb8f4ab0cb7d831b)
+                type_hints = cached_type_hints(_typecheckingstub__010befd5e2660537f2f9db5cecf3b56ab325c13eace710cabb8f4ab0cb7d831b)
                 check_type(argname="argument network_interface_arn", value=network_interface_arn, expected_type=type_hints["network_interface_arn"])
                 check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
                 check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
@@ -17195,14 +17675,14 @@ class CfnRouterOutput(
         @builtins.property
         def protocol_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputProtocolConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputProtocolConfigurationProperty"]:
             '''The protocol configuration settings for a router output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-standardrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-standardrouteroutputconfiguration-protocolconfiguration
             '''
             result = self._values.get("protocol_configuration")
             assert result is not None, "Required property 'protocol_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputProtocolConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputProtocolConfigurationProperty"], result)
 
         @builtins.property
         def protocol(self) -> typing.Optional[builtins.str]:
@@ -17243,15 +17723,15 @@ class CfnRouterOutputProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.RouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         maximum_bitrate: jsii.Number,
         name: builtins.str,
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
-        maintenance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRouterOutput``.
 
@@ -17384,7 +17864,7 @@ class CfnRouterOutputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47e40b68b394725a4935bfc1b6ffcf51630ed2e6a0f1075f0c828959594668c7)
+            type_hints = cached_type_hints(_typecheckingstub__47e40b68b394725a4935bfc1b6ffcf51630ed2e6a0f1075f0c828959594668c7)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument maximum_bitrate", value=maximum_bitrate, expected_type=type_hints["maximum_bitrate"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -17413,14 +17893,14 @@ class CfnRouterOutputProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputConfigurationProperty"]:
         '''The configuration settings for a router output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routeroutput.html#cfn-mediaconnect-routeroutput-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.RouterOutputConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RouterOutputConfigurationProperty"], result)
 
     @builtins.property
     def maximum_bitrate(self) -> jsii.Number:
@@ -17474,13 +17954,13 @@ class CfnRouterOutputProps:
     @builtins.property
     def maintenance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MaintenanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MaintenanceConfigurationProperty"]]:
         '''The maintenance configuration settings applied to this router output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routeroutput.html#cfn-mediaconnect-routeroutput-maintenanceconfiguration
         '''
         result = self._values.get("maintenance_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MaintenanceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MaintenanceConfigurationProperty"]], result)
 
     @builtins.property
     def region_name(self) -> typing.Optional[builtins.str]:
@@ -17492,13 +17972,13 @@ class CfnRouterOutputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to tag and organize this router output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routeroutput.html#cfn-mediaconnect-routeroutput-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17547,17 +18027,17 @@ def _typecheckingstub__21d1f093ae6c3ef104fbfbb93b13b3338230662ddb218fed6d74e5040
     *,
     name: builtins.str,
     placement_arn: builtins.str,
-    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    egress_gateway_bridge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_gateway_bridge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outputs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61c94f5a708599ab90700dbc916f984911d2356933cecac7cb8883e4716ef8e3(
-    resource: _IBridgeRef_2f2ab872,
+    resource: _aws_mediaconnect_6374326e.IBridgeRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17569,7 +18049,7 @@ def _typecheckingstub__efc0ae85c0d5def613a48526ecb28ec24a692b3f96ffc4f3733d1a84d
     pass
 
 def _typecheckingstub__7e83409273af3b66857452f9f32805fa3650ea56dd8bccf1a4cae459f1669317(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17593,31 +18073,31 @@ def _typecheckingstub__b6c0d91a8143e25d3431f038cc493b72ff78caeb2aae6a8de25ef9061
     pass
 
 def _typecheckingstub__c151228d22c29de1b22fb11c72513278ae8b19faf50c26128a49b5bb5cd8231e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeSourceProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridge.BridgeSourceProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8744f4915b3da8a1fb0b28e71cdd2260912dbea385353bb4a2378a0dcf2e1a19(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.EgressGatewayBridgeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridge.EgressGatewayBridgeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2370206c3aaeddbbe4f170d30b717ce583cd273a4a651e68abaf2042096869bf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.IngressGatewayBridgeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridge.IngressGatewayBridgeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0f0f04e00fdc529449b6434bd02be499c861ae34a03215caf6afedaf59974ca0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeOutputProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridge.BridgeOutputProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0a1d3ccb8b1bf31380b43926b18329ad07b95b13cfd50c81dfdcb52ed4700194(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.FailoverConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridge.FailoverConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17626,7 +18106,7 @@ def _typecheckingstub__2c9a85716cc44ad0d338a783771f76c5420792553cd40338bc4806929
     *,
     flow_arn: builtins.str,
     name: builtins.str,
-    flow_vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17650,22 +18130,22 @@ def _typecheckingstub__1642b43f3173ebc33fe250c935a5af5006fe555caff2d5246139c99d6
     network_name: builtins.str,
     port: jsii.Number,
     protocol: builtins.str,
-    multicast_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.MulticastSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    multicast_source_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.MulticastSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dff659c89b605c1b1a727af90c48784adba90b01104dfd2da4ea33b042b8e12f(
     *,
-    network_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__048c12dd6c2d1c5e61292ef13f12e16c2c87cce382b5d57ada270cfd08a1b24d(
     *,
-    flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17680,7 +18160,7 @@ def _typecheckingstub__b88384d6e7eaf984035fe7a0fba90d12833212086c785ad13a9117af8
 def _typecheckingstub__2344e6b90e667c45e503f080b931cc817ed70f01054abb50495f2670d204d2b3(
     *,
     failover_mode: builtins.str,
-    source_priority: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.SourcePriorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_priority: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.SourcePriorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17721,7 +18201,7 @@ def _typecheckingstub__37400ec0d6ede2ac41f09e81db31275470bfb18f7999012a07d588a5a
     *,
     bridge_arn: builtins.str,
     name: builtins.str,
-    network_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
+    network_output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17733,7 +18213,7 @@ def _typecheckingstub__bc406bff1020285bbe72922bef2d2aefa766c79f162aca8ee2e4a24ff
     pass
 
 def _typecheckingstub__fb205f08441d39d8e1889501076cfae52006c266e0dcc55675d37bdd36eecce7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17757,7 +18237,7 @@ def _typecheckingstub__4567364d21ca9ebe1a2f33abcf1e7bc00c0f6b671c2062fd3c6766537
     pass
 
 def _typecheckingstub__78fe544a540a0346bab7b296adf77b0088521ed5104d3678ee517ee4d8b43eb1(
-    value: typing.Union[_IResolvable_da3f097b, CfnBridgeOutput.BridgeNetworkOutputProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridgeOutput.BridgeNetworkOutputProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17777,7 +18257,7 @@ def _typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc96
     *,
     bridge_arn: builtins.str,
     name: builtins.str,
-    network_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
+    network_output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17786,11 +18266,11 @@ def _typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab3
     *,
     name: builtins.str,
     placement_arn: builtins.str,
-    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    egress_gateway_bridge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_gateway_bridge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outputs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17801,8 +18281,8 @@ def _typecheckingstub__e36e10c04a0f01de7ebc0521a5800daea1daa62e3bd343704ff6e8452
     *,
     bridge_arn: builtins.str,
     name: builtins.str,
-    flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17814,7 +18294,7 @@ def _typecheckingstub__2c9c15695da88b46044324b66fa4fc2c80ce78a1c90ef0b5016473957
     pass
 
 def _typecheckingstub__8ee6617fa681b5aaf625fc2493bb4ea5b5e578a01029bdd7ba2b8647be429130(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17838,13 +18318,13 @@ def _typecheckingstub__26ff480997cae96d755e2b7e83019229c27702f843cafce3fc5647020
     pass
 
 def _typecheckingstub__fa9a2d6952ebe510d69e3877d36b01cb4f6aa83e11dfcf61576bdfaffa0dea74(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeFlowSourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridgeSource.BridgeFlowSourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__afb1ff783738c431282bcaa0dec602d425b3f5a39195a1f65e4e683ba344caea(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeNetworkSourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBridgeSource.BridgeNetworkSourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17852,7 +18332,7 @@ def _typecheckingstub__afb1ff783738c431282bcaa0dec602d425b3f5a39195a1f65e4e683ba
 def _typecheckingstub__8bb9109e42561a117540865cd31be3adb19651461f90f2af2ac7c6ce75a0c13e(
     *,
     flow_arn: builtins.str,
-    flow_vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17863,7 +18343,7 @@ def _typecheckingstub__93b2199f774afbb32a622ba44ca26954c8e46e149f1bc0836b1dda198
     network_name: builtins.str,
     port: jsii.Number,
     protocol: builtins.str,
-    multicast_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.MulticastSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    multicast_source_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.MulticastSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17886,8 +18366,8 @@ def _typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3
     *,
     bridge_arn: builtins.str,
     name: builtins.str,
-    flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17897,23 +18377,23 @@ def _typecheckingstub__3568a95be2a886825b3db731f10e2fdea8be142c554d1e2055d7e22f5
     id: builtins.str,
     *,
     name: builtins.str,
-    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     availability_zone: typing.Optional[builtins.str] = None,
-    encoding_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encoding_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     flow_size: typing.Optional[builtins.str] = None,
-    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    maintenance: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_streams: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ndi_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_monitoring_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interfaces: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c54b3021fd089afdcef76ee7ca3c18274773c4b4384f46a6700f34b567e51aa4(
-    resource: _IFlowRef_c5e8f48d,
+    resource: _aws_mediaconnect_6374326e.IFlowRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17925,7 +18405,7 @@ def _typecheckingstub__b34fb3378a823873473e36770156bfc974eb22a36bab11daaf47bd382
     pass
 
 def _typecheckingstub__e3bf65a3dfd8c719cb8ba7cde45e0dc8693f2306db4dba4cd6da5e4727579cc7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17943,7 +18423,7 @@ def _typecheckingstub__7b9dd07005f4a1ea040eea97dccca156a16f5e9f3f6686139fbd52108
     pass
 
 def _typecheckingstub__869299c75adeb5a7d478686f55b98acba18c279372a76486ab2c6231b1e54e54(
-    value: typing.Union[_IResolvable_da3f097b, CfnFlow.SourceProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.SourceProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17955,7 +18435,7 @@ def _typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e
     pass
 
 def _typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.EncodingConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.EncodingConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17967,50 +18447,50 @@ def _typecheckingstub__18797920a62f69ac5303a95d3356fc95d49473634b7f27d9e7ef811a4
     pass
 
 def _typecheckingstub__ddd188e9c2d5f8f194cf0b4c16e8b355b0ebcec43d953e6b0c8b77128e640aab(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MaintenanceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.MaintenanceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c580931c160d15b8c0f43f0fe96dc390b640ae81cbc1900b00f369aaa3c3f6e4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.MediaStreamProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.MediaStreamProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f78a65c7535e71bd81a721df5718188077330f02b6d7cdd75ebb5693c7db1cf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.NdiConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.NdiConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9d7deae7edf526ef9a6af2e16b592ef198ecb0cc777d1c7d97f392933ad97ef6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.FailoverConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.FailoverConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad475822621b98(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.SourceMonitoringConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.SourceMonitoringConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7e75424871a1b67422fa8fe727bf0720abe8ea217c131244844ca71d14e25f4d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.VpcInterfaceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.VpcInterfaceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1ac15d313eb79141f926e0599cfa8d16a302729713ebc92bf0a1af7adbf56f21(
     *,
-    silent_audio: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SilentAudioProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    silent_audio: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SilentAudioProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18050,7 +18530,7 @@ def _typecheckingstub__60d936fe41cb44293e591fd7a9b89da19bc9fc2509d0dacf4ad7a22a5
     *,
     failover_mode: typing.Optional[builtins.str] = None,
     recovery_window: typing.Optional[jsii.Number] = None,
-    source_priority: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourcePriorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_priority: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourcePriorityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18059,14 +18539,14 @@ def _typecheckingstub__60d936fe41cb44293e591fd7a9b89da19bc9fc2509d0dacf4ad7a22a5
 def _typecheckingstub__b52880d31b637a0af3233aa7f316659377893fb1e181334df40136a484a6a792(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1ed20d2d2ea0c830d5eb7613de0a9e624da82a886e597f4f6c66d0b5c6c3259f(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18096,7 +18576,7 @@ def _typecheckingstub__261e148d056da084128b3530c69f370bb4b4b5d73098e06d42eb6c5c4
 def _typecheckingstub__00bf15dc37f493c33d6b2109cfa6283d2bb14bdc23b0ae4fd75a67ca60084ea8(
     *,
     bridge_arn: builtins.str,
-    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18104,7 +18584,7 @@ def _typecheckingstub__00bf15dc37f493c33d6b2109cfa6283d2bb14bdc23b0ae4fd75a67ca6
 def _typecheckingstub__fbb4a04e87ed2fedc67d03bbbab23670facee0c55014d0c5d234881ded41ec58(
     *,
     input_port: jsii.Number,
-    interface: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.InterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
+    interface: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.InterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18126,7 +18606,7 @@ def _typecheckingstub__57efc1d88b4fa5a6e6df4c17678237b4420bf63b5cd14e340198e67ed
 
 def _typecheckingstub__98c9c952274e74dd38a0129bccf9e3c8688c812151f95c826ce99e20158cfe87(
     *,
-    fmtp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FmtpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fmtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FmtpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lang: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18137,11 +18617,11 @@ def _typecheckingstub__bc935e241ba7a00b3f70633b9ca54a5bca516c17065e6c6d8eeb7ab25
     media_stream_id: jsii.Number,
     media_stream_name: builtins.str,
     media_stream_type: builtins.str,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MediaStreamAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     clock_rate: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     fmt: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     video_format: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18151,7 +18631,7 @@ def _typecheckingstub__c288224888dcd985ea78c20d06801a00405d4260bf960e8dbcac65f3e
     *,
     encoding_name: builtins.str,
     media_stream_name: builtins.str,
-    input_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.InputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    input_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.InputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18159,7 +18639,7 @@ def _typecheckingstub__c288224888dcd985ea78c20d06801a00405d4260bf960e8dbcac65f3e
 def _typecheckingstub__69742b949cc5728340bd262c9cb8f8127e5a045369699ab15384d6ad5532a7f7(
     *,
     machine_name: typing.Optional[builtins.str] = None,
-    ndi_discovery_servers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiDiscoveryServerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ndi_discovery_servers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.NdiDiscoveryServerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ndi_state: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18199,10 +18679,10 @@ def _typecheckingstub__e28708aca7aa0aae7b96e1c58983b1ac8f27275c71b78ca026802bea4
 
 def _typecheckingstub__462b2e03950e94b47455b1cc22dd388c278a29615998512d70aa7513e3c8d698(
     *,
-    audio_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.AudioMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    audio_monitoring_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.AudioMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     content_quality_analysis_state: typing.Optional[builtins.str] = None,
     thumbnail_state: typing.Optional[builtins.str] = None,
-    video_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VideoMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    video_monitoring_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.VideoMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18216,22 +18696,22 @@ def _typecheckingstub__a502d8c706596e3abd881dc963357d969893e22e8d25e78085445e09c
 
 def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefcac2bdf0c(
     *,
-    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     entitlement_arn: typing.Optional[builtins.str] = None,
-    gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_bridge_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingest_ip: typing.Optional[builtins.str] = None,
     ingest_port: typing.Optional[jsii.Number] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
     max_latency: typing.Optional[jsii.Number] = None,
     max_sync_buffer: typing.Optional[jsii.Number] = None,
-    media_stream_source_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    media_stream_source_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MediaStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
-    ndi_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ndi_source_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.NdiSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
-    router_integration_transit_decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    router_integration_transit_decryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sender_control_port: typing.Optional[jsii.Number] = None,
     sender_ip_address: typing.Optional[builtins.str] = None,
     source_arn: typing.Optional[builtins.str] = None,
@@ -18239,7 +18719,7 @@ def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefca
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -18248,8 +18728,8 @@ def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefca
 
 def _typecheckingstub__8b18d7f5756a7359dc9028ca35bdb8d048195959b43a7f2ac5c0f4b71d0b8761(
     *,
-    black_frames: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.BlackFramesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    frozen_frames: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FrozenFramesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    black_frames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.BlackFramesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    frozen_frames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FrozenFramesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18269,7 +18749,7 @@ def _typecheckingstub__d976d1dab1b395c0026dcc2152c4dd635ae54d817a1f10c4d8f2725ac
     subnet_id: builtins.str,
     network_interface_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     network_interface_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18283,9 +18763,9 @@ def _typecheckingstub__17ecd85086df3a96cb74577c3e3a831ea91a89b617bcd18f7684fd357
     name: builtins.str,
     subscribers: typing.Sequence[builtins.str],
     data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18297,7 +18777,7 @@ def _typecheckingstub__dbbd0b319bddb33c17b2662fae7caf55246f72dd2fa82c3bf38238c54
     pass
 
 def _typecheckingstub__fc2981b84449358974725cfa5726c974127f55b1d0ed785957f4a1db25fbaf37(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18339,7 +18819,7 @@ def _typecheckingstub__440918e3c472d10f8c3846eeee04790645912cc1f354752fcf74610c2
     pass
 
 def _typecheckingstub__e186a635819e5284e2d58b4d8e7f8c317f8ef3dcaf08d3a66dfe0e4f1b061e89(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowEntitlement.EncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowEntitlement.EncryptionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18351,7 +18831,7 @@ def _typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68
     pass
 
 def _typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18378,9 +18858,9 @@ def _typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f0
     name: builtins.str,
     subscribers: typing.Sequence[builtins.str],
     data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18393,9 +18873,9 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     destination: typing.Optional[builtins.str] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_latency: typing.Optional[jsii.Number] = None,
-    media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    media_stream_output_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     ndi_output_timecode_source: typing.Optional[builtins.str] = None,
@@ -18406,11 +18886,11 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     protocol: typing.Optional[builtins.str] = None,
     remote_id: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
-    router_integration_transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    router_integration_transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18422,7 +18902,7 @@ def _typecheckingstub__dc12c2292179153951e36b26c5ca33a4865934ab09aaab3ef3247a4db
     pass
 
 def _typecheckingstub__99f7a6ea2f782501225c570fc34c141a4efdd391bd9340c51c8bd1b59b8a807b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18458,7 +18938,7 @@ def _typecheckingstub__b3f2991cc0ce7b9368aefbf86c1373167ce7a90e3225db313dd6d3554
     pass
 
 def _typecheckingstub__78a7a7ea75faea54e857e52b24703069f4dd92643ca1173b27422c3504eee69b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.EncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowOutput.EncryptionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18470,7 +18950,7 @@ def _typecheckingstub__9801fdc6b598fc4f2e913edc8984f374a7594553b0a1ef32ea0fa7be0
     pass
 
 def _typecheckingstub__c99ca24b6208e72328e18819b003e97cbf14fb0f94304256c59924c6e02ae32d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.MediaStreamOutputConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowOutput.MediaStreamOutputConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18536,7 +19016,7 @@ def _typecheckingstub__a92363a82d416caa03ccab5a501ed2d648ae0c5a5733439e18d20b4fa
     pass
 
 def _typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd058f123d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.FlowTransitEncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowOutput.FlowTransitEncryptionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18554,13 +19034,13 @@ def _typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1
     pass
 
 def _typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__65a3e058407bcf8bd6fa065c9fd3cd66a1c54e7edb3b48af25c7893fd72db21d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.VpcInterfaceAttachmentProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowOutput.VpcInterfaceAttachmentProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18569,7 +19049,7 @@ def _typecheckingstub__8b62fc10e1fb76cee67ab63dde918a0006c11ce38e8af823e4d2f2770
     *,
     destination_ip: builtins.str,
     destination_port: jsii.Number,
-    interface: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.InterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
+    interface: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.InterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18595,14 +19075,14 @@ def _typecheckingstub__12ea6e5693abf5b0e777cf50bd86212ef7db4809c0713169b65c0d055
 def _typecheckingstub__227e17acb559f1129e2d38ac109471667c1611bee1eedb7dec31ff9273ece0c9(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__51ad067d64c5f2d51cca478c548fe0d1bac8cb1160599558be1e0c768ec74342(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18619,8 +19099,8 @@ def _typecheckingstub__faa5e437983e66807a96f2eedebbdd774906faf99c35e9c25ec0ff0f6
     *,
     encoding_name: builtins.str,
     media_stream_name: builtins.str,
-    destination_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    encoding_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncodingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    encoding_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.EncodingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18646,9 +19126,9 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     destination: typing.Optional[builtins.str] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_latency: typing.Optional[jsii.Number] = None,
-    media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    media_stream_output_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     ndi_output_timecode_source: typing.Optional[builtins.str] = None,
@@ -18659,11 +19139,11 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     protocol: typing.Optional[builtins.str] = None,
     remote_id: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
-    router_integration_transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    router_integration_transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18671,17 +19151,17 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
 def _typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24(
     *,
     name: builtins.str,
-    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     availability_zone: typing.Optional[builtins.str] = None,
-    encoding_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encoding_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     flow_size: typing.Optional[builtins.str] = None,
-    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    maintenance: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_streams: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ndi_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_monitoring_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interfaces: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18693,9 +19173,9 @@ def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb1
     description: builtins.str,
     flow_arn: builtins.str,
     name: builtins.str,
-    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_arn: typing.Optional[builtins.str] = None,
-    gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_bridge_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingest_port: typing.Optional[jsii.Number] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
     max_latency: typing.Optional[jsii.Number] = None,
@@ -18706,7 +19186,7 @@ def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb1
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -18720,7 +19200,7 @@ def _typecheckingstub__516c9ee96b7a84e3798e10ffbf9f23be95e407b2f0376f64a16b0109b
     pass
 
 def _typecheckingstub__db3fd76f8220dae1a8772091086f599345d67d89097d2f85b9307e60f66eebda(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18750,7 +19230,7 @@ def _typecheckingstub__56248647932d6154f5cc0ea3f1df2a2bb25f298ef25872b32e9b4dd6f
     pass
 
 def _typecheckingstub__713d2beba8d5285adfd07ee3f7ca737392fb89294806031a6cc288bb72c8f180(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.EncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowSource.EncryptionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18762,7 +19242,7 @@ def _typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e43
     pass
 
 def _typecheckingstub__d5cf895711559ebd9f3d9816442bc2258d4ed6f493bb32badf0ea76f038dd16a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.GatewayBridgeSourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowSource.GatewayBridgeSourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18828,7 +19308,7 @@ def _typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f3
     pass
 
 def _typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18863,7 +19343,7 @@ def _typecheckingstub__bc2e1b7c07a7a0aadaba7f4f2e0a0214eedc45460e5f4d6b8a4e1af4b
 def _typecheckingstub__30ed56e867002e6d71070cfe3db49514b39a97f4380a7b126282076647a88405(
     *,
     bridge_arn: builtins.str,
-    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interface_attachment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18880,9 +19360,9 @@ def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea
     description: builtins.str,
     flow_arn: builtins.str,
     name: builtins.str,
-    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_arn: typing.Optional[builtins.str] = None,
-    gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_bridge_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingest_port: typing.Optional[jsii.Number] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
     max_latency: typing.Optional[jsii.Number] = None,
@@ -18893,7 +19373,7 @@ def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -18909,7 +19389,7 @@ def _typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3b
     role_arn: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18921,7 +19401,7 @@ def _typecheckingstub__8fa6b7ee310467cbf1b90d72ac662a880ec46f0ff1d93db17be2b22f8
     pass
 
 def _typecheckingstub__2669da051110c0f17f8e796d79785f21a3eedb15f26aad564f80d786fc0b5008(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18963,7 +19443,7 @@ def _typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6b
     pass
 
 def _typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18975,7 +19455,7 @@ def _typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf
     role_arn: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18986,13 +19466,13 @@ def _typecheckingstub__4a889ede67aac65e3ba7da8735ec09aa46c53edb047800db832cc8f04
     *,
     egress_cidr_blocks: typing.Sequence[builtins.str],
     name: builtins.str,
-    networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    networks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__846fb03e786e5db212456f5e176807bc8fa26425b8fcdcd3acceeb914a80546a(
-    resource: _IGatewayRef_4783a0c6,
+    resource: _aws_mediaconnect_6374326e.IGatewayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19004,7 +19484,7 @@ def _typecheckingstub__e7afaeb3693b7233ba298147075a68f93109f71fb9d4533fc43cf919f
     pass
 
 def _typecheckingstub__15b19201085d642ad5919470c92f83f2874346dacf31c924443c14fa4ce8557e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19028,7 +19508,7 @@ def _typecheckingstub__2f455f9a25731428a340c77bb14b2965a474f55740a64090450ee7dee
     pass
 
 def _typecheckingstub__87886ff9eadfa80377e79911ce74141941af595ecff54249e0b94a2aa4f4fdb6(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayNetworkProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGateway.GatewayNetworkProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19045,7 +19525,7 @@ def _typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0
     *,
     egress_cidr_blocks: typing.Sequence[builtins.str],
     name: builtins.str,
-    networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    networks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19054,22 +19534,23 @@ def _typecheckingstub__8fa24b13aaffdcfc1e47f3ced2e884afe1fe974cb91ceb3f0702e3ed1
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     maximum_bitrate: jsii.Number,
     name: builtins.str,
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
-    maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_quality_analysis_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b62b590ea740d308b838213af0b2cd196493374e80cd7c3686bd872b19cfdfeb(
-    resource: _IRouterInputRef_6915df50,
+    resource: _aws_mediaconnect_6374326e.IRouterInputRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19081,7 +19562,7 @@ def _typecheckingstub__9bc6c871ed8b6d73be81a2ae1d1e2c9d9b137109612e38abd34e58482
     pass
 
 def _typecheckingstub__c944fb547e87f295306d8735bbf0eeac4ac8a0b6018a5739d3a31d2e1e718ef6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19093,7 +19574,7 @@ def _typecheckingstub__8e30a6d884b369ff6382f442459ba4c11662a15636af2d199fbc1aa1a
     pass
 
 def _typecheckingstub__dc19a3af1b324b171b747b68112c85cb261bd6957bab7764b849ca52d9245142(
-    value: typing.Union[_IResolvable_da3f097b, CfnRouterInput.RouterInputConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterInput.RouterInputConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19128,8 +19609,14 @@ def _typecheckingstub__1d3dc1a9f3d38364d1ad15584e3cfaccae3ba843735b9a10bd75fa94a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d8381b95a45e53c50dc01b45d78adad0f5f3f247cde271d4cd6f13de8a298ae(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7c1170f7ba129480fda3e3b9954bf9b3bab26579ad56ca54217519dd369f2de8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRouterInput.MaintenanceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterInput.MaintenanceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19141,13 +19628,30 @@ def _typecheckingstub__74fded60926c739a4b66f4bd6fdd901f417bee400d49f669f01a8545d
     pass
 
 def _typecheckingstub__5a824b54cbbdf5489ae89810bc583b0c20d4cfb25aeb8745e7f408d889b008ac(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2b52cf5469dfc840d14b0db5fb2454e8064b964427f444c618452b6c06465337(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRouterInput.RouterInputTransitEncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterInput.RouterInputTransitEncryptionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__876d2124c62d13d4d717232543edd026c15d6eb7cc6a313012ab562cd9d21d8c(
+    *,
+    state: builtins.str,
+    threshold_seconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d53a483665d52f231cb569ee34ca6378bdf20b1bffcfa05c2ee103159c0d55a(
+    *,
+    black_frames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.BlackFramesConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    frozen_frames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FrozenFramesConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    silent_audio: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SilentAudioConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19155,7 +19659,7 @@ def _typecheckingstub__2b52cf5469dfc840d14b0db5fb2454e8064b964427f444c618452b6c0
 def _typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf5425707945361655(
     *,
     network_interface_arn: builtins.str,
-    protocol_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    protocol_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     source_priority_mode: builtins.str,
     primary_source_index: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -19164,10 +19668,10 @@ def _typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf542570794
 
 def _typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631d35cdea(
     *,
-    rist: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rtp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_caller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_listener: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19175,15 +19679,23 @@ def _typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631
 def _typecheckingstub__2f46fb21f29424f9cdada7e8baeb37950068c69dd5988f39da2d4d57ad111304(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee7cb3dd62027be3aaef58d8e915eab27767b66fa11f87aff2f38eb8e4f62449(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0392659348f58fec79a7975c974737b452d8f0431e205c612888a8dac348a997(
+    *,
+    state: builtins.str,
+    threshold_seconds: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19191,14 +19703,14 @@ def _typecheckingstub__ee7cb3dd62027be3aaef58d8e915eab27767b66fa11f87aff2f38eb8e
 def _typecheckingstub__a02453ffb5787750cf8b7c68ece86b453aeac195bd6b7a67d442069cdfaf86c1(
     *,
     default: typing.Any = None,
-    preferred_day_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preferred_day_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__07cd74860f626ccccd2d7b9722c16c895a7f51382af41cc9a3aa3da275bb3b5f(
     *,
-    source_transit_decryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_transit_decryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
     flow_arn: typing.Optional[builtins.str] = None,
     flow_output_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -19207,7 +19719,7 @@ def _typecheckingstub__07cd74860f626ccccd2d7b9722c16c895a7f51382af41cc9a3aa3da27
 
 def _typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b896f0735(
     *,
-    source_transit_decryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_transit_decryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
     media_live_channel_arn: typing.Optional[builtins.str] = None,
     media_live_channel_output_name: typing.Optional[builtins.str] = None,
     media_live_pipeline_id: typing.Optional[builtins.str] = None,
@@ -19218,14 +19730,14 @@ def _typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b8
 def _typecheckingstub__ed65de0b474672156e612783c6e60babe3b082f649c2c1ee8aa99f2febef28c5(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__964a0641d54ca9b3931c99857b3cbb193dd32758f7c19fc986a3b2c9e7a8d2ab(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19235,15 +19747,15 @@ def _typecheckingstub__c207577b6eab68f0d1c3f7593cc0b00c18a7e10d165eed0314d6bcb41
     *,
     merge_recovery_window_milliseconds: jsii.Number,
     network_interface_arn: builtins.str,
-    protocol_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MergeRouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    protocol_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MergeRouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d4bff0ea4788435a62555083659b5a3393ff9c2dc3b37396f56d5473c1b65763(
     *,
-    rist: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rtp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19264,23 +19776,30 @@ def _typecheckingstub__53b65288b7279c56646f36579c820e91edb724a5c19852f9a2b528f0d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1d424854eca5818145479db8807f8033d93ec2fba52d4a1c87fabb497c697127(
+    *,
+    content_level: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.ContentQualityAnalysisFeatureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b(
     *,
-    failover: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.FailoverRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_connect_flow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_live_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    merge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MergeRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    standard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.StandardRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    failover: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_connect_flow: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_live_channel: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    merge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MergeRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.StandardRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb637773d1069c(
     *,
-    rist: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rtp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_caller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_listener: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19288,14 +19807,14 @@ def _typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb63777
 def _typecheckingstub__fcc66546aaf31b61e1efa68ba13e70820ab56b959d9cce333b0e5b3482a1bc09(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__85f5061e2ce8c42b22b7dc305382ea9bfa145cf532ef8f62591b3684205d6713(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19317,12 +19836,20 @@ def _typecheckingstub__656ecf17b2aa0c4612970c8eb2678158214e80be3a6040146c524608d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__93028399aea6047b6b4b068b6b8bce109443dda744d608a0befdcd0fb1a4bd3e(
+    *,
+    state: builtins.str,
+    threshold_seconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__beeb94f30bd48ba57793ec4ae9b1de79893c6af67077601ee991d8325f1c1155(
     *,
     minimum_latency_milliseconds: jsii.Number,
     source_address: builtins.str,
     source_port: jsii.Number,
-    decryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtDecryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtDecryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19330,7 +19857,7 @@ def _typecheckingstub__beeb94f30bd48ba57793ec4ae9b1de79893c6af67077601ee991d8325
 
 def _typecheckingstub__9b8e55bc2cc629dfc624dfe6751b96283b3f6c08591aba80e4005288f47ee98a(
     *,
-    encryption_key: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19339,7 +19866,7 @@ def _typecheckingstub__2020f903810fd45bfaa02594fdb1a23bdb3bcc4a9ac870d479f975628
     *,
     minimum_latency_milliseconds: jsii.Number,
     port: jsii.Number,
-    decryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SrtDecryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtDecryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19347,7 +19874,7 @@ def _typecheckingstub__2020f903810fd45bfaa02594fdb1a23bdb3bcc4a9ac870d479f975628
 def _typecheckingstub__95ce52cf6881e0f95e336a6920de1725ead5c20a78c3b050791def2f0629d492(
     *,
     network_interface_arn: builtins.str,
-    protocol_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     protocol: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19355,16 +19882,17 @@ def _typecheckingstub__95ce52cf6881e0f95e336a6920de1725ead5c20a78c3b050791def2f0
 
 def _typecheckingstub__629abd36e1d3f5d9a60304da2c55389ba519de279616eb9eae24baa19310f5f4(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     maximum_bitrate: jsii.Number,
     name: builtins.str,
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
-    maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_quality_analysis_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterContentQualityAnalysisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.RouterInputTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19373,16 +19901,16 @@ def _typecheckingstub__24310ca09a20908bd3bbf12dedeae64057a241ad260d0173c063494e9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31cc864547a94937d2c7f541798d2155fb714db7022c9ef5c73db0655c89a985(
-    resource: _IRouterNetworkInterfaceRef_05bd061c,
+    resource: _aws_mediaconnect_6374326e.IRouterNetworkInterfaceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19394,7 +19922,7 @@ def _typecheckingstub__58580bda8f3f828588ff2afcfe7bb604e0dda1e286e8115e82a78cd69
     pass
 
 def _typecheckingstub__c99813ca43090ccca654d469e7c1278029c90800fa145e079a4c1a327ab3e09c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19406,7 +19934,7 @@ def _typecheckingstub__e4249152775ddcb28eec7583b5299fb11c67a758dbbd05886d4cb11ac
     pass
 
 def _typecheckingstub__ada01cdf0843f372e2358efd8825753add57ec0a85c656d8730df8fe11d675f8(
-    value: typing.Union[_IResolvable_da3f097b, CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19424,14 +19952,14 @@ def _typecheckingstub__640023b56bd3332877d359f440c6fc815950e5fd32985dc6f11c1892b
     pass
 
 def _typecheckingstub__70255a3ae365875252abf102dc0c10255d13f5d5552ee11bd61363fcd195a6d8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__86b2b80a7d574588364b855dababd894760b38396c485dd9b78bbd7b36199e16(
     *,
-    allow_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    allow_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterNetworkInterface.PublicRouterNetworkInterfaceRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19445,8 +19973,8 @@ def _typecheckingstub__b16b6a0a6e17ced0af99bf04d82b87f0ed226b2b3a5459757c42969b8
 
 def _typecheckingstub__ed1657ecdbbe74a0573f76b57267bb3e8bae064809e9330b8325b2050859af13(
     *,
-    public: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    public: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterNetworkInterface.VpcRouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19461,10 +19989,10 @@ def _typecheckingstub__e100934f67ad4ab390b48cc7ed268e9b09228c57ff83fdda79b86e4a8
 
 def _typecheckingstub__0c96298441d1fa6afb4e99a0f43137a8859e8ca44045c1e46e91194e38b1ef1c(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterNetworkInterface.RouterNetworkInterfaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19473,21 +20001,21 @@ def _typecheckingstub__d0723832b1d0cb17f5bcd9018d140834abd5e94bc96fb3fb67d22f77f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.RouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     maximum_bitrate: jsii.Number,
     name: builtins.str,
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
-    maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24a2fbac160b0fd704ba7504535f3e38f1a17f7911da11e6a5c0eb4336436bbc(
-    resource: _IRouterOutputRef_afa317cd,
+    resource: _aws_mediaconnect_6374326e.IRouterOutputRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19499,7 +20027,7 @@ def _typecheckingstub__76381601efd880f1b3fc396253c86e23a095f42a58d2fdaf834228f3d
     pass
 
 def _typecheckingstub__46c254968a788990028c9b84207c991e7dbd51c1a2e4cd0ceb7a94af8e32e549(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19511,7 +20039,7 @@ def _typecheckingstub__96ef8ccb0c5e0eb94acef4319249f97dfa0ce9d3c9e57dbf2db800211
     pass
 
 def _typecheckingstub__7f147da00aaf1cdc7014a62b08d8cdc0f9cfce3df5d377973424d2f11377219c(
-    value: typing.Union[_IResolvable_da3f097b, CfnRouterOutput.RouterOutputConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterOutput.RouterOutputConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19547,7 +20075,7 @@ def _typecheckingstub__8b8371a3dd1aa326607abab281477f883dfadb45d27717b05bafb937c
     pass
 
 def _typecheckingstub__e2d9d66ea8cc6f7fb9f2d963cee39b38487405038346bed562a4282d170af87a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRouterOutput.MaintenanceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterOutput.MaintenanceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19559,7 +20087,7 @@ def _typecheckingstub__f23a2bac43b9e1bd96cf5c900f5ae7d229b5b15428c990a76f5392b36
     pass
 
 def _typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19567,14 +20095,14 @@ def _typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab
 def _typecheckingstub__d2919cc0452cea1b6c29eff661620544fa1903342e65d8def16c87e34ebac3af(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eb7cec781c17f5df2ca2950847ce1a86c7e216d13b67c9830306688dd24f423c(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19583,14 +20111,14 @@ def _typecheckingstub__eb7cec781c17f5df2ca2950847ce1a86c7e216d13b67c9830306688dd
 def _typecheckingstub__3168eb6355c5a713c93dcf1c47b10105621a55ece693c6e8524178049155072b(
     *,
     default: typing.Any = None,
-    preferred_day_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preferred_day_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c91e97d97b93eb546e4ca89c6248ae26ae42ceadf35a6181ea7b383b55804b49(
     *,
-    destination_transit_encryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_transit_encryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
     flow_arn: typing.Optional[builtins.str] = None,
     flow_source_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -19599,7 +20127,7 @@ def _typecheckingstub__c91e97d97b93eb546e4ca89c6248ae26ae42ceadf35a6181ea7b383b5
 
 def _typecheckingstub__296fe8c5575c6daa0aee10695b4fa916e9cc5d0a13736ad1ed6b81b458d5454e(
     *,
-    destination_transit_encryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MediaLiveTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_transit_encryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaLiveTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
     media_live_input_arn: typing.Optional[builtins.str] = None,
     media_live_pipeline_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -19609,14 +20137,14 @@ def _typecheckingstub__296fe8c5575c6daa0aee10695b4fa916e9cc5d0a13736ad1ed6b81b45
 def _typecheckingstub__15fd9e770cad7633d1755bc0f3ee7c7619085574f4779ab136bccba68f8b110e(
     *,
     automatic: typing.Any = None,
-    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bca59142eba771d1b11d62bea50d63c8ea9c3e3f701bc82dec8d3053a8e335a9(
     *,
-    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaLiveTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19640,19 +20168,19 @@ def _typecheckingstub__ae36a4a425b1a376a579bc881963342c2907067c5765e9a309cac9c17
 
 def _typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a490a7d3d(
     *,
-    media_connect_flow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_live_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    standard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.StandardRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_connect_flow: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_live_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.StandardRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__562d01ca7d13c69f8bd962654080b4d33fa8642743ff71dd15962ebd61569f3d(
     *,
-    rist: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.RistRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rtp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.RtpRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_caller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    srt_listener: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RistRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RtpRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19679,7 +20207,7 @@ def _typecheckingstub__7c3254adaa7e8d0f5267957a6b36ec0a736bd46e05edb0d526175da04
     destination_address: builtins.str,
     destination_port: jsii.Number,
     minimum_latency_milliseconds: jsii.Number,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SrtEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19687,7 +20215,7 @@ def _typecheckingstub__7c3254adaa7e8d0f5267957a6b36ec0a736bd46e05edb0d526175da04
 
 def _typecheckingstub__bd76c0aac777140ccfdcd9b8dde075deccd8b20e8fb2f4ae5c88addc5b54ccef(
     *,
-    encryption_key: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19696,7 +20224,7 @@ def _typecheckingstub__46a504c749dcd4fafe4de2e4d8b321ec6c39bf1a1cb6ef1c43a2b6dbe
     *,
     minimum_latency_milliseconds: jsii.Number,
     port: jsii.Number,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.SrtEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19704,7 +20232,7 @@ def _typecheckingstub__46a504c749dcd4fafe4de2e4d8b321ec6c39bf1a1cb6ef1c43a2b6dbe
 def _typecheckingstub__010befd5e2660537f2f9db5cecf3b56ab325c13eace710cabb8f4ab0cb7d831b(
     *,
     network_interface_arn: builtins.str,
-    protocol_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.RouterOutputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RouterOutputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     protocol: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19712,15 +20240,15 @@ def _typecheckingstub__010befd5e2660537f2f9db5cecf3b56ab325c13eace710cabb8f4ab0c
 
 def _typecheckingstub__47e40b68b394725a4935bfc1b6ffcf51630ed2e6a0f1075f0c828959594668c7(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.RouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     maximum_bitrate: jsii.Number,
     name: builtins.str,
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
-    maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

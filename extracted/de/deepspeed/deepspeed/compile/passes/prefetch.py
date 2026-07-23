@@ -12,9 +12,13 @@ from deepspeed.accelerator import get_accelerator
 import deepspeed.comm as dist
 
 from ..profilers.comm_profile import create_predictor
+from ..profilers.graph_profile import is_profile_incomplete
 from ..graph_param import DSGraphParamManager
+from .contract import PassContract, CAP_Z3_GATHER_RELEASE
 
 NAME = "prefetch"
+# Reorders the all-gathers that zero3_compile emits, so it must run after that pass.
+CONTRACT = PassContract(requires=frozenset({CAP_Z3_GATHER_RELEASE}))
 
 FUSE_FACTOR = 0.8
 MARGIN = 0.1
@@ -37,6 +41,13 @@ def get_ds_id(node: Node):
 def schedule_prefetch(gm: GraphModule, graph_id: int, graph_order: List[Tuple[int, bool]], profiling_results,
                       create_inputs_fn, mem_budget: float, param_manager: DSGraphParamManager,
                       bwd: bool) -> GraphModule:
+
+    profile = profiling_results[graph_id]
+    profile_graph = profile.bwd_graph if bwd else profile.fwd_graph
+    mem_complete = profile.bwd_mem_complete if bwd else profile.fwd_mem_complete
+    if is_profile_incomplete(profile_graph) or not mem_complete:
+        print_rank_0(f"schedule_prefetch graph_id={graph_id} incomplete profiling data; skipping prefetch")
+        return gm
 
     max_mem = get_accelerator().total_memory() * (1 - MARGIN)
     vals_to_bcast = torch.tensor([max_mem], device=torch.device(get_accelerator().current_device()))

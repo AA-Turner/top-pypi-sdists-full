@@ -181,6 +181,12 @@ class Assessment:
     async def __aenter__(self) -> Assessment:
         self._context_token = _current_assessment.set(self)
         self._tracing_enabled = True
+        # Register on enter so the assessment id is available to any attack run
+        # inside the block - including the traditional-ML privacy attacks that
+        # call their own .run() (not assessment.run()). study_span picks up the
+        # active assessment via the _current_assessment ContextVar, so the user
+        # never has to call register()/complete() or pass airt_assessment_id.
+        await self._ensure_started()
         return self
 
     async def __aexit__(
@@ -296,7 +302,11 @@ class Assessment:
 
     async def _finalize(self) -> None:
         """Flush pending OTEL spans and mark complete."""
-        if not self._attack_results:
+        # Complete when there is something to finalize: the generative path
+        # populates _attack_results, while the privacy attacks emit study spans
+        # under a registered assessment (id set on __aenter__). Skip only when
+        # both are absent (offline / never used).
+        if not self._attack_results and self._assessment_id is None:
             return
 
         # Flush pending OTEL spans BEFORE marking complete so CH has data

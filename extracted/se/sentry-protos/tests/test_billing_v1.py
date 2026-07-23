@@ -51,6 +51,10 @@ from sentry_protos.billing.v1.common.v1.billable_metric_pb2 import (
     Operator,
 )
 from sentry_protos.billing.v1.common.v1.billing_interval_pb2 import BillingInterval
+from sentry_protos.billing.v1.common.v1.retention_pb2 import (
+    DataCategoryRetention,
+    RetentionSettings,
+)
 from sentry_protos.billing.v1.services.package.v1.package_pb2 import PackageConfig
 from sentry_protos.billing.v1.services.package.v1.endpoint_get_package_pb2 import (
     GetPackageRequest,
@@ -405,6 +409,52 @@ def test_package_config_with_billing_interval():
     assert annual_package.billing_interval == BillingInterval.BILLING_INTERVAL_ANNUAL_BASE_MONTHLY_PAYG
 
 
+def test_package_config_with_retention_defaults():
+    package = PackageConfig(
+        uid="business",
+        retention_defaults=[
+            DataCategoryRetention(
+                category=DataCategory.DATA_CATEGORY_SPAN,
+                settings=RetentionSettings(standard_days=30, downsampled_days=396),
+            ),
+            DataCategoryRetention(
+                category=DataCategory.DATA_CATEGORY_TRANSACTION,
+                settings=RetentionSettings(standard_days=30, downsampled_days=0),
+            ),
+            DataCategoryRetention(
+                category=DataCategory.DATA_CATEGORY_ERROR,
+                settings=RetentionSettings(standard_days=90),
+            ),
+        ],
+    )
+
+    assert len(package.retention_defaults) == 3
+
+    spans = package.retention_defaults[0]
+    assert spans.category == DataCategory.DATA_CATEGORY_SPAN
+    assert spans.HasField("settings")
+    assert spans.settings.standard_days == 30
+    assert spans.settings.HasField("downsampled_days")
+    assert spans.settings.downsampled_days == 396
+
+    transactions = package.retention_defaults[1]
+    assert transactions.category == DataCategory.DATA_CATEGORY_TRANSACTION
+    assert transactions.settings.standard_days == 30
+    assert transactions.settings.HasField("downsampled_days")
+    assert transactions.settings.downsampled_days == 0
+
+    errors = package.retention_defaults[2]
+    assert errors.category == DataCategory.DATA_CATEGORY_ERROR
+    assert errors.settings.standard_days == 90
+    assert not errors.settings.HasField("downsampled_days")
+
+    parsed = PackageConfig()
+    parsed.ParseFromString(package.SerializeToString())
+
+    assert parsed == package
+    assert len(parsed.retention_defaults) == 3
+
+
 def test_get_package_request():
     request = GetPackageRequest(package_uid="pkg_monthly_123")
     assert request.package_uid == "pkg_monthly_123"
@@ -676,5 +726,51 @@ def test_upsert_account_status_response():
 
     default_response = UpsertAccountStatusResponse()
     assert default_response.updated is False
+
+
+def test_retention_settings_without_downsampled_representation():
+    settings = RetentionSettings(standard_days=30)
+
+    assert settings.standard_days == 30
+    assert not settings.HasField("downsampled_days")
+
+
+def test_retention_settings_downsampled_days_presence():
+    unset = RetentionSettings(standard_days=30)
+    assert not unset.HasField("downsampled_days")
+
+    configured = RetentionSettings(standard_days=30, downsampled_days=90)
+    assert configured.HasField("downsampled_days")
+    assert configured.downsampled_days == 90
+
+    # Complete package settings preserve the legacy compatibility value: a
+    # present zero means the distinct downsampled representation uses effective
+    # standard retention. The resolver interprets it; effective output never
+    # exposes zero.
+    compatibility = RetentionSettings(standard_days=30, downsampled_days=0)
+    assert compatibility.HasField("downsampled_days")
+    assert compatibility.downsampled_days == 0
+
+
+def test_data_category_retention_roundtrip():
+    retention = DataCategoryRetention(
+        category=DataCategory.DATA_CATEGORY_SPAN,
+        settings=RetentionSettings(standard_days=30, downsampled_days=0),
+    )
+
+    assert retention.category == DataCategory.DATA_CATEGORY_SPAN
+    assert retention.HasField("settings")
+    assert retention.settings.standard_days == 30
+    assert retention.settings.HasField("downsampled_days")
+    assert retention.settings.downsampled_days == 0
+
+    parsed = DataCategoryRetention()
+    parsed.ParseFromString(retention.SerializeToString())
+
+    assert parsed == retention
+    assert parsed.HasField("settings")
+    assert parsed.settings.standard_days == 30
+    assert parsed.settings.HasField("downsampled_days")
+    assert parsed.settings.downsampled_days == 0
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AccessSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5f0ce7d97f9a2c92f3f5ab1e18d9fc6e63b320e0328b2f33f2c7f13a7fa617d)
+            type_hints = cached_type_hints(_typecheckingstub__d5f0ce7d97f9a2c92f3f5ab1e18d9fc6e63b320e0328b2f33f2c7f13a7fa617d)
             check_type(argname="argument access_source_arn", value=access_source_arn, expected_type=type_hints["access_source_arn"])
             check_type(argname="argument access_source_id", value=access_source_id, expected_type=type_hints["access_source_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -136,7 +140,7 @@ class AccessTokenReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98cee02a2dfca9b88f3bd39bb0d554f4c48f820540347722509412f153f73b06)
+            type_hints = cached_type_hints(_typecheckingstub__98cee02a2dfca9b88f3bd39bb0d554f4c48f820540347722509412f153f73b06)
             check_type(argname="argument access_token_arn", value=access_token_arn, expected_type=type_hints["access_token_arn"])
             check_type(argname="argument access_token_id", value=access_token_id, expected_type=type_hints["access_token_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -201,7 +205,7 @@ class DnsViewReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1b167048e4403682296955837adb0768b6706101640638d7d952381cf815ad7)
+            type_hints = cached_type_hints(_typecheckingstub__d1b167048e4403682296955837adb0768b6706101640638d7d952381cf815ad7)
             check_type(argname="argument dns_view_arn", value=dns_view_arn, expected_type=type_hints["dns_view_arn"])
             check_type(argname="argument dns_view_id", value=dns_view_id, expected_type=type_hints["dns_view_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -269,7 +273,7 @@ class FirewallDomainListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__804423d53d3464a344630b833888fe53bd940428ecfda86c08f66df6fba11b2f)
+            type_hints = cached_type_hints(_typecheckingstub__804423d53d3464a344630b833888fe53bd940428ecfda86c08f66df6fba11b2f)
             check_type(argname="argument firewall_domain_list_arn", value=firewall_domain_list_arn, expected_type=type_hints["firewall_domain_list_arn"])
             check_type(argname="argument firewall_domain_list_id", value=firewall_domain_list_id, expected_type=type_hints["firewall_domain_list_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -327,7 +331,7 @@ class FirewallRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f0b5a545a9a92094e9582b077cad510fb651ce72ecc1efff50098781a03e1d1)
+            type_hints = cached_type_hints(_typecheckingstub__3f0b5a545a9a92094e9582b077cad510fb651ce72ecc1efff50098781a03e1d1)
             check_type(argname="argument firewall_rule_id", value=firewall_rule_id, expected_type=type_hints["firewall_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_rule_id": firewall_rule_id,
@@ -386,7 +390,7 @@ class GlobalResolverReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c1141a3caf74fb76b667a399fd59cfff0e1d3f9c4a87c1003c9b7d37aeda010)
+            type_hints = cached_type_hints(_typecheckingstub__8c1141a3caf74fb76b667a399fd59cfff0e1d3f9c4a87c1003c9b7d37aeda010)
             check_type(argname="argument global_resolver_arn", value=global_resolver_arn, expected_type=type_hints["global_resolver_arn"])
             check_type(argname="argument global_resolver_id", value=global_resolver_id, expected_type=type_hints["global_resolver_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -444,7 +448,7 @@ class HostedZoneAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c40a4f2751aeb02ce2d4be9c6762ddcf84547cfee1e971d2cb868e2125992a24)
+            type_hints = cached_type_hints(_typecheckingstub__c40a4f2751aeb02ce2d4be9c6762ddcf84547cfee1e971d2cb868e2125992a24)
             check_type(argname="argument hosted_zone_association_id", value=hosted_zone_association_id, expected_type=type_hints["hosted_zone_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hosted_zone_association_id": hosted_zone_association_id,
@@ -474,7 +478,7 @@ class HostedZoneAssociationReference:
 )
 class IAccessSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessSource.
@@ -494,7 +498,7 @@ class IAccessSourceRef(
 
 class _IAccessSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessSource.
 
@@ -521,7 +525,7 @@ typing.cast(typing.Any, IAccessSourceRef).__jsii_proxy_class__ = lambda : _IAcce
 )
 class IAccessTokenRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessToken.
@@ -541,7 +545,7 @@ class IAccessTokenRef(
 
 class _IAccessTokenRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessToken.
 
@@ -568,7 +572,7 @@ typing.cast(typing.Any, IAccessTokenRef).__jsii_proxy_class__ = lambda : _IAcces
 )
 class IDnsViewRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DnsView.
@@ -588,7 +592,7 @@ class IDnsViewRef(
 
 class _IDnsViewRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DnsView.
 
@@ -615,7 +619,7 @@ typing.cast(typing.Any, IDnsViewRef).__jsii_proxy_class__ = lambda : _IDnsViewRe
 )
 class IFirewallDomainListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
@@ -635,7 +639,7 @@ class IFirewallDomainListRef(
 
 class _IFirewallDomainListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
 
@@ -662,7 +666,7 @@ typing.cast(typing.Any, IFirewallDomainListRef).__jsii_proxy_class__ = lambda : 
 )
 class IFirewallRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRule.
@@ -682,7 +686,7 @@ class IFirewallRuleRef(
 
 class _IFirewallRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRule.
 
@@ -709,7 +713,7 @@ typing.cast(typing.Any, IFirewallRuleRef).__jsii_proxy_class__ = lambda : _IFire
 )
 class IGlobalResolverRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GlobalResolver.
@@ -729,7 +733,7 @@ class IGlobalResolverRef(
 
 class _IGlobalResolverRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GlobalResolver.
 
@@ -756,7 +760,7 @@ typing.cast(typing.Any, IGlobalResolverRef).__jsii_proxy_class__ = lambda : _IGl
 )
 class IHostedZoneAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HostedZoneAssociation.
@@ -776,7 +780,7 @@ class IHostedZoneAssociationRef(
 
 class _IHostedZoneAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HostedZoneAssociation.
 

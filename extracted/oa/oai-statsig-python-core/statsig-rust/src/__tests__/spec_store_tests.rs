@@ -361,6 +361,124 @@ async fn receive_proto_latency(
     .flatten()
 }
 
+async fn receive_spec_decode_tags(
+    receiver: &mut tokio::sync::broadcast::Receiver<OpsStatsEvent>,
+    timeout: Duration,
+) -> Option<HashMap<String, String>> {
+    tokio::time::timeout(timeout, async {
+        loop {
+            let OpsStatsEvent::Observability(event) = receiver.recv().await.ok()? else {
+                continue;
+            };
+            if event.metric_name == "interned_mmap.spec_decode.count" {
+                assert!(matches!(&event.metric_type, MetricType::Increment));
+                return event.tags;
+            }
+        }
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+#[tokio::test]
+#[serial]
+async fn test_spec_decode_metric_reports_owned_materialized_updates_only() {
+    let sdk_key = "secret-owned-metric-test";
+    let ops_stats = OPS_STATS.get_for_instance(sdk_key);
+    let mut receiver = ops_stats.subscribe_for_test();
+    let store = SpecStore::new(
+        sdk_key,
+        sdk_key.to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(
+                br#"{
+                    "experiment_to_layer": {},
+                    "condition_map": {},
+                    "dynamic_configs": {},
+                    "feature_gates": {
+                        "owned_metric_gate": {
+                            "type": "feature_gate",
+                            "salt": "owned-metric-salt",
+                            "defaultValue": false,
+                            "enabled": true,
+                            "rules": [],
+                            "idType": "userID",
+                            "entity": "feature_gate"
+                        }
+                    },
+                    "layer_configs": {},
+                    "has_updates": true,
+                    "time": 1
+                }"#
+                .to_vec(),
+            ),
+            source: SpecsSource::Network,
+            received_at: 2_000,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
+
+    let tags = receive_spec_decode_tags(&mut receiver, Duration::from_millis(100))
+        .await
+        .expect("materialized update should emit spec decode telemetry");
+    assert_eq!(tags.get("source").map(String::as_str), Some("owned"));
+    assert_eq!(
+        tags.get("reason").map(String::as_str),
+        Some("spec_preload_unavailable")
+    );
+    assert_eq!(
+        tags.get("sdk_key").map(String::as_str),
+        Some("secret-owned-")
+    );
+
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(
+                br#"{
+                    "experiment_to_layer": {},
+                    "condition_map": {},
+                    "dynamic_configs": {},
+                    "feature_gates": {},
+                    "layer_configs": {},
+                    "has_updates": true,
+                    "time": 2
+                }"#
+                .to_vec(),
+            ),
+            source: SpecsSource::Network,
+            received_at: 2_001,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
+    assert_eq!(
+        receive_spec_decode_tags(&mut receiver, Duration::from_millis(100)).await,
+        None
+    );
+
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(br#"{"has_updates":false}"#.to_vec()),
+            source: SpecsSource::Network,
+            received_at: 2_002,
+            source_api: None,
+            has_updates: Some(false),
+        })
+        .unwrap();
+    assert_eq!(
+        receive_spec_decode_tags(&mut receiver, Duration::from_millis(100)).await,
+        None
+    );
+}
+
 #[tokio::test]
 async fn test_spec_store_data_store_updates_forwarded_to_data_store() {
     let data_store = Arc::new(TestDataStore::new(true));
@@ -864,6 +982,7 @@ async fn test_proto_metrics_classify_processing_and_duplicates() {
         None,
     );
     apply_eval_project(&delta_store);
+    let mut spec_decode_receiver = ops_stats.subscribe_for_test();
     let before = delta_store.load_data();
     let deleted_name = before
         .snapshot
@@ -891,6 +1010,14 @@ async fn test_proto_metrics_classify_processing_and_duplicates() {
         "metric-api",
     )
     .unwrap();
+    let spec_decode_tags =
+        receive_spec_decode_tags(&mut spec_decode_receiver, Duration::from_secs(1))
+            .await
+            .expect("materialized delta should emit spec decode telemetry");
+    assert_eq!(
+        spec_decode_tags.get("source").map(String::as_str),
+        Some("owned")
+    );
     let materialized = delta_store.load_data();
     apply_delta(
         &delta_store,

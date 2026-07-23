@@ -15,7 +15,7 @@ from click import Context
 
 from tinybird.client import AuthNoTokenException, CanNotBeDeletedException, DoesNotExistException, TinyB
 from tinybird.config import get_display_host
-from tinybird.datafile_common import get_name_version, wait_job
+from tinybird.datafile_common import get_name_version
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.branch import warn_if_in_live
 from tinybird.tb_cli_modules.cli import cli
@@ -34,15 +34,46 @@ from tinybird.tb_cli_modules.common import (
     validate_kafka_auto_offset_reset,
     validate_kafka_group,
     validate_kafka_topic,
+    wait_job,
 )
 from tinybird.tb_cli_modules.config import CLIConfig
-from tinybird.tb_cli_modules.exceptions import CLIDatasourceException
+from tinybird.tb_cli_modules.exceptions import CLIDatasourceException, CLIException
+
+EXPERIMENTAL_FEATURE_USE_V1 = "use_v1"
 
 
 @cli.group()
 @click.pass_context
 def datasource(ctx):
     """Data Sources commands"""
+
+
+def _echo_v1_import_jobs_queued(job_ids: list[str], operation: str) -> None:
+    for job_id in job_ids:
+        click.echo(FeedbackManager.success_import_job_queued(operation=operation, job_id=job_id))
+        click.echo(FeedbackManager.info_import_job_status(job_id=job_id))
+
+
+async def _wait_for_v1_import_jobs(client: TinyB, job_ids: list[str], operation: str) -> None:
+    for job_id in job_ids:
+        try:
+            await wait_job(client, job_id, f"/v0/jobs/{job_id}", f"{operation} import")
+        except CLIException:
+            if await _echo_v1_import_job_details(client, job_id):
+                raise click.exceptions.Exit(1)
+            raise
+        click.echo(FeedbackManager.success_import_job_completed(operation=operation, job_id=job_id))
+
+
+async def _echo_v1_import_job_details(client: TinyB, job_id: str) -> bool:
+    try:
+        job = await client.job(job_id)
+    except Exception:
+        return False
+    click.echo(FeedbackManager.info_job(job=job_id))
+    echo_safe_humanfriendly_tables_format_smart_table([job.values()], column_names=job.keys())
+    click.echo("\n")
+    return True
 
 
 @datasource.command(name="ls")
@@ -135,6 +166,13 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
     hidden=True,
 )
 @click.option("--concurrency", help="How many files to submit concurrently", default=1, hidden=True)
+@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
+@click.option(
+    "--experimental",
+    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
+    multiple=True,
+    help="Enable an experimental feature. May be specified multiple times.",
+)
 @click.pass_context
 @coro
 async def datasource_append(
@@ -145,6 +183,8 @@ async def datasource_append(
     incremental: Optional[str],
     ignore_empty: bool,
     concurrency: int,
+    experimental: tuple[str, ...],
+    wait: bool,
 ):
     """
     Appends data to an existing Data Source from URL, local file  or a connector
@@ -157,7 +197,14 @@ async def datasource_append(
 
     if not url:
         raise CLIDatasourceException(FeedbackManager.error_missing_url(datasource=datasource_name))
-    await push_data(ctx, datasource_name, url, mode="append", concurrency=concurrency)
+    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
+    if wait and not use_v1:
+        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
+    job_ids = await push_data(ctx, datasource_name, url, mode="append", concurrency=concurrency, use_v1=use_v1)
+    if use_v1:
+        _echo_v1_import_jobs_queued(job_ids or [], "Append")
+        if wait:
+            await _wait_for_v1_import_jobs(ctx.obj["client"], job_ids or [], "Append")
 
 
 @datasource.command(name="replace")
@@ -165,6 +212,13 @@ async def datasource_append(
 @click.argument("url", nargs=-1)
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to replace data", hidden=True)
 @click.option("--skip-incompatible-partition-key", is_flag=True, default=False, hidden=True)
+@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
+@click.option(
+    "--experimental",
+    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
+    multiple=True,
+    help="Enable an experimental feature. May be specified multiple times.",
+)
 @click.pass_context
 @coro
 async def datasource_replace(
@@ -173,6 +227,8 @@ async def datasource_replace(
     url,
     sql_condition,
     skip_incompatible_partition_key,
+    experimental: tuple[str, ...],
+    wait: bool,
 ):
     """
     Replaces the data in a data source from a URL, local file or a connector
@@ -189,14 +245,22 @@ async def datasource_replace(
     replace_options = set()
     if skip_incompatible_partition_key:
         replace_options.add("skip_incompatible_partition_key")
-    await push_data(
+    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
+    if wait and not use_v1:
+        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
+    job_ids = await push_data(
         ctx,
         datasource_name,
         url,
         mode="replace",
         sql_condition=sql_condition,
         replace_options=replace_options,
+        use_v1=use_v1,
     )
+    if use_v1:
+        _echo_v1_import_jobs_queued(job_ids or [], "Replace")
+        if wait:
+            await _wait_for_v1_import_jobs(ctx.obj["client"], job_ids or [], "Replace")
 
 
 @datasource.command(name="analyze")

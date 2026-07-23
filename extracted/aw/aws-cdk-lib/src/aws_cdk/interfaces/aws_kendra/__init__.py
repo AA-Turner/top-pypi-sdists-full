@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class DataSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26a2266da96cc0a7063425a169455c1a15681197af9c6cf20fadd6cea5b1aef5)
+            type_hints = cached_type_hints(_typecheckingstub__26a2266da96cc0a7063425a169455c1a15681197af9c6cf20fadd6cea5b1aef5)
             check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
             check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
             check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
@@ -149,7 +153,7 @@ class FaqReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7625e62231fe84325a87668fc4fd70f592af31757a95bd7b6a61041391e98537)
+            type_hints = cached_type_hints(_typecheckingstub__7625e62231fe84325a87668fc4fd70f592af31757a95bd7b6a61041391e98537)
             check_type(argname="argument faq_arn", value=faq_arn, expected_type=type_hints["faq_arn"])
             check_type(argname="argument faq_id", value=faq_id, expected_type=type_hints["faq_id"])
             check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
@@ -195,7 +199,7 @@ class FaqReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IDataSourceRef")
 class IDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
@@ -215,7 +219,7 @@ class IDataSourceRef(
 
 class _IDataSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
 
@@ -240,7 +244,7 @@ typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IFaqRef")
 class IFaqRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Faq.
@@ -260,7 +264,7 @@ class IFaqRef(
 
 class _IFaqRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Faq.
 
@@ -285,7 +289,7 @@ typing.cast(typing.Any, IFaqRef).__jsii_proxy_class__ = lambda : _IFaqRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IIndexRef")
 class IIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
@@ -305,7 +309,7 @@ class IIndexRef(
 
 class _IIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
 
@@ -353,7 +357,7 @@ class IndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90cd6d290fb63a85515086873543ef20c61d2faa02b3955c1c27c28708e952c4)
+            type_hints = cached_type_hints(_typecheckingstub__90cd6d290fb63a85515086873543ef20c61d2faa02b3955c1c27c28708e952c4)
             check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
             check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

@@ -262,6 +262,8 @@ role = iam.Role(self, "Access Role", assumed_by=iam.ServicePrincipal("lambda.ama
 imported_vault.grant(role, "backup:StartBackupJob")
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -275,78 +277,47 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TimeZone as _TimeZone_cdd72ac9,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_events import Schedule as _Schedule_c151d01f
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    PolicyDocument as _PolicyDocument_3ac34393,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_backup import (
-    BackupPlanReference as _BackupPlanReference_43879719,
-    BackupSelectionReference as _BackupSelectionReference_541c6985,
-    BackupVaultReference as _BackupVaultReference_228dbd3a,
-    FrameworkReference as _FrameworkReference_5ce10c24,
-    IBackupPlanRef as _IBackupPlanRef_754776b5,
-    IBackupSelectionRef as _IBackupSelectionRef_e9fbb7b2,
-    IBackupVaultRef as _IBackupVaultRef_c038ce00,
-    IFrameworkRef as _IFrameworkRef_dcbb25ea,
-    ILogicallyAirGappedBackupVaultRef as _ILogicallyAirGappedBackupVaultRef_94a8f212,
-    IReportPlanRef as _IReportPlanRef_2eb6ea89,
-    IRestoreTestingPlanRef as _IRestoreTestingPlanRef_3850185f,
-    IRestoreTestingSelectionRef as _IRestoreTestingSelectionRef_f3800013,
-    ITieringConfigurationRef as _ITieringConfigurationRef_0738fe9f,
-    LogicallyAirGappedBackupVaultReference as _LogicallyAirGappedBackupVaultReference_53a7ab81,
-    ReportPlanReference as _ReportPlanReference_0a875581,
-    RestoreTestingPlanReference as _RestoreTestingPlanReference_99f8c406,
-    RestoreTestingSelectionReference as _RestoreTestingSelectionReference_05d8055b,
-    TieringConfigurationReference as _TieringConfigurationReference_e566af55,
-)
-from ..interfaces.aws_dynamodb import ITableRef as _ITableRef_4478f0ad
-from ..interfaces.aws_ec2 import IInstanceRef as _IInstanceRef_b97803cb
-from ..interfaces.aws_efs import IFileSystemRef as _IFileSystemRef_3dcf8b98
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_rds import (
-    IDBClusterRef as _IDBClusterRef_ebf419fe,
-    IDBInstanceRef as _IDBInstanceRef_10d60cd7,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_backup as _aws_backup_bc4c1c6b
+    import aws_cdk.interfaces.aws_dynamodb as _aws_dynamodb_948f46d7
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_efs as _aws_efs_c63a96e2
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_rds as _aws_rds_26740a85
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_backup_bc4c1c6b = _LazyImport("aws_cdk.interfaces.aws_backup")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_dynamodb_948f46d7 = _LazyImport("aws_cdk.interfaces.aws_dynamodb")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_efs_c63a96e2 = _LazyImport("aws_cdk.interfaces.aws_efs")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_rds_26740a85 = _LazyImport("aws_cdk.interfaces.aws_rds")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -362,9 +333,9 @@ class BackupPlanCopyActionProps:
     def __init__(
         self,
         *,
-        destination_backup_vault: "_IBackupVaultRef_c038ce00",
-        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
-        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
+        destination_backup_vault: "_aws_backup_bc4c1c6b.IBackupVaultRef",
+        delete_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        move_to_cold_storage_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for a BackupPlanCopyAction.
 
@@ -393,7 +364,7 @@ class BackupPlanCopyActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__502c247f5c1b9824033ca24f5efe3e1d20ee8980208ae5382890f6168ba12843)
+            type_hints = cached_type_hints(_typecheckingstub__502c247f5c1b9824033ca24f5efe3e1d20ee8980208ae5382890f6168ba12843)
             check_type(argname="argument destination_backup_vault", value=destination_backup_vault, expected_type=type_hints["destination_backup_vault"])
             check_type(argname="argument delete_after", value=delete_after, expected_type=type_hints["delete_after"])
             check_type(argname="argument move_to_cold_storage_after", value=move_to_cold_storage_after, expected_type=type_hints["move_to_cold_storage_after"])
@@ -406,14 +377,14 @@ class BackupPlanCopyActionProps:
             self._values["move_to_cold_storage_after"] = move_to_cold_storage_after
 
     @builtins.property
-    def destination_backup_vault(self) -> "_IBackupVaultRef_c038ce00":
+    def destination_backup_vault(self) -> "_aws_backup_bc4c1c6b.IBackupVaultRef":
         '''Destination Vault for recovery points to be copied into.'''
         result = self._values.get("destination_backup_vault")
         assert result is not None, "Required property 'destination_backup_vault' is missing"
-        return typing.cast("_IBackupVaultRef_c038ce00", result)
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupVaultRef", result)
 
     @builtins.property
-    def delete_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def delete_after(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the duration after creation that a copied recovery point is deleted from the destination vault.
 
         Must be at least 90 days greater than ``moveToColdStorageAfter``, if specified.
@@ -421,16 +392,18 @@ class BackupPlanCopyActionProps:
         :default: - recovery point is never deleted
         '''
         result = self._values.get("delete_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def move_to_cold_storage_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def move_to_cold_storage_after(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the duration after creation that a copied recovery point is moved to cold storage.
 
         :default: - recovery point is never moved to cold storage
         '''
         result = self._values.get("move_to_cold_storage_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -460,7 +433,7 @@ class BackupPlanProps:
         *,
         backup_plan_name: typing.Optional[builtins.str] = None,
         backup_plan_rules: typing.Optional[typing.Sequence["BackupPlanRule"]] = None,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
         windows_vss: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties for a BackupPlan.
@@ -479,7 +452,7 @@ class BackupPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c977b2da08bc5e51abde064245ef25c86ebdc30dd86fbb4658318249248eafb)
+            type_hints = cached_type_hints(_typecheckingstub__2c977b2da08bc5e51abde064245ef25c86ebdc30dd86fbb4658318249248eafb)
             check_type(argname="argument backup_plan_name", value=backup_plan_name, expected_type=type_hints["backup_plan_name"])
             check_type(argname="argument backup_plan_rules", value=backup_plan_rules, expected_type=type_hints["backup_plan_rules"])
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
@@ -516,7 +489,7 @@ class BackupPlanProps:
         return typing.cast(typing.Optional[typing.List["BackupPlanRule"]], result)
 
     @builtins.property
-    def backup_vault(self) -> typing.Optional["_IBackupVaultRef_c038ce00"]:
+    def backup_vault(self) -> typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"]:
         '''The backup vault where backups are stored.
 
         :default:
@@ -525,7 +498,7 @@ class BackupPlanProps:
         common vault for the plan will be created
         '''
         result = self._values.get("backup_vault")
-        return typing.cast(typing.Optional["_IBackupVaultRef_c038ce00"], result)
+        return typing.cast(typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"], result)
 
     @builtins.property
     def windows_vss(self) -> typing.Optional[builtins.bool]:
@@ -571,17 +544,17 @@ class BackupPlanRule(
     def __init__(
         self,
         *,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
-        completion_window: typing.Optional["_Duration_4839e8c3"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
+        completion_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
+        delete_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
-        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
+        move_to_cold_storage_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        schedule_expression: typing.Optional["_Schedule_c151d01f"] = None,
-        schedule_expression_timezone: typing.Optional["_TimeZone_cdd72ac9"] = None,
-        start_window: typing.Optional["_Duration_4839e8c3"] = None,
+        schedule_expression: typing.Optional["_aws_events_27c08586.Schedule"] = None,
+        schedule_expression_timezone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
+        start_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param backup_vault: The backup vault where backups are. Default: - use the vault defined at the plan level. If not defined a new common vault for the plan will be created
@@ -616,14 +589,14 @@ class BackupPlanRule(
     @builtins.classmethod
     def daily(
         cls,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlanRule":
         '''Daily with 35 days retention.
 
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f78e665a93a5f3c61a81adf713b3dce3bf2c3c24d2e314a1fbc4460dc83b538)
+            type_hints = cached_type_hints(_typecheckingstub__8f78e665a93a5f3c61a81adf713b3dce3bf2c3c24d2e314a1fbc4460dc83b538)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
         return typing.cast("BackupPlanRule", jsii.sinvoke(cls, "daily", [backup_vault]))
 
@@ -631,14 +604,14 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly1_year(
         cls,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 1 year retention, move to cold storage after 1 month.
 
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d00b6f39a5ae5e68dc286fee4603f5606c654c044712abfb5d45b4c538938e0a)
+            type_hints = cached_type_hints(_typecheckingstub__d00b6f39a5ae5e68dc286fee4603f5606c654c044712abfb5d45b4c538938e0a)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
         return typing.cast("BackupPlanRule", jsii.sinvoke(cls, "monthly1Year", [backup_vault]))
 
@@ -646,14 +619,14 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly5_year(
         cls,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 5 year retention, move to cold storage after 3 months.
 
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4124e390401942af3d104beae29adc9c33bd1305f68302b0dd47aae3e11ca132)
+            type_hints = cached_type_hints(_typecheckingstub__4124e390401942af3d104beae29adc9c33bd1305f68302b0dd47aae3e11ca132)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
         return typing.cast("BackupPlanRule", jsii.sinvoke(cls, "monthly5Year", [backup_vault]))
 
@@ -661,14 +634,14 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly7_year(
         cls,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 7 year retention, move to cold storage after 3 months.
 
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af7999bcc928a751830ca431012278b60250723ffee54654765a4596696d022d)
+            type_hints = cached_type_hints(_typecheckingstub__af7999bcc928a751830ca431012278b60250723ffee54654765a4596696d022d)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
         return typing.cast("BackupPlanRule", jsii.sinvoke(cls, "monthly7Year", [backup_vault]))
 
@@ -676,14 +649,14 @@ class BackupPlanRule(
     @builtins.classmethod
     def weekly(
         cls,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlanRule":
         '''Weekly with 3 months retention.
 
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__759b8b9514606abffe4399669994cb3f2c365fc9e05295dd8d754f5af6bb329f)
+            type_hints = cached_type_hints(_typecheckingstub__759b8b9514606abffe4399669994cb3f2c365fc9e05295dd8d754f5af6bb329f)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
         return typing.cast("BackupPlanRule", jsii.sinvoke(cls, "weekly", [backup_vault]))
 
@@ -715,17 +688,17 @@ class BackupPlanRuleProps:
     def __init__(
         self,
         *,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
-        completion_window: typing.Optional["_Duration_4839e8c3"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
+        completion_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
+        delete_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
-        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
+        move_to_cold_storage_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        schedule_expression: typing.Optional["_Schedule_c151d01f"] = None,
-        schedule_expression_timezone: typing.Optional["_TimeZone_cdd72ac9"] = None,
-        start_window: typing.Optional["_Duration_4839e8c3"] = None,
+        schedule_expression: typing.Optional["_aws_events_27c08586.Schedule"] = None,
+        schedule_expression_timezone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
+        start_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for a BackupPlanRule.
 
@@ -757,7 +730,7 @@ class BackupPlanRuleProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d8353d5d90)
+            type_hints = cached_type_hints(_typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d8353d5d90)
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
             check_type(argname="argument completion_window", value=completion_window, expected_type=type_hints["completion_window"])
             check_type(argname="argument copy_actions", value=copy_actions, expected_type=type_hints["copy_actions"])
@@ -794,7 +767,7 @@ class BackupPlanRuleProps:
             self._values["start_window"] = start_window
 
     @builtins.property
-    def backup_vault(self) -> typing.Optional["_IBackupVaultRef_c038ce00"]:
+    def backup_vault(self) -> typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"]:
         '''The backup vault where backups are.
 
         :default:
@@ -803,16 +776,16 @@ class BackupPlanRuleProps:
         common vault for the plan will be created
         '''
         result = self._values.get("backup_vault")
-        return typing.cast(typing.Optional["_IBackupVaultRef_c038ce00"], result)
+        return typing.cast(typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"], result)
 
     @builtins.property
-    def completion_window(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def completion_window(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration after a backup job is successfully started before it must be completed or it is canceled by AWS Backup.
 
         :default: - 7 days
         '''
         result = self._values.get("completion_window")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def copy_actions(self) -> typing.Optional[typing.List["BackupPlanCopyActionProps"]]:
@@ -824,7 +797,7 @@ class BackupPlanRuleProps:
         return typing.cast(typing.Optional[typing.List["BackupPlanCopyActionProps"]], result)
 
     @builtins.property
-    def delete_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def delete_after(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the duration after creation that a recovery point is deleted.
 
         Must be greater than ``moveToColdStorageAfter``.
@@ -832,7 +805,7 @@ class BackupPlanRuleProps:
         :default: - recovery point is never deleted
         '''
         result = self._values.get("delete_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def enable_continuous_backup(self) -> typing.Optional[builtins.bool]:
@@ -849,13 +822,15 @@ class BackupPlanRuleProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def move_to_cold_storage_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def move_to_cold_storage_after(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the duration after creation that a recovery point is moved to cold storage.
 
         :default: - recovery point is never moved to cold storage
         '''
         result = self._values.get("move_to_cold_storage_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def recovery_point_tags(
@@ -880,31 +855,33 @@ class BackupPlanRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def schedule_expression(self) -> typing.Optional["_Schedule_c151d01f"]:
+    def schedule_expression(self) -> typing.Optional["_aws_events_27c08586.Schedule"]:
         '''A CRON expression specifying when AWS Backup initiates a backup job.
 
         :default: - no schedule
         '''
         result = self._values.get("schedule_expression")
-        return typing.cast(typing.Optional["_Schedule_c151d01f"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.Schedule"], result)
 
     @builtins.property
-    def schedule_expression_timezone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
+    def schedule_expression_timezone(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''The timezone in which the schedule expression is set.
 
         :default: - UTC
         '''
         result = self._values.get("schedule_expression_timezone")
-        return typing.cast(typing.Optional["_TimeZone_cdd72ac9"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.TimeZone"], result)
 
     @builtins.property
-    def start_window(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def start_window(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration after a backup is scheduled before a job is canceled if it doesn't start successfully.
 
         :default: - 8 hours
         '''
         result = self._values.get("start_window")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -974,7 +951,7 @@ class BackupResource(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da262bae32a880066638158d96c942364504852f2d4af32d72bcd0034c7fbd32)
+            type_hints = cached_type_hints(_typecheckingstub__da262bae32a880066638158d96c942364504852f2d4af32d72bcd0034c7fbd32)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
             check_type(argname="argument tag_condition", value=tag_condition, expected_type=type_hints["tag_condition"])
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
@@ -988,7 +965,7 @@ class BackupResource(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2db3e845e2974e883de9fa3efc667fda5fd092ba7fea3f5fa1f1c15a5188862a)
+            type_hints = cached_type_hints(_typecheckingstub__2db3e845e2974e883de9fa3efc667fda5fd092ba7fea3f5fa1f1c15a5188862a)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromArn", [arn]))
 
@@ -1003,31 +980,37 @@ class BackupResource(
         :param construct: The construct containing resources to backup.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c8359998ff8f774202e1b0869097e19c3e167e8e7a6a5ee95936f1b09f063b8)
+            type_hints = cached_type_hints(_typecheckingstub__8c8359998ff8f774202e1b0869097e19c3e167e8e7a6a5ee95936f1b09f063b8)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromConstruct", [construct]))
 
     @jsii.member(jsii_name="fromDynamoDbTable")
     @builtins.classmethod
-    def from_dynamo_db_table(cls, table: "_ITableRef_4478f0ad") -> "BackupResource":
+    def from_dynamo_db_table(
+        cls,
+        table: "_aws_dynamodb_948f46d7.ITableRef",
+    ) -> "BackupResource":
         '''A DynamoDB table.
 
         :param table: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75ec54ba33468f397b4b954ffff5bb4a26a29e306b38c37a8a831233ca47cf40)
+            type_hints = cached_type_hints(_typecheckingstub__75ec54ba33468f397b4b954ffff5bb4a26a29e306b38c37a8a831233ca47cf40)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromDynamoDbTable", [table]))
 
     @jsii.member(jsii_name="fromEc2Instance")
     @builtins.classmethod
-    def from_ec2_instance(cls, instance: "_IInstanceRef_b97803cb") -> "BackupResource":
+    def from_ec2_instance(
+        cls,
+        instance: "_aws_ec2_18162e09.IInstanceRef",
+    ) -> "BackupResource":
         '''An EC2 instance.
 
         :param instance: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfac18ef33642ed976be7473c0fe4b5174e370a770ceabc690e397bcecfce6a3)
+            type_hints = cached_type_hints(_typecheckingstub__bfac18ef33642ed976be7473c0fe4b5174e370a770ceabc690e397bcecfce6a3)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromEc2Instance", [instance]))
 
@@ -1035,14 +1018,14 @@ class BackupResource(
     @builtins.classmethod
     def from_efs_file_system(
         cls,
-        file_system: "_IFileSystemRef_3dcf8b98",
+        file_system: "_aws_efs_c63a96e2.IFileSystemRef",
     ) -> "BackupResource":
         '''An EFS file system.
 
         :param file_system: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a724b31752318e43681480d257f284af035f11db8b7b91a2712b0a19a09283b)
+            type_hints = cached_type_hints(_typecheckingstub__2a724b31752318e43681480d257f284af035f11db8b7b91a2712b0a19a09283b)
             check_type(argname="argument file_system", value=file_system, expected_type=type_hints["file_system"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromEfsFileSystem", [file_system]))
 
@@ -1050,14 +1033,14 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_database_cluster(
         cls,
-        cluster: "_IDBClusterRef_ebf419fe",
+        cluster: "_aws_rds_26740a85.IDBClusterRef",
     ) -> "BackupResource":
         '''A RDS database cluter.
 
         :param cluster: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2043352654f5d7b0272be6002773b2263d7a3a58bb3ca681d050846773b6a7a4)
+            type_hints = cached_type_hints(_typecheckingstub__2043352654f5d7b0272be6002773b2263d7a3a58bb3ca681d050846773b6a7a4)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromRdsDatabaseCluster", [cluster]))
 
@@ -1065,14 +1048,14 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_database_instance(
         cls,
-        instance: "_IDBInstanceRef_10d60cd7",
+        instance: "_aws_rds_26740a85.IDBInstanceRef",
     ) -> "BackupResource":
         '''A RDS database instance.
 
         :param instance: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3a85f96e06b0e43fed194c604af81aa14d506827b7f57b6fef4f8e0191d38d1)
+            type_hints = cached_type_hints(_typecheckingstub__a3a85f96e06b0e43fed194c604af81aa14d506827b7f57b6fef4f8e0191d38d1)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromRdsDatabaseInstance", [instance]))
 
@@ -1080,14 +1063,14 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_serverless_cluster(
         cls,
-        cluster: "_IDBClusterRef_ebf419fe",
+        cluster: "_aws_rds_26740a85.IDBClusterRef",
     ) -> "BackupResource":
         '''An Aurora database instance.
 
         :param cluster: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a96658ef472d54f85f9fb6dfeffb763befda835ec279615ad329c159e5acf1a6)
+            type_hints = cached_type_hints(_typecheckingstub__a96658ef472d54f85f9fb6dfeffb763befda835ec279615ad329c159e5acf1a6)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         return typing.cast("BackupResource", jsii.sinvoke(cls, "fromRdsServerlessCluster", [cluster]))
 
@@ -1106,7 +1089,7 @@ class BackupResource(
         :param operation: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c47a77dd61236c04d92fba31585e4ea943b8bb7dfce2ab0dc2f09ab9bd172316)
+            type_hints = cached_type_hints(_typecheckingstub__c47a77dd61236c04d92fba31585e4ea943b8bb7dfce2ab0dc2f09ab9bd172316)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
@@ -1131,9 +1114,9 @@ class BackupResource(
         return typing.cast(typing.Optional["TagCondition"], jsii.get(self, "tagCondition"))
 
 
-@jsii.implements(_IGrantable_71c4f5de)
+@jsii.implements(_aws_iam_1f54b5e8.IGrantable)
 class BackupSelection(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.BackupSelection",
 ):
@@ -1170,12 +1153,12 @@ class BackupSelection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan: "_IBackupPlanRef_754776b5",
+        backup_plan: "_aws_backup_bc4c1c6b.IBackupPlanRef",
         resources: typing.Sequence["BackupResource"],
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1188,7 +1171,7 @@ class BackupSelection(
         :param role: The role that AWS Backup uses to authenticate when backuping or restoring the resources. The ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to this role unless ``disableDefaultBackupPolicy`` is set to ``true``. Default: - a new role will be created
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb124dbc539b313053b8d36e3fbbda7c8ef513917e5cdb41a9d2a7ecaaca7643)
+            type_hints = cached_type_hints(_typecheckingstub__cb124dbc539b313053b8d36e3fbbda7c8ef513917e5cdb41a9d2a7ecaaca7643)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BackupSelectionProps(
@@ -1219,9 +1202,9 @@ class BackupSelection(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="selectionId")
@@ -1252,7 +1235,7 @@ class BackupSelectionOptions:
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Options for a BackupSelection.
 
@@ -1300,7 +1283,7 @@ class BackupSelectionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c0cf23958862e40e3aaa86170756388807569db1aeb820435bca2898ff496c)
+            type_hints = cached_type_hints(_typecheckingstub__99c0cf23958862e40e3aaa86170756388807569db1aeb820435bca2898ff496c)
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
             check_type(argname="argument allow_restores", value=allow_restores, expected_type=type_hints["allow_restores"])
             check_type(argname="argument backup_selection_name", value=backup_selection_name, expected_type=type_hints["backup_selection_name"])
@@ -1362,7 +1345,7 @@ class BackupSelectionOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role that AWS Backup uses to authenticate when backuping or restoring the resources.
 
         The ``AWSBackupServiceRolePolicyForBackup`` managed policy
@@ -1372,7 +1355,7 @@ class BackupSelectionOptions:
         :default: - a new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1406,8 +1389,8 @@ class BackupSelectionProps(BackupSelectionOptions):
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        backup_plan: "_IBackupPlanRef_754776b5",
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        backup_plan: "_aws_backup_bc4c1c6b.IBackupPlanRef",
     ) -> None:
         '''Properties for a BackupSelection.
 
@@ -1444,7 +1427,7 @@ class BackupSelectionProps(BackupSelectionOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd3a38c041da3373a6278620797d45b4058a0d5aede2c0a4bc706fdeff586bc8)
+            type_hints = cached_type_hints(_typecheckingstub__bd3a38c041da3373a6278620797d45b4058a0d5aede2c0a4bc706fdeff586bc8)
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
             check_type(argname="argument allow_restores", value=allow_restores, expected_type=type_hints["allow_restores"])
             check_type(argname="argument backup_selection_name", value=backup_selection_name, expected_type=type_hints["backup_selection_name"])
@@ -1508,7 +1491,7 @@ class BackupSelectionProps(BackupSelectionOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role that AWS Backup uses to authenticate when backuping or restoring the resources.
 
         The ``AWSBackupServiceRolePolicyForBackup`` managed policy
@@ -1518,14 +1501,14 @@ class BackupSelectionProps(BackupSelectionOptions):
         :default: - a new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def backup_plan(self) -> "_IBackupPlanRef_754776b5":
+    def backup_plan(self) -> "_aws_backup_bc4c1c6b.IBackupPlanRef":
         '''The backup plan for this selection.'''
         result = self._values.get("backup_plan")
         assert result is not None, "Required property 'backup_plan' is missing"
-        return typing.cast("_IBackupPlanRef_754776b5", result)
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupPlanRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1603,14 +1586,14 @@ class BackupVaultProps:
     def __init__(
         self,
         *,
-        access_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        access_policy: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
         backup_vault_name: typing.Optional[builtins.str] = None,
         block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         lock_configuration: typing.Optional[typing.Union["LockConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         notification_events: typing.Optional[typing.Sequence["BackupVaultEvents"]] = None,
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Properties for a BackupVault.
 
@@ -1638,7 +1621,7 @@ class BackupVaultProps:
         if isinstance(lock_configuration, dict):
             lock_configuration = LockConfiguration(**lock_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a7555f4b25ca4760e3a057b8e3a9b5e07feed1f99319d6e434cc8fed4e71af6)
+            type_hints = cached_type_hints(_typecheckingstub__6a7555f4b25ca4760e3a057b8e3a9b5e07feed1f99319d6e434cc8fed4e71af6)
             check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
             check_type(argname="argument block_recovery_point_deletion", value=block_recovery_point_deletion, expected_type=type_hints["block_recovery_point_deletion"])
@@ -1666,13 +1649,13 @@ class BackupVaultProps:
             self._values["removal_policy"] = removal_policy
 
     @builtins.property
-    def access_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+    def access_policy(self) -> typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"]:
         '''A resource-based policy that is used to manage access permissions on the backup vault.
 
         :default: - access is not restricted
         '''
         result = self._values.get("access_policy")
-        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"], result)
 
     @builtins.property
     def backup_vault_name(self) -> typing.Optional[builtins.str]:
@@ -1697,13 +1680,13 @@ class BackupVaultProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''The server-side encryption key to use to protect your backups.
 
         :default: - an Amazon managed KMS key
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
     def lock_configuration(self) -> typing.Optional["LockConfiguration"]:
@@ -1728,7 +1711,7 @@ class BackupVaultProps:
         return typing.cast(typing.Optional[typing.List["BackupVaultEvents"]], result)
 
     @builtins.property
-    def notification_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def notification_topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''A SNS topic to send vault events to.
 
         :default: - no notifications
@@ -1736,10 +1719,10 @@ class BackupVaultProps:
         :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/sns-notifications.html
         '''
         result = self._values.get("notification_topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the vault.
 
         Note that removing a vault
@@ -1748,7 +1731,7 @@ class BackupVaultProps:
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1762,9 +1745,9 @@ class BackupVaultProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBackupPlanRef_754776b5, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IBackupPlanRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBackupPlan(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlan",
 ):
@@ -1851,7 +1834,7 @@ class CfnBackupPlan(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
         backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::BackupPlan``.
@@ -1862,7 +1845,7 @@ class CfnBackupPlan(
         :param backup_plan_tags: The tags to assign to the backup plan.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8250888ac08b345ef300cc4ce53cc267858e31401cdc7b6a427c98f5b05a644a)
+            type_hints = cached_type_hints(_typecheckingstub__8250888ac08b345ef300cc4ce53cc267858e31401cdc7b6a427c98f5b05a644a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBackupPlanProps(
@@ -1873,12 +1856,15 @@ class CfnBackupPlan(
 
     @jsii.member(jsii_name="arnForBackupPlan")
     @builtins.classmethod
-    def arn_for_backup_plan(cls, resource: "_IBackupPlanRef_754776b5") -> builtins.str:
+    def arn_for_backup_plan(
+        cls,
+        resource: "_aws_backup_bc4c1c6b.IBackupPlanRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d90318e05f298e9e32d25d69776de891d8d1f9fdc6587cd780d823a2ffc981d8)
+            type_hints = cached_type_hints(_typecheckingstub__d90318e05f298e9e32d25d69776de891d8d1f9fdc6587cd780d823a2ffc981d8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackupPlan", [resource]))
 
@@ -1889,7 +1875,7 @@ class CfnBackupPlan(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IBackupPlanRef_754776b5":
+    ) -> "_aws_backup_bc4c1c6b.IBackupPlanRef":
         '''Creates a new IBackupPlanRef from an ARN.
 
         :param scope: -
@@ -1897,11 +1883,11 @@ class CfnBackupPlan(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19a621581dc951af9f595672bab4c44806829db988a9a543e73c82aa211347cc)
+            type_hints = cached_type_hints(_typecheckingstub__19a621581dc951af9f595672bab4c44806829db988a9a543e73c82aa211347cc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IBackupPlanRef_754776b5", jsii.sinvoke(cls, "fromBackupPlanArn", [scope, id, arn]))
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupPlanRef", jsii.sinvoke(cls, "fromBackupPlanArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromBackupPlanId")
     @builtins.classmethod
@@ -1910,7 +1896,7 @@ class CfnBackupPlan(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         backup_plan_id: builtins.str,
-    ) -> "_IBackupPlanRef_754776b5":
+    ) -> "_aws_backup_bc4c1c6b.IBackupPlanRef":
         '''Creates a new IBackupPlanRef from a backupPlanId.
 
         :param scope: -
@@ -1918,11 +1904,11 @@ class CfnBackupPlan(
         :param backup_plan_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c10f5f2e9e380d8e917a10f74122d09d2b555c99380ffa6da4e01197e1e097dd)
+            type_hints = cached_type_hints(_typecheckingstub__c10f5f2e9e380d8e917a10f74122d09d2b555c99380ffa6da4e01197e1e097dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
-        return typing.cast("_IBackupPlanRef_754776b5", jsii.sinvoke(cls, "fromBackupPlanId", [scope, id, backup_plan_id]))
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupPlanRef", jsii.sinvoke(cls, "fromBackupPlanId", [scope, id, backup_plan_id]))
 
     @jsii.member(jsii_name="isCfnBackupPlan")
     @builtins.classmethod
@@ -1932,18 +1918,18 @@ class CfnBackupPlan(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ede8b9af7edd83b17d51898aba87327c2de9e2dca982aab34a7f5ba5948e1b76)
+            type_hints = cached_type_hints(_typecheckingstub__ede8b9af7edd83b17d51898aba87327c2de9e2dca982aab34a7f5ba5948e1b76)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupPlan", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff313ad9e84c3475e4286a17d3e066d3b8ff12dcdde29c7a2727bf7529fa7fbb)
+            type_hints = cached_type_hints(_typecheckingstub__ff313ad9e84c3475e4286a17d3e066d3b8ff12dcdde29c7a2727bf7529fa7fbb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1956,7 +1942,7 @@ class CfnBackupPlan(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__629c13605c998df9d353c86512eb681d4a36a976085dd6b817284d7c538366bf)
+            type_hints = cached_type_hints(_typecheckingstub__629c13605c998df9d353c86512eb681d4a36a976085dd6b817284d7c538366bf)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1999,15 +1985,15 @@ class CfnBackupPlan(
 
     @builtins.property
     @jsii.member(jsii_name="backupPlanRef")
-    def backup_plan_ref(self) -> "_BackupPlanReference_43879719":
+    def backup_plan_ref(self) -> "_aws_backup_bc4c1c6b.BackupPlanReference":
         '''A reference to a BackupPlan resource.'''
-        return typing.cast("_BackupPlanReference_43879719", jsii.get(self, "backupPlanRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.BackupPlanReference", jsii.get(self, "backupPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2023,17 +2009,17 @@ class CfnBackupPlan(
     @jsii.member(jsii_name="backupPlan")
     def backup_plan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
         '''Uniquely identifies the backup plan to be associated with the selection of resources.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"], jsii.get(self, "backupPlan"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupPlanResourceTypeProperty"], jsii.get(self, "backupPlan"))
 
     @backup_plan.setter
     def backup_plan(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupPlanResourceTypeProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6bcd3444e7d21cd081d514b722a886bbe4d7a7b6f5d932136467b22b0e106cb)
+            type_hints = cached_type_hints(_typecheckingstub__f6bcd3444e7d21cd081d514b722a886bbe4d7a7b6f5d932136467b22b0e106cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupPlan", value) # pyright: ignore[reportArgumentType]
 
@@ -2051,7 +2037,7 @@ class CfnBackupPlan(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb59689e4858e7d33cb520f2ac89e6fb2e87b5adf8cc0ba009807aac7f9f269b)
+            type_hints = cached_type_hints(_typecheckingstub__fb59689e4858e7d33cb520f2ac89e6fb2e87b5adf8cc0ba009807aac7f9f269b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupPlanTags", value) # pyright: ignore[reportArgumentType]
 
@@ -2094,7 +2080,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__adac2a2fa454c7ba68def940750a72e610647ccbdd2ff4bbb5b5a2aa0137684c)
+                type_hints = cached_type_hints(_typecheckingstub__adac2a2fa454c7ba68def940750a72e610647ccbdd2ff4bbb5b5a2aa0137684c)
                 check_type(argname="argument backup_options", value=backup_options, expected_type=type_hints["backup_options"])
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2162,9 +2148,9 @@ class CfnBackupPlan(
             self,
             *,
             backup_plan_name: builtins.str,
-            backup_plan_rule: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupRuleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            advanced_backup_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            scan_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.ScanSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            backup_plan_rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.BackupRuleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            advanced_backup_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            scan_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.ScanSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies an object containing properties used to create a backup plan.
 
@@ -2237,7 +2223,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4fa711ce952ba97854872fd98c8f8e371b8e208c6e6c6d9d96087f413097338f)
+                type_hints = cached_type_hints(_typecheckingstub__4fa711ce952ba97854872fd98c8f8e371b8e208c6e6c6d9d96087f413097338f)
                 check_type(argname="argument backup_plan_name", value=backup_plan_name, expected_type=type_hints["backup_plan_name"])
                 check_type(argname="argument backup_plan_rule", value=backup_plan_rule, expected_type=type_hints["backup_plan_rule"])
                 check_type(argname="argument advanced_backup_settings", value=advanced_backup_settings, expected_type=type_hints["advanced_backup_settings"])
@@ -2264,35 +2250,35 @@ class CfnBackupPlan(
         @builtins.property
         def backup_plan_rule(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]]:
             '''An array of ``BackupRule`` objects, each of which specifies a scheduled task that is used to back up a selection of resources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-backupplanrule
             '''
             result = self._values.get("backup_plan_rule")
             assert result is not None, "Required property 'backup_plan_rule' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]], result)
 
         @builtins.property
         def advanced_backup_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]]:
             '''A list of backup options for each resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-advancedbackupsettings
             '''
             result = self._values.get("advanced_backup_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]], result)
 
         @builtins.property
         def scan_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-scansettings
             '''
             result = self._values.get("scan_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2331,12 +2317,12 @@ class CfnBackupPlan(
             rule_name: builtins.str,
             target_backup_vault: builtins.str,
             completion_window_minutes: typing.Optional[jsii.Number] = None,
-            copy_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.CopyActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            index_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            recovery_point_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            scan_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.ScanActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            copy_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.CopyActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            index_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            recovery_point_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            scan_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.ScanActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             schedule_expression: typing.Optional[builtins.str] = None,
             schedule_expression_timezone: typing.Optional[builtins.str] = None,
             start_window_minutes: typing.Optional[jsii.Number] = None,
@@ -2406,7 +2392,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b52e84b2)
+                type_hints = cached_type_hints(_typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b52e84b2)
                 check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
                 check_type(argname="argument target_backup_vault", value=target_backup_vault, expected_type=type_hints["target_backup_vault"])
                 check_type(argname="argument completion_window_minutes", value=completion_window_minutes, expected_type=type_hints["completion_window_minutes"])
@@ -2481,29 +2467,29 @@ class CfnBackupPlan(
         @builtins.property
         def copy_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]]:
             '''An array of CopyAction objects, which contains the details of the copy operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-copyactions
             '''
             result = self._values.get("copy_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def enable_continuous_backup(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables continuous backup and point-in-time restores (PITR).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-enablecontinuousbackup
             '''
             result = self._values.get("enable_continuous_backup")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def index_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]]:
             '''There can up to one IndexAction in each BackupRule, as each backup can have 0 or 1 backup index associated with it.
 
             Within the array is ResourceTypes. Only 1 resource type will be accepted for each BackupRule. Valid values:
@@ -2514,12 +2500,12 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-indexactions
             '''
             result = self._values.get("index_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]], result)
 
         @builtins.property
         def lifecycle(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
             '''The lifecycle defines when a protected resource is transitioned to cold storage and when it expires.
 
             AWS Backup transitions and expires backups automatically according to the lifecycle that you define.
@@ -2527,28 +2513,28 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-lifecycle
             '''
             result = self._values.get("lifecycle")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
 
         @builtins.property
         def recovery_point_tags(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The tags to assign to the resources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-recoverypointtags
             '''
             result = self._values.get("recovery_point_tags")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def scan_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-scanactions
             '''
             result = self._values.get("scan_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def schedule_expression(self) -> typing.Optional[builtins.str]:
@@ -2618,7 +2604,7 @@ class CfnBackupPlan(
             self,
             *,
             destination_backup_vault_arn: builtins.str,
-            lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Copies backups created by a backup rule to another vault.
 
@@ -2646,7 +2632,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0175b5c6dd7a96151259f5cc498692c56086843795ca19e3f9f696707f1d48a)
+                type_hints = cached_type_hints(_typecheckingstub__b0175b5c6dd7a96151259f5cc498692c56086843795ca19e3f9f696707f1d48a)
                 check_type(argname="argument destination_backup_vault_arn", value=destination_backup_vault_arn, expected_type=type_hints["destination_backup_vault_arn"])
                 check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2670,7 +2656,7 @@ class CfnBackupPlan(
         @builtins.property
         def lifecycle(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
             '''Defines when a protected resource is transitioned to cold storage and when it expires.
 
             AWS Backup transitions and expires backups automatically according to the lifecycle that you define. If you do not specify a lifecycle, AWS Backup applies the lifecycle policy of the source backup to the destination backup.
@@ -2680,7 +2666,7 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-copyactionresourcetype.html#cfn-backup-backupplan-copyactionresourcetype-lifecycle
             '''
             result = self._values.get("lifecycle")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2722,7 +2708,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__da981045a3cee9f5e8fc63c128c7e612a5dc43d041acf8903816ac5b23b3827f)
+                type_hints = cached_type_hints(_typecheckingstub__da981045a3cee9f5e8fc63c128c7e612a5dc43d041acf8903816ac5b23b3827f)
                 check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if resource_types is not None:
@@ -2768,7 +2754,7 @@ class CfnBackupPlan(
             *,
             delete_after_days: typing.Optional[jsii.Number] = None,
             move_to_cold_storage_after_days: typing.Optional[jsii.Number] = None,
-            opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies an object containing an array of ``Transition`` objects that determine how long in days before a recovery point transitions to cold storage or is deleted.
 
@@ -2792,7 +2778,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b9cc85d565a0bdd44f5b8b5d29dce7bae38cfd50437c39a049e1b16bd8a24c1e)
+                type_hints = cached_type_hints(_typecheckingstub__b9cc85d565a0bdd44f5b8b5d29dce7bae38cfd50437c39a049e1b16bd8a24c1e)
                 check_type(argname="argument delete_after_days", value=delete_after_days, expected_type=type_hints["delete_after_days"])
                 check_type(argname="argument move_to_cold_storage_after_days", value=move_to_cold_storage_after_days, expected_type=type_hints["move_to_cold_storage_after_days"])
                 check_type(argname="argument opt_in_to_archive_for_supported_resources", value=opt_in_to_archive_for_supported_resources, expected_type=type_hints["opt_in_to_archive_for_supported_resources"])
@@ -2827,13 +2813,13 @@ class CfnBackupPlan(
         @builtins.property
         def opt_in_to_archive_for_supported_resources(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If the value is true, your backup plan transitions supported resources to archive (cold) storage tier in accordance with your lifecycle settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-lifecycleresourcetype.html#cfn-backup-backupplan-lifecycleresourcetype-optintoarchiveforsupportedresources
             '''
             result = self._values.get("opt_in_to_archive_for_supported_resources")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2877,7 +2863,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3caec5202bdd7cb95e55dfb1f43dacffd638c970ca85da8f45e18ee7a135cfd2)
+                type_hints = cached_type_hints(_typecheckingstub__3caec5202bdd7cb95e55dfb1f43dacffd638c970ca85da8f45e18ee7a135cfd2)
                 check_type(argname="argument malware_scanner", value=malware_scanner, expected_type=type_hints["malware_scanner"])
                 check_type(argname="argument scan_mode", value=scan_mode, expected_type=type_hints["scan_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2951,7 +2937,7 @@ class CfnBackupPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc93fa1678199d79bf7b9fa988732c0f06e2ed4210f7217037d788d3f1b2607b)
+                type_hints = cached_type_hints(_typecheckingstub__fc93fa1678199d79bf7b9fa988732c0f06e2ed4210f7217037d788d3f1b2607b)
                 check_type(argname="argument malware_scanner", value=malware_scanner, expected_type=type_hints["malware_scanner"])
                 check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
                 check_type(argname="argument scanner_role_arn", value=scanner_role_arn, expected_type=type_hints["scanner_role_arn"])
@@ -3008,7 +2994,7 @@ class CfnBackupPlanProps:
     def __init__(
         self,
         *,
-        backup_plan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
         backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBackupPlan``.
@@ -3087,7 +3073,7 @@ class CfnBackupPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8)
+            type_hints = cached_type_hints(_typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8)
             check_type(argname="argument backup_plan", value=backup_plan, expected_type=type_hints["backup_plan"])
             check_type(argname="argument backup_plan_tags", value=backup_plan_tags, expected_type=type_hints["backup_plan_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3099,14 +3085,14 @@ class CfnBackupPlanProps:
     @builtins.property
     def backup_plan(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
         '''Uniquely identifies the backup plan to be associated with the selection of resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html#cfn-backup-backupplan-backupplan
         '''
         result = self._values.get("backup_plan")
         assert result is not None, "Required property 'backup_plan' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupPlan.BackupPlanResourceTypeProperty"], result)
 
     @builtins.property
     def backup_plan_tags(
@@ -3131,9 +3117,9 @@ class CfnBackupPlanProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBackupSelectionRef_e9fbb7b2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IBackupSelectionRef)
 class CfnBackupSelection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnBackupSelection",
 ):
@@ -3177,8 +3163,8 @@ class CfnBackupSelection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan_id: typing.Union[builtins.str, "_IBackupPlanRef_754776b5"],
-        backup_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan_id: typing.Union[builtins.str, "_aws_backup_bc4c1c6b.IBackupPlanRef"],
+        backup_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::Backup::BackupSelection``.
 
@@ -3188,7 +3174,7 @@ class CfnBackupSelection(
         :param backup_selection: Specifies the body of a request to assign a set of resources to a backup plan. It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__436ffdeb945f1d3144a7bb788e19b389a62e6e70ce5e213a46bb8c9ea289c07f)
+            type_hints = cached_type_hints(_typecheckingstub__436ffdeb945f1d3144a7bb788e19b389a62e6e70ce5e213a46bb8c9ea289c07f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBackupSelectionProps(
@@ -3205,18 +3191,18 @@ class CfnBackupSelection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d35e73d1ff2149bad22c9c5051064e7e4eb9459ab990636de591005480b4e938)
+            type_hints = cached_type_hints(_typecheckingstub__d35e73d1ff2149bad22c9c5051064e7e4eb9459ab990636de591005480b4e938)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupSelection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b980d8bc69846edd28b19d93b1e66494af7417d2c8bfcc63913b9bf28df47fa)
+            type_hints = cached_type_hints(_typecheckingstub__2b980d8bc69846edd28b19d93b1e66494af7417d2c8bfcc63913b9bf28df47fa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3229,7 +3215,7 @@ class CfnBackupSelection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c986b57932b74d2da2b1f64dec5155c7fdf62e7a88a73fb7936731938fa34e00)
+            type_hints = cached_type_hints(_typecheckingstub__c986b57932b74d2da2b1f64dec5155c7fdf62e7a88a73fb7936731938fa34e00)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3268,9 +3254,9 @@ class CfnBackupSelection(
 
     @builtins.property
     @jsii.member(jsii_name="backupSelectionRef")
-    def backup_selection_ref(self) -> "_BackupSelectionReference_541c6985":
+    def backup_selection_ref(self) -> "_aws_backup_bc4c1c6b.BackupSelectionReference":
         '''A reference to a BackupSelection resource.'''
-        return typing.cast("_BackupSelectionReference_541c6985", jsii.get(self, "backupSelectionRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.BackupSelectionReference", jsii.get(self, "backupSelectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3291,7 +3277,7 @@ class CfnBackupSelection(
     @backup_plan_id.setter
     def backup_plan_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb392f817509871513c4b0fafb43edac23006950a5084d282e3b5261b24f5603)
+            type_hints = cached_type_hints(_typecheckingstub__fb392f817509871513c4b0fafb43edac23006950a5084d282e3b5261b24f5603)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupPlanId", value) # pyright: ignore[reportArgumentType]
 
@@ -3299,17 +3285,17 @@ class CfnBackupSelection(
     @jsii.member(jsii_name="backupSelection")
     def backup_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
         '''Specifies the body of a request to assign a set of resources to a backup plan.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], jsii.get(self, "backupSelection"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], jsii.get(self, "backupSelection"))
 
     @backup_selection.setter
     def backup_selection(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.BackupSelectionResourceTypeProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c50a31cd4319cd1c025574f4d4937c890776ab110ae28de39672caf7d2e4b86b)
+            type_hints = cached_type_hints(_typecheckingstub__c50a31cd4319cd1c025574f4d4937c890776ab110ae28de39672caf7d2e4b86b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupSelection", value) # pyright: ignore[reportArgumentType]
 
@@ -3332,7 +3318,7 @@ class CfnBackupSelection(
             iam_role_arn: builtins.str,
             selection_name: builtins.str,
             conditions: typing.Any = None,
-            list_of_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            list_of_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.ConditionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
             resources: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -3372,7 +3358,7 @@ class CfnBackupSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__53f9191660f873982da4ff5df24ce6724761f33be21d9fd33f43da81cca720c0)
+                type_hints = cached_type_hints(_typecheckingstub__53f9191660f873982da4ff5df24ce6724761f33be21d9fd33f43da81cca720c0)
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
                 check_type(argname="argument selection_name", value=selection_name, expected_type=type_hints["selection_name"])
                 check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
@@ -3433,7 +3419,7 @@ class CfnBackupSelection(
         @builtins.property
         def list_of_tags(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionResourceTypeProperty"]]]]:
             '''A list of conditions that you define to assign resources to your backup plans using tags.
 
             For example, ``"StringEquals": { "ConditionKey": "aws:ResourceTag/CreatedByCryo", "ConditionValue": "true" },`` . Condition operators are case sensitive.
@@ -3446,7 +3432,7 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-backupselectionresourcetype.html#cfn-backup-backupselection-backupselectionresourcetype-listoftags
             '''
             result = self._values.get("list_of_tags")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def not_resources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3518,7 +3504,7 @@ class CfnBackupSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c7fe06535a46bfa87352df9bd09ca629b6962d225411249a065f4ba72647b33a)
+                type_hints = cached_type_hints(_typecheckingstub__c7fe06535a46bfa87352df9bd09ca629b6962d225411249a065f4ba72647b33a)
                 check_type(argname="argument condition_key", value=condition_key, expected_type=type_hints["condition_key"])
                 check_type(argname="argument condition_value", value=condition_value, expected_type=type_hints["condition_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3601,7 +3587,7 @@ class CfnBackupSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__346e9a31a7a4a5ad318acaee89a646b6b23822feb831da857c4c300731df22c9)
+                type_hints = cached_type_hints(_typecheckingstub__346e9a31a7a4a5ad318acaee89a646b6b23822feb831da857c4c300731df22c9)
                 check_type(argname="argument condition_key", value=condition_key, expected_type=type_hints["condition_key"])
                 check_type(argname="argument condition_type", value=condition_type, expected_type=type_hints["condition_type"])
                 check_type(argname="argument condition_value", value=condition_value, expected_type=type_hints["condition_value"])
@@ -3670,10 +3656,10 @@ class CfnBackupSelection(
         def __init__(
             self,
             *,
-            string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_like: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_like: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_equals: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_like: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_equals: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_like: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about which resources to include or exclude from a backup plan using their tags.
 
@@ -3713,7 +3699,7 @@ class CfnBackupSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4989780545fff72ed41947c50d0e49cf85d2cf412bc84422f8757131068aa57)
+                type_hints = cached_type_hints(_typecheckingstub__d4989780545fff72ed41947c50d0e49cf85d2cf412bc84422f8757131068aa57)
                 check_type(argname="argument string_equals", value=string_equals, expected_type=type_hints["string_equals"])
                 check_type(argname="argument string_like", value=string_like, expected_type=type_hints["string_like"])
                 check_type(argname="argument string_not_equals", value=string_not_equals, expected_type=type_hints["string_not_equals"])
@@ -3731,7 +3717,7 @@ class CfnBackupSelection(
         @builtins.property
         def string_equals(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged with the same value.
 
             Also called "exact matching."
@@ -3739,12 +3725,12 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringequals
             '''
             result = self._values.get("string_equals")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_like(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for matching tag values with the use of a wildcard character (*) anywhere in the string.
 
             For example, "prod*" or "*rod*" matches the tag value "production".
@@ -3752,12 +3738,12 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringlike
             '''
             result = self._values.get("string_like")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_not_equals(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged that do not have the same value.
 
             Also called "negated matching."
@@ -3765,18 +3751,18 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringnotequals
             '''
             result = self._values.get("string_not_equals")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_not_like(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for non-matching tag values with the use of a wildcard character (*) anywhere in the string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringnotlike
             '''
             result = self._values.get("string_not_like")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3802,8 +3788,8 @@ class CfnBackupSelectionProps:
     def __init__(
         self,
         *,
-        backup_plan_id: typing.Union[builtins.str, "_IBackupPlanRef_754776b5"],
-        backup_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan_id: typing.Union[builtins.str, "_aws_backup_bc4c1c6b.IBackupPlanRef"],
+        backup_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnBackupSelection``.
 
@@ -3840,7 +3826,7 @@ class CfnBackupSelectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9)
+            type_hints = cached_type_hints(_typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9)
             check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
             check_type(argname="argument backup_selection", value=backup_selection, expected_type=type_hints["backup_selection"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3849,19 +3835,21 @@ class CfnBackupSelectionProps:
         }
 
     @builtins.property
-    def backup_plan_id(self) -> typing.Union[builtins.str, "_IBackupPlanRef_754776b5"]:
+    def backup_plan_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_backup_bc4c1c6b.IBackupPlanRef"]:
         '''Uniquely identifies a backup plan.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html#cfn-backup-backupselection-backupplanid
         '''
         result = self._values.get("backup_plan_id")
         assert result is not None, "Required property 'backup_plan_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IBackupPlanRef_754776b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_backup_bc4c1c6b.IBackupPlanRef"], result)
 
     @builtins.property
     def backup_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
         '''Specifies the body of a request to assign a set of resources to a backup plan.
 
         It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
@@ -3870,7 +3858,7 @@ class CfnBackupSelectionProps:
         '''
         result = self._values.get("backup_selection")
         assert result is not None, "Required property 'backup_selection' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3884,9 +3872,9 @@ class CfnBackupSelectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBackupVaultRef_c038ce00, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IBackupVaultRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBackupVault(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnBackupVault",
 ):
@@ -3941,9 +3929,9 @@ class CfnBackupVault(
         backup_vault_name: builtins.str,
         access_policy: typing.Any = None,
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        lock_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::BackupVault``.
 
@@ -3957,7 +3945,7 @@ class CfnBackupVault(
         :param notifications: The SNS event notifications for the specified backup vault.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91f579bea882f82608d503a3e561568131d8e8e6d825c152c63d596228cb1283)
+            type_hints = cached_type_hints(_typecheckingstub__91f579bea882f82608d503a3e561568131d8e8e6d825c152c63d596228cb1283)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBackupVaultProps(
@@ -3975,13 +3963,13 @@ class CfnBackupVault(
     @builtins.classmethod
     def arn_for_backup_vault(
         cls,
-        resource: "_IBackupVaultRef_c038ce00",
+        resource: "_aws_backup_bc4c1c6b.IBackupVaultRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ed92c2782108e3ac41b002f013a5190852956a16215b7e5e56ca133e9e72884)
+            type_hints = cached_type_hints(_typecheckingstub__0ed92c2782108e3ac41b002f013a5190852956a16215b7e5e56ca133e9e72884)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackupVault", [resource]))
 
@@ -3992,7 +3980,7 @@ class CfnBackupVault(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IBackupVaultRef_c038ce00":
+    ) -> "_aws_backup_bc4c1c6b.IBackupVaultRef":
         '''Creates a new IBackupVaultRef from an ARN.
 
         :param scope: -
@@ -4000,11 +3988,11 @@ class CfnBackupVault(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2986d116c33dbb1dc995c507e7df9b0cf2f344f357d0a1404d0c2ece4c1fc5b2)
+            type_hints = cached_type_hints(_typecheckingstub__2986d116c33dbb1dc995c507e7df9b0cf2f344f357d0a1404d0c2ece4c1fc5b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IBackupVaultRef_c038ce00", jsii.sinvoke(cls, "fromBackupVaultArn", [scope, id, arn]))
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupVaultRef", jsii.sinvoke(cls, "fromBackupVaultArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromBackupVaultName")
     @builtins.classmethod
@@ -4013,7 +4001,7 @@ class CfnBackupVault(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         backup_vault_name: builtins.str,
-    ) -> "_IBackupVaultRef_c038ce00":
+    ) -> "_aws_backup_bc4c1c6b.IBackupVaultRef":
         '''Creates a new IBackupVaultRef from a backupVaultName.
 
         :param scope: -
@@ -4021,11 +4009,11 @@ class CfnBackupVault(
         :param backup_vault_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc137647a726cfa7058e572fdb03e73df8b9f52e786f61edcd64eb6c3fc59645)
+            type_hints = cached_type_hints(_typecheckingstub__cc137647a726cfa7058e572fdb03e73df8b9f52e786f61edcd64eb6c3fc59645)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-        return typing.cast("_IBackupVaultRef_c038ce00", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
+        return typing.cast("_aws_backup_bc4c1c6b.IBackupVaultRef", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
 
     @jsii.member(jsii_name="isCfnBackupVault")
     @builtins.classmethod
@@ -4035,18 +4023,18 @@ class CfnBackupVault(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd36b260fa1819d239b14b42d40ba38036f7fcfb5eea5ee5997f7d891fe37b70)
+            type_hints = cached_type_hints(_typecheckingstub__dd36b260fa1819d239b14b42d40ba38036f7fcfb5eea5ee5997f7d891fe37b70)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupVault", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5303f64257feccbaac430e6766ee8dd85d8293dcda5a0b514f9128fa193e156)
+            type_hints = cached_type_hints(_typecheckingstub__c5303f64257feccbaac430e6766ee8dd85d8293dcda5a0b514f9128fa193e156)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4059,7 +4047,7 @@ class CfnBackupVault(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29e9aaac48a3b884ecef6959c7ece545318b968f28907af6d6f9ef8a7be5eca5)
+            type_hints = cached_type_hints(_typecheckingstub__29e9aaac48a3b884ecef6959c7ece545318b968f28907af6d6f9ef8a7be5eca5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4093,15 +4081,15 @@ class CfnBackupVault(
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultRef")
-    def backup_vault_ref(self) -> "_BackupVaultReference_228dbd3a":
+    def backup_vault_ref(self) -> "_aws_backup_bc4c1c6b.BackupVaultReference":
         '''A reference to a BackupVault resource.'''
-        return typing.cast("_BackupVaultReference_228dbd3a", jsii.get(self, "backupVaultRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.BackupVaultReference", jsii.get(self, "backupVaultRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4122,7 +4110,7 @@ class CfnBackupVault(
     @access_policy.setter
     def access_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6)
+            type_hints = cached_type_hints(_typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -4135,7 +4123,7 @@ class CfnBackupVault(
     @backup_vault_name.setter
     def backup_vault_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efe38ab6a95c28a99f2a827659f4327017e61fc72434108ce384f3b817de14be)
+            type_hints = cached_type_hints(_typecheckingstub__efe38ab6a95c28a99f2a827659f4327017e61fc72434108ce384f3b817de14be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultName", value) # pyright: ignore[reportArgumentType]
 
@@ -4153,7 +4141,7 @@ class CfnBackupVault(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2f59a90eb93017be4632c741610e42551c72baea27b40db6f4ee7a97d80f0dc)
+            type_hints = cached_type_hints(_typecheckingstub__b2f59a90eb93017be4632c741610e42551c72baea27b40db6f4ee7a97d80f0dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultTags", value) # pyright: ignore[reportArgumentType]
 
@@ -4166,7 +4154,7 @@ class CfnBackupVault(
     @encryption_key_arn.setter
     def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0b723f932eeee018a3da33f56242664a27dbe5da02fc1a2ca3fef2169b24096)
+            type_hints = cached_type_hints(_typecheckingstub__b0b723f932eeee018a3da33f56242664a27dbe5da02fc1a2ca3fef2169b24096)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4174,17 +4162,17 @@ class CfnBackupVault(
     @jsii.member(jsii_name="lockConfiguration")
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.LockConfigurationTypeProperty"]]:
         '''Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]], jsii.get(self, "lockConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.LockConfigurationTypeProperty"]], jsii.get(self, "lockConfiguration"))
 
     @lock_configuration.setter
     def lock_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.LockConfigurationTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c2b8e8d837c9ecececc40d52f27a016b926cd8c10c242b093a3f7cf0d24407a)
+            type_hints = cached_type_hints(_typecheckingstub__9c2b8e8d837c9ecececc40d52f27a016b926cd8c10c242b093a3f7cf0d24407a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lockConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4192,17 +4180,17 @@ class CfnBackupVault(
     @jsii.member(jsii_name="notifications")
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.NotificationObjectTypeProperty"]]:
         '''The SNS event notifications for the specified backup vault.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
 
     @notifications.setter
     def notifications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.NotificationObjectTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd703ee9b654a333d2dac663658fcec508ffab2fc620c932c524dcd0df84e35e)
+            type_hints = cached_type_hints(_typecheckingstub__dd703ee9b654a333d2dac663658fcec508ffab2fc620c932c524dcd0df84e35e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifications", value) # pyright: ignore[reportArgumentType]
 
@@ -4247,7 +4235,7 @@ class CfnBackupVault(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6838c822361ad0f655e1f64f503799de6da67231ac1aa7e8b88f548f690295d8)
+                type_hints = cached_type_hints(_typecheckingstub__6838c822361ad0f655e1f64f503799de6da67231ac1aa7e8b88f548f690295d8)
                 check_type(argname="argument min_retention_days", value=min_retention_days, expected_type=type_hints["min_retention_days"])
                 check_type(argname="argument changeable_for_days", value=changeable_for_days, expected_type=type_hints["changeable_for_days"])
                 check_type(argname="argument max_retention_days", value=max_retention_days, expected_type=type_hints["max_retention_days"])
@@ -4353,7 +4341,7 @@ class CfnBackupVault(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b1a218026ba958c0d56b8c624f104b73e68fb60c3d3ea03864a8affbd11f0090)
+                type_hints = cached_type_hints(_typecheckingstub__b1a218026ba958c0d56b8c624f104b73e68fb60c3d3ea03864a8affbd11f0090)
                 check_type(argname="argument backup_vault_events", value=backup_vault_events, expected_type=type_hints["backup_vault_events"])
                 check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4416,9 +4404,9 @@ class CfnBackupVaultProps:
         backup_vault_name: builtins.str,
         access_policy: typing.Any = None,
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        lock_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBackupVault``.
 
@@ -4463,7 +4451,7 @@ class CfnBackupVaultProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28)
+            type_hints = cached_type_hints(_typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28)
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
             check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
             check_type(argname="argument backup_vault_tags", value=backup_vault_tags, expected_type=type_hints["backup_vault_tags"])
@@ -4519,7 +4507,7 @@ class CfnBackupVaultProps:
     @builtins.property
     def encryption_key_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''A server-side encryption key you can specify to encrypt your backups from services that support full AWS Backup management;
 
         for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If you specify a key, you must specify its ARN, not its alias. If you do not specify a key, AWS Backup creates a KMS key for you by default.
@@ -4529,29 +4517,29 @@ class CfnBackupVaultProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-encryptionkeyarn
         '''
         result = self._values.get("encryption_key_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.LockConfigurationTypeProperty"]]:
         '''Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-lockconfiguration
         '''
         result = self._values.get("lock_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.LockConfigurationTypeProperty"]], result)
 
     @builtins.property
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.NotificationObjectTypeProperty"]]:
         '''The SNS event notifications for the specified backup vault.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-notifications
         '''
         result = self._values.get("notifications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBackupVault.NotificationObjectTypeProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4565,9 +4553,9 @@ class CfnBackupVaultProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFrameworkRef_dcbb25ea, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IFrameworkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFramework(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnFramework",
 ):
@@ -4617,10 +4605,10 @@ class CfnFramework(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        framework_controls: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        framework_controls: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
         framework_description: typing.Optional[builtins.str] = None,
         framework_name: typing.Optional[builtins.str] = None,
-        framework_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        framework_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::Framework``.
 
@@ -4632,7 +4620,7 @@ class CfnFramework(
         :param framework_tags: The tags to assign to your framework.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__762b6f2cf173ed987e2f05e55b691e4e8e14552591e05b26b7f7f4e08e3c739d)
+            type_hints = cached_type_hints(_typecheckingstub__762b6f2cf173ed987e2f05e55b691e4e8e14552591e05b26b7f7f4e08e3c739d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFrameworkProps(
@@ -4646,12 +4634,15 @@ class CfnFramework(
 
     @jsii.member(jsii_name="arnForFramework")
     @builtins.classmethod
-    def arn_for_framework(cls, resource: "_IFrameworkRef_dcbb25ea") -> builtins.str:
+    def arn_for_framework(
+        cls,
+        resource: "_aws_backup_bc4c1c6b.IFrameworkRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b50aa25a1cc9ba34b4868b9a50fe018bfd4cc98076a84c277bf66f3e1da5f09)
+            type_hints = cached_type_hints(_typecheckingstub__1b50aa25a1cc9ba34b4868b9a50fe018bfd4cc98076a84c277bf66f3e1da5f09)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFramework", [resource]))
 
@@ -4663,18 +4654,18 @@ class CfnFramework(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0e4b118e80cc8b6a02bf8eff05632314f7c32bd9e456ab50d3932ffbf790e7b)
+            type_hints = cached_type_hints(_typecheckingstub__a0e4b118e80cc8b6a02bf8eff05632314f7c32bd9e456ab50d3932ffbf790e7b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFramework", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__772cf75dbb4416fa5340091bf8716f709bcd79a3fef3bf9744a593360d85b617)
+            type_hints = cached_type_hints(_typecheckingstub__772cf75dbb4416fa5340091bf8716f709bcd79a3fef3bf9744a593360d85b617)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4687,7 +4678,7 @@ class CfnFramework(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fec0fb3c848f86413b75960fc140604dfee8403702a31925ae61dc8c73e9879)
+            type_hints = cached_type_hints(_typecheckingstub__5fec0fb3c848f86413b75960fc140604dfee8403702a31925ae61dc8c73e9879)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4739,9 +4730,9 @@ class CfnFramework(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4755,25 +4746,25 @@ class CfnFramework(
 
     @builtins.property
     @jsii.member(jsii_name="frameworkRef")
-    def framework_ref(self) -> "_FrameworkReference_5ce10c24":
+    def framework_ref(self) -> "_aws_backup_bc4c1c6b.FrameworkReference":
         '''A reference to a Framework resource.'''
-        return typing.cast("_FrameworkReference_5ce10c24", jsii.get(self, "frameworkRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.FrameworkReference", jsii.get(self, "frameworkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="frameworkControls")
     def framework_controls(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.FrameworkControlProperty"]]]:
         '''Contains detailed information about all of the controls of a framework.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]], jsii.get(self, "frameworkControls"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.FrameworkControlProperty"]]], jsii.get(self, "frameworkControls"))
 
     @framework_controls.setter
     def framework_controls(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.FrameworkControlProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3915617d48c3c99a3779ed995d74734c2f731d452cc340e149dd92de02e68dc6)
+            type_hints = cached_type_hints(_typecheckingstub__3915617d48c3c99a3779ed995d74734c2f731d452cc340e149dd92de02e68dc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "frameworkControls", value) # pyright: ignore[reportArgumentType]
 
@@ -4786,7 +4777,7 @@ class CfnFramework(
     @framework_description.setter
     def framework_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9208446adcef370a60eb7a60602ec6f41c22bd0a8094a6e9276f8c9dc50ce211)
+            type_hints = cached_type_hints(_typecheckingstub__9208446adcef370a60eb7a60602ec6f41c22bd0a8094a6e9276f8c9dc50ce211)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "frameworkDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -4799,23 +4790,25 @@ class CfnFramework(
     @framework_name.setter
     def framework_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5b6c11306aa239f885eed40f25fa93c3a57a2c996e35e5a03b218b580a69caf)
+            type_hints = cached_type_hints(_typecheckingstub__c5b6c11306aa239f885eed40f25fa93c3a57a2c996e35e5a03b218b580a69caf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "frameworkName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="frameworkTags")
-    def framework_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def framework_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to your framework.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "frameworkTags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "frameworkTags"))
 
     @framework_tags.setter
     def framework_tags(
         self,
-        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d4922912c7db9cfb847d446edf6701acea095c2d0fefb7def73f3da3aa1cc1d)
+            type_hints = cached_type_hints(_typecheckingstub__4d4922912c7db9cfb847d446edf6701acea095c2d0fefb7def73f3da3aa1cc1d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "frameworkTags", value) # pyright: ignore[reportArgumentType]
 
@@ -4856,7 +4849,7 @@ class CfnFramework(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dab5ceb07bfb68ba9a8118e37c2455f99ed12c16a7af1c7b9630695eaee92261)
+                type_hints = cached_type_hints(_typecheckingstub__dab5ceb07bfb68ba9a8118e37c2455f99ed12c16a7af1c7b9630695eaee92261)
                 check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
                 check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4910,7 +4903,7 @@ class CfnFramework(
             *,
             compliance_resource_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             compliance_resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A framework consists of one or more controls.
 
@@ -4943,7 +4936,7 @@ class CfnFramework(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f2f11947bed37971122729e32bbef595427b4ad564167fe2e94024e5751025f0)
+                type_hints = cached_type_hints(_typecheckingstub__f2f11947bed37971122729e32bbef595427b4ad564167fe2e94024e5751025f0)
                 check_type(argname="argument compliance_resource_ids", value=compliance_resource_ids, expected_type=type_hints["compliance_resource_ids"])
                 check_type(argname="argument compliance_resource_types", value=compliance_resource_types, expected_type=type_hints["compliance_resource_types"])
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4976,7 +4969,7 @@ class CfnFramework(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''The tag key-value pair applied to those AWS resources that you want to trigger an evaluation for a rule.
 
             A maximum of one key-value pair can be provided. The tag value is optional, but it cannot be an empty string if you are creating or editing a framework from the console (though the value can be an empty string when included in a CloudFormation template).
@@ -4986,7 +4979,7 @@ class CfnFramework(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-framework-controlscope.html#cfn-backup-framework-controlscope-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5013,7 +5006,7 @@ class CfnFramework(
             self,
             *,
             control_name: builtins.str,
-            control_input_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.ControlInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            control_input_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFramework.ControlInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             control_scope: typing.Any = None,
         ) -> None:
             '''Contains detailed information about all of the controls of a framework.
@@ -5047,7 +5040,7 @@ class CfnFramework(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2629d2cfa8ee3e24a49017e656aec6745967bedbc91fb85dae3a38dfe31fbb23)
+                type_hints = cached_type_hints(_typecheckingstub__2629d2cfa8ee3e24a49017e656aec6745967bedbc91fb85dae3a38dfe31fbb23)
                 check_type(argname="argument control_name", value=control_name, expected_type=type_hints["control_name"])
                 check_type(argname="argument control_input_parameters", value=control_input_parameters, expected_type=type_hints["control_input_parameters"])
                 check_type(argname="argument control_scope", value=control_scope, expected_type=type_hints["control_scope"])
@@ -5074,13 +5067,13 @@ class CfnFramework(
         @builtins.property
         def control_input_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.ControlInputParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.ControlInputParameterProperty"]]]]:
             '''The name/value pairs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-framework-frameworkcontrol.html#cfn-backup-framework-frameworkcontrol-controlinputparameters
             '''
             result = self._values.get("control_input_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.ControlInputParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.ControlInputParameterProperty"]]]], result)
 
         @builtins.property
         def control_scope(self) -> typing.Any:
@@ -5121,10 +5114,10 @@ class CfnFrameworkProps:
     def __init__(
         self,
         *,
-        framework_controls: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        framework_controls: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
         framework_description: typing.Optional[builtins.str] = None,
         framework_name: typing.Optional[builtins.str] = None,
-        framework_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        framework_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFramework``.
 
@@ -5167,7 +5160,7 @@ class CfnFrameworkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7)
+            type_hints = cached_type_hints(_typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7)
             check_type(argname="argument framework_controls", value=framework_controls, expected_type=type_hints["framework_controls"])
             check_type(argname="argument framework_description", value=framework_description, expected_type=type_hints["framework_description"])
             check_type(argname="argument framework_name", value=framework_name, expected_type=type_hints["framework_name"])
@@ -5185,7 +5178,7 @@ class CfnFrameworkProps:
     @builtins.property
     def framework_controls(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.FrameworkControlProperty"]]]:
         '''Contains detailed information about all of the controls of a framework.
 
         Each framework must contain at least one control.
@@ -5194,7 +5187,7 @@ class CfnFrameworkProps:
         '''
         result = self._values.get("framework_controls")
         assert result is not None, "Required property 'framework_controls' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFramework.FrameworkControlProperty"]]], result)
 
     @builtins.property
     def framework_description(self) -> typing.Optional[builtins.str]:
@@ -5217,13 +5210,15 @@ class CfnFrameworkProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def framework_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def framework_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to your framework.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworktags
         '''
         result = self._values.get("framework_tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5237,9 +5232,9 @@ class CfnFrameworkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILogicallyAirGappedBackupVaultRef_94a8f212, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLogicallyAirGappedBackupVault(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnLogicallyAirGappedBackupVault",
 ):
@@ -5293,7 +5288,7 @@ class CfnLogicallyAirGappedBackupVault(
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         encryption_key_arn: typing.Optional[builtins.str] = None,
         mpa_approval_team_arn: typing.Optional[builtins.str] = None,
-        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::LogicallyAirGappedBackupVault``.
 
@@ -5309,7 +5304,7 @@ class CfnLogicallyAirGappedBackupVault(
         :param notifications: Returns event notifications for the specified backup vault.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f46c2d817c43abec9e204fc8a7211b43dd15b93e11a637e67a9711664c3afd52)
+            type_hints = cached_type_hints(_typecheckingstub__f46c2d817c43abec9e204fc8a7211b43dd15b93e11a637e67a9711664c3afd52)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLogicallyAirGappedBackupVaultProps(
@@ -5329,13 +5324,13 @@ class CfnLogicallyAirGappedBackupVault(
     @builtins.classmethod
     def arn_for_logically_air_gapped_backup_vault(
         cls,
-        resource: "_ILogicallyAirGappedBackupVaultRef_94a8f212",
+        resource: "_aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__994d018be638a33f2eb32bb0e85f369b451e5bfae2907913519d7f9f54738a54)
+            type_hints = cached_type_hints(_typecheckingstub__994d018be638a33f2eb32bb0e85f369b451e5bfae2907913519d7f9f54738a54)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLogicallyAirGappedBackupVault", [resource]))
 
@@ -5346,7 +5341,7 @@ class CfnLogicallyAirGappedBackupVault(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         backup_vault_name: builtins.str,
-    ) -> "_ILogicallyAirGappedBackupVaultRef_94a8f212":
+    ) -> "_aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef":
         '''Creates a new ILogicallyAirGappedBackupVaultRef from a backupVaultName.
 
         :param scope: -
@@ -5354,11 +5349,11 @@ class CfnLogicallyAirGappedBackupVault(
         :param backup_vault_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2d7a451581b8c789f1a800340871c2a6bccebe8622af1e2f5b447a3a98d1dbb)
+            type_hints = cached_type_hints(_typecheckingstub__e2d7a451581b8c789f1a800340871c2a6bccebe8622af1e2f5b447a3a98d1dbb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-        return typing.cast("_ILogicallyAirGappedBackupVaultRef_94a8f212", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
+        return typing.cast("_aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
 
     @jsii.member(jsii_name="isCfnLogicallyAirGappedBackupVault")
     @builtins.classmethod
@@ -5368,18 +5363,18 @@ class CfnLogicallyAirGappedBackupVault(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5e25c462b1613e391c1de6e32d697ccfab1f83825922fabde05f59f0f0ed9bf)
+            type_hints = cached_type_hints(_typecheckingstub__f5e25c462b1613e391c1de6e32d697ccfab1f83825922fabde05f59f0f0ed9bf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogicallyAirGappedBackupVault", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__415ff13e64a57b94538bf66464736e9dc201021da09242c46763584700ef7f37)
+            type_hints = cached_type_hints(_typecheckingstub__415ff13e64a57b94538bf66464736e9dc201021da09242c46763584700ef7f37)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5392,7 +5387,7 @@ class CfnLogicallyAirGappedBackupVault(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90997f260b8fa85f8252a0ea2359e9f8366602c792a5b68ecfc147eaa74d69d2)
+            type_hints = cached_type_hints(_typecheckingstub__90997f260b8fa85f8252a0ea2359e9f8366602c792a5b68ecfc147eaa74d69d2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5435,9 +5430,9 @@ class CfnLogicallyAirGappedBackupVault(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5453,9 +5448,9 @@ class CfnLogicallyAirGappedBackupVault(
     @jsii.member(jsii_name="logicallyAirGappedBackupVaultRef")
     def logically_air_gapped_backup_vault_ref(
         self,
-    ) -> "_LogicallyAirGappedBackupVaultReference_53a7ab81":
+    ) -> "_aws_backup_bc4c1c6b.LogicallyAirGappedBackupVaultReference":
         '''A reference to a LogicallyAirGappedBackupVault resource.'''
-        return typing.cast("_LogicallyAirGappedBackupVaultReference_53a7ab81", jsii.get(self, "logicallyAirGappedBackupVaultRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.LogicallyAirGappedBackupVaultReference", jsii.get(self, "logicallyAirGappedBackupVaultRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accessPolicy")
@@ -5466,7 +5461,7 @@ class CfnLogicallyAirGappedBackupVault(
     @access_policy.setter
     def access_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318)
+            type_hints = cached_type_hints(_typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -5479,7 +5474,7 @@ class CfnLogicallyAirGappedBackupVault(
     @backup_vault_name.setter
     def backup_vault_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f39d44e1798aa90edd21caa75b2aedd9a4b35eaeadf66ac9f0915dfc43fc3b75)
+            type_hints = cached_type_hints(_typecheckingstub__f39d44e1798aa90edd21caa75b2aedd9a4b35eaeadf66ac9f0915dfc43fc3b75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultName", value) # pyright: ignore[reportArgumentType]
 
@@ -5492,7 +5487,7 @@ class CfnLogicallyAirGappedBackupVault(
     @max_retention_days.setter
     def max_retention_days(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e59d02ebdb1e7c422e3f7f25e255cc0887eb06386383f296e54811f753cfe510)
+            type_hints = cached_type_hints(_typecheckingstub__e59d02ebdb1e7c422e3f7f25e255cc0887eb06386383f296e54811f753cfe510)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxRetentionDays", value) # pyright: ignore[reportArgumentType]
 
@@ -5505,7 +5500,7 @@ class CfnLogicallyAirGappedBackupVault(
     @min_retention_days.setter
     def min_retention_days(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd401ed590d402cdef7b7788713d25bd57d71a2ac64920c48582cd8343c69379)
+            type_hints = cached_type_hints(_typecheckingstub__dd401ed590d402cdef7b7788713d25bd57d71a2ac64920c48582cd8343c69379)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minRetentionDays", value) # pyright: ignore[reportArgumentType]
 
@@ -5523,7 +5518,7 @@ class CfnLogicallyAirGappedBackupVault(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27388048f12fa4b0d6686a7b40795dea7b4219e2f388afdfc5733f7043eef9a5)
+            type_hints = cached_type_hints(_typecheckingstub__27388048f12fa4b0d6686a7b40795dea7b4219e2f388afdfc5733f7043eef9a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultTags", value) # pyright: ignore[reportArgumentType]
 
@@ -5539,7 +5534,7 @@ class CfnLogicallyAirGappedBackupVault(
     @encryption_key_arn.setter
     def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf0845b96f64c861986d9628b54d60700d109b971dc10dd34707fb3e98629c96)
+            type_hints = cached_type_hints(_typecheckingstub__cf0845b96f64c861986d9628b54d60700d109b971dc10dd34707fb3e98629c96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5552,7 +5547,7 @@ class CfnLogicallyAirGappedBackupVault(
     @mpa_approval_team_arn.setter
     def mpa_approval_team_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d69a75a0b7ce93d33d99d99ea46c6bed385bc4618297cfeb5204520844045d0e)
+            type_hints = cached_type_hints(_typecheckingstub__d69a75a0b7ce93d33d99d99ea46c6bed385bc4618297cfeb5204520844045d0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mpaApprovalTeamArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5560,17 +5555,17 @@ class CfnLogicallyAirGappedBackupVault(
     @jsii.member(jsii_name="notifications")
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
         '''Returns event notifications for the specified backup vault.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
 
     @notifications.setter
     def notifications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1dc991e6a5cd9bb0776543a7419ba117220c8fec8f29ec2587f9a6747b5dcab)
+            type_hints = cached_type_hints(_typecheckingstub__f1dc991e6a5cd9bb0776543a7419ba117220c8fec8f29ec2587f9a6747b5dcab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifications", value) # pyright: ignore[reportArgumentType]
 
@@ -5608,7 +5603,7 @@ class CfnLogicallyAirGappedBackupVault(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__44eaedb9d731db6382000976b38651ee3871dd8abe22e4171998d7581dc60d48)
+                type_hints = cached_type_hints(_typecheckingstub__44eaedb9d731db6382000976b38651ee3871dd8abe22e4171998d7581dc60d48)
                 check_type(argname="argument backup_vault_events", value=backup_vault_events, expected_type=type_hints["backup_vault_events"])
                 check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5675,7 +5670,7 @@ class CfnLogicallyAirGappedBackupVaultProps:
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         encryption_key_arn: typing.Optional[builtins.str] = None,
         mpa_approval_team_arn: typing.Optional[builtins.str] = None,
-        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLogicallyAirGappedBackupVault``.
 
@@ -5718,7 +5713,7 @@ class CfnLogicallyAirGappedBackupVaultProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f)
+            type_hints = cached_type_hints(_typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f)
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
             check_type(argname="argument max_retention_days", value=max_retention_days, expected_type=type_hints["max_retention_days"])
             check_type(argname="argument min_retention_days", value=min_retention_days, expected_type=type_hints["min_retention_days"])
@@ -5822,13 +5817,13 @@ class CfnLogicallyAirGappedBackupVaultProps:
     @builtins.property
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
         '''Returns event notifications for the specified backup vault.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-notifications
         '''
         result = self._values.get("notifications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5842,9 +5837,9 @@ class CfnLogicallyAirGappedBackupVaultProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReportPlanRef_2eb6ea89, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IReportPlanRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnReportPlan(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnReportPlan",
 ):
@@ -5893,7 +5888,7 @@ class CfnReportPlan(
         report_setting: typing.Any,
         report_plan_description: typing.Optional[builtins.str] = None,
         report_plan_name: typing.Optional[builtins.str] = None,
-        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::ReportPlan``.
 
@@ -5906,7 +5901,7 @@ class CfnReportPlan(
         :param report_plan_tags: The tags to assign to your report plan.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c6528de906751786b24f01244334abf14ddb763be763a416a6d4f3c8b779828)
+            type_hints = cached_type_hints(_typecheckingstub__5c6528de906751786b24f01244334abf14ddb763be763a416a6d4f3c8b779828)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReportPlanProps(
@@ -5921,12 +5916,15 @@ class CfnReportPlan(
 
     @jsii.member(jsii_name="arnForReportPlan")
     @builtins.classmethod
-    def arn_for_report_plan(cls, resource: "_IReportPlanRef_2eb6ea89") -> builtins.str:
+    def arn_for_report_plan(
+        cls,
+        resource: "_aws_backup_bc4c1c6b.IReportPlanRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81ff19c28848fcb20b39db086fd0082e4e3c62072d87a29282066c70b97788c7)
+            type_hints = cached_type_hints(_typecheckingstub__81ff19c28848fcb20b39db086fd0082e4e3c62072d87a29282066c70b97788c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReportPlan", [resource]))
 
@@ -5938,18 +5936,18 @@ class CfnReportPlan(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2abc06e48dfc31e4fbe55950c0e534070c2435094a084708de6199d364dde9e4)
+            type_hints = cached_type_hints(_typecheckingstub__2abc06e48dfc31e4fbe55950c0e534070c2435094a084708de6199d364dde9e4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReportPlan", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f16e67dc9d6ebba3468d37c10baab99ff7e531b9adb1ec5e7f3259c7c6f7f9aa)
+            type_hints = cached_type_hints(_typecheckingstub__f16e67dc9d6ebba3468d37c10baab99ff7e531b9adb1ec5e7f3259c7c6f7f9aa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5962,7 +5960,7 @@ class CfnReportPlan(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c7b68d11abde2aa0d9a37b0c93b72ae7b52fee9f08d4f38397745e4d72f524f)
+            type_hints = cached_type_hints(_typecheckingstub__9c7b68d11abde2aa0d9a37b0c93b72ae7b52fee9f08d4f38397745e4d72f524f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5983,9 +5981,9 @@ class CfnReportPlan(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5999,9 +5997,9 @@ class CfnReportPlan(
 
     @builtins.property
     @jsii.member(jsii_name="reportPlanRef")
-    def report_plan_ref(self) -> "_ReportPlanReference_0a875581":
+    def report_plan_ref(self) -> "_aws_backup_bc4c1c6b.ReportPlanReference":
         '''A reference to a ReportPlan resource.'''
-        return typing.cast("_ReportPlanReference_0a875581", jsii.get(self, "reportPlanRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.ReportPlanReference", jsii.get(self, "reportPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="reportDeliveryChannel")
@@ -6012,7 +6010,7 @@ class CfnReportPlan(
     @report_delivery_channel.setter
     def report_delivery_channel(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f59e4877274d33fdd0b7b625f974f6963731efadb02eb1735d077c10708f32a)
+            type_hints = cached_type_hints(_typecheckingstub__2f59e4877274d33fdd0b7b625f974f6963731efadb02eb1735d077c10708f32a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportDeliveryChannel", value) # pyright: ignore[reportArgumentType]
 
@@ -6028,7 +6026,7 @@ class CfnReportPlan(
     @report_setting.setter
     def report_setting(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f16d9fa0a96dbb11b2af025cb683de73134d878e6b6aa892388da1b0ba219734)
+            type_hints = cached_type_hints(_typecheckingstub__f16d9fa0a96dbb11b2af025cb683de73134d878e6b6aa892388da1b0ba219734)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportSetting", value) # pyright: ignore[reportArgumentType]
 
@@ -6041,7 +6039,7 @@ class CfnReportPlan(
     @report_plan_description.setter
     def report_plan_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd7915156dce61fe52d1f2c30121d3b6944167aaa29a3d385bd84dc1027de25a)
+            type_hints = cached_type_hints(_typecheckingstub__bd7915156dce61fe52d1f2c30121d3b6944167aaa29a3d385bd84dc1027de25a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportPlanDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -6054,23 +6052,25 @@ class CfnReportPlan(
     @report_plan_name.setter
     def report_plan_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ac2566ae00a72a2736504779f108399d133fb5744a76f8690cb6e5a7a85a8bc)
+            type_hints = cached_type_hints(_typecheckingstub__7ac2566ae00a72a2736504779f108399d133fb5744a76f8690cb6e5a7a85a8bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportPlanName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="reportPlanTags")
-    def report_plan_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def report_plan_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to your report plan.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "reportPlanTags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "reportPlanTags"))
 
     @report_plan_tags.setter
     def report_plan_tags(
         self,
-        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16e4bb4b012408e08ab26526c9837368cc6121e55f663b4a10170c9edb8466f8)
+            type_hints = cached_type_hints(_typecheckingstub__16e4bb4b012408e08ab26526c9837368cc6121e55f663b4a10170c9edb8466f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportPlanTags", value) # pyright: ignore[reportArgumentType]
 
@@ -6115,7 +6115,7 @@ class CfnReportPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c24b871d5606676d6a9c03353da61f5c6dd25f1faa08da3b2350be2abc2960e9)
+                type_hints = cached_type_hints(_typecheckingstub__c24b871d5606676d6a9c03353da61f5c6dd25f1faa08da3b2350be2abc2960e9)
                 check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
                 check_type(argname="argument formats", value=formats, expected_type=type_hints["formats"])
                 check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
@@ -6219,7 +6219,7 @@ class CfnReportPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f82410dd1600e96bdbb1b09d2f427b262b59db1aee2a2d8a69b04a7c45213f39)
+                type_hints = cached_type_hints(_typecheckingstub__f82410dd1600e96bdbb1b09d2f427b262b59db1aee2a2d8a69b04a7c45213f39)
                 check_type(argname="argument report_template", value=report_template, expected_type=type_hints["report_template"])
                 check_type(argname="argument accounts", value=accounts, expected_type=type_hints["accounts"])
                 check_type(argname="argument framework_arns", value=framework_arns, expected_type=type_hints["framework_arns"])
@@ -6320,7 +6320,7 @@ class CfnReportPlanProps:
         report_setting: typing.Any,
         report_plan_description: typing.Optional[builtins.str] = None,
         report_plan_name: typing.Optional[builtins.str] = None,
-        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReportPlan``.
 
@@ -6357,7 +6357,7 @@ class CfnReportPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9)
+            type_hints = cached_type_hints(_typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9)
             check_type(argname="argument report_delivery_channel", value=report_delivery_channel, expected_type=type_hints["report_delivery_channel"])
             check_type(argname="argument report_setting", value=report_setting, expected_type=type_hints["report_setting"])
             check_type(argname="argument report_plan_description", value=report_plan_description, expected_type=type_hints["report_plan_description"])
@@ -6419,13 +6419,15 @@ class CfnReportPlanProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def report_plan_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def report_plan_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to your report plan.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplantags
         '''
         result = self._values.get("report_plan_tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6439,9 +6441,9 @@ class CfnReportPlanProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRestoreTestingPlanRef_3850185f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IRestoreTestingPlanRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRestoreTestingPlan(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingPlan",
 ):
@@ -6488,12 +6490,12 @@ class CfnRestoreTestingPlan(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        recovery_point_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        recovery_point_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
         restore_testing_plan_name: builtins.str,
         schedule_expression: builtins.str,
         schedule_expression_timezone: typing.Optional[builtins.str] = None,
         start_window_hours: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::RestoreTestingPlan``.
 
@@ -6507,7 +6509,7 @@ class CfnRestoreTestingPlan(
         :param tags: Optional tags to include. A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce1d12683247bbd0bcd185e807f3b41b4b53ee7cfd847d57ecbf875d4e7c017f)
+            type_hints = cached_type_hints(_typecheckingstub__ce1d12683247bbd0bcd185e807f3b41b4b53ee7cfd847d57ecbf875d4e7c017f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRestoreTestingPlanProps(
@@ -6525,13 +6527,13 @@ class CfnRestoreTestingPlan(
     @builtins.classmethod
     def arn_for_restore_testing_plan(
         cls,
-        resource: "_IRestoreTestingPlanRef_3850185f",
+        resource: "_aws_backup_bc4c1c6b.IRestoreTestingPlanRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7990b6debf547b5294197ae934069cb15deeef3fa415291836f77df56e14749c)
+            type_hints = cached_type_hints(_typecheckingstub__7990b6debf547b5294197ae934069cb15deeef3fa415291836f77df56e14749c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRestoreTestingPlan", [resource]))
 
@@ -6543,18 +6545,18 @@ class CfnRestoreTestingPlan(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d546b33c12de5b002fa2057a49d81a560710ec58df95a495541fd40dfccedfd)
+            type_hints = cached_type_hints(_typecheckingstub__0d546b33c12de5b002fa2057a49d81a560710ec58df95a495541fd40dfccedfd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRestoreTestingPlan", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ba5ffd43036caff767719ec070ceb8bbd591fd4d39ca36636cd2d29d4a56ff)
+            type_hints = cached_type_hints(_typecheckingstub__d5ba5ffd43036caff767719ec070ceb8bbd591fd4d39ca36636cd2d29d4a56ff)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6567,7 +6569,7 @@ class CfnRestoreTestingPlan(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6702caf44f3579436a6db3b23da78e6d5e41775573ce62e2e8078955e933edbd)
+            type_hints = cached_type_hints(_typecheckingstub__6702caf44f3579436a6db3b23da78e6d5e41775573ce62e2e8078955e933edbd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6588,9 +6590,9 @@ class CfnRestoreTestingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6604,25 +6606,27 @@ class CfnRestoreTestingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="restoreTestingPlanRef")
-    def restore_testing_plan_ref(self) -> "_RestoreTestingPlanReference_99f8c406":
+    def restore_testing_plan_ref(
+        self,
+    ) -> "_aws_backup_bc4c1c6b.RestoreTestingPlanReference":
         '''A reference to a RestoreTestingPlan resource.'''
-        return typing.cast("_RestoreTestingPlanReference_99f8c406", jsii.get(self, "restoreTestingPlanRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.RestoreTestingPlanReference", jsii.get(self, "restoreTestingPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="recoveryPointSelection")
     def recovery_point_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
         '''The specified criteria to assign a set of resources, such as recovery point types or backup vaults.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], jsii.get(self, "recoveryPointSelection"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], jsii.get(self, "recoveryPointSelection"))
 
     @recovery_point_selection.setter
     def recovery_point_selection(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__469f816a79c521b1d05c16d66ccb2fb6a0fe1163701e6173b0840fee4d922c49)
+            type_hints = cached_type_hints(_typecheckingstub__469f816a79c521b1d05c16d66ccb2fb6a0fe1163701e6173b0840fee4d922c49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recoveryPointSelection", value) # pyright: ignore[reportArgumentType]
 
@@ -6635,7 +6639,7 @@ class CfnRestoreTestingPlan(
     @restore_testing_plan_name.setter
     def restore_testing_plan_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6269ad4a6dda73789ac04d7e345263bf14c4a20f6442d99fbd191aeb740ccbe)
+            type_hints = cached_type_hints(_typecheckingstub__b6269ad4a6dda73789ac04d7e345263bf14c4a20f6442d99fbd191aeb740ccbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreTestingPlanName", value) # pyright: ignore[reportArgumentType]
 
@@ -6648,7 +6652,7 @@ class CfnRestoreTestingPlan(
     @schedule_expression.setter
     def schedule_expression(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feb7dec7f23768db6fb25c010ce6d88323b9a74c117f6237056d65ed8bc1b49b)
+            type_hints = cached_type_hints(_typecheckingstub__feb7dec7f23768db6fb25c010ce6d88323b9a74c117f6237056d65ed8bc1b49b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduleExpression", value) # pyright: ignore[reportArgumentType]
 
@@ -6664,7 +6668,7 @@ class CfnRestoreTestingPlan(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45df227f118297319531c266e28ed0c7920e380fc44ad9f041510f5e6aeef7ef)
+            type_hints = cached_type_hints(_typecheckingstub__45df227f118297319531c266e28ed0c7920e380fc44ad9f041510f5e6aeef7ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduleExpressionTimezone", value) # pyright: ignore[reportArgumentType]
 
@@ -6677,20 +6681,23 @@ class CfnRestoreTestingPlan(
     @start_window_hours.setter
     def start_window_hours(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9df0eb1aaa95a7ca07b1c2dc88007e89e56d90a6006630d5680cdb415dd093f9)
+            type_hints = cached_type_hints(_typecheckingstub__9df0eb1aaa95a7ca07b1c2dc88007e89e56d90a6006630d5680cdb415dd093f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startWindowHours", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Optional tags to include.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93b4eb4b15380d36fec202a3d3c50a366e86616c5516db286f16625d21096205)
+            type_hints = cached_type_hints(_typecheckingstub__93b4eb4b15380d36fec202a3d3c50a366e86616c5516db286f16625d21096205)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6755,7 +6762,7 @@ class CfnRestoreTestingPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b5c7325bf12ffdf44c2a91f87260dec7090351b3a614521cad6d903cf2ee98bf)
+                type_hints = cached_type_hints(_typecheckingstub__b5c7325bf12ffdf44c2a91f87260dec7090351b3a614521cad6d903cf2ee98bf)
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
                 check_type(argname="argument include_vaults", value=include_vaults, expected_type=type_hints["include_vaults"])
                 check_type(argname="argument recovery_point_types", value=recovery_point_types, expected_type=type_hints["recovery_point_types"])
@@ -6851,12 +6858,12 @@ class CfnRestoreTestingPlanProps:
     def __init__(
         self,
         *,
-        recovery_point_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        recovery_point_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
         restore_testing_plan_name: builtins.str,
         schedule_expression: builtins.str,
         schedule_expression_timezone: typing.Optional[builtins.str] = None,
         start_window_hours: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRestoreTestingPlan``.
 
@@ -6900,7 +6907,7 @@ class CfnRestoreTestingPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5)
+            type_hints = cached_type_hints(_typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5)
             check_type(argname="argument recovery_point_selection", value=recovery_point_selection, expected_type=type_hints["recovery_point_selection"])
             check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
             check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
@@ -6922,14 +6929,14 @@ class CfnRestoreTestingPlanProps:
     @builtins.property
     def recovery_point_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
         '''The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-recoverypointselection
         '''
         result = self._values.get("recovery_point_selection")
         assert result is not None, "Required property 'recovery_point_selection' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], result)
 
     @builtins.property
     def restore_testing_plan_name(self) -> builtins.str:
@@ -6978,7 +6985,7 @@ class CfnRestoreTestingPlanProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Optional tags to include.
 
         A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
@@ -6986,7 +6993,7 @@ class CfnRestoreTestingPlanProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7000,9 +7007,9 @@ class CfnRestoreTestingPlanProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRestoreTestingSelectionRef_f3800013)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IRestoreTestingSelectionRef)
 class CfnRestoreTestingSelection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingSelection",
 ):
@@ -7066,8 +7073,8 @@ class CfnRestoreTestingSelection(
         restore_testing_plan_name: builtins.str,
         restore_testing_selection_name: builtins.str,
         protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        protected_resource_conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         validation_window_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::Backup::RestoreTestingSelection``.
@@ -7084,7 +7091,7 @@ class CfnRestoreTestingSelection(
         :param validation_window_hours: This is amount of hours (1 to 168) available to run a validation script on the data. The data will be deleted upon the completion of the validation script or the end of the specified retention period, whichever comes first.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442b55b4cd)
+            type_hints = cached_type_hints(_typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442b55b4cd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRestoreTestingSelectionProps(
@@ -7108,18 +7115,18 @@ class CfnRestoreTestingSelection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79ee0a62a83de7a0b3fcb7d1b018b671d46b1f2e324807ee26880a623641dcf2)
+            type_hints = cached_type_hints(_typecheckingstub__79ee0a62a83de7a0b3fcb7d1b018b671d46b1f2e324807ee26880a623641dcf2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRestoreTestingSelection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6d08475ef8ec086062770da8c6ae1e386a46bcdff9dfb5040b7f1493611cb3e)
+            type_hints = cached_type_hints(_typecheckingstub__a6d08475ef8ec086062770da8c6ae1e386a46bcdff9dfb5040b7f1493611cb3e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7132,7 +7139,7 @@ class CfnRestoreTestingSelection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34de78e7710b49a3b42ef7d51f2dfc0e53d42cd2f7a806ece05933ad0dd33be4)
+            type_hints = cached_type_hints(_typecheckingstub__34de78e7710b49a3b42ef7d51f2dfc0e53d42cd2f7a806ece05933ad0dd33be4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7156,9 +7163,9 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="restoreTestingSelectionRef")
     def restore_testing_selection_ref(
         self,
-    ) -> "_RestoreTestingSelectionReference_05d8055b":
+    ) -> "_aws_backup_bc4c1c6b.RestoreTestingSelectionReference":
         '''A reference to a RestoreTestingSelection resource.'''
-        return typing.cast("_RestoreTestingSelectionReference_05d8055b", jsii.get(self, "restoreTestingSelectionRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.RestoreTestingSelectionReference", jsii.get(self, "restoreTestingSelectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
@@ -7169,7 +7176,7 @@ class CfnRestoreTestingSelection(
     @iam_role_arn.setter
     def iam_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34257f3d99d8dd81dd7c1970745d4963406e9997794afa2eaa58e5f3091981d1)
+            type_hints = cached_type_hints(_typecheckingstub__34257f3d99d8dd81dd7c1970745d4963406e9997794afa2eaa58e5f3091981d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7182,7 +7189,7 @@ class CfnRestoreTestingSelection(
     @protected_resource_type.setter
     def protected_resource_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6719783d182adbeb22a96172d51be6ee382ad7651dee643d5a90d3cb2adff232)
+            type_hints = cached_type_hints(_typecheckingstub__6719783d182adbeb22a96172d51be6ee382ad7651dee643d5a90d3cb2adff232)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protectedResourceType", value) # pyright: ignore[reportArgumentType]
 
@@ -7195,7 +7202,7 @@ class CfnRestoreTestingSelection(
     @restore_testing_plan_name.setter
     def restore_testing_plan_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac3b68fe5b51b83a59b83e052ca08ca16d71cb6968805dd38de621c693f4dc59)
+            type_hints = cached_type_hints(_typecheckingstub__ac3b68fe5b51b83a59b83e052ca08ca16d71cb6968805dd38de621c693f4dc59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreTestingPlanName", value) # pyright: ignore[reportArgumentType]
 
@@ -7208,7 +7215,7 @@ class CfnRestoreTestingSelection(
     @restore_testing_selection_name.setter
     def restore_testing_selection_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c01d71d9386b9d1b2bb36875e5603d6b15b83bc54c7690640a18bdbe764a8ec9)
+            type_hints = cached_type_hints(_typecheckingstub__c01d71d9386b9d1b2bb36875e5603d6b15b83bc54c7690640a18bdbe764a8ec9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreTestingSelectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -7224,7 +7231,7 @@ class CfnRestoreTestingSelection(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e6805582b6d06e09dd1dcb088e5e9cda91f926647460866a9ee4aaf1b53c5db)
+            type_hints = cached_type_hints(_typecheckingstub__0e6805582b6d06e09dd1dcb088e5e9cda91f926647460866a9ee4aaf1b53c5db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protectedResourceArns", value) # pyright: ignore[reportArgumentType]
 
@@ -7232,17 +7239,17 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="protectedResourceConditions")
     def protected_resource_conditions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
         '''In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], jsii.get(self, "protectedResourceConditions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], jsii.get(self, "protectedResourceConditions"))
 
     @protected_resource_conditions.setter
     def protected_resource_conditions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bca09c3c518b6d44e5cb2086f38f9235f25ef7744e3c6cfba7d01b48e73b989)
+            type_hints = cached_type_hints(_typecheckingstub__1bca09c3c518b6d44e5cb2086f38f9235f25ef7744e3c6cfba7d01b48e73b989)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protectedResourceConditions", value) # pyright: ignore[reportArgumentType]
 
@@ -7250,17 +7257,17 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="restoreMetadataOverrides")
     def restore_metadata_overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "restoreMetadataOverrides"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "restoreMetadataOverrides"))
 
     @restore_metadata_overrides.setter
     def restore_metadata_overrides(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5)
+            type_hints = cached_type_hints(_typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restoreMetadataOverrides", value) # pyright: ignore[reportArgumentType]
 
@@ -7273,7 +7280,7 @@ class CfnRestoreTestingSelection(
     @validation_window_hours.setter
     def validation_window_hours(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2be1604fc1c4809e8243d2870eda79b55ab549c0f8a8368d99aded8cda271d1)
+            type_hints = cached_type_hints(_typecheckingstub__a2be1604fc1c4809e8243d2870eda79b55ab549c0f8a8368d99aded8cda271d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "validationWindowHours", value) # pyright: ignore[reportArgumentType]
 
@@ -7306,7 +7313,7 @@ class CfnRestoreTestingSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ab32bbff81cfbfeb46780f1db32ce34c7ddfe0658843461e3c5e6ddccc176c3d)
+                type_hints = cached_type_hints(_typecheckingstub__ab32bbff81cfbfeb46780f1db32ce34c7ddfe0658843461e3c5e6ddccc176c3d)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7357,8 +7364,8 @@ class CfnRestoreTestingSelection(
         def __init__(
             self,
             *,
-            string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_equals: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_equals: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The conditions that you define for resources in your restore testing plan using tags.
 
@@ -7386,7 +7393,7 @@ class CfnRestoreTestingSelection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21f4334cd0e11f4b24684e9ff9cf575380c735e9265b95d69aa611aae88b0a78)
+                type_hints = cached_type_hints(_typecheckingstub__21f4334cd0e11f4b24684e9ff9cf575380c735e9265b95d69aa611aae88b0a78)
                 check_type(argname="argument string_equals", value=string_equals, expected_type=type_hints["string_equals"])
                 check_type(argname="argument string_not_equals", value=string_not_equals, expected_type=type_hints["string_not_equals"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7398,7 +7405,7 @@ class CfnRestoreTestingSelection(
         @builtins.property
         def string_equals(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged with the same value.
 
             Also called "exact matching."
@@ -7406,12 +7413,12 @@ class CfnRestoreTestingSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-restoretestingselection-protectedresourceconditions.html#cfn-backup-restoretestingselection-protectedresourceconditions-stringequals
             '''
             result = self._values.get("string_equals")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
 
         @builtins.property
         def string_not_equals(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged that do not have the same value.
 
             Also called "negated matching."
@@ -7419,7 +7426,7 @@ class CfnRestoreTestingSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-restoretestingselection-protectedresourceconditions.html#cfn-backup-restoretestingselection-protectedresourceconditions-stringnotequals
             '''
             result = self._values.get("string_not_equals")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7456,8 +7463,8 @@ class CfnRestoreTestingSelectionProps:
         restore_testing_plan_name: builtins.str,
         restore_testing_selection_name: builtins.str,
         protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        protected_resource_conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         validation_window_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnRestoreTestingSelection``.
@@ -7505,7 +7512,7 @@ class CfnRestoreTestingSelectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb)
+            type_hints = cached_type_hints(_typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb)
             check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
             check_type(argname="argument protected_resource_type", value=protected_resource_type, expected_type=type_hints["protected_resource_type"])
             check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
@@ -7589,18 +7596,18 @@ class CfnRestoreTestingSelectionProps:
     @builtins.property
     def protected_resource_conditions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
         '''In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourceconditions
         '''
         result = self._values.get("protected_resource_conditions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], result)
 
     @builtins.property
     def restore_metadata_overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .
 
         Key values are not case sensitive.
@@ -7610,7 +7617,7 @@ class CfnRestoreTestingSelectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoremetadataoverrides
         '''
         result = self._values.get("restore_metadata_overrides")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def validation_window_hours(self) -> typing.Optional[jsii.Number]:
@@ -7635,9 +7642,9 @@ class CfnRestoreTestingSelectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITieringConfigurationRef_0738fe9f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.ITieringConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTieringConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.CfnTieringConfiguration",
 ):
@@ -7675,7 +7682,7 @@ class CfnTieringConfiguration(
         id: builtins.str,
         *,
         backup_vault_name: builtins.str,
-        resource_selection: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         tiering_configuration_name: builtins.str,
         tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -7689,7 +7696,7 @@ class CfnTieringConfiguration(
         :param tiering_configuration_tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243d444bac)
+            type_hints = cached_type_hints(_typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243d444bac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTieringConfigurationProps(
@@ -7705,13 +7712,13 @@ class CfnTieringConfiguration(
     @builtins.classmethod
     def arn_for_tiering_configuration(
         cls,
-        resource: "_ITieringConfigurationRef_0738fe9f",
+        resource: "_aws_backup_bc4c1c6b.ITieringConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1414c2c9efc5cf61fc1b1fa9b53bcac1f6a85d63f204ef6eab855f8d07575df4)
+            type_hints = cached_type_hints(_typecheckingstub__1414c2c9efc5cf61fc1b1fa9b53bcac1f6a85d63f204ef6eab855f8d07575df4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTieringConfiguration", [resource]))
 
@@ -7723,18 +7730,18 @@ class CfnTieringConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf722534a3239247a1d4019fd2e1c536da59f3e6f2c4b0502f369c082cd7e968)
+            type_hints = cached_type_hints(_typecheckingstub__bf722534a3239247a1d4019fd2e1c536da59f3e6f2c4b0502f369c082cd7e968)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTieringConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dda2c701f3fedcead3279033afa06375f3ed979bf814ada5f5765f641b0a93b1)
+            type_hints = cached_type_hints(_typecheckingstub__dda2c701f3fedcead3279033afa06375f3ed979bf814ada5f5765f641b0a93b1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7747,7 +7754,7 @@ class CfnTieringConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3324dd183a299b53cc6637a7614d15ad7a9e3cad1c64de0aa3b5e720cbd2ace)
+            type_hints = cached_type_hints(_typecheckingstub__b3324dd183a299b53cc6637a7614d15ad7a9e3cad1c64de0aa3b5e720cbd2ace)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7783,9 +7790,9 @@ class CfnTieringConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7799,9 +7806,11 @@ class CfnTieringConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="tieringConfigurationRef")
-    def tiering_configuration_ref(self) -> "_TieringConfigurationReference_e566af55":
+    def tiering_configuration_ref(
+        self,
+    ) -> "_aws_backup_bc4c1c6b.TieringConfigurationReference":
         '''A reference to a TieringConfiguration resource.'''
-        return typing.cast("_TieringConfigurationReference_e566af55", jsii.get(self, "tieringConfigurationRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.TieringConfigurationReference", jsii.get(self, "tieringConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultName")
@@ -7811,7 +7820,7 @@ class CfnTieringConfiguration(
     @backup_vault_name.setter
     def backup_vault_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__421109a7ac0ca0f6485d20caaddc5c8525f24fba28cdc7003588ce5a557f2ae1)
+            type_hints = cached_type_hints(_typecheckingstub__421109a7ac0ca0f6485d20caaddc5c8525f24fba28cdc7003588ce5a557f2ae1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultName", value) # pyright: ignore[reportArgumentType]
 
@@ -7819,16 +7828,16 @@ class CfnTieringConfiguration(
     @jsii.member(jsii_name="resourceSelection")
     def resource_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]], jsii.get(self, "resourceSelection"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTieringConfiguration.ResourceSelectionProperty"]]], jsii.get(self, "resourceSelection"))
 
     @resource_selection.setter
     def resource_selection(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTieringConfiguration.ResourceSelectionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dfa5fbab756b867b1d97ca534180e35c8d4fc17bf188a74b9d1cd219e0e469e)
+            type_hints = cached_type_hints(_typecheckingstub__8dfa5fbab756b867b1d97ca534180e35c8d4fc17bf188a74b9d1cd219e0e469e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceSelection", value) # pyright: ignore[reportArgumentType]
 
@@ -7840,7 +7849,7 @@ class CfnTieringConfiguration(
     @tiering_configuration_name.setter
     def tiering_configuration_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ece1a5672c13cd421238bd95df4b862d50090157deda22d95c87f7c07167014)
+            type_hints = cached_type_hints(_typecheckingstub__8ece1a5672c13cd421238bd95df4b862d50090157deda22d95c87f7c07167014)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tieringConfigurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -7857,7 +7866,7 @@ class CfnTieringConfiguration(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db22ddcdc10b6d3a0f640404daa7321520409a6dd9c60324f10eb6f8954748c3)
+            type_hints = cached_type_hints(_typecheckingstub__db22ddcdc10b6d3a0f640404daa7321520409a6dd9c60324f10eb6f8954748c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tieringConfigurationTags", value) # pyright: ignore[reportArgumentType]
 
@@ -7899,7 +7908,7 @@ class CfnTieringConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__395082588b875f092977587e0ed3c59cf31d0bd0ef8b75faea6a7047f01b3744)
+                type_hints = cached_type_hints(_typecheckingstub__395082588b875f092977587e0ed3c59cf31d0bd0ef8b75faea6a7047f01b3744)
                 check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
                 check_type(argname="argument tiering_down_settings_in_days", value=tiering_down_settings_in_days, expected_type=type_hints["tiering_down_settings_in_days"])
@@ -7963,7 +7972,7 @@ class CfnTieringConfigurationProps:
         self,
         *,
         backup_vault_name: builtins.str,
-        resource_selection: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         tiering_configuration_name: builtins.str,
         tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -7999,7 +8008,7 @@ class CfnTieringConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b72d9491a)
+            type_hints = cached_type_hints(_typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b72d9491a)
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
             check_type(argname="argument resource_selection", value=resource_selection, expected_type=type_hints["resource_selection"])
             check_type(argname="argument tiering_configuration_name", value=tiering_configuration_name, expected_type=type_hints["tiering_configuration_name"])
@@ -8024,13 +8033,13 @@ class CfnTieringConfigurationProps:
     @builtins.property
     def resource_selection(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html#cfn-backup-tieringconfiguration-resourceselection
         '''
         result = self._values.get("resource_selection")
         assert result is not None, "Required property 'resource_selection' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTieringConfiguration.ResourceSelectionProperty"]]], result)
 
     @builtins.property
     def tiering_configuration_name(self) -> builtins.str:
@@ -8065,8 +8074,8 @@ class CfnTieringConfigurationProps:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupPlan")
 class IBackupPlan(
-    _IResource_c80c4260,
-    _IBackupPlanRef_754776b5,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_backup_bc4c1c6b.IBackupPlanRef,
     typing_extensions.Protocol,
 ):
     '''A backup plan.'''
@@ -8082,8 +8091,8 @@ class IBackupPlan(
 
 
 class _IBackupPlanProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IBackupPlanRef_754776b5), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_backup_bc4c1c6b.IBackupPlanRef), # type: ignore[misc]
 ):
     '''A backup plan.'''
 
@@ -8104,8 +8113,8 @@ typing.cast(typing.Any, IBackupPlan).__jsii_proxy_class__ = lambda : _IBackupPla
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupVault")
 class IBackupVault(
-    _IResource_c80c4260,
-    _IBackupVaultRef_c038ce00,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_backup_bc4c1c6b.IBackupVaultRef,
     typing_extensions.Protocol,
 ):
     '''A backup vault.'''
@@ -8131,9 +8140,9 @@ class IBackupVault(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in actions to the given grantee on this backup vault.
 
         :param grantee: -
@@ -8143,8 +8152,8 @@ class IBackupVault(
 
 
 class _IBackupVaultProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IBackupVaultRef_c038ce00), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_backup_bc4c1c6b.IBackupVaultRef), # type: ignore[misc]
 ):
     '''A backup vault.'''
 
@@ -8171,19 +8180,19 @@ class _IBackupVaultProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in actions to the given grantee on this backup vault.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68)
+            type_hints = cached_type_hints(_typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IBackupVault).__jsii_proxy_class__ = lambda : _IBackupVaultProxy
@@ -8202,9 +8211,9 @@ class LockConfiguration:
     def __init__(
         self,
         *,
-        min_retention: "_Duration_4839e8c3",
-        changeable_for: typing.Optional["_Duration_4839e8c3"] = None,
-        max_retention: typing.Optional["_Duration_4839e8c3"] = None,
+        min_retention: "_aws_cdk_0cae9daa.Duration",
+        changeable_for: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        max_retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Configuration for AWS Backup Vault Lock.
 
@@ -8224,7 +8233,7 @@ class LockConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681)
+            type_hints = cached_type_hints(_typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681)
             check_type(argname="argument min_retention", value=min_retention, expected_type=type_hints["min_retention"])
             check_type(argname="argument changeable_for", value=changeable_for, expected_type=type_hints["changeable_for"])
             check_type(argname="argument max_retention", value=max_retention, expected_type=type_hints["max_retention"])
@@ -8237,7 +8246,7 @@ class LockConfiguration:
             self._values["max_retention"] = max_retention
 
     @builtins.property
-    def min_retention(self) -> "_Duration_4839e8c3":
+    def min_retention(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The minimum retention period that the vault retains its recovery points.
 
         If this parameter is specified, any backup or copy job to the vault must
@@ -8250,10 +8259,10 @@ class LockConfiguration:
         '''
         result = self._values.get("min_retention")
         assert result is not None, "Required property 'min_retention' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
-    def changeable_for(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def changeable_for(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration before the lock date.
 
         AWS Backup enforces a 72-hour cooling-off period before Vault Lock takes
@@ -8266,10 +8275,10 @@ class LockConfiguration:
         :default: - Vault Lock can be deleted or changed at any time
         '''
         result = self._values.get("changeable_for")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def max_retention(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_retention(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum retention period that the vault retains its recovery points.
 
         If this parameter is specified, any backup or copy job to the vault must
@@ -8283,7 +8292,7 @@ class LockConfiguration:
         :default: - Vault Lock does not enforce a maximum retention period
         '''
         result = self._values.get("max_retention")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8333,7 +8342,7 @@ class TagCondition:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080)
+            type_hints = cached_type_hints(_typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
@@ -8399,7 +8408,7 @@ class TagOperation(enum.Enum):
 
 @jsii.implements(IBackupPlan)
 class BackupPlan(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.BackupPlan",
 ):
@@ -8420,7 +8429,7 @@ class BackupPlan(
         *,
         backup_plan_name: typing.Optional[builtins.str] = None,
         backup_plan_rules: typing.Optional[typing.Sequence["BackupPlanRule"]] = None,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
         windows_vss: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -8432,7 +8441,7 @@ class BackupPlan(
         :param windows_vss: Enable Windows VSS backup. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d)
+            type_hints = cached_type_hints(_typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BackupPlanProps(
@@ -8450,7 +8459,7 @@ class BackupPlan(
         cls,
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlan":
         '''Daily with 35 day retention.
 
@@ -8459,7 +8468,7 @@ class BackupPlan(
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668)
+            type_hints = cached_type_hints(_typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
@@ -8471,7 +8480,7 @@ class BackupPlan(
         cls,
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlan":
         '''Daily and monthly with 1 year retention.
 
@@ -8480,7 +8489,7 @@ class BackupPlan(
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a)
+            type_hints = cached_type_hints(_typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
@@ -8492,7 +8501,7 @@ class BackupPlan(
         cls,
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlan":
         '''Daily, weekly and monthly with 5 year retention.
 
@@ -8501,7 +8510,7 @@ class BackupPlan(
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c)
+            type_hints = cached_type_hints(_typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
@@ -8513,7 +8522,7 @@ class BackupPlan(
         cls,
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
-        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        backup_vault: typing.Optional["_aws_backup_bc4c1c6b.IBackupVaultRef"] = None,
     ) -> "BackupPlan":
         '''Daily, weekly and monthly with 7 year retention.
 
@@ -8522,7 +8531,7 @@ class BackupPlan(
         :param backup_vault: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290)
+            type_hints = cached_type_hints(_typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
@@ -8543,7 +8552,7 @@ class BackupPlan(
         :param backup_plan_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219)
+            type_hints = cached_type_hints(_typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
@@ -8556,7 +8565,7 @@ class BackupPlan(
         :param rule: the rule to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df)
+            type_hints = cached_type_hints(_typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
         return typing.cast(None, jsii.invoke(self, "addRule", [rule]))
 
@@ -8569,7 +8578,7 @@ class BackupPlan(
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "BackupSelection":
         '''Adds a selection to this plan.
 
@@ -8581,7 +8590,7 @@ class BackupPlan(
         :param role: The role that AWS Backup uses to authenticate when backuping or restoring the resources. The ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to this role unless ``disableDefaultBackupPolicy`` is set to ``true``. Default: - a new role will be created
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b)
+            type_hints = cached_type_hints(_typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = BackupSelectionOptions(
             resources=resources,
@@ -8616,9 +8625,9 @@ class BackupPlan(
 
     @builtins.property
     @jsii.member(jsii_name="backupPlanRef")
-    def backup_plan_ref(self) -> "_BackupPlanReference_43879719":
+    def backup_plan_ref(self) -> "_aws_backup_bc4c1c6b.BackupPlanReference":
         '''A reference to a BackupPlan resource.'''
-        return typing.cast("_BackupPlanReference_43879719", jsii.get(self, "backupPlanRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.BackupPlanReference", jsii.get(self, "backupPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="backupVault")
@@ -8638,7 +8647,7 @@ class BackupPlan(
 
 @jsii.implements(IBackupVault)
 class BackupVault(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backup.BackupVault",
 ):
@@ -8660,14 +8669,14 @@ class BackupVault(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        access_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        access_policy: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
         backup_vault_name: typing.Optional[builtins.str] = None,
         block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         lock_configuration: typing.Optional[typing.Union["LockConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         notification_events: typing.Optional[typing.Sequence["BackupVaultEvents"]] = None,
-        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        notification_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -8682,7 +8691,7 @@ class BackupVault(
         :param removal_policy: The removal policy to apply to the vault. Note that removing a vault that contains recovery points will fail. Default: RemovalPolicy.RETAIN
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921)
+            type_hints = cached_type_hints(_typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BackupVaultProps(
@@ -8713,7 +8722,7 @@ class BackupVault(
         :param backup_vault_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753)
+            type_hints = cached_type_hints(_typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault_arn", value=backup_vault_arn, expected_type=type_hints["backup_vault_arn"])
@@ -8734,20 +8743,23 @@ class BackupVault(
         :param backup_vault_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40)
+            type_hints = cached_type_hints(_typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
         return typing.cast("IBackupVault", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
 
     @jsii.member(jsii_name="addToAccessPolicy")
-    def add_to_access_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_access_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Adds a statement to the vault access policy.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175)
+            type_hints = cached_type_hints(_typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToAccessPolicy", [statement]))
 
@@ -8759,9 +8771,9 @@ class BackupVault(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the actions defined in actions to the given grantee on this Backup Vault resource.
 
         [disable-awslint:no-grants]
@@ -8770,10 +8782,10 @@ class BackupVault(
         :param actions: The actions to grant.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8)
+            type_hints = cached_type_hints(_typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -8795,9 +8807,9 @@ class BackupVault(
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultRef")
-    def backup_vault_ref(self) -> "_BackupVaultReference_228dbd3a":
+    def backup_vault_ref(self) -> "_aws_backup_bc4c1c6b.BackupVaultReference":
         '''A reference to a BackupVault resource.'''
-        return typing.cast("_BackupVaultReference_228dbd3a", jsii.get(self, "backupVaultRef"))
+        return typing.cast("_aws_backup_bc4c1c6b.BackupVaultReference", jsii.get(self, "backupVaultRef"))
 
 
 __all__ = [
@@ -8842,9 +8854,9 @@ publication.publish()
 
 def _typecheckingstub__502c247f5c1b9824033ca24f5efe3e1d20ee8980208ae5382890f6168ba12843(
     *,
-    destination_backup_vault: _IBackupVaultRef_c038ce00,
-    delete_after: typing.Optional[_Duration_4839e8c3] = None,
-    move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
+    destination_backup_vault: _aws_backup_bc4c1c6b.IBackupVaultRef,
+    delete_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    move_to_cold_storage_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8853,55 +8865,55 @@ def _typecheckingstub__2c977b2da08bc5e51abde064245ef25c86ebdc30dd86fbb4658318249
     *,
     backup_plan_name: typing.Optional[builtins.str] = None,
     backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
     windows_vss: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8f78e665a93a5f3c61a81adf713b3dce3bf2c3c24d2e314a1fbc4460dc83b538(
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d00b6f39a5ae5e68dc286fee4603f5606c654c044712abfb5d45b4c538938e0a(
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4124e390401942af3d104beae29adc9c33bd1305f68302b0dd47aae3e11ca132(
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__af7999bcc928a751830ca431012278b60250723ffee54654765a4596696d022d(
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__759b8b9514606abffe4399669994cb3f2c365fc9e05295dd8d754f5af6bb329f(
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d8353d5d90(
     *,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
-    completion_window: typing.Optional[_Duration_4839e8c3] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
+    completion_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     copy_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanCopyActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delete_after: typing.Optional[_Duration_4839e8c3] = None,
+    delete_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     enable_continuous_backup: typing.Optional[builtins.bool] = None,
-    move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
+    move_to_cold_storage_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
-    schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
-    start_window: typing.Optional[_Duration_4839e8c3] = None,
+    schedule_expression: typing.Optional[_aws_events_27c08586.Schedule] = None,
+    schedule_expression_timezone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
+    start_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8927,37 +8939,37 @@ def _typecheckingstub__8c8359998ff8f774202e1b0869097e19c3e167e8e7a6a5ee95936f1b0
     pass
 
 def _typecheckingstub__75ec54ba33468f397b4b954ffff5bb4a26a29e306b38c37a8a831233ca47cf40(
-    table: _ITableRef_4478f0ad,
+    table: _aws_dynamodb_948f46d7.ITableRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfac18ef33642ed976be7473c0fe4b5174e370a770ceabc690e397bcecfce6a3(
-    instance: _IInstanceRef_b97803cb,
+    instance: _aws_ec2_18162e09.IInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a724b31752318e43681480d257f284af035f11db8b7b91a2712b0a19a09283b(
-    file_system: _IFileSystemRef_3dcf8b98,
+    file_system: _aws_efs_c63a96e2.IFileSystemRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2043352654f5d7b0272be6002773b2263d7a3a58bb3ca681d050846773b6a7a4(
-    cluster: _IDBClusterRef_ebf419fe,
+    cluster: _aws_rds_26740a85.IDBClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a3a85f96e06b0e43fed194c604af81aa14d506827b7f57b6fef4f8e0191d38d1(
-    instance: _IDBInstanceRef_10d60cd7,
+    instance: _aws_rds_26740a85.IDBInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a96658ef472d54f85f9fb6dfeffb763befda835ec279615ad329c159e5acf1a6(
-    cluster: _IDBClusterRef_ebf419fe,
+    cluster: _aws_rds_26740a85.IDBClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8974,12 +8986,12 @@ def _typecheckingstub__cb124dbc539b313053b8d36e3fbbda7c8ef513917e5cdb41a9d2a7eca
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    backup_plan: _IBackupPlanRef_754776b5,
+    backup_plan: _aws_backup_bc4c1c6b.IBackupPlanRef,
     resources: typing.Sequence[BackupResource],
     allow_restores: typing.Optional[builtins.bool] = None,
     backup_selection_name: typing.Optional[builtins.str] = None,
     disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8990,7 +9002,7 @@ def _typecheckingstub__99c0cf23958862e40e3aaa86170756388807569db1aeb820435bca289
     allow_restores: typing.Optional[builtins.bool] = None,
     backup_selection_name: typing.Optional[builtins.str] = None,
     disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9001,22 +9013,22 @@ def _typecheckingstub__bd3a38c041da3373a6278620797d45b4058a0d5aede2c0a4bc706fdef
     allow_restores: typing.Optional[builtins.bool] = None,
     backup_selection_name: typing.Optional[builtins.str] = None,
     disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    backup_plan: _IBackupPlanRef_754776b5,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    backup_plan: _aws_backup_bc4c1c6b.IBackupPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6a7555f4b25ca4760e3a057b8e3a9b5e07feed1f99319d6e434cc8fed4e71af6(
     *,
-    access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    access_policy: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
     backup_vault_name: typing.Optional[builtins.str] = None,
     block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9025,14 +9037,14 @@ def _typecheckingstub__8250888ac08b345ef300cc4ce53cc267858e31401cdc7b6a427c98f5b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    backup_plan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
     backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d90318e05f298e9e32d25d69776de891d8d1f9fdc6587cd780d823a2ffc981d8(
-    resource: _IBackupPlanRef_754776b5,
+    resource: _aws_backup_bc4c1c6b.IBackupPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9060,7 +9072,7 @@ def _typecheckingstub__ede8b9af7edd83b17d51898aba87327c2de9e2dca982aab34a7f5ba59
     pass
 
 def _typecheckingstub__ff313ad9e84c3475e4286a17d3e066d3b8ff12dcdde29c7a2727bf7529fa7fbb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9072,7 +9084,7 @@ def _typecheckingstub__629c13605c998df9d353c86512eb681d4a36a976085dd6b817284d7c5
     pass
 
 def _typecheckingstub__f6bcd3444e7d21cd081d514b722a886bbe4d7a7b6f5d932136467b22b0e106cb(
-    value: typing.Union[_IResolvable_da3f097b, CfnBackupPlan.BackupPlanResourceTypeProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBackupPlan.BackupPlanResourceTypeProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9094,9 +9106,9 @@ def _typecheckingstub__adac2a2fa454c7ba68def940750a72e610647ccbdd2ff4bbb5b5a2aa0
 def _typecheckingstub__4fa711ce952ba97854872fd98c8f8e371b8e208c6e6c6d9d96087f413097338f(
     *,
     backup_plan_name: builtins.str,
-    backup_plan_rule: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupRuleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    advanced_backup_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    scan_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.ScanSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    backup_plan_rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.BackupRuleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    advanced_backup_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scan_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.ScanSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9106,12 +9118,12 @@ def _typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b
     rule_name: builtins.str,
     target_backup_vault: builtins.str,
     completion_window_minutes: typing.Optional[jsii.Number] = None,
-    copy_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.CopyActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    index_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.IndexActionsResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    recovery_point_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    scan_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.ScanActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    copy_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.CopyActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    index_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.IndexActionsResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    recovery_point_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    scan_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.ScanActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_minutes: typing.Optional[jsii.Number] = None,
@@ -9123,7 +9135,7 @@ def _typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b
 def _typecheckingstub__b0175b5c6dd7a96151259f5cc498692c56086843795ca19e3f9f696707f1d48a(
     *,
     destination_backup_vault_arn: builtins.str,
-    lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9139,7 +9151,7 @@ def _typecheckingstub__b9cc85d565a0bdd44f5b8b5d29dce7bae38cfd50437c39a049e1b16bd
     *,
     delete_after_days: typing.Optional[jsii.Number] = None,
     move_to_cold_storage_after_days: typing.Optional[jsii.Number] = None,
-    opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9163,7 +9175,7 @@ def _typecheckingstub__fc93fa1678199d79bf7b9fa988732c0f06e2ed4210f7217037d788d3f
 
 def _typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8(
     *,
-    backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    backup_plan: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
     backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9173,8 +9185,8 @@ def _typecheckingstub__436ffdeb945f1d3144a7bb788e19b389a62e6e70ce5e213a46bb8c9ea
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    backup_plan_id: typing.Union[builtins.str, _IBackupPlanRef_754776b5],
-    backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    backup_plan_id: typing.Union[builtins.str, _aws_backup_bc4c1c6b.IBackupPlanRef],
+    backup_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9186,7 +9198,7 @@ def _typecheckingstub__d35e73d1ff2149bad22c9c5051064e7e4eb9459ab990636de59100548
     pass
 
 def _typecheckingstub__2b980d8bc69846edd28b19d93b1e66494af7417d2c8bfcc63913b9bf28df47fa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9204,7 +9216,7 @@ def _typecheckingstub__fb392f817509871513c4b0fafb43edac23006950a5084d282e3b5261b
     pass
 
 def _typecheckingstub__c50a31cd4319cd1c025574f4d4937c890776ab110ae28de39672caf7d2e4b86b(
-    value: typing.Union[_IResolvable_da3f097b, CfnBackupSelection.BackupSelectionResourceTypeProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBackupSelection.BackupSelectionResourceTypeProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9214,7 +9226,7 @@ def _typecheckingstub__53f9191660f873982da4ff5df24ce6724761f33be21d9fd33f43da81c
     iam_role_arn: builtins.str,
     selection_name: builtins.str,
     conditions: typing.Any = None,
-    list_of_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.ConditionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    list_of_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.ConditionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
     resources: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -9240,18 +9252,18 @@ def _typecheckingstub__346e9a31a7a4a5ad318acaee89a646b6b23822feb831da857c4c30073
 
 def _typecheckingstub__d4989780545fff72ed41947c50d0e49cf85d2cf412bc84422f8757131068aa57(
     *,
-    string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    string_like: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    string_not_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    string_not_like: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_equals: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_like: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_not_equals: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_not_like: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.ConditionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9(
     *,
-    backup_plan_id: typing.Union[builtins.str, _IBackupPlanRef_754776b5],
-    backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    backup_plan_id: typing.Union[builtins.str, _aws_backup_bc4c1c6b.IBackupPlanRef],
+    backup_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9263,15 +9275,15 @@ def _typecheckingstub__91f579bea882f82608d503a3e561568131d8e8e6d825c152c63d59622
     backup_vault_name: builtins.str,
     access_policy: typing.Any = None,
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    lock_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ed92c2782108e3ac41b002f013a5190852956a16215b7e5e56ca133e9e72884(
-    resource: _IBackupVaultRef_c038ce00,
+    resource: _aws_backup_bc4c1c6b.IBackupVaultRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9299,7 +9311,7 @@ def _typecheckingstub__dd36b260fa1819d239b14b42d40ba38036f7fcfb5eea5ee5997f7d891
     pass
 
 def _typecheckingstub__c5303f64257feccbaac430e6766ee8dd85d8293dcda5a0b514f9128fa193e156(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9335,13 +9347,13 @@ def _typecheckingstub__b0b723f932eeee018a3da33f56242664a27dbe5da02fc1a2ca3fef216
     pass
 
 def _typecheckingstub__9c2b8e8d837c9ecececc40d52f27a016b926cd8c10c242b093a3f7cf0d24407a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBackupVault.LockConfigurationTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBackupVault.LockConfigurationTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dd703ee9b654a333d2dac663658fcec508ffab2fc620c932c524dcd0df84e35e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBackupVault.NotificationObjectTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBackupVault.NotificationObjectTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9368,9 +9380,9 @@ def _typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355
     backup_vault_name: builtins.str,
     access_policy: typing.Any = None,
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    lock_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9379,16 +9391,16 @@ def _typecheckingstub__762b6f2cf173ed987e2f05e55b691e4e8e14552591e05b26b7f7f4e08
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    framework_controls: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
     framework_description: typing.Optional[builtins.str] = None,
     framework_name: typing.Optional[builtins.str] = None,
-    framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    framework_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1b50aa25a1cc9ba34b4868b9a50fe018bfd4cc98076a84c277bf66f3e1da5f09(
-    resource: _IFrameworkRef_dcbb25ea,
+    resource: _aws_backup_bc4c1c6b.IFrameworkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9400,7 +9412,7 @@ def _typecheckingstub__a0e4b118e80cc8b6a02bf8eff05632314f7c32bd9e456ab50d3932ffb
     pass
 
 def _typecheckingstub__772cf75dbb4416fa5340091bf8716f709bcd79a3fef3bf9744a593360d85b617(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9412,7 +9424,7 @@ def _typecheckingstub__5fec0fb3c848f86413b75960fc140604dfee8403702a31925ae61dc8c
     pass
 
 def _typecheckingstub__3915617d48c3c99a3779ed995d74734c2f731d452cc340e149dd92de02e68dc6(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFramework.FrameworkControlProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFramework.FrameworkControlProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9430,7 +9442,7 @@ def _typecheckingstub__c5b6c11306aa239f885eed40f25fa93c3a57a2c996e35e5a03b218b58
     pass
 
 def _typecheckingstub__4d4922912c7db9cfb847d446edf6701acea095c2d0fefb7def73f3da3aa1cc1d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9447,7 +9459,7 @@ def _typecheckingstub__f2f11947bed37971122729e32bbef595427b4ad564167fe2e94024e57
     *,
     compliance_resource_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     compliance_resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9455,7 +9467,7 @@ def _typecheckingstub__f2f11947bed37971122729e32bbef595427b4ad564167fe2e94024e57
 def _typecheckingstub__2629d2cfa8ee3e24a49017e656aec6745967bedbc91fb85dae3a38dfe31fbb23(
     *,
     control_name: builtins.str,
-    control_input_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFramework.ControlInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    control_input_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFramework.ControlInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     control_scope: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -9463,10 +9475,10 @@ def _typecheckingstub__2629d2cfa8ee3e24a49017e656aec6745967bedbc91fb85dae3a38dfe
 
 def _typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7(
     *,
-    framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    framework_controls: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
     framework_description: typing.Optional[builtins.str] = None,
     framework_name: typing.Optional[builtins.str] = None,
-    framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    framework_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9482,13 +9494,13 @@ def _typecheckingstub__f46c2d817c43abec9e204fc8a7211b43dd15b93e11a637e67a9711664
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     encryption_key_arn: typing.Optional[builtins.str] = None,
     mpa_approval_team_arn: typing.Optional[builtins.str] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__994d018be638a33f2eb32bb0e85f369b451e5bfae2907913519d7f9f54738a54(
-    resource: _ILogicallyAirGappedBackupVaultRef_94a8f212,
+    resource: _aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9508,7 +9520,7 @@ def _typecheckingstub__f5e25c462b1613e391c1de6e32d697ccfab1f83825922fabde05f59f0
     pass
 
 def _typecheckingstub__415ff13e64a57b94538bf66464736e9dc201021da09242c46763584700ef7f37(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9562,7 +9574,7 @@ def _typecheckingstub__d69a75a0b7ce93d33d99d99ea46c6bed385bc4618297cfeb520452084
     pass
 
 def _typecheckingstub__f1dc991e6a5cd9bb0776543a7419ba117220c8fec8f29ec2587f9a6747b5dcab(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9584,7 +9596,7 @@ def _typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     encryption_key_arn: typing.Optional[builtins.str] = None,
     mpa_approval_team_arn: typing.Optional[builtins.str] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9597,13 +9609,13 @@ def _typecheckingstub__5c6528de906751786b24f01244334abf14ddb763be763a416a6d4f3c8
     report_setting: typing.Any,
     report_plan_description: typing.Optional[builtins.str] = None,
     report_plan_name: typing.Optional[builtins.str] = None,
-    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__81ff19c28848fcb20b39db086fd0082e4e3c62072d87a29282066c70b97788c7(
-    resource: _IReportPlanRef_2eb6ea89,
+    resource: _aws_backup_bc4c1c6b.IReportPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9615,7 +9627,7 @@ def _typecheckingstub__2abc06e48dfc31e4fbe55950c0e534070c2435094a084708de6199d36
     pass
 
 def _typecheckingstub__f16e67dc9d6ebba3468d37c10baab99ff7e531b9adb1ec5e7f3259c7c6f7f9aa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9651,7 +9663,7 @@ def _typecheckingstub__7ac2566ae00a72a2736504779f108399d133fb5744a76f8690cb6e5a7
     pass
 
 def _typecheckingstub__16e4bb4b012408e08ab26526c9837368cc6121e55f663b4a10170c9edb8466f8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9682,7 +9694,7 @@ def _typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329
     report_setting: typing.Any,
     report_plan_description: typing.Optional[builtins.str] = None,
     report_plan_name: typing.Optional[builtins.str] = None,
-    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9691,18 +9703,18 @@ def _typecheckingstub__ce1d12683247bbd0bcd185e807f3b41b4b53ee7cfd847d57ecbf875d4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    recovery_point_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
     restore_testing_plan_name: builtins.str,
     schedule_expression: builtins.str,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_hours: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7990b6debf547b5294197ae934069cb15deeef3fa415291836f77df56e14749c(
-    resource: _IRestoreTestingPlanRef_3850185f,
+    resource: _aws_backup_bc4c1c6b.IRestoreTestingPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9714,7 +9726,7 @@ def _typecheckingstub__0d546b33c12de5b002fa2057a49d81a560710ec58df95a495541fd40d
     pass
 
 def _typecheckingstub__d5ba5ffd43036caff767719ec070ceb8bbd591fd4d39ca36636cd2d29d4a56ff(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9726,7 +9738,7 @@ def _typecheckingstub__6702caf44f3579436a6db3b23da78e6d5e41775573ce62e2e8078955e
     pass
 
 def _typecheckingstub__469f816a79c521b1d05c16d66ccb2fb6a0fe1163701e6173b0840fee4d922c49(
-    value: typing.Union[_IResolvable_da3f097b, CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9756,7 +9768,7 @@ def _typecheckingstub__9df0eb1aaa95a7ca07b1c2dc88007e89e56d90a6006630d5680cdb415
     pass
 
 def _typecheckingstub__93b4eb4b15380d36fec202a3d3c50a366e86616c5516db286f16625d21096205(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9774,12 +9786,12 @@ def _typecheckingstub__b5c7325bf12ffdf44c2a91f87260dec7090351b3a614521cad6d903cf
 
 def _typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5(
     *,
-    recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    recovery_point_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
     restore_testing_plan_name: builtins.str,
     schedule_expression: builtins.str,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_hours: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9793,8 +9805,8 @@ def _typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442
     restore_testing_plan_name: builtins.str,
     restore_testing_selection_name: builtins.str,
     protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    restore_metadata_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    protected_resource_conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restore_metadata_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9807,7 +9819,7 @@ def _typecheckingstub__79ee0a62a83de7a0b3fcb7d1b018b671d46b1f2e324807ee26880a623
     pass
 
 def _typecheckingstub__a6d08475ef8ec086062770da8c6ae1e386a46bcdff9dfb5040b7f1493611cb3e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9849,13 +9861,13 @@ def _typecheckingstub__0e6805582b6d06e09dd1dcb088e5e9cda91f926647460866a9ee4aaf1
     pass
 
 def _typecheckingstub__1bca09c3c518b6d44e5cb2086f38f9235f25ef7744e3c6cfba7d01b48e73b989(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRestoreTestingSelection.ProtectedResourceConditionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRestoreTestingSelection.ProtectedResourceConditionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9876,8 +9888,8 @@ def _typecheckingstub__ab32bbff81cfbfeb46780f1db32ce34c7ddfe0658843461e3c5e6ddcc
 
 def _typecheckingstub__21f4334cd0e11f4b24684e9ff9cf575380c735e9265b95d69aa611aae88b0a78(
     *,
-    string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    string_not_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_equals: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingSelection.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    string_not_equals: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingSelection.KeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9889,8 +9901,8 @@ def _typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc549
     restore_testing_plan_name: builtins.str,
     restore_testing_selection_name: builtins.str,
     protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    restore_metadata_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    protected_resource_conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restore_metadata_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9901,7 +9913,7 @@ def _typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243
     id: builtins.str,
     *,
     backup_vault_name: builtins.str,
-    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     tiering_configuration_name: builtins.str,
     tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -9909,7 +9921,7 @@ def _typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243
     pass
 
 def _typecheckingstub__1414c2c9efc5cf61fc1b1fa9b53bcac1f6a85d63f204ef6eab855f8d07575df4(
-    resource: _ITieringConfigurationRef_0738fe9f,
+    resource: _aws_backup_bc4c1c6b.ITieringConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9921,7 +9933,7 @@ def _typecheckingstub__bf722534a3239247a1d4019fd2e1c536da59f3e6f2c4b0502f369c082
     pass
 
 def _typecheckingstub__dda2c701f3fedcead3279033afa06375f3ed979bf814ada5f5765f641b0a93b1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9939,7 +9951,7 @@ def _typecheckingstub__421109a7ac0ca0f6485d20caaddc5c8525f24fba28cdc7003588ce5a5
     pass
 
 def _typecheckingstub__8dfa5fbab756b867b1d97ca534180e35c8d4fc17bf188a74b9d1cd219e0e469e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTieringConfiguration.ResourceSelectionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTieringConfiguration.ResourceSelectionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9968,7 +9980,7 @@ def _typecheckingstub__395082588b875f092977587e0ed3c59cf31d0bd0ef8b75faea6a7047f
 def _typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b72d9491a(
     *,
     backup_vault_name: builtins.str,
-    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     tiering_configuration_name: builtins.str,
     tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -9976,7 +9988,7 @@ def _typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b7
     pass
 
 def _typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -9984,9 +9996,9 @@ def _typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467b
 
 def _typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681(
     *,
-    min_retention: _Duration_4839e8c3,
-    changeable_for: typing.Optional[_Duration_4839e8c3] = None,
-    max_retention: typing.Optional[_Duration_4839e8c3] = None,
+    min_retention: _aws_cdk_0cae9daa.Duration,
+    changeable_for: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    max_retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10006,7 +10018,7 @@ def _typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3d
     *,
     backup_plan_name: typing.Optional[builtins.str] = None,
     backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
     windows_vss: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10015,7 +10027,7 @@ def _typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3d
 def _typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10023,7 +10035,7 @@ def _typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faa
 def _typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10031,7 +10043,7 @@ def _typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4d
 def _typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10039,7 +10051,7 @@ def _typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953eb
 def _typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
-    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    backup_vault: typing.Optional[_aws_backup_bc4c1c6b.IBackupVaultRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10065,7 +10077,7 @@ def _typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b
     allow_restores: typing.Optional[builtins.bool] = None,
     backup_selection_name: typing.Optional[builtins.str] = None,
     disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10074,14 +10086,14 @@ def _typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    access_policy: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
     backup_vault_name: typing.Optional[builtins.str] = None,
     block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10103,13 +10115,13 @@ def _typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c3
     pass
 
 def _typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""

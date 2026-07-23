@@ -12,6 +12,7 @@ use crate::global_configs::GlobalConfigs;
 use crate::hashing::HashUtil;
 use crate::id_lists_adapter::{IdList, IdListsUpdateListener};
 use crate::interned_string::InternedString;
+use crate::interned_values::InternedStore;
 use crate::macros::LOCK_TIMEOUT;
 use crate::networking::ResponseData;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
@@ -20,6 +21,7 @@ use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
 use crate::specs_response::proto_specs::{deserialize_protobuf_for_store, ProtobufUpdate};
 use crate::specs_response::spec_types::{SpecsResponseFull, SpecsResponseNoUpdates};
+use crate::specs_response::specs_hash_map::{track_spec_decodes, SpecDecodeStats};
 use crate::utils::{get_loggable_sdk_key, try_release_unused_heap_memory};
 use crate::{
     log_d, log_e, log_error_to_statsig_and_console, log_w, SpecsFormat, SpecsInfo, SpecsSource,
@@ -35,6 +37,8 @@ pub struct SpecStoreData {
     pub id_lists: Arc<HashMap<String, IdList>>,
     pub gcir_evaluation_plan: Arc<OnceLock<GcirEvaluationPlan>>,
     sync_cursor: ConfigSyncCursor,
+    // Reused as the starting point for delta telemetry so unchanged maps can use native cloning.
+    spec_decode_stats: SpecDecodeStats,
 }
 
 #[derive(Clone, Default)]
@@ -112,6 +116,7 @@ const CONFIG_PROTO_UPDATE_OUTCOME_TAG: &str = "outcome";
 const CONFIG_PROTO_UPDATE_CURSOR_ONLY: &str = "cursor_only";
 const CONFIG_PROTO_UPDATE_DUPLICATE: &str = "duplicate";
 const CONFIG_PROTO_UPDATE_MATERIALIZED: &str = "materialized";
+const INTERNED_MMAP_SPEC_DECODE_COUNT_METRIC: &str = "interned_mmap.spec_decode.count";
 
 pub struct SpecStore {
     data: ArcSwap<SpecStoreData>,
@@ -154,6 +159,7 @@ impl SpecStore {
                 id_lists: Arc::new(HashMap::new()),
                 gcir_evaluation_plan: Arc::new(OnceLock::new()),
                 sync_cursor: ConfigSyncCursor::default(),
+                spec_decode_stats: SpecDecodeStats::default(),
             }),
             update_lock: Mutex::new(()),
             event_emitter,
@@ -264,8 +270,14 @@ impl SpecStore {
             let prep_result = self.specs_update_prep(&mut specs_update)?;
 
             match prep_result {
-                PrepResult::HasUpdates(next_values, response_format, is_delta) => {
-                    let apply_result = self.specs_update_apply(next_values, &specs_update)?;
+                PrepResult::HasUpdates {
+                    values,
+                    response_format,
+                    is_delta,
+                    spec_decode_stats,
+                } => {
+                    let apply_result =
+                        self.specs_update_apply(values, &specs_update, spec_decode_stats)?;
                     Ok(LockedSetValuesResult::Applied(
                         response_format,
                         apply_result,
@@ -325,6 +337,8 @@ impl SpecStore {
             }
         };
 
+        self.ops_stats_log_interned_mmap_spec_decode(apply_result.spec_decode_stats);
+
         try_release_unused_heap_memory();
 
         // --- Notify ---
@@ -350,8 +364,16 @@ impl SpecStore {
 // -------------------------------------------------------------------------------------------- [ Private ]
 
 enum PrepResult {
-    HasUpdates(Box<SpecsResponseFull>, SpecsFormat, bool),
-    CursorOnly { lcut: u64, checksum: String },
+    HasUpdates {
+        values: Box<SpecsResponseFull>,
+        response_format: SpecsFormat,
+        is_delta: bool,
+        spec_decode_stats: SpecDecodeStats,
+    },
+    CursorOnly {
+        lcut: u64,
+        checksum: String,
+    },
     Duplicate,
     NoUpdates,
     CurrentValuesNewer,
@@ -380,6 +402,7 @@ struct ApplyResult {
     prev_lcut: u64,
     time_received_at: u64,
     notification: SpecUpdateNotification,
+    spec_decode_stats: SpecDecodeStats,
 }
 
 struct SpecUpdateNotification {
@@ -430,32 +453,34 @@ impl SpecStore {
         {
             return Ok(PrepResult::Duplicate);
         }
-        let current_snapshot = &read_data.snapshot;
-
         // First, try a full or delta specs response deserialization
         let first_deserialize_result =
-            self.deserialize_specs_data(current_snapshot, &response_format, &mut specs_update.data);
+            self.deserialize_specs_data(&read_data, &response_format, &mut specs_update.data);
 
         let first_deserialize_error = match first_deserialize_result {
-            Ok(DeserializedSpecs::Materialized {
-                values: next_values,
-                is_delta,
-            }) => {
+            Ok((
+                DeserializedSpecs::Materialized {
+                    values: next_values,
+                    is_delta,
+                },
+                spec_decode_stats,
+            )) => {
                 if self.are_current_values_newer(&read_data, &next_values) {
                     return Ok(PrepResult::CurrentValuesNewer);
                 }
 
                 if next_values.has_updates {
-                    return Ok(PrepResult::HasUpdates(
-                        next_values,
+                    return Ok(PrepResult::HasUpdates {
+                        values: next_values,
                         response_format,
                         is_delta,
-                    ));
+                        spec_decode_stats,
+                    });
                 }
 
                 None
             }
-            Ok(DeserializedSpecs::CursorOnly { lcut, checksum }) => {
+            Ok((DeserializedSpecs::CursorOnly { lcut, checksum }, _)) => {
                 if cursor_is_stale_or_duplicate(&read_data, lcut, &checksum) {
                     return Ok(PrepResult::CurrentValuesNewer);
                 }
@@ -494,6 +519,7 @@ impl SpecStore {
         &self,
         next_values: Box<SpecsResponseFull>,
         specs_update: &SpecsUpdate,
+        spec_decode_stats: SpecDecodeStats,
     ) -> Result<ApplyResult, StatsigErr> {
         // DANGER: try_update_global_configs contains its own locks
         self.try_update_global_configs(&next_values);
@@ -526,6 +552,7 @@ impl SpecStore {
             id_lists: data.id_lists.clone(),
             gcir_evaluation_plan: Arc::new(OnceLock::new()),
             sync_cursor,
+            spec_decode_stats,
         });
 
         Ok(ApplyResult {
@@ -533,6 +560,7 @@ impl SpecStore {
             prev_lcut,
             time_received_at,
             notification,
+            spec_decode_stats,
         })
     }
 
@@ -562,6 +590,7 @@ impl SpecStore {
             prev_lcut,
             time_received_at,
             notification,
+            spec_decode_stats: _,
         } = apply_result;
         let SpecUpdateNotification {
             source,
@@ -600,40 +629,45 @@ impl SpecStore {
 
     fn deserialize_specs_data(
         &self,
-        current_snapshot: &SpecsResponseFull,
+        current_data: &SpecStoreData,
         response_format: &SpecsFormat,
         response_data: &mut ResponseData,
-    ) -> Result<DeserializedSpecs, StatsigErr> {
-        let mut next_values = Box::new(SpecsResponseFull::default());
+    ) -> Result<(DeserializedSpecs, SpecDecodeStats), StatsigErr> {
+        let (result, spec_decode_stats) = track_spec_decodes(|| {
+            let mut next_values = Box::new(SpecsResponseFull::default());
 
-        match response_format {
-            SpecsFormat::Protobuf => {
-                let update = deserialize_protobuf_for_store(
-                    &self.ops_stats,
-                    current_snapshot,
-                    next_values.as_mut(),
-                    response_data,
-                )?;
-                match update {
-                    ProtobufUpdate::Materialized { is_delta } => {
-                        Ok(DeserializedSpecs::Materialized {
-                            values: next_values,
-                            is_delta,
-                        })
-                    }
-                    ProtobufUpdate::CursorOnly { lcut, checksum } => {
-                        Ok(DeserializedSpecs::CursorOnly { lcut, checksum })
+            match response_format {
+                SpecsFormat::Protobuf => {
+                    let update = deserialize_protobuf_for_store(
+                        &self.ops_stats,
+                        current_data.snapshot.as_ref(),
+                        current_data.spec_decode_stats,
+                        next_values.as_mut(),
+                        response_data,
+                    )?;
+                    match update {
+                        ProtobufUpdate::Materialized { is_delta } => {
+                            Ok(DeserializedSpecs::Materialized {
+                                values: next_values,
+                                is_delta,
+                            })
+                        }
+                        ProtobufUpdate::CursorOnly { lcut, checksum } => {
+                            Ok(DeserializedSpecs::CursorOnly { lcut, checksum })
+                        }
                     }
                 }
+                SpecsFormat::Json => {
+                    response_data.deserialize_in_place(next_values.as_mut())?;
+                    Ok(DeserializedSpecs::Materialized {
+                        values: next_values,
+                        is_delta: false,
+                    })
+                }
             }
-            SpecsFormat::Json => {
-                response_data.deserialize_in_place(next_values.as_mut())?;
-                Ok(DeserializedSpecs::Materialized {
-                    values: next_values,
-                    is_delta: false,
-                })
-            }
-        }
+        });
+
+        Ok((result?, spec_decode_stats))
     }
 
     fn emit_specs_updated_sdk_event(
@@ -837,6 +871,33 @@ async fn write_specs_to_data_store(
 // -------------------------------------------------------------------------------------------- [ OpsStats Helpers ]
 
 impl SpecStore {
+    fn ops_stats_log_interned_mmap_spec_decode(&self, stats: SpecDecodeStats) {
+        if stats.total == 0 {
+            return;
+        }
+
+        let (source, reason) = if stats.mmap == stats.total {
+            ("mmap", "preloaded")
+        } else if stats.mmap > 0 {
+            ("mixed", "partial_match")
+        } else if InternedStore::has_preloaded_mmap_v2() {
+            ("owned", "no_match")
+        } else {
+            ("owned", "spec_preload_unavailable")
+        };
+
+        self.ops_stats.log(ObservabilityEvent::new_event(
+            MetricType::Increment,
+            INTERNED_MMAP_SPEC_DECODE_COUNT_METRIC.to_string(),
+            1.0,
+            Some(HashMap::from([
+                ("source".to_string(), source.to_string()),
+                ("reason".to_string(), reason.to_string()),
+                ("sdk_key".to_string(), self.loggable_sdk_key.clone()),
+            ])),
+        ));
+    }
+
     fn ops_stats_log_no_update(
         &self,
         source: SpecsSource,
@@ -989,7 +1050,9 @@ impl IdListsUpdateListener for SpecStore {
 
 #[cfg(test)]
 mod tests {
-    use super::{ConfigResponseType, ConfigSyncCursor, SpecStoreData, DELTAS_USED_HEADER};
+    use super::{
+        ConfigResponseType, ConfigSyncCursor, SpecDecodeStats, SpecStoreData, DELTAS_USED_HEADER,
+    };
     use crate::hashing::HashUtil;
     use crate::networking::ResponseData;
     use crate::specs_response::spec_types::SpecsResponseFull;
@@ -1028,6 +1091,7 @@ mod tests {
             id_lists: Arc::new(HashMap::new()),
             gcir_evaluation_plan: Arc::new(OnceLock::new()),
             sync_cursor: ConfigSyncCursor::default(),
+            spec_decode_stats: SpecDecodeStats::default(),
         };
         let hashing = HashUtil::new();
 

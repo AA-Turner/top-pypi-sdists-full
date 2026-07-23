@@ -5,19 +5,26 @@ from typing import Tuple, Any, Callable, List, Optional, Union, Sequence
 
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
-from fakeredis._commands import (
-    command,
-    Key,
-    Int,
-    DbIndex,
-    BeforeAny,
-    CommandItem,
-    SortFloat,
-    delete_keys,
-)
+from fakeredis._commands import command, Key, Int, DbIndex, BeforeAny, CommandItem, delete_keys, Float
 from fakeredis._helpers import compile_pattern, SimpleError, OK, casematch, SimpleString
 from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import ZSet, Hash, ExpiringMembersSet
+
+
+class SortFloat(Float):
+    DECODE_ERROR = msgs.INVALID_SORT_FLOAT_MSG
+
+    @classmethod
+    def decode(
+        cls,
+        value: bytes,
+        allow_leading_whitespace: bool = True,
+        allow_erange: bool = False,
+        allow_empty: bool = True,
+        crop_null: bool = True,
+        decode_error: Optional[str] = None,
+    ) -> float:
+        return super().decode(value, allow_leading_whitespace=True, allow_empty=True, crop_null=True)
 
 
 class GenericCommandsMixin(CommandsMixinBase):
@@ -363,7 +370,9 @@ class GenericCommandsMixin(CommandsMixinBase):
     @command(name="COPY", fixed=(Key(), Key()), repeat=(bytes,))
     def copy(self, key: CommandItem, newkey: CommandItem, *args: bytes) -> int:
         (db_num, replace), _ = extract_args(args, ("+db", "replace"))
-        db_num = db_num or self._db_num
+        if db_num is not None and not DbIndex.MIN_VALUE <= db_num <= DbIndex.MAX_VALUE:
+            raise SimpleError(msgs.INVALID_DB_MSG)
+        db_num = self._db_num if db_num is None else db_num
         if key.key == newkey.key and db_num == self._db_num:
             raise SimpleError(msgs.SRC_DST_SAME_MSG)
         if (newkey.key in self._server.dbs[db_num] and not replace) or (key.key not in self._server.dbs[self._db_num]):

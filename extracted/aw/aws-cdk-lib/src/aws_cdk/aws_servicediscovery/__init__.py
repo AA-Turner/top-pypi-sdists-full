@@ -161,6 +161,8 @@ service.register_cname_instance("CnameInstance",
 app.synth()
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -174,53 +176,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import IVpc as _IVpc_f30d5663
-from ..aws_elasticloadbalancingv2 import ILoadBalancerV2 as _ILoadBalancerV2_4c5c0fbb
-from ..interfaces.aws_servicediscovery import (
-    HttpNamespaceReference as _HttpNamespaceReference_2edf16fb,
-    IHttpNamespaceRef as _IHttpNamespaceRef_68a0c4c4,
-    IInstanceRef as _IInstanceRef_e05d45e9,
-    IPrivateDnsNamespaceRef as _IPrivateDnsNamespaceRef_19402306,
-    IPublicDnsNamespaceRef as _IPublicDnsNamespaceRef_1d27bfe2,
-    IServiceRef as _IServiceRef_687c8f74,
-    InstanceReference as _InstanceReference_6f952041,
-    PrivateDnsNamespaceReference as _PrivateDnsNamespaceReference_1bf1c3c8,
-    PublicDnsNamespaceReference as _PublicDnsNamespaceReference_ff5b938d,
-    ServiceReference as _ServiceReference_bb8f24e4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.interfaces.aws_servicediscovery as _aws_servicediscovery_1f14693a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_servicediscovery_1f14693a = _LazyImport("aws_cdk.interfaces.aws_servicediscovery")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -259,7 +243,7 @@ class BaseInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702086c324b225b5317ecf64aa42db8b76849a31ae2e6981a3f1790c97650eba)
+            type_hints = cached_type_hints(_typecheckingstub__702086c324b225b5317ecf64aa42db8b76849a31ae2e6981a3f1790c97650eba)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -332,7 +316,7 @@ class BaseNamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2827bd4082e905a8a5dac35b35ac9bc512ccf56ad9c409cd58ea2476b42f0f64)
+            type_hints = cached_type_hints(_typecheckingstub__2827bd4082e905a8a5dac35b35ac9bc512ccf56ad9c409cd58ea2476b42f0f64)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -438,7 +422,7 @@ class BaseServiceProps:
         if isinstance(health_check, dict):
             health_check = HealthCheckConfig(**health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfc1162bd9ca9312149e3b5ac1f650db64233c2d1bee7439b9f2e68cb394266a)
+            type_hints = cached_type_hints(_typecheckingstub__cfc1162bd9ca9312149e3b5ac1f650db64233c2d1bee7439b9f2e68cb394266a)
             check_type(argname="argument custom_health_check", value=custom_health_check, expected_type=type_hints["custom_health_check"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -509,9 +493,9 @@ class BaseServiceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IHttpNamespaceRef_68a0c4c4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicediscovery_1f14693a.IHttpNamespaceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnHttpNamespace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnHttpNamespace",
 ):
@@ -551,7 +535,7 @@ class CfnHttpNamespace(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceDiscovery::HttpNamespace``.
 
@@ -562,7 +546,7 @@ class CfnHttpNamespace(
         :param tags: The tags for the namespace. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c93d7b69ae54d6f5b3720d62b0a837c772e4d207dcd9a6c8361a7e4066017cf)
+            type_hints = cached_type_hints(_typecheckingstub__2c93d7b69ae54d6f5b3720d62b0a837c772e4d207dcd9a6c8361a7e4066017cf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHttpNamespaceProps(name=name, description=description, tags=tags)
@@ -573,13 +557,13 @@ class CfnHttpNamespace(
     @builtins.classmethod
     def arn_for_http_namespace(
         cls,
-        resource: "_IHttpNamespaceRef_68a0c4c4",
+        resource: "_aws_servicediscovery_1f14693a.IHttpNamespaceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a2cd7aaf6ae46bf3b85bb929522dfa5b481e81aeebd02f9343ee4fcb5bf91d9)
+            type_hints = cached_type_hints(_typecheckingstub__8a2cd7aaf6ae46bf3b85bb929522dfa5b481e81aeebd02f9343ee4fcb5bf91d9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHttpNamespace", [resource]))
 
@@ -591,18 +575,18 @@ class CfnHttpNamespace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ef90a207a2a83d59586f4824d5fd2b2fccd99158a3719834346e40f5338cd11)
+            type_hints = cached_type_hints(_typecheckingstub__0ef90a207a2a83d59586f4824d5fd2b2fccd99158a3719834346e40f5338cd11)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHttpNamespace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__349bb642a1fa35eed2b8cfbfb6816c2624e92b2b798c47c511d785aaaaed4395)
+            type_hints = cached_type_hints(_typecheckingstub__349bb642a1fa35eed2b8cfbfb6816c2624e92b2b798c47c511d785aaaaed4395)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -615,7 +599,7 @@ class CfnHttpNamespace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0dfcb4bdaedb022105e0fe77fe69d38a6523a2fc53ad1a91282a162dfd0816e)
+            type_hints = cached_type_hints(_typecheckingstub__b0dfcb4bdaedb022105e0fe77fe69d38a6523a2fc53ad1a91282a162dfd0816e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -655,15 +639,17 @@ class CfnHttpNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="httpNamespaceRef")
-    def http_namespace_ref(self) -> "_HttpNamespaceReference_2edf16fb":
+    def http_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.HttpNamespaceReference":
         '''A reference to a HttpNamespace resource.'''
-        return typing.cast("_HttpNamespaceReference_2edf16fb", jsii.get(self, "httpNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.HttpNamespaceReference", jsii.get(self, "httpNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -674,7 +660,7 @@ class CfnHttpNamespace(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ca2deed58d1a511d40b6e7b352028ec92ba2c2d45f323b6b8d127c105d9f7cc)
+            type_hints = cached_type_hints(_typecheckingstub__3ca2deed58d1a511d40b6e7b352028ec92ba2c2d45f323b6b8d127c105d9f7cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -687,20 +673,23 @@ class CfnHttpNamespace(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1acb03e37c363b6c055ffea522cccf94236429c9cd614eebb7b4e0e7a7e817b)
+            type_hints = cached_type_hints(_typecheckingstub__d1acb03e37c363b6c055ffea522cccf94236429c9cd614eebb7b4e0e7a7e817b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db851b811f1dc9ee0d0ac1df087e3bd084e3574a034552c8d656ead354aec4dc)
+            type_hints = cached_type_hints(_typecheckingstub__db851b811f1dc9ee0d0ac1df087e3bd084e3574a034552c8d656ead354aec4dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -716,7 +705,7 @@ class CfnHttpNamespaceProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHttpNamespace``.
 
@@ -746,7 +735,7 @@ class CfnHttpNamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac1d63f8592886f3f359329d01c4db1851a0a2b8cea1fe61cdb6a5383b920beb)
+            type_hints = cached_type_hints(_typecheckingstub__ac1d63f8592886f3f359329d01c4db1851a0a2b8cea1fe61cdb6a5383b920beb)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -778,7 +767,7 @@ class CfnHttpNamespaceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.
 
         Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -786,7 +775,7 @@ class CfnHttpNamespaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-httpnamespace.html#cfn-servicediscovery-httpnamespace-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -800,9 +789,9 @@ class CfnHttpNamespaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInstanceRef_e05d45e9)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicediscovery_1f14693a.IInstanceRef)
 class CfnInstance(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnInstance",
 ):
@@ -847,7 +836,7 @@ class CfnInstance(
         :param instance_id: An identifier that you want to associate with the instance. Note the following:. - If the service that's specified by ``ServiceId`` includes settings for an ``SRV`` record, the value of ``InstanceId`` is automatically included as part of the value for the ``SRV`` record. For more information, see `DnsRecord > Type <https://docs.aws.amazon.com/cloud-map/latest/api/API_DnsRecord.html#cloudmap-Type-DnsRecord-Type>`_ . - You can use this value to update an existing instance. - To register a new instance, you must specify a value that's unique among instances that you register by using the same service. - If you specify an existing ``InstanceId`` and ``ServiceId`` , AWS Cloud Map updates the existing DNS records, if any. If there's also an existing health check, AWS Cloud Map deletes the old health check and creates a new one. .. epigraph:: The health check isn't deleted immediately, so it will still appear for a while if you submit a ``ListHealthChecks`` request, for example. .. epigraph:: Do not include sensitive information in ``InstanceId`` if the namespace is discoverable by public DNS queries and any ``Type`` member of ``DnsRecord`` for the service contains ``SRV`` because the ``InstanceId`` is discoverable by public DNS queries.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53cddcf8f52bbabdc74ba7b36fc8116615f126e10decf3c988f3d9d637d3cb24)
+            type_hints = cached_type_hints(_typecheckingstub__53cddcf8f52bbabdc74ba7b36fc8116615f126e10decf3c988f3d9d637d3cb24)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInstanceProps(
@@ -866,18 +855,18 @@ class CfnInstance(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef9c3f51e9da4eab0ef1417919da9a2062604418fc7603ee00f2b2aa4052d46d)
+            type_hints = cached_type_hints(_typecheckingstub__ef9c3f51e9da4eab0ef1417919da9a2062604418fc7603ee00f2b2aa4052d46d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstance", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0606c5109aa5a024913dc77315841aabb650385eb6a8af4fa080424d98b153aa)
+            type_hints = cached_type_hints(_typecheckingstub__0606c5109aa5a024913dc77315841aabb650385eb6a8af4fa080424d98b153aa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -890,7 +879,7 @@ class CfnInstance(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d24fd1d24863d2b3d2e327c3d1190453d9e24b7524a4be611e6cc83cb03c347e)
+            type_hints = cached_type_hints(_typecheckingstub__d24fd1d24863d2b3d2e327c3d1190453d9e24b7524a4be611e6cc83cb03c347e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -912,9 +901,9 @@ class CfnInstance(
 
     @builtins.property
     @jsii.member(jsii_name="instanceRef")
-    def instance_ref(self) -> "_InstanceReference_6f952041":
+    def instance_ref(self) -> "_aws_servicediscovery_1f14693a.InstanceReference":
         '''A reference to a Instance resource.'''
-        return typing.cast("_InstanceReference_6f952041", jsii.get(self, "instanceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.InstanceReference", jsii.get(self, "instanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceAttributes")
@@ -925,7 +914,7 @@ class CfnInstance(
     @instance_attributes.setter
     def instance_attributes(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99e8799c36bbbbe9f6ac2cfc712e6c91407ea3c4cb9e079249df8b0bc9a3d432)
+            type_hints = cached_type_hints(_typecheckingstub__99e8799c36bbbbe9f6ac2cfc712e6c91407ea3c4cb9e079249df8b0bc9a3d432)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -938,7 +927,7 @@ class CfnInstance(
     @service_id.setter
     def service_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e36f91737c9eebef201dbb5a6a8b796898375d7825c034ca246085e3ff742c0)
+            type_hints = cached_type_hints(_typecheckingstub__2e36f91737c9eebef201dbb5a6a8b796898375d7825c034ca246085e3ff742c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceId", value) # pyright: ignore[reportArgumentType]
 
@@ -954,7 +943,7 @@ class CfnInstance(
     @instance_id.setter
     def instance_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70b334832869ca9cd03b4690aeee3311134da3ac0c39e2497246db2b4cc04670)
+            type_hints = cached_type_hints(_typecheckingstub__70b334832869ca9cd03b4690aeee3311134da3ac0c39e2497246db2b4cc04670)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
@@ -1002,7 +991,7 @@ class CfnInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69b7e69432116e4609a31aa7d90b99d58cf3a34596b43b2587cdf384257cac85)
+            type_hints = cached_type_hints(_typecheckingstub__69b7e69432116e4609a31aa7d90b99d58cf3a34596b43b2587cdf384257cac85)
             check_type(argname="argument instance_attributes", value=instance_attributes, expected_type=type_hints["instance_attributes"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
@@ -1102,9 +1091,9 @@ class CfnInstanceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPrivateDnsNamespaceRef_19402306, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicediscovery_1f14693a.IPrivateDnsNamespaceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPrivateDnsNamespace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnPrivateDnsNamespace",
 ):
@@ -1151,8 +1140,8 @@ class CfnPrivateDnsNamespace(
         name: builtins.str,
         vpc: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceDiscovery::PrivateDnsNamespace``.
 
@@ -1165,7 +1154,7 @@ class CfnPrivateDnsNamespace(
         :param tags: The tags for the namespace. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c2d0f705fb36b36fc7feaf539456a26c7c18338d9006b092bacaa84409f9471)
+            type_hints = cached_type_hints(_typecheckingstub__9c2d0f705fb36b36fc7feaf539456a26c7c18338d9006b092bacaa84409f9471)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPrivateDnsNamespaceProps(
@@ -1182,13 +1171,13 @@ class CfnPrivateDnsNamespace(
     @builtins.classmethod
     def arn_for_private_dns_namespace(
         cls,
-        resource: "_IPrivateDnsNamespaceRef_19402306",
+        resource: "_aws_servicediscovery_1f14693a.IPrivateDnsNamespaceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fa51de8a34cd48bd840f8655aa12d37730b8c093f1ac48027f143bc9783ec2a)
+            type_hints = cached_type_hints(_typecheckingstub__4fa51de8a34cd48bd840f8655aa12d37730b8c093f1ac48027f143bc9783ec2a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPrivateDnsNamespace", [resource]))
 
@@ -1200,18 +1189,18 @@ class CfnPrivateDnsNamespace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69f007f9c5d73a810ba70b7acb81d44a7c6f5b743ee06987dbfa56e1e49d3f09)
+            type_hints = cached_type_hints(_typecheckingstub__69f007f9c5d73a810ba70b7acb81d44a7c6f5b743ee06987dbfa56e1e49d3f09)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrivateDnsNamespace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a69bcb3869a4a8c7522da03ead72b71e5a1b3c00378fdddae5bdff4ff8e91d23)
+            type_hints = cached_type_hints(_typecheckingstub__a69bcb3869a4a8c7522da03ead72b71e5a1b3c00378fdddae5bdff4ff8e91d23)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1224,7 +1213,7 @@ class CfnPrivateDnsNamespace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a74eb8f3a456a1c17bbf037dcde835a0b38c1608882fd7b320638d719d04f4bd)
+            type_hints = cached_type_hints(_typecheckingstub__a74eb8f3a456a1c17bbf037dcde835a0b38c1608882fd7b320638d719d04f4bd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1273,15 +1262,17 @@ class CfnPrivateDnsNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="privateDnsNamespaceRef")
-    def private_dns_namespace_ref(self) -> "_PrivateDnsNamespaceReference_1bf1c3c8":
+    def private_dns_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.PrivateDnsNamespaceReference":
         '''A reference to a PrivateDnsNamespace resource.'''
-        return typing.cast("_PrivateDnsNamespaceReference_1bf1c3c8", jsii.get(self, "privateDnsNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.PrivateDnsNamespaceReference", jsii.get(self, "privateDnsNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1292,7 +1283,7 @@ class CfnPrivateDnsNamespace(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b397636100e7d203e28556416ce4db7669edc6734c5e6daf8032a3107805a968)
+            type_hints = cached_type_hints(_typecheckingstub__b397636100e7d203e28556416ce4db7669edc6734c5e6daf8032a3107805a968)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1305,7 +1296,7 @@ class CfnPrivateDnsNamespace(
     @vpc.setter
     def vpc(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3)
+            type_hints = cached_type_hints(_typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpc", value) # pyright: ignore[reportArgumentType]
 
@@ -1318,7 +1309,7 @@ class CfnPrivateDnsNamespace(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__359db7453c61916286016b99ce2b4d5f3170ced593718005d469fb1ed3ac7b7e)
+            type_hints = cached_type_hints(_typecheckingstub__359db7453c61916286016b99ce2b4d5f3170ced593718005d469fb1ed3ac7b7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1326,30 +1317,33 @@ class CfnPrivateDnsNamespace(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PropertiesProperty"]]:
         '''Properties for the private DNS namespace.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PropertiesProperty"]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PropertiesProperty"]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PropertiesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PropertiesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__561f9e1a781f0e74d2cfb4e11987ae3b924d72bcc2704d5de82df6f498bf5be5)
+            type_hints = cached_type_hints(_typecheckingstub__561f9e1a781f0e74d2cfb4e11987ae3b924d72bcc2704d5de82df6f498bf5be5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b)
+            type_hints = cached_type_hints(_typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1362,7 +1356,7 @@ class CfnPrivateDnsNamespace(
         def __init__(
             self,
             *,
-            soa: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateDnsNamespace.SOAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            soa: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.SOAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''DNS properties for the private DNS namespace.
 
@@ -1384,7 +1378,7 @@ class CfnPrivateDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eaf42265184fe48781228aa75e4c79552eb3c2c4afc6c2d26f562254d8c44537)
+                type_hints = cached_type_hints(_typecheckingstub__eaf42265184fe48781228aa75e4c79552eb3c2c4afc6c2d26f562254d8c44537)
                 check_type(argname="argument soa", value=soa, expected_type=type_hints["soa"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if soa is not None:
@@ -1393,13 +1387,13 @@ class CfnPrivateDnsNamespace(
         @builtins.property
         def soa(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.SOAProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.SOAProperty"]]:
             '''Fields for the Start of Authority (SOA) record for the hosted zone for the private DNS namespace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-privatednsnamespace-privatednspropertiesmutable.html#cfn-servicediscovery-privatednsnamespace-privatednspropertiesmutable-soa
             '''
             result = self._values.get("soa")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.SOAProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.SOAProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1421,7 +1415,7 @@ class CfnPrivateDnsNamespace(
         def __init__(
             self,
             *,
-            dns_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dns_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Properties for the private DNS namespace.
 
@@ -1445,7 +1439,7 @@ class CfnPrivateDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b96d3f1a601d20345c2fba08d77e51353cb00071ea820fcb997b75b6ef6e3721)
+                type_hints = cached_type_hints(_typecheckingstub__b96d3f1a601d20345c2fba08d77e51353cb00071ea820fcb997b75b6ef6e3721)
                 check_type(argname="argument dns_properties", value=dns_properties, expected_type=type_hints["dns_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if dns_properties is not None:
@@ -1454,13 +1448,13 @@ class CfnPrivateDnsNamespace(
         @builtins.property
         def dns_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty"]]:
             '''DNS properties for the private DNS namespace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-privatednsnamespace-properties.html#cfn-servicediscovery-privatednsnamespace-properties-dnsproperties
             '''
             result = self._values.get("dns_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1498,7 +1492,7 @@ class CfnPrivateDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4086cc314eeb42b19549d7ade04036d8076e7ea80b0d9152544721abc169ebaa)
+                type_hints = cached_type_hints(_typecheckingstub__4086cc314eeb42b19549d7ade04036d8076e7ea80b0d9152544721abc169ebaa)
                 check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ttl is not None:
@@ -1543,8 +1537,8 @@ class CfnPrivateDnsNamespaceProps:
         name: builtins.str,
         vpc: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPrivateDnsNamespace``.
 
@@ -1584,7 +1578,7 @@ class CfnPrivateDnsNamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24aa942f7e65dbf86a2684831cbc900f12fcd449b4a9fd70d60e1aa627954d28)
+            type_hints = cached_type_hints(_typecheckingstub__24aa942f7e65dbf86a2684831cbc900f12fcd449b4a9fd70d60e1aa627954d28)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1635,16 +1629,16 @@ class CfnPrivateDnsNamespaceProps:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PropertiesProperty"]]:
         '''Properties for the private DNS namespace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-privatednsnamespace.html#cfn-servicediscovery-privatednsnamespace-properties
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateDnsNamespace.PropertiesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateDnsNamespace.PropertiesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.
 
         Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -1652,7 +1646,7 @@ class CfnPrivateDnsNamespaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-privatednsnamespace.html#cfn-servicediscovery-privatednsnamespace-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1666,9 +1660,9 @@ class CfnPrivateDnsNamespaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPublicDnsNamespaceRef_1d27bfe2, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicediscovery_1f14693a.IPublicDnsNamespaceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPublicDnsNamespace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnPublicDnsNamespace",
 ):
@@ -1716,8 +1710,8 @@ class CfnPublicDnsNamespace(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceDiscovery::PublicDnsNamespace``.
 
@@ -1729,7 +1723,7 @@ class CfnPublicDnsNamespace(
         :param tags: The tags for the namespace. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb34a43fa0481e548e83f0fa71d212942ab0a37e2e50f959c191883e7df931b1)
+            type_hints = cached_type_hints(_typecheckingstub__fb34a43fa0481e548e83f0fa71d212942ab0a37e2e50f959c191883e7df931b1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPublicDnsNamespaceProps(
@@ -1742,13 +1736,13 @@ class CfnPublicDnsNamespace(
     @builtins.classmethod
     def arn_for_public_dns_namespace(
         cls,
-        resource: "_IPublicDnsNamespaceRef_1d27bfe2",
+        resource: "_aws_servicediscovery_1f14693a.IPublicDnsNamespaceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2e70c6ff56425526e47baa5ed85a05f84151ce106bdb104538b7c7adca34446)
+            type_hints = cached_type_hints(_typecheckingstub__e2e70c6ff56425526e47baa5ed85a05f84151ce106bdb104538b7c7adca34446)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPublicDnsNamespace", [resource]))
 
@@ -1760,18 +1754,18 @@ class CfnPublicDnsNamespace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2279e30b3dd196887e0f672d28dac01153be6c210216904f12860e3c5b79c5a2)
+            type_hints = cached_type_hints(_typecheckingstub__2279e30b3dd196887e0f672d28dac01153be6c210216904f12860e3c5b79c5a2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPublicDnsNamespace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1c271d6d9e882eedf856f1d5688df5126cb9e889fce0e0df390ec8b1c302341)
+            type_hints = cached_type_hints(_typecheckingstub__c1c271d6d9e882eedf856f1d5688df5126cb9e889fce0e0df390ec8b1c302341)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1784,7 +1778,7 @@ class CfnPublicDnsNamespace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dad7d6f17ea1840c5c5fbac9bee7f2d840c6204f4b4a900d3734f4cb29454c8b)
+            type_hints = cached_type_hints(_typecheckingstub__dad7d6f17ea1840c5c5fbac9bee7f2d840c6204f4b4a900d3734f4cb29454c8b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1833,15 +1827,17 @@ class CfnPublicDnsNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="publicDnsNamespaceRef")
-    def public_dns_namespace_ref(self) -> "_PublicDnsNamespaceReference_ff5b938d":
+    def public_dns_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.PublicDnsNamespaceReference":
         '''A reference to a PublicDnsNamespace resource.'''
-        return typing.cast("_PublicDnsNamespaceReference_ff5b938d", jsii.get(self, "publicDnsNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.PublicDnsNamespaceReference", jsii.get(self, "publicDnsNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1852,7 +1848,7 @@ class CfnPublicDnsNamespace(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0d339997857771da108a05e52dd4560357534c99e3ad438aaed67d2928639b3)
+            type_hints = cached_type_hints(_typecheckingstub__b0d339997857771da108a05e52dd4560357534c99e3ad438aaed67d2928639b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1865,7 +1861,7 @@ class CfnPublicDnsNamespace(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b473e7816fc36dff85b333102dba9edd1dbf9ff655df24b685e298b0135daf27)
+            type_hints = cached_type_hints(_typecheckingstub__b473e7816fc36dff85b333102dba9edd1dbf9ff655df24b685e298b0135daf27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1873,30 +1869,33 @@ class CfnPublicDnsNamespace(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PropertiesProperty"]]:
         '''Properties for the public DNS namespace.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PropertiesProperty"]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PropertiesProperty"]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PropertiesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PropertiesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac76e55a47b32554d192ba5301278d2384548daa676f27c621980d8556ced49f)
+            type_hints = cached_type_hints(_typecheckingstub__ac76e55a47b32554d192ba5301278d2384548daa676f27c621980d8556ced49f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36c6453a5ebe6f998cd795a80b6480c4d96bbc3cac84ec309d02e8ff0a4d806d)
+            type_hints = cached_type_hints(_typecheckingstub__36c6453a5ebe6f998cd795a80b6480c4d96bbc3cac84ec309d02e8ff0a4d806d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1909,7 +1908,7 @@ class CfnPublicDnsNamespace(
         def __init__(
             self,
             *,
-            dns_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dns_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Properties for the public DNS namespace.
 
@@ -1933,7 +1932,7 @@ class CfnPublicDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__64a0b8db3dc27d634ca8fb6af9c8c24e7845c63d8d791a6f621887fb901d7663)
+                type_hints = cached_type_hints(_typecheckingstub__64a0b8db3dc27d634ca8fb6af9c8c24e7845c63d8d791a6f621887fb901d7663)
                 check_type(argname="argument dns_properties", value=dns_properties, expected_type=type_hints["dns_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if dns_properties is not None:
@@ -1942,13 +1941,13 @@ class CfnPublicDnsNamespace(
         @builtins.property
         def dns_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty"]]:
             '''DNS properties for the public DNS namespace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-publicdnsnamespace-properties.html#cfn-servicediscovery-publicdnsnamespace-properties-dnsproperties
             '''
             result = self._values.get("dns_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1970,7 +1969,7 @@ class CfnPublicDnsNamespace(
         def __init__(
             self,
             *,
-            soa: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicDnsNamespace.SOAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            soa: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicDnsNamespace.SOAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''DNS properties for the public DNS namespace.
 
@@ -1992,7 +1991,7 @@ class CfnPublicDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c81f714e1fc68994f920cb152b8046191c8fa1e5c20cbabfe9f85fb5ef1cd5d)
+                type_hints = cached_type_hints(_typecheckingstub__7c81f714e1fc68994f920cb152b8046191c8fa1e5c20cbabfe9f85fb5ef1cd5d)
                 check_type(argname="argument soa", value=soa, expected_type=type_hints["soa"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if soa is not None:
@@ -2001,13 +2000,13 @@ class CfnPublicDnsNamespace(
         @builtins.property
         def soa(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.SOAProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.SOAProperty"]]:
             '''Start of Authority (SOA) record for the hosted zone for the public DNS namespace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicediscovery-publicdnsnamespace-publicdnspropertiesmutable.html#cfn-servicediscovery-publicdnsnamespace-publicdnspropertiesmutable-soa
             '''
             result = self._values.get("soa")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.SOAProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.SOAProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2045,7 +2044,7 @@ class CfnPublicDnsNamespace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__54be2ff5a51f4b21156c791e62438d562636a3ffd41de95fbbcecf34e9bbff19)
+                type_hints = cached_type_hints(_typecheckingstub__54be2ff5a51f4b21156c791e62438d562636a3ffd41de95fbbcecf34e9bbff19)
                 check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ttl is not None:
@@ -2088,8 +2087,8 @@ class CfnPublicDnsNamespaceProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicDnsNamespace.PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPublicDnsNamespace``.
 
@@ -2127,7 +2126,7 @@ class CfnPublicDnsNamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289e263c72ad438f5525b9a23e75d50505133aa6894b49a884ebf85d372ebab7)
+            type_hints = cached_type_hints(_typecheckingstub__289e263c72ad438f5525b9a23e75d50505133aa6894b49a884ebf85d372ebab7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
@@ -2168,16 +2167,16 @@ class CfnPublicDnsNamespaceProps:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PropertiesProperty"]]:
         '''Properties for the public DNS namespace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-publicdnsnamespace.html#cfn-servicediscovery-publicdnsnamespace-properties
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPublicDnsNamespace.PropertiesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicDnsNamespace.PropertiesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the namespace.
 
         Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -2185,7 +2184,7 @@ class CfnPublicDnsNamespaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-publicdnsnamespace.html#cfn-servicediscovery-publicdnsnamespace-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2199,9 +2198,9 @@ class CfnPublicDnsNamespaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceRef_687c8f74, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicediscovery_1f14693a.IServiceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnService(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.CfnService",
 ):
@@ -2259,13 +2258,13 @@ class CfnService(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        dns_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DnsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_custom_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dns_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DnsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_custom_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace_id: typing.Optional[builtins.str] = None,
         service_attributes: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceDiscovery::Service``.
@@ -2283,7 +2282,7 @@ class CfnService(
         :param type: If present, specifies that the service instances are only discoverable using the ``DiscoverInstances`` API operation. No DNS records is registered for the service instances. The only valid value is ``HTTP`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe683ec1ba955070fa4b5c6770ac570af81044f6f1cfff34bc3ffffe7685d1c4)
+            type_hints = cached_type_hints(_typecheckingstub__fe683ec1ba955070fa4b5c6770ac570af81044f6f1cfff34bc3ffffe7685d1c4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceProps(
@@ -2302,12 +2301,15 @@ class CfnService(
 
     @jsii.member(jsii_name="arnForService")
     @builtins.classmethod
-    def arn_for_service(cls, resource: "_IServiceRef_687c8f74") -> builtins.str:
+    def arn_for_service(
+        cls,
+        resource: "_aws_servicediscovery_1f14693a.IServiceRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf0c02bf0d67a90149811968379f4e628800805784f8df22fbca35e95be18a0)
+            type_hints = cached_type_hints(_typecheckingstub__abf0c02bf0d67a90149811968379f4e628800805784f8df22fbca35e95be18a0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForService", [resource]))
 
@@ -2318,7 +2320,7 @@ class CfnService(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IServiceRef_687c8f74":
+    ) -> "_aws_servicediscovery_1f14693a.IServiceRef":
         '''Creates a new IServiceRef from an ARN.
 
         :param scope: -
@@ -2326,11 +2328,11 @@ class CfnService(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50690470e73ef7cd3ff20a5dbdb67420dca6af2d45267b098383607637aac22e)
+            type_hints = cached_type_hints(_typecheckingstub__50690470e73ef7cd3ff20a5dbdb67420dca6af2d45267b098383607637aac22e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IServiceRef_687c8f74", jsii.sinvoke(cls, "fromServiceArn", [scope, id, arn]))
+        return typing.cast("_aws_servicediscovery_1f14693a.IServiceRef", jsii.sinvoke(cls, "fromServiceArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromServiceId")
     @builtins.classmethod
@@ -2339,7 +2341,7 @@ class CfnService(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         service_id: builtins.str,
-    ) -> "_IServiceRef_687c8f74":
+    ) -> "_aws_servicediscovery_1f14693a.IServiceRef":
         '''Creates a new IServiceRef from a serviceId.
 
         :param scope: -
@@ -2347,11 +2349,11 @@ class CfnService(
         :param service_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc01dac739c93292486dd4ca3d1b7f12acb51088c4fe602fe2714b29f96f7ffc)
+            type_hints = cached_type_hints(_typecheckingstub__bc01dac739c93292486dd4ca3d1b7f12acb51088c4fe602fe2714b29f96f7ffc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
-        return typing.cast("_IServiceRef_687c8f74", jsii.sinvoke(cls, "fromServiceId", [scope, id, service_id]))
+        return typing.cast("_aws_servicediscovery_1f14693a.IServiceRef", jsii.sinvoke(cls, "fromServiceId", [scope, id, service_id]))
 
     @jsii.member(jsii_name="isCfnService")
     @builtins.classmethod
@@ -2361,18 +2363,18 @@ class CfnService(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6a327bd1b9b9aa4e1cc3b49baf70bbce3c22a72c209dc820f77251ce3ff6a3e)
+            type_hints = cached_type_hints(_typecheckingstub__b6a327bd1b9b9aa4e1cc3b49baf70bbce3c22a72c209dc820f77251ce3ff6a3e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnService", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__713d7d0bfb1535bc7ed461a8b2f884bc1b329dfad1a3b802e34adb9b36e4a4b1)
+            type_hints = cached_type_hints(_typecheckingstub__713d7d0bfb1535bc7ed461a8b2f884bc1b329dfad1a3b802e34adb9b36e4a4b1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2385,7 +2387,7 @@ class CfnService(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b55e9673e357b372381c81fae4ccc7fca0bc85d18a8ec1d45fa5aa8e33c4ea)
+            type_hints = cached_type_hints(_typecheckingstub__73b55e9673e357b372381c81fae4ccc7fca0bc85d18a8ec1d45fa5aa8e33c4ea)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2434,15 +2436,15 @@ class CfnService(
 
     @builtins.property
     @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> "_ServiceReference_bb8f24e4":
+    def service_ref(self) -> "_aws_servicediscovery_1f14693a.ServiceReference":
         '''A reference to a Service resource.'''
-        return typing.cast("_ServiceReference_bb8f24e4", jsii.get(self, "serviceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.ServiceReference", jsii.get(self, "serviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceAttributes")
@@ -2453,7 +2455,7 @@ class CfnService(
     @service_attributes.setter
     def service_attributes(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
+            type_hints = cached_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -2466,7 +2468,7 @@ class CfnService(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1afeb460b3)
+            type_hints = cached_type_hints(_typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1afeb460b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2474,17 +2476,17 @@ class CfnService(
     @jsii.member(jsii_name="dnsConfig")
     def dns_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DnsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsConfigProperty"]]:
         '''A complex type that contains information about the Route 53 DNS records that you want AWS Cloud Map to create when you register an instance.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DnsConfigProperty"]], jsii.get(self, "dnsConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsConfigProperty"]], jsii.get(self, "dnsConfig"))
 
     @dns_config.setter
     def dns_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DnsConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f361a3e1ffe439365ece9894aaa76d6a3ee25815b97951742e59d050e574453)
+            type_hints = cached_type_hints(_typecheckingstub__5f361a3e1ffe439365ece9894aaa76d6a3ee25815b97951742e59d050e574453)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dnsConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2492,17 +2494,17 @@ class CfnService(
     @jsii.member(jsii_name="healthCheckConfig")
     def health_check_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigProperty"]]:
         '''*Public DNS and HTTP namespaces only.* A complex type that contains settings for an optional health check. If you specify settings for a health check, AWS Cloud Map associates the health check with the records that you specify in ``DnsConfig`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigProperty"]], jsii.get(self, "healthCheckConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigProperty"]], jsii.get(self, "healthCheckConfig"))
 
     @health_check_config.setter
     def health_check_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dd1e987f6914e43c0264f356fc2284404c77f8ef1193d64382089085ad31a6f)
+            type_hints = cached_type_hints(_typecheckingstub__4dd1e987f6914e43c0264f356fc2284404c77f8ef1193d64382089085ad31a6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2510,17 +2512,17 @@ class CfnService(
     @jsii.member(jsii_name="healthCheckCustomConfig")
     def health_check_custom_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckCustomConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckCustomConfigProperty"]]:
         '''A complex type that contains information about an optional custom health check.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckCustomConfigProperty"]], jsii.get(self, "healthCheckCustomConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckCustomConfigProperty"]], jsii.get(self, "healthCheckCustomConfig"))
 
     @health_check_custom_config.setter
     def health_check_custom_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckCustomConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckCustomConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26f76dfc0ec0f9ce1fbcc6993da16c3b503b33b0cda729361f780a6ecd6b7362)
+            type_hints = cached_type_hints(_typecheckingstub__26f76dfc0ec0f9ce1fbcc6993da16c3b503b33b0cda729361f780a6ecd6b7362)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckCustomConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2533,7 +2535,7 @@ class CfnService(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a656f8cac1553476b396c1277481952cedf4d4311f43819f29ffb9d0bbc7537)
+            type_hints = cached_type_hints(_typecheckingstub__3a656f8cac1553476b396c1277481952cedf4d4311f43819f29ffb9d0bbc7537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2546,20 +2548,23 @@ class CfnService(
     @namespace_id.setter
     def namespace_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd)
+            type_hints = cached_type_hints(_typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespaceId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the service.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44063f4c2439ed7f79fdc71914b9bcc3ba82e93c107b7159f1091fc833023332)
+            type_hints = cached_type_hints(_typecheckingstub__44063f4c2439ed7f79fdc71914b9bcc3ba82e93c107b7159f1091fc833023332)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2572,7 +2577,7 @@ class CfnService(
     @type.setter
     def type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91e2a057fea1e48783bb2fde800faa34d8d67c4a271c17607f2b302a614a4616)
+            type_hints = cached_type_hints(_typecheckingstub__91e2a057fea1e48783bb2fde800faa34d8d67c4a271c17607f2b302a614a4616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -2589,7 +2594,7 @@ class CfnService(
         def __init__(
             self,
             *,
-            dns_records: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DnsRecordProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            dns_records: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DnsRecordProperty", typing.Dict[builtins.str, typing.Any]]]]],
             namespace_id: typing.Optional[builtins.str] = None,
             routing_policy: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2620,7 +2625,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__597bdecb8957b0ef33f4861dc067e3cc100945853651c161a7d1d3af8ba44b10)
+                type_hints = cached_type_hints(_typecheckingstub__597bdecb8957b0ef33f4861dc067e3cc100945853651c161a7d1d3af8ba44b10)
                 check_type(argname="argument dns_records", value=dns_records, expected_type=type_hints["dns_records"])
                 check_type(argname="argument namespace_id", value=namespace_id, expected_type=type_hints["namespace_id"])
                 check_type(argname="argument routing_policy", value=routing_policy, expected_type=type_hints["routing_policy"])
@@ -2635,7 +2640,7 @@ class CfnService(
         @builtins.property
         def dns_records(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.DnsRecordProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsRecordProperty"]]]:
             '''An array that contains one ``DnsRecord`` object for each Route 53 DNS record that you want AWS Cloud Map to create when you register an instance.
 
             .. epigraph::
@@ -2646,7 +2651,7 @@ class CfnService(
             '''
             result = self._values.get("dns_records")
             assert result is not None, "Required property 'dns_records' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.DnsRecordProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsRecordProperty"]]], result)
 
         @builtins.property
         def namespace_id(self) -> typing.Optional[builtins.str]:
@@ -2728,7 +2733,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__71ead1eeee6eff61cc19426a660ac2e025f72eed58d0c6deb282c1f36abb930a)
+                type_hints = cached_type_hints(_typecheckingstub__71ead1eeee6eff61cc19426a660ac2e025f72eed58d0c6deb282c1f36abb930a)
                 check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2868,7 +2873,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__38e68b23ad673d504435b32805d7f727c6b004446fd059a80332fce90f158c8e)
+                type_hints = cached_type_hints(_typecheckingstub__38e68b23ad673d504435b32805d7f727c6b004446fd059a80332fce90f158c8e)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument failure_threshold", value=failure_threshold, expected_type=type_hints["failure_threshold"])
                 check_type(argname="argument resource_path", value=resource_path, expected_type=type_hints["resource_path"])
@@ -2999,7 +3004,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5440deb7c84085b7a3df2b881cb4dce579f3a710bea2ef1e105e7ca053babe9d)
+                type_hints = cached_type_hints(_typecheckingstub__5440deb7c84085b7a3df2b881cb4dce579f3a710bea2ef1e105e7ca053babe9d)
                 check_type(argname="argument failure_threshold", value=failure_threshold, expected_type=type_hints["failure_threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if failure_threshold is not None:
@@ -3054,13 +3059,13 @@ class CfnServiceProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        dns_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DnsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_custom_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dns_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DnsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_custom_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace_id: typing.Optional[builtins.str] = None,
         service_attributes: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnService``.
@@ -3120,7 +3125,7 @@ class CfnServiceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ec48be70fb5c297bd47df7ae78eae4351af2efb1a2ce3043051542b96a5c11f)
+            type_hints = cached_type_hints(_typecheckingstub__3ec48be70fb5c297bd47df7ae78eae4351af2efb1a2ce3043051542b96a5c11f)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument dns_config", value=dns_config, expected_type=type_hints["dns_config"])
             check_type(argname="argument health_check_config", value=health_check_config, expected_type=type_hints["health_check_config"])
@@ -3162,7 +3167,7 @@ class CfnServiceProps:
     @builtins.property
     def dns_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DnsConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsConfigProperty"]]:
         '''A complex type that contains information about the Route 53 DNS records that you want AWS Cloud Map to create when you register an instance.
 
         .. epigraph::
@@ -3172,12 +3177,12 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-dnsconfig
         '''
         result = self._values.get("dns_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DnsConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DnsConfigProperty"]], result)
 
     @builtins.property
     def health_check_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigProperty"]]:
         '''*Public DNS and HTTP namespaces only.* A complex type that contains settings for an optional health check. If you specify settings for a health check, AWS Cloud Map associates the health check with the records that you specify in ``DnsConfig`` .
 
         For information about the charges for health checks, see `Amazon Route 53 Pricing <https://docs.aws.amazon.com/route53/pricing/>`_ .
@@ -3185,12 +3190,12 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-healthcheckconfig
         '''
         result = self._values.get("health_check_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigProperty"]], result)
 
     @builtins.property
     def health_check_custom_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckCustomConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckCustomConfigProperty"]]:
         '''A complex type that contains information about an optional custom health check.
 
         .. epigraph::
@@ -3200,7 +3205,7 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-healthcheckcustomconfig
         '''
         result = self._values.get("health_check_custom_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckCustomConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckCustomConfigProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -3232,7 +3237,7 @@ class CfnServiceProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the service.
 
         Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -3240,7 +3245,7 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
@@ -3314,7 +3319,7 @@ class CnameInstanceBaseProps(BaseInstanceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f743e8dede1cde5713d31d1538b812b416461a6a2b0d0b393d5e2d73790e7b97)
+            type_hints = cached_type_hints(_typecheckingstub__f743e8dede1cde5713d31d1538b812b416461a6a2b0d0b393d5e2d73790e7b97)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument instance_cname", value=instance_cname, expected_type=type_hints["instance_cname"])
@@ -3412,7 +3417,7 @@ class CnameInstanceProps(CnameInstanceBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad281c905acd7e2e1dfa91cc3587a8bfc44e1b23c5d0909302980387ee1f0596)
+            type_hints = cached_type_hints(_typecheckingstub__ad281c905acd7e2e1dfa91cc3587a8bfc44e1b23c5d0909302980387ee1f0596)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument instance_cname", value=instance_cname, expected_type=type_hints["instance_cname"])
@@ -3589,7 +3594,7 @@ class DnsServiceProps(BaseServiceProps):
         name: typing.Optional[builtins.str] = None,
         discovery_type: typing.Optional["DiscoveryType"] = None,
         dns_record_type: typing.Optional["DnsRecordType"] = None,
-        dns_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        dns_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: typing.Optional[builtins.bool] = None,
         routing_policy: typing.Optional["RoutingPolicy"] = None,
     ) -> None:
@@ -3645,7 +3650,7 @@ class DnsServiceProps(BaseServiceProps):
         if isinstance(health_check, dict):
             health_check = HealthCheckConfig(**health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59ff4ff91792243ce7af1ac649c5b246ddcb73806a71003ab54cb60f87f45a7b)
+            type_hints = cached_type_hints(_typecheckingstub__59ff4ff91792243ce7af1ac649c5b246ddcb73806a71003ab54cb60f87f45a7b)
             check_type(argname="argument custom_health_check", value=custom_health_check, expected_type=type_hints["custom_health_check"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -3741,13 +3746,13 @@ class DnsServiceProps(BaseServiceProps):
         return typing.cast(typing.Optional["DnsRecordType"], result)
 
     @builtins.property
-    def dns_ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def dns_ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, that you want DNS resolvers to cache the settings for this record.
 
         :default: Duration.minutes(1)
         '''
         result = self._values.get("dns_ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -3845,7 +3850,7 @@ class HealthCheckConfig:
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9b22fa972f1f1d2d8ae60ff971436c83654fb9ad96b244670a0b9f5163db848)
+            type_hints = cached_type_hints(_typecheckingstub__a9b22fa972f1f1d2d8ae60ff971436c83654fb9ad96b244670a0b9f5163db848)
             check_type(argname="argument failure_threshold", value=failure_threshold, expected_type=type_hints["failure_threshold"])
             check_type(argname="argument resource_path", value=resource_path, expected_type=type_hints["resource_path"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -3928,7 +3933,7 @@ class HealthCheckCustomConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e3d0e3707e86aca8d4cc51e582962521aa8283117b48b762d0fa1b877789a04)
+            type_hints = cached_type_hints(_typecheckingstub__4e3d0e3707e86aca8d4cc51e582962521aa8283117b48b762d0fa1b877789a04)
             check_type(argname="argument failure_threshold", value=failure_threshold, expected_type=type_hints["failure_threshold"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if failure_threshold is not None:
@@ -4052,7 +4057,7 @@ class HttpNamespaceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__252ea889e66004159e787515ddf243d33903802284244f56d24d1f1bd778428f)
+            type_hints = cached_type_hints(_typecheckingstub__252ea889e66004159e787515ddf243d33903802284244f56d24d1f1bd778428f)
             check_type(argname="argument namespace_arn", value=namespace_arn, expected_type=type_hints["namespace_arn"])
             check_type(argname="argument namespace_id", value=namespace_id, expected_type=type_hints["namespace_id"])
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
@@ -4148,7 +4153,7 @@ class HttpNamespaceProps(BaseNamespaceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ec75d847f6917799d98ec325249ebc74491ba607ab292023dfc2b963c30d451)
+            type_hints = cached_type_hints(_typecheckingstub__0ec75d847f6917799d98ec325249ebc74491ba607ab292023dfc2b963c30d451)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4187,8 +4192,8 @@ class HttpNamespaceProps(BaseNamespaceProps):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.IInstance")
 class IInstance(
-    _IResource_c80c4260,
-    _IInstanceRef_e05d45e9,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_servicediscovery_1f14693a.IInstanceRef,
     typing_extensions.Protocol,
 ):
     @builtins.property
@@ -4208,8 +4213,8 @@ class IInstance(
 
 
 class _IInstanceProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IInstanceRef_e05d45e9), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicediscovery_1f14693a.IInstanceRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicediscovery.IInstance"
 
@@ -4233,7 +4238,7 @@ typing.cast(typing.Any, IInstance).__jsii_proxy_class__ = lambda : _IInstancePro
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.INamespace")
-class INamespace(_IResource_c80c4260, typing_extensions.Protocol):
+class INamespace(_aws_cdk_0cae9daa.IResource, typing_extensions.Protocol):
     '''A type of namespace.
 
     One of private, public or HTTP namespace.
@@ -4276,7 +4281,7 @@ class INamespace(_IResource_c80c4260, typing_extensions.Protocol):
 
 
 class _INamespaceProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
 ):
     '''A type of namespace.
 
@@ -4327,7 +4332,7 @@ typing.cast(typing.Any, INamespace).__jsii_proxy_class__ = lambda : _INamespaceP
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.IPrivateDnsNamespace")
 class IPrivateDnsNamespace(
     INamespace,
-    _IPrivateDnsNamespaceRef_19402306,
+    _aws_servicediscovery_1f14693a.IPrivateDnsNamespaceRef,
     typing_extensions.Protocol,
 ):
     pass
@@ -4335,7 +4340,7 @@ class IPrivateDnsNamespace(
 
 class _IPrivateDnsNamespaceProxy(
     jsii.proxy_for(INamespace), # type: ignore[misc]
-    jsii.proxy_for(_IPrivateDnsNamespaceRef_19402306), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicediscovery_1f14693a.IPrivateDnsNamespaceRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicediscovery.IPrivateDnsNamespace"
     pass
@@ -4347,7 +4352,7 @@ typing.cast(typing.Any, IPrivateDnsNamespace).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.IPublicDnsNamespace")
 class IPublicDnsNamespace(
     INamespace,
-    _IPublicDnsNamespaceRef_1d27bfe2,
+    _aws_servicediscovery_1f14693a.IPublicDnsNamespaceRef,
     typing_extensions.Protocol,
 ):
     pass
@@ -4355,7 +4360,7 @@ class IPublicDnsNamespace(
 
 class _IPublicDnsNamespaceProxy(
     jsii.proxy_for(INamespace), # type: ignore[misc]
-    jsii.proxy_for(_IPublicDnsNamespaceRef_1d27bfe2), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicediscovery_1f14693a.IPublicDnsNamespaceRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicediscovery.IPublicDnsNamespace"
     pass
@@ -4365,7 +4370,11 @@ typing.cast(typing.Any, IPublicDnsNamespace).__jsii_proxy_class__ = lambda : _IP
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.IService")
-class IService(_IResource_c80c4260, _IServiceRef_687c8f74, typing_extensions.Protocol):
+class IService(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_servicediscovery_1f14693a.IServiceRef,
+    typing_extensions.Protocol,
+):
     @builtins.property
     @jsii.member(jsii_name="discoveryType")
     def discovery_type(self) -> "DiscoveryType":
@@ -4419,8 +4428,8 @@ class IService(_IResource_c80c4260, _IServiceRef_687c8f74, typing_extensions.Pro
 
 
 class _IServiceProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IServiceRef_687c8f74), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicediscovery_1f14693a.IServiceRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicediscovery.IService"
 
@@ -4481,7 +4490,7 @@ typing.cast(typing.Any, IService).__jsii_proxy_class__ = lambda : _IServiceProxy
 
 @jsii.implements(IInstance)
 class InstanceBase(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_servicediscovery.InstanceBase",
 ):
@@ -4504,10 +4513,10 @@ class InstanceBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8451456d6cb4d8eb9d6f0b5ca12608c074cf9853451ed38ca1aeb98f4b53820)
+            type_hints = cached_type_hints(_typecheckingstub__c8451456d6cb4d8eb9d6f0b5ca12608c074cf9853451ed38ca1aeb98f4b53820)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -4530,9 +4539,9 @@ class InstanceBase(
 
     @builtins.property
     @jsii.member(jsii_name="instanceRef")
-    def instance_ref(self) -> "_InstanceReference_6f952041":
+    def instance_ref(self) -> "_aws_servicediscovery_1f14693a.InstanceReference":
         '''A reference to a Instance resource.'''
-        return typing.cast("_InstanceReference_6f952041", jsii.get(self, "instanceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.InstanceReference", jsii.get(self, "instanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="service")
@@ -4544,7 +4553,7 @@ class InstanceBase(
 
 class _InstanceBaseProxy(
     InstanceBase,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @builtins.property
     @jsii.member(jsii_name="instanceId")
@@ -4617,7 +4626,7 @@ class IpInstance(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86c06b2f4620252f12ffafe852f6f5495125939985a5ad95d95f264a12eea6b4)
+            type_hints = cached_type_hints(_typecheckingstub__86c06b2f4620252f12ffafe852f6f5495125939985a5ad95d95f264a12eea6b4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IpInstanceProps(
@@ -4733,7 +4742,7 @@ class IpInstanceBaseProps(BaseInstanceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eac846fed51d29e8c27956de39f956cccf3d06a1de77ec6cb7599831211acfa5)
+            type_hints = cached_type_hints(_typecheckingstub__eac846fed51d29e8c27956de39f956cccf3d06a1de77ec6cb7599831211acfa5)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument ipv4", value=ipv4, expected_type=type_hints["ipv4"])
@@ -4869,7 +4878,7 @@ class IpInstanceProps(IpInstanceBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14236b8a420724efc8ea36b44b53ca3124458498966c329ed10a2f6d6263cc70)
+            type_hints = cached_type_hints(_typecheckingstub__14236b8a420724efc8ea36b44b53ca3124458498966c329ed10a2f6d6263cc70)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument ipv4", value=ipv4, expected_type=type_hints["ipv4"])
@@ -5021,7 +5030,7 @@ class NonIpInstance(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__829020192d21168d26855db92c626673d80d635fe428542b1f946897a98cdfac)
+            type_hints = cached_type_hints(_typecheckingstub__829020192d21168d26855db92c626673d80d635fe428542b1f946897a98cdfac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NonIpInstanceProps(
@@ -5107,7 +5116,7 @@ class NonIpInstanceBaseProps(BaseInstanceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93e6538bb8f22fd319b368a88b9109796b30f1b257ca78e1b34a4daa2eebd38c)
+            type_hints = cached_type_hints(_typecheckingstub__93e6538bb8f22fd319b368a88b9109796b30f1b257ca78e1b34a4daa2eebd38c)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5191,7 +5200,7 @@ class NonIpInstanceProps(NonIpInstanceBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c04317c1f31eff447153519b8891b1527bdb62b562bde4a0eec2e369792ec45d)
+            type_hints = cached_type_hints(_typecheckingstub__c04317c1f31eff447153519b8891b1527bdb62b562bde4a0eec2e369792ec45d)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -5244,7 +5253,7 @@ class NonIpInstanceProps(NonIpInstanceBaseProps):
 
 @jsii.implements(IPrivateDnsNamespace)
 class PrivateDnsNamespace(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.PrivateDnsNamespace",
 ):
@@ -5295,7 +5304,7 @@ class PrivateDnsNamespace(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5307,7 +5316,7 @@ class PrivateDnsNamespace(
         :param description: A description of the Namespace. Default: none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ca3fb02d1b62acb1709655750979ea84ad96594f86cb01625cb289fe7227f24)
+            type_hints = cached_type_hints(_typecheckingstub__4ca3fb02d1b62acb1709655750979ea84ad96594f86cb01625cb289fe7227f24)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PrivateDnsNamespaceProps(vpc=vpc, name=name, description=description)
@@ -5333,7 +5342,7 @@ class PrivateDnsNamespace(
         :param namespace_name: A name for the Namespace.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f038c9d6af1424ca9c85a1c479ff3c4fcfeec2e36e2d23d2be082f0352f44f0)
+            type_hints = cached_type_hints(_typecheckingstub__2f038c9d6af1424ca9c85a1c479ff3c4fcfeec2e36e2d23d2be082f0352f44f0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PrivateDnsNamespaceAttributes(
@@ -5351,7 +5360,7 @@ class PrivateDnsNamespace(
         *,
         discovery_type: typing.Optional["DiscoveryType"] = None,
         dns_record_type: typing.Optional["DnsRecordType"] = None,
-        dns_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        dns_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: typing.Optional[builtins.bool] = None,
         routing_policy: typing.Optional["RoutingPolicy"] = None,
         custom_health_check: typing.Optional[typing.Union["HealthCheckCustomConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5373,7 +5382,7 @@ class PrivateDnsNamespace(
         :param name: A name for the Service. Default: CloudFormation-generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a749a6d3ce368183bbf9ea864046a44579113471ad1c87aaf560b0a8bb006ea6)
+            type_hints = cached_type_hints(_typecheckingstub__a749a6d3ce368183bbf9ea864046a44579113471ad1c87aaf560b0a8bb006ea6)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DnsServiceProps(
             discovery_type=discovery_type,
@@ -5445,9 +5454,11 @@ class PrivateDnsNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="privateDnsNamespaceRef")
-    def private_dns_namespace_ref(self) -> "_PrivateDnsNamespaceReference_1bf1c3c8":
+    def private_dns_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.PrivateDnsNamespaceReference":
         '''A reference to a PrivateDnsNamespace resource.'''
-        return typing.cast("_PrivateDnsNamespaceReference_1bf1c3c8", jsii.get(self, "privateDnsNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.PrivateDnsNamespaceReference", jsii.get(self, "privateDnsNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5493,7 +5504,7 @@ class PrivateDnsNamespaceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6ccb8f80d3bfe64de4cd07808822c82984c37a4084f32f28b474f2a01f44af8)
+            type_hints = cached_type_hints(_typecheckingstub__b6ccb8f80d3bfe64de4cd07808822c82984c37a4084f32f28b474f2a01f44af8)
             check_type(argname="argument namespace_arn", value=namespace_arn, expected_type=type_hints["namespace_arn"])
             check_type(argname="argument namespace_id", value=namespace_id, expected_type=type_hints["namespace_id"])
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
@@ -5547,7 +5558,7 @@ class PrivateDnsNamespaceProps(BaseNamespaceProps):
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
     ) -> None:
         '''
         :param name: A name for the Namespace.
@@ -5594,7 +5605,7 @@ class PrivateDnsNamespaceProps(BaseNamespaceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5a438cb76c40139835b65e440e9010402611db76baf5e4c500427a16a0b00e7)
+            type_hints = cached_type_hints(_typecheckingstub__f5a438cb76c40139835b65e440e9010402611db76baf5e4c500427a16a0b00e7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -5622,11 +5633,11 @@ class PrivateDnsNamespaceProps(BaseNamespaceProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The Amazon VPC that you want to associate the namespace with.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5642,7 +5653,7 @@ class PrivateDnsNamespaceProps(BaseNamespaceProps):
 
 @jsii.implements(IPublicDnsNamespace)
 class PublicDnsNamespace(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.PublicDnsNamespace",
 ):
@@ -5696,7 +5707,7 @@ class PublicDnsNamespace(
         :param description: A description of the Namespace. Default: none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45c6fb3174b8c3b392b178908df91aa4e6d04a94ea13a6d014a4e8f867a8eff6)
+            type_hints = cached_type_hints(_typecheckingstub__45c6fb3174b8c3b392b178908df91aa4e6d04a94ea13a6d014a4e8f867a8eff6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PublicDnsNamespaceProps(name=name, description=description)
@@ -5722,7 +5733,7 @@ class PublicDnsNamespace(
         :param namespace_name: A name for the Namespace.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba0231384fbd89a523b1fc4e1facc981bebf6e59fdee02edbcf27b330e23445)
+            type_hints = cached_type_hints(_typecheckingstub__6ba0231384fbd89a523b1fc4e1facc981bebf6e59fdee02edbcf27b330e23445)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PublicDnsNamespaceAttributes(
@@ -5740,7 +5751,7 @@ class PublicDnsNamespace(
         *,
         discovery_type: typing.Optional["DiscoveryType"] = None,
         dns_record_type: typing.Optional["DnsRecordType"] = None,
-        dns_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        dns_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: typing.Optional[builtins.bool] = None,
         routing_policy: typing.Optional["RoutingPolicy"] = None,
         custom_health_check: typing.Optional[typing.Union["HealthCheckCustomConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5762,7 +5773,7 @@ class PublicDnsNamespace(
         :param name: A name for the Service. Default: CloudFormation-generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db20c44e505be85461317e1561ecb75f90487c1d1b7c823335141a0f518e3eab)
+            type_hints = cached_type_hints(_typecheckingstub__db20c44e505be85461317e1561ecb75f90487c1d1b7c823335141a0f518e3eab)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DnsServiceProps(
             discovery_type=discovery_type,
@@ -5834,9 +5845,11 @@ class PublicDnsNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="publicDnsNamespaceRef")
-    def public_dns_namespace_ref(self) -> "_PublicDnsNamespaceReference_ff5b938d":
+    def public_dns_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.PublicDnsNamespaceReference":
         '''A reference to a PublicDnsNamespace resource.'''
-        return typing.cast("_PublicDnsNamespaceReference_ff5b938d", jsii.get(self, "publicDnsNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.PublicDnsNamespaceReference", jsii.get(self, "publicDnsNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5882,7 +5895,7 @@ class PublicDnsNamespaceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b17c67cad27ce0e8d29e8153723e86c8331b94cdecf0c3bd7b10522fa08526c)
+            type_hints = cached_type_hints(_typecheckingstub__4b17c67cad27ce0e8d29e8153723e86c8331b94cdecf0c3bd7b10522fa08526c)
             check_type(argname="argument namespace_arn", value=namespace_arn, expected_type=type_hints["namespace_arn"])
             check_type(argname="argument namespace_id", value=namespace_id, expected_type=type_hints["namespace_id"])
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
@@ -5974,7 +5987,7 @@ class PublicDnsNamespaceProps(BaseNamespaceProps):
             app.synth()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15bd41f22a1243508dd5224409aa42cb18fd7c066322e8411cde42ae7ee4a057)
+            type_hints = cached_type_hints(_typecheckingstub__15bd41f22a1243508dd5224409aa42cb18fd7c066322e8411cde42ae7ee4a057)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6021,7 +6034,7 @@ class RoutingPolicy(enum.Enum):
 
 @jsii.implements(IService)
 class Service(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.Service",
 ):
@@ -6068,7 +6081,7 @@ class Service(
         namespace: "INamespace",
         discovery_type: typing.Optional["DiscoveryType"] = None,
         dns_record_type: typing.Optional["DnsRecordType"] = None,
-        dns_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        dns_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: typing.Optional[builtins.bool] = None,
         routing_policy: typing.Optional["RoutingPolicy"] = None,
         custom_health_check: typing.Optional[typing.Union["HealthCheckCustomConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6091,7 +6104,7 @@ class Service(
         :param name: A name for the Service. Default: CloudFormation-generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__257faca4729e45cc0f5c4e2987b41ad95c60970f722e6d3e15b6fe7c1b6ec00f)
+            type_hints = cached_type_hints(_typecheckingstub__257faca4729e45cc0f5c4e2987b41ad95c60970f722e6d3e15b6fe7c1b6ec00f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServiceProps(
@@ -6136,7 +6149,7 @@ class Service(
         :param discovery_type: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbaf62c2966136f90a2983375c83d8c77cfe122553836d1fd56f41b2c249ec72)
+            type_hints = cached_type_hints(_typecheckingstub__fbaf62c2966136f90a2983375c83d8c77cfe122553836d1fd56f41b2c249ec72)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ServiceAttributes(
@@ -6168,7 +6181,7 @@ class Service(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17777e8121e5d7ca4bfc99ffd67df7426cc03e731cc51176a806de6cf3fcde90)
+            type_hints = cached_type_hints(_typecheckingstub__17777e8121e5d7ca4bfc99ffd67df7426cc03e731cc51176a806de6cf3fcde90)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CnameInstanceBaseProps(
             instance_cname=instance_cname,
@@ -6199,7 +6212,7 @@ class Service(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6b8770b5cb3ec49830bbd5b475bb94ab33f5fecea0fd73d1bfa323d860b1297)
+            type_hints = cached_type_hints(_typecheckingstub__b6b8770b5cb3ec49830bbd5b475bb94ab33f5fecea0fd73d1bfa323d860b1297)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IpInstanceBaseProps(
             ipv4=ipv4,
@@ -6215,7 +6228,7 @@ class Service(
     def register_load_balancer(
         self,
         id: builtins.str,
-        load_balancer: "_ILoadBalancerV2_4c5c0fbb",
+        load_balancer: "_aws_elasticloadbalancingv2_1d9af53a.ILoadBalancerV2",
         custom_attributes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> "IInstance":
         '''Registers an ELB as a new instance with unique name instanceId in this service.
@@ -6225,7 +6238,7 @@ class Service(
         :param custom_attributes: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90c7d8300e8a29326eac4d2a15c7c746700943648bb38155189f8d0b4b40bc74)
+            type_hints = cached_type_hints(_typecheckingstub__90c7d8300e8a29326eac4d2a15c7c746700943648bb38155189f8d0b4b40bc74)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
@@ -6246,7 +6259,7 @@ class Service(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0b8dab24f0c97dfda8d48ccd1aa98146feeb4d279c119d4641c1d2563f9bb89)
+            type_hints = cached_type_hints(_typecheckingstub__e0b8dab24f0c97dfda8d48ccd1aa98146feeb4d279c119d4641c1d2563f9bb89)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NonIpInstanceBaseProps(
             custom_attributes=custom_attributes, instance_id=instance_id
@@ -6304,9 +6317,9 @@ class Service(
 
     @builtins.property
     @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> "_ServiceReference_bb8f24e4":
+    def service_ref(self) -> "_aws_servicediscovery_1f14693a.ServiceReference":
         '''A reference to a Service resource.'''
-        return typing.cast("_ServiceReference_bb8f24e4", jsii.get(self, "serviceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.ServiceReference", jsii.get(self, "serviceRef"))
 
 
 @jsii.data_type(
@@ -6366,7 +6379,7 @@ class ServiceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d911eda6ed3704a591515319ed45a1404640c6c05830bc05f6cb92b45067da37)
+            type_hints = cached_type_hints(_typecheckingstub__d911eda6ed3704a591515319ed45a1404640c6c05830bc05f6cb92b45067da37)
             check_type(argname="argument dns_record_type", value=dns_record_type, expected_type=type_hints["dns_record_type"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument routing_policy", value=routing_policy, expected_type=type_hints["routing_policy"])
@@ -6464,7 +6477,7 @@ class ServiceProps(DnsServiceProps):
         name: typing.Optional[builtins.str] = None,
         discovery_type: typing.Optional["DiscoveryType"] = None,
         dns_record_type: typing.Optional["DnsRecordType"] = None,
-        dns_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        dns_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: typing.Optional[builtins.bool] = None,
         routing_policy: typing.Optional["RoutingPolicy"] = None,
         namespace: "INamespace",
@@ -6518,7 +6531,7 @@ class ServiceProps(DnsServiceProps):
         if isinstance(health_check, dict):
             health_check = HealthCheckConfig(**health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a27648ab2063a3bcce245ae013563ab7bcd2b11fdbc48c3899939b88ac6e637)
+            type_hints = cached_type_hints(_typecheckingstub__6a27648ab2063a3bcce245ae013563ab7bcd2b11fdbc48c3899939b88ac6e637)
             check_type(argname="argument custom_health_check", value=custom_health_check, expected_type=type_hints["custom_health_check"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -6617,13 +6630,13 @@ class ServiceProps(DnsServiceProps):
         return typing.cast(typing.Optional["DnsRecordType"], result)
 
     @builtins.property
-    def dns_ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def dns_ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, that you want DNS resolvers to cache the settings for this record.
 
         :default: Duration.minutes(1)
         '''
         result = self._values.get("dns_ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -6717,7 +6730,7 @@ class AliasTargetInstance(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9786c4b122ec305f02e6cbb773ac55db6e66c24f06e96a03b116a2d690ca5abd)
+            type_hints = cached_type_hints(_typecheckingstub__9786c4b122ec305f02e6cbb773ac55db6e66c24f06e96a03b116a2d690ca5abd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AliasTargetInstanceProps(
@@ -6801,7 +6814,7 @@ class AliasTargetInstanceProps(BaseInstanceProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1a6cd82b98c6969b0b5a7e1ab4d1ac5d57a0e045d18ebd111aaad9828df058)
+            type_hints = cached_type_hints(_typecheckingstub__be1a6cd82b98c6969b0b5a7e1ab4d1ac5d57a0e045d18ebd111aaad9828df058)
             check_type(argname="argument custom_attributes", value=custom_attributes, expected_type=type_hints["custom_attributes"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
@@ -6910,7 +6923,7 @@ class CnameInstance(
         :param instance_id: The id of the instance resource. Default: Automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10897d3c6107add2d41198d5686b2ee03b60682da05516a8f5725dc3e0eaa17)
+            type_hints = cached_type_hints(_typecheckingstub__d10897d3c6107add2d41198d5686b2ee03b60682da05516a8f5725dc3e0eaa17)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CnameInstanceProps(
@@ -6950,7 +6963,7 @@ class CnameInstance(
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicediscovery.IHttpNamespace")
 class IHttpNamespace(
     INamespace,
-    _IHttpNamespaceRef_68a0c4c4,
+    _aws_servicediscovery_1f14693a.IHttpNamespaceRef,
     typing_extensions.Protocol,
 ):
     pass
@@ -6958,7 +6971,7 @@ class IHttpNamespace(
 
 class _IHttpNamespaceProxy(
     jsii.proxy_for(INamespace), # type: ignore[misc]
-    jsii.proxy_for(_IHttpNamespaceRef_68a0c4c4), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicediscovery_1f14693a.IHttpNamespaceRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicediscovery.IHttpNamespace"
     pass
@@ -6969,7 +6982,7 @@ typing.cast(typing.Any, IHttpNamespace).__jsii_proxy_class__ = lambda : _IHttpNa
 
 @jsii.implements(IHttpNamespace)
 class HttpNamespace(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicediscovery.HttpNamespace",
 ):
@@ -7027,7 +7040,7 @@ class HttpNamespace(
         :param description: A description of the Namespace. Default: none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c5e8b41c9ed935f9e85c1a24ec9a83515983d5ad32dfbd83a7068c7ed367b4e)
+            type_hints = cached_type_hints(_typecheckingstub__7c5e8b41c9ed935f9e85c1a24ec9a83515983d5ad32dfbd83a7068c7ed367b4e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpNamespaceProps(name=name, description=description)
@@ -7053,7 +7066,7 @@ class HttpNamespace(
         :param namespace_name: A name for the Namespace.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaf6a3b75ade6461d9b28d5ffbb8f85a74361eede179b6dbb86f74f2682d23aa)
+            type_hints = cached_type_hints(_typecheckingstub__aaf6a3b75ade6461d9b28d5ffbb8f85a74361eede179b6dbb86f74f2682d23aa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = HttpNamespaceAttributes(
@@ -7083,7 +7096,7 @@ class HttpNamespace(
         :param name: A name for the Service. Default: CloudFormation-generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e06c8eb4a7b8eb3eb86fe9c0459adfec82993a2f3f5fe56a2c3b52b2402ab9a)
+            type_hints = cached_type_hints(_typecheckingstub__4e06c8eb4a7b8eb3eb86fe9c0459adfec82993a2f3f5fe56a2c3b52b2402ab9a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseServiceProps(
             custom_health_check=custom_health_check,
@@ -7126,9 +7139,11 @@ class HttpNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="httpNamespaceRef")
-    def http_namespace_ref(self) -> "_HttpNamespaceReference_2edf16fb":
+    def http_namespace_ref(
+        self,
+    ) -> "_aws_servicediscovery_1f14693a.HttpNamespaceReference":
         '''A reference to a HttpNamespace resource.'''
-        return typing.cast("_HttpNamespaceReference_2edf16fb", jsii.get(self, "httpNamespaceRef"))
+        return typing.cast("_aws_servicediscovery_1f14693a.HttpNamespaceReference", jsii.get(self, "httpNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="namespaceArn")
@@ -7243,13 +7258,13 @@ def _typecheckingstub__2c93d7b69ae54d6f5b3720d62b0a837c772e4d207dcd9a6c8361a7e40
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8a2cd7aaf6ae46bf3b85bb929522dfa5b481e81aeebd02f9343ee4fcb5bf91d9(
-    resource: _IHttpNamespaceRef_68a0c4c4,
+    resource: _aws_servicediscovery_1f14693a.IHttpNamespaceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7261,7 +7276,7 @@ def _typecheckingstub__0ef90a207a2a83d59586f4824d5fd2b2fccd99158a3719834346e40f5
     pass
 
 def _typecheckingstub__349bb642a1fa35eed2b8cfbfb6816c2624e92b2b798c47c511d785aaaaed4395(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7285,7 +7300,7 @@ def _typecheckingstub__d1acb03e37c363b6c055ffea522cccf94236429c9cd614eebb7b4e0e7
     pass
 
 def _typecheckingstub__db851b811f1dc9ee0d0ac1df087e3bd084e3574a034552c8d656ead354aec4dc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7294,7 +7309,7 @@ def _typecheckingstub__ac1d63f8592886f3f359329d01c4db1851a0a2b8cea1fe61cdb6a5383
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7317,7 +7332,7 @@ def _typecheckingstub__ef9c3f51e9da4eab0ef1417919da9a2062604418fc7603ee00f2b2aa4
     pass
 
 def _typecheckingstub__0606c5109aa5a024913dc77315841aabb650385eb6a8af4fa080424d98b153aa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7362,14 +7377,14 @@ def _typecheckingstub__9c2d0f705fb36b36fc7feaf539456a26c7c18338d9006b092bacaa844
     name: builtins.str,
     vpc: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4fa51de8a34cd48bd840f8655aa12d37730b8c093f1ac48027f143bc9783ec2a(
-    resource: _IPrivateDnsNamespaceRef_19402306,
+    resource: _aws_servicediscovery_1f14693a.IPrivateDnsNamespaceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7381,7 +7396,7 @@ def _typecheckingstub__69f007f9c5d73a810ba70b7acb81d44a7c6f5b743ee06987dbfa56e1e
     pass
 
 def _typecheckingstub__a69bcb3869a4a8c7522da03ead72b71e5a1b3c00378fdddae5bdff4ff8e91d23(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7411,27 +7426,27 @@ def _typecheckingstub__359db7453c61916286016b99ce2b4d5f3170ced593718005d469fb1ed
     pass
 
 def _typecheckingstub__561f9e1a781f0e74d2cfb4e11987ae3b924d72bcc2704d5de82df6f498bf5be5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPrivateDnsNamespace.PropertiesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrivateDnsNamespace.PropertiesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eaf42265184fe48781228aa75e4c79552eb3c2c4afc6c2d26f562254d8c44537(
     *,
-    soa: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateDnsNamespace.SOAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    soa: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.SOAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b96d3f1a601d20345c2fba08d77e51353cb00071ea820fcb997b75b6ef6e3721(
     *,
-    dns_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7448,8 +7463,8 @@ def _typecheckingstub__24aa942f7e65dbf86a2684831cbc900f12fcd449b4a9fd70d60e1aa62
     name: builtins.str,
     vpc: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7460,14 +7475,14 @@ def _typecheckingstub__fb34a43fa0481e548e83f0fa71d212942ab0a37e2e50f959c191883e7
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e2e70c6ff56425526e47baa5ed85a05f84151ce106bdb104538b7c7adca34446(
-    resource: _IPublicDnsNamespaceRef_1d27bfe2,
+    resource: _aws_servicediscovery_1f14693a.IPublicDnsNamespaceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7479,7 +7494,7 @@ def _typecheckingstub__2279e30b3dd196887e0f672d28dac01153be6c210216904f12860e3c5
     pass
 
 def _typecheckingstub__c1c271d6d9e882eedf856f1d5688df5126cb9e889fce0e0df390ec8b1c302341(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7503,27 +7518,27 @@ def _typecheckingstub__b473e7816fc36dff85b333102dba9edd1dbf9ff655df24b685e298b01
     pass
 
 def _typecheckingstub__ac76e55a47b32554d192ba5301278d2384548daa676f27c621980d8556ced49f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPublicDnsNamespace.PropertiesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPublicDnsNamespace.PropertiesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36c6453a5ebe6f998cd795a80b6480c4d96bbc3cac84ec309d02e8ff0a4d806d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__64a0b8db3dc27d634ca8fb6af9c8c24e7845c63d8d791a6f621887fb901d7663(
     *,
-    dns_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicDnsNamespace.PublicDnsPropertiesMutableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7c81f714e1fc68994f920cb152b8046191c8fa1e5c20cbabfe9f85fb5ef1cd5d(
     *,
-    soa: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicDnsNamespace.SOAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    soa: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicDnsNamespace.SOAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7539,8 +7554,8 @@ def _typecheckingstub__289e263c72ad438f5525b9a23e75d50505133aa6894b49a884ebf85d3
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicDnsNamespace.PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7550,20 +7565,20 @@ def _typecheckingstub__fe683ec1ba955070fa4b5c6770ac570af81044f6f1cfff34bc3ffffe7
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    dns_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_custom_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DnsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_custom_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace_id: typing.Optional[builtins.str] = None,
     service_attributes: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__abf0c02bf0d67a90149811968379f4e628800805784f8df22fbca35e95be18a0(
-    resource: _IServiceRef_687c8f74,
+    resource: _aws_servicediscovery_1f14693a.IServiceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7591,7 +7606,7 @@ def _typecheckingstub__b6a327bd1b9b9aa4e1cc3b49baf70bbce3c22a72c209dc820f77251ce
     pass
 
 def _typecheckingstub__713d7d0bfb1535bc7ed461a8b2f884bc1b329dfad1a3b802e34adb9b36e4a4b1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7615,19 +7630,19 @@ def _typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1af
     pass
 
 def _typecheckingstub__5f361a3e1ffe439365ece9894aaa76d6a3ee25815b97951742e59d050e574453(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.DnsConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.DnsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4dd1e987f6914e43c0264f356fc2284404c77f8ef1193d64382089085ad31a6f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.HealthCheckConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.HealthCheckConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__26f76dfc0ec0f9ce1fbcc6993da16c3b503b33b0cda729361f780a6ecd6b7362(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.HealthCheckCustomConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.HealthCheckCustomConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7645,7 +7660,7 @@ def _typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a
     pass
 
 def _typecheckingstub__44063f4c2439ed7f79fdc71914b9bcc3ba82e93c107b7159f1091fc833023332(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7658,7 +7673,7 @@ def _typecheckingstub__91e2a057fea1e48783bb2fde800faa34d8d67c4a271c17607f2b302a6
 
 def _typecheckingstub__597bdecb8957b0ef33f4861dc067e3cc100945853651c161a7d1d3af8ba44b10(
     *,
-    dns_records: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsRecordProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dns_records: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DnsRecordProperty, typing.Dict[builtins.str, typing.Any]]]]],
     namespace_id: typing.Optional[builtins.str] = None,
     routing_policy: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7692,13 +7707,13 @@ def _typecheckingstub__5440deb7c84085b7a3df2b881cb4dce579f3a710bea2ef1e105e7ca05
 def _typecheckingstub__3ec48be70fb5c297bd47df7ae78eae4351af2efb1a2ce3043051542b96a5c11f(
     *,
     description: typing.Optional[builtins.str] = None,
-    dns_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_custom_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DnsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_custom_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace_id: typing.Optional[builtins.str] = None,
     service_attributes: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7731,7 +7746,7 @@ def _typecheckingstub__59ff4ff91792243ce7af1ac649c5b246ddcb73806a71003ab54cb60f8
     name: typing.Optional[builtins.str] = None,
     discovery_type: typing.Optional[DiscoveryType] = None,
     dns_record_type: typing.Optional[DnsRecordType] = None,
-    dns_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    dns_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: typing.Optional[builtins.bool] = None,
     routing_policy: typing.Optional[RoutingPolicy] = None,
 ) -> None:
@@ -7852,7 +7867,7 @@ def _typecheckingstub__4ca3fb02d1b62acb1709655750979ea84ad96594f86cb01625cb289fe
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7875,7 +7890,7 @@ def _typecheckingstub__a749a6d3ce368183bbf9ea864046a44579113471ad1c87aaf560b0a8b
     *,
     discovery_type: typing.Optional[DiscoveryType] = None,
     dns_record_type: typing.Optional[DnsRecordType] = None,
-    dns_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    dns_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: typing.Optional[builtins.bool] = None,
     routing_policy: typing.Optional[RoutingPolicy] = None,
     custom_health_check: typing.Optional[typing.Union[HealthCheckCustomConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7899,7 +7914,7 @@ def _typecheckingstub__f5a438cb76c40139835b65e440e9010402611db76baf5e4c500427a16
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7930,7 +7945,7 @@ def _typecheckingstub__db20c44e505be85461317e1561ecb75f90487c1d1b7c823335141a0f5
     *,
     discovery_type: typing.Optional[DiscoveryType] = None,
     dns_record_type: typing.Optional[DnsRecordType] = None,
-    dns_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    dns_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: typing.Optional[builtins.bool] = None,
     routing_policy: typing.Optional[RoutingPolicy] = None,
     custom_health_check: typing.Optional[typing.Union[HealthCheckCustomConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7965,7 +7980,7 @@ def _typecheckingstub__257faca4729e45cc0f5c4e2987b41ad95c60970f722e6d3e15b6fe7c1
     namespace: INamespace,
     discovery_type: typing.Optional[DiscoveryType] = None,
     dns_record_type: typing.Optional[DnsRecordType] = None,
-    dns_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    dns_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: typing.Optional[builtins.bool] = None,
     routing_policy: typing.Optional[RoutingPolicy] = None,
     custom_health_check: typing.Optional[typing.Union[HealthCheckCustomConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8015,7 +8030,7 @@ def _typecheckingstub__b6b8770b5cb3ec49830bbd5b475bb94ab33f5fecea0fd73d1bfa323d8
 
 def _typecheckingstub__90c7d8300e8a29326eac4d2a15c7c746700943648bb38155189f8d0b4b40bc74(
     id: builtins.str,
-    load_balancer: _ILoadBalancerV2_4c5c0fbb,
+    load_balancer: _aws_elasticloadbalancingv2_1d9af53a.ILoadBalancerV2,
     custom_attributes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8051,7 +8066,7 @@ def _typecheckingstub__6a27648ab2063a3bcce245ae013563ab7bcd2b11fdbc48c3899939b88
     name: typing.Optional[builtins.str] = None,
     discovery_type: typing.Optional[DiscoveryType] = None,
     dns_record_type: typing.Optional[DnsRecordType] = None,
-    dns_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    dns_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: typing.Optional[builtins.bool] = None,
     routing_policy: typing.Optional[RoutingPolicy] = None,
     namespace: INamespace,

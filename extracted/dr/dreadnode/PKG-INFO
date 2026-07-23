@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dreadnode
-Version: 2.0.35
+Version: 2.0.38
 Summary: Dreadnode SDK
 Project-URL: Homepage, https://dreadnode.io
 Project-URL: Documentation, https://docs.dreadnode.io
@@ -51,6 +51,9 @@ Requires-Dist: transformers>=4.57.1
 Requires-Dist: uvicorn>=0.34.0
 Requires-Dist: websockets>=14.0
 Requires-Dist: xmltodict>=1.0.2
+Provides-Extra: airt-ml
+Requires-Dist: scikit-learn<2.0.0,>=1.7.1; extra == 'airt-ml'
+Requires-Dist: torch>=2.9.0; extra == 'airt-ml'
 Provides-Extra: all
 Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'all'
 Requires-Dist: moviepy<3.0.0,>=2.1.2; extra == 'all'

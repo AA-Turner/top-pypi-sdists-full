@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ComponentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ca56b2395a8f846764be2a4a24e940c2ff5663afee7eaf27811f8696b037a37)
+            type_hints = cached_type_hints(_typecheckingstub__1ca56b2395a8f846764be2a4a24e940c2ff5663afee7eaf27811f8696b037a37)
             check_type(argname="argument component_arn", value=component_arn, expected_type=type_hints["component_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "component_arn": component_arn,
@@ -107,7 +111,7 @@ class ContainerRecipeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32c30ac19c73ff0a6f39648af615b28260ba93d0aa1f57c685ecb51a53e01993)
+            type_hints = cached_type_hints(_typecheckingstub__32c30ac19c73ff0a6f39648af615b28260ba93d0aa1f57c685ecb51a53e01993)
             check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "container_recipe_arn": container_recipe_arn,
@@ -156,7 +160,7 @@ class DistributionConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70eff7db95a3efc4f77e797d9acec5418d9e4b767751975b90ff345e2a3844e2)
+            type_hints = cached_type_hints(_typecheckingstub__70eff7db95a3efc4f77e797d9acec5418d9e4b767751975b90ff345e2a3844e2)
             check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "distribution_configuration_arn": distribution_configuration_arn,
@@ -184,7 +188,7 @@ class DistributionConfigurationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IComponentRef")
 class IComponentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Component.
@@ -204,7 +208,7 @@ class IComponentRef(
 
 class _IComponentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Component.
 
@@ -231,7 +235,7 @@ typing.cast(typing.Any, IComponentRef).__jsii_proxy_class__ = lambda : _ICompone
 )
 class IContainerRecipeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerRecipe.
@@ -251,7 +255,7 @@ class IContainerRecipeRef(
 
 class _IContainerRecipeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContainerRecipe.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IContainerRecipeRef).__jsii_proxy_class__ = lambda : _IC
 )
 class IDistributionConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DistributionConfiguration.
@@ -298,7 +302,7 @@ class IDistributionConfigurationRef(
 
 class _IDistributionConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DistributionConfiguration.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, IDistributionConfigurationRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IImagePipelineRef")
 class IImagePipelineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImagePipeline.
@@ -343,7 +347,7 @@ class IImagePipelineRef(
 
 class _IImagePipelineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImagePipeline.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, IImagePipelineRef).__jsii_proxy_class__ = lambda : _IIma
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IImageRecipeRef")
 class IImageRecipeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImageRecipe.
@@ -388,7 +392,7 @@ class IImageRecipeRef(
 
 class _IImageRecipeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImageRecipe.
 
@@ -413,7 +417,7 @@ typing.cast(typing.Any, IImageRecipeRef).__jsii_proxy_class__ = lambda : _IImage
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IImageRef")
 class IImageRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Image.
@@ -433,7 +437,7 @@ class IImageRef(
 
 class _IImageRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Image.
 
@@ -460,7 +464,7 @@ typing.cast(typing.Any, IImageRef).__jsii_proxy_class__ = lambda : _IImageRefPro
 )
 class IInfrastructureConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InfrastructureConfiguration.
@@ -482,7 +486,7 @@ class IInfrastructureConfigurationRef(
 
 class _IInfrastructureConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InfrastructureConfiguration.
 
@@ -511,7 +515,7 @@ typing.cast(typing.Any, IInfrastructureConfigurationRef).__jsii_proxy_class__ = 
 )
 class ILifecyclePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
@@ -531,7 +535,7 @@ class ILifecyclePolicyRef(
 
 class _ILifecyclePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
 
@@ -556,7 +560,7 @@ typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _IL
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowRef")
 class IWorkflowRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workflow.
@@ -576,7 +580,7 @@ class IWorkflowRef(
 
 class _IWorkflowRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workflow.
 
@@ -622,7 +626,7 @@ class ImagePipelineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2edfea91c44d2f5551b3f39b1283265dd4c4ba4a69e39f8470b0ee280a5f584b)
+            type_hints = cached_type_hints(_typecheckingstub__2edfea91c44d2f5551b3f39b1283265dd4c4ba4a69e39f8470b0ee280a5f584b)
             check_type(argname="argument image_pipeline_arn", value=image_pipeline_arn, expected_type=type_hints["image_pipeline_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "image_pipeline_arn": image_pipeline_arn,
@@ -671,7 +675,7 @@ class ImageRecipeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__822a60b009e7a8fb8c6138b46d26bf862351f4cdd38d9300a4e14ca1672119c5)
+            type_hints = cached_type_hints(_typecheckingstub__822a60b009e7a8fb8c6138b46d26bf862351f4cdd38d9300a4e14ca1672119c5)
             check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "image_recipe_arn": image_recipe_arn,
@@ -720,7 +724,7 @@ class ImageReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c2e068912f6d5b798b23176aa40959a1849e60e2b42920c7f82c6ebe6c05e20)
+            type_hints = cached_type_hints(_typecheckingstub__5c2e068912f6d5b798b23176aa40959a1849e60e2b42920c7f82c6ebe6c05e20)
             check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "image_arn": image_arn,
@@ -771,7 +775,7 @@ class InfrastructureConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c26eaf1e4681c4f419e405ba90cc4bd6133a1009f5afbd003651f78fd48ef87)
+            type_hints = cached_type_hints(_typecheckingstub__3c26eaf1e4681c4f419e405ba90cc4bd6133a1009f5afbd003651f78fd48ef87)
             check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "infrastructure_configuration_arn": infrastructure_configuration_arn,
@@ -820,7 +824,7 @@ class LifecyclePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0e33e0615fd6db354b50325a083d7a4ba4c4fd4b885437c35be0e5f9149ca3a)
+            type_hints = cached_type_hints(_typecheckingstub__a0e33e0615fd6db354b50325a083d7a4ba4c4fd4b885437c35be0e5f9149ca3a)
             check_type(argname="argument lifecycle_policy_arn", value=lifecycle_policy_arn, expected_type=type_hints["lifecycle_policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "lifecycle_policy_arn": lifecycle_policy_arn,
@@ -869,7 +873,7 @@ class WorkflowReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c546261c2556897bd85b6ea4c73c8e1757dc626717aab7bab599cf97ba458923)
+            type_hints = cached_type_hints(_typecheckingstub__c546261c2556897bd85b6ea4c73c8e1757dc626717aab7bab599cf97ba458923)
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "workflow_arn": workflow_arn,

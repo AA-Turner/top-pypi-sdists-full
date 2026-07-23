@@ -103,10 +103,7 @@ pub fn json_value_to_py_object(py: Python<'_>, value: &Value) -> PyResult<Py<PyA
 pub fn py_list_to_list(py_list: &Bound<PyList>) -> PyResult<Vec<String>> {
     let mut converted_list = Vec::new();
     for value in py_list {
-        match value.extract::<String>() {
-            Ok(s) => converted_list.push(s),
-            Err(e) => return Err(e),
-        }
+        converted_list.push(value.extract::<String>()?);
     }
     Ok(converted_list)
 }

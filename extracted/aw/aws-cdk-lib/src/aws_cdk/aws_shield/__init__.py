@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,50 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_shield import (
-    DRTAccessReference as _DRTAccessReference_932569dc,
-    IDRTAccessRef as _IDRTAccessRef_a098411d,
-    IProactiveEngagementRef as _IProactiveEngagementRef_5ec76b88,
-    IProtectionGroupRef as _IProtectionGroupRef_d3e72ac4,
-    IProtectionRef as _IProtectionRef_fb08d716,
-    ProactiveEngagementReference as _ProactiveEngagementReference_9b0d28cb,
-    ProtectionGroupReference as _ProtectionGroupReference_079db2ad,
-    ProtectionReference as _ProtectionReference_329b467b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_shield as _aws_shield_acd5fca7
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_shield_acd5fca7 = _LazyImport("aws_cdk.interfaces.aws_shield")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDRTAccessRef_a098411d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_shield_acd5fca7.IDRTAccessRef)
 class CfnDRTAccess(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_shield.CfnDRTAccess",
 ):
@@ -143,7 +131,7 @@ class CfnDRTAccess(
         :param log_bucket_list: Authorizes the Shield Response Team (SRT) to access the specified Amazon S3 bucket containing log data such as Application Load Balancer access logs, CloudFront logs, or logs from third party sources. You can associate up to 10 Amazon S3 buckets with your subscription. Use this to share information with the SRT that's not available in AWS WAF logs. To use the services of the SRT, you must be subscribed to the `Business Support plan <https://docs.aws.amazon.com/premiumsupport/business-support/>`_ or the `Enterprise Support plan <https://docs.aws.amazon.com/premiumsupport/enterprise-support/>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea8549c95)
+            type_hints = cached_type_hints(_typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea8549c95)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDRTAccessProps(role_arn=role_arn, log_bucket_list=log_bucket_list)
@@ -158,18 +146,18 @@ class CfnDRTAccess(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__742ae11bcc805fa7331a2c317a19f796960eebe60ab95388ef2ea50f53545124)
+            type_hints = cached_type_hints(_typecheckingstub__742ae11bcc805fa7331a2c317a19f796960eebe60ab95388ef2ea50f53545124)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDRTAccess", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1852e8b6dd2c25fa06e5e566839fd5a1f6a276b8b39e838b2b89482ea513bd65)
+            type_hints = cached_type_hints(_typecheckingstub__1852e8b6dd2c25fa06e5e566839fd5a1f6a276b8b39e838b2b89482ea513bd65)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -182,7 +170,7 @@ class CfnDRTAccess(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8571297b6d69a16de38bab6d3f1dc92d7c9246c66b35f80febffdfb1f3b2e7c8)
+            type_hints = cached_type_hints(_typecheckingstub__8571297b6d69a16de38bab6d3f1dc92d7c9246c66b35f80febffdfb1f3b2e7c8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -213,9 +201,9 @@ class CfnDRTAccess(
 
     @builtins.property
     @jsii.member(jsii_name="drtAccessRef")
-    def drt_access_ref(self) -> "_DRTAccessReference_932569dc":
+    def drt_access_ref(self) -> "_aws_shield_acd5fca7.DRTAccessReference":
         '''A reference to a DRTAccess resource.'''
-        return typing.cast("_DRTAccessReference_932569dc", jsii.get(self, "drtAccessRef"))
+        return typing.cast("_aws_shield_acd5fca7.DRTAccessReference", jsii.get(self, "drtAccessRef"))
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -226,7 +214,7 @@ class CfnDRTAccess(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da38bba1d6994ae07694944aa4916a03f58a2c9485676c9085e1c314c3f2aa57)
+            type_hints = cached_type_hints(_typecheckingstub__da38bba1d6994ae07694944aa4916a03f58a2c9485676c9085e1c314c3f2aa57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -242,7 +230,7 @@ class CfnDRTAccess(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c94abc39b038180b7b7b34ef27ad16e99c54c8cd1ff7e04fd4e4882047910e1)
+            type_hints = cached_type_hints(_typecheckingstub__4c94abc39b038180b7b7b34ef27ad16e99c54c8cd1ff7e04fd4e4882047910e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logBucketList", value) # pyright: ignore[reportArgumentType]
 
@@ -281,7 +269,7 @@ class CfnDRTAccessProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eb7d0e0a686aa5ce41af2859848528d577aa001b693b180bf8c8c1cbe226c62)
+            type_hints = cached_type_hints(_typecheckingstub__7eb7d0e0a686aa5ce41af2859848528d577aa001b693b180bf8c8c1cbe226c62)
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument log_bucket_list", value=log_bucket_list, expected_type=type_hints["log_bucket_list"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -339,9 +327,9 @@ class CfnDRTAccessProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IProactiveEngagementRef_5ec76b88)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_shield_acd5fca7.IProactiveEngagementRef)
 class CfnProactiveEngagement(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_shield.CfnProactiveEngagement",
 ):
@@ -388,7 +376,7 @@ class CfnProactiveEngagement(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        emergency_contact_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        emergency_contact_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
         proactive_engagement_status: builtins.str,
     ) -> None:
         '''Create a new ``AWS::Shield::ProactiveEngagement``.
@@ -399,7 +387,7 @@ class CfnProactiveEngagement(
         :param proactive_engagement_status: Specifies whether proactive engagement is enabled or disabled. Valid values: ``ENABLED`` - The Shield Response Team (SRT) will use email and phone to notify contacts about escalations to the SRT and to initiate proactive customer support. ``DISABLED`` - The SRT will not proactively notify contacts about escalations or to initiate proactive customer support.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75179b0b2a7390cfe8ff254cdce98b24f9e580040dddc66ad43b122c2b5e0c6d)
+            type_hints = cached_type_hints(_typecheckingstub__75179b0b2a7390cfe8ff254cdce98b24f9e580040dddc66ad43b122c2b5e0c6d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProactiveEngagementProps(
@@ -417,18 +405,18 @@ class CfnProactiveEngagement(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c9b5695a230a67efbfc6dd5e271a2105eb50c95d2990f40fdf6ef7a2563ebd)
+            type_hints = cached_type_hints(_typecheckingstub__54c9b5695a230a67efbfc6dd5e271a2105eb50c95d2990f40fdf6ef7a2563ebd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProactiveEngagement", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5a960f62ca304b7ebcf5e14298d60f742a16d5dbaf6f97f912470ede285d11e)
+            type_hints = cached_type_hints(_typecheckingstub__d5a960f62ca304b7ebcf5e14298d60f742a16d5dbaf6f97f912470ede285d11e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -441,7 +429,7 @@ class CfnProactiveEngagement(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99229a0794c4f40e520680e633fa758c86f0b7d6e14e7081dd03b9a42c242a63)
+            type_hints = cached_type_hints(_typecheckingstub__99229a0794c4f40e520680e633fa758c86f0b7d6e14e7081dd03b9a42c242a63)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -472,25 +460,27 @@ class CfnProactiveEngagement(
 
     @builtins.property
     @jsii.member(jsii_name="proactiveEngagementRef")
-    def proactive_engagement_ref(self) -> "_ProactiveEngagementReference_9b0d28cb":
+    def proactive_engagement_ref(
+        self,
+    ) -> "_aws_shield_acd5fca7.ProactiveEngagementReference":
         '''A reference to a ProactiveEngagement resource.'''
-        return typing.cast("_ProactiveEngagementReference_9b0d28cb", jsii.get(self, "proactiveEngagementRef"))
+        return typing.cast("_aws_shield_acd5fca7.ProactiveEngagementReference", jsii.get(self, "proactiveEngagementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emergencyContactList")
     def emergency_contact_list(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
         '''The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]], jsii.get(self, "emergencyContactList"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProactiveEngagement.EmergencyContactProperty"]]], jsii.get(self, "emergencyContactList"))
 
     @emergency_contact_list.setter
     def emergency_contact_list(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProactiveEngagement.EmergencyContactProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__124fcf35e2a271c8af4d75b0cf5014b8ad1239720905927de40e52915ba3e15c)
+            type_hints = cached_type_hints(_typecheckingstub__124fcf35e2a271c8af4d75b0cf5014b8ad1239720905927de40e52915ba3e15c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emergencyContactList", value) # pyright: ignore[reportArgumentType]
 
@@ -503,7 +493,7 @@ class CfnProactiveEngagement(
     @proactive_engagement_status.setter
     def proactive_engagement_status(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b037bb753d3225b693b8d381833edd00f55da5f9159d4af431e1e597b718015)
+            type_hints = cached_type_hints(_typecheckingstub__5b037bb753d3225b693b8d381833edd00f55da5f9159d4af431e1e597b718015)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "proactiveEngagementStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -548,7 +538,7 @@ class CfnProactiveEngagement(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__943f9798df53d53e30978210d183db122bb3f1df5ce07ae3b7aaa70f1002896d)
+                type_hints = cached_type_hints(_typecheckingstub__943f9798df53d53e30978210d183db122bb3f1df5ce07ae3b7aaa70f1002896d)
                 check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
                 check_type(argname="argument contact_notes", value=contact_notes, expected_type=type_hints["contact_notes"])
                 check_type(argname="argument phone_number", value=phone_number, expected_type=type_hints["phone_number"])
@@ -612,7 +602,7 @@ class CfnProactiveEngagementProps:
     def __init__(
         self,
         *,
-        emergency_contact_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        emergency_contact_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
         proactive_engagement_status: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnProactiveEngagement``.
@@ -641,7 +631,7 @@ class CfnProactiveEngagementProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684)
+            type_hints = cached_type_hints(_typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684)
             check_type(argname="argument emergency_contact_list", value=emergency_contact_list, expected_type=type_hints["emergency_contact_list"])
             check_type(argname="argument proactive_engagement_status", value=proactive_engagement_status, expected_type=type_hints["proactive_engagement_status"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -652,7 +642,7 @@ class CfnProactiveEngagementProps:
     @builtins.property
     def emergency_contact_list(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
         '''The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes.
 
         To enable proactive engagement, the contact list must include at least one phone number.
@@ -668,7 +658,7 @@ class CfnProactiveEngagementProps:
         '''
         result = self._values.get("emergency_contact_list")
         assert result is not None, "Required property 'emergency_contact_list' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProactiveEngagement.EmergencyContactProperty"]]], result)
 
     @builtins.property
     def proactive_engagement_status(self) -> builtins.str:
@@ -698,9 +688,9 @@ class CfnProactiveEngagementProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IProtectionRef_fb08d716, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_shield_acd5fca7.IProtectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProtection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_shield.CfnProtection",
 ):
@@ -767,9 +757,9 @@ class CfnProtection(
         *,
         name: builtins.str,
         resource_arn: builtins.str,
-        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Shield::Protection``.
 
@@ -782,7 +772,7 @@ class CfnProtection(
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c25ea3f87ade4afdbc73b2ca70b15ee669920a1fb5f0ed5803cfd112c3b70c11)
+            type_hints = cached_type_hints(_typecheckingstub__c25ea3f87ade4afdbc73b2ca70b15ee669920a1fb5f0ed5803cfd112c3b70c11)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProtectionProps(
@@ -797,12 +787,15 @@ class CfnProtection(
 
     @jsii.member(jsii_name="arnForProtection")
     @builtins.classmethod
-    def arn_for_protection(cls, resource: "_IProtectionRef_fb08d716") -> builtins.str:
+    def arn_for_protection(
+        cls,
+        resource: "_aws_shield_acd5fca7.IProtectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c18d1079cd866e8ae4d83cd9f97b9ea534cb1156d4553e06c07a3c60a6468da8)
+            type_hints = cached_type_hints(_typecheckingstub__c18d1079cd866e8ae4d83cd9f97b9ea534cb1156d4553e06c07a3c60a6468da8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProtection", [resource]))
 
@@ -814,18 +807,18 @@ class CfnProtection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d77af6853c5414617d593712b27b09f1323f8f362c74a791ddebdfc664020c4)
+            type_hints = cached_type_hints(_typecheckingstub__1d77af6853c5414617d593712b27b09f1323f8f362c74a791ddebdfc664020c4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProtection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6d6fd37913379ec3a2749bbbf52fd1927d9c61ec30884700bdad09f41bd423a)
+            type_hints = cached_type_hints(_typecheckingstub__c6d6fd37913379ec3a2749bbbf52fd1927d9c61ec30884700bdad09f41bd423a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -838,7 +831,7 @@ class CfnProtection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66cc1b7316da30a5a6580d88917c556d71192a4c006b273660d5ad02f215814e)
+            type_hints = cached_type_hints(_typecheckingstub__66cc1b7316da30a5a6580d88917c556d71192a4c006b273660d5ad02f215814e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -868,9 +861,9 @@ class CfnProtection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -884,9 +877,9 @@ class CfnProtection(
 
     @builtins.property
     @jsii.member(jsii_name="protectionRef")
-    def protection_ref(self) -> "_ProtectionReference_329b467b":
+    def protection_ref(self) -> "_aws_shield_acd5fca7.ProtectionReference":
         '''A reference to a Protection resource.'''
-        return typing.cast("_ProtectionReference_329b467b", jsii.get(self, "protectionRef"))
+        return typing.cast("_aws_shield_acd5fca7.ProtectionReference", jsii.get(self, "protectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -900,7 +893,7 @@ class CfnProtection(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f664fe46f1fe6ac65c7f4d1ffc5b08a87c78645927fdd0533b7477ee11e1f0e3)
+            type_hints = cached_type_hints(_typecheckingstub__f664fe46f1fe6ac65c7f4d1ffc5b08a87c78645927fdd0533b7477ee11e1f0e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -913,7 +906,7 @@ class CfnProtection(
     @resource_arn.setter
     def resource_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c90c79a0e936546060dcc8c586dd2be6cd6ff32840ad1e49333ef28864e5dfa0)
+            type_hints = cached_type_hints(_typecheckingstub__c90c79a0e936546060dcc8c586dd2be6cd6ff32840ad1e49333ef28864e5dfa0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -921,17 +914,17 @@ class CfnProtection(
     @jsii.member(jsii_name="applicationLayerAutomaticResponseConfiguration")
     def application_layer_automatic_response_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
         '''The automatic application layer DDoS mitigation settings for the protection.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], jsii.get(self, "applicationLayerAutomaticResponseConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], jsii.get(self, "applicationLayerAutomaticResponseConfiguration"))
 
     @application_layer_automatic_response_configuration.setter
     def application_layer_automatic_response_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__145ac68c42ad419925aa32644eea217eb08e6ce73993b51c7af4167aab4e13de)
+            type_hints = cached_type_hints(_typecheckingstub__145ac68c42ad419925aa32644eea217eb08e6ce73993b51c7af4167aab4e13de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationLayerAutomaticResponseConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -947,20 +940,23 @@ class CfnProtection(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d98b040afae8b4f4d573af557d97a93bdf3dde17bbb8d705e4c6c0d0acc940aa)
+            type_hints = cached_type_hints(_typecheckingstub__d98b040afae8b4f4d573af557d97a93bdf3dde17bbb8d705e4c6c0d0acc940aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cd697bbebfdef8296c6fa9e920e70bb9a5ed569b251c351c36b4e3edbdd61e0)
+            type_hints = cached_type_hints(_typecheckingstub__4cd697bbebfdef8296c6fa9e920e70bb9a5ed569b251c351c36b4e3edbdd61e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1001,7 +997,7 @@ class CfnProtection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__10ad3bad839bf7f73612fddf37ab7b4b54806b3d7c6601e67b6e355265495610)
+                type_hints = cached_type_hints(_typecheckingstub__10ad3bad839bf7f73612fddf37ab7b4b54806b3d7c6601e67b6e355265495610)
                 check_type(argname="argument block", value=block, expected_type=type_hints["block"])
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1060,7 +1056,7 @@ class CfnProtection(
         def __init__(
             self,
             *,
-            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProtection.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
             status: builtins.str,
         ) -> None:
             '''The automatic application layer DDoS mitigation settings for a ``Protection`` .
@@ -1093,7 +1089,7 @@ class CfnProtection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4bb6af4792edfc92c1e9a35d69e7e3b4dea97cee90b65597ebf1f9e0777df0e2)
+                type_hints = cached_type_hints(_typecheckingstub__4bb6af4792edfc92c1e9a35d69e7e3b4dea97cee90b65597ebf1f9e0777df0e2)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1104,7 +1100,7 @@ class CfnProtection(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnProtection.ActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ActionProperty"]:
             '''Specifies the action setting that Shield Advanced should use in the AWS WAF rules that it creates on behalf of the protected resource in response to DDoS attacks.
 
             You specify this as part of the configuration for the automatic application layer DDoS mitigation feature, when you enable or update automatic mitigation. Shield Advanced creates the AWS WAF rules in a Shield Advanced-managed rule group, inside the web ACL that you have associated with the resource.
@@ -1113,7 +1109,7 @@ class CfnProtection(
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnProtection.ActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ActionProperty"], result)
 
         @builtins.property
         def status(self) -> builtins.str:
@@ -1137,9 +1133,9 @@ class CfnProtection(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IProtectionGroupRef_d3e72ac4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_shield_acd5fca7.IProtectionGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProtectionGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_shield.CfnProtectionGroup",
 ):
@@ -1185,7 +1181,7 @@ class CfnProtectionGroup(
         protection_group_id: builtins.str,
         members: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Shield::ProtectionGroup``.
 
@@ -1199,7 +1195,7 @@ class CfnProtectionGroup(
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81da6ee581209a252a2406d5601c15a1be321e07fcf0aa646c27538a66db638c)
+            type_hints = cached_type_hints(_typecheckingstub__81da6ee581209a252a2406d5601c15a1be321e07fcf0aa646c27538a66db638c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProtectionGroupProps(
@@ -1217,13 +1213,13 @@ class CfnProtectionGroup(
     @builtins.classmethod
     def arn_for_protection_group(
         cls,
-        resource: "_IProtectionGroupRef_d3e72ac4",
+        resource: "_aws_shield_acd5fca7.IProtectionGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f86a71b6262ee46be314c5662c49a8230a705df05db747e5feea3463ad51112)
+            type_hints = cached_type_hints(_typecheckingstub__5f86a71b6262ee46be314c5662c49a8230a705df05db747e5feea3463ad51112)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProtectionGroup", [resource]))
 
@@ -1235,18 +1231,18 @@ class CfnProtectionGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__159ea1dc7d0cd46fa6d9205db1072a404701a67fb319e6210be694331e4ad7e0)
+            type_hints = cached_type_hints(_typecheckingstub__159ea1dc7d0cd46fa6d9205db1072a404701a67fb319e6210be694331e4ad7e0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProtectionGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76b88e310cde3207aac88376ade59343d5e539487019cd87c212616c6a70148e)
+            type_hints = cached_type_hints(_typecheckingstub__76b88e310cde3207aac88376ade59343d5e539487019cd87c212616c6a70148e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1259,7 +1255,7 @@ class CfnProtectionGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db6feff847b2fccbd8fa083c92622d53c9bbea5c28c87fd70765fb2916691df0)
+            type_hints = cached_type_hints(_typecheckingstub__db6feff847b2fccbd8fa083c92622d53c9bbea5c28c87fd70765fb2916691df0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1280,9 +1276,9 @@ class CfnProtectionGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1296,9 +1292,9 @@ class CfnProtectionGroup(
 
     @builtins.property
     @jsii.member(jsii_name="protectionGroupRef")
-    def protection_group_ref(self) -> "_ProtectionGroupReference_079db2ad":
+    def protection_group_ref(self) -> "_aws_shield_acd5fca7.ProtectionGroupReference":
         '''A reference to a ProtectionGroup resource.'''
-        return typing.cast("_ProtectionGroupReference_079db2ad", jsii.get(self, "protectionGroupRef"))
+        return typing.cast("_aws_shield_acd5fca7.ProtectionGroupReference", jsii.get(self, "protectionGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="aggregation")
@@ -1309,7 +1305,7 @@ class CfnProtectionGroup(
     @aggregation.setter
     def aggregation(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ab253e64e58318d6cd6e12bbf34c34aa957e343239b65290d697b1c872f243d)
+            type_hints = cached_type_hints(_typecheckingstub__5ab253e64e58318d6cd6e12bbf34c34aa957e343239b65290d697b1c872f243d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aggregation", value) # pyright: ignore[reportArgumentType]
 
@@ -1322,7 +1318,7 @@ class CfnProtectionGroup(
     @pattern.setter
     def pattern(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd66def3c643e8068586fab8310be7a0bde4339a08f8f4c532ec845fe6c0181b)
+            type_hints = cached_type_hints(_typecheckingstub__dd66def3c643e8068586fab8310be7a0bde4339a08f8f4c532ec845fe6c0181b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pattern", value) # pyright: ignore[reportArgumentType]
 
@@ -1335,7 +1331,7 @@ class CfnProtectionGroup(
     @protection_group_id.setter
     def protection_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__843e37c61fb3edb2d8ae7c8a0c0a7ecfebcef61fe1f6b6bb7543d2d47a7b82c9)
+            type_hints = cached_type_hints(_typecheckingstub__843e37c61fb3edb2d8ae7c8a0c0a7ecfebcef61fe1f6b6bb7543d2d47a7b82c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protectionGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -1348,7 +1344,7 @@ class CfnProtectionGroup(
     @members.setter
     def members(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c886ab822198804e227db899eaedff6f661d9a7e4eab802450270e17742b7115)
+            type_hints = cached_type_hints(_typecheckingstub__c886ab822198804e227db899eaedff6f661d9a7e4eab802450270e17742b7115)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "members", value) # pyright: ignore[reportArgumentType]
 
@@ -1361,20 +1357,23 @@ class CfnProtectionGroup(
     @resource_type.setter
     def resource_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e3d5c3c763d27892562b1771a153762a3d34df5cb316c0538590da13f506b36)
+            type_hints = cached_type_hints(_typecheckingstub__6e3d5c3c763d27892562b1771a153762a3d34df5cb316c0538590da13f506b36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70ea7c7493bdebcbd30035fe4d1550d14d6af25225d32845d78baca96ef59493)
+            type_hints = cached_type_hints(_typecheckingstub__70ea7c7493bdebcbd30035fe4d1550d14d6af25225d32845d78baca96ef59493)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1400,7 +1399,7 @@ class CfnProtectionGroupProps:
         protection_group_id: builtins.str,
         members: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProtectionGroup``.
 
@@ -1436,7 +1435,7 @@ class CfnProtectionGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d)
+            type_hints = cached_type_hints(_typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d)
             check_type(argname="argument aggregation", value=aggregation, expected_type=type_hints["aggregation"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             check_type(argname="argument protection_group_id", value=protection_group_id, expected_type=type_hints["protection_group_id"])
@@ -1516,7 +1515,7 @@ class CfnProtectionGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key:value pairs associated with an AWS resource.
 
         The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
@@ -1524,7 +1523,7 @@ class CfnProtectionGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1555,9 +1554,9 @@ class CfnProtectionProps:
         *,
         name: builtins.str,
         resource_arn: builtins.str,
-        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProtection``.
 
@@ -1600,7 +1599,7 @@ class CfnProtectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42)
+            type_hints = cached_type_hints(_typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument application_layer_automatic_response_configuration", value=application_layer_automatic_response_configuration, expected_type=type_hints["application_layer_automatic_response_configuration"])
@@ -1644,7 +1643,7 @@ class CfnProtectionProps:
     @builtins.property
     def application_layer_automatic_response_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
         '''The automatic application layer DDoS mitigation settings for the protection.
 
         This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks.
@@ -1654,7 +1653,7 @@ class CfnProtectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-applicationlayerautomaticresponseconfiguration
         '''
         result = self._values.get("application_layer_automatic_response_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], result)
 
     @builtins.property
     def health_check_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1672,7 +1671,7 @@ class CfnProtectionProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key:value pairs associated with an AWS resource.
 
         The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
@@ -1680,7 +1679,7 @@ class CfnProtectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1724,7 +1723,7 @@ def _typecheckingstub__742ae11bcc805fa7331a2c317a19f796960eebe60ab95388ef2ea50f5
     pass
 
 def _typecheckingstub__1852e8b6dd2c25fa06e5e566839fd5a1f6a276b8b39e838b2b89482ea513bd65(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1759,7 +1758,7 @@ def _typecheckingstub__75179b0b2a7390cfe8ff254cdce98b24f9e580040dddc66ad43b122c2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    emergency_contact_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
     proactive_engagement_status: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1772,7 +1771,7 @@ def _typecheckingstub__54c9b5695a230a67efbfc6dd5e271a2105eb50c95d2990f40fdf6ef7a
     pass
 
 def _typecheckingstub__d5a960f62ca304b7ebcf5e14298d60f742a16d5dbaf6f97f912470ede285d11e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1784,7 +1783,7 @@ def _typecheckingstub__99229a0794c4f40e520680e633fa758c86f0b7d6e14e7081dd03b9a42
     pass
 
 def _typecheckingstub__124fcf35e2a271c8af4d75b0cf5014b8ad1239720905927de40e52915ba3e15c(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProactiveEngagement.EmergencyContactProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProactiveEngagement.EmergencyContactProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1806,7 +1805,7 @@ def _typecheckingstub__943f9798df53d53e30978210d183db122bb3f1df5ce07ae3b7aaa70f1
 
 def _typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684(
     *,
-    emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    emergency_contact_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
     proactive_engagement_status: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1818,15 +1817,15 @@ def _typecheckingstub__c25ea3f87ade4afdbc73b2ca70b15ee669920a1fb5f0ed5803cfd112c
     *,
     name: builtins.str,
     resource_arn: builtins.str,
-    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c18d1079cd866e8ae4d83cd9f97b9ea534cb1156d4553e06c07a3c60a6468da8(
-    resource: _IProtectionRef_fb08d716,
+    resource: _aws_shield_acd5fca7.IProtectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1838,7 +1837,7 @@ def _typecheckingstub__1d77af6853c5414617d593712b27b09f1323f8f362c74a791ddebdfc6
     pass
 
 def _typecheckingstub__c6d6fd37913379ec3a2749bbbf52fd1927d9c61ec30884700bdad09f41bd423a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1862,7 +1861,7 @@ def _typecheckingstub__c90c79a0e936546060dcc8c586dd2be6cd6ff32840ad1e49333ef2886
     pass
 
 def _typecheckingstub__145ac68c42ad419925aa32644eea217eb08e6ce73993b51c7af4167aab4e13de(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1874,7 +1873,7 @@ def _typecheckingstub__d98b040afae8b4f4d573af557d97a93bdf3dde17bbb8d705e4c6c0d0a
     pass
 
 def _typecheckingstub__4cd697bbebfdef8296c6fa9e920e70bb9a5ed569b251c351c36b4e3edbdd61e0(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1889,7 +1888,7 @@ def _typecheckingstub__10ad3bad839bf7f73612fddf37ab7b4b54806b3d7c6601e67b6e35526
 
 def _typecheckingstub__4bb6af4792edfc92c1e9a35d69e7e3b4dea97cee90b65597ebf1f9e0777df0e2(
     *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    action: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProtection.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
     status: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1904,13 +1903,13 @@ def _typecheckingstub__81da6ee581209a252a2406d5601c15a1be321e07fcf0aa646c27538a6
     protection_group_id: builtins.str,
     members: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5f86a71b6262ee46be314c5662c49a8230a705df05db747e5feea3463ad51112(
-    resource: _IProtectionGroupRef_d3e72ac4,
+    resource: _aws_shield_acd5fca7.IProtectionGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1922,7 +1921,7 @@ def _typecheckingstub__159ea1dc7d0cd46fa6d9205db1072a404701a67fb319e6210be694331
     pass
 
 def _typecheckingstub__76b88e310cde3207aac88376ade59343d5e539487019cd87c212616c6a70148e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1964,7 +1963,7 @@ def _typecheckingstub__6e3d5c3c763d27892562b1771a153762a3d34df5cb316c0538590da13
     pass
 
 def _typecheckingstub__70ea7c7493bdebcbd30035fe4d1550d14d6af25225d32845d78baca96ef59493(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1976,7 +1975,7 @@ def _typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2de
     protection_group_id: builtins.str,
     members: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1985,9 +1984,9 @@ def _typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b8
     *,
     name: builtins.str,
     resource_arn: builtins.str,
-    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

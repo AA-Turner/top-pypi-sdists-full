@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_bcmpricingcalculator import (
-    BillScenarioReference as _BillScenarioReference_5ed85b93,
-    IBillScenarioRef as _IBillScenarioRef_cb372a73,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_bcmpricingcalculator as _aws_bcmpricingcalculator_e6bc1cfa
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_bcmpricingcalculator_e6bc1cfa = _LazyImport("aws_cdk.interfaces.aws_bcmpricingcalculator")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IBillScenarioRef_cb372a73, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bcmpricingcalculator_e6bc1cfa.IBillScenarioRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBillScenario(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bcmpricingcalculator.CfnBillScenario",
 ):
@@ -123,7 +117,7 @@ class CfnBillScenario(
         expires_at: typing.Optional[builtins.str] = None,
         group_sharing_preference: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BcmPricingCalculator::BillScenario``.
 
@@ -136,7 +130,7 @@ class CfnBillScenario(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a715e57ee3488b858266784f2bf4dd323fc5058e2331b29290293c29b387383)
+            type_hints = cached_type_hints(_typecheckingstub__3a715e57ee3488b858266784f2bf4dd323fc5058e2331b29290293c29b387383)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBillScenarioProps(
@@ -153,13 +147,13 @@ class CfnBillScenario(
     @builtins.classmethod
     def arn_for_bill_scenario(
         cls,
-        resource: "_IBillScenarioRef_cb372a73",
+        resource: "_aws_bcmpricingcalculator_e6bc1cfa.IBillScenarioRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2732129e44a99d55050dfbed34a9f38e1eb4fa9a62b314e2f559a8d67f60095d)
+            type_hints = cached_type_hints(_typecheckingstub__2732129e44a99d55050dfbed34a9f38e1eb4fa9a62b314e2f559a8d67f60095d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBillScenario", [resource]))
 
@@ -171,18 +165,18 @@ class CfnBillScenario(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__249f1dae497e55e121a7a7718aaefbbc48b8dd80550ff13614e9411e9b87127b)
+            type_hints = cached_type_hints(_typecheckingstub__249f1dae497e55e121a7a7718aaefbbc48b8dd80550ff13614e9411e9b87127b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBillScenario", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7e1511f4ce71d044dcc2550cd3c14c42f2a6c0bc058d55f1257d19ae7298f6d)
+            type_hints = cached_type_hints(_typecheckingstub__a7e1511f4ce71d044dcc2550cd3c14c42f2a6c0bc058d55f1257d19ae7298f6d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -195,7 +189,7 @@ class CfnBillScenario(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96a9d63a44f0c8c0f8dd784809900509009bca4bb49bd1e54160652d0866882d)
+            type_hints = cached_type_hints(_typecheckingstub__96a9d63a44f0c8c0f8dd784809900509009bca4bb49bd1e54160652d0866882d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -216,11 +210,11 @@ class CfnBillScenario(
 
     @builtins.property
     @jsii.member(jsii_name="attrBillInterval")
-    def attr_bill_interval(self) -> "_IResolvable_da3f097b":
+    def attr_bill_interval(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: BillInterval
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrBillInterval"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrBillInterval"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -259,15 +253,17 @@ class CfnBillScenario(
 
     @builtins.property
     @jsii.member(jsii_name="billScenarioRef")
-    def bill_scenario_ref(self) -> "_BillScenarioReference_5ed85b93":
+    def bill_scenario_ref(
+        self,
+    ) -> "_aws_bcmpricingcalculator_e6bc1cfa.BillScenarioReference":
         '''A reference to a BillScenario resource.'''
-        return typing.cast("_BillScenarioReference_5ed85b93", jsii.get(self, "billScenarioRef"))
+        return typing.cast("_aws_bcmpricingcalculator_e6bc1cfa.BillScenarioReference", jsii.get(self, "billScenarioRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -293,7 +289,7 @@ class CfnBillScenario(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bf3540920aef609fd784758cc78a57071379f8e33487aba585b73f53fd7d325)
+            type_hints = cached_type_hints(_typecheckingstub__7bf3540920aef609fd784758cc78a57071379f8e33487aba585b73f53fd7d325)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "costCategoryGroupSharingPreferenceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -306,7 +302,7 @@ class CfnBillScenario(
     @expires_at.setter
     def expires_at(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dff93d6d267606ad02a704874ff370ba50deb5b4ab342cc600e1160dd83420a9)
+            type_hints = cached_type_hints(_typecheckingstub__dff93d6d267606ad02a704874ff370ba50deb5b4ab342cc600e1160dd83420a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
 
@@ -318,7 +314,7 @@ class CfnBillScenario(
     @group_sharing_preference.setter
     def group_sharing_preference(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc81d5e2e2d17a621eaf96acee8bc5fbd376e291918203d39dcaecb8087bec15)
+            type_hints = cached_type_hints(_typecheckingstub__bc81d5e2e2d17a621eaf96acee8bc5fbd376e291918203d39dcaecb8087bec15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupSharingPreference", value) # pyright: ignore[reportArgumentType]
 
@@ -331,20 +327,23 @@ class CfnBillScenario(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4d2e14c1d683567ef229b10c3a4911341522e85bf7bee462d88696628fcc799)
+            type_hints = cached_type_hints(_typecheckingstub__e4d2e14c1d683567ef229b10c3a4911341522e85bf7bee462d88696628fcc799)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de6aaaf59fe930cc42db783bf03cc917082dc87230a98ef306fb78a8d02503d4)
+            type_hints = cached_type_hints(_typecheckingstub__de6aaaf59fe930cc42db783bf03cc917082dc87230a98ef306fb78a8d02503d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -379,7 +378,7 @@ class CfnBillScenario(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7e8f9d1edf439beb0c409540f07e32ff1d804605774b081953779fee271dd9cc)
+                type_hints = cached_type_hints(_typecheckingstub__7e8f9d1edf439beb0c409540f07e32ff1d804605774b081953779fee271dd9cc)
                 check_type(argname="argument end", value=end, expected_type=type_hints["end"])
                 check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -435,7 +434,7 @@ class CfnBillScenarioProps:
         expires_at: typing.Optional[builtins.str] = None,
         group_sharing_preference: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBillScenario``.
 
@@ -467,7 +466,7 @@ class CfnBillScenarioProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b426afea34841e5ec59e769c91a06d18ba9dfe38ebfb6971ce30a57c28977756)
+            type_hints = cached_type_hints(_typecheckingstub__b426afea34841e5ec59e769c91a06d18ba9dfe38ebfb6971ce30a57c28977756)
             check_type(argname="argument cost_category_group_sharing_preference_arn", value=cost_category_group_sharing_preference_arn, expected_type=type_hints["cost_category_group_sharing_preference_arn"])
             check_type(argname="argument expires_at", value=expires_at, expected_type=type_hints["expires_at"])
             check_type(argname="argument group_sharing_preference", value=group_sharing_preference, expected_type=type_hints["group_sharing_preference"])
@@ -523,13 +522,13 @@ class CfnBillScenarioProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billscenario.html#cfn-bcmpricingcalculator-billscenario-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -558,13 +557,13 @@ def _typecheckingstub__3a715e57ee3488b858266784f2bf4dd323fc5058e2331b29290293c29
     expires_at: typing.Optional[builtins.str] = None,
     group_sharing_preference: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2732129e44a99d55050dfbed34a9f38e1eb4fa9a62b314e2f559a8d67f60095d(
-    resource: _IBillScenarioRef_cb372a73,
+    resource: _aws_bcmpricingcalculator_e6bc1cfa.IBillScenarioRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -576,7 +575,7 @@ def _typecheckingstub__249f1dae497e55e121a7a7718aaefbbc48b8dd80550ff13614e9411e9
     pass
 
 def _typecheckingstub__a7e1511f4ce71d044dcc2550cd3c14c42f2a6c0bc058d55f1257d19ae7298f6d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -612,7 +611,7 @@ def _typecheckingstub__e4d2e14c1d683567ef229b10c3a4911341522e85bf7bee462d8869662
     pass
 
 def _typecheckingstub__de6aaaf59fe930cc42db783bf03cc917082dc87230a98ef306fb78a8d02503d4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -631,7 +630,7 @@ def _typecheckingstub__b426afea34841e5ec59e769c91a06d18ba9dfe38ebfb6971ce30a57c2
     expires_at: typing.Optional[builtins.str] = None,
     group_sharing_preference: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

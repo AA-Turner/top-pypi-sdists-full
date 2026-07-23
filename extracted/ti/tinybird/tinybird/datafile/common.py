@@ -2091,6 +2091,7 @@ def parse(
             "sql": sql("sql"),
             "version": version,
             "deployment_method": assign_var("deployment_method", allowed_values={"alter"}),
+            "export_service": export_service,  # Deprecated
             "export_connection_name": assign_var("export_connection_name"),
             "export_schedule": assign_var("export_schedule"),
             "export_bucket_uri": assign_var("export_bucket_uri"),

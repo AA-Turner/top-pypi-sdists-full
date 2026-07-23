@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class AnalysisTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82262301cdf0bbec4ee6c64d3d1c4636580c3f4855c65bb4aa4549915937fa46)
+            type_hints = cached_type_hints(_typecheckingstub__82262301cdf0bbec4ee6c64d3d1c4636580c3f4855c65bb4aa4549915937fa46)
             check_type(argname="argument analysis_template_arn", value=analysis_template_arn, expected_type=type_hints["analysis_template_arn"])
             check_type(argname="argument analysis_template_identifier", value=analysis_template_identifier, expected_type=type_hints["analysis_template_identifier"])
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
@@ -149,7 +153,7 @@ class CollaborationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c1e204d44c90efcfa75ee975debd1fc2527ded04aae94fe16212aed2b830156)
+            type_hints = cached_type_hints(_typecheckingstub__9c1e204d44c90efcfa75ee975debd1fc2527ded04aae94fe16212aed2b830156)
             check_type(argname="argument collaboration_arn", value=collaboration_arn, expected_type=type_hints["collaboration_arn"])
             check_type(argname="argument collaboration_identifier", value=collaboration_identifier, expected_type=type_hints["collaboration_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -221,7 +225,7 @@ class ConfiguredTableAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb6b5f3976ac912f7e0044ebf055c0bf7fc4280c37182d2f2e107ea44653b3b)
+            type_hints = cached_type_hints(_typecheckingstub__ecb6b5f3976ac912f7e0044ebf055c0bf7fc4280c37182d2f2e107ea44653b3b)
             check_type(argname="argument configured_table_association_arn", value=configured_table_association_arn, expected_type=type_hints["configured_table_association_arn"])
             check_type(argname="argument configured_table_association_identifier", value=configured_table_association_identifier, expected_type=type_hints["configured_table_association_identifier"])
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
@@ -298,7 +302,7 @@ class ConfiguredTableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb940a6e391d655e24371337fb5f835fac23d7409de80e5ada08fbca1ae31f2)
+            type_hints = cached_type_hints(_typecheckingstub__2eb940a6e391d655e24371337fb5f835fac23d7409de80e5ada08fbca1ae31f2)
             check_type(argname="argument configured_table_arn", value=configured_table_arn, expected_type=type_hints["configured_table_arn"])
             check_type(argname="argument configured_table_identifier", value=configured_table_identifier, expected_type=type_hints["configured_table_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -335,7 +339,7 @@ class ConfiguredTableReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IAnalysisTemplateRef")
 class IAnalysisTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnalysisTemplate.
@@ -355,7 +359,7 @@ class IAnalysisTemplateRef(
 
 class _IAnalysisTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnalysisTemplate.
 
@@ -380,7 +384,7 @@ typing.cast(typing.Any, IAnalysisTemplateRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.ICollaborationRef")
 class ICollaborationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Collaboration.
@@ -400,7 +404,7 @@ class ICollaborationRef(
 
 class _ICollaborationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Collaboration.
 
@@ -427,7 +431,7 @@ typing.cast(typing.Any, ICollaborationRef).__jsii_proxy_class__ = lambda : _ICol
 )
 class IConfiguredTableAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredTableAssociation.
@@ -447,7 +451,7 @@ class IConfiguredTableAssociationRef(
 
 class _IConfiguredTableAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredTableAssociation.
 
@@ -472,7 +476,7 @@ typing.cast(typing.Any, IConfiguredTableAssociationRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IConfiguredTableRef")
 class IConfiguredTableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredTable.
@@ -492,7 +496,7 @@ class IConfiguredTableRef(
 
 class _IConfiguredTableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredTable.
 
@@ -517,7 +521,7 @@ typing.cast(typing.Any, IConfiguredTableRef).__jsii_proxy_class__ = lambda : _IC
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IIdMappingTableRef")
 class IIdMappingTableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdMappingTable.
@@ -537,7 +541,7 @@ class IIdMappingTableRef(
 
 class _IIdMappingTableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdMappingTable.
 
@@ -564,7 +568,7 @@ typing.cast(typing.Any, IIdMappingTableRef).__jsii_proxy_class__ = lambda : _IId
 )
 class IIdNamespaceAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdNamespaceAssociation.
@@ -584,7 +588,7 @@ class IIdNamespaceAssociationRef(
 
 class _IIdNamespaceAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdNamespaceAssociation.
 
@@ -609,7 +613,7 @@ typing.cast(typing.Any, IIdNamespaceAssociationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IMembershipRef")
 class IMembershipRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Membership.
@@ -629,7 +633,7 @@ class IMembershipRef(
 
 class _IMembershipRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Membership.
 
@@ -656,7 +660,7 @@ typing.cast(typing.Any, IMembershipRef).__jsii_proxy_class__ = lambda : _IMember
 )
 class IPrivacyBudgetTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivacyBudgetTemplate.
@@ -676,7 +680,7 @@ class IPrivacyBudgetTemplateRef(
 
 class _IPrivacyBudgetTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivacyBudgetTemplate.
 
@@ -736,7 +740,7 @@ class IdMappingTableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2c1f6ada073baa9d8e9b0d83eb33c662ccac937bc72755fe07773e7c3cfd218)
+            type_hints = cached_type_hints(_typecheckingstub__e2c1f6ada073baa9d8e9b0d83eb33c662ccac937bc72755fe07773e7c3cfd218)
             check_type(argname="argument id_mapping_table_arn", value=id_mapping_table_arn, expected_type=type_hints["id_mapping_table_arn"])
             check_type(argname="argument id_mapping_table_identifier", value=id_mapping_table_identifier, expected_type=type_hints["id_mapping_table_identifier"])
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
@@ -817,7 +821,7 @@ class IdNamespaceAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e5c51d77a9254a26baaaef48d6f7fef6cb7bb514ba0928032c6f95ebdbc7859)
+            type_hints = cached_type_hints(_typecheckingstub__4e5c51d77a9254a26baaaef48d6f7fef6cb7bb514ba0928032c6f95ebdbc7859)
             check_type(argname="argument id_namespace_association_arn", value=id_namespace_association_arn, expected_type=type_hints["id_namespace_association_arn"])
             check_type(argname="argument id_namespace_association_identifier", value=id_namespace_association_identifier, expected_type=type_hints["id_namespace_association_identifier"])
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
@@ -894,7 +898,7 @@ class MembershipReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5a8a067b5206625d9650c35900d7f89d583beb5413a3ec0462e084a2ebdc9b)
+            type_hints = cached_type_hints(_typecheckingstub__9d5a8a067b5206625d9650c35900d7f89d583beb5413a3ec0462e084a2ebdc9b)
             check_type(argname="argument membership_arn", value=membership_arn, expected_type=type_hints["membership_arn"])
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -966,7 +970,7 @@ class PrivacyBudgetTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75fffac054bd44cf4a1c25f9dbb25317dfa83275ae8e640fdbc8383809bcf89a)
+            type_hints = cached_type_hints(_typecheckingstub__75fffac054bd44cf4a1c25f9dbb25317dfa83275ae8e640fdbc8383809bcf89a)
             check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
             check_type(argname="argument privacy_budget_template_arn", value=privacy_budget_template_arn, expected_type=type_hints["privacy_budget_template_arn"])
             check_type(argname="argument privacy_budget_template_identifier", value=privacy_budget_template_identifier, expected_type=type_hints["privacy_budget_template_identifier"])

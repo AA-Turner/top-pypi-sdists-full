@@ -164,15 +164,6 @@ def _put(
     return _request(credentials, "PUT", path, json_body=json_body)
 
 
-def _post(
-    credentials: ZendeskCredentials,
-    path: str,
-    json_body: dict[str, Any],
-) -> dict[str, Any]:
-    """Issue an authenticated POST against the Zendesk API and return JSON."""
-    return _request(credentials, "POST", path, json_body=json_body)
-
-
 def _clean_tags(tags: list[str]) -> list[str]:
     """Return the trimmed, non-empty tags from `tags`, preserving order."""
     return [tag.strip() for tag in tags if tag.strip()]
@@ -229,31 +220,33 @@ def get_ticket_comments(
 
 def add_internal_note(
     ticket_id: int | str,
-    body: str,
+    html_body: str,
     credentials: ZendeskCredentials | None = None,
-    *,
-    add_tags: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Add an internal (private) note to a Zendesk ticket.
+    """Add an internal (private) HTML note to a Zendesk ticket.
 
     Posts a non-public comment (`public: false`) via `PUT /tickets/{id}.json`,
-    so the note is visible only to agents and not to the ticket requester.
-    When `add_tags` is provided, those tags are appended via the ticket
-    update's `additional_tags`, which adds tags without clobbering existing
-    ones. Returns the raw Zendesk response (which includes the updated
-    `ticket` and the `audit` describing the created comment event).
+    so the note is visible only to agents and not to the ticket requester. The
+    note body is sent as `html_body`, so callers can use HTML markup (`<br>`,
+    `<strong>`, `<a href>`, ...) and Zendesk auto-derives the plain-text
+    fallback. The update carries only the comment, so the ticket's tags and
+    other fields are left untouched. Returns the raw Zendesk response (which
+    includes the updated `ticket` and the `audit` describing the created
+    comment event).
+
+    Tags are intentionally not handled here: callers that also need to tag the
+    ticket should call `add_ticket_tags` separately.
 
     Raises:
         ZendeskAPIError: If credentials are missing, the body is empty, or the
             API call fails.
     """
-    if not body.strip():
+    if not html_body.strip():
         raise ZendeskAPIError("Internal note body must not be empty.")
     credentials = credentials or resolve_zendesk_credentials()
-    ticket_payload: dict[str, Any] = {"comment": {"body": body, "public": False}}
-    cleaned_tags = _clean_tags(add_tags) if add_tags else []
-    if cleaned_tags:
-        ticket_payload["additional_tags"] = cleaned_tags
+    ticket_payload: dict[str, Any] = {
+        "comment": {"html_body": html_body, "public": False}
+    }
     return _put(credentials, f"/tickets/{ticket_id}.json", {"ticket": ticket_payload})
 
 
@@ -262,11 +255,19 @@ def add_ticket_tags(
     tags: list[str],
     credentials: ZendeskCredentials | None = None,
 ) -> list[str]:
-    """Append tags to a Zendesk ticket without clobbering existing ones.
+    """Add tags to a Zendesk ticket without dropping existing ones.
 
-    Uses the additive tags endpoint (`POST /tickets/{id}/tags.json`), so the
-    supplied tags are merged with the ticket's current tags. Returns the
-    ticket's full tag list after the update.
+    Reads the ticket's current tags, merges in the new tags (deduped,
+    order-preserving), and writes the full union back via
+    `PUT /tickets/{id}.json`. Returns the ticket's full tag list after the
+    update.
+
+    This deliberately does **not** use the `POST /tickets/{id}/tags.json`
+    "add tags" endpoint. In accounts that back tags with "tagger" (drop-down)
+    custom fields, that endpoint reconciles the field/tag mapping and can drop
+    pre-existing tags and clear their tagger custom fields. Writing the full
+    tag set via a ticket update keeps the tagger fields in sync, so existing
+    classification tags (priority, severity, support plan, ...) are preserved.
 
     Raises:
         ZendeskAPIError: If credentials are missing, no non-empty tag is
@@ -276,12 +277,26 @@ def add_ticket_tags(
     if not cleaned_tags:
         raise ZendeskAPIError("At least one non-empty tag is required.")
     credentials = credentials or resolve_zendesk_credentials()
-    data = _post(
+
+    existing_ticket = get_ticket(ticket_id, credentials)
+    merged_tags = [
+        tag for tag in existing_ticket.get("tags", []) or [] if isinstance(tag, str)
+    ]
+    for tag in cleaned_tags:
+        if tag not in merged_tags:
+            merged_tags.append(tag)
+
+    data = _put(
         credentials,
-        f"/tickets/{ticket_id}/tags.json",
-        {"tags": cleaned_tags},
+        f"/tickets/{ticket_id}.json",
+        {"ticket": {"tags": merged_tags}},
     )
-    result_tags = data.get("tags")
+    updated_ticket = data.get("ticket")
+    if not isinstance(updated_ticket, dict):
+        raise ZendeskAPIError(
+            f"Zendesk ticket {ticket_id} update response missing a `ticket` object."
+        )
+    result_tags = updated_ticket.get("tags")
     if not isinstance(result_tags, list):
         raise ZendeskAPIError(
             f"Zendesk ticket {ticket_id} tags response missing a `tags` list."

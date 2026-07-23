@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,45 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_cur import (
-    IReportDefinitionRef as _IReportDefinitionRef_76887e50,
-    ReportDefinitionReference as _ReportDefinitionReference_735c508b,
-)
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_cur as _aws_cur_01f4005c
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cur_01f4005c = _LazyImport("aws_cdk.interfaces.aws_cur")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IReportDefinitionRef_76887e50, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cur_01f4005c.IReportDefinitionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnReportDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cur.CfnReportDefinition",
 ):
@@ -124,17 +119,17 @@ class CfnReportDefinition(
         *,
         compression: builtins.str,
         format: builtins.str,
-        refresh_closed_reports: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        refresh_closed_reports: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         report_name: builtins.str,
         report_versioning: builtins.str,
-        s3_bucket: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
+        s3_bucket: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
         s3_prefix: builtins.str,
         s3_region: builtins.str,
         time_unit: builtins.str,
         additional_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
         additional_schema_elements: typing.Optional[typing.Sequence[builtins.str]] = None,
         billing_view_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CUR::ReportDefinition``.
 
@@ -155,7 +150,7 @@ class CfnReportDefinition(
         :param tags: The tags to be assigned to the report definition resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa6a90098f39859b607fa8b8453bf94b62703cdf41682ff1f90c565abdedbb57)
+            type_hints = cached_type_hints(_typecheckingstub__fa6a90098f39859b607fa8b8453bf94b62703cdf41682ff1f90c565abdedbb57)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReportDefinitionProps(
@@ -180,13 +175,13 @@ class CfnReportDefinition(
     @builtins.classmethod
     def arn_for_report_definition(
         cls,
-        resource: "_IReportDefinitionRef_76887e50",
+        resource: "_aws_cur_01f4005c.IReportDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c114309be3f4c1f5aaeaf747c167afc88d92aa81df7f70f92b7acf0d7ca659)
+            type_hints = cached_type_hints(_typecheckingstub__99c114309be3f4c1f5aaeaf747c167afc88d92aa81df7f70f92b7acf0d7ca659)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReportDefinition", [resource]))
 
@@ -197,7 +192,7 @@ class CfnReportDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         report_name: builtins.str,
-    ) -> "_IReportDefinitionRef_76887e50":
+    ) -> "_aws_cur_01f4005c.IReportDefinitionRef":
         '''Creates a new IReportDefinitionRef from a reportName.
 
         :param scope: -
@@ -205,11 +200,11 @@ class CfnReportDefinition(
         :param report_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02865af0c29dc81b4c5c9b0407af3a8814fe9de8c986762beeaf1cfb76e3d846)
+            type_hints = cached_type_hints(_typecheckingstub__02865af0c29dc81b4c5c9b0407af3a8814fe9de8c986762beeaf1cfb76e3d846)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument report_name", value=report_name, expected_type=type_hints["report_name"])
-        return typing.cast("_IReportDefinitionRef_76887e50", jsii.sinvoke(cls, "fromReportName", [scope, id, report_name]))
+        return typing.cast("_aws_cur_01f4005c.IReportDefinitionRef", jsii.sinvoke(cls, "fromReportName", [scope, id, report_name]))
 
     @jsii.member(jsii_name="isCfnReportDefinition")
     @builtins.classmethod
@@ -219,18 +214,18 @@ class CfnReportDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__814606102e5c6b2c19b1852149c6259affaab2b834976042ee4162e04350ba98)
+            type_hints = cached_type_hints(_typecheckingstub__814606102e5c6b2c19b1852149c6259affaab2b834976042ee4162e04350ba98)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReportDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e753195458a5ffa83a48c74959905c1f01ecb8fa907ac7bcbac64b0a6d68dd47)
+            type_hints = cached_type_hints(_typecheckingstub__e753195458a5ffa83a48c74959905c1f01ecb8fa907ac7bcbac64b0a6d68dd47)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -243,7 +238,7 @@ class CfnReportDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a34de71362513b65d671ed5a8cc4f1256846af64b8723539bee23178d4a74e)
+            type_hints = cached_type_hints(_typecheckingstub__49a34de71362513b65d671ed5a8cc4f1256846af64b8723539bee23178d4a74e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -255,9 +250,9 @@ class CfnReportDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -271,9 +266,9 @@ class CfnReportDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="reportDefinitionRef")
-    def report_definition_ref(self) -> "_ReportDefinitionReference_735c508b":
+    def report_definition_ref(self) -> "_aws_cur_01f4005c.ReportDefinitionReference":
         '''A reference to a ReportDefinition resource.'''
-        return typing.cast("_ReportDefinitionReference_735c508b", jsii.get(self, "reportDefinitionRef"))
+        return typing.cast("_aws_cur_01f4005c.ReportDefinitionReference", jsii.get(self, "reportDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="compression")
@@ -284,7 +279,7 @@ class CfnReportDefinition(
     @compression.setter
     def compression(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cafa41fab07d965c2b4cd4f220b0815bee4bbbc73aeb0b1701ff27fe2221def)
+            type_hints = cached_type_hints(_typecheckingstub__2cafa41fab07d965c2b4cd4f220b0815bee4bbbc73aeb0b1701ff27fe2221def)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "compression", value) # pyright: ignore[reportArgumentType]
 
@@ -297,7 +292,7 @@ class CfnReportDefinition(
     @format.setter
     def format(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d7f82d91b0fb169b460470cde1ce29f66d5f2bcfe68c47c86ad3318c4aa6d6c)
+            type_hints = cached_type_hints(_typecheckingstub__2d7f82d91b0fb169b460470cde1ce29f66d5f2bcfe68c47c86ad3318c4aa6d6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
 
@@ -305,17 +300,17 @@ class CfnReportDefinition(
     @jsii.member(jsii_name="refreshClosedReports")
     def refresh_closed_reports(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether you want AWS to update your reports after they have been finalized if AWS detects charges related to previous months.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "refreshClosedReports"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "refreshClosedReports"))
 
     @refresh_closed_reports.setter
     def refresh_closed_reports(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ccec559f362c0e5cc75f65e0abbd93286b4e471ccf2c07bd050c10afc226d26)
+            type_hints = cached_type_hints(_typecheckingstub__7ccec559f362c0e5cc75f65e0abbd93286b4e471ccf2c07bd050c10afc226d26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "refreshClosedReports", value) # pyright: ignore[reportArgumentType]
 
@@ -328,7 +323,7 @@ class CfnReportDefinition(
     @report_name.setter
     def report_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f2e431f6887ff705738ea0e6e2eb792a7b45801bb7d4cc2ec2210dc8eaf8abc)
+            type_hints = cached_type_hints(_typecheckingstub__8f2e431f6887ff705738ea0e6e2eb792a7b45801bb7d4cc2ec2210dc8eaf8abc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportName", value) # pyright: ignore[reportArgumentType]
 
@@ -341,7 +336,7 @@ class CfnReportDefinition(
     @report_versioning.setter
     def report_versioning(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c89251c983f93a0e40bd215a47173541010324050a11e2311469e065ab0b17c)
+            type_hints = cached_type_hints(_typecheckingstub__2c89251c983f93a0e40bd215a47173541010324050a11e2311469e065ab0b17c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportVersioning", value) # pyright: ignore[reportArgumentType]
 
@@ -354,7 +349,7 @@ class CfnReportDefinition(
     @s3_bucket.setter
     def s3_bucket(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ef6cce4061a41668bba78905c8f1dc058df59d7f7070debb5af44a0e4296533)
+            type_hints = cached_type_hints(_typecheckingstub__0ef6cce4061a41668bba78905c8f1dc058df59d7f7070debb5af44a0e4296533)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3Bucket", value) # pyright: ignore[reportArgumentType]
 
@@ -367,7 +362,7 @@ class CfnReportDefinition(
     @s3_prefix.setter
     def s3_prefix(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b12b36c345387f3327726fae5967e371eb7c12a662df0a9f06d97b9b3f514acb)
+            type_hints = cached_type_hints(_typecheckingstub__b12b36c345387f3327726fae5967e371eb7c12a662df0a9f06d97b9b3f514acb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3Prefix", value) # pyright: ignore[reportArgumentType]
 
@@ -380,7 +375,7 @@ class CfnReportDefinition(
     @s3_region.setter
     def s3_region(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b68bd9a7c727e9f615699f7f7e4122093cb79d4f703c486f605c986ca0507a35)
+            type_hints = cached_type_hints(_typecheckingstub__b68bd9a7c727e9f615699f7f7e4122093cb79d4f703c486f605c986ca0507a35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3Region", value) # pyright: ignore[reportArgumentType]
 
@@ -393,7 +388,7 @@ class CfnReportDefinition(
     @time_unit.setter
     def time_unit(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d98ca474f2a8df98b310362b6786a2669ffd62a5759ae59af1c951a85ff8fd75)
+            type_hints = cached_type_hints(_typecheckingstub__d98ca474f2a8df98b310362b6786a2669ffd62a5759ae59af1c951a85ff8fd75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeUnit", value) # pyright: ignore[reportArgumentType]
 
@@ -409,7 +404,7 @@ class CfnReportDefinition(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8677929221d62b86e6210e7554bfbc901b8ce66550b2d1cad5fe6c465961299)
+            type_hints = cached_type_hints(_typecheckingstub__f8677929221d62b86e6210e7554bfbc901b8ce66550b2d1cad5fe6c465961299)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalArtifacts", value) # pyright: ignore[reportArgumentType]
 
@@ -425,7 +420,7 @@ class CfnReportDefinition(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d002f185c62fde709bf248b43cc6ed35a66954f07c4dd2bb5c26dd74334dc7e2)
+            type_hints = cached_type_hints(_typecheckingstub__d002f185c62fde709bf248b43cc6ed35a66954f07c4dd2bb5c26dd74334dc7e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalSchemaElements", value) # pyright: ignore[reportArgumentType]
 
@@ -438,20 +433,23 @@ class CfnReportDefinition(
     @billing_view_arn.setter
     def billing_view_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebad8351aece0a3ddcb05b9d4f522316d4c0fa1aeef4e8017b839b424f98ff7d)
+            type_hints = cached_type_hints(_typecheckingstub__ebad8351aece0a3ddcb05b9d4f522316d4c0fa1aeef4e8017b839b424f98ff7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "billingViewArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to be assigned to the report definition resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c3a6bd4b3d8e5bf2caff9ee149924611c25e8417d8ee48a520417fd900c1f71)
+            type_hints = cached_type_hints(_typecheckingstub__2c3a6bd4b3d8e5bf2caff9ee149924611c25e8417d8ee48a520417fd900c1f71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -481,17 +479,17 @@ class CfnReportDefinitionProps:
         *,
         compression: builtins.str,
         format: builtins.str,
-        refresh_closed_reports: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        refresh_closed_reports: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         report_name: builtins.str,
         report_versioning: builtins.str,
-        s3_bucket: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
+        s3_bucket: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
         s3_prefix: builtins.str,
         s3_region: builtins.str,
         time_unit: builtins.str,
         additional_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
         additional_schema_elements: typing.Optional[typing.Sequence[builtins.str]] = None,
         billing_view_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReportDefinition``.
 
@@ -541,7 +539,7 @@ class CfnReportDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc3d7babce4dfa37a62fc4d0d9b1b67c9fdccfaa09ca549a32d3aab0aee31ed)
+            type_hints = cached_type_hints(_typecheckingstub__8cc3d7babce4dfa37a62fc4d0d9b1b67c9fdccfaa09ca549a32d3aab0aee31ed)
             check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
             check_type(argname="argument refresh_closed_reports", value=refresh_closed_reports, expected_type=type_hints["refresh_closed_reports"])
@@ -598,7 +596,7 @@ class CfnReportDefinitionProps:
     @builtins.property
     def refresh_closed_reports(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether you want AWS to update your reports after they have been finalized if AWS detects charges related to previous months.
 
         These charges can include refunds, credits, or support fees.
@@ -607,7 +605,7 @@ class CfnReportDefinitionProps:
         '''
         result = self._values.get("refresh_closed_reports")
         assert result is not None, "Required property 'refresh_closed_reports' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def report_name(self) -> builtins.str:
@@ -632,14 +630,14 @@ class CfnReportDefinitionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def s3_bucket(self) -> typing.Union[builtins.str, "_IBucketRef_3debe44e"]:
+    def s3_bucket(self) -> typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]:
         '''The S3 bucket where Amazon Web Services delivers the report.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cur-reportdefinition.html#cfn-cur-reportdefinition-s3bucket
         '''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IBucketRef_3debe44e"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"], result)
 
     @builtins.property
     def s3_prefix(self) -> builtins.str:
@@ -703,13 +701,13 @@ class CfnReportDefinitionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to be assigned to the report definition resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cur-reportdefinition.html#cfn-cur-reportdefinition-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -736,23 +734,23 @@ def _typecheckingstub__fa6a90098f39859b607fa8b8453bf94b62703cdf41682ff1f90c565ab
     *,
     compression: builtins.str,
     format: builtins.str,
-    refresh_closed_reports: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    refresh_closed_reports: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     report_name: builtins.str,
     report_versioning: builtins.str,
-    s3_bucket: typing.Union[builtins.str, _IBucketRef_3debe44e],
+    s3_bucket: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
     s3_prefix: builtins.str,
     s3_region: builtins.str,
     time_unit: builtins.str,
     additional_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
     additional_schema_elements: typing.Optional[typing.Sequence[builtins.str]] = None,
     billing_view_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__99c114309be3f4c1f5aaeaf747c167afc88d92aa81df7f70f92b7acf0d7ca659(
-    resource: _IReportDefinitionRef_76887e50,
+    resource: _aws_cur_01f4005c.IReportDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -772,7 +770,7 @@ def _typecheckingstub__814606102e5c6b2c19b1852149c6259affaab2b834976042ee4162e04
     pass
 
 def _typecheckingstub__e753195458a5ffa83a48c74959905c1f01ecb8fa907ac7bcbac64b0a6d68dd47(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -796,7 +794,7 @@ def _typecheckingstub__2d7f82d91b0fb169b460470cde1ce29f66d5f2bcfe68c47c86ad3318c
     pass
 
 def _typecheckingstub__7ccec559f362c0e5cc75f65e0abbd93286b4e471ccf2c07bd050c10afc226d26(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -856,7 +854,7 @@ def _typecheckingstub__ebad8351aece0a3ddcb05b9d4f522316d4c0fa1aeef4e8017b839b424
     pass
 
 def _typecheckingstub__2c3a6bd4b3d8e5bf2caff9ee149924611c25e8417d8ee48a520417fd900c1f71(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -865,17 +863,17 @@ def _typecheckingstub__8cc3d7babce4dfa37a62fc4d0d9b1b67c9fdccfaa09ca549a32d3aab0
     *,
     compression: builtins.str,
     format: builtins.str,
-    refresh_closed_reports: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    refresh_closed_reports: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     report_name: builtins.str,
     report_versioning: builtins.str,
-    s3_bucket: typing.Union[builtins.str, _IBucketRef_3debe44e],
+    s3_bucket: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
     s3_prefix: builtins.str,
     s3_region: builtins.str,
     time_unit: builtins.str,
     additional_artifacts: typing.Optional[typing.Sequence[builtins.str]] = None,
     additional_schema_elements: typing.Optional[typing.Sequence[builtins.str]] = None,
     billing_view_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

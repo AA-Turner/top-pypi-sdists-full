@@ -146,7 +146,7 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
     };
 
     for planned in &plan.cmab_configs {
-        if gcir_time!("cmab.filtering", {
+        let should_filter = gcir_time!("cmab.filtering", {
             let is_filtered_by_experiment = options
                 .experiment_filter
                 .as_ref()
@@ -162,7 +162,8 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
                     &options.client_sdk_key,
                 )
             }
-        }) {
+        });
+        if should_filter {
             continue;
         }
 

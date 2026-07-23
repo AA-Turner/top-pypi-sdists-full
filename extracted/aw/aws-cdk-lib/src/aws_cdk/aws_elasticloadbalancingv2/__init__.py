@@ -1257,6 +1257,8 @@ elbv2.TrustStoreRevocation(self, "Revocation",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1270,83 +1272,47 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    ISubnet as _ISubnet_d57d1229,
-    IVpc as _IVpc_f30d5663,
-    IVpcEndpointServiceLoadBalancer as _IVpcEndpointServiceLoadBalancer_34cbc6e3,
-    Port as _Port_85922693,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_iam import IPrincipal as _IPrincipal_539bb2fd
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..interfaces import ResourceEnvironment as _ResourceEnvironment_603baf00
-from ..interfaces.aws_certificatemanager import (
-    ICertificateRef as _ICertificateRef_1878d79b
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-    IVPCRef as _IVPCRef_f02a11df,
-)
-from ..interfaces.aws_elasticloadbalancingv2 import (
-    IListenerCertificateRef as _IListenerCertificateRef_1cc0d9f2,
-    IListenerRef as _IListenerRef_a8ced6a8,
-    IListenerRuleRef as _IListenerRuleRef_fb4b79b4,
-    ILoadBalancerRef as _ILoadBalancerRef_13acd8f1,
-    ITargetGroupRef as _ITargetGroupRef_9ed19d5e,
-    ITrustStoreRef as _ITrustStoreRef_0fa03cbe,
-    ITrustStoreRevocationRef as _ITrustStoreRevocationRef_fb28f993,
-    ListenerCertificateReference as _ListenerCertificateReference_7dacacd6,
-    ListenerReference as _ListenerReference_ca663b4f,
-    ListenerRuleReference as _ListenerRuleReference_48b7eb1c,
-    LoadBalancerReference as _LoadBalancerReference_4bd5f891,
-    TargetGroupReference as _TargetGroupReference_43f51e8b,
-    TrustStoreReference as _TrustStoreReference_ad81b807,
-    TrustStoreRevocationReference as _TrustStoreRevocationReference_ccf0d08a,
-)
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1283aa87
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_elasticloadbalancingv2_1283aa87 = _LazyImport("aws_cdk.interfaces.aws_elasticloadbalancingv2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -1375,7 +1341,7 @@ class AddNetworkActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a332f2bb635bdad157b4838ea0d0bd5ec8f41789e6e6f6ce7d3375e5615402be)
+            type_hints = cached_type_hints(_typecheckingstub__a332f2bb635bdad157b4838ea0d0bd5ec8f41789e6e6f6ce7d3375e5615402be)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "action": action,
@@ -1419,7 +1385,7 @@ class AddNetworkTargetsProps:
         self,
         *,
         port: jsii.Number,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         protocol: typing.Optional["Protocol"] = None,
@@ -1467,7 +1433,7 @@ class AddNetworkTargetsProps:
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6126c786542cfa79aaf101362ecf7f682d4002ab17ff288f7a0477ec5c5a6154)
+            type_hints = cached_type_hints(_typecheckingstub__6126c786542cfa79aaf101362ecf7f682d4002ab17ff288f7a0477ec5c5a6154)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -1505,7 +1471,7 @@ class AddNetworkTargetsProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def deregistration_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deregistration_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time for Elastic Load Balancing to wait before deregistering a target.
 
         The range is 0-3600 seconds.
@@ -1513,7 +1479,7 @@ class AddNetworkTargetsProps:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("deregistration_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check(self) -> typing.Optional["HealthCheck"]:
@@ -1625,7 +1591,7 @@ class AddRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__687ef72e969f0f1a936fc9e858714430221c81eefec3d4d710eadd2f42a4822b)
+            type_hints = cached_type_hints(_typecheckingstub__687ef72e969f0f1a936fc9e858714430221c81eefec3d4d710eadd2f42a4822b)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1708,7 +1674,7 @@ class ApplicationListenerAttributes:
         self,
         *,
         listener_arn: builtins.str,
-        security_group: "_ISecurityGroup_acf8a799",
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
         default_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties to reference an existing listener.
@@ -1737,7 +1703,7 @@ class ApplicationListenerAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc330a62c006d97d5f39e1c1f50b76636362d99eb0653dd27f515aed5f4f96c3)
+            type_hints = cached_type_hints(_typecheckingstub__dc330a62c006d97d5f39e1c1f50b76636362d99eb0653dd27f515aed5f4f96c3)
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
             check_type(argname="argument default_port", value=default_port, expected_type=type_hints["default_port"])
@@ -1756,11 +1722,11 @@ class ApplicationListenerAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def security_group(self) -> "_ISecurityGroup_acf8a799":
+    def security_group(self) -> "_aws_ec2_09840e12.ISecurityGroup":
         '''Security group of the load balancer this listener is associated with.'''
         result = self._values.get("security_group")
         assert result is not None, "Required property 'security_group' is missing"
-        return typing.cast("_ISecurityGroup_acf8a799", result)
+        return typing.cast("_aws_ec2_09840e12.ISecurityGroup", result)
 
     @builtins.property
     def default_port(self) -> typing.Optional[jsii.Number]:
@@ -1812,7 +1778,7 @@ class ApplicationListenerCertificate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        listener: "_IListenerRef_a8ced6a8",
+        listener: "_aws_elasticloadbalancingv2_1283aa87.IListenerRef",
         certificates: typing.Optional[typing.Sequence["IListenerCertificate"]] = None,
     ) -> None:
         '''
@@ -1822,7 +1788,7 @@ class ApplicationListenerCertificate(
         :param certificates: Certificates to attach. Duplicates are not allowed. Default: - One of 'certificates' and 'certificateArns' is required.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52fe4faa0c2cb22f24850f57dea9971eb4dd93e8a67644c86be7afd0bcb922b3)
+            type_hints = cached_type_hints(_typecheckingstub__52fe4faa0c2cb22f24850f57dea9971eb4dd93e8a67644c86be7afd0bcb922b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationListenerCertificateProps(
@@ -1841,7 +1807,7 @@ class ApplicationListenerCertificateProps:
     def __init__(
         self,
         *,
-        listener: "_IListenerRef_a8ced6a8",
+        listener: "_aws_elasticloadbalancingv2_1283aa87.IListenerRef",
         certificates: typing.Optional[typing.Sequence["IListenerCertificate"]] = None,
     ) -> None:
         '''Properties for adding a set of certificates to a listener.
@@ -1869,7 +1835,7 @@ class ApplicationListenerCertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__863a0781e27e26254f4be396316d5d4f08d1ffa1d864f3923e50496d736017c9)
+            type_hints = cached_type_hints(_typecheckingstub__863a0781e27e26254f4be396316d5d4f08d1ffa1d864f3923e50496d736017c9)
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1879,11 +1845,11 @@ class ApplicationListenerCertificateProps:
             self._values["certificates"] = certificates
 
     @builtins.property
-    def listener(self) -> "_IListenerRef_a8ced6a8":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1283aa87.IListenerRef":
         '''The listener to attach the rule to.'''
         result = self._values.get("listener")
         assert result is not None, "Required property 'listener' is missing"
-        return typing.cast("_IListenerRef_a8ced6a8", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.IListenerRef", result)
 
     @builtins.property
     def certificates(self) -> typing.Optional[typing.List["IListenerCertificate"]]:
@@ -1969,7 +1935,7 @@ class ApplicationListenerRule(
         :param target_groups: Target groups to forward requests to. Only one of ``action``, ``fixedResponse``, ``redirectResponse`` or ``targetGroups`` can be specified. Implies a ``forward`` action. Default: - No target groups.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7164e1377be137ed99cf01c149f8eb88d60f7b8e9319e68406b6779eb5789dfe)
+            type_hints = cached_type_hints(_typecheckingstub__7164e1377be137ed99cf01c149f8eb88d60f7b8e9319e68406b6779eb5789dfe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationListenerRuleProps(
@@ -1989,7 +1955,7 @@ class ApplicationListenerRule(
         :param condition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__220f70dcac2f4e91a491d0bdb608090aed8acc0dcbfce0aa290fd40310edca51)
+            type_hints = cached_type_hints(_typecheckingstub__220f70dcac2f4e91a491d0bdb608090aed8acc0dcbfce0aa290fd40310edca51)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
         return typing.cast(None, jsii.invoke(self, "addCondition", [condition]))
 
@@ -2000,7 +1966,7 @@ class ApplicationListenerRule(
         :param action: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de7b44be3fb39a611b0099f2050449f86e1240d6aeef6b0b9ea334af7668a949)
+            type_hints = cached_type_hints(_typecheckingstub__de7b44be3fb39a611b0099f2050449f86e1240d6aeef6b0b9ea334af7668a949)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
         return typing.cast(None, jsii.invoke(self, "configureAction", [action]))
 
@@ -2032,7 +1998,7 @@ class ApplicationLoadBalancerAttributes:
         load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
         load_balancer_dns_name: typing.Optional[builtins.str] = None,
         security_group_allows_all_outbound: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Properties to reference an existing load balancer.
 
@@ -2066,7 +2032,7 @@ class ApplicationLoadBalancerAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc8cdbdc2216e5085f227a04f17ccbf88afdaa958f09e18005e6ffbce9f4aa65)
+            type_hints = cached_type_hints(_typecheckingstub__dc8cdbdc2216e5085f227a04f17ccbf88afdaa958f09e18005e6ffbce9f4aa65)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
             check_type(argname="argument load_balancer_canonical_hosted_zone_id", value=load_balancer_canonical_hosted_zone_id, expected_type=type_hints["load_balancer_canonical_hosted_zone_id"])
@@ -2130,7 +2096,7 @@ class ApplicationLoadBalancerAttributes:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in, if available.
 
         :default:
@@ -2139,7 +2105,7 @@ class ApplicationLoadBalancerAttributes:
         the VPC is not available.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2197,7 +2163,7 @@ class ApplicationLoadBalancerRedirectConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__389c66d35009e957816736a5ee22d68808147ebe13583bdc596c17f886ab3aec)
+            type_hints = cached_type_hints(_typecheckingstub__389c66d35009e957816736a5ee22d68808147ebe13583bdc596c17f886ab3aec)
             check_type(argname="argument open", value=open, expected_type=type_hints["open"])
             check_type(argname="argument source_port", value=source_port, expected_type=type_hints["source_port"])
             check_type(argname="argument source_protocol", value=source_protocol, expected_type=type_hints["source_protocol"])
@@ -2396,7 +2362,7 @@ class AuthenticateJwtOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff6babff0c027090ff5a26f1eb9810f2875dc35fe74cfdaaba8de0a03ea03d82)
+            type_hints = cached_type_hints(_typecheckingstub__ff6babff0c027090ff5a26f1eb9810f2875dc35fe74cfdaaba8de0a03ea03d82)
             check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
             check_type(argname="argument jwks_endpoint", value=jwks_endpoint, expected_type=type_hints["jwks_endpoint"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
@@ -2482,7 +2448,7 @@ class AuthenticateOidcOptions:
         *,
         authorization_endpoint: builtins.str,
         client_id: builtins.str,
-        client_secret: "_SecretValue_3dd0ddae",
+        client_secret: "_aws_cdk_0cae9daa.SecretValue",
         issuer: builtins.str,
         next: "ListenerAction",
         token_endpoint: builtins.str,
@@ -2492,7 +2458,7 @@ class AuthenticateOidcOptions:
         on_unauthenticated_request: typing.Optional["UnauthenticatedAction"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        session_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options for ``ListenerAction.authenciateOidc()``.
 
@@ -2534,7 +2500,7 @@ class AuthenticateOidcOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24de076506a357c522d38ec026cd897c6cf19e9c85ad3dedfe1c2ac397af76a9)
+            type_hints = cached_type_hints(_typecheckingstub__24de076506a357c522d38ec026cd897c6cf19e9c85ad3dedfe1c2ac397af76a9)
             check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
@@ -2588,11 +2554,11 @@ class AuthenticateOidcOptions:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def client_secret(self) -> "_SecretValue_3dd0ddae":
+    def client_secret(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The OAuth 2.0 client secret.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
-        return typing.cast("_SecretValue_3dd0ddae", result)
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", result)
 
     @builtins.property
     def issuer(self) -> builtins.str:
@@ -2687,13 +2653,13 @@ class AuthenticateOidcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def session_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def session_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum duration of the authentication session.
 
         :default: Duration.days(7)
         '''
         result = self._values.get("session_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2769,7 +2735,7 @@ class BaseApplicationListenerProps:
         if isinstance(mutual_authentication, dict):
             mutual_authentication = MutualAuthentication(**mutual_authentication)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff235432aa66ab4c299975824b88660e11bc6ea3280f57c10bdfed8573e462c9)
+            type_hints = cached_type_hints(_typecheckingstub__ff235432aa66ab4c299975824b88660e11bc6ea3280f57c10bdfed8573e462c9)
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
             check_type(argname="argument default_target_groups", value=default_target_groups, expected_type=type_hints["default_target_groups"])
@@ -2955,7 +2921,7 @@ class BaseApplicationListenerRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1e5f5fc006f7c82c210f82c1a190d40da93da1f334339778d9c9e2bab2c7bd6)
+            type_hints = cached_type_hints(_typecheckingstub__e1e5f5fc006f7c82c210f82c1a190d40da93da1f334339778d9c9e2bab2c7bd6)
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
@@ -3069,7 +3035,7 @@ class BaseListenerLookupOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeab437f99f41f68b92dff83756c899bac5c421e1396b3b327cbdf3c40d879b4)
+            type_hints = cached_type_hints(_typecheckingstub__eeab437f99f41f68b92dff83756c899bac5c421e1396b3b327cbdf3c40d879b4)
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
@@ -3123,7 +3089,7 @@ class BaseListenerLookupOptions:
 
 
 class BaseLoadBalancer(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.BaseLoadBalancer",
 ):
@@ -3143,7 +3109,7 @@ class BaseLoadBalancer(
         :param additional_props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__620d15602c1f1f8b5bfa7e4cd1cd3461042dfae9592b1506735bc9f5e8f70f5d)
+            type_hints = cached_type_hints(_typecheckingstub__620d15602c1f1f8b5bfa7e4cd1cd3461042dfae9592b1506735bc9f5e8f70f5d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument base_props", value=base_props, expected_type=type_hints["base_props"])
@@ -3153,7 +3119,7 @@ class BaseLoadBalancer(
     @jsii.member(jsii_name="logAccessLogs")
     def log_access_logs(
         self,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Enable access logging for this load balancer.
@@ -3165,7 +3131,7 @@ class BaseLoadBalancer(
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8406eb9a53b57e3c4cbb3455e6d89df0166eb6163718ffdd07b5fef738151bd)
+            type_hints = cached_type_hints(_typecheckingstub__d8406eb9a53b57e3c4cbb3455e6d89df0166eb6163718ffdd07b5fef738151bd)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast(None, jsii.invoke(self, "logAccessLogs", [bucket, prefix]))
@@ -3177,13 +3143,13 @@ class BaseLoadBalancer(
         :param key: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cc17e260a3e130a9f5190a7057681e03a55ebdd868aba8520e30429ffbf13d6)
+            type_hints = cached_type_hints(_typecheckingstub__9cc17e260a3e130a9f5190a7057681e03a55ebdd868aba8520e30429ffbf13d6)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(None, jsii.invoke(self, "removeAttribute", [key]))
 
     @jsii.member(jsii_name="resourcePolicyPrincipal")
-    def _resource_policy_principal(self) -> "_IPrincipal_539bb2fd":
-        return typing.cast("_IPrincipal_539bb2fd", jsii.invoke(self, "resourcePolicyPrincipal", []))
+    def _resource_policy_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.invoke(self, "resourcePolicyPrincipal", []))
 
     @jsii.member(jsii_name="setAttribute")
     def set_attribute(
@@ -3199,7 +3165,7 @@ class BaseLoadBalancer(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32f38017b5b7293516a420e1def6f9e21c1b49142515761228a7d4ad69946bb2)
+            type_hints = cached_type_hints(_typecheckingstub__32f38017b5b7293516a420e1def6f9e21c1b49142515761228a7d4ad69946bb2)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "setAttribute", [key, value]))
@@ -3265,9 +3231,11 @@ class BaseLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerRef")
-    def load_balancer_ref(self) -> "_LoadBalancerReference_4bd5f891":
+    def load_balancer_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.LoadBalancerReference":
         '''A reference to this load balancer.'''
-        return typing.cast("_LoadBalancerReference_4bd5f891", jsii.get(self, "loadBalancerRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.LoadBalancerReference", jsii.get(self, "loadBalancerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerSecurityGroups")
@@ -3279,17 +3247,17 @@ class BaseLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in.
 
         This property is always defined (not ``null`` or ``undefined``) for sub-classes of ``BaseLoadBalancer``.
         '''
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], jsii.get(self, "vpc"))
 
 
 class _BaseLoadBalancerProxy(
     BaseLoadBalancer,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     pass
 
@@ -3333,7 +3301,7 @@ class BaseLoadBalancerLookupOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c636cf30c7688e65af48df2d228f5c138bd07b3c256c82b3692388fb222b31e3)
+            type_hints = cached_type_hints(_typecheckingstub__c636cf30c7688e65af48df2d228f5c138bd07b3c256c82b3692388fb222b31e3)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3392,14 +3360,14 @@ class BaseLoadBalancerProps:
     def __init__(
         self,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Shared properties of both Application and Network Load Balancers.
 
@@ -3446,9 +3414,9 @@ class BaseLoadBalancerProps:
             )
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36614588a5e075aa6e7ea0a4d41053b09874f2590b227cd5d62f3429901282f2)
+            type_hints = cached_type_hints(_typecheckingstub__36614588a5e075aa6e7ea0a4d41053b09874f2590b227cd5d62f3429901282f2)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
@@ -3476,11 +3444,11 @@ class BaseLoadBalancerProps:
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC network to place the load balancer in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def cross_zone_enabled(self) -> typing.Optional[builtins.bool]:
@@ -3544,13 +3512,13 @@ class BaseLoadBalancerProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets place the load balancer in.
 
         :default: - the Vpc default strategy.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3589,7 +3557,7 @@ class BaseNetworkListenerProps:
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Basic properties for a Network Listener.
 
@@ -3629,7 +3597,7 @@ class BaseNetworkListenerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a385469057e83b68d89a4be7454c5a114db610783f984a1d85c9d4b7179a3961)
+            type_hints = cached_type_hints(_typecheckingstub__a385469057e83b68d89a4be7454c5a114db610783f984a1d85c9d4b7179a3961)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument alpn_policy", value=alpn_policy, expected_type=type_hints["alpn_policy"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
@@ -3738,13 +3706,13 @@ class BaseNetworkListenerProps:
         return typing.cast(typing.Optional["SslPolicy"], result)
 
     @builtins.property
-    def tcp_idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def tcp_idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer TCP idle timeout.
 
         :default: Duration.seconds(350)
         '''
         result = self._values.get("tcp_idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3777,13 +3745,13 @@ class BaseTargetGroupProps:
         self,
         *,
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
         target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Basic properties of both Application and Network Target Groups.
 
@@ -3840,7 +3808,7 @@ class BaseTargetGroupProps:
         if isinstance(target_group_health, dict):
             target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede879e36bb)
+            type_hints = cached_type_hints(_typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede879e36bb)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -3879,7 +3847,7 @@ class BaseTargetGroupProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def deregistration_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deregistration_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time for Elastic Load Balancing to wait before deregistering a target.
 
         The range is 0-3600 seconds.
@@ -3887,7 +3855,7 @@ class BaseTargetGroupProps:
         :default: 300
         '''
         result = self._values.get("deregistration_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check(self) -> typing.Optional["HealthCheck"]:
@@ -3947,7 +3915,7 @@ class BaseTargetGroupProps:
         return typing.cast(typing.Optional["TargetType"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The virtual private cloud (VPC).
 
         only if ``TargetType`` is ``Ip`` or ``InstanceId``
@@ -3955,7 +3923,7 @@ class BaseTargetGroupProps:
         :default: - undefined
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3969,9 +3937,9 @@ class BaseTargetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IListenerRef_a8ced6a8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.IListenerRef)
 class CfnListener(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener",
 ):
@@ -4093,12 +4061,12 @@ class CfnListener(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        default_actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        load_balancer_arn: typing.Union[builtins.str, "_ILoadBalancerRef_13acd8f1"],
+        default_actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        load_balancer_arn: typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef"],
         alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        listener_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mutual_authentication: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mutual_authentication: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         ssl_policy: typing.Optional[builtins.str] = None,
@@ -4118,7 +4086,7 @@ class CfnListener(
         :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported. For more information, see `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`_ in the *Application Load Balancers Guide* and `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`_ in the *Network Load Balancers Guide* . [HTTPS listeners] Updating the security policy can result in interruptions if the load balancer is handling a high volume of traffic. To decrease the possibility of an interruption if your load balancer is handling a high volume of traffic, create an additional load balancer or request an LCU reservation.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048)
+            type_hints = cached_type_hints(_typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnListenerProps(
@@ -4137,12 +4105,15 @@ class CfnListener(
 
     @jsii.member(jsii_name="arnForListener")
     @builtins.classmethod
-    def arn_for_listener(cls, resource: "_IListenerRef_a8ced6a8") -> builtins.str:
+    def arn_for_listener(
+        cls,
+        resource: "_aws_elasticloadbalancingv2_1283aa87.IListenerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b32f9e25c97f61f00e538ef04d5fa27f0d651f1b719ada79f2c6a3f7f1a034a)
+            type_hints = cached_type_hints(_typecheckingstub__3b32f9e25c97f61f00e538ef04d5fa27f0d651f1b719ada79f2c6a3f7f1a034a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForListener", [resource]))
 
@@ -4154,18 +4125,18 @@ class CfnListener(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93e7a4de821491d74dc6d5dd92ce453becd3cfe080495a9a6126d4d3c8ad7ca7)
+            type_hints = cached_type_hints(_typecheckingstub__93e7a4de821491d74dc6d5dd92ce453becd3cfe080495a9a6126d4d3c8ad7ca7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnListener", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950)
+            type_hints = cached_type_hints(_typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4178,7 +4149,7 @@ class CfnListener(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41)
+            type_hints = cached_type_hints(_typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4209,28 +4180,28 @@ class CfnListener(
 
     @builtins.property
     @jsii.member(jsii_name="listenerRef")
-    def listener_ref(self) -> "_ListenerReference_ca663b4f":
+    def listener_ref(self) -> "_aws_elasticloadbalancingv2_1283aa87.ListenerReference":
         '''A reference to a Listener resource.'''
-        return typing.cast("_ListenerReference_ca663b4f", jsii.get(self, "listenerRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.ListenerReference", jsii.get(self, "listenerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultActions")
     def default_actions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ActionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ActionProperty"]]]:
         '''The actions for the default rule.
 
         You cannot define a condition for a default rule.
         '''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ActionProperty"]]], jsii.get(self, "defaultActions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ActionProperty"]]], jsii.get(self, "defaultActions"))
 
     @default_actions.setter
     def default_actions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ActionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ActionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19)
+            type_hints = cached_type_hints(_typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultActions", value) # pyright: ignore[reportArgumentType]
 
@@ -4243,7 +4214,7 @@ class CfnListener(
     @load_balancer_arn.setter
     def load_balancer_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef)
+            type_hints = cached_type_hints(_typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4256,7 +4227,7 @@ class CfnListener(
     @alpn_policy.setter
     def alpn_policy(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37)
+            type_hints = cached_type_hints(_typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alpnPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -4264,17 +4235,17 @@ class CfnListener(
     @jsii.member(jsii_name="certificates")
     def certificates(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.CertificateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.CertificateProperty"]]]]:
         '''The default SSL server certificate for a secure listener.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.CertificateProperty"]]]], jsii.get(self, "certificates"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.CertificateProperty"]]]], jsii.get(self, "certificates"))
 
     @certificates.setter
     def certificates(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.CertificateProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.CertificateProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e)
+            type_hints = cached_type_hints(_typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
 
@@ -4282,17 +4253,17 @@ class CfnListener(
     @jsii.member(jsii_name="listenerAttributes")
     def listener_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ListenerAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ListenerAttributeProperty"]]]]:
         '''The listener attributes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ListenerAttributeProperty"]]]], jsii.get(self, "listenerAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ListenerAttributeProperty"]]]], jsii.get(self, "listenerAttributes"))
 
     @listener_attributes.setter
     def listener_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ListenerAttributeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ListenerAttributeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb)
+            type_hints = cached_type_hints(_typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listenerAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -4300,17 +4271,17 @@ class CfnListener(
     @jsii.member(jsii_name="mutualAuthentication")
     def mutual_authentication(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.MutualAuthenticationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.MutualAuthenticationProperty"]]:
         '''The mutual authentication configuration information.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.MutualAuthenticationProperty"]], jsii.get(self, "mutualAuthentication"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.MutualAuthenticationProperty"]], jsii.get(self, "mutualAuthentication"))
 
     @mutual_authentication.setter
     def mutual_authentication(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.MutualAuthenticationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.MutualAuthenticationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3)
+            type_hints = cached_type_hints(_typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mutualAuthentication", value) # pyright: ignore[reportArgumentType]
 
@@ -4323,7 +4294,7 @@ class CfnListener(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4)
+            type_hints = cached_type_hints(_typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -4336,7 +4307,7 @@ class CfnListener(
     @protocol.setter
     def protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887)
+            type_hints = cached_type_hints(_typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -4349,7 +4320,7 @@ class CfnListener(
     @ssl_policy.setter
     def ssl_policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87)
+            type_hints = cached_type_hints(_typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sslPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -4373,13 +4344,13 @@ class CfnListener(
             self,
             *,
             type: builtins.str,
-            authenticate_cognito_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            authenticate_oidc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fixed_response_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            forward_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            jwt_validation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_cognito_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_oidc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fixed_response_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forward_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            jwt_validation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             order: typing.Optional[jsii.Number] = None,
-            redirect_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redirect_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             target_group_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies an action for a listener rule.
@@ -4482,7 +4453,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349)
+                type_hints = cached_type_hints(_typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
                 check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
@@ -4525,7 +4496,7 @@ class CfnListener(
         @builtins.property
         def authenticate_cognito_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.AuthenticateCognitoConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.AuthenticateCognitoConfigProperty"]]:
             '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
 
             Specify only when ``Type`` is ``authenticate-cognito`` .
@@ -4533,12 +4504,12 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticatecognitoconfig
             '''
             result = self._values.get("authenticate_cognito_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.AuthenticateCognitoConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.AuthenticateCognitoConfigProperty"]], result)
 
         @builtins.property
         def authenticate_oidc_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.AuthenticateOidcConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.AuthenticateOidcConfigProperty"]]:
             '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
 
             Specify only when ``Type`` is ``authenticate-oidc`` .
@@ -4546,12 +4517,12 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticateoidcconfig
             '''
             result = self._values.get("authenticate_oidc_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.AuthenticateOidcConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.AuthenticateOidcConfigProperty"]], result)
 
         @builtins.property
         def fixed_response_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.FixedResponseConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.FixedResponseConfigProperty"]]:
             '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
 
             Specify only when ``Type`` is ``fixed-response`` .
@@ -4559,12 +4530,12 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-fixedresponseconfig
             '''
             result = self._values.get("fixed_response_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.FixedResponseConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.FixedResponseConfigProperty"]], result)
 
         @builtins.property
         def forward_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.ForwardConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ForwardConfigProperty"]]:
             '''Information for creating an action that distributes requests among multiple target groups. Specify only when ``Type`` is ``forward`` .
 
             If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
@@ -4572,12 +4543,12 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-forwardconfig
             '''
             result = self._values.get("forward_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.ForwardConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ForwardConfigProperty"]], result)
 
         @builtins.property
         def jwt_validation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.JwtValidationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.JwtValidationConfigProperty"]]:
             '''[HTTPS listeners] Information for validating JWT access tokens in client requests.
 
             Specify only when ``Type`` is ``jwt-validation`` .
@@ -4585,7 +4556,7 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-jwtvalidationconfig
             '''
             result = self._values.get("jwt_validation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.JwtValidationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.JwtValidationConfigProperty"]], result)
 
         @builtins.property
         def order(self) -> typing.Optional[jsii.Number]:
@@ -4601,7 +4572,7 @@ class CfnListener(
         @builtins.property
         def redirect_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.RedirectConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.RedirectConfigProperty"]]:
             '''[Application Load Balancer] Information for creating a redirect action.
 
             Specify only when ``Type`` is ``redirect`` .
@@ -4609,7 +4580,7 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-redirectconfig
             '''
             result = self._values.get("redirect_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.RedirectConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.RedirectConfigProperty"]], result)
 
         @builtins.property
         def target_group_arn(self) -> typing.Optional[builtins.str]:
@@ -4654,7 +4625,7 @@ class CfnListener(
             user_pool_arn: builtins.str,
             user_pool_client_id: builtins.str,
             user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
@@ -4696,7 +4667,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e)
+                type_hints = cached_type_hints(_typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e)
                 check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
                 check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
                 check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
@@ -4754,13 +4725,13 @@ class CfnListener(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
@@ -4846,13 +4817,13 @@ class CfnListener(
             issuer: builtins.str,
             token_endpoint: builtins.str,
             user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             client_secret: typing.Optional[builtins.str] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
             session_timeout: typing.Optional[builtins.str] = None,
-            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
 
@@ -4898,7 +4869,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06)
+                type_hints = cached_type_hints(_typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06)
                 check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
@@ -4994,13 +4965,13 @@ class CfnListener(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def client_secret(self) -> typing.Optional[builtins.str]:
@@ -5060,7 +5031,7 @@ class CfnListener(
         @builtins.property
         def use_existing_client_secret(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to use the existing client secret when modifying a rule.
 
             If you are creating a rule, you can omit this parameter or set it to false.
@@ -5068,7 +5039,7 @@ class CfnListener(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-useexistingclientsecret
             '''
             result = self._values.get("use_existing_client_secret")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5110,7 +5081,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1)
+                type_hints = cached_type_hints(_typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if certificate_arn is not None:
@@ -5177,7 +5148,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33)
+                type_hints = cached_type_hints(_typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33)
                 check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
                 check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
                 check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
@@ -5242,8 +5213,8 @@ class CfnListener(
         def __init__(
             self,
             *,
-            target_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_stickiness_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_stickiness_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information for creating an action that distributes requests among multiple target groups. Specify only when ``Type`` is ``forward`` .
 
@@ -5273,7 +5244,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977)
+                type_hints = cached_type_hints(_typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977)
                 check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
                 check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5285,24 +5256,24 @@ class CfnListener(
         @builtins.property
         def target_groups(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.TargetGroupTupleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.TargetGroupTupleProperty"]]]]:
             '''Information about how traffic will be distributed between multiple target groups in a forward rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroups
             '''
             result = self._values.get("target_groups")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.TargetGroupTupleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.TargetGroupTupleProperty"]]]], result)
 
         @builtins.property
         def target_group_stickiness_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.TargetGroupStickinessConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.TargetGroupStickinessConfigProperty"]]:
             '''Information about the target group stickiness for a rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroupstickinessconfig
             '''
             result = self._values.get("target_group_stickiness_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.TargetGroupStickinessConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.TargetGroupStickinessConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5350,7 +5321,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e9d0087a9eb7c5f841bfac469715abdae6ee2114ee859f90b00e45143d404212)
+                type_hints = cached_type_hints(_typecheckingstub__e9d0087a9eb7c5f841bfac469715abdae6ee2114ee859f90b00e45143d404212)
                 check_type(argname="argument format", value=format, expected_type=type_hints["format"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -5420,7 +5391,7 @@ class CfnListener(
             *,
             issuer: builtins.str,
             jwks_endpoint: builtins.str,
-            additional_claims: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.JwtValidationActionAdditionalClaimProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            additional_claims: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.JwtValidationActionAdditionalClaimProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param issuer: 
@@ -5449,7 +5420,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e741a75fc9c6afe2cebc6ef7e70841f66c005ad9c7532432503bb3bd6fbcf625)
+                type_hints = cached_type_hints(_typecheckingstub__e741a75fc9c6afe2cebc6ef7e70841f66c005ad9c7532432503bb3bd6fbcf625)
                 check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
                 check_type(argname="argument jwks_endpoint", value=jwks_endpoint, expected_type=type_hints["jwks_endpoint"])
                 check_type(argname="argument additional_claims", value=additional_claims, expected_type=type_hints["additional_claims"])
@@ -5481,12 +5452,12 @@ class CfnListener(
         @builtins.property
         def additional_claims(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.JwtValidationActionAdditionalClaimProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.JwtValidationActionAdditionalClaimProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-jwtvalidationconfig.html#cfn-elasticloadbalancingv2-listener-jwtvalidationconfig-additionalclaims
             '''
             result = self._values.get("additional_claims")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.JwtValidationActionAdditionalClaimProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.JwtValidationActionAdditionalClaimProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5531,7 +5502,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f)
+                type_hints = cached_type_hints(_typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5610,7 +5581,7 @@ class CfnListener(
             self,
             *,
             advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
-            ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             mode: typing.Optional[builtins.str] = None,
             trust_store_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5638,7 +5609,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0)
+                type_hints = cached_type_hints(_typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0)
                 check_type(argname="argument advertise_trust_store_ca_names", value=advertise_trust_store_ca_names, expected_type=type_hints["advertise_trust_store_ca_names"])
                 check_type(argname="argument ignore_client_certificate_expiry", value=ignore_client_certificate_expiry, expected_type=type_hints["ignore_client_certificate_expiry"])
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
@@ -5665,13 +5636,13 @@ class CfnListener(
         @builtins.property
         def ignore_client_certificate_expiry(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether expired client certificates are ignored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-ignoreclientcertificateexpiry
             '''
             result = self._values.get("ignore_client_certificate_expiry")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def mode(self) -> typing.Optional[builtins.str]:
@@ -5769,7 +5740,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f)
+                type_hints = cached_type_hints(_typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f)
                 check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
                 check_type(argname="argument host", value=host, expected_type=type_hints["host"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -5878,7 +5849,7 @@ class CfnListener(
             self,
             *,
             duration_seconds: typing.Optional[jsii.Number] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Information about the target group stickiness for a rule.
 
@@ -5900,7 +5871,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f)
+                type_hints = cached_type_hints(_typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f)
                 check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5923,13 +5894,13 @@ class CfnListener(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether target group stickiness is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listener-targetgroupstickinessconfig-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5974,7 +5945,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7)
+                type_hints = cached_type_hints(_typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7)
                 check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6015,9 +5986,9 @@ class CfnListener(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IListenerCertificateRef_1cc0d9f2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.IListenerCertificateRef)
 class CfnListenerCertificate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificate",
 ):
@@ -6046,7 +6017,7 @@ class CfnListenerCertificate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        certificates: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        certificates: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
         listener_arn: builtins.str,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::ListenerCertificate``.
@@ -6057,7 +6028,7 @@ class CfnListenerCertificate(
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d)
+            type_hints = cached_type_hints(_typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnListenerCertificateProps(
@@ -6074,18 +6045,18 @@ class CfnListenerCertificate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96751b83a1cd9cc2f72a65bbb99e496e3fb6932710e0e9adc5e615ea12fb17da)
+            type_hints = cached_type_hints(_typecheckingstub__96751b83a1cd9cc2f72a65bbb99e496e3fb6932710e0e9adc5e615ea12fb17da)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnListenerCertificate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7)
+            type_hints = cached_type_hints(_typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6098,7 +6069,7 @@ class CfnListenerCertificate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6)
+            type_hints = cached_type_hints(_typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6128,25 +6099,27 @@ class CfnListenerCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="listenerCertificateRef")
-    def listener_certificate_ref(self) -> "_ListenerCertificateReference_7dacacd6":
+    def listener_certificate_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.ListenerCertificateReference":
         '''A reference to a ListenerCertificate resource.'''
-        return typing.cast("_ListenerCertificateReference_7dacacd6", jsii.get(self, "listenerCertificateRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.ListenerCertificateReference", jsii.get(self, "listenerCertificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="certificates")
     def certificates(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerCertificate.CertificateProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerCertificate.CertificateProperty"]]]:
         '''The certificate.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerCertificate.CertificateProperty"]]], jsii.get(self, "certificates"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerCertificate.CertificateProperty"]]], jsii.get(self, "certificates"))
 
     @certificates.setter
     def certificates(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerCertificate.CertificateProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerCertificate.CertificateProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093)
+            type_hints = cached_type_hints(_typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
 
@@ -6159,7 +6132,7 @@ class CfnListenerCertificate(
     @listener_arn.setter
     def listener_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85)
+            type_hints = cached_type_hints(_typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6192,7 +6165,7 @@ class CfnListenerCertificate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57)
+                type_hints = cached_type_hints(_typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if certificate_arn is not None:
@@ -6228,7 +6201,7 @@ class CfnListenerCertificateProps:
     def __init__(
         self,
         *,
-        certificates: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        certificates: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
         listener_arn: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnListenerCertificate``.
@@ -6253,7 +6226,7 @@ class CfnListenerCertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a75452487efc1f762632147a4649a752cebc50169fa389176da35b23232c3434)
+            type_hints = cached_type_hints(_typecheckingstub__a75452487efc1f762632147a4649a752cebc50169fa389176da35b23232c3434)
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6264,7 +6237,7 @@ class CfnListenerCertificateProps:
     @builtins.property
     def certificates(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerCertificate.CertificateProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerCertificate.CertificateProperty"]]]:
         '''The certificate.
 
         You can specify one certificate per resource.
@@ -6273,7 +6246,7 @@ class CfnListenerCertificateProps:
         '''
         result = self._values.get("certificates")
         assert result is not None, "Required property 'certificates' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerCertificate.CertificateProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerCertificate.CertificateProperty"]]], result)
 
     @builtins.property
     def listener_arn(self) -> builtins.str:
@@ -6316,12 +6289,12 @@ class CfnListenerProps:
     def __init__(
         self,
         *,
-        default_actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        load_balancer_arn: typing.Union[builtins.str, "_ILoadBalancerRef_13acd8f1"],
+        default_actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        load_balancer_arn: typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef"],
         alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        listener_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mutual_authentication: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mutual_authentication: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         ssl_policy: typing.Optional[builtins.str] = None,
@@ -6448,7 +6421,7 @@ class CfnListenerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aab6d22e7b936da7d57033477b79897453525b2ac292509d47ddac8e90a84aa3)
+            type_hints = cached_type_hints(_typecheckingstub__aab6d22e7b936da7d57033477b79897453525b2ac292509d47ddac8e90a84aa3)
             check_type(argname="argument default_actions", value=default_actions, expected_type=type_hints["default_actions"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument alpn_policy", value=alpn_policy, expected_type=type_hints["alpn_policy"])
@@ -6480,7 +6453,7 @@ class CfnListenerProps:
     @builtins.property
     def default_actions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ActionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ActionProperty"]]]:
         '''The actions for the default rule. You cannot define a condition for a default rule.
 
         To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
@@ -6489,19 +6462,19 @@ class CfnListenerProps:
         '''
         result = self._values.get("default_actions")
         assert result is not None, "Required property 'default_actions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ActionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ActionProperty"]]], result)
 
     @builtins.property
     def load_balancer_arn(
         self,
-    ) -> typing.Union[builtins.str, "_ILoadBalancerRef_13acd8f1"]:
+    ) -> typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef"]:
         '''The Amazon Resource Name (ARN) of the load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-loadbalancerarn
         '''
         result = self._values.get("load_balancer_arn")
         assert result is not None, "Required property 'load_balancer_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ILoadBalancerRef_13acd8f1"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef"], result)
 
     @builtins.property
     def alpn_policy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6515,7 +6488,7 @@ class CfnListenerProps:
     @builtins.property
     def certificates(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.CertificateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.CertificateProperty"]]]]:
         '''The default SSL server certificate for a secure listener.
 
         You must provide exactly one certificate if the listener protocol is HTTPS or TLS.
@@ -6527,12 +6500,12 @@ class CfnListenerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-certificates
         '''
         result = self._values.get("certificates")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.CertificateProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.CertificateProperty"]]]], result)
 
     @builtins.property
     def listener_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ListenerAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ListenerAttributeProperty"]]]]:
         '''The listener attributes.
 
         Attributes that you do not modify retain their current values.
@@ -6540,18 +6513,18 @@ class CfnListenerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-listenerattributes
         '''
         result = self._values.get("listener_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.ListenerAttributeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.ListenerAttributeProperty"]]]], result)
 
     @builtins.property
     def mutual_authentication(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.MutualAuthenticationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.MutualAuthenticationProperty"]]:
         '''The mutual authentication configuration information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-mutualauthentication
         '''
         result = self._values.get("mutual_authentication")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListener.MutualAuthenticationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.MutualAuthenticationProperty"]], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
@@ -6600,9 +6573,9 @@ class CfnListenerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IListenerRuleRef_fb4b79b4)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.IListenerRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnListenerRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule",
 ):
@@ -6618,6 +6591,7 @@ class CfnListenerRule(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_elasticloadbalancingv2 as elbv2
@@ -6734,6 +6708,10 @@ class CfnListenerRule(
         
             # the properties below are optional
             listener_arn="listenerArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             transforms=[elbv2.CfnListenerRule.TransformProperty(
                 type="type",
         
@@ -6759,11 +6737,12 @@ class CfnListenerRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         priority: jsii.Number,
-        listener_arn: typing.Optional[typing.Union[builtins.str, "_IListenerRef_a8ced6a8"]] = None,
-        transforms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.TransformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_arn: typing.Optional[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.IListenerRef"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transforms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.TransformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::ListenerRule``.
 
@@ -6773,10 +6752,11 @@ class CfnListenerRule(
         :param conditions: The conditions. The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
         :param priority: The rule priority. A listener can't have multiple rules with the same priority. If you try to reorder rules by updating their priorities, do not specify a new priority if an existing rule already uses this priority, as this can cause an error. If you need to reuse a priority with a different rule, you must remove it as a priority first, and then specify it in a subsequent update.
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
+        :param tags: 
         :param transforms: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00)
+            type_hints = cached_type_hints(_typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnListenerRuleProps(
@@ -6784,6 +6764,7 @@ class CfnListenerRule(
             conditions=conditions,
             priority=priority,
             listener_arn=listener_arn,
+            tags=tags,
             transforms=transforms,
         )
 
@@ -6797,18 +6778,18 @@ class CfnListenerRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9abf85968e2b444dc88316757550a2dc49a8b93388a5fa9a41bef6d564f0337e)
+            type_hints = cached_type_hints(_typecheckingstub__9abf85968e2b444dc88316757550a2dc49a8b93388a5fa9a41bef6d564f0337e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnListenerRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9)
+            type_hints = cached_type_hints(_typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6821,7 +6802,7 @@ class CfnListenerRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5)
+            type_hints = cached_type_hints(_typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6833,12 +6814,12 @@ class CfnListenerRule(
 
     @builtins.property
     @jsii.member(jsii_name="attrIsDefault")
-    def attr_is_default(self) -> "_IResolvable_da3f097b":
+    def attr_is_default(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Indicates whether this is the default rule.
 
         :cloudformationAttribute: IsDefault
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsDefault"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsDefault"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleArn")
@@ -6848,6 +6829,12 @@ class CfnListenerRule(
         :cloudformationAttribute: RuleArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrRuleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6861,25 +6848,27 @@ class CfnListenerRule(
 
     @builtins.property
     @jsii.member(jsii_name="listenerRuleRef")
-    def listener_rule_ref(self) -> "_ListenerRuleReference_48b7eb1c":
+    def listener_rule_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.ListenerRuleReference":
         '''A reference to a ListenerRule resource.'''
-        return typing.cast("_ListenerRuleReference_48b7eb1c", jsii.get(self, "listenerRuleRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.ListenerRuleReference", jsii.get(self, "listenerRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ActionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ActionProperty"]]]:
         '''The actions.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ActionProperty"]]], jsii.get(self, "actions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ActionProperty"]]], jsii.get(self, "actions"))
 
     @actions.setter
     def actions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ActionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ActionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f)
+            type_hints = cached_type_hints(_typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
 
@@ -6887,17 +6876,17 @@ class CfnListenerRule(
     @jsii.member(jsii_name="conditions")
     def conditions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RuleConditionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RuleConditionProperty"]]]:
         '''The conditions.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RuleConditionProperty"]]], jsii.get(self, "conditions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RuleConditionProperty"]]], jsii.get(self, "conditions"))
 
     @conditions.setter
     def conditions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RuleConditionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RuleConditionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6)
+            type_hints = cached_type_hints(_typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
 
@@ -6913,7 +6902,7 @@ class CfnListenerRule(
     @priority.setter
     def priority(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765)
+            type_hints = cached_type_hints(_typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
@@ -6926,24 +6915,39 @@ class CfnListenerRule(
     @listener_arn.setter
     def listener_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73)
+            type_hints = cached_type_hints(_typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54a5505a89d688366275709fdd458e3d030a5ad2018dad71418e0810bcd8d08b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="transforms")
     def transforms(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TransformProperty"]]]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TransformProperty"]]]], jsii.get(self, "transforms"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TransformProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TransformProperty"]]]], jsii.get(self, "transforms"))
 
     @transforms.setter
     def transforms(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TransformProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TransformProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__419a5d3af31f0f6ae614e1f0769137efa882317f1538e54380e430e493e35cd9)
+            type_hints = cached_type_hints(_typecheckingstub__419a5d3af31f0f6ae614e1f0769137efa882317f1538e54380e430e493e35cd9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transforms", value) # pyright: ignore[reportArgumentType]
 
@@ -6967,13 +6971,13 @@ class CfnListenerRule(
             self,
             *,
             type: builtins.str,
-            authenticate_cognito_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            authenticate_oidc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fixed_response_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            forward_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            jwt_validation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_cognito_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_oidc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fixed_response_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forward_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            jwt_validation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             order: typing.Optional[jsii.Number] = None,
-            redirect_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redirect_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             target_group_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies an action for a listener rule.
@@ -7076,7 +7080,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17)
+                type_hints = cached_type_hints(_typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
                 check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
@@ -7119,7 +7123,7 @@ class CfnListenerRule(
         @builtins.property
         def authenticate_cognito_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.AuthenticateCognitoConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.AuthenticateCognitoConfigProperty"]]:
             '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
 
             Specify only when ``Type`` is ``authenticate-cognito`` .
@@ -7127,12 +7131,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticatecognitoconfig
             '''
             result = self._values.get("authenticate_cognito_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.AuthenticateCognitoConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.AuthenticateCognitoConfigProperty"]], result)
 
         @builtins.property
         def authenticate_oidc_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.AuthenticateOidcConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.AuthenticateOidcConfigProperty"]]:
             '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
 
             Specify only when ``Type`` is ``authenticate-oidc`` .
@@ -7140,12 +7144,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticateoidcconfig
             '''
             result = self._values.get("authenticate_oidc_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.AuthenticateOidcConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.AuthenticateOidcConfigProperty"]], result)
 
         @builtins.property
         def fixed_response_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.FixedResponseConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.FixedResponseConfigProperty"]]:
             '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
 
             Specify only when ``Type`` is ``fixed-response`` .
@@ -7153,12 +7157,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-fixedresponseconfig
             '''
             result = self._values.get("fixed_response_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.FixedResponseConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.FixedResponseConfigProperty"]], result)
 
         @builtins.property
         def forward_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ForwardConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ForwardConfigProperty"]]:
             '''Information for creating an action that distributes requests among multiple target groups. Specify only when ``Type`` is ``forward`` .
 
             If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
@@ -7166,12 +7170,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-forwardconfig
             '''
             result = self._values.get("forward_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ForwardConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ForwardConfigProperty"]], result)
 
         @builtins.property
         def jwt_validation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.JwtValidationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.JwtValidationConfigProperty"]]:
             '''[HTTPS listeners] Information for validating JWT access tokens in client requests.
 
             Specify only when ``Type`` is ``jwt-validation`` .
@@ -7179,7 +7183,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-jwtvalidationconfig
             '''
             result = self._values.get("jwt_validation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.JwtValidationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.JwtValidationConfigProperty"]], result)
 
         @builtins.property
         def order(self) -> typing.Optional[jsii.Number]:
@@ -7195,7 +7199,7 @@ class CfnListenerRule(
         @builtins.property
         def redirect_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RedirectConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RedirectConfigProperty"]]:
             '''[Application Load Balancer] Information for creating a redirect action.
 
             Specify only when ``Type`` is ``redirect`` .
@@ -7203,7 +7207,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-redirectconfig
             '''
             result = self._values.get("redirect_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RedirectConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RedirectConfigProperty"]], result)
 
         @builtins.property
         def target_group_arn(self) -> typing.Optional[builtins.str]:
@@ -7248,7 +7252,7 @@ class CfnListenerRule(
             user_pool_arn: builtins.str,
             user_pool_client_id: builtins.str,
             user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
@@ -7290,7 +7294,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2)
+                type_hints = cached_type_hints(_typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2)
                 check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
                 check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
                 check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
@@ -7348,13 +7352,13 @@ class CfnListenerRule(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
@@ -7440,13 +7444,13 @@ class CfnListenerRule(
             issuer: builtins.str,
             token_endpoint: builtins.str,
             user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            authentication_request_extra_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             client_secret: typing.Optional[builtins.str] = None,
             on_unauthenticated_request: typing.Optional[builtins.str] = None,
             scope: typing.Optional[builtins.str] = None,
             session_cookie_name: typing.Optional[builtins.str] = None,
             session_timeout: typing.Optional[jsii.Number] = None,
-            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
 
@@ -7492,7 +7496,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78)
+                type_hints = cached_type_hints(_typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78)
                 check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
@@ -7588,13 +7592,13 @@ class CfnListenerRule(
         @builtins.property
         def authentication_request_extra_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authenticationrequestextraparams
             '''
             result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def client_secret(self) -> typing.Optional[builtins.str]:
@@ -7654,7 +7658,7 @@ class CfnListenerRule(
         @builtins.property
         def use_existing_client_secret(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to use the existing client secret when modifying a rule.
 
             If you are creating a rule, you can omit this parameter or set it to false.
@@ -7662,7 +7666,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-useexistingclientsecret
             '''
             result = self._values.get("use_existing_client_secret")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7716,7 +7720,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53)
+                type_hints = cached_type_hints(_typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53)
                 check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
                 check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
                 check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
@@ -7781,8 +7785,8 @@ class CfnListenerRule(
         def __init__(
             self,
             *,
-            target_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_stickiness_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_stickiness_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information for creating an action that distributes requests among multiple target groups. Specify only when ``Type`` is ``forward`` .
 
@@ -7812,7 +7816,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0)
+                type_hints = cached_type_hints(_typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0)
                 check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
                 check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7824,24 +7828,24 @@ class CfnListenerRule(
         @builtins.property
         def target_groups(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TargetGroupTupleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TargetGroupTupleProperty"]]]]:
             '''Information about how traffic will be distributed between multiple target groups in a forward rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroups
             '''
             result = self._values.get("target_groups")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TargetGroupTupleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TargetGroupTupleProperty"]]]], result)
 
         @builtins.property
         def target_group_stickiness_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TargetGroupStickinessConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TargetGroupStickinessConfigProperty"]]:
             '''Information about the target group stickiness for a rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroupstickinessconfig
             '''
             result = self._values.get("target_group_stickiness_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TargetGroupStickinessConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TargetGroupStickinessConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7886,7 +7890,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642)
+                type_hints = cached_type_hints(_typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642)
                 check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7968,7 +7972,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40)
+                type_hints = cached_type_hints(_typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40)
                 check_type(argname="argument http_header_name", value=http_header_name, expected_type=type_hints["http_header_name"])
                 check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -8056,7 +8060,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed)
+                type_hints = cached_type_hints(_typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed)
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if values is not None:
@@ -8121,7 +8125,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d42959d5127a29866aa72327275087df135cdbfab35eb6a41db0871ce7b596d1)
+                type_hints = cached_type_hints(_typecheckingstub__d42959d5127a29866aa72327275087df135cdbfab35eb6a41db0871ce7b596d1)
                 check_type(argname="argument format", value=format, expected_type=type_hints["format"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -8191,7 +8195,7 @@ class CfnListenerRule(
             *,
             issuer: builtins.str,
             jwks_endpoint: builtins.str,
-            additional_claims: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.JwtValidationActionAdditionalClaimProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            additional_claims: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.JwtValidationActionAdditionalClaimProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param issuer: 
@@ -8220,7 +8224,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__453c3682f266baa85a3319d8ac290c6f36e58efe3ecc37263406d04f135d4160)
+                type_hints = cached_type_hints(_typecheckingstub__453c3682f266baa85a3319d8ac290c6f36e58efe3ecc37263406d04f135d4160)
                 check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
                 check_type(argname="argument jwks_endpoint", value=jwks_endpoint, expected_type=type_hints["jwks_endpoint"])
                 check_type(argname="argument additional_claims", value=additional_claims, expected_type=type_hints["additional_claims"])
@@ -8252,12 +8256,12 @@ class CfnListenerRule(
         @builtins.property
         def additional_claims(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.JwtValidationActionAdditionalClaimProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.JwtValidationActionAdditionalClaimProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-jwtvalidationconfig.html#cfn-elasticloadbalancingv2-listenerrule-jwtvalidationconfig-additionalclaims
             '''
             result = self._values.get("additional_claims")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.JwtValidationActionAdditionalClaimProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.JwtValidationActionAdditionalClaimProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8302,7 +8306,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5)
+                type_hints = cached_type_hints(_typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5)
                 check_type(argname="argument regex_values", value=regex_values, expected_type=type_hints["regex_values"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8352,7 +8356,7 @@ class CfnListenerRule(
         def __init__(
             self,
             *,
-            values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.QueryStringKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.QueryStringKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Information about a query string condition.
 
@@ -8377,7 +8381,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4)
+                type_hints = cached_type_hints(_typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4)
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if values is not None:
@@ -8386,7 +8390,7 @@ class CfnListenerRule(
         @builtins.property
         def values(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.QueryStringKeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.QueryStringKeyValueProperty"]]]]:
             '''The key/value pairs or values to find in the query string.
 
             The maximum length of each string is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). To search for a literal '*' or '?' character in a query string, you must escape these characters in ``Values`` using a '' character.
@@ -8396,7 +8400,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringconfig.html#cfn-elasticloadbalancingv2-listenerrule-querystringconfig-values
             '''
             result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.QueryStringKeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.QueryStringKeyValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8441,7 +8445,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac)
+                type_hints = cached_type_hints(_typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8546,7 +8550,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7)
+                type_hints = cached_type_hints(_typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7)
                 check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
                 check_type(argname="argument host", value=host, expected_type=type_hints["host"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -8654,7 +8658,7 @@ class CfnListenerRule(
         def __init__(
             self,
             *,
-            rewrites: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RewriteConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rewrites: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RewriteConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''
             :param rewrites: 
@@ -8676,7 +8680,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d22b4408908861a36e3f920a4f6c3a1838cc20f9a19985df5f304eca3edc5e40)
+                type_hints = cached_type_hints(_typecheckingstub__d22b4408908861a36e3f920a4f6c3a1838cc20f9a19985df5f304eca3edc5e40)
                 check_type(argname="argument rewrites", value=rewrites, expected_type=type_hints["rewrites"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rewrites": rewrites,
@@ -8685,13 +8689,13 @@ class CfnListenerRule(
         @builtins.property
         def rewrites(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigProperty"]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rewriteconfigobject.html#cfn-elasticloadbalancingv2-listenerrule-rewriteconfigobject-rewrites
             '''
             result = self._values.get("rewrites")
             assert result is not None, "Required property 'rewrites' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8733,7 +8737,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4c3f3a6e86413710fa57369e22bb4b764e58ae1c95bfcad66327ab3f9a73c775)
+                type_hints = cached_type_hints(_typecheckingstub__4c3f3a6e86413710fa57369e22bb4b764e58ae1c95bfcad66327ab3f9a73c775)
                 check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
                 check_type(argname="argument replace", value=replace, expected_type=type_hints["replace"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8796,13 +8800,13 @@ class CfnListenerRule(
             self,
             *,
             field: typing.Optional[builtins.str] = None,
-            host_header_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.HostHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_header_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.HttpHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_request_method_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.HttpRequestMethodConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            path_pattern_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.PathPatternConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_string_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.QueryStringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            host_header_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.HostHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_header_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.HttpHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_request_method_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.HttpRequestMethodConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            path_pattern_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.PathPatternConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.QueryStringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-            source_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_ip_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             values: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Specifies a condition for a listener rule.
@@ -8858,7 +8862,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c)
+                type_hints = cached_type_hints(_typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument host_header_config", value=host_header_config, expected_type=type_hints["host_header_config"])
                 check_type(argname="argument http_header_config", value=http_header_config, expected_type=type_hints["http_header_config"])
@@ -8907,7 +8911,7 @@ class CfnListenerRule(
         @builtins.property
         def host_header_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HostHeaderConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HostHeaderConfigProperty"]]:
             '''Information for a host header condition.
 
             Specify only when ``Field`` is ``host-header`` .
@@ -8915,12 +8919,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-hostheaderconfig
             '''
             result = self._values.get("host_header_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HostHeaderConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HostHeaderConfigProperty"]], result)
 
         @builtins.property
         def http_header_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HttpHeaderConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HttpHeaderConfigProperty"]]:
             '''Information for an HTTP header condition.
 
             Specify only when ``Field`` is ``http-header`` .
@@ -8928,12 +8932,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httpheaderconfig
             '''
             result = self._values.get("http_header_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HttpHeaderConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HttpHeaderConfigProperty"]], result)
 
         @builtins.property
         def http_request_method_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HttpRequestMethodConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HttpRequestMethodConfigProperty"]]:
             '''Information for an HTTP method condition.
 
             Specify only when ``Field`` is ``http-request-method`` .
@@ -8941,12 +8945,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httprequestmethodconfig
             '''
             result = self._values.get("http_request_method_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.HttpRequestMethodConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.HttpRequestMethodConfigProperty"]], result)
 
         @builtins.property
         def path_pattern_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.PathPatternConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.PathPatternConfigProperty"]]:
             '''Information for a path pattern condition.
 
             Specify only when ``Field`` is ``path-pattern`` .
@@ -8954,12 +8958,12 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-pathpatternconfig
             '''
             result = self._values.get("path_pattern_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.PathPatternConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.PathPatternConfigProperty"]], result)
 
         @builtins.property
         def query_string_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.QueryStringConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.QueryStringConfigProperty"]]:
             '''Information for a query string condition.
 
             Specify only when ``Field`` is ``query-string`` .
@@ -8967,7 +8971,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-querystringconfig
             '''
             result = self._values.get("query_string_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.QueryStringConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.QueryStringConfigProperty"]], result)
 
         @builtins.property
         def regex_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8983,7 +8987,7 @@ class CfnListenerRule(
         @builtins.property
         def source_ip_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.SourceIpConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.SourceIpConfigProperty"]]:
             '''Information for a source IP condition.
 
             Specify only when ``Field`` is ``source-ip`` .
@@ -8991,7 +8995,7 @@ class CfnListenerRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-sourceipconfig
             '''
             result = self._values.get("source_ip_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.SourceIpConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.SourceIpConfigProperty"]], result)
 
         @builtins.property
         def values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9067,7 +9071,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de)
+                type_hints = cached_type_hints(_typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de)
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if values is not None:
@@ -9105,7 +9109,7 @@ class CfnListenerRule(
             self,
             *,
             duration_seconds: typing.Optional[jsii.Number] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Information about the target group stickiness for a rule.
 
@@ -9127,7 +9131,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc)
+                type_hints = cached_type_hints(_typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc)
                 check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9150,13 +9154,13 @@ class CfnListenerRule(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether target group stickiness is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9201,7 +9205,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d)
+                type_hints = cached_type_hints(_typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d)
                 check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9255,8 +9259,8 @@ class CfnListenerRule(
             self,
             *,
             type: builtins.str,
-            host_header_rewrite_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RewriteConfigObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            url_rewrite_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RewriteConfigObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            host_header_rewrite_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RewriteConfigObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            url_rewrite_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RewriteConfigObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param type: 
@@ -9291,7 +9295,7 @@ class CfnListenerRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6f25c4596bc3291a9eb0f8cf6830c9b4a4b0949d0bad500d5fefdbb325293fd)
+                type_hints = cached_type_hints(_typecheckingstub__f6f25c4596bc3291a9eb0f8cf6830c9b4a4b0949d0bad500d5fefdbb325293fd)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument host_header_rewrite_config", value=host_header_rewrite_config, expected_type=type_hints["host_header_rewrite_config"])
                 check_type(argname="argument url_rewrite_config", value=url_rewrite_config, expected_type=type_hints["url_rewrite_config"])
@@ -9315,22 +9319,22 @@ class CfnListenerRule(
         @builtins.property
         def host_header_rewrite_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigObjectProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigObjectProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-transform.html#cfn-elasticloadbalancingv2-listenerrule-transform-hostheaderrewriteconfig
             '''
             result = self._values.get("host_header_rewrite_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigObjectProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigObjectProperty"]], result)
 
         @builtins.property
         def url_rewrite_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigObjectProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigObjectProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-transform.html#cfn-elasticloadbalancingv2-listenerrule-transform-urlrewriteconfig
             '''
             result = self._values.get("url_rewrite_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RewriteConfigObjectProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RewriteConfigObjectProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9352,6 +9356,7 @@ class CfnListenerRule(
         "conditions": "conditions",
         "priority": "priority",
         "listener_arn": "listenerArn",
+        "tags": "tags",
         "transforms": "transforms",
     },
 )
@@ -9359,11 +9364,12 @@ class CfnListenerRuleProps:
     def __init__(
         self,
         *,
-        actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         priority: jsii.Number,
-        listener_arn: typing.Optional[typing.Union[builtins.str, "_IListenerRef_a8ced6a8"]] = None,
-        transforms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.TransformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_arn: typing.Optional[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.IListenerRef"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transforms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.TransformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnListenerRule``.
 
@@ -9371,6 +9377,7 @@ class CfnListenerRuleProps:
         :param conditions: The conditions. The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
         :param priority: The rule priority. A listener can't have multiple rules with the same priority. If you try to reorder rules by updating their priorities, do not specify a new priority if an existing rule already uses this priority, as this can cause an error. If you need to reuse a priority with a different rule, you must remove it as a priority first, and then specify it in a subsequent update.
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
+        :param tags: 
         :param transforms: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html
@@ -9378,6 +9385,7 @@ class CfnListenerRuleProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_elasticloadbalancingv2 as elbv2
@@ -9494,6 +9502,10 @@ class CfnListenerRuleProps:
             
                 # the properties below are optional
                 listener_arn="listenerArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 transforms=[elbv2.CfnListenerRule.TransformProperty(
                     type="type",
             
@@ -9514,11 +9526,12 @@ class CfnListenerRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca75076613edf0bf6ade8ee145bc71de34aa66567d90d5721bd40f862a5b0a03)
+            type_hints = cached_type_hints(_typecheckingstub__ca75076613edf0bf6ade8ee145bc71de34aa66567d90d5721bd40f862a5b0a03)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument transforms", value=transforms, expected_type=type_hints["transforms"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "actions": actions,
@@ -9527,13 +9540,15 @@ class CfnListenerRuleProps:
         }
         if listener_arn is not None:
             self._values["listener_arn"] = listener_arn
+        if tags is not None:
+            self._values["tags"] = tags
         if transforms is not None:
             self._values["transforms"] = transforms
 
     @builtins.property
     def actions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ActionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ActionProperty"]]]:
         '''The actions.
 
         The rule must include exactly one of the following types of actions: ``forward`` , ``fixed-response`` , or ``redirect`` , and it must be the last action to be performed. If the rule is for an HTTPS listener, it can also optionally include an authentication action.
@@ -9542,12 +9557,12 @@ class CfnListenerRuleProps:
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.ActionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.ActionProperty"]]], result)
 
     @builtins.property
     def conditions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RuleConditionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RuleConditionProperty"]]]:
         '''The conditions.
 
         The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
@@ -9556,7 +9571,7 @@ class CfnListenerRuleProps:
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.RuleConditionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.RuleConditionProperty"]]], result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
@@ -9573,23 +9588,31 @@ class CfnListenerRuleProps:
     @builtins.property
     def listener_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IListenerRef_a8ced6a8"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.IListenerRef"]]:
         '''The Amazon Resource Name (ARN) of the listener.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html#cfn-elasticloadbalancingv2-listenerrule-listenerarn
         '''
         result = self._values.get("listener_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IListenerRef_a8ced6a8"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.IListenerRef"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html#cfn-elasticloadbalancingv2-listenerrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transforms(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TransformProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TransformProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html#cfn-elasticloadbalancingv2-listenerrule-transforms
         '''
         result = self._values.get("transforms")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListenerRule.TransformProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListenerRule.TransformProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9603,9 +9626,9 @@ class CfnListenerRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoadBalancerRef_13acd8f1, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLoadBalancer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer",
 ):
@@ -9661,19 +9684,19 @@ class CfnLoadBalancer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
         enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-        load_balancer_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        minimum_load_balancer_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_balancer_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        minimum_load_balancer_capacity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         scheme: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        subnet_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::LoadBalancer``.
@@ -9696,7 +9719,7 @@ class CfnLoadBalancer(
         :param type: The type of load balancer. The default is ``application`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f)
+            type_hints = cached_type_hints(_typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoadBalancerProps(
@@ -9722,13 +9745,13 @@ class CfnLoadBalancer(
     @builtins.classmethod
     def arn_for_load_balancer(
         cls,
-        resource: "_ILoadBalancerRef_13acd8f1",
+        resource: "_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38532b8cac7bb336657c64de1390b7fd8b8427986014d4c73da1458d4f720ffc)
+            type_hints = cached_type_hints(_typecheckingstub__38532b8cac7bb336657c64de1390b7fd8b8427986014d4c73da1458d4f720ffc)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLoadBalancer", [resource]))
 
@@ -9740,18 +9763,18 @@ class CfnLoadBalancer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc01363eba65a15339b7d7a0904f751522a7b6ffdd25065cc93d9b96b0db9d9d)
+            type_hints = cached_type_hints(_typecheckingstub__fc01363eba65a15339b7d7a0904f751522a7b6ffdd25065cc93d9b96b0db9d9d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoadBalancer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d)
+            type_hints = cached_type_hints(_typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9764,7 +9787,7 @@ class CfnLoadBalancer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42)
+            type_hints = cached_type_hints(_typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9848,31 +9871,33 @@ class CfnLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerRef")
-    def load_balancer_ref(self) -> "_LoadBalancerReference_4bd5f891":
+    def load_balancer_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.LoadBalancerReference":
         '''A reference to a LoadBalancer resource.'''
-        return typing.cast("_LoadBalancerReference_4bd5f891", jsii.get(self, "loadBalancerRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.LoadBalancerReference", jsii.get(self, "loadBalancerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="enableCapacityReservationProvisionStabilize")
     def enable_capacity_reservation_provision_stabilize(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable stabilization when creating or updating an LCU reservation.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableCapacityReservationProvisionStabilize"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableCapacityReservationProvisionStabilize"))
 
     @enable_capacity_reservation_provision_stabilize.setter
     def enable_capacity_reservation_provision_stabilize(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db326b5431980db555d148f9ae3420eff076c5f4436bcac08ce2f9c7154eefce)
+            type_hints = cached_type_hints(_typecheckingstub__db326b5431980db555d148f9ae3420eff076c5f4436bcac08ce2f9c7154eefce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableCapacityReservationProvisionStabilize", value) # pyright: ignore[reportArgumentType]
 
@@ -9888,7 +9913,7 @@ class CfnLoadBalancer(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77)
+            type_hints = cached_type_hints(_typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enablePrefixForIpv6SourceNat", value) # pyright: ignore[reportArgumentType]
 
@@ -9906,7 +9931,7 @@ class CfnLoadBalancer(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21)
+            type_hints = cached_type_hints(_typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enforceSecurityGroupInboundRulesOnPrivateLinkTraffic", value) # pyright: ignore[reportArgumentType]
 
@@ -9922,7 +9947,7 @@ class CfnLoadBalancer(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01)
+            type_hints = cached_type_hints(_typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
@@ -9935,7 +9960,7 @@ class CfnLoadBalancer(
     @ipv4_ipam_pool_id.setter
     def ipv4_ipam_pool_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf)
+            type_hints = cached_type_hints(_typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipv4IpamPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -9943,17 +9968,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="loadBalancerAttributes")
     def load_balancer_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
         '''The load balancer attributes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], jsii.get(self, "loadBalancerAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], jsii.get(self, "loadBalancerAttributes"))
 
     @load_balancer_attributes.setter
     def load_balancer_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972)
+            type_hints = cached_type_hints(_typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancerAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -9961,17 +9986,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="minimumLoadBalancerCapacity")
     def minimum_load_balancer_capacity(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
         '''The minimum capacity for a load balancer.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], jsii.get(self, "minimumLoadBalancerCapacity"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], jsii.get(self, "minimumLoadBalancerCapacity"))
 
     @minimum_load_balancer_capacity.setter
     def minimum_load_balancer_capacity(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209)
+            type_hints = cached_type_hints(_typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minimumLoadBalancerCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -9984,7 +10009,7 @@ class CfnLoadBalancer(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e)
+            type_hints = cached_type_hints(_typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -9997,7 +10022,7 @@ class CfnLoadBalancer(
     @scheme.setter
     def scheme(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004)
+            type_hints = cached_type_hints(_typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheme", value) # pyright: ignore[reportArgumentType]
 
@@ -10013,7 +10038,7 @@ class CfnLoadBalancer(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb)
+            type_hints = cached_type_hints(_typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -10021,17 +10046,17 @@ class CfnLoadBalancer(
     @jsii.member(jsii_name="subnetMappings")
     def subnet_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.SubnetMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.SubnetMappingProperty"]]]]:
         '''The IDs of the subnets.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
 
     @subnet_mappings.setter
     def subnet_mappings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.SubnetMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.SubnetMappingProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b)
+            type_hints = cached_type_hints(_typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
 
@@ -10044,20 +10069,23 @@ class CfnLoadBalancer(
     @subnets.setter
     def subnets(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803)
+            type_hints = cached_type_hints(_typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the load balancer.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068)
+            type_hints = cached_type_hints(_typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -10070,7 +10098,7 @@ class CfnLoadBalancer(
     @type.setter
     def type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f)
+            type_hints = cached_type_hints(_typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -10106,7 +10134,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c)
+                type_hints = cached_type_hints(_typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10209,7 +10237,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc)
+                type_hints = cached_type_hints(_typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc)
                 check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "capacity_units": capacity_units,
@@ -10285,7 +10313,7 @@ class CfnLoadBalancer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11)
+                type_hints = cached_type_hints(_typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11)
                 check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
                 check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
                 check_type(argname="argument i_pv6_address", value=i_pv6_address, expected_type=type_hints["i_pv6_address"])
@@ -10387,19 +10415,19 @@ class CfnLoadBalancerProps:
     def __init__(
         self,
         *,
-        enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
         enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-        load_balancer_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        minimum_load_balancer_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_balancer_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        minimum_load_balancer_capacity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         scheme: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        subnet_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnLoadBalancer``.
@@ -10463,7 +10491,7 @@ class CfnLoadBalancerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b1eb30cea756dc45f625ec82ab8cba6ea31d24595a925a4aabceb7e6605bcde)
+            type_hints = cached_type_hints(_typecheckingstub__6b1eb30cea756dc45f625ec82ab8cba6ea31d24595a925a4aabceb7e6605bcde)
             check_type(argname="argument enable_capacity_reservation_provision_stabilize", value=enable_capacity_reservation_provision_stabilize, expected_type=type_hints["enable_capacity_reservation_provision_stabilize"])
             check_type(argname="argument enable_prefix_for_ipv6_source_nat", value=enable_prefix_for_ipv6_source_nat, expected_type=type_hints["enable_prefix_for_ipv6_source_nat"])
             check_type(argname="argument enforce_security_group_inbound_rules_on_private_link_traffic", value=enforce_security_group_inbound_rules_on_private_link_traffic, expected_type=type_hints["enforce_security_group_inbound_rules_on_private_link_traffic"])
@@ -10511,7 +10539,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def enable_capacity_reservation_provision_stabilize(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable stabilization when creating or updating an LCU reservation.
 
         This ensures that the final stack status reflects the status of the LCU reservation. The default is ``false`` .
@@ -10521,7 +10549,7 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-enablecapacityreservationprovisionstabilize
         '''
         result = self._values.get("enable_capacity_reservation_provision_stabilize")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_prefix_for_ipv6_source_nat(self) -> typing.Optional[builtins.str]:
@@ -10576,7 +10604,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def load_balancer_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
         '''The load balancer attributes.
 
         Attributes that you do not modify retain their current values.
@@ -10584,18 +10612,18 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattributes
         '''
         result = self._values.get("load_balancer_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], result)
 
     @builtins.property
     def minimum_load_balancer_capacity(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
         '''The minimum capacity for a load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity
         '''
         result = self._values.get("minimum_load_balancer_capacity")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -10630,18 +10658,18 @@ class CfnLoadBalancerProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''[Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-securitygroups
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
     def subnet_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.SubnetMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.SubnetMappingProperty"]]]]:
         '''The IDs of the subnets.
 
         You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both.
@@ -10659,12 +10687,12 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmappings
         '''
         result = self._values.get("subnet_mappings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoadBalancer.SubnetMappingProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoadBalancer.SubnetMappingProperty"]]]], result)
 
     @builtins.property
     def subnets(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]]:
         '''The IDs of the subnets.
 
         You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both. To specify an Elastic IP address, specify subnet mappings instead of subnets.
@@ -10680,16 +10708,16 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-subnets
         '''
         result = self._values.get("subnets")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
@@ -10714,9 +10742,9 @@ class CfnLoadBalancerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITargetGroupRef_9ed19d5e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnTargetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup",
 ):
@@ -10780,7 +10808,7 @@ class CfnTargetGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        health_check_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        health_check_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         health_check_interval_seconds: typing.Optional[jsii.Number] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[builtins.str] = None,
@@ -10788,18 +10816,18 @@ class CfnTargetGroup(
         health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
         healthy_threshold_count: typing.Optional[jsii.Number] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        matcher: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        matcher: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         protocol_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_control_port: typing.Optional[jsii.Number] = None,
-        target_group_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_group_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         target_type: typing.Optional[builtins.str] = None,
         unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-        vpc_id: typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]] = None,
+        vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::TargetGroup``.
 
@@ -10827,7 +10855,7 @@ class CfnTargetGroup(
         :param vpc_id: The identifier of the virtual private cloud (VPC). If the target is a Lambda function, this parameter does not apply. Otherwise, this parameter is required.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11)
+            type_hints = cached_type_hints(_typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTargetGroupProps(
@@ -10859,13 +10887,13 @@ class CfnTargetGroup(
     @builtins.classmethod
     def arn_for_target_group(
         cls,
-        resource: "_ITargetGroupRef_9ed19d5e",
+        resource: "_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07fba500111e022c7be67da6de404b437c3736e8cd6eca38d13fef52aa95b59c)
+            type_hints = cached_type_hints(_typecheckingstub__07fba500111e022c7be67da6de404b437c3736e8cd6eca38d13fef52aa95b59c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTargetGroup", [resource]))
 
@@ -10877,18 +10905,18 @@ class CfnTargetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__144addb332a950df27b1528339408e5ec92b0b65b2d860f32a54aaf2cb205a81)
+            type_hints = cached_type_hints(_typecheckingstub__144addb332a950df27b1528339408e5ec92b0b65b2d860f32a54aaf2cb205a81)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTargetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990)
+            type_hints = cached_type_hints(_typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10901,7 +10929,7 @@ class CfnTargetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d)
+            type_hints = cached_type_hints(_typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10963,31 +10991,33 @@ class CfnTargetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroupRef")
-    def target_group_ref(self) -> "_TargetGroupReference_43f51e8b":
+    def target_group_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.TargetGroupReference":
         '''A reference to a TargetGroup resource.'''
-        return typing.cast("_TargetGroupReference_43f51e8b", jsii.get(self, "targetGroupRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.TargetGroupReference", jsii.get(self, "targetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckEnabled")
     def health_check_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether health checks are enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "healthCheckEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "healthCheckEnabled"))
 
     @health_check_enabled.setter
     def health_check_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175)
+            type_hints = cached_type_hints(_typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -11003,7 +11033,7 @@ class CfnTargetGroup(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0)
+            type_hints = cached_type_hints(_typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckIntervalSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -11016,7 +11046,7 @@ class CfnTargetGroup(
     @health_check_path.setter
     def health_check_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36)
+            type_hints = cached_type_hints(_typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckPath", value) # pyright: ignore[reportArgumentType]
 
@@ -11029,7 +11059,7 @@ class CfnTargetGroup(
     @health_check_port.setter
     def health_check_port(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c)
+            type_hints = cached_type_hints(_typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckPort", value) # pyright: ignore[reportArgumentType]
 
@@ -11042,7 +11072,7 @@ class CfnTargetGroup(
     @health_check_protocol.setter
     def health_check_protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d)
+            type_hints = cached_type_hints(_typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckProtocol", value) # pyright: ignore[reportArgumentType]
 
@@ -11055,7 +11085,7 @@ class CfnTargetGroup(
     @health_check_timeout_seconds.setter
     def health_check_timeout_seconds(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c)
+            type_hints = cached_type_hints(_typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckTimeoutSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -11068,7 +11098,7 @@ class CfnTargetGroup(
     @healthy_threshold_count.setter
     def healthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae)
+            type_hints = cached_type_hints(_typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthyThresholdCount", value) # pyright: ignore[reportArgumentType]
 
@@ -11081,7 +11111,7 @@ class CfnTargetGroup(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3)
+            type_hints = cached_type_hints(_typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
@@ -11089,17 +11119,17 @@ class CfnTargetGroup(
     @jsii.member(jsii_name="matcher")
     def matcher(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.MatcherProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.MatcherProperty"]]:
         '''[HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.MatcherProperty"]], jsii.get(self, "matcher"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.MatcherProperty"]], jsii.get(self, "matcher"))
 
     @matcher.setter
     def matcher(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.MatcherProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.MatcherProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958)
+            type_hints = cached_type_hints(_typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "matcher", value) # pyright: ignore[reportArgumentType]
 
@@ -11112,7 +11142,7 @@ class CfnTargetGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c)
+            type_hints = cached_type_hints(_typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -11125,7 +11155,7 @@ class CfnTargetGroup(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5)
+            type_hints = cached_type_hints(_typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -11138,7 +11168,7 @@ class CfnTargetGroup(
     @protocol.setter
     def protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b)
+            type_hints = cached_type_hints(_typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -11151,20 +11181,23 @@ class CfnTargetGroup(
     @protocol_version.setter
     def protocol_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f)
+            type_hints = cached_type_hints(_typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocolVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf)
+            type_hints = cached_type_hints(_typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -11177,7 +11210,7 @@ class CfnTargetGroup(
     @target_control_port.setter
     def target_control_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c2a7ca76dddd9c6010ff906f1d709b05d8b40266b1bceb08212b60a5d48bc61)
+            type_hints = cached_type_hints(_typecheckingstub__3c2a7ca76dddd9c6010ff906f1d709b05d8b40266b1bceb08212b60a5d48bc61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetControlPort", value) # pyright: ignore[reportArgumentType]
 
@@ -11185,17 +11218,17 @@ class CfnTargetGroup(
     @jsii.member(jsii_name="targetGroupAttributes")
     def target_group_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
         '''The target group attributes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetGroupAttributeProperty"]]]], jsii.get(self, "targetGroupAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetGroupAttributeProperty"]]]], jsii.get(self, "targetGroupAttributes"))
 
     @target_group_attributes.setter
     def target_group_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetGroupAttributeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetGroupAttributeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56)
+            type_hints = cached_type_hints(_typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetGroupAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -11203,17 +11236,17 @@ class CfnTargetGroup(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetDescriptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetDescriptionProperty"]]]]:
         '''The targets.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetDescriptionProperty"]]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetDescriptionProperty"]]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetDescriptionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetDescriptionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b)
+            type_hints = cached_type_hints(_typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
 
@@ -11226,7 +11259,7 @@ class CfnTargetGroup(
     @target_type.setter
     def target_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50)
+            type_hints = cached_type_hints(_typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
@@ -11239,7 +11272,7 @@ class CfnTargetGroup(
     @unhealthy_threshold_count.setter
     def unhealthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4)
+            type_hints = cached_type_hints(_typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "unhealthyThresholdCount", value) # pyright: ignore[reportArgumentType]
 
@@ -11252,7 +11285,7 @@ class CfnTargetGroup(
     @vpc_id.setter
     def vpc_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad)
+            type_hints = cached_type_hints(_typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -11288,7 +11321,7 @@ class CfnTargetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb)
+                type_hints = cached_type_hints(_typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb)
                 check_type(argname="argument grpc_code", value=grpc_code, expected_type=type_hints["grpc_code"])
                 check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11381,7 +11414,7 @@ class CfnTargetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a)
+                type_hints = cached_type_hints(_typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -11496,7 +11529,7 @@ class CfnTargetGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31)
+                type_hints = cached_type_hints(_typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11610,7 +11643,7 @@ class CfnTargetGroupProps:
     def __init__(
         self,
         *,
-        health_check_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        health_check_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         health_check_interval_seconds: typing.Optional[jsii.Number] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[builtins.str] = None,
@@ -11618,18 +11651,18 @@ class CfnTargetGroupProps:
         health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
         healthy_threshold_count: typing.Optional[jsii.Number] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        matcher: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        matcher: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         protocol_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_control_port: typing.Optional[jsii.Number] = None,
-        target_group_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_group_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         target_type: typing.Optional[builtins.str] = None,
         unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-        vpc_id: typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]] = None,
+        vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTargetGroup``.
 
@@ -11704,7 +11737,7 @@ class CfnTargetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f70479f22fd69f1eb73d26d52854af23412d5ec08abc74e859ad481fc4e5052)
+            type_hints = cached_type_hints(_typecheckingstub__5f70479f22fd69f1eb73d26d52854af23412d5ec08abc74e859ad481fc4e5052)
             check_type(argname="argument health_check_enabled", value=health_check_enabled, expected_type=type_hints["health_check_enabled"])
             check_type(argname="argument health_check_interval_seconds", value=health_check_interval_seconds, expected_type=type_hints["health_check_interval_seconds"])
             check_type(argname="argument health_check_path", value=health_check_path, expected_type=type_hints["health_check_path"])
@@ -11770,7 +11803,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def health_check_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether health checks are enabled.
 
         If the target type is ``lambda`` , health checks are disabled by default but can be enabled. If the target type is ``instance`` , ``ip`` , or ``alb`` , health checks are always enabled and can't be disabled.
@@ -11778,7 +11811,7 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-healthcheckenabled
         '''
         result = self._values.get("health_check_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def health_check_interval_seconds(self) -> typing.Optional[jsii.Number]:
@@ -11862,7 +11895,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def matcher(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.MatcherProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.MatcherProperty"]]:
         '''[HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.
 
         For target groups with a protocol of TCP, TCP_UDP, UDP, QUIC, TCP_QUIC, or TLS the range is 200-599. For target groups with a protocol of HTTP or HTTPS, the range is 200-499. For target groups with a protocol of GENEVE, the range is 200-399.
@@ -11870,7 +11903,7 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-matcher
         '''
         result = self._values.get("matcher")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.MatcherProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.MatcherProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -11917,13 +11950,13 @@ class CfnTargetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def target_control_port(self) -> typing.Optional[jsii.Number]:
@@ -11937,7 +11970,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def target_group_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
         '''The target group attributes.
 
         Attributes that you do not modify retain their current values.
@@ -11945,18 +11978,18 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattributes
         '''
         result = self._values.get("target_group_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetGroupAttributeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetGroupAttributeProperty"]]]], result)
 
     @builtins.property
     def targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetDescriptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetDescriptionProperty"]]]]:
         '''The targets.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-targets
         '''
         result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTargetGroup.TargetDescriptionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTargetGroup.TargetDescriptionProperty"]]]], result)
 
     @builtins.property
     def target_type(self) -> typing.Optional[builtins.str]:
@@ -11988,7 +12021,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def vpc_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]]:
         '''The identifier of the virtual private cloud (VPC).
 
         If the target is a Lambda function, this parameter does not apply. Otherwise, this parameter is required.
@@ -11996,7 +12029,7 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-vpcid
         '''
         result = self._values.get("vpc_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12010,9 +12043,9 @@ class CfnTargetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrustStoreRef_0fa03cbe, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTrustStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStore",
 ):
@@ -12052,7 +12085,7 @@ class CfnTrustStore(
         ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
         ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::TrustStore``.
 
@@ -12065,7 +12098,7 @@ class CfnTrustStore(
         :param tags: The tags to assign to the trust store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa)
+            type_hints = cached_type_hints(_typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrustStoreProps(
@@ -12080,12 +12113,15 @@ class CfnTrustStore(
 
     @jsii.member(jsii_name="arnForTrustStore")
     @builtins.classmethod
-    def arn_for_trust_store(cls, resource: "_ITrustStoreRef_0fa03cbe") -> builtins.str:
+    def arn_for_trust_store(
+        cls,
+        resource: "_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68e5e87be3d08234a1972242a96946c9d8968b318d01a17a2e4d689b09d5c693)
+            type_hints = cached_type_hints(_typecheckingstub__68e5e87be3d08234a1972242a96946c9d8968b318d01a17a2e4d689b09d5c693)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrustStore", [resource]))
 
@@ -12097,18 +12133,18 @@ class CfnTrustStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7810897092510f20249e88bd16dc048f1cafb8892acb2f2c9e44891621c445f)
+            type_hints = cached_type_hints(_typecheckingstub__d7810897092510f20249e88bd16dc048f1cafb8892acb2f2c9e44891621c445f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrustStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa)
+            type_hints = cached_type_hints(_typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -12121,7 +12157,7 @@ class CfnTrustStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f)
+            type_hints = cached_type_hints(_typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -12162,9 +12198,9 @@ class CfnTrustStore(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -12178,9 +12214,11 @@ class CfnTrustStore(
 
     @builtins.property
     @jsii.member(jsii_name="trustStoreRef")
-    def trust_store_ref(self) -> "_TrustStoreReference_ad81b807":
+    def trust_store_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.TrustStoreReference":
         '''A reference to a TrustStore resource.'''
-        return typing.cast("_TrustStoreReference_ad81b807", jsii.get(self, "trustStoreRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.TrustStoreReference", jsii.get(self, "trustStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="caCertificatesBundleS3Bucket")
@@ -12194,7 +12232,7 @@ class CfnTrustStore(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02)
+            type_hints = cached_type_hints(_typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "caCertificatesBundleS3Bucket", value) # pyright: ignore[reportArgumentType]
 
@@ -12210,7 +12248,7 @@ class CfnTrustStore(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb)
+            type_hints = cached_type_hints(_typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "caCertificatesBundleS3Key", value) # pyright: ignore[reportArgumentType]
 
@@ -12226,7 +12264,7 @@ class CfnTrustStore(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055)
+            type_hints = cached_type_hints(_typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "caCertificatesBundleS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -12239,20 +12277,23 @@ class CfnTrustStore(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29)
+            type_hints = cached_type_hints(_typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the trust store.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e)
+            type_hints = cached_type_hints(_typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -12276,7 +12317,7 @@ class CfnTrustStoreProps:
         ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
         ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrustStore``.
 
@@ -12308,7 +12349,7 @@ class CfnTrustStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31bee807e2c9af2ecf78de38eee9f203457cfbf7ca7c01c0ec98de7851d38847)
+            type_hints = cached_type_hints(_typecheckingstub__31bee807e2c9af2ecf78de38eee9f203457cfbf7ca7c01c0ec98de7851d38847)
             check_type(argname="argument ca_certificates_bundle_s3_bucket", value=ca_certificates_bundle_s3_bucket, expected_type=type_hints["ca_certificates_bundle_s3_bucket"])
             check_type(argname="argument ca_certificates_bundle_s3_key", value=ca_certificates_bundle_s3_key, expected_type=type_hints["ca_certificates_bundle_s3_key"])
             check_type(argname="argument ca_certificates_bundle_s3_object_version", value=ca_certificates_bundle_s3_object_version, expected_type=type_hints["ca_certificates_bundle_s3_object_version"])
@@ -12365,13 +12406,13 @@ class CfnTrustStoreProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the trust store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststore.html#cfn-elasticloadbalancingv2-truststore-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12385,9 +12426,9 @@ class CfnTrustStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrustStoreRevocationRef_fb28f993)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRevocationRef)
 class CfnTrustStoreRevocation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation",
 ):
@@ -12421,7 +12462,7 @@ class CfnTrustStoreRevocation(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        revocation_contents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        revocation_contents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::TrustStoreRevocation``.
@@ -12432,7 +12473,7 @@ class CfnTrustStoreRevocation(
         :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633)
+            type_hints = cached_type_hints(_typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrustStoreRevocationProps(
@@ -12449,18 +12490,18 @@ class CfnTrustStoreRevocation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2beebf4c7c80ce08032d3bc60fd271257f44ef22af0b496b04b426d0486f30d9)
+            type_hints = cached_type_hints(_typecheckingstub__2beebf4c7c80ce08032d3bc60fd271257f44ef22af0b496b04b426d0486f30d9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrustStoreRevocation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd)
+            type_hints = cached_type_hints(_typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -12473,7 +12514,7 @@ class CfnTrustStoreRevocation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2)
+            type_hints = cached_type_hints(_typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -12494,14 +12535,14 @@ class CfnTrustStoreRevocation(
 
     @builtins.property
     @jsii.member(jsii_name="attrTrustStoreRevocations")
-    def attr_trust_store_revocations(self) -> "_IResolvable_da3f097b":
+    def attr_trust_store_revocations(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Information about the revocation file in the trust store.
 
         For more information, see `TrustStoreRevocation <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html>`_ .
 
         :cloudformationAttribute: TrustStoreRevocations
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrTrustStoreRevocations"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTrustStoreRevocations"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -12515,25 +12556,27 @@ class CfnTrustStoreRevocation(
 
     @builtins.property
     @jsii.member(jsii_name="trustStoreRevocationRef")
-    def trust_store_revocation_ref(self) -> "_TrustStoreRevocationReference_ccf0d08a":
+    def trust_store_revocation_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.TrustStoreRevocationReference":
         '''A reference to a TrustStoreRevocation resource.'''
-        return typing.cast("_TrustStoreRevocationReference_ccf0d08a", jsii.get(self, "trustStoreRevocationRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.TrustStoreRevocationReference", jsii.get(self, "trustStoreRevocationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="revocationContents")
     def revocation_contents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
         '''The revocation file to add.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrustStoreRevocation.RevocationContentProperty"]]]], jsii.get(self, "revocationContents"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustStoreRevocation.RevocationContentProperty"]]]], jsii.get(self, "revocationContents"))
 
     @revocation_contents.setter
     def revocation_contents(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrustStoreRevocation.RevocationContentProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustStoreRevocation.RevocationContentProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7)
+            type_hints = cached_type_hints(_typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "revocationContents", value) # pyright: ignore[reportArgumentType]
 
@@ -12546,7 +12589,7 @@ class CfnTrustStoreRevocation(
     @trust_store_arn.setter
     def trust_store_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448)
+            type_hints = cached_type_hints(_typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trustStoreArn", value) # pyright: ignore[reportArgumentType]
 
@@ -12595,7 +12638,7 @@ class CfnTrustStoreRevocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840)
+                type_hints = cached_type_hints(_typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840)
                 check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
@@ -12700,7 +12743,7 @@ class CfnTrustStoreRevocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd)
+                type_hints = cached_type_hints(_typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd)
                 check_type(argname="argument number_of_revoked_entries", value=number_of_revoked_entries, expected_type=type_hints["number_of_revoked_entries"])
                 check_type(argname="argument revocation_id", value=revocation_id, expected_type=type_hints["revocation_id"])
                 check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
@@ -12775,7 +12818,7 @@ class CfnTrustStoreRevocationProps:
     def __init__(
         self,
         *,
-        revocation_contents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        revocation_contents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrustStoreRevocation``.
@@ -12803,7 +12846,7 @@ class CfnTrustStoreRevocationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcdfa64ce84c6361d4eaccae6a47d534f5bdff50c5332dfa036cedf2267da532)
+            type_hints = cached_type_hints(_typecheckingstub__dcdfa64ce84c6361d4eaccae6a47d534f5bdff50c5332dfa036cedf2267da532)
             check_type(argname="argument revocation_contents", value=revocation_contents, expected_type=type_hints["revocation_contents"])
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12815,13 +12858,13 @@ class CfnTrustStoreRevocationProps:
     @builtins.property
     def revocation_contents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
         '''The revocation file to add.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontents
         '''
         result = self._values.get("revocation_contents")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrustStoreRevocation.RevocationContentProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustStoreRevocation.RevocationContentProperty"]]]], result)
 
     @builtins.property
     def trust_store_arn(self) -> typing.Optional[builtins.str]:
@@ -12998,7 +13041,7 @@ class FixedResponseOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8081ec42d6095e29a849589193a625f9537aeee6ff43b72967e09e994199e388)
+            type_hints = cached_type_hints(_typecheckingstub__8081ec42d6095e29a849589193a625f9537aeee6ff43b72967e09e994199e388)
             check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
             check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13048,7 +13091,7 @@ class ForwardOptions:
     def __init__(
         self,
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options for ``ListenerAction.forward()``.
 
@@ -13068,14 +13111,14 @@ class ForwardOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f17e28281be5b3a27222606c2ed40c9fcb94da568d4f0c416d6ee3fc7073fdb)
+            type_hints = cached_type_hints(_typecheckingstub__9f17e28281be5b3a27222606c2ed40c9fcb94da568d4f0c416d6ee3fc7073fdb)
             check_type(argname="argument stickiness_duration", value=stickiness_duration, expected_type=type_hints["stickiness_duration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if stickiness_duration is not None:
             self._values["stickiness_duration"] = stickiness_duration
 
     @builtins.property
-    def stickiness_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def stickiness_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''For how long clients should be directed to the same target group.
 
         Range between 1 second and 7 days.
@@ -13083,7 +13126,7 @@ class ForwardOptions:
         :default: - No stickiness
         '''
         result = self._values.get("stickiness_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13121,11 +13164,11 @@ class HealthCheck:
         healthy_grpc_codes: typing.Optional[builtins.str] = None,
         healthy_http_codes: typing.Optional[builtins.str] = None,
         healthy_threshold_count: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         port: typing.Optional[builtins.str] = None,
         protocol: typing.Optional["Protocol"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for configuring a health check.
@@ -13166,7 +13209,7 @@ class HealthCheck:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22e3783c66866a94010cd4a8a8d5694f8015b3072ed348f2f0d8e183bdd9d832)
+            type_hints = cached_type_hints(_typecheckingstub__22e3783c66866a94010cd4a8a8d5694f8015b3072ed348f2f0d8e183bdd9d832)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument healthy_grpc_codes", value=healthy_grpc_codes, expected_type=type_hints["healthy_grpc_codes"])
             check_type(argname="argument healthy_http_codes", value=healthy_http_codes, expected_type=type_hints["healthy_http_codes"])
@@ -13247,7 +13290,7 @@ class HealthCheck:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The approximate number of seconds between health checks for an individual target.
 
         Must be 5 to 300 seconds
@@ -13255,7 +13298,7 @@ class HealthCheck:
         :default: - 10 seconds if protocol is ``GENEVE``, 35 seconds if target type is ``lambda``, else 30 seconds
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -13288,7 +13331,7 @@ class HealthCheck:
         return typing.cast(typing.Optional["Protocol"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, during which no response from a target means a failed health check.
 
         Must be 2 to 120 seconds.
@@ -13296,7 +13339,7 @@ class HealthCheck:
         :default: - 6 seconds if the protocol is HTTP, 5 seconds if protocol is ``GENEVE``, 30 seconds if target type is ``lambda``, 10 seconds for TCP, TLS, or HTTPS
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
@@ -13438,14 +13481,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of concurrent TCP connections active from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13474,14 +13517,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the client that did not establish a session with the load balancer.
 
         Possible causes include a
@@ -13513,14 +13556,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13550,14 +13593,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Application Load Balancer.
 
         :param metric_name: -
@@ -13587,14 +13630,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of user authentications that could not be completed.
 
         Because an authenticate action was misconfigured, the load balancer
@@ -13627,14 +13670,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of user authentications that could not be completed because the IdP denied access to the user or an authorization code was used more than once.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13663,14 +13706,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in milliseconds, to query the IdP for the ID token and user info.
 
         If one or more of these operations fail, this is the time to failure.
@@ -13701,14 +13744,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of authenticate actions that were successful.
 
         This metric is incremented at the end of the authentication workflow,
@@ -13741,14 +13784,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 3xx/4xx/5xx codes that originate from the load balancer.
 
         This does not include any response codes generated by the targets.
@@ -13781,14 +13824,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in the load balancer.
 
         This does not include any response codes generated by the load balancer.
@@ -13820,14 +13863,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of fixed-response actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13856,14 +13899,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of redirect actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13892,14 +13935,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of redirect actions that couldn't be completed because the URL in the response location header is larger than 8K.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13928,14 +13971,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer over IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13964,14 +14007,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of IPv6 requests received by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14000,14 +14043,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of new TCP connections established from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14036,14 +14079,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer over IPv4 and IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14072,14 +14115,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were rejected because the load balancer had reached its maximum number of connections.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14108,14 +14151,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -14146,14 +14189,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of rules processed by the load balancer given a request rate averaged over an hour.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14182,14 +14225,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14218,14 +14261,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14254,14 +14297,14 @@ class IApplicationLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -14298,14 +14341,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of concurrent TCP connections active from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14323,7 +14366,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14338,7 +14381,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "activeConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "activeConnectionCount", [props]))
 
     @jsii.member(jsii_name="clientTlsNegotiationErrorCount")
     def client_tls_negotiation_error_count(
@@ -14349,14 +14392,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the client that did not establish a session with the load balancer.
 
         Possible causes include a
@@ -14377,7 +14420,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14392,7 +14435,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "clientTlsNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "clientTlsNegotiationErrorCount", [props]))
 
     @jsii.member(jsii_name="consumedLCUs")
     def consumed_lc_us(
@@ -14403,14 +14446,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14428,7 +14471,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14443,7 +14486,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "consumedLCUs", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "consumedLCUs", [props]))
 
     @jsii.member(jsii_name="custom")
     def custom(
@@ -14455,14 +14498,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Application Load Balancer.
 
         :param metric_name: -
@@ -14482,9 +14525,9 @@ class _IApplicationLoadBalancerMetricsProxy:
         :default: Average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fdaa352f47723102bc8b02795997da981ab41c5bbfac64c9c16bb660cd8b1d9)
+            type_hints = cached_type_hints(_typecheckingstub__5fdaa352f47723102bc8b02795997da981ab41c5bbfac64c9c16bb660cd8b1d9)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14499,7 +14542,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "custom", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "custom", [metric_name, props]))
 
     @jsii.member(jsii_name="elbAuthError")
     def elb_auth_error(
@@ -14510,14 +14553,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of user authentications that could not be completed.
 
         Because an authenticate action was misconfigured, the load balancer
@@ -14539,7 +14582,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14554,7 +14597,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "elbAuthError", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "elbAuthError", [props]))
 
     @jsii.member(jsii_name="elbAuthFailure")
     def elb_auth_failure(
@@ -14565,14 +14608,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of user authentications that could not be completed because the IdP denied access to the user or an authorization code was used more than once.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14590,7 +14633,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14605,7 +14648,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "elbAuthFailure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "elbAuthFailure", [props]))
 
     @jsii.member(jsii_name="elbAuthLatency")
     def elb_auth_latency(
@@ -14616,14 +14659,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in milliseconds, to query the IdP for the ID token and user info.
 
         If one or more of these operations fail, this is the time to failure.
@@ -14643,7 +14686,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14658,7 +14701,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "elbAuthLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "elbAuthLatency", [props]))
 
     @jsii.member(jsii_name="elbAuthSuccess")
     def elb_auth_success(
@@ -14669,14 +14712,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of authenticate actions that were successful.
 
         This metric is incremented at the end of the authentication workflow,
@@ -14697,7 +14740,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14712,7 +14755,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "elbAuthSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "elbAuthSuccess", [props]))
 
     @jsii.member(jsii_name="httpCodeElb")
     def http_code_elb(
@@ -14724,14 +14767,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 3xx/4xx/5xx codes that originate from the load balancer.
 
         This does not include any response codes generated by the targets.
@@ -14753,9 +14796,9 @@ class _IApplicationLoadBalancerMetricsProxy:
         :default: Sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ae47c8e65e66e347cfdb0188a808020b132816f8589da08b3bc1a1da4e13f9a)
+            type_hints = cached_type_hints(_typecheckingstub__4ae47c8e65e66e347cfdb0188a808020b132816f8589da08b3bc1a1da4e13f9a)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14770,7 +14813,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpCodeElb", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpCodeElb", [code, props]))
 
     @jsii.member(jsii_name="httpCodeTarget")
     def http_code_target(
@@ -14782,14 +14825,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in the load balancer.
 
         This does not include any response codes generated by the load balancer.
@@ -14811,9 +14854,9 @@ class _IApplicationLoadBalancerMetricsProxy:
         :default: Sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d30c1da0a3658b983f526f50f7092b4225f10072263e9c0d1e7a838347a5bc2f)
+            type_hints = cached_type_hints(_typecheckingstub__d30c1da0a3658b983f526f50f7092b4225f10072263e9c0d1e7a838347a5bc2f)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14828,7 +14871,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpCodeTarget", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpCodeTarget", [code, props]))
 
     @jsii.member(jsii_name="httpFixedResponseCount")
     def http_fixed_response_count(
@@ -14839,14 +14882,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of fixed-response actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14864,7 +14907,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14879,7 +14922,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpFixedResponseCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpFixedResponseCount", [props]))
 
     @jsii.member(jsii_name="httpRedirectCount")
     def http_redirect_count(
@@ -14890,14 +14933,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of redirect actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14915,7 +14958,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14930,7 +14973,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpRedirectCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpRedirectCount", [props]))
 
     @jsii.member(jsii_name="httpRedirectUrlLimitExceededCount")
     def http_redirect_url_limit_exceeded_count(
@@ -14941,14 +14984,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of redirect actions that couldn't be completed because the URL in the response location header is larger than 8K.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14966,7 +15009,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14981,7 +15024,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpRedirectUrlLimitExceededCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpRedirectUrlLimitExceededCount", [props]))
 
     @jsii.member(jsii_name="ipv6ProcessedBytes")
     def ipv6_processed_bytes(
@@ -14992,14 +15035,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer over IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15017,7 +15060,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15032,7 +15075,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "ipv6ProcessedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "ipv6ProcessedBytes", [props]))
 
     @jsii.member(jsii_name="ipv6RequestCount")
     def ipv6_request_count(
@@ -15043,14 +15086,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of IPv6 requests received by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15068,7 +15111,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15083,7 +15126,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "ipv6RequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "ipv6RequestCount", [props]))
 
     @jsii.member(jsii_name="newConnectionCount")
     def new_connection_count(
@@ -15094,14 +15137,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of new TCP connections established from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15119,7 +15162,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15134,7 +15177,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "newConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "newConnectionCount", [props]))
 
     @jsii.member(jsii_name="processedBytes")
     def processed_bytes(
@@ -15145,14 +15188,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer over IPv4 and IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15170,7 +15213,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15185,7 +15228,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "processedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "processedBytes", [props]))
 
     @jsii.member(jsii_name="rejectedConnectionCount")
     def rejected_connection_count(
@@ -15196,14 +15239,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were rejected because the load balancer had reached its maximum number of connections.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15221,7 +15264,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15236,7 +15279,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "rejectedConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "rejectedConnectionCount", [props]))
 
     @jsii.member(jsii_name="requestCount")
     def request_count(
@@ -15247,14 +15290,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -15274,7 +15317,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15289,7 +15332,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "requestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "requestCount", [props]))
 
     @jsii.member(jsii_name="ruleEvaluations")
     def rule_evaluations(
@@ -15300,14 +15343,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of rules processed by the load balancer given a request rate averaged over an hour.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15325,7 +15368,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15340,7 +15383,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "ruleEvaluations", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "ruleEvaluations", [props]))
 
     @jsii.member(jsii_name="targetConnectionErrorCount")
     def target_connection_error_count(
@@ -15351,14 +15394,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15376,7 +15419,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15391,7 +15434,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetConnectionErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetConnectionErrorCount", [props]))
 
     @jsii.member(jsii_name="targetResponseTime")
     def target_response_time(
@@ -15402,14 +15445,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15427,7 +15470,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15442,7 +15485,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetResponseTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetResponseTime", [props]))
 
     @jsii.member(jsii_name="targetTLSNegotiationErrorCount")
     def target_tls_negotiation_error_count(
@@ -15453,14 +15496,14 @@ class _IApplicationLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -15480,7 +15523,7 @@ class _IApplicationLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15495,7 +15538,7 @@ class _IApplicationLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetTLSNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetTLSNegotiationErrorCount", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApplicationLoadBalancerMetrics).__jsii_proxy_class__ = lambda : _IApplicationLoadBalancerMetricsProxy
@@ -15505,7 +15548,7 @@ typing.cast(typing.Any, IApplicationLoadBalancerMetrics).__jsii_proxy_class__ = 
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IApplicationLoadBalancerRef"
 )
 class IApplicationLoadBalancerRef(
-    _ILoadBalancerRef_13acd8f1,
+    _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef,
     typing_extensions.Protocol,
 ):
     '''Indicates that this resource can be referenced as an Application LoadBalancer.'''
@@ -15522,7 +15565,7 @@ class IApplicationLoadBalancerRef(
 
 
 class _IApplicationLoadBalancerRefProxy(
-    jsii.proxy_for(_ILoadBalancerRef_13acd8f1), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef), # type: ignore[misc]
 ):
     '''Indicates that this resource can be referenced as an Application LoadBalancer.'''
 
@@ -15581,7 +15624,7 @@ class _IApplicationLoadBalancerTargetProxy:
         :param target_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10e811b000b780b0edb16a90b46e7eaa0d21ad9c7dc0ab7ce10d2bbe0f78a21)
+            type_hints = cached_type_hints(_typecheckingstub__d10e811b000b780b0edb16a90b46e7eaa0d21ad9c7dc0ab7ce10d2bbe0f78a21)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
         return typing.cast("LoadBalancerTargetProps", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
 
@@ -15605,14 +15648,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Target Group.
 
         :param metric_name: -
@@ -15642,14 +15685,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of healthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15679,14 +15722,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in this target group.
 
         This does not include any response codes generated by the load balancer.
@@ -15718,14 +15761,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of IPv6 requests received by the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15754,14 +15797,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -15792,14 +15835,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The average number of requests received by each target in a target group.
 
         The only valid statistic is Sum. Note that this represents the average not the sum.
@@ -15830,14 +15873,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15866,14 +15909,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15902,14 +15945,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -15940,14 +15983,14 @@ class IApplicationTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of unhealthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15983,14 +16026,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Target Group.
 
         :param metric_name: -
@@ -16010,9 +16053,9 @@ class _IApplicationTargetGroupMetricsProxy:
         :default: Average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc3cba8973161f9f275100a75ebf8cac931ced8367721ab1adb7f4f9b4718806)
+            type_hints = cached_type_hints(_typecheckingstub__cc3cba8973161f9f275100a75ebf8cac931ced8367721ab1adb7f4f9b4718806)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16027,7 +16070,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "custom", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "custom", [metric_name, props]))
 
     @jsii.member(jsii_name="healthyHostCount")
     def healthy_host_count(
@@ -16038,14 +16081,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of healthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16063,7 +16106,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16078,7 +16121,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "healthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "healthyHostCount", [props]))
 
     @jsii.member(jsii_name="httpCodeTarget")
     def http_code_target(
@@ -16090,14 +16133,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in this target group.
 
         This does not include any response codes generated by the load balancer.
@@ -16119,9 +16162,9 @@ class _IApplicationTargetGroupMetricsProxy:
         :default: Sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dd40f82fcbdfec8e99268dcb0a185ed360683cb030f3584a06d99792f5e46b2)
+            type_hints = cached_type_hints(_typecheckingstub__6dd40f82fcbdfec8e99268dcb0a185ed360683cb030f3584a06d99792f5e46b2)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16136,7 +16179,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "httpCodeTarget", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "httpCodeTarget", [code, props]))
 
     @jsii.member(jsii_name="ipv6RequestCount")
     def ipv6_request_count(
@@ -16147,14 +16190,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of IPv6 requests received by the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16172,7 +16215,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16187,7 +16230,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "ipv6RequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "ipv6RequestCount", [props]))
 
     @jsii.member(jsii_name="requestCount")
     def request_count(
@@ -16198,14 +16241,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -16225,7 +16268,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16240,7 +16283,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "requestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "requestCount", [props]))
 
     @jsii.member(jsii_name="requestCountPerTarget")
     def request_count_per_target(
@@ -16251,14 +16294,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The average number of requests received by each target in a target group.
 
         The only valid statistic is Sum. Note that this represents the average not the sum.
@@ -16278,7 +16321,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16293,7 +16336,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "requestCountPerTarget", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "requestCountPerTarget", [props]))
 
     @jsii.member(jsii_name="targetConnectionErrorCount")
     def target_connection_error_count(
@@ -16304,14 +16347,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16329,7 +16372,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16344,7 +16387,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetConnectionErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetConnectionErrorCount", [props]))
 
     @jsii.member(jsii_name="targetResponseTime")
     def target_response_time(
@@ -16355,14 +16398,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16380,7 +16423,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16395,7 +16438,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetResponseTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetResponseTime", [props]))
 
     @jsii.member(jsii_name="targetTLSNegotiationErrorCount")
     def target_tls_negotiation_error_count(
@@ -16406,14 +16449,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -16433,7 +16476,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16448,7 +16491,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "targetTLSNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "targetTLSNegotiationErrorCount", [props]))
 
     @jsii.member(jsii_name="unhealthyHostCount")
     def unhealthy_host_count(
@@ -16459,14 +16502,14 @@ class _IApplicationTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of unhealthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16484,7 +16527,7 @@ class _IApplicationTargetGroupMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -16499,7 +16542,7 @@ class _IApplicationTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "unhealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "unhealthyHostCount", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApplicationTargetGroupMetrics).__jsii_proxy_class__ = lambda : _IApplicationTargetGroupMetricsProxy
@@ -16507,8 +16550,8 @@ typing.cast(typing.Any, IApplicationTargetGroupMetrics).__jsii_proxy_class__ = l
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IListener")
 class IListener(
-    _IResource_c80c4260,
-    _IListenerRef_a8ced6a8,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_elasticloadbalancingv2_1283aa87.IListenerRef,
     typing_extensions.Protocol,
 ):
     '''Base interface for listeners.'''
@@ -16524,8 +16567,8 @@ class IListener(
 
 
 class _IListenerProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IListenerRef_a8ced6a8), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.IListenerRef), # type: ignore[misc]
 ):
     '''Base interface for listeners.'''
 
@@ -16608,8 +16651,8 @@ typing.cast(typing.Any, IListenerCertificate).__jsii_proxy_class__ = lambda : _I
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ILoadBalancerV2")
 class ILoadBalancerV2(
-    _IResource_c80c4260,
-    _ILoadBalancerRef_13acd8f1,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef,
     typing_extensions.Protocol,
 ):
     @builtins.property
@@ -16636,8 +16679,8 @@ class ILoadBalancerV2(
 
 
 class _ILoadBalancerV2Proxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ILoadBalancerRef_13acd8f1), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.ILoadBalancerV2"
 
@@ -16708,8 +16751,8 @@ typing.cast(typing.Any, INetworkListenerRef).__jsii_proxy_class__ = lambda : _IN
 )
 class INetworkLoadBalancer(
     ILoadBalancerV2,
-    _IVpcEndpointServiceLoadBalancer_34cbc6e3,
-    _IConnectable_10015a05,
+    _aws_ec2_09840e12.IVpcEndpointServiceLoadBalancer,
+    _aws_ec2_09840e12.IConnectable,
     typing_extensions.Protocol,
 ):
     '''A network load balancer.'''
@@ -16748,7 +16791,7 @@ class INetworkLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in (if available).'''
         ...
 
@@ -16764,7 +16807,7 @@ class INetworkLoadBalancer(
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "NetworkListener":
         '''Add a listener to this load balancer.
 
@@ -16785,8 +16828,8 @@ class INetworkLoadBalancer(
 
 class _INetworkLoadBalancerProxy(
     jsii.proxy_for(ILoadBalancerV2), # type: ignore[misc]
-    jsii.proxy_for(_IVpcEndpointServiceLoadBalancer_34cbc6e3), # type: ignore[misc]
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IVpcEndpointServiceLoadBalancer), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
 ):
     '''A network load balancer.'''
 
@@ -16826,9 +16869,9 @@ class _INetworkLoadBalancerProxy(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in (if available).'''
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], jsii.get(self, "vpc"))
 
     @jsii.member(jsii_name="addListener")
     def add_listener(
@@ -16842,7 +16885,7 @@ class _INetworkLoadBalancerProxy(
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "NetworkListener":
         '''Add a listener to this load balancer.
 
@@ -16859,7 +16902,7 @@ class _INetworkLoadBalancerProxy(
         :return: The newly created listener
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31e236fbcfbdcbd2f2735523996b00775cf0ec61e4f5c56362cc694700c7c7f)
+            type_hints = cached_type_hints(_typecheckingstub__f31e236fbcfbdcbd2f2735523996b00775cf0ec61e4f5c56362cc694700c7c7f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseNetworkListenerProps(
             port=port,
@@ -16893,14 +16936,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of concurrent TCP flows (or connections) from clients to targets.
 
         This metric includes connections in the SYN_SENT and ESTABLISHED states.
@@ -16933,14 +16976,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -16970,14 +17013,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Load Balancer.
 
         :param metric_name: -
@@ -17007,14 +17050,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of new TCP flows (or connections) established from clients to targets in the time period.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17043,14 +17086,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer, including TCP/IP headers.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17079,14 +17122,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets sent from a client to a target.
 
         These resets are generated by the client and forwarded by the load balancer.
@@ -17117,14 +17160,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets generated by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17153,14 +17196,14 @@ class INetworkLoadBalancerMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets sent from a target to a client.
 
         These resets are generated by the target and forwarded by the load balancer.
@@ -17197,14 +17240,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of concurrent TCP flows (or connections) from clients to targets.
 
         This metric includes connections in the SYN_SENT and ESTABLISHED states.
@@ -17226,7 +17269,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17241,7 +17284,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "activeFlowCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "activeFlowCount", [props]))
 
     @jsii.member(jsii_name="consumedLCUs")
     def consumed_lc_us(
@@ -17252,14 +17295,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17277,7 +17320,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17292,7 +17335,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "consumedLCUs", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "consumedLCUs", [props]))
 
     @jsii.member(jsii_name="custom")
     def custom(
@@ -17304,14 +17347,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Load Balancer.
 
         :param metric_name: -
@@ -17331,9 +17374,9 @@ class _INetworkLoadBalancerMetricsProxy:
         :default: Average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cec0b68307ed3e708bf772394b78bfb95b757da6ed6572c5a44941ce1e27a0e)
+            type_hints = cached_type_hints(_typecheckingstub__2cec0b68307ed3e708bf772394b78bfb95b757da6ed6572c5a44941ce1e27a0e)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17348,7 +17391,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "custom", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "custom", [metric_name, props]))
 
     @jsii.member(jsii_name="newFlowCount")
     def new_flow_count(
@@ -17359,14 +17402,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of new TCP flows (or connections) established from clients to targets in the time period.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17384,7 +17427,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17399,7 +17442,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "newFlowCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "newFlowCount", [props]))
 
     @jsii.member(jsii_name="processedBytes")
     def processed_bytes(
@@ -17410,14 +17453,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of bytes processed by the load balancer, including TCP/IP headers.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17435,7 +17478,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17450,7 +17493,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "processedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "processedBytes", [props]))
 
     @jsii.member(jsii_name="tcpClientResetCount")
     def tcp_client_reset_count(
@@ -17461,14 +17504,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets sent from a client to a target.
 
         These resets are generated by the client and forwarded by the load balancer.
@@ -17488,7 +17531,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17503,7 +17546,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "tcpClientResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "tcpClientResetCount", [props]))
 
     @jsii.member(jsii_name="tcpElbResetCount")
     def tcp_elb_reset_count(
@@ -17514,14 +17557,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets generated by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17539,7 +17582,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17554,7 +17597,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "tcpElbResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "tcpElbResetCount", [props]))
 
     @jsii.member(jsii_name="tcpTargetResetCount")
     def tcp_target_reset_count(
@@ -17565,14 +17608,14 @@ class _INetworkLoadBalancerMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of reset (RST) packets sent from a target to a client.
 
         These resets are generated by the target and forwarded by the load balancer.
@@ -17592,7 +17635,7 @@ class _INetworkLoadBalancerMetricsProxy:
 
         :default: Sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17607,7 +17650,7 @@ class _INetworkLoadBalancerMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "tcpTargetResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "tcpTargetResetCount", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, INetworkLoadBalancerMetrics).__jsii_proxy_class__ = lambda : _INetworkLoadBalancerMetricsProxy
@@ -17652,7 +17695,7 @@ class _INetworkLoadBalancerTargetProxy:
         :param target_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46b999493ffe16805c094c3ad17c75d658b5aed184380cb545fa6a44515ebdfd)
+            type_hints = cached_type_hints(_typecheckingstub__46b999493ffe16805c094c3ad17c75d658b5aed184380cb545fa6a44515ebdfd)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
         return typing.cast("LoadBalancerTargetProps", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
@@ -17676,14 +17719,14 @@ class INetworkTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Target Group.
 
         :param metric_name: -
@@ -17713,14 +17756,14 @@ class INetworkTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of targets that are considered healthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17749,14 +17792,14 @@ class INetworkTargetGroupMetrics(typing_extensions.Protocol):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of targets that are considered unhealthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17792,14 +17835,14 @@ class _INetworkTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Network Target Group.
 
         :param metric_name: -
@@ -17819,9 +17862,9 @@ class _INetworkTargetGroupMetricsProxy:
         :default: Average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7117afefd42c93c0fa3e1420e52db33a04e098e81d67e1eab5412b73f6061df)
+            type_hints = cached_type_hints(_typecheckingstub__d7117afefd42c93c0fa3e1420e52db33a04e098e81d67e1eab5412b73f6061df)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17836,7 +17879,7 @@ class _INetworkTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "custom", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "custom", [metric_name, props]))
 
     @jsii.member(jsii_name="healthyHostCount")
     def healthy_host_count(
@@ -17847,14 +17890,14 @@ class _INetworkTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of targets that are considered healthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17872,7 +17915,7 @@ class _INetworkTargetGroupMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17887,7 +17930,7 @@ class _INetworkTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "healthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "healthyHostCount", [props]))
 
     @jsii.member(jsii_name="unHealthyHostCount")
     def un_healthy_host_count(
@@ -17898,14 +17941,14 @@ class _INetworkTargetGroupMetricsProxy:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of targets that are considered unhealthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -17923,7 +17966,7 @@ class _INetworkTargetGroupMetricsProxy:
 
         :default: Average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -17938,7 +17981,7 @@ class _INetworkTargetGroupMetricsProxy:
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "unHealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "unHealthyHostCount", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, INetworkTargetGroupMetrics).__jsii_proxy_class__ = lambda : _INetworkTargetGroupMetricsProxy
@@ -17947,7 +17990,10 @@ typing.cast(typing.Any, INetworkTargetGroupMetrics).__jsii_proxy_class__ = lambd
 @jsii.interface(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.INetworkTargetGroupRef"
 )
-class INetworkTargetGroupRef(_ITargetGroupRef_9ed19d5e, typing_extensions.Protocol):
+class INetworkTargetGroupRef(
+    _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef,
+    typing_extensions.Protocol,
+):
     '''Indicates that this resource can be referenced as an NLB TargetGroup.'''
 
     @builtins.property
@@ -17962,7 +18008,7 @@ class INetworkTargetGroupRef(_ITargetGroupRef_9ed19d5e, typing_extensions.Protoc
 
 
 class _INetworkTargetGroupRefProxy(
-    jsii.proxy_for(_ITargetGroupRef_9ed19d5e), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef), # type: ignore[misc]
 ):
     '''Indicates that this resource can be referenced as an NLB TargetGroup.'''
 
@@ -17984,7 +18030,7 @@ typing.cast(typing.Any, INetworkTargetGroupRef).__jsii_proxy_class__ = lambda : 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITargetGroup")
 class ITargetGroup(
-    _ITargetGroupRef_9ed19d5e,
+    _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef,
     _constructs_77d1e7e8.IConstruct,
     typing_extensions.Protocol,
 ):
@@ -18016,7 +18062,7 @@ class ITargetGroup(
 
 
 class _ITargetGroupProxy(
-    jsii.proxy_for(_ITargetGroupRef_9ed19d5e), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef), # type: ignore[misc]
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
 ):
     '''A target group.'''
@@ -18053,8 +18099,8 @@ typing.cast(typing.Any, ITargetGroup).__jsii_proxy_class__ = lambda : _ITargetGr
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStore")
 class ITrustStore(
-    _IResource_c80c4260,
-    _ITrustStoreRef_0fa03cbe,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Trust Store.'''
@@ -18079,8 +18125,8 @@ class ITrustStore(
 
 
 class _ITrustStoreProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ITrustStoreRef_0fa03cbe), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef), # type: ignore[misc]
 ):
     '''Represents a Trust Store.'''
 
@@ -18205,7 +18251,7 @@ class ListenerAction(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d93edb79dc7b3c2b1434c708cc6d5ea5dbd4d25df89a4d003cb83606a87ca1a)
+            type_hints = cached_type_hints(_typecheckingstub__1d93edb79dc7b3c2b1434c708cc6d5ea5dbd4d25df89a4d003cb83606a87ca1a)
             check_type(argname="argument default_action_json", value=default_action_json, expected_type=type_hints["default_action_json"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         jsii.create(self.__class__, self, [default_action_json, next])
@@ -18247,7 +18293,7 @@ class ListenerAction(
         *,
         authorization_endpoint: builtins.str,
         client_id: builtins.str,
-        client_secret: "_SecretValue_3dd0ddae",
+        client_secret: "_aws_cdk_0cae9daa.SecretValue",
         issuer: builtins.str,
         next: "ListenerAction",
         token_endpoint: builtins.str,
@@ -18257,7 +18303,7 @@ class ListenerAction(
         on_unauthenticated_request: typing.Optional["UnauthenticatedAction"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        session_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "ListenerAction":
         '''Authenticate using an identity provider (IdP) that is compliant with OpenID Connect (OIDC).
 
@@ -18313,7 +18359,7 @@ class ListenerAction(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#fixed-response-actions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__529cf0937e89c7e25b95c016c60b5bbb0576fae856639983f8f00347d4afb9b8)
+            type_hints = cached_type_hints(_typecheckingstub__529cf0937e89c7e25b95c016c60b5bbb0576fae856639983f8f00347d4afb9b8)
             check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
         options = FixedResponseOptions(
             content_type=content_type, message_body=message_body
@@ -18327,7 +18373,7 @@ class ListenerAction(
         cls,
         target_groups: typing.Sequence["IApplicationTargetGroup"],
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "ListenerAction":
         '''Forward to one or more Target Groups.
 
@@ -18337,7 +18383,7 @@ class ListenerAction(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#forward-actions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__710c41c63cc962981fac537bc2713486399df2a9f9b295836bd22beba1e385d7)
+            type_hints = cached_type_hints(_typecheckingstub__710c41c63cc962981fac537bc2713486399df2a9f9b295836bd22beba1e385d7)
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
         options = ForwardOptions(stickiness_duration=stickiness_duration)
 
@@ -18399,7 +18445,7 @@ class ListenerAction(
         cls,
         target_groups: typing.Sequence[typing.Union["WeightedTargetGroup", typing.Dict[builtins.str, typing.Any]]],
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "ListenerAction":
         '''Forward to one or more Target Groups which are weighted differently.
 
@@ -18409,7 +18455,7 @@ class ListenerAction(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#forward-actions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e030baeb54f2ef8860729d13d7ca51c053b0d8aacb6c01f5404463783a58191a)
+            type_hints = cached_type_hints(_typecheckingstub__e030baeb54f2ef8860729d13d7ca51c053b0d8aacb6c01f5404463783a58191a)
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
         options = ForwardOptions(stickiness_duration=stickiness_duration)
 
@@ -18420,13 +18466,13 @@ class ListenerAction(
         self,
         *,
         type: builtins.str,
-        authenticate_cognito_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        authenticate_oidc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        fixed_response_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        forward_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        jwt_validation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        authenticate_cognito_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        authenticate_oidc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        fixed_response_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        forward_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        jwt_validation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.JwtValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         order: typing.Optional[jsii.Number] = None,
-        redirect_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redirect_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Sets the Action for the ``ListenerRule``.
@@ -18473,7 +18519,7 @@ class ListenerAction(
         :param associating_construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7f1d01c40211bc1f7d5c9cba79a1ba2f47228cedb73e7c073231d51c6d45075)
+            type_hints = cached_type_hints(_typecheckingstub__a7f1d01c40211bc1f7d5c9cba79a1ba2f47228cedb73e7c073231d51c6d45075)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
             check_type(argname="argument associating_construct", value=associating_construct, expected_type=type_hints["associating_construct"])
@@ -18505,7 +18551,7 @@ class ListenerAction(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d5ba384783250859c36c1c7de2d2d0b7aca659e51e425b4c53e86a38491fd73)
+            type_hints = cached_type_hints(_typecheckingstub__0d5ba384783250859c36c1c7de2d2d0b7aca659e51e425b4c53e86a38491fd73)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
         return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renumber", [actions]))
 
@@ -18538,7 +18584,7 @@ class ListenerCertificate(
         :param certificate_arn: The ARN of the certificate to use.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9c9ef479a9318fa822f1683951beab04b2aa444132beddc3e1411e6468535c)
+            type_hints = cached_type_hints(_typecheckingstub__cc9c9ef479a9318fa822f1683951beab04b2aa444132beddc3e1411e6468535c)
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
         jsii.create(self.__class__, self, [certificate_arn])
 
@@ -18550,7 +18596,7 @@ class ListenerCertificate(
         :param certificate_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__865dac94d71e206bfcb9a780588fba567c5ba02d3a44a2a3368502f6cbd98b9a)
+            type_hints = cached_type_hints(_typecheckingstub__865dac94d71e206bfcb9a780588fba567c5ba02d3a44a2a3368502f6cbd98b9a)
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
         return typing.cast("ListenerCertificate", jsii.sinvoke(cls, "fromArn", [certificate_arn]))
 
@@ -18558,14 +18604,14 @@ class ListenerCertificate(
     @builtins.classmethod
     def from_certificate_manager(
         cls,
-        acm_certificate: "_ICertificateRef_1878d79b",
+        acm_certificate: "_aws_certificatemanager_7969630d.ICertificateRef",
     ) -> "ListenerCertificate":
         '''Use an ACM certificate as a listener certificate.
 
         :param acm_certificate: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__742590919eef2852244729790b1773eca3f144a470fe471af2fb62431a9f7443)
+            type_hints = cached_type_hints(_typecheckingstub__742590919eef2852244729790b1773eca3f144a470fe471af2fb62431a9f7443)
             check_type(argname="argument acm_certificate", value=acm_certificate, expected_type=type_hints["acm_certificate"])
         return typing.cast("ListenerCertificate", jsii.sinvoke(cls, "fromCertificateManager", [acm_certificate]))
 
@@ -18612,7 +18658,7 @@ class ListenerCondition(
         :param values: Hosts for host headers.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10d5f07092c3b8888c8d5362b326299d38120e00c976068cb41e6257ad56ed9d)
+            type_hints = cached_type_hints(_typecheckingstub__10d5f07092c3b8888c8d5362b326299d38120e00c976068cb41e6257ad56ed9d)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "hostHeaders", [values]))
 
@@ -18629,7 +18675,7 @@ class ListenerCondition(
         :param values: HTTP header values.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__117370ab05489df4cde4ad707add6e39d8b0afa2d50bbd1709a23af3ef982ecf)
+            type_hints = cached_type_hints(_typecheckingstub__117370ab05489df4cde4ad707add6e39d8b0afa2d50bbd1709a23af3ef982ecf)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "httpHeader", [name, values]))
@@ -18645,7 +18691,7 @@ class ListenerCondition(
         :param values: HTTP request methods.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09a6f0b4a54510be266fa4048d1be440f4a20c0f5e4e0ee55b70b8e6e2edcdce)
+            type_hints = cached_type_hints(_typecheckingstub__09a6f0b4a54510be266fa4048d1be440f4a20c0f5e4e0ee55b70b8e6e2edcdce)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "httpRequestMethods", [values]))
 
@@ -18660,7 +18706,7 @@ class ListenerCondition(
         :param values: Path patterns.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b60d4b54aca477cbf4ac8f902eaced65fbf3aac05d1355958deda3ba12753f5)
+            type_hints = cached_type_hints(_typecheckingstub__8b60d4b54aca477cbf4ac8f902eaced65fbf3aac05d1355958deda3ba12753f5)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "pathPatterns", [values]))
 
@@ -18675,7 +18721,7 @@ class ListenerCondition(
         :param values: Query string key/value pairs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53f177501e6b65de0e199e45f6fb0d24e9ca86d5de0bd4262d9f62b4041179ed)
+            type_hints = cached_type_hints(_typecheckingstub__53f177501e6b65de0e199e45f6fb0d24e9ca86d5de0bd4262d9f62b4041179ed)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "queryStrings", [values]))
 
@@ -18687,7 +18733,7 @@ class ListenerCondition(
         :param values: Source ips.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6022829a1e89abdf41cecd8a7259acfcf073167d330768bf0dd75727ba06f5e1)
+            type_hints = cached_type_hints(_typecheckingstub__6022829a1e89abdf41cecd8a7259acfcf073167d330768bf0dd75727ba06f5e1)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "sourceIps", [values]))
 
@@ -18743,7 +18789,7 @@ class LoadBalancerTargetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c6465f32cb6dbca33916708dcb5db1b787fcbdd00c3ff0265d561109e00d108)
+            type_hints = cached_type_hints(_typecheckingstub__8c6465f32cb6dbca33916708dcb5db1b787fcbdd00c3ff0265d561109e00d108)
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
             check_type(argname="argument target_json", value=target_json, expected_type=type_hints["target_json"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -18797,7 +18843,7 @@ class MutualAuthentication:
         advertise_trust_store_ca_names: typing.Optional[builtins.bool] = None,
         ignore_client_certificate_expiry: typing.Optional[builtins.bool] = None,
         mutual_authentication_mode: typing.Optional["MutualAuthenticationMode"] = None,
-        trust_store: typing.Optional["_ITrustStoreRef_0fa03cbe"] = None,
+        trust_store: typing.Optional["_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef"] = None,
     ) -> None:
         '''The mutual authentication configuration information.
 
@@ -18837,7 +18883,7 @@ class MutualAuthentication:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89e8c0615ab98434e16d3e39e80ba0dcf6db041697e65279c8dffc68d7380e62)
+            type_hints = cached_type_hints(_typecheckingstub__89e8c0615ab98434e16d3e39e80ba0dcf6db041697e65279c8dffc68d7380e62)
             check_type(argname="argument advertise_trust_store_ca_names", value=advertise_trust_store_ca_names, expected_type=type_hints["advertise_trust_store_ca_names"])
             check_type(argname="argument ignore_client_certificate_expiry", value=ignore_client_certificate_expiry, expected_type=type_hints["ignore_client_certificate_expiry"])
             check_type(argname="argument mutual_authentication_mode", value=mutual_authentication_mode, expected_type=type_hints["mutual_authentication_mode"])
@@ -18882,7 +18928,9 @@ class MutualAuthentication:
         return typing.cast(typing.Optional["MutualAuthenticationMode"], result)
 
     @builtins.property
-    def trust_store(self) -> typing.Optional["_ITrustStoreRef_0fa03cbe"]:
+    def trust_store(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef"]:
         '''The trust store.
 
         Cannot be used with MutualAuthenticationMode.OFF or MutualAuthenticationMode.PASS_THROUGH
@@ -18890,7 +18938,7 @@ class MutualAuthentication:
         :default: - no trust store
         '''
         result = self._values.get("trust_store")
-        return typing.cast(typing.Optional["_ITrustStoreRef_0fa03cbe"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18956,7 +19004,7 @@ class NetworkForwardOptions:
     def __init__(
         self,
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options for ``NetworkListenerAction.forward()``.
 
@@ -18976,14 +19024,14 @@ class NetworkForwardOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__297ec1640077e25cc26000f0d1a615a93ea1f21d3208449475389d378b91e335)
+            type_hints = cached_type_hints(_typecheckingstub__297ec1640077e25cc26000f0d1a615a93ea1f21d3208449475389d378b91e335)
             check_type(argname="argument stickiness_duration", value=stickiness_duration, expected_type=type_hints["stickiness_duration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if stickiness_duration is not None:
             self._values["stickiness_duration"] = stickiness_duration
 
     @builtins.property
-    def stickiness_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def stickiness_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''For how long clients should be directed to the same target group.
 
         Range between 1 second and 7 days.
@@ -18991,7 +19039,7 @@ class NetworkForwardOptions:
         :default: - No stickiness
         '''
         result = self._values.get("stickiness_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19053,7 +19101,7 @@ class NetworkListenerAction(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9cd59867cac1479a15802413a5dae981ad4cddc8171fcf0fdb7fcdcbff15b81)
+            type_hints = cached_type_hints(_typecheckingstub__a9cd59867cac1479a15802413a5dae981ad4cddc8171fcf0fdb7fcdcbff15b81)
             check_type(argname="argument default_action_json", value=default_action_json, expected_type=type_hints["default_action_json"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         jsii.create(self.__class__, self, [default_action_json, next])
@@ -19064,7 +19112,7 @@ class NetworkListenerAction(
         cls,
         target_groups: typing.Sequence["INetworkTargetGroup"],
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "NetworkListenerAction":
         '''Forward to one or more Target Groups.
 
@@ -19072,7 +19120,7 @@ class NetworkListenerAction(
         :param stickiness_duration: For how long clients should be directed to the same target group. Range between 1 second and 7 days. Default: - No stickiness
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e4ef82ae163ce0755a80582adcf20906f144be47f314630a7e47e09013375c3)
+            type_hints = cached_type_hints(_typecheckingstub__3e4ef82ae163ce0755a80582adcf20906f144be47f314630a7e47e09013375c3)
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
         options = NetworkForwardOptions(stickiness_duration=stickiness_duration)
 
@@ -19084,7 +19132,7 @@ class NetworkListenerAction(
         cls,
         target_groups: typing.Sequence[typing.Union["NetworkWeightedTargetGroup", typing.Dict[builtins.str, typing.Any]]],
         *,
-        stickiness_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        stickiness_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "NetworkListenerAction":
         '''Forward to one or more Target Groups which are weighted differently.
 
@@ -19092,7 +19140,7 @@ class NetworkListenerAction(
         :param stickiness_duration: For how long clients should be directed to the same target group. Range between 1 second and 7 days. Default: - No stickiness
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7444d4613dae606ea0e82c7ab013a3cde544db05c468cae298e7862112bfcdd1)
+            type_hints = cached_type_hints(_typecheckingstub__7444d4613dae606ea0e82c7ab013a3cde544db05c468cae298e7862112bfcdd1)
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
         options = NetworkForwardOptions(stickiness_duration=stickiness_duration)
 
@@ -19110,7 +19158,7 @@ class NetworkListenerAction(
         :param listener: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a583bf6fd9a9b724a86ce83c82af57f23d6b30bae88f7277763a65e1d2829cf)
+            type_hints = cached_type_hints(_typecheckingstub__7a583bf6fd9a9b724a86ce83c82af57f23d6b30bae88f7277763a65e1d2829cf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope, listener]))
@@ -19141,7 +19189,7 @@ class NetworkListenerAction(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91a1890343658bc6cbedb0cf2b919ba00d7797ea76b40bb3e0bd19d013f2db4d)
+            type_hints = cached_type_hints(_typecheckingstub__91a1890343658bc6cbedb0cf2b919ba00d7797ea76b40bb3e0bd19d013f2db4d)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
         return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renumber", [actions]))
 
@@ -19190,7 +19238,7 @@ class NetworkListenerLookupOptions(BaseListenerLookupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2af3b994647bf288a043bb47b82784f03035e003302c3de24de8115822c790a)
+            type_hints = cached_type_hints(_typecheckingstub__f2af3b994647bf288a043bb47b82784f03035e003302c3de24de8115822c790a)
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
@@ -19281,7 +19329,7 @@ class NetworkListenerProps(BaseNetworkListenerProps):
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancer: "INetworkLoadBalancer",
     ) -> None:
         '''Properties for a Network Listener attached to a Load Balancer.
@@ -19325,7 +19373,7 @@ class NetworkListenerProps(BaseNetworkListenerProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9de84d3c251bc8c169b44e63c24a91fe9722b0e26642417a58f3f27de2ef882)
+            type_hints = cached_type_hints(_typecheckingstub__b9de84d3c251bc8c169b44e63c24a91fe9722b0e26642417a58f3f27de2ef882)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument alpn_policy", value=alpn_policy, expected_type=type_hints["alpn_policy"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
@@ -19436,13 +19484,13 @@ class NetworkListenerProps(BaseNetworkListenerProps):
         return typing.cast(typing.Optional["SslPolicy"], result)
 
     @builtins.property
-    def tcp_idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def tcp_idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer TCP idle timeout.
 
         :default: Duration.seconds(350)
         '''
         result = self._values.get("tcp_idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancer(self) -> "INetworkLoadBalancer":
@@ -19501,17 +19549,17 @@ class NetworkLoadBalancer(
         enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.bool] = None,
         enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.bool] = None,
         ip_address_type: typing.Optional["IpAddressType"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         subnet_mappings: typing.Optional[typing.Sequence[typing.Union["SubnetMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
         zonal_shift: typing.Optional[builtins.bool] = None,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19534,7 +19582,7 @@ class NetworkLoadBalancer(
         :param vpc_subnets: Which subnets place the load balancer in. Default: - the Vpc default strategy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1c7a4c1332bdc807d1e25aa5d69eea6e1f3bf6a88ddd30dac9a64c93d26bad4)
+            type_hints = cached_type_hints(_typecheckingstub__e1c7a4c1332bdc807d1e25aa5d69eea6e1f3bf6a88ddd30dac9a64c93d26bad4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkLoadBalancerProps(
@@ -19576,7 +19624,7 @@ class NetworkLoadBalancer(
         :param load_balancer_tags: Match load balancer tags. Default: - does not match load balancers by tags
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a04eaa19686c511bd7ecc119dcfdc79e718463f61884348cbe20b692d2a18bce)
+            type_hints = cached_type_hints(_typecheckingstub__a04eaa19686c511bd7ecc119dcfdc79e718463f61884348cbe20b692d2a18bce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = NetworkLoadBalancerLookupOptions(
@@ -19596,7 +19644,7 @@ class NetworkLoadBalancer(
         load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
         load_balancer_dns_name: typing.Optional[builtins.str] = None,
         load_balancer_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> "INetworkLoadBalancer":
         '''
         :param scope: -
@@ -19608,7 +19656,7 @@ class NetworkLoadBalancer(
         :param vpc: The VPC to associate with the load balancer. Default: - When not provided, listeners cannot be created on imported load balancers.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d8b5193b28f65c30f9143c67ba1a39f4e2004fecfbf9ce827e58d68654df329)
+            type_hints = cached_type_hints(_typecheckingstub__2d8b5193b28f65c30f9143c67ba1a39f4e2004fecfbf9ce827e58d68654df329)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = NetworkLoadBalancerAttributes(
@@ -19633,7 +19681,7 @@ class NetworkLoadBalancer(
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "NetworkListener":
         '''Add a listener to this load balancer.
 
@@ -19650,7 +19698,7 @@ class NetworkLoadBalancer(
         :return: The newly created listener
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4ebcfe1ae99726fbce8c195c9275af3be58b68db2286da916071da8ab580691)
+            type_hints = cached_type_hints(_typecheckingstub__d4ebcfe1ae99726fbce8c195c9275af3be58b68db2286da916071da8ab580691)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseNetworkListenerProps(
             port=port,
@@ -19666,13 +19714,16 @@ class NetworkLoadBalancer(
         return typing.cast("NetworkListener", jsii.invoke(self, "addListener", [id, props]))
 
     @jsii.member(jsii_name="addSecurityGroup")
-    def add_security_group(self, security_group: "_ISecurityGroup_acf8a799") -> None:
+    def add_security_group(
+        self,
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
+    ) -> None:
         '''Add a security group to this load balancer.
 
         :param security_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46e8d42375ae60495b4282b48130ea0bf077024c2129acad503fba5bbcfaeae1)
+            type_hints = cached_type_hints(_typecheckingstub__46e8d42375ae60495b4282b48130ea0bf077024c2129acad503fba5bbcfaeae1)
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
         return typing.cast(None, jsii.invoke(self, "addSecurityGroup", [security_group]))
 
@@ -19686,14 +19737,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) Return the given named metric for this Network Load Balancer.
 
         :param metric_name: -
@@ -19717,9 +19768,9 @@ class NetworkLoadBalancer(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17ca64dc99c8eaa4319c78561a1c82d5e804c4bf49835a1d352c39059a4f8cf1)
+            type_hints = cached_type_hints(_typecheckingstub__17ca64dc99c8eaa4319c78561a1c82d5e804c4bf49835a1d352c39059a4f8cf1)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -19734,7 +19785,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricActiveFlowCount")
     def metric_active_flow_count(
@@ -19745,14 +19796,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of concurrent TCP flows (or connections) from clients to targets.
 
         This metric includes connections in the SYN_SENT and ESTABLISHED states.
@@ -19778,7 +19829,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -19793,7 +19844,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricActiveFlowCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricActiveFlowCount", [props]))
 
     @jsii.member(jsii_name="metricConsumedLCUs")
     def metric_consumed_lc_us(
@@ -19804,14 +19855,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -19833,7 +19884,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -19848,7 +19899,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricConsumedLCUs", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricConsumedLCUs", [props]))
 
     @jsii.member(jsii_name="metricNewFlowCount")
     def metric_new_flow_count(
@@ -19859,14 +19910,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of new TCP flows (or connections) established from clients to targets in the time period.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -19888,7 +19939,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -19903,7 +19954,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNewFlowCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNewFlowCount", [props]))
 
     @jsii.member(jsii_name="metricProcessedBytes")
     def metric_processed_bytes(
@@ -19914,14 +19965,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of bytes processed by the load balancer, including TCP/IP headers.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -19943,7 +19994,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -19958,7 +20009,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricProcessedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricProcessedBytes", [props]))
 
     @jsii.member(jsii_name="metricTcpClientResetCount")
     def metric_tcp_client_reset_count(
@@ -19969,14 +20020,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of reset (RST) packets sent from a client to a target.
 
         These resets are generated by the client and forwarded by the load balancer.
@@ -20000,7 +20051,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -20015,7 +20066,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTcpClientResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTcpClientResetCount", [props]))
 
     @jsii.member(jsii_name="metricTcpElbResetCount")
     def metric_tcp_elb_reset_count(
@@ -20026,14 +20077,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of reset (RST) packets generated by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -20055,7 +20106,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -20070,7 +20121,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTcpElbResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTcpElbResetCount", [props]))
 
     @jsii.member(jsii_name="metricTcpTargetResetCount")
     def metric_tcp_target_reset_count(
@@ -20081,14 +20132,14 @@ class NetworkLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of reset (RST) packets sent from a target to a client.
 
         These resets are generated by the target and forwarded by the load balancer.
@@ -20112,7 +20163,7 @@ class NetworkLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -20127,7 +20178,7 @@ class NetworkLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTcpTargetResetCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTcpTargetResetCount", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -20137,9 +20188,9 @@ class NetworkLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The network connections associated with this resource.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="metrics")
@@ -20187,7 +20238,7 @@ class NetworkLoadBalancerAttributes:
         load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
         load_balancer_dns_name: typing.Optional[builtins.str] = None,
         load_balancer_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Properties to reference an existing load balancer.
 
@@ -20230,7 +20281,7 @@ class NetworkLoadBalancerAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a67a3ef603d2a359185eb5c16163caea6f82ac5441d636ebf77f7d589f7ecd25)
+            type_hints = cached_type_hints(_typecheckingstub__a67a3ef603d2a359185eb5c16163caea6f82ac5441d636ebf77f7d589f7ecd25)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_canonical_hosted_zone_id", value=load_balancer_canonical_hosted_zone_id, expected_type=type_hints["load_balancer_canonical_hosted_zone_id"])
             check_type(argname="argument load_balancer_dns_name", value=load_balancer_dns_name, expected_type=type_hints["load_balancer_dns_name"])
@@ -20285,7 +20336,7 @@ class NetworkLoadBalancerAttributes:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC to associate with the load balancer.
 
         :default:
@@ -20294,7 +20345,7 @@ class NetworkLoadBalancerAttributes:
         balancers.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20344,7 +20395,7 @@ class NetworkLoadBalancerLookupOptions(BaseLoadBalancerLookupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4dc8b446f6caacf313a46c99f00148ea8982b0018d14d0f1d50042450efd676)
+            type_hints = cached_type_hints(_typecheckingstub__d4dc8b446f6caacf313a46c99f00148ea8982b0018d14d0f1d50042450efd676)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -20411,20 +20462,20 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
     def __init__(
         self,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         client_routing_policy: typing.Optional["ClientRoutingPolicy"] = None,
         disable_security_groups: typing.Optional[builtins.bool] = None,
         enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.bool] = None,
         enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.bool] = None,
         ip_address_type: typing.Optional["IpAddressType"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         subnet_mappings: typing.Optional[typing.Sequence[typing.Union["SubnetMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
         zonal_shift: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -20466,9 +20517,9 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
             )
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__195ab659ca9cd1c401d6d2d1a1f5cb0aaf7dd80f06dbc724020ac0cc391d75da)
+            type_hints = cached_type_hints(_typecheckingstub__195ab659ca9cd1c401d6d2d1a1f5cb0aaf7dd80f06dbc724020ac0cc391d75da)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
@@ -20520,11 +20571,11 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
             self._values["zonal_shift"] = zonal_shift
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC network to place the load balancer in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def cross_zone_enabled(self) -> typing.Optional[builtins.bool]:
@@ -20588,13 +20639,13 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets place the load balancer in.
 
         :default: - the Vpc default strategy.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
     def client_routing_policy(self) -> typing.Optional["ClientRoutingPolicy"]:
@@ -20659,13 +20710,13 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Security groups to associate with this load balancer.
 
         :default: - No security groups associated with the load balancer.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
     def subnet_mappings(self) -> typing.Optional[typing.List["SubnetMapping"]]:
@@ -20724,13 +20775,13 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         self,
         *,
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
         target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         port: jsii.Number,
         connection_termination: typing.Optional[builtins.bool] = None,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
@@ -20795,7 +20846,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         if isinstance(target_group_health, dict):
             target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f1086cffe813b24d7b8ff7c124bffc37ca7e22afda9f6af7ad869d92f7c65b2)
+            type_hints = cached_type_hints(_typecheckingstub__5f1086cffe813b24d7b8ff7c124bffc37ca7e22afda9f6af7ad869d92f7c65b2)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -20852,7 +20903,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def deregistration_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deregistration_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time for Elastic Load Balancing to wait before deregistering a target.
 
         The range is 0-3600 seconds.
@@ -20860,7 +20911,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         :default: 300
         '''
         result = self._values.get("deregistration_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check(self) -> typing.Optional["HealthCheck"]:
@@ -20920,7 +20971,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         return typing.cast(typing.Optional["TargetType"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The virtual private cloud (VPC).
 
         only if ``TargetType`` is ``Ip`` or ``InstanceId``
@@ -20928,7 +20979,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         :default: - undefined
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def port(self) -> jsii.Number:
@@ -21036,7 +21087,7 @@ class NetworkWeightedTargetGroup:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3845136afc3fd71c7789d15007481b0a1e7d4bc401bfc83046e92af4423deba)
+            type_hints = cached_type_hints(_typecheckingstub__e3845136afc3fd71c7789d15007481b0a1e7d4bc401bfc83046e92af4423deba)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -21145,7 +21196,7 @@ class QueryStringCondition:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e856fefbad8b78aff561e02863020b676b0ec6d1a146b3092341806fd8a269ee)
+            type_hints = cached_type_hints(_typecheckingstub__e856fefbad8b78aff561e02863020b676b0ec6d1a146b3092341806fd8a269ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -21248,7 +21299,7 @@ class RedirectOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51d56527f4dc28756e02b9a793d897a5ba076221ea88231c8ab4572844ae9c1d)
+            type_hints = cached_type_hints(_typecheckingstub__51d56527f4dc28756e02b9a793d897a5ba076221ea88231c8ab4572844ae9c1d)
             check_type(argname="argument host", value=host, expected_type=type_hints["host"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument permanent", value=permanent, expected_type=type_hints["permanent"])
@@ -21361,7 +21412,7 @@ class RevocationContent:
     def __init__(
         self,
         *,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         key: builtins.str,
         revocation_type: typing.Optional["RevocationType"] = None,
         version: typing.Optional[builtins.str] = None,
@@ -21394,7 +21445,7 @@ class RevocationContent:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2d98c0c87c9335126a85af9c46b02ccfdb480d04d96fb422b8f62f17d09b801)
+            type_hints = cached_type_hints(_typecheckingstub__a2d98c0c87c9335126a85af9c46b02ccfdb480d04d96fb422b8f62f17d09b801)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
@@ -21409,11 +21460,11 @@ class RevocationContent:
             self._values["version"] = version
 
     @builtins.property
-    def bucket(self) -> "_IBucketRef_3debe44e":
+    def bucket(self) -> "_aws_s3_03fe213b.IBucketRef":
         '''The Amazon S3 bucket for the revocation file.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucketRef_3debe44e", result)
+        return typing.cast("_aws_s3_03fe213b.IBucketRef", result)
 
     @builtins.property
     def key(self) -> builtins.str:
@@ -21546,7 +21597,7 @@ class SourceNatIpv6Prefix(
         :param prefix: The IPv6 prefix.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d55714f5f91498510c90c4dda1351b8a7df895b813a9a7497de8b105f014317)
+            type_hints = cached_type_hints(_typecheckingstub__8d55714f5f91498510c90c4dda1351b8a7df895b813a9a7497de8b105f014317)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         jsii.create(self.__class__, self, [prefix])
 
@@ -21564,7 +21615,7 @@ class SourceNatIpv6Prefix(
         :param prefix: The IPv6 prefix.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7931008bfd4762535b77272b55f89bbaa4ed5fceb99b2c3a2e557b0f4bc30a4f)
+            type_hints = cached_type_hints(_typecheckingstub__7931008bfd4762535b77272b55f89bbaa4ed5fceb99b2c3a2e557b0f4bc30a4f)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast("SourceNatIpv6Prefix", jsii.sinvoke(cls, "fromIpv6Prefix", [prefix]))
 
@@ -21827,7 +21878,7 @@ class SubnetMapping:
     def __init__(
         self,
         *,
-        subnet: "_ISubnet_d57d1229",
+        subnet: "_aws_ec2_09840e12.ISubnet",
         allocation_id: typing.Optional[builtins.str] = None,
         ipv6_address: typing.Optional[builtins.str] = None,
         private_ipv4_address: typing.Optional[builtins.str] = None,
@@ -21864,7 +21915,7 @@ class SubnetMapping:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c4b71e184eedb0fbc0e4df901ecb043d8b11ba2ec0429907b6acd6ced55e82)
+            type_hints = cached_type_hints(_typecheckingstub__54c4b71e184eedb0fbc0e4df901ecb043d8b11ba2ec0429907b6acd6ced55e82)
             check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
             check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
             check_type(argname="argument ipv6_address", value=ipv6_address, expected_type=type_hints["ipv6_address"])
@@ -21883,11 +21934,11 @@ class SubnetMapping:
             self._values["source_nat_ipv6_prefix"] = source_nat_ipv6_prefix
 
     @builtins.property
-    def subnet(self) -> "_ISubnet_d57d1229":
+    def subnet(self) -> "_aws_ec2_09840e12.ISubnet":
         '''The subnet.'''
         result = self._values.get("subnet")
         assert result is not None, "Required property 'subnet' is missing"
-        return typing.cast("_ISubnet_d57d1229", result)
+        return typing.cast("_aws_ec2_09840e12.ISubnet", result)
 
     @builtins.property
     def allocation_id(self) -> typing.Optional[builtins.str]:
@@ -21975,7 +22026,7 @@ class TargetGroupAttributes:
             target_group_metrics = target_group.metrics
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37df8dc72952ae228e1a00919ab4c7fcae58e15f47e4e6bc9c1dfdb923d23dcd)
+            type_hints = cached_type_hints(_typecheckingstub__37df8dc72952ae228e1a00919ab4c7fcae58e15f47e4e6bc9c1dfdb923d23dcd)
             check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
             check_type(argname="argument load_balancer_arns", value=load_balancer_arns, expected_type=type_hints["load_balancer_arns"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -22031,7 +22082,7 @@ class TargetGroupBase(
         :param additional_props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5703653a1f0d595f451f2775d0de9fa130494c2d63b80d5dac2f17a16ffd9bd)
+            type_hints = cached_type_hints(_typecheckingstub__b5703653a1f0d595f451f2775d0de9fa130494c2d63b80d5dac2f17a16ffd9bd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument base_props", value=base_props, expected_type=type_hints["base_props"])
@@ -22064,11 +22115,11 @@ class TargetGroupBase(
         healthy_grpc_codes: typing.Optional[builtins.str] = None,
         healthy_http_codes: typing.Optional[builtins.str] = None,
         healthy_threshold_count: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         port: typing.Optional[builtins.str] = None,
         protocol: typing.Optional["Protocol"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Set/replace the target group's health check.
@@ -22113,7 +22164,7 @@ class TargetGroupBase(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c6855220210c8d631a0d7e79e2435413125c341ae9839369cba0afd8f800de)
+            type_hints = cached_type_hints(_typecheckingstub__65c6855220210c8d631a0d7e79e2435413125c341ae9839369cba0afd8f800de)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "setAttribute", [key, value]))
@@ -22134,9 +22185,9 @@ class TargetGroupBase(
 
     @builtins.property
     @jsii.member(jsii_name="env")
-    def env(self) -> "_ResourceEnvironment_603baf00":
+    def env(self) -> "_interfaces_8ca7e747.ResourceEnvironment":
         '''The environment this resource belongs to.'''
-        return typing.cast("_ResourceEnvironment_603baf00", jsii.get(self, "env"))
+        return typing.cast("_interfaces_8ca7e747.ResourceEnvironment", jsii.get(self, "env"))
 
     @builtins.property
     @jsii.member(jsii_name="firstLoadBalancerFullName")
@@ -22197,9 +22248,11 @@ class TargetGroupBase(
 
     @builtins.property
     @jsii.member(jsii_name="targetGroupRef")
-    def target_group_ref(self) -> "_TargetGroupReference_43f51e8b":
+    def target_group_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.TargetGroupReference":
         '''A reference to this target group.'''
-        return typing.cast("_TargetGroupReference_43f51e8b", jsii.get(self, "targetGroupRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.TargetGroupReference", jsii.get(self, "targetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="healthCheck")
@@ -22210,7 +22263,7 @@ class TargetGroupBase(
     @health_check.setter
     def health_check(self, value: "HealthCheck") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abb5a8931437f8e7217ee9fc1b5e8775ee2fa63e0ad5310f5c3ee5a7ee0a34fe)
+            type_hints = cached_type_hints(_typecheckingstub__abb5a8931437f8e7217ee9fc1b5e8775ee2fa63e0ad5310f5c3ee5a7ee0a34fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheck", value) # pyright: ignore[reportArgumentType]
 
@@ -22223,7 +22276,7 @@ class TargetGroupBase(
     @_target_type.setter
     def _target_type(self, value: typing.Optional["TargetType"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c19dd8de36c1c86ebd89e7c24379bf1b20a6e5f343db95042864bf022f23513)
+            type_hints = cached_type_hints(_typecheckingstub__7c19dd8de36c1c86ebd89e7c24379bf1b20a6e5f343db95042864bf022f23513)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
@@ -22291,7 +22344,7 @@ class TargetGroupHealth:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50b92a6e3fb50861786c29f006a421debbe4bf2e446caaef18d21a99c0e35f73)
+            type_hints = cached_type_hints(_typecheckingstub__50b92a6e3fb50861786c29f006a421debbe4bf2e446caaef18d21a99c0e35f73)
             check_type(argname="argument dns_minimum_healthy_target_count", value=dns_minimum_healthy_target_count, expected_type=type_hints["dns_minimum_healthy_target_count"])
             check_type(argname="argument dns_minimum_healthy_target_percentage", value=dns_minimum_healthy_target_percentage, expected_type=type_hints["dns_minimum_healthy_target_percentage"])
             check_type(argname="argument routing_minimum_healthy_target_count", value=routing_minimum_healthy_target_count, expected_type=type_hints["routing_minimum_healthy_target_count"])
@@ -22475,7 +22528,7 @@ class TargetType(enum.Enum):
 
 @jsii.implements(ITrustStore)
 class TrustStore(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TrustStore",
 ):
@@ -22517,7 +22570,7 @@ class TrustStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         key: builtins.str,
         trust_store_name: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -22531,7 +22584,7 @@ class TrustStore(
         :param version: The version of the S3 object that contains your truststore. To specify a version, you must have versioning enabled for the S3 bucket. Default: - latest version
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbafbf35d05de3ceecc0965698aa7d45dd0a58477f5c8555d0efa8b8cfedbd7d)
+            type_hints = cached_type_hints(_typecheckingstub__fbafbf35d05de3ceecc0965698aa7d45dd0a58477f5c8555d0efa8b8cfedbd7d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TrustStoreProps(
@@ -22555,7 +22608,7 @@ class TrustStore(
         :param trust_store_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e078d73452d520ce829e14315128763e3ef291dcb7c3e40df660393d5135f4b)
+            type_hints = cached_type_hints(_typecheckingstub__1e078d73452d520ce829e14315128763e3ef291dcb7c3e40df660393d5135f4b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
@@ -22605,9 +22658,11 @@ class TrustStore(
 
     @builtins.property
     @jsii.member(jsii_name="trustStoreRef")
-    def trust_store_ref(self) -> "_TrustStoreReference_ad81b807":
+    def trust_store_ref(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1283aa87.TrustStoreReference":
         '''A reference to this trust store.'''
-        return typing.cast("_TrustStoreReference_ad81b807", jsii.get(self, "trustStoreRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.TrustStoreReference", jsii.get(self, "trustStoreRef"))
 
 
 @jsii.data_type(
@@ -22624,7 +22679,7 @@ class TrustStoreProps:
     def __init__(
         self,
         *,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         key: builtins.str,
         trust_store_name: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -22667,7 +22722,7 @@ class TrustStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41f3f138d5b55c026366c540abffc84d65da6413c7cfa2972612fb796b1d3206)
+            type_hints = cached_type_hints(_typecheckingstub__41f3f138d5b55c026366c540abffc84d65da6413c7cfa2972612fb796b1d3206)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument trust_store_name", value=trust_store_name, expected_type=type_hints["trust_store_name"])
@@ -22682,11 +22737,11 @@ class TrustStoreProps:
             self._values["version"] = version
 
     @builtins.property
-    def bucket(self) -> "_IBucketRef_3debe44e":
+    def bucket(self) -> "_aws_s3_03fe213b.IBucketRef":
         '''The bucket that the trust store is hosted in.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucketRef_3debe44e", result)
+        return typing.cast("_aws_s3_03fe213b.IBucketRef", result)
 
     @builtins.property
     def key(self) -> builtins.str:
@@ -22728,7 +22783,7 @@ class TrustStoreProps:
 
 
 class TrustStoreRevocation(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TrustStoreRevocation",
 ):
@@ -22759,7 +22814,7 @@ class TrustStoreRevocation(
         id: builtins.str,
         *,
         revocation_contents: typing.Sequence[typing.Union["RevocationContent", typing.Dict[builtins.str, typing.Any]]],
-        trust_store: "_ITrustStoreRef_0fa03cbe",
+        trust_store: "_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef",
     ) -> None:
         '''
         :param scope: -
@@ -22768,7 +22823,7 @@ class TrustStoreRevocation(
         :param trust_store: The trust store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__688628f84e2cff85506975764e889f60121aab1ab9420e53b24769400ab3c7d7)
+            type_hints = cached_type_hints(_typecheckingstub__688628f84e2cff85506975764e889f60121aab1ab9420e53b24769400ab3c7d7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TrustStoreRevocationProps(
@@ -22797,7 +22852,7 @@ class TrustStoreRevocationProps:
         self,
         *,
         revocation_contents: typing.Sequence[typing.Union["RevocationContent", typing.Dict[builtins.str, typing.Any]]],
-        trust_store: "_ITrustStoreRef_0fa03cbe",
+        trust_store: "_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef",
     ) -> None:
         '''Properties for the trust store revocation.
 
@@ -22823,7 +22878,7 @@ class TrustStoreRevocationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de0bf3e884d9bbf4a0d3582e17910f3a46c89450790ad669a820be588c4bb749)
+            type_hints = cached_type_hints(_typecheckingstub__de0bf3e884d9bbf4a0d3582e17910f3a46c89450790ad669a820be588c4bb749)
             check_type(argname="argument revocation_contents", value=revocation_contents, expected_type=type_hints["revocation_contents"])
             check_type(argname="argument trust_store", value=trust_store, expected_type=type_hints["trust_store"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -22839,11 +22894,11 @@ class TrustStoreRevocationProps:
         return typing.cast(typing.List["RevocationContent"], result)
 
     @builtins.property
-    def trust_store(self) -> "_ITrustStoreRef_0fa03cbe":
+    def trust_store(self) -> "_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef":
         '''The trust store.'''
         result = self._values.get("trust_store")
         assert result is not None, "Required property 'trust_store' is missing"
-        return typing.cast("_ITrustStoreRef_0fa03cbe", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22904,7 +22959,7 @@ class WeightedTargetGroup:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab2badf5ff29dbd830b4a4cd8498b7662a6a7143720d1c6fe2cabe26ccd49179)
+            type_hints = cached_type_hints(_typecheckingstub__ab2badf5ff29dbd830b4a4cd8498b7662a6a7143720d1c6fe2cabe26ccd49179)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -23054,7 +23109,7 @@ class AddApplicationActionProps(AddRuleProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4107bd237140ac5f517872385fdbe42c3d9200e34f993d6b71eb7a020baaa4d3)
+            type_hints = cached_type_hints(_typecheckingstub__4107bd237140ac5f517872385fdbe42c3d9200e34f993d6b71eb7a020baaa4d3)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
@@ -23173,7 +23228,7 @@ class AddApplicationTargetGroupsProps(AddRuleProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6a08daa5dfe3238959e6f2ddfea1913c7b7e2aab53031136e272a5fb472fae4)
+            type_hints = cached_type_hints(_typecheckingstub__b6a08daa5dfe3238959e6f2ddfea1913c7b7e2aab53031136e272a5fb472fae4)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
@@ -23256,15 +23311,15 @@ class AddApplicationTargetsProps(AddRuleProps):
         *,
         conditions: typing.Optional[typing.Sequence["ListenerCondition"]] = None,
         priority: typing.Optional[jsii.Number] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         load_balancing_algorithm_type: typing.Optional["TargetGroupLoadBalancingAlgorithmType"] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
@@ -23323,7 +23378,7 @@ class AddApplicationTargetsProps(AddRuleProps):
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b26d56d500bb67c9d6ae66f1cb40dc7e2f3a670459278ff6a96edc676684b4da)
+            type_hints = cached_type_hints(_typecheckingstub__b26d56d500bb67c9d6ae66f1cb40dc7e2f3a670459278ff6a96edc676684b4da)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
@@ -23395,7 +23450,7 @@ class AddApplicationTargetsProps(AddRuleProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def deregistration_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deregistration_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time for Elastic Load Balancing to wait before deregistering a target.
 
         The range is 0-3600 seconds.
@@ -23403,7 +23458,7 @@ class AddApplicationTargetsProps(AddRuleProps):
         :default: Duration.minutes(5)
         '''
         result = self._values.get("deregistration_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def enable_anomaly_mitigation(self) -> typing.Optional[builtins.bool]:
@@ -23468,7 +23523,7 @@ class AddApplicationTargetsProps(AddRuleProps):
         return typing.cast(typing.Optional["ApplicationProtocolVersion"], result)
 
     @builtins.property
-    def slow_start(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def slow_start(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The time period during which the load balancer sends a newly registered target a linearly increasing share of the traffic to the target group.
 
         The range is 30-900 seconds (15 minutes).
@@ -23476,10 +23531,12 @@ class AddApplicationTargetsProps(AddRuleProps):
         :default: 0
         '''
         result = self._values.get("slow_start")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def stickiness_cookie_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def stickiness_cookie_duration(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The stickiness cookie expiration period.
 
         Setting this value enables load balancer stickiness.
@@ -23490,7 +23547,7 @@ class AddApplicationTargetsProps(AddRuleProps):
         :default: Stickiness disabled
         '''
         result = self._values.get("stickiness_cookie_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def stickiness_cookie_name(self) -> typing.Optional[builtins.str]:
@@ -23584,7 +23641,7 @@ class ApplicationListenerLookupOptions(BaseListenerLookupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d442d2b6f4dfb78ceb5d8e4d33911a85bbba30f20d09f7ec49673324a4ba3b)
+            type_hints = cached_type_hints(_typecheckingstub__02d442d2b6f4dfb78ceb5d8e4d33911a85bbba30f20d09f7ec49673324a4ba3b)
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
@@ -23739,7 +23796,7 @@ class ApplicationListenerProps(BaseApplicationListenerProps):
         if isinstance(mutual_authentication, dict):
             mutual_authentication = MutualAuthentication(**mutual_authentication)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e75c9b01f3107ce8d6eaba24046fe2615baadcbc80764f82433f160f3cde00e9)
+            type_hints = cached_type_hints(_typecheckingstub__e75c9b01f3107ce8d6eaba24046fe2615baadcbc80764f82433f160f3cde00e9)
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
             check_type(argname="argument default_target_groups", value=default_target_groups, expected_type=type_hints["default_target_groups"])
@@ -23940,7 +23997,7 @@ class ApplicationListenerRuleProps(BaseApplicationListenerRuleProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65303dbcd0bcdddadfdff0200eddc43aec8cde2360c88ea1fb6188113a24a8d9)
+            type_hints = cached_type_hints(_typecheckingstub__65303dbcd0bcdddadfdff0200eddc43aec8cde2360c88ea1fb6188113a24a8d9)
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
@@ -24052,7 +24109,7 @@ class ApplicationLoadBalancerLookupOptions(BaseLoadBalancerLookupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e4d185ab2bd554850b96481b3fbdc7ee1a86c97629f1b0fd835c6f72817a7e6)
+            type_hints = cached_type_hints(_typecheckingstub__5e4d185ab2bd554850b96481b3fbdc7ee1a86c97629f1b0fd835c6f72817a7e6)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_tags", value=load_balancer_tags, expected_type=type_hints["load_balancer_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -24123,23 +24180,23 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
     def __init__(
         self,
         *,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        client_keep_alive: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        client_keep_alive: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         desync_mitigation_mode: typing.Optional["DesyncMitigationMode"] = None,
         drop_invalid_header_fields: typing.Optional[builtins.bool] = None,
         http2_enabled: typing.Optional[builtins.bool] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         ip_address_type: typing.Optional["IpAddressType"] = None,
         preserve_host_header: typing.Optional[builtins.bool] = None,
         preserve_xff_client_port: typing.Optional[builtins.bool] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         waf_fail_open: typing.Optional[builtins.bool] = None,
         x_amzn_tls_version_and_cipher_suite_headers: typing.Optional[builtins.bool] = None,
         xff_header_processing_mode: typing.Optional["XffHeaderProcessingMode"] = None,
@@ -24203,9 +24260,9 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
             )
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e43cf75024913d9be0d5d621a5f2c2c7be60a57898a54967cd54179b2b3d1584)
+            type_hints = cached_type_hints(_typecheckingstub__e43cf75024913d9be0d5d621a5f2c2c7be60a57898a54967cd54179b2b3d1584)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
@@ -24269,11 +24326,11 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
             self._values["xff_header_processing_mode"] = xff_header_processing_mode
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC network to place the load balancer in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def cross_zone_enabled(self) -> typing.Optional[builtins.bool]:
@@ -24337,16 +24394,16 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Which subnets place the load balancer in.
 
         :default: - the Vpc default strategy.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def client_keep_alive(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def client_keep_alive(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The client keep alive duration.
 
         The valid range is 60 to 604800 seconds (1 minute to 7 days).
@@ -24354,7 +24411,7 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
         :default: - Duration.seconds(3600)
         '''
         result = self._values.get("client_keep_alive")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def desync_mitigation_mode(self) -> typing.Optional["DesyncMitigationMode"]:
@@ -24384,13 +24441,13 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer idle timeout, in seconds.
 
         :default: 60
         '''
         result = self._values.get("idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional["IpAddressType"]:
@@ -24420,13 +24477,13 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security group to associate with this load balancer.
 
         :default: A security group is created
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def waf_fail_open(self) -> typing.Optional[builtins.bool]:
@@ -24503,21 +24560,21 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         self,
         *,
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
         target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
         load_balancing_algorithm_type: typing.Optional["TargetGroupLoadBalancingAlgorithmType"] = None,
         multi_value_headers_enabled: typing.Optional[builtins.bool] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
     ) -> None:
@@ -24566,7 +24623,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         if isinstance(target_group_health, dict):
             target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fbf37aa0a91cb985ce7a336a6188364cc38400538c1653e53453287c780e881)
+            type_hints = cached_type_hints(_typecheckingstub__0fbf37aa0a91cb985ce7a336a6188364cc38400538c1653e53453287c780e881)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -24635,7 +24692,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def deregistration_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deregistration_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time for Elastic Load Balancing to wait before deregistering a target.
 
         The range is 0-3600 seconds.
@@ -24643,7 +24700,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         :default: 300
         '''
         result = self._values.get("deregistration_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check(self) -> typing.Optional["HealthCheck"]:
@@ -24703,7 +24760,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         return typing.cast(typing.Optional["TargetType"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The virtual private cloud (VPC).
 
         only if ``TargetType`` is ``Ip`` or ``InstanceId``
@@ -24711,7 +24768,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         :default: - undefined
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def enable_anomaly_mitigation(self) -> typing.Optional[builtins.bool]:
@@ -24785,7 +24842,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         return typing.cast(typing.Optional["ApplicationProtocolVersion"], result)
 
     @builtins.property
-    def slow_start(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def slow_start(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The time period during which the load balancer sends a newly registered target a linearly increasing share of the traffic to the target group.
 
         The range is 30-900 seconds (15 minutes).
@@ -24793,10 +24850,12 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         :default: 0
         '''
         result = self._values.get("slow_start")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def stickiness_cookie_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def stickiness_cookie_duration(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The stickiness cookie expiration period.
 
         Setting this value enables load balancer stickiness.
@@ -24807,7 +24866,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         :default: - Stickiness is disabled
         '''
         result = self._values.get("stickiness_cookie_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def stickiness_cookie_name(self) -> typing.Optional[builtins.str]:
@@ -24853,7 +24912,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
 
 @jsii.implements(IListener)
 class BaseListener(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.BaseListener",
 ):
@@ -24871,7 +24930,7 @@ class BaseListener(
         :param additional_props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__129019265615450bb18b1d54a4cbac59e8aa311742b971671f0b947014928baa)
+            type_hints = cached_type_hints(_typecheckingstub__129019265615450bb18b1d54a4cbac59e8aa311742b971671f0b947014928baa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument additional_props", value=additional_props, expected_type=type_hints["additional_props"])
@@ -24884,7 +24943,7 @@ class BaseListener(
         :param key: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c50cdcdb39546c11e1129be3e435478ae3110391c8b527b7e659324c42ebeae6)
+            type_hints = cached_type_hints(_typecheckingstub__c50cdcdb39546c11e1129be3e435478ae3110391c8b527b7e659324c42ebeae6)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(None, jsii.invoke(self, "removeAttribute", [key]))
 
@@ -24902,7 +24961,7 @@ class BaseListener(
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42b74f8396752d37baeef333f99c80d4ed81c443c6410c4f4002f7a35e29fdc6)
+            type_hints = cached_type_hints(_typecheckingstub__42b74f8396752d37baeef333f99c80d4ed81c443c6410c4f4002f7a35e29fdc6)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "setAttribute", [key, value]))
@@ -24923,14 +24982,14 @@ class BaseListener(
 
     @builtins.property
     @jsii.member(jsii_name="listenerRef")
-    def listener_ref(self) -> "_ListenerReference_ca663b4f":
+    def listener_ref(self) -> "_aws_elasticloadbalancingv2_1283aa87.ListenerReference":
         '''A reference to this listener.'''
-        return typing.cast("_ListenerReference_ca663b4f", jsii.get(self, "listenerRef"))
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.ListenerReference", jsii.get(self, "listenerRef"))
 
 
 class _BaseListenerProxy(
     BaseListener,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     pass
 
@@ -24981,7 +25040,7 @@ typing.cast(typing.Any, IApplicationListenerRef).__jsii_proxy_class__ = lambda :
 )
 class IApplicationLoadBalancer(
     ILoadBalancerV2,
-    _IConnectable_10015a05,
+    _aws_ec2_09840e12.IConnectable,
     IApplicationLoadBalancerRef,
     typing_extensions.Protocol,
 ):
@@ -25028,7 +25087,7 @@ class IApplicationLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in (if available).
 
         If this interface is the result of an import call to fromApplicationLoadBalancerAttributes,
@@ -25067,7 +25126,7 @@ class IApplicationLoadBalancer(
 
 class _IApplicationLoadBalancerProxy(
     jsii.proxy_for(ILoadBalancerV2), # type: ignore[misc]
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
     jsii.proxy_for(IApplicationLoadBalancerRef), # type: ignore[misc]
 ):
     '''An application load balancer.'''
@@ -25115,13 +25174,13 @@ class _IApplicationLoadBalancerProxy(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC this load balancer has been created in (if available).
 
         If this interface is the result of an import call to fromApplicationLoadBalancerAttributes,
         the vpc attribute will be undefined unless specified in the optional properties of that method.
         '''
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], jsii.get(self, "vpc"))
 
     @jsii.member(jsii_name="addListener")
     def add_listener(
@@ -25150,7 +25209,7 @@ class _IApplicationLoadBalancerProxy(
         :param ssl_policy: The security policy that defines which ciphers and protocols are supported. Default: - The current predefined security policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec66b1151d33baa64d152f0d9139b5eb90ae2a933206ec714d923157770af88d)
+            type_hints = cached_type_hints(_typecheckingstub__ec66b1151d33baa64d152f0d9139b5eb90ae2a933206ec714d923157770af88d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseApplicationListenerProps(
             certificates=certificates,
@@ -25192,8 +25251,8 @@ class IApplicationTargetGroup(ITargetGroup, typing_extensions.Protocol):
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: typing.Optional["_Port_85922693"] = None,
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: typing.Optional["_aws_ec2_09840e12.Port"] = None,
     ) -> None:
         '''Register a connectable as a member of this target group.
 
@@ -25240,15 +25299,15 @@ class _IApplicationTargetGroupProxy(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1b465fbc479537abdee5935da364d8cdfc6d994a8d58920ac23264141325d5b)
+            type_hints = cached_type_hints(_typecheckingstub__a1b465fbc479537abdee5935da364d8cdfc6d994a8d58920ac23264141325d5b)
             check_type(argname="argument targets", value=targets, expected_type=typing.Tuple[type_hints["targets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTarget", [*targets]))
 
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: typing.Optional["_Port_85922693"] = None,
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: typing.Optional["_aws_ec2_09840e12.Port"] = None,
     ) -> None:
         '''Register a connectable as a member of this target group.
 
@@ -25258,7 +25317,7 @@ class _IApplicationTargetGroupProxy(
         :param port_range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fca91d9781f6b2506a2eebcb445d49c1af36ea2af88d908a9f2442f1be9c1e4f)
+            type_hints = cached_type_hints(_typecheckingstub__fca91d9781f6b2506a2eebcb445d49c1af36ea2af88d908a9f2442f1be9c1e4f)
             check_type(argname="argument connectable", value=connectable, expected_type=type_hints["connectable"])
             check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
         return typing.cast(None, jsii.invoke(self, "registerConnectable", [connectable, port_range]))
@@ -25277,7 +25336,7 @@ class _IApplicationTargetGroupProxy(
         :param associating_construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0807d65d51d2eb43a30ee140a775565f9a859954edc3fd050f178aabe4be9d45)
+            type_hints = cached_type_hints(_typecheckingstub__0807d65d51d2eb43a30ee140a775565f9a859954edc3fd050f178aabe4be9d45)
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
             check_type(argname="argument associating_construct", value=associating_construct, expected_type=type_hints["associating_construct"])
         return typing.cast(None, jsii.invoke(self, "registerListener", [listener, associating_construct]))
@@ -25360,7 +25419,7 @@ class _INetworkTargetGroupProxy(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0013393eb1808323075aa33aa645d0d690a50d53f416b2d1bf58acf789b1b18)
+            type_hints = cached_type_hints(_typecheckingstub__a0013393eb1808323075aa33aa645d0d690a50d53f416b2d1bf58acf789b1b18)
             check_type(argname="argument targets", value=targets, expected_type=typing.Tuple[type_hints["targets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTarget", [*targets]))
 
@@ -25373,7 +25432,7 @@ class _INetworkTargetGroupProxy(
         :param listener: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1afffb3c6f3ca0abdf7d167539029d7a34413f4d65c0a41a89c71606cb301200)
+            type_hints = cached_type_hints(_typecheckingstub__1afffb3c6f3ca0abdf7d167539029d7a34413f4d65c0a41a89c71606cb301200)
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         return typing.cast(None, jsii.invoke(self, "registerListener", [listener]))
 
@@ -25430,7 +25489,7 @@ class NetworkListener(
         default_target_groups: typing.Optional[typing.Sequence["INetworkTargetGroup"]] = None,
         protocol: typing.Optional["Protocol"] = None,
         ssl_policy: typing.Optional["SslPolicy"] = None,
-        tcp_idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        tcp_idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -25446,7 +25505,7 @@ class NetworkListener(
         :param tcp_idle_timeout: The load balancer TCP idle timeout. Default: Duration.seconds(350)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cac0b8bab6f5e8734bcf3c5bf0647c916d90f092956b733c3913017a1cc4c8c8)
+            type_hints = cached_type_hints(_typecheckingstub__cac0b8bab6f5e8734bcf3c5bf0647c916d90f092956b733c3913017a1cc4c8c8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkListenerProps(
@@ -25485,7 +25544,7 @@ class NetworkListener(
         :param load_balancer_tags: Filter listeners by associated load balancer tags. Default: - does not filter by load balancer tags
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db306ddf3d127e328a51b15d32f100fbe4a2999975635a56534c4b2f1f21151e)
+            type_hints = cached_type_hints(_typecheckingstub__db306ddf3d127e328a51b15d32f100fbe4a2999975635a56534c4b2f1f21151e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = NetworkListenerLookupOptions(
@@ -25512,7 +25571,7 @@ class NetworkListener(
         :param network_listener_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__057b47624c91ab3379414c3e20dd91fa9d75e365425bff259d3acc5490b71733)
+            type_hints = cached_type_hints(_typecheckingstub__057b47624c91ab3379414c3e20dd91fa9d75e365425bff259d3acc5490b71733)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument network_listener_arn", value=network_listener_arn, expected_type=type_hints["network_listener_arn"])
@@ -25530,7 +25589,7 @@ class NetworkListener(
         :param action: Action to perform.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d9668309eba8142cf2595947a1cd6dfde8de212c6fd90fc0a281f839a0e1b15)
+            type_hints = cached_type_hints(_typecheckingstub__4d9668309eba8142cf2595947a1cd6dfde8de212c6fd90fc0a281f839a0e1b15)
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
         props = AddNetworkActionProps(action=action)
 
@@ -25552,7 +25611,7 @@ class NetworkListener(
         :param certificates: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b366c27286ceca3723356afce1bceb1208ba81f49ceebcb7fb554c5db1bc0727)
+            type_hints = cached_type_hints(_typecheckingstub__b366c27286ceca3723356afce1bceb1208ba81f49ceebcb7fb554c5db1bc0727)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
         return typing.cast(None, jsii.invoke(self, "addCertificates", [id, certificates]))
@@ -25572,7 +25631,7 @@ class NetworkListener(
         :param target_groups: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91e30e658259a649f9ea9e0a9258a60489f17bfa10a418c3e9e669b9cdf98968)
+            type_hints = cached_type_hints(_typecheckingstub__91e30e658259a649f9ea9e0a9258a60489f17bfa10a418c3e9e669b9cdf98968)
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
             check_type(argname="argument target_groups", value=target_groups, expected_type=typing.Tuple[type_hints["target_groups"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTargetGroups", [_id, *target_groups]))
@@ -25583,7 +25642,7 @@ class NetworkListener(
         id: builtins.str,
         *,
         port: jsii.Number,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         protocol: typing.Optional["Protocol"] = None,
@@ -25615,7 +25674,7 @@ class NetworkListener(
         :return: The newly created target group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33c09cba988a9da0030676db7167be54677f14e730d06a9ebd4d1ddd8abda6d4)
+            type_hints = cached_type_hints(_typecheckingstub__33c09cba988a9da0030676db7167be54677f14e730d06a9ebd4d1ddd8abda6d4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddNetworkTargetsProps(
             port=port,
@@ -25700,13 +25759,13 @@ class NetworkTargetGroup(
         proxy_protocol_v2: typing.Optional[builtins.bool] = None,
         targets: typing.Optional[typing.Sequence["INetworkLoadBalancerTarget"]] = None,
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
         target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -25727,7 +25786,7 @@ class NetworkTargetGroup(
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eebfbf2a20edd0baf4d455f02dd34d748c5eccfa9a5268e5e2ebec245c1fbad1)
+            type_hints = cached_type_hints(_typecheckingstub__eebfbf2a20edd0baf4d455f02dd34d748c5eccfa9a5268e5e2ebec245c1fbad1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkTargetGroupProps(
@@ -25767,7 +25826,7 @@ class NetworkTargetGroup(
         :param load_balancer_arns: A Token representing the list of ARNs for the load balancer routing to this target group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2539619e5e88e24c8428830eec186c62008d50be4fac3bf9fd1ef20192eed91f)
+            type_hints = cached_type_hints(_typecheckingstub__2539619e5e88e24c8428830eec186c62008d50be4fac3bf9fd1ef20192eed91f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TargetGroupAttributes(
@@ -25783,7 +25842,7 @@ class NetworkTargetGroup(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76c7319680e5c651ebcb4a0c6df26c80ddd9971bb7e896564d6fd01406393573)
+            type_hints = cached_type_hints(_typecheckingstub__76c7319680e5c651ebcb4a0c6df26c80ddd9971bb7e896564d6fd01406393573)
             check_type(argname="argument targets", value=targets, expected_type=typing.Tuple[type_hints["targets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTarget", [*targets]))
 
@@ -25796,14 +25855,14 @@ class NetworkTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of targets that are considered healthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -25825,7 +25884,7 @@ class NetworkTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -25840,7 +25899,7 @@ class NetworkTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHealthyHostCount", [props]))
 
     @jsii.member(jsii_name="metricUnHealthyHostCount")
     def metric_un_healthy_host_count(
@@ -25851,14 +25910,14 @@ class NetworkTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of targets that are considered unhealthy.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -25880,7 +25939,7 @@ class NetworkTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -25895,7 +25954,7 @@ class NetworkTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricUnHealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricUnHealthyHostCount", [props]))
 
     @jsii.member(jsii_name="registerListener")
     def register_listener(self, listener: "INetworkListenerRef") -> None:
@@ -25906,7 +25965,7 @@ class NetworkTargetGroup(
         :param listener: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7b6e73ff2d61b26c63e595fcf01cae4c6df37eaa8d11b388ed18d244583e6bb)
+            type_hints = cached_type_hints(_typecheckingstub__d7b6e73ff2d61b26c63e595fcf01cae4c6df37eaa8d11b388ed18d244583e6bb)
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         return typing.cast(None, jsii.invoke(self, "registerListener", [listener]))
 
@@ -25975,26 +26034,26 @@ class ApplicationLoadBalancer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        client_keep_alive: typing.Optional["_Duration_4839e8c3"] = None,
+        client_keep_alive: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         desync_mitigation_mode: typing.Optional["DesyncMitigationMode"] = None,
         drop_invalid_header_fields: typing.Optional[builtins.bool] = None,
         http2_enabled: typing.Optional[builtins.bool] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         ip_address_type: typing.Optional["IpAddressType"] = None,
         preserve_host_header: typing.Optional[builtins.bool] = None,
         preserve_xff_client_port: typing.Optional[builtins.bool] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         waf_fail_open: typing.Optional[builtins.bool] = None,
         x_amzn_tls_version_and_cipher_suite_headers: typing.Optional[builtins.bool] = None,
         xff_header_processing_mode: typing.Optional["XffHeaderProcessingMode"] = None,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -26021,7 +26080,7 @@ class ApplicationLoadBalancer(
         :param vpc_subnets: Which subnets place the load balancer in. Default: - the Vpc default strategy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22d249b6cdbe3ce0dfc1a873ef276c65fe89ce6a5dba0603fae0a57559fb3720)
+            type_hints = cached_type_hints(_typecheckingstub__22d249b6cdbe3ce0dfc1a873ef276c65fe89ce6a5dba0603fae0a57559fb3720)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationLoadBalancerProps(
@@ -26061,7 +26120,7 @@ class ApplicationLoadBalancer(
         load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
         load_balancer_dns_name: typing.Optional[builtins.str] = None,
         security_group_allows_all_outbound: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> "IApplicationLoadBalancer":
         '''Import an existing Application Load Balancer.
 
@@ -26075,7 +26134,7 @@ class ApplicationLoadBalancer(
         :param vpc: The VPC this load balancer has been created in, if available. Default: - If the Load Balancer was imported and a VPC was not specified, the VPC is not available.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ca6de84a9ee3c946388f04cb2ef6707df94f3e2109cbcebf16f13b5a702171a)
+            type_hints = cached_type_hints(_typecheckingstub__1ca6de84a9ee3c946388f04cb2ef6707df94f3e2109cbcebf16f13b5a702171a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApplicationLoadBalancerAttributes(
@@ -26107,7 +26166,7 @@ class ApplicationLoadBalancer(
         :param load_balancer_tags: Match load balancer tags. Default: - does not match load balancers by tags
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f48bace3f4b5ce306a3a16b525ebdcc0fc5e08521d097fbd4c52dd1d9bc9fbc0)
+            type_hints = cached_type_hints(_typecheckingstub__f48bace3f4b5ce306a3a16b525ebdcc0fc5e08521d097fbd4c52dd1d9bc9fbc0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ApplicationLoadBalancerLookupOptions(
@@ -26143,7 +26202,7 @@ class ApplicationLoadBalancer(
         :param ssl_policy: The security policy that defines which ciphers and protocols are supported. Default: - The current predefined security policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f4b497be05dc5ab6f5a49395304fa7ec41bb629f32d3da388c2e70e1c697ea3)
+            type_hints = cached_type_hints(_typecheckingstub__4f4b497be05dc5ab6f5a49395304fa7ec41bb629f32d3da388c2e70e1c697ea3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseApplicationListenerProps(
             certificates=certificates,
@@ -26187,20 +26246,23 @@ class ApplicationLoadBalancer(
         return typing.cast("ApplicationListener", jsii.invoke(self, "addRedirect", [props]))
 
     @jsii.member(jsii_name="addSecurityGroup")
-    def add_security_group(self, security_group: "_ISecurityGroup_acf8a799") -> None:
+    def add_security_group(
+        self,
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
+    ) -> None:
         '''Add a security group to this load balancer.
 
         :param security_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57e7fd3d637561416b99cc18ce93e12b3ff0fd16aa199643bcfdcb4f3f47479c)
+            type_hints = cached_type_hints(_typecheckingstub__57e7fd3d637561416b99cc18ce93e12b3ff0fd16aa199643bcfdcb4f3f47479c)
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
         return typing.cast(None, jsii.invoke(self, "addSecurityGroup", [security_group]))
 
     @jsii.member(jsii_name="logAccessLogs")
     def log_access_logs(
         self,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Enable access logging for this load balancer.
@@ -26212,7 +26274,7 @@ class ApplicationLoadBalancer(
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14e58136aa424614ad3deed70de619716d36a85a2336e0d16a5d5e3edc8431cd)
+            type_hints = cached_type_hints(_typecheckingstub__14e58136aa424614ad3deed70de619716d36a85a2336e0d16a5d5e3edc8431cd)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast(None, jsii.invoke(self, "logAccessLogs", [bucket, prefix]))
@@ -26220,7 +26282,7 @@ class ApplicationLoadBalancer(
     @jsii.member(jsii_name="logConnectionLogs")
     def log_connection_logs(
         self,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Enable connection logging for this load balancer.
@@ -26234,7 +26296,7 @@ class ApplicationLoadBalancer(
         :see: https://docs.aws.amazon.com/cdk/latest/guide/environments.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83af77b39f54e0ddb4dfef1f0572e098aa10c9c98e90f7b63b99c010ab474953)
+            type_hints = cached_type_hints(_typecheckingstub__83af77b39f54e0ddb4dfef1f0572e098aa10c9c98e90f7b63b99c010ab474953)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast(None, jsii.invoke(self, "logConnectionLogs", [bucket, prefix]))
@@ -26249,14 +26311,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) Return the given named metric for this Application Load Balancer.
 
         :param metric_name: -
@@ -26280,9 +26342,9 @@ class ApplicationLoadBalancer(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__062c936e075fbff0552978e79ddc8d8cb01378ba1804b2546d14bd0383a824a0)
+            type_hints = cached_type_hints(_typecheckingstub__062c936e075fbff0552978e79ddc8d8cb01378ba1804b2546d14bd0383a824a0)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26297,7 +26359,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricActiveConnectionCount")
     def metric_active_connection_count(
@@ -26308,14 +26370,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of concurrent TCP connections active from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26337,7 +26399,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26352,7 +26414,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricActiveConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricActiveConnectionCount", [props]))
 
     @jsii.member(jsii_name="metricClientTlsNegotiationErrorCount")
     def metric_client_tls_negotiation_error_count(
@@ -26363,14 +26425,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of TLS connections initiated by the client that did not establish a session with the load balancer.
 
         Possible causes include a
@@ -26395,7 +26457,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26410,7 +26472,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClientTlsNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClientTlsNegotiationErrorCount", [props]))
 
     @jsii.member(jsii_name="metricConsumedLCUs")
     def metric_consumed_lc_us(
@@ -26421,14 +26483,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of load balancer capacity units (LCU) used by your load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26450,7 +26512,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26465,7 +26527,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricConsumedLCUs", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricConsumedLCUs", [props]))
 
     @jsii.member(jsii_name="metricElbAuthError")
     def metric_elb_auth_error(
@@ -26476,14 +26538,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of user authentications that could not be completed.
 
         Because an authenticate action was misconfigured, the load balancer
@@ -26509,7 +26571,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26524,7 +26586,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricElbAuthError", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricElbAuthError", [props]))
 
     @jsii.member(jsii_name="metricElbAuthFailure")
     def metric_elb_auth_failure(
@@ -26535,14 +26597,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of user authentications that could not be completed because the IdP denied access to the user or an authorization code was used more than once.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26564,7 +26626,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26579,7 +26641,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricElbAuthFailure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricElbAuthFailure", [props]))
 
     @jsii.member(jsii_name="metricElbAuthLatency")
     def metric_elb_auth_latency(
@@ -26590,14 +26652,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The time elapsed, in milliseconds, to query the IdP for the ID token and user info.
 
         If one or more of these operations fail, this is the time to failure.
@@ -26621,7 +26683,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26636,7 +26698,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricElbAuthLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricElbAuthLatency", [props]))
 
     @jsii.member(jsii_name="metricElbAuthSuccess")
     def metric_elb_auth_success(
@@ -26647,14 +26709,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of authenticate actions that were successful.
 
         This metric is incremented at the end of the authentication workflow,
@@ -26679,7 +26741,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26694,7 +26756,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricElbAuthSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricElbAuthSuccess", [props]))
 
     @jsii.member(jsii_name="metricHttpCodeElb")
     def metric_http_code_elb(
@@ -26706,14 +26768,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of HTTP 3xx/4xx/5xx codes that originate from the load balancer.
 
         This does not include any response codes generated by the targets.
@@ -26739,9 +26801,9 @@ class ApplicationLoadBalancer(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6447cbfc7ac9662cc1dd6f3b8f6b82a973be8b07590b7873ef3e038b1b927fe)
+            type_hints = cached_type_hints(_typecheckingstub__b6447cbfc7ac9662cc1dd6f3b8f6b82a973be8b07590b7873ef3e038b1b927fe)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26756,7 +26818,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpCodeElb", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpCodeElb", [code, props]))
 
     @jsii.member(jsii_name="metricHttpCodeTarget")
     def metric_http_code_target(
@@ -26768,14 +26830,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in the load balancer.
 
         This does not include any response codes generated by the load balancer.
@@ -26801,9 +26863,9 @@ class ApplicationLoadBalancer(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62701820eba63282ada6f942e6abfde1d8b672693f32becc65f1c63234316334)
+            type_hints = cached_type_hints(_typecheckingstub__62701820eba63282ada6f942e6abfde1d8b672693f32becc65f1c63234316334)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26818,7 +26880,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpCodeTarget", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpCodeTarget", [code, props]))
 
     @jsii.member(jsii_name="metricHttpFixedResponseCount")
     def metric_http_fixed_response_count(
@@ -26829,14 +26891,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of fixed-response actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26858,7 +26920,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26873,7 +26935,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpFixedResponseCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpFixedResponseCount", [props]))
 
     @jsii.member(jsii_name="metricHttpRedirectCount")
     def metric_http_redirect_count(
@@ -26884,14 +26946,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of redirect actions that were successful.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26913,7 +26975,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26928,7 +26990,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpRedirectCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpRedirectCount", [props]))
 
     @jsii.member(jsii_name="metricHttpRedirectUrlLimitExceededCount")
     def metric_http_redirect_url_limit_exceeded_count(
@@ -26939,14 +27001,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of redirect actions that couldn't be completed because the URL in the response location header is larger than 8K.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -26968,7 +27030,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -26983,7 +27045,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpRedirectUrlLimitExceededCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpRedirectUrlLimitExceededCount", [props]))
 
     @jsii.member(jsii_name="metricIpv6ProcessedBytes")
     def metric_ipv6_processed_bytes(
@@ -26994,14 +27056,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of bytes processed by the load balancer over IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27023,7 +27085,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27038,7 +27100,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIpv6ProcessedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIpv6ProcessedBytes", [props]))
 
     @jsii.member(jsii_name="metricIpv6RequestCount")
     def metric_ipv6_request_count(
@@ -27049,14 +27111,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of IPv6 requests received by the load balancer.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27078,7 +27140,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27093,7 +27155,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIpv6RequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIpv6RequestCount", [props]))
 
     @jsii.member(jsii_name="metricNewConnectionCount")
     def metric_new_connection_count(
@@ -27104,14 +27166,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of new TCP connections established from clients to the load balancer and from the load balancer to targets.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27133,7 +27195,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27148,7 +27210,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNewConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNewConnectionCount", [props]))
 
     @jsii.member(jsii_name="metricProcessedBytes")
     def metric_processed_bytes(
@@ -27159,14 +27221,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The total number of bytes processed by the load balancer over IPv4 and IPv6.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27188,7 +27250,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27203,7 +27265,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricProcessedBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricProcessedBytes", [props]))
 
     @jsii.member(jsii_name="metricRejectedConnectionCount")
     def metric_rejected_connection_count(
@@ -27214,14 +27276,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of connections that were rejected because the load balancer had reached its maximum number of connections.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27243,7 +27305,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27258,7 +27320,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRejectedConnectionCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRejectedConnectionCount", [props]))
 
     @jsii.member(jsii_name="metricRequestCount")
     def metric_request_count(
@@ -27269,14 +27331,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -27300,7 +27362,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27315,7 +27377,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRequestCount", [props]))
 
     @jsii.member(jsii_name="metricRuleEvaluations")
     def metric_rule_evaluations(
@@ -27326,14 +27388,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of rules processed by the load balancer given a request rate averaged over an hour.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27355,7 +27417,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27370,7 +27432,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRuleEvaluations", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRuleEvaluations", [props]))
 
     @jsii.member(jsii_name="metricTargetConnectionErrorCount")
     def metric_target_connection_error_count(
@@ -27381,14 +27443,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27410,7 +27472,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27425,7 +27487,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetConnectionErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetConnectionErrorCount", [props]))
 
     @jsii.member(jsii_name="metricTargetResponseTime")
     def metric_target_response_time(
@@ -27436,14 +27498,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27465,7 +27527,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27480,7 +27542,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetResponseTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetResponseTime", [props]))
 
     @jsii.member(jsii_name="metricTargetTLSNegotiationErrorCount")
     def metric_target_tls_negotiation_error_count(
@@ -27491,14 +27553,14 @@ class ApplicationLoadBalancer(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -27522,7 +27584,7 @@ class ApplicationLoadBalancer(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27537,7 +27599,7 @@ class ApplicationLoadBalancer(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetTLSNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetTLSNegotiationErrorCount", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -27547,9 +27609,9 @@ class ApplicationLoadBalancer(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The network connections associated with this resource.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="isApplicationLoadBalancer")
@@ -27626,18 +27688,18 @@ class ApplicationTargetGroup(
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
         cross_zone_enabled: typing.Optional[builtins.bool] = None,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
         target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -27662,7 +27724,7 @@ class ApplicationTargetGroup(
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e179515c9d6138007cc1b74835b75f10a179c1f5ef977cbe4188c778ca13468d)
+            type_hints = cached_type_hints(_typecheckingstub__e179515c9d6138007cc1b74835b75f10a179c1f5ef977cbe4188c778ca13468d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationTargetGroupProps(
@@ -27706,7 +27768,7 @@ class ApplicationTargetGroup(
         :param load_balancer_arns: A Token representing the list of ARNs for the load balancer routing to this target group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e28a2f60a308b9b9499c52feced683848da31f0b1c24eeb16da11fb6c0a40dfe)
+            type_hints = cached_type_hints(_typecheckingstub__e28a2f60a308b9b9499c52feced683848da31f0b1c24eeb16da11fb6c0a40dfe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TargetGroupAttributes(
@@ -27722,14 +27784,14 @@ class ApplicationTargetGroup(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eecc110e4228c75e90fbb5f20c915d8c61faae0ec00d35e2201474677db7a85)
+            type_hints = cached_type_hints(_typecheckingstub__0eecc110e4228c75e90fbb5f20c915d8c61faae0ec00d35e2201474677db7a85)
             check_type(argname="argument targets", value=targets, expected_type=typing.Tuple[type_hints["targets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTarget", [*targets]))
 
     @jsii.member(jsii_name="enableCookieStickiness")
     def enable_cookie_stickiness(
         self,
-        duration: "_Duration_4839e8c3",
+        duration: "_aws_cdk_0cae9daa.Duration",
         cookie_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Enable sticky routing via a cookie to members of this target group.
@@ -27743,7 +27805,7 @@ class ApplicationTargetGroup(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00cef8188c0bc7a32bf724bd538a05d8ba6b2f9a42db265d8c81ba1a1dd005e0)
+            type_hints = cached_type_hints(_typecheckingstub__00cef8188c0bc7a32bf724bd538a05d8ba6b2f9a42db265d8c81ba1a1dd005e0)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
             check_type(argname="argument cookie_name", value=cookie_name, expected_type=type_hints["cookie_name"])
         return typing.cast(None, jsii.invoke(self, "enableCookieStickiness", [duration, cookie_name]))
@@ -27758,14 +27820,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Application Load Balancer Target Group.
 
         Returns the metric for this target group from the point of view of the first
@@ -27790,9 +27852,9 @@ class ApplicationTargetGroup(
         :default: Average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cafb19674dfe2b81cd50268d430f42d42519cb1d6ac9e4ca3e06e177fa60d82b)
+            type_hints = cached_type_hints(_typecheckingstub__cafb19674dfe2b81cd50268d430f42d42519cb1d6ac9e4ca3e06e177fa60d82b)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27807,7 +27869,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricHealthyHostCount")
     def metric_healthy_host_count(
@@ -27818,14 +27880,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of healthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27847,7 +27909,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27862,7 +27924,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHealthyHostCount", [props]))
 
     @jsii.member(jsii_name="metricHttpCodeTarget")
     def metric_http_code_target(
@@ -27874,14 +27936,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of HTTP 2xx/3xx/4xx/5xx response codes generated by all targets in this target group.
 
         This does not include any response codes generated by the load balancer.
@@ -27907,9 +27969,9 @@ class ApplicationTargetGroup(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5658927e0affbc22ef25411d45503bc28f92184eb42551f1375dcafbaf6d95f8)
+            type_hints = cached_type_hints(_typecheckingstub__5658927e0affbc22ef25411d45503bc28f92184eb42551f1375dcafbaf6d95f8)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27924,7 +27986,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHttpCodeTarget", [code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHttpCodeTarget", [code, props]))
 
     @jsii.member(jsii_name="metricIpv6RequestCount")
     def metric_ipv6_request_count(
@@ -27935,14 +27997,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of IPv6 requests received by the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -27964,7 +28026,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -27979,7 +28041,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIpv6RequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIpv6RequestCount", [props]))
 
     @jsii.member(jsii_name="metricRequestCount")
     def metric_request_count(
@@ -27990,14 +28052,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of requests processed over IPv4 and IPv6.
 
         This count includes only the requests with a response generated by a target of the load balancer.
@@ -28021,7 +28083,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28036,7 +28098,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRequestCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRequestCount", [props]))
 
     @jsii.member(jsii_name="metricRequestCountPerTarget")
     def metric_request_count_per_target(
@@ -28047,14 +28109,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The average number of requests received by each target in a target group.
 
         The only valid statistic is Sum. Note that this represents the average not the sum.
@@ -28078,7 +28140,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28093,7 +28155,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRequestCountPerTarget", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRequestCountPerTarget", [props]))
 
     @jsii.member(jsii_name="metricTargetConnectionErrorCount")
     def metric_target_connection_error_count(
@@ -28104,14 +28166,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of connections that were not successfully established between the load balancer and target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -28133,7 +28195,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28148,7 +28210,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetConnectionErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetConnectionErrorCount", [props]))
 
     @jsii.member(jsii_name="metricTargetResponseTime")
     def metric_target_response_time(
@@ -28159,14 +28221,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The time elapsed, in seconds, after the request leaves the load balancer until a response from the target is received.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -28188,7 +28250,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28203,7 +28265,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetResponseTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetResponseTime", [props]))
 
     @jsii.member(jsii_name="metricTargetTLSNegotiationErrorCount")
     def metric_target_tls_negotiation_error_count(
@@ -28214,14 +28276,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of TLS connections initiated by the load balancer that did not establish a session with the target.
 
         Possible causes include a mismatch of ciphers or protocols.
@@ -28245,7 +28307,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28260,7 +28322,7 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetTLSNegotiationErrorCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetTLSNegotiationErrorCount", [props]))
 
     @jsii.member(jsii_name="metricUnhealthyHostCount")
     def metric_unhealthy_host_count(
@@ -28271,14 +28333,14 @@ class ApplicationTargetGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) The number of unhealthy hosts in the target group.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -28300,7 +28362,7 @@ class ApplicationTargetGroup(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -28315,13 +28377,13 @@ class ApplicationTargetGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricUnhealthyHostCount", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricUnhealthyHostCount", [props]))
 
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: typing.Optional["_Port_85922693"] = None,
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: typing.Optional["_aws_ec2_09840e12.Port"] = None,
     ) -> None:
         '''Register a connectable as a member of this target group.
 
@@ -28331,7 +28393,7 @@ class ApplicationTargetGroup(
         :param port_range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__421159c4b4c3830f7481a04ab45e2527348c576af98c668c07fa87678639bd12)
+            type_hints = cached_type_hints(_typecheckingstub__421159c4b4c3830f7481a04ab45e2527348c576af98c668c07fa87678639bd12)
             check_type(argname="argument connectable", value=connectable, expected_type=type_hints["connectable"])
             check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
         return typing.cast(None, jsii.invoke(self, "registerConnectable", [connectable, port_range]))
@@ -28350,7 +28412,7 @@ class ApplicationTargetGroup(
         :param associating_construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53d72da0daaf3bca2bf3a45722a5d9d665f24ce2ef58be7bfea7dc854470f62a)
+            type_hints = cached_type_hints(_typecheckingstub__53d72da0daaf3bca2bf3a45722a5d9d665f24ce2ef58be7bfea7dc854470f62a)
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
             check_type(argname="argument associating_construct", value=associating_construct, expected_type=type_hints["associating_construct"])
         return typing.cast(None, jsii.invoke(self, "registerListener", [listener, associating_construct]))
@@ -28384,7 +28446,7 @@ class ApplicationTargetGroup(
 class IApplicationListener(
     IApplicationListenerRef,
     IListener,
-    _IConnectable_10015a05,
+    _aws_ec2_09840e12.IConnectable,
     typing_extensions.Protocol,
 ):
     '''Properties to reference an existing listener.'''
@@ -28458,15 +28520,15 @@ class IApplicationListener(
         self,
         id: builtins.str,
         *,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         load_balancing_algorithm_type: typing.Optional["TargetGroupLoadBalancingAlgorithmType"] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
@@ -28504,8 +28566,8 @@ class IApplicationListener(
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: "_Port_85922693",
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: "_aws_ec2_09840e12.Port",
     ) -> None:
         '''Register that a connectable that has been added to this load balancer.
 
@@ -28520,7 +28582,7 @@ class IApplicationListener(
 class _IApplicationListenerProxy(
     jsii.proxy_for(IApplicationListenerRef), # type: ignore[misc]
     jsii.proxy_for(IListener), # type: ignore[misc]
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
 ):
     '''Properties to reference an existing listener.'''
 
@@ -28555,7 +28617,7 @@ class _IApplicationListenerProxy(
         :param priority: Priority of this target group. The rule with the lowest priority will be used for every request. If priority is not given, these target groups will be added as defaults, and must not have conditions. Priorities must be unique. Default: Target groups are used as defaults
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__078c8c060ef52d807e9a62da847c7c1f9a2fb0a3f7bf8900246c80b1d9ff0a2e)
+            type_hints = cached_type_hints(_typecheckingstub__078c8c060ef52d807e9a62da847c7c1f9a2fb0a3f7bf8900246c80b1d9ff0a2e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationActionProps(
             action=action,
@@ -28578,7 +28640,7 @@ class _IApplicationListenerProxy(
         :param certificates: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bf07304357ae3b96ca5010a3003b725b55d7ca3cce0adb320a1d7dd3a8e986e)
+            type_hints = cached_type_hints(_typecheckingstub__6bf07304357ae3b96ca5010a3003b725b55d7ca3cce0adb320a1d7dd3a8e986e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
         return typing.cast(None, jsii.invoke(self, "addCertificates", [id, certificates]))
@@ -28603,7 +28665,7 @@ class _IApplicationListenerProxy(
         :param priority: Priority of this target group. The rule with the lowest priority will be used for every request. If priority is not given, these target groups will be added as defaults, and must not have conditions. Priorities must be unique. Default: Target groups are used as defaults
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a75a011e579ef50ef41ed5ad7fddf22c4568fc11c8d5304364dc3fcc7ad6e05)
+            type_hints = cached_type_hints(_typecheckingstub__2a75a011e579ef50ef41ed5ad7fddf22c4568fc11c8d5304364dc3fcc7ad6e05)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationTargetGroupsProps(
             target_groups=target_groups, conditions=conditions, priority=priority
@@ -28616,15 +28678,15 @@ class _IApplicationListenerProxy(
         self,
         id: builtins.str,
         *,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         load_balancing_algorithm_type: typing.Optional["TargetGroupLoadBalancingAlgorithmType"] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
@@ -28658,7 +28720,7 @@ class _IApplicationListenerProxy(
         :return: The newly created target group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84e790e0e8140f8df376ccc9404001adf95dc62c6408367a7fb37a7ac655ef44)
+            type_hints = cached_type_hints(_typecheckingstub__84e790e0e8140f8df376ccc9404001adf95dc62c6408367a7fb37a7ac655ef44)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationTargetsProps(
             deregistration_delay=deregistration_delay,
@@ -28682,8 +28744,8 @@ class _IApplicationListenerProxy(
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: "_Port_85922693",
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: "_aws_ec2_09840e12.Port",
     ) -> None:
         '''Register that a connectable that has been added to this load balancer.
 
@@ -28693,7 +28755,7 @@ class _IApplicationListenerProxy(
         :param port_range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed17ef6987e4f2957e6bb9b0439408268b3b78152bef346bbc634ba0b8f39b8d)
+            type_hints = cached_type_hints(_typecheckingstub__ed17ef6987e4f2957e6bb9b0439408268b3b78152bef346bbc634ba0b8f39b8d)
             check_type(argname="argument connectable", value=connectable, expected_type=type_hints["connectable"])
             check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
         return typing.cast(None, jsii.invoke(self, "registerConnectable", [connectable, port_range]))
@@ -28775,7 +28837,7 @@ class ApplicationListener(
         :param ssl_policy: The security policy that defines which ciphers and protocols are supported. Default: - The current predefined security policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__456b854cc2e0f11115cdc6d97d27e54e4d0b70c3bbcac268b8302e61be1d2846)
+            type_hints = cached_type_hints(_typecheckingstub__456b854cc2e0f11115cdc6d97d27e54e4d0b70c3bbcac268b8302e61be1d2846)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationListenerProps(
@@ -28800,7 +28862,7 @@ class ApplicationListener(
         id: builtins.str,
         *,
         listener_arn: builtins.str,
-        security_group: "_ISecurityGroup_acf8a799",
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
         default_port: typing.Optional[jsii.Number] = None,
     ) -> "IApplicationListener":
         '''Import an existing listener.
@@ -28812,7 +28874,7 @@ class ApplicationListener(
         :param default_port: The default port on which this listener is listening.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f484c88c521d88cd42c5389c18b8ce1b5e177f2273ec92c4cec20a1c65757d0)
+            type_hints = cached_type_hints(_typecheckingstub__2f484c88c521d88cd42c5389c18b8ce1b5e177f2273ec92c4cec20a1c65757d0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApplicationListenerAttributes(
@@ -28847,7 +28909,7 @@ class ApplicationListener(
         :param load_balancer_tags: Filter listeners by associated load balancer tags. Default: - does not filter by load balancer tags
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7360e4910bed700a4e6a8a66d8a0eded64eca721e43b634c07ff814da957d2b)
+            type_hints = cached_type_hints(_typecheckingstub__a7360e4910bed700a4e6a8a66d8a0eded64eca721e43b634c07ff814da957d2b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ApplicationListenerLookupOptions(
@@ -28887,7 +28949,7 @@ class ApplicationListener(
         :param priority: Priority of this target group. The rule with the lowest priority will be used for every request. If priority is not given, these target groups will be added as defaults, and must not have conditions. Priorities must be unique. Default: Target groups are used as defaults
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__646bd302ed3a63a28a30ea3b62d2e003bf976ae981493560776ad112cacb8001)
+            type_hints = cached_type_hints(_typecheckingstub__646bd302ed3a63a28a30ea3b62d2e003bf976ae981493560776ad112cacb8001)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationActionProps(
             action=action,
@@ -28914,7 +28976,7 @@ class ApplicationListener(
         :param certificates: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__108a21675c8facd98816b3c33cd7ecf91e67edcb3741260fd767792ce79ac8cd)
+            type_hints = cached_type_hints(_typecheckingstub__108a21675c8facd98816b3c33cd7ecf91e67edcb3741260fd767792ce79ac8cd)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
         return typing.cast(None, jsii.invoke(self, "addCertificates", [id, certificates]))
@@ -28943,7 +29005,7 @@ class ApplicationListener(
         :param priority: Priority of this target group. The rule with the lowest priority will be used for every request. If priority is not given, these target groups will be added as defaults, and must not have conditions. Priorities must be unique. Default: Target groups are used as defaults
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537b1cde53c28e62d827b46edbd4c564b81aab48c43f3b0171d516036c34dd1e)
+            type_hints = cached_type_hints(_typecheckingstub__537b1cde53c28e62d827b46edbd4c564b81aab48c43f3b0171d516036c34dd1e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationTargetGroupsProps(
             target_groups=target_groups, conditions=conditions, priority=priority
@@ -28956,15 +29018,15 @@ class ApplicationListener(
         self,
         id: builtins.str,
         *,
-        deregistration_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        deregistration_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         load_balancing_algorithm_type: typing.Optional["TargetGroupLoadBalancingAlgorithmType"] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["ApplicationProtocol"] = None,
         protocol_version: typing.Optional["ApplicationProtocolVersion"] = None,
-        slow_start: typing.Optional["_Duration_4839e8c3"] = None,
-        stickiness_cookie_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        slow_start: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        stickiness_cookie_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         stickiness_cookie_name: typing.Optional[builtins.str] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         targets: typing.Optional[typing.Sequence["IApplicationLoadBalancerTarget"]] = None,
@@ -29001,7 +29063,7 @@ class ApplicationListener(
         :return: The newly created target group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__024551e53e2a61ea5cc079e4909fa79f39b1b922c5d0ab7d4adfe8153d5962ed)
+            type_hints = cached_type_hints(_typecheckingstub__024551e53e2a61ea5cc079e4909fa79f39b1b922c5d0ab7d4adfe8153d5962ed)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApplicationTargetsProps(
             deregistration_delay=deregistration_delay,
@@ -29025,8 +29087,8 @@ class ApplicationListener(
     @jsii.member(jsii_name="registerConnectable")
     def register_connectable(
         self,
-        connectable: "_IConnectable_10015a05",
-        port_range: "_Port_85922693",
+        connectable: "_aws_ec2_09840e12.IConnectable",
+        port_range: "_aws_ec2_09840e12.Port",
     ) -> None:
         '''Register that a connectable that has been added to this load balancer.
 
@@ -29036,7 +29098,7 @@ class ApplicationListener(
         :param port_range: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa35352f4f1ccbd7f59bb31c259f5f8206d70234128e8a2cbb6820c112f8f602)
+            type_hints = cached_type_hints(_typecheckingstub__aa35352f4f1ccbd7f59bb31c259f5f8206d70234128e8a2cbb6820c112f8f602)
             check_type(argname="argument connectable", value=connectable, expected_type=type_hints["connectable"])
             check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
         return typing.cast(None, jsii.invoke(self, "registerConnectable", [connectable, port_range]))
@@ -29054,9 +29116,9 @@ class ApplicationListener(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Manage connections to this ApplicationListener.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="isApplicationListener")
@@ -29220,7 +29282,7 @@ def _typecheckingstub__a332f2bb635bdad157b4838ea0d0bd5ec8f41789e6e6f6ce7d3375e56
 def _typecheckingstub__6126c786542cfa79aaf101362ecf7f682d4002ab17ff288f7a0477ec5c5a6154(
     *,
     port: jsii.Number,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
     protocol: typing.Optional[Protocol] = None,
@@ -29242,7 +29304,7 @@ def _typecheckingstub__687ef72e969f0f1a936fc9e858714430221c81eefec3d4d710eadd2f4
 def _typecheckingstub__dc330a62c006d97d5f39e1c1f50b76636362d99eb0653dd27f515aed5f4f96c3(
     *,
     listener_arn: builtins.str,
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
     default_port: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29252,7 +29314,7 @@ def _typecheckingstub__52fe4faa0c2cb22f24850f57dea9971eb4dd93e8a67644c86be7afd0b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    listener: _IListenerRef_a8ced6a8,
+    listener: _aws_elasticloadbalancingv2_1283aa87.IListenerRef,
     certificates: typing.Optional[typing.Sequence[IListenerCertificate]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29260,7 +29322,7 @@ def _typecheckingstub__52fe4faa0c2cb22f24850f57dea9971eb4dd93e8a67644c86be7afd0b
 
 def _typecheckingstub__863a0781e27e26254f4be396316d5d4f08d1ffa1d864f3923e50496d736017c9(
     *,
-    listener: _IListenerRef_a8ced6a8,
+    listener: _aws_elasticloadbalancingv2_1283aa87.IListenerRef,
     certificates: typing.Optional[typing.Sequence[IListenerCertificate]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29298,7 +29360,7 @@ def _typecheckingstub__dc8cdbdc2216e5085f227a04f17ccbf88afdaa958f09e18005e6ffbce
     load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
     load_balancer_dns_name: typing.Optional[builtins.str] = None,
     security_group_allows_all_outbound: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29327,7 +29389,7 @@ def _typecheckingstub__24de076506a357c522d38ec026cd897c6cf19e9c85ad3dedfe1c2ac39
     *,
     authorization_endpoint: builtins.str,
     client_id: builtins.str,
-    client_secret: _SecretValue_3dd0ddae,
+    client_secret: _aws_cdk_0cae9daa.SecretValue,
     issuer: builtins.str,
     next: ListenerAction,
     token_endpoint: builtins.str,
@@ -29337,7 +29399,7 @@ def _typecheckingstub__24de076506a357c522d38ec026cd897c6cf19e9c85ad3dedfe1c2ac39
     on_unauthenticated_request: typing.Optional[UnauthenticatedAction] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    session_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29385,7 +29447,7 @@ def _typecheckingstub__620d15602c1f1f8b5bfa7e4cd1cd3461042dfae9592b1506735bc9f5e
     pass
 
 def _typecheckingstub__d8406eb9a53b57e3c4cbb3455e6d89df0166eb6163718ffdd07b5fef738151bd(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29414,14 +29476,14 @@ def _typecheckingstub__c636cf30c7688e65af48df2d228f5c138bd07b3c256c82b3692388fb2
 
 def _typecheckingstub__36614588a5e075aa6e7ea0a4d41053b09874f2590b227cd5d62f3429901282f2(
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29435,7 +29497,7 @@ def _typecheckingstub__a385469057e83b68d89a4be7454c5a114db610783f984a1d85c9d4b71
     default_target_groups: typing.Optional[typing.Sequence[INetworkTargetGroup]] = None,
     protocol: typing.Optional[Protocol] = None,
     ssl_policy: typing.Optional[SslPolicy] = None,
-    tcp_idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    tcp_idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29443,13 +29505,13 @@ def _typecheckingstub__a385469057e83b68d89a4be7454c5a114db610783f984a1d85c9d4b71
 def _typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede879e36bb(
     *,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
     target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29458,12 +29520,12 @@ def _typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    load_balancer_arn: typing.Union[builtins.str, _ILoadBalancerRef_13acd8f1],
+    default_actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    load_balancer_arn: typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef],
     alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mutual_authentication: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     ssl_policy: typing.Optional[builtins.str] = None,
@@ -29472,7 +29534,7 @@ def _typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a
     pass
 
 def _typecheckingstub__3b32f9e25c97f61f00e538ef04d5fa27f0d651f1b719ada79f2c6a3f7f1a034a(
-    resource: _IListenerRef_a8ced6a8,
+    resource: _aws_elasticloadbalancingv2_1283aa87.IListenerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29484,7 +29546,7 @@ def _typecheckingstub__93e7a4de821491d74dc6d5dd92ce453becd3cfe080495a9a6126d4d3c
     pass
 
 def _typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29496,7 +29558,7 @@ def _typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf
     pass
 
 def _typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ActionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListener.ActionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29514,19 +29576,19 @@ def _typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3
     pass
 
 def _typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.CertificateProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListener.CertificateProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ListenerAttributeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListener.ListenerAttributeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnListener.MutualAuthenticationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListener.MutualAuthenticationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29552,13 +29614,13 @@ def _typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a2534
 def _typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349(
     *,
     type: builtins.str,
-    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    jwt_validation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.JwtValidationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_cognito_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_oidc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fixed_response_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    forward_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    jwt_validation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.JwtValidationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     order: typing.Optional[jsii.Number] = None,
-    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redirect_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_group_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29569,7 +29631,7 @@ def _typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415d
     user_pool_arn: builtins.str,
     user_pool_client_id: builtins.str,
     user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
@@ -29585,13 +29647,13 @@ def _typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a4478
     issuer: builtins.str,
     token_endpoint: builtins.str,
     user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     client_secret: typing.Optional[builtins.str] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
     session_timeout: typing.Optional[builtins.str] = None,
-    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29614,8 +29676,8 @@ def _typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f
 
 def _typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977(
     *,
-    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_stickiness_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29633,7 +29695,7 @@ def _typecheckingstub__e741a75fc9c6afe2cebc6ef7e70841f66c005ad9c7532432503bb3bd6
     *,
     issuer: builtins.str,
     jwks_endpoint: builtins.str,
-    additional_claims: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.JwtValidationActionAdditionalClaimProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    additional_claims: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.JwtValidationActionAdditionalClaimProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29649,7 +29711,7 @@ def _typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef0
 def _typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0(
     *,
     advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
-    ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mode: typing.Optional[builtins.str] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -29671,7 +29733,7 @@ def _typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625
 def _typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f(
     *,
     duration_seconds: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29688,7 +29750,7 @@ def _typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    certificates: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
     listener_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -29701,7 +29763,7 @@ def _typecheckingstub__96751b83a1cd9cc2f72a65bbb99e496e3fb6932710e0e9adc5e615ea1
     pass
 
 def _typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29713,7 +29775,7 @@ def _typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b1
     pass
 
 def _typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerCertificate.CertificateProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListenerCertificate.CertificateProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29733,7 +29795,7 @@ def _typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21
 
 def _typecheckingstub__a75452487efc1f762632147a4649a752cebc50169fa389176da35b23232c3434(
     *,
-    certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    certificates: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
     listener_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -29741,12 +29803,12 @@ def _typecheckingstub__a75452487efc1f762632147a4649a752cebc50169fa389176da35b232
 
 def _typecheckingstub__aab6d22e7b936da7d57033477b79897453525b2ac292509d47ddac8e90a84aa3(
     *,
-    default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    load_balancer_arn: typing.Union[builtins.str, _ILoadBalancerRef_13acd8f1],
+    default_actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    load_balancer_arn: typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef],
     alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mutual_authentication: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     ssl_policy: typing.Optional[builtins.str] = None,
@@ -29758,11 +29820,12 @@ def _typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     priority: jsii.Number,
-    listener_arn: typing.Optional[typing.Union[builtins.str, _IListenerRef_a8ced6a8]] = None,
-    transforms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TransformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_arn: typing.Optional[typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.IListenerRef]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transforms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.TransformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29774,7 +29837,7 @@ def _typecheckingstub__9abf85968e2b444dc88316757550a2dc49a8b93388a5fa9a41bef6d56
     pass
 
 def _typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29786,13 +29849,13 @@ def _typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e7
     pass
 
 def _typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.ActionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListenerRule.ActionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.RuleConditionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListenerRule.RuleConditionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29809,8 +29872,14 @@ def _typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__54a5505a89d688366275709fdd458e3d030a5ad2018dad71418e0810bcd8d08b(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__419a5d3af31f0f6ae614e1f0769137efa882317f1538e54380e430e493e35cd9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.TransformProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListenerRule.TransformProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29818,13 +29887,13 @@ def _typecheckingstub__419a5d3af31f0f6ae614e1f0769137efa882317f1538e54380e430e49
 def _typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17(
     *,
     type: builtins.str,
-    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    jwt_validation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.JwtValidationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_cognito_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_oidc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fixed_response_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    forward_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    jwt_validation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.JwtValidationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     order: typing.Optional[jsii.Number] = None,
-    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redirect_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_group_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29835,7 +29904,7 @@ def _typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e9064424
     user_pool_arn: builtins.str,
     user_pool_client_id: builtins.str,
     user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
@@ -29851,13 +29920,13 @@ def _typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b7883
     issuer: builtins.str,
     token_endpoint: builtins.str,
     user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    authentication_request_extra_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     client_secret: typing.Optional[builtins.str] = None,
     on_unauthenticated_request: typing.Optional[builtins.str] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
     session_timeout: typing.Optional[jsii.Number] = None,
-    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29873,8 +29942,8 @@ def _typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1
 
 def _typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0(
     *,
-    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_stickiness_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29916,7 +29985,7 @@ def _typecheckingstub__453c3682f266baa85a3319d8ac290c6f36e58efe3ecc37263406d04f1
     *,
     issuer: builtins.str,
     jwks_endpoint: builtins.str,
-    additional_claims: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.JwtValidationActionAdditionalClaimProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    additional_claims: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.JwtValidationActionAdditionalClaimProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29931,7 +30000,7 @@ def _typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f
 
 def _typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4(
     *,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.QueryStringKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29958,7 +30027,7 @@ def _typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e496758481673
 
 def _typecheckingstub__d22b4408908861a36e3f920a4f6c3a1838cc20f9a19985df5f304eca3edc5e40(
     *,
-    rewrites: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RewriteConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rewrites: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RewriteConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29974,13 +30043,13 @@ def _typecheckingstub__4c3f3a6e86413710fa57369e22bb4b764e58ae1c95bfcad66327ab3f9
 def _typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c(
     *,
     field: typing.Optional[builtins.str] = None,
-    host_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HostHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_request_method_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpRequestMethodConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    path_pattern_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.PathPatternConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    query_string_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    host_header_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.HostHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_header_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.HttpHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_request_method_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.HttpRequestMethodConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    path_pattern_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.PathPatternConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    query_string_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.QueryStringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     regex_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_ip_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29996,7 +30065,7 @@ def _typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da8
 def _typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc(
     *,
     duration_seconds: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30012,19 +30081,20 @@ def _typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da
 def _typecheckingstub__f6f25c4596bc3291a9eb0f8cf6830c9b4a4b0949d0bad500d5fefdbb325293fd(
     *,
     type: builtins.str,
-    host_header_rewrite_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RewriteConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    url_rewrite_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RewriteConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    host_header_rewrite_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RewriteConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    url_rewrite_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RewriteConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ca75076613edf0bf6ade8ee145bc71de34aa66567d90d5721bd40f862a5b0a03(
     *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     priority: jsii.Number,
-    listener_arn: typing.Optional[typing.Union[builtins.str, _IListenerRef_a8ced6a8]] = None,
-    transforms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TransformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_arn: typing.Optional[typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.IListenerRef]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transforms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListenerRule.TransformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30033,26 +30103,26 @@ def _typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
     enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-    load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    load_balancer_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    minimum_load_balancer_capacity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     scheme: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__38532b8cac7bb336657c64de1390b7fd8b8427986014d4c73da1458d4f720ffc(
-    resource: _ILoadBalancerRef_13acd8f1,
+    resource: _aws_elasticloadbalancingv2_1283aa87.ILoadBalancerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30064,7 +30134,7 @@ def _typecheckingstub__fc01363eba65a15339b7d7a0904f751522a7b6ffdd25065cc93d9b96b
     pass
 
 def _typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30076,7 +30146,7 @@ def _typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7e
     pass
 
 def _typecheckingstub__db326b5431980db555d148f9ae3420eff076c5f4436bcac08ce2f9c7154eefce(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30106,13 +30176,13 @@ def _typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d
     pass
 
 def _typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LoadBalancerAttributeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.LoadBalancerAttributeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30136,7 +30206,7 @@ def _typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77
     pass
 
 def _typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.SubnetMappingProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoadBalancer.SubnetMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30148,7 +30218,7 @@ def _typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6
     pass
 
 def _typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30187,19 +30257,19 @@ def _typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95
 
 def _typecheckingstub__6b1eb30cea756dc45f625ec82ab8cba6ea31d24595a925a4aabceb7e6605bcde(
     *,
-    enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_capacity_reservation_provision_stabilize: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
     enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-    load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    load_balancer_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    minimum_load_balancer_capacity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     scheme: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subnets: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30209,7 +30279,7 @@ def _typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c5
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     health_check_interval_seconds: typing.Optional[jsii.Number] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[builtins.str] = None,
@@ -30217,24 +30287,24 @@ def _typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c5
     health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
     healthy_threshold_count: typing.Optional[jsii.Number] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    matcher: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     protocol_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_control_port: typing.Optional[jsii.Number] = None,
-    target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     target_type: typing.Optional[builtins.str] = None,
     unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-    vpc_id: typing.Optional[typing.Union[builtins.str, _IVPCRef_f02a11df]] = None,
+    vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__07fba500111e022c7be67da6de404b437c3736e8cd6eca38d13fef52aa95b59c(
-    resource: _ITargetGroupRef_9ed19d5e,
+    resource: _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30246,7 +30316,7 @@ def _typecheckingstub__144addb332a950df27b1528339408e5ec92b0b65b2d860f32a54aaf2c
     pass
 
 def _typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30258,7 +30328,7 @@ def _typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26
     pass
 
 def _typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30306,7 +30376,7 @@ def _typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf
     pass
 
 def _typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.MatcherProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTargetGroup.MatcherProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30336,7 +30406,7 @@ def _typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489
     pass
 
 def _typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30348,13 +30418,13 @@ def _typecheckingstub__3c2a7ca76dddd9c6010ff906f1d709b05d8b40266b1bceb08212b60a5
     pass
 
 def _typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupAttributeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTargetGroup.TargetGroupAttributeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetDescriptionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTargetGroup.TargetDescriptionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30405,7 +30475,7 @@ def _typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c758335
 
 def _typecheckingstub__5f70479f22fd69f1eb73d26d52854af23412d5ec08abc74e859ad481fc4e5052(
     *,
-    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     health_check_interval_seconds: typing.Optional[jsii.Number] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[builtins.str] = None,
@@ -30413,18 +30483,18 @@ def _typecheckingstub__5f70479f22fd69f1eb73d26d52854af23412d5ec08abc74e859ad481f
     health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
     healthy_threshold_count: typing.Optional[jsii.Number] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    matcher: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     protocol_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_control_port: typing.Optional[jsii.Number] = None,
-    target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     target_type: typing.Optional[builtins.str] = None,
     unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-    vpc_id: typing.Optional[typing.Union[builtins.str, _IVPCRef_f02a11df]] = None,
+    vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30437,13 +30507,13 @@ def _typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c34366
     ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
     ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__68e5e87be3d08234a1972242a96946c9d8968b318d01a17a2e4d689b09d5c693(
-    resource: _ITrustStoreRef_0fa03cbe,
+    resource: _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30455,7 +30525,7 @@ def _typecheckingstub__d7810897092510f20249e88bd16dc048f1cafb8892acb2f2c9e448916
     pass
 
 def _typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30491,7 +30561,7 @@ def _typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c
     pass
 
 def _typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30502,7 +30572,7 @@ def _typecheckingstub__31bee807e2c9af2ecf78de38eee9f203457cfbf7ca7c01c0ec98de785
     ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
     ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30511,7 +30581,7 @@ def _typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    revocation_contents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30524,7 +30594,7 @@ def _typecheckingstub__2beebf4c7c80ce08032d3bc60fd271257f44ef22af0b496b04b426d04
     pass
 
 def _typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30536,7 +30606,7 @@ def _typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353d
     pass
 
 def _typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrustStoreRevocation.RevocationContentProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrustStoreRevocation.RevocationContentProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30569,7 +30639,7 @@ def _typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b
 
 def _typecheckingstub__dcdfa64ce84c6361d4eaccae6a47d534f5bdff50c5332dfa036cedf2267da532(
     *,
-    revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    revocation_contents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30585,7 +30655,7 @@ def _typecheckingstub__8081ec42d6095e29a849589193a625f9537aeee6ff43b72967e09e994
 
 def _typecheckingstub__9f17e28281be5b3a27222606c2ed40c9fcb94da568d4f0c416d6ee3fc7073fdb(
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30596,11 +30666,11 @@ def _typecheckingstub__22e3783c66866a94010cd4a8a8d5694f8015b3072ed348f2f0d8e183b
     healthy_grpc_codes: typing.Optional[builtins.str] = None,
     healthy_http_codes: typing.Optional[builtins.str] = None,
     healthy_threshold_count: typing.Optional[jsii.Number] = None,
-    interval: typing.Optional[_Duration_4839e8c3] = None,
+    interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     port: typing.Optional[builtins.str] = None,
     protocol: typing.Optional[Protocol] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30614,12 +30684,12 @@ def _typecheckingstub__5fdaa352f47723102bc8b02795997da981ab41c5bbfac64c9c16bb660
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30633,12 +30703,12 @@ def _typecheckingstub__4ae47c8e65e66e347cfdb0188a808020b132816f8589da08b3bc1a1da
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30652,12 +30722,12 @@ def _typecheckingstub__d30c1da0a3658b983f526f50f7092b4225f10072263e9c0d1e7a83834
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30677,12 +30747,12 @@ def _typecheckingstub__cc3cba8973161f9f275100a75ebf8cac931ced8367721ab1adb7f4f9b
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30696,12 +30766,12 @@ def _typecheckingstub__6dd40f82fcbdfec8e99268dcb0a185ed360683cb030f3584a06d99792
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30717,7 +30787,7 @@ def _typecheckingstub__f31e236fbcfbdcbd2f2735523996b00775cf0ec61e4f5c56362cc6947
     default_target_groups: typing.Optional[typing.Sequence[INetworkTargetGroup]] = None,
     protocol: typing.Optional[Protocol] = None,
     ssl_policy: typing.Optional[SslPolicy] = None,
-    tcp_idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    tcp_idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30730,12 +30800,12 @@ def _typecheckingstub__2cec0b68307ed3e708bf772394b78bfb95b757da6ed6572c5a44941ce
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30755,12 +30825,12 @@ def _typecheckingstub__d7117afefd42c93c0fa3e1420e52db33a04e098e81d67e1eab5412b73
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30785,7 +30855,7 @@ def _typecheckingstub__529cf0937e89c7e25b95c016c60b5bbb0576fae856639983f8f00347d
 def _typecheckingstub__710c41c63cc962981fac537bc2713486399df2a9f9b295836bd22beba1e385d7(
     target_groups: typing.Sequence[IApplicationTargetGroup],
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30793,7 +30863,7 @@ def _typecheckingstub__710c41c63cc962981fac537bc2713486399df2a9f9b295836bd22beba
 def _typecheckingstub__e030baeb54f2ef8860729d13d7ca51c053b0d8aacb6c01f5404463783a58191a(
     target_groups: typing.Sequence[typing.Union[WeightedTargetGroup, typing.Dict[builtins.str, typing.Any]]],
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30825,7 +30895,7 @@ def _typecheckingstub__865dac94d71e206bfcb9a780588fba567c5ba02d3a44a2a3368502f6c
     pass
 
 def _typecheckingstub__742590919eef2852244729790b1773eca3f144a470fe471af2fb62431a9f7443(
-    acm_certificate: _ICertificateRef_1878d79b,
+    acm_certificate: _aws_certificatemanager_7969630d.ICertificateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30880,14 +30950,14 @@ def _typecheckingstub__89e8c0615ab98434e16d3e39e80ba0dcf6db041697e65279c8dffc68d
     advertise_trust_store_ca_names: typing.Optional[builtins.bool] = None,
     ignore_client_certificate_expiry: typing.Optional[builtins.bool] = None,
     mutual_authentication_mode: typing.Optional[MutualAuthenticationMode] = None,
-    trust_store: typing.Optional[_ITrustStoreRef_0fa03cbe] = None,
+    trust_store: typing.Optional[_aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__297ec1640077e25cc26000f0d1a615a93ea1f21d3208449475389d378b91e335(
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30902,7 +30972,7 @@ def _typecheckingstub__a9cd59867cac1479a15802413a5dae981ad4cddc8171fcf0fdb7fcdcb
 def _typecheckingstub__3e4ef82ae163ce0755a80582adcf20906f144be47f314630a7e47e09013375c3(
     target_groups: typing.Sequence[INetworkTargetGroup],
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30910,7 +30980,7 @@ def _typecheckingstub__3e4ef82ae163ce0755a80582adcf20906f144be47f314630a7e47e090
 def _typecheckingstub__7444d4613dae606ea0e82c7ab013a3cde544db05c468cae298e7862112bfcdd1(
     target_groups: typing.Sequence[typing.Union[NetworkWeightedTargetGroup, typing.Dict[builtins.str, typing.Any]]],
     *,
-    stickiness_duration: typing.Optional[_Duration_4839e8c3] = None,
+    stickiness_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30947,7 +31017,7 @@ def _typecheckingstub__b9de84d3c251bc8c169b44e63c24a91fe9722b0e26642417a58f3f27d
     default_target_groups: typing.Optional[typing.Sequence[INetworkTargetGroup]] = None,
     protocol: typing.Optional[Protocol] = None,
     ssl_policy: typing.Optional[SslPolicy] = None,
-    tcp_idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    tcp_idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancer: INetworkLoadBalancer,
 ) -> None:
     """Type checking stubs"""
@@ -30962,17 +31032,17 @@ def _typecheckingstub__e1c7a4c1332bdc807d1e25aa5d69eea6e1f3bf6a88ddd30dac9a64c93
     enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.bool] = None,
     enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.bool] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     subnet_mappings: typing.Optional[typing.Sequence[typing.Union[SubnetMapping, typing.Dict[builtins.str, typing.Any]]]] = None,
     zonal_shift: typing.Optional[builtins.bool] = None,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30995,7 +31065,7 @@ def _typecheckingstub__2d8b5193b28f65c30f9143c67ba1a39f4e2004fecfbf9ce827e58d686
     load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
     load_balancer_dns_name: typing.Optional[builtins.str] = None,
     load_balancer_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31010,13 +31080,13 @@ def _typecheckingstub__d4ebcfe1ae99726fbce8c195c9275af3be58b68db2286da916071da8a
     default_target_groups: typing.Optional[typing.Sequence[INetworkTargetGroup]] = None,
     protocol: typing.Optional[Protocol] = None,
     ssl_policy: typing.Optional[SslPolicy] = None,
-    tcp_idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    tcp_idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__46e8d42375ae60495b4282b48130ea0bf077024c2129acad503fba5bbcfaeae1(
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31029,12 +31099,12 @@ def _typecheckingstub__17ca64dc99c8eaa4319c78561a1c82d5e804c4bf49835a1d352c39059
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31046,7 +31116,7 @@ def _typecheckingstub__a67a3ef603d2a359185eb5c16163caea6f82ac5441d636ebf77f7d589
     load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
     load_balancer_dns_name: typing.Optional[builtins.str] = None,
     load_balancer_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31061,20 +31131,20 @@ def _typecheckingstub__d4dc8b446f6caacf313a46c99f00148ea8982b0018d14d0f1d5004245
 
 def _typecheckingstub__195ab659ca9cd1c401d6d2d1a1f5cb0aaf7dd80f06dbc724020ac0cc391d75da(
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     client_routing_policy: typing.Optional[ClientRoutingPolicy] = None,
     disable_security_groups: typing.Optional[builtins.bool] = None,
     enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.bool] = None,
     enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.bool] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     subnet_mappings: typing.Optional[typing.Sequence[typing.Union[SubnetMapping, typing.Dict[builtins.str, typing.Any]]]] = None,
     zonal_shift: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -31084,13 +31154,13 @@ def _typecheckingstub__195ab659ca9cd1c401d6d2d1a1f5cb0aaf7dd80f06dbc724020ac0cc3
 def _typecheckingstub__5f1086cffe813b24d7b8ff7c124bffc37ca7e22afda9f6af7ad869d92f7c65b2(
     *,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
     target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     port: jsii.Number,
     connection_termination: typing.Optional[builtins.bool] = None,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
@@ -31131,7 +31201,7 @@ def _typecheckingstub__51d56527f4dc28756e02b9a793d897a5ba076221ea88231c8ab457284
 
 def _typecheckingstub__a2d98c0c87c9335126a85af9c46b02ccfdb480d04d96fb422b8f62f17d09b801(
     *,
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     key: builtins.str,
     revocation_type: typing.Optional[RevocationType] = None,
     version: typing.Optional[builtins.str] = None,
@@ -31153,7 +31223,7 @@ def _typecheckingstub__7931008bfd4762535b77272b55f89bbaa4ed5fceb99b2c3a2e557b0f4
 
 def _typecheckingstub__54c4b71e184eedb0fbc0e4df901ecb043d8b11ba2ec0429907b6acd6ced55e82(
     *,
-    subnet: _ISubnet_d57d1229,
+    subnet: _aws_ec2_09840e12.ISubnet,
     allocation_id: typing.Optional[builtins.str] = None,
     ipv6_address: typing.Optional[builtins.str] = None,
     private_ipv4_address: typing.Optional[builtins.str] = None,
@@ -31212,7 +31282,7 @@ def _typecheckingstub__fbafbf35d05de3ceecc0965698aa7d45dd0a58477f5c8555d0efa8b8c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     key: builtins.str,
     trust_store_name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -31230,7 +31300,7 @@ def _typecheckingstub__1e078d73452d520ce829e14315128763e3ef291dcb7c3e40df660393d
 
 def _typecheckingstub__41f3f138d5b55c026366c540abffc84d65da6413c7cfa2972612fb796b1d3206(
     *,
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     key: builtins.str,
     trust_store_name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -31243,7 +31313,7 @@ def _typecheckingstub__688628f84e2cff85506975764e889f60121aab1ab9420e53b24769400
     id: builtins.str,
     *,
     revocation_contents: typing.Sequence[typing.Union[RevocationContent, typing.Dict[builtins.str, typing.Any]]],
-    trust_store: _ITrustStoreRef_0fa03cbe,
+    trust_store: _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31251,7 +31321,7 @@ def _typecheckingstub__688628f84e2cff85506975764e889f60121aab1ab9420e53b24769400
 def _typecheckingstub__de0bf3e884d9bbf4a0d3582e17910f3a46c89450790ad669a820be588c4bb749(
     *,
     revocation_contents: typing.Sequence[typing.Union[RevocationContent, typing.Dict[builtins.str, typing.Any]]],
-    trust_store: _ITrustStoreRef_0fa03cbe,
+    trust_store: _aws_elasticloadbalancingv2_1283aa87.ITrustStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31287,15 +31357,15 @@ def _typecheckingstub__b26d56d500bb67c9d6ae66f1cb40dc7e2f3a670459278ff6a96edc676
     *,
     conditions: typing.Optional[typing.Sequence[ListenerCondition]] = None,
     priority: typing.Optional[jsii.Number] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     load_balancing_algorithm_type: typing.Optional[TargetGroupLoadBalancingAlgorithmType] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[ApplicationProtocol] = None,
     protocol_version: typing.Optional[ApplicationProtocolVersion] = None,
-    slow_start: typing.Optional[_Duration_4839e8c3] = None,
-    stickiness_cookie_duration: typing.Optional[_Duration_4839e8c3] = None,
+    slow_start: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     stickiness_cookie_name: typing.Optional[builtins.str] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     targets: typing.Optional[typing.Sequence[IApplicationLoadBalancerTarget]] = None,
@@ -31350,23 +31420,23 @@ def _typecheckingstub__5e4d185ab2bd554850b96481b3fbdc7ee1a86c97629f1b0fd835c6f72
 
 def _typecheckingstub__e43cf75024913d9be0d5d621a5f2c2c7be60a57898a54967cd54179b2b3d1584(
     *,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    client_keep_alive: typing.Optional[_Duration_4839e8c3] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    client_keep_alive: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     desync_mitigation_mode: typing.Optional[DesyncMitigationMode] = None,
     drop_invalid_header_fields: typing.Optional[builtins.bool] = None,
     http2_enabled: typing.Optional[builtins.bool] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     preserve_host_header: typing.Optional[builtins.bool] = None,
     preserve_xff_client_port: typing.Optional[builtins.bool] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     waf_fail_open: typing.Optional[builtins.bool] = None,
     x_amzn_tls_version_and_cipher_suite_headers: typing.Optional[builtins.bool] = None,
     xff_header_processing_mode: typing.Optional[XffHeaderProcessingMode] = None,
@@ -31377,21 +31447,21 @@ def _typecheckingstub__e43cf75024913d9be0d5d621a5f2c2c7be60a57898a54967cd54179b2
 def _typecheckingstub__0fbf37aa0a91cb985ce7a336a6188364cc38400538c1653e53453287c780e881(
     *,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
     target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
     load_balancing_algorithm_type: typing.Optional[TargetGroupLoadBalancingAlgorithmType] = None,
     multi_value_headers_enabled: typing.Optional[builtins.bool] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[ApplicationProtocol] = None,
     protocol_version: typing.Optional[ApplicationProtocolVersion] = None,
-    slow_start: typing.Optional[_Duration_4839e8c3] = None,
-    stickiness_cookie_duration: typing.Optional[_Duration_4839e8c3] = None,
+    slow_start: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     stickiness_cookie_name: typing.Optional[builtins.str] = None,
     targets: typing.Optional[typing.Sequence[IApplicationLoadBalancerTarget]] = None,
 ) -> None:
@@ -31441,8 +31511,8 @@ def _typecheckingstub__a1b465fbc479537abdee5935da364d8cdfc6d994a8d58920ac2326414
     pass
 
 def _typecheckingstub__fca91d9781f6b2506a2eebcb445d49c1af36ea2af88d908a9f2442f1be9c1e4f(
-    connectable: _IConnectable_10015a05,
-    port_range: typing.Optional[_Port_85922693] = None,
+    connectable: _aws_ec2_09840e12.IConnectable,
+    port_range: typing.Optional[_aws_ec2_09840e12.Port] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31478,7 +31548,7 @@ def _typecheckingstub__cac0b8bab6f5e8734bcf3c5bf0647c916d90f092956b733c3913017a1
     default_target_groups: typing.Optional[typing.Sequence[INetworkTargetGroup]] = None,
     protocol: typing.Optional[Protocol] = None,
     ssl_policy: typing.Optional[SslPolicy] = None,
-    tcp_idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    tcp_idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31529,7 +31599,7 @@ def _typecheckingstub__33c09cba988a9da0030676db7167be54677f14e730d06a9ebd4d1ddd8
     id: builtins.str,
     *,
     port: jsii.Number,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
     protocol: typing.Optional[Protocol] = None,
@@ -31551,13 +31621,13 @@ def _typecheckingstub__eebfbf2a20edd0baf4d455f02dd34d748c5eccfa9a5268e5e2ebec245
     proxy_protocol_v2: typing.Optional[builtins.bool] = None,
     targets: typing.Optional[typing.Sequence[INetworkLoadBalancerTarget]] = None,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
     target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31588,26 +31658,26 @@ def _typecheckingstub__22d249b6cdbe3ce0dfc1a873ef276c65fe89ce6a5dba0603fae0a5755
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    client_keep_alive: typing.Optional[_Duration_4839e8c3] = None,
+    client_keep_alive: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     desync_mitigation_mode: typing.Optional[DesyncMitigationMode] = None,
     drop_invalid_header_fields: typing.Optional[builtins.bool] = None,
     http2_enabled: typing.Optional[builtins.bool] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     preserve_host_header: typing.Optional[builtins.bool] = None,
     preserve_xff_client_port: typing.Optional[builtins.bool] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     waf_fail_open: typing.Optional[builtins.bool] = None,
     x_amzn_tls_version_and_cipher_suite_headers: typing.Optional[builtins.bool] = None,
     xff_header_processing_mode: typing.Optional[XffHeaderProcessingMode] = None,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     deny_all_igw_traffic: typing.Optional[builtins.bool] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     minimum_capacity_unit: typing.Optional[jsii.Number] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31621,7 +31691,7 @@ def _typecheckingstub__1ca6de84a9ee3c946388f04cb2ef6707df94f3e2109cbcebf16f13b5a
     load_balancer_canonical_hosted_zone_id: typing.Optional[builtins.str] = None,
     load_balancer_dns_name: typing.Optional[builtins.str] = None,
     security_group_allows_all_outbound: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31652,20 +31722,20 @@ def _typecheckingstub__4f4b497be05dc5ab6f5a49395304fa7ec41bb629f32d3da388c2e70e1
     pass
 
 def _typecheckingstub__57e7fd3d637561416b99cc18ce93e12b3ff0fd16aa199643bcfdcb4f3f47479c(
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__14e58136aa424614ad3deed70de619716d36a85a2336e0d16a5d5e3edc8431cd(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__83af77b39f54e0ddb4dfef1f0572e098aa10c9c98e90f7b63b99c010ab474953(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31679,12 +31749,12 @@ def _typecheckingstub__062c936e075fbff0552978e79ddc8d8cb01378ba1804b2546d14bd038
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31698,12 +31768,12 @@ def _typecheckingstub__b6447cbfc7ac9662cc1dd6f3b8f6b82a973be8b07590b7873ef3e038b
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31717,12 +31787,12 @@ def _typecheckingstub__62701820eba63282ada6f942e6abfde1d8b672693f32becc65f1c6323
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31738,18 +31808,18 @@ def _typecheckingstub__e179515c9d6138007cc1b74835b75f10a179c1f5ef977cbe4188c778c
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[ApplicationProtocol] = None,
     protocol_version: typing.Optional[ApplicationProtocolVersion] = None,
-    slow_start: typing.Optional[_Duration_4839e8c3] = None,
-    stickiness_cookie_duration: typing.Optional[_Duration_4839e8c3] = None,
+    slow_start: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     stickiness_cookie_name: typing.Optional[builtins.str] = None,
     targets: typing.Optional[typing.Sequence[IApplicationLoadBalancerTarget]] = None,
     cross_zone_enabled: typing.Optional[builtins.bool] = None,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
     target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31771,7 +31841,7 @@ def _typecheckingstub__0eecc110e4228c75e90fbb5f20c915d8c61faae0ec00d35e220147467
     pass
 
 def _typecheckingstub__00cef8188c0bc7a32bf724bd538a05d8ba6b2f9a42db265d8c81ba1a1dd005e0(
-    duration: _Duration_4839e8c3,
+    duration: _aws_cdk_0cae9daa.Duration,
     cookie_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31785,12 +31855,12 @@ def _typecheckingstub__cafb19674dfe2b81cd50268d430f42d42519cb1d6ac9e4ca3e06e177f
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31804,20 +31874,20 @@ def _typecheckingstub__5658927e0affbc22ef25411d45503bc28f92184eb42551f1375dcafba
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__421159c4b4c3830f7481a04ab45e2527348c576af98c668c07fa87678639bd12(
-    connectable: _IConnectable_10015a05,
-    port_range: typing.Optional[_Port_85922693] = None,
+    connectable: _aws_ec2_09840e12.IConnectable,
+    port_range: typing.Optional[_aws_ec2_09840e12.Port] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31860,15 +31930,15 @@ def _typecheckingstub__2a75a011e579ef50ef41ed5ad7fddf22c4568fc11c8d5304364dc3fcc
 def _typecheckingstub__84e790e0e8140f8df376ccc9404001adf95dc62c6408367a7fb37a7ac655ef44(
     id: builtins.str,
     *,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     load_balancing_algorithm_type: typing.Optional[TargetGroupLoadBalancingAlgorithmType] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[ApplicationProtocol] = None,
     protocol_version: typing.Optional[ApplicationProtocolVersion] = None,
-    slow_start: typing.Optional[_Duration_4839e8c3] = None,
-    stickiness_cookie_duration: typing.Optional[_Duration_4839e8c3] = None,
+    slow_start: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     stickiness_cookie_name: typing.Optional[builtins.str] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     targets: typing.Optional[typing.Sequence[IApplicationLoadBalancerTarget]] = None,
@@ -31879,8 +31949,8 @@ def _typecheckingstub__84e790e0e8140f8df376ccc9404001adf95dc62c6408367a7fb37a7ac
     pass
 
 def _typecheckingstub__ed17ef6987e4f2957e6bb9b0439408268b3b78152bef346bbc634ba0b8f39b8d(
-    connectable: _IConnectable_10015a05,
-    port_range: _Port_85922693,
+    connectable: _aws_ec2_09840e12.IConnectable,
+    port_range: _aws_ec2_09840e12.Port,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31907,7 +31977,7 @@ def _typecheckingstub__2f484c88c521d88cd42c5389c18b8ce1b5e177f2273ec92c4cec20a1c
     id: builtins.str,
     *,
     listener_arn: builtins.str,
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
     default_port: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -31957,15 +32027,15 @@ def _typecheckingstub__537b1cde53c28e62d827b46edbd4c564b81aab48c43f3b0171d516036
 def _typecheckingstub__024551e53e2a61ea5cc079e4909fa79f39b1b922c5d0ab7d4adfe8153d5962ed(
     id: builtins.str,
     *,
-    deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
+    deregistration_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     enable_anomaly_mitigation: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     load_balancing_algorithm_type: typing.Optional[TargetGroupLoadBalancingAlgorithmType] = None,
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[ApplicationProtocol] = None,
     protocol_version: typing.Optional[ApplicationProtocolVersion] = None,
-    slow_start: typing.Optional[_Duration_4839e8c3] = None,
-    stickiness_cookie_duration: typing.Optional[_Duration_4839e8c3] = None,
+    slow_start: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     stickiness_cookie_name: typing.Optional[builtins.str] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     targets: typing.Optional[typing.Sequence[IApplicationLoadBalancerTarget]] = None,
@@ -31976,8 +32046,8 @@ def _typecheckingstub__024551e53e2a61ea5cc079e4909fa79f39b1b922c5d0ab7d4adfe8153
     pass
 
 def _typecheckingstub__aa35352f4f1ccbd7f59bb31c259f5f8206d70234128e8a2cbb6820c112f8f602(
-    connectable: _IConnectable_10015a05,
-    port_range: _Port_85922693,
+    connectable: _aws_ec2_09840e12.IConnectable,
+    port_range: _aws_ec2_09840e12.Port,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -41,7 +41,7 @@ _COMMAND_DOCS = {
     CommandType.HELP: ("!help [topic]", "Get help"),
     CommandType.RELOAD_PLUGINS: ("!reload-plugins", "Reload configured plugins (admin only)"),
     CommandType.CONFIG: ("!config <operation>", "Manage configuration"),
-    CommandType.DESKTOP: ("!desktop [setup|status|confirm|rotate|disconnect]", "Manage your private Desktop target"),
+    CommandType.DESKTOP: ("!desktop [setup|status|confirm|rotate|disconnect]", "Manage your Desktop target"),
     CommandType.MODEL: ("!model [name|list|reset]", "Show or switch the model used in the current thread"),
     CommandType.THREAD_MODE: (
         "!thread_mode [room|thread|reset|show]",
@@ -275,12 +275,12 @@ Usage: `!schedule <time> <message>` - Schedule tasks, reminders, or agent/team w
 - `ping me tomorrow about the meeting`
 - `remind me in 2 hours to review PRs`
 
-**Event-Driven Workflows (New!):**
-- `!schedule If I get an email about "urgent", @phone_agent call me`
-- `!schedule When Bitcoin drops below $40k, @crypto_agent notify me`
-- `!schedule If server CPU > 80%, @ops_agent scale up`
-- `!schedule When someone mentions our product on Reddit, @analyst summarize it`
-- `!schedule Whenever I get email from boss, @notification_agent alert me immediately`
+**Event-Driven Workflows (New!):** _(include a polling cadence — they check on a schedule)_
+- `!schedule Every 5 minutes, check if I got an email about "urgent"; if so, @phone_agent call me`
+- `!schedule Every 10 minutes, check whether Bitcoin dropped below $40k; if so, @crypto_agent notify me`
+- `!schedule Every minute, check if server CPU > 80%; if so, @ops_agent scale up`
+- `!schedule Every 15 minutes, check for mentions of our product on Reddit; if any, @analyst summarize them`
+- `!schedule Every 5 minutes, check for new email from my boss; if any, @notification_agent alert me immediately`
 
 **Agent and Team Workflows:**
 - `!schedule Daily at 9am, @finance give me a market analysis`
@@ -298,7 +298,7 @@ Usage: `!schedule <time> <message>` - Schedule tasks, reminders, or agent/team w
 
 How it works:
 - **Time-based**: Executes at specific times or intervals
-- **Event-based**: Automatically converts to smart polling (e.g., "if email" → check every 1-2 min)
+- **Event-based**: Requires an explicit recurring polling cadence (e.g., "every 5 minutes")
 - **History limits**: Scheduled responders normally see full configured history; "with no history" uses none, and "last N messages" caps each run
 - Agents and teams receive clear instructions about conditions to check
 - Multiple agents collaborate when mentioned together; mention a team directly for its team workflow

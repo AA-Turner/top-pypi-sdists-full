@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class FirewallPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc3a7ea8f865dd2ed15f63bf33b08bd8a433c4d9c685696775a3cef691b50192)
+            type_hints = cached_type_hints(_typecheckingstub__bc3a7ea8f865dd2ed15f63bf33b08bd8a433c4d9c685696775a3cef691b50192)
             check_type(argname="argument firewall_policy_arn", value=firewall_policy_arn, expected_type=type_hints["firewall_policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_policy_arn": firewall_policy_arn,
@@ -107,7 +111,7 @@ class FirewallReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09e2b2db10474a5b008d17f0c1f0194fb9be22a9cac3f103f27d8aeaa9c8adac)
+            type_hints = cached_type_hints(_typecheckingstub__09e2b2db10474a5b008d17f0c1f0194fb9be22a9cac3f103f27d8aeaa9c8adac)
             check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_arn": firewall_arn,
@@ -137,7 +141,7 @@ class FirewallReference:
 )
 class IFirewallPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallPolicy.
@@ -157,7 +161,7 @@ class IFirewallPolicyRef(
 
 class _IFirewallPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallPolicy.
 
@@ -182,7 +186,7 @@ typing.cast(typing.Any, IFirewallPolicyRef).__jsii_proxy_class__ = lambda : _IFi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_networkfirewall.IFirewallRef")
 class IFirewallRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Firewall.
@@ -202,7 +206,7 @@ class IFirewallRef(
 
 class _IFirewallRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Firewall.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IFirewallRef).__jsii_proxy_class__ = lambda : _IFirewall
 )
 class ILoggingConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
@@ -249,7 +253,7 @@ class ILoggingConfigurationRef(
 
 class _ILoggingConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, ILoggingConfigurationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_networkfirewall.IRuleGroupRef")
 class IRuleGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
@@ -294,7 +298,7 @@ class IRuleGroupRef(
 
 class _IRuleGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
 
@@ -321,7 +325,7 @@ typing.cast(typing.Any, IRuleGroupRef).__jsii_proxy_class__ = lambda : _IRuleGro
 )
 class ITLSInspectionConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TLSInspectionConfiguration.
@@ -341,7 +345,7 @@ class ITLSInspectionConfigurationRef(
 
 class _ITLSInspectionConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TLSInspectionConfiguration.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, ITLSInspectionConfigurationRef).__jsii_proxy_class__ = l
 )
 class IVpcEndpointAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcEndpointAssociation.
@@ -388,7 +392,7 @@ class IVpcEndpointAssociationRef(
 
 class _IVpcEndpointAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcEndpointAssociation.
 
@@ -434,7 +438,7 @@ class LoggingConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b2e130cb897e29769cd8caa5fb2ee61cdad746ee08d5418a84eab440466be4e)
+            type_hints = cached_type_hints(_typecheckingstub__0b2e130cb897e29769cd8caa5fb2ee61cdad746ee08d5418a84eab440466be4e)
             check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_arn": firewall_arn,
@@ -483,7 +487,7 @@ class RuleGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d924df4cd658e7ea028419c44239556d79164c2bd3c007c6240c5426dbf3b2f9)
+            type_hints = cached_type_hints(_typecheckingstub__d924df4cd658e7ea028419c44239556d79164c2bd3c007c6240c5426dbf3b2f9)
             check_type(argname="argument rule_group_arn", value=rule_group_arn, expected_type=type_hints["rule_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_group_arn": rule_group_arn,
@@ -532,7 +536,7 @@ class TLSInspectionConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__521256213abf6e999a8897786d1d0c9c581d7ef53e65f40d696ecb8a0db106c8)
+            type_hints = cached_type_hints(_typecheckingstub__521256213abf6e999a8897786d1d0c9c581d7ef53e65f40d696ecb8a0db106c8)
             check_type(argname="argument tls_inspection_configuration_arn", value=tls_inspection_configuration_arn, expected_type=type_hints["tls_inspection_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "tls_inspection_configuration_arn": tls_inspection_configuration_arn,
@@ -581,7 +585,7 @@ class VpcEndpointAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__685dfbe589915ae995a2001ac169f17fe768f12601dbc55650b6a3da2e7b12b9)
+            type_hints = cached_type_hints(_typecheckingstub__685dfbe589915ae995a2001ac169f17fe768f12601dbc55650b6a3da2e7b12b9)
             check_type(argname="argument vpc_endpoint_association_arn", value=vpc_endpoint_association_arn, expected_type=type_hints["vpc_endpoint_association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_endpoint_association_arn": vpc_endpoint_association_arn,

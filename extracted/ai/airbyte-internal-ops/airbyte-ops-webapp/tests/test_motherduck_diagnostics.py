@@ -12,6 +12,7 @@ import pytest
 from airbyte_ops_mcp.motherduck_diagnostics.models import MotherDuckComputeUsageBucket
 
 from airbyte_ops_webapp.pages.motherduck_diagnostics._data import (
+    _ERROR_MESSAGE_PREVIEW_LEN,
     ComputeUsageChartRow,
     _abbreviate_user,
     _colorize_hash,
@@ -20,6 +21,7 @@ from airbyte_ops_webapp.pages.motherduck_diagnostics._data import (
     _hash_swatch,
     _parse_timestamp,
     _short_start_time,
+    _truncate_display,
     build_recent_query_view,
     format_elapsed,
     load_active_connection_rows,
@@ -399,6 +401,37 @@ def test_display_row_omits_error_message_for_succeeded_queries() -> None:
     row = _display_row(succeeded)
     assert row.status == "Succeeded"
     assert row.error_message == ""
+    assert row.error_message_display == ""
+
+
+def test_display_row_truncates_long_error_message_for_table_preview() -> None:
+    # The table cell binds `error_message_display`, a bounded preview so one long
+    # message can't blow out the column width; `error_message` keeps the full
+    # text for the detail modal. Pick the longest sample error to exercise it.
+    longest = max(
+        (s for s in SAMPLE_RECENT_QUERIES if not s["succeeded"]),
+        key=lambda s: len(s["error_message"]),
+    )
+    assert len(longest["error_message"]) > _ERROR_MESSAGE_PREVIEW_LEN
+    row = _display_row(longest)
+    assert row.error_message == longest["error_message"]
+    assert len(row.error_message_display) <= _ERROR_MESSAGE_PREVIEW_LEN + 1
+    assert row.error_message_display.endswith("\u2026")
+    assert row.error_message_display[:-1] in longest["error_message"]
+
+
+@pytest.mark.parametrize(
+    "value,max_len,expected",
+    [
+        pytest.param("short", 10, "short", id="under_limit_unchanged"),
+        pytest.param("exactly-10", 10, "exactly-10", id="at_limit_unchanged"),
+        pytest.param("0123456789abc", 10, "0123456789\u2026", id="over_limit_ellipsis"),
+        pytest.param("trailing    x", 8, "trailing\u2026", id="trailing_ws_stripped"),
+        pytest.param("", 10, "", id="empty_unchanged"),
+    ],
+)
+def test_truncate_display(value: str, max_len: int, expected: str) -> None:
+    assert _truncate_display(value, max_len) == expected
 
 
 def test_display_row_status_display_carries_outcome_emoji() -> None:
@@ -472,14 +505,47 @@ def test_display_row_keeps_full_user_but_abbreviates_display() -> None:
     assert row.query_hash_display.endswith(row.query_hash)
 
 
+def test_display_row_surfaces_source_identifiers() -> None:
+    # A sample whose query scans a source's iceberg data carries the database
+    # and its parsed UUID verbatim, with matching non-placeholder display forms.
+    with_source = next(s for s in SAMPLE_RECENT_QUERIES if s["database_name"])
+    row = _display_row(with_source)
+    assert row.database_name == with_source["database_name"]
+    assert row.source_id == with_source["source_id"]
+    assert row.database_name_display == with_source["database_name"]
+    assert row.source_id_display == with_source["source_id"]
+
+
+def test_display_row_renders_placeholder_for_missing_source() -> None:
+    # A query with no source database renders the em-dash placeholder rather
+    # than a blank cell, while the raw fields stay empty.
+    without_source = next(s for s in SAMPLE_RECENT_QUERIES if not s["database_name"])
+    row = _display_row(without_source)
+    assert row.database_name == ""
+    assert row.source_id == ""
+    assert row.database_name_display == "—"
+    assert row.source_id_display == "—"
+
+
+def test_query_columns_show_source_db_but_omit_source_id() -> None:
+    # Source DB is shown as the last column (after the error message);
+    # Source ID is intentionally omitted from the table as redundant with the
+    # database name and is surfaced in the detail modal instead.
+    keys = [column.key for column in _QUERY_COLUMNS]
+    assert "database_name_display" in keys
+    assert "source_id_display" not in keys
+    assert keys[-1] == "database_name_display"
+
+
 def test_query_columns_order_puts_boring_columns_last() -> None:
     keys = [column.key for column in _QUERY_COLUMNS]
-    # Detail affordance first; error text is the final column; user id is last
-    # before it, with the query hash immediately following the user id.
+    # Detail affordance first; Source DB is the final column, with the error
+    # text immediately before it and the query hash before that.
     assert keys[0] == "detail"
-    assert keys[-1] == "error_message"
+    assert keys[-1] == "database_name_display"
+    assert keys[-2] == "error_message_display"
     assert keys.index("user_name_display") < keys.index("query_hash_display")
-    assert keys.index("query_hash_display") == len(keys) - 2
+    assert keys.index("query_hash_display") < keys.index("error_message_display")
     assert keys.index("start_time_display") < keys.index("user_name_display")
 
 

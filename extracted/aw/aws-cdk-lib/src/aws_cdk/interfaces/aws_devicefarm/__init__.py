@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DevicePoolReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6fa41dfe195486b945fa7a362f59ce6d48484656b7ea950b33cecf53168f918)
+            type_hints = cached_type_hints(_typecheckingstub__d6fa41dfe195486b945fa7a362f59ce6d48484656b7ea950b33cecf53168f918)
             check_type(argname="argument device_pool_arn", value=device_pool_arn, expected_type=type_hints["device_pool_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "device_pool_arn": device_pool_arn,
@@ -86,7 +90,7 @@ class DevicePoolReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.IDevicePoolRef")
 class IDevicePoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DevicePool.
@@ -106,7 +110,7 @@ class IDevicePoolRef(
 
 class _IDevicePoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DevicePool.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IDevicePoolRef).__jsii_proxy_class__ = lambda : _IDevice
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.IInstanceProfileRef")
 class IInstanceProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
@@ -151,7 +155,7 @@ class IInstanceProfileRef(
 
 class _IInstanceProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _II
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.INetworkProfileRef")
 class INetworkProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkProfile.
@@ -196,7 +200,7 @@ class INetworkProfileRef(
 
 class _INetworkProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkProfile.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, INetworkProfileRef).__jsii_proxy_class__ = lambda : _INe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.IProjectRef")
 class IProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
@@ -241,7 +245,7 @@ class IProjectRef(
 
 class _IProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_devicefarm.ITestGridProjectRef")
 class ITestGridProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TestGridProject.
@@ -286,7 +290,7 @@ class ITestGridProjectRef(
 
 class _ITestGridProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TestGridProject.
 
@@ -313,7 +317,7 @@ typing.cast(typing.Any, ITestGridProjectRef).__jsii_proxy_class__ = lambda : _IT
 )
 class IVPCEConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEConfiguration.
@@ -333,7 +337,7 @@ class IVPCEConfigurationRef(
 
 class _IVPCEConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEConfiguration.
 
@@ -379,7 +383,7 @@ class InstanceProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e5bdc64cdfcfefb69deec82565d63ddc57d0eef98491e9f42f3a3be4252e09c)
+            type_hints = cached_type_hints(_typecheckingstub__2e5bdc64cdfcfefb69deec82565d63ddc57d0eef98491e9f42f3a3be4252e09c)
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_profile_arn": instance_profile_arn,
@@ -428,7 +432,7 @@ class NetworkProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fe8c9dec47d8909868d79f6cd61a01136f8a4902c5053129d0189adf634b2f4)
+            type_hints = cached_type_hints(_typecheckingstub__4fe8c9dec47d8909868d79f6cd61a01136f8a4902c5053129d0189adf634b2f4)
             check_type(argname="argument network_profile_arn", value=network_profile_arn, expected_type=type_hints["network_profile_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_profile_arn": network_profile_arn,
@@ -477,7 +481,7 @@ class ProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4c3a7aa56ebf3a2c641245d95442df6ade72d2a729e37dc6edd020bb607c111)
+            type_hints = cached_type_hints(_typecheckingstub__d4c3a7aa56ebf3a2c641245d95442df6ade72d2a729e37dc6edd020bb607c111)
             check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "project_arn": project_arn,
@@ -526,7 +530,7 @@ class TestGridProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87f265414f05bd136bba63546376bc2e436efa434aab240574ffa93dae93acc8)
+            type_hints = cached_type_hints(_typecheckingstub__87f265414f05bd136bba63546376bc2e436efa434aab240574ffa93dae93acc8)
             check_type(argname="argument test_grid_project_arn", value=test_grid_project_arn, expected_type=type_hints["test_grid_project_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "test_grid_project_arn": test_grid_project_arn,
@@ -575,7 +579,7 @@ class VPCEConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b288bcd87f2c0fa8d760d6c34b871baa157a88f4015e77c240ef6abf4db384a5)
+            type_hints = cached_type_hints(_typecheckingstub__b288bcd87f2c0fa8d760d6c34b871baa157a88f4015e77c240ef6abf4db384a5)
             check_type(argname="argument vpce_configuration_arn", value=vpce_configuration_arn, expected_type=type_hints["vpce_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpce_configuration_arn": vpce_configuration_arn,

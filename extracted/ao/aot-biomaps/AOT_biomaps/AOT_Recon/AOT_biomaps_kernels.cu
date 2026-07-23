@@ -134,6 +134,35 @@ extern "C"{
     }
 
     /**
+     * Kernel: fill_kernel__DENSE__COMPLEX
+     * Purpose: Fill dense complex matrix from acoustic fields on GPU
+     */
+    __global__ void fill_kernel__DENSE__COMPLEX(
+        float2* __restrict__ dense_matrix,
+        const float2* __restrict__ field_data,
+        int T,
+        int N,
+        int Z,
+        int X,
+        int n
+    ) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= T * Z * X) return;
+
+        int t = idx / (Z * X);
+        int zx = idx % (Z * X);
+        int z = zx / X;
+        int x = zx % X;
+
+        int dense_idx = t * (N * Z * X) + n * (Z * X) + z * X + x;
+        int field_idx = t * (Z * X) + z * X + x;
+
+        if (dense_idx < T * N * Z * X && field_idx < T * Z * X) {
+            dense_matrix[dense_idx] = field_data[field_idx];
+        }
+    }
+
+    /**
     * Kernel: forward_projection_kernel__DENSE
     * Purpose: Forward projection using DENSE format for real values: q = A * theta
     * Layout expectation: row = n * T + t
@@ -863,4 +892,168 @@ extern "C"{
             }
         }
     }
+
+    /**
+    * Kernel: accumulate_abs_columns_atomic__REAL
+    *
+    * Purpose:
+    * Compute the column-wise absolute sums
+    *
+    *      c_j = sum_i |A_ij|
+    *
+    * from the sparse matrix coefficients.
+    *
+    * This quantity is required for the diagonal PDHG preconditioner of Ehrhardt et al. (2019, Theorem 2).
+    *
+    * Notes:
+    * - Operates directly on the sparse coefficient arrays (values, col_ind), independently of the sparse storage format (CSR, SELL, ...).
+    * - Each thread processes one non-zero coefficient.
+    * - Atomic additions ensure correct accumulation into the column sums.
+    */
+    __global__ void accumulate_abs_columns_atomic__REAL(
+        const float* __restrict__ values,
+        const unsigned int* __restrict__ col_ind,
+        long long total_nnz,
+        float* __restrict__ col_sum
+    ) {
+            long long idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+
+            if(idx >= total_nnz) return;
+
+            float v = fabsf(values[idx]);
+
+            if(v==0.0f) return;
+
+            atomicAdd(&col_sum[col_ind[idx]], v);
+    }
+
+    /**
+    * Kernel: accumulate_abs_columns_atomic__COMPLEX
+    *
+    * Purpose:
+    * Compute the column-wise sums of coefficient magnitudes
+    *
+    *      c_j = sum_i |A_ij|
+    *
+    * where |A_ij| denotes the complex modulus.
+    *
+    * This kernel is used to construct the diagonal primal step sizes of the
+    * Ehrhardt PDHG preconditioner.
+    */
+    __global__ void accumulate_abs_rows__SELL__COMPLEX(
+        const float2* __restrict__ sell_values,
+        const long long* __restrict__ slice_ptr,
+        const int* __restrict__ slice_len,
+        float* __restrict__ row_sum,
+        int num_rows,
+        int slice_height
+    ) {
+        int row = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if(row>=num_rows) return;
+
+        int slice=row/slice_height;
+        int row_in_slice=row%slice_height;
+
+        long long base=slice_ptr[slice];
+        int len=slice_len[slice];
+
+        float s=0.f;
+
+        long long pos=base+row_in_slice;
+
+        for(int j=0;j<len;j++)
+        {
+            float2 v=sell_values[pos+(long long)j*slice_height];
+            s+=hypotf(v.x,v.y);
+        }
+
+        row_sum[row]=s;
+    }
+
+    /**
+    * Kernel: accumulate_abs_columns_atomic__REAL
+    *
+    * Purpose:
+    * Compute the column-wise absolute sums
+    *
+    *      c_j = sum_i |A_ij|
+    *
+    * from the sparse matrix coefficients.
+    *
+    * This quantity is required to build the diagonal primal preconditioner of Ehrhardt et al. (2019, Theorem 2).
+    *
+    * Notes:
+    * - One thread processes one non-zero coefficient.
+    * - The matrix storage format is irrelevant since only the value array and column indices are accessed.
+    * - Atomic additions guarantee correct accumulation when multiple coefficients contribute to the same column.
+    */
+    __global__
+    void accumulate_abs_rows__SELL__REAL(
+        const float* __restrict__ sell_values,
+        const long long* __restrict__ slice_ptr,
+        const int* __restrict__ slice_len,
+        float* __restrict__ row_sum,
+        int num_rows,
+        int slice_height)
+    {
+        int row = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if(row >= num_rows)
+            return;
+
+        int slice = row / slice_height;
+        int row_in_slice = row % slice_height;
+
+        long long base = slice_ptr[slice];
+        int len = slice_len[slice];
+
+        float s = 0.f;
+
+        long long pos = base + row_in_slice;
+
+        for(int j=0;j<len;j++)
+            s += fabsf(sell_values[pos + (long long)j*slice_height]);
+
+        row_sum[row] = s;
+    }
+
+    /**
+    * Kernel: accumulate_abs_columns_atomic__COMPLEX
+    *
+    * Purpose:
+    * Compute the column-wise sums of coefficient magnitudes
+    *
+    *      c_j = sum_i |A_ij|
+    *
+    * where |A_ij| denotes the complex modulus.
+    *
+    * This quantity is required to build the diagonal primal preconditioner of Ehrhardt et al. (2019, Theorem 2).
+    *
+    * Notes:
+    * - One thread processes one complex non-zero coefficient.
+    * - The complex modulus is computed as hypotf(real, imag).
+    * - Atomic additions guarantee correct accumulation into the column sums.
+    */
+    __global__
+    void accumulate_abs_columns_atomic__COMPLEX(
+        const float2* __restrict__ values,
+        const unsigned int* __restrict__ col_ind,
+        long long total_nnz,
+        float* __restrict__ col_sum)
+    {
+        long long idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+
+        if(idx >= total_nnz)
+            return;
+
+        float v = hypotf(values[idx].x, values[idx].y);
+
+        if(v == 0.f)
+            return;
+
+        atomicAdd(&col_sum[col_ind[idx]], v);
+    }
+
+
 }

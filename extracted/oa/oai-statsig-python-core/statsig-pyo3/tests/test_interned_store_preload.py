@@ -1,9 +1,12 @@
-from utils import get_test_data_resource_bytes, get_test_data_resource
-from pytest_httpserver import HTTPServer
-import pytest
 import json
-from statsig_python_core import InternedStore, Statsig, StatsigOptions, StatsigUser
+import sys
+
+import pytest
+from pytest_httpserver import HTTPServer
+
 from mock_output_logger import MockOutputLoggerProvider
+from statsig_python_core import InternedStore, Statsig, StatsigOptions, StatsigUser
+from utils import get_test_data_resource, get_test_data_resource_bytes
 
 EVAL_PROJ_JSON = get_test_data_resource_bytes("eval_proj_dcs.json")
 DEMO_PROJ_PROTO = get_test_data_resource_bytes("demo_proj_dcs.pb.br")
@@ -57,6 +60,24 @@ def test_interned_store_mmap_preload(server_setup):
     fetch_complete = InternedStore.fetch_and_write_mmap(sdk_key, specs_url)
     assert fetch_complete.wait(5)
     InternedStore.preload_mmap(sdk_key)
+    memory = InternedStore.mmap_reader_memory_snapshot()
+    assert memory is not None
+    assert memory.format_version == 2
+    assert memory.mapped_bytes > 0
+    assert memory.loaded_generation_count == 1
+    if sys.platform == "linux":
+        assert memory.resident_bytes is not None
+        assert memory.proportional_set_bytes is not None
+        assert memory.private_dirty_bytes is not None
+        assert memory.deleted_mapped_bytes == 0
+        assert memory.vma_segment_count is not None
+        assert memory.vma_segment_count >= 1
+    else:
+        assert memory.resident_bytes is None
+        assert memory.proportional_set_bytes is None
+        assert memory.private_dirty_bytes is None
+        assert memory.deleted_mapped_bytes is None
+        assert memory.vma_segment_count is None
 
     log_provider = MockOutputLoggerProvider()
     log_provider.logs = []

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyteomics
-Version: 5.0
+Version: 5.0.1
 Summary: A framework for proteomics data analysis.
 Author: Anton Goloborodko, Joshua Klein
 Author-email: Lev Levitsky <pyteomics@googlegroups.com>
@@ -16,7 +16,7 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: xml

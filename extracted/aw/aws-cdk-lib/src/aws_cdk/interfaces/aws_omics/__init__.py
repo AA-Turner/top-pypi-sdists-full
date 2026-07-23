@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AnnotationStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__430e4feb750862574ea45c9c05b0ad5b146c26a568b63a51016e4499db2e690d)
+            type_hints = cached_type_hints(_typecheckingstub__430e4feb750862574ea45c9c05b0ad5b146c26a568b63a51016e4499db2e690d)
             check_type(argname="argument annotation_store_name", value=annotation_store_name, expected_type=type_hints["annotation_store_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "annotation_store_name": annotation_store_name,
@@ -117,7 +121,7 @@ class ConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d43aa4510f7e0dba2288d04893e8564a3e670ecf937d52f252c22a841d3e8bd)
+            type_hints = cached_type_hints(_typecheckingstub__2d43aa4510f7e0dba2288d04893e8564a3e670ecf937d52f252c22a841d3e8bd)
             check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
             check_type(argname="argument configuration_name", value=configuration_name, expected_type=type_hints["configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -154,7 +158,7 @@ class ConfigurationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IAnnotationStoreRef")
 class IAnnotationStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnnotationStore.
@@ -174,7 +178,7 @@ class IAnnotationStoreRef(
 
 class _IAnnotationStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnnotationStore.
 
@@ -199,7 +203,7 @@ typing.cast(typing.Any, IAnnotationStoreRef).__jsii_proxy_class__ = lambda : _IA
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IConfigurationRef")
 class IConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Configuration.
@@ -219,7 +223,7 @@ class IConfigurationRef(
 
 class _IConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Configuration.
 
@@ -244,7 +248,7 @@ typing.cast(typing.Any, IConfigurationRef).__jsii_proxy_class__ = lambda : _ICon
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IReferenceStoreRef")
 class IReferenceStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReferenceStore.
@@ -264,7 +268,7 @@ class IReferenceStoreRef(
 
 class _IReferenceStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReferenceStore.
 
@@ -289,7 +293,7 @@ typing.cast(typing.Any, IReferenceStoreRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IRunGroupRef")
 class IRunGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RunGroup.
@@ -309,7 +313,7 @@ class IRunGroupRef(
 
 class _IRunGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RunGroup.
 
@@ -334,7 +338,7 @@ typing.cast(typing.Any, IRunGroupRef).__jsii_proxy_class__ = lambda : _IRunGroup
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.ISequenceStoreRef")
 class ISequenceStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SequenceStore.
@@ -354,7 +358,7 @@ class ISequenceStoreRef(
 
 class _ISequenceStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SequenceStore.
 
@@ -379,7 +383,7 @@ typing.cast(typing.Any, ISequenceStoreRef).__jsii_proxy_class__ = lambda : _ISeq
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IVariantStoreRef")
 class IVariantStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VariantStore.
@@ -399,7 +403,7 @@ class IVariantStoreRef(
 
 class _IVariantStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VariantStore.
 
@@ -424,7 +428,7 @@ typing.cast(typing.Any, IVariantStoreRef).__jsii_proxy_class__ = lambda : _IVari
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IWorkflowRef")
 class IWorkflowRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workflow.
@@ -444,7 +448,7 @@ class IWorkflowRef(
 
 class _IWorkflowRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workflow.
 
@@ -469,7 +473,7 @@ typing.cast(typing.Any, IWorkflowRef).__jsii_proxy_class__ = lambda : _IWorkflow
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IWorkflowVersionRef")
 class IWorkflowVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WorkflowVersion.
@@ -489,7 +493,7 @@ class IWorkflowVersionRef(
 
 class _IWorkflowVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WorkflowVersion.
 
@@ -545,7 +549,7 @@ class ReferenceStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d5e6b3446d103ff66f8fb19cc638248e5c8ef4e0c53327e381eb65a8d2d7074)
+            type_hints = cached_type_hints(_typecheckingstub__5d5e6b3446d103ff66f8fb19cc638248e5c8ef4e0c53327e381eb65a8d2d7074)
             check_type(argname="argument reference_store_arn", value=reference_store_arn, expected_type=type_hints["reference_store_arn"])
             check_type(argname="argument reference_store_id", value=reference_store_id, expected_type=type_hints["reference_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -610,7 +614,7 @@ class RunGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59b5c9f7bd7475042c1b8681f3ca9e34da03e6def192139ee2def162d86ea178)
+            type_hints = cached_type_hints(_typecheckingstub__59b5c9f7bd7475042c1b8681f3ca9e34da03e6def192139ee2def162d86ea178)
             check_type(argname="argument run_group_arn", value=run_group_arn, expected_type=type_hints["run_group_arn"])
             check_type(argname="argument run_group_id", value=run_group_id, expected_type=type_hints["run_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -678,7 +682,7 @@ class SequenceStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c363a4fdb78d86ba909b958577450f0c5eff9576d66c114df711fd23a0c2565)
+            type_hints = cached_type_hints(_typecheckingstub__0c363a4fdb78d86ba909b958577450f0c5eff9576d66c114df711fd23a0c2565)
             check_type(argname="argument sequence_store_arn", value=sequence_store_arn, expected_type=type_hints["sequence_store_arn"])
             check_type(argname="argument sequence_store_id", value=sequence_store_id, expected_type=type_hints["sequence_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -736,7 +740,7 @@ class VariantStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cc5f944c024a1a7de0edcaaf4f42adefaa1e14f7f6b71e0c6e0ffd6b15f48d7)
+            type_hints = cached_type_hints(_typecheckingstub__4cc5f944c024a1a7de0edcaaf4f42adefaa1e14f7f6b71e0c6e0ffd6b15f48d7)
             check_type(argname="argument variant_store_name", value=variant_store_name, expected_type=type_hints["variant_store_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "variant_store_name": variant_store_name,
@@ -792,7 +796,7 @@ class WorkflowReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8363eb67a98b72d0a27e742b5fd66c62e434c673f2ea860480756e98b48ea5)
+            type_hints = cached_type_hints(_typecheckingstub__2a8363eb67a98b72d0a27e742b5fd66c62e434c673f2ea860480756e98b48ea5)
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
             check_type(argname="argument workflow_id", value=workflow_id, expected_type=type_hints["workflow_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -850,7 +854,7 @@ class WorkflowVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4351d465b39f1db743cbdd04337465acfe258d84589dd69fb981206603c3add0)
+            type_hints = cached_type_hints(_typecheckingstub__4351d465b39f1db743cbdd04337465acfe258d84589dd69fb981206603c3add0)
             check_type(argname="argument workflow_version_arn", value=workflow_version_arn, expected_type=type_hints["workflow_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "workflow_version_arn": workflow_version_arn,

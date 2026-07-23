@@ -1,10 +1,11 @@
 """File containing code to build libraries for LibHeif (Linux and macOS) and LibHeif itself."""
 
 import platform
-import sys
-from os import chdir, environ, getcwd, getenv, makedirs, mkdir, path, remove
+from os import chdir, environ, getcwd, makedirs, mkdir, path, remove
 from platform import machine
 from re import IGNORECASE, MULTILINE, match, search
+from shlex import split
+from shutil import rmtree
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, TimeoutExpired, run
 
 # 1
@@ -15,11 +16,12 @@ _IS_DARWIN = platform.system() == "Darwin"
 _DEFAULT_PREFIX = "/usr/local" if _IS_DARWIN else "/usr"
 INSTALL_DIR_LIBS = environ.get("INSTALL_DIR_LIBS", _DEFAULT_PREFIX)
 
-PH_LIGHT_VERSION = sys.maxsize <= 2**32 or getenv("PH_LIGHT_ACTION", "0") != "0"
+# Extra arguments for the libheif `cmake` configure step, they override the default ones.
+LIBHEIF_CMAKE_ARGS = environ.get("PH_LIBHEIF_CMAKE_ARGS", "")
 
 LIBX265_URL = "https://bitbucket.org/multicoreware/x265_git/downloads/x265_4.2.tar.gz"
-LIBDE265_URL = "https://github.com/strukturag/libde265/releases/download/v1.1.0/libde265-1.1.0.tar.gz"
-LIBHEIF_URL = "https://github.com/strukturag/libheif/releases/download/v1.23.0/libheif-1.23.0.tar.gz"
+LIBDE265_URL = "https://github.com/strukturag/libde265/releases/download/v1.1.1/libde265-1.1.1.tar.gz"
+LIBHEIF_URL = "https://github.com/strukturag/libheif/releases/download/v1.23.1/libheif-1.23.1.tar.gz"
 
 
 def download_file(url: str, out_path: str) -> bool:
@@ -82,7 +84,7 @@ def tool_check_version(name: str, min_version: str) -> bool:
 
 
 def check_install_nasm(version: str):
-    if not match(r"(i[3-6]86|x86_64)$", machine()):
+    if not match(r"x86_64$", machine()):
         return True
     if tool_check_version("nasm", version):
         return True
@@ -143,8 +145,23 @@ def _linux_ldconfig():
         pass
 
 
+def _drop_stale_libheif_cache(lib_path: str, stamp_file: str) -> None:
+    if not path.isdir(lib_path):
+        return
+    stamp = ""
+    if path.isfile(stamp_file):
+        with open(stamp_file) as f:  # noqa
+            stamp = f.read()
+    if stamp != LIBHEIF_CMAKE_ARGS:
+        print(f"PH_LIBHEIF_CMAKE_ARGS changed, discarding cached {lib_path}", flush=True)
+        rmtree(lib_path)
+
+
 def build_lib(url: str, name: str):
     lib_path = path.join(BUILD_DIR, name)
+    stamp_file = path.join(lib_path, ".ph_cmake_args")
+    if name == "libheif":
+        _drop_stale_libheif_cache(lib_path, stamp_file)
     if path.isdir(lib_path):
         print(f"Cache found for {name}: {lib_path}", flush=True)
         chdir(path.join(lib_path, "build")) if name != "x265" else chdir(lib_path)
@@ -243,13 +260,22 @@ def build_lib(url: str, name: str):
                     "-DWITH_GDK_PIXBUF=OFF "
                     "-DBUILD_TESTING=OFF".split()
                 )
-                if PH_LIGHT_VERSION:
-                    cmake_args += ["-DWITH_X265=OFF"]
-                else:
-                    cmake_args += ["-DWITH_X265=ON"]
+                cmake_args += ["-DWITH_X265=ON"]
+                # heifio and the libheif JPEG codec discover JPEG/PNG via `find_package`; disabling
+                # keeps the configured build tree independent of the host packages (the CI deps
+                # cache), unless the user requests them via PH_LIBHEIF_CMAKE_ARGS.
+                if "JPEG" not in LIBHEIF_CMAKE_ARGS:
+                    cmake_args += ["-DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON"]
+                if "PNG" not in LIBHEIF_CMAKE_ARGS and "EXAMPLES" not in LIBHEIF_CMAKE_ARGS:
+                    cmake_args += ["-DCMAKE_DISABLE_FIND_PACKAGE_PNG=ON"]
                 if not _IS_DARWIN and is_musllinux():
                     cmake_args += [f"-DCMAKE_INSTALL_LIBDIR={INSTALL_DIR_LIBS}/lib"]
+                if LIBHEIF_CMAKE_ARGS:  # the user args go last so they override the default ones
+                    cmake_args += split(LIBHEIF_CMAKE_ARGS)
         run(["cmake", *cmake_args], check=True)
+        if name == "libheif":
+            with open(stamp_file, "w") as f:  # noqa
+                f.write(LIBHEIF_CMAKE_ARGS)
         print(f"{name} configured. building...", flush=True)
         if name == "libheif":
             run("make -j4".split(), check=True)
@@ -279,10 +305,9 @@ def build_libs() -> None:
             ) from e
 
         if not is_library_installed("x265"):
-            if not PH_LIGHT_VERSION:
-                if not check_install_nasm("2.15.05"):
-                    raise ValueError("Can not find/install `nasm` with version >=2.15.05")
-                build_lib(LIBX265_URL, "x265")
+            if not check_install_nasm("2.15.05"):
+                raise ValueError("Can not find/install `nasm` with version >=2.15.05")
+            build_lib(LIBX265_URL, "x265")
         else:
             print("x265 already installed.")
         if not is_library_installed("libde265") and not is_library_installed("de265"):

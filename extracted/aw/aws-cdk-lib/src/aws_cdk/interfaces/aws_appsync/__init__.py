@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ApiCacheReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d2fc7495b4465ad3e37604f75a0bdb55af526cf724ce569c848502d42c82cd)
+            type_hints = cached_type_hints(_typecheckingstub__02d2fc7495b4465ad3e37604f75a0bdb55af526cf724ce569c848502d42c82cd)
             check_type(argname="argument api_cache_id", value=api_cache_id, expected_type=type_hints["api_cache_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_cache_id": api_cache_id,
@@ -107,7 +111,7 @@ class ApiKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c89c61b6d09e514f3580cb56bddf0fff5b1a35bd5f8b47cb4d6faa952954159c)
+            type_hints = cached_type_hints(_typecheckingstub__c89c61b6d09e514f3580cb56bddf0fff5b1a35bd5f8b47cb4d6faa952954159c)
             check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_key_arn": api_key_arn,
@@ -156,7 +160,7 @@ class ApiReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79c8673410d4f38d33e05a1bcd3d854adaf75733b4070c8fcabb34002bdd2838)
+            type_hints = cached_type_hints(_typecheckingstub__79c8673410d4f38d33e05a1bcd3d854adaf75733b4070c8fcabb34002bdd2838)
             check_type(argname="argument api_arn", value=api_arn, expected_type=type_hints["api_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_arn": api_arn,
@@ -205,7 +209,7 @@ class ChannelNamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4450879002d785ef94c98f23cc335833b8852c62ed261a313f4ea3e8be23c4d5)
+            type_hints = cached_type_hints(_typecheckingstub__4450879002d785ef94c98f23cc335833b8852c62ed261a313f4ea3e8be23c4d5)
             check_type(argname="argument channel_namespace_arn", value=channel_namespace_arn, expected_type=type_hints["channel_namespace_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_namespace_arn": channel_namespace_arn,
@@ -254,7 +258,7 @@ class DataSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3227f14688841f561fb95f56506b30d5d07adc83cd02cae423fb780c2a4d0ff)
+            type_hints = cached_type_hints(_typecheckingstub__d3227f14688841f561fb95f56506b30d5d07adc83cd02cae423fb780c2a4d0ff)
             check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_source_arn": data_source_arn,
@@ -303,7 +307,7 @@ class DomainNameApiAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e103b7d7d36de9f5882ad4406c8f135e6cecc8febc8fc79d7498edfe5c220e9)
+            type_hints = cached_type_hints(_typecheckingstub__7e103b7d7d36de9f5882ad4406c8f135e6cecc8febc8fc79d7498edfe5c220e9)
             check_type(argname="argument api_association_identifier", value=api_association_identifier, expected_type=type_hints["api_association_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_association_identifier": api_association_identifier,
@@ -359,7 +363,7 @@ class DomainNameReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d732985caffdd497b3ed4a91d071287c5f1c81bd5d8da79491b8bc806d43ff2e)
+            type_hints = cached_type_hints(_typecheckingstub__d732985caffdd497b3ed4a91d071287c5f1c81bd5d8da79491b8bc806d43ff2e)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument domain_name_arn", value=domain_name_arn, expected_type=type_hints["domain_name_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -417,7 +421,7 @@ class FunctionConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__584cd85e85f52dd14687b3606b5f2e19f0f582d52dd451ec04ae6328b78a8a4e)
+            type_hints = cached_type_hints(_typecheckingstub__584cd85e85f52dd14687b3606b5f2e19f0f582d52dd451ec04ae6328b78a8a4e)
             check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_arn": function_arn,
@@ -466,7 +470,7 @@ class GraphQLApiReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0aa4e6b2e6fad1b9dc5f2e746d6cf8738451a7c872f4d279c7ddf3b646087638)
+            type_hints = cached_type_hints(_typecheckingstub__0aa4e6b2e6fad1b9dc5f2e746d6cf8738451a7c872f4d279c7ddf3b646087638)
             check_type(argname="argument graph_ql_api_arn", value=graph_ql_api_arn, expected_type=type_hints["graph_ql_api_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "graph_ql_api_arn": graph_ql_api_arn,
@@ -515,7 +519,7 @@ class GraphQLSchemaReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd5dd571f8b4430135f6ef4b48f3b83f94c2b988c05c45786a6a73ff7bc4a03)
+            type_hints = cached_type_hints(_typecheckingstub__9bd5dd571f8b4430135f6ef4b48f3b83f94c2b988c05c45786a6a73ff7bc4a03)
             check_type(argname="argument graph_ql_schema_id", value=graph_ql_schema_id, expected_type=type_hints["graph_ql_schema_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "graph_ql_schema_id": graph_ql_schema_id,
@@ -543,7 +547,7 @@ class GraphQLSchemaReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IApiCacheRef")
 class IApiCacheRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApiCache.
@@ -563,7 +567,7 @@ class IApiCacheRef(
 
 class _IApiCacheRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApiCache.
 
@@ -588,7 +592,7 @@ typing.cast(typing.Any, IApiCacheRef).__jsii_proxy_class__ = lambda : _IApiCache
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IApiKeyRef")
 class IApiKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApiKey.
@@ -608,7 +612,7 @@ class IApiKeyRef(
 
 class _IApiKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApiKey.
 
@@ -633,7 +637,7 @@ typing.cast(typing.Any, IApiKeyRef).__jsii_proxy_class__ = lambda : _IApiKeyRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IApiRef")
 class IApiRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Api.
@@ -653,7 +657,7 @@ class IApiRef(
 
 class _IApiRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Api.
 
@@ -678,7 +682,7 @@ typing.cast(typing.Any, IApiRef).__jsii_proxy_class__ = lambda : _IApiRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IChannelNamespaceRef")
 class IChannelNamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelNamespace.
@@ -698,7 +702,7 @@ class IChannelNamespaceRef(
 
 class _IChannelNamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelNamespace.
 
@@ -723,7 +727,7 @@ typing.cast(typing.Any, IChannelNamespaceRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IDataSourceRef")
 class IDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
@@ -743,7 +747,7 @@ class IDataSourceRef(
 
 class _IDataSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
 
@@ -770,7 +774,7 @@ typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSo
 )
 class IDomainNameApiAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainNameApiAssociation.
@@ -790,7 +794,7 @@ class IDomainNameApiAssociationRef(
 
 class _IDomainNameApiAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainNameApiAssociation.
 
@@ -815,7 +819,7 @@ typing.cast(typing.Any, IDomainNameApiAssociationRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IDomainNameRef")
 class IDomainNameRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainName.
@@ -835,7 +839,7 @@ class IDomainNameRef(
 
 class _IDomainNameRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainName.
 
@@ -862,7 +866,7 @@ typing.cast(typing.Any, IDomainNameRef).__jsii_proxy_class__ = lambda : _IDomain
 )
 class IFunctionConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionConfiguration.
@@ -882,7 +886,7 @@ class IFunctionConfigurationRef(
 
 class _IFunctionConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FunctionConfiguration.
 
@@ -907,7 +911,7 @@ typing.cast(typing.Any, IFunctionConfigurationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IGraphQLApiRef")
 class IGraphQLApiRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GraphQLApi.
@@ -927,7 +931,7 @@ class IGraphQLApiRef(
 
 class _IGraphQLApiRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GraphQLApi.
 
@@ -952,7 +956,7 @@ typing.cast(typing.Any, IGraphQLApiRef).__jsii_proxy_class__ = lambda : _IGraphQ
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IGraphQLSchemaRef")
 class IGraphQLSchemaRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GraphQLSchema.
@@ -972,7 +976,7 @@ class IGraphQLSchemaRef(
 
 class _IGraphQLSchemaRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GraphQLSchema.
 
@@ -997,7 +1001,7 @@ typing.cast(typing.Any, IGraphQLSchemaRef).__jsii_proxy_class__ = lambda : _IGra
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appsync.IResolverRef")
 class IResolverRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Resolver.
@@ -1017,7 +1021,7 @@ class IResolverRef(
 
 class _IResolverRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Resolver.
 
@@ -1044,7 +1048,7 @@ typing.cast(typing.Any, IResolverRef).__jsii_proxy_class__ = lambda : _IResolver
 )
 class ISourceApiAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SourceApiAssociation.
@@ -1064,7 +1068,7 @@ class ISourceApiAssociationRef(
 
 class _ISourceApiAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SourceApiAssociation.
 
@@ -1110,7 +1114,7 @@ class ResolverReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92812c768af3e2f0949ca7f27bab78cb1a391010cbc482a7165bedce5ad96a40)
+            type_hints = cached_type_hints(_typecheckingstub__92812c768af3e2f0949ca7f27bab78cb1a391010cbc482a7165bedce5ad96a40)
             check_type(argname="argument resolver_arn", value=resolver_arn, expected_type=type_hints["resolver_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resolver_arn": resolver_arn,
@@ -1159,7 +1163,7 @@ class SourceApiAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79171cb2db974a7a2cf1f2fad295ec20b2577e125e56dd0209f349de14212d00)
+            type_hints = cached_type_hints(_typecheckingstub__79171cb2db974a7a2cf1f2fad295ec20b2577e125e56dd0209f349de14212d00)
             check_type(argname="argument association_arn", value=association_arn, expected_type=type_hints["association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_arn": association_arn,

@@ -2123,7 +2123,7 @@ class Faker:
         Generate a random UUID1 (time-based) object and cast it to another type using a callable ``cast_to``.
         
         Uses the Faker random generator for the clock sequence and node fields to ensure seedability,
-        while the timestamp is derived from the current time with random perturbation for uniqueness.
+        while the timestamp is drawn from the seeded generator so the result is reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2139,7 +2139,7 @@ class Faker:
         Generate a random UUID1 (time-based) object and cast it to another type using a callable ``cast_to``.
         
         Uses the Faker random generator for the clock sequence and node fields to ensure seedability,
-        while the timestamp is derived from the current time with random perturbation for uniqueness.
+        while the timestamp is drawn from the seeded generator so the result is reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2155,7 +2155,7 @@ class Faker:
         Generate a random UUID1 (time-based) object and cast it to another type using a callable ``cast_to``.
         
         Uses the Faker random generator for the clock sequence and node fields to ensure seedability,
-        while the timestamp is derived from the current time with random perturbation for uniqueness.
+        while the timestamp is drawn from the seeded generator so the result is reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2171,7 +2171,7 @@ class Faker:
         Generate a random UUID1 (time-based) object and cast it to another type using a callable ``cast_to``.
         
         Uses the Faker random generator for the clock sequence and node fields to ensure seedability,
-        while the timestamp is derived from the current time with random perturbation for uniqueness.
+        while the timestamp is drawn from the seeded generator so the result is reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2242,7 +2242,7 @@ class Faker:
         with millisecond precision, combined with random bits for uniqueness.
         
         The implementation uses the Faker random generator for all random components to ensure
-        seedability. The timestamp is derived from the current time with random perturbation.
+        seedability. The timestamp is also drawn from the seeded generator so results are reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2261,7 +2261,7 @@ class Faker:
         with millisecond precision, combined with random bits for uniqueness.
         
         The implementation uses the Faker random generator for all random components to ensure
-        seedability. The timestamp is derived from the current time with random perturbation.
+        seedability. The timestamp is also drawn from the seeded generator so results are reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2280,7 +2280,7 @@ class Faker:
         with millisecond precision, combined with random bits for uniqueness.
         
         The implementation uses the Faker random generator for all random components to ensure
-        seedability. The timestamp is derived from the current time with random perturbation.
+        seedability. The timestamp is also drawn from the seeded generator so results are reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -2299,7 +2299,7 @@ class Faker:
         with millisecond precision, combined with random bits for uniqueness.
         
         The implementation uses the Faker random generator for all random components to ensure
-        seedability. The timestamp is derived from the current time with random perturbation.
+        seedability. The timestamp is also drawn from the seeded generator so results are reproducible.
         
         By default, ``cast_to`` is set to ``str``.
         
@@ -3923,8 +3923,12 @@ class Faker:
         """
         ...
     def neighborhood(self) -> str: ...
-    def cnpj(self) -> str: ...
-    def company_id(self) -> str: ...
+    def cnpj(self, use_alphanumeric: bool = ...) -> str:
+        """
+        source: https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj/manual-dv-cnpj.pdf/view  # noqa: E501
+        """
+        ...
+    def company_id(self, use_alphanumeric: bool = ...) -> str: ...
     def cin(self) -> str: ...
     def cpf(self) -> str: ...
     def rg(self) -> str:

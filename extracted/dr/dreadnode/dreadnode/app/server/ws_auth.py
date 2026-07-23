@@ -30,46 +30,81 @@ class WsAuthTicket:
     expires_at: str  # ISO-8601 UTC, e.g. "2026-06-16T15:04:05Z"
 
 
+@dataclass(frozen=True)
+class _TicketEntry:
+    """An issued ticket: when it expires, and which runtime token minted it."""
+
+    expiry: float
+    token: str
+
+
 class WsTicketStore:
     """Process-local store of single-use websocket auth tickets.
 
-    Stores only SHA-256 hashes of issued tickets keyed to an epoch expiry.
-    Tickets are consumed (deleted) on first successful validation.
+    Stores only hashes of issued tickets, each bound to the runtime token that
+    authorized the mint. Tickets are consumed (deleted) on first successful
+    validation.
+
+    The token binding matters: a ticket outlives the request that minted it (up
+    to its TTL), so without it a client whose token was rotated out could still
+    redeem a pre-rotation ticket and open a socket — exactly the connection the
+    rotation was meant to sever. ``consume`` therefore reports *which* token
+    authorized the ticket, and ``purge_for_token`` drops the tickets belonging to
+    a token the moment it is retired.
     """
 
     def __init__(self) -> None:
-        self._hashes: dict[str, float] = {}  # sha256(ticket) -> expiry epoch
+        self._entries: dict[str, _TicketEntry] = {}  # hash(ticket) -> entry
         # Critical sections contain no awaits, so a plain threading.Lock is
         # sufficient to guard concurrent access from event-loop tasks.
         self._lock = threading.Lock()
 
-    def mint(self, *, ttl_seconds: int = 30) -> WsAuthTicket:
-        """Issue a new ticket valid for ``ttl_seconds``."""
+    def mint(self, *, token: str, ttl_seconds: int = 30) -> WsAuthTicket:
+        """Issue a ticket valid for ``ttl_seconds``, bound to ``token``."""
         raw = secrets.token_urlsafe(_TICKET_BYTES)
         now = time.time()
-        expiry = now + ttl_seconds
         with self._lock:
             self._purge_expired(now)
-            self._hashes[self._hash(raw)] = expiry
+            self._entries[self._hash(raw)] = _TicketEntry(
+                expiry=now + ttl_seconds,
+                token=token,
+            )
         iso = (datetime.now(UTC) + timedelta(seconds=ttl_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
         return WsAuthTicket(ticket=raw, expires_at=iso)
 
-    def consume(self, ticket: str) -> bool:
-        """Validate and consume a ticket. Returns ``True`` exactly once per
-        minted ticket, and only while it is unexpired."""
+    def consume(self, ticket: str) -> str | None:
+        """Validate and consume a ticket, returning the token that minted it.
+
+        Returns ``None`` when the ticket is unknown, already used, or expired.
+        Succeeds at most once per minted ticket.
+        """
         if not ticket:
-            return False
+            return None
         now = time.time()
         digest = self._hash(ticket)
         with self._lock:
             self._purge_expired(now)
-            expiry = self._hashes.pop(digest, None)  # single-use: pop on read
-            return expiry is not None and expiry >= now
+            entry = self._entries.pop(digest, None)  # single-use: pop on read
+        if entry is None or entry.expiry < now:
+            return None
+        return entry.token
+
+    def purge_for_token(self, token: str) -> int:
+        """Drop every outstanding ticket minted with ``token``; returns the count.
+
+        Called when a token is retired, so a rotation also revokes the tickets
+        that token authorized.
+        """
+        with self._lock:
+            stale = [digest for digest, entry in self._entries.items() if entry.token == token]
+            for digest in stale:
+                del self._entries[digest]
+        return len(stale)
 
     def _purge_expired(self, now: float) -> None:
-        expired = [digest for digest, exp in self._hashes.items() if exp < now]
+        expired = [digest for digest, entry in self._entries.items() if entry.expiry < now]
         for digest in expired:
-            del self._hashes[digest]
+            del self._entries[digest]
 
     @staticmethod
     def _hash(ticket: str) -> str:

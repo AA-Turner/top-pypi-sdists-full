@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,41 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_novaact import (
-    IWorkflowDefinitionRef as _IWorkflowDefinitionRef_70087ab1,
-    WorkflowDefinitionReference as _WorkflowDefinitionReference_59ffa042,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_novaact as _aws_novaact_ffde8925
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_novaact_ffde8925 = _LazyImport("aws_cdk.interfaces.aws_novaact")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkflowDefinitionRef_70087ab1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_novaact_ffde8925.IWorkflowDefinitionRef)
 class CfnWorkflowDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_novaact.CfnWorkflowDefinition",
 ):
@@ -119,7 +116,7 @@ class CfnWorkflowDefinition(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        export_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowDefinition.WorkflowExportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        export_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowDefinition.WorkflowExportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NovaAct::WorkflowDefinition``.
 
@@ -130,7 +127,7 @@ class CfnWorkflowDefinition(
         :param export_config: Configuration settings for exporting workflow execution data and logs to Amazon S3.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__093f8a864ee72702b771cc9cdf3adce7cf2a97464e0c030381a32c68b796bf67)
+            type_hints = cached_type_hints(_typecheckingstub__093f8a864ee72702b771cc9cdf3adce7cf2a97464e0c030381a32c68b796bf67)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkflowDefinitionProps(
@@ -143,13 +140,13 @@ class CfnWorkflowDefinition(
     @builtins.classmethod
     def arn_for_workflow_definition(
         cls,
-        resource: "_IWorkflowDefinitionRef_70087ab1",
+        resource: "_aws_novaact_ffde8925.IWorkflowDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19d00ba4e93f474c3a5a106ad995b260e1ddfb0b0b28c8b7a591fdaff9129f41)
+            type_hints = cached_type_hints(_typecheckingstub__19d00ba4e93f474c3a5a106ad995b260e1ddfb0b0b28c8b7a591fdaff9129f41)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkflowDefinition", [resource]))
 
@@ -161,18 +158,18 @@ class CfnWorkflowDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf692b32b5dfafd3e257db2aeca9c96a31d97b58293ad256c94a1c5bf51db5d3)
+            type_hints = cached_type_hints(_typecheckingstub__bf692b32b5dfafd3e257db2aeca9c96a31d97b58293ad256c94a1c5bf51db5d3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkflowDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6283bd89642b973de05b991d6961ca2b21e02a90044d3cddb3bed3c252bc7466)
+            type_hints = cached_type_hints(_typecheckingstub__6283bd89642b973de05b991d6961ca2b21e02a90044d3cddb3bed3c252bc7466)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -185,7 +182,7 @@ class CfnWorkflowDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d003c303ead7b5ed96c9ecacef8b790dea75bd08b4c5cc15cb0511c35e636df)
+            type_hints = cached_type_hints(_typecheckingstub__2d003c303ead7b5ed96c9ecacef8b790dea75bd08b4c5cc15cb0511c35e636df)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -234,9 +231,11 @@ class CfnWorkflowDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="workflowDefinitionRef")
-    def workflow_definition_ref(self) -> "_WorkflowDefinitionReference_59ffa042":
+    def workflow_definition_ref(
+        self,
+    ) -> "_aws_novaact_ffde8925.WorkflowDefinitionReference":
         '''A reference to a WorkflowDefinition resource.'''
-        return typing.cast("_WorkflowDefinitionReference_59ffa042", jsii.get(self, "workflowDefinitionRef"))
+        return typing.cast("_aws_novaact_ffde8925.WorkflowDefinitionReference", jsii.get(self, "workflowDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -247,7 +246,7 @@ class CfnWorkflowDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4287a78237ea24e16d0143f2346cfe58823d507634f64b7fb2858d7e6209ba99)
+            type_hints = cached_type_hints(_typecheckingstub__4287a78237ea24e16d0143f2346cfe58823d507634f64b7fb2858d7e6209ba99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -260,7 +259,7 @@ class CfnWorkflowDefinition(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce8b50d69ea19fefafdeda8362c5f53861d48507669ec42b02010972e227a837)
+            type_hints = cached_type_hints(_typecheckingstub__ce8b50d69ea19fefafdeda8362c5f53861d48507669ec42b02010972e227a837)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -268,17 +267,17 @@ class CfnWorkflowDefinition(
     @jsii.member(jsii_name="exportConfig")
     def export_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]]:
         '''Configuration settings for exporting workflow execution data and logs to Amazon S3.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]], jsii.get(self, "exportConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]], jsii.get(self, "exportConfig"))
 
     @export_config.setter
     def export_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__912842274cbae4c384017f1852cac251c1842dc0160302abe13698ac68196d08)
+            type_hints = cached_type_hints(_typecheckingstub__912842274cbae4c384017f1852cac251c1842dc0160302abe13698ac68196d08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "exportConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -319,7 +318,7 @@ class CfnWorkflowDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__702bd201e9d609f53af06bb05ea9fd90391fb603dc3cdb113bf534b9d81456c6)
+                type_hints = cached_type_hints(_typecheckingstub__702bd201e9d609f53af06bb05ea9fd90391fb603dc3cdb113bf534b9d81456c6)
                 check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
                 check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -374,7 +373,7 @@ class CfnWorkflowDefinitionProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        export_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflowDefinition.WorkflowExportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        export_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflowDefinition.WorkflowExportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkflowDefinition``.
 
@@ -405,7 +404,7 @@ class CfnWorkflowDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f03183f2df66815d167de60ee918a19d6d38d60dabdc1818bd9472ea62806bfb)
+            type_hints = cached_type_hints(_typecheckingstub__f03183f2df66815d167de60ee918a19d6d38d60dabdc1818bd9472ea62806bfb)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument export_config", value=export_config, expected_type=type_hints["export_config"])
@@ -441,13 +440,13 @@ class CfnWorkflowDefinitionProps:
     @builtins.property
     def export_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]]:
         '''Configuration settings for exporting workflow execution data and logs to Amazon S3.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-novaact-workflowdefinition.html#cfn-novaact-workflowdefinition-exportconfig
         '''
         result = self._values.get("export_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflowDefinition.WorkflowExportConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -474,13 +473,13 @@ def _typecheckingstub__093f8a864ee72702b771cc9cdf3adce7cf2a97464e0c030381a32c68b
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowDefinition.WorkflowExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    export_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowDefinition.WorkflowExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19d00ba4e93f474c3a5a106ad995b260e1ddfb0b0b28c8b7a591fdaff9129f41(
-    resource: _IWorkflowDefinitionRef_70087ab1,
+    resource: _aws_novaact_ffde8925.IWorkflowDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -492,7 +491,7 @@ def _typecheckingstub__bf692b32b5dfafd3e257db2aeca9c96a31d97b58293ad256c94a1c5bf
     pass
 
 def _typecheckingstub__6283bd89642b973de05b991d6961ca2b21e02a90044d3cddb3bed3c252bc7466(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -516,7 +515,7 @@ def _typecheckingstub__ce8b50d69ea19fefafdeda8362c5f53861d48507669ec42b02010972e
     pass
 
 def _typecheckingstub__912842274cbae4c384017f1852cac251c1842dc0160302abe13698ac68196d08(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflowDefinition.WorkflowExportConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflowDefinition.WorkflowExportConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -533,7 +532,7 @@ def _typecheckingstub__f03183f2df66815d167de60ee918a19d6d38d60dabdc1818bd9472ea6
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflowDefinition.WorkflowExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    export_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflowDefinition.WorkflowExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

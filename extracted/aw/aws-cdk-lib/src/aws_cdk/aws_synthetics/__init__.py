@@ -523,6 +523,8 @@ imported_group_by_name = synthetics.Group.from_group_name(self, "ImportedGroup",
 
 For more information about groups, see the [CloudWatch Synthetics Groups documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Groups.html).
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -536,72 +538,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    AssetHashType as _AssetHashType_05b67f2d,
-    BundlingOptions as _BundlingOptions_588cc936,
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    IgnoreMode as _IgnoreMode_655a98e8,
-    Resource as _Resource_45bc6135,
-    Size as _Size_7b441c34,
-    SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_iam import IGrantable as _IGrantable_71c4f5de, IRole as _IRole_235f5d8e
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_s3 import (
-    IBucket as _IBucket_42e086fd,
-    LifecycleRule as _LifecycleRule_bb74e6ff,
-    Location as _Location_0948fa7f,
-)
-from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
-from ..interfaces.aws_synthetics import (
-    CanaryReference as _CanaryReference_fbbe85ce,
-    GroupReference as _GroupReference_37835a7e,
-    ICanaryRef as _ICanaryRef_cf407e49,
-    IGroupRef as _IGroupRef_4fc55162,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_s3_assets as _aws_s3_assets_2dba96fa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import aws_cdk.interfaces.aws_synthetics as _aws_synthetics_4a1dbfa8
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _aws_s3_assets_2dba96fa = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_synthetics_4a1dbfa8 = _LazyImport("aws_cdk.interfaces.aws_synthetics")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -613,7 +592,7 @@ class ArtifactsBucketLocation:
     def __init__(
         self,
         *,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for specifying the s3 location that stores the data of each canary run.
@@ -643,7 +622,7 @@ class ArtifactsBucketLocation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3f4adf0ebd4ec63bde8a045a448259a907ff7a524c6a3b4503e1797b05a9d5f)
+            type_hints = cached_type_hints(_typecheckingstub__a3f4adf0ebd4ec63bde8a045a448259a907ff7a524c6a3b4503e1797b05a9d5f)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -653,11 +632,11 @@ class ArtifactsBucketLocation:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''The s3 location that stores the data of each run.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucket_42e086fd", result)
+        return typing.cast("_aws_s3_01158f40.IBucket", result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -784,28 +763,28 @@ class CanaryProps:
         test: "Test",
         active_tracing: typing.Optional[builtins.bool] = None,
         artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
-        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifact_s3_kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_aws_s3_01158f40.LifecycleRule", typing.Dict[builtins.str, typing.Any]]]] = None,
         artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
         browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        failure_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
+        memory: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         schedule: typing.Optional["Schedule"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         start_after_creation: typing.Optional[builtins.bool] = None,
-        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        success_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        time_to_live: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for a canary.
 
@@ -854,9 +833,9 @@ class CanaryProps:
         if isinstance(artifacts_bucket_location, dict):
             artifacts_bucket_location = ArtifactsBucketLocation(**artifacts_bucket_location)
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862bb5f5bd)
+            type_hints = cached_type_hints(_typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862bb5f5bd)
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument test", value=test, expected_type=type_hints["test"])
             check_type(argname="argument active_tracing", value=active_tracing, expected_type=type_hints["active_tracing"])
@@ -987,18 +966,18 @@ class CanaryProps:
         return typing.cast(typing.Optional["ArtifactsEncryptionMode"], result)
 
     @builtins.property
-    def artifact_s3_kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def artifact_s3_kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The KMS key used to encrypt canary artifacts.
 
         :default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
         '''
         result = self._values.get("artifact_s3_kms_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def artifacts_bucket_lifecycle_rules(
         self,
-    ) -> typing.Optional[typing.List["_LifecycleRule_bb74e6ff"]]:
+    ) -> typing.Optional[typing.List["_aws_s3_01158f40.LifecycleRule"]]:
         '''Lifecycle rules for the generated canary artifact bucket.
 
         Has no effect
@@ -1009,7 +988,7 @@ class CanaryProps:
         :default: - no rules applied to the generated bucket.
         '''
         result = self._values.get("artifacts_bucket_lifecycle_rules")
-        return typing.cast(typing.Optional[typing.List["_LifecycleRule_bb74e6ff"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_s3_01158f40.LifecycleRule"]], result)
 
     @builtins.property
     def artifacts_bucket_location(self) -> typing.Optional["ArtifactsBucketLocation"]:
@@ -1102,13 +1081,13 @@ class CanaryProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def failure_retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def failure_retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How many days should failed runs be retained.
 
         :default: Duration.days(31)
         '''
         result = self._values.get("failure_retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
@@ -1125,7 +1104,7 @@ class CanaryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def memory(self) -> typing.Optional["_Size_7b441c34"]:
+    def memory(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The maximum amount of memory that the canary can use while running.
 
         This value must be a multiple of 64 Mib.
@@ -1134,7 +1113,7 @@ class CanaryProps:
         :default: Size.mebibytes(1024)
         '''
         result = self._values.get("memory")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def provisioned_resource_cleanup(self) -> typing.Optional[builtins.bool]:
@@ -1163,7 +1142,7 @@ class CanaryProps:
         return typing.cast(typing.Optional[typing.List["ResourceToReplicateTags"]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Canary execution role.
 
         This is the role that will be assumed by the canary upon execution.
@@ -1181,7 +1160,7 @@ class CanaryProps:
         :see: required permissions: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-executionrolearn
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional["Schedule"]:
@@ -1198,7 +1177,7 @@ class CanaryProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The list of security groups to associate with the canary's network interfaces.
 
         You must provide ``vpc`` when using this prop.
@@ -1209,7 +1188,7 @@ class CanaryProps:
         not specified a dedicated security group will be created for this canary.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
     def start_after_creation(self) -> typing.Optional[builtins.bool]:
@@ -1221,16 +1200,16 @@ class CanaryProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def success_retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def success_retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How many days should successful runs be retained.
 
         :default: Duration.days(31)
         '''
         result = self._values.get("success_retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How long the canary is allowed to run before it must stop.
 
         You can't set this time to be longer than the frequency of the runs of this canary.
@@ -1241,10 +1220,10 @@ class CanaryProps:
         :default: - the frequency of the canary is used as this value, up to a maximum of 900 seconds.
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def time_to_live(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def time_to_live(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How long the canary will be in a 'RUNNING' state.
 
         For example, if you set ``timeToLive`` to be 1 hour and ``schedule`` to be ``rate(10 minutes)``,
@@ -1253,10 +1232,10 @@ class CanaryProps:
         :default: - no limit
         '''
         result = self._values.get("time_to_live")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where this canary is run.
 
         Specify this if the canary needs to access resources in a VPC.
@@ -1264,10 +1243,10 @@ class CanaryProps:
         :default: - Not in VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Where to place the network interfaces within the VPC.
 
         You must provide ``vpc`` when using this prop.
@@ -1275,7 +1254,7 @@ class CanaryProps:
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1289,9 +1268,9 @@ class CanaryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICanaryRef_cf407e49, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_synthetics_4a1dbfa8.ICanaryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCanary(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary",
 ):
@@ -1417,25 +1396,25 @@ class CfnCanary(
         id: builtins.str,
         *,
         artifact_s3_location: builtins.str,
-        code: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        code: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         name: builtins.str,
         runtime_version: builtins.str,
-        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
-        artifact_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        browser_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        run_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         success_retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Synthetics::Canary``.
 
@@ -1463,7 +1442,7 @@ class CfnCanary(
         :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2b971663)
+            type_hints = cached_type_hints(_typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2b971663)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCanaryProps(
@@ -1493,12 +1472,15 @@ class CfnCanary(
 
     @jsii.member(jsii_name="arnForCanary")
     @builtins.classmethod
-    def arn_for_canary(cls, resource: "_ICanaryRef_cf407e49") -> builtins.str:
+    def arn_for_canary(
+        cls,
+        resource: "_aws_synthetics_4a1dbfa8.ICanaryRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01a67567b68d06f36673fc7eb4b602b0433b2b739e698b03ea67aa6a7bbfef4b)
+            type_hints = cached_type_hints(_typecheckingstub__01a67567b68d06f36673fc7eb4b602b0433b2b739e698b03ea67aa6a7bbfef4b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCanary", [resource]))
 
@@ -1509,7 +1491,7 @@ class CfnCanary(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         canary_name: builtins.str,
-    ) -> "_ICanaryRef_cf407e49":
+    ) -> "_aws_synthetics_4a1dbfa8.ICanaryRef":
         '''Creates a new ICanaryRef from a canaryName.
 
         :param scope: -
@@ -1517,11 +1499,11 @@ class CfnCanary(
         :param canary_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9ea9a4c62ed507734c1656b5b5b9ece24a5a15e32aa598350d8dcba80710c99)
+            type_hints = cached_type_hints(_typecheckingstub__a9ea9a4c62ed507734c1656b5b5b9ece24a5a15e32aa598350d8dcba80710c99)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
-        return typing.cast("_ICanaryRef_cf407e49", jsii.sinvoke(cls, "fromCanaryName", [scope, id, canary_name]))
+        return typing.cast("_aws_synthetics_4a1dbfa8.ICanaryRef", jsii.sinvoke(cls, "fromCanaryName", [scope, id, canary_name]))
 
     @jsii.member(jsii_name="isCfnCanary")
     @builtins.classmethod
@@ -1531,18 +1513,18 @@ class CfnCanary(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a3fbf9db1e0a642690468c48e630211c97b836ae6d07dfc5645551505768178)
+            type_hints = cached_type_hints(_typecheckingstub__6a3fbf9db1e0a642690468c48e630211c97b836ae6d07dfc5645551505768178)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCanary", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc166bab0fcf177897c1dbb233203e39458428064bc6ff7215b01b2b3ec6f3a2)
+            type_hints = cached_type_hints(_typecheckingstub__bc166bab0fcf177897c1dbb233203e39458428064bc6ff7215b01b2b3ec6f3a2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1555,7 +1537,7 @@ class CfnCanary(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65410bca39459dd8b2ef582ab37870de468cb765034b9600759877910b340355)
+            type_hints = cached_type_hints(_typecheckingstub__65410bca39459dd8b2ef582ab37870de468cb765034b9600759877910b340355)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1596,9 +1578,9 @@ class CfnCanary(
 
     @builtins.property
     @jsii.member(jsii_name="canaryRef")
-    def canary_ref(self) -> "_CanaryReference_fbbe85ce":
+    def canary_ref(self) -> "_aws_synthetics_4a1dbfa8.CanaryReference":
         '''A reference to a Canary resource.'''
-        return typing.cast("_CanaryReference_fbbe85ce", jsii.get(self, "canaryRef"))
+        return typing.cast("_aws_synthetics_4a1dbfa8.CanaryReference", jsii.get(self, "canaryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1612,9 +1594,9 @@ class CfnCanary(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="artifactS3Location")
@@ -1625,23 +1607,25 @@ class CfnCanary(
     @artifact_s3_location.setter
     def artifact_s3_location(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15bb4831c)
+            type_hints = cached_type_hints(_typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15bb4831c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "artifactS3Location", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="code")
-    def code(self) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"]:
+    def code(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.CodeProperty"]:
         '''Use this structure to input your script code for the canary.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"], jsii.get(self, "code"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.CodeProperty"], jsii.get(self, "code"))
 
     @code.setter
     def code(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.CodeProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5)
+            type_hints = cached_type_hints(_typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
 
@@ -1654,7 +1638,7 @@ class CfnCanary(
     @execution_role_arn.setter
     def execution_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21989f82228cbbd4b8df02c1285ab8cf3635cf4eb894f4a4c999e6b763e92ded)
+            type_hints = cached_type_hints(_typecheckingstub__21989f82228cbbd4b8df02c1285ab8cf3635cf4eb894f4a4c999e6b763e92ded)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1667,7 +1651,7 @@ class CfnCanary(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a5568fdb7b5da09cb493a9883d04e695a0b6375532601c26ea6ba719fd869a)
+            type_hints = cached_type_hints(_typecheckingstub__02a5568fdb7b5da09cb493a9883d04e695a0b6375532601c26ea6ba719fd869a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1680,7 +1664,7 @@ class CfnCanary(
     @runtime_version.setter
     def runtime_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961b26fa2c)
+            type_hints = cached_type_hints(_typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961b26fa2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runtimeVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1688,17 +1672,17 @@ class CfnCanary(
     @jsii.member(jsii_name="schedule")
     def schedule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ScheduleProperty"]:
         '''A structure that contains information about how often the canary is to run, and when these runs are to stop.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"], jsii.get(self, "schedule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ScheduleProperty"], jsii.get(self, "schedule"))
 
     @schedule.setter
     def schedule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ScheduleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0)
+            type_hints = cached_type_hints(_typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
 
@@ -1706,17 +1690,17 @@ class CfnCanary(
     @jsii.member(jsii_name="artifactConfig")
     def artifact_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ArtifactConfigProperty"]]:
         '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]], jsii.get(self, "artifactConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ArtifactConfigProperty"]], jsii.get(self, "artifactConfig"))
 
     @artifact_config.setter
     def artifact_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ArtifactConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878)
+            type_hints = cached_type_hints(_typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "artifactConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1724,17 +1708,17 @@ class CfnCanary(
     @jsii.member(jsii_name="browserConfigs")
     def browser_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BrowserConfigProperty"]]]]:
         '''A structure that specifies the browser type to use for a canary run.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
 
     @browser_configs.setter
     def browser_configs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BrowserConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
+            type_hints = cached_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "browserConfigs", value) # pyright: ignore[reportArgumentType]
 
@@ -1742,22 +1726,22 @@ class CfnCanary(
     @jsii.member(jsii_name="deleteLambdaResourcesOnCanaryDeletion")
     def delete_lambda_resources_on_canary_deletion(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
 
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deleteLambdaResourcesOnCanaryDeletion"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deleteLambdaResourcesOnCanaryDeletion"))
 
     @delete_lambda_resources_on_canary_deletion.setter
     def delete_lambda_resources_on_canary_deletion(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3)
+            type_hints = cached_type_hints(_typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deleteLambdaResourcesOnCanaryDeletion", value) # pyright: ignore[reportArgumentType]
 
@@ -1765,17 +1749,17 @@ class CfnCanary(
     @jsii.member(jsii_name="dryRunAndUpdate")
     def dry_run_and_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to perform a dry run before updating the canary.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "dryRunAndUpdate"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "dryRunAndUpdate"))
 
     @dry_run_and_update.setter
     def dry_run_and_update(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe)
+            type_hints = cached_type_hints(_typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dryRunAndUpdate", value) # pyright: ignore[reportArgumentType]
 
@@ -1788,7 +1772,7 @@ class CfnCanary(
     @failure_retention_period.setter
     def failure_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec28aab1b)
+            type_hints = cached_type_hints(_typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec28aab1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "failureRetentionPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -1804,7 +1788,7 @@ class CfnCanary(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
+            type_hints = cached_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisionedResourceCleanup", value) # pyright: ignore[reportArgumentType]
 
@@ -1820,7 +1804,7 @@ class CfnCanary(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d09e27978)
+            type_hints = cached_type_hints(_typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d09e27978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcesToReplicateTags", value) # pyright: ignore[reportArgumentType]
 
@@ -1828,17 +1812,17 @@ class CfnCanary(
     @jsii.member(jsii_name="runConfig")
     def run_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RunConfigProperty"]]:
         '''A structure that contains input information for a canary run.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]], jsii.get(self, "runConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RunConfigProperty"]], jsii.get(self, "runConfig"))
 
     @run_config.setter
     def run_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RunConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557)
+            type_hints = cached_type_hints(_typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1846,17 +1830,17 @@ class CfnCanary(
     @jsii.member(jsii_name="startCanaryAfterCreation")
     def start_canary_after_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specify TRUE to have the canary start making runs immediately after it is created.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "startCanaryAfterCreation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "startCanaryAfterCreation"))
 
     @start_canary_after_creation.setter
     def start_canary_after_creation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad)
+            type_hints = cached_type_hints(_typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startCanaryAfterCreation", value) # pyright: ignore[reportArgumentType]
 
@@ -1869,20 +1853,23 @@ class CfnCanary(
     @success_retention_period.setter
     def success_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b263130f)
+            type_hints = cached_type_hints(_typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b263130f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "successRetentionPeriod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of key-value pairs that are associated with the canary.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077)
+            type_hints = cached_type_hints(_typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1890,21 +1877,21 @@ class CfnCanary(
     @jsii.member(jsii_name="visualReference")
     def visual_reference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]:
         '''
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]], jsii.get(self, "visualReference"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]], jsii.get(self, "visualReference"))
 
     @visual_reference.setter
     def visual_reference(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
+            type_hints = cached_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visualReference", value) # pyright: ignore[reportArgumentType]
 
@@ -1912,17 +1899,17 @@ class CfnCanary(
     @jsii.member(jsii_name="visualReferences")
     def visual_references(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]]]:
         '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
 
     @visual_references.setter
     def visual_references(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
+            type_hints = cached_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visualReferences", value) # pyright: ignore[reportArgumentType]
 
@@ -1930,17 +1917,17 @@ class CfnCanary(
     @jsii.member(jsii_name="vpcConfig")
     def vpc_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]]:
         '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]], jsii.get(self, "vpcConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]], jsii.get(self, "vpcConfig"))
 
     @vpc_config.setter
     def vpc_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747)
+            type_hints = cached_type_hints(_typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1953,7 +1940,7 @@ class CfnCanary(
         def __init__(
             self,
             *,
-            s3_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.S3EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.S3EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
 
@@ -1976,7 +1963,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9c456e72742651aec26b46a7fbd663821284d03931fd10859243079b815dad28)
+                type_hints = cached_type_hints(_typecheckingstub__9c456e72742651aec26b46a7fbd663821284d03931fd10859243079b815dad28)
                 check_type(argname="argument s3_encryption", value=s3_encryption, expected_type=type_hints["s3_encryption"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if s3_encryption is not None:
@@ -1985,7 +1972,7 @@ class CfnCanary(
         @builtins.property
         def s3_encryption(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.S3EncryptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.S3EncryptionProperty"]]:
             '''A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
 
             Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
@@ -1993,7 +1980,7 @@ class CfnCanary(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-artifactconfig.html#cfn-synthetics-canary-artifactconfig-s3encryption
             '''
             result = self._values.get("s3_encryption")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.S3EncryptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.S3EncryptionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2043,7 +2030,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f9d3208f)
+                type_hints = cached_type_hints(_typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f9d3208f)
                 check_type(argname="argument screenshot_name", value=screenshot_name, expected_type=type_hints["screenshot_name"])
                 check_type(argname="argument ignore_coordinates", value=ignore_coordinates, expected_type=type_hints["ignore_coordinates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2111,7 +2098,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435)
+                type_hints = cached_type_hints(_typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435)
                 check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "browser_type": browser_type,
@@ -2157,7 +2144,7 @@ class CfnCanary(
             self,
             *,
             blueprint_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            dependencies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.DependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dependencies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.DependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             handler: typing.Optional[builtins.str] = None,
             s3_bucket: typing.Optional[builtins.str] = None,
             s3_key: typing.Optional[builtins.str] = None,
@@ -2204,7 +2191,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3)
+                type_hints = cached_type_hints(_typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3)
                 check_type(argname="argument blueprint_types", value=blueprint_types, expected_type=type_hints["blueprint_types"])
                 check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
                 check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
@@ -2247,13 +2234,13 @@ class CfnCanary(
         @builtins.property
         def dependencies(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.DependencyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.DependencyProperty"]]]]:
             '''List of Lambda layers to attach to the canary.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-dependencies
             '''
             result = self._values.get("dependencies")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.DependencyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.DependencyProperty"]]]], result)
 
         @builtins.property
         def handler(self) -> typing.Optional[builtins.str]:
@@ -2364,7 +2351,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4)
+                type_hints = cached_type_hints(_typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4)
                 check_type(argname="argument reference", value=reference, expected_type=type_hints["reference"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2432,7 +2419,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2c4cf9a1)
+                type_hints = cached_type_hints(_typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2c4cf9a1)
                 check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_retries": max_retries,
@@ -2476,8 +2463,8 @@ class CfnCanary(
         def __init__(
             self,
             *,
-            active_tracing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            active_tracing: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             ephemeral_storage: typing.Optional[jsii.Number] = None,
             memory_in_mb: typing.Optional[jsii.Number] = None,
             timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -2512,7 +2499,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2)
+                type_hints = cached_type_hints(_typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2)
                 check_type(argname="argument active_tracing", value=active_tracing, expected_type=type_hints["active_tracing"])
                 check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
                 check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
@@ -2533,7 +2520,7 @@ class CfnCanary(
         @builtins.property
         def active_tracing(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether this canary is to use active AWS X-Ray tracing when it runs.
 
             Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ .
@@ -2543,12 +2530,12 @@ class CfnCanary(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-activetracing
             '''
             result = self._values.get("active_tracing")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def environment_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Specifies the keys and values to use for any environment variables used in the canary script.
 
             Use the following format:
@@ -2560,7 +2547,7 @@ class CfnCanary(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-environmentvariables
             '''
             result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
@@ -2642,7 +2629,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__551aad28104a61040e1d9e12e77c77ae47c6e19a45d15bfa94e441c5d297d3ab)
+                type_hints = cached_type_hints(_typecheckingstub__551aad28104a61040e1d9e12e77c77ae47c6e19a45d15bfa94e441c5d297d3ab)
                 check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2699,7 +2686,7 @@ class CfnCanary(
             *,
             expression: builtins.str,
             duration_in_seconds: typing.Optional[builtins.str] = None,
-            retry_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.RetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''This structure specifies how often a canary is to make runs and the date and time when it should stop making runs.
 
@@ -2727,7 +2714,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e4999288d0e0c5de04c56a3436208778026602dfdca27710aee93f9f4e034c29)
+                type_hints = cached_type_hints(_typecheckingstub__e4999288d0e0c5de04c56a3436208778026602dfdca27710aee93f9f4e034c29)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
                 check_type(argname="argument retry_config", value=retry_config, expected_type=type_hints["retry_config"])
@@ -2771,13 +2758,13 @@ class CfnCanary(
         @builtins.property
         def retry_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RetryConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RetryConfigProperty"]]:
             '''The canary's retry configuration information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-retryconfig
             '''
             result = self._values.get("retry_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RetryConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RetryConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2806,7 +2793,7 @@ class CfnCanary(
             *,
             security_group_ids: typing.Sequence[builtins.str],
             subnet_ids: typing.Sequence[builtins.str],
-            ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             vpc_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
@@ -2837,7 +2824,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc8415074)
+                type_hints = cached_type_hints(_typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc8415074)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
                 check_type(argname="argument ipv6_allowed_for_dual_stack", value=ipv6_allowed_for_dual_stack, expected_type=type_hints["ipv6_allowed_for_dual_stack"])
@@ -2874,7 +2861,7 @@ class CfnCanary(
         @builtins.property
         def ipv6_allowed_for_dual_stack(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Set this to ``true`` to allow outbound IPv6 traffic on VPC canaries that are connected to dual-stack subnets.
 
             The default is ``false`` .
@@ -2882,7 +2869,7 @@ class CfnCanary(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-ipv6allowedfordualstack
             '''
             result = self._values.get("ipv6_allowed_for_dual_stack")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def vpc_id(self) -> typing.Optional[builtins.str]:
@@ -2918,7 +2905,7 @@ class CfnCanary(
             self,
             *,
             base_canary_run_id: builtins.str,
-            base_screenshots: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BaseScreenshotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            base_screenshots: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.BaseScreenshotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             browser_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines the screenshots to use as the baseline for comparisons during visual monitoring comparisons during future runs of this canary.
@@ -2954,7 +2941,7 @@ class CfnCanary(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526)
+                type_hints = cached_type_hints(_typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526)
                 check_type(argname="argument base_canary_run_id", value=base_canary_run_id, expected_type=type_hints["base_canary_run_id"])
                 check_type(argname="argument base_screenshots", value=base_screenshots, expected_type=type_hints["base_screenshots"])
                 check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
@@ -2981,13 +2968,13 @@ class CfnCanary(
         @builtins.property
         def base_screenshots(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BaseScreenshotProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BaseScreenshotProperty"]]]]:
             '''An array of screenshots that are used as the baseline for comparisons during visual monitoring.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-basescreenshots
             '''
             result = self._values.get("base_screenshots")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BaseScreenshotProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BaseScreenshotProperty"]]]], result)
 
         @builtins.property
         def browser_type(self) -> typing.Optional[builtins.str]:
@@ -3043,25 +3030,25 @@ class CfnCanaryProps:
         self,
         *,
         artifact_s3_location: builtins.str,
-        code: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        code: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         name: builtins.str,
         runtime_version: builtins.str,
-        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
-        artifact_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        browser_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        run_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         success_retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_reference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCanary``.
 
@@ -3191,7 +3178,7 @@ class CfnCanaryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423)
+            type_hints = cached_type_hints(_typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423)
             check_type(argname="argument artifact_s3_location", value=artifact_s3_location, expected_type=type_hints["artifact_s3_location"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
@@ -3262,7 +3249,9 @@ class CfnCanaryProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def code(self) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"]:
+    def code(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.CodeProperty"]:
         '''Use this structure to input your script code for the canary.
 
         This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
@@ -3271,10 +3260,12 @@ class CfnCanaryProps:
         '''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.CodeProperty"], result)
 
     @builtins.property
-    def execution_role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def execution_role_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The ARN of the IAM role to be used to run the canary.
 
         This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions:
@@ -3291,7 +3282,7 @@ class CfnCanaryProps:
         '''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -3322,30 +3313,30 @@ class CfnCanaryProps:
     @builtins.property
     def schedule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ScheduleProperty"]:
         '''A structure that contains information about how often the canary is to run, and when these runs are to stop.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-schedule
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ScheduleProperty"], result)
 
     @builtins.property
     def artifact_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ArtifactConfigProperty"]]:
         '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifactconfig
         '''
         result = self._values.get("artifact_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.ArtifactConfigProperty"]], result)
 
     @builtins.property
     def browser_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BrowserConfigProperty"]]]]:
         '''A structure that specifies the browser type to use for a canary run.
 
         CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers.
@@ -3356,12 +3347,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-browserconfigs
         '''
         result = self._values.get("browser_configs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.BrowserConfigProperty"]]]], result)
 
     @builtins.property
     def delete_lambda_resources_on_canary_deletion(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
 
         Default is False
@@ -3372,12 +3363,12 @@ class CfnCanaryProps:
         :stability: deprecated
         '''
         result = self._values.get("delete_lambda_resources_on_canary_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def dry_run_and_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to perform a dry run before updating the canary.
 
         If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason.
@@ -3389,7 +3380,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-dryrunandupdate
         '''
         result = self._values.get("dry_run_and_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def failure_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -3431,7 +3422,7 @@ class CfnCanaryProps:
     @builtins.property
     def run_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RunConfigProperty"]]:
         '''A structure that contains input information for a canary run.
 
         If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
@@ -3439,12 +3430,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runconfig
         '''
         result = self._values.get("run_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.RunConfigProperty"]], result)
 
     @builtins.property
     def start_canary_after_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specify TRUE to have the canary start making runs immediately after it is created.
 
         A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
@@ -3452,7 +3443,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-startcanaryaftercreation
         '''
         result = self._values.get("start_canary_after_creation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def success_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -3468,18 +3459,18 @@ class CfnCanaryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of key-value pairs that are associated with the canary.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def visual_reference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]:
         '''
         :deprecated: this property has been deprecated
 
@@ -3487,12 +3478,12 @@ class CfnCanaryProps:
         :stability: deprecated
         '''
         result = self._values.get("visual_reference")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]], result)
 
     @builtins.property
     def visual_references(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]]]:
         '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.
 
         Visual references are used for visual monitoring comparisons.
@@ -3504,12 +3495,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreferences
         '''
         result = self._values.get("visual_references")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VisualReferenceProperty"]]]], result)
 
     @builtins.property
     def vpc_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]]:
         '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
 
         For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
@@ -3517,7 +3508,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-vpcconfig
         '''
         result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCanary.VPCConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3531,9 +3522,9 @@ class CfnCanaryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupRef_4fc55162, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_synthetics_4a1dbfa8.IGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_synthetics.CfnGroup",
 ):
@@ -3575,7 +3566,7 @@ class CfnGroup(
         *,
         name: builtins.str,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Synthetics::Group``.
 
@@ -3586,7 +3577,7 @@ class CfnGroup(
         :param tags: The list of key-value pairs that are associated with the group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09)
+            type_hints = cached_type_hints(_typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupProps(name=name, resource_arns=resource_arns, tags=tags)
@@ -3601,18 +3592,18 @@ class CfnGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4617b52968dab7116670f82ed8a0e28c73b86148aa7dc92f940f22398ef479e9)
+            type_hints = cached_type_hints(_typecheckingstub__4617b52968dab7116670f82ed8a0e28c73b86148aa7dc92f940f22398ef479e9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c02721081747307dfd2212f0ae4958cfbad3dc1ec5b0667712fb08ebd5d7e65)
+            type_hints = cached_type_hints(_typecheckingstub__8c02721081747307dfd2212f0ae4958cfbad3dc1ec5b0667712fb08ebd5d7e65)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3625,7 +3616,7 @@ class CfnGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4dd500824b1b77e386dc3d0eca110f83c00176cc9ac0861387258adf2b7914e)
+            type_hints = cached_type_hints(_typecheckingstub__c4dd500824b1b77e386dc3d0eca110f83c00176cc9ac0861387258adf2b7914e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3656,15 +3647,15 @@ class CfnGroup(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_37835a7e":
+    def group_ref(self) -> "_aws_synthetics_4a1dbfa8.GroupReference":
         '''A reference to a Group resource.'''
-        return typing.cast("_GroupReference_37835a7e", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_synthetics_4a1dbfa8.GroupReference", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3678,7 +3669,7 @@ class CfnGroup(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6401b033d62b6cede0e2328e1f7c75c5607ed33e285fb529afce4814a3551bee)
+            type_hints = cached_type_hints(_typecheckingstub__6401b033d62b6cede0e2328e1f7c75c5607ed33e285fb529afce4814a3551bee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3691,20 +3682,23 @@ class CfnGroup(
     @resource_arns.setter
     def resource_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d6435999ba)
+            type_hints = cached_type_hints(_typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d6435999ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of key-value pairs that are associated with the group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa)
+            type_hints = cached_type_hints(_typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3720,7 +3714,7 @@ class CfnGroupProps:
         *,
         name: builtins.str,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGroup``.
 
@@ -3750,7 +3744,7 @@ class CfnGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f)
+            type_hints = cached_type_hints(_typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3784,13 +3778,13 @@ class CfnGroupProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of key-value pairs that are associated with the group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3856,14 +3850,14 @@ class Code(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
-        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
-        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> "AssetCode":
         '''Specify code from a local path.
 
@@ -3886,9 +3880,9 @@ class Code(
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff)
+            type_hints = cached_type_hints(_typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff)
             check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
-        options = _AssetOptions_2aa69621(
+        options = _aws_s3_assets_2dba96fa.AssetOptions(
             deploy_time=deploy_time,
             display_name=display_name,
             readers=readers,
@@ -3907,7 +3901,7 @@ class Code(
     @builtins.classmethod
     def from_bucket(
         cls,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         key: builtins.str,
         object_version: typing.Optional[builtins.str] = None,
     ) -> "S3Code":
@@ -3925,7 +3919,7 @@ class Code(
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6)
+            type_hints = cached_type_hints(_typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -3941,7 +3935,7 @@ class Code(
         :return: ``InlineCode`` with inline code.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab)
+            type_hints = cached_type_hints(_typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast("InlineCode", jsii.sinvoke(cls, "fromInline", [code]))
 
@@ -3985,7 +3979,7 @@ class _CodeProxy(Code):
         :return: a bound ``CodeConfig``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541)
+            type_hints = cached_type_hints(_typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
@@ -4006,7 +4000,7 @@ class CodeConfig:
         self,
         *,
         inline_code: typing.Optional[builtins.str] = None,
-        s3_location: typing.Optional[typing.Union["_Location_0948fa7f", typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_location: typing.Optional[typing.Union["_aws_s3_01158f40.Location", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Configuration of the code class.
 
@@ -4034,9 +4028,9 @@ class CodeConfig:
             )
         '''
         if isinstance(s3_location, dict):
-            s3_location = _Location_0948fa7f(**s3_location)
+            s3_location = _aws_s3_01158f40.Location(**s3_location)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e)
+            type_hints = cached_type_hints(_typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e)
             check_type(argname="argument inline_code", value=inline_code, expected_type=type_hints["inline_code"])
             check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4055,13 +4049,13 @@ class CodeConfig:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def s3_location(self) -> typing.Optional["_Location_0948fa7f"]:
+    def s3_location(self) -> typing.Optional["_aws_s3_01158f40.Location"]:
         '''The location of the code in S3 (mutually exclusive with ``inlineCode``).
 
         :default: - none
         '''
         result = self._values.get("s3_location")
-        return typing.cast(typing.Optional["_Location_0948fa7f"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.Location"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4117,7 +4111,7 @@ class CronOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d)
+            type_hints = cached_type_hints(_typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -4220,7 +4214,7 @@ class CustomTestOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d)
+            type_hints = cached_type_hints(_typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4289,7 +4283,7 @@ class GroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8465da39b07a79baa615c25d0a78853fcf5a91cbbe4e337bc40ac276b72d62ac)
+            type_hints = cached_type_hints(_typecheckingstub__8465da39b07a79baa615c25d0a78853fcf5a91cbbe4e337bc40ac276b72d62ac)
             check_type(argname="argument canaries", value=canaries, expected_type=type_hints["canaries"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4333,7 +4327,11 @@ class GroupProps:
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.ICanary")
-class ICanary(_IResource_c80c4260, _ICanaryRef_cf407e49, typing_extensions.Protocol):
+class ICanary(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_synthetics_4a1dbfa8.ICanaryRef,
+    typing_extensions.Protocol,
+):
     '''Represents a CloudWatch Synthetics Canary.'''
 
     @builtins.property
@@ -4368,8 +4366,8 @@ class ICanary(_IResource_c80c4260, _ICanaryRef_cf407e49, typing_extensions.Proto
 
 
 class _ICanaryProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ICanaryRef_cf407e49), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_synthetics_4a1dbfa8.ICanaryRef), # type: ignore[misc]
 ):
     '''Represents a CloudWatch Synthetics Canary.'''
 
@@ -4410,7 +4408,11 @@ typing.cast(typing.Any, ICanary).__jsii_proxy_class__ = lambda : _ICanaryProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.IGroup")
-class IGroup(_IResource_c80c4260, _IGroupRef_4fc55162, typing_extensions.Protocol):
+class IGroup(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_synthetics_4a1dbfa8.IGroupRef,
+    typing_extensions.Protocol,
+):
     '''Represents a CloudWatch Synthetics Group.'''
 
     @builtins.property
@@ -4442,8 +4444,8 @@ class IGroup(_IResource_c80c4260, _IGroupRef_4fc55162, typing_extensions.Protoco
 
 
 class _IGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IGroupRef_4fc55162), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_synthetics_4a1dbfa8.IGroupRef), # type: ignore[misc]
 ):
     '''Represents a CloudWatch Synthetics Group.'''
 
@@ -4503,7 +4505,7 @@ class InlineCode(
         :param code: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2)
+            type_hints = cached_type_hints(_typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         jsii.create(self.__class__, self, [code])
 
@@ -4523,7 +4525,7 @@ class InlineCode(
         :param _runtime_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9)
+            type_hints = cached_type_hints(_typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
@@ -4585,7 +4587,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         :param family: The Lambda runtime family.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780)
+            type_hints = cached_type_hints(_typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
         jsii.create(self.__class__, self, [name, family])
@@ -5257,7 +5259,7 @@ class S3Code(
 
     def __init__(
         self,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         key: builtins.str,
         object_version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5267,7 +5269,7 @@ class S3Code(
         :param object_version: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd)
+            type_hints = cached_type_hints(_typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -5289,7 +5291,7 @@ class S3Code(
         :param _runtime_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07)
+            type_hints = cached_type_hints(_typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _handler", value=_handler, expected_type=type_hints["_handler"])
             check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
@@ -5354,7 +5356,7 @@ class Schedule(
         :param expression: The expression to use.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34)
+            type_hints = cached_type_hints(_typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
 
@@ -5366,7 +5368,7 @@ class Schedule(
 
     @jsii.member(jsii_name="rate")
     @builtins.classmethod
-    def rate(cls, interval: "_Duration_4839e8c3") -> "Schedule":
+    def rate(cls, interval: "_aws_cdk_0cae9daa.Duration") -> "Schedule":
         '''Construct a schedule from an interval.
 
         Allowed values: 0 (for a single run) or between 1 and 60 minutes.
@@ -5375,7 +5377,7 @@ class Schedule(
         :param interval: The interval at which to run the canary.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a)
+            type_hints = cached_type_hints(_typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a)
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
         return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [interval]))
 
@@ -5500,14 +5502,14 @@ class AssetCode(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
-        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
-        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> None:
         '''
         :param asset_path: The path to the asset file or directory.
@@ -5523,9 +5525,9 @@ class AssetCode(
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f)
+            type_hints = cached_type_hints(_typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f)
             check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
-        options = _AssetOptions_2aa69621(
+        options = _aws_s3_assets_2dba96fa.AssetOptions(
             deploy_time=deploy_time,
             display_name=display_name,
             readers=readers,
@@ -5556,7 +5558,7 @@ class AssetCode(
         :param runtime_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393)
+            type_hints = cached_type_hints(_typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
@@ -5564,9 +5566,9 @@ class AssetCode(
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
 
 
-@jsii.implements(_IConnectable_10015a05, ICanary)
+@jsii.implements(_aws_ec2_09840e12.IConnectable, ICanary)
 class Canary(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_synthetics.Canary",
 ):
@@ -5597,28 +5599,28 @@ class Canary(
         test: "Test",
         active_tracing: typing.Optional[builtins.bool] = None,
         artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
-        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifact_s3_kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_aws_s3_01158f40.LifecycleRule", typing.Dict[builtins.str, typing.Any]]]] = None,
         artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
         browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        failure_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
+        memory: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         schedule: typing.Optional["Schedule"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         start_after_creation: typing.Optional[builtins.bool] = None,
-        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        success_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        time_to_live: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5651,7 +5653,7 @@ class Canary(
         :param vpc_subnets: Where to place the network interfaces within the VPC. You must provide ``vpc`` when using this prop. Default: - the Vpc default strategy if not specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0)
+            type_hints = cached_type_hints(_typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CanaryProps(
@@ -5700,7 +5702,7 @@ class Canary(
         :param canary_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef4d2dbddad6751814c12d91c0030333a05c93dfdab3494a9d5cf7e75b0d4f6c)
+            type_hints = cached_type_hints(_typecheckingstub__ef4d2dbddad6751814c12d91c0030333a05c93dfdab3494a9d5cf7e75b0d4f6c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument canary_arn", value=canary_arn, expected_type=type_hints["canary_arn"])
@@ -5721,7 +5723,7 @@ class Canary(
         :param canary_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4b2865c96be39753955e1b46311801c7524d63c1efb9a104d2b3ef03d64636a)
+            type_hints = cached_type_hints(_typecheckingstub__a4b2865c96be39753955e1b46311801c7524d63c1efb9a104d2b3ef03d64636a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
@@ -5736,14 +5738,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Measure the Duration of a single canary run, in seconds.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5761,7 +5763,7 @@ class Canary(
 
         :default: avg over 5 minutes
         '''
-        options = _MetricOptions_1788b62f(
+        options = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5776,7 +5778,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDuration", [options]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDuration", [options]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -5787,14 +5789,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Measure the number of failed canary runs over a given time period.
 
         Default: sum over 5 minutes
@@ -5812,7 +5814,7 @@ class Canary(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        options = _MetricOptions_1788b62f(
+        options = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5827,7 +5829,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [options]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailed", [options]))
 
     @jsii.member(jsii_name="metricSuccessPercent")
     def metric_success_percent(
@@ -5838,14 +5840,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Measure the percentage of successful canary runs.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5863,7 +5865,7 @@ class Canary(
 
         :default: avg over 5 minutes
         '''
-        options = _MetricOptions_1788b62f(
+        options = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5878,7 +5880,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSuccessPercent", [options]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSuccessPercent", [options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5888,9 +5890,9 @@ class Canary(
 
     @builtins.property
     @jsii.member(jsii_name="artifactsBucket")
-    def artifacts_bucket(self) -> "_IBucket_42e086fd":
+    def artifacts_bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''Bucket where data from each canary run is stored.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "artifactsBucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "artifactsBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="canaryArn")
@@ -5921,9 +5923,9 @@ class Canary(
 
     @builtins.property
     @jsii.member(jsii_name="canaryRef")
-    def canary_ref(self) -> "_CanaryReference_fbbe85ce":
+    def canary_ref(self) -> "_aws_synthetics_4a1dbfa8.CanaryReference":
         '''A reference to the canary.'''
-        return typing.cast("_CanaryReference_fbbe85ce", jsii.get(self, "canaryRef"))
+        return typing.cast("_aws_synthetics_4a1dbfa8.CanaryReference", jsii.get(self, "canaryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="canaryState")
@@ -5938,23 +5940,23 @@ class Canary(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Access the Connections object.
 
         Will fail if not a VPC-enabled Canary
         '''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''Execution role associated with this Canary.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 
 @jsii.implements(IGroup)
 class Group(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_synthetics.Group",
 ):
@@ -5992,7 +5994,7 @@ class Group(
         :param group_name: A name for the group. Must contain only lowercase alphanumeric characters, hyphens, or underscores, and be at most 64 characters. The names for all groups in your account, across all Regions, must be unique. Default: - A unique name will be generated from the construct ID
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3005c8d1126585f8fa0f8a88bd88d4564937584e5ea5e3c306639a249e1074b2)
+            type_hints = cached_type_hints(_typecheckingstub__3005c8d1126585f8fa0f8a88bd88d4564937584e5ea5e3c306639a249e1074b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GroupProps(canaries=canaries, group_name=group_name)
@@ -6014,7 +6016,7 @@ class Group(
         :param group_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f77c0b7ebe86536cb12796fb6c81b18cd18b3ecef826aad10b5f86090692e54)
+            type_hints = cached_type_hints(_typecheckingstub__3f77c0b7ebe86536cb12796fb6c81b18cd18b3ecef826aad10b5f86090692e54)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
@@ -6035,7 +6037,7 @@ class Group(
         :param group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c89384e12be07349404f4cd57ac2dabb3eaebbf9c993cca96ea43743a55dd671)
+            type_hints = cached_type_hints(_typecheckingstub__c89384e12be07349404f4cd57ac2dabb3eaebbf9c993cca96ea43743a55dd671)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
@@ -6048,7 +6050,7 @@ class Group(
         :param canary: The canary to add to the group [disable-awslint:prefer-ref-interface].
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9e40db192df9338faed014e4ba88fc39f8046ceabe5e37b855d915643025eae)
+            type_hints = cached_type_hints(_typecheckingstub__d9e40db192df9338faed014e4ba88fc39f8046ceabe5e37b855d915643025eae)
             check_type(argname="argument canary", value=canary, expected_type=type_hints["canary"])
         return typing.cast(None, jsii.invoke(self, "addCanary", [canary]))
 
@@ -6093,9 +6095,9 @@ class Group(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_37835a7e":
+    def group_ref(self) -> "_aws_synthetics_4a1dbfa8.GroupReference":
         '''A reference to the group.'''
-        return typing.cast("_GroupReference_37835a7e", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_synthetics_4a1dbfa8.GroupReference", jsii.get(self, "groupRef"))
 
 
 __all__ = [
@@ -6131,7 +6133,7 @@ publication.publish()
 
 def _typecheckingstub__a3f4adf0ebd4ec63bde8a045a448259a907ff7a524c6a3b4503e1797b05a9d5f(
     *,
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6143,28 +6145,28 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     test: Test,
     active_tracing: typing.Optional[builtins.bool] = None,
     artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
-    artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
+    artifact_s3_kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_aws_s3_01158f40.LifecycleRule, typing.Dict[builtins.str, typing.Any]]]] = None,
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    failure_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
+    memory: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[ResourceToReplicateTags]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     schedule: typing.Optional[Schedule] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     start_after_creation: typing.Optional[builtins.bool] = None,
-    success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    time_to_live: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    success_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    time_to_live: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6174,31 +6176,31 @@ def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2
     id: builtins.str,
     *,
     artifact_s3_location: builtins.str,
-    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    code: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     name: builtins.str,
     runtime_version: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    run_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     success_retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__01a67567b68d06f36673fc7eb4b602b0433b2b739e698b03ea67aa6a7bbfef4b(
-    resource: _ICanaryRef_cf407e49,
+    resource: _aws_synthetics_4a1dbfa8.ICanaryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6218,7 +6220,7 @@ def _typecheckingstub__6a3fbf9db1e0a642690468c48e630211c97b836ae6d07dfc564555150
     pass
 
 def _typecheckingstub__bc166bab0fcf177897c1dbb233203e39458428064bc6ff7215b01b2b3ec6f3a2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6236,7 +6238,7 @@ def _typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15
     pass
 
 def _typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5(
-    value: typing.Union[_IResolvable_da3f097b, CfnCanary.CodeProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.CodeProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6260,31 +6262,31 @@ def _typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961
     pass
 
 def _typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0(
-    value: typing.Union[_IResolvable_da3f097b, CfnCanary.ScheduleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.ScheduleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.ArtifactConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.ArtifactConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.BrowserConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6308,13 +6310,13 @@ def _typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d0
     pass
 
 def _typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.RunConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.RunConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6326,32 +6328,32 @@ def _typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b
     pass
 
 def _typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.VisualReferenceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.VisualReferenceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VPCConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCanary.VPCConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9c456e72742651aec26b46a7fbd663821284d03931fd10859243079b815dad28(
     *,
-    s3_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.S3EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.S3EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6374,7 +6376,7 @@ def _typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e20
 def _typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3(
     *,
     blueprint_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.DependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dependencies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.DependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     handler: typing.Optional[builtins.str] = None,
     s3_bucket: typing.Optional[builtins.str] = None,
     s3_key: typing.Optional[builtins.str] = None,
@@ -6402,8 +6404,8 @@ def _typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2
 
 def _typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2(
     *,
-    active_tracing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    active_tracing: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     ephemeral_storage: typing.Optional[jsii.Number] = None,
     memory_in_mb: typing.Optional[jsii.Number] = None,
     timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -6423,7 +6425,7 @@ def _typecheckingstub__e4999288d0e0c5de04c56a3436208778026602dfdca27710aee93f9f4
     *,
     expression: builtins.str,
     duration_in_seconds: typing.Optional[builtins.str] = None,
-    retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.RetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6432,7 +6434,7 @@ def _typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc
     *,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
-    ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6441,7 +6443,7 @@ def _typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc
 def _typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526(
     *,
     base_canary_run_id: builtins.str,
-    base_screenshots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BaseScreenshotProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    base_screenshots: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.BaseScreenshotProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     browser_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6450,25 +6452,25 @@ def _typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2c
 def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423(
     *,
     artifact_s3_location: builtins.str,
-    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    code: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     name: builtins.str,
     runtime_version: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     failure_retention_period: typing.Optional[jsii.Number] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    run_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     success_retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_reference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6479,7 +6481,7 @@ def _typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae144
     *,
     name: builtins.str,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6491,7 +6493,7 @@ def _typecheckingstub__4617b52968dab7116670f82ed8a0e28c73b86148aa7dc92f940f22398
     pass
 
 def _typecheckingstub__8c02721081747307dfd2212f0ae4958cfbad3dc1ec5b0667712fb08ebd5d7e65(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6515,7 +6517,7 @@ def _typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d64
     pass
 
 def _typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6524,7 +6526,7 @@ def _typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8e
     *,
     name: builtins.str,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6534,20 +6536,20 @@ def _typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50
     *,
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6(
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     key: builtins.str,
     object_version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6572,7 +6574,7 @@ def _typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0e
 def _typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e(
     *,
     inline_code: typing.Optional[builtins.str] = None,
-    s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
+    s3_location: typing.Optional[typing.Union[_aws_s3_01158f40.Location, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6627,7 +6629,7 @@ def _typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25
     pass
 
 def _typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd(
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     key: builtins.str,
     object_version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6650,7 +6652,7 @@ def _typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee06
     pass
 
 def _typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a(
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6660,14 +6662,14 @@ def _typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106
     *,
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6689,28 +6691,28 @@ def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346
     test: Test,
     active_tracing: typing.Optional[builtins.bool] = None,
     artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
-    artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
+    artifact_s3_kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_aws_s3_01158f40.LifecycleRule, typing.Dict[builtins.str, typing.Any]]]] = None,
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    failure_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
+    memory: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
     resources_to_replicate_tags: typing.Optional[typing.Sequence[ResourceToReplicateTags]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     schedule: typing.Optional[Schedule] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     start_after_creation: typing.Optional[builtins.bool] = None,
-    success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    time_to_live: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    success_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    time_to_live: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -269,6 +269,8 @@ route53.ARecord(stack, "AliasRecord",
 
 See the documentation of `aws-cdk-lib/aws-route53` for more information.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -282,48 +284,50 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from ..aws_apigateway import (
-    IDomainName as _IDomainName_6c4e4c80, RestApiBase as _RestApiBase_0431da32
-)
-from ..aws_appsync import GraphqlApi as _GraphqlApi_3671c3a8
-from ..aws_cloudfront import IDistribution as _IDistribution_7ac752a4
-from ..aws_cognito import UserPoolDomain as _UserPoolDomain_f402e168
-from ..aws_ec2 import InterfaceVpcEndpoint as _InterfaceVpcEndpoint_9b08bb25
-from ..aws_elasticloadbalancing import LoadBalancer as _LoadBalancer_a894d40e
-from ..aws_elasticloadbalancingv2 import ILoadBalancerV2 as _ILoadBalancerV2_4c5c0fbb
-from ..aws_route53 import (
-    AliasRecordTargetConfig as _AliasRecordTargetConfig_588f62e9,
-    IAliasRecordTarget as _IAliasRecordTarget_aae9327f,
-    IHostedZone as _IHostedZone_9a6907ad,
-    IRecordSet as _IRecordSet_7d446a82,
-)
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..interfaces.aws_globalaccelerator import (
-    IAcceleratorRef as _IAcceleratorRef_b1855670
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_apigateway as _aws_apigateway_cdd9ca6b
+    import aws_cdk.aws_appsync as _aws_appsync_b9ff90e0
+    import aws_cdk.aws_cloudfront as _aws_cloudfront_b4a5fa56
+    import aws_cdk.aws_cognito as _aws_cognito_4f282b4c
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_elasticloadbalancing as _aws_elasticloadbalancing_199dfa00
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.interfaces.aws_globalaccelerator as _aws_globalaccelerator_fa1fa226
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_apigateway_cdd9ca6b = _LazyImport("aws_cdk.aws_apigateway")
+    _aws_appsync_b9ff90e0 = _LazyImport("aws_cdk.aws_appsync")
+    _aws_cloudfront_b4a5fa56 = _LazyImport("aws_cdk.aws_cloudfront")
+    _aws_cognito_4f282b4c = _LazyImport("aws_cdk.aws_cognito")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_elasticloadbalancing_199dfa00 = _LazyImport("aws_cdk.aws_elasticloadbalancing")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_globalaccelerator_fa1fa226 = _LazyImport("aws_cdk.interfaces.aws_globalaccelerator")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class ApiGatewayDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.ApiGatewayDomain",
@@ -350,34 +354,34 @@ class ApiGatewayDomain(
         )
     '''
 
-    def __init__(self, domain_name: "_IDomainName_6c4e4c80") -> None:
+    def __init__(self, domain_name: "_aws_apigateway_cdd9ca6b.IDomainName") -> None:
         '''
         :param domain_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d0921c623b2237609e875d52509b1328a8d0819876cad269003b2c5fd4b5b41)
+            type_hints = cached_type_hints(_typecheckingstub__0d0921c623b2237609e875d52509b1328a8d0819876cad269003b2c5fd4b5b41)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
         jsii.create(self.__class__, self, [domain_name])
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fba9f83d64f14df4ac3b2eb072aa1a489a55ffa3d1f675d5f2b4cc091ed1545e)
+            type_hints = cached_type_hints(_typecheckingstub__fba9f83d64f14df4ac3b2eb072aa1a489a55ffa3d1f675d5f2b4cc091ed1545e)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class ApiGatewayv2DomainProperties(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.ApiGatewayv2DomainProperties",
@@ -410,7 +414,7 @@ class ApiGatewayv2DomainProperties(
         :param regional_hosted_zone_id: the region-specific Amazon Route 53 Hosted Zone ID of the regional endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__483c7c259350e0aa6e9eeb29414ed4c8d358b92ef14b0a7044fe79d005aa1d57)
+            type_hints = cached_type_hints(_typecheckingstub__483c7c259350e0aa6e9eeb29414ed4c8d358b92ef14b0a7044fe79d005aa1d57)
             check_type(argname="argument regional_domain_name", value=regional_domain_name, expected_type=type_hints["regional_domain_name"])
             check_type(argname="argument regional_hosted_zone_id", value=regional_hosted_zone_id, expected_type=type_hints["regional_hosted_zone_id"])
         jsii.create(self.__class__, self, [regional_domain_name, regional_hosted_zone_id])
@@ -418,22 +422,22 @@ class ApiGatewayv2DomainProperties(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06815ea952926fe8cadd75b92163d9cdaa6382360911ec0411cabfe9a3c03a6c)
+            type_hints = cached_type_hints(_typecheckingstub__06815ea952926fe8cadd75b92163d9cdaa6382360911ec0411cabfe9a3c03a6c)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class AppSyncTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.AppSyncTarget",
@@ -459,34 +463,34 @@ class AppSyncTarget(
         )
     '''
 
-    def __init__(self, graphql_api: "_GraphqlApi_3671c3a8") -> None:
+    def __init__(self, graphql_api: "_aws_appsync_b9ff90e0.GraphqlApi") -> None:
         '''
         :param graphql_api: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__babb157ff28ae7a8790773110c310e6380f27259b43d58ba3491e11acd6362ab)
+            type_hints = cached_type_hints(_typecheckingstub__babb157ff28ae7a8790773110c310e6380f27259b43d58ba3491e11acd6362ab)
             check_type(argname="argument graphql_api", value=graphql_api, expected_type=type_hints["graphql_api"])
         jsii.create(self.__class__, self, [graphql_api])
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb6c1847e1d1aaadc5cdfa732af7d95f520ae163215b4adf60347fc2c8b9a685)
+            type_hints = cached_type_hints(_typecheckingstub__bb6c1847e1d1aaadc5cdfa732af7d95f520ae163215b4adf60347fc2c8b9a685)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class BucketWebsiteTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.BucketWebsiteTarget",
@@ -523,7 +527,7 @@ class BucketWebsiteTarget(
 
     def __init__(
         self,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         props: typing.Optional["IAliasRecordTargetProps"] = None,
     ) -> None:
         '''
@@ -531,7 +535,7 @@ class BucketWebsiteTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddbd19de44d0f648d972f99cbd261ae3e9159511037db7c12ae0ebcb70553020)
+            type_hints = cached_type_hints(_typecheckingstub__ddbd19de44d0f648d972f99cbd261ae3e9159511037db7c12ae0ebcb70553020)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [bucket, props])
@@ -539,22 +543,22 @@ class BucketWebsiteTarget(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd2ecb9daaec6458d815966f81355d94c2b67af66e5e1242ed3eb80048b7a1d4)
+            type_hints = cached_type_hints(_typecheckingstub__dd2ecb9daaec6458d815966f81355d94c2b67af66e5e1242ed3eb80048b7a1d4)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class ClassicLoadBalancerTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.ClassicLoadBalancerTarget",
@@ -582,7 +586,7 @@ class ClassicLoadBalancerTarget(
 
     def __init__(
         self,
-        load_balancer: "_LoadBalancer_a894d40e",
+        load_balancer: "_aws_elasticloadbalancing_199dfa00.LoadBalancer",
         props: typing.Optional["IAliasRecordTargetProps"] = None,
     ) -> None:
         '''
@@ -590,7 +594,7 @@ class ClassicLoadBalancerTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df60d89e015cd817a27383507bd36a21baad91e6194326c62959170a57cfec93)
+            type_hints = cached_type_hints(_typecheckingstub__df60d89e015cd817a27383507bd36a21baad91e6194326c62959170a57cfec93)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [load_balancer, props])
@@ -598,22 +602,22 @@ class ClassicLoadBalancerTarget(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6edcf9d41588b12bcddbe0a1a663413d6102c86e1b5f3d2d52c448ffa8ba0048)
+            type_hints = cached_type_hints(_typecheckingstub__6edcf9d41588b12bcddbe0a1a663413d6102c86e1b5f3d2d52c448ffa8ba0048)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class CloudFrontTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.CloudFrontTarget",
@@ -635,12 +639,12 @@ class CloudFrontTarget(
         )
     '''
 
-    def __init__(self, distribution: "_IDistribution_7ac752a4") -> None:
+    def __init__(self, distribution: "_aws_cloudfront_b4a5fa56.IDistribution") -> None:
         '''
         :param distribution: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0387f27ff80dda6a9654a3e1c030c822248f13c035f56a26ddb4824ba54fa0d1)
+            type_hints = cached_type_hints(_typecheckingstub__0387f27ff80dda6a9654a3e1c030c822248f13c035f56a26ddb4824ba54fa0d1)
             check_type(argname="argument distribution", value=distribution, expected_type=type_hints["distribution"])
         jsii.create(self.__class__, self, [distribution])
 
@@ -655,26 +659,26 @@ class CloudFrontTarget(
         :param scope: - scope in which this resource is defined.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e952cb31d689e0424d3f21de36bba9e037a41b28afb935bda9111a47be9b9afb)
+            type_hints = cached_type_hints(_typecheckingstub__e952cb31d689e0424d3f21de36bba9e037a41b28afb935bda9111a47be9b9afb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "getHostedZoneId", [scope]))
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff9f8a6340ffc435ad18afba28ab7e6b035f0745841d574ed011feee8830d2db)
+            type_hints = cached_type_hints(_typecheckingstub__ff9f8a6340ffc435ad18afba28ab7e6b035f0745841d574ed011feee8830d2db)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ZONE_ID")
@@ -686,7 +690,7 @@ class CloudFrontTarget(
         return typing.cast(builtins.str, jsii.sget(cls, "CLOUDFRONT_ZONE_ID"))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class ElasticBeanstalkEnvironmentEndpointTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.ElasticBeanstalkEnvironmentEndpointTarget",
@@ -724,7 +728,7 @@ class ElasticBeanstalkEnvironmentEndpointTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d25d707c026f750072f9d979b0260dab154996d630c701cc92fda7ebe39de84)
+            type_hints = cached_type_hints(_typecheckingstub__8d25d707c026f750072f9d979b0260dab154996d630c701cc92fda7ebe39de84)
             check_type(argname="argument environment_endpoint", value=environment_endpoint, expected_type=type_hints["environment_endpoint"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [environment_endpoint, props])
@@ -732,22 +736,22 @@ class ElasticBeanstalkEnvironmentEndpointTarget(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84020a15dd8ef0dcc21b591bd97f450f84cc046c2f1899e6aab8e6cbfd2ed378)
+            type_hints = cached_type_hints(_typecheckingstub__84020a15dd8ef0dcc21b591bd97f450f84cc046c2f1899e6aab8e6cbfd2ed378)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class GlobalAcceleratorDomainTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.GlobalAcceleratorDomainTarget",
@@ -778,7 +782,7 @@ class GlobalAcceleratorDomainTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c1f5b78bdd86e72483e6033d5bd58f9ee505b8c5c7e7f7a4716fcd03bd2f17e)
+            type_hints = cached_type_hints(_typecheckingstub__2c1f5b78bdd86e72483e6033d5bd58f9ee505b8c5c7e7f7a4716fcd03bd2f17e)
             check_type(argname="argument accelerator_domain_name", value=accelerator_domain_name, expected_type=type_hints["accelerator_domain_name"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [accelerator_domain_name, props])
@@ -786,19 +790,19 @@ class GlobalAcceleratorDomainTarget(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__558f27329c2636934fcd56512940ef2784d615ef258b5e13b88e1bdfd7dc8d79)
+            type_hints = cached_type_hints(_typecheckingstub__558f27329c2636934fcd56512940ef2784d615ef258b5e13b88e1bdfd7dc8d79)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLOBAL_ACCELERATOR_ZONE_ID")
@@ -839,7 +843,7 @@ class GlobalAcceleratorTarget(
 
     def __init__(
         self,
-        accelerator: "_IAcceleratorRef_b1855670",
+        accelerator: "_aws_globalaccelerator_fa1fa226.IAcceleratorRef",
         props: typing.Optional["IAliasRecordTargetProps"] = None,
     ) -> None:
         '''Create an Alias Target for a Global Accelerator instance.
@@ -848,7 +852,7 @@ class GlobalAcceleratorTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e91db2b16be80023a03d4863b5100b3072db6e16f816be05e613cdcc1e6baec)
+            type_hints = cached_type_hints(_typecheckingstub__6e91db2b16be80023a03d4863b5100b3072db6e16f816be05e613cdcc1e6baec)
             check_type(argname="argument accelerator", value=accelerator, expected_type=type_hints["accelerator"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [accelerator, props])
@@ -904,7 +908,7 @@ class _IAliasRecordTargetPropsProxy:
 typing.cast(typing.Any, IAliasRecordTargetProps).__jsii_proxy_class__ = lambda : _IAliasRecordTargetPropsProxy
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class InterfaceVpcEndpointTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.InterfaceVpcEndpointTarget",
@@ -927,34 +931,34 @@ class InterfaceVpcEndpointTarget(
         )
     '''
 
-    def __init__(self, vpc_endpoint: "_InterfaceVpcEndpoint_9b08bb25") -> None:
+    def __init__(self, vpc_endpoint: "_aws_ec2_09840e12.InterfaceVpcEndpoint") -> None:
         '''
         :param vpc_endpoint: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec571e3ea34290d4de9c515d3722116d3a7ea94b76024cfe173ea6c897eecb0d)
+            type_hints = cached_type_hints(_typecheckingstub__ec571e3ea34290d4de9c515d3722116d3a7ea94b76024cfe173ea6c897eecb0d)
             check_type(argname="argument vpc_endpoint", value=vpc_endpoint, expected_type=type_hints["vpc_endpoint"])
         jsii.create(self.__class__, self, [vpc_endpoint])
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6092dd3b5ac5bc3015dda9338cbe628b55da24a7ed91f812d3cfd949f452a7d)
+            type_hints = cached_type_hints(_typecheckingstub__d6092dd3b5ac5bc3015dda9338cbe628b55da24a7ed91f812d3cfd949f452a7d)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class LoadBalancerTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.LoadBalancerTarget",
@@ -982,7 +986,7 @@ class LoadBalancerTarget(
 
     def __init__(
         self,
-        load_balancer: "_ILoadBalancerV2_4c5c0fbb",
+        load_balancer: "_aws_elasticloadbalancingv2_1d9af53a.ILoadBalancerV2",
         props: typing.Optional["IAliasRecordTargetProps"] = None,
     ) -> None:
         '''
@@ -990,7 +994,7 @@ class LoadBalancerTarget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1a985c9395ef813e5bd41f719bb6218efa5bb0e851f54f91b3d61c932cb1c59)
+            type_hints = cached_type_hints(_typecheckingstub__d1a985c9395ef813e5bd41f719bb6218efa5bb0e851f54f91b3d61c932cb1c59)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         jsii.create(self.__class__, self, [load_balancer, props])
@@ -998,22 +1002,22 @@ class LoadBalancerTarget(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        _record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param _record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beeacae3772d5371ddf28b7c33e79baecf305ce65d9e646f0f3f8eb9da81ad8b)
+            type_hints = cached_type_hints(_typecheckingstub__beeacae3772d5371ddf28b7c33e79baecf305ce65d9e646f0f3f8eb9da81ad8b)
             check_type(argname="argument _record", value=_record, expected_type=type_hints["_record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [_record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [_record, _zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class Route53RecordTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.Route53RecordTarget",
@@ -1033,34 +1037,34 @@ class Route53RecordTarget(
         )
     '''
 
-    def __init__(self, record: "_IRecordSet_7d446a82") -> None:
+    def __init__(self, record: "_aws_route53_ea3eecac.IRecordSet") -> None:
         '''
         :param record: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2066ecabfb9b9141cbb485e7f03d0f098e5abdd8192896fc3d377b5727352fd7)
+            type_hints = cached_type_hints(_typecheckingstub__2066ecabfb9b9141cbb485e7f03d0f098e5abdd8192896fc3d377b5727352fd7)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
         jsii.create(self.__class__, self, [record])
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        record: "_IRecordSet_7d446a82",
-        zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        record: "_aws_route53_ea3eecac.IRecordSet",
+        zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param record: -
         :param zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a2915996329a774faa7e609ae99a71303eecebe91edad6fdb7552e5beea323)
+            type_hints = cached_type_hints(_typecheckingstub__20a2915996329a774faa7e609ae99a71303eecebe91edad6fdb7552e5beea323)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [record, zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [record, zone]))
 
 
-@jsii.implements(_IAliasRecordTarget_aae9327f)
+@jsii.implements(_aws_route53_ea3eecac.IAliasRecordTarget)
 class UserPoolDomainTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53_targets.UserPoolDomainTarget",
@@ -1082,31 +1086,31 @@ class UserPoolDomainTarget(
         )
     '''
 
-    def __init__(self, domain: "_UserPoolDomain_f402e168") -> None:
+    def __init__(self, domain: "_aws_cognito_4f282b4c.UserPoolDomain") -> None:
         '''
         :param domain: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b00bf5eba0024f5bf7c1acfbffab5d3fa54e65eb29951b3b0fe2f665920291d0)
+            type_hints = cached_type_hints(_typecheckingstub__b00bf5eba0024f5bf7c1acfbffab5d3fa54e65eb29951b3b0fe2f665920291d0)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
         jsii.create(self.__class__, self, [domain])
 
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        record: "_IRecordSet_7d446a82",
-        _zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-    ) -> "_AliasRecordTargetConfig_588f62e9":
+        record: "_aws_route53_ea3eecac.IRecordSet",
+        _zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+    ) -> "_aws_route53_ea3eecac.AliasRecordTargetConfig":
         '''Return hosted zone ID and DNS name, usable for Route53 alias targets.
 
         :param record: -
         :param _zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce4923401899f48bd0c1ae21051fc7f7dfe9597cb06da980cb1dc4cf441fbf3c)
+            type_hints = cached_type_hints(_typecheckingstub__ce4923401899f48bd0c1ae21051fc7f7dfe9597cb06da980cb1dc4cf441fbf3c)
             check_type(argname="argument record", value=record, expected_type=type_hints["record"])
             check_type(argname="argument _zone", value=_zone, expected_type=type_hints["_zone"])
-        return typing.cast("_AliasRecordTargetConfig_588f62e9", jsii.invoke(self, "bind", [record, _zone]))
+        return typing.cast("_aws_route53_ea3eecac.AliasRecordTargetConfig", jsii.invoke(self, "bind", [record, _zone]))
 
 
 class ApiGateway(
@@ -1136,12 +1140,12 @@ class ApiGateway(
         )
     '''
 
-    def __init__(self, api: "_RestApiBase_0431da32") -> None:
+    def __init__(self, api: "_aws_apigateway_cdd9ca6b.RestApiBase") -> None:
         '''
         :param api: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570d79c602907c31355fd27286b9195e6a4ac50d33a57b857248da0d9c6d3dad)
+            type_hints = cached_type_hints(_typecheckingstub__570d79c602907c31355fd27286b9195e6a4ac50d33a57b857248da0d9c6d3dad)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
         jsii.create(self.__class__, self, [api])
 
@@ -1167,14 +1171,14 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__0d0921c623b2237609e875d52509b1328a8d0819876cad269003b2c5fd4b5b41(
-    domain_name: _IDomainName_6c4e4c80,
+    domain_name: _aws_apigateway_cdd9ca6b.IDomainName,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fba9f83d64f14df4ac3b2eb072aa1a489a55ffa3d1f675d5f2b4cc091ed1545e(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1187,55 +1191,55 @@ def _typecheckingstub__483c7c259350e0aa6e9eeb29414ed4c8d358b92ef14b0a7044fe79d00
     pass
 
 def _typecheckingstub__06815ea952926fe8cadd75b92163d9cdaa6382360911ec0411cabfe9a3c03a6c(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__babb157ff28ae7a8790773110c310e6380f27259b43d58ba3491e11acd6362ab(
-    graphql_api: _GraphqlApi_3671c3a8,
+    graphql_api: _aws_appsync_b9ff90e0.GraphqlApi,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb6c1847e1d1aaadc5cdfa732af7d95f520ae163215b4adf60347fc2c8b9a685(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ddbd19de44d0f648d972f99cbd261ae3e9159511037db7c12ae0ebcb70553020(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     props: typing.Optional[IAliasRecordTargetProps] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dd2ecb9daaec6458d815966f81355d94c2b67af66e5e1242ed3eb80048b7a1d4(
-    record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__df60d89e015cd817a27383507bd36a21baad91e6194326c62959170a57cfec93(
-    load_balancer: _LoadBalancer_a894d40e,
+    load_balancer: _aws_elasticloadbalancing_199dfa00.LoadBalancer,
     props: typing.Optional[IAliasRecordTargetProps] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6edcf9d41588b12bcddbe0a1a663413d6102c86e1b5f3d2d52c448ffa8ba0048(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0387f27ff80dda6a9654a3e1c030c822248f13c035f56a26ddb4824ba54fa0d1(
-    distribution: _IDistribution_7ac752a4,
+    distribution: _aws_cloudfront_b4a5fa56.IDistribution,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1247,8 +1251,8 @@ def _typecheckingstub__e952cb31d689e0424d3f21de36bba9e037a41b28afb935bda9111a47b
     pass
 
 def _typecheckingstub__ff9f8a6340ffc435ad18afba28ab7e6b035f0745841d574ed011feee8830d2db(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1261,8 +1265,8 @@ def _typecheckingstub__8d25d707c026f750072f9d979b0260dab154996d630c701cc92fda7eb
     pass
 
 def _typecheckingstub__84020a15dd8ef0dcc21b591bd97f450f84cc046c2f1899e6aab8e6cbfd2ed378(
-    record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1275,74 +1279,74 @@ def _typecheckingstub__2c1f5b78bdd86e72483e6033d5bd58f9ee505b8c5c7e7f7a4716fcd03
     pass
 
 def _typecheckingstub__558f27329c2636934fcd56512940ef2784d615ef258b5e13b88e1bdfd7dc8d79(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6e91db2b16be80023a03d4863b5100b3072db6e16f816be05e613cdcc1e6baec(
-    accelerator: _IAcceleratorRef_b1855670,
+    accelerator: _aws_globalaccelerator_fa1fa226.IAcceleratorRef,
     props: typing.Optional[IAliasRecordTargetProps] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ec571e3ea34290d4de9c515d3722116d3a7ea94b76024cfe173ea6c897eecb0d(
-    vpc_endpoint: _InterfaceVpcEndpoint_9b08bb25,
+    vpc_endpoint: _aws_ec2_09840e12.InterfaceVpcEndpoint,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d6092dd3b5ac5bc3015dda9338cbe628b55da24a7ed91f812d3cfd949f452a7d(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d1a985c9395ef813e5bd41f719bb6218efa5bb0e851f54f91b3d61c932cb1c59(
-    load_balancer: _ILoadBalancerV2_4c5c0fbb,
+    load_balancer: _aws_elasticloadbalancingv2_1d9af53a.ILoadBalancerV2,
     props: typing.Optional[IAliasRecordTargetProps] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__beeacae3772d5371ddf28b7c33e79baecf305ce65d9e646f0f3f8eb9da81ad8b(
-    _record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    _record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2066ecabfb9b9141cbb485e7f03d0f098e5abdd8192896fc3d377b5727352fd7(
-    record: _IRecordSet_7d446a82,
+    record: _aws_route53_ea3eecac.IRecordSet,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__20a2915996329a774faa7e609ae99a71303eecebe91edad6fdb7552e5beea323(
-    record: _IRecordSet_7d446a82,
-    zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    record: _aws_route53_ea3eecac.IRecordSet,
+    zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b00bf5eba0024f5bf7c1acfbffab5d3fa54e65eb29951b3b0fe2f665920291d0(
-    domain: _UserPoolDomain_f402e168,
+    domain: _aws_cognito_4f282b4c.UserPoolDomain,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ce4923401899f48bd0c1ae21051fc7f7dfe9597cb06da980cb1dc4cf441fbf3c(
-    record: _IRecordSet_7d446a82,
-    _zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    record: _aws_route53_ea3eecac.IRecordSet,
+    _zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__570d79c602907c31355fd27286b9195e6a4ac50d33a57b857248da0d9c6d3dad(
-    api: _RestApiBase_0431da32,
+    api: _aws_apigateway_cdd9ca6b.RestApiBase,
 ) -> None:
     """Type checking stubs"""
     pass

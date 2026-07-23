@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,45 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_resiliencehub import (
-    AppReference as _AppReference_ee989556,
-    IAppRef as _IAppRef_b94999c1,
-    IResiliencyPolicyRef as _IResiliencyPolicyRef_23883554,
-    ResiliencyPolicyReference as _ResiliencyPolicyReference_c0a99625,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_resiliencehub as _aws_resiliencehub_a1d5eb13
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_resiliencehub_a1d5eb13 = _LazyImport("aws_cdk.interfaces.aws_resiliencehub")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAppRef_b94999c1, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_resiliencehub_a1d5eb13.IAppRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApp(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_resiliencehub.CfnApp",
 ):
@@ -148,11 +141,11 @@ class CfnApp(
         *,
         app_template_body: builtins.str,
         name: builtins.str,
-        resource_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_mappings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
         app_assessment_schedule: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        event_subscriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        permission_model: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_subscriptions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permission_model: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resiliency_policy_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -171,7 +164,7 @@ class CfnApp(
         :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee7306c7958)
+            type_hints = cached_type_hints(_typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee7306c7958)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAppProps(
@@ -190,12 +183,15 @@ class CfnApp(
 
     @jsii.member(jsii_name="arnForApp")
     @builtins.classmethod
-    def arn_for_app(cls, resource: "_IAppRef_b94999c1") -> builtins.str:
+    def arn_for_app(
+        cls,
+        resource: "_aws_resiliencehub_a1d5eb13.IAppRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f5a3898a386ff4c512c39c1ed5aba2e7e6daa59b9eff56f64d178f37191b7ca)
+            type_hints = cached_type_hints(_typecheckingstub__3f5a3898a386ff4c512c39c1ed5aba2e7e6daa59b9eff56f64d178f37191b7ca)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApp", [resource]))
 
@@ -207,18 +203,18 @@ class CfnApp(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3aad19656a01d7acdecae4bb9b80a2648865a9fc7fee06cd7ffed8c256e75e3e)
+            type_hints = cached_type_hints(_typecheckingstub__3aad19656a01d7acdecae4bb9b80a2648865a9fc7fee06cd7ffed8c256e75e3e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApp", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59fba2f0cf5aadd1fd75ba32c9b4bfb1c0d6e43acd0002173024ce9e85ed285e)
+            type_hints = cached_type_hints(_typecheckingstub__59fba2f0cf5aadd1fd75ba32c9b4bfb1c0d6e43acd0002173024ce9e85ed285e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -231,7 +227,7 @@ class CfnApp(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39b1746c5aaa0b06207855cbb349cb99ee17a1df8cdfc71812db83d0b9680219)
+            type_hints = cached_type_hints(_typecheckingstub__39b1746c5aaa0b06207855cbb349cb99ee17a1df8cdfc71812db83d0b9680219)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -243,9 +239,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="appRef")
-    def app_ref(self) -> "_AppReference_ee989556":
+    def app_ref(self) -> "_aws_resiliencehub_a1d5eb13.AppReference":
         '''A reference to a App resource.'''
-        return typing.cast("_AppReference_ee989556", jsii.get(self, "appRef"))
+        return typing.cast("_aws_resiliencehub_a1d5eb13.AppReference", jsii.get(self, "appRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppArn")
@@ -277,9 +273,9 @@ class CfnApp(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appTemplateBody")
@@ -290,7 +286,7 @@ class CfnApp(
     @app_template_body.setter
     def app_template_body(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c2df1cafeabd95579e76b6448abd4bc8191ed805fa79934e5a2ba2863d8a4a7)
+            type_hints = cached_type_hints(_typecheckingstub__5c2df1cafeabd95579e76b6448abd4bc8191ed805fa79934e5a2ba2863d8a4a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appTemplateBody", value) # pyright: ignore[reportArgumentType]
 
@@ -303,7 +299,7 @@ class CfnApp(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26ec5f12ec50861e776ad80e27c62359d36bca636f0adbf44ed2618963e02c64)
+            type_hints = cached_type_hints(_typecheckingstub__26ec5f12ec50861e776ad80e27c62359d36bca636f0adbf44ed2618963e02c64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -311,17 +307,17 @@ class CfnApp(
     @jsii.member(jsii_name="resourceMappings")
     def resource_mappings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.ResourceMappingProperty"]]]:
         '''An array of ``ResourceMapping`` objects.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]], jsii.get(self, "resourceMappings"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.ResourceMappingProperty"]]], jsii.get(self, "resourceMappings"))
 
     @resource_mappings.setter
     def resource_mappings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.ResourceMappingProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7be56e25078fc8e2aedbbef7b1762fc9e3fdb0096405151631ffaeb94832cc34)
+            type_hints = cached_type_hints(_typecheckingstub__7be56e25078fc8e2aedbbef7b1762fc9e3fdb0096405151631ffaeb94832cc34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceMappings", value) # pyright: ignore[reportArgumentType]
 
@@ -334,7 +330,7 @@ class CfnApp(
     @app_assessment_schedule.setter
     def app_assessment_schedule(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1219dae6dd0d44c29343fb98a2d5c76c2a24c08981364a9635db5d542b60665d)
+            type_hints = cached_type_hints(_typecheckingstub__1219dae6dd0d44c29343fb98a2d5c76c2a24c08981364a9635db5d542b60665d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appAssessmentSchedule", value) # pyright: ignore[reportArgumentType]
 
@@ -347,7 +343,7 @@ class CfnApp(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef5b0a7209d4ed93ddc4b9b03b30dfaf9f4e659b9ac9551bd3e4332a348c0c36)
+            type_hints = cached_type_hints(_typecheckingstub__ef5b0a7209d4ed93ddc4b9b03b30dfaf9f4e659b9ac9551bd3e4332a348c0c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -355,17 +351,17 @@ class CfnApp(
     @jsii.member(jsii_name="eventSubscriptions")
     def event_subscriptions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EventSubscriptionProperty"]]]]:
         '''The list of events you would like to subscribe and get notification for.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]], jsii.get(self, "eventSubscriptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EventSubscriptionProperty"]]]], jsii.get(self, "eventSubscriptions"))
 
     @event_subscriptions.setter
     def event_subscriptions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EventSubscriptionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d302607b7a1dfbffee8d2ab82e294e1d08c27584331ec9bea2e75add9db5b6)
+            type_hints = cached_type_hints(_typecheckingstub__64d302607b7a1dfbffee8d2ab82e294e1d08c27584331ec9bea2e75add9db5b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventSubscriptions", value) # pyright: ignore[reportArgumentType]
 
@@ -373,17 +369,17 @@ class CfnApp(
     @jsii.member(jsii_name="permissionModel")
     def permission_model(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PermissionModelProperty"]]:
         '''Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]], jsii.get(self, "permissionModel"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PermissionModelProperty"]], jsii.get(self, "permissionModel"))
 
     @permission_model.setter
     def permission_model(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PermissionModelProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e15df41e400e8a9cff1ec67cfe4cdb6224b7e0faa1f84a7164a3aff0b0462f9)
+            type_hints = cached_type_hints(_typecheckingstub__2e15df41e400e8a9cff1ec67cfe4cdb6224b7e0faa1f84a7164a3aff0b0462f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionModel", value) # pyright: ignore[reportArgumentType]
 
@@ -396,7 +392,7 @@ class CfnApp(
     @resiliency_policy_arn.setter
     def resiliency_policy_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce4ee431bd44e41d23a7b0df5a1d235166dfde2dcb98cb013d61da840d20b025)
+            type_hints = cached_type_hints(_typecheckingstub__ce4ee431bd44e41d23a7b0df5a1d235166dfde2dcb98cb013d61da840d20b025)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resiliencyPolicyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -412,7 +408,7 @@ class CfnApp(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d13896f18fa79328cd19410a666196ad5f076947628b86a3d2d74479248cc5b)
+            type_hints = cached_type_hints(_typecheckingstub__9d13896f18fa79328cd19410a666196ad5f076947628b86a3d2d74479248cc5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -459,7 +455,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24e5de7bc5abc5f46b1e0bcc9b765adaa418f9f436edcfd31c40a13a5740d617)
+                type_hints = cached_type_hints(_typecheckingstub__24e5de7bc5abc5f46b1e0bcc9b765adaa418f9f436edcfd31c40a13a5740d617)
                 check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
@@ -555,7 +551,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a8107f5f0a79085bc51c1ccd12ec056fa14fa89fbad641ef5065c416f4ae281)
+                type_hints = cached_type_hints(_typecheckingstub__3a8107f5f0a79085bc51c1ccd12ec056fa14fa89fbad641ef5065c416f4ae281)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument cross_account_role_arns", value=cross_account_role_arns, expected_type=type_hints["cross_account_role_arns"])
                 check_type(argname="argument invoker_role_name", value=invoker_role_name, expected_type=type_hints["invoker_role_name"])
@@ -665,7 +661,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3eacd68e84c228cdd21e0474784bb6561272f2528af8dda91c1eb8fc45207812)
+                type_hints = cached_type_hints(_typecheckingstub__3eacd68e84c228cdd21e0474784bb6561272f2528af8dda91c1eb8fc45207812)
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
@@ -772,7 +768,7 @@ class CfnApp(
             self,
             *,
             mapping_type: builtins.str,
-            physical_resource_id: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PhysicalResourceIdProperty", typing.Dict[builtins.str, typing.Any]]],
+            physical_resource_id: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.PhysicalResourceIdProperty", typing.Dict[builtins.str, typing.Any]]],
             eks_source_name: typing.Optional[builtins.str] = None,
             logical_stack_name: typing.Optional[builtins.str] = None,
             resource_name: typing.Optional[builtins.str] = None,
@@ -815,7 +811,7 @@ class CfnApp(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__73ce15c2c4786e2990c8cd30f8becbb71d99cd69d3c1b4c44211c8e6baaf1027)
+                type_hints = cached_type_hints(_typecheckingstub__73ce15c2c4786e2990c8cd30f8becbb71d99cd69d3c1b4c44211c8e6baaf1027)
                 check_type(argname="argument mapping_type", value=mapping_type, expected_type=type_hints["mapping_type"])
                 check_type(argname="argument physical_resource_id", value=physical_resource_id, expected_type=type_hints["physical_resource_id"])
                 check_type(argname="argument eks_source_name", value=eks_source_name, expected_type=type_hints["eks_source_name"])
@@ -848,14 +844,14 @@ class CfnApp(
         @builtins.property
         def physical_resource_id(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApp.PhysicalResourceIdProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PhysicalResourceIdProperty"]:
             '''Identifier of the physical resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehub-app-resourcemapping.html#cfn-resiliencehub-app-resourcemapping-physicalresourceid
             '''
             result = self._values.get("physical_resource_id")
             assert result is not None, "Required property 'physical_resource_id' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApp.PhysicalResourceIdProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PhysicalResourceIdProperty"], result)
 
         @builtins.property
         def eks_source_name(self) -> typing.Optional[builtins.str]:
@@ -930,11 +926,11 @@ class CfnAppProps:
         *,
         app_template_body: builtins.str,
         name: builtins.str,
-        resource_mappings: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_mappings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.ResourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
         app_assessment_schedule: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        event_subscriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        permission_model: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_subscriptions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.EventSubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permission_model: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApp.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resiliency_policy_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -1004,7 +1000,7 @@ class CfnAppProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125)
+            type_hints = cached_type_hints(_typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e737af125)
             check_type(argname="argument app_template_body", value=app_template_body, expected_type=type_hints["app_template_body"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resource_mappings", value=resource_mappings, expected_type=type_hints["resource_mappings"])
@@ -1246,14 +1242,14 @@ class CfnAppProps:
     @builtins.property
     def resource_mappings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.ResourceMappingProperty"]]]:
         '''An array of ``ResourceMapping`` objects.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-resourcemappings
         '''
         result = self._values.get("resource_mappings")
         assert result is not None, "Required property 'resource_mappings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.ResourceMappingProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.ResourceMappingProperty"]]], result)
 
     @builtins.property
     def app_assessment_schedule(self) -> typing.Optional[builtins.str]:
@@ -1276,7 +1272,7 @@ class CfnAppProps:
     @builtins.property
     def event_subscriptions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EventSubscriptionProperty"]]]]:
         '''The list of events you would like to subscribe and get notification for.
 
         Currently, AWS Resilience Hub supports notifications only for *Drift detected* and *Scheduled assessment failure* events.
@@ -1284,18 +1280,18 @@ class CfnAppProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-eventsubscriptions
         '''
         result = self._values.get("event_subscriptions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApp.EventSubscriptionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.EventSubscriptionProperty"]]]], result)
 
     @builtins.property
     def permission_model(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PermissionModelProperty"]]:
         '''Defines the roles and credentials that AWS Resilience Hub would use while creating the application, importing its resources, and running an assessment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-app.html#cfn-resiliencehub-app-permissionmodel
         '''
         result = self._values.get("permission_model")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApp.PermissionModelProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApp.PermissionModelProperty"]], result)
 
     @builtins.property
     def resiliency_policy_arn(self) -> typing.Optional[builtins.str]:
@@ -1329,9 +1325,9 @@ class CfnAppProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResiliencyPolicyRef_23883554, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_resiliencehub_a1d5eb13.IResiliencyPolicyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResiliencyPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_resiliencehub.CfnResiliencyPolicy",
 ):
@@ -1375,7 +1371,7 @@ class CfnResiliencyPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        policy: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
         policy_name: builtins.str,
         tier: builtins.str,
         data_location_constraint: typing.Optional[builtins.str] = None,
@@ -1394,7 +1390,7 @@ class CfnResiliencyPolicy(
         :param tags: Tags assigned to the resource. A tag is a label that you assign to an AWS resource. Each tag consists of a key/value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ca523154c6ed6b81a708c52b134ad763abb59cc66e6b7fc33cf2c8de8bda28b)
+            type_hints = cached_type_hints(_typecheckingstub__1ca523154c6ed6b81a708c52b134ad763abb59cc66e6b7fc33cf2c8de8bda28b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResiliencyPolicyProps(
@@ -1416,18 +1412,18 @@ class CfnResiliencyPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aace6c7280f2633c820eabd63b61c37de47ae335cf9e6a60a3de53086ff7fb0)
+            type_hints = cached_type_hints(_typecheckingstub__2aace6c7280f2633c820eabd63b61c37de47ae335cf9e6a60a3de53086ff7fb0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResiliencyPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b23ae03f6bfefa00273e55de0b4ee8ebbb10095bb3e49cce571cda4bef8a8494)
+            type_hints = cached_type_hints(_typecheckingstub__b23ae03f6bfefa00273e55de0b4ee8ebbb10095bb3e49cce571cda4bef8a8494)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1440,7 +1436,7 @@ class CfnResiliencyPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70914fc8c6bf4533b705a29f3317230532469314340e9789128d3b37814b1543)
+            type_hints = cached_type_hints(_typecheckingstub__70914fc8c6bf4533b705a29f3317230532469314340e9789128d3b37814b1543)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1471,31 +1467,33 @@ class CfnResiliencyPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resiliencyPolicyRef")
-    def resiliency_policy_ref(self) -> "_ResiliencyPolicyReference_c0a99625":
+    def resiliency_policy_ref(
+        self,
+    ) -> "_aws_resiliencehub_a1d5eb13.ResiliencyPolicyReference":
         '''A reference to a ResiliencyPolicy resource.'''
-        return typing.cast("_ResiliencyPolicyReference_c0a99625", jsii.get(self, "resiliencyPolicyRef"))
+        return typing.cast("_aws_resiliencehub_a1d5eb13.ResiliencyPolicyReference", jsii.get(self, "resiliencyPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
     def policy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
         '''The resiliency policy.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]], jsii.get(self, "policy"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResiliencyPolicy.FailurePolicyProperty"]]], jsii.get(self, "policy"))
 
     @policy.setter
     def policy(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResiliencyPolicy.FailurePolicyProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c81f492b83bee694a01e4aa4ae84bc7903a84252105f01380996bcf77119a83)
+            type_hints = cached_type_hints(_typecheckingstub__2c81f492b83bee694a01e4aa4ae84bc7903a84252105f01380996bcf77119a83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -1508,7 +1506,7 @@ class CfnResiliencyPolicy(
     @policy_name.setter
     def policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a34fd04d0312f7348f68c9a137c175637ed8986ee6668d212f9ccb5f63df73cc)
+            type_hints = cached_type_hints(_typecheckingstub__a34fd04d0312f7348f68c9a137c175637ed8986ee6668d212f9ccb5f63df73cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
@@ -1521,7 +1519,7 @@ class CfnResiliencyPolicy(
     @tier.setter
     def tier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63aa6d63d9a2e5c5908fb449583a66f8f0ca1b9d0299917bf1c9aa1018efbe8e)
+            type_hints = cached_type_hints(_typecheckingstub__63aa6d63d9a2e5c5908fb449583a66f8f0ca1b9d0299917bf1c9aa1018efbe8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
 
@@ -1534,7 +1532,7 @@ class CfnResiliencyPolicy(
     @data_location_constraint.setter
     def data_location_constraint(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0ce3251c4d65d121ac1dfd3d81f2cc55a1e4f5d27dd6107aec2662ccd9f9da1)
+            type_hints = cached_type_hints(_typecheckingstub__a0ce3251c4d65d121ac1dfd3d81f2cc55a1e4f5d27dd6107aec2662ccd9f9da1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataLocationConstraint", value) # pyright: ignore[reportArgumentType]
 
@@ -1547,7 +1545,7 @@ class CfnResiliencyPolicy(
     @policy_description.setter
     def policy_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33c98d88b8f5dc4d978a76d3d8062b3b9ed0b9dbd8a11666125cf03bdb240c25)
+            type_hints = cached_type_hints(_typecheckingstub__33c98d88b8f5dc4d978a76d3d8062b3b9ed0b9dbd8a11666125cf03bdb240c25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -1563,7 +1561,7 @@ class CfnResiliencyPolicy(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e570922a4c9e088d785778e4bf4377e5e745c3948e4b4c61b64f0cbbefee0ce9)
+            type_hints = cached_type_hints(_typecheckingstub__e570922a4c9e088d785778e4bf4377e5e745c3948e4b4c61b64f0cbbefee0ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1599,7 +1597,7 @@ class CfnResiliencyPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1b31c880d8724506ba4025d50fede62d462b847c02406fe66ed0c1b34e12bd23)
+                type_hints = cached_type_hints(_typecheckingstub__1b31c880d8724506ba4025d50fede62d462b847c02406fe66ed0c1b34e12bd23)
                 check_type(argname="argument rpo_in_secs", value=rpo_in_secs, expected_type=type_hints["rpo_in_secs"])
                 check_type(argname="argument rto_in_secs", value=rto_in_secs, expected_type=type_hints["rto_in_secs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1655,7 +1653,7 @@ class CfnResiliencyPolicyProps:
     def __init__(
         self,
         *,
-        policy: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResiliencyPolicy.FailurePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
         policy_name: builtins.str,
         tier: builtins.str,
         data_location_constraint: typing.Optional[builtins.str] = None,
@@ -1699,7 +1697,7 @@ class CfnResiliencyPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7)
+            type_hints = cached_type_hints(_typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
@@ -1721,14 +1719,14 @@ class CfnResiliencyPolicyProps:
     @builtins.property
     def policy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResiliencyPolicy.FailurePolicyProperty"]]]:
         '''The resiliency policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehub-resiliencypolicy.html#cfn-resiliencehub-resiliencypolicy-policy
         '''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnResiliencyPolicy.FailurePolicyProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResiliencyPolicy.FailurePolicyProperty"]]], result)
 
     @builtins.property
     def policy_name(self) -> builtins.str:
@@ -1806,11 +1804,11 @@ def _typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee73
     *,
     app_template_body: builtins.str,
     name: builtins.str,
-    resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_mappings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     app_assessment_schedule: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_subscriptions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    permission_model: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resiliency_policy_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -1818,7 +1816,7 @@ def _typecheckingstub__303e76fc3650422653be00dea7484c071f68688b86b0b136d647cee73
     pass
 
 def _typecheckingstub__3f5a3898a386ff4c512c39c1ed5aba2e7e6daa59b9eff56f64d178f37191b7ca(
-    resource: _IAppRef_b94999c1,
+    resource: _aws_resiliencehub_a1d5eb13.IAppRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1830,7 +1828,7 @@ def _typecheckingstub__3aad19656a01d7acdecae4bb9b80a2648865a9fc7fee06cd7ffed8c25
     pass
 
 def _typecheckingstub__59fba2f0cf5aadd1fd75ba32c9b4bfb1c0d6e43acd0002173024ce9e85ed285e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1854,7 +1852,7 @@ def _typecheckingstub__26ec5f12ec50861e776ad80e27c62359d36bca636f0adbf44ed261896
     pass
 
 def _typecheckingstub__7be56e25078fc8e2aedbbef7b1762fc9e3fdb0096405151631ffaeb94832cc34(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.ResourceMappingProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.ResourceMappingProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1872,13 +1870,13 @@ def _typecheckingstub__ef5b0a7209d4ed93ddc4b9b03b30dfaf9f4e659b9ac9551bd3e4332a3
     pass
 
 def _typecheckingstub__64d302607b7a1dfbffee8d2ab82e294e1d08c27584331ec9bea2e75add9db5b6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EventSubscriptionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.EventSubscriptionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2e15df41e400e8a9cff1ec67cfe4cdb6224b7e0faa1f84a7164a3aff0b0462f9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.PermissionModelProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApp.PermissionModelProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1926,7 +1924,7 @@ def _typecheckingstub__3eacd68e84c228cdd21e0474784bb6561272f2528af8dda91c1eb8fc4
 def _typecheckingstub__73ce15c2c4786e2990c8cd30f8becbb71d99cd69d3c1b4c44211c8e6baaf1027(
     *,
     mapping_type: builtins.str,
-    physical_resource_id: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PhysicalResourceIdProperty, typing.Dict[builtins.str, typing.Any]]],
+    physical_resource_id: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.PhysicalResourceIdProperty, typing.Dict[builtins.str, typing.Any]]],
     eks_source_name: typing.Optional[builtins.str] = None,
     logical_stack_name: typing.Optional[builtins.str] = None,
     resource_name: typing.Optional[builtins.str] = None,
@@ -1939,11 +1937,11 @@ def _typecheckingstub__d4cbfaccc19fec8c2bd3f0ad17cdc9d5c9a66dbdcc7077312163442e7
     *,
     app_template_body: builtins.str,
     name: builtins.str,
-    resource_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_mappings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.ResourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
     app_assessment_schedule: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    event_subscriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    permission_model: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_subscriptions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.EventSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    permission_model: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApp.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resiliency_policy_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -1954,7 +1952,7 @@ def _typecheckingstub__1ca523154c6ed6b81a708c52b134ad763abb59cc66e6b7fc33cf2c8de
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
     policy_name: builtins.str,
     tier: builtins.str,
     data_location_constraint: typing.Optional[builtins.str] = None,
@@ -1971,7 +1969,7 @@ def _typecheckingstub__2aace6c7280f2633c820eabd63b61c37de47ae335cf9e6a60a3de5308
     pass
 
 def _typecheckingstub__b23ae03f6bfefa00273e55de0b4ee8ebbb10095bb3e49cce571cda4bef8a8494(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1983,7 +1981,7 @@ def _typecheckingstub__70914fc8c6bf4533b705a29f3317230532469314340e9789128d3b378
     pass
 
 def _typecheckingstub__2c81f492b83bee694a01e4aa4ae84bc7903a84252105f01380996bcf77119a83(
-    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnResiliencyPolicy.FailurePolicyProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResiliencyPolicy.FailurePolicyProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2028,7 +2026,7 @@ def _typecheckingstub__1b31c880d8724506ba4025d50fede62d462b847c02406fe66ed0c1b34
 
 def _typecheckingstub__b51a30718bd8977a8288b1d2934e1722c7b034c5064ff893bb6b2bbb6feb7ba7(
     *,
-    policy: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResiliencyPolicy.FailurePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
     policy_name: builtins.str,
     tier: builtins.str,
     data_location_constraint: typing.Optional[builtins.str] = None,

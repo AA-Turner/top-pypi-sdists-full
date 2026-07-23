@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ce import (
-    AnomalyMonitorReference as _AnomalyMonitorReference_06d4852f,
-    AnomalySubscriptionReference as _AnomalySubscriptionReference_2f0aee6f,
-    CostCategoryReference as _CostCategoryReference_4e0a3418,
-    IAnomalyMonitorRef as _IAnomalyMonitorRef_5865dcc9,
-    IAnomalySubscriptionRef as _IAnomalySubscriptionRef_41c9c6a5,
-    ICostCategoryRef as _ICostCategoryRef_65c8e6b4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ce as _aws_ce_5cd11ded
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ce_5cd11ded = _LazyImport("aws_cdk.interfaces.aws_ce")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAnomalyMonitorRef_5865dcc9, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ce_5cd11ded.IAnomalyMonitorRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAnomalyMonitor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ce.CfnAnomalyMonitor",
 ):
@@ -132,7 +123,7 @@ class CfnAnomalyMonitor(
         :param resource_tags: Tags to assign to monitor.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1da201141928cd17a5dfa2d08e87045b296530c05640d211ef71adaee76034d3)
+            type_hints = cached_type_hints(_typecheckingstub__1da201141928cd17a5dfa2d08e87045b296530c05640d211ef71adaee76034d3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAnomalyMonitorProps(
@@ -153,18 +144,18 @@ class CfnAnomalyMonitor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6b3a6d7c4ec886a5deb8cd8a9c3e3749ec924487a30eaa40934422f251b90b4)
+            type_hints = cached_type_hints(_typecheckingstub__b6b3a6d7c4ec886a5deb8cd8a9c3e3749ec924487a30eaa40934422f251b90b4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAnomalyMonitor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6921f8abc6dadac739e2b96af2776140990a7019006bfdd7eb73d790e771a751)
+            type_hints = cached_type_hints(_typecheckingstub__6921f8abc6dadac739e2b96af2776140990a7019006bfdd7eb73d790e771a751)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -177,7 +168,7 @@ class CfnAnomalyMonitor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c18e7a7bff8e46a4e848ee3e3e50aab723d5eea60fb1bcfe13cb9258fc9b62b4)
+            type_hints = cached_type_hints(_typecheckingstub__c18e7a7bff8e46a4e848ee3e3e50aab723d5eea60fb1bcfe13cb9258fc9b62b4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -189,9 +180,9 @@ class CfnAnomalyMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="anomalyMonitorRef")
-    def anomaly_monitor_ref(self) -> "_AnomalyMonitorReference_06d4852f":
+    def anomaly_monitor_ref(self) -> "_aws_ce_5cd11ded.AnomalyMonitorReference":
         '''A reference to a AnomalyMonitor resource.'''
-        return typing.cast("_AnomalyMonitorReference_06d4852f", jsii.get(self, "anomalyMonitorRef"))
+        return typing.cast("_aws_ce_5cd11ded.AnomalyMonitorReference", jsii.get(self, "anomalyMonitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreationDate")
@@ -240,9 +231,9 @@ class CfnAnomalyMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -263,7 +254,7 @@ class CfnAnomalyMonitor(
     @monitor_name.setter
     def monitor_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfeecbe9441840f2127a89ea3c6dcac344dda1d52a4499f3590067d9fff9ddb7)
+            type_hints = cached_type_hints(_typecheckingstub__cfeecbe9441840f2127a89ea3c6dcac344dda1d52a4499f3590067d9fff9ddb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "monitorName", value) # pyright: ignore[reportArgumentType]
 
@@ -276,7 +267,7 @@ class CfnAnomalyMonitor(
     @monitor_type.setter
     def monitor_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e5bea89fd492e9706efb91eaa83153a8dbfa7897ada18db8817750d506e8b35)
+            type_hints = cached_type_hints(_typecheckingstub__9e5bea89fd492e9706efb91eaa83153a8dbfa7897ada18db8817750d506e8b35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "monitorType", value) # pyright: ignore[reportArgumentType]
 
@@ -289,7 +280,7 @@ class CfnAnomalyMonitor(
     @monitor_dimension.setter
     def monitor_dimension(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__081fb13a76df355e897fe83b300dc3c3b7b314dd67c85a0848b5ad8edf04af7b)
+            type_hints = cached_type_hints(_typecheckingstub__081fb13a76df355e897fe83b300dc3c3b7b314dd67c85a0848b5ad8edf04af7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "monitorDimension", value) # pyright: ignore[reportArgumentType]
 
@@ -302,7 +293,7 @@ class CfnAnomalyMonitor(
     @monitor_specification.setter
     def monitor_specification(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__defe54ffa1f8d0ba42e79c23d33cf33a974c7edb52b847d17428227cd77608f8)
+            type_hints = cached_type_hints(_typecheckingstub__defe54ffa1f8d0ba42e79c23d33cf33a974c7edb52b847d17428227cd77608f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "monitorSpecification", value) # pyright: ignore[reportArgumentType]
 
@@ -320,7 +311,7 @@ class CfnAnomalyMonitor(
         value: typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba083795f73cd6c7f4640bfcb9887f75331ec7dd734bce22e3485bbd80c7ad10)
+            type_hints = cached_type_hints(_typecheckingstub__ba083795f73cd6c7f4640bfcb9887f75331ec7dd734bce22e3485bbd80c7ad10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -355,7 +346,7 @@ class CfnAnomalyMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc18b973c71e81e255e27dad2836a92430d74f82a098cca99c00f6f0961ac825)
+                type_hints = cached_type_hints(_typecheckingstub__cc18b973c71e81e255e27dad2836a92430d74f82a098cca99c00f6f0961ac825)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -447,7 +438,7 @@ class CfnAnomalyMonitorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85)
+            type_hints = cached_type_hints(_typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85)
             check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
             check_type(argname="argument monitor_type", value=monitor_type, expected_type=type_hints["monitor_type"])
             check_type(argname="argument monitor_dimension", value=monitor_dimension, expected_type=type_hints["monitor_dimension"])
@@ -535,9 +526,9 @@ class CfnAnomalyMonitorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAnomalySubscriptionRef_41c9c6a5, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ce_5cd11ded.IAnomalySubscriptionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAnomalySubscription(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ce.CfnAnomalySubscription",
 ):
@@ -587,8 +578,8 @@ class CfnAnomalySubscription(
         id: builtins.str,
         *,
         frequency: builtins.str,
-        monitor_arn_list: typing.Sequence[typing.Union[builtins.str, "_IAnomalyMonitorRef_5865dcc9"]],
-        subscribers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        monitor_arn_list: typing.Sequence[typing.Union[builtins.str, "_aws_ce_5cd11ded.IAnomalyMonitorRef"]],
+        subscribers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         subscription_name: builtins.str,
         resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalySubscription.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
@@ -607,7 +598,7 @@ class CfnAnomalySubscription(
         :param threshold_expression: An `Expression <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Expression.html>`_ object in JSON string format used to specify the anomalies that you want to generate alerts for. This supports dimensions and nested expressions. The supported dimensions are ``ANOMALY_TOTAL_IMPACT_ABSOLUTE`` and ``ANOMALY_TOTAL_IMPACT_PERCENTAGE`` , corresponding to an anomaly’s TotalImpact and TotalImpactPercentage, respectively (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details). The supported nested expression types are ``AND`` and ``OR`` . The match option ``GREATER_THAN_OR_EQUAL`` is required. Values must be numbers between 0 and 10,000,000,000 in string format. One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#aws-resource-ce-anomalysubscription--examples>`_ section of this page.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a7fbd046e3b9f6f7efea32f7eb528d813f3ccf81de7e59ec417de1ea0ca07d6)
+            type_hints = cached_type_hints(_typecheckingstub__0a7fbd046e3b9f6f7efea32f7eb528d813f3ccf81de7e59ec417de1ea0ca07d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAnomalySubscriptionProps(
@@ -630,18 +621,18 @@ class CfnAnomalySubscription(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da1efa7f83d16370aa73dd1c0f5d7ca9eb02a5affdf2910e6cee1a4126f63b63)
+            type_hints = cached_type_hints(_typecheckingstub__da1efa7f83d16370aa73dd1c0f5d7ca9eb02a5affdf2910e6cee1a4126f63b63)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAnomalySubscription", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c54286f48d192b89d3c5e9f4bece98af6cb4bd7105c8a82d31e76abe30545c0)
+            type_hints = cached_type_hints(_typecheckingstub__7c54286f48d192b89d3c5e9f4bece98af6cb4bd7105c8a82d31e76abe30545c0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -654,7 +645,7 @@ class CfnAnomalySubscription(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3c2f4d61d0c155803b7895cff82b1eedd3dc1f5e6fcec96cf441bd563253a86)
+            type_hints = cached_type_hints(_typecheckingstub__d3c2f4d61d0c155803b7895cff82b1eedd3dc1f5e6fcec96cf441bd563253a86)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -666,9 +657,11 @@ class CfnAnomalySubscription(
 
     @builtins.property
     @jsii.member(jsii_name="anomalySubscriptionRef")
-    def anomaly_subscription_ref(self) -> "_AnomalySubscriptionReference_2f0aee6f":
+    def anomaly_subscription_ref(
+        self,
+    ) -> "_aws_ce_5cd11ded.AnomalySubscriptionReference":
         '''A reference to a AnomalySubscription resource.'''
-        return typing.cast("_AnomalySubscriptionReference_2f0aee6f", jsii.get(self, "anomalySubscriptionRef"))
+        return typing.cast("_aws_ce_5cd11ded.AnomalySubscriptionReference", jsii.get(self, "anomalySubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
@@ -690,9 +683,9 @@ class CfnAnomalySubscription(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -713,7 +706,7 @@ class CfnAnomalySubscription(
     @frequency.setter
     def frequency(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f65afcf3186751c82f39cbede0dcab6ddc80f7d9c0b422c5b129658eaab61559)
+            type_hints = cached_type_hints(_typecheckingstub__f65afcf3186751c82f39cbede0dcab6ddc80f7d9c0b422c5b129658eaab61559)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "frequency", value) # pyright: ignore[reportArgumentType]
 
@@ -726,7 +719,7 @@ class CfnAnomalySubscription(
     @monitor_arn_list.setter
     def monitor_arn_list(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f4d8eb48da6a9844668f539149825f89478d1e3e3ed4e1afcd927a288c88922)
+            type_hints = cached_type_hints(_typecheckingstub__0f4d8eb48da6a9844668f539149825f89478d1e3e3ed4e1afcd927a288c88922)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "monitorArnList", value) # pyright: ignore[reportArgumentType]
 
@@ -734,17 +727,17 @@ class CfnAnomalySubscription(
     @jsii.member(jsii_name="subscribers")
     def subscribers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalySubscription.SubscriberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalySubscription.SubscriberProperty"]]]:
         '''A list of subscribers to notify.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalySubscription.SubscriberProperty"]]], jsii.get(self, "subscribers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalySubscription.SubscriberProperty"]]], jsii.get(self, "subscribers"))
 
     @subscribers.setter
     def subscribers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalySubscription.SubscriberProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalySubscription.SubscriberProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5656753df5f64fe42e45494608ada7acc3f3ea8f09a108fc5083bce855ae7242)
+            type_hints = cached_type_hints(_typecheckingstub__5656753df5f64fe42e45494608ada7acc3f3ea8f09a108fc5083bce855ae7242)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
 
@@ -757,7 +750,7 @@ class CfnAnomalySubscription(
     @subscription_name.setter
     def subscription_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f1c77a5656251a1b2332edd8152e7fb9ac370a8031e07485ff8e8b8927e8804)
+            type_hints = cached_type_hints(_typecheckingstub__3f1c77a5656251a1b2332edd8152e7fb9ac370a8031e07485ff8e8b8927e8804)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
 
@@ -775,7 +768,7 @@ class CfnAnomalySubscription(
         value: typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96793ef54afc05012d539871c866a4c4cbe5b328c47be446ea5408e64a1f523a)
+            type_hints = cached_type_hints(_typecheckingstub__96793ef54afc05012d539871c866a4c4cbe5b328c47be446ea5408e64a1f523a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -788,7 +781,7 @@ class CfnAnomalySubscription(
     @threshold.setter
     def threshold(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ca78f072bfc658750298a3034ad4215f682bc5042b1decb8a002cf443b518e)
+            type_hints = cached_type_hints(_typecheckingstub__d2ca78f072bfc658750298a3034ad4215f682bc5042b1decb8a002cf443b518e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
 
@@ -801,7 +794,7 @@ class CfnAnomalySubscription(
     @threshold_expression.setter
     def threshold_expression(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7af5c240cdcab7ad56cf11aac1adeb1e136f2fd4b10b281e21e29b1ef870583)
+            type_hints = cached_type_hints(_typecheckingstub__b7af5c240cdcab7ad56cf11aac1adeb1e136f2fd4b10b281e21e29b1ef870583)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thresholdExpression", value) # pyright: ignore[reportArgumentType]
 
@@ -836,7 +829,7 @@ class CfnAnomalySubscription(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35c1680ae1c4709516aa75a05e96a554da511c81b2ef5c9752e0d8801e4ad445)
+                type_hints = cached_type_hints(_typecheckingstub__35c1680ae1c4709516aa75a05e96a554da511c81b2ef5c9752e0d8801e4ad445)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -912,7 +905,7 @@ class CfnAnomalySubscription(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94192f14eef4d01fe40ae59ec5600ceee6ddb3486c0056d9f68639a5574d726f)
+                type_hints = cached_type_hints(_typecheckingstub__94192f14eef4d01fe40ae59ec5600ceee6ddb3486c0056d9f68639a5574d726f)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -982,8 +975,8 @@ class CfnAnomalySubscriptionProps:
         self,
         *,
         frequency: builtins.str,
-        monitor_arn_list: typing.Sequence[typing.Union[builtins.str, "_IAnomalyMonitorRef_5865dcc9"]],
-        subscribers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        monitor_arn_list: typing.Sequence[typing.Union[builtins.str, "_aws_ce_5cd11ded.IAnomalyMonitorRef"]],
+        subscribers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         subscription_name: builtins.str,
         resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalySubscription.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
@@ -1030,7 +1023,7 @@ class CfnAnomalySubscriptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c)
+            type_hints = cached_type_hints(_typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c)
             check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
             check_type(argname="argument monitor_arn_list", value=monitor_arn_list, expected_type=type_hints["monitor_arn_list"])
             check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
@@ -1066,26 +1059,26 @@ class CfnAnomalySubscriptionProps:
     @builtins.property
     def monitor_arn_list(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_IAnomalyMonitorRef_5865dcc9"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ce_5cd11ded.IAnomalyMonitorRef"]]:
         '''A list of cost anomaly monitors.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-monitorarnlist
         '''
         result = self._values.get("monitor_arn_list")
         assert result is not None, "Required property 'monitor_arn_list' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_IAnomalyMonitorRef_5865dcc9"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ce_5cd11ded.IAnomalyMonitorRef"]], result)
 
     @builtins.property
     def subscribers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalySubscription.SubscriberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalySubscription.SubscriberProperty"]]]:
         '''A list of subscribers to notify.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-subscribers
         '''
         result = self._values.get("subscribers")
         assert result is not None, "Required property 'subscribers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalySubscription.SubscriberProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalySubscription.SubscriberProperty"]]], result)
 
     @builtins.property
     def subscription_name(self) -> builtins.str:
@@ -1148,9 +1141,9 @@ class CfnAnomalySubscriptionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICostCategoryRef_65c8e6b4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ce_5cd11ded.ICostCategoryRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCostCategory(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ce.CfnCostCategory",
 ):
@@ -1207,7 +1200,7 @@ class CfnCostCategory(
         :param tags: Tags to assign to the cost category.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d86a2b59e53c629c2de8bd291387500a9799712ca28f9459ef98f5dd619ad1a)
+            type_hints = cached_type_hints(_typecheckingstub__0d86a2b59e53c629c2de8bd291387500a9799712ca28f9459ef98f5dd619ad1a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCostCategoryProps(
@@ -1225,13 +1218,13 @@ class CfnCostCategory(
     @builtins.classmethod
     def arn_for_cost_category(
         cls,
-        resource: "_ICostCategoryRef_65c8e6b4",
+        resource: "_aws_ce_5cd11ded.ICostCategoryRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30de2325a48578df08a56854195b68d4e79d2e1eb2d3d4efa49d73fb657ebd12)
+            type_hints = cached_type_hints(_typecheckingstub__30de2325a48578df08a56854195b68d4e79d2e1eb2d3d4efa49d73fb657ebd12)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCostCategory", [resource]))
 
@@ -1243,18 +1236,18 @@ class CfnCostCategory(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2bf94b64cd5a16c51706c3b46966d9ad60f6870c1ac4992c8b378e64ee10928)
+            type_hints = cached_type_hints(_typecheckingstub__c2bf94b64cd5a16c51706c3b46966d9ad60f6870c1ac4992c8b378e64ee10928)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCostCategory", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea083274a2ae3f772a3f5c49320005c446ad623aa9e43da318adf0f2887f40a3)
+            type_hints = cached_type_hints(_typecheckingstub__ea083274a2ae3f772a3f5c49320005c446ad623aa9e43da318adf0f2887f40a3)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1267,7 +1260,7 @@ class CfnCostCategory(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f5803e9496c40234ca2172a547ee068f22f7fe2519c03d75cf8be6d7d5276ed)
+            type_hints = cached_type_hints(_typecheckingstub__3f5803e9496c40234ca2172a547ee068f22f7fe2519c03d75cf8be6d7d5276ed)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1297,9 +1290,9 @@ class CfnCostCategory(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1313,9 +1306,9 @@ class CfnCostCategory(
 
     @builtins.property
     @jsii.member(jsii_name="costCategoryRef")
-    def cost_category_ref(self) -> "_CostCategoryReference_4e0a3418":
+    def cost_category_ref(self) -> "_aws_ce_5cd11ded.CostCategoryReference":
         '''A reference to a CostCategory resource.'''
-        return typing.cast("_CostCategoryReference_4e0a3418", jsii.get(self, "costCategoryRef"))
+        return typing.cast("_aws_ce_5cd11ded.CostCategoryReference", jsii.get(self, "costCategoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1326,7 +1319,7 @@ class CfnCostCategory(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c70a6a6b30c7629cbf9648d7cb87767c0abcdca421a37e18c362abd473958d6)
+            type_hints = cached_type_hints(_typecheckingstub__1c70a6a6b30c7629cbf9648d7cb87767c0abcdca421a37e18c362abd473958d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1339,7 +1332,7 @@ class CfnCostCategory(
     @rules.setter
     def rules(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9949839e9bb2a9a8c66eb12f61f2ab9292a938d8843dde18183b57639dde8109)
+            type_hints = cached_type_hints(_typecheckingstub__9949839e9bb2a9a8c66eb12f61f2ab9292a938d8843dde18183b57639dde8109)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
 
@@ -1352,7 +1345,7 @@ class CfnCostCategory(
     @rule_version.setter
     def rule_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__329b7ef9b522a04c5bcb415a88b90570cf2a6fa953de9bc5006b25fb356691ef)
+            type_hints = cached_type_hints(_typecheckingstub__329b7ef9b522a04c5bcb415a88b90570cf2a6fa953de9bc5006b25fb356691ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1365,7 +1358,7 @@ class CfnCostCategory(
     @default_value.setter
     def default_value(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa6f1a5d75da4f48510e6e623a48160929ac48b171d83bf2f8ea5f74c5c47828)
+            type_hints = cached_type_hints(_typecheckingstub__fa6f1a5d75da4f48510e6e623a48160929ac48b171d83bf2f8ea5f74c5c47828)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1378,7 +1371,7 @@ class CfnCostCategory(
     @split_charge_rules.setter
     def split_charge_rules(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae51b4a5cd7f6e8738ed01709064f1d42c9cdd90e02dfe56151acb9345ff50db)
+            type_hints = cached_type_hints(_typecheckingstub__ae51b4a5cd7f6e8738ed01709064f1d42c9cdd90e02dfe56151acb9345ff50db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "splitChargeRules", value) # pyright: ignore[reportArgumentType]
 
@@ -1396,7 +1389,7 @@ class CfnCostCategory(
         value: typing.Optional[typing.List["CfnCostCategory.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__382ee3f151d322b779bace915dc422d549fbc43498f542c3117781ec44cbb469)
+            type_hints = cached_type_hints(_typecheckingstub__382ee3f151d322b779bace915dc422d549fbc43498f542c3117781ec44cbb469)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1431,7 +1424,7 @@ class CfnCostCategory(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8ebb0ce3955d4416c7a704b1a825b845e02eef926e8c0da3592ea7ccecb229d5)
+                type_hints = cached_type_hints(_typecheckingstub__8ebb0ce3955d4416c7a704b1a825b845e02eef926e8c0da3592ea7ccecb229d5)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1527,7 +1520,7 @@ class CfnCostCategoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3)
+            type_hints = cached_type_hints(_typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument rule_version", value=rule_version, expected_type=type_hints["rule_version"])
@@ -1652,7 +1645,7 @@ def _typecheckingstub__b6b3a6d7c4ec886a5deb8cd8a9c3e3749ec924487a30eaa40934422f2
     pass
 
 def _typecheckingstub__6921f8abc6dadac739e2b96af2776140990a7019006bfdd7eb73d790e771a751(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1717,8 +1710,8 @@ def _typecheckingstub__0a7fbd046e3b9f6f7efea32f7eb528d813f3ccf81de7e59ec417de1ea
     id: builtins.str,
     *,
     frequency: builtins.str,
-    monitor_arn_list: typing.Sequence[typing.Union[builtins.str, _IAnomalyMonitorRef_5865dcc9]],
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    monitor_arn_list: typing.Sequence[typing.Union[builtins.str, _aws_ce_5cd11ded.IAnomalyMonitorRef]],
+    subscribers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     subscription_name: builtins.str,
     resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
@@ -1734,7 +1727,7 @@ def _typecheckingstub__da1efa7f83d16370aa73dd1c0f5d7ca9eb02a5affdf2910e6cee1a412
     pass
 
 def _typecheckingstub__7c54286f48d192b89d3c5e9f4bece98af6cb4bd7105c8a82d31e76abe30545c0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1758,7 +1751,7 @@ def _typecheckingstub__0f4d8eb48da6a9844668f539149825f89478d1e3e3ed4e1afcd927a28
     pass
 
 def _typecheckingstub__5656753df5f64fe42e45494608ada7acc3f3ea8f09a108fc5083bce855ae7242(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.SubscriberProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalySubscription.SubscriberProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1807,8 +1800,8 @@ def _typecheckingstub__94192f14eef4d01fe40ae59ec5600ceee6ddb3486c0056d9f68639a55
 def _typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c(
     *,
     frequency: builtins.str,
-    monitor_arn_list: typing.Sequence[typing.Union[builtins.str, _IAnomalyMonitorRef_5865dcc9]],
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    monitor_arn_list: typing.Sequence[typing.Union[builtins.str, _aws_ce_5cd11ded.IAnomalyMonitorRef]],
+    subscribers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     subscription_name: builtins.str,
     resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
@@ -1832,7 +1825,7 @@ def _typecheckingstub__0d86a2b59e53c629c2de8bd291387500a9799712ca28f9459ef98f5dd
     pass
 
 def _typecheckingstub__30de2325a48578df08a56854195b68d4e79d2e1eb2d3d4efa49d73fb657ebd12(
-    resource: _ICostCategoryRef_65c8e6b4,
+    resource: _aws_ce_5cd11ded.ICostCategoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1844,7 +1837,7 @@ def _typecheckingstub__c2bf94b64cd5a16c51706c3b46966d9ad60f6870c1ac4992c8b378e64
     pass
 
 def _typecheckingstub__ea083274a2ae3f772a3f5c49320005c446ad623aa9e43da318adf0f2887f40a3(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

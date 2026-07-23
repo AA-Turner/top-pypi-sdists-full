@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohttp
-Version: 3.14.2
+Version: 3.14.3
 Summary: Async http client/server framework (asyncio)
 Maintainer-email: aiohttp team <team@aiohttp.org>
 License: Apache-2.0 AND MIT

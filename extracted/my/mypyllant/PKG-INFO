@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myPyllant
-Version: 0.9.17
+Version: 0.9.18
 Summary: A Python library to interact with the API behind the myVAILLANT app
 Project-URL: Homepage, https://github.com/signalkraft/myPyllant
 Project-URL: Bug Tracker, https://github.com/signalkraft/myPyllant/issues

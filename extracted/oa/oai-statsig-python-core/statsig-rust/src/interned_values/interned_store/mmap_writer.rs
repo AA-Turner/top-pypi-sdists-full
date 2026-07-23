@@ -30,8 +30,7 @@ use crate::{
 };
 
 use super::{
-    mmap_manifest::write_mmap_manifest, take_mutable_data, MmapDataV1, MutableData, IMMORTAL_DATA,
-    TAG,
+    mmap_manifest::write_mmap_manifest, take_mutable_data, MutableData, IMMORTAL_DATA, TAG,
 };
 #[cfg(test)]
 use super::{try_parse_as_json, try_parse_as_proto};
@@ -42,46 +41,9 @@ lazy_static! {
     static ref MMAP_WRITE_LOCK: Mutex<()> = Mutex::new(());
 }
 
-#[allow(dead_code)]
-pub(super) fn write_mmap_specs(
-    specs_responses: Vec<SpecsResponseFull>,
-    path: &Path,
-) -> Result<(), StatsigErr> {
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent).map_err(|error| StatsigErr::FileError(error.to_string()))?;
-    }
-
-    let mmap_data = mutable_to_mmap_data(specs_responses);
-    publish_mmap_data(mmap_data, path, |data, file| {
-        serialize_mmap_data(data, file)
-    })
-}
-
-fn publish_mmap_data(
-    mmap_data: MmapDataV1,
-    path: &Path,
-    serialize: impl FnOnce(&MmapDataV1, &mut File) -> Result<usize, StatsigErr>,
-) -> Result<(), StatsigErr> {
-    let mut file = new_mmap_temp_file(path)?;
-    let archived_len = serialize(&mmap_data, file.as_file_mut())?;
-    drop(mmap_data);
-    sync_mmap_temp_file(&file)?;
-    persist_mmap_temp_file(file, path)?;
-
-    log_d!(
-        TAG,
-        "Wrote {} bytes to mmap file {}",
-        archived_len,
-        path.display()
-    );
-
-    Ok(())
-}
-
 pub(super) fn write_mmap_artifacts(
     response_data: &mut ResponseData,
     previous: Option<&MmapSyncCursor>,
-    v1_path: &Path,
     v2_path: &Path,
     manifest_path: &Path,
 ) -> Result<MmapWriteOutcome, StatsigErr> {
@@ -93,37 +55,11 @@ pub(super) fn write_mmap_artifacts(
     };
 
     let mmap_v2 = mutable_to_mmap_data_v2(vec![specs])?;
+    let (v2_file, v2_bytes_written) = publish_mmap_v2_data(mmap_v2, v2_path, |data, file| {
+        serialize_mmap_v2_data(data, file)
+    })?;
+    write_mmap_manifest(manifest_path, None, &v2_file)?;
 
-    let mut v2_file = new_mmap_temp_file(v2_path)?;
-    let v2_bytes_written = serialize_mmap_v2_data(&mmap_v2, v2_file.as_file_mut())?;
-    sync_mmap_temp_file(&v2_file)?;
-
-    let MmapDataV2 {
-        strings,
-        returnables,
-        ..
-    } = mmap_v2;
-    let mmap_v1 = MmapDataV1 {
-        format_version: MmapDataV1::FORMAT_VERSION,
-        strings,
-        returnables,
-    };
-    let mut v1_file = new_mmap_temp_file(v1_path)?;
-    let v1_bytes_written = serialize_mmap_data(&mmap_v1, v1_file.as_file_mut())?;
-    drop(mmap_v1);
-    sync_mmap_temp_file(&v1_file)?;
-
-    let v1_file = persist_mmap_temp_file(v1_file, v1_path)?;
-    let v2_file = persist_mmap_temp_file(v2_file, v2_path)?;
-    // The manifest commits the pair. Missing or mismatched manifests make
-    // readers fall back to V1, including after a V1-only rollback.
-    write_mmap_manifest(manifest_path, Some(&v1_file), &v2_file)?;
-
-    log_d!(
-        TAG,
-        "Wrote {v1_bytes_written} bytes to {}",
-        v1_path.display()
-    );
     log_d!(
         TAG,
         "Wrote {v2_bytes_written} bytes to {}",
@@ -139,11 +75,9 @@ fn write_mmap_v2_specs(
     path: &Path,
 ) -> Result<(), StatsigErr> {
     let mmap_data = mutable_to_mmap_data_v2(specs_responses)?;
-    let mut file = new_mmap_temp_file(path)?;
-    let bytes_written = serialize_mmap_v2_data(&mmap_data, file.as_file_mut())?;
-    drop(mmap_data);
-    sync_mmap_temp_file(&file)?;
-    persist_mmap_temp_file(file, path)?;
+    let (_, bytes_written) = publish_mmap_v2_data(mmap_data, path, |data, file| {
+        serialize_mmap_v2_data(data, file)
+    })?;
 
     log_d!(
         TAG,
@@ -153,6 +87,19 @@ fn write_mmap_v2_specs(
     );
 
     Ok(())
+}
+
+fn publish_mmap_v2_data(
+    mmap_data: MmapDataV2,
+    path: &Path,
+    serialize: impl FnOnce(&MmapDataV2, &mut File) -> Result<usize, StatsigErr>,
+) -> Result<(File, usize), StatsigErr> {
+    let mut file = new_mmap_temp_file(path)?;
+    let bytes_written = serialize(&mmap_data, file.as_file_mut())?;
+    drop(mmap_data);
+    sync_mmap_temp_file(&file)?;
+    let file = persist_mmap_temp_file(file, path)?;
+    Ok((file, bytes_written))
 }
 
 fn new_mmap_temp_file(path: &Path) -> Result<tempfile::NamedTempFile, StatsigErr> {
@@ -211,41 +158,6 @@ pub(crate) fn acquire_mmap_write_lock_for_test(path: &Path) -> Result<File, Stat
 pub(crate) fn write_mmap_v2_for_test(data: &[u8], path: &Path) -> Result<(), StatsigErr> {
     let specs = try_parse_as_json(data).or_else(|_| try_parse_as_proto(data))?;
     write_mmap_v2_specs(vec![specs], path)
-}
-
-fn serialize_mmap_data<W: Write>(mmap_data: &MmapDataV1, output: W) -> Result<usize, StatsigErr> {
-    let buffered = BufWriter::with_capacity(MMAP_WRITE_BUFFER_CAPACITY, output);
-    let mut recording = ErrorRecordingWriter::new(buffered);
-    let mut arena = Arena::new();
-
-    let (archive_result, archived_len) = {
-        let mut writer = IoWriter::new(&mut recording);
-        let archive_result = rkyv::api::high::to_bytes_in_with_alloc::<_, _, rkyv::rancor::Error>(
-            mmap_data,
-            &mut writer,
-            arena.acquire(),
-        )
-        .map(|_| ());
-        let archived_len = writer.pos();
-        (archive_result, archived_len)
-    };
-
-    if let Err(error) = archive_result {
-        let mapped = match recording.take_error() {
-            Some(io_error) => StatsigErr::FileError(io_error.to_string()),
-            None => StatsigErr::SerializationError(error.to_string()),
-        };
-        drop(recording);
-        drop(arena);
-        return Err(mapped);
-    }
-
-    recording
-        .flush()
-        .map_err(|error| StatsigErr::FileError(error.to_string()))?;
-    drop(recording);
-    drop(arena);
-    Ok(archived_len)
 }
 
 fn serialize_mmap_v2_data<W: Write>(
@@ -336,34 +248,6 @@ impl<W: Write> Write for ErrorRecordingWriter<W> {
                 Err(error)
             }
         }
-    }
-}
-
-#[allow(dead_code)]
-fn mutable_to_mmap_data(specs_responses: Vec<SpecsResponseFull>) -> MmapDataV1 {
-    detached_mutable_to_mmap_data(take_mutable_data(), specs_responses)
-}
-
-fn detached_mutable_to_mmap_data(
-    mutable_data: MutableData,
-    specs_responses: Vec<SpecsResponseFull>,
-) -> MmapDataV1 {
-    let MutableData {
-        strings,
-        returnables,
-        evaluator_values,
-    } = mutable_data;
-
-    // Specs and evaluator values can retain interned strings and returnables.
-    // Drop them only after detaching MUTABLE_DATA so their destructors cannot
-    // remove entries that still need to be archived.
-    drop(specs_responses);
-    drop(evaluator_values);
-
-    MmapDataV1 {
-        format_version: MmapDataV1::FORMAT_VERSION,
-        strings,
-        returnables,
     }
 }
 
@@ -549,7 +433,6 @@ fn insert_mmap_specs(source: SpecsHashMap, destination: &mut HashMap<u64, MmapSp
 #[cfg(test)]
 mod tests {
     use memmap2::Mmap;
-    use rkyv::{Archive, Serialize as RkyvSerialize};
 
     use crate::evaluation::{
         evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
@@ -557,33 +440,6 @@ mod tests {
     };
 
     use super::*;
-
-    // Freeze the exact source shape used before the Arc-backed archive input.
-    // This models the previous V1 reader and must not be refactored alongside
-    // MmapDataV1: new writer bytes have to remain readable through this type.
-    #[derive(Archive, RkyvSerialize)]
-    #[rkyv(archived = PreviousArchivedMmapDataV1)]
-    struct PreviousOwnedMmapDataV1 {
-        format_version: u32,
-        strings: HashMap<u64, String>,
-        returnables: HashMap<u64, HashMap<String, RkyvValue>>,
-    }
-
-    impl PreviousArchivedMmapDataV1 {
-        fn format_version(&self) -> u32 {
-            self.format_version.to_native()
-        }
-
-        fn string(&self, hash: u64) -> Option<&str> {
-            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-            self.strings.get(&archived_hash).map(|value| value.as_str())
-        }
-
-        fn returnable(&self, hash: u64, key: &str) -> Option<&ArchivedRkyvValue> {
-            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-            self.returnables.get(&archived_hash)?.get(key)
-        }
-    }
 
     struct FailAfterWriter<W> {
         inner: W,
@@ -645,52 +501,13 @@ mod tests {
         }
     }
 
-    fn arc_backed_v1_source() -> MmapDataV1 {
+    fn arc_backed_v2_source() -> MmapDataV2 {
         let returnable = HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]);
-        MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: vec![(7, Arc::new("v1-string".to_string()))],
+        MmapDataV2 {
+            strings: vec![(7, Arc::new("v2-string".to_string()))],
             returnables: vec![(11, Arc::new(returnable))],
+            ..MmapDataV2::default()
         }
-    }
-
-    fn previous_owned_v1_source() -> PreviousOwnedMmapDataV1 {
-        PreviousOwnedMmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: HashMap::from([(7, "v1-string".to_string())]),
-            returnables: HashMap::from([(
-                11,
-                HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]),
-            )]),
-        }
-    }
-
-    #[test]
-    fn previous_owned_v1_reader_reads_arc_backed_writer_bytes() {
-        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&arc_backed_v1_source()).unwrap();
-        let previous =
-            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
-
-        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(previous.string(7), Some("v1-string"));
-        assert!(matches!(
-            previous.returnable(11, "enabled"),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
-    }
-
-    #[test]
-    fn current_v1_reader_reads_previous_owned_writer_bytes() {
-        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&previous_owned_v1_source()).unwrap();
-        let current =
-            rkyv::access::<super::super::ArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
-
-        assert_eq!(current.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(current.string_for_test(7), Some("v1-string"));
-        assert!(matches!(
-            current.returnable_for_test(11, "enabled"),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
     }
 
     #[test]
@@ -708,7 +525,7 @@ mod tests {
             evaluator_values: Vec::new(),
         };
 
-        let mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+        let mmap_data = detached_mutable_to_mmap_data_v2(mutable_data, Vec::new()).unwrap();
 
         assert!(Arc::ptr_eq(
             &mmap_data
@@ -740,30 +557,45 @@ mod tests {
             evaluator_values: vec![(13, evaluator)],
         };
 
-        let _mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+        let _mmap_data = detached_mutable_to_mmap_data_v2(mutable_data, Vec::new()).unwrap();
 
         assert!(evaluator_weak.upgrade().is_none());
     }
 
     #[test]
-    fn previous_v1_reader_reads_streamed_arc_backed_archive() {
+    fn v2_archive_is_streamed_to_file() {
         let mut file = tempfile::NamedTempFile::new().unwrap();
 
         let archived_len =
-            serialize_mmap_data(&arc_backed_v1_source(), file.as_file_mut()).unwrap();
+            serialize_mmap_v2_data(&arc_backed_v2_source(), file.as_file_mut()).unwrap();
 
         assert_eq!(
             archived_len,
             file.as_file().metadata().unwrap().len() as usize
         );
         let mmap = unsafe { Mmap::map(file.as_file()).unwrap() };
-        let previous =
-            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&mmap).unwrap();
+        let archived = rkyv::access::<
+            crate::interned_values::mmap_data_v2::ArchivedMmapDataV2,
+            rkyv::rancor::Error,
+        >(&mmap)
+        .unwrap();
 
-        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(previous.string(7), Some("v1-string"));
+        assert_eq!(
+            archived.format_version.to_native(),
+            MmapDataV2::FORMAT_VERSION
+        );
+        assert_eq!(
+            archived
+                .strings
+                .get(&rkyv::primitive::ArchivedU64::from_native(7))
+                .map(|value| value.as_str()),
+            Some("v2-string")
+        );
         assert!(matches!(
-            previous.returnable(11, "enabled"),
+            archived
+                .returnables
+                .get(&rkyv::primitive::ArchivedU64::from_native(11))
+                .and_then(|returnable| returnable.get("enabled")),
             Some(ArchivedRkyvValue::Bool(true))
         ));
     }
@@ -773,14 +605,13 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("published.mmap");
         std::fs::write(&path, b"previous artifact").unwrap();
-        let mmap_data = MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
+        let mmap_data = MmapDataV2 {
             strings: vec![(1, Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)))],
-            returnables: Vec::new(),
+            ..MmapDataV2::default()
         };
 
-        let result = publish_mmap_data(mmap_data, &path, |data, file| {
-            serialize_mmap_data(data, FailAfterWriter::new(file, 4096))
+        let result = publish_mmap_v2_data(mmap_data, &path, |data, file| {
+            serialize_mmap_v2_data(data, FailAfterWriter::new(file, 4096))
         });
 
         assert!(matches!(
@@ -798,8 +629,8 @@ mod tests {
         let path = directory.path().join("published.mmap");
         std::fs::write(&path, b"previous artifact").unwrap();
 
-        let result = publish_mmap_data(MmapDataV1::default(), &path, |data, file| {
-            serialize_mmap_data(data, FailOnFlushWriter::new(file))
+        let result = publish_mmap_v2_data(MmapDataV2::default(), &path, |data, file| {
+            serialize_mmap_v2_data(data, FailOnFlushWriter::new(file))
         });
 
         assert!(matches!(
@@ -813,13 +644,12 @@ mod tests {
 
     #[test]
     fn write_zero_during_serialization_is_a_file_error() {
-        let mmap_data = MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
+        let mmap_data = MmapDataV2 {
             strings: vec![(1, Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)))],
-            returnables: Vec::new(),
+            ..MmapDataV2::default()
         };
 
-        let result = serialize_mmap_data(&mmap_data, WriteZeroWriter);
+        let result = serialize_mmap_v2_data(&mmap_data, WriteZeroWriter);
 
         assert!(matches!(result, Err(StatsigErr::FileError(_))));
     }

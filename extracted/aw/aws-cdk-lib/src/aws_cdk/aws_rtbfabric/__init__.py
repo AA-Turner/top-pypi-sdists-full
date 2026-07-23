@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,59 +50,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-    IVPCRef as _IVPCRef_f02a11df,
-)
-from ..interfaces.aws_rtbfabric import (
-    IInboundExternalLinkRef as _IInboundExternalLinkRef_087c1bc6,
-    ILinkRef as _ILinkRef_1c71e733,
-    ILinkRoutingRuleRef as _ILinkRoutingRuleRef_1a99f018,
-    IOutboundExternalLinkRef as _IOutboundExternalLinkRef_06bb6289,
-    IRequesterGatewayRef as _IRequesterGatewayRef_d92bcdf1,
-    IResponderGatewayRef as _IResponderGatewayRef_2bdaa070,
-    InboundExternalLinkReference as _InboundExternalLinkReference_89bab665,
-    LinkReference as _LinkReference_a62a8bc7,
-    LinkRoutingRuleReference as _LinkRoutingRuleReference_b021a204,
-    OutboundExternalLinkReference as _OutboundExternalLinkReference_b1d46069,
-    RequesterGatewayReference as _RequesterGatewayReference_37e2965b,
-    ResponderGatewayReference as _ResponderGatewayReference_a8195bef,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_rtbfabric as _aws_rtbfabric_0d6b6007
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_rtbfabric_0d6b6007 = _LazyImport("aws_cdk.interfaces.aws_rtbfabric")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IInboundExternalLinkRef_087c1bc6, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.IInboundExternalLinkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnInboundExternalLink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnInboundExternalLink",
 ):
@@ -153,9 +134,9 @@ class CfnInboundExternalLink(
         id: builtins.str,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::InboundExternalLink``.
 
@@ -167,7 +148,7 @@ class CfnInboundExternalLink(
         :param tags: Tags to assign to the Link.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a5afae55006ef90edfe40aa8e5117e329b49d245830f9f3781bf45c5ee1d498)
+            type_hints = cached_type_hints(_typecheckingstub__1a5afae55006ef90edfe40aa8e5117e329b49d245830f9f3781bf45c5ee1d498)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInboundExternalLinkProps(
@@ -183,13 +164,13 @@ class CfnInboundExternalLink(
     @builtins.classmethod
     def arn_for_inbound_external_link(
         cls,
-        resource: "_IInboundExternalLinkRef_087c1bc6",
+        resource: "_aws_rtbfabric_0d6b6007.IInboundExternalLinkRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e45579c24ba39e7cbd88d8a1dcb187104127b5c4c031b298b39214f40fb1a36e)
+            type_hints = cached_type_hints(_typecheckingstub__e45579c24ba39e7cbd88d8a1dcb187104127b5c4c031b298b39214f40fb1a36e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInboundExternalLink", [resource]))
 
@@ -201,18 +182,18 @@ class CfnInboundExternalLink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1943b47f9f91218da538fb23adeca699c3f23ed379e5dc88cefa0f1b8902d146)
+            type_hints = cached_type_hints(_typecheckingstub__1943b47f9f91218da538fb23adeca699c3f23ed379e5dc88cefa0f1b8902d146)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInboundExternalLink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10a4ab8875cef05923631df17dd17458d37380c77a9c313974f23f57ebce0981)
+            type_hints = cached_type_hints(_typecheckingstub__10a4ab8875cef05923631df17dd17458d37380c77a9c313974f23f57ebce0981)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -225,7 +206,7 @@ class CfnInboundExternalLink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f050a879dccb667647d261549cd380d2361df83488e749feb3fb74cb71c0d0f)
+            type_hints = cached_type_hints(_typecheckingstub__7f050a879dccb667647d261549cd380d2361df83488e749feb3fb74cb71c0d0f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -285,9 +266,9 @@ class CfnInboundExternalLink(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -301,9 +282,11 @@ class CfnInboundExternalLink(
 
     @builtins.property
     @jsii.member(jsii_name="inboundExternalLinkRef")
-    def inbound_external_link_ref(self) -> "_InboundExternalLinkReference_89bab665":
+    def inbound_external_link_ref(
+        self,
+    ) -> "_aws_rtbfabric_0d6b6007.InboundExternalLinkReference":
         '''A reference to a InboundExternalLink resource.'''
-        return typing.cast("_InboundExternalLinkReference_89bab665", jsii.get(self, "inboundExternalLinkRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.InboundExternalLinkReference", jsii.get(self, "inboundExternalLinkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="gatewayId")
@@ -313,7 +296,7 @@ class CfnInboundExternalLink(
     @gateway_id.setter
     def gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb7adaf4ee57468585d346f35e67e07997a1e20abf84b582fc810dff92d7e2c3)
+            type_hints = cached_type_hints(_typecheckingstub__bb7adaf4ee57468585d346f35e67e07997a1e20abf84b582fc810dff92d7e2c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -321,16 +304,16 @@ class CfnInboundExternalLink(
     @jsii.member(jsii_name="linkLogSettings")
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkLogSettingsProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkLogSettingsProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
 
     @link_log_settings.setter
     def link_log_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkLogSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkLogSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf1ee8508990492f8168ad7b68f62077e25e97d32af167928f013ed58b2c4d15)
+            type_hints = cached_type_hints(_typecheckingstub__cf1ee8508990492f8168ad7b68f62077e25e97d32af167928f013ed58b2c4d15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkLogSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -338,29 +321,32 @@ class CfnInboundExternalLink(
     @jsii.member(jsii_name="linkAttributes")
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkAttributesProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkAttributesProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
 
     @link_attributes.setter
     def link_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5745f3776bc1df4e80af5ddcc1b274597b1aab22d6cd1cf3d3f615d1fba4c3f7)
+            type_hints = cached_type_hints(_typecheckingstub__5745f3776bc1df4e80af5ddcc1b274597b1aab22d6cd1cf3d3f615d1fba4c3f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Link.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13f41f0dd733ffddc6dae564597b6fd8c0c31c02cd444ba959242500384e99aa)
+            type_hints = cached_type_hints(_typecheckingstub__13f41f0dd733ffddc6dae564597b6fd8c0c31c02cd444ba959242500384e99aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -373,7 +359,7 @@ class CfnInboundExternalLink(
         def __init__(
             self,
             *,
-            link_application_log_sampling: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
+            link_application_log_sampling: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param link_application_log_sampling: 
@@ -395,7 +381,7 @@ class CfnInboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9a2c31093a0bae40e89e39fd987b13c3e5cb84ca6d6dc8f166577487829dc8d4)
+                type_hints = cached_type_hints(_typecheckingstub__9a2c31093a0bae40e89e39fd987b13c3e5cb84ca6d6dc8f166577487829dc8d4)
                 check_type(argname="argument link_application_log_sampling", value=link_application_log_sampling, expected_type=type_hints["link_application_log_sampling"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "link_application_log_sampling": link_application_log_sampling,
@@ -404,13 +390,13 @@ class CfnInboundExternalLink(
         @builtins.property
         def link_application_log_sampling(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkApplicationLogSamplingProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkApplicationLogSamplingProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-inboundexternallink-applicationlogs.html#cfn-rtbfabric-inboundexternallink-applicationlogs-linkapplicationlogsampling
             '''
             result = self._values.get("link_application_log_sampling")
             assert result is not None, "Required property 'link_application_log_sampling' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkApplicationLogSamplingProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkApplicationLogSamplingProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -449,7 +435,7 @@ class CfnInboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1140756e9bc43fe93422c9e7b90ea26b4cffbc73394ce1e5eb83064206adf56f)
+                type_hints = cached_type_hints(_typecheckingstub__1140756e9bc43fe93422c9e7b90ea26b4cffbc73394ce1e5eb83064206adf56f)
                 check_type(argname="argument error_log", value=error_log, expected_type=type_hints["error_log"])
                 check_type(argname="argument filter_log", value=filter_log, expected_type=type_hints["filter_log"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -499,7 +485,7 @@ class CfnInboundExternalLink(
             self,
             *,
             customer_provided_id: typing.Optional[builtins.str] = None,
-            responder_error_masking: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            responder_error_masking: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param customer_provided_id: 
@@ -527,7 +513,7 @@ class CfnInboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7f4ea72d051bc93d14ed2cae48b106a31ab27e9978c0bc23487c53cf7fe21dd5)
+                type_hints = cached_type_hints(_typecheckingstub__7f4ea72d051bc93d14ed2cae48b106a31ab27e9978c0bc23487c53cf7fe21dd5)
                 check_type(argname="argument customer_provided_id", value=customer_provided_id, expected_type=type_hints["customer_provided_id"])
                 check_type(argname="argument responder_error_masking", value=responder_error_masking, expected_type=type_hints["responder_error_masking"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -547,12 +533,12 @@ class CfnInboundExternalLink(
         @builtins.property
         def responder_error_masking(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-inboundexternallink-linkattributes.html#cfn-rtbfabric-inboundexternallink-linkattributes-respondererrormasking
             '''
             result = self._values.get("responder_error_masking")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -574,7 +560,7 @@ class CfnInboundExternalLink(
         def __init__(
             self,
             *,
-            application_logs: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
+            application_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param application_logs: 
@@ -598,7 +584,7 @@ class CfnInboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c4b3acd881daca8e2c440e2d628c27b2f1ce93a4b4d05d722b1f810b3bbdeeb3)
+                type_hints = cached_type_hints(_typecheckingstub__c4b3acd881daca8e2c440e2d628c27b2f1ce93a4b4d05d722b1f810b3bbdeeb3)
                 check_type(argname="argument application_logs", value=application_logs, expected_type=type_hints["application_logs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_logs": application_logs,
@@ -607,13 +593,13 @@ class CfnInboundExternalLink(
         @builtins.property
         def application_logs(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.ApplicationLogsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.ApplicationLogsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-inboundexternallink-linklogsettings.html#cfn-rtbfabric-inboundexternallink-linklogsettings-applicationlogs
             '''
             result = self._values.get("application_logs")
             assert result is not None, "Required property 'application_logs' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.ApplicationLogsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.ApplicationLogsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -670,7 +656,7 @@ class CfnInboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1d9aa166adda80a00eaa1e13fdf8247afcbddf7768a6b4c8415c5e4e9a9dcb5d)
+                type_hints = cached_type_hints(_typecheckingstub__1d9aa166adda80a00eaa1e13fdf8247afcbddf7768a6b4c8415c5e4e9a9dcb5d)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
                 check_type(argname="argument logging_types", value=logging_types, expected_type=type_hints["logging_types"])
@@ -745,9 +731,9 @@ class CfnInboundExternalLinkProps:
         self,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnInboundExternalLink``.
 
@@ -796,7 +782,7 @@ class CfnInboundExternalLinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d15a9ea48568fa6d17bb53d9622c841d5242e53e66d3e303799545a8370eb3dc)
+            type_hints = cached_type_hints(_typecheckingstub__d15a9ea48568fa6d17bb53d9622c841d5242e53e66d3e303799545a8370eb3dc)
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
             check_type(argname="argument link_log_settings", value=link_log_settings, expected_type=type_hints["link_log_settings"])
             check_type(argname="argument link_attributes", value=link_attributes, expected_type=type_hints["link_attributes"])
@@ -822,32 +808,32 @@ class CfnInboundExternalLinkProps:
     @builtins.property
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkLogSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkLogSettingsProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-inboundexternallink.html#cfn-rtbfabric-inboundexternallink-linklogsettings
         '''
         result = self._values.get("link_log_settings")
         assert result is not None, "Required property 'link_log_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkLogSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkLogSettingsProperty"], result)
 
     @builtins.property
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkAttributesProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-inboundexternallink.html#cfn-rtbfabric-inboundexternallink-linkattributes
         '''
         result = self._values.get("link_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInboundExternalLink.LinkAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInboundExternalLink.LinkAttributesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Link.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-inboundexternallink.html#cfn-rtbfabric-inboundexternallink-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -861,9 +847,9 @@ class CfnInboundExternalLinkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILinkRef_1c71e733, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.ILinkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLink",
 ):
@@ -953,12 +939,12 @@ class CfnLink(
         id: builtins.str,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         peer_gateway_id: builtins.str,
-        http_responder_allowed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        module_configuration_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ModuleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_responder_allowed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        module_configuration_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ModuleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::Link``.
 
@@ -973,7 +959,7 @@ class CfnLink(
         :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33e403b84fbb081fd16a0097272c1b774ceb7dfcf2ef00e8d7edb2e0fe7cec74)
+            type_hints = cached_type_hints(_typecheckingstub__33e403b84fbb081fd16a0097272c1b774ceb7dfcf2ef00e8d7edb2e0fe7cec74)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLinkProps(
@@ -990,12 +976,12 @@ class CfnLink(
 
     @jsii.member(jsii_name="arnForLink")
     @builtins.classmethod
-    def arn_for_link(cls, resource: "_ILinkRef_1c71e733") -> builtins.str:
+    def arn_for_link(cls, resource: "_aws_rtbfabric_0d6b6007.ILinkRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8441d9ec3f0e33dc15a6b6f9feae93734b736d627e3b8c39efcec62db2104c90)
+            type_hints = cached_type_hints(_typecheckingstub__8441d9ec3f0e33dc15a6b6f9feae93734b736d627e3b8c39efcec62db2104c90)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLink", [resource]))
 
@@ -1007,18 +993,18 @@ class CfnLink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c8c5e17bdd0c74102b57d33eeaaf08efbc39f50454b30bdc54f29e0df1e47e9)
+            type_hints = cached_type_hints(_typecheckingstub__7c8c5e17bdd0c74102b57d33eeaaf08efbc39f50454b30bdc54f29e0df1e47e9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9bc5027acac07a275a06b167f0f8790f36a2fef049c4c738abc9a498a67b72)
+            type_hints = cached_type_hints(_typecheckingstub__cc9bc5027acac07a275a06b167f0f8790f36a2fef049c4c738abc9a498a67b72)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1031,7 +1017,7 @@ class CfnLink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3d7d7182ae1421ce2250b4c41ee061920faaa9e8beb8ee36659bc44bfca4d7c)
+            type_hints = cached_type_hints(_typecheckingstub__d3d7d7182ae1421ce2250b4c41ee061920faaa9e8beb8ee36659bc44bfca4d7c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1092,9 +1078,9 @@ class CfnLink(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1108,9 +1094,9 @@ class CfnLink(
 
     @builtins.property
     @jsii.member(jsii_name="linkRef")
-    def link_ref(self) -> "_LinkReference_a62a8bc7":
+    def link_ref(self) -> "_aws_rtbfabric_0d6b6007.LinkReference":
         '''A reference to a Link resource.'''
-        return typing.cast("_LinkReference_a62a8bc7", jsii.get(self, "linkRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.LinkReference", jsii.get(self, "linkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="gatewayId")
@@ -1121,7 +1107,7 @@ class CfnLink(
     @gateway_id.setter
     def gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd77fe8e257ed257fd9cc2835f29e82e4e5c9092b9320846e746cb8385d83132)
+            type_hints = cached_type_hints(_typecheckingstub__bd77fe8e257ed257fd9cc2835f29e82e4e5c9092b9320846e746cb8385d83132)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -1129,17 +1115,17 @@ class CfnLink(
     @jsii.member(jsii_name="linkLogSettings")
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.LinkLogSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkLogSettingsProperty"]:
         '''Settings for the application logs.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
 
     @link_log_settings.setter
     def link_log_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnLink.LinkLogSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkLogSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab7e556ca0c98de786d1067094aa52ffc4810802cdeabb970d57fd2e6e7032cc)
+            type_hints = cached_type_hints(_typecheckingstub__ab7e556ca0c98de786d1067094aa52ffc4810802cdeabb970d57fd2e6e7032cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkLogSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -1152,7 +1138,7 @@ class CfnLink(
     @peer_gateway_id.setter
     def peer_gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e08aa7186c8b3f2bcce904bac17f4f0dffb3848b35af4cb2707c3ecf5fdc87)
+            type_hints = cached_type_hints(_typecheckingstub__d1e08aa7186c8b3f2bcce904bac17f4f0dffb3848b35af4cb2707c3ecf5fdc87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "peerGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -1160,17 +1146,17 @@ class CfnLink(
     @jsii.member(jsii_name="httpResponderAllowed")
     def http_responder_allowed(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Boolean to specify if an HTTP responder is allowed.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "httpResponderAllowed"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "httpResponderAllowed"))
 
     @http_responder_allowed.setter
     def http_responder_allowed(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48b3206215bae9d2e48e79793f9ffd87062a4b1724e8972850cbacafec752632)
+            type_hints = cached_type_hints(_typecheckingstub__48b3206215bae9d2e48e79793f9ffd87062a4b1724e8972850cbacafec752632)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpResponderAllowed", value) # pyright: ignore[reportArgumentType]
 
@@ -1178,17 +1164,17 @@ class CfnLink(
     @jsii.member(jsii_name="linkAttributes")
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkAttributesProperty"]]:
         '''Attributes of the link.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
 
     @link_attributes.setter
     def link_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1ab4741f8f8f4356c5390e467941454f9741185b5834e0d5c912d2df062bb22)
+            type_hints = cached_type_hints(_typecheckingstub__a1ab4741f8f8f4356c5390e467941454f9741185b5834e0d5c912d2df062bb22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -1196,29 +1182,32 @@ class CfnLink(
     @jsii.member(jsii_name="moduleConfigurationList")
     def module_configuration_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleConfigurationProperty"]]]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleConfigurationProperty"]]]], jsii.get(self, "moduleConfigurationList"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleConfigurationProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleConfigurationProperty"]]]], jsii.get(self, "moduleConfigurationList"))
 
     @module_configuration_list.setter
     def module_configuration_list(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfe068c99595620eaa7b9882ede77a4ac9cf63b8112fdeb95ec82ba2220f47c9)
+            type_hints = cached_type_hints(_typecheckingstub__bfe068c99595620eaa7b9882ede77a4ac9cf63b8112fdeb95ec82ba2220f47c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "moduleConfigurationList", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89f50ed2507493ec960d7f22a7f5e59b8cd846866c52a44638fb170da225c31a)
+            type_hints = cached_type_hints(_typecheckingstub__89f50ed2507493ec960d7f22a7f5e59b8cd846866c52a44638fb170da225c31a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1231,8 +1220,8 @@ class CfnLink(
         def __init__(
             self,
             *,
-            header_tag: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.HeaderTagActionProperty", typing.Dict[builtins.str, typing.Any]]],
-            no_bid: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.NoBidActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            header_tag: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.HeaderTagActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            no_bid: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.NoBidActionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Describes a bid action.
 
@@ -1259,7 +1248,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d6894eb0ca15bfc1becb971f044daaafc323280b5c36040bf05b97a7db16c1c6)
+                type_hints = cached_type_hints(_typecheckingstub__d6894eb0ca15bfc1becb971f044daaafc323280b5c36040bf05b97a7db16c1c6)
                 check_type(argname="argument header_tag", value=header_tag, expected_type=type_hints["header_tag"])
                 check_type(argname="argument no_bid", value=no_bid, expected_type=type_hints["no_bid"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1270,26 +1259,26 @@ class CfnLink(
         @builtins.property
         def header_tag(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.HeaderTagActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.HeaderTagActionProperty"]:
             '''Describes the header tag for a bid action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-action.html#cfn-rtbfabric-link-action-headertag
             '''
             result = self._values.get("header_tag")
             assert result is not None, "Required property 'header_tag' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.HeaderTagActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.HeaderTagActionProperty"], result)
 
         @builtins.property
         def no_bid(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.NoBidActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.NoBidActionProperty"]:
             '''Describes the parameters of a no bid module.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-action.html#cfn-rtbfabric-link-action-nobid
             '''
             result = self._values.get("no_bid")
             assert result is not None, "Required property 'no_bid' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.NoBidActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.NoBidActionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1311,7 +1300,7 @@ class CfnLink(
         def __init__(
             self,
             *,
-            link_application_log_sampling: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
+            link_application_log_sampling: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Describes the configuration of a link application log.
 
@@ -1334,7 +1323,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__386c1f58d2f3cd26972e49e1d069f69cd28a5e0106e1e75cdd6b149047a40486)
+                type_hints = cached_type_hints(_typecheckingstub__386c1f58d2f3cd26972e49e1d069f69cd28a5e0106e1e75cdd6b149047a40486)
                 check_type(argname="argument link_application_log_sampling", value=link_application_log_sampling, expected_type=type_hints["link_application_log_sampling"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "link_application_log_sampling": link_application_log_sampling,
@@ -1343,14 +1332,14 @@ class CfnLink(
         @builtins.property
         def link_application_log_sampling(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.LinkApplicationLogSamplingProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkApplicationLogSamplingProperty"]:
             '''Describes a link application log sample.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-applicationlogs.html#cfn-rtbfabric-link-applicationlogs-linkapplicationlogsampling
             '''
             result = self._values.get("link_application_log_sampling")
             assert result is not None, "Required property 'link_application_log_sampling' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.LinkApplicationLogSamplingProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkApplicationLogSamplingProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1395,7 +1384,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__976a810fd8399ef10076aa8ff21db3814228728d51cbe483206baf947e14d22a)
+                type_hints = cached_type_hints(_typecheckingstub__976a810fd8399ef10076aa8ff21db3814228728d51cbe483206baf947e14d22a)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1443,7 +1432,7 @@ class CfnLink(
         def __init__(
             self,
             *,
-            criteria: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.FilterCriterionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            criteria: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.FilterCriterionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Describes the configuration of a filter.
 
@@ -1466,7 +1455,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bcc0e2535e30885c51d63b7ca099b67d5c103991ad0d521226fd949185ecf18a)
+                type_hints = cached_type_hints(_typecheckingstub__bcc0e2535e30885c51d63b7ca099b67d5c103991ad0d521226fd949185ecf18a)
                 check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "criteria": criteria,
@@ -1475,14 +1464,14 @@ class CfnLink(
         @builtins.property
         def criteria(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.FilterCriterionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.FilterCriterionProperty"]]]:
             '''Describes the criteria for a filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-filter.html#cfn-rtbfabric-link-filter-criteria
             '''
             result = self._values.get("criteria")
             assert result is not None, "Required property 'criteria' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.FilterCriterionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.FilterCriterionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1522,7 +1511,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__48d14abad5b3d72432a046c98d69a1dbaed71327059ccfad80adc96630cb3dd4)
+                type_hints = cached_type_hints(_typecheckingstub__48d14abad5b3d72432a046c98d69a1dbaed71327059ccfad80adc96630cb3dd4)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1588,7 +1577,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc1221d9bdb6ac10224d2e809d5a57a5e79c1624f9b25a6d8868856fb5441212)
+                type_hints = cached_type_hints(_typecheckingstub__cc1221d9bdb6ac10224d2e809d5a57a5e79c1624f9b25a6d8868856fb5441212)
                 check_type(argname="argument error_log", value=error_log, expected_type=type_hints["error_log"])
                 check_type(argname="argument filter_log", value=filter_log, expected_type=type_hints["filter_log"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1640,7 +1629,7 @@ class CfnLink(
             self,
             *,
             customer_provided_id: typing.Optional[builtins.str] = None,
-            responder_error_masking: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            responder_error_masking: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Describes the attributes of a link.
 
@@ -1669,7 +1658,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9d88f2ed7a2e18d0a7f048f2648cd6744718ec16fcf5c0c157a303ced0fe42a8)
+                type_hints = cached_type_hints(_typecheckingstub__9d88f2ed7a2e18d0a7f048f2648cd6744718ec16fcf5c0c157a303ced0fe42a8)
                 check_type(argname="argument customer_provided_id", value=customer_provided_id, expected_type=type_hints["customer_provided_id"])
                 check_type(argname="argument responder_error_masking", value=responder_error_masking, expected_type=type_hints["responder_error_masking"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1690,13 +1679,13 @@ class CfnLink(
         @builtins.property
         def responder_error_masking(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
             '''Describes the masking for HTTP error codes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-linkattributes.html#cfn-rtbfabric-link-linkattributes-respondererrormasking
             '''
             result = self._values.get("responder_error_masking")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1718,7 +1707,7 @@ class CfnLink(
         def __init__(
             self,
             *,
-            application_logs: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
+            application_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Describes the settings for a link log.
 
@@ -1743,7 +1732,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e62485742cc7a54f6e2603b3db9f4a68a14d224e255f6337f68e83e4464ec0de)
+                type_hints = cached_type_hints(_typecheckingstub__e62485742cc7a54f6e2603b3db9f4a68a14d224e255f6337f68e83e4464ec0de)
                 check_type(argname="argument application_logs", value=application_logs, expected_type=type_hints["application_logs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_logs": application_logs,
@@ -1752,14 +1741,14 @@ class CfnLink(
         @builtins.property
         def application_logs(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.ApplicationLogsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ApplicationLogsProperty"]:
             '''Describes the configuration of a link application log.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-linklogsettings.html#cfn-rtbfabric-link-linklogsettings-applicationlogs
             '''
             result = self._values.get("application_logs")
             assert result is not None, "Required property 'application_logs' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.ApplicationLogsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ApplicationLogsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1788,7 +1777,7 @@ class CfnLink(
             *,
             name: builtins.str,
             depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-            module_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            module_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the configuration of a module.
@@ -1842,7 +1831,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__82be0aba67824a4714ca848063dd6c387779b7a60080807fbc17ba6f58442821)
+                type_hints = cached_type_hints(_typecheckingstub__82be0aba67824a4714ca848063dd6c387779b7a60080807fbc17ba6f58442821)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
                 check_type(argname="argument module_parameters", value=module_parameters, expected_type=type_hints["module_parameters"])
@@ -1879,13 +1868,13 @@ class CfnLink(
         @builtins.property
         def module_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleParametersProperty"]]:
             '''Describes the parameters of a module.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-moduleconfiguration.html#cfn-rtbfabric-link-moduleconfiguration-moduleparameters
             '''
             result = self._values.get("module_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleParametersProperty"]], result)
 
         @builtins.property
         def version(self) -> typing.Optional[builtins.str]:
@@ -1916,8 +1905,8 @@ class CfnLink(
         def __init__(
             self,
             *,
-            no_bid: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.NoBidModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            open_rtb_attribute: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.OpenRtbAttributeModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            no_bid: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.NoBidModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            open_rtb_attribute: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.OpenRtbAttributeModuleParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the parameters of a module.
 
@@ -1961,7 +1950,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__910c77dbedb644758dff1f600f9a05ab181cc893c92bc153462d376122dba51d)
+                type_hints = cached_type_hints(_typecheckingstub__910c77dbedb644758dff1f600f9a05ab181cc893c92bc153462d376122dba51d)
                 check_type(argname="argument no_bid", value=no_bid, expected_type=type_hints["no_bid"])
                 check_type(argname="argument open_rtb_attribute", value=open_rtb_attribute, expected_type=type_hints["open_rtb_attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1973,24 +1962,24 @@ class CfnLink(
         @builtins.property
         def no_bid(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.NoBidModuleParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.NoBidModuleParametersProperty"]]:
             '''Describes the parameters of a no bid module.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-moduleparameters.html#cfn-rtbfabric-link-moduleparameters-nobid
             '''
             result = self._values.get("no_bid")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.NoBidModuleParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.NoBidModuleParametersProperty"]], result)
 
         @builtins.property
         def open_rtb_attribute(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.OpenRtbAttributeModuleParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.OpenRtbAttributeModuleParametersProperty"]]:
             '''Describes the parameters of an open RTB attribute module.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-moduleparameters.html#cfn-rtbfabric-link-moduleparameters-openrtbattribute
             '''
             result = self._values.get("open_rtb_attribute")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.OpenRtbAttributeModuleParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.OpenRtbAttributeModuleParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2032,7 +2021,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d808313ff4cbeeb74cf4ac496addde75cf42f9a64b0c9069d77342b5f26420c6)
+                type_hints = cached_type_hints(_typecheckingstub__d808313ff4cbeeb74cf4ac496addde75cf42f9a64b0c9069d77342b5f26420c6)
                 check_type(argname="argument no_bid_reason_code", value=no_bid_reason_code, expected_type=type_hints["no_bid_reason_code"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if no_bid_reason_code is not None:
@@ -2097,7 +2086,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__65534e5849f21132ce42911f7b88232db1b4cc75a5d56fc3c669b59b4d829b0c)
+                type_hints = cached_type_hints(_typecheckingstub__65534e5849f21132ce42911f7b88232db1b4cc75a5d56fc3c669b59b4d829b0c)
                 check_type(argname="argument pass_through_percentage", value=pass_through_percentage, expected_type=type_hints["pass_through_percentage"])
                 check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
                 check_type(argname="argument reason_code", value=reason_code, expected_type=type_hints["reason_code"])
@@ -2161,8 +2150,8 @@ class CfnLink(
         def __init__(
             self,
             *,
-            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
-            filter_configuration: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            action: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            filter_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
             filter_type: builtins.str,
             holdback_percentage: jsii.Number,
         ) -> None:
@@ -2203,7 +2192,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0027d94142f38aa037892e813fefe1e1f6b9ef3d7a8927dcb4fe8fe3340158c5)
+                type_hints = cached_type_hints(_typecheckingstub__0027d94142f38aa037892e813fefe1e1f6b9ef3d7a8927dcb4fe8fe3340158c5)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
                 check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
@@ -2218,26 +2207,26 @@ class CfnLink(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.ActionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ActionProperty"]:
             '''Describes a bid action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-openrtbattributemoduleparameters.html#cfn-rtbfabric-link-openrtbattributemoduleparameters-action
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.ActionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ActionProperty"], result)
 
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.FilterProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.FilterProperty"]]]:
             '''Describes the configuration of a filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-link-openrtbattributemoduleparameters.html#cfn-rtbfabric-link-openrtbattributemoduleparameters-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
             assert result is not None, "Required property 'filter_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.FilterProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.FilterProperty"]]], result)
 
         @builtins.property
         def filter_type(self) -> builtins.str:
@@ -2315,7 +2304,7 @@ class CfnLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7a4d5a36bb204668cc9f3235d69b4d6dd33abe2f27737729656b5fd767fe6fcb)
+                type_hints = cached_type_hints(_typecheckingstub__7a4d5a36bb204668cc9f3235d69b4d6dd33abe2f27737729656b5fd767fe6fcb)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
                 check_type(argname="argument logging_types", value=logging_types, expected_type=type_hints["logging_types"])
@@ -2397,12 +2386,12 @@ class CfnLinkProps:
         self,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         peer_gateway_id: builtins.str,
-        http_responder_allowed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        module_configuration_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLink.ModuleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_responder_allowed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        module_configuration_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLink.ModuleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLink``.
 
@@ -2489,7 +2478,7 @@ class CfnLinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__012c58c752deffb32adb9b9c3e8a29a8373d9f395d7e2679c67f05f37f77812a)
+            type_hints = cached_type_hints(_typecheckingstub__012c58c752deffb32adb9b9c3e8a29a8373d9f395d7e2679c67f05f37f77812a)
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
             check_type(argname="argument link_log_settings", value=link_log_settings, expected_type=type_hints["link_log_settings"])
             check_type(argname="argument peer_gateway_id", value=peer_gateway_id, expected_type=type_hints["peer_gateway_id"])
@@ -2524,14 +2513,14 @@ class CfnLinkProps:
     @builtins.property
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLink.LinkLogSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkLogSettingsProperty"]:
         '''Settings for the application logs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-link.html#cfn-rtbfabric-link-linklogsettings
         '''
         result = self._values.get("link_log_settings")
         assert result is not None, "Required property 'link_log_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLink.LinkLogSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkLogSettingsProperty"], result)
 
     @builtins.property
     def peer_gateway_id(self) -> builtins.str:
@@ -2546,43 +2535,43 @@ class CfnLinkProps:
     @builtins.property
     def http_responder_allowed(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Boolean to specify if an HTTP responder is allowed.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-link.html#cfn-rtbfabric-link-httpresponderallowed
         '''
         result = self._values.get("http_responder_allowed")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkAttributesProperty"]]:
         '''Attributes of the link.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-link.html#cfn-rtbfabric-link-linkattributes
         '''
         result = self._values.get("link_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLink.LinkAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.LinkAttributesProperty"]], result)
 
     @builtins.property
     def module_configuration_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleConfigurationProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-link.html#cfn-rtbfabric-link-moduleconfigurationlist
         '''
         result = self._values.get("module_configuration_list")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLink.ModuleConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLink.ModuleConfigurationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-link.html#cfn-rtbfabric-link-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2596,9 +2585,9 @@ class CfnLinkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILinkRoutingRuleRef_1a99f018, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.ILinkRoutingRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLinkRoutingRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLinkRoutingRule",
 ):
@@ -2646,11 +2635,11 @@ class CfnLinkRoutingRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        conditions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
         gateway_id: builtins.str,
         link_id: builtins.str,
         priority: jsii.Number,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::LinkRoutingRule``.
 
@@ -2663,7 +2652,7 @@ class CfnLinkRoutingRule(
         :param tags: Tags to assign to the LinkRoutingRule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db28c924acf747369535729d8c6637b8e23e0f6c90a6cd1f5cc9d48d344f4620)
+            type_hints = cached_type_hints(_typecheckingstub__db28c924acf747369535729d8c6637b8e23e0f6c90a6cd1f5cc9d48d344f4620)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLinkRoutingRuleProps(
@@ -2680,13 +2669,13 @@ class CfnLinkRoutingRule(
     @builtins.classmethod
     def arn_for_link_routing_rule(
         cls,
-        resource: "_ILinkRoutingRuleRef_1a99f018",
+        resource: "_aws_rtbfabric_0d6b6007.ILinkRoutingRuleRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb1a2e81fa8f1ecbb8d99e15809796fdf174605f03a15522c5be072beabd85e6)
+            type_hints = cached_type_hints(_typecheckingstub__cb1a2e81fa8f1ecbb8d99e15809796fdf174605f03a15522c5be072beabd85e6)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLinkRoutingRule", [resource]))
 
@@ -2698,18 +2687,18 @@ class CfnLinkRoutingRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__786df57310f0eb7ab911502bc08d94ccffa60573fc096c32826ca177d3479693)
+            type_hints = cached_type_hints(_typecheckingstub__786df57310f0eb7ab911502bc08d94ccffa60573fc096c32826ca177d3479693)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLinkRoutingRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc30152ed3302452ce7a1b2782c50c80b5ae4288eacfddadcc91e02d74aba49)
+            type_hints = cached_type_hints(_typecheckingstub__bdc30152ed3302452ce7a1b2782c50c80b5ae4288eacfddadcc91e02d74aba49)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2722,7 +2711,7 @@ class CfnLinkRoutingRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a390646c7e8532ae1ad80f8b3177a726db080bf73c9f68e065bcd633746a5ae3)
+            type_hints = cached_type_hints(_typecheckingstub__a390646c7e8532ae1ad80f8b3177a726db080bf73c9f68e065bcd633746a5ae3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2774,9 +2763,9 @@ class CfnLinkRoutingRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2790,25 +2779,27 @@ class CfnLinkRoutingRule(
 
     @builtins.property
     @jsii.member(jsii_name="linkRoutingRuleRef")
-    def link_routing_rule_ref(self) -> "_LinkRoutingRuleReference_b021a204":
+    def link_routing_rule_ref(
+        self,
+    ) -> "_aws_rtbfabric_0d6b6007.LinkRoutingRuleReference":
         '''A reference to a LinkRoutingRule resource.'''
-        return typing.cast("_LinkRoutingRuleReference_b021a204", jsii.get(self, "linkRoutingRuleRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.LinkRoutingRuleReference", jsii.get(self, "linkRoutingRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="conditions")
     def conditions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.RuleConditionProperty"]:
         '''Conditions for a routing rule.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"], jsii.get(self, "conditions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.RuleConditionProperty"], jsii.get(self, "conditions"))
 
     @conditions.setter
     def conditions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.RuleConditionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47a7fb625657336fbaa66586b4b49f43894aa1a8b7b8d801a401b1220db07084)
+            type_hints = cached_type_hints(_typecheckingstub__47a7fb625657336fbaa66586b4b49f43894aa1a8b7b8d801a401b1220db07084)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
 
@@ -2820,7 +2811,7 @@ class CfnLinkRoutingRule(
     @gateway_id.setter
     def gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a726c2abf9a8e6c4517fb33b309e500b6190169012783e928ea592b5f13fd6ce)
+            type_hints = cached_type_hints(_typecheckingstub__a726c2abf9a8e6c4517fb33b309e500b6190169012783e928ea592b5f13fd6ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -2832,7 +2823,7 @@ class CfnLinkRoutingRule(
     @link_id.setter
     def link_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4d8e9732da4eeaf6ac4701e7c64e8d731361d235beb57244bae9617eed8d9d5)
+            type_hints = cached_type_hints(_typecheckingstub__d4d8e9732da4eeaf6ac4701e7c64e8d731361d235beb57244bae9617eed8d9d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
 
@@ -2844,20 +2835,23 @@ class CfnLinkRoutingRule(
     @priority.setter
     def priority(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ebe945371a0eff207746d83bd4af45ac9cf6efd96ca5d9e38e251066f72c2b8)
+            type_hints = cached_type_hints(_typecheckingstub__7ebe945371a0eff207746d83bd4af45ac9cf6efd96ca5d9e38e251066f72c2b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the LinkRoutingRule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca8ae3e4347383becce77d565409673c9db7904bb1301268338097b02929902f)
+            type_hints = cached_type_hints(_typecheckingstub__ca8ae3e4347383becce77d565409673c9db7904bb1301268338097b02929902f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2887,7 +2881,7 @@ class CfnLinkRoutingRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67e7900939b8072ab921f050ffbd570b2c6dac8e926cfcd26f6aa9293a50fcdd)
+                type_hints = cached_type_hints(_typecheckingstub__67e7900939b8072ab921f050ffbd570b2c6dac8e926cfcd26f6aa9293a50fcdd)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2946,7 +2940,7 @@ class CfnLinkRoutingRule(
             host_header_wildcard: typing.Optional[builtins.str] = None,
             path_exact: typing.Optional[builtins.str] = None,
             path_prefix: typing.Optional[builtins.str] = None,
-            query_string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.QueryStringKeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string_equals: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLinkRoutingRule.QueryStringKeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             query_string_exists: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Conditions for a routing rule.
@@ -2982,7 +2976,7 @@ class CfnLinkRoutingRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e1694a27ef4)
+                type_hints = cached_type_hints(_typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e1694a27ef4)
                 check_type(argname="argument host_header", value=host_header, expected_type=type_hints["host_header"])
                 check_type(argname="argument host_header_wildcard", value=host_header_wildcard, expected_type=type_hints["host_header_wildcard"])
                 check_type(argname="argument path_exact", value=path_exact, expected_type=type_hints["path_exact"])
@@ -3048,12 +3042,12 @@ class CfnLinkRoutingRule(
         @builtins.property
         def query_string_equals(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-querystringequals
             '''
             result = self._values.get("query_string_equals")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]], result)
 
         @builtins.property
         def query_string_exists(self) -> typing.Optional[builtins.str]:
@@ -3091,11 +3085,11 @@ class CfnLinkRoutingRuleProps:
     def __init__(
         self,
         *,
-        conditions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
         gateway_id: builtins.str,
         link_id: builtins.str,
         priority: jsii.Number,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLinkRoutingRule``.
 
@@ -3139,7 +3133,7 @@ class CfnLinkRoutingRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de4617dbfad28ff2183655aa1e76a72dd06fa11704b1afdee10f708213d03737)
+            type_hints = cached_type_hints(_typecheckingstub__de4617dbfad28ff2183655aa1e76a72dd06fa11704b1afdee10f708213d03737)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
             check_type(argname="argument link_id", value=link_id, expected_type=type_hints["link_id"])
@@ -3157,7 +3151,7 @@ class CfnLinkRoutingRuleProps:
     @builtins.property
     def conditions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.RuleConditionProperty"]:
         '''Conditions for a routing rule.
 
         All non-null fields must match (AND logic). At least one field must be set. HostHeader and HostHeaderWildcard are mutually exclusive. PathPrefix and PathExact are mutually exclusive.
@@ -3166,7 +3160,7 @@ class CfnLinkRoutingRuleProps:
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLinkRoutingRule.RuleConditionProperty"], result)
 
     @builtins.property
     def gateway_id(self) -> builtins.str:
@@ -3196,13 +3190,13 @@ class CfnLinkRoutingRuleProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the LinkRoutingRule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3216,9 +3210,9 @@ class CfnLinkRoutingRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOutboundExternalLinkRef_06bb6289, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.IOutboundExternalLinkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOutboundExternalLink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnOutboundExternalLink",
 ):
@@ -3272,10 +3266,10 @@ class CfnOutboundExternalLink(
         id: builtins.str,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         public_endpoint: builtins.str,
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::OutboundExternalLink``.
 
@@ -3288,7 +3282,7 @@ class CfnOutboundExternalLink(
         :param tags: Tags to assign to the Link.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b83212e7efe505cb3ee08383229ed92a52ff4ae1914a3bae275aa32769a538f2)
+            type_hints = cached_type_hints(_typecheckingstub__b83212e7efe505cb3ee08383229ed92a52ff4ae1914a3bae275aa32769a538f2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOutboundExternalLinkProps(
@@ -3305,13 +3299,13 @@ class CfnOutboundExternalLink(
     @builtins.classmethod
     def arn_for_outbound_external_link(
         cls,
-        resource: "_IOutboundExternalLinkRef_06bb6289",
+        resource: "_aws_rtbfabric_0d6b6007.IOutboundExternalLinkRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f750d09898fee559d9d8fea7e122b94e612d5000fc57a92e18a8f25e09f82fa3)
+            type_hints = cached_type_hints(_typecheckingstub__f750d09898fee559d9d8fea7e122b94e612d5000fc57a92e18a8f25e09f82fa3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOutboundExternalLink", [resource]))
 
@@ -3323,18 +3317,18 @@ class CfnOutboundExternalLink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__646cbb509a7c181366f50146e6d34dd1709c05a1bf1bee7ca9c1268e384db068)
+            type_hints = cached_type_hints(_typecheckingstub__646cbb509a7c181366f50146e6d34dd1709c05a1bf1bee7ca9c1268e384db068)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOutboundExternalLink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94c554a77d3e3ec5d6846c452288c7fd3554604db45d13548cbe1057b1390676)
+            type_hints = cached_type_hints(_typecheckingstub__94c554a77d3e3ec5d6846c452288c7fd3554604db45d13548cbe1057b1390676)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3347,7 +3341,7 @@ class CfnOutboundExternalLink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d29126bce97e6163947ad92cc93367b86d9ba45647deac7343b697994a0b0353)
+            type_hints = cached_type_hints(_typecheckingstub__d29126bce97e6163947ad92cc93367b86d9ba45647deac7343b697994a0b0353)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3399,9 +3393,9 @@ class CfnOutboundExternalLink(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3415,9 +3409,11 @@ class CfnOutboundExternalLink(
 
     @builtins.property
     @jsii.member(jsii_name="outboundExternalLinkRef")
-    def outbound_external_link_ref(self) -> "_OutboundExternalLinkReference_b1d46069":
+    def outbound_external_link_ref(
+        self,
+    ) -> "_aws_rtbfabric_0d6b6007.OutboundExternalLinkReference":
         '''A reference to a OutboundExternalLink resource.'''
-        return typing.cast("_OutboundExternalLinkReference_b1d46069", jsii.get(self, "outboundExternalLinkRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.OutboundExternalLinkReference", jsii.get(self, "outboundExternalLinkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="gatewayId")
@@ -3427,7 +3423,7 @@ class CfnOutboundExternalLink(
     @gateway_id.setter
     def gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__238843eabee398c3632a13fa1c1960dac944a8392e27b87e031688ea7cdf1ec6)
+            type_hints = cached_type_hints(_typecheckingstub__238843eabee398c3632a13fa1c1960dac944a8392e27b87e031688ea7cdf1ec6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -3435,16 +3431,16 @@ class CfnOutboundExternalLink(
     @jsii.member(jsii_name="linkLogSettings")
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkLogSettingsProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkLogSettingsProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkLogSettingsProperty"], jsii.get(self, "linkLogSettings"))
 
     @link_log_settings.setter
     def link_log_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkLogSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkLogSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26f049e3b14063d70306af34d8e4502f4010b3af3beefbbccf55ef545809a845)
+            type_hints = cached_type_hints(_typecheckingstub__26f049e3b14063d70306af34d8e4502f4010b3af3beefbbccf55ef545809a845)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkLogSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -3456,7 +3452,7 @@ class CfnOutboundExternalLink(
     @public_endpoint.setter
     def public_endpoint(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e4fb1b12fa9b92810ee792acd6f261cddb5b628377308f8f917d480acc5055)
+            type_hints = cached_type_hints(_typecheckingstub__d7e4fb1b12fa9b92810ee792acd6f261cddb5b628377308f8f917d480acc5055)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publicEndpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -3464,29 +3460,32 @@ class CfnOutboundExternalLink(
     @jsii.member(jsii_name="linkAttributes")
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkAttributesProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkAttributesProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkAttributesProperty"]], jsii.get(self, "linkAttributes"))
 
     @link_attributes.setter
     def link_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6db7a26ace700bb14301fd54fb67deca8e1afc5000c0c296662435bef28b3372)
+            type_hints = cached_type_hints(_typecheckingstub__6db7a26ace700bb14301fd54fb67deca8e1afc5000c0c296662435bef28b3372)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "linkAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Link.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67ca7cd3c98009f70e07dfe4c683484c616d5a03de5ece23f5b3f87bdc80d986)
+            type_hints = cached_type_hints(_typecheckingstub__67ca7cd3c98009f70e07dfe4c683484c616d5a03de5ece23f5b3f87bdc80d986)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3499,7 +3498,7 @@ class CfnOutboundExternalLink(
         def __init__(
             self,
             *,
-            link_application_log_sampling: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
+            link_application_log_sampling: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.LinkApplicationLogSamplingProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param link_application_log_sampling: 
@@ -3521,7 +3520,7 @@ class CfnOutboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a9b229edccbdfb67f4339c40a0ca2e3b00d4634b2837ac239db564cec3868684)
+                type_hints = cached_type_hints(_typecheckingstub__a9b229edccbdfb67f4339c40a0ca2e3b00d4634b2837ac239db564cec3868684)
                 check_type(argname="argument link_application_log_sampling", value=link_application_log_sampling, expected_type=type_hints["link_application_log_sampling"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "link_application_log_sampling": link_application_log_sampling,
@@ -3530,13 +3529,13 @@ class CfnOutboundExternalLink(
         @builtins.property
         def link_application_log_sampling(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkApplicationLogSamplingProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkApplicationLogSamplingProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-outboundexternallink-applicationlogs.html#cfn-rtbfabric-outboundexternallink-applicationlogs-linkapplicationlogsampling
             '''
             result = self._values.get("link_application_log_sampling")
             assert result is not None, "Required property 'link_application_log_sampling' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkApplicationLogSamplingProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkApplicationLogSamplingProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3575,7 +3574,7 @@ class CfnOutboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4795d6d14a69cfacf0369b73be38f15dc83058bfc07f12af59548536cd71d175)
+                type_hints = cached_type_hints(_typecheckingstub__4795d6d14a69cfacf0369b73be38f15dc83058bfc07f12af59548536cd71d175)
                 check_type(argname="argument error_log", value=error_log, expected_type=type_hints["error_log"])
                 check_type(argname="argument filter_log", value=filter_log, expected_type=type_hints["filter_log"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3625,7 +3624,7 @@ class CfnOutboundExternalLink(
             self,
             *,
             customer_provided_id: typing.Optional[builtins.str] = None,
-            responder_error_masking: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            responder_error_masking: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param customer_provided_id: 
@@ -3653,7 +3652,7 @@ class CfnOutboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ab7f89fad048d65160fee1cdd9ee351aa26472e598659007bfb8a25a6c2f20a8)
+                type_hints = cached_type_hints(_typecheckingstub__ab7f89fad048d65160fee1cdd9ee351aa26472e598659007bfb8a25a6c2f20a8)
                 check_type(argname="argument customer_provided_id", value=customer_provided_id, expected_type=type_hints["customer_provided_id"])
                 check_type(argname="argument responder_error_masking", value=responder_error_masking, expected_type=type_hints["responder_error_masking"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3673,12 +3672,12 @@ class CfnOutboundExternalLink(
         @builtins.property
         def responder_error_masking(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-outboundexternallink-linkattributes.html#cfn-rtbfabric-outboundexternallink-linkattributes-respondererrormasking
             '''
             result = self._values.get("responder_error_masking")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3700,7 +3699,7 @@ class CfnOutboundExternalLink(
         def __init__(
             self,
             *,
-            application_logs: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
+            application_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.ApplicationLogsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param application_logs: 
@@ -3724,7 +3723,7 @@ class CfnOutboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__52c438d627d877d014a66c5800991149741928cee0830d167e9a92376109f1fb)
+                type_hints = cached_type_hints(_typecheckingstub__52c438d627d877d014a66c5800991149741928cee0830d167e9a92376109f1fb)
                 check_type(argname="argument application_logs", value=application_logs, expected_type=type_hints["application_logs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_logs": application_logs,
@@ -3733,13 +3732,13 @@ class CfnOutboundExternalLink(
         @builtins.property
         def application_logs(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.ApplicationLogsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.ApplicationLogsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-outboundexternallink-linklogsettings.html#cfn-rtbfabric-outboundexternallink-linklogsettings-applicationlogs
             '''
             result = self._values.get("application_logs")
             assert result is not None, "Required property 'application_logs' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.ApplicationLogsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.ApplicationLogsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3796,7 +3795,7 @@ class CfnOutboundExternalLink(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c24dd49b3cfd077aaf0d4d437d27cc349742733f2fbf408918f211c3c1ebbe81)
+                type_hints = cached_type_hints(_typecheckingstub__c24dd49b3cfd077aaf0d4d437d27cc349742733f2fbf408918f211c3c1ebbe81)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
                 check_type(argname="argument logging_types", value=logging_types, expected_type=type_hints["logging_types"])
@@ -3872,10 +3871,10 @@ class CfnOutboundExternalLinkProps:
         self,
         *,
         gateway_id: builtins.str,
-        link_log_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        link_log_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.LinkLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         public_endpoint: builtins.str,
-        link_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOutboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        link_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOutboundExternalLink.LinkAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOutboundExternalLink``.
 
@@ -3926,7 +3925,7 @@ class CfnOutboundExternalLinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c76a09410a4a7820f14f2f07d663bc52013017381c28be06dd077613ba2c9385)
+            type_hints = cached_type_hints(_typecheckingstub__c76a09410a4a7820f14f2f07d663bc52013017381c28be06dd077613ba2c9385)
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
             check_type(argname="argument link_log_settings", value=link_log_settings, expected_type=type_hints["link_log_settings"])
             check_type(argname="argument public_endpoint", value=public_endpoint, expected_type=type_hints["public_endpoint"])
@@ -3954,13 +3953,13 @@ class CfnOutboundExternalLinkProps:
     @builtins.property
     def link_log_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkLogSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkLogSettingsProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-outboundexternallink.html#cfn-rtbfabric-outboundexternallink-linklogsettings
         '''
         result = self._values.get("link_log_settings")
         assert result is not None, "Required property 'link_log_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkLogSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkLogSettingsProperty"], result)
 
     @builtins.property
     def public_endpoint(self) -> builtins.str:
@@ -3974,21 +3973,21 @@ class CfnOutboundExternalLinkProps:
     @builtins.property
     def link_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkAttributesProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-outboundexternallink.html#cfn-rtbfabric-outboundexternallink-linkattributes
         '''
         result = self._values.get("link_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOutboundExternalLink.LinkAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOutboundExternalLink.LinkAttributesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Link.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-outboundexternallink.html#cfn-rtbfabric-outboundexternallink-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4002,9 +4001,9 @@ class CfnOutboundExternalLinkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRequesterGatewayRef_d92bcdf1, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.IRequesterGatewayRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRequesterGateway(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnRequesterGateway",
 ):
@@ -4040,11 +4039,11 @@ class CfnRequesterGateway(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::RequesterGateway``.
 
@@ -4057,7 +4056,7 @@ class CfnRequesterGateway(
         :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f422ad74a878dd27ca273fe5fdb545d09c78a5ac256926db3df20c37e5494bcb)
+            type_hints = cached_type_hints(_typecheckingstub__f422ad74a878dd27ca273fe5fdb545d09c78a5ac256926db3df20c37e5494bcb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRequesterGatewayProps(
@@ -4074,13 +4073,13 @@ class CfnRequesterGateway(
     @builtins.classmethod
     def arn_for_requester_gateway(
         cls,
-        resource: "_IRequesterGatewayRef_d92bcdf1",
+        resource: "_aws_rtbfabric_0d6b6007.IRequesterGatewayRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfb862aae5f5ac5590b2e30cf6f7bd41dd788937fd184bc1afb6341c0375ea45)
+            type_hints = cached_type_hints(_typecheckingstub__bfb862aae5f5ac5590b2e30cf6f7bd41dd788937fd184bc1afb6341c0375ea45)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRequesterGateway", [resource]))
 
@@ -4092,18 +4091,18 @@ class CfnRequesterGateway(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a9f5f2b085719975110c2c7cb3f46a272d19779c29aef9df8c208a56ded5141)
+            type_hints = cached_type_hints(_typecheckingstub__1a9f5f2b085719975110c2c7cb3f46a272d19779c29aef9df8c208a56ded5141)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRequesterGateway", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff35377957678a6c2c4554293556ba81f1ce2d415c840e7f565c3446b4392dd1)
+            type_hints = cached_type_hints(_typecheckingstub__ff35377957678a6c2c4554293556ba81f1ce2d415c840e7f565c3446b4392dd1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4116,7 +4115,7 @@ class CfnRequesterGateway(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5192ae4e650c287601015b07667412e24e64d55cbffc8ba03a9951b18d4480a0)
+            type_hints = cached_type_hints(_typecheckingstub__5192ae4e650c287601015b07667412e24e64d55cbffc8ba03a9951b18d4480a0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4192,9 +4191,9 @@ class CfnRequesterGateway(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4208,9 +4207,11 @@ class CfnRequesterGateway(
 
     @builtins.property
     @jsii.member(jsii_name="requesterGatewayRef")
-    def requester_gateway_ref(self) -> "_RequesterGatewayReference_37e2965b":
+    def requester_gateway_ref(
+        self,
+    ) -> "_aws_rtbfabric_0d6b6007.RequesterGatewayReference":
         '''A reference to a RequesterGateway resource.'''
-        return typing.cast("_RequesterGatewayReference_37e2965b", jsii.get(self, "requesterGatewayRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.RequesterGatewayReference", jsii.get(self, "requesterGatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
@@ -4221,7 +4222,7 @@ class CfnRequesterGateway(
     @security_group_ids.setter
     def security_group_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ebd08ccd1118e6cce91167680f27e015cb9bcf5d9ff0aa2d840a6df61c14a67)
+            type_hints = cached_type_hints(_typecheckingstub__2ebd08ccd1118e6cce91167680f27e015cb9bcf5d9ff0aa2d840a6df61c14a67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -4234,7 +4235,7 @@ class CfnRequesterGateway(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04b0e885e38fc98486a407608eacb33c3b7349d40d018eb2a470fcca945931d4)
+            type_hints = cached_type_hints(_typecheckingstub__04b0e885e38fc98486a407608eacb33c3b7349d40d018eb2a470fcca945931d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -4247,7 +4248,7 @@ class CfnRequesterGateway(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__959c859af931f75a012fecdc9ac3acb6011d7aafb80c1e781b35c1cd405e51ac)
+            type_hints = cached_type_hints(_typecheckingstub__959c859af931f75a012fecdc9ac3acb6011d7aafb80c1e781b35c1cd405e51ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -4260,20 +4261,23 @@ class CfnRequesterGateway(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1760b22a44b3e180e50000774882d4780c0aa85c37c931f50882d305890c95b)
+            type_hints = cached_type_hints(_typecheckingstub__b1760b22a44b3e180e50000774882d4780c0aa85c37c931f50882d305890c95b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49d27ee86984f1ea979cd85d326d12ed9f60279e658da842a417dc4a27e2ba07)
+            type_hints = cached_type_hints(_typecheckingstub__49d27ee86984f1ea979cd85d326d12ed9f60279e658da842a417dc4a27e2ba07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4293,11 +4297,11 @@ class CfnRequesterGatewayProps:
     def __init__(
         self,
         *,
-        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRequesterGateway``.
 
@@ -4331,7 +4335,7 @@ class CfnRequesterGatewayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e861505bd65d62c115117db14bdc56cdccfb7c596f849bc81dadfc3f63484f16)
+            type_hints = cached_type_hints(_typecheckingstub__e861505bd65d62c115117db14bdc56cdccfb7c596f849bc81dadfc3f63484f16)
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
@@ -4350,36 +4354,36 @@ class CfnRequesterGatewayProps:
     @builtins.property
     def security_group_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]:
         '''The unique identifiers of the security groups.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-requestergateway.html#cfn-rtbfabric-requestergateway-securitygroupids
         '''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]], result)
 
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]:
         '''The unique identifiers of the subnets.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-requestergateway.html#cfn-rtbfabric-requestergateway-subnetids
         '''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]], result)
 
     @builtins.property
-    def vpc_id(self) -> typing.Union[builtins.str, "_IVPCRef_f02a11df"]:
+    def vpc_id(self) -> typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]:
         '''The unique identifier of the Virtual Private Cloud (VPC).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-requestergateway.html#cfn-rtbfabric-requestergateway-vpcid
         '''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IVPCRef_f02a11df"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4391,13 +4395,13 @@ class CfnRequesterGatewayProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-requestergateway.html#cfn-rtbfabric-requestergateway-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4411,9 +4415,9 @@ class CfnRequesterGatewayProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResponderGatewayRef_2bdaa070, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rtbfabric_0d6b6007.IResponderGatewayRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnResponderGateway(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rtbfabric.CfnResponderGateway",
 ):
@@ -4494,17 +4498,17 @@ class CfnResponderGateway(
         *,
         port: jsii.Number,
         protocol: builtins.str,
-        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
         acm_certificate_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         gateway_type: typing.Optional[builtins.str] = None,
-        listener_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_endpoint_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trust_store_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        listener_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_endpoint_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trust_store_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RTBFabric::ResponderGateway``.
 
@@ -4525,7 +4529,7 @@ class CfnResponderGateway(
         :param trust_store_configuration: The configuration of the trust store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb840846f651123d9a88e886198c38a19418b49d00a405569125e9b5fc712905)
+            type_hints = cached_type_hints(_typecheckingstub__cb840846f651123d9a88e886198c38a19418b49d00a405569125e9b5fc712905)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResponderGatewayProps(
@@ -4550,13 +4554,13 @@ class CfnResponderGateway(
     @builtins.classmethod
     def arn_for_responder_gateway(
         cls,
-        resource: "_IResponderGatewayRef_2bdaa070",
+        resource: "_aws_rtbfabric_0d6b6007.IResponderGatewayRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d03c637f67985067e0671715031f91341dab89c06faa85ff0ef8ac5fda7755ad)
+            type_hints = cached_type_hints(_typecheckingstub__d03c637f67985067e0671715031f91341dab89c06faa85ff0ef8ac5fda7755ad)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResponderGateway", [resource]))
 
@@ -4568,18 +4572,18 @@ class CfnResponderGateway(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b74e42482b63ce0a50334b157f355ffb0e00bd0de13bb57fe8651a695fc0591)
+            type_hints = cached_type_hints(_typecheckingstub__0b74e42482b63ce0a50334b157f355ffb0e00bd0de13bb57fe8651a695fc0591)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResponderGateway", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa2d13378cd55a42c745c0d3be558c5fe2209a8b5cd2de4699daa917018a45ff)
+            type_hints = cached_type_hints(_typecheckingstub__fa2d13378cd55a42c745c0d3be558c5fe2209a8b5cd2de4699daa917018a45ff)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4592,7 +4596,7 @@ class CfnResponderGateway(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d93a404d017510da5888259e354ed9c153e827b5cf5f6d4ed51228828f69ab75)
+            type_hints = cached_type_hints(_typecheckingstub__d93a404d017510da5888259e354ed9c153e827b5cf5f6d4ed51228828f69ab75)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4660,9 +4664,9 @@ class CfnResponderGateway(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4676,9 +4680,11 @@ class CfnResponderGateway(
 
     @builtins.property
     @jsii.member(jsii_name="responderGatewayRef")
-    def responder_gateway_ref(self) -> "_ResponderGatewayReference_a8195bef":
+    def responder_gateway_ref(
+        self,
+    ) -> "_aws_rtbfabric_0d6b6007.ResponderGatewayReference":
         '''A reference to a ResponderGateway resource.'''
-        return typing.cast("_ResponderGatewayReference_a8195bef", jsii.get(self, "responderGatewayRef"))
+        return typing.cast("_aws_rtbfabric_0d6b6007.ResponderGatewayReference", jsii.get(self, "responderGatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -4689,7 +4695,7 @@ class CfnResponderGateway(
     @port.setter
     def port(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__529ad6abfea2d47fdb6a4a85f0fa7ef44fe2dbb4cbce65f2a407af20ca308aff)
+            type_hints = cached_type_hints(_typecheckingstub__529ad6abfea2d47fdb6a4a85f0fa7ef44fe2dbb4cbce65f2a407af20ca308aff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -4702,7 +4708,7 @@ class CfnResponderGateway(
     @protocol.setter
     def protocol(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de24b3918fda3107ad9b83c4fdf476736a5649552d61ca740a55c6f384f156d4)
+            type_hints = cached_type_hints(_typecheckingstub__de24b3918fda3107ad9b83c4fdf476736a5649552d61ca740a55c6f384f156d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -4715,7 +4721,7 @@ class CfnResponderGateway(
     @security_group_ids.setter
     def security_group_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5807c201752fa8e41be9823d45b5e600b8b8957e00a7a2e746adf30a456151bd)
+            type_hints = cached_type_hints(_typecheckingstub__5807c201752fa8e41be9823d45b5e600b8b8957e00a7a2e746adf30a456151bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -4728,7 +4734,7 @@ class CfnResponderGateway(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ca836d5fd162d5f81d5073a4c116fe81c8566c9b5abc50f51ed6984246da273)
+            type_hints = cached_type_hints(_typecheckingstub__4ca836d5fd162d5f81d5073a4c116fe81c8566c9b5abc50f51ed6984246da273)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -4741,7 +4747,7 @@ class CfnResponderGateway(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44015d889f5b99adbe6056ed6c8499be47c63f2c6c4914c9ad7283aacd918861)
+            type_hints = cached_type_hints(_typecheckingstub__44015d889f5b99adbe6056ed6c8499be47c63f2c6c4914c9ad7283aacd918861)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -4753,7 +4759,7 @@ class CfnResponderGateway(
     @acm_certificate_arn.setter
     def acm_certificate_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9f03c1e2ea420bfbd00643eb4e4d057523a296c09730dcd4870bfe282ad8a1e)
+            type_hints = cached_type_hints(_typecheckingstub__b9f03c1e2ea420bfbd00643eb4e4d057523a296c09730dcd4870bfe282ad8a1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acmCertificateArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4766,7 +4772,7 @@ class CfnResponderGateway(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e6878cd3f2c8e8e361bc8d2c86209d26a1fb58fbe2d62b7edf129a163c2a858)
+            type_hints = cached_type_hints(_typecheckingstub__1e6878cd3f2c8e8e361bc8d2c86209d26a1fb58fbe2d62b7edf129a163c2a858)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -4779,7 +4785,7 @@ class CfnResponderGateway(
     @domain_name.setter
     def domain_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__661744fbbe0ebbf7d0da02d43ad93534aa4716cfe31f0ca98ac17ceaff284331)
+            type_hints = cached_type_hints(_typecheckingstub__661744fbbe0ebbf7d0da02d43ad93534aa4716cfe31f0ca98ac17ceaff284331)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -4791,7 +4797,7 @@ class CfnResponderGateway(
     @gateway_type.setter
     def gateway_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e07c674b7e23967ee36b3ebbe9d995cd5317f9cb877417b1fdbc07fa49589b12)
+            type_hints = cached_type_hints(_typecheckingstub__e07c674b7e23967ee36b3ebbe9d995cd5317f9cb877417b1fdbc07fa49589b12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gatewayType", value) # pyright: ignore[reportArgumentType]
 
@@ -4799,16 +4805,16 @@ class CfnResponderGateway(
     @jsii.member(jsii_name="listenerConfig")
     def listener_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]], jsii.get(self, "listenerConfig"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ListenerConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ListenerConfigProperty"]], jsii.get(self, "listenerConfig"))
 
     @listener_config.setter
     def listener_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ListenerConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0babd9ac8aad056c622994288ded984b5a80bc7fd9cf69a746490aa7da0e7fe)
+            type_hints = cached_type_hints(_typecheckingstub__d0babd9ac8aad056c622994288ded984b5a80bc7fd9cf69a746490aa7da0e7fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listenerConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -4816,30 +4822,33 @@ class CfnResponderGateway(
     @jsii.member(jsii_name="managedEndpointConfiguration")
     def managed_endpoint_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]]:
         '''The configuration for the managed endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]], jsii.get(self, "managedEndpointConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]], jsii.get(self, "managedEndpointConfiguration"))
 
     @managed_endpoint_configuration.setter
     def managed_endpoint_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c62d5b7a0422ed5598bd291abfbec31946d1749e58220bce6017e5e6847b5c1)
+            type_hints = cached_type_hints(_typecheckingstub__4c62d5b7a0422ed5598bd291abfbec31946d1749e58220bce6017e5e6847b5c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedEndpointConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78481e43a5f64482056245022052cc21592112a8a52dc33921b1d7faf64c9cfe)
+            type_hints = cached_type_hints(_typecheckingstub__78481e43a5f64482056245022052cc21592112a8a52dc33921b1d7faf64c9cfe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4847,17 +4856,17 @@ class CfnResponderGateway(
     @jsii.member(jsii_name="trustStoreConfiguration")
     def trust_store_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.TrustStoreConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.TrustStoreConfigurationProperty"]]:
         '''The configuration of the trust store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.TrustStoreConfigurationProperty"]], jsii.get(self, "trustStoreConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.TrustStoreConfigurationProperty"]], jsii.get(self, "trustStoreConfiguration"))
 
     @trust_store_configuration.setter
     def trust_store_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.TrustStoreConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.TrustStoreConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c35e12d72dbcce9576ddf9d51543995e06e6fe3b33fbd82dac8f968d6d8a2ce)
+            type_hints = cached_type_hints(_typecheckingstub__1c35e12d72dbcce9576ddf9d51543995e06e6fe3b33fbd82dac8f968d6d8a2ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trustStoreConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4876,7 +4885,7 @@ class CfnResponderGateway(
             *,
             auto_scaling_group_name_list: typing.Sequence[builtins.str],
             role_arn: builtins.str,
-            health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            health_check_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of an auto scaling group.
 
@@ -4913,7 +4922,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d1c95602d43fb8271931e505ccc184bd0ec122d89dad878b15fd318423cdc0a5)
+                type_hints = cached_type_hints(_typecheckingstub__d1c95602d43fb8271931e505ccc184bd0ec122d89dad878b15fd318423cdc0a5)
                 check_type(argname="argument auto_scaling_group_name_list", value=auto_scaling_group_name_list, expected_type=type_hints["auto_scaling_group_name_list"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument health_check_config", value=health_check_config, expected_type=type_hints["health_check_config"])
@@ -4947,12 +4956,12 @@ class CfnResponderGateway(
         @builtins.property
         def health_check_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.HealthCheckConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.HealthCheckConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-autoscalinggroupsconfiguration.html#cfn-rtbfabric-respondergateway-autoscalinggroupsconfiguration-healthcheckconfig
             '''
             result = self._values.get("health_check_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.HealthCheckConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.HealthCheckConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5016,7 +5025,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c39d19c6d36879baafff96889064035f106253849fe63133370a9cd6384f8f1)
+                type_hints = cached_type_hints(_typecheckingstub__8c39d19c6d36879baafff96889064035f106253849fe63133370a9cd6384f8f1)
                 check_type(argname="argument cluster_api_server_ca_certificate_chain", value=cluster_api_server_ca_certificate_chain, expected_type=type_hints["cluster_api_server_ca_certificate_chain"])
                 check_type(argname="argument cluster_api_server_endpoint_uri", value=cluster_api_server_endpoint_uri, expected_type=type_hints["cluster_api_server_endpoint_uri"])
                 check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
@@ -5163,7 +5172,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4812b8fce1a268f8afb2e03c72b425e5823b9de35c2b7f18f2b1e0409dcdedd8)
+                type_hints = cached_type_hints(_typecheckingstub__4812b8fce1a268f8afb2e03c72b425e5823b9de35c2b7f18f2b1e0409dcdedd8)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument healthy_threshold_count", value=healthy_threshold_count, expected_type=type_hints["healthy_threshold_count"])
@@ -5290,7 +5299,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__92ed326d734b9c201ac72b6ed163ed09ec540f2aa990762e2dd76a0f0129d370)
+                type_hints = cached_type_hints(_typecheckingstub__92ed326d734b9c201ac72b6ed163ed09ec540f2aa990762e2dd76a0f0129d370)
                 check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "protocols": protocols,
@@ -5328,8 +5337,8 @@ class CfnResponderGateway(
         def __init__(
             self,
             *,
-            auto_scaling_groups_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.AutoScalingGroupsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            eks_endpoints_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.EksEndpointsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_scaling_groups_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.AutoScalingGroupsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            eks_endpoints_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.EksEndpointsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of a managed endpoint.
 
@@ -5375,7 +5384,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec35a25a4306a45d1288fed4ad734e82e67a0cf2e49ef915d8568d687b0c56ee)
+                type_hints = cached_type_hints(_typecheckingstub__ec35a25a4306a45d1288fed4ad734e82e67a0cf2e49ef915d8568d687b0c56ee)
                 check_type(argname="argument auto_scaling_groups_configuration", value=auto_scaling_groups_configuration, expected_type=type_hints["auto_scaling_groups_configuration"])
                 check_type(argname="argument eks_endpoints_configuration", value=eks_endpoints_configuration, expected_type=type_hints["eks_endpoints_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5387,24 +5396,24 @@ class CfnResponderGateway(
         @builtins.property
         def auto_scaling_groups_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.AutoScalingGroupsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.AutoScalingGroupsConfigurationProperty"]]:
             '''Describes the configuration of an auto scaling group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-managedendpointconfiguration.html#cfn-rtbfabric-respondergateway-managedendpointconfiguration-autoscalinggroupsconfiguration
             '''
             result = self._values.get("auto_scaling_groups_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.AutoScalingGroupsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.AutoScalingGroupsConfigurationProperty"]], result)
 
         @builtins.property
         def eks_endpoints_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.EksEndpointsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.EksEndpointsConfigurationProperty"]]:
             '''Describes the configuration of an Amazon Elastic Kubernetes Service endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-managedendpointconfiguration.html#cfn-rtbfabric-respondergateway-managedendpointconfiguration-eksendpointsconfiguration
             '''
             result = self._values.get("eks_endpoints_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.EksEndpointsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.EksEndpointsConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5448,7 +5457,7 @@ class CfnResponderGateway(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e6cdb06483a6be6c8f2015cdc677b1237ae909cbf1496feb35e652044d632315)
+                type_hints = cached_type_hints(_typecheckingstub__e6cdb06483a6be6c8f2015cdc677b1237ae909cbf1496feb35e652044d632315)
                 check_type(argname="argument certificate_authority_certificates", value=certificate_authority_certificates, expected_type=type_hints["certificate_authority_certificates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "certificate_authority_certificates": certificate_authority_certificates,
@@ -5501,17 +5510,17 @@ class CfnResponderGatewayProps:
         *,
         port: jsii.Number,
         protocol: builtins.str,
-        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
-        vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
+        vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
         acm_certificate_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         gateway_type: typing.Optional[builtins.str] = None,
-        listener_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_endpoint_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trust_store_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        listener_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_endpoint_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trust_store_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResponderGateway``.
 
@@ -5592,7 +5601,7 @@ class CfnResponderGatewayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9eb5e991b472975a887a9142289f690ca12906379267bff2fae6a074009eacd)
+            type_hints = cached_type_hints(_typecheckingstub__c9eb5e991b472975a887a9142289f690ca12906379267bff2fae6a074009eacd)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -5653,36 +5662,36 @@ class CfnResponderGatewayProps:
     @builtins.property
     def security_group_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]:
         '''The unique identifiers of the security groups.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-securitygroupids
         '''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]], result)
 
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]:
         '''The unique identifiers of the subnets.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-subnetids
         '''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]], result)
 
     @builtins.property
-    def vpc_id(self) -> typing.Union[builtins.str, "_IVPCRef_f02a11df"]:
+    def vpc_id(self) -> typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]:
         '''The unique identifier of the Virtual Private Cloud (VPC).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-vpcid
         '''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IVPCRef_f02a11df"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"], result)
 
     @builtins.property
     def acm_certificate_arn(self) -> typing.Optional[builtins.str]:
@@ -5721,43 +5730,43 @@ class CfnResponderGatewayProps:
     @builtins.property
     def listener_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ListenerConfigProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-listenerconfig
         '''
         result = self._values.get("listener_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ListenerConfigProperty"]], result)
 
     @builtins.property
     def managed_endpoint_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]]:
         '''The configuration for the managed endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-managedendpointconfiguration
         '''
         result = self._values.get("managed_endpoint_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.ManagedEndpointConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of the key-value pairs of the tag or tags to assign to the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trust_store_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.TrustStoreConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.TrustStoreConfigurationProperty"]]:
         '''The configuration of the trust store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-truststoreconfiguration
         '''
         result = self._values.get("trust_store_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.TrustStoreConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResponderGateway.TrustStoreConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5793,15 +5802,15 @@ def _typecheckingstub__1a5afae55006ef90edfe40aa8e5117e329b49d245830f9f3781bf45c5
     id: builtins.str,
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e45579c24ba39e7cbd88d8a1dcb187104127b5c4c031b298b39214f40fb1a36e(
-    resource: _IInboundExternalLinkRef_087c1bc6,
+    resource: _aws_rtbfabric_0d6b6007.IInboundExternalLinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5813,7 +5822,7 @@ def _typecheckingstub__1943b47f9f91218da538fb23adeca699c3f23ed379e5dc88cefa0f1b8
     pass
 
 def _typecheckingstub__10a4ab8875cef05923631df17dd17458d37380c77a9c313974f23f57ebce0981(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5831,26 +5840,26 @@ def _typecheckingstub__bb7adaf4ee57468585d346f35e67e07997a1e20abf84b582fc810dff9
     pass
 
 def _typecheckingstub__cf1ee8508990492f8168ad7b68f62077e25e97d32af167928f013ed58b2c4d15(
-    value: typing.Union[_IResolvable_da3f097b, CfnInboundExternalLink.LinkLogSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInboundExternalLink.LinkLogSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5745f3776bc1df4e80af5ddcc1b274597b1aab22d6cd1cf3d3f615d1fba4c3f7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInboundExternalLink.LinkAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInboundExternalLink.LinkAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__13f41f0dd733ffddc6dae564597b6fd8c0c31c02cd444ba959242500384e99aa(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9a2c31093a0bae40e89e39fd987b13c3e5cb84ca6d6dc8f166577487829dc8d4(
     *,
-    link_application_log_sampling: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_application_log_sampling: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5866,14 +5875,14 @@ def _typecheckingstub__1140756e9bc43fe93422c9e7b90ea26b4cffbc73394ce1e5eb8306420
 def _typecheckingstub__7f4ea72d051bc93d14ed2cae48b106a31ab27e9978c0bc23487c53cf7fe21dd5(
     *,
     customer_provided_id: typing.Optional[builtins.str] = None,
-    responder_error_masking: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    responder_error_masking: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c4b3acd881daca8e2c440e2d628c27b2f1ce93a4b4d05d722b1f810b3bbdeeb3(
     *,
-    application_logs: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5891,9 +5900,9 @@ def _typecheckingstub__1d9aa166adda80a00eaa1e13fdf8247afcbddf7768a6b4c8415c5e4e9
 def _typecheckingstub__d15a9ea48568fa6d17bb53d9622c841d5242e53e66d3e303799545a8370eb3dc(
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5903,18 +5912,18 @@ def _typecheckingstub__33e403b84fbb081fd16a0097272c1b774ceb7dfcf2ef00e8d7edb2e0f
     id: builtins.str,
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     peer_gateway_id: builtins.str,
-    http_responder_allowed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    module_configuration_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ModuleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_responder_allowed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    module_configuration_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ModuleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8441d9ec3f0e33dc15a6b6f9feae93734b736d627e3b8c39efcec62db2104c90(
-    resource: _ILinkRef_1c71e733,
+    resource: _aws_rtbfabric_0d6b6007.ILinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5926,7 +5935,7 @@ def _typecheckingstub__7c8c5e17bdd0c74102b57d33eeaaf08efbc39f50454b30bdc54f29e0d
     pass
 
 def _typecheckingstub__cc9bc5027acac07a275a06b167f0f8790f36a2fef049c4c738abc9a498a67b72(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5944,7 +5953,7 @@ def _typecheckingstub__bd77fe8e257ed257fd9cc2835f29e82e4e5c9092b9320846e746cb838
     pass
 
 def _typecheckingstub__ab7e556ca0c98de786d1067094aa52ffc4810802cdeabb970d57fd2e6e7032cc(
-    value: typing.Union[_IResolvable_da3f097b, CfnLink.LinkLogSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLink.LinkLogSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5956,40 +5965,40 @@ def _typecheckingstub__d1e08aa7186c8b3f2bcce904bac17f4f0dffb3848b35af4cb2707c3ec
     pass
 
 def _typecheckingstub__48b3206215bae9d2e48e79793f9ffd87062a4b1724e8972850cbacafec752632(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a1ab4741f8f8f4356c5390e467941454f9741185b5834e0d5c912d2df062bb22(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLink.LinkAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLink.LinkAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfe068c99595620eaa7b9882ede77a4ac9cf63b8112fdeb95ec82ba2220f47c9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLink.ModuleConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLink.ModuleConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__89f50ed2507493ec960d7f22a7f5e59b8cd846866c52a44638fb170da225c31a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d6894eb0ca15bfc1becb971f044daaafc323280b5c36040bf05b97a7db16c1c6(
     *,
-    header_tag: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.HeaderTagActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    no_bid: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.NoBidActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    header_tag: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.HeaderTagActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    no_bid: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.NoBidActionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__386c1f58d2f3cd26972e49e1d069f69cd28a5e0106e1e75cdd6b149047a40486(
     *,
-    link_application_log_sampling: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_application_log_sampling: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6004,7 +6013,7 @@ def _typecheckingstub__976a810fd8399ef10076aa8ff21db3814228728d51cbe483206baf947
 
 def _typecheckingstub__bcc0e2535e30885c51d63b7ca099b67d5c103991ad0d521226fd949185ecf18a(
     *,
-    criteria: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.FilterCriterionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.FilterCriterionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6028,14 +6037,14 @@ def _typecheckingstub__cc1221d9bdb6ac10224d2e809d5a57a5e79c1624f9b25a6d8868856fb
 def _typecheckingstub__9d88f2ed7a2e18d0a7f048f2648cd6744718ec16fcf5c0c157a303ced0fe42a8(
     *,
     customer_provided_id: typing.Optional[builtins.str] = None,
-    responder_error_masking: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    responder_error_masking: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e62485742cc7a54f6e2603b3db9f4a68a14d224e255f6337f68e83e4464ec0de(
     *,
-    application_logs: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6044,7 +6053,7 @@ def _typecheckingstub__82be0aba67824a4714ca848063dd6c387779b7a60080807fbc17ba6f5
     *,
     name: builtins.str,
     depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-    module_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    module_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6052,8 +6061,8 @@ def _typecheckingstub__82be0aba67824a4714ca848063dd6c387779b7a60080807fbc17ba6f5
 
 def _typecheckingstub__910c77dbedb644758dff1f600f9a05ab181cc893c92bc153462d376122dba51d(
     *,
-    no_bid: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.NoBidModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_rtb_attribute: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.OpenRtbAttributeModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    no_bid: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.NoBidModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_rtb_attribute: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.OpenRtbAttributeModuleParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6076,8 +6085,8 @@ def _typecheckingstub__65534e5849f21132ce42911f7b88232db1b4cc75a5d56fc3c669b59b4
 
 def _typecheckingstub__0027d94142f38aa037892e813fefe1e1f6b9ef3d7a8927dcb4fe8fe3340158c5(
     *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    filter_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    action: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    filter_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
     filter_type: builtins.str,
     holdback_percentage: jsii.Number,
 ) -> None:
@@ -6097,12 +6106,12 @@ def _typecheckingstub__7a4d5a36bb204668cc9f3235d69b4d6dd33abe2f27737729656b5fd76
 def _typecheckingstub__012c58c752deffb32adb9b9c3e8a29a8373d9f395d7e2679c67f05f37f77812a(
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     peer_gateway_id: builtins.str,
-    http_responder_allowed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    module_configuration_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.ModuleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_responder_allowed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    module_configuration_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLink.ModuleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6111,17 +6120,17 @@ def _typecheckingstub__db28c924acf747369535729d8c6637b8e23e0f6c90a6cd1f5cc9d48d3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
     gateway_id: builtins.str,
     link_id: builtins.str,
     priority: jsii.Number,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cb1a2e81fa8f1ecbb8d99e15809796fdf174605f03a15522c5be072beabd85e6(
-    resource: _ILinkRoutingRuleRef_1a99f018,
+    resource: _aws_rtbfabric_0d6b6007.ILinkRoutingRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6133,7 +6142,7 @@ def _typecheckingstub__786df57310f0eb7ab911502bc08d94ccffa60573fc096c32826ca177d
     pass
 
 def _typecheckingstub__bdc30152ed3302452ce7a1b2782c50c80b5ae4288eacfddadcc91e02d74aba49(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6145,7 +6154,7 @@ def _typecheckingstub__a390646c7e8532ae1ad80f8b3177a726db080bf73c9f68e065bcd6337
     pass
 
 def _typecheckingstub__47a7fb625657336fbaa66586b4b49f43894aa1a8b7b8d801a401b1220db07084(
-    value: typing.Union[_IResolvable_da3f097b, CfnLinkRoutingRule.RuleConditionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLinkRoutingRule.RuleConditionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6169,7 +6178,7 @@ def _typecheckingstub__7ebe945371a0eff207746d83bd4af45ac9cf6efd96ca5d9e38e251066
     pass
 
 def _typecheckingstub__ca8ae3e4347383becce77d565409673c9db7904bb1301268338097b02929902f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6188,7 +6197,7 @@ def _typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e169
     host_header_wildcard: typing.Optional[builtins.str] = None,
     path_exact: typing.Optional[builtins.str] = None,
     path_prefix: typing.Optional[builtins.str] = None,
-    query_string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.QueryStringKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    query_string_equals: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLinkRoutingRule.QueryStringKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     query_string_exists: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6196,11 +6205,11 @@ def _typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e169
 
 def _typecheckingstub__de4617dbfad28ff2183655aa1e76a72dd06fa11704b1afdee10f708213d03737(
     *,
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
     gateway_id: builtins.str,
     link_id: builtins.str,
     priority: jsii.Number,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6210,16 +6219,16 @@ def _typecheckingstub__b83212e7efe505cb3ee08383229ed92a52ff4ae1914a3bae275aa3276
     id: builtins.str,
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     public_endpoint: builtins.str,
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f750d09898fee559d9d8fea7e122b94e612d5000fc57a92e18a8f25e09f82fa3(
-    resource: _IOutboundExternalLinkRef_06bb6289,
+    resource: _aws_rtbfabric_0d6b6007.IOutboundExternalLinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6231,7 +6240,7 @@ def _typecheckingstub__646cbb509a7c181366f50146e6d34dd1709c05a1bf1bee7ca9c1268e3
     pass
 
 def _typecheckingstub__94c554a77d3e3ec5d6846c452288c7fd3554604db45d13548cbe1057b1390676(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6249,7 +6258,7 @@ def _typecheckingstub__238843eabee398c3632a13fa1c1960dac944a8392e27b87e031688ea7
     pass
 
 def _typecheckingstub__26f049e3b14063d70306af34d8e4502f4010b3af3beefbbccf55ef545809a845(
-    value: typing.Union[_IResolvable_da3f097b, CfnOutboundExternalLink.LinkLogSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOutboundExternalLink.LinkLogSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6261,20 +6270,20 @@ def _typecheckingstub__d7e4fb1b12fa9b92810ee792acd6f261cddb5b628377308f8f917d480
     pass
 
 def _typecheckingstub__6db7a26ace700bb14301fd54fb67deca8e1afc5000c0c296662435bef28b3372(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOutboundExternalLink.LinkAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOutboundExternalLink.LinkAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__67ca7cd3c98009f70e07dfe4c683484c616d5a03de5ece23f5b3f87bdc80d986(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a9b229edccbdfb67f4339c40a0ca2e3b00d4634b2837ac239db564cec3868684(
     *,
-    link_application_log_sampling: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_application_log_sampling: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.LinkApplicationLogSamplingProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6290,14 +6299,14 @@ def _typecheckingstub__4795d6d14a69cfacf0369b73be38f15dc83058bfc07f12af59548536c
 def _typecheckingstub__ab7f89fad048d65160fee1cdd9ee351aa26472e598659007bfb8a25a6c2f20a8(
     *,
     customer_provided_id: typing.Optional[builtins.str] = None,
-    responder_error_masking: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    responder_error_masking: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.ResponderErrorMaskingForHttpCodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__52c438d627d877d014a66c5800991149741928cee0830d167e9a92376109f1fb(
     *,
-    application_logs: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.ApplicationLogsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6315,10 +6324,10 @@ def _typecheckingstub__c24dd49b3cfd077aaf0d4d437d27cc349742733f2fbf408918f211c3c
 def _typecheckingstub__c76a09410a4a7820f14f2f07d663bc52013017381c28be06dd077613ba2c9385(
     *,
     gateway_id: builtins.str,
-    link_log_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    link_log_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.LinkLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     public_endpoint: builtins.str,
-    link_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOutboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    link_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOutboundExternalLink.LinkAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6327,17 +6336,17 @@ def _typecheckingstub__f422ad74a878dd27ca273fe5fdb545d09c78a5ac256926db3df20c37e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfb862aae5f5ac5590b2e30cf6f7bd41dd788937fd184bc1afb6341c0375ea45(
-    resource: _IRequesterGatewayRef_d92bcdf1,
+    resource: _aws_rtbfabric_0d6b6007.IRequesterGatewayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6349,7 +6358,7 @@ def _typecheckingstub__1a9f5f2b085719975110c2c7cb3f46a272d19779c29aef9df8c208a56
     pass
 
 def _typecheckingstub__ff35377957678a6c2c4554293556ba81f1ce2d415c840e7f565c3446b4392dd1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6385,18 +6394,18 @@ def _typecheckingstub__b1760b22a44b3e180e50000774882d4780c0aa85c37c931f50882d305
     pass
 
 def _typecheckingstub__49d27ee86984f1ea979cd85d326d12ed9f60279e658da842a417dc4a27e2ba07(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e861505bd65d62c115117db14bdc56cdccfb7c596f849bc81dadfc3f63484f16(
     *,
-    security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6407,23 +6416,23 @@ def _typecheckingstub__cb840846f651123d9a88e886198c38a19418b49d00a405569125e9b5f
     *,
     port: jsii.Number,
     protocol: builtins.str,
-    security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
     acm_certificate_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     gateway_type: typing.Optional[builtins.str] = None,
-    listener_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_endpoint_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trust_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    listener_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_endpoint_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trust_store_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d03c637f67985067e0671715031f91341dab89c06faa85ff0ef8ac5fda7755ad(
-    resource: _IResponderGatewayRef_2bdaa070,
+    resource: _aws_rtbfabric_0d6b6007.IResponderGatewayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6435,7 +6444,7 @@ def _typecheckingstub__0b74e42482b63ce0a50334b157f355ffb0e00bd0de13bb57fe8651a69
     pass
 
 def _typecheckingstub__fa2d13378cd55a42c745c0d3be558c5fe2209a8b5cd2de4699daa917018a45ff(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6501,25 +6510,25 @@ def _typecheckingstub__e07c674b7e23967ee36b3ebbe9d995cd5317f9cb877417b1fdbc07fa4
     pass
 
 def _typecheckingstub__d0babd9ac8aad056c622994288ded984b5a80bc7fd9cf69a746490aa7da0e7fe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponderGateway.ListenerConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResponderGateway.ListenerConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4c62d5b7a0422ed5598bd291abfbec31946d1749e58220bce6017e5e6847b5c1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponderGateway.ManagedEndpointConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResponderGateway.ManagedEndpointConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__78481e43a5f64482056245022052cc21592112a8a52dc33921b1d7faf64c9cfe(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1c35e12d72dbcce9576ddf9d51543995e06e6fe3b33fbd82dac8f968d6d8a2ce(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponderGateway.TrustStoreConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResponderGateway.TrustStoreConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6528,7 +6537,7 @@ def _typecheckingstub__d1c95602d43fb8271931e505ccc184bd0ec122d89dad878b15fd31842
     *,
     auto_scaling_group_name_list: typing.Sequence[builtins.str],
     role_arn: builtins.str,
-    health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6568,8 +6577,8 @@ def _typecheckingstub__92ed326d734b9c201ac72b6ed163ed09ec540f2aa990762e2dd76a0f0
 
 def _typecheckingstub__ec35a25a4306a45d1288fed4ad734e82e67a0cf2e49ef915d8568d687b0c56ee(
     *,
-    auto_scaling_groups_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.AutoScalingGroupsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    eks_endpoints_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.EksEndpointsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_groups_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.AutoScalingGroupsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    eks_endpoints_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.EksEndpointsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6585,17 +6594,17 @@ def _typecheckingstub__c9eb5e991b472975a887a9142289f690ca12906379267bff2fae6a074
     *,
     port: jsii.Number,
     protocol: builtins.str,
-    security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
-    vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
+    vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
     acm_certificate_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     gateway_type: typing.Optional[builtins.str] = None,
-    listener_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_endpoint_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trust_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    listener_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_endpoint_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trust_store_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

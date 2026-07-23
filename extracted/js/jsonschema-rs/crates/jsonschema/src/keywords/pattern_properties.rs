@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     compiler,
@@ -11,20 +11,21 @@ use crate::{
     regex::{analyze_pattern, LiteralMatcher, PatternOptimization, RegexEngine},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
+    Json, JsonNode, JsonObjectAccess, SerdeJson,
 };
 use serde_json::{Map, Value};
 
 /// Validator for multiple patterns using compiled regex.
-pub(crate) struct PatternPropertiesValidator<R> {
-    patterns: Vec<(Arc<R>, SchemaNode)>,
+pub(crate) struct PatternPropertiesValidator<R, F: Json = SerdeJson> {
+    patterns: Vec<(Arc<R>, SchemaNode<F>)>,
 }
 
-impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
+impl<F: Json, R: RegexEngine> Validate<F> for PatternPropertiesValidator<R, F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
             for (re, node) in &self.patterns {
-                for (key, value) in item {
-                    if re.is_match(key).unwrap_or(false) && !node.is_valid(value, ctx) {
+                for (key, value) in object.members() {
+                    if re.is_match(key.as_ref()).unwrap_or(false) && !node.is_valid(&value, ctx) {
                         return false;
                     }
                 }
@@ -37,16 +38,16 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = instance {
-            for (key, value) in item {
+        if let Some(object) = instance.as_object() {
+            for (key, value) in object.members() {
                 for (re, node) in &self.patterns {
-                    if re.is_match(key).unwrap_or(false) {
-                        node.validate(value, &location.push(key), tracker, ctx)?;
+                    if re.is_match(key.as_ref()).unwrap_or(false) {
+                        node.validate(&value, &location.push(key.as_ref()), tracker, ctx)?;
                     }
                 }
             }
@@ -56,19 +57,19 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
             for (re, node) in &self.patterns {
-                for (key, value) in item {
-                    if re.is_match(key).unwrap_or(false) {
+                for (key, value) in object.members() {
+                    if re.is_match(key.as_ref()).unwrap_or(false) {
                         errors.extend(node.iter_errors(
-                            value,
-                            &location.push(key.as_str()),
+                            &value,
+                            &location.push(key.as_ref()),
                             tracker,
                             ctx,
                         ));
@@ -83,21 +84,21 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
-            let mut matched_propnames = Vec::with_capacity(item.len());
+        if let Some(object) = instance.as_object() {
+            let mut matched_propnames = Vec::with_capacity(object.len());
             let mut children = Vec::new();
             for (pattern, node) in &self.patterns {
-                for (key, value) in item {
-                    if pattern.is_match(key).unwrap_or(false) {
-                        matched_propnames.push(key.clone());
+                for (key, value) in object.members() {
+                    if pattern.is_match(key.as_ref()).unwrap_or(false) {
+                        matched_propnames.push(key.as_ref().to_owned());
                         children.push(node.evaluate_instance(
-                            value,
-                            &location.push(key.as_str()),
+                            &value,
+                            &location.push(key.as_ref()),
                             tracker,
                             ctx,
                         ));
@@ -113,16 +114,18 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
     }
 }
 
-pub(crate) struct SingleValuePatternPropertiesValidator<R> {
+pub(crate) struct SingleValuePatternPropertiesValidator<R, F: Json = SerdeJson> {
     regex: Arc<R>,
-    node: SchemaNode,
+    node: SchemaNode<F>,
 }
 
-impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
-            for (key, value) in item {
-                if self.regex.is_match(key).unwrap_or(false) && !self.node.is_valid(value, ctx) {
+impl<F: Json, R: RegexEngine> Validate<F> for SingleValuePatternPropertiesValidator<R, F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
+            for (key, value) in object.members() {
+                if self.regex.is_match(key.as_ref()).unwrap_or(false)
+                    && !self.node.is_valid(&value, ctx)
+                {
                     return false;
                 }
             }
@@ -134,16 +137,16 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = instance {
-            for (key, value) in item {
-                if self.regex.is_match(key).unwrap_or(false) {
+        if let Some(object) = instance.as_object() {
+            for (key, value) in object.members() {
+                if self.regex.is_match(key.as_ref()).unwrap_or(false) {
                     self.node
-                        .validate(value, &location.push(key), tracker, ctx)?;
+                        .validate(&value, &location.push(key.as_ref()), tracker, ctx)?;
                 }
             }
         }
@@ -152,18 +155,18 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
-            for (key, value) in item {
-                if self.regex.is_match(key).unwrap_or(false) {
+            for (key, value) in object.members() {
+                if self.regex.is_match(key.as_ref()).unwrap_or(false) {
                     errors.extend(self.node.iter_errors(
-                        value,
-                        &location.push(key.as_str()),
+                        &value,
+                        &location.push(key.as_ref()),
                         tracker,
                         ctx,
                     ));
@@ -177,20 +180,20 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
-            let mut matched_propnames = Vec::with_capacity(item.len());
+        if let Some(object) = instance.as_object() {
+            let mut matched_propnames = Vec::with_capacity(object.len());
             let mut children = Vec::new();
-            for (key, value) in item {
-                if self.regex.is_match(key).unwrap_or(false) {
-                    matched_propnames.push(key.clone());
+            for (key, value) in object.members() {
+                if self.regex.is_match(key.as_ref()).unwrap_or(false) {
+                    matched_propnames.push(key.as_ref().to_owned());
                     children.push(self.node.evaluate_instance(
-                        value,
-                        &location.push(key.as_str()),
+                        &value,
+                        &location.push(key.as_ref()),
                         tracker,
                         ctx,
                     ));
@@ -206,11 +209,11 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     parent: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     if matches!(
         parent.get("additionalProperties"),
         Some(Value::Bool(false) | Value::Object(_))
@@ -225,7 +228,7 @@ pub(crate) fn compile<'a>(
             location.clone(),
             location,
             Location::new(),
-            schema,
+            Cow::Borrowed(schema),
             JsonType::Object,
         )));
     };
@@ -246,7 +249,7 @@ pub(crate) fn compile<'a>(
             .map(|patterns| {
                 build_validator_from_entries(patterns, |regex, node| {
                     Box::new(SingleValuePatternPropertiesValidator { regex, node })
-                        as Box<dyn Validate>
+                        as Box<dyn Validate<F>>
                 })
             })
         }
@@ -258,7 +261,7 @@ pub(crate) fn compile<'a>(
             .map(|patterns| {
                 build_validator_from_entries(patterns, |regex, node| {
                     Box::new(SingleValuePatternPropertiesValidator { regex, node })
-                        as Box<dyn Validate>
+                        as Box<dyn Validate<F>>
                 })
             })
         }
@@ -268,10 +271,10 @@ pub(crate) fn compile<'a>(
 
 /// Try to compile all patterns as literal matches (prefix or exact).
 /// Returns `Some` if ALL patterns are optimizable, `None` if any requires a full regex.
-fn try_compile_as_literals<'a>(
-    ctx: &compiler::Context,
+fn try_compile_as_literals<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     map: &'a Map<String, Value>,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     let mut entries = Vec::with_capacity(map.len());
     for (pattern, subschema) in map {
         let pctx = ctx.new_at_location(pattern.as_str());
@@ -290,28 +293,33 @@ fn try_compile_as_literals<'a>(
         entries.push((Arc::new(matcher), node));
     }
     Some(Ok(build_validator_from_entries(entries, |regex, node| {
-        Box::new(SingleValuePatternPropertiesValidator { regex, node }) as Box<dyn Validate>
+        Box::new(SingleValuePatternPropertiesValidator { regex, node }) as Box<dyn Validate<F>>
     })))
 }
 
-fn invalid_regex<'a>(ctx: &compiler::Context, schema: &'a Value) -> ValidationError<'a> {
+fn invalid_regex<'a, F: Json>(
+    ctx: &compiler::Context<F>,
+    schema: &'a Value,
+) -> ValidationError<'a> {
     ValidationError::format(
         ctx.location().clone(),
         LazyEvaluationPath::SameAsSchemaPath,
         Location::new(),
-        schema,
+        Cow::Borrowed(schema),
         "regex",
     )
 }
 
+type CompiledPatterns<R, F> = Vec<(Arc<R>, SchemaNode<F>)>;
+
 /// Compile every `(pattern, subschema)` pair into `(regex, node)` tuples.
-fn compile_pattern_entries<'a, R, F>(
-    ctx: &compiler::Context,
+fn compile_pattern_entries<'a, R, C, F: Json>(
+    ctx: &compiler::Context<F>,
     map: &'a Map<String, Value>,
-    mut compile_regex: F,
-) -> Result<Vec<(Arc<R>, SchemaNode)>, ValidationError<'a>>
+    mut compile_regex: C,
+) -> Result<CompiledPatterns<R, F>, ValidationError<'a>>
 where
-    F: FnMut(&compiler::Context, &str, &'a Value) -> Result<Arc<R>, ValidationError<'a>>,
+    C: FnMut(&compiler::Context<F>, &str, &'a Value) -> Result<Arc<R>, ValidationError<'a>>,
 {
     let mut patterns = Vec::with_capacity(map.len());
     for (pattern, subschema) in map {
@@ -324,10 +332,10 @@ where
 }
 
 /// Pick the optimal validator representation for the compiled pattern entries.
-fn build_validator_from_entries<R>(
-    mut entries: Vec<(Arc<R>, SchemaNode)>,
-    single_factory: impl FnOnce(Arc<R>, SchemaNode) -> Box<dyn Validate>,
-) -> Box<dyn Validate>
+fn build_validator_from_entries<R, F: Json>(
+    mut entries: Vec<(Arc<R>, SchemaNode<F>)>,
+    single_factory: impl FnOnce(Arc<R>, SchemaNode<F>) -> Box<dyn Validate<F>>,
+) -> Box<dyn Validate<F>>
 where
     R: RegexEngine + 'static,
 {

@@ -15,6 +15,46 @@ from typing import NotRequired, TypedDict
 from abx_plugins.plugins.base.utils import load_config
 
 
+CLAUDECODE_CONFIG_PATH = Path(__file__).with_name("config.json")
+
+
+def _resolve_claude_code_binary(config) -> tuple[str, dict[str, str]]:
+    """Resolve Node and Claude Code through the plugin's abxpkg declarations."""
+    from abxpkg import BinProvider
+    from abx_plugins.plugins.base.utils import load_required_binary_from_config
+
+    binary_environ = os.environ.copy()
+    global_config = config.model_dump()
+    loaded_dependencies = [
+        load_required_binary_from_config(
+            binary_name,
+            CLAUDECODE_CONFIG_PATH,
+            global_config=global_config,
+            environ=binary_environ,
+            install=True,
+        )
+        for binary_name in (
+            str(config.NODE_BINARY),
+            str(config.CLAUDECODE_BINARY),
+        )
+    ]
+    if any(not loaded.loaded_abspath for loaded in loaded_dependencies):
+        raise RuntimeError(
+            "Claude Code dependencies did not resolve from required_binaries",
+        )
+
+    providers = [
+        loaded.loaded_binprovider
+        for loaded in loaded_dependencies
+        if loaded.loaded_binprovider is not None
+    ]
+    binary_env = BinProvider.build_exec_env(
+        providers=providers,
+        base_env=binary_environ,
+    )
+    return str(loaded_dependencies[-1].loaded_abspath), binary_env
+
+
 class ExtractorOutput(TypedDict):
     name: str
     files: list[str]
@@ -163,8 +203,11 @@ def run_claude_code(
 
     Returns: (stdout, stderr, returncode)
     """
-    config = load_config(Path(__file__).with_name("config.json"))
-    binary = str(config.CLAUDECODE_BINARY)
+    config = load_config(CLAUDECODE_CONFIG_PATH, hydrate_binaries=False)
+    try:
+        binary, binary_env = _resolve_claude_code_binary(config)
+    except Exception as err:
+        return "", f"Claude Code dependency resolution failed: {err}", 1
 
     cmd = [binary]
 
@@ -183,10 +226,13 @@ def run_claude_code(
 
     # Add allowed tools (restrict to safe tools by default)
     if allowed_tools:
+        available_tools = sorted({tool.split("(", 1)[0] for tool in allowed_tools})
+        cmd.extend(["--tools", ",".join(available_tools)])
         for tool in allowed_tools:
             cmd.extend(["--allowedTools", tool])
     else:
         # Default: allow read, write, and bash (no destructive tools)
+        cmd.extend(["--tools", "Bash,Read,Write"])
         cmd.extend(["--allowedTools", "Read"])
         cmd.extend(["--allowedTools", "Write"])
         cmd.extend(["--allowedTools", "Bash(cat:*)"])
@@ -227,7 +273,7 @@ def run_claude_code(
         "SSH_AGENT_PID",
         "GPG_AGENT_INFO",
     }
-    env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
+    env = {k: v for k, v in binary_env.items() if k not in DENIED_ENV_VARS}
 
     oauth_token = str(
         config.CLAUDE_CODE_OAUTH_TOKEN
@@ -264,7 +310,9 @@ def run_claude_code(
         # Save session log if requested
         if session_log_path and result.stdout:
             try:
-                Path(session_log_path).write_text(result.stdout, encoding="utf-8")
+                session_log = Path(session_log_path)
+                session_log.parent.mkdir(parents=True, exist_ok=True)
+                session_log.write_text(result.stdout, encoding="utf-8")
                 print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
                 print(result.stdout, file=sys.stderr)
             except OSError as e:

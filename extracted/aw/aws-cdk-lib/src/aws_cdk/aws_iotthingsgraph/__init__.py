@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,41 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iotthingsgraph import (
-    FlowTemplateReference as _FlowTemplateReference_1be0c054,
-    IFlowTemplateRef as _IFlowTemplateRef_3c106b25,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iotthingsgraph as _aws_iotthingsgraph_0040dd8e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iotthingsgraph_0040dd8e = _LazyImport("aws_cdk.interfaces.aws_iotthingsgraph")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowTemplateRef_3c106b25)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotthingsgraph_0040dd8e.IFlowTemplateRef)
 class CfnFlowTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotthingsgraph.CfnFlowTemplate",
 ):
@@ -104,7 +101,7 @@ class CfnFlowTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowTemplate.DefinitionDocumentProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowTemplate.DefinitionDocumentProperty", typing.Dict[builtins.str, typing.Any]]],
         compatible_namespace_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::IoTThingsGraph::FlowTemplate``.
@@ -115,7 +112,7 @@ class CfnFlowTemplate(
         :param compatible_namespace_version: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b541277b5609d65e98dee832ff404ee87f323e7fecf77a098f69eb4d36a355c2)
+            type_hints = cached_type_hints(_typecheckingstub__b541277b5609d65e98dee832ff404ee87f323e7fecf77a098f69eb4d36a355c2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowTemplateProps(
@@ -133,18 +130,18 @@ class CfnFlowTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26e7684918c5eefa2f2d710dc0f4a2fc56eafefc603b6434e3bc338bc8ad9fec)
+            type_hints = cached_type_hints(_typecheckingstub__26e7684918c5eefa2f2d710dc0f4a2fc56eafefc603b6434e3bc338bc8ad9fec)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00dbd92ed0b36635069980bf3a82c2e506824866cac4215035d5ee15810bdc57)
+            type_hints = cached_type_hints(_typecheckingstub__00dbd92ed0b36635069980bf3a82c2e506824866cac4215035d5ee15810bdc57)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -157,7 +154,7 @@ class CfnFlowTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e583c49f444b346f7dda95ed2f61080dcbed7e68612a7143347925093c262ea3)
+            type_hints = cached_type_hints(_typecheckingstub__e583c49f444b346f7dda95ed2f61080dcbed7e68612a7143347925093c262ea3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -187,24 +184,24 @@ class CfnFlowTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="flowTemplateRef")
-    def flow_template_ref(self) -> "_FlowTemplateReference_1be0c054":
+    def flow_template_ref(self) -> "_aws_iotthingsgraph_0040dd8e.FlowTemplateReference":
         '''A reference to a FlowTemplate resource.'''
-        return typing.cast("_FlowTemplateReference_1be0c054", jsii.get(self, "flowTemplateRef"))
+        return typing.cast("_aws_iotthingsgraph_0040dd8e.FlowTemplateReference", jsii.get(self, "flowTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="definition")
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlowTemplate.DefinitionDocumentProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlowTemplate.DefinitionDocumentProperty"], jsii.get(self, "definition"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowTemplate.DefinitionDocumentProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowTemplate.DefinitionDocumentProperty"], jsii.get(self, "definition"))
 
     @definition.setter
     def definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFlowTemplate.DefinitionDocumentProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowTemplate.DefinitionDocumentProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3d77d08462d8eb61965d76c3c2dd11f46f35cba1f68eb28985b929707f6e006)
+            type_hints = cached_type_hints(_typecheckingstub__b3d77d08462d8eb61965d76c3c2dd11f46f35cba1f68eb28985b929707f6e006)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
 
@@ -216,7 +213,7 @@ class CfnFlowTemplate(
     @compatible_namespace_version.setter
     def compatible_namespace_version(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf41bb1c7d5fc4a60abda4fc58b349bff85cd0e06e67f6c86842adc92cd2a759)
+            type_hints = cached_type_hints(_typecheckingstub__bf41bb1c7d5fc4a60abda4fc58b349bff85cd0e06e67f6c86842adc92cd2a759)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "compatibleNamespaceVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -246,7 +243,7 @@ class CfnFlowTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86e3976bedecf4f22f1a5d091e02ce3ae2c59b35197b46802f0c02733bb07087)
+                type_hints = cached_type_hints(_typecheckingstub__86e3976bedecf4f22f1a5d091e02ce3ae2c59b35197b46802f0c02733bb07087)
                 check_type(argname="argument language", value=language, expected_type=type_hints["language"])
                 check_type(argname="argument text", value=text, expected_type=type_hints["text"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -296,7 +293,7 @@ class CfnFlowTemplateProps:
     def __init__(
         self,
         *,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowTemplate.DefinitionDocumentProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowTemplate.DefinitionDocumentProperty", typing.Dict[builtins.str, typing.Any]]],
         compatible_namespace_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowTemplate``.
@@ -324,7 +321,7 @@ class CfnFlowTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f0bc3afbb647e7e90492373c8826811cc23e6e7a65756d6b63e2cfe1b637cd6)
+            type_hints = cached_type_hints(_typecheckingstub__0f0bc3afbb647e7e90492373c8826811cc23e6e7a65756d6b63e2cfe1b637cd6)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument compatible_namespace_version", value=compatible_namespace_version, expected_type=type_hints["compatible_namespace_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -336,13 +333,13 @@ class CfnFlowTemplateProps:
     @builtins.property
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlowTemplate.DefinitionDocumentProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowTemplate.DefinitionDocumentProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotthingsgraph-flowtemplate.html#cfn-iotthingsgraph-flowtemplate-definition
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlowTemplate.DefinitionDocumentProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowTemplate.DefinitionDocumentProperty"], result)
 
     @builtins.property
     def compatible_namespace_version(self) -> typing.Optional[jsii.Number]:
@@ -375,7 +372,7 @@ def _typecheckingstub__b541277b5609d65e98dee832ff404ee87f323e7fecf77a098f69eb4d3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowTemplate.DefinitionDocumentProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowTemplate.DefinitionDocumentProperty, typing.Dict[builtins.str, typing.Any]]],
     compatible_namespace_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -388,7 +385,7 @@ def _typecheckingstub__26e7684918c5eefa2f2d710dc0f4a2fc56eafefc603b6434e3bc338bc
     pass
 
 def _typecheckingstub__00dbd92ed0b36635069980bf3a82c2e506824866cac4215035d5ee15810bdc57(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -400,7 +397,7 @@ def _typecheckingstub__e583c49f444b346f7dda95ed2f61080dcbed7e68612a7143347925093
     pass
 
 def _typecheckingstub__b3d77d08462d8eb61965d76c3c2dd11f46f35cba1f68eb28985b929707f6e006(
-    value: typing.Union[_IResolvable_da3f097b, CfnFlowTemplate.DefinitionDocumentProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowTemplate.DefinitionDocumentProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -421,7 +418,7 @@ def _typecheckingstub__86e3976bedecf4f22f1a5d091e02ce3ae2c59b35197b46802f0c02733
 
 def _typecheckingstub__0f0bc3afbb647e7e90492373c8826811cc23e6e7a65756d6b63e2cfe1b637cd6(
     *,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowTemplate.DefinitionDocumentProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowTemplate.DefinitionDocumentProperty, typing.Dict[builtins.str, typing.Any]]],
     compatible_namespace_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

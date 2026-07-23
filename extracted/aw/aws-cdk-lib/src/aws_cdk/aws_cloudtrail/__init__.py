@@ -202,6 +202,8 @@ cloudtrail.Trail(self, "Insights",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -215,68 +217,51 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_events import (
-    EventPattern as _EventPattern_fe557901,
-    IRuleTarget as _IRuleTarget_7a91f454,
-    OnEventOptions as _OnEventOptions_8711b8b3,
-    Rule as _Rule_334ed2b5,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_logs import (
-    ILogGroup as _ILogGroup_3c4fa718, RetentionDays as _RetentionDays_070f99f0
-)
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_cloudtrail import (
-    ChannelReference as _ChannelReference_f32eac36,
-    DashboardReference as _DashboardReference_c8d9a4d8,
-    EventDataStoreReference as _EventDataStoreReference_9009c169,
-    IChannelRef as _IChannelRef_578e7391,
-    IDashboardRef as _IDashboardRef_1dcd123e,
-    IEventDataStoreRef as _IEventDataStoreRef_da898eb2,
-    IResourcePolicyRef as _IResourcePolicyRef_018c99ea,
-    ITrailRef as _ITrailRef_38211c4b,
-    ResourcePolicyReference as _ResourcePolicyReference_79964037,
-    TrailReference as _TrailReference_842f4da2,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import (
-    IAliasRef as _IAliasRef_43fafabd, IKeyRef as _IKeyRef_d4fc6ef3
-)
-from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_logs as _aws_logs_ab8ef8ce
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_cloudtrail as _aws_cloudtrail_19a0e7d7
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_logs as _aws_logs_8e99d4be
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudtrail_19a0e7d7 = _LazyImport("aws_cdk.interfaces.aws_cloudtrail")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_logs_8e99d4be = _LazyImport("aws_cdk.interfaces.aws_logs")
+    _aws_logs_ab8ef8ce = _LazyImport("aws_cdk.aws_logs")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -328,7 +313,7 @@ class AddEventSelectorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73fc595c7387ed1256397f5af21fd7ee999ae00a4ffd0d01a01810f05f0a7ae5)
+            type_hints = cached_type_hints(_typecheckingstub__73fc595c7387ed1256397f5af21fd7ee999ae00a4ffd0d01a01810f05f0a7ae5)
             check_type(argname="argument exclude_management_event_sources", value=exclude_management_event_sources, expected_type=type_hints["exclude_management_event_sources"])
             check_type(argname="argument include_management_events", value=include_management_events, expected_type=type_hints["include_management_events"])
             check_type(argname="argument read_write_type", value=read_write_type, expected_type=type_hints["read_write_type"])
@@ -381,9 +366,9 @@ class AddEventSelectorOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelRef_578e7391, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudtrail_19a0e7d7.IChannelRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnChannel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.CfnChannel",
 ):
@@ -419,10 +404,10 @@ class CfnChannel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudTrail::Channel``.
 
@@ -434,7 +419,7 @@ class CfnChannel(
         :param tags: A list of tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4004ebed14c16ae6f20ecf5d65ea8487ea49b0bd7c3ce35ca361518f9fec0fa6)
+            type_hints = cached_type_hints(_typecheckingstub__4004ebed14c16ae6f20ecf5d65ea8487ea49b0bd7c3ce35ca361518f9fec0fa6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelProps(
@@ -445,12 +430,15 @@ class CfnChannel(
 
     @jsii.member(jsii_name="arnForChannel")
     @builtins.classmethod
-    def arn_for_channel(cls, resource: "_IChannelRef_578e7391") -> builtins.str:
+    def arn_for_channel(
+        cls,
+        resource: "_aws_cloudtrail_19a0e7d7.IChannelRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97a171a05a7e0a6e8d7d85a672e077237335c0dd1ae244cdb7c867b12fbd1efe)
+            type_hints = cached_type_hints(_typecheckingstub__97a171a05a7e0a6e8d7d85a672e077237335c0dd1ae244cdb7c867b12fbd1efe)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
 
@@ -462,18 +450,18 @@ class CfnChannel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa0142643fb8af3ff14c1c3b24f064231ce78b2c5b9c7a74ad8eaf1d80520a03)
+            type_hints = cached_type_hints(_typecheckingstub__fa0142643fb8af3ff14c1c3b24f064231ce78b2c5b9c7a74ad8eaf1d80520a03)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12052607593ad96dcef135d212789e6caf3b7f7cd49c9ce2468646f9efbcb963)
+            type_hints = cached_type_hints(_typecheckingstub__12052607593ad96dcef135d212789e6caf3b7f7cd49c9ce2468646f9efbcb963)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -486,7 +474,7 @@ class CfnChannel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd31f5742125109282b44493267cb4e1405b919ba97bb1b7f18668a0624611e2)
+            type_hints = cached_type_hints(_typecheckingstub__cd31f5742125109282b44493267cb4e1405b919ba97bb1b7f18668a0624611e2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -517,31 +505,31 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> "_ChannelReference_f32eac36":
+    def channel_ref(self) -> "_aws_cloudtrail_19a0e7d7.ChannelReference":
         '''A reference to a Channel resource.'''
-        return typing.cast("_ChannelReference_f32eac36", jsii.get(self, "channelRef"))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.ChannelReference", jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="destinations")
     def destinations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.DestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationProperty"]]]]:
         '''One or more event data stores to which events arriving through a channel will be logged.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.DestinationProperty"]]]], jsii.get(self, "destinations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationProperty"]]]], jsii.get(self, "destinations"))
 
     @destinations.setter
     def destinations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.DestinationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af90446cbf2dae59bef52fb3ee6ec0e5b9c6098eff5af75a5963dd51c4683a5e)
+            type_hints = cached_type_hints(_typecheckingstub__af90446cbf2dae59bef52fb3ee6ec0e5b9c6098eff5af75a5963dd51c4683a5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinations", value) # pyright: ignore[reportArgumentType]
 
@@ -554,7 +542,7 @@ class CfnChannel(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f6f560b40b7326691d9bf63d6ea7b8ad77377af3911f812fa5d243141752b34)
+            type_hints = cached_type_hints(_typecheckingstub__9f6f560b40b7326691d9bf63d6ea7b8ad77377af3911f812fa5d243141752b34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -567,20 +555,23 @@ class CfnChannel(
     @source.setter
     def source(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63777c16355eca1495edc2932fdadb55a7e3c86d73124f1d93d1c28b2ad64ee7)
+            type_hints = cached_type_hints(_typecheckingstub__63777c16355eca1495edc2932fdadb55a7e3c86d73124f1d93d1c28b2ad64ee7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29044cfd0c28f00acd85e04beb454a19a2c4d87d4786f0af019f0209c639da8b)
+            type_hints = cached_type_hints(_typecheckingstub__29044cfd0c28f00acd85e04beb454a19a2c4d87d4786f0af019f0209c639da8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -611,7 +602,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__619b701f7c6b5470537230c8a847919a410a57fbf2eab022694dc1fef7b41c92)
+                type_hints = cached_type_hints(_typecheckingstub__619b701f7c6b5470537230c8a847919a410a57fbf2eab022694dc1fef7b41c92)
                 check_type(argname="argument location", value=location, expected_type=type_hints["location"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -669,10 +660,10 @@ class CfnChannelProps:
     def __init__(
         self,
         *,
-        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannel``.
 
@@ -705,7 +696,7 @@ class CfnChannelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356)
+            type_hints = cached_type_hints(_typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356)
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
@@ -723,13 +714,13 @@ class CfnChannelProps:
     @builtins.property
     def destinations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.DestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationProperty"]]]]:
         '''One or more event data stores to which events arriving through a channel will be logged.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-destinations
         '''
         result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.DestinationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DestinationProperty"]]]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -754,13 +745,13 @@ class CfnChannelProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -774,9 +765,9 @@ class CfnChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDashboardRef_1dcd123e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudtrail_19a0e7d7.IDashboardRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDashboard(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.CfnDashboard",
 ):
@@ -835,10 +826,10 @@ class CfnDashboard(
         id: builtins.str,
         *,
         name: typing.Optional[builtins.str] = None,
-        refresh_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDashboard.RefreshScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        widgets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDashboard.WidgetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        refresh_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDashboard.RefreshScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        widgets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDashboard.WidgetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudTrail::Dashboard``.
 
@@ -851,7 +842,7 @@ class CfnDashboard(
         :param widgets: An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets. You do not need to specify widgets for the Highlights dashboard.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65875e3ceabcc57155f97b1541ff9d435e4456c9c7f0c980c1dea0ac9bffc3ce)
+            type_hints = cached_type_hints(_typecheckingstub__65875e3ceabcc57155f97b1541ff9d435e4456c9c7f0c980c1dea0ac9bffc3ce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDashboardProps(
@@ -866,12 +857,15 @@ class CfnDashboard(
 
     @jsii.member(jsii_name="arnForDashboard")
     @builtins.classmethod
-    def arn_for_dashboard(cls, resource: "_IDashboardRef_1dcd123e") -> builtins.str:
+    def arn_for_dashboard(
+        cls,
+        resource: "_aws_cloudtrail_19a0e7d7.IDashboardRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c5660e666f816052caee3250fff994ef2ea26f37ea3e7ecdbc26b100aed9e21)
+            type_hints = cached_type_hints(_typecheckingstub__9c5660e666f816052caee3250fff994ef2ea26f37ea3e7ecdbc26b100aed9e21)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDashboard", [resource]))
 
@@ -883,18 +877,18 @@ class CfnDashboard(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5f4ca25b75cfc7da28ba267fcf7f52cb562be8c58565e6924ac6312e888b61a)
+            type_hints = cached_type_hints(_typecheckingstub__a5f4ca25b75cfc7da28ba267fcf7f52cb562be8c58565e6924ac6312e888b61a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDashboard", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80aa78b7039f0746d57f08dc22b8127693ce2c2c4b3ede574289925bdfd4379f)
+            type_hints = cached_type_hints(_typecheckingstub__80aa78b7039f0746d57f08dc22b8127693ce2c2c4b3ede574289925bdfd4379f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -907,7 +901,7 @@ class CfnDashboard(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e96a4620eb54251cb180709e3338de0cb20f46ad1ac13bee113fa445de8bc7dc)
+            type_hints = cached_type_hints(_typecheckingstub__e96a4620eb54251cb180709e3338de0cb20f46ad1ac13bee113fa445de8bc7dc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -964,9 +958,9 @@ class CfnDashboard(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -980,9 +974,9 @@ class CfnDashboard(
 
     @builtins.property
     @jsii.member(jsii_name="dashboardRef")
-    def dashboard_ref(self) -> "_DashboardReference_c8d9a4d8":
+    def dashboard_ref(self) -> "_aws_cloudtrail_19a0e7d7.DashboardReference":
         '''A reference to a Dashboard resource.'''
-        return typing.cast("_DashboardReference_c8d9a4d8", jsii.get(self, "dashboardRef"))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.DashboardReference", jsii.get(self, "dashboardRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -996,7 +990,7 @@ class CfnDashboard(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad3cc4c5ce87019f2d65bf513eb6f6987758697d7edaf71a8c25d63e5adcd28a)
+            type_hints = cached_type_hints(_typecheckingstub__ad3cc4c5ce87019f2d65bf513eb6f6987758697d7edaf71a8c25d63e5adcd28a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1004,30 +998,33 @@ class CfnDashboard(
     @jsii.member(jsii_name="refreshSchedule")
     def refresh_schedule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.RefreshScheduleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.RefreshScheduleProperty"]]:
         '''The schedule for a dashboard refresh.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.RefreshScheduleProperty"]], jsii.get(self, "refreshSchedule"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.RefreshScheduleProperty"]], jsii.get(self, "refreshSchedule"))
 
     @refresh_schedule.setter
     def refresh_schedule(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.RefreshScheduleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.RefreshScheduleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c189822248b924f49d3f78593489ebfdb50baaa5632423120ffc582017517a62)
+            type_hints = cached_type_hints(_typecheckingstub__c189822248b924f49d3f78593489ebfdb50baaa5632423120ffc582017517a62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "refreshSchedule", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f30292137ba2f648895c0e1f3beefbf660ef3c12168b20e06516352a881c1581)
+            type_hints = cached_type_hints(_typecheckingstub__f30292137ba2f648895c0e1f3beefbf660ef3c12168b20e06516352a881c1581)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1035,17 +1032,17 @@ class CfnDashboard(
     @jsii.member(jsii_name="terminationProtectionEnabled")
     def termination_protection_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether termination protection is enabled for the dashboard.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "terminationProtectionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "terminationProtectionEnabled"))
 
     @termination_protection_enabled.setter
     def termination_protection_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__784f2dc9097025d1492e66bc4ea947ce69164f00c1538ca507daa506ba7efe22)
+            type_hints = cached_type_hints(_typecheckingstub__784f2dc9097025d1492e66bc4ea947ce69164f00c1538ca507daa506ba7efe22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "terminationProtectionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1053,20 +1050,20 @@ class CfnDashboard(
     @jsii.member(jsii_name="widgets")
     def widgets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDashboard.WidgetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.WidgetProperty"]]]]:
         '''An array of widgets for a custom dashboard.
 
         A custom dashboard can have a maximum of ten widgets.
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDashboard.WidgetProperty"]]]], jsii.get(self, "widgets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.WidgetProperty"]]]], jsii.get(self, "widgets"))
 
     @widgets.setter
     def widgets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDashboard.WidgetProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.WidgetProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15acb7e7b87191d3aa52a0f02842d9b876d6cd2175319b3e4dd3ac6b352b2755)
+            type_hints = cached_type_hints(_typecheckingstub__15acb7e7b87191d3aa52a0f02842d9b876d6cd2175319b3e4dd3ac6b352b2755)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "widgets", value) # pyright: ignore[reportArgumentType]
 
@@ -1099,7 +1096,7 @@ class CfnDashboard(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f2203e866b3e98fa21e0e9b0a804e36298f95797b075211e843ddc70bd28b8c)
+                type_hints = cached_type_hints(_typecheckingstub__2f2203e866b3e98fa21e0e9b0a804e36298f95797b075211e843ddc70bd28b8c)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1161,7 +1158,7 @@ class CfnDashboard(
         def __init__(
             self,
             *,
-            frequency: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDashboard.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frequency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDashboard.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             status: typing.Optional[builtins.str] = None,
             time_of_day: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1190,7 +1187,7 @@ class CfnDashboard(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e38849bc2b8e26a855d5c01196725a15d72db451889d0b2ed0891ec262db60d8)
+                type_hints = cached_type_hints(_typecheckingstub__e38849bc2b8e26a855d5c01196725a15d72db451889d0b2ed0891ec262db60d8)
                 check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument time_of_day", value=time_of_day, expected_type=type_hints["time_of_day"])
@@ -1205,13 +1202,13 @@ class CfnDashboard(
         @builtins.property
         def frequency(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.FrequencyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.FrequencyProperty"]]:
             '''The frequency at which you want the dashboard refreshed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-dashboard-refreshschedule.html#cfn-cloudtrail-dashboard-refreshschedule-frequency
             '''
             result = self._values.get("frequency")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.FrequencyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.FrequencyProperty"]], result)
 
         @builtins.property
         def status(self) -> typing.Optional[builtins.str]:
@@ -1261,7 +1258,7 @@ class CfnDashboard(
             *,
             query_statement: builtins.str,
             query_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
-            view_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            view_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains information about a widget on a CloudTrail Lake dashboard.
 
@@ -1289,7 +1286,7 @@ class CfnDashboard(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153cec95df)
+                type_hints = cached_type_hints(_typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153cec95df)
                 check_type(argname="argument query_statement", value=query_statement, expected_type=type_hints["query_statement"])
                 check_type(argname="argument query_parameters", value=query_parameters, expected_type=type_hints["query_parameters"])
                 check_type(argname="argument view_properties", value=view_properties, expected_type=type_hints["view_properties"])
@@ -1330,7 +1327,7 @@ class CfnDashboard(
         @builtins.property
         def view_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The view properties for the widget.
 
             For more information about view properties, see `View properties for widgets <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-widget-properties.html>`_ in the *AWS CloudTrail User Guide* .
@@ -1338,7 +1335,7 @@ class CfnDashboard(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-dashboard-widget.html#cfn-cloudtrail-dashboard-widget-viewproperties
             '''
             result = self._values.get("view_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1368,10 +1365,10 @@ class CfnDashboardProps:
         self,
         *,
         name: typing.Optional[builtins.str] = None,
-        refresh_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDashboard.RefreshScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        widgets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDashboard.WidgetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        refresh_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDashboard.RefreshScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        widgets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDashboard.WidgetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDashboard``.
 
@@ -1418,7 +1415,7 @@ class CfnDashboardProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911)
+            type_hints = cached_type_hints(_typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument refresh_schedule", value=refresh_schedule, expected_type=type_hints["refresh_schedule"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1450,27 +1447,27 @@ class CfnDashboardProps:
     @builtins.property
     def refresh_schedule(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.RefreshScheduleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.RefreshScheduleProperty"]]:
         '''The schedule for a dashboard refresh.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-refreshschedule
         '''
         result = self._values.get("refresh_schedule")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDashboard.RefreshScheduleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.RefreshScheduleProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def termination_protection_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether termination protection is enabled for the dashboard.
 
         If termination protection is enabled, you cannot delete the dashboard until termination protection is disabled.
@@ -1478,12 +1475,12 @@ class CfnDashboardProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-terminationprotectionenabled
         '''
         result = self._values.get("termination_protection_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def widgets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDashboard.WidgetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.WidgetProperty"]]]]:
         '''An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets.
 
         You do not need to specify widgets for the Highlights dashboard.
@@ -1491,7 +1488,7 @@ class CfnDashboardProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-widgets
         '''
         result = self._values.get("widgets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDashboard.WidgetProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDashboard.WidgetProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1505,9 +1502,9 @@ class CfnDashboardProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEventDataStoreRef_da898eb2, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudtrail_19a0e7d7.IEventDataStoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnEventDataStore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.CfnEventDataStore",
 ):
@@ -1572,22 +1569,22 @@ class CfnEventDataStore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        advanced_event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        advanced_event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
-        context_key_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        federation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        context_key_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        federation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         federation_role_arn: typing.Optional[builtins.str] = None,
-        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         insights_destination: typing.Optional[builtins.str] = None,
-        insight_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        insight_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         max_event_size: typing.Optional[builtins.str] = None,
-        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         name: typing.Optional[builtins.str] = None,
-        organization_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        organization_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudTrail::EventDataStore``.
 
@@ -1611,7 +1608,7 @@ class CfnEventDataStore(
         :param termination_protection_enabled: Specifies whether termination protection is enabled for the event data store. If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__058a94222b13ad44b4607ad5932ec9b6a2defcb250ff436576e6e8976e7b2bee)
+            type_hints = cached_type_hints(_typecheckingstub__058a94222b13ad44b4607ad5932ec9b6a2defcb250ff436576e6e8976e7b2bee)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEventDataStoreProps(
@@ -1639,13 +1636,13 @@ class CfnEventDataStore(
     @builtins.classmethod
     def arn_for_event_data_store(
         cls,
-        resource: "_IEventDataStoreRef_da898eb2",
+        resource: "_aws_cloudtrail_19a0e7d7.IEventDataStoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ccf1a1bb4801adcfa14ca5216b041fe1e3d5c18b12cab7e8e5eb3733536923a)
+            type_hints = cached_type_hints(_typecheckingstub__5ccf1a1bb4801adcfa14ca5216b041fe1e3d5c18b12cab7e8e5eb3733536923a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventDataStore", [resource]))
 
@@ -1657,18 +1654,18 @@ class CfnEventDataStore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__540336737a853afc3f106c587124103ad697491b09fbc7d60fcac3e6d0a8e5bc)
+            type_hints = cached_type_hints(_typecheckingstub__540336737a853afc3f106c587124103ad697491b09fbc7d60fcac3e6d0a8e5bc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventDataStore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21862a9cccdc40ba09d15f004dcda554d20814b630b70c51ae59a1212bbb14c4)
+            type_hints = cached_type_hints(_typecheckingstub__21862a9cccdc40ba09d15f004dcda554d20814b630b70c51ae59a1212bbb14c4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1681,7 +1678,7 @@ class CfnEventDataStore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ee95efcc007233c035a77dfd382e47456926b86a000891448961781bff2a95e)
+            type_hints = cached_type_hints(_typecheckingstub__2ee95efcc007233c035a77dfd382e47456926b86a000891448961781bff2a95e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1739,31 +1736,33 @@ class CfnEventDataStore(
 
     @builtins.property
     @jsii.member(jsii_name="eventDataStoreRef")
-    def event_data_store_ref(self) -> "_EventDataStoreReference_9009c169":
+    def event_data_store_ref(
+        self,
+    ) -> "_aws_cloudtrail_19a0e7d7.EventDataStoreReference":
         '''A reference to a EventDataStore resource.'''
-        return typing.cast("_EventDataStoreReference_9009c169", jsii.get(self, "eventDataStoreRef"))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.EventDataStoreReference", jsii.get(self, "eventDataStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="advancedEventSelectors")
     def advanced_event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]]:
         '''The advanced event selectors to use to select the events for the data store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]], jsii.get(self, "advancedEventSelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]], jsii.get(self, "advancedEventSelectors"))
 
     @advanced_event_selectors.setter
     def advanced_event_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bc51d9a1ef5affc48ffb624785b29a7a5d0a3eba5e72b94f687da94194f4973)
+            type_hints = cached_type_hints(_typecheckingstub__7bc51d9a1ef5affc48ffb624785b29a7a5d0a3eba5e72b94f687da94194f4973)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "advancedEventSelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -1776,7 +1775,7 @@ class CfnEventDataStore(
     @billing_mode.setter
     def billing_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__106939491635761bff083d6af3ca26d1723f9df71ec433399c5746554b88e334)
+            type_hints = cached_type_hints(_typecheckingstub__106939491635761bff083d6af3ca26d1723f9df71ec433399c5746554b88e334)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
 
@@ -1784,17 +1783,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="contextKeySelectors")
     def context_key_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
         '''The list of context key selectors that are configured for the event data store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.ContextKeySelectorProperty"]]]], jsii.get(self, "contextKeySelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.ContextKeySelectorProperty"]]]], jsii.get(self, "contextKeySelectors"))
 
     @context_key_selectors.setter
     def context_key_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.ContextKeySelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.ContextKeySelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa0ae30f8c5291a79387d1a2f7fb5c056fc8459c7878eb58241f52eba3a4762e)
+            type_hints = cached_type_hints(_typecheckingstub__aa0ae30f8c5291a79387d1a2f7fb5c056fc8459c7878eb58241f52eba3a4762e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contextKeySelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -1802,17 +1801,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="federationEnabled")
     def federation_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "federationEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "federationEnabled"))
 
     @federation_enabled.setter
     def federation_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__765513d5a073b76962f766e5dc1a967c4ad42a5bb2200d9f880aac945789b35d)
+            type_hints = cached_type_hints(_typecheckingstub__765513d5a073b76962f766e5dc1a967c4ad42a5bb2200d9f880aac945789b35d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "federationEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1825,7 +1824,7 @@ class CfnEventDataStore(
     @federation_role_arn.setter
     def federation_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d5876fb281f125b4a84c7554b6ae992b9b7433cab839d402d60601a9872704)
+            type_hints = cached_type_hints(_typecheckingstub__02d5876fb281f125b4a84c7554b6ae992b9b7433cab839d402d60601a9872704)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "federationRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1833,17 +1832,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="ingestionEnabled")
     def ingestion_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the event data store should start ingesting live events.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "ingestionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "ingestionEnabled"))
 
     @ingestion_enabled.setter
     def ingestion_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3120b4fc57c151f577843e6f55242684964162de4d4061991c82480a0fae581b)
+            type_hints = cached_type_hints(_typecheckingstub__3120b4fc57c151f577843e6f55242684964162de4d4061991c82480a0fae581b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingestionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1856,7 +1855,7 @@ class CfnEventDataStore(
     @insights_destination.setter
     def insights_destination(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10aa59d5d60b5a68edf57d8df52934e03f5e4f0802a1d7dab4552592f2ee609)
+            type_hints = cached_type_hints(_typecheckingstub__d10aa59d5d60b5a68edf57d8df52934e03f5e4f0802a1d7dab4552592f2ee609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insightsDestination", value) # pyright: ignore[reportArgumentType]
 
@@ -1864,17 +1863,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="insightSelectors")
     def insight_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.InsightSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.InsightSelectorProperty"]]]]:
         '''A JSON string that contains the Insights types you want to log on an event data store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.InsightSelectorProperty"]]]], jsii.get(self, "insightSelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.InsightSelectorProperty"]]]], jsii.get(self, "insightSelectors"))
 
     @insight_selectors.setter
     def insight_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.InsightSelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.InsightSelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b360ff34d6b267287ccf6e4c636b401ab6c739c7a90856639462b1c738855c92)
+            type_hints = cached_type_hints(_typecheckingstub__b360ff34d6b267287ccf6e4c636b401ab6c739c7a90856639462b1c738855c92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insightSelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -1887,7 +1886,7 @@ class CfnEventDataStore(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2945b7a3d4af202bf1a8d8550ce4b17a1ab219e4dd829832fc9bd51a53c69b0)
+            type_hints = cached_type_hints(_typecheckingstub__b2945b7a3d4af202bf1a8d8550ce4b17a1ab219e4dd829832fc9bd51a53c69b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -1900,7 +1899,7 @@ class CfnEventDataStore(
     @max_event_size.setter
     def max_event_size(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a69353bf46f46a1067b410e6f91c0033234561f53fceb13608d40dd90dd0832e)
+            type_hints = cached_type_hints(_typecheckingstub__a69353bf46f46a1067b410e6f91c0033234561f53fceb13608d40dd90dd0832e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxEventSize", value) # pyright: ignore[reportArgumentType]
 
@@ -1908,17 +1907,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="multiRegionEnabled")
     def multi_region_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiRegionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "multiRegionEnabled"))
 
     @multi_region_enabled.setter
     def multi_region_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69742230d7479a5e2d180046d6dbe2ea4627b1fbe6861d248e8fa77f7c0dcd20)
+            type_hints = cached_type_hints(_typecheckingstub__69742230d7479a5e2d180046d6dbe2ea4627b1fbe6861d248e8fa77f7c0dcd20)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1931,7 +1930,7 @@ class CfnEventDataStore(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a01c2b1ec1e4ebac8e9e92744ee1402309ee4033c2267e1089f605b125f4b192)
+            type_hints = cached_type_hints(_typecheckingstub__a01c2b1ec1e4ebac8e9e92744ee1402309ee4033c2267e1089f605b125f4b192)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1939,17 +1938,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="organizationEnabled")
     def organization_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether an event data store collects events logged for an organization in AWS Organizations .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "organizationEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "organizationEnabled"))
 
     @organization_enabled.setter
     def organization_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__565712bf828bb8c2b0f6a80ca025d431aa72043d60fff9a95e02336f6f1e0d1c)
+            type_hints = cached_type_hints(_typecheckingstub__565712bf828bb8c2b0f6a80ca025d431aa72043d60fff9a95e02336f6f1e0d1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "organizationEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1962,20 +1961,23 @@ class CfnEventDataStore(
     @retention_period.setter
     def retention_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9508e34267838b75568905c8769ff7999130a13cb85b3d1abf67ef17b5958102)
+            type_hints = cached_type_hints(_typecheckingstub__9508e34267838b75568905c8769ff7999130a13cb85b3d1abf67ef17b5958102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "retentionPeriod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6acb86a62af0621d981781f78b5611035089e25ca1472411f75d1b6e352ead2)
+            type_hints = cached_type_hints(_typecheckingstub__e6acb86a62af0621d981781f78b5611035089e25ca1472411f75d1b6e352ead2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1983,17 +1985,17 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="terminationProtectionEnabled")
     def termination_protection_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether termination protection is enabled for the event data store.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "terminationProtectionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "terminationProtectionEnabled"))
 
     @termination_protection_enabled.setter
     def termination_protection_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f57ea7bcecd4a4cd58674384395db2bcf2721c3bcfa216c86922651a268041e5)
+            type_hints = cached_type_hints(_typecheckingstub__f57ea7bcecd4a4cd58674384395db2bcf2721c3bcfa216c86922651a268041e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "terminationProtectionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -2006,7 +2008,7 @@ class CfnEventDataStore(
         def __init__(
             self,
             *,
-            field_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Advanced event selectors let you create fine-grained selectors for AWS CloudTrail management, data, and network activity events.
@@ -2082,7 +2084,7 @@ class CfnEventDataStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__40ce53f73864cb5c89f3baf13c64dba67cc42e274565b6c52a84904f6fd5f4b3)
+                type_hints = cached_type_hints(_typecheckingstub__40ce53f73864cb5c89f3baf13c64dba67cc42e274565b6c52a84904f6fd5f4b3)
                 check_type(argname="argument field_selectors", value=field_selectors, expected_type=type_hints["field_selectors"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2094,14 +2096,14 @@ class CfnEventDataStore(
         @builtins.property
         def field_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedFieldSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedFieldSelectorProperty"]]]:
             '''Contains all selector statements in an advanced event selector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-eventdatastore-advancedeventselector.html#cfn-cloudtrail-eventdatastore-advancedeventselector-fieldselectors
             '''
             result = self._values.get("field_selectors")
             assert result is not None, "Required property 'field_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedFieldSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedFieldSelectorProperty"]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -2180,7 +2182,7 @@ class CfnEventDataStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13e48a5f3f6a4ee090f15046f2744cbdc1f623a943843b6e8cd72526e852b9e5)
+                type_hints = cached_type_hints(_typecheckingstub__13e48a5f3f6a4ee090f15046f2744cbdc1f623a943843b6e8cd72526e852b9e5)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument ends_with", value=ends_with, expected_type=type_hints["ends_with"])
                 check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
@@ -2368,7 +2370,7 @@ class CfnEventDataStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__442b3465c9cf8a3aebc6597e8616078b26e24675af399050c52412909f6169e3)
+                type_hints = cached_type_hints(_typecheckingstub__442b3465c9cf8a3aebc6597e8616078b26e24675af399050c52412909f6169e3)
                 check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2438,7 +2440,7 @@ class CfnEventDataStore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5dc8183d614f9c9498310cd377ff020cdc048d422b2548bbe678fc3c199d1dc6)
+                type_hints = cached_type_hints(_typecheckingstub__5dc8183d614f9c9498310cd377ff020cdc048d422b2548bbe678fc3c199d1dc6)
                 check_type(argname="argument insight_type", value=insight_type, expected_type=type_hints["insight_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if insight_type is not None:
@@ -2495,22 +2497,22 @@ class CfnEventDataStoreProps:
     def __init__(
         self,
         *,
-        advanced_event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        advanced_event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
-        context_key_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        federation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        context_key_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        federation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         federation_role_arn: typing.Optional[builtins.str] = None,
-        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         insights_destination: typing.Optional[builtins.str] = None,
-        insight_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        insight_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         max_event_size: typing.Optional[builtins.str] = None,
-        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         name: typing.Optional[builtins.str] = None,
-        organization_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        organization_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEventDataStore``.
 
@@ -2584,7 +2586,7 @@ class CfnEventDataStoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e)
+            type_hints = cached_type_hints(_typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e)
             check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
             check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
             check_type(argname="argument context_key_selectors", value=context_key_selectors, expected_type=type_hints["context_key_selectors"])
@@ -2638,7 +2640,7 @@ class CfnEventDataStoreProps:
     @builtins.property
     def advanced_event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]]:
         '''The advanced event selectors to use to select the events for the data store.
 
         You can configure up to five advanced event selectors for each event data store.
@@ -2652,7 +2654,7 @@ class CfnEventDataStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-advancedeventselectors
         '''
         result = self._values.get("advanced_event_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.AdvancedEventSelectorProperty"]]]], result)
 
     @builtins.property
     def billing_mode(self) -> typing.Optional[builtins.str]:
@@ -2675,24 +2677,24 @@ class CfnEventDataStoreProps:
     @builtins.property
     def context_key_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
         '''The list of context key selectors that are configured for the event data store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-contextkeyselectors
         '''
         result = self._values.get("context_key_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.ContextKeySelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.ContextKeySelectorProperty"]]]], result)
 
     @builtins.property
     def federation_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-federationenabled
         '''
         result = self._values.get("federation_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def federation_role_arn(self) -> typing.Optional[builtins.str]:
@@ -2708,7 +2710,7 @@ class CfnEventDataStoreProps:
     @builtins.property
     def ingestion_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the event data store should start ingesting live events.
 
         The default is true.
@@ -2716,7 +2718,7 @@ class CfnEventDataStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-ingestionenabled
         '''
         result = self._values.get("ingestion_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def insights_destination(self) -> typing.Optional[builtins.str]:
@@ -2732,7 +2734,7 @@ class CfnEventDataStoreProps:
     @builtins.property
     def insight_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.InsightSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.InsightSelectorProperty"]]]]:
         '''A JSON string that contains the Insights types you want to log on an event data store.
 
         ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
@@ -2744,7 +2746,7 @@ class CfnEventDataStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-insightselectors
         '''
         result = self._values.get("insight_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventDataStore.InsightSelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventDataStore.InsightSelectorProperty"]]]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -2783,13 +2785,13 @@ class CfnEventDataStoreProps:
     @builtins.property
     def multi_region_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-multiregionenabled
         '''
         result = self._values.get("multi_region_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -2803,13 +2805,13 @@ class CfnEventDataStoreProps:
     @builtins.property
     def organization_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether an event data store collects events logged for an organization in AWS Organizations .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-organizationenabled
         '''
         result = self._values.get("organization_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def retention_period(self) -> typing.Optional[jsii.Number]:
@@ -2828,18 +2830,18 @@ class CfnEventDataStoreProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def termination_protection_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether termination protection is enabled for the event data store.
 
         If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
@@ -2847,7 +2849,7 @@ class CfnEventDataStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-terminationprotectionenabled
         '''
         result = self._values.get("termination_protection_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2861,9 +2863,9 @@ class CfnEventDataStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_018c99ea)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudtrail_19a0e7d7.IResourcePolicyRef)
 class CfnResourcePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.CfnResourcePolicy",
 ):
@@ -2905,7 +2907,7 @@ class CfnResourcePolicy(
         :param resource_policy: A JSON-formatted string for an AWS resource-based policy. For example resource-based policies, see `CloudTrail resource-based policy examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`_ in the *CloudTrail User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e63ea1d0937535109b462c5587b69e94988e2caeb02b49177c8a53040c569033)
+            type_hints = cached_type_hints(_typecheckingstub__e63ea1d0937535109b462c5587b69e94988e2caeb02b49177c8a53040c569033)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourcePolicyProps(
@@ -2922,18 +2924,18 @@ class CfnResourcePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__621e5d83f52fa1f890ecfccb507052cdb0536fbc3dc0c8050cd7421383fa45d9)
+            type_hints = cached_type_hints(_typecheckingstub__621e5d83f52fa1f890ecfccb507052cdb0536fbc3dc0c8050cd7421383fa45d9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b32eb6fa58caf5ce6823a322212ade70664d4d37672f421c013fb2553ece2012)
+            type_hints = cached_type_hints(_typecheckingstub__b32eb6fa58caf5ce6823a322212ade70664d4d37672f421c013fb2553ece2012)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2946,7 +2948,7 @@ class CfnResourcePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb1739db5f96a9531e5f3655ec7c5b40527ac758bdb8bb842b79ad2206ec375f)
+            type_hints = cached_type_hints(_typecheckingstub__cb1739db5f96a9531e5f3655ec7c5b40527ac758bdb8bb842b79ad2206ec375f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2968,9 +2970,9 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "_ResourcePolicyReference_79964037":
+    def resource_policy_ref(self) -> "_aws_cloudtrail_19a0e7d7.ResourcePolicyReference":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast("_ResourcePolicyReference_79964037", jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -2981,7 +2983,7 @@ class CfnResourcePolicy(
     @resource_arn.setter
     def resource_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2bbc7a61c40e678ccc323afced9d77064978b41254369fee4db815497450dcd)
+            type_hints = cached_type_hints(_typecheckingstub__c2bbc7a61c40e678ccc323afced9d77064978b41254369fee4db815497450dcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2994,7 +2996,7 @@ class CfnResourcePolicy(
     @resource_policy.setter
     def resource_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e81052ff397bfd1d58bc17a51da7f1ee393c63b322c1b7d43b49b11f481e0ade)
+            type_hints = cached_type_hints(_typecheckingstub__e81052ff397bfd1d58bc17a51da7f1ee393c63b322c1b7d43b49b11f481e0ade)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3033,7 +3035,7 @@ class CfnResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08)
+            type_hints = cached_type_hints(_typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3081,9 +3083,9 @@ class CfnResourcePolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITrailRef_38211c4b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudtrail_19a0e7d7.ITrailRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnTrail(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.CfnTrail",
 ):
@@ -3162,22 +3164,22 @@ class CfnTrail(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        is_logging: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        s3_bucket_name: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
-        advanced_event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        aggregation_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]] = None,
-        cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.EventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_global_service_events: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        insight_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]] = None,
+        is_logging: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        s3_bucket_name: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
+        advanced_event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        aggregation_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, "_aws_logs_8e99d4be.ILogGroupRef"]] = None,
+        cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.EventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_global_service_events: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        insight_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         sns_topic_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trail_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::CloudTrail::Trail``.
@@ -3203,7 +3205,7 @@ class CfnTrail(
         :param trail_name: Specifies the name of the trail. The name must meet the following requirements:. - Contain only ASCII letters (a-z, A-Z), numbers (0-9), periods (.), underscores (_), or dashes (-) - Start with a letter or number, and end with a letter or number - Be between 3 and 128 characters - Have no adjacent periods, underscores or dashes. Names like ``my-_namespace`` and ``my--namespace`` are not valid. - Not be in IP address format (for example, 192.168.5.4)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2259d5765ec84e4697f55f0d491871f1aa010feb94b3445a33a9e4b9f9cfbbd5)
+            type_hints = cached_type_hints(_typecheckingstub__2259d5765ec84e4697f55f0d491871f1aa010feb94b3445a33a9e4b9f9cfbbd5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTrailProps(
@@ -3230,12 +3232,15 @@ class CfnTrail(
 
     @jsii.member(jsii_name="arnForTrail")
     @builtins.classmethod
-    def arn_for_trail(cls, resource: "_ITrailRef_38211c4b") -> builtins.str:
+    def arn_for_trail(
+        cls,
+        resource: "_aws_cloudtrail_19a0e7d7.ITrailRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__234bffed074203dd4eb5af54215723c1177b9afb21d1aca06b6a2ab60d845620)
+            type_hints = cached_type_hints(_typecheckingstub__234bffed074203dd4eb5af54215723c1177b9afb21d1aca06b6a2ab60d845620)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrail", [resource]))
 
@@ -3246,7 +3251,7 @@ class CfnTrail(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ITrailRef_38211c4b":
+    ) -> "_aws_cloudtrail_19a0e7d7.ITrailRef":
         '''Creates a new ITrailRef from an ARN.
 
         :param scope: -
@@ -3254,11 +3259,11 @@ class CfnTrail(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de13fd6629dabd92566f74df031bb3846b1f0c60616e28f88435c2f70ea1f0dd)
+            type_hints = cached_type_hints(_typecheckingstub__de13fd6629dabd92566f74df031bb3846b1f0c60616e28f88435c2f70ea1f0dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ITrailRef_38211c4b", jsii.sinvoke(cls, "fromTrailArn", [scope, id, arn]))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.ITrailRef", jsii.sinvoke(cls, "fromTrailArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromTrailName")
     @builtins.classmethod
@@ -3267,7 +3272,7 @@ class CfnTrail(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         trail_name: builtins.str,
-    ) -> "_ITrailRef_38211c4b":
+    ) -> "_aws_cloudtrail_19a0e7d7.ITrailRef":
         '''Creates a new ITrailRef from a trailName.
 
         :param scope: -
@@ -3275,11 +3280,11 @@ class CfnTrail(
         :param trail_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de86420b3e78209dc350b0fda0b9e94a90b38d019fdd7b81692f6899942ea4ae)
+            type_hints = cached_type_hints(_typecheckingstub__de86420b3e78209dc350b0fda0b9e94a90b38d019fdd7b81692f6899942ea4ae)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
-        return typing.cast("_ITrailRef_38211c4b", jsii.sinvoke(cls, "fromTrailName", [scope, id, trail_name]))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.ITrailRef", jsii.sinvoke(cls, "fromTrailName", [scope, id, trail_name]))
 
     @jsii.member(jsii_name="isCfnTrail")
     @builtins.classmethod
@@ -3289,18 +3294,18 @@ class CfnTrail(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c699fe6b1e10c421bae4fb8fa15b5bc1656735d27b960f9f2d674022bb33212)
+            type_hints = cached_type_hints(_typecheckingstub__4c699fe6b1e10c421bae4fb8fa15b5bc1656735d27b960f9f2d674022bb33212)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrail", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27c0b3977f3ce3e2ad80b21e158e38a08a45c6700ebeed895b3710e8c214a1bb)
+            type_hints = cached_type_hints(_typecheckingstub__27c0b3977f3ce3e2ad80b21e158e38a08a45c6700ebeed895b3710e8c214a1bb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3313,7 +3318,7 @@ class CfnTrail(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__340f9d2dc4d668d217253c3ecdc1999319497932039d9878e65bb3b5c99c3e42)
+            type_hints = cached_type_hints(_typecheckingstub__340f9d2dc4d668d217253c3ecdc1999319497932039d9878e65bb3b5c99c3e42)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3353,29 +3358,31 @@ class CfnTrail(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="trailRef")
-    def trail_ref(self) -> "_TrailReference_842f4da2":
+    def trail_ref(self) -> "_aws_cloudtrail_19a0e7d7.TrailReference":
         '''A reference to a Trail resource.'''
-        return typing.cast("_TrailReference_842f4da2", jsii.get(self, "trailRef"))
+        return typing.cast("_aws_cloudtrail_19a0e7d7.TrailReference", jsii.get(self, "trailRef"))
 
     @builtins.property
     @jsii.member(jsii_name="isLogging")
-    def is_logging(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def is_logging(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether the CloudTrail trail is currently logging AWS API calls.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "isLogging"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "isLogging"))
 
     @is_logging.setter
     def is_logging(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28420bf6c9605a8eeb3ac59acf7f894b63e53a96b92e9d477f9cd206f2f9cf41)
+            type_hints = cached_type_hints(_typecheckingstub__28420bf6c9605a8eeb3ac59acf7f894b63e53a96b92e9d477f9cd206f2f9cf41)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isLogging", value) # pyright: ignore[reportArgumentType]
 
@@ -3388,7 +3395,7 @@ class CfnTrail(
     @s3_bucket_name.setter
     def s3_bucket_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__950bb01f69a31c7f47512f3a4330d4ce5db85c66795a79936ef3af33a322c8b2)
+            type_hints = cached_type_hints(_typecheckingstub__950bb01f69a31c7f47512f3a4330d4ce5db85c66795a79936ef3af33a322c8b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3BucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -3396,17 +3403,17 @@ class CfnTrail(
     @jsii.member(jsii_name="advancedEventSelectors")
     def advanced_event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedEventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedEventSelectorProperty"]]]]:
         '''Specifies the settings for advanced event selectors.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedEventSelectorProperty"]]]], jsii.get(self, "advancedEventSelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedEventSelectorProperty"]]]], jsii.get(self, "advancedEventSelectors"))
 
     @advanced_event_selectors.setter
     def advanced_event_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedEventSelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedEventSelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae10dc28d41ecf82427e4cef4ce27f9c40933974aaf57ffd8e73f19c06621f53)
+            type_hints = cached_type_hints(_typecheckingstub__ae10dc28d41ecf82427e4cef4ce27f9c40933974aaf57ffd8e73f19c06621f53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "advancedEventSelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -3414,17 +3421,17 @@ class CfnTrail(
     @jsii.member(jsii_name="aggregationConfigurations")
     def aggregation_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AggregationConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AggregationConfigurationProperty"]]]]:
         '''Specifies the aggregation configuration to aggregate CloudTrail Events.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AggregationConfigurationProperty"]]]], jsii.get(self, "aggregationConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AggregationConfigurationProperty"]]]], jsii.get(self, "aggregationConfigurations"))
 
     @aggregation_configurations.setter
     def aggregation_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AggregationConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AggregationConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__014de64173a82b38bfbf2ea8f096afb536717ff0c1b982465211c09ace5929f1)
+            type_hints = cached_type_hints(_typecheckingstub__014de64173a82b38bfbf2ea8f096afb536717ff0c1b982465211c09ace5929f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aggregationConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -3440,7 +3447,7 @@ class CfnTrail(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58f37437f0af59fad3f65c1d9ef003f52fa49f6aabcba3b40c779f379b8b0410)
+            type_hints = cached_type_hints(_typecheckingstub__58f37437f0af59fad3f65c1d9ef003f52fa49f6aabcba3b40c779f379b8b0410)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cloudWatchLogsLogGroupArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3453,7 +3460,7 @@ class CfnTrail(
     @cloud_watch_logs_role_arn.setter
     def cloud_watch_logs_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cabe9b73fb8bc4d76fde324653a247811fa621cc9003d2c46e84b890b919cd28)
+            type_hints = cached_type_hints(_typecheckingstub__cabe9b73fb8bc4d76fde324653a247811fa621cc9003d2c46e84b890b919cd28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cloudWatchLogsRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3461,20 +3468,20 @@ class CfnTrail(
     @jsii.member(jsii_name="enableLogFileValidation")
     def enable_log_file_validation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether log file validation is enabled.
 
         The default is false.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableLogFileValidation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableLogFileValidation"))
 
     @enable_log_file_validation.setter
     def enable_log_file_validation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b942505386f8e61551da02925be57cd0474923089182c193fde0b17fe804056)
+            type_hints = cached_type_hints(_typecheckingstub__0b942505386f8e61551da02925be57cd0474923089182c193fde0b17fe804056)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableLogFileValidation", value) # pyright: ignore[reportArgumentType]
 
@@ -3482,17 +3489,17 @@ class CfnTrail(
     @jsii.member(jsii_name="eventSelectors")
     def event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.EventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.EventSelectorProperty"]]]]:
         '''Use event selectors to further specify the management and data event settings for your trail.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.EventSelectorProperty"]]]], jsii.get(self, "eventSelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.EventSelectorProperty"]]]], jsii.get(self, "eventSelectors"))
 
     @event_selectors.setter
     def event_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.EventSelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.EventSelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ef2943100a700e4bd2b0922f697c3d0da51c014bec4f2a8c4063f59e83067d7)
+            type_hints = cached_type_hints(_typecheckingstub__1ef2943100a700e4bd2b0922f697c3d0da51c014bec4f2a8c4063f59e83067d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventSelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -3500,17 +3507,17 @@ class CfnTrail(
     @jsii.member(jsii_name="includeGlobalServiceEvents")
     def include_global_service_events(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail is publishing events from global services such as IAM to the log files.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "includeGlobalServiceEvents"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "includeGlobalServiceEvents"))
 
     @include_global_service_events.setter
     def include_global_service_events(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a1c2489b0dca720e7fab9917132eaf8dc9468d58f2d500bccd7579577d74434)
+            type_hints = cached_type_hints(_typecheckingstub__1a1c2489b0dca720e7fab9917132eaf8dc9468d58f2d500bccd7579577d74434)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "includeGlobalServiceEvents", value) # pyright: ignore[reportArgumentType]
 
@@ -3518,17 +3525,17 @@ class CfnTrail(
     @jsii.member(jsii_name="insightSelectors")
     def insight_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.InsightSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.InsightSelectorProperty"]]]]:
         '''A JSON string that contains the Insights types you want to log on a trail.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.InsightSelectorProperty"]]]], jsii.get(self, "insightSelectors"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.InsightSelectorProperty"]]]], jsii.get(self, "insightSelectors"))
 
     @insight_selectors.setter
     def insight_selectors(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.InsightSelectorProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.InsightSelectorProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d11150f51682efcafc38f048d84c35a263b443e02355965298d566b0714947d)
+            type_hints = cached_type_hints(_typecheckingstub__2d11150f51682efcafc38f048d84c35a263b443e02355965298d566b0714947d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insightSelectors", value) # pyright: ignore[reportArgumentType]
 
@@ -3536,17 +3543,17 @@ class CfnTrail(
     @jsii.member(jsii_name="isMultiRegionTrail")
     def is_multi_region_trail(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail applies only to the current Region or to all Regions.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isMultiRegionTrail"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isMultiRegionTrail"))
 
     @is_multi_region_trail.setter
     def is_multi_region_trail(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48558347dbb5febc8abf93096cfc174c76cbab4c443d68076643e329fb0787c0)
+            type_hints = cached_type_hints(_typecheckingstub__48558347dbb5febc8abf93096cfc174c76cbab4c443d68076643e329fb0787c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isMultiRegionTrail", value) # pyright: ignore[reportArgumentType]
 
@@ -3554,17 +3561,17 @@ class CfnTrail(
     @jsii.member(jsii_name="isOrganizationTrail")
     def is_organization_trail(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isOrganizationTrail"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isOrganizationTrail"))
 
     @is_organization_trail.setter
     def is_organization_trail(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__583ab7d05361279f7f55956fec04616c02d033f55ef6113a3cf8c36630cd5ec5)
+            type_hints = cached_type_hints(_typecheckingstub__583ab7d05361279f7f55956fec04616c02d033f55ef6113a3cf8c36630cd5ec5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isOrganizationTrail", value) # pyright: ignore[reportArgumentType]
 
@@ -3577,7 +3584,7 @@ class CfnTrail(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fac6d2810385893265f6ef2611c9d8ceaa7635731b1ae56291d8e43a83cc907)
+            type_hints = cached_type_hints(_typecheckingstub__4fac6d2810385893265f6ef2611c9d8ceaa7635731b1ae56291d8e43a83cc907)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -3590,7 +3597,7 @@ class CfnTrail(
     @s3_key_prefix.setter
     def s3_key_prefix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a62410d04026f326fad72a00ba17b36e83eb965baeada846126607f600de0f7f)
+            type_hints = cached_type_hints(_typecheckingstub__a62410d04026f326fad72a00ba17b36e83eb965baeada846126607f600de0f7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3KeyPrefix", value) # pyright: ignore[reportArgumentType]
 
@@ -3603,20 +3610,23 @@ class CfnTrail(
     @sns_topic_name.setter
     def sns_topic_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99ce4d6977c0c8f0ad39dd667104baf8babcda3f6e64b94361cd24302f9bfb12)
+            type_hints = cached_type_hints(_typecheckingstub__99ce4d6977c0c8f0ad39dd667104baf8babcda3f6e64b94361cd24302f9bfb12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A custom set of tags (key-value pairs) for this trail.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6e90bde6d2082aefdd7c19acee054825987d54ead9c95ec2dbe11a014f72339)
+            type_hints = cached_type_hints(_typecheckingstub__b6e90bde6d2082aefdd7c19acee054825987d54ead9c95ec2dbe11a014f72339)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3632,7 +3642,7 @@ class CfnTrail(
     @trail_name.setter
     def trail_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29683f56476eaa26adca4a9a9312d409428d1af457282b2a0f93af552333a02e)
+            type_hints = cached_type_hints(_typecheckingstub__29683f56476eaa26adca4a9a9312d409428d1af457282b2a0f93af552333a02e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trailName", value) # pyright: ignore[reportArgumentType]
 
@@ -3645,7 +3655,7 @@ class CfnTrail(
         def __init__(
             self,
             *,
-            field_selectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_selectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.AdvancedFieldSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Advanced event selectors let you create fine-grained selectors for AWS CloudTrail management, data, and network activity events.
@@ -3721,7 +3731,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6dd875607ea907f4214c12153b0923eaa1b2093e9c2bd798cc9ef56cf7886059)
+                type_hints = cached_type_hints(_typecheckingstub__6dd875607ea907f4214c12153b0923eaa1b2093e9c2bd798cc9ef56cf7886059)
                 check_type(argname="argument field_selectors", value=field_selectors, expected_type=type_hints["field_selectors"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3733,14 +3743,14 @@ class CfnTrail(
         @builtins.property
         def field_selectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedFieldSelectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedFieldSelectorProperty"]]]:
             '''Contains all selector statements in an advanced event selector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-trail-advancedeventselector.html#cfn-cloudtrail-trail-advancedeventselector-fieldselectors
             '''
             result = self._values.get("field_selectors")
             assert result is not None, "Required property 'field_selectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedFieldSelectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedFieldSelectorProperty"]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -3819,7 +3829,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec8d9a5e1a3e1eac8b87551fd80e338cfe5e5578a88b45c91f7b6ae91857b236)
+                type_hints = cached_type_hints(_typecheckingstub__ec8d9a5e1a3e1eac8b87551fd80e338cfe5e5578a88b45c91f7b6ae91857b236)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument ends_with", value=ends_with, expected_type=type_hints["ends_with"])
                 check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
@@ -4007,7 +4017,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3e84f4c10db2460430ae27276d91d01d54dc5d780d885c60762987b42e8abe19)
+                type_hints = cached_type_hints(_typecheckingstub__3e84f4c10db2460430ae27276d91d01d54dc5d780d885c60762987b42e8abe19)
                 check_type(argname="argument event_category", value=event_category, expected_type=type_hints["event_category"])
                 check_type(argname="argument templates", value=templates, expected_type=type_hints["templates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4104,7 +4114,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eba75230621acc9cbcd78ccb16505dcc1e9707f9ce1d5b5c64f36220a2fbd761)
+                type_hints = cached_type_hints(_typecheckingstub__eba75230621acc9cbcd78ccb16505dcc1e9707f9ce1d5b5c64f36220a2fbd761)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4187,9 +4197,9 @@ class CfnTrail(
         def __init__(
             self,
             *,
-            data_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.DataResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            data_resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.DataResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             exclude_management_event_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-            include_management_events: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_management_events: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             read_write_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Use event selectors to further specify the management and data event settings for your trail.
@@ -4227,7 +4237,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6a456b792eafca6f1c49386b9ce4f496975ac1ff51f363686c31755c3ba2007)
+                type_hints = cached_type_hints(_typecheckingstub__b6a456b792eafca6f1c49386b9ce4f496975ac1ff51f363686c31755c3ba2007)
                 check_type(argname="argument data_resources", value=data_resources, expected_type=type_hints["data_resources"])
                 check_type(argname="argument exclude_management_event_sources", value=exclude_management_event_sources, expected_type=type_hints["exclude_management_event_sources"])
                 check_type(argname="argument include_management_events", value=include_management_events, expected_type=type_hints["include_management_events"])
@@ -4245,7 +4255,7 @@ class CfnTrail(
         @builtins.property
         def data_resources(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.DataResourceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.DataResourceProperty"]]]]:
             '''CloudTrail supports data event logging for Amazon S3 objects in standard S3 buckets, AWS Lambda functions, and Amazon DynamoDB tables with basic event selectors.
 
             You can specify up to 250 resources for an individual event selector, but the total number of data resources cannot exceed 250 across all event selectors in a trail. This limit does not apply if you configure resource logging for all data events.
@@ -4258,7 +4268,7 @@ class CfnTrail(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-trail-eventselector.html#cfn-cloudtrail-trail-eventselector-dataresources
             '''
             result = self._values.get("data_resources")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.DataResourceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.DataResourceProperty"]]]], result)
 
         @builtins.property
         def exclude_management_event_sources(
@@ -4276,7 +4286,7 @@ class CfnTrail(
         @builtins.property
         def include_management_events(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify if you want your event selector to include management events for your trail.
 
             For more information, see `Management Events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html>`_ in the *AWS CloudTrail User Guide* .
@@ -4288,7 +4298,7 @@ class CfnTrail(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-trail-eventselector.html#cfn-cloudtrail-trail-eventselector-includemanagementevents
             '''
             result = self._values.get("include_management_events")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def read_write_type(self) -> typing.Optional[builtins.str]:
@@ -4349,7 +4359,7 @@ class CfnTrail(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c36e7d325732c46967fd652ce7b5b56b5b548efaa4c260b4d0918a84e4b31748)
+                type_hints = cached_type_hints(_typecheckingstub__c36e7d325732c46967fd652ce7b5b56b5b548efaa4c260b4d0918a84e4b31748)
                 check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
                 check_type(argname="argument insight_type", value=insight_type, expected_type=type_hints["insight_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4422,22 +4432,22 @@ class CfnTrailProps:
     def __init__(
         self,
         *,
-        is_logging: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        s3_bucket_name: typing.Union[builtins.str, "_IBucketRef_3debe44e"],
-        advanced_event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        aggregation_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]] = None,
-        cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        event_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.EventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_global_service_events: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        insight_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrail.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]] = None,
+        is_logging: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        s3_bucket_name: typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"],
+        advanced_event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        aggregation_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, "_aws_logs_8e99d4be.ILogGroupRef"]] = None,
+        cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        event_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.EventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_global_service_events: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        insight_selectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrail.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         sns_topic_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         trail_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrail``.
@@ -4527,7 +4537,7 @@ class CfnTrailProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79)
+            type_hints = cached_type_hints(_typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79)
             check_type(argname="argument is_logging", value=is_logging, expected_type=type_hints["is_logging"])
             check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
             check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
@@ -4581,17 +4591,21 @@ class CfnTrailProps:
             self._values["trail_name"] = trail_name
 
     @builtins.property
-    def is_logging(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def is_logging(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Whether the CloudTrail trail is currently logging AWS API calls.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-islogging
         '''
         result = self._values.get("is_logging")
         assert result is not None, "Required property 'is_logging' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
-    def s3_bucket_name(self) -> typing.Union[builtins.str, "_IBucketRef_3debe44e"]:
+    def s3_bucket_name(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]:
         '''Specifies the name of the Amazon S3 bucket designated for publishing log files.
 
         See `Amazon S3 Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ .
@@ -4600,12 +4614,12 @@ class CfnTrailProps:
         '''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IBucketRef_3debe44e"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"], result)
 
     @builtins.property
     def advanced_event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedEventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedEventSelectorProperty"]]]]:
         '''Specifies the settings for advanced event selectors.
 
         You can use advanced event selectors to log management events, data events for all resource types, and network activity events.
@@ -4615,12 +4629,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-advancedeventselectors
         '''
         result = self._values.get("advanced_event_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AdvancedEventSelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AdvancedEventSelectorProperty"]]]], result)
 
     @builtins.property
     def aggregation_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AggregationConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AggregationConfigurationProperty"]]]]:
         '''Specifies the aggregation configuration to aggregate CloudTrail Events.
 
         A maximum of 1 aggregation configuration is allowed.
@@ -4628,12 +4642,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-aggregationconfigurations
         '''
         result = self._values.get("aggregation_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.AggregationConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.AggregationConfigurationProperty"]]]], result)
 
     @builtins.property
     def cloud_watch_logs_log_group_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_logs_8e99d4be.ILogGroupRef"]]:
         '''Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered.
 
         You must use a log group that exists in your account.
@@ -4646,12 +4660,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsloggrouparn
         '''
         result = self._values.get("cloud_watch_logs_log_group_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_logs_8e99d4be.ILogGroupRef"]], result)
 
     @builtins.property
     def cloud_watch_logs_role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group.
 
         You must use a role that exists in your account.
@@ -4664,12 +4678,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsrolearn
         '''
         result = self._values.get("cloud_watch_logs_role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def enable_log_file_validation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether log file validation is enabled. The default is false.
 
         .. epigraph::
@@ -4679,12 +4693,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-enablelogfilevalidation
         '''
         result = self._values.get("enable_log_file_validation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def event_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.EventSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.EventSelectorProperty"]]]]:
         '''Use event selectors to further specify the management and data event settings for your trail.
 
         By default, trails created without specific event selectors will be configured to log all read and write management events, and no data events. When an event occurs in your account, CloudTrail evaluates the event selector for all trails. For each trail, if the event matches any event selector, the trail processes and logs the event. If the event doesn't match any event selector, the trail doesn't log the event.
@@ -4696,23 +4710,23 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-eventselectors
         '''
         result = self._values.get("event_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.EventSelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.EventSelectorProperty"]]]], result)
 
     @builtins.property
     def include_global_service_events(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail is publishing events from global services such as IAM to the log files.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-includeglobalserviceevents
         '''
         result = self._values.get("include_global_service_events")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def insight_selectors(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.InsightSelectorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.InsightSelectorProperty"]]]]:
         '''A JSON string that contains the Insights types you want to log on a trail.
 
         ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
@@ -4724,12 +4738,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-insightselectors
         '''
         result = self._values.get("insight_selectors")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTrail.InsightSelectorProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrail.InsightSelectorProperty"]]]], result)
 
     @builtins.property
     def is_multi_region_trail(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail applies only to the current Region or to all Regions.
 
         The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
@@ -4737,12 +4751,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-ismultiregiontrail
         '''
         result = self._values.get("is_multi_region_trail")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def is_organization_trail(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account .
 
         The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization.
@@ -4753,12 +4767,12 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-isorganizationtrail
         '''
         result = self._values.get("is_organization_trail")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kms_key_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]]:
         '''Specifies the AWS  key ID to use to encrypt the logs and digest files delivered by CloudTrail.
 
         The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier.
@@ -4775,7 +4789,7 @@ class CfnTrailProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-kmskeyid
         '''
         result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IAliasRef_43fafabd", "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
@@ -4800,13 +4814,13 @@ class CfnTrailProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A custom set of tags (key-value pairs) for this trail.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trail_name(self) -> typing.Optional[builtins.str]:
@@ -4866,7 +4880,7 @@ class InsightType(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231)
+            type_hints = cached_type_hints(_typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -4945,7 +4959,7 @@ class S3EventSelector:
     def __init__(
         self,
         *,
-        bucket: "_IBucketRef_3debe44e",
+        bucket: "_aws_s3_03fe213b.IBucketRef",
         object_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Selecting an S3 bucket and an optional prefix to be logged for data events.
@@ -4972,7 +4986,7 @@ class S3EventSelector:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea)
+            type_hints = cached_type_hints(_typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument object_prefix", value=object_prefix, expected_type=type_hints["object_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4982,11 +4996,11 @@ class S3EventSelector:
             self._values["object_prefix"] = object_prefix
 
     @builtins.property
-    def bucket(self) -> "_IBucketRef_3debe44e":
+    def bucket(self) -> "_aws_s3_03fe213b.IBucketRef":
         '''S3 bucket.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucketRef_3debe44e", result)
+        return typing.cast("_aws_s3_03fe213b.IBucketRef", result)
 
     @builtins.property
     def object_prefix(self) -> typing.Optional[builtins.str]:
@@ -5010,7 +5024,7 @@ class S3EventSelector:
 
 
 class Trail(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudtrail.Trail",
 ):
@@ -5039,11 +5053,11 @@ class Trail(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
-        cloud_watch_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
-        cloud_watch_logs_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
+        cloud_watch_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
+        cloud_watch_logs_retention: typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"] = None,
         enable_file_validation: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         include_global_service_events: typing.Optional[builtins.bool] = None,
         insight_types: typing.Optional[typing.Sequence["InsightType"]] = None,
         is_multi_region_trail: typing.Optional[builtins.bool] = None,
@@ -5052,7 +5066,7 @@ class Trail(
         org_id: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-        sns_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        sns_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
         trail_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -5075,7 +5089,7 @@ class Trail(
         :param trail_name: The name of the trail. Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions. Otherwise, we recommend customers do not set an explicit name. Default: - AWS CloudFormation generated name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3)
+            type_hints = cached_type_hints(_typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TrailProps(
@@ -5105,12 +5119,12 @@ class Trail(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Create an event rule for when an event is recorded by any Trail in the account.
 
         Note that the event doesn't necessarily have to come from this Trail, it can
@@ -5127,10 +5141,10 @@ class Trail(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3)
+            type_hints = cached_type_hints(_typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -5138,7 +5152,7 @@ class Trail(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.sinvoke(cls, "onEvent", [scope, id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.sinvoke(cls, "onEvent", [scope, id, options]))
 
     @jsii.member(jsii_name="addEventSelector")
     def add_event_selector(
@@ -5166,7 +5180,7 @@ class Trail(
         :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2)
+            type_hints = cached_type_hints(_typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2)
             check_type(argname="argument data_resource_type", value=data_resource_type, expected_type=type_hints["data_resource_type"])
             check_type(argname="argument data_resource_values", value=data_resource_values, expected_type=type_hints["data_resource_values"])
         options = AddEventSelectorOptions(
@@ -5180,7 +5194,7 @@ class Trail(
     @jsii.member(jsii_name="addLambdaEventSelector")
     def add_lambda_event_selector(
         self,
-        handlers: typing.Sequence["_IFunction_6adb0ab8"],
+        handlers: typing.Sequence["_aws_lambda_b8f2f472.IFunction"],
         *,
         exclude_management_event_sources: typing.Optional[typing.Sequence["ManagementEventSources"]] = None,
         include_management_events: typing.Optional[builtins.bool] = None,
@@ -5201,7 +5215,7 @@ class Trail(
         :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0)
+            type_hints = cached_type_hints(_typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0)
             check_type(argname="argument handlers", value=handlers, expected_type=type_hints["handlers"])
         options = AddEventSelectorOptions(
             exclude_management_event_sources=exclude_management_event_sources,
@@ -5235,7 +5249,7 @@ class Trail(
         :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2)
+            type_hints = cached_type_hints(_typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2)
             check_type(argname="argument s3_selector", value=s3_selector, expected_type=type_hints["s3_selector"])
         options = AddEventSelectorOptions(
             exclude_management_event_sources=exclude_management_event_sources,
@@ -5323,12 +5337,12 @@ class Trail(
 
     @builtins.property
     @jsii.member(jsii_name="logGroup")
-    def log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''The CloudWatch log group to which CloudTrail events are sent.
 
         ``undefined`` if ``sendToCloudWatchLogs`` property is false.
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "logGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "logGroup"))
 
 
 @jsii.data_type(
@@ -5356,11 +5370,11 @@ class TrailProps:
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
-        cloud_watch_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
-        cloud_watch_logs_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
+        cloud_watch_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
+        cloud_watch_logs_retention: typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"] = None,
         enable_file_validation: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         include_global_service_events: typing.Optional[builtins.bool] = None,
         insight_types: typing.Optional[typing.Sequence["InsightType"]] = None,
         is_multi_region_trail: typing.Optional[builtins.bool] = None,
@@ -5369,7 +5383,7 @@ class TrailProps:
         org_id: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-        sns_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        sns_topic: typing.Optional["_aws_sns_07ffc8ab.ITopic"] = None,
         trail_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for an AWS CloudTrail trail.
@@ -5400,7 +5414,7 @@ class TrailProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7)
+            type_hints = cached_type_hints(_typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument cloud_watch_log_group", value=cloud_watch_log_group, expected_type=type_hints["cloud_watch_log_group"])
             check_type(argname="argument cloud_watch_logs_retention", value=cloud_watch_logs_retention, expected_type=type_hints["cloud_watch_logs_retention"])
@@ -5449,16 +5463,18 @@ class TrailProps:
             self._values["trail_name"] = trail_name
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''The Amazon S3 bucket.
 
         :default: - if not supplied a bucket will be created with all the correct permissions
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
-    def cloud_watch_log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def cloud_watch_log_group(
+        self,
+    ) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''Log Group to which CloudTrail to push logs to.
 
         Ignored if sendToCloudWatchLogs is set to false.
@@ -5466,10 +5482,12 @@ class TrailProps:
         :default: - a new log group is created and used.
         '''
         result = self._values.get("cloud_watch_log_group")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     @builtins.property
-    def cloud_watch_logs_retention(self) -> typing.Optional["_RetentionDays_070f99f0"]:
+    def cloud_watch_logs_retention(
+        self,
+    ) -> typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"]:
         '''How long to retain logs in CloudWatchLogs.
 
         Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set.
@@ -5477,7 +5495,7 @@ class TrailProps:
         :default: logs.RetentionDays.ONE_YEAR
         '''
         result = self._values.get("cloud_watch_logs_retention")
-        return typing.cast(typing.Optional["_RetentionDays_070f99f0"], result)
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"], result)
 
     @builtins.property
     def enable_file_validation(self) -> typing.Optional[builtins.bool]:
@@ -5493,13 +5511,13 @@ class TrailProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs.
 
         :default: - No encryption.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def include_global_service_events(self) -> typing.Optional[builtins.bool]:
@@ -5595,13 +5613,13 @@ class TrailProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def sns_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def sns_topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''SNS topic that is notified when new log files are published.
 
         :default: - No notifications.
         '''
         result = self._values.get("sns_topic")
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], result)
 
     @builtins.property
     def trail_name(self) -> typing.Optional[builtins.str]:
@@ -5664,16 +5682,16 @@ def _typecheckingstub__4004ebed14c16ae6f20ecf5d65ea8487ea49b0bd7c3ce35ca361518f9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__97a171a05a7e0a6e8d7d85a672e077237335c0dd1ae244cdb7c867b12fbd1efe(
-    resource: _IChannelRef_578e7391,
+    resource: _aws_cloudtrail_19a0e7d7.IChannelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5685,7 +5703,7 @@ def _typecheckingstub__fa0142643fb8af3ff14c1c3b24f064231ce78b2c5b9c7a74ad8eaf1d8
     pass
 
 def _typecheckingstub__12052607593ad96dcef135d212789e6caf3b7f7cd49c9ce2468646f9efbcb963(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5697,7 +5715,7 @@ def _typecheckingstub__cd31f5742125109282b44493267cb4e1405b919ba97bb1b7f18668a06
     pass
 
 def _typecheckingstub__af90446cbf2dae59bef52fb3ee6ec0e5b9c6098eff5af75a5963dd51c4683a5e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.DestinationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.DestinationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5715,7 +5733,7 @@ def _typecheckingstub__63777c16355eca1495edc2932fdadb55a7e3c86d73124f1d93d1c28b2
     pass
 
 def _typecheckingstub__29044cfd0c28f00acd85e04beb454a19a2c4d87d4786f0af019f0209c639da8b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5730,10 +5748,10 @@ def _typecheckingstub__619b701f7c6b5470537230c8a847919a410a57fbf2eab022694dc1fef
 
 def _typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356(
     *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5743,16 +5761,16 @@ def _typecheckingstub__65875e3ceabcc57155f97b1541ff9d435e4456c9c7f0c980c1dea0ac9
     id: builtins.str,
     *,
     name: typing.Optional[builtins.str] = None,
-    refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    refresh_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    widgets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9c5660e666f816052caee3250fff994ef2ea26f37ea3e7ecdbc26b100aed9e21(
-    resource: _IDashboardRef_1dcd123e,
+    resource: _aws_cloudtrail_19a0e7d7.IDashboardRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5764,7 +5782,7 @@ def _typecheckingstub__a5f4ca25b75cfc7da28ba267fcf7f52cb562be8c58565e6924ac6312e
     pass
 
 def _typecheckingstub__80aa78b7039f0746d57f08dc22b8127693ce2c2c4b3ede574289925bdfd4379f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5782,25 +5800,25 @@ def _typecheckingstub__ad3cc4c5ce87019f2d65bf513eb6f6987758697d7edaf71a8c25d63e5
     pass
 
 def _typecheckingstub__c189822248b924f49d3f78593489ebfdb50baaa5632423120ffc582017517a62(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDashboard.RefreshScheduleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDashboard.RefreshScheduleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f30292137ba2f648895c0e1f3beefbf660ef3c12168b20e06516352a881c1581(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__784f2dc9097025d1492e66bc4ea947ce69164f00c1538ca507daa506ba7efe22(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__15acb7e7b87191d3aa52a0f02842d9b876d6cd2175319b3e4dd3ac6b352b2755(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDashboard.WidgetProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDashboard.WidgetProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5815,7 +5833,7 @@ def _typecheckingstub__2f2203e866b3e98fa21e0e9b0a804e36298f95797b075211e843ddc70
 
 def _typecheckingstub__e38849bc2b8e26a855d5c01196725a15d72db451889d0b2ed0891ec262db60d8(
     *,
-    frequency: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    frequency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDashboard.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status: typing.Optional[builtins.str] = None,
     time_of_day: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -5826,7 +5844,7 @@ def _typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153
     *,
     query_statement: builtins.str,
     query_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
-    view_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    view_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5834,10 +5852,10 @@ def _typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153
 def _typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911(
     *,
     name: typing.Optional[builtins.str] = None,
-    refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    refresh_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    widgets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5846,28 +5864,28 @@ def _typecheckingstub__058a94222b13ad44b4607ad5932ec9b6a2defcb250ff436576e6e8976
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    advanced_event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
-    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    context_key_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    federation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     federation_role_arn: typing.Optional[builtins.str] = None,
-    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     insights_destination: typing.Optional[builtins.str] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    insight_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     max_event_size: typing.Optional[builtins.str] = None,
-    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
-    organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    organization_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5ccf1a1bb4801adcfa14ca5216b041fe1e3d5c18b12cab7e8e5eb3733536923a(
-    resource: _IEventDataStoreRef_da898eb2,
+    resource: _aws_cloudtrail_19a0e7d7.IEventDataStoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5879,7 +5897,7 @@ def _typecheckingstub__540336737a853afc3f106c587124103ad697491b09fbc7d60fcac3e6d
     pass
 
 def _typecheckingstub__21862a9cccdc40ba09d15f004dcda554d20814b630b70c51ae59a1212bbb14c4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5891,7 +5909,7 @@ def _typecheckingstub__2ee95efcc007233c035a77dfd382e47456926b86a000891448961781b
     pass
 
 def _typecheckingstub__7bc51d9a1ef5affc48ffb624785b29a7a5d0a3eba5e72b94f687da94194f4973(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.AdvancedEventSelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventDataStore.AdvancedEventSelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5903,13 +5921,13 @@ def _typecheckingstub__106939491635761bff083d6af3ca26d1723f9df71ec433399c5746554
     pass
 
 def _typecheckingstub__aa0ae30f8c5291a79387d1a2f7fb5c056fc8459c7878eb58241f52eba3a4762e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventDataStore.ContextKeySelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__765513d5a073b76962f766e5dc1a967c4ad42a5bb2200d9f880aac945789b35d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5921,7 +5939,7 @@ def _typecheckingstub__02d5876fb281f125b4a84c7554b6ae992b9b7433cab839d402d60601a
     pass
 
 def _typecheckingstub__3120b4fc57c151f577843e6f55242684964162de4d4061991c82480a0fae581b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5933,7 +5951,7 @@ def _typecheckingstub__d10aa59d5d60b5a68edf57d8df52934e03f5e4f0802a1d7dab4552592
     pass
 
 def _typecheckingstub__b360ff34d6b267287ccf6e4c636b401ab6c739c7a90856639462b1c738855c92(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.InsightSelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventDataStore.InsightSelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5951,7 +5969,7 @@ def _typecheckingstub__a69353bf46f46a1067b410e6f91c0033234561f53fceb13608d40dd90
     pass
 
 def _typecheckingstub__69742230d7479a5e2d180046d6dbe2ea4627b1fbe6861d248e8fa77f7c0dcd20(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5963,7 +5981,7 @@ def _typecheckingstub__a01c2b1ec1e4ebac8e9e92744ee1402309ee4033c2267e1089f605b12
     pass
 
 def _typecheckingstub__565712bf828bb8c2b0f6a80ca025d431aa72043d60fff9a95e02336f6f1e0d1c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5975,20 +5993,20 @@ def _typecheckingstub__9508e34267838b75568905c8769ff7999130a13cb85b3d1abf67ef17b
     pass
 
 def _typecheckingstub__e6acb86a62af0621d981781f78b5611035089e25ca1472411f75d1b6e352ead2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f57ea7bcecd4a4cd58674384395db2bcf2721c3bcfa216c86922651a268041e5(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__40ce53f73864cb5c89f3baf13c64dba67cc42e274565b6c52a84904f6fd5f4b3(
     *,
-    field_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    field_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6024,22 +6042,22 @@ def _typecheckingstub__5dc8183d614f9c9498310cd377ff020cdc048d422b2548bbe678fc3c1
 
 def _typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e(
     *,
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    advanced_event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
-    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    context_key_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    federation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     federation_role_arn: typing.Optional[builtins.str] = None,
-    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     insights_destination: typing.Optional[builtins.str] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    insight_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     max_event_size: typing.Optional[builtins.str] = None,
-    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
-    organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    organization_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6061,7 +6079,7 @@ def _typecheckingstub__621e5d83f52fa1f890ecfccb507052cdb0536fbc3dc0c8050cd742138
     pass
 
 def _typecheckingstub__b32eb6fa58caf5ce6823a322212ade70664d4d37672f421c013fb2553ece2012(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6096,29 +6114,29 @@ def _typecheckingstub__2259d5765ec84e4697f55f0d491871f1aa010feb94b3445a33a9e4b9f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    s3_bucket_name: typing.Union[builtins.str, _IBucketRef_3debe44e],
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    aggregation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, _ILogGroupRef_874d025a]] = None,
-    cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IAliasRef_43fafabd, _IKeyRef_d4fc6ef3]] = None,
+    is_logging: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    s3_bucket_name: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
+    advanced_event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    aggregation_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, _aws_logs_8e99d4be.ILogGroupRef]] = None,
+    cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    insight_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     sns_topic_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trail_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__234bffed074203dd4eb5af54215723c1177b9afb21d1aca06b6a2ab60d845620(
-    resource: _ITrailRef_38211c4b,
+    resource: _aws_cloudtrail_19a0e7d7.ITrailRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6146,7 +6164,7 @@ def _typecheckingstub__4c699fe6b1e10c421bae4fb8fa15b5bc1656735d27b960f9f2d674022
     pass
 
 def _typecheckingstub__27c0b3977f3ce3e2ad80b21e158e38a08a45c6700ebeed895b3710e8c214a1bb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6158,7 +6176,7 @@ def _typecheckingstub__340f9d2dc4d668d217253c3ecdc1999319497932039d9878e65bb3b5c
     pass
 
 def _typecheckingstub__28420bf6c9605a8eeb3ac59acf7f894b63e53a96b92e9d477f9cd206f2f9cf41(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6170,13 +6188,13 @@ def _typecheckingstub__950bb01f69a31c7f47512f3a4330d4ce5db85c66795a79936ef3af33a
     pass
 
 def _typecheckingstub__ae10dc28d41ecf82427e4cef4ce27f9c40933974aaf57ffd8e73f19c06621f53(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.AdvancedEventSelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrail.AdvancedEventSelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__014de64173a82b38bfbf2ea8f096afb536717ff0c1b982465211c09ace5929f1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.AggregationConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrail.AggregationConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6194,37 +6212,37 @@ def _typecheckingstub__cabe9b73fb8bc4d76fde324653a247811fa621cc9003d2c46e84b890b
     pass
 
 def _typecheckingstub__0b942505386f8e61551da02925be57cd0474923089182c193fde0b17fe804056(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1ef2943100a700e4bd2b0922f697c3d0da51c014bec4f2a8c4063f59e83067d7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.EventSelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrail.EventSelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1a1c2489b0dca720e7fab9917132eaf8dc9468d58f2d500bccd7579577d74434(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2d11150f51682efcafc38f048d84c35a263b443e02355965298d566b0714947d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.InsightSelectorProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrail.InsightSelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__48558347dbb5febc8abf93096cfc174c76cbab4c443d68076643e329fb0787c0(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__583ab7d05361279f7f55956fec04616c02d033f55ef6113a3cf8c36630cd5ec5(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6248,7 +6266,7 @@ def _typecheckingstub__99ce4d6977c0c8f0ad39dd667104baf8babcda3f6e64b94361cd24302
     pass
 
 def _typecheckingstub__b6e90bde6d2082aefdd7c19acee054825987d54ead9c95ec2dbe11a014f72339(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6261,7 +6279,7 @@ def _typecheckingstub__29683f56476eaa26adca4a9a9312d409428d1af457282b2a0f93af552
 
 def _typecheckingstub__6dd875607ea907f4214c12153b0923eaa1b2093e9c2bd798cc9ef56cf7886059(
     *,
-    field_selectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    field_selectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.AdvancedFieldSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6298,9 +6316,9 @@ def _typecheckingstub__eba75230621acc9cbcd78ccb16505dcc1e9707f9ce1d5b5c64f36220a
 
 def _typecheckingstub__b6a456b792eafca6f1c49386b9ce4f496975ac1ff51f363686c31755c3ba2007(
     *,
-    data_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.DataResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.DataResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     exclude_management_event_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    include_management_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    include_management_events: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     read_write_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6316,22 +6334,22 @@ def _typecheckingstub__c36e7d325732c46967fd652ce7b5b56b5b548efaa4c260b4d0918a84e
 
 def _typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79(
     *,
-    is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    s3_bucket_name: typing.Union[builtins.str, _IBucketRef_3debe44e],
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    aggregation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, _ILogGroupRef_874d025a]] = None,
-    cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IAliasRef_43fafabd, _IKeyRef_d4fc6ef3]] = None,
+    is_logging: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    s3_bucket_name: typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef],
+    advanced_event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    aggregation_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cloud_watch_logs_log_group_arn: typing.Optional[typing.Union[builtins.str, _aws_logs_8e99d4be.ILogGroupRef]] = None,
+    cloud_watch_logs_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    event_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    insight_selectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     sns_topic_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     trail_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6345,7 +6363,7 @@ def _typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f
 
 def _typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea(
     *,
-    bucket: _IBucketRef_3debe44e,
+    bucket: _aws_s3_03fe213b.IBucketRef,
     object_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6355,11 +6373,11 @@ def _typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cloud_watch_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
-    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
+    cloud_watch_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
+    cloud_watch_logs_retention: typing.Optional[_aws_logs_ab8ef8ce.RetentionDays] = None,
     enable_file_validation: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     include_global_service_events: typing.Optional[builtins.bool] = None,
     insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
     is_multi_region_trail: typing.Optional[builtins.bool] = None,
@@ -6368,7 +6386,7 @@ def _typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf
     org_id: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+    sns_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
     trail_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6378,10 +6396,10 @@ def _typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6399,7 +6417,7 @@ def _typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708
     pass
 
 def _typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0(
-    handlers: typing.Sequence[_IFunction_6adb0ab8],
+    handlers: typing.Sequence[_aws_lambda_b8f2f472.IFunction],
     *,
     exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
     include_management_events: typing.Optional[builtins.bool] = None,
@@ -6420,11 +6438,11 @@ def _typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d99
 
 def _typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cloud_watch_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
-    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
+    cloud_watch_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
+    cloud_watch_logs_retention: typing.Optional[_aws_logs_ab8ef8ce.RetentionDays] = None,
     enable_file_validation: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     include_global_service_events: typing.Optional[builtins.bool] = None,
     insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
     is_multi_region_trail: typing.Optional[builtins.bool] = None,
@@ -6433,7 +6451,7 @@ def _typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce9
     org_id: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+    sns_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
     trail_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

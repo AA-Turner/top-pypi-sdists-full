@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5cd4b5ea64eb67b3f113dc7dc338dde95fd3e19b91e349588b31c490719ef71)
+            type_hints = cached_type_hints(_typecheckingstub__f5cd4b5ea64eb67b3f113dc7dc338dde95fd3e19b91e349588b31c490719ef71)
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_name": channel_name,
@@ -107,7 +111,7 @@ class DatasetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__016408ec4f7e9e507bdf4b868525967b6c1f5d82cf433acbaee46cbda0088fb4)
+            type_hints = cached_type_hints(_typecheckingstub__016408ec4f7e9e507bdf4b868525967b6c1f5d82cf433acbaee46cbda0088fb4)
             check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_name": dataset_name,
@@ -156,7 +160,7 @@ class DatastoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7032bc5b8dbe64970fac281cb91b607194410e31888c1c8329a4d7ed5d349cf)
+            type_hints = cached_type_hints(_typecheckingstub__a7032bc5b8dbe64970fac281cb91b607194410e31888c1c8329a4d7ed5d349cf)
             check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "datastore_name": datastore_name,
@@ -184,7 +188,7 @@ class DatastoreReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotanalytics.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -204,7 +208,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotanalytics.IDatasetRef")
 class IDatasetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
@@ -249,7 +253,7 @@ class IDatasetRef(
 
 class _IDatasetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotanalytics.IDatastoreRef")
 class IDatastoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Datastore.
@@ -294,7 +298,7 @@ class IDatastoreRef(
 
 class _IDatastoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Datastore.
 
@@ -319,7 +323,7 @@ typing.cast(typing.Any, IDatastoreRef).__jsii_proxy_class__ = lambda : _IDatasto
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotanalytics.IPipelineRef")
 class IPipelineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Pipeline.
@@ -339,7 +343,7 @@ class IPipelineRef(
 
 class _IPipelineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Pipeline.
 
@@ -385,7 +389,7 @@ class PipelineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8247a3d7d88d85e4cfa9d5394f245c4854ce7787a2232fa0c42cba1c3df27d49)
+            type_hints = cached_type_hints(_typecheckingstub__8247a3d7d88d85e4cfa9d5394f245c4854ce7787a2232fa0c42cba1c3df27d49)
             check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "pipeline_name": pipeline_name,

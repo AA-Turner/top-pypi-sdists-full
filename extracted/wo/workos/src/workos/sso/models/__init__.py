@@ -2,7 +2,6 @@
 
 from .connection import Connection as Connection
 from .connection_domain import ConnectionDomain as ConnectionDomain
-from .connection_option import ConnectionOption as ConnectionOption
 from .connections_connection_type import (
     ConnectionsConnectionType as ConnectionsConnectionType,
 )

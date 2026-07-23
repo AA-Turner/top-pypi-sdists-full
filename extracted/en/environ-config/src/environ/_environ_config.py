@@ -19,11 +19,12 @@ from __future__ import annotations
 import logging
 import os
 
-from typing import Any, Callable, TypeVar, overload
+from collections.abc import Callable
+from typing import Any, Literal, TypeVar, overload
 
-import attr
+import attrs
 
-from .exceptions import MissingEnvValueError
+from .exceptions import MissingEnvValueError, MissingSecretError
 
 
 CNF_KEY = "environ_config"
@@ -51,7 +52,7 @@ def _get_prefix(obj):
     return obj._prefix if obj._prefix is not PREFIX_NOT_SET else DEFAULT_PREFIX
 
 
-@attr.s
+@attrs.define
 class Raise:
     pass
 
@@ -129,7 +130,7 @@ def config(
             setattr(cls, from_environ, classmethod(from_environ_fnc))
         if generate_help is not None:
             setattr(cls, generate_help, classmethod(generate_help_fnc))
-        return attr.s(cls, frozen=frozen, slots=True)
+        return attrs.define(cls, frozen=frozen, slots=True)
 
     if maybe_cls is None:
         return wrap
@@ -137,13 +138,13 @@ def config(
     return wrap(maybe_cls)
 
 
-@attr.s(slots=True)
+@attrs.define(slots=True)
 class _ConfigEntry:
-    name: str | None = attr.ib(default=None)
-    default: Any = attr.ib(default=RAISE)
-    sub_cls: type | None = attr.ib(default=None)
-    callback: Callable | None = attr.ib(default=None)
-    help: str | None = attr.ib(default=None)
+    name: str | None = attrs.field(default=None)
+    default: Any = attrs.field(default=RAISE)
+    sub_cls: type | None = attrs.field(default=None)
+    callback: Callable | None = attrs.field(default=None)
+    help: str | None = attrs.field(default=None)
 
 
 def var(
@@ -168,7 +169,7 @@ def var(
 
         converter:
             A callable that is run with the found value and its return value is
-            used.  Please not that it is also run for default values.
+            used.  Please note that it is also run for default values.
 
         validator:
             A callable that is run with the final value. See *attrs*'s `chapter
@@ -179,7 +180,7 @@ def var(
 
         help: A help string that is used by `generate_help`.
     """
-    return attr.ib(
+    return attrs.field(
         default=default,
         metadata={CNF_KEY: _ConfigEntry(name, default, None, None, help)},
         converter=converter,
@@ -215,7 +216,15 @@ def bool_var(
     return var(default=default, name=name, converter=_env_to_bool, help=help)
 
 
-def group(cls: type[T], optional: bool = False) -> T:
+@overload
+def group(cls: type[T], optional: Literal[True]) -> T | None: ...
+
+
+@overload
+def group(cls: type[T], optional: Literal[False] = False) -> T: ...
+
+
+def group(cls: type[T], optional: bool = False) -> T | None:
     """
     A configuration attribute that is another configuration class.
 
@@ -250,7 +259,7 @@ def group(cls: type[T], optional: bool = False) -> T:
     .. versionadded:: 21.1.0 *optional*
     """
     default = None if optional else RAISE
-    return attr.ib(
+    return attrs.field(
         default=default,
         metadata={CNF_KEY: _ConfigEntry(None, default, cls, True)},
     )
@@ -286,8 +295,9 @@ def _to_config_recurse(config_cls, environ, prefixes, default=RAISE):
     got = {}
     defaulted = {}
     missing_vars = set()
+    missing_secrets = set()
 
-    for attr_obj in attr.fields(config_cls):
+    for attr_obj in attrs.fields(config_cls):
         try:
             ce = attr_obj.metadata[CNF_KEY]
         except KeyError:
@@ -303,20 +313,28 @@ def _to_config_recurse(config_cls, environ, prefixes, default=RAISE):
             getter = ce.callback or _default_getter
             try:
                 got[name] = getter(environ, attr_obj.metadata, prefixes, name)
-            except MissingEnvValueError as exc:
+            except (MissingEnvValueError, MissingSecretError) as exc:
                 if isinstance(ce.default, Raise):
-                    missing_vars |= set(exc.args)
+                    if isinstance(exc, MissingSecretError):
+                        missing_secrets |= set(exc.args)
+                    else:
+                        missing_vars |= set(exc.args)
                 else:
                     defaulted[name] = (
-                        attr.NOTHING
-                        if isinstance(ce.default, attr.Factory)
+                        attrs.NOTHING
+                        if isinstance(ce.default, attrs.Factory)
                         else ce.default
                     )
 
-    if missing_vars:
+    if missing_vars or missing_secrets:
         # If we were told to raise OR if we got *any* values for our attrs, we
-        # will raise a `MissingEnvValueError` with all the missing variables
+        # will raise a `Missing..Error` with all the missing variables
         if isinstance(default, Raise) or got:
+            # Raise MissingSecretError if there was any missing secrets, since
+            # that used to bubble all the way up, and thus was always prioritized
+            # over `MissingEnvValueError`.
+            if missing_secrets:
+                raise MissingSecretError(*missing_secrets) from None
             raise MissingEnvValueError(*missing_vars) from None
 
         # Otherwise we will simply use the default passed into this call.
@@ -432,7 +450,7 @@ def _generate_help_dicts(config_cls, _prefix=PREFIX_NOT_SET):
     """
     help_dicts = []
     _prefix = _prefix if _prefix is not PREFIX_NOT_SET else config_cls._prefix
-    for a in attr.fields(config_cls):
+    for a in attrs.fields(config_cls):
         try:
             ce = a.metadata[CNF_KEY]
         except KeyError:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ldp
-Version: 1.0.2
+Version: 1.0.4
 Summary: Agent framework for constructing language model agents and training on constructive tasks.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -263,7 +263,7 @@ Requires-Dist: dask-jobqueue; extra == "nn"
 Requires-Dist: dask[distributed]; extra == "nn"
 Requires-Dist: distributed; extra == "nn"
 Requires-Dist: ldp[scg]; extra == "nn"
-Requires-Dist: torch==2.11.0,>=2.9; extra == "nn"
+Requires-Dist: torch==2.13.0,>=2.13; extra == "nn"
 Requires-Dist: transformers<5,>=4.51; extra == "nn"
 Requires-Dist: wandb; extra == "nn"
 Provides-Extra: rich

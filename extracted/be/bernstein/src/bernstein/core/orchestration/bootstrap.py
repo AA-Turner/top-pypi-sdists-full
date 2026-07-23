@@ -494,6 +494,36 @@ def _sync_and_plan_tasks(
     return backlog_count, manager_task_id, prior_session
 
 
+def _describe_cost_estimate(backlog_count: int, model: str | None) -> str:
+    """Build the startup cost-estimate fragment from the synced task count.
+
+    ``backlog_count`` is the number of tasks actually submitted to the task
+    server (backlog sync or plan-file post), so the printed count can never
+    disagree with the run's real task list. When it is zero the manager
+    agent has not planned yet: the count is unknown, so a per-task rate is
+    shown and no count is printed.
+
+    Args:
+        backlog_count: Tasks synced/posted to the server; 0 means planning
+            is deferred to the manager agent.
+        model: Configured model name, or ``None``/empty when unset.
+
+    Returns:
+        Plain-text fragment for the startup cost line.
+    """
+    from bernstein.core.cost import estimate_run_cost
+
+    if backlog_count > 0:
+        if model:
+            low, high = estimate_run_cost(backlog_count, model)
+            return f"~${low:.2f}-${high:.2f} ({backlog_count} task(s), {model})"
+        return f"unknown (no model configured, {backlog_count} task(s))"
+    if model:
+        low, high = estimate_run_cost(1, model)
+        return f"~${low:.2f}-${high:.2f} per task ({model}, task count pending planning)"
+    return "unknown (no model configured, task count pending planning)"
+
+
 def _record_team_manifest_lineage(seed: SeedConfig, workdir: Path) -> None:
     """Anchor a run's team manifest in the audit chain (issue #2248, AC3).
 
@@ -568,7 +598,7 @@ def bootstrap_from_seed(
 
     # Resolve cluster-aware settings
     bind_host = "0.0.0.0" if remote else _resolve_bind_host()
-    auth_token = _resolve_auth_token()
+    auth_token = _resolve_auth_token(workdir)
     server_url = _resolve_server_url(port)
 
     # ── Compact bootstrap: all steps on one screen ──
@@ -663,16 +693,9 @@ def bootstrap_from_seed(
         worker_role=worker_role,
     )
 
-    # Cost estimate (single compact line)
-    from bernstein.core.cost import estimate_run_cost
-
-    est_count = backlog_count if backlog_count > 0 else 5
-    est_model = seed.model
-    if est_model:
-        low, high = estimate_run_cost(est_count, est_model)
-        console.print(f"  [dim]cost[/dim]    ~${low:.2f}-${high:.2f} ({est_count} tasks, {est_model})")
-    else:
-        console.print(f"  [dim]cost[/dim]    unknown (no model configured, {est_count} tasks)")
+    # Cost estimate (single compact line). Derived from the synced task
+    # count so it can never disagree with the submitted backlog.
+    console.print(f"  [dim]cost[/dim]    {_describe_cost_estimate(backlog_count, seed.model)}")
 
     # 5. Start spawner + watchdog
     # Propagate the resolved adapter (e.g. ``mock`` from ``--idle``) explicitly so
@@ -724,6 +747,39 @@ def bootstrap_from_seed(
     return result
 
 
+_WATCHDOG_MODULE = "bernstein.core.orchestration.bootstrap"
+"""Runnable module for the ``python -m`` watchdog launch (issue #2795).
+
+Must resolve to a real code object under ``runpy``. The historical
+``bernstein.core.bootstrap`` name is a compatibility redirect alias whose loader
+returns no code object, so launching it via ``-m`` fails with "No code object
+available" and the watchdog never starts. This module carries the
+``if __name__ == "__main__":`` watchdog entrypoint.
+"""
+
+_WATCHDOG_LAUNCH_GRACE_S: float = 0.5
+"""Seconds to wait for the watchdog to prove it survived launch (issue #2795)."""
+
+
+def _read_watchdog_log_tail(log_path: Path, *, max_chars: int = 500) -> str:
+    """Return the tail of ``watchdog.log`` for a failed-launch error message.
+
+    Args:
+        log_path: Path to the watchdog log sink.
+        max_chars: Cap on returned characters, taken from the end of the file.
+
+    Returns:
+        The trailing log content, or a placeholder when it is empty or unreadable.
+    """
+    try:
+        text = log_path.read_text(errors="replace").strip()
+    except OSError:
+        return "<unavailable>"
+    if not text:
+        return "<empty>"
+    return text[-max_chars:]
+
+
 def _start_watchdog(
     workdir: Path,
     port: int,
@@ -754,7 +810,11 @@ def _start_watchdog(
     argv = [
         sys.executable,
         "-m",
-        "bernstein.core.bootstrap",
+        # Must be a module ``runpy`` can execute. ``bernstein.core.bootstrap`` is
+        # only a compatibility redirect alias whose loader returns no code object,
+        # so ``python -m`` on it raises "No code object available" and the
+        # watchdog never starts; target the real runnable module (issue #2795).
+        _WATCHDOG_MODULE,
         "--watchdog",
         "--port",
         str(port),
@@ -777,6 +837,27 @@ def _start_watchdog(
     )
     log_fh.close()
     pid_path.write_text(str(proc.pid))
+
+    # Confirm the watchdog survived launch. A module-name or import failure makes
+    # the child exit within milliseconds; without this check the failure is
+    # silent -- one line in watchdog.log plus a dead pid file -- while the run
+    # reports itself healthy despite having lost its crash/stall recovery layer
+    # (issue #2795).
+    try:
+        returncode = proc.wait(timeout=_WATCHDOG_LAUNCH_GRACE_S)
+    except subprocess.TimeoutExpired:
+        return proc.pid  # still running after the grace window -> launched OK
+
+    log_tail = _read_watchdog_log_tail(log_path)
+    logger.error(
+        "Recovery watchdog exited immediately (code %s); this run has no crash or stall recovery. watchdog.log: %s",
+        returncode,
+        log_tail,
+    )
+    console.print(
+        f"[bold red]Recovery watchdog failed to start (exit {returncode}); "
+        f"this run has no automatic crash or stall recovery.[/bold red]"
+    )
     return proc.pid
 
 
@@ -1143,7 +1224,10 @@ def _bootstrap_from_goal_impl(
         console.print(agents_note)
 
     _icons = get_icons()
-    console.print(f"[green]{_icons.arrow_right}[/green] Goal: [bold]{goal[:80]}[/bold]")
+    # Callers that drive a pre-seeded backlog (e.g. the mock demo) pass no goal
+    # on purpose; don't print an empty "Goal:" line in that case.
+    if goal.strip():
+        console.print(f"[green]{_icons.arrow_right}[/green] Goal: [bold]{goal[:80]}[/bold]")
     try:
         from bernstein.core.complexity_advisor import ComplexityMode, suggest_goal_execution_mode
 
@@ -1203,7 +1287,7 @@ def _bootstrap_from_goal_impl(
     _register_ci_parsers()
 
     bind_host = _resolve_bind_host()
-    auth_token = _resolve_auth_token()
+    auth_token = _resolve_auth_token(workdir)
     server_url = _resolve_server_url(port)
 
     with Status(f"[bold]Starting task server on {bind_host}:{port}...[/bold]", console=console):
@@ -1235,20 +1319,9 @@ def _bootstrap_from_goal_impl(
         icons=_icons,
     )
 
-    # Cost estimation - show before spawning agents
-    from bernstein.core.cost import estimate_run_cost
-
-    est_task_count = backlog_count if backlog_count > 0 else 5  # default estimate for manager-planned
-    if model:
-        low, high = estimate_run_cost(est_task_count, model)
-        console.print(
-            f"[bold yellow]Cost estimate:[/bold yellow] ${low:.2f}-${high:.2f} "
-            f"({est_task_count} task(s), {model} model)"
-        )
-    else:
-        console.print(
-            f"[bold yellow]Cost estimate:[/bold yellow] unknown - no model configured ({est_task_count} task(s))"
-        )
+    # Cost estimation - show before spawning agents. Derived from the synced
+    # task count so it can never disagree with the submitted backlog.
+    console.print(f"[bold yellow]Cost estimate:[/bold yellow] {_describe_cost_estimate(backlog_count, model)}")
 
     cell_label = f"{cells} cells" if cells > 1 else "single cell"
     # Propagate the resolved cli adapter explicitly so the orchestrator

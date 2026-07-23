@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DiscovererReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef5f0f98b996f76f680660442586169116e286a17380f815a5a3a375677f9663)
+            type_hints = cached_type_hints(_typecheckingstub__ef5f0f98b996f76f680660442586169116e286a17380f815a5a3a375677f9663)
             check_type(argname="argument discoverer_arn", value=discoverer_arn, expected_type=type_hints["discoverer_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "discoverer_arn": discoverer_arn,
@@ -86,7 +90,7 @@ class DiscovererReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eventschemas.IDiscovererRef")
 class IDiscovererRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Discoverer.
@@ -106,7 +110,7 @@ class IDiscovererRef(
 
 class _IDiscovererRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Discoverer.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IDiscovererRef).__jsii_proxy_class__ = lambda : _IDiscov
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eventschemas.IRegistryPolicyRef")
 class IRegistryPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
@@ -151,7 +155,7 @@ class IRegistryPolicyRef(
 
 class _IRegistryPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IRegistryPolicyRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eventschemas.IRegistryRef")
 class IRegistryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Registry.
@@ -196,7 +200,7 @@ class IRegistryRef(
 
 class _IRegistryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Registry.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IRegistryRef).__jsii_proxy_class__ = lambda : _IRegistry
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eventschemas.ISchemaRef")
 class ISchemaRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schema.
@@ -241,7 +245,7 @@ class ISchemaRef(
 
 class _ISchemaRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schema.
 
@@ -287,7 +291,7 @@ class RegistryPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01fcbf08dbbccfe46b4a7e85e067411892483d560177fa9bf861e4ebad973d4f)
+            type_hints = cached_type_hints(_typecheckingstub__01fcbf08dbbccfe46b4a7e85e067411892483d560177fa9bf861e4ebad973d4f)
             check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_name": registry_name,
@@ -336,7 +340,7 @@ class RegistryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01e880fdfd7d0c7f26d51f4a7dc0cd40ff62bb642c691cf2445e7aac801a61d8)
+            type_hints = cached_type_hints(_typecheckingstub__01e880fdfd7d0c7f26d51f4a7dc0cd40ff62bb642c691cf2445e7aac801a61d8)
             check_type(argname="argument registry_arn", value=registry_arn, expected_type=type_hints["registry_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_arn": registry_arn,
@@ -385,7 +389,7 @@ class SchemaReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfe16a515e744eec76e1c363fb01a802b2701313bee77a5afbaa550836fb82f3)
+            type_hints = cached_type_hints(_typecheckingstub__bfe16a515e744eec76e1c363fb01a802b2701313bee77a5afbaa550836fb82f3)
             check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schema_arn": schema_arn,

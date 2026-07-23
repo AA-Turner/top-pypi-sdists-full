@@ -7,7 +7,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Annotated, Optional, Union
 
-import click
 import requests
 import typer
 from ipsw_parser.ipsw import IPSW
@@ -61,17 +60,22 @@ async def _device_dependency_async(
         # prevent lockdown connection establishment when in autocomplete mode
         return None
 
+    # ECID comes in as a CLI string (decimal or 0x-hex) but is matched against the integer
+    # UniqueChipID; parse it once so the comparisons below actually work.
+    ecid_value = int(ecid, 0) if ecid is not None else None
+
     try:
         logger.debug("searching among connected devices via lockdownd")
         devices = [dev for dev in await usbmux.list_devices() if dev.connection_type == "USB"]
         if len(devices) > 1:
-            raise click.ClickException("Multiple device detected")
+            typer.echo(typer.style("Multiple device detected", fg="red"))
+            raise typer.Exit(code=1)
         for device in devices:
             try:
                 lockdown = await create_using_usbmux(serial=device.serial, connection_type="USB")
             except (ConnectionFailedError, IncorrectModeError):
                 continue
-            if (ecid is None) or (lockdown.ecid == ecid):
+            if (ecid_value is None) or (lockdown.ecid == ecid_value):
                 logger.debug("found device")
                 return Device(lockdown=lockdown)
             else:
@@ -80,7 +84,7 @@ async def _device_dependency_async(
         pass
 
     logger.debug("waiting for device to be available in Recovery mode")
-    return Device(irecv=IRecv(ecid=ecid))
+    return Device(irecv=IRecv(ecid=ecid_value))
 
 
 def device_dependency(
@@ -111,7 +115,7 @@ def tempzip_download_ctx(url: str) -> Iterator[IPSW]:
 
 @contextlib.contextmanager
 def ipsw_ctx(path: Union[str, Path]) -> Iterator[IPSW]:
-    yield IPSW.create_from_path(path)
+    yield IPSW.create_from_path(str(path))
 
 
 def ipsw_ctx_dependency(
@@ -215,6 +219,7 @@ def restore_shell(device: DeviceDep) -> None:
 async def restore_enter(device: DeviceDep) -> None:
     """enter Recovery mode"""
     if await device.get_is_lockdown():
+        assert device.lockdown is not None  # get_is_lockdown() guarantees it
         await device.lockdown.enter_recovery()
 
 
@@ -231,9 +236,11 @@ def restore_exit() -> None:
 async def restore_restart(device: DeviceDep) -> None:
     """restarts device"""
     if await device.get_is_lockdown():
+        assert device.lockdown is not None  # get_is_lockdown() guarantees it
         async with DiagnosticsService(device.lockdown) as diagnostics:
             await diagnostics.restart()
     else:
+        assert device.irecv is not None  # a Device is constructed with either lockdown or irecv
         device.irecv.reboot()
 
 

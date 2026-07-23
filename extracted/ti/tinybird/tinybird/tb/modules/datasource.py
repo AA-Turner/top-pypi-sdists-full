@@ -35,6 +35,7 @@ from tinybird.tb.modules.common import (
     get_format_from_filename_or_url,
     normalize_datasource_name,
     push_data,
+    wait_job,
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.connection_dynamodb import connection_create_dynamodb, validate_dynamodb_table
@@ -58,13 +59,43 @@ from tinybird.tb.modules.create import (
     generate_gcs_connection_file_with_secrets,
 )
 from tinybird.tb.modules.datafile.fixture import persist_fixture
-from tinybird.tb.modules.exceptions import CLIDatasourceException
+from tinybird.tb.modules.exceptions import CLIDatasourceException, CLIException
 from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.llm import LLM
 from tinybird.tb.modules.llm_utils import extract_xml
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 from tinybird.tb.modules.telemetry import add_telemetry_event
+
+EXPERIMENTAL_FEATURE_USE_V1 = "use_v1"
+
+
+def _echo_v1_import_jobs_queued(job_ids: list[str], operation: str) -> None:
+    for job_id in job_ids:
+        click.echo(FeedbackManager.success(message=f"✓ {operation} import job queued: {job_id}"))
+        click.echo(FeedbackManager.gray(message=f"Check status: tb job details {job_id}"))
+
+
+def _wait_for_v1_import_jobs(client: TinyB, job_ids: list[str], operation: str) -> None:
+    for job_id in job_ids:
+        try:
+            wait_job(client, job_id, f"/v0/jobs/{job_id}", f"{operation} import")
+        except CLIException:
+            if _echo_v1_import_job_details(client, job_id):
+                raise click.exceptions.Exit(1)
+            raise
+        click.echo(FeedbackManager.success(message=f"✓ {operation} import completed: {job_id}"))
+
+
+def _echo_v1_import_job_details(client: TinyB, job_id: str) -> bool:
+    try:
+        job = client.job(job_id)
+    except Exception:
+        return False
+    click.echo(FeedbackManager.info_job(job=job_id))
+    echo_safe_humanfriendly_tables_format_smart_table([job.values()], column_names=job.keys())
+    click.echo("\n")
+    return True
 
 
 def _dynamodb_key_schema_sort_key(key_schema: dict[str, str]) -> int:
@@ -213,7 +244,14 @@ def datasource_ls(ctx: Context, match: Optional[str], format_: str):
 @click.option("--url", type=str, help="URL to append data from")
 @click.option("--file", type=str, help="Local file to append data from")
 @click.option("--events", type=str, help="Events to append data from")
+@click.option(
+    "--experimental",
+    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
+    multiple=True,
+    help="Enable an experimental feature. May be specified multiple times.",
+)
 @click.option("--concurrency", help="How many files to submit concurrently", default=1, hidden=True)
+@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
 @click.pass_context
 def datasource_append(
     ctx: Context,
@@ -222,7 +260,9 @@ def datasource_append(
     url: str,
     file: str,
     events: str,
+    experimental: tuple[str, ...],
     concurrency: int,
+    wait: bool,
 ):
     """
     Appends data to an existing data source from URL, local file  or a connector
@@ -237,6 +277,9 @@ def datasource_append(
     env: str = ctx.ensure_object(dict)["env"]
     client: TinyB = ctx.obj["client"]
     project: Project = ctx.ensure_object(dict)["project"]
+    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
+    if wait and not use_v1:
+        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
 
     # If data is passed as argument, we detect if it's a JSON object, a URL or a file
     if data:
@@ -346,6 +389,8 @@ def datasource_append(
             raise CLIDatasourceException(FeedbackManager.error(message="Invalid ingestion option"))
 
     if events:
+        if use_v1:
+            raise CLIDatasourceException("--experimental=use_v1 only supports local files.")
         click.echo(FeedbackManager.highlight(message=f"\n» Sending events to {datasource_name}"))
         events_params = {"name": datasource_name}
         request_from = getattr(client, "request_from", None)
@@ -382,13 +427,14 @@ def datasource_append(
     else:
         click.echo(FeedbackManager.highlight(message=f"\n» Appending data to {datasource_name}"))
         try:
-            push_data(
+            job_ids = push_data(
                 client,
                 datasource_name,
                 data,
                 mode="append",
                 concurrency=concurrency,
                 silent=True,
+                use_v1=use_v1,
             )
         except Exception as e:
             is_quarantined = "quarantine" in str(e)
@@ -398,7 +444,12 @@ def datasource_append(
                 return
             else:
                 raise e
-        click.echo(FeedbackManager.success(message="✓ Rows appended!"))
+        if use_v1:
+            _echo_v1_import_jobs_queued(job_ids or [], "Append")
+            if wait:
+                _wait_for_v1_import_jobs(client, job_ids or [], "Append")
+        else:
+            click.echo(FeedbackManager.success(message="✓ Rows appended!"))
 
 
 @datasource.command(name="replace")
@@ -406,6 +457,13 @@ def datasource_append(
 @click.argument("url", nargs=-1, required=True)
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to replace data", hidden=True)
 @click.option("--skip-incompatible-partition-key", is_flag=True, default=False, hidden=True)
+@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
+@click.option(
+    "--experimental",
+    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
+    multiple=True,
+    help="Enable an experimental feature. May be specified multiple times.",
+)
 @click.pass_context
 def datasource_replace(
     ctx: Context,
@@ -413,6 +471,8 @@ def datasource_replace(
     url,
     sql_condition,
     skip_incompatible_partition_key,
+    experimental: tuple[str, ...],
+    wait: bool,
 ):
     """
     Replaces the data in a data source from a URL, local file or a connector
@@ -426,14 +486,22 @@ def datasource_replace(
     if skip_incompatible_partition_key:
         replace_options.add("skip_incompatible_partition_key")
     client: TinyB = ctx.obj["client"]
-    push_data(
+    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
+    if wait and not use_v1:
+        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
+    job_ids = push_data(
         client,
         datasource_name,
         url,
         mode="replace",
         sql_condition=sql_condition,
         replace_options=replace_options,
+        use_v1=use_v1,
     )
+    if use_v1:
+        _echo_v1_import_jobs_queued(job_ids or [], "Replace")
+        if wait:
+            _wait_for_v1_import_jobs(client, job_ids or [], "Replace")
 
 
 @datasource.command(name="analyze")

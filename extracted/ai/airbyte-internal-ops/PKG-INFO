@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte-internal-ops
-Version: 0.82.0
+Version: 0.86.1
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -22,7 +22,7 @@ Requires-Dist: cloud-sql-python-connector[pg8000]<2.0,>=1.7.0
 Requires-Dist: cyclopts<5.0,>=4.0.0
 Requires-Dist: docker<7.0,>=6.0
 Requires-Dist: dpath<3.0,>=2.1.5
-Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.10.0
+Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.11.0
 Requires-Dist: fastmcp<4.0,>=3.0
 Requires-Dist: fsspec>=2024.0.0
 Requires-Dist: gcsfs>=2024.0.0
@@ -49,6 +49,7 @@ Requires-Dist: slack-sdk<4.0,>=3.36.0
 Requires-Dist: sqlalchemy<3.0,>=2.0.0
 Requires-Dist: starlette
 Requires-Dist: toml<1.0,>=0.10.2
+Requires-Dist: uvicorn<1.0,>=0.30.0
 Description-Content-Type: text/markdown
 
 # airbyte-ops-mcp

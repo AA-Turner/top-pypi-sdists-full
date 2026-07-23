@@ -92,6 +92,16 @@ class RolloutSummary(BaseModel):
     advance_tier: str = ""
     advance_pct: str = ""
     promote_rollout_id: str = ""
+    state: str = ""
+    state_display: str = ""
+    needs_review: bool = False
+    needs_review_reason: str = ""
+    needs_review_severity: str = ""
+    is_finalizing: bool = False
+    finalizing_rollout_id: str = ""
+    finalizing_connector_id: str = ""
+    finalizing_docker_repository: str = ""
+    finalizing_rc_docker_image_tag: str = ""
 
 
 class PinSelection(BaseModel):

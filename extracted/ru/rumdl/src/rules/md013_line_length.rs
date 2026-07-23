@@ -693,6 +693,17 @@ impl Rule for MD013LineLength {
         aliases.insert("enable_reflow".to_string(), "reflow".to_string());
         aliases.insert("strict_sentences".to_string(), "require-sentence-capital".to_string());
         aliases.insert("strict-sentences".to_string(), "require-sentence-capital".to_string());
+        // Kept in step with the `alias` attributes on `MD013Config::ignore_link_urls`.
+        // Serde accepts these spellings, so a config using one is honored; without
+        // them here the key validator reports a documented, working key as unknown.
+        aliases.insert(
+            "semantic-link-understanding".to_string(),
+            "ignore-link-urls".to_string(),
+        );
+        aliases.insert(
+            "semantic_link_understanding".to_string(),
+            "ignore-link-urls".to_string(),
+        );
         Some(aliases)
     }
 

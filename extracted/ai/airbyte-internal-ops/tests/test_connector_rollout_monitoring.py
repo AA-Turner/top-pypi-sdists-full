@@ -4,6 +4,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_mcp.cloud_admin.api_client import get_actor_sync_info
 from airbyte_ops_mcp.mcp.connector_versions import (
@@ -158,10 +159,37 @@ def test_get_actor_sync_info_api_call() -> None:
 
 
 @pytest.mark.unit
+def test_get_actor_sync_info_non_json_body() -> None:
+    """A 200 with a non-JSON body raises the documented `PyAirbyteInputError`.
+
+    `requests`' `response.json()` raises on an unparseable body; this must be
+    normalized to `PyAirbyteInputError` so the eligibility guards that catch it
+    (both the fall-through pre-checks and the error-recording handlers) behave
+    as documented rather than leaking a raw decode error.
+    """
+    with patch(
+        "airbyte_ops_mcp.cloud_admin.api_client._get_access_token"
+    ) as mock_get_token, patch(
+        "airbyte_ops_mcp.cloud_admin.api_client.requests.post"
+    ) as mock_post:
+        mock_get_token.return_value = "test-access-token"
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html>gateway error</html>"
+        mock_response.json.side_effect = ValueError("Expecting value")
+        mock_post.return_value = mock_response
+
+        with pytest.raises(PyAirbyteInputError, match="not valid JSON"):
+            get_actor_sync_info(
+                rollout_id="test-rollout-id",
+                config_api_root="https://api.test.com",
+                bearer_token="test-token",
+            )
+
+
+@pytest.mark.unit
 def test_get_actor_sync_info_not_found() -> None:
     """Test get_actor_sync_info raises error when rollout not found."""
-    from airbyte.exceptions import PyAirbyteInputError
-
     with patch(
         "airbyte_ops_mcp.cloud_admin.api_client._get_access_token"
     ) as mock_get_token, patch(

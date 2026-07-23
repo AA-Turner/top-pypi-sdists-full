@@ -22,9 +22,10 @@ from __future__ import annotations
 
 import logging
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-import attr
+import attrs
 import boto3
 
 from environ._environ_config import CNF_KEY, RAISE, _ConfigEntry
@@ -50,12 +51,29 @@ def _build_secretsmanager_client():
     return client
 
 
-@attr.s(auto_attribs=True)
+@attrs.define
 class SecretsManagerSecrets:
     """
     Load secrets from the AWS Secrets Manager.
 
-    The secret name should be stored in the environment variable
+    The secret ID should be stored in the environment variable by name:
+
+    Given this environment::
+
+        export APP_MY_SECRET=prod/db_password
+        export APP_A_DIFFERENT_NAME=prod/api_key
+
+    And this app::
+
+        sm = SecretsManagerSecrets()
+
+        @environ.config
+        class Cfg:
+            my_secret = sm.secret()
+            my_aliased_secret = sm.secret(name="A_DIFFERENT_NAME")
+
+    Then the secrets will be looked up in AWS Secrets Manager with the Secret
+    IDs ``prod/db_password`` and ``prod/api_key``, respectively.
 
     .. warning::
 
@@ -78,7 +96,7 @@ class SecretsManagerSecrets:
     def secret(
         self,
         default: Any = RAISE,
-        converter: Callable = convert_secret("SecretString"),
+        converter: Callable = convert_secret("SecretString"),  # noqa: B008
         name: str | None = None,
         help: str | None = None,
     ):
@@ -86,8 +104,17 @@ class SecretsManagerSecrets:
         Declare a secrets manager secret on an `environ.config`-decorated class
 
         All parameters work just like in `environ.var`.
+
+        .. note::
+
+            By default, a converter is set that will extract the
+            ``SecretString`` field from the
+            ``SecretsManager.Client.get_secret_value()`` response for you. If
+            you wish you convert the value yourself and therefore overwrite the
+            converter, you must take this into account and grab
+            ``SecretString`` (or ``SecretBinary``) yourself.
         """
-        return attr.ib(
+        return attrs.field(
             default=default,
             metadata={
                 CNF_KEY: _ConfigEntry(name, default, None, self._get, help)

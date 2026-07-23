@@ -152,7 +152,7 @@ class ImageExtractor(BaseExtractor):
             src = local_image.src
             file_extension = local_image.file_extension
 
-            if file_extension != ".gif" or file_extension != "NA":
+            if file_extension != ".gif" and file_extension != "NA":
                 if (depth_level >= 1 and local_image.width > 300) or depth_level < 1:
                     if not self.is_banner_dimensions(width, height):
                         if width > min_width:

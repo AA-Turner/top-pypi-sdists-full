@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.27.0
+Version: 0.28.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -55,7 +55,7 @@ Bindings
 
 - PHP [[packagist](https://packagist.org/packages/statsig/statsig-php-core)] [[source](https://github.com/statsig-io/statsig-server-core/blob/main/statsig-php)] [[docs](https://docs.statsig.com/server-core/php-core?ref=gh_server_core)] 
 
-- Java [[maven](https://search.maven.org/artifact/com.statsig/javacore)] [[source](https://github.com/statsig-io/statsig-server-core/tree/main/statsig-java)] [[docs](https://docs.statsig.com/server-core/java-core?ref=gh_server_core)] 
+- Java [[maven](https://central.sonatype.com/artifact/com.oaistatsig/javacore)] [[source](https://github.com/openai/statsig-priv-server-core/tree/main/statsig-java)] [[docs](https://docs.statsig.com/server-core/java-core?ref=gh_server_core)]
 
 - Rust [[crates.io](https://crates.io/crates/oai-statsig-rust)] [[source](https://github.com/statsig-io/statsig-server-core/tree/main/statsig-rust)] [[docs](https://docs.statsig.com/server-core/rust-core?ref=gh_server_core)] 
 

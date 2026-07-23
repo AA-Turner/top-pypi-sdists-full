@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,42 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_healthimaging import (
-    DatastoreReference as _DatastoreReference_666caae8,
-    IDatastoreRef as _IDatastoreRef_15dedc0d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_healthimaging as _aws_healthimaging_f3e03126
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_healthimaging_f3e03126 = _LazyImport("aws_cdk.interfaces.aws_healthimaging")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDatastoreRef_15dedc0d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_healthimaging_f3e03126.IDatastoreRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDatastore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_healthimaging.CfnDatastore",
 ):
@@ -126,7 +122,7 @@ class CfnDatastore(
         :param tags: The tags provided when creating a data store.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79b4005abdc2acc4fbde1f52def5483b4f3842866d771c24e762a57e0a4c5b8a)
+            type_hints = cached_type_hints(_typecheckingstub__79b4005abdc2acc4fbde1f52def5483b4f3842866d771c24e762a57e0a4c5b8a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDatastoreProps(
@@ -137,12 +133,15 @@ class CfnDatastore(
 
     @jsii.member(jsii_name="arnForDatastore")
     @builtins.classmethod
-    def arn_for_datastore(cls, resource: "_IDatastoreRef_15dedc0d") -> builtins.str:
+    def arn_for_datastore(
+        cls,
+        resource: "_aws_healthimaging_f3e03126.IDatastoreRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f1285bcfbc7e5a604b76ad7121fefd14feb57771b2eebcfb389e8fe796e2073)
+            type_hints = cached_type_hints(_typecheckingstub__4f1285bcfbc7e5a604b76ad7121fefd14feb57771b2eebcfb389e8fe796e2073)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDatastore", [resource]))
 
@@ -153,7 +152,7 @@ class CfnDatastore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDatastoreRef_15dedc0d":
+    ) -> "_aws_healthimaging_f3e03126.IDatastoreRef":
         '''Creates a new IDatastoreRef from an ARN.
 
         :param scope: -
@@ -161,11 +160,11 @@ class CfnDatastore(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb5ec4da2c6f352015085ae71237ce8e44cf2dd09fc81359c68bb5cb84b5cf9)
+            type_hints = cached_type_hints(_typecheckingstub__5fb5ec4da2c6f352015085ae71237ce8e44cf2dd09fc81359c68bb5cb84b5cf9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDatastoreRef_15dedc0d", jsii.sinvoke(cls, "fromDatastoreArn", [scope, id, arn]))
+        return typing.cast("_aws_healthimaging_f3e03126.IDatastoreRef", jsii.sinvoke(cls, "fromDatastoreArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDatastoreId")
     @builtins.classmethod
@@ -174,7 +173,7 @@ class CfnDatastore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         datastore_id: builtins.str,
-    ) -> "_IDatastoreRef_15dedc0d":
+    ) -> "_aws_healthimaging_f3e03126.IDatastoreRef":
         '''Creates a new IDatastoreRef from a datastoreId.
 
         :param scope: -
@@ -182,11 +181,11 @@ class CfnDatastore(
         :param datastore_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__314be040c8eb5e03acac65995440ca8ecf395de82c807acd51190e6e674c6dac)
+            type_hints = cached_type_hints(_typecheckingstub__314be040c8eb5e03acac65995440ca8ecf395de82c807acd51190e6e674c6dac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument datastore_id", value=datastore_id, expected_type=type_hints["datastore_id"])
-        return typing.cast("_IDatastoreRef_15dedc0d", jsii.sinvoke(cls, "fromDatastoreId", [scope, id, datastore_id]))
+        return typing.cast("_aws_healthimaging_f3e03126.IDatastoreRef", jsii.sinvoke(cls, "fromDatastoreId", [scope, id, datastore_id]))
 
     @jsii.member(jsii_name="isCfnDatastore")
     @builtins.classmethod
@@ -196,18 +195,18 @@ class CfnDatastore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b747001227a61c29cf980dda1aa09300dfdeffe2e50d19afcb67e1ab56166315)
+            type_hints = cached_type_hints(_typecheckingstub__b747001227a61c29cf980dda1aa09300dfdeffe2e50d19afcb67e1ab56166315)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDatastore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bdc268a97ae36ff0ae5df6942796be9ba1153a94280260ebf5d7fd20625462e)
+            type_hints = cached_type_hints(_typecheckingstub__8bdc268a97ae36ff0ae5df6942796be9ba1153a94280260ebf5d7fd20625462e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -220,7 +219,7 @@ class CfnDatastore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52180ea52cc00dc80149582d0532b56ea3ac66901b0b274212ef7b9b7203a7ba)
+            type_hints = cached_type_hints(_typecheckingstub__52180ea52cc00dc80149582d0532b56ea3ac66901b0b274212ef7b9b7203a7ba)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -277,9 +276,9 @@ class CfnDatastore(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -293,9 +292,9 @@ class CfnDatastore(
 
     @builtins.property
     @jsii.member(jsii_name="datastoreRef")
-    def datastore_ref(self) -> "_DatastoreReference_666caae8":
+    def datastore_ref(self) -> "_aws_healthimaging_f3e03126.DatastoreReference":
         '''A reference to a Datastore resource.'''
-        return typing.cast("_DatastoreReference_666caae8", jsii.get(self, "datastoreRef"))
+        return typing.cast("_aws_healthimaging_f3e03126.DatastoreReference", jsii.get(self, "datastoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datastoreName")
@@ -306,7 +305,7 @@ class CfnDatastore(
     @datastore_name.setter
     def datastore_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5031635295d3986a365da0e431ec71e51bd788c65bab48a8d6f6bdcb3742eda0)
+            type_hints = cached_type_hints(_typecheckingstub__5031635295d3986a365da0e431ec71e51bd788c65bab48a8d6f6bdcb3742eda0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datastoreName", value) # pyright: ignore[reportArgumentType]
 
@@ -319,7 +318,7 @@ class CfnDatastore(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23bc8d23f4b6e4945b6b893192f673deeee7f593b8395cb7a14deed34ab51a8e)
+            type_hints = cached_type_hints(_typecheckingstub__23bc8d23f4b6e4945b6b893192f673deeee7f593b8395cb7a14deed34ab51a8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -335,7 +334,7 @@ class CfnDatastore(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d245bacf34b43fbfa31b2fb6f2cebd4f675510d4d7607d2e2ec945e1c946895)
+            type_hints = cached_type_hints(_typecheckingstub__6d245bacf34b43fbfa31b2fb6f2cebd4f675510d4d7607d2e2ec945e1c946895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -381,7 +380,7 @@ class CfnDatastoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe)
+            type_hints = cached_type_hints(_typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe)
             check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -451,7 +450,7 @@ def _typecheckingstub__79b4005abdc2acc4fbde1f52def5483b4f3842866d771c24e762a57e0
     pass
 
 def _typecheckingstub__4f1285bcfbc7e5a604b76ad7121fefd14feb57771b2eebcfb389e8fe796e2073(
-    resource: _IDatastoreRef_15dedc0d,
+    resource: _aws_healthimaging_f3e03126.IDatastoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -479,7 +478,7 @@ def _typecheckingstub__b747001227a61c29cf980dda1aa09300dfdeffe2e50d19afcb67e1ab5
     pass
 
 def _typecheckingstub__8bdc268a97ae36ff0ae5df6942796be9ba1153a94280260ebf5d7fd20625462e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

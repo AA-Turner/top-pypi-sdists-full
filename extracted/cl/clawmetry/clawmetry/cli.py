@@ -1,4 +1,3 @@
-"""CLI entry point for the clawmetry package."""
 
 from __future__ import annotations
 import sys
@@ -244,6 +243,102 @@ def _kill_dashboard_processes() -> int:
     except Exception:
         pass
     return killed
+
+
+def _windows_clawmetry_pids() -> list:
+    """Enumerate ``(pid, cmdline)`` of clawmetry processes on Windows.
+
+    CIM via PowerShell (no psutil dependency), restricted to python /
+    clawmetry executables so an editor with a clawmetry file open can
+    never match. Skips the current process and its parent so
+    ``clawmetry uninstall`` (running from clawmetry.exe) never kills
+    itself mid-run. Returns [] on any failure and on non-Windows.
+    """
+    if os.name != "nt":
+        return []
+    import json as _json
+    import subprocess as _sp
+
+    _patterns = (
+        "-m clawmetry",
+        "clawmetry.exe",
+        "clawmetry\\sync.py",
+        "clawmetry/sync.py",
+        "clawmetry\\dashboard.py",
+        "clawmetry/dashboard.py",
+    )
+    skip = {os.getpid(), os.getppid()}
+    try:
+        r = _sp.run(
+            [
+                "powershell", "-NoProfile", "-Command",
+                "Get-CimInstance Win32_Process -Filter "
+                "\"Name='python.exe' OR Name='pythonw.exe' OR Name='clawmetry.exe'\" "
+                "| Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
+            ],
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+        if r.returncode != 0 or not (r.stdout or "").strip():
+            return []
+        data = _json.loads(r.stdout)
+        if isinstance(data, dict):
+            data = [data]
+        out = []
+        for entry in data:
+            try:
+                pid = int(entry.get("ProcessId") or 0)
+            except (TypeError, ValueError):
+                continue
+            cmd = entry.get("CommandLine") or ""
+            if pid and pid not in skip and any(p in cmd for p in _patterns):
+                out.append((pid, cmd))
+        return out
+    except Exception:
+        return []
+
+
+def _stop_windows_processes() -> int:
+    """Terminate clawmetry daemon/dashboard processes on Windows.
+
+    Windows cannot delete files a live process holds open (WinError 32),
+    so uninstall MUST take every clawmetry process down BEFORE purging
+    files; skipping this crashed uninstall mid-purge on sync.log (#3914).
+    Returns the number of processes terminated. Never raises.
+    """
+    import subprocess as _sp
+
+    killed = 0
+    for pid, _cmd in _windows_clawmetry_pids():
+        try:
+            r = _sp.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True, check=False, timeout=30,
+            )
+            if r.returncode == 0:
+                killed += 1
+        except Exception:
+            pass
+    return killed
+
+
+def _safe_unlink(path, retries: int = 3, delay: float = 0.5) -> bool:
+    """``unlink()`` that survives Windows file locks. True when the file is gone.
+
+    A file some process still holds open (WinError 32) must produce a
+    warning and let the purge continue; one locked file aborting the whole
+    uninstall midway is how #3914 left half-uninstalled nodes behind.
+    """
+    import time as _time
+
+    for attempt in range(retries):
+        try:
+            path.unlink(missing_ok=True)
+            return True
+        except OSError:
+            if attempt + 1 < retries:
+                _time.sleep(delay)
+    print(f"  ⚠️  Could not remove {path} (still in use). Remove it manually.")
+    return False
 
 
 def _stop_existing_daemon() -> None:
@@ -1663,9 +1758,18 @@ def _cmd_uninstall() -> None:
             except Exception:
                 pass
         print("  ✅  Stopped and removed sync daemon" + (f" + {_stray} stray process(es)" if _stray else ""))
+    elif system == "Windows":
+        # No service manager here (daemon runs as a plain process or a
+        # Scheduled Task child). Stop every clawmetry process BEFORE the
+        # purge: Windows cannot delete files a live process holds open, so
+        # a running daemon crashed uninstall on its own sync.log (#3914).
+        _stray_win = _stop_windows_processes()
+        if _stray_win:
+            print(f"  ✅  Stopped {_stray_win} clawmetry process(es)")
     # The bootout above kills launchd-managed processes; this sweeps up
-    # dashboards started by hand (clawmetry --port ...).
-    _stray_dash = _kill_dashboard_processes()
+    # dashboards started by hand (clawmetry --port ...). POSIX only; the
+    # Windows sweep above already covers dashboards.
+    _stray_dash = 0 if system == "Windows" else _kill_dashboard_processes()
     if _stray_dash:
         print(f"  ✅  Killed {_stray_dash} dashboard process(es)")
 
@@ -1678,16 +1782,48 @@ def _cmd_uninstall() -> None:
     )
     print("  ✅  Uninstalled clawmetry pip package")
 
-    # 3. Remove config directory (includes venv)
+    # 2b. Windows: pip cannot remove Scripts\clawmetry.exe while this very
+    # uninstall runs through it (a running exe is locked). Left alone it
+    # becomes a zombie launcher whose every later invocation dies with
+    # ModuleNotFoundError. A running exe CAN'T be overwritten but its file
+    # CAN be deleted after exit, so hand the delete to a detached cmd that
+    # fires once this process is gone.
+    if os.name == "nt":
+        for _cand in (
+            Path(sys.executable).parent / "Scripts" / "clawmetry.exe",
+            Path(sys.executable).parent / "clawmetry.exe",
+        ):
+            if _cand.exists():
+                try:
+                    subprocess.Popen(
+                        f'cmd /c ping -n 3 127.0.0.1 >nul & del /f /q "{_cand}"',
+                        creationflags=0x00000008 | 0x08000000,  # DETACHED | NO_WINDOW
+                    )
+                    print(f"  ✅  Scheduled removal of {_cand} (in use by this uninstall)")
+                except Exception:
+                    print(f"  ⚠️  Could not schedule removal of {_cand}. Remove it manually.")
+
+    # 3. Remove config directory (includes venv). ignore_errors hides
+    # locked-file failures, so verify and re-try instead of printing a
+    # false success over a directory that is still there (#3914).
     if clawmetry_dir.exists():
         shutil.rmtree(clawmetry_dir, ignore_errors=True)
-        print(f"  ✅  Removed {clawmetry_dir}")
+        if clawmetry_dir.exists():
+            import time as _time_u
 
-    # 4. Remove config/state/log files
+            _time_u.sleep(0.5)
+            shutil.rmtree(clawmetry_dir, ignore_errors=True)
+        if clawmetry_dir.exists():
+            print(f"  ⚠️  Could not fully remove {clawmetry_dir} (files in use). Remove it manually.")
+        else:
+            print(f"  ✅  Removed {clawmetry_dir}")
+
+    # 4. Remove config/state/log files. A locked file (e.g. sync.log under
+    # a daemon that survived the stop) warns and continues, never aborts.
     for f in [CONFIG_FILE, STATE_FILE, LOG_FILE]:
         if f.exists():
-            f.unlink(missing_ok=True)
-            print(f"  ✅  Removed {f}")
+            if _safe_unlink(f):
+                print(f"  ✅  Removed {f}")
 
     # 5. Remove venv installs
     for vp in venv_paths:
@@ -3716,6 +3852,31 @@ def _entitlement_why_payload(kind: str, key: str) -> dict:
             required = _ent.min_tier_for_node_count(n)
             reason = ent.lock_reason(str(n), kind="nodes")
             key = str(n)
+        elif kind == "retention_days":
+            # Capacity axis: ``key`` is an event-history window in days.
+            # Sibling of the ``channels`` branch -- a non-int collapses to
+            # the grace-shape row so ``--why abc`` never crashes and never
+            # dangles an upgrade CTA the operator can't act on.
+            try:
+                n = int(key)
+            except (TypeError, ValueError):
+                return {
+                    "key": key,
+                    "kind": kind,
+                    "reason": None,
+                    "locked": False,
+                    "allowed": True,
+                    "required_tier": None,
+                    "required_tier_label": None,
+                    "required_tier_rank": -1,
+                    "current_tier": cur_tier,
+                    "current_tier_rank": cur_rank,
+                    "upgrade_required": False,
+                }
+            allowed = ent.allows_retention_window(n)
+            required = _ent.min_tier_for_retention_window(n)
+            reason = ent.lock_reason(str(n), kind="retention_days")
+            key = str(n)
         else:  # feature
             allowed = ent.allows_feature(key)
             required = _ent.min_tier_for_feature(key)
@@ -3759,10 +3920,11 @@ def _print_why_block(payload: dict) -> None:
     (aligned two-column block, single upgrade CTA when a paid tier unlocks
     the item) so shell operators recognise the layout across subcommands.
 
-    For ``kind="channels"`` / ``kind="nodes"`` the header phrases the
-    capacity question naturally ("what tier unlocks N concurrent channels?"
-    / "what tier unlocks N nodes?") since the key is a count, not an id --
-    otherwise the shared "why is X locked?" phrasing wins.
+    For ``kind="channels"`` / ``kind="nodes"`` / ``kind="retention_days"``
+    the header phrases the capacity question naturally ("what tier unlocks
+    N concurrent channels?" / "what tier unlocks N nodes?" / "what tier
+    unlocks N-day event retention?") since the key is a count, not an id
+    -- otherwise the shared "why is X locked?" phrasing wins.
     """
     key = payload.get("key") or "(unknown)"
     kind = payload.get("kind") or "?"
@@ -3771,6 +3933,8 @@ def _print_why_block(payload: dict) -> None:
         print(f'ClawMetry: what tier unlocks {key} concurrent channels?')
     elif kind == "nodes":
         print(f'ClawMetry: what tier unlocks {key} nodes?')
+    elif kind == "retention_days":
+        print(f'ClawMetry: what tier unlocks {key}-day event retention?')
     else:
         print(f'ClawMetry: why is "{key}" locked?')
     print("─" * 40)
@@ -4242,6 +4406,90 @@ def _cmd_nodes(args) -> None:
         print(f"  ⚠️  resolver error: {resolve_error}")
 
 
+def _cmd_retention(args) -> None:
+    """clawmetry retention — event-retention window (capacity axis).
+
+    Sibling of :func:`_cmd_channels` / :func:`_cmd_nodes` for the fourth
+    entitlement axis. The ``retention_days`` capacity axis governs how far
+    back in history each plan can hold event data before the store rolls
+    over. Every event-store feature itself is free at every tier; what
+    upgrades unlock is a longer window. The current tier cap prints in the
+    header block alongside the effective cap (which applies the
+    ``CLAWMETRY_RETENTION_DAYS`` env override, capped to the tier ceiling).
+
+    Never raises: any resolver failure surfaces inline (a warning row in
+    the human block, or the fields collapsed to ``null`` on the JSON
+    payload) so a wrapper script always sees a parseable response. Matches
+    the never-crash contract documented on :func:`get_entitlement`.
+
+    Output:
+      default -- header block (tier / enforcement / retention cap /
+                 effective cap / env override)
+      --json  -- ``{tier, grace, enforced, retention_days,
+                 effective_retention_days, override_env_name,
+                 override_env_value}``
+      --why N -- lock-reason payload for an N-day retention window (same
+                 shape as ``GET /api/entitlement/lock-reason?retention_days=N``);
+                 pair with ``--json`` for scriptable output.
+    """
+    import json as _json
+
+    from clawmetry import entitlements as _ent
+
+    why = (getattr(args, "why", None) or "").strip().lower()
+    if why:
+        payload = _entitlement_why_payload("retention_days", why)
+        if getattr(args, "as_json", False):
+            print(_json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            _print_why_block(payload)
+        return
+
+    override_env_name = getattr(_ent, "_RETENTION_OVERRIDE_ENV", "CLAWMETRY_RETENTION_DAYS")
+    override_env_value = os.environ.get(override_env_name)
+
+    try:
+        ent = _ent.get_entitlement()
+        tier = ent.tier
+        grace = bool(ent.grace)
+        enforced = _ent.is_enforced()
+        retention_days = ent.event_retention_days()
+        effective_days = ent.effective_retention_days()
+    except Exception as exc:
+        # Mirror the _cmd_channels never-crash fallback: a broken install
+        # still gets a parseable shape, with the failure surfaced to stderr
+        # so it isn't silently lost in a shell pipeline.
+        print(f"⚠️  entitlement resolution failed: {exc}", file=sys.stderr)
+        tier, grace, enforced = "oss", True, False
+        retention_days, effective_days = None, None
+
+    if getattr(args, "as_json", False):
+        payload = {
+            "tier": tier,
+            "grace": grace,
+            "enforced": enforced,
+            "retention_days": retention_days,
+            "effective_retention_days": effective_days,
+            "override_env_name": override_env_name,
+            "override_env_value": override_env_value,
+        }
+        print(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    mode_line = "off (grace)" if not enforced else "on"
+    cap_line = "unlimited" if retention_days in (None, 0) else f"{retention_days} days"
+    eff_line = (
+        "unlimited" if effective_days in (None, 0) else f"{effective_days} days"
+    )
+    print("ClawMetry Retention\n" + "─" * 40)
+    print(f"  Tier:            {tier}")
+    print(f"  Enforcement:     {mode_line}")
+    print(f"  Retention cap:   {cap_line}  (per-tier ceiling)")
+    print(f"  Effective:       {eff_line}  (after env override)")
+    env_display = override_env_value if override_env_value not in (None, "") else "(unset)"
+    print(f"  {override_env_name}: {env_display}")
+
+
 def _cmd_diagnose(args) -> None:
     """clawmetry diagnose — surface the entitlement resolver inputs.
 
@@ -4336,6 +4584,142 @@ def _cmd_diagnose(args) -> None:
         _row("Cached tier:", cached_tier)
     if payload.get("cache_error"):
         _row("Cache error:", payload["cache_error"])
+
+
+
+def _cmd_extensions(args) -> None:
+    """clawmetry extensions -- surface loaded/failed entry-point plugins.
+
+    Shell sibling of the always-Free, never-raise ``GET /api/extensions``
+    endpoint. Answers the triage question an operator would otherwise tail
+    daemon logs for: *did the paid package (``clawmetry-pro``) try to load,
+    and if so did it succeed?* Payload also includes registered event hooks
+    and their handler counts so a broken plugin that loaded but wired no
+    handlers is visible at a glance.
+
+    Reads :func:`clawmetry.extensions.loaded_plugins` /
+    :func:`~clawmetry.extensions.failed_plugins` /
+    :func:`~clawmetry.extensions.registered_events` /
+    :func:`~clawmetry.extensions.handler_count` -- the same in-process
+    introspection ``/api/extensions`` consumes -- so the CLI and HTTP
+    surfaces cannot drift on loaded/failed/event/handler state.
+
+    Never raises. If the extensions module itself is missing or the
+    introspection helpers themselves raise, the shape falls back to empty
+    lists / zero counts and the failure is surfaced to stderr so it isn't
+    silently lost in a pipeline. A wrapper script always sees a parseable
+    response -- matches the never-crash contract of :func:`_cmd_tier`,
+    :func:`_cmd_runtimes`, and :func:`_cmd_features`.
+
+    Output:
+      default -- header + loaded / failed / events tables
+      --json  -- ``{plugins, plugin_count, failed_plugins,
+                    failed_plugin_count, events, handler_counts,
+                    error?: str}`` (matches ``GET /api/extensions``)
+    """
+    import json as _json
+
+    plugins: list[str] = []
+    failed: list[dict] = []
+    events: list[str] = []
+    handler_counts: dict[str, int] = {}
+    introspection_error: str | None = None
+
+    try:
+        from clawmetry import extensions as _ext
+
+        try:
+            plugins = list(_ext.loaded_plugins())
+        except Exception as exc:
+            introspection_error = f"loaded_plugins: {exc}"
+
+        # ``failed_plugins`` shipped after ``loaded_plugins`` (see #33311f1)
+        # so an older in-process ``clawmetry`` may not expose it. Degrade to
+        # ``[]`` instead of crashing the whole command -- matches the
+        # `/api/extensions` fallback posture.
+        try:
+            failed = [dict(entry) for entry in _ext.failed_plugins()]
+        except AttributeError:
+            failed = []
+        except Exception as exc:
+            introspection_error = (
+                f"{introspection_error + '; ' if introspection_error else ''}"
+                f"failed_plugins: {exc}"
+            )
+
+        try:
+            events = list(_ext.registered_events())
+        except Exception as exc:
+            introspection_error = (
+                f"{introspection_error + '; ' if introspection_error else ''}"
+                f"registered_events: {exc}"
+            )
+
+        try:
+            handler_counts = {evt: _ext.handler_count(evt) for evt in events}
+        except Exception as exc:
+            introspection_error = (
+                f"{introspection_error + '; ' if introspection_error else ''}"
+                f"handler_count: {exc}"
+            )
+    except Exception as exc:
+        # Module import itself failed -- surface it to stderr but keep the
+        # empty-shape fallback so a wrapper script still sees parseable
+        # output.
+        introspection_error = f"extensions module unavailable: {exc}"
+
+    if introspection_error:
+        print(f"⚠️  {introspection_error}", file=sys.stderr)
+
+    if getattr(args, "as_json", False):
+        payload: dict = {
+            "plugins": plugins,
+            "plugin_count": len(plugins),
+            "failed_plugins": failed,
+            "failed_plugin_count": len(failed),
+            "events": events,
+            "handler_counts": handler_counts,
+        }
+        if introspection_error:
+            payload["error"] = introspection_error
+        print(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    print("ClawMetry Extensions\n" + "─" * 40)
+    print(f"  Loaded plugins: {len(plugins)}")
+    print(f"  Failed plugins: {len(failed)}")
+    print(f"  Event hooks:    {len(events)}")
+
+    print()
+    print("  Loaded")
+    print("  " + "─" * 30)
+    if plugins:
+        for name in plugins:
+            print(f"    ✅ {name}")
+    else:
+        print("    (none)")
+
+    print()
+    print("  Failed")
+    print("  " + "─" * 30)
+    if failed:
+        for entry in failed:
+            name = str(entry.get("name", ""))
+            error = str(entry.get("error", ""))
+            print(f"    ❌ {name}: {error}")
+    else:
+        print("    (none)")
+
+    print()
+    print("  Event hooks")
+    print("  " + "─" * 30)
+    if events:
+        for evt in events:
+            count = handler_counts.get(evt, 0)
+            handler_word = "handler" if count == 1 else "handlers"
+            print(f"    • {evt} ({count} {handler_word})")
+    else:
+        print("    (none)")
 
 
 def _cmd_verify_integrity(args) -> None:
@@ -5039,6 +5423,58 @@ def main() -> None:
         ),
     )
 
+    # retention — event-retention window cap (capacity axis sibling of
+    # `clawmetry channels` / `clawmetry nodes`). Same header/JSON/--why
+    # triad as the other capacity subcommands so the four-axis CLI surface
+    # is uniform.
+    p_retention = sub.add_parser(
+        "retention",
+        help="Show the event-retention window cap and the tier that would extend it",
+    )
+    p_retention.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help=(
+            "Emit {tier, grace, enforced, retention_days, "
+            "effective_retention_days, override_env_name, "
+            "override_env_value} JSON (jq-friendly)"
+        ),
+    )
+    p_retention.add_argument(
+        "--why",
+        metavar="N",
+        default=None,
+        help=(
+            "Print the lock-reason payload for an N-day retention window "
+            "(same shape as GET /api/entitlement/lock-reason?retention_days=N). "
+            "The retention axis is capacity-scoped, so N is a day count, "
+            "not an event-store id."
+        ),
+    )
+
+    # extensions — surface loaded / failed entry-point plugins and event hooks
+    # from the shell so an operator can answer "did clawmetry-pro actually
+    # load on this node?" without curl'ing /api/extensions or tailing daemon
+    # logs. In-process introspection of clawmetry.extensions state -- same
+    # source /api/extensions consumes -- so the CLI and HTTP surfaces cannot
+    # drift on loaded/failed/event/handler counts.
+    p_extensions = sub.add_parser(
+        "extensions",
+        help="Show loaded / failed entry-point plugins and event-hook counts",
+    )
+    p_extensions.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help=(
+            "Emit {plugins, plugin_count, failed_plugins, failed_plugin_count, "
+            "events, handler_counts} JSON (jq-friendly). Matches the response "
+            "shape of GET /api/extensions byte-for-byte on shared keys."
+        ),
+    )
+
+
     # diagnose — surface the entitlement resolver inputs so an operator
     # can answer "why did my install resolve to <tier>?" without reading
     # ~/.clawmetry by hand. Same shape as GET /api/entitlement/diagnostic.
@@ -5103,6 +5539,8 @@ def main() -> None:
         "features",
         "channels",
         "nodes",
+        "retention",
+        "extensions",
         "diagnose",
         "verify-integrity",
         "nemoclaw-daemons",
@@ -5151,6 +5589,10 @@ def main() -> None:
             _cmd_channels(args)
         elif args.cmd == "nodes":
             _cmd_nodes(args)
+        elif args.cmd == "retention":
+            _cmd_retention(args)
+        elif args.cmd == "extensions":
+            _cmd_extensions(args)
         elif args.cmd == "diagnose":
             _cmd_diagnose(args)
         elif args.cmd == "verify-integrity":

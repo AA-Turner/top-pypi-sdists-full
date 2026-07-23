@@ -66,6 +66,8 @@ slack_channel = chatbot.SlackChannelConfiguration(self, "MySlackChannel",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -79,74 +81,50 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_codestarnotifications import (
-    INotificationRuleTarget as _INotificationRuleTarget_faa3b79b,
-    NotificationRuleTargetConfig as _NotificationRuleTargetConfig_ea27e095,
-)
-from ..aws_iam import (
-    IGrantable as _IGrantable_71c4f5de,
-    IManagedPolicy as _IManagedPolicy_c3b0dcbf,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_logs import (
-    LogRetentionRetryOptions as _LogRetentionRetryOptions_62d80a14,
-    RetentionDays as _RetentionDays_070f99f0,
-)
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_chatbot import (
-    CustomActionReference as _CustomActionReference_0ad6d6f0,
-    ICustomActionRef as _ICustomActionRef_2f1744a4,
-    IMicrosoftTeamsChannelConfigurationRef as _IMicrosoftTeamsChannelConfigurationRef_a41e777d,
-    ISlackChannelConfigurationRef as _ISlackChannelConfigurationRef_0aa1013d,
-    MicrosoftTeamsChannelConfigurationReference as _MicrosoftTeamsChannelConfigurationReference_1fc55dac,
-    SlackChannelConfigurationReference as _SlackChannelConfigurationReference_73491fa9,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_codestarnotifications as _aws_codestarnotifications_de9a7862
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_logs as _aws_logs_ab8ef8ce
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_chatbot as _aws_chatbot_b66b7d1d
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_sns as _aws_sns_c06cc191
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_chatbot_b66b7d1d = _LazyImport("aws_cdk.interfaces.aws_chatbot")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_codestarnotifications_de9a7862 = _LazyImport("aws_cdk.aws_codestarnotifications")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_logs_ab8ef8ce = _LazyImport("aws_cdk.aws_logs")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _aws_sns_c06cc191 = _LazyImport("aws_cdk.interfaces.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICustomActionRef_2f1744a4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chatbot_b66b7d1d.ICustomActionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCustomAction(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chatbot.CfnCustomAction",
 ):
@@ -205,10 +183,10 @@ class CfnCustomAction(
         id: builtins.str,
         *,
         action_name: builtins.str,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomAction.CustomActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         alias_name: typing.Optional[builtins.str] = None,
-        attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attachments: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomAction.CustomActionAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Chatbot::CustomAction``.
 
@@ -221,7 +199,7 @@ class CfnCustomAction(
         :param tags: The tags to add to the configuration.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4840384b6e4d8bb56afed06983751f4092ececfe9720ea514abb1728770b507a)
+            type_hints = cached_type_hints(_typecheckingstub__4840384b6e4d8bb56afed06983751f4092ececfe9720ea514abb1728770b507a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCustomActionProps(
@@ -238,13 +216,13 @@ class CfnCustomAction(
     @builtins.classmethod
     def arn_for_custom_action(
         cls,
-        resource: "_ICustomActionRef_2f1744a4",
+        resource: "_aws_chatbot_b66b7d1d.ICustomActionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f0dabfb69083d44ca1d20244065511de9c1d1848beb7133eb0588ccbe293e6a)
+            type_hints = cached_type_hints(_typecheckingstub__2f0dabfb69083d44ca1d20244065511de9c1d1848beb7133eb0588ccbe293e6a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomAction", [resource]))
 
@@ -256,18 +234,18 @@ class CfnCustomAction(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccb1b3050ff0a7228a18cf6cff1ab38c8edf1865d586be9deb662144098ed6ed)
+            type_hints = cached_type_hints(_typecheckingstub__ccb1b3050ff0a7228a18cf6cff1ab38c8edf1865d586be9deb662144098ed6ed)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomAction", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44267bc9ce7cc2f3773138acc4718fe9e74ff7aacb67eedf1ef50ff399714ce2)
+            type_hints = cached_type_hints(_typecheckingstub__44267bc9ce7cc2f3773138acc4718fe9e74ff7aacb67eedf1ef50ff399714ce2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -280,7 +258,7 @@ class CfnCustomAction(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a0419a3f98385f838d84777f3b3e06cd478e179f352ab493b9b5dc51f9ab196)
+            type_hints = cached_type_hints(_typecheckingstub__9a0419a3f98385f838d84777f3b3e06cd478e179f352ab493b9b5dc51f9ab196)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -301,9 +279,9 @@ class CfnCustomAction(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -317,9 +295,9 @@ class CfnCustomAction(
 
     @builtins.property
     @jsii.member(jsii_name="customActionRef")
-    def custom_action_ref(self) -> "_CustomActionReference_0ad6d6f0":
+    def custom_action_ref(self) -> "_aws_chatbot_b66b7d1d.CustomActionReference":
         '''A reference to a CustomAction resource.'''
-        return typing.cast("_CustomActionReference_0ad6d6f0", jsii.get(self, "customActionRef"))
+        return typing.cast("_aws_chatbot_b66b7d1d.CustomActionReference", jsii.get(self, "customActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actionName")
@@ -330,7 +308,7 @@ class CfnCustomAction(
     @action_name.setter
     def action_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__971c2cee7a293449df3b3419302728ec27df82ae1516daa5cb2c681996802476)
+            type_hints = cached_type_hints(_typecheckingstub__971c2cee7a293449df3b3419302728ec27df82ae1516daa5cb2c681996802476)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionName", value) # pyright: ignore[reportArgumentType]
 
@@ -338,17 +316,17 @@ class CfnCustomAction(
     @jsii.member(jsii_name="definition")
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionDefinitionProperty"]:
         '''The definition of the command to run when invoked as an alias or as an action button.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionDefinitionProperty"], jsii.get(self, "definition"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionDefinitionProperty"], jsii.get(self, "definition"))
 
     @definition.setter
     def definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionDefinitionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionDefinitionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41389535b5493837a09f1517d05c57d5124e60def0c6ed02cfa3bcacf50f356a)
+            type_hints = cached_type_hints(_typecheckingstub__41389535b5493837a09f1517d05c57d5124e60def0c6ed02cfa3bcacf50f356a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
 
@@ -361,7 +339,7 @@ class CfnCustomAction(
     @alias_name.setter
     def alias_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41def85ca04f9b6e2f09a7a4a94dcbf48f41f3f42b20008ab0c8375fde71a577)
+            type_hints = cached_type_hints(_typecheckingstub__41def85ca04f9b6e2f09a7a4a94dcbf48f41f3f42b20008ab0c8375fde71a577)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
 
@@ -369,30 +347,33 @@ class CfnCustomAction(
     @jsii.member(jsii_name="attachments")
     def attachments(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentProperty"]]]]:
         '''Defines when this custom action button should be attached to a notification.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentProperty"]]]], jsii.get(self, "attachments"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentProperty"]]]], jsii.get(self, "attachments"))
 
     @attachments.setter
     def attachments(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25bc30f27dad9105e157414d8573ef4725c2cbb4c8f636ccff8d8cd488d751ad)
+            type_hints = cached_type_hints(_typecheckingstub__25bc30f27dad9105e157414d8573ef4725c2cbb4c8f636ccff8d8cd488d751ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attachments", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__072e325a0c2ec8c68fa22d9b8fcacb74cdefc302e246f675cb7d82f02d9c1ad8)
+            type_hints = cached_type_hints(_typecheckingstub__072e325a0c2ec8c68fa22d9b8fcacb74cdefc302e246f675cb7d82f02d9c1ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -441,7 +422,7 @@ class CfnCustomAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17b54705e9e5c87338c9cd62b14232db30553ead6d15838b291a8bfefa82cd2a)
+                type_hints = cached_type_hints(_typecheckingstub__17b54705e9e5c87338c9cd62b14232db30553ead6d15838b291a8bfefa82cd2a)
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument variable_name", value=variable_name, expected_type=type_hints["variable_name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -507,9 +488,9 @@ class CfnCustomAction(
             self,
             *,
             button_text: typing.Optional[builtins.str] = None,
-            criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionAttachmentCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomAction.CustomActionAttachmentCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             notification_type: typing.Optional[builtins.str] = None,
-            variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''.. epigraph::
 
@@ -547,7 +528,7 @@ class CfnCustomAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bdfcc4d3117af4232f6317084ca1888fc93a1fa63045afd0834da2fec394ccdf)
+                type_hints = cached_type_hints(_typecheckingstub__bdfcc4d3117af4232f6317084ca1888fc93a1fa63045afd0834da2fec394ccdf)
                 check_type(argname="argument button_text", value=button_text, expected_type=type_hints["button_text"])
                 check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
                 check_type(argname="argument notification_type", value=notification_type, expected_type=type_hints["notification_type"])
@@ -574,13 +555,13 @@ class CfnCustomAction(
         @builtins.property
         def criteria(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentCriteriaProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentCriteriaProperty"]]]]:
             '''The criteria for when a button should be shown based on values in the notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chatbot-customaction-customactionattachment.html#cfn-chatbot-customaction-customactionattachment-criteria
             '''
             result = self._values.get("criteria")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentCriteriaProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentCriteriaProperty"]]]], result)
 
         @builtins.property
         def notification_type(self) -> typing.Optional[builtins.str]:
@@ -594,13 +575,13 @@ class CfnCustomAction(
         @builtins.property
         def variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The variables to extract from the notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chatbot-customaction-customactionattachment.html#cfn-chatbot-customaction-customactionattachment-variables
             '''
             result = self._values.get("variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -642,7 +623,7 @@ class CfnCustomAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__66cde35b29d23cf11cd686434f577e4de7a67224bbebe46b5c31d744e321be5f)
+                type_hints = cached_type_hints(_typecheckingstub__66cde35b29d23cf11cd686434f577e4de7a67224bbebe46b5c31d744e321be5f)
                 check_type(argname="argument command_text", value=command_text, expected_type=type_hints["command_text"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "command_text": command_text,
@@ -686,10 +667,10 @@ class CfnCustomActionProps:
         self,
         *,
         action_name: builtins.str,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomAction.CustomActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         alias_name: typing.Optional[builtins.str] = None,
-        attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomAction.CustomActionAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attachments: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomAction.CustomActionAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCustomAction``.
 
@@ -738,7 +719,7 @@ class CfnCustomActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a095b5f2109b264f6833c68a2c4a07e415cda11bd116b007cb26fff0c148d24d)
+            type_hints = cached_type_hints(_typecheckingstub__a095b5f2109b264f6833c68a2c4a07e415cda11bd116b007cb26fff0c148d24d)
             check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
@@ -770,14 +751,14 @@ class CfnCustomActionProps:
     @builtins.property
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionDefinitionProperty"]:
         '''The definition of the command to run when invoked as an alias or as an action button.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-customaction.html#cfn-chatbot-customaction-definition
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionDefinitionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionDefinitionProperty"], result)
 
     @builtins.property
     def alias_name(self) -> typing.Optional[builtins.str]:
@@ -793,22 +774,22 @@ class CfnCustomActionProps:
     @builtins.property
     def attachments(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentProperty"]]]]:
         '''Defines when this custom action button should be attached to a notification.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-customaction.html#cfn-chatbot-customaction-attachments
         '''
         result = self._values.get("attachments")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCustomAction.CustomActionAttachmentProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomAction.CustomActionAttachmentProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-customaction.html#cfn-chatbot-customaction-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -822,9 +803,9 @@ class CfnCustomActionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMicrosoftTeamsChannelConfigurationRef_a41e777d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chatbot_b66b7d1d.IMicrosoftTeamsChannelConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMicrosoftTeamsChannelConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chatbot.CfnMicrosoftTeamsChannelConfiguration",
 ):
@@ -882,9 +863,9 @@ class CfnMicrosoftTeamsChannelConfiguration(
         guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
         logging_level: typing.Optional[builtins.str] = None,
         sns_topic_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         teams_channel_name: typing.Optional[builtins.str] = None,
-        user_role_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        user_role_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Chatbot::MicrosoftTeamsChannelConfiguration``.
 
@@ -904,7 +885,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62f6b943071fca79376376fd20660d7b707a1026a9039a0c12c88895d7f39b05)
+            type_hints = cached_type_hints(_typecheckingstub__62f6b943071fca79376376fd20660d7b707a1026a9039a0c12c88895d7f39b05)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMicrosoftTeamsChannelConfigurationProps(
@@ -928,13 +909,13 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @builtins.classmethod
     def arn_for_microsoft_teams_channel_configuration(
         cls,
-        resource: "_IMicrosoftTeamsChannelConfigurationRef_a41e777d",
+        resource: "_aws_chatbot_b66b7d1d.IMicrosoftTeamsChannelConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95da38507fe31225a8cb3b3d31adcc7ef3333f69ff76138aec769d52a6bc80dd)
+            type_hints = cached_type_hints(_typecheckingstub__95da38507fe31225a8cb3b3d31adcc7ef3333f69ff76138aec769d52a6bc80dd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMicrosoftTeamsChannelConfiguration", [resource]))
 
@@ -949,18 +930,18 @@ class CfnMicrosoftTeamsChannelConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01a58831e76fae2e840d84a7656465ba76e3d5c87f3fa3293c1339ac014c1e91)
+            type_hints = cached_type_hints(_typecheckingstub__01a58831e76fae2e840d84a7656465ba76e3d5c87f3fa3293c1339ac014c1e91)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMicrosoftTeamsChannelConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46600197e082ba9fc6d055c23e70f7f73de26074b20358edbb7348ae3fb1f908)
+            type_hints = cached_type_hints(_typecheckingstub__46600197e082ba9fc6d055c23e70f7f73de26074b20358edbb7348ae3fb1f908)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -973,7 +954,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89615163f4db8d0acf5a1e87300a200fc030e21f6faf513d0af1e4093b25e33d)
+            type_hints = cached_type_hints(_typecheckingstub__89615163f4db8d0acf5a1e87300a200fc030e21f6faf513d0af1e4093b25e33d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -994,9 +975,9 @@ class CfnMicrosoftTeamsChannelConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1012,9 +993,9 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @jsii.member(jsii_name="microsoftTeamsChannelConfigurationRef")
     def microsoft_teams_channel_configuration_ref(
         self,
-    ) -> "_MicrosoftTeamsChannelConfigurationReference_1fc55dac":
+    ) -> "_aws_chatbot_b66b7d1d.MicrosoftTeamsChannelConfigurationReference":
         '''A reference to a MicrosoftTeamsChannelConfiguration resource.'''
-        return typing.cast("_MicrosoftTeamsChannelConfigurationReference_1fc55dac", jsii.get(self, "microsoftTeamsChannelConfigurationRef"))
+        return typing.cast("_aws_chatbot_b66b7d1d.MicrosoftTeamsChannelConfigurationReference", jsii.get(self, "microsoftTeamsChannelConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationName")
@@ -1025,7 +1006,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @configuration_name.setter
     def configuration_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__853492827ec4d32419905b108885cd7dfb3bfcc97356414d7093f3ffde1cc102)
+            type_hints = cached_type_hints(_typecheckingstub__853492827ec4d32419905b108885cd7dfb3bfcc97356414d7093f3ffde1cc102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -1038,7 +1019,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @iam_role_arn.setter
     def iam_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__987e0ecb599ccda416801ac47ffed7c93c70f9b18e123c0844428e72e3358835)
+            type_hints = cached_type_hints(_typecheckingstub__987e0ecb599ccda416801ac47ffed7c93c70f9b18e123c0844428e72e3358835)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1051,7 +1032,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @team_id.setter
     def team_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__131496f4a9a76e788b24fe2d55a1ad079352bde04c2a3f0bfef8a70ac84c1005)
+            type_hints = cached_type_hints(_typecheckingstub__131496f4a9a76e788b24fe2d55a1ad079352bde04c2a3f0bfef8a70ac84c1005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
 
@@ -1064,7 +1045,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @teams_channel_id.setter
     def teams_channel_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6145a2070eac7c951e39d32cc30d829704d9e69208b996decf844ab814b7565)
+            type_hints = cached_type_hints(_typecheckingstub__d6145a2070eac7c951e39d32cc30d829704d9e69208b996decf844ab814b7565)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamsChannelId", value) # pyright: ignore[reportArgumentType]
 
@@ -1077,7 +1058,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @teams_tenant_id.setter
     def teams_tenant_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__150448116265d03ce90265c34fc82985640b935241cdd8bab0f49cc5e0fe172f)
+            type_hints = cached_type_hints(_typecheckingstub__150448116265d03ce90265c34fc82985640b935241cdd8bab0f49cc5e0fe172f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamsTenantId", value) # pyright: ignore[reportArgumentType]
 
@@ -1093,7 +1074,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11efc1f4b5699a2254663cde691669f1d0c162272e0d5627190665ef98affc89)
+            type_hints = cached_type_hints(_typecheckingstub__11efc1f4b5699a2254663cde691669f1d0c162272e0d5627190665ef98affc89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customizationResourceArns", value) # pyright: ignore[reportArgumentType]
 
@@ -1109,7 +1090,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a369a2e8b97e0da168bc82e338319cde3d1784e8fcc291e9f4bf92f07c0bcea)
+            type_hints = cached_type_hints(_typecheckingstub__8a369a2e8b97e0da168bc82e338319cde3d1784e8fcc291e9f4bf92f07c0bcea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "guardrailPolicies", value) # pyright: ignore[reportArgumentType]
 
@@ -1125,7 +1106,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @logging_level.setter
     def logging_level(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3e63597aa6fc4d21805a68bc3ce43b4f04ccce5b12da474578d12919e547287)
+            type_hints = cached_type_hints(_typecheckingstub__b3e63597aa6fc4d21805a68bc3ce43b4f04ccce5b12da474578d12919e547287)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingLevel", value) # pyright: ignore[reportArgumentType]
 
@@ -1138,20 +1119,23 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @sns_topic_arns.setter
     def sns_topic_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d06bfa455d3724be650436a618deed393ddc0dbcd35406db1f888de73d2babe7)
+            type_hints = cached_type_hints(_typecheckingstub__d06bfa455d3724be650436a618deed393ddc0dbcd35406db1f888de73d2babe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85a622952d9fea475beb11aa3753f5147c076bc04254dc91a4dbc14ee94b8b42)
+            type_hints = cached_type_hints(_typecheckingstub__85a622952d9fea475beb11aa3753f5147c076bc04254dc91a4dbc14ee94b8b42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1164,7 +1148,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @teams_channel_name.setter
     def teams_channel_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b024a8c697915b8353191fc418871ddabafe006c942750d3ac38aa4c9d5c6c4)
+            type_hints = cached_type_hints(_typecheckingstub__6b024a8c697915b8353191fc418871ddabafe006c942750d3ac38aa4c9d5c6c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamsChannelName", value) # pyright: ignore[reportArgumentType]
 
@@ -1172,17 +1156,17 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @jsii.member(jsii_name="userRoleRequired")
     def user_role_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables use of a user role requirement in your chat configuration.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "userRoleRequired"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "userRoleRequired"))
 
     @user_role_required.setter
     def user_role_required(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a5171a48ffb0d6c3dc8bec2e5eb8774e5e34370819690e508928a264f6e7eda)
+            type_hints = cached_type_hints(_typecheckingstub__0a5171a48ffb0d6c3dc8bec2e5eb8774e5e34370819690e508928a264f6e7eda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userRoleRequired", value) # pyright: ignore[reportArgumentType]
 
@@ -1218,9 +1202,9 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
         guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
         logging_level: typing.Optional[builtins.str] = None,
         sns_topic_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         teams_channel_name: typing.Optional[builtins.str] = None,
-        user_role_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        user_role_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMicrosoftTeamsChannelConfiguration``.
 
@@ -1268,7 +1252,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2750e06a244ed0f59003e9954924d4cdea272b2fc67dda92574fc40bddddef7d)
+            type_hints = cached_type_hints(_typecheckingstub__2750e06a244ed0f59003e9954924d4cdea272b2fc67dda92574fc40bddddef7d)
             check_type(argname="argument configuration_name", value=configuration_name, expected_type=type_hints["configuration_name"])
             check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
             check_type(argname="argument team_id", value=team_id, expected_type=type_hints["team_id"])
@@ -1404,13 +1388,13 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def teams_channel_name(self) -> typing.Optional[builtins.str]:
@@ -1424,7 +1408,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
     @builtins.property
     def user_role_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables use of a user role requirement in your chat configuration.
 
         :default: - false
@@ -1432,7 +1416,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-userrolerequired
         '''
         result = self._values.get("user_role_required")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1446,9 +1430,9 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISlackChannelConfigurationRef_0aa1013d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chatbot_b66b7d1d.ISlackChannelConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSlackChannelConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chatbot.CfnSlackChannelConfiguration",
 ):
@@ -1496,15 +1480,15 @@ class CfnSlackChannelConfiguration(
         id: builtins.str,
         *,
         configuration_name: builtins.str,
-        iam_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        iam_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         slack_channel_id: builtins.str,
         slack_workspace_id: builtins.str,
         customization_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
         logging_level: typing.Optional[builtins.str] = None,
-        sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_role_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_role_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Chatbot::SlackChannelConfiguration``.
 
@@ -1522,7 +1506,7 @@ class CfnSlackChannelConfiguration(
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb3844509a8f0685c3dc0d26d5014fa028976d66c5d0a8984e8284bb5449a06)
+            type_hints = cached_type_hints(_typecheckingstub__1cb3844509a8f0685c3dc0d26d5014fa028976d66c5d0a8984e8284bb5449a06)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSlackChannelConfigurationProps(
@@ -1544,13 +1528,13 @@ class CfnSlackChannelConfiguration(
     @builtins.classmethod
     def arn_for_slack_channel_configuration(
         cls,
-        resource: "_ISlackChannelConfigurationRef_0aa1013d",
+        resource: "_aws_chatbot_b66b7d1d.ISlackChannelConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1459eeddaa97796b97caf2489c64064df6b970f4951ff8d9f8e516792a85e067)
+            type_hints = cached_type_hints(_typecheckingstub__1459eeddaa97796b97caf2489c64064df6b970f4951ff8d9f8e516792a85e067)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSlackChannelConfiguration", [resource]))
 
@@ -1562,18 +1546,18 @@ class CfnSlackChannelConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94fa8f24c4540d62b0dd376261aff517fd5c901c6027465dd7851224a961ef21)
+            type_hints = cached_type_hints(_typecheckingstub__94fa8f24c4540d62b0dd376261aff517fd5c901c6027465dd7851224a961ef21)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSlackChannelConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0261296b0c12a109b073fda5c51b89eb246dd5532eca421703d5283b445517a)
+            type_hints = cached_type_hints(_typecheckingstub__f0261296b0c12a109b073fda5c51b89eb246dd5532eca421703d5283b445517a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1586,7 +1570,7 @@ class CfnSlackChannelConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38d562d332aafc1a09cf53790aa1b7302247164c326664bab8100a2a6e231851)
+            type_hints = cached_type_hints(_typecheckingstub__38d562d332aafc1a09cf53790aa1b7302247164c326664bab8100a2a6e231851)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1607,9 +1591,9 @@ class CfnSlackChannelConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1625,9 +1609,9 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="slackChannelConfigurationRef")
     def slack_channel_configuration_ref(
         self,
-    ) -> "_SlackChannelConfigurationReference_73491fa9":
+    ) -> "_aws_chatbot_b66b7d1d.SlackChannelConfigurationReference":
         '''A reference to a SlackChannelConfiguration resource.'''
-        return typing.cast("_SlackChannelConfigurationReference_73491fa9", jsii.get(self, "slackChannelConfigurationRef"))
+        return typing.cast("_aws_chatbot_b66b7d1d.SlackChannelConfigurationReference", jsii.get(self, "slackChannelConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationName")
@@ -1638,7 +1622,7 @@ class CfnSlackChannelConfiguration(
     @configuration_name.setter
     def configuration_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__030a2b3ae9dec64c22063a44869eaa3d17e7c59f6584f8f1f0799b11e5230f0b)
+            type_hints = cached_type_hints(_typecheckingstub__030a2b3ae9dec64c22063a44869eaa3d17e7c59f6584f8f1f0799b11e5230f0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -1651,7 +1635,7 @@ class CfnSlackChannelConfiguration(
     @iam_role_arn.setter
     def iam_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0d6b746086db3f0eee87f2bf185747639960cd160b132fc103d742a505cff83)
+            type_hints = cached_type_hints(_typecheckingstub__d0d6b746086db3f0eee87f2bf185747639960cd160b132fc103d742a505cff83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1664,7 +1648,7 @@ class CfnSlackChannelConfiguration(
     @slack_channel_id.setter
     def slack_channel_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__947633a80a86abcda2924b84b36a3f15557a2db21530c5d6bbce145d2de2baa2)
+            type_hints = cached_type_hints(_typecheckingstub__947633a80a86abcda2924b84b36a3f15557a2db21530c5d6bbce145d2de2baa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "slackChannelId", value) # pyright: ignore[reportArgumentType]
 
@@ -1677,7 +1661,7 @@ class CfnSlackChannelConfiguration(
     @slack_workspace_id.setter
     def slack_workspace_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcd6c259891d90515113fab2b366a0fa3fe65279fa991dfb0c55094b82dfe9a7)
+            type_hints = cached_type_hints(_typecheckingstub__bcd6c259891d90515113fab2b366a0fa3fe65279fa991dfb0c55094b82dfe9a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "slackWorkspaceId", value) # pyright: ignore[reportArgumentType]
 
@@ -1693,7 +1677,7 @@ class CfnSlackChannelConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0d0439ef3a58ce5c9660cc070abad2db1860848733177ed530f90e5b2c5aa14)
+            type_hints = cached_type_hints(_typecheckingstub__d0d0439ef3a58ce5c9660cc070abad2db1860848733177ed530f90e5b2c5aa14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customizationResourceArns", value) # pyright: ignore[reportArgumentType]
 
@@ -1709,7 +1693,7 @@ class CfnSlackChannelConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__501b5577e7827d442d9391d6001230a41ff67452706a19ec7b9752f0f819226a)
+            type_hints = cached_type_hints(_typecheckingstub__501b5577e7827d442d9391d6001230a41ff67452706a19ec7b9752f0f819226a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "guardrailPolicies", value) # pyright: ignore[reportArgumentType]
 
@@ -1725,7 +1709,7 @@ class CfnSlackChannelConfiguration(
     @logging_level.setter
     def logging_level(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__246f0b4cf1dfb239b8a4368a76b6f46ebb97fa423b3bcb7bd914513d880e580e)
+            type_hints = cached_type_hints(_typecheckingstub__246f0b4cf1dfb239b8a4368a76b6f46ebb97fa423b3bcb7bd914513d880e580e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingLevel", value) # pyright: ignore[reportArgumentType]
 
@@ -1738,20 +1722,23 @@ class CfnSlackChannelConfiguration(
     @sns_topic_arns.setter
     def sns_topic_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a484a8dbfe21a414edd0bce1d876d84d2ebba782d953f75cc942e74a58c6dc72)
+            type_hints = cached_type_hints(_typecheckingstub__a484a8dbfe21a414edd0bce1d876d84d2ebba782d953f75cc942e74a58c6dc72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb9439037db7df11093794999deef5e51f41aae61f9736ab360d263ab9859fd6)
+            type_hints = cached_type_hints(_typecheckingstub__eb9439037db7df11093794999deef5e51f41aae61f9736ab360d263ab9859fd6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1759,17 +1746,17 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="userRoleRequired")
     def user_role_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables use of a user role requirement in your chat configuration.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "userRoleRequired"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "userRoleRequired"))
 
     @user_role_required.setter
     def user_role_required(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fdcebb1f70802057ca456714a5cc7c631ffe294962d8635781dfb0f0a08776f)
+            type_hints = cached_type_hints(_typecheckingstub__4fdcebb1f70802057ca456714a5cc7c631ffe294962d8635781dfb0f0a08776f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userRoleRequired", value) # pyright: ignore[reportArgumentType]
 
@@ -1795,15 +1782,15 @@ class CfnSlackChannelConfigurationProps:
         self,
         *,
         configuration_name: builtins.str,
-        iam_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        iam_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         slack_channel_id: builtins.str,
         slack_workspace_id: builtins.str,
         customization_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
         logging_level: typing.Optional[builtins.str] = None,
-        sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_role_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_role_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSlackChannelConfiguration``.
 
@@ -1847,7 +1834,7 @@ class CfnSlackChannelConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__277f742a3921d9599de6f4a85fd399fb4b6654557393ff7889e5e52f58775566)
+            type_hints = cached_type_hints(_typecheckingstub__277f742a3921d9599de6f4a85fd399fb4b6654557393ff7889e5e52f58775566)
             check_type(argname="argument configuration_name", value=configuration_name, expected_type=type_hints["configuration_name"])
             check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
             check_type(argname="argument slack_channel_id", value=slack_channel_id, expected_type=type_hints["slack_channel_id"])
@@ -1888,7 +1875,7 @@ class CfnSlackChannelConfigurationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def iam_role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def iam_role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The ARN of the IAM role that defines the permissions for  .
 
         This is a user-defined role that  will assume. This is not the service-linked role. For more information, see `IAM Policies for  in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
@@ -1897,7 +1884,7 @@ class CfnSlackChannelConfigurationProps:
         '''
         result = self._values.get("iam_role_arn")
         assert result is not None, "Required property 'iam_role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def slack_channel_id(self) -> builtins.str:
@@ -1959,27 +1946,27 @@ class CfnSlackChannelConfigurationProps:
     @builtins.property
     def sns_topic_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The ARNs of the SNS topics that deliver notifications to  .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-snstopicarns
         '''
         result = self._values.get("sns_topic_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to the configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def user_role_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables use of a user role requirement in your chat configuration.
 
         :default: - false
@@ -1987,7 +1974,7 @@ class CfnSlackChannelConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-userrolerequired
         '''
         result = self._values.get("user_role_required")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2003,10 +1990,10 @@ class CfnSlackChannelConfigurationProps:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_chatbot.ISlackChannelConfiguration")
 class ISlackChannelConfiguration(
-    _IResource_c80c4260,
-    _IGrantable_71c4f5de,
-    _INotificationRuleTarget_faa3b79b,
-    _ISlackChannelConfigurationRef_0aa1013d,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_1f54b5e8.IGrantable,
+    _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
+    _aws_chatbot_b66b7d1d.ISlackChannelConfigurationRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Slack channel configuration.'''
@@ -2031,7 +2018,7 @@ class ISlackChannelConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The permission role of Slack channel configuration.
 
         :default: - A role will be created.
@@ -2041,7 +2028,10 @@ class ISlackChannelConfiguration(
         ...
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Adds a statement to the IAM role.
 
         :param statement: -
@@ -2058,14 +2048,14 @@ class ISlackChannelConfiguration(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this SlackChannelConfiguration.
 
         :param metric_name: -
@@ -2086,10 +2076,10 @@ class ISlackChannelConfiguration(
 
 
 class _ISlackChannelConfigurationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IGrantable_71c4f5de), # type: ignore[misc]
-    jsii.proxy_for(_INotificationRuleTarget_faa3b79b), # type: ignore[misc]
-    jsii.proxy_for(_ISlackChannelConfigurationRef_0aa1013d), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_codestarnotifications_de9a7862.INotificationRuleTarget), # type: ignore[misc]
+    jsii.proxy_for(_aws_chatbot_b66b7d1d.ISlackChannelConfigurationRef), # type: ignore[misc]
 ):
     '''Represents a Slack channel configuration.'''
 
@@ -2115,23 +2105,26 @@ class _ISlackChannelConfigurationProxy(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The permission role of Slack channel configuration.
 
         :default: - A role will be created.
 
         :attribute: true
         '''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Adds a statement to the IAM role.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12a1f59c54292d1a70e58c79d640391fcc658a0d519721123479d12838219471)
+            type_hints = cached_type_hints(_typecheckingstub__12a1f59c54292d1a70e58c79d640391fcc658a0d519721123479d12838219471)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -2145,14 +2138,14 @@ class _ISlackChannelConfigurationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this SlackChannelConfiguration.
 
         :param metric_name: -
@@ -2170,9 +2163,9 @@ class _ISlackChannelConfigurationProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36f008bf41135b7a58422d2b7c9fd93227d05029491e965085b315e66c8b2dc7)
+            type_hints = cached_type_hints(_typecheckingstub__36f008bf41135b7a58422d2b7c9fd93227d05029491e965085b315e66c8b2dc7)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2187,7 +2180,7 @@ class _ISlackChannelConfigurationProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISlackChannelConfiguration).__jsii_proxy_class__ = lambda : _ISlackChannelConfigurationProxy
@@ -2207,7 +2200,7 @@ class LoggingLevel(enum.Enum):
 
 @jsii.implements(ISlackChannelConfiguration)
 class SlackChannelConfiguration(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_chatbot.SlackChannelConfiguration",
 ):
@@ -2239,13 +2232,13 @@ class SlackChannelConfiguration(
         slack_channel_configuration_name: builtins.str,
         slack_channel_id: builtins.str,
         slack_workspace_id: builtins.str,
-        guardrail_policies: typing.Optional[typing.Sequence["_IManagedPolicy_c3b0dcbf"]] = None,
+        guardrail_policies: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IManagedPolicy"]] = None,
         logging_level: typing.Optional["LoggingLevel"] = None,
-        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
-        log_retention_retry_options: typing.Optional[typing.Union["_LogRetentionRetryOptions_62d80a14", typing.Dict[builtins.str, typing.Any]]] = None,
-        log_retention_role: typing.Optional["_IRole_235f5d8e"] = None,
-        notification_topics: typing.Optional[typing.Sequence["_ITopic_9eca4852"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_retention: typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"] = None,
+        log_retention_retry_options: typing.Optional[typing.Union["_aws_logs_ab8ef8ce.LogRetentionRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        log_retention_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        notification_topics: typing.Optional[typing.Sequence["_aws_sns_07ffc8ab.ITopic"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         user_role_required: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -2264,7 +2257,7 @@ class SlackChannelConfiguration(
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efdd5da37140f8254b4a44f567a060e15106ce03d4f75880500b5d15d8076be9)
+            type_hints = cached_type_hints(_typecheckingstub__efdd5da37140f8254b4a44f567a060e15106ce03d4f75880500b5d15d8076be9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SlackChannelConfigurationProps(
@@ -2300,7 +2293,7 @@ class SlackChannelConfiguration(
         :return: a reference to the existing Slack channel configuration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e75cb1cdfc69c0061e7e14a213dbf05c29e1a935dcb7a67925658a77a7db90c)
+            type_hints = cached_type_hints(_typecheckingstub__3e75cb1cdfc69c0061e7e14a213dbf05c29e1a935dcb7a67925658a77a7db90c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument slack_channel_configuration_arn", value=slack_channel_configuration_arn, expected_type=type_hints["slack_channel_configuration_arn"])
@@ -2317,14 +2310,14 @@ class SlackChannelConfiguration(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for All SlackChannelConfigurations.
 
         :param metric_name: -
@@ -2342,9 +2335,9 @@ class SlackChannelConfiguration(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12b8814a68917d1077846377a05d9a9cfd41105cef24a78340753723cc2a1bba)
+            type_hints = cached_type_hints(_typecheckingstub__12b8814a68917d1077846377a05d9a9cfd41105cef24a78340753723cc2a1bba)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2359,27 +2352,33 @@ class SlackChannelConfiguration(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAll", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAll", [metric_name, props]))
 
     @jsii.member(jsii_name="addNotificationTopic")
-    def add_notification_topic(self, notification_topic: "_ITopic_9eca4852") -> None:
+    def add_notification_topic(
+        self,
+        notification_topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> None:
         '''Adds a SNS topic that deliver notifications to AWS Chatbot.
 
         :param notification_topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eea860b468671b227582daf10c3d3148668ac959f57270e1f8344d9557655b61)
+            type_hints = cached_type_hints(_typecheckingstub__eea860b468671b227582daf10c3d3148668ac959f57270e1f8344d9557655b61)
             check_type(argname="argument notification_topic", value=notification_topic, expected_type=type_hints["notification_topic"])
         return typing.cast(None, jsii.invoke(self, "addNotificationTopic", [notification_topic]))
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Adds extra permission to iam-role of Slack channel configuration.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49e66b2c4dfeec8a0cf1c5b5553dd1790b6d2225450f587cff9eca3a6512d30a)
+            type_hints = cached_type_hints(_typecheckingstub__49e66b2c4dfeec8a0cf1c5b5553dd1790b6d2225450f587cff9eca3a6512d30a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -2387,15 +2386,15 @@ class SlackChannelConfiguration(
     def bind_as_notification_rule_target(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_NotificationRuleTargetConfig_ea27e095":
+    ) -> "_aws_codestarnotifications_de9a7862.NotificationRuleTargetConfig":
         '''Returns a target configuration for notification rule.
 
         :param _scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25e09f2c57162b8550c76214659f09aeb2f611c74c290175199f993a4e33afe9)
+            type_hints = cached_type_hints(_typecheckingstub__25e09f2c57162b8550c76214659f09aeb2f611c74c290175199f993a4e33afe9)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast("_NotificationRuleTargetConfig_ea27e095", jsii.invoke(self, "bindAsNotificationRuleTarget", [_scope]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.NotificationRuleTargetConfig", jsii.invoke(self, "bindAsNotificationRuleTarget", [_scope]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -2407,14 +2406,14 @@ class SlackChannelConfiguration(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this SlackChannelConfiguration.
 
         :param metric_name: -
@@ -2432,9 +2431,9 @@ class SlackChannelConfiguration(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73a006622b0f5bc2a3fc133c38aeeb0fffe167bf0457064024d2adc8ffe005ff)
+            type_hints = cached_type_hints(_typecheckingstub__73a006622b0f5bc2a3fc133c38aeeb0fffe167bf0457064024d2adc8ffe005ff)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2449,7 +2448,7 @@ class SlackChannelConfiguration(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2459,9 +2458,9 @@ class SlackChannelConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="slackChannelConfigurationArn")
@@ -2479,15 +2478,15 @@ class SlackChannelConfiguration(
     @jsii.member(jsii_name="slackChannelConfigurationRef")
     def slack_channel_configuration_ref(
         self,
-    ) -> "_SlackChannelConfigurationReference_73491fa9":
+    ) -> "_aws_chatbot_b66b7d1d.SlackChannelConfigurationReference":
         '''A reference to a SlackChannelConfiguration resource.'''
-        return typing.cast("_SlackChannelConfigurationReference_73491fa9", jsii.get(self, "slackChannelConfigurationRef"))
+        return typing.cast("_aws_chatbot_b66b7d1d.SlackChannelConfigurationReference", jsii.get(self, "slackChannelConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The permission role of Slack channel configuration.'''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -2514,13 +2513,13 @@ class SlackChannelConfigurationProps:
         slack_channel_configuration_name: builtins.str,
         slack_channel_id: builtins.str,
         slack_workspace_id: builtins.str,
-        guardrail_policies: typing.Optional[typing.Sequence["_IManagedPolicy_c3b0dcbf"]] = None,
+        guardrail_policies: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IManagedPolicy"]] = None,
         logging_level: typing.Optional["LoggingLevel"] = None,
-        log_retention: typing.Optional["_RetentionDays_070f99f0"] = None,
-        log_retention_retry_options: typing.Optional[typing.Union["_LogRetentionRetryOptions_62d80a14", typing.Dict[builtins.str, typing.Any]]] = None,
-        log_retention_role: typing.Optional["_IRole_235f5d8e"] = None,
-        notification_topics: typing.Optional[typing.Sequence["_ITopic_9eca4852"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_retention: typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"] = None,
+        log_retention_retry_options: typing.Optional[typing.Union["_aws_logs_ab8ef8ce.LogRetentionRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        log_retention_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        notification_topics: typing.Optional[typing.Sequence["_aws_sns_07ffc8ab.ITopic"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         user_role_required: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties for a new Slack channel configuration.
@@ -2555,9 +2554,9 @@ class SlackChannelConfigurationProps:
             rule = project.notify_on_build_succeeded("NotifyOnBuildSucceeded", target)
         '''
         if isinstance(log_retention_retry_options, dict):
-            log_retention_retry_options = _LogRetentionRetryOptions_62d80a14(**log_retention_retry_options)
+            log_retention_retry_options = _aws_logs_ab8ef8ce.LogRetentionRetryOptions(**log_retention_retry_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ac26e048cc95c25fe58a4f6af5e010a7fb045d511f758ebcd363a166cd781fc)
+            type_hints = cached_type_hints(_typecheckingstub__0ac26e048cc95c25fe58a4f6af5e010a7fb045d511f758ebcd363a166cd781fc)
             check_type(argname="argument slack_channel_configuration_name", value=slack_channel_configuration_name, expected_type=type_hints["slack_channel_configuration_name"])
             check_type(argname="argument slack_channel_id", value=slack_channel_id, expected_type=type_hints["slack_channel_id"])
             check_type(argname="argument slack_workspace_id", value=slack_workspace_id, expected_type=type_hints["slack_workspace_id"])
@@ -2626,13 +2625,13 @@ class SlackChannelConfigurationProps:
     @builtins.property
     def guardrail_policies(
         self,
-    ) -> typing.Optional[typing.List["_IManagedPolicy_c3b0dcbf"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.IManagedPolicy"]]:
         '''A list of IAM managed policies that are applied as channel guardrails.
 
         :default: - The AWS managed 'AdministratorAccess' policy is applied as a default if this is not set.
         '''
         result = self._values.get("guardrail_policies")
-        return typing.cast(typing.Optional[typing.List["_IManagedPolicy_c3b0dcbf"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.IManagedPolicy"]], result)
 
     @builtins.property
     def logging_level(self) -> typing.Optional["LoggingLevel"]:
@@ -2646,7 +2645,7 @@ class SlackChannelConfigurationProps:
         return typing.cast(typing.Optional["LoggingLevel"], result)
 
     @builtins.property
-    def log_retention(self) -> typing.Optional["_RetentionDays_070f99f0"]:
+    def log_retention(self) -> typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"]:
         '''The number of days log events are kept in CloudWatch Logs.
 
         When updating
@@ -2656,12 +2655,12 @@ class SlackChannelConfigurationProps:
         :default: logs.RetentionDays.INFINITE
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional["_RetentionDays_070f99f0"], result)
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.RetentionDays"], result)
 
     @builtins.property
     def log_retention_retry_options(
         self,
-    ) -> typing.Optional["_LogRetentionRetryOptions_62d80a14"]:
+    ) -> typing.Optional["_aws_logs_ab8ef8ce.LogRetentionRetryOptions"]:
         '''When log retention is specified, a custom resource attempts to create the CloudWatch log group.
 
         These options control the retry policy when interacting with CloudWatch APIs.
@@ -2669,34 +2668,36 @@ class SlackChannelConfigurationProps:
         :default: - Default AWS SDK retry options.
         '''
         result = self._values.get("log_retention_retry_options")
-        return typing.cast(typing.Optional["_LogRetentionRetryOptions_62d80a14"], result)
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.LogRetentionRetryOptions"], result)
 
     @builtins.property
-    def log_retention_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def log_retention_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role for the Lambda function associated with the custom resource that sets the retention policy.
 
         :default: - A new role is created.
         '''
         result = self._values.get("log_retention_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def notification_topics(self) -> typing.Optional[typing.List["_ITopic_9eca4852"]]:
+    def notification_topics(
+        self,
+    ) -> typing.Optional[typing.List["_aws_sns_07ffc8ab.ITopic"]]:
         '''The SNS topics that deliver notifications to AWS Chatbot.
 
         :default: None
         '''
         result = self._values.get("notification_topics")
-        return typing.cast(typing.Optional[typing.List["_ITopic_9eca4852"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_sns_07ffc8ab.ITopic"]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The permission role of Slack channel configuration.
 
         :default: - A role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def user_role_required(self) -> typing.Optional[builtins.bool]:
@@ -2739,16 +2740,16 @@ def _typecheckingstub__4840384b6e4d8bb56afed06983751f4092ececfe9720ea514abb17287
     id: builtins.str,
     *,
     action_name: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomAction.CustomActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     alias_name: typing.Optional[builtins.str] = None,
-    attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attachments: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomAction.CustomActionAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f0dabfb69083d44ca1d20244065511de9c1d1848beb7133eb0588ccbe293e6a(
-    resource: _ICustomActionRef_2f1744a4,
+    resource: _aws_chatbot_b66b7d1d.ICustomActionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2760,7 +2761,7 @@ def _typecheckingstub__ccb1b3050ff0a7228a18cf6cff1ab38c8edf1865d586be9deb6621440
     pass
 
 def _typecheckingstub__44267bc9ce7cc2f3773138acc4718fe9e74ff7aacb67eedf1ef50ff399714ce2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2778,7 +2779,7 @@ def _typecheckingstub__971c2cee7a293449df3b3419302728ec27df82ae1516daa5cb2c68199
     pass
 
 def _typecheckingstub__41389535b5493837a09f1517d05c57d5124e60def0c6ed02cfa3bcacf50f356a(
-    value: typing.Union[_IResolvable_da3f097b, CfnCustomAction.CustomActionDefinitionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCustomAction.CustomActionDefinitionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2790,13 +2791,13 @@ def _typecheckingstub__41def85ca04f9b6e2f09a7a4a94dcbf48f41f3f42b20008ab0c8375fd
     pass
 
 def _typecheckingstub__25bc30f27dad9105e157414d8573ef4725c2cbb4c8f636ccff8d8cd488d751ad(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCustomAction.CustomActionAttachmentProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCustomAction.CustomActionAttachmentProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__072e325a0c2ec8c68fa22d9b8fcacb74cdefc302e246f675cb7d82f02d9c1ad8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2813,9 +2814,9 @@ def _typecheckingstub__17b54705e9e5c87338c9cd62b14232db30553ead6d15838b291a8bfef
 def _typecheckingstub__bdfcc4d3117af4232f6317084ca1888fc93a1fa63045afd0834da2fec394ccdf(
     *,
     button_text: typing.Optional[builtins.str] = None,
-    criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionAttachmentCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomAction.CustomActionAttachmentCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     notification_type: typing.Optional[builtins.str] = None,
-    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2830,10 +2831,10 @@ def _typecheckingstub__66cde35b29d23cf11cd686434f577e4de7a67224bbebe46b5c31d744e
 def _typecheckingstub__a095b5f2109b264f6833c68a2c4a07e415cda11bd116b007cb26fff0c148d24d(
     *,
     action_name: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomAction.CustomActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     alias_name: typing.Optional[builtins.str] = None,
-    attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomAction.CustomActionAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attachments: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomAction.CustomActionAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2851,15 +2852,15 @@ def _typecheckingstub__62f6b943071fca79376376fd20660d7b707a1026a9039a0c12c88895d
     guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
     logging_level: typing.Optional[builtins.str] = None,
     sns_topic_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     teams_channel_name: typing.Optional[builtins.str] = None,
-    user_role_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    user_role_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__95da38507fe31225a8cb3b3d31adcc7ef3333f69ff76138aec769d52a6bc80dd(
-    resource: _IMicrosoftTeamsChannelConfigurationRef_a41e777d,
+    resource: _aws_chatbot_b66b7d1d.IMicrosoftTeamsChannelConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2871,7 +2872,7 @@ def _typecheckingstub__01a58831e76fae2e840d84a7656465ba76e3d5c87f3fa3293c1339ac0
     pass
 
 def _typecheckingstub__46600197e082ba9fc6d055c23e70f7f73de26074b20358edbb7348ae3fb1f908(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2937,7 +2938,7 @@ def _typecheckingstub__d06bfa455d3724be650436a618deed393ddc0dbcd35406db1f888de73
     pass
 
 def _typecheckingstub__85a622952d9fea475beb11aa3753f5147c076bc04254dc91a4dbc14ee94b8b42(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2949,7 +2950,7 @@ def _typecheckingstub__6b024a8c697915b8353191fc418871ddabafe006c942750d3ac38aa4c
     pass
 
 def _typecheckingstub__0a5171a48ffb0d6c3dc8bec2e5eb8774e5e34370819690e508928a264f6e7eda(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2965,9 +2966,9 @@ def _typecheckingstub__2750e06a244ed0f59003e9954924d4cdea272b2fc67dda92574fc40bd
     guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
     logging_level: typing.Optional[builtins.str] = None,
     sns_topic_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     teams_channel_name: typing.Optional[builtins.str] = None,
-    user_role_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    user_role_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2977,21 +2978,21 @@ def _typecheckingstub__1cb3844509a8f0685c3dc0d26d5014fa028976d66c5d0a8984e8284bb
     id: builtins.str,
     *,
     configuration_name: builtins.str,
-    iam_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    iam_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     slack_channel_id: builtins.str,
     slack_workspace_id: builtins.str,
     customization_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
     logging_level: typing.Optional[builtins.str] = None,
-    sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_role_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_role_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1459eeddaa97796b97caf2489c64064df6b970f4951ff8d9f8e516792a85e067(
-    resource: _ISlackChannelConfigurationRef_0aa1013d,
+    resource: _aws_chatbot_b66b7d1d.ISlackChannelConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3003,7 +3004,7 @@ def _typecheckingstub__94fa8f24c4540d62b0dd376261aff517fd5c901c6027465dd7851224a
     pass
 
 def _typecheckingstub__f0261296b0c12a109b073fda5c51b89eb246dd5532eca421703d5283b445517a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3063,13 +3064,13 @@ def _typecheckingstub__a484a8dbfe21a414edd0bce1d876d84d2ebba782d953f75cc942e74a5
     pass
 
 def _typecheckingstub__eb9439037db7df11093794999deef5e51f41aae61f9736ab360d263ab9859fd6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4fdcebb1f70802057ca456714a5cc7c631ffe294962d8635781dfb0f0a08776f(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3077,21 +3078,21 @@ def _typecheckingstub__4fdcebb1f70802057ca456714a5cc7c631ffe294962d8635781dfb0f0
 def _typecheckingstub__277f742a3921d9599de6f4a85fd399fb4b6654557393ff7889e5e52f58775566(
     *,
     configuration_name: builtins.str,
-    iam_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    iam_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     slack_channel_id: builtins.str,
     slack_workspace_id: builtins.str,
     customization_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     guardrail_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
     logging_level: typing.Optional[builtins.str] = None,
-    sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_role_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sns_topic_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_role_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12a1f59c54292d1a70e58c79d640391fcc658a0d519721123479d12838219471(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3104,12 +3105,12 @@ def _typecheckingstub__36f008bf41135b7a58422d2b7c9fd93227d05029491e965085b315e66
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3122,13 +3123,13 @@ def _typecheckingstub__efdd5da37140f8254b4a44f567a060e15106ce03d4f75880500b5d15d
     slack_channel_configuration_name: builtins.str,
     slack_channel_id: builtins.str,
     slack_workspace_id: builtins.str,
-    guardrail_policies: typing.Optional[typing.Sequence[_IManagedPolicy_c3b0dcbf]] = None,
+    guardrail_policies: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IManagedPolicy]] = None,
     logging_level: typing.Optional[LoggingLevel] = None,
-    log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    log_retention_retry_options: typing.Optional[typing.Union[_LogRetentionRetryOptions_62d80a14, typing.Dict[builtins.str, typing.Any]]] = None,
-    log_retention_role: typing.Optional[_IRole_235f5d8e] = None,
-    notification_topics: typing.Optional[typing.Sequence[_ITopic_9eca4852]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    log_retention: typing.Optional[_aws_logs_ab8ef8ce.RetentionDays] = None,
+    log_retention_retry_options: typing.Optional[typing.Union[_aws_logs_ab8ef8ce.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    log_retention_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    notification_topics: typing.Optional[typing.Sequence[_aws_sns_07ffc8ab.ITopic]] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     user_role_required: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3150,25 +3151,25 @@ def _typecheckingstub__12b8814a68917d1077846377a05d9a9cfd41105cef24a78340753723c
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eea860b468671b227582daf10c3d3148668ac959f57270e1f8344d9557655b61(
-    notification_topic: _ITopic_9eca4852,
+    notification_topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__49e66b2c4dfeec8a0cf1c5b5553dd1790b6d2225450f587cff9eca3a6512d30a(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3187,12 +3188,12 @@ def _typecheckingstub__73a006622b0f5bc2a3fc133c38aeeb0fffe167bf0457064024d2adc8f
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3203,13 +3204,13 @@ def _typecheckingstub__0ac26e048cc95c25fe58a4f6af5e010a7fb045d511f758ebcd363a166
     slack_channel_configuration_name: builtins.str,
     slack_channel_id: builtins.str,
     slack_workspace_id: builtins.str,
-    guardrail_policies: typing.Optional[typing.Sequence[_IManagedPolicy_c3b0dcbf]] = None,
+    guardrail_policies: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IManagedPolicy]] = None,
     logging_level: typing.Optional[LoggingLevel] = None,
-    log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    log_retention_retry_options: typing.Optional[typing.Union[_LogRetentionRetryOptions_62d80a14, typing.Dict[builtins.str, typing.Any]]] = None,
-    log_retention_role: typing.Optional[_IRole_235f5d8e] = None,
-    notification_topics: typing.Optional[typing.Sequence[_ITopic_9eca4852]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    log_retention: typing.Optional[_aws_logs_ab8ef8ce.RetentionDays] = None,
+    log_retention_retry_options: typing.Optional[typing.Union[_aws_logs_ab8ef8ce.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    log_retention_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    notification_topics: typing.Optional[typing.Sequence[_aws_sns_07ffc8ab.ITopic]] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     user_role_required: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

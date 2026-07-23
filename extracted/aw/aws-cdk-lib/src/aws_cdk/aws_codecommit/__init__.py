@@ -107,6 +107,8 @@ target = chatbot.SlackChannelConfiguration(self, "MySlackChannel",
 rule = repository.notify_on_pull_request_created("NotifyOnPullRequestCreated", target)
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -120,64 +122,46 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    PermissionsOptions as _PermissionsOptions_0351e60e,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_codestarnotifications import (
-    DetailType as _DetailType_cf8135e7,
-    INotificationRule as _INotificationRule_71939426,
-    INotificationRuleSource as _INotificationRuleSource_10482823,
-    INotificationRuleTarget as _INotificationRuleTarget_faa3b79b,
-    NotificationRuleOptions as _NotificationRuleOptions_dff73281,
-    NotificationRuleSourceConfig as _NotificationRuleSourceConfig_20189a3e,
-)
-from ..aws_events import (
-    EventPattern as _EventPattern_fe557901,
-    IRuleTarget as _IRuleTarget_7a91f454,
-    OnEventOptions as _OnEventOptions_8711b8b3,
-    Rule as _Rule_334ed2b5,
-)
-from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
-from ..aws_s3_assets import Asset as _Asset_ac2a7e61
-from ..interfaces.aws_codecommit import (
-    IRepositoryRef as _IRepositoryRef_f6c56413,
-    RepositoryReference as _RepositoryReference_6e315ada,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_codestarnotifications as _aws_codestarnotifications_de9a7862
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_s3_assets as _aws_s3_assets_2dba96fa
+    import aws_cdk.interfaces.aws_codecommit as _aws_codecommit_1c8f946c
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codecommit_1c8f946c = _LazyImport("aws_cdk.interfaces.aws_codecommit")
+    _aws_codestarnotifications_de9a7862 = _LazyImport("aws_cdk.aws_codestarnotifications")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_s3_assets_2dba96fa = _LazyImport("aws_cdk.aws_s3_assets")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IRepositoryRef_f6c56413, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codecommit_1c8f946c.IRepositoryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRepository(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository",
 ):
@@ -238,11 +222,11 @@ class CfnRepository(
         id: builtins.str,
         *,
         repository_name: builtins.str,
-        code: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         repository_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeCommit::Repository``.
 
@@ -256,7 +240,7 @@ class CfnRepository(
         :param triggers: The JSON block of configuration information for each trigger.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316)
+            type_hints = cached_type_hints(_typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRepositoryProps(
@@ -272,12 +256,15 @@ class CfnRepository(
 
     @jsii.member(jsii_name="arnForRepository")
     @builtins.classmethod
-    def arn_for_repository(cls, resource: "_IRepositoryRef_f6c56413") -> builtins.str:
+    def arn_for_repository(
+        cls,
+        resource: "_aws_codecommit_1c8f946c.IRepositoryRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dde4718a89747db343eefe0b96452332a2d00fc8795622bbe249e45ed9b262b)
+            type_hints = cached_type_hints(_typecheckingstub__8dde4718a89747db343eefe0b96452332a2d00fc8795622bbe249e45ed9b262b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRepository", [resource]))
 
@@ -289,18 +276,18 @@ class CfnRepository(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e6a2ed85e9dbfe47c580ac855f959e3183fc82501ca19b8ac12beb7491c92db)
+            type_hints = cached_type_hints(_typecheckingstub__5e6a2ed85e9dbfe47c580ac855f959e3183fc82501ca19b8ac12beb7491c92db)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRepository", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20)
+            type_hints = cached_type_hints(_typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -313,7 +300,7 @@ class CfnRepository(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b)
+            type_hints = cached_type_hints(_typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -379,15 +366,15 @@ class CfnRepository(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryRef")
-    def repository_ref(self) -> "_RepositoryReference_6e315ada":
+    def repository_ref(self) -> "_aws_codecommit_1c8f946c.RepositoryReference":
         '''A reference to a Repository resource.'''
-        return typing.cast("_RepositoryReference_6e315ada", jsii.get(self, "repositoryRef"))
+        return typing.cast("_aws_codecommit_1c8f946c.RepositoryReference", jsii.get(self, "repositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryName")
@@ -398,7 +385,7 @@ class CfnRepository(
     @repository_name.setter
     def repository_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108)
+            type_hints = cached_type_hints(_typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
@@ -406,17 +393,17 @@ class CfnRepository(
     @jsii.member(jsii_name="code")
     def code(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.CodeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.CodeProperty"]]:
         '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.CodeProperty"]], jsii.get(self, "code"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.CodeProperty"]], jsii.get(self, "code"))
 
     @code.setter
     def code(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.CodeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.CodeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f)
+            type_hints = cached_type_hints(_typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
 
@@ -429,7 +416,7 @@ class CfnRepository(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6)
+            type_hints = cached_type_hints(_typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -442,20 +429,23 @@ class CfnRepository(
     @repository_description.setter
     def repository_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144)
+            type_hints = cached_type_hints(_typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryDescription", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tag key-value pairs to use when tagging this repository.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d)
+            type_hints = cached_type_hints(_typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -463,17 +453,17 @@ class CfnRepository(
     @jsii.member(jsii_name="triggers")
     def triggers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.RepositoryTriggerProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.RepositoryTriggerProperty"]]]]:
         '''The JSON block of configuration information for each trigger.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.RepositoryTriggerProperty"]]]], jsii.get(self, "triggers"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.RepositoryTriggerProperty"]]]], jsii.get(self, "triggers"))
 
     @triggers.setter
     def triggers(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.RepositoryTriggerProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.RepositoryTriggerProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377)
+            type_hints = cached_type_hints(_typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
 
@@ -486,7 +476,7 @@ class CfnRepository(
         def __init__(
             self,
             *,
-            s3: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.S3Property", typing.Dict[builtins.str, typing.Any]]],
+            s3: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.S3Property", typing.Dict[builtins.str, typing.Any]]],
             branch_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about code to be committed.
@@ -517,7 +507,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121)
+                type_hints = cached_type_hints(_typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121)
                 check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
                 check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -529,7 +519,7 @@ class CfnRepository(
         @builtins.property
         def s3(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRepository.S3Property"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.S3Property"]:
             '''Information about the Amazon S3 bucket that contains a ZIP file of code to be committed to the repository.
 
             Changes to this property are ignored after initial resource creation.
@@ -538,7 +528,7 @@ class CfnRepository(
             '''
             result = self._values.get("s3")
             assert result is not None, "Required property 's3' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRepository.S3Property"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.S3Property"], result)
 
         @builtins.property
         def branch_name(self) -> typing.Optional[builtins.str]:
@@ -615,7 +605,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd)
+                type_hints = cached_type_hints(_typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd)
                 check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -742,7 +732,7 @@ class CfnRepository(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227)
+                type_hints = cached_type_hints(_typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -817,11 +807,11 @@ class CfnRepositoryProps:
         self,
         *,
         repository_name: builtins.str,
-        code: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         repository_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepository``.
 
@@ -876,7 +866,7 @@ class CfnRepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40c04585281a174d6c45f3d0ebb0cbf1dd9d263edfd133ff98f6e08e9e052bb1)
+            type_hints = cached_type_hints(_typecheckingstub__40c04585281a174d6c45f3d0ebb0cbf1dd9d263edfd133ff98f6e08e9e052bb1)
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
@@ -914,7 +904,7 @@ class CfnRepositoryProps:
     @builtins.property
     def code(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.CodeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.CodeProperty"]]:
         '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
 
         Information about code is only used in resource creation. Updates to a stack will not reflect changes made to code properties after initial resource creation.
@@ -925,7 +915,7 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html#cfn-codecommit-repository-code
         '''
         result = self._values.get("code")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRepository.CodeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.CodeProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -954,24 +944,24 @@ class CfnRepositoryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tag key-value pairs to use when tagging this repository.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html#cfn-codecommit-repository-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def triggers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.RepositoryTriggerProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.RepositoryTriggerProperty"]]]]:
         '''The JSON block of configuration information for each trigger.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html#cfn-codecommit-repository-triggers
         '''
         result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRepository.RepositoryTriggerProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRepository.RepositoryTriggerProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1008,7 +998,7 @@ class Code(
     @builtins.classmethod
     def from_asset(
         cls,
-        asset: "_Asset_ac2a7e61",
+        asset: "_aws_s3_assets_2dba96fa.Asset",
         branch: typing.Optional[builtins.str] = None,
     ) -> "Code":
         '''Code from user-supplied asset.
@@ -1017,7 +1007,7 @@ class Code(
         :param branch: the name of the branch to create in the repository. Default is "main"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36447c37e024f3735b5478be259e58f349ae7d9ccb44ee4e4a18a2784b9ba16e)
+            type_hints = cached_type_hints(_typecheckingstub__36447c37e024f3735b5478be259e58f349ae7d9ccb44ee4e4a18a2784b9ba16e)
             check_type(argname="argument asset", value=asset, expected_type=type_hints["asset"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         return typing.cast("Code", jsii.sinvoke(cls, "fromAsset", [asset, branch]))
@@ -1035,7 +1025,7 @@ class Code(
         :param branch: the name of the branch to create in the repository. Default is "main"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__598e43d07069e8231016c09115aeb8aa3804300933d3217d83823def2ca6a4f1)
+            type_hints = cached_type_hints(_typecheckingstub__598e43d07069e8231016c09115aeb8aa3804300933d3217d83823def2ca6a4f1)
             check_type(argname="argument directory_path", value=directory_path, expected_type=type_hints["directory_path"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         return typing.cast("Code", jsii.sinvoke(cls, "fromDirectory", [directory_path, branch]))
@@ -1053,7 +1043,7 @@ class Code(
         :param branch: the name of the branch to create in the repository. Default is "main"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a3f82bd9873943fb876dee699b9267856598db5c500f20e56f140afc46128f4)
+            type_hints = cached_type_hints(_typecheckingstub__7a3f82bd9873943fb876dee699b9267856598db5c500f20e56f140afc46128f4)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         return typing.cast("Code", jsii.sinvoke(cls, "fromZipFile", [file_path, branch]))
@@ -1076,7 +1066,7 @@ class _CodeProxy(Code):
         :param scope: the binding scope.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4003c87938666d148b25d601f7a14a5a2d2aae2bf4ef6a22a3d035647810652)
+            type_hints = cached_type_hints(_typecheckingstub__d4003c87938666d148b25d601f7a14a5a2d2aae2bf4ef6a22a3d035647810652)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -1125,7 +1115,7 @@ class CodeConfig:
         if isinstance(code, dict):
             code = CfnRepository.CodeProperty(**code)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea4ac2a79dbabc1d15f21b47d006d6df72efdb31ab914edd8a994b41022afbc8)
+            type_hints = cached_type_hints(_typecheckingstub__ea4ac2a79dbabc1d15f21b47d006d6df72efdb31ab914edd8a994b41022afbc8)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "code": code,
@@ -1152,9 +1142,9 @@ class CodeConfig:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codecommit.IRepository")
 class IRepository(
-    _IResource_c80c4260,
-    _INotificationRuleSource_10482823,
-    _IRepositoryRef_f6c56413,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codestarnotifications_de9a7862.INotificationRuleSource,
+    _aws_codecommit_1c8f946c.IRepositoryRef,
     typing_extensions.Protocol,
 ):
     @builtins.property
@@ -1210,9 +1200,9 @@ class IRepository(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given principal identity permissions to perform the actions on this repository.
 
         :param grantee: -
@@ -1221,7 +1211,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull this repository.
 
         :param grantee: -
@@ -1229,7 +1222,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull and push this repository.
 
         :param grantee: -
@@ -1237,7 +1233,10 @@ class IRepository(
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read this repository.
 
         :param grantee: -
@@ -1248,14 +1247,14 @@ class IRepository(
     def notify_on(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         events: typing.Sequence["RepositoryNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule triggered when the project events specified by you are emitted. Similar to ``onEvent`` API.
 
         You can also use the methods to define rules for the specific event emitted.
@@ -1277,13 +1276,13 @@ class IRepository(
     def notify_on_approval_rule_overridden(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval rule is overridden.
 
         :param id: -
@@ -1299,13 +1298,13 @@ class IRepository(
     def notify_on_approval_status_changed(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval status is changed.
 
         :param id: -
@@ -1321,13 +1320,13 @@ class IRepository(
     def notify_on_branch_or_tag_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a new branch or tag is created.
 
         :param id: -
@@ -1343,13 +1342,13 @@ class IRepository(
     def notify_on_branch_or_tag_deleted(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a branch or tag is deleted.
 
         :param id: -
@@ -1365,13 +1364,13 @@ class IRepository(
     def notify_on_pull_request_comment(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -1387,13 +1386,13 @@ class IRepository(
     def notify_on_pull_request_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is created.
 
         :param id: -
@@ -1409,13 +1408,13 @@ class IRepository(
     def notify_on_pull_request_merged(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is merged.
 
         :param id: -
@@ -1432,12 +1431,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a commit.
 
         :param id: -
@@ -1454,12 +1453,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -1477,12 +1476,12 @@ class IRepository(
         id: builtins.str,
         *,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a commit is pushed to a branch.
 
         :param id: -
@@ -1500,12 +1499,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -1525,12 +1524,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a pull request state is changed.
 
         :param id: -
@@ -1547,12 +1546,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is created (i.e. a new branch/tag is created) to the repository.
 
         :param id: -
@@ -1569,12 +1568,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is delete (i.e. a branch/tag is deleted) from the repository.
 
         :param id: -
@@ -1591,12 +1590,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is updated (i.e. a commit is pushed to an existing or new branch) from the repository.
 
         :param id: -
@@ -1613,12 +1612,12 @@ class IRepository(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a "CodeCommit Repository State Change" event occurs.
 
         :param id: -
@@ -1632,9 +1631,9 @@ class IRepository(
 
 
 class _IRepositoryProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_INotificationRuleSource_10482823), # type: ignore[misc]
-    jsii.proxy_for(_IRepositoryRef_f6c56413), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codestarnotifications_de9a7862.INotificationRuleSource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codecommit_1c8f946c.IRepositoryRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codecommit.IRepository"
 
@@ -1691,65 +1690,74 @@ class _IRepositoryProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given principal identity permissions to perform the actions on this repository.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365c5593ff83cf972d077b7c5a84fbc1b5a0265992dc07d9c11fc0b29a29216a)
+            type_hints = cached_type_hints(_typecheckingstub__365c5593ff83cf972d077b7c5a84fbc1b5a0265992dc07d9c11fc0b29a29216a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d9e6b243e05b7c6eba91182b9bd7adabc3f071225b4e3a50df8e001d1f4fa37)
+            type_hints = cached_type_hints(_typecheckingstub__7d9e6b243e05b7c6eba91182b9bd7adabc3f071225b4e3a50df8e001d1f4fa37)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPull", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPull", [grantee]))
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to pull and push this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a6febdc5d7cf9c0ad4956ce1b01c3943a10e93da55708f00ece4f2eb5e3afb7)
+            type_hints = cached_type_hints(_typecheckingstub__2a6febdc5d7cf9c0ad4956ce1b01c3943a10e93da55708f00ece4f2eb5e3afb7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPullPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPullPush", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read this repository.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a3b246d79233ee846d1ea5d76eae3faed1da036177a20d699700bc19f4718f7)
+            type_hints = cached_type_hints(_typecheckingstub__6a3b246d79233ee846d1ea5d76eae3faed1da036177a20d699700bc19f4718f7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="notifyOn")
     def notify_on(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         events: typing.Sequence["RepositoryNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule triggered when the project events specified by you are emitted. Similar to ``onEvent`` API.
 
         You can also use the methods to define rules for the specific event emitted.
@@ -1766,7 +1774,7 @@ class _IRepositoryProxy(
         :return: CodeStar Notifications rule associated with this repository.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c7942184f6ef1171bc9e0c3554be4e156be2d930de75af76e6c7194dba6915d)
+            type_hints = cached_type_hints(_typecheckingstub__4c7942184f6ef1171bc9e0c3554be4e156be2d930de75af76e6c7194dba6915d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         options = RepositoryNotifyOnOptions(
@@ -1777,19 +1785,19 @@ class _IRepositoryProxy(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOn", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOn", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnApprovalRuleOverridden")
     def notify_on_approval_rule_overridden(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval rule is overridden.
 
         :param id: -
@@ -1800,29 +1808,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1eaa0e8d10ed3253a51fe07f30f2e5ccd87923daac9fa5cac304d64e8cd2bc73)
+            type_hints = cached_type_hints(_typecheckingstub__1eaa0e8d10ed3253a51fe07f30f2e5ccd87923daac9fa5cac304d64e8cd2bc73)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnApprovalRuleOverridden", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnApprovalRuleOverridden", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnApprovalStatusChanged")
     def notify_on_approval_status_changed(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval status is changed.
 
         :param id: -
@@ -1833,29 +1841,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7bf91f05b1a4f3ae616bd9f41791280fc198c1c0da943398dda62249bb2c93d)
+            type_hints = cached_type_hints(_typecheckingstub__e7bf91f05b1a4f3ae616bd9f41791280fc198c1c0da943398dda62249bb2c93d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnApprovalStatusChanged", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnApprovalStatusChanged", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnBranchOrTagCreated")
     def notify_on_branch_or_tag_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a new branch or tag is created.
 
         :param id: -
@@ -1866,29 +1874,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cafbc61c624b37c5ad3d4b8a63e817009d77858ce7b25f3e44bba75d8b2c826c)
+            type_hints = cached_type_hints(_typecheckingstub__cafbc61c624b37c5ad3d4b8a63e817009d77858ce7b25f3e44bba75d8b2c826c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnBranchOrTagCreated", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnBranchOrTagCreated", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnBranchOrTagDeleted")
     def notify_on_branch_or_tag_deleted(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a branch or tag is deleted.
 
         :param id: -
@@ -1899,29 +1907,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0275a2e8104bae4bd7ac1bba2e30688464d013a5007f7602a9ea90f4408842fc)
+            type_hints = cached_type_hints(_typecheckingstub__0275a2e8104bae4bd7ac1bba2e30688464d013a5007f7602a9ea90f4408842fc)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnBranchOrTagDeleted", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnBranchOrTagDeleted", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestComment")
     def notify_on_pull_request_comment(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -1932,29 +1940,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6248afe48e2fb868c294f63ac413c00382e7856dc1949f9226aad20932c7e7e5)
+            type_hints = cached_type_hints(_typecheckingstub__6248afe48e2fb868c294f63ac413c00382e7856dc1949f9226aad20932c7e7e5)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestComment", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestComment", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestCreated")
     def notify_on_pull_request_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is created.
 
         :param id: -
@@ -1965,29 +1973,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f02ad2ac0201a88eb92c38b6798b71bcc5a0c60f935ccccfd798c221251e41df)
+            type_hints = cached_type_hints(_typecheckingstub__f02ad2ac0201a88eb92c38b6798b71bcc5a0c60f935ccccfd798c221251e41df)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestCreated", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestCreated", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestMerged")
     def notify_on_pull_request_merged(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is merged.
 
         :param id: -
@@ -1998,29 +2006,29 @@ class _IRepositoryProxy(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a979cb7a485f86b22849a4dd125f67228ce5778a7cf334f786600ef50b4bcb80)
+            type_hints = cached_type_hints(_typecheckingstub__a979cb7a485f86b22849a4dd125f67228ce5778a7cf334f786600ef50b4bcb80)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestMerged", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestMerged", [id, target, options]))
 
     @jsii.member(jsii_name="onCommentOnCommit")
     def on_comment_on_commit(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a commit.
 
         :param id: -
@@ -2031,9 +2039,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b13dbc0afad5a8310c818d81730321b5d30c626697d8b2da78f99e2fd1bc7a2)
+            type_hints = cached_type_hints(_typecheckingstub__7b13dbc0afad5a8310c818d81730321b5d30c626697d8b2da78f99e2fd1bc7a2)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2041,19 +2049,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommentOnCommit", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommentOnCommit", [id, options]))
 
     @jsii.member(jsii_name="onCommentOnPullRequest")
     def on_comment_on_pull_request(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -2064,9 +2072,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__022a2d7879b191ea4d30f968e4c0507a65f74cb5655b3e01025c411d5a87d764)
+            type_hints = cached_type_hints(_typecheckingstub__022a2d7879b191ea4d30f968e4c0507a65f74cb5655b3e01025c411d5a87d764)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2074,7 +2082,7 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommentOnPullRequest", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommentOnPullRequest", [id, options]))
 
     @jsii.member(jsii_name="onCommit")
     def on_commit(
@@ -2082,12 +2090,12 @@ class _IRepositoryProxy(
         id: builtins.str,
         *,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a commit is pushed to a branch.
 
         :param id: -
@@ -2099,7 +2107,7 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0d481bc7c4182a1ac18ea2989bcaa2496cb87321e12fc1d4c1199f6c9725fa9)
+            type_hints = cached_type_hints(_typecheckingstub__c0d481bc7c4182a1ac18ea2989bcaa2496cb87321e12fc1d4c1199f6c9725fa9)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnCommitOptions(
             branches=branches,
@@ -2110,19 +2118,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommit", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommit", [id, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -2136,9 +2144,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f54ec4ba5273f31ec8895010478e4112d943903cb729374b88ff19d8d2cbbb)
+            type_hints = cached_type_hints(_typecheckingstub__d6f54ec4ba5273f31ec8895010478e4112d943903cb729374b88ff19d8d2cbbb)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2146,19 +2154,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onPullRequestStateChange")
     def on_pull_request_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a pull request state is changed.
 
         :param id: -
@@ -2169,9 +2177,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd475d88fc4c78b023fb9486283e5b3c70aa9e5bc8198d12f2d6258e07211c05)
+            type_hints = cached_type_hints(_typecheckingstub__cd475d88fc4c78b023fb9486283e5b3c70aa9e5bc8198d12f2d6258e07211c05)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2179,19 +2187,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onPullRequestStateChange", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onPullRequestStateChange", [id, options]))
 
     @jsii.member(jsii_name="onReferenceCreated")
     def on_reference_created(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is created (i.e. a new branch/tag is created) to the repository.
 
         :param id: -
@@ -2202,9 +2210,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0910d5c390fbbee842a81d3014cb2cbc92f66be0788ad6afdbd8d33537f5fff6)
+            type_hints = cached_type_hints(_typecheckingstub__0910d5c390fbbee842a81d3014cb2cbc92f66be0788ad6afdbd8d33537f5fff6)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2212,19 +2220,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceCreated", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceCreated", [id, options]))
 
     @jsii.member(jsii_name="onReferenceDeleted")
     def on_reference_deleted(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is delete (i.e. a branch/tag is deleted) from the repository.
 
         :param id: -
@@ -2235,9 +2243,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcd3a4ba200e7a391250089adbbdae2d47ddef364737384821b9f31b6264315c)
+            type_hints = cached_type_hints(_typecheckingstub__dcd3a4ba200e7a391250089adbbdae2d47ddef364737384821b9f31b6264315c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2245,19 +2253,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceDeleted", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceDeleted", [id, options]))
 
     @jsii.member(jsii_name="onReferenceUpdated")
     def on_reference_updated(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is updated (i.e. a commit is pushed to an existing or new branch) from the repository.
 
         :param id: -
@@ -2268,9 +2276,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0aee5dce826833691e86aae6c2a6d46fb6d2653dcf57d20baee5422625ba26e3)
+            type_hints = cached_type_hints(_typecheckingstub__0aee5dce826833691e86aae6c2a6d46fb6d2653dcf57d20baee5422625ba26e3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2278,19 +2286,19 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceUpdated", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceUpdated", [id, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def on_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a "CodeCommit Repository State Change" event occurs.
 
         :param id: -
@@ -2301,9 +2309,9 @@ class _IRepositoryProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec4a2730813e663960c4c8d8a730817b32d936daf8c8ac9bd2ccfedb72150e2c)
+            type_hints = cached_type_hints(_typecheckingstub__ec4a2730813e663960c4c8d8a730817b32d936daf8c8ac9bd2ccfedb72150e2c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -2311,7 +2319,7 @@ class _IRepositoryProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onStateChange", [id, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRepository).__jsii_proxy_class__ = lambda : _IRepositoryProxy
@@ -2319,7 +2327,7 @@ typing.cast(typing.Any, IRepository).__jsii_proxy_class__ = lambda : _IRepositor
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codecommit.OnCommitOptions",
-    jsii_struct_bases=[_OnEventOptions_8711b8b3],
+    jsii_struct_bases=[_aws_events_27c08586.OnEventOptions],
     name_mapping={
         "cross_stack_scope": "crossStackScope",
         "description": "description",
@@ -2329,15 +2337,15 @@ typing.cast(typing.Any, IRepository).__jsii_proxy_class__ = lambda : _IRepositor
         "branches": "branches",
     },
 )
-class OnCommitOptions(_OnEventOptions_8711b8b3):
+class OnCommitOptions(_aws_events_27c08586.OnEventOptions):
     def __init__(
         self,
         *,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Options for the onCommit() method.
@@ -2365,9 +2373,9 @@ class OnCommitOptions(_OnEventOptions_8711b8b3):
             )
         '''
         if isinstance(event_pattern, dict):
-            event_pattern = _EventPattern_fe557901(**event_pattern)
+            event_pattern = _aws_events_27c08586.EventPattern(**event_pattern)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53b1f18ce4d88514601fab8586927ad977e89525fe4ce21ca79eee655396c1d)
+            type_hints = cached_type_hints(_typecheckingstub__c53b1f18ce4d88514601fab8586927ad977e89525fe4ce21ca79eee655396c1d)
             check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -2409,7 +2417,7 @@ class OnCommitOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def event_pattern(self) -> typing.Optional["_EventPattern_fe557901"]:
+    def event_pattern(self) -> typing.Optional["_aws_events_27c08586.EventPattern"]:
         '''Additional restrictions for the event to route to the specified target.
 
         The method that generates the rule probably imposes some type of event
@@ -2421,7 +2429,7 @@ class OnCommitOptions(_OnEventOptions_8711b8b3):
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
         '''
         result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional["_EventPattern_fe557901"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.EventPattern"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -2433,13 +2441,13 @@ class OnCommitOptions(_OnEventOptions_8711b8b3):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def target(self) -> typing.Optional["_IRuleTarget_7a91f454"]:
+    def target(self) -> typing.Optional["_aws_events_27c08586.IRuleTarget"]:
         '''The target to register for the event.
 
         :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
         '''
         result = self._values.get("target")
-        return typing.cast(typing.Optional["_IRuleTarget_7a91f454"], result)
+        return typing.cast(typing.Optional["_aws_events_27c08586.IRuleTarget"], result)
 
     @builtins.property
     def branches(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2525,7 +2533,7 @@ class ReferenceEvent(
 
 @jsii.implements(IRepository)
 class Repository(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codecommit.Repository",
 ):
@@ -2577,7 +2585,7 @@ class Repository(
         repository_name: builtins.str,
         code: typing.Optional["Code"] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -2588,7 +2596,7 @@ class Repository(
         :param kms_key: The customer managed key used to encrypt and decrypt the data in repository. Default: - Use an AWS managed key
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc18226d2621b909e0802baaec299567def39762c6bf07510ef197899ff96a91)
+            type_hints = cached_type_hints(_typecheckingstub__fc18226d2621b909e0802baaec299567def39762c6bf07510ef197899ff96a91)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RepositoryProps(
@@ -2615,7 +2623,7 @@ class Repository(
         :param repository_arn: (e.g. ``arn:aws:codecommit:us-east-1:123456789012:MyDemoRepo``).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3981dcb255b9a3266cc0fc6d2890e5a7fef96f5894a4ef967ff666e58f72833)
+            type_hints = cached_type_hints(_typecheckingstub__f3981dcb255b9a3266cc0fc6d2890e5a7fef96f5894a4ef967ff666e58f72833)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
@@ -2635,7 +2643,7 @@ class Repository(
         :param repository_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81bca08f72268202d3b364831715be5587852151603627292a8e61129e37c3c0)
+            type_hints = cached_type_hints(_typecheckingstub__81bca08f72268202d3b364831715be5587852151603627292a8e61129e37c3c0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
@@ -2645,35 +2653,38 @@ class Repository(
     def bind_as_notification_rule_source(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_NotificationRuleSourceConfig_20189a3e":
+    ) -> "_aws_codestarnotifications_de9a7862.NotificationRuleSourceConfig":
         '''Returns a source configuration for notification rule.
 
         :param _scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bce1acfc9824ad93658ba014d62079e398555716fd9c87708b05022831b1b038)
+            type_hints = cached_type_hints(_typecheckingstub__bce1acfc9824ad93658ba014d62079e398555716fd9c87708b05022831b1b038)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast("_NotificationRuleSourceConfig_20189a3e", jsii.invoke(self, "bindAsNotificationRuleSource", [_scope]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.NotificationRuleSourceConfig", jsii.invoke(self, "bindAsNotificationRuleSource", [_scope]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7402788e4dbfde5dc7ec7b32089dea4a8dc1cb74bc501e6fa6508c70c4d8ded)
+            type_hints = cached_type_hints(_typecheckingstub__f7402788e4dbfde5dc7ec7b32089dea4a8dc1cb74bc501e6fa6508c70c4d8ded)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPull")
-    def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''The use of this method is discouraged. Please use ``grants.pull()`` instead.
 
         [disable-awslint:no-grants]
@@ -2681,12 +2692,15 @@ class Repository(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbbcecbc7faeddbda99d49cffd055e8154005631aa698172977c6e4db28ac599)
+            type_hints = cached_type_hints(_typecheckingstub__cbbcecbc7faeddbda99d49cffd055e8154005631aa698172977c6e4db28ac599)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPull", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPull", [grantee]))
 
     @jsii.member(jsii_name="grantPullPush")
-    def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''The use of this method is discouraged. Please use ``grants.pullPush()`` instead.
 
         [disable-awslint:no-grants]
@@ -2694,12 +2708,15 @@ class Repository(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79efe60503b55cc3a5f2df365dc0093da149f058148cc261dc626ddfc9d2f4df)
+            type_hints = cached_type_hints(_typecheckingstub__79efe60503b55cc3a5f2df365dc0093da149f058148cc261dc626ddfc9d2f4df)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPullPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPullPush", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''The use of this method is discouraged. Please use ``grants.read()`` instead.
 
         [disable-awslint:no-grants]
@@ -2707,21 +2724,21 @@ class Repository(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3458cc082e7e4e18874ae54159c1143c8d40951328feef885af0a725811c1938)
+            type_hints = cached_type_hints(_typecheckingstub__3458cc082e7e4e18874ae54159c1143c8d40951328feef885af0a725811c1938)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="notifiyOnPullRequestMerged")
     def notifiy_on_pull_request_merged(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is merged.
 
         :param id: -
@@ -2732,17 +2749,17 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e51541fedf5c8bb4467983a2551ed5f9efa788750c8ebec9fbcf9aaeeb197dca)
+            type_hints = cached_type_hints(_typecheckingstub__e51541fedf5c8bb4467983a2551ed5f9efa788750c8ebec9fbcf9aaeeb197dca)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifiyOnPullRequestMerged", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifiyOnPullRequestMerged", [id, target, options]))
 
     @jsii.member(jsii_name="notify")
     def notify(
@@ -2763,7 +2780,7 @@ class Repository(
         :param name: A name for the trigger.Triggers on a repository must have unique names.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dbf9817defa3c5754b555f652afc4ba61c38e30a594dad01abc68b7850d81ee)
+            type_hints = cached_type_hints(_typecheckingstub__4dbf9817defa3c5754b555f652afc4ba61c38e30a594dad01abc68b7850d81ee)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         options = RepositoryTriggerOptions(
             branches=branches, custom_data=custom_data, events=events, name=name
@@ -2775,14 +2792,14 @@ class Repository(
     def notify_on(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         events: typing.Sequence["RepositoryNotificationEvents"],
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule triggered when the project events specified by you are emitted. Similar to ``onEvent`` API.
 
         You can also use the methods to define rules for the specific event emitted.
@@ -2797,7 +2814,7 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2749a2587821387b871505c0408414b596d663e34cdcf4cf4680c6ea428ab696)
+            type_hints = cached_type_hints(_typecheckingstub__2749a2587821387b871505c0408414b596d663e34cdcf4cf4680c6ea428ab696)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         options = RepositoryNotifyOnOptions(
@@ -2808,19 +2825,19 @@ class Repository(
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOn", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOn", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnApprovalRuleOverridden")
     def notify_on_approval_rule_overridden(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval rule is overridden.
 
         :param id: -
@@ -2831,29 +2848,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e63d1ce633a4f4266a796f6cdb67b39a645cc34554e1565e442106e47410e044)
+            type_hints = cached_type_hints(_typecheckingstub__e63d1ce633a4f4266a796f6cdb67b39a645cc34554e1565e442106e47410e044)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnApprovalRuleOverridden", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnApprovalRuleOverridden", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnApprovalStatusChanged")
     def notify_on_approval_status_changed(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when an approval status is changed.
 
         :param id: -
@@ -2864,29 +2881,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc8c6b048a43947387c3a5e34fc554543aa2e3e1d20768589eed5d96e44164a3)
+            type_hints = cached_type_hints(_typecheckingstub__fc8c6b048a43947387c3a5e34fc554543aa2e3e1d20768589eed5d96e44164a3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnApprovalStatusChanged", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnApprovalStatusChanged", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnBranchOrTagCreated")
     def notify_on_branch_or_tag_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a new branch or tag is created.
 
         :param id: -
@@ -2897,29 +2914,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb870921bbb9ab4ed9e1a62ba8ef6bf25612d59da0df03c9c1baa71010433baf)
+            type_hints = cached_type_hints(_typecheckingstub__cb870921bbb9ab4ed9e1a62ba8ef6bf25612d59da0df03c9c1baa71010433baf)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnBranchOrTagCreated", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnBranchOrTagCreated", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnBranchOrTagDeleted")
     def notify_on_branch_or_tag_deleted(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a branch or tag is deleted.
 
         :param id: -
@@ -2930,29 +2947,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590bcfde747b37888d42f2e95418df6766d69b978c2275b81a2d68c189377d31)
+            type_hints = cached_type_hints(_typecheckingstub__590bcfde747b37888d42f2e95418df6766d69b978c2275b81a2d68c189377d31)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnBranchOrTagDeleted", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnBranchOrTagDeleted", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestComment")
     def notify_on_pull_request_comment(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -2963,29 +2980,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8945454cd0688bf69a49ca491edd2ce985eab8c28b695a4392ae84fbba40b96f)
+            type_hints = cached_type_hints(_typecheckingstub__8945454cd0688bf69a49ca491edd2ce985eab8c28b695a4392ae84fbba40b96f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestComment", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestComment", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestCreated")
     def notify_on_pull_request_created(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is created.
 
         :param id: -
@@ -2996,29 +3013,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9584aecb592a6d74f000818947c6960318c665568cef4b2803439fb35a634f69)
+            type_hints = cached_type_hints(_typecheckingstub__9584aecb592a6d74f000818947c6960318c665568cef4b2803439fb35a634f69)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestCreated", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestCreated", [id, target, options]))
 
     @jsii.member(jsii_name="notifyOnPullRequestMerged")
     def notify_on_pull_request_merged(
         self,
         id: builtins.str,
-        target: "_INotificationRuleTarget_faa3b79b",
+        target: "_aws_codestarnotifications_de9a7862.INotificationRuleTarget",
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_INotificationRule_71939426":
+    ) -> "_aws_codestarnotifications_de9a7862.INotificationRule":
         '''Defines a CodeStar Notification rule which triggers when a pull request is merged.
 
         :param id: -
@@ -3029,29 +3046,29 @@ class Repository(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a56da01a2bfa53759d6ea1d05f82f37dbb5b0d0a992404afbafaabc9ee32c0a4)
+            type_hints = cached_type_hints(_typecheckingstub__a56da01a2bfa53759d6ea1d05f82f37dbb5b0d0a992404afbafaabc9ee32c0a4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        options = _NotificationRuleOptions_dff73281(
+        options = _aws_codestarnotifications_de9a7862.NotificationRuleOptions(
             created_by=created_by,
             detail_type=detail_type,
             enabled=enabled,
             notification_rule_name=notification_rule_name,
         )
 
-        return typing.cast("_INotificationRule_71939426", jsii.invoke(self, "notifyOnPullRequestMerged", [id, target, options]))
+        return typing.cast("_aws_codestarnotifications_de9a7862.INotificationRule", jsii.invoke(self, "notifyOnPullRequestMerged", [id, target, options]))
 
     @jsii.member(jsii_name="onCommentOnCommit")
     def on_comment_on_commit(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a commit.
 
         :param id: -
@@ -3062,9 +3079,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f176079faedd3ddd4ac31d2d0b9c018b9c32310f84d7c41ed39d586518dcb0d)
+            type_hints = cached_type_hints(_typecheckingstub__9f176079faedd3ddd4ac31d2d0b9c018b9c32310f84d7c41ed39d586518dcb0d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3072,19 +3089,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommentOnCommit", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommentOnCommit", [id, options]))
 
     @jsii.member(jsii_name="onCommentOnPullRequest")
     def on_comment_on_pull_request(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a comment is made on a pull request.
 
         :param id: -
@@ -3095,9 +3112,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de35095a4c36c49554ecc892ce7931ac9d6185c79597e7132048ce2c061d3497)
+            type_hints = cached_type_hints(_typecheckingstub__de35095a4c36c49554ecc892ce7931ac9d6185c79597e7132048ce2c061d3497)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3105,7 +3122,7 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommentOnPullRequest", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommentOnPullRequest", [id, options]))
 
     @jsii.member(jsii_name="onCommit")
     def on_commit(
@@ -3113,12 +3130,12 @@ class Repository(
         id: builtins.str,
         *,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a commit is pushed to a branch.
 
         :param id: -
@@ -3130,7 +3147,7 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ebe7cddf755b7bc82b4405e31c110bd2e3f0b1b6f641983b4d3c1b3dc0b31c)
+            type_hints = cached_type_hints(_typecheckingstub__d2ebe7cddf755b7bc82b4405e31c110bd2e3f0b1b6f641983b4d3c1b3dc0b31c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = OnCommitOptions(
             branches=branches,
@@ -3141,19 +3158,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onCommit", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onCommit", [id, options]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers for repository events.
 
         Use
@@ -3167,9 +3184,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0b93a9d5701b0dca5e904fc6edbea6970f576a0e8bc4db36b43b0aa38b81f25)
+            type_hints = cached_type_hints(_typecheckingstub__b0b93a9d5701b0dca5e904fc6edbea6970f576a0e8bc4db36b43b0aa38b81f25)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3177,19 +3194,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onPullRequestStateChange")
     def on_pull_request_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a pull request state is changed.
 
         :param id: -
@@ -3200,9 +3217,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5488a133f0d0938542fe1ce849050c9127cb97f23fe22494080993548f5bf14)
+            type_hints = cached_type_hints(_typecheckingstub__a5488a133f0d0938542fe1ce849050c9127cb97f23fe22494080993548f5bf14)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3210,19 +3227,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onPullRequestStateChange", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onPullRequestStateChange", [id, options]))
 
     @jsii.member(jsii_name="onReferenceCreated")
     def on_reference_created(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is created (i.e. a new branch/tag is created) to the repository.
 
         :param id: -
@@ -3233,9 +3250,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7df2da21049928efb9ab3242676cc304cd8fa677f87dd8602a4ea27dfa2f402a)
+            type_hints = cached_type_hints(_typecheckingstub__7df2da21049928efb9ab3242676cc304cd8fa677f87dd8602a4ea27dfa2f402a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3243,19 +3260,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceCreated", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceCreated", [id, options]))
 
     @jsii.member(jsii_name="onReferenceDeleted")
     def on_reference_deleted(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is delete (i.e. a branch/tag is deleted) from the repository.
 
         :param id: -
@@ -3266,9 +3283,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0446cdca88991cfa784b5f0f912638fdba89c78521b26c393af077ecefa25e05)
+            type_hints = cached_type_hints(_typecheckingstub__0446cdca88991cfa784b5f0f912638fdba89c78521b26c393af077ecefa25e05)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3276,19 +3293,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceDeleted", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceDeleted", [id, options]))
 
     @jsii.member(jsii_name="onReferenceUpdated")
     def on_reference_updated(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a reference is updated (i.e. a commit is pushed to an existing or new branch) from the repository.
 
         :param id: -
@@ -3299,9 +3316,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83d473666784cac4ba5b8e4d3cf2e3bb787317bb9cbd1801363bbf43035b300d)
+            type_hints = cached_type_hints(_typecheckingstub__83d473666784cac4ba5b8e4d3cf2e3bb787317bb9cbd1801363bbf43035b300d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3309,19 +3326,19 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onReferenceUpdated", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onReferenceUpdated", [id, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def on_state_change(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional["_IRuleTarget_7a91f454"] = None,
+        target: typing.Optional["_aws_events_27c08586.IRuleTarget"] = None,
         cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["_EventPattern_fe557901", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_events_27c08586.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> "_Rule_334ed2b5":
+    ) -> "_aws_events_27c08586.Rule":
         '''Defines a CloudWatch event rule which triggers when a "CodeCommit Repository State Change" event occurs.
 
         :param id: -
@@ -3332,9 +3349,9 @@ class Repository(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a5f61873c1de6801c610dc52c1b0aead08c4373e86647a8107cc8b1b17daa74)
+            type_hints = cached_type_hints(_typecheckingstub__1a5f61873c1de6801c610dc52c1b0aead08c4373e86647a8107cc8b1b17daa74)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
+        options = _aws_events_27c08586.OnEventOptions(
             target=target,
             cross_stack_scope=cross_stack_scope,
             description=description,
@@ -3342,7 +3359,7 @@ class Repository(
             rule_name=rule_name,
         )
 
-        return typing.cast("_Rule_334ed2b5", jsii.invoke(self, "onStateChange", [id, options]))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.invoke(self, "onStateChange", [id, options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3394,9 +3411,9 @@ class Repository(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryRef")
-    def repository_ref(self) -> "_RepositoryReference_6e315ada":
+    def repository_ref(self) -> "_aws_codecommit_1c8f946c.RepositoryReference":
         '''A reference to a Repository resource.'''
-        return typing.cast("_RepositoryReference_6e315ada", jsii.get(self, "repositoryRef"))
+        return typing.cast("_aws_codecommit_1c8f946c.RepositoryReference", jsii.get(self, "repositoryRef"))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_codecommit.RepositoryEventTrigger")
@@ -3433,25 +3450,25 @@ class RepositoryGrants(
     @builtins.classmethod
     def from_repository(
         cls,
-        resource: "_IRepositoryRef_f6c56413",
+        resource: "_aws_codecommit_1c8f946c.IRepositoryRef",
     ) -> "RepositoryGrants":
         '''Creates grants for RepositoryGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23e951e2c1f738817fb29649abf6005e6a77f22795ceb81f64c3ab284713e314)
+            type_hints = cached_type_hints(_typecheckingstub__23e951e2c1f738817fb29649abf6005e6a77f22795ceb81f64c3ab284713e314)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("RepositoryGrants", jsii.sinvoke(cls, "fromRepository", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -3459,50 +3476,59 @@ class RepositoryGrants(
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a71e50b6)
+            type_hints = cached_type_hints(_typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a71e50b6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="pull")
-    def pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def pull(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants pull permissions.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5422e4dd85825f4007826cab5651a65fe793cfa5049957e959b6dd4671570a41)
+            type_hints = cached_type_hints(_typecheckingstub__5422e4dd85825f4007826cab5651a65fe793cfa5049957e959b6dd4671570a41)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "pull", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "pull", [grantee]))
 
     @jsii.member(jsii_name="pullPush")
-    def pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def pull_push(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants pullPush permissions.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ed87a8233d2b25dd036f841fb4a36753c25c207d91c0131044211408d35148b)
+            type_hints = cached_type_hints(_typecheckingstub__8ed87a8233d2b25dd036f841fb4a36753c25c207d91c0131044211408d35148b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "pullPush", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "pullPush", [grantee]))
 
     @jsii.member(jsii_name="read")
-    def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants read permissions.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b52f08c2d087381cc5106a36a39bb3dd4d12526e1f9f3b9102e5624499ecfdd)
+            type_hints = cached_type_hints(_typecheckingstub__1b52f08c2d087381cc5106a36a39bb3dd4d12526e1f9f3b9102e5624499ecfdd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "read", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "read", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IRepositoryRef_f6c56413":
-        return typing.cast("_IRepositoryRef_f6c56413", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_codecommit_1c8f946c.IRepositoryRef":
+        return typing.cast("_aws_codecommit_1c8f946c.IRepositoryRef", jsii.get(self, "resource"))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_codecommit.RepositoryNotificationEvents")
@@ -3538,7 +3564,7 @@ class RepositoryNotificationEvents(enum.Enum):
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codecommit.RepositoryNotifyOnOptions",
-    jsii_struct_bases=[_NotificationRuleOptions_dff73281],
+    jsii_struct_bases=[_aws_codestarnotifications_de9a7862.NotificationRuleOptions],
     name_mapping={
         "created_by": "createdBy",
         "detail_type": "detailType",
@@ -3547,12 +3573,14 @@ class RepositoryNotificationEvents(enum.Enum):
         "events": "events",
     },
 )
-class RepositoryNotifyOnOptions(_NotificationRuleOptions_dff73281):
+class RepositoryNotifyOnOptions(
+    _aws_codestarnotifications_de9a7862.NotificationRuleOptions,
+):
     def __init__(
         self,
         *,
         created_by: typing.Optional[builtins.str] = None,
-        detail_type: typing.Optional["_DetailType_cf8135e7"] = None,
+        detail_type: typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         notification_rule_name: typing.Optional[builtins.str] = None,
         events: typing.Sequence["RepositoryNotificationEvents"],
@@ -3585,7 +3613,7 @@ class RepositoryNotifyOnOptions(_NotificationRuleOptions_dff73281):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16fd76e74f0043c5c5c8d74817ce13ba7cb586b9bf523ff287c1613ecca5ac20)
+            type_hints = cached_type_hints(_typecheckingstub__16fd76e74f0043c5c5c8d74817ce13ba7cb586b9bf523ff287c1613ecca5ac20)
             check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
             check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -3615,7 +3643,9 @@ class RepositoryNotifyOnOptions(_NotificationRuleOptions_dff73281):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def detail_type(self) -> typing.Optional["_DetailType_cf8135e7"]:
+    def detail_type(
+        self,
+    ) -> typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"]:
         '''The level of detail to include in the notifications for this resource.
 
         BASIC will include only the contents of the event as it would appear in AWS CloudWatch.
@@ -3624,7 +3654,7 @@ class RepositoryNotifyOnOptions(_NotificationRuleOptions_dff73281):
         :default: DetailType.FULL
         '''
         result = self._values.get("detail_type")
-        return typing.cast(typing.Optional["_DetailType_cf8135e7"], result)
+        return typing.cast(typing.Optional["_aws_codestarnotifications_de9a7862.DetailType"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -3689,7 +3719,7 @@ class RepositoryProps:
         repository_name: builtins.str,
         code: typing.Optional["Code"] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
     ) -> None:
         '''
         :param repository_name: Name of the repository. This property is required for all CodeCommit repositories.
@@ -3735,7 +3765,7 @@ class RepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f5b7aba6edb1a65dfbcce23930da17cf0e6a0d64372346382ade8dd17d1ceec)
+            type_hints = cached_type_hints(_typecheckingstub__0f5b7aba6edb1a65dfbcce23930da17cf0e6a0d64372346382ade8dd17d1ceec)
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3782,13 +3812,13 @@ class RepositoryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''The customer managed key used to encrypt and decrypt the data in repository.
 
         :default: - Use an AWS managed key
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3844,7 +3874,7 @@ class RepositoryTriggerOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dba412560c45b87b40cb60b3a994966135dd4343e862cd7d83789ad0058a928)
+            type_hints = cached_type_hints(_typecheckingstub__0dba412560c45b87b40cb60b3a994966135dd4343e862cd7d83789ad0058a928)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument custom_data", value=custom_data, expected_type=type_hints["custom_data"])
             check_type(argname="argument events", value=events, expected_type=type_hints["events"])
@@ -3923,17 +3953,17 @@ def _typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e
     id: builtins.str,
     *,
     repository_name: builtins.str,
-    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     repository_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8dde4718a89747db343eefe0b96452332a2d00fc8795622bbe249e45ed9b262b(
-    resource: _IRepositoryRef_f6c56413,
+    resource: _aws_codecommit_1c8f946c.IRepositoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3945,7 +3975,7 @@ def _typecheckingstub__5e6a2ed85e9dbfe47c580ac855f959e3183fc82501ca19b8ac12beb74
     pass
 
 def _typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3963,7 +3993,7 @@ def _typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd
     pass
 
 def _typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.CodeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.CodeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3981,20 +4011,20 @@ def _typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f
     pass
 
 def _typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.RepositoryTriggerProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRepository.RepositoryTriggerProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121(
     *,
-    s3: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.S3Property, typing.Dict[builtins.str, typing.Any]]],
+    s3: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.S3Property, typing.Dict[builtins.str, typing.Any]]],
     branch_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4023,17 +4053,17 @@ def _typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1
 def _typecheckingstub__40c04585281a174d6c45f3d0ebb0cbf1dd9d263edfd133ff98f6e08e9e052bb1(
     *,
     repository_name: builtins.str,
-    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     repository_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36447c37e024f3735b5478be259e58f349ae7d9ccb44ee4e4a18a2784b9ba16e(
-    asset: _Asset_ac2a7e61,
+    asset: _aws_s3_assets_2dba96fa.Asset,
     branch: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4067,37 +4097,37 @@ def _typecheckingstub__ea4ac2a79dbabc1d15f21b47d006d6df72efdb31ab914edd8a994b410
     pass
 
 def _typecheckingstub__365c5593ff83cf972d077b7c5a84fbc1b5a0265992dc07d9c11fc0b29a29216a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7d9e6b243e05b7c6eba91182b9bd7adabc3f071225b4e3a50df8e001d1f4fa37(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a6febdc5d7cf9c0ad4956ce1b01c3943a10e93da55708f00ece4f2eb5e3afb7(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6a3b246d79233ee846d1ea5d76eae3faed1da036177a20d699700bc19f4718f7(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4c7942184f6ef1171bc9e0c3554be4e156be2d930de75af76e6c7194dba6915d(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     events: typing.Sequence[RepositoryNotificationEvents],
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4106,10 +4136,10 @@ def _typecheckingstub__4c7942184f6ef1171bc9e0c3554be4e156be2d930de75af76e6c7194d
 
 def _typecheckingstub__1eaa0e8d10ed3253a51fe07f30f2e5ccd87923daac9fa5cac304d64e8cd2bc73(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4118,10 +4148,10 @@ def _typecheckingstub__1eaa0e8d10ed3253a51fe07f30f2e5ccd87923daac9fa5cac304d64e8
 
 def _typecheckingstub__e7bf91f05b1a4f3ae616bd9f41791280fc198c1c0da943398dda62249bb2c93d(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4130,10 +4160,10 @@ def _typecheckingstub__e7bf91f05b1a4f3ae616bd9f41791280fc198c1c0da943398dda62249
 
 def _typecheckingstub__cafbc61c624b37c5ad3d4b8a63e817009d77858ce7b25f3e44bba75d8b2c826c(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4142,10 +4172,10 @@ def _typecheckingstub__cafbc61c624b37c5ad3d4b8a63e817009d77858ce7b25f3e44bba75d8
 
 def _typecheckingstub__0275a2e8104bae4bd7ac1bba2e30688464d013a5007f7602a9ea90f4408842fc(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4154,10 +4184,10 @@ def _typecheckingstub__0275a2e8104bae4bd7ac1bba2e30688464d013a5007f7602a9ea90f44
 
 def _typecheckingstub__6248afe48e2fb868c294f63ac413c00382e7856dc1949f9226aad20932c7e7e5(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4166,10 +4196,10 @@ def _typecheckingstub__6248afe48e2fb868c294f63ac413c00382e7856dc1949f9226aad2093
 
 def _typecheckingstub__f02ad2ac0201a88eb92c38b6798b71bcc5a0c60f935ccccfd798c221251e41df(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4178,10 +4208,10 @@ def _typecheckingstub__f02ad2ac0201a88eb92c38b6798b71bcc5a0c60f935ccccfd798c2212
 
 def _typecheckingstub__a979cb7a485f86b22849a4dd125f67228ce5778a7cf334f786600ef50b4bcb80(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4191,10 +4221,10 @@ def _typecheckingstub__a979cb7a485f86b22849a4dd125f67228ce5778a7cf334f786600ef50
 def _typecheckingstub__7b13dbc0afad5a8310c818d81730321b5d30c626697d8b2da78f99e2fd1bc7a2(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4203,10 +4233,10 @@ def _typecheckingstub__7b13dbc0afad5a8310c818d81730321b5d30c626697d8b2da78f99e2f
 def _typecheckingstub__022a2d7879b191ea4d30f968e4c0507a65f74cb5655b3e01025c411d5a87d764(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4216,10 +4246,10 @@ def _typecheckingstub__c0d481bc7c4182a1ac18ea2989bcaa2496cb87321e12fc1d4c1199f6c
     id: builtins.str,
     *,
     branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4228,10 +4258,10 @@ def _typecheckingstub__c0d481bc7c4182a1ac18ea2989bcaa2496cb87321e12fc1d4c1199f6c
 def _typecheckingstub__d6f54ec4ba5273f31ec8895010478e4112d943903cb729374b88ff19d8d2cbbb(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4240,10 +4270,10 @@ def _typecheckingstub__d6f54ec4ba5273f31ec8895010478e4112d943903cb729374b88ff19d
 def _typecheckingstub__cd475d88fc4c78b023fb9486283e5b3c70aa9e5bc8198d12f2d6258e07211c05(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4252,10 +4282,10 @@ def _typecheckingstub__cd475d88fc4c78b023fb9486283e5b3c70aa9e5bc8198d12f2d6258e0
 def _typecheckingstub__0910d5c390fbbee842a81d3014cb2cbc92f66be0788ad6afdbd8d33537f5fff6(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4264,10 +4294,10 @@ def _typecheckingstub__0910d5c390fbbee842a81d3014cb2cbc92f66be0788ad6afdbd8d3353
 def _typecheckingstub__dcd3a4ba200e7a391250089adbbdae2d47ddef364737384821b9f31b6264315c(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4276,10 +4306,10 @@ def _typecheckingstub__dcd3a4ba200e7a391250089adbbdae2d47ddef364737384821b9f31b6
 def _typecheckingstub__0aee5dce826833691e86aae6c2a6d46fb6d2653dcf57d20baee5422625ba26e3(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4288,10 +4318,10 @@ def _typecheckingstub__0aee5dce826833691e86aae6c2a6d46fb6d2653dcf57d20baee542262
 def _typecheckingstub__ec4a2730813e663960c4c8d8a730817b32d936daf8c8ac9bd2ccfedb72150e2c(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4301,9 +4331,9 @@ def _typecheckingstub__c53b1f18ce4d88514601fab8586927ad977e89525fe4ce21ca79eee65
     *,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     branches: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4316,7 +4346,7 @@ def _typecheckingstub__fc18226d2621b909e0802baaec299567def39762c6bf07510ef197899
     repository_name: builtins.str,
     code: typing.Optional[Code] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4344,36 +4374,36 @@ def _typecheckingstub__bce1acfc9824ad93658ba014d62079e398555716fd9c87708b0502283
     pass
 
 def _typecheckingstub__f7402788e4dbfde5dc7ec7b32089dea4a8dc1cb74bc501e6fa6508c70c4d8ded(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cbbcecbc7faeddbda99d49cffd055e8154005631aa698172977c6e4db28ac599(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__79efe60503b55cc3a5f2df365dc0093da149f058148cc261dc626ddfc9d2f4df(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3458cc082e7e4e18874ae54159c1143c8d40951328feef885af0a725811c1938(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e51541fedf5c8bb4467983a2551ed5f9efa788750c8ebec9fbcf9aaeeb197dca(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4393,11 +4423,11 @@ def _typecheckingstub__4dbf9817defa3c5754b555f652afc4ba61c38e30a594dad01abc68b78
 
 def _typecheckingstub__2749a2587821387b871505c0408414b596d663e34cdcf4cf4680c6ea428ab696(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     events: typing.Sequence[RepositoryNotificationEvents],
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4406,10 +4436,10 @@ def _typecheckingstub__2749a2587821387b871505c0408414b596d663e34cdcf4cf4680c6ea4
 
 def _typecheckingstub__e63d1ce633a4f4266a796f6cdb67b39a645cc34554e1565e442106e47410e044(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4418,10 +4448,10 @@ def _typecheckingstub__e63d1ce633a4f4266a796f6cdb67b39a645cc34554e1565e442106e47
 
 def _typecheckingstub__fc8c6b048a43947387c3a5e34fc554543aa2e3e1d20768589eed5d96e44164a3(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4430,10 +4460,10 @@ def _typecheckingstub__fc8c6b048a43947387c3a5e34fc554543aa2e3e1d20768589eed5d96e
 
 def _typecheckingstub__cb870921bbb9ab4ed9e1a62ba8ef6bf25612d59da0df03c9c1baa71010433baf(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4442,10 +4472,10 @@ def _typecheckingstub__cb870921bbb9ab4ed9e1a62ba8ef6bf25612d59da0df03c9c1baa7101
 
 def _typecheckingstub__590bcfde747b37888d42f2e95418df6766d69b978c2275b81a2d68c189377d31(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4454,10 +4484,10 @@ def _typecheckingstub__590bcfde747b37888d42f2e95418df6766d69b978c2275b81a2d68c18
 
 def _typecheckingstub__8945454cd0688bf69a49ca491edd2ce985eab8c28b695a4392ae84fbba40b96f(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4466,10 +4496,10 @@ def _typecheckingstub__8945454cd0688bf69a49ca491edd2ce985eab8c28b695a4392ae84fbb
 
 def _typecheckingstub__9584aecb592a6d74f000818947c6960318c665568cef4b2803439fb35a634f69(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4478,10 +4508,10 @@ def _typecheckingstub__9584aecb592a6d74f000818947c6960318c665568cef4b2803439fb35
 
 def _typecheckingstub__a56da01a2bfa53759d6ea1d05f82f37dbb5b0d0a992404afbafaabc9ee32c0a4(
     id: builtins.str,
-    target: _INotificationRuleTarget_faa3b79b,
+    target: _aws_codestarnotifications_de9a7862.INotificationRuleTarget,
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4491,10 +4521,10 @@ def _typecheckingstub__a56da01a2bfa53759d6ea1d05f82f37dbb5b0d0a992404afbafaabc9e
 def _typecheckingstub__9f176079faedd3ddd4ac31d2d0b9c018b9c32310f84d7c41ed39d586518dcb0d(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4503,10 +4533,10 @@ def _typecheckingstub__9f176079faedd3ddd4ac31d2d0b9c018b9c32310f84d7c41ed39d5865
 def _typecheckingstub__de35095a4c36c49554ecc892ce7931ac9d6185c79597e7132048ce2c061d3497(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4516,10 +4546,10 @@ def _typecheckingstub__d2ebe7cddf755b7bc82b4405e31c110bd2e3f0b1b6f641983b4d3c1b3
     id: builtins.str,
     *,
     branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4528,10 +4558,10 @@ def _typecheckingstub__d2ebe7cddf755b7bc82b4405e31c110bd2e3f0b1b6f641983b4d3c1b3
 def _typecheckingstub__b0b93a9d5701b0dca5e904fc6edbea6970f576a0e8bc4db36b43b0aa38b81f25(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4540,10 +4570,10 @@ def _typecheckingstub__b0b93a9d5701b0dca5e904fc6edbea6970f576a0e8bc4db36b43b0aa3
 def _typecheckingstub__a5488a133f0d0938542fe1ce849050c9127cb97f23fe22494080993548f5bf14(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4552,10 +4582,10 @@ def _typecheckingstub__a5488a133f0d0938542fe1ce849050c9127cb97f23fe2249408099354
 def _typecheckingstub__7df2da21049928efb9ab3242676cc304cd8fa677f87dd8602a4ea27dfa2f402a(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4564,10 +4594,10 @@ def _typecheckingstub__7df2da21049928efb9ab3242676cc304cd8fa677f87dd8602a4ea27df
 def _typecheckingstub__0446cdca88991cfa784b5f0f912638fdba89c78521b26c393af077ecefa25e05(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4576,10 +4606,10 @@ def _typecheckingstub__0446cdca88991cfa784b5f0f912638fdba89c78521b26c393af077ece
 def _typecheckingstub__83d473666784cac4ba5b8e4d3cf2e3bb787317bb9cbd1801363bbf43035b300d(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4588,23 +4618,23 @@ def _typecheckingstub__83d473666784cac4ba5b8e4d3cf2e3bb787317bb9cbd1801363bbf430
 def _typecheckingstub__1a5f61873c1de6801c610dc52c1b0aead08c4373e86647a8107cc8b1b17daa74(
     id: builtins.str,
     *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    target: typing.Optional[_aws_events_27c08586.IRuleTarget] = None,
     cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
     description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_events_27c08586.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__23e951e2c1f738817fb29649abf6005e6a77f22795ceb81f64c3ab284713e314(
-    resource: _IRepositoryRef_f6c56413,
+    resource: _aws_codecommit_1c8f946c.IRepositoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a71e50b6(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4613,19 +4643,19 @@ def _typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a
     pass
 
 def _typecheckingstub__5422e4dd85825f4007826cab5651a65fe793cfa5049957e959b6dd4671570a41(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8ed87a8233d2b25dd036f841fb4a36753c25c207d91c0131044211408d35148b(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1b52f08c2d087381cc5106a36a39bb3dd4d12526e1f9f3b9102e5624499ecfdd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4633,7 +4663,7 @@ def _typecheckingstub__1b52f08c2d087381cc5106a36a39bb3dd4d12526e1f9f3b9102e56244
 def _typecheckingstub__16fd76e74f0043c5c5c8d74817ce13ba7cb586b9bf523ff287c1613ecca5ac20(
     *,
     created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[_DetailType_cf8135e7] = None,
+    detail_type: typing.Optional[_aws_codestarnotifications_de9a7862.DetailType] = None,
     enabled: typing.Optional[builtins.bool] = None,
     notification_rule_name: typing.Optional[builtins.str] = None,
     events: typing.Sequence[RepositoryNotificationEvents],
@@ -4646,7 +4676,7 @@ def _typecheckingstub__0f5b7aba6edb1a65dfbcce23930da17cf0e6a0d64372346382ade8dd1
     repository_name: builtins.str,
     code: typing.Optional[Code] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass

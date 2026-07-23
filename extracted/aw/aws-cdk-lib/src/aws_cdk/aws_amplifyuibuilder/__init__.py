@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_amplifyuibuilder import (
-    ComponentReference as _ComponentReference_de75adcf,
-    FormReference as _FormReference_ebed8580,
-    IComponentRef as _IComponentRef_46f239bf,
-    IFormRef as _IFormRef_ee9b385d,
-    IThemeRef as _IThemeRef_92e58367,
-    ThemeReference as _ThemeReference_62247883,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_amplifyuibuilder as _aws_amplifyuibuilder_dc56060a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_amplifyuibuilder_dc56060a = _LazyImport("aws_cdk.interfaces.aws_amplifyuibuilder")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IComponentRef_46f239bf, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplifyuibuilder_dc56060a.IComponentRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnComponent(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnComponent",
 ):
@@ -101,19 +92,19 @@ class CfnComponent(
         id: builtins.str,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        collection_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        children: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        collection_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         component_type: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         overrides: typing.Any = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         schema_version: typing.Optional[builtins.str] = None,
         source_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        variants: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        variants: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AmplifyUIBuilder::Component``.
 
@@ -135,7 +126,7 @@ class CfnComponent(
         :param variants: A list of the component's variants. A variant is a unique style configuration of a main component.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd7799829199faf127a94fa77781fc238076f764c5a29e3192b18302477d99ad)
+            type_hints = cached_type_hints(_typecheckingstub__fd7799829199faf127a94fa77781fc238076f764c5a29e3192b18302477d99ad)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnComponentProps(
@@ -165,18 +156,18 @@ class CfnComponent(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f214773737826f95a87f369ff491c8d26997aee2dced4ead1ada5b19d1de7bf)
+            type_hints = cached_type_hints(_typecheckingstub__7f214773737826f95a87f369ff491c8d26997aee2dced4ead1ada5b19d1de7bf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnComponent", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a4071d72b1c192773d27cf1393fcd31a209b8da1710b4cc3887aaa640711a2b)
+            type_hints = cached_type_hints(_typecheckingstub__3a4071d72b1c192773d27cf1393fcd31a209b8da1710b4cc3887aaa640711a2b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -189,7 +180,7 @@ class CfnComponent(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5845dbb422dcf82315243e4c81979c1db599d6f4e807c7e8d29cce12a0123aba)
+            type_hints = cached_type_hints(_typecheckingstub__5845dbb422dcf82315243e4c81979c1db599d6f4e807c7e8d29cce12a0123aba)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -238,15 +229,15 @@ class CfnComponent(
 
     @builtins.property
     @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> "_ComponentReference_de75adcf":
+    def component_ref(self) -> "_aws_amplifyuibuilder_dc56060a.ComponentReference":
         '''A reference to a Component resource.'''
-        return typing.cast("_ComponentReference_de75adcf", jsii.get(self, "componentRef"))
+        return typing.cast("_aws_amplifyuibuilder_dc56060a.ComponentReference", jsii.get(self, "componentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="overrides")
@@ -257,7 +248,7 @@ class CfnComponent(
     @overrides.setter
     def overrides(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083)
+            type_hints = cached_type_hints(_typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "overrides", value) # pyright: ignore[reportArgumentType]
 
@@ -270,7 +261,7 @@ class CfnComponent(
     @app_id.setter
     def app_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52def26f5917015e0ec1be927753e0ddd7c6ba2b26ed493f53e325e9fc57f820)
+            type_hints = cached_type_hints(_typecheckingstub__52def26f5917015e0ec1be927753e0ddd7c6ba2b26ed493f53e325e9fc57f820)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
 
@@ -278,17 +269,17 @@ class CfnComponent(
     @jsii.member(jsii_name="bindingProperties")
     def binding_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
         '''The information to connect a component's properties to data at runtime.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], jsii.get(self, "bindingProperties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], jsii.get(self, "bindingProperties"))
 
     @binding_properties.setter
     def binding_properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4318ac16b5fec407f318eecf547fbef09f6a25d44eee663a0eb2d9d4cfb515c8)
+            type_hints = cached_type_hints(_typecheckingstub__4318ac16b5fec407f318eecf547fbef09f6a25d44eee663a0eb2d9d4cfb515c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bindingProperties", value) # pyright: ignore[reportArgumentType]
 
@@ -296,17 +287,17 @@ class CfnComponent(
     @jsii.member(jsii_name="children")
     def children(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]]:
         '''A list of the component's ``ComponentChild`` instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], jsii.get(self, "children"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]], jsii.get(self, "children"))
 
     @children.setter
     def children(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc8d6f7afd78df5a6542a7697bbb32d8d2c9e5a18e80e3386de082f4e2b7071)
+            type_hints = cached_type_hints(_typecheckingstub__8cc8d6f7afd78df5a6542a7697bbb32d8d2c9e5a18e80e3386de082f4e2b7071)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "children", value) # pyright: ignore[reportArgumentType]
 
@@ -314,17 +305,17 @@ class CfnComponent(
     @jsii.member(jsii_name="collectionProperties")
     def collection_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
         '''The data binding configuration for the component's properties.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]], jsii.get(self, "collectionProperties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentDataConfigurationProperty"]]]], jsii.get(self, "collectionProperties"))
 
     @collection_properties.setter
     def collection_properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentDataConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ccd617dfcaf796edb26a70160a96d7ac3771afa99ba8a4500e7927f724ee8d2)
+            type_hints = cached_type_hints(_typecheckingstub__0ccd617dfcaf796edb26a70160a96d7ac3771afa99ba8a4500e7927f724ee8d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "collectionProperties", value) # pyright: ignore[reportArgumentType]
 
@@ -337,7 +328,7 @@ class CfnComponent(
     @component_type.setter
     def component_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d75568dbcc6cfcf6d654bc9d347cea6e2a04e9fed153e3f59a35fd309d097273)
+            type_hints = cached_type_hints(_typecheckingstub__d75568dbcc6cfcf6d654bc9d347cea6e2a04e9fed153e3f59a35fd309d097273)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "componentType", value) # pyright: ignore[reportArgumentType]
 
@@ -350,7 +341,7 @@ class CfnComponent(
     @environment_name.setter
     def environment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4df74d1bffa910e68795eee3fd72266a3d4fbec9071447212ebcea5459c405e)
+            type_hints = cached_type_hints(_typecheckingstub__b4df74d1bffa910e68795eee3fd72266a3d4fbec9071447212ebcea5459c405e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -358,17 +349,17 @@ class CfnComponent(
     @jsii.member(jsii_name="events")
     def events(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]]:
         '''Describes the events that can be raised on the component.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], jsii.get(self, "events"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]], jsii.get(self, "events"))
 
     @events.setter
     def events(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__867f4afaa52290132593733e3be70d110a540505523ee1a4b0bea23f5a059f8c)
+            type_hints = cached_type_hints(_typecheckingstub__867f4afaa52290132593733e3be70d110a540505523ee1a4b0bea23f5a059f8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "events", value) # pyright: ignore[reportArgumentType]
 
@@ -381,7 +372,7 @@ class CfnComponent(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d390004d0f30759542ef28ada1804bcce6e8abbebac682bdb562339425f06133)
+            type_hints = cached_type_hints(_typecheckingstub__d390004d0f30759542ef28ada1804bcce6e8abbebac682bdb562339425f06133)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -389,17 +380,17 @@ class CfnComponent(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]]:
         '''Describes the component's properties.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__996d9ae7924c5b47d79b0dc8a0bdd64fe013219ccbe4230a2423b7e9ad5aba37)
+            type_hints = cached_type_hints(_typecheckingstub__996d9ae7924c5b47d79b0dc8a0bdd64fe013219ccbe4230a2423b7e9ad5aba37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
 
@@ -412,7 +403,7 @@ class CfnComponent(
     @schema_version.setter
     def schema_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cce35ca7f734518c2d5b6c459ad169208cc7c4b0e7c4955205c3b6e4bdc8f484)
+            type_hints = cached_type_hints(_typecheckingstub__cce35ca7f734518c2d5b6c459ad169208cc7c4b0e7c4955205c3b6e4bdc8f484)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schemaVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -425,7 +416,7 @@ class CfnComponent(
     @source_id.setter
     def source_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1265b5d410f7cdf2344a649e0fe6921e9ffd6d7c60569ba0b37eedfeea753d74)
+            type_hints = cached_type_hints(_typecheckingstub__1265b5d410f7cdf2344a649e0fe6921e9ffd6d7c60569ba0b37eedfeea753d74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceId", value) # pyright: ignore[reportArgumentType]
 
@@ -441,7 +432,7 @@ class CfnComponent(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b9b20938d1ff30361e234f4ed386b675237f1fc01bc3df8c0e6a936db3246e2)
+            type_hints = cached_type_hints(_typecheckingstub__0b9b20938d1ff30361e234f4ed386b675237f1fc01bc3df8c0e6a936db3246e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -449,17 +440,17 @@ class CfnComponent(
     @jsii.member(jsii_name="variants")
     def variants(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentVariantProperty"]]]]:
         '''A list of the component's variants.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]], jsii.get(self, "variants"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentVariantProperty"]]]], jsii.get(self, "variants"))
 
     @variants.setter
     def variants(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentVariantProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21622fc70206995803294c972e78d130850c0e1dde7f836f2646dd47d873fc48)
+            type_hints = cached_type_hints(_typecheckingstub__21622fc70206995803294c972e78d130850c0e1dde7f836f2646dd47d873fc48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "variants", value) # pyright: ignore[reportArgumentType]
 
@@ -482,15 +473,15 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            anchor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            global_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            anchor: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            global_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model: typing.Optional[builtins.str] = None,
-            state: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.MutationActionSetStateParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            url: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            state: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.MutationActionSetStateParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the event action configuration for an element of a ``Component`` or ``ComponentChild`` .
 
@@ -848,7 +839,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__396df9c0159ef2683a2d199aa0e6b6baece439a466a700800ddc5e140dd124b1)
+                type_hints = cached_type_hints(_typecheckingstub__396df9c0159ef2683a2d199aa0e6b6baece439a466a700800ddc5e140dd124b1)
                 check_type(argname="argument anchor", value=anchor, expected_type=type_hints["anchor"])
                 check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
                 check_type(argname="argument global_", value=global_, expected_type=type_hints["global_"])
@@ -881,7 +872,7 @@ class CfnComponent(
         @builtins.property
         def anchor(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The HTML anchor link to the location to open.
 
             Specify this value for a navigation action.
@@ -889,12 +880,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-anchor
             '''
             result = self._values.get("anchor")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def fields(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]]:
             '''A dictionary of key-value pairs mapping Amplify Studio properties to fields in a data model.
 
             Use when the action performs an operation on an Amplify DataStore model.
@@ -902,12 +893,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-fields
             '''
             result = self._values.get("fields")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]], result)
 
         @builtins.property
         def global_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''Specifies whether the user should be signed out globally.
 
             Specify this value for an auth sign out action.
@@ -915,18 +906,18 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-global
             '''
             result = self._values.get("global_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def id(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The unique ID of the component that the ``ActionParameters`` apply to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-id
             '''
             result = self._values.get("id")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def model(self) -> typing.Optional[builtins.str]:
@@ -942,29 +933,29 @@ class CfnComponent(
         @builtins.property
         def state(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.MutationActionSetStateParameterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.MutationActionSetStateParameterProperty"]]:
             '''A key-value pair that specifies the state property name and its initial value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-state
             '''
             result = self._values.get("state")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.MutationActionSetStateParameterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.MutationActionSetStateParameterProperty"]], result)
 
         @builtins.property
         def target(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The element within the same component to modify when the action occurs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-target
             '''
             result = self._values.get("target")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def type(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The type of navigation action.
 
             Valid values are ``url`` and ``anchor`` . This value is required for a navigation action.
@@ -972,12 +963,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-type
             '''
             result = self._values.get("type")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def url(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The URL to the location to open.
 
             Specify this value for a navigation action.
@@ -985,7 +976,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-url
             '''
             result = self._values.get("url")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1021,7 +1012,7 @@ class CfnComponent(
             field: typing.Optional[builtins.str] = None,
             key: typing.Optional[builtins.str] = None,
             model: typing.Optional[builtins.str] = None,
-            predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            predicates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             slot_name: typing.Optional[builtins.str] = None,
             user_attribute: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1068,7 +1059,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__81ff632b19dd9fd8d12fdc9b6929e5e551d79797cb14dd1ca0cf7644998a657c)
+                type_hints = cached_type_hints(_typecheckingstub__81ff632b19dd9fd8d12fdc9b6929e5e551d79797cb14dd1ca0cf7644998a657c)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
@@ -1143,13 +1134,13 @@ class CfnComponent(
         @builtins.property
         def predicates(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates for binding a component's properties to data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentbindingpropertiesvalueproperties.html#cfn-amplifyuibuilder-component-componentbindingpropertiesvalueproperties-predicates
             '''
             result = self._values.get("predicates")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]], result)
 
         @builtins.property
         def slot_name(self) -> typing.Optional[builtins.str]:
@@ -1193,7 +1184,7 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_value: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1239,7 +1230,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff7030ae0aef39d7f52ec52503b8ffe4b3b2f9eab3ec5a0b307d62df215fac00)
+                type_hints = cached_type_hints(_typecheckingstub__ff7030ae0aef39d7f52ec52503b8ffe4b3b2f9eab3ec5a0b307d62df215fac00)
                 check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
                 check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1254,13 +1245,13 @@ class CfnComponent(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]]:
             '''Describes the properties to customize with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentbindingpropertiesvalue.html#cfn-amplifyuibuilder-component-componentbindingpropertiesvalue-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]], result)
 
         @builtins.property
         def default_value(self) -> typing.Optional[builtins.str]:
@@ -1309,9 +1300,9 @@ class CfnComponent(
             *,
             component_type: builtins.str,
             name: builtins.str,
-            properties: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            properties: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            children: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             source_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``ComponentChild`` property specifies a nested UI configuration within a parent ``Component`` .
@@ -1722,7 +1713,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3d50eae10e05ec6519c8b5405904b780a7f01613f52ff55abfb41b0c9edc884)
+                type_hints = cached_type_hints(_typecheckingstub__e3d50eae10e05ec6519c8b5405904b780a7f01613f52ff55abfb41b0c9edc884)
                 check_type(argname="argument component_type", value=component_type, expected_type=type_hints["component_type"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
@@ -1764,7 +1755,7 @@ class CfnComponent(
         @builtins.property
         def properties(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]:
             '''Describes the properties of the child component.
 
             You can't specify ``tags`` as a valid property for ``properties`` .
@@ -1773,23 +1764,23 @@ class CfnComponent(
             '''
             result = self._values.get("properties")
             assert result is not None, "Required property 'properties' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]], result)
 
         @builtins.property
         def children(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]]:
             '''The list of ``ComponentChild`` instances for this component.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentchild.html#cfn-amplifyuibuilder-component-componentchild-children
             '''
             result = self._values.get("children")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]], result)
 
         @builtins.property
         def events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]]:
             '''Describes the events that can be raised on the child component.
 
             Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
@@ -1797,7 +1788,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentchild.html#cfn-amplifyuibuilder-component-componentchild-events
             '''
             result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]], result)
 
         @builtins.property
         def source_id(self) -> typing.Optional[builtins.str]:
@@ -1836,13 +1827,13 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            else_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            else_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             field: typing.Optional[builtins.str] = None,
             operand: typing.Optional[builtins.str] = None,
             operand_type: typing.Optional[builtins.str] = None,
             operator: typing.Optional[builtins.str] = None,
             property: typing.Optional[builtins.str] = None,
-            then: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            then: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ComponentConditionProperty`` property specifies a conditional expression for setting a component property.
 
@@ -1941,7 +1932,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9a087a026a105fe370e8b30547f8deb28449cbbc0ea16d6168c3ffe40b9fc3f7)
+                type_hints = cached_type_hints(_typecheckingstub__9a087a026a105fe370e8b30547f8deb28449cbbc0ea16d6168c3ffe40b9fc3f7)
                 check_type(argname="argument else_", value=else_, expected_type=type_hints["else_"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument operand", value=operand, expected_type=type_hints["operand"])
@@ -1968,13 +1959,13 @@ class CfnComponent(
         @builtins.property
         def else_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The value to assign to the property if the condition is not met.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentconditionproperty.html#cfn-amplifyuibuilder-component-componentconditionproperty-else
             '''
             result = self._values.get("else_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def field(self) -> typing.Optional[builtins.str]:
@@ -2026,13 +2017,13 @@ class CfnComponent(
         @builtins.property
         def then(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]:
             '''The value to assign to the property if the condition is met.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentconditionproperty.html#cfn-amplifyuibuilder-component-componentconditionproperty-then
             '''
             result = self._values.get("then")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2061,8 +2052,8 @@ class CfnComponent(
             *,
             model: builtins.str,
             identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-            predicate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sort: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.SortPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            predicate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sort: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.SortPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``ComponentDataConfiguration`` property specifies the configuration for binding a component's properties to data.
 
@@ -2102,7 +2093,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__64e141d7e4f47c6e1581f7d74ffea218f473c3420b88087f34835976ebac771f)
+                type_hints = cached_type_hints(_typecheckingstub__64e141d7e4f47c6e1581f7d74ffea218f473c3420b88087f34835976ebac771f)
                 check_type(argname="argument model", value=model, expected_type=type_hints["model"])
                 check_type(argname="argument identifiers", value=identifiers, expected_type=type_hints["identifiers"])
                 check_type(argname="argument predicate", value=predicate, expected_type=type_hints["predicate"])
@@ -2141,7 +2132,7 @@ class CfnComponent(
         @builtins.property
         def predicate(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]:
             '''Represents the conditional logic to use when binding data to a component.
 
             Use this property to retrieve only a subset of the data in a collection.
@@ -2149,18 +2140,18 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentdataconfiguration.html#cfn-amplifyuibuilder-component-componentdataconfiguration-predicate
             '''
             result = self._values.get("predicate")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]], result)
 
         @builtins.property
         def sort(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.SortPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.SortPropertyProperty"]]]]:
             '''Describes how to sort the component's properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentdataconfiguration.html#cfn-amplifyuibuilder-component-componentdataconfiguration-sort
             '''
             result = self._values.get("sort")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.SortPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.SortPropertyProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2188,7 +2179,7 @@ class CfnComponent(
             *,
             action: typing.Optional[builtins.str] = None,
             binding_event: typing.Optional[builtins.str] = None,
-            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ActionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ActionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ComponentEvent`` property specifies the configuration of an event.
 
@@ -2544,7 +2535,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a2199271a6b5de84d37a061bced7624cc98fc5b38d9799e48008b25cc4beb30)
+                type_hints = cached_type_hints(_typecheckingstub__0a2199271a6b5de84d37a061bced7624cc98fc5b38d9799e48008b25cc4beb30)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument binding_event", value=binding_event, expected_type=type_hints["binding_event"])
                 check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -2579,13 +2570,13 @@ class CfnComponent(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ActionParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ActionParametersProperty"]]:
             '''Describes information about the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentevent.html#cfn-amplifyuibuilder-component-componentevent-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ActionParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ActionParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2634,7 +2625,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6609f397f447132bed1b4dae768619a73958cd6fb765edd0f7a2623013c57096)
+                type_hints = cached_type_hints(_typecheckingstub__6609f397f447132bed1b4dae768619a73958cd6fb765edd0f7a2623013c57096)
                 check_type(argname="argument property", value=property, expected_type=type_hints["property"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2698,13 +2689,13 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            bindings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.FormBindingElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            collection_binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bindings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.FormBindingElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            collection_binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             component_name: typing.Optional[builtins.str] = None,
-            concat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentConditionPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            configured: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            concat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentConditionPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            configured: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             default_value: typing.Optional[builtins.str] = None,
             event: typing.Optional[builtins.str] = None,
             imported_value: typing.Optional[builtins.str] = None,
@@ -2787,7 +2778,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9cf7d407c19a13b1e358d52a06851a4288f7e5e365289ff8c22d9b2d67d8d179)
+                type_hints = cached_type_hints(_typecheckingstub__9cf7d407c19a13b1e358d52a06851a4288f7e5e365289ff8c22d9b2d67d8d179)
                 check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
                 check_type(argname="argument bindings", value=bindings, expected_type=type_hints["bindings"])
                 check_type(argname="argument collection_binding_properties", value=collection_binding_properties, expected_type=type_hints["collection_binding_properties"])
@@ -2838,29 +2829,29 @@ class CfnComponent(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
             '''The information to bind the component property to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def bindings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.FormBindingElementProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.FormBindingElementProperty"]]]]:
             '''The information to bind the component property to form data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-bindings
             '''
             result = self._values.get("bindings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.FormBindingElementProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.FormBindingElementProperty"]]]], result)
 
         @builtins.property
         def collection_binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
             '''The information to bind the component property to data at runtime.
 
             Use this for collection components.
@@ -2868,7 +2859,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-collectionbindingproperties
             '''
             result = self._values.get("collection_binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def component_name(self) -> typing.Optional[builtins.str]:
@@ -2882,35 +2873,35 @@ class CfnComponent(
         @builtins.property
         def concat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]]:
             '''A list of component properties to concatenate to create the value to assign to this component property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-concat
             '''
             result = self._values.get("concat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]], result)
 
         @builtins.property
         def condition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentConditionPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentConditionPropertyProperty"]]:
             '''The conditional expression to use to assign a value to the component property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-condition
             '''
             result = self._values.get("condition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentConditionPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentConditionPropertyProperty"]], result)
 
         @builtins.property
         def configured(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the user configured the property in Amplify Studio after importing it.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-configured
             '''
             result = self._values.get("configured")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def default_value(self) -> typing.Optional[builtins.str]:
@@ -3007,7 +2998,7 @@ class CfnComponent(
             self,
             *,
             overrides: typing.Any = None,
-            variant_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            variant_values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The ``ComponentVariant`` property specifies the style configuration of a unique variation of a main component.
 
@@ -3033,7 +3024,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__295e4045520d86ca93a4865404c10aafdb49dd91806c9cae31545fdd54e9bee9)
+                type_hints = cached_type_hints(_typecheckingstub__295e4045520d86ca93a4865404c10aafdb49dd91806c9cae31545fdd54e9bee9)
                 check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
                 check_type(argname="argument variant_values", value=variant_values, expected_type=type_hints["variant_values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3056,13 +3047,13 @@ class CfnComponent(
         @builtins.property
         def variant_values(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The combination of variants that comprise this variant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentvariant.html#cfn-amplifyuibuilder-component-componentvariant-variantvalues
             '''
             result = self._values.get("variant_values")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3102,7 +3093,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__083b2206ecf6efde86ba8aefa3608c36f293532c3f9ff7e1ec5724b9f2540d0a)
+                type_hints = cached_type_hints(_typecheckingstub__083b2206ecf6efde86ba8aefa3608c36f293532c3f9ff7e1ec5724b9f2540d0a)
                 check_type(argname="argument element", value=element, expected_type=type_hints["element"])
                 check_type(argname="argument property", value=property, expected_type=type_hints["property"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3156,7 +3147,7 @@ class CfnComponent(
             *,
             component_name: builtins.str,
             property: builtins.str,
-            set: typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]],
+            set: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Represents the state configuration when an action modifies a property of another element within the same component.
 
@@ -3221,7 +3212,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a2c7bf8adc174a1333d4f6712bb6a171a89b27809627e9e7265e3d111f78189a)
+                type_hints = cached_type_hints(_typecheckingstub__a2c7bf8adc174a1333d4f6712bb6a171a89b27809627e9e7265e3d111f78189a)
                 check_type(argname="argument component_name", value=component_name, expected_type=type_hints["component_name"])
                 check_type(argname="argument property", value=property, expected_type=type_hints["property"])
                 check_type(argname="argument set", value=set, expected_type=type_hints["set"])
@@ -3254,14 +3245,14 @@ class CfnComponent(
         @builtins.property
         def set(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]:
             '''The state configuration to assign to the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-mutationactionsetstateparameter.html#cfn-amplifyuibuilder-component-mutationactionsetstateparameter-set
             '''
             result = self._values.get("set")
             assert result is not None, "Required property 'set' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3290,12 +3281,12 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            and_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            and_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             field: typing.Optional[builtins.str] = None,
             operand: typing.Optional[builtins.str] = None,
             operand_type: typing.Optional[builtins.str] = None,
             operator: typing.Optional[builtins.str] = None,
-            or_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            or_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``Predicate`` property specifies information for generating Amplify DataStore queries.
 
@@ -3329,7 +3320,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__37ce81ce3ae3ad1d19dadf5542dca7cb3465cd10747b81f17e473f6a27342336)
+                type_hints = cached_type_hints(_typecheckingstub__37ce81ce3ae3ad1d19dadf5542dca7cb3465cd10747b81f17e473f6a27342336)
                 check_type(argname="argument and_", value=and_, expected_type=type_hints["and_"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument operand", value=operand, expected_type=type_hints["operand"])
@@ -3353,13 +3344,13 @@ class CfnComponent(
         @builtins.property
         def and_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates to combine logically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-predicate.html#cfn-amplifyuibuilder-component-predicate-and
             '''
             result = self._values.get("and_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]], result)
 
         @builtins.property
         def field(self) -> typing.Optional[builtins.str]:
@@ -3400,13 +3391,13 @@ class CfnComponent(
         @builtins.property
         def or_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates to combine logically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-predicate.html#cfn-amplifyuibuilder-component-predicate-or
             '''
             result = self._values.get("or_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.PredicateProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3446,7 +3437,7 @@ class CfnComponent(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2e28aa12f1ac083d97c2507afcccfed6130be39825a273208c629b58a9826c9d)
+                type_hints = cached_type_hints(_typecheckingstub__2e28aa12f1ac083d97c2507afcccfed6130be39825a273208c629b58a9826c9d)
                 check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3511,19 +3502,19 @@ class CfnComponentProps:
         self,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        collection_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        children: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        collection_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         component_type: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         overrides: typing.Any = None,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         schema_version: typing.Optional[builtins.str] = None,
         source_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        variants: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        variants: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnComponent``.
 
@@ -3550,7 +3541,7 @@ class CfnComponentProps:
             
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45)
+            type_hints = cached_type_hints(_typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
             check_type(argname="argument children", value=children, expected_type=type_hints["children"])
@@ -3607,7 +3598,7 @@ class CfnComponentProps:
     @builtins.property
     def binding_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
         '''The information to connect a component's properties to data at runtime.
 
         You can't specify ``tags`` as a valid property for ``bindingProperties`` .
@@ -3615,23 +3606,23 @@ class CfnComponentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-bindingproperties
         '''
         result = self._values.get("binding_properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], result)
 
     @builtins.property
     def children(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]]:
         '''A list of the component's ``ComponentChild`` instances.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-children
         '''
         result = self._values.get("children")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentChildProperty"]]]], result)
 
     @builtins.property
     def collection_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
         '''The data binding configuration for the component's properties.
 
         Use this for a collection component. You can't specify ``tags`` as a valid property for ``collectionProperties`` .
@@ -3639,7 +3630,7 @@ class CfnComponentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-collectionproperties
         '''
         result = self._values.get("collection_properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentDataConfigurationProperty"]]]], result)
 
     @builtins.property
     def component_type(self) -> typing.Optional[builtins.str]:
@@ -3664,7 +3655,7 @@ class CfnComponentProps:
     @builtins.property
     def events(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]]:
         '''Describes the events that can be raised on the component.
 
         Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
@@ -3672,7 +3663,7 @@ class CfnComponentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-events
         '''
         result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentEventProperty"]]]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -3697,7 +3688,7 @@ class CfnComponentProps:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]]:
         '''Describes the component's properties.
 
         You can't specify ``tags`` as a valid property for ``properties`` .
@@ -3705,7 +3696,7 @@ class CfnComponentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-properties
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentPropertyProperty"]]]], result)
 
     @builtins.property
     def schema_version(self) -> typing.Optional[builtins.str]:
@@ -3737,7 +3728,7 @@ class CfnComponentProps:
     @builtins.property
     def variants(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentVariantProperty"]]]]:
         '''A list of the component's variants.
 
         A variant is a unique style configuration of a main component.
@@ -3745,7 +3736,7 @@ class CfnComponentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-variants
         '''
         result = self._values.get("variants")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponent.ComponentVariantProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3759,9 +3750,9 @@ class CfnComponentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFormRef_ee9b385d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplifyuibuilder_dc56060a.IFormRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnForm(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnForm",
 ):
@@ -3945,16 +3936,16 @@ class CfnForm(
         id: builtins.str,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        cta: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cta: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         form_action_type: typing.Optional[builtins.str] = None,
         label_decorator: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         schema_version: typing.Optional[builtins.str] = None,
-        sectional_elements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sectional_elements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::AmplifyUIBuilder::Form``.
@@ -3975,7 +3966,7 @@ class CfnForm(
         :param tags: One or more key-value pairs to use when tagging the form data.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e1e67668c27ec66bb2b6aa2fd792ed1f3347990281e8dd83ae2ac8e81aaac8)
+            type_hints = cached_type_hints(_typecheckingstub__d1e1e67668c27ec66bb2b6aa2fd792ed1f3347990281e8dd83ae2ac8e81aaac8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFormProps(
@@ -4003,18 +3994,18 @@ class CfnForm(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fae613d042dc611129667524c3ee417ce937c74d937d97183fec3270cc23398)
+            type_hints = cached_type_hints(_typecheckingstub__2fae613d042dc611129667524c3ee417ce937c74d937d97183fec3270cc23398)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnForm", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c21e8cabf9d014e4b7da846798df9ed12d78b23e1e4bc708e80a16526466e109)
+            type_hints = cached_type_hints(_typecheckingstub__c21e8cabf9d014e4b7da846798df9ed12d78b23e1e4bc708e80a16526466e109)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4027,7 +4018,7 @@ class CfnForm(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8dedc67622f4e478423a2acbe47f789044cbf9bf399c9f14ba25932fda2994e)
+            type_hints = cached_type_hints(_typecheckingstub__b8dedc67622f4e478423a2acbe47f789044cbf9bf399c9f14ba25932fda2994e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4058,15 +4049,15 @@ class CfnForm(
 
     @builtins.property
     @jsii.member(jsii_name="formRef")
-    def form_ref(self) -> "_FormReference_ebed8580":
+    def form_ref(self) -> "_aws_amplifyuibuilder_dc56060a.FormReference":
         '''A reference to a Form resource.'''
-        return typing.cast("_FormReference_ebed8580", jsii.get(self, "formRef"))
+        return typing.cast("_aws_amplifyuibuilder_dc56060a.FormReference", jsii.get(self, "formRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -4077,7 +4068,7 @@ class CfnForm(
     @app_id.setter
     def app_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6086ddf273ace487109ec97dd1dc720c5f83ebbe24a96e2c42ae15646389d00)
+            type_hints = cached_type_hints(_typecheckingstub__a6086ddf273ace487109ec97dd1dc720c5f83ebbe24a96e2c42ae15646389d00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
 
@@ -4085,17 +4076,17 @@ class CfnForm(
     @jsii.member(jsii_name="cta")
     def cta(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormCTAProperty"]]:
         '''The ``FormCTA`` object that stores the call to action configuration for the form.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]], jsii.get(self, "cta"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormCTAProperty"]], jsii.get(self, "cta"))
 
     @cta.setter
     def cta(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormCTAProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcc01bb0df0b0a573caa23a9628b8cbfe2eb86510e0e390b92156dd05d486862)
+            type_hints = cached_type_hints(_typecheckingstub__dcc01bb0df0b0a573caa23a9628b8cbfe2eb86510e0e390b92156dd05d486862)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cta", value) # pyright: ignore[reportArgumentType]
 
@@ -4103,17 +4094,17 @@ class CfnForm(
     @jsii.member(jsii_name="dataType")
     def data_type(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormDataTypeConfigProperty"]]:
         '''The type of data source to use to create the form.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]], jsii.get(self, "dataType"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormDataTypeConfigProperty"]], jsii.get(self, "dataType"))
 
     @data_type.setter
     def data_type(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormDataTypeConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e19a017312460ae2a463321b8755f4cbb046f23e5b3f211bc3667291c8fc4c)
+            type_hints = cached_type_hints(_typecheckingstub__c7e19a017312460ae2a463321b8755f4cbb046f23e5b3f211bc3667291c8fc4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataType", value) # pyright: ignore[reportArgumentType]
 
@@ -4126,7 +4117,7 @@ class CfnForm(
     @environment_name.setter
     def environment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34caf84fc388835a97bc0ea839fd35da20c88a4c8e915204f78e924b66d4de02)
+            type_hints = cached_type_hints(_typecheckingstub__34caf84fc388835a97bc0ea839fd35da20c88a4c8e915204f78e924b66d4de02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -4134,17 +4125,17 @@ class CfnForm(
     @jsii.member(jsii_name="fields")
     def fields(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldConfigProperty"]]]]:
         '''The configuration information for the form's fields.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]], jsii.get(self, "fields"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldConfigProperty"]]]], jsii.get(self, "fields"))
 
     @fields.setter
     def fields(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9015687d91891d43612fe42019ff55cd0a88db183c4588c47c40ae844181ac0)
+            type_hints = cached_type_hints(_typecheckingstub__b9015687d91891d43612fe42019ff55cd0a88db183c4588c47c40ae844181ac0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
 
@@ -4157,7 +4148,7 @@ class CfnForm(
     @form_action_type.setter
     def form_action_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fc577f05ff38c0454a529f8e25d70043166c3c843ba386b8533d1566010fb3c)
+            type_hints = cached_type_hints(_typecheckingstub__2fc577f05ff38c0454a529f8e25d70043166c3c843ba386b8533d1566010fb3c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "formActionType", value) # pyright: ignore[reportArgumentType]
 
@@ -4170,7 +4161,7 @@ class CfnForm(
     @label_decorator.setter
     def label_decorator(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bb58fff4cc1b15eb6764b753579e921632aacbf08b0c7e91de1462a850e49ec)
+            type_hints = cached_type_hints(_typecheckingstub__7bb58fff4cc1b15eb6764b753579e921632aacbf08b0c7e91de1462a850e49ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "labelDecorator", value) # pyright: ignore[reportArgumentType]
 
@@ -4183,7 +4174,7 @@ class CfnForm(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c37b5c0566194412a917f8b555c9713ff611891282349436c1825e2035304e0c)
+            type_hints = cached_type_hints(_typecheckingstub__c37b5c0566194412a917f8b555c9713ff611891282349436c1825e2035304e0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -4196,7 +4187,7 @@ class CfnForm(
     @schema_version.setter
     def schema_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__134b61ab92cc43448c72979bf06fe8c5b99e11026860e775bc799d1ac6f3485c)
+            type_hints = cached_type_hints(_typecheckingstub__134b61ab92cc43448c72979bf06fe8c5b99e11026860e775bc799d1ac6f3485c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schemaVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -4204,17 +4195,17 @@ class CfnForm(
     @jsii.member(jsii_name="sectionalElements")
     def sectional_elements(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.SectionalElementProperty"]]]]:
         '''The configuration information for the visual helper elements for the form.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]], jsii.get(self, "sectionalElements"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.SectionalElementProperty"]]]], jsii.get(self, "sectionalElements"))
 
     @sectional_elements.setter
     def sectional_elements(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.SectionalElementProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85fa037be9d97ba3c80cd93837e11c8dbd4fe3a9d81a3b57bc62c3008fc0d045)
+            type_hints = cached_type_hints(_typecheckingstub__85fa037be9d97ba3c80cd93837e11c8dbd4fe3a9d81a3b57bc62c3008fc0d045)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sectionalElements", value) # pyright: ignore[reportArgumentType]
 
@@ -4222,17 +4213,17 @@ class CfnForm(
     @jsii.member(jsii_name="style")
     def style(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleProperty"]]:
         '''The configuration for the form's style.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]], jsii.get(self, "style"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleProperty"]], jsii.get(self, "style"))
 
     @style.setter
     def style(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70860863c037915af307f857edb8d06dc079e810fc30f8a36441c45da0c1bed9)
+            type_hints = cached_type_hints(_typecheckingstub__70860863c037915af307f857edb8d06dc079e810fc30f8a36441c45da0c1bed9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "style", value) # pyright: ignore[reportArgumentType]
 
@@ -4248,7 +4239,7 @@ class CfnForm(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ee3ef37cf7612285daf309bc45507132d570fa30ef3794f4eed909e9a480611)
+            type_hints = cached_type_hints(_typecheckingstub__7ee3ef37cf7612285daf309bc45507132d570fa30ef3794f4eed909e9a480611)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -4267,11 +4258,11 @@ class CfnForm(
         def __init__(
             self,
             *,
-            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            input_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldInputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            input_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldInputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             label: typing.Optional[builtins.str] = None,
-            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            validations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldValidationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldValidationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``FieldConfig`` property specifies the configuration information for a field in a table.
 
@@ -4375,7 +4366,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__facb12c1ebfafe4ee51a4282ac25081c6fb10fb0a82684aa169cb14fa6886efa)
+                type_hints = cached_type_hints(_typecheckingstub__facb12c1ebfafe4ee51a4282ac25081c6fb10fb0a82684aa169cb14fa6886efa)
                 check_type(argname="argument excluded", value=excluded, expected_type=type_hints["excluded"])
                 check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
                 check_type(argname="argument label", value=label, expected_type=type_hints["label"])
@@ -4396,24 +4387,24 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to hide a field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def input_type(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldInputConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldInputConfigProperty"]]:
             '''Describes the configuration for the default input value to display for a field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-inputtype
             '''
             result = self._values.get("input_type")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldInputConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldInputConfigProperty"]], result)
 
         @builtins.property
         def label(self) -> typing.Optional[builtins.str]:
@@ -4427,24 +4418,24 @@ class CfnForm(
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]]:
             '''Specifies the field position.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]], result)
 
         @builtins.property
         def validations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldValidationConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldValidationConfigurationProperty"]]]]:
             '''The validations to perform on the value in the field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-validations
             '''
             result = self._values.get("validations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldValidationConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldValidationConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4484,21 +4475,21 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            default_checked: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            default_checked: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             default_country_code: typing.Optional[builtins.str] = None,
             default_value: typing.Optional[builtins.str] = None,
             descriptive_text: typing.Optional[builtins.str] = None,
-            file_uploader_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FileUploaderFieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_array: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            file_uploader_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FileUploaderFieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_array: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             max_value: typing.Optional[jsii.Number] = None,
             min_value: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
             placeholder: typing.Optional[builtins.str] = None,
-            read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            read_only: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             step: typing.Optional[jsii.Number] = None,
             value: typing.Optional[builtins.str] = None,
-            value_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.ValueMappingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.ValueMappingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FieldInputConfig`` property specifies the configuration for the default input values to display for a field.
 
@@ -4596,7 +4587,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2888e21dd850d2c3de4d4315337f2f5230a52e49287aa72328d2ad14617f64fa)
+                type_hints = cached_type_hints(_typecheckingstub__2888e21dd850d2c3de4d4315337f2f5230a52e49287aa72328d2ad14617f64fa)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument default_checked", value=default_checked, expected_type=type_hints["default_checked"])
                 check_type(argname="argument default_country_code", value=default_country_code, expected_type=type_hints["default_country_code"])
@@ -4660,13 +4651,13 @@ class CfnForm(
         @builtins.property
         def default_checked(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a field has a default value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-defaultchecked
             '''
             result = self._values.get("default_checked")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def default_country_code(self) -> typing.Optional[builtins.str]:
@@ -4698,18 +4689,18 @@ class CfnForm(
         @builtins.property
         def file_uploader_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FileUploaderFieldConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FileUploaderFieldConfigProperty"]]:
             '''The configuration for the file uploader field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-fileuploaderconfig
             '''
             result = self._values.get("file_uploader_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FileUploaderFieldConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FileUploaderFieldConfigProperty"]], result)
 
         @builtins.property
         def is_array(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to render the field as an array.
 
             This property is ignored if the ``dataSourceType`` for the form is a Data Store.
@@ -4717,7 +4708,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-isarray
             '''
             result = self._values.get("is_array")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def max_value(self) -> typing.Optional[jsii.Number]:
@@ -4758,24 +4749,24 @@ class CfnForm(
         @builtins.property
         def read_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies a read only field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-readonly
             '''
             result = self._values.get("read_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def required(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies a field that requires input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-required
             '''
             result = self._values.get("required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def step(self) -> typing.Optional[jsii.Number]:
@@ -4798,13 +4789,13 @@ class CfnForm(
         @builtins.property
         def value_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.ValueMappingsProperty"]]:
             '''The information to use to customize the input fields with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-valuemappings
             '''
             result = self._values.get("value_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.ValueMappingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4852,7 +4843,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__04a52fac39933b10d1cbbd03b00473e170b2984c315c7a3da3846dcc962e71c9)
+                type_hints = cached_type_hints(_typecheckingstub__04a52fac39933b10d1cbbd03b00473e170b2984c315c7a3da3846dcc962e71c9)
                 check_type(argname="argument below", value=below, expected_type=type_hints["below"])
                 check_type(argname="argument fixed", value=fixed, expected_type=type_hints["fixed"])
                 check_type(argname="argument right_of", value=right_of, expected_type=type_hints["right_of"])
@@ -4917,7 +4908,7 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             str_values: typing.Optional[typing.Sequence[builtins.str]] = None,
             validation_message: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4947,7 +4938,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__34136205c95f2f635b9e01e36902998c37a6de39668801b785b9506c14054296)
+                type_hints = cached_type_hints(_typecheckingstub__34136205c95f2f635b9e01e36902998c37a6de39668801b785b9506c14054296)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument num_values", value=num_values, expected_type=type_hints["num_values"])
                 check_type(argname="argument str_values", value=str_values, expected_type=type_hints["str_values"])
@@ -4977,13 +4968,13 @@ class CfnForm(
         @builtins.property
         def num_values(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The validation to perform on a number value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldvalidationconfiguration.html#cfn-amplifyuibuilder-form-fieldvalidationconfiguration-numvalues
             '''
             result = self._values.get("num_values")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def str_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5032,10 +5023,10 @@ class CfnForm(
             *,
             accepted_file_types: typing.Sequence[builtins.str],
             access_level: builtins.str,
-            is_resumable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_resumable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             max_file_count: typing.Optional[jsii.Number] = None,
             max_size: typing.Optional[jsii.Number] = None,
-            show_thumbnails: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            show_thumbnails: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Describes the configuration for the file uploader field.
 
@@ -5067,7 +5058,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7889f3dfdbeb0fccdc50f07a268a2af1fb50fc3a3134ee6e68c00137c79a04f0)
+                type_hints = cached_type_hints(_typecheckingstub__7889f3dfdbeb0fccdc50f07a268a2af1fb50fc3a3134ee6e68c00137c79a04f0)
                 check_type(argname="argument accepted_file_types", value=accepted_file_types, expected_type=type_hints["accepted_file_types"])
                 check_type(argname="argument access_level", value=access_level, expected_type=type_hints["access_level"])
                 check_type(argname="argument is_resumable", value=is_resumable, expected_type=type_hints["is_resumable"])
@@ -5114,7 +5105,7 @@ class CfnForm(
         @builtins.property
         def is_resumable(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Allows the file upload operation to be paused and resumed. The default value is ``false`` .
 
             When ``isResumable`` is set to ``true`` , the file uploader uses a multipart upload to break the files into chunks before upload. The progress of the upload isn't continuous, because the file uploader uploads a chunk at a time.
@@ -5122,7 +5113,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fileuploaderfieldconfig.html#cfn-amplifyuibuilder-form-fileuploaderfieldconfig-isresumable
             '''
             result = self._values.get("is_resumable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def max_file_count(self) -> typing.Optional[jsii.Number]:
@@ -5149,7 +5140,7 @@ class CfnForm(
         @builtins.property
         def show_thumbnails(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to display or hide the image preview after selecting a file for upload.
 
             The default value is ``true`` to display the image preview.
@@ -5157,7 +5148,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fileuploaderfieldconfig.html#cfn-amplifyuibuilder-form-fileuploaderfieldconfig-showthumbnails
             '''
             result = self._values.get("show_thumbnails")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5184,8 +5175,8 @@ class CfnForm(
             self,
             *,
             children: typing.Optional[builtins.str] = None,
-            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormButton`` property specifies the configuration for a button UI element that is a part of a form.
 
@@ -5213,7 +5204,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3aaebf617bf3553d285de51deaea2efd0785ae24ec5569ffb2d9a60d69da4425)
+                type_hints = cached_type_hints(_typecheckingstub__3aaebf617bf3553d285de51deaea2efd0785ae24ec5569ffb2d9a60d69da4425)
                 check_type(argname="argument children", value=children, expected_type=type_hints["children"])
                 check_type(argname="argument excluded", value=excluded, expected_type=type_hints["excluded"])
                 check_type(argname="argument position", value=position, expected_type=type_hints["position"])
@@ -5237,24 +5228,24 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the button is visible on the form.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formbutton.html#cfn-amplifyuibuilder-form-formbutton-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]]:
             '''The position of the button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formbutton.html#cfn-amplifyuibuilder-form-formbutton-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5281,10 +5272,10 @@ class CfnForm(
         def __init__(
             self,
             *,
-            cancel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            clear: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cancel: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            clear: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             position: typing.Optional[builtins.str] = None,
-            submit: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            submit: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormCTA`` property specifies the call to action button configuration for the form.
 
@@ -5334,7 +5325,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__77c752ecf91acd1ce1f6b4872c5597ec73be17115bab2a5f704d816a5af501d4)
+                type_hints = cached_type_hints(_typecheckingstub__77c752ecf91acd1ce1f6b4872c5597ec73be17115bab2a5f704d816a5af501d4)
                 check_type(argname="argument cancel", value=cancel, expected_type=type_hints["cancel"])
                 check_type(argname="argument clear", value=clear, expected_type=type_hints["clear"])
                 check_type(argname="argument position", value=position, expected_type=type_hints["position"])
@@ -5352,24 +5343,24 @@ class CfnForm(
         @builtins.property
         def cancel(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]]:
             '''Displays a cancel button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-cancel
             '''
             result = self._values.get("cancel")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]], result)
 
         @builtins.property
         def clear(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]]:
             '''Displays a clear button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-clear
             '''
             result = self._values.get("clear")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]], result)
 
         @builtins.property
         def position(self) -> typing.Optional[builtins.str]:
@@ -5383,13 +5374,13 @@ class CfnForm(
         @builtins.property
         def submit(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]]:
             '''Displays a submit button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-submit
             '''
             result = self._values.get("submit")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormButtonProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5437,7 +5428,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c13c26fc166a4f957568be30eae909c624b75f8f8139e0588fece7eeee3282ae)
+                type_hints = cached_type_hints(_typecheckingstub__c13c26fc166a4f957568be30eae909c624b75f8f8139e0588fece7eeee3282ae)
                 check_type(argname="argument data_source_type", value=data_source_type, expected_type=type_hints["data_source_type"])
                 check_type(argname="argument data_type_name", value=data_type_name, expected_type=type_hints["data_type_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5503,7 +5494,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e49a023124bfcb7abe6c639ac120065289e3237be67e100ab59da65f7d780f12)
+                type_hints = cached_type_hints(_typecheckingstub__e49a023124bfcb7abe6c639ac120065289e3237be67e100ab59da65f7d780f12)
                 check_type(argname="argument model", value=model, expected_type=type_hints["model"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if model is not None:
@@ -5538,7 +5529,7 @@ class CfnForm(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Represents the data binding configuration for a form's input fields at runtime.You can use ``FormInputBindingPropertiesValue`` to add exposed properties to a form to allow different values to be entered when a form is reused in different places in an app.
@@ -5563,7 +5554,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__96e2b156267ea5c453a576b2a0887821ce82e0ecfb9e232e4ed3f5041b278807)
+                type_hints = cached_type_hints(_typecheckingstub__96e2b156267ea5c453a576b2a0887821ce82e0ecfb9e232e4ed3f5041b278807)
                 check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5575,13 +5566,13 @@ class CfnForm(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]]:
             '''Describes the properties to customize with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputbindingpropertiesvalue.html#cfn-amplifyuibuilder-form-forminputbindingpropertiesvalue-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -5639,7 +5630,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__442ffd571935c3b45d1a0f4bf41d61336ca04d0b4cd16d3c3c32aa98f12a617c)
+                type_hints = cached_type_hints(_typecheckingstub__442ffd571935c3b45d1a0f4bf41d61336ca04d0b4cd16d3c3c32aa98f12a617c)
                 check_type(argname="argument property", value=property, expected_type=type_hints["property"])
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5691,8 +5682,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            concat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputValuePropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            concat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``FormInputValueProperty`` property specifies the configuration for an input field on a form.
@@ -5726,7 +5717,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__18fb1cc6c981a6a2bd1a5b53248a9d11f4a7c98e09a7132c1a7ca82bcd56c726)
+                type_hints = cached_type_hints(_typecheckingstub__18fb1cc6c981a6a2bd1a5b53248a9d11f4a7c98e09a7132c1a7ca82bcd56c726)
                 check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
                 check_type(argname="argument concat", value=concat, expected_type=type_hints["concat"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5741,24 +5732,24 @@ class CfnForm(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]]:
             '''The information to bind fields to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputvalueproperty.html#cfn-amplifyuibuilder-form-forminputvalueproperty-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def concat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"]]]]:
             '''A list of form properties to concatenate to create the value to assign to this field property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputvalueproperty.html#cfn-amplifyuibuilder-form-forminputvalueproperty-concat
             '''
             result = self._values.get("concat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"]]]], result)
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
@@ -5812,7 +5803,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2eee01779eb429842d3c379bc94ce33ffc0e13bb071fc183cfbefbf30d80f6b8)
+                type_hints = cached_type_hints(_typecheckingstub__2eee01779eb429842d3c379bc94ce33ffc0e13bb071fc183cfbefbf30d80f6b8)
                 check_type(argname="argument token_reference", value=token_reference, expected_type=type_hints["token_reference"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5863,9 +5854,9 @@ class CfnForm(
         def __init__(
             self,
             *,
-            horizontal_gap: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            outer_padding: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            vertical_gap: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            horizontal_gap: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            outer_padding: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vertical_gap: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormStyle`` property specifies the configuration for the form's style.
 
@@ -5898,7 +5889,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__50be8c564fec3c46684431a761d27d986411251dd2dbff52def67a46d2b37f76)
+                type_hints = cached_type_hints(_typecheckingstub__50be8c564fec3c46684431a761d27d986411251dd2dbff52def67a46d2b37f76)
                 check_type(argname="argument horizontal_gap", value=horizontal_gap, expected_type=type_hints["horizontal_gap"])
                 check_type(argname="argument outer_padding", value=outer_padding, expected_type=type_hints["outer_padding"])
                 check_type(argname="argument vertical_gap", value=vertical_gap, expected_type=type_hints["vertical_gap"])
@@ -5913,35 +5904,35 @@ class CfnForm(
         @builtins.property
         def horizontal_gap(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]]:
             '''The spacing for the horizontal gap.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-horizontalgap
             '''
             result = self._values.get("horizontal_gap")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]], result)
 
         @builtins.property
         def outer_padding(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]]:
             '''The size of the outer padding for the form.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-outerpadding
             '''
             result = self._values.get("outer_padding")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]], result)
 
         @builtins.property
         def vertical_gap(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]]:
             '''The spacing for the vertical gap.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-verticalgap
             '''
             result = self._values.get("vertical_gap")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5971,10 +5962,10 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             level: typing.Optional[jsii.Number] = None,
             orientation: typing.Optional[builtins.str] = None,
-            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             text: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``SectionalElement`` property specifies the configuration information for a visual helper element for a form.
@@ -6013,7 +6004,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de6d8665fe6651d5620544536ddb9794f1f75f8f980fd73240f5d8c373dec173)
+                type_hints = cached_type_hints(_typecheckingstub__de6d8665fe6651d5620544536ddb9794f1f75f8f980fd73240f5d8c373dec173)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument excluded", value=excluded, expected_type=type_hints["excluded"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -6049,13 +6040,13 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Excludes a sectional element that was generated by default for a specified data model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-sectionalelement.html#cfn-amplifyuibuilder-form-sectionalelement-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def level(self) -> typing.Optional[jsii.Number]:
@@ -6082,13 +6073,13 @@ class CfnForm(
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]]:
             '''Specifies the position of the text in a field for a ``Text`` sectional element.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-sectionalelement.html#cfn-amplifyuibuilder-form-sectionalelement-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldPositionProperty"]], result)
 
         @builtins.property
         def text(self) -> typing.Optional[builtins.str]:
@@ -6119,8 +6110,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]],
-            display_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]],
+            display_value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ValueMapping`` property specifies the association between a complex object and a display value.
 
@@ -6166,7 +6157,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e5a419a9779cbf833c1ce04bf2e120ab8acfe6226e2a461b0e4f2dce065c4c1b)
+                type_hints = cached_type_hints(_typecheckingstub__e5a419a9779cbf833c1ce04bf2e120ab8acfe6226e2a461b0e4f2dce065c4c1b)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument display_value", value=display_value, expected_type=type_hints["display_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6178,25 +6169,25 @@ class CfnForm(
         @builtins.property
         def value(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"]:
             '''The complex object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemapping.html#cfn-amplifyuibuilder-form-valuemapping-value
             '''
             result = self._values.get("value")
             assert result is not None, "Required property 'value' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"], result)
 
         @builtins.property
         def display_value(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"]]:
             '''The value to display for the complex object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemapping.html#cfn-amplifyuibuilder-form-valuemapping-displayvalue
             '''
             result = self._values.get("display_value")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputValuePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6218,8 +6209,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            values: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.ValueMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            values: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.ValueMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            binding_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormInputBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``ValueMappings`` property specifies the data binding configuration for a value map.
 
@@ -6275,7 +6266,7 @@ class CfnForm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d724ce98e4e33046526453a6db65965e6f336a8f4ff6e0f67b70823d84267d95)
+                type_hints = cached_type_hints(_typecheckingstub__d724ce98e4e33046526453a6db65965e6f336a8f4ff6e0f67b70823d84267d95)
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
                 check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6287,25 +6278,25 @@ class CfnForm(
         @builtins.property
         def values(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.ValueMappingProperty"]]]:
             '''The value and display value pairs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemappings.html#cfn-amplifyuibuilder-form-valuemappings-values
             '''
             result = self._values.get("values")
             assert result is not None, "Required property 'values' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.ValueMappingProperty"]]], result)
 
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputBindingPropertiesValueProperty"]]]]:
             '''The information to bind fields to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemappings.html#cfn-amplifyuibuilder-form-valuemappings-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormInputBindingPropertiesValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6342,16 +6333,16 @@ class CfnFormProps:
         self,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        cta: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cta: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         form_action_type: typing.Optional[builtins.str] = None,
         label_decorator: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         schema_version: typing.Optional[builtins.str] = None,
-        sectional_elements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sectional_elements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnForm``.
@@ -6540,7 +6531,7 @@ class CfnFormProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4)
+            type_hints = cached_type_hints(_typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument cta", value=cta, expected_type=type_hints["cta"])
             check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
@@ -6591,24 +6582,24 @@ class CfnFormProps:
     @builtins.property
     def cta(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormCTAProperty"]]:
         '''The ``FormCTA`` object that stores the call to action configuration for the form.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-cta
         '''
         result = self._values.get("cta")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormCTAProperty"]], result)
 
     @builtins.property
     def data_type(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormDataTypeConfigProperty"]]:
         '''The type of data source to use to create the form.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-datatype
         '''
         result = self._values.get("data_type")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormDataTypeConfigProperty"]], result)
 
     @builtins.property
     def environment_name(self) -> typing.Optional[builtins.str]:
@@ -6622,13 +6613,13 @@ class CfnFormProps:
     @builtins.property
     def fields(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldConfigProperty"]]]]:
         '''The configuration information for the form's fields.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-fields
         '''
         result = self._values.get("fields")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FieldConfigProperty"]]]], result)
 
     @builtins.property
     def form_action_type(self) -> typing.Optional[builtins.str]:
@@ -6669,7 +6660,7 @@ class CfnFormProps:
     @builtins.property
     def sectional_elements(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.SectionalElementProperty"]]]]:
         '''The configuration information for the visual helper elements for the form.
 
         These elements are not associated with any data.
@@ -6677,18 +6668,18 @@ class CfnFormProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-sectionalelements
         '''
         result = self._values.get("sectional_elements")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.SectionalElementProperty"]]]], result)
 
     @builtins.property
     def style(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleProperty"]]:
         '''The configuration for the form's style.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-style
         '''
         result = self._values.get("style")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnForm.FormStyleProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -6711,9 +6702,9 @@ class CfnFormProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IThemeRef_92e58367, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amplifyuibuilder_dc56060a.IThemeRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnTheme(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnTheme",
 ):
@@ -6765,9 +6756,9 @@ class CfnTheme(
         app_id: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AmplifyUIBuilder::Theme``.
 
@@ -6781,7 +6772,7 @@ class CfnTheme(
         :param values: A list of key-value pairs that defines the properties of the theme.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2279f682c519f8cd82b48b2513abcff891e39a55368285f7ff433a9378321040)
+            type_hints = cached_type_hints(_typecheckingstub__2279f682c519f8cd82b48b2513abcff891e39a55368285f7ff433a9378321040)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnThemeProps(
@@ -6803,18 +6794,18 @@ class CfnTheme(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f4f2ed41c61f998201f667a33b44d6af55dd606d9e8782e96599afa30b11040)
+            type_hints = cached_type_hints(_typecheckingstub__1f4f2ed41c61f998201f667a33b44d6af55dd606d9e8782e96599afa30b11040)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTheme", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab465f089075b33a373e16d0ddf12b8c4ce3438c656f46db2c8ac0ac15208a34)
+            type_hints = cached_type_hints(_typecheckingstub__ab465f089075b33a373e16d0ddf12b8c4ce3438c656f46db2c8ac0ac15208a34)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6827,7 +6818,7 @@ class CfnTheme(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a229aebaa77e6195b91d905366ce47f16aebf09185cd76886e729ba2b05c685)
+            type_hints = cached_type_hints(_typecheckingstub__4a229aebaa77e6195b91d905366ce47f16aebf09185cd76886e729ba2b05c685)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6876,15 +6867,15 @@ class CfnTheme(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="themeRef")
-    def theme_ref(self) -> "_ThemeReference_62247883":
+    def theme_ref(self) -> "_aws_amplifyuibuilder_dc56060a.ThemeReference":
         '''A reference to a Theme resource.'''
-        return typing.cast("_ThemeReference_62247883", jsii.get(self, "themeRef"))
+        return typing.cast("_aws_amplifyuibuilder_dc56060a.ThemeReference", jsii.get(self, "themeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -6895,7 +6886,7 @@ class CfnTheme(
     @app_id.setter
     def app_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0ffc6ee64b3a996d2f17a1b95a80fca34ee0ed9b5e3c1a31bb067e444d348e5)
+            type_hints = cached_type_hints(_typecheckingstub__f0ffc6ee64b3a996d2f17a1b95a80fca34ee0ed9b5e3c1a31bb067e444d348e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appId", value) # pyright: ignore[reportArgumentType]
 
@@ -6908,7 +6899,7 @@ class CfnTheme(
     @environment_name.setter
     def environment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4863b588557c772fd24411338a83899ca5924a4d9e9cd93393cf60369a0281d)
+            type_hints = cached_type_hints(_typecheckingstub__a4863b588557c772fd24411338a83899ca5924a4d9e9cd93393cf60369a0281d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -6921,7 +6912,7 @@ class CfnTheme(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37420262c86d20249895865fc6efbd1cf14792658f7f10af8ab3410f125160d8)
+            type_hints = cached_type_hints(_typecheckingstub__37420262c86d20249895865fc6efbd1cf14792658f7f10af8ab3410f125160d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6929,17 +6920,17 @@ class CfnTheme(
     @jsii.member(jsii_name="overrides")
     def overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]]:
         '''Describes the properties that can be overriden to customize a theme.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "overrides"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "overrides"))
 
     @overrides.setter
     def overrides(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__447d8cae12df687b1981d85cd7ad953ecb265c415202fa332bdb6ac0bdbc8d7f)
+            type_hints = cached_type_hints(_typecheckingstub__447d8cae12df687b1981d85cd7ad953ecb265c415202fa332bdb6ac0bdbc8d7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "overrides", value) # pyright: ignore[reportArgumentType]
 
@@ -6955,7 +6946,7 @@ class CfnTheme(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d090d1bb1996a8d584f4c4d394f57d6d65e726a0906664df401bd4e8e72306f6)
+            type_hints = cached_type_hints(_typecheckingstub__d090d1bb1996a8d584f4c4d394f57d6d65e726a0906664df401bd4e8e72306f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6963,17 +6954,17 @@ class CfnTheme(
     @jsii.member(jsii_name="values")
     def values(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]]:
         '''A list of key-value pairs that defines the properties of the theme.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "values"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "values"))
 
     @values.setter
     def values(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb8701acac3d1216eee5ea6afa5963493d323823cf518c1ba70eebb677f169f7)
+            type_hints = cached_type_hints(_typecheckingstub__bb8701acac3d1216eee5ea6afa5963493d323823cf518c1ba70eebb677f169f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "values", value) # pyright: ignore[reportArgumentType]
 
@@ -6986,7 +6977,7 @@ class CfnTheme(
         def __init__(
             self,
             *,
-            children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            children: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``ThemeValue`` property specifies the configuration of a theme's properties.
@@ -7014,7 +7005,7 @@ class CfnTheme(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__968a2203f12b6fe147c86388655984948ce554ab590d84eab56303a5cb4f1443)
+                type_hints = cached_type_hints(_typecheckingstub__968a2203f12b6fe147c86388655984948ce554ab590d84eab56303a5cb4f1443)
                 check_type(argname="argument children", value=children, expected_type=type_hints["children"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7026,13 +7017,13 @@ class CfnTheme(
         @builtins.property
         def children(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]]:
             '''A list of key-value pairs that define the theme's properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-theme-themevalue.html#cfn-amplifyuibuilder-theme-themevalue-children
             '''
             result = self._values.get("children")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]], result)
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
@@ -7064,7 +7055,7 @@ class CfnTheme(
             self,
             *,
             key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ThemeValues`` property specifies key-value pair that defines a property of a theme.
 
@@ -7091,7 +7082,7 @@ class CfnTheme(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32916eb6e9dca0f7a126b89c19d4efd2943a6c491612af96a25d95ebbc0772d4)
+                type_hints = cached_type_hints(_typecheckingstub__32916eb6e9dca0f7a126b89c19d4efd2943a6c491612af96a25d95ebbc0772d4)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7112,13 +7103,13 @@ class CfnTheme(
         @builtins.property
         def value(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValueProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValueProperty"]]:
             '''The value of the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-theme-themevalues.html#cfn-amplifyuibuilder-theme-themevalues-value
             '''
             result = self._values.get("value")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValueProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValueProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7151,9 +7142,9 @@ class CfnThemeProps:
         app_id: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTheme``.
 
@@ -7199,7 +7190,7 @@ class CfnThemeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad)
+            type_hints = cached_type_hints(_typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -7250,13 +7241,13 @@ class CfnThemeProps:
     @builtins.property
     def overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]]:
         '''Describes the properties that can be overriden to customize a theme.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-overrides
         '''
         result = self._values.get("overrides")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -7270,13 +7261,13 @@ class CfnThemeProps:
     @builtins.property
     def values(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]]:
         '''A list of key-value pairs that defines the properties of the theme.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-values
         '''
         result = self._values.get("values")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTheme.ThemeValuesProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7306,19 +7297,19 @@ def _typecheckingstub__fd7799829199faf127a94fa77781fc238076f764c5a29e3192b183024
     id: builtins.str,
     *,
     app_id: typing.Optional[builtins.str] = None,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    children: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    collection_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     component_type: typing.Optional[builtins.str] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     overrides: typing.Any = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     schema_version: typing.Optional[builtins.str] = None,
     source_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    variants: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7330,7 +7321,7 @@ def _typecheckingstub__7f214773737826f95a87f369ff491c8d26997aee2dced4ead1ada5b19
     pass
 
 def _typecheckingstub__3a4071d72b1c192773d27cf1393fcd31a209b8da1710b4cc3887aaa640711a2b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7354,19 +7345,19 @@ def _typecheckingstub__52def26f5917015e0ec1be927753e0ddd7c6ba2b26ed493f53e325e9f
     pass
 
 def _typecheckingstub__4318ac16b5fec407f318eecf547fbef09f6a25d44eee663a0eb2d9d4cfb515c8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentBindingPropertiesValueProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentBindingPropertiesValueProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8cc8d6f7afd78df5a6542a7697bbb32d8d2c9e5a18e80e3386de082f4e2b7071(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentChildProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentChildProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ccd617dfcaf796edb26a70160a96d7ac3771afa99ba8a4500e7927f724ee8d2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentDataConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentDataConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7384,7 +7375,7 @@ def _typecheckingstub__b4df74d1bffa910e68795eee3fd72266a3d4fbec9071447212ebcea54
     pass
 
 def _typecheckingstub__867f4afaa52290132593733e3be70d110a540505523ee1a4b0bea23f5a059f8c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentEventProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentEventProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7396,7 +7387,7 @@ def _typecheckingstub__d390004d0f30759542ef28ada1804bcce6e8abbebac682bdb56233942
     pass
 
 def _typecheckingstub__996d9ae7924c5b47d79b0dc8a0bdd64fe013219ccbe4230a2423b7e9ad5aba37(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentPropertyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentPropertyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7420,22 +7411,22 @@ def _typecheckingstub__0b9b20938d1ff30361e234f4ed386b675237f1fc01bc3df8c0e6a936d
     pass
 
 def _typecheckingstub__21622fc70206995803294c972e78d130850c0e1dde7f836f2646dd47d873fc48(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnComponent.ComponentVariantProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponent.ComponentVariantProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__396df9c0159ef2683a2d199aa0e6b6baece439a466a700800ddc5e140dd124b1(
     *,
-    anchor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    global_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    anchor: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model: typing.Optional[builtins.str] = None,
-    state: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.MutationActionSetStateParameterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    url: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    state: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.MutationActionSetStateParameterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7447,7 +7438,7 @@ def _typecheckingstub__81ff632b19dd9fd8d12fdc9b6929e5e551d79797cb14dd1ca0cf76449
     field: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
     model: typing.Optional[builtins.str] = None,
-    predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    predicates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     slot_name: typing.Optional[builtins.str] = None,
     user_attribute: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7456,7 +7447,7 @@ def _typecheckingstub__81ff632b19dd9fd8d12fdc9b6929e5e551d79797cb14dd1ca0cf76449
 
 def _typecheckingstub__ff7030ae0aef39d7f52ec52503b8ffe4b3b2f9eab3ec5a0b307d62df215fac00(
     *,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentBindingPropertiesValuePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentBindingPropertiesValuePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_value: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7467,9 +7458,9 @@ def _typecheckingstub__e3d50eae10e05ec6519c8b5405904b780a7f01613f52ff55abfb41b0c
     *,
     component_type: builtins.str,
     name: builtins.str,
-    properties: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    properties: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    children: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     source_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7477,13 +7468,13 @@ def _typecheckingstub__e3d50eae10e05ec6519c8b5405904b780a7f01613f52ff55abfb41b0c
 
 def _typecheckingstub__9a087a026a105fe370e8b30547f8deb28449cbbc0ea16d6168c3ffe40b9fc3f7(
     *,
-    else_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    else_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     field: typing.Optional[builtins.str] = None,
     operand: typing.Optional[builtins.str] = None,
     operand_type: typing.Optional[builtins.str] = None,
     operator: typing.Optional[builtins.str] = None,
     property: typing.Optional[builtins.str] = None,
-    then: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    then: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7492,8 +7483,8 @@ def _typecheckingstub__64e141d7e4f47c6e1581f7d74ffea218f473c3420b88087f34835976e
     *,
     model: builtins.str,
     identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    predicate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sort: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.SortPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    predicate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sort: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.SortPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7502,7 +7493,7 @@ def _typecheckingstub__0a2199271a6b5de84d37a061bced7624cc98fc5b38d9799e48008b25c
     *,
     action: typing.Optional[builtins.str] = None,
     binding_event: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ActionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ActionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7517,13 +7508,13 @@ def _typecheckingstub__6609f397f447132bed1b4dae768619a73958cd6fb765edd0f7a262301
 
 def _typecheckingstub__9cf7d407c19a13b1e358d52a06851a4288f7e5e365289ff8c22d9b2d67d8d179(
     *,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bindings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.FormBindingElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    collection_binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bindings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.FormBindingElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    collection_binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     component_name: typing.Optional[builtins.str] = None,
-    concat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentConditionPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configured: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    concat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentConditionPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configured: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     default_value: typing.Optional[builtins.str] = None,
     event: typing.Optional[builtins.str] = None,
     imported_value: typing.Optional[builtins.str] = None,
@@ -7539,7 +7530,7 @@ def _typecheckingstub__9cf7d407c19a13b1e358d52a06851a4288f7e5e365289ff8c22d9b2d6
 def _typecheckingstub__295e4045520d86ca93a4865404c10aafdb49dd91806c9cae31545fdd54e9bee9(
     *,
     overrides: typing.Any = None,
-    variant_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    variant_values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7556,19 +7547,19 @@ def _typecheckingstub__a2c7bf8adc174a1333d4f6712bb6a171a89b27809627e9e7265e3d111
     *,
     component_name: builtins.str,
     property: builtins.str,
-    set: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]],
+    set: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37ce81ce3ae3ad1d19dadf5542dca7cb3465cd10747b81f17e473f6a27342336(
     *,
-    and_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    and_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     field: typing.Optional[builtins.str] = None,
     operand: typing.Optional[builtins.str] = None,
     operand_type: typing.Optional[builtins.str] = None,
     operator: typing.Optional[builtins.str] = None,
-    or_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    or_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7584,19 +7575,19 @@ def _typecheckingstub__2e28aa12f1ac083d97c2507afcccfed6130be39825a273208c629b58a
 def _typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45(
     *,
     app_id: typing.Optional[builtins.str] = None,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    children: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    collection_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     component_type: typing.Optional[builtins.str] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     overrides: typing.Any = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     schema_version: typing.Optional[builtins.str] = None,
     source_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    variants: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7606,16 +7597,16 @@ def _typecheckingstub__d1e1e67668c27ec66bb2b6aa2fd792ed1f3347990281e8dd83ae2ac8e
     id: builtins.str,
     *,
     app_id: typing.Optional[builtins.str] = None,
-    cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cta: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     form_action_type: typing.Optional[builtins.str] = None,
     label_decorator: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     schema_version: typing.Optional[builtins.str] = None,
-    sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sectional_elements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7628,7 +7619,7 @@ def _typecheckingstub__2fae613d042dc611129667524c3ee417ce937c74d937d97183fec3270
     pass
 
 def _typecheckingstub__c21e8cabf9d014e4b7da846798df9ed12d78b23e1e4bc708e80a16526466e109(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7646,13 +7637,13 @@ def _typecheckingstub__a6086ddf273ace487109ec97dd1dc720c5f83ebbe24a96e2c42ae1564
     pass
 
 def _typecheckingstub__dcc01bb0df0b0a573caa23a9628b8cbfe2eb86510e0e390b92156dd05d486862(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnForm.FormCTAProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnForm.FormCTAProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7e19a017312460ae2a463321b8755f4cbb046f23e5b3f211bc3667291c8fc4c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnForm.FormDataTypeConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnForm.FormDataTypeConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7664,7 +7655,7 @@ def _typecheckingstub__34caf84fc388835a97bc0ea839fd35da20c88a4c8e915204f78e924b6
     pass
 
 def _typecheckingstub__b9015687d91891d43612fe42019ff55cd0a88db183c4588c47c40ae844181ac0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnForm.FieldConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnForm.FieldConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7694,13 +7685,13 @@ def _typecheckingstub__134b61ab92cc43448c72979bf06fe8c5b99e11026860e775bc799d1ac
     pass
 
 def _typecheckingstub__85fa037be9d97ba3c80cd93837e11c8dbd4fe3a9d81a3b57bc62c3008fc0d045(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnForm.SectionalElementProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnForm.SectionalElementProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__70860863c037915af307f857edb8d06dc079e810fc30f8a36441c45da0c1bed9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnForm.FormStyleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnForm.FormStyleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7713,11 +7704,11 @@ def _typecheckingstub__7ee3ef37cf7612285daf309bc45507132d570fa30ef3794f4eed909e9
 
 def _typecheckingstub__facb12c1ebfafe4ee51a4282ac25081c6fb10fb0a82684aa169cb14fa6886efa(
     *,
-    excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    input_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldInputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    excluded: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    input_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldInputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     label: typing.Optional[builtins.str] = None,
-    position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    validations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldValidationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldValidationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7725,21 +7716,21 @@ def _typecheckingstub__facb12c1ebfafe4ee51a4282ac25081c6fb10fb0a82684aa169cb14fa
 def _typecheckingstub__2888e21dd850d2c3de4d4315337f2f5230a52e49287aa72328d2ad14617f64fa(
     *,
     type: builtins.str,
-    default_checked: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    default_checked: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     default_country_code: typing.Optional[builtins.str] = None,
     default_value: typing.Optional[builtins.str] = None,
     descriptive_text: typing.Optional[builtins.str] = None,
-    file_uploader_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FileUploaderFieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    is_array: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    file_uploader_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FileUploaderFieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_array: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     max_value: typing.Optional[jsii.Number] = None,
     min_value: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     placeholder: typing.Optional[builtins.str] = None,
-    read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    read_only: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     step: typing.Optional[jsii.Number] = None,
     value: typing.Optional[builtins.str] = None,
-    value_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.ValueMappingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    value_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.ValueMappingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7756,7 +7747,7 @@ def _typecheckingstub__04a52fac39933b10d1cbbd03b00473e170b2984c315c7a3da3846dcc9
 def _typecheckingstub__34136205c95f2f635b9e01e36902998c37a6de39668801b785b9506c14054296(
     *,
     type: builtins.str,
-    num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
     str_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     validation_message: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7767,10 +7758,10 @@ def _typecheckingstub__7889f3dfdbeb0fccdc50f07a268a2af1fb50fc3a3134ee6e68c00137c
     *,
     accepted_file_types: typing.Sequence[builtins.str],
     access_level: builtins.str,
-    is_resumable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_resumable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     max_file_count: typing.Optional[jsii.Number] = None,
     max_size: typing.Optional[jsii.Number] = None,
-    show_thumbnails: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    show_thumbnails: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7778,18 +7769,18 @@ def _typecheckingstub__7889f3dfdbeb0fccdc50f07a268a2af1fb50fc3a3134ee6e68c00137c
 def _typecheckingstub__3aaebf617bf3553d285de51deaea2efd0785ae24ec5569ffb2d9a60d69da4425(
     *,
     children: typing.Optional[builtins.str] = None,
-    excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    excluded: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__77c752ecf91acd1ce1f6b4872c5597ec73be17115bab2a5f704d816a5af501d4(
     *,
-    cancel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    clear: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cancel: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    clear: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     position: typing.Optional[builtins.str] = None,
-    submit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    submit: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormButtonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7811,7 +7802,7 @@ def _typecheckingstub__e49a023124bfcb7abe6c639ac120065289e3237be67e100ab59da65f7
 
 def _typecheckingstub__96e2b156267ea5c453a576b2a0887821ce82e0ecfb9e232e4ed3f5041b278807(
     *,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputBindingPropertiesValuePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputBindingPropertiesValuePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7827,8 +7818,8 @@ def _typecheckingstub__442ffd571935c3b45d1a0f4bf41d61336ca04d0b4cd16d3c3c32aa98f
 
 def _typecheckingstub__18fb1cc6c981a6a2bd1a5b53248a9d11f4a7c98e09a7132c1a7ca82bcd56c726(
     *,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputValuePropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    concat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputValuePropertyBindingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    concat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7844,9 +7835,9 @@ def _typecheckingstub__2eee01779eb429842d3c379bc94ce33ffc0e13bb071fc183cfbefbf30
 
 def _typecheckingstub__50be8c564fec3c46684431a761d27d986411251dd2dbff52def67a46d2b37f76(
     *,
-    horizontal_gap: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outer_padding: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vertical_gap: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    horizontal_gap: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outer_padding: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vertical_gap: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormStyleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7854,10 +7845,10 @@ def _typecheckingstub__50be8c564fec3c46684431a761d27d986411251dd2dbff52def67a46d
 def _typecheckingstub__de6d8665fe6651d5620544536ddb9794f1f75f8f980fd73240f5d8c373dec173(
     *,
     type: builtins.str,
-    excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    excluded: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     level: typing.Optional[jsii.Number] = None,
     orientation: typing.Optional[builtins.str] = None,
-    position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldPositionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     text: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7865,16 +7856,16 @@ def _typecheckingstub__de6d8665fe6651d5620544536ddb9794f1f75f8f980fd73240f5d8c37
 
 def _typecheckingstub__e5a419a9779cbf833c1ce04bf2e120ab8acfe6226e2a461b0e4f2dce065c4c1b(
     *,
-    value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]],
-    display_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]],
+    display_value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputValuePropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d724ce98e4e33046526453a6db65965e6f336a8f4ff6e0f67b70823d84267d95(
     *,
-    values: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.ValueMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormInputBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    values: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.ValueMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    binding_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormInputBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7882,16 +7873,16 @@ def _typecheckingstub__d724ce98e4e33046526453a6db65965e6f336a8f4ff6e0f67b70823d8
 def _typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4(
     *,
     app_id: typing.Optional[builtins.str] = None,
-    cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cta: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     form_action_type: typing.Optional[builtins.str] = None,
     label_decorator: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     schema_version: typing.Optional[builtins.str] = None,
-    sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sectional_elements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7904,9 +7895,9 @@ def _typecheckingstub__2279f682c519f8cd82b48b2513abcff891e39a55368285f7ff433a937
     app_id: typing.Optional[builtins.str] = None,
     environment_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7918,7 +7909,7 @@ def _typecheckingstub__1f4f2ed41c61f998201f667a33b44d6af55dd606d9e8782e96599afa3
     pass
 
 def _typecheckingstub__ab465f089075b33a373e16d0ddf12b8c4ce3438c656f46db2c8ac0ac15208a34(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7948,7 +7939,7 @@ def _typecheckingstub__37420262c86d20249895865fc6efbd1cf14792658f7f10af8ab3410f1
     pass
 
 def _typecheckingstub__447d8cae12df687b1981d85cd7ad953ecb265c415202fa332bdb6ac0bdbc8d7f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTheme.ThemeValuesProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTheme.ThemeValuesProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7960,14 +7951,14 @@ def _typecheckingstub__d090d1bb1996a8d584f4c4d394f57d6d65e726a0906664df401bd4e8e
     pass
 
 def _typecheckingstub__bb8701acac3d1216eee5ea6afa5963493d323823cf518c1ba70eebb677f169f7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTheme.ThemeValuesProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTheme.ThemeValuesProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__968a2203f12b6fe147c86388655984948ce554ab590d84eab56303a5cb4f1443(
     *,
-    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    children: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7976,7 +7967,7 @@ def _typecheckingstub__968a2203f12b6fe147c86388655984948ce554ab590d84eab56303a5c
 def _typecheckingstub__32916eb6e9dca0f7a126b89c19d4efd2943a6c491612af96a25d95ebbc0772d4(
     *,
     key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7986,9 +7977,9 @@ def _typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c12
     app_id: typing.Optional[builtins.str] = None,
     environment_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

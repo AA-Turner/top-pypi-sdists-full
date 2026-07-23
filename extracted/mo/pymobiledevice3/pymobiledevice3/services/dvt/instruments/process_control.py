@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import typing
+from datetime import datetime
 from typing import Any, Optional
 
 from pymobiledevice3.dtx import DTXQueue, DTXService, PInt32, dtx_method, dtx_on_invoke
@@ -10,11 +11,16 @@ from pymobiledevice3.osu.os_utils import get_os_utils
 
 OSUTIL = get_os_utils()
 
+# SIGKILL on Darwin and every Apple platform pymobiledevice3 targets. Hardcoded rather than
+# signal.SIGKILL because that constant does not exist on Windows hosts, which can still drive a
+# connected device.
+SIGKILL = 9
+
 
 @dataclasses.dataclass
 class OutputReceivedEvent:
     pid: int
-    date: int
+    date: Optional[datetime]
     message: str
 
     @classmethod
@@ -111,16 +117,22 @@ class ProcessControl(DtxService[ProcessControlService]):
         :param pid: PID of the process whose memory limit should be lifted.
         :raises DisableMemoryLimitError: If the device declines the request.
         """
-        if not await self.service.request_disable_memory_limits_for_pid_(pid):
+        if not await self.service.request_disable_memory_limits_for_pid_(PInt32(pid)):
             raise DisableMemoryLimitError()
 
     async def kill(self, pid: int):
         """
-        Kill a process. The request is fire-and-forget (no reply is awaited).
+        Kill a process by sending it SIGKILL.
+
+        Implemented via ``sendSignal:toPid:`` (which awaits a reply) rather than the
+        fire-and-forget ``killPid:``: the round-trip guarantees the device has acted on the
+        request before the DTX channel — and, on iOS 17+, the tunnel — is torn down. A bare
+        ``killPid:`` is silently dropped when the channel closes immediately after sending it
+        (observed over the default userspace tunnel), leaving the target process alive.
 
         :param pid: PID of the process to kill.
         """
-        await self.service.kill_pid_(pid)
+        await self.signal(pid, SIGKILL)
 
     async def process_identifier_for_bundle_identifier(self, app_bundle_identifier: str) -> int:
         """

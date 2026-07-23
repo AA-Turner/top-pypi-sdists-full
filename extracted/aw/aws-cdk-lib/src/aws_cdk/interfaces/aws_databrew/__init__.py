@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DatasetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0239bca793c0eabd283a630a5da2409581b1c6fda4d61a82aa36a5197fa003a1)
+            type_hints = cached_type_hints(_typecheckingstub__0239bca793c0eabd283a630a5da2409581b1c6fda4d61a82aa36a5197fa003a1)
             check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_name": dataset_name,
@@ -86,7 +90,7 @@ class DatasetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IDatasetRef")
 class IDatasetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
@@ -106,7 +110,7 @@ class IDatasetRef(
 
 class _IDatasetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IJobRef")
 class IJobRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Job.
@@ -151,7 +155,7 @@ class IJobRef(
 
 class _IJobRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Job.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IJobRef).__jsii_proxy_class__ = lambda : _IJobRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IProjectRef")
 class IProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
@@ -196,7 +200,7 @@ class IProjectRef(
 
 class _IProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Project.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IRecipeRef")
 class IRecipeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Recipe.
@@ -241,7 +245,7 @@ class IRecipeRef(
 
 class _IRecipeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Recipe.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, IRecipeRef).__jsii_proxy_class__ = lambda : _IRecipeRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IRulesetRef")
 class IRulesetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Ruleset.
@@ -286,7 +290,7 @@ class IRulesetRef(
 
 class _IRulesetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Ruleset.
 
@@ -311,7 +315,7 @@ typing.cast(typing.Any, IRulesetRef).__jsii_proxy_class__ = lambda : _IRulesetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_databrew.IScheduleRef")
 class IScheduleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schedule.
@@ -331,7 +335,7 @@ class IScheduleRef(
 
 class _IScheduleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schedule.
 
@@ -377,7 +381,7 @@ class JobReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42380f439dc32a43a8fc0af1552d8ab791245328b89fe5ffc5c2e9d56eecb595)
+            type_hints = cached_type_hints(_typecheckingstub__42380f439dc32a43a8fc0af1552d8ab791245328b89fe5ffc5c2e9d56eecb595)
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "job_name": job_name,
@@ -426,7 +430,7 @@ class ProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59c8103ac9401128da2a77ebf6a0d111eb77a2abc59bd266e0d1f16e6fd1692c)
+            type_hints = cached_type_hints(_typecheckingstub__59c8103ac9401128da2a77ebf6a0d111eb77a2abc59bd266e0d1f16e6fd1692c)
             check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "project_name": project_name,
@@ -475,7 +479,7 @@ class RecipeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8baa6acc267e59b164091037ba9c11ef292fdf3e2d6dd5de6a4dd3bf77fde3ff)
+            type_hints = cached_type_hints(_typecheckingstub__8baa6acc267e59b164091037ba9c11ef292fdf3e2d6dd5de6a4dd3bf77fde3ff)
             check_type(argname="argument recipe_name", value=recipe_name, expected_type=type_hints["recipe_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "recipe_name": recipe_name,
@@ -524,7 +528,7 @@ class RulesetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62bdf2ec578a001083ee81c43682fcb8e156829011ab968def5d66a0c9224e71)
+            type_hints = cached_type_hints(_typecheckingstub__62bdf2ec578a001083ee81c43682fcb8e156829011ab968def5d66a0c9224e71)
             check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ruleset_name": ruleset_name,
@@ -573,7 +577,7 @@ class ScheduleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d5fd760f68af1ceb3fbdd2b6f4635aa344c4930368cb0ba27a066745f51a1fa)
+            type_hints = cached_type_hints(_typecheckingstub__0d5fd760f68af1ceb3fbdd2b6f4635aa344c4930368cb0ba27a066745f51a1fa)
             check_type(argname="argument schedule_name", value=schedule_name, expected_type=type_hints["schedule_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schedule_name": schedule_name,

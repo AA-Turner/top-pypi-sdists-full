@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,52 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_organizations import (
-    AccountReference as _AccountReference_aedc6357,
-    IAccountRef as _IAccountRef_ee273c41,
-    IOrganizationRef as _IOrganizationRef_74d1fc09,
-    IOrganizationalUnitRef as _IOrganizationalUnitRef_1eee9aae,
-    IPolicyRef as _IPolicyRef_f285244f,
-    IResourcePolicyRef as _IResourcePolicyRef_10723097,
-    OrganizationReference as _OrganizationReference_fc9037cc,
-    OrganizationalUnitReference as _OrganizationalUnitReference_bb42755f,
-    PolicyReference as _PolicyReference_b6a2b56e,
-    ResourcePolicyReference as _ResourcePolicyReference_3ac39914,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_organizations as _aws_organizations_9e2f48a0
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_organizations_9e2f48a0 = _LazyImport("aws_cdk.interfaces.aws_organizations")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccountRef_ee273c41, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_organizations_9e2f48a0.IAccountRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAccount(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_organizations.CfnAccount",
 ):
@@ -158,7 +144,7 @@ class CfnAccount(
         email: builtins.str,
         parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Organizations::Account``.
 
@@ -171,7 +157,7 @@ class CfnAccount(
         :param tags: A list of tags that you want to attach to the newly created account. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the maximum allowed number of tags for an account, then the entire request fails and the account is not created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0f5f1b60)
+            type_hints = cached_type_hints(_typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0f5f1b60)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccountProps(
@@ -186,12 +172,15 @@ class CfnAccount(
 
     @jsii.member(jsii_name="arnForAccount")
     @builtins.classmethod
-    def arn_for_account(cls, resource: "_IAccountRef_ee273c41") -> builtins.str:
+    def arn_for_account(
+        cls,
+        resource: "_aws_organizations_9e2f48a0.IAccountRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ba93a038ccc85e707f22f7b3273c9b66b0d924087ed9c72e5382468c546a56a)
+            type_hints = cached_type_hints(_typecheckingstub__9ba93a038ccc85e707f22f7b3273c9b66b0d924087ed9c72e5382468c546a56a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccount", [resource]))
 
@@ -203,18 +192,18 @@ class CfnAccount(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9144f00ecfeba678bb624a0941ebc36f76b6c32768c2020b7218983db3e4094a)
+            type_hints = cached_type_hints(_typecheckingstub__9144f00ecfeba678bb624a0941ebc36f76b6c32768c2020b7218983db3e4094a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccount", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee3ea086c724fb0935ee8a727937a17ae19b987a8ade49b1405a7787feb7e3bc)
+            type_hints = cached_type_hints(_typecheckingstub__ee3ea086c724fb0935ee8a727937a17ae19b987a8ade49b1405a7787feb7e3bc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -227,7 +216,7 @@ class CfnAccount(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80bdf2bd3ebcd33351d23efb5a5fbe768927b4510acf316c02ac29e5ffcca33a)
+            type_hints = cached_type_hints(_typecheckingstub__80bdf2bd3ebcd33351d23efb5a5fbe768927b4510acf316c02ac29e5ffcca33a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -239,9 +228,9 @@ class CfnAccount(
 
     @builtins.property
     @jsii.member(jsii_name="accountRef")
-    def account_ref(self) -> "_AccountReference_aedc6357":
+    def account_ref(self) -> "_aws_organizations_9e2f48a0.AccountReference":
         '''A reference to a Account resource.'''
-        return typing.cast("_AccountReference_aedc6357", jsii.get(self, "accountRef"))
+        return typing.cast("_aws_organizations_9e2f48a0.AccountReference", jsii.get(self, "accountRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
@@ -332,9 +321,9 @@ class CfnAccount(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="accountName")
@@ -345,7 +334,7 @@ class CfnAccount(
     @account_name.setter
     def account_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7cb80343b6f0f43ba7a94207203ab7cefaa6c6f61ec38391afffdb4896b52f1)
+            type_hints = cached_type_hints(_typecheckingstub__c7cb80343b6f0f43ba7a94207203ab7cefaa6c6f61ec38391afffdb4896b52f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountName", value) # pyright: ignore[reportArgumentType]
 
@@ -358,7 +347,7 @@ class CfnAccount(
     @email.setter
     def email(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb3017540fda5760817d479375b8f0ba4860d2d1001cb43056042fc31d63a8f9)
+            type_hints = cached_type_hints(_typecheckingstub__fb3017540fda5760817d479375b8f0ba4860d2d1001cb43056042fc31d63a8f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
 
@@ -371,7 +360,7 @@ class CfnAccount(
     @parent_ids.setter
     def parent_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4341d69ba10680d0ef646a879e2ef2e66709e58b62fb62e8d3e1b8008424fd63)
+            type_hints = cached_type_hints(_typecheckingstub__4341d69ba10680d0ef646a879e2ef2e66709e58b62fb62e8d3e1b8008424fd63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parentIds", value) # pyright: ignore[reportArgumentType]
 
@@ -384,20 +373,23 @@ class CfnAccount(
     @role_name.setter
     def role_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70acd1418e03b2ec3a6e3ad06a5c89c09a87bc96955d07b91a2af5820d3ded62)
+            type_hints = cached_type_hints(_typecheckingstub__70acd1418e03b2ec3a6e3ad06a5c89c09a87bc96955d07b91a2af5820d3ded62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created account.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a96ca8e0a)
+            type_hints = cached_type_hints(_typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a96ca8e0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -421,7 +413,7 @@ class CfnAccountProps:
         email: builtins.str,
         parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccount``.
 
@@ -455,7 +447,7 @@ class CfnAccountProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a77bb3f433e62d91418b11b634f558fe79904da5ba0000f7cb7c650162add452)
+            type_hints = cached_type_hints(_typecheckingstub__a77bb3f433e62d91418b11b634f558fe79904da5ba0000f7cb7c650162add452)
             check_type(argname="argument account_name", value=account_name, expected_type=type_hints["account_name"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument parent_ids", value=parent_ids, expected_type=type_hints["parent_ids"])
@@ -535,7 +527,7 @@ class CfnAccountProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created account.
 
         For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
@@ -546,7 +538,7 @@ class CfnAccountProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-account.html#cfn-organizations-account-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -560,9 +552,9 @@ class CfnAccountProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationRef_74d1fc09)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_organizations_9e2f48a0.IOrganizationRef)
 class CfnOrganization(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_organizations.CfnOrganization",
 ):
@@ -608,7 +600,7 @@ class CfnOrganization(
         :param feature_set: Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality. - ``ALL`` In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* . - ``CONSOLIDATED_BILLING`` All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* . .. epigraph:: The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region. If you don't specify this property, the default value is ``ALL`` . Default: - "ALL"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__450a54c6b7334fcb8f406a9a29b8e1f90a618bcbd127f2d5a6a9fa43ff254400)
+            type_hints = cached_type_hints(_typecheckingstub__450a54c6b7334fcb8f406a9a29b8e1f90a618bcbd127f2d5a6a9fa43ff254400)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationProps(feature_set=feature_set)
@@ -619,13 +611,13 @@ class CfnOrganization(
     @builtins.classmethod
     def arn_for_organization(
         cls,
-        resource: "_IOrganizationRef_74d1fc09",
+        resource: "_aws_organizations_9e2f48a0.IOrganizationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9)
+            type_hints = cached_type_hints(_typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganization", [resource]))
 
@@ -637,18 +629,18 @@ class CfnOrganization(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8fefa87446a18d6ecbb8b6c93060497fcdbea9c9bcca10800e3a612517b6d17)
+            type_hints = cached_type_hints(_typecheckingstub__a8fefa87446a18d6ecbb8b6c93060497fcdbea9c9bcca10800e3a612517b6d17)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganization", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0b1a88993c76738edf5e9d3584d058cabe1cfc259fb5d620589d5c23507de91)
+            type_hints = cached_type_hints(_typecheckingstub__a0b1a88993c76738edf5e9d3584d058cabe1cfc259fb5d620589d5c23507de91)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -661,7 +653,7 @@ class CfnOrganization(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96e2cf417d73c47f4cdfd81355199f9352be808cebdc6968077c1559c996fd16)
+            type_hints = cached_type_hints(_typecheckingstub__96e2cf417d73c47f4cdfd81355199f9352be808cebdc6968077c1559c996fd16)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -737,9 +729,9 @@ class CfnOrganization(
 
     @builtins.property
     @jsii.member(jsii_name="organizationRef")
-    def organization_ref(self) -> "_OrganizationReference_fc9037cc":
+    def organization_ref(self) -> "_aws_organizations_9e2f48a0.OrganizationReference":
         '''A reference to a Organization resource.'''
-        return typing.cast("_OrganizationReference_fc9037cc", jsii.get(self, "organizationRef"))
+        return typing.cast("_aws_organizations_9e2f48a0.OrganizationReference", jsii.get(self, "organizationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="featureSet")
@@ -753,7 +745,7 @@ class CfnOrganization(
     @feature_set.setter
     def feature_set(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bba27bb9e125d71f0e3f25eaa03ce169e5b7e47cf184fcaeb273ce584181b51d)
+            type_hints = cached_type_hints(_typecheckingstub__bba27bb9e125d71f0e3f25eaa03ce169e5b7e47cf184fcaeb273ce584181b51d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "featureSet", value) # pyright: ignore[reportArgumentType]
 
@@ -783,7 +775,7 @@ class CfnOrganizationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48)
+            type_hints = cached_type_hints(_typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48)
             check_type(argname="argument feature_set", value=feature_set, expected_type=type_hints["feature_set"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if feature_set is not None:
@@ -821,9 +813,9 @@ class CfnOrganizationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationalUnitRef_1eee9aae, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_organizations_9e2f48a0.IOrganizationalUnitRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnOrganizationalUnit(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_organizations.CfnOrganizationalUnit",
 ):
@@ -867,7 +859,7 @@ class CfnOrganizationalUnit(
         *,
         name: builtins.str,
         parent_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Organizations::OrganizationalUnit``.
 
@@ -878,7 +870,7 @@ class CfnOrganizationalUnit(
         :param tags: A list of tags that you want to attach to the newly created OU. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for an OU, then the entire request fails and the OU is not created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05eb3e3a6c1c8de7f03913252600dcc42e4c1e99dbbab3f47a3fb8e4ce5ffcec)
+            type_hints = cached_type_hints(_typecheckingstub__05eb3e3a6c1c8de7f03913252600dcc42e4c1e99dbbab3f47a3fb8e4ce5ffcec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationalUnitProps(name=name, parent_id=parent_id, tags=tags)
@@ -889,13 +881,13 @@ class CfnOrganizationalUnit(
     @builtins.classmethod
     def arn_for_organizational_unit(
         cls,
-        resource: "_IOrganizationalUnitRef_1eee9aae",
+        resource: "_aws_organizations_9e2f48a0.IOrganizationalUnitRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56abf8fbaba3dc526d9151677d8242a33cb1605cd3b9f168bb5f98719c4db0b5)
+            type_hints = cached_type_hints(_typecheckingstub__56abf8fbaba3dc526d9151677d8242a33cb1605cd3b9f168bb5f98719c4db0b5)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganizationalUnit", [resource]))
 
@@ -907,18 +899,18 @@ class CfnOrganizationalUnit(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7a8bd04f0959cb23678c3cbd0aae67faaad36a84db6dc98a766ea6ec95c27a3)
+            type_hints = cached_type_hints(_typecheckingstub__c7a8bd04f0959cb23678c3cbd0aae67faaad36a84db6dc98a766ea6ec95c27a3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationalUnit", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0f1c1e40ee57749b1e3e89c931bad8d33532e5bc09dccfa20942e74efb5d7d5)
+            type_hints = cached_type_hints(_typecheckingstub__b0f1c1e40ee57749b1e3e89c931bad8d33532e5bc09dccfa20942e74efb5d7d5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -931,7 +923,7 @@ class CfnOrganizationalUnit(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca29cbd7f58c4e45178ac57de78ce34d515cd266bd0b2ba6e89c48cdf3ddfc0d)
+            type_hints = cached_type_hints(_typecheckingstub__ca29cbd7f58c4e45178ac57de78ce34d515cd266bd0b2ba6e89c48cdf3ddfc0d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -984,15 +976,17 @@ class CfnOrganizationalUnit(
 
     @builtins.property
     @jsii.member(jsii_name="organizationalUnitRef")
-    def organizational_unit_ref(self) -> "_OrganizationalUnitReference_bb42755f":
+    def organizational_unit_ref(
+        self,
+    ) -> "_aws_organizations_9e2f48a0.OrganizationalUnitReference":
         '''A reference to a OrganizationalUnit resource.'''
-        return typing.cast("_OrganizationalUnitReference_bb42755f", jsii.get(self, "organizationalUnitRef"))
+        return typing.cast("_aws_organizations_9e2f48a0.OrganizationalUnitReference", jsii.get(self, "organizationalUnitRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1003,7 +997,7 @@ class CfnOrganizationalUnit(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fc5c2614f792a6493956c330d3c0260c5284cf30143bd369380d3522da66691)
+            type_hints = cached_type_hints(_typecheckingstub__2fc5c2614f792a6493956c330d3c0260c5284cf30143bd369380d3522da66691)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1016,20 +1010,23 @@ class CfnOrganizationalUnit(
     @parent_id.setter
     def parent_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e484a48f669e683ffa481185c24f4c123298d1a7e9bbf68822a98598a2faaa02)
+            type_hints = cached_type_hints(_typecheckingstub__e484a48f669e683ffa481185c24f4c123298d1a7e9bbf68822a98598a2faaa02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parentId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created OU.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eabed8f386c5c6fcea2646194b0879df9b16b1d40979baac245b456985dfa3e7)
+            type_hints = cached_type_hints(_typecheckingstub__eabed8f386c5c6fcea2646194b0879df9b16b1d40979baac245b456985dfa3e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1045,7 +1042,7 @@ class CfnOrganizationalUnitProps:
         *,
         name: builtins.str,
         parent_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOrganizationalUnit``.
 
@@ -1075,7 +1072,7 @@ class CfnOrganizationalUnitProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191)
+            type_hints = cached_type_hints(_typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument parent_id", value=parent_id, expected_type=type_hints["parent_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1118,7 +1115,7 @@ class CfnOrganizationalUnitProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created OU.
 
         For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
@@ -1129,7 +1126,7 @@ class CfnOrganizationalUnitProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1143,9 +1140,9 @@ class CfnOrganizationalUnitProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPolicyRef_f285244f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_organizations_9e2f48a0.IPolicyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_organizations.CfnPolicy",
 ):
@@ -1197,7 +1194,7 @@ class CfnPolicy(
         name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Organizations::Policy``.
@@ -1212,7 +1209,7 @@ class CfnPolicy(
         :param target_ids: List of unique identifiers (IDs) of the root, OU, or account that you want to attach the policy to. You can get the ID by calling the `ListRoots <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html>`_ , `ListOrganizationalUnitsForParent <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListOrganizationalUnitsForParent.html>`_ , or `ListAccounts <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html>`_ operations. If you don't specify this parameter, the policy is created but not attached to any organization resource. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a target ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Account* - A string that consists of exactly 12 digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c8ac465f7818132d3539ff8d8e22250305dad104185434533d033da8a80adad)
+            type_hints = cached_type_hints(_typecheckingstub__9c8ac465f7818132d3539ff8d8e22250305dad104185434533d033da8a80adad)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPolicyProps(
@@ -1228,12 +1225,15 @@ class CfnPolicy(
 
     @jsii.member(jsii_name="arnForPolicy")
     @builtins.classmethod
-    def arn_for_policy(cls, resource: "_IPolicyRef_f285244f") -> builtins.str:
+    def arn_for_policy(
+        cls,
+        resource: "_aws_organizations_9e2f48a0.IPolicyRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60a099d74c38572686e6ca0eb73e2ec5789c96a4c4975024d468446bb28b8f04)
+            type_hints = cached_type_hints(_typecheckingstub__60a099d74c38572686e6ca0eb73e2ec5789c96a4c4975024d468446bb28b8f04)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicy", [resource]))
 
@@ -1245,18 +1245,18 @@ class CfnPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8b66435b5ef6490ef39b8bb5945e323753a52c32c26444046846eb2874e72f2)
+            type_hints = cached_type_hints(_typecheckingstub__f8b66435b5ef6490ef39b8bb5945e323753a52c32c26444046846eb2874e72f2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08e107e9c8d61d1f582ba132c6a4d229d6f0e045a4e54986638403cf2fea7f0d)
+            type_hints = cached_type_hints(_typecheckingstub__08e107e9c8d61d1f582ba132c6a4d229d6f0e045a4e54986638403cf2fea7f0d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1269,7 +1269,7 @@ class CfnPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1174ab6fdd21c443893a2bf14c16d0f3d4c868f39d0a37fefcfb8a7714bd3ffa)
+            type_hints = cached_type_hints(_typecheckingstub__1174ab6fdd21c443893a2bf14c16d0f3d4c868f39d0a37fefcfb8a7714bd3ffa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1292,14 +1292,14 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="attrAwsManaged")
-    def attr_aws_managed(self) -> "_IResolvable_da3f097b":
+    def attr_aws_managed(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Returns a boolean value that indicates whether the specified policy is an AWS managed policy.
 
         If true, then you can attach the policy to roots, OUs, or accounts, but you cannot edit it. For example: ``true | false`` .
 
         :cloudformationAttribute: AwsManaged
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAwsManaged"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAwsManaged"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1324,15 +1324,15 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "_PolicyReference_b6a2b56e":
+    def policy_ref(self) -> "_aws_organizations_9e2f48a0.PolicyReference":
         '''A reference to a Policy resource.'''
-        return typing.cast("_PolicyReference_b6a2b56e", jsii.get(self, "policyRef"))
+        return typing.cast("_aws_organizations_9e2f48a0.PolicyReference", jsii.get(self, "policyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -1346,7 +1346,7 @@ class CfnPolicy(
     @content.setter
     def content(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1191c6f193a4faa8d4257d158518469a85c6127f725cdf681af3d969aea39846)
+            type_hints = cached_type_hints(_typecheckingstub__1191c6f193a4faa8d4257d158518469a85c6127f725cdf681af3d969aea39846)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
 
@@ -1359,7 +1359,7 @@ class CfnPolicy(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb096f73e44ea3f62f85c771fef970b636d4d893157d1035d741a52506ae20f6)
+            type_hints = cached_type_hints(_typecheckingstub__cb096f73e44ea3f62f85c771fef970b636d4d893157d1035d741a52506ae20f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1372,7 +1372,7 @@ class CfnPolicy(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9823ab486df28286ddcf2d4e607740eed95089b4d80a6e2a7a858e37af2e521a)
+            type_hints = cached_type_hints(_typecheckingstub__9823ab486df28286ddcf2d4e607740eed95089b4d80a6e2a7a858e37af2e521a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -1385,20 +1385,23 @@ class CfnPolicy(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15f0eb8f96a555ab850e02c78f1d5319de15607de2d6cecc5449543f8a58d24d)
+            type_hints = cached_type_hints(_typecheckingstub__15f0eb8f96a555ab850e02c78f1d5319de15607de2d6cecc5449543f8a58d24d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created policy.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9caafe6d9a16db2e71e0d35514c7cc53b1f7f3b30806cee494691748e49625f2)
+            type_hints = cached_type_hints(_typecheckingstub__9caafe6d9a16db2e71e0d35514c7cc53b1f7f3b30806cee494691748e49625f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1411,7 +1414,7 @@ class CfnPolicy(
     @target_ids.setter
     def target_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5e07984d6cb568abac54dca9143f32081c21cefa3f9f57283a87b6c35a1fd90)
+            type_hints = cached_type_hints(_typecheckingstub__b5e07984d6cb568abac54dca9143f32081c21cefa3f9f57283a87b6c35a1fd90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1436,7 +1439,7 @@ class CfnPolicyProps:
         name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPolicy``.
@@ -1475,7 +1478,7 @@ class CfnPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47)
+            type_hints = cached_type_hints(_typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47)
             check_type(argname="argument content", value=content, expected_type=type_hints["content"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1556,7 +1559,7 @@ class CfnPolicyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created policy.
 
         For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
@@ -1567,7 +1570,7 @@ class CfnPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def target_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1598,9 +1601,9 @@ class CfnPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_10723097, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_organizations_9e2f48a0.IResourcePolicyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResourcePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_organizations.CfnResourcePolicy",
 ):
@@ -1640,7 +1643,7 @@ class CfnResourcePolicy(
         id: builtins.str,
         *,
         content: typing.Any,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Organizations::ResourcePolicy``.
 
@@ -1650,7 +1653,7 @@ class CfnResourcePolicy(
         :param tags: A list of tags that you want to attach to the newly created resource policy. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* . .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for the resource policy, then the entire request fails and the resource policy is not created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9208421dfafb85e674bb3b797871f578fa0566480e15ed57d8dbc67fd20d87f)
+            type_hints = cached_type_hints(_typecheckingstub__d9208421dfafb85e674bb3b797871f578fa0566480e15ed57d8dbc67fd20d87f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourcePolicyProps(content=content, tags=tags)
@@ -1661,13 +1664,13 @@ class CfnResourcePolicy(
     @builtins.classmethod
     def arn_for_resource_policy(
         cls,
-        resource: "_IResourcePolicyRef_10723097",
+        resource: "_aws_organizations_9e2f48a0.IResourcePolicyRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bdf39b3cbefe7d3bf477ad788760a83e4ba09939a7a87a3b1f60153f67418ea)
+            type_hints = cached_type_hints(_typecheckingstub__4bdf39b3cbefe7d3bf477ad788760a83e4ba09939a7a87a3b1f60153f67418ea)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourcePolicy", [resource]))
 
@@ -1679,18 +1682,18 @@ class CfnResourcePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6d4f07fdbcf608edaa909d0c6cc93cb7179369c254fddcc2f93ec547925c0b9)
+            type_hints = cached_type_hints(_typecheckingstub__c6d4f07fdbcf608edaa909d0c6cc93cb7179369c254fddcc2f93ec547925c0b9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3580a73dde22a778909b428073f1b84b8c546326b9e40056a8a6853799683bf)
+            type_hints = cached_type_hints(_typecheckingstub__e3580a73dde22a778909b428073f1b84b8c546326b9e40056a8a6853799683bf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1703,7 +1706,7 @@ class CfnResourcePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba3e9444ffb4b11756c647f1666a242a0bb6d1c2dbb0fd52752f94205ac09af2)
+            type_hints = cached_type_hints(_typecheckingstub__ba3e9444ffb4b11756c647f1666a242a0bb6d1c2dbb0fd52752f94205ac09af2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1747,15 +1750,17 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "_ResourcePolicyReference_3ac39914":
+    def resource_policy_ref(
+        self,
+    ) -> "_aws_organizations_9e2f48a0.ResourcePolicyReference":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast("_ResourcePolicyReference_3ac39914", jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_aws_organizations_9e2f48a0.ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -1766,20 +1771,23 @@ class CfnResourcePolicy(
     @content.setter
     def content(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a62f3cef96b84d09856779bec28b78a1d418f3c268511a050c8b1af032a00bc)
+            type_hints = cached_type_hints(_typecheckingstub__1a62f3cef96b84d09856779bec28b78a1d418f3c268511a050c8b1af032a00bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created resource policy.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf32cedd1)
+            type_hints = cached_type_hints(_typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf32cedd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1794,7 +1802,7 @@ class CfnResourcePolicyProps:
         self,
         *,
         content: typing.Any,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResourcePolicy``.
 
@@ -1824,7 +1832,7 @@ class CfnResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d)
+            type_hints = cached_type_hints(_typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d)
             check_type(argname="argument content", value=content, expected_type=type_hints["content"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1849,7 +1857,7 @@ class CfnResourcePolicyProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the newly created resource policy.
 
         For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* .
@@ -1860,7 +1868,7 @@ class CfnResourcePolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html#cfn-organizations-resourcepolicy-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1897,13 +1905,13 @@ def _typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0
     email: builtins.str,
     parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9ba93a038ccc85e707f22f7b3273c9b66b0d924087ed9c72e5382468c546a56a(
-    resource: _IAccountRef_ee273c41,
+    resource: _aws_organizations_9e2f48a0.IAccountRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1915,7 +1923,7 @@ def _typecheckingstub__9144f00ecfeba678bb624a0941ebc36f76b6c32768c2020b7218983db
     pass
 
 def _typecheckingstub__ee3ea086c724fb0935ee8a727937a17ae19b987a8ade49b1405a7787feb7e3bc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1951,7 +1959,7 @@ def _typecheckingstub__70acd1418e03b2ec3a6e3ad06a5c89c09a87bc96955d07b91a2af5820
     pass
 
 def _typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a96ca8e0a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1962,7 +1970,7 @@ def _typecheckingstub__a77bb3f433e62d91418b11b634f558fe79904da5ba0000f7cb7c65016
     email: builtins.str,
     parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1977,7 +1985,7 @@ def _typecheckingstub__450a54c6b7334fcb8f406a9a29b8e1f90a618bcbd127f2d5a6a9fa43f
     pass
 
 def _typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9(
-    resource: _IOrganizationRef_74d1fc09,
+    resource: _aws_organizations_9e2f48a0.IOrganizationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1989,7 +1997,7 @@ def _typecheckingstub__a8fefa87446a18d6ecbb8b6c93060497fcdbea9c9bcca10800e3a6125
     pass
 
 def _typecheckingstub__a0b1a88993c76738edf5e9d3584d058cabe1cfc259fb5d620589d5c23507de91(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2019,13 +2027,13 @@ def _typecheckingstub__05eb3e3a6c1c8de7f03913252600dcc42e4c1e99dbbab3f47a3fb8e4c
     *,
     name: builtins.str,
     parent_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__56abf8fbaba3dc526d9151677d8242a33cb1605cd3b9f168bb5f98719c4db0b5(
-    resource: _IOrganizationalUnitRef_1eee9aae,
+    resource: _aws_organizations_9e2f48a0.IOrganizationalUnitRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2037,7 +2045,7 @@ def _typecheckingstub__c7a8bd04f0959cb23678c3cbd0aae67faaad36a84db6dc98a766ea6ec
     pass
 
 def _typecheckingstub__b0f1c1e40ee57749b1e3e89c931bad8d33532e5bc09dccfa20942e74efb5d7d5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2061,7 +2069,7 @@ def _typecheckingstub__e484a48f669e683ffa481185c24f4c123298d1a7e9bbf68822a98598a
     pass
 
 def _typecheckingstub__eabed8f386c5c6fcea2646194b0879df9b16b1d40979baac245b456985dfa3e7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2070,7 +2078,7 @@ def _typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe50
     *,
     name: builtins.str,
     parent_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2083,14 +2091,14 @@ def _typecheckingstub__9c8ac465f7818132d3539ff8d8e22250305dad104185434533d033da8
     name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__60a099d74c38572686e6ca0eb73e2ec5789c96a4c4975024d468446bb28b8f04(
-    resource: _IPolicyRef_f285244f,
+    resource: _aws_organizations_9e2f48a0.IPolicyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2102,7 +2110,7 @@ def _typecheckingstub__f8b66435b5ef6490ef39b8bb5945e323753a52c32c26444046846eb28
     pass
 
 def _typecheckingstub__08e107e9c8d61d1f582ba132c6a4d229d6f0e045a4e54986638403cf2fea7f0d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2138,7 +2146,7 @@ def _typecheckingstub__15f0eb8f96a555ab850e02c78f1d5319de15607de2d6cecc5449543f8
     pass
 
 def _typecheckingstub__9caafe6d9a16db2e71e0d35514c7cc53b1f7f3b30806cee494691748e49625f2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2155,7 +2163,7 @@ def _typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6
     name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2166,13 +2174,13 @@ def _typecheckingstub__d9208421dfafb85e674bb3b797871f578fa0566480e15ed57d8dbc67f
     id: builtins.str,
     *,
     content: typing.Any,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4bdf39b3cbefe7d3bf477ad788760a83e4ba09939a7a87a3b1f60153f67418ea(
-    resource: _IResourcePolicyRef_10723097,
+    resource: _aws_organizations_9e2f48a0.IResourcePolicyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2184,7 +2192,7 @@ def _typecheckingstub__c6d4f07fdbcf608edaa909d0c6cc93cb7179369c254fddcc2f93ec547
     pass
 
 def _typecheckingstub__e3580a73dde22a778909b428073f1b84b8c546326b9e40056a8a6853799683bf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2202,7 +2210,7 @@ def _typecheckingstub__1a62f3cef96b84d09856779bec28b78a1d418f3c268511a050c8b1af0
     pass
 
 def _typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf32cedd1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2210,7 +2218,7 @@ def _typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf
 def _typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d(
     *,
     content: typing.Any,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

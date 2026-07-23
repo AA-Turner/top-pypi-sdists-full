@@ -8,7 +8,7 @@ using Xunit;
 namespace CloakBrowser.Tests;
 
 /// <summary>
-/// Welcome-banner cadence (Download.WelcomeDue): free re-shows every 3 days,
+/// Welcome-banner cadence (Download.WelcomeDue): free re-shows every day,
 /// Pro shows once ever. Pure function over a marker file — fully deterministic.
 /// </summary>
 public class WelcomeCadenceTests

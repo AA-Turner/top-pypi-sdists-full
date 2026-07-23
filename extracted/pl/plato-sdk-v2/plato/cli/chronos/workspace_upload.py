@@ -39,6 +39,7 @@ from plato.worlds.dvc_models import (
     S3Config,
     _archive_s3_key,
     _build_ignore_matchers,
+    credential_refresh_config,
     dvc_file_key,
     parse_dvc_format,
     s3_download_batch_sync,
@@ -382,12 +383,7 @@ def _build_s3_config(
             "AWS_SESSION_TOKEN": creds.aws_session_token,
             "AWS_DEFAULT_REGION": creds.region,
         },
-        credential_refresh={
-            "chronos_url": chronos_url.rstrip("/"),
-            "repo_id": repo_public_id,
-            "api_key": api_key,
-            "refresh_margin_seconds": 300,
-        },
+        credential_refresh=credential_refresh_config(chronos_url, repo_public_id, api_key),
     )
 
 

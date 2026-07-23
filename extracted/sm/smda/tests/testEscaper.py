@@ -196,6 +196,18 @@ class DisassemblyTestSuite(unittest.TestCase):
                 "bitness": 64,
                 "expected_opc": "48a3????????????????",
             },
+            # a full 64-bit immediate ("movabs reg, imm64") landing inside the mapped image's
+            # address range must be fully escaped, not truncated to its first 8 hex digits and
+            # left un-escaped (the previous regex/struct.pack("I", ...) could not match or pack
+            # anything wider than 32 bits)
+            {
+                "ins": (0, "48b83412004001000000", "movabs", "rax, 0x140001234"),
+                "lower": 0x140001000,
+                "upper": 0x140002000,
+                "expected_bin": "48b8????????????????",
+                "bitness": 64,
+                "expected_opc": "48b8????????????????",
+            },
         ]
         for data in test_data:
             smda_report = SmdaReport()
@@ -227,6 +239,17 @@ class DisassemblyTestSuite(unittest.TestCase):
         # plain call, not left as raw, un-escaped bytes.
         smda_ins = SmdaInstruction((0, "f2e80b100000", "bnd call", "0x1010"))
         self.assertEqual(IntelInstructionEscaper.escapeBinary(smda_ins), "f2e8????????")
+
+    def testIntelEscapeBinaryValuePreservesTwoOccurrenceBehavior(self):
+        value = 0x01010101
+        self.assertEqual(
+            IntelInstructionEscaper.escapeBinaryValue(None, "aa01010101bb01010101cc", value),
+            "aa????????bb????????cc",
+        )
+        self.assertEqual(
+            IntelInstructionEscaper.escapeBinaryValue(None, "0101010101", value),
+            "01????????",
+        )
 
     def testCilInstructionWildcarding(self):
         test_data = [

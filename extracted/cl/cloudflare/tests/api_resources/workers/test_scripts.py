@@ -72,10 +72,23 @@ class TestScripts:
                     "Admin": {
                         "type": "worker",
                         "cache": {"enabled": True},
+                        "state": "created",
+                    },
+                    "Counter": {
+                        "storage": "sqlite",
+                        "type": "durable-object",
+                        "container": "my-container",
+                        "state": "created",
+                    },
+                    "OldCounter": {
+                        "renamed_to": "Counter",
+                        "state": "renamed",
+                        "type": "durable-object",
                     },
                     "default": {
                         "type": "worker",
                         "cache": {"enabled": False},
+                        "state": "created",
                     },
                 },
                 "keep_assets": False,
@@ -455,10 +468,23 @@ class TestAsyncScripts:
                     "Admin": {
                         "type": "worker",
                         "cache": {"enabled": True},
+                        "state": "created",
+                    },
+                    "Counter": {
+                        "storage": "sqlite",
+                        "type": "durable-object",
+                        "container": "my-container",
+                        "state": "created",
+                    },
+                    "OldCounter": {
+                        "renamed_to": "Counter",
+                        "state": "renamed",
+                        "type": "durable-object",
                     },
                     "default": {
                         "type": "worker",
                         "cache": {"enabled": False},
+                        "state": "created",
                     },
                 },
                 "keep_assets": False,

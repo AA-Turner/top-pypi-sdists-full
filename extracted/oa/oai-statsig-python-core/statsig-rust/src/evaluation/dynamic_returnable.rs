@@ -113,8 +113,17 @@ impl DynamicReturnable {
     }
 
     pub(crate) fn get_stable_hash(&self) -> u64 {
-        self.stable_hash
-            .map_or_else(|| stable_hash(&self.value), NonZeroU64::get)
+        if let Some(hash) = self.stable_hash {
+            return hash.get();
+        }
+
+        if matches!(&self.value, DynamicReturnableValue::JsonArchived(_)) {
+            if let Some(hash) = InternedStore::get_mmap_returnable_stable_hash(self.hash) {
+                return hash;
+            }
+        }
+
+        stable_hash(&self.value)
     }
 
     pub(crate) fn from_interned_value(hash: u64, value: DynamicReturnableValue) -> Self {
@@ -137,7 +146,7 @@ impl DynamicReturnable {
     }
 
     #[cfg(test)]
-    pub(crate) fn has_precomputed_stable_hash(&self) -> bool {
+    pub(crate) fn has_inline_stable_hash(&self) -> bool {
         self.stable_hash.is_some()
     }
 }
@@ -158,10 +167,14 @@ fn stable_hash(value: &DynamicReturnableValue) -> u64 {
         DynamicReturnableValue::JsonStatic(value) => {
             stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
         }
-        DynamicReturnableValue::JsonArchived(value) => {
-            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
-        }
+        DynamicReturnableValue::JsonArchived(value) => archived_returnable_stable_hash(value),
     }
+}
+
+pub(crate) fn archived_returnable_stable_hash(
+    value: &ArchivedHashMap<ArchivedString, ArchivedRkyvValue>,
+) -> u64 {
+    stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
 }
 
 impl<'de> Deserialize<'de> for DynamicReturnable {

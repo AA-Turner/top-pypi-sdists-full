@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(
@@ -39,7 +43,7 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 )
 class IInboundExternalLinkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InboundExternalLink.
@@ -59,7 +63,7 @@ class IInboundExternalLinkRef(
 
 class _IInboundExternalLinkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InboundExternalLink.
 
@@ -84,7 +88,7 @@ typing.cast(typing.Any, IInboundExternalLinkRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.ILinkRef")
 class ILinkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Link.
@@ -104,7 +108,7 @@ class ILinkRef(
 
 class _ILinkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Link.
 
@@ -129,7 +133,7 @@ typing.cast(typing.Any, ILinkRef).__jsii_proxy_class__ = lambda : _ILinkRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.ILinkRoutingRuleRef")
 class ILinkRoutingRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LinkRoutingRule.
@@ -149,7 +153,7 @@ class ILinkRoutingRuleRef(
 
 class _ILinkRoutingRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LinkRoutingRule.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, ILinkRoutingRuleRef).__jsii_proxy_class__ = lambda : _IL
 )
 class IOutboundExternalLinkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OutboundExternalLink.
@@ -196,7 +200,7 @@ class IOutboundExternalLinkRef(
 
 class _IOutboundExternalLinkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OutboundExternalLink.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IOutboundExternalLinkRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.IRequesterGatewayRef")
 class IRequesterGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RequesterGateway.
@@ -241,7 +245,7 @@ class IRequesterGatewayRef(
 
 class _IRequesterGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RequesterGateway.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, IRequesterGatewayRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.IResponderGatewayRef")
 class IResponderGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResponderGateway.
@@ -286,7 +290,7 @@ class IResponderGatewayRef(
 
 class _IResponderGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResponderGateway.
 
@@ -332,7 +336,7 @@ class InboundExternalLinkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdfa6fc10753fecc7651354ecdbd49e27d9714a8b6b2781df195ab63efd6bc3c)
+            type_hints = cached_type_hints(_typecheckingstub__bdfa6fc10753fecc7651354ecdbd49e27d9714a8b6b2781df195ab63efd6bc3c)
             check_type(argname="argument inbound_external_link_arn", value=inbound_external_link_arn, expected_type=type_hints["inbound_external_link_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "inbound_external_link_arn": inbound_external_link_arn,
@@ -381,7 +385,7 @@ class LinkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee5fdcf0604322dd959fcfe412ef348575c9fb082efe86a373a6d37ab6c070f)
+            type_hints = cached_type_hints(_typecheckingstub__6ee5fdcf0604322dd959fcfe412ef348575c9fb082efe86a373a6d37ab6c070f)
             check_type(argname="argument link_arn", value=link_arn, expected_type=type_hints["link_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "link_arn": link_arn,
@@ -430,7 +434,7 @@ class LinkRoutingRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7373089fc15d2674415d8006e291854054cf81e64f2202d3d4762f687b82e754)
+            type_hints = cached_type_hints(_typecheckingstub__7373089fc15d2674415d8006e291854054cf81e64f2202d3d4762f687b82e754)
             check_type(argname="argument link_routing_rule_arn", value=link_routing_rule_arn, expected_type=type_hints["link_routing_rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "link_routing_rule_arn": link_routing_rule_arn,
@@ -479,7 +483,7 @@ class OutboundExternalLinkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee3a7fe3807b978c616b6ff52440409d21008b6ac11275f68bfac4ed14dbb2e2)
+            type_hints = cached_type_hints(_typecheckingstub__ee3a7fe3807b978c616b6ff52440409d21008b6ac11275f68bfac4ed14dbb2e2)
             check_type(argname="argument outbound_external_link_arn", value=outbound_external_link_arn, expected_type=type_hints["outbound_external_link_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "outbound_external_link_arn": outbound_external_link_arn,
@@ -528,7 +532,7 @@ class RequesterGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda403205169364e19a675d26bc881462955f89c5b85cf1af97223cf28bf1371)
+            type_hints = cached_type_hints(_typecheckingstub__cda403205169364e19a675d26bc881462955f89c5b85cf1af97223cf28bf1371)
             check_type(argname="argument requester_gateway_arn", value=requester_gateway_arn, expected_type=type_hints["requester_gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "requester_gateway_arn": requester_gateway_arn,
@@ -577,7 +581,7 @@ class ResponderGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f992d87253eb02f346f69b0f2d9924f3e82c06510bf2db9b3bead8a840038c0)
+            type_hints = cached_type_hints(_typecheckingstub__3f992d87253eb02f346f69b0f2d9924f3e82c06510bf2db9b3bead8a840038c0)
             check_type(argname="argument responder_gateway_arn", value=responder_gateway_arn, expected_type=type_hints["responder_gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "responder_gateway_arn": responder_gateway_arn,

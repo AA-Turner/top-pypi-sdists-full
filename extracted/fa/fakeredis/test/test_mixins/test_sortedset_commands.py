@@ -21,6 +21,12 @@ def round_str(x):
     return round(float(x))
 
 
+def _rank_with_score(result):
+    """Normalize a ZRANK/ZREVRANK WITHSCORE reply to [rank, float_score]."""
+    rank, score = result
+    return [rank, float(score)]
+
+
 def zincrby(r, key, amount, value):
     return r.zincrby(key, amount, value)
 
@@ -253,8 +259,10 @@ def test_zrank_redis7_2(r: ClientType):
     assert r.zrank("foo", "one") == 0
     assert r.zrank("foo", "two") == 1
     assert r.zrank("foo", "three") == 2
-    assert r.zrank("foo", "one", withscore=True) == [0, 1.0]
-    assert r.zrank("foo", "two", withscore=True) == [1, 2.0]
+    # redis-py only started decoding the score to a float in 7.x; older versions hand
+    # back the raw bulk string, so normalize rather than pin to a client version.
+    assert _rank_with_score(r.zrank("foo", "one", withscore=True)) == [0, 1.0]
+    assert _rank_with_score(r.zrank("foo", "two", withscore=True)) == [1, 2.0]
 
 
 def test_zrank_non_existent_member(r: ClientType):
@@ -395,8 +403,8 @@ def test_zrevrank_redis7_2(r: ClientType):
     assert r.zrevrank("foo", "one") == 2
     assert r.zrevrank("foo", "two") == 1
     assert r.zrevrank("foo", "three") == 0
-    assert r.zrevrank("foo", "one", withscore=True) == [2, 1.0]
-    assert r.zrevrank("foo", "two", withscore=True) == [1, 2.0]
+    assert _rank_with_score(r.zrevrank("foo", "one", withscore=True)) == [2, 1.0]
+    assert _rank_with_score(r.zrevrank("foo", "two", withscore=True)) == [1, 2.0]
 
 
 def test_zrevrank_non_existent_member(r: ClientType):
@@ -1304,9 +1312,50 @@ def test_bzmpop(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="8")
+@pytest.mark.unsupported_server_types("valkey")
 def test_zrangebyscore_negative_start_after_sort(r: ClientType):
     r.zadd("A", {"A": 0.0})
     r.zadd("B", {"A": 0.0})
     with pytest.raises(redis.ResponseError):
         r.sort("B")
     assert r.zrangebyscore("B", 0.0, 0.0, start=-1, num=1) == []
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="7")
+def test_zmpop_count_not_positive(r: ClientType):
+    r.zadd("foo", {"a": 1, "b": 2})
+    for count in (0, -1):
+        with pytest.raises(Exception, match="count should be greater than 0") as ctx:
+            testtools.raw_command(r, "zmpop", 1, "foo", "MIN", "COUNT", count)
+        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    with pytest.raises(Exception, match="count should be greater than 0") as ctx:
+        testtools.raw_command(r, "bzmpop", 0.01, 1, "foo", "MIN", "COUNT", -1)
+    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    # nothing should have been popped
+    assert r.zcard("foo") == 2
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="7")
+def test_zmpop_numkeys_not_positive(r: ClientType):
+    r.zadd("foo", {"a": 1})
+    for numkeys in (0, -1):
+        with pytest.raises(Exception, match="numkeys should be greater than 0") as ctx:
+            testtools.raw_command(r, "zmpop", numkeys, "foo", "MIN")
+        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="7")
+def test_zmpop_too_few_arguments(r: ClientType):
+    for args in (("zmpop", 1), ("zmpop", 1, "foo"), ("bzmpop", 0.01, 1, "foo")):
+        with pytest.raises(Exception, match="wrong number of arguments") as ctx:
+            testtools.raw_command(r, *args)
+        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+
+
+def test_bzpopmin_bzpopmax_negative_timeout(r: ClientType):
+    r.zadd("foo", {"m": 1})
+    with pytest.raises(Exception, match="timeout is negative"):
+        r.bzpopmin("foo", timeout=-1)
+    with pytest.raises(Exception, match="timeout is negative"):
+        r.bzpopmax("foo", timeout=-1)
+    assert r.zcard("foo") == 1

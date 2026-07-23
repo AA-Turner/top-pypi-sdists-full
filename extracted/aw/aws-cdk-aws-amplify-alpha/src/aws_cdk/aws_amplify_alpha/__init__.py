@@ -394,6 +394,8 @@ To enable skew protection, set the `skewProtection` property to `true`:
 branch = amplify_app.add_branch("dev", skew_protection=True)
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -407,33 +409,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_certificatemanager as _aws_cdk_aws_certificatemanager_ceddda9d
-import aws_cdk.aws_codebuild as _aws_cdk_aws_codebuild_ceddda9d
-import aws_cdk.aws_codecommit as _aws_cdk_aws_codecommit_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_certificatemanager as _aws_cdk_aws_certificatemanager_ceddda9d
+    import aws_cdk.aws_codebuild as _aws_cdk_aws_codebuild_ceddda9d
+    import aws_cdk.aws_codecommit as _aws_cdk_aws_codecommit_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_certificatemanager_ceddda9d = _LazyImport("aws_cdk.aws_certificatemanager")
+    _aws_cdk_aws_codebuild_ceddda9d = _LazyImport("aws_cdk.aws_codebuild")
+    _aws_cdk_aws_codecommit_ceddda9d = _LazyImport("aws_cdk.aws_codecommit")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_s3_assets_ceddda9d = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -514,7 +524,7 @@ class AppProps:
         if isinstance(auto_branch_creation, dict):
             auto_branch_creation = AutoBranchCreation(**auto_branch_creation)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00fae34ad2733a382bf4bd9703c470687ee286b909acac7113a890be0a23b881)
+            type_hints = cached_type_hints(_typecheckingstub__00fae34ad2733a382bf4bd9703c470687ee286b909acac7113a890be0a23b881)
             check_type(argname="argument app_name", value=app_name, expected_type=type_hints["app_name"])
             check_type(argname="argument auto_branch_creation", value=auto_branch_creation, expected_type=type_hints["auto_branch_creation"])
             check_type(argname="argument auto_branch_deletion", value=auto_branch_deletion, expected_type=type_hints["auto_branch_deletion"])
@@ -823,7 +833,7 @@ class AutoBranchCreation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f2af0e4edaf98f48a3180a7128a09045875ec0261dce3f9482c947bcbaae487)
+            type_hints = cached_type_hints(_typecheckingstub__4f2af0e4edaf98f48a3180a7128a09045875ec0261dce3f9482c947bcbaae487)
             check_type(argname="argument auto_build", value=auto_build, expected_type=type_hints["auto_build"])
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
             check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
@@ -1016,7 +1026,7 @@ class BasicAuth(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb61d9465b046820e4be734cff063bd1c7fefa32eea9bb8808c12336571c6dc3)
+            type_hints = cached_type_hints(_typecheckingstub__fb61d9465b046820e4be734cff063bd1c7fefa32eea9bb8808c12336571c6dc3)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
         return typing.cast("BasicAuth", jsii.sinvoke(cls, "fromCredentials", [username, password]))
@@ -1036,7 +1046,7 @@ class BasicAuth(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f366513def1e04612e697b08e7c8224a644a15e7253569d6b718c02c3b943d4)
+            type_hints = cached_type_hints(_typecheckingstub__8f366513def1e04612e697b08e7c8224a644a15e7253569d6b718c02c3b943d4)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
         return typing.cast("BasicAuth", jsii.sinvoke(cls, "fromGeneratedPassword", [username, encryption_key]))
@@ -1055,7 +1065,7 @@ class BasicAuth(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a575491ebde5fe3bfc9e69f32ef44ff1ba5507b5e749645203007fb5fe4214ec)
+            type_hints = cached_type_hints(_typecheckingstub__a575491ebde5fe3bfc9e69f32ef44ff1ba5507b5e749645203007fb5fe4214ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("BasicAuthConfig", jsii.invoke(self, "bind", [scope, id]))
@@ -1100,7 +1110,7 @@ class BasicAuthConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aa4e34249a276be45cee21e775f03f7d1e7897d6d161907ebd2793f00e4409a)
+            type_hints = cached_type_hints(_typecheckingstub__7aa4e34249a276be45cee21e775f03f7d1e7897d6d161907ebd2793f00e4409a)
             check_type(argname="argument enable_basic_auth", value=enable_basic_auth, expected_type=type_hints["enable_basic_auth"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
@@ -1198,7 +1208,7 @@ class BasicAuthProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3809f6d0ef297fe501ad051e76013b357eb7facbc26fe8936330556c35d4dc74)
+            type_hints = cached_type_hints(_typecheckingstub__3809f6d0ef297fe501ad051e76013b357eb7facbc26fe8936330556c35d4dc74)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
@@ -1319,7 +1329,7 @@ class BranchOptions:
             branch = amplify_app.add_branch("dev", compute_role=compute_role)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb250caeb)
+            type_hints = cached_type_hints(_typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb250caeb)
             check_type(argname="argument asset", value=asset, expected_type=type_hints["asset"])
             check_type(argname="argument auto_build", value=auto_build, expected_type=type_hints["auto_build"])
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
@@ -1639,7 +1649,7 @@ class BranchProps(BranchOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__529d2fd3c9613ce4eb269675040b4e50e2005444ff5b8d0f0cf4702adf37c2da)
+            type_hints = cached_type_hints(_typecheckingstub__529d2fd3c9613ce4eb269675040b4e50e2005444ff5b8d0f0cf4702adf37c2da)
             check_type(argname="argument asset", value=asset, expected_type=type_hints["asset"])
             check_type(argname="argument auto_build", value=auto_build, expected_type=type_hints["auto_build"])
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
@@ -1966,7 +1976,7 @@ class CodeCommitSourceCodeProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa2a223f4d92f511cf4841627ec77cbadb81380423b16782bcb854435bab9a3c)
+            type_hints = cached_type_hints(_typecheckingstub__aa2a223f4d92f511cf4841627ec77cbadb81380423b16782bcb854435bab9a3c)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "repository": repository,
@@ -2033,7 +2043,7 @@ class CustomResponseHeader:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89c1962999fedf4ca1e171bdd7613e146d33a972f8a3275a1c82cf2d83ee1b3d)
+            type_hints = cached_type_hints(_typecheckingstub__89c1962999fedf4ca1e171bdd7613e146d33a972f8a3275a1c82cf2d83ee1b3d)
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             check_type(argname="argument app_root", value=app_root, expected_type=type_hints["app_root"])
@@ -2228,7 +2238,7 @@ class CustomRuleOptions:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__716b401b2530f2ea497b885540df3538442041316ceef4d35cbbdb92fa7c627d)
+            type_hints = cached_type_hints(_typecheckingstub__716b401b2530f2ea497b885540df3538442041316ceef4d35cbbdb92fa7c627d)
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -2353,7 +2363,7 @@ class Domain(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40e333b720149581cace67c91dbe1444026f7810389a4b7e045740c2cc6daec4)
+            type_hints = cached_type_hints(_typecheckingstub__40e333b720149581cace67c91dbe1444026f7810389a4b7e045740c2cc6daec4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DomainProps(
@@ -2377,7 +2387,7 @@ class Domain(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c869e76fd73bca8b756321422ccc73fc84cda2d048155aaa02c2be3ca35b44b)
+            type_hints = cached_type_hints(_typecheckingstub__3c869e76fd73bca8b756321422ccc73fc84cda2d048155aaa02c2be3ca35b44b)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         return typing.cast("Domain", jsii.invoke(self, "mapRoot", [branch]))
 
@@ -2395,7 +2405,7 @@ class Domain(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa160eb48a0fec188e680884a7d6535fc2cc3d4e1b98f3dea06a760deb6186c4)
+            type_hints = cached_type_hints(_typecheckingstub__aa160eb48a0fec188e680884a7d6535fc2cc3d4e1b98f3dea06a760deb6186c4)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast("Domain", jsii.invoke(self, "mapSubDomain", [branch, prefix]))
@@ -2538,7 +2548,7 @@ class DomainOptions:
             domain.map_sub_domain(dev)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c320927402b9dc876549f614a833ea8c346cc42aadbbe883e3d2646c5dd361ff)
+            type_hints = cached_type_hints(_typecheckingstub__c320927402b9dc876549f614a833ea8c346cc42aadbbe883e3d2646c5dd361ff)
             check_type(argname="argument auto_subdomain_creation_patterns", value=auto_subdomain_creation_patterns, expected_type=type_hints["auto_subdomain_creation_patterns"])
             check_type(argname="argument custom_certificate", value=custom_certificate, expected_type=type_hints["custom_certificate"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -2696,7 +2706,7 @@ class DomainProps(DomainOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bcc4553ef04f08c67c00e5ca845c349b18cd93f97e022c79c4b74ef6e4b08c4)
+            type_hints = cached_type_hints(_typecheckingstub__4bcc4553ef04f08c67c00e5ca845c349b18cd93f97e022c79c4b74ef6e4b08c4)
             check_type(argname="argument auto_subdomain_creation_patterns", value=auto_subdomain_creation_patterns, expected_type=type_hints["auto_subdomain_creation_patterns"])
             check_type(argname="argument custom_certificate", value=custom_certificate, expected_type=type_hints["custom_certificate"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -2864,7 +2874,7 @@ class GitHubSourceCodeProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a971b7d216fe8bfb4bdd8a433546879b4d66a8bf5db40ad1bec42594688a780b)
+            type_hints = cached_type_hints(_typecheckingstub__a971b7d216fe8bfb4bdd8a433546879b4d66a8bf5db40ad1bec42594688a780b)
             check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
             check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
@@ -2953,7 +2963,7 @@ class GitLabSourceCodeProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a410ebec7c5d44edc4b31cd124a785c4320c6fc00e5255e7e368cb8c5a23a054)
+            type_hints = cached_type_hints(_typecheckingstub__a410ebec7c5d44edc4b31cd124a785c4320c6fc00e5255e7e368cb8c5a23a054)
             check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
             check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
@@ -3124,7 +3134,7 @@ class _ISourceCodeProviderProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__827844675225f813772a868238ca8ec0955c868d8d638a34104a2a053abc8b6b)
+            type_hints = cached_type_hints(_typecheckingstub__827844675225f813772a868238ca8ec0955c868d8d638a34104a2a053abc8b6b)
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
         return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [app]))
 
@@ -3254,7 +3264,7 @@ class SourceCodeProviderConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac2e4799ab05086079fd0209d56fa5d22cdc005ae42195d771cdce9310ea40d)
+            type_hints = cached_type_hints(_typecheckingstub__9ac2e4799ab05086079fd0209d56fa5d22cdc005ae42195d771cdce9310ea40d)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
             check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
@@ -3358,7 +3368,7 @@ class SubDomain:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac6446d0b441d64cdc5587fba11548aaa739970869298a998c56e521c703c189)
+            type_hints = cached_type_hints(_typecheckingstub__ac6446d0b441d64cdc5587fba11548aaa739970869298a998c56e521c703c189)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3470,7 +3480,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beb3fdecad4b351bd290c8a9d65c70964afb63130c3af329024642f751e1c88d)
+            type_hints = cached_type_hints(_typecheckingstub__beb3fdecad4b351bd290c8a9d65c70964afb63130c3af329024642f751e1c88d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AppProps(
@@ -3510,7 +3520,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3f336cf0eaa13206e537622709ef647bef74d888dac99cd443461cc4455f954)
+            type_hints = cached_type_hints(_typecheckingstub__c3f336cf0eaa13206e537622709ef647bef74d888dac99cd443461cc4455f954)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
@@ -3533,7 +3543,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c4175887e8f0238227347c352129f3e79394976ffce631cfdc2d4a9f0f90bd6)
+            type_hints = cached_type_hints(_typecheckingstub__7c4175887e8f0238227347c352129f3e79394976ffce631cfdc2d4a9f0f90bd6)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("App", jsii.invoke(self, "addAutoBranchEnvironment", [name, value]))
@@ -3577,7 +3587,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2df726a9de1c19f40cb6ef900a079002cd8f15beecdff87621764c6d7dd0531)
+            type_hints = cached_type_hints(_typecheckingstub__e2df726a9de1c19f40cb6ef900a079002cd8f15beecdff87621764c6d7dd0531)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = BranchOptions(
             asset=asset,
@@ -3606,7 +3616,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6783891a6cd7f3088a3bed2c1715b515a14c667057f4628ec4078468d12da60c)
+            type_hints = cached_type_hints(_typecheckingstub__6783891a6cd7f3088a3bed2c1715b515a14c667057f4628ec4078468d12da60c)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
         return typing.cast("App", jsii.invoke(self, "addCustomRule", [rule]))
 
@@ -3633,7 +3643,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9eded460e79858e0488221a5d3720c49b396d004a89444fee1e0b50398d19393)
+            type_hints = cached_type_hints(_typecheckingstub__9eded460e79858e0488221a5d3720c49b396d004a89444fee1e0b50398d19393)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = DomainOptions(
             auto_subdomain_creation_patterns=auto_subdomain_creation_patterns,
@@ -3658,7 +3668,7 @@ class App(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a51be2fb6676f14c991e00fb755d16c1ced49655e61e9ae209c7cc236cedc927)
+            type_hints = cached_type_hints(_typecheckingstub__a51be2fb6676f14c991e00fb755d16c1ced49655e61e9ae209c7cc236cedc927)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("App", jsii.invoke(self, "addEnvironment", [name, value]))
@@ -3800,7 +3810,7 @@ class Branch(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85d9ca053e5c72ede5db7f548cddd267aa4e3612c2ede03b31b18efcb9826978)
+            type_hints = cached_type_hints(_typecheckingstub__85d9ca053e5c72ede5db7f548cddd267aa4e3612c2ede03b31b18efcb9826978)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BranchProps(
@@ -3839,7 +3849,7 @@ class Branch(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fa5ffbe763f20879178517ee1de040b22dd307df63054ff4d34194b83dc836f)
+            type_hints = cached_type_hints(_typecheckingstub__1fa5ffbe763f20879178517ee1de040b22dd307df63054ff4d34194b83dc836f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
@@ -3858,7 +3868,7 @@ class Branch(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c3bb818e563fb94e108a4ac51c6856e0f40137143fc5b1abb03be954bc2d372)
+            type_hints = cached_type_hints(_typecheckingstub__1c3bb818e563fb94e108a4ac51c6856e0f40137143fc5b1abb03be954bc2d372)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Branch", jsii.invoke(self, "addEnvironment", [name, value]))
@@ -3939,7 +3949,7 @@ class CodeCommitSourceCodeProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28b2e5a130d115ac93f5dc1c7a49d85af09f80db57b20a2c3aacf0df76ee411f)
+            type_hints = cached_type_hints(_typecheckingstub__28b2e5a130d115ac93f5dc1c7a49d85af09f80db57b20a2c3aacf0df76ee411f)
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
         return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [app]))
 
@@ -4007,7 +4017,7 @@ class GitHubSourceCodeProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95bb551e0bd0c5908f812aa7521905b367f553a81d84e74c14963deac202e989)
+            type_hints = cached_type_hints(_typecheckingstub__95bb551e0bd0c5908f812aa7521905b367f553a81d84e74c14963deac202e989)
             check_type(argname="argument _app", value=_app, expected_type=type_hints["_app"])
         return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [_app]))
 
@@ -4062,7 +4072,7 @@ class GitLabSourceCodeProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29dad1f763523380f6a67ed0ae532ec1546e13d4d89b8aa9148ee6c401326b7d)
+            type_hints = cached_type_hints(_typecheckingstub__29dad1f763523380f6a67ed0ae532ec1546e13d4d89b8aa9148ee6c401326b7d)
             check_type(argname="argument _app", value=_app, expected_type=type_hints["_app"])
         return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [_app]))
 

@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,43 +45,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_s3objectlambda import (
-    AccessPointPolicyReference as _AccessPointPolicyReference_e35949d7,
-    AccessPointReference as _AccessPointReference_3f210be9,
-    IAccessPointPolicyRef as _IAccessPointPolicyRef_643df275,
-    IAccessPointRef as _IAccessPointRef_22b02bce,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_s3objectlambda as _aws_s3objectlambda_91aefc37
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_s3objectlambda_91aefc37 = _LazyImport("aws_cdk.interfaces.aws_s3objectlambda")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessPointRef_22b02bce)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3objectlambda_91aefc37.IAccessPointRef)
 class CfnAccessPoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPoint",
 ):
@@ -120,7 +115,7 @@ class CfnAccessPoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        object_lambda_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.ObjectLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        object_lambda_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.ObjectLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::S3ObjectLambda::AccessPoint``.
@@ -131,7 +126,7 @@ class CfnAccessPoint(
         :param name: The name of this access point.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc24858ef1979ca1cb8fba3d4a06956342322b232c5594f16f11ee6c380ea43b)
+            type_hints = cached_type_hints(_typecheckingstub__fc24858ef1979ca1cb8fba3d4a06956342322b232c5594f16f11ee6c380ea43b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessPointProps(
@@ -144,13 +139,13 @@ class CfnAccessPoint(
     @builtins.classmethod
     def arn_for_access_point(
         cls,
-        resource: "_IAccessPointRef_22b02bce",
+        resource: "_aws_s3objectlambda_91aefc37.IAccessPointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06444ab8b2f9ba6206f38f54678eaf6f0787ca9d63e3291eeef56b3796acf45d)
+            type_hints = cached_type_hints(_typecheckingstub__06444ab8b2f9ba6206f38f54678eaf6f0787ca9d63e3291eeef56b3796acf45d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessPoint", [resource]))
 
@@ -161,7 +156,7 @@ class CfnAccessPoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IAccessPointRef_22b02bce":
+    ) -> "_aws_s3objectlambda_91aefc37.IAccessPointRef":
         '''Creates a new IAccessPointRef from an ARN.
 
         :param scope: -
@@ -169,11 +164,11 @@ class CfnAccessPoint(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__defea8bccd68eb183683f1aadec1ecc1382e458ccc4d40e795d9f849f225940f)
+            type_hints = cached_type_hints(_typecheckingstub__defea8bccd68eb183683f1aadec1ecc1382e458ccc4d40e795d9f849f225940f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IAccessPointRef_22b02bce", jsii.sinvoke(cls, "fromAccessPointArn", [scope, id, arn]))
+        return typing.cast("_aws_s3objectlambda_91aefc37.IAccessPointRef", jsii.sinvoke(cls, "fromAccessPointArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromAccessPointName")
     @builtins.classmethod
@@ -182,7 +177,7 @@ class CfnAccessPoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         access_point_name: builtins.str,
-    ) -> "_IAccessPointRef_22b02bce":
+    ) -> "_aws_s3objectlambda_91aefc37.IAccessPointRef":
         '''Creates a new IAccessPointRef from a accessPointName.
 
         :param scope: -
@@ -190,11 +185,11 @@ class CfnAccessPoint(
         :param access_point_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91374202740135884457f0822a12ceffd47c8eacf315dec4b3a8e999855f10a3)
+            type_hints = cached_type_hints(_typecheckingstub__91374202740135884457f0822a12ceffd47c8eacf315dec4b3a8e999855f10a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
-        return typing.cast("_IAccessPointRef_22b02bce", jsii.sinvoke(cls, "fromAccessPointName", [scope, id, access_point_name]))
+        return typing.cast("_aws_s3objectlambda_91aefc37.IAccessPointRef", jsii.sinvoke(cls, "fromAccessPointName", [scope, id, access_point_name]))
 
     @jsii.member(jsii_name="isCfnAccessPoint")
     @builtins.classmethod
@@ -204,18 +199,18 @@ class CfnAccessPoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff82179807770cc496561a07105740a9f714da3a56ebcc6fde38baf49333cde1)
+            type_hints = cached_type_hints(_typecheckingstub__ff82179807770cc496561a07105740a9f714da3a56ebcc6fde38baf49333cde1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessPoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de086f7124fab776ebe585a8278086a48c54ce0f9432344e7ead7888d183a2af)
+            type_hints = cached_type_hints(_typecheckingstub__de086f7124fab776ebe585a8278086a48c54ce0f9432344e7ead7888d183a2af)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -228,7 +223,7 @@ class CfnAccessPoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4bdd3b4c3dcd57f23413630ff374499bdd114af0eb3d609502c3ce8c4384c2f)
+            type_hints = cached_type_hints(_typecheckingstub__f4bdd3b4c3dcd57f23413630ff374499bdd114af0eb3d609502c3ce8c4384c2f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -240,17 +235,17 @@ class CfnAccessPoint(
 
     @builtins.property
     @jsii.member(jsii_name="accessPointRef")
-    def access_point_ref(self) -> "_AccessPointReference_3f210be9":
+    def access_point_ref(self) -> "_aws_s3objectlambda_91aefc37.AccessPointReference":
         '''A reference to a AccessPoint resource.'''
-        return typing.cast("_AccessPointReference_3f210be9", jsii.get(self, "accessPointRef"))
+        return typing.cast("_aws_s3objectlambda_91aefc37.AccessPointReference", jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAlias")
-    def attr_alias(self) -> "_IResolvable_da3f097b":
+    def attr_alias(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: Alias
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAlias"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAlias"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAliasStatus")
@@ -294,73 +289,73 @@ class CfnAccessPoint(
 
     @builtins.property
     @jsii.member(jsii_name="attrPolicyStatus")
-    def attr_policy_status(self) -> "_IResolvable_da3f097b":
+    def attr_policy_status(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PolicyStatus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPolicyStatus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPolicyStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPolicyStatusIsPublic")
-    def attr_policy_status_is_public(self) -> "_IResolvable_da3f097b":
+    def attr_policy_status_is_public(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Specifies whether the Object lambda Access Point Policy is Public or not.
 
         Object lambda Access Points are private by default.
 
         :cloudformationAttribute: PolicyStatus.IsPublic
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPolicyStatusIsPublic"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPolicyStatusIsPublic"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPublicAccessBlockConfiguration")
-    def attr_public_access_block_configuration(self) -> "_IResolvable_da3f097b":
+    def attr_public_access_block_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The Public Access Block Configuration is used to block policies that would allow public access to this Object lambda Access Point.
 
         All public access to Object lambda Access Points are blocked by default, and any policy that would give public access to them will be also blocked. This behavior cannot be changed for Object lambda Access Points.
 
         :cloudformationAttribute: PublicAccessBlockConfiguration
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPublicAccessBlockConfiguration"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPublicAccessBlockConfiguration"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPublicAccessBlockConfigurationBlockPublicAcls")
     def attr_public_access_block_configuration_block_public_acls(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PublicAccessBlockConfiguration.BlockPublicAcls
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPublicAccessBlockConfigurationBlockPublicAcls"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPublicAccessBlockConfigurationBlockPublicAcls"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPublicAccessBlockConfigurationBlockPublicPolicy")
     def attr_public_access_block_configuration_block_public_policy(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PublicAccessBlockConfiguration.BlockPublicPolicy
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPublicAccessBlockConfigurationBlockPublicPolicy"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPublicAccessBlockConfigurationBlockPublicPolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPublicAccessBlockConfigurationIgnorePublicAcls")
     def attr_public_access_block_configuration_ignore_public_acls(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PublicAccessBlockConfiguration.IgnorePublicAcls
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPublicAccessBlockConfigurationIgnorePublicAcls"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPublicAccessBlockConfigurationIgnorePublicAcls"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPublicAccessBlockConfigurationRestrictPublicBuckets")
     def attr_public_access_block_configuration_restrict_public_buckets(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PublicAccessBlockConfiguration.RestrictPublicBuckets
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPublicAccessBlockConfigurationRestrictPublicBuckets"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPublicAccessBlockConfigurationRestrictPublicBuckets"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -376,17 +371,17 @@ class CfnAccessPoint(
     @jsii.member(jsii_name="objectLambdaConfiguration")
     def object_lambda_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.ObjectLambdaConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.ObjectLambdaConfigurationProperty"]:
         '''A configuration used when creating an Object Lambda Access Point.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.ObjectLambdaConfigurationProperty"], jsii.get(self, "objectLambdaConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.ObjectLambdaConfigurationProperty"], jsii.get(self, "objectLambdaConfiguration"))
 
     @object_lambda_configuration.setter
     def object_lambda_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.ObjectLambdaConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.ObjectLambdaConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72235765a4ddbec3dfa520018313ca825a0eee0d6620fbbc57d8d6942cd266e1)
+            type_hints = cached_type_hints(_typecheckingstub__72235765a4ddbec3dfa520018313ca825a0eee0d6620fbbc57d8d6942cd266e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "objectLambdaConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -399,7 +394,7 @@ class CfnAccessPoint(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1ec3bbadc1fe6d1688dbe3361b2c99aaf74daa3cbcc3c9006d8c862eee8b9f7)
+            type_hints = cached_type_hints(_typecheckingstub__c1ec3bbadc1fe6d1688dbe3361b2c99aaf74daa3cbcc3c9006d8c862eee8b9f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -439,7 +434,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__057ad3aa353f20aafa8045ccead72b77f424a0108cc0869f56410bb930ad4959)
+                type_hints = cached_type_hints(_typecheckingstub__057ad3aa353f20aafa8045ccead72b77f424a0108cc0869f56410bb930ad4959)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -516,7 +511,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9ee3118c2b111c6807c152b3884192374a50ef95bf6b87dbf9a0a05bc33c38fd)
+                type_hints = cached_type_hints(_typecheckingstub__9ee3118c2b111c6807c152b3884192374a50ef95bf6b87dbf9a0a05bc33c38fd)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument function_payload", value=function_payload, expected_type=type_hints["function_payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -562,7 +557,7 @@ class CfnAccessPoint(
         def __init__(
             self,
             *,
-            aws_lambda: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.AwsLambdaProperty", typing.Dict[builtins.str, typing.Any]]],
+            aws_lambda: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.AwsLambdaProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param aws_lambda: 
@@ -586,7 +581,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f2a3c7654e406c9a13790e67d3850f1b300c2434f25e8d6a2a17d16cb8ddbcc0)
+                type_hints = cached_type_hints(_typecheckingstub__f2a3c7654e406c9a13790e67d3850f1b300c2434f25e8d6a2a17d16cb8ddbcc0)
                 check_type(argname="argument aws_lambda", value=aws_lambda, expected_type=type_hints["aws_lambda"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "aws_lambda": aws_lambda,
@@ -595,13 +590,13 @@ class CfnAccessPoint(
         @builtins.property
         def aws_lambda(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.AwsLambdaProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.AwsLambdaProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-contenttransformation.html#cfn-s3objectlambda-accesspoint-contenttransformation-awslambda
             '''
             result = self._values.get("aws_lambda")
             assert result is not None, "Required property 'aws_lambda' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.AwsLambdaProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.AwsLambdaProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -629,9 +624,9 @@ class CfnAccessPoint(
             self,
             *,
             supporting_access_point: builtins.str,
-            transformation_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.TransformationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            transformation_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.TransformationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             allowed_features: typing.Optional[typing.Sequence[builtins.str]] = None,
-            cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A configuration used when creating an Object Lambda Access Point.
 
@@ -664,7 +659,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d802fe046f5597b4cf6ab6c81e09859cbab4304022fbba60a7a7493d751a7537)
+                type_hints = cached_type_hints(_typecheckingstub__d802fe046f5597b4cf6ab6c81e09859cbab4304022fbba60a7a7493d751a7537)
                 check_type(argname="argument supporting_access_point", value=supporting_access_point, expected_type=type_hints["supporting_access_point"])
                 check_type(argname="argument transformation_configurations", value=transformation_configurations, expected_type=type_hints["transformation_configurations"])
                 check_type(argname="argument allowed_features", value=allowed_features, expected_type=type_hints["allowed_features"])
@@ -691,14 +686,14 @@ class CfnAccessPoint(
         @builtins.property
         def transformation_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.TransformationConfigurationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.TransformationConfigurationProperty"]]]:
             '''A container for transformation configurations for an Object Lambda Access Point.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-objectlambdaconfiguration.html#cfn-s3objectlambda-accesspoint-objectlambdaconfiguration-transformationconfigurations
             '''
             result = self._values.get("transformation_configurations")
             assert result is not None, "Required property 'transformation_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.TransformationConfigurationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.TransformationConfigurationProperty"]]], result)
 
         @builtins.property
         def allowed_features(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -714,13 +709,13 @@ class CfnAccessPoint(
         @builtins.property
         def cloud_watch_metrics_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A container for whether the CloudWatch metrics configuration is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-objectlambdaconfiguration.html#cfn-s3objectlambda-accesspoint-objectlambdaconfiguration-cloudwatchmetricsenabled
             '''
             result = self._values.get("cloud_watch_metrics_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -742,7 +737,7 @@ class CfnAccessPoint(
         def __init__(
             self,
             *,
-            is_public: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_public: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''
             :param is_public: Specifies whether the Object lambda Access Point Policy is Public or not. Object lambda Access Points are private by default.
@@ -761,7 +756,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__567589e9b5b2f6e953182f1aec5f7104ad468c6abdba9a78102c5d1c446ab3cc)
+                type_hints = cached_type_hints(_typecheckingstub__567589e9b5b2f6e953182f1aec5f7104ad468c6abdba9a78102c5d1c446ab3cc)
                 check_type(argname="argument is_public", value=is_public, expected_type=type_hints["is_public"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if is_public is not None:
@@ -770,7 +765,7 @@ class CfnAccessPoint(
         @builtins.property
         def is_public(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the Object lambda Access Point Policy is Public or not.
 
             Object lambda Access Points are private by default.
@@ -778,7 +773,7 @@ class CfnAccessPoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-policystatus.html#cfn-s3objectlambda-accesspoint-policystatus-ispublic
             '''
             result = self._values.get("is_public")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -805,10 +800,10 @@ class CfnAccessPoint(
         def __init__(
             self,
             *,
-            block_public_acls: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            block_public_policy: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            ignore_public_acls: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            restrict_public_buckets: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            block_public_acls: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            block_public_policy: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            ignore_public_acls: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            restrict_public_buckets: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The ``PublicAccessBlock`` configuration that you want to apply to this Amazon S3 account.
 
@@ -838,7 +833,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__12c04bac03609eea5e08bddece37a8aca57faed68fc43e07a3a742f9ab0974f8)
+                type_hints = cached_type_hints(_typecheckingstub__12c04bac03609eea5e08bddece37a8aca57faed68fc43e07a3a742f9ab0974f8)
                 check_type(argname="argument block_public_acls", value=block_public_acls, expected_type=type_hints["block_public_acls"])
                 check_type(argname="argument block_public_policy", value=block_public_policy, expected_type=type_hints["block_public_policy"])
                 check_type(argname="argument ignore_public_acls", value=ignore_public_acls, expected_type=type_hints["ignore_public_acls"])
@@ -856,7 +851,7 @@ class CfnAccessPoint(
         @builtins.property
         def block_public_acls(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether Amazon S3 should block public access control lists (ACLs) for buckets in this account.
 
             Setting this element to ``TRUE`` causes the following behavior:
@@ -872,12 +867,12 @@ class CfnAccessPoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-publicaccessblockconfiguration.html#cfn-s3objectlambda-accesspoint-publicaccessblockconfiguration-blockpublicacls
             '''
             result = self._values.get("block_public_acls")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def block_public_policy(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether Amazon S3 should block public bucket policies for buckets in this account.
 
             Setting this element to ``TRUE`` causes Amazon S3 to reject calls to PUT Bucket policy if the specified bucket policy allows public access.
@@ -889,12 +884,12 @@ class CfnAccessPoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-publicaccessblockconfiguration.html#cfn-s3objectlambda-accesspoint-publicaccessblockconfiguration-blockpublicpolicy
             '''
             result = self._values.get("block_public_policy")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def ignore_public_acls(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether Amazon S3 should ignore public ACLs for buckets in this account.
 
             Setting this element to ``TRUE`` causes Amazon S3 to ignore all public ACLs on buckets in this account and any objects that they contain.
@@ -906,12 +901,12 @@ class CfnAccessPoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-publicaccessblockconfiguration.html#cfn-s3objectlambda-accesspoint-publicaccessblockconfiguration-ignorepublicacls
             '''
             result = self._values.get("ignore_public_acls")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def restrict_public_buckets(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether Amazon S3 should restrict public bucket policies for buckets in this account.
 
             Setting this element to ``TRUE`` restricts access to buckets with public policies to only AWS service principals and authorized users within this account.
@@ -923,7 +918,7 @@ class CfnAccessPoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3objectlambda-accesspoint-publicaccessblockconfiguration.html#cfn-s3objectlambda-accesspoint-publicaccessblockconfiguration-restrictpublicbuckets
             '''
             result = self._values.get("restrict_public_buckets")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -973,7 +968,7 @@ class CfnAccessPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d813fa32fb650257882ca805d56459cab0e118595c1aa53f20603c3da7aab305)
+                type_hints = cached_type_hints(_typecheckingstub__d813fa32fb650257882ca805d56459cab0e118595c1aa53f20603c3da7aab305)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument content_transformation", value=content_transformation, expected_type=type_hints["content_transformation"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1017,9 +1012,9 @@ class CfnAccessPoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessPointPolicyRef_643df275)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3objectlambda_91aefc37.IAccessPointPolicyRef)
 class CfnAccessPointPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPointPolicy",
 ):
@@ -1059,7 +1054,7 @@ class CfnAccessPointPolicy(
         :param policy_document: Object Lambda Access Point resource policy document.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38c2d34f6523c616e1afc407dc2231b5dcb990e107b03282b05407873f5abafb)
+            type_hints = cached_type_hints(_typecheckingstub__38c2d34f6523c616e1afc407dc2231b5dcb990e107b03282b05407873f5abafb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessPointPolicyProps(
@@ -1077,18 +1072,18 @@ class CfnAccessPointPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__504918016257e711ad0d8566c471398f5551775e83c4d9431475b4fc618db0b7)
+            type_hints = cached_type_hints(_typecheckingstub__504918016257e711ad0d8566c471398f5551775e83c4d9431475b4fc618db0b7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessPointPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__476b48c6b590eb6900b185218ec9086959f09cb3a1ff210d00076950dc7d510a)
+            type_hints = cached_type_hints(_typecheckingstub__476b48c6b590eb6900b185218ec9086959f09cb3a1ff210d00076950dc7d510a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1101,7 +1096,7 @@ class CfnAccessPointPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2b022ca3e974fbdb8a20d57f47c6b5a43ccee02cd200210e1064b5e6c82949f)
+            type_hints = cached_type_hints(_typecheckingstub__b2b022ca3e974fbdb8a20d57f47c6b5a43ccee02cd200210e1064b5e6c82949f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1113,9 +1108,11 @@ class CfnAccessPointPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="accessPointPolicyRef")
-    def access_point_policy_ref(self) -> "_AccessPointPolicyReference_e35949d7":
+    def access_point_policy_ref(
+        self,
+    ) -> "_aws_s3objectlambda_91aefc37.AccessPointPolicyReference":
         '''A reference to a AccessPointPolicy resource.'''
-        return typing.cast("_AccessPointPolicyReference_e35949d7", jsii.get(self, "accessPointPolicyRef"))
+        return typing.cast("_aws_s3objectlambda_91aefc37.AccessPointPolicyReference", jsii.get(self, "accessPointPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1136,7 +1133,7 @@ class CfnAccessPointPolicy(
     @object_lambda_access_point.setter
     def object_lambda_access_point(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40f558fc15d35e909e4982b57f0cb15aac48aef92d7578cdf38fd49590b9353d)
+            type_hints = cached_type_hints(_typecheckingstub__40f558fc15d35e909e4982b57f0cb15aac48aef92d7578cdf38fd49590b9353d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "objectLambdaAccessPoint", value) # pyright: ignore[reportArgumentType]
 
@@ -1149,7 +1146,7 @@ class CfnAccessPointPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1efc67ebff8549be6ada402864d14d3f20c1a9eb0a85a3c67f4b18a6e16a0c7b)
+            type_hints = cached_type_hints(_typecheckingstub__1efc67ebff8549be6ada402864d14d3f20c1a9eb0a85a3c67f4b18a6e16a0c7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -1191,7 +1188,7 @@ class CfnAccessPointPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73)
+            type_hints = cached_type_hints(_typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73)
             check_type(argname="argument object_lambda_access_point", value=object_lambda_access_point, expected_type=type_hints["object_lambda_access_point"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1243,7 +1240,7 @@ class CfnAccessPointProps:
     def __init__(
         self,
         *,
-        object_lambda_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccessPoint.ObjectLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        object_lambda_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessPoint.ObjectLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessPoint``.
@@ -1280,7 +1277,7 @@ class CfnAccessPointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd)
+            type_hints = cached_type_hints(_typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd)
             check_type(argname="argument object_lambda_configuration", value=object_lambda_configuration, expected_type=type_hints["object_lambda_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1292,14 +1289,14 @@ class CfnAccessPointProps:
     @builtins.property
     def object_lambda_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.ObjectLambdaConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.ObjectLambdaConfigurationProperty"]:
         '''A configuration used when creating an Object Lambda Access Point.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html#cfn-s3objectlambda-accesspoint-objectlambdaconfiguration
         '''
         result = self._values.get("object_lambda_configuration")
         assert result is not None, "Required property 'object_lambda_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccessPoint.ObjectLambdaConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessPoint.ObjectLambdaConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1335,14 +1332,14 @@ def _typecheckingstub__fc24858ef1979ca1cb8fba3d4a06956342322b232c5594f16f11ee6c3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    object_lambda_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__06444ab8b2f9ba6206f38f54678eaf6f0787ca9d63e3291eeef56b3796acf45d(
-    resource: _IAccessPointRef_22b02bce,
+    resource: _aws_s3objectlambda_91aefc37.IAccessPointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1370,7 +1367,7 @@ def _typecheckingstub__ff82179807770cc496561a07105740a9f714da3a56ebcc6fde38baf49
     pass
 
 def _typecheckingstub__de086f7124fab776ebe585a8278086a48c54ce0f9432344e7ead7888d183a2af(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1382,7 +1379,7 @@ def _typecheckingstub__f4bdd3b4c3dcd57f23413630ff374499bdd114af0eb3d609502c3ce8c
     pass
 
 def _typecheckingstub__72235765a4ddbec3dfa520018313ca825a0eee0d6620fbbc57d8d6942cd266e1(
-    value: typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ObjectLambdaConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAccessPoint.ObjectLambdaConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1411,7 +1408,7 @@ def _typecheckingstub__9ee3118c2b111c6807c152b3884192374a50ef95bf6b87dbf9a0a05bc
 
 def _typecheckingstub__f2a3c7654e406c9a13790e67d3850f1b300c2434f25e8d6a2a17d16cb8ddbcc0(
     *,
-    aws_lambda: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.AwsLambdaProperty, typing.Dict[builtins.str, typing.Any]]],
+    aws_lambda: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.AwsLambdaProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1419,26 +1416,26 @@ def _typecheckingstub__f2a3c7654e406c9a13790e67d3850f1b300c2434f25e8d6a2a17d16cb
 def _typecheckingstub__d802fe046f5597b4cf6ab6c81e09859cbab4304022fbba60a7a7493d751a7537(
     *,
     supporting_access_point: builtins.str,
-    transformation_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.TransformationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    transformation_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.TransformationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     allowed_features: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__567589e9b5b2f6e953182f1aec5f7104ad468c6abdba9a78102c5d1c446ab3cc(
     *,
-    is_public: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_public: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12c04bac03609eea5e08bddece37a8aca57faed68fc43e07a3a742f9ab0974f8(
     *,
-    block_public_acls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ignore_public_acls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    restrict_public_buckets: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    block_public_acls: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    block_public_policy: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    ignore_public_acls: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    restrict_public_buckets: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1468,7 +1465,7 @@ def _typecheckingstub__504918016257e711ad0d8566c471398f5551775e83c4d9431475b4fc6
     pass
 
 def _typecheckingstub__476b48c6b590eb6900b185218ec9086959f09cb3a1ff210d00076950dc7d510a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1501,7 +1498,7 @@ def _typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bcc
 
 def _typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd(
     *,
-    object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    object_lambda_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

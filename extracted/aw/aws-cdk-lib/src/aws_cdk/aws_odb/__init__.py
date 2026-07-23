@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,52 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_odb import (
-    CloudAutonomousVmClusterReference as _CloudAutonomousVmClusterReference_cd4af1e1,
-    CloudExadataInfrastructureReference as _CloudExadataInfrastructureReference_abf63715,
-    CloudVmClusterReference as _CloudVmClusterReference_5fd0c065,
-    ICloudAutonomousVmClusterRef as _ICloudAutonomousVmClusterRef_ec2012b7,
-    ICloudExadataInfrastructureRef as _ICloudExadataInfrastructureRef_15dfbe1b,
-    ICloudVmClusterRef as _ICloudVmClusterRef_d11cd0d7,
-    IOdbNetworkRef as _IOdbNetworkRef_1a4a3229,
-    IOdbPeeringConnectionRef as _IOdbPeeringConnectionRef_894341c3,
-    OdbNetworkReference as _OdbNetworkReference_3627e1e1,
-    OdbPeeringConnectionReference as _OdbPeeringConnectionReference_273daf27,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_odb as _aws_odb_a2fc65b3
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_odb_a2fc65b3 = _LazyImport("aws_cdk.interfaces.aws_odb")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICloudAutonomousVmClusterRef_ec2012b7, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_odb_a2fc65b3.ICloudAutonomousVmClusterRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCloudAutonomousVmCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_odb.CfnCloudAutonomousVmCluster",
 ):
@@ -158,15 +144,15 @@ class CfnCloudAutonomousVmCluster(
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        iam_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         license_model: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
         scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_zone: typing.Optional[builtins.str] = None,
         total_container_databases: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -193,7 +179,7 @@ class CfnCloudAutonomousVmCluster(
         :param total_container_databases: The total number of Autonomous Container Databases that can be created with the allocated local storage. Required when creating an Autonomous VM cluster.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d622fe4b7)
+            type_hints = cached_type_hints(_typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d622fe4b7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCloudAutonomousVmClusterProps(
@@ -222,13 +208,13 @@ class CfnCloudAutonomousVmCluster(
     @builtins.classmethod
     def arn_for_cloud_autonomous_vm_cluster(
         cls,
-        resource: "_ICloudAutonomousVmClusterRef_ec2012b7",
+        resource: "_aws_odb_a2fc65b3.ICloudAutonomousVmClusterRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86063b64a76451e09f7cc3c098d3a20d6095c5fd75becc743f4fb325ff458295)
+            type_hints = cached_type_hints(_typecheckingstub__86063b64a76451e09f7cc3c098d3a20d6095c5fd75becc743f4fb325ff458295)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudAutonomousVmCluster", [resource]))
 
@@ -240,18 +226,18 @@ class CfnCloudAutonomousVmCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce337b4462c2a2db2945b875b9f04881a80baf036e635c50ef2333cb3a45472)
+            type_hints = cached_type_hints(_typecheckingstub__6ce337b4462c2a2db2945b875b9f04881a80baf036e635c50ef2333cb3a45472)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudAutonomousVmCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84a4f6b25bd9fc71f4af4608dc8d871a48a14e3aa106d9234cbf4fe28cb2b58f)
+            type_hints = cached_type_hints(_typecheckingstub__84a4f6b25bd9fc71f4af4608dc8d871a48a14e3aa106d9234cbf4fe28cb2b58f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -264,7 +250,7 @@ class CfnCloudAutonomousVmCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2eb3cdd94f355c2d04e4e4acfc5c7ab515c2cf6e1291a5cd397e7293bef9dc)
+            type_hints = cached_type_hints(_typecheckingstub__1e2eb3cdd94f355c2d04e4e4acfc5c7ab515c2cf6e1291a5cd397e7293bef9dc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -276,23 +262,25 @@ class CfnCloudAutonomousVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrAutonomousDataStoragePercentage")
-    def attr_autonomous_data_storage_percentage(self) -> "_IResolvable_da3f097b":
+    def attr_autonomous_data_storage_percentage(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The percentage of data storage currently in use for Autonomous Databases in the Autonomous VM cluster.
 
         :cloudformationAttribute: AutonomousDataStoragePercentage
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAutonomousDataStoragePercentage"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAutonomousDataStoragePercentage"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAvailableAutonomousDataStorageSizeInTBs")
     def attr_available_autonomous_data_storage_size_in_t_bs(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The available data storage space for Autonomous Databases in the Autonomous VM cluster, in TB.
 
         :cloudformationAttribute: AvailableAutonomousDataStorageSizeInTBs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAvailableAutonomousDataStorageSizeInTBs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAvailableAutonomousDataStorageSizeInTBs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAvailableContainerDatabases")
@@ -305,12 +293,12 @@ class CfnCloudAutonomousVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrAvailableCpus")
-    def attr_available_cpus(self) -> "_IResolvable_da3f097b":
+    def attr_available_cpus(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The number of CPU cores available for allocation to Autonomous Databases.
 
         :cloudformationAttribute: AvailableCpus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAvailableCpus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAvailableCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCloudAutonomousVmClusterArn")
@@ -350,30 +338,30 @@ class CfnCloudAutonomousVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrCpuPercentage")
-    def attr_cpu_percentage(self) -> "_IResolvable_da3f097b":
+    def attr_cpu_percentage(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The percentage of total CPU cores currently in use in the Autonomous VM cluster.
 
         :cloudformationAttribute: CpuPercentage
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCpuPercentage"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCpuPercentage"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDataStorageSizeInGBs")
-    def attr_data_storage_size_in_g_bs(self) -> "_IResolvable_da3f097b":
+    def attr_data_storage_size_in_g_bs(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total data storage allocated to the Autonomous VM cluster, in GB.
 
         :cloudformationAttribute: DataStorageSizeInGBs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDataStorageSizeInGBs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrDataStorageSizeInGBs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDataStorageSizeInTBs")
-    def attr_data_storage_size_in_t_bs(self) -> "_IResolvable_da3f097b":
+    def attr_data_storage_size_in_t_bs(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total data storage allocated to the Autonomous VM cluster, in TB.
 
         :cloudformationAttribute: DataStorageSizeInTBs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDataStorageSizeInTBs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrDataStorageSizeInTBs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDbNodeStorageSizeInGBs")
@@ -397,12 +385,12 @@ class CfnCloudAutonomousVmCluster(
     @jsii.member(jsii_name="attrExadataStorageInTBsLowestScaledValue")
     def attr_exadata_storage_in_t_bs_lowest_scaled_value(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The minimum value to which you can scale down the Exadata storage, in TB.
 
         :cloudformationAttribute: ExadataStorageInTBsLowestScaledValue
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrExadataStorageInTBsLowestScaledValue"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrExadataStorageInTBsLowestScaledValue"))
 
     @builtins.property
     @jsii.member(jsii_name="attrHostname")
@@ -496,30 +484,30 @@ class CfnCloudAutonomousVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrProvisionedCpus")
-    def attr_provisioned_cpus(self) -> "_IResolvable_da3f097b":
+    def attr_provisioned_cpus(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The number of CPU cores currently provisioned in the Autonomous VM cluster.
 
         :cloudformationAttribute: ProvisionedCpus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrProvisionedCpus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrProvisionedCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReclaimableCpus")
-    def attr_reclaimable_cpus(self) -> "_IResolvable_da3f097b":
+    def attr_reclaimable_cpus(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The number of CPU cores that can be reclaimed from terminated or scaled-down Autonomous Databases.
 
         :cloudformationAttribute: ReclaimableCpus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReclaimableCpus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrReclaimableCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReservedCpus")
-    def attr_reserved_cpus(self) -> "_IResolvable_da3f097b":
+    def attr_reserved_cpus(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The number of CPU cores reserved for system operations and redundancy.
 
         :cloudformationAttribute: ReservedCpus
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReservedCpus"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrReservedCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrShape")
@@ -532,9 +520,9 @@ class CfnCloudAutonomousVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -550,9 +538,9 @@ class CfnCloudAutonomousVmCluster(
     @jsii.member(jsii_name="cloudAutonomousVmClusterRef")
     def cloud_autonomous_vm_cluster_ref(
         self,
-    ) -> "_CloudAutonomousVmClusterReference_cd4af1e1":
+    ) -> "_aws_odb_a2fc65b3.CloudAutonomousVmClusterReference":
         '''A reference to a CloudAutonomousVmCluster resource.'''
-        return typing.cast("_CloudAutonomousVmClusterReference_cd4af1e1", jsii.get(self, "cloudAutonomousVmClusterRef"))
+        return typing.cast("_aws_odb_a2fc65b3.CloudAutonomousVmClusterReference", jsii.get(self, "cloudAutonomousVmClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autonomousDataStorageSizeInTBs")
@@ -566,7 +554,7 @@ class CfnCloudAutonomousVmCluster(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40074e4af0815e5d10dc283d57884238e94d4495641eabd516fb0756ea7c3470)
+            type_hints = cached_type_hints(_typecheckingstub__40074e4af0815e5d10dc283d57884238e94d4495641eabd516fb0756ea7c3470)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autonomousDataStorageSizeInTBs", value) # pyright: ignore[reportArgumentType]
 
@@ -582,7 +570,7 @@ class CfnCloudAutonomousVmCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5301a4ddecbbb56f2a61e1dc19ab1b23bbb1871188111de8c469ba85ec8831c)
+            type_hints = cached_type_hints(_typecheckingstub__f5301a4ddecbbb56f2a61e1dc19ab1b23bbb1871188111de8c469ba85ec8831c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cloudExadataInfrastructureId", value) # pyright: ignore[reportArgumentType]
 
@@ -595,7 +583,7 @@ class CfnCloudAutonomousVmCluster(
     @cpu_core_count_per_node.setter
     def cpu_core_count_per_node(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d5db84de12cdb3e5fabc3ed93ef628c9b5d3c1442b857b2ed5613f1ae8ee8d8)
+            type_hints = cached_type_hints(_typecheckingstub__5d5db84de12cdb3e5fabc3ed93ef628c9b5d3c1442b857b2ed5613f1ae8ee8d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cpuCoreCountPerNode", value) # pyright: ignore[reportArgumentType]
 
@@ -608,7 +596,7 @@ class CfnCloudAutonomousVmCluster(
     @db_servers.setter
     def db_servers(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3920feef52a9977e900bf54bab82c28ef41365e37516fc5e8e6a08317645e7bb)
+            type_hints = cached_type_hints(_typecheckingstub__3920feef52a9977e900bf54bab82c28ef41365e37516fc5e8e6a08317645e7bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbServers", value) # pyright: ignore[reportArgumentType]
 
@@ -621,7 +609,7 @@ class CfnCloudAutonomousVmCluster(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__376a9ebe12aa174628e81620a3eb8d3f7a5903598d84242a38a6521b11c10c8d)
+            type_hints = cached_type_hints(_typecheckingstub__376a9ebe12aa174628e81620a3eb8d3f7a5903598d84242a38a6521b11c10c8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -634,7 +622,7 @@ class CfnCloudAutonomousVmCluster(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75d262c2ba8661c4d2d20abe159b3efce30fa2a6854ff6d4d27b98c116630ce7)
+            type_hints = cached_type_hints(_typecheckingstub__75d262c2ba8661c4d2d20abe159b3efce30fa2a6854ff6d4d27b98c116630ce7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -642,17 +630,17 @@ class CfnCloudAutonomousVmCluster(
     @jsii.member(jsii_name="iamRoles")
     def iam_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
         '''The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
 
     @iam_roles.setter
     def iam_roles(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__105257ef44474dd5c7bb2e24057c1aa2109abc7bcfe92a2155def87abce5a367)
+            type_hints = cached_type_hints(_typecheckingstub__105257ef44474dd5c7bb2e24057c1aa2109abc7bcfe92a2155def87abce5a367)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
 
@@ -660,17 +648,17 @@ class CfnCloudAutonomousVmCluster(
     @jsii.member(jsii_name="isMtlsEnabledVmCluster")
     def is_mtls_enabled_vm_cluster(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isMtlsEnabledVmCluster"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isMtlsEnabledVmCluster"))
 
     @is_mtls_enabled_vm_cluster.setter
     def is_mtls_enabled_vm_cluster(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b71c28f08596e3a8e06bf9ac61f202a72d06b5f6a93ae96a6cd988fa2c8b3457)
+            type_hints = cached_type_hints(_typecheckingstub__b71c28f08596e3a8e06bf9ac61f202a72d06b5f6a93ae96a6cd988fa2c8b3457)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isMtlsEnabledVmCluster", value) # pyright: ignore[reportArgumentType]
 
@@ -683,7 +671,7 @@ class CfnCloudAutonomousVmCluster(
     @license_model.setter
     def license_model(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__429e238c2071c653da37b075f2da161573e5972cfc94448900389409da574e63)
+            type_hints = cached_type_hints(_typecheckingstub__429e238c2071c653da37b075f2da161573e5972cfc94448900389409da574e63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "licenseModel", value) # pyright: ignore[reportArgumentType]
 
@@ -691,17 +679,17 @@ class CfnCloudAutonomousVmCluster(
     @jsii.member(jsii_name="maintenanceWindow")
     def maintenance_window(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]]:
         '''The scheduling details for the maintenance window.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindow"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindow"))
 
     @maintenance_window.setter
     def maintenance_window(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9893af2fa0c239ed09a25053b836f4c53aa964e484761b3656bf3f69ee2f20aa)
+            type_hints = cached_type_hints(_typecheckingstub__9893af2fa0c239ed09a25053b836f4c53aa964e484761b3656bf3f69ee2f20aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -717,7 +705,7 @@ class CfnCloudAutonomousVmCluster(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd777a3c3d03d11ff6d441f65051a7d1dcba1c191c5da7776d901c5b9765eb42)
+            type_hints = cached_type_hints(_typecheckingstub__bd777a3c3d03d11ff6d441f65051a7d1dcba1c191c5da7776d901c5b9765eb42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memoryPerOracleComputeUnitInGBs", value) # pyright: ignore[reportArgumentType]
 
@@ -730,7 +718,7 @@ class CfnCloudAutonomousVmCluster(
     @odb_network_id.setter
     def odb_network_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d834f35ba34f357c207777de5cc71d5a4ff7f1fc34d7d2258c384cf3f2fe69ea)
+            type_hints = cached_type_hints(_typecheckingstub__d834f35ba34f357c207777de5cc71d5a4ff7f1fc34d7d2258c384cf3f2fe69ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "odbNetworkId", value) # pyright: ignore[reportArgumentType]
 
@@ -743,7 +731,7 @@ class CfnCloudAutonomousVmCluster(
     @scan_listener_port_non_tls.setter
     def scan_listener_port_non_tls(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd9cf4eca6ac7c9c9481d6618538bfd5cfd343c9c4dee27e927e579919f0ee93)
+            type_hints = cached_type_hints(_typecheckingstub__dd9cf4eca6ac7c9c9481d6618538bfd5cfd343c9c4dee27e927e579919f0ee93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scanListenerPortNonTls", value) # pyright: ignore[reportArgumentType]
 
@@ -756,20 +744,23 @@ class CfnCloudAutonomousVmCluster(
     @scan_listener_port_tls.setter
     def scan_listener_port_tls(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a7c3ab9bede20a7946889e0e134a092708444b390ea3a2deaafb7e86de212cb)
+            type_hints = cached_type_hints(_typecheckingstub__6a7c3ab9bede20a7946889e0e134a092708444b390ea3a2deaafb7e86de212cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scanListenerPortTls", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Autonomous Vm Cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c0f9eb455c371aedd7a5d89d20d74ae053b5c2fbe1fd8e6614a484ac7e8c9a1)
+            type_hints = cached_type_hints(_typecheckingstub__4c0f9eb455c371aedd7a5d89d20d74ae053b5c2fbe1fd8e6614a484ac7e8c9a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -782,7 +773,7 @@ class CfnCloudAutonomousVmCluster(
     @time_zone.setter
     def time_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8343f27429e0f5eae088fa7811047979c32cb60a08a24cfaa30bd3ccb47ed883)
+            type_hints = cached_type_hints(_typecheckingstub__8343f27429e0f5eae088fa7811047979c32cb60a08a24cfaa30bd3ccb47ed883)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
 
@@ -795,7 +786,7 @@ class CfnCloudAutonomousVmCluster(
     @total_container_databases.setter
     def total_container_databases(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f4f14ad61521ea763f91422ba382ad5682e9530d8b2883c57ade0003139ff56)
+            type_hints = cached_type_hints(_typecheckingstub__7f4f14ad61521ea763f91422ba382ad5682e9530d8b2883c57ade0003139ff56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "totalContainerDatabases", value) # pyright: ignore[reportArgumentType]
 
@@ -838,7 +829,7 @@ class CfnCloudAutonomousVmCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__886b68400d89131ff223d65666709636b3deb438b3925bc4e692acc8123b05f8)
+                type_hints = cached_type_hints(_typecheckingstub__886b68400d89131ff223d65666709636b3deb438b3925bc4e692acc8123b05f8)
                 check_type(argname="argument aws_integration", value=aws_integration, expected_type=type_hints["aws_integration"])
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -905,11 +896,11 @@ class CfnCloudAutonomousVmCluster(
             self,
             *,
             days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
-            hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             lead_time_in_weeks: typing.Optional[jsii.Number] = None,
             months: typing.Optional[typing.Sequence[builtins.str]] = None,
             preference: typing.Optional[builtins.str] = None,
-            weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The scheduling details for the maintenance window.
 
@@ -941,7 +932,7 @@ class CfnCloudAutonomousVmCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bec420fa64b103170ca1fde88b7f5526381889811659e8a32ae9356eed292838)
+                type_hints = cached_type_hints(_typecheckingstub__bec420fa64b103170ca1fde88b7f5526381889811659e8a32ae9356eed292838)
                 check_type(argname="argument days_of_week", value=days_of_week, expected_type=type_hints["days_of_week"])
                 check_type(argname="argument hours_of_day", value=hours_of_day, expected_type=type_hints["hours_of_day"])
                 check_type(argname="argument lead_time_in_weeks", value=lead_time_in_weeks, expected_type=type_hints["lead_time_in_weeks"])
@@ -974,13 +965,13 @@ class CfnCloudAutonomousVmCluster(
         @builtins.property
         def hours_of_day(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The hours of the day when maintenance can be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-maintenancewindow.html#cfn-odb-cloudautonomousvmcluster-maintenancewindow-hoursofday
             '''
             result = self._values.get("hours_of_day")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def lead_time_in_weeks(self) -> typing.Optional[jsii.Number]:
@@ -1012,13 +1003,13 @@ class CfnCloudAutonomousVmCluster(
         @builtins.property
         def weeks_of_month(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The weeks of the month when maintenance can be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-maintenancewindow.html#cfn-odb-cloudautonomousvmcluster-maintenancewindow-weeksofmonth
             '''
             result = self._values.get("weeks_of_month")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1065,15 +1056,15 @@ class CfnCloudAutonomousVmClusterProps:
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        iam_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         license_model: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
         scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_zone: typing.Optional[builtins.str] = None,
         total_container_databases: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -1142,7 +1133,7 @@ class CfnCloudAutonomousVmClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b)
+            type_hints = cached_type_hints(_typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b)
             check_type(argname="argument autonomous_data_storage_size_in_t_bs", value=autonomous_data_storage_size_in_t_bs, expected_type=type_hints["autonomous_data_storage_size_in_t_bs"])
             check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
             check_type(argname="argument cpu_core_count_per_node", value=cpu_core_count_per_node, expected_type=type_hints["cpu_core_count_per_node"])
@@ -1261,24 +1252,24 @@ class CfnCloudAutonomousVmClusterProps:
     @builtins.property
     def iam_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
         '''The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-iamroles
         '''
         result = self._values.get("iam_roles")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], result)
 
     @builtins.property
     def is_mtls_enabled_vm_cluster(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-ismtlsenabledvmcluster
         '''
         result = self._values.get("is_mtls_enabled_vm_cluster")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def license_model(self) -> typing.Optional[builtins.str]:
@@ -1294,7 +1285,7 @@ class CfnCloudAutonomousVmClusterProps:
     @builtins.property
     def maintenance_window(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]]:
         '''The scheduling details for the maintenance window.
 
         Patching and system updates take place during the maintenance window.
@@ -1302,7 +1293,7 @@ class CfnCloudAutonomousVmClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-maintenancewindow
         '''
         result = self._values.get("maintenance_window")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]], result)
 
     @builtins.property
     def memory_per_oracle_compute_unit_in_g_bs(self) -> typing.Optional[jsii.Number]:
@@ -1349,13 +1340,13 @@ class CfnCloudAutonomousVmClusterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Autonomous Vm Cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def time_zone(self) -> typing.Optional[builtins.str]:
@@ -1389,9 +1380,9 @@ class CfnCloudAutonomousVmClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICloudExadataInfrastructureRef_15dfbe1b, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_odb_a2fc65b3.ICloudExadataInfrastructureRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCloudExadataInfrastructure(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_odb.CfnCloudExadataInfrastructure",
 ):
@@ -1448,14 +1439,14 @@ class CfnCloudExadataInfrastructure(
         availability_zone: typing.Optional[builtins.str] = None,
         availability_zone_id: typing.Optional[builtins.str] = None,
         compute_count: typing.Optional[jsii.Number] = None,
-        customer_contacts_to_send_to_oci: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudExadataInfrastructure.CustomerContactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        customer_contacts_to_send_to_oci: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudExadataInfrastructure.CustomerContactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         database_server_type: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudExadataInfrastructure.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudExadataInfrastructure.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         shape: typing.Optional[builtins.str] = None,
         storage_count: typing.Optional[jsii.Number] = None,
         storage_server_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ODB::CloudExadataInfrastructure``.
 
@@ -1474,7 +1465,7 @@ class CfnCloudExadataInfrastructure(
         :param tags: Tags to assign to the Exadata Infrastructure.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd782f736e7ad827f171e15d160c54071c1fbef5443d136721533cbfdcdb7012)
+            type_hints = cached_type_hints(_typecheckingstub__fd782f736e7ad827f171e15d160c54071c1fbef5443d136721533cbfdcdb7012)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCloudExadataInfrastructureProps(
@@ -1497,13 +1488,13 @@ class CfnCloudExadataInfrastructure(
     @builtins.classmethod
     def arn_for_cloud_exadata_infrastructure(
         cls,
-        resource: "_ICloudExadataInfrastructureRef_15dfbe1b",
+        resource: "_aws_odb_a2fc65b3.ICloudExadataInfrastructureRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e784e2b60bf0ded6072c21a14696c9c37eb9b5ed869eb536dd419a555a8a4d)
+            type_hints = cached_type_hints(_typecheckingstub__a9e784e2b60bf0ded6072c21a14696c9c37eb9b5ed869eb536dd419a555a8a4d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudExadataInfrastructure", [resource]))
 
@@ -1515,18 +1506,18 @@ class CfnCloudExadataInfrastructure(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__203e17020262a387118e5a38d00675252617b126cf10586488f0a6cd1f562aea)
+            type_hints = cached_type_hints(_typecheckingstub__203e17020262a387118e5a38d00675252617b126cf10586488f0a6cd1f562aea)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudExadataInfrastructure", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f2b53aab94ecf4f8defcc0e14b676f19557d80b7dd0f9ff46a17b7649889a87)
+            type_hints = cached_type_hints(_typecheckingstub__4f2b53aab94ecf4f8defcc0e14b676f19557d80b7dd0f9ff46a17b7649889a87)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1539,7 +1530,7 @@ class CfnCloudExadataInfrastructure(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30c5d730c06a06b60c97eec0e4a7fec63bac2317a2c033784ea9da48cda003b4)
+            type_hints = cached_type_hints(_typecheckingstub__30c5d730c06a06b60c97eec0e4a7fec63bac2317a2c033784ea9da48cda003b4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1616,12 +1607,12 @@ class CfnCloudExadataInfrastructure(
 
     @builtins.property
     @jsii.member(jsii_name="attrDataStorageSizeInTBs")
-    def attr_data_storage_size_in_t_bs(self) -> "_IResolvable_da3f097b":
+    def attr_data_storage_size_in_t_bs(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The size of the Exadata infrastructure's data disk group, in terabytes (TB).
 
         :cloudformationAttribute: DataStorageSizeInTBs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDataStorageSizeInTBs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrDataStorageSizeInTBs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDbNodeStorageSizeInGBs")
@@ -1661,12 +1652,12 @@ class CfnCloudExadataInfrastructure(
 
     @builtins.property
     @jsii.member(jsii_name="attrMaxDataStorageInTBs")
-    def attr_max_data_storage_in_t_bs(self) -> "_IResolvable_da3f097b":
+    def attr_max_data_storage_in_t_bs(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total amount of data disk group storage, in terabytes (TB), that's available on the Exadata infrastructure.
 
         :cloudformationAttribute: MaxDataStorageInTBs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrMaxDataStorageInTBs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrMaxDataStorageInTBs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrMaxDbNodeStorageSizeInGBs")
@@ -1742,9 +1733,9 @@ class CfnCloudExadataInfrastructure(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1760,9 +1751,9 @@ class CfnCloudExadataInfrastructure(
     @jsii.member(jsii_name="cloudExadataInfrastructureRef")
     def cloud_exadata_infrastructure_ref(
         self,
-    ) -> "_CloudExadataInfrastructureReference_abf63715":
+    ) -> "_aws_odb_a2fc65b3.CloudExadataInfrastructureReference":
         '''A reference to a CloudExadataInfrastructure resource.'''
-        return typing.cast("_CloudExadataInfrastructureReference_abf63715", jsii.get(self, "cloudExadataInfrastructureRef"))
+        return typing.cast("_aws_odb_a2fc65b3.CloudExadataInfrastructureReference", jsii.get(self, "cloudExadataInfrastructureRef"))
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -1773,7 +1764,7 @@ class CfnCloudExadataInfrastructure(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c16313314e3dc88f64b64a6807c0212a1ebb85e656c09cf7edb0f12490e36f6)
+            type_hints = cached_type_hints(_typecheckingstub__7c16313314e3dc88f64b64a6807c0212a1ebb85e656c09cf7edb0f12490e36f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -1786,7 +1777,7 @@ class CfnCloudExadataInfrastructure(
     @availability_zone_id.setter
     def availability_zone_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2438c10c6661d5ac7195e2cd938683127ead28b38288093164aed692e449d80a)
+            type_hints = cached_type_hints(_typecheckingstub__2438c10c6661d5ac7195e2cd938683127ead28b38288093164aed692e449d80a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -1799,7 +1790,7 @@ class CfnCloudExadataInfrastructure(
     @compute_count.setter
     def compute_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed6c897fe570d07a340273c57b43f97da5d100a17ae8701b161d22cf07674db5)
+            type_hints = cached_type_hints(_typecheckingstub__ed6c897fe570d07a340273c57b43f97da5d100a17ae8701b161d22cf07674db5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computeCount", value) # pyright: ignore[reportArgumentType]
 
@@ -1807,17 +1798,17 @@ class CfnCloudExadataInfrastructure(
     @jsii.member(jsii_name="customerContactsToSendToOci")
     def customer_contacts_to_send_to_oci(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]]:
         '''The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]], jsii.get(self, "customerContactsToSendToOci"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]], jsii.get(self, "customerContactsToSendToOci"))
 
     @customer_contacts_to_send_to_oci.setter
     def customer_contacts_to_send_to_oci(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564d722d30f571b6b15ec3202d92d33e97da84125c2eabe6a9cebe8d28fed3d6)
+            type_hints = cached_type_hints(_typecheckingstub__564d722d30f571b6b15ec3202d92d33e97da84125c2eabe6a9cebe8d28fed3d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customerContactsToSendToOci", value) # pyright: ignore[reportArgumentType]
 
@@ -1830,7 +1821,7 @@ class CfnCloudExadataInfrastructure(
     @database_server_type.setter
     def database_server_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e15e2bca6e90c311020132fc94b88d4dd573507aadbba5a8fddfbd5970990a3e)
+            type_hints = cached_type_hints(_typecheckingstub__e15e2bca6e90c311020132fc94b88d4dd573507aadbba5a8fddfbd5970990a3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "databaseServerType", value) # pyright: ignore[reportArgumentType]
 
@@ -1843,7 +1834,7 @@ class CfnCloudExadataInfrastructure(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d12c1cc442676c06c38458b560f32148a7562dbf983c5df26ac19ffea7c7ee58)
+            type_hints = cached_type_hints(_typecheckingstub__d12c1cc442676c06c38458b560f32148a7562dbf983c5df26ac19ffea7c7ee58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -1851,17 +1842,17 @@ class CfnCloudExadataInfrastructure(
     @jsii.member(jsii_name="maintenanceWindow")
     def maintenance_window(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]]:
         '''The scheduling details for the maintenance window.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindow"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindow"))
 
     @maintenance_window.setter
     def maintenance_window(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e3bb28409835469386431431fb04ff62da0b9c236f5e4e6de86eaab458aa03d)
+            type_hints = cached_type_hints(_typecheckingstub__1e3bb28409835469386431431fb04ff62da0b9c236f5e4e6de86eaab458aa03d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -1874,7 +1865,7 @@ class CfnCloudExadataInfrastructure(
     @shape.setter
     def shape(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__044d56c3db02ff4cda6e4851e60243f1c99ed89d6880d3e3d3d95a41f20c78c6)
+            type_hints = cached_type_hints(_typecheckingstub__044d56c3db02ff4cda6e4851e60243f1c99ed89d6880d3e3d3d95a41f20c78c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shape", value) # pyright: ignore[reportArgumentType]
 
@@ -1887,7 +1878,7 @@ class CfnCloudExadataInfrastructure(
     @storage_count.setter
     def storage_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27c4cf52db8d984fcff55e5d69a31d9e228dff810356ee3b15020f688804596f)
+            type_hints = cached_type_hints(_typecheckingstub__27c4cf52db8d984fcff55e5d69a31d9e228dff810356ee3b15020f688804596f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageCount", value) # pyright: ignore[reportArgumentType]
 
@@ -1900,20 +1891,23 @@ class CfnCloudExadataInfrastructure(
     @storage_server_type.setter
     def storage_server_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a8454cbe7499d2e89bee927276f8936ca72e6a1ce92f522f2f3a1178753392e)
+            type_hints = cached_type_hints(_typecheckingstub__0a8454cbe7499d2e89bee927276f8936ca72e6a1ce92f522f2f3a1178753392e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageServerType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Exadata Infrastructure.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9909f2504aae00efa9d8adaf040cb71163078ccb5d88b84ca3af82a80de540b3)
+            type_hints = cached_type_hints(_typecheckingstub__9909f2504aae00efa9d8adaf040cb71163078ccb5d88b84ca3af82a80de540b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1942,7 +1936,7 @@ class CfnCloudExadataInfrastructure(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__643c0e64847e961d0058c2280408d7c853e987c242dc2bdfb33b5b65dcc6c0f3)
+                type_hints = cached_type_hints(_typecheckingstub__643c0e64847e961d0058c2280408d7c853e987c242dc2bdfb33b5b65dcc6c0f3)
                 check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if email is not None:
@@ -1989,13 +1983,13 @@ class CfnCloudExadataInfrastructure(
             *,
             custom_action_timeout_in_mins: typing.Optional[jsii.Number] = None,
             days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
-            hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
-            is_custom_action_timeout_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_custom_action_timeout_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             lead_time_in_weeks: typing.Optional[jsii.Number] = None,
             months: typing.Optional[typing.Sequence[builtins.str]] = None,
             patching_mode: typing.Optional[builtins.str] = None,
             preference: typing.Optional[builtins.str] = None,
-            weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The scheduling details for the maintenance window.
 
@@ -2033,7 +2027,7 @@ class CfnCloudExadataInfrastructure(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__99303e5da5047eb80fd9260c2a8d18c444f4f01d29749076a86c0c0412db2caa)
+                type_hints = cached_type_hints(_typecheckingstub__99303e5da5047eb80fd9260c2a8d18c444f4f01d29749076a86c0c0412db2caa)
                 check_type(argname="argument custom_action_timeout_in_mins", value=custom_action_timeout_in_mins, expected_type=type_hints["custom_action_timeout_in_mins"])
                 check_type(argname="argument days_of_week", value=days_of_week, expected_type=type_hints["days_of_week"])
                 check_type(argname="argument hours_of_day", value=hours_of_day, expected_type=type_hints["hours_of_day"])
@@ -2084,24 +2078,24 @@ class CfnCloudExadataInfrastructure(
         @builtins.property
         def hours_of_day(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The hours of the day when maintenance can be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudexadatainfrastructure-maintenancewindow.html#cfn-odb-cloudexadatainfrastructure-maintenancewindow-hoursofday
             '''
             result = self._values.get("hours_of_day")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def is_custom_action_timeout_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether custom action timeout is enabled for the maintenance window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudexadatainfrastructure-maintenancewindow.html#cfn-odb-cloudexadatainfrastructure-maintenancewindow-iscustomactiontimeoutenabled
             '''
             result = self._values.get("is_custom_action_timeout_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def lead_time_in_weeks(self) -> typing.Optional[jsii.Number]:
@@ -2142,13 +2136,13 @@ class CfnCloudExadataInfrastructure(
         @builtins.property
         def weeks_of_month(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The weeks of the month when maintenance can be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudexadatainfrastructure-maintenancewindow.html#cfn-odb-cloudexadatainfrastructure-maintenancewindow-weeksofmonth
             '''
             result = self._values.get("weeks_of_month")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2186,14 +2180,14 @@ class CfnCloudExadataInfrastructureProps:
         availability_zone: typing.Optional[builtins.str] = None,
         availability_zone_id: typing.Optional[builtins.str] = None,
         compute_count: typing.Optional[jsii.Number] = None,
-        customer_contacts_to_send_to_oci: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudExadataInfrastructure.CustomerContactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        customer_contacts_to_send_to_oci: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudExadataInfrastructure.CustomerContactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         database_server_type: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudExadataInfrastructure.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudExadataInfrastructure.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         shape: typing.Optional[builtins.str] = None,
         storage_count: typing.Optional[jsii.Number] = None,
         storage_server_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCloudExadataInfrastructure``.
 
@@ -2249,7 +2243,7 @@ class CfnCloudExadataInfrastructureProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081)
+            type_hints = cached_type_hints(_typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081)
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
             check_type(argname="argument compute_count", value=compute_count, expected_type=type_hints["compute_count"])
@@ -2321,13 +2315,13 @@ class CfnCloudExadataInfrastructureProps:
     @builtins.property
     def customer_contacts_to_send_to_oci(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]]:
         '''The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-customercontactstosendtooci
         '''
         result = self._values.get("customer_contacts_to_send_to_oci")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]], result)
 
     @builtins.property
     def database_server_type(self) -> typing.Optional[builtins.str]:
@@ -2354,7 +2348,7 @@ class CfnCloudExadataInfrastructureProps:
     @builtins.property
     def maintenance_window(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]]:
         '''The scheduling details for the maintenance window.
 
         Patching and system updates take place during the maintenance window.
@@ -2362,7 +2356,7 @@ class CfnCloudExadataInfrastructureProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-maintenancewindow
         '''
         result = self._values.get("maintenance_window")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudExadataInfrastructure.MaintenanceWindowProperty"]], result)
 
     @builtins.property
     def shape(self) -> typing.Optional[builtins.str]:
@@ -2398,13 +2392,13 @@ class CfnCloudExadataInfrastructureProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Exadata Infrastructure.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2418,9 +2412,9 @@ class CfnCloudExadataInfrastructureProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICloudVmClusterRef_d11cd0d7, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_odb_a2fc65b3.ICloudVmClusterRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCloudVmCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_odb.CfnCloudVmCluster",
 ):
@@ -2506,24 +2500,24 @@ class CfnCloudVmCluster(
         cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
         cluster_name: typing.Optional[builtins.str] = None,
         cpu_core_count: typing.Optional[jsii.Number] = None,
-        data_collection_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.DataCollectionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_collection_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.DataCollectionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-        db_nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.DbNodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        db_nodes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.DbNodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         gi_version: typing.Optional[builtins.str] = None,
         hostname: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        iam_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         license_model: typing.Optional[builtins.str] = None,
         memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
         ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
         system_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ODB::CloudVmCluster``.
@@ -2554,7 +2548,7 @@ class CfnCloudVmCluster(
         :param time_zone: The time zone of the VM cluster.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54a24296108cf4d367a887b0b65dc2c9163c185183c8fde1522a8cb329db03c9)
+            type_hints = cached_type_hints(_typecheckingstub__54a24296108cf4d367a887b0b65dc2c9163c185183c8fde1522a8cb329db03c9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCloudVmClusterProps(
@@ -2588,13 +2582,13 @@ class CfnCloudVmCluster(
     @builtins.classmethod
     def arn_for_cloud_vm_cluster(
         cls,
-        resource: "_ICloudVmClusterRef_d11cd0d7",
+        resource: "_aws_odb_a2fc65b3.ICloudVmClusterRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ec1bb67eb1f8034aed766424720d834a10f73711ca4897fbf09bccd8e66a312)
+            type_hints = cached_type_hints(_typecheckingstub__5ec1bb67eb1f8034aed766424720d834a10f73711ca4897fbf09bccd8e66a312)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudVmCluster", [resource]))
 
@@ -2606,18 +2600,18 @@ class CfnCloudVmCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fae1183beddeb63437cb2f64384bdf7e2e417a3ba8f001ad23f5baaf9702c6d)
+            type_hints = cached_type_hints(_typecheckingstub__3fae1183beddeb63437cb2f64384bdf7e2e417a3ba8f001ad23f5baaf9702c6d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudVmCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed59e4637cf9d059e23e91ea16d89733fbc266730217c0eb52cd6e26b74ca7c7)
+            type_hints = cached_type_hints(_typecheckingstub__ed59e4637cf9d059e23e91ea16d89733fbc266730217c0eb52cd6e26b74ca7c7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2630,7 +2624,7 @@ class CfnCloudVmCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d823fc77af2f98ddeee14344f0e2eb8f2dd78ad96c2039f50849367a0710a3a)
+            type_hints = cached_type_hints(_typecheckingstub__1d823fc77af2f98ddeee14344f0e2eb8f2dd78ad96c2039f50849367a0710a3a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2783,9 +2777,9 @@ class CfnCloudVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2799,9 +2793,9 @@ class CfnCloudVmCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cloudVmClusterRef")
-    def cloud_vm_cluster_ref(self) -> "_CloudVmClusterReference_5fd0c065":
+    def cloud_vm_cluster_ref(self) -> "_aws_odb_a2fc65b3.CloudVmClusterReference":
         '''A reference to a CloudVmCluster resource.'''
-        return typing.cast("_CloudVmClusterReference_5fd0c065", jsii.get(self, "cloudVmClusterRef"))
+        return typing.cast("_aws_odb_a2fc65b3.CloudVmClusterReference", jsii.get(self, "cloudVmClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudExadataInfrastructureId")
@@ -2815,7 +2809,7 @@ class CfnCloudVmCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bf5be722e37c84a8be0753f43f6ebea1d0a90a8366126ea1037239c338f1d8d)
+            type_hints = cached_type_hints(_typecheckingstub__4bf5be722e37c84a8be0753f43f6ebea1d0a90a8366126ea1037239c338f1d8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cloudExadataInfrastructureId", value) # pyright: ignore[reportArgumentType]
 
@@ -2828,7 +2822,7 @@ class CfnCloudVmCluster(
     @cluster_name.setter
     def cluster_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6ff07037dfba0ff0af683d4166a5b861e52d71412e3f43496c4333804c29424)
+            type_hints = cached_type_hints(_typecheckingstub__d6ff07037dfba0ff0af683d4166a5b861e52d71412e3f43496c4333804c29424)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
 
@@ -2841,7 +2835,7 @@ class CfnCloudVmCluster(
     @cpu_core_count.setter
     def cpu_core_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97dfb24de12ee075095d22107411f090b917260a37c1ad001b48d7a5c67cb754)
+            type_hints = cached_type_hints(_typecheckingstub__97dfb24de12ee075095d22107411f090b917260a37c1ad001b48d7a5c67cb754)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cpuCoreCount", value) # pyright: ignore[reportArgumentType]
 
@@ -2849,17 +2843,17 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="dataCollectionOptions")
     def data_collection_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DataCollectionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DataCollectionOptionsProperty"]]:
         '''The set of diagnostic collection options enabled for the VM cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DataCollectionOptionsProperty"]], jsii.get(self, "dataCollectionOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DataCollectionOptionsProperty"]], jsii.get(self, "dataCollectionOptions"))
 
     @data_collection_options.setter
     def data_collection_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DataCollectionOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DataCollectionOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53fa60e8088e8fcfabc4956f1ab3fbbe0607d6039731af37fdbf97088759d7f1)
+            type_hints = cached_type_hints(_typecheckingstub__53fa60e8088e8fcfabc4956f1ab3fbbe0607d6039731af37fdbf97088759d7f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataCollectionOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2872,7 +2866,7 @@ class CfnCloudVmCluster(
     @data_storage_size_in_t_bs.setter
     def data_storage_size_in_t_bs(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10a4a98dd975dea2ac63836158b2dc7afd11f93fa6eef648312be262c3ea26ec)
+            type_hints = cached_type_hints(_typecheckingstub__10a4a98dd975dea2ac63836158b2dc7afd11f93fa6eef648312be262c3ea26ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataStorageSizeInTBs", value) # pyright: ignore[reportArgumentType]
 
@@ -2880,17 +2874,17 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="dbNodes")
     def db_nodes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DbNodeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DbNodeProperty"]]]]:
         '''The DB nodes that are implicitly created and managed as part of this VM Cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DbNodeProperty"]]]], jsii.get(self, "dbNodes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DbNodeProperty"]]]], jsii.get(self, "dbNodes"))
 
     @db_nodes.setter
     def db_nodes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DbNodeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DbNodeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d87bde62c7a3c3cf4ed0bfffab6f8bc36cc20a58ede136430e57b23880577ef)
+            type_hints = cached_type_hints(_typecheckingstub__1d87bde62c7a3c3cf4ed0bfffab6f8bc36cc20a58ede136430e57b23880577ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbNodes", value) # pyright: ignore[reportArgumentType]
 
@@ -2903,7 +2897,7 @@ class CfnCloudVmCluster(
     @db_node_storage_size_in_g_bs.setter
     def db_node_storage_size_in_g_bs(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56b2b388df0abb719bfd805181dfedcccb07a854fdad9846d4422b3c03934e4f)
+            type_hints = cached_type_hints(_typecheckingstub__56b2b388df0abb719bfd805181dfedcccb07a854fdad9846d4422b3c03934e4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbNodeStorageSizeInGBs", value) # pyright: ignore[reportArgumentType]
 
@@ -2916,7 +2910,7 @@ class CfnCloudVmCluster(
     @db_servers.setter
     def db_servers(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b1dc50ef9ded98095512787e029921d39680bf2148e093981b23da405bf6c6f)
+            type_hints = cached_type_hints(_typecheckingstub__5b1dc50ef9ded98095512787e029921d39680bf2148e093981b23da405bf6c6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbServers", value) # pyright: ignore[reportArgumentType]
 
@@ -2929,7 +2923,7 @@ class CfnCloudVmCluster(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__faa8f862640240013012d7cb9579c5f7537d081345be3b3e24850b27f8726e8e)
+            type_hints = cached_type_hints(_typecheckingstub__faa8f862640240013012d7cb9579c5f7537d081345be3b3e24850b27f8726e8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -2942,7 +2936,7 @@ class CfnCloudVmCluster(
     @gi_version.setter
     def gi_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e526643f4d50a0bc3309ec23106c8cf45132d45372c3b9b66ffc9329c9e1c8f1)
+            type_hints = cached_type_hints(_typecheckingstub__e526643f4d50a0bc3309ec23106c8cf45132d45372c3b9b66ffc9329c9e1c8f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "giVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2955,7 +2949,7 @@ class CfnCloudVmCluster(
     @hostname.setter
     def hostname(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd54015f6c4b31aa2007d549141e71219e140c311d6f9e23a787d6f35024881)
+            type_hints = cached_type_hints(_typecheckingstub__0fd54015f6c4b31aa2007d549141e71219e140c311d6f9e23a787d6f35024881)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostname", value) # pyright: ignore[reportArgumentType]
 
@@ -2963,17 +2957,17 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="iamRoles")
     def iam_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.IamRoleProperty"]]]]:
         '''The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
 
     @iam_roles.setter
     def iam_roles(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.IamRoleProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27594cfc1f4f814bfd9ae1e614145ac51f37521ab853091729cfb3cd7b460557)
+            type_hints = cached_type_hints(_typecheckingstub__27594cfc1f4f814bfd9ae1e614145ac51f37521ab853091729cfb3cd7b460557)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
 
@@ -2981,17 +2975,17 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="isLocalBackupEnabled")
     def is_local_backup_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether database backups to local Exadata storage are enabled for the VM cluster.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isLocalBackupEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isLocalBackupEnabled"))
 
     @is_local_backup_enabled.setter
     def is_local_backup_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cee2b990c5219e427b51018646f252e8e93f20f5bc21497075e635e6fee21bc6)
+            type_hints = cached_type_hints(_typecheckingstub__cee2b990c5219e427b51018646f252e8e93f20f5bc21497075e635e6fee21bc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isLocalBackupEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -2999,17 +2993,17 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="isSparseDiskgroupEnabled")
     def is_sparse_diskgroup_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the VM cluster is configured with a sparse disk group.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isSparseDiskgroupEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isSparseDiskgroupEnabled"))
 
     @is_sparse_diskgroup_enabled.setter
     def is_sparse_diskgroup_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c9800b0f09654567a1b07e3e8f1762764faa4d45ca7c8f2740ead91709fa406)
+            type_hints = cached_type_hints(_typecheckingstub__3c9800b0f09654567a1b07e3e8f1762764faa4d45ca7c8f2740ead91709fa406)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "isSparseDiskgroupEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3022,7 +3016,7 @@ class CfnCloudVmCluster(
     @license_model.setter
     def license_model(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__967fcd6461478a7564eb074b4498f432e3de0c5c89704737d521da3f25b82936)
+            type_hints = cached_type_hints(_typecheckingstub__967fcd6461478a7564eb074b4498f432e3de0c5c89704737d521da3f25b82936)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "licenseModel", value) # pyright: ignore[reportArgumentType]
 
@@ -3035,7 +3029,7 @@ class CfnCloudVmCluster(
     @memory_size_in_g_bs.setter
     def memory_size_in_g_bs(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12fb5bc77e272b408d9ce9c7acda5e61ab3441f5399d13b2019847b549593e4b)
+            type_hints = cached_type_hints(_typecheckingstub__12fb5bc77e272b408d9ce9c7acda5e61ab3441f5399d13b2019847b549593e4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memorySizeInGBs", value) # pyright: ignore[reportArgumentType]
 
@@ -3048,7 +3042,7 @@ class CfnCloudVmCluster(
     @odb_network_id.setter
     def odb_network_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__350c5336798cdbfad4947370bdc277a67530ed8e6b01d083fca3f79b8830dea6)
+            type_hints = cached_type_hints(_typecheckingstub__350c5336798cdbfad4947370bdc277a67530ed8e6b01d083fca3f79b8830dea6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "odbNetworkId", value) # pyright: ignore[reportArgumentType]
 
@@ -3061,7 +3055,7 @@ class CfnCloudVmCluster(
     @scan_listener_port_tcp.setter
     def scan_listener_port_tcp(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eb9bc6b7d5257f43d703fc090ba522f231e4a93d03f84a030b4df45e8c072b2)
+            type_hints = cached_type_hints(_typecheckingstub__5eb9bc6b7d5257f43d703fc090ba522f231e4a93d03f84a030b4df45e8c072b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scanListenerPortTcp", value) # pyright: ignore[reportArgumentType]
 
@@ -3077,7 +3071,7 @@ class CfnCloudVmCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b623a41b47f8d29ffe185d4d174da5e8c6c773a014a3ccf0409f011487bc1b1)
+            type_hints = cached_type_hints(_typecheckingstub__8b623a41b47f8d29ffe185d4d174da5e8c6c773a014a3ccf0409f011487bc1b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sshPublicKeys", value) # pyright: ignore[reportArgumentType]
 
@@ -3090,20 +3084,23 @@ class CfnCloudVmCluster(
     @system_version.setter
     def system_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a2f67985613635273aa653a865d22f373a34cc2cf492bbaecbc97526a00620)
+            type_hints = cached_type_hints(_typecheckingstub__95a2f67985613635273aa653a865d22f373a34cc2cf492bbaecbc97526a00620)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "systemVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Vm Cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb35585e2ec32ece572f8bcd0f0a038f35ebbc9d6e29c933404bd886b5900921)
+            type_hints = cached_type_hints(_typecheckingstub__cb35585e2ec32ece572f8bcd0f0a038f35ebbc9d6e29c933404bd886b5900921)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3116,7 +3113,7 @@ class CfnCloudVmCluster(
     @time_zone.setter
     def time_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbc007d119e94eccae2b52e6822c2ec73b5e10e124879ca88059e3b3b536edfd)
+            type_hints = cached_type_hints(_typecheckingstub__dbc007d119e94eccae2b52e6822c2ec73b5e10e124879ca88059e3b3b536edfd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
 
@@ -3133,9 +3130,9 @@ class CfnCloudVmCluster(
         def __init__(
             self,
             *,
-            is_diagnostics_events_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            is_health_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            is_incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_diagnostics_events_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_health_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Information about the data collection options enabled for a VM cluster.
 
@@ -3159,7 +3156,7 @@ class CfnCloudVmCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0be5e048213b0ee63e4c9703a3c1b37da85fb4dc37d9458571be7e6789ddbe30)
+                type_hints = cached_type_hints(_typecheckingstub__0be5e048213b0ee63e4c9703a3c1b37da85fb4dc37d9458571be7e6789ddbe30)
                 check_type(argname="argument is_diagnostics_events_enabled", value=is_diagnostics_events_enabled, expected_type=type_hints["is_diagnostics_events_enabled"])
                 check_type(argname="argument is_health_monitoring_enabled", value=is_health_monitoring_enabled, expected_type=type_hints["is_health_monitoring_enabled"])
                 check_type(argname="argument is_incident_logs_enabled", value=is_incident_logs_enabled, expected_type=type_hints["is_incident_logs_enabled"])
@@ -3174,35 +3171,35 @@ class CfnCloudVmCluster(
         @builtins.property
         def is_diagnostics_events_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether diagnostic collection is enabled for the VM cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-datacollectionoptions.html#cfn-odb-cloudvmcluster-datacollectionoptions-isdiagnosticseventsenabled
             '''
             result = self._values.get("is_diagnostics_events_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def is_health_monitoring_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether health monitoring is enabled for the VM cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-datacollectionoptions.html#cfn-odb-cloudvmcluster-datacollectionoptions-ishealthmonitoringenabled
             '''
             result = self._values.get("is_health_monitoring_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def is_incident_logs_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether incident logs are enabled for the VM cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-datacollectionoptions.html#cfn-odb-cloudvmcluster-datacollectionoptions-isincidentlogsenabled
             '''
             result = self._values.get("is_incident_logs_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3254,7 +3251,7 @@ class CfnCloudVmCluster(
             memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
             ocid: typing.Optional[builtins.str] = None,
             status: typing.Optional[builtins.str] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
             vnic2_id: typing.Optional[builtins.str] = None,
             vnic_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3312,7 +3309,7 @@ class CfnCloudVmCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c95a10051fe96e033b74a53129c8792115ffa8596c6e20c63b8b2bae5c33dd21)
+                type_hints = cached_type_hints(_typecheckingstub__c95a10051fe96e033b74a53129c8792115ffa8596c6e20c63b8b2bae5c33dd21)
                 check_type(argname="argument db_server_id", value=db_server_id, expected_type=type_hints["db_server_id"])
                 check_type(argname="argument backup_ip_id", value=backup_ip_id, expected_type=type_hints["backup_ip_id"])
                 check_type(argname="argument backup_vnic2_id", value=backup_vnic2_id, expected_type=type_hints["backup_vnic2_id"])
@@ -3482,12 +3479,12 @@ class CfnCloudVmCluster(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-dbnode.html#cfn-odb-cloudvmcluster-dbnode-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+            return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
         @builtins.property
         def vnic2_id(self) -> typing.Optional[builtins.str]:
@@ -3557,7 +3554,7 @@ class CfnCloudVmCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f2c528520e89712ffee62a837695d1ddeca48484519ed6f4a64efe1fc65e112)
+                type_hints = cached_type_hints(_typecheckingstub__8f2c528520e89712ffee62a837695d1ddeca48484519ed6f4a64efe1fc65e112)
                 check_type(argname="argument aws_integration", value=aws_integration, expected_type=type_hints["aws_integration"])
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -3643,24 +3640,24 @@ class CfnCloudVmClusterProps:
         cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
         cluster_name: typing.Optional[builtins.str] = None,
         cpu_core_count: typing.Optional[jsii.Number] = None,
-        data_collection_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.DataCollectionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_collection_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.DataCollectionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-        db_nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.DbNodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        db_nodes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.DbNodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         gi_version: typing.Optional[builtins.str] = None,
         hostname: typing.Optional[builtins.str] = None,
-        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        iam_roles: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         license_model: typing.Optional[builtins.str] = None,
         memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
         ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
         system_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnCloudVmCluster``.
@@ -3757,7 +3754,7 @@ class CfnCloudVmClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a)
+            type_hints = cached_type_hints(_typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a)
             check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument cpu_core_count", value=cpu_core_count, expected_type=type_hints["cpu_core_count"])
@@ -3860,13 +3857,13 @@ class CfnCloudVmClusterProps:
     @builtins.property
     def data_collection_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DataCollectionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DataCollectionOptionsProperty"]]:
         '''The set of diagnostic collection options enabled for the VM cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-datacollectionoptions
         '''
         result = self._values.get("data_collection_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DataCollectionOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DataCollectionOptionsProperty"]], result)
 
     @builtins.property
     def data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
@@ -3880,13 +3877,13 @@ class CfnCloudVmClusterProps:
     @builtins.property
     def db_nodes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DbNodeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DbNodeProperty"]]]]:
         '''The DB nodes that are implicitly created and managed as part of this VM Cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-dbnodes
         '''
         result = self._values.get("db_nodes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.DbNodeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.DbNodeProperty"]]]], result)
 
     @builtins.property
     def db_node_storage_size_in_g_bs(self) -> typing.Optional[jsii.Number]:
@@ -3942,35 +3939,35 @@ class CfnCloudVmClusterProps:
     @builtins.property
     def iam_roles(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.IamRoleProperty"]]]]:
         '''The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-iamroles
         '''
         result = self._values.get("iam_roles")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudVmCluster.IamRoleProperty"]]]], result)
 
     @builtins.property
     def is_local_backup_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-islocalbackupenabled
         '''
         result = self._values.get("is_local_backup_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def is_sparse_diskgroup_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the VM cluster is configured with a sparse disk group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-issparsediskgroupenabled
         '''
         result = self._values.get("is_sparse_diskgroup_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def license_model(self) -> typing.Optional[builtins.str]:
@@ -4035,13 +4032,13 @@ class CfnCloudVmClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Vm Cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def time_zone(self) -> typing.Optional[builtins.str]:
@@ -4064,9 +4061,9 @@ class CfnCloudVmClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOdbNetworkRef_1a4a3229, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_odb_a2fc65b3.IOdbNetworkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOdbNetwork(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork",
 ):
@@ -4121,7 +4118,7 @@ class CfnOdbNetwork(
         cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         default_dns_prefix: typing.Optional[builtins.str] = None,
-        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         kms_access: typing.Optional[builtins.str] = None,
         kms_policy_document: typing.Optional[builtins.str] = None,
@@ -4129,7 +4126,7 @@ class CfnOdbNetwork(
         s3_policy_document: typing.Optional[builtins.str] = None,
         sts_access: typing.Optional[builtins.str] = None,
         sts_policy_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         zero_etl_access: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ODB::OdbNetwork``.
@@ -4155,7 +4152,7 @@ class CfnOdbNetwork(
         :param zero_etl_access: The configuration for Zero-ETL access from the ODB network.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3cd0f5d6)
+            type_hints = cached_type_hints(_typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3cd0f5d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOdbNetworkProps(
@@ -4182,12 +4179,15 @@ class CfnOdbNetwork(
 
     @jsii.member(jsii_name="arnForOdbNetwork")
     @builtins.classmethod
-    def arn_for_odb_network(cls, resource: "_IOdbNetworkRef_1a4a3229") -> builtins.str:
+    def arn_for_odb_network(
+        cls,
+        resource: "_aws_odb_a2fc65b3.IOdbNetworkRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef0a50d37ee472fef04a96ce46352bd7892bc747ded64016afb5aa480b74841f)
+            type_hints = cached_type_hints(_typecheckingstub__ef0a50d37ee472fef04a96ce46352bd7892bc747ded64016afb5aa480b74841f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOdbNetwork", [resource]))
 
@@ -4199,18 +4199,18 @@ class CfnOdbNetwork(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c685aeaf1eb416dd2800fc48a3c1d1c7dd98708de1ce8239d0baced61c8ce83)
+            type_hints = cached_type_hints(_typecheckingstub__2c685aeaf1eb416dd2800fc48a3c1d1c7dd98708de1ce8239d0baced61c8ce83)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOdbNetwork", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2bd65fc6165cb531de2b171a21a41aaf44e19b81b1e54c00c7b0bb7dbc5feab)
+            type_hints = cached_type_hints(_typecheckingstub__e2bd65fc6165cb531de2b171a21a41aaf44e19b81b1e54c00c7b0bb7dbc5feab)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4223,7 +4223,7 @@ class CfnOdbNetwork(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa78d8af0d52b46b8c4cc90575b6a94e64eb6cb32aa68eb759b91d8213e31ac)
+            type_hints = cached_type_hints(_typecheckingstub__afa78d8af0d52b46b8c4cc90575b6a94e64eb6cb32aa68eb759b91d8213e31ac)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4244,12 +4244,12 @@ class CfnOdbNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="attrManagedServices")
-    def attr_managed_services(self) -> "_IResolvable_da3f097b":
+    def attr_managed_services(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The managed services configuration for the ODB network.
 
         :cloudformationAttribute: ManagedServices
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrManagedServices"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrManagedServices"))
 
     @builtins.property
     @jsii.member(jsii_name="attrOciNetworkAnchorId")
@@ -4298,9 +4298,9 @@ class CfnOdbNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4314,9 +4314,9 @@ class CfnOdbNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="odbNetworkRef")
-    def odb_network_ref(self) -> "_OdbNetworkReference_3627e1e1":
+    def odb_network_ref(self) -> "_aws_odb_a2fc65b3.OdbNetworkReference":
         '''A reference to a OdbNetwork resource.'''
-        return typing.cast("_OdbNetworkReference_3627e1e1", jsii.get(self, "odbNetworkRef"))
+        return typing.cast("_aws_odb_a2fc65b3.OdbNetworkReference", jsii.get(self, "odbNetworkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -4327,7 +4327,7 @@ class CfnOdbNetwork(
     @availability_zone.setter
     def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87621d2b03c5469d26954de7e37dfd0d3e012b5b4644ec0232e59bfecfb758e9)
+            type_hints = cached_type_hints(_typecheckingstub__87621d2b03c5469d26954de7e37dfd0d3e012b5b4644ec0232e59bfecfb758e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -4340,7 +4340,7 @@ class CfnOdbNetwork(
     @availability_zone_id.setter
     def availability_zone_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__328deed1718c1266e8446a386f2cfe2272763b64c3f37b5bd93a7c2f77ab2d5d)
+            type_hints = cached_type_hints(_typecheckingstub__328deed1718c1266e8446a386f2cfe2272763b64c3f37b5bd93a7c2f77ab2d5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneId", value) # pyright: ignore[reportArgumentType]
 
@@ -4353,7 +4353,7 @@ class CfnOdbNetwork(
     @backup_subnet_cidr.setter
     def backup_subnet_cidr(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eee98a4fbff2c83a839881f8a102d4b7813c50e6fdb9be0997144c385e71c305)
+            type_hints = cached_type_hints(_typecheckingstub__eee98a4fbff2c83a839881f8a102d4b7813c50e6fdb9be0997144c385e71c305)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupSubnetCidr", value) # pyright: ignore[reportArgumentType]
 
@@ -4366,7 +4366,7 @@ class CfnOdbNetwork(
     @client_subnet_cidr.setter
     def client_subnet_cidr(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__964e75c8af7e656feecdf2af9cc1f3709e5857d22d004e58037f1a4d97df301d)
+            type_hints = cached_type_hints(_typecheckingstub__964e75c8af7e656feecdf2af9cc1f3709e5857d22d004e58037f1a4d97df301d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientSubnetCidr", value) # pyright: ignore[reportArgumentType]
 
@@ -4384,7 +4384,7 @@ class CfnOdbNetwork(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac378e112721957af33955fadad5a749e22c9bb120481a61d9ba2240c5f4c45)
+            type_hints = cached_type_hints(_typecheckingstub__9ac378e112721957af33955fadad5a749e22c9bb120481a61d9ba2240c5f4c45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "crossRegionS3RestoreSources", value) # pyright: ignore[reportArgumentType]
 
@@ -4397,7 +4397,7 @@ class CfnOdbNetwork(
     @custom_domain_name.setter
     def custom_domain_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8107768076a5ec91104db244c22d754231524ae1e1cdad765edecf3270b5e9d)
+            type_hints = cached_type_hints(_typecheckingstub__d8107768076a5ec91104db244c22d754231524ae1e1cdad765edecf3270b5e9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customDomainName", value) # pyright: ignore[reportArgumentType]
 
@@ -4410,7 +4410,7 @@ class CfnOdbNetwork(
     @default_dns_prefix.setter
     def default_dns_prefix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccee4738061946ef5f75dacb78a62f5c60382f3bd85cd506ee1454b932d8374a)
+            type_hints = cached_type_hints(_typecheckingstub__ccee4738061946ef5f75dacb78a62f5c60382f3bd85cd506ee1454b932d8374a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultDnsPrefix", value) # pyright: ignore[reportArgumentType]
 
@@ -4418,17 +4418,17 @@ class CfnOdbNetwork(
     @jsii.member(jsii_name="deleteAssociatedResources")
     def delete_associated_resources(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to delete associated OCI networking resources along with the ODB network.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deleteAssociatedResources"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deleteAssociatedResources"))
 
     @delete_associated_resources.setter
     def delete_associated_resources(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc86642a834ad1214ad781ba4b6b7516ddb5e4df5219e6f1572c3707c253846a)
+            type_hints = cached_type_hints(_typecheckingstub__cc86642a834ad1214ad781ba4b6b7516ddb5e4df5219e6f1572c3707c253846a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deleteAssociatedResources", value) # pyright: ignore[reportArgumentType]
 
@@ -4441,7 +4441,7 @@ class CfnOdbNetwork(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f9a4c06370e66400707daa4ab73fb37a67d67c8422f10b57fa0ee6b191128e7)
+            type_hints = cached_type_hints(_typecheckingstub__6f9a4c06370e66400707daa4ab73fb37a67d67c8422f10b57fa0ee6b191128e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -4454,7 +4454,7 @@ class CfnOdbNetwork(
     @kms_access.setter
     def kms_access(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08e550741354799cf835d5b5cd11742347c9e515584bd2b5b58090bcf4f7f332)
+            type_hints = cached_type_hints(_typecheckingstub__08e550741354799cf835d5b5cd11742347c9e515584bd2b5b58090bcf4f7f332)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsAccess", value) # pyright: ignore[reportArgumentType]
 
@@ -4467,7 +4467,7 @@ class CfnOdbNetwork(
     @kms_policy_document.setter
     def kms_policy_document(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7b692a54c478e17ba740716ed8f1a5f4bfff5a114836300a6c5efd38904ecbb)
+            type_hints = cached_type_hints(_typecheckingstub__f7b692a54c478e17ba740716ed8f1a5f4bfff5a114836300a6c5efd38904ecbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsPolicyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -4480,7 +4480,7 @@ class CfnOdbNetwork(
     @s3_access.setter
     def s3_access(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f428808d342fa75b5322aafc69efcb16a9aadaf8c1f1602313528cb3d71f054)
+            type_hints = cached_type_hints(_typecheckingstub__7f428808d342fa75b5322aafc69efcb16a9aadaf8c1f1602313528cb3d71f054)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3Access", value) # pyright: ignore[reportArgumentType]
 
@@ -4493,7 +4493,7 @@ class CfnOdbNetwork(
     @s3_policy_document.setter
     def s3_policy_document(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e9a1278f83bd7d6781ffbd7b2e4e7ec97b8190160130c264991534d7c4eb6a7)
+            type_hints = cached_type_hints(_typecheckingstub__6e9a1278f83bd7d6781ffbd7b2e4e7ec97b8190160130c264991534d7c4eb6a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3PolicyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -4506,7 +4506,7 @@ class CfnOdbNetwork(
     @sts_access.setter
     def sts_access(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb96c3fd86b0a5dd6b864d6c5f901a572327bed1d34fa5ffb2d6ade36117fee)
+            type_hints = cached_type_hints(_typecheckingstub__fbb96c3fd86b0a5dd6b864d6c5f901a572327bed1d34fa5ffb2d6ade36117fee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stsAccess", value) # pyright: ignore[reportArgumentType]
 
@@ -4519,20 +4519,23 @@ class CfnOdbNetwork(
     @sts_policy_document.setter
     def sts_policy_document(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d5af2aac26a31e330bef17c6c74981d50bbe61a5731f101ee10e108ad58dfd3)
+            type_hints = cached_type_hints(_typecheckingstub__0d5af2aac26a31e330bef17c6c74981d50bbe61a5731f101ee10e108ad58dfd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stsPolicyDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Odb Network.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a78f63e76d627d52015eb8e2a0dc2ab1a80a0926480a2a40fc93da33d803ce3)
+            type_hints = cached_type_hints(_typecheckingstub__2a78f63e76d627d52015eb8e2a0dc2ab1a80a0926480a2a40fc93da33d803ce3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4545,7 +4548,7 @@ class CfnOdbNetwork(
     @zero_etl_access.setter
     def zero_etl_access(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b37fc0f36ed5a2463c0ef988c6f8aff7344389a8c80070dd7013b5e428fa33f)
+            type_hints = cached_type_hints(_typecheckingstub__8b37fc0f36ed5a2463c0ef988c6f8aff7344389a8c80070dd7013b5e428fa33f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "zeroEtlAccess", value) # pyright: ignore[reportArgumentType]
 
@@ -4588,7 +4591,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ab87808b3bbf075d7918fb62502368d78d183ddadd3c8775d33e5acef025fc36)
+                type_hints = cached_type_hints(_typecheckingstub__ab87808b3bbf075d7918fb62502368d78d183ddadd3c8775d33e5acef025fc36)
                 check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -4681,7 +4684,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b806730b2e3d85d7530eb3a7761492a4600e5bbdfdb839d29dae41e41b362476)
+                type_hints = cached_type_hints(_typecheckingstub__b806730b2e3d85d7530eb3a7761492a4600e5bbdfdb839d29dae41e41b362476)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
                 check_type(argname="argument kms_policy_document", value=kms_policy_document, expected_type=type_hints["kms_policy_document"])
@@ -4775,7 +4778,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1b0181205001e0daa042d78d18fe8d5325e5c0b3292546c75de8da725399ad6c)
+                type_hints = cached_type_hints(_typecheckingstub__1b0181205001e0daa042d78d18fe8d5325e5c0b3292546c75de8da725399ad6c)
                 check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4833,16 +4836,16 @@ class CfnOdbNetwork(
         def __init__(
             self,
             *,
-            cross_region_s3_restore_sources_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            kms_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.KmsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            managed_s3_backup_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ManagedS3BackupAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cross_region_s3_restore_sources_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            kms_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.KmsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_s3_backup_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.ManagedS3BackupAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             managed_services_ipv4_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
             resource_gateway_arn: typing.Optional[builtins.str] = None,
-            s3_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.S3AccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.S3AccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_network_arn: typing.Optional[builtins.str] = None,
-            service_network_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ServiceNetworkEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sts_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.StsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zero_etl_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ZeroEtlAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_network_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.ServiceNetworkEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sts_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.StsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zero_etl_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOdbNetwork.ZeroEtlAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The managed services configuration for the ODB network.
 
@@ -4908,7 +4911,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f05f5ee314e82552aae02e8a14cfd272bb6288ddfa3db3a136edf0b694fc8f04)
+                type_hints = cached_type_hints(_typecheckingstub__f05f5ee314e82552aae02e8a14cfd272bb6288ddfa3db3a136edf0b694fc8f04)
                 check_type(argname="argument cross_region_s3_restore_sources_access", value=cross_region_s3_restore_sources_access, expected_type=type_hints["cross_region_s3_restore_sources_access"])
                 check_type(argname="argument kms_access", value=kms_access, expected_type=type_hints["kms_access"])
                 check_type(argname="argument managed_s3_backup_access", value=managed_s3_backup_access, expected_type=type_hints["managed_s3_backup_access"])
@@ -4944,35 +4947,35 @@ class CfnOdbNetwork(
         @builtins.property
         def cross_region_s3_restore_sources_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]]:
             '''The access configuration for the cross-Region Amazon S3 database restore source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-crossregions3restoresourcesaccess
             '''
             result = self._values.get("cross_region_s3_restore_sources_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]], result)
 
         @builtins.property
         def kms_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.KmsAccessProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.KmsAccessProperty"]]:
             '''The AWS Key Management Service (KMS) access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-kmsaccess
             '''
             result = self._values.get("kms_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.KmsAccessProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.KmsAccessProperty"]], result)
 
         @builtins.property
         def managed_s3_backup_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ManagedS3BackupAccessProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ManagedS3BackupAccessProperty"]]:
             '''The managed Amazon S3 backup access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-manageds3backupaccess
             '''
             result = self._values.get("managed_s3_backup_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ManagedS3BackupAccessProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ManagedS3BackupAccessProperty"]], result)
 
         @builtins.property
         def managed_services_ipv4_cidrs(
@@ -4997,13 +5000,13 @@ class CfnOdbNetwork(
         @builtins.property
         def s3_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.S3AccessProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.S3AccessProperty"]]:
             '''The Amazon S3 access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-s3access
             '''
             result = self._values.get("s3_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.S3AccessProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.S3AccessProperty"]], result)
 
         @builtins.property
         def service_network_arn(self) -> typing.Optional[builtins.str]:
@@ -5017,35 +5020,35 @@ class CfnOdbNetwork(
         @builtins.property
         def service_network_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ServiceNetworkEndpointProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ServiceNetworkEndpointProperty"]]:
             '''The service network endpoint configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-servicenetworkendpoint
             '''
             result = self._values.get("service_network_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ServiceNetworkEndpointProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ServiceNetworkEndpointProperty"]], result)
 
         @builtins.property
         def sts_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.StsAccessProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.StsAccessProperty"]]:
             '''The AWS Security Token Service (STS) access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-stsaccess
             '''
             result = self._values.get("sts_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.StsAccessProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.StsAccessProperty"]], result)
 
         @builtins.property
         def zero_etl_access(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ZeroEtlAccessProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ZeroEtlAccessProperty"]]:
             '''The Zero-ETL access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-zeroetlaccess
             '''
             result = self._values.get("zero_etl_access")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ZeroEtlAccessProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOdbNetwork.ZeroEtlAccessProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5101,7 +5104,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f9ceb49d35946863bf3c3373dfa2beadc7131a98014ab8760b8a753494ebd78d)
+                type_hints = cached_type_hints(_typecheckingstub__f9ceb49d35946863bf3c3373dfa2beadc7131a98014ab8760b8a753494ebd78d)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
                 check_type(argname="argument s3_policy_document", value=s3_policy_document, expected_type=type_hints["s3_policy_document"])
@@ -5198,7 +5201,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aa23d13536607858ecb17ec218e9d01d10a09d3dc235be793fb3ac7485d17be1)
+                type_hints = cached_type_hints(_typecheckingstub__aa23d13536607858ecb17ec218e9d01d10a09d3dc235be793fb3ac7485d17be1)
                 check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
                 check_type(argname="argument vpc_endpoint_type", value=vpc_endpoint_type, expected_type=type_hints["vpc_endpoint_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5279,7 +5282,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8b2d27a4bbe89976fd3a6539cd1af84f9e26990b32fa427f2b176b687cb72a0)
+                type_hints = cached_type_hints(_typecheckingstub__b8b2d27a4bbe89976fd3a6539cd1af84f9e26990b32fa427f2b176b687cb72a0)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -5373,7 +5376,7 @@ class CfnOdbNetwork(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d8647c7f912887ddd8cf379fbed057ec6a564b3495caa039b6697c1b5aa3e9e)
+                type_hints = cached_type_hints(_typecheckingstub__8d8647c7f912887ddd8cf379fbed057ec6a564b3495caa039b6697c1b5aa3e9e)
                 check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5446,7 +5449,7 @@ class CfnOdbNetworkProps:
         cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         default_dns_prefix: typing.Optional[builtins.str] = None,
-        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         kms_access: typing.Optional[builtins.str] = None,
         kms_policy_document: typing.Optional[builtins.str] = None,
@@ -5454,7 +5457,7 @@ class CfnOdbNetworkProps:
         s3_policy_document: typing.Optional[builtins.str] = None,
         sts_access: typing.Optional[builtins.str] = None,
         sts_policy_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         zero_etl_access: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnOdbNetwork``.
@@ -5511,7 +5514,7 @@ class CfnOdbNetworkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8)
+            type_hints = cached_type_hints(_typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8)
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
             check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
@@ -5641,7 +5644,7 @@ class CfnOdbNetworkProps:
     @builtins.property
     def delete_associated_resources(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to delete associated OCI networking resources along with the ODB network.
 
         Required when creating an ODB network.
@@ -5649,7 +5652,7 @@ class CfnOdbNetworkProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-deleteassociatedresources
         '''
         result = self._values.get("delete_associated_resources")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
@@ -5717,13 +5720,13 @@ class CfnOdbNetworkProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Odb Network.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def zero_etl_access(self) -> typing.Optional[builtins.str]:
@@ -5746,9 +5749,9 @@ class CfnOdbNetworkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOdbPeeringConnectionRef_894341c3, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_odb_a2fc65b3.IOdbPeeringConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOdbPeeringConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_odb.CfnOdbPeeringConnection",
 ):
@@ -5790,7 +5793,7 @@ class CfnOdbPeeringConnection(
         odb_network_id: typing.Optional[builtins.str] = None,
         peer_network_id: typing.Optional[builtins.str] = None,
         peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ODB::OdbPeeringConnection``.
 
@@ -5804,7 +5807,7 @@ class CfnOdbPeeringConnection(
         :param tags: Tags to assign to the Odb peering connection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf0303fdbabd342a7442eedc20c217c961164af3d96d803130ec699ce6cf84d0)
+            type_hints = cached_type_hints(_typecheckingstub__cf0303fdbabd342a7442eedc20c217c961164af3d96d803130ec699ce6cf84d0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOdbPeeringConnectionProps(
@@ -5822,13 +5825,13 @@ class CfnOdbPeeringConnection(
     @builtins.classmethod
     def arn_for_odb_peering_connection(
         cls,
-        resource: "_IOdbPeeringConnectionRef_894341c3",
+        resource: "_aws_odb_a2fc65b3.IOdbPeeringConnectionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71634217fabaa9fdeeb3b6936b0b0dbfb0fa7bf82bc155a002f7a1a5d503784d)
+            type_hints = cached_type_hints(_typecheckingstub__71634217fabaa9fdeeb3b6936b0b0dbfb0fa7bf82bc155a002f7a1a5d503784d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOdbPeeringConnection", [resource]))
 
@@ -5840,18 +5843,18 @@ class CfnOdbPeeringConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1141e5f59d4c3840f2aa56b777a97bf3e009ee928e5ca90e05fcc3d376d87f5)
+            type_hints = cached_type_hints(_typecheckingstub__c1141e5f59d4c3840f2aa56b777a97bf3e009ee928e5ca90e05fcc3d376d87f5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOdbPeeringConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c607296b85b8e34cc1971180744ea86ab063bf6e70311b45f2a5e22464c0506)
+            type_hints = cached_type_hints(_typecheckingstub__3c607296b85b8e34cc1971180744ea86ab063bf6e70311b45f2a5e22464c0506)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5864,7 +5867,7 @@ class CfnOdbPeeringConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdee86eadecbb57db0a54818b6bf117c40239d065452a626ca98bb6f57e734f3)
+            type_hints = cached_type_hints(_typecheckingstub__fdee86eadecbb57db0a54818b6bf117c40239d065452a626ca98bb6f57e734f3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5925,9 +5928,9 @@ class CfnOdbPeeringConnection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5941,9 +5944,11 @@ class CfnOdbPeeringConnection(
 
     @builtins.property
     @jsii.member(jsii_name="odbPeeringConnectionRef")
-    def odb_peering_connection_ref(self) -> "_OdbPeeringConnectionReference_273daf27":
+    def odb_peering_connection_ref(
+        self,
+    ) -> "_aws_odb_a2fc65b3.OdbPeeringConnectionReference":
         '''A reference to a OdbPeeringConnection resource.'''
-        return typing.cast("_OdbPeeringConnectionReference_273daf27", jsii.get(self, "odbPeeringConnectionRef"))
+        return typing.cast("_aws_odb_a2fc65b3.OdbPeeringConnectionReference", jsii.get(self, "odbPeeringConnectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="additionalPeerNetworkCidrs")
@@ -5959,7 +5964,7 @@ class CfnOdbPeeringConnection(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be8b3690a5b92ba19ccadca1d0fbda9304d4e8efd29fee0b9118c09a792a08da)
+            type_hints = cached_type_hints(_typecheckingstub__be8b3690a5b92ba19ccadca1d0fbda9304d4e8efd29fee0b9118c09a792a08da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "additionalPeerNetworkCidrs", value) # pyright: ignore[reportArgumentType]
 
@@ -5972,7 +5977,7 @@ class CfnOdbPeeringConnection(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e5c2d7c7680dd80443dde7963eb8b7ebf34b6b63b1c6c155d7867956062438a)
+            type_hints = cached_type_hints(_typecheckingstub__8e5c2d7c7680dd80443dde7963eb8b7ebf34b6b63b1c6c155d7867956062438a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -5985,7 +5990,7 @@ class CfnOdbPeeringConnection(
     @odb_network_id.setter
     def odb_network_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fefb4bfab3abcea0bd112930eb81eda4161508620e9868a51c31460a3bc6124)
+            type_hints = cached_type_hints(_typecheckingstub__9fefb4bfab3abcea0bd112930eb81eda4161508620e9868a51c31460a3bc6124)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "odbNetworkId", value) # pyright: ignore[reportArgumentType]
 
@@ -5998,7 +6003,7 @@ class CfnOdbPeeringConnection(
     @peer_network_id.setter
     def peer_network_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ab942a64178d4b44a12a7c4d77ac39a95872d25a99449973520d474cd6d4cbc)
+            type_hints = cached_type_hints(_typecheckingstub__9ab942a64178d4b44a12a7c4d77ac39a95872d25a99449973520d474cd6d4cbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "peerNetworkId", value) # pyright: ignore[reportArgumentType]
 
@@ -6016,20 +6021,23 @@ class CfnOdbPeeringConnection(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36924cc18a5ef3db750d5231afdfca833233f6d260ff64fc44bf2a36cbb5d1ba)
+            type_hints = cached_type_hints(_typecheckingstub__36924cc18a5ef3db750d5231afdfca833233f6d260ff64fc44bf2a36cbb5d1ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "peerNetworkRouteTableIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Odb peering connection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e52d668f36d0789e49c0196d151e22c497a4f1c0a77cff71369f51481f5725dc)
+            type_hints = cached_type_hints(_typecheckingstub__e52d668f36d0789e49c0196d151e22c497a4f1c0a77cff71369f51481f5725dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6055,7 +6063,7 @@ class CfnOdbPeeringConnectionProps:
         odb_network_id: typing.Optional[builtins.str] = None,
         peer_network_id: typing.Optional[builtins.str] = None,
         peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOdbPeeringConnection``.
 
@@ -6089,7 +6097,7 @@ class CfnOdbPeeringConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb14f6a041f61647a57988c9818fe08cae77494cecfe8f526e6f77c42849303b)
+            type_hints = cached_type_hints(_typecheckingstub__cb14f6a041f61647a57988c9818fe08cae77494cecfe8f526e6f77c42849303b)
             check_type(argname="argument additional_peer_network_cidrs", value=additional_peer_network_cidrs, expected_type=type_hints["additional_peer_network_cidrs"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
@@ -6160,13 +6168,13 @@ class CfnOdbPeeringConnectionProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the Odb peering connection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbpeeringconnection.html#cfn-odb-odbpeeringconnection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6205,15 +6213,15 @@ def _typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d6
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     license_model: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
     scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_zone: typing.Optional[builtins.str] = None,
     total_container_databases: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6221,7 +6229,7 @@ def _typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d6
     pass
 
 def _typecheckingstub__86063b64a76451e09f7cc3c098d3a20d6095c5fd75becc743f4fb325ff458295(
-    resource: _ICloudAutonomousVmClusterRef_ec2012b7,
+    resource: _aws_odb_a2fc65b3.ICloudAutonomousVmClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6233,7 +6241,7 @@ def _typecheckingstub__6ce337b4462c2a2db2945b875b9f04881a80baf036e635c50ef2333cb
     pass
 
 def _typecheckingstub__84a4f6b25bd9fc71f4af4608dc8d871a48a14e3aa106d9234cbf4fe28cb2b58f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6281,13 +6289,13 @@ def _typecheckingstub__75d262c2ba8661c4d2d20abe159b3efce30fa2a6854ff6d4d27b98c11
     pass
 
 def _typecheckingstub__105257ef44474dd5c7bb2e24057c1aa2109abc7bcfe92a2155def87abce5a367(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudAutonomousVmCluster.IamRoleProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudAutonomousVmCluster.IamRoleProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b71c28f08596e3a8e06bf9ac61f202a72d06b5f6a93ae96a6cd988fa2c8b3457(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6299,7 +6307,7 @@ def _typecheckingstub__429e238c2071c653da37b075f2da161573e5972cfc94448900389409d
     pass
 
 def _typecheckingstub__9893af2fa0c239ed09a25053b836f4c53aa964e484761b3656bf3f69ee2f20aa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudAutonomousVmCluster.MaintenanceWindowProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudAutonomousVmCluster.MaintenanceWindowProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6329,7 +6337,7 @@ def _typecheckingstub__6a7c3ab9bede20a7946889e0e134a092708444b390ea3a2deaafb7e86
     pass
 
 def _typecheckingstub__4c0f9eb455c371aedd7a5d89d20d74ae053b5c2fbe1fd8e6614a484ac7e8c9a1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6358,11 +6366,11 @@ def _typecheckingstub__886b68400d89131ff223d65666709636b3deb438b3925bc4e692acc81
 def _typecheckingstub__bec420fa64b103170ca1fde88b7f5526381889811659e8a32ae9356eed292838(
     *,
     days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
-    hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
     lead_time_in_weeks: typing.Optional[jsii.Number] = None,
     months: typing.Optional[typing.Sequence[builtins.str]] = None,
     preference: typing.Optional[builtins.str] = None,
-    weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6375,15 +6383,15 @@ def _typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     license_model: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
     scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_zone: typing.Optional[builtins.str] = None,
     total_container_databases: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6397,20 +6405,20 @@ def _typecheckingstub__fd782f736e7ad827f171e15d160c54071c1fbef5443d136721533cbfd
     availability_zone: typing.Optional[builtins.str] = None,
     availability_zone_id: typing.Optional[builtins.str] = None,
     compute_count: typing.Optional[jsii.Number] = None,
-    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     database_server_type: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudExadataInfrastructure.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     shape: typing.Optional[builtins.str] = None,
     storage_count: typing.Optional[jsii.Number] = None,
     storage_server_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a9e784e2b60bf0ded6072c21a14696c9c37eb9b5ed869eb536dd419a555a8a4d(
-    resource: _ICloudExadataInfrastructureRef_15dfbe1b,
+    resource: _aws_odb_a2fc65b3.ICloudExadataInfrastructureRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6422,7 +6430,7 @@ def _typecheckingstub__203e17020262a387118e5a38d00675252617b126cf10586488f0a6cd1
     pass
 
 def _typecheckingstub__4f2b53aab94ecf4f8defcc0e14b676f19557d80b7dd0f9ff46a17b7649889a87(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6452,7 +6460,7 @@ def _typecheckingstub__ed6c897fe570d07a340273c57b43f97da5d100a17ae8701b161d22cf0
     pass
 
 def _typecheckingstub__564d722d30f571b6b15ec3202d92d33e97da84125c2eabe6a9cebe8d28fed3d6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudExadataInfrastructure.CustomerContactProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudExadataInfrastructure.CustomerContactProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6470,7 +6478,7 @@ def _typecheckingstub__d12c1cc442676c06c38458b560f32148a7562dbf983c5df26ac19ffea
     pass
 
 def _typecheckingstub__1e3bb28409835469386431431fb04ff62da0b9c236f5e4e6de86eaab458aa03d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudExadataInfrastructure.MaintenanceWindowProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudExadataInfrastructure.MaintenanceWindowProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6494,7 +6502,7 @@ def _typecheckingstub__0a8454cbe7499d2e89bee927276f8936ca72e6a1ce92f522f2f3a1178
     pass
 
 def _typecheckingstub__9909f2504aae00efa9d8adaf040cb71163078ccb5d88b84ca3af82a80de540b3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6510,13 +6518,13 @@ def _typecheckingstub__99303e5da5047eb80fd9260c2a8d18c444f4f01d29749076a86c0c041
     *,
     custom_action_timeout_in_mins: typing.Optional[jsii.Number] = None,
     days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
-    hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-    is_custom_action_timeout_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    hours_of_day: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_custom_action_timeout_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     lead_time_in_weeks: typing.Optional[jsii.Number] = None,
     months: typing.Optional[typing.Sequence[builtins.str]] = None,
     patching_mode: typing.Optional[builtins.str] = None,
     preference: typing.Optional[builtins.str] = None,
-    weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    weeks_of_month: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6526,14 +6534,14 @@ def _typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e
     availability_zone: typing.Optional[builtins.str] = None,
     availability_zone_id: typing.Optional[builtins.str] = None,
     compute_count: typing.Optional[jsii.Number] = None,
-    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     database_server_type: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudExadataInfrastructure.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     shape: typing.Optional[builtins.str] = None,
     storage_count: typing.Optional[jsii.Number] = None,
     storage_server_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6545,31 +6553,31 @@ def _typecheckingstub__54a24296108cf4d367a887b0b65dc2c9163c185183c8fde1522a8cb32
     cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
     cluster_name: typing.Optional[builtins.str] = None,
     cpu_core_count: typing.Optional[jsii.Number] = None,
-    data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_collection_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-    db_nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DbNodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    db_nodes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.DbNodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     gi_version: typing.Optional[builtins.str] = None,
     hostname: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     license_model: typing.Optional[builtins.str] = None,
     memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
     ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     system_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5ec1bb67eb1f8034aed766424720d834a10f73711ca4897fbf09bccd8e66a312(
-    resource: _ICloudVmClusterRef_d11cd0d7,
+    resource: _aws_odb_a2fc65b3.ICloudVmClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6581,7 +6589,7 @@ def _typecheckingstub__3fae1183beddeb63437cb2f64384bdf7e2e417a3ba8f001ad23f5baaf
     pass
 
 def _typecheckingstub__ed59e4637cf9d059e23e91ea16d89733fbc266730217c0eb52cd6e26b74ca7c7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6611,7 +6619,7 @@ def _typecheckingstub__97dfb24de12ee075095d22107411f090b917260a37c1ad001b48d7a5c
     pass
 
 def _typecheckingstub__53fa60e8088e8fcfabc4956f1ab3fbbe0607d6039731af37fdbf97088759d7f1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.DataCollectionOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudVmCluster.DataCollectionOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6623,7 +6631,7 @@ def _typecheckingstub__10a4a98dd975dea2ac63836158b2dc7afd11f93fa6eef648312be262c
     pass
 
 def _typecheckingstub__1d87bde62c7a3c3cf4ed0bfffab6f8bc36cc20a58ede136430e57b23880577ef(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.DbNodeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudVmCluster.DbNodeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6659,19 +6667,19 @@ def _typecheckingstub__0fd54015f6c4b31aa2007d549141e71219e140c311d6f9e23a787d6f3
     pass
 
 def _typecheckingstub__27594cfc1f4f814bfd9ae1e614145ac51f37521ab853091729cfb3cd7b460557(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.IamRoleProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudVmCluster.IamRoleProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cee2b990c5219e427b51018646f252e8e93f20f5bc21497075e635e6fee21bc6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3c9800b0f09654567a1b07e3e8f1762764faa4d45ca7c8f2740ead91709fa406(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6713,7 +6721,7 @@ def _typecheckingstub__95a2f67985613635273aa653a865d22f373a34cc2cf492bbaecbc9752
     pass
 
 def _typecheckingstub__cb35585e2ec32ece572f8bcd0f0a038f35ebbc9d6e29c933404bd886b5900921(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6726,9 +6734,9 @@ def _typecheckingstub__dbc007d119e94eccae2b52e6822c2ec73b5e10e124879ca88059e3b3b
 
 def _typecheckingstub__0be5e048213b0ee63e4c9703a3c1b37da85fb4dc37d9458571be7e6789ddbe30(
     *,
-    is_diagnostics_events_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_health_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_diagnostics_events_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_health_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6748,7 +6756,7 @@ def _typecheckingstub__c95a10051fe96e033b74a53129c8792115ffa8596c6e20c63b8b2bae5
     memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
     ocid: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vnic2_id: typing.Optional[builtins.str] = None,
     vnic_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6769,24 +6777,24 @@ def _typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e97
     cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
     cluster_name: typing.Optional[builtins.str] = None,
     cpu_core_count: typing.Optional[jsii.Number] = None,
-    data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_collection_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-    db_nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DbNodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    db_nodes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.DbNodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     gi_version: typing.Optional[builtins.str] = None,
     hostname: typing.Optional[builtins.str] = None,
-    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_roles: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     license_model: typing.Optional[builtins.str] = None,
     memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
     ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     system_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6803,7 +6811,7 @@ def _typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3
     cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     default_dns_prefix: typing.Optional[builtins.str] = None,
-    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     kms_access: typing.Optional[builtins.str] = None,
     kms_policy_document: typing.Optional[builtins.str] = None,
@@ -6811,14 +6819,14 @@ def _typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3
     s3_policy_document: typing.Optional[builtins.str] = None,
     sts_access: typing.Optional[builtins.str] = None,
     sts_policy_document: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     zero_etl_access: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ef0a50d37ee472fef04a96ce46352bd7892bc747ded64016afb5aa480b74841f(
-    resource: _IOdbNetworkRef_1a4a3229,
+    resource: _aws_odb_a2fc65b3.IOdbNetworkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6830,7 +6838,7 @@ def _typecheckingstub__2c685aeaf1eb416dd2800fc48a3c1d1c7dd98708de1ce8239d0baced6
     pass
 
 def _typecheckingstub__e2bd65fc6165cb531de2b171a21a41aaf44e19b81b1e54c00c7b0bb7dbc5feab(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6884,7 +6892,7 @@ def _typecheckingstub__ccee4738061946ef5f75dacb78a62f5c60382f3bd85cd506ee1454b93
     pass
 
 def _typecheckingstub__cc86642a834ad1214ad781ba4b6b7516ddb5e4df5219e6f1572c3707c253846a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6932,7 +6940,7 @@ def _typecheckingstub__0d5af2aac26a31e330bef17c6c74981d50bbe61a5731f101ee10e108a
     pass
 
 def _typecheckingstub__2a78f63e76d627d52015eb8e2a0dc2ab1a80a0926480a2a40fc93da33d803ce3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6972,16 +6980,16 @@ def _typecheckingstub__1b0181205001e0daa042d78d18fe8d5325e5c0b3292546c75de8da725
 
 def _typecheckingstub__f05f5ee314e82552aae02e8a14cfd272bb6288ddfa3db3a136edf0b694fc8f04(
     *,
-    cross_region_s3_restore_sources_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    kms_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.KmsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_s3_backup_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ManagedS3BackupAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_s3_restore_sources_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.KmsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_s3_backup_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.ManagedS3BackupAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_services_ipv4_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_gateway_arn: typing.Optional[builtins.str] = None,
-    s3_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.S3AccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.S3AccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_network_arn: typing.Optional[builtins.str] = None,
-    service_network_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ServiceNetworkEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sts_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.StsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zero_etl_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ZeroEtlAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_network_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.ServiceNetworkEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sts_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.StsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zero_etl_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOdbNetwork.ZeroEtlAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7031,7 +7039,7 @@ def _typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7
     cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     default_dns_prefix: typing.Optional[builtins.str] = None,
-    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     kms_access: typing.Optional[builtins.str] = None,
     kms_policy_document: typing.Optional[builtins.str] = None,
@@ -7039,7 +7047,7 @@ def _typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7
     s3_policy_document: typing.Optional[builtins.str] = None,
     sts_access: typing.Optional[builtins.str] = None,
     sts_policy_document: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     zero_etl_access: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7054,13 +7062,13 @@ def _typecheckingstub__cf0303fdbabd342a7442eedc20c217c961164af3d96d803130ec699ce
     odb_network_id: typing.Optional[builtins.str] = None,
     peer_network_id: typing.Optional[builtins.str] = None,
     peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__71634217fabaa9fdeeb3b6936b0b0dbfb0fa7bf82bc155a002f7a1a5d503784d(
-    resource: _IOdbPeeringConnectionRef_894341c3,
+    resource: _aws_odb_a2fc65b3.IOdbPeeringConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7072,7 +7080,7 @@ def _typecheckingstub__c1141e5f59d4c3840f2aa56b777a97bf3e009ee928e5ca90e05fcc3d3
     pass
 
 def _typecheckingstub__3c607296b85b8e34cc1971180744ea86ab063bf6e70311b45f2a5e22464c0506(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7114,7 +7122,7 @@ def _typecheckingstub__36924cc18a5ef3db750d5231afdfca833233f6d260ff64fc44bf2a36c
     pass
 
 def _typecheckingstub__e52d668f36d0789e49c0196d151e22c497a4f1c0a77cff71369f51481f5725dc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7126,7 +7134,7 @@ def _typecheckingstub__cb14f6a041f61647a57988c9818fe08cae77494cecfe8f526e6f77c42
     odb_network_id: typing.Optional[builtins.str] = None,
     peer_network_id: typing.Optional[builtins.str] = None,
     peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

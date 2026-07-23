@@ -24,6 +24,7 @@ async def run_print_mode(
     system_prompt: str | None = None,
     server_url: str | None = None,
     platform_url: str | None = None,
+    project_memory_preload_limit: int = 20,
 ) -> None:
     """Run a single prompt headlessly: stream response text to stdout, progress to stderr."""
 
@@ -60,7 +61,12 @@ async def run_print_mode(
     runtime = await client.fetch_runtime_info()
     _validate_runtime_args(runtime, agent=agent, capabilities=capabilities)
 
-    session = await client.create_session(agent=agent, model=model, policy="headless")
+    session = await client.create_session(
+        agent=agent,
+        model=model,
+        policy="headless",
+        project_memory_preload_limit=project_memory_preload_limit,
+    )
     session_id = session.session_id
 
     stats = _RunStats()

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AccessPointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4909cf7e4a0399664dcf214d83d3cd26820cc66f2196b79b057a75fcac5da1c5)
+            type_hints = cached_type_hints(_typecheckingstub__4909cf7e4a0399664dcf214d83d3cd26820cc66f2196b79b057a75fcac5da1c5)
             check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_point_arn": access_point_arn,
@@ -107,7 +111,7 @@ class BucketPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9791e5e1b1b6b43c769ea51553ca55ec554ecbbb4c7a3bdba7f9f4bc18bca40)
+            type_hints = cached_type_hints(_typecheckingstub__c9791e5e1b1b6b43c769ea51553ca55ec554ecbbb4c7a3bdba7f9f4bc18bca40)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket": bucket,
@@ -156,7 +160,7 @@ class BucketReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8da3fedb3a159ae87c04a7a0dd00cd92b64e81f8d749c2d30b678f4b96c48d5)
+            type_hints = cached_type_hints(_typecheckingstub__d8da3fedb3a159ae87c04a7a0dd00cd92b64e81f8d749c2d30b678f4b96c48d5)
             check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket_arn": bucket_arn,
@@ -205,7 +209,7 @@ class EndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c031f3efdcb0359e74443e471c3d35e5929746fab402cc5e269d9be817976ad)
+            type_hints = cached_type_hints(_typecheckingstub__7c031f3efdcb0359e74443e471c3d35e5929746fab402cc5e269d9be817976ad)
             check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_arn": endpoint_arn,
@@ -233,7 +237,7 @@ class EndpointReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3outposts.IAccessPointRef")
 class IAccessPointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
@@ -253,7 +257,7 @@ class IAccessPointRef(
 
 class _IAccessPointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAcces
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3outposts.IBucketPolicyRef")
 class IBucketPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
@@ -298,7 +302,7 @@ class IBucketPolicyRef(
 
 class _IBucketPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, IBucketPolicyRef).__jsii_proxy_class__ = lambda : _IBuck
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3outposts.IBucketRef")
 class IBucketRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
@@ -343,7 +347,7 @@ class IBucketRef(
 
 class _IBucketRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, IBucketRef).__jsii_proxy_class__ = lambda : _IBucketRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3outposts.IEndpointRef")
 class IEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Endpoint.
@@ -388,7 +392,7 @@ class IEndpointRef(
 
 class _IEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Endpoint.
 

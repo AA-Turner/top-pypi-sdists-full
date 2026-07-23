@@ -84,22 +84,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -139,7 +125,7 @@ class Default(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Default")
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b10effd8419b2967a954dd0f94fb3a36e40e98938cb56e3fce8023374d83ea1e)
+            type_hints = cached_type_hints(_typecheckingstub__b10effd8419b2967a954dd0f94fb3a36e40e98938cb56e3fce8023374d83ea1e)
             check_type(argname="argument service_fqn", value=service_fqn, expected_type=type_hints["service_fqn"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument url_suffix", value=url_suffix, expected_type=type_hints["url_suffix"])
@@ -181,7 +167,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
         :return: the fact value if it is known, and ``undefined`` otherwise.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7eb6b9bca7d6e4c9157c65a3f8f526d9ba6855945e505f24522089cf9ddb43f)
+            type_hints = cached_type_hints(_typecheckingstub__d7eb6b9bca7d6e4c9157c65a3f8f526d9ba6855945e505f24522089cf9ddb43f)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional[builtins.str], jsii.sinvoke(cls, "find", [region, name]))
@@ -199,7 +185,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
         :param allow_replacing: whether new facts can replace existing facts or not.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50cb5476b518e07a9f5b8927185a556ba27bccb903f658e75636124ceb189d77)
+            type_hints = cached_type_hints(_typecheckingstub__50cb5476b518e07a9f5b8927185a556ba27bccb903f658e75636124ceb189d77)
             check_type(argname="argument fact", value=fact, expected_type=type_hints["fact"])
             check_type(argname="argument allow_replacing", value=allow_replacing, expected_type=type_hints["allow_replacing"])
         return typing.cast(None, jsii.sinvoke(cls, "register", [fact, allow_replacing]))
@@ -216,7 +202,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
         :param name: the name of the fact being looked up (see the ``FactName`` class for details).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1607243174372e1f30fa7e6eea5873283c6d3642ba7d05b2d83c773ac84855fc)
+            type_hints = cached_type_hints(_typecheckingstub__1607243174372e1f30fa7e6eea5873283c6d3642ba7d05b2d83c773ac84855fc)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "requireFact", [region, name]))
@@ -236,7 +222,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
         :param value: the value that should be removed (removal will fail if the value is specified, but does not match the current stored value).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff5bc3778dd62ffec5c828b9ef01e6d0b58568f36e29e27d5b29ad187bd6ae1d)
+            type_hints = cached_type_hints(_typecheckingstub__ff5bc3778dd62ffec5c828b9ef01e6d0b58568f36e29e27d5b29ad187bd6ae1d)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -295,7 +281,7 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
         :param architecture: the Lambda Function architecture (e.g. 'x86_64' or 'arm64').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__febe0dfbcb9d5f8bce3c06ea54debe89677db43f0c9e2b297641191af71bdf7f)
+            type_hints = cached_type_hints(_typecheckingstub__febe0dfbcb9d5f8bce3c06ea54debe89677db43f0c9e2b297641191af71bdf7f)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
@@ -314,7 +300,7 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
         :param arch: The architecture (optional), defaults to x86_64.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa10b70591dab842e423a1a785e9419fb72741c92d3290e6952aa4ec68f78fd0)
+            type_hints = cached_type_hints(_typecheckingstub__aa10b70591dab842e423a1a785e9419fb72741c92d3290e6952aa4ec68f78fd0)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument arch", value=arch, expected_type=type_hints["arch"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "appConfigLambdaLayerVersion", [version, arch]))
@@ -332,7 +318,7 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
         :param arch: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__190bef255f794878865ff78b3abfbf5b79fdf1de5a6b0dfa14c7a06b9819bdf7)
+            type_hints = cached_type_hints(_typecheckingstub__190bef255f794878865ff78b3abfbf5b79fdf1de5a6b0dfa14c7a06b9819bdf7)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument arch", value=arch, expected_type=type_hints["arch"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "cloudwatchLambdaInsightsVersion", [version, arch]))
@@ -350,7 +336,7 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
         :param architecture: the Lambda Function architecture (e.g. 'x86_64' or 'arm64').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a242b8a7fb997c74d65e2782ee2d813b049de06b951ecf618ac107c737bacd7)
+            type_hints = cached_type_hints(_typecheckingstub__3a242b8a7fb997c74d65e2782ee2d813b049de06b951ecf618ac107c737bacd7)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "paramsAndSecretsLambdaLayer", [version, architecture]))
@@ -367,7 +353,7 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cd6e84a730147513eb4ebd999b3d1259edbbb2018641be5eaf70fd997c11537)
+            type_hints = cached_type_hints(_typecheckingstub__0cd6e84a730147513eb4ebd999b3d1259edbbb2018641be5eaf70fd997c11537)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "servicePrincipal", [service]))
 
@@ -542,7 +528,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :param name: the name of the region (e.g: us-east-1).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b53a433d2103fc3b9e9e3fc793325f3074792bc52bfe59e9fbd9b15f1357a5f)
+            type_hints = cached_type_hints(_typecheckingstub__6b53a433d2103fc3b9e9e3fc793325f3074792bc52bfe59e9fbd9b15f1357a5f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast("RegionInfo", jsii.sinvoke(cls, "get", [name]))
 
@@ -564,7 +550,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         and the fact in the given region as the value for that key
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f93528eee5baea7ba5dd375a99afea49e4919826d22f07ee495e4b53598ee237)
+            type_hints = cached_type_hints(_typecheckingstub__f93528eee5baea7ba5dd375a99afea49e4919826d22f07ee495e4b53598ee237)
             check_type(argname="argument fact_name", value=fact_name, expected_type=type_hints["fact_name"])
             check_type(argname="argument partitions", value=partitions, expected_type=type_hints["partitions"])
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.sinvoke(cls, "limitedRegionMap", [fact_name, partitions]))
@@ -585,7 +571,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         and the fact in the given region as the value for that key
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b004d22f53e1c882edf241b846882c37197d976d33bc8aa24605aba5c8267a9)
+            type_hints = cached_type_hints(_typecheckingstub__8b004d22f53e1c882edf241b846882c37197d976d33bc8aa24605aba5c8267a9)
             check_type(argname="argument fact_name", value=fact_name, expected_type=type_hints["fact_name"])
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.sinvoke(cls, "regionMap", [fact_name]))
 
@@ -603,7 +589,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :param architecture: the Lambda Function architecture (e.g. 'x86_64' or 'arm64').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__234b7f60c1ccb94eac7e100250404905663a8015c6cddfbecc4c28158f6e79f9)
+            type_hints = cached_type_hints(_typecheckingstub__234b7f60c1ccb94eac7e100250404905663a8015c6cddfbecc4c28158f6e79f9)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
@@ -621,7 +607,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :param architecture: The Lambda Function architecture (e.g. 'x86_64' or 'arm64'), defaults to x86_64.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d2f5841c4f3059988208b0b1b4bca3d536b076c155f07f66dd73aa6eb7a922)
+            type_hints = cached_type_hints(_typecheckingstub__70d2f5841c4f3059988208b0b1b4bca3d536b076c155f07f66dd73aa6eb7a922)
             check_type(argname="argument layer_version", value=layer_version, expected_type=type_hints["layer_version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "appConfigLambdaArn", [layer_version, architecture]))
@@ -638,7 +624,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :param architecture: the Lambda Function architecture (e.g. 'x86_64' or 'arm64').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b574f907f4d0ad872184b626bc7df76de6918584470a4d53388f15044d03e4a)
+            type_hints = cached_type_hints(_typecheckingstub__7b574f907f4d0ad872184b626bc7df76de6918584470a4d53388f15044d03e4a)
             check_type(argname="argument insights_version", value=insights_version, expected_type=type_hints["insights_version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "cloudwatchLambdaInsightsArn", [insights_version, architecture]))
@@ -655,7 +641,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :param architecture: the Lambda Function architecture (e.g. 'x86_64' or 'arm64').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd3a9fc15b22076310e8a4b6ce2e0f248ae1ef753b74abcb49b77bc6428303fd)
+            type_hints = cached_type_hints(_typecheckingstub__dd3a9fc15b22076310e8a4b6ce2e0f248ae1ef753b74abcb49b77bc6428303fd)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "paramsAndSecretsLambdaLayerArn", [version, architecture]))
@@ -671,7 +657,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b20f1063e9abbfd14cc84ded9e40f12b94fb06dd8426aa67e3bf0027fb589129)
+            type_hints = cached_type_hints(_typecheckingstub__b20f1063e9abbfd14cc84ded9e40f12b94fb06dd8426aa67e3bf0027fb589129)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "servicePrincipal", [service]))
 

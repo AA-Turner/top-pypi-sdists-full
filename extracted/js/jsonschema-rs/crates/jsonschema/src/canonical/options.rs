@@ -7,13 +7,14 @@ use serde_json::Value;
 
 use crate::{
     canonical::{
+        context::CanonicalizationContext,
         ir::{RawJson, Schema, SchemaKind},
         parse,
         schema::CanonicalSchema,
         CanonicalizationError, DefinitionMap,
     },
     compiler::{formats_are_assertions_by_default, validate_schema},
-    options::PatternEngineOptions,
+    options::{PatternEngineOptions, PatternOptions},
 };
 
 /// Build a [`CanonicalizeOptions`] for configurable canonicalization.
@@ -56,6 +57,14 @@ impl<'r> CanonicalizeOptions<'r> {
         self
     }
 
+    /// Select the regular-expression engine used for `pattern` compilation and membership.
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn with_pattern_options<E>(mut self, options: PatternOptions<E>) -> Self {
+        self.pattern_options = options.inner;
+        self
+    }
+
     /// Run canonicalization with the configured options.
     ///
     /// # Errors
@@ -89,8 +98,11 @@ fn build(
     let validate_formats =
         validate_formats.unwrap_or_else(|| formats_are_assertions_by_default(draft));
     validate_schema(draft, value)?;
-    let inner = parse::parse(value, draft)
-        .unwrap_or_else(|| Schema::new(SchemaKind::Raw(RawJson::new(value.clone()))));
+    let context = CanonicalizationContext::new(draft, pattern_options);
+    let inner = match parse::parse(value, &context)? {
+        Some(schema) => schema,
+        None => Schema::new(SchemaKind::Raw(RawJson::new(value.clone()))),
+    };
     Ok(CanonicalSchema::new(
         inner,
         draft,

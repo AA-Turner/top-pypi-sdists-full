@@ -418,6 +418,7 @@ def convert_type_to_gql(
             sourceLineStart=t.source_line_start,
             sourceLineEnd=t.source_line_end,
             validPlanNotRequired=t.valid_plan_not_required,
+            resourceGroups=dict(t.resource_groups) if t.resource_groups is not None else None,
         )
     if isinstance(t, ModelReference):
         if t.errors:

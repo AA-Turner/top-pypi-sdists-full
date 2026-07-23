@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 
 MAX_NAMED_QUERY_FUNCTION_DEF_LEN = 400
 
+RESOURCE_GROUPS_ALL_ENVIRONMENTS = "__all__"
+"""Key in ``NamedQuery.resource_groups`` whose resource groups apply in every environment."""
+
 
 class NamedQuery:
     def __init__(
@@ -31,6 +34,7 @@ class NamedQuery:
         planner_options: Mapping[str, str | int | bool] | None = None,
         additional_logged_features: Sequence[FeatureReference] | None = None,
         valid_plan_not_required: bool = False,
+        resource_groups: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
     ):
         """Create a named query.
 
@@ -81,6 +85,15 @@ class NamedQuery:
             generate a valid plan for the named query, preventing rollover of a bad deployment. If
             set to `True`, the query will not be preplanned and therefore will not be validated on
             deployment.
+        resource_groups
+            Scopes which query servers preplan this named query. Either a sequence of
+            resource groups, or a mapping from environment id to sequences of resource
+            groups. The sequence form applies in every environment and is shorthand for
+            `{"__all__": [...]}`. In the mapping form, resource groups under the key
+            `"__all__"` preplan the query in every environment, while resource groups
+            under an environment id preplan it only in that environment; an environment
+            with no matching entry does not preplan the query. By default, all resource
+            groups in all environments plan every named query.
 
 
         Examples
@@ -134,6 +147,12 @@ class NamedQuery:
         self.code = source_code
         self.source_line_end = source_line_end
         self.valid_plan_not_required = valid_plan_not_required
+        if resource_groups is None:
+            self.resource_groups = None
+        elif isinstance(resource_groups, Mapping):
+            self.resource_groups = {str(env): [str(rg) for rg in groups] for env, groups in resource_groups.items()}
+        else:
+            self.resource_groups = {RESOURCE_GROUPS_ALL_ENVIRONMENTS: [str(rg) for rg in resource_groups]}
 
         dup_nq = NAMED_QUERY_REGISTRY.get((name, version), None)
         if dup_nq is not None:

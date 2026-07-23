@@ -818,6 +818,21 @@ def dispatch_command(cmd: str) -> None:
             _raw = _json.loads(gp.read_text(encoding="utf-8"))
             if "links" not in _raw and "edges" in _raw:
                 _raw = dict(_raw, links=_raw["edges"])
+            # `query` deliberately keeps the graph undirected (unlike `path` /
+            # `explain`, which force directed=True): BFS/DFS here must explore
+            # both callers and callees of the seed node to build useful
+            # context, and forcing a DiGraph would make G.neighbors() return
+            # successors only, silently dropping every caller-side result for
+            # a seed with no outgoing edges. Direction is instead preserved
+            # per-edge below (mirrors graphify/build.py's _src/_tgt pattern)
+            # so the *rendering* stays correct without narrowing traversal.
+            _raw = dict(
+                _raw,
+                links=[
+                    {**link, "_src": link.get("source"), "_tgt": link.get("target")}
+                    for link in _raw.get("links", [])
+                ],
+            )
             try:
                 G = json_graph.node_link_graph(_raw, edges="links")
             except TypeError:
@@ -1268,7 +1283,27 @@ def dispatch_command(cmd: str) -> None:
                 at = f" {sfile}:{loc}" if loc else ""
                 print(f"  {arrow} {G.nodes[nb].get('label', nb)} [{rel}] [{conf}]{at}")
             if len(connections) > 20:
-                print(f"  ... and {len(connections) - 20} more")
+                remainder = connections[20:]
+                print(f"  ... and {len(remainder)} more")
+                # #2009: a bare count silently hides the answer on high-degree
+                # nodes ("who calls this, what's the impact?"). Group the cut
+                # connections by direction + file so their shape is visible
+                # without falling back to a repo-wide grep.
+                by_file: dict[tuple[str, str], int] = {}
+                for direction, _nb, edata in remainder:
+                    sfile = edata.get("source_file") or "(unknown file)"
+                    key = (direction, sfile)
+                    by_file[key] = by_file.get(key, 0) + 1
+                # Count desc, then (direction, file) so equal-count groups have a
+                # byte-stable order (not the degree-derived insertion order).
+                grouped = sorted(by_file.items(), key=lambda kv: (-kv[1], kv[0]))
+                print("  Grouped by file:")
+                for (direction, sfile), count in grouped[:20]:
+                    arrow = "-->" if direction == "out" else "<--"
+                    noun = "connection" if count == 1 else "connections"
+                    print(f"    {arrow} {sfile}: {count} {noun}")
+                if len(grouped) > 20:
+                    print(f"    ... and {len(grouped) - 20} more files")
         from graphify import querylog
         querylog.log_query(
             kind="explain",
@@ -2427,7 +2462,7 @@ def dispatch_command(cmd: str) -> None:
             print(
                 "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai|deepseek|ollama] "
                 "[--model M] [--mode deep] [--out DIR|--output DIR] [--google-workspace] [--no-cluster] "
-                "[--no-gitignore] "
+                "[--no-gitignore] [--code-only] "
                 "[--max-workers N] [--token-budget N] [--max-concurrency N] "
                 "[--api-timeout S] [--postgres DSN] [--cargo] [--allow-partial] [--timing]",
                 file=sys.stderr,
@@ -2781,6 +2816,19 @@ def dispatch_command(cmd: str) -> None:
             print(
                 f"[graphify extract] {len(_unclassified)} file(s) not classified "
                 f"(no supported extension or shebang), skipped: {_names}{_more}"
+            )
+        # Name the files dropped by the sensitive-file filter so a wrongly-flagged
+        # source/doc is visible, not just a count (#2106). Operational skips
+        # (symlink/office/Workspace) carry a " [reason]" suffix; exclude those here
+        # so this line reports only the security-heuristic drops.
+        _sensitive = detection.get("skipped_sensitive", []) if isinstance(detection, dict) else []
+        _sec = [s for s in _sensitive if " [" not in s]
+        if _sec:
+            _snames = ", ".join(sorted({Path(p).name for p in _sec})[:6])
+            _smore = f" (+{len(_sec) - 6} more)" if len(_sec) > 6 else ""
+            print(
+                f"[graphify extract] {len(_sec)} file(s) skipped as potentially sensitive "
+                f"(rename or move if wrongly flagged): {_snames}{_smore}"
             )
         stages.mark("detect")
 

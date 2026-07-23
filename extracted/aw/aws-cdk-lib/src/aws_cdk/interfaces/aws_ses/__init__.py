@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class ConfigurationSetEventDestinationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__233e229dac98a6018ca0e6d41c128dd532e86367935bcb73cbcaf6d97404701f)
+            type_hints = cached_type_hints(_typecheckingstub__233e229dac98a6018ca0e6d41c128dd532e86367935bcb73cbcaf6d97404701f)
             check_type(argname="argument configuration_set_event_destination_id", value=configuration_set_event_destination_id, expected_type=type_hints["configuration_set_event_destination_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_set_event_destination_id": configuration_set_event_destination_id,
@@ -109,7 +113,7 @@ class ConfigurationSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b5ae328c9b7ac2d7bc907cf4efe09aa28d00f7f96b67d9ed14120c682a116c9)
+            type_hints = cached_type_hints(_typecheckingstub__3b5ae328c9b7ac2d7bc907cf4efe09aa28d00f7f96b67d9ed14120c682a116c9)
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_set_name": configuration_set_name,
@@ -158,7 +162,7 @@ class ContactListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf2861ff3744b9c917ef3e590b8a64df3604ae487bb1f4e654554a0d15dd6703)
+            type_hints = cached_type_hints(_typecheckingstub__bf2861ff3744b9c917ef3e590b8a64df3604ae487bb1f4e654554a0d15dd6703)
             check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "contact_list_name": contact_list_name,
@@ -207,7 +211,7 @@ class CustomVerificationEmailTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eee22c43f539103bf5c9a3012ec0e02b3d53fefdbe06140992d58a1c5943859b)
+            type_hints = cached_type_hints(_typecheckingstub__eee22c43f539103bf5c9a3012ec0e02b3d53fefdbe06140992d58a1c5943859b)
             check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "template_name": template_name,
@@ -256,7 +260,7 @@ class DedicatedIpPoolReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b96dd5318bf107e0627b56848ee58eb242f0abb737a14fd282245dda453b702)
+            type_hints = cached_type_hints(_typecheckingstub__5b96dd5318bf107e0627b56848ee58eb242f0abb737a14fd282245dda453b702)
             check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "pool_name": pool_name,
@@ -305,7 +309,7 @@ class EmailIdentityReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78d4b405750ad37e2ceb18cc71d146af078abd3d3df476b2b7acf90c5f293cba)
+            type_hints = cached_type_hints(_typecheckingstub__78d4b405750ad37e2ceb18cc71d146af078abd3d3df476b2b7acf90c5f293cba)
             check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "email_identity": email_identity,
@@ -335,7 +339,7 @@ class EmailIdentityReference:
 )
 class IConfigurationSetEventDestinationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationSetEventDestination.
@@ -357,7 +361,7 @@ class IConfigurationSetEventDestinationRef(
 
 class _IConfigurationSetEventDestinationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationSetEventDestination.
 
@@ -384,7 +388,7 @@ typing.cast(typing.Any, IConfigurationSetEventDestinationRef).__jsii_proxy_class
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IConfigurationSetRef")
 class IConfigurationSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationSet.
@@ -404,7 +408,7 @@ class IConfigurationSetRef(
 
 class _IConfigurationSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationSet.
 
@@ -429,7 +433,7 @@ typing.cast(typing.Any, IConfigurationSetRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IContactListRef")
 class IContactListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContactList.
@@ -449,7 +453,7 @@ class IContactListRef(
 
 class _IContactListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContactList.
 
@@ -476,7 +480,7 @@ typing.cast(typing.Any, IContactListRef).__jsii_proxy_class__ = lambda : _IConta
 )
 class ICustomVerificationEmailTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomVerificationEmailTemplate.
@@ -498,7 +502,7 @@ class ICustomVerificationEmailTemplateRef(
 
 class _ICustomVerificationEmailTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomVerificationEmailTemplate.
 
@@ -525,7 +529,7 @@ typing.cast(typing.Any, ICustomVerificationEmailTemplateRef).__jsii_proxy_class_
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IDedicatedIpPoolRef")
 class IDedicatedIpPoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DedicatedIpPool.
@@ -545,7 +549,7 @@ class IDedicatedIpPoolRef(
 
 class _IDedicatedIpPoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DedicatedIpPool.
 
@@ -570,7 +574,7 @@ typing.cast(typing.Any, IDedicatedIpPoolRef).__jsii_proxy_class__ = lambda : _ID
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IEmailIdentityRef")
 class IEmailIdentityRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailIdentity.
@@ -590,7 +594,7 @@ class IEmailIdentityRef(
 
 class _IEmailIdentityRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailIdentity.
 
@@ -617,7 +621,7 @@ typing.cast(typing.Any, IEmailIdentityRef).__jsii_proxy_class__ = lambda : _IEma
 )
 class IMailManagerAddonInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonInstance.
@@ -637,7 +641,7 @@ class IMailManagerAddonInstanceRef(
 
 class _IMailManagerAddonInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonInstance.
 
@@ -664,7 +668,7 @@ typing.cast(typing.Any, IMailManagerAddonInstanceRef).__jsii_proxy_class__ = lam
 )
 class IMailManagerAddonSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonSubscription.
@@ -686,7 +690,7 @@ class IMailManagerAddonSubscriptionRef(
 
 class _IMailManagerAddonSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonSubscription.
 
@@ -713,7 +717,7 @@ typing.cast(typing.Any, IMailManagerAddonSubscriptionRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMailManagerAddressListRef")
 class IMailManagerAddressListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddressList.
@@ -733,7 +737,7 @@ class IMailManagerAddressListRef(
 
 class _IMailManagerAddressListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerAddressList.
 
@@ -758,7 +762,7 @@ typing.cast(typing.Any, IMailManagerAddressListRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMailManagerArchiveRef")
 class IMailManagerArchiveRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerArchive.
@@ -778,7 +782,7 @@ class IMailManagerArchiveRef(
 
 class _IMailManagerArchiveRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerArchive.
 
@@ -803,7 +807,7 @@ typing.cast(typing.Any, IMailManagerArchiveRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMailManagerIngressPointRef")
 class IMailManagerIngressPointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerIngressPoint.
@@ -823,7 +827,7 @@ class IMailManagerIngressPointRef(
 
 class _IMailManagerIngressPointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerIngressPoint.
 
@@ -848,7 +852,7 @@ typing.cast(typing.Any, IMailManagerIngressPointRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMailManagerRelayRef")
 class IMailManagerRelayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerRelay.
@@ -868,7 +872,7 @@ class IMailManagerRelayRef(
 
 class _IMailManagerRelayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerRelay.
 
@@ -893,7 +897,7 @@ typing.cast(typing.Any, IMailManagerRelayRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMailManagerRuleSetRef")
 class IMailManagerRuleSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerRuleSet.
@@ -913,7 +917,7 @@ class IMailManagerRuleSetRef(
 
 class _IMailManagerRuleSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerRuleSet.
 
@@ -940,7 +944,7 @@ typing.cast(typing.Any, IMailManagerRuleSetRef).__jsii_proxy_class__ = lambda : 
 )
 class IMailManagerTrafficPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerTrafficPolicy.
@@ -960,7 +964,7 @@ class IMailManagerTrafficPolicyRef(
 
 class _IMailManagerTrafficPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MailManagerTrafficPolicy.
 
@@ -985,7 +989,7 @@ typing.cast(typing.Any, IMailManagerTrafficPolicyRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IMultiRegionEndpointRef")
 class IMultiRegionEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionEndpoint.
@@ -1005,7 +1009,7 @@ class IMultiRegionEndpointRef(
 
 class _IMultiRegionEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionEndpoint.
 
@@ -1030,7 +1034,7 @@ typing.cast(typing.Any, IMultiRegionEndpointRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IReceiptFilterRef")
 class IReceiptFilterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptFilter.
@@ -1050,7 +1054,7 @@ class IReceiptFilterRef(
 
 class _IReceiptFilterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptFilter.
 
@@ -1075,7 +1079,7 @@ typing.cast(typing.Any, IReceiptFilterRef).__jsii_proxy_class__ = lambda : _IRec
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IReceiptRuleRef")
 class IReceiptRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptRule.
@@ -1095,7 +1099,7 @@ class IReceiptRuleRef(
 
 class _IReceiptRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptRule.
 
@@ -1120,7 +1124,7 @@ typing.cast(typing.Any, IReceiptRuleRef).__jsii_proxy_class__ = lambda : _IRecei
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IReceiptRuleSetRef")
 class IReceiptRuleSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptRuleSet.
@@ -1140,7 +1144,7 @@ class IReceiptRuleSetRef(
 
 class _IReceiptRuleSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReceiptRuleSet.
 
@@ -1165,7 +1169,7 @@ typing.cast(typing.Any, IReceiptRuleSetRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.ITemplateRef")
 class ITemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
@@ -1185,7 +1189,7 @@ class ITemplateRef(
 
 class _ITemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
 
@@ -1210,7 +1214,7 @@ typing.cast(typing.Any, ITemplateRef).__jsii_proxy_class__ = lambda : _ITemplate
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.ITenantRef")
 class ITenantRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tenant.
@@ -1230,7 +1234,7 @@ class ITenantRef(
 
 class _ITenantRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tenant.
 
@@ -1255,7 +1259,7 @@ typing.cast(typing.Any, ITenantRef).__jsii_proxy_class__ = lambda : _ITenantRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IVdmAttributesRef")
 class IVdmAttributesRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VdmAttributes.
@@ -1275,7 +1279,7 @@ class IVdmAttributesRef(
 
 class _IVdmAttributesRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VdmAttributes.
 
@@ -1331,7 +1335,7 @@ class MailManagerAddonInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8992f803f7505e5c4e7f7ccc64a127ca7b7063494b30e9339e4be159c0cfad2)
+            type_hints = cached_type_hints(_typecheckingstub__a8992f803f7505e5c4e7f7ccc64a127ca7b7063494b30e9339e4be159c0cfad2)
             check_type(argname="argument addon_instance_arn", value=addon_instance_arn, expected_type=type_hints["addon_instance_arn"])
             check_type(argname="argument addon_instance_id", value=addon_instance_id, expected_type=type_hints["addon_instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1399,7 +1403,7 @@ class MailManagerAddonSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06c8f0b71be4b35dd631e5b326b64de20a8a9419c00ee747d47feb81e8e24d10)
+            type_hints = cached_type_hints(_typecheckingstub__06c8f0b71be4b35dd631e5b326b64de20a8a9419c00ee747d47feb81e8e24d10)
             check_type(argname="argument addon_subscription_arn", value=addon_subscription_arn, expected_type=type_hints["addon_subscription_arn"])
             check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1467,7 +1471,7 @@ class MailManagerAddressListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c2b0da17cb6c3256946c402db92a74c797c3f05e0d39993ce9b3fa320c136fe)
+            type_hints = cached_type_hints(_typecheckingstub__7c2b0da17cb6c3256946c402db92a74c797c3f05e0d39993ce9b3fa320c136fe)
             check_type(argname="argument address_list_arn", value=address_list_arn, expected_type=type_hints["address_list_arn"])
             check_type(argname="argument address_list_id", value=address_list_id, expected_type=type_hints["address_list_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1527,7 +1531,7 @@ class MailManagerArchiveReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d873d90f01d0f3d0d63356e5f39ba9bc18cfdf68b988be224e350d3631357471)
+            type_hints = cached_type_hints(_typecheckingstub__d873d90f01d0f3d0d63356e5f39ba9bc18cfdf68b988be224e350d3631357471)
             check_type(argname="argument archive_arn", value=archive_arn, expected_type=type_hints["archive_arn"])
             check_type(argname="argument archive_id", value=archive_id, expected_type=type_hints["archive_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1595,7 +1599,7 @@ class MailManagerIngressPointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8145e93ee23430220a5eda157c3db564cad6b152e32d494bde06e8d772a86c20)
+            type_hints = cached_type_hints(_typecheckingstub__8145e93ee23430220a5eda157c3db564cad6b152e32d494bde06e8d772a86c20)
             check_type(argname="argument ingress_point_arn", value=ingress_point_arn, expected_type=type_hints["ingress_point_arn"])
             check_type(argname="argument ingress_point_id", value=ingress_point_id, expected_type=type_hints["ingress_point_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1655,7 +1659,7 @@ class MailManagerRelayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0562a03f6b72be06c19d5688e1c48764e8ded3478b41a82adc774cf5a0fbed07)
+            type_hints = cached_type_hints(_typecheckingstub__0562a03f6b72be06c19d5688e1c48764e8ded3478b41a82adc774cf5a0fbed07)
             check_type(argname="argument relay_arn", value=relay_arn, expected_type=type_hints["relay_arn"])
             check_type(argname="argument relay_id", value=relay_id, expected_type=type_hints["relay_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1720,7 +1724,7 @@ class MailManagerRuleSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd5bafd074000bd08230593448d667674cbf8e9ec48c59888040334cc4a4b23)
+            type_hints = cached_type_hints(_typecheckingstub__0fd5bafd074000bd08230593448d667674cbf8e9ec48c59888040334cc4a4b23)
             check_type(argname="argument rule_set_arn", value=rule_set_arn, expected_type=type_hints["rule_set_arn"])
             check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1788,7 +1792,7 @@ class MailManagerTrafficPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__205ca1074da01182de1ffa47ee6863235fb4c5979f395f404b9a0d9eb9befc57)
+            type_hints = cached_type_hints(_typecheckingstub__205ca1074da01182de1ffa47ee6863235fb4c5979f395f404b9a0d9eb9befc57)
             check_type(argname="argument traffic_policy_arn", value=traffic_policy_arn, expected_type=type_hints["traffic_policy_arn"])
             check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1846,7 +1850,7 @@ class MultiRegionEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29b32ebdcc43f241fd324d2e3a0484214701c12de78f535ef4527d5277fe7476)
+            type_hints = cached_type_hints(_typecheckingstub__29b32ebdcc43f241fd324d2e3a0484214701c12de78f535ef4527d5277fe7476)
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_name": endpoint_name,
@@ -1895,7 +1899,7 @@ class ReceiptFilterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d80635f2750aaab778cde9cd85371121e61ffafb06c9be630c4b577c2168f83)
+            type_hints = cached_type_hints(_typecheckingstub__9d80635f2750aaab778cde9cd85371121e61ffafb06c9be630c4b577c2168f83)
             check_type(argname="argument receipt_filter_id", value=receipt_filter_id, expected_type=type_hints["receipt_filter_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "receipt_filter_id": receipt_filter_id,
@@ -1944,7 +1948,7 @@ class ReceiptRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__363cf68bbf8c488eefc1ebe3e54c3c412bdcb6eef06d4572cd6a7d1e38ab11d3)
+            type_hints = cached_type_hints(_typecheckingstub__363cf68bbf8c488eefc1ebe3e54c3c412bdcb6eef06d4572cd6a7d1e38ab11d3)
             check_type(argname="argument receipt_rule_id", value=receipt_rule_id, expected_type=type_hints["receipt_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "receipt_rule_id": receipt_rule_id,
@@ -1993,7 +1997,7 @@ class ReceiptRuleSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8b0af72ead1871122888635202efb56ab07d6d385015d5dd64c6af6d67de3df)
+            type_hints = cached_type_hints(_typecheckingstub__a8b0af72ead1871122888635202efb56ab07d6d385015d5dd64c6af6d67de3df)
             check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_set_name": rule_set_name,
@@ -2042,7 +2046,7 @@ class TemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bff65c596a54ecb144242af79ad669ad596182afa21c0c8114c0d19ebe54d151)
+            type_hints = cached_type_hints(_typecheckingstub__bff65c596a54ecb144242af79ad669ad596182afa21c0c8114c0d19ebe54d151)
             check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "template_id": template_id,
@@ -2093,7 +2097,7 @@ class TenantReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fc549d98c71c6825704c4331407116c91f8bbba45ccba5c8e0a84c63f182d65)
+            type_hints = cached_type_hints(_typecheckingstub__6fc549d98c71c6825704c4331407116c91f8bbba45ccba5c8e0a84c63f182d65)
             check_type(argname="argument tenant_arn", value=tenant_arn, expected_type=type_hints["tenant_arn"])
             check_type(argname="argument tenant_name", value=tenant_name, expected_type=type_hints["tenant_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2151,7 +2155,7 @@ class VdmAttributesReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__602c7efea7e375b6f852dbd10f664e586f718be768b824afd2b7d09c6f6d47af)
+            type_hints = cached_type_hints(_typecheckingstub__602c7efea7e375b6f852dbd10f664e586f718be768b824afd2b7d09c6f6d47af)
             check_type(argname="argument vdm_attributes_resource_id", value=vdm_attributes_resource_id, expected_type=type_hints["vdm_attributes_resource_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vdm_attributes_resource_id": vdm_attributes_resource_id,

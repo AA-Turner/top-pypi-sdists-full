@@ -643,7 +643,7 @@ def replace_tables(
 
         if current_replacements:
             # We need to transform the dictionary into something cacheable, so a sorted tuple of tuples it is
-            r = tuple(sorted([(k, v) for k, v in current_replacements.items()]))
+            r = tuple(sorted(current_replacements.items()))
             sql = replace_tables_chquery_cached(
                 sql,
                 r,

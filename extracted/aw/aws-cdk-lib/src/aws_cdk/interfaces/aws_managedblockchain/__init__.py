@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -65,7 +69,7 @@ class AccessorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__470e9c36096d8537a9bb6a205b998d45b83f117a8ad8fdd497e847df9798931a)
+            type_hints = cached_type_hints(_typecheckingstub__470e9c36096d8537a9bb6a205b998d45b83f117a8ad8fdd497e847df9798931a)
             check_type(argname="argument accessor_arn", value=accessor_arn, expected_type=type_hints["accessor_arn"])
             check_type(argname="argument accessor_id", value=accessor_id, expected_type=type_hints["accessor_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -102,7 +106,7 @@ class AccessorReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_managedblockchain.IAccessorRef")
 class IAccessorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Accessor.
@@ -122,7 +126,7 @@ class IAccessorRef(
 
 class _IAccessorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Accessor.
 
@@ -147,7 +151,7 @@ typing.cast(typing.Any, IAccessorRef).__jsii_proxy_class__ = lambda : _IAccessor
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_managedblockchain.IMemberRef")
 class IMemberRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Member.
@@ -167,7 +171,7 @@ class IMemberRef(
 
 class _IMemberRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Member.
 
@@ -192,7 +196,7 @@ typing.cast(typing.Any, IMemberRef).__jsii_proxy_class__ = lambda : _IMemberRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_managedblockchain.INodeRef")
 class INodeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Node.
@@ -212,7 +216,7 @@ class INodeRef(
 
 class _INodeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Node.
 
@@ -258,7 +262,7 @@ class MemberReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53756b8941eb9962b342ccd85c785fd9597bbceea551caf229a648604856c320)
+            type_hints = cached_type_hints(_typecheckingstub__53756b8941eb9962b342ccd85c785fd9597bbceea551caf229a648604856c320)
             check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "member_id": member_id,
@@ -309,7 +313,7 @@ class NodeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10ea42cfcf642197710289601db4289fcb781e6ee46ac2c60d215f584a3121f2)
+            type_hints = cached_type_hints(_typecheckingstub__10ea42cfcf642197710289601db4289fcb781e6ee46ac2c60d215f584a3121f2)
             check_type(argname="argument node_arn", value=node_arn, expected_type=type_hints["node_arn"])
             check_type(argname="argument node_id", value=node_id, expected_type=type_hints["node_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

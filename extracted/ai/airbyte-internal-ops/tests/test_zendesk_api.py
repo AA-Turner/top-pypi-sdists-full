@@ -273,11 +273,18 @@ def test_add_internal_note_posts_private_comment(
     creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
     monkeypatch.setattr(zendesk_api, "_put", _fake_put)
 
-    zendesk_api.add_internal_note(42, "internal note", credentials=creds)
+    zendesk_api.add_internal_note(
+        42, "<strong>internal</strong> note", credentials=creds
+    )
 
     assert captured["path"] == "/tickets/42.json"
     assert captured["json_body"] == {
-        "ticket": {"comment": {"body": "internal note", "public": False}}
+        "ticket": {
+            "comment": {
+                "html_body": "<strong>internal</strong> note",
+                "public": False,
+            }
+        }
     }
 
 
@@ -285,7 +292,7 @@ def test_add_internal_note_posts_private_comment(
 def test_post_zendesk_internal_comment_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _fake_add(ticket_id: int, body: str, *, add_tags=None) -> dict:
+    def _fake_add(ticket_id: int, html_body: str) -> dict:
         return {
             "ticket": {"id": ticket_id},
             "audit": {
@@ -298,7 +305,9 @@ def test_post_zendesk_internal_comment_success(
 
     monkeypatch.setattr(zendesk_ops, "add_internal_note", _fake_add)
 
-    result = zendesk_ops.post_zendesk_internal_comment(ticket_id=42, body="hi")
+    result = zendesk_ops.post_zendesk_internal_comment(
+        ticket_id=42, html_body="<p>hi</p>"
+    )
 
     assert result.success is True
     assert result.ticket_id == 42
@@ -310,12 +319,12 @@ def test_post_zendesk_internal_comment_success(
 def test_post_zendesk_internal_comment_reports_api_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _raise(ticket_id: int, body: str, *, add_tags=None) -> dict:
+    def _raise(ticket_id: int, html_body: str) -> dict:
         raise zendesk_api.ZendeskAPIError("Internal note body must not be empty.")
 
     monkeypatch.setattr(zendesk_ops, "add_internal_note", _raise)
 
-    result = zendesk_ops.post_zendesk_internal_comment(ticket_id=42, body="")
+    result = zendesk_ops.post_zendesk_internal_comment(ticket_id=42, html_body="")
 
     assert result.success is False
     assert result.ticket_id == 42
@@ -324,47 +333,32 @@ def test_post_zendesk_internal_comment_reports_api_error(
 
 
 @pytest.mark.unit
-def test_add_internal_note_appends_tags(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
-
-    def _fake_put(credentials: ZendeskCredentials, path: str, json_body: dict) -> dict:
-        captured["json_body"] = json_body
-        return {"ticket": {"id": 42, "tags": ["existing", "triage"]}}
-
-    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
-    monkeypatch.setattr(zendesk_api, "_put", _fake_put)
-
-    zendesk_api.add_internal_note(
-        42, "note", credentials=creds, add_tags=["triage", "  ", ""]
-    )
-
-    assert captured["json_body"] == {
-        "ticket": {
-            "comment": {"body": "note", "public": False},
-            "additional_tags": ["triage"],
-        }
-    }
-
-
-@pytest.mark.unit
-def test_add_ticket_tags_uses_additive_endpoint(
+def test_add_ticket_tags_merges_and_puts_full_union(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_post(credentials: ZendeskCredentials, path: str, json_body: dict) -> dict:
+    def _fake_get(ticket_id: int, credentials: ZendeskCredentials) -> dict:
+        return {"id": ticket_id, "tags": ["p3", "severity_3", "new"]}
+
+    def _fake_put(credentials: ZendeskCredentials, path: str, json_body: dict) -> dict:
         captured["path"] = path
         captured["json_body"] = json_body
-        return {"tags": ["existing", "new"]}
+        return {"ticket": {"id": 42, "tags": json_body["ticket"]["tags"]}}
 
     creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
-    monkeypatch.setattr(zendesk_api, "_post", _fake_post)
+    monkeypatch.setattr(zendesk_api, "get_ticket", _fake_get)
+    monkeypatch.setattr(zendesk_api, "_put", _fake_put)
 
-    result = zendesk_api.add_ticket_tags(42, ["new"], credentials=creds)
+    # "new" already exists (deduped); "triaged" is appended; existing tagger
+    # tags (p3, severity_3) are preserved in the full-union PUT.
+    result = zendesk_api.add_ticket_tags(42, ["new", "triaged"], credentials=creds)
 
-    assert captured["path"] == "/tickets/42/tags.json"
-    assert captured["json_body"] == {"tags": ["new"]}
-    assert result == ["existing", "new"]
+    assert captured["path"] == "/tickets/42.json"
+    assert captured["json_body"] == {
+        "ticket": {"tags": ["p3", "severity_3", "new", "triaged"]}
+    }
+    assert result == ["p3", "severity_3", "new", "triaged"]
 
 
 @pytest.mark.unit

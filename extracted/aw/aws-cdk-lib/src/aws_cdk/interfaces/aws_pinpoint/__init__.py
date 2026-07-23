@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ADMChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c66344866d57b2c61e87a53457006c0e900b38b698cdb217466ed7caa7d21d30)
+            type_hints = cached_type_hints(_typecheckingstub__c66344866d57b2c61e87a53457006c0e900b38b698cdb217466ed7caa7d21d30)
             check_type(argname="argument adm_channel_id", value=adm_channel_id, expected_type=type_hints["adm_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "adm_channel_id": adm_channel_id,
@@ -107,7 +111,7 @@ class APNSChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a496ce49e220f7813d622667dcfaedd8e2168f11f3b2c9e2d2897832fd3ab9bd)
+            type_hints = cached_type_hints(_typecheckingstub__a496ce49e220f7813d622667dcfaedd8e2168f11f3b2c9e2d2897832fd3ab9bd)
             check_type(argname="argument apns_channel_id", value=apns_channel_id, expected_type=type_hints["apns_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "apns_channel_id": apns_channel_id,
@@ -156,7 +160,7 @@ class APNSSandboxChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b94d95c331fe8bd2e4c6c5e6e85996744c1a65f3b436aeac431abbb19e43dffd)
+            type_hints = cached_type_hints(_typecheckingstub__b94d95c331fe8bd2e4c6c5e6e85996744c1a65f3b436aeac431abbb19e43dffd)
             check_type(argname="argument apns_sandbox_channel_id", value=apns_sandbox_channel_id, expected_type=type_hints["apns_sandbox_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "apns_sandbox_channel_id": apns_sandbox_channel_id,
@@ -205,7 +209,7 @@ class APNSVoipChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d20e3efb22a5a77e26b385ce38c50e440a81f1b4039542add7de29ef13fb222a)
+            type_hints = cached_type_hints(_typecheckingstub__d20e3efb22a5a77e26b385ce38c50e440a81f1b4039542add7de29ef13fb222a)
             check_type(argname="argument apns_voip_channel_id", value=apns_voip_channel_id, expected_type=type_hints["apns_voip_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "apns_voip_channel_id": apns_voip_channel_id,
@@ -254,7 +258,7 @@ class APNSVoipSandboxChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f6b0a4afdfa151ba7b3ccd79e7b1be578515d0c8cd7e37dbd00c215e812d864)
+            type_hints = cached_type_hints(_typecheckingstub__7f6b0a4afdfa151ba7b3ccd79e7b1be578515d0c8cd7e37dbd00c215e812d864)
             check_type(argname="argument apns_voip_sandbox_channel_id", value=apns_voip_sandbox_channel_id, expected_type=type_hints["apns_voip_sandbox_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "apns_voip_sandbox_channel_id": apns_voip_sandbox_channel_id,
@@ -305,7 +309,7 @@ class AppReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47f9f51d19cf6bb2505181b94960ee58497234e95a8cb312c5b8b732fdfa2191)
+            type_hints = cached_type_hints(_typecheckingstub__47f9f51d19cf6bb2505181b94960ee58497234e95a8cb312c5b8b732fdfa2191)
             check_type(argname="argument app_arn", value=app_arn, expected_type=type_hints["app_arn"])
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -363,7 +367,7 @@ class ApplicationSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db9052113d2b53ec08d341c550acb86b274f0fc0ea21deb1b4345d037133c469)
+            type_hints = cached_type_hints(_typecheckingstub__db9052113d2b53ec08d341c550acb86b274f0fc0ea21deb1b4345d037133c469)
             check_type(argname="argument application_settings_id", value=application_settings_id, expected_type=type_hints["application_settings_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_settings_id": application_settings_id,
@@ -412,7 +416,7 @@ class BaiduChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__491989d5301704adbe9e8c97d33163a8252bcacb817aa52b0e5d7bcfbe90fcd1)
+            type_hints = cached_type_hints(_typecheckingstub__491989d5301704adbe9e8c97d33163a8252bcacb817aa52b0e5d7bcfbe90fcd1)
             check_type(argname="argument baidu_channel_id", value=baidu_channel_id, expected_type=type_hints["baidu_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "baidu_channel_id": baidu_channel_id,
@@ -468,7 +472,7 @@ class CampaignReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcf64db1b1596dc4aa37057576b9a0db604c629f6fab5b122a9fc764eeec65af)
+            type_hints = cached_type_hints(_typecheckingstub__dcf64db1b1596dc4aa37057576b9a0db604c629f6fab5b122a9fc764eeec65af)
             check_type(argname="argument campaign_arn", value=campaign_arn, expected_type=type_hints["campaign_arn"])
             check_type(argname="argument campaign_id", value=campaign_id, expected_type=type_hints["campaign_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -526,7 +530,7 @@ class EmailChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29d2c4016fc9671888b08731a815286889bd95745893730b746ec6246a930569)
+            type_hints = cached_type_hints(_typecheckingstub__29d2c4016fc9671888b08731a815286889bd95745893730b746ec6246a930569)
             check_type(argname="argument email_channel_id", value=email_channel_id, expected_type=type_hints["email_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "email_channel_id": email_channel_id,
@@ -585,7 +589,7 @@ class EmailTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8869b0aa99806f8520c0ab61fa32beba3955adf2febe0942549ac0cce8fabf79)
+            type_hints = cached_type_hints(_typecheckingstub__8869b0aa99806f8520c0ab61fa32beba3955adf2febe0942549ac0cce8fabf79)
             check_type(argname="argument email_template_arn", value=email_template_arn, expected_type=type_hints["email_template_arn"])
             check_type(argname="argument email_template_id", value=email_template_id, expected_type=type_hints["email_template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -643,7 +647,7 @@ class EventStreamReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b3328b21045c7e33dc1f9e42d52efa3dd71cb2d8b7bd5d7f47167668d353ede)
+            type_hints = cached_type_hints(_typecheckingstub__8b3328b21045c7e33dc1f9e42d52efa3dd71cb2d8b7bd5d7f47167668d353ede)
             check_type(argname="argument event_stream_id", value=event_stream_id, expected_type=type_hints["event_stream_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_stream_id": event_stream_id,
@@ -692,7 +696,7 @@ class GCMChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b116ef27b30e0b0006ee7bfa943a8e2906335c3cb406d959b4feae4b1c9c2f1d)
+            type_hints = cached_type_hints(_typecheckingstub__b116ef27b30e0b0006ee7bfa943a8e2906335c3cb406d959b4feae4b1c9c2f1d)
             check_type(argname="argument gcm_channel_id", value=gcm_channel_id, expected_type=type_hints["gcm_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "gcm_channel_id": gcm_channel_id,
@@ -720,7 +724,7 @@ class GCMChannelReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IADMChannelRef")
 class IADMChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ADMChannel.
@@ -740,7 +744,7 @@ class IADMChannelRef(
 
 class _IADMChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ADMChannel.
 
@@ -765,7 +769,7 @@ typing.cast(typing.Any, IADMChannelRef).__jsii_proxy_class__ = lambda : _IADMCha
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IAPNSChannelRef")
 class IAPNSChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSChannel.
@@ -785,7 +789,7 @@ class IAPNSChannelRef(
 
 class _IAPNSChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSChannel.
 
@@ -810,7 +814,7 @@ typing.cast(typing.Any, IAPNSChannelRef).__jsii_proxy_class__ = lambda : _IAPNSC
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IAPNSSandboxChannelRef")
 class IAPNSSandboxChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSSandboxChannel.
@@ -830,7 +834,7 @@ class IAPNSSandboxChannelRef(
 
 class _IAPNSSandboxChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSSandboxChannel.
 
@@ -855,7 +859,7 @@ typing.cast(typing.Any, IAPNSSandboxChannelRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IAPNSVoipChannelRef")
 class IAPNSVoipChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSVoipChannel.
@@ -875,7 +879,7 @@ class IAPNSVoipChannelRef(
 
 class _IAPNSVoipChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSVoipChannel.
 
@@ -902,7 +906,7 @@ typing.cast(typing.Any, IAPNSVoipChannelRef).__jsii_proxy_class__ = lambda : _IA
 )
 class IAPNSVoipSandboxChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSVoipSandboxChannel.
@@ -922,7 +926,7 @@ class IAPNSVoipSandboxChannelRef(
 
 class _IAPNSVoipSandboxChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a APNSVoipSandboxChannel.
 
@@ -947,7 +951,7 @@ typing.cast(typing.Any, IAPNSVoipSandboxChannelRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IAppRef")
 class IAppRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a App.
@@ -967,7 +971,7 @@ class IAppRef(
 
 class _IAppRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a App.
 
@@ -994,7 +998,7 @@ typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
 )
 class IApplicationSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationSettings.
@@ -1014,7 +1018,7 @@ class IApplicationSettingsRef(
 
 class _IApplicationSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationSettings.
 
@@ -1039,7 +1043,7 @@ typing.cast(typing.Any, IApplicationSettingsRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IBaiduChannelRef")
 class IBaiduChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BaiduChannel.
@@ -1059,7 +1063,7 @@ class IBaiduChannelRef(
 
 class _IBaiduChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BaiduChannel.
 
@@ -1084,7 +1088,7 @@ typing.cast(typing.Any, IBaiduChannelRef).__jsii_proxy_class__ = lambda : _IBaid
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.ICampaignRef")
 class ICampaignRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Campaign.
@@ -1104,7 +1108,7 @@ class ICampaignRef(
 
 class _ICampaignRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Campaign.
 
@@ -1129,7 +1133,7 @@ typing.cast(typing.Any, ICampaignRef).__jsii_proxy_class__ = lambda : _ICampaign
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IEmailChannelRef")
 class IEmailChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailChannel.
@@ -1149,7 +1153,7 @@ class IEmailChannelRef(
 
 class _IEmailChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailChannel.
 
@@ -1174,7 +1178,7 @@ typing.cast(typing.Any, IEmailChannelRef).__jsii_proxy_class__ = lambda : _IEmai
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IEmailTemplateRef")
 class IEmailTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailTemplate.
@@ -1194,7 +1198,7 @@ class IEmailTemplateRef(
 
 class _IEmailTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EmailTemplate.
 
@@ -1219,7 +1223,7 @@ typing.cast(typing.Any, IEmailTemplateRef).__jsii_proxy_class__ = lambda : _IEma
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IEventStreamRef")
 class IEventStreamRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventStream.
@@ -1239,7 +1243,7 @@ class IEventStreamRef(
 
 class _IEventStreamRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventStream.
 
@@ -1264,7 +1268,7 @@ typing.cast(typing.Any, IEventStreamRef).__jsii_proxy_class__ = lambda : _IEvent
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IGCMChannelRef")
 class IGCMChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GCMChannel.
@@ -1284,7 +1288,7 @@ class IGCMChannelRef(
 
 class _IGCMChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GCMChannel.
 
@@ -1309,7 +1313,7 @@ typing.cast(typing.Any, IGCMChannelRef).__jsii_proxy_class__ = lambda : _IGCMCha
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IInAppTemplateRef")
 class IInAppTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InAppTemplate.
@@ -1329,7 +1333,7 @@ class IInAppTemplateRef(
 
 class _IInAppTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InAppTemplate.
 
@@ -1354,7 +1358,7 @@ typing.cast(typing.Any, IInAppTemplateRef).__jsii_proxy_class__ = lambda : _IInA
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IPushTemplateRef")
 class IPushTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PushTemplate.
@@ -1374,7 +1378,7 @@ class IPushTemplateRef(
 
 class _IPushTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PushTemplate.
 
@@ -1399,7 +1403,7 @@ typing.cast(typing.Any, IPushTemplateRef).__jsii_proxy_class__ = lambda : _IPush
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.ISMSChannelRef")
 class ISMSChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SMSChannel.
@@ -1419,7 +1423,7 @@ class ISMSChannelRef(
 
 class _ISMSChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SMSChannel.
 
@@ -1444,7 +1448,7 @@ typing.cast(typing.Any, ISMSChannelRef).__jsii_proxy_class__ = lambda : _ISMSCha
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.ISegmentRef")
 class ISegmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Segment.
@@ -1464,7 +1468,7 @@ class ISegmentRef(
 
 class _ISegmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Segment.
 
@@ -1489,7 +1493,7 @@ typing.cast(typing.Any, ISegmentRef).__jsii_proxy_class__ = lambda : _ISegmentRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.ISmsTemplateRef")
 class ISmsTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SmsTemplate.
@@ -1509,7 +1513,7 @@ class ISmsTemplateRef(
 
 class _ISmsTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SmsTemplate.
 
@@ -1534,7 +1538,7 @@ typing.cast(typing.Any, ISmsTemplateRef).__jsii_proxy_class__ = lambda : _ISmsTe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pinpoint.IVoiceChannelRef")
 class IVoiceChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VoiceChannel.
@@ -1554,7 +1558,7 @@ class IVoiceChannelRef(
 
 class _IVoiceChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VoiceChannel.
 
@@ -1610,7 +1614,7 @@ class InAppTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f56c47521e8d4b1931531ec9e0af0b2b3b6bc5b13f909a73d6266fc1af62ac4)
+            type_hints = cached_type_hints(_typecheckingstub__5f56c47521e8d4b1931531ec9e0af0b2b3b6bc5b13f909a73d6266fc1af62ac4)
             check_type(argname="argument in_app_template_arn", value=in_app_template_arn, expected_type=type_hints["in_app_template_arn"])
             check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1678,7 +1682,7 @@ class PushTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48eecae18daf78c49e57e56d7965bed0531fa14f9e724b6502d1de79e49720d7)
+            type_hints = cached_type_hints(_typecheckingstub__48eecae18daf78c49e57e56d7965bed0531fa14f9e724b6502d1de79e49720d7)
             check_type(argname="argument push_template_arn", value=push_template_arn, expected_type=type_hints["push_template_arn"])
             check_type(argname="argument push_template_id", value=push_template_id, expected_type=type_hints["push_template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1736,7 +1740,7 @@ class SMSChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8cdc01c61bd6bad4cbba03bd46f565e09a4008938a8bcdbb113e8647fcb345f)
+            type_hints = cached_type_hints(_typecheckingstub__d8cdc01c61bd6bad4cbba03bd46f565e09a4008938a8bcdbb113e8647fcb345f)
             check_type(argname="argument sms_channel_id", value=sms_channel_id, expected_type=type_hints["sms_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "sms_channel_id": sms_channel_id,
@@ -1787,7 +1791,7 @@ class SegmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43027cfe742ea4d035f9110cff172e42150a9c6d345f6e871757fb682dc7463d)
+            type_hints = cached_type_hints(_typecheckingstub__43027cfe742ea4d035f9110cff172e42150a9c6d345f6e871757fb682dc7463d)
             check_type(argname="argument segment_arn", value=segment_arn, expected_type=type_hints["segment_arn"])
             check_type(argname="argument segment_id", value=segment_id, expected_type=type_hints["segment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1855,7 +1859,7 @@ class SmsTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d53d3d1c75d95f24190fb2b5a34a27c2c9fce6930823096aef9e4b60c0f5b678)
+            type_hints = cached_type_hints(_typecheckingstub__d53d3d1c75d95f24190fb2b5a34a27c2c9fce6930823096aef9e4b60c0f5b678)
             check_type(argname="argument sms_template_arn", value=sms_template_arn, expected_type=type_hints["sms_template_arn"])
             check_type(argname="argument sms_template_id", value=sms_template_id, expected_type=type_hints["sms_template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1913,7 +1917,7 @@ class VoiceChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f7509afe29cd2d53cd659467ac40979b94a308d323f9d02abea3143e0d45790)
+            type_hints = cached_type_hints(_typecheckingstub__0f7509afe29cd2d53cd659467ac40979b94a308d323f9d02abea3143e0d45790)
             check_type(argname="argument voice_channel_id", value=voice_channel_id, expected_type=type_hints["voice_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "voice_channel_id": voice_channel_id,

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,45 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_budgets import (
-    BudgetReference as _BudgetReference_5d1c4f96,
-    BudgetsActionReference as _BudgetsActionReference_ff861c45,
-    IBudgetRef as _IBudgetRef_61c293a1,
-    IBudgetsActionRef as _IBudgetsActionRef_4397c25b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_budgets as _aws_budgets_2a674513
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_budgets_2a674513 = _LazyImport("aws_cdk.interfaces.aws_budgets")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IBudgetRef_61c293a1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_budgets_2a674513.IBudgetRef)
 class CfnBudget(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_budgets.CfnBudget",
 ):
@@ -189,9 +182,9 @@ class CfnBudget(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        budget: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
-        notifications_with_subscribers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        budget: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        notifications_with_subscribers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Budgets::Budget``.
 
@@ -202,7 +195,7 @@ class CfnBudget(
         :param resource_tags: An optional list of tags to associate with the specified budget. Each tag consists of a key and a value, and each key must be unique for the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcf9a7d2538a7b213b0959a8dca9ebac8bd9adbb67b3989e4ad2e983d215ccb6)
+            type_hints = cached_type_hints(_typecheckingstub__fcf9a7d2538a7b213b0959a8dca9ebac8bd9adbb67b3989e4ad2e983d215ccb6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBudgetProps(
@@ -221,18 +214,18 @@ class CfnBudget(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__740f9b17e21a494f6d3946d033f8571fe21a5d43393b6dafeaf07c0827989cff)
+            type_hints = cached_type_hints(_typecheckingstub__740f9b17e21a494f6d3946d033f8571fe21a5d43393b6dafeaf07c0827989cff)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBudget", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e48291da0e0d52b22d4094e08b1071a9eb7e9781ef841ed60fbf1c118c7db23c)
+            type_hints = cached_type_hints(_typecheckingstub__e48291da0e0d52b22d4094e08b1071a9eb7e9781ef841ed60fbf1c118c7db23c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -245,7 +238,7 @@ class CfnBudget(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9be790a4c777b9d846ffd5e29641d5e3c1e0001a4faf20e8512e5ee5dc73a48f)
+            type_hints = cached_type_hints(_typecheckingstub__9be790a4c777b9d846ffd5e29641d5e3c1e0001a4faf20e8512e5ee5dc73a48f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -265,9 +258,9 @@ class CfnBudget(
 
     @builtins.property
     @jsii.member(jsii_name="budgetRef")
-    def budget_ref(self) -> "_BudgetReference_5d1c4f96":
+    def budget_ref(self) -> "_aws_budgets_2a674513.BudgetReference":
         '''A reference to a Budget resource.'''
-        return typing.cast("_BudgetReference_5d1c4f96", jsii.get(self, "budgetRef"))
+        return typing.cast("_aws_budgets_2a674513.BudgetReference", jsii.get(self, "budgetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -283,17 +276,17 @@ class CfnBudget(
     @jsii.member(jsii_name="budget")
     def budget(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudget.BudgetDataProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetDataProperty"]:
         '''The budget object that you want to create.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudget.BudgetDataProperty"], jsii.get(self, "budget"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetDataProperty"], jsii.get(self, "budget"))
 
     @budget.setter
     def budget(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBudget.BudgetDataProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetDataProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c95887cba36441131745a708716d40542977a1478eafb13e3649b0bddc03c19c)
+            type_hints = cached_type_hints(_typecheckingstub__c95887cba36441131745a708716d40542977a1478eafb13e3649b0bddc03c19c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "budget", value) # pyright: ignore[reportArgumentType]
 
@@ -301,17 +294,17 @@ class CfnBudget(
     @jsii.member(jsii_name="notificationsWithSubscribers")
     def notifications_with_subscribers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationWithSubscribersProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationWithSubscribersProperty"]]]]:
         '''A notification that you want to associate with a budget.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationWithSubscribersProperty"]]]], jsii.get(self, "notificationsWithSubscribers"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationWithSubscribersProperty"]]]], jsii.get(self, "notificationsWithSubscribers"))
 
     @notifications_with_subscribers.setter
     def notifications_with_subscribers(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationWithSubscribersProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationWithSubscribersProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__338a591d66627dac6d0524a4af3df9ae2f64ac27737f12b95bc7243a4566a5e3)
+            type_hints = cached_type_hints(_typecheckingstub__338a591d66627dac6d0524a4af3df9ae2f64ac27737f12b95bc7243a4566a5e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationsWithSubscribers", value) # pyright: ignore[reportArgumentType]
 
@@ -319,17 +312,17 @@ class CfnBudget(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]]:
         '''An optional list of tags to associate with the specified budget.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48f4ac65a)
+            type_hints = cached_type_hints(_typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48f4ac65a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -346,7 +339,7 @@ class CfnBudget(
             self,
             *,
             auto_adjust_type: builtins.str,
-            historical_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.HistoricalOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            historical_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.HistoricalOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Determine the budget amount for an auto-adjusting budget.
 
@@ -372,7 +365,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed95504d1222347c1591bd33e0256ea9c7cfabe8856c857ffa5ee97b56e6455f)
+                type_hints = cached_type_hints(_typecheckingstub__ed95504d1222347c1591bd33e0256ea9c7cfabe8856c857ffa5ee97b56e6455f)
                 check_type(argname="argument auto_adjust_type", value=auto_adjust_type, expected_type=type_hints["auto_adjust_type"])
                 check_type(argname="argument historical_options", value=historical_options, expected_type=type_hints["historical_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -394,13 +387,13 @@ class CfnBudget(
         @builtins.property
         def historical_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.HistoricalOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.HistoricalOptionsProperty"]]:
             '''The parameters that define or describe the historical data that your auto-adjusting budget is based on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-autoadjustdata.html#cfn-budgets-budget-autoadjustdata-historicaloptions
             '''
             result = self._values.get("historical_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.HistoricalOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.HistoricalOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -437,16 +430,16 @@ class CfnBudget(
             *,
             budget_type: builtins.str,
             time_unit: builtins.str,
-            auto_adjust_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.AutoAdjustDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_adjust_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.AutoAdjustDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             billing_view_arn: typing.Optional[builtins.str] = None,
-            budget_limit: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.SpendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            budget_limit: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.SpendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             budget_name: typing.Optional[builtins.str] = None,
             cost_filters: typing.Any = None,
-            cost_types: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.CostTypesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            filter_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cost_types: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.CostTypesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
             planned_budget_limits: typing.Any = None,
-            time_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the output of the ``CreateBudget`` operation.
 
@@ -544,7 +537,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b2c7f5c59209a2623bf116ca3a20b23835ececd0df52736e4f148622f483afb2)
+                type_hints = cached_type_hints(_typecheckingstub__b2c7f5c59209a2623bf116ca3a20b23835ececd0df52736e4f148622f483afb2)
                 check_type(argname="argument budget_type", value=budget_type, expected_type=type_hints["budget_type"])
                 check_type(argname="argument time_unit", value=time_unit, expected_type=type_hints["time_unit"])
                 check_type(argname="argument auto_adjust_data", value=auto_adjust_data, expected_type=type_hints["auto_adjust_data"])
@@ -607,13 +600,13 @@ class CfnBudget(
         @builtins.property
         def auto_adjust_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.AutoAdjustDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.AutoAdjustDataProperty"]]:
             '''Determine the budget amount for an auto-adjusting budget.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-autoadjustdata
             '''
             result = self._values.get("auto_adjust_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.AutoAdjustDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.AutoAdjustDataProperty"]], result)
 
         @builtins.property
         def billing_view_arn(self) -> typing.Optional[builtins.str]:
@@ -626,7 +619,7 @@ class CfnBudget(
         @builtins.property
         def budget_limit(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.SpendProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.SpendProperty"]]:
             '''The total amount of cost, usage, RI utilization, RI coverage, Savings Plans utilization, or Savings Plans coverage that you want to track with your budget.
 
             ``BudgetLimit`` is required for cost or usage budgets, but optional for RI or Savings Plans utilization or coverage budgets. RI and Savings Plans utilization or coverage budgets default to ``100`` . This is the only valid value for RI or Savings Plans utilization or coverage budgets. You can't use ``BudgetLimit`` with ``PlannedBudgetLimits`` for ``CreateBudget`` and ``UpdateBudget`` actions.
@@ -634,7 +627,7 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-budgetlimit
             '''
             result = self._values.get("budget_limit")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.SpendProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.SpendProperty"]], result)
 
         @builtins.property
         def budget_name(self) -> typing.Optional[builtins.str]:
@@ -667,7 +660,7 @@ class CfnBudget(
         @builtins.property
         def cost_types(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.CostTypesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.CostTypesProperty"]]:
             '''The types of costs that are included in this ``COST`` budget.
 
             ``USAGE`` , ``RI_UTILIZATION`` , ``RI_COVERAGE`` , ``SAVINGS_PLANS_UTILIZATION`` , and ``SAVINGS_PLANS_COVERAGE`` budgets do not have ``CostTypes`` .
@@ -675,17 +668,17 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-costtypes
             '''
             result = self._values.get("cost_types")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.CostTypesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.CostTypesProperty"]], result)
 
         @builtins.property
         def filter_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-filterexpression
             '''
             result = self._values.get("filter_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]], result)
 
         @builtins.property
         def metrics(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -721,7 +714,7 @@ class CfnBudget(
         @builtins.property
         def time_period(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.TimePeriodProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.TimePeriodProperty"]]:
             '''The period of time that is covered by a budget.
 
             The period has a start date and an end date. The start date must come before the end date. There are no restrictions on the end date.
@@ -735,7 +728,7 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-budgetdata.html#cfn-budgets-budget-budgetdata-timeperiod
             '''
             result = self._values.get("time_period")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.TimePeriodProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.TimePeriodProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -787,7 +780,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6fec62209c71ad186d3dce49e5d480b003e62ed76aa01d5734d80cbfd5b050cb)
+                type_hints = cached_type_hints(_typecheckingstub__6fec62209c71ad186d3dce49e5d480b003e62ed76aa01d5734d80cbfd5b050cb)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument match_options", value=match_options, expected_type=type_hints["match_options"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -858,17 +851,17 @@ class CfnBudget(
         def __init__(
             self,
             *,
-            include_credit: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_discount: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_other_subscription: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_recurring: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_refund: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_subscription: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_support: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_tax: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_upfront: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            use_amortized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            use_blended: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_credit: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_discount: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_other_subscription: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_recurring: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_refund: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_subscription: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_tax: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_upfront: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            use_amortized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            use_blended: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The types of cost that are included in a ``COST`` budget, such as tax and subscriptions.
 
@@ -910,7 +903,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca892e141a9adeb986265203927fc16b8a26091edacd45cbc9ebe6689e4857bb)
+                type_hints = cached_type_hints(_typecheckingstub__ca892e141a9adeb986265203927fc16b8a26091edacd45cbc9ebe6689e4857bb)
                 check_type(argname="argument include_credit", value=include_credit, expected_type=type_hints["include_credit"])
                 check_type(argname="argument include_discount", value=include_discount, expected_type=type_hints["include_discount"])
                 check_type(argname="argument include_other_subscription", value=include_other_subscription, expected_type=type_hints["include_other_subscription"])
@@ -949,7 +942,7 @@ class CfnBudget(
         @builtins.property
         def include_credit(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes credits.
 
             The default value is ``true`` .
@@ -957,12 +950,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includecredit
             '''
             result = self._values.get("include_credit")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_discount(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes discounts.
 
             The default value is ``true`` .
@@ -970,12 +963,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includediscount
             '''
             result = self._values.get("include_discount")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_other_subscription(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes non-RI subscription costs.
 
             The default value is ``true`` .
@@ -983,12 +976,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includeothersubscription
             '''
             result = self._values.get("include_other_subscription")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_recurring(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes recurring fees such as monthly RI fees.
 
             The default value is ``true`` .
@@ -996,12 +989,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includerecurring
             '''
             result = self._values.get("include_recurring")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_refund(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes refunds.
 
             The default value is ``true`` .
@@ -1009,12 +1002,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includerefund
             '''
             result = self._values.get("include_refund")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_subscription(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes subscriptions.
 
             The default value is ``true`` .
@@ -1022,12 +1015,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includesubscription
             '''
             result = self._values.get("include_subscription")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_support(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes support subscription fees.
 
             The default value is ``true`` .
@@ -1035,12 +1028,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includesupport
             '''
             result = self._values.get("include_support")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_tax(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes taxes.
 
             The default value is ``true`` .
@@ -1048,12 +1041,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includetax
             '''
             result = self._values.get("include_tax")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_upfront(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget includes upfront RI costs.
 
             The default value is ``true`` .
@@ -1061,12 +1054,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-includeupfront
             '''
             result = self._values.get("include_upfront")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def use_amortized(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget uses the amortized rate.
 
             The default value is ``false`` .
@@ -1074,12 +1067,12 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-useamortized
             '''
             result = self._values.get("use_amortized")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def use_blended(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a budget uses a blended rate.
 
             The default value is ``false`` .
@@ -1087,7 +1080,7 @@ class CfnBudget(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-costtypes.html#cfn-budgets-budget-costtypes-useblended
             '''
             result = self._values.get("use_blended")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1139,7 +1132,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__46271189f69022d8735b1bf112d5cddaac665cdc9fd75885c426b8af000590bb)
+                type_hints = cached_type_hints(_typecheckingstub__46271189f69022d8735b1bf112d5cddaac665cdc9fd75885c426b8af000590bb)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument match_options", value=match_options, expected_type=type_hints["match_options"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -1207,11 +1200,11 @@ class CfnBudget(
         def __init__(
             self,
             *,
-            and_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            cost_categories: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.CostCategoryValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ExpressionDimensionValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            not_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            or_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            and_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            cost_categories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.CostCategoryValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ExpressionDimensionValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            not_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             tags: typing.Optional[typing.Union["CfnBudget.TagValuesProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         ) -> None:
             '''Use Expression to filter in various Budgets APIs.
@@ -1258,7 +1251,7 @@ class CfnBudget(
             if isinstance(tags, dict):
                 tags = CfnBudget.TagValuesProperty(**tags)
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eb71e1eb3b48926947e35d102ec777f08901def25ae4961947e1ab68d1692ace)
+                type_hints = cached_type_hints(_typecheckingstub__eb71e1eb3b48926947e35d102ec777f08901def25ae4961947e1ab68d1692ace)
                 check_type(argname="argument and_", value=and_, expected_type=type_hints["and_"])
                 check_type(argname="argument cost_categories", value=cost_categories, expected_type=type_hints["cost_categories"])
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
@@ -1282,57 +1275,57 @@ class CfnBudget(
         @builtins.property
         def and_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]]]:
             '''Return results that match both Dimension objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-expression.html#cfn-budgets-budget-expression-and
             '''
             result = self._values.get("and_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]]], result)
 
         @builtins.property
         def cost_categories(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.CostCategoryValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.CostCategoryValuesProperty"]]:
             '''The filter that's based on CostCategoryValues.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-expression.html#cfn-budgets-budget-expression-costcategories
             '''
             result = self._values.get("cost_categories")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.CostCategoryValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.CostCategoryValuesProperty"]], result)
 
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionDimensionValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionDimensionValuesProperty"]]:
             '''The specific Dimension to use for Expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-expression.html#cfn-budgets-budget-expression-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionDimensionValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionDimensionValuesProperty"]], result)
 
         @builtins.property
         def not_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]:
             '''Return results that don't match a Dimension object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-expression.html#cfn-budgets-budget-expression-not
             '''
             result = self._values.get("not_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]], result)
 
         @builtins.property
         def or_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]]]:
             '''Return results that match either Dimension object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-expression.html#cfn-budgets-budget-expression-or
             '''
             result = self._values.get("or_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ExpressionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ExpressionProperty"]]]], result)
 
         @builtins.property
         def tags(self) -> typing.Optional["CfnBudget.TagValuesProperty"]:
@@ -1379,7 +1372,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba7bd7cc2be23305dffbf6031c061df699ccd87872fbd4ec418a99be7cf81185)
+                type_hints = cached_type_hints(_typecheckingstub__ba7bd7cc2be23305dffbf6031c061df699ccd87872fbd4ec418a99be7cf81185)
                 check_type(argname="argument budget_adjustment_period", value=budget_adjustment_period, expected_type=type_hints["budget_adjustment_period"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "budget_adjustment_period": budget_adjustment_period,
@@ -1467,7 +1460,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ea30c5d87897db387daaab29d498d54bb0b490643c5fbb8fb1a5b9a125603de5)
+                type_hints = cached_type_hints(_typecheckingstub__ea30c5d87897db387daaab29d498d54bb0b490643c5fbb8fb1a5b9a125603de5)
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument notification_type", value=notification_type, expected_type=type_hints["notification_type"])
                 check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
@@ -1543,8 +1536,8 @@ class CfnBudget(
         def __init__(
             self,
             *,
-            notification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.NotificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            subscribers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            notification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.NotificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            subscribers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A notification with subscribers.
 
@@ -1578,7 +1571,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07866499303a1a9ab70a645ecbda245fb51598e896b81d4f01f9cffeeac17bf1)
+                type_hints = cached_type_hints(_typecheckingstub__07866499303a1a9ab70a645ecbda245fb51598e896b81d4f01f9cffeeac17bf1)
                 check_type(argname="argument notification", value=notification, expected_type=type_hints["notification"])
                 check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1589,26 +1582,26 @@ class CfnBudget(
         @builtins.property
         def notification(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationProperty"]:
             '''The notification that's associated with a budget.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-notificationwithsubscribers.html#cfn-budgets-budget-notificationwithsubscribers-notification
             '''
             result = self._values.get("notification")
             assert result is not None, "Required property 'notification' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationProperty"], result)
 
         @builtins.property
         def subscribers(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.SubscriberProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.SubscriberProperty"]]]:
             '''A list of subscribers who are subscribed to this notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budget-notificationwithsubscribers.html#cfn-budgets-budget-notificationwithsubscribers-subscribers
             '''
             result = self._values.get("subscribers")
             assert result is not None, "Required property 'subscribers' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.SubscriberProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.SubscriberProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1655,7 +1648,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e03486d5108d620859fbdb4bf12682142c9fa8bc9c7ed65e4cf4a7a2d930b67a)
+                type_hints = cached_type_hints(_typecheckingstub__e03486d5108d620859fbdb4bf12682142c9fa8bc9c7ed65e4cf4a7a2d930b67a)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1731,7 +1724,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5a81264d854f3d578cfafd932e1a5385f5f235b0b2fd9984ec61d7cd42705c9d)
+                type_hints = cached_type_hints(_typecheckingstub__5a81264d854f3d578cfafd932e1a5385f5f235b0b2fd9984ec61d7cd42705c9d)
                 check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1809,7 +1802,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e5d0b208f458ade09c3843fe83aba0d6db3ddb09a594e82cdd14537ffc0e26f0)
+                type_hints = cached_type_hints(_typecheckingstub__e5d0b208f458ade09c3843fe83aba0d6db3ddb09a594e82cdd14537ffc0e26f0)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument subscription_type", value=subscription_type, expected_type=type_hints["subscription_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1889,7 +1882,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ffd9b3bd7b99090fed06a8003a3319bf7bba070cdd4b3ec936c178caac26d0de)
+                type_hints = cached_type_hints(_typecheckingstub__ffd9b3bd7b99090fed06a8003a3319bf7bba070cdd4b3ec936c178caac26d0de)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument match_options", value=match_options, expected_type=type_hints["match_options"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -1973,7 +1966,7 @@ class CfnBudget(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__77f51cb94a1e5a0ae65deee87b45596400f57823b1add7660a12635b0a091886)
+                type_hints = cached_type_hints(_typecheckingstub__77f51cb94a1e5a0ae65deee87b45596400f57823b1add7660a12635b0a091886)
                 check_type(argname="argument end", value=end, expected_type=type_hints["end"])
                 check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2038,9 +2031,9 @@ class CfnBudgetProps:
     def __init__(
         self,
         *,
-        budget: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
-        notifications_with_subscribers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        budget: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        notifications_with_subscribers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBudget``.
 
@@ -2147,7 +2140,7 @@ class CfnBudgetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02)
+            type_hints = cached_type_hints(_typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02)
             check_type(argname="argument budget", value=budget, expected_type=type_hints["budget"])
             check_type(argname="argument notifications_with_subscribers", value=notifications_with_subscribers, expected_type=type_hints["notifications_with_subscribers"])
             check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
@@ -2162,19 +2155,19 @@ class CfnBudgetProps:
     @builtins.property
     def budget(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudget.BudgetDataProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetDataProperty"]:
         '''The budget object that you want to create.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-budget
         '''
         result = self._values.get("budget")
         assert result is not None, "Required property 'budget' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudget.BudgetDataProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.BudgetDataProperty"], result)
 
     @builtins.property
     def notifications_with_subscribers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationWithSubscribersProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationWithSubscribersProperty"]]]]:
         '''A notification that you want to associate with a budget.
 
         A budget can have up to five notifications, and each notification can have one SNS subscriber and up to 10 email subscribers. If you include notifications and subscribers in your ``CreateBudget`` call, AWS creates the notifications and subscribers for you.
@@ -2182,12 +2175,12 @@ class CfnBudgetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-notificationswithsubscribers
         '''
         result = self._values.get("notifications_with_subscribers")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.NotificationWithSubscribersProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.NotificationWithSubscribersProperty"]]]], result)
 
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]]:
         '''An optional list of tags to associate with the specified budget.
 
         Each tag consists of a key and a value, and each key must be unique for the resource.
@@ -2195,7 +2188,7 @@ class CfnBudgetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudget.ResourceTagProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2209,9 +2202,9 @@ class CfnBudgetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IBudgetsActionRef_4397c25b, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_budgets_2a674513.IBudgetsActionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBudgetsAction(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetsAction",
 ):
@@ -2276,13 +2269,13 @@ class CfnBudgetsAction(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        action_threshold: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.ActionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
+        action_threshold: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.ActionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
         action_type: builtins.str,
         budget_name: builtins.str,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         execution_role_arn: builtins.str,
         notification_type: builtins.str,
-        subscribers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscribers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         approval_model: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnBudgetsAction.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2301,7 +2294,7 @@ class CfnBudgetsAction(
         :param resource_tags: An optional list of tags to associate with the specified budget action. Each tag consists of a key and a value, and each key must be unique for the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5feaf1ccce7286d2cae539317638953135d21b7e897f0ded2f3a275d0516a886)
+            type_hints = cached_type_hints(_typecheckingstub__5feaf1ccce7286d2cae539317638953135d21b7e897f0ded2f3a275d0516a886)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBudgetsActionProps(
@@ -2326,18 +2319,18 @@ class CfnBudgetsAction(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a761373430bae071b3f84cf82c0119fad84ab751de684547f15a34cfd3caf710)
+            type_hints = cached_type_hints(_typecheckingstub__a761373430bae071b3f84cf82c0119fad84ab751de684547f15a34cfd3caf710)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBudgetsAction", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e4d5fcd5b6fa47f421ce5a934095661754d1490e6d5622d679c21d056e2339d)
+            type_hints = cached_type_hints(_typecheckingstub__5e4d5fcd5b6fa47f421ce5a934095661754d1490e6d5622d679c21d056e2339d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2350,7 +2343,7 @@ class CfnBudgetsAction(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37f0f35c0901b3170a2a787f6b136e6de796aa9287397d112b1716e76cfdf2fa)
+            type_hints = cached_type_hints(_typecheckingstub__37f0f35c0901b3170a2a787f6b136e6de796aa9287397d112b1716e76cfdf2fa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2371,15 +2364,15 @@ class CfnBudgetsAction(
 
     @builtins.property
     @jsii.member(jsii_name="budgetsActionRef")
-    def budgets_action_ref(self) -> "_BudgetsActionReference_ff861c45":
+    def budgets_action_ref(self) -> "_aws_budgets_2a674513.BudgetsActionReference":
         '''A reference to a BudgetsAction resource.'''
-        return typing.cast("_BudgetsActionReference_ff861c45", jsii.get(self, "budgetsActionRef"))
+        return typing.cast("_aws_budgets_2a674513.BudgetsActionReference", jsii.get(self, "budgetsActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2395,17 +2388,17 @@ class CfnBudgetsAction(
     @jsii.member(jsii_name="actionThreshold")
     def action_threshold(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ActionThresholdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ActionThresholdProperty"]:
         '''The trigger threshold of the action.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ActionThresholdProperty"], jsii.get(self, "actionThreshold"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ActionThresholdProperty"], jsii.get(self, "actionThreshold"))
 
     @action_threshold.setter
     def action_threshold(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ActionThresholdProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ActionThresholdProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6444694cd4e1cfe409941297d12b4f71c45625cb1357bf1a3b12f86d4a288f85)
+            type_hints = cached_type_hints(_typecheckingstub__6444694cd4e1cfe409941297d12b4f71c45625cb1357bf1a3b12f86d4a288f85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionThreshold", value) # pyright: ignore[reportArgumentType]
 
@@ -2418,7 +2411,7 @@ class CfnBudgetsAction(
     @action_type.setter
     def action_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93ee3f487b114766988c6712b16108f0a81084444e5dcb38f58aa6ca5c1ac0eb)
+            type_hints = cached_type_hints(_typecheckingstub__93ee3f487b114766988c6712b16108f0a81084444e5dcb38f58aa6ca5c1ac0eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionType", value) # pyright: ignore[reportArgumentType]
 
@@ -2431,7 +2424,7 @@ class CfnBudgetsAction(
     @budget_name.setter
     def budget_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__886294fdca463440eacd919c52ef223cd761321b3e92068ed0e10930b6c45bd8)
+            type_hints = cached_type_hints(_typecheckingstub__886294fdca463440eacd919c52ef223cd761321b3e92068ed0e10930b6c45bd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "budgetName", value) # pyright: ignore[reportArgumentType]
 
@@ -2439,17 +2432,17 @@ class CfnBudgetsAction(
     @jsii.member(jsii_name="definition")
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.DefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.DefinitionProperty"]:
         '''Specifies all of the type-specific parameters.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.DefinitionProperty"], jsii.get(self, "definition"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.DefinitionProperty"], jsii.get(self, "definition"))
 
     @definition.setter
     def definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.DefinitionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.DefinitionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af7c0aaf6be25381fc5e59a606f980f8beb020b05d0d1b4e00097df9b213d1f4)
+            type_hints = cached_type_hints(_typecheckingstub__af7c0aaf6be25381fc5e59a606f980f8beb020b05d0d1b4e00097df9b213d1f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
 
@@ -2462,7 +2455,7 @@ class CfnBudgetsAction(
     @execution_role_arn.setter
     def execution_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20f3acfbe196dceebb62052bc3a9709ca03c3cd1385bd0b8f47b14ebe24baea6)
+            type_hints = cached_type_hints(_typecheckingstub__20f3acfbe196dceebb62052bc3a9709ca03c3cd1385bd0b8f47b14ebe24baea6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2475,7 +2468,7 @@ class CfnBudgetsAction(
     @notification_type.setter
     def notification_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53476f930c7990ef6a398f9ead465189ebfbebc41a5d5d7cb519d5ad1e21440e)
+            type_hints = cached_type_hints(_typecheckingstub__53476f930c7990ef6a398f9ead465189ebfbebc41a5d5d7cb519d5ad1e21440e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationType", value) # pyright: ignore[reportArgumentType]
 
@@ -2483,17 +2476,17 @@ class CfnBudgetsAction(
     @jsii.member(jsii_name="subscribers")
     def subscribers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SubscriberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SubscriberProperty"]]]:
         '''A list of subscribers.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SubscriberProperty"]]], jsii.get(self, "subscribers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SubscriberProperty"]]], jsii.get(self, "subscribers"))
 
     @subscribers.setter
     def subscribers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SubscriberProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SubscriberProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d139b5f0aab0780aebc710ff294cf4038924446db4e70d8dd7ceaf018b79e653)
+            type_hints = cached_type_hints(_typecheckingstub__d139b5f0aab0780aebc710ff294cf4038924446db4e70d8dd7ceaf018b79e653)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
 
@@ -2506,7 +2499,7 @@ class CfnBudgetsAction(
     @approval_model.setter
     def approval_model(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9b0ed2b1fd2266f52e8858e29800b46ee5d46db67048e5fcafb370fe1d7fc3)
+            type_hints = cached_type_hints(_typecheckingstub__cc9b0ed2b1fd2266f52e8858e29800b46ee5d46db67048e5fcafb370fe1d7fc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "approvalModel", value) # pyright: ignore[reportArgumentType]
 
@@ -2524,7 +2517,7 @@ class CfnBudgetsAction(
         value: typing.Optional[typing.List["CfnBudgetsAction.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c0b55478b3d0cc2e8da68677b4c8e94baa5da07866b29663a72a08753d6c596)
+            type_hints = cached_type_hints(_typecheckingstub__5c0b55478b3d0cc2e8da68677b4c8e94baa5da07866b29663a72a08753d6c596)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -2555,7 +2548,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__652e2954f340271681973613d60d4049ebd81a75c8987611d889045de156b8b3)
+                type_hints = cached_type_hints(_typecheckingstub__652e2954f340271681973613d60d4049ebd81a75c8987611d889045de156b8b3)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2607,9 +2600,9 @@ class CfnBudgetsAction(
         def __init__(
             self,
             *,
-            iam_action_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.IamActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scp_action_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.ScpActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ssm_action_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.SsmActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iam_action_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.IamActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scp_action_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.ScpActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ssm_action_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.SsmActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The definition is where you specify all of the type-specific parameters.
 
@@ -2647,7 +2640,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__96306621a1aae8f106a12b9134576206e8e4754361a681338ac6381f2e0940b2)
+                type_hints = cached_type_hints(_typecheckingstub__96306621a1aae8f106a12b9134576206e8e4754361a681338ac6381f2e0940b2)
                 check_type(argname="argument iam_action_definition", value=iam_action_definition, expected_type=type_hints["iam_action_definition"])
                 check_type(argname="argument scp_action_definition", value=scp_action_definition, expected_type=type_hints["scp_action_definition"])
                 check_type(argname="argument ssm_action_definition", value=ssm_action_definition, expected_type=type_hints["ssm_action_definition"])
@@ -2662,35 +2655,35 @@ class CfnBudgetsAction(
         @builtins.property
         def iam_action_definition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.IamActionDefinitionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.IamActionDefinitionProperty"]]:
             '''The AWS Identity and Access Management ( IAM ) action definition details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budgetsaction-definition.html#cfn-budgets-budgetsaction-definition-iamactiondefinition
             '''
             result = self._values.get("iam_action_definition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.IamActionDefinitionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.IamActionDefinitionProperty"]], result)
 
         @builtins.property
         def scp_action_definition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ScpActionDefinitionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ScpActionDefinitionProperty"]]:
             '''The service control policies (SCP) action definition details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budgetsaction-definition.html#cfn-budgets-budgetsaction-definition-scpactiondefinition
             '''
             result = self._values.get("scp_action_definition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ScpActionDefinitionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ScpActionDefinitionProperty"]], result)
 
         @builtins.property
         def ssm_action_definition(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SsmActionDefinitionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SsmActionDefinitionProperty"]]:
             '''The Amazon EC2 Systems Manager ( SSM ) action definition details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-budgets-budgetsaction-definition.html#cfn-budgets-budgetsaction-definition-ssmactiondefinition
             '''
             result = self._values.get("ssm_action_definition")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SsmActionDefinitionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SsmActionDefinitionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2748,7 +2741,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__22f7bad74675d504f2471ac5656611eebbc86ce649e820a38f5961c5ae990704)
+                type_hints = cached_type_hints(_typecheckingstub__22f7bad74675d504f2471ac5656611eebbc86ce649e820a38f5961c5ae990704)
                 check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
                 check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
                 check_type(argname="argument roles", value=roles, expected_type=type_hints["roles"])
@@ -2844,7 +2837,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fabea6df6ffb4670380a26b73c70c85b84ca2eb7ae2e51a88a30e3be83c7f735)
+                type_hints = cached_type_hints(_typecheckingstub__fabea6df6ffb4670380a26b73c70c85b84ca2eb7ae2e51a88a30e3be83c7f735)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2915,7 +2908,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__31fd74b3c2a89d6419f8ea513fe7d522d39278beb5f299a80f1ee727475e6777)
+                type_hints = cached_type_hints(_typecheckingstub__31fd74b3c2a89d6419f8ea513fe7d522d39278beb5f299a80f1ee727475e6777)
                 check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
                 check_type(argname="argument target_ids", value=target_ids, expected_type=type_hints["target_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2993,7 +2986,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4e936943168730bfe281e6f6adccb2fafe8a803ed858a444a60decfc26cc38f7)
+                type_hints = cached_type_hints(_typecheckingstub__4e936943168730bfe281e6f6adccb2fafe8a803ed858a444a60decfc26cc38f7)
                 check_type(argname="argument instance_ids", value=instance_ids, expected_type=type_hints["instance_ids"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
@@ -3078,7 +3071,7 @@ class CfnBudgetsAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__53b54f7e3522aacd600ff090e6221f615565664782c185bdcb801f95f68daf7f)
+                type_hints = cached_type_hints(_typecheckingstub__53b54f7e3522aacd600ff090e6221f615565664782c185bdcb801f95f68daf7f)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3139,13 +3132,13 @@ class CfnBudgetsActionProps:
     def __init__(
         self,
         *,
-        action_threshold: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.ActionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
+        action_threshold: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.ActionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
         action_type: builtins.str,
         budget_name: builtins.str,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         execution_role_arn: builtins.str,
         notification_type: builtins.str,
-        subscribers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBudgetsAction.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscribers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudgetsAction.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         approval_model: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnBudgetsAction.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -3212,7 +3205,7 @@ class CfnBudgetsActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5)
+            type_hints = cached_type_hints(_typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5)
             check_type(argname="argument action_threshold", value=action_threshold, expected_type=type_hints["action_threshold"])
             check_type(argname="argument action_type", value=action_type, expected_type=type_hints["action_type"])
             check_type(argname="argument budget_name", value=budget_name, expected_type=type_hints["budget_name"])
@@ -3239,14 +3232,14 @@ class CfnBudgetsActionProps:
     @builtins.property
     def action_threshold(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ActionThresholdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ActionThresholdProperty"]:
         '''The trigger threshold of the action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-actionthreshold
         '''
         result = self._values.get("action_threshold")
         assert result is not None, "Required property 'action_threshold' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.ActionThresholdProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.ActionThresholdProperty"], result)
 
     @builtins.property
     def action_type(self) -> builtins.str:
@@ -3275,14 +3268,14 @@ class CfnBudgetsActionProps:
     @builtins.property
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.DefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.DefinitionProperty"]:
         '''Specifies all of the type-specific parameters.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-definition
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.DefinitionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.DefinitionProperty"], result)
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
@@ -3309,14 +3302,14 @@ class CfnBudgetsActionProps:
     @builtins.property
     def subscribers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SubscriberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SubscriberProperty"]]]:
         '''A list of subscribers.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-subscribers
         '''
         result = self._values.get("subscribers")
         assert result is not None, "Required property 'subscribers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBudgetsAction.SubscriberProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudgetsAction.SubscriberProperty"]]], result)
 
     @builtins.property
     def approval_model(self) -> typing.Optional[builtins.str]:
@@ -3365,9 +3358,9 @@ def _typecheckingstub__fcf9a7d2538a7b213b0959a8dca9ebac8bd9adbb67b3989e4ad2e983d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    budget: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    budget: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    notifications_with_subscribers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3379,7 +3372,7 @@ def _typecheckingstub__740f9b17e21a494f6d3946d033f8571fe21a5d43393b6dafeaf07c082
     pass
 
 def _typecheckingstub__e48291da0e0d52b22d4094e08b1071a9eb7e9781ef841ed60fbf1c118c7db23c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3391,19 +3384,19 @@ def _typecheckingstub__9be790a4c777b9d846ffd5e29641d5e3c1e0001a4faf20e8512e5ee5d
     pass
 
 def _typecheckingstub__c95887cba36441131745a708716d40542977a1478eafb13e3649b0bddc03c19c(
-    value: typing.Union[_IResolvable_da3f097b, CfnBudget.BudgetDataProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.BudgetDataProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__338a591d66627dac6d0524a4af3df9ae2f64ac27737f12b95bc7243a4566a5e3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.NotificationWithSubscribersProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.NotificationWithSubscribersProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48f4ac65a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.ResourceTagProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.ResourceTagProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3411,7 +3404,7 @@ def _typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48
 def _typecheckingstub__ed95504d1222347c1591bd33e0256ea9c7cfabe8856c857ffa5ee97b56e6455f(
     *,
     auto_adjust_type: builtins.str,
-    historical_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.HistoricalOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    historical_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.HistoricalOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3420,16 +3413,16 @@ def _typecheckingstub__b2c7f5c59209a2623bf116ca3a20b23835ececd0df52736e4f148622f
     *,
     budget_type: builtins.str,
     time_unit: builtins.str,
-    auto_adjust_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.AutoAdjustDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_adjust_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.AutoAdjustDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     billing_view_arn: typing.Optional[builtins.str] = None,
-    budget_limit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.SpendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    budget_limit: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.SpendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     budget_name: typing.Optional[builtins.str] = None,
     cost_filters: typing.Any = None,
-    cost_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.CostTypesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    filter_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cost_types: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.CostTypesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     planned_budget_limits: typing.Any = None,
-    time_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3445,17 +3438,17 @@ def _typecheckingstub__6fec62209c71ad186d3dce49e5d480b003e62ed76aa01d5734d80cbfd
 
 def _typecheckingstub__ca892e141a9adeb986265203927fc16b8a26091edacd45cbc9ebe6689e4857bb(
     *,
-    include_credit: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_discount: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_other_subscription: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_recurring: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_refund: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_subscription: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_tax: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_upfront: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    use_amortized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    use_blended: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    include_credit: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_discount: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_other_subscription: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_recurring: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_refund: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_subscription: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_tax: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_upfront: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    use_amortized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    use_blended: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3471,11 +3464,11 @@ def _typecheckingstub__46271189f69022d8735b1bf112d5cddaac665cdc9fd75885c426b8af0
 
 def _typecheckingstub__eb71e1eb3b48926947e35d102ec777f08901def25ae4961947e1ab68d1692ace(
     *,
-    and_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cost_categories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.CostCategoryValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ExpressionDimensionValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    not_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    or_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    and_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cost_categories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.CostCategoryValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ExpressionDimensionValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    not_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    or_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Union[CfnBudget.TagValuesProperty, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3500,8 +3493,8 @@ def _typecheckingstub__ea30c5d87897db387daaab29d498d54bb0b490643c5fbb8fb1a5b9a12
 
 def _typecheckingstub__07866499303a1a9ab70a645ecbda245fb51598e896b81d4f01f9cffeeac17bf1(
     *,
-    notification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationProperty, typing.Dict[builtins.str, typing.Any]]],
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    notification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.NotificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    subscribers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3549,9 +3542,9 @@ def _typecheckingstub__77f51cb94a1e5a0ae65deee87b45596400f57823b1add7660a12635b0
 
 def _typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02(
     *,
-    budget: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    budget: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    notifications_with_subscribers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3560,13 +3553,13 @@ def _typecheckingstub__5feaf1ccce7286d2cae539317638953135d21b7e897f0ded2f3a275d0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
+    action_threshold: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
     action_type: builtins.str,
     budget_name: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     execution_role_arn: builtins.str,
     notification_type: builtins.str,
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscribers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     approval_model: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudgetsAction.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -3580,7 +3573,7 @@ def _typecheckingstub__a761373430bae071b3f84cf82c0119fad84ab751de684547f15a34cfd
     pass
 
 def _typecheckingstub__5e4d5fcd5b6fa47f421ce5a934095661754d1490e6d5622d679c21d056e2339d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3592,7 +3585,7 @@ def _typecheckingstub__37f0f35c0901b3170a2a787f6b136e6de796aa9287397d112b1716e76
     pass
 
 def _typecheckingstub__6444694cd4e1cfe409941297d12b4f71c45625cb1357bf1a3b12f86d4a288f85(
-    value: typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.ActionThresholdProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudgetsAction.ActionThresholdProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3610,7 +3603,7 @@ def _typecheckingstub__886294fdca463440eacd919c52ef223cd761321b3e92068ed0e10930b
     pass
 
 def _typecheckingstub__af7c0aaf6be25381fc5e59a606f980f8beb020b05d0d1b4e00097df9b213d1f4(
-    value: typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.DefinitionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudgetsAction.DefinitionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3628,7 +3621,7 @@ def _typecheckingstub__53476f930c7990ef6a398f9ead465189ebfbebc41a5d5d7cb519d5ad1
     pass
 
 def _typecheckingstub__d139b5f0aab0780aebc710ff294cf4038924446db4e70d8dd7ceaf018b79e653(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.SubscriberProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudgetsAction.SubscriberProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3655,9 +3648,9 @@ def _typecheckingstub__652e2954f340271681973613d60d4049ebd81a75c8987611d889045de
 
 def _typecheckingstub__96306621a1aae8f106a12b9134576206e8e4754361a681338ac6381f2e0940b2(
     *,
-    iam_action_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.IamActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scp_action_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ScpActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ssm_action_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SsmActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_action_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.IamActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scp_action_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.ScpActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ssm_action_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.SsmActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3707,13 +3700,13 @@ def _typecheckingstub__53b54f7e3522aacd600ff090e6221f615565664782c185bdcb801f95f
 
 def _typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5(
     *,
-    action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
+    action_threshold: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
     action_type: builtins.str,
     budget_name: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     execution_role_arn: builtins.str,
     notification_type: builtins.str,
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscribers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     approval_model: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudgetsAction.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

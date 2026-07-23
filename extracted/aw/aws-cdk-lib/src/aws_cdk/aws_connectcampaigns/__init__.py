@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_connectcampaigns import (
-    CampaignReference as _CampaignReference_f81193d3,
-    ICampaignRef as _ICampaignRef_c6041f94,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_connectcampaigns as _aws_connectcampaigns_d26d7b38
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_connectcampaigns_d26d7b38 = _LazyImport("aws_cdk.interfaces.aws_connectcampaigns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICampaignRef_c6041f94, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connectcampaigns_d26d7b38.ICampaignRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCampaign(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connectcampaigns.CfnCampaign",
 ):
@@ -140,10 +134,10 @@ class CfnCampaign(
         id: builtins.str,
         *,
         connect_instance_arn: builtins.str,
-        dialer_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DialerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        dialer_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DialerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
-        outbound_call_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.OutboundCallConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outbound_call_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.OutboundCallConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ConnectCampaigns::Campaign``.
 
@@ -156,7 +150,7 @@ class CfnCampaign(
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68b9f8ac97e8f86d700174c96cda66f647fb30af60f6ffc32c9ccb2a582ee9a0)
+            type_hints = cached_type_hints(_typecheckingstub__68b9f8ac97e8f86d700174c96cda66f647fb30af60f6ffc32c9ccb2a582ee9a0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCampaignProps(
@@ -171,12 +165,15 @@ class CfnCampaign(
 
     @jsii.member(jsii_name="arnForCampaign")
     @builtins.classmethod
-    def arn_for_campaign(cls, resource: "_ICampaignRef_c6041f94") -> builtins.str:
+    def arn_for_campaign(
+        cls,
+        resource: "_aws_connectcampaigns_d26d7b38.ICampaignRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9348862c3160ae40c309b3ca2c1d6772ef3379743e3ece165b7066a97cc4e537)
+            type_hints = cached_type_hints(_typecheckingstub__9348862c3160ae40c309b3ca2c1d6772ef3379743e3ece165b7066a97cc4e537)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCampaign", [resource]))
 
@@ -188,18 +185,18 @@ class CfnCampaign(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2d4df0bc02e175896789ac1f57948b992aaaebfdb10d9e0c8c995f7b2b2c64e)
+            type_hints = cached_type_hints(_typecheckingstub__b2d4df0bc02e175896789ac1f57948b992aaaebfdb10d9e0c8c995f7b2b2c64e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCampaign", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39c44d7ae2657f370c3369a7f586c71388393c54da2c114ac1e1c77d3622e226)
+            type_hints = cached_type_hints(_typecheckingstub__39c44d7ae2657f370c3369a7f586c71388393c54da2c114ac1e1c77d3622e226)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -212,7 +209,7 @@ class CfnCampaign(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62912ab1ca5ea937290b5c4b8df2bf3cbf48646798a3ffe4817e823fbcee00dd)
+            type_hints = cached_type_hints(_typecheckingstub__62912ab1ca5ea937290b5c4b8df2bf3cbf48646798a3ffe4817e823fbcee00dd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -233,9 +230,9 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> "_CampaignReference_f81193d3":
+    def campaign_ref(self) -> "_aws_connectcampaigns_d26d7b38.CampaignReference":
         '''A reference to a Campaign resource.'''
-        return typing.cast("_CampaignReference_f81193d3", jsii.get(self, "campaignRef"))
+        return typing.cast("_aws_connectcampaigns_d26d7b38.CampaignReference", jsii.get(self, "campaignRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -249,9 +246,9 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="connectInstanceArn")
@@ -262,7 +259,7 @@ class CfnCampaign(
     @connect_instance_arn.setter
     def connect_instance_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe29864d67b82be24e959cf62a974af0c74a7c193aec5dba50b8d29d34299660)
+            type_hints = cached_type_hints(_typecheckingstub__fe29864d67b82be24e959cf62a974af0c74a7c193aec5dba50b8d29d34299660)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectInstanceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -270,17 +267,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="dialerConfig")
     def dialer_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.DialerConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DialerConfigProperty"]:
         '''Contains information about the dialer configuration.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.DialerConfigProperty"], jsii.get(self, "dialerConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DialerConfigProperty"], jsii.get(self, "dialerConfig"))
 
     @dialer_config.setter
     def dialer_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCampaign.DialerConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DialerConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05eabb5a0a6a496245f76aa9920497833d53b1213ccff6ad494e498a46c47a14)
+            type_hints = cached_type_hints(_typecheckingstub__05eabb5a0a6a496245f76aa9920497833d53b1213ccff6ad494e498a46c47a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dialerConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -293,7 +290,7 @@ class CfnCampaign(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad25aa27ecc92a37957bdba0e157baf267f271fe29d85d5a56df337e3fcea244)
+            type_hints = cached_type_hints(_typecheckingstub__ad25aa27ecc92a37957bdba0e157baf267f271fe29d85d5a56df337e3fcea244)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -301,30 +298,33 @@ class CfnCampaign(
     @jsii.member(jsii_name="outboundCallConfig")
     def outbound_call_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.OutboundCallConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OutboundCallConfigProperty"]:
         '''Contains information about the outbound call configuration.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.OutboundCallConfigProperty"], jsii.get(self, "outboundCallConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OutboundCallConfigProperty"], jsii.get(self, "outboundCallConfig"))
 
     @outbound_call_config.setter
     def outbound_call_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCampaign.OutboundCallConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OutboundCallConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4ee8145c90e26f199a53bd3fd72ca4d855169b8677380927010a8d6804bcf36)
+            type_hints = cached_type_hints(_typecheckingstub__a4ee8145c90e26f199a53bd3fd72ca4d855169b8677380927010a8d6804bcf36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outboundCallConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d80d4084c307fbea620c4f9e9d0b1c2cfa515ad7d021df43d430bf87d42b6b)
+            type_hints = cached_type_hints(_typecheckingstub__64d80d4084c307fbea620c4f9e9d0b1c2cfa515ad7d021df43d430bf87d42b6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -357,7 +357,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7faa72a8ef60a3f20de3f7930f17119c963b501852653dace484b2b55104690)
+                type_hints = cached_type_hints(_typecheckingstub__b7faa72a8ef60a3f20de3f7930f17119c963b501852653dace484b2b55104690)
                 check_type(argname="argument dialing_capacity", value=dialing_capacity, expected_type=type_hints["dialing_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if dialing_capacity is not None:
@@ -395,8 +395,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            enable_answer_machine_detection: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-            await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_answer_machine_detection: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Contains information about answering machine detection.
 
@@ -420,7 +420,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17ddf057c50900b164cfd172d5d737d25a962fc39676bd1cbafcac6a1d8d60b3)
+                type_hints = cached_type_hints(_typecheckingstub__17ddf057c50900b164cfd172d5d737d25a962fc39676bd1cbafcac6a1d8d60b3)
                 check_type(argname="argument enable_answer_machine_detection", value=enable_answer_machine_detection, expected_type=type_hints["enable_answer_machine_detection"])
                 check_type(argname="argument await_answer_machine_prompt", value=await_answer_machine_prompt, expected_type=type_hints["await_answer_machine_prompt"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -432,25 +432,25 @@ class CfnCampaign(
         @builtins.property
         def enable_answer_machine_detection(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Whether answering machine detection is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-answermachinedetectionconfig.html#cfn-connectcampaigns-campaign-answermachinedetectionconfig-enableanswermachinedetection
             '''
             result = self._values.get("enable_answer_machine_detection")
             assert result is not None, "Required property 'enable_answer_machine_detection' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def await_answer_machine_prompt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether waiting for answer machine prompt is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-answermachinedetectionconfig.html#cfn-connectcampaigns-campaign-answermachinedetectionconfig-awaitanswermachineprompt
             '''
             result = self._values.get("await_answer_machine_prompt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -476,9 +476,9 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            agentless_dialer_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.AgentlessDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            predictive_dialer_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.PredictiveDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            progressive_dialer_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ProgressiveDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            agentless_dialer_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.AgentlessDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predictive_dialer_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.PredictiveDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            progressive_dialer_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ProgressiveDialerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains dialer configuration for an outbound campaign.
 
@@ -514,7 +514,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e897edcd7676c3bd3118030c1566c77bbb71b144de6d6d57265efe4b287d257c)
+                type_hints = cached_type_hints(_typecheckingstub__e897edcd7676c3bd3118030c1566c77bbb71b144de6d6d57265efe4b287d257c)
                 check_type(argname="argument agentless_dialer_config", value=agentless_dialer_config, expected_type=type_hints["agentless_dialer_config"])
                 check_type(argname="argument predictive_dialer_config", value=predictive_dialer_config, expected_type=type_hints["predictive_dialer_config"])
                 check_type(argname="argument progressive_dialer_config", value=progressive_dialer_config, expected_type=type_hints["progressive_dialer_config"])
@@ -529,35 +529,35 @@ class CfnCampaign(
         @builtins.property
         def agentless_dialer_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AgentlessDialerConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AgentlessDialerConfigProperty"]]:
             '''The configuration of the agentless dialer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-dialerconfig.html#cfn-connectcampaigns-campaign-dialerconfig-agentlessdialerconfig
             '''
             result = self._values.get("agentless_dialer_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AgentlessDialerConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AgentlessDialerConfigProperty"]], result)
 
         @builtins.property
         def predictive_dialer_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PredictiveDialerConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PredictiveDialerConfigProperty"]]:
             '''The configuration of the predictive dialer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-dialerconfig.html#cfn-connectcampaigns-campaign-dialerconfig-predictivedialerconfig
             '''
             result = self._values.get("predictive_dialer_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.PredictiveDialerConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.PredictiveDialerConfigProperty"]], result)
 
         @builtins.property
         def progressive_dialer_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ProgressiveDialerConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ProgressiveDialerConfigProperty"]]:
             '''The configuration of the progressive dialer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-dialerconfig.html#cfn-connectcampaigns-campaign-dialerconfig-progressivedialerconfig
             '''
             result = self._values.get("progressive_dialer_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ProgressiveDialerConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ProgressiveDialerConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -585,7 +585,7 @@ class CfnCampaign(
             self,
             *,
             connect_contact_flow_arn: builtins.str,
-            answer_machine_detection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.AnswerMachineDetectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            answer_machine_detection_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.AnswerMachineDetectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             connect_queue_arn: typing.Optional[builtins.str] = None,
             connect_source_phone_number: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -620,7 +620,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8cee2b14e882c5a034ae8d95b67ff1d2e709e6be191f570e955d736616d6eb1)
+                type_hints = cached_type_hints(_typecheckingstub__b8cee2b14e882c5a034ae8d95b67ff1d2e709e6be191f570e955d736616d6eb1)
                 check_type(argname="argument connect_contact_flow_arn", value=connect_contact_flow_arn, expected_type=type_hints["connect_contact_flow_arn"])
                 check_type(argname="argument answer_machine_detection_config", value=answer_machine_detection_config, expected_type=type_hints["answer_machine_detection_config"])
                 check_type(argname="argument connect_queue_arn", value=connect_queue_arn, expected_type=type_hints["connect_queue_arn"])
@@ -648,13 +648,13 @@ class CfnCampaign(
         @builtins.property
         def answer_machine_detection_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AnswerMachineDetectionConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AnswerMachineDetectionConfigProperty"]]:
             '''Whether answering machine detection has been enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaigns-campaign-outboundcallconfig.html#cfn-connectcampaigns-campaign-outboundcallconfig-answermachinedetectionconfig
             '''
             result = self._values.get("answer_machine_detection_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.AnswerMachineDetectionConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.AnswerMachineDetectionConfigProperty"]], result)
 
         @builtins.property
         def connect_queue_arn(self) -> typing.Optional[builtins.str]:
@@ -724,7 +724,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c724c0f74af1f9984fbf7dfe87a74dec49da182fbf7872ed0f38d38f71340f1c)
+                type_hints = cached_type_hints(_typecheckingstub__c724c0f74af1f9984fbf7dfe87a74dec49da182fbf7872ed0f38d38f71340f1c)
                 check_type(argname="argument bandwidth_allocation", value=bandwidth_allocation, expected_type=type_hints["bandwidth_allocation"])
                 check_type(argname="argument dialing_capacity", value=dialing_capacity, expected_type=type_hints["dialing_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -800,7 +800,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2caead7a21c70720675b949fc77715602dacb36c26a48d0f8d60fbd06a51c69d)
+                type_hints = cached_type_hints(_typecheckingstub__2caead7a21c70720675b949fc77715602dacb36c26a48d0f8d60fbd06a51c69d)
                 check_type(argname="argument bandwidth_allocation", value=bandwidth_allocation, expected_type=type_hints["bandwidth_allocation"])
                 check_type(argname="argument dialing_capacity", value=dialing_capacity, expected_type=type_hints["dialing_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -856,10 +856,10 @@ class CfnCampaignProps:
         self,
         *,
         connect_instance_arn: builtins.str,
-        dialer_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DialerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        dialer_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DialerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
-        outbound_call_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.OutboundCallConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outbound_call_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.OutboundCallConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCampaign``.
 
@@ -921,7 +921,7 @@ class CfnCampaignProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__748694bd997b98d4b10bb548a20e78ee9ae49587c645d81ccb2e226ae08399ad)
+            type_hints = cached_type_hints(_typecheckingstub__748694bd997b98d4b10bb548a20e78ee9ae49587c645d81ccb2e226ae08399ad)
             check_type(argname="argument connect_instance_arn", value=connect_instance_arn, expected_type=type_hints["connect_instance_arn"])
             check_type(argname="argument dialer_config", value=dialer_config, expected_type=type_hints["dialer_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -949,14 +949,14 @@ class CfnCampaignProps:
     @builtins.property
     def dialer_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.DialerConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DialerConfigProperty"]:
         '''Contains information about the dialer configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaigns-campaign.html#cfn-connectcampaigns-campaign-dialerconfig
         '''
         result = self._values.get("dialer_config")
         assert result is not None, "Required property 'dialer_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.DialerConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DialerConfigProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -971,17 +971,17 @@ class CfnCampaignProps:
     @builtins.property
     def outbound_call_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.OutboundCallConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OutboundCallConfigProperty"]:
         '''Contains information about the outbound call configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaigns-campaign.html#cfn-connectcampaigns-campaign-outboundcallconfig
         '''
         result = self._values.get("outbound_call_config")
         assert result is not None, "Required property 'outbound_call_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.OutboundCallConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.OutboundCallConfigProperty"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for this resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -989,7 +989,7 @@ class CfnCampaignProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connectcampaigns-campaign.html#cfn-connectcampaigns-campaign-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1015,16 +1015,16 @@ def _typecheckingstub__68b9f8ac97e8f86d700174c96cda66f647fb30af60f6ffc32c9ccb2a5
     id: builtins.str,
     *,
     connect_instance_arn: builtins.str,
-    dialer_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DialerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    dialer_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DialerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    outbound_call_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.OutboundCallConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outbound_call_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.OutboundCallConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9348862c3160ae40c309b3ca2c1d6772ef3379743e3ece165b7066a97cc4e537(
-    resource: _ICampaignRef_c6041f94,
+    resource: _aws_connectcampaigns_d26d7b38.ICampaignRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1036,7 +1036,7 @@ def _typecheckingstub__b2d4df0bc02e175896789ac1f57948b992aaaebfdb10d9e0c8c995f7b
     pass
 
 def _typecheckingstub__39c44d7ae2657f370c3369a7f586c71388393c54da2c114ac1e1c77d3622e226(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1054,7 +1054,7 @@ def _typecheckingstub__fe29864d67b82be24e959cf62a974af0c74a7c193aec5dba50b8d29d3
     pass
 
 def _typecheckingstub__05eabb5a0a6a496245f76aa9920497833d53b1213ccff6ad494e498a46c47a14(
-    value: typing.Union[_IResolvable_da3f097b, CfnCampaign.DialerConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.DialerConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1066,13 +1066,13 @@ def _typecheckingstub__ad25aa27ecc92a37957bdba0e157baf267f271fe29d85d5a56df337e3
     pass
 
 def _typecheckingstub__a4ee8145c90e26f199a53bd3fd72ca4d855169b8677380927010a8d6804bcf36(
-    value: typing.Union[_IResolvable_da3f097b, CfnCampaign.OutboundCallConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.OutboundCallConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__64d80d4084c307fbea620c4f9e9d0b1c2cfa515ad7d021df43d430bf87d42b6b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1086,17 +1086,17 @@ def _typecheckingstub__b7faa72a8ef60a3f20de3f7930f17119c963b501852653dace484b2b5
 
 def _typecheckingstub__17ddf057c50900b164cfd172d5d737d25a962fc39676bd1cbafcac6a1d8d60b3(
     *,
-    enable_answer_machine_detection: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_answer_machine_detection: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    await_answer_machine_prompt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e897edcd7676c3bd3118030c1566c77bbb71b144de6d6d57265efe4b287d257c(
     *,
-    agentless_dialer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.AgentlessDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    predictive_dialer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.PredictiveDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    progressive_dialer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ProgressiveDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    agentless_dialer_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.AgentlessDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predictive_dialer_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.PredictiveDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    progressive_dialer_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ProgressiveDialerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1104,7 +1104,7 @@ def _typecheckingstub__e897edcd7676c3bd3118030c1566c77bbb71b144de6d6d57265efe4b2
 def _typecheckingstub__b8cee2b14e882c5a034ae8d95b67ff1d2e709e6be191f570e955d736616d6eb1(
     *,
     connect_contact_flow_arn: builtins.str,
-    answer_machine_detection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.AnswerMachineDetectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    answer_machine_detection_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.AnswerMachineDetectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     connect_queue_arn: typing.Optional[builtins.str] = None,
     connect_source_phone_number: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1130,10 +1130,10 @@ def _typecheckingstub__2caead7a21c70720675b949fc77715602dacb36c26a48d0f8d60fbd06
 def _typecheckingstub__748694bd997b98d4b10bb548a20e78ee9ae49587c645d81ccb2e226ae08399ad(
     *,
     connect_instance_arn: builtins.str,
-    dialer_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DialerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    dialer_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DialerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    outbound_call_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.OutboundCallConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outbound_call_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.OutboundCallConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

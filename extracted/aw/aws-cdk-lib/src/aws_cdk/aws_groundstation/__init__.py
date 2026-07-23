@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,51 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_groundstation import (
-    ConfigReference as _ConfigReference_865aabc6,
-    DataflowEndpointGroupReference as _DataflowEndpointGroupReference_badac723,
-    DataflowEndpointGroupV2Reference as _DataflowEndpointGroupV2Reference_2499b7be,
-    IConfigRef as _IConfigRef_dc69720e,
-    IDataflowEndpointGroupRef as _IDataflowEndpointGroupRef_cf3d8979,
-    IDataflowEndpointGroupV2Ref as _IDataflowEndpointGroupV2Ref_2f95eb4f,
-    IMissionProfileRef as _IMissionProfileRef_941bd296,
-    MissionProfileReference as _MissionProfileReference_ba21ddb1,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_groundstation as _aws_groundstation_1b68d2de
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_groundstation_1b68d2de = _LazyImport("aws_cdk.interfaces.aws_groundstation")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigRef_dc69720e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_groundstation_1b68d2de.IConfigRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnConfig(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig",
 ):
@@ -190,9 +177,9 @@ class CfnConfig(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        config_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.ConfigDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        config_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.ConfigDataProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::GroundStation::Config``.
 
@@ -203,7 +190,7 @@ class CfnConfig(
         :param tags: Tags assigned to a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13b5342b1ca67f4a4ccbf4e2d71441ec8ac6775411c783b3c9c933f4caeaeb44)
+            type_hints = cached_type_hints(_typecheckingstub__13b5342b1ca67f4a4ccbf4e2d71441ec8ac6775411c783b3c9c933f4caeaeb44)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigProps(config_data=config_data, name=name, tags=tags)
@@ -212,12 +199,15 @@ class CfnConfig(
 
     @jsii.member(jsii_name="arnForConfig")
     @builtins.classmethod
-    def arn_for_config(cls, resource: "_IConfigRef_dc69720e") -> builtins.str:
+    def arn_for_config(
+        cls,
+        resource: "_aws_groundstation_1b68d2de.IConfigRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365365e1c7c4bd5fb62c97f557a526bdd6cfc007c46548818c0586e10fd37261)
+            type_hints = cached_type_hints(_typecheckingstub__365365e1c7c4bd5fb62c97f557a526bdd6cfc007c46548818c0586e10fd37261)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConfig", [resource]))
 
@@ -229,18 +219,18 @@ class CfnConfig(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a0fc3df162e9699943ccc75bc89a31c6aae5e4379fb7a9b7e29bcb32fff6cc1)
+            type_hints = cached_type_hints(_typecheckingstub__5a0fc3df162e9699943ccc75bc89a31c6aae5e4379fb7a9b7e29bcb32fff6cc1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfig", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3cdfd5eb2baaf5f01fe9f7913185faf70d134acf441b89c112df84fd2f1db8a)
+            type_hints = cached_type_hints(_typecheckingstub__a3cdfd5eb2baaf5f01fe9f7913185faf70d134acf441b89c112df84fd2f1db8a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -253,7 +243,7 @@ class CfnConfig(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd40941f885360d05e2643d3d6f98380b40caebf76d694523c46c112050eb127)
+            type_hints = cached_type_hints(_typecheckingstub__bd40941f885360d05e2643d3d6f98380b40caebf76d694523c46c112050eb127)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -302,31 +292,31 @@ class CfnConfig(
 
     @builtins.property
     @jsii.member(jsii_name="configRef")
-    def config_ref(self) -> "_ConfigReference_865aabc6":
+    def config_ref(self) -> "_aws_groundstation_1b68d2de.ConfigReference":
         '''A reference to a Config resource.'''
-        return typing.cast("_ConfigReference_865aabc6", jsii.get(self, "configRef"))
+        return typing.cast("_aws_groundstation_1b68d2de.ConfigReference", jsii.get(self, "configRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="configData")
     def config_data(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.ConfigDataProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.ConfigDataProperty"]:
         '''Object containing the parameters of a config.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.ConfigDataProperty"], jsii.get(self, "configData"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.ConfigDataProperty"], jsii.get(self, "configData"))
 
     @config_data.setter
     def config_data(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConfig.ConfigDataProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.ConfigDataProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1563feeaa37deb3f7ed7d57717d9cfb0c9d0d00d4203ece4f573e5ceaf951329)
+            type_hints = cached_type_hints(_typecheckingstub__1563feeaa37deb3f7ed7d57717d9cfb0c9d0d00d4203ece4f573e5ceaf951329)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configData", value) # pyright: ignore[reportArgumentType]
 
@@ -339,20 +329,23 @@ class CfnConfig(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e45ad42a1b16a7ac4346df0c4eb4ef210effbe14d6f3a655aeb196609bb41609)
+            type_hints = cached_type_hints(_typecheckingstub__e45ad42a1b16a7ac4346df0c4eb4ef210effbe14d6f3a655aeb196609bb41609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5239786ac786ccdad1f55bd40cbcac2fd2c846b2a7de2861dbb7b912f8c930a0)
+            type_hints = cached_type_hints(_typecheckingstub__5239786ac786ccdad1f55bd40cbcac2fd2c846b2a7de2861dbb7b912f8c930a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -365,7 +358,7 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            spectrum_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.SpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spectrum_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.SpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides information about how AWS Ground Station should configure an antenna for downlink during a contact.
 
@@ -397,7 +390,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__95c9bb891616bdcd84a4fa4a4632dbc784f0eb088325a7f017b16d8b07182f9f)
+                type_hints = cached_type_hints(_typecheckingstub__95c9bb891616bdcd84a4fa4a4632dbc784f0eb088325a7f017b16d8b07182f9f)
                 check_type(argname="argument spectrum_config", value=spectrum_config, expected_type=type_hints["spectrum_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if spectrum_config is not None:
@@ -406,13 +399,13 @@ class CfnConfig(
         @builtins.property
         def spectrum_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.SpectrumConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.SpectrumConfigProperty"]]:
             '''Defines the spectrum configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennadownlinkconfig.html#cfn-groundstation-config-antennadownlinkconfig-spectrumconfig
             '''
             result = self._values.get("spectrum_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.SpectrumConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.SpectrumConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -438,9 +431,9 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            decode_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.DecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            demodulation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.DemodulationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            spectrum_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.SpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            decode_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.DecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            demodulation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.DemodulationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spectrum_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.SpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides information about how AWS Ground Station should configure an antenna for downlink during a contact.
 
@@ -480,7 +473,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ebe67adf126f560718d80fe7b470120098ad348e65acc48056db851ebe85ca63)
+                type_hints = cached_type_hints(_typecheckingstub__ebe67adf126f560718d80fe7b470120098ad348e65acc48056db851ebe85ca63)
                 check_type(argname="argument decode_config", value=decode_config, expected_type=type_hints["decode_config"])
                 check_type(argname="argument demodulation_config", value=demodulation_config, expected_type=type_hints["demodulation_config"])
                 check_type(argname="argument spectrum_config", value=spectrum_config, expected_type=type_hints["spectrum_config"])
@@ -495,35 +488,35 @@ class CfnConfig(
         @builtins.property
         def decode_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DecodeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DecodeConfigProperty"]]:
             '''Defines how the RF signal will be decoded.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennadownlinkdemoddecodeconfig.html#cfn-groundstation-config-antennadownlinkdemoddecodeconfig-decodeconfig
             '''
             result = self._values.get("decode_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DecodeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DecodeConfigProperty"]], result)
 
         @builtins.property
         def demodulation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DemodulationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DemodulationConfigProperty"]]:
             '''Defines how the RF signal will be demodulated.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennadownlinkdemoddecodeconfig.html#cfn-groundstation-config-antennadownlinkdemoddecodeconfig-demodulationconfig
             '''
             result = self._values.get("demodulation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DemodulationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DemodulationConfigProperty"]], result)
 
         @builtins.property
         def spectrum_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.SpectrumConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.SpectrumConfigProperty"]]:
             '''Defines the spectrum configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennadownlinkdemoddecodeconfig.html#cfn-groundstation-config-antennadownlinkdemoddecodeconfig-spectrumconfig
             '''
             result = self._values.get("spectrum_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.SpectrumConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.SpectrumConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -549,9 +542,9 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            spectrum_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.UplinkSpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target_eirp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.EirpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            transmit_disabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            spectrum_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.UplinkSpectrumConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_eirp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.EirpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            transmit_disabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Provides information about how AWS Ground Station should configure an antenna for uplink during a contact.
 
@@ -584,7 +577,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__55cd1298db9810d3b2cd585a075bd274d81baff7309375a8f1f1bcd888166878)
+                type_hints = cached_type_hints(_typecheckingstub__55cd1298db9810d3b2cd585a075bd274d81baff7309375a8f1f1bcd888166878)
                 check_type(argname="argument spectrum_config", value=spectrum_config, expected_type=type_hints["spectrum_config"])
                 check_type(argname="argument target_eirp", value=target_eirp, expected_type=type_hints["target_eirp"])
                 check_type(argname="argument transmit_disabled", value=transmit_disabled, expected_type=type_hints["transmit_disabled"])
@@ -599,18 +592,18 @@ class CfnConfig(
         @builtins.property
         def spectrum_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.UplinkSpectrumConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.UplinkSpectrumConfigProperty"]]:
             '''Defines the spectrum configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennauplinkconfig.html#cfn-groundstation-config-antennauplinkconfig-spectrumconfig
             '''
             result = self._values.get("spectrum_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.UplinkSpectrumConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.UplinkSpectrumConfigProperty"]], result)
 
         @builtins.property
         def target_eirp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.EirpProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.EirpProperty"]]:
             '''The equivalent isotropically radiated power (EIRP) to use for uplink transmissions.
 
             Valid values are between 20.0 to 50.0 dBW.
@@ -618,18 +611,18 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennauplinkconfig.html#cfn-groundstation-config-antennauplinkconfig-targeteirp
             '''
             result = self._values.get("target_eirp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.EirpProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.EirpProperty"]], result)
 
         @builtins.property
         def transmit_disabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not uplink transmit is disabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-antennauplinkconfig.html#cfn-groundstation-config-antennauplinkconfig-transmitdisabled
             '''
             result = self._values.get("transmit_disabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -660,14 +653,14 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            antenna_downlink_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.AntennaDownlinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            antenna_downlink_demod_decode_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.AntennaDownlinkDemodDecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            antenna_uplink_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.AntennaUplinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dataflow_endpoint_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.DataflowEndpointConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_recording_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.S3RecordingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            telemetry_sink_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TelemetrySinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tracking_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TrackingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            uplink_echo_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.UplinkEchoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            antenna_downlink_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.AntennaDownlinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            antenna_downlink_demod_decode_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.AntennaDownlinkDemodDecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            antenna_uplink_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.AntennaUplinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dataflow_endpoint_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.DataflowEndpointConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_recording_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.S3RecordingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            telemetry_sink_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.TelemetrySinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tracking_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.TrackingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uplink_echo_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.UplinkEchoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Config objects provide information to Ground Station about how to configure the antenna and how data flows during a contact.
 
@@ -764,7 +757,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c161ef31a785b644c7c9cc8f223e10dcb0af1ba0e4a29303d7c17d85b3cbe192)
+                type_hints = cached_type_hints(_typecheckingstub__c161ef31a785b644c7c9cc8f223e10dcb0af1ba0e4a29303d7c17d85b3cbe192)
                 check_type(argname="argument antenna_downlink_config", value=antenna_downlink_config, expected_type=type_hints["antenna_downlink_config"])
                 check_type(argname="argument antenna_downlink_demod_decode_config", value=antenna_downlink_demod_decode_config, expected_type=type_hints["antenna_downlink_demod_decode_config"])
                 check_type(argname="argument antenna_uplink_config", value=antenna_uplink_config, expected_type=type_hints["antenna_uplink_config"])
@@ -794,7 +787,7 @@ class CfnConfig(
         @builtins.property
         def antenna_downlink_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaDownlinkConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaDownlinkConfigProperty"]]:
             '''Provides information for an antenna downlink config object.
 
             Antenna downlink config objects are used to provide parameters for downlinks where no demodulation or decoding is performed by Ground Station (RF over IP downlinks).
@@ -802,12 +795,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-antennadownlinkconfig
             '''
             result = self._values.get("antenna_downlink_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaDownlinkConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaDownlinkConfigProperty"]], result)
 
         @builtins.property
         def antenna_downlink_demod_decode_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaDownlinkDemodDecodeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaDownlinkDemodDecodeConfigProperty"]]:
             '''Provides information for a downlink demod decode config object.
 
             Downlink demod decode config objects are used to provide parameters for downlinks where the Ground Station service will demodulate and decode the downlinked data.
@@ -815,12 +808,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-antennadownlinkdemoddecodeconfig
             '''
             result = self._values.get("antenna_downlink_demod_decode_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaDownlinkDemodDecodeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaDownlinkDemodDecodeConfigProperty"]], result)
 
         @builtins.property
         def antenna_uplink_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaUplinkConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaUplinkConfigProperty"]]:
             '''Provides information for an uplink config object.
 
             Uplink config objects are used to provide parameters for uplink contacts.
@@ -828,12 +821,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-antennauplinkconfig
             '''
             result = self._values.get("antenna_uplink_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.AntennaUplinkConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.AntennaUplinkConfigProperty"]], result)
 
         @builtins.property
         def dataflow_endpoint_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DataflowEndpointConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DataflowEndpointConfigProperty"]]:
             '''Provides information for a dataflow endpoint config object.
 
             Dataflow endpoint config objects are used to provide parameters about which IP endpoint(s) to use during a contact. Dataflow endpoints are where Ground Station sends data during a downlink contact and where Ground Station receives data to send to the satellite during an uplink contact.
@@ -841,12 +834,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-dataflowendpointconfig
             '''
             result = self._values.get("dataflow_endpoint_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.DataflowEndpointConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.DataflowEndpointConfigProperty"]], result)
 
         @builtins.property
         def s3_recording_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.S3RecordingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.S3RecordingConfigProperty"]]:
             '''Provides information for an S3 recording config object.
 
             S3 recording config objects are used to provide parameters for S3 recording during downlink contacts.
@@ -854,22 +847,22 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-s3recordingconfig
             '''
             result = self._values.get("s3_recording_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.S3RecordingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.S3RecordingConfigProperty"]], result)
 
         @builtins.property
         def telemetry_sink_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TelemetrySinkConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-telemetrysinkconfig
             '''
             result = self._values.get("telemetry_sink_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TelemetrySinkConfigProperty"]], result)
 
         @builtins.property
         def tracking_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TrackingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TrackingConfigProperty"]]:
             '''Provides information for a tracking config object.
 
             Tracking config objects are used to provide parameters about how to track the satellite through the sky during a contact.
@@ -877,12 +870,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-trackingconfig
             '''
             result = self._values.get("tracking_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TrackingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TrackingConfigProperty"]], result)
 
         @builtins.property
         def uplink_echo_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.UplinkEchoConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.UplinkEchoConfigProperty"]]:
             '''Provides information for an uplink echo config object.
 
             Uplink echo config objects are used to provide parameters for uplink echo during uplink contacts.
@@ -890,7 +883,7 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-uplinkechoconfig
             '''
             result = self._values.get("uplink_echo_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.UplinkEchoConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.UplinkEchoConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -938,7 +931,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__99a763bb26b6623e715887bdc54f3c7ceed9bfb9f5a794e1721c1518d6679eae)
+                type_hints = cached_type_hints(_typecheckingstub__99a763bb26b6623e715887bdc54f3c7ceed9bfb9f5a794e1721c1518d6679eae)
                 check_type(argname="argument dataflow_endpoint_name", value=dataflow_endpoint_name, expected_type=type_hints["dataflow_endpoint_name"])
                 check_type(argname="argument dataflow_endpoint_region", value=dataflow_endpoint_region, expected_type=type_hints["dataflow_endpoint_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1007,7 +1000,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__324f5ec78c0ce70a0c2b16edd19232cbe81a59b2c1577339462358e74d607c12)
+                type_hints = cached_type_hints(_typecheckingstub__324f5ec78c0ce70a0c2b16edd19232cbe81a59b2c1577339462358e74d607c12)
                 check_type(argname="argument unvalidated_json", value=unvalidated_json, expected_type=type_hints["unvalidated_json"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if unvalidated_json is not None:
@@ -1062,7 +1055,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__41995b227ea3e4e9f0b14b63def99efc04e280b4295dd4e9584328affb2eb70e)
+                type_hints = cached_type_hints(_typecheckingstub__41995b227ea3e4e9f0b14b63def99efc04e280b4295dd4e9584328affb2eb70e)
                 check_type(argname="argument unvalidated_json", value=unvalidated_json, expected_type=type_hints["unvalidated_json"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if unvalidated_json is not None:
@@ -1120,7 +1113,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c514bdd7e81420fa1de45f624e9738b0420c9e0adc054d3749c647a5f1a0b336)
+                type_hints = cached_type_hints(_typecheckingstub__c514bdd7e81420fa1de45f624e9738b0420c9e0adc054d3749c647a5f1a0b336)
                 check_type(argname="argument units", value=units, expected_type=type_hints["units"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1192,7 +1185,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6607539aa17b23364cc0c5de62d53ab10b2588b4a397b71ff9a1510aefbc8763)
+                type_hints = cached_type_hints(_typecheckingstub__6607539aa17b23364cc0c5de62d53ab10b2588b4a397b71ff9a1510aefbc8763)
                 check_type(argname="argument units", value=units, expected_type=type_hints["units"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1266,7 +1259,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__54cacafc58427db742615b0fe5104ac687a9a80afc40f92de682c2897f73b0f5)
+                type_hints = cached_type_hints(_typecheckingstub__54cacafc58427db742615b0fe5104ac687a9a80afc40f92de682c2897f73b0f5)
                 check_type(argname="argument units", value=units, expected_type=type_hints["units"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1340,7 +1333,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8404a4da0808f69df924b83fb04be36ff4bb64b3f47d3171ad59447f008bde60)
+                type_hints = cached_type_hints(_typecheckingstub__8404a4da0808f69df924b83fb04be36ff4bb64b3f47d3171ad59447f008bde60)
                 check_type(argname="argument kinesis_data_stream_arn", value=kinesis_data_stream_arn, expected_type=type_hints["kinesis_data_stream_arn"])
                 check_type(argname="argument kinesis_role_arn", value=kinesis_role_arn, expected_type=type_hints["kinesis_role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1416,7 +1409,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a434f8f9b58e6e79e140ec69b10fe3b638c9dd796407130b206d6328c3b092d3)
+                type_hints = cached_type_hints(_typecheckingstub__a434f8f9b58e6e79e140ec69b10fe3b638c9dd796407130b206d6328c3b092d3)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -1485,8 +1478,8 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            bandwidth: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.FrequencyBandwidthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            center_frequency: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bandwidth: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.FrequencyBandwidthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            center_frequency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             polarization: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines a spectrum.
@@ -1517,7 +1510,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cdff7bad914262ea88134e28b4653bf1192cb3dab1012e32f318a75dba095e8a)
+                type_hints = cached_type_hints(_typecheckingstub__cdff7bad914262ea88134e28b4653bf1192cb3dab1012e32f318a75dba095e8a)
                 check_type(argname="argument bandwidth", value=bandwidth, expected_type=type_hints["bandwidth"])
                 check_type(argname="argument center_frequency", value=center_frequency, expected_type=type_hints["center_frequency"])
                 check_type(argname="argument polarization", value=polarization, expected_type=type_hints["polarization"])
@@ -1532,7 +1525,7 @@ class CfnConfig(
         @builtins.property
         def bandwidth(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyBandwidthProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyBandwidthProperty"]]:
             '''The bandwidth of the spectrum. AWS Ground Station currently has the following bandwidth limitations:.
 
             - For ``AntennaDownlinkDemodDecodeconfig`` , valid values are between 125 kHz to 650 MHz.
@@ -1542,12 +1535,12 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-spectrumconfig.html#cfn-groundstation-config-spectrumconfig-bandwidth
             '''
             result = self._values.get("bandwidth")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyBandwidthProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyBandwidthProperty"]], result)
 
         @builtins.property
         def center_frequency(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyProperty"]]:
             '''The center frequency of the spectrum.
 
             Valid values are between 2200 to 2300 MHz and 7750 to 8400 MHz for downlink and 2025 to 2120 MHz for uplink.
@@ -1555,7 +1548,7 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-spectrumconfig.html#cfn-groundstation-config-spectrumconfig-centerfrequency
             '''
             result = self._values.get("center_frequency")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyProperty"]], result)
 
         @builtins.property
         def polarization(self) -> typing.Optional[builtins.str]:
@@ -1591,7 +1584,7 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            telemetry_sink_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TelemetrySinkDataProperty", typing.Dict[builtins.str, typing.Any]]],
+            telemetry_sink_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.TelemetrySinkDataProperty", typing.Dict[builtins.str, typing.Any]]],
             telemetry_sink_type: builtins.str,
         ) -> None:
             '''
@@ -1618,7 +1611,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d715201c9e06f)
+                type_hints = cached_type_hints(_typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d715201c9e06f)
                 check_type(argname="argument telemetry_sink_data", value=telemetry_sink_data, expected_type=type_hints["telemetry_sink_data"])
                 check_type(argname="argument telemetry_sink_type", value=telemetry_sink_type, expected_type=type_hints["telemetry_sink_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1629,13 +1622,13 @@ class CfnConfig(
         @builtins.property
         def telemetry_sink_data(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkDataProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TelemetrySinkDataProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkconfig.html#cfn-groundstation-config-telemetrysinkconfig-telemetrysinkdata
             '''
             result = self._values.get("telemetry_sink_data")
             assert result is not None, "Required property 'telemetry_sink_data' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkDataProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.TelemetrySinkDataProperty"], result)
 
         @builtins.property
         def telemetry_sink_type(self) -> builtins.str:
@@ -1666,7 +1659,7 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            kinesis_data_stream_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.KinesisDataStreamDataProperty", typing.Dict[builtins.str, typing.Any]]],
+            kinesis_data_stream_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.KinesisDataStreamDataProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param kinesis_data_stream_data: 
@@ -1688,7 +1681,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eec57bb86984cd668f6c0046d14ed740a9376233ea6b3cbfea85072ab02c0d84)
+                type_hints = cached_type_hints(_typecheckingstub__eec57bb86984cd668f6c0046d14ed740a9376233ea6b3cbfea85072ab02c0d84)
                 check_type(argname="argument kinesis_data_stream_data", value=kinesis_data_stream_data, expected_type=type_hints["kinesis_data_stream_data"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "kinesis_data_stream_data": kinesis_data_stream_data,
@@ -1697,13 +1690,13 @@ class CfnConfig(
         @builtins.property
         def kinesis_data_stream_data(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.KinesisDataStreamDataProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.KinesisDataStreamDataProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkdata.html#cfn-groundstation-config-telemetrysinkdata-kinesisdatastreamdata
             '''
             result = self._values.get("kinesis_data_stream_data")
             assert result is not None, "Required property 'kinesis_data_stream_data' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.KinesisDataStreamDataProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.KinesisDataStreamDataProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1741,7 +1734,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed1a7eb46212500aac5b18d6aa5e4a9a69548192e39da2f23d9e5d6301bcd6ac)
+                type_hints = cached_type_hints(_typecheckingstub__ed1a7eb46212500aac5b18d6aa5e4a9a69548192e39da2f23d9e5d6301bcd6ac)
                 check_type(argname="argument autotrack", value=autotrack, expected_type=type_hints["autotrack"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if autotrack is not None:
@@ -1782,7 +1775,7 @@ class CfnConfig(
             self,
             *,
             antenna_uplink_config_arn: typing.Optional[builtins.str] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Provides information about how AWS Ground Station should echo back uplink transmissions to a dataflow endpoint.
 
@@ -1804,7 +1797,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__193d0e509b29608b5001e27835cf0767adff51dea5067bffff37a3d9d26ae405)
+                type_hints = cached_type_hints(_typecheckingstub__193d0e509b29608b5001e27835cf0767adff51dea5067bffff37a3d9d26ae405)
                 check_type(argname="argument antenna_uplink_config_arn", value=antenna_uplink_config_arn, expected_type=type_hints["antenna_uplink_config_arn"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1825,13 +1818,13 @@ class CfnConfig(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not uplink echo is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-uplinkechoconfig.html#cfn-groundstation-config-uplinkechoconfig-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1856,7 +1849,7 @@ class CfnConfig(
         def __init__(
             self,
             *,
-            center_frequency: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            center_frequency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.FrequencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             polarization: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines a uplink spectrum.
@@ -1882,7 +1875,7 @@ class CfnConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__27edccf82a0971febe19a69f59300574fa0a8a86e8860e33b5b5b5fac0eafdbc)
+                type_hints = cached_type_hints(_typecheckingstub__27edccf82a0971febe19a69f59300574fa0a8a86e8860e33b5b5b5fac0eafdbc)
                 check_type(argname="argument center_frequency", value=center_frequency, expected_type=type_hints["center_frequency"])
                 check_type(argname="argument polarization", value=polarization, expected_type=type_hints["polarization"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1894,7 +1887,7 @@ class CfnConfig(
         @builtins.property
         def center_frequency(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyProperty"]]:
             '''The center frequency of the spectrum.
 
             Valid values are between 2200 to 2300 MHz and 7750 to 8400 MHz for downlink and 2025 to 2120 MHz for uplink.
@@ -1902,7 +1895,7 @@ class CfnConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-uplinkspectrumconfig.html#cfn-groundstation-config-uplinkspectrumconfig-centerfrequency
             '''
             result = self._values.get("center_frequency")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.FrequencyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.FrequencyProperty"]], result)
 
         @builtins.property
         def polarization(self) -> typing.Optional[builtins.str]:
@@ -1936,9 +1929,9 @@ class CfnConfigProps:
     def __init__(
         self,
         *,
-        config_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.ConfigDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        config_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfig.ConfigDataProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConfig``.
 
@@ -2040,7 +2033,7 @@ class CfnConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25)
+            type_hints = cached_type_hints(_typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25)
             check_type(argname="argument config_data", value=config_data, expected_type=type_hints["config_data"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2054,7 +2047,7 @@ class CfnConfigProps:
     @builtins.property
     def config_data(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.ConfigDataProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.ConfigDataProperty"]:
         '''Object containing the parameters of a config.
 
         Only one subtype may be specified per config. See the subtype definitions for a description of each config subtype.
@@ -2063,7 +2056,7 @@ class CfnConfigProps:
         '''
         result = self._values.get("config_data")
         assert result is not None, "Required property 'config_data' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.ConfigDataProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfig.ConfigDataProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -2076,13 +2069,13 @@ class CfnConfigProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2096,9 +2089,9 @@ class CfnConfigProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataflowEndpointGroupRef_cf3d8979, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_groundstation_1b68d2de.IDataflowEndpointGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDataflowEndpointGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroup",
 ):
@@ -2173,10 +2166,10 @@ class CfnDataflowEndpointGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        endpoint_details: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        endpoint_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]],
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::GroundStation::DataflowEndpointGroup``.
 
@@ -2188,7 +2181,7 @@ class CfnDataflowEndpointGroup(
         :param tags: Tags assigned to a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__669b82a6c91e9541f061b9397341fc4b6628a648faf22449b040ab31e2879b6f)
+            type_hints = cached_type_hints(_typecheckingstub__669b82a6c91e9541f061b9397341fc4b6628a648faf22449b040ab31e2879b6f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataflowEndpointGroupProps(
@@ -2204,13 +2197,13 @@ class CfnDataflowEndpointGroup(
     @builtins.classmethod
     def arn_for_dataflow_endpoint_group(
         cls,
-        resource: "_IDataflowEndpointGroupRef_cf3d8979",
+        resource: "_aws_groundstation_1b68d2de.IDataflowEndpointGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b68706ea1f6a930b0d56f7ef983f244c96ac1cd461a026e159a3510e8cfecca)
+            type_hints = cached_type_hints(_typecheckingstub__9b68706ea1f6a930b0d56f7ef983f244c96ac1cd461a026e159a3510e8cfecca)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataflowEndpointGroup", [resource]))
 
@@ -2221,7 +2214,7 @@ class CfnDataflowEndpointGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDataflowEndpointGroupRef_cf3d8979":
+    ) -> "_aws_groundstation_1b68d2de.IDataflowEndpointGroupRef":
         '''Creates a new IDataflowEndpointGroupRef from an ARN.
 
         :param scope: -
@@ -2229,11 +2222,11 @@ class CfnDataflowEndpointGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60c28e2791fd9c2db24e1b61c6453ed2a0648b906a01e1eac7a613e12ab7f864)
+            type_hints = cached_type_hints(_typecheckingstub__60c28e2791fd9c2db24e1b61c6453ed2a0648b906a01e1eac7a613e12ab7f864)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDataflowEndpointGroupRef_cf3d8979", jsii.sinvoke(cls, "fromDataflowEndpointGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_groundstation_1b68d2de.IDataflowEndpointGroupRef", jsii.sinvoke(cls, "fromDataflowEndpointGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDataflowEndpointGroupId")
     @builtins.classmethod
@@ -2242,7 +2235,7 @@ class CfnDataflowEndpointGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         dataflow_endpoint_group_id: builtins.str,
-    ) -> "_IDataflowEndpointGroupRef_cf3d8979":
+    ) -> "_aws_groundstation_1b68d2de.IDataflowEndpointGroupRef":
         '''Creates a new IDataflowEndpointGroupRef from a dataflowEndpointGroupId.
 
         :param scope: -
@@ -2250,11 +2243,11 @@ class CfnDataflowEndpointGroup(
         :param dataflow_endpoint_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c98edf5d82cbea0854e26b5ae36e1b3e6768410524dabb6e5699b1ba44e1740)
+            type_hints = cached_type_hints(_typecheckingstub__3c98edf5d82cbea0854e26b5ae36e1b3e6768410524dabb6e5699b1ba44e1740)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument dataflow_endpoint_group_id", value=dataflow_endpoint_group_id, expected_type=type_hints["dataflow_endpoint_group_id"])
-        return typing.cast("_IDataflowEndpointGroupRef_cf3d8979", jsii.sinvoke(cls, "fromDataflowEndpointGroupId", [scope, id, dataflow_endpoint_group_id]))
+        return typing.cast("_aws_groundstation_1b68d2de.IDataflowEndpointGroupRef", jsii.sinvoke(cls, "fromDataflowEndpointGroupId", [scope, id, dataflow_endpoint_group_id]))
 
     @jsii.member(jsii_name="isCfnDataflowEndpointGroup")
     @builtins.classmethod
@@ -2264,18 +2257,18 @@ class CfnDataflowEndpointGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f23abee2b3260e350b040b731a817fd118acd944f9c0e0f9a7a44e3375de88c9)
+            type_hints = cached_type_hints(_typecheckingstub__f23abee2b3260e350b040b731a817fd118acd944f9c0e0f9a7a44e3375de88c9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataflowEndpointGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17d9bea099cdcd1099da7284180003b79769ad1588e3964f28fb913d498709f5)
+            type_hints = cached_type_hints(_typecheckingstub__17d9bea099cdcd1099da7284180003b79769ad1588e3964f28fb913d498709f5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2288,7 +2281,7 @@ class CfnDataflowEndpointGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__301a06069694a715f2320416d1088ceb197833a8e20246ccb97b1aa5fb5dbb31)
+            type_hints = cached_type_hints(_typecheckingstub__301a06069694a715f2320416d1088ceb197833a8e20246ccb97b1aa5fb5dbb31)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2328,31 +2321,33 @@ class CfnDataflowEndpointGroup(
 
     @builtins.property
     @jsii.member(jsii_name="dataflowEndpointGroupRef")
-    def dataflow_endpoint_group_ref(self) -> "_DataflowEndpointGroupReference_badac723":
+    def dataflow_endpoint_group_ref(
+        self,
+    ) -> "_aws_groundstation_1b68d2de.DataflowEndpointGroupReference":
         '''A reference to a DataflowEndpointGroup resource.'''
-        return typing.cast("_DataflowEndpointGroupReference_badac723", jsii.get(self, "dataflowEndpointGroupRef"))
+        return typing.cast("_aws_groundstation_1b68d2de.DataflowEndpointGroupReference", jsii.get(self, "dataflowEndpointGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="endpointDetails")
     def endpoint_details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]]:
         '''List of Endpoint Details, containing address and port for each endpoint.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]], jsii.get(self, "endpointDetails"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]], jsii.get(self, "endpointDetails"))
 
     @endpoint_details.setter
     def endpoint_details(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605270fdb212e4afd622fd5047d2f46f173b44dc28a4370f48d78fa181366952)
+            type_hints = cached_type_hints(_typecheckingstub__605270fdb212e4afd622fd5047d2f46f173b44dc28a4370f48d78fa181366952)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointDetails", value) # pyright: ignore[reportArgumentType]
 
@@ -2368,7 +2363,7 @@ class CfnDataflowEndpointGroup(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25ef1c7229baacb918baea79312842d531006cf929111fa27c27bd2a0f2730f8)
+            type_hints = cached_type_hints(_typecheckingstub__25ef1c7229baacb918baea79312842d531006cf929111fa27c27bd2a0f2730f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -2384,20 +2379,23 @@ class CfnDataflowEndpointGroup(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d824833236777cd2417ffad0f69012adcf6aab076829d4fc012bb6bf35c092f)
+            type_hints = cached_type_hints(_typecheckingstub__4d824833236777cd2417ffad0f69012adcf6aab076829d4fc012bb6bf35c092f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d91f97011b987224f8e61448ddca1df20f67e7b2188ee8ce55208bdeb4bbc53a)
+            type_hints = cached_type_hints(_typecheckingstub__d91f97011b987224f8e61448ddca1df20f67e7b2188ee8ce55208bdeb4bbc53a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2418,8 +2416,8 @@ class CfnDataflowEndpointGroup(
             *,
             agent_status: typing.Optional[builtins.str] = None,
             audit_results: typing.Optional[builtins.str] = None,
-            egress_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ingress_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            egress_address: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ingress_address: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about AwsGroundStationAgentEndpoint.
@@ -2463,7 +2461,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee0748f1ecb5781e9a01db9f02fc9c03f466d2eb8031790fd920a9b59c3a7efe)
+                type_hints = cached_type_hints(_typecheckingstub__ee0748f1ecb5781e9a01db9f02fc9c03f466d2eb8031790fd920a9b59c3a7efe)
                 check_type(argname="argument agent_status", value=agent_status, expected_type=type_hints["agent_status"])
                 check_type(argname="argument audit_results", value=audit_results, expected_type=type_hints["audit_results"])
                 check_type(argname="argument egress_address", value=egress_address, expected_type=type_hints["egress_address"])
@@ -2502,24 +2500,24 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def egress_address(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.ConnectionDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.ConnectionDetailsProperty"]]:
             '''The egress address of AgentEndpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-awsgroundstationagentendpoint.html#cfn-groundstation-dataflowendpointgroup-awsgroundstationagentendpoint-egressaddress
             '''
             result = self._values.get("egress_address")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.ConnectionDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.ConnectionDetailsProperty"]], result)
 
         @builtins.property
         def ingress_address(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.RangedConnectionDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.RangedConnectionDetailsProperty"]]:
             '''The ingress address of AgentEndpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-awsgroundstationagentendpoint.html#cfn-groundstation-dataflowendpointgroup-awsgroundstationagentendpoint-ingressaddress
             '''
             result = self._values.get("ingress_address")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.RangedConnectionDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.RangedConnectionDetailsProperty"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -2553,7 +2551,7 @@ class CfnDataflowEndpointGroup(
             self,
             *,
             mtu: typing.Optional[jsii.Number] = None,
-            socket_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            socket_address: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Egress address of AgentEndpoint with an optional mtu.
 
@@ -2578,7 +2576,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac92ba18922e7f50fbd2fb44b481647516ad2ecad36a6ecdb41418e911572b8c)
+                type_hints = cached_type_hints(_typecheckingstub__ac92ba18922e7f50fbd2fb44b481647516ad2ecad36a6ecdb41418e911572b8c)
                 check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
                 check_type(argname="argument socket_address", value=socket_address, expected_type=type_hints["socket_address"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2599,13 +2597,13 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def socket_address(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SocketAddressProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SocketAddressProperty"]]:
             '''A socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-connectiondetails.html#cfn-groundstation-dataflowendpointgroup-connectiondetails-socketaddress
             '''
             result = self._values.get("socket_address")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SocketAddressProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SocketAddressProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2627,7 +2625,7 @@ class CfnDataflowEndpointGroup(
         def __init__(
             self,
             *,
-            address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            address: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mtu: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2656,7 +2654,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc9f5226d94e906b56ccb5e58d75ed0e8d68881429608741bde8890f51ab8be0)
+                type_hints = cached_type_hints(_typecheckingstub__cc9f5226d94e906b56ccb5e58d75ed0e8d68881429608741bde8890f51ab8be0)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2671,13 +2669,13 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def address(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SocketAddressProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SocketAddressProperty"]]:
             '''The address and port of an endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-dataflowendpoint.html#cfn-groundstation-dataflowendpointgroup-dataflowendpoint-address
             '''
             result = self._values.get("address")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SocketAddressProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SocketAddressProperty"]], result)
 
         @builtins.property
         def mtu(self) -> typing.Optional[jsii.Number]:
@@ -2725,9 +2723,9 @@ class CfnDataflowEndpointGroup(
         def __init__(
             self,
             *,
-            aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.DataflowEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            security_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.SecurityDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.DataflowEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            security_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.SecurityDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The security details and endpoint information.
 
@@ -2783,7 +2781,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce6c1b639a398c895dfc66055f50eec9eabd79db1d993d794e1fd73150b96712)
+                type_hints = cached_type_hints(_typecheckingstub__ce6c1b639a398c895dfc66055f50eec9eabd79db1d993d794e1fd73150b96712)
                 check_type(argname="argument aws_ground_station_agent_endpoint", value=aws_ground_station_agent_endpoint, expected_type=type_hints["aws_ground_station_agent_endpoint"])
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
                 check_type(argname="argument security_details", value=security_details, expected_type=type_hints["security_details"])
@@ -2798,35 +2796,35 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def aws_ground_station_agent_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty"]]:
             '''An agent endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-endpointdetails.html#cfn-groundstation-dataflowendpointgroup-endpointdetails-awsgroundstationagentendpoint
             '''
             result = self._values.get("aws_ground_station_agent_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty"]], result)
 
         @builtins.property
         def endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.DataflowEndpointProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.DataflowEndpointProperty"]]:
             '''Information about the endpoint such as name and the endpoint address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-endpointdetails.html#cfn-groundstation-dataflowendpointgroup-endpointdetails-endpoint
             '''
             result = self._values.get("endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.DataflowEndpointProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.DataflowEndpointProperty"]], result)
 
         @builtins.property
         def security_details(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SecurityDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SecurityDetailsProperty"]]:
             '''The role ARN, and IDs for security groups and subnets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-endpointdetails.html#cfn-groundstation-dataflowendpointgroup-endpointdetails-securitydetails
             '''
             result = self._values.get("security_details")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.SecurityDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.SecurityDetailsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2871,7 +2869,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b49c491018c49abebdb9e07f6263ac4ee58dd70f1dde65fa0408a3d33522a05a)
+                type_hints = cached_type_hints(_typecheckingstub__b49c491018c49abebdb9e07f6263ac4ee58dd70f1dde65fa0408a3d33522a05a)
                 check_type(argname="argument maximum", value=maximum, expected_type=type_hints["maximum"])
                 check_type(argname="argument minimum", value=minimum, expected_type=type_hints["minimum"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2919,7 +2917,7 @@ class CfnDataflowEndpointGroup(
             self,
             *,
             mtu: typing.Optional[jsii.Number] = None,
-            socket_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.RangedSocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            socket_address: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.RangedSocketAddressProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Ingress address of AgentEndpoint with a port range and an optional mtu.
 
@@ -2947,7 +2945,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f4718a299592e9341c9edaea65909a5d521ddfd0baf97317c55e21c1a1cde5b4)
+                type_hints = cached_type_hints(_typecheckingstub__f4718a299592e9341c9edaea65909a5d521ddfd0baf97317c55e21c1a1cde5b4)
                 check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
                 check_type(argname="argument socket_address", value=socket_address, expected_type=type_hints["socket_address"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2968,13 +2966,13 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def socket_address(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.RangedSocketAddressProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.RangedSocketAddressProperty"]]:
             '''A ranged socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-rangedconnectiondetails.html#cfn-groundstation-dataflowendpointgroup-rangedconnectiondetails-socketaddress
             '''
             result = self._values.get("socket_address")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.RangedSocketAddressProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.RangedSocketAddressProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2997,7 +2995,7 @@ class CfnDataflowEndpointGroup(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            port_range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.IntegerRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            port_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.IntegerRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A socket address with a port range.
 
@@ -3022,7 +3020,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f0279ec5e3dff22baf12b2c0289e5035186ce86688371a640b24790d608a5b33)
+                type_hints = cached_type_hints(_typecheckingstub__f0279ec5e3dff22baf12b2c0289e5035186ce86688371a640b24790d608a5b33)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3043,13 +3041,13 @@ class CfnDataflowEndpointGroup(
         @builtins.property
         def port_range(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.IntegerRangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.IntegerRangeProperty"]]:
             '''Port range of a socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroup-rangedsocketaddress.html#cfn-groundstation-dataflowendpointgroup-rangedsocketaddress-portrange
             '''
             result = self._values.get("port_range")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.IntegerRangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.IntegerRangeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3101,7 +3099,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__220180d1b2cf36fe04713aaee0c3fe3a558c4c874399dd27305560fd323a8137)
+                type_hints = cached_type_hints(_typecheckingstub__220180d1b2cf36fe04713aaee0c3fe3a558c4c874399dd27305560fd323a8137)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
@@ -3185,7 +3183,7 @@ class CfnDataflowEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0be1cdd898189d7b0a27924e382d426d33c11750a250da2b52f6b3ef9e323767)
+                type_hints = cached_type_hints(_typecheckingstub__0be1cdd898189d7b0a27924e382d426d33c11750a250da2b52f6b3ef9e323767)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3238,10 +3236,10 @@ class CfnDataflowEndpointGroupProps:
     def __init__(
         self,
         *,
-        endpoint_details: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroup.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        endpoint_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroup.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]],
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataflowEndpointGroup``.
 
@@ -3309,7 +3307,7 @@ class CfnDataflowEndpointGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51)
+            type_hints = cached_type_hints(_typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51)
             check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
             check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
             check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
@@ -3327,7 +3325,7 @@ class CfnDataflowEndpointGroupProps:
     @builtins.property
     def endpoint_details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]]:
         '''List of Endpoint Details, containing address and port for each endpoint.
 
         All dataflow endpoints within a single dataflow endpoint group must be of the same type. You cannot mix AWS Ground Station Agent endpoints with Dataflow endpoints in the same group. If your use case requires both types of endpoints, you must create separate dataflow endpoint groups for each type.
@@ -3336,7 +3334,7 @@ class CfnDataflowEndpointGroupProps:
         '''
         result = self._values.get("endpoint_details")
         assert result is not None, "Required property 'endpoint_details' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]], result)
 
     @builtins.property
     def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3361,13 +3359,13 @@ class CfnDataflowEndpointGroupProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3381,9 +3379,9 @@ class CfnDataflowEndpointGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataflowEndpointGroupV2Ref_2f95eb4f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_groundstation_1b68d2de.IDataflowEndpointGroupV2Ref, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDataflowEndpointGroupV2(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroupV2",
 ):
@@ -3479,8 +3477,8 @@ class CfnDataflowEndpointGroupV2(
         *,
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        endpoints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::GroundStation::DataflowEndpointGroupV2``.
 
@@ -3492,7 +3490,7 @@ class CfnDataflowEndpointGroupV2(
         :param tags: Tags assigned to a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2e60b33a4f971173adc3870582147594d3dc420e78e52e4b79a67a6c495c946)
+            type_hints = cached_type_hints(_typecheckingstub__d2e60b33a4f971173adc3870582147594d3dc420e78e52e4b79a67a6c495c946)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataflowEndpointGroupV2Props(
@@ -3508,13 +3506,13 @@ class CfnDataflowEndpointGroupV2(
     @builtins.classmethod
     def arn_for_dataflow_endpoint_group_v2(
         cls,
-        resource: "_IDataflowEndpointGroupV2Ref_2f95eb4f",
+        resource: "_aws_groundstation_1b68d2de.IDataflowEndpointGroupV2Ref",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50cf5e7a2c0a35a59864fca12b408e28629b5e997f4b61dcd968e80aab3a2fef)
+            type_hints = cached_type_hints(_typecheckingstub__50cf5e7a2c0a35a59864fca12b408e28629b5e997f4b61dcd968e80aab3a2fef)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataflowEndpointGroupV2", [resource]))
 
@@ -3526,18 +3524,18 @@ class CfnDataflowEndpointGroupV2(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e120a8548a43d7db4db37beeb9c69e89797dd0225c8cba83040e9988678dd7d)
+            type_hints = cached_type_hints(_typecheckingstub__2e120a8548a43d7db4db37beeb9c69e89797dd0225c8cba83040e9988678dd7d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataflowEndpointGroupV2", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__013aa982627a60606a6ccccf55a4792c5ce7ae8929f4cc0d8854635503e58086)
+            type_hints = cached_type_hints(_typecheckingstub__013aa982627a60606a6ccccf55a4792c5ce7ae8929f4cc0d8854635503e58086)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3550,7 +3548,7 @@ class CfnDataflowEndpointGroupV2(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b3f19a98a1664e323a23c3fccc6dec673f0c2fc57f177c07224b515d6bf190e)
+            type_hints = cached_type_hints(_typecheckingstub__6b3f19a98a1664e323a23c3fccc6dec673f0c2fc57f177c07224b515d6bf190e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3570,12 +3568,12 @@ class CfnDataflowEndpointGroupV2(
 
     @builtins.property
     @jsii.member(jsii_name="attrEndpointDetails")
-    def attr_endpoint_details(self) -> "_IResolvable_da3f097b":
+    def attr_endpoint_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Information about the endpoint details.
 
         :cloudformationAttribute: EndpointDetails
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEndpointDetails"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEndpointDetails"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -3587,9 +3585,9 @@ class CfnDataflowEndpointGroupV2(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3605,9 +3603,9 @@ class CfnDataflowEndpointGroupV2(
     @jsii.member(jsii_name="dataflowEndpointGroupV2Ref")
     def dataflow_endpoint_group_v2_ref(
         self,
-    ) -> "_DataflowEndpointGroupV2Reference_2499b7be":
+    ) -> "_aws_groundstation_1b68d2de.DataflowEndpointGroupV2Reference":
         '''A reference to a DataflowEndpointGroupV2 resource.'''
-        return typing.cast("_DataflowEndpointGroupV2Reference_2499b7be", jsii.get(self, "dataflowEndpointGroupV2Ref"))
+        return typing.cast("_aws_groundstation_1b68d2de.DataflowEndpointGroupV2Reference", jsii.get(self, "dataflowEndpointGroupV2Ref"))
 
     @builtins.property
     @jsii.member(jsii_name="contactPostPassDurationSeconds")
@@ -3621,7 +3619,7 @@ class CfnDataflowEndpointGroupV2(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c131a8656742ea4977e6718d582f7038b2a15ecdcab7f29050c11b410c0499f)
+            type_hints = cached_type_hints(_typecheckingstub__3c131a8656742ea4977e6718d582f7038b2a15ecdcab7f29050c11b410c0499f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -3637,7 +3635,7 @@ class CfnDataflowEndpointGroupV2(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6961a5a542de3095fba90b602069436ed50bb4f8cfc750302285cbb8090f749)
+            type_hints = cached_type_hints(_typecheckingstub__f6961a5a542de3095fba90b602069436ed50bb4f8cfc750302285cbb8090f749)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -3645,30 +3643,33 @@ class CfnDataflowEndpointGroupV2(
     @jsii.member(jsii_name="endpoints")
     def endpoints(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]]:
         '''List of endpoints for the dataflow endpoint group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]], jsii.get(self, "endpoints"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]], jsii.get(self, "endpoints"))
 
     @endpoints.setter
     def endpoints(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e750ec1e3e40870deb06f4e079867b08b391d8caaae5b4430bdd8982e8f6e6fe)
+            type_hints = cached_type_hints(_typecheckingstub__e750ec1e3e40870deb06f4e079867b08b391d8caaae5b4430bdd8982e8f6e6fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpoints", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5dd88f1acaa27720877cdd3c9681eb01e73c2667c52f00e1c830b3852587ff6)
+            type_hints = cached_type_hints(_typecheckingstub__d5dd88f1acaa27720877cdd3c9681eb01e73c2667c52f00e1c830b3852587ff6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3681,7 +3682,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            socket_address: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]],
+            socket_address: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.SocketAddressProperty", typing.Dict[builtins.str, typing.Any]]],
             mtu: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Egress address of AgentEndpoint with an optional mtu.
@@ -3709,7 +3710,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24b67200167046ed13df91bad37a2e4f9e0e99877947e4da1e0622b06df66a17)
+                type_hints = cached_type_hints(_typecheckingstub__24b67200167046ed13df91bad37a2e4f9e0e99877947e4da1e0622b06df66a17)
                 check_type(argname="argument socket_address", value=socket_address, expected_type=type_hints["socket_address"])
                 check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3721,14 +3722,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def socket_address(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.SocketAddressProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.SocketAddressProperty"]:
             '''A socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-connectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-connectiondetails-socketaddress
             '''
             result = self._values.get("socket_address")
             assert result is not None, "Required property 'socket_address' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.SocketAddressProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.SocketAddressProperty"], result)
 
         @builtins.property
         def mtu(self) -> typing.Optional[jsii.Number]:
@@ -3762,8 +3763,8 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Endpoint definition used for creating a dataflow endpoint.
 
@@ -3839,7 +3840,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__66de60a301e858fdd0d2203e7725f587995c04cef509b515c3ceac196a6f819b)
+                type_hints = cached_type_hints(_typecheckingstub__66de60a301e858fdd0d2203e7725f587995c04cef509b515c3ceac196a6f819b)
                 check_type(argname="argument downlink_aws_ground_station_agent_endpoint", value=downlink_aws_ground_station_agent_endpoint, expected_type=type_hints["downlink_aws_ground_station_agent_endpoint"])
                 check_type(argname="argument uplink_aws_ground_station_agent_endpoint", value=uplink_aws_ground_station_agent_endpoint, expected_type=type_hints["uplink_aws_ground_station_agent_endpoint"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3851,24 +3852,24 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def downlink_aws_ground_station_agent_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty"]]:
             '''Definition for a downlink agent endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-createendpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-createendpointdetails-downlinkawsgroundstationagentendpoint
             '''
             result = self._values.get("downlink_aws_ground_station_agent_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty"]], result)
 
         @builtins.property
         def uplink_aws_ground_station_agent_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty"]]:
             '''Definition for an uplink agent endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-createendpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-createendpointdetails-uplinkawsgroundstationagentendpoint
             '''
             result = self._values.get("uplink_aws_ground_station_agent_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3895,7 +3896,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            dataflow_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            dataflow_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
             agent_status: typing.Optional[builtins.str] = None,
             audit_results: typing.Optional[builtins.str] = None,
@@ -3950,7 +3951,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a417a1b04d511865539513cbc1bf9b1d63e13cf7d317251678604544a5c09994)
+                type_hints = cached_type_hints(_typecheckingstub__a417a1b04d511865539513cbc1bf9b1d63e13cf7d317251678604544a5c09994)
                 check_type(argname="argument dataflow_details", value=dataflow_details, expected_type=type_hints["dataflow_details"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument agent_status", value=agent_status, expected_type=type_hints["agent_status"])
@@ -3967,14 +3968,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def dataflow_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"]:
             '''Dataflow details for the downlink endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-downlinkawsgroundstationagentendpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-downlinkawsgroundstationagentendpointdetails-dataflowdetails
             '''
             result = self._values.get("dataflow_details")
             assert result is not None, "Required property 'dataflow_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4024,7 +4025,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            dataflow_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            dataflow_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
         ) -> None:
             '''Definition for a downlink agent endpoint.
@@ -4071,7 +4072,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__15ab41303bf0da0f79d117ce201fdcba7ed62a7c881a9d1a16fbce475f69fa71)
+                type_hints = cached_type_hints(_typecheckingstub__15ab41303bf0da0f79d117ce201fdcba7ed62a7c881a9d1a16fbce475f69fa71)
                 check_type(argname="argument dataflow_details", value=dataflow_details, expected_type=type_hints["dataflow_details"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4082,14 +4083,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def dataflow_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"]:
             '''Dataflow details for the downlink endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-downlinkawsgroundstationagentendpoint.html#cfn-groundstation-dataflowendpointgroupv2-downlinkawsgroundstationagentendpoint-dataflowdetails
             '''
             result = self._values.get("dataflow_details")
             assert result is not None, "Required property 'dataflow_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4124,8 +4125,8 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            agent_ip_and_port_address: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-            egress_address_and_port: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            agent_ip_and_port_address: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            egress_address_and_port: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Connection details for Ground Station to Agent and Agent to customer.
 
@@ -4166,7 +4167,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__78a9cd08c23c4b90ff5db324ebb4fc125e3364c1708fffe222f64db415d71889)
+                type_hints = cached_type_hints(_typecheckingstub__78a9cd08c23c4b90ff5db324ebb4fc125e3364c1708fffe222f64db415d71889)
                 check_type(argname="argument agent_ip_and_port_address", value=agent_ip_and_port_address, expected_type=type_hints["agent_ip_and_port_address"])
                 check_type(argname="argument egress_address_and_port", value=egress_address_and_port, expected_type=type_hints["egress_address_and_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4177,26 +4178,26 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def agent_ip_and_port_address(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"]:
             '''Agent IP and port address for the downlink connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-downlinkconnectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-downlinkconnectiondetails-agentipandportaddress
             '''
             result = self._values.get("agent_ip_and_port_address")
             assert result is not None, "Required property 'agent_ip_and_port_address' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"], result)
 
         @builtins.property
         def egress_address_and_port(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"]:
             '''Egress address and port for the downlink connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-downlinkconnectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-downlinkconnectiondetails-egressaddressandport
             '''
             result = self._values.get("egress_address_and_port")
             assert result is not None, "Required property 'egress_address_and_port' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4218,7 +4219,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            agent_connection_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            agent_connection_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Dataflow details for a downlink endpoint.
 
@@ -4260,7 +4261,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a6c167e5d5e1f35f991b35c20845368e9daf3cf60db38ab8f09f07ff6fea5904)
+                type_hints = cached_type_hints(_typecheckingstub__a6c167e5d5e1f35f991b35c20845368e9daf3cf60db38ab8f09f07ff6fea5904)
                 check_type(argname="argument agent_connection_details", value=agent_connection_details, expected_type=type_hints["agent_connection_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "agent_connection_details": agent_connection_details,
@@ -4269,14 +4270,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def agent_connection_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty"]:
             '''Downlink connection details for customer to Agent and Agent to Ground Station.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-downlinkdataflowdetails.html#cfn-groundstation-dataflowendpointgroupv2-downlinkdataflowdetails-agentconnectiondetails
             '''
             result = self._values.get("agent_connection_details")
             assert result is not None, "Required property 'agent_connection_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4301,8 +4302,8 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the endpoint details.
 
@@ -4386,7 +4387,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2fd2dbdebd7d9d80bd1d68fac423a06a0fbe75e85b5d49e34b24bd3dba40e7c3)
+                type_hints = cached_type_hints(_typecheckingstub__2fd2dbdebd7d9d80bd1d68fac423a06a0fbe75e85b5d49e34b24bd3dba40e7c3)
                 check_type(argname="argument downlink_aws_ground_station_agent_endpoint", value=downlink_aws_ground_station_agent_endpoint, expected_type=type_hints["downlink_aws_ground_station_agent_endpoint"])
                 check_type(argname="argument uplink_aws_ground_station_agent_endpoint", value=uplink_aws_ground_station_agent_endpoint, expected_type=type_hints["uplink_aws_ground_station_agent_endpoint"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4398,24 +4399,24 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def downlink_aws_ground_station_agent_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty"]]:
             '''Definition for a downlink agent endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-endpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-endpointdetails-downlinkawsgroundstationagentendpoint
             '''
             result = self._values.get("downlink_aws_ground_station_agent_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty"]], result)
 
         @builtins.property
         def uplink_aws_ground_station_agent_endpoint(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty"]]:
             '''Definition for an uplink agent endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-endpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-endpointdetails-uplinkawsgroundstationagentendpoint
             '''
             result = self._values.get("uplink_aws_ground_station_agent_endpoint")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4455,7 +4456,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d9d536afda5ff20ea47aef9411d5a3f5431976a6634f3fcb3afcd0ca96a95bc8)
+                type_hints = cached_type_hints(_typecheckingstub__d9d536afda5ff20ea47aef9411d5a3f5431976a6634f3fcb3afcd0ca96a95bc8)
                 check_type(argname="argument maximum", value=maximum, expected_type=type_hints["maximum"])
                 check_type(argname="argument minimum", value=minimum, expected_type=type_hints["minimum"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4503,7 +4504,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            socket_address: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.RangedSocketAddressProperty", typing.Dict[builtins.str, typing.Any]]],
+            socket_address: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.RangedSocketAddressProperty", typing.Dict[builtins.str, typing.Any]]],
             mtu: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Ingress address of AgentEndpoint with a port range and an optional mtu.
@@ -4534,7 +4535,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__882f6dae9d30a6df40846e45547623f0811ffb5fdce8b91ce2d1af3bb103f05e)
+                type_hints = cached_type_hints(_typecheckingstub__882f6dae9d30a6df40846e45547623f0811ffb5fdce8b91ce2d1af3bb103f05e)
                 check_type(argname="argument socket_address", value=socket_address, expected_type=type_hints["socket_address"])
                 check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4546,14 +4547,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def socket_address(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedSocketAddressProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedSocketAddressProperty"]:
             '''A ranged socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-rangedconnectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-rangedconnectiondetails-socketaddress
             '''
             result = self._values.get("socket_address")
             assert result is not None, "Required property 'socket_address' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedSocketAddressProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedSocketAddressProperty"], result)
 
         @builtins.property
         def mtu(self) -> typing.Optional[jsii.Number]:
@@ -4585,7 +4586,7 @@ class CfnDataflowEndpointGroupV2(
             self,
             *,
             name: builtins.str,
-            port_range: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.IntegerRangeProperty", typing.Dict[builtins.str, typing.Any]]],
+            port_range: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.IntegerRangeProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A socket address with a port range.
 
@@ -4610,7 +4611,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1cc9be83324b20f3dc7186b59bd240cc51a778d52994f0b5f2fb30c098a45f73)
+                type_hints = cached_type_hints(_typecheckingstub__1cc9be83324b20f3dc7186b59bd240cc51a778d52994f0b5f2fb30c098a45f73)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4631,14 +4632,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def port_range(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.IntegerRangeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.IntegerRangeProperty"]:
             '''Port range of a socket address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-rangedsocketaddress.html#cfn-groundstation-dataflowendpointgroupv2-rangedsocketaddress-portrange
             '''
             result = self._values.get("port_range")
             assert result is not None, "Required property 'port_range' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.IntegerRangeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.IntegerRangeProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4678,7 +4679,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed30a98d1382c0b255d8272a39fa47a40eb4b572f2195b6f1526ead9ee3b12bb)
+                type_hints = cached_type_hints(_typecheckingstub__ed30a98d1382c0b255d8272a39fa47a40eb4b572f2195b6f1526ead9ee3b12bb)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4731,7 +4732,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            dataflow_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            dataflow_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
             agent_status: typing.Optional[builtins.str] = None,
             audit_results: typing.Optional[builtins.str] = None,
@@ -4786,7 +4787,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b3c2811ee6e952b54168efbb0a3197045f100fe8a3e94c8592b02bd29877ceef)
+                type_hints = cached_type_hints(_typecheckingstub__b3c2811ee6e952b54168efbb0a3197045f100fe8a3e94c8592b02bd29877ceef)
                 check_type(argname="argument dataflow_details", value=dataflow_details, expected_type=type_hints["dataflow_details"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument agent_status", value=agent_status, expected_type=type_hints["agent_status"])
@@ -4803,14 +4804,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def dataflow_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"]:
             '''Dataflow details for the uplink endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-uplinkawsgroundstationagentendpointdetails.html#cfn-groundstation-dataflowendpointgroupv2-uplinkawsgroundstationagentendpointdetails-dataflowdetails
             '''
             result = self._values.get("dataflow_details")
             assert result is not None, "Required property 'dataflow_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4860,7 +4861,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            dataflow_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            dataflow_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
         ) -> None:
             '''Definition for an uplink agent endpoint.
@@ -4907,7 +4908,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__01cdfd0c19f7ca0315a2277a8033c43679ae27a6caf04925c645e71b1e6f0e28)
+                type_hints = cached_type_hints(_typecheckingstub__01cdfd0c19f7ca0315a2277a8033c43679ae27a6caf04925c645e71b1e6f0e28)
                 check_type(argname="argument dataflow_details", value=dataflow_details, expected_type=type_hints["dataflow_details"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4918,14 +4919,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def dataflow_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"]:
             '''Dataflow details for the uplink endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-uplinkawsgroundstationagentendpoint.html#cfn-groundstation-dataflowendpointgroupv2-uplinkawsgroundstationagentendpoint-dataflowdetails
             '''
             result = self._values.get("dataflow_details")
             assert result is not None, "Required property 'dataflow_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4960,8 +4961,8 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            agent_ip_and_port_address: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-            ingress_address_and_port: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            agent_ip_and_port_address: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            ingress_address_and_port: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.ConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Connection details for customer to Agent and Agent to Ground Station.
 
@@ -5002,7 +5003,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b417804a63c4792d7bafc5d2b26cdf9e4a202d7fb359b47503d1000adf434709)
+                type_hints = cached_type_hints(_typecheckingstub__b417804a63c4792d7bafc5d2b26cdf9e4a202d7fb359b47503d1000adf434709)
                 check_type(argname="argument agent_ip_and_port_address", value=agent_ip_and_port_address, expected_type=type_hints["agent_ip_and_port_address"])
                 check_type(argname="argument ingress_address_and_port", value=ingress_address_and_port, expected_type=type_hints["ingress_address_and_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5013,26 +5014,26 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def agent_ip_and_port_address(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"]:
             '''Agent IP and port address for the uplink connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-uplinkconnectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-uplinkconnectiondetails-agentipandportaddress
             '''
             result = self._values.get("agent_ip_and_port_address")
             assert result is not None, "Required property 'agent_ip_and_port_address' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty"], result)
 
         @builtins.property
         def ingress_address_and_port(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"]:
             '''Ingress address and port for the uplink connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-uplinkconnectiondetails.html#cfn-groundstation-dataflowendpointgroupv2-uplinkconnectiondetails-ingressaddressandport
             '''
             result = self._values.get("ingress_address_and_port")
             assert result is not None, "Required property 'ingress_address_and_port' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.ConnectionDetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5054,7 +5055,7 @@ class CfnDataflowEndpointGroupV2(
         def __init__(
             self,
             *,
-            agent_connection_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            agent_connection_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Dataflow details for an uplink endpoint.
 
@@ -5096,7 +5097,7 @@ class CfnDataflowEndpointGroupV2(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4716cee3ee78796ff5a765dd13630cb2b16d314dd0a6ef3f6f91e3bb23b08ae0)
+                type_hints = cached_type_hints(_typecheckingstub__4716cee3ee78796ff5a765dd13630cb2b16d314dd0a6ef3f6f91e3bb23b08ae0)
                 check_type(argname="argument agent_connection_details", value=agent_connection_details, expected_type=type_hints["agent_connection_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "agent_connection_details": agent_connection_details,
@@ -5105,14 +5106,14 @@ class CfnDataflowEndpointGroupV2(
         @builtins.property
         def agent_connection_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty"]:
             '''Uplink connection details for customer to Agent and Agent to Ground Station.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-dataflowendpointgroupv2-uplinkdataflowdetails.html#cfn-groundstation-dataflowendpointgroupv2-uplinkdataflowdetails-agentconnectiondetails
             '''
             result = self._values.get("agent_connection_details")
             assert result is not None, "Required property 'agent_connection_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5142,8 +5143,8 @@ class CfnDataflowEndpointGroupV2Props:
         *,
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        endpoints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataflowEndpointGroupV2``.
 
@@ -5230,7 +5231,7 @@ class CfnDataflowEndpointGroupV2Props:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0983faa4ac567c0b99f7a0c783cec7084628c8fbee11ee54d4b5543ba8d3e5e6)
+            type_hints = cached_type_hints(_typecheckingstub__0983faa4ac567c0b99f7a0c783cec7084628c8fbee11ee54d4b5543ba8d3e5e6)
             check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
             check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
             check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
@@ -5266,22 +5267,22 @@ class CfnDataflowEndpointGroupV2Props:
     @builtins.property
     def endpoints(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]]:
         '''List of endpoints for the dataflow endpoint group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroupv2.html#cfn-groundstation-dataflowendpointgroupv2-endpoints
         '''
         result = self._values.get("endpoints")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroupv2.html#cfn-groundstation-dataflowendpointgroupv2-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5295,9 +5296,9 @@ class CfnDataflowEndpointGroupV2Props:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMissionProfileRef_941bd296, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_groundstation_1b68d2de.IMissionProfileRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnMissionProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_groundstation.CfnMissionProfile",
 ):
@@ -5345,15 +5346,15 @@ class CfnMissionProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        dataflow_edges: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.DataflowEdgeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        dataflow_edges: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMissionProfile.DataflowEdgeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         minimum_viable_contact_duration_seconds: jsii.Number,
         name: builtins.str,
-        tracking_config_arn: typing.Union[builtins.str, "_IConfigRef_dc69720e"],
+        tracking_config_arn: typing.Union[builtins.str, "_aws_groundstation_1b68d2de.IConfigRef"],
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        streams_kms_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        streams_kms_key: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         streams_kms_role: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::GroundStation::MissionProfile``.
@@ -5372,7 +5373,7 @@ class CfnMissionProfile(
         :param telemetry_sink_config_arn: ARN of a Config resource of type TelemetrySinkConfig used for telemetry data sink configuration.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9502d0c4)
+            type_hints = cached_type_hints(_typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9502d0c4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMissionProfileProps(
@@ -5394,13 +5395,13 @@ class CfnMissionProfile(
     @builtins.classmethod
     def arn_for_mission_profile(
         cls,
-        resource: "_IMissionProfileRef_941bd296",
+        resource: "_aws_groundstation_1b68d2de.IMissionProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ad46294c1796ac7fb5144053b5f10fc3d20b09aba78bb752bbdce03c5d22fb9)
+            type_hints = cached_type_hints(_typecheckingstub__9ad46294c1796ac7fb5144053b5f10fc3d20b09aba78bb752bbdce03c5d22fb9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMissionProfile", [resource]))
 
@@ -5411,7 +5412,7 @@ class CfnMissionProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         mission_profile_id: builtins.str,
-    ) -> "_IMissionProfileRef_941bd296":
+    ) -> "_aws_groundstation_1b68d2de.IMissionProfileRef":
         '''Creates a new IMissionProfileRef from a missionProfileId.
 
         :param scope: -
@@ -5419,11 +5420,11 @@ class CfnMissionProfile(
         :param mission_profile_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc69a93651f32216a7a090cca1a8e639a92bfb9f3ce9d190d8a13956e2f881cf)
+            type_hints = cached_type_hints(_typecheckingstub__bc69a93651f32216a7a090cca1a8e639a92bfb9f3ce9d190d8a13956e2f881cf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument mission_profile_id", value=mission_profile_id, expected_type=type_hints["mission_profile_id"])
-        return typing.cast("_IMissionProfileRef_941bd296", jsii.sinvoke(cls, "fromMissionProfileId", [scope, id, mission_profile_id]))
+        return typing.cast("_aws_groundstation_1b68d2de.IMissionProfileRef", jsii.sinvoke(cls, "fromMissionProfileId", [scope, id, mission_profile_id]))
 
     @jsii.member(jsii_name="isCfnMissionProfile")
     @builtins.classmethod
@@ -5433,18 +5434,18 @@ class CfnMissionProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83e5adee9311da7d7b9b8c1c9ff5c3c12bf0177dbdbc6e6c8dcf9f40dc803471)
+            type_hints = cached_type_hints(_typecheckingstub__83e5adee9311da7d7b9b8c1c9ff5c3c12bf0177dbdbc6e6c8dcf9f40dc803471)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMissionProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef8971e1911aa9fe50dbe99fdbc8302ee8d00a40604a425305b2a2a8e4d8aa41)
+            type_hints = cached_type_hints(_typecheckingstub__ef8971e1911aa9fe50dbe99fdbc8302ee8d00a40604a425305b2a2a8e4d8aa41)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5457,7 +5458,7 @@ class CfnMissionProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c4f7cdc9483b5e2132ea81c776a7d9db90f8d6ba862c492fb197a9e040d59aa)
+            type_hints = cached_type_hints(_typecheckingstub__7c4f7cdc9483b5e2132ea81c776a7d9db90f8d6ba862c492fb197a9e040d59aa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5506,31 +5507,33 @@ class CfnMissionProfile(
 
     @builtins.property
     @jsii.member(jsii_name="missionProfileRef")
-    def mission_profile_ref(self) -> "_MissionProfileReference_ba21ddb1":
+    def mission_profile_ref(
+        self,
+    ) -> "_aws_groundstation_1b68d2de.MissionProfileReference":
         '''A reference to a MissionProfile resource.'''
-        return typing.cast("_MissionProfileReference_ba21ddb1", jsii.get(self, "missionProfileRef"))
+        return typing.cast("_aws_groundstation_1b68d2de.MissionProfileReference", jsii.get(self, "missionProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dataflowEdges")
     def dataflow_edges(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.DataflowEdgeProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.DataflowEdgeProperty"]]]:
         '''A list containing lists of config ARNs.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.DataflowEdgeProperty"]]], jsii.get(self, "dataflowEdges"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.DataflowEdgeProperty"]]], jsii.get(self, "dataflowEdges"))
 
     @dataflow_edges.setter
     def dataflow_edges(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.DataflowEdgeProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.DataflowEdgeProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f43bc20ed2a3d495db8c8b44a4e70f977393b7a6c9733040eeb7509592d7adda)
+            type_hints = cached_type_hints(_typecheckingstub__f43bc20ed2a3d495db8c8b44a4e70f977393b7a6c9733040eeb7509592d7adda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataflowEdges", value) # pyright: ignore[reportArgumentType]
 
@@ -5543,7 +5546,7 @@ class CfnMissionProfile(
     @minimum_viable_contact_duration_seconds.setter
     def minimum_viable_contact_duration_seconds(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03a884cd9e5b04447dbd311900e4a2d4bdc5e38d5b2b0e125c3aba5bcec92ff5)
+            type_hints = cached_type_hints(_typecheckingstub__03a884cd9e5b04447dbd311900e4a2d4bdc5e38d5b2b0e125c3aba5bcec92ff5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minimumViableContactDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -5556,7 +5559,7 @@ class CfnMissionProfile(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da85a08a8a0b9b15f9e752862bd4dbbc57a69e050e2333199e52b7ac4fe113f7)
+            type_hints = cached_type_hints(_typecheckingstub__da85a08a8a0b9b15f9e752862bd4dbbc57a69e050e2333199e52b7ac4fe113f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5569,7 +5572,7 @@ class CfnMissionProfile(
     @tracking_config_arn.setter
     def tracking_config_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28aebc57aca2f7c9aa21bd709cd68a9bffcc22e5b67419f3b600315cf8fd2903)
+            type_hints = cached_type_hints(_typecheckingstub__28aebc57aca2f7c9aa21bd709cd68a9bffcc22e5b67419f3b600315cf8fd2903)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trackingConfigArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5585,7 +5588,7 @@ class CfnMissionProfile(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13ce886f0dccbdf43268a4de6f9502652f9fffeed67b564a8ba59a7f63fbc913)
+            type_hints = cached_type_hints(_typecheckingstub__13ce886f0dccbdf43268a4de6f9502652f9fffeed67b564a8ba59a7f63fbc913)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -5601,7 +5604,7 @@ class CfnMissionProfile(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d03eb5a896813d3d91f9b9192b83e7419b6393d8563a899e8cca36e8e4612f5)
+            type_hints = cached_type_hints(_typecheckingstub__7d03eb5a896813d3d91f9b9192b83e7419b6393d8563a899e8cca36e8e4612f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -5609,17 +5612,17 @@ class CfnMissionProfile(
     @jsii.member(jsii_name="streamsKmsKey")
     def streams_kms_key(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.StreamsKmsKeyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.StreamsKmsKeyProperty"]]:
         '''KMS key to use for encrypting streams.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.StreamsKmsKeyProperty"]], jsii.get(self, "streamsKmsKey"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.StreamsKmsKeyProperty"]], jsii.get(self, "streamsKmsKey"))
 
     @streams_kms_key.setter
     def streams_kms_key(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.StreamsKmsKeyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.StreamsKmsKeyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__207e70bf5d230a887fe9bbaff20bf2acd3b70bbddcaee80fc84f715f95423e2f)
+            type_hints = cached_type_hints(_typecheckingstub__207e70bf5d230a887fe9bbaff20bf2acd3b70bbddcaee80fc84f715f95423e2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamsKmsKey", value) # pyright: ignore[reportArgumentType]
 
@@ -5632,20 +5635,23 @@ class CfnMissionProfile(
     @streams_kms_role.setter
     def streams_kms_role(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd9fad80bfcf5d543fced97a8013a1b93e5d432d78e5d48475d6a2eb1a0eae70)
+            type_hints = cached_type_hints(_typecheckingstub__cd9fad80bfcf5d543fced97a8013a1b93e5d432d78e5d48475d6a2eb1a0eae70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamsKmsRole", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to the mission profile.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b63fbf7e02cfd3cabb495b47d8b525e2d0166b8195e578f79a444bec82c3b76)
+            type_hints = cached_type_hints(_typecheckingstub__1b63fbf7e02cfd3cabb495b47d8b525e2d0166b8195e578f79a444bec82c3b76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5658,7 +5664,7 @@ class CfnMissionProfile(
     @telemetry_sink_config_arn.setter
     def telemetry_sink_config_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53a78164b0fde66230a941eaa17c2e247680de90b8a8b2f4cb37555cbe6ce81d)
+            type_hints = cached_type_hints(_typecheckingstub__53a78164b0fde66230a941eaa17c2e247680de90b8a8b2f4cb37555cbe6ce81d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "telemetrySinkConfigArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5694,7 +5700,7 @@ class CfnMissionProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b247611cb700acbb2d198be2f48ab39f22bafbf3844a6363be6523b5edf8ed1c)
+                type_hints = cached_type_hints(_typecheckingstub__b247611cb700acbb2d198be2f48ab39f22bafbf3844a6363be6523b5edf8ed1c)
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5775,7 +5781,7 @@ class CfnMissionProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b72d6af08de28c6ebdf730f46ed7f026b1f417a505f1cd3c52737731cc4f6d0)
+                type_hints = cached_type_hints(_typecheckingstub__9b72d6af08de28c6ebdf730f46ed7f026b1f417a505f1cd3c52737731cc4f6d0)
                 check_type(argname="argument kms_alias_arn", value=kms_alias_arn, expected_type=type_hints["kms_alias_arn"])
                 check_type(argname="argument kms_alias_name", value=kms_alias_name, expected_type=type_hints["kms_alias_name"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
@@ -5846,15 +5852,15 @@ class CfnMissionProfileProps:
     def __init__(
         self,
         *,
-        dataflow_edges: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.DataflowEdgeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        dataflow_edges: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMissionProfile.DataflowEdgeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         minimum_viable_contact_duration_seconds: jsii.Number,
         name: builtins.str,
-        tracking_config_arn: typing.Union[builtins.str, "_IConfigRef_dc69720e"],
+        tracking_config_arn: typing.Union[builtins.str, "_aws_groundstation_1b68d2de.IConfigRef"],
         contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
         contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        streams_kms_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        streams_kms_key: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         streams_kms_role: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMissionProfile``.
@@ -5906,7 +5912,7 @@ class CfnMissionProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0)
+            type_hints = cached_type_hints(_typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0)
             check_type(argname="argument dataflow_edges", value=dataflow_edges, expected_type=type_hints["dataflow_edges"])
             check_type(argname="argument minimum_viable_contact_duration_seconds", value=minimum_viable_contact_duration_seconds, expected_type=type_hints["minimum_viable_contact_duration_seconds"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5939,7 +5945,7 @@ class CfnMissionProfileProps:
     @builtins.property
     def dataflow_edges(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.DataflowEdgeProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.DataflowEdgeProperty"]]]:
         '''A list containing lists of config ARNs.
 
         Each list of config ARNs is an edge, with a "from" config and a "to" config.
@@ -5948,7 +5954,7 @@ class CfnMissionProfileProps:
         '''
         result = self._values.get("dataflow_edges")
         assert result is not None, "Required property 'dataflow_edges' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.DataflowEdgeProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.DataflowEdgeProperty"]]], result)
 
     @builtins.property
     def minimum_viable_contact_duration_seconds(self) -> jsii.Number:
@@ -5973,14 +5979,16 @@ class CfnMissionProfileProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tracking_config_arn(self) -> typing.Union[builtins.str, "_IConfigRef_dc69720e"]:
+    def tracking_config_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_groundstation_1b68d2de.IConfigRef"]:
         '''The ARN of a tracking config objects that defines how to track the satellite through the sky during a contact.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-trackingconfigarn
         '''
         result = self._values.get("tracking_config_arn")
         assert result is not None, "Required property 'tracking_config_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IConfigRef_dc69720e"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_groundstation_1b68d2de.IConfigRef"], result)
 
     @builtins.property
     def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
@@ -6003,13 +6011,13 @@ class CfnMissionProfileProps:
     @builtins.property
     def streams_kms_key(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.StreamsKmsKeyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.StreamsKmsKeyProperty"]]:
         '''KMS key to use for encrypting streams.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-streamskmskey
         '''
         result = self._values.get("streams_kms_key")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMissionProfile.StreamsKmsKeyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMissionProfile.StreamsKmsKeyProperty"]], result)
 
     @builtins.property
     def streams_kms_role(self) -> typing.Optional[builtins.str]:
@@ -6021,13 +6029,13 @@ class CfnMissionProfileProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to the mission profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def telemetry_sink_config_arn(self) -> typing.Optional[builtins.str]:
@@ -6067,15 +6075,15 @@ def _typecheckingstub__13b5342b1ca67f4a4ccbf4e2d71441ec8ac6775411c783b3c9c933f4c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    config_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    config_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__365365e1c7c4bd5fb62c97f557a526bdd6cfc007c46548818c0586e10fd37261(
-    resource: _IConfigRef_dc69720e,
+    resource: _aws_groundstation_1b68d2de.IConfigRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6087,7 +6095,7 @@ def _typecheckingstub__5a0fc3df162e9699943ccc75bc89a31c6aae5e4379fb7a9b7e29bcb32
     pass
 
 def _typecheckingstub__a3cdfd5eb2baaf5f01fe9f7913185faf70d134acf441b89c112df84fd2f1db8a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6099,7 +6107,7 @@ def _typecheckingstub__bd40941f885360d05e2643d3d6f98380b40caebf76d694523c46c1120
     pass
 
 def _typecheckingstub__1563feeaa37deb3f7ed7d57717d9cfb0c9d0d00d4203ece4f573e5ceaf951329(
-    value: typing.Union[_IResolvable_da3f097b, CfnConfig.ConfigDataProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfig.ConfigDataProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6111,46 +6119,46 @@ def _typecheckingstub__e45ad42a1b16a7ac4346df0c4eb4ef210effbe14d6f3a655aeb196609
     pass
 
 def _typecheckingstub__5239786ac786ccdad1f55bd40cbcac2fd2c846b2a7de2861dbb7b912f8c930a0(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__95c9bb891616bdcd84a4fa4a4632dbc784f0eb088325a7f017b16d8b07182f9f(
     *,
-    spectrum_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.SpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spectrum_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.SpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ebe67adf126f560718d80fe7b470120098ad348e65acc48056db851ebe85ca63(
     *,
-    decode_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.DecodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    demodulation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.DemodulationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spectrum_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.SpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    decode_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.DecodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    demodulation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.DemodulationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spectrum_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.SpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__55cd1298db9810d3b2cd585a075bd274d81baff7309375a8f1f1bcd888166878(
     *,
-    spectrum_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.UplinkSpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_eirp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.EirpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transmit_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    spectrum_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.UplinkSpectrumConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_eirp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.EirpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transmit_disabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c161ef31a785b644c7c9cc8f223e10dcb0af1ba0e4a29303d7c17d85b3cbe192(
     *,
-    antenna_downlink_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.AntennaDownlinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    antenna_downlink_demod_decode_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.AntennaDownlinkDemodDecodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    antenna_uplink_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.AntennaUplinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dataflow_endpoint_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.DataflowEndpointConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_recording_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.S3RecordingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    telemetry_sink_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TelemetrySinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracking_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TrackingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uplink_echo_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.UplinkEchoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    antenna_downlink_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.AntennaDownlinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    antenna_downlink_demod_decode_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.AntennaDownlinkDemodDecodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    antenna_uplink_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.AntennaUplinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dataflow_endpoint_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.DataflowEndpointConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_recording_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.S3RecordingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_sink_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.TelemetrySinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracking_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.TrackingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uplink_echo_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.UplinkEchoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6220,8 +6228,8 @@ def _typecheckingstub__a434f8f9b58e6e79e140ec69b10fe3b638c9dd796407130b206d6328c
 
 def _typecheckingstub__cdff7bad914262ea88134e28b4653bf1192cb3dab1012e32f318a75dba095e8a(
     *,
-    bandwidth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.FrequencyBandwidthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    center_frequency: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bandwidth: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.FrequencyBandwidthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    center_frequency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     polarization: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6229,7 +6237,7 @@ def _typecheckingstub__cdff7bad914262ea88134e28b4653bf1192cb3dab1012e32f318a75db
 
 def _typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d715201c9e06f(
     *,
-    telemetry_sink_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TelemetrySinkDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    telemetry_sink_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.TelemetrySinkDataProperty, typing.Dict[builtins.str, typing.Any]]],
     telemetry_sink_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -6237,7 +6245,7 @@ def _typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d71520
 
 def _typecheckingstub__eec57bb86984cd668f6c0046d14ed740a9376233ea6b3cbfea85072ab02c0d84(
     *,
-    kinesis_data_stream_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.KinesisDataStreamDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_data_stream_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.KinesisDataStreamDataProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6252,14 +6260,14 @@ def _typecheckingstub__ed1a7eb46212500aac5b18d6aa5e4a9a69548192e39da2f23d9e5d630
 def _typecheckingstub__193d0e509b29608b5001e27835cf0767adff51dea5067bffff37a3d9d26ae405(
     *,
     antenna_uplink_config_arn: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__27edccf82a0971febe19a69f59300574fa0a8a86e8860e33b5b5b5fac0eafdbc(
     *,
-    center_frequency: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    center_frequency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     polarization: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6267,9 +6275,9 @@ def _typecheckingstub__27edccf82a0971febe19a69f59300574fa0a8a86e8860e33b5b5b5fac
 
 def _typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25(
     *,
-    config_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    config_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6278,16 +6286,16 @@ def _typecheckingstub__669b82a6c91e9541f061b9397341fc4b6628a648faf22449b040ab31e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    endpoint_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9b68706ea1f6a930b0d56f7ef983f244c96ac1cd461a026e159a3510e8cfecca(
-    resource: _IDataflowEndpointGroupRef_cf3d8979,
+    resource: _aws_groundstation_1b68d2de.IDataflowEndpointGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6315,7 +6323,7 @@ def _typecheckingstub__f23abee2b3260e350b040b731a817fd118acd944f9c0e0f9a7a44e337
     pass
 
 def _typecheckingstub__17d9bea099cdcd1099da7284180003b79769ad1588e3964f28fb913d498709f5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6327,7 +6335,7 @@ def _typecheckingstub__301a06069694a715f2320416d1088ceb197833a8e20246ccb97b1aa5f
     pass
 
 def _typecheckingstub__605270fdb212e4afd622fd5047d2f46f173b44dc28a4370f48d78fa181366952(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataflowEndpointGroup.EndpointDetailsProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataflowEndpointGroup.EndpointDetailsProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6345,7 +6353,7 @@ def _typecheckingstub__4d824833236777cd2417ffad0f69012adcf6aab076829d4fc012bb6bf
     pass
 
 def _typecheckingstub__d91f97011b987224f8e61448ddca1df20f67e7b2188ee8ce55208bdeb4bbc53a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6354,8 +6362,8 @@ def _typecheckingstub__ee0748f1ecb5781e9a01db9f02fc9c03f466d2eb8031790fd920a9b59
     *,
     agent_status: typing.Optional[builtins.str] = None,
     audit_results: typing.Optional[builtins.str] = None,
-    egress_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    egress_address: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_address: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6364,14 +6372,14 @@ def _typecheckingstub__ee0748f1ecb5781e9a01db9f02fc9c03f466d2eb8031790fd920a9b59
 def _typecheckingstub__ac92ba18922e7f50fbd2fb44b481647516ad2ecad36a6ecdb41418e911572b8c(
     *,
     mtu: typing.Optional[jsii.Number] = None,
-    socket_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    socket_address: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cc9f5226d94e906b56ccb5e58d75ed0e8d68881429608741bde8890f51ab8be0(
     *,
-    address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    address: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mtu: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6380,9 +6388,9 @@ def _typecheckingstub__cc9f5226d94e906b56ccb5e58d75ed0e8d68881429608741bde8890f5
 
 def _typecheckingstub__ce6c1b639a398c895dfc66055f50eec9eabd79db1d993d794e1fd73150b96712(
     *,
-    aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.DataflowEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.SecurityDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.DataflowEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.SecurityDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6398,7 +6406,7 @@ def _typecheckingstub__b49c491018c49abebdb9e07f6263ac4ee58dd70f1dde65fa0408a3d33
 def _typecheckingstub__f4718a299592e9341c9edaea65909a5d521ddfd0baf97317c55e21c1a1cde5b4(
     *,
     mtu: typing.Optional[jsii.Number] = None,
-    socket_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.RangedSocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    socket_address: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.RangedSocketAddressProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6406,7 +6414,7 @@ def _typecheckingstub__f4718a299592e9341c9edaea65909a5d521ddfd0baf97317c55e21c1a
 def _typecheckingstub__f0279ec5e3dff22baf12b2c0289e5035186ce86688371a640b24790d608a5b33(
     *,
     name: typing.Optional[builtins.str] = None,
-    port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.IntegerRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    port_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.IntegerRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6430,10 +6438,10 @@ def _typecheckingstub__0be1cdd898189d7b0a27924e382d426d33c11750a250da2b52f6b3ef9
 
 def _typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51(
     *,
-    endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    endpoint_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6444,14 +6452,14 @@ def _typecheckingstub__d2e60b33a4f971173adc3870582147594d3dc420e78e52e4b79a67a6c
     *,
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__50cf5e7a2c0a35a59864fca12b408e28629b5e997f4b61dcd968e80aab3a2fef(
-    resource: _IDataflowEndpointGroupV2Ref_2f95eb4f,
+    resource: _aws_groundstation_1b68d2de.IDataflowEndpointGroupV2Ref,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6463,7 +6471,7 @@ def _typecheckingstub__2e120a8548a43d7db4db37beeb9c69e89797dd0225c8cba83040e9988
     pass
 
 def _typecheckingstub__013aa982627a60606a6ccccf55a4792c5ce7ae8929f4cc0d8854635503e58086(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6487,20 +6495,20 @@ def _typecheckingstub__f6961a5a542de3095fba90b602069436ed50bb4f8cfc750302285cbb8
     pass
 
 def _typecheckingstub__e750ec1e3e40870deb06f4e079867b08b391d8caaae5b4430bdd8982e8f6e6fe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d5dd88f1acaa27720877cdd3c9681eb01e73c2667c52f00e1c830b3852587ff6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24b67200167046ed13df91bad37a2e4f9e0e99877947e4da1e0622b06df66a17(
     *,
-    socket_address: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]],
+    socket_address: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.SocketAddressProperty, typing.Dict[builtins.str, typing.Any]]],
     mtu: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6508,15 +6516,15 @@ def _typecheckingstub__24b67200167046ed13df91bad37a2e4f9e0e99877947e4da1e0622b06
 
 def _typecheckingstub__66de60a301e858fdd0d2203e7725f587995c04cef509b515c3ceac196a6f819b(
     *,
-    downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a417a1b04d511865539513cbc1bf9b1d63e13cf7d317251678604544a5c09994(
     *,
-    dataflow_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    dataflow_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     agent_status: typing.Optional[builtins.str] = None,
     audit_results: typing.Optional[builtins.str] = None,
@@ -6526,7 +6534,7 @@ def _typecheckingstub__a417a1b04d511865539513cbc1bf9b1d63e13cf7d317251678604544a
 
 def _typecheckingstub__15ab41303bf0da0f79d117ce201fdcba7ed62a7c881a9d1a16fbce475f69fa71(
     *,
-    dataflow_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    dataflow_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.DownlinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -6534,23 +6542,23 @@ def _typecheckingstub__15ab41303bf0da0f79d117ce201fdcba7ed62a7c881a9d1a16fbce475
 
 def _typecheckingstub__78a9cd08c23c4b90ff5db324ebb4fc125e3364c1708fffe222f64db415d71889(
     *,
-    agent_ip_and_port_address: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    egress_address_and_port: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    agent_ip_and_port_address: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    egress_address_and_port: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a6c167e5d5e1f35f991b35c20845368e9daf3cf60db38ab8f09f07ff6fea5904(
     *,
-    agent_connection_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    agent_connection_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.DownlinkConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2fd2dbdebd7d9d80bd1d68fac423a06a0fbe75e85b5d49e34b24bd3dba40e7c3(
     *,
-    downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    downlink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.DownlinkAwsGroundStationAgentEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uplink_aws_ground_station_agent_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.UplinkAwsGroundStationAgentEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6565,7 +6573,7 @@ def _typecheckingstub__d9d536afda5ff20ea47aef9411d5a3f5431976a6634f3fcb3afcd0ca9
 
 def _typecheckingstub__882f6dae9d30a6df40846e45547623f0811ffb5fdce8b91ce2d1af3bb103f05e(
     *,
-    socket_address: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.RangedSocketAddressProperty, typing.Dict[builtins.str, typing.Any]]],
+    socket_address: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.RangedSocketAddressProperty, typing.Dict[builtins.str, typing.Any]]],
     mtu: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6574,7 +6582,7 @@ def _typecheckingstub__882f6dae9d30a6df40846e45547623f0811ffb5fdce8b91ce2d1af3bb
 def _typecheckingstub__1cc9be83324b20f3dc7186b59bd240cc51a778d52994f0b5f2fb30c098a45f73(
     *,
     name: builtins.str,
-    port_range: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.IntegerRangeProperty, typing.Dict[builtins.str, typing.Any]]],
+    port_range: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.IntegerRangeProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6589,7 +6597,7 @@ def _typecheckingstub__ed30a98d1382c0b255d8272a39fa47a40eb4b572f2195b6f1526ead9e
 
 def _typecheckingstub__b3c2811ee6e952b54168efbb0a3197045f100fe8a3e94c8592b02bd29877ceef(
     *,
-    dataflow_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    dataflow_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     agent_status: typing.Optional[builtins.str] = None,
     audit_results: typing.Optional[builtins.str] = None,
@@ -6599,7 +6607,7 @@ def _typecheckingstub__b3c2811ee6e952b54168efbb0a3197045f100fe8a3e94c8592b02bd29
 
 def _typecheckingstub__01cdfd0c19f7ca0315a2277a8033c43679ae27a6caf04925c645e71b1e6f0e28(
     *,
-    dataflow_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    dataflow_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.UplinkDataflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -6607,15 +6615,15 @@ def _typecheckingstub__01cdfd0c19f7ca0315a2277a8033c43679ae27a6caf04925c645e71b1
 
 def _typecheckingstub__b417804a63c4792d7bafc5d2b26cdf9e4a202d7fb359b47503d1000adf434709(
     *,
-    agent_ip_and_port_address: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    ingress_address_and_port: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    agent_ip_and_port_address: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.RangedConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    ingress_address_and_port: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.ConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4716cee3ee78796ff5a765dd13630cb2b16d314dd0a6ef3f6f91e3bb23b08ae0(
     *,
-    agent_connection_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    agent_connection_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.UplinkConnectionDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6624,8 +6632,8 @@ def _typecheckingstub__0983faa4ac567c0b99f7a0c783cec7084628c8fbee11ee54d4b5543ba
     *,
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataflowEndpointGroupV2.CreateEndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6634,22 +6642,22 @@ def _typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dataflow_edges: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     minimum_viable_contact_duration_seconds: jsii.Number,
     name: builtins.str,
-    tracking_config_arn: typing.Union[builtins.str, _IConfigRef_dc69720e],
+    tracking_config_arn: typing.Union[builtins.str, _aws_groundstation_1b68d2de.IConfigRef],
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streams_kms_key: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     streams_kms_role: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9ad46294c1796ac7fb5144053b5f10fc3d20b09aba78bb752bbdce03c5d22fb9(
-    resource: _IMissionProfileRef_941bd296,
+    resource: _aws_groundstation_1b68d2de.IMissionProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6669,7 +6677,7 @@ def _typecheckingstub__83e5adee9311da7d7b9b8c1c9ff5c3c12bf0177dbdbc6e6c8dcf9f40d
     pass
 
 def _typecheckingstub__ef8971e1911aa9fe50dbe99fdbc8302ee8d00a40604a425305b2a2a8e4d8aa41(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6681,7 +6689,7 @@ def _typecheckingstub__7c4f7cdc9483b5e2132ea81c776a7d9db90f8d6ba862c492fb197a9e0
     pass
 
 def _typecheckingstub__f43bc20ed2a3d495db8c8b44a4e70f977393b7a6c9733040eeb7509592d7adda(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.DataflowEdgeProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMissionProfile.DataflowEdgeProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6717,7 +6725,7 @@ def _typecheckingstub__7d03eb5a896813d3d91f9b9192b83e7419b6393d8563a899e8cca36e8
     pass
 
 def _typecheckingstub__207e70bf5d230a887fe9bbaff20bf2acd3b70bbddcaee80fc84f715f95423e2f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.StreamsKmsKeyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMissionProfile.StreamsKmsKeyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6729,7 +6737,7 @@ def _typecheckingstub__cd9fad80bfcf5d543fced97a8013a1b93e5d432d78e5d48475d6a2eb1
     pass
 
 def _typecheckingstub__1b63fbf7e02cfd3cabb495b47d8b525e2d0166b8195e578f79a444bec82c3b76(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6759,15 +6767,15 @@ def _typecheckingstub__9b72d6af08de28c6ebdf730f46ed7f026b1f417a505f1cd3c52737731
 
 def _typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0(
     *,
-    dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dataflow_edges: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     minimum_viable_contact_duration_seconds: jsii.Number,
     name: builtins.str,
-    tracking_config_arn: typing.Union[builtins.str, _IConfigRef_dc69720e],
+    tracking_config_arn: typing.Union[builtins.str, _aws_groundstation_1b68d2de.IConfigRef],
     contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
     contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streams_kms_key: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     streams_kms_role: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

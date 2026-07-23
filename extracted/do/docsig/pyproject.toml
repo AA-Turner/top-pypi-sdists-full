@@ -29,7 +29,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 requires-python = ">=3.10"
-version = "0.91.6"
+version = "0.91.7"
 
 [project.entry-points."flake8.extension"]
 SIG = "docsig.plugin:Flake8"
@@ -48,7 +48,7 @@ target-version = ["py310"]
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.91.6"
+current_version = "0.91.7"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -147,15 +147,15 @@ black = ">=24.4.2,<27.0.0"
 bump-my-version = ">=1.4.1,<1.5.0"
 deptry = ">=0.16.1,<0.26.0"
 flynt = "^1.0.1"
-gitpython = "^3.1.53"
+gitpython = "^3.1.54"
 isort = ">=5.13.2,<9.0.0"
 mypy = ">=2.3.0,<3.0"
-pre-commit = ">=3.3.3,<5.0.0"
+pre-commit = ">=4.6.1,<5.0.0"
 pylint = "^4.0.6"
 tomli = "^2.0.1"
 tomli-w = "^1.0.0"
 towncrier = ">=23.11,<26.0"
-tox = "^4.57.2"
+tox = "^4.58.0"
 validate-pyproject = {extras = ["all", "store"], version = "^0.25"}
 vulture = "^2.11"
 

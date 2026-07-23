@@ -4,7 +4,7 @@ import os
 
 class SmdaConfig:
     # keep this in sync with smda.__version__
-    VERSION = "4.3.0"
+    VERSION = "4.3.5"
     ESCAPER_DOWNWARD_COMPATIBILITY = "1.13.16"
     CONFIG_FILE_PATH = str(os.path.abspath(__file__))
     PROJECT_ROOT = str(os.path.abspath(os.sep.join([CONFIG_FILE_PATH, "..", "..", ".."])))
@@ -32,8 +32,17 @@ class SmdaConfig:
     USE_ALIGNMENT = True
     USE_SYMBOLS_AS_CANDIDATES = True
     # seed AArch64 function candidates from the PE ARM64 exception directory (classic 0xAA64
-    # images only); off until validated against real ARM64 PE samples with independent labels
-    USE_PE_ARM64_PDATA_CANDIDATES = False
+    # images only); funclet/fragment records are filtered at seeding, and IDA-labeled ARM64
+    # system binaries (wermgr/ping/robocopy/bcrypt) show equal-or-better boundary accuracy
+    # with the directory enabled, so it is on by default
+    USE_PE_ARM64_PDATA_CANDIDATES = True
+    # force function-end splits at x64 PE .pdata RUNTIME_FUNCTION EndAddresses so that
+    # SMDA functions align with the compiler's exception-table boundaries; off by default
+    # because MSVC fragments single control-flow functions across many .pdata ranges
+    # (cold/hot splitting), so naive splitting fragments real functions. When on, splits
+    # are only performed where the interior .pdata start has a non-fall-through inbound
+    # jmp/call from another recovered function, never from candidate membership alone.
+    USE_PE_X64_PDATA_ENDS = False
     # promote unclaimed ELF .eh_frame FDE starts as late AArch64 candidates (after the primary
     # pass, before gap analysis); off until validated against ground-truth function boundaries
     USE_ELF_EH_FRAME_CANDIDATES = False

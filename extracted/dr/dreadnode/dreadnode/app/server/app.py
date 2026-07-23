@@ -16,7 +16,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from starlette.responses import JSONResponse
@@ -46,7 +46,7 @@ from dreadnode.app.api.models import (
 )
 from dreadnode.app.env import read_env_with_deprecation
 from dreadnode.app.server import capability_manager, model_resolution, runtime_events, ws_auth
-from dreadnode.app.server.auth import SandboxAuthMiddleware
+from dreadnode.app.server.auth import SandboxAuthMiddleware, bearer_token
 from dreadnode.app.server.prompt import (
     get_core_system_prompt,
     get_platform_context,
@@ -59,10 +59,15 @@ from dreadnode.app.server.runtime_events import (
     RuntimeSessionSnapshot,
     RuntimeSessionSyncStatus,
 )
+from dreadnode.app.server.runtime_token import get_token_source, materialize_runtime_token_file
 from dreadnode.app.server.session_hydrator import SessionHydrator
 from dreadnode.app.server.session_persistence import SessionPersistenceCoordinator
 from dreadnode.app.server.turn_coordinator import QueuedTurnRequest, SessionTurnCoordinator
-from dreadnode.app.server.websocket import serve_runtime_event_stream, serve_runtime_websocket
+from dreadnode.app.server.websocket import (
+    WebSocketConnectionRegistry,
+    serve_runtime_event_stream,
+    serve_runtime_websocket,
+)
 from dreadnode.tracing.span import bind_session_id
 
 if t.TYPE_CHECKING:
@@ -79,7 +84,6 @@ EventPayload = dict[str, t.Any]
 DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514"
 _BUNDLED_DEFAULT_CAPABILITY = "dreadnode"
 _PROJECT_MEMORY_SCOPE_PROJECT = "project"
-_PROJECT_MEMORY_PRELOAD_LIMIT = 20
 
 
 def _short_turn(turn_id: str | None) -> str:
@@ -312,6 +316,37 @@ def _turn_usage(events: t.Iterable[t.Any]) -> dict[str, int]:
         input_tokens += event.usage.input_tokens
         output_tokens += event.usage.output_tokens
     return {"input_tokens": input_tokens, "output_tokens": output_tokens}
+
+
+#: Stop reasons a client needs told about; everything else is a clean finish.
+_NOTABLE_STOP_REASONS = frozenset({"content_filter", "length"})
+
+
+def _turn_generation_stop_reason(events: t.Iterable[t.Any], *, produced_output: bool) -> str | None:
+    """Return a turn slice's generation outcome, preferring one worth surfacing.
+
+    A turn with tool calls holds one ``GenerationStep`` per react cycle and the
+    last one is normally benign, so reporting only the final reason would hide
+    a blocked or truncated earlier generation from clients recovering the turn
+    from this payload rather than the live event stream (ENG-7585).
+
+    That preference only applies while the turn still has nothing to show. When
+    the agent looped past the blocked generation and produced a final answer,
+    ``produced_output`` is true and the benign final reason wins — the notice
+    these reasons drive exists to explain missing output, and a recovered turn
+    is not missing any. Per-message ``generation_stop_reason`` metadata keeps
+    the full step-by-step record either way.
+    """
+    from dreadnode.agents.events import GenerationStep
+
+    last: str | None = None
+    for event in events:
+        if not isinstance(event, GenerationStep) or not event.stop_reason:
+            continue
+        if not produced_output and event.stop_reason.strip().casefold() in _NOTABLE_STOP_REASONS:
+            return event.stop_reason
+        last = event.stop_reason
+    return last
 
 
 def _resolve_session_binding(
@@ -609,6 +644,11 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
     registry = state.capability_registry
     synchronous = _is_synchronous_startup()
 
+    # Revoke a runtime token's live websockets and outstanding tickets the
+    # moment it is rotated out. Wired here rather than at the uvicorn entrypoint
+    # so every host of this app gets it (and so it is exercised by tests).
+    get_token_source().set_on_retire(_on_runtime_token_retired)
+
     # MCP server connections — start() is non-blocking by design
     # (CAP-MCP-009); the wait happens below if requested.
     if registry and registry.mcp_manager is None:
@@ -772,6 +812,7 @@ def _normalize_platform_session(s: dict[str, t.Any]) -> dict[str, t.Any]:
         "session_dir": None,
         "capability": None,
         "agent": s.get("agent"),
+        "model": s.get("model"),
         "title": s.get("title"),
         # Platform exposes the denormalized first-user-message snippet as
         # ``preview_text`` (SES-LST-011); the runtime's historical wire
@@ -823,6 +864,9 @@ class ServerState:
         # Single-use websocket auth tickets for browser clients, which cannot
         # set an Authorization header on the ws handshake. See ws_auth.py.
         self.ws_ticket_store = ws_auth.WsTicketStore()
+        # Live websocket connections, tracked so they can be force-closed when
+        # the runtime token rotates (lossless reconnect).
+        self.ws_connections = WebSocketConnectionRegistry()
 
     def _get_session_store(self) -> SessionStore | None:
         """Get the local SQLite session store for legacy read-only fallback.
@@ -876,6 +920,7 @@ class ServerState:
             session_dir=session_dir,
             capability=record.capability,
             agent=record.agent,
+            model=record.model or None,
             title=record.title,
             preview=preview,
         )
@@ -1149,6 +1194,7 @@ class ServerState:
                             session_dir=None,
                             capability=None,
                             agent=s.get("agent"),
+                            model=s.get("model"),
                             title=s.get("title"),
                             preview=s.get("preview_text") or s.get("preview"),
                             total_tokens=total_tokens,
@@ -1192,6 +1238,7 @@ class ServerState:
         engine: str | None = None,
         project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
         enable_project_memory_preload: bool = True,
+        project_memory_preload_limit: int = 20,
     ) -> SessionRuntime:
         """Create a new session or return an existing compatible one."""
         if session_id is not None and not session_id:
@@ -1258,6 +1305,7 @@ class ServerState:
             engine=engine,
             project_memory_scope_kind=project_memory_scope_kind,
             enable_project_memory_preload=enable_project_memory_preload,
+            project_memory_preload_limit=project_memory_preload_limit,
         )
         self._sessions[resolved_id] = session
         try:
@@ -1674,6 +1722,7 @@ class SessionRuntime:
         engine: str | None = None,
         project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
         enable_project_memory_preload: bool = True,
+        project_memory_preload_limit: int = 20,
     ) -> None:
         from dreadnode.policies import InteractiveSessionPolicy
 
@@ -1711,6 +1760,7 @@ class SessionRuntime:
         )
         self._project_memory_scope_kind = normalized_scope_kind or _PROJECT_MEMORY_SCOPE_PROJECT
         self._enable_project_memory_preload = enable_project_memory_preload
+        self._project_memory_preload_limit = project_memory_preload_limit
         self._project_memory_background_context = ""
         if (
             self._enable_project_memory_preload
@@ -2544,7 +2594,7 @@ class SessionRuntime:
                 workspace,
                 self.project_key,
                 scope_kind=self._project_memory_scope_kind,
-                limit=_PROJECT_MEMORY_PRELOAD_LIMIT,
+                limit=self._project_memory_preload_limit,
             )
         except Exception:
             logger.debug(
@@ -2984,12 +3034,16 @@ class SessionRuntime:
                 await self.persistence.drain_pending_flushes()
                 await self._persist_state_locked()
                 turn_events = _turn_slice()
+                response_text = _final_assistant_message(self._trajectory)
                 await self._publish_broker_event(
                     kind=runtime_events.EVENT_TURN_COMPLETED,
                     turn_id=request.turn_id,
                     payload={
                         "turn_id": request.turn_id,
-                        "response_text": _final_assistant_message(self._trajectory),
+                        "response_text": response_text,
+                        "generation_stop_reason": _turn_generation_stop_reason(
+                            turn_events, produced_output=bool(response_text.strip())
+                        ),
                         "tool_calls": _turn_tool_calls_completed(turn_events),
                         "usage": _turn_usage(turn_events),
                         "duration_ms": _turn_duration_ms(),
@@ -3069,6 +3123,22 @@ class SessionRuntime:
                     self.session_id[:8],
                     _short_turn(request.turn_id),
                 )
+
+                # Failed turns must still flush the transcript. Mirror the
+                # success and cancel paths: drain the in-flight mid-turn
+                # flushes, then run a final persist so the user message and
+                # any partial assistant/tool steps reach the platform.
+                # Without this the fire-and-forget flush tasks are left
+                # in-flight and get cancelled when the session tears down
+                # (close() -> persistence.close()), so a failed run shows an
+                # empty transcript even though its tool calls were recorded.
+                # Guarded so a persistence failure never masks the agent error.
+                try:
+                    await self.persistence.drain_pending_flushes()
+                    await self._persist_state_locked()
+                except Exception:
+                    logger.opt(exception=True).debug("error-path persist raised")
+
                 error_event: EventPayload = {"type": "error", "error": str(exc)}
                 await _emit_turn_event(error_event)
                 await self._publish_broker_raw_event(
@@ -3175,6 +3245,7 @@ class SessionRuntime:
             session_dir=str(self._session_dir) if self._session_dir else None,
             capability=self.capability_name,
             agent=self.agent_name,
+            model=self.model or None,
             title=self.title,
             preview=self._first_user_preview(),
             policy_name=policy_name,
@@ -3336,6 +3407,7 @@ async def create_session(request: SessionCreateRequest) -> SessionInfo:
             engine=request.engine,
             project_memory_scope_kind=request.project_memory_scope_kind,
             enable_project_memory_preload=request.enable_project_memory_preload,
+            project_memory_preload_limit=request.project_memory_preload_limit,
         )
     except ValueError as exc:
         # Session-id collision with different agent, unknown capability,
@@ -3544,7 +3616,7 @@ async def publish_runtime_event(request: SessionEventPublishRequest) -> dict[str
 
 
 @app.post("/api/ws/ticket", response_model=WsTicketResponse)
-async def create_ws_ticket_endpoint() -> WsTicketResponse | JSONResponse:
+async def create_ws_ticket_endpoint(request: Request) -> WsTicketResponse | JSONResponse:
     """Mint a short-lived, single-use websocket auth ticket.
 
     Browsers cannot set an ``Authorization`` header on a websocket handshake,
@@ -3555,14 +3627,26 @@ async def create_ws_ticket_endpoint() -> WsTicketResponse | JSONResponse:
     Protected by ``SandboxAuthMiddleware``: the caller must already present the
     runtime bearer token. Returns 400 when runtime auth is disabled, since
     tickets are meaningless there (local unsecured ws auth is headerless).
+
+    The ticket is bound to the token that minted it, and only a *current* token
+    may mint one — otherwise a client whose token was just rotated out could
+    trade its retired credential for a ticket and reconnect anyway.
     """
-    token = read_env_with_deprecation("DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN")
-    if token is None:
+    source = get_token_source()
+    if not source.enabled():
         return JSONResponse(
             {"detail": "Runtime websocket tickets require runtime auth"},
             status_code=400,
         )
-    ticket = get_state().ws_ticket_store.mint(ttl_seconds=30)
+
+    presented = bearer_token(request.headers.get("authorization"))
+    if presented is None or not source.is_current(presented):
+        return JSONResponse(
+            {"detail": "Websocket tickets require the current runtime token"},
+            status_code=401,
+        )
+
+    ticket = get_state().ws_ticket_store.mint(token=presented, ttl_seconds=30)
     return WsTicketResponse(ticket=ticket.ticket, expires_at=ticket.expires_at)
 
 
@@ -3593,6 +3677,7 @@ async def runtime_websocket_endpoint(websocket: WebSocket) -> None:
         get_session=lambda session_id: get_state().get_session(session_id),
         sync_accepted_turn=_sync_accepted_turn_with_platform,
         consume_ticket=get_state().ws_ticket_store.consume,
+        connection_registry=get_state().ws_connections,
     )
 
 
@@ -3612,6 +3697,7 @@ async def runtime_event_stream_endpoint(websocket: WebSocket) -> None:
         websocket,
         event_bus=get_state().event_bus,
         consume_ticket=get_state().ws_ticket_store.consume,
+        connection_registry=get_state().ws_connections,
     )
 
 
@@ -4393,6 +4479,7 @@ def _populate_registry(instance: t.Any) -> None:
     # 3. Install declared dependencies before discovery so preflight `checks:`
     # see installed binaries. Failures log loudly but never block load —
     # `checks:` is the user-visible signal for unmet prerequisites.
+    install_failures: dict[str, str] = {}
     if host == "sandbox" and workspace_dir is not None:
         try:
             from dreadnode.capabilities.install import install_dependencies
@@ -4408,6 +4495,7 @@ def _populate_registry(instance: t.Any) -> None:
                 )
             if install_report.cached:
                 logger.debug("Skipped install (already cached) for: {}", install_report.cached)
+            install_failures = dict(install_report.failed)
             for cap_name, error in install_report.failed.items():
                 logger.error("Dependency install failed for capability '{}': {}", cap_name, error)
         except Exception:
@@ -4416,6 +4504,7 @@ def _populate_registry(instance: t.Any) -> None:
             )
 
     # 4. Discover with host-exclusive source (CAP-LOAD-014)
+    shadowed_names: set[str] = set()
     try:
         result = Capability.discover(
             cwd=Path.cwd(),
@@ -4431,6 +4520,7 @@ def _populate_registry(instance: t.Any) -> None:
                     cap.name,
                     cap.path,
                 )
+                shadowed_names.add(cap.name)
                 continue
             registry.capabilities[cap.name] = cap
         registry.disabled_local = result.disabled
@@ -4448,6 +4538,31 @@ def _populate_registry(instance: t.Any) -> None:
         )
     except Exception:
         logger.exception("Failed to discover capabilities")
+
+    # A dependency install failure leaves the capability loaded but missing the
+    # packages its components import, so discovery alone reports it healthy.
+    # Stamp the failure onto component_health — without it the runtime returns a
+    # clean bill for a capability whose deps never landed (ENG-7599 / ENG-7607).
+    for cap_name, error in install_failures.items():
+        capability = registry.capabilities.get(cap_name)
+        # A shadowed name resolves to the bundled capability, which is healthy —
+        # stamping there would send operators after the wrong component.
+        if capability is None or cap_name in shadowed_names:
+            logger.warning(
+                "Dependency install failed for capability '{}' but it is not registered; "
+                "the failure will not appear in component health: {}",
+                cap_name,
+                error,
+            )
+            continue
+        capability.component_health.append(
+            {
+                "kind": "capability",
+                "name": cap_name,
+                "status": "error",
+                "error": f"Dependency install failed: {error}",
+            }
+        )
 
     # Bundled caps don't flow through Capability.discover(), so the
     # disabled-state filter that runs inside discover() never touches
@@ -4637,6 +4752,23 @@ def reset_app_state() -> None:
     app.state.server = ServerState()
 
 
+def _on_runtime_token_retired(retired: str) -> None:
+    """Revoke everything the retired runtime token still authorizes.
+
+    Rotation is how the platform severs a stale client. Closing its live
+    websockets is not enough on its own: an unredeemed ticket it minted before
+    the rotation would let it right back in for the rest of that ticket's TTL.
+    """
+    state = get_state()
+    closed = state.ws_connections.close_for_token(retired)
+    purged = state.ws_ticket_store.purge_for_token(retired)
+    logger.info(
+        "Runtime token retired | websockets_closed={} tickets_revoked={}",
+        closed,
+        purged,
+    )
+
+
 def run_server(
     instance: t.Any | None = None,
     *,
@@ -4681,6 +4813,10 @@ def run_server(
     state.runtime_url = f"http://{advertised_host}:{resolved_port}"
     state.runtime_token = read_env_with_deprecation("DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN")
     state.runtime_id = os.environ.get("DREADNODE_RUNTIME_ID")
+
+    # Materialize the token file so its existence signals to the platform that
+    # this runtime can be reconnected (token rotated) rather than restarted.
+    materialize_runtime_token_file()
 
     logger.info(f"Starting server at http://{resolved_host}:{resolved_port}")
 

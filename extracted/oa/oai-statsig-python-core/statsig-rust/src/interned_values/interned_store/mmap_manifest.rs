@@ -1,5 +1,6 @@
 use std::{
     fs::{create_dir_all, File},
+    io::Read,
     path::Path,
     time::UNIX_EPOCH,
 };
@@ -12,6 +13,8 @@ use std::os::windows::io::AsRawHandle;
 use crate::{log_w, StatsigErr};
 
 use super::TAG;
+
+const MAX_MMAP_MANIFEST_BYTES: usize = 64 * 1024;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct MmapManifest {
@@ -33,6 +36,13 @@ struct MmapArtifactIdentity {
     volume_serial_number: Option<u32>,
     #[cfg(windows)]
     file_index: Option<u64>,
+}
+
+pub(super) enum MmapV2Publication {
+    Absent,
+    Committed(File),
+    Incomplete,
+    Invalid(Option<String>),
 }
 
 impl MmapArtifactIdentity {
@@ -102,63 +112,91 @@ pub(super) fn write_mmap_manifest(
 }
 
 #[cfg(any(unix, windows))]
-pub(super) fn open_committed_mmap_v2(
+pub(super) fn inspect_mmap_v2_publication(
     manifest_path: &Path,
     v1_path: &Path,
     v2_path: &Path,
-) -> Result<Option<File>, StatsigErr> {
+) -> Result<MmapV2Publication, StatsigErr> {
     let v2_file = match File::open(v2_path) {
         Ok(file) => Some(file),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => return Err(StatsigErr::FileError(error.to_string())),
     };
-    let manifest_bytes = match std::fs::read(manifest_path) {
-        Ok(bytes) => bytes,
+    let manifest_file = match File::open(manifest_path) {
+        Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return if v2_file.is_some() {
-                Err(incomplete_v2_publication())
+                Ok(MmapV2Publication::Incomplete)
             } else {
-                Ok(None)
+                Ok(MmapV2Publication::Absent)
             };
         }
         Err(error) => return Err(StatsigErr::FileError(error.to_string())),
     };
+    let mut manifest_bytes = Vec::new();
+    manifest_file
+        .take((MAX_MMAP_MANIFEST_BYTES + 1) as u64)
+        .read_to_end(&mut manifest_bytes)
+        .map_err(|error| StatsigErr::FileError(error.to_string()))?;
+    if manifest_bytes.len() > MAX_MMAP_MANIFEST_BYTES {
+        return Ok(MmapV2Publication::Invalid(Some(format!(
+            "mmap manifest exceeds {MAX_MMAP_MANIFEST_BYTES} bytes"
+        ))));
+    }
     let manifest: MmapManifest = match serde_json::from_slice(&manifest_bytes) {
         Ok(manifest) => manifest,
         Err(error) => {
-            log_w!(TAG, "Ignoring invalid mmap manifest: {error}");
-            return Ok(None);
+            return Ok(MmapV2Publication::Invalid(Some(error.to_string())));
         }
     };
     let Some(v2_file) = v2_file else {
         return if manifest.v1.is_none() {
-            Err(incomplete_v2_publication())
+            Ok(MmapV2Publication::Incomplete)
         } else {
-            Ok(None)
+            Ok(MmapV2Publication::Invalid(None))
         };
     };
 
     let current_v2 = MmapArtifactIdentity::from_file(&v2_file)?;
     if manifest.v2 != current_v2 {
         return if manifest.v1.is_none() {
-            Err(incomplete_v2_publication())
+            Ok(MmapV2Publication::Incomplete)
         } else {
-            Ok(None)
+            Ok(MmapV2Publication::Invalid(None))
         };
     }
 
     if let Some(expected_v1) = manifest.v1 {
         let v1_file = match File::open(v1_path) {
             Ok(file) => file,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(MmapV2Publication::Invalid(None));
+            }
             Err(error) => return Err(StatsigErr::FileError(error.to_string())),
         };
         if expected_v1 != MmapArtifactIdentity::from_file(&v1_file)? {
-            return Ok(None);
+            return Ok(MmapV2Publication::Invalid(None));
         }
     }
 
-    Ok(Some(v2_file))
+    Ok(MmapV2Publication::Committed(v2_file))
+}
+
+#[cfg(any(unix, windows))]
+pub(super) fn open_committed_mmap_v2(
+    manifest_path: &Path,
+    v1_path: &Path,
+    v2_path: &Path,
+) -> Result<Option<File>, StatsigErr> {
+    match inspect_mmap_v2_publication(manifest_path, v1_path, v2_path)? {
+        MmapV2Publication::Committed(file) => Ok(Some(file)),
+        MmapV2Publication::Absent | MmapV2Publication::Invalid(None) => Ok(None),
+        MmapV2Publication::Invalid(Some(error)) => {
+            log_w!(TAG, "Ignoring invalid mmap manifest: {error}");
+            Ok(None)
+        }
+        MmapV2Publication::Incomplete => Err(incomplete_v2_publication()),
+    }
 }
 
 #[cfg(any(unix, windows))]
@@ -166,6 +204,15 @@ fn incomplete_v2_publication() -> StatsigErr {
     StatsigErr::InvalidOperation(
         "Interned mmap V2 publication is incomplete; retry preload".to_string(),
     )
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(super) fn inspect_mmap_v2_publication(
+    _manifest_path: &Path,
+    _v1_path: &Path,
+    _v2_path: &Path,
+) -> Result<MmapV2Publication, StatsigErr> {
+    Ok(MmapV2Publication::Absent)
 }
 
 #[cfg(not(any(unix, windows)))]

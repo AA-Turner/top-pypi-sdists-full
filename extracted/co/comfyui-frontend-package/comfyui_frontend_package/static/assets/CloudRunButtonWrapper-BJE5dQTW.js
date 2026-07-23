@@ -1,0 +1,2 @@
+import"./rolldown-runtime-B4f9JIsa.js";import{H as e,N as t,Vt as n,it as r,j as i,ut as a}from"./vendor-vue-core-cdiTEubU.js";import{Ni as o}from"./promotionUtils-DzZo8o5W.js";import{t as s}from"./ComfyQueueButton-5DrKWGze.js";import{t as c}from"./SubscribeToRun-BmBaCpAI.js";var l=e({__name:`CloudRunButtonWrapper`,setup(e){let{isActiveSubscription:l}=o(),u=i(()=>l.value?s:c);return(e,i)=>(r(),t(a(u.value),{key:n(l)?`queue`:`subscribe`}))}});export{l as default};
+//# sourceMappingURL=CloudRunButtonWrapper-BJE5dQTW.js.map

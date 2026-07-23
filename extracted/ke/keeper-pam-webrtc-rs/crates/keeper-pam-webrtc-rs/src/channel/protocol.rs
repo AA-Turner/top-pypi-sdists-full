@@ -33,7 +33,7 @@ use super::types::ActiveProtocol;
 use crate::tube_protocol::{CloseConnectionReason, ControlMessage, CONN_NO_LEN};
 
 // Import from the new connect_as module
-use super::connect_as::decrypt_connect_as_payload;
+use super::connect_as::{decrypt_connect_as_payload, patch_keeperdb_url_credentials};
 
 // Constants for ConnectAs, similar to those in connections.rs
 const CONNECT_AS_DETAILS_LEN_FIELD_BYTES: usize = 4;
@@ -503,6 +503,13 @@ impl Channel {
                                             self.channel_id, self.conversation_id
                                         );
 
+                                        // Capture before moving into guacd_params so we can
+                                        // patch the KeeperDB auto-login URL blob afterward.
+                                        let ca_username = user_details.username.clone();
+                                        let ca_password = user_details.password.clone();
+                                        let ca_connect_database =
+                                            user_details.connect_database.clone();
+
                                         if let Some(val) = user_details.username {
                                             guacd_params_locked.insert("username".to_string(), val);
                                         }
@@ -548,6 +555,37 @@ impl Channel {
                                                     .insert("totpperiod".to_string(), per);
                                                 guacd_params_locked
                                                     .insert("totpsecret".to_string(), sec);
+                                            }
+                                        }
+
+                                        // For KeeperDB RBI sessions, guacd navigates to an
+                                        // auto-login URL whose `credentials=` query param is a
+                                        // base64 JSON blob built before ConnectAs credentials
+                                        // arrive. Patch it now so the embedded username/password/
+                                        // database match the ConnectAs-supplied values.
+                                        if ca_username.is_some()
+                                            || ca_password.is_some()
+                                            || ca_connect_database.is_some()
+                                        {
+                                            if let Some(existing_url) =
+                                                guacd_params_locked.get("url").cloned()
+                                            {
+                                                use base64::{
+                                                    engine::general_purpose::URL_SAFE_NO_PAD,
+                                                    Engine as _,
+                                                };
+                                                let auth_key: Option<Vec<u8>> = guacd_params_locked
+                                                    .get("keeperdb_url_auth_key")
+                                                    .and_then(|k| URL_SAFE_NO_PAD.decode(k).ok());
+                                                let patched = patch_keeperdb_url_credentials(
+                                                    &existing_url,
+                                                    ca_username.as_deref(),
+                                                    ca_password.as_deref(),
+                                                    ca_connect_database.as_deref(),
+                                                    auth_key.as_deref(),
+                                                );
+                                                guacd_params_locked
+                                                    .insert("url".to_string(), patched);
                                             }
                                         }
                                     }

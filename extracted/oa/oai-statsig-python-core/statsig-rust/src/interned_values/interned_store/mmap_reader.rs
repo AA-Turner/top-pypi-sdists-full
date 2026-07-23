@@ -7,7 +7,9 @@ use ouroboros::self_referencing;
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString};
 
 use crate::{
-    evaluation::rkyv_value::ArchivedRkyvValue,
+    evaluation::{
+        dynamic_returnable::archived_returnable_stable_hash, rkyv_value::ArchivedRkyvValue,
+    },
     interned_values::mmap_data_v2::{
         ArchivedMmapDataV2, ArchivedMmapEvaluatorValue, ArchivedMmapReturnable, ArchivedMmapSpec,
         MmapDataV2,
@@ -16,18 +18,11 @@ use crate::{
     StatsigErr,
 };
 
-use super::{ArchivedMmapDataV1, MmapDataV1};
-
+use super::MmapPreloadOptions;
 mod materialize;
+mod memory;
 
-#[self_referencing]
-struct LoadedMmapDataV1 {
-    file: File,
-    mmap: Mmap,
-
-    #[borrows(mmap)]
-    archived: &'this ArchivedMmapDataV1,
-}
+pub use memory::MmapReaderMemorySnapshot;
 
 #[self_referencing]
 struct LoadedMmapArchiveV2 {
@@ -41,54 +36,36 @@ struct LoadedMmapArchiveV2 {
 struct LoadedMmapDataV2 {
     archive: LoadedMmapArchiveV2,
     regexes: AHashMap<u64, FancyRegex>,
+    returnable_stable_hashes: Option<AHashMap<u64, u64>>,
     explicit_parameters: OnceLock<AHashMap<usize, ExplicitParameters>>,
 }
 
-enum LoadedMmapData {
-    V1(LoadedMmapDataV1),
-    #[cfg_attr(not(test), allow(dead_code))]
-    V2(LoadedMmapDataV2),
-}
-
-static MMAP_DATA: OnceLock<LoadedMmapData> = OnceLock::new();
+static MMAP_DATA: OnceLock<LoadedMmapDataV2> = OnceLock::new();
 
 pub(super) fn has_v2() -> bool {
-    matches!(MMAP_DATA.get(), Some(LoadedMmapData::V2(_)))
+    MMAP_DATA.get().is_some()
 }
 
-pub(super) fn preload_v1(path: &Path) -> Result<(), StatsigErr> {
-    let file = File::open(path).map_err(|error| StatsigErr::FileError(error.to_string()))?;
-    let mmap =
-        unsafe { Mmap::map(&file).map_err(|error| StatsigErr::FileError(error.to_string()))? };
+pub(super) fn memory_snapshot() -> Result<Option<MmapReaderMemorySnapshot>, StatsigErr> {
+    let Some(data) = MMAP_DATA.get() else {
+        return Ok(None);
+    };
 
-    let loaded = LoadedMmapDataV1TryBuilder {
-        file,
-        mmap,
-        archived_builder: |mmap| rkyv::access::<ArchivedMmapDataV1, rkyv::rancor::Error>(mmap),
-    }
-    .try_build()
-    .map_err(|error| StatsigErr::SerializationError(error.to_string()))?;
-
-    let format_version = loaded.borrow_archived().format_version();
-    if format_version != MmapDataV1::FORMAT_VERSION {
-        return Err(StatsigErr::SerializationError(format!(
-            "Unsupported interned mmap format version {format_version}; expected {}",
-            MmapDataV1::FORMAT_VERSION
-        )));
-    }
-
-    MMAP_DATA
-        .set(LoadedMmapData::V1(loaded))
-        .map_err(|_| StatsigErr::LockFailure("Failed to set MMAP_DATA".to_string()))
+    let snapshot = memory::snapshot(
+        data.archive.borrow_file(),
+        data.archive.borrow_mmap(),
+        MmapDataV2::FORMAT_VERSION,
+    )?;
+    Ok(Some(snapshot))
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn preload_v2(path: &Path) -> Result<(), StatsigErr> {
+pub(super) fn preload_v2(path: &Path, options: &MmapPreloadOptions) -> Result<(), StatsigErr> {
     let file = File::open(path).map_err(|error| StatsigErr::FileError(error.to_string()))?;
-    preload_v2_file(file)
+    preload_v2_file(file, options)
 }
 
-pub(super) fn preload_v2_file(file: File) -> Result<(), StatsigErr> {
+pub(super) fn preload_v2_file(file: File, options: &MmapPreloadOptions) -> Result<(), StatsigErr> {
     let mmap =
         unsafe { Mmap::map(&file).map_err(|error| StatsigErr::FileError(error.to_string()))? };
 
@@ -101,15 +78,32 @@ pub(super) fn preload_v2_file(file: File) -> Result<(), StatsigErr> {
     .map_err(|error| StatsigErr::SerializationError(error.to_string()))?;
 
     let regexes = validate_archive(archive.borrow_archived())?;
+    let returnable_stable_hashes = options
+        .precompute_returnable_stable_hashes
+        .then(|| precompute_returnable_stable_hashes(archive.borrow_archived().returnables.iter()));
     MMAP_DATA
-        .set(LoadedMmapData::V2(LoadedMmapDataV2 {
+        .set(LoadedMmapDataV2 {
             archive,
             regexes,
+            returnable_stable_hashes,
             explicit_parameters: OnceLock::new(),
-        }))
+        })
         .map_err(|_| StatsigErr::LockFailure("Failed to set MMAP_DATA".to_string()))?;
     materialize::initialize_explicit_parameters();
     Ok(())
+}
+
+fn precompute_returnable_stable_hashes<'a>(
+    returnables: impl Iterator<
+        Item = (
+            &'a rkyv::primitive::ArchivedU64,
+            &'a ArchivedHashMap<ArchivedString, ArchivedRkyvValue>,
+        ),
+    >,
+) -> AHashMap<u64, u64> {
+    returnables
+        .map(|(hash, value)| (hash.to_native(), archived_returnable_stable_hash(value)))
+        .collect()
 }
 
 #[cfg(test)]
@@ -282,19 +276,11 @@ fn validate_returnable_reference(
 pub(super) fn get_string(hash: u64) -> Option<&'static str> {
     let data = MMAP_DATA.get()?;
     let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-    match data {
-        LoadedMmapData::V1(data) => data
-            .borrow_archived()
-            .strings
-            .get(&archived_hash)
-            .map(|value| value.as_str()),
-        LoadedMmapData::V2(data) => data
-            .archive
-            .borrow_archived()
-            .strings
-            .get(&archived_hash)
-            .map(|value| value.as_str()),
-    }
+    data.archive
+        .borrow_archived()
+        .strings
+        .get(&archived_hash)
+        .map(|value| value.as_str())
 }
 
 pub(super) fn get_returnable(
@@ -302,14 +288,19 @@ pub(super) fn get_returnable(
 ) -> Option<&'static ArchivedHashMap<ArchivedString, ArchivedRkyvValue>> {
     let data = MMAP_DATA.get()?;
     let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-    match data {
-        LoadedMmapData::V1(data) => data.borrow_archived().returnables.get(&archived_hash),
-        LoadedMmapData::V2(data) => data
-            .archive
-            .borrow_archived()
-            .returnables
-            .get(&archived_hash),
-    }
+    data.archive
+        .borrow_archived()
+        .returnables
+        .get(&archived_hash)
+}
+
+pub(super) fn get_returnable_stable_hash(hash: u64) -> Option<u64> {
+    MMAP_DATA
+        .get()?
+        .returnable_stable_hashes
+        .as_ref()?
+        .get(&hash)
+        .copied()
 }
 
 #[derive(Clone, Copy)]
@@ -320,9 +311,7 @@ pub(super) enum MmapSpecKind {
 }
 
 pub(super) fn get_spec(kind: MmapSpecKind, hash: u64) -> Option<&'static ArchivedMmapSpec> {
-    let LoadedMmapData::V2(data) = MMAP_DATA.get()? else {
-        return None;
-    };
+    let data = MMAP_DATA.get()?;
     let hash = rkyv::primitive::ArchivedU64::from_native(hash);
     let data = data.archive.borrow_archived();
     match kind {
@@ -338,9 +327,7 @@ pub(super) fn get_evaluator_value(
     &'static ArchivedMmapEvaluatorValue,
     Option<&'static FancyRegex>,
 )> {
-    let LoadedMmapData::V2(data) = MMAP_DATA.get()? else {
-        return None;
-    };
+    let data = MMAP_DATA.get()?;
     let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
     let value = data
         .archive

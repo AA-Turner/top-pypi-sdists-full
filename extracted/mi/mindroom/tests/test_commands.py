@@ -275,6 +275,8 @@ def test_get_command_help() -> None:
     assert "Simple Reminders:" in schedule_help
     assert "Agent and Team Workflows:" in schedule_help
     assert "in 5 minutes" in schedule_help
+    assert "Requires an explicit recurring polling cadence" in schedule_help
+    assert "Automatically converts to smart polling" not in schedule_help
 
     list_schedules_help = get_command_help("list_schedules")
     assert "List Schedules Command" in list_schedules_help
@@ -538,7 +540,7 @@ async def test_hi_command_uses_live_responder_candidates_when_available(tmp_path
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("extra_member", [None, "@bob:localhost"])
-async def test_desktop_command_resolves_exact_private_agent_from_router_candidates(
+async def test_desktop_command_resolves_exact_agent_from_router_candidates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     extra_member: str | None,
@@ -552,7 +554,6 @@ async def test_desktop_command_resolves_exact_private_agent_from_router_candidat
                 "code": {
                     "display_name": "Code",
                     "role": "Writes code",
-                    "private": {"per": "user_agent"},
                     "tools": ["desktop"],
                 },
             },

@@ -157,14 +157,17 @@ def list_connectors_in_registry(
         str,
         "Filter by implementation language (e.g., `python`, `java`, `manifest-only`). Empty string means no filter.",
     ] = "",
+    name_contains: Annotated[
+        str,
+        "Case-insensitive substring to match against connector names (e.g., `github`). Empty string means no filter.",
+    ] = "",
 ) -> ConnectorListResult:
-    """List connectors in the GCS registry with optional filtering.
+    """List connectors in the production registry, with optional filtering.
 
-    When filters are applied, reads the compiled `cloud_registry.json` index
-    for fast lookups. Without filters, falls back to scanning individual
-    metadata blobs (captures all connectors including OSS-only).
-
-    Requires GCS_CREDENTIALS environment variable to be set.
+    Filters can be combined; `name_contains` is a case-insensitive substring
+    match on the connector name (leading/trailing whitespace is ignored). To
+    inspect a single known connector, prefer `get_connector_registry_entry`
+    (metadata) or `list_connector_versions_in_registry` (versions) instead.
     """
     bucket_name = PROD_METADATA_SERVICE_BUCKET_NAME
 
@@ -205,6 +208,10 @@ def list_connectors_in_registry(
         )
     else:
         connectors = list_registry_connectors(bucket_name=bucket_name)
+
+    needle = name_contains.strip().lower()
+    if needle:
+        connectors = [c for c in connectors if needle in c.lower()]
 
     return ConnectorListResult(
         bucket_name=bucket_name,

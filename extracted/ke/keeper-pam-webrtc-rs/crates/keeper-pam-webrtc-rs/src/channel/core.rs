@@ -502,26 +502,18 @@ impl Channel {
                                             .or_else(|| config_map.get("ssl mode"))
                                             .and_then(|v| v.as_str());
                                         if let Some(mode) = ssl_mode {
-                                            let (tls_enabled, verify_mode) = match mode
-                                                .to_lowercase()
-                                                .as_str()
-                                            {
-                                                "disable" => ("false", ""),
-                                                "allow" | "prefer" | "require" => ("true", "none"),
-                                                "verify-ca" => ("true", "ca"),
-                                                "verify-full" => ("true", "full"),
-                                                _ => ("false", ""),
+                                            // Verification mode is derived by the proxy and is
+                                            // never sent over the handshake; SSL Mode only
+                                            // determines whether backend TLS is enabled.
+                                            let tls_enabled = match mode.to_lowercase().as_str() {
+                                                "allow" | "prefer" | "require" | "verify-ca"
+                                                | "verify-full" => "true",
+                                                _ => "false",
                                             };
                                             temp_db_params_map.insert(
                                                 "tls_enabled".to_string(),
                                                 tls_enabled.to_string(),
                                             );
-                                            if !verify_mode.is_empty() {
-                                                temp_db_params_map.insert(
-                                                    "tls_verify_mode".to_string(),
-                                                    verify_mode.to_string(),
-                                                );
-                                            }
                                         }
                                     }
 

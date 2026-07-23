@@ -71,11 +71,7 @@ class ModelConfig:
         # tgtylab + reverselab + example_flood 레이어 포함한 통합 프롬프트 사용
         try:
             from .system_prompt import get_pentest_system_prompt
-            model_hint = " ".join(
-                str(value or "")
-                for value in (self.provider, self.model, self.alias, self.base_url)
-            )
-            return get_pentest_system_prompt(model_hint)
+            return get_pentest_system_prompt(self.provider)
         except Exception:
             pass
         # fallback

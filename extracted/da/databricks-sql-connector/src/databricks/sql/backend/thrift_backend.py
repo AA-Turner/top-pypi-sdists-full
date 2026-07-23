@@ -12,7 +12,6 @@ from databricks.sql.common.unified_http_client import UnifiedHttpClient
 from databricks.sql.result_set import ThriftResultSet
 from databricks.sql.telemetry.models.event import StatementType
 
-
 if TYPE_CHECKING:
     from databricks.sql.client import Cursor
     from databricks.sql.result_set import ResultSet
@@ -680,7 +679,10 @@ class ThriftDatabricksClient(DatabricksClient):
                 num_rows,
             ) = convert_column_based_set_to_arrow_table(t_row_set.columns, description)
         elif t_row_set.arrowBatches is not None:
-            (arrow_table, num_rows,) = convert_arrow_based_set_to_arrow_table(
+            (
+                arrow_table,
+                num_rows,
+            ) = convert_arrow_based_set_to_arrow_table(
                 t_row_set.arrowBatches, lz4_compressed, schema_bytes
             )
         else:
@@ -801,7 +803,9 @@ class ThriftDatabricksClient(DatabricksClient):
             for col in t_table_schema.columns
         ]
 
-    def _results_message_to_execute_response(self, resp, operation_state):
+    def _results_message_to_execute_response(
+        self, resp, operation_state, num_modified_rows=None
+    ):
         if resp.directResults and resp.directResults.resultSetMetadata:
             t_result_set_metadata_resp = resp.directResults.resultSetMetadata
         else:
@@ -864,6 +868,7 @@ class ThriftDatabricksClient(DatabricksClient):
             is_staging_operation=t_result_set_metadata_resp.isStagingOperation,
             arrow_schema_bytes=schema_bytes,
             result_format=t_result_set_metadata_resp.resultFormat,
+            num_modified_rows=num_modified_rows,
         )
 
         return execute_response, has_more_rows
@@ -945,6 +950,7 @@ class ThriftDatabricksClient(DatabricksClient):
             self._check_command_not_in_error_or_closed_state(
                 op_handle, initial_operation_status_resp
             )
+        final_status_resp = initial_operation_status_resp
         operation_state = (
             initial_operation_status_resp
             and initial_operation_status_resp.operationState
@@ -956,7 +962,10 @@ class ThriftDatabricksClient(DatabricksClient):
             poll_resp = self._poll_for_status(op_handle)
             operation_state = poll_resp.operationState
             self._check_command_not_in_error_or_closed_state(op_handle, poll_resp)
-        return operation_state
+            final_status_resp = poll_resp
+        # Return the terminal status response (not just the state) so callers
+        # can read ``numModifiedRows`` — the DML affected-row count — from it.
+        return operation_state, final_status_resp
 
     def get_query_state(self, command_id: CommandId) -> CommandState:
         thrift_handle = command_id.to_thrift_handle()
@@ -1046,11 +1055,13 @@ class ThriftDatabricksClient(DatabricksClient):
             statement=operation,
             runAsync=True,
             # For async operation we don't want the direct results
-            getDirectResults=None
-            if async_op
-            else ttypes.TSparkGetDirectResults(
-                maxRows=max_rows,
-                maxBytes=max_bytes,
+            getDirectResults=(
+                None
+                if async_op
+                else ttypes.TSparkGetDirectResults(
+                    maxRows=max_rows,
+                    maxBytes=max_bytes,
+                )
             ),
             canReadArrowResult=True if pyarrow else False,
             canDecompressLZ4Result=lz4_compression,
@@ -1274,12 +1285,21 @@ class ThriftDatabricksClient(DatabricksClient):
         cursor.active_command_id = command_id
         self._check_direct_results_for_error(resp.directResults, self._host)
 
-        final_operation_state = self._wait_until_command_done(
+        final_operation_state, final_status_resp = self._wait_until_command_done(
             resp.operationHandle,
             resp.directResults and resp.directResults.operationStatus,
         )
 
-        return self._results_message_to_execute_response(resp, final_operation_state)
+        # ``numModifiedRows`` is populated by the server for DML statements
+        # (INSERT/UPDATE/DELETE/MERGE) and is None for SELECT. Surface it so it
+        # can flow to ``cursor.rowcount``.
+        num_modified_rows = (
+            final_status_resp.numModifiedRows if final_status_resp else None
+        )
+
+        return self._results_message_to_execute_response(
+            resp, final_operation_state, num_modified_rows
+        )
 
     def _handle_execute_response_async(self, resp, cursor):
         command_id = CommandId.from_thrift_handle(resp.operationHandle)

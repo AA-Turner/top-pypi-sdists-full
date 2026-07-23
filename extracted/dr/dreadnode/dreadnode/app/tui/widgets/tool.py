@@ -50,6 +50,13 @@ if TYPE_CHECKING:
 # noise. The link target rides on the OSC 8 hyperlink the label carries.
 URL_LABEL = "View in web"
 
+# Tool-specific link label. The ``report_item`` tool records structured
+# output (findings, assets, capability types) that surfaces on the web app's
+# Agent Output page. Naming the destination *and* the browser hand-off tells
+# users the page exists, where their output went, and that the link leaves
+# the terminal — more discoverable than the generic "View in web".
+AGENT_OUTPUT_URL_LABEL = "Open Agent Output in browser"
+
 
 class _ThemedHeading(Heading):
     """Rich heading subclass that mirrors the project's TCSS palette.
@@ -353,6 +360,7 @@ def render_tool_call(
     details: str = "",
     meta_style: str = FG_FAINTEST,
     url: str | None = None,
+    url_label: str = URL_LABEL,
     body: ConsoleRenderable | None = None,
 ) -> RenderableType:
     """Render a tool call — or a Group when a rich body is attached.
@@ -365,7 +373,9 @@ def render_tool_call(
     failure pops without changing the tool-name color.
 
     ``url`` renders a compact Textual-clickable link on the summary line
-    (currently used by the ``report`` tool). The raw URL is not shown.
+    (the ``report`` tool → session Reports tab, ``report_item`` → the web
+    Agent Output page). ``url_label`` names the destination; it defaults to
+    the generic :data:`URL_LABEL`. The raw URL is not shown.
 
     ``body`` is an optional Rich renderable (typically ``Markdown`` for
     the ``report`` tool's expanded view). When present, the function
@@ -401,7 +411,7 @@ def render_tool_call(
         meta_text = Text(meta_lines[0], style=meta_style)
         if url:
             meta_text.append(" - ", style=meta_style)
-            meta_text.append(URL_LABEL, style=_link_style(url))
+            meta_text.append(url_label, style=_link_style(url))
         for line in meta_lines[1:]:
             meta_text.append("\n", style=meta_style)
             meta_text.append(line, style=meta_style)
@@ -426,7 +436,7 @@ def render_tool_call(
 
     if url and not meta:
         url_text = Text()
-        url_text.append(URL_LABEL, style=_link_style(url))
+        url_text.append(url_label, style=_link_style(url))
         sections.append(
             _Section(first_prefix="│ ↗ ", continuation_prefix="│   ", body=url_text),
         )
@@ -465,6 +475,7 @@ class ToolCall(Widget):
     details: reactive[str] = reactive("", layout=True)
     error: reactive[str] = reactive("", layout=True)
     url: reactive[str] = reactive("", layout=True)
+    url_label: reactive[str] = reactive("", layout=True)
     expanded_body: reactive[str] = reactive("", layout=True)
     expanded_body_format: reactive[str] = reactive("", layout=True)
 
@@ -476,6 +487,7 @@ class ToolCall(Widget):
         meta: str | None = None,
         error: str | None = None,
         url: str | None = None,
+        url_label: str | None = None,
         expanded_body: str | None = None,
         expanded_body_format: str | None = None,
         **kwargs: Any,
@@ -486,6 +498,7 @@ class ToolCall(Widget):
         self.meta = meta or ""
         self.error = error or ""
         self.url = url or ""
+        self.url_label = url_label or ""
         self.expanded_body = expanded_body or ""
         self.expanded_body_format = expanded_body_format or ""
 
@@ -540,6 +553,7 @@ class ToolCall(Widget):
         details: str = "",
         error: str | None = None,
         url: str | None = None,
+        url_label: str | None = None,
         expanded_body: str | None = None,
         expanded_body_format: str | None = None,
     ) -> None:
@@ -551,6 +565,8 @@ class ToolCall(Widget):
             self.error = error
         if url:
             self.url = url
+        if url_label:
+            self.url_label = url_label
         if expanded_body:
             self.expanded_body = expanded_body
         if expanded_body_format:
@@ -581,6 +597,7 @@ class ToolCall(Widget):
                 self.tool_name,
                 meta=self.meta or None,
                 url=self.url or None,
+                url_label=self.url_label or URL_LABEL,
                 body=body,
             )
         return render_tool_call(
@@ -588,6 +605,7 @@ class ToolCall(Widget):
             meta=None if visible_details else (self.meta or None),
             details=visible_details,
             url=self.url or None,
+            url_label=self.url_label or URL_LABEL,
         )
 
     def action_open_url(self, url: str) -> None:

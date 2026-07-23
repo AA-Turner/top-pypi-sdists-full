@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AccountReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__159c8945326c35b29d1ebc3cee0ceaf15f106314c5b1bd9f9e99b0e6b54e3647)
+            type_hints = cached_type_hints(_typecheckingstub__159c8945326c35b29d1ebc3cee0ceaf15f106314c5b1bd9f9e99b0e6b54e3647)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -79,6 +83,155 @@ class AccountReference:
 
     def __repr__(self) -> str:
         return "AccountReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.AcmeDomainValidationReference",
+    jsii_struct_bases=[],
+    name_mapping={"acme_domain_validation_arn": "acmeDomainValidationArn"},
+)
+class AcmeDomainValidationReference:
+    def __init__(self, *, acme_domain_validation_arn: builtins.str) -> None:
+        '''A reference to a AcmeDomainValidation resource.
+
+        :param acme_domain_validation_arn: The Arn of the AcmeDomainValidation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_certificatemanager as interfaces_certificatemanager
+            
+            acme_domain_validation_reference = interfaces_certificatemanager.AcmeDomainValidationReference(
+                acme_domain_validation_arn="acmeDomainValidationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2f082673d80d23de00bc64c055947ebdfbff033619cec67dd64f2edfdfb19f6)
+            check_type(argname="argument acme_domain_validation_arn", value=acme_domain_validation_arn, expected_type=type_hints["acme_domain_validation_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acme_domain_validation_arn": acme_domain_validation_arn,
+        }
+
+    @builtins.property
+    def acme_domain_validation_arn(self) -> builtins.str:
+        '''The Arn of the AcmeDomainValidation resource.'''
+        result = self._values.get("acme_domain_validation_arn")
+        assert result is not None, "Required property 'acme_domain_validation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AcmeDomainValidationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.AcmeEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"acme_endpoint_arn": "acmeEndpointArn"},
+)
+class AcmeEndpointReference:
+    def __init__(self, *, acme_endpoint_arn: builtins.str) -> None:
+        '''A reference to a AcmeEndpoint resource.
+
+        :param acme_endpoint_arn: The AcmeEndpointArn of the AcmeEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_certificatemanager as interfaces_certificatemanager
+            
+            acme_endpoint_reference = interfaces_certificatemanager.AcmeEndpointReference(
+                acme_endpoint_arn="acmeEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__306a982bf59744dd8da1afdcfa0904590353198912b0a93472d7e74ec4df3293)
+            check_type(argname="argument acme_endpoint_arn", value=acme_endpoint_arn, expected_type=type_hints["acme_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acme_endpoint_arn": acme_endpoint_arn,
+        }
+
+    @builtins.property
+    def acme_endpoint_arn(self) -> builtins.str:
+        '''The AcmeEndpointArn of the AcmeEndpoint resource.'''
+        result = self._values.get("acme_endpoint_arn")
+        assert result is not None, "Required property 'acme_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AcmeEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.AcmeExternalAccountBindingReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "acme_external_account_binding_arn": "acmeExternalAccountBindingArn",
+    },
+)
+class AcmeExternalAccountBindingReference:
+    def __init__(self, *, acme_external_account_binding_arn: builtins.str) -> None:
+        '''A reference to a AcmeExternalAccountBinding resource.
+
+        :param acme_external_account_binding_arn: The AcmeExternalAccountBindingArn of the AcmeExternalAccountBinding resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_certificatemanager as interfaces_certificatemanager
+            
+            acme_external_account_binding_reference = interfaces_certificatemanager.AcmeExternalAccountBindingReference(
+                acme_external_account_binding_arn="acmeExternalAccountBindingArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf00c9f351d7c651cf1400d81a66cd919ff75aa88bc07d23ae5d19a51fa7ed33)
+            check_type(argname="argument acme_external_account_binding_arn", value=acme_external_account_binding_arn, expected_type=type_hints["acme_external_account_binding_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acme_external_account_binding_arn": acme_external_account_binding_arn,
+        }
+
+    @builtins.property
+    def acme_external_account_binding_arn(self) -> builtins.str:
+        '''The AcmeExternalAccountBindingArn of the AcmeExternalAccountBinding resource.'''
+        result = self._values.get("acme_external_account_binding_arn")
+        assert result is not None, "Required property 'acme_external_account_binding_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AcmeExternalAccountBindingReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -107,7 +260,7 @@ class CertificateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c8491a98fd)
+            type_hints = cached_type_hints(_typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c8491a98fd)
             check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "certificate_id": certificate_id,
@@ -135,7 +288,7 @@ class CertificateReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.IAccountRef")
 class IAccountRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Account.
@@ -155,7 +308,7 @@ class IAccountRef(
 
 class _IAccountRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Account.
 
@@ -178,11 +331,156 @@ typing.cast(typing.Any, IAccountRef).__jsii_proxy_class__ = lambda : _IAccountRe
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeDomainValidationRef"
+)
+class IAcmeDomainValidationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeDomainValidation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeDomainValidationRef")
+    def acme_domain_validation_ref(self) -> "AcmeDomainValidationReference":
+        '''(experimental) A reference to a AcmeDomainValidation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAcmeDomainValidationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeDomainValidation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeDomainValidationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeDomainValidationRef")
+    def acme_domain_validation_ref(self) -> "AcmeDomainValidationReference":
+        '''(experimental) A reference to a AcmeDomainValidation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AcmeDomainValidationReference", jsii.get(self, "acmeDomainValidationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAcmeDomainValidationRef).__jsii_proxy_class__ = lambda : _IAcmeDomainValidationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeEndpointRef"
+)
+class IAcmeEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeEndpointRef")
+    def acme_endpoint_ref(self) -> "AcmeEndpointReference":
+        '''(experimental) A reference to a AcmeEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAcmeEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeEndpointRef")
+    def acme_endpoint_ref(self) -> "AcmeEndpointReference":
+        '''(experimental) A reference to a AcmeEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AcmeEndpointReference", jsii.get(self, "acmeEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAcmeEndpointRef).__jsii_proxy_class__ = lambda : _IAcmeEndpointRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeExternalAccountBindingRef"
+)
+class IAcmeExternalAccountBindingRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeExternalAccountBinding.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeExternalAccountBindingRef")
+    def acme_external_account_binding_ref(
+        self,
+    ) -> "AcmeExternalAccountBindingReference":
+        '''(experimental) A reference to a AcmeExternalAccountBinding resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAcmeExternalAccountBindingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcmeExternalAccountBinding.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_certificatemanager.IAcmeExternalAccountBindingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeExternalAccountBindingRef")
+    def acme_external_account_binding_ref(
+        self,
+    ) -> "AcmeExternalAccountBindingReference":
+        '''(experimental) A reference to a AcmeExternalAccountBinding resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AcmeExternalAccountBindingReference", jsii.get(self, "acmeExternalAccountBindingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAcmeExternalAccountBindingRef).__jsii_proxy_class__ = lambda : _IAcmeExternalAccountBindingRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.ICertificateRef"
 )
 class ICertificateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
@@ -202,7 +500,7 @@ class ICertificateRef(
 
 class _ICertificateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
 
@@ -226,8 +524,14 @@ typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICerti
 
 __all__ = [
     "AccountReference",
+    "AcmeDomainValidationReference",
+    "AcmeEndpointReference",
+    "AcmeExternalAccountBindingReference",
     "CertificateReference",
     "IAccountRef",
+    "IAcmeDomainValidationRef",
+    "IAcmeEndpointRef",
+    "IAcmeExternalAccountBindingRef",
     "ICertificateRef",
 ]
 
@@ -240,6 +544,27 @@ def _typecheckingstub__159c8945326c35b29d1ebc3cee0ceaf15f106314c5b1bd9f9e99b0e6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c2f082673d80d23de00bc64c055947ebdfbff033619cec67dd64f2edfdfb19f6(
+    *,
+    acme_domain_validation_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__306a982bf59744dd8da1afdcfa0904590353198912b0a93472d7e74ec4df3293(
+    *,
+    acme_endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf00c9f351d7c651cf1400d81a66cd919ff75aa88bc07d23ae5d19a51fa7ed33(
+    *,
+    acme_external_account_binding_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c8491a98fd(
     *,
     certificate_id: builtins.str,
@@ -247,5 +572,5 @@ def _typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c84
     """Type checking stubs"""
     pass
 
-for cls in [IAccountRef, ICertificateRef]:
+for cls in [IAccountRef, IAcmeDomainValidationRef, IAcmeEndpointRef, IAcmeExternalAccountBindingRef, ICertificateRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

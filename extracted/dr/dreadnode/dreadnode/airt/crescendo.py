@@ -15,6 +15,7 @@ from dreadnode.core.meta import TrialCandidate
 from dreadnode.core.scorer import Scorer
 from dreadnode.core.transforms import Transform, TransformsLike
 from dreadnode.generators.generator import Generator, get_generator
+from dreadnode.generators.proxy import resolve_dn_model_to_generator
 from dreadnode.optimization import Study
 from dreadnode.optimization.stopping import score_value
 from dreadnode.samplers import iterative_sampler
@@ -122,12 +123,15 @@ def crescendo_attack(
     # Replace {goal} placeholder in the template
     system_prompt_template = variant_system_prompt.format(goal=goal)
 
-    # Resolve generator once for reuse across turns
+    # Resolve generator once for reuse across turns. `dn/*` ids route through the
+    # platform gateway (get_generator can't resolve them); non-dn strings pass
+    # through unchanged.
+    resolved_attacker = resolve_dn_model_to_generator(attacker_model)
     attacker_generator: Generator
-    if isinstance(attacker_model, Generator):
-        attacker_generator = attacker_model
+    if isinstance(resolved_attacker, Generator):
+        attacker_generator = resolved_attacker
     else:
-        attacker_generator = get_generator(attacker_model)
+        attacker_generator = get_generator(resolved_attacker)
 
     # Create the refiner that generates the next prompt in the conversation
     async def crescendo_refiner(trials: "list[Trial[str]]") -> str:

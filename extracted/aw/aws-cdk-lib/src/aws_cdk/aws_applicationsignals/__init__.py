@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,48 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_applicationsignals import (
-    DiscoveryReference as _DiscoveryReference_98a0e1a1,
-    GroupingConfigurationReference as _GroupingConfigurationReference_e449fdf2,
-    IDiscoveryRef as _IDiscoveryRef_04ec4c36,
-    IGroupingConfigurationRef as _IGroupingConfigurationRef_b3b19f75,
-    IServiceLevelObjectiveRef as _IServiceLevelObjectiveRef_54989f43,
-    ServiceLevelObjectiveReference as _ServiceLevelObjectiveReference_d462c55f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_applicationsignals as _aws_applicationsignals_54ce25b5
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_applicationsignals_54ce25b5 = _LazyImport("aws_cdk.interfaces.aws_applicationsignals")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDiscoveryRef_04ec4c36)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationsignals_54ce25b5.IDiscoveryRef)
 class CfnDiscovery(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_applicationsignals.CfnDiscovery",
 ):
@@ -135,7 +125,7 @@ class CfnDiscovery(
         :param id: Construct identifier for this resource (unique in its scope).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__431b690cfc38177c6d13e2a64c92a9b242c6a79b7a4c3d863419e7fee6120750)
+            type_hints = cached_type_hints(_typecheckingstub__431b690cfc38177c6d13e2a64c92a9b242c6a79b7a4c3d863419e7fee6120750)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDiscoveryProps()
@@ -150,18 +140,18 @@ class CfnDiscovery(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e398642b74895631a145c04842032f1c33e946c3fe37654680dadde0099457e8)
+            type_hints = cached_type_hints(_typecheckingstub__e398642b74895631a145c04842032f1c33e946c3fe37654680dadde0099457e8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDiscovery", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__169149a48e72c8ecdaddbc89a3281a63982fa5a6a224a652a20963505c16cf6d)
+            type_hints = cached_type_hints(_typecheckingstub__169149a48e72c8ecdaddbc89a3281a63982fa5a6a224a652a20963505c16cf6d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -174,7 +164,7 @@ class CfnDiscovery(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb458e3d0e3086df3dd6729e5a3b2db446683118361abbfeb5b60c322d39396e)
+            type_hints = cached_type_hints(_typecheckingstub__eb458e3d0e3086df3dd6729e5a3b2db446683118361abbfeb5b60c322d39396e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -205,9 +195,9 @@ class CfnDiscovery(
 
     @builtins.property
     @jsii.member(jsii_name="discoveryRef")
-    def discovery_ref(self) -> "_DiscoveryReference_98a0e1a1":
+    def discovery_ref(self) -> "_aws_applicationsignals_54ce25b5.DiscoveryReference":
         '''A reference to a Discovery resource.'''
-        return typing.cast("_DiscoveryReference_98a0e1a1", jsii.get(self, "discoveryRef"))
+        return typing.cast("_aws_applicationsignals_54ce25b5.DiscoveryReference", jsii.get(self, "discoveryRef"))
 
 
 @jsii.data_type(
@@ -244,9 +234,9 @@ class CfnDiscoveryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupingConfigurationRef_b3b19f75)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationsignals_54ce25b5.IGroupingConfigurationRef)
 class CfnGroupingConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_applicationsignals.CfnGroupingConfiguration",
 ):
@@ -278,7 +268,7 @@ class CfnGroupingConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        grouping_attribute_definitions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroupingConfiguration.GroupingAttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        grouping_attribute_definitions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroupingConfiguration.GroupingAttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::ApplicationSignals::GroupingConfiguration``.
 
@@ -287,7 +277,7 @@ class CfnGroupingConfiguration(
         :param grouping_attribute_definitions: An array of grouping attribute definitions that specify how services should be grouped based on various attributes and source keys.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55532ed92820a19cd89fdea2459ad5e1c62c57066396013b794bd07c6ac99dc7)
+            type_hints = cached_type_hints(_typecheckingstub__55532ed92820a19cd89fdea2459ad5e1c62c57066396013b794bd07c6ac99dc7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupingConfigurationProps(
@@ -304,18 +294,18 @@ class CfnGroupingConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8a6205301473dd0abbf7d9e514ff1e3dd484388b3279d11866578aee510c5ea)
+            type_hints = cached_type_hints(_typecheckingstub__c8a6205301473dd0abbf7d9e514ff1e3dd484388b3279d11866578aee510c5ea)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroupingConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a3e17541436550f60b4791ec84a0a3f55e01116438640d7611729b4a57c83f2)
+            type_hints = cached_type_hints(_typecheckingstub__2a3e17541436550f60b4791ec84a0a3f55e01116438640d7611729b4a57c83f2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -328,7 +318,7 @@ class CfnGroupingConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda9952303bd2ef359ba71cc1d51f0cf288102f05b353d4815dc5d37feca2339)
+            type_hints = cached_type_hints(_typecheckingstub__cda9952303bd2ef359ba71cc1d51f0cf288102f05b353d4815dc5d37feca2339)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -370,25 +360,27 @@ class CfnGroupingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="groupingConfigurationRef")
-    def grouping_configuration_ref(self) -> "_GroupingConfigurationReference_e449fdf2":
+    def grouping_configuration_ref(
+        self,
+    ) -> "_aws_applicationsignals_54ce25b5.GroupingConfigurationReference":
         '''A reference to a GroupingConfiguration resource.'''
-        return typing.cast("_GroupingConfigurationReference_e449fdf2", jsii.get(self, "groupingConfigurationRef"))
+        return typing.cast("_aws_applicationsignals_54ce25b5.GroupingConfigurationReference", jsii.get(self, "groupingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupingAttributeDefinitions")
     def grouping_attribute_definitions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]]:
         '''An array of grouping attribute definitions that specify how services should be grouped based on various attributes and source keys.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]], jsii.get(self, "groupingAttributeDefinitions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]], jsii.get(self, "groupingAttributeDefinitions"))
 
     @grouping_attribute_definitions.setter
     def grouping_attribute_definitions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d78d0fae36bb4fcb95bd95998dbc65997f7d545af59f216256213408c4f30f2)
+            type_hints = cached_type_hints(_typecheckingstub__7d78d0fae36bb4fcb95bd95998dbc65997f7d545af59f216256213408c4f30f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupingAttributeDefinitions", value) # pyright: ignore[reportArgumentType]
 
@@ -435,7 +427,7 @@ class CfnGroupingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4809aa4639bc02468e9643d2a4f1a9e5305f3985a02486a04a21025dc2913b23)
+                type_hints = cached_type_hints(_typecheckingstub__4809aa4639bc02468e9643d2a4f1a9e5305f3985a02486a04a21025dc2913b23)
                 check_type(argname="argument grouping_name", value=grouping_name, expected_type=type_hints["grouping_name"])
                 check_type(argname="argument grouping_source_keys", value=grouping_source_keys, expected_type=type_hints["grouping_source_keys"])
                 check_type(argname="argument default_grouping_value", value=default_grouping_value, expected_type=type_hints["default_grouping_value"])
@@ -502,7 +494,7 @@ class CfnGroupingConfigurationProps:
     def __init__(
         self,
         *,
-        grouping_attribute_definitions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroupingConfiguration.GroupingAttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        grouping_attribute_definitions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroupingConfiguration.GroupingAttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnGroupingConfiguration``.
 
@@ -528,7 +520,7 @@ class CfnGroupingConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1092a665e6fb60575de2d22516416485dc448d30b228f509e488593e009ff91)
+            type_hints = cached_type_hints(_typecheckingstub__f1092a665e6fb60575de2d22516416485dc448d30b228f509e488593e009ff91)
             check_type(argname="argument grouping_attribute_definitions", value=grouping_attribute_definitions, expected_type=type_hints["grouping_attribute_definitions"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "grouping_attribute_definitions": grouping_attribute_definitions,
@@ -537,14 +529,14 @@ class CfnGroupingConfigurationProps:
     @builtins.property
     def grouping_attribute_definitions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]]:
         '''An array of grouping attribute definitions that specify how services should be grouped based on various attributes and source keys.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-groupingconfiguration.html#cfn-applicationsignals-groupingconfiguration-groupingattributedefinitions
         '''
         result = self._values.get("grouping_attribute_definitions")
         assert result is not None, "Required property 'grouping_attribute_definitions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupingConfiguration.GroupingAttributeDefinitionProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -558,9 +550,9 @@ class CfnGroupingConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceLevelObjectiveRef_54989f43, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationsignals_54ce25b5.IServiceLevelObjectiveRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnServiceLevelObjective(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_applicationsignals.CfnServiceLevelObjective",
 ):
@@ -847,13 +839,13 @@ class CfnServiceLevelObjective(
         id: builtins.str,
         *,
         name: builtins.str,
-        burn_rate_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.BurnRateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        burn_rate_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.BurnRateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        exclusion_windows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.ExclusionWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        goal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.GoalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        request_based_sli: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.RequestBasedSliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sli: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.SliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        exclusion_windows: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.ExclusionWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        goal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.GoalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_based_sli: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.RequestBasedSliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sli: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.SliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ApplicationSignals::ServiceLevelObjective``.
 
@@ -869,7 +861,7 @@ class CfnServiceLevelObjective(
         :param tags: A list of key-value pairs to associate with the SLO. You can associate as many as 50 tags with an SLO. To be able to associate tags with the SLO when you create the SLO, you must have the cloudwatch:TagResource permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8476d024be5b448cfb8f9ae2f80fa7f2083296f712cdb7cd12e69365dd7adba1)
+            type_hints = cached_type_hints(_typecheckingstub__8476d024be5b448cfb8f9ae2f80fa7f2083296f712cdb7cd12e69365dd7adba1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceLevelObjectiveProps(
@@ -889,13 +881,13 @@ class CfnServiceLevelObjective(
     @builtins.classmethod
     def arn_for_service_level_objective(
         cls,
-        resource: "_IServiceLevelObjectiveRef_54989f43",
+        resource: "_aws_applicationsignals_54ce25b5.IServiceLevelObjectiveRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50a8d652cbf22349e5d84f80af59842df8ded75cea6b970f58214a8f492fd4f8)
+            type_hints = cached_type_hints(_typecheckingstub__50a8d652cbf22349e5d84f80af59842df8ded75cea6b970f58214a8f492fd4f8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServiceLevelObjective", [resource]))
 
@@ -907,18 +899,18 @@ class CfnServiceLevelObjective(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94e44eb419dbbf730aa60c7d8e2d423279ca1b683a468ce398085d7e403dd625)
+            type_hints = cached_type_hints(_typecheckingstub__94e44eb419dbbf730aa60c7d8e2d423279ca1b683a468ce398085d7e403dd625)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceLevelObjective", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71593741af71e952b8edcbf3d4a100ccac3627fda6dcff137c7d24df9820e5bb)
+            type_hints = cached_type_hints(_typecheckingstub__71593741af71e952b8edcbf3d4a100ccac3627fda6dcff137c7d24df9820e5bb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -931,7 +923,7 @@ class CfnServiceLevelObjective(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__922e83db8165cd861bbc31a25dc4a9c84e6441a3e72c10857eb4ba5ae99314cd)
+            type_hints = cached_type_hints(_typecheckingstub__922e83db8165cd861bbc31a25dc4a9c84e6441a3e72c10857eb4ba5ae99314cd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -979,9 +971,9 @@ class CfnServiceLevelObjective(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -995,9 +987,11 @@ class CfnServiceLevelObjective(
 
     @builtins.property
     @jsii.member(jsii_name="serviceLevelObjectiveRef")
-    def service_level_objective_ref(self) -> "_ServiceLevelObjectiveReference_d462c55f":
+    def service_level_objective_ref(
+        self,
+    ) -> "_aws_applicationsignals_54ce25b5.ServiceLevelObjectiveReference":
         '''A reference to a ServiceLevelObjective resource.'''
-        return typing.cast("_ServiceLevelObjectiveReference_d462c55f", jsii.get(self, "serviceLevelObjectiveRef"))
+        return typing.cast("_aws_applicationsignals_54ce25b5.ServiceLevelObjectiveReference", jsii.get(self, "serviceLevelObjectiveRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1008,7 +1002,7 @@ class CfnServiceLevelObjective(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7d1b42972f3b8a4430dca27e7ecab3fce56490ad1edcfabdc346becf5f4c998)
+            type_hints = cached_type_hints(_typecheckingstub__e7d1b42972f3b8a4430dca27e7ecab3fce56490ad1edcfabdc346becf5f4c998)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1016,17 +1010,17 @@ class CfnServiceLevelObjective(
     @jsii.member(jsii_name="burnRateConfigurations")
     def burn_rate_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]]:
         '''Each object in this array defines the length of the look-back window used to calculate one burn rate metric for this SLO.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]], jsii.get(self, "burnRateConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]], jsii.get(self, "burnRateConfigurations"))
 
     @burn_rate_configurations.setter
     def burn_rate_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__485d9b0fd57b50948a9f2d1207185ec9c2cc9dfe96eec7b166b7ededffcad772)
+            type_hints = cached_type_hints(_typecheckingstub__485d9b0fd57b50948a9f2d1207185ec9c2cc9dfe96eec7b166b7ededffcad772)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "burnRateConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -1039,7 +1033,7 @@ class CfnServiceLevelObjective(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6761a51565a6d9d6b93723803df5fa7735ec11aa5f14c9cc222e4e60eb54506)
+            type_hints = cached_type_hints(_typecheckingstub__c6761a51565a6d9d6b93723803df5fa7735ec11aa5f14c9cc222e4e60eb54506)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1047,17 +1041,17 @@ class CfnServiceLevelObjective(
     @jsii.member(jsii_name="exclusionWindows")
     def exclusion_windows(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]]:
         '''The time window to be excluded from the SLO performance metrics.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]], jsii.get(self, "exclusionWindows"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]], jsii.get(self, "exclusionWindows"))
 
     @exclusion_windows.setter
     def exclusion_windows(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12094042b1bb44e7cdfb19ae3553ea8b1db7d2b3b66cc338aec192856d68565e)
+            type_hints = cached_type_hints(_typecheckingstub__12094042b1bb44e7cdfb19ae3553ea8b1db7d2b3b66cc338aec192856d68565e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "exclusionWindows", value) # pyright: ignore[reportArgumentType]
 
@@ -1065,17 +1059,17 @@ class CfnServiceLevelObjective(
     @jsii.member(jsii_name="goal")
     def goal(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.GoalProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.GoalProperty"]]:
         '''This structure contains the attributes that determine the goal of an SLO.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.GoalProperty"]], jsii.get(self, "goal"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.GoalProperty"]], jsii.get(self, "goal"))
 
     @goal.setter
     def goal(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.GoalProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.GoalProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f72f1f3f286714a7cb6611be91fc84bc135d11974635585192dc6a6bbfe2f51e)
+            type_hints = cached_type_hints(_typecheckingstub__f72f1f3f286714a7cb6611be91fc84bc135d11974635585192dc6a6bbfe2f51e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "goal", value) # pyright: ignore[reportArgumentType]
 
@@ -1083,17 +1077,17 @@ class CfnServiceLevelObjective(
     @jsii.member(jsii_name="requestBasedSli")
     def request_based_sli(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliProperty"]]:
         '''A structure containing information about the performance metric that this SLO monitors, if this is a request-based SLO.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliProperty"]], jsii.get(self, "requestBasedSli"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliProperty"]], jsii.get(self, "requestBasedSli"))
 
     @request_based_sli.setter
     def request_based_sli(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85c3a53f1420ec52267d0c5ef83b407de2a88d1eff567b79facf44748e778f2f)
+            type_hints = cached_type_hints(_typecheckingstub__85c3a53f1420ec52267d0c5ef83b407de2a88d1eff567b79facf44748e778f2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requestBasedSli", value) # pyright: ignore[reportArgumentType]
 
@@ -1101,30 +1095,33 @@ class CfnServiceLevelObjective(
     @jsii.member(jsii_name="sli")
     def sli(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliProperty"]]:
         '''A structure containing information about the performance metric that this SLO monitors, if this is a period-based SLO.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliProperty"]], jsii.get(self, "sli"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliProperty"]], jsii.get(self, "sli"))
 
     @sli.setter
     def sli(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__938ccf6991aba4b5875a4ca09dfcdb00a5c7e9a92bba0e785ddfbebb228037c3)
+            type_hints = cached_type_hints(_typecheckingstub__938ccf6991aba4b5875a4ca09dfcdb00a5c7e9a92bba0e785ddfbebb228037c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sli", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the SLO.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45578973503123093d3b0c8f845e2df0c9ad023b7df510f3a7b7ee7abcccd506)
+            type_hints = cached_type_hints(_typecheckingstub__45578973503123093d3b0c8f845e2df0c9ad023b7df510f3a7b7ee7abcccd506)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1161,7 +1158,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6b8bb721cb69256e1874ed2434c876ca06e731c0455e767d0cf32adcf3a13207)
+                type_hints = cached_type_hints(_typecheckingstub__6b8bb721cb69256e1874ed2434c876ca06e731c0455e767d0cf32adcf3a13207)
                 check_type(argname="argument look_back_window_minutes", value=look_back_window_minutes, expected_type=type_hints["look_back_window_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "look_back_window_minutes": look_back_window_minutes,
@@ -1227,7 +1224,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bb256cb6878f107649da0ff6e94d5a653ad8e2c683a434ba458525e129419535)
+                type_hints = cached_type_hints(_typecheckingstub__bb256cb6878f107649da0ff6e94d5a653ad8e2c683a434ba458525e129419535)
                 check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
                 check_type(argname="argument duration_unit", value=duration_unit, expected_type=type_hints["duration_unit"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
@@ -1310,7 +1307,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6cbbe131565e0a6fbbbdb80ec284ef94ceea8af44cba7908a46efe65116a92ef)
+                type_hints = cached_type_hints(_typecheckingstub__6cbbe131565e0a6fbbbdb80ec284ef94ceea8af44cba7908a46efe65116a92ef)
                 check_type(argname="argument operation_name", value=operation_name, expected_type=type_hints["operation_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "operation_name": operation_name,
@@ -1348,8 +1345,8 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            selection_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.SelectionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            composite_sli_components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            selection_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.SelectionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            composite_sli_components: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.CompositeSliComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param selection_config: 
@@ -1379,7 +1376,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d01291cb4a8f53e672d552c3c4677fcf54d725993377589d02699e4b90490c7c)
+                type_hints = cached_type_hints(_typecheckingstub__d01291cb4a8f53e672d552c3c4677fcf54d725993377589d02699e4b90490c7c)
                 check_type(argname="argument selection_config", value=selection_config, expected_type=type_hints["selection_config"])
                 check_type(argname="argument composite_sli_components", value=composite_sli_components, expected_type=type_hints["composite_sli_components"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1391,23 +1388,23 @@ class CfnServiceLevelObjective(
         @builtins.property
         def selection_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SelectionConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SelectionConfigProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositesliconfig.html#cfn-applicationsignals-servicelevelobjective-compositesliconfig-selectionconfig
             '''
             result = self._values.get("selection_config")
             assert result is not None, "Required property 'selection_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SelectionConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SelectionConfigProperty"], result)
 
         @builtins.property
         def composite_sli_components(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-compositesliconfig.html#cfn-applicationsignals-servicelevelobjective-compositesliconfig-compositeslicomponents
             '''
             result = self._values.get("composite_sli_components")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliComponentProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1432,7 +1429,7 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            dependency_key_attributes: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            dependency_key_attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
             dependency_operation_name: builtins.str,
         ) -> None:
             '''Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
@@ -1457,7 +1454,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__05a6abeac0a72f5c57c47767d3431f868e43bda859b6f5468a53d09c807465a2)
+                type_hints = cached_type_hints(_typecheckingstub__05a6abeac0a72f5c57c47767d3431f868e43bda859b6f5468a53d09c807465a2)
                 check_type(argname="argument dependency_key_attributes", value=dependency_key_attributes, expected_type=type_hints["dependency_key_attributes"])
                 check_type(argname="argument dependency_operation_name", value=dependency_operation_name, expected_type=type_hints["dependency_operation_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1468,7 +1465,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def dependency_key_attributes(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
             '''If this SLO is related to a metric collected by Application Signals, you must use this field to specify which dependency the SLO metric is related to.
 
             - ``Type`` designates the type of object this is.
@@ -1481,7 +1478,7 @@ class CfnServiceLevelObjective(
             '''
             result = self._values.get("dependency_key_attributes")
             assert result is not None, "Required property 'dependency_key_attributes' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def dependency_operation_name(self) -> builtins.str:
@@ -1535,7 +1532,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9e8e6b95cda618658802fc7b704459e5b42989b01fe12f60c38caea77f865804)
+                type_hints = cached_type_hints(_typecheckingstub__9e8e6b95cda618658802fc7b704459e5b42989b01fe12f60c38caea77f865804)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1592,9 +1589,9 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            window: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.WindowProperty", typing.Dict[builtins.str, typing.Any]]],
+            window: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.WindowProperty", typing.Dict[builtins.str, typing.Any]]],
             reason: typing.Optional[builtins.str] = None,
-            recurrence_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.RecurrenceRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            recurrence_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.RecurrenceRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start_time: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The time window to be excluded from the SLO performance metrics.
@@ -1628,7 +1625,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5f50a7c6c189c1968d91d7385dec3a8615dab8502954c829a9f0fd21cc6ee334)
+                type_hints = cached_type_hints(_typecheckingstub__5f50a7c6c189c1968d91d7385dec3a8615dab8502954c829a9f0fd21cc6ee334)
                 check_type(argname="argument window", value=window, expected_type=type_hints["window"])
                 check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
                 check_type(argname="argument recurrence_rule", value=recurrence_rule, expected_type=type_hints["recurrence_rule"])
@@ -1646,14 +1643,14 @@ class CfnServiceLevelObjective(
         @builtins.property
         def window(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.WindowProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.WindowProperty"]:
             '''The time exclusion window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-exclusionwindow.html#cfn-applicationsignals-servicelevelobjective-exclusionwindow-window
             '''
             result = self._values.get("window")
             assert result is not None, "Required property 'window' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.WindowProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.WindowProperty"], result)
 
         @builtins.property
         def reason(self) -> typing.Optional[builtins.str]:
@@ -1671,13 +1668,13 @@ class CfnServiceLevelObjective(
         @builtins.property
         def recurrence_rule(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RecurrenceRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RecurrenceRuleProperty"]]:
             '''The recurrence rule for the time exclusion window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-exclusionwindow.html#cfn-applicationsignals-servicelevelobjective-exclusionwindow-recurrencerule
             '''
             result = self._values.get("recurrence_rule")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RecurrenceRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RecurrenceRuleProperty"]], result)
 
         @builtins.property
         def start_time(self) -> typing.Optional[builtins.str]:
@@ -1713,7 +1710,7 @@ class CfnServiceLevelObjective(
             self,
             *,
             attainment_goal: typing.Optional[jsii.Number] = None,
-            interval: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.IntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            interval: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.IntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             warning_threshold: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''This structure contains the attributes that determine the goal of an SLO.
@@ -1750,7 +1747,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cfc131adfea10ec8f2150d53534dabca2819dd847e258cdb22dd5820d87c65e9)
+                type_hints = cached_type_hints(_typecheckingstub__cfc131adfea10ec8f2150d53534dabca2819dd847e258cdb22dd5820d87c65e9)
                 check_type(argname="argument attainment_goal", value=attainment_goal, expected_type=type_hints["attainment_goal"])
                 check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
                 check_type(argname="argument warning_threshold", value=warning_threshold, expected_type=type_hints["warning_threshold"])
@@ -1780,7 +1777,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def interval(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.IntervalProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.IntervalProperty"]]:
             '''The time period used to evaluate the SLO. It can be either a calendar interval or rolling interval.
 
             If you omit this parameter, a rolling interval of 7 days is used.
@@ -1788,7 +1785,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-goal.html#cfn-applicationsignals-servicelevelobjective-goal-interval
             '''
             result = self._values.get("interval")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.IntervalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.IntervalProperty"]], result)
 
         @builtins.property
         def warning_threshold(self) -> typing.Optional[jsii.Number]:
@@ -1824,8 +1821,8 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            calendar_interval: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CalendarIntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rolling_interval: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.RollingIntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            calendar_interval: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.CalendarIntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rolling_interval: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.RollingIntervalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The time period used to evaluate the SLO.
 
@@ -1856,7 +1853,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30cac26980883e0f67d516f4ddebfd0c363ae3aeb6eb60f4ae3e55228be79fc8)
+                type_hints = cached_type_hints(_typecheckingstub__30cac26980883e0f67d516f4ddebfd0c363ae3aeb6eb60f4ae3e55228be79fc8)
                 check_type(argname="argument calendar_interval", value=calendar_interval, expected_type=type_hints["calendar_interval"])
                 check_type(argname="argument rolling_interval", value=rolling_interval, expected_type=type_hints["rolling_interval"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1868,24 +1865,24 @@ class CfnServiceLevelObjective(
         @builtins.property
         def calendar_interval(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CalendarIntervalProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CalendarIntervalProperty"]]:
             '''If the interval is a calendar interval, this structure contains the interval specifications.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-interval.html#cfn-applicationsignals-servicelevelobjective-interval-calendarinterval
             '''
             result = self._values.get("calendar_interval")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CalendarIntervalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CalendarIntervalProperty"]], result)
 
         @builtins.property
         def rolling_interval(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RollingIntervalProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RollingIntervalProperty"]]:
             '''If the interval is a rolling interval, this structure contains the interval specifications.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-interval.html#cfn-applicationsignals-servicelevelobjective-interval-rollinginterval
             '''
             result = self._values.get("rolling_interval")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RollingIntervalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RollingIntervalProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1916,8 +1913,8 @@ class CfnServiceLevelObjective(
             id: builtins.str,
             account_id: typing.Optional[builtins.str] = None,
             expression: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            metric_stat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Use this structure to define a metric or metric math expression that you want to use as for a service level objective.
 
@@ -1967,7 +1964,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c04fce2d6f659e54bcf95336fd734b9dda8c1a66b044793f92533f4b2b9ac20c)
+                type_hints = cached_type_hints(_typecheckingstub__c04fce2d6f659e54bcf95336fd734b9dda8c1a66b044793f92533f4b2b9ac20c)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
@@ -2024,7 +2021,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def metric_stat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricStatProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricStatProperty"]]:
             '''A metric to be used directly for the SLO, or to be used in the math expression that will be used for the SLO.
 
             Within one ``MetricDataQuery`` object, you must specify either ``Expression`` or ``MetricStat`` but not both.
@@ -2032,12 +2029,12 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricdataquery.html#cfn-applicationsignals-servicelevelobjective-metricdataquery-metricstat
             '''
             result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricStatProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricStatProperty"]], result)
 
         @builtins.property
         def return_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Use this only if you are using a metric math expression for the SLO.
 
             Specify ``true`` for ``ReturnData`` for only the one expression result to use as the alarm. For all other metrics and expressions in the same ``CreateServiceLevelObjective`` operation, specify ``ReturnData`` as ``false`` .
@@ -2045,7 +2042,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricdataquery.html#cfn-applicationsignals-servicelevelobjective-metricdataquery-returndata
             '''
             result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2071,7 +2068,7 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2100,7 +2097,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94c3dac51fe1c8fc13cb0f314cd26fbce563c808cc2f39fe4ee2a01d00f47555)
+                type_hints = cached_type_hints(_typecheckingstub__94c3dac51fe1c8fc13cb0f314cd26fbce563c808cc2f39fe4ee2a01d00f47555)
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
@@ -2115,7 +2112,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DimensionProperty"]]]]:
             '''An array of one or more dimensions to use to define the metric that you want to use.
 
             For more information, see `Dimensions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Dimension>`_ .
@@ -2123,7 +2120,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metric.html#cfn-applicationsignals-servicelevelobjective-metric-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DimensionProperty"]]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -2168,8 +2165,8 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            metric_source_key_attributes: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
-            metric_source_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            metric_source_key_attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+            metric_source_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Configuration for identifying the source of metrics for non-Application Signals services.
 
@@ -2197,7 +2194,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07485a5251b8d32cfa23934b2d6957e585c5dafc7af8830e303147c48cfab3fd)
+                type_hints = cached_type_hints(_typecheckingstub__07485a5251b8d32cfa23934b2d6957e585c5dafc7af8830e303147c48cfab3fd)
                 check_type(argname="argument metric_source_key_attributes", value=metric_source_key_attributes, expected_type=type_hints["metric_source_key_attributes"])
                 check_type(argname="argument metric_source_attributes", value=metric_source_attributes, expected_type=type_hints["metric_source_attributes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2209,25 +2206,25 @@ class CfnServiceLevelObjective(
         @builtins.property
         def metric_source_key_attributes(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
             '''Required attributes that identify the metric source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricsource.html#cfn-applicationsignals-servicelevelobjective-metricsource-metricsourcekeyattributes
             '''
             result = self._values.get("metric_source_key_attributes")
             assert result is not None, "Required property 'metric_source_key_attributes' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def metric_source_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Optional additional attributes for the metric source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricsource.html#cfn-applicationsignals-servicelevelobjective-metricsource-metricsourceattributes
             '''
             result = self._values.get("metric_source_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2254,7 +2251,7 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
             period: jsii.Number,
             stat: builtins.str,
             unit: typing.Optional[builtins.str] = None,
@@ -2292,7 +2289,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9112cc9d5e83260e285e14202026cd0c682ccbbd611252cb22444f31adb6fc6c)
+                type_hints = cached_type_hints(_typecheckingstub__9112cc9d5e83260e285e14202026cd0c682ccbbd611252cb22444f31adb6fc6c)
                 check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
                 check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
@@ -2308,14 +2305,14 @@ class CfnServiceLevelObjective(
         @builtins.property
         def metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricProperty"]:
             '''The metric to use as the service level indicator, including the metric name, namespace, and dimensions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-metricstat.html#cfn-applicationsignals-servicelevelobjective-metricstat-metric
             '''
             result = self._values.get("metric")
             assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricProperty"], result)
 
         @builtins.property
         def period(self) -> jsii.Number:
@@ -2375,8 +2372,8 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            bad_count_metric: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            good_count_metric: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            bad_count_metric: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            good_count_metric: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''This structure defines the metric that is used as the "good request" or "bad request" value for a request-based SLO.
 
@@ -2444,7 +2441,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e098e20f2cfc04332a5fbb15ca2b6cd689368d77d87938dc8d7467b0f3963de)
+                type_hints = cached_type_hints(_typecheckingstub__0e098e20f2cfc04332a5fbb15ca2b6cd689368d77d87938dc8d7467b0f3963de)
                 check_type(argname="argument bad_count_metric", value=bad_count_metric, expected_type=type_hints["bad_count_metric"])
                 check_type(argname="argument good_count_metric", value=good_count_metric, expected_type=type_hints["good_count_metric"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2456,24 +2453,24 @@ class CfnServiceLevelObjective(
         @builtins.property
         def bad_count_metric(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
             '''If you want to count "bad requests" to determine the percentage of successful requests for this request-based SLO, specify the metric to use as "bad requests" in this structure.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-monitoredrequestcountmetric.html#cfn-applicationsignals-servicelevelobjective-monitoredrequestcountmetric-badcountmetric
             '''
             result = self._values.get("bad_count_metric")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
 
         @builtins.property
         def good_count_metric(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
             '''If you want to count "good requests" to determine the percentage of successful requests for this request-based SLO, specify the metric to use as "good requests" in this structure.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-monitoredrequestcountmetric.html#cfn-applicationsignals-servicelevelobjective-monitoredrequestcountmetric-goodcountmetric
             '''
             result = self._values.get("good_count_metric")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2511,7 +2508,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__72802c93952329c50a04d38e97421844a870c20c3cf6b7347a281a130871009e)
+                type_hints = cached_type_hints(_typecheckingstub__72802c93952329c50a04d38e97421844a870c20c3cf6b7347a281a130871009e)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "expression": expression,
@@ -2560,15 +2557,15 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            composite_sli_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dependency_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            key_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            composite_sli_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dependency_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            key_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
-            metric_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metric_type: typing.Optional[builtins.str] = None,
-            monitored_request_count_metric: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MonitoredRequestCountMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monitored_request_count_metric: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MonitoredRequestCountMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             operation_name: typing.Optional[builtins.str] = None,
-            total_request_count_metric: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            total_request_count_metric: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''This structure contains the information about the metric that is used for a request-based SLO.
 
@@ -2701,7 +2698,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2e0bf3c4e354ab94132efc9fd8fa57b0d903b7020ec1b6c4d1c1388698e31a7d)
+                type_hints = cached_type_hints(_typecheckingstub__2e0bf3c4e354ab94132efc9fd8fa57b0d903b7020ec1b6c4d1c1388698e31a7d)
                 check_type(argname="argument composite_sli_config", value=composite_sli_config, expected_type=type_hints["composite_sli_config"])
                 check_type(argname="argument dependency_config", value=dependency_config, expected_type=type_hints["dependency_config"])
                 check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
@@ -2734,28 +2731,28 @@ class CfnServiceLevelObjective(
         @builtins.property
         def composite_sli_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-compositesliconfig
             '''
             result = self._values.get("composite_sli_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
 
         @builtins.property
         def dependency_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DependencyConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DependencyConfigProperty"]]:
             '''Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-dependencyconfig
             '''
             result = self._values.get("dependency_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DependencyConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DependencyConfigProperty"]], result)
 
         @builtins.property
         def key_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''This is a string-to-string map that contains information about the type of object that this SLO is related to.
 
             It can include the following fields.
@@ -2770,7 +2767,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-keyattributes
             '''
             result = self._values.get("key_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -2784,13 +2781,13 @@ class CfnServiceLevelObjective(
         @builtins.property
         def metric_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricSourceProperty"]]:
             '''Configuration for identifying the source of metrics for non-Application Signals services.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-metricsource
             '''
             result = self._values.get("metric_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
 
         @builtins.property
         def metric_type(self) -> typing.Optional[builtins.str]:
@@ -2804,7 +2801,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def monitored_request_count_metric(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MonitoredRequestCountMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MonitoredRequestCountMetricProperty"]]:
             '''Use this structure to define the metric that you want to use as the "good request" or "bad request" value for a request-based SLO.
 
             This value observed for the metric defined in ``TotalRequestCountMetric`` will be divided by the number found for ``MonitoredRequestCountMetric`` to determine the percentage of successful requests that this SLO tracks.
@@ -2812,7 +2809,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-monitoredrequestcountmetric
             '''
             result = self._values.get("monitored_request_count_metric")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MonitoredRequestCountMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MonitoredRequestCountMetricProperty"]], result)
 
         @builtins.property
         def operation_name(self) -> typing.Optional[builtins.str]:
@@ -2826,7 +2823,7 @@ class CfnServiceLevelObjective(
         @builtins.property
         def total_request_count_metric(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
             '''This structure defines the metric that is used as the "total requests" number for a request-based SLO.
 
             The number observed for this metric is divided by the number of "good requests" or "bad requests" that is observed for the metric defined in ``MonitoredRequestCountMetric`` .
@@ -2834,7 +2831,7 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedslimetric.html#cfn-applicationsignals-servicelevelobjective-requestbasedslimetric-totalrequestcountmetric
             '''
             result = self._values.get("total_request_count_metric")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2860,7 +2857,7 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            request_based_sli_metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.RequestBasedSliMetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            request_based_sli_metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.RequestBasedSliMetricProperty", typing.Dict[builtins.str, typing.Any]]],
             comparison_operator: typing.Optional[builtins.str] = None,
             metric_threshold: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -2995,7 +2992,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__387849408a1ac74889f2dec7244d223e0b97c35e19e4915f6a024667214f0cbb)
+                type_hints = cached_type_hints(_typecheckingstub__387849408a1ac74889f2dec7244d223e0b97c35e19e4915f6a024667214f0cbb)
                 check_type(argname="argument request_based_sli_metric", value=request_based_sli_metric, expected_type=type_hints["request_based_sli_metric"])
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument metric_threshold", value=metric_threshold, expected_type=type_hints["metric_threshold"])
@@ -3010,14 +3007,14 @@ class CfnServiceLevelObjective(
         @builtins.property
         def request_based_sli_metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliMetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliMetricProperty"]:
             '''A structure that contains information about the metric that the SLO monitors.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-requestbasedsli.html#cfn-applicationsignals-servicelevelobjective-requestbasedsli-requestbasedslimetric
             '''
             result = self._values.get("request_based_sli_metric")
             assert result is not None, "Required property 'request_based_sli_metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliMetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliMetricProperty"], result)
 
         @builtins.property
         def comparison_operator(self) -> typing.Optional[builtins.str]:
@@ -3080,7 +3077,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ea5efcc7f9d7eb11cc8de5d96525adb6a7e2bfc30446b0fcdb3c7cd640413c1)
+                type_hints = cached_type_hints(_typecheckingstub__3ea5efcc7f9d7eb11cc8de5d96525adb6a7e2bfc30446b0fcdb3c7cd640413c1)
                 check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
                 check_type(argname="argument duration_unit", value=duration_unit, expected_type=type_hints["duration_unit"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3154,7 +3151,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7e9dfea115d8c9b32f0cc9733ef8db6e6e4a9fc312f334acc0bde4b32f88e136)
+                type_hints = cached_type_hints(_typecheckingstub__7e9dfea115d8c9b32f0cc9733ef8db6e6e4a9fc312f334acc0bde4b32f88e136)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3211,12 +3208,12 @@ class CfnServiceLevelObjective(
         def __init__(
             self,
             *,
-            composite_sli_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dependency_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            key_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            metric_data_queries: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            composite_sli_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.CompositeSliConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dependency_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.DependencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            key_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            metric_data_queries: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
-            metric_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.MetricSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metric_type: typing.Optional[builtins.str] = None,
             operation_name: typing.Optional[builtins.str] = None,
             period_seconds: typing.Optional[jsii.Number] = None,
@@ -3308,7 +3305,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86b5c7cbf1916d1f3e415fc49b371acf007c9210e4158ca70f0735fb4ce3ca36)
+                type_hints = cached_type_hints(_typecheckingstub__86b5c7cbf1916d1f3e415fc49b371acf007c9210e4158ca70f0735fb4ce3ca36)
                 check_type(argname="argument composite_sli_config", value=composite_sli_config, expected_type=type_hints["composite_sli_config"])
                 check_type(argname="argument dependency_config", value=dependency_config, expected_type=type_hints["dependency_config"])
                 check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
@@ -3344,28 +3341,28 @@ class CfnServiceLevelObjective(
         @builtins.property
         def composite_sli_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliConfigProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-compositesliconfig
             '''
             result = self._values.get("composite_sli_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.CompositeSliConfigProperty"]], result)
 
         @builtins.property
         def dependency_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DependencyConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DependencyConfigProperty"]]:
             '''Identifies the dependency using the ``DependencyKeyAttributes`` and ``DependencyOperationName`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-dependencyconfig
             '''
             result = self._values.get("dependency_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.DependencyConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.DependencyConfigProperty"]], result)
 
         @builtins.property
         def key_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''If this SLO is related to a metric collected by Application Signals, you must use this field to specify which service the SLO metric is related to.
 
             To do so, you must specify at least the ``Type`` , ``Name`` , and ``Environment`` attributes.
@@ -3381,18 +3378,18 @@ class CfnServiceLevelObjective(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-keyattributes
             '''
             result = self._values.get("key_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def metric_data_queries(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]]:
             '''If this SLO monitors a CloudWatch metric or the result of a CloudWatch metric math expression, use this structure to specify that metric or expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-metricdataqueries
             '''
             result = self._values.get("metric_data_queries")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricDataQueryProperty"]]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -3406,13 +3403,13 @@ class CfnServiceLevelObjective(
         @builtins.property
         def metric_source(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricSourceProperty"]]:
             '''Configuration for identifying the source of metrics for non-Application Signals services.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-slimetric.html#cfn-applicationsignals-servicelevelobjective-slimetric-metricsource
             '''
             result = self._values.get("metric_source")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.MetricSourceProperty"]], result)
 
         @builtins.property
         def metric_type(self) -> typing.Optional[builtins.str]:
@@ -3480,7 +3477,7 @@ class CfnServiceLevelObjective(
             *,
             comparison_operator: builtins.str,
             metric_threshold: jsii.Number,
-            sli_metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.SliMetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            sli_metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.SliMetricProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''This structure specifies the information about the service and the performance metric that an SLO is to monitor.
 
@@ -3565,7 +3562,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fcb2d383c03844ff1706f4720c7bf04c5a00252d1e49f3ecb2c00c22bf5cbe1f)
+                type_hints = cached_type_hints(_typecheckingstub__fcb2d383c03844ff1706f4720c7bf04c5a00252d1e49f3ecb2c00c22bf5cbe1f)
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument metric_threshold", value=metric_threshold, expected_type=type_hints["metric_threshold"])
                 check_type(argname="argument sli_metric", value=sli_metric, expected_type=type_hints["sli_metric"])
@@ -3598,14 +3595,14 @@ class CfnServiceLevelObjective(
         @builtins.property
         def sli_metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliMetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliMetricProperty"]:
             '''Use this structure to specify the metric to be used for the SLO.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-servicelevelobjective-sli.html#cfn-applicationsignals-servicelevelobjective-sli-slimetric
             '''
             result = self._values.get("sli_metric")
             assert result is not None, "Required property 'sli_metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliMetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliMetricProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3650,7 +3647,7 @@ class CfnServiceLevelObjective(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7cd27fd1807625da6b260ce4b909abd68a6e0ece1732fab3f05f19247123cfbf)
+                type_hints = cached_type_hints(_typecheckingstub__7cd27fd1807625da6b260ce4b909abd68a6e0ece1732fab3f05f19247123cfbf)
                 check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
                 check_type(argname="argument duration_unit", value=duration_unit, expected_type=type_hints["duration_unit"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3709,13 +3706,13 @@ class CfnServiceLevelObjectiveProps:
         self,
         *,
         name: builtins.str,
-        burn_rate_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.BurnRateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        burn_rate_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.BurnRateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        exclusion_windows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.ExclusionWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        goal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.GoalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        request_based_sli: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.RequestBasedSliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sli: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceLevelObjective.SliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        exclusion_windows: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.ExclusionWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        goal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.GoalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_based_sli: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.RequestBasedSliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sli: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceLevelObjective.SliProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServiceLevelObjective``.
 
@@ -3961,7 +3958,7 @@ class CfnServiceLevelObjectiveProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a302456885343cc9ce5e0497feed773de1ef0f44e2934f97458bfdc5a810dee)
+            type_hints = cached_type_hints(_typecheckingstub__8a302456885343cc9ce5e0497feed773de1ef0f44e2934f97458bfdc5a810dee)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument burn_rate_configurations", value=burn_rate_configurations, expected_type=type_hints["burn_rate_configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -4001,7 +3998,7 @@ class CfnServiceLevelObjectiveProps:
     @builtins.property
     def burn_rate_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]]:
         '''Each object in this array defines the length of the look-back window used to calculate one burn rate metric for this SLO.
 
         The burn rate measures how fast the service is consuming the error budget, relative to the attainment goal of the SLO.
@@ -4009,7 +4006,7 @@ class CfnServiceLevelObjectiveProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-burnrateconfigurations
         '''
         result = self._values.get("burn_rate_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.BurnRateConfigurationProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4025,18 +4022,18 @@ class CfnServiceLevelObjectiveProps:
     @builtins.property
     def exclusion_windows(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]]:
         '''The time window to be excluded from the SLO performance metrics.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-exclusionwindows
         '''
         result = self._values.get("exclusion_windows")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.ExclusionWindowProperty"]]]], result)
 
     @builtins.property
     def goal(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.GoalProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.GoalProperty"]]:
         '''This structure contains the attributes that determine the goal of an SLO.
 
         This includes the time period for evaluation and the attainment threshold.
@@ -4044,32 +4041,32 @@ class CfnServiceLevelObjectiveProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-goal
         '''
         result = self._values.get("goal")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.GoalProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.GoalProperty"]], result)
 
     @builtins.property
     def request_based_sli(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliProperty"]]:
         '''A structure containing information about the performance metric that this SLO monitors, if this is a request-based SLO.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-requestbasedsli
         '''
         result = self._values.get("request_based_sli")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.RequestBasedSliProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.RequestBasedSliProperty"]], result)
 
     @builtins.property
     def sli(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliProperty"]]:
         '''A structure containing information about the performance metric that this SLO monitors, if this is a period-based SLO.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-sli
         '''
         result = self._values.get("sli")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServiceLevelObjective.SliProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceLevelObjective.SliProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the SLO.
 
         You can associate as many as 50 tags with an SLO. To be able to associate tags with the SLO when you create the SLO, you must have the cloudwatch:TagResource permission.
@@ -4079,7 +4076,7 @@ class CfnServiceLevelObjectiveProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-servicelevelobjective.html#cfn-applicationsignals-servicelevelobjective-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4118,7 +4115,7 @@ def _typecheckingstub__e398642b74895631a145c04842032f1c33e946c3fe37654680dadde00
     pass
 
 def _typecheckingstub__169149a48e72c8ecdaddbc89a3281a63982fa5a6a224a652a20963505c16cf6d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4133,7 +4130,7 @@ def _typecheckingstub__55532ed92820a19cd89fdea2459ad5e1c62c57066396013b794bd07c6
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    grouping_attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroupingConfiguration.GroupingAttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    grouping_attribute_definitions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroupingConfiguration.GroupingAttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4145,7 +4142,7 @@ def _typecheckingstub__c8a6205301473dd0abbf7d9e514ff1e3dd484388b3279d11866578aee
     pass
 
 def _typecheckingstub__2a3e17541436550f60b4791ec84a0a3f55e01116438640d7611729b4a57c83f2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4157,7 +4154,7 @@ def _typecheckingstub__cda9952303bd2ef359ba71cc1d51f0cf288102f05b353d4815dc5d37f
     pass
 
 def _typecheckingstub__7d78d0fae36bb4fcb95bd95998dbc65997f7d545af59f216256213408c4f30f2(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroupingConfiguration.GroupingAttributeDefinitionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGroupingConfiguration.GroupingAttributeDefinitionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4173,7 +4170,7 @@ def _typecheckingstub__4809aa4639bc02468e9643d2a4f1a9e5305f3985a02486a04a21025dc
 
 def _typecheckingstub__f1092a665e6fb60575de2d22516416485dc448d30b228f509e488593e009ff91(
     *,
-    grouping_attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroupingConfiguration.GroupingAttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    grouping_attribute_definitions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroupingConfiguration.GroupingAttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4183,19 +4180,19 @@ def _typecheckingstub__8476d024be5b448cfb8f9ae2f80fa7f2083296f712cdb7cd12e69365d
     id: builtins.str,
     *,
     name: builtins.str,
-    burn_rate_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.BurnRateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    burn_rate_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.BurnRateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    exclusion_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.ExclusionWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    goal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.GoalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    request_based_sli: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.RequestBasedSliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sli: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.SliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    exclusion_windows: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.ExclusionWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    goal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.GoalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_based_sli: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.RequestBasedSliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sli: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.SliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__50a8d652cbf22349e5d84f80af59842df8ded75cea6b970f58214a8f492fd4f8(
-    resource: _IServiceLevelObjectiveRef_54989f43,
+    resource: _aws_applicationsignals_54ce25b5.IServiceLevelObjectiveRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4207,7 +4204,7 @@ def _typecheckingstub__94e44eb419dbbf730aa60c7d8e2d423279ca1b683a468ce398085d7e4
     pass
 
 def _typecheckingstub__71593741af71e952b8edcbf3d4a100ccac3627fda6dcff137c7d24df9820e5bb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4225,7 +4222,7 @@ def _typecheckingstub__e7d1b42972f3b8a4430dca27e7ecab3fce56490ad1edcfabdc346becf
     pass
 
 def _typecheckingstub__485d9b0fd57b50948a9f2d1207185ec9c2cc9dfe96eec7b166b7ededffcad772(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceLevelObjective.BurnRateConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceLevelObjective.BurnRateConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4237,31 +4234,31 @@ def _typecheckingstub__c6761a51565a6d9d6b93723803df5fa7735ec11aa5f14c9cc222e4e60
     pass
 
 def _typecheckingstub__12094042b1bb44e7cdfb19ae3553ea8b1db7d2b3b66cc338aec192856d68565e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceLevelObjective.ExclusionWindowProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceLevelObjective.ExclusionWindowProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f72f1f3f286714a7cb6611be91fc84bc135d11974635585192dc6a6bbfe2f51e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceLevelObjective.GoalProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceLevelObjective.GoalProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__85c3a53f1420ec52267d0c5ef83b407de2a88d1eff567b79facf44748e778f2f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceLevelObjective.RequestBasedSliProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceLevelObjective.RequestBasedSliProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__938ccf6991aba4b5875a4ca09dfcdb00a5c7e9a92bba0e785ddfbebb228037c3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceLevelObjective.SliProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceLevelObjective.SliProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45578973503123093d3b0c8f845e2df0c9ad023b7df510f3a7b7ee7abcccd506(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4291,15 +4288,15 @@ def _typecheckingstub__6cbbe131565e0a6fbbbdb80ec284ef94ceea8af44cba7908a46efe651
 
 def _typecheckingstub__d01291cb4a8f53e672d552c3c4677fcf54d725993377589d02699e4b90490c7c(
     *,
-    selection_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.SelectionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    composite_sli_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    selection_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.SelectionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    composite_sli_components: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.CompositeSliComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__05a6abeac0a72f5c57c47767d3431f868e43bda859b6f5468a53d09c807465a2(
     *,
-    dependency_key_attributes: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    dependency_key_attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     dependency_operation_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -4315,9 +4312,9 @@ def _typecheckingstub__9e8e6b95cda618658802fc7b704459e5b42989b01fe12f60c38caea77
 
 def _typecheckingstub__5f50a7c6c189c1968d91d7385dec3a8615dab8502954c829a9f0fd21cc6ee334(
     *,
-    window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.WindowProperty, typing.Dict[builtins.str, typing.Any]]],
+    window: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.WindowProperty, typing.Dict[builtins.str, typing.Any]]],
     reason: typing.Optional[builtins.str] = None,
-    recurrence_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.RecurrenceRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    recurrence_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.RecurrenceRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_time: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4326,7 +4323,7 @@ def _typecheckingstub__5f50a7c6c189c1968d91d7385dec3a8615dab8502954c829a9f0fd21c
 def _typecheckingstub__cfc131adfea10ec8f2150d53534dabca2819dd847e258cdb22dd5820d87c65e9(
     *,
     attainment_goal: typing.Optional[jsii.Number] = None,
-    interval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.IntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    interval: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.IntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     warning_threshold: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4334,8 +4331,8 @@ def _typecheckingstub__cfc131adfea10ec8f2150d53534dabca2819dd847e258cdb22dd5820d
 
 def _typecheckingstub__30cac26980883e0f67d516f4ddebfd0c363ae3aeb6eb60f4ae3e55228be79fc8(
     *,
-    calendar_interval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CalendarIntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rolling_interval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.RollingIntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    calendar_interval: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.CalendarIntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rolling_interval: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.RollingIntervalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4345,15 +4342,15 @@ def _typecheckingstub__c04fce2d6f659e54bcf95336fd734b9dda8c1a66b044793f92533f4b2
     id: builtins.str,
     account_id: typing.Optional[builtins.str] = None,
     expression: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    metric_stat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__94c3dac51fe1c8fc13cb0f314cd26fbce563c808cc2f39fe4ee2a01d00f47555(
     *,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4362,15 +4359,15 @@ def _typecheckingstub__94c3dac51fe1c8fc13cb0f314cd26fbce563c808cc2f39fe4ee2a01d0
 
 def _typecheckingstub__07485a5251b8d32cfa23934b2d6957e585c5dafc7af8830e303147c48cfab3fd(
     *,
-    metric_source_key_attributes: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
-    metric_source_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    metric_source_key_attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+    metric_source_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9112cc9d5e83260e285e14202026cd0c682ccbbd611252cb22444f31adb6fc6c(
     *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
     period: jsii.Number,
     stat: builtins.str,
     unit: typing.Optional[builtins.str] = None,
@@ -4380,8 +4377,8 @@ def _typecheckingstub__9112cc9d5e83260e285e14202026cd0c682ccbbd611252cb22444f31a
 
 def _typecheckingstub__0e098e20f2cfc04332a5fbb15ca2b6cd689368d77d87938dc8d7467b0f3963de(
     *,
-    bad_count_metric: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    good_count_metric: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bad_count_metric: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    good_count_metric: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4395,22 +4392,22 @@ def _typecheckingstub__72802c93952329c50a04d38e97421844a870c20c3cf6b7347a281a130
 
 def _typecheckingstub__2e0bf3c4e354ab94132efc9fd8fa57b0d903b7020ec1b6c4d1c1388698e31a7d(
     *,
-    composite_sli_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dependency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    key_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    composite_sli_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dependency_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    key_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
-    metric_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_type: typing.Optional[builtins.str] = None,
-    monitored_request_count_metric: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MonitoredRequestCountMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monitored_request_count_metric: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MonitoredRequestCountMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     operation_name: typing.Optional[builtins.str] = None,
-    total_request_count_metric: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    total_request_count_metric: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__387849408a1ac74889f2dec7244d223e0b97c35e19e4915f6a024667214f0cbb(
     *,
-    request_based_sli_metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.RequestBasedSliMetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    request_based_sli_metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.RequestBasedSliMetricProperty, typing.Dict[builtins.str, typing.Any]]],
     comparison_operator: typing.Optional[builtins.str] = None,
     metric_threshold: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -4435,12 +4432,12 @@ def _typecheckingstub__7e9dfea115d8c9b32f0cc9733ef8db6e6e4a9fc312f334acc0bde4b32
 
 def _typecheckingstub__86b5c7cbf1916d1f3e415fc49b371acf007c9210e4158ca70f0735fb4ce3ca36(
     *,
-    composite_sli_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dependency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    key_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    composite_sli_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.CompositeSliConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dependency_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.DependencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    key_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    metric_data_queries: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
-    metric_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.MetricSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_type: typing.Optional[builtins.str] = None,
     operation_name: typing.Optional[builtins.str] = None,
     period_seconds: typing.Optional[jsii.Number] = None,
@@ -4453,7 +4450,7 @@ def _typecheckingstub__fcb2d383c03844ff1706f4720c7bf04c5a00252d1e49f3ecb2c00c22b
     *,
     comparison_operator: builtins.str,
     metric_threshold: jsii.Number,
-    sli_metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.SliMetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    sli_metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.SliMetricProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4469,13 +4466,13 @@ def _typecheckingstub__7cd27fd1807625da6b260ce4b909abd68a6e0ece1732fab3f05f19247
 def _typecheckingstub__8a302456885343cc9ce5e0497feed773de1ef0f44e2934f97458bfdc5a810dee(
     *,
     name: builtins.str,
-    burn_rate_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.BurnRateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    burn_rate_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.BurnRateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    exclusion_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.ExclusionWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    goal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.GoalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    request_based_sli: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.RequestBasedSliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sli: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceLevelObjective.SliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    exclusion_windows: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.ExclusionWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    goal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.GoalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_based_sli: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.RequestBasedSliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sli: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceLevelObjective.SliProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, List, Optional
+from typing import ClassVar
 
 import requests
 
@@ -38,21 +38,22 @@ class Account:
         >>> account.lock(comment="Locked spam account")
         >>> print(account.to_dict())
     """
+
     locked: bool
     verified: bool
     email: str
     canonical_email: str
     itemname: str
     screenname: str
-    notifications: List[str]
+    notifications: list[str]
     has_disability_access: bool
     lastlogin: str
     createdate: str
     session: ArchiveSession = field(default_factory=get_session)
 
     API_BASE_URL: str = '/services/xauthn/'
-    API_INFO_PARAMS: ClassVar[Dict[str, str]] = {'op': 'info'}
-    API_LOCK_UNLOCK_PARAMS: ClassVar[Dict[str, str]] = {'op': 'lock_unlock'}
+    API_INFO_PARAMS: ClassVar[dict[str, str]] = {'op': 'info'}
+    API_LOCK_UNLOCK_PARAMS: ClassVar[dict[str, str]] = {'op': 'lock_unlock'}
 
     def _get_api_base_url(self) -> str:
         """Dynamically construct the API base URL using the session's host."""
@@ -61,9 +62,9 @@ class Account:
     def _post_api_request(
         self,
         endpoint: str,
-        params: Dict[str, str],
-        data: Dict[str, str],
-        session: Optional[ArchiveSession] = None
+        params: dict[str, str],
+        data: dict[str, str],
+        session: ArchiveSession | None = None,
     ) -> requests.Response:
         """Make a POST request to the Account API.
 
@@ -85,7 +86,7 @@ class Account:
         cls,
         identifier_type: str,
         identifier: str,
-        session: Optional[ArchiveSession] = None
+        session: ArchiveSession | None = None,
     ) -> "Account":
         """Create an Account by looking up an identifier.
 
@@ -94,7 +95,9 @@ class Account:
         :param session: Optional session to use for the request.
         :returns: An instance of Account.
         """
-        json_data = cls._fetch_account_data_from_api(identifier_type, identifier, session)
+        json_data = cls._fetch_account_data_from_api(
+            identifier_type, identifier, session
+        )
         return cls.from_json(json_data, session)
 
     @classmethod
@@ -102,8 +105,8 @@ class Account:
         cls,
         identifier_type: str,
         identifier: str,
-        session: Optional[ArchiveSession] = None
-    ) -> Dict:
+        session: ArchiveSession | None = None,
+    ) -> dict:
         """Fetch account data from the API using an identifier.
 
         :param identifier_type: The type of identifier (e.g., ``'email'``, ``'screenname'``).
@@ -120,7 +123,7 @@ class Account:
                 f'https://{session.host}{cls.API_BASE_URL}',  # type: ignore[attr-defined]
                 params=cls.API_INFO_PARAMS,
                 data=data,
-                headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
             )
             response.raise_for_status()
             j = response.json()
@@ -130,12 +133,9 @@ class Account:
         except requests.exceptions.RequestException as e:
             raise AccountAPIError(f"Failed to fetch account data: {e}")
 
-
     @classmethod
     def from_json(
-        cls,
-        json_data: Dict,
-        session: Optional[ArchiveSession] = None
+        cls, json_data: dict, session: ArchiveSession | None = None
     ) -> "Account":
         """Create an Account from JSON data.
 
@@ -159,13 +159,17 @@ class Account:
         ]
         for requried_field in required_fields:
             if requried_field not in json_data:
-                raise ValueError(f"Missing required requried_field in JSON data: {requried_field}")
+                raise ValueError(
+                    f"Missing required requried_field in JSON data: {requried_field}"
+                )
 
         # Ensure session is of type ArchiveSession
         if session is None:
             session = get_session()  # Default to ArchiveSession
         elif not isinstance(session, ArchiveSession):
-            raise TypeError(f"Expected session to be of type ArchiveSession, got {type(session)}")
+            raise TypeError(
+                f"Expected session to be of type ArchiveSession, got {type(session)}"
+            )
 
         return cls(
             locked=json_data["locked"],
@@ -178,12 +182,12 @@ class Account:
             has_disability_access=json_data["has_disability_access"],
             lastlogin=json_data["lastlogin"],
             createdate=json_data["createdate"],
-            session=session
+            session=session,
         )
 
-    def lock(self,
-             comment: Optional[str] = None,
-             session: Optional[ArchiveSession] = None) -> requests.Response:
+    def lock(
+        self, comment: str | None = None, session: ArchiveSession | None = None
+    ) -> requests.Response:
         """Lock the account.
 
         :param comment: An optional comment for the lock operation.
@@ -197,12 +201,12 @@ class Account:
             self.API_BASE_URL,
             params=self.API_LOCK_UNLOCK_PARAMS,
             data=data,
-            session=session
+            session=session,
         )
 
-    def unlock(self,
-               comment: Optional[str] = None,
-               session: Optional[ArchiveSession] = None) -> requests.Response:
+    def unlock(
+        self, comment: str | None = None, session: ArchiveSession | None = None
+    ) -> requests.Response:
         """Unlock the account.
 
         :param comment: An optional comment for the unlock operation.
@@ -216,10 +220,10 @@ class Account:
             self.API_BASE_URL,
             params=self.API_LOCK_UNLOCK_PARAMS,
             data=data,
-            session=session
+            session=session,
         )
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert the Account instance to a dictionary.
 
         :returns: A dictionary representation of the Account instance.

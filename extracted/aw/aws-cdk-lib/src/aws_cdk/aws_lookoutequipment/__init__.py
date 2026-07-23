@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_lookoutequipment import (
-    IInferenceSchedulerRef as _IInferenceSchedulerRef_ff214e3d,
-    InferenceSchedulerReference as _InferenceSchedulerReference_0ddafe2a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_lookoutequipment as _aws_lookoutequipment_448198e8
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_lookoutequipment_448198e8 = _LazyImport("aws_cdk.interfaces.aws_lookoutequipment")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IInferenceSchedulerRef_ff214e3d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lookoutequipment_448198e8.IInferenceSchedulerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnInferenceScheduler(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lookoutequipment.CfnInferenceScheduler",
 ):
@@ -131,7 +125,7 @@ class CfnInferenceScheduler(
         data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
         inference_scheduler_name: typing.Optional[builtins.str] = None,
         server_side_kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::LookoutEquipment::InferenceScheduler``.
 
@@ -148,7 +142,7 @@ class CfnInferenceScheduler(
         :param tags: Any tags associated with the inference scheduler. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28ccba613c6dd6bc7182eb74423ae99fe0414b38931a2a99663f062232c146fb)
+            type_hints = cached_type_hints(_typecheckingstub__28ccba613c6dd6bc7182eb74423ae99fe0414b38931a2a99663f062232c146fb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInferenceSchedulerProps(
@@ -169,13 +163,13 @@ class CfnInferenceScheduler(
     @builtins.classmethod
     def arn_for_inference_scheduler(
         cls,
-        resource: "_IInferenceSchedulerRef_ff214e3d",
+        resource: "_aws_lookoutequipment_448198e8.IInferenceSchedulerRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d594f91a9fa8232ca01fb5bcb3f8410a2ccc44f0e52c1d53510222a8d27c1b6c)
+            type_hints = cached_type_hints(_typecheckingstub__d594f91a9fa8232ca01fb5bcb3f8410a2ccc44f0e52c1d53510222a8d27c1b6c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInferenceScheduler", [resource]))
 
@@ -187,18 +181,18 @@ class CfnInferenceScheduler(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9802ab233a458aec61a0b741e480308e960cfffcb7f2618a7000af54b802551a)
+            type_hints = cached_type_hints(_typecheckingstub__9802ab233a458aec61a0b741e480308e960cfffcb7f2618a7000af54b802551a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInferenceScheduler", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7167477c3b30b5c0c05007b3e6a0e9c319ace9e6a36c4ad6090f5287a068261b)
+            type_hints = cached_type_hints(_typecheckingstub__7167477c3b30b5c0c05007b3e6a0e9c319ace9e6a36c4ad6090f5287a068261b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -211,7 +205,7 @@ class CfnInferenceScheduler(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d57a5f8c8f323d10b6186b67dc3222300066bff895cee31ce6de58ad9b01a40)
+            type_hints = cached_type_hints(_typecheckingstub__0d57a5f8c8f323d10b6186b67dc3222300066bff895cee31ce6de58ad9b01a40)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -242,15 +236,17 @@ class CfnInferenceScheduler(
 
     @builtins.property
     @jsii.member(jsii_name="inferenceSchedulerRef")
-    def inference_scheduler_ref(self) -> "_InferenceSchedulerReference_0ddafe2a":
+    def inference_scheduler_ref(
+        self,
+    ) -> "_aws_lookoutequipment_448198e8.InferenceSchedulerReference":
         '''A reference to a InferenceScheduler resource.'''
-        return typing.cast("_InferenceSchedulerReference_0ddafe2a", jsii.get(self, "inferenceSchedulerRef"))
+        return typing.cast("_aws_lookoutequipment_448198e8.InferenceSchedulerReference", jsii.get(self, "inferenceSchedulerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dataInputConfiguration")
@@ -261,7 +257,7 @@ class CfnInferenceScheduler(
     @data_input_configuration.setter
     def data_input_configuration(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365227ca843708d7c47c792c213d2cf21692d23134869ca543b029247bf2ef2d)
+            type_hints = cached_type_hints(_typecheckingstub__365227ca843708d7c47c792c213d2cf21692d23134869ca543b029247bf2ef2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataInputConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -274,7 +270,7 @@ class CfnInferenceScheduler(
     @data_output_configuration.setter
     def data_output_configuration(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9165239b8915d35741f44b361fc821a999bdb47130cb43a27d8cf09f80f712a1)
+            type_hints = cached_type_hints(_typecheckingstub__9165239b8915d35741f44b361fc821a999bdb47130cb43a27d8cf09f80f712a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataOutputConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -287,7 +283,7 @@ class CfnInferenceScheduler(
     @data_upload_frequency.setter
     def data_upload_frequency(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7807715afa3cbca8ca90a4959b2c5fe9277473776b971e9386384ebb3f0ac5e5)
+            type_hints = cached_type_hints(_typecheckingstub__7807715afa3cbca8ca90a4959b2c5fe9277473776b971e9386384ebb3f0ac5e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataUploadFrequency", value) # pyright: ignore[reportArgumentType]
 
@@ -300,7 +296,7 @@ class CfnInferenceScheduler(
     @model_name.setter
     def model_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e1573f2d4c90172f8eb332e09ebb677ffb64763843b7164c7a5c3c70bcdd0f8)
+            type_hints = cached_type_hints(_typecheckingstub__9e1573f2d4c90172f8eb332e09ebb677ffb64763843b7164c7a5c3c70bcdd0f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "modelName", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +309,7 @@ class CfnInferenceScheduler(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0479b578a7facaebce13530dc4c25c978346cee11e72827f75e578d396dba957)
+            type_hints = cached_type_hints(_typecheckingstub__0479b578a7facaebce13530dc4c25c978346cee11e72827f75e578d396dba957)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -326,7 +322,7 @@ class CfnInferenceScheduler(
     @data_delay_offset_in_minutes.setter
     def data_delay_offset_in_minutes(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82e82307e3000a456cab9994d90efec36e0e6aed0e2a4157f70d5e09344b4fea)
+            type_hints = cached_type_hints(_typecheckingstub__82e82307e3000a456cab9994d90efec36e0e6aed0e2a4157f70d5e09344b4fea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataDelayOffsetInMinutes", value) # pyright: ignore[reportArgumentType]
 
@@ -339,7 +335,7 @@ class CfnInferenceScheduler(
     @inference_scheduler_name.setter
     def inference_scheduler_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d0cfd81055598a083475d35cfb84b12604f5d3a3a6635cfbf2bf13502f6eccd)
+            type_hints = cached_type_hints(_typecheckingstub__7d0cfd81055598a083475d35cfb84b12604f5d3a3a6635cfbf2bf13502f6eccd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inferenceSchedulerName", value) # pyright: ignore[reportArgumentType]
 
@@ -352,20 +348,23 @@ class CfnInferenceScheduler(
     @server_side_kms_key_id.setter
     def server_side_kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04be4969945d95ed9e9d10a45a44a3433d46cc54ff5d3bf1b5a345fdff17b9b1)
+            type_hints = cached_type_hints(_typecheckingstub__04be4969945d95ed9e9d10a45a44a3433d46cc54ff5d3bf1b5a345fdff17b9b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverSideKmsKeyId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Any tags associated with the inference scheduler.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1cecca5c973b2c7607351e4c566be545c3f3776bb96c66814d141f60e64f10e)
+            type_hints = cached_type_hints(_typecheckingstub__b1cecca5c973b2c7607351e4c566be545c3f3776bb96c66814d141f60e64f10e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -382,8 +381,8 @@ class CfnInferenceScheduler(
         def __init__(
             self,
             *,
-            s3_input_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.S3InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            inference_input_name_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.InputNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_input_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceScheduler.S3InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            inference_input_name_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceScheduler.InputNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_time_zone_offset: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
@@ -418,7 +417,7 @@ class CfnInferenceScheduler(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed585a7e4b7dcf4c2ba303085f266554d37e30a47b8c8a83d85a48bd8b1408c8)
+                type_hints = cached_type_hints(_typecheckingstub__ed585a7e4b7dcf4c2ba303085f266554d37e30a47b8c8a83d85a48bd8b1408c8)
                 check_type(argname="argument s3_input_configuration", value=s3_input_configuration, expected_type=type_hints["s3_input_configuration"])
                 check_type(argname="argument inference_input_name_configuration", value=inference_input_name_configuration, expected_type=type_hints["inference_input_name_configuration"])
                 check_type(argname="argument input_time_zone_offset", value=input_time_zone_offset, expected_type=type_hints["input_time_zone_offset"])
@@ -433,25 +432,25 @@ class CfnInferenceScheduler(
         @builtins.property
         def s3_input_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3InputConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.S3InputConfigurationProperty"]:
             '''Specifies configuration information for the input data for the inference, including input data S3 location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-datainputconfiguration.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration-s3inputconfiguration
             '''
             result = self._values.get("s3_input_configuration")
             assert result is not None, "Required property 's3_input_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3InputConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.S3InputConfigurationProperty"], result)
 
         @builtins.property
         def inference_input_name_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.InputNameConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.InputNameConfigurationProperty"]]:
             '''Specifies configuration information for the input data for the inference, including timestamp format and delimiter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-datainputconfiguration.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration-inferenceinputnameconfiguration
             '''
             result = self._values.get("inference_input_name_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.InputNameConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.InputNameConfigurationProperty"]], result)
 
         @builtins.property
         def input_time_zone_offset(self) -> typing.Optional[builtins.str]:
@@ -485,7 +484,7 @@ class CfnInferenceScheduler(
         def __init__(
             self,
             *,
-            s3_output_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.S3OutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_output_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInferenceScheduler.S3OutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies configuration information for the output results for the inference scheduler, including the S3 location for the output.
@@ -515,7 +514,7 @@ class CfnInferenceScheduler(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a93817eddc485b7b6f6413c39d9d852f5d95734f746beeab1a2d6bc3fb4713f2)
+                type_hints = cached_type_hints(_typecheckingstub__a93817eddc485b7b6f6413c39d9d852f5d95734f746beeab1a2d6bc3fb4713f2)
                 check_type(argname="argument s3_output_configuration", value=s3_output_configuration, expected_type=type_hints["s3_output_configuration"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -527,14 +526,14 @@ class CfnInferenceScheduler(
         @builtins.property
         def s3_output_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3OutputConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.S3OutputConfigurationProperty"]:
             '''Specifies configuration information for the output results from the inference, including output S3 location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-dataoutputconfiguration.html#cfn-lookoutequipment-inferencescheduler-dataoutputconfiguration-s3outputconfiguration
             '''
             result = self._values.get("s3_output_configuration")
             assert result is not None, "Required property 's3_output_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3OutputConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInferenceScheduler.S3OutputConfigurationProperty"], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -591,7 +590,7 @@ class CfnInferenceScheduler(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d3be78ddfe84a50bd99fd29ba6391cfcda4a58fbd3d814f7e1256b36f582086c)
+                type_hints = cached_type_hints(_typecheckingstub__d3be78ddfe84a50bd99fd29ba6391cfcda4a58fbd3d814f7e1256b36f582086c)
                 check_type(argname="argument component_timestamp_delimiter", value=component_timestamp_delimiter, expected_type=type_hints["component_timestamp_delimiter"])
                 check_type(argname="argument timestamp_format", value=timestamp_format, expected_type=type_hints["timestamp_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -663,7 +662,7 @@ class CfnInferenceScheduler(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__235dc01951b9a264f8c1eba65dbb82265f85e32cd947875d269ef42bac0153c2)
+                type_hints = cached_type_hints(_typecheckingstub__235dc01951b9a264f8c1eba65dbb82265f85e32cd947875d269ef42bac0153c2)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -734,7 +733,7 @@ class CfnInferenceScheduler(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fb0d81a8f7d08eb09064e590d12abb5c157e04a91342de057e7389f2655958ae)
+                type_hints = cached_type_hints(_typecheckingstub__fb0d81a8f7d08eb09064e590d12abb5c157e04a91342de057e7389f2655958ae)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -799,7 +798,7 @@ class CfnInferenceSchedulerProps:
         data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
         inference_scheduler_name: typing.Optional[builtins.str] = None,
         server_side_kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnInferenceScheduler``.
 
@@ -844,7 +843,7 @@ class CfnInferenceSchedulerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026)
+            type_hints = cached_type_hints(_typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026)
             check_type(argname="argument data_input_configuration", value=data_input_configuration, expected_type=type_hints["data_input_configuration"])
             check_type(argname="argument data_output_configuration", value=data_output_configuration, expected_type=type_hints["data_output_configuration"])
             check_type(argname="argument data_upload_frequency", value=data_upload_frequency, expected_type=type_hints["data_upload_frequency"])
@@ -952,7 +951,7 @@ class CfnInferenceSchedulerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Any tags associated with the inference scheduler.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -960,7 +959,7 @@ class CfnInferenceSchedulerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -993,13 +992,13 @@ def _typecheckingstub__28ccba613c6dd6bc7182eb74423ae99fe0414b38931a2a99663f06223
     data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
     inference_scheduler_name: typing.Optional[builtins.str] = None,
     server_side_kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d594f91a9fa8232ca01fb5bcb3f8410a2ccc44f0e52c1d53510222a8d27c1b6c(
-    resource: _IInferenceSchedulerRef_ff214e3d,
+    resource: _aws_lookoutequipment_448198e8.IInferenceSchedulerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1011,7 +1010,7 @@ def _typecheckingstub__9802ab233a458aec61a0b741e480308e960cfffcb7f2618a7000af54b
     pass
 
 def _typecheckingstub__7167477c3b30b5c0c05007b3e6a0e9c319ace9e6a36c4ad6090f5287a068261b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1071,15 +1070,15 @@ def _typecheckingstub__04be4969945d95ed9e9d10a45a44a3433d46cc54ff5d3bf1b5a345fdf
     pass
 
 def _typecheckingstub__b1cecca5c973b2c7607351e4c566be545c3f3776bb96c66814d141f60e64f10e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ed585a7e4b7dcf4c2ba303085f266554d37e30a47b8c8a83d85a48bd8b1408c8(
     *,
-    s3_input_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInferenceScheduler.S3InputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    inference_input_name_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInferenceScheduler.InputNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_input_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceScheduler.S3InputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    inference_input_name_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceScheduler.InputNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_time_zone_offset: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1087,7 +1086,7 @@ def _typecheckingstub__ed585a7e4b7dcf4c2ba303085f266554d37e30a47b8c8a83d85a48bd8
 
 def _typecheckingstub__a93817eddc485b7b6f6413c39d9d852f5d95734f746beeab1a2d6bc3fb4713f2(
     *,
-    s3_output_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInferenceScheduler.S3OutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_output_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInferenceScheduler.S3OutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1127,7 +1126,7 @@ def _typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd
     data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
     inference_scheduler_name: typing.Optional[builtins.str] = None,
     server_side_kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

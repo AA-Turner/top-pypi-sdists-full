@@ -402,6 +402,8 @@ topic_rule.add_action(actions.OpenSearchAction(domain,
 ))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -415,40 +417,55 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
-import aws_cdk.aws_dynamodb as _aws_cdk_aws_dynamodb_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_iot_alpha as _aws_cdk_aws_iot_alpha_eb933819
-import aws_cdk.aws_iotevents_alpha as _aws_cdk_aws_iotevents_alpha_39cbd76e
-import aws_cdk.aws_kinesis as _aws_cdk_aws_kinesis_ceddda9d
-import aws_cdk.aws_kinesisfirehose as _aws_cdk_aws_kinesisfirehose_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_opensearchservice as _aws_cdk_aws_opensearchservice_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
-import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
-import aws_cdk.aws_stepfunctions as _aws_cdk_aws_stepfunctions_ceddda9d
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+    import aws_cdk.aws_dynamodb as _aws_cdk_aws_dynamodb_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_iot_alpha as _aws_cdk_aws_iot_alpha_eb933819
+    import aws_cdk.aws_iotevents_alpha as _aws_cdk_aws_iotevents_alpha_39cbd76e
+    import aws_cdk.aws_kinesis as _aws_cdk_aws_kinesis_ceddda9d
+    import aws_cdk.aws_kinesisfirehose as _aws_cdk_aws_kinesisfirehose_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_opensearchservice as _aws_cdk_aws_opensearchservice_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
+    import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
+    import aws_cdk.aws_stepfunctions as _aws_cdk_aws_stepfunctions_ceddda9d
+else:
+
+    _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cdk_aws_dynamodb_ceddda9d = _LazyImport("aws_cdk.aws_dynamodb")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_iot_alpha_eb933819 = _LazyImport("aws_cdk.aws_iot_alpha")
+    _aws_cdk_aws_iotevents_alpha_39cbd76e = _LazyImport("aws_cdk.aws_iotevents_alpha")
+    _aws_cdk_aws_kinesis_ceddda9d = _LazyImport("aws_cdk.aws_kinesis")
+    _aws_cdk_aws_kinesisfirehose_ceddda9d = _LazyImport("aws_cdk.aws_kinesisfirehose")
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_opensearchservice_ceddda9d = _LazyImport("aws_cdk.aws_opensearchservice")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_aws_sns_ceddda9d = _LazyImport("aws_cdk.aws_sns")
+    _aws_cdk_aws_sqs_ceddda9d = _LazyImport("aws_cdk.aws_sqs")
+    _aws_cdk_aws_stepfunctions_ceddda9d = _LazyImport("aws_cdk.aws_stepfunctions")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
 
 
 @jsii.implements(_aws_cdk_aws_iot_alpha_eb933819.IAction)
@@ -487,7 +504,7 @@ class CloudWatchLogsAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1125f9dca9ec8ed30503b3089fce98893e99b37a4834cfd883136ea340ad05cb)
+            type_hints = cached_type_hints(_typecheckingstub__1125f9dca9ec8ed30503b3089fce98893e99b37a4834cfd883136ea340ad05cb)
             check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
         props = CloudWatchLogsActionProps(role=role)
 
@@ -607,7 +624,7 @@ class CloudWatchSetAlarmStateAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dc507afa1602d7648fd445cf653eafff0694945ad00db2eb11461c754c2b00b)
+            type_hints = cached_type_hints(_typecheckingstub__7dc507afa1602d7648fd445cf653eafff0694945ad00db2eb11461c754c2b00b)
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
         props = CloudWatchSetAlarmStateActionProps(
             alarm_state_to_set=alarm_state_to_set, reason=reason, role=role
@@ -648,7 +665,7 @@ class CommonActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8c5f84dc199f2aa55e9c7b72978de6e47482c21c07fb8845141664e7ba4e7ce)
+            type_hints = cached_type_hints(_typecheckingstub__d8c5f84dc199f2aa55e9c7b72978de6e47482c21c07fb8845141664e7ba4e7ce)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if role is not None:
@@ -715,7 +732,7 @@ class DynamoDBv2PutItemAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9242ff0039c5f5f20a1fcc4613ee02b20617db70446ef5e7cbe185ebec5fa338)
+            type_hints = cached_type_hints(_typecheckingstub__9242ff0039c5f5f20a1fcc4613ee02b20617db70446ef5e7cbe185ebec5fa338)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
         props = DynamoDBv2PutItemActionProps(role=role)
 
@@ -754,7 +771,7 @@ class DynamoDBv2PutItemActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5006dd434137a2ed9cdc6c97b24a6a3424c93db9f39d65c8aff4f62493513268)
+            type_hints = cached_type_hints(_typecheckingstub__5006dd434137a2ed9cdc6c97b24a6a3424c93db9f39d65c8aff4f62493513268)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if role is not None:
@@ -831,7 +848,7 @@ class FirehosePutRecordAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1862de154dea8afd9a05c2e43c9e12d06dd718f02f029ad7e9defe76176f5d)
+            type_hints = cached_type_hints(_typecheckingstub__2b1862de154dea8afd9a05c2e43c9e12d06dd718f02f029ad7e9defe76176f5d)
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
         props = FirehosePutRecordActionProps(
             batch_mode=batch_mode, record_separator=record_separator, role=role
@@ -887,7 +904,7 @@ class FirehosePutRecordActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a372426adf9237fb413c0109f8f86481ab2cefcb2d867a7cd22fd0ac4160dd82)
+            type_hints = cached_type_hints(_typecheckingstub__a372426adf9237fb413c0109f8f86481ab2cefcb2d867a7cd22fd0ac4160dd82)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument batch_mode", value=batch_mode, expected_type=type_hints["batch_mode"])
             check_type(argname="argument record_separator", value=record_separator, expected_type=type_hints["record_separator"])
@@ -1042,7 +1059,7 @@ class HttpActionBatchConfig:
                 ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__935f6e4166e63cead06a0053a3d69d0f91c885bb7757a9c25815a12ea9e851e9)
+            type_hints = cached_type_hints(_typecheckingstub__935f6e4166e63cead06a0053a3d69d0f91c885bb7757a9c25815a12ea9e851e9)
             check_type(argname="argument max_batch_open_duration", value=max_batch_open_duration, expected_type=type_hints["max_batch_open_duration"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
             check_type(argname="argument max_batch_size_bytes", value=max_batch_size_bytes, expected_type=type_hints["max_batch_size_bytes"])
@@ -1131,7 +1148,7 @@ class HttpActionHeader:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca282425917f2fd79daa77c3313ac246d547984b2140f896e262c1ec5dbb9879)
+            type_hints = cached_type_hints(_typecheckingstub__ca282425917f2fd79daa77c3313ac246d547984b2140f896e262c1ec5dbb9879)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1207,7 +1224,7 @@ class HttpActionSigV4Auth:
                 ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b59e93ae19615b8937eb25644e8d247753f0996ddd5ee40af6b299f32e12bd3)
+            type_hints = cached_type_hints(_typecheckingstub__8b59e93ae19615b8937eb25644e8d247753f0996ddd5ee40af6b299f32e12bd3)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             check_type(argname="argument signing_region", value=signing_region, expected_type=type_hints["signing_region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1293,7 +1310,7 @@ class HttpsAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87b0804f95979b48d6a924424abe8ebf192fbcfebc6aecf6436690d1019d6ad)
+            type_hints = cached_type_hints(_typecheckingstub__c87b0804f95979b48d6a924424abe8ebf192fbcfebc6aecf6436690d1019d6ad)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         props = HttpsActionProps(
             auth=auth,
@@ -1358,7 +1375,7 @@ class HttpsActionProps(CommonActionProps):
         if isinstance(batch_config, dict):
             batch_config = HttpActionBatchConfig(**batch_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed57e014b0887a84984c84f8ad94782b2b5efe0e853a018ecb7cde520af055ac)
+            type_hints = cached_type_hints(_typecheckingstub__ed57e014b0887a84984c84f8ad94782b2b5efe0e853a018ecb7cde520af055ac)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
             check_type(argname="argument batch_config", value=batch_config, expected_type=type_hints["batch_config"])
@@ -1490,7 +1507,7 @@ class IotEventsPutMessageAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fd382f1f47362d144397e527978352f762c1785375ec37658992a8a487b4cf8)
+            type_hints = cached_type_hints(_typecheckingstub__3fd382f1f47362d144397e527978352f762c1785375ec37658992a8a487b4cf8)
             check_type(argname="argument input", value=input, expected_type=type_hints["input"])
         props = IotEventsPutMessageActionProps(
             batch_mode=batch_mode, message_id=message_id, role=role
@@ -1548,7 +1565,7 @@ class IotEventsPutMessageActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cc9e90430c80165cefadf2e647f22c5429762d648559fb693f79190265f6f91)
+            type_hints = cached_type_hints(_typecheckingstub__4cc9e90430c80165cefadf2e647f22c5429762d648559fb693f79190265f6f91)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument batch_mode", value=batch_mode, expected_type=type_hints["batch_mode"])
             check_type(argname="argument message_id", value=message_id, expected_type=type_hints["message_id"])
@@ -1651,7 +1668,7 @@ class IotRepublishMqttAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a39706bd98f00c288466b2a1f3248a337c500a5d9800d73998fb329410490355)
+            type_hints = cached_type_hints(_typecheckingstub__a39706bd98f00c288466b2a1f3248a337c500a5d9800d73998fb329410490355)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         props = IotRepublishMqttActionProps(
             quality_of_service=quality_of_service, role=role
@@ -1692,7 +1709,7 @@ class IotRepublishMqttActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__854cc7d880adf3faaf99230c4da2141389719c911cc9ff25daf3e31267da2ba7)
+            type_hints = cached_type_hints(_typecheckingstub__854cc7d880adf3faaf99230c4da2141389719c911cc9ff25daf3e31267da2ba7)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument quality_of_service", value=quality_of_service, expected_type=type_hints["quality_of_service"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1778,7 +1795,7 @@ class KinesisPutRecordAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4f906af38759ce5ba22880ad819a9e8e2eebfc2b90b06b2935a18ed5516ca8c)
+            type_hints = cached_type_hints(_typecheckingstub__d4f906af38759ce5ba22880ad819a9e8e2eebfc2b90b06b2935a18ed5516ca8c)
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
         props = KinesisPutRecordActionProps(partition_key=partition_key, role=role)
 
@@ -1822,7 +1839,7 @@ class KinesisPutRecordActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42ab71684b75c91d7e19999242605bbbcf0ebeed49e9e93eb0a07ff42713e97d)
+            type_hints = cached_type_hints(_typecheckingstub__42ab71684b75c91d7e19999242605bbbcf0ebeed49e9e93eb0a07ff42713e97d)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1901,7 +1918,7 @@ class LambdaFunctionAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b93d28232c9e366b4b8112099c693914bd7bf1c15baab0bdc99040cab6073a3)
+            type_hints = cached_type_hints(_typecheckingstub__4b93d28232c9e366b4b8112099c693914bd7bf1c15baab0bdc99040cab6073a3)
             check_type(argname="argument func", value=func, expected_type=type_hints["func"])
         jsii.create(self.__class__, self, [func])
 
@@ -1990,7 +2007,7 @@ class OpenSearchAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b3920392688b421d7e2aa469667b4ced037e78a50f767b308c0052982bae1ce)
+            type_hints = cached_type_hints(_typecheckingstub__4b3920392688b421d7e2aa469667b4ced037e78a50f767b308c0052982bae1ce)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
         props = OpenSearchActionProps(id=id, index=index, type=type, role=role)
 
@@ -2038,7 +2055,7 @@ class OpenSearchActionProps(CommonActionProps):
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49db1560a3ec547d00f9ceca770a6c6281883f28e417d7418f38eb83bd36f66f)
+            type_hints = cached_type_hints(_typecheckingstub__49db1560a3ec547d00f9ceca770a6c6281883f28e417d7418f38eb83bd36f66f)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
@@ -2145,7 +2162,7 @@ class S3PutObjectAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bbbe8807f470409fee21688cbdca26b2d855abff863619511f33e2e6e54db53)
+            type_hints = cached_type_hints(_typecheckingstub__7bbbe8807f470409fee21688cbdca26b2d855abff863619511f33e2e6e54db53)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         props = S3PutObjectActionProps(
             access_control=access_control, key=key, role=role
@@ -2190,7 +2207,7 @@ class S3PutObjectActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74be5bc61492b5d95f55ab5d587208fc038f41e2774a8ccd5f3222ed6bbe29cc)
+            type_hints = cached_type_hints(_typecheckingstub__74be5bc61492b5d95f55ab5d587208fc038f41e2774a8ccd5f3222ed6bbe29cc)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument access_control", value=access_control, expected_type=type_hints["access_control"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
@@ -2332,7 +2349,7 @@ class SnsTopicAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28b9ac87541b719bdb6188fab91743d47e5baf5337b590a3c44eb0855d08373a)
+            type_hints = cached_type_hints(_typecheckingstub__28b9ac87541b719bdb6188fab91743d47e5baf5337b590a3c44eb0855d08373a)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         props = SnsTopicActionProps(message_format=message_format, role=role)
 
@@ -2376,7 +2393,7 @@ class SnsTopicActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d4eda26cfe8f33e82924457f130b39bfe6d7f117623596e9d9ce154ce4e5108)
+            type_hints = cached_type_hints(_typecheckingstub__4d4eda26cfe8f33e82924457f130b39bfe6d7f117623596e9d9ce154ce4e5108)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument message_format", value=message_format, expected_type=type_hints["message_format"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2464,7 +2481,7 @@ class SqsQueueAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d0c245d877114394d3e09acdcb174576e27f3f9cad8a863e5e7a424110d13bb)
+            type_hints = cached_type_hints(_typecheckingstub__9d0c245d877114394d3e09acdcb174576e27f3f9cad8a863e5e7a424110d13bb)
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
         props = SqsQueueActionProps(use_base64=use_base64, role=role)
 
@@ -2508,7 +2525,7 @@ class SqsQueueActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5184a531fc369450e1313edec39213fa04a8fdc462b140ddad9b560aa8522ecc)
+            type_hints = cached_type_hints(_typecheckingstub__5184a531fc369450e1313edec39213fa04a8fdc462b140ddad9b560aa8522ecc)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument use_base64", value=use_base64, expected_type=type_hints["use_base64"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2590,7 +2607,7 @@ class StepFunctionsStateMachineAction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9380d6d32a8104c9950eb4b8f6ff7f68d3df1676feaa008cb1c42bea06d28f71)
+            type_hints = cached_type_hints(_typecheckingstub__9380d6d32a8104c9950eb4b8f6ff7f68d3df1676feaa008cb1c42bea06d28f71)
             check_type(argname="argument state_machine", value=state_machine, expected_type=type_hints["state_machine"])
         props = StepFunctionsStateMachineActionProps(
             execution_name_prefix=execution_name_prefix, role=role
@@ -2634,7 +2651,7 @@ class StepFunctionsStateMachineActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f99f17cd856c4c6aa85a9e9ea4651c1e04df5a16fcf1f0b96d0bc93128f6613)
+            type_hints = cached_type_hints(_typecheckingstub__6f99f17cd856c4c6aa85a9e9ea4651c1e04df5a16fcf1f0b96d0bc93128f6613)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument execution_name_prefix", value=execution_name_prefix, expected_type=type_hints["execution_name_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2712,7 +2729,7 @@ class CloudWatchLogsActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c62cf968ee8c708d0a13936857838acb01e16cd37283347a4eee11030644300)
+            type_hints = cached_type_hints(_typecheckingstub__1c62cf968ee8c708d0a13936857838acb01e16cd37283347a4eee11030644300)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if role is not None:
@@ -2792,7 +2809,7 @@ class CloudWatchPutMetricActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b16a125b513c79322a639110dc70aa918ed56fa0cd214cf792b3ef851e59aa63)
+            type_hints = cached_type_hints(_typecheckingstub__b16a125b513c79322a639110dc70aa918ed56fa0cd214cf792b3ef851e59aa63)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument metric_namespace", value=metric_namespace, expected_type=type_hints["metric_namespace"])
@@ -2953,7 +2970,7 @@ class CloudWatchSetAlarmStateActionProps(CommonActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4521229d0742486c73df92505118670df3e3699b0c09634f8986685d00c19833)
+            type_hints = cached_type_hints(_typecheckingstub__4521229d0742486c73df92505118670df3e3699b0c09634f8986685d00c19833)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument alarm_state_to_set", value=alarm_state_to_set, expected_type=type_hints["alarm_state_to_set"])
             check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])

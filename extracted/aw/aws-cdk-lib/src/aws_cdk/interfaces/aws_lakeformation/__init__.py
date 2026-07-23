@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -76,7 +80,7 @@ class DataCellsFilterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4481235e03c692964bec4e715dcfcea0a2dec7424d50d8336843422e15d0a299)
+            type_hints = cached_type_hints(_typecheckingstub__4481235e03c692964bec4e715dcfcea0a2dec7424d50d8336843422e15d0a299)
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument data_cells_filter_name", value=data_cells_filter_name, expected_type=type_hints["data_cells_filter_name"])
             check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
@@ -152,7 +156,7 @@ class DataLakeSettingsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbf7837c830af141c706ded9c4ec48a8571b2af65cdb877c8c2cc4bd128c065c)
+            type_hints = cached_type_hints(_typecheckingstub__dbf7837c830af141c706ded9c4ec48a8571b2af65cdb877c8c2cc4bd128c065c)
             check_type(argname="argument data_lake_settings_id", value=data_lake_settings_id, expected_type=type_hints["data_lake_settings_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_lake_settings_id": data_lake_settings_id,
@@ -182,7 +186,7 @@ class DataLakeSettingsReference:
 )
 class IDataCellsFilterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataCellsFilter.
@@ -202,7 +206,7 @@ class IDataCellsFilterRef(
 
 class _IDataCellsFilterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataCellsFilter.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IDataCellsFilterRef).__jsii_proxy_class__ = lambda : _ID
 )
 class IDataLakeSettingsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataLakeSettings.
@@ -249,7 +253,7 @@ class IDataLakeSettingsRef(
 
 class _IDataLakeSettingsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataLakeSettings.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IDataLakeSettingsRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lakeformation.IPermissionsRef")
 class IPermissionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Permissions.
@@ -294,7 +298,7 @@ class IPermissionsRef(
 
 class _IPermissionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Permissions.
 
@@ -321,7 +325,7 @@ typing.cast(typing.Any, IPermissionsRef).__jsii_proxy_class__ = lambda : _IPermi
 )
 class IPrincipalPermissionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrincipalPermissions.
@@ -341,7 +345,7 @@ class IPrincipalPermissionsRef(
 
 class _IPrincipalPermissionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrincipalPermissions.
 
@@ -366,7 +370,7 @@ typing.cast(typing.Any, IPrincipalPermissionsRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lakeformation.IResourceRef")
 class IResourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Resource.
@@ -386,7 +390,7 @@ class IResourceRef(
 
 class _IResourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Resource.
 
@@ -413,7 +417,7 @@ typing.cast(typing.Any, IResourceRef).__jsii_proxy_class__ = lambda : _IResource
 )
 class ITagAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagAssociation.
@@ -433,7 +437,7 @@ class ITagAssociationRef(
 
 class _ITagAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagAssociation.
 
@@ -458,7 +462,7 @@ typing.cast(typing.Any, ITagAssociationRef).__jsii_proxy_class__ = lambda : _ITa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lakeformation.ITagRef")
 class ITagRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tag.
@@ -478,7 +482,7 @@ class ITagRef(
 
 class _ITagRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tag.
 
@@ -524,7 +528,7 @@ class PermissionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be8547b28182f3cda5ad6898330f8f395c9f75ad41a66d0a0b957cb2ddbd8e50)
+            type_hints = cached_type_hints(_typecheckingstub__be8547b28182f3cda5ad6898330f8f395c9f75ad41a66d0a0b957cb2ddbd8e50)
             check_type(argname="argument permissions_id", value=permissions_id, expected_type=type_hints["permissions_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "permissions_id": permissions_id,
@@ -583,7 +587,7 @@ class PrincipalPermissionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6387bb91585adb01e0b1beffddec28918e8b362da3c33efa10aeb17d81b5a3a0)
+            type_hints = cached_type_hints(_typecheckingstub__6387bb91585adb01e0b1beffddec28918e8b362da3c33efa10aeb17d81b5a3a0)
             check_type(argname="argument principal_identifier", value=principal_identifier, expected_type=type_hints["principal_identifier"])
             check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -641,7 +645,7 @@ class ResourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a5cb670439a52924afee3c01504dd09fd4c58dbb3b8620f1f1eb2e44398b999)
+            type_hints = cached_type_hints(_typecheckingstub__2a5cb670439a52924afee3c01504dd09fd4c58dbb3b8620f1f1eb2e44398b999)
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_id": resource_id,
@@ -700,7 +704,7 @@ class TagAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e6e8c7f7355dd1eb98120b013e1964350550b4511df94ae37b2b7fcf09a4ae8)
+            type_hints = cached_type_hints(_typecheckingstub__3e6e8c7f7355dd1eb98120b013e1964350550b4511df94ae37b2b7fcf09a4ae8)
             check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
             check_type(argname="argument tags_identifier", value=tags_identifier, expected_type=type_hints["tags_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -758,7 +762,7 @@ class TagReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9f042d5200978030ff397c34b5f15a045eb40ddd0893b7322f1f28655d48010)
+            type_hints = cached_type_hints(_typecheckingstub__b9f042d5200978030ff397c34b5f15a045eb40ddd0893b7322f1f28655d48010)
             check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "tag_key": tag_key,

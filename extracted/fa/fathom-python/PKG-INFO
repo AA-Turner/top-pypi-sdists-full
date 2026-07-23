@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fathom-python
-Version: 0.0.41
+Version: 0.0.42
 Summary: Fathom's official Python SDK.
 Author: Speakeasy
 Requires-Python: >=3.9.2
@@ -27,6 +27,9 @@ Description-Content-Type: text/markdown
 Fathom External API: The Fathom External API lets you poll meetings, teams, and team members, and
 optionally receive webhooks when content from a new meeting is ready.
 <!-- End Summary [summary] -->
+
+
+
 
 <!-- Start SDK Installation [installation] -->
 ## SDK Installation
@@ -232,6 +235,7 @@ with Fathom(
 * [get_recording_transcript](docs/sdks/fathom/README.md#get_recording_transcript) - Get transcript
 * [list_teams](docs/sdks/fathom/README.md#list_teams) - List teams
 * [list_team_members](docs/sdks/fathom/README.md#list_team_members) - List team members
+* [list_users](docs/sdks/fathom/README.md#list_users) - List users and their permissions
 * [list_meeting_types](docs/sdks/fathom/README.md#list_meeting_types) - List meeting types
 * [create_webhook](docs/sdks/fathom/README.md#create_webhook) - Create a webhook
 * [delete_webhook](docs/sdks/fathom/README.md#delete_webhook) - Delete a webhook

@@ -572,6 +572,8 @@ portfolio.deploy_with_stack_sets(product,
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -585,95 +587,50 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    AssetHashType as _AssetHashType_05b67f2d,
-    BundlingOptions as _BundlingOptions_588cc936,
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    ICfnRuleConditionExpression as _ICfnRuleConditionExpression_9aca991b,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    IgnoreMode as _IgnoreMode_655a98e8,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    Stack as _Stack_2866e57f,
-    SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import (
-    IGrantable as _IGrantable_71c4f5de,
-    IGroup as _IGroup_96daf542,
-    IRole as _IRole_235f5d8e,
-    IUser as _IUser_c32311f7,
-)
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
-from ..aws_s3_deployment import ServerSideEncryption as _ServerSideEncryption_50ddf705
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_servicecatalog import (
-    AcceptedPortfolioShareReference as _AcceptedPortfolioShareReference_5a5fad2c,
-    CloudFormationProductReference as _CloudFormationProductReference_a9bb7050,
-    CloudFormationProvisionedProductReference as _CloudFormationProvisionedProductReference_cc99c3e1,
-    IAcceptedPortfolioShareRef as _IAcceptedPortfolioShareRef_56b3caed,
-    ICloudFormationProductRef as _ICloudFormationProductRef_d59b8740,
-    ICloudFormationProvisionedProductRef as _ICloudFormationProvisionedProductRef_8065ca55,
-    ILaunchNotificationConstraintRef as _ILaunchNotificationConstraintRef_9fe9869c,
-    ILaunchRoleConstraintRef as _ILaunchRoleConstraintRef_e359a2bb,
-    ILaunchTemplateConstraintRef as _ILaunchTemplateConstraintRef_5f25ac94,
-    IPortfolioPrincipalAssociationRef as _IPortfolioPrincipalAssociationRef_1e487bc3,
-    IPortfolioProductAssociationRef as _IPortfolioProductAssociationRef_3f352f5c,
-    IPortfolioRef as _IPortfolioRef_a19e4bd0,
-    IPortfolioShareRef as _IPortfolioShareRef_02a1808a,
-    IResourceUpdateConstraintRef as _IResourceUpdateConstraintRef_6a0e13ed,
-    IServiceActionAssociationRef as _IServiceActionAssociationRef_0e9e58e8,
-    IServiceActionRef as _IServiceActionRef_ab991e2b,
-    IStackSetConstraintRef as _IStackSetConstraintRef_5b78280d,
-    ITagOptionAssociationRef as _ITagOptionAssociationRef_ba745ddc,
-    ITagOptionRef as _ITagOptionRef_bd4d9e5c,
-    LaunchNotificationConstraintReference as _LaunchNotificationConstraintReference_bb0fbb25,
-    LaunchRoleConstraintReference as _LaunchRoleConstraintReference_81c64491,
-    LaunchTemplateConstraintReference as _LaunchTemplateConstraintReference_ec83b407,
-    PortfolioPrincipalAssociationReference as _PortfolioPrincipalAssociationReference_94cd9217,
-    PortfolioProductAssociationReference as _PortfolioProductAssociationReference_92cc7707,
-    PortfolioReference as _PortfolioReference_7a849941,
-    PortfolioShareReference as _PortfolioShareReference_b73c7783,
-    ResourceUpdateConstraintReference as _ResourceUpdateConstraintReference_7c332e17,
-    ServiceActionAssociationReference as _ServiceActionAssociationReference_b0ac9c14,
-    ServiceActionReference as _ServiceActionReference_eb2df408,
-    StackSetConstraintReference as _StackSetConstraintReference_378fddb5,
-    TagOptionAssociationReference as _TagOptionAssociationReference_0801788b,
-    TagOptionReference as _TagOptionReference_ef49ef9d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_s3_assets as _aws_s3_assets_2dba96fa
+    import aws_cdk.aws_s3_deployment as _aws_s3_deployment_3b1abc3a
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_servicecatalog as _aws_servicecatalog_848f4bab
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_s3_assets_2dba96fa = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_s3_deployment_3b1abc3a = _LazyImport("aws_cdk.aws_s3_deployment")
+    _aws_servicecatalog_848f4bab = _LazyImport("aws_cdk.interfaces.aws_servicecatalog")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAcceptedPortfolioShareRef_56b3caed)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IAcceptedPortfolioShareRef)
 class CfnAcceptedPortfolioShare(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnAcceptedPortfolioShare",
 ):
@@ -713,7 +670,7 @@ class CfnAcceptedPortfolioShare(
         :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3aa97377e67e5de00f1b94453a16c1e9712dfe055beb7707fe1196cdf9a51a7)
+            type_hints = cached_type_hints(_typecheckingstub__c3aa97377e67e5de00f1b94453a16c1e9712dfe055beb7707fe1196cdf9a51a7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAcceptedPortfolioShareProps(
@@ -730,18 +687,18 @@ class CfnAcceptedPortfolioShare(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8245a88da07cce03f5dd5e8b9e8c1a6669b2388817308ff795e8211f0b29976)
+            type_hints = cached_type_hints(_typecheckingstub__a8245a88da07cce03f5dd5e8b9e8c1a6669b2388817308ff795e8211f0b29976)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAcceptedPortfolioShare", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6451f68b36b48991fe882611b7b025fa7b6c61da949d847ed3ffbeb5565b5060)
+            type_hints = cached_type_hints(_typecheckingstub__6451f68b36b48991fe882611b7b025fa7b6c61da949d847ed3ffbeb5565b5060)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -754,7 +711,7 @@ class CfnAcceptedPortfolioShare(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9dad6b073d0fd4a483e68170a9146471e28d899c1dfbe09a943cd63e57f01ad)
+            type_hints = cached_type_hints(_typecheckingstub__c9dad6b073d0fd4a483e68170a9146471e28d899c1dfbe09a943cd63e57f01ad)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -768,9 +725,9 @@ class CfnAcceptedPortfolioShare(
     @jsii.member(jsii_name="acceptedPortfolioShareRef")
     def accepted_portfolio_share_ref(
         self,
-    ) -> "_AcceptedPortfolioShareReference_5a5fad2c":
+    ) -> "_aws_servicecatalog_848f4bab.AcceptedPortfolioShareReference":
         '''A reference to a AcceptedPortfolioShare resource.'''
-        return typing.cast("_AcceptedPortfolioShareReference_5a5fad2c", jsii.get(self, "acceptedPortfolioShareRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.AcceptedPortfolioShareReference", jsii.get(self, "acceptedPortfolioShareRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -799,7 +756,7 @@ class CfnAcceptedPortfolioShare(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7977da1b6d9898fac62e20f5e37ae382c3e30535d1937a55a123bf9d3c201241)
+            type_hints = cached_type_hints(_typecheckingstub__7977da1b6d9898fac62e20f5e37ae382c3e30535d1937a55a123bf9d3c201241)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -812,7 +769,7 @@ class CfnAcceptedPortfolioShare(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__007477064bf18ea62d6ca00353686fcb2c4328f51ee561a3a7d896e21d9ca995)
+            type_hints = cached_type_hints(_typecheckingstub__007477064bf18ea62d6ca00353686fcb2c4328f51ee561a3a7d896e21d9ca995)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -851,7 +808,7 @@ class CfnAcceptedPortfolioShareProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ebe558dc027b532926c4f3a3b2f3f9c46515a9f7cdf26e7a3cc0e8783ec293d)
+            type_hints = cached_type_hints(_typecheckingstub__9ebe558dc027b532926c4f3a3b2f3f9c46515a9f7cdf26e7a3cc0e8783ec293d)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -894,9 +851,9 @@ class CfnAcceptedPortfolioShareProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICloudFormationProductRef_d59b8740, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ICloudFormationProductRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCloudFormationProduct(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct",
 ):
@@ -966,13 +923,13 @@ class CfnCloudFormationProduct(
         description: typing.Optional[builtins.str] = None,
         distributor: typing.Optional[builtins.str] = None,
         product_type: typing.Optional[builtins.str] = None,
-        provisioning_artifact_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        source_connection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioning_artifact_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        source_connection: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         support_description: typing.Optional[builtins.str] = None,
         support_email: typing.Optional[builtins.str] = None,
         support_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::CloudFormationProduct``.
 
@@ -993,7 +950,7 @@ class CfnCloudFormationProduct(
         :param tags: One or more tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc6c443cb4df40ad7001b0569b4f479e51baff8371ae5f0e4102e9cb84befaee)
+            type_hints = cached_type_hints(_typecheckingstub__cc6c443cb4df40ad7001b0569b4f479e51baff8371ae5f0e4102e9cb84befaee)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCloudFormationProductProps(
@@ -1022,18 +979,18 @@ class CfnCloudFormationProduct(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0ca8154cb290fd0db2ce2d10e47194409380f24081df5f285363aac245a415b)
+            type_hints = cached_type_hints(_typecheckingstub__a0ca8154cb290fd0db2ce2d10e47194409380f24081df5f285363aac245a415b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudFormationProduct", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__727de4de57ef9ec83792ae6093c81836a2ca3f9f4f9dc0d62497712b00efbfa7)
+            type_hints = cached_type_hints(_typecheckingstub__727de4de57ef9ec83792ae6093c81836a2ca3f9f4f9dc0d62497712b00efbfa7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1046,7 +1003,7 @@ class CfnCloudFormationProduct(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49c7444adc7a4ffc4d2f4470e5ade22856e8c876c51c5129192cb728a714c019)
+            type_hints = cached_type_hints(_typecheckingstub__49c7444adc7a4ffc4d2f4470e5ade22856e8c876c51c5129192cb728a714c019)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1059,7 +1016,8 @@ class CfnCloudFormationProduct(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''The ID of the product, such as prod-tsjbmal34qvek.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -1103,15 +1061,17 @@ class CfnCloudFormationProduct(
 
     @builtins.property
     @jsii.member(jsii_name="cloudFormationProductRef")
-    def cloud_formation_product_ref(self) -> "_CloudFormationProductReference_a9bb7050":
+    def cloud_formation_product_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.CloudFormationProductReference":
         '''A reference to a CloudFormationProduct resource.'''
-        return typing.cast("_CloudFormationProductReference_a9bb7050", jsii.get(self, "cloudFormationProductRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.CloudFormationProductReference", jsii.get(self, "cloudFormationProductRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1122,7 +1082,7 @@ class CfnCloudFormationProduct(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9259a35a34b8232440a4248c91cd12417f2bb4f7700c5d4cd96fe48fbf3e7c7)
+            type_hints = cached_type_hints(_typecheckingstub__c9259a35a34b8232440a4248c91cd12417f2bb4f7700c5d4cd96fe48fbf3e7c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1135,7 +1095,7 @@ class CfnCloudFormationProduct(
     @owner.setter
     def owner(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d6bbaefd4ee42ef504a40c0bc7d893697f56d5c4a8e2be034cb5fac41b7f9f9)
+            type_hints = cached_type_hints(_typecheckingstub__5d6bbaefd4ee42ef504a40c0bc7d893697f56d5c4a8e2be034cb5fac41b7f9f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "owner", value) # pyright: ignore[reportArgumentType]
 
@@ -1148,7 +1108,7 @@ class CfnCloudFormationProduct(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed6af9abead4851089ab452f15a83c5c9324575bf905a98147e6df142fbea0c)
+            type_hints = cached_type_hints(_typecheckingstub__9ed6af9abead4851089ab452f15a83c5c9324575bf905a98147e6df142fbea0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -1161,7 +1121,7 @@ class CfnCloudFormationProduct(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6456b1fd2ac19494b0c436f75e41f4149b79a793224c068c2ac908b8ed0e6a0e)
+            type_hints = cached_type_hints(_typecheckingstub__6456b1fd2ac19494b0c436f75e41f4149b79a793224c068c2ac908b8ed0e6a0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1174,7 +1134,7 @@ class CfnCloudFormationProduct(
     @distributor.setter
     def distributor(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67af1cd619ef8474453ddaba57bc4ef2a50181c793790168ea7fa3fef631fe47)
+            type_hints = cached_type_hints(_typecheckingstub__67af1cd619ef8474453ddaba57bc4ef2a50181c793790168ea7fa3fef631fe47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "distributor", value) # pyright: ignore[reportArgumentType]
 
@@ -1187,7 +1147,7 @@ class CfnCloudFormationProduct(
     @product_type.setter
     def product_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8283abec3673f6f8def666fd669e05a39bf8e7ada7a7820b7e2e6e0017ec5072)
+            type_hints = cached_type_hints(_typecheckingstub__8283abec3673f6f8def666fd669e05a39bf8e7ada7a7820b7e2e6e0017ec5072)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productType", value) # pyright: ignore[reportArgumentType]
 
@@ -1195,17 +1155,17 @@ class CfnCloudFormationProduct(
     @jsii.member(jsii_name="provisioningArtifactParameters")
     def provisioning_artifact_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
         '''The configuration of the provisioning artifact (also known as a version).'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], jsii.get(self, "provisioningArtifactParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], jsii.get(self, "provisioningArtifactParameters"))
 
     @provisioning_artifact_parameters.setter
     def provisioning_artifact_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46bdfff1360506ade40e04d18d81d060b0a0f0601a08269c6aa5658e66289ddd)
+            type_hints = cached_type_hints(_typecheckingstub__46bdfff1360506ade40e04d18d81d060b0a0f0601a08269c6aa5658e66289ddd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningArtifactParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -1213,17 +1173,17 @@ class CfnCloudFormationProduct(
     @jsii.member(jsii_name="replaceProvisioningArtifacts")
     def replace_provisioning_artifacts(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''This property is turned off by default.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "replaceProvisioningArtifacts"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "replaceProvisioningArtifacts"))
 
     @replace_provisioning_artifacts.setter
     def replace_provisioning_artifacts(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3860e4645114c1e719f71c5207cb37518d5cb1aa225903719679d05f030de4f6)
+            type_hints = cached_type_hints(_typecheckingstub__3860e4645114c1e719f71c5207cb37518d5cb1aa225903719679d05f030de4f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replaceProvisioningArtifacts", value) # pyright: ignore[reportArgumentType]
 
@@ -1231,17 +1191,17 @@ class CfnCloudFormationProduct(
     @jsii.member(jsii_name="sourceConnection")
     def source_connection(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.SourceConnectionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.SourceConnectionProperty"]]:
         '''A top level ``ProductViewDetail`` response containing details about the product’s connection.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.SourceConnectionProperty"]], jsii.get(self, "sourceConnection"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.SourceConnectionProperty"]], jsii.get(self, "sourceConnection"))
 
     @source_connection.setter
     def source_connection(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.SourceConnectionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.SourceConnectionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12635a42c5ebd2e19b46cf3bb9134e21232e501fed70f86af7f0207bf93441c9)
+            type_hints = cached_type_hints(_typecheckingstub__12635a42c5ebd2e19b46cf3bb9134e21232e501fed70f86af7f0207bf93441c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceConnection", value) # pyright: ignore[reportArgumentType]
 
@@ -1254,7 +1214,7 @@ class CfnCloudFormationProduct(
     @support_description.setter
     def support_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9695e3011f0a2e99845faf4a8bf622babeb5c67a491768eccc104ae05bfa51cd)
+            type_hints = cached_type_hints(_typecheckingstub__9695e3011f0a2e99845faf4a8bf622babeb5c67a491768eccc104ae05bfa51cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "supportDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -1267,7 +1227,7 @@ class CfnCloudFormationProduct(
     @support_email.setter
     def support_email(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bd18c8efe27f1de421be44834ab68ac37ff85e3a41ca74f3da479f16d7fa80e)
+            type_hints = cached_type_hints(_typecheckingstub__1bd18c8efe27f1de421be44834ab68ac37ff85e3a41ca74f3da479f16d7fa80e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "supportEmail", value) # pyright: ignore[reportArgumentType]
 
@@ -1280,20 +1240,23 @@ class CfnCloudFormationProduct(
     @support_url.setter
     def support_url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__542792e78d44887a9ca550e282dc0cb22b5d99f8e000ec4deb876c700aa6502f)
+            type_hints = cached_type_hints(_typecheckingstub__542792e78d44887a9ca550e282dc0cb22b5d99f8e000ec4deb876c700aa6502f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "supportUrl", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a776b3ba720cdf81828e7a6506e99d00a8a3b051bb5ed0d24ea2b8fdad3d0cf3)
+            type_hints = cached_type_hints(_typecheckingstub__a776b3ba720cdf81828e7a6506e99d00a8a3b051bb5ed0d24ea2b8fdad3d0cf3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1340,7 +1303,7 @@ class CfnCloudFormationProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6fc6af3a004e4611a65e7afe2c54db0ce6344fdab1a029dbb94b72e045dbe550)
+                type_hints = cached_type_hints(_typecheckingstub__6fc6af3a004e4611a65e7afe2c54db0ce6344fdab1a029dbb94b72e045dbe550)
                 check_type(argname="argument artifact_path", value=artifact_path, expected_type=type_hints["artifact_path"])
                 check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
                 check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
@@ -1412,7 +1375,7 @@ class CfnCloudFormationProduct(
         def __init__(
             self,
             *,
-            code_star: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.CodeStarParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_star: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.CodeStarParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides connection details.
 
@@ -1437,7 +1400,7 @@ class CfnCloudFormationProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd9e87d06ed8c44dc9a54fcde6182c92573851ee79f67d3a2407b58f4aa6a726)
+                type_hints = cached_type_hints(_typecheckingstub__dd9e87d06ed8c44dc9a54fcde6182c92573851ee79f67d3a2407b58f4aa6a726)
                 check_type(argname="argument code_star", value=code_star, expected_type=type_hints["code_star"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if code_star is not None:
@@ -1446,13 +1409,13 @@ class CfnCloudFormationProduct(
         @builtins.property
         def code_star(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.CodeStarParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.CodeStarParametersProperty"]]:
             '''Provides ``ConnectionType`` details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-connectionparameters.html#cfn-servicecatalog-cloudformationproduct-connectionparameters-codestar
             '''
             result = self._values.get("code_star")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.CodeStarParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.CodeStarParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1482,7 +1445,7 @@ class CfnCloudFormationProduct(
             *,
             info: typing.Any,
             description: typing.Optional[builtins.str] = None,
-            disable_template_validation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            disable_template_validation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             name: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1516,7 +1479,7 @@ class CfnCloudFormationProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a686c9d8)
+                type_hints = cached_type_hints(_typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a686c9d8)
                 check_type(argname="argument info", value=info, expected_type=type_hints["info"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument disable_template_validation", value=disable_template_validation, expected_type=type_hints["disable_template_validation"])
@@ -1564,13 +1527,13 @@ class CfnCloudFormationProduct(
         @builtins.property
         def disable_template_validation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If set to true, AWS Service Catalog stops validating the specified provisioning artifact even if it is invalid.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-disabletemplatevalidation
             '''
             result = self._values.get("disable_template_validation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -1617,7 +1580,7 @@ class CfnCloudFormationProduct(
         def __init__(
             self,
             *,
-            connection_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.ConnectionParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+            connection_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.ConnectionParametersProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''A top level ``ProductViewDetail`` response containing details about the product’s connection.
@@ -1649,7 +1612,7 @@ class CfnCloudFormationProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f9e1c726)
+                type_hints = cached_type_hints(_typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f9e1c726)
                 check_type(argname="argument connection_parameters", value=connection_parameters, expected_type=type_hints["connection_parameters"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1660,14 +1623,14 @@ class CfnCloudFormationProduct(
         @builtins.property
         def connection_parameters(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ConnectionParametersProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ConnectionParametersProperty"]:
             '''The connection details based on the connection ``Type`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html#cfn-servicecatalog-cloudformationproduct-sourceconnection-connectionparameters
             '''
             result = self._values.get("connection_parameters")
             assert result is not None, "Required property 'connection_parameters' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ConnectionParametersProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ConnectionParametersProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -1720,13 +1683,13 @@ class CfnCloudFormationProductProps:
         description: typing.Optional[builtins.str] = None,
         distributor: typing.Optional[builtins.str] = None,
         product_type: typing.Optional[builtins.str] = None,
-        provisioning_artifact_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        source_connection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioning_artifact_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        source_connection: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         support_description: typing.Optional[builtins.str] = None,
         support_email: typing.Optional[builtins.str] = None,
         support_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCloudFormationProduct``.
 
@@ -1796,7 +1759,7 @@ class CfnCloudFormationProductProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e00148177993ff51c0b6d20ea59ef17d31cfacc134bcd2799bbb0831f6c47c0)
+            type_hints = cached_type_hints(_typecheckingstub__5e00148177993ff51c0b6d20ea59ef17d31cfacc134bcd2799bbb0831f6c47c0)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
@@ -1899,18 +1862,18 @@ class CfnCloudFormationProductProps:
     @builtins.property
     def provisioning_artifact_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
         '''The configuration of the provisioning artifact (also known as a version).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactparameters
         '''
         result = self._values.get("provisioning_artifact_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], result)
 
     @builtins.property
     def replace_provisioning_artifacts(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''This property is turned off by default.
 
         If turned off, you can update provisioning artifacts or product attributes (such as description, distributor, name, owner, and more) and the associated provisioning artifacts will retain the same unique identifier. Provisioning artifacts are matched within the CloudFormationProduct resource, and only those that have been updated will be changed. Provisioning artifacts are matched by a combinaton of provisioning artifact template URL and name.
@@ -1920,12 +1883,12 @@ class CfnCloudFormationProductProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-replaceprovisioningartifacts
         '''
         result = self._values.get("replace_provisioning_artifacts")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def source_connection(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.SourceConnectionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.SourceConnectionProperty"]]:
         '''A top level ``ProductViewDetail`` response containing details about the product’s connection.
 
         AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
@@ -1933,7 +1896,7 @@ class CfnCloudFormationProductProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-sourceconnection
         '''
         result = self._values.get("source_connection")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProduct.SourceConnectionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProduct.SourceConnectionProperty"]], result)
 
     @builtins.property
     def support_description(self) -> typing.Optional[builtins.str]:
@@ -1965,13 +1928,13 @@ class CfnCloudFormationProductProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1985,9 +1948,9 @@ class CfnCloudFormationProductProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICloudFormationProvisionedProductRef_8065ca55, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ICloudFormationProvisionedProductRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCloudFormationProvisionedProduct(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct",
 ):
@@ -2052,9 +2015,9 @@ class CfnCloudFormationProvisionedProduct(
         provisioned_product_name: typing.Optional[builtins.str] = None,
         provisioning_artifact_id: typing.Optional[builtins.str] = None,
         provisioning_artifact_name: typing.Optional[builtins.str] = None,
-        provisioning_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        provisioning_preferences: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioning_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioning_preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::CloudFormationProvisionedProduct``.
 
@@ -2074,7 +2037,7 @@ class CfnCloudFormationProvisionedProduct(
         :param tags: One or more tags. .. epigraph:: Requires the provisioned product to have an `ResourceUpdateConstraint <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-resourceupdateconstraint.html>`_ resource with ``TagUpdatesOnProvisionedProduct`` set to ``ALLOWED`` to allow tag updates. If ``RESOURCE_UPDATE`` constraint is not present, tags updates are ignored.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab318da4b2)
+            type_hints = cached_type_hints(_typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab318da4b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCloudFormationProvisionedProductProps(
@@ -2102,18 +2065,18 @@ class CfnCloudFormationProvisionedProduct(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7e7d1b3c3eb31b9bf58f06acd0ca1c5307f54baa7862f12544143cb63afa430)
+            type_hints = cached_type_hints(_typecheckingstub__a7e7d1b3c3eb31b9bf58f06acd0ca1c5307f54baa7862f12544143cb63afa430)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudFormationProvisionedProduct", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a871c00a20e673078d39c66e338884f55a1ee0a709c63a63fd37f78a2f18a39a)
+            type_hints = cached_type_hints(_typecheckingstub__a871c00a20e673078d39c66e338884f55a1ee0a709c63a63fd37f78a2f18a39a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2126,7 +2089,7 @@ class CfnCloudFormationProvisionedProduct(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5480c16974272a7335118a5a295add981a769f3efcf9ee369371dcaf56515ee9)
+            type_hints = cached_type_hints(_typecheckingstub__5480c16974272a7335118a5a295add981a769f3efcf9ee369371dcaf56515ee9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2146,12 +2109,12 @@ class CfnCloudFormationProvisionedProduct(
 
     @builtins.property
     @jsii.member(jsii_name="attrOutputs")
-    def attr_outputs(self) -> "_IResolvable_da3f097b":
+    def attr_outputs(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''List of key-value pair outputs.
 
         :cloudformationAttribute: Outputs
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrOutputs"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrOutputs"))
 
     @builtins.property
     @jsii.member(jsii_name="attrProvisionedProductId")
@@ -2185,15 +2148,15 @@ class CfnCloudFormationProvisionedProduct(
     @jsii.member(jsii_name="cloudFormationProvisionedProductRef")
     def cloud_formation_provisioned_product_ref(
         self,
-    ) -> "_CloudFormationProvisionedProductReference_cc99c3e1":
+    ) -> "_aws_servicecatalog_848f4bab.CloudFormationProvisionedProductReference":
         '''A reference to a CloudFormationProvisionedProduct resource.'''
-        return typing.cast("_CloudFormationProvisionedProductReference_cc99c3e1", jsii.get(self, "cloudFormationProvisionedProductRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.CloudFormationProvisionedProductReference", jsii.get(self, "cloudFormationProvisionedProductRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="acceptLanguage")
@@ -2204,7 +2167,7 @@ class CfnCloudFormationProvisionedProduct(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77917629496aeb6c9242f32a7ed712f7db007210f056250ba788eb7637747cb9)
+            type_hints = cached_type_hints(_typecheckingstub__77917629496aeb6c9242f32a7ed712f7db007210f056250ba788eb7637747cb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -2220,7 +2183,7 @@ class CfnCloudFormationProvisionedProduct(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11728ab5020e59b21691efa0bf6ac96a523b7cd5a7b8b956594e09eec6910399)
+            type_hints = cached_type_hints(_typecheckingstub__11728ab5020e59b21691efa0bf6ac96a523b7cd5a7b8b956594e09eec6910399)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
 
@@ -2233,7 +2196,7 @@ class CfnCloudFormationProvisionedProduct(
     @path_id.setter
     def path_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c615152c9e7e7c8b5e4a448b903ac3c25eaa34685c78b9899adfbae91d2a6d)
+            type_hints = cached_type_hints(_typecheckingstub__a7c615152c9e7e7c8b5e4a448b903ac3c25eaa34685c78b9899adfbae91d2a6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pathId", value) # pyright: ignore[reportArgumentType]
 
@@ -2246,7 +2209,7 @@ class CfnCloudFormationProvisionedProduct(
     @path_name.setter
     def path_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b38b25b9cd46fb8c78bf9e55be70039fc3ab56ea354e0552abb0fa1caf68ed)
+            type_hints = cached_type_hints(_typecheckingstub__32b38b25b9cd46fb8c78bf9e55be70039fc3ab56ea354e0552abb0fa1caf68ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pathName", value) # pyright: ignore[reportArgumentType]
 
@@ -2259,7 +2222,7 @@ class CfnCloudFormationProvisionedProduct(
     @product_id.setter
     def product_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa2e98cc90d84078c7318222a6d7519d441bd1bd3e07cea7bc5a198efb4d66b7)
+            type_hints = cached_type_hints(_typecheckingstub__aa2e98cc90d84078c7318222a6d7519d441bd1bd3e07cea7bc5a198efb4d66b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -2272,7 +2235,7 @@ class CfnCloudFormationProvisionedProduct(
     @product_name.setter
     def product_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e17eab0d37a58277b6cc1d13c95c9cdd79faad5237131fd52792ce9d7b85d907)
+            type_hints = cached_type_hints(_typecheckingstub__e17eab0d37a58277b6cc1d13c95c9cdd79faad5237131fd52792ce9d7b85d907)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productName", value) # pyright: ignore[reportArgumentType]
 
@@ -2285,7 +2248,7 @@ class CfnCloudFormationProvisionedProduct(
     @provisioned_product_name.setter
     def provisioned_product_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e484e5f340d5e529de00f245c299ac8a58669959a15a6ae69f5200a376e9e442)
+            type_hints = cached_type_hints(_typecheckingstub__e484e5f340d5e529de00f245c299ac8a58669959a15a6ae69f5200a376e9e442)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisionedProductName", value) # pyright: ignore[reportArgumentType]
 
@@ -2298,7 +2261,7 @@ class CfnCloudFormationProvisionedProduct(
     @provisioning_artifact_id.setter
     def provisioning_artifact_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db6c2b91dabfa3b4625a2ab89180e1d38eb2e6b1e76c28953fad8bdc681c5f67)
+            type_hints = cached_type_hints(_typecheckingstub__db6c2b91dabfa3b4625a2ab89180e1d38eb2e6b1e76c28953fad8bdc681c5f67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
 
@@ -2311,7 +2274,7 @@ class CfnCloudFormationProvisionedProduct(
     @provisioning_artifact_name.setter
     def provisioning_artifact_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6df237969cf4f1ab7f2d8d040c205d2b2533e9f08060d1fe47336446fec46f06)
+            type_hints = cached_type_hints(_typecheckingstub__6df237969cf4f1ab7f2d8d040c205d2b2533e9f08060d1fe47336446fec46f06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningArtifactName", value) # pyright: ignore[reportArgumentType]
 
@@ -2319,17 +2282,17 @@ class CfnCloudFormationProvisionedProduct(
     @jsii.member(jsii_name="provisioningParameters")
     def provisioning_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
         '''Parameters specified by the administrator that are required for provisioning the product.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], jsii.get(self, "provisioningParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], jsii.get(self, "provisioningParameters"))
 
     @provisioning_parameters.setter
     def provisioning_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e88a998f430a92c61e57f583a56a5dba25a39affc9ad60288815a7e40e5b7910)
+            type_hints = cached_type_hints(_typecheckingstub__e88a998f430a92c61e57f583a56a5dba25a39affc9ad60288815a7e40e5b7910)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -2337,30 +2300,33 @@ class CfnCloudFormationProvisionedProduct(
     @jsii.member(jsii_name="provisioningPreferences")
     def provisioning_preferences(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
         '''StackSet preferences that are required for provisioning the product or updating a provisioned product.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], jsii.get(self, "provisioningPreferences"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], jsii.get(self, "provisioningPreferences"))
 
     @provisioning_preferences.setter
     def provisioning_preferences(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3edc25f754a0be5ecf6302ae2b15ba8648d89a1d12ceb865ff5c7d628c62bc97)
+            type_hints = cached_type_hints(_typecheckingstub__3edc25f754a0be5ecf6302ae2b15ba8648d89a1d12ceb865ff5c7d628c62bc97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningPreferences", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d149fdbb55c6e7459d592eaaf72483e5df84625da19408ebc06188a171d334d1)
+            type_hints = cached_type_hints(_typecheckingstub__d149fdbb55c6e7459d592eaaf72483e5df84625da19408ebc06188a171d334d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2391,7 +2357,7 @@ class CfnCloudFormationProvisionedProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d376c5bd5f12818f9539b82c9177576499bd71b979a2e8f4116d03c46de19b19)
+                type_hints = cached_type_hints(_typecheckingstub__d376c5bd5f12818f9539b82c9177576499bd71b979a2e8f4116d03c46de19b19)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2495,7 +2461,7 @@ class CfnCloudFormationProvisionedProduct(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d22bda685b9d0490e83817036cdc6d68185bcfbeeb1a9d02befc4f9f33801f91)
+                type_hints = cached_type_hints(_typecheckingstub__d22bda685b9d0490e83817036cdc6d68185bcfbeeb1a9d02befc4f9f33801f91)
                 check_type(argname="argument stack_set_accounts", value=stack_set_accounts, expected_type=type_hints["stack_set_accounts"])
                 check_type(argname="argument stack_set_failure_tolerance_count", value=stack_set_failure_tolerance_count, expected_type=type_hints["stack_set_failure_tolerance_count"])
                 check_type(argname="argument stack_set_failure_tolerance_percentage", value=stack_set_failure_tolerance_percentage, expected_type=type_hints["stack_set_failure_tolerance_percentage"])
@@ -2679,9 +2645,9 @@ class CfnCloudFormationProvisionedProductProps:
         provisioned_product_name: typing.Optional[builtins.str] = None,
         provisioning_artifact_id: typing.Optional[builtins.str] = None,
         provisioning_artifact_name: typing.Optional[builtins.str] = None,
-        provisioning_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        provisioning_preferences: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioning_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioning_preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCloudFormationProvisionedProduct``.
 
@@ -2738,7 +2704,7 @@ class CfnCloudFormationProvisionedProductProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88da00037242bdeeb7ec102c5acd840d7d02acb05eae60aaef2863e1e8e0479b)
+            type_hints = cached_type_hints(_typecheckingstub__88da00037242bdeeb7ec102c5acd840d7d02acb05eae60aaef2863e1e8e0479b)
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
             check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
             check_type(argname="argument path_id", value=path_id, expected_type=type_hints["path_id"])
@@ -2896,27 +2862,27 @@ class CfnCloudFormationProvisionedProductProps:
     @builtins.property
     def provisioning_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
         '''Parameters specified by the administrator that are required for provisioning the product.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameters
         '''
         result = self._values.get("provisioning_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], result)
 
     @builtins.property
     def provisioning_preferences(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
         '''StackSet preferences that are required for provisioning the product or updating a provisioned product.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences
         '''
         result = self._values.get("provisioning_preferences")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.
 
         .. epigraph::
@@ -2926,7 +2892,7 @@ class CfnCloudFormationProvisionedProductProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html#cfn-servicecatalog-cloudformationprovisionedproduct-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2940,9 +2906,9 @@ class CfnCloudFormationProvisionedProductProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILaunchNotificationConstraintRef_9fe9869c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ILaunchNotificationConstraintRef)
 class CfnLaunchNotificationConstraint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchNotificationConstraint",
 ):
@@ -2991,7 +2957,7 @@ class CfnLaunchNotificationConstraint(
         :param description: The description of the constraint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a0ef4893718fd81efea95278f44012f5c9df21cb6d08d7ec5812067a6d28920)
+            type_hints = cached_type_hints(_typecheckingstub__6a0ef4893718fd81efea95278f44012f5c9df21cb6d08d7ec5812067a6d28920)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLaunchNotificationConstraintProps(
@@ -3012,18 +2978,18 @@ class CfnLaunchNotificationConstraint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07b5e07903d9ec14561c0569a665e489aee2cd752c39819e0b8c4a152b1013fd)
+            type_hints = cached_type_hints(_typecheckingstub__07b5e07903d9ec14561c0569a665e489aee2cd752c39819e0b8c4a152b1013fd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLaunchNotificationConstraint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7563a6283eac0eb8a78e86c564c65473185309770bbf1476de2cde5f3712edc)
+            type_hints = cached_type_hints(_typecheckingstub__f7563a6283eac0eb8a78e86c564c65473185309770bbf1476de2cde5f3712edc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3036,7 +3002,7 @@ class CfnLaunchNotificationConstraint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cae167adf420716893198de02048916557d17efe03419cd084aaa8f7e569dfad)
+            type_hints = cached_type_hints(_typecheckingstub__cae167adf420716893198de02048916557d17efe03419cd084aaa8f7e569dfad)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3069,9 +3035,9 @@ class CfnLaunchNotificationConstraint(
     @jsii.member(jsii_name="launchNotificationConstraintRef")
     def launch_notification_constraint_ref(
         self,
-    ) -> "_LaunchNotificationConstraintReference_bb0fbb25":
+    ) -> "_aws_servicecatalog_848f4bab.LaunchNotificationConstraintReference":
         '''A reference to a LaunchNotificationConstraint resource.'''
-        return typing.cast("_LaunchNotificationConstraintReference_bb0fbb25", jsii.get(self, "launchNotificationConstraintRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.LaunchNotificationConstraintReference", jsii.get(self, "launchNotificationConstraintRef"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationArns")
@@ -3082,7 +3048,7 @@ class CfnLaunchNotificationConstraint(
     @notification_arns.setter
     def notification_arns(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b61fb0eedfad57ff6d2667a824da25c56d033b2ecc69bba66ac4813152f3a7b2)
+            type_hints = cached_type_hints(_typecheckingstub__b61fb0eedfad57ff6d2667a824da25c56d033b2ecc69bba66ac4813152f3a7b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
 
@@ -3095,7 +3061,7 @@ class CfnLaunchNotificationConstraint(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ed013a592fb349cdd1b18a148d951905fed057f359e2acc3afa9e7e96849f16)
+            type_hints = cached_type_hints(_typecheckingstub__7ed013a592fb349cdd1b18a148d951905fed057f359e2acc3afa9e7e96849f16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -3108,7 +3074,7 @@ class CfnLaunchNotificationConstraint(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad59a677e466cd12b116f4a904adcea715e7ca448f3ec18705d7a7d7ba7690a9)
+            type_hints = cached_type_hints(_typecheckingstub__ad59a677e466cd12b116f4a904adcea715e7ca448f3ec18705d7a7d7ba7690a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -3121,7 +3087,7 @@ class CfnLaunchNotificationConstraint(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f053d948015e38a54ac8a8dfc338cd4837e1c7af18d4be30583ba83a98510af)
+            type_hints = cached_type_hints(_typecheckingstub__9f053d948015e38a54ac8a8dfc338cd4837e1c7af18d4be30583ba83a98510af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -3134,7 +3100,7 @@ class CfnLaunchNotificationConstraint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cd753e3445346a35ee1c9014f113dc7acc9f5bd964a4208d069321b471bf572)
+            type_hints = cached_type_hints(_typecheckingstub__7cd753e3445346a35ee1c9014f113dc7acc9f5bd964a4208d069321b471bf572)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3188,7 +3154,7 @@ class CfnLaunchNotificationConstraintProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d467e47505aacdc2d760573bff69e4e674694f1573c72a6a5411e49e6e12fd1)
+            type_hints = cached_type_hints(_typecheckingstub__6d467e47505aacdc2d760573bff69e4e674694f1573c72a6a5411e49e6e12fd1)
             check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
@@ -3267,9 +3233,9 @@ class CfnLaunchNotificationConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILaunchRoleConstraintRef_e359a2bb)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ILaunchRoleConstraintRef)
 class CfnLaunchRoleConstraint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchRoleConstraint",
 ):
@@ -3321,7 +3287,7 @@ class CfnLaunchRoleConstraint(
         :param role_arn: The ARN of the launch role. You are required to specify ``RoleArn`` or ``LocalRoleName`` but can't use both.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46675418f07a075969e17b131899d4a842abc1f33c003df6287739e45a25c393)
+            type_hints = cached_type_hints(_typecheckingstub__46675418f07a075969e17b131899d4a842abc1f33c003df6287739e45a25c393)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLaunchRoleConstraintProps(
@@ -3343,18 +3309,18 @@ class CfnLaunchRoleConstraint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f07305e8e8c869367882e841ed6f648f9d2d9846664742854318482b9ad734b9)
+            type_hints = cached_type_hints(_typecheckingstub__f07305e8e8c869367882e841ed6f648f9d2d9846664742854318482b9ad734b9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLaunchRoleConstraint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6012961634bed06192da5c259c27b94cd59496d2b4be339c4b0ece0b9921e1ec)
+            type_hints = cached_type_hints(_typecheckingstub__6012961634bed06192da5c259c27b94cd59496d2b4be339c4b0ece0b9921e1ec)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3367,7 +3333,7 @@ class CfnLaunchRoleConstraint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a256f671bf4bc9097972039346c4fd55bb08c1641117407e9c1ff8c4d02bf72c)
+            type_hints = cached_type_hints(_typecheckingstub__a256f671bf4bc9097972039346c4fd55bb08c1641117407e9c1ff8c4d02bf72c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3398,9 +3364,11 @@ class CfnLaunchRoleConstraint(
 
     @builtins.property
     @jsii.member(jsii_name="launchRoleConstraintRef")
-    def launch_role_constraint_ref(self) -> "_LaunchRoleConstraintReference_81c64491":
+    def launch_role_constraint_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.LaunchRoleConstraintReference":
         '''A reference to a LaunchRoleConstraint resource.'''
-        return typing.cast("_LaunchRoleConstraintReference_81c64491", jsii.get(self, "launchRoleConstraintRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.LaunchRoleConstraintReference", jsii.get(self, "launchRoleConstraintRef"))
 
     @builtins.property
     @jsii.member(jsii_name="portfolioId")
@@ -3411,7 +3379,7 @@ class CfnLaunchRoleConstraint(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7caee0b3388d2e9177cd1ad1073c6bdf0aa86eba08b40e12fb88a9ce6416640)
+            type_hints = cached_type_hints(_typecheckingstub__a7caee0b3388d2e9177cd1ad1073c6bdf0aa86eba08b40e12fb88a9ce6416640)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -3424,7 +3392,7 @@ class CfnLaunchRoleConstraint(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc122a21c528efd9f428896a0b3cef95aff28a153bb9d3a2e86d2b7e06eb60ff)
+            type_hints = cached_type_hints(_typecheckingstub__cc122a21c528efd9f428896a0b3cef95aff28a153bb9d3a2e86d2b7e06eb60ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -3437,7 +3405,7 @@ class CfnLaunchRoleConstraint(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60ea7ba56f5932f4a537ac8dcec76b0b833a4f037c18ab9313d2f5c1450cbd15)
+            type_hints = cached_type_hints(_typecheckingstub__60ea7ba56f5932f4a537ac8dcec76b0b833a4f037c18ab9313d2f5c1450cbd15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -3450,7 +3418,7 @@ class CfnLaunchRoleConstraint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e997754a39e1ca81474a20395f298ca53c6e2a7b4f0d90a43f559fa193bfee83)
+            type_hints = cached_type_hints(_typecheckingstub__e997754a39e1ca81474a20395f298ca53c6e2a7b4f0d90a43f559fa193bfee83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3463,7 +3431,7 @@ class CfnLaunchRoleConstraint(
     @local_role_name.setter
     def local_role_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38735c46db3b7efa62b54394ccb17cdaeabbdeedee4db2b961d2703d019b743f)
+            type_hints = cached_type_hints(_typecheckingstub__38735c46db3b7efa62b54394ccb17cdaeabbdeedee4db2b961d2703d019b743f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "localRoleName", value) # pyright: ignore[reportArgumentType]
 
@@ -3476,7 +3444,7 @@ class CfnLaunchRoleConstraint(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__248ec39473440a68e8c88c92b6ff9884cc28a31f5b609dfb2c01d538752a700f)
+            type_hints = cached_type_hints(_typecheckingstub__248ec39473440a68e8c88c92b6ff9884cc28a31f5b609dfb2c01d538752a700f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3534,7 +3502,7 @@ class CfnLaunchRoleConstraintProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60c3b41f8a7b34e6b6790fc48ebe6bc36f5d3b4383252bb7322aeb60af6d02b1)
+            type_hints = cached_type_hints(_typecheckingstub__60c3b41f8a7b34e6b6790fc48ebe6bc36f5d3b4383252bb7322aeb60af6d02b1)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
@@ -3631,9 +3599,9 @@ class CfnLaunchRoleConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILaunchTemplateConstraintRef_5f25ac94)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ILaunchTemplateConstraintRef)
 class CfnLaunchTemplateConstraint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchTemplateConstraint",
 ):
@@ -3682,7 +3650,7 @@ class CfnLaunchTemplateConstraint(
         :param description: The description of the constraint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef9626bcbf34366930c5bf61a595afb3efe05f1a95295b7e76c3fd849564f7eb)
+            type_hints = cached_type_hints(_typecheckingstub__ef9626bcbf34366930c5bf61a595afb3efe05f1a95295b7e76c3fd849564f7eb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLaunchTemplateConstraintProps(
@@ -3703,18 +3671,18 @@ class CfnLaunchTemplateConstraint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ed61872298a6522081f4bd8ac759cdf2e448036a7812193e7128ee093eb9f23)
+            type_hints = cached_type_hints(_typecheckingstub__2ed61872298a6522081f4bd8ac759cdf2e448036a7812193e7128ee093eb9f23)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLaunchTemplateConstraint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18d77d76ec4005c1c608af041b5d7bb0e6aaede460659c2054677f941dc6f70e)
+            type_hints = cached_type_hints(_typecheckingstub__18d77d76ec4005c1c608af041b5d7bb0e6aaede460659c2054677f941dc6f70e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3727,7 +3695,7 @@ class CfnLaunchTemplateConstraint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61c163fd41cfe100dffd002a6f15713f7381736bf03af549e6f1fae39e81effc)
+            type_hints = cached_type_hints(_typecheckingstub__61c163fd41cfe100dffd002a6f15713f7381736bf03af549e6f1fae39e81effc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3760,9 +3728,9 @@ class CfnLaunchTemplateConstraint(
     @jsii.member(jsii_name="launchTemplateConstraintRef")
     def launch_template_constraint_ref(
         self,
-    ) -> "_LaunchTemplateConstraintReference_ec83b407":
+    ) -> "_aws_servicecatalog_848f4bab.LaunchTemplateConstraintReference":
         '''A reference to a LaunchTemplateConstraint resource.'''
-        return typing.cast("_LaunchTemplateConstraintReference_ec83b407", jsii.get(self, "launchTemplateConstraintRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.LaunchTemplateConstraintReference", jsii.get(self, "launchTemplateConstraintRef"))
 
     @builtins.property
     @jsii.member(jsii_name="portfolioId")
@@ -3773,7 +3741,7 @@ class CfnLaunchTemplateConstraint(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e87f1e493035080190abca77598b08c02602b6233929f7028d93f58f3a17ab94)
+            type_hints = cached_type_hints(_typecheckingstub__e87f1e493035080190abca77598b08c02602b6233929f7028d93f58f3a17ab94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -3786,7 +3754,7 @@ class CfnLaunchTemplateConstraint(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d256c3b7cab9cf94812dcf57209fce5bce9471a4cde6a86009726dd55298b5d7)
+            type_hints = cached_type_hints(_typecheckingstub__d256c3b7cab9cf94812dcf57209fce5bce9471a4cde6a86009726dd55298b5d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -3799,7 +3767,7 @@ class CfnLaunchTemplateConstraint(
     @rules.setter
     def rules(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b158803ee0c13d7830af3d21d7043a6643dd72dad91e07eb29d14657d4f4a39)
+            type_hints = cached_type_hints(_typecheckingstub__2b158803ee0c13d7830af3d21d7043a6643dd72dad91e07eb29d14657d4f4a39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
 
@@ -3812,7 +3780,7 @@ class CfnLaunchTemplateConstraint(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e5ba6de90c017c1a21198e855f54709e112481dcfe02a743a1df4c23d2d18ef)
+            type_hints = cached_type_hints(_typecheckingstub__7e5ba6de90c017c1a21198e855f54709e112481dcfe02a743a1df4c23d2d18ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -3825,7 +3793,7 @@ class CfnLaunchTemplateConstraint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__716d1d862c1c010f6c9e04edc0856ed95df8c9f36ffece1132b637c4d3920a39)
+            type_hints = cached_type_hints(_typecheckingstub__716d1d862c1c010f6c9e04edc0856ed95df8c9f36ffece1132b637c4d3920a39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3879,7 +3847,7 @@ class CfnLaunchTemplateConstraintProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__782bde46fdc76fe863545140febd1fe95f163b327614047bf13a8ac26bea4c7d)
+            type_hints = cached_type_hints(_typecheckingstub__782bde46fdc76fe863545140febd1fe95f163b327614047bf13a8ac26bea4c7d)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
@@ -3958,9 +3926,9 @@ class CfnLaunchTemplateConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPortfolioRef_a19e4bd0, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IPortfolioRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPortfolio(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolio",
 ):
@@ -4000,7 +3968,7 @@ class CfnPortfolio(
         provider_name: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::Portfolio``.
 
@@ -4013,7 +3981,7 @@ class CfnPortfolio(
         :param tags: One or more tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92ae108da2b169227ca9ff5c8793d6e40826005130d9af692285850c93bb5f31)
+            type_hints = cached_type_hints(_typecheckingstub__92ae108da2b169227ca9ff5c8793d6e40826005130d9af692285850c93bb5f31)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPortfolioProps(
@@ -4028,12 +3996,15 @@ class CfnPortfolio(
 
     @jsii.member(jsii_name="arnForPortfolio")
     @builtins.classmethod
-    def arn_for_portfolio(cls, resource: "_IPortfolioRef_a19e4bd0") -> builtins.str:
+    def arn_for_portfolio(
+        cls,
+        resource: "_aws_servicecatalog_848f4bab.IPortfolioRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e04d572ecf8ef300e588c45280989044c443f13694792775c74e77b72b0bc2)
+            type_hints = cached_type_hints(_typecheckingstub__73e04d572ecf8ef300e588c45280989044c443f13694792775c74e77b72b0bc2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPortfolio", [resource]))
 
@@ -4044,7 +4015,7 @@ class CfnPortfolio(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         portfolio_id: builtins.str,
-    ) -> "_IPortfolioRef_a19e4bd0":
+    ) -> "_aws_servicecatalog_848f4bab.IPortfolioRef":
         '''Creates a new IPortfolioRef from a portfolioId.
 
         :param scope: -
@@ -4052,11 +4023,11 @@ class CfnPortfolio(
         :param portfolio_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44128417aff4104adae0046cf0d101d90c4fc22515494313689b7b4561643abc)
+            type_hints = cached_type_hints(_typecheckingstub__44128417aff4104adae0046cf0d101d90c4fc22515494313689b7b4561643abc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
-        return typing.cast("_IPortfolioRef_a19e4bd0", jsii.sinvoke(cls, "fromPortfolioId", [scope, id, portfolio_id]))
+        return typing.cast("_aws_servicecatalog_848f4bab.IPortfolioRef", jsii.sinvoke(cls, "fromPortfolioId", [scope, id, portfolio_id]))
 
     @jsii.member(jsii_name="isCfnPortfolio")
     @builtins.classmethod
@@ -4066,18 +4037,18 @@ class CfnPortfolio(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1357abf83ae12cdcb180ff53790b06260993885894e3678c4cf60c5d32e1d23)
+            type_hints = cached_type_hints(_typecheckingstub__f1357abf83ae12cdcb180ff53790b06260993885894e3678c4cf60c5d32e1d23)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortfolio", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__445bcb8d7fa40ab94351986e2668ed98bfac15db2665136953859395a36b4b51)
+            type_hints = cached_type_hints(_typecheckingstub__445bcb8d7fa40ab94351986e2668ed98bfac15db2665136953859395a36b4b51)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4090,7 +4061,7 @@ class CfnPortfolio(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d8739e0f27d4335df7d965584a370738a92551942f26e33fe018766b6c65b46)
+            type_hints = cached_type_hints(_typecheckingstub__9d8739e0f27d4335df7d965584a370738a92551942f26e33fe018766b6c65b46)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4130,15 +4101,15 @@ class CfnPortfolio(
 
     @builtins.property
     @jsii.member(jsii_name="portfolioRef")
-    def portfolio_ref(self) -> "_PortfolioReference_7a849941":
+    def portfolio_ref(self) -> "_aws_servicecatalog_848f4bab.PortfolioReference":
         '''A reference to a Portfolio resource.'''
-        return typing.cast("_PortfolioReference_7a849941", jsii.get(self, "portfolioRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.PortfolioReference", jsii.get(self, "portfolioRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -4149,7 +4120,7 @@ class CfnPortfolio(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d1abc0e6a095810963efa465d843926d85779daf872a768bfcba9f4fee19134)
+            type_hints = cached_type_hints(_typecheckingstub__7d1abc0e6a095810963efa465d843926d85779daf872a768bfcba9f4fee19134)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -4162,7 +4133,7 @@ class CfnPortfolio(
     @provider_name.setter
     def provider_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f19cf1bbc2887d38b0021481cec62ff253aae63b95d98b72ba1ad96320212715)
+            type_hints = cached_type_hints(_typecheckingstub__f19cf1bbc2887d38b0021481cec62ff253aae63b95d98b72ba1ad96320212715)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
 
@@ -4175,7 +4146,7 @@ class CfnPortfolio(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c619164fa197d168e117a57b9fa4e5d9eb2e336d411c50041f91b64b19016119)
+            type_hints = cached_type_hints(_typecheckingstub__c619164fa197d168e117a57b9fa4e5d9eb2e336d411c50041f91b64b19016119)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -4188,27 +4159,30 @@ class CfnPortfolio(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa7fb74d0376cbe01215bbab3c9e0087d26de06ca59ae5ddf20ee6e804a00e00)
+            type_hints = cached_type_hints(_typecheckingstub__fa7fb74d0376cbe01215bbab3c9e0087d26de06ca59ae5ddf20ee6e804a00e00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__637efc1b0f4cccf3bb52a483d866a3597e5d240e45fd12080d02606cae18fdb8)
+            type_hints = cached_type_hints(_typecheckingstub__637efc1b0f4cccf3bb52a483d866a3597e5d240e45fd12080d02606cae18fdb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IPortfolioPrincipalAssociationRef_1e487bc3)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IPortfolioPrincipalAssociationRef)
 class CfnPortfolioPrincipalAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioPrincipalAssociation",
 ):
@@ -4254,7 +4228,7 @@ class CfnPortfolioPrincipalAssociation(
         :param principal_arn: The ARN of the principal ( IAM user, role, or group).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b8a7d450a71f88f29341f360bc05a021b910027171e4e63c9be6c67c4d53b2a)
+            type_hints = cached_type_hints(_typecheckingstub__2b8a7d450a71f88f29341f360bc05a021b910027171e4e63c9be6c67c4d53b2a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPortfolioPrincipalAssociationProps(
@@ -4274,18 +4248,18 @@ class CfnPortfolioPrincipalAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee53f38f017c7359a4b23cbf47b17a979c30af6ee0ee5c6b986e064a915157f2)
+            type_hints = cached_type_hints(_typecheckingstub__ee53f38f017c7359a4b23cbf47b17a979c30af6ee0ee5c6b986e064a915157f2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortfolioPrincipalAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__655c17909635de9f153ace0636ad031fa1bd23c0c4e3628eeaab3a4c48282adc)
+            type_hints = cached_type_hints(_typecheckingstub__655c17909635de9f153ace0636ad031fa1bd23c0c4e3628eeaab3a4c48282adc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4298,7 +4272,7 @@ class CfnPortfolioPrincipalAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__257e8fbedbaa67aa61288a1f94be02039da4ac33558591be208505deb5e23378)
+            type_hints = cached_type_hints(_typecheckingstub__257e8fbedbaa67aa61288a1f94be02039da4ac33558591be208505deb5e23378)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4322,9 +4296,9 @@ class CfnPortfolioPrincipalAssociation(
     @jsii.member(jsii_name="portfolioPrincipalAssociationRef")
     def portfolio_principal_association_ref(
         self,
-    ) -> "_PortfolioPrincipalAssociationReference_94cd9217":
+    ) -> "_aws_servicecatalog_848f4bab.PortfolioPrincipalAssociationReference":
         '''A reference to a PortfolioPrincipalAssociation resource.'''
-        return typing.cast("_PortfolioPrincipalAssociationReference_94cd9217", jsii.get(self, "portfolioPrincipalAssociationRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.PortfolioPrincipalAssociationReference", jsii.get(self, "portfolioPrincipalAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="principalType")
@@ -4335,7 +4309,7 @@ class CfnPortfolioPrincipalAssociation(
     @principal_type.setter
     def principal_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66dbe3deef345271ae1cfb35b0e313622b15892928d8581127c03e117db33585)
+            type_hints = cached_type_hints(_typecheckingstub__66dbe3deef345271ae1cfb35b0e313622b15892928d8581127c03e117db33585)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principalType", value) # pyright: ignore[reportArgumentType]
 
@@ -4348,7 +4322,7 @@ class CfnPortfolioPrincipalAssociation(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1390265bc6b4e797f81f5a56c99acfec9dceeb8b223c28fc92f325ebf1ee9136)
+            type_hints = cached_type_hints(_typecheckingstub__1390265bc6b4e797f81f5a56c99acfec9dceeb8b223c28fc92f325ebf1ee9136)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -4361,7 +4335,7 @@ class CfnPortfolioPrincipalAssociation(
     @portfolio_id.setter
     def portfolio_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726706747073f477b14d5b31fa14aba7087b2fc4265414101c6069e458c605ef)
+            type_hints = cached_type_hints(_typecheckingstub__726706747073f477b14d5b31fa14aba7087b2fc4265414101c6069e458c605ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -4374,7 +4348,7 @@ class CfnPortfolioPrincipalAssociation(
     @principal_arn.setter
     def principal_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71c52a4171fa242df45a083617e532d09ea08d89eea6a461f83e7608b28c48bb)
+            type_hints = cached_type_hints(_typecheckingstub__71c52a4171fa242df45a083617e532d09ea08d89eea6a461f83e7608b28c48bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principalArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4424,7 +4398,7 @@ class CfnPortfolioPrincipalAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86aa94ae9b8977b851184740615709136e8ab87d84e565bd4ed1c37202e743af)
+            type_hints = cached_type_hints(_typecheckingstub__86aa94ae9b8977b851184740615709136e8ab87d84e565bd4ed1c37202e743af)
             check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
@@ -4493,9 +4467,9 @@ class CfnPortfolioPrincipalAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPortfolioProductAssociationRef_3f352f5c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IPortfolioProductAssociationRef)
 class CfnPortfolioProductAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioProductAssociation",
 ):
@@ -4541,7 +4515,7 @@ class CfnPortfolioProductAssociation(
         :param source_portfolio_id: The identifier of the source portfolio.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25cb0daf817ffe74f2f0c38badd3f1db5ae0cb2012f78855ecb4495b5ba58298)
+            type_hints = cached_type_hints(_typecheckingstub__25cb0daf817ffe74f2f0c38badd3f1db5ae0cb2012f78855ecb4495b5ba58298)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPortfolioProductAssociationProps(
@@ -4561,18 +4535,18 @@ class CfnPortfolioProductAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33b498aac98964bdda3c8e2911e2d7c09a3104fd4f9236e39c22b60edfc1d2cc)
+            type_hints = cached_type_hints(_typecheckingstub__33b498aac98964bdda3c8e2911e2d7c09a3104fd4f9236e39c22b60edfc1d2cc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortfolioProductAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__552e2774890f51bf5125a4ddc0260f7daa45dae4625481ec363259b66f03da10)
+            type_hints = cached_type_hints(_typecheckingstub__552e2774890f51bf5125a4ddc0260f7daa45dae4625481ec363259b66f03da10)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4585,7 +4559,7 @@ class CfnPortfolioProductAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32a7d6ef335f62572e1892401cb2c591da9aaabfd6b667b07c91465fd9b7c405)
+            type_hints = cached_type_hints(_typecheckingstub__32a7d6ef335f62572e1892401cb2c591da9aaabfd6b667b07c91465fd9b7c405)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4609,9 +4583,9 @@ class CfnPortfolioProductAssociation(
     @jsii.member(jsii_name="portfolioProductAssociationRef")
     def portfolio_product_association_ref(
         self,
-    ) -> "_PortfolioProductAssociationReference_92cc7707":
+    ) -> "_aws_servicecatalog_848f4bab.PortfolioProductAssociationReference":
         '''A reference to a PortfolioProductAssociation resource.'''
-        return typing.cast("_PortfolioProductAssociationReference_92cc7707", jsii.get(self, "portfolioProductAssociationRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.PortfolioProductAssociationReference", jsii.get(self, "portfolioProductAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="acceptLanguage")
@@ -4622,7 +4596,7 @@ class CfnPortfolioProductAssociation(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7d396eed36a68172694b616bafad7ef385373f22a1d8c3dc49608d69ec9e526)
+            type_hints = cached_type_hints(_typecheckingstub__c7d396eed36a68172694b616bafad7ef385373f22a1d8c3dc49608d69ec9e526)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -4635,7 +4609,7 @@ class CfnPortfolioProductAssociation(
     @portfolio_id.setter
     def portfolio_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19f425d3e28d58e160bed9adb81d5653e2000512b6a76bfcf27a70e272988f14)
+            type_hints = cached_type_hints(_typecheckingstub__19f425d3e28d58e160bed9adb81d5653e2000512b6a76bfcf27a70e272988f14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -4648,7 +4622,7 @@ class CfnPortfolioProductAssociation(
     @product_id.setter
     def product_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3098433a8204e6c52183ab4756af784eb3f510cb7bdb7fe68b7c21ef9e4d78cf)
+            type_hints = cached_type_hints(_typecheckingstub__3098433a8204e6c52183ab4756af784eb3f510cb7bdb7fe68b7c21ef9e4d78cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -4661,7 +4635,7 @@ class CfnPortfolioProductAssociation(
     @source_portfolio_id.setter
     def source_portfolio_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__add8959ef934f6895a130b9409bc0e69af9956f656deb01b88086944d1b3bc67)
+            type_hints = cached_type_hints(_typecheckingstub__add8959ef934f6895a130b9409bc0e69af9956f656deb01b88086944d1b3bc67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourcePortfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -4709,7 +4683,7 @@ class CfnPortfolioProductAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97355e439ae20c66a13583fbc70b7a8de7f038ae88e7d60775df912c8ba748c0)
+            type_hints = cached_type_hints(_typecheckingstub__97355e439ae20c66a13583fbc70b7a8de7f038ae88e7d60775df912c8ba748c0)
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
@@ -4794,7 +4768,7 @@ class CfnPortfolioProps:
         provider_name: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPortfolio``.
 
@@ -4828,7 +4802,7 @@ class CfnPortfolioProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8622dd1afbae29a3f4419981188740a463f84c32c065a9c5247a4cd04c27a0f)
+            type_hints = cached_type_hints(_typecheckingstub__d8622dd1afbae29a3f4419981188740a463f84c32c065a9c5247a4cd04c27a0f)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
@@ -4887,13 +4861,13 @@ class CfnPortfolioProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolio.html#cfn-servicecatalog-portfolio-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4907,9 +4881,9 @@ class CfnPortfolioProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPortfolioShareRef_02a1808a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IPortfolioShareRef)
 class CfnPortfolioShare(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioShare",
 ):
@@ -4943,7 +4917,7 @@ class CfnPortfolioShare(
         account_id: builtins.str,
         portfolio_id: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
-        share_tag_options: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        share_tag_options: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::PortfolioShare``.
 
@@ -4955,7 +4929,7 @@ class CfnPortfolioShare(
         :param share_tag_options: Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1caa251876)
+            type_hints = cached_type_hints(_typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1caa251876)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPortfolioShareProps(
@@ -4975,18 +4949,18 @@ class CfnPortfolioShare(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b10d2d0a7dd56a482f413ae2e00bbf416c625752792137f2c5d4e145735c381d)
+            type_hints = cached_type_hints(_typecheckingstub__b10d2d0a7dd56a482f413ae2e00bbf416c625752792137f2c5d4e145735c381d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPortfolioShare", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__341a908f67fe220e74c1fa2f1dc9b6f9d467627dad0a09a6ef0aa8333d8d3e03)
+            type_hints = cached_type_hints(_typecheckingstub__341a908f67fe220e74c1fa2f1dc9b6f9d467627dad0a09a6ef0aa8333d8d3e03)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4999,7 +4973,7 @@ class CfnPortfolioShare(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd00e1ea00949f48a72807819db35c3fc635f45b434308404f78895d9ba253f5)
+            type_hints = cached_type_hints(_typecheckingstub__fd00e1ea00949f48a72807819db35c3fc635f45b434308404f78895d9ba253f5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5021,9 +4995,11 @@ class CfnPortfolioShare(
 
     @builtins.property
     @jsii.member(jsii_name="portfolioShareRef")
-    def portfolio_share_ref(self) -> "_PortfolioShareReference_b73c7783":
+    def portfolio_share_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.PortfolioShareReference":
         '''A reference to a PortfolioShare resource.'''
-        return typing.cast("_PortfolioShareReference_b73c7783", jsii.get(self, "portfolioShareRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.PortfolioShareReference", jsii.get(self, "portfolioShareRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accountId")
@@ -5034,7 +5010,7 @@ class CfnPortfolioShare(
     @account_id.setter
     def account_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48c561d8f65e1295a6646aca88fea994e01a775edc7d575b02db328f8fba94d3)
+            type_hints = cached_type_hints(_typecheckingstub__48c561d8f65e1295a6646aca88fea994e01a775edc7d575b02db328f8fba94d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
 
@@ -5047,7 +5023,7 @@ class CfnPortfolioShare(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e5483e33494640db64273cad3dc0d20d35eb722e234d20ddf41f757010f2a19)
+            type_hints = cached_type_hints(_typecheckingstub__4e5483e33494640db64273cad3dc0d20d35eb722e234d20ddf41f757010f2a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -5060,7 +5036,7 @@ class CfnPortfolioShare(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f1709f8f)
+            type_hints = cached_type_hints(_typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f1709f8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -5068,17 +5044,17 @@ class CfnPortfolioShare(
     @jsii.member(jsii_name="shareTagOptions")
     def share_tag_options(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "shareTagOptions"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "shareTagOptions"))
 
     @share_tag_options.setter
     def share_tag_options(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693)
+            type_hints = cached_type_hints(_typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shareTagOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -5100,7 +5076,7 @@ class CfnPortfolioShareProps:
         account_id: builtins.str,
         portfolio_id: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
-        share_tag_options: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        share_tag_options: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPortfolioShare``.
 
@@ -5128,7 +5104,7 @@ class CfnPortfolioShareProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a140daed52ce9199b47ef69cb7a751093f53397e71f9e473c7f6c2fd8a5effe)
+            type_hints = cached_type_hints(_typecheckingstub__2a140daed52ce9199b47ef69cb7a751093f53397e71f9e473c7f6c2fd8a5effe)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument accept_language", value=accept_language, expected_type=type_hints["accept_language"])
@@ -5179,13 +5155,13 @@ class CfnPortfolioShareProps:
     @builtins.property
     def share_tag_options(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioshare.html#cfn-servicecatalog-portfolioshare-sharetagoptions
         '''
         result = self._values.get("share_tag_options")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5199,9 +5175,9 @@ class CfnPortfolioShareProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceUpdateConstraintRef_6a0e13ed)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IResourceUpdateConstraintRef)
 class CfnResourceUpdateConstraint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnResourceUpdateConstraint",
 ):
@@ -5250,7 +5226,7 @@ class CfnResourceUpdateConstraint(
         :param description: The description of the constraint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bd8b301e17021c1624c5958b75d908fe177a38bbaed56fb5ec15b9c8eee8e32)
+            type_hints = cached_type_hints(_typecheckingstub__3bd8b301e17021c1624c5958b75d908fe177a38bbaed56fb5ec15b9c8eee8e32)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceUpdateConstraintProps(
@@ -5271,18 +5247,18 @@ class CfnResourceUpdateConstraint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2be150207f98e0ac094ca0f5b67110e118cd9c4e0e4022daa1abf1394035bf9)
+            type_hints = cached_type_hints(_typecheckingstub__e2be150207f98e0ac094ca0f5b67110e118cd9c4e0e4022daa1abf1394035bf9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceUpdateConstraint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__133a2ef7c92d1c3e4cb9165453dc706ba44e9adea0791a8dcf4984c0458d1bbc)
+            type_hints = cached_type_hints(_typecheckingstub__133a2ef7c92d1c3e4cb9165453dc706ba44e9adea0791a8dcf4984c0458d1bbc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5295,7 +5271,7 @@ class CfnResourceUpdateConstraint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e34401d12b1f0dedaafca3a2f7a545718b136244772b983f03708114b1e94ed)
+            type_hints = cached_type_hints(_typecheckingstub__3e34401d12b1f0dedaafca3a2f7a545718b136244772b983f03708114b1e94ed)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5328,9 +5304,9 @@ class CfnResourceUpdateConstraint(
     @jsii.member(jsii_name="resourceUpdateConstraintRef")
     def resource_update_constraint_ref(
         self,
-    ) -> "_ResourceUpdateConstraintReference_7c332e17":
+    ) -> "_aws_servicecatalog_848f4bab.ResourceUpdateConstraintReference":
         '''A reference to a ResourceUpdateConstraint resource.'''
-        return typing.cast("_ResourceUpdateConstraintReference_7c332e17", jsii.get(self, "resourceUpdateConstraintRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.ResourceUpdateConstraintReference", jsii.get(self, "resourceUpdateConstraintRef"))
 
     @builtins.property
     @jsii.member(jsii_name="portfolioId")
@@ -5341,7 +5317,7 @@ class CfnResourceUpdateConstraint(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27e9ca67d9f35e36bb56addcc29f6005ea48f7be72ff846d74f4d2ec50fcba78)
+            type_hints = cached_type_hints(_typecheckingstub__27e9ca67d9f35e36bb56addcc29f6005ea48f7be72ff846d74f4d2ec50fcba78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -5354,7 +5330,7 @@ class CfnResourceUpdateConstraint(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2dff03e6c12d3272cc78225e164e33c802d44ff01420c35c436ec1409e35ac)
+            type_hints = cached_type_hints(_typecheckingstub__1e2dff03e6c12d3272cc78225e164e33c802d44ff01420c35c436ec1409e35ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -5367,7 +5343,7 @@ class CfnResourceUpdateConstraint(
     @tag_update_on_provisioned_product.setter
     def tag_update_on_provisioned_product(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eec5a56fcac39964f096b92c76cbcec17b54dce956880ba1c66d3c10419b5cec)
+            type_hints = cached_type_hints(_typecheckingstub__eec5a56fcac39964f096b92c76cbcec17b54dce956880ba1c66d3c10419b5cec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagUpdateOnProvisionedProduct", value) # pyright: ignore[reportArgumentType]
 
@@ -5380,7 +5356,7 @@ class CfnResourceUpdateConstraint(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bf3ffe828e864cac79d1395c3a8723d4ae6181d9cbf0eb06172be1481c2a64d)
+            type_hints = cached_type_hints(_typecheckingstub__7bf3ffe828e864cac79d1395c3a8723d4ae6181d9cbf0eb06172be1481c2a64d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -5393,7 +5369,7 @@ class CfnResourceUpdateConstraint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4201ac4ba10b052d77bae5ea5b19dadaec094b4ec3807010c169e91385e5da1)
+            type_hints = cached_type_hints(_typecheckingstub__b4201ac4ba10b052d77bae5ea5b19dadaec094b4ec3807010c169e91385e5da1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5447,7 +5423,7 @@ class CfnResourceUpdateConstraintProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04a33a58e60b8ad885d55e0a9d5f03663c28dad3fd18dce3b55adb371aae99b8)
+            type_hints = cached_type_hints(_typecheckingstub__04a33a58e60b8ad885d55e0a9d5f03663c28dad3fd18dce3b55adb371aae99b8)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
             check_type(argname="argument tag_update_on_provisioned_product", value=tag_update_on_provisioned_product, expected_type=type_hints["tag_update_on_provisioned_product"])
@@ -5528,9 +5504,9 @@ class CfnResourceUpdateConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceActionRef_ab991e2b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IServiceActionRef)
 class CfnServiceAction(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceAction",
 ):
@@ -5565,7 +5541,7 @@ class CfnServiceAction(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
         definition_type: builtins.str,
         name: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
@@ -5582,7 +5558,7 @@ class CfnServiceAction(
         :param description: The self-service action description.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23e34b3d6215f958671fe8ad5adc718f503534f84f0e173a8aee3a13b9cc8b4f)
+            type_hints = cached_type_hints(_typecheckingstub__23e34b3d6215f958671fe8ad5adc718f503534f84f0e173a8aee3a13b9cc8b4f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceActionProps(
@@ -5603,18 +5579,18 @@ class CfnServiceAction(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f36a3847617027bab96304cca07c1086edfe8dd23062c18748e8c58b0717308e)
+            type_hints = cached_type_hints(_typecheckingstub__f36a3847617027bab96304cca07c1086edfe8dd23062c18748e8c58b0717308e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceAction", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b00b53de34b86f332a507fe944cda9499823712340b44dbde255cff3dadc59a5)
+            type_hints = cached_type_hints(_typecheckingstub__b00b53de34b86f332a507fe944cda9499823712340b44dbde255cff3dadc59a5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5627,7 +5603,7 @@ class CfnServiceAction(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e8da2cb67ea7c2bf8580e7d0041673893eb0ffe0ba7cd9aeb0804066d7e9b4a)
+            type_hints = cached_type_hints(_typecheckingstub__9e8da2cb67ea7c2bf8580e7d0041673893eb0ffe0ba7cd9aeb0804066d7e9b4a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5660,25 +5636,27 @@ class CfnServiceAction(
 
     @builtins.property
     @jsii.member(jsii_name="serviceActionRef")
-    def service_action_ref(self) -> "_ServiceActionReference_eb2df408":
+    def service_action_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.ServiceActionReference":
         '''A reference to a ServiceAction resource.'''
-        return typing.cast("_ServiceActionReference_eb2df408", jsii.get(self, "serviceActionRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.ServiceActionReference", jsii.get(self, "serviceActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="definition")
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceAction.DefinitionParameterProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceAction.DefinitionParameterProperty"]]]:
         '''A map that defines the self-service action.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceAction.DefinitionParameterProperty"]]], jsii.get(self, "definition"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceAction.DefinitionParameterProperty"]]], jsii.get(self, "definition"))
 
     @definition.setter
     def definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceAction.DefinitionParameterProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceAction.DefinitionParameterProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce59df90f00d540603f4ac3e5bf794dcc8ba05e89c05ad33d1289ab60d236f4a)
+            type_hints = cached_type_hints(_typecheckingstub__ce59df90f00d540603f4ac3e5bf794dcc8ba05e89c05ad33d1289ab60d236f4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
 
@@ -5691,7 +5669,7 @@ class CfnServiceAction(
     @definition_type.setter
     def definition_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e7b0a0df19abf9145a13198f8dd4cf82916ff2ab5cbf812a1326f3d94f4b470)
+            type_hints = cached_type_hints(_typecheckingstub__9e7b0a0df19abf9145a13198f8dd4cf82916ff2ab5cbf812a1326f3d94f4b470)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionType", value) # pyright: ignore[reportArgumentType]
 
@@ -5704,7 +5682,7 @@ class CfnServiceAction(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0375292a489ea6b79527a8a83b9e55f4631c74e6bcfd44c582363a1bbed6c0d4)
+            type_hints = cached_type_hints(_typecheckingstub__0375292a489ea6b79527a8a83b9e55f4631c74e6bcfd44c582363a1bbed6c0d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5717,7 +5695,7 @@ class CfnServiceAction(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__212e7304ca0476cd2ef386f32b251370cbf36d24d7db94f107ff8c0bbaafdb57)
+            type_hints = cached_type_hints(_typecheckingstub__212e7304ca0476cd2ef386f32b251370cbf36d24d7db94f107ff8c0bbaafdb57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -5730,7 +5708,7 @@ class CfnServiceAction(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__947be12dff02fc61884bd774fa6fa917ec8c48f3d2fba99c9bd68d481714e7c4)
+            type_hints = cached_type_hints(_typecheckingstub__947be12dff02fc61884bd774fa6fa917ec8c48f3d2fba99c9bd68d481714e7c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5763,7 +5741,7 @@ class CfnServiceAction(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9c6e74bbbc66ce84d64be85e0a9a49dedc497c858d1e2785bf1a6385c6c5a5e2)
+                type_hints = cached_type_hints(_typecheckingstub__9c6e74bbbc66ce84d64be85e0a9a49dedc497c858d1e2785bf1a6385c6c5a5e2)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5803,9 +5781,9 @@ class CfnServiceAction(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceActionAssociationRef_0e9e58e8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IServiceActionAssociationRef)
 class CfnServiceActionAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceActionAssociation",
 ):
@@ -5835,7 +5813,7 @@ class CfnServiceActionAssociation(
         *,
         product_id: builtins.str,
         provisioning_artifact_id: builtins.str,
-        service_action_id: typing.Union[builtins.str, "_IServiceActionRef_ab991e2b"],
+        service_action_id: typing.Union[builtins.str, "_aws_servicecatalog_848f4bab.IServiceActionRef"],
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::ServiceActionAssociation``.
 
@@ -5846,7 +5824,7 @@ class CfnServiceActionAssociation(
         :param service_action_id: The self-service action identifier. For example, ``act-fs7abcd89wxyz`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af7accef6ad60ab0630f153d8a07caeceee6f2d27b9eb2a794537a34ce87e178)
+            type_hints = cached_type_hints(_typecheckingstub__af7accef6ad60ab0630f153d8a07caeceee6f2d27b9eb2a794537a34ce87e178)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceActionAssociationProps(
@@ -5865,18 +5843,18 @@ class CfnServiceActionAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7190b18308883c45fdf13cb18270902aa81bca99c32804be844d3615501b365e)
+            type_hints = cached_type_hints(_typecheckingstub__7190b18308883c45fdf13cb18270902aa81bca99c32804be844d3615501b365e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceActionAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7df7f15eee37e4c02e6d404feb700b430539aedfcdbf0dd1269e565e07d05cbc)
+            type_hints = cached_type_hints(_typecheckingstub__7df7f15eee37e4c02e6d404feb700b430539aedfcdbf0dd1269e565e07d05cbc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5889,7 +5867,7 @@ class CfnServiceActionAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6bd90d3363385817fff96c18c249a73f81576856af8c3ce0a8e1b124dd0c45f)
+            type_hints = cached_type_hints(_typecheckingstub__b6bd90d3363385817fff96c18c249a73f81576856af8c3ce0a8e1b124dd0c45f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5913,9 +5891,9 @@ class CfnServiceActionAssociation(
     @jsii.member(jsii_name="serviceActionAssociationRef")
     def service_action_association_ref(
         self,
-    ) -> "_ServiceActionAssociationReference_b0ac9c14":
+    ) -> "_aws_servicecatalog_848f4bab.ServiceActionAssociationReference":
         '''A reference to a ServiceActionAssociation resource.'''
-        return typing.cast("_ServiceActionAssociationReference_b0ac9c14", jsii.get(self, "serviceActionAssociationRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.ServiceActionAssociationReference", jsii.get(self, "serviceActionAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="productId")
@@ -5926,7 +5904,7 @@ class CfnServiceActionAssociation(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d48df994bfc409a2186ce0f7f954c97d758cac05ff4c442e381ba542b43847e0)
+            type_hints = cached_type_hints(_typecheckingstub__d48df994bfc409a2186ce0f7f954c97d758cac05ff4c442e381ba542b43847e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -5939,7 +5917,7 @@ class CfnServiceActionAssociation(
     @provisioning_artifact_id.setter
     def provisioning_artifact_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__525d1605980366c81e343599764a8a17692b76ce41bca6ecd5a9a1ad81af4f2c)
+            type_hints = cached_type_hints(_typecheckingstub__525d1605980366c81e343599764a8a17692b76ce41bca6ecd5a9a1ad81af4f2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
 
@@ -5952,7 +5930,7 @@ class CfnServiceActionAssociation(
     @service_action_id.setter
     def service_action_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18aae29d025946767f8ca8b8da89a0b0115102987022200d9f5c18157ae2ce5b)
+            type_hints = cached_type_hints(_typecheckingstub__18aae29d025946767f8ca8b8da89a0b0115102987022200d9f5c18157ae2ce5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceActionId", value) # pyright: ignore[reportArgumentType]
 
@@ -5972,7 +5950,7 @@ class CfnServiceActionAssociationProps:
         *,
         product_id: builtins.str,
         provisioning_artifact_id: builtins.str,
-        service_action_id: typing.Union[builtins.str, "_IServiceActionRef_ab991e2b"],
+        service_action_id: typing.Union[builtins.str, "_aws_servicecatalog_848f4bab.IServiceActionRef"],
     ) -> None:
         '''Properties for defining a ``CfnServiceActionAssociation``.
 
@@ -5996,7 +5974,7 @@ class CfnServiceActionAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52f50d0bb3c8980268e31b96e206f7a2c97e91453b113d44e944f886f23897a2)
+            type_hints = cached_type_hints(_typecheckingstub__52f50d0bb3c8980268e31b96e206f7a2c97e91453b113d44e944f886f23897a2)
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
             check_type(argname="argument provisioning_artifact_id", value=provisioning_artifact_id, expected_type=type_hints["provisioning_artifact_id"])
             check_type(argname="argument service_action_id", value=service_action_id, expected_type=type_hints["service_action_id"])
@@ -6033,7 +6011,7 @@ class CfnServiceActionAssociationProps:
     @builtins.property
     def service_action_id(
         self,
-    ) -> typing.Union[builtins.str, "_IServiceActionRef_ab991e2b"]:
+    ) -> typing.Union[builtins.str, "_aws_servicecatalog_848f4bab.IServiceActionRef"]:
         '''The self-service action identifier.
 
         For example, ``act-fs7abcd89wxyz`` .
@@ -6042,7 +6020,7 @@ class CfnServiceActionAssociationProps:
         '''
         result = self._values.get("service_action_id")
         assert result is not None, "Required property 'service_action_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IServiceActionRef_ab991e2b"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_servicecatalog_848f4bab.IServiceActionRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6071,7 +6049,7 @@ class CfnServiceActionProps:
     def __init__(
         self,
         *,
-        definition: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
         definition_type: builtins.str,
         name: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
@@ -6108,7 +6086,7 @@ class CfnServiceActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90de2bbcb8a0e689344d53e4457169abb06ca7bea6f8fec45332480a001b2c03)
+            type_hints = cached_type_hints(_typecheckingstub__90de2bbcb8a0e689344d53e4457169abb06ca7bea6f8fec45332480a001b2c03)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument definition_type", value=definition_type, expected_type=type_hints["definition_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -6127,14 +6105,14 @@ class CfnServiceActionProps:
     @builtins.property
     def definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceAction.DefinitionParameterProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceAction.DefinitionParameterProperty"]]]:
         '''A map that defines the self-service action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceaction.html#cfn-servicecatalog-serviceaction-definition
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServiceAction.DefinitionParameterProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServiceAction.DefinitionParameterProperty"]]], result)
 
     @builtins.property
     def definition_type(self) -> builtins.str:
@@ -6192,9 +6170,9 @@ class CfnServiceActionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStackSetConstraintRef_5b78280d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.IStackSetConstraintRef)
 class CfnStackSetConstraint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnStackSetConstraint",
 ):
@@ -6255,7 +6233,7 @@ class CfnStackSetConstraint(
         :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e83be00a9ded6c3a1fc4b09aae813db853ac16fa6a7a25167ce9abc326314cb)
+            type_hints = cached_type_hints(_typecheckingstub__5e83be00a9ded6c3a1fc4b09aae813db853ac16fa6a7a25167ce9abc326314cb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStackSetConstraintProps(
@@ -6280,18 +6258,18 @@ class CfnStackSetConstraint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03dc81f6cca6a07de9779c28d556cbcc86a634df9855a575f038fddd25a79f97)
+            type_hints = cached_type_hints(_typecheckingstub__03dc81f6cca6a07de9779c28d556cbcc86a634df9855a575f038fddd25a79f97)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStackSetConstraint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__762255dd0897d10e8d71da24a12503fe45383533846abe1ea0a004712ac3c5c9)
+            type_hints = cached_type_hints(_typecheckingstub__762255dd0897d10e8d71da24a12503fe45383533846abe1ea0a004712ac3c5c9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6304,7 +6282,7 @@ class CfnStackSetConstraint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__482a0e464daf9c2c6bfd3d2cc6452909e7f2d461c11b7596a4781724ce2f4f81)
+            type_hints = cached_type_hints(_typecheckingstub__482a0e464daf9c2c6bfd3d2cc6452909e7f2d461c11b7596a4781724ce2f4f81)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6335,9 +6313,11 @@ class CfnStackSetConstraint(
 
     @builtins.property
     @jsii.member(jsii_name="stackSetConstraintRef")
-    def stack_set_constraint_ref(self) -> "_StackSetConstraintReference_378fddb5":
+    def stack_set_constraint_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.StackSetConstraintReference":
         '''A reference to a StackSetConstraint resource.'''
-        return typing.cast("_StackSetConstraintReference_378fddb5", jsii.get(self, "stackSetConstraintRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.StackSetConstraintReference", jsii.get(self, "stackSetConstraintRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accountList")
@@ -6348,7 +6328,7 @@ class CfnStackSetConstraint(
     @account_list.setter
     def account_list(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7c6d08b3f255581c2ffdd7ffd68b702fe5ba710c382bdf5ae26db91c3d5f8e9)
+            type_hints = cached_type_hints(_typecheckingstub__c7c6d08b3f255581c2ffdd7ffd68b702fe5ba710c382bdf5ae26db91c3d5f8e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountList", value) # pyright: ignore[reportArgumentType]
 
@@ -6361,7 +6341,7 @@ class CfnStackSetConstraint(
     @admin_role.setter
     def admin_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a5a008ef49e1cc45721b5a75554c2bfba2c1d66fb3584a4ebc56ece6909cae8)
+            type_hints = cached_type_hints(_typecheckingstub__8a5a008ef49e1cc45721b5a75554c2bfba2c1d66fb3584a4ebc56ece6909cae8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adminRole", value) # pyright: ignore[reportArgumentType]
 
@@ -6374,7 +6354,7 @@ class CfnStackSetConstraint(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfae06298a8284ec1fc825842bbccd21bfd9bb4c68791b92a8b21af754642bea)
+            type_hints = cached_type_hints(_typecheckingstub__cfae06298a8284ec1fc825842bbccd21bfd9bb4c68791b92a8b21af754642bea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -6387,7 +6367,7 @@ class CfnStackSetConstraint(
     @execution_role.setter
     def execution_role(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__970dcf9ee7612c69e8660d1ba6ee759ca3d6baf6d1f22948f11c60fc69441448)
+            type_hints = cached_type_hints(_typecheckingstub__970dcf9ee7612c69e8660d1ba6ee759ca3d6baf6d1f22948f11c60fc69441448)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
 
@@ -6400,7 +6380,7 @@ class CfnStackSetConstraint(
     @portfolio_id.setter
     def portfolio_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d3ccece013a09e092dca3159439eb8f634defe7a33fb54f8e400e2df569878)
+            type_hints = cached_type_hints(_typecheckingstub__89d3ccece013a09e092dca3159439eb8f634defe7a33fb54f8e400e2df569878)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
 
@@ -6413,7 +6393,7 @@ class CfnStackSetConstraint(
     @product_id.setter
     def product_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__127b16e68f363dc6822b1ee34834ca000c00d3826c674b8cbacdfee357fae0a0)
+            type_hints = cached_type_hints(_typecheckingstub__127b16e68f363dc6822b1ee34834ca000c00d3826c674b8cbacdfee357fae0a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -6426,7 +6406,7 @@ class CfnStackSetConstraint(
     @region_list.setter
     def region_list(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726a4dab91f2940b18d78725c231cb513a17deedf20d0b0e8bc95228deaecb15)
+            type_hints = cached_type_hints(_typecheckingstub__726a4dab91f2940b18d78725c231cb513a17deedf20d0b0e8bc95228deaecb15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionList", value) # pyright: ignore[reportArgumentType]
 
@@ -6439,7 +6419,7 @@ class CfnStackSetConstraint(
     @stack_instance_control.setter
     def stack_instance_control(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4532c7b88a0aecde03ff01ebbe4425fa7e1cfe109c70c3624bedd938293f957c)
+            type_hints = cached_type_hints(_typecheckingstub__4532c7b88a0aecde03ff01ebbe4425fa7e1cfe109c70c3624bedd938293f957c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stackInstanceControl", value) # pyright: ignore[reportArgumentType]
 
@@ -6452,7 +6432,7 @@ class CfnStackSetConstraint(
     @accept_language.setter
     def accept_language(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf2c708988899711ec9d8ea27f9e4165b113c614fd335bcb1d0b84bff81ef565)
+            type_hints = cached_type_hints(_typecheckingstub__cf2c708988899711ec9d8ea27f9e4165b113c614fd335bcb1d0b84bff81ef565)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
@@ -6522,7 +6502,7 @@ class CfnStackSetConstraintProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71d420933cee59879101b98c29d269504af0cb190b1929c9f0657e67f0efbf21)
+            type_hints = cached_type_hints(_typecheckingstub__71d420933cee59879101b98c29d269504af0cb190b1929c9f0657e67f0efbf21)
             check_type(argname="argument account_list", value=account_list, expected_type=type_hints["account_list"])
             check_type(argname="argument admin_role", value=admin_role, expected_type=type_hints["admin_role"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -6657,9 +6637,9 @@ class CfnStackSetConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITagOptionRef_bd4d9e5c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ITagOptionRef)
 class CfnTagOption(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOption",
 ):
@@ -6693,7 +6673,7 @@ class CfnTagOption(
         *,
         key: builtins.str,
         value: builtins.str,
-        active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        active: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::ServiceCatalog::TagOption``.
 
@@ -6704,7 +6684,7 @@ class CfnTagOption(
         :param active: The TagOption active state.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403a5ab8da)
+            type_hints = cached_type_hints(_typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403a5ab8da)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTagOptionProps(key=key, value=value, active=active)
@@ -6719,18 +6699,18 @@ class CfnTagOption(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df459b31c427c906dc014a3aaec6909b11b5e8a6da88a065cb75e5d05f07b7d)
+            type_hints = cached_type_hints(_typecheckingstub__0df459b31c427c906dc014a3aaec6909b11b5e8a6da88a065cb75e5d05f07b7d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTagOption", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50712aef682653b8e0f48520689f88e2c3a640ff1b3caf07911c1387c9312b8d)
+            type_hints = cached_type_hints(_typecheckingstub__50712aef682653b8e0f48520689f88e2c3a640ff1b3caf07911c1387c9312b8d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6743,7 +6723,7 @@ class CfnTagOption(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e946e4194e2f99f32c971c4f7d7820c5b9dc82b7b500014fba93ca7d45f2003)
+            type_hints = cached_type_hints(_typecheckingstub__2e946e4194e2f99f32c971c4f7d7820c5b9dc82b7b500014fba93ca7d45f2003)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6774,9 +6754,9 @@ class CfnTagOption(
 
     @builtins.property
     @jsii.member(jsii_name="tagOptionRef")
-    def tag_option_ref(self) -> "_TagOptionReference_ef49ef9d":
+    def tag_option_ref(self) -> "_aws_servicecatalog_848f4bab.TagOptionReference":
         '''A reference to a TagOption resource.'''
-        return typing.cast("_TagOptionReference_ef49ef9d", jsii.get(self, "tagOptionRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.TagOptionReference", jsii.get(self, "tagOptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="key")
@@ -6787,7 +6767,7 @@ class CfnTagOption(
     @key.setter
     def key(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed189bcd4f2dafa9555a0b400e637009d357d1b5029de2c05610b1eac7a01544)
+            type_hints = cached_type_hints(_typecheckingstub__ed189bcd4f2dafa9555a0b400e637009d357d1b5029de2c05610b1eac7a01544)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
 
@@ -6800,7 +6780,7 @@ class CfnTagOption(
     @value.setter
     def value(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8210c71789d2e226d95d699fde3e0ed6a8d5295865850b8f00b65fd8e5256e81)
+            type_hints = cached_type_hints(_typecheckingstub__8210c71789d2e226d95d699fde3e0ed6a8d5295865850b8f00b65fd8e5256e81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
 
@@ -6808,24 +6788,24 @@ class CfnTagOption(
     @jsii.member(jsii_name="active")
     def active(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The TagOption active state.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "active"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "active"))
 
     @active.setter
     def active(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89787874a9ebb4d4f8f779d0b1fe32ea722a2cc59e0dabe83bbaa1c0ed0f605b)
+            type_hints = cached_type_hints(_typecheckingstub__89787874a9ebb4d4f8f779d0b1fe32ea722a2cc59e0dabe83bbaa1c0ed0f605b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "active", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _ITagOptionAssociationRef_ba745ddc)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalog_848f4bab.ITagOptionAssociationRef)
 class CfnTagOptionAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOptionAssociation",
 ):
@@ -6863,7 +6843,7 @@ class CfnTagOptionAssociation(
         :param tag_option_id: The TagOption identifier.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a574b3e75b877de4dcfa7d8a2517237604ed1f3dd3d7cac2ea2238f670c325e8)
+            type_hints = cached_type_hints(_typecheckingstub__a574b3e75b877de4dcfa7d8a2517237604ed1f3dd3d7cac2ea2238f670c325e8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTagOptionAssociationProps(
@@ -6880,18 +6860,18 @@ class CfnTagOptionAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3e1ad1d412810b99742d5b002b2fdfaa02df5bac377cc8b272bdf144800a4ac)
+            type_hints = cached_type_hints(_typecheckingstub__d3e1ad1d412810b99742d5b002b2fdfaa02df5bac377cc8b272bdf144800a4ac)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTagOptionAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c73cbddcba77a79765ded0c870b1dc62a05bd13cddf128a27b21316f9253b5)
+            type_hints = cached_type_hints(_typecheckingstub__96c73cbddcba77a79765ded0c870b1dc62a05bd13cddf128a27b21316f9253b5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6904,7 +6884,7 @@ class CfnTagOptionAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be21e5622bd6d44a3621a1eb8b311fd50ef6c4f7295cfaa5b45c2478046fe275)
+            type_hints = cached_type_hints(_typecheckingstub__be21e5622bd6d44a3621a1eb8b311fd50ef6c4f7295cfaa5b45c2478046fe275)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6926,9 +6906,11 @@ class CfnTagOptionAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="tagOptionAssociationRef")
-    def tag_option_association_ref(self) -> "_TagOptionAssociationReference_0801788b":
+    def tag_option_association_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.TagOptionAssociationReference":
         '''A reference to a TagOptionAssociation resource.'''
-        return typing.cast("_TagOptionAssociationReference_0801788b", jsii.get(self, "tagOptionAssociationRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.TagOptionAssociationReference", jsii.get(self, "tagOptionAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceId")
@@ -6939,7 +6921,7 @@ class CfnTagOptionAssociation(
     @resource_id.setter
     def resource_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__471e0b593fbd9d09ee6976802eded33631b789cde5f21fad9622617eeb6305bb)
+            type_hints = cached_type_hints(_typecheckingstub__471e0b593fbd9d09ee6976802eded33631b789cde5f21fad9622617eeb6305bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
 
@@ -6952,7 +6934,7 @@ class CfnTagOptionAssociation(
     @tag_option_id.setter
     def tag_option_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36b3523e61ec3624717af470321b5a099be0fe767c62edbb115ee12884351d73)
+            type_hints = cached_type_hints(_typecheckingstub__36b3523e61ec3624717af470321b5a099be0fe767c62edbb115ee12884351d73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagOptionId", value) # pyright: ignore[reportArgumentType]
 
@@ -6989,7 +6971,7 @@ class CfnTagOptionAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b40cb505bb578364f2c02a3a08b4793fd747379748d820e8ec767c54ad4bb1f)
+            type_hints = cached_type_hints(_typecheckingstub__0b40cb505bb578364f2c02a3a08b4793fd747379748d820e8ec767c54ad4bb1f)
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
             check_type(argname="argument tag_option_id", value=tag_option_id, expected_type=type_hints["tag_option_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7039,7 +7021,7 @@ class CfnTagOptionProps:
         *,
         key: builtins.str,
         value: builtins.str,
-        active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        active: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTagOption``.
 
@@ -7065,7 +7047,7 @@ class CfnTagOptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70780bf6a7fb429d72629882cde3c5617b08f82914b2c73e5153c29640b7161c)
+            type_hints = cached_type_hints(_typecheckingstub__70780bf6a7fb429d72629882cde3c5617b08f82914b2c73e5153c29640b7161c)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument active", value=active, expected_type=type_hints["active"])
@@ -7099,13 +7081,13 @@ class CfnTagOptionProps:
     @builtins.property
     def active(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The TagOption active state.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-tagoption.html#cfn-servicecatalog-tagoption-active
         '''
         result = self._values.get("active")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7190,7 +7172,7 @@ class CloudFormationProductProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9913e495a1fc0ad721e4a9963481fad5eed277a9d00a04e7bae0396a95be6eb)
+            type_hints = cached_type_hints(_typecheckingstub__b9913e495a1fc0ad721e4a9963481fad5eed277a9d00a04e7bae0396a95be6eb)
             check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
             check_type(argname="argument product_name", value=product_name, expected_type=type_hints["product_name"])
             check_type(argname="argument product_versions", value=product_versions, expected_type=type_hints["product_versions"])
@@ -7377,7 +7359,7 @@ class CloudFormationProductVersion:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7871a8980da5d0ede4cc5882256c4052b0bd88da95e87bc4a941149bbac134a3)
+            type_hints = cached_type_hints(_typecheckingstub__7871a8980da5d0ede4cc5882256c4052b0bd88da95e87bc4a941149bbac134a3)
             check_type(argname="argument cloud_formation_template", value=cloud_formation_template, expected_type=type_hints["cloud_formation_template"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument product_version_name", value=product_version_name, expected_type=type_hints["product_version_name"])
@@ -7481,14 +7463,14 @@ class CloudFormationTemplate(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
-        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
-        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> "CloudFormationTemplate":
         '''Loads the provisioning artifacts template from a local disk path.
 
@@ -7505,9 +7487,9 @@ class CloudFormationTemplate(
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a06da6e8)
+            type_hints = cached_type_hints(_typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a06da6e8)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        options = _AssetOptions_2aa69621(
+        options = _aws_s3_assets_2dba96fa.AssetOptions(
             deploy_time=deploy_time,
             display_name=display_name,
             readers=readers,
@@ -7533,7 +7515,7 @@ class CloudFormationTemplate(
         :param product_stack: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__773de33690ef0a0a4fdc6f4346b2e866d6c7abe6e79acc2f8569a7a44cea7ebf)
+            type_hints = cached_type_hints(_typecheckingstub__773de33690ef0a0a4fdc6f4346b2e866d6c7abe6e79acc2f8569a7a44cea7ebf)
             check_type(argname="argument product_stack", value=product_stack, expected_type=type_hints["product_stack"])
         return typing.cast("CloudFormationTemplate", jsii.sinvoke(cls, "fromProductStack", [product_stack]))
 
@@ -7545,7 +7527,7 @@ class CloudFormationTemplate(
         :param url: The url that points to the provisioning artifacts template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccf82442df209809b0c85975faeae077c122f2170cbe40678aa4a1e7369315a7)
+            type_hints = cached_type_hints(_typecheckingstub__ccf82442df209809b0c85975faeae077c122f2170cbe40678aa4a1e7369315a7)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         return typing.cast("CloudFormationTemplate", jsii.sinvoke(cls, "fromUrl", [url]))
 
@@ -7573,7 +7555,7 @@ class _CloudFormationTemplateProxy(CloudFormationTemplate):
         :param scope: The binding scope. Don't be smart about trying to down-cast or assume it's initialized. You may just use it as a construct scope.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e20192bfc2c0ff7d3e1a351250198d72fb4cf9fcc65af22c06a4ffe758084dd4)
+            type_hints = cached_type_hints(_typecheckingstub__e20192bfc2c0ff7d3e1a351250198d72fb4cf9fcc65af22c06a4ffe758084dd4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("CloudFormationTemplateConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -7591,7 +7573,7 @@ class CloudFormationTemplateConfig:
         self,
         *,
         http_url: builtins.str,
-        asset_bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        asset_bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
     ) -> None:
         '''Result of binding ``Template`` into a ``Product``.
 
@@ -7617,7 +7599,7 @@ class CloudFormationTemplateConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a20e03ddade2bdc4a633779da35b07ed9f87dcb2e018f8f2a66b6bc0fda0f73e)
+            type_hints = cached_type_hints(_typecheckingstub__a20e03ddade2bdc4a633779da35b07ed9f87dcb2e018f8f2a66b6bc0fda0f73e)
             check_type(argname="argument http_url", value=http_url, expected_type=type_hints["http_url"])
             check_type(argname="argument asset_bucket", value=asset_bucket, expected_type=type_hints["asset_bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7634,13 +7616,13 @@ class CloudFormationTemplateConfig:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def asset_bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def asset_bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''The S3 bucket containing product stack assets.
 
         :default: - None - no assets are used in this product
         '''
         result = self._values.get("asset_bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7690,7 +7672,7 @@ class CommonConstraintOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e60eb1fb7b6c9e48a2e253fcaf182309a321cb5ad621284cfe99fd9bba91f53)
+            type_hints = cached_type_hints(_typecheckingstub__5e60eb1fb7b6c9e48a2e253fcaf182309a321cb5ad621284cfe99fd9bba91f53)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument message_language", value=message_language, expected_type=type_hints["message_language"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7733,8 +7715,8 @@ class CommonConstraintOptions:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolio")
 class IPortfolio(
-    _IResource_c80c4260,
-    _IPortfolioRef_a19e4bd0,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_servicecatalog_848f4bab.IPortfolioRef,
     typing_extensions.Protocol,
 ):
     '''A Service Catalog portfolio.'''
@@ -7818,7 +7800,7 @@ class IPortfolio(
         product: "IProduct",
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: "_IRoleRef_8400221f",
+        admin_role: "_aws_iam_632e20f6.IRoleRef",
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -7839,7 +7821,7 @@ class IPortfolio(
         ...
 
     @jsii.member(jsii_name="giveAccessToGroup")
-    def give_access_to_group(self, group: "_IGroup_96daf542") -> None:
+    def give_access_to_group(self, group: "_aws_iam_1f54b5e8.IGroup") -> None:
         '''Associate portfolio with an IAM Group.
 
         :param group: an IAM Group.
@@ -7847,7 +7829,7 @@ class IPortfolio(
         ...
 
     @jsii.member(jsii_name="giveAccessToRole")
-    def give_access_to_role(self, role: "_IRole_235f5d8e") -> None:
+    def give_access_to_role(self, role: "_aws_iam_1f54b5e8.IRole") -> None:
         '''Associate portfolio with an IAM Role.
 
         :param role: an IAM role.
@@ -7855,7 +7837,7 @@ class IPortfolio(
         ...
 
     @jsii.member(jsii_name="giveAccessToUser")
-    def give_access_to_user(self, user: "_IUser_c32311f7") -> None:
+    def give_access_to_user(self, user: "_aws_iam_1f54b5e8.IUser") -> None:
         '''Associate portfolio with an IAM User.
 
         :param user: an IAM user.
@@ -7866,7 +7848,7 @@ class IPortfolio(
     def notify_on_stack_events(
         self,
         product: "IProduct",
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -7884,7 +7866,7 @@ class IPortfolio(
     def set_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -7906,7 +7888,7 @@ class IPortfolio(
     def set_local_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -7931,7 +7913,7 @@ class IPortfolio(
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
-    ) -> "_IRole_235f5d8e":
+    ) -> "_aws_iam_1f54b5e8.IRole":
         '''Force users to assume a certain role when launching a product.
 
         The role will be referenced by name in the local account instead of a static role arn.
@@ -7963,8 +7945,8 @@ class IPortfolio(
 
 
 class _IPortfolioProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IPortfolioRef_a19e4bd0), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicecatalog_848f4bab.IPortfolioRef), # type: ignore[misc]
 ):
     '''A Service Catalog portfolio.'''
 
@@ -7995,7 +7977,7 @@ class _IPortfolioProxy(
         :param product: A service catalog produt.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af5784dfd851a3c5d33e4b07e59e3a5b8e72fb176b70fd04a627015c531b273d)
+            type_hints = cached_type_hints(_typecheckingstub__af5784dfd851a3c5d33e4b07e59e3a5b8e72fb176b70fd04a627015c531b273d)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         return typing.cast(None, jsii.invoke(self, "addProduct", [product]))
 
@@ -8009,7 +7991,7 @@ class _IPortfolioProxy(
         :param tag_options: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b08dd5016d53d0a3cac9948b36fb192a9391bb66301672a5dfb5eed377dba40)
+            type_hints = cached_type_hints(_typecheckingstub__9b08dd5016d53d0a3cac9948b36fb192a9391bb66301672a5dfb5eed377dba40)
             check_type(argname="argument tag_options", value=tag_options, expected_type=type_hints["tag_options"])
         return typing.cast(None, jsii.invoke(self, "associateTagOptions", [tag_options]))
 
@@ -8030,7 +8012,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ab31c7af6a601422103ce95369b5bca6125f3b8da6806b5568a710179db9883)
+            type_hints = cached_type_hints(_typecheckingstub__3ab31c7af6a601422103ce95369b5bca6125f3b8da6806b5568a710179db9883)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = CloudFormationRuleConstraintOptions(
             rule=rule, description=description, message_language=message_language
@@ -8055,7 +8037,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7528a69ebd5bd10455ee5c30ad3cc9a8db163a5e869e2e6a9eadac4e5553bac)
+            type_hints = cached_type_hints(_typecheckingstub__a7528a69ebd5bd10455ee5c30ad3cc9a8db163a5e869e2e6a9eadac4e5553bac)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = TagUpdateConstraintOptions(
             allow=allow, description=description, message_language=message_language
@@ -8069,7 +8051,7 @@ class _IPortfolioProxy(
         product: "IProduct",
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: "_IRoleRef_8400221f",
+        admin_role: "_aws_iam_632e20f6.IRoleRef",
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -8088,7 +8070,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85be47d83c)
+            type_hints = cached_type_hints(_typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85be47d83c)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = StackSetsConstraintOptions(
             accounts=accounts,
@@ -8103,35 +8085,35 @@ class _IPortfolioProxy(
         return typing.cast(None, jsii.invoke(self, "deployWithStackSets", [product, options]))
 
     @jsii.member(jsii_name="giveAccessToGroup")
-    def give_access_to_group(self, group: "_IGroup_96daf542") -> None:
+    def give_access_to_group(self, group: "_aws_iam_1f54b5e8.IGroup") -> None:
         '''Associate portfolio with an IAM Group.
 
         :param group: an IAM Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31be1103bd0abf13c9e90d4d0e0b5a6b82c5aad2f3f55dceba3906501912e704)
+            type_hints = cached_type_hints(_typecheckingstub__31be1103bd0abf13c9e90d4d0e0b5a6b82c5aad2f3f55dceba3906501912e704)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToGroup", [group]))
 
     @jsii.member(jsii_name="giveAccessToRole")
-    def give_access_to_role(self, role: "_IRole_235f5d8e") -> None:
+    def give_access_to_role(self, role: "_aws_iam_1f54b5e8.IRole") -> None:
         '''Associate portfolio with an IAM Role.
 
         :param role: an IAM role.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32feae15a0b576cab624cb64b322d12d58eb6a826cca846dc104c480568f2389)
+            type_hints = cached_type_hints(_typecheckingstub__32feae15a0b576cab624cb64b322d12d58eb6a826cca846dc104c480568f2389)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToRole", [role]))
 
     @jsii.member(jsii_name="giveAccessToUser")
-    def give_access_to_user(self, user: "_IUser_c32311f7") -> None:
+    def give_access_to_user(self, user: "_aws_iam_1f54b5e8.IUser") -> None:
         '''Associate portfolio with an IAM User.
 
         :param user: an IAM user.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__209202e9e88b8a71205bdbad6f54a52442f6f7f1c19e096d454cc5d5753fa365)
+            type_hints = cached_type_hints(_typecheckingstub__209202e9e88b8a71205bdbad6f54a52442f6f7f1c19e096d454cc5d5753fa365)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToUser", [user]))
 
@@ -8139,7 +8121,7 @@ class _IPortfolioProxy(
     def notify_on_stack_events(
         self,
         product: "IProduct",
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8152,7 +8134,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704dd03d1a0)
+            type_hints = cached_type_hints(_typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704dd03d1a0)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         options = CommonConstraintOptions(
@@ -8165,7 +8147,7 @@ class _IPortfolioProxy(
     def set_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8182,7 +8164,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f34af2dd1)
+            type_hints = cached_type_hints(_typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f34af2dd1)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role", value=launch_role, expected_type=type_hints["launch_role"])
         options = CommonConstraintOptions(
@@ -8195,7 +8177,7 @@ class _IPortfolioProxy(
     def set_local_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8211,7 +8193,7 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e07d8f34d3ec7ee6db9ec8c22b47e94322c41b07d808a2bbf9a6e0120dc94477)
+            type_hints = cached_type_hints(_typecheckingstub__e07d8f34d3ec7ee6db9ec8c22b47e94322c41b07d808a2bbf9a6e0120dc94477)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role", value=launch_role, expected_type=type_hints["launch_role"])
         options = CommonConstraintOptions(
@@ -8228,7 +8210,7 @@ class _IPortfolioProxy(
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
-    ) -> "_IRole_235f5d8e":
+    ) -> "_aws_iam_1f54b5e8.IRole":
         '''Force users to assume a certain role when launching a product.
 
         The role will be referenced by name in the local account instead of a static role arn.
@@ -8241,14 +8223,14 @@ class _IPortfolioProxy(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b77fa7622b8d9e616053f2bb43b466759c0e42756dc316fecf1658053e20ba6a)
+            type_hints = cached_type_hints(_typecheckingstub__b77fa7622b8d9e616053f2bb43b466759c0e42756dc316fecf1658053e20ba6a)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role_name", value=launch_role_name, expected_type=type_hints["launch_role_name"])
         options = CommonConstraintOptions(
             description=description, message_language=message_language
         )
 
-        return typing.cast("_IRole_235f5d8e", jsii.invoke(self, "setLocalLaunchRoleName", [product, launch_role_name, options]))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.invoke(self, "setLocalLaunchRoleName", [product, launch_role_name, options]))
 
     @jsii.member(jsii_name="shareWithAccount")
     def share_with_account(
@@ -8265,7 +8247,7 @@ class _IPortfolioProxy(
         :param share_tag_options: Whether to share tagOptions as a part of the portfolio share. Default: - share not specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ef38d69e098149d5d0224f8ec3bde027d23731856e23f2af7f2e450d2789ec3)
+            type_hints = cached_type_hints(_typecheckingstub__9ef38d69e098149d5d0224f8ec3bde027d23731856e23f2af7f2e450d2789ec3)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         options = PortfolioShareOptions(
             message_language=message_language, share_tag_options=share_tag_options
@@ -8279,15 +8261,15 @@ typing.cast(typing.Any, IPortfolio).__jsii_proxy_class__ = lambda : _IPortfolioP
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IProduct")
 class IProduct(
-    _IResource_c80c4260,
-    _ICloudFormationProductRef_d59b8740,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_servicecatalog_848f4bab.ICloudFormationProductRef,
     typing_extensions.Protocol,
 ):
     '''A Service Catalog product, currently only supports type CloudFormationProduct.'''
 
     @builtins.property
     @jsii.member(jsii_name="assetBuckets")
-    def asset_buckets(self) -> typing.List["_IBucket_42e086fd"]:
+    def asset_buckets(self) -> typing.List["_aws_s3_01158f40.IBucket"]:
         '''The asset buckets of a product created via product stack.
 
         :attribute: true
@@ -8325,8 +8307,8 @@ class IProduct(
 
 
 class _IProductProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ICloudFormationProductRef_d59b8740), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_servicecatalog_848f4bab.ICloudFormationProductRef), # type: ignore[misc]
 ):
     '''A Service Catalog product, currently only supports type CloudFormationProduct.'''
 
@@ -8334,12 +8316,12 @@ class _IProductProxy(
 
     @builtins.property
     @jsii.member(jsii_name="assetBuckets")
-    def asset_buckets(self) -> typing.List["_IBucket_42e086fd"]:
+    def asset_buckets(self) -> typing.List["_aws_s3_01158f40.IBucket"]:
         '''The asset buckets of a product created via product stack.
 
         :attribute: true
         '''
-        return typing.cast(typing.List["_IBucket_42e086fd"], jsii.get(self, "assetBuckets"))
+        return typing.cast(typing.List["_aws_s3_01158f40.IBucket"], jsii.get(self, "assetBuckets"))
 
     @builtins.property
     @jsii.member(jsii_name="productArn")
@@ -8369,7 +8351,7 @@ class _IProductProxy(
         :param tag_options: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__451a2d4f55f42fc3569bc06a530f99282fa0c00a378274b4429d6bd5411321a6)
+            type_hints = cached_type_hints(_typecheckingstub__451a2d4f55f42fc3569bc06a530f99282fa0c00a378274b4429d6bd5411321a6)
             check_type(argname="argument tag_options", value=tag_options, expected_type=type_hints["tag_options"])
         return typing.cast(None, jsii.invoke(self, "associateTagOptions", [tag_options]))
 
@@ -8406,7 +8388,7 @@ class MessageLanguage(enum.Enum):
 
 @jsii.implements(IPortfolio)
 class Portfolio(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.Portfolio",
 ):
@@ -8443,7 +8425,7 @@ class Portfolio(
         :param tag_options: TagOptions associated directly to a portfolio. Default: - No tagOptions provided
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf9a100cf4175380d4933d0ca023665178dec83578d4db9c34018be2db12c54c)
+            type_hints = cached_type_hints(_typecheckingstub__cf9a100cf4175380d4933d0ca023665178dec83578d4db9c34018be2db12c54c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PortfolioProps(
@@ -8471,7 +8453,7 @@ class Portfolio(
         :param portfolio_arn: the Amazon Resource Name of the existing portfolio.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee1657ae23f2788660dc3bdc2589c0afda0081f4f0e2193dc1d4f91f632466d6)
+            type_hints = cached_type_hints(_typecheckingstub__ee1657ae23f2788660dc3bdc2589c0afda0081f4f0e2193dc1d4f91f632466d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument portfolio_arn", value=portfolio_arn, expected_type=type_hints["portfolio_arn"])
@@ -8489,7 +8471,7 @@ class Portfolio(
         :param product: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bf9c21cc3f49f5ae1ae03d412d18187340ba2df690ce68cb932c65f900d69fe)
+            type_hints = cached_type_hints(_typecheckingstub__8bf9c21cc3f49f5ae1ae03d412d18187340ba2df690ce68cb932c65f900d69fe)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         return typing.cast(None, jsii.invoke(self, "addProduct", [product]))
 
@@ -8503,7 +8485,7 @@ class Portfolio(
         :param tag_options: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be6cc2191428264e3b6a175f37de5f3b7f936c969793e44f0cbaf61465592131)
+            type_hints = cached_type_hints(_typecheckingstub__be6cc2191428264e3b6a175f37de5f3b7f936c969793e44f0cbaf61465592131)
             check_type(argname="argument tag_options", value=tag_options, expected_type=type_hints["tag_options"])
         return typing.cast(None, jsii.invoke(self, "associateTagOptions", [tag_options]))
 
@@ -8524,7 +8506,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28e951fa34d0d490c48d2c2274ea8720326a816cb772de92befe51572cc3363f)
+            type_hints = cached_type_hints(_typecheckingstub__28e951fa34d0d490c48d2c2274ea8720326a816cb772de92befe51572cc3363f)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = CloudFormationRuleConstraintOptions(
             rule=rule, description=description, message_language=message_language
@@ -8549,7 +8531,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a6c3c8bea0cdcea756c51ee5dc52b07b515a7e4be6dee31aa2fc35ff4a8a77f)
+            type_hints = cached_type_hints(_typecheckingstub__3a6c3c8bea0cdcea756c51ee5dc52b07b515a7e4be6dee31aa2fc35ff4a8a77f)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = TagUpdateConstraintOptions(
             allow=allow, description=description, message_language=message_language
@@ -8563,7 +8545,7 @@ class Portfolio(
         product: "IProduct",
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: "_IRoleRef_8400221f",
+        admin_role: "_aws_iam_632e20f6.IRoleRef",
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -8582,7 +8564,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d481848480e2cdfaf8e4296725880ac9e39bc268e6db00ee6b9f7f45c2818842)
+            type_hints = cached_type_hints(_typecheckingstub__d481848480e2cdfaf8e4296725880ac9e39bc268e6db00ee6b9f7f45c2818842)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
         options = StackSetsConstraintOptions(
             accounts=accounts,
@@ -8603,40 +8585,40 @@ class Portfolio(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca0c5d13c42c196423a0f594739d782ad023582ff4f931fd909df70da6219605)
+            type_hints = cached_type_hints(_typecheckingstub__ca0c5d13c42c196423a0f594739d782ad023582ff4f931fd909df70da6219605)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(builtins.str, jsii.invoke(self, "generateUniqueHash", [value]))
 
     @jsii.member(jsii_name="giveAccessToGroup")
-    def give_access_to_group(self, group: "_IGroup_96daf542") -> None:
+    def give_access_to_group(self, group: "_aws_iam_1f54b5e8.IGroup") -> None:
         '''Associate portfolio with an IAM Group.
 
         :param group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86bf64563d71f804d579c2116813cb1518cb4c40a787338ed8350d93393ab517)
+            type_hints = cached_type_hints(_typecheckingstub__86bf64563d71f804d579c2116813cb1518cb4c40a787338ed8350d93393ab517)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToGroup", [group]))
 
     @jsii.member(jsii_name="giveAccessToRole")
-    def give_access_to_role(self, role: "_IRole_235f5d8e") -> None:
+    def give_access_to_role(self, role: "_aws_iam_1f54b5e8.IRole") -> None:
         '''Associate portfolio with an IAM Role.
 
         :param role: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c16473e252b733e55e72f226e41f6236553745d9019da5d5eef7bc77e6f4f1ed)
+            type_hints = cached_type_hints(_typecheckingstub__c16473e252b733e55e72f226e41f6236553745d9019da5d5eef7bc77e6f4f1ed)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToRole", [role]))
 
     @jsii.member(jsii_name="giveAccessToUser")
-    def give_access_to_user(self, user: "_IUser_c32311f7") -> None:
+    def give_access_to_user(self, user: "_aws_iam_1f54b5e8.IUser") -> None:
         '''Associate portfolio with an IAM User.
 
         :param user: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb3c3c121a75e072289da7f512fe0e5fa90bf0247be5fcb8b9ffcba9e49f4244)
+            type_hints = cached_type_hints(_typecheckingstub__cb3c3c121a75e072289da7f512fe0e5fa90bf0247be5fcb8b9ffcba9e49f4244)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
         return typing.cast(None, jsii.invoke(self, "giveAccessToUser", [user]))
 
@@ -8644,7 +8626,7 @@ class Portfolio(
     def notify_on_stack_events(
         self,
         product: "IProduct",
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8657,7 +8639,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243c2c305b)
+            type_hints = cached_type_hints(_typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243c2c305b)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         options = CommonConstraintOptions(
@@ -8670,7 +8652,7 @@ class Portfolio(
     def set_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8687,7 +8669,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da12da741)
+            type_hints = cached_type_hints(_typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da12da741)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role", value=launch_role, expected_type=type_hints["launch_role"])
         options = CommonConstraintOptions(
@@ -8700,7 +8682,7 @@ class Portfolio(
     def set_local_launch_role(
         self,
         product: "IProduct",
-        launch_role: "_IRole_235f5d8e",
+        launch_role: "_aws_iam_1f54b5e8.IRole",
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
@@ -8716,7 +8698,7 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e6c7242a7f78376a706c6aba55c9bfc2c9886ba6a6a2af75aab67d866b10c59)
+            type_hints = cached_type_hints(_typecheckingstub__4e6c7242a7f78376a706c6aba55c9bfc2c9886ba6a6a2af75aab67d866b10c59)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role", value=launch_role, expected_type=type_hints["launch_role"])
         options = CommonConstraintOptions(
@@ -8733,7 +8715,7 @@ class Portfolio(
         *,
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
-    ) -> "_IRole_235f5d8e":
+    ) -> "_aws_iam_1f54b5e8.IRole":
         '''Force users to assume a certain role when launching a product.
 
         The role will be referenced by name in the local account instead of a static role arn.
@@ -8746,14 +8728,14 @@ class Portfolio(
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e9299ff2cd1b442713f34e90d71909c8604d7202deebcb777fa43a0d4d74cfe)
+            type_hints = cached_type_hints(_typecheckingstub__7e9299ff2cd1b442713f34e90d71909c8604d7202deebcb777fa43a0d4d74cfe)
             check_type(argname="argument product", value=product, expected_type=type_hints["product"])
             check_type(argname="argument launch_role_name", value=launch_role_name, expected_type=type_hints["launch_role_name"])
         options = CommonConstraintOptions(
             description=description, message_language=message_language
         )
 
-        return typing.cast("_IRole_235f5d8e", jsii.invoke(self, "setLocalLaunchRoleName", [product, launch_role_name, options]))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.invoke(self, "setLocalLaunchRoleName", [product, launch_role_name, options]))
 
     @jsii.member(jsii_name="shareWithAccount")
     def share_with_account(
@@ -8770,7 +8752,7 @@ class Portfolio(
         :param share_tag_options: Whether to share tagOptions as a part of the portfolio share. Default: - share not specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8db9399f774026d759ad23355622c60e86b9702be05813f0f352ab16051be84)
+            type_hints = cached_type_hints(_typecheckingstub__d8db9399f774026d759ad23355622c60e86b9702be05813f0f352ab16051be84)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         options = PortfolioShareOptions(
             message_language=message_language, share_tag_options=share_tag_options
@@ -8798,9 +8780,9 @@ class Portfolio(
 
     @builtins.property
     @jsii.member(jsii_name="portfolioRef")
-    def portfolio_ref(self) -> "_PortfolioReference_7a849941":
+    def portfolio_ref(self) -> "_aws_servicecatalog_848f4bab.PortfolioReference":
         '''A reference to a Portfolio resource.'''
-        return typing.cast("_PortfolioReference_7a849941", jsii.get(self, "portfolioRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.PortfolioReference", jsii.get(self, "portfolioRef"))
 
 
 @jsii.data_type(
@@ -8842,7 +8824,7 @@ class PortfolioProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bedc547bc13a736262dbefb92ebffcd67dc2fa0fac7ceae03d5332dc443d82d9)
+            type_hints = cached_type_hints(_typecheckingstub__bedc547bc13a736262dbefb92ebffcd67dc2fa0fac7ceae03d5332dc443d82d9)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -8949,7 +8931,7 @@ class PortfolioShareOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcaaa8353ed1607f501f7b9fcd87b34c195d54486861a0e11ed689dd452376f5)
+            type_hints = cached_type_hints(_typecheckingstub__fcaaa8353ed1607f501f7b9fcd87b34c195d54486861a0e11ed689dd452376f5)
             check_type(argname="argument message_language", value=message_language, expected_type=type_hints["message_language"])
             check_type(argname="argument share_tag_options", value=share_tag_options, expected_type=type_hints["share_tag_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8992,7 +8974,7 @@ class PortfolioShareOptions:
 
 @jsii.implements(IProduct)
 class Product(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_servicecatalog.Product",
 ):
@@ -9028,10 +9010,10 @@ class Product(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c44aa15915e234d34f518fd1f3e4fadc0efa2b8aef1fa054b0fb0cf457f270a6)
+            type_hints = cached_type_hints(_typecheckingstub__c44aa15915e234d34f518fd1f3e4fadc0efa2b8aef1fa054b0fb0cf457f270a6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -9055,7 +9037,7 @@ class Product(
         :param product_arn: Product Arn.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c9b8d7779e324e9efd80da9b2e46557e44389de3353f62d86659d58f584e8ee)
+            type_hints = cached_type_hints(_typecheckingstub__5c9b8d7779e324e9efd80da9b2e46557e44389de3353f62d86659d58f584e8ee)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument product_arn", value=product_arn, expected_type=type_hints["product_arn"])
@@ -9071,22 +9053,24 @@ class Product(
         :param tag_options: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a9d6667908731fbb64077b2a63d523ffa99f9841c0f527b38c29014e8b89ef2)
+            type_hints = cached_type_hints(_typecheckingstub__5a9d6667908731fbb64077b2a63d523ffa99f9841c0f527b38c29014e8b89ef2)
             check_type(argname="argument tag_options", value=tag_options, expected_type=type_hints["tag_options"])
         return typing.cast(None, jsii.invoke(self, "associateTagOptions", [tag_options]))
 
     @builtins.property
     @jsii.member(jsii_name="assetBuckets")
     @abc.abstractmethod
-    def asset_buckets(self) -> typing.List["_IBucket_42e086fd"]:
+    def asset_buckets(self) -> typing.List["_aws_s3_01158f40.IBucket"]:
         '''The asset buckets of a product created via product stack.'''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="cloudFormationProductRef")
-    def cloud_formation_product_ref(self) -> "_CloudFormationProductReference_a9bb7050":
+    def cloud_formation_product_ref(
+        self,
+    ) -> "_aws_servicecatalog_848f4bab.CloudFormationProductReference":
         '''A reference to a CloudFormationProduct resource.'''
-        return typing.cast("_CloudFormationProductReference_a9bb7050", jsii.get(self, "cloudFormationProductRef"))
+        return typing.cast("_aws_servicecatalog_848f4bab.CloudFormationProductReference", jsii.get(self, "cloudFormationProductRef"))
 
     @builtins.property
     @jsii.member(jsii_name="productArn")
@@ -9105,13 +9089,13 @@ class Product(
 
 class _ProductProxy(
     Product,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @builtins.property
     @jsii.member(jsii_name="assetBuckets")
-    def asset_buckets(self) -> typing.List["_IBucket_42e086fd"]:
+    def asset_buckets(self) -> typing.List["_aws_s3_01158f40.IBucket"]:
         '''The asset buckets of a product created via product stack.'''
-        return typing.cast(typing.List["_IBucket_42e086fd"], jsii.get(self, "assetBuckets"))
+        return typing.cast(typing.List["_aws_s3_01158f40.IBucket"], jsii.get(self, "assetBuckets"))
 
     @builtins.property
     @jsii.member(jsii_name="productArn")
@@ -9130,7 +9114,7 @@ typing.cast(typing.Any, Product).__jsii_proxy_class__ = lambda : _ProductProxy
 
 
 class ProductStack(
-    _Stack_2866e57f,
+    _aws_cdk_0cae9daa.Stack,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.ProductStack",
 ):
@@ -9174,10 +9158,10 @@ class ProductStack(
         id: builtins.str,
         *,
         analytics_reporting: typing.Optional[builtins.bool] = None,
-        asset_bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        asset_bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         description: typing.Optional[builtins.str] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
-        server_side_encryption: typing.Optional["_ServerSideEncryption_50ddf705"] = None,
+        server_side_encryption: typing.Optional["_aws_s3_deployment_3b1abc3a.ServerSideEncryption"] = None,
         server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -9191,7 +9175,7 @@ class ProductStack(
         :param server_side_encryption_aws_kms_key_id: For AWS_KMS ServerSideEncryption a KMS KeyId must be provided which will be used to encrypt assets. Default: - No KMS KeyId and SSE_KMS encryption cannot be used
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf14756a9e6c7e2a58f04e1077a464a1b706954bb40fbda6658fac96301ff315)
+            type_hints = cached_type_hints(_typecheckingstub__cf14756a9e6c7e2a58f04e1077a464a1b706954bb40fbda6658fac96301ff315)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ProductStackProps(
@@ -9270,7 +9254,7 @@ class ProductStackHistory(
         :param validate_template: Whether the specified product template will be validated by CloudFormation. If turned off, an invalid template configuration can be stored. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00eb7610102fa55ac1a98aad11d26882e0640e3c54b07d9403d256500675831a)
+            type_hints = cached_type_hints(_typecheckingstub__00eb7610102fa55ac1a98aad11d26882e0640e3c54b07d9403d256500675831a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ProductStackHistoryProps(
@@ -9299,7 +9283,7 @@ class ProductStackHistory(
         :param product_version_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e798fec42d429d97aa53ac4883c29b729ae861e8ee96a752fec47032e75b058)
+            type_hints = cached_type_hints(_typecheckingstub__2e798fec42d429d97aa53ac4883c29b729ae861e8ee96a752fec47032e75b058)
             check_type(argname="argument product_version_name", value=product_version_name, expected_type=type_hints["product_version_name"])
         return typing.cast("CloudFormationProductVersion", jsii.invoke(self, "versionFromSnapshot", [product_version_name]))
 
@@ -9367,7 +9351,7 @@ class ProductStackHistoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14ff2199f395b44b32757ccbaa6927f0bf434a9370c673216c8f69e578ac4eae)
+            type_hints = cached_type_hints(_typecheckingstub__14ff2199f395b44b32757ccbaa6927f0bf434a9370c673216c8f69e578ac4eae)
             check_type(argname="argument current_version_locked", value=current_version_locked, expected_type=type_hints["current_version_locked"])
             check_type(argname="argument current_version_name", value=current_version_name, expected_type=type_hints["current_version_name"])
             check_type(argname="argument product_stack", value=product_stack, expected_type=type_hints["product_stack"])
@@ -9465,10 +9449,10 @@ class ProductStackProps:
         self,
         *,
         analytics_reporting: typing.Optional[builtins.bool] = None,
-        asset_bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        asset_bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         description: typing.Optional[builtins.str] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
-        server_side_encryption: typing.Optional["_ServerSideEncryption_50ddf705"] = None,
+        server_side_encryption: typing.Optional["_aws_s3_deployment_3b1abc3a.ServerSideEncryption"] = None,
         server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Product stack props.
@@ -9516,7 +9500,7 @@ class ProductStackProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbfd6177b5d6f8d80ee31c2897d6968897a0abd05a9f5a7d209806206868801)
+            type_hints = cached_type_hints(_typecheckingstub__ecbfd6177b5d6f8d80ee31c2897d6968897a0abd05a9f5a7d209806206868801)
             check_type(argname="argument analytics_reporting", value=analytics_reporting, expected_type=type_hints["analytics_reporting"])
             check_type(argname="argument asset_bucket", value=asset_bucket, expected_type=type_hints["asset_bucket"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -9550,13 +9534,13 @@ class ProductStackProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def asset_bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def asset_bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''A Bucket can be passed to store assets, enabling ProductStack Asset support.
 
         :default: - No Bucket provided and Assets will not be supported.
         '''
         result = self._values.get("asset_bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -9582,13 +9566,13 @@ class ProductStackProps:
     @builtins.property
     def server_side_encryption(
         self,
-    ) -> typing.Optional["_ServerSideEncryption_50ddf705"]:
+    ) -> typing.Optional["_aws_s3_deployment_3b1abc3a.ServerSideEncryption"]:
         '''A ServerSideEncryption can be enabled to encrypt assets that are put into assetBucket.
 
         :default: - No encryption is used
         '''
         result = self._values.get("server_side_encryption")
-        return typing.cast(typing.Optional["_ServerSideEncryption_50ddf705"], result)
+        return typing.cast(typing.Optional["_aws_s3_deployment_3b1abc3a.ServerSideEncryption"], result)
 
     @builtins.property
     def server_side_encryption_aws_kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -9631,7 +9615,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional["MessageLanguage"] = None,
         accounts: typing.Sequence[builtins.str],
-        admin_role: "_IRoleRef_8400221f",
+        admin_role: "_aws_iam_632e20f6.IRoleRef",
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -9667,7 +9651,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1387553eccc6e9ab98ba5fb751351089515cc923a65a4149c029cee2a5a720cb)
+            type_hints = cached_type_hints(_typecheckingstub__1387553eccc6e9ab98ba5fb751351089515cc923a65a4149c029cee2a5a720cb)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument message_language", value=message_language, expected_type=type_hints["message_language"])
             check_type(argname="argument accounts", value=accounts, expected_type=type_hints["accounts"])
@@ -9716,11 +9700,11 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def admin_role(self) -> "_IRoleRef_8400221f":
+    def admin_role(self) -> "_aws_iam_632e20f6.IRoleRef":
         '''IAM role used to administer the StackSets configuration.'''
         result = self._values.get("admin_role")
         assert result is not None, "Required property 'admin_role' is missing"
-        return typing.cast("_IRoleRef_8400221f", result)
+        return typing.cast("_aws_iam_632e20f6.IRoleRef", result)
 
     @builtins.property
     def execution_role_name(self) -> builtins.str:
@@ -9758,7 +9742,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
 
 
 class TagOptions(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalog.TagOptions",
 ):
@@ -9805,7 +9789,7 @@ class TagOptions(
         :param allowed_values_for_tags: The values that are allowed to be set for specific tags. The keys of the map represent the tag keys, and the values of the map are a list of allowed values for that particular tag key.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfb5c620d67f97cb87e87283977e4e60b2a5cfe53ae742a829e8677e54de8f68)
+            type_hints = cached_type_hints(_typecheckingstub__cfb5c620d67f97cb87e87283977e4e60b2a5cfe53ae742a829e8677e54de8f68)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TagOptionsProps(allowed_values_for_tags=allowed_values_for_tags)
@@ -9858,7 +9842,7 @@ class TagOptionsProps:
             product.associate_tag_options(tag_options_for_product)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f863f14005a6e33c52a3f94d3b59b2719a8f99b897d45a3f34a4b8e959a6deb)
+            type_hints = cached_type_hints(_typecheckingstub__6f863f14005a6e33c52a3f94d3b59b2719a8f99b897d45a3f34a4b8e959a6deb)
             check_type(argname="argument allowed_values_for_tags", value=allowed_values_for_tags, expected_type=type_hints["allowed_values_for_tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "allowed_values_for_tags": allowed_values_for_tags,
@@ -9926,7 +9910,7 @@ class TagUpdateConstraintOptions(CommonConstraintOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f96fc9ef8a90bac15811a73dd5a9a809df8afd23ddb5eb4dd2b17002c156a34f)
+            type_hints = cached_type_hints(_typecheckingstub__f96fc9ef8a90bac15811a73dd5a9a809df8afd23ddb5eb4dd2b17002c156a34f)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument message_language", value=message_language, expected_type=type_hints["message_language"])
             check_type(argname="argument allow", value=allow, expected_type=type_hints["allow"])
@@ -9994,7 +9978,7 @@ class TemplateRule:
         *,
         assertions: typing.Sequence[typing.Union["TemplateRuleAssertion", typing.Dict[builtins.str, typing.Any]]],
         rule_name: builtins.str,
-        condition: typing.Optional["_ICfnRuleConditionExpression_9aca991b"] = None,
+        condition: typing.Optional["_aws_cdk_0cae9daa.ICfnRuleConditionExpression"] = None,
     ) -> None:
         '''Defines the provisioning template constraints.
 
@@ -10024,7 +10008,7 @@ class TemplateRule:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__801cb08c11b8e82476f5228705d87882fa35016d51a84153b6e2f7bc28e1b19b)
+            type_hints = cached_type_hints(_typecheckingstub__801cb08c11b8e82476f5228705d87882fa35016d51a84153b6e2f7bc28e1b19b)
             check_type(argname="argument assertions", value=assertions, expected_type=type_hints["assertions"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -10050,13 +10034,15 @@ class TemplateRule:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def condition(self) -> typing.Optional["_ICfnRuleConditionExpression_9aca991b"]:
+    def condition(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.ICfnRuleConditionExpression"]:
         '''Specify when to apply rule with a rule-specific intrinsic function.
 
         :default: - no rule condition provided
         '''
         result = self._values.get("condition")
-        return typing.cast(typing.Optional["_ICfnRuleConditionExpression_9aca991b"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.ICfnRuleConditionExpression"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10079,7 +10065,7 @@ class TemplateRuleAssertion:
     def __init__(
         self,
         *,
-        assert_: "_ICfnRuleConditionExpression_9aca991b",
+        assert_: "_aws_cdk_0cae9daa.ICfnRuleConditionExpression",
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''An assertion within a template rule, defined by intrinsic functions.
@@ -10106,7 +10092,7 @@ class TemplateRuleAssertion:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc50c6bef2f5920ab3d97c2b00e1b899682a9b7beab98beff0b1c5cfdf2122a5)
+            type_hints = cached_type_hints(_typecheckingstub__fc50c6bef2f5920ab3d97c2b00e1b899682a9b7beab98beff0b1c5cfdf2122a5)
             check_type(argname="argument assert_", value=assert_, expected_type=type_hints["assert_"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10116,11 +10102,11 @@ class TemplateRuleAssertion:
             self._values["description"] = description
 
     @builtins.property
-    def assert_(self) -> "_ICfnRuleConditionExpression_9aca991b":
+    def assert_(self) -> "_aws_cdk_0cae9daa.ICfnRuleConditionExpression":
         '''The assertion condition.'''
         result = self._values.get("assert_")
         assert result is not None, "Required property 'assert_' is missing"
-        return typing.cast("_ICfnRuleConditionExpression_9aca991b", result)
+        return typing.cast("_aws_cdk_0cae9daa.ICfnRuleConditionExpression", result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -10207,7 +10193,7 @@ class CloudFormationProduct(
         :param tag_options: TagOptions associated directly to a product. Default: - No tagOptions provided
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca53a78882e8b7b6b2559e183171c440e4ab53c9766768315d978714ed7f0d47)
+            type_hints = cached_type_hints(_typecheckingstub__ca53a78882e8b7b6b2559e183171c440e4ab53c9766768315d978714ed7f0d47)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CloudFormationProductProps(
@@ -10234,12 +10220,12 @@ class CloudFormationProduct(
 
     @builtins.property
     @jsii.member(jsii_name="assetBuckets")
-    def asset_buckets(self) -> typing.List["_IBucket_42e086fd"]:
+    def asset_buckets(self) -> typing.List["_aws_s3_01158f40.IBucket"]:
         '''The asset bucket of a product created via product stack.
 
         :default: - Empty - no assets are used in this product
         '''
-        return typing.cast(typing.List["_IBucket_42e086fd"], jsii.get(self, "assetBuckets"))
+        return typing.cast(typing.List["_aws_s3_01158f40.IBucket"], jsii.get(self, "assetBuckets"))
 
     @builtins.property
     @jsii.member(jsii_name="productArn")
@@ -10301,7 +10287,7 @@ class CloudFormationRuleConstraintOptions(CommonConstraintOptions):
         if isinstance(rule, dict):
             rule = TemplateRule(**rule)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__386164543716d63390e1491aeeeb20318fd10f2bb48e8a9c33e28a0de2878297)
+            type_hints = cached_type_hints(_typecheckingstub__386164543716d63390e1491aeeeb20318fd10f2bb48e8a9c33e28a0de2878297)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument message_language", value=message_language, expected_type=type_hints["message_language"])
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
@@ -10430,7 +10416,7 @@ def _typecheckingstub__a8245a88da07cce03f5dd5e8b9e8c1a6669b2388817308ff795e8211f
     pass
 
 def _typecheckingstub__6451f68b36b48991fe882611b7b025fa7b6c61da949d847ed3ffbeb5565b5060(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10471,13 +10457,13 @@ def _typecheckingstub__cc6c443cb4df40ad7001b0569b4f479e51baff8371ae5f0e4102e9cb8
     description: typing.Optional[builtins.str] = None,
     distributor: typing.Optional[builtins.str] = None,
     product_type: typing.Optional[builtins.str] = None,
-    provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioning_artifact_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_connection: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     support_description: typing.Optional[builtins.str] = None,
     support_email: typing.Optional[builtins.str] = None,
     support_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10489,7 +10475,7 @@ def _typecheckingstub__a0ca8154cb290fd0db2ce2d10e47194409380f24081df5f285363aac2
     pass
 
 def _typecheckingstub__727de4de57ef9ec83792ae6093c81836a2ca3f9f4f9dc0d62497712b00efbfa7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10537,19 +10523,19 @@ def _typecheckingstub__8283abec3673f6f8def666fd669e05a39bf8e7ada7a7820b7e2e6e001
     pass
 
 def _typecheckingstub__46bdfff1360506ade40e04d18d81d060b0a0f0601a08269c6aa5658e66289ddd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3860e4645114c1e719f71c5207cb37518d5cb1aa225903719679d05f030de4f6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12635a42c5ebd2e19b46cf3bb9134e21232e501fed70f86af7f0207bf93441c9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.SourceConnectionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudFormationProduct.SourceConnectionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10573,7 +10559,7 @@ def _typecheckingstub__542792e78d44887a9ca550e282dc0cb22b5d99f8e000ec4deb876c700
     pass
 
 def _typecheckingstub__a776b3ba720cdf81828e7a6506e99d00a8a3b051bb5ed0d24ea2b8fdad3d0cf3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10590,7 +10576,7 @@ def _typecheckingstub__6fc6af3a004e4611a65e7afe2c54db0ce6344fdab1a029dbb94b72e04
 
 def _typecheckingstub__dd9e87d06ed8c44dc9a54fcde6182c92573851ee79f67d3a2407b58f4aa6a726(
     *,
-    code_star: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.CodeStarParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code_star: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.CodeStarParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10599,7 +10585,7 @@ def _typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a
     *,
     info: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    disable_template_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_template_validation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -10608,7 +10594,7 @@ def _typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a
 
 def _typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f9e1c726(
     *,
-    connection_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ConnectionParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    connection_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.ConnectionParametersProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -10622,13 +10608,13 @@ def _typecheckingstub__5e00148177993ff51c0b6d20ea59ef17d31cfacc134bcd2799bbb0831
     description: typing.Optional[builtins.str] = None,
     distributor: typing.Optional[builtins.str] = None,
     product_type: typing.Optional[builtins.str] = None,
-    provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioning_artifact_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_connection: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     support_description: typing.Optional[builtins.str] = None,
     support_email: typing.Optional[builtins.str] = None,
     support_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10646,9 +10632,9 @@ def _typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab3
     provisioned_product_name: typing.Optional[builtins.str] = None,
     provisioning_artifact_id: typing.Optional[builtins.str] = None,
     provisioning_artifact_name: typing.Optional[builtins.str] = None,
-    provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioning_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    provisioning_preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10660,7 +10646,7 @@ def _typecheckingstub__a7e7d1b3c3eb31b9bf58f06acd0ca1c5307f54baa7862f12544143cb6
     pass
 
 def _typecheckingstub__a871c00a20e673078d39c66e338884f55a1ee0a709c63a63fd37f78a2f18a39a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10726,19 +10712,19 @@ def _typecheckingstub__6df237969cf4f1ab7f2d8d040c205d2b2533e9f08060d1fe47336446f
     pass
 
 def _typecheckingstub__e88a998f430a92c61e57f583a56a5dba25a39affc9ad60288815a7e40e5b7910(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3edc25f754a0be5ecf6302ae2b15ba8648d89a1d12ceb865ff5c7d628c62bc97(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d149fdbb55c6e7459d592eaaf72483e5df84625da19408ebc06188a171d334d1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10775,9 +10761,9 @@ def _typecheckingstub__88da00037242bdeeb7ec102c5acd840d7d02acb05eae60aaef2863e1e
     provisioned_product_name: typing.Optional[builtins.str] = None,
     provisioning_artifact_id: typing.Optional[builtins.str] = None,
     provisioning_artifact_name: typing.Optional[builtins.str] = None,
-    provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioning_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    provisioning_preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10802,7 +10788,7 @@ def _typecheckingstub__07b5e07903d9ec14561c0569a665e489aee2cd752c39819e0b8c4a152
     pass
 
 def _typecheckingstub__f7563a6283eac0eb8a78e86c564c65473185309770bbf1476de2cde5f3712edc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10875,7 +10861,7 @@ def _typecheckingstub__f07305e8e8c869367882e841ed6f648f9d2d9846664742854318482b9
     pass
 
 def _typecheckingstub__6012961634bed06192da5c259c27b94cd59496d2b4be339c4b0ece0b9921e1ec(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10954,7 +10940,7 @@ def _typecheckingstub__2ed61872298a6522081f4bd8ac759cdf2e448036a7812193e7128ee09
     pass
 
 def _typecheckingstub__18d77d76ec4005c1c608af041b5d7bb0e6aaede460659c2054677f941dc6f70e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11014,13 +11000,13 @@ def _typecheckingstub__92ae108da2b169227ca9ff5c8793d6e40826005130d9af692285850c9
     provider_name: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__73e04d572ecf8ef300e588c45280989044c443f13694792775c74e77b72b0bc2(
-    resource: _IPortfolioRef_a19e4bd0,
+    resource: _aws_servicecatalog_848f4bab.IPortfolioRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11040,7 +11026,7 @@ def _typecheckingstub__f1357abf83ae12cdcb180ff53790b06260993885894e3678c4cf60c5d
     pass
 
 def _typecheckingstub__445bcb8d7fa40ab94351986e2668ed98bfac15db2665136953859395a36b4b51(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11076,7 +11062,7 @@ def _typecheckingstub__fa7fb74d0376cbe01215bbab3c9e0087d26de06ca59ae5ddf20ee6e80
     pass
 
 def _typecheckingstub__637efc1b0f4cccf3bb52a483d866a3597e5d240e45fd12080d02606cae18fdb8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11100,7 +11086,7 @@ def _typecheckingstub__ee53f38f017c7359a4b23cbf47b17a979c30af6ee0ee5c6b986e064a9
     pass
 
 def _typecheckingstub__655c17909635de9f153ace0636ad031fa1bd23c0c4e3628eeaab3a4c48282adc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11164,7 +11150,7 @@ def _typecheckingstub__33b498aac98964bdda3c8e2911e2d7c09a3104fd4f9236e39c22b60ed
     pass
 
 def _typecheckingstub__552e2774890f51bf5125a4ddc0260f7daa45dae4625481ec363259b66f03da10(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11215,7 +11201,7 @@ def _typecheckingstub__d8622dd1afbae29a3f4419981188740a463f84c32c065a9c5247a4cd0
     provider_name: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11227,7 +11213,7 @@ def _typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1ca
     account_id: builtins.str,
     portfolio_id: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
-    share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    share_tag_options: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11239,7 +11225,7 @@ def _typecheckingstub__b10d2d0a7dd56a482f413ae2e00bbf416c625752792137f2c5d4e1457
     pass
 
 def _typecheckingstub__341a908f67fe220e74c1fa2f1dc9b6f9d467627dad0a09a6ef0aa8333d8d3e03(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11269,7 +11255,7 @@ def _typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f
     pass
 
 def _typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11279,7 +11265,7 @@ def _typecheckingstub__2a140daed52ce9199b47ef69cb7a751093f53397e71f9e473c7f6c2fd
     account_id: builtins.str,
     portfolio_id: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
-    share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    share_tag_options: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11304,7 +11290,7 @@ def _typecheckingstub__e2be150207f98e0ac094ca0f5b67110e118cd9c4e0e4022daa1abf139
     pass
 
 def _typecheckingstub__133a2ef7c92d1c3e4cb9165453dc706ba44e9adea0791a8dcf4984c0458d1bbc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11360,7 +11346,7 @@ def _typecheckingstub__23e34b3d6215f958671fe8ad5adc718f503534f84f0e173a8aee3a13b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
     definition_type: builtins.str,
     name: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
@@ -11376,7 +11362,7 @@ def _typecheckingstub__f36a3847617027bab96304cca07c1086edfe8dd23062c18748e8c58b0
     pass
 
 def _typecheckingstub__b00b53de34b86f332a507fe944cda9499823712340b44dbde255cff3dadc59a5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11388,7 +11374,7 @@ def _typecheckingstub__9e8da2cb67ea7c2bf8580e7d0041673893eb0ffe0ba7cd9aeb0804066
     pass
 
 def _typecheckingstub__ce59df90f00d540603f4ac3e5bf794dcc8ba05e89c05ad33d1289ab60d236f4a(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceAction.DefinitionParameterProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServiceAction.DefinitionParameterProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11431,7 +11417,7 @@ def _typecheckingstub__af7accef6ad60ab0630f153d8a07caeceee6f2d27b9eb2a794537a34c
     *,
     product_id: builtins.str,
     provisioning_artifact_id: builtins.str,
-    service_action_id: typing.Union[builtins.str, _IServiceActionRef_ab991e2b],
+    service_action_id: typing.Union[builtins.str, _aws_servicecatalog_848f4bab.IServiceActionRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11443,7 +11429,7 @@ def _typecheckingstub__7190b18308883c45fdf13cb18270902aa81bca99c32804be844d36155
     pass
 
 def _typecheckingstub__7df7f15eee37e4c02e6d404feb700b430539aedfcdbf0dd1269e565e07d05cbc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11476,14 +11462,14 @@ def _typecheckingstub__52f50d0bb3c8980268e31b96e206f7a2c97e91453b113d44e944f886f
     *,
     product_id: builtins.str,
     provisioning_artifact_id: builtins.str,
-    service_action_id: typing.Union[builtins.str, _IServiceActionRef_ab991e2b],
+    service_action_id: typing.Union[builtins.str, _aws_servicecatalog_848f4bab.IServiceActionRef],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__90de2bbcb8a0e689344d53e4457169abb06ca7bea6f8fec45332480a001b2c03(
     *,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
     definition_type: builtins.str,
     name: builtins.str,
     accept_language: typing.Optional[builtins.str] = None,
@@ -11516,7 +11502,7 @@ def _typecheckingstub__03dc81f6cca6a07de9779c28d556cbcc86a634df9855a575f038fddd2
     pass
 
 def _typecheckingstub__762255dd0897d10e8d71da24a12503fe45383533846abe1ea0a004712ac3c5c9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11602,7 +11588,7 @@ def _typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403
     *,
     key: builtins.str,
     value: builtins.str,
-    active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    active: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11614,7 +11600,7 @@ def _typecheckingstub__0df459b31c427c906dc014a3aaec6909b11b5e8a6da88a065cb75e5d0
     pass
 
 def _typecheckingstub__50712aef682653b8e0f48520689f88e2c3a640ff1b3caf07911c1387c9312b8d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11638,7 +11624,7 @@ def _typecheckingstub__8210c71789d2e226d95d699fde3e0ed6a8d5295865850b8f00b65fd8e
     pass
 
 def _typecheckingstub__89787874a9ebb4d4f8f779d0b1fe32ea722a2cc59e0dabe83bbaa1c0ed0f605b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11660,7 +11646,7 @@ def _typecheckingstub__d3e1ad1d412810b99742d5b002b2fdfaa02df5bac377cc8b272bdf144
     pass
 
 def _typecheckingstub__96c73cbddcba77a79765ded0c870b1dc62a05bd13cddf128a27b21316f9253b5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11695,7 +11681,7 @@ def _typecheckingstub__70780bf6a7fb429d72629882cde3c5617b08f82914b2c73e5153c2964
     *,
     key: builtins.str,
     value: builtins.str,
-    active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    active: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11732,14 +11718,14 @@ def _typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a
     *,
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11765,7 +11751,7 @@ def _typecheckingstub__e20192bfc2c0ff7d3e1a351250198d72fb4cf9fcc65af22c06a4ffe75
 def _typecheckingstub__a20e03ddade2bdc4a633779da35b07ed9f87dcb2e018f8f2a66b6bc0fda0f73e(
     *,
     http_url: builtins.str,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    asset_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11814,7 +11800,7 @@ def _typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85b
     product: IProduct,
     *,
     accounts: typing.Sequence[builtins.str],
-    admin_role: _IRoleRef_8400221f,
+    admin_role: _aws_iam_632e20f6.IRoleRef,
     execution_role_name: builtins.str,
     regions: typing.Sequence[builtins.str],
     allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -11825,26 +11811,26 @@ def _typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85b
     pass
 
 def _typecheckingstub__31be1103bd0abf13c9e90d4d0e0b5a6b82c5aad2f3f55dceba3906501912e704(
-    group: _IGroup_96daf542,
+    group: _aws_iam_1f54b5e8.IGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__32feae15a0b576cab624cb64b322d12d58eb6a826cca846dc104c480568f2389(
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__209202e9e88b8a71205bdbad6f54a52442f6f7f1c19e096d454cc5d5753fa365(
-    user: _IUser_c32311f7,
+    user: _aws_iam_1f54b5e8.IUser,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704dd03d1a0(
     product: IProduct,
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -11854,7 +11840,7 @@ def _typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704d
 
 def _typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f34af2dd1(
     product: IProduct,
-    launch_role: _IRole_235f5d8e,
+    launch_role: _aws_iam_1f54b5e8.IRole,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -11864,7 +11850,7 @@ def _typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f3
 
 def _typecheckingstub__e07d8f34d3ec7ee6db9ec8c22b47e94322c41b07d808a2bbf9a6e0120dc94477(
     product: IProduct,
-    launch_role: _IRole_235f5d8e,
+    launch_role: _aws_iam_1f54b5e8.IRole,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -11954,7 +11940,7 @@ def _typecheckingstub__d481848480e2cdfaf8e4296725880ac9e39bc268e6db00ee6b9f7f45c
     product: IProduct,
     *,
     accounts: typing.Sequence[builtins.str],
-    admin_role: _IRoleRef_8400221f,
+    admin_role: _aws_iam_632e20f6.IRoleRef,
     execution_role_name: builtins.str,
     regions: typing.Sequence[builtins.str],
     allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -11971,26 +11957,26 @@ def _typecheckingstub__ca0c5d13c42c196423a0f594739d782ad023582ff4f931fd909df70da
     pass
 
 def _typecheckingstub__86bf64563d71f804d579c2116813cb1518cb4c40a787338ed8350d93393ab517(
-    group: _IGroup_96daf542,
+    group: _aws_iam_1f54b5e8.IGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c16473e252b733e55e72f226e41f6236553745d9019da5d5eef7bc77e6f4f1ed(
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cb3c3c121a75e072289da7f512fe0e5fa90bf0247be5fcb8b9ffcba9e49f4244(
-    user: _IUser_c32311f7,
+    user: _aws_iam_1f54b5e8.IUser,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243c2c305b(
     product: IProduct,
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -12000,7 +11986,7 @@ def _typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243
 
 def _typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da12da741(
     product: IProduct,
-    launch_role: _IRole_235f5d8e,
+    launch_role: _aws_iam_1f54b5e8.IRole,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -12010,7 +11996,7 @@ def _typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da
 
 def _typecheckingstub__4e6c7242a7f78376a706c6aba55c9bfc2c9886ba6a6a2af75aab67d866b10c59(
     product: IProduct,
-    launch_role: _IRole_235f5d8e,
+    launch_role: _aws_iam_1f54b5e8.IRole,
     *,
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
@@ -12087,10 +12073,10 @@ def _typecheckingstub__cf14756a9e6c7e2a58f04e1077a464a1b706954bb40fbda6658fac963
     id: builtins.str,
     *,
     analytics_reporting: typing.Optional[builtins.bool] = None,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    asset_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     description: typing.Optional[builtins.str] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
-    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
+    server_side_encryption: typing.Optional[_aws_s3_deployment_3b1abc3a.ServerSideEncryption] = None,
     server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12131,10 +12117,10 @@ def _typecheckingstub__14ff2199f395b44b32757ccbaa6927f0bf434a9370c673216c8f69e57
 def _typecheckingstub__ecbfd6177b5d6f8d80ee31c2897d6968897a0abd05a9f5a7d209806206868801(
     *,
     analytics_reporting: typing.Optional[builtins.bool] = None,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    asset_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     description: typing.Optional[builtins.str] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
-    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
+    server_side_encryption: typing.Optional[_aws_s3_deployment_3b1abc3a.ServerSideEncryption] = None,
     server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12145,7 +12131,7 @@ def _typecheckingstub__1387553eccc6e9ab98ba5fb751351089515cc923a65a4149c029cee2a
     description: typing.Optional[builtins.str] = None,
     message_language: typing.Optional[MessageLanguage] = None,
     accounts: typing.Sequence[builtins.str],
-    admin_role: _IRoleRef_8400221f,
+    admin_role: _aws_iam_632e20f6.IRoleRef,
     execution_role_name: builtins.str,
     regions: typing.Sequence[builtins.str],
     allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -12182,14 +12168,14 @@ def _typecheckingstub__801cb08c11b8e82476f5228705d87882fa35016d51a84153b6e2f7bc2
     *,
     assertions: typing.Sequence[typing.Union[TemplateRuleAssertion, typing.Dict[builtins.str, typing.Any]]],
     rule_name: builtins.str,
-    condition: typing.Optional[_ICfnRuleConditionExpression_9aca991b] = None,
+    condition: typing.Optional[_aws_cdk_0cae9daa.ICfnRuleConditionExpression] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fc50c6bef2f5920ab3d97c2b00e1b899682a9b7beab98beff0b1c5cfdf2122a5(
     *,
-    assert_: _ICfnRuleConditionExpression_9aca991b,
+    assert_: _aws_cdk_0cae9daa.ICfnRuleConditionExpression,
     description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

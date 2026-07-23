@@ -895,6 +895,8 @@ fn = lambda_.Function(self, "Function",
 fn.grant_invoke(delivery_stream)
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -908,66 +910,51 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    PermissionsOptions as _PermissionsOptions_0351e60e,
-    Resource as _Resource_45bc6135,
-    Size as _Size_7b441c34,
-    TagManager as _TagManager_0a598cb3,
-    TimeZone as _TimeZone_cdd72ac9,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8, IConnectable as _IConnectable_10015a05
-)
-from ..aws_glue import CfnTable as _CfnTable_63ae0183
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-)
-from ..aws_kinesis import IStream as _IStream_4e2457d2
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..interfaces.aws_kinesis import IStreamRef as _IStreamRef_b484e253
-from ..interfaces.aws_kinesisfirehose import (
-    DeliveryStreamReference as _DeliveryStreamReference_9f72be94,
-    IDeliveryStreamRef as _IDeliveryStreamRef_678f5e53,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_glue as _aws_glue_9b41d3ff
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kinesis as _aws_kinesis_63e98bdf
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_logs as _aws_logs_ab8ef8ce
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.interfaces.aws_kinesis as _aws_kinesis_40f1d96a
+    import aws_cdk.interfaces.aws_kinesisfirehose as _aws_kinesisfirehose_0487cfc9
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_glue_9b41d3ff = _LazyImport("aws_cdk.aws_glue")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kinesis_40f1d96a = _LazyImport("aws_cdk.interfaces.aws_kinesis")
+    _aws_kinesis_63e98bdf = _LazyImport("aws_cdk.aws_kinesis")
+    _aws_kinesisfirehose_0487cfc9 = _LazyImport("aws_cdk.interfaces.aws_kinesisfirehose")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_logs_ab8ef8ce = _LazyImport("aws_cdk.aws_logs")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_kinesisfirehose.BackupMode")
@@ -1017,9 +1004,9 @@ class BackupMode(enum.Enum):
     '''Only records that failed to deliver or transform are backed up.'''
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeliveryStreamRef_678f5e53, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDeliveryStream(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream",
 ):
@@ -1059,24 +1046,24 @@ class CfnDeliveryStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        amazonopensearchservice_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        database_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_stream_encryption_configuration_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_stream_name: typing.Optional[typing.Union[builtins.str, "_IStreamRef_b484e253"]] = None,
+        amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        amazonopensearchservice_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        database_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_stream_encryption_configuration_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_stream_name: typing.Optional[typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef"]] = None,
         delivery_stream_type: typing.Optional[builtins.str] = None,
-        direct_put_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DirectPutSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        extended_s3_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        http_endpoint_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iceberg_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_stream_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.KinesisStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        msk_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.MSKSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redshift_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RedshiftDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        s3_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snowflake_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        splunk_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SplunkDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        direct_put_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DirectPutSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        extended_s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_endpoint_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_stream_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.KinesisStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        msk_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.MSKSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redshift_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RedshiftDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snowflake_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        splunk_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SplunkDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KinesisFirehose::DeliveryStream``.
 
@@ -1102,7 +1089,7 @@ class CfnDeliveryStream(
         :param tags: A set of tags to assign to the Firehose stream. A tag is a key-value pair that you can define and assign to AWS resources. Tags are metadata. For example, you can add friendly names and descriptions or other types of information that can help you distinguish the Firehose stream. For more information about tags, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the AWS Billing and Cost Management User Guide. You can specify up to 50 tags when creating a Firehose stream. If you specify tags in the ``CreateDeliveryStream`` action, Amazon Data Firehose performs an additional authorization on the ``firehose:TagDeliveryStream`` action to verify if users have permissions to create tags. If you do not provide this permission, requests to create new Firehose streams with IAM resource tags will fail with an ``AccessDeniedException`` such as following. *AccessDeniedException* User: arn:aws:sts::x:assumed-role/x/x is not authorized to perform: firehose:TagDeliveryStream on resource: arn:aws:firehose:us-east-1:x:deliverystream/x with an explicit deny in an identity-based policy. For an example IAM policy, see `Tag example. <https://docs.aws.amazon.com/firehose/latest/APIReference/API_CreateDeliveryStream.html#API_CreateDeliveryStream_Examples>`_
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3cd824a2680c7d043cac684bd1be9ca77e94201f1ba00785d60a50ff43c2288)
+            type_hints = cached_type_hints(_typecheckingstub__b3cd824a2680c7d043cac684bd1be9ca77e94201f1ba00785d60a50ff43c2288)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeliveryStreamProps(
@@ -1132,13 +1119,13 @@ class CfnDeliveryStream(
     @builtins.classmethod
     def arn_for_delivery_stream(
         cls,
-        resource: "_IDeliveryStreamRef_678f5e53",
+        resource: "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92d2e4c7b4d61086c8848ff7664a5d602580230deefd3781014745a487e357e3)
+            type_hints = cached_type_hints(_typecheckingstub__92d2e4c7b4d61086c8848ff7664a5d602580230deefd3781014745a487e357e3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeliveryStream", [resource]))
 
@@ -1149,7 +1136,7 @@ class CfnDeliveryStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDeliveryStreamRef_678f5e53":
+    ) -> "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef":
         '''Creates a new IDeliveryStreamRef from an ARN.
 
         :param scope: -
@@ -1157,11 +1144,11 @@ class CfnDeliveryStream(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac404a7fa1d1175b0b0a315429a21df403efec17716e0d0126de549b60901e43)
+            type_hints = cached_type_hints(_typecheckingstub__ac404a7fa1d1175b0b0a315429a21df403efec17716e0d0126de549b60901e43)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDeliveryStreamRef_678f5e53", jsii.sinvoke(cls, "fromDeliveryStreamArn", [scope, id, arn]))
+        return typing.cast("_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", jsii.sinvoke(cls, "fromDeliveryStreamArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDeliveryStreamName")
     @builtins.classmethod
@@ -1170,7 +1157,7 @@ class CfnDeliveryStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         delivery_stream_name: builtins.str,
-    ) -> "_IDeliveryStreamRef_678f5e53":
+    ) -> "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef":
         '''Creates a new IDeliveryStreamRef from a deliveryStreamName.
 
         :param scope: -
@@ -1178,11 +1165,11 @@ class CfnDeliveryStream(
         :param delivery_stream_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537ae2739e300bc97b7a362a703d67a61ec717ff18fbb371a4140cee84f23b48)
+            type_hints = cached_type_hints(_typecheckingstub__537ae2739e300bc97b7a362a703d67a61ec717ff18fbb371a4140cee84f23b48)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
-        return typing.cast("_IDeliveryStreamRef_678f5e53", jsii.sinvoke(cls, "fromDeliveryStreamName", [scope, id, delivery_stream_name]))
+        return typing.cast("_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", jsii.sinvoke(cls, "fromDeliveryStreamName", [scope, id, delivery_stream_name]))
 
     @jsii.member(jsii_name="isCfnDeliveryStream")
     @builtins.classmethod
@@ -1192,18 +1179,18 @@ class CfnDeliveryStream(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a2c77ae20b52e1374216d80edbcd2176fd2fa1f7855bf638310a3e5c5084f72)
+            type_hints = cached_type_hints(_typecheckingstub__1a2c77ae20b52e1374216d80edbcd2176fd2fa1f7855bf638310a3e5c5084f72)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeliveryStream", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f6206943f45cc34824996fe47b775be3c1a09cb74450254dfa716bc71a96a69)
+            type_hints = cached_type_hints(_typecheckingstub__0f6206943f45cc34824996fe47b775be3c1a09cb74450254dfa716bc71a96a69)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1216,7 +1203,7 @@ class CfnDeliveryStream(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__822762453b1edc05d278fe4b56cb34de36a63cda89772b6624160f6ac406e7e7)
+            type_hints = cached_type_hints(_typecheckingstub__822762453b1edc05d278fe4b56cb34de36a63cda89772b6624160f6ac406e7e7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1247,31 +1234,33 @@ class CfnDeliveryStream(
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamRef")
-    def delivery_stream_ref(self) -> "_DeliveryStreamReference_9f72be94":
+    def delivery_stream_ref(
+        self,
+    ) -> "_aws_kinesisfirehose_0487cfc9.DeliveryStreamReference":
         '''A reference to a DeliveryStream resource.'''
-        return typing.cast("_DeliveryStreamReference_9f72be94", jsii.get(self, "deliveryStreamRef"))
+        return typing.cast("_aws_kinesisfirehose_0487cfc9.DeliveryStreamReference", jsii.get(self, "deliveryStreamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="amazonOpenSearchServerlessDestinationConfiguration")
     def amazon_open_search_serverless_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]]:
         '''Describes the configuration of a destination in the Serverless offering for Amazon OpenSearch Service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]], jsii.get(self, "amazonOpenSearchServerlessDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]], jsii.get(self, "amazonOpenSearchServerlessDestinationConfiguration"))
 
     @amazon_open_search_serverless_destination_configuration.setter
     def amazon_open_search_serverless_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9361f4405d0a8e9a0285d4b343c6420073eedc822c339d1a147f151a3b03f641)
+            type_hints = cached_type_hints(_typecheckingstub__9361f4405d0a8e9a0285d4b343c6420073eedc822c339d1a147f151a3b03f641)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "amazonOpenSearchServerlessDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1279,17 +1268,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="amazonopensearchserviceDestinationConfiguration")
     def amazonopensearchservice_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]]:
         '''The destination in Amazon OpenSearch Service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]], jsii.get(self, "amazonopensearchserviceDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]], jsii.get(self, "amazonopensearchserviceDestinationConfiguration"))
 
     @amazonopensearchservice_destination_configuration.setter
     def amazonopensearchservice_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58964b8831d37cbba22a48328508a0d1fc866bb6da992a0c3f544fc6649acc5a)
+            type_hints = cached_type_hints(_typecheckingstub__58964b8831d37cbba22a48328508a0d1fc866bb6da992a0c3f544fc6649acc5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "amazonopensearchserviceDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1297,17 +1286,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="databaseSourceConfiguration")
     def database_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]]:
         '''The top level object for configuring streams with database as a source.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]], jsii.get(self, "databaseSourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]], jsii.get(self, "databaseSourceConfiguration"))
 
     @database_source_configuration.setter
     def database_source_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__671f3a3eb25ab7249d3b64fb9d1c6865a8a68b8a7b92841ab6890851853da1f5)
+            type_hints = cached_type_hints(_typecheckingstub__671f3a3eb25ab7249d3b64fb9d1c6865a8a68b8a7b92841ab6890851853da1f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "databaseSourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1315,17 +1304,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="deliveryStreamEncryptionConfigurationInput")
     def delivery_stream_encryption_configuration_input(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]]:
         '''Specifies the type and Amazon Resource Name (ARN) of the CMK to use for Server-Side Encryption (SSE).'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]], jsii.get(self, "deliveryStreamEncryptionConfigurationInput"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]], jsii.get(self, "deliveryStreamEncryptionConfigurationInput"))
 
     @delivery_stream_encryption_configuration_input.setter
     def delivery_stream_encryption_configuration_input(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b541613844a306d329ee6aaf12a513672a01cea651f015810fd2ab896394415)
+            type_hints = cached_type_hints(_typecheckingstub__3b541613844a306d329ee6aaf12a513672a01cea651f015810fd2ab896394415)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryStreamEncryptionConfigurationInput", value) # pyright: ignore[reportArgumentType]
 
@@ -1338,7 +1327,7 @@ class CfnDeliveryStream(
     @delivery_stream_name.setter
     def delivery_stream_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d90731f57c337a34bb7290e3bb4239e949b5caeea354433c46c25998a03b39f6)
+            type_hints = cached_type_hints(_typecheckingstub__d90731f57c337a34bb7290e3bb4239e949b5caeea354433c46c25998a03b39f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryStreamName", value) # pyright: ignore[reportArgumentType]
 
@@ -1354,7 +1343,7 @@ class CfnDeliveryStream(
     @delivery_stream_type.setter
     def delivery_stream_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0749b7e1cb2e266044df272e646eba4d2505c56ccb68f4ce96de186aeb83ba9b)
+            type_hints = cached_type_hints(_typecheckingstub__0749b7e1cb2e266044df272e646eba4d2505c56ccb68f4ce96de186aeb83ba9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryStreamType", value) # pyright: ignore[reportArgumentType]
 
@@ -1362,17 +1351,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="directPutSourceConfiguration")
     def direct_put_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]]:
         '''The structure that configures parameters such as ``ThroughputHintInMBs`` for a stream configured with Direct PUT as a source.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]], jsii.get(self, "directPutSourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]], jsii.get(self, "directPutSourceConfiguration"))
 
     @direct_put_source_configuration.setter
     def direct_put_source_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c2e3d41bd399b2de627c15c37d5d5a53d60ea55a256dc5f1b73146429dd1f24)
+            type_hints = cached_type_hints(_typecheckingstub__0c2e3d41bd399b2de627c15c37d5d5a53d60ea55a256dc5f1b73146429dd1f24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directPutSourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1380,17 +1369,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="elasticsearchDestinationConfiguration")
     def elasticsearch_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]]:
         '''An Amazon ES destination for the delivery stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]], jsii.get(self, "elasticsearchDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]], jsii.get(self, "elasticsearchDestinationConfiguration"))
 
     @elasticsearch_destination_configuration.setter
     def elasticsearch_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2485fd6e8467da83435abf801383e98fea4d4ae9797551e1774f2327e1b069c5)
+            type_hints = cached_type_hints(_typecheckingstub__2485fd6e8467da83435abf801383e98fea4d4ae9797551e1774f2327e1b069c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "elasticsearchDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1398,17 +1387,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="extendedS3DestinationConfiguration")
     def extended_s3_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]]:
         '''An Amazon S3 destination for the delivery stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]], jsii.get(self, "extendedS3DestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]], jsii.get(self, "extendedS3DestinationConfiguration"))
 
     @extended_s3_destination_configuration.setter
     def extended_s3_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b3827d67811452e6783eeef4d719d420c5534229b93597dbfafa7256a89932e)
+            type_hints = cached_type_hints(_typecheckingstub__4b3827d67811452e6783eeef4d719d420c5534229b93597dbfafa7256a89932e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "extendedS3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1416,17 +1405,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="httpEndpointDestinationConfiguration")
     def http_endpoint_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]]:
         '''Enables configuring Kinesis Firehose to deliver data to any HTTP endpoint destination.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]], jsii.get(self, "httpEndpointDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]], jsii.get(self, "httpEndpointDestinationConfiguration"))
 
     @http_endpoint_destination_configuration.setter
     def http_endpoint_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c45396814a2f1f16d85b99c121f14ab851eda0a9f84038025d5ae44a858837a1)
+            type_hints = cached_type_hints(_typecheckingstub__c45396814a2f1f16d85b99c121f14ab851eda0a9f84038025d5ae44a858837a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpEndpointDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1434,17 +1423,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="icebergDestinationConfiguration")
     def iceberg_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]]:
         '''Specifies the destination configure settings for Apache Iceberg Table.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]], jsii.get(self, "icebergDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]], jsii.get(self, "icebergDestinationConfiguration"))
 
     @iceberg_destination_configuration.setter
     def iceberg_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94c8f409ef0a75500e50bbf49d47688097508bd257b3ce092b027c552453cd59)
+            type_hints = cached_type_hints(_typecheckingstub__94c8f409ef0a75500e50bbf49d47688097508bd257b3ce092b027c552453cd59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "icebergDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1452,17 +1441,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="kinesisStreamSourceConfiguration")
     def kinesis_stream_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]]:
         '''When a Kinesis stream is used as the source for the delivery stream, a `KinesisStreamSourceConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-kinesisstreamsourceconfiguration.html>`_ containing the Kinesis stream ARN and the role ARN for the source stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]], jsii.get(self, "kinesisStreamSourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]], jsii.get(self, "kinesisStreamSourceConfiguration"))
 
     @kinesis_stream_source_configuration.setter
     def kinesis_stream_source_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__025f54a26e52ce42f679eff3aa8b95a5fee2e0e5b3aba7c4320f9900690e60b9)
+            type_hints = cached_type_hints(_typecheckingstub__025f54a26e52ce42f679eff3aa8b95a5fee2e0e5b3aba7c4320f9900690e60b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kinesisStreamSourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1470,17 +1459,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="mskSourceConfiguration")
     def msk_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.MSKSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.MSKSourceConfigurationProperty"]]:
         '''The configuration for the Amazon MSK cluster to be used as the source for a delivery stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.MSKSourceConfigurationProperty"]], jsii.get(self, "mskSourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.MSKSourceConfigurationProperty"]], jsii.get(self, "mskSourceConfiguration"))
 
     @msk_source_configuration.setter
     def msk_source_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.MSKSourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.MSKSourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d05261de796c66b290d3bf9493dedca3a4f904726566b1e0d28cd6f7e525757)
+            type_hints = cached_type_hints(_typecheckingstub__5d05261de796c66b290d3bf9493dedca3a4f904726566b1e0d28cd6f7e525757)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mskSourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1488,17 +1477,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="redshiftDestinationConfiguration")
     def redshift_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]]:
         '''An Amazon Redshift destination for the delivery stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]], jsii.get(self, "redshiftDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]], jsii.get(self, "redshiftDestinationConfiguration"))
 
     @redshift_destination_configuration.setter
     def redshift_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9283febc90a4404b9eb41b227b6baf567d66cf4929f4f56dc67252a81e997f1f)
+            type_hints = cached_type_hints(_typecheckingstub__9283febc90a4404b9eb41b227b6baf567d66cf4929f4f56dc67252a81e997f1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "redshiftDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1506,17 +1495,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="s3DestinationConfiguration")
     def s3_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
         '''The ``S3DestinationConfiguration`` property type specifies an Amazon Simple Storage Service (Amazon S3) destination to which Amazon Kinesis Data Firehose (Kinesis Data Firehose) delivers data.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], jsii.get(self, "s3DestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], jsii.get(self, "s3DestinationConfiguration"))
 
     @s3_destination_configuration.setter
     def s3_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb8b949ac7c9700a5ef03cddf3b3be451041166fe7583faee720a903b17ffd7c)
+            type_hints = cached_type_hints(_typecheckingstub__bb8b949ac7c9700a5ef03cddf3b3be451041166fe7583faee720a903b17ffd7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1524,17 +1513,17 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="snowflakeDestinationConfiguration")
     def snowflake_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]]:
         '''Configure Snowflake destination.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]], jsii.get(self, "snowflakeDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]], jsii.get(self, "snowflakeDestinationConfiguration"))
 
     @snowflake_destination_configuration.setter
     def snowflake_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4334e067c783ee048616b856f03ad5fb828c1a4c18bbdce130d9850ac2ce4034)
+            type_hints = cached_type_hints(_typecheckingstub__4334e067c783ee048616b856f03ad5fb828c1a4c18bbdce130d9850ac2ce4034)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snowflakeDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1542,30 +1531,33 @@ class CfnDeliveryStream(
     @jsii.member(jsii_name="splunkDestinationConfiguration")
     def splunk_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]]:
         '''The configuration of a destination in Splunk for the delivery stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]], jsii.get(self, "splunkDestinationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]], jsii.get(self, "splunkDestinationConfiguration"))
 
     @splunk_destination_configuration.setter
     def splunk_destination_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1143a0f5e018d10fdc1fff0bbcada0e3653e2264078be8b5a6441f6918b95c91)
+            type_hints = cached_type_hints(_typecheckingstub__1143a0f5e018d10fdc1fff0bbcada0e3653e2264078be8b5a6441f6918b95c91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "splunkDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags to assign to the Firehose stream.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b611aca673873100e4f1f1366dada7f80beaecdafd39582bd00fb48881dca276)
+            type_hints = cached_type_hints(_typecheckingstub__b611aca673873100e4f1f1366dada7f80beaecdafd39582bd00fb48881dca276)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1604,7 +1596,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__73b3806edee327ffa718f826cdd3f2971c613586675003f856582bd7f9f0990b)
+                type_hints = cached_type_hints(_typecheckingstub__73b3806edee327ffa718f826cdd3f2971c613586675003f856582bd7f9f0990b)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1670,14 +1662,14 @@ class CfnDeliveryStream(
             *,
             index_name: builtins.str,
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             collection_endpoint: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of a destination in the Serverless offering for Amazon OpenSearch Service.
 
@@ -1764,7 +1756,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c09d95c569c785593bec028509479a3c62ff0333544fe7fb6ea165082930dcf0)
+                type_hints = cached_type_hints(_typecheckingstub__c09d95c569c785593bec028509479a3c62ff0333544fe7fb6ea165082930dcf0)
                 check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
@@ -1818,18 +1810,18 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty"]]:
             '''The buffering options.
 
             If no value is specified, the default values for AmazonopensearchserviceBufferingHints are used.
@@ -1837,17 +1829,17 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def collection_endpoint(self) -> typing.Optional[builtins.str]:
@@ -1861,17 +1853,17 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty"]]:
             '''The retry behavior in case Firehose is unable to deliver documents to the Serverless offering for Amazon OpenSearch Service.
 
             The default value is 300 (5 minutes).
@@ -1879,7 +1871,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -1895,12 +1887,12 @@ class CfnDeliveryStream(
         @builtins.property
         def vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1942,7 +1934,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__753f83f6d86f1797776bc00b3eb90cc19e80bd47ed33370727e5209255714a3b)
+                type_hints = cached_type_hints(_typecheckingstub__753f83f6d86f1797776bc00b3eb90cc19e80bd47ed33370727e5209255714a3b)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -2005,7 +1997,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4bc008db5e34e3ef0ac28740f5aa52a90ec2c2ec0ebeb06a2e361e737f34b840)
+                type_hints = cached_type_hints(_typecheckingstub__4bc008db5e34e3ef0ac28740f5aa52a90ec2c2ec0ebeb06a2e361e737f34b840)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2073,18 +2065,18 @@ class CfnDeliveryStream(
             *,
             index_name: builtins.str,
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             cluster_endpoint: typing.Optional[builtins.str] = None,
-            document_id_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DocumentIdOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            document_id_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DocumentIdOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             domain_arn: typing.Optional[builtins.str] = None,
             index_rotation_period: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
             type_name: typing.Optional[builtins.str] = None,
-            vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of a destination in Amazon OpenSearch Service.
 
@@ -2181,7 +2173,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd4e3bfe32a6bde0a79abfda5de58ef25a59c29217c39eadcd363cb781608bca)
+                type_hints = cached_type_hints(_typecheckingstub__fd4e3bfe32a6bde0a79abfda5de58ef25a59c29217c39eadcd363cb781608bca)
                 check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
@@ -2247,19 +2239,19 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''Describes the configuration of a destination in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty"]]:
             '''The buffering options.
 
             If no value is specified, the default values for AmazonopensearchserviceBufferingHints are used.
@@ -2267,18 +2259,18 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''Describes the Amazon CloudWatch logging options for your delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def cluster_endpoint(self) -> typing.Optional[builtins.str]:
@@ -2294,7 +2286,7 @@ class CfnDeliveryStream(
         @builtins.property
         def document_id_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DocumentIdOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DocumentIdOptionsProperty"]]:
             '''Indicates the method for setting up document ID.
 
             The supported methods are Firehose generated document ID and OpenSearch Service generated document ID.
@@ -2302,7 +2294,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-documentidoptions
             '''
             result = self._values.get("document_id_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DocumentIdOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DocumentIdOptionsProperty"]], result)
 
         @builtins.property
         def domain_arn(self) -> typing.Optional[builtins.str]:
@@ -2327,18 +2319,18 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''Describes a data processing configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty"]]:
             '''The retry behavior in case Kinesis Data Firehose is unable to deliver documents to Amazon OpenSearch Service.
 
             The default value is 300 (5 minutes).
@@ -2346,7 +2338,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -2369,13 +2361,13 @@ class CfnDeliveryStream(
         @builtins.property
         def vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]]:
             '''The details of the VPC of the Amazon OpenSearch Service destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2417,7 +2409,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3a6adce37d15471d3dfb2f014a8d32c640e5a4f535c6da724e3b743675a04cb)
+                type_hints = cached_type_hints(_typecheckingstub__e3a6adce37d15471d3dfb2f014a8d32c640e5a4f535c6da724e3b743675a04cb)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -2477,7 +2469,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__68e16a68225e493cf684cc2bfb151ded05293f2e7b47087f4a97398a1bfeaeb0)
+                type_hints = cached_type_hints(_typecheckingstub__68e16a68225e493cf684cc2bfb151ded05293f2e7b47087f4a97398a1bfeaeb0)
                 check_type(argname="argument connectivity", value=connectivity, expected_type=type_hints["connectivity"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2553,7 +2545,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c672d0753e4b959e46f98cc809bc2380cd7be551cc9bab6f1b7baa1d203a6f7d)
+                type_hints = cached_type_hints(_typecheckingstub__c672d0753e4b959e46f98cc809bc2380cd7be551cc9bab6f1b7baa1d203a6f7d)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2630,7 +2622,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__92b3c1717fb66856049eddd62f0c12dbf945ae8d9450b716e7d065a04359aee0)
+                type_hints = cached_type_hints(_typecheckingstub__92b3c1717fb66856049eddd62f0c12dbf945ae8d9450b716e7d065a04359aee0)
                 check_type(argname="argument catalog_arn", value=catalog_arn, expected_type=type_hints["catalog_arn"])
                 check_type(argname="argument warehouse_location", value=warehouse_location, expected_type=type_hints["warehouse_location"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2685,7 +2677,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             log_group_name: typing.Optional[builtins.str] = None,
             log_stream_name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2711,7 +2703,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0992b1c8af7fd8e057904e94d1f683be6233929613125517587cd51de86aa4b5)
+                type_hints = cached_type_hints(_typecheckingstub__0992b1c8af7fd8e057904e94d1f683be6233929613125517587cd51de86aa4b5)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
                 check_type(argname="argument log_stream_name", value=log_stream_name, expected_type=type_hints["log_stream_name"])
@@ -2726,13 +2718,13 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether CloudWatch Logs logging is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-cloudwatchloggingoptions.html#cfn-kinesisfirehose-deliverystream-cloudwatchloggingoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def log_group_name(self) -> typing.Optional[builtins.str]:
@@ -2808,7 +2800,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ed6eb88a63ca5e75a449863a292b3dcd0cbfcd3127e73f575819aaf579cc41f)
+                type_hints = cached_type_hints(_typecheckingstub__3ed6eb88a63ca5e75a449863a292b3dcd0cbfcd3127e73f575819aaf579cc41f)
                 check_type(argname="argument data_table_name", value=data_table_name, expected_type=type_hints["data_table_name"])
                 check_type(argname="argument copy_options", value=copy_options, expected_type=type_hints["copy_options"])
                 check_type(argname="argument data_table_columns", value=data_table_columns, expected_type=type_hints["data_table_columns"])
@@ -2877,10 +2869,10 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            input_format_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.InputFormatConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            output_format_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.OutputFormatConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            schema_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            input_format_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.InputFormatConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_format_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.OutputFormatConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            schema_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that you want Kinesis Data Firehose to convert data from the JSON format to the Parquet or ORC format before writing it to Amazon S3.
 
@@ -2951,7 +2943,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d2fd0a4fb437e036bd2436bcfd397fa35f08aba48c5a25c4aac36dedb0d37e42)
+                type_hints = cached_type_hints(_typecheckingstub__d2fd0a4fb437e036bd2436bcfd397fa35f08aba48c5a25c4aac36dedb0d37e42)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument input_format_configuration", value=input_format_configuration, expected_type=type_hints["input_format_configuration"])
                 check_type(argname="argument output_format_configuration", value=output_format_configuration, expected_type=type_hints["output_format_configuration"])
@@ -2969,7 +2961,7 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Defaults to ``true`` .
 
             Set it to ``false`` if you want to disable format conversion while preserving the configuration details.
@@ -2977,12 +2969,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def input_format_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.InputFormatConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.InputFormatConfigurationProperty"]]:
             '''Specifies the deserializer that you want Firehose to use to convert the format of your data from JSON.
 
             This parameter is required if ``Enabled`` is set to true.
@@ -2990,12 +2982,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-inputformatconfiguration
             '''
             result = self._values.get("input_format_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.InputFormatConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.InputFormatConfigurationProperty"]], result)
 
         @builtins.property
         def output_format_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OutputFormatConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OutputFormatConfigurationProperty"]]:
             '''Specifies the serializer that you want Firehose to use to convert the format of your data to the Parquet or ORC format.
 
             This parameter is required if ``Enabled`` is set to true.
@@ -3003,12 +2995,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-outputformatconfiguration
             '''
             result = self._values.get("output_format_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OutputFormatConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OutputFormatConfigurationProperty"]], result)
 
         @builtins.property
         def schema_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SchemaConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SchemaConfigurationProperty"]]:
             '''Specifies the AWS Glue Data Catalog table that contains the column information.
 
             This parameter is required if ``Enabled`` is set to true.
@@ -3016,7 +3008,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-schemaconfiguration
             '''
             result = self._values.get("schema_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SchemaConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SchemaConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3060,7 +3052,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__111648b092f5dd75408d33db5fb1adea30dc7a8b58549cef95459f9224ccb26a)
+                type_hints = cached_type_hints(_typecheckingstub__111648b092f5dd75408d33db5fb1adea30dc7a8b58549cef95459f9224ccb26a)
                 check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
                 check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3105,7 +3097,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            secrets_manager_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            secrets_manager_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The structure to configure the authentication methods for Firehose to connect to source database endpoint.
 
@@ -3133,7 +3125,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cecf7807b45586be03c0bc76f8fcdf6ad93c6bd34a795d26aeaf365dd3d297c4)
+                type_hints = cached_type_hints(_typecheckingstub__cecf7807b45586be03c0bc76f8fcdf6ad93c6bd34a795d26aeaf365dd3d297c4)
                 check_type(argname="argument secrets_manager_configuration", value=secrets_manager_configuration, expected_type=type_hints["secrets_manager_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "secrets_manager_configuration": secrets_manager_configuration,
@@ -3142,13 +3134,13 @@ class CfnDeliveryStream(
         @builtins.property
         def secrets_manager_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-databasesourceauthenticationconfiguration.html#cfn-kinesisfirehose-deliverystream-databasesourceauthenticationconfiguration-secretsmanagerconfiguration
             '''
             result = self._values.get("secrets_manager_configuration")
             assert result is not None, "Required property 'secrets_manager_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3184,15 +3176,15 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            databases: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabasesProperty", typing.Dict[builtins.str, typing.Any]]],
-            database_source_authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            database_source_vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            databases: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabasesProperty", typing.Dict[builtins.str, typing.Any]]],
+            database_source_authentication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            database_source_vpc_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             endpoint: builtins.str,
             port: jsii.Number,
             snapshot_watermark_table: builtins.str,
-            tables: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseTablesProperty", typing.Dict[builtins.str, typing.Any]]],
+            tables: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseTablesProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
-            columns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseColumnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            columns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseColumnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             digest: typing.Optional[builtins.str] = None,
             public_certificate: typing.Optional[builtins.str] = None,
             ssl_mode: typing.Optional[builtins.str] = None,
@@ -3263,7 +3255,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dfa32769046e99e73e35a8b5e878b72f25abcaa661bf955ff25e794601e2126d)
+                type_hints = cached_type_hints(_typecheckingstub__dfa32769046e99e73e35a8b5e878b72f25abcaa661bf955ff25e794601e2126d)
                 check_type(argname="argument databases", value=databases, expected_type=type_hints["databases"])
                 check_type(argname="argument database_source_authentication_configuration", value=database_source_authentication_configuration, expected_type=type_hints["database_source_authentication_configuration"])
                 check_type(argname="argument database_source_vpc_configuration", value=database_source_vpc_configuration, expected_type=type_hints["database_source_vpc_configuration"])
@@ -3301,7 +3293,7 @@ class CfnDeliveryStream(
         @builtins.property
         def databases(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabasesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabasesProperty"]:
             '''The list of database patterns in source database endpoint for Firehose to read from.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3310,12 +3302,12 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("databases")
             assert result is not None, "Required property 'databases' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabasesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabasesProperty"], result)
 
         @builtins.property
         def database_source_authentication_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty"]:
             '''The structure to configure the authentication methods for Firehose to connect to source database endpoint.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3324,12 +3316,12 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("database_source_authentication_configuration")
             assert result is not None, "Required property 'database_source_authentication_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty"], result)
 
         @builtins.property
         def database_source_vpc_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty"]:
             '''The details of the VPC Endpoint Service which Firehose uses to create a PrivateLink to the database.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3338,7 +3330,7 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("database_source_vpc_configuration")
             assert result is not None, "Required property 'database_source_vpc_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty"], result)
 
         @builtins.property
         def endpoint(self) -> builtins.str:
@@ -3382,7 +3374,7 @@ class CfnDeliveryStream(
         @builtins.property
         def tables(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseTablesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseTablesProperty"]:
             '''The list of table patterns in source database endpoint for Firehose to read from.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3391,7 +3383,7 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("tables")
             assert result is not None, "Required property 'tables' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseTablesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseTablesProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -3411,7 +3403,7 @@ class CfnDeliveryStream(
         @builtins.property
         def columns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseColumnsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseColumnsProperty"]]:
             '''The list of column patterns in source database endpoint for Firehose to read from.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3419,7 +3411,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-databasesourceconfiguration.html#cfn-kinesisfirehose-deliverystream-databasesourceconfiguration-columns
             '''
             result = self._values.get("columns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseColumnsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseColumnsProperty"]], result)
 
         @builtins.property
         def digest(self) -> typing.Optional[builtins.str]:
@@ -3497,7 +3489,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4616b4a1f40a4e175751eda3777e82055e2397fd9dad0a6cd009c18c89e97cd3)
+                type_hints = cached_type_hints(_typecheckingstub__4616b4a1f40a4e175751eda3777e82055e2397fd9dad0a6cd009c18c89e97cd3)
                 check_type(argname="argument vpc_endpoint_service_name", value=vpc_endpoint_service_name, expected_type=type_hints["vpc_endpoint_service_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "vpc_endpoint_service_name": vpc_endpoint_service_name,
@@ -3559,7 +3551,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b669ca3e532e36dd3f6bf714eda78c90c8c90c4c1bc6dbebfab5c56e74950ddb)
+                type_hints = cached_type_hints(_typecheckingstub__b669ca3e532e36dd3f6bf714eda78c90c8c90c4c1bc6dbebfab5c56e74950ddb)
                 check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
                 check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3626,7 +3618,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6aa9553c52b253113ab9a3fd740ae3235a38fc2d9a582fa85db01832e154931)
+                type_hints = cached_type_hints(_typecheckingstub__b6aa9553c52b253113ab9a3fd740ae3235a38fc2d9a582fa85db01832e154931)
                 check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
                 check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3696,7 +3688,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a51e3602fa39b19119cb43ff1945ccb136f7909bb7d76a42abc9195cb0d725a3)
+                type_hints = cached_type_hints(_typecheckingstub__a51e3602fa39b19119cb43ff1945ccb136f7909bb7d76a42abc9195cb0d725a3)
                 check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
                 check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3756,8 +3748,8 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            hive_json_ser_de: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HiveJsonSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            open_x_json_ser_de: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.OpenXJsonSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hive_json_ser_de: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HiveJsonSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            open_x_json_ser_de: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.OpenXJsonSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The deserializer you want Kinesis Data Firehose to use for converting the input data from JSON.
 
@@ -3789,7 +3781,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__42c1d0a7a47a7fb87bd171a324b5d6ec1a60f675aa066d295f3a321445b0d566)
+                type_hints = cached_type_hints(_typecheckingstub__42c1d0a7a47a7fb87bd171a324b5d6ec1a60f675aa066d295f3a321445b0d566)
                 check_type(argname="argument hive_json_ser_de", value=hive_json_ser_de, expected_type=type_hints["hive_json_ser_de"])
                 check_type(argname="argument open_x_json_ser_de", value=open_x_json_ser_de, expected_type=type_hints["open_x_json_ser_de"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3801,7 +3793,7 @@ class CfnDeliveryStream(
         @builtins.property
         def hive_json_ser_de(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HiveJsonSerDeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HiveJsonSerDeProperty"]]:
             '''The native Hive / HCatalog JsonSerDe.
 
             Used by Firehose for deserializing data, which means converting it from the JSON format in preparation for serializing it to the Parquet or ORC format. This is one of two deserializers you can choose, depending on which one offers the functionality you need. The other option is the OpenX SerDe.
@@ -3809,12 +3801,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-deserializer.html#cfn-kinesisfirehose-deliverystream-deserializer-hivejsonserde
             '''
             result = self._values.get("hive_json_ser_de")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HiveJsonSerDeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HiveJsonSerDeProperty"]], result)
 
         @builtins.property
         def open_x_json_ser_de(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OpenXJsonSerDeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OpenXJsonSerDeProperty"]]:
             '''The OpenX SerDe.
 
             Used by Firehose for deserializing data, which means converting it from the JSON format in preparation for serializing it to the Parquet or ORC format. This is one of two deserializers you can choose, depending on which one offers the functionality you need. The other option is the native Hive / HCatalog JsonSerDe.
@@ -3822,7 +3814,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-deserializer.html#cfn-kinesisfirehose-deliverystream-deserializer-openxjsonserde
             '''
             result = self._values.get("open_x_json_ser_de")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OpenXJsonSerDeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OpenXJsonSerDeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3852,7 +3844,7 @@ class CfnDeliveryStream(
             *,
             destination_database_name: builtins.str,
             destination_table_name: builtins.str,
-            partition_spec: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.PartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            partition_spec: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.PartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_error_output_prefix: typing.Optional[builtins.str] = None,
             unique_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -3890,7 +3882,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d9e156eb7fa7ea4dde332f5d2ef91909983b4fa7a5b5133510252f637465ea6c)
+                type_hints = cached_type_hints(_typecheckingstub__d9e156eb7fa7ea4dde332f5d2ef91909983b4fa7a5b5133510252f637465ea6c)
                 check_type(argname="argument destination_database_name", value=destination_database_name, expected_type=type_hints["destination_database_name"])
                 check_type(argname="argument destination_table_name", value=destination_table_name, expected_type=type_hints["destination_table_name"])
                 check_type(argname="argument partition_spec", value=partition_spec, expected_type=type_hints["partition_spec"])
@@ -3930,7 +3922,7 @@ class CfnDeliveryStream(
         @builtins.property
         def partition_spec(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.PartitionSpecProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.PartitionSpecProperty"]]:
             '''The partition spec configuration for a table that is used by automatic table creation.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -3938,7 +3930,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-destinationtableconfiguration.html#cfn-kinesisfirehose-deliverystream-destinationtableconfiguration-partitionspec
             '''
             result = self._values.get("partition_spec")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.PartitionSpecProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.PartitionSpecProperty"]], result)
 
         @builtins.property
         def s3_error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -4002,7 +3994,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bb3b40e967adc088820cc6b98c8d06f49a47427fba6a11c4cfd878f0aa87017f)
+                type_hints = cached_type_hints(_typecheckingstub__bb3b40e967adc088820cc6b98c8d06f49a47427fba6a11c4cfd878f0aa87017f)
                 check_type(argname="argument throughput_hint_in_m_bs", value=throughput_hint_in_m_bs, expected_type=type_hints["throughput_hint_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if throughput_hint_in_m_bs is not None:
@@ -4057,7 +4049,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d76edd5ad2b58b9b0bbc3359143f6d89ce784d7ac50b34881cf657d8016bcec4)
+                type_hints = cached_type_hints(_typecheckingstub__d76edd5ad2b58b9b0bbc3359143f6d89ce784d7ac50b34881cf657d8016bcec4)
                 check_type(argname="argument default_document_id_format", value=default_document_id_format, expected_type=type_hints["default_document_id_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "default_document_id_format": default_document_id_format,
@@ -4097,8 +4089,8 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``DynamicPartitioningConfiguration`` property type specifies the configuration of the dynamic partitioning mechanism that creates targeted data sets from the streaming data by partitioning it based on partition keys.
 
@@ -4122,7 +4114,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9cc891db4fb4eb3331e62299f82fedd4776288b7686ae851e51bfb6e44e55a52)
+                type_hints = cached_type_hints(_typecheckingstub__9cc891db4fb4eb3331e62299f82fedd4776288b7686ae851e51bfb6e44e55a52)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument retry_options", value=retry_options, expected_type=type_hints["retry_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4134,24 +4126,24 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether dynamic partitioning is enabled for this Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dynamicpartitioningconfiguration.html#cfn-kinesisfirehose-deliverystream-dynamicpartitioningconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]]:
             '''Specifies the retry behavior in case Kinesis Data Firehose is unable to deliver data to an Amazon S3 prefix.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dynamicpartitioningconfiguration.html#cfn-kinesisfirehose-deliverystream-dynamicpartitioningconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4203,7 +4195,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__081c1ee4107d2560ed72dcc369fb8bd5cb51575be94b287e3e1d199e78950677)
+                type_hints = cached_type_hints(_typecheckingstub__081c1ee4107d2560ed72dcc369fb8bd5cb51575be94b287e3e1d199e78950677)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4271,18 +4263,18 @@ class CfnDeliveryStream(
             *,
             index_name: builtins.str,
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ElasticsearchBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ElasticsearchBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             cluster_endpoint: typing.Optional[builtins.str] = None,
-            document_id_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DocumentIdOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            document_id_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DocumentIdOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             domain_arn: typing.Optional[builtins.str] = None,
             index_rotation_period: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ElasticsearchRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ElasticsearchRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
             type_name: typing.Optional[builtins.str] = None,
-            vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ElasticsearchDestinationConfiguration`` property type specifies an Amazon Elasticsearch Service (Amazon ES) domain that Amazon Kinesis Data Firehose (Kinesis Data Firehose) delivers data to.
 
@@ -4379,7 +4371,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__029a33c003279860929256e859d4ba1b8707f3f6569f11613c5f08ef467fe6d6)
+                type_hints = cached_type_hints(_typecheckingstub__029a33c003279860929256e859d4ba1b8707f3f6569f11613c5f08ef467fe6d6)
                 check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
@@ -4447,36 +4439,36 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''The S3 bucket where Kinesis Data Firehose backs up incoming data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchBufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchBufferingHintsProperty"]]:
             '''Configures how Kinesis Data Firehose buffers incoming data while delivering it to the Amazon ES domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchBufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchBufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''The Amazon CloudWatch Logs logging options for the delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def cluster_endpoint(self) -> typing.Optional[builtins.str]:
@@ -4492,7 +4484,7 @@ class CfnDeliveryStream(
         @builtins.property
         def document_id_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DocumentIdOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DocumentIdOptionsProperty"]]:
             '''Indicates the method for setting up document ID.
 
             The supported methods are Firehose generated document ID and OpenSearch Service generated document ID.
@@ -4500,7 +4492,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-documentidoptions
             '''
             result = self._values.get("document_id_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DocumentIdOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DocumentIdOptionsProperty"]], result)
 
         @builtins.property
         def domain_arn(self) -> typing.Optional[builtins.str]:
@@ -4529,24 +4521,24 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''The data processing configuration for the Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchRetryOptionsProperty"]]:
             '''The retry behavior when Kinesis Data Firehose is unable to deliver data to Amazon ES.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -4571,13 +4563,13 @@ class CfnDeliveryStream(
         @builtins.property
         def vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]]:
             '''The details of the VPC of the Amazon ES destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.VpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4619,7 +4611,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2556301b4eb1fbc8924ad4d41633add09219c34215bad4251ecd9506fbd5f4f1)
+                type_hints = cached_type_hints(_typecheckingstub__2556301b4eb1fbc8924ad4d41633add09219c34215bad4251ecd9506fbd5f4f1)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -4659,7 +4651,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            kms_encryption_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.KMSEncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kms_encryption_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.KMSEncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             no_encryption_config: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``EncryptionConfiguration`` property type specifies the encryption settings that Amazon Kinesis Data Firehose (Kinesis Data Firehose) uses when delivering data to Amazon Simple Storage Service (Amazon S3).
@@ -4684,7 +4676,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4416718c6f0bcd460ac15d8467b60189a1b6ff006003483c5095802962acb534)
+                type_hints = cached_type_hints(_typecheckingstub__4416718c6f0bcd460ac15d8467b60189a1b6ff006003483c5095802962acb534)
                 check_type(argname="argument kms_encryption_config", value=kms_encryption_config, expected_type=type_hints["kms_encryption_config"])
                 check_type(argname="argument no_encryption_config", value=no_encryption_config, expected_type=type_hints["no_encryption_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4696,13 +4688,13 @@ class CfnDeliveryStream(
         @builtins.property
         def kms_encryption_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KMSEncryptionConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KMSEncryptionConfigProperty"]]:
             '''The AWS Key Management Service ( AWS KMS) encryption key that Amazon S3 uses to encrypt your data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-encryptionconfiguration.html#cfn-kinesisfirehose-deliverystream-encryptionconfiguration-kmsencryptionconfig
             '''
             result = self._values.get("kms_encryption_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KMSEncryptionConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KMSEncryptionConfigProperty"]], result)
 
         @builtins.property
         def no_encryption_config(self) -> typing.Optional[builtins.str]:
@@ -4753,18 +4745,18 @@ class CfnDeliveryStream(
             *,
             bucket_arn: builtins.str,
             role_arn: builtins.str,
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             compression_format: typing.Optional[builtins.str] = None,
             custom_time_zone: typing.Optional[builtins.str] = None,
-            data_format_conversion_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DataFormatConversionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynamic_partitioning_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DynamicPartitioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_format_conversion_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DataFormatConversionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamic_partitioning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DynamicPartitioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             error_output_prefix: typing.Optional[builtins.str] = None,
             file_extension: typing.Optional[builtins.str] = None,
             prefix: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_backup_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``ExtendedS3DestinationConfiguration`` property type configures an Amazon S3 destination for an Amazon Kinesis Data Firehose delivery stream.
@@ -4914,7 +4906,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7faa411782bea929613482f29819c6479d5ad2f4416ea558d510fb9fd71eaa95)
+                type_hints = cached_type_hints(_typecheckingstub__7faa411782bea929613482f29819c6479d5ad2f4416ea558d510fb9fd71eaa95)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument buffering_hints", value=buffering_hints, expected_type=type_hints["buffering_hints"])
@@ -4988,24 +4980,24 @@ class CfnDeliveryStream(
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]]:
             '''The buffering option.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''The Amazon CloudWatch logging options for your Firehose stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def compression_format(self) -> typing.Optional[builtins.str]:
@@ -5032,29 +5024,29 @@ class CfnDeliveryStream(
         @builtins.property
         def data_format_conversion_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DataFormatConversionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DataFormatConversionConfigurationProperty"]]:
             '''The serializer, deserializer, and schema for converting data from the JSON format to the Parquet or ORC format before writing it to Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-dataformatconversionconfiguration
             '''
             result = self._values.get("data_format_conversion_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DataFormatConversionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DataFormatConversionConfigurationProperty"]], result)
 
         @builtins.property
         def dynamic_partitioning_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DynamicPartitioningConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DynamicPartitioningConfigurationProperty"]]:
             '''The configuration of the dynamic partitioning mechanism that creates targeted data sets from the streaming data by partitioning it based on partition keys.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-dynamicpartitioningconfiguration
             '''
             result = self._values.get("dynamic_partitioning_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DynamicPartitioningConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DynamicPartitioningConfigurationProperty"]], result)
 
         @builtins.property
         def encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.EncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.EncryptionConfigurationProperty"]]:
             '''The encryption configuration for the Kinesis Data Firehose delivery stream.
 
             The default value is ``NoEncryption`` .
@@ -5062,7 +5054,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-encryptionconfiguration
             '''
             result = self._values.get("encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.EncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.EncryptionConfigurationProperty"]], result)
 
         @builtins.property
         def error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -5100,24 +5092,24 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''The data processing configuration for the Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def s3_backup_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
             '''The configuration for backup in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-s3backupconfiguration
             '''
             result = self._values.get("s3_backup_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -5172,7 +5164,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f8aed0e38a71aaf287d17202c1a15e108a76c336307d62f78aaec9e6482a117f)
+                type_hints = cached_type_hints(_typecheckingstub__f8aed0e38a71aaf287d17202c1a15e108a76c336307d62f78aaec9e6482a117f)
                 check_type(argname="argument timestamp_formats", value=timestamp_formats, expected_type=type_hints["timestamp_formats"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if timestamp_formats is not None:
@@ -5237,7 +5229,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d04b9e64bbadb832ca77b64870e79e2910eb18ecbaf3d42b7d1c1b17fb3c160)
+                type_hints = cached_type_hints(_typecheckingstub__4d04b9e64bbadb832ca77b64870e79e2910eb18ecbaf3d42b7d1c1b17fb3c160)
                 check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
                 check_type(argname="argument attribute_value", value=attribute_value, expected_type=type_hints["attribute_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5315,7 +5307,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0aeaa2e754e3362456fea60de1849d85d4913483f2324b0f89480dc7822dd8c)
+                type_hints = cached_type_hints(_typecheckingstub__b0aeaa2e754e3362456fea60de1849d85d4913483f2324b0f89480dc7822dd8c)
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument access_key", value=access_key, expected_type=type_hints["access_key"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5386,16 +5378,16 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            endpoint_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HttpEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            request_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HttpEndpointRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            endpoint_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HttpEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HttpEndpointRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             role_arn: typing.Optional[builtins.str] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            secrets_manager_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of the HTTP endpoint destination.
 
@@ -5498,7 +5490,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e8b3a25c8aa6cb1c905473fb8dd18a708e794918ae12a9a622993603b96ab8a)
+                type_hints = cached_type_hints(_typecheckingstub__6e8b3a25c8aa6cb1c905473fb8dd18a708e794918ae12a9a622993603b96ab8a)
                 check_type(argname="argument endpoint_configuration", value=endpoint_configuration, expected_type=type_hints["endpoint_configuration"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
                 check_type(argname="argument buffering_hints", value=buffering_hints, expected_type=type_hints["buffering_hints"])
@@ -5533,31 +5525,31 @@ class CfnDeliveryStream(
         @builtins.property
         def endpoint_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointConfigurationProperty"]:
             '''The configuration of the HTTP endpoint selected as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-endpointconfiguration
             '''
             result = self._values.get("endpoint_configuration")
             assert result is not None, "Required property 'endpoint_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointConfigurationProperty"], result)
 
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''Describes the configuration of a destination in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]]:
             '''The buffering options that can be used before data is delivered to the specified destination.
 
             Kinesis Data Firehose treats these options as hints, and it might choose to use more optimal values. The SizeInMBs and IntervalInSeconds parameters are optional. However, if you specify a value for one of them, you must also provide a value for the other.
@@ -5565,51 +5557,51 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''Describes the Amazon CloudWatch logging options for your delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''Describes the data processing configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def request_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointRequestConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointRequestConfigurationProperty"]]:
             '''The configuration of the request sent to the HTTP endpoint specified as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-requestconfiguration
             '''
             result = self._values.get("request_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointRequestConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointRequestConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]]:
             '''Describes the retry behavior in case Kinesis Data Firehose is unable to deliver data to the specified HTTP endpoint destination, or if it doesn't receive a valid acknowledgment of receipt from the specified HTTP endpoint destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]], result)
 
         @builtins.property
         def role_arn(self) -> typing.Optional[builtins.str]:
@@ -5634,13 +5626,13 @@ class CfnDeliveryStream(
         @builtins.property
         def secrets_manager_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
             '''The configuration that defines how you access secrets for HTTP Endpoint destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration-secretsmanagerconfiguration
             '''
             result = self._values.get("secrets_manager_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5665,7 +5657,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            common_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HttpEndpointCommonAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            common_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HttpEndpointCommonAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             content_encoding: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration of the HTTP endpoint request.
@@ -5693,7 +5685,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a9efa4d9f485d918f70adc5823c0a1caf4894264ec785a00d5ef0879e3c1177)
+                type_hints = cached_type_hints(_typecheckingstub__4a9efa4d9f485d918f70adc5823c0a1caf4894264ec785a00d5ef0879e3c1177)
                 check_type(argname="argument common_attributes", value=common_attributes, expected_type=type_hints["common_attributes"])
                 check_type(argname="argument content_encoding", value=content_encoding, expected_type=type_hints["content_encoding"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5705,13 +5697,13 @@ class CfnDeliveryStream(
         @builtins.property
         def common_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointCommonAttributeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointCommonAttributeProperty"]]]]:
             '''Describes the metadata sent to the HTTP endpoint destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-httpendpointrequestconfiguration.html#cfn-kinesisfirehose-deliverystream-httpendpointrequestconfiguration-commonattributes
             '''
             result = self._values.get("common_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointCommonAttributeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointCommonAttributeProperty"]]]], result)
 
         @builtins.property
         def content_encoding(self) -> typing.Optional[builtins.str]:
@@ -5757,18 +5749,18 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            catalog_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            catalog_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CatalogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            append_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination_table_configuration_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DestinationTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            append_only: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_table_configuration_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DestinationTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            schema_evolution_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SchemaEvolutionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_creation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.TableCreationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            schema_evolution_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SchemaEvolutionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_creation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.TableCreationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the destination configure settings for Apache Iceberg Table.
 
@@ -5874,7 +5866,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7cc5b65e233b52b72b153275ce8ced9f593e3385051386bed6920a574cf9f53d)
+                type_hints = cached_type_hints(_typecheckingstub__7cc5b65e233b52b72b153275ce8ced9f593e3385051386bed6920a574cf9f53d)
                 check_type(argname="argument catalog_configuration", value=catalog_configuration, expected_type=type_hints["catalog_configuration"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
@@ -5914,14 +5906,14 @@ class CfnDeliveryStream(
         @builtins.property
         def catalog_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CatalogConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CatalogConfigurationProperty"]:
             '''Configuration describing where the destination Apache Iceberg Tables are persisted.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-catalogconfiguration
             '''
             result = self._values.get("catalog_configuration")
             assert result is not None, "Required property 'catalog_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CatalogConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CatalogConfigurationProperty"], result)
 
         @builtins.property
         def role_arn(self) -> builtins.str:
@@ -5936,18 +5928,18 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def append_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Describes whether all incoming data for this delivery stream will be append only (inserts only and not for updates and deletes) for Iceberg delivery.
 
             This feature is only applicable for Apache Iceberg Tables.
@@ -5957,32 +5949,32 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-appendonly
             '''
             result = self._values.get("append_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def destination_table_configuration_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DestinationTableConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DestinationTableConfigurationProperty"]]]]:
             '''Provides a list of ``DestinationTableConfigurations`` which Firehose uses to deliver data to Apache Iceberg Tables.
 
             Firehose will write data with insert if table specific configuration is not provided here.
@@ -5990,27 +5982,27 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-destinationtableconfigurationlist
             '''
             result = self._values.get("destination_table_configuration_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DestinationTableConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DestinationTableConfigurationProperty"]]]], result)
 
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -6026,7 +6018,7 @@ class CfnDeliveryStream(
         @builtins.property
         def schema_evolution_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]]:
             '''The configuration to enable automatic schema evolution.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -6034,12 +6026,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-schemaevolutionconfiguration
             '''
             result = self._values.get("schema_evolution_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]], result)
 
         @builtins.property
         def table_creation_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.TableCreationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.TableCreationConfigurationProperty"]]:
             '''The configuration to enable automatic table creation.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -6047,7 +6039,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-tablecreationconfiguration
             '''
             result = self._values.get("table_creation_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.TableCreationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.TableCreationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6069,7 +6061,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            deserializer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DeserializerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deserializer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DeserializerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the deserializer you want to use to convert the format of the input data.
 
@@ -6102,7 +6094,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dce5223aa97132391790e172c7c143f8a4c8df67b3b09df48eb0b1dff486468b)
+                type_hints = cached_type_hints(_typecheckingstub__dce5223aa97132391790e172c7c143f8a4c8df67b3b09df48eb0b1dff486468b)
                 check_type(argname="argument deserializer", value=deserializer, expected_type=type_hints["deserializer"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if deserializer is not None:
@@ -6111,7 +6103,7 @@ class CfnDeliveryStream(
         @builtins.property
         def deserializer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeserializerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeserializerProperty"]]:
             '''Specifies which deserializer to use.
 
             You can choose either the Apache Hive JSON SerDe or the OpenX JSON SerDe. If both are non-null, the server rejects the request.
@@ -6119,7 +6111,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-inputformatconfiguration.html#cfn-kinesisfirehose-deliverystream-inputformatconfiguration-deserializer
             '''
             result = self._values.get("deserializer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeserializerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeserializerProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6157,7 +6149,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca085a464bc9440602c605444adda1cec3d2059da145bca43dd610fba2e9a8be)
+                type_hints = cached_type_hints(_typecheckingstub__ca085a464bc9440602c605444adda1cec3d2059da145bca43dd610fba2e9a8be)
                 check_type(argname="argument awskms_key_arn", value=awskms_key_arn, expected_type=type_hints["awskms_key_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "awskms_key_arn": awskms_key_arn,
@@ -6218,7 +6210,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7ae1be427fa992bcfd551dc79aa5bba9af3c552f1661c763a814eb22ecd5dff7)
+                type_hints = cached_type_hints(_typecheckingstub__7ae1be427fa992bcfd551dc79aa5bba9af3c552f1661c763a814eb22ecd5dff7)
                 check_type(argname="argument kinesis_stream_arn", value=kinesis_stream_arn, expected_type=type_hints["kinesis_stream_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6271,7 +6263,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            authentication_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            authentication_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             msk_cluster_arn: builtins.str,
             topic_name: builtins.str,
             read_from_timestamp: typing.Optional[builtins.str] = None,
@@ -6305,7 +6297,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7b2563c2a3f195e01ffbb501ca4b7d501c1fb934c35f08b019e248300a348473)
+                type_hints = cached_type_hints(_typecheckingstub__7b2563c2a3f195e01ffbb501ca4b7d501c1fb934c35f08b019e248300a348473)
                 check_type(argname="argument authentication_configuration", value=authentication_configuration, expected_type=type_hints["authentication_configuration"])
                 check_type(argname="argument msk_cluster_arn", value=msk_cluster_arn, expected_type=type_hints["msk_cluster_arn"])
                 check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
@@ -6321,14 +6313,14 @@ class CfnDeliveryStream(
         @builtins.property
         def authentication_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AuthenticationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AuthenticationConfigurationProperty"]:
             '''The authentication configuration of the Amazon MSK cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-msksourceconfiguration.html#cfn-kinesisfirehose-deliverystream-msksourceconfiguration-authenticationconfiguration
             '''
             result = self._values.get("authentication_configuration")
             assert result is not None, "Required property 'authentication_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AuthenticationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AuthenticationConfigurationProperty"], result)
 
         @builtins.property
         def msk_cluster_arn(self) -> builtins.str:
@@ -6387,9 +6379,9 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            case_insensitive: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            column_to_json_key_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            case_insensitive: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            column_to_json_key_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The OpenX SerDe.
 
@@ -6417,7 +6409,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__65dc173b1d3e5c449c2f9ee9f1727428f35f33407e71da72ecdc48c19f3fb78c)
+                type_hints = cached_type_hints(_typecheckingstub__65dc173b1d3e5c449c2f9ee9f1727428f35f33407e71da72ecdc48c19f3fb78c)
                 check_type(argname="argument case_insensitive", value=case_insensitive, expected_type=type_hints["case_insensitive"])
                 check_type(argname="argument column_to_json_key_mappings", value=column_to_json_key_mappings, expected_type=type_hints["column_to_json_key_mappings"])
                 check_type(argname="argument convert_dots_in_json_keys_to_underscores", value=convert_dots_in_json_keys_to_underscores, expected_type=type_hints["convert_dots_in_json_keys_to_underscores"])
@@ -6432,18 +6424,18 @@ class CfnDeliveryStream(
         @builtins.property
         def case_insensitive(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When set to ``true`` , which is the default, Firehose converts JSON keys to lowercase before deserializing them.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-openxjsonserde.html#cfn-kinesisfirehose-deliverystream-openxjsonserde-caseinsensitive
             '''
             result = self._values.get("case_insensitive")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def column_to_json_key_mappings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Maps column names to JSON keys that aren't identical to the column names.
 
             This is useful when the JSON contains keys that are Hive keywords. For example, ``timestamp`` is a Hive keyword. If you have a JSON key named ``timestamp`` , set this parameter to ``{"ts": "timestamp"}`` to map this key to a column named ``ts`` .
@@ -6451,12 +6443,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-openxjsonserde.html#cfn-kinesisfirehose-deliverystream-openxjsonserde-columntojsonkeymappings
             '''
             result = self._values.get("column_to_json_key_mappings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def convert_dots_in_json_keys_to_underscores(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When set to ``true`` , specifies that the names of the keys include dots and that you want Firehose to replace them with underscores.
 
             This is useful because Apache Hive does not allow dots in column names. For example, if the JSON contains a key whose name is "a.b", you can define the column name to be "a_b" when using this option.
@@ -6466,7 +6458,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-openxjsonserde.html#cfn-kinesisfirehose-deliverystream-openxjsonserde-convertdotsinjsonkeystounderscores
             '''
             result = self._values.get("convert_dots_in_json_keys_to_underscores")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6504,7 +6496,7 @@ class CfnDeliveryStream(
             bloom_filter_false_positive_probability: typing.Optional[jsii.Number] = None,
             compression: typing.Optional[builtins.str] = None,
             dictionary_key_threshold: typing.Optional[jsii.Number] = None,
-            enable_padding: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_padding: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             format_version: typing.Optional[builtins.str] = None,
             padding_tolerance: typing.Optional[jsii.Number] = None,
             row_index_stride: typing.Optional[jsii.Number] = None,
@@ -6548,7 +6540,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8a6f3732f1d1f7da40207abc3f87e65bccadac8f31c2f54e16aa9b9d2132fd6e)
+                type_hints = cached_type_hints(_typecheckingstub__8a6f3732f1d1f7da40207abc3f87e65bccadac8f31c2f54e16aa9b9d2132fd6e)
                 check_type(argname="argument block_size_bytes", value=block_size_bytes, expected_type=type_hints["block_size_bytes"])
                 check_type(argname="argument bloom_filter_columns", value=bloom_filter_columns, expected_type=type_hints["bloom_filter_columns"])
                 check_type(argname="argument bloom_filter_false_positive_probability", value=bloom_filter_false_positive_probability, expected_type=type_hints["bloom_filter_false_positive_probability"])
@@ -6641,7 +6633,7 @@ class CfnDeliveryStream(
         @builtins.property
         def enable_padding(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Set this to ``true`` to indicate that you want stripes to be padded to the HDFS block boundaries.
 
             This is useful if you intend to copy the data from Amazon S3 to HDFS before querying. The default is ``false`` .
@@ -6649,7 +6641,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-orcserde.html#cfn-kinesisfirehose-deliverystream-orcserde-enablepadding
             '''
             result = self._values.get("enable_padding")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def format_version(self) -> typing.Optional[builtins.str]:
@@ -6719,7 +6711,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            serializer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SerializerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            serializer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SerializerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the serializer that you want Firehose to use to convert the format of your data before it writes it to Amazon S3.
 
@@ -6762,7 +6754,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3fcba637de22c6790633f7c4fdbfafe0f3cf2fcd07e8753fb333222a3b7916c2)
+                type_hints = cached_type_hints(_typecheckingstub__3fcba637de22c6790633f7c4fdbfafe0f3cf2fcd07e8753fb333222a3b7916c2)
                 check_type(argname="argument serializer", value=serializer, expected_type=type_hints["serializer"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if serializer is not None:
@@ -6771,7 +6763,7 @@ class CfnDeliveryStream(
         @builtins.property
         def serializer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SerializerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SerializerProperty"]]:
             '''Specifies which serializer to use.
 
             You can choose either the ORC SerDe or the Parquet SerDe. If both are non-null, the server rejects the request.
@@ -6779,7 +6771,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-outputformatconfiguration.html#cfn-kinesisfirehose-deliverystream-outputformatconfiguration-serializer
             '''
             result = self._values.get("serializer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SerializerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SerializerProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6810,7 +6802,7 @@ class CfnDeliveryStream(
             *,
             block_size_bytes: typing.Optional[jsii.Number] = None,
             compression: typing.Optional[builtins.str] = None,
-            enable_dictionary_compression: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_dictionary_compression: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             max_padding_bytes: typing.Optional[jsii.Number] = None,
             page_size_bytes: typing.Optional[jsii.Number] = None,
             writer_version: typing.Optional[builtins.str] = None,
@@ -6845,7 +6837,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5e42046b59e857630ade1e52237b3f99ec5d3fcea0cff6ee85255354c8bc1a9)
+                type_hints = cached_type_hints(_typecheckingstub__d5e42046b59e857630ade1e52237b3f99ec5d3fcea0cff6ee85255354c8bc1a9)
                 check_type(argname="argument block_size_bytes", value=block_size_bytes, expected_type=type_hints["block_size_bytes"])
                 check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
                 check_type(argname="argument enable_dictionary_compression", value=enable_dictionary_compression, expected_type=type_hints["enable_dictionary_compression"])
@@ -6891,13 +6883,13 @@ class CfnDeliveryStream(
         @builtins.property
         def enable_dictionary_compression(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to enable dictionary compression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-parquetserde.html#cfn-kinesisfirehose-deliverystream-parquetserde-enabledictionarycompression
             '''
             result = self._values.get("enable_dictionary_compression")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def max_padding_bytes(self) -> typing.Optional[jsii.Number]:
@@ -6970,7 +6962,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a839897ef0a46c7170de280f66ed4688ca42be1fcb75c29fba57bc1f602931c1)
+                type_hints = cached_type_hints(_typecheckingstub__a839897ef0a46c7170de280f66ed4688ca42be1fcb75c29fba57bc1f602931c1)
                 check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "source_name": source_name,
@@ -7008,7 +7000,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            identity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.PartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.PartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Represents how to produce partition data for a table.
 
@@ -7038,7 +7030,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__605b75f57047594e41cbdfa3a36b644835c149c59b7bc3649d482257f34c89b4)
+                type_hints = cached_type_hints(_typecheckingstub__605b75f57047594e41cbdfa3a36b644835c149c59b7bc3649d482257f34c89b4)
                 check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if identity is not None:
@@ -7047,7 +7039,7 @@ class CfnDeliveryStream(
         @builtins.property
         def identity(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.PartitionFieldProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.PartitionFieldProperty"]]]]:
             '''List of identity `transforms <https://docs.aws.amazon.com/https://iceberg.apache.org/spec/#partition-transforms>`_ that performs an identity transformation. The transform takes the source value, and does not modify it. Result type is the source type.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -7055,7 +7047,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-partitionspec.html#cfn-kinesisfirehose-deliverystream-partitionspec-identity
             '''
             result = self._values.get("identity")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.PartitionFieldProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.PartitionFieldProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7077,8 +7069,8 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            processors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            processors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``ProcessingConfiguration`` property configures data processing for an Amazon Kinesis Data Firehose delivery stream.
 
@@ -7108,7 +7100,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__47d08fb3fe02427fce54795dba1288ad02d1fec20884867948eae460f986d43d)
+                type_hints = cached_type_hints(_typecheckingstub__47d08fb3fe02427fce54795dba1288ad02d1fec20884867948eae460f986d43d)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument processors", value=processors, expected_type=type_hints["processors"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7120,24 +7112,24 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether data processing is enabled (true) or disabled (false).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-processingconfiguration.html#cfn-kinesisfirehose-deliverystream-processingconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def processors(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessorProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessorProperty"]]]]:
             '''The data processors.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-processingconfiguration.html#cfn-kinesisfirehose-deliverystream-processingconfiguration-processors
             '''
             result = self._values.get("processors")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessorProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessorProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7185,7 +7177,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29244e412176b0b05c7328e22087c12ec9670a06bdeda2a69994a31022941e39)
+                type_hints = cached_type_hints(_typecheckingstub__29244e412176b0b05c7328e22087c12ec9670a06bdeda2a69994a31022941e39)
                 check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
                 check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7236,7 +7228,7 @@ class CfnDeliveryStream(
             self,
             *,
             type: builtins.str,
-            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessorParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessorParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``Processor`` property specifies a data processor for an Amazon Kinesis Data Firehose delivery stream.
 
@@ -7263,7 +7255,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__69c6d7cb07c53f27959cf35e3f4436c85b60c102a9d091138cad44aec29a7fc3)
+                type_hints = cached_type_hints(_typecheckingstub__69c6d7cb07c53f27959cf35e3f4436c85b60c102a9d091138cad44aec29a7fc3)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7287,13 +7279,13 @@ class CfnDeliveryStream(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessorParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessorParameterProperty"]]]]:
             '''The processor parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-processor.html#cfn-kinesisfirehose-deliverystream-processor-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessorParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessorParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7329,16 +7321,16 @@ class CfnDeliveryStream(
             self,
             *,
             cluster_jdbcurl: builtins.str,
-            copy_command: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CopyCommandProperty", typing.Dict[builtins.str, typing.Any]]],
+            copy_command: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CopyCommandProperty", typing.Dict[builtins.str, typing.Any]]],
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             password: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RedshiftRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RedshiftRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_backup_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            secrets_manager_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             username: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``RedshiftDestinationConfiguration`` property type specifies an Amazon Redshift cluster to which Amazon Kinesis Data Firehose (Kinesis Data Firehose) delivers data.
@@ -7458,7 +7450,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a05dc5298788a3b9496bc2e383242a0570183c6703c04af2c5e991292f2c58fa)
+                type_hints = cached_type_hints(_typecheckingstub__a05dc5298788a3b9496bc2e383242a0570183c6703c04af2c5e991292f2c58fa)
                 check_type(argname="argument cluster_jdbcurl", value=cluster_jdbcurl, expected_type=type_hints["cluster_jdbcurl"])
                 check_type(argname="argument copy_command", value=copy_command, expected_type=type_hints["copy_command"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -7507,14 +7499,14 @@ class CfnDeliveryStream(
         @builtins.property
         def copy_command(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CopyCommandProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CopyCommandProperty"]:
             '''Configures the Amazon Redshift ``COPY`` command that Kinesis Data Firehose uses to load data into the cluster from the Amazon S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-copycommand
             '''
             result = self._values.get("copy_command")
             assert result is not None, "Required property 'copy_command' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CopyCommandProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CopyCommandProperty"], result)
 
         @builtins.property
         def role_arn(self) -> builtins.str:
@@ -7531,7 +7523,7 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''The S3 bucket where Kinesis Data Firehose first delivers data.
 
             After the data is in the bucket, Kinesis Data Firehose uses the ``COPY`` command to load the data into the Amazon Redshift cluster. For the Amazon S3 bucket's compression format, don't specify ``SNAPPY`` or ``ZIP`` because the Amazon Redshift ``COPY`` command doesn't support them.
@@ -7540,18 +7532,18 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''The CloudWatch logging options for your Firehose stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def password(self) -> typing.Optional[builtins.str]:
@@ -7565,18 +7557,18 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''The data processing configuration for the Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftRetryOptionsProperty"]]:
             '''The retry behavior in case Firehose is unable to deliver documents to Amazon Redshift.
 
             Default value is 3600 (60 minutes).
@@ -7584,18 +7576,18 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
             '''The configuration for backup in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-s3backupconfiguration
             '''
             result = self._values.get("s3_backup_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -7611,13 +7603,13 @@ class CfnDeliveryStream(
         @builtins.property
         def secrets_manager_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
             '''The configuration that defines how you access secrets for Amazon Redshift.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-redshiftdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration-secretsmanagerconfiguration
             '''
             result = self._values.get("secrets_manager_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
 
         @builtins.property
         def username(self) -> typing.Optional[builtins.str]:
@@ -7670,7 +7662,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d0656ad0d58c235ec01fb44e9e595a95164029cf26c86a1e17d49b3de0807568)
+                type_hints = cached_type_hints(_typecheckingstub__d0656ad0d58c235ec01fb44e9e595a95164029cf26c86a1e17d49b3de0807568)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -7729,7 +7721,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9f65ebaf68fad95eebbec4bb62ddc86711c9f922e5243b0ef218440713a1dbf3)
+                type_hints = cached_type_hints(_typecheckingstub__9f65ebaf68fad95eebbec4bb62ddc86711c9f922e5243b0ef218440713a1dbf3)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -7777,10 +7769,10 @@ class CfnDeliveryStream(
             *,
             bucket_arn: builtins.str,
             role_arn: builtins.str,
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.BufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             compression_format: typing.Optional[builtins.str] = None,
-            encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             error_output_prefix: typing.Optional[builtins.str] = None,
             prefix: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -7830,7 +7822,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8569fcc15b3b4467365ecb9c23c43fe8704a4b9efea3337dfd60994daf97d928)
+                type_hints = cached_type_hints(_typecheckingstub__8569fcc15b3b4467365ecb9c23c43fe8704a4b9efea3337dfd60994daf97d928)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument buffering_hints", value=buffering_hints, expected_type=type_hints["buffering_hints"])
@@ -7881,24 +7873,24 @@ class CfnDeliveryStream(
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]]:
             '''Configures how Kinesis Data Firehose buffers incoming data while delivering it to the Amazon S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-s3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-s3destinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.BufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.BufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''The CloudWatch logging options for your Firehose stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-s3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-s3destinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def compression_format(self) -> typing.Optional[builtins.str]:
@@ -7914,7 +7906,7 @@ class CfnDeliveryStream(
         @builtins.property
         def encryption_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.EncryptionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.EncryptionConfigurationProperty"]]:
             '''Configures Amazon Simple Storage Service (Amazon S3) server-side encryption.
 
             Kinesis Data Firehose uses AWS Key Management Service ( AWS KMS) to encrypt the data that it delivers to your Amazon S3 bucket.
@@ -7922,7 +7914,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-s3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-s3destinationconfiguration-encryptionconfiguration
             '''
             result = self._values.get("encryption_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.EncryptionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.EncryptionConfigurationProperty"]], result)
 
         @builtins.property
         def error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -8010,7 +8002,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1389c57283b687c62069951b51187332947eeb24f5fcb8781af71c2b3e5d657)
+                type_hints = cached_type_hints(_typecheckingstub__c1389c57283b687c62069951b51187332947eeb24f5fcb8781af71c2b3e5d657)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -8122,7 +8114,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The configuration to enable schema evolution.
 
@@ -8144,7 +8136,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__42267f168762343c22cce7785e160c133f9c7e7a8f4cb3e0888c940a1c3cb61d)
+                type_hints = cached_type_hints(_typecheckingstub__42267f168762343c22cce7785e160c133f9c7e7a8f4cb3e0888c940a1c3cb61d)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -8153,7 +8145,7 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify whether you want to enable schema evolution.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -8161,7 +8153,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-schemaevolutionconfiguration.html#cfn-kinesisfirehose-deliverystream-schemaevolutionconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8187,7 +8179,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             role_arn: typing.Optional[builtins.str] = None,
             secret_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -8215,7 +8207,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b935af4b7f540cbb6b063a9c37a906eaf8c3ed8781b19ea32e1836ca909b3dac)
+                type_hints = cached_type_hints(_typecheckingstub__b935af4b7f540cbb6b063a9c37a906eaf8c3ed8781b19ea32e1836ca909b3dac)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
@@ -8228,7 +8220,9 @@ class CfnDeliveryStream(
                 self._values["secret_arn"] = secret_arn
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether you want to use the secrets manager feature.
 
             When set as ``True`` the secrets manager configuration overwrites the existing secrets in the destination configuration. When it's set to ``False`` Firehose falls back to the credentials in the destination configuration.
@@ -8237,7 +8231,7 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def role_arn(self) -> typing.Optional[builtins.str]:
@@ -8281,8 +8275,8 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            orc_ser_de: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.OrcSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            parquet_ser_de: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ParquetSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            orc_ser_de: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.OrcSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parquet_ser_de: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ParquetSerDeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The serializer that you want Firehose to use to convert data to the target format before writing it to Amazon S3.
 
@@ -8324,7 +8318,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__706925197a1b663cd9be8234e85ce2780b58d7bf71737c801e0c393104407464)
+                type_hints = cached_type_hints(_typecheckingstub__706925197a1b663cd9be8234e85ce2780b58d7bf71737c801e0c393104407464)
                 check_type(argname="argument orc_ser_de", value=orc_ser_de, expected_type=type_hints["orc_ser_de"])
                 check_type(argname="argument parquet_ser_de", value=parquet_ser_de, expected_type=type_hints["parquet_ser_de"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8336,7 +8330,7 @@ class CfnDeliveryStream(
         @builtins.property
         def orc_ser_de(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OrcSerDeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OrcSerDeProperty"]]:
             '''A serializer to use for converting data to the ORC format before storing it in Amazon S3.
 
             For more information, see `Apache ORC <https://docs.aws.amazon.com/https://orc.apache.org/docs/>`_ .
@@ -8344,12 +8338,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-serializer.html#cfn-kinesisfirehose-deliverystream-serializer-orcserde
             '''
             result = self._values.get("orc_ser_de")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.OrcSerDeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.OrcSerDeProperty"]], result)
 
         @builtins.property
         def parquet_ser_de(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ParquetSerDeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ParquetSerDeProperty"]]:
             '''A serializer to use for converting data to the Parquet format before storing it in Amazon S3.
 
             For more information, see `Apache Parquet <https://docs.aws.amazon.com/https://parquet.apache.org/docs/contribution-guidelines/>`_ .
@@ -8357,7 +8351,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-serializer.html#cfn-kinesisfirehose-deliverystream-serializer-parquetserde
             '''
             result = self._values.get("parquet_ser_de")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ParquetSerDeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ParquetSerDeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8407,7 +8401,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c4d37eb171641c85a4fd06dfff9a42a4ac04df542059c602ae6c3ce07e369214)
+                type_hints = cached_type_hints(_typecheckingstub__c4d37eb171641c85a4fd06dfff9a42a4ac04df542059c602ae6c3ce07e369214)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8482,22 +8476,22 @@ class CfnDeliveryStream(
             account_url: builtins.str,
             database: builtins.str,
             role_arn: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             schema: builtins.str,
             table: builtins.str,
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             content_column_name: typing.Optional[builtins.str] = None,
             data_loading_option: typing.Optional[builtins.str] = None,
             key_passphrase: typing.Optional[builtins.str] = None,
             meta_data_column_name: typing.Optional[builtins.str] = None,
             private_key: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            secrets_manager_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            snowflake_role_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeRoleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            snowflake_vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snowflake_role_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeRoleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snowflake_vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             user: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configure Snowflake destination.
@@ -8612,7 +8606,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9743b3910a7f4b6edd05f7d4a76aa45c5a9f674a473fcf4c8c046e1d8d64cb53)
+                type_hints = cached_type_hints(_typecheckingstub__9743b3910a7f4b6edd05f7d4a76aa45c5a9f674a473fcf4c8c046e1d8d64cb53)
                 check_type(argname="argument account_url", value=account_url, expected_type=type_hints["account_url"])
                 check_type(argname="argument database", value=database, expected_type=type_hints["database"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -8705,13 +8699,13 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def schema(self) -> builtins.str:
@@ -8736,7 +8730,7 @@ class CfnDeliveryStream(
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeBufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeBufferingHintsProperty"]]:
             '''Describes the buffering to perform before delivering data to the Snowflake destination.
 
             If you do not specify any value, Firehose uses the default values.
@@ -8744,17 +8738,17 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeBufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeBufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def content_column_name(self) -> typing.Optional[builtins.str]:
@@ -8818,23 +8812,23 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeRetryOptionsProperty"]]:
             '''The time period where Firehose will retry sending data to the chosen HTTP endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -8848,18 +8842,18 @@ class CfnDeliveryStream(
         @builtins.property
         def secrets_manager_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
             '''The configuration that defines how you access secrets for Snowflake.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-secretsmanagerconfiguration
             '''
             result = self._values.get("secrets_manager_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
 
         @builtins.property
         def snowflake_role_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeRoleConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeRoleConfigurationProperty"]]:
             '''Optionally configure a Snowflake role.
 
             Otherwise the default user role will be used.
@@ -8867,12 +8861,12 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-snowflakeroleconfiguration
             '''
             result = self._values.get("snowflake_role_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeRoleConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeRoleConfigurationProperty"]], result)
 
         @builtins.property
         def snowflake_vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeVpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeVpcConfigurationProperty"]]:
             '''The VPCE ID for Firehose to privately connect with Snowflake.
 
             The ID format is com.amazonaws.vpce.[region].vpce-svc-<[id]>. For more information, see `Amazon PrivateLink & Snowflake <https://docs.aws.amazon.com/https://docs.snowflake.com/en/user-guide/admin-security-privatelink>`_
@@ -8880,7 +8874,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakedestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration-snowflakevpcconfiguration
             '''
             result = self._values.get("snowflake_vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeVpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeVpcConfigurationProperty"]], result)
 
         @builtins.property
         def user(self) -> typing.Optional[builtins.str]:
@@ -8933,7 +8927,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7d919c23da3109305810f31f91a7020b20f997fbd66a87a4b4dfe122efff981)
+                type_hints = cached_type_hints(_typecheckingstub__b7d919c23da3109305810f31f91a7020b20f997fbd66a87a4b4dfe122efff981)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -8968,7 +8962,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             snowflake_role: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Optionally configure a Snowflake role.
@@ -8993,7 +8987,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__867673ab46f448fd1867f3b74172d4939969188f736abc7f1c5c26682419368b)
+                type_hints = cached_type_hints(_typecheckingstub__867673ab46f448fd1867f3b74172d4939969188f736abc7f1c5c26682419368b)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument snowflake_role", value=snowflake_role, expected_type=type_hints["snowflake_role"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9005,13 +8999,13 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enable Snowflake role.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-snowflakeroleconfiguration.html#cfn-kinesisfirehose-deliverystream-snowflakeroleconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def snowflake_role(self) -> typing.Optional[builtins.str]:
@@ -9058,7 +9052,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5715c831de8e3fe729e9e76213a2b933810f642d09eb653534a3d23054acf0d)
+                type_hints = cached_type_hints(_typecheckingstub__a5715c831de8e3fe729e9e76213a2b933810f642d09eb653534a3d23054acf0d)
                 check_type(argname="argument private_link_vpce_id", value=private_link_vpce_id, expected_type=type_hints["private_link_vpce_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "private_link_vpce_id": private_link_vpce_id,
@@ -9124,7 +9118,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__60823c61f8aea3242c07551788af8f338bff46b6299ee9aa1d0ff6112c454ecc)
+                type_hints = cached_type_hints(_typecheckingstub__60823c61f8aea3242c07551788af8f338bff46b6299ee9aa1d0ff6112c454ecc)
                 check_type(argname="argument interval_in_seconds", value=interval_in_seconds, expected_type=type_hints["interval_in_seconds"])
                 check_type(argname="argument size_in_m_bs", value=size_in_m_bs, expected_type=type_hints["size_in_m_bs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9189,15 +9183,15 @@ class CfnDeliveryStream(
             *,
             hec_endpoint: builtins.str,
             hec_endpoint_type: builtins.str,
-            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            buffering_hints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SplunkBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cloud_watch_logging_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            buffering_hints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SplunkBufferingHintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logging_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.CloudWatchLoggingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hec_acknowledgment_timeout_in_seconds: typing.Optional[jsii.Number] = None,
             hec_token: typing.Optional[builtins.str] = None,
-            processing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SplunkRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            processing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SplunkRetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
-            secrets_manager_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SecretsManagerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``SplunkDestinationConfiguration`` property type specifies the configuration of a destination in Splunk for a Kinesis Data Firehose delivery stream.
 
@@ -9288,7 +9282,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be9923ea7818bcdc567ae6e06b529c44c6a3c42b59af06768977f4c55fdd20a6)
+                type_hints = cached_type_hints(_typecheckingstub__be9923ea7818bcdc567ae6e06b529c44c6a3c42b59af06768977f4c55fdd20a6)
                 check_type(argname="argument hec_endpoint", value=hec_endpoint, expected_type=type_hints["hec_endpoint"])
                 check_type(argname="argument hec_endpoint_type", value=hec_endpoint_type, expected_type=type_hints["hec_endpoint_type"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
@@ -9345,19 +9339,19 @@ class CfnDeliveryStream(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]:
             '''The configuration for the backup Amazon S3 location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
             assert result is not None, "Required property 's3_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"], result)
 
         @builtins.property
         def buffering_hints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkBufferingHintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkBufferingHintsProperty"]]:
             '''The buffering options.
 
             If no value is specified, the default values for Splunk are used.
@@ -9365,18 +9359,18 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-bufferinghints
             '''
             result = self._values.get("buffering_hints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkBufferingHintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkBufferingHintsProperty"]], result)
 
         @builtins.property
         def cloud_watch_logging_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]]:
             '''The Amazon CloudWatch logging options for your Firehose stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-cloudwatchloggingoptions
             '''
             result = self._values.get("cloud_watch_logging_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.CloudWatchLoggingOptionsProperty"]], result)
 
         @builtins.property
         def hec_acknowledgment_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -9401,24 +9395,24 @@ class CfnDeliveryStream(
         @builtins.property
         def processing_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]]:
             '''The data processing configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-processingconfiguration
             '''
             result = self._values.get("processing_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def retry_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkRetryOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkRetryOptionsProperty"]]:
             '''The retry behavior in case Firehose is unable to deliver data to Splunk, or if it doesn't receive an acknowledgment of receipt from Splunk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-retryoptions
             '''
             result = self._values.get("retry_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkRetryOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkRetryOptionsProperty"]], result)
 
         @builtins.property
         def s3_backup_mode(self) -> typing.Optional[builtins.str]:
@@ -9436,13 +9430,13 @@ class CfnDeliveryStream(
         @builtins.property
         def secrets_manager_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]]:
             '''The configuration that defines how you access secrets for Splunk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-splunkdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration-secretsmanagerconfiguration
             '''
             result = self._values.get("secrets_manager_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SecretsManagerConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9484,7 +9478,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5c5cbe7244c68f12454d07974a4cae50f1d208afdbc3a96f1e2ada11e37fc412)
+                type_hints = cached_type_hints(_typecheckingstub__5c5cbe7244c68f12454d07974a4cae50f1d208afdbc3a96f1e2ada11e37fc412)
                 check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if duration_in_seconds is not None:
@@ -9521,7 +9515,7 @@ class CfnDeliveryStream(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The configuration to enable automatic table creation.
 
@@ -9543,7 +9537,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac9314efc3754736d60b5e8780b56333aa2816ec35cd3e5ede526a3656454369)
+                type_hints = cached_type_hints(_typecheckingstub__ac9314efc3754736d60b5e8780b56333aa2816ec35cd3e5ede526a3656454369)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -9552,7 +9546,7 @@ class CfnDeliveryStream(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify whether you want to enable automatic table creation.
 
             Amazon Data Firehose is in preview release and is subject to change.
@@ -9560,7 +9554,7 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-tablecreationconfiguration.html#cfn-kinesisfirehose-deliverystream-tablecreationconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9612,7 +9606,7 @@ class CfnDeliveryStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ecd7f59955db0312a31e14fafedff3746c1d169b6a24f2985f6a096a09db25a)
+                type_hints = cached_type_hints(_typecheckingstub__3ecd7f59955db0312a31e14fafedff3746c1d169b6a24f2985f6a096a09db25a)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
@@ -9711,24 +9705,24 @@ class CfnDeliveryStreamProps:
     def __init__(
         self,
         *,
-        amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        amazonopensearchservice_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        database_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DatabaseSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_stream_encryption_configuration_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_stream_name: typing.Optional[typing.Union[builtins.str, "_IStreamRef_b484e253"]] = None,
+        amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        amazonopensearchservice_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        database_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DatabaseSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_stream_encryption_configuration_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_stream_name: typing.Optional[typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef"]] = None,
         delivery_stream_type: typing.Optional[builtins.str] = None,
-        direct_put_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.DirectPutSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        extended_s3_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        http_endpoint_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iceberg_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_stream_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.KinesisStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        msk_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.MSKSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redshift_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.RedshiftDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        s3_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snowflake_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SnowflakeDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        splunk_destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeliveryStream.SplunkDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        direct_put_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.DirectPutSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        extended_s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        http_endpoint_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.IcebergDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_stream_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.KinesisStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        msk_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.MSKSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redshift_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.RedshiftDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snowflake_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SnowflakeDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        splunk_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeliveryStream.SplunkDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDeliveryStream``.
 
@@ -9777,7 +9771,7 @@ class CfnDeliveryStreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f4e310bf0ff2c76f9c126ea4431fb25b9b53c8ba7e0c0eacc1c934debd05a95)
+            type_hints = cached_type_hints(_typecheckingstub__4f4e310bf0ff2c76f9c126ea4431fb25b9b53c8ba7e0c0eacc1c934debd05a95)
             check_type(argname="argument amazon_open_search_serverless_destination_configuration", value=amazon_open_search_serverless_destination_configuration, expected_type=type_hints["amazon_open_search_serverless_destination_configuration"])
             check_type(argname="argument amazonopensearchservice_destination_configuration", value=amazonopensearchservice_destination_configuration, expected_type=type_hints["amazonopensearchservice_destination_configuration"])
             check_type(argname="argument database_source_configuration", value=database_source_configuration, expected_type=type_hints["database_source_configuration"])
@@ -9837,18 +9831,18 @@ class CfnDeliveryStreamProps:
     @builtins.property
     def amazon_open_search_serverless_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]]:
         '''Describes the configuration of a destination in the Serverless offering for Amazon OpenSearch Service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-amazonopensearchserverlessdestinationconfiguration
         '''
         result = self._values.get("amazon_open_search_serverless_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def amazonopensearchservice_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]]:
         '''The destination in Amazon OpenSearch Service.
 
         You can specify only one destination.
@@ -9856,12 +9850,12 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-amazonopensearchservicedestinationconfiguration
         '''
         result = self._values.get("amazonopensearchservice_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def database_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]]:
         '''The top level object for configuring streams with database as a source.
 
         Amazon Data Firehose is in preview release and is subject to change.
@@ -9869,29 +9863,29 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-databasesourceconfiguration
         '''
         result = self._values.get("database_source_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DatabaseSourceConfigurationProperty"]], result)
 
     @builtins.property
     def delivery_stream_encryption_configuration_input(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]]:
         '''Specifies the type and Amazon Resource Name (ARN) of the CMK to use for Server-Side Encryption (SSE).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-deliverystreamencryptionconfigurationinput
         '''
         result = self._values.get("delivery_stream_encryption_configuration_input")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty"]], result)
 
     @builtins.property
     def delivery_stream_name(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IStreamRef_b484e253"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef"]]:
         '''The name of the Firehose stream.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-deliverystreamname
         '''
         result = self._values.get("delivery_stream_name")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IStreamRef_b484e253"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef"]], result)
 
     @builtins.property
     def delivery_stream_type(self) -> typing.Optional[builtins.str]:
@@ -9908,18 +9902,18 @@ class CfnDeliveryStreamProps:
     @builtins.property
     def direct_put_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]]:
         '''The structure that configures parameters such as ``ThroughputHintInMBs`` for a stream configured with Direct PUT as a source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-directputsourceconfiguration
         '''
         result = self._values.get("direct_put_source_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.DirectPutSourceConfigurationProperty"]], result)
 
     @builtins.property
     def elasticsearch_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]]:
         '''An Amazon ES destination for the delivery stream.
 
         Conditional. You must specify only one destination configuration.
@@ -9929,12 +9923,12 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-elasticsearchdestinationconfiguration
         '''
         result = self._values.get("elasticsearch_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def extended_s3_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]]:
         '''An Amazon S3 destination for the delivery stream.
 
         Conditional. You must specify only one destination configuration.
@@ -9944,12 +9938,12 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration
         '''
         result = self._values.get("extended_s3_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"]], result)
 
     @builtins.property
     def http_endpoint_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]]:
         '''Enables configuring Kinesis Firehose to deliver data to any HTTP endpoint destination.
 
         You can specify only one destination.
@@ -9957,45 +9951,45 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-httpendpointdestinationconfiguration
         '''
         result = self._values.get("http_endpoint_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def iceberg_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]]:
         '''Specifies the destination configure settings for Apache Iceberg Table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration
         '''
         result = self._values.get("iceberg_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.IcebergDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def kinesis_stream_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]]:
         '''When a Kinesis stream is used as the source for the delivery stream, a `KinesisStreamSourceConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-kinesisstreamsourceconfiguration.html>`_ containing the Kinesis stream ARN and the role ARN for the source stream.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-kinesisstreamsourceconfiguration
         '''
         result = self._values.get("kinesis_stream_source_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.KinesisStreamSourceConfigurationProperty"]], result)
 
     @builtins.property
     def msk_source_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.MSKSourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.MSKSourceConfigurationProperty"]]:
         '''The configuration for the Amazon MSK cluster to be used as the source for a delivery stream.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-msksourceconfiguration
         '''
         result = self._values.get("msk_source_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.MSKSourceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.MSKSourceConfigurationProperty"]], result)
 
     @builtins.property
     def redshift_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]]:
         '''An Amazon Redshift destination for the delivery stream.
 
         Conditional. You must specify only one destination configuration.
@@ -10005,12 +9999,12 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-redshiftdestinationconfiguration
         '''
         result = self._values.get("redshift_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.RedshiftDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def s3_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]]:
         '''The ``S3DestinationConfiguration`` property type specifies an Amazon Simple Storage Service (Amazon S3) destination to which Amazon Kinesis Data Firehose (Kinesis Data Firehose) delivers data.
 
         Conditional. You must specify only one destination configuration.
@@ -10020,32 +10014,32 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-s3destinationconfiguration
         '''
         result = self._values.get("s3_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.S3DestinationConfigurationProperty"]], result)
 
     @builtins.property
     def snowflake_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]]:
         '''Configure Snowflake destination.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-snowflakedestinationconfiguration
         '''
         result = self._values.get("snowflake_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SnowflakeDestinationConfigurationProperty"]], result)
 
     @builtins.property
     def splunk_destination_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]]:
         '''The configuration of a destination in Splunk for the delivery stream.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-splunkdestinationconfiguration
         '''
         result = self._values.get("splunk_destination_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeliveryStream.SplunkDestinationConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags to assign to the Firehose stream.
 
         A tag is a key-value pair that you can define and assign to AWS resources. Tags are metadata. For example, you can add friendly names and descriptions or other types of information that can help you distinguish the Firehose stream. For more information about tags, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the AWS Billing and Cost Management User Guide.
@@ -10063,7 +10057,7 @@ class CfnDeliveryStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisfirehose-deliverystream.html#cfn-kinesisfirehose-deliverystream-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10105,7 +10099,7 @@ class CloudWatchLogProcessorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66fd938cedc5d28ef73e2df03e081c09f3f293b01e62331467b68a36a802e868)
+            type_hints = cached_type_hints(_typecheckingstub__66fd938cedc5d28ef73e2df03e081c09f3f293b01e62331467b68a36a802e868)
             check_type(argname="argument data_message_extraction", value=data_message_extraction, expected_type=type_hints["data_message_extraction"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_message_extraction": data_message_extraction,
@@ -10151,7 +10145,7 @@ class CommonDestinationProps:
         logging_config: typing.Optional["ILoggingConfig"] = None,
         processor: typing.Optional["IDataProcessor"] = None,
         processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Generic properties for defining a delivery stream destination.
@@ -10203,7 +10197,7 @@ class CommonDestinationProps:
         if isinstance(s3_backup, dict):
             s3_backup = DestinationS3BackupProps(**s3_backup)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c67ac54054be7496dcf923fd4756691ef492acee6f8731020e20179b0e257c8)
+            type_hints = cached_type_hints(_typecheckingstub__2c67ac54054be7496dcf923fd4756691ef492acee6f8731020e20179b0e257c8)
             check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
             check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
             check_type(argname="argument processors", value=processors, expected_type=type_hints["processors"])
@@ -10253,7 +10247,7 @@ class CommonDestinationProps:
         return typing.cast(typing.Optional[typing.List["IDataProcessor"]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role associated with this destination.
 
         Assumed by Amazon Data Firehose to invoke processors and write to destinations
@@ -10261,7 +10255,7 @@ class CommonDestinationProps:
         :default: - a role will be created with default permissions.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def s3_backup(self) -> typing.Optional["DestinationS3BackupProps"]:
@@ -10300,11 +10294,11 @@ class CommonDestinationS3Props:
     def __init__(
         self,
         *,
-        buffering_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffering_size: typing.Optional["_Size_7b441c34"] = None,
+        buffering_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffering_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["Compression"] = None,
         data_output_prefix: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         error_output_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Common properties for defining a backup, intermediary, or final S3 destination for a Amazon Data Firehose delivery stream.
@@ -10340,7 +10334,7 @@ class CommonDestinationS3Props:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e31b00e38ca06327867ea44e0a0f3d63eb65aaa770f96419cf713c515c231922)
+            type_hints = cached_type_hints(_typecheckingstub__e31b00e38ca06327867ea44e0a0f3d63eb65aaa770f96419cf713c515c231922)
             check_type(argname="argument buffering_interval", value=buffering_interval, expected_type=type_hints["buffering_interval"])
             check_type(argname="argument buffering_size", value=buffering_size, expected_type=type_hints["buffering_size"])
             check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
@@ -10362,7 +10356,7 @@ class CommonDestinationS3Props:
             self._values["error_output_prefix"] = error_output_prefix
 
     @builtins.property
-    def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def buffering_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
         Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
@@ -10371,10 +10365,10 @@ class CommonDestinationS3Props:
         :default: Duration.seconds(300)
         '''
         result = self._values.get("buffering_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def buffering_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
         Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
@@ -10383,7 +10377,7 @@ class CommonDestinationS3Props:
         :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def compression(self) -> typing.Optional["Compression"]:
@@ -10412,13 +10406,13 @@ class CommonDestinationS3Props:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket.
 
         :default: - Data is not encrypted.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -10474,7 +10468,7 @@ class Compression(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e41ad5beb7c57e7d6a51a6e7b54af84f87429433140b71bcff2768d479fc24c)
+            type_hints = cached_type_hints(_typecheckingstub__4e41ad5beb7c57e7d6a51a6e7b54af84f87429433140b71bcff2768d479fc24c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Compression", jsii.sinvoke(cls, "of", [value]))
 
@@ -10558,7 +10552,7 @@ class DataFormatConversionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bff90bf1ac37687c050bd1dbbc7970543cf96f46bffc7e9b92aa180e16446a3e)
+            type_hints = cached_type_hints(_typecheckingstub__bff90bf1ac37687c050bd1dbbc7970543cf96f46bffc7e9b92aa180e16446a3e)
             check_type(argname="argument input_format", value=input_format, expected_type=type_hints["input_format"])
             check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
             check_type(argname="argument schema_configuration", value=schema_configuration, expected_type=type_hints["schema_configuration"])
@@ -10626,7 +10620,7 @@ class DataProcessorBindOptions:
     def __init__(
         self,
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -10656,7 +10650,7 @@ class DataProcessorBindOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19eda2faa3921fd664688bb9d58a7766cede4c60f2944654651ac8a298dad52e)
+            type_hints = cached_type_hints(_typecheckingstub__19eda2faa3921fd664688bb9d58a7766cede4c60f2944654651ac8a298dad52e)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument dynamic_partitioning_enabled", value=dynamic_partitioning_enabled, expected_type=type_hints["dynamic_partitioning_enabled"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
@@ -10669,11 +10663,11 @@ class DataProcessorBindOptions:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast("_IRole_235f5d8e", result)
+        return typing.cast("_aws_iam_1f54b5e8.IRole", result)
 
     @builtins.property
     def dynamic_partitioning_enabled(self) -> typing.Optional[builtins.bool]:
@@ -10754,7 +10748,7 @@ class DataProcessorConfig:
         if isinstance(processor_identifier, dict):
             processor_identifier = DataProcessorIdentifier(**processor_identifier)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d0329dec95ad7ff26b8989814c21e55edb2fa91a61a992ced2d01569d06f530)
+            type_hints = cached_type_hints(_typecheckingstub__1d0329dec95ad7ff26b8989814c21e55edb2fa91a61a992ced2d01569d06f530)
             check_type(argname="argument processor_identifier", value=processor_identifier, expected_type=type_hints["processor_identifier"])
             check_type(argname="argument processor_type", value=processor_type, expected_type=type_hints["processor_type"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -10840,7 +10834,7 @@ class DataProcessorIdentifier:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46d7f3bad270e22195a118b290c387efb2ff5c34792622c7ab288bdc3709ce43)
+            type_hints = cached_type_hints(_typecheckingstub__46d7f3bad270e22195a118b290c387efb2ff5c34792622c7ab288bdc3709ce43)
             check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
             check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10887,8 +10881,8 @@ class DataProcessorProps:
     def __init__(
         self,
         *,
-        buffer_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffer_size: typing.Optional["_Size_7b441c34"] = None,
+        buffer_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffer_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         retries: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Configure the LambdaFunctionProcessor.
@@ -10922,7 +10916,7 @@ class DataProcessorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__824567e49e82c5e0ed6a55fe92d29f1a69f55d0bfe50df023c1b00b9faeb44b3)
+            type_hints = cached_type_hints(_typecheckingstub__824567e49e82c5e0ed6a55fe92d29f1a69f55d0bfe50df023c1b00b9faeb44b3)
             check_type(argname="argument buffer_interval", value=buffer_interval, expected_type=type_hints["buffer_interval"])
             check_type(argname="argument buffer_size", value=buffer_size, expected_type=type_hints["buffer_size"])
             check_type(argname="argument retries", value=retries, expected_type=type_hints["retries"])
@@ -10935,7 +10929,7 @@ class DataProcessorProps:
             self._values["retries"] = retries
 
     @builtins.property
-    def buffer_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def buffer_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time Amazon Data Firehose will buffer incoming data before calling the processor.
 
         s
@@ -10943,16 +10937,16 @@ class DataProcessorProps:
         :default: Duration.minutes(1)
         '''
         result = self._values.get("buffer_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def buffer_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def buffer_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The amount of incoming data Amazon Data Firehose will buffer before calling the processor.
 
         :default: Size.mebibytes(3)
         '''
         result = self._values.get("buffer_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def retries(self) -> typing.Optional[jsii.Number]:
@@ -11003,7 +10997,7 @@ class DecompressionProcessorCompressionFormat(
         :param compression_format: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3ec50f5bb1061ad042391c7a0e6b79a631eb886ee85d65e276a31e398ffc1c2)
+            type_hints = cached_type_hints(_typecheckingstub__f3ec50f5bb1061ad042391c7a0e6b79a631eb886ee85d65e276a31e398ffc1c2)
             check_type(argname="argument compression_format", value=compression_format, expected_type=type_hints["compression_format"])
         return typing.cast("DecompressionProcessorCompressionFormat", jsii.sinvoke(cls, "of", [compression_format]))
 
@@ -11050,7 +11044,7 @@ class DecompressionProcessorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a8c21882cf286b5f96d6ce7798c16eea841da016022944f8d572356c0b66e63)
+            type_hints = cached_type_hints(_typecheckingstub__8a8c21882cf286b5f96d6ce7798c16eea841da016022944f8d572356c0b66e63)
             check_type(argname="argument compression_format", value=compression_format, expected_type=type_hints["compression_format"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if compression_format is not None:
@@ -11094,7 +11088,7 @@ class DeliveryStreamAttributes:
         *,
         delivery_stream_arn: typing.Optional[builtins.str] = None,
         delivery_stream_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''A full specification of a delivery stream that can be used to import it fluently into the CDK application.
 
@@ -11120,7 +11114,7 @@ class DeliveryStreamAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045ad458e5c2129dfab9cbc14581304a5f9f38f34ef8d143791a7e6ee60d651e)
+            type_hints = cached_type_hints(_typecheckingstub__045ad458e5c2129dfab9cbc14581304a5f9f38f34ef8d143791a7e6ee60d651e)
             check_type(argname="argument delivery_stream_arn", value=delivery_stream_arn, expected_type=type_hints["delivery_stream_arn"])
             check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -11155,7 +11149,7 @@ class DeliveryStreamAttributes:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role associated with this delivery stream.
 
         Assumed by Amazon Data Firehose to read from sources and encrypt data server-side.
@@ -11163,7 +11157,7 @@ class DeliveryStreamAttributes:
         :default: - the imported stream cannot be granted access to other resources as an ``iam.IGrantable``.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11201,25 +11195,25 @@ class DeliveryStreamGrants(
     @builtins.classmethod
     def from_delivery_stream(
         cls,
-        resource: "_IDeliveryStreamRef_678f5e53",
+        resource: "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef",
     ) -> "DeliveryStreamGrants":
         '''Creates grants for DeliveryStreamGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32ddc623c6c3aa08dd0aeb089ffef45a2403ab8f504c9c8b20868b2996cda90)
+            type_hints = cached_type_hints(_typecheckingstub__e32ddc623c6c3aa08dd0aeb089ffef45a2403ab8f504c9c8b20868b2996cda90)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("DeliveryStreamGrants", jsii.sinvoke(cls, "fromDeliveryStream", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -11227,28 +11221,31 @@ class DeliveryStreamGrants(
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a2625767)
+            type_hints = cached_type_hints(_typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a2625767)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="putRecords")
-    def put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def put_records(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the ``grantee`` identity permissions to perform ``actions``.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa345bb640d0870a907b276f1424fd4b22587d7238a01bbddaad6ab4852c4b45)
+            type_hints = cached_type_hints(_typecheckingstub__fa345bb640d0870a907b276f1424fd4b22587d7238a01bbddaad6ab4852c4b45)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "putRecords", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "putRecords", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IDeliveryStreamRef_678f5e53":
-        return typing.cast("_IDeliveryStreamRef_678f5e53", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef":
+        return typing.cast("_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -11269,7 +11266,7 @@ class DeliveryStreamProps:
         destination: "IDestination",
         delivery_stream_name: typing.Optional[builtins.str] = None,
         encryption: typing.Optional["StreamEncryption"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         source: typing.Optional["ISource"] = None,
     ) -> None:
         '''Properties for a new delivery stream.
@@ -11303,7 +11300,7 @@ class DeliveryStreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acb39dfe9c8b47016ad51340ebf8bd9df44f24a25df01acaec0605788a0a5b85)
+            type_hints = cached_type_hints(_typecheckingstub__acb39dfe9c8b47016ad51340ebf8bd9df44f24a25df01acaec0605788a0a5b85)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
@@ -11347,7 +11344,7 @@ class DeliveryStreamProps:
         return typing.cast(typing.Optional["StreamEncryption"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role associated with this delivery stream.
 
         Assumed by Amazon Data Firehose to read from sources and encrypt data server-side.
@@ -11355,7 +11352,7 @@ class DeliveryStreamProps:
         :default: - a role will be created with default permissions.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def source(self) -> typing.Optional["ISource"]:
@@ -11567,7 +11564,7 @@ class DestinationConfig:
         if isinstance(extended_s3_destination_configuration, dict):
             extended_s3_destination_configuration = CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(**extended_s3_destination_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4dd310df912fa42818751c79c7d5fea4583bec8e28275de2a13e058f30cb19b)
+            type_hints = cached_type_hints(_typecheckingstub__c4dd310df912fa42818751c79c7d5fea4583bec8e28275de2a13e058f30cb19b)
             check_type(argname="argument dependables", value=dependables, expected_type=type_hints["dependables"])
             check_type(argname="argument extended_s3_destination_configuration", value=extended_s3_destination_configuration, expected_type=type_hints["extended_s3_destination_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11629,13 +11626,13 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
     def __init__(
         self,
         *,
-        buffering_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffering_size: typing.Optional["_Size_7b441c34"] = None,
+        buffering_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffering_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["Compression"] = None,
         data_output_prefix: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         error_output_prefix: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         logging_config: typing.Optional["ILoggingConfig"] = None,
         mode: typing.Optional["BackupMode"] = None,
     ) -> None:
@@ -11690,7 +11687,7 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14700eb876e8e0f20f42a3b1362e4b8cd4eb596f1fbaecf0e207a387e8e2247d)
+            type_hints = cached_type_hints(_typecheckingstub__14700eb876e8e0f20f42a3b1362e4b8cd4eb596f1fbaecf0e207a387e8e2247d)
             check_type(argname="argument buffering_interval", value=buffering_interval, expected_type=type_hints["buffering_interval"])
             check_type(argname="argument buffering_size", value=buffering_size, expected_type=type_hints["buffering_size"])
             check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
@@ -11721,7 +11718,7 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
             self._values["mode"] = mode
 
     @builtins.property
-    def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def buffering_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
         Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
@@ -11730,10 +11727,10 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
         :default: Duration.seconds(300)
         '''
         result = self._values.get("buffering_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def buffering_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
         Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
@@ -11742,7 +11739,7 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
         :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def compression(self) -> typing.Optional["Compression"]:
@@ -11771,13 +11768,13 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket.
 
         :default: - Data is not encrypted.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -11793,13 +11790,13 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''The S3 bucket that will store data and failed records.
 
         :default: - If ``mode`` is set to ``BackupMode.ALL`` or ``BackupMode.FAILED``, a bucket will be created for you.
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def logging_config(self) -> typing.Optional["ILoggingConfig"]:
@@ -11846,7 +11843,7 @@ class DynamicPartitioningProps:
         self,
         *,
         enabled: builtins.bool,
-        retry_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        retry_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Props for defining dynamic partitioning.
 
@@ -11868,7 +11865,7 @@ class DynamicPartitioningProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13de77728)
+            type_hints = cached_type_hints(_typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13de77728)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument retry_duration", value=retry_duration, expected_type=type_hints["retry_duration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11890,7 +11887,7 @@ class DynamicPartitioningProps:
         return typing.cast(builtins.bool, result)
 
     @builtins.property
-    def retry_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retry_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The total amount of time that Data Firehose spends on retries.
 
         Minimum: Duration.seconds(0)
@@ -11899,7 +11896,7 @@ class DynamicPartitioningProps:
         :default: Duration.seconds(300)
         '''
         result = self._values.get("retry_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11939,7 +11936,7 @@ class HiveJsonInputFormatProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0afd5b01612b3cc327b3c1600a9eb4aa5aaa6f3ee92bada98ae2a5d7e07bf664)
+            type_hints = cached_type_hints(_typecheckingstub__0afd5b01612b3cc327b3c1600a9eb4aa5aaa6f3ee92bada98ae2a5d7e07bf664)
             check_type(argname="argument timestamp_parsers", value=timestamp_parsers, expected_type=type_hints["timestamp_parsers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if timestamp_parsers is not None:
@@ -11986,7 +11983,7 @@ class IDataProcessor(typing_extensions.Protocol):
         self,
         scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -12019,7 +12016,7 @@ class _IDataProcessorProxy:
         self,
         scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -12034,7 +12031,7 @@ class _IDataProcessorProxy:
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486162c508)
+            type_hints = cached_type_hints(_typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486162c508)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = DataProcessorBindOptions(
             role=role,
@@ -12050,10 +12047,10 @@ typing.cast(typing.Any, IDataProcessor).__jsii_proxy_class__ = lambda : _IDataPr
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisfirehose.IDeliveryStream")
 class IDeliveryStream(
-    _IResource_c80c4260,
-    _IGrantable_71c4f5de,
-    _IConnectable_10015a05,
-    _IDeliveryStreamRef_678f5e53,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_1f54b5e8.IGrantable,
+    _aws_ec2_09840e12.IConnectable,
+    _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef,
     typing_extensions.Protocol,
 ):
     '''Represents an Amazon Data Firehose delivery stream.'''
@@ -12079,9 +12076,9 @@ class IDeliveryStream(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the ``grantee`` identity permissions to perform ``actions``.
 
         :param grantee: -
@@ -12090,7 +12087,10 @@ class IDeliveryStream(
         ...
 
     @jsii.member(jsii_name="grantPutRecords")
-    def grant_put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_put_records(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the ``grantee`` identity permissions to perform ``firehose:PutRecord`` and ``firehose:PutRecordBatch`` actions on this delivery stream.
 
         :param grantee: -
@@ -12107,14 +12107,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this delivery stream.
 
         :param metric_name: -
@@ -12142,14 +12142,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12178,14 +12178,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the age (from getting into Amazon Data Firehose to now) of the oldest record in Amazon Data Firehose.
 
         Any record older than this age has been delivered to the Amazon S3 bucket for backup.
@@ -12216,14 +12216,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12252,14 +12252,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12288,14 +12288,14 @@ class IDeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12317,10 +12317,10 @@ class IDeliveryStream(
 
 
 class _IDeliveryStreamProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IGrantable_71c4f5de), # type: ignore[misc]
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
-    jsii.proxy_for(_IDeliveryStreamRef_678f5e53), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
+    jsii.proxy_for(_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef), # type: ignore[misc]
 ):
     '''Represents an Amazon Data Firehose delivery stream.'''
 
@@ -12347,30 +12347,33 @@ class _IDeliveryStreamProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the ``grantee`` identity permissions to perform ``actions``.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2734269481cf10b40e22df40c033138f0b366868257b0867e62eb92924e9f879)
+            type_hints = cached_type_hints(_typecheckingstub__2734269481cf10b40e22df40c033138f0b366868257b0867e62eb92924e9f879)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPutRecords")
-    def grant_put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_put_records(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the ``grantee`` identity permissions to perform ``firehose:PutRecord`` and ``firehose:PutRecordBatch`` actions on this delivery stream.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__430b83a9ce03b133eb0ca75afb61f22cb3d6eac65aafcc08346ba35beea872c2)
+            type_hints = cached_type_hints(_typecheckingstub__430b83a9ce03b133eb0ca75afb61f22cb3d6eac65aafcc08346ba35beea872c2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPutRecords", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPutRecords", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -12382,14 +12385,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this delivery stream.
 
         :param metric_name: -
@@ -12407,9 +12410,9 @@ class _IDeliveryStreamProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25d98802194f172640833e51b398adf85ca294da7e2a4a6dfb45bfe99dfdb071)
+            type_hints = cached_type_hints(_typecheckingstub__25d98802194f172640833e51b398adf85ca294da7e2a4a6dfb45bfe99dfdb071)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12424,7 +12427,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricBackupToS3Bytes")
     def metric_backup_to_s3_bytes(
@@ -12435,14 +12438,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12460,7 +12463,7 @@ class _IDeliveryStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12475,7 +12478,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3Bytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3Bytes", [props]))
 
     @jsii.member(jsii_name="metricBackupToS3DataFreshness")
     def metric_backup_to_s3_data_freshness(
@@ -12486,14 +12489,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the age (from getting into Amazon Data Firehose to now) of the oldest record in Amazon Data Firehose.
 
         Any record older than this age has been delivered to the Amazon S3 bucket for backup.
@@ -12513,7 +12516,7 @@ class _IDeliveryStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12528,7 +12531,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3DataFreshness", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3DataFreshness", [props]))
 
     @jsii.member(jsii_name="metricBackupToS3Records")
     def metric_backup_to_s3_records(
@@ -12539,14 +12542,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12564,7 +12567,7 @@ class _IDeliveryStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12579,7 +12582,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3Records", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3Records", [props]))
 
     @jsii.member(jsii_name="metricIncomingBytes")
     def metric_incoming_bytes(
@@ -12590,14 +12593,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12615,7 +12618,7 @@ class _IDeliveryStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12630,7 +12633,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingBytes", [props]))
 
     @jsii.member(jsii_name="metricIncomingRecords")
     def metric_incoming_records(
@@ -12641,14 +12644,14 @@ class _IDeliveryStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -12666,7 +12669,7 @@ class _IDeliveryStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12681,7 +12684,7 @@ class _IDeliveryStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingRecords", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDeliveryStream).__jsii_proxy_class__ = lambda : _IDeliveryStreamProxy
@@ -12716,7 +12719,7 @@ class _IDestinationProxy:
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4557c076602017c3ae1d9a7de086acd858753a2681320e75c1151baf3ad8a77)
+            type_hints = cached_type_hints(_typecheckingstub__c4557c076602017c3ae1d9a7de086acd858753a2681320e75c1151baf3ad8a77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = DestinationBindOptions()
 
@@ -12773,7 +12776,7 @@ class ILoggingConfig(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="logGroup")
-    def log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''The CloudWatch log group where log streams will be created to hold error logs.
 
         :default: - if ``logging`` is set to ``true``, a log group will be created for you.
@@ -12801,12 +12804,12 @@ class _ILoggingConfigProxy:
 
     @builtins.property
     @jsii.member(jsii_name="logGroup")
-    def log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''The CloudWatch log group where log streams will be created to hold error logs.
 
         :default: - if ``logging`` is set to ``true``, a log group will be created for you.
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "logGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "logGroup"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ILoggingConfig).__jsii_proxy_class__ = lambda : _ILoggingConfigProxy
@@ -12845,7 +12848,10 @@ class ISource(typing_extensions.Protocol):
     '''An interface for defining a source that can be used in an Amazon Data Firehose delivery stream.'''
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this source resource and its contents to an IAM principal (the delivery stream).
 
         If an encryption key is used, permission to use the key to decrypt the
@@ -12862,7 +12868,10 @@ class _ISourceProxy:
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisfirehose.ISource"
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this source resource and its contents to an IAM principal (the delivery stream).
 
         If an encryption key is used, permission to use the key to decrypt the
@@ -12871,9 +12880,9 @@ class _ISourceProxy:
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31d061482330f398322aedbe7845244fe1c55607a37db88ea3629f702ba69b0)
+            type_hints = cached_type_hints(_typecheckingstub__d31d061482330f398322aedbe7845244fe1c55607a37db88ea3629f702ba69b0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISource).__jsii_proxy_class__ = lambda : _ISourceProxy
@@ -12942,7 +12951,7 @@ class JsonParsingEngine(
         :param parsing_engine: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbc0e18ccb3bbe1af8834dfb480f12cd81611aafdacd4a5739b7fa2ccc822cad)
+            type_hints = cached_type_hints(_typecheckingstub__fbc0e18ccb3bbe1af8834dfb480f12cd81611aafdacd4a5739b7fa2ccc822cad)
             check_type(argname="argument parsing_engine", value=parsing_engine, expected_type=type_hints["parsing_engine"])
         return typing.cast("JsonParsingEngine", jsii.sinvoke(cls, "of", [parsing_engine]))
 
@@ -12980,26 +12989,29 @@ class KinesisStreamSource(
         )
     '''
 
-    def __init__(self, stream: "_IStream_4e2457d2") -> None:
+    def __init__(self, stream: "_aws_kinesis_63e98bdf.IStream") -> None:
         '''Creates a new KinesisStreamSource.
 
         :param stream: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc95432da9a8005268f62059d26c76ff3244e1763c675e2cf288a4edbb0235a3)
+            type_hints = cached_type_hints(_typecheckingstub__fc95432da9a8005268f62059d26c76ff3244e1763c675e2cf288a4edbb0235a3)
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
         jsii.create(self.__class__, self, [stream])
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0139dd9374d65b09aeb2cc12f10df74ef6fb54d32d3dbfc129f0e7ca2d14423)
+            type_hints = cached_type_hints(_typecheckingstub__e0139dd9374d65b09aeb2cc12f10df74ef6fb54d32d3dbfc129f0e7ca2d14423)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
 
 @jsii.implements(IDataProcessor)
@@ -13036,10 +13048,10 @@ class LambdaFunctionProcessor(
 
     def __init__(
         self,
-        lambda_function: "_IFunction_6adb0ab8",
+        lambda_function: "_aws_lambda_b8f2f472.IFunction",
         *,
-        buffer_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffer_size: typing.Optional["_Size_7b441c34"] = None,
+        buffer_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffer_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         retries: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -13049,7 +13061,7 @@ class LambdaFunctionProcessor(
         :param retries: The number of times Amazon Data Firehose will retry the processor invocation after a failure due to network timeout or invocation limits. Default: 3
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9ef06af75a5f9424b9a83d955544e1a8c769bb828e54b77e5dcec4ddd0f9154)
+            type_hints = cached_type_hints(_typecheckingstub__c9ef06af75a5f9424b9a83d955544e1a8c769bb828e54b77e5dcec4ddd0f9154)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
         props = DataProcessorProps(
             buffer_interval=buffer_interval, buffer_size=buffer_size, retries=retries
@@ -13062,7 +13074,7 @@ class LambdaFunctionProcessor(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -13077,7 +13089,7 @@ class LambdaFunctionProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__393c41d8ae2fe5acab13fd70fff9f4778e727adfd78b86d20820f067071490de)
+            type_hints = cached_type_hints(_typecheckingstub__393c41d8ae2fe5acab13fd70fff9f4778e727adfd78b86d20820f067071490de)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         options = DataProcessorBindOptions(
             role=role,
@@ -13134,7 +13146,7 @@ class MetadataExtractionProcessor(
         :param keys: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d160d668518543129dfa1eccd5a78d24d24417f1bd9c83d9d34e0b097185765c)
+            type_hints = cached_type_hints(_typecheckingstub__d160d668518543129dfa1eccd5a78d24d24417f1bd9c83d9d34e0b097185765c)
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
         jsii.create(self.__class__, self, [options, keys])
@@ -13150,7 +13162,7 @@ class MetadataExtractionProcessor(
         :param query: A map of partition key to jq expression.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23cf3a8fc535750c1618ff85d72b8c1c07e0a2f125c9b45f031d215b377da8af)
+            type_hints = cached_type_hints(_typecheckingstub__23cf3a8fc535750c1618ff85d72b8c1c07e0a2f125c9b45f031d215b377da8af)
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
         return typing.cast("MetadataExtractionProcessor", jsii.sinvoke(cls, "jq16", [query]))
 
@@ -13159,7 +13171,7 @@ class MetadataExtractionProcessor(
         self,
         scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -13174,7 +13186,7 @@ class MetadataExtractionProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58a7361e49d6c30234b66b6f9d1c91eb5e840c46ca1d921c48f64e98b673f0b8)
+            type_hints = cached_type_hints(_typecheckingstub__58a7361e49d6c30234b66b6f9d1c91eb5e840c46ca1d921c48f64e98b673f0b8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = DataProcessorBindOptions(
             role=role,
@@ -13227,7 +13239,7 @@ class MetadataExtractionProcessorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5b764067d9fd57c2c1511065bb1685c54e736ad61793700c009e055123e004f)
+            type_hints = cached_type_hints(_typecheckingstub__d5b764067d9fd57c2c1511065bb1685c54e736ad61793700c009e055123e004f)
             check_type(argname="argument json_parsing_engine", value=json_parsing_engine, expected_type=type_hints["json_parsing_engine"])
             check_type(argname="argument metadata_extraction_query", value=metadata_extraction_query, expected_type=type_hints["metadata_extraction_query"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13349,7 +13361,7 @@ class OpenXJsonInputFormatProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf09507e4b7ba6abbfda17b454958c835099a4ff05786b47104813d50d0d5e6f)
+            type_hints = cached_type_hints(_typecheckingstub__bf09507e4b7ba6abbfda17b454958c835099a4ff05786b47104813d50d0d5e6f)
             check_type(argname="argument column_to_json_key_mappings", value=column_to_json_key_mappings, expected_type=type_hints["column_to_json_key_mappings"])
             check_type(argname="argument convert_dots_in_json_keys_to_underscores", value=convert_dots_in_json_keys_to_underscores, expected_type=type_hints["convert_dots_in_json_keys_to_underscores"])
             check_type(argname="argument lowercase_column_names", value=lowercase_column_names, expected_type=type_hints["lowercase_column_names"])
@@ -13443,7 +13455,7 @@ class OrcCompression(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02948bebe4c2930eed4c6124d0d7f279623b5812d4fe6983e8d186c02a4b2f5c)
+            type_hints = cached_type_hints(_typecheckingstub__02948bebe4c2930eed4c6124d0d7f279623b5812d4fe6983e8d186c02a4b2f5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("OrcCompression", jsii.sinvoke(cls, "of", [value]))
 
@@ -13530,7 +13542,7 @@ class OrcOutputFormat(
     def __init__(
         self,
         *,
-        block_size: typing.Optional["_Size_7b441c34"] = None,
+        block_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         bloom_filter_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
         bloom_filter_false_positive_probability: typing.Optional[jsii.Number] = None,
         compression: typing.Optional["OrcCompression"] = None,
@@ -13539,7 +13551,7 @@ class OrcOutputFormat(
         format_version: typing.Optional["OrcFormatVersion"] = None,
         padding_tolerance: typing.Optional[jsii.Number] = None,
         row_index_stride: typing.Optional[jsii.Number] = None,
-        stripe_size: typing.Optional["_Size_7b441c34"] = None,
+        stripe_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
     ) -> None:
         '''
         :param block_size: The Hadoop Distributed File System (HDFS) block size. This is useful if you intend to copy the data from Amazon S3 to HDFS before querying. Firehose uses this value for padding calculations. Default: ``Size.mebibytes(256)``
@@ -13602,7 +13614,7 @@ class OrcOutputFormatProps:
     def __init__(
         self,
         *,
-        block_size: typing.Optional["_Size_7b441c34"] = None,
+        block_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         bloom_filter_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
         bloom_filter_false_positive_probability: typing.Optional[jsii.Number] = None,
         compression: typing.Optional["OrcCompression"] = None,
@@ -13611,7 +13623,7 @@ class OrcOutputFormatProps:
         format_version: typing.Optional["OrcFormatVersion"] = None,
         padding_tolerance: typing.Optional[jsii.Number] = None,
         row_index_stride: typing.Optional[jsii.Number] = None,
-        stripe_size: typing.Optional["_Size_7b441c34"] = None,
+        stripe_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
     ) -> None:
         '''Props for ORC output format for data record format conversion.
 
@@ -13644,7 +13656,7 @@ class OrcOutputFormatProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23d7be2aebca47c4f726452fdac9d7e13c1d079ee9bbc0eb6bf735c5fa7d1ec6)
+            type_hints = cached_type_hints(_typecheckingstub__23d7be2aebca47c4f726452fdac9d7e13c1d079ee9bbc0eb6bf735c5fa7d1ec6)
             check_type(argname="argument block_size", value=block_size, expected_type=type_hints["block_size"])
             check_type(argname="argument bloom_filter_columns", value=bloom_filter_columns, expected_type=type_hints["bloom_filter_columns"])
             check_type(argname="argument bloom_filter_false_positive_probability", value=bloom_filter_false_positive_probability, expected_type=type_hints["bloom_filter_false_positive_probability"])
@@ -13678,7 +13690,7 @@ class OrcOutputFormatProps:
             self._values["stripe_size"] = stripe_size
 
     @builtins.property
-    def block_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def block_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The Hadoop Distributed File System (HDFS) block size.
 
         This is useful if you intend to copy the data from Amazon S3 to HDFS before querying.
@@ -13689,7 +13701,7 @@ class OrcOutputFormatProps:
         :minimum: ``Size.mebibytes(64)``
         '''
         result = self._values.get("block_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def bloom_filter_columns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13807,7 +13819,7 @@ class OrcOutputFormatProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def stripe_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def stripe_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The number of bytes in each stripe.
 
         The default is 64 MiB and the minimum is 8 MiB.
@@ -13818,7 +13830,7 @@ class OrcOutputFormatProps:
         :minimum: ``Size.mebibytes(8)``
         '''
         result = self._values.get("stripe_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13896,7 +13908,7 @@ class ParquetCompression(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61bd74ac3570328dbd418a538644f7198c553bd1d41a6ca4a6136f48d7cf4d50)
+            type_hints = cached_type_hints(_typecheckingstub__61bd74ac3570328dbd418a538644f7198c553bd1d41a6ca4a6136f48d7cf4d50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ParquetCompression", jsii.sinvoke(cls, "of", [value]))
 
@@ -13951,11 +13963,11 @@ class ParquetOutputFormat(
     def __init__(
         self,
         *,
-        block_size: typing.Optional["_Size_7b441c34"] = None,
+        block_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["ParquetCompression"] = None,
         enable_dictionary_compression: typing.Optional[builtins.bool] = None,
-        max_padding: typing.Optional["_Size_7b441c34"] = None,
-        page_size: typing.Optional["_Size_7b441c34"] = None,
+        max_padding: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+        page_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         writer_version: typing.Optional["ParquetWriterVersion"] = None,
     ) -> None:
         '''
@@ -14007,11 +14019,11 @@ class ParquetOutputFormatProps:
     def __init__(
         self,
         *,
-        block_size: typing.Optional["_Size_7b441c34"] = None,
+        block_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["ParquetCompression"] = None,
         enable_dictionary_compression: typing.Optional[builtins.bool] = None,
-        max_padding: typing.Optional["_Size_7b441c34"] = None,
-        page_size: typing.Optional["_Size_7b441c34"] = None,
+        max_padding: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+        page_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         writer_version: typing.Optional["ParquetWriterVersion"] = None,
     ) -> None:
         '''Props for Parquet output format for data record format conversion.
@@ -14037,7 +14049,7 @@ class ParquetOutputFormatProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30f6620eefd956acc092d03fba63b6121a146d30b699581234817a52e1d9792b)
+            type_hints = cached_type_hints(_typecheckingstub__30f6620eefd956acc092d03fba63b6121a146d30b699581234817a52e1d9792b)
             check_type(argname="argument block_size", value=block_size, expected_type=type_hints["block_size"])
             check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
             check_type(argname="argument enable_dictionary_compression", value=enable_dictionary_compression, expected_type=type_hints["enable_dictionary_compression"])
@@ -14059,7 +14071,7 @@ class ParquetOutputFormatProps:
             self._values["writer_version"] = writer_version
 
     @builtins.property
-    def block_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def block_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The Hadoop Distributed File System (HDFS) block size.
 
         This is useful if you intend to copy the data from Amazon S3 to HDFS before querying.
@@ -14070,7 +14082,7 @@ class ParquetOutputFormatProps:
         :minimum: ``Size.mebibytes(64)``
         '''
         result = self._values.get("block_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def compression(self) -> typing.Optional["ParquetCompression"]:
@@ -14099,7 +14111,7 @@ class ParquetOutputFormatProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_padding(self) -> typing.Optional["_Size_7b441c34"]:
+    def max_padding(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The maximum amount of padding to apply.
 
         This is useful if you intend to copy the data from Amazon S3 to HDFS before querying.
@@ -14109,10 +14121,10 @@ class ParquetOutputFormatProps:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-parquetserde.html#cfn-kinesisfirehose-deliverystream-parquetserde-maxpaddingbytes
         '''
         result = self._values.get("max_padding")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
-    def page_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def page_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The Parquet page size.
 
         Column chunks are divided into pages. A page is conceptually an indivisible unit (in terms of compression and encoding). The minimum value is 64 KiB and the default is 1 MiB.
@@ -14123,7 +14135,7 @@ class ParquetOutputFormatProps:
         :minimum: ``Size.kibibytes(64)``
         '''
         result = self._values.get("page_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def writer_version(self) -> typing.Optional["ParquetWriterVersion"]:
@@ -14222,7 +14234,7 @@ class RecordDeAggregationProcessor(
         :param delimiter: The custom delimiter.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9627f8a6fa51b14e42f43498f024ec96778714b5783d6748b830a453e1ae91e8)
+            type_hints = cached_type_hints(_typecheckingstub__9627f8a6fa51b14e42f43498f024ec96778714b5783d6748b830a453e1ae91e8)
             check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
         return typing.cast("RecordDeAggregationProcessor", jsii.sinvoke(cls, "delimited", [delimiter]))
 
@@ -14237,7 +14249,7 @@ class RecordDeAggregationProcessor(
         self,
         scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -14252,7 +14264,7 @@ class RecordDeAggregationProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab54203ea0f22a31fe51e40c6761f902661ffb06f291f585e9cba0d9da7c6ac8)
+            type_hints = cached_type_hints(_typecheckingstub__ab54203ea0f22a31fe51e40c6761f902661ffb06f291f585e9cba0d9da7c6ac8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = DataProcessorBindOptions(
             role=role,
@@ -14302,7 +14314,7 @@ class RecordDeAggregationProcessorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__899cdce20901b7cfe3dede9f1c74400b78cfbfa83527367d1b0d6aee0d08fb8e)
+            type_hints = cached_type_hints(_typecheckingstub__899cdce20901b7cfe3dede9f1c74400b78cfbfa83527367d1b0d6aee0d08fb8e)
             check_type(argname="argument sub_record_type", value=sub_record_type, expected_type=type_hints["sub_record_type"])
             check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14373,22 +14385,22 @@ class S3Bucket(
 
     def __init__(
         self,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         *,
         data_format_conversion: typing.Optional[typing.Union["DataFormatConversionProps", typing.Dict[builtins.str, typing.Any]]] = None,
         dynamic_partitioning: typing.Optional[typing.Union["DynamicPartitioningProps", typing.Dict[builtins.str, typing.Any]]] = None,
         file_extension: typing.Optional[builtins.str] = None,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
-        buffering_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffering_size: typing.Optional["_Size_7b441c34"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
+        buffering_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffering_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["Compression"] = None,
         data_output_prefix: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         error_output_prefix: typing.Optional[builtins.str] = None,
         logging_config: typing.Optional["ILoggingConfig"] = None,
         processor: typing.Optional["IDataProcessor"] = None,
         processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -14410,7 +14422,7 @@ class S3Bucket(
         :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2eaf455255fc260033aa24d456779f4b21172e8b4cf2c51f6355f415c9f3ccd)
+            type_hints = cached_type_hints(_typecheckingstub__a2eaf455255fc260033aa24d456779f4b21172e8b4cf2c51f6355f415c9f3ccd)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         props = S3BucketProps(
             data_format_conversion=data_format_conversion,
@@ -14441,7 +14453,7 @@ class S3Bucket(
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3fdb21f9fe6d8dcaca6f65ba8cd1a376d43176607319802bd013001c8c5e9fd)
+            type_hints = cached_type_hints(_typecheckingstub__b3fdb21f9fe6d8dcaca6f65ba8cd1a376d43176607319802bd013001c8c5e9fd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         _options = DestinationBindOptions()
 
@@ -14473,21 +14485,21 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
     def __init__(
         self,
         *,
-        buffering_interval: typing.Optional["_Duration_4839e8c3"] = None,
-        buffering_size: typing.Optional["_Size_7b441c34"] = None,
+        buffering_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        buffering_size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         compression: typing.Optional["Compression"] = None,
         data_output_prefix: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         error_output_prefix: typing.Optional[builtins.str] = None,
         logging_config: typing.Optional["ILoggingConfig"] = None,
         processor: typing.Optional["IDataProcessor"] = None,
         processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
         data_format_conversion: typing.Optional[typing.Union["DataFormatConversionProps", typing.Dict[builtins.str, typing.Any]]] = None,
         dynamic_partitioning: typing.Optional[typing.Union["DynamicPartitioningProps", typing.Dict[builtins.str, typing.Any]]] = None,
         file_extension: typing.Optional[builtins.str] = None,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
     ) -> None:
         '''Props for defining an S3 destination of an Amazon Data Firehose delivery stream.
 
@@ -14536,7 +14548,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         if isinstance(dynamic_partitioning, dict):
             dynamic_partitioning = DynamicPartitioningProps(**dynamic_partitioning)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b529dcbfc9)
+            type_hints = cached_type_hints(_typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b529dcbfc9)
             check_type(argname="argument buffering_interval", value=buffering_interval, expected_type=type_hints["buffering_interval"])
             check_type(argname="argument buffering_size", value=buffering_size, expected_type=type_hints["buffering_size"])
             check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
@@ -14585,7 +14597,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             self._values["time_zone"] = time_zone
 
     @builtins.property
-    def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def buffering_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
         Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
@@ -14594,10 +14606,10 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :default: Duration.seconds(300)
         '''
         result = self._values.get("buffering_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
+    def buffering_size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
         Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
@@ -14606,7 +14618,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def compression(self) -> typing.Optional["Compression"]:
@@ -14635,13 +14647,13 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket.
 
         :default: - Data is not encrypted.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -14688,7 +14700,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         return typing.cast(typing.Optional[typing.List["IDataProcessor"]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role associated with this destination.
 
         Assumed by Amazon Data Firehose to invoke processors and write to destinations
@@ -14696,7 +14708,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :default: - a role will be created with default permissions.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def s3_backup(self) -> typing.Optional["DestinationS3BackupProps"]:
@@ -14745,7 +14757,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def time_zone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
+    def time_zone(self) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''The time zone you prefer.
 
         :default: - UTC
@@ -14753,7 +14765,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#timestamp-namespace
         '''
         result = self._values.get("time_zone")
-        return typing.cast(typing.Optional["_TimeZone_cdd72ac9"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.TimeZone"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14794,7 +14806,7 @@ class SchemaConfiguration(
     @builtins.classmethod
     def from_cfn_table(
         cls,
-        table: "_CfnTable_63ae0183",
+        table: "_aws_glue_9b41d3ff.CfnTable",
         *,
         region: typing.Optional[builtins.str] = None,
         version_id: typing.Optional[builtins.str] = None,
@@ -14806,7 +14818,7 @@ class SchemaConfiguration(
         :param version_id: Specifies the table version for the output data schema. if set to ``LATEST``, Firehose uses the most recent table version. This means that any updates to the table are automatically picked up. Default: ``LATEST``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16698efebf7812a619f54735d92a199e9f2be81de7b9a45a6b47a846ad97bb22)
+            type_hints = cached_type_hints(_typecheckingstub__16698efebf7812a619f54735d92a199e9f2be81de7b9a45a6b47a846ad97bb22)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
         props = SchemaConfigurationFromCfnTableProps(
             region=region, version_id=version_id
@@ -14819,7 +14831,7 @@ class SchemaConfiguration(
         self,
         scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
     ) -> "CfnDeliveryStream.SchemaConfigurationProperty":
         '''Binds this Schema to the Destination, adding the necessary permissions to the Destination role.
 
@@ -14827,7 +14839,7 @@ class SchemaConfiguration(
         :param role: The IAM Role that will be used by the Delivery Stream for access to the Glue data catalog for record format conversion.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa302f4f5dcb045545aee457a21bea52383c93a0b3a83d889ecd270cb21edc8d)
+            type_hints = cached_type_hints(_typecheckingstub__fa302f4f5dcb045545aee457a21bea52383c93a0b3a83d889ecd270cb21edc8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = SchemaConfigurationBindOptions(role=role)
 
@@ -14840,7 +14852,7 @@ class SchemaConfiguration(
     name_mapping={"role": "role"},
 )
 class SchemaConfigurationBindOptions:
-    def __init__(self, *, role: "_IRole_235f5d8e") -> None:
+    def __init__(self, *, role: "_aws_iam_1f54b5e8.IRole") -> None:
         '''Options when binding a SchemaConfig to a Destination.
 
         :param role: The IAM Role that will be used by the Delivery Stream for access to the Glue data catalog for record format conversion.
@@ -14861,18 +14873,18 @@ class SchemaConfigurationBindOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be38cc765d422319285e857e984a2a96aeac0bf84fc8ba50ca36f24ae4a656a6)
+            type_hints = cached_type_hints(_typecheckingstub__be38cc765d422319285e857e984a2a96aeac0bf84fc8ba50ca36f24ae4a656a6)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
         }
 
     @builtins.property
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The IAM Role that will be used by the Delivery Stream for access to the Glue data catalog for record format conversion.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast("_IRole_235f5d8e", result)
+        return typing.cast("_aws_iam_1f54b5e8.IRole", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14917,7 +14929,7 @@ class SchemaConfigurationFromCfnTableProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d59e8faea792bc8275a33e7b7ca4b7d0096136ba71d39758a60dc5f61140e8dd)
+            type_hints = cached_type_hints(_typecheckingstub__d59e8faea792bc8275a33e7b7ca4b7d0096136ba71d39758a60dc5f61140e8dd)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15001,14 +15013,14 @@ class StreamEncryption(
     @builtins.classmethod
     def customer_managed_key(
         cls,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
     ) -> "StreamEncryption":
         '''Configure server-side encryption using customer managed keys.
 
         :param encryption_key: the KMS key for the delivery stream.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efb44f4c68ce5ed338b1cadc1095db8f6b1ea6c2478ee68c07bb0fa95cecdf47)
+            type_hints = cached_type_hints(_typecheckingstub__efb44f4c68ce5ed338b1cadc1095db8f6b1ea6c2478ee68c07bb0fa95cecdf47)
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
         return typing.cast("StreamEncryption", jsii.sinvoke(cls, "customerManagedKey", [encryption_key]))
 
@@ -15026,9 +15038,9 @@ class StreamEncryption(
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS key used for customer managed encryption.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
 
 class _StreamEncryptionProxy(StreamEncryption):
@@ -15090,7 +15102,7 @@ class TimestampParser(
         :param format: the Joda Time format string.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9355b4b9cb75f1433155f9d39e32472e4f0342bd652e191a412203a56a7a082)
+            type_hints = cached_type_hints(_typecheckingstub__f9355b4b9cb75f1433155f9d39e32472e4f0342bd652e191a412203a56a7a082)
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
         return typing.cast("TimestampParser", jsii.sinvoke(cls, "fromFormatString", [format]))
 
@@ -15139,7 +15151,7 @@ class AppendDelimiterToRecordProcessor(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -15154,7 +15166,7 @@ class AppendDelimiterToRecordProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae58dba89)
+            type_hints = cached_type_hints(_typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae58dba89)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         _options = DataProcessorBindOptions(
             role=role,
@@ -15213,7 +15225,7 @@ class CloudWatchLogProcessor(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -15228,7 +15240,7 @@ class CloudWatchLogProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e09e92b28)
+            type_hints = cached_type_hints(_typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e09e92b28)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         _options = DataProcessorBindOptions(
             role=role,
@@ -15287,7 +15299,7 @@ class DecompressionProcessor(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
         *,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
@@ -15302,7 +15314,7 @@ class DecompressionProcessor(
         :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__540dc1015370159655052cf41379877e253b1c5232cbd06691963881d2880ffb)
+            type_hints = cached_type_hints(_typecheckingstub__540dc1015370159655052cf41379877e253b1c5232cbd06691963881d2880ffb)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         _options = DataProcessorBindOptions(
             role=role,
@@ -15321,7 +15333,7 @@ class DecompressionProcessor(
 
 @jsii.implements(IDeliveryStream)
 class DeliveryStream(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisfirehose.DeliveryStream",
 ):
@@ -15359,7 +15371,7 @@ class DeliveryStream(
         destination: "IDestination",
         delivery_stream_name: typing.Optional[builtins.str] = None,
         encryption: typing.Optional["StreamEncryption"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         source: typing.Optional["ISource"] = None,
     ) -> None:
         '''
@@ -15372,7 +15384,7 @@ class DeliveryStream(
         :param source: The Kinesis data stream to use as a source for this delivery stream. Default: - data must be written to the delivery stream via a direct put.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c5be371024241f9b37d47dc30b79a0d54ad9453eb90d21cc0f6c880f2e4fb91)
+            type_hints = cached_type_hints(_typecheckingstub__6c5be371024241f9b37d47dc30b79a0d54ad9453eb90d21cc0f6c880f2e4fb91)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DeliveryStreamProps(
@@ -15400,7 +15412,7 @@ class DeliveryStream(
         :param delivery_stream_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1ce0063f18826b4ee51e0d895cc5452b1439ff1e769a5b248178badffad6011)
+            type_hints = cached_type_hints(_typecheckingstub__b1ce0063f18826b4ee51e0d895cc5452b1439ff1e769a5b248178badffad6011)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument delivery_stream_arn", value=delivery_stream_arn, expected_type=type_hints["delivery_stream_arn"])
@@ -15415,7 +15427,7 @@ class DeliveryStream(
         *,
         delivery_stream_arn: typing.Optional[builtins.str] = None,
         delivery_stream_name: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "IDeliveryStream":
         '''Import an existing delivery stream from its attributes.
 
@@ -15426,7 +15438,7 @@ class DeliveryStream(
         :param role: The IAM role associated with this delivery stream. Assumed by Amazon Data Firehose to read from sources and encrypt data server-side. Default: - the imported stream cannot be granted access to other resources as an ``iam.IGrantable``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60d49cb1de4cae1a83d89ae7d419d2e7a17f1c8a25478897973ca006cf1f5066)
+            type_hints = cached_type_hints(_typecheckingstub__60d49cb1de4cae1a83d89ae7d419d2e7a17f1c8a25478897973ca006cf1f5066)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = DeliveryStreamAttributes(
@@ -15452,7 +15464,7 @@ class DeliveryStream(
         :param delivery_stream_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__457e8328a163250ba61b71d2ce676a68d801ac8467c715e8ba511357cb60c507)
+            type_hints = cached_type_hints(_typecheckingstub__457e8328a163250ba61b71d2ce676a68d801ac8467c715e8ba511357cb60c507)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
@@ -15461,22 +15473,25 @@ class DeliveryStream(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d29967317f0315691f87af41c6bab889af970cdd0860933427170179ccabb1b)
+            type_hints = cached_type_hints(_typecheckingstub__9d29967317f0315691f87af41c6bab889af970cdd0860933427170179ccabb1b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantPutRecords")
-    def grant_put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_put_records(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''The use of this method is discouraged. Please use ``grants.putRecords()`` instead.
 
         [disable-awslint:no-grants]
@@ -15484,9 +15499,9 @@ class DeliveryStream(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31fc61b3576a2a9576300f38d0cde9d0c42fcad47d437aa8ef160d5016007243)
+            type_hints = cached_type_hints(_typecheckingstub__31fc61b3576a2a9576300f38d0cde9d0c42fcad47d437aa8ef160d5016007243)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPutRecords", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPutRecords", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -15498,14 +15513,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this delivery stream.
 
         :param metric_name: -
@@ -15523,9 +15538,9 @@ class DeliveryStream(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86f3b1e63c4046b14a20d8f095529962a56cb82f03a0f9a310b5c1b707bc0f5f)
+            type_hints = cached_type_hints(_typecheckingstub__86f3b1e63c4046b14a20d8f095529962a56cb82f03a0f9a310b5c1b707bc0f5f)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15540,7 +15555,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricBackupToS3Bytes")
     def metric_backup_to_s3_bytes(
@@ -15551,14 +15566,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -15576,7 +15591,7 @@ class DeliveryStream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15591,7 +15606,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3Bytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3Bytes", [props]))
 
     @jsii.member(jsii_name="metricBackupToS3DataFreshness")
     def metric_backup_to_s3_data_freshness(
@@ -15602,14 +15617,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the age (from getting into Amazon Data Firehose to now) of the oldest record in Amazon Data Firehose.
 
         Any record older than this age has been delivered to the Amazon S3 bucket for backup.
@@ -15629,7 +15644,7 @@ class DeliveryStream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15644,7 +15659,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3DataFreshness", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3DataFreshness", [props]))
 
     @jsii.member(jsii_name="metricBackupToS3Records")
     def metric_backup_to_s3_records(
@@ -15655,14 +15670,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records delivered to Amazon S3 for backup over the specified time period.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -15680,7 +15695,7 @@ class DeliveryStream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15695,7 +15710,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricBackupToS3Records", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricBackupToS3Records", [props]))
 
     @jsii.member(jsii_name="metricIncomingBytes")
     def metric_incoming_bytes(
@@ -15706,14 +15721,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of bytes ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -15731,7 +15746,7 @@ class DeliveryStream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15746,7 +15761,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingBytes", [props]))
 
     @jsii.member(jsii_name="metricIncomingRecords")
     def metric_incoming_records(
@@ -15757,14 +15772,14 @@ class DeliveryStream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of records ingested successfully into the delivery stream over the specified time period after throttling.
 
         By default, this metric will be calculated as an average over a period of 5 minutes.
@@ -15782,7 +15797,7 @@ class DeliveryStream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15797,7 +15812,7 @@ class DeliveryStream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingRecords", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -15807,9 +15822,9 @@ class DeliveryStream(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Network connections between Amazon Data Firehose and other resources, i.e. Redshift cluster.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamArn")
@@ -15825,15 +15840,17 @@ class DeliveryStream(
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamRef")
-    def delivery_stream_ref(self) -> "_DeliveryStreamReference_9f72be94":
+    def delivery_stream_ref(
+        self,
+    ) -> "_aws_kinesisfirehose_0487cfc9.DeliveryStreamReference":
         '''A reference to a DeliveryStream resource.'''
-        return typing.cast("_DeliveryStreamReference_9f72be94", jsii.get(self, "deliveryStreamRef"))
+        return typing.cast("_aws_kinesisfirehose_0487cfc9.DeliveryStreamReference", jsii.get(self, "deliveryStreamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="grants")
@@ -15911,13 +15928,13 @@ class EnableLogging(
 
     def __init__(
         self,
-        log_group: typing.Optional["_ILogGroup_3c4fa718"] = None,
+        log_group: typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"] = None,
     ) -> None:
         '''
         :param log_group: The CloudWatch log group where log streams will be created to hold error logs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba11d69a3d91c8a6ba63c6ed55a7bbd149c317325863da3c41ebf373cf256b7c)
+            type_hints = cached_type_hints(_typecheckingstub__ba11d69a3d91c8a6ba63c6ed55a7bbd149c317325863da3c41ebf373cf256b7c)
             check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
         jsii.create(self.__class__, self, [log_group])
 
@@ -15932,9 +15949,9 @@ class EnableLogging(
 
     @builtins.property
     @jsii.member(jsii_name="logGroup")
-    def log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''The CloudWatch log group where log streams will be created to hold error logs.'''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "logGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "logGroup"))
 
 
 @jsii.implements(IInputFormat)
@@ -16056,30 +16073,30 @@ def _typecheckingstub__b3cd824a2680c7d043cac684bd1be9ca77e94201f1ba00785d60a50ff
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    amazonopensearchservice_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    database_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_stream_encryption_configuration_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_stream_name: typing.Optional[typing.Union[builtins.str, _IStreamRef_b484e253]] = None,
+    amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    amazonopensearchservice_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    database_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_stream_encryption_configuration_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_stream_name: typing.Optional[typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef]] = None,
     delivery_stream_type: typing.Optional[builtins.str] = None,
-    direct_put_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DirectPutSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    elasticsearch_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    extended_s3_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_endpoint_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_stream_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.KinesisStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    msk_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.MSKSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RedshiftDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    splunk_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SplunkDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    direct_put_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DirectPutSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elasticsearch_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    extended_s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_endpoint_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.KinesisStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    msk_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.MSKSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RedshiftDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    splunk_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SplunkDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__92d2e4c7b4d61086c8848ff7664a5d602580230deefd3781014745a487e357e3(
-    resource: _IDeliveryStreamRef_678f5e53,
+    resource: _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16107,7 +16124,7 @@ def _typecheckingstub__1a2c77ae20b52e1374216d80edbcd2176fd2fa1f7855bf638310a3e5c
     pass
 
 def _typecheckingstub__0f6206943f45cc34824996fe47b775be3c1a09cb74450254dfa716bc71a96a69(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16119,25 +16136,25 @@ def _typecheckingstub__822762453b1edc05d278fe4b56cb34de36a63cda89772b6624160f6ac
     pass
 
 def _typecheckingstub__9361f4405d0a8e9a0285d4b343c6420073eedc822c339d1a147f151a3b03f641(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__58964b8831d37cbba22a48328508a0d1fc866bb6da992a0c3f544fc6649acc5a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__671f3a3eb25ab7249d3b64fb9d1c6865a8a68b8a7b92841ab6890851853da1f5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.DatabaseSourceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.DatabaseSourceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3b541613844a306d329ee6aaf12a513672a01cea651f015810fd2ab896394415(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16155,73 +16172,73 @@ def _typecheckingstub__0749b7e1cb2e266044df272e646eba4d2505c56ccb68f4ce96de186ae
     pass
 
 def _typecheckingstub__0c2e3d41bd399b2de627c15c37d5d5a53d60ea55a256dc5f1b73146429dd1f24(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.DirectPutSourceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.DirectPutSourceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2485fd6e8467da83435abf801383e98fea4d4ae9797551e1774f2327e1b069c5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4b3827d67811452e6783eeef4d719d420c5534229b93597dbfafa7256a89932e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c45396814a2f1f16d85b99c121f14ab851eda0a9f84038025d5ae44a858837a1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__94c8f409ef0a75500e50bbf49d47688097508bd257b3ce092b027c552453cd59(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.IcebergDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.IcebergDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__025f54a26e52ce42f679eff3aa8b95a5fee2e0e5b3aba7c4320f9900690e60b9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.KinesisStreamSourceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.KinesisStreamSourceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5d05261de796c66b290d3bf9493dedca3a4f904726566b1e0d28cd6f7e525757(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.MSKSourceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.MSKSourceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9283febc90a4404b9eb41b227b6baf567d66cf4929f4f56dc67252a81e997f1f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.RedshiftDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.RedshiftDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb8b949ac7c9700a5ef03cddf3b3be451041166fe7583faee720a903b17ffd7c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.S3DestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.S3DestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4334e067c783ee048616b856f03ad5fb828c1a4c18bbdce130d9850ac2ce4034(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.SnowflakeDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.SnowflakeDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1143a0f5e018d10fdc1fff0bbcada0e3653e2264078be8b5a6441f6918b95c91(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeliveryStream.SplunkDestinationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeliveryStream.SplunkDestinationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b611aca673873100e4f1f1366dada7f80beaecdafd39582bd00fb48881dca276(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16238,14 +16255,14 @@ def _typecheckingstub__c09d95c569c785593bec028509479a3c62ff0333544fe7fb6ea165082
     *,
     index_name: builtins.str,
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     collection_endpoint: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16269,18 +16286,18 @@ def _typecheckingstub__fd4e3bfe32a6bde0a79abfda5de58ef25a59c29217c39eadcd363cb78
     *,
     index_name: builtins.str,
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonopensearchserviceBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_endpoint: typing.Optional[builtins.str] = None,
-    document_id_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DocumentIdOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    document_id_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DocumentIdOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
     index_rotation_period: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonopensearchserviceRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
     type_name: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16318,7 +16335,7 @@ def _typecheckingstub__92b3c1717fb66856049eddd62f0c12dbf945ae8d9450b716e7d065a04
 
 def _typecheckingstub__0992b1c8af7fd8e057904e94d1f683be6233929613125517587cd51de86aa4b5(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     log_group_name: typing.Optional[builtins.str] = None,
     log_stream_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -16336,10 +16353,10 @@ def _typecheckingstub__3ed6eb88a63ca5e75a449863a292b3dcd0cbfcd3127e73f575819aaf5
 
 def _typecheckingstub__d2fd0a4fb437e036bd2436bcfd397fa35f08aba48c5a25c4aac36dedb0d37e42(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    input_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.InputFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    output_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.OutputFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schema_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    input_format_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.InputFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_format_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.OutputFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schema_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16354,22 +16371,22 @@ def _typecheckingstub__111648b092f5dd75408d33db5fb1adea30dc7a8b58549cef95459f922
 
 def _typecheckingstub__cecf7807b45586be03c0bc76f8fcdf6ad93c6bd34a795d26aeaf365dd3d297c4(
     *,
-    secrets_manager_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    secrets_manager_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dfa32769046e99e73e35a8b5e878b72f25abcaa661bf955ff25e794601e2126d(
     *,
-    databases: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabasesProperty, typing.Dict[builtins.str, typing.Any]]],
-    database_source_authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    database_source_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    databases: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabasesProperty, typing.Dict[builtins.str, typing.Any]]],
+    database_source_authentication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseSourceAuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    database_source_vpc_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseSourceVPCConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     endpoint: builtins.str,
     port: jsii.Number,
     snapshot_watermark_table: builtins.str,
-    tables: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseTablesProperty, typing.Dict[builtins.str, typing.Any]]],
+    tables: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseTablesProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
-    columns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseColumnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    columns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseColumnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     digest: typing.Optional[builtins.str] = None,
     public_certificate: typing.Optional[builtins.str] = None,
     ssl_mode: typing.Optional[builtins.str] = None,
@@ -16411,8 +16428,8 @@ def _typecheckingstub__a51e3602fa39b19119cb43ff1945ccb136f7909bb7d76a42abc9195cb
 
 def _typecheckingstub__42c1d0a7a47a7fb87bd171a324b5d6ec1a60f675aa066d295f3a321445b0d566(
     *,
-    hive_json_ser_de: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HiveJsonSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_x_json_ser_de: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.OpenXJsonSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hive_json_ser_de: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HiveJsonSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_x_json_ser_de: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.OpenXJsonSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16421,7 +16438,7 @@ def _typecheckingstub__d9e156eb7fa7ea4dde332f5d2ef91909983b4fa7a5b5133510252f637
     *,
     destination_database_name: builtins.str,
     destination_table_name: builtins.str,
-    partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_error_output_prefix: typing.Optional[builtins.str] = None,
     unique_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -16444,8 +16461,8 @@ def _typecheckingstub__d76edd5ad2b58b9b0bbc3359143f6d89ce784d7ac50b34881cf657d80
 
 def _typecheckingstub__9cc891db4fb4eb3331e62299f82fedd4776288b7686ae851e51bfb6e44e55a52(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16462,18 +16479,18 @@ def _typecheckingstub__029a33c003279860929256e859d4ba1b8707f3f6569f11613c5f08ef4
     *,
     index_name: builtins.str,
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ElasticsearchBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ElasticsearchBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_endpoint: typing.Optional[builtins.str] = None,
-    document_id_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DocumentIdOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    document_id_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DocumentIdOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
     index_rotation_period: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ElasticsearchRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ElasticsearchRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
     type_name: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16487,7 +16504,7 @@ def _typecheckingstub__2556301b4eb1fbc8924ad4d41633add09219c34215bad4251ecd9506f
 
 def _typecheckingstub__4416718c6f0bcd460ac15d8467b60189a1b6ff006003483c5095802962acb534(
     *,
-    kms_encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.KMSEncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_encryption_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.KMSEncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     no_encryption_config: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16497,18 +16514,18 @@ def _typecheckingstub__7faa411782bea929613482f29819c6479d5ad2f4416ea558d510fb9fd
     *,
     bucket_arn: builtins.str,
     role_arn: builtins.str,
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compression_format: typing.Optional[builtins.str] = None,
     custom_time_zone: typing.Optional[builtins.str] = None,
-    data_format_conversion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DataFormatConversionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamic_partitioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DynamicPartitioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_format_conversion_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DataFormatConversionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamic_partitioning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DynamicPartitioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
     file_extension: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_backup_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16540,23 +16557,23 @@ def _typecheckingstub__b0aeaa2e754e3362456fea60de1849d85d4913483f2324b0f89480dc7
 
 def _typecheckingstub__6e8b3a25c8aa6cb1c905473fb8dd18a708e794918ae12a9a622993603b96ab8a(
     *,
-    endpoint_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HttpEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    request_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HttpEndpointRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HttpEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HttpEndpointRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    secrets_manager_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4a9efa4d9f485d918f70adc5823c0a1caf4894264ec785a00d5ef0879e3c1177(
     *,
-    common_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HttpEndpointCommonAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    common_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HttpEndpointCommonAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     content_encoding: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16564,25 +16581,25 @@ def _typecheckingstub__4a9efa4d9f485d918f70adc5823c0a1caf4894264ec785a00d5ef0879
 
 def _typecheckingstub__7cc5b65e233b52b72b153275ce8ced9f593e3385051386bed6920a574cf9f53d(
     *,
-    catalog_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    catalog_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CatalogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    append_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    destination_table_configuration_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DestinationTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    append_only: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_table_configuration_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DestinationTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    schema_evolution_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SchemaEvolutionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_creation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.TableCreationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schema_evolution_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SchemaEvolutionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_creation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.TableCreationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dce5223aa97132391790e172c7c143f8a4c8df67b3b09df48eb0b1dff486468b(
     *,
-    deserializer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DeserializerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deserializer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DeserializerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16604,7 +16621,7 @@ def _typecheckingstub__7ae1be427fa992bcfd551dc79aa5bba9af3c552f1661c763a814eb22e
 
 def _typecheckingstub__7b2563c2a3f195e01ffbb501ca4b7d501c1fb934c35f08b019e248300a348473(
     *,
-    authentication_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    authentication_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     msk_cluster_arn: builtins.str,
     topic_name: builtins.str,
     read_from_timestamp: typing.Optional[builtins.str] = None,
@@ -16614,9 +16631,9 @@ def _typecheckingstub__7b2563c2a3f195e01ffbb501ca4b7d501c1fb934c35f08b019e248300
 
 def _typecheckingstub__65dc173b1d3e5c449c2f9ee9f1727428f35f33407e71da72ecdc48c19f3fb78c(
     *,
-    case_insensitive: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    column_to_json_key_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    case_insensitive: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    column_to_json_key_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    convert_dots_in_json_keys_to_underscores: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16628,7 +16645,7 @@ def _typecheckingstub__8a6f3732f1d1f7da40207abc3f87e65bccadac8f31c2f54e16aa9b9d2
     bloom_filter_false_positive_probability: typing.Optional[jsii.Number] = None,
     compression: typing.Optional[builtins.str] = None,
     dictionary_key_threshold: typing.Optional[jsii.Number] = None,
-    enable_padding: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_padding: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     format_version: typing.Optional[builtins.str] = None,
     padding_tolerance: typing.Optional[jsii.Number] = None,
     row_index_stride: typing.Optional[jsii.Number] = None,
@@ -16639,7 +16656,7 @@ def _typecheckingstub__8a6f3732f1d1f7da40207abc3f87e65bccadac8f31c2f54e16aa9b9d2
 
 def _typecheckingstub__3fcba637de22c6790633f7c4fdbfafe0f3cf2fcd07e8753fb333222a3b7916c2(
     *,
-    serializer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SerializerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    serializer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SerializerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16648,7 +16665,7 @@ def _typecheckingstub__d5e42046b59e857630ade1e52237b3f99ec5d3fcea0cff6ee85255354
     *,
     block_size_bytes: typing.Optional[jsii.Number] = None,
     compression: typing.Optional[builtins.str] = None,
-    enable_dictionary_compression: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_dictionary_compression: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     max_padding_bytes: typing.Optional[jsii.Number] = None,
     page_size_bytes: typing.Optional[jsii.Number] = None,
     writer_version: typing.Optional[builtins.str] = None,
@@ -16665,15 +16682,15 @@ def _typecheckingstub__a839897ef0a46c7170de280f66ed4688ca42be1fcb75c29fba57bc1f6
 
 def _typecheckingstub__605b75f57047594e41cbdfa3a36b644835c149c59b7bc3649d482257f34c89b4(
     *,
-    identity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.PartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.PartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47d08fb3fe02427fce54795dba1288ad02d1fec20884867948eae460f986d43d(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    processors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    processors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16689,7 +16706,7 @@ def _typecheckingstub__29244e412176b0b05c7328e22087c12ec9670a06bdeda2a69994a3102
 def _typecheckingstub__69c6d7cb07c53f27959cf35e3f4436c85b60c102a9d091138cad44aec29a7fc3(
     *,
     type: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessorParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessorParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16697,16 +16714,16 @@ def _typecheckingstub__69c6d7cb07c53f27959cf35e3f4436c85b60c102a9d091138cad44aec
 def _typecheckingstub__a05dc5298788a3b9496bc2e383242a0570183c6703c04af2c5e991292f2c58fa(
     *,
     cluster_jdbcurl: builtins.str,
-    copy_command: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CopyCommandProperty, typing.Dict[builtins.str, typing.Any]]],
+    copy_command: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CopyCommandProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     password: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RedshiftRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RedshiftRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_backup_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    secrets_manager_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     username: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16730,10 +16747,10 @@ def _typecheckingstub__8569fcc15b3b4467365ecb9c23c43fe8704a4b9efea3337dfd60994da
     *,
     bucket_arn: builtins.str,
     role_arn: builtins.str,
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.BufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compression_format: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -16754,14 +16771,14 @@ def _typecheckingstub__c1389c57283b687c62069951b51187332947eeb24f5fcb8781af71c2b
 
 def _typecheckingstub__42267f168762343c22cce7785e160c133f9c7e7a8f4cb3e0888c940a1c3cb61d(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b935af4b7f540cbb6b063a9c37a906eaf8c3ed8781b19ea32e1836ca909b3dac(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     role_arn: typing.Optional[builtins.str] = None,
     secret_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -16770,8 +16787,8 @@ def _typecheckingstub__b935af4b7f540cbb6b063a9c37a906eaf8c3ed8781b19ea32e1836ca9
 
 def _typecheckingstub__706925197a1b663cd9be8234e85ce2780b58d7bf71737c801e0c393104407464(
     *,
-    orc_ser_de: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.OrcSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parquet_ser_de: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ParquetSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    orc_ser_de: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.OrcSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parquet_ser_de: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ParquetSerDeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16789,22 +16806,22 @@ def _typecheckingstub__9743b3910a7f4b6edd05f7d4a76aa45c5a9f674a473fcf4c8c046e1d8
     account_url: builtins.str,
     database: builtins.str,
     role_arn: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     schema: builtins.str,
     table: builtins.str,
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     content_column_name: typing.Optional[builtins.str] = None,
     data_loading_option: typing.Optional[builtins.str] = None,
     key_passphrase: typing.Optional[builtins.str] = None,
     meta_data_column_name: typing.Optional[builtins.str] = None,
     private_key: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    secrets_manager_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake_role_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeRoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake_vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake_role_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeRoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake_vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     user: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16819,7 +16836,7 @@ def _typecheckingstub__b7d919c23da3109305810f31f91a7020b20f997fbd66a87a4b4dfe122
 
 def _typecheckingstub__867673ab46f448fd1867f3b74172d4939969188f736abc7f1c5c26682419368b(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     snowflake_role: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16844,15 +16861,15 @@ def _typecheckingstub__be9923ea7818bcdc567ae6e06b529c44c6a3c42b59af06768977f4c55
     *,
     hec_endpoint: builtins.str,
     hec_endpoint_type: builtins.str,
-    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    buffering_hints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SplunkBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_logging_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    buffering_hints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SplunkBufferingHintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logging_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.CloudWatchLoggingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hec_acknowledgment_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     hec_token: typing.Optional[builtins.str] = None,
-    processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SplunkRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SplunkRetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
-    secrets_manager_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SecretsManagerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16866,7 +16883,7 @@ def _typecheckingstub__5c5cbe7244c68f12454d07974a4cae50f1d208afdbc3a96f1e2ada11e
 
 def _typecheckingstub__ac9314efc3754736d60b5e8780b56333aa2816ec35cd3e5ede526a3656454369(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16882,24 +16899,24 @@ def _typecheckingstub__3ecd7f59955db0312a31e14fafedff3746c1d169b6a24f2985f6a096a
 
 def _typecheckingstub__4f4e310bf0ff2c76f9c126ea4431fb25b9b53c8ba7e0c0eacc1c934debd05a95(
     *,
-    amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    amazonopensearchservice_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    database_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DatabaseSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_stream_encryption_configuration_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_stream_name: typing.Optional[typing.Union[builtins.str, _IStreamRef_b484e253]] = None,
+    amazon_open_search_serverless_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonOpenSearchServerlessDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    amazonopensearchservice_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.AmazonopensearchserviceDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    database_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DatabaseSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_stream_encryption_configuration_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DeliveryStreamEncryptionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_stream_name: typing.Optional[typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef]] = None,
     delivery_stream_type: typing.Optional[builtins.str] = None,
-    direct_put_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.DirectPutSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    elasticsearch_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    extended_s3_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_endpoint_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_stream_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.KinesisStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    msk_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.MSKSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RedshiftDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SnowflakeDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    splunk_destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SplunkDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    direct_put_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.DirectPutSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elasticsearch_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ElasticsearchDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    extended_s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_endpoint_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.IcebergDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.KinesisStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    msk_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.MSKSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.RedshiftDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SnowflakeDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    splunk_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeliveryStream.SplunkDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16916,7 +16933,7 @@ def _typecheckingstub__2c67ac54054be7496dcf923fd4756691ef492acee6f8731020e20179b
     logging_config: typing.Optional[ILoggingConfig] = None,
     processor: typing.Optional[IDataProcessor] = None,
     processors: typing.Optional[typing.Sequence[IDataProcessor]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16924,11 +16941,11 @@ def _typecheckingstub__2c67ac54054be7496dcf923fd4756691ef492acee6f8731020e20179b
 
 def _typecheckingstub__e31b00e38ca06327867ea44e0a0f3d63eb65aaa770f96419cf713c515c231922(
     *,
-    buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffering_size: typing.Optional[_Size_7b441c34] = None,
+    buffering_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffering_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     compression: typing.Optional[Compression] = None,
     data_output_prefix: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16952,7 +16969,7 @@ def _typecheckingstub__bff90bf1ac37687c050bd1dbbc7970543cf96f46bffc7e9b92aa180e1
 
 def _typecheckingstub__19eda2faa3921fd664688bb9d58a7766cede4c60f2944654651ac8a298dad52e(
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -16978,8 +16995,8 @@ def _typecheckingstub__46d7f3bad270e22195a118b290c387efb2ff5c34792622c7ab288bdc3
 
 def _typecheckingstub__824567e49e82c5e0ed6a55fe92d29f1a69f55d0bfe50df023c1b00b9faeb44b3(
     *,
-    buffer_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffer_size: typing.Optional[_Size_7b441c34] = None,
+    buffer_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffer_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     retries: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17002,19 +17019,19 @@ def _typecheckingstub__045ad458e5c2129dfab9cbc14581304a5f9f38f34ef8d143791a7e6ee
     *,
     delivery_stream_arn: typing.Optional[builtins.str] = None,
     delivery_stream_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e32ddc623c6c3aa08dd0aeb089ffef45a2403ab8f504c9c8b20868b2996cda90(
-    resource: _IDeliveryStreamRef_678f5e53,
+    resource: _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a2625767(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -17023,7 +17040,7 @@ def _typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a
     pass
 
 def _typecheckingstub__fa345bb640d0870a907b276f1424fd4b22587d7238a01bbddaad6ab4852c4b45(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17033,7 +17050,7 @@ def _typecheckingstub__acb39dfe9c8b47016ad51340ebf8bd9df44f24a25df01acaec0605788
     destination: IDestination,
     delivery_stream_name: typing.Optional[builtins.str] = None,
     encryption: typing.Optional[StreamEncryption] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     source: typing.Optional[ISource] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17049,13 +17066,13 @@ def _typecheckingstub__c4dd310df912fa42818751c79c7d5fea4583bec8e28275de2a13e058f
 
 def _typecheckingstub__14700eb876e8e0f20f42a3b1362e4b8cd4eb596f1fbaecf0e207a387e8e2247d(
     *,
-    buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffering_size: typing.Optional[_Size_7b441c34] = None,
+    buffering_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffering_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     compression: typing.Optional[Compression] = None,
     data_output_prefix: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     logging_config: typing.Optional[ILoggingConfig] = None,
     mode: typing.Optional[BackupMode] = None,
 ) -> None:
@@ -17065,7 +17082,7 @@ def _typecheckingstub__14700eb876e8e0f20f42a3b1362e4b8cd4eb596f1fbaecf0e207a387e
 def _typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13de77728(
     *,
     enabled: builtins.bool,
-    retry_duration: typing.Optional[_Duration_4839e8c3] = None,
+    retry_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17080,7 +17097,7 @@ def _typecheckingstub__0afd5b01612b3cc327b3c1600a9eb4aa5aaa6f3ee92bada98ae2a5d7e
 def _typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486162c508(
     scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17088,14 +17105,14 @@ def _typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486
     pass
 
 def _typecheckingstub__2734269481cf10b40e22df40c033138f0b366868257b0867e62eb92924e9f879(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__430b83a9ce03b133eb0ca75afb61f22cb3d6eac65aafcc08346ba35beea872c2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17108,12 +17125,12 @@ def _typecheckingstub__25d98802194f172640833e51b398adf85ca294da7e2a4a6dfb45bfe99
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17126,7 +17143,7 @@ def _typecheckingstub__c4557c076602017c3ae1d9a7de086acd858753a2681320e75c1151baf
     pass
 
 def _typecheckingstub__d31d061482330f398322aedbe7845244fe1c55607a37db88ea3629f702ba69b0(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17138,22 +17155,22 @@ def _typecheckingstub__fbc0e18ccb3bbe1af8834dfb480f12cd81611aafdacd4a5739b7fa2cc
     pass
 
 def _typecheckingstub__fc95432da9a8005268f62059d26c76ff3244e1763c675e2cf288a4edbb0235a3(
-    stream: _IStream_4e2457d2,
+    stream: _aws_kinesis_63e98bdf.IStream,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e0139dd9374d65b09aeb2cc12f10df74ef6fb54d32d3dbfc129f0e7ca2d14423(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c9ef06af75a5f9424b9a83d955544e1a8c769bb828e54b77e5dcec4ddd0f9154(
-    lambda_function: _IFunction_6adb0ab8,
+    lambda_function: _aws_lambda_b8f2f472.IFunction,
     *,
-    buffer_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffer_size: typing.Optional[_Size_7b441c34] = None,
+    buffer_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffer_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     retries: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17162,7 +17179,7 @@ def _typecheckingstub__c9ef06af75a5f9424b9a83d955544e1a8c769bb828e54b77e5dcec4dd
 def _typecheckingstub__393c41d8ae2fe5acab13fd70fff9f4778e727adfd78b86d20820f067071490de(
     _scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17185,7 +17202,7 @@ def _typecheckingstub__23cf3a8fc535750c1618ff85d72b8c1c07e0a2f125c9b45f031d215b3
 def _typecheckingstub__58a7361e49d6c30234b66b6f9d1c91eb5e840c46ca1d921c48f64e98b673f0b8(
     scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17217,7 +17234,7 @@ def _typecheckingstub__02948bebe4c2930eed4c6124d0d7f279623b5812d4fe6983e8d186c02
 
 def _typecheckingstub__23d7be2aebca47c4f726452fdac9d7e13c1d079ee9bbc0eb6bf735c5fa7d1ec6(
     *,
-    block_size: typing.Optional[_Size_7b441c34] = None,
+    block_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     bloom_filter_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
     bloom_filter_false_positive_probability: typing.Optional[jsii.Number] = None,
     compression: typing.Optional[OrcCompression] = None,
@@ -17226,7 +17243,7 @@ def _typecheckingstub__23d7be2aebca47c4f726452fdac9d7e13c1d079ee9bbc0eb6bf735c5f
     format_version: typing.Optional[OrcFormatVersion] = None,
     padding_tolerance: typing.Optional[jsii.Number] = None,
     row_index_stride: typing.Optional[jsii.Number] = None,
-    stripe_size: typing.Optional[_Size_7b441c34] = None,
+    stripe_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17239,11 +17256,11 @@ def _typecheckingstub__61bd74ac3570328dbd418a538644f7198c553bd1d41a6ca4a6136f48d
 
 def _typecheckingstub__30f6620eefd956acc092d03fba63b6121a146d30b699581234817a52e1d9792b(
     *,
-    block_size: typing.Optional[_Size_7b441c34] = None,
+    block_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     compression: typing.Optional[ParquetCompression] = None,
     enable_dictionary_compression: typing.Optional[builtins.bool] = None,
-    max_padding: typing.Optional[_Size_7b441c34] = None,
-    page_size: typing.Optional[_Size_7b441c34] = None,
+    max_padding: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
+    page_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     writer_version: typing.Optional[ParquetWriterVersion] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17258,7 +17275,7 @@ def _typecheckingstub__9627f8a6fa51b14e42f43498f024ec96778714b5783d6748b830a453e
 def _typecheckingstub__ab54203ea0f22a31fe51e40c6761f902661ffb06f291f585e9cba0d9da7c6ac8(
     scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17274,22 +17291,22 @@ def _typecheckingstub__899cdce20901b7cfe3dede9f1c74400b78cfbfa83527367d1b0d6aee0
     pass
 
 def _typecheckingstub__a2eaf455255fc260033aa24d456779f4b21172e8b4cf2c51f6355f415c9f3ccd(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     *,
     data_format_conversion: typing.Optional[typing.Union[DataFormatConversionProps, typing.Dict[builtins.str, typing.Any]]] = None,
     dynamic_partitioning: typing.Optional[typing.Union[DynamicPartitioningProps, typing.Dict[builtins.str, typing.Any]]] = None,
     file_extension: typing.Optional[builtins.str] = None,
-    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
-    buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffering_size: typing.Optional[_Size_7b441c34] = None,
+    time_zone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
+    buffering_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffering_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     compression: typing.Optional[Compression] = None,
     data_output_prefix: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
     logging_config: typing.Optional[ILoggingConfig] = None,
     processor: typing.Optional[IDataProcessor] = None,
     processors: typing.Optional[typing.Sequence[IDataProcessor]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17303,27 +17320,27 @@ def _typecheckingstub__b3fdb21f9fe6d8dcaca6f65ba8cd1a376d43176607319802bd013001c
 
 def _typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b529dcbfc9(
     *,
-    buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
-    buffering_size: typing.Optional[_Size_7b441c34] = None,
+    buffering_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    buffering_size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     compression: typing.Optional[Compression] = None,
     data_output_prefix: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     error_output_prefix: typing.Optional[builtins.str] = None,
     logging_config: typing.Optional[ILoggingConfig] = None,
     processor: typing.Optional[IDataProcessor] = None,
     processors: typing.Optional[typing.Sequence[IDataProcessor]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
     data_format_conversion: typing.Optional[typing.Union[DataFormatConversionProps, typing.Dict[builtins.str, typing.Any]]] = None,
     dynamic_partitioning: typing.Optional[typing.Union[DynamicPartitioningProps, typing.Dict[builtins.str, typing.Any]]] = None,
     file_extension: typing.Optional[builtins.str] = None,
-    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    time_zone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__16698efebf7812a619f54735d92a199e9f2be81de7b9a45a6b47a846ad97bb22(
-    table: _CfnTable_63ae0183,
+    table: _aws_glue_9b41d3ff.CfnTable,
     *,
     region: typing.Optional[builtins.str] = None,
     version_id: typing.Optional[builtins.str] = None,
@@ -17334,14 +17351,14 @@ def _typecheckingstub__16698efebf7812a619f54735d92a199e9f2be81de7b9a45a6b47a846a
 def _typecheckingstub__fa302f4f5dcb045545aee457a21bea52383c93a0b3a83d889ecd270cb21edc8d(
     scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__be38cc765d422319285e857e984a2a96aeac0bf84fc8ba50ca36f24ae4a656a6(
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17355,7 +17372,7 @@ def _typecheckingstub__d59e8faea792bc8275a33e7b7ca4b7d0096136ba71d39758a60dc5f61
     pass
 
 def _typecheckingstub__efb44f4c68ce5ed338b1cadc1095db8f6b1ea6c2478ee68c07bb0fa95cecdf47(
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17369,7 +17386,7 @@ def _typecheckingstub__f9355b4b9cb75f1433155f9d39e32472e4f0342bd652e191a412203a5
 def _typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae58dba89(
     _scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17379,7 +17396,7 @@ def _typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae
 def _typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e09e92b28(
     _scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17389,7 +17406,7 @@ def _typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e0
 def _typecheckingstub__540dc1015370159655052cf41379877e253b1c5232cbd06691963881d2880ffb(
     _scope: _constructs_77d1e7e8.Construct,
     *,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17403,7 +17420,7 @@ def _typecheckingstub__6c5be371024241f9b37d47dc30b79a0d54ad9453eb90d21cc0f6c880f
     destination: IDestination,
     delivery_stream_name: typing.Optional[builtins.str] = None,
     encryption: typing.Optional[StreamEncryption] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     source: typing.Optional[ISource] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17423,7 +17440,7 @@ def _typecheckingstub__60d49cb1de4cae1a83d89ae7d419d2e7a17f1c8a25478897973ca006c
     *,
     delivery_stream_arn: typing.Optional[builtins.str] = None,
     delivery_stream_name: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17437,14 +17454,14 @@ def _typecheckingstub__457e8328a163250ba61b71d2ce676a68d801ac8467c715e8ba511357c
     pass
 
 def _typecheckingstub__9d29967317f0315691f87af41c6bab889af970cdd0860933427170179ccabb1b(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31fc61b3576a2a9576300f38d0cde9d0c42fcad47d437aa8ef160d5016007243(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17457,19 +17474,19 @@ def _typecheckingstub__86f3b1e63c4046b14a20d8f095529962a56cb82f03a0f9a310b5c1b70
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ba11d69a3d91c8a6ba63c6ed55a7bbd149c317325863da3c41ebf373cf256b7c(
-    log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    log_group: typing.Optional[_aws_logs_ab8ef8ce.ILogGroup] = None,
 ) -> None:
     """Type checking stubs"""
     pass

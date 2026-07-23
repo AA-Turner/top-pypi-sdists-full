@@ -370,7 +370,7 @@ class CyclicalScheduler(ParamScheduler):
             self.cycle += 1
             self.end_value *= self.end_value_mult
 
-        return super(CyclicalScheduler, self).__call__(engine, name)
+        return super().__call__(engine, name)
 
     def _get_param(self) -> list[float] | float:
         """Applies warm-up if the scheduler is in the warm-up phase,
@@ -733,7 +733,7 @@ class ConcatScheduler(ParamScheduler):
                 a dictionary containing a whole state of ConcatScheduler
         """
 
-        state_dict = super(ConcatScheduler, self).state_dict()
+        state_dict = super().state_dict()
         state_dict["schedulers"] = []
         for s in self.schedulers:
             state_dict["schedulers"].append(s.state_dict())
@@ -761,7 +761,7 @@ class ConcatScheduler(ParamScheduler):
 
         for s, sd in zip(self.schedulers, sds):
             s.load_state_dict(sd)
-        super(ConcatScheduler, self).load_state_dict(state_dict)
+        super().load_state_dict(state_dict)
         self._current_scheduler = self.schedulers[self._scheduler_index]
 
     def _setup_scheduler(self) -> None:
@@ -999,7 +999,7 @@ class LRScheduler(ParamScheduler):
         self._state_attrs += ["lr_scheduler"]
 
     def __call__(self, engine: Engine | None, name: str | None = None) -> None:
-        super(LRScheduler, self).__call__(engine, name)
+        super().__call__(engine, name)
         self.lr_scheduler.last_epoch += 1
 
     def get_param(self) -> torch.Tensor | float | list[torch.Tensor | float]:  # type: ignore[override]
@@ -1126,6 +1126,34 @@ def create_lr_scheduler_with_warmup(
             0.09411...
             0.09223...
             0.09039...
+
+        The warm-up and post-warm-up schedulers can also be attached to different events by combining event filters.
+        For example, run the warm-up on iterations and the wrapped scheduler at the start of each later epoch:
+
+        .. code-block:: python
+
+            import torch
+            from ignite.engine import Engine, Events
+            from ignite.handlers import create_lr_scheduler_with_warmup
+            from torch.optim import SGD
+            from torch.optim.lr_scheduler import ExponentialLR
+
+            trainer = Engine(lambda engine, batch: None)
+            optimizer = SGD([torch.zeros(1, requires_grad=True)], lr=0.1)
+            torch_lr_scheduler = ExponentialLR(optimizer, gamma=0.5)
+            warmup_duration = 5
+            scheduler = create_lr_scheduler_with_warmup(
+                torch_lr_scheduler, warmup_start_value=0.0, warmup_duration=warmup_duration
+            )
+
+            epoch_length = 8
+            combined_events = Events.ITERATION_STARTED(
+                event_filter=lambda engine, event: event <= warmup_duration
+            )
+            combined_events |= Events.EPOCH_STARTED(
+                event_filter=lambda engine, event: event > 1 + warmup_duration / epoch_length
+            )
+            trainer.add_event_handler(combined_events, scheduler)
 
     .. versionadded:: 0.4.5
     """

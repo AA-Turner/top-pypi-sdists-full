@@ -165,6 +165,32 @@ AIRT_ATTRIBUTE_CONFIDENCE_ADVERSARIAL = f"{AIRT_NAMESPACE}.confidence_adversaria
 AIRT_ATTRIBUTE_INPUT_MODALITY = f"{AIRT_NAMESPACE}.input_modality"
 AIRT_ATTRIBUTE_PERTURBATION_BUDGET = f"{AIRT_NAMESPACE}.perturbation_budget"
 
+# Model-extraction attack attributes. Emitted on the summary span so ClickHouse
+# materializes them into Airt* columns for the platform's extraction dashboards.
+AIRT_ATTRIBUTE_QUERY_COUNT = f"{AIRT_NAMESPACE}.query_count"
+AIRT_ATTRIBUTE_QUERY_BUDGET = f"{AIRT_NAMESPACE}.query_budget"
+AIRT_ATTRIBUTE_SURROGATE_FIDELITY = f"{AIRT_NAMESPACE}.surrogate_fidelity"
+AIRT_ATTRIBUTE_SOFT_FIDELITY = f"{AIRT_NAMESPACE}.soft_fidelity"
+AIRT_ATTRIBUTE_SURROGATE_ACCURACY = f"{AIRT_NAMESPACE}.surrogate_accuracy"
+AIRT_ATTRIBUTE_AGREEMENT_RATE = f"{AIRT_NAMESPACE}.agreement_rate"
+AIRT_ATTRIBUTE_TRANSFER_SUCCESS = f"{AIRT_NAMESPACE}.transfer_success"
+AIRT_ATTRIBUTE_EXTRACTION_STRATEGY = f"{AIRT_NAMESPACE}.extraction_strategy"
+AIRT_ATTRIBUTE_SURROGATE_MODEL = f"{AIRT_NAMESPACE}.surrogate_model"
+
+# Membership-inference attack attributes.
+AIRT_ATTRIBUTE_MEMBERSHIP_AUC = f"{AIRT_NAMESPACE}.membership_auc"
+AIRT_ATTRIBUTE_MEMBERSHIP_TPR_AT_1FPR = f"{AIRT_NAMESPACE}.membership_tpr_at_1fpr"
+AIRT_ATTRIBUTE_MEMBERSHIP_TPR_AT_01FPR = f"{AIRT_NAMESPACE}.membership_tpr_at_01fpr"
+AIRT_ATTRIBUTE_MEMBERSHIP_ADVANTAGE = f"{AIRT_NAMESPACE}.membership_advantage"
+AIRT_ATTRIBUTE_MEMBERSHIP_BALANCED_ACC = f"{AIRT_NAMESPACE}.membership_balanced_acc"
+AIRT_ATTRIBUTE_RECORDS_REIDENTIFIED = f"{AIRT_NAMESPACE}.records_reidentified"
+AIRT_ATTRIBUTE_MEMBERSHIP_METHOD = f"{AIRT_NAMESPACE}.membership_method"
+
+# JSON-encoded array/curve payloads too large for scalar columns (per-class
+# fidelity/leakage, ROC/PR points, score distributions, fidelity-vs-budget series,
+# per-record leak table). Stored on the span, rolled into the finding's metrics_detail.
+AIRT_ATTRIBUTE_METRICS_DETAIL = f"{AIRT_NAMESPACE}.metrics_detail"
+
 # Multimodal message parts — JSON-serialized MessagePart[] for a trial's input and
 # output. Media parts carry a content-addressed artifact reference (sha256 oid), never
 # inline base64, so ClickHouse/Postgres stay lean and the UI resolves refs on demand.

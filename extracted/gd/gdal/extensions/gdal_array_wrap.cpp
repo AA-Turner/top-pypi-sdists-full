@@ -7322,7 +7322,7 @@ SWIGINTERN PyObject *_wrap_BandRasterIONumPy(PyObject *self, PyObject *args, PyO
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj10) || PyInt_Check(obj10) )
+      if ( PyLong_Check(obj10) )
       {
         if( PyLong_AsLong(obj10) == 0 )
         {
@@ -7544,7 +7544,7 @@ SWIGINTERN PyObject *_wrap_DatasetIONumPy(PyObject *self, PyObject *args, PyObje
       
       /* In some cases 0 is passed instead of None. */
       /* See https://github.com/OSGeo/gdal/pull/219 */
-      if ( PyLong_Check(obj10) || PyInt_Check(obj10) )
+      if ( PyLong_Check(obj10) )
       {
         if( PyLong_AsLong(obj10) == 0 )
         {

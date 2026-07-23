@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa7c03d4047d1de6fb7d7dfd6a3d42a3deb3e714298c85a7ec3518a8a8848abe)
+            type_hints = cached_type_hints(_typecheckingstub__aa7c03d4047d1de6fb7d7dfd6a3d42a3deb3e714298c85a7ec3518a8a8848abe)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "connection_arn": connection_arn,
@@ -88,7 +92,7 @@ class ConnectionReference:
 )
 class IConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connection.
@@ -108,7 +112,7 @@ class IConnectionRef(
 
 class _IConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connection.
 
@@ -135,7 +139,7 @@ typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnec
 )
 class IRepositoryLinkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RepositoryLink.
@@ -155,7 +159,7 @@ class IRepositoryLinkRef(
 
 class _IRepositoryLinkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RepositoryLink.
 
@@ -182,7 +186,7 @@ typing.cast(typing.Any, IRepositoryLinkRef).__jsii_proxy_class__ = lambda : _IRe
 )
 class ISyncConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SyncConfiguration.
@@ -202,7 +206,7 @@ class ISyncConfigurationRef(
 
 class _ISyncConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SyncConfiguration.
 
@@ -248,7 +252,7 @@ class RepositoryLinkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89e98e5aec86f800ef04bb639614932d787a843e687f0e7981d1344061d39296)
+            type_hints = cached_type_hints(_typecheckingstub__89e98e5aec86f800ef04bb639614932d787a843e687f0e7981d1344061d39296)
             check_type(argname="argument repository_link_arn", value=repository_link_arn, expected_type=type_hints["repository_link_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "repository_link_arn": repository_link_arn,
@@ -299,7 +303,7 @@ class SyncConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91ec744db8b409d3c8a8f342ffefea82b15b9987bbcbcc3219e875872693a9af)
+            type_hints = cached_type_hints(_typecheckingstub__91ec744db8b409d3c8a8f342ffefea82b15b9987bbcbcc3219e875872693a9af)
             check_type(argname="argument resource_name", value=resource_name, expected_type=type_hints["resource_name"])
             check_type(argname="argument sync_type", value=sync_type, expected_type=type_hints["sync_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

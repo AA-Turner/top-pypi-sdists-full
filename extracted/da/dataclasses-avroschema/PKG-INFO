@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dataclasses-avroschema
-Version: 0.70.1
+Version: 0.70.2
 Summary: Generate Avro Schemas from Python classes. Serialize/Deserialize python instances with avro schemas
 License: MIT
 License-File: LICENSE

@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,60 +50,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_directconnect import (
-    ConnectionReference as _ConnectionReference_8d8aa955,
-    DirectConnectGatewayAssociationReference as _DirectConnectGatewayAssociationReference_97734978,
-    DirectConnectGatewayReference as _DirectConnectGatewayReference_7dc2de35,
-    IConnectionRef as _IConnectionRef_63fe92b7,
-    IDirectConnectGatewayAssociationRef as _IDirectConnectGatewayAssociationRef_93a3b5e1,
-    IDirectConnectGatewayRef as _IDirectConnectGatewayRef_e4e09968,
-    ILagRef as _ILagRef_ad81be41,
-    IPrivateVirtualInterfaceRef as _IPrivateVirtualInterfaceRef_a98e61e0,
-    IPublicVirtualInterfaceRef as _IPublicVirtualInterfaceRef_0fd1f317,
-    ITransitVirtualInterfaceRef as _ITransitVirtualInterfaceRef_9c818912,
-    LagReference as _LagReference_ed9e2cd2,
-    PrivateVirtualInterfaceReference as _PrivateVirtualInterfaceReference_47831550,
-    PublicVirtualInterfaceReference as _PublicVirtualInterfaceReference_2cea0598,
-    TransitVirtualInterfaceReference as _TransitVirtualInterfaceReference_efcb62ac,
-)
-from ..interfaces.aws_ec2 import (
-    ITransitGatewayRef as _ITransitGatewayRef_1edffe36,
-    IVPNGatewayRef as _IVPNGatewayRef_54a7e8d1,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_directconnect as _aws_directconnect_0e7a20b8
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_directconnect_0e7a20b8 = _LazyImport("aws_cdk.interfaces.aws_directconnect")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionRef_63fe92b7, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnConnection",
 ):
@@ -142,10 +122,10 @@ class CfnConnection(
         bandwidth: builtins.str,
         connection_name: builtins.str,
         location: builtins.str,
-        lag_id: typing.Optional[typing.Union[builtins.str, "_ILagRef_ad81be41"]] = None,
+        lag_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.ILagRef"]] = None,
         provider_name: typing.Optional[builtins.str] = None,
-        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::Connection``.
 
@@ -160,7 +140,7 @@ class CfnConnection(
         :param tags: The tags associated with the connection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abd3e826047cb4f3add3b32f81e0f0d51a366c3420ae204b61e1322264552878)
+            type_hints = cached_type_hints(_typecheckingstub__abd3e826047cb4f3add3b32f81e0f0d51a366c3420ae204b61e1322264552878)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionProps(
@@ -177,12 +157,15 @@ class CfnConnection(
 
     @jsii.member(jsii_name="arnForConnection")
     @builtins.classmethod
-    def arn_for_connection(cls, resource: "_IConnectionRef_63fe92b7") -> builtins.str:
+    def arn_for_connection(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.IConnectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc811b42835421ce0b775a0ef448945f7612f6d663ec68f45052ffe146f739af)
+            type_hints = cached_type_hints(_typecheckingstub__dc811b42835421ce0b775a0ef448945f7612f6d663ec68f45052ffe146f739af)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
 
@@ -194,18 +177,18 @@ class CfnConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7bc74ef019927b96fcf4a1e828df49db6d129e277ce74ef8cd1337c04d2f59c)
+            type_hints = cached_type_hints(_typecheckingstub__a7bc74ef019927b96fcf4a1e828df49db6d129e277ce74ef8cd1337c04d2f59c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95e48f0564de8b818083771b3c0c5ac940302a8db9319c86e67ac3c1f6570673)
+            type_hints = cached_type_hints(_typecheckingstub__95e48f0564de8b818083771b3c0c5ac940302a8db9319c86e67ac3c1f6570673)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -218,7 +201,7 @@ class CfnConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb36ef03a603aeaadd087cc23147c9f72eac9aeb1d035e9db5bd9580f12bfa66)
+            type_hints = cached_type_hints(_typecheckingstub__fb36ef03a603aeaadd087cc23147c9f72eac9aeb1d035e9db5bd9580f12bfa66)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -257,9 +240,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -273,9 +256,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_8d8aa955":
+    def connection_ref(self) -> "_aws_directconnect_0e7a20b8.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_8d8aa955", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bandwidth")
@@ -286,7 +269,7 @@ class CfnConnection(
     @bandwidth.setter
     def bandwidth(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2e7f49b3a509e9eab2180d0340be2e045e35ecc946afee8ed2737c59d7453b1)
+            type_hints = cached_type_hints(_typecheckingstub__f2e7f49b3a509e9eab2180d0340be2e045e35ecc946afee8ed2737c59d7453b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bandwidth", value) # pyright: ignore[reportArgumentType]
 
@@ -299,7 +282,7 @@ class CfnConnection(
     @connection_name.setter
     def connection_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e216f63044a3047449997488350c6e2142da6557eb519bb3c3d2834d37b24f8)
+            type_hints = cached_type_hints(_typecheckingstub__3e216f63044a3047449997488350c6e2142da6557eb519bb3c3d2834d37b24f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -312,7 +295,7 @@ class CfnConnection(
     @location.setter
     def location(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfa87ce37b008a9d122d42e4d16dc3838265d4d9a856e01ad831b3f920cda236)
+            type_hints = cached_type_hints(_typecheckingstub__dfa87ce37b008a9d122d42e4d16dc3838265d4d9a856e01ad831b3f920cda236)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
 
@@ -324,7 +307,7 @@ class CfnConnection(
     @lag_id.setter
     def lag_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e57a138f92a6b26b88dbc27dcdec303c809669b1720f93a79992da39993d5ef)
+            type_hints = cached_type_hints(_typecheckingstub__2e57a138f92a6b26b88dbc27dcdec303c809669b1720f93a79992da39993d5ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lagId", value) # pyright: ignore[reportArgumentType]
 
@@ -337,7 +320,7 @@ class CfnConnection(
     @provider_name.setter
     def provider_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d9beed62c085a97aa40d6e0b1fe180bdffacdf695e658ae6d1d1f75ff104e2)
+            type_hints = cached_type_hints(_typecheckingstub__89d9beed62c085a97aa40d6e0b1fe180bdffacdf695e658ae6d1d1f75ff104e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
 
@@ -345,30 +328,33 @@ class CfnConnection(
     @jsii.member(jsii_name="requestMacSec")
     def request_mac_sec(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether you want the connection to support MAC Security (MACsec).'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "requestMacSec"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "requestMacSec"))
 
     @request_mac_sec.setter
     def request_mac_sec(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de3c51aad61f0509ee73f481eb3557b9d725aa29947a78539706e92a04e8a64d)
+            type_hints = cached_type_hints(_typecheckingstub__de3c51aad61f0509ee73f481eb3557b9d725aa29947a78539706e92a04e8a64d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requestMacSec", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the connection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f4754aee1d5c0403ec5b4b9c9456d81b46e0922c6cdca103190a7717871d0e3)
+            type_hints = cached_type_hints(_typecheckingstub__9f4754aee1d5c0403ec5b4b9c9456d81b46e0922c6cdca103190a7717871d0e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -393,10 +379,10 @@ class CfnConnectionProps:
         bandwidth: builtins.str,
         connection_name: builtins.str,
         location: builtins.str,
-        lag_id: typing.Optional[typing.Union[builtins.str, "_ILagRef_ad81be41"]] = None,
+        lag_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.ILagRef"]] = None,
         provider_name: typing.Optional[builtins.str] = None,
-        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnection``.
 
@@ -434,7 +420,7 @@ class CfnConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cef94b4040c7599de15de3fed0380cef62c508ee4f4bfb62a0e9bf146744d326)
+            type_hints = cached_type_hints(_typecheckingstub__cef94b4040c7599de15de3fed0380cef62c508ee4f4bfb62a0e9bf146744d326)
             check_type(argname="argument bandwidth", value=bandwidth, expected_type=type_hints["bandwidth"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
@@ -489,12 +475,12 @@ class CfnConnectionProps:
     @builtins.property
     def lag_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_ILagRef_ad81be41"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.ILagRef"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-connection.html#cfn-directconnect-connection-lagid
         '''
         result = self._values.get("lag_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ILagRef_ad81be41"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.ILagRef"]], result)
 
     @builtins.property
     def provider_name(self) -> typing.Optional[builtins.str]:
@@ -508,22 +494,22 @@ class CfnConnectionProps:
     @builtins.property
     def request_mac_sec(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether you want the connection to support MAC Security (MACsec).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-connection.html#cfn-directconnect-connection-requestmacsec
         '''
         result = self._values.get("request_mac_sec")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the connection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-connection.html#cfn-directconnect-connection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -537,9 +523,9 @@ class CfnConnectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDirectConnectGatewayRef_e4e09968, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDirectConnectGateway(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnDirectConnectGateway",
 ):
@@ -575,7 +561,7 @@ class CfnDirectConnectGateway(
         *,
         direct_connect_gateway_name: builtins.str,
         amazon_side_asn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::DirectConnectGateway``.
 
@@ -586,7 +572,7 @@ class CfnDirectConnectGateway(
         :param tags: The tags associated with the Direct Connect gateway.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1615be6a70d3256b8e774756f54d3b4cf912ec766378fb3e8ee821d12e361d8e)
+            type_hints = cached_type_hints(_typecheckingstub__1615be6a70d3256b8e774756f54d3b4cf912ec766378fb3e8ee821d12e361d8e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDirectConnectGatewayProps(
@@ -601,13 +587,13 @@ class CfnDirectConnectGateway(
     @builtins.classmethod
     def arn_for_direct_connect_gateway(
         cls,
-        resource: "_IDirectConnectGatewayRef_e4e09968",
+        resource: "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aeac989b64b6c9e654802d2150c0e71cc5703a83fce5dd0348ab697181c4885e)
+            type_hints = cached_type_hints(_typecheckingstub__aeac989b64b6c9e654802d2150c0e71cc5703a83fce5dd0348ab697181c4885e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDirectConnectGateway", [resource]))
 
@@ -619,18 +605,18 @@ class CfnDirectConnectGateway(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88bf54ee18195dc7a8967a7c425f0ba2d37c2a9bf16222bde5b4aef4c0c77585)
+            type_hints = cached_type_hints(_typecheckingstub__88bf54ee18195dc7a8967a7c425f0ba2d37c2a9bf16222bde5b4aef4c0c77585)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDirectConnectGateway", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6f4599f1ad70aac102c5ff274184d302d9a7af0a7037dc65d9493a7250a50ea)
+            type_hints = cached_type_hints(_typecheckingstub__f6f4599f1ad70aac102c5ff274184d302d9a7af0a7037dc65d9493a7250a50ea)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -643,7 +629,7 @@ class CfnDirectConnectGateway(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd4fe56d4dca103dacd6de6ee8157cc37d4830b5dea3b62dab0efdc2c8cfa8b8)
+            type_hints = cached_type_hints(_typecheckingstub__cd4fe56d4dca103dacd6de6ee8157cc37d4830b5dea3b62dab0efdc2c8cfa8b8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -673,9 +659,9 @@ class CfnDirectConnectGateway(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -689,9 +675,11 @@ class CfnDirectConnectGateway(
 
     @builtins.property
     @jsii.member(jsii_name="directConnectGatewayRef")
-    def direct_connect_gateway_ref(self) -> "_DirectConnectGatewayReference_7dc2de35":
+    def direct_connect_gateway_ref(
+        self,
+    ) -> "_aws_directconnect_0e7a20b8.DirectConnectGatewayReference":
         '''A reference to a DirectConnectGateway resource.'''
-        return typing.cast("_DirectConnectGatewayReference_7dc2de35", jsii.get(self, "directConnectGatewayRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.DirectConnectGatewayReference", jsii.get(self, "directConnectGatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="directConnectGatewayName")
@@ -702,7 +690,7 @@ class CfnDirectConnectGateway(
     @direct_connect_gateway_name.setter
     def direct_connect_gateway_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__119a3a401444a4f739c5d7eb958461baf9823a5be3f705cb331b7bd20f47a375)
+            type_hints = cached_type_hints(_typecheckingstub__119a3a401444a4f739c5d7eb958461baf9823a5be3f705cb331b7bd20f47a375)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directConnectGatewayName", value) # pyright: ignore[reportArgumentType]
 
@@ -715,27 +703,30 @@ class CfnDirectConnectGateway(
     @amazon_side_asn.setter
     def amazon_side_asn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa42fe7f405b6fa870f5aa740a26933b9d10caad6a489a5e6e143d06def0f4f5)
+            type_hints = cached_type_hints(_typecheckingstub__fa42fe7f405b6fa870f5aa740a26933b9d10caad6a489a5e6e143d06def0f4f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "amazonSideAsn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the Direct Connect gateway.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7218e90e3f0ec285cf01b746fdec827917118cd2f14ae196b858db1654c866c5)
+            type_hints = cached_type_hints(_typecheckingstub__7218e90e3f0ec285cf01b746fdec827917118cd2f14ae196b858db1654c866c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IDirectConnectGatewayAssociationRef_93a3b5e1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IDirectConnectGatewayAssociationRef)
 class CfnDirectConnectGatewayAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnDirectConnectGatewayAssociation",
 ):
@@ -766,8 +757,8 @@ class CfnDirectConnectGatewayAssociation(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        associated_gateway_id: typing.Union[builtins.str, "_ITransitGatewayRef_1edffe36", "_IVPNGatewayRef_54a7e8d1"],
-        direct_connect_gateway_id: typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"],
+        associated_gateway_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ITransitGatewayRef", "_aws_ec2_18162e09.IVPNGatewayRef"],
+        direct_connect_gateway_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"],
         accept_direct_connect_gateway_association_proposal_role_arn: typing.Optional[builtins.str] = None,
         allowed_prefixes_to_direct_connect_gateway: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -781,7 +772,7 @@ class CfnDirectConnectGatewayAssociation(
         :param allowed_prefixes_to_direct_connect_gateway: The Amazon VPC prefixes to advertise to the Direct Connect gateway. This parameter is required when you create an association to a transit gateway.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9610c3b37235aa2ee47e7088939e594786d6f4d5693f025059bad085a12dacf6)
+            type_hints = cached_type_hints(_typecheckingstub__9610c3b37235aa2ee47e7088939e594786d6f4d5693f025059bad085a12dacf6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDirectConnectGatewayAssociationProps(
@@ -801,18 +792,18 @@ class CfnDirectConnectGatewayAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d8e0743a98d958886293e96e4e1e2655dd0ec24bcf2d73ddb4d1ca9d0ee4bb0)
+            type_hints = cached_type_hints(_typecheckingstub__3d8e0743a98d958886293e96e4e1e2655dd0ec24bcf2d73ddb4d1ca9d0ee4bb0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDirectConnectGatewayAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f42fd8eed9bf77e08c4a0333fe356f95fb63414699ab51892384bd4c7cd8ff45)
+            type_hints = cached_type_hints(_typecheckingstub__f42fd8eed9bf77e08c4a0333fe356f95fb63414699ab51892384bd4c7cd8ff45)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -825,7 +816,7 @@ class CfnDirectConnectGatewayAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__545ac3d037192afa3e02747ab9d0f6b2516376105efeb0ee9599129bb7fc1bed)
+            type_hints = cached_type_hints(_typecheckingstub__545ac3d037192afa3e02747ab9d0f6b2516376105efeb0ee9599129bb7fc1bed)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -858,9 +849,9 @@ class CfnDirectConnectGatewayAssociation(
     @jsii.member(jsii_name="directConnectGatewayAssociationRef")
     def direct_connect_gateway_association_ref(
         self,
-    ) -> "_DirectConnectGatewayAssociationReference_97734978":
+    ) -> "_aws_directconnect_0e7a20b8.DirectConnectGatewayAssociationReference":
         '''A reference to a DirectConnectGatewayAssociation resource.'''
-        return typing.cast("_DirectConnectGatewayAssociationReference_97734978", jsii.get(self, "directConnectGatewayAssociationRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.DirectConnectGatewayAssociationReference", jsii.get(self, "directConnectGatewayAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="associatedGatewayId")
@@ -870,7 +861,7 @@ class CfnDirectConnectGatewayAssociation(
     @associated_gateway_id.setter
     def associated_gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad0ad4da945c7888b1cdc557eaad43a19712e50c70eb2a0a0b45721d129656ed)
+            type_hints = cached_type_hints(_typecheckingstub__ad0ad4da945c7888b1cdc557eaad43a19712e50c70eb2a0a0b45721d129656ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associatedGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -882,7 +873,7 @@ class CfnDirectConnectGatewayAssociation(
     @direct_connect_gateway_id.setter
     def direct_connect_gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b8ceca005e12409044ebdd46c4661d076dc807df321d7c42c9d057bd105450f)
+            type_hints = cached_type_hints(_typecheckingstub__4b8ceca005e12409044ebdd46c4661d076dc807df321d7c42c9d057bd105450f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directConnectGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -900,7 +891,7 @@ class CfnDirectConnectGatewayAssociation(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c17d25b54f1640987f5c7809c477911de8d79fda8aaa710471ce731c32844bc6)
+            type_hints = cached_type_hints(_typecheckingstub__c17d25b54f1640987f5c7809c477911de8d79fda8aaa710471ce731c32844bc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceptDirectConnectGatewayAssociationProposalRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -918,7 +909,7 @@ class CfnDirectConnectGatewayAssociation(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd1b070f48f63dd27940fbeb93f973d4627754096548f1aff97cef55c04d544e)
+            type_hints = cached_type_hints(_typecheckingstub__dd1b070f48f63dd27940fbeb93f973d4627754096548f1aff97cef55c04d544e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowedPrefixesToDirectConnectGateway", value) # pyright: ignore[reportArgumentType]
 
@@ -937,8 +928,8 @@ class CfnDirectConnectGatewayAssociationProps:
     def __init__(
         self,
         *,
-        associated_gateway_id: typing.Union[builtins.str, "_ITransitGatewayRef_1edffe36", "_IVPNGatewayRef_54a7e8d1"],
-        direct_connect_gateway_id: typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"],
+        associated_gateway_id: typing.Union[builtins.str, "_aws_ec2_18162e09.ITransitGatewayRef", "_aws_ec2_18162e09.IVPNGatewayRef"],
+        direct_connect_gateway_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"],
         accept_direct_connect_gateway_association_proposal_role_arn: typing.Optional[builtins.str] = None,
         allowed_prefixes_to_direct_connect_gateway: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -968,7 +959,7 @@ class CfnDirectConnectGatewayAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aba4d505c450c0c0634988995815ecbce3886430a251d53e2e1cea03d00e3dc)
+            type_hints = cached_type_hints(_typecheckingstub__7aba4d505c450c0c0634988995815ecbce3886430a251d53e2e1cea03d00e3dc)
             check_type(argname="argument associated_gateway_id", value=associated_gateway_id, expected_type=type_hints["associated_gateway_id"])
             check_type(argname="argument direct_connect_gateway_id", value=direct_connect_gateway_id, expected_type=type_hints["direct_connect_gateway_id"])
             check_type(argname="argument accept_direct_connect_gateway_association_proposal_role_arn", value=accept_direct_connect_gateway_association_proposal_role_arn, expected_type=type_hints["accept_direct_connect_gateway_association_proposal_role_arn"])
@@ -985,24 +976,24 @@ class CfnDirectConnectGatewayAssociationProps:
     @builtins.property
     def associated_gateway_id(
         self,
-    ) -> typing.Union[builtins.str, "_ITransitGatewayRef_1edffe36", "_IVPNGatewayRef_54a7e8d1"]:
+    ) -> typing.Union[builtins.str, "_aws_ec2_18162e09.ITransitGatewayRef", "_aws_ec2_18162e09.IVPNGatewayRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-directconnectgatewayassociation.html#cfn-directconnect-directconnectgatewayassociation-associatedgatewayid
         '''
         result = self._values.get("associated_gateway_id")
         assert result is not None, "Required property 'associated_gateway_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ITransitGatewayRef_1edffe36", "_IVPNGatewayRef_54a7e8d1"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.ITransitGatewayRef", "_aws_ec2_18162e09.IVPNGatewayRef"], result)
 
     @builtins.property
     def direct_connect_gateway_id(
         self,
-    ) -> typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]:
+    ) -> typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-directconnectgatewayassociation.html#cfn-directconnect-directconnectgatewayassociation-directconnectgatewayid
         '''
         result = self._values.get("direct_connect_gateway_id")
         assert result is not None, "Required property 'direct_connect_gateway_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"], result)
 
     @builtins.property
     def accept_direct_connect_gateway_association_proposal_role_arn(
@@ -1057,7 +1048,7 @@ class CfnDirectConnectGatewayProps:
         *,
         direct_connect_gateway_name: builtins.str,
         amazon_side_asn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDirectConnectGateway``.
 
@@ -1087,7 +1078,7 @@ class CfnDirectConnectGatewayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d12d0ef664e1585e49496cef753d3714e192674e47da7867d1068f7d108500ca)
+            type_hints = cached_type_hints(_typecheckingstub__d12d0ef664e1585e49496cef753d3714e192674e47da7867d1068f7d108500ca)
             check_type(argname="argument direct_connect_gateway_name", value=direct_connect_gateway_name, expected_type=type_hints["direct_connect_gateway_name"])
             check_type(argname="argument amazon_side_asn", value=amazon_side_asn, expected_type=type_hints["amazon_side_asn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1119,13 +1110,13 @@ class CfnDirectConnectGatewayProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the Direct Connect gateway.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-directconnectgateway.html#cfn-directconnect-directconnectgateway-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1139,9 +1130,9 @@ class CfnDirectConnectGatewayProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILagRef_ad81be41, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.ILagRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLag(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnLag",
 ):
@@ -1184,8 +1175,8 @@ class CfnLag(
         location: builtins.str,
         minimum_links: typing.Optional[jsii.Number] = None,
         provider_name: typing.Optional[builtins.str] = None,
-        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::Lag``.
 
@@ -1200,7 +1191,7 @@ class CfnLag(
         :param tags: The tags associated with the LAG.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71e07e1e973634e160c150954ce8d83214cd17c3957c56543bbea6f5fba0271d)
+            type_hints = cached_type_hints(_typecheckingstub__71e07e1e973634e160c150954ce8d83214cd17c3957c56543bbea6f5fba0271d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLagProps(
@@ -1217,12 +1208,15 @@ class CfnLag(
 
     @jsii.member(jsii_name="arnForLag")
     @builtins.classmethod
-    def arn_for_lag(cls, resource: "_ILagRef_ad81be41") -> builtins.str:
+    def arn_for_lag(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.ILagRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__242c81ea3f73ce5a36d840b7ee19805959188daeef9bd9b0f21a7bbfa1503479)
+            type_hints = cached_type_hints(_typecheckingstub__242c81ea3f73ce5a36d840b7ee19805959188daeef9bd9b0f21a7bbfa1503479)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLag", [resource]))
 
@@ -1234,18 +1228,18 @@ class CfnLag(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e303f0ea6e2eacc1eb30b7cd80a76514600efd466e569e9689059172d3ae1a67)
+            type_hints = cached_type_hints(_typecheckingstub__e303f0ea6e2eacc1eb30b7cd80a76514600efd466e569e9689059172d3ae1a67)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLag", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb555e87f0f441ba3fe669a7ab2dcc5af52aae255e46489e3ec68b236604d6fa)
+            type_hints = cached_type_hints(_typecheckingstub__eb555e87f0f441ba3fe669a7ab2dcc5af52aae255e46489e3ec68b236604d6fa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1258,7 +1252,7 @@ class CfnLag(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84cba34045079c5172b3e91cd8aabdce8e2c0e0fce48380ba3f8cf9546b0708b)
+            type_hints = cached_type_hints(_typecheckingstub__84cba34045079c5172b3e91cd8aabdce8e2c0e0fce48380ba3f8cf9546b0708b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1297,9 +1291,9 @@ class CfnLag(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1313,9 +1307,9 @@ class CfnLag(
 
     @builtins.property
     @jsii.member(jsii_name="lagRef")
-    def lag_ref(self) -> "_LagReference_ed9e2cd2":
+    def lag_ref(self) -> "_aws_directconnect_0e7a20b8.LagReference":
         '''A reference to a Lag resource.'''
-        return typing.cast("_LagReference_ed9e2cd2", jsii.get(self, "lagRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.LagReference", jsii.get(self, "lagRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionsBandwidth")
@@ -1326,7 +1320,7 @@ class CfnLag(
     @connections_bandwidth.setter
     def connections_bandwidth(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85cc7ef201d327e225d81d2d9169b5d4ad43aba6d15ef11cf93a48722a6bef4f)
+            type_hints = cached_type_hints(_typecheckingstub__85cc7ef201d327e225d81d2d9169b5d4ad43aba6d15ef11cf93a48722a6bef4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionsBandwidth", value) # pyright: ignore[reportArgumentType]
 
@@ -1339,7 +1333,7 @@ class CfnLag(
     @lag_name.setter
     def lag_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e83119cc99194ef86f3183056b8345e95c8b2098dd6f9aa00c07f76cde76759b)
+            type_hints = cached_type_hints(_typecheckingstub__e83119cc99194ef86f3183056b8345e95c8b2098dd6f9aa00c07f76cde76759b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lagName", value) # pyright: ignore[reportArgumentType]
 
@@ -1352,7 +1346,7 @@ class CfnLag(
     @location.setter
     def location(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96fa230eaf764b1c8371fc8a545f8f8ef8cd02faf385e3185ab98b0deb6d55b8)
+            type_hints = cached_type_hints(_typecheckingstub__96fa230eaf764b1c8371fc8a545f8f8ef8cd02faf385e3185ab98b0deb6d55b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
 
@@ -1365,7 +1359,7 @@ class CfnLag(
     @minimum_links.setter
     def minimum_links(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4effe40bac9119e70c74b0ac4bff66dab2ee3fb0c76251442b20e20d2fe1ef0)
+            type_hints = cached_type_hints(_typecheckingstub__d4effe40bac9119e70c74b0ac4bff66dab2ee3fb0c76251442b20e20d2fe1ef0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minimumLinks", value) # pyright: ignore[reportArgumentType]
 
@@ -1378,7 +1372,7 @@ class CfnLag(
     @provider_name.setter
     def provider_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__376203ab16c44d6b6ecb9e3e4280481f8d0549cae91fc05930abcc70c5559687)
+            type_hints = cached_type_hints(_typecheckingstub__376203ab16c44d6b6ecb9e3e4280481f8d0549cae91fc05930abcc70c5559687)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
 
@@ -1386,30 +1380,33 @@ class CfnLag(
     @jsii.member(jsii_name="requestMacSec")
     def request_mac_sec(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether you want the LAG to support MAC Security (MACsec).'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "requestMacSec"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "requestMacSec"))
 
     @request_mac_sec.setter
     def request_mac_sec(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7a1a9dd628dda178fd7245c01d6d820f8da7ca508dde21a923653f06fea892c)
+            type_hints = cached_type_hints(_typecheckingstub__c7a1a9dd628dda178fd7245c01d6d820f8da7ca508dde21a923653f06fea892c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requestMacSec", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the LAG.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7643963ed557c0e7d5eecd7f6d06e89df6563dbbd74e8ea1599569cb94029c99)
+            type_hints = cached_type_hints(_typecheckingstub__7643963ed557c0e7d5eecd7f6d06e89df6563dbbd74e8ea1599569cb94029c99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1436,8 +1433,8 @@ class CfnLagProps:
         location: builtins.str,
         minimum_links: typing.Optional[jsii.Number] = None,
         provider_name: typing.Optional[builtins.str] = None,
-        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        request_mac_sec: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLag``.
 
@@ -1475,7 +1472,7 @@ class CfnLagProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76f90241fc45565e7dbde4fbc117ddc4d00c34343f0ae967573f7940b73137c8)
+            type_hints = cached_type_hints(_typecheckingstub__76f90241fc45565e7dbde4fbc117ddc4d00c34343f0ae967573f7940b73137c8)
             check_type(argname="argument connections_bandwidth", value=connections_bandwidth, expected_type=type_hints["connections_bandwidth"])
             check_type(argname="argument lag_name", value=lag_name, expected_type=type_hints["lag_name"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
@@ -1548,22 +1545,22 @@ class CfnLagProps:
     @builtins.property
     def request_mac_sec(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether you want the LAG to support MAC Security (MACsec).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-lag.html#cfn-directconnect-lag-requestmacsec
         '''
         result = self._values.get("request_mac_sec")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the LAG.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-lag.html#cfn-directconnect-lag-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1577,9 +1574,9 @@ class CfnLagProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPrivateVirtualInterfaceRef_a98e61e0, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IPrivateVirtualInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPrivateVirtualInterface(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnPrivateVirtualInterface",
 ):
@@ -1629,15 +1626,15 @@ class CfnPrivateVirtualInterface(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_private_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-        direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]] = None,
-        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]] = None,
+        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::PrivateVirtualInterface``.
@@ -1656,7 +1653,7 @@ class CfnPrivateVirtualInterface(
         :param virtual_gateway_id: The ID or ARN of the virtual private gateway.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b999bfd5ff244ca66e7bc7c8536b0b41cd03026156da31d75f5336483c8409d)
+            type_hints = cached_type_hints(_typecheckingstub__7b999bfd5ff244ca66e7bc7c8536b0b41cd03026156da31d75f5336483c8409d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPrivateVirtualInterfaceProps(
@@ -1674,6 +1671,41 @@ class CfnPrivateVirtualInterface(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPrivateVirtualInterface")
+    @builtins.classmethod
+    def arn_for_private_virtual_interface(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.IPrivateVirtualInterfaceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f7726f44f259435c3ea451ee918e33810a24479e53dca1c37662d938672fdec)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPrivateVirtualInterface", [resource]))
+
+    @jsii.member(jsii_name="fromVirtualInterfaceId")
+    @builtins.classmethod
+    def from_virtual_interface_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> "_aws_directconnect_0e7a20b8.IPrivateVirtualInterfaceRef":
+        '''Creates a new IPrivateVirtualInterfaceRef from a virtualInterfaceId.
+
+        :param scope: -
+        :param id: -
+        :param virtual_interface_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9b99b0221fdbb3adf3d12c4a440bd4c55fce378e4fd8e41402e7a51ad4dff595)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
+        return typing.cast("_aws_directconnect_0e7a20b8.IPrivateVirtualInterfaceRef", jsii.sinvoke(cls, "fromVirtualInterfaceId", [scope, id, virtual_interface_id]))
+
     @jsii.member(jsii_name="isCfnPrivateVirtualInterface")
     @builtins.classmethod
     def is_cfn_private_virtual_interface(cls, x: typing.Any) -> builtins.bool:
@@ -1682,18 +1714,18 @@ class CfnPrivateVirtualInterface(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00bf21163c98fc514b0d82eb2e086c4cb097a375ed76cadebcc4d31d674bee26)
+            type_hints = cached_type_hints(_typecheckingstub__00bf21163c98fc514b0d82eb2e086c4cb097a375ed76cadebcc4d31d674bee26)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrivateVirtualInterface", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38bfe59b40e5f2cc9fdded02a1abb9dc78bc269081f47ff7a63e690542bab683)
+            type_hints = cached_type_hints(_typecheckingstub__38bfe59b40e5f2cc9fdded02a1abb9dc78bc269081f47ff7a63e690542bab683)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1706,7 +1738,7 @@ class CfnPrivateVirtualInterface(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bd885e0ed5ef6e152ac48182fbc4fad5271712f4ab65bd18fefa214e4b3985f)
+            type_hints = cached_type_hints(_typecheckingstub__6bd885e0ed5ef6e152ac48182fbc4fad5271712f4ab65bd18fefa214e4b3985f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1736,9 +1768,9 @@ class CfnPrivateVirtualInterface(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1754,25 +1786,25 @@ class CfnPrivateVirtualInterface(
     @jsii.member(jsii_name="privateVirtualInterfaceRef")
     def private_virtual_interface_ref(
         self,
-    ) -> "_PrivateVirtualInterfaceReference_47831550":
+    ) -> "_aws_directconnect_0e7a20b8.PrivateVirtualInterfaceReference":
         '''A reference to a PrivateVirtualInterface resource.'''
-        return typing.cast("_PrivateVirtualInterfaceReference_47831550", jsii.get(self, "privateVirtualInterfaceRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.PrivateVirtualInterfaceReference", jsii.get(self, "privateVirtualInterfaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bgpPeers")
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrivateVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrivateVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
 
     @bgp_peers.setter
     def bgp_peers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrivateVirtualInterface.BgpPeerProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateVirtualInterface.BgpPeerProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a377f3dc38cfdfcfbb888a8194c187841a1ffdf0187a8b1a9fb7944019ca7650)
+            type_hints = cached_type_hints(_typecheckingstub__a377f3dc38cfdfcfbb888a8194c187841a1ffdf0187a8b1a9fb7944019ca7650)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bgpPeers", value) # pyright: ignore[reportArgumentType]
 
@@ -1784,7 +1816,7 @@ class CfnPrivateVirtualInterface(
     @connection_id.setter
     def connection_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41eecff3bb92985ba75103960b7f55da43a9af0be5f254c382fda4106f0f0550)
+            type_hints = cached_type_hints(_typecheckingstub__41eecff3bb92985ba75103960b7f55da43a9af0be5f254c382fda4106f0f0550)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionId", value) # pyright: ignore[reportArgumentType]
 
@@ -1797,7 +1829,7 @@ class CfnPrivateVirtualInterface(
     @virtual_interface_name.setter
     def virtual_interface_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af2652fdc0950ee77258f3161aacdeadf450794286361020dc461d4ee6a849b1)
+            type_hints = cached_type_hints(_typecheckingstub__af2652fdc0950ee77258f3161aacdeadf450794286361020dc461d4ee6a849b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "virtualInterfaceName", value) # pyright: ignore[reportArgumentType]
 
@@ -1810,7 +1842,7 @@ class CfnPrivateVirtualInterface(
     @vlan.setter
     def vlan(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7be0f3eb45e2d56a69509393435a0c9c889408be16f96dbb8151c115cdaaf32)
+            type_hints = cached_type_hints(_typecheckingstub__a7be0f3eb45e2d56a69509393435a0c9c889408be16f96dbb8151c115cdaaf32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vlan", value) # pyright: ignore[reportArgumentType]
 
@@ -1828,7 +1860,7 @@ class CfnPrivateVirtualInterface(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc2ac054c23a5452fce570bc81a80994c8e147459879c7de51393c0f63a16879)
+            type_hints = cached_type_hints(_typecheckingstub__dc2ac054c23a5452fce570bc81a80994c8e147459879c7de51393c0f63a16879)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allocatePrivateVirtualInterfaceRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1840,7 +1872,7 @@ class CfnPrivateVirtualInterface(
     @direct_connect_gateway_id.setter
     def direct_connect_gateway_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d78b40e3a07653fbdb507c846d981a976cbff848d1febdc2cc43309729bd4348)
+            type_hints = cached_type_hints(_typecheckingstub__d78b40e3a07653fbdb507c846d981a976cbff848d1febdc2cc43309729bd4348)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directConnectGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -1848,17 +1880,17 @@ class CfnPrivateVirtualInterface(
     @jsii.member(jsii_name="enableSiteLink")
     def enable_site_link(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable or disable SiteLink.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableSiteLink"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSiteLink"))
 
     @enable_site_link.setter
     def enable_site_link(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__901ddf3550f52d20f3db06493d53d33da7d865d1a2fa5e207ae907cb1cae6d8a)
+            type_hints = cached_type_hints(_typecheckingstub__901ddf3550f52d20f3db06493d53d33da7d865d1a2fa5e207ae907cb1cae6d8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableSiteLink", value) # pyright: ignore[reportArgumentType]
 
@@ -1871,20 +1903,23 @@ class CfnPrivateVirtualInterface(
     @mtu.setter
     def mtu(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed96ea2147f833a590e8cb859e1264fdc9a4fd816c38bdb7de360223dd7e2ad)
+            type_hints = cached_type_hints(_typecheckingstub__9ed96ea2147f833a590e8cb859e1264fdc9a4fd816c38bdb7de360223dd7e2ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mtu", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb6b73505c5342ad306f9886d5bff4e132c15676d4f2e45fcbe415b72ed035bb)
+            type_hints = cached_type_hints(_typecheckingstub__bb6b73505c5342ad306f9886d5bff4e132c15676d4f2e45fcbe415b72ed035bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1897,7 +1932,7 @@ class CfnPrivateVirtualInterface(
     @virtual_gateway_id.setter
     def virtual_gateway_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23f80a4087ac6f3310be4fb0275b69ad615c5d64db1d6f947c5a22a628b95a3a)
+            type_hints = cached_type_hints(_typecheckingstub__23f80a4087ac6f3310be4fb0275b69ad615c5d64db1d6f947c5a22a628b95a3a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "virtualGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -1954,7 +1989,7 @@ class CfnPrivateVirtualInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__497e11bdb89ebeb1deee774b538b67dcf4e0efe42bdbf5015631df088a809dac)
+                type_hints = cached_type_hints(_typecheckingstub__497e11bdb89ebeb1deee774b538b67dcf4e0efe42bdbf5015631df088a809dac)
                 check_type(argname="argument address_family", value=address_family, expected_type=type_hints["address_family"])
                 check_type(argname="argument asn", value=asn, expected_type=type_hints["asn"])
                 check_type(argname="argument amazon_address", value=amazon_address, expected_type=type_hints["amazon_address"])
@@ -2063,15 +2098,15 @@ class CfnPrivateVirtualInterfaceProps:
     def __init__(
         self,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_private_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-        direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]] = None,
-        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]] = None,
+        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPrivateVirtualInterface``.
@@ -2125,7 +2160,7 @@ class CfnPrivateVirtualInterfaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4235226dc710b191f689dc9cfba93959927dfea6356ec9f8e5e5a4a4924acec4)
+            type_hints = cached_type_hints(_typecheckingstub__4235226dc710b191f689dc9cfba93959927dfea6356ec9f8e5e5a4a4924acec4)
             check_type(argname="argument bgp_peers", value=bgp_peers, expected_type=type_hints["bgp_peers"])
             check_type(argname="argument connection_id", value=connection_id, expected_type=type_hints["connection_id"])
             check_type(argname="argument virtual_interface_name", value=virtual_interface_name, expected_type=type_hints["virtual_interface_name"])
@@ -2158,25 +2193,25 @@ class CfnPrivateVirtualInterfaceProps:
     @builtins.property
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrivateVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-bgppeers
         '''
         result = self._values.get("bgp_peers")
         assert result is not None, "Required property 'bgp_peers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrivateVirtualInterface.BgpPeerProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateVirtualInterface.BgpPeerProperty"]]], result)
 
     @builtins.property
     def connection_id(
         self,
-    ) -> typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"]:
+    ) -> typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-connectionid
         '''
         result = self._values.get("connection_id")
         assert result is not None, "Required property 'connection_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"], result)
 
     @builtins.property
     def virtual_interface_name(self) -> builtins.str:
@@ -2216,23 +2251,23 @@ class CfnPrivateVirtualInterfaceProps:
     @builtins.property
     def direct_connect_gateway_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-directconnectgatewayid
         '''
         result = self._values.get("direct_connect_gateway_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]], result)
 
     @builtins.property
     def enable_site_link(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable or disable SiteLink.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-enablesitelink
         '''
         result = self._values.get("enable_site_link")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def mtu(self) -> typing.Optional[jsii.Number]:
@@ -2246,13 +2281,13 @@ class CfnPrivateVirtualInterfaceProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-privatevirtualinterface.html#cfn-directconnect-privatevirtualinterface-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def virtual_gateway_id(self) -> typing.Optional[builtins.str]:
@@ -2275,9 +2310,9 @@ class CfnPrivateVirtualInterfaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPublicVirtualInterfaceRef_0fd1f317, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IPublicVirtualInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPublicVirtualInterface(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnPublicVirtualInterface",
 ):
@@ -2324,13 +2359,13 @@ class CfnPublicVirtualInterface(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
         route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::PublicVirtualInterface``.
 
@@ -2345,7 +2380,7 @@ class CfnPublicVirtualInterface(
         :param tags: The tags associated with the public virtual interface.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb624942469eb4c46619a6a53b66f8eefaefb7869b75206e9cc0f6ecfe9c4686)
+            type_hints = cached_type_hints(_typecheckingstub__fb624942469eb4c46619a6a53b66f8eefaefb7869b75206e9cc0f6ecfe9c4686)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPublicVirtualInterfaceProps(
@@ -2360,6 +2395,41 @@ class CfnPublicVirtualInterface(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPublicVirtualInterface")
+    @builtins.classmethod
+    def arn_for_public_virtual_interface(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.IPublicVirtualInterfaceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80932311019cd57a4238951047e066dabe431b032cf2e502ffea30f96d78fa67)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPublicVirtualInterface", [resource]))
+
+    @jsii.member(jsii_name="fromVirtualInterfaceId")
+    @builtins.classmethod
+    def from_virtual_interface_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> "_aws_directconnect_0e7a20b8.IPublicVirtualInterfaceRef":
+        '''Creates a new IPublicVirtualInterfaceRef from a virtualInterfaceId.
+
+        :param scope: -
+        :param id: -
+        :param virtual_interface_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a59fbccdae48c2b6bce3c9b0aa349791d1b19a45d1c57537c899799ec66a5cb2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
+        return typing.cast("_aws_directconnect_0e7a20b8.IPublicVirtualInterfaceRef", jsii.sinvoke(cls, "fromVirtualInterfaceId", [scope, id, virtual_interface_id]))
+
     @jsii.member(jsii_name="isCfnPublicVirtualInterface")
     @builtins.classmethod
     def is_cfn_public_virtual_interface(cls, x: typing.Any) -> builtins.bool:
@@ -2368,18 +2438,18 @@ class CfnPublicVirtualInterface(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39a0d3a556867f13de687ec0219611d8afed4ca5a46dde9755d8595545c79cda)
+            type_hints = cached_type_hints(_typecheckingstub__39a0d3a556867f13de687ec0219611d8afed4ca5a46dde9755d8595545c79cda)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPublicVirtualInterface", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f532504cdf995bfc683e973211df2172c108b3d15efe62bed7c5470f79849fb)
+            type_hints = cached_type_hints(_typecheckingstub__6f532504cdf995bfc683e973211df2172c108b3d15efe62bed7c5470f79849fb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2392,7 +2462,7 @@ class CfnPublicVirtualInterface(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1fee6b61972a50e0775b498e7174cbbbdca7dfdd9e3caa58b90de29b3bd661f)
+            type_hints = cached_type_hints(_typecheckingstub__f1fee6b61972a50e0775b498e7174cbbbdca7dfdd9e3caa58b90de29b3bd661f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2422,9 +2492,9 @@ class CfnPublicVirtualInterface(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2440,25 +2510,25 @@ class CfnPublicVirtualInterface(
     @jsii.member(jsii_name="publicVirtualInterfaceRef")
     def public_virtual_interface_ref(
         self,
-    ) -> "_PublicVirtualInterfaceReference_2cea0598":
+    ) -> "_aws_directconnect_0e7a20b8.PublicVirtualInterfaceReference":
         '''A reference to a PublicVirtualInterface resource.'''
-        return typing.cast("_PublicVirtualInterfaceReference_2cea0598", jsii.get(self, "publicVirtualInterfaceRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.PublicVirtualInterfaceReference", jsii.get(self, "publicVirtualInterfaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bgpPeers")
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPublicVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPublicVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
 
     @bgp_peers.setter
     def bgp_peers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPublicVirtualInterface.BgpPeerProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicVirtualInterface.BgpPeerProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f44cde981a81e7ffa5693c513087f99e0bb137b4e6cb13c5ad826be9dbdf109)
+            type_hints = cached_type_hints(_typecheckingstub__0f44cde981a81e7ffa5693c513087f99e0bb137b4e6cb13c5ad826be9dbdf109)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bgpPeers", value) # pyright: ignore[reportArgumentType]
 
@@ -2470,7 +2540,7 @@ class CfnPublicVirtualInterface(
     @connection_id.setter
     def connection_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d39b2e691dc81f2913cc829d97b4f3df45cd3685edd8e3cd9deddc45abdb4d)
+            type_hints = cached_type_hints(_typecheckingstub__48d39b2e691dc81f2913cc829d97b4f3df45cd3685edd8e3cd9deddc45abdb4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionId", value) # pyright: ignore[reportArgumentType]
 
@@ -2483,7 +2553,7 @@ class CfnPublicVirtualInterface(
     @virtual_interface_name.setter
     def virtual_interface_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f2a73cc5dc053ed58e9ac6baf4f2f62c72804fcf71ff3673a1c3a521109fb93)
+            type_hints = cached_type_hints(_typecheckingstub__4f2a73cc5dc053ed58e9ac6baf4f2f62c72804fcf71ff3673a1c3a521109fb93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "virtualInterfaceName", value) # pyright: ignore[reportArgumentType]
 
@@ -2496,7 +2566,7 @@ class CfnPublicVirtualInterface(
     @vlan.setter
     def vlan(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2b555240297573629e6980f8443995cc7ef32715fdc6a5278208d552fa7560a)
+            type_hints = cached_type_hints(_typecheckingstub__a2b555240297573629e6980f8443995cc7ef32715fdc6a5278208d552fa7560a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vlan", value) # pyright: ignore[reportArgumentType]
 
@@ -2514,7 +2584,7 @@ class CfnPublicVirtualInterface(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57043a41fced754517b9e33f9547d38de18424e15989706839ddcab948060ded)
+            type_hints = cached_type_hints(_typecheckingstub__57043a41fced754517b9e33f9547d38de18424e15989706839ddcab948060ded)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allocatePublicVirtualInterfaceRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2530,20 +2600,23 @@ class CfnPublicVirtualInterface(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a470793a5aed4e3f78d1bba8a0be22800607924bdad3e6ea09f9a68136db3f8e)
+            type_hints = cached_type_hints(_typecheckingstub__a470793a5aed4e3f78d1bba8a0be22800607924bdad3e6ea09f9a68136db3f8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routeFilterPrefixes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the public virtual interface.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53c8d59a5a9e38b1ef03554805949bdd64f4c7567b7742dfbaa892c79ea5880)
+            type_hints = cached_type_hints(_typecheckingstub__c53c8d59a5a9e38b1ef03554805949bdd64f4c7567b7742dfbaa892c79ea5880)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2600,7 +2673,7 @@ class CfnPublicVirtualInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__76cbced85c2e693501bdf352afdf52f270e01694a49b284d6059a89d4d38f72a)
+                type_hints = cached_type_hints(_typecheckingstub__76cbced85c2e693501bdf352afdf52f270e01694a49b284d6059a89d4d38f72a)
                 check_type(argname="argument address_family", value=address_family, expected_type=type_hints["address_family"])
                 check_type(argname="argument asn", value=asn, expected_type=type_hints["asn"])
                 check_type(argname="argument amazon_address", value=amazon_address, expected_type=type_hints["amazon_address"])
@@ -2706,13 +2779,13 @@ class CfnPublicVirtualInterfaceProps:
     def __init__(
         self,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPublicVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPublicVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
         route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPublicVirtualInterface``.
 
@@ -2759,7 +2832,7 @@ class CfnPublicVirtualInterfaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90c6271856e4af9b71018ea29afa7c5c6b15f873ee9d157717f75a62759db624)
+            type_hints = cached_type_hints(_typecheckingstub__90c6271856e4af9b71018ea29afa7c5c6b15f873ee9d157717f75a62759db624)
             check_type(argname="argument bgp_peers", value=bgp_peers, expected_type=type_hints["bgp_peers"])
             check_type(argname="argument connection_id", value=connection_id, expected_type=type_hints["connection_id"])
             check_type(argname="argument virtual_interface_name", value=virtual_interface_name, expected_type=type_hints["virtual_interface_name"])
@@ -2783,25 +2856,25 @@ class CfnPublicVirtualInterfaceProps:
     @builtins.property
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPublicVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-publicvirtualinterface.html#cfn-directconnect-publicvirtualinterface-bgppeers
         '''
         result = self._values.get("bgp_peers")
         assert result is not None, "Required property 'bgp_peers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPublicVirtualInterface.BgpPeerProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPublicVirtualInterface.BgpPeerProperty"]]], result)
 
     @builtins.property
     def connection_id(
         self,
-    ) -> typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"]:
+    ) -> typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-publicvirtualinterface.html#cfn-directconnect-publicvirtualinterface-connectionid
         '''
         result = self._values.get("connection_id")
         assert result is not None, "Required property 'connection_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"], result)
 
     @builtins.property
     def virtual_interface_name(self) -> builtins.str:
@@ -2848,13 +2921,13 @@ class CfnPublicVirtualInterfaceProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the public virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-publicvirtualinterface.html#cfn-directconnect-publicvirtualinterface-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2868,9 +2941,9 @@ class CfnPublicVirtualInterfaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITransitVirtualInterfaceRef_9c818912, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTransitVirtualInterface(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directconnect.CfnTransitVirtualInterface",
 ):
@@ -2919,15 +2992,15 @@ class CfnTransitVirtualInterface(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransitVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
-        direct_connect_gateway_id: typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
+        direct_connect_gateway_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectConnect::TransitVirtualInterface``.
 
@@ -2944,7 +3017,7 @@ class CfnTransitVirtualInterface(
         :param tags: The tags associated with the private virtual interface.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8457181aefda9690d8c418796e9a515a2e66c5ac47ef49f5bc5009c032225092)
+            type_hints = cached_type_hints(_typecheckingstub__8457181aefda9690d8c418796e9a515a2e66c5ac47ef49f5bc5009c032225092)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTransitVirtualInterfaceProps(
@@ -2961,6 +3034,41 @@ class CfnTransitVirtualInterface(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForTransitVirtualInterface")
+    @builtins.classmethod
+    def arn_for_transit_virtual_interface(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c78890a9085845f06542d8df566373d7d11ac1a30f12268c31955e4b8cf809d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTransitVirtualInterface", [resource]))
+
+    @jsii.member(jsii_name="fromVirtualInterfaceId")
+    @builtins.classmethod
+    def from_virtual_interface_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        virtual_interface_id: builtins.str,
+    ) -> "_aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef":
+        '''Creates a new ITransitVirtualInterfaceRef from a virtualInterfaceId.
+
+        :param scope: -
+        :param id: -
+        :param virtual_interface_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65430269d3952e0db7f04e4a1bd67b1dc321a023fc04d126173e45936ba0ec32)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument virtual_interface_id", value=virtual_interface_id, expected_type=type_hints["virtual_interface_id"])
+        return typing.cast("_aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef", jsii.sinvoke(cls, "fromVirtualInterfaceId", [scope, id, virtual_interface_id]))
+
     @jsii.member(jsii_name="isCfnTransitVirtualInterface")
     @builtins.classmethod
     def is_cfn_transit_virtual_interface(cls, x: typing.Any) -> builtins.bool:
@@ -2969,18 +3077,18 @@ class CfnTransitVirtualInterface(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7a6aa3d436db57a05a0f9c69a735b36148e8fe79e5a1924ba21377a694a1e1e)
+            type_hints = cached_type_hints(_typecheckingstub__c7a6aa3d436db57a05a0f9c69a735b36148e8fe79e5a1924ba21377a694a1e1e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTransitVirtualInterface", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20090e74737b5107ec03ba9190842e3f80d15942d16324fd95ed298b7759185)
+            type_hints = cached_type_hints(_typecheckingstub__f20090e74737b5107ec03ba9190842e3f80d15942d16324fd95ed298b7759185)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2993,7 +3101,7 @@ class CfnTransitVirtualInterface(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a922b83142d09b492418483facac0563f872463a354b375553098b5e1092a64c)
+            type_hints = cached_type_hints(_typecheckingstub__a922b83142d09b492418483facac0563f872463a354b375553098b5e1092a64c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3023,9 +3131,9 @@ class CfnTransitVirtualInterface(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3041,25 +3149,25 @@ class CfnTransitVirtualInterface(
     @jsii.member(jsii_name="transitVirtualInterfaceRef")
     def transit_virtual_interface_ref(
         self,
-    ) -> "_TransitVirtualInterfaceReference_efcb62ac":
+    ) -> "_aws_directconnect_0e7a20b8.TransitVirtualInterfaceReference":
         '''A reference to a TransitVirtualInterface resource.'''
-        return typing.cast("_TransitVirtualInterfaceReference_efcb62ac", jsii.get(self, "transitVirtualInterfaceRef"))
+        return typing.cast("_aws_directconnect_0e7a20b8.TransitVirtualInterfaceReference", jsii.get(self, "transitVirtualInterfaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bgpPeers")
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransitVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface..'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransitVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitVirtualInterface.BgpPeerProperty"]]], jsii.get(self, "bgpPeers"))
 
     @bgp_peers.setter
     def bgp_peers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransitVirtualInterface.BgpPeerProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitVirtualInterface.BgpPeerProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3b9b304e783af9090d2ec707f39cd5d1a2b81e550a8b21bebe0eb5a21ecac36)
+            type_hints = cached_type_hints(_typecheckingstub__f3b9b304e783af9090d2ec707f39cd5d1a2b81e550a8b21bebe0eb5a21ecac36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bgpPeers", value) # pyright: ignore[reportArgumentType]
 
@@ -3071,7 +3179,7 @@ class CfnTransitVirtualInterface(
     @connection_id.setter
     def connection_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4ccfc04a3c912c34568a6a5720e015f1825b8219ba97f86a5ebb55a652bcf15)
+            type_hints = cached_type_hints(_typecheckingstub__b4ccfc04a3c912c34568a6a5720e015f1825b8219ba97f86a5ebb55a652bcf15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionId", value) # pyright: ignore[reportArgumentType]
 
@@ -3083,7 +3191,7 @@ class CfnTransitVirtualInterface(
     @direct_connect_gateway_id.setter
     def direct_connect_gateway_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3617cad06aea221ec06776b7dce786c2f2df66985f8406d81f7d4ac3d9b9a99a)
+            type_hints = cached_type_hints(_typecheckingstub__3617cad06aea221ec06776b7dce786c2f2df66985f8406d81f7d4ac3d9b9a99a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directConnectGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -3096,7 +3204,7 @@ class CfnTransitVirtualInterface(
     @virtual_interface_name.setter
     def virtual_interface_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bed18506fa2829afe14ed93e9974de1505dcc9a3b2b6ddae81716856407c5747)
+            type_hints = cached_type_hints(_typecheckingstub__bed18506fa2829afe14ed93e9974de1505dcc9a3b2b6ddae81716856407c5747)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "virtualInterfaceName", value) # pyright: ignore[reportArgumentType]
 
@@ -3109,7 +3217,7 @@ class CfnTransitVirtualInterface(
     @vlan.setter
     def vlan(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c3d955f7f3495d5127ff7429ea26623c64b18712014f01657aeed28c33c81fc)
+            type_hints = cached_type_hints(_typecheckingstub__4c3d955f7f3495d5127ff7429ea26623c64b18712014f01657aeed28c33c81fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vlan", value) # pyright: ignore[reportArgumentType]
 
@@ -3127,7 +3235,7 @@ class CfnTransitVirtualInterface(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a124137823eef4be92b8af8eb63b635385f95a2985d7a63c460405f25ed0bc3f)
+            type_hints = cached_type_hints(_typecheckingstub__a124137823eef4be92b8af8eb63b635385f95a2985d7a63c460405f25ed0bc3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allocateTransitVirtualInterfaceRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3135,17 +3243,17 @@ class CfnTransitVirtualInterface(
     @jsii.member(jsii_name="enableSiteLink")
     def enable_site_link(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable or disable SiteLink.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableSiteLink"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSiteLink"))
 
     @enable_site_link.setter
     def enable_site_link(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e03280b75ba0f770370d14184a3abe6d0ba0f8b6df43840d4d9976c87d5f034d)
+            type_hints = cached_type_hints(_typecheckingstub__e03280b75ba0f770370d14184a3abe6d0ba0f8b6df43840d4d9976c87d5f034d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableSiteLink", value) # pyright: ignore[reportArgumentType]
 
@@ -3158,20 +3266,23 @@ class CfnTransitVirtualInterface(
     @mtu.setter
     def mtu(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d19784da4e32c6ec4fe08fbf8f5821561fcb9deaa0adf75925b256d14d9076d)
+            type_hints = cached_type_hints(_typecheckingstub__4d19784da4e32c6ec4fe08fbf8f5821561fcb9deaa0adf75925b256d14d9076d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mtu", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84a469d82380a2c77aa1e6129aec6e66170b2e4285400f743b393d509e744c2f)
+            type_hints = cached_type_hints(_typecheckingstub__84a469d82380a2c77aa1e6129aec6e66170b2e4285400f743b393d509e744c2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3228,7 +3339,7 @@ class CfnTransitVirtualInterface(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86175311c426d11df4ae41f4f060bb07d2e554ddb0e944f5628a45df53003c50)
+                type_hints = cached_type_hints(_typecheckingstub__86175311c426d11df4ae41f4f060bb07d2e554ddb0e944f5628a45df53003c50)
                 check_type(argname="argument address_family", value=address_family, expected_type=type_hints["address_family"])
                 check_type(argname="argument asn", value=asn, expected_type=type_hints["asn"])
                 check_type(argname="argument amazon_address", value=amazon_address, expected_type=type_hints["amazon_address"])
@@ -3336,15 +3447,15 @@ class CfnTransitVirtualInterfaceProps:
     def __init__(
         self,
         *,
-        bgp_peers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransitVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        connection_id: typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"],
-        direct_connect_gateway_id: typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"],
+        bgp_peers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitVirtualInterface.BgpPeerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connection_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"],
+        direct_connect_gateway_id: typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"],
         virtual_interface_name: builtins.str,
         vlan: jsii.Number,
         allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_site_link: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         mtu: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTransitVirtualInterface``.
 
@@ -3395,7 +3506,7 @@ class CfnTransitVirtualInterfaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa8466c27cdbb4001c029d13613d4fafd6773cca7380c863874c112e9e606107)
+            type_hints = cached_type_hints(_typecheckingstub__fa8466c27cdbb4001c029d13613d4fafd6773cca7380c863874c112e9e606107)
             check_type(argname="argument bgp_peers", value=bgp_peers, expected_type=type_hints["bgp_peers"])
             check_type(argname="argument connection_id", value=connection_id, expected_type=type_hints["connection_id"])
             check_type(argname="argument direct_connect_gateway_id", value=direct_connect_gateway_id, expected_type=type_hints["direct_connect_gateway_id"])
@@ -3424,36 +3535,36 @@ class CfnTransitVirtualInterfaceProps:
     @builtins.property
     def bgp_peers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransitVirtualInterface.BgpPeerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitVirtualInterface.BgpPeerProperty"]]]:
         '''The BGP peers configured on this virtual interface..
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-bgppeers
         '''
         result = self._values.get("bgp_peers")
         assert result is not None, "Required property 'bgp_peers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransitVirtualInterface.BgpPeerProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitVirtualInterface.BgpPeerProperty"]]], result)
 
     @builtins.property
     def connection_id(
         self,
-    ) -> typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"]:
+    ) -> typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-connectionid
         '''
         result = self._values.get("connection_id")
         assert result is not None, "Required property 'connection_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IConnectionRef_63fe92b7", "_ILagRef_ad81be41"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef", "_aws_directconnect_0e7a20b8.ILagRef"], result)
 
     @builtins.property
     def direct_connect_gateway_id(
         self,
-    ) -> typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"]:
+    ) -> typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-directconnectgatewayid
         '''
         result = self._values.get("direct_connect_gateway_id")
         assert result is not None, "Required property 'direct_connect_gateway_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IDirectConnectGatewayRef_e4e09968"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IDirectConnectGatewayRef"], result)
 
     @builtins.property
     def virtual_interface_name(self) -> builtins.str:
@@ -3493,13 +3604,13 @@ class CfnTransitVirtualInterfaceProps:
     @builtins.property
     def enable_site_link(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to enable or disable SiteLink.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-enablesitelink
         '''
         result = self._values.get("enable_site_link")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def mtu(self) -> typing.Optional[jsii.Number]:
@@ -3513,13 +3624,13 @@ class CfnTransitVirtualInterfaceProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the private virtual interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-transitvirtualinterface.html#cfn-directconnect-transitvirtualinterface-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3559,16 +3670,16 @@ def _typecheckingstub__abd3e826047cb4f3add3b32f81e0f0d51a366c3420ae204b61e132226
     bandwidth: builtins.str,
     connection_name: builtins.str,
     location: builtins.str,
-    lag_id: typing.Optional[typing.Union[builtins.str, _ILagRef_ad81be41]] = None,
+    lag_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.ILagRef]] = None,
     provider_name: typing.Optional[builtins.str] = None,
-    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dc811b42835421ce0b775a0ef448945f7612f6d663ec68f45052ffe146f739af(
-    resource: _IConnectionRef_63fe92b7,
+    resource: _aws_directconnect_0e7a20b8.IConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3580,7 +3691,7 @@ def _typecheckingstub__a7bc74ef019927b96fcf4a1e828df49db6d129e277ce74ef8cd1337c0
     pass
 
 def _typecheckingstub__95e48f0564de8b818083771b3c0c5ac940302a8db9319c86e67ac3c1f6570673(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3622,13 +3733,13 @@ def _typecheckingstub__89d9beed62c085a97aa40d6e0b1fe180bdffacdf695e658ae6d1d1f75
     pass
 
 def _typecheckingstub__de3c51aad61f0509ee73f481eb3557b9d725aa29947a78539706e92a04e8a64d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9f4754aee1d5c0403ec5b4b9c9456d81b46e0922c6cdca103190a7717871d0e3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3638,10 +3749,10 @@ def _typecheckingstub__cef94b4040c7599de15de3fed0380cef62c508ee4f4bfb62a0e9bf146
     bandwidth: builtins.str,
     connection_name: builtins.str,
     location: builtins.str,
-    lag_id: typing.Optional[typing.Union[builtins.str, _ILagRef_ad81be41]] = None,
+    lag_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.ILagRef]] = None,
     provider_name: typing.Optional[builtins.str] = None,
-    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3652,13 +3763,13 @@ def _typecheckingstub__1615be6a70d3256b8e774756f54d3b4cf912ec766378fb3e8ee821d12
     *,
     direct_connect_gateway_name: builtins.str,
     amazon_side_asn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aeac989b64b6c9e654802d2150c0e71cc5703a83fce5dd0348ab697181c4885e(
-    resource: _IDirectConnectGatewayRef_e4e09968,
+    resource: _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3670,7 +3781,7 @@ def _typecheckingstub__88bf54ee18195dc7a8967a7c425f0ba2d37c2a9bf16222bde5b4aef4c
     pass
 
 def _typecheckingstub__f6f4599f1ad70aac102c5ff274184d302d9a7af0a7037dc65d9493a7250a50ea(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3694,7 +3805,7 @@ def _typecheckingstub__fa42fe7f405b6fa870f5aa740a26933b9d10caad6a489a5e6e143d06d
     pass
 
 def _typecheckingstub__7218e90e3f0ec285cf01b746fdec827917118cd2f14ae196b858db1654c866c5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3703,8 +3814,8 @@ def _typecheckingstub__9610c3b37235aa2ee47e7088939e594786d6f4d5693f025059bad085a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    associated_gateway_id: typing.Union[builtins.str, _ITransitGatewayRef_1edffe36, _IVPNGatewayRef_54a7e8d1],
-    direct_connect_gateway_id: typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968],
+    associated_gateway_id: typing.Union[builtins.str, _aws_ec2_18162e09.ITransitGatewayRef, _aws_ec2_18162e09.IVPNGatewayRef],
+    direct_connect_gateway_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef],
     accept_direct_connect_gateway_association_proposal_role_arn: typing.Optional[builtins.str] = None,
     allowed_prefixes_to_direct_connect_gateway: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -3718,7 +3829,7 @@ def _typecheckingstub__3d8e0743a98d958886293e96e4e1e2655dd0ec24bcf2d73ddb4d1ca9d
     pass
 
 def _typecheckingstub__f42fd8eed9bf77e08c4a0333fe356f95fb63414699ab51892384bd4c7cd8ff45(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3755,8 +3866,8 @@ def _typecheckingstub__dd1b070f48f63dd27940fbeb93f973d4627754096548f1aff97cef55c
 
 def _typecheckingstub__7aba4d505c450c0c0634988995815ecbce3886430a251d53e2e1cea03d00e3dc(
     *,
-    associated_gateway_id: typing.Union[builtins.str, _ITransitGatewayRef_1edffe36, _IVPNGatewayRef_54a7e8d1],
-    direct_connect_gateway_id: typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968],
+    associated_gateway_id: typing.Union[builtins.str, _aws_ec2_18162e09.ITransitGatewayRef, _aws_ec2_18162e09.IVPNGatewayRef],
+    direct_connect_gateway_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef],
     accept_direct_connect_gateway_association_proposal_role_arn: typing.Optional[builtins.str] = None,
     allowed_prefixes_to_direct_connect_gateway: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -3767,7 +3878,7 @@ def _typecheckingstub__d12d0ef664e1585e49496cef753d3714e192674e47da7867d1068f7d1
     *,
     direct_connect_gateway_name: builtins.str,
     amazon_side_asn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3781,14 +3892,14 @@ def _typecheckingstub__71e07e1e973634e160c150954ce8d83214cd17c3957c56543bbea6f5f
     location: builtins.str,
     minimum_links: typing.Optional[jsii.Number] = None,
     provider_name: typing.Optional[builtins.str] = None,
-    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__242c81ea3f73ce5a36d840b7ee19805959188daeef9bd9b0f21a7bbfa1503479(
-    resource: _ILagRef_ad81be41,
+    resource: _aws_directconnect_0e7a20b8.ILagRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3800,7 +3911,7 @@ def _typecheckingstub__e303f0ea6e2eacc1eb30b7cd80a76514600efd466e569e9689059172d
     pass
 
 def _typecheckingstub__eb555e87f0f441ba3fe669a7ab2dcc5af52aae255e46489e3ec68b236604d6fa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3842,13 +3953,13 @@ def _typecheckingstub__376203ab16c44d6b6ecb9e3e4280481f8d0549cae91fc05930abcc70c
     pass
 
 def _typecheckingstub__c7a1a9dd628dda178fd7245c01d6d820f8da7ca508dde21a923653f06fea892c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7643963ed557c0e7d5eecd7f6d06e89df6563dbbd74e8ea1599569cb94029c99(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3860,8 +3971,8 @@ def _typecheckingstub__76f90241fc45565e7dbde4fbc117ddc4d00c34343f0ae967573f7940b
     location: builtins.str,
     minimum_links: typing.Optional[jsii.Number] = None,
     provider_name: typing.Optional[builtins.str] = None,
-    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_mac_sec: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3870,16 +3981,30 @@ def _typecheckingstub__7b999bfd5ff244ca66e7bc7c8536b0b41cd03026156da31d75f533648
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_private_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-    direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968]] = None,
-    enable_site_link: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef]] = None,
+    enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_gateway_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f7726f44f259435c3ea451ee918e33810a24479e53dca1c37662d938672fdec(
+    resource: _aws_directconnect_0e7a20b8.IPrivateVirtualInterfaceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b99b0221fdbb3adf3d12c4a440bd4c55fce378e4fd8e41402e7a51ad4dff595(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3891,7 +4016,7 @@ def _typecheckingstub__00bf21163c98fc514b0d82eb2e086c4cb097a375ed76cadebcc4d31d6
     pass
 
 def _typecheckingstub__38bfe59b40e5f2cc9fdded02a1abb9dc78bc269081f47ff7a63e690542bab683(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3903,7 +4028,7 @@ def _typecheckingstub__6bd885e0ed5ef6e152ac48182fbc4fad5271712f4ab65bd18fefa214e
     pass
 
 def _typecheckingstub__a377f3dc38cfdfcfbb888a8194c187841a1ffdf0187a8b1a9fb7944019ca7650(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPrivateVirtualInterface.BgpPeerProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrivateVirtualInterface.BgpPeerProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3939,7 +4064,7 @@ def _typecheckingstub__d78b40e3a07653fbdb507c846d981a976cbff848d1febdc2cc4330972
     pass
 
 def _typecheckingstub__901ddf3550f52d20f3db06493d53d33da7d865d1a2fa5e207ae907cb1cae6d8a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3951,7 +4076,7 @@ def _typecheckingstub__9ed96ea2147f833a590e8cb859e1264fdc9a4fd816c38bdb7de360223
     pass
 
 def _typecheckingstub__bb6b73505c5342ad306f9886d5bff4e132c15676d4f2e45fcbe415b72ed035bb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3976,15 +4101,15 @@ def _typecheckingstub__497e11bdb89ebeb1deee774b538b67dcf4e0efe42bdbf5015631df088
 
 def _typecheckingstub__4235226dc710b191f689dc9cfba93959927dfea6356ec9f8e5e5a4a4924acec4(
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_private_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-    direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968]] = None,
-    enable_site_link: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    direct_connect_gateway_id: typing.Optional[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef]] = None,
+    enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_gateway_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3994,13 +4119,27 @@ def _typecheckingstub__fb624942469eb4c46619a6a53b66f8eefaefb7869b75206e9cc0f6ecf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
     route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80932311019cd57a4238951047e066dabe431b032cf2e502ffea30f96d78fa67(
+    resource: _aws_directconnect_0e7a20b8.IPublicVirtualInterfaceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a59fbccdae48c2b6bce3c9b0aa349791d1b19a45d1c57537c899799ec66a5cb2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4012,7 +4151,7 @@ def _typecheckingstub__39a0d3a556867f13de687ec0219611d8afed4ca5a46dde9755d859554
     pass
 
 def _typecheckingstub__6f532504cdf995bfc683e973211df2172c108b3d15efe62bed7c5470f79849fb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4024,7 +4163,7 @@ def _typecheckingstub__f1fee6b61972a50e0775b498e7174cbbbdca7dfdd9e3caa58b90de29b
     pass
 
 def _typecheckingstub__0f44cde981a81e7ffa5693c513087f99e0bb137b4e6cb13c5ad826be9dbdf109(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPublicVirtualInterface.BgpPeerProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPublicVirtualInterface.BgpPeerProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4060,7 +4199,7 @@ def _typecheckingstub__a470793a5aed4e3f78d1bba8a0be22800607924bdad3e6ea09f9a6813
     pass
 
 def _typecheckingstub__c53c8d59a5a9e38b1ef03554805949bdd64f4c7567b7742dfbaa892c79ea5880(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4079,13 +4218,13 @@ def _typecheckingstub__76cbced85c2e693501bdf352afdf52f270e01694a49b284d6059a89d4
 
 def _typecheckingstub__90c6271856e4af9b71018ea29afa7c5c6b15f873ee9d157717f75a62759db624(
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublicVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPublicVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
     route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4094,15 +4233,29 @@ def _typecheckingstub__8457181aefda9690d8c418796e9a515a2e66c5ac47ef49f5bc5009c03
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransitVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
-    direct_connect_gateway_id: typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
+    direct_connect_gateway_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-    enable_site_link: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c78890a9085845f06542d8df566373d7d11ac1a30f12268c31955e4b8cf809d(
+    resource: _aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65430269d3952e0db7f04e4a1bd67b1dc321a023fc04d126173e45936ba0ec32(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    virtual_interface_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4114,7 +4267,7 @@ def _typecheckingstub__c7a6aa3d436db57a05a0f9c69a735b36148e8fe79e5a1924ba21377a6
     pass
 
 def _typecheckingstub__f20090e74737b5107ec03ba9190842e3f80d15942d16324fd95ed298b7759185(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4126,7 +4279,7 @@ def _typecheckingstub__a922b83142d09b492418483facac0563f872463a354b375553098b5e1
     pass
 
 def _typecheckingstub__f3b9b304e783af9090d2ec707f39cd5d1a2b81e550a8b21bebe0eb5a21ecac36(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTransitVirtualInterface.BgpPeerProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransitVirtualInterface.BgpPeerProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4162,7 +4315,7 @@ def _typecheckingstub__a124137823eef4be92b8af8eb63b635385f95a2985d7a63c460405f25
     pass
 
 def _typecheckingstub__e03280b75ba0f770370d14184a3abe6d0ba0f8b6df43840d4d9976c87d5f034d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4174,7 +4327,7 @@ def _typecheckingstub__4d19784da4e32c6ec4fe08fbf8f5821561fcb9deaa0adf75925b256d1
     pass
 
 def _typecheckingstub__84a469d82380a2c77aa1e6129aec6e66170b2e4285400f743b393d509e744c2f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4193,15 +4346,15 @@ def _typecheckingstub__86175311c426d11df4ae41f4f060bb07d2e554ddb0e944f5628a45df5
 
 def _typecheckingstub__fa8466c27cdbb4001c029d13613d4fafd6773cca7380c863874c112e9e606107(
     *,
-    bgp_peers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransitVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    connection_id: typing.Union[builtins.str, _IConnectionRef_63fe92b7, _ILagRef_ad81be41],
-    direct_connect_gateway_id: typing.Union[builtins.str, _IDirectConnectGatewayRef_e4e09968],
+    bgp_peers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitVirtualInterface.BgpPeerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connection_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef, _aws_directconnect_0e7a20b8.ILagRef],
+    direct_connect_gateway_id: typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IDirectConnectGatewayRef],
     virtual_interface_name: builtins.str,
     vlan: jsii.Number,
     allocate_transit_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
-    enable_site_link: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_site_link: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     mtu: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3,12 +3,54 @@ import struct
 import unittest
 
 from smda.common.SmdaBasicBlock import SmdaBasicBlock
-from smda.common.SmdaFunction import SmdaFunction
+from smda.common.SmdaFunction import INTEL_PIC_HASH_ESCAPE_VERSION, LazyIntKeyDict, SmdaFunction
 from smda.common.SmdaInstruction import SmdaInstruction
 from smda.common.SmdaReport import SmdaReport
+from smda.Disassembler import Disassembler
+from smda.SmdaConfig import SmdaConfig
+
+INTEL_BASE = 0x401000
+
+
+def _disassemble_intel_bytes(code):
+    config = SmdaConfig()
+    config.WITH_STRINGS = False
+    return Disassembler(config).disassembleBuffer(
+        code,
+        base_addr=INTEL_BASE,
+        bitness=64,
+        code_areas=[[INTEL_BASE, INTEL_BASE + len(code)]],
+        oep=0,
+    )
 
 
 class TestCommonModels(unittest.TestCase):
+    def test_lazy_int_key_dict_materializes_for_comparison_and_repr(self):
+        expected = {1: "one", 2: "two"}
+
+        lazy = LazyIntKeyDict({"1": "one", "2": "two"})
+        self.assertFalse(lazy._is_converted)
+        self.assertEqual(lazy, expected)
+        self.assertTrue(lazy._is_converted)
+
+        lazy = LazyIntKeyDict({"1": "one", "2": "two"})
+        self.assertEqual(expected, lazy)
+        self.assertTrue(lazy._is_converted)
+
+        left = LazyIntKeyDict({"1": "one", "2": "two"})
+        right = LazyIntKeyDict({"1": "one", "2": "two"})
+        self.assertEqual(left, right)
+        self.assertTrue(left._is_converted)
+        self.assertTrue(right._is_converted)
+
+        lazy = LazyIntKeyDict({"1": "one", "2": "two"})
+        self.assertFalse(lazy != expected)
+        self.assertTrue(lazy._is_converted)
+
+        lazy = LazyIntKeyDict({"1": "one", "2": "two"})
+        self.assertEqual(repr(lazy), "{1: 'one', 2: 'two'}")
+        self.assertTrue(lazy._is_converted)
+
     def test_empty_basic_block_string_is_safe(self):
         self.assertEqual(str(SmdaBasicBlock([])), "0x????????: (   0)")
 
@@ -46,6 +88,52 @@ class TestCommonModels(unittest.TestCase):
             function.getOpcHash(),
             struct.unpack("<Q", hashlib.sha256(b"opc-sequence").digest()[:8])[0],
         )
+
+    def test_report_exports_language_metadata(self):
+        # SmdaReport previously had no `language` attribute at all and dropped the whole
+        # feature from toDict(); it must now be exported and round-trip through fromDict.
+        config = SmdaConfig()
+        config.WITH_STRINGS = False
+        func = b"\x55\x48\x89\xe5\x5d\xc3"  # push rbp; mov rbp, rsp; pop rbp; ret
+        code = func * 10
+        thiscall_tail = b"\x8b\x4d\x04\xe8\x01\x02\x03\x00"
+        buf = code + thiscall_tail
+        base = 0x401000
+        report = Disassembler(config).disassembleBuffer(
+            buf, base_addr=base, bitness=64, code_areas=[[base, base + len(code)]]
+        )
+
+        self.assertIsInstance(report.language, dict)
+        self.assertIn("_guess", report.language)
+
+        report_dict = report.toDict()
+        self.assertEqual(report_dict["metadata"]["language"], report.language)
+
+        restored = SmdaReport.fromDict(report_dict)
+        self.assertEqual(restored.language, report.language)
+
+    def test_imported_intel_report_recalculates_pic_hash_before_escape_version(self):
+        report = _disassemble_intel_bytes(b"\xc3")  # ret
+        function = report.getFunction(INTEL_BASE)
+        expected_pic_hash = function.pic_hash
+        function_dict = function.toDict()
+        function_dict["metadata"]["pic_hash"] = 0x0123456789ABCDEF
+
+        imported = SmdaFunction.fromDict(function_dict, version="4.2.17", smda_report=report)
+
+        self.assertEqual(imported.pic_hash, expected_pic_hash)
+        self.assertLess([4, 2, 17], INTEL_PIC_HASH_ESCAPE_VERSION)
+
+    def test_imported_intel_report_keeps_pic_hash_at_escape_version(self):
+        report = _disassemble_intel_bytes(b"\xc3")  # ret
+        function_dict = report.getFunction(INTEL_BASE).toDict()
+        stored_pic_hash = 0x0123456789ABCDEF
+        function_dict["metadata"]["pic_hash"] = stored_pic_hash
+        gate_version = ".".join(str(v) for v in INTEL_PIC_HASH_ESCAPE_VERSION)
+
+        imported = SmdaFunction.fromDict(function_dict, version=gate_version, smda_report=report)
+
+        self.assertEqual(imported.pic_hash, stored_pic_hash)
 
     def test_num_calls_and_returns_count_prefixed_mnemonics(self):
         # capstone prepends mandatory prefixes (bnd/rep/lock/...) to the mnemonic string;

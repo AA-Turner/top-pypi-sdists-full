@@ -1,7 +1,10 @@
 import asyncio
+import contextlib
+import threading
 import typing as t
 from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from uuid import uuid4
 
 from fastapi import WebSocket
@@ -10,7 +13,7 @@ from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
 from dreadnode.app.api.models import HumanInputResponse
-from dreadnode.app.server.auth import sandbox_auth_error
+from dreadnode.app.server.auth import sandbox_ws_auth
 from dreadnode.app.server.runtime_events import (
     CONTROL_COMMAND_ACK,
     CONTROL_COMMAND_ERROR,
@@ -30,11 +33,123 @@ from dreadnode.app.server.runtime_events import (
     TurnCancelCommandPayload,
     TurnStartCommandPayload,
 )
+from dreadnode.app.server.runtime_token import get_token_source
 from dreadnode.app.server.utils import serialize_ws_frame
 
 _WS_CLOSE_UNAUTHORIZED = 4401
 _WS_CLOSE_INVALID_COMMAND = 4400
+# Closed by the server because the runtime token rotated; clients should
+# reconnect (with the new token, which they fetch/hold out of band).
+_WS_CLOSE_TOKEN_ROTATED = 4402
 RuntimeOutboundEnvelope = RuntimeControlEnvelope | RuntimeEventEnvelope
+
+
+@dataclass(eq=False)
+class _WsConnHandle:
+    """A live websocket plus what's needed to close it safely from another thread:
+    the loop it runs on, the runtime token it authed under (so a rotation can
+    target it), and a shared sink holding a strong reference to the in-flight
+    close task."""
+
+    websocket: WebSocket
+    loop: asyncio.AbstractEventLoop
+    token: str | None
+    tasks: "set[asyncio.Task[None]]"
+
+    def schedule_close(self) -> None:
+        # Hop onto the connection's own loop; the retire callback that triggers
+        # this may run on a different thread.
+        with contextlib.suppress(RuntimeError):  # loop already closed
+            self.loop.call_soon_threadsafe(self._spawn_close)
+
+    def _spawn_close(self) -> None:
+        with contextlib.suppress(RuntimeError):
+            # Hold a strong reference until the task settles — the event loop
+            # only keeps a weak one, so a bare fire-and-forget task can be
+            # garbage-collected before it runs and the socket would never close.
+            task = asyncio.ensure_future(self._close())
+            self.tasks.add(task)
+            task.add_done_callback(self.tasks.discard)
+
+    async def _close(self) -> None:
+        await _close_token_rotated(self.websocket)
+
+
+class WebSocketConnectionRegistry:
+    """Tracks live runtime websocket connections so they can be force-closed when
+    the runtime token rotates.
+
+    On lossless reconnect the platform rotates the sandbox's runtime token; a
+    connection established under the *retired* token must re-establish (with the
+    new token) rather than linger as a watch-only socket. ``close_for_token`` is
+    invoked from the token source's retire callback, which may run on any thread —
+    each close is therefore scheduled on the connection's own event loop.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._conns: set[_WsConnHandle] = set()
+        # Strong references to in-flight close tasks (see ``_spawn_close``).
+        self._close_tasks: set[asyncio.Task[None]] = set()
+
+    def register(self, websocket: WebSocket, *, token: str | None) -> _WsConnHandle:
+        handle = _WsConnHandle(websocket, asyncio.get_running_loop(), token, self._close_tasks)
+        with self._lock:
+            self._conns.add(handle)
+        return handle
+
+    def unregister(self, handle: _WsConnHandle) -> None:
+        with self._lock:
+            self._conns.discard(handle)
+
+    def close_for_token(self, token: str) -> int:
+        """Close every live connection authed under ``token`` (a rotated-out token).
+
+        Targeting the retired token — rather than closing everything — leaves
+        alone a client that already reconnected under the *new* token during the
+        grace window, instead of needlessly bouncing it. Returns the number of
+        connections closed.
+        """
+        with self._lock:
+            handles = [handle for handle in self._conns if handle.token == token]
+            self._conns.difference_update(handles)
+        for handle in handles:
+            handle.schedule_close()
+        return len(handles)
+
+    def close_all(self) -> None:
+        """Close every live connection (shutdown / blunt fallback)."""
+        with self._lock:
+            handles = list(self._conns)
+            self._conns.clear()
+        for handle in handles:
+            handle.schedule_close()
+
+
+async def _close_token_rotated(websocket: WebSocket) -> None:
+    """Close a socket because the runtime token it authenticated with was rotated
+    out. Single source of the close code + reason the browser reconnect keys off."""
+    with suppress(Exception):
+        await websocket.close(code=_WS_CLOSE_TOKEN_ROTATED, reason="runtime token rotated")
+
+
+async def _sever_if_rotated(websocket: WebSocket, authed_token: str | None) -> bool:
+    """Close the socket if ``authed_token`` is no longer the current runtime token.
+
+    The single check-then-close used everywhere a socket must re-verify its
+    credential after the handshake: the accept↔register race, and — because a
+    rotation is only *observed* when something calls the token source — before
+    every inbound command and every outbound event delivery, so a socket that
+    only sends (or only receives) is still severed rather than lingering until
+    some unrelated auth call happens to fire the retire sweep. Returns True if it
+    closed the socket. ``None`` means auth is disabled, so nothing to rotate.
+    """
+    if authed_token is None:
+        return False
+    if get_token_source().is_current(authed_token):
+        return False
+    await _close_token_rotated(websocket)
+    return True
 
 
 class RuntimeSessionProtocol(t.Protocol):
@@ -87,7 +202,8 @@ class RuntimeWebSocketTransport:
         resolve_session: Callable[[str], RuntimeSessionProtocol],
         get_session: Callable[[str], RuntimeSessionProtocol | None],
         sync_accepted_turn: SyncAcceptedTurnProtocol,
-        consume_ticket: Callable[[str], bool] | None = None,
+        consume_ticket: "Callable[[str], str | None] | None" = None,
+        connection_registry: "WebSocketConnectionRegistry | None" = None,
     ) -> None:
         self._websocket = websocket
         self._event_bus = event_bus
@@ -95,6 +211,8 @@ class RuntimeWebSocketTransport:
         self._get_session = get_session
         self._sync_accepted_turn = sync_accepted_turn
         self._consume_ticket = consume_ticket
+        self._connection_registry = connection_registry
+        self._conn_handle: _WsConnHandle | None = None
         self._connection_id = f"conn_{uuid4().hex}"
         self._outbound_queue: asyncio.Queue[RuntimeOutboundEnvelope | None] = asyncio.Queue()
         self._subscriptions: dict[str, EventBusSubscription] = {}
@@ -105,20 +223,19 @@ class RuntimeWebSocketTransport:
         # failures via a done callback.
         self._background_sync_tasks: set[asyncio.Task[None]] = set()
         self._hello_received = False
+        # The credential this socket authenticated with (None when auth is
+        # disabled). Re-checked before every inbound command and every outbound
+        # frame so a rotated-out socket can't keep issuing or receiving until the
+        # next auth call happens to fire the retire sweep.
+        self._authed_token: str | None = None
 
     async def serve(self) -> None:
         """Run the websocket transport until disconnect."""
-        error = sandbox_auth_error(
-            self._websocket.url.path,
+        error, authed_token = sandbox_ws_auth(
             self._websocket.headers.get("authorization"),
+            self._websocket.query_params.get("ticket"),
+            self._consume_ticket,
         )
-        # Browsers cannot set an Authorization header on the handshake, so fall
-        # back to a single-use ?ticket=<...> query param — but only when the
-        # header check fails, so a valid bearer never consumes ticket state.
-        if error is not None and self._consume_ticket is not None:
-            ticket = self._websocket.query_params.get("ticket")
-            if ticket and self._consume_ticket(ticket):
-                error = None
         if error is not None:
             logger.warning(
                 "Runtime websocket auth failed | path={} reason={}",
@@ -128,7 +245,18 @@ class RuntimeWebSocketTransport:
             await self._websocket.close(code=_WS_CLOSE_UNAUTHORIZED, reason=error)
             return
 
+        self._authed_token = authed_token
         await self._websocket.accept()
+        if self._connection_registry is not None:
+            # Register under the credential that authenticated us, so a rotation
+            # closes exactly the sockets belonging to the retired token.
+            self._conn_handle = self._connection_registry.register(
+                self._websocket, token=authed_token
+            )
+            if await _sever_if_rotated(self._websocket, authed_token):
+                self._connection_registry.unregister(self._conn_handle)
+                self._conn_handle = None
+                return
         logger.debug("Runtime websocket opened | connection_id={}", self._connection_id)
         sender_task = asyncio.create_task(self._sender())
 
@@ -142,6 +270,16 @@ class RuntimeWebSocketTransport:
                     )
                     break
 
+                # Re-authorize every command against the current token: the
+                # handshake check is a point-in-time snapshot, and a rotation
+                # after it must not let this socket keep issuing commands.
+                if await _sever_if_rotated(self._websocket, self._authed_token):
+                    logger.debug(
+                        "Runtime websocket token rotated mid-session | connection_id={}",
+                        self._connection_id,
+                    )
+                    break
+
                 try:
                     command = RuntimeCommandEnvelope.model_validate_json(raw_command)
                 except (ValidationError, ValueError) as exc:
@@ -150,6 +288,8 @@ class RuntimeWebSocketTransport:
 
                 await self._dispatch_command(command)
         finally:
+            if self._connection_registry is not None and self._conn_handle is not None:
+                self._connection_registry.unregister(self._conn_handle)
             for session_id in list(self._subscriptions):
                 await self._unsubscribe_session(session_id)
             sender_task.cancel()
@@ -187,6 +327,18 @@ class RuntimeWebSocketTransport:
         while True:
             envelope = await self._outbound_queue.get()
             if envelope is None:
+                return
+            # Re-authorize before every outbound frame. Session events reach this
+            # socket through a separate forwarder task, not the inbound command
+            # loop — so a client that subscribes and then only *watches* (sends
+            # no commands) would otherwise keep receiving another credential's
+            # events after a rotation, until some unrelated auth fired the retire
+            # sweep. This closes that the moment the next frame would be sent.
+            if await _sever_if_rotated(self._websocket, self._authed_token):
+                logger.debug(
+                    "Runtime websocket token rotated; halting outbound | connection_id={}",
+                    self._connection_id,
+                )
                 return
             await self._websocket.send_text(serialize_ws_frame(envelope.model_dump(mode="json")))
 
@@ -646,7 +798,8 @@ async def serve_runtime_websocket(
     resolve_session: Callable[[str], RuntimeSessionProtocol],
     get_session: Callable[[str], RuntimeSessionProtocol | None],
     sync_accepted_turn: SyncAcceptedTurnProtocol,
-    consume_ticket: Callable[[str], bool] | None = None,
+    consume_ticket: "Callable[[str], str | None] | None" = None,
+    connection_registry: "WebSocketConnectionRegistry | None" = None,
 ) -> None:
     """Run the runtime websocket transport on the provided FastAPI socket."""
     transport = RuntimeWebSocketTransport(
@@ -656,6 +809,7 @@ async def serve_runtime_websocket(
         get_session=get_session,
         sync_accepted_turn=sync_accepted_turn,
         consume_ticket=consume_ticket,
+        connection_registry=connection_registry,
     )
     await transport.serve()
 
@@ -664,7 +818,8 @@ async def serve_runtime_event_stream(
     websocket: WebSocket,
     *,
     event_bus: EventBus,
-    consume_ticket: t.Callable[[str], bool] | None = None,
+    consume_ticket: "t.Callable[[str], str | None] | None" = None,
+    connection_registry: "WebSocketConnectionRegistry | None" = None,
 ) -> None:
     """Serve the runtime-bus event subscription stream (CAP-WCLI-018..020).
 
@@ -675,16 +830,11 @@ async def serve_runtime_event_stream(
     buffer entries are suppressed — consumers receive only events emitted
     after the subscription is established.
     """
-    error = sandbox_auth_error(
-        websocket.url.path,
+    error, authed_token = sandbox_ws_auth(
         websocket.headers.get("authorization"),
+        websocket.query_params.get("ticket"),
+        consume_ticket,
     )
-    # Browsers cannot set Authorization on a websocket handshake. Match the
-    # interactive transport and allow a single-use ticket for browser clients.
-    if error is not None and consume_ticket is not None:
-        ticket = websocket.query_params.get("ticket")
-        if ticket and consume_ticket(ticket):
-            error = None
     if error is not None:
         logger.warning(
             "Runtime event-stream auth failed | path={} reason={}",
@@ -713,6 +863,18 @@ async def serve_runtime_event_stream(
         await event_bus.unsubscribe(subscription)
         raise
 
+    conn_handle: _WsConnHandle | None = None
+    if connection_registry is not None:
+        # Register under the credential that authenticated us, so a rotation
+        # closes exactly the sockets belonging to the retired token.
+        conn_handle = connection_registry.register(websocket, token=authed_token)
+        if await _sever_if_rotated(websocket, authed_token):
+            # Rotation landed between auth and registration — this socket's
+            # credential is already retired.
+            connection_registry.unregister(conn_handle)
+            await event_bus.unsubscribe(subscription)
+            return
+
     logger.debug(
         "Runtime event stream opened | kinds={}",
         sorted(kinds) if kinds else "*",
@@ -726,6 +888,13 @@ async def serve_runtime_event_stream(
             # subscribe time.
             if envelope.replay:
                 continue
+            # Re-authorize before forwarding (same reason as the interactive
+            # sender): a watch-only subscriber sends no commands, so delivery is
+            # the only place its credential can be re-checked. Severs it the
+            # moment the next event would leak; if none flows, nothing leaks.
+            if await _sever_if_rotated(websocket, authed_token):
+                logger.debug("Runtime event stream token rotated mid-stream; closing")
+                return
             await websocket.send_text(serialize_ws_frame(envelope.model_dump(mode="json")))
 
     async def _watch_disconnect() -> None:
@@ -748,6 +917,8 @@ async def serve_runtime_event_stream(
             task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
     finally:
+        if connection_registry is not None and conn_handle is not None:
+            connection_registry.unregister(conn_handle)
         await event_bus.unsubscribe(subscription)
         with suppress(Exception):
             await websocket.close()

@@ -520,6 +520,7 @@ class StartPlanExecutionRequestTypeDef(TypedDict):
     comment: NotRequired[str]
     latestVersion: NotRequired[str]
     recoveryExecutionId: NotRequired[str]
+    clientToken: NotRequired[str]
 
 class TagResourceRequestTypeDef(TypedDict):
     arn: str

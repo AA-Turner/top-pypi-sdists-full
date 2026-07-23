@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,40 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_lookoutvision import (
-    IProjectRef as _IProjectRef_ebc63cfa,
-    ProjectReference as _ProjectReference_b65b6f0d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_lookoutvision as _aws_lookoutvision_d3e2cc05
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_lookoutvision_d3e2cc05 = _LazyImport("aws_cdk.interfaces.aws_lookoutvision")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IProjectRef_ebc63cfa)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lookoutvision_d3e2cc05.IProjectRef)
 class CfnProject(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lookoutvision.CfnProject",
 ):
@@ -108,7 +106,7 @@ class CfnProject(
         :param project_name: The name of the project.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae1299eb5a9daafd09ff98ba3e3d4056e110dde110eef801bc1e296150ee6402)
+            type_hints = cached_type_hints(_typecheckingstub__ae1299eb5a9daafd09ff98ba3e3d4056e110dde110eef801bc1e296150ee6402)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProjectProps(project_name=project_name)
@@ -117,12 +115,15 @@ class CfnProject(
 
     @jsii.member(jsii_name="arnForProject")
     @builtins.classmethod
-    def arn_for_project(cls, resource: "_IProjectRef_ebc63cfa") -> builtins.str:
+    def arn_for_project(
+        cls,
+        resource: "_aws_lookoutvision_d3e2cc05.IProjectRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__749f23ba01f7fdc53827fbcb401d225323cb8f419099c89a9c4caf4a7b7b5090)
+            type_hints = cached_type_hints(_typecheckingstub__749f23ba01f7fdc53827fbcb401d225323cb8f419099c89a9c4caf4a7b7b5090)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProject", [resource]))
 
@@ -133,7 +134,7 @@ class CfnProject(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IProjectRef_ebc63cfa":
+    ) -> "_aws_lookoutvision_d3e2cc05.IProjectRef":
         '''Creates a new IProjectRef from an ARN.
 
         :param scope: -
@@ -141,11 +142,11 @@ class CfnProject(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84fff196233367990984dbde8dbe8aa8640b040153a13a4a883d4f0528c0f0ca)
+            type_hints = cached_type_hints(_typecheckingstub__84fff196233367990984dbde8dbe8aa8640b040153a13a4a883d4f0528c0f0ca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IProjectRef_ebc63cfa", jsii.sinvoke(cls, "fromProjectArn", [scope, id, arn]))
+        return typing.cast("_aws_lookoutvision_d3e2cc05.IProjectRef", jsii.sinvoke(cls, "fromProjectArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromProjectName")
     @builtins.classmethod
@@ -154,7 +155,7 @@ class CfnProject(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         project_name: builtins.str,
-    ) -> "_IProjectRef_ebc63cfa":
+    ) -> "_aws_lookoutvision_d3e2cc05.IProjectRef":
         '''Creates a new IProjectRef from a projectName.
 
         :param scope: -
@@ -162,11 +163,11 @@ class CfnProject(
         :param project_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10d2b4dda47960ca6ee5e6df8c5e0d918819f580de3bd335e8522dea923180a2)
+            type_hints = cached_type_hints(_typecheckingstub__10d2b4dda47960ca6ee5e6df8c5e0d918819f580de3bd335e8522dea923180a2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-        return typing.cast("_IProjectRef_ebc63cfa", jsii.sinvoke(cls, "fromProjectName", [scope, id, project_name]))
+        return typing.cast("_aws_lookoutvision_d3e2cc05.IProjectRef", jsii.sinvoke(cls, "fromProjectName", [scope, id, project_name]))
 
     @jsii.member(jsii_name="isCfnProject")
     @builtins.classmethod
@@ -176,18 +177,18 @@ class CfnProject(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e45bbfda2feb9cb819883025c071612a0b025c74b1cf57bd52a95248afffb6e)
+            type_hints = cached_type_hints(_typecheckingstub__3e45bbfda2feb9cb819883025c071612a0b025c74b1cf57bd52a95248afffb6e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProject", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b76078beb0180f06779d0a685dd8192d3a9f806bb489debf20ab767476c7b0)
+            type_hints = cached_type_hints(_typecheckingstub__03b76078beb0180f06779d0a685dd8192d3a9f806bb489debf20ab767476c7b0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -200,7 +201,7 @@ class CfnProject(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d2835be554706a29b78410620f8f7eb59e8aafb9dde76f11633c087b0abf80e)
+            type_hints = cached_type_hints(_typecheckingstub__2d2835be554706a29b78410620f8f7eb59e8aafb9dde76f11633c087b0abf80e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -231,9 +232,9 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> "_ProjectReference_b65b6f0d":
+    def project_ref(self) -> "_aws_lookoutvision_d3e2cc05.ProjectReference":
         '''A reference to a Project resource.'''
-        return typing.cast("_ProjectReference_b65b6f0d", jsii.get(self, "projectRef"))
+        return typing.cast("_aws_lookoutvision_d3e2cc05.ProjectReference", jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="projectName")
@@ -244,7 +245,7 @@ class CfnProject(
     @project_name.setter
     def project_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1f4170a767549b8248365a6b8ae0370362abd74419aadf2a50d24ecce2482cb)
+            type_hints = cached_type_hints(_typecheckingstub__e1f4170a767549b8248365a6b8ae0370362abd74419aadf2a50d24ecce2482cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
 
@@ -274,7 +275,7 @@ class CfnProjectProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30a54c5cb3bf96801bcf6422c9ea63dac484a231684d0a4383d059386e74ea5a)
+            type_hints = cached_type_hints(_typecheckingstub__30a54c5cb3bf96801bcf6422c9ea63dac484a231684d0a4383d059386e74ea5a)
             check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "project_name": project_name,
@@ -319,7 +320,7 @@ def _typecheckingstub__ae1299eb5a9daafd09ff98ba3e3d4056e110dde110eef801bc1e29615
     pass
 
 def _typecheckingstub__749f23ba01f7fdc53827fbcb401d225323cb8f419099c89a9c4caf4a7b7b5090(
-    resource: _IProjectRef_ebc63cfa,
+    resource: _aws_lookoutvision_d3e2cc05.IProjectRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -347,7 +348,7 @@ def _typecheckingstub__3e45bbfda2feb9cb819883025c071612a0b025c74b1cf57bd52a95248
     pass
 
 def _typecheckingstub__03b76078beb0180f06779d0a685dd8192d3a9f806bb489debf20ab767476c7b0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

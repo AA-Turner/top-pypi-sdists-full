@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,48 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_s3vectors import (
-    IIndexRef as _IIndexRef_4272045e,
-    IVectorBucketPolicyRef as _IVectorBucketPolicyRef_9ad4e2a8,
-    IVectorBucketRef as _IVectorBucketRef_238bcb24,
-    IndexReference as _IndexReference_f8041417,
-    VectorBucketPolicyReference as _VectorBucketPolicyReference_3f2d6cbc,
-    VectorBucketReference as _VectorBucketReference_62393c93,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_s3vectors as _aws_s3vectors_8df5e088
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_s3vectors_8df5e088 = _LazyImport("aws_cdk.interfaces.aws_s3vectors")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IIndexRef_4272045e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3vectors_8df5e088.IIndexRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIndex(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3vectors.CfnIndex",
 ):
@@ -155,10 +145,10 @@ class CfnIndex(
         data_type: builtins.str,
         dimension: jsii.Number,
         distance_metric: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         index_name: typing.Optional[builtins.str] = None,
-        metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_arn: typing.Optional[builtins.str] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -177,7 +167,7 @@ class CfnIndex(
         :param vector_bucket_name: The name of the vector bucket that contains the vector index.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87bd43a194666dd054aecee5dc42b978d33dae31b98b1bacec49341d4916205e)
+            type_hints = cached_type_hints(_typecheckingstub__87bd43a194666dd054aecee5dc42b978d33dae31b98b1bacec49341d4916205e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIndexProps(
@@ -196,12 +186,15 @@ class CfnIndex(
 
     @jsii.member(jsii_name="arnForIndex")
     @builtins.classmethod
-    def arn_for_index(cls, resource: "_IIndexRef_4272045e") -> builtins.str:
+    def arn_for_index(
+        cls,
+        resource: "_aws_s3vectors_8df5e088.IIndexRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32e62c574691f1e6a9b9acb81be5224bf6aefeb13ff8a3279c085732027b3ece)
+            type_hints = cached_type_hints(_typecheckingstub__32e62c574691f1e6a9b9acb81be5224bf6aefeb13ff8a3279c085732027b3ece)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIndex", [resource]))
 
@@ -213,18 +206,18 @@ class CfnIndex(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcff37fdf03ad5adbbed6ad76ecd89562dab8f009aea7435b74d00f4dbfe01a4)
+            type_hints = cached_type_hints(_typecheckingstub__dcff37fdf03ad5adbbed6ad76ecd89562dab8f009aea7435b74d00f4dbfe01a4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIndex", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf75f37384ae6010cf34366284fd709b9bf09472bc476d814cde62f1244e1f5)
+            type_hints = cached_type_hints(_typecheckingstub__abf75f37384ae6010cf34366284fd709b9bf09472bc476d814cde62f1244e1f5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -237,7 +230,7 @@ class CfnIndex(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__731726592378e5451eb8d8956c8a160ef274b5bd0d04312393ac06dda83e154f)
+            type_hints = cached_type_hints(_typecheckingstub__731726592378e5451eb8d8956c8a160ef274b5bd0d04312393ac06dda83e154f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -271,9 +264,9 @@ class CfnIndex(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -287,9 +280,9 @@ class CfnIndex(
 
     @builtins.property
     @jsii.member(jsii_name="indexRef")
-    def index_ref(self) -> "_IndexReference_f8041417":
+    def index_ref(self) -> "_aws_s3vectors_8df5e088.IndexReference":
         '''A reference to a Index resource.'''
-        return typing.cast("_IndexReference_f8041417", jsii.get(self, "indexRef"))
+        return typing.cast("_aws_s3vectors_8df5e088.IndexReference", jsii.get(self, "indexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataType")
@@ -300,7 +293,7 @@ class CfnIndex(
     @data_type.setter
     def data_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c823d66dd49125b2784b64987a69c1442232d36162528420c812cdaf0483bb62)
+            type_hints = cached_type_hints(_typecheckingstub__c823d66dd49125b2784b64987a69c1442232d36162528420c812cdaf0483bb62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataType", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +306,7 @@ class CfnIndex(
     @dimension.setter
     def dimension(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__709ca3449db711fe8736cb15c71a260517a124f93ed8f0f8ea0fd07224b34491)
+            type_hints = cached_type_hints(_typecheckingstub__709ca3449db711fe8736cb15c71a260517a124f93ed8f0f8ea0fd07224b34491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dimension", value) # pyright: ignore[reportArgumentType]
 
@@ -329,7 +322,7 @@ class CfnIndex(
     @distance_metric.setter
     def distance_metric(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd2e189f3b0010c6a77fa4f43ad73f492b5e1099536bd12a0ebe077c09648a0b)
+            type_hints = cached_type_hints(_typecheckingstub__fd2e189f3b0010c6a77fa4f43ad73f492b5e1099536bd12a0ebe077c09648a0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "distanceMetric", value) # pyright: ignore[reportArgumentType]
 
@@ -337,17 +330,17 @@ class CfnIndex(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for a vector index.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3562181b475724860644b029c5aa0b0da6ef36ffc910f5b75f4a2ca99b0ad526)
+            type_hints = cached_type_hints(_typecheckingstub__3562181b475724860644b029c5aa0b0da6ef36ffc910f5b75f4a2ca99b0ad526)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -360,7 +353,7 @@ class CfnIndex(
     @index_name.setter
     def index_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aff851423be8566880565e79db1928638490e19822427a39ecb4692fac23aba)
+            type_hints = cached_type_hints(_typecheckingstub__2aff851423be8566880565e79db1928638490e19822427a39ecb4692fac23aba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "indexName", value) # pyright: ignore[reportArgumentType]
 
@@ -368,30 +361,33 @@ class CfnIndex(
     @jsii.member(jsii_name="metadataConfiguration")
     def metadata_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.MetadataConfigurationProperty"]]:
         '''The metadata configuration for the vector index.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]], jsii.get(self, "metadataConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.MetadataConfigurationProperty"]], jsii.get(self, "metadataConfiguration"))
 
     @metadata_configuration.setter
     def metadata_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.MetadataConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a9638c6ce3)
+            type_hints = cached_type_hints(_typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a9638c6ce3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the index.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392)
+            type_hints = cached_type_hints(_typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -404,7 +400,7 @@ class CfnIndex(
     @vector_bucket_arn.setter
     def vector_bucket_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dac369cc81e6a72eae40497750fec7e4bb88a8f4e2eb0a59dcbce3ecef2449ec)
+            type_hints = cached_type_hints(_typecheckingstub__dac369cc81e6a72eae40497750fec7e4bb88a8f4e2eb0a59dcbce3ecef2449ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -417,7 +413,7 @@ class CfnIndex(
     @vector_bucket_name.setter
     def vector_bucket_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__626d4bf5143365f338c97aea670a95f8c1fbfa0ad3a9cc00928821e5edb04014)
+            type_hints = cached_type_hints(_typecheckingstub__626d4bf5143365f338c97aea670a95f8c1fbfa0ad3a9cc00928821e5edb04014)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -455,7 +451,7 @@ class CfnIndex(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f9165e9fb93aff2add01bdd93a7038addf5ef28b5c63327f886cde432f32daca)
+                type_hints = cached_type_hints(_typecheckingstub__f9165e9fb93aff2add01bdd93a7038addf5ef28b5c63327f886cde432f32daca)
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -532,7 +528,7 @@ class CfnIndex(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__02647dc0f92f11b90c5132d15f87d8d903be3aad20d526f7d8a526c8d3fc1268)
+                type_hints = cached_type_hints(_typecheckingstub__02647dc0f92f11b90c5132d15f87d8d903be3aad20d526f7d8a526c8d3fc1268)
                 check_type(argname="argument non_filterable_metadata_keys", value=non_filterable_metadata_keys, expected_type=type_hints["non_filterable_metadata_keys"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if non_filterable_metadata_keys is not None:
@@ -587,10 +583,10 @@ class CfnIndexProps:
         data_type: builtins.str,
         dimension: jsii.Number,
         distance_metric: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         index_name: typing.Optional[builtins.str] = None,
-        metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_arn: typing.Optional[builtins.str] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -639,7 +635,7 @@ class CfnIndexProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ea84a5df8ebf668282b156128f8a09e7618a68ade5fffdf6ff86d39157f5a5d)
+            type_hints = cached_type_hints(_typecheckingstub__1ea84a5df8ebf668282b156128f8a09e7618a68ade5fffdf6ff86d39157f5a5d)
             check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
             check_type(argname="argument dimension", value=dimension, expected_type=type_hints["dimension"])
             check_type(argname="argument distance_metric", value=distance_metric, expected_type=type_hints["distance_metric"])
@@ -709,7 +705,7 @@ class CfnIndexProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for a vector index.
 
         By default, if you don't specify, all new vectors in the vector index will use the encryption configuration of the vector bucket.
@@ -717,7 +713,7 @@ class CfnIndexProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-index.html#cfn-s3vectors-index-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def index_name(self) -> typing.Optional[builtins.str]:
@@ -738,22 +734,22 @@ class CfnIndexProps:
     @builtins.property
     def metadata_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.MetadataConfigurationProperty"]]:
         '''The metadata configuration for the vector index.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-index.html#cfn-s3vectors-index-metadataconfiguration
         '''
         result = self._values.get("metadata_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIndex.MetadataConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the index.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-index.html#cfn-s3vectors-index-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vector_bucket_arn(self) -> typing.Optional[builtins.str]:
@@ -785,9 +781,9 @@ class CfnIndexProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVectorBucketRef_238bcb24, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3vectors_8df5e088.IVectorBucketRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnVectorBucket(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3vectors.CfnVectorBucket",
 ):
@@ -845,8 +841,8 @@ class CfnVectorBucket(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::S3Vectors::VectorBucket``.
@@ -858,7 +854,7 @@ class CfnVectorBucket(
         :param vector_bucket_name: A name for the vector bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). The bucket name must be unique in the same AWS account for each AWS Region. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must be between 3 and 63 characters long and must not contain uppercase characters or underscores. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a52d66a4aae762d071703714133bff3215199691ee6f06fec05144ec742e090e)
+            type_hints = cached_type_hints(_typecheckingstub__a52d66a4aae762d071703714133bff3215199691ee6f06fec05144ec742e090e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVectorBucketProps(
@@ -873,13 +869,13 @@ class CfnVectorBucket(
     @builtins.classmethod
     def arn_for_vector_bucket(
         cls,
-        resource: "_IVectorBucketRef_238bcb24",
+        resource: "_aws_s3vectors_8df5e088.IVectorBucketRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89411d490809081b29a45d8c02fcb4cc145b0df3aed499145104f0657ba929f4)
+            type_hints = cached_type_hints(_typecheckingstub__89411d490809081b29a45d8c02fcb4cc145b0df3aed499145104f0657ba929f4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVectorBucket", [resource]))
 
@@ -891,18 +887,18 @@ class CfnVectorBucket(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9895d4c963c7fd96f4be56b99de4dab5b35aa0baafc908ffa5866a1330fe3a18)
+            type_hints = cached_type_hints(_typecheckingstub__9895d4c963c7fd96f4be56b99de4dab5b35aa0baafc908ffa5866a1330fe3a18)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVectorBucket", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__640db6894c3240a3b378c5237337953d313c22d856cd2fb21a91ac21e141613c)
+            type_hints = cached_type_hints(_typecheckingstub__640db6894c3240a3b378c5237337953d313c22d856cd2fb21a91ac21e141613c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -915,7 +911,7 @@ class CfnVectorBucket(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ac846d2ab15e1003f215128393cef109784fe6985ec04a5d2e373121e5ee1cf)
+            type_hints = cached_type_hints(_typecheckingstub__1ac846d2ab15e1003f215128393cef109784fe6985ec04a5d2e373121e5ee1cf)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -949,9 +945,9 @@ class CfnVectorBucket(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -965,38 +961,41 @@ class CfnVectorBucket(
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketRef")
-    def vector_bucket_ref(self) -> "_VectorBucketReference_62393c93":
+    def vector_bucket_ref(self) -> "_aws_s3vectors_8df5e088.VectorBucketReference":
         '''A reference to a VectorBucket resource.'''
-        return typing.cast("_VectorBucketReference_62393c93", jsii.get(self, "vectorBucketRef"))
+        return typing.cast("_aws_s3vectors_8df5e088.VectorBucketReference", jsii.get(self, "vectorBucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVectorBucket.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for the vector bucket.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVectorBucket.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVectorBucket.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6)
+            type_hints = cached_type_hints(_typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the vector bucket.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2)
+            type_hints = cached_type_hints(_typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1009,7 +1008,7 @@ class CfnVectorBucket(
     @vector_bucket_name.setter
     def vector_bucket_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1879d6c9fc256da4dcb55ff2cd68263944a788d8c99c5f1e425ad9e64192a268)
+            type_hints = cached_type_hints(_typecheckingstub__1879d6c9fc256da4dcb55ff2cd68263944a788d8c99c5f1e425ad9e64192a268)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -1047,7 +1046,7 @@ class CfnVectorBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4ba5067d69ad54e4dc886b50fef43813033e236d5cfc14a644bb2168b2cee94)
+                type_hints = cached_type_hints(_typecheckingstub__d4ba5067d69ad54e4dc886b50fef43813033e236d5cfc14a644bb2168b2cee94)
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1097,9 +1096,9 @@ class CfnVectorBucket(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVectorBucketPolicyRef_9ad4e2a8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3vectors_8df5e088.IVectorBucketPolicyRef)
 class CfnVectorBucketPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3vectors.CfnVectorBucketPolicy",
 ):
@@ -1166,7 +1165,7 @@ class CfnVectorBucketPolicy(
         :param vector_bucket_name: The name of the S3 vector bucket to which the policy applies.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aee2d22aedfbf922cb325dc74e1f86dfd5fddeabc946e682b7e7daff49602847)
+            type_hints = cached_type_hints(_typecheckingstub__aee2d22aedfbf922cb325dc74e1f86dfd5fddeabc946e682b7e7daff49602847)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVectorBucketPolicyProps(
@@ -1185,18 +1184,18 @@ class CfnVectorBucketPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3726d6c463352d1ebd48e9e765a1a947a0c681b16f3cd62fcca774644436b8bb)
+            type_hints = cached_type_hints(_typecheckingstub__3726d6c463352d1ebd48e9e765a1a947a0c681b16f3cd62fcca774644436b8bb)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVectorBucketPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b009bbcea5fa7fa263cab9d9522e5e301535b1ade8033c93631254bc35724d59)
+            type_hints = cached_type_hints(_typecheckingstub__b009bbcea5fa7fa263cab9d9522e5e301535b1ade8033c93631254bc35724d59)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1209,7 +1208,7 @@ class CfnVectorBucketPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8f0d2d4e7a9dec45d4052937acaf1348456e0cc4ebdf7d82856c9846182f043)
+            type_hints = cached_type_hints(_typecheckingstub__d8f0d2d4e7a9dec45d4052937acaf1348456e0cc4ebdf7d82856c9846182f043)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1231,9 +1230,11 @@ class CfnVectorBucketPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketPolicyRef")
-    def vector_bucket_policy_ref(self) -> "_VectorBucketPolicyReference_3f2d6cbc":
+    def vector_bucket_policy_ref(
+        self,
+    ) -> "_aws_s3vectors_8df5e088.VectorBucketPolicyReference":
         '''A reference to a VectorBucketPolicy resource.'''
-        return typing.cast("_VectorBucketPolicyReference_3f2d6cbc", jsii.get(self, "vectorBucketPolicyRef"))
+        return typing.cast("_aws_s3vectors_8df5e088.VectorBucketPolicyReference", jsii.get(self, "vectorBucketPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -1244,7 +1245,7 @@ class CfnVectorBucketPolicy(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13f1a283deb175d320cdff8d43b010c30ccafabd7821351f0b5c86ca7a48b31b)
+            type_hints = cached_type_hints(_typecheckingstub__13f1a283deb175d320cdff8d43b010c30ccafabd7821351f0b5c86ca7a48b31b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -1257,7 +1258,7 @@ class CfnVectorBucketPolicy(
     @vector_bucket_arn.setter
     def vector_bucket_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ba261025c54aa0fb18a9b5b2e3fab72be4ad30d1d852fc5f1492aa6911a8aad)
+            type_hints = cached_type_hints(_typecheckingstub__1ba261025c54aa0fb18a9b5b2e3fab72be4ad30d1d852fc5f1492aa6911a8aad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1270,7 +1271,7 @@ class CfnVectorBucketPolicy(
     @vector_bucket_name.setter
     def vector_bucket_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cca6053ffe0f77fd07d26cceada81f3e3e9e5b832049344b1f7d88c006f06d45)
+            type_hints = cached_type_hints(_typecheckingstub__cca6053ffe0f77fd07d26cceada81f3e3e9e5b832049344b1f7d88c006f06d45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -1318,7 +1319,7 @@ class CfnVectorBucketPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f526fb025093579ae7085ed34610b038bedad50bc4dda479dea96c217e4198e)
+            type_hints = cached_type_hints(_typecheckingstub__1f526fb025093579ae7085ed34610b038bedad50bc4dda479dea96c217e4198e)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument vector_bucket_arn", value=vector_bucket_arn, expected_type=type_hints["vector_bucket_arn"])
             check_type(argname="argument vector_bucket_name", value=vector_bucket_name, expected_type=type_hints["vector_bucket_name"])
@@ -1385,8 +1386,8 @@ class CfnVectorBucketProps:
     def __init__(
         self,
         *,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVectorBucket``.
@@ -1418,7 +1419,7 @@ class CfnVectorBucketProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__557f3461f0c9f94a1c325dd824a3303ad88eff46565842be7f5c9f62ac2ce7dc)
+            type_hints = cached_type_hints(_typecheckingstub__557f3461f0c9f94a1c325dd824a3303ad88eff46565842be7f5c9f62ac2ce7dc)
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vector_bucket_name", value=vector_bucket_name, expected_type=type_hints["vector_bucket_name"])
@@ -1433,22 +1434,22 @@ class CfnVectorBucketProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVectorBucket.EncryptionConfigurationProperty"]]:
         '''The encryption configuration for the vector bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-vectorbucket.html#cfn-s3vectors-vectorbucket-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVectorBucket.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the vector bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-vectorbucket.html#cfn-s3vectors-vectorbucket-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vector_bucket_name(self) -> typing.Optional[builtins.str]:
@@ -1496,10 +1497,10 @@ def _typecheckingstub__87bd43a194666dd054aecee5dc42b978d33dae31b98b1bacec49341d4
     data_type: builtins.str,
     dimension: jsii.Number,
     distance_metric: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     index_name: typing.Optional[builtins.str] = None,
-    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_arn: typing.Optional[builtins.str] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1507,7 +1508,7 @@ def _typecheckingstub__87bd43a194666dd054aecee5dc42b978d33dae31b98b1bacec49341d4
     pass
 
 def _typecheckingstub__32e62c574691f1e6a9b9acb81be5224bf6aefeb13ff8a3279c085732027b3ece(
-    resource: _IIndexRef_4272045e,
+    resource: _aws_s3vectors_8df5e088.IIndexRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1519,7 +1520,7 @@ def _typecheckingstub__dcff37fdf03ad5adbbed6ad76ecd89562dab8f009aea7435b74d00f4d
     pass
 
 def _typecheckingstub__abf75f37384ae6010cf34366284fd709b9bf09472bc476d814cde62f1244e1f5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1549,7 +1550,7 @@ def _typecheckingstub__fd2e189f3b0010c6a77fa4f43ad73f492b5e1099536bd12a0ebe077c0
     pass
 
 def _typecheckingstub__3562181b475724860644b029c5aa0b0da6ef36ffc910f5b75f4a2ca99b0ad526(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIndex.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1561,13 +1562,13 @@ def _typecheckingstub__2aff851423be8566880565e79db1928638490e19822427a39ecb4692f
     pass
 
 def _typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a9638c6ce3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.MetadataConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIndex.MetadataConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1604,10 +1605,10 @@ def _typecheckingstub__1ea84a5df8ebf668282b156128f8a09e7618a68ade5fffdf6ff86d391
     data_type: builtins.str,
     dimension: jsii.Number,
     distance_metric: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     index_name: typing.Optional[builtins.str] = None,
-    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_arn: typing.Optional[builtins.str] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1618,15 +1619,15 @@ def _typecheckingstub__a52d66a4aae762d071703714133bff3215199691ee6f06fec05144ec7
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__89411d490809081b29a45d8c02fcb4cc145b0df3aed499145104f0657ba929f4(
-    resource: _IVectorBucketRef_238bcb24,
+    resource: _aws_s3vectors_8df5e088.IVectorBucketRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1638,7 +1639,7 @@ def _typecheckingstub__9895d4c963c7fd96f4be56b99de4dab5b35aa0baafc908ffa5866a133
     pass
 
 def _typecheckingstub__640db6894c3240a3b378c5237337953d313c22d856cd2fb21a91ac21e141613c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1650,13 +1651,13 @@ def _typecheckingstub__1ac846d2ab15e1003f215128393cef109784fe6985ec04a5d2e373121
     pass
 
 def _typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVectorBucket.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVectorBucket.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1693,7 +1694,7 @@ def _typecheckingstub__3726d6c463352d1ebd48e9e765a1a947a0c681b16f3cd62fcca774644
     pass
 
 def _typecheckingstub__b009bbcea5fa7fa263cab9d9522e5e301535b1ade8033c93631254bc35724d59(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1733,8 +1734,8 @@ def _typecheckingstub__1f526fb025093579ae7085ed34610b038bedad50bc4dda479dea96c21
 
 def _typecheckingstub__557f3461f0c9f94a1c325dd824a3303ad88eff46565842be7f5c9f62ac2ce7dc(
     *,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

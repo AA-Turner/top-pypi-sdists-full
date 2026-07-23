@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_notificationscontacts import (
-    EmailContactReference as _EmailContactReference_cffe92f7,
-    IEmailContactRef as _IEmailContactRef_3b55344c,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_notificationscontacts as _aws_notificationscontacts_b0c4abda
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_notificationscontacts_b0c4abda = _LazyImport("aws_cdk.interfaces.aws_notificationscontacts")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEmailContactRef_3b55344c, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notificationscontacts_b0c4abda.IEmailContactRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEmailContact(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notificationscontacts.CfnEmailContact",
 ):
@@ -121,7 +115,7 @@ class CfnEmailContact(
         *,
         email_address: builtins.str,
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NotificationsContacts::EmailContact``.
 
@@ -132,7 +126,7 @@ class CfnEmailContact(
         :param tags: A list of tags to apply to the email contact.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de25815cbc5e561d0f90c0eee8ffe57e0f8551698ba5a811da29f445a3d211b)
+            type_hints = cached_type_hints(_typecheckingstub__1de25815cbc5e561d0f90c0eee8ffe57e0f8551698ba5a811da29f445a3d211b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEmailContactProps(email_address=email_address, name=name, tags=tags)
@@ -143,13 +137,13 @@ class CfnEmailContact(
     @builtins.classmethod
     def arn_for_email_contact(
         cls,
-        resource: "_IEmailContactRef_3b55344c",
+        resource: "_aws_notificationscontacts_b0c4abda.IEmailContactRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__800f55852aefaadf354726e75bd68267dcb3a33397489653d1e7d090255791c7)
+            type_hints = cached_type_hints(_typecheckingstub__800f55852aefaadf354726e75bd68267dcb3a33397489653d1e7d090255791c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEmailContact", [resource]))
 
@@ -161,18 +155,18 @@ class CfnEmailContact(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f81c1bfb46046e85fb78f9ed59a3c3c0570ab349105bd53052339fe2d7e079ec)
+            type_hints = cached_type_hints(_typecheckingstub__f81c1bfb46046e85fb78f9ed59a3c3c0570ab349105bd53052339fe2d7e079ec)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEmailContact", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6bae88336d9a51f69c3fc86da9d85ddead25993d2bc29fd415fa7b87726d0e7)
+            type_hints = cached_type_hints(_typecheckingstub__b6bae88336d9a51f69c3fc86da9d85ddead25993d2bc29fd415fa7b87726d0e7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -185,7 +179,7 @@ class CfnEmailContact(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a0a2d04984c43f3c80eb33fad944cd8b49b1fb73b667140e24f4f9a81d76ae)
+            type_hints = cached_type_hints(_typecheckingstub__49a0a2d04984c43f3c80eb33fad944cd8b49b1fb73b667140e24f4f9a81d76ae)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -206,11 +200,11 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="attrEmailContact")
-    def attr_email_contact(self) -> "_IResolvable_da3f097b":
+    def attr_email_contact(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: EmailContact
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEmailContact"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEmailContact"))
 
     @builtins.property
     @jsii.member(jsii_name="attrEmailContactAddress")
@@ -270,9 +264,9 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -286,9 +280,11 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="emailContactRef")
-    def email_contact_ref(self) -> "_EmailContactReference_cffe92f7":
+    def email_contact_ref(
+        self,
+    ) -> "_aws_notificationscontacts_b0c4abda.EmailContactReference":
         '''A reference to a EmailContact resource.'''
-        return typing.cast("_EmailContactReference_cffe92f7", jsii.get(self, "emailContactRef"))
+        return typing.cast("_aws_notificationscontacts_b0c4abda.EmailContactReference", jsii.get(self, "emailContactRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emailAddress")
@@ -299,7 +295,7 @@ class CfnEmailContact(
     @email_address.setter
     def email_address(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad40c0465cbabf41bb2abf49dcce2989a3b42139c67d0d593acc1d1d67028e58)
+            type_hints = cached_type_hints(_typecheckingstub__ad40c0465cbabf41bb2abf49dcce2989a3b42139c67d0d593acc1d1d67028e58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -312,20 +308,23 @@ class CfnEmailContact(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71ded19921304e3a6ee545520c16e2621065bcf6a576b5305f984c994ac9fe5b)
+            type_hints = cached_type_hints(_typecheckingstub__71ded19921304e3a6ee545520c16e2621065bcf6a576b5305f984c994ac9fe5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to apply to the email contact.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6155552227ec0ef011be7e784ffc90ecfddac06545f4d44a087256c3ef2ee22b)
+            type_hints = cached_type_hints(_typecheckingstub__6155552227ec0ef011be7e784ffc90ecfddac06545f4d44a087256c3ef2ee22b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -382,7 +381,7 @@ class CfnEmailContact(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__48f41a7ff86bdb3f6536168c36c8ddd6876c1a2bfcd36169b53af9ce364e0eff)
+                type_hints = cached_type_hints(_typecheckingstub__48f41a7ff86bdb3f6536168c36c8ddd6876c1a2bfcd36169b53af9ce364e0eff)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument creation_time", value=creation_time, expected_type=type_hints["creation_time"])
@@ -483,7 +482,7 @@ class CfnEmailContactProps:
         *,
         email_address: builtins.str,
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEmailContact``.
 
@@ -513,7 +512,7 @@ class CfnEmailContactProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8)
+            type_hints = cached_type_hints(_typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8)
             check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -547,13 +546,13 @@ class CfnEmailContactProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to apply to the email contact.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -580,13 +579,13 @@ def _typecheckingstub__1de25815cbc5e561d0f90c0eee8ffe57e0f8551698ba5a811da29f445
     *,
     email_address: builtins.str,
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__800f55852aefaadf354726e75bd68267dcb3a33397489653d1e7d090255791c7(
-    resource: _IEmailContactRef_3b55344c,
+    resource: _aws_notificationscontacts_b0c4abda.IEmailContactRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -598,7 +597,7 @@ def _typecheckingstub__f81c1bfb46046e85fb78f9ed59a3c3c0570ab349105bd53052339fe2d
     pass
 
 def _typecheckingstub__b6bae88336d9a51f69c3fc86da9d85ddead25993d2bc29fd415fa7b87726d0e7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -622,7 +621,7 @@ def _typecheckingstub__71ded19921304e3a6ee545520c16e2621065bcf6a576b5305f984c994
     pass
 
 def _typecheckingstub__6155552227ec0ef011be7e784ffc90ecfddac06545f4d44a087256c3ef2ee22b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -643,7 +642,7 @@ def _typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f7
     *,
     email_address: builtins.str,
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

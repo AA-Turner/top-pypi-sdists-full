@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_kendraranking import (
-    ExecutionPlanReference as _ExecutionPlanReference_e2683022,
-    IExecutionPlanRef as _IExecutionPlanRef_0496b464,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_kendraranking as _aws_kendraranking_ba0a9699
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_kendraranking_ba0a9699 = _LazyImport("aws_cdk.interfaces.aws_kendraranking")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IExecutionPlanRef_0496b464, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kendraranking_ba0a9699.IExecutionPlanRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnExecutionPlan(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kendraranking.CfnExecutionPlan",
 ):
@@ -117,9 +111,9 @@ class CfnExecutionPlan(
         id: builtins.str,
         *,
         name: builtins.str,
-        capacity_units: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnExecutionPlan.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capacity_units: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExecutionPlan.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KendraRanking::ExecutionPlan``.
 
@@ -131,7 +125,7 @@ class CfnExecutionPlan(
         :param tags: A list of key-value pairs that identify or categorize your rescore execution plan. You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10ad8ffee997e60c547397dcad2b6175d967468b936a768fcba47720363d43bd)
+            type_hints = cached_type_hints(_typecheckingstub__10ad8ffee997e60c547397dcad2b6175d967468b936a768fcba47720363d43bd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnExecutionPlanProps(
@@ -147,13 +141,13 @@ class CfnExecutionPlan(
     @builtins.classmethod
     def arn_for_execution_plan(
         cls,
-        resource: "_IExecutionPlanRef_0496b464",
+        resource: "_aws_kendraranking_ba0a9699.IExecutionPlanRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1d3694917f2f1c5dd6121450a7b561982dfaee5950565f0bf13b77ad7bf833a)
+            type_hints = cached_type_hints(_typecheckingstub__d1d3694917f2f1c5dd6121450a7b561982dfaee5950565f0bf13b77ad7bf833a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForExecutionPlan", [resource]))
 
@@ -165,18 +159,18 @@ class CfnExecutionPlan(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9edba0134a0d8ae44ce109e8792eac8c60011257b8dc35c7632b9153f60aa09)
+            type_hints = cached_type_hints(_typecheckingstub__a9edba0134a0d8ae44ce109e8792eac8c60011257b8dc35c7632b9153f60aa09)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExecutionPlan", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0ca4271c359a22f0adcff780309b5d6d29fe57d367ba67e1cdd09e261476207)
+            type_hints = cached_type_hints(_typecheckingstub__f0ca4271c359a22f0adcff780309b5d6d29fe57d367ba67e1cdd09e261476207)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -189,7 +183,7 @@ class CfnExecutionPlan(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9dd8de73c1eedf442e860206645ff7a5453a42f7ee156ff1d3cb6c0084a8f80)
+            type_hints = cached_type_hints(_typecheckingstub__e9dd8de73c1eedf442e860206645ff7a5453a42f7ee156ff1d3cb6c0084a8f80)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -229,15 +223,17 @@ class CfnExecutionPlan(
 
     @builtins.property
     @jsii.member(jsii_name="executionPlanRef")
-    def execution_plan_ref(self) -> "_ExecutionPlanReference_e2683022":
+    def execution_plan_ref(
+        self,
+    ) -> "_aws_kendraranking_ba0a9699.ExecutionPlanReference":
         '''A reference to a ExecutionPlan resource.'''
-        return typing.cast("_ExecutionPlanReference_e2683022", jsii.get(self, "executionPlanRef"))
+        return typing.cast("_aws_kendraranking_ba0a9699.ExecutionPlanReference", jsii.get(self, "executionPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -248,7 +244,7 @@ class CfnExecutionPlan(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0db3b98973e564e5a4b30f991391bb1b49f61fcdec383f174a6613c8158e4ea0)
+            type_hints = cached_type_hints(_typecheckingstub__0db3b98973e564e5a4b30f991391bb1b49f61fcdec383f174a6613c8158e4ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -256,17 +252,17 @@ class CfnExecutionPlan(
     @jsii.member(jsii_name="capacityUnits")
     def capacity_units(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]]:
         '''You can set additional capacity units to meet the needs of your rescore execution plan.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]], jsii.get(self, "capacityUnits"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]], jsii.get(self, "capacityUnits"))
 
     @capacity_units.setter
     def capacity_units(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf82105f97a1c94ff72a8269c751d540ea7e092450fdb48e2bbdbb2d8314735d)
+            type_hints = cached_type_hints(_typecheckingstub__cf82105f97a1c94ff72a8269c751d540ea7e092450fdb48e2bbdbb2d8314735d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacityUnits", value) # pyright: ignore[reportArgumentType]
 
@@ -279,20 +275,23 @@ class CfnExecutionPlan(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db9cba35f7e629b2c9a36f1f2a30a3b2958a4fc872e860756137af869eb2062)
+            type_hints = cached_type_hints(_typecheckingstub__1db9cba35f7e629b2c9a36f1f2a30a3b2958a4fc872e860756137af869eb2062)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs that identify or categorize your rescore execution plan.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55d68c9f299d528d643242539117e67cdcb6d318233fbecc0794963d32a7dd69)
+            type_hints = cached_type_hints(_typecheckingstub__55d68c9f299d528d643242539117e67cdcb6d318233fbecc0794963d32a7dd69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -323,7 +322,7 @@ class CfnExecutionPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6a681fa857411b5b813fd3ea51ba3c2278b7c1fb3b2c743dbcaf4c754eb37600)
+                type_hints = cached_type_hints(_typecheckingstub__6a681fa857411b5b813fd3ea51ba3c2278b7c1fb3b2c743dbcaf4c754eb37600)
                 check_type(argname="argument rescore_capacity_units", value=rescore_capacity_units, expected_type=type_hints["rescore_capacity_units"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rescore_capacity_units": rescore_capacity_units,
@@ -368,9 +367,9 @@ class CfnExecutionPlanProps:
         self,
         *,
         name: builtins.str,
-        capacity_units: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnExecutionPlan.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capacity_units: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExecutionPlan.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnExecutionPlan``.
 
@@ -404,7 +403,7 @@ class CfnExecutionPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c)
+            type_hints = cached_type_hints(_typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -432,7 +431,7 @@ class CfnExecutionPlanProps:
     @builtins.property
     def capacity_units(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]]:
         '''You can set additional capacity units to meet the needs of your rescore execution plan.
 
         You are given a single capacity unit by default. If you want to use the default capacity, you don't set additional capacity units. For more information on the default capacity and additional capacity units, see `Adjusting capacity <https://docs.aws.amazon.com/kendra/latest/dg/adjusting-capacity.html>`_ .
@@ -440,7 +439,7 @@ class CfnExecutionPlanProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-capacityunits
         '''
         result = self._values.get("capacity_units")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -452,7 +451,7 @@ class CfnExecutionPlanProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs that identify or categorize your rescore execution plan.
 
         You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
@@ -460,7 +459,7 @@ class CfnExecutionPlanProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -486,15 +485,15 @@ def _typecheckingstub__10ad8ffee997e60c547397dcad2b6175d967468b936a768fcba477203
     id: builtins.str,
     *,
     name: builtins.str,
-    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_units: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d1d3694917f2f1c5dd6121450a7b561982dfaee5950565f0bf13b77ad7bf833a(
-    resource: _IExecutionPlanRef_0496b464,
+    resource: _aws_kendraranking_ba0a9699.IExecutionPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -506,7 +505,7 @@ def _typecheckingstub__a9edba0134a0d8ae44ce109e8792eac8c60011257b8dc35c7632b9153
     pass
 
 def _typecheckingstub__f0ca4271c359a22f0adcff780309b5d6d29fe57d367ba67e1cdd09e261476207(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -524,7 +523,7 @@ def _typecheckingstub__0db3b98973e564e5a4b30f991391bb1b49f61fcdec383f174a6613c81
     pass
 
 def _typecheckingstub__cf82105f97a1c94ff72a8269c751d540ea7e092450fdb48e2bbdbb2d8314735d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnExecutionPlan.CapacityUnitsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnExecutionPlan.CapacityUnitsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -536,7 +535,7 @@ def _typecheckingstub__1db9cba35f7e629b2c9a36f1f2a30a3b2958a4fc872e860756137af86
     pass
 
 def _typecheckingstub__55d68c9f299d528d643242539117e67cdcb6d318233fbecc0794963d32a7dd69(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -551,9 +550,9 @@ def _typecheckingstub__6a681fa857411b5b813fd3ea51ba3c2278b7c1fb3b2c743dbcaf4c754
 def _typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c(
     *,
     name: builtins.str,
-    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_units: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

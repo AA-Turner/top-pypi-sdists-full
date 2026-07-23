@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,48 +45,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_servicecatalogappregistry import (
-    ApplicationReference as _ApplicationReference_24c0faac,
-    AttributeGroupAssociationReference as _AttributeGroupAssociationReference_263d8802,
-    AttributeGroupReference as _AttributeGroupReference_b27be7cf,
-    IApplicationRef as _IApplicationRef_5ddf8623,
-    IAttributeGroupAssociationRef as _IAttributeGroupAssociationRef_d01e35bd,
-    IAttributeGroupRef as _IAttributeGroupRef_1973b6d2,
-    IResourceAssociationRef as _IResourceAssociationRef_5d36fff5,
-    ResourceAssociationReference as _ResourceAssociationReference_0e9ec1ac,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_servicecatalogappregistry as _aws_servicecatalogappregistry_802b0421
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_servicecatalogappregistry_802b0421 = _LazyImport("aws_cdk.interfaces.aws_servicecatalogappregistry")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_5ddf8623, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalogappregistry_802b0421.IApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnApplication",
 ):
@@ -129,7 +119,7 @@ class CfnApplication(
         :param tags: Key-value pairs you can use to associate with the application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d257c52b2b)
+            type_hints = cached_type_hints(_typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d257c52b2b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(name=name, description=description, tags=tags)
@@ -138,12 +128,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_5ddf8623") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_servicecatalogappregistry_802b0421.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42a4b3272549596111990267ab471f85d4650980689eb241b994d4f5332b317d)
+            type_hints = cached_type_hints(_typecheckingstub__42a4b3272549596111990267ab471f85d4650980689eb241b994d4f5332b317d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -154,7 +147,7 @@ class CfnApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IApplicationRef_5ddf8623":
+    ) -> "_aws_servicecatalogappregistry_802b0421.IApplicationRef":
         '''Creates a new IApplicationRef from an ARN.
 
         :param scope: -
@@ -162,11 +155,11 @@ class CfnApplication(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__955a2e8ef9349aa04e3db911200984b604b9a25a10f842542d8fedf3bbd11c5b)
+            type_hints = cached_type_hints(_typecheckingstub__955a2e8ef9349aa04e3db911200984b604b9a25a10f842542d8fedf3bbd11c5b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IApplicationRef_5ddf8623", jsii.sinvoke(cls, "fromApplicationArn", [scope, id, arn]))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.IApplicationRef", jsii.sinvoke(cls, "fromApplicationArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromApplicationId")
     @builtins.classmethod
@@ -175,7 +168,7 @@ class CfnApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_id: builtins.str,
-    ) -> "_IApplicationRef_5ddf8623":
+    ) -> "_aws_servicecatalogappregistry_802b0421.IApplicationRef":
         '''Creates a new IApplicationRef from a applicationId.
 
         :param scope: -
@@ -183,11 +176,11 @@ class CfnApplication(
         :param application_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c856b19bc43eda16caf59ab994b1bd9cf310ba6ac9f9888cae037aa1fd3b0144)
+            type_hints = cached_type_hints(_typecheckingstub__c856b19bc43eda16caf59ab994b1bd9cf310ba6ac9f9888cae037aa1fd3b0144)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-        return typing.cast("_IApplicationRef_5ddf8623", jsii.sinvoke(cls, "fromApplicationId", [scope, id, application_id]))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.IApplicationRef", jsii.sinvoke(cls, "fromApplicationId", [scope, id, application_id]))
 
     @jsii.member(jsii_name="isCfnApplication")
     @builtins.classmethod
@@ -197,18 +190,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62f831f4a48c2b57e7eef54587f582b5d13e24153daf537a6069d0f9fe08aa34)
+            type_hints = cached_type_hints(_typecheckingstub__62f831f4a48c2b57e7eef54587f582b5d13e24153daf537a6069d0f9fe08aa34)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be1bb8c9136b473debe566d21e0967713957428516c09e09b72630210e7c453)
+            type_hints = cached_type_hints(_typecheckingstub__6be1bb8c9136b473debe566d21e0967713957428516c09e09b72630210e7c453)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -221,7 +214,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a0dc04c323f63ef3f1767ffc001f7e8bcd6bb5a608576ab06b2b42e6e3c52d0)
+            type_hints = cached_type_hints(_typecheckingstub__9a0dc04c323f63ef3f1767ffc001f7e8bcd6bb5a608576ab06b2b42e6e3c52d0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -233,9 +226,11 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_24c0faac":
+    def application_ref(
+        self,
+    ) -> "_aws_servicecatalogappregistry_802b0421.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_24c0faac", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationName")
@@ -300,9 +295,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -313,7 +308,7 @@ class CfnApplication(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0041f6504a07717907a92f42d747a3d1aa0f539b2a1ecdf80b125f338b78906d)
+            type_hints = cached_type_hints(_typecheckingstub__0041f6504a07717907a92f42d747a3d1aa0f539b2a1ecdf80b125f338b78906d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -326,7 +321,7 @@ class CfnApplication(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55268a05c6f23a49877d2f4a30f1f0ac0655466839a0024c21c50a7ee4e8004e)
+            type_hints = cached_type_hints(_typecheckingstub__55268a05c6f23a49877d2f4a30f1f0ac0655466839a0024c21c50a7ee4e8004e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -342,7 +337,7 @@ class CfnApplication(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d738392fdb0411d2781c364cf531b3537b932b3addc8efa2cf2cab3df6d828f6)
+            type_hints = cached_type_hints(_typecheckingstub__d738392fdb0411d2781c364cf531b3537b932b3addc8efa2cf2cab3df6d828f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -386,7 +381,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d13e7d7a6c30df56af917d7a1945af3d16034d2339c18c7792b8ca5ced371ee)
+            type_hints = cached_type_hints(_typecheckingstub__1d13e7d7a6c30df56af917d7a1945af3d16034d2339c18c7792b8ca5ced371ee)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -440,9 +435,9 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAttributeGroupRef_1973b6d2, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalogappregistry_802b0421.IAttributeGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAttributeGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroup",
 ):
@@ -494,7 +489,7 @@ class CfnAttributeGroup(
         :param tags: Key-value pairs you can use to associate with the attribute group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8ddd07ec)
+            type_hints = cached_type_hints(_typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8ddd07ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAttributeGroupProps(
@@ -507,13 +502,13 @@ class CfnAttributeGroup(
     @builtins.classmethod
     def arn_for_attribute_group(
         cls,
-        resource: "_IAttributeGroupRef_1973b6d2",
+        resource: "_aws_servicecatalogappregistry_802b0421.IAttributeGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73edb5d13fc8dbe494bad56745f548eb0fd69b4dc41a1ced45631c543cfcc7f9)
+            type_hints = cached_type_hints(_typecheckingstub__73edb5d13fc8dbe494bad56745f548eb0fd69b4dc41a1ced45631c543cfcc7f9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAttributeGroup", [resource]))
 
@@ -524,7 +519,7 @@ class CfnAttributeGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IAttributeGroupRef_1973b6d2":
+    ) -> "_aws_servicecatalogappregistry_802b0421.IAttributeGroupRef":
         '''Creates a new IAttributeGroupRef from an ARN.
 
         :param scope: -
@@ -532,11 +527,11 @@ class CfnAttributeGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af4bda4ff0ff6c60024477e288e493dcc0130f0d394de6e34fa6396c49a74c92)
+            type_hints = cached_type_hints(_typecheckingstub__af4bda4ff0ff6c60024477e288e493dcc0130f0d394de6e34fa6396c49a74c92)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IAttributeGroupRef_1973b6d2", jsii.sinvoke(cls, "fromAttributeGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.IAttributeGroupRef", jsii.sinvoke(cls, "fromAttributeGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromAttributeGroupId")
     @builtins.classmethod
@@ -545,7 +540,7 @@ class CfnAttributeGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         attribute_group_id: builtins.str,
-    ) -> "_IAttributeGroupRef_1973b6d2":
+    ) -> "_aws_servicecatalogappregistry_802b0421.IAttributeGroupRef":
         '''Creates a new IAttributeGroupRef from a attributeGroupId.
 
         :param scope: -
@@ -553,11 +548,11 @@ class CfnAttributeGroup(
         :param attribute_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f72c219f00d2f2ceb6ddda988187c930677404d7a861ad884a3a3ac9cbfc16f)
+            type_hints = cached_type_hints(_typecheckingstub__8f72c219f00d2f2ceb6ddda988187c930677404d7a861ad884a3a3ac9cbfc16f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument attribute_group_id", value=attribute_group_id, expected_type=type_hints["attribute_group_id"])
-        return typing.cast("_IAttributeGroupRef_1973b6d2", jsii.sinvoke(cls, "fromAttributeGroupId", [scope, id, attribute_group_id]))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.IAttributeGroupRef", jsii.sinvoke(cls, "fromAttributeGroupId", [scope, id, attribute_group_id]))
 
     @jsii.member(jsii_name="isCfnAttributeGroup")
     @builtins.classmethod
@@ -567,18 +562,18 @@ class CfnAttributeGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c10dd947c0d5d201238240077cf0666388f8cd1effae99f28db0f8c432234f8)
+            type_hints = cached_type_hints(_typecheckingstub__5c10dd947c0d5d201238240077cf0666388f8cd1effae99f28db0f8c432234f8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAttributeGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aeccce963693b654c1717c2e0421d969367b8759138483e8a26cb5b5cc59967)
+            type_hints = cached_type_hints(_typecheckingstub__8aeccce963693b654c1717c2e0421d969367b8759138483e8a26cb5b5cc59967)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -591,7 +586,7 @@ class CfnAttributeGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d01ddb1769a51acf2737a039c28c192b439bb0da7ff8d3f907b498a96f1d8595)
+            type_hints = cached_type_hints(_typecheckingstub__d01ddb1769a51acf2737a039c28c192b439bb0da7ff8d3f907b498a96f1d8595)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -612,9 +607,11 @@ class CfnAttributeGroup(
 
     @builtins.property
     @jsii.member(jsii_name="attributeGroupRef")
-    def attribute_group_ref(self) -> "_AttributeGroupReference_b27be7cf":
+    def attribute_group_ref(
+        self,
+    ) -> "_aws_servicecatalogappregistry_802b0421.AttributeGroupReference":
         '''A reference to a AttributeGroup resource.'''
-        return typing.cast("_AttributeGroupReference_b27be7cf", jsii.get(self, "attributeGroupRef"))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.AttributeGroupReference", jsii.get(self, "attributeGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -637,9 +634,9 @@ class CfnAttributeGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="attributes")
@@ -650,7 +647,7 @@ class CfnAttributeGroup(
     @attributes.setter
     def attributes(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2f96f05d594a402248524030b8d191f517c4913d39b9c578042fc48d1f296d3)
+            type_hints = cached_type_hints(_typecheckingstub__a2f96f05d594a402248524030b8d191f517c4913d39b9c578042fc48d1f296d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
 
@@ -663,7 +660,7 @@ class CfnAttributeGroup(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c79e54c986e546259770e9f368834b1a0d490f97d9efdb4179a508978416d088)
+            type_hints = cached_type_hints(_typecheckingstub__c79e54c986e546259770e9f368834b1a0d490f97d9efdb4179a508978416d088)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -676,7 +673,7 @@ class CfnAttributeGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81b54714c6bc59a508196bdad758e50d0672b75af3febd676a171d1a8d53fddb)
+            type_hints = cached_type_hints(_typecheckingstub__81b54714c6bc59a508196bdad758e50d0672b75af3febd676a171d1a8d53fddb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -692,14 +689,14 @@ class CfnAttributeGroup(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9abf6529ea7ca031cb70f77316b557e2e8580a8689b73fbc81b7e6ed74760ff0)
+            type_hints = cached_type_hints(_typecheckingstub__9abf6529ea7ca031cb70f77316b557e2e8580a8689b73fbc81b7e6ed74760ff0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IAttributeGroupAssociationRef_d01e35bd)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalogappregistry_802b0421.IAttributeGroupAssociationRef)
 class CfnAttributeGroupAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroupAssociation",
 ):
@@ -739,7 +736,7 @@ class CfnAttributeGroupAssociation(
         :param attribute_group: The name or ID of the attribute group which holds the attributes that describe the application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93941f322e2bbedf82a8dca84459e31dea9fd78e4d73310c50641bccace2f3b5)
+            type_hints = cached_type_hints(_typecheckingstub__93941f322e2bbedf82a8dca84459e31dea9fd78e4d73310c50641bccace2f3b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAttributeGroupAssociationProps(
@@ -756,18 +753,18 @@ class CfnAttributeGroupAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39006ed546d9e1867e25d1cd65f6e8608a77b4e38b7c79c93d6c553b017321ba)
+            type_hints = cached_type_hints(_typecheckingstub__39006ed546d9e1867e25d1cd65f6e8608a77b4e38b7c79c93d6c553b017321ba)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAttributeGroupAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85)
+            type_hints = cached_type_hints(_typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -780,7 +777,7 @@ class CfnAttributeGroupAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6c8bd014f7946c1e529f9a6c785fa2cf6604508ec07d0c94c127fb434347426)
+            type_hints = cached_type_hints(_typecheckingstub__b6c8bd014f7946c1e529f9a6c785fa2cf6604508ec07d0c94c127fb434347426)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -812,9 +809,9 @@ class CfnAttributeGroupAssociation(
     @jsii.member(jsii_name="attributeGroupAssociationRef")
     def attribute_group_association_ref(
         self,
-    ) -> "_AttributeGroupAssociationReference_263d8802":
+    ) -> "_aws_servicecatalogappregistry_802b0421.AttributeGroupAssociationReference":
         '''A reference to a AttributeGroupAssociation resource.'''
-        return typing.cast("_AttributeGroupAssociationReference_263d8802", jsii.get(self, "attributeGroupAssociationRef"))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.AttributeGroupAssociationReference", jsii.get(self, "attributeGroupAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -843,7 +840,7 @@ class CfnAttributeGroupAssociation(
     @application.setter
     def application(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45fdca1a29bf1875f081813166da4a2502873704aaffb2c01f1ddc8031c379d2)
+            type_hints = cached_type_hints(_typecheckingstub__45fdca1a29bf1875f081813166da4a2502873704aaffb2c01f1ddc8031c379d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
 
@@ -856,7 +853,7 @@ class CfnAttributeGroupAssociation(
     @attribute_group.setter
     def attribute_group(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71b977ea671921d9f3f11176fdd9e42bb1b2150b879f10457c76ccf8542892d7)
+            type_hints = cached_type_hints(_typecheckingstub__71b977ea671921d9f3f11176fdd9e42bb1b2150b879f10457c76ccf8542892d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attributeGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -893,7 +890,7 @@ class CfnAttributeGroupAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66b14250caf2db1778ab37d372521dbbb9e379a2416a220081749162b8e0bbb9)
+            type_hints = cached_type_hints(_typecheckingstub__66b14250caf2db1778ab37d372521dbbb9e379a2416a220081749162b8e0bbb9)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument attribute_group", value=attribute_group, expected_type=type_hints["attribute_group"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -982,7 +979,7 @@ class CfnAttributeGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b156c4d3e0f6ed186534a8637a91a9bed154fe2ca5da91d845d7067c4bb22c2)
+            type_hints = cached_type_hints(_typecheckingstub__2b156c4d3e0f6ed186534a8637a91a9bed154fe2ca5da91d845d7067c4bb22c2)
             check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1048,9 +1045,9 @@ class CfnAttributeGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceAssociationRef_5d36fff5)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_servicecatalogappregistry_802b0421.IResourceAssociationRef)
 class CfnResourceAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnResourceAssociation",
 ):
@@ -1093,7 +1090,7 @@ class CfnResourceAssociation(
         :param resource_type: The type of resource of which the application will be associated.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf5ddebd2)
+            type_hints = cached_type_hints(_typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf5ddebd2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceAssociationProps(
@@ -1110,18 +1107,18 @@ class CfnResourceAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b50c63d8e27581fbb5ee6271dd99824687ab37ad1f3f9c45429df8b2eeeb3225)
+            type_hints = cached_type_hints(_typecheckingstub__b50c63d8e27581fbb5ee6271dd99824687ab37ad1f3f9c45429df8b2eeeb3225)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9fefade3b4ab875bdecf63569437fed26cac92b0144b5d392af6a5bdbacdcba)
+            type_hints = cached_type_hints(_typecheckingstub__a9fefade3b4ab875bdecf63569437fed26cac92b0144b5d392af6a5bdbacdcba)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1134,7 +1131,7 @@ class CfnResourceAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90028d0b5da4974f627e45d84a61fa48f2674ef8fa3fe3c200f6cbdfd6c84299)
+            type_hints = cached_type_hints(_typecheckingstub__90028d0b5da4974f627e45d84a61fa48f2674ef8fa3fe3c200f6cbdfd6c84299)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1182,9 +1179,11 @@ class CfnResourceAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="resourceAssociationRef")
-    def resource_association_ref(self) -> "_ResourceAssociationReference_0e9ec1ac":
+    def resource_association_ref(
+        self,
+    ) -> "_aws_servicecatalogappregistry_802b0421.ResourceAssociationReference":
         '''A reference to a ResourceAssociation resource.'''
-        return typing.cast("_ResourceAssociationReference_0e9ec1ac", jsii.get(self, "resourceAssociationRef"))
+        return typing.cast("_aws_servicecatalogappregistry_802b0421.ResourceAssociationReference", jsii.get(self, "resourceAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="application")
@@ -1195,7 +1194,7 @@ class CfnResourceAssociation(
     @application.setter
     def application(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31353404de98b748053b5f9606b7fddb581ae7b7dc388d68fa175d2952110f7)
+            type_hints = cached_type_hints(_typecheckingstub__f31353404de98b748053b5f9606b7fddb581ae7b7dc388d68fa175d2952110f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
 
@@ -1208,7 +1207,7 @@ class CfnResourceAssociation(
     @resource.setter
     def resource(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9178b0f451079d67b9c6d01b7768b818483cb63792b0bbe5aa0fe37997c4044c)
+            type_hints = cached_type_hints(_typecheckingstub__9178b0f451079d67b9c6d01b7768b818483cb63792b0bbe5aa0fe37997c4044c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
 
@@ -1221,7 +1220,7 @@ class CfnResourceAssociation(
     @resource_type.setter
     def resource_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36678484e7b565b88daa9f607f7e9e1fa6095b6f49abef3b957fe2df0b16de7e)
+            type_hints = cached_type_hints(_typecheckingstub__36678484e7b565b88daa9f607f7e9e1fa6095b6f49abef3b957fe2df0b16de7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
 
@@ -1265,7 +1264,7 @@ class CfnResourceAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45d1cc9b77fca46f4794951f8c00ddf4a34162a641dda1697bc57106afa7902b)
+            type_hints = cached_type_hints(_typecheckingstub__45d1cc9b77fca46f4794951f8c00ddf4a34162a641dda1697bc57106afa7902b)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
             check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
@@ -1342,7 +1341,7 @@ def _typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d25
     pass
 
 def _typecheckingstub__42a4b3272549596111990267ab471f85d4650980689eb241b994d4f5332b317d(
-    resource: _IApplicationRef_5ddf8623,
+    resource: _aws_servicecatalogappregistry_802b0421.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1370,7 +1369,7 @@ def _typecheckingstub__62f831f4a48c2b57e7eef54587f582b5d13e24153daf537a6069d0f9f
     pass
 
 def _typecheckingstub__6be1bb8c9136b473debe566d21e0967713957428516c09e09b72630210e7c453(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1421,7 +1420,7 @@ def _typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8
     pass
 
 def _typecheckingstub__73edb5d13fc8dbe494bad56745f548eb0fd69b4dc41a1ced45631c543cfcc7f9(
-    resource: _IAttributeGroupRef_1973b6d2,
+    resource: _aws_servicecatalogappregistry_802b0421.IAttributeGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1449,7 +1448,7 @@ def _typecheckingstub__5c10dd947c0d5d201238240077cf0666388f8cd1effae99f28db0f8c4
     pass
 
 def _typecheckingstub__8aeccce963693b654c1717c2e0421d969367b8759138483e8a26cb5b5cc59967(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1501,7 +1500,7 @@ def _typecheckingstub__39006ed546d9e1867e25d1cd65f6e8608a77b4e38b7c79c93d6c553b0
     pass
 
 def _typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1560,7 +1559,7 @@ def _typecheckingstub__b50c63d8e27581fbb5ee6271dd99824687ab37ad1f3f9c45429df8b2e
     pass
 
 def _typecheckingstub__a9fefade3b4ab875bdecf63569437fed26cac92b0144b5d392af6a5bdbacdcba(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

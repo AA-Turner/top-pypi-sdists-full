@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-apprunner-alpha",
-    "version": "2.261.0.a0",
+    "version": "2.262.0.a0",
     "description": "The CDK Construct Library for AWS::AppRunner",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_apprunner_alpha._jsii": [
-            "aws-apprunner-alpha@2.261.0-alpha.0.jsii.tgz"
+            "aws-apprunner-alpha@2.262.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_apprunner_alpha": [
             "py.typed"
@@ -34,11 +34,10 @@ kwargs = json.loads(
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.261.0, <3.0.0",
+        "aws-cdk-lib>=2.262.0, <3.0.0",
         "constructs>=10.5.0, <11.0.0",
-        "jsii>=1.133.0, <2.0.0",
-        "publication>=0.0.3",
-        "typeguard==2.13.3"
+        "jsii>=1.138.0, <2.0.0",
+        "publication>=0.0.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

@@ -45,6 +45,18 @@ impl MmapDataV2 {
     pub(crate) const FORMAT_VERSION: u32 = 2;
 }
 
+#[cfg(test)]
+impl ArchivedMmapDataV2 {
+    pub(crate) fn find_returnable_value_for_test(
+        &self,
+        key: &str,
+    ) -> Option<&crate::evaluation::rkyv_value::ArchivedRkyvValue> {
+        self.returnables
+            .iter()
+            .find_map(|(_, returnable)| returnable.get(key))
+    }
+}
+
 impl Default for MmapDataV2 {
     fn default() -> Self {
         Self {

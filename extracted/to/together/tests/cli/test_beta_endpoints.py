@@ -107,6 +107,34 @@ def _mock_model_and_config(respx_mock: MockRouter) -> None:
 
 
 class TestBetaEndpointsDeploy:
+    @pytest.mark.parametrize("model_revision", ["rev_in_path", "rev_from_flag"])
+    def test_deploy_rejects_model_path_and_revision_flag(
+        self,
+        cli_runner: CliRunner,
+        model_revision: str,
+    ) -> None:
+        result = cli_runner.invoke(
+            [
+                "beta",
+                "endpoints",
+                "deploy",
+                "--project",
+                "proj",
+                "--endpoint",
+                "ep_1",
+                "--model",
+                "projects/proj/models/ml_1/revisions/rev_in_path",
+                "--model-revision",
+                model_revision,
+                "--config",
+                "cr_1",
+                "--json",
+            ]
+        )
+
+        assert result.exit_code != 0
+        assert "Do not pass --model-revision when --model already includes a revision" in result.output
+
     @pytest.mark.respx(base_url=base_url)
     def test_deploy_creates_endpoint_deployment_and_traffic_split(
         self,
@@ -132,6 +160,7 @@ class TestBetaEndpointsDeploy:
                             "model": "projects/proj/models/ml_1/revisions/latest",
                             "modelId": "ml_1",
                             "hardware": "1x-h100",
+                            "estimatedEffectiveTrafficShare": 1,
                             "state": "DEPLOYMENT_STATE_READY",
                             "readyReplicas": 1,
                             "desiredReplicas": 1,
@@ -224,6 +253,41 @@ class TestBetaEndpointsList:
         assert "limit=10" in url
         assert "after=tok" in url
         assert json.loads(result.output)["next_cursor"] == "next"
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_list_handles_deployment_without_hardware(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        _mock_model_and_config(respx_mock)
+        respx_mock.get("/projects/proj/endpoints").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": [
+                        _endpoint_body(
+                            deployments=[
+                                {
+                                    "id": "dep_1",
+                                    "name": "my-project/my-endpoint/my-dep",
+                                    "model": "projects/proj/models/ml_1/revisions/latest",
+                                    "modelId": "ml_1",
+                                    "estimatedEffectiveTrafficShare": 1,
+                                    "state": "DEPLOYMENT_STATE_READY",
+                                    "readyReplicas": 1,
+                                    "desiredReplicas": 1,
+                                    "createdAt": "2026-01-01T00:00:00Z",
+                                    "autoscaling": {"minReplicas": 1, "maxReplicas": 1},
+                                }
+                            ],
+                        )
+                    ],
+                    "next_cursor": None,
+                },
+            )
+        )
+
+        result = cli_runner.invoke(["beta", "endpoints", "ls", "--project", "proj"])
+
+        assert result.exit_code == 0, result.output
 
     @pytest.mark.respx(base_url=base_url)
     def test_list_org_scoped(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:

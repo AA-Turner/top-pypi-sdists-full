@@ -1,6 +1,6 @@
 [project]
 name = "policyengine-us"
-version = "1.779.3"
+version = "1.779.7"
 description = "US federal and state tax-benefit microsimulation model."
 readme = "README.md"
 authors = [

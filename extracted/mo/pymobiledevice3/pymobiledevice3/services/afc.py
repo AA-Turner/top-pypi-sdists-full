@@ -21,11 +21,11 @@ import struct
 import sys
 import threading
 import warnings
-from collections import namedtuple
+from collections.abc import Iterator, MutableMapping, MutableSequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from re import Pattern
-from typing import Any, Callable, Optional, TextIO, Union
+from typing import Any, Callable, NamedTuple, Optional, TextIO, Union, cast
 
 import hexdump
 from click.exceptions import Exit
@@ -50,31 +50,28 @@ from pymobiledevice3.utils import get_asyncio_loop, try_decode
 try:
     # construct-typing >= 0.8.0 rejects csfield(Const(...)) and requires csfield_const() for const
     # fields. Older versions (0.7.x, the Python 3.9 floor) have no csfield_const.
-    from construct_typed import csfield_const
+    from construct_typed import csfield_const  # pyright: ignore[reportAttributeAccessIssue]
 except ImportError:  # construct-typing < 0.8.0
     csfield_const = None
 
 MAXIMUM_READ_SIZE = 4 * 1024**2  # 4 MB
 MODE_MASK = 0o0000777
 
-StatResult = namedtuple(
-    "StatResult",
-    [
-        "st_mode",
-        "st_ino",
-        "st_dev",
-        "st_nlink",
-        "st_uid",
-        "st_gid",
-        "st_size",
-        "st_atime",
-        "st_mtime",
-        "st_ctime",
-        "st_blocks",
-        "st_blksize",
-        "st_birthtime",
-    ],
-)
+
+class StatResult(NamedTuple):
+    st_mode: int
+    st_ino: int
+    st_dev: int
+    st_nlink: int
+    st_uid: int
+    st_gid: int
+    st_size: int
+    st_atime: float
+    st_mtime: float
+    st_ctime: float
+    st_blocks: int
+    st_blksize: int
+    st_birthtime: float
 
 
 class AfcOpcode(EnumBase):
@@ -186,11 +183,14 @@ _afc_magic_field = (
 
 @dataclass
 class AfcHeader(DataclassMixin):
+    # construct-typing 0.8's csfield_const() actually returns a dataclasses.Field(init=False), so this
+    # ordering is legal at runtime, but its stub returns the plain value type — pyright can't see the
+    # init=False and flags the non-default fields that follow. Field order is the AFC wire format.
     magic: bytes = _afc_magic_field
-    entire_length: int = csfield(Int64ul)
-    this_length: int = csfield(Int64ul)
-    packet_num: int = csfield(Int64ul)
-    operation: AfcOpcode = csfield(afc_opcode_t)
+    entire_length: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
+    this_length: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
+    packet_num: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
+    operation: AfcOpcode = csfield(afc_opcode_t)  # pyright: ignore[reportGeneralTypeIssues]
     _data_offset: int = field(default=0, init=False, metadata={"subcon": Tell})
 
 
@@ -423,7 +423,8 @@ class AfcService(LockdownService):
             with open(dst, "wb") as f:
                 src_size = (await self.stat(src))["st_size"]
                 if src_size <= MAXIMUM_READ_SIZE:
-                    f.write(await self.get_file_contents(src))
+                    contents = await self.get_file_contents(src)
+                    f.write(contents)
                 else:
                     handle = await self.fopen(src)
                     # Bytes-scaled bar (B/KB/MB with a live rate) rather than a chunk
@@ -689,7 +690,11 @@ class AfcService(LockdownService):
                 raise
 
         if undeleted_items:
-            raise AfcException(f"Failed to delete paths: {undeleted_items}", None)
+            # AfcException mis-annotates `status` as str; it accepts AfcError/None at runtime
+            raise AfcException(
+                f"Failed to delete paths: {undeleted_items}",
+                None,
+            )
 
         return []
 
@@ -749,7 +754,7 @@ class AfcService(LockdownService):
         return stat.get("st_ifmt") == "S_IFDIR"
 
     @path_to_str()
-    async def stat(self, filename: str):
+    async def stat(self, filename: str) -> dict[str, Any]:
         """
         Get file or directory metadata.
 
@@ -765,7 +770,7 @@ class AfcService(LockdownService):
         :raises AfcException: for any other failure status.
         """
         try:
-            stat = list_to_dict(
+            stat: dict[str, Any] = list_to_dict(
                 await self._do_operation(
                     AfcOpcode.GET_FILE_INFO, afc_stat_t.build(AfcStatRequest(filename=filename)), filename
                 )
@@ -964,7 +969,7 @@ class AfcService(LockdownService):
         return filename
 
     @path_to_str()
-    async def get_file_contents(self, filename: str):
+    async def get_file_contents(self, filename: str) -> bytes:
         """
         Read and return the entire contents of a file.
 
@@ -973,7 +978,7 @@ class AfcService(LockdownService):
 
         :param filename: Path to the file.
         :return: The file contents as bytes.
-        :raises AfcException: if the path is not a regular file (``S_IFREG``).
+        :raises AfcException: if the path is not a regular file (``S_IFREG``) or could not be opened.
         :raises AfcFileNotFoundError: if the path does not exist.
         """
         filename = await self.resolve_path(filename)
@@ -984,7 +989,7 @@ class AfcService(LockdownService):
 
         h = await self.fopen(filename)
         if not h:
-            return
+            raise AfcException(f"failed to open {filename}", AfcError.INTERNAL_ERROR, filename)
         d = await self.fread(h, int(info["st_size"]))
         await self.fclose(h)
         return d
@@ -1185,10 +1190,11 @@ class AfcService(LockdownService):
             if status == AfcError.OBJECT_NOT_FOUND:
                 exception = AfcFileNotFoundError
 
-            opcode_name = opcode.name if isinstance(opcode, AfcOpcode) else opcode
+            opcode_name = opcode.name
             message = f"Opcode: {opcode_name} failed with status: {status}"
             if filename is not None:
                 message += f" for file: {filename}"
+            # AfcException mis-annotates `status` as str; it accepts AfcError/None at runtime
             raise exception(message, status, filename)
 
         return data
@@ -1258,7 +1264,7 @@ class AfcLsStub(LsStub):
     def getenv(self, key, default=None):
         return ""
 
-    def print(self, *objects, sep=" ", end="\n", _=sys.stdout, flush=False):
+    def print(self, *objects, sep=" ", end="\n", file=sys.stdout, flush=False):
         """
         Print ls output to the constructor-provided stream.
 
@@ -1431,6 +1437,12 @@ def dir_completer(xsh, action, completer, alias, command):
     return result
 
 
+# xonsh declares Arg(completer=...) as returning Iterator[str], but any iterable works at
+# runtime; adapt the list-returning completers' declared type once here instead of per call site.
+_path_arg_completer = cast(Callable[..., Iterator[str]], path_completer)
+_dir_arg_completer = cast(Callable[..., Iterator[str]], dir_completer)
+
+
 class AfcShell:
     """
     Interactive xonsh-based shell for navigating an iOS device's file system via AFC.
@@ -1497,6 +1509,7 @@ class AfcShell:
         self.cwd = XSH.ctx.get("_auto_cd", "/")
         self._commands = {}
         self._orig_aliases = {}
+        assert XSH.env is not None
         self._orig_prompt = XSH.env["PROMPT"]
         self._completion_cache: dict[str, list[tuple[str, bool]]] = {}
         self._completion_refreshing: set[str] = set()
@@ -1564,9 +1577,11 @@ class AfcShell:
         """
         handler = ArgParserAlias(func=handler, has_args=True, prog=name)
         self._commands[name] = handler
-        if XSH.aliases.get(name):
-            self._orig_aliases[name] = XSH.aliases[name]
-        XSH.aliases[name] = handler
+        aliases = XSH.aliases
+        assert aliases is not None
+        if aliases.get(name):
+            self._orig_aliases[name] = aliases[name]
+        aliases[name] = handler
 
     def _register_rpc_command(self, name, handler):
         """
@@ -1576,9 +1591,11 @@ class AfcShell:
         :param handler: Command handler function or executable path
         """
         self._commands[name] = handler
-        if XSH.aliases.get(name):
-            self._orig_aliases[name] = XSH.aliases[name]
-        XSH.aliases[name] = handler
+        aliases = XSH.aliases
+        assert aliases is not None
+        if aliases.get(name):
+            self._orig_aliases[name] = aliases[name]
+        aliases[name] = handler
 
     def _setup_shell_commands(self):
         """
@@ -1588,7 +1605,10 @@ class AfcShell:
         utilities), registers AFC-specific commands, and sets up the custom prompt.
         """
         # clear all host commands except for some useful ones
-        XSH.env["PATH"].clear()
+        env = XSH.env
+        assert env is not None
+        # Env.__getitem__ is untyped; $PATH is an EnvPath (mutable sequence) at runtime
+        cast(MutableSequence, env["PATH"]).clear()
         # adding "file" just to fix xonsh errors
         for cmd in ["wc", "grep", "egrep", "sed", "awk", "print", "yes", "cat"]:
             executable = shutil.which(cmd)
@@ -1612,9 +1632,11 @@ class AfcShell:
         self._register_arg_parse_alias("stat", self._do_stat)
         self._register_arg_parse_alias("show-help", self._do_show_help)
 
-        XSH.env["PROMPT"] = f"[{{BOLD_CYAN}}{self.afc.service_name}:{{afc_cwd}}{{RESET}}]{{prompt_end}} "
-        XSH.env["PROMPT_FIELDS"]["afc_cwd"] = self._afc_cwd
-        XSH.env["PROMPT_FIELDS"]["prompt_end"] = self._prompt
+        env["PROMPT"] = f"[{{BOLD_CYAN}}{self.afc.service_name}:{{afc_cwd}}{{RESET}}]{{prompt_end}} "
+        # Env.__getitem__ is untyped; $PROMPT_FIELDS is a PromptFields (mutable mapping) at runtime
+        prompt_fields = cast(MutableMapping[str, Any], env["PROMPT_FIELDS"])
+        prompt_fields["afc_cwd"] = self._afc_cwd
+        prompt_fields["prompt_end"] = self._prompt
 
     def _prompt(self) -> str:
         """
@@ -1622,7 +1644,9 @@ class AfcShell:
 
         :return: Green '$' for success, red '$' for failure
         """
-        if len(XSH.history) == 0 or XSH.history[-1].rtn == 0:
+        history = XSH.history
+        assert history is not None
+        if len(history) == 0 or history[-1].rtn == 0:
             return "{BOLD_GREEN}${RESET}"
         return "{BOLD_RED}${RESET}"
 
@@ -1663,7 +1687,7 @@ class AfcShell:
         """
         self.afc.link(self.relative_path(target), self.relative_path(source), AfcLinkType.SYMLINK)
 
-    def _do_cd(self, directory: Annotated[str, Arg(completer=dir_completer)]) -> None:
+    def _do_cd(self, directory: Annotated[str, Arg(completer=_dir_arg_completer)]) -> None:
         """
         Change the current working directory.
 
@@ -1692,7 +1716,7 @@ class AfcShell:
         except Exit:
             pass
 
-    def _do_walk(self, directory: Annotated[str, Arg(completer=dir_completer)]):
+    def _do_walk(self, directory: Annotated[str, Arg(completer=_dir_arg_completer)]):
         """
         Recursively walk a directory tree and print all paths.
 
@@ -1704,7 +1728,7 @@ class AfcShell:
             for name in dirs:
                 print(posixpath.join(root, name))
 
-    def _do_cat(self, filename: Annotated[str, Arg(completer=path_completer)]):
+    def _do_cat(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Display the contents of a file.
 
@@ -1712,7 +1736,7 @@ class AfcShell:
         """
         print(try_decode(self.afc.get_file_contents(self.relative_path(filename))))
 
-    def _do_rm(self, file: Annotated[list[str], Arg(nargs="+", completer=path_completer)]):
+    def _do_rm(self, file: Annotated[list[str], Arg(nargs="+", completer=_path_arg_completer)]):
         """
         Remove one or more files or directories.
 
@@ -1723,7 +1747,7 @@ class AfcShell:
 
     def _do_pull(
         self,
-        remote_path: Annotated[str, Arg(completer=path_completer)],
+        remote_path: Annotated[str, Arg(completer=_path_arg_completer)],
         local_path: str,
         ignore_errors: Annotated[bool, Arg("--ignore-errors", action="store_true")] = False,
         progress_bar: Annotated[bool, Arg("--progress-bar", action="store_true")] = False,
@@ -1755,7 +1779,7 @@ class AfcShell:
             progress_bar=progress_bar,
         )
 
-    def _do_push(self, local_path: str, remote_path: Annotated[str, Arg(completer=path_completer)]):
+    def _do_push(self, local_path: str, remote_path: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Push a file or directory from local machine to device.
 
@@ -1768,7 +1792,7 @@ class AfcShell:
 
         self.afc.push(local_path, self.relative_path(remote_path), callback=log)
 
-    def _do_head(self, filename: Annotated[str, Arg(completer=path_completer)]):
+    def _do_head(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Display the first 32 bytes of a file.
 
@@ -1776,7 +1800,7 @@ class AfcShell:
         """
         print(try_decode(self.afc.get_file_contents(self.relative_path(filename))[:32]))
 
-    def _do_hexdump(self, filename: Annotated[str, Arg(completer=path_completer)]):
+    def _do_hexdump(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Display a hexadecimal dump of a file's contents.
 
@@ -1784,7 +1808,7 @@ class AfcShell:
         """
         print(hexdump.hexdump(self.afc.get_file_contents(self.relative_path(filename)), result="return"))
 
-    def _do_mkdir(self, filename: Annotated[str, Arg(completer=path_completer)]):
+    def _do_mkdir(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Create a directory on the device.
 
@@ -1798,7 +1822,9 @@ class AfcShell:
             print(f"{k}: {v}")
 
     def _do_mv(
-        self, source: Annotated[str, Arg(completer=path_completer)], dest: Annotated[str, Arg(completer=path_completer)]
+        self,
+        source: Annotated[str, Arg(completer=_path_arg_completer)],
+        dest: Annotated[str, Arg(completer=_path_arg_completer)],
     ):
         """
         Move or rename a file or directory.
@@ -1808,7 +1834,7 @@ class AfcShell:
         """
         return self.afc.rename(self.relative_path(source), self.relative_path(dest))
 
-    def _do_stat(self, filename: Annotated[str, Arg(completer=path_completer)]):
+    def _do_stat(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
         Display detailed file or directory statistics.
 
@@ -1925,7 +1951,9 @@ if __name__ == str(pathlib.Path(__file__).absolute()):
     """
     rc = XSH.ctx["_class"](XSH.ctx["_lockdown"], XSH.ctx["_service"])
     # fix fzf conflicts
-    XSH.env["fzf_history_binding"] = ""  # Ctrl+R
-    XSH.env["fzf_ssh_binding"] = ""  # Ctrl+S
-    XSH.env["fzf_file_binding"] = ""  # Ctrl+T
-    XSH.env["fzf_dir_binding"] = ""  # Ctrl+G
+    _xsh_env = XSH.env
+    assert _xsh_env is not None
+    _xsh_env["fzf_history_binding"] = ""  # Ctrl+R
+    _xsh_env["fzf_ssh_binding"] = ""  # Ctrl+S
+    _xsh_env["fzf_file_binding"] = ""  # Ctrl+T
+    _xsh_env["fzf_dir_binding"] = ""  # Ctrl+G

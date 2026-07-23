@@ -202,6 +202,7 @@ def create_app(tui_args: TuiArgs) -> "DreadnodeTextualApp":
         capability_flags=tui_args.capability_flags,
         system_prompt=tui_args.system_prompt,
         initial_policy=initial_policy,
+        project_memory_preload_limit=tui_args.project_memory_preload_limit,
     )
 
 
@@ -235,6 +236,7 @@ def _run_print(tui_args: TuiArgs) -> None:
             system_prompt=tui_args.system_prompt,
             server_url=tui_args.runtime_server,
             platform_url=tui_args.server,
+            project_memory_preload_limit=tui_args.project_memory_preload_limit,
         )
     )
 

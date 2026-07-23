@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_backupgateway import (
-    HypervisorReference as _HypervisorReference_8e45f85c,
-    IHypervisorRef as _IHypervisorRef_a8d4b5cc,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_backupgateway as _aws_backupgateway_9727c7e6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_backupgateway_9727c7e6 = _LazyImport("aws_cdk.interfaces.aws_backupgateway")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IHypervisorRef_a8d4b5cc, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backupgateway_9727c7e6.IHypervisorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnHypervisor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_backupgateway.CfnHypervisor",
 ):
@@ -127,7 +122,7 @@ class CfnHypervisor(
         log_group_arn: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         password: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::BackupGateway::Hypervisor``.
@@ -143,7 +138,7 @@ class CfnHypervisor(
         :param username: The username for the hypervisor.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3be02ddf56a7cf36e877cb5703e48b257066d0325551bfac15ae1763c276bd4)
+            type_hints = cached_type_hints(_typecheckingstub__f3be02ddf56a7cf36e877cb5703e48b257066d0325551bfac15ae1763c276bd4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHypervisorProps(
@@ -160,12 +155,15 @@ class CfnHypervisor(
 
     @jsii.member(jsii_name="arnForHypervisor")
     @builtins.classmethod
-    def arn_for_hypervisor(cls, resource: "_IHypervisorRef_a8d4b5cc") -> builtins.str:
+    def arn_for_hypervisor(
+        cls,
+        resource: "_aws_backupgateway_9727c7e6.IHypervisorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45d1395ac659e39b7eace855324da48c5702e18a2a6591a69136f97a86acbd59)
+            type_hints = cached_type_hints(_typecheckingstub__45d1395ac659e39b7eace855324da48c5702e18a2a6591a69136f97a86acbd59)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHypervisor", [resource]))
 
@@ -177,18 +175,18 @@ class CfnHypervisor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b4dfa4e261340dedc9297a562aea9768741c4575c5b78c133af8bec5f5d0ad6)
+            type_hints = cached_type_hints(_typecheckingstub__2b4dfa4e261340dedc9297a562aea9768741c4575c5b78c133af8bec5f5d0ad6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHypervisor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73179679c0ac35989063a27b881b3a1e441a50ceca6ff4c112b4797117c4a78e)
+            type_hints = cached_type_hints(_typecheckingstub__73179679c0ac35989063a27b881b3a1e441a50ceca6ff4c112b4797117c4a78e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -201,7 +199,7 @@ class CfnHypervisor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51ef1c77102bdf1334b3191a61e3d0c21969caa7c60187e81c77249c53555860)
+            type_hints = cached_type_hints(_typecheckingstub__51ef1c77102bdf1334b3191a61e3d0c21969caa7c60187e81c77249c53555860)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -234,15 +232,15 @@ class CfnHypervisor(
 
     @builtins.property
     @jsii.member(jsii_name="hypervisorRef")
-    def hypervisor_ref(self) -> "_HypervisorReference_8e45f85c":
+    def hypervisor_ref(self) -> "_aws_backupgateway_9727c7e6.HypervisorReference":
         '''A reference to a Hypervisor resource.'''
-        return typing.cast("_HypervisorReference_8e45f85c", jsii.get(self, "hypervisorRef"))
+        return typing.cast("_aws_backupgateway_9727c7e6.HypervisorReference", jsii.get(self, "hypervisorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="host")
@@ -253,7 +251,7 @@ class CfnHypervisor(
     @host.setter
     def host(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__234675d8ca91dba01c1c315060e69648fc33228f4d948219054c844c1a448278)
+            type_hints = cached_type_hints(_typecheckingstub__234675d8ca91dba01c1c315060e69648fc33228f4d948219054c844c1a448278)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "host", value) # pyright: ignore[reportArgumentType]
 
@@ -266,7 +264,7 @@ class CfnHypervisor(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7a3fd728ca2a0e447ba4104f46d934d4ef2f36042f47c6c805ca7d2aef9e0c9)
+            type_hints = cached_type_hints(_typecheckingstub__d7a3fd728ca2a0e447ba4104f46d934d4ef2f36042f47c6c805ca7d2aef9e0c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -279,7 +277,7 @@ class CfnHypervisor(
     @log_group_arn.setter
     def log_group_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb3a1f75ab544a4984880a35146647b1fbea41c82c952a898424f032faf628d7)
+            type_hints = cached_type_hints(_typecheckingstub__eb3a1f75ab544a4984880a35146647b1fbea41c82c952a898424f032faf628d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logGroupArn", value) # pyright: ignore[reportArgumentType]
 
@@ -292,7 +290,7 @@ class CfnHypervisor(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51f6b5d4a83eac793b06bc0d84230f8b875839fa833e3f5956b48c16cc7cf3df)
+            type_hints = cached_type_hints(_typecheckingstub__51f6b5d4a83eac793b06bc0d84230f8b875839fa833e3f5956b48c16cc7cf3df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -305,20 +303,23 @@ class CfnHypervisor(
     @password.setter
     def password(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be7fefb32999b7ee6037c16d74b63fc90b2f8978a74f5952e3aa18ad16bedca1)
+            type_hints = cached_type_hints(_typecheckingstub__be7fefb32999b7ee6037c16d74b63fc90b2f8978a74f5952e3aa18ad16bedca1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the hypervisor configuration to import.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dde24d2859009b6347e276635d0a0359b4dcc8299b84c2afd330e475d26093c1)
+            type_hints = cached_type_hints(_typecheckingstub__dde24d2859009b6347e276635d0a0359b4dcc8299b84c2afd330e475d26093c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -331,7 +332,7 @@ class CfnHypervisor(
     @username.setter
     def username(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01da04068d13529ca3507c1adc48f01d03eb0ade1021a50f92b12c74e46c8b5d)
+            type_hints = cached_type_hints(_typecheckingstub__01da04068d13529ca3507c1adc48f01d03eb0ade1021a50f92b12c74e46c8b5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
 
@@ -358,7 +359,7 @@ class CfnHypervisorProps:
         log_group_arn: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         password: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnHypervisor``.
@@ -395,7 +396,7 @@ class CfnHypervisorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57cbe7a0ec27db32ffa455c7883d0f02a2f26f4795873d74444a3b2a3e35f5d6)
+            type_hints = cached_type_hints(_typecheckingstub__57cbe7a0ec27db32ffa455c7883d0f02a2f26f4795873d74444a3b2a3e35f5d6)
             check_type(argname="argument host", value=host, expected_type=type_hints["host"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
@@ -467,13 +468,13 @@ class CfnHypervisorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags of the hypervisor configuration to import.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backupgateway-hypervisor.html#cfn-backupgateway-hypervisor-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
@@ -512,14 +513,14 @@ def _typecheckingstub__f3be02ddf56a7cf36e877cb5703e48b257066d0325551bfac15ae1763
     log_group_arn: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     password: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     username: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45d1395ac659e39b7eace855324da48c5702e18a2a6591a69136f97a86acbd59(
-    resource: _IHypervisorRef_a8d4b5cc,
+    resource: _aws_backupgateway_9727c7e6.IHypervisorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -531,7 +532,7 @@ def _typecheckingstub__2b4dfa4e261340dedc9297a562aea9768741c4575c5b78c133af8bec5
     pass
 
 def _typecheckingstub__73179679c0ac35989063a27b881b3a1e441a50ceca6ff4c112b4797117c4a78e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -573,7 +574,7 @@ def _typecheckingstub__be7fefb32999b7ee6037c16d74b63fc90b2f8978a74f5952e3aa18ad1
     pass
 
 def _typecheckingstub__dde24d2859009b6347e276635d0a0359b4dcc8299b84c2afd330e475d26093c1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -591,7 +592,7 @@ def _typecheckingstub__57cbe7a0ec27db32ffa455c7883d0f02a2f26f4795873d74444a3b2a3
     log_group_arn: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     password: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     username: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

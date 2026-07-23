@@ -359,6 +359,8 @@ apprunner.Service(self, "DemoService",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -372,35 +374,45 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_apprunner as _aws_cdk_aws_apprunner_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
-import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
-import aws_cdk.aws_ssm as _aws_cdk_aws_ssm_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_apprunner as _aws_cdk_aws_apprunner_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
+    import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
+    import aws_cdk.aws_ssm as _aws_cdk_aws_ssm_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_apprunner_ceddda9d = _LazyImport("aws_cdk.aws_apprunner")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_ecr_assets_ceddda9d = _LazyImport("aws_cdk.aws_ecr_assets")
+    _aws_cdk_aws_ecr_ceddda9d = _LazyImport("aws_cdk.aws_ecr")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_secretsmanager_ceddda9d = _LazyImport("aws_cdk.aws_secretsmanager")
+    _aws_cdk_aws_ssm_ceddda9d = _LazyImport("aws_cdk.aws_ssm")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -442,7 +454,7 @@ class AssetProps:
         if isinstance(image_configuration, dict):
             image_configuration = ImageConfiguration(**image_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e08a8fbd7cfe007fa7ce008c1d8a55a2e2ebe4d254c9dd541108007ec6a8e6e5)
+            type_hints = cached_type_hints(_typecheckingstub__e08a8fbd7cfe007fa7ce008c1d8a55a2e2ebe4d254c9dd541108007ec6a8e6e5)
             check_type(argname="argument asset", value=asset, expected_type=type_hints["asset"])
             check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -520,7 +532,7 @@ class AutoScalingConfigurationAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f04f1b647655a9262a279fbe04c1b04be071f7dcc95c2b4faec882a230929f6)
+            type_hints = cached_type_hints(_typecheckingstub__8f04f1b647655a9262a279fbe04c1b04be071f7dcc95c2b4faec882a230929f6)
             check_type(argname="argument auto_scaling_configuration_name", value=auto_scaling_configuration_name, expected_type=type_hints["auto_scaling_configuration_name"])
             check_type(argname="argument auto_scaling_configuration_revision", value=auto_scaling_configuration_revision, expected_type=type_hints["auto_scaling_configuration_revision"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -607,7 +619,7 @@ class AutoScalingConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d409b1d530a639b5498bf567d8dcb90e3d933f850862a29f70518344ec6b1623)
+            type_hints = cached_type_hints(_typecheckingstub__d409b1d530a639b5498bf567d8dcb90e3d933f850862a29f70518344ec6b1623)
             check_type(argname="argument auto_scaling_configuration_name", value=auto_scaling_configuration_name, expected_type=type_hints["auto_scaling_configuration_name"])
             check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
             check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
@@ -749,7 +761,7 @@ class CodeConfiguration:
         if isinstance(configuration_values, dict):
             configuration_values = CodeConfigurationValues(**configuration_values)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ae937db922ae6dad5990a7f5c386f8b91b134eb32d1e222b6397b08cd185df6)
+            type_hints = cached_type_hints(_typecheckingstub__5ae937db922ae6dad5990a7f5c386f8b91b134eb32d1e222b6397b08cd185df6)
             check_type(argname="argument configuration_source", value=configuration_source, expected_type=type_hints["configuration_source"])
             check_type(argname="argument configuration_values", value=configuration_values, expected_type=type_hints["configuration_values"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -853,7 +865,7 @@ class CodeConfigurationValues:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfca01cbfa9c6291b2ceb7b79d2e8973e68667f4752762fc65620ae5c1d16bec)
+            type_hints = cached_type_hints(_typecheckingstub__dfca01cbfa9c6291b2ceb7b79d2e8973e68667f4752762fc65620ae5c1d16bec)
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument build_command", value=build_command, expected_type=type_hints["build_command"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -1051,7 +1063,7 @@ class CodeRepositoryProps:
         if isinstance(source_code_version, dict):
             source_code_version = SourceCodeVersion(**source_code_version)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f8f6208c6ccadbd7f2f6a081b0c3ce8ee7e55504225e9ba72fd0d33a99d04d6)
+            type_hints = cached_type_hints(_typecheckingstub__0f8f6208c6ccadbd7f2f6a081b0c3ce8ee7e55504225e9ba72fd0d33a99d04d6)
             check_type(argname="argument code_configuration", value=code_configuration, expected_type=type_hints["code_configuration"])
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
             check_type(argname="argument repository_url", value=repository_url, expected_type=type_hints["repository_url"])
@@ -1172,7 +1184,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb36987110835c7df289907b6abce68377a8816dcc626b59e4634b110b68502a)
+            type_hints = cached_type_hints(_typecheckingstub__eb36987110835c7df289907b6abce68377a8816dcc626b59e4634b110b68502a)
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
         return typing.cast("Cpu", jsii.sinvoke(cls, "of", [unit]))
 
@@ -1276,7 +1288,7 @@ class EcrProps:
         if isinstance(image_configuration, dict):
             image_configuration = ImageConfiguration(**image_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d314b79b8d81f041cdd01718f3ef34ccc715997cf7fd3d81583ef7cdd22d75a)
+            type_hints = cached_type_hints(_typecheckingstub__8d314b79b8d81f041cdd01718f3ef34ccc715997cf7fd3d81583ef7cdd22d75a)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
@@ -1393,7 +1405,7 @@ class EcrPublicProps:
         if isinstance(image_configuration, dict):
             image_configuration = ImageConfiguration(**image_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83c946837bfdb36bdd4b295396580cb8fb7d16dbdf8cd7e7d26f40af21c98350)
+            type_hints = cached_type_hints(_typecheckingstub__83c946837bfdb36bdd4b295396580cb8fb7d16dbdf8cd7e7d26f40af21c98350)
             check_type(argname="argument image_identifier", value=image_identifier, expected_type=type_hints["image_identifier"])
             check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1466,7 +1478,7 @@ class GitHubConnection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa88c7a5842afea11022e7d7cb6979e91cfb24043dd76ce07670f71189675f3f)
+            type_hints = cached_type_hints(_typecheckingstub__fa88c7a5842afea11022e7d7cb6979e91cfb24043dd76ce07670f71189675f3f)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         jsii.create(self.__class__, self, [arn])
 
@@ -1482,7 +1494,7 @@ class GitHubConnection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89f2a8dc46245c67294c19ebb6e56670f52e1c8498f08a6f3cc64085d586c648)
+            type_hints = cached_type_hints(_typecheckingstub__89f2a8dc46245c67294c19ebb6e56670f52e1c8498f08a6f3cc64085d586c648)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         return typing.cast("GitHubConnection", jsii.sinvoke(cls, "fromConnectionArn", [arn]))
 
@@ -1542,7 +1554,7 @@ class GithubRepositoryProps:
         if isinstance(code_configuration_values, dict):
             code_configuration_values = CodeConfigurationValues(**code_configuration_values)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d401724ed1ffda098b7c914516349006ef7826c8ceec08ba31a7c624efd3db14)
+            type_hints = cached_type_hints(_typecheckingstub__d401724ed1ffda098b7c914516349006ef7826c8ceec08ba31a7c624efd3db14)
             check_type(argname="argument configuration_source", value=configuration_source, expected_type=type_hints["configuration_source"])
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
             check_type(argname="argument repository_url", value=repository_url, expected_type=type_hints["repository_url"])
@@ -1837,7 +1849,7 @@ class HttpHealthCheckOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a29cfd6afd364301a292f444ae0cb2af3e2fbd32a8e5c375cbc091c6d48b6083)
+            type_hints = cached_type_hints(_typecheckingstub__a29cfd6afd364301a292f444ae0cb2af3e2fbd32a8e5c375cbc091c6d48b6083)
             check_type(argname="argument healthy_threshold", value=healthy_threshold, expected_type=type_hints["healthy_threshold"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2353,7 +2365,7 @@ class ImageConfiguration:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ada5ceaac12328ac3e20c585b8447f90f84c0d2bf9b8461f994b196a6f5ca778)
+            type_hints = cached_type_hints(_typecheckingstub__ada5ceaac12328ac3e20c585b8447f90f84c0d2bf9b8461f994b196a6f5ca778)
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument environment_secrets", value=environment_secrets, expected_type=type_hints["environment_secrets"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
@@ -2506,7 +2518,7 @@ class ImageRepository:
         if isinstance(image_configuration, dict):
             image_configuration = ImageConfiguration(**image_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5739f9e0d186c5ae07f20de42ed39073fd22f6a1e220dd2c9b94782477260351)
+            type_hints = cached_type_hints(_typecheckingstub__5739f9e0d186c5ae07f20de42ed39073fd22f6a1e220dd2c9b94782477260351)
             check_type(argname="argument image_identifier", value=image_identifier, expected_type=type_hints["image_identifier"])
             check_type(argname="argument image_repository_type", value=image_repository_type, expected_type=type_hints["image_repository_type"])
             check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
@@ -2644,7 +2656,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aef99b08abb67e03d37b29a11f144ec6ca20853863c7f628ad9b0aa4181206e)
+            type_hints = cached_type_hints(_typecheckingstub__9aef99b08abb67e03d37b29a11f144ec6ca20853863c7f628ad9b0aa4181206e)
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
         return typing.cast("Memory", jsii.sinvoke(cls, "of", [unit]))
 
@@ -2784,7 +2796,7 @@ class ObservabilityConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__421591e7b88a9ca05adf379a20784325b1be3eedc888d670052b856051ee10aa)
+            type_hints = cached_type_hints(_typecheckingstub__421591e7b88a9ca05adf379a20784325b1be3eedc888d670052b856051ee10aa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ObservabilityConfigurationProps(
@@ -2811,7 +2823,7 @@ class ObservabilityConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7b8985e0f2351adfd5874d7295c72db8512a2ddf22cc04e25d61e3a0649da91)
+            type_hints = cached_type_hints(_typecheckingstub__d7b8985e0f2351adfd5874d7295c72db8512a2ddf22cc04e25d61e3a0649da91)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument observability_configuration_arn", value=observability_configuration_arn, expected_type=type_hints["observability_configuration_arn"])
@@ -2837,7 +2849,7 @@ class ObservabilityConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db9c656cd02cc4dd8667796a9860a8e89b2774a2728bd9d9bdee1fe1c8222387)
+            type_hints = cached_type_hints(_typecheckingstub__db9c656cd02cc4dd8667796a9860a8e89b2774a2728bd9d9bdee1fe1c8222387)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ObservabilityConfigurationAttributes(
@@ -2922,7 +2934,7 @@ class ObservabilityConfigurationAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__996b375337e44a1fc2e0188aa768043611d92db57b51134bfc70c46cd87178f3)
+            type_hints = cached_type_hints(_typecheckingstub__996b375337e44a1fc2e0188aa768043611d92db57b51134bfc70c46cd87178f3)
             check_type(argname="argument observability_configuration_name", value=observability_configuration_name, expected_type=type_hints["observability_configuration_name"])
             check_type(argname="argument observability_configuration_revision", value=observability_configuration_revision, expected_type=type_hints["observability_configuration_revision"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3001,7 +3013,7 @@ class ObservabilityConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b324b5f514dc536d9d0d42556461942a8bb167ffa704ba3b757ee33b93849384)
+            type_hints = cached_type_hints(_typecheckingstub__b324b5f514dc536d9d0d42556461942a8bb167ffa704ba3b757ee33b93849384)
             check_type(argname="argument trace_configuration_vendor", value=trace_configuration_vendor, expected_type=type_hints["trace_configuration_vendor"])
             check_type(argname="argument observability_configuration_name", value=observability_configuration_name, expected_type=type_hints["observability_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3081,7 +3093,7 @@ class Runtime(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bb5ee8b6854f81974bb8bee14dcd006f98f0b3c2cf8d852ea034c6fe09f2e35)
+            type_hints = cached_type_hints(_typecheckingstub__2bb5ee8b6854f81974bb8bee14dcd006f98f0b3c2cf8d852ea034c6fe09f2e35)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast("Runtime", jsii.sinvoke(cls, "of", [name]))
 
@@ -3274,7 +3286,7 @@ class Secret(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4f059432ff1a488be31a6b1d8f1a5752dafa5774b88cec265c7bc1c9f73a4e5)
+            type_hints = cached_type_hints(_typecheckingstub__d4f059432ff1a488be31a6b1d8f1a5752dafa5774b88cec265c7bc1c9f73a4e5)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument field", value=field, expected_type=type_hints["field"])
         return typing.cast("Secret", jsii.sinvoke(cls, "fromSecretsManager", [secret, field]))
@@ -3296,7 +3308,7 @@ class Secret(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b639ee831f5eec1269609ed8aaace2c8c854af8a0a99896bf57f1ec44feec01d)
+            type_hints = cached_type_hints(_typecheckingstub__b639ee831f5eec1269609ed8aaace2c8c854af8a0a99896bf57f1ec44feec01d)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument version_info", value=version_info, expected_type=type_hints["version_info"])
             check_type(argname="argument field", value=field, expected_type=type_hints["field"])
@@ -3315,7 +3327,7 @@ class Secret(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0cf075f1b7a42d19d2404c921c8ea9deeb7507e3c967f80806510dd249b0e77)
+            type_hints = cached_type_hints(_typecheckingstub__f0cf075f1b7a42d19d2404c921c8ea9deeb7507e3c967f80806510dd249b0e77)
             check_type(argname="argument parameter", value=parameter, expected_type=type_hints["parameter"])
         return typing.cast("Secret", jsii.sinvoke(cls, "fromSsmParameter", [parameter]))
 
@@ -3371,7 +3383,7 @@ class _SecretProxy(Secret):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bd282bba973b7a15360293a7363341363c526b874ed3ef1f9c1b62187cd9f09)
+            type_hints = cached_type_hints(_typecheckingstub__6bd282bba973b7a15360293a7363341363c526b874ed3ef1f9c1b62187cd9f09)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -3449,7 +3461,7 @@ class SecretVersionInfo:
             service.add_secret("LATER_SECRET", apprunner.Secret.from_secrets_manager(secret, "field"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afb5825ef7d4a37f927b0ae1f338a89941dd65787b02e3e4604e036461d23cc0)
+            type_hints = cached_type_hints(_typecheckingstub__afb5825ef7d4a37f927b0ae1f338a89941dd65787b02e3e4604e036461d23cc0)
             check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
             check_type(argname="argument version_stage", value=version_stage, expected_type=type_hints["version_stage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3563,7 +3575,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79d7d688c20ccfdaf4ead5ff12fa6ddcb24fd014e98a55a23b275e5f19aba35f)
+            type_hints = cached_type_hints(_typecheckingstub__79d7d688c20ccfdaf4ead5ff12fa6ddcb24fd014e98a55a23b275e5f19aba35f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServiceProps(
@@ -3609,7 +3621,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8409d8e0abf02901118bc4d7766649b9864e2eeb9bf9cb3aac48e20660a74c7)
+            type_hints = cached_type_hints(_typecheckingstub__b8409d8e0abf02901118bc4d7766649b9864e2eeb9bf9cb3aac48e20660a74c7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ServiceAttributes(
@@ -3638,7 +3650,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__150c152e2ac6267c6d21bd0cbf987659618d73bdd8ab39737c8f485109edb498)
+            type_hints = cached_type_hints(_typecheckingstub__150c152e2ac6267c6d21bd0cbf987659618d73bdd8ab39737c8f485109edb498)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
@@ -3654,7 +3666,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1f84babe1afe98a87221e6e76763e715d187e385c835bebec2fa7128a092bd4)
+            type_hints = cached_type_hints(_typecheckingstub__c1f84babe1afe98a87221e6e76763e715d187e385c835bebec2fa7128a092bd4)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addEnvironmentVariable", [name, value]))
@@ -3669,7 +3681,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc967eafc1f0b4b004e18edc573b5becb1d10a6ea57ccc980fa0b326fd15f4b1)
+            type_hints = cached_type_hints(_typecheckingstub__fc967eafc1f0b4b004e18edc573b5becb1d10a6ea57ccc980fa0b326fd15f4b1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
         return typing.cast(None, jsii.invoke(self, "addSecret", [name, secret]))
@@ -3686,7 +3698,7 @@ class Service(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5351c83ee7c098c1c4aac40f6a190c1c06bbd214351029437128b80b6a431a49)
+            type_hints = cached_type_hints(_typecheckingstub__5351c83ee7c098c1c4aac40f6a190c1c06bbd214351029437128b80b6a431a49)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -3812,7 +3824,7 @@ class ServiceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c46766384c012b61899cf246f3108c023b5f905a313bafaeafc7f4429fa6fb6)
+            type_hints = cached_type_hints(_typecheckingstub__9c46766384c012b61899cf246f3108c023b5f905a313bafaeafc7f4429fa6fb6)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             check_type(argname="argument service_status", value=service_status, expected_type=type_hints["service_status"])
@@ -3954,7 +3966,7 @@ class ServiceProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bbb5d2c5a8f10a3d012f0035d55423352f4a7eff0eb19c057f0e1898a751cb6)
+            type_hints = cached_type_hints(_typecheckingstub__2bbb5d2c5a8f10a3d012f0035d55423352f4a7eff0eb19c057f0e1898a751cb6)
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
             check_type(argname="argument auto_deployments_enabled", value=auto_deployments_enabled, expected_type=type_hints["auto_deployments_enabled"])
@@ -4348,7 +4360,7 @@ class _SourceProxy(Source):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1d725d56b2be3dba3a270f32f351b1b275b1b9c11bbcb6a012cc4a5f897ca1f)
+            type_hints = cached_type_hints(_typecheckingstub__c1d725d56b2be3dba3a270f32f351b1b275b1b9c11bbcb6a012cc4a5f897ca1f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("SourceConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -4384,7 +4396,7 @@ class SourceCodeVersion:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__949d9e931cb062829d4a475b7bd2b7486cdb86b88c3d21205da596876e5e1894)
+            type_hints = cached_type_hints(_typecheckingstub__949d9e931cb062829d4a475b7bd2b7486cdb86b88c3d21205da596876e5e1894)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4520,7 +4532,7 @@ class SourceConfig:
         if isinstance(image_repository, dict):
             image_repository = ImageRepository(**image_repository)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df8ae249276fa295c9d7707d2b3ac313afc8daaaabc6dd3c9700bece30447312)
+            type_hints = cached_type_hints(_typecheckingstub__df8ae249276fa295c9d7707d2b3ac313afc8daaaabc6dd3c9700bece30447312)
             check_type(argname="argument code_repository", value=code_repository, expected_type=type_hints["code_repository"])
             check_type(argname="argument ecr_repository", value=ecr_repository, expected_type=type_hints["ecr_repository"])
             check_type(argname="argument image_repository", value=image_repository, expected_type=type_hints["image_repository"])
@@ -4623,7 +4635,7 @@ class TcpHealthCheckOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dac3cebf8ddb2593557fb2d26011f693f14d4099c4a43de1369aa1e30d559f03)
+            type_hints = cached_type_hints(_typecheckingstub__dac3cebf8ddb2593557fb2d26011f693f14d4099c4a43de1369aa1e30d559f03)
             check_type(argname="argument healthy_threshold", value=healthy_threshold, expected_type=type_hints["healthy_threshold"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
@@ -4782,7 +4794,7 @@ class VpcConnector(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1c2727e7b20522fb91a3f09b12d7ff62896b2b6d9d43a47521aac4b5a1f95b2)
+            type_hints = cached_type_hints(_typecheckingstub__d1c2727e7b20522fb91a3f09b12d7ff62896b2b6d9d43a47521aac4b5a1f95b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = VpcConnectorProps(
@@ -4818,7 +4830,7 @@ class VpcConnector(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7694a840b363f1de81784418c84e977ddf3407154c0520684431271bfa580005)
+            type_hints = cached_type_hints(_typecheckingstub__7694a840b363f1de81784418c84e977ddf3407154c0520684431271bfa580005)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = VpcConnectorAttributes(
@@ -4925,7 +4937,7 @@ class VpcConnectorAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__558ce3e1e73be190b0f0325aa59459ce6505f908a7ee62c96a492894ec1d92ff)
+            type_hints = cached_type_hints(_typecheckingstub__558ce3e1e73be190b0f0325aa59459ce6505f908a7ee62c96a492894ec1d92ff)
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument vpc_connector_arn", value=vpc_connector_arn, expected_type=type_hints["vpc_connector_arn"])
             check_type(argname="argument vpc_connector_name", value=vpc_connector_name, expected_type=type_hints["vpc_connector_name"])
@@ -5046,7 +5058,7 @@ class VpcConnectorProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71fa89821720bc591fe5e6fb3e6314cb7258e32cc0a905888155847181cce9c0)
+            type_hints = cached_type_hints(_typecheckingstub__71fa89821720bc591fe5e6fb3e6314cb7258e32cc0a905888155847181cce9c0)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument vpc_connector_name", value=vpc_connector_name, expected_type=type_hints["vpc_connector_name"])
@@ -5183,7 +5195,7 @@ class VpcIngressConnection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2444dea5f1a77b286d4e07ad1d439ff2d134a07a51e48680c7bd7e52bc6f4fd9)
+            type_hints = cached_type_hints(_typecheckingstub__2444dea5f1a77b286d4e07ad1d439ff2d134a07a51e48680c7bd7e52bc6f4fd9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = VpcIngressConnectionProps(
@@ -5212,7 +5224,7 @@ class VpcIngressConnection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be112ae1759d62dac20b14d707319781c955b5b9f7a881738d6dc6a5cdb0d90a)
+            type_hints = cached_type_hints(_typecheckingstub__be112ae1759d62dac20b14d707319781c955b5b9f7a881738d6dc6a5cdb0d90a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument vpc_ingress_connection_arn", value=vpc_ingress_connection_arn, expected_type=type_hints["vpc_ingress_connection_arn"])
@@ -5242,7 +5254,7 @@ class VpcIngressConnection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f765077463a26c42e05e524008ca4c66c0c4a74dd9f8b30786b632d2b00990f)
+            type_hints = cached_type_hints(_typecheckingstub__8f765077463a26c42e05e524008ca4c66c0c4a74dd9f8b30786b632d2b00990f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = VpcIngressConnectionAttributes(
@@ -5347,7 +5359,7 @@ class VpcIngressConnectionAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__147d6424d71cd2ebc7ba8c76443f7075084f8f726817a40aae39979dcf9eab5d)
+            type_hints = cached_type_hints(_typecheckingstub__147d6424d71cd2ebc7ba8c76443f7075084f8f726817a40aae39979dcf9eab5d)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument vpc_ingress_connection_arn", value=vpc_ingress_connection_arn, expected_type=type_hints["vpc_ingress_connection_arn"])
@@ -5470,7 +5482,7 @@ class VpcIngressConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2228ce28d31ba34a5673b0601bb2704194861b2eb9da3c03a7d3933a1018f9b2)
+            type_hints = cached_type_hints(_typecheckingstub__2228ce28d31ba34a5673b0601bb2704194861b2eb9da3c03a7d3933a1018f9b2)
             check_type(argname="argument interface_vpc_endpoint", value=interface_vpc_endpoint, expected_type=type_hints["interface_vpc_endpoint"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -5603,7 +5615,7 @@ class AssetSource(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__816e091a385df2e47be65a182df3765591f8f56e636bfd16e69e0cdbe27ca53a)
+            type_hints = cached_type_hints(_typecheckingstub__816e091a385df2e47be65a182df3765591f8f56e636bfd16e69e0cdbe27ca53a)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
@@ -5659,7 +5671,7 @@ class AutoScalingConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef06c2e17ff3e572a7af9478d4e09b649f3f54aeb6c08cf6f77d83c2006982af)
+            type_hints = cached_type_hints(_typecheckingstub__ef06c2e17ff3e572a7af9478d4e09b649f3f54aeb6c08cf6f77d83c2006982af)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AutoScalingConfigurationProps(
@@ -5688,7 +5700,7 @@ class AutoScalingConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13142842dfceb79198f01381a50a3e5d75bfaa10402849b027a9bf039ef7122b)
+            type_hints = cached_type_hints(_typecheckingstub__13142842dfceb79198f01381a50a3e5d75bfaa10402849b027a9bf039ef7122b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
@@ -5714,7 +5726,7 @@ class AutoScalingConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94ba14de71b26aa8d2d8dacabb37288b217fab1af135a958edf55844f3f09bdb)
+            type_hints = cached_type_hints(_typecheckingstub__94ba14de71b26aa8d2d8dacabb37288b217fab1af135a958edf55844f3f09bdb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AutoScalingConfigurationAttributes(
@@ -5829,7 +5841,7 @@ class EcrPublicSource(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e25ff2d831ac9b326ad13669ae9451f6d2db76f9975bc6afd9937cdff1c2e1c9)
+            type_hints = cached_type_hints(_typecheckingstub__e25ff2d831ac9b326ad13669ae9451f6d2db76f9975bc6afd9937cdff1c2e1c9)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
@@ -5910,7 +5922,7 @@ class EcrSource(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fd17a6fe4667274b7ce2eab975f27b690350fdd5950e60470cc0c6574a115c1)
+            type_hints = cached_type_hints(_typecheckingstub__8fd17a6fe4667274b7ce2eab975f27b690350fdd5950e60470cc0c6574a115c1)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
@@ -5999,7 +6011,7 @@ class GithubSource(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8890dbdfbf2cbe4c8cbd67ceb346d6e7ced18852992bc4d4bbc40af88916d4b0)
+            type_hints = cached_type_hints(_typecheckingstub__8890dbdfbf2cbe4c8cbd67ceb346d6e7ced18852992bc4d4bbc40af88916d4b0)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 

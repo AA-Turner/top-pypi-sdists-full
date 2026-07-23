@@ -48,6 +48,22 @@ cli = cyclopts.App(
 
 CleanupPolicy = t.Literal["always", "on_success"]
 
+# Component statuses that are recorded but do not mean the runtime was
+# defective — a component that simply isn't running, for a benign reason.
+#
+# Note the direction: this allowlists the *benign* statuses, so a status the
+# runtime grows later counts as a defect until someone triages it. Mirrors
+# ``COMPONENT_HEALTH_NON_DEFECT_STATUSES`` in
+# ``packages/api/app/evaluations/service_execution.py``, which decides
+# ``degraded_runtime_count`` — the two must agree, or this per-sample listing
+# and the run-level rollup contradict each other.
+COMPONENT_NON_DEFECT_STATUSES = frozenset({"connecting", "stopped", "gated_off", "needs_auth"})
+
+
+def _is_component_defect(status: str) -> bool:
+    return status != "ok" and status not in COMPONENT_NON_DEFECT_STATUSES
+
+
 EvaluationStatus = t.Literal["queued", "running", "completed", "partial", "failed", "cancelled"]
 
 EvaluationItemStatus = t.Literal[
@@ -523,6 +539,8 @@ def _render_get_detail(job: dict[str, t.Any], analytics: dict[str, t.Any] | None
         console.print(f"{_label('Model')}{job['model']}")
     if job.get("capability"):
         console.print(f"{_label('Capability')}[cyan]{job['capability']}[/cyan]")
+    if job.get("agent_type"):
+        console.print(f"{_label('Agent')}[cyan]{job['agent_type']}[/cyan]")
     req_conc = job.get("requested_concurrency")
     eff_conc = job.get("effective_concurrency")
     if req_conc is not None:
@@ -534,6 +552,16 @@ def _render_get_detail(job: dict[str, t.Any], analytics: dict[str, t.Any] | None
         console.print(f"{_label('Timeout')}{job['task_timeout_sec']}s")
     if job.get("cleanup_policy"):
         console.print(f"{_label('Cleanup')}{job['cleanup_policy']}")
+    # Only shown when something was actually wrong — a clean run stays quiet.
+    # The per-component detail lives on the sample, since health is recorded
+    # per item (each item gets its own runtime sandbox).
+    degraded = (analytics or {}).get("degraded_runtime_count", 0)
+    if degraded:
+        console.print(
+            f"{_label('Components')}[yellow]{degraded} "
+            f"sample{'s' if degraded != 1 else ''} ran on a degraded runtime[/yellow]"
+        )
+        console.print(f"{_continuation()}[dim]dn evaluation samples {eval_id[:8]}[/dim]")
     console.print()
 
     # Progress bar — pass rate gets semantic color
@@ -663,6 +691,7 @@ def create(
     runtime_id: str | None = None,
     model: str | None = None,
     capability: str | None = None,
+    agent: str | None = None,
     engine: str | None = None,
     secret: t.Annotated[
         list[str] | None,
@@ -728,6 +757,11 @@ def create(
         capability: Capability to load, NAME[@VERSION] or org/name@version
             (e.g. acme/web-security@1.0.0). Also pass --model if it has no
             entry-agent model. Run `dn capability list` to discover.
+        agent: Entry agent to run, by name as declared in the capability's
+            agents/ directory. Defaults to the capability's first declared
+            agent, which is ordering-dependent — name one explicitly when
+            the capability defines more than one. Fails at session creation
+            if the capability does not define it.
         engine: Loop-owner override for the agent under evaluation
             (e.g. claude-code). When omitted, the agent's declared engine
             (or native) is used. Requires the harness in the eval sandbox.
@@ -763,6 +797,8 @@ def create(
         request["runtime_id"] = runtime_id
     if capability:
         request["capability"] = capability
+    if agent:
+        request["agent_type"] = agent
     if engine:
         request["engine"] = engine
     if secret is not None:
@@ -785,6 +821,13 @@ def create(
     if not request.get("name"):
         raise ValueError(
             "dn evaluation create requires a name. Pass one positionally or in --file."
+        )
+    if request.get("agent_type") and not request.get("capability"):
+        raise ValueError(
+            "dn evaluation create requires --capability alongside --agent. "
+            "Without a capability the runtime searches every loaded one and "
+            "falls back to the default agent when the name matches nothing, "
+            "which is the ambiguity --agent exists to remove."
         )
     if not request.get("model") and not request.get("capability"):
         raise ValueError(
@@ -921,6 +964,9 @@ def get(
     Displays configuration, current sample progress, and timing. When
     the evaluation has finished, also shows pass rates, per-task
     breakdown, and duration percentiles from the analytics snapshot.
+
+    If any sample ran on a runtime with a degraded capability component,
+    a count is shown; use `get-sample` for the per-component detail.
 
     Args:
         evaluation_id: The evaluation ID (e.g. 0fe36a23-...).
@@ -1082,6 +1128,12 @@ def get_sample(
     Displays the sample's lifecycle status, timing breakdown, sandbox
     IDs, error details, and verification result.
 
+    Also lists any capability component that did not come up cleanly on
+    the runtime this sample ran on — a failed dependency install, an MCP
+    server that never connected, a tool that failed to import. Components
+    degrade rather than block a run, so a sample can pass or fail normally
+    with components missing.
+
     Args:
         ref: Sample reference as EVAL_ID/SAMPLE_ID (e.g. 9ab81fc1/75e4914f).
         as_json: Output as JSON.
@@ -1143,6 +1195,11 @@ def get_sample(
     agent_result = dreadnode_meta.get("agent_result", {})
     if agent_result:
         console.print()
+        # The agent the runtime actually bound, which is not always the one
+        # requested — with no --agent the capability's first declared agent
+        # wins on directory ordering alone (ENG-7590).
+        if agent_result.get("agent"):
+            console.print(f"{_label('Agent')}[cyan]{agent_result['agent']}[/cyan]")
         stop = agent_result.get("stop_reason")
         if stop:
             stop_color = "green" if stop == "end_turn" else "red" if stop == "error" else "yellow"
@@ -1185,6 +1242,40 @@ def get_sample(
         agent_error = agent_result.get("error")
         if agent_error:
             console.print(f"{_label('Agent Error')}[red]{agent_error}[/red]")
+
+    # Runtime component health (from metadata_json._dreadnode.component_health).
+    # Only non-ok components are recorded, so anything present here is a
+    # component that did not come up cleanly on the runtime this sample ran on.
+    component_health = dreadnode_meta.get("component_health")
+    if component_health:
+        entries = [c for c in component_health if isinstance(c, dict)]
+        # Same severity split the API predicate and the web UI use: a component
+        # that is merely not running (idle worker, gated-off server, headless
+        # needs_auth, still connecting) is not a fault. Only the three that mean
+        # "tried to come up and could not" are. Keeping the three surfaces in
+        # step matters — a run must not read healthy in one and broken in another.
+        faults = [c for c in entries if _is_component_defect(str(c.get("status")))]
+        headline = (
+            f"[red]{len(faults)} failed[/red]"
+            if faults
+            else f"[dim]{len(entries)} not running[/dim]"
+        )
+        console.print()
+        console.print(f"{_label('Components')}{headline}")
+        for component in entries:
+            status = str(component.get("status", "unknown"))
+            status_color = "red" if _is_component_defect(status) else "dim"
+            kind = str(component.get("kind", "-"))
+            name = str(component.get("name", "-"))
+            capability = component.get("capability")
+            qualified = f"{capability}/{name}" if capability and capability != name else name
+            console.print(
+                f"{_continuation()}[dim]{kind}[/dim]  [cyan]{qualified}[/cyan]  "
+                f"[{status_color}]{status}[/{status_color}]"
+            )
+            detail = component.get("error") or component.get("detail")
+            if detail:
+                console.print(f"{_continuation()}  [dim]{detail}[/dim]")
 
     # Sandboxes — dim IDs (plumbing, not primary info)
     agent_sb = payload.get("agent_sandbox_id")

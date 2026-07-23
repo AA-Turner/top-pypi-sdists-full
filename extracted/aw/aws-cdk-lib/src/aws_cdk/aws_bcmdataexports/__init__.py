@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,42 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_bcmdataexports import (
-    ExportReference as _ExportReference_86fe15c4, IExportRef as _IExportRef_b461bf7e
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_bcmdataexports as _aws_bcmdataexports_0878d052
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_bcmdataexports_0878d052 = _LazyImport("aws_cdk.interfaces.aws_bcmdataexports")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IExportRef_b461bf7e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bcmdataexports_0878d052.IExportRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnExport(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bcmdataexports.CfnExport",
 ):
@@ -156,7 +152,7 @@ class CfnExport(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        export: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.ExportProperty", typing.Dict[builtins.str, typing.Any]]],
+        export: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.ExportProperty", typing.Dict[builtins.str, typing.Any]]],
         tags: typing.Optional[typing.Sequence[typing.Union["CfnExport.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BCMDataExports::Export``.
@@ -167,7 +163,7 @@ class CfnExport(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2bcca1af59fac907ca8714563d055c566e701daae8450fde60df7c0e3d3db64)
+            type_hints = cached_type_hints(_typecheckingstub__b2bcca1af59fac907ca8714563d055c566e701daae8450fde60df7c0e3d3db64)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnExportProps(export=export, tags=tags)
@@ -176,12 +172,15 @@ class CfnExport(
 
     @jsii.member(jsii_name="arnForExport")
     @builtins.classmethod
-    def arn_for_export(cls, resource: "_IExportRef_b461bf7e") -> builtins.str:
+    def arn_for_export(
+        cls,
+        resource: "_aws_bcmdataexports_0878d052.IExportRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ac852891765b90129d86e3d26a4be42863013dd8832f177058ca01db31746e3)
+            type_hints = cached_type_hints(_typecheckingstub__1ac852891765b90129d86e3d26a4be42863013dd8832f177058ca01db31746e3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForExport", [resource]))
 
@@ -193,18 +192,18 @@ class CfnExport(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f439925856eced7280e157574ee8eff9cbc5e719e26d2c6b6912b7940ec00d0)
+            type_hints = cached_type_hints(_typecheckingstub__0f439925856eced7280e157574ee8eff9cbc5e719e26d2c6b6912b7940ec00d0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExport", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dac39dc3be3191a8c16e738400531fa018e236e77c82fbfaa9dc5f869f22217)
+            type_hints = cached_type_hints(_typecheckingstub__1dac39dc3be3191a8c16e738400531fa018e236e77c82fbfaa9dc5f869f22217)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -217,7 +216,7 @@ class CfnExport(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb93537976d222e41558fc4b0c82267089734f222dad1d93d6bf9ac01baf7235)
+            type_hints = cached_type_hints(_typecheckingstub__eb93537976d222e41558fc4b0c82267089734f222dad1d93d6bf9ac01baf7235)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -247,9 +246,9 @@ class CfnExport(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -263,25 +262,25 @@ class CfnExport(
 
     @builtins.property
     @jsii.member(jsii_name="exportRef")
-    def export_ref(self) -> "_ExportReference_86fe15c4":
+    def export_ref(self) -> "_aws_bcmdataexports_0878d052.ExportReference":
         '''A reference to a Export resource.'''
-        return typing.cast("_ExportReference_86fe15c4", jsii.get(self, "exportRef"))
+        return typing.cast("_aws_bcmdataexports_0878d052.ExportReference", jsii.get(self, "exportRef"))
 
     @builtins.property
     @jsii.member(jsii_name="export")
     def export(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.ExportProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.ExportProperty"]:
         '''The details that are available for an export.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.ExportProperty"], jsii.get(self, "export"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.ExportProperty"], jsii.get(self, "export"))
 
     @export.setter
     def export(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnExport.ExportProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.ExportProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8ce26f4856f4fbb56e9f2fa30a5520af71bb0fab07aab599f3d350bcd7af208)
+            type_hints = cached_type_hints(_typecheckingstub__c8ce26f4856f4fbb56e9f2fa30a5520af71bb0fab07aab599f3d350bcd7af208)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "export", value) # pyright: ignore[reportArgumentType]
 
@@ -296,7 +295,7 @@ class CfnExport(
         value: typing.Optional[typing.List["CfnExport.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ad623342e4c1e6ad8d0a1e800f480ca841fcc2866deb4be0a499fc18bffc658)
+            type_hints = cached_type_hints(_typecheckingstub__1ad623342e4c1e6ad8d0a1e800f480ca841fcc2866deb4be0a499fc18bffc658)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +312,7 @@ class CfnExport(
             self,
             *,
             query_statement: builtins.str,
-            table_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]] = None,
+            table_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]] = None,
         ) -> None:
             '''The SQL query of column selections and row filters from the data table you want.
 
@@ -341,7 +340,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e1a095753612659582b4b6117f8c7de657221f82c66d4926cce19af238d91343)
+                type_hints = cached_type_hints(_typecheckingstub__e1a095753612659582b4b6117f8c7de657221f82c66d4926cce19af238d91343)
                 check_type(argname="argument query_statement", value=query_statement, expected_type=type_hints["query_statement"])
                 check_type(argname="argument table_configurations", value=table_configurations, expected_type=type_hints["table_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -363,13 +362,13 @@ class CfnExport(
         @builtins.property
         def table_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]]:
             '''The table configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-dataquery.html#cfn-bcmdataexports-export-dataquery-tableconfigurations
             '''
             result = self._values.get("table_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -391,7 +390,7 @@ class CfnExport(
         def __init__(
             self,
             *,
-            s3_destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The destinations used for data exports.
 
@@ -424,7 +423,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__816060235493801ab48e2f3ab492e0786d6ff854a29cb93dcb295018d334cec5)
+                type_hints = cached_type_hints(_typecheckingstub__816060235493801ab48e2f3ab492e0786d6ff854a29cb93dcb295018d334cec5)
                 check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_destination": s3_destination,
@@ -433,14 +432,14 @@ class CfnExport(
         @builtins.property
         def s3_destination(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.S3DestinationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.S3DestinationProperty"]:
             '''An object that describes the destination of the data exports file.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-destinationconfigurations.html#cfn-bcmdataexports-export-destinationconfigurations-s3destination
             '''
             result = self._values.get("s3_destination")
             assert result is not None, "Required property 's3_destination' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.S3DestinationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.S3DestinationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -469,10 +468,10 @@ class CfnExport(
         def __init__(
             self,
             *,
-            data_query: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.DataQueryProperty", typing.Dict[builtins.str, typing.Any]]],
-            destination_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.DestinationConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+            data_query: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.DataQueryProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.DestinationConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
-            refresh_cadence: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.RefreshCadenceProperty", typing.Dict[builtins.str, typing.Any]]],
+            refresh_cadence: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.RefreshCadenceProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
             export_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -532,7 +531,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5ed33f32923574fd9894f86effec26df25a5ff6f04eb0b09765445083fe0aeb8)
+                type_hints = cached_type_hints(_typecheckingstub__5ed33f32923574fd9894f86effec26df25a5ff6f04eb0b09765445083fe0aeb8)
                 check_type(argname="argument data_query", value=data_query, expected_type=type_hints["data_query"])
                 check_type(argname="argument destination_configurations", value=destination_configurations, expected_type=type_hints["destination_configurations"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -553,26 +552,26 @@ class CfnExport(
         @builtins.property
         def data_query(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.DataQueryProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.DataQueryProperty"]:
             '''The data query for this specific data export.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-export.html#cfn-bcmdataexports-export-export-dataquery
             '''
             result = self._values.get("data_query")
             assert result is not None, "Required property 'data_query' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.DataQueryProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.DataQueryProperty"], result)
 
         @builtins.property
         def destination_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.DestinationConfigurationsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.DestinationConfigurationsProperty"]:
             '''The destination configuration for this specific data export.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-export.html#cfn-bcmdataexports-export-export-destinationconfigurations
             '''
             result = self._values.get("destination_configurations")
             assert result is not None, "Required property 'destination_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.DestinationConfigurationsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.DestinationConfigurationsProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -587,14 +586,14 @@ class CfnExport(
         @builtins.property
         def refresh_cadence(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.RefreshCadenceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.RefreshCadenceProperty"]:
             '''The cadence for AWS to update the export in your S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-export.html#cfn-bcmdataexports-export-export-refreshcadence
             '''
             result = self._values.get("refresh_cadence")
             assert result is not None, "Required property 'refresh_cadence' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.RefreshCadenceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.RefreshCadenceProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -650,7 +649,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51077f124ab3cd094da6dc910a65ab487514933f628cb750035c7e99cb5124a5)
+                type_hints = cached_type_hints(_typecheckingstub__51077f124ab3cd094da6dc910a65ab487514933f628cb750035c7e99cb5124a5)
                 check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "frequency": frequency,
@@ -706,7 +705,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a77a31fde973f8e19f271b0c7493a0a5358853ae60f917aa6cc52d91aef79534)
+                type_hints = cached_type_hints(_typecheckingstub__a77a31fde973f8e19f271b0c7493a0a5358853ae60f917aa6cc52d91aef79534)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -761,7 +760,7 @@ class CfnExport(
             self,
             *,
             s3_bucket: builtins.str,
-            s3_output_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.S3OutputConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_output_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.S3OutputConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
             s3_prefix: builtins.str,
             s3_region: builtins.str,
             s3_bucket_owner: typing.Optional[builtins.str] = None,
@@ -799,7 +798,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f0e9ff7de57059ed083f4105af6db04a1e6eed259177bb46ecb6f3d066089e70)
+                type_hints = cached_type_hints(_typecheckingstub__f0e9ff7de57059ed083f4105af6db04a1e6eed259177bb46ecb6f3d066089e70)
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_output_configurations", value=s3_output_configurations, expected_type=type_hints["s3_output_configurations"])
                 check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
@@ -827,14 +826,14 @@ class CfnExport(
         @builtins.property
         def s3_output_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.S3OutputConfigurationsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.S3OutputConfigurationsProperty"]:
             '''The output configuration for the data export.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-s3destination.html#cfn-bcmdataexports-export-s3destination-s3outputconfigurations
             '''
             result = self._values.get("s3_output_configurations")
             assert result is not None, "Required property 's3_output_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.S3OutputConfigurationsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.S3OutputConfigurationsProperty"], result)
 
         @builtins.property
         def s3_prefix(self) -> builtins.str:
@@ -918,7 +917,7 @@ class CfnExport(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__921d4e97c7f0398e33206f9dc2808c5bbe6f9ab0df93b16ab6e4b33159e538e0)
+                type_hints = cached_type_hints(_typecheckingstub__921d4e97c7f0398e33206f9dc2808c5bbe6f9ab0df93b16ab6e4b33159e538e0)
                 check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
                 check_type(argname="argument format", value=format, expected_type=type_hints["format"])
                 check_type(argname="argument output_type", value=output_type, expected_type=type_hints["output_type"])
@@ -993,7 +992,7 @@ class CfnExportProps:
     def __init__(
         self,
         *,
-        export: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.ExportProperty", typing.Dict[builtins.str, typing.Any]]],
+        export: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExport.ExportProperty", typing.Dict[builtins.str, typing.Any]]],
         tags: typing.Optional[typing.Sequence[typing.Union["CfnExport.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnExport``.
@@ -1056,7 +1055,7 @@ class CfnExportProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31)
+            type_hints = cached_type_hints(_typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31)
             check_type(argname="argument export", value=export, expected_type=type_hints["export"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1068,14 +1067,14 @@ class CfnExportProps:
     @builtins.property
     def export(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnExport.ExportProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.ExportProperty"]:
         '''The details that are available for an export.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html#cfn-bcmdataexports-export-export
         '''
         result = self._values.get("export")
         assert result is not None, "Required property 'export' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnExport.ExportProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExport.ExportProperty"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["CfnExport.ResourceTagProperty"]]:
@@ -1108,14 +1107,14 @@ def _typecheckingstub__b2bcca1af59fac907ca8714563d055c566e701daae8450fde60df7c0e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    export: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
+    export: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
     tags: typing.Optional[typing.Sequence[typing.Union[CfnExport.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1ac852891765b90129d86e3d26a4be42863013dd8832f177058ca01db31746e3(
-    resource: _IExportRef_b461bf7e,
+    resource: _aws_bcmdataexports_0878d052.IExportRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1127,7 +1126,7 @@ def _typecheckingstub__0f439925856eced7280e157574ee8eff9cbc5e719e26d2c6b6912b794
     pass
 
 def _typecheckingstub__1dac39dc3be3191a8c16e738400531fa018e236e77c82fbfaa9dc5f869f22217(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1139,7 +1138,7 @@ def _typecheckingstub__eb93537976d222e41558fc4b0c82267089734f222dad1d93d6bf9ac01
     pass
 
 def _typecheckingstub__c8ce26f4856f4fbb56e9f2fa30a5520af71bb0fab07aab599f3d350bcd7af208(
-    value: typing.Union[_IResolvable_da3f097b, CfnExport.ExportProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnExport.ExportProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1153,24 +1152,24 @@ def _typecheckingstub__1ad623342e4c1e6ad8d0a1e800f480ca841fcc2866deb4be0a499fc18
 def _typecheckingstub__e1a095753612659582b4b6117f8c7de657221f82c66d4926cce19af238d91343(
     *,
     query_statement: builtins.str,
-    table_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]]]] = None,
+    table_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__816060235493801ab48e2f3ab492e0786d6ff854a29cb93dcb295018d334cec5(
     *,
-    s3_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5ed33f32923574fd9894f86effec26df25a5ff6f04eb0b09765445083fe0aeb8(
     *,
-    data_query: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.DataQueryProperty, typing.Dict[builtins.str, typing.Any]]],
-    destination_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.DestinationConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    data_query: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.DataQueryProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.DestinationConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
-    refresh_cadence: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.RefreshCadenceProperty, typing.Dict[builtins.str, typing.Any]]],
+    refresh_cadence: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.RefreshCadenceProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     export_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1195,7 +1194,7 @@ def _typecheckingstub__a77a31fde973f8e19f271b0c7493a0a5358853ae60f917aa6cc52d91a
 def _typecheckingstub__f0e9ff7de57059ed083f4105af6db04a1e6eed259177bb46ecb6f3d066089e70(
     *,
     s3_bucket: builtins.str,
-    s3_output_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.S3OutputConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_output_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.S3OutputConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
     s3_prefix: builtins.str,
     s3_region: builtins.str,
     s3_bucket_owner: typing.Optional[builtins.str] = None,
@@ -1215,7 +1214,7 @@ def _typecheckingstub__921d4e97c7f0398e33206f9dc2808c5bbe6f9ab0df93b16ab6e4b3315
 
 def _typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31(
     *,
-    export: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
+    export: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
     tags: typing.Optional[typing.Sequence[typing.Union[CfnExport.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

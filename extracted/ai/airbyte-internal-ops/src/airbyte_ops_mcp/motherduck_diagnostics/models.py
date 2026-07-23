@@ -136,6 +136,25 @@ class MotherDuckQueryRecord(BaseModel):
         description="Client session name if supplied at connect time."
     )
     connection_id: str | None = Field(description="Client connection UUID.")
+    database_name: str | None = Field(
+        default=None,
+        description=(
+            "MotherDuck database (= Sonar source schema) the query ran against, "
+            "derived from the `iceberg_scan('s3://.../data/<database_name>.db/...')` "
+            "path in the raw query text. `QUERY_HISTORY` exposes no native "
+            "database column, so this is parsed from the query text; `None` when "
+            "no such path is present."
+        ),
+    )
+    source_id: str | None = Field(
+        default=None,
+        description=(
+            "Airbyte source UUID parsed deterministically from `database_name` "
+            "(Sonar format `{env_prefix}{slug}__{source_id}`, underscores mapped "
+            "back to hyphens). `None` when `database_name` is absent or its "
+            "trailing segment is not a canonical UUID (fails closed)."
+        ),
+    )
 
 
 class MotherDuckQueryResult(BaseModel):
@@ -289,6 +308,22 @@ class MotherDuckConnectionInfo(BaseModel):
     )
     server_query_progress_pct: float | None = Field(
         description="Query progress percent (from 0.0 to 100.0)."
+    )
+    database_name: str | None = Field(
+        default=None,
+        description=(
+            "MotherDuck database (= Sonar source schema) the running query "
+            "targets, derived from the `iceberg_scan('s3://...')` path in the "
+            "raw client_query text. `None` when no such path is present."
+        ),
+    )
+    source_id: str | None = Field(
+        default=None,
+        description=(
+            "Airbyte source UUID parsed deterministically from `database_name` "
+            "(underscores mapped back to hyphens). `None` when absent or the "
+            "trailing segment is not a canonical UUID (fails closed)."
+        ),
     )
 
 

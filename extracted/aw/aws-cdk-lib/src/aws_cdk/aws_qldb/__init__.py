@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_qldb import (
-    ILedgerRef as _ILedgerRef_788059f1,
-    IStreamRef as _IStreamRef_5720424a,
-    LedgerReference as _LedgerReference_f24a0616,
-    StreamReference as _StreamReference_d2818af6,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_qldb as _aws_qldb_f72772a0
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_qldb_f72772a0 = _LazyImport("aws_cdk.interfaces.aws_qldb")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ILedgerRef_788059f1, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_qldb_f72772a0.ILedgerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLedger(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_qldb.CfnLedger",
 ):
@@ -119,10 +112,10 @@ class CfnLedger(
         id: builtins.str,
         *,
         permissions_mode: builtins.str,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::QLDB::Ledger``.
 
@@ -135,7 +128,7 @@ class CfnLedger(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e774e646e1)
+            type_hints = cached_type_hints(_typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e774e646e1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLedgerProps(
@@ -156,18 +149,18 @@ class CfnLedger(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__347fd75a2a429640ceea1e86c9c9c323e0aff8465b8735ea3650ee71feac9040)
+            type_hints = cached_type_hints(_typecheckingstub__347fd75a2a429640ceea1e86c9c9c323e0aff8465b8735ea3650ee71feac9040)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLedger", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0621f4368a524c5c6f871fd57788a125a31975fe5179220aa8651a3ab9e950c7)
+            type_hints = cached_type_hints(_typecheckingstub__0621f4368a524c5c6f871fd57788a125a31975fe5179220aa8651a3ab9e950c7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -180,7 +173,7 @@ class CfnLedger(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1333ad936a34c0eec57e124b0843a7eb33e35176d234b7917f34ff098461d324)
+            type_hints = cached_type_hints(_typecheckingstub__1333ad936a34c0eec57e124b0843a7eb33e35176d234b7917f34ff098461d324)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -210,15 +203,15 @@ class CfnLedger(
 
     @builtins.property
     @jsii.member(jsii_name="ledgerRef")
-    def ledger_ref(self) -> "_LedgerReference_f24a0616":
+    def ledger_ref(self) -> "_aws_qldb_f72772a0.LedgerReference":
         '''A reference to a Ledger resource.'''
-        return typing.cast("_LedgerReference_f24a0616", jsii.get(self, "ledgerRef"))
+        return typing.cast("_aws_qldb_f72772a0.LedgerReference", jsii.get(self, "ledgerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="permissionsMode")
@@ -229,7 +222,7 @@ class CfnLedger(
     @permissions_mode.setter
     def permissions_mode(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a89e619bca2f94e6b3db069845ba60ca02914b7a4be30253994fdf3b4d512b31)
+            type_hints = cached_type_hints(_typecheckingstub__a89e619bca2f94e6b3db069845ba60ca02914b7a4be30253994fdf3b4d512b31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsMode", value) # pyright: ignore[reportArgumentType]
 
@@ -237,17 +230,17 @@ class CfnLedger(
     @jsii.member(jsii_name="deletionProtection")
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the ledger is protected from being deleted by any user.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deletionProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
     def deletion_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b3fe377f100037b9cde4aff29cf5c4b1fc32e83c4f45f03c00ecf702acfa3ec)
+            type_hints = cached_type_hints(_typecheckingstub__2b3fe377f100037b9cde4aff29cf5c4b1fc32e83c4f45f03c00ecf702acfa3ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -260,7 +253,7 @@ class CfnLedger(
     @kms_key.setter
     def kms_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07f645e3cf44ac4a544caad49252b894a50db46388e08cff021fbba2e27eac50)
+            type_hints = cached_type_hints(_typecheckingstub__07f645e3cf44ac4a544caad49252b894a50db46388e08cff021fbba2e27eac50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKey", value) # pyright: ignore[reportArgumentType]
 
@@ -273,20 +266,23 @@ class CfnLedger(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d54819c5)
+            type_hints = cached_type_hints(_typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d54819c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6)
+            type_hints = cached_type_hints(_typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -307,10 +303,10 @@ class CfnLedgerProps:
         self,
         *,
         permissions_mode: builtins.str,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLedger``.
 
@@ -344,7 +340,7 @@ class CfnLedgerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5663dfd1f46a65b8b57ab0b2e5ff5e0c5d475f06d19e33cc58dfbf6d23b9ab6a)
+            type_hints = cached_type_hints(_typecheckingstub__5663dfd1f46a65b8b57ab0b2e5ff5e0c5d475f06d19e33cc58dfbf6d23b9ab6a)
             check_type(argname="argument permissions_mode", value=permissions_mode, expected_type=type_hints["permissions_mode"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
@@ -388,7 +384,7 @@ class CfnLedgerProps:
     @builtins.property
     def deletion_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the ledger is protected from being deleted by any user.
 
         If not defined during ledger creation, this feature is enabled ( ``true`` ) by default.
@@ -398,7 +394,7 @@ class CfnLedgerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-ledger.html#cfn-qldb-ledger-deletionprotection
         '''
         result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
@@ -444,7 +440,7 @@ class CfnLedgerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -452,7 +448,7 @@ class CfnLedgerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-ledger.html#cfn-qldb-ledger-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -466,9 +462,9 @@ class CfnLedgerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStreamRef_5720424a, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_qldb_f72772a0.IStreamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStream(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_qldb.CfnStream",
 ):
@@ -514,12 +510,12 @@ class CfnStream(
         id: builtins.str,
         *,
         inclusive_start_time: builtins.str,
-        kinesis_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.KinesisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        kinesis_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.KinesisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ledger_name: builtins.str,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         stream_name: builtins.str,
         exclusive_end_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::QLDB::Stream``.
 
@@ -534,7 +530,7 @@ class CfnStream(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19df9eb6d681fce76d2012fd0458a104b842f687fd7aed1f8d9228e06237dd81)
+            type_hints = cached_type_hints(_typecheckingstub__19df9eb6d681fce76d2012fd0458a104b842f687fd7aed1f8d9228e06237dd81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStreamProps(
@@ -551,12 +547,12 @@ class CfnStream(
 
     @jsii.member(jsii_name="arnForStream")
     @builtins.classmethod
-    def arn_for_stream(cls, resource: "_IStreamRef_5720424a") -> builtins.str:
+    def arn_for_stream(cls, resource: "_aws_qldb_f72772a0.IStreamRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d1b81fb9cb7d99e54023e431abf5265ea7209ea94338fc44122427f5e91fd0f)
+            type_hints = cached_type_hints(_typecheckingstub__3d1b81fb9cb7d99e54023e431abf5265ea7209ea94338fc44122427f5e91fd0f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStream", [resource]))
 
@@ -568,18 +564,18 @@ class CfnStream(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f79e31fdabc6f25dc0a7055e62ce8cd042bed73ef1cbbd683db18441d5da695e)
+            type_hints = cached_type_hints(_typecheckingstub__f79e31fdabc6f25dc0a7055e62ce8cd042bed73ef1cbbd683db18441d5da695e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStream", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c38c9a1489b8399636d442738d91441e35ce1cb927b06d8f5e6f31f309fad04a)
+            type_hints = cached_type_hints(_typecheckingstub__c38c9a1489b8399636d442738d91441e35ce1cb927b06d8f5e6f31f309fad04a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -592,7 +588,7 @@ class CfnStream(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d55e80f8f1370044fb71f0be38faec90cf33f456ea63398b22c1c99d0dab1444)
+            type_hints = cached_type_hints(_typecheckingstub__d55e80f8f1370044fb71f0be38faec90cf33f456ea63398b22c1c99d0dab1444)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -636,15 +632,15 @@ class CfnStream(
 
     @builtins.property
     @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "_StreamReference_d2818af6":
+    def stream_ref(self) -> "_aws_qldb_f72772a0.StreamReference":
         '''A reference to a Stream resource.'''
-        return typing.cast("_StreamReference_d2818af6", jsii.get(self, "streamRef"))
+        return typing.cast("_aws_qldb_f72772a0.StreamReference", jsii.get(self, "streamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="inclusiveStartTime")
@@ -655,7 +651,7 @@ class CfnStream(
     @inclusive_start_time.setter
     def inclusive_start_time(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98852a683dfa8f48ad68fade55a237fb8421da0a42caa793d1e506b577528b38)
+            type_hints = cached_type_hints(_typecheckingstub__98852a683dfa8f48ad68fade55a237fb8421da0a42caa793d1e506b577528b38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inclusiveStartTime", value) # pyright: ignore[reportArgumentType]
 
@@ -663,17 +659,17 @@ class CfnStream(
     @jsii.member(jsii_name="kinesisConfiguration")
     def kinesis_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStream.KinesisConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.KinesisConfigurationProperty"]:
         '''The configuration settings of the Kinesis Data Streams destination for your stream request.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStream.KinesisConfigurationProperty"], jsii.get(self, "kinesisConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.KinesisConfigurationProperty"], jsii.get(self, "kinesisConfiguration"))
 
     @kinesis_configuration.setter
     def kinesis_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnStream.KinesisConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.KinesisConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc6c4472587c14cb453d825bb83db5d8c8df52f82dc984a4b40efc1c0f286846)
+            type_hints = cached_type_hints(_typecheckingstub__bc6c4472587c14cb453d825bb83db5d8c8df52f82dc984a4b40efc1c0f286846)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kinesisConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -686,7 +682,7 @@ class CfnStream(
     @ledger_name.setter
     def ledger_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6048b29c86a9998034ea99f673393704baf93a9e74b9f3e2ea5bbe93b50fa0bf)
+            type_hints = cached_type_hints(_typecheckingstub__6048b29c86a9998034ea99f673393704baf93a9e74b9f3e2ea5bbe93b50fa0bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ledgerName", value) # pyright: ignore[reportArgumentType]
 
@@ -699,7 +695,7 @@ class CfnStream(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd91303c2c186e90b4e369eb657ba366bf0edc3558f26866550b418fe3f583bb)
+            type_hints = cached_type_hints(_typecheckingstub__fd91303c2c186e90b4e369eb657ba366bf0edc3558f26866550b418fe3f583bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -712,7 +708,7 @@ class CfnStream(
     @stream_name.setter
     def stream_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65cc267bb8854cc73f45ea241375801dfe4be3ef971d88b415f3ecccea7af533)
+            type_hints = cached_type_hints(_typecheckingstub__65cc267bb8854cc73f45ea241375801dfe4be3ef971d88b415f3ecccea7af533)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamName", value) # pyright: ignore[reportArgumentType]
 
@@ -725,20 +721,23 @@ class CfnStream(
     @exclusive_end_time.setter
     def exclusive_end_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b48c9fdb3c49a64c92e0f14d06caf7bccd874ef18eb40d50afff5b659c32f61d)
+            type_hints = cached_type_hints(_typecheckingstub__b48c9fdb3c49a64c92e0f14d06caf7bccd874ef18eb40d50afff5b659c32f61d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "exclusiveEndTime", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d506c15c7a106af08f12f6afdaa8ae0bdae79b69d9147fee716935cb73e72b1)
+            type_hints = cached_type_hints(_typecheckingstub__3d506c15c7a106af08f12f6afdaa8ae0bdae79b69d9147fee716935cb73e72b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -754,7 +753,7 @@ class CfnStream(
         def __init__(
             self,
             *,
-            aggregation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            aggregation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             stream_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration settings of the Amazon Kinesis Data Streams destination for an Amazon QLDB journal stream.
@@ -777,7 +776,7 @@ class CfnStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__84d94b9a3158f284a06b6624c8254b032e304f833d0a315233a79e237ddb1fa8)
+                type_hints = cached_type_hints(_typecheckingstub__84d94b9a3158f284a06b6624c8254b032e304f833d0a315233a79e237ddb1fa8)
                 check_type(argname="argument aggregation_enabled", value=aggregation_enabled, expected_type=type_hints["aggregation_enabled"])
                 check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -789,7 +788,7 @@ class CfnStream(
         @builtins.property
         def aggregation_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables QLDB to publish multiple data records in a single Kinesis Data Streams record, increasing the number of records sent per API call.
 
             Default: ``True``
@@ -800,7 +799,7 @@ class CfnStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-qldb-stream-kinesisconfiguration.html#cfn-qldb-stream-kinesisconfiguration-aggregationenabled
             '''
             result = self._values.get("aggregation_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def stream_arn(self) -> typing.Optional[builtins.str]:
@@ -841,12 +840,12 @@ class CfnStreamProps:
         self,
         *,
         inclusive_start_time: builtins.str,
-        kinesis_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.KinesisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        kinesis_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.KinesisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ledger_name: builtins.str,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         stream_name: builtins.str,
         exclusive_end_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStream``.
 
@@ -887,7 +886,7 @@ class CfnStreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f)
+            type_hints = cached_type_hints(_typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f)
             check_type(argname="argument inclusive_start_time", value=inclusive_start_time, expected_type=type_hints["inclusive_start_time"])
             check_type(argname="argument kinesis_configuration", value=kinesis_configuration, expected_type=type_hints["kinesis_configuration"])
             check_type(argname="argument ledger_name", value=ledger_name, expected_type=type_hints["ledger_name"])
@@ -926,14 +925,14 @@ class CfnStreamProps:
     @builtins.property
     def kinesis_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnStream.KinesisConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.KinesisConfigurationProperty"]:
         '''The configuration settings of the Kinesis Data Streams destination for your stream request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-kinesisconfiguration
         '''
         result = self._values.get("kinesis_configuration")
         assert result is not None, "Required property 'kinesis_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnStream.KinesisConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.KinesisConfigurationProperty"], result)
 
     @builtins.property
     def ledger_name(self) -> builtins.str:
@@ -946,7 +945,7 @@ class CfnStreamProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The Amazon Resource Name (ARN) of the IAM role that grants QLDB permissions for a journal stream to write data records to a Kinesis Data Streams resource.
 
         To pass a role to QLDB when requesting a journal stream, you must have permissions to perform the ``iam:PassRole`` action on the IAM role resource. This is required for all journal stream requests.
@@ -955,7 +954,7 @@ class CfnStreamProps:
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def stream_name(self) -> builtins.str:
@@ -985,7 +984,7 @@ class CfnStreamProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -993,7 +992,7 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1021,10 +1020,10 @@ def _typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e77
     id: builtins.str,
     *,
     permissions_mode: builtins.str,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1036,7 +1035,7 @@ def _typecheckingstub__347fd75a2a429640ceea1e86c9c9c323e0aff8465b8735ea3650ee71f
     pass
 
 def _typecheckingstub__0621f4368a524c5c6f871fd57788a125a31975fe5179220aa8651a3ab9e950c7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1054,7 +1053,7 @@ def _typecheckingstub__a89e619bca2f94e6b3db069845ba60ca02914b7a4be30253994fdf3b4
     pass
 
 def _typecheckingstub__2b3fe377f100037b9cde4aff29cf5c4b1fc32e83c4f45f03c00ecf702acfa3ec(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1072,7 +1071,7 @@ def _typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d
     pass
 
 def _typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1080,10 +1079,10 @@ def _typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d
 def _typecheckingstub__5663dfd1f46a65b8b57ab0b2e5ff5e0c5d475f06d19e33cc58dfbf6d23b9ab6a(
     *,
     permissions_mode: builtins.str,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1093,18 +1092,18 @@ def _typecheckingstub__19df9eb6d681fce76d2012fd0458a104b842f687fd7aed1f8d9228e06
     id: builtins.str,
     *,
     inclusive_start_time: builtins.str,
-    kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     ledger_name: builtins.str,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     stream_name: builtins.str,
     exclusive_end_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3d1b81fb9cb7d99e54023e431abf5265ea7209ea94338fc44122427f5e91fd0f(
-    resource: _IStreamRef_5720424a,
+    resource: _aws_qldb_f72772a0.IStreamRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1116,7 +1115,7 @@ def _typecheckingstub__f79e31fdabc6f25dc0a7055e62ce8cd042bed73ef1cbbd683db18441d
     pass
 
 def _typecheckingstub__c38c9a1489b8399636d442738d91441e35ce1cb927b06d8f5e6f31f309fad04a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1134,7 +1133,7 @@ def _typecheckingstub__98852a683dfa8f48ad68fade55a237fb8421da0a42caa793d1e506b57
     pass
 
 def _typecheckingstub__bc6c4472587c14cb453d825bb83db5d8c8df52f82dc984a4b40efc1c0f286846(
-    value: typing.Union[_IResolvable_da3f097b, CfnStream.KinesisConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStream.KinesisConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1164,14 +1163,14 @@ def _typecheckingstub__b48c9fdb3c49a64c92e0f14d06caf7bccd874ef18eb40d50afff5b659
     pass
 
 def _typecheckingstub__3d506c15c7a106af08f12f6afdaa8ae0bdae79b69d9147fee716935cb73e72b1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__84d94b9a3158f284a06b6624c8254b032e304f833d0a315233a79e237ddb1fa8(
     *,
-    aggregation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    aggregation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     stream_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1180,12 +1179,12 @@ def _typecheckingstub__84d94b9a3158f284a06b6624c8254b032e304f833d0a315233a79e237
 def _typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f(
     *,
     inclusive_start_time: builtins.str,
-    kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    kinesis_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     ledger_name: builtins.str,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     stream_name: builtins.str,
     exclusive_end_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

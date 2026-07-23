@@ -400,6 +400,8 @@ ses.ConfigurationSet(self, "ConfigurationSetWithVdmOptions",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -413,93 +415,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IRole as _IRole_235f5d8e,
-)
-from ..aws_kinesisfirehose import IDeliveryStream as _IDeliveryStream_8f118861
-from ..aws_route53 import IPublicHostedZone as _IPublicHostedZone_9b6e7da4
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_events import IEventBusRef as _IEventBusRef_aa86e9b4
-from ..interfaces.aws_ses import (
-    ConfigurationSetEventDestinationReference as _ConfigurationSetEventDestinationReference_122c29c6,
-    ConfigurationSetReference as _ConfigurationSetReference_07006bc6,
-    ContactListReference as _ContactListReference_5d48a523,
-    CustomVerificationEmailTemplateReference as _CustomVerificationEmailTemplateReference_e479770b,
-    DedicatedIpPoolReference as _DedicatedIpPoolReference_05fca49e,
-    EmailIdentityReference as _EmailIdentityReference_f9b00141,
-    IConfigurationSetEventDestinationRef as _IConfigurationSetEventDestinationRef_937b7110,
-    IConfigurationSetRef as _IConfigurationSetRef_c4f30d41,
-    IContactListRef as _IContactListRef_1c876363,
-    ICustomVerificationEmailTemplateRef as _ICustomVerificationEmailTemplateRef_81ee24b9,
-    IDedicatedIpPoolRef as _IDedicatedIpPoolRef_c0fd271c,
-    IEmailIdentityRef as _IEmailIdentityRef_317356c6,
-    IMailManagerAddonInstanceRef as _IMailManagerAddonInstanceRef_6d78bf1e,
-    IMailManagerAddonSubscriptionRef as _IMailManagerAddonSubscriptionRef_5202f9cc,
-    IMailManagerAddressListRef as _IMailManagerAddressListRef_60a1eed4,
-    IMailManagerArchiveRef as _IMailManagerArchiveRef_0d35e3dc,
-    IMailManagerIngressPointRef as _IMailManagerIngressPointRef_17ebca73,
-    IMailManagerRelayRef as _IMailManagerRelayRef_09ae75d1,
-    IMailManagerRuleSetRef as _IMailManagerRuleSetRef_4d1ad1a8,
-    IMailManagerTrafficPolicyRef as _IMailManagerTrafficPolicyRef_cb765a4d,
-    IMultiRegionEndpointRef as _IMultiRegionEndpointRef_cfd99631,
-    IReceiptFilterRef as _IReceiptFilterRef_dbfb106a,
-    IReceiptRuleRef as _IReceiptRuleRef_0f93d846,
-    IReceiptRuleSetRef as _IReceiptRuleSetRef_f6b881e9,
-    ITemplateRef as _ITemplateRef_efd84872,
-    ITenantRef as _ITenantRef_8eda0461,
-    IVdmAttributesRef as _IVdmAttributesRef_2d5b2489,
-    MailManagerAddonInstanceReference as _MailManagerAddonInstanceReference_b1f4c533,
-    MailManagerAddonSubscriptionReference as _MailManagerAddonSubscriptionReference_f9373ba3,
-    MailManagerAddressListReference as _MailManagerAddressListReference_107ed953,
-    MailManagerArchiveReference as _MailManagerArchiveReference_9422aa21,
-    MailManagerIngressPointReference as _MailManagerIngressPointReference_5c89c08c,
-    MailManagerRelayReference as _MailManagerRelayReference_655db003,
-    MailManagerRuleSetReference as _MailManagerRuleSetReference_5cca7d98,
-    MailManagerTrafficPolicyReference as _MailManagerTrafficPolicyReference_4209d122,
-    MultiRegionEndpointReference as _MultiRegionEndpointReference_887ccebf,
-    ReceiptFilterReference as _ReceiptFilterReference_d15ec7c1,
-    ReceiptRuleReference as _ReceiptRuleReference_2b9e9bb2,
-    ReceiptRuleSetReference as _ReceiptRuleSetReference_0daf31cb,
-    TemplateReference as _TemplateReference_cceb8bea,
-    TenantReference as _TenantReference_e44a55e9,
-    VdmAttributesReference as _VdmAttributesReference_007eac2c,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kinesisfirehose as _aws_kinesisfirehose_7262737d
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
+    import aws_cdk.interfaces.aws_ses as _aws_ses_9999e6ba
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_events_49a540ff = _LazyImport("aws_cdk.interfaces.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kinesisfirehose_7262737d = _LazyImport("aws_cdk.aws_kinesisfirehose")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _aws_ses_9999e6ba = _LazyImport("aws_cdk.interfaces.aws_ses")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -533,7 +483,7 @@ class AddHeaderActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a170d992f7b65fcd93ee761689bdfa76a44ecd1ea7edfc889f8823c2885ff1ab)
+            type_hints = cached_type_hints(_typecheckingstub__a170d992f7b65fcd93ee761689bdfa76a44ecd1ea7edfc889f8823c2885ff1ab)
             check_type(argname="argument header_name", value=header_name, expected_type=type_hints["header_name"])
             check_type(argname="argument header_value", value=header_value, expected_type=type_hints["header_value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -603,7 +553,7 @@ class AllowListReceiptFilter(
         :param ips: A list of ip addresses or ranges to allow list.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__945fe453cd006222ecf22c8ccfcce9d99dd299b11a1edd1f0b1103473142ada4)
+            type_hints = cached_type_hints(_typecheckingstub__945fe453cd006222ecf22c8ccfcce9d99dd299b11a1edd1f0b1103473142ada4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AllowListReceiptFilterProps(ips=ips)
@@ -632,7 +582,7 @@ class AllowListReceiptFilterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b81b4e341d87e039070ac9d2e5681f812a77ceb3a1c4c81466809dabc58bf7d)
+            type_hints = cached_type_hints(_typecheckingstub__4b81b4e341d87e039070ac9d2e5681f812a77ceb3a1c4c81466809dabc58bf7d)
             check_type(argname="argument ips", value=ips, expected_type=type_hints["ips"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ips": ips,
@@ -733,7 +683,7 @@ class BounceActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ed2c8bc5cd582573c72e7ec8ce40272efe39b764d2bea49d78fc57f7929e4c0)
+            type_hints = cached_type_hints(_typecheckingstub__0ed2c8bc5cd582573c72e7ec8ce40272efe39b764d2bea49d78fc57f7929e4c0)
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
             check_type(argname="argument sender", value=sender, expected_type=type_hints["sender"])
             check_type(argname="argument smtp_reply_code", value=smtp_reply_code, expected_type=type_hints["smtp_reply_code"])
@@ -828,7 +778,7 @@ class ByoDkimOptions:
     def __init__(
         self,
         *,
-        private_key: "_SecretValue_3dd0ddae",
+        private_key: "_aws_cdk_0cae9daa.SecretValue",
         selector: builtins.str,
         public_key: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -855,7 +805,7 @@ class ByoDkimOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4e23b7bc7e365a5b875e5ba4ad81ccfb3182ca4059f46dfe11066714a13fffb)
+            type_hints = cached_type_hints(_typecheckingstub__b4e23b7bc7e365a5b875e5ba4ad81ccfb3182ca4059f46dfe11066714a13fffb)
             check_type(argname="argument private_key", value=private_key, expected_type=type_hints["private_key"])
             check_type(argname="argument selector", value=selector, expected_type=type_hints["selector"])
             check_type(argname="argument public_key", value=public_key, expected_type=type_hints["public_key"])
@@ -867,11 +817,11 @@ class ByoDkimOptions:
             self._values["public_key"] = public_key
 
     @builtins.property
-    def private_key(self) -> "_SecretValue_3dd0ddae":
+    def private_key(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The private key that's used to generate a DKIM signature.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
-        return typing.cast("_SecretValue_3dd0ddae", result)
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", result)
 
     @builtins.property
     def selector(self) -> builtins.str:
@@ -903,9 +853,9 @@ class ByoDkimOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigurationSetRef_c4f30d41, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IConfigurationSetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConfigurationSet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSet",
 ):
@@ -990,15 +940,15 @@ class CfnConfigurationSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        archiving_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        archiving_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        reputation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sending_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        suppression_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracking_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vdm_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        reputation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sending_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        suppression_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracking_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vdm_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::ConfigurationSet``.
 
@@ -1015,7 +965,7 @@ class CfnConfigurationSet(
         :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad84a733d05a7160c0517733c56c249f6a299231ebcf8e982ed1aeda9e9b3daf)
+            type_hints = cached_type_hints(_typecheckingstub__ad84a733d05a7160c0517733c56c249f6a299231ebcf8e982ed1aeda9e9b3daf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationSetProps(
@@ -1036,13 +986,13 @@ class CfnConfigurationSet(
     @builtins.classmethod
     def arn_for_configuration_set(
         cls,
-        resource: "_IConfigurationSetRef_c4f30d41",
+        resource: "_aws_ses_9999e6ba.IConfigurationSetRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d526509c4a74554f02a1e75329c7b254b642024595fc23d96e2f2ce1b0049da)
+            type_hints = cached_type_hints(_typecheckingstub__6d526509c4a74554f02a1e75329c7b254b642024595fc23d96e2f2ce1b0049da)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConfigurationSet", [resource]))
 
@@ -1053,7 +1003,7 @@ class CfnConfigurationSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         configuration_set_name: builtins.str,
-    ) -> "_IConfigurationSetRef_c4f30d41":
+    ) -> "_aws_ses_9999e6ba.IConfigurationSetRef":
         '''Creates a new IConfigurationSetRef from a configurationSetName.
 
         :param scope: -
@@ -1061,11 +1011,11 @@ class CfnConfigurationSet(
         :param configuration_set_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7e0cde305853fb2c740f29455949111afc0143ce4346e290a5d583cd414e670)
+            type_hints = cached_type_hints(_typecheckingstub__f7e0cde305853fb2c740f29455949111afc0143ce4346e290a5d583cd414e670)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
-        return typing.cast("_IConfigurationSetRef_c4f30d41", jsii.sinvoke(cls, "fromConfigurationSetName", [scope, id, configuration_set_name]))
+        return typing.cast("_aws_ses_9999e6ba.IConfigurationSetRef", jsii.sinvoke(cls, "fromConfigurationSetName", [scope, id, configuration_set_name]))
 
     @jsii.member(jsii_name="isCfnConfigurationSet")
     @builtins.classmethod
@@ -1075,18 +1025,18 @@ class CfnConfigurationSet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a877be83e9ff07cf697a8d80f4cffe98afd51b6bf96953a798e3ecd7db42aaf6)
+            type_hints = cached_type_hints(_typecheckingstub__a877be83e9ff07cf697a8d80f4cffe98afd51b6bf96953a798e3ecd7db42aaf6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfigurationSet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__703d8eb12ae21101f4f93e6ab7089d820f42a27a22e1028eee983deee4056343)
+            type_hints = cached_type_hints(_typecheckingstub__703d8eb12ae21101f4f93e6ab7089d820f42a27a22e1028eee983deee4056343)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1099,7 +1049,7 @@ class CfnConfigurationSet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ec352b38e2d7189e23d09b362a1b86566764825e5e48e241ee1b2ef51c1b511)
+            type_hints = cached_type_hints(_typecheckingstub__3ec352b38e2d7189e23d09b362a1b86566764825e5e48e241ee1b2ef51c1b511)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1111,9 +1061,9 @@ class CfnConfigurationSet(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1127,25 +1077,25 @@ class CfnConfigurationSet(
 
     @builtins.property
     @jsii.member(jsii_name="configurationSetRef")
-    def configuration_set_ref(self) -> "_ConfigurationSetReference_07006bc6":
+    def configuration_set_ref(self) -> "_aws_ses_9999e6ba.ConfigurationSetReference":
         '''A reference to a ConfigurationSet resource.'''
-        return typing.cast("_ConfigurationSetReference_07006bc6", jsii.get(self, "configurationSetRef"))
+        return typing.cast("_aws_ses_9999e6ba.ConfigurationSetReference", jsii.get(self, "configurationSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="archivingOptions")
     def archiving_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
         '''An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]], jsii.get(self, "archivingOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ArchivingOptionsProperty"]], jsii.get(self, "archivingOptions"))
 
     @archiving_options.setter
     def archiving_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ArchivingOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98dddff2c17ff16f32868cbb08375468ce0e032bcd59174639e7ea9c59e0597a)
+            type_hints = cached_type_hints(_typecheckingstub__98dddff2c17ff16f32868cbb08375468ce0e032bcd59174639e7ea9c59e0597a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "archivingOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1153,17 +1103,17 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="deliveryOptions")
     def delivery_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DeliveryOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DeliveryOptionsProperty"]]:
         '''Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DeliveryOptionsProperty"]], jsii.get(self, "deliveryOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DeliveryOptionsProperty"]], jsii.get(self, "deliveryOptions"))
 
     @delivery_options.setter
     def delivery_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DeliveryOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DeliveryOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5255bb6021541c7e84379b09a4ffd806238f1ac83ad0e7000ea7e34028bc9a3)
+            type_hints = cached_type_hints(_typecheckingstub__d5255bb6021541c7e84379b09a4ffd806238f1ac83ad0e7000ea7e34028bc9a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1179,7 +1129,7 @@ class CfnConfigurationSet(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9757b0b78870ccfafd1e870ca194f545ac0873693da40dc15e29ba8b5beb21b7)
+            type_hints = cached_type_hints(_typecheckingstub__9757b0b78870ccfafd1e870ca194f545ac0873693da40dc15e29ba8b5beb21b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1187,17 +1137,17 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="reputationOptions")
     def reputation_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ReputationOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ReputationOptionsProperty"]]:
         '''An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ReputationOptionsProperty"]], jsii.get(self, "reputationOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ReputationOptionsProperty"]], jsii.get(self, "reputationOptions"))
 
     @reputation_options.setter
     def reputation_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ReputationOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ReputationOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcb56d1f8e63eec7f19208aaf5c6887b110d769aa45bfe8a7329339a1cc321b6)
+            type_hints = cached_type_hints(_typecheckingstub__dcb56d1f8e63eec7f19208aaf5c6887b110d769aa45bfe8a7329339a1cc321b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reputationOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1205,17 +1155,17 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="sendingOptions")
     def sending_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SendingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SendingOptionsProperty"]]:
         '''An object that defines whether or not Amazon SES can send email that you send using the configuration set.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SendingOptionsProperty"]], jsii.get(self, "sendingOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SendingOptionsProperty"]], jsii.get(self, "sendingOptions"))
 
     @sending_options.setter
     def sending_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SendingOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SendingOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfa327a56576655b9670d914964b52df069b29497d84b812a2f15586b1c5faa9)
+            type_hints = cached_type_hints(_typecheckingstub__bfa327a56576655b9670d914964b52df069b29497d84b812a2f15586b1c5faa9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sendingOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1223,30 +1173,33 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="suppressionOptions")
     def suppression_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SuppressionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SuppressionOptionsProperty"]]:
         '''An object that contains information about the suppression list preferences for your account.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SuppressionOptionsProperty"]], jsii.get(self, "suppressionOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SuppressionOptionsProperty"]], jsii.get(self, "suppressionOptions"))
 
     @suppression_options.setter
     def suppression_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SuppressionOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SuppressionOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d6e92203e0b0fb9ad18351409d2e930bd3b3881d922fcb2f2b38b337f5f4c55)
+            type_hints = cached_type_hints(_typecheckingstub__4d6e92203e0b0fb9ad18351409d2e930bd3b3881d922fcb2f2b38b337f5f4c55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "suppressionOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) that are associated with the configuration set.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c62b9f68ee9b0075b17aa0e2ad90c86281aa22d6d7e67129dbeee761ce2c5d4f)
+            type_hints = cached_type_hints(_typecheckingstub__c62b9f68ee9b0075b17aa0e2ad90c86281aa22d6d7e67129dbeee761ce2c5d4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1254,17 +1207,17 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="trackingOptions")
     def tracking_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.TrackingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.TrackingOptionsProperty"]]:
         '''An object that defines the open and click tracking options for emails that you send using the configuration set.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.TrackingOptionsProperty"]], jsii.get(self, "trackingOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.TrackingOptionsProperty"]], jsii.get(self, "trackingOptions"))
 
     @tracking_options.setter
     def tracking_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.TrackingOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.TrackingOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e2738cc83fe741aa7d2c58d5db581a79f89d7427a9504ac697d8f7dd2004ea9)
+            type_hints = cached_type_hints(_typecheckingstub__0e2738cc83fe741aa7d2c58d5db581a79f89d7427a9504ac697d8f7dd2004ea9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trackingOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1272,17 +1225,17 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="vdmOptions")
     def vdm_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.VdmOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.VdmOptionsProperty"]]:
         '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.VdmOptionsProperty"]], jsii.get(self, "vdmOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.VdmOptionsProperty"]], jsii.get(self, "vdmOptions"))
 
     @vdm_options.setter
     def vdm_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.VdmOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.VdmOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f115779032dd22d020f87b590d89ccdd0a4fc3f269b15bbecfde29ad92e4289)
+            type_hints = cached_type_hints(_typecheckingstub__3f115779032dd22d020f87b590d89ccdd0a4fc3f269b15bbecfde29ad92e4289)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vdmOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1315,7 +1268,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6258c0fb16c48115872d650a20ab8971bed1bbfea75dd131a319a2cc66408ebd)
+                type_hints = cached_type_hints(_typecheckingstub__6258c0fb16c48115872d650a20ab8971bed1bbfea75dd131a319a2cc66408ebd)
                 check_type(argname="argument archive_arn", value=archive_arn, expected_type=type_hints["archive_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if archive_arn is not None:
@@ -1354,7 +1307,7 @@ class CfnConfigurationSet(
             self,
             *,
             condition_threshold_enabled: builtins.str,
-            overall_confidence_threshold: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.OverallConfidenceThresholdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            overall_confidence_threshold: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.OverallConfidenceThresholdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The condition threshold settings for suppression validation.
 
@@ -1380,7 +1333,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3bd7cfef5b77c938973f3ba95098801eddfbe74e3f05b89c64ce9101abba9e4e)
+                type_hints = cached_type_hints(_typecheckingstub__3bd7cfef5b77c938973f3ba95098801eddfbe74e3f05b89c64ce9101abba9e4e)
                 check_type(argname="argument condition_threshold_enabled", value=condition_threshold_enabled, expected_type=type_hints["condition_threshold_enabled"])
                 check_type(argname="argument overall_confidence_threshold", value=overall_confidence_threshold, expected_type=type_hints["overall_confidence_threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1402,13 +1355,13 @@ class CfnConfigurationSet(
         @builtins.property
         def overall_confidence_threshold(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.OverallConfidenceThresholdProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.OverallConfidenceThresholdProperty"]]:
             '''The overall confidence threshold settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-conditionthreshold.html#cfn-ses-configurationset-conditionthreshold-overallconfidencethreshold
             '''
             result = self._values.get("overall_confidence_threshold")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.OverallConfidenceThresholdProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.OverallConfidenceThresholdProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1446,7 +1399,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e8d48d16888f580be3782790c85806d5e5ef5c592f9390a1048567593c281148)
+                type_hints = cached_type_hints(_typecheckingstub__e8d48d16888f580be3782790c85806d5e5ef5c592f9390a1048567593c281148)
                 check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "engagement_metrics": engagement_metrics,
@@ -1515,7 +1468,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cad65d433b7328c2fe1d15052509478ad394628f7bbce8157ed352a3291b5d6f)
+                type_hints = cached_type_hints(_typecheckingstub__cad65d433b7328c2fe1d15052509478ad394628f7bbce8157ed352a3291b5d6f)
                 check_type(argname="argument max_delivery_seconds", value=max_delivery_seconds, expected_type=type_hints["max_delivery_seconds"])
                 check_type(argname="argument sending_pool_name", value=sending_pool_name, expected_type=type_hints["sending_pool_name"])
                 check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
@@ -1594,7 +1547,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cabe5bd3bd3cb84baab32735da66eedb8e560e50da24718ab0d87b340502d858)
+                type_hints = cached_type_hints(_typecheckingstub__cabe5bd3bd3cb84baab32735da66eedb8e560e50da24718ab0d87b340502d858)
                 check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "optimized_shared_delivery": optimized_shared_delivery,
@@ -1649,7 +1602,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d1f6f28524e2176fa5dd889536525c3adb3d5a5d9c20ee8939a816f9bc2e9b7b)
+                type_hints = cached_type_hints(_typecheckingstub__d1f6f28524e2176fa5dd889536525c3adb3d5a5d9c20ee8939a816f9bc2e9b7b)
                 check_type(argname="argument confidence_verdict_threshold", value=confidence_verdict_threshold, expected_type=type_hints["confidence_verdict_threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "confidence_verdict_threshold": confidence_verdict_threshold,
@@ -1685,7 +1638,7 @@ class CfnConfigurationSet(
         def __init__(
             self,
             *,
-            reputation_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            reputation_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Enable or disable collection of reputation metrics for emails that you send using this configuration set in the current AWS Region.
 
@@ -1705,7 +1658,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__66f701bd9f49ad0c515c9634599b8e0616f4f3b15f2e4f6b9f906f2542e78676)
+                type_hints = cached_type_hints(_typecheckingstub__66f701bd9f49ad0c515c9634599b8e0616f4f3b15f2e4f6b9f906f2542e78676)
                 check_type(argname="argument reputation_metrics_enabled", value=reputation_metrics_enabled, expected_type=type_hints["reputation_metrics_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if reputation_metrics_enabled is not None:
@@ -1714,7 +1667,7 @@ class CfnConfigurationSet(
         @builtins.property
         def reputation_metrics_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , tracking of reputation metrics is enabled for the configuration set.
 
             If ``false`` , tracking of reputation metrics is disabled for the configuration set.
@@ -1722,7 +1675,7 @@ class CfnConfigurationSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-reputationoptions.html#cfn-ses-configurationset-reputationoptions-reputationmetricsenabled
             '''
             result = self._values.get("reputation_metrics_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1744,7 +1697,7 @@ class CfnConfigurationSet(
         def __init__(
             self,
             *,
-            sending_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            sending_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Used to enable or disable email sending for messages that use this configuration set in the current AWS Region.
 
@@ -1764,7 +1717,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a548843fec9d94e10684140077e38c05264eb17e9e2997b3e7a864cb183318b8)
+                type_hints = cached_type_hints(_typecheckingstub__a548843fec9d94e10684140077e38c05264eb17e9e2997b3e7a864cb183318b8)
                 check_type(argname="argument sending_enabled", value=sending_enabled, expected_type=type_hints["sending_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if sending_enabled is not None:
@@ -1773,7 +1726,7 @@ class CfnConfigurationSet(
         @builtins.property
         def sending_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , email sending is enabled for the configuration set.
 
             If ``false`` , email sending is disabled for the configuration set.
@@ -1781,7 +1734,7 @@ class CfnConfigurationSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-sendingoptions.html#cfn-ses-configurationset-sendingoptions-sendingenabled
             '''
             result = self._values.get("sending_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1807,7 +1760,7 @@ class CfnConfigurationSet(
             self,
             *,
             suppressed_reasons: typing.Optional[typing.Sequence[builtins.str]] = None,
-            validation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ValidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ValidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object that contains information about the suppression list preferences for your account.
 
@@ -1838,7 +1791,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d9a9f4a0b048a750b42ffb05bbf2f29193ab82552fe268e651a27bc5bf661be)
+                type_hints = cached_type_hints(_typecheckingstub__8d9a9f4a0b048a750b42ffb05bbf2f29193ab82552fe268e651a27bc5bf661be)
                 check_type(argname="argument suppressed_reasons", value=suppressed_reasons, expected_type=type_hints["suppressed_reasons"])
                 check_type(argname="argument validation_options", value=validation_options, expected_type=type_hints["validation_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1864,13 +1817,13 @@ class CfnConfigurationSet(
         @builtins.property
         def validation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ValidationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ValidationOptionsProperty"]]:
             '''An object that contains information about the validation options for your account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-suppressionoptions.html#cfn-ses-configurationset-suppressionoptions-validationoptions
             '''
             result = self._values.get("validation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ValidationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ValidationOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1924,7 +1877,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9cb3a7d8357d451a88f3bdd86fea15ef7d167ba61579a61a8e1fe9eb6bfa73f2)
+                type_hints = cached_type_hints(_typecheckingstub__9cb3a7d8357d451a88f3bdd86fea15ef7d167ba61579a61a8e1fe9eb6bfa73f2)
                 check_type(argname="argument custom_redirect_domain", value=custom_redirect_domain, expected_type=type_hints["custom_redirect_domain"])
                 check_type(argname="argument https_policy", value=https_policy, expected_type=type_hints["https_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1971,7 +1924,7 @@ class CfnConfigurationSet(
         def __init__(
             self,
             *,
-            condition_threshold: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ConditionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
+            condition_threshold: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ConditionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''An object that contains information about the validation options for your account.
 
@@ -1998,7 +1951,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f216e55cbc608a35466db76c5902896415705befe41a4d13cf4958599c21e18c)
+                type_hints = cached_type_hints(_typecheckingstub__f216e55cbc608a35466db76c5902896415705befe41a4d13cf4958599c21e18c)
                 check_type(argname="argument condition_threshold", value=condition_threshold, expected_type=type_hints["condition_threshold"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "condition_threshold": condition_threshold,
@@ -2007,14 +1960,14 @@ class CfnConfigurationSet(
         @builtins.property
         def condition_threshold(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ConditionThresholdProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ConditionThresholdProperty"]:
             '''The condition threshold settings for suppression validation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-validationoptions.html#cfn-ses-configurationset-validationoptions-conditionthreshold
             '''
             result = self._values.get("condition_threshold")
             assert result is not None, "Required property 'condition_threshold' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ConditionThresholdProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ConditionThresholdProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2039,8 +1992,8 @@ class CfnConfigurationSet(
         def __init__(
             self,
             *,
-            dashboard_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.DashboardOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            guardian_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.GuardianOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dashboard_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.DashboardOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            guardian_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.GuardianOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The Virtual Deliverability Manager (VDM) options that apply to a configuration set.
 
@@ -2066,7 +2019,7 @@ class CfnConfigurationSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94fcd9f4369b7da06731e9702fc08a13db56c4b817946b6fda1167dfc314ecd2)
+                type_hints = cached_type_hints(_typecheckingstub__94fcd9f4369b7da06731e9702fc08a13db56c4b817946b6fda1167dfc314ecd2)
                 check_type(argname="argument dashboard_options", value=dashboard_options, expected_type=type_hints["dashboard_options"])
                 check_type(argname="argument guardian_options", value=guardian_options, expected_type=type_hints["guardian_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2078,24 +2031,24 @@ class CfnConfigurationSet(
         @builtins.property
         def dashboard_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DashboardOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DashboardOptionsProperty"]]:
             '''Specifies additional settings for your VDM configuration as applicable to the Dashboard.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-vdmoptions.html#cfn-ses-configurationset-vdmoptions-dashboardoptions
             '''
             result = self._values.get("dashboard_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DashboardOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DashboardOptionsProperty"]], result)
 
         @builtins.property
         def guardian_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.GuardianOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.GuardianOptionsProperty"]]:
             '''Specifies additional settings for your VDM configuration as applicable to the Guardian.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-vdmoptions.html#cfn-ses-configurationset-vdmoptions-guardianoptions
             '''
             result = self._values.get("guardian_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.GuardianOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.GuardianOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2109,9 +2062,9 @@ class CfnConfigurationSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigurationSetEventDestinationRef_937b7110)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IConfigurationSetEventDestinationRef)
 class CfnConfigurationSetEventDestination(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetEventDestination",
 ):
@@ -2165,8 +2118,8 @@ class CfnConfigurationSetEventDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration_set_name: typing.Union[builtins.str, "_IConfigurationSetRef_c4f30d41"],
-        event_destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.EventDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration_set_name: typing.Union[builtins.str, "_aws_ses_9999e6ba.IConfigurationSetRef"],
+        event_destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.EventDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::SES::ConfigurationSetEventDestination``.
 
@@ -2176,7 +2129,7 @@ class CfnConfigurationSetEventDestination(
         :param event_destination: An object that defines the event destination.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0376f935c1363b5c7cfddd668508c112d2a00f2637b1a84086b70c96af9e53c)
+            type_hints = cached_type_hints(_typecheckingstub__e0376f935c1363b5c7cfddd668508c112d2a00f2637b1a84086b70c96af9e53c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationSetEventDestinationProps(
@@ -2194,18 +2147,18 @@ class CfnConfigurationSetEventDestination(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5426c24035203cb4402501bb84560acd16e2d3ea726c2745399600d38a5083be)
+            type_hints = cached_type_hints(_typecheckingstub__5426c24035203cb4402501bb84560acd16e2d3ea726c2745399600d38a5083be)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfigurationSetEventDestination", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d77d1e029fcf58a1f079cf11a321a2e3416ae4150d8df3576a09e3c62095ca35)
+            type_hints = cached_type_hints(_typecheckingstub__d77d1e029fcf58a1f079cf11a321a2e3416ae4150d8df3576a09e3c62095ca35)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2218,7 +2171,7 @@ class CfnConfigurationSetEventDestination(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8650d4b56a0c900e4a255fe7bb98030ff250164d423e43ab113f0bcb3cad116e)
+            type_hints = cached_type_hints(_typecheckingstub__8650d4b56a0c900e4a255fe7bb98030ff250164d423e43ab113f0bcb3cad116e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2250,9 +2203,9 @@ class CfnConfigurationSetEventDestination(
     @jsii.member(jsii_name="configurationSetEventDestinationRef")
     def configuration_set_event_destination_ref(
         self,
-    ) -> "_ConfigurationSetEventDestinationReference_122c29c6":
+    ) -> "_aws_ses_9999e6ba.ConfigurationSetEventDestinationReference":
         '''A reference to a ConfigurationSetEventDestination resource.'''
-        return typing.cast("_ConfigurationSetEventDestinationReference_122c29c6", jsii.get(self, "configurationSetEventDestinationRef"))
+        return typing.cast("_aws_ses_9999e6ba.ConfigurationSetEventDestinationReference", jsii.get(self, "configurationSetEventDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationSetName")
@@ -2263,7 +2216,7 @@ class CfnConfigurationSetEventDestination(
     @configuration_set_name.setter
     def configuration_set_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9ebb672423cac8794fa77851a8fa78b27a8be4beabf8025723862ad9291d619)
+            type_hints = cached_type_hints(_typecheckingstub__a9ebb672423cac8794fa77851a8fa78b27a8be4beabf8025723862ad9291d619)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurationSetName", value) # pyright: ignore[reportArgumentType]
 
@@ -2271,17 +2224,17 @@ class CfnConfigurationSetEventDestination(
     @jsii.member(jsii_name="eventDestination")
     def event_destination(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventDestinationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventDestinationProperty"]:
         '''An object that defines the event destination.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventDestinationProperty"], jsii.get(self, "eventDestination"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventDestinationProperty"], jsii.get(self, "eventDestination"))
 
     @event_destination.setter
     def event_destination(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventDestinationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventDestinationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5bde831b7591d8114916d0e9453c13daabe44cbe1f0da50b7cd72b598079dfa)
+            type_hints = cached_type_hints(_typecheckingstub__c5bde831b7591d8114916d0e9453c13daabe44cbe1f0da50b7cd72b598079dfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventDestination", value) # pyright: ignore[reportArgumentType]
 
@@ -2294,7 +2247,7 @@ class CfnConfigurationSetEventDestination(
         def __init__(
             self,
             *,
-            dimension_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.DimensionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimension_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.DimensionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''An object that defines an Amazon CloudWatch destination for email events.
 
@@ -2320,7 +2273,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e60b6436d0d38ae03fe0a4f110271b401e922dc980b2b61e9f401dd25eb1061c)
+                type_hints = cached_type_hints(_typecheckingstub__e60b6436d0d38ae03fe0a4f110271b401e922dc980b2b61e9f401dd25eb1061c)
                 check_type(argname="argument dimension_configurations", value=dimension_configurations, expected_type=type_hints["dimension_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if dimension_configurations is not None:
@@ -2329,13 +2282,13 @@ class CfnConfigurationSetEventDestination(
         @builtins.property
         def dimension_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.DimensionConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.DimensionConfigurationProperty"]]]]:
             '''An array of objects that define the dimensions to use when you send email events to Amazon CloudWatch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-cloudwatchdestination.html#cfn-ses-configurationseteventdestination-cloudwatchdestination-dimensionconfigurations
             '''
             result = self._values.get("dimension_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.DimensionConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.DimensionConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2387,7 +2340,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf76f41f2226fa19acdad1732c136b3ee21554d7f8458ed43f731c0fee88cbcc)
+                type_hints = cached_type_hints(_typecheckingstub__cf76f41f2226fa19acdad1732c136b3ee21554d7f8458ed43f731c0fee88cbcc)
                 check_type(argname="argument default_dimension_value", value=default_dimension_value, expected_type=type_hints["default_dimension_value"])
                 check_type(argname="argument dimension_name", value=dimension_name, expected_type=type_hints["dimension_name"])
                 check_type(argname="argument dimension_value_source", value=dimension_value_source, expected_type=type_hints["dimension_value_source"])
@@ -2477,7 +2430,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a4907cb327688c60af2197dae9e175f413bab66ce8ecf29fe40b1fdc8dce9f3)
+                type_hints = cached_type_hints(_typecheckingstub__3a4907cb327688c60af2197dae9e175f413bab66ce8ecf29fe40b1fdc8dce9f3)
                 check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "event_bus_arn": event_bus_arn,
@@ -2524,12 +2477,12 @@ class CfnConfigurationSetEventDestination(
             self,
             *,
             matching_event_types: typing.Sequence[builtins.str],
-            cloud_watch_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.CloudWatchDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            event_bridge_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.EventBridgeDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_firehose_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.CloudWatchDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            event_bridge_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.EventBridgeDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_firehose_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
-            sns_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.SnsDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.SnsDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''In the Amazon SES API v2, *events* include message sends, deliveries, opens, clicks, bounces, complaints and delivery delays.
 
@@ -2578,7 +2531,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b77a9a6a44a2946da816730acf4f2c79407a57e401fb25707130b8e68609c0b9)
+                type_hints = cached_type_hints(_typecheckingstub__b77a9a6a44a2946da816730acf4f2c79407a57e401fb25707130b8e68609c0b9)
                 check_type(argname="argument matching_event_types", value=matching_event_types, expected_type=type_hints["matching_event_types"])
                 check_type(argname="argument cloud_watch_destination", value=cloud_watch_destination, expected_type=type_hints["cloud_watch_destination"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -2626,7 +2579,7 @@ class CfnConfigurationSetEventDestination(
         @builtins.property
         def cloud_watch_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.CloudWatchDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.CloudWatchDestinationProperty"]]:
             '''An object that defines an Amazon CloudWatch destination for email events.
 
             You can use Amazon CloudWatch to monitor and gain insights on your email sending metrics.
@@ -2634,12 +2587,12 @@ class CfnConfigurationSetEventDestination(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-eventdestination.html#cfn-ses-configurationseteventdestination-eventdestination-cloudwatchdestination
             '''
             result = self._values.get("cloud_watch_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.CloudWatchDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.CloudWatchDestinationProperty"]], result)
 
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , the event destination is enabled.
 
             When the event destination is enabled, the specified event types are sent to the destinations in this ``EventDestinationDefinition`` .
@@ -2649,12 +2602,12 @@ class CfnConfigurationSetEventDestination(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-eventdestination.html#cfn-ses-configurationseteventdestination-eventdestination-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def event_bridge_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventBridgeDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventBridgeDestinationProperty"]]:
             '''An object that defines an Amazon EventBridge destination for email events.
 
             You can use Amazon EventBridge to send notifications when certain email events occur.
@@ -2662,18 +2615,18 @@ class CfnConfigurationSetEventDestination(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-eventdestination.html#cfn-ses-configurationseteventdestination-eventdestination-eventbridgedestination
             '''
             result = self._values.get("event_bridge_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventBridgeDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventBridgeDestinationProperty"]], result)
 
         @builtins.property
         def kinesis_firehose_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty"]]:
             '''An object that contains the delivery stream ARN and the IAM role ARN associated with an Amazon Kinesis Firehose event destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-eventdestination.html#cfn-ses-configurationseteventdestination-eventdestination-kinesisfirehosedestination
             '''
             result = self._values.get("kinesis_firehose_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -2690,13 +2643,13 @@ class CfnConfigurationSetEventDestination(
         @builtins.property
         def sns_destination(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.SnsDestinationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.SnsDestinationProperty"]]:
             '''An object that contains the topic ARN associated with an Amazon Simple Notification Service (Amazon SNS) event destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationseteventdestination-eventdestination.html#cfn-ses-configurationseteventdestination-eventdestination-snsdestination
             '''
             result = self._values.get("sns_destination")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.SnsDestinationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.SnsDestinationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2746,7 +2699,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee1cd798be61243093d3e6c4cfddb9f06458011ead23160593d456863d3d8916)
+                type_hints = cached_type_hints(_typecheckingstub__ee1cd798be61243093d3e6c4cfddb9f06458011ead23160593d456863d3d8916)
                 check_type(argname="argument delivery_stream_arn", value=delivery_stream_arn, expected_type=type_hints["delivery_stream_arn"])
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2812,7 +2765,7 @@ class CfnConfigurationSetEventDestination(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__088fd890007dccc782783b2f90e64f8c72607c080bdc0d3a15c7d13f1adbcf2b)
+                type_hints = cached_type_hints(_typecheckingstub__088fd890007dccc782783b2f90e64f8c72607c080bdc0d3a15c7d13f1adbcf2b)
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "topic_arn": topic_arn,
@@ -2856,8 +2809,8 @@ class CfnConfigurationSetEventDestinationProps:
     def __init__(
         self,
         *,
-        configuration_set_name: typing.Union[builtins.str, "_IConfigurationSetRef_c4f30d41"],
-        event_destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSetEventDestination.EventDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration_set_name: typing.Union[builtins.str, "_aws_ses_9999e6ba.IConfigurationSetRef"],
+        event_destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSetEventDestination.EventDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnConfigurationSetEventDestination``.
 
@@ -2902,7 +2855,7 @@ class CfnConfigurationSetEventDestinationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2)
+            type_hints = cached_type_hints(_typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2)
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
             check_type(argname="argument event_destination", value=event_destination, expected_type=type_hints["event_destination"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2913,26 +2866,26 @@ class CfnConfigurationSetEventDestinationProps:
     @builtins.property
     def configuration_set_name(
         self,
-    ) -> typing.Union[builtins.str, "_IConfigurationSetRef_c4f30d41"]:
+    ) -> typing.Union[builtins.str, "_aws_ses_9999e6ba.IConfigurationSetRef"]:
         '''The name of the configuration set that contains the event destination.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-configurationsetname
         '''
         result = self._values.get("configuration_set_name")
         assert result is not None, "Required property 'configuration_set_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IConfigurationSetRef_c4f30d41"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_ses_9999e6ba.IConfigurationSetRef"], result)
 
     @builtins.property
     def event_destination(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventDestinationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventDestinationProperty"]:
         '''An object that defines the event destination.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-eventdestination
         '''
         result = self._values.get("event_destination")
         assert result is not None, "Required property 'event_destination' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfigurationSetEventDestination.EventDestinationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSetEventDestination.EventDestinationProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2965,15 +2918,15 @@ class CfnConfigurationSetProps:
     def __init__(
         self,
         *,
-        archiving_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        delivery_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        archiving_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delivery_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        reputation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sending_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        suppression_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracking_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vdm_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        reputation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sending_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        suppression_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracking_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vdm_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConfigurationSet``.
 
@@ -3045,7 +2998,7 @@ class CfnConfigurationSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa)
+            type_hints = cached_type_hints(_typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa)
             check_type(argname="argument archiving_options", value=archiving_options, expected_type=type_hints["archiving_options"])
             check_type(argname="argument delivery_options", value=delivery_options, expected_type=type_hints["delivery_options"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3078,24 +3031,24 @@ class CfnConfigurationSetProps:
     @builtins.property
     def archiving_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
         '''An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-archivingoptions
         '''
         result = self._values.get("archiving_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ArchivingOptionsProperty"]], result)
 
     @builtins.property
     def delivery_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DeliveryOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DeliveryOptionsProperty"]]:
         '''Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-deliveryoptions
         '''
         result = self._values.get("delivery_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.DeliveryOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.DeliveryOptionsProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -3112,66 +3065,66 @@ class CfnConfigurationSetProps:
     @builtins.property
     def reputation_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ReputationOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ReputationOptionsProperty"]]:
         '''An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-reputationoptions
         '''
         result = self._values.get("reputation_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ReputationOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.ReputationOptionsProperty"]], result)
 
     @builtins.property
     def sending_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SendingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SendingOptionsProperty"]]:
         '''An object that defines whether or not Amazon SES can send email that you send using the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-sendingoptions
         '''
         result = self._values.get("sending_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SendingOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SendingOptionsProperty"]], result)
 
     @builtins.property
     def suppression_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SuppressionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SuppressionOptionsProperty"]]:
         '''An object that contains information about the suppression list preferences for your account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-suppressionoptions
         '''
         result = self._values.get("suppression_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.SuppressionOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.SuppressionOptionsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) that are associated with the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def tracking_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.TrackingOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.TrackingOptionsProperty"]]:
         '''An object that defines the open and click tracking options for emails that you send using the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-trackingoptions
         '''
         result = self._values.get("tracking_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.TrackingOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.TrackingOptionsProperty"]], result)
 
     @builtins.property
     def vdm_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.VdmOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.VdmOptionsProperty"]]:
         '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-vdmoptions
         '''
         result = self._values.get("vdm_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.VdmOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationSet.VdmOptionsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3185,9 +3138,9 @@ class CfnConfigurationSetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IContactListRef_1c876363, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IContactListRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnContactList(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnContactList",
 ):
@@ -3229,8 +3182,8 @@ class CfnContactList(
         *,
         contact_list_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        topics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContactList.TopicProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        topics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContactList.TopicProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::ContactList``.
 
@@ -3242,7 +3195,7 @@ class CfnContactList(
         :param topics: An interest group, theme, or label within a list. A contact list can have multiple topics.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f5901f6c4687a5069b93788dd46825d3f820617b06ab7617c713daa19e6b0a1)
+            type_hints = cached_type_hints(_typecheckingstub__4f5901f6c4687a5069b93788dd46825d3f820617b06ab7617c713daa19e6b0a1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnContactListProps(
@@ -3258,13 +3211,13 @@ class CfnContactList(
     @builtins.classmethod
     def arn_for_contact_list(
         cls,
-        resource: "_IContactListRef_1c876363",
+        resource: "_aws_ses_9999e6ba.IContactListRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e371967a8bd466f3463ea9d54700ed3f19ce40efcad9a72d43755f3be4261e4)
+            type_hints = cached_type_hints(_typecheckingstub__5e371967a8bd466f3463ea9d54700ed3f19ce40efcad9a72d43755f3be4261e4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContactList", [resource]))
 
@@ -3275,7 +3228,7 @@ class CfnContactList(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         contact_list_name: builtins.str,
-    ) -> "_IContactListRef_1c876363":
+    ) -> "_aws_ses_9999e6ba.IContactListRef":
         '''Creates a new IContactListRef from a contactListName.
 
         :param scope: -
@@ -3283,11 +3236,11 @@ class CfnContactList(
         :param contact_list_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b19a50d34c95519a9d081d656ff2b1634828c7fe7a66b655cd9cb5360e9e3f6)
+            type_hints = cached_type_hints(_typecheckingstub__3b19a50d34c95519a9d081d656ff2b1634828c7fe7a66b655cd9cb5360e9e3f6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
-        return typing.cast("_IContactListRef_1c876363", jsii.sinvoke(cls, "fromContactListName", [scope, id, contact_list_name]))
+        return typing.cast("_aws_ses_9999e6ba.IContactListRef", jsii.sinvoke(cls, "fromContactListName", [scope, id, contact_list_name]))
 
     @jsii.member(jsii_name="isCfnContactList")
     @builtins.classmethod
@@ -3297,18 +3250,18 @@ class CfnContactList(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fa29e89e475e02426bfc70921046ac7e8676412a7ab4ec371598c9ede5b6f01)
+            type_hints = cached_type_hints(_typecheckingstub__6fa29e89e475e02426bfc70921046ac7e8676412a7ab4ec371598c9ede5b6f01)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContactList", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04e7980d7184167e42f7e01ae8cec876d43f150d71c7057fca33fc0a3e2d3e6b)
+            type_hints = cached_type_hints(_typecheckingstub__04e7980d7184167e42f7e01ae8cec876d43f150d71c7057fca33fc0a3e2d3e6b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3321,7 +3274,7 @@ class CfnContactList(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af7d95554a83c0f0d545d0786c20201ae723b64226988c31c92f93e116a98429)
+            type_hints = cached_type_hints(_typecheckingstub__af7d95554a83c0f0d545d0786c20201ae723b64226988c31c92f93e116a98429)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3343,15 +3296,15 @@ class CfnContactList(
 
     @builtins.property
     @jsii.member(jsii_name="contactListRef")
-    def contact_list_ref(self) -> "_ContactListReference_5d48a523":
+    def contact_list_ref(self) -> "_aws_ses_9999e6ba.ContactListReference":
         '''A reference to a ContactList resource.'''
-        return typing.cast("_ContactListReference_5d48a523", jsii.get(self, "contactListRef"))
+        return typing.cast("_aws_ses_9999e6ba.ContactListReference", jsii.get(self, "contactListRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="contactListName")
@@ -3362,7 +3315,7 @@ class CfnContactList(
     @contact_list_name.setter
     def contact_list_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe87ab99d02860b4269adb497c2b85c5627baa1480977081d5983090e8f106cf)
+            type_hints = cached_type_hints(_typecheckingstub__fe87ab99d02860b4269adb497c2b85c5627baa1480977081d5983090e8f106cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactListName", value) # pyright: ignore[reportArgumentType]
 
@@ -3375,20 +3328,23 @@ class CfnContactList(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b772e4221fab9fd85e09441b0917a7c5c4c012cb7676e6a6ea38ce5c619a4431)
+            type_hints = cached_type_hints(_typecheckingstub__b772e4221fab9fd85e09441b0917a7c5c4c012cb7676e6a6ea38ce5c619a4431)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with a contact list.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3ca0b0993b5ed610f353a70ff69c08d5866611a4967d6f45f069e82edf1d5a8)
+            type_hints = cached_type_hints(_typecheckingstub__f3ca0b0993b5ed610f353a70ff69c08d5866611a4967d6f45f069e82edf1d5a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3396,17 +3352,17 @@ class CfnContactList(
     @jsii.member(jsii_name="topics")
     def topics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContactList.TopicProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContactList.TopicProperty"]]]]:
         '''An interest group, theme, or label within a list.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContactList.TopicProperty"]]]], jsii.get(self, "topics"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContactList.TopicProperty"]]]], jsii.get(self, "topics"))
 
     @topics.setter
     def topics(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContactList.TopicProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContactList.TopicProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1a4f7da14b40f7178c1c0c458459ea9ecbdb3914bfe6c065e5ff051b6bd8728)
+            type_hints = cached_type_hints(_typecheckingstub__a1a4f7da14b40f7178c1c0c458459ea9ecbdb3914bfe6c065e5ff051b6bd8728)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "topics", value) # pyright: ignore[reportArgumentType]
 
@@ -3457,7 +3413,7 @@ class CfnContactList(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51caf9f57b613a46837ae653fc48f880d6c601b01293293e456968c3aa00c3c7)
+                type_hints = cached_type_hints(_typecheckingstub__51caf9f57b613a46837ae653fc48f880d6c601b01293293e456968c3aa00c3c7)
                 check_type(argname="argument default_subscription_status", value=default_subscription_status, expected_type=type_hints["default_subscription_status"])
                 check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
                 check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
@@ -3537,8 +3493,8 @@ class CfnContactListProps:
         *,
         contact_list_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        topics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContactList.TopicProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        topics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContactList.TopicProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnContactList``.
 
@@ -3575,7 +3531,7 @@ class CfnContactListProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0)
+            type_hints = cached_type_hints(_typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0)
             check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3609,18 +3565,18 @@ class CfnContactListProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with a contact list.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def topics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContactList.TopicProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContactList.TopicProperty"]]]]:
         '''An interest group, theme, or label within a list.
 
         A contact list can have multiple topics.
@@ -3628,7 +3584,7 @@ class CfnContactListProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-topics
         '''
         result = self._values.get("topics")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContactList.TopicProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContactList.TopicProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3642,9 +3598,9 @@ class CfnContactListProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICustomVerificationEmailTemplateRef_81ee24b9, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.ICustomVerificationEmailTemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCustomVerificationEmailTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnCustomVerificationEmailTemplate",
 ):
@@ -3688,7 +3644,7 @@ class CfnCustomVerificationEmailTemplate(
         template_content: builtins.str,
         template_name: builtins.str,
         template_subject: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::CustomVerificationEmailTemplate``.
 
@@ -3703,7 +3659,7 @@ class CfnCustomVerificationEmailTemplate(
         :param tags: The tags (keys and values) associated with the tenant.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c762ad7fc8)
+            type_hints = cached_type_hints(_typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c762ad7fc8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCustomVerificationEmailTemplateProps(
@@ -3722,13 +3678,13 @@ class CfnCustomVerificationEmailTemplate(
     @builtins.classmethod
     def arn_for_custom_verification_email_template(
         cls,
-        resource: "_ICustomVerificationEmailTemplateRef_81ee24b9",
+        resource: "_aws_ses_9999e6ba.ICustomVerificationEmailTemplateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d67be7170103654c15a22cc5705e4bc7ad0e14fa356b509fcde66ca1eff238d)
+            type_hints = cached_type_hints(_typecheckingstub__7d67be7170103654c15a22cc5705e4bc7ad0e14fa356b509fcde66ca1eff238d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomVerificationEmailTemplate", [resource]))
 
@@ -3739,7 +3695,7 @@ class CfnCustomVerificationEmailTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         template_name: builtins.str,
-    ) -> "_ICustomVerificationEmailTemplateRef_81ee24b9":
+    ) -> "_aws_ses_9999e6ba.ICustomVerificationEmailTemplateRef":
         '''Creates a new ICustomVerificationEmailTemplateRef from a templateName.
 
         :param scope: -
@@ -3747,11 +3703,11 @@ class CfnCustomVerificationEmailTemplate(
         :param template_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1babb794dbd50d9889a178de40d8928433de3a06d0e660ee697ef68d834dd522)
+            type_hints = cached_type_hints(_typecheckingstub__1babb794dbd50d9889a178de40d8928433de3a06d0e660ee697ef68d834dd522)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-        return typing.cast("_ICustomVerificationEmailTemplateRef_81ee24b9", jsii.sinvoke(cls, "fromTemplateName", [scope, id, template_name]))
+        return typing.cast("_aws_ses_9999e6ba.ICustomVerificationEmailTemplateRef", jsii.sinvoke(cls, "fromTemplateName", [scope, id, template_name]))
 
     @jsii.member(jsii_name="isCfnCustomVerificationEmailTemplate")
     @builtins.classmethod
@@ -3761,18 +3717,18 @@ class CfnCustomVerificationEmailTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__746a63bcb9f079383d07a768780b52e734883ae69b7182e783317547b8b41364)
+            type_hints = cached_type_hints(_typecheckingstub__746a63bcb9f079383d07a768780b52e734883ae69b7182e783317547b8b41364)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomVerificationEmailTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27ff82feeb4f00cbd90a942d6236d5c9aae8a6f9e9d9757f7d119a612c9fbc21)
+            type_hints = cached_type_hints(_typecheckingstub__27ff82feeb4f00cbd90a942d6236d5c9aae8a6f9e9d9757f7d119a612c9fbc21)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3785,7 +3741,7 @@ class CfnCustomVerificationEmailTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca1a9e9b301d0a43a591b868b9b48780c2ad0183cdc60cf845c464a0efd2e249)
+            type_hints = cached_type_hints(_typecheckingstub__ca1a9e9b301d0a43a591b868b9b48780c2ad0183cdc60cf845c464a0efd2e249)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3797,9 +3753,9 @@ class CfnCustomVerificationEmailTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3815,9 +3771,9 @@ class CfnCustomVerificationEmailTemplate(
     @jsii.member(jsii_name="customVerificationEmailTemplateRef")
     def custom_verification_email_template_ref(
         self,
-    ) -> "_CustomVerificationEmailTemplateReference_e479770b":
+    ) -> "_aws_ses_9999e6ba.CustomVerificationEmailTemplateReference":
         '''A reference to a CustomVerificationEmailTemplate resource.'''
-        return typing.cast("_CustomVerificationEmailTemplateReference_e479770b", jsii.get(self, "customVerificationEmailTemplateRef"))
+        return typing.cast("_aws_ses_9999e6ba.CustomVerificationEmailTemplateReference", jsii.get(self, "customVerificationEmailTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="failureRedirectionUrl")
@@ -3828,7 +3784,7 @@ class CfnCustomVerificationEmailTemplate(
     @failure_redirection_url.setter
     def failure_redirection_url(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80695685785546cf2dead0df023dccb5989d381eddf429ad01138c4666a3b8cd)
+            type_hints = cached_type_hints(_typecheckingstub__80695685785546cf2dead0df023dccb5989d381eddf429ad01138c4666a3b8cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "failureRedirectionUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -3841,7 +3797,7 @@ class CfnCustomVerificationEmailTemplate(
     @from_email_address.setter
     def from_email_address(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__877d80dade19c134bfa0b9d146a088e725efa56236115f7d27f22f84bc053f8d)
+            type_hints = cached_type_hints(_typecheckingstub__877d80dade19c134bfa0b9d146a088e725efa56236115f7d27f22f84bc053f8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fromEmailAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -3854,7 +3810,7 @@ class CfnCustomVerificationEmailTemplate(
     @success_redirection_url.setter
     def success_redirection_url(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03bd0b203964fa3650400c5bdb3a3c5cafee32ec7b2b4b979d3a9c140d51fc6f)
+            type_hints = cached_type_hints(_typecheckingstub__03bd0b203964fa3650400c5bdb3a3c5cafee32ec7b2b4b979d3a9c140d51fc6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "successRedirectionUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -3867,7 +3823,7 @@ class CfnCustomVerificationEmailTemplate(
     @template_content.setter
     def template_content(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6183ee4a1b16fe2da12426eb16cf02a3794137ff3820737c6385632da6094ba1)
+            type_hints = cached_type_hints(_typecheckingstub__6183ee4a1b16fe2da12426eb16cf02a3794137ff3820737c6385632da6094ba1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "templateContent", value) # pyright: ignore[reportArgumentType]
 
@@ -3880,7 +3836,7 @@ class CfnCustomVerificationEmailTemplate(
     @template_name.setter
     def template_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__074aebebfc8cd858cab48124b8e507ee23f741dca03d21bdccc8934d1891e752)
+            type_hints = cached_type_hints(_typecheckingstub__074aebebfc8cd858cab48124b8e507ee23f741dca03d21bdccc8934d1891e752)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "templateName", value) # pyright: ignore[reportArgumentType]
 
@@ -3893,20 +3849,23 @@ class CfnCustomVerificationEmailTemplate(
     @template_subject.setter
     def template_subject(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6472780b973a0319efdd5de5236dfc6756ad0c955fb92f85861cd0adda6ed212)
+            type_hints = cached_type_hints(_typecheckingstub__6472780b973a0319efdd5de5236dfc6756ad0c955fb92f85861cd0adda6ed212)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "templateSubject", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags (keys and values) associated with the tenant.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7df680e720153fc9fa60f06839c7f5d133e1af971b21fed62754eaeff4d7ad7)
+            type_hints = cached_type_hints(_typecheckingstub__a7df680e720153fc9fa60f06839c7f5d133e1af971b21fed62754eaeff4d7ad7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3934,7 +3893,7 @@ class CfnCustomVerificationEmailTemplateProps:
         template_content: builtins.str,
         template_name: builtins.str,
         template_subject: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCustomVerificationEmailTemplate``.
 
@@ -3972,7 +3931,7 @@ class CfnCustomVerificationEmailTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f90246f0557bb193f785a3ef894e01c0c1875a936262e84ce03093f354bd7a94)
+            type_hints = cached_type_hints(_typecheckingstub__f90246f0557bb193f785a3ef894e01c0c1875a936262e84ce03093f354bd7a94)
             check_type(argname="argument failure_redirection_url", value=failure_redirection_url, expected_type=type_hints["failure_redirection_url"])
             check_type(argname="argument from_email_address", value=from_email_address, expected_type=type_hints["from_email_address"])
             check_type(argname="argument success_redirection_url", value=success_redirection_url, expected_type=type_hints["success_redirection_url"])
@@ -4054,13 +4013,13 @@ class CfnCustomVerificationEmailTemplateProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags (keys and values) associated with the tenant.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4074,9 +4033,9 @@ class CfnCustomVerificationEmailTemplateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDedicatedIpPoolRef_c0fd271c, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IDedicatedIpPoolRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDedicatedIpPool(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnDedicatedIpPool",
 ):
@@ -4115,7 +4074,7 @@ class CfnDedicatedIpPool(
         *,
         pool_name: typing.Optional[builtins.str] = None,
         scaling_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::DedicatedIpPool``.
 
@@ -4126,7 +4085,7 @@ class CfnDedicatedIpPool(
         :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595c9930e2)
+            type_hints = cached_type_hints(_typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595c9930e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDedicatedIpPoolProps(
@@ -4143,18 +4102,18 @@ class CfnDedicatedIpPool(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9fd59cf4e963a65b868b760f42df8c49d4e04ebb87fcf4cf9db9c5d7888eb3d)
+            type_hints = cached_type_hints(_typecheckingstub__b9fd59cf4e963a65b868b760f42df8c49d4e04ebb87fcf4cf9db9c5d7888eb3d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDedicatedIpPool", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8104b1859d7ffadca75f36effd5e88f40353e147cbb9ff43a0adf3b020c8e7d5)
+            type_hints = cached_type_hints(_typecheckingstub__8104b1859d7ffadca75f36effd5e88f40353e147cbb9ff43a0adf3b020c8e7d5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4167,7 +4126,7 @@ class CfnDedicatedIpPool(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d431f4fa3e72589a6c2f0607a33d0c813f15e49f2c036738c5ec863ee07438cc)
+            type_hints = cached_type_hints(_typecheckingstub__d431f4fa3e72589a6c2f0607a33d0c813f15e49f2c036738c5ec863ee07438cc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4179,9 +4138,9 @@ class CfnDedicatedIpPool(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4195,9 +4154,9 @@ class CfnDedicatedIpPool(
 
     @builtins.property
     @jsii.member(jsii_name="dedicatedIpPoolRef")
-    def dedicated_ip_pool_ref(self) -> "_DedicatedIpPoolReference_05fca49e":
+    def dedicated_ip_pool_ref(self) -> "_aws_ses_9999e6ba.DedicatedIpPoolReference":
         '''A reference to a DedicatedIpPool resource.'''
-        return typing.cast("_DedicatedIpPoolReference_05fca49e", jsii.get(self, "dedicatedIpPoolRef"))
+        return typing.cast("_aws_ses_9999e6ba.DedicatedIpPoolReference", jsii.get(self, "dedicatedIpPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="poolName")
@@ -4208,7 +4167,7 @@ class CfnDedicatedIpPool(
     @pool_name.setter
     def pool_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4397d06edc01bb178665cd7af2c334613e4b051f65bf7fc9a1638ae1775ed9cb)
+            type_hints = cached_type_hints(_typecheckingstub__4397d06edc01bb178665cd7af2c334613e4b051f65bf7fc9a1638ae1775ed9cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "poolName", value) # pyright: ignore[reportArgumentType]
 
@@ -4221,20 +4180,23 @@ class CfnDedicatedIpPool(
     @scaling_mode.setter
     def scaling_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfe768b550097b0e81974377ae65fba6791743f6787f72492af555cd19e3685a)
+            type_hints = cached_type_hints(_typecheckingstub__cfe768b550097b0e81974377ae65fba6791743f6787f72492af555cd19e3685a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scalingMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An object that defines the tags (keys and values) that you want to associate with the pool.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8)
+            type_hints = cached_type_hints(_typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4254,7 +4216,7 @@ class CfnDedicatedIpPoolProps:
         *,
         pool_name: typing.Optional[builtins.str] = None,
         scaling_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDedicatedIpPool``.
 
@@ -4282,7 +4244,7 @@ class CfnDedicatedIpPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56)
+            type_hints = cached_type_hints(_typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56)
             check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
             check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4323,13 +4285,13 @@ class CfnDedicatedIpPoolProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An object that defines the tags (keys and values) that you want to associate with the pool.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4343,9 +4305,9 @@ class CfnDedicatedIpPoolProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEmailIdentityRef_317356c6, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IEmailIdentityRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEmailIdentity(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentity",
 ):
@@ -4405,12 +4367,12 @@ class CfnEmailIdentity(
         id: builtins.str,
         *,
         email_identity: builtins.str,
-        configuration_set_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.ConfigurationSetAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.DkimAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_signing_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        feedback_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mail_from_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_set_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.ConfigurationSetAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.DkimAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_signing_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        feedback_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mail_from_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::EmailIdentity``.
 
@@ -4425,7 +4387,7 @@ class CfnEmailIdentity(
         :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dd153888b73988faf47365b573ef9e102d03faf2ff7fc2112c9b85962c0cc81)
+            type_hints = cached_type_hints(_typecheckingstub__6dd153888b73988faf47365b573ef9e102d03faf2ff7fc2112c9b85962c0cc81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEmailIdentityProps(
@@ -4448,18 +4410,18 @@ class CfnEmailIdentity(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcf13c1f67aed2f19c15ac81932b51ce22898a74bbc609b0c1b62f15f77fbd32)
+            type_hints = cached_type_hints(_typecheckingstub__dcf13c1f67aed2f19c15ac81932b51ce22898a74bbc609b0c1b62f15f77fbd32)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEmailIdentity", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2e59b4607b3737bad6d0d3dceb2602acfb4a055cf1db675a6a32c09ab24c984)
+            type_hints = cached_type_hints(_typecheckingstub__a2e59b4607b3737bad6d0d3dceb2602acfb4a055cf1db675a6a32c09ab24c984)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4472,7 +4434,7 @@ class CfnEmailIdentity(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89ed6968b3a6bd596dccac5a2250a9eaee13899cac4ddf323c6e8c46dae44315)
+            type_hints = cached_type_hints(_typecheckingstub__89ed6968b3a6bd596dccac5a2250a9eaee13899cac4ddf323c6e8c46dae44315)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4538,9 +4500,9 @@ class CfnEmailIdentity(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4554,9 +4516,9 @@ class CfnEmailIdentity(
 
     @builtins.property
     @jsii.member(jsii_name="emailIdentityRef")
-    def email_identity_ref(self) -> "_EmailIdentityReference_f9b00141":
+    def email_identity_ref(self) -> "_aws_ses_9999e6ba.EmailIdentityReference":
         '''A reference to a EmailIdentity resource.'''
-        return typing.cast("_EmailIdentityReference_f9b00141", jsii.get(self, "emailIdentityRef"))
+        return typing.cast("_aws_ses_9999e6ba.EmailIdentityReference", jsii.get(self, "emailIdentityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emailIdentity")
@@ -4567,7 +4529,7 @@ class CfnEmailIdentity(
     @email_identity.setter
     def email_identity(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc02af0c8ad1580f31a20eefddf3de5c4670d5d0e9e982f351c0a3f7be2ae99)
+            type_hints = cached_type_hints(_typecheckingstub__dfc02af0c8ad1580f31a20eefddf3de5c4670d5d0e9e982f351c0a3f7be2ae99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailIdentity", value) # pyright: ignore[reportArgumentType]
 
@@ -4575,17 +4537,17 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="configurationSetAttributes")
     def configuration_set_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]]:
         '''Used to associate a configuration set with an email identity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]], jsii.get(self, "configurationSetAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]], jsii.get(self, "configurationSetAttributes"))
 
     @configuration_set_attributes.setter
     def configuration_set_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e09bbe6ddf5291794cc13ffe01ceeb6dcf8075492dc575256ad5b6bc2f17638)
+            type_hints = cached_type_hints(_typecheckingstub__9e09bbe6ddf5291794cc13ffe01ceeb6dcf8075492dc575256ad5b6bc2f17638)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurationSetAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -4593,17 +4555,17 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="dkimAttributes")
     def dkim_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimAttributesProperty"]]:
         '''An object that contains information about the DKIM attributes for the identity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimAttributesProperty"]], jsii.get(self, "dkimAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimAttributesProperty"]], jsii.get(self, "dkimAttributes"))
 
     @dkim_attributes.setter
     def dkim_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0032af7abed57412a3e4cb21bdf05c96c4c8d5c6176a0fce6a2c461dbb5af5d8)
+            type_hints = cached_type_hints(_typecheckingstub__0032af7abed57412a3e4cb21bdf05c96c4c8d5c6176a0fce6a2c461dbb5af5d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dkimAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -4611,17 +4573,17 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="dkimSigningAttributes")
     def dkim_signing_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimSigningAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimSigningAttributesProperty"]]:
         '''If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimSigningAttributesProperty"]], jsii.get(self, "dkimSigningAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimSigningAttributesProperty"]], jsii.get(self, "dkimSigningAttributes"))
 
     @dkim_signing_attributes.setter
     def dkim_signing_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimSigningAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimSigningAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__465a3dad3389da07777bdda5eb33e345536e854073c4b594e089dcd18dc12c5b)
+            type_hints = cached_type_hints(_typecheckingstub__465a3dad3389da07777bdda5eb33e345536e854073c4b594e089dcd18dc12c5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dkimSigningAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -4629,17 +4591,17 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="feedbackAttributes")
     def feedback_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.FeedbackAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.FeedbackAttributesProperty"]]:
         '''Used to enable or disable feedback forwarding for an identity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.FeedbackAttributesProperty"]], jsii.get(self, "feedbackAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.FeedbackAttributesProperty"]], jsii.get(self, "feedbackAttributes"))
 
     @feedback_attributes.setter
     def feedback_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.FeedbackAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.FeedbackAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a601ac2f79b10ccfae6354e861623ca5b230f127792ee0f9473a78ac29db37d)
+            type_hints = cached_type_hints(_typecheckingstub__0a601ac2f79b10ccfae6354e861623ca5b230f127792ee0f9473a78ac29db37d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "feedbackAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -4647,30 +4609,33 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="mailFromAttributes")
     def mail_from_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.MailFromAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.MailFromAttributesProperty"]]:
         '''Used to enable or disable the custom Mail-From domain configuration for an email identity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.MailFromAttributesProperty"]], jsii.get(self, "mailFromAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.MailFromAttributesProperty"]], jsii.get(self, "mailFromAttributes"))
 
     @mail_from_attributes.setter
     def mail_from_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.MailFromAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.MailFromAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bfc642d317ef43c146d5f2aed5754d7210e533815ccd7d6339a4f0946d9ad7c)
+            type_hints = cached_type_hints(_typecheckingstub__3bfc642d317ef43c146d5f2aed5754d7210e533815ccd7d6339a4f0946d9ad7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mailFromAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) to associate with the email identity.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__734a5169a3a8e4af6fa9920987d51d19a7ae6a49e4504934eb9c54d8bf21aa81)
+            type_hints = cached_type_hints(_typecheckingstub__734a5169a3a8e4af6fa9920987d51d19a7ae6a49e4504934eb9c54d8bf21aa81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4703,7 +4668,7 @@ class CfnEmailIdentity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f43c178a47220933c21060d38f5105353a7af12378df167bc4dc7fca0fffa09c)
+                type_hints = cached_type_hints(_typecheckingstub__f43c178a47220933c21060d38f5105353a7af12378df167bc4dc7fca0fffa09c)
                 check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if configuration_set_name is not None:
@@ -4738,7 +4703,7 @@ class CfnEmailIdentity(
         def __init__(
             self,
             *,
-            signing_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            signing_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Used to enable or disable DKIM authentication for an email identity.
 
@@ -4758,7 +4723,7 @@ class CfnEmailIdentity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7e4c6c543bf26936e4c81fcb8702db27a3007ffd82e4712715e42011c5c1573)
+                type_hints = cached_type_hints(_typecheckingstub__b7e4c6c543bf26936e4c81fcb8702db27a3007ffd82e4712715e42011c5c1573)
                 check_type(argname="argument signing_enabled", value=signing_enabled, expected_type=type_hints["signing_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if signing_enabled is not None:
@@ -4767,7 +4732,7 @@ class CfnEmailIdentity(
         @builtins.property
         def signing_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Sets the DKIM signing configuration for the identity.
 
             When you set this value ``true`` , then the messages that are sent from the identity are signed using DKIM. If you set this value to ``false`` , your messages are sent without DKIM signing.
@@ -4775,7 +4740,7 @@ class CfnEmailIdentity(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-emailidentity-dkimattributes.html#cfn-ses-emailidentity-dkimattributes-signingenabled
             '''
             result = self._values.get("signing_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4836,7 +4801,7 @@ class CfnEmailIdentity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc9546dbbff56dcd597c3802b6ffb4259c44e6f78bb7195f924f2ee9ae6fc0a3)
+                type_hints = cached_type_hints(_typecheckingstub__fc9546dbbff56dcd597c3802b6ffb4259c44e6f78bb7195f924f2ee9ae6fc0a3)
                 check_type(argname="argument domain_signing_private_key", value=domain_signing_private_key, expected_type=type_hints["domain_signing_private_key"])
                 check_type(argname="argument domain_signing_selector", value=domain_signing_selector, expected_type=type_hints["domain_signing_selector"])
                 check_type(argname="argument next_signing_key_length", value=next_signing_key_length, expected_type=type_hints["next_signing_key_length"])
@@ -4906,7 +4871,7 @@ class CfnEmailIdentity(
         def __init__(
             self,
             *,
-            email_forwarding_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            email_forwarding_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Used to enable or disable feedback forwarding for an identity.
 
@@ -4928,7 +4893,7 @@ class CfnEmailIdentity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed64b7518613c037c1bda6f3af605613ea5857d02ec6233dbc9bb1eb38581b8c)
+                type_hints = cached_type_hints(_typecheckingstub__ed64b7518613c037c1bda6f3af605613ea5857d02ec6233dbc9bb1eb38581b8c)
                 check_type(argname="argument email_forwarding_enabled", value=email_forwarding_enabled, expected_type=type_hints["email_forwarding_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if email_forwarding_enabled is not None:
@@ -4937,7 +4902,7 @@ class CfnEmailIdentity(
         @builtins.property
         def email_forwarding_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Sets the feedback forwarding configuration for the identity.
 
             If the value is ``true`` , you receive email notifications when bounce or complaint events occur. These notifications are sent to the address that you specified in the ``Return-Path`` header of the original email.
@@ -4947,7 +4912,7 @@ class CfnEmailIdentity(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-emailidentity-feedbackattributes.html#cfn-ses-emailidentity-feedbackattributes-emailforwardingenabled
             '''
             result = self._values.get("email_forwarding_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4995,7 +4960,7 @@ class CfnEmailIdentity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__172959be1e69fff5bd9bf8f0d9d248c8bcc08b8792f68376cb22ae4849263082)
+                type_hints = cached_type_hints(_typecheckingstub__172959be1e69fff5bd9bf8f0d9d248c8bcc08b8792f68376cb22ae4849263082)
                 check_type(argname="argument behavior_on_mx_failure", value=behavior_on_mx_failure, expected_type=type_hints["behavior_on_mx_failure"])
                 check_type(argname="argument mail_from_domain", value=mail_from_domain, expected_type=type_hints["mail_from_domain"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5064,12 +5029,12 @@ class CfnEmailIdentityProps:
         self,
         *,
         email_identity: builtins.str,
-        configuration_set_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.ConfigurationSetAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.DkimAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_signing_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        feedback_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mail_from_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_set_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.ConfigurationSetAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.DkimAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_signing_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        feedback_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mail_from_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEmailIdentity``.
 
@@ -5120,7 +5085,7 @@ class CfnEmailIdentityProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54)
+            type_hints = cached_type_hints(_typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54)
             check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
             check_type(argname="argument configuration_set_attributes", value=configuration_set_attributes, expected_type=type_hints["configuration_set_attributes"])
             check_type(argname="argument dkim_attributes", value=dkim_attributes, expected_type=type_hints["dkim_attributes"])
@@ -5157,29 +5122,29 @@ class CfnEmailIdentityProps:
     @builtins.property
     def configuration_set_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]]:
         '''Used to associate a configuration set with an email identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-configurationsetattributes
         '''
         result = self._values.get("configuration_set_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.ConfigurationSetAttributesProperty"]], result)
 
     @builtins.property
     def dkim_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimAttributesProperty"]]:
         '''An object that contains information about the DKIM attributes for the identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimattributes
         '''
         result = self._values.get("dkim_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimAttributesProperty"]], result)
 
     @builtins.property
     def dkim_signing_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimSigningAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimSigningAttributesProperty"]]:
         '''If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ .
 
         You can only specify this object if the email identity is a domain, as opposed to an address.
@@ -5187,38 +5152,38 @@ class CfnEmailIdentityProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimsigningattributes
         '''
         result = self._values.get("dkim_signing_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.DkimSigningAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.DkimSigningAttributesProperty"]], result)
 
     @builtins.property
     def feedback_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.FeedbackAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.FeedbackAttributesProperty"]]:
         '''Used to enable or disable feedback forwarding for an identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-feedbackattributes
         '''
         result = self._values.get("feedback_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.FeedbackAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.FeedbackAttributesProperty"]], result)
 
     @builtins.property
     def mail_from_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.MailFromAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.MailFromAttributesProperty"]]:
         '''Used to enable or disable the custom Mail-From domain configuration for an email identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-mailfromattributes
         '''
         result = self._values.get("mail_from_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEmailIdentity.MailFromAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEmailIdentity.MailFromAttributesProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) to associate with the email identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5232,9 +5197,9 @@ class CfnEmailIdentityProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerAddonInstanceRef_6d78bf1e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerAddonInstanceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerAddonInstance(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonInstance",
 ):
@@ -5270,7 +5235,7 @@ class CfnMailManagerAddonInstance(
         id: builtins.str,
         *,
         addon_subscription_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerAddonInstance``.
 
@@ -5280,7 +5245,7 @@ class CfnMailManagerAddonInstance(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b264df921b4ca04913aa8a8375e2c83055fd8df0a14752396030e13fc28af504)
+            type_hints = cached_type_hints(_typecheckingstub__b264df921b4ca04913aa8a8375e2c83055fd8df0a14752396030e13fc28af504)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerAddonInstanceProps(
@@ -5293,13 +5258,13 @@ class CfnMailManagerAddonInstance(
     @builtins.classmethod
     def arn_for_mail_manager_addon_instance(
         cls,
-        resource: "_IMailManagerAddonInstanceRef_6d78bf1e",
+        resource: "_aws_ses_9999e6ba.IMailManagerAddonInstanceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8773a7a5dd2f2e7171cb3d2c73ca9e97ee05adf2adfee514d9a55451e066e1b3)
+            type_hints = cached_type_hints(_typecheckingstub__8773a7a5dd2f2e7171cb3d2c73ca9e97ee05adf2adfee514d9a55451e066e1b3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerAddonInstance", [resource]))
 
@@ -5310,7 +5275,7 @@ class CfnMailManagerAddonInstance(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         addon_instance_id: builtins.str,
-    ) -> "_IMailManagerAddonInstanceRef_6d78bf1e":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddonInstanceRef":
         '''Creates a new IMailManagerAddonInstanceRef from a addonInstanceId.
 
         :param scope: -
@@ -5318,11 +5283,11 @@ class CfnMailManagerAddonInstance(
         :param addon_instance_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b82d982a648e92902a374694f84ff5e1fb61a1267dc909d615a37c7e086d706)
+            type_hints = cached_type_hints(_typecheckingstub__4b82d982a648e92902a374694f84ff5e1fb61a1267dc909d615a37c7e086d706)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument addon_instance_id", value=addon_instance_id, expected_type=type_hints["addon_instance_id"])
-        return typing.cast("_IMailManagerAddonInstanceRef_6d78bf1e", jsii.sinvoke(cls, "fromAddonInstanceId", [scope, id, addon_instance_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddonInstanceRef", jsii.sinvoke(cls, "fromAddonInstanceId", [scope, id, addon_instance_id]))
 
     @jsii.member(jsii_name="fromMailManagerAddonInstanceArn")
     @builtins.classmethod
@@ -5331,7 +5296,7 @@ class CfnMailManagerAddonInstance(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerAddonInstanceRef_6d78bf1e":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddonInstanceRef":
         '''Creates a new IMailManagerAddonInstanceRef from an ARN.
 
         :param scope: -
@@ -5339,11 +5304,11 @@ class CfnMailManagerAddonInstance(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ed7b68d856fefedf7f3ab1a2ee847138de9d6947b3e99ae0f4c63b55d0f251f)
+            type_hints = cached_type_hints(_typecheckingstub__4ed7b68d856fefedf7f3ab1a2ee847138de9d6947b3e99ae0f4c63b55d0f251f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerAddonInstanceRef_6d78bf1e", jsii.sinvoke(cls, "fromMailManagerAddonInstanceArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddonInstanceRef", jsii.sinvoke(cls, "fromMailManagerAddonInstanceArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnMailManagerAddonInstance")
     @builtins.classmethod
@@ -5353,18 +5318,18 @@ class CfnMailManagerAddonInstance(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c8f48557151a44ce46cfb0909c5c995fdb8ed8d6bc3a8f66155a95e92977692)
+            type_hints = cached_type_hints(_typecheckingstub__2c8f48557151a44ce46cfb0909c5c995fdb8ed8d6bc3a8f66155a95e92977692)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerAddonInstance", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af96657c240160581260abbc9d1a8bc62bbf6e2d5f9988be88caa5605fea6193)
+            type_hints = cached_type_hints(_typecheckingstub__af96657c240160581260abbc9d1a8bc62bbf6e2d5f9988be88caa5605fea6193)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5377,7 +5342,7 @@ class CfnMailManagerAddonInstance(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0cb8c10b565f66d82d27556060dd7762673de6feef8a45eae91fab1d9afac6d)
+            type_hints = cached_type_hints(_typecheckingstub__c0cb8c10b565f66d82d27556060dd7762673de6feef8a45eae91fab1d9afac6d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5416,9 +5381,9 @@ class CfnMailManagerAddonInstance(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5434,9 +5399,9 @@ class CfnMailManagerAddonInstance(
     @jsii.member(jsii_name="mailManagerAddonInstanceRef")
     def mail_manager_addon_instance_ref(
         self,
-    ) -> "_MailManagerAddonInstanceReference_b1f4c533":
+    ) -> "_aws_ses_9999e6ba.MailManagerAddonInstanceReference":
         '''A reference to a MailManagerAddonInstance resource.'''
-        return typing.cast("_MailManagerAddonInstanceReference_b1f4c533", jsii.get(self, "mailManagerAddonInstanceRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerAddonInstanceReference", jsii.get(self, "mailManagerAddonInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="addonSubscriptionId")
@@ -5447,20 +5412,23 @@ class CfnMailManagerAddonInstance(
     @addon_subscription_id.setter
     def addon_subscription_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c833ec80f9a2cc32ab374cb53026b9f1d8d3c1f0e49a56b5215425a332c04b7)
+            type_hints = cached_type_hints(_typecheckingstub__1c833ec80f9a2cc32ab374cb53026b9f1d8d3c1f0e49a56b5215425a332c04b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "addonSubscriptionId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45f7138156b176186763c85a97772c803146dbab0e3cb8ee80efe5d4cd89834d)
+            type_hints = cached_type_hints(_typecheckingstub__45f7138156b176186763c85a97772c803146dbab0e3cb8ee80efe5d4cd89834d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5475,7 +5443,7 @@ class CfnMailManagerAddonInstanceProps:
         self,
         *,
         addon_subscription_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerAddonInstance``.
 
@@ -5503,7 +5471,7 @@ class CfnMailManagerAddonInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3)
+            type_hints = cached_type_hints(_typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3)
             check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5523,7 +5491,7 @@ class CfnMailManagerAddonInstanceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -5531,7 +5499,7 @@ class CfnMailManagerAddonInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html#cfn-ses-mailmanageraddoninstance-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5545,9 +5513,9 @@ class CfnMailManagerAddonInstanceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerAddonSubscriptionRef_5202f9cc, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerAddonSubscription(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonSubscription",
 ):
@@ -5583,7 +5551,7 @@ class CfnMailManagerAddonSubscription(
         id: builtins.str,
         *,
         addon_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerAddonSubscription``.
 
@@ -5593,7 +5561,7 @@ class CfnMailManagerAddonSubscription(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d0f399046a02347b7c8f90e068f3fd2b8d48f9ff28b35ef6bf0ae7e01e46a0b)
+            type_hints = cached_type_hints(_typecheckingstub__0d0f399046a02347b7c8f90e068f3fd2b8d48f9ff28b35ef6bf0ae7e01e46a0b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerAddonSubscriptionProps(addon_name=addon_name, tags=tags)
@@ -5604,13 +5572,13 @@ class CfnMailManagerAddonSubscription(
     @builtins.classmethod
     def arn_for_mail_manager_addon_subscription(
         cls,
-        resource: "_IMailManagerAddonSubscriptionRef_5202f9cc",
+        resource: "_aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__960817fbb96ca1e5bdef2610e9d6fc2510bb0b7e2b10c35196c5f194e6a14a2a)
+            type_hints = cached_type_hints(_typecheckingstub__960817fbb96ca1e5bdef2610e9d6fc2510bb0b7e2b10c35196c5f194e6a14a2a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerAddonSubscription", [resource]))
 
@@ -5621,7 +5589,7 @@ class CfnMailManagerAddonSubscription(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         addon_subscription_id: builtins.str,
-    ) -> "_IMailManagerAddonSubscriptionRef_5202f9cc":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef":
         '''Creates a new IMailManagerAddonSubscriptionRef from a addonSubscriptionId.
 
         :param scope: -
@@ -5629,11 +5597,11 @@ class CfnMailManagerAddonSubscription(
         :param addon_subscription_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285468e4ba3edb67c9b4bcd9489b416e31f4f85a2a5e786f30d01535e38cacdc)
+            type_hints = cached_type_hints(_typecheckingstub__285468e4ba3edb67c9b4bcd9489b416e31f4f85a2a5e786f30d01535e38cacdc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
-        return typing.cast("_IMailManagerAddonSubscriptionRef_5202f9cc", jsii.sinvoke(cls, "fromAddonSubscriptionId", [scope, id, addon_subscription_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef", jsii.sinvoke(cls, "fromAddonSubscriptionId", [scope, id, addon_subscription_id]))
 
     @jsii.member(jsii_name="fromMailManagerAddonSubscriptionArn")
     @builtins.classmethod
@@ -5642,7 +5610,7 @@ class CfnMailManagerAddonSubscription(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerAddonSubscriptionRef_5202f9cc":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef":
         '''Creates a new IMailManagerAddonSubscriptionRef from an ARN.
 
         :param scope: -
@@ -5650,11 +5618,11 @@ class CfnMailManagerAddonSubscription(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4af51b4017188664cd7ec53a47ee60332d4af8838e97cd5254ed8f18cbaa4350)
+            type_hints = cached_type_hints(_typecheckingstub__4af51b4017188664cd7ec53a47ee60332d4af8838e97cd5254ed8f18cbaa4350)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerAddonSubscriptionRef_5202f9cc", jsii.sinvoke(cls, "fromMailManagerAddonSubscriptionArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef", jsii.sinvoke(cls, "fromMailManagerAddonSubscriptionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnMailManagerAddonSubscription")
     @builtins.classmethod
@@ -5664,18 +5632,18 @@ class CfnMailManagerAddonSubscription(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adb97f00e811b0e2973cd4fc639ecade6bcae8a9d37e3ca4f0808b0bd6b74ab1)
+            type_hints = cached_type_hints(_typecheckingstub__adb97f00e811b0e2973cd4fc639ecade6bcae8a9d37e3ca4f0808b0bd6b74ab1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerAddonSubscription", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5938bdd1bc8d27ccb42b21d788b8b4b509125ca0348f4b02156af62aa3fc658d)
+            type_hints = cached_type_hints(_typecheckingstub__5938bdd1bc8d27ccb42b21d788b8b4b509125ca0348f4b02156af62aa3fc658d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5688,7 +5656,7 @@ class CfnMailManagerAddonSubscription(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68bc293f8b11f4f5b76733ad6796676bd47b8cc316206998500b6d87cf204be4)
+            type_hints = cached_type_hints(_typecheckingstub__68bc293f8b11f4f5b76733ad6796676bd47b8cc316206998500b6d87cf204be4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5718,9 +5686,9 @@ class CfnMailManagerAddonSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5736,9 +5704,9 @@ class CfnMailManagerAddonSubscription(
     @jsii.member(jsii_name="mailManagerAddonSubscriptionRef")
     def mail_manager_addon_subscription_ref(
         self,
-    ) -> "_MailManagerAddonSubscriptionReference_f9373ba3":
+    ) -> "_aws_ses_9999e6ba.MailManagerAddonSubscriptionReference":
         '''A reference to a MailManagerAddonSubscription resource.'''
-        return typing.cast("_MailManagerAddonSubscriptionReference_f9373ba3", jsii.get(self, "mailManagerAddonSubscriptionRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerAddonSubscriptionReference", jsii.get(self, "mailManagerAddonSubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="addonName")
@@ -5749,20 +5717,23 @@ class CfnMailManagerAddonSubscription(
     @addon_name.setter
     def addon_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50efd02784f541bb31a94c7b34a0a93fa7c577d8cebc97ba1bbc7544948d0b45)
+            type_hints = cached_type_hints(_typecheckingstub__50efd02784f541bb31a94c7b34a0a93fa7c577d8cebc97ba1bbc7544948d0b45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "addonName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29c55bb74fd3d612b39c13ec35f22819219ba03de6b766602d804e921da951a6)
+            type_hints = cached_type_hints(_typecheckingstub__29c55bb74fd3d612b39c13ec35f22819219ba03de6b766602d804e921da951a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5777,7 +5748,7 @@ class CfnMailManagerAddonSubscriptionProps:
         self,
         *,
         addon_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerAddonSubscription``.
 
@@ -5805,7 +5776,7 @@ class CfnMailManagerAddonSubscriptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd)
+            type_hints = cached_type_hints(_typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd)
             check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5829,7 +5800,7 @@ class CfnMailManagerAddonSubscriptionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -5837,7 +5808,7 @@ class CfnMailManagerAddonSubscriptionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html#cfn-ses-mailmanageraddonsubscription-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5851,9 +5822,9 @@ class CfnMailManagerAddonSubscriptionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerAddressListRef_60a1eed4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerAddressListRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerAddressList(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddressList",
 ):
@@ -5885,7 +5856,7 @@ class CfnMailManagerAddressList(
         id: builtins.str,
         *,
         address_list_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerAddressList``.
 
@@ -5895,7 +5866,7 @@ class CfnMailManagerAddressList(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a8a172d98fe048a3419d1b92dcaf2e59e8461e9b0baf073f812b3916bcd4974)
+            type_hints = cached_type_hints(_typecheckingstub__6a8a172d98fe048a3419d1b92dcaf2e59e8461e9b0baf073f812b3916bcd4974)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerAddressListProps(
@@ -5908,13 +5879,13 @@ class CfnMailManagerAddressList(
     @builtins.classmethod
     def arn_for_mail_manager_address_list(
         cls,
-        resource: "_IMailManagerAddressListRef_60a1eed4",
+        resource: "_aws_ses_9999e6ba.IMailManagerAddressListRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__741ed4b6bad22bfbafabeea359ebf52a8d6323ad4f66ba2154f90e9af6098436)
+            type_hints = cached_type_hints(_typecheckingstub__741ed4b6bad22bfbafabeea359ebf52a8d6323ad4f66ba2154f90e9af6098436)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerAddressList", [resource]))
 
@@ -5925,7 +5896,7 @@ class CfnMailManagerAddressList(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         address_list_id: builtins.str,
-    ) -> "_IMailManagerAddressListRef_60a1eed4":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddressListRef":
         '''Creates a new IMailManagerAddressListRef from a addressListId.
 
         :param scope: -
@@ -5933,11 +5904,11 @@ class CfnMailManagerAddressList(
         :param address_list_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__120660db0c0d7502ce27d42115e731ab20d88dfeccd8fa2bb55ed90b870488c4)
+            type_hints = cached_type_hints(_typecheckingstub__120660db0c0d7502ce27d42115e731ab20d88dfeccd8fa2bb55ed90b870488c4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument address_list_id", value=address_list_id, expected_type=type_hints["address_list_id"])
-        return typing.cast("_IMailManagerAddressListRef_60a1eed4", jsii.sinvoke(cls, "fromAddressListId", [scope, id, address_list_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddressListRef", jsii.sinvoke(cls, "fromAddressListId", [scope, id, address_list_id]))
 
     @jsii.member(jsii_name="fromMailManagerAddressListArn")
     @builtins.classmethod
@@ -5946,7 +5917,7 @@ class CfnMailManagerAddressList(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerAddressListRef_60a1eed4":
+    ) -> "_aws_ses_9999e6ba.IMailManagerAddressListRef":
         '''Creates a new IMailManagerAddressListRef from an ARN.
 
         :param scope: -
@@ -5954,11 +5925,11 @@ class CfnMailManagerAddressList(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5285239c762bcc4c79efa7a2fe9038d4c410a3baebc23ff3408f4427e61a7c0f)
+            type_hints = cached_type_hints(_typecheckingstub__5285239c762bcc4c79efa7a2fe9038d4c410a3baebc23ff3408f4427e61a7c0f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerAddressListRef_60a1eed4", jsii.sinvoke(cls, "fromMailManagerAddressListArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerAddressListRef", jsii.sinvoke(cls, "fromMailManagerAddressListArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnMailManagerAddressList")
     @builtins.classmethod
@@ -5968,18 +5939,18 @@ class CfnMailManagerAddressList(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fc5879ac45b7219fa38caebedf664145ef88f1e65998986545dbb23b14a67d6)
+            type_hints = cached_type_hints(_typecheckingstub__5fc5879ac45b7219fa38caebedf664145ef88f1e65998986545dbb23b14a67d6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerAddressList", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f6a8901ab278ee698ce069b658195d6cc144f36006c6c634fd9c8598d24d83d)
+            type_hints = cached_type_hints(_typecheckingstub__4f6a8901ab278ee698ce069b658195d6cc144f36006c6c634fd9c8598d24d83d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5992,7 +5963,7 @@ class CfnMailManagerAddressList(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a2a230c58a2c2b4b62e185b88fe729ffbc699c86e17f9fe3d25e95ae19ea40b)
+            type_hints = cached_type_hints(_typecheckingstub__5a2a230c58a2c2b4b62e185b88fe729ffbc699c86e17f9fe3d25e95ae19ea40b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6022,9 +5993,9 @@ class CfnMailManagerAddressList(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6040,9 +6011,9 @@ class CfnMailManagerAddressList(
     @jsii.member(jsii_name="mailManagerAddressListRef")
     def mail_manager_address_list_ref(
         self,
-    ) -> "_MailManagerAddressListReference_107ed953":
+    ) -> "_aws_ses_9999e6ba.MailManagerAddressListReference":
         '''A reference to a MailManagerAddressList resource.'''
-        return typing.cast("_MailManagerAddressListReference_107ed953", jsii.get(self, "mailManagerAddressListRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerAddressListReference", jsii.get(self, "mailManagerAddressListRef"))
 
     @builtins.property
     @jsii.member(jsii_name="addressListName")
@@ -6053,20 +6024,23 @@ class CfnMailManagerAddressList(
     @address_list_name.setter
     def address_list_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53d1505dab469f39095f9e22ba4d8bdae2405adbe8d8d641e4d4a1abbf6b3770)
+            type_hints = cached_type_hints(_typecheckingstub__53d1505dab469f39095f9e22ba4d8bdae2405adbe8d8d641e4d4a1abbf6b3770)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "addressListName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f941c234d4973425d4ac187f87f54965bfdb82848d3fcf93664acc11143c1068)
+            type_hints = cached_type_hints(_typecheckingstub__f941c234d4973425d4ac187f87f54965bfdb82848d3fcf93664acc11143c1068)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6081,7 +6055,7 @@ class CfnMailManagerAddressListProps:
         self,
         *,
         address_list_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerAddressList``.
 
@@ -6107,7 +6081,7 @@ class CfnMailManagerAddressListProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9)
+            type_hints = cached_type_hints(_typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9)
             check_type(argname="argument address_list_name", value=address_list_name, expected_type=type_hints["address_list_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6126,7 +6100,7 @@ class CfnMailManagerAddressListProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -6134,7 +6108,7 @@ class CfnMailManagerAddressListProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html#cfn-ses-mailmanageraddresslist-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6148,9 +6122,9 @@ class CfnMailManagerAddressListProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerArchiveRef_0d35e3dc, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerArchiveRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerArchive(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerArchive",
 ):
@@ -6187,8 +6161,8 @@ class CfnMailManagerArchive(
         *,
         archive_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        retention: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerArchive.ArchiveRetentionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retention: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerArchive.ArchiveRetentionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerArchive``.
 
@@ -6200,7 +6174,7 @@ class CfnMailManagerArchive(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22dd3c6f42e37a1d2959a6aa4871e671e1737ebb4110933d8bfa22c2c7f5d626)
+            type_hints = cached_type_hints(_typecheckingstub__22dd3c6f42e37a1d2959a6aa4871e671e1737ebb4110933d8bfa22c2c7f5d626)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerArchiveProps(
@@ -6216,13 +6190,13 @@ class CfnMailManagerArchive(
     @builtins.classmethod
     def arn_for_mail_manager_archive(
         cls,
-        resource: "_IMailManagerArchiveRef_0d35e3dc",
+        resource: "_aws_ses_9999e6ba.IMailManagerArchiveRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9afa36325e91c6b56a4f1819404111f25c24d044f04adaace2627af78b729aec)
+            type_hints = cached_type_hints(_typecheckingstub__9afa36325e91c6b56a4f1819404111f25c24d044f04adaace2627af78b729aec)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerArchive", [resource]))
 
@@ -6233,7 +6207,7 @@ class CfnMailManagerArchive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         archive_id: builtins.str,
-    ) -> "_IMailManagerArchiveRef_0d35e3dc":
+    ) -> "_aws_ses_9999e6ba.IMailManagerArchiveRef":
         '''Creates a new IMailManagerArchiveRef from a archiveId.
 
         :param scope: -
@@ -6241,11 +6215,11 @@ class CfnMailManagerArchive(
         :param archive_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a42d7ef06c37673fd058e245cd5defc63931aa1bb15399b919109cc87dcb76a2)
+            type_hints = cached_type_hints(_typecheckingstub__a42d7ef06c37673fd058e245cd5defc63931aa1bb15399b919109cc87dcb76a2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument archive_id", value=archive_id, expected_type=type_hints["archive_id"])
-        return typing.cast("_IMailManagerArchiveRef_0d35e3dc", jsii.sinvoke(cls, "fromArchiveId", [scope, id, archive_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerArchiveRef", jsii.sinvoke(cls, "fromArchiveId", [scope, id, archive_id]))
 
     @jsii.member(jsii_name="fromMailManagerArchiveArn")
     @builtins.classmethod
@@ -6254,7 +6228,7 @@ class CfnMailManagerArchive(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerArchiveRef_0d35e3dc":
+    ) -> "_aws_ses_9999e6ba.IMailManagerArchiveRef":
         '''Creates a new IMailManagerArchiveRef from an ARN.
 
         :param scope: -
@@ -6262,11 +6236,11 @@ class CfnMailManagerArchive(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a806e81eef1bf55629436e462751425ff813a7f7e8849a0254f54176497d52a5)
+            type_hints = cached_type_hints(_typecheckingstub__a806e81eef1bf55629436e462751425ff813a7f7e8849a0254f54176497d52a5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerArchiveRef_0d35e3dc", jsii.sinvoke(cls, "fromMailManagerArchiveArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerArchiveRef", jsii.sinvoke(cls, "fromMailManagerArchiveArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnMailManagerArchive")
     @builtins.classmethod
@@ -6276,18 +6250,18 @@ class CfnMailManagerArchive(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f49baff95921dee2c4d4f0450bed25f3a8c7cd45dfd6f48b617e3b87c452003e)
+            type_hints = cached_type_hints(_typecheckingstub__f49baff95921dee2c4d4f0450bed25f3a8c7cd45dfd6f48b617e3b87c452003e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerArchive", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab6bbd8ed2986ac0e486edacc5048b747fb9a30a15f56c21ed3845accc6da320)
+            type_hints = cached_type_hints(_typecheckingstub__ab6bbd8ed2986ac0e486edacc5048b747fb9a30a15f56c21ed3845accc6da320)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6300,7 +6274,7 @@ class CfnMailManagerArchive(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77b543f23727294a92712eaf548bd51b1dfbd088dd2a67651170147b04d510d7)
+            type_hints = cached_type_hints(_typecheckingstub__77b543f23727294a92712eaf548bd51b1dfbd088dd2a67651170147b04d510d7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6342,9 +6316,9 @@ class CfnMailManagerArchive(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6358,9 +6332,11 @@ class CfnMailManagerArchive(
 
     @builtins.property
     @jsii.member(jsii_name="mailManagerArchiveRef")
-    def mail_manager_archive_ref(self) -> "_MailManagerArchiveReference_9422aa21":
+    def mail_manager_archive_ref(
+        self,
+    ) -> "_aws_ses_9999e6ba.MailManagerArchiveReference":
         '''A reference to a MailManagerArchive resource.'''
-        return typing.cast("_MailManagerArchiveReference_9422aa21", jsii.get(self, "mailManagerArchiveRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerArchiveReference", jsii.get(self, "mailManagerArchiveRef"))
 
     @builtins.property
     @jsii.member(jsii_name="archiveName")
@@ -6371,7 +6347,7 @@ class CfnMailManagerArchive(
     @archive_name.setter
     def archive_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e7cd8a9fdd431a9a1d6acac0e7f917131dbba34db3d0e1b1d2f1deb92ab170d)
+            type_hints = cached_type_hints(_typecheckingstub__5e7cd8a9fdd431a9a1d6acac0e7f917131dbba34db3d0e1b1d2f1deb92ab170d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "archiveName", value) # pyright: ignore[reportArgumentType]
 
@@ -6384,7 +6360,7 @@ class CfnMailManagerArchive(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aa96f9a673e848edea2e964de6f6c2e97009a117dd1bc4924a9ff4ee01c29f3)
+            type_hints = cached_type_hints(_typecheckingstub__7aa96f9a673e848edea2e964de6f6c2e97009a117dd1bc4924a9ff4ee01c29f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6392,30 +6368,33 @@ class CfnMailManagerArchive(
     @jsii.member(jsii_name="retention")
     def retention(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerArchive.ArchiveRetentionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerArchive.ArchiveRetentionProperty"]]:
         '''The period for retaining emails in the archive before automatic deletion.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerArchive.ArchiveRetentionProperty"]], jsii.get(self, "retention"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerArchive.ArchiveRetentionProperty"]], jsii.get(self, "retention"))
 
     @retention.setter
     def retention(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerArchive.ArchiveRetentionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerArchive.ArchiveRetentionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46b3d8d9376d69574a456716e3c85c3529a9d750af88cf18df645155da95df82)
+            type_hints = cached_type_hints(_typecheckingstub__46b3d8d9376d69574a456716e3c85c3529a9d750af88cf18df645155da95df82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "retention", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f356c2c7a0aabd9047f921ce42c4491a563cc8afe412db26f32819d3013e4a5)
+            type_hints = cached_type_hints(_typecheckingstub__2f356c2c7a0aabd9047f921ce42c4491a563cc8afe412db26f32819d3013e4a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6444,7 +6423,7 @@ class CfnMailManagerArchive(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__303a5f296dcb181950406376e61a575f34ab8c4c0d3ecca4fb1a6ac07db29370)
+                type_hints = cached_type_hints(_typecheckingstub__303a5f296dcb181950406376e61a575f34ab8c4c0d3ecca4fb1a6ac07db29370)
                 check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "retention_period": retention_period,
@@ -6488,8 +6467,8 @@ class CfnMailManagerArchiveProps:
         *,
         archive_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        retention: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerArchive.ArchiveRetentionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retention: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerArchive.ArchiveRetentionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerArchive``.
 
@@ -6521,7 +6500,7 @@ class CfnMailManagerArchiveProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c)
+            type_hints = cached_type_hints(_typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c)
             check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
@@ -6557,16 +6536,16 @@ class CfnMailManagerArchiveProps:
     @builtins.property
     def retention(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerArchive.ArchiveRetentionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerArchive.ArchiveRetentionProperty"]]:
         '''The period for retaining emails in the archive before automatic deletion.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-retention
         '''
         result = self._values.get("retention")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerArchive.ArchiveRetentionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerArchive.ArchiveRetentionProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -6574,7 +6553,7 @@ class CfnMailManagerArchiveProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6588,9 +6567,9 @@ class CfnMailManagerArchiveProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerIngressPointRef_17ebca73, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerIngressPointRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerIngressPoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPoint",
 ):
@@ -6654,11 +6633,11 @@ class CfnMailManagerIngressPoint(
         rule_set_id: builtins.str,
         traffic_policy_id: builtins.str,
         type: builtins.str,
-        ingress_point_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.IngressPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_point_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.IngressPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingress_point_name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status_to_update: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         tls_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerIngressPoint``.
@@ -6676,7 +6655,7 @@ class CfnMailManagerIngressPoint(
         :param tls_policy: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ceb1a8308b4e72eecdc0962cf663d2c0564dbffbabebaa887b776484517fab5)
+            type_hints = cached_type_hints(_typecheckingstub__1ceb1a8308b4e72eecdc0962cf663d2c0564dbffbabebaa887b776484517fab5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerIngressPointProps(
@@ -6697,13 +6676,13 @@ class CfnMailManagerIngressPoint(
     @builtins.classmethod
     def arn_for_mail_manager_ingress_point(
         cls,
-        resource: "_IMailManagerIngressPointRef_17ebca73",
+        resource: "_aws_ses_9999e6ba.IMailManagerIngressPointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702d051d4c1f4acd0407ce11b444ab140c14fb12dd784d29782f88e1040ebd17)
+            type_hints = cached_type_hints(_typecheckingstub__702d051d4c1f4acd0407ce11b444ab140c14fb12dd784d29782f88e1040ebd17)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerIngressPoint", [resource]))
 
@@ -6714,7 +6693,7 @@ class CfnMailManagerIngressPoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         ingress_point_id: builtins.str,
-    ) -> "_IMailManagerIngressPointRef_17ebca73":
+    ) -> "_aws_ses_9999e6ba.IMailManagerIngressPointRef":
         '''Creates a new IMailManagerIngressPointRef from a ingressPointId.
 
         :param scope: -
@@ -6722,11 +6701,11 @@ class CfnMailManagerIngressPoint(
         :param ingress_point_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92ffe7e62420c63aff01fd3a633abd4afd6de74cfc9be5956502b4eae1715abc)
+            type_hints = cached_type_hints(_typecheckingstub__92ffe7e62420c63aff01fd3a633abd4afd6de74cfc9be5956502b4eae1715abc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ingress_point_id", value=ingress_point_id, expected_type=type_hints["ingress_point_id"])
-        return typing.cast("_IMailManagerIngressPointRef_17ebca73", jsii.sinvoke(cls, "fromIngressPointId", [scope, id, ingress_point_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerIngressPointRef", jsii.sinvoke(cls, "fromIngressPointId", [scope, id, ingress_point_id]))
 
     @jsii.member(jsii_name="fromMailManagerIngressPointArn")
     @builtins.classmethod
@@ -6735,7 +6714,7 @@ class CfnMailManagerIngressPoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerIngressPointRef_17ebca73":
+    ) -> "_aws_ses_9999e6ba.IMailManagerIngressPointRef":
         '''Creates a new IMailManagerIngressPointRef from an ARN.
 
         :param scope: -
@@ -6743,11 +6722,11 @@ class CfnMailManagerIngressPoint(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bebb126431ea308416913bb20b0814696b59042ffe951ac58e340fdc8d38be1f)
+            type_hints = cached_type_hints(_typecheckingstub__bebb126431ea308416913bb20b0814696b59042ffe951ac58e340fdc8d38be1f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerIngressPointRef_17ebca73", jsii.sinvoke(cls, "fromMailManagerIngressPointArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerIngressPointRef", jsii.sinvoke(cls, "fromMailManagerIngressPointArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnMailManagerIngressPoint")
     @builtins.classmethod
@@ -6757,18 +6736,18 @@ class CfnMailManagerIngressPoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26c882317eafe6d8fe218bf900ebd8546a5094fea87a4fc0b49d84686243a5be)
+            type_hints = cached_type_hints(_typecheckingstub__26c882317eafe6d8fe218bf900ebd8546a5094fea87a4fc0b49d84686243a5be)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerIngressPoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc5b9905beb0e52af2daaf480d19b3056ba66ec86e4ed3b13577551722a1efe8)
+            type_hints = cached_type_hints(_typecheckingstub__dc5b9905beb0e52af2daaf480d19b3056ba66ec86e4ed3b13577551722a1efe8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6781,7 +6760,7 @@ class CfnMailManagerIngressPoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5018ee0ab96587d57885e106364eb65d0d2095d7fe9d771970f80e853049b502)
+            type_hints = cached_type_hints(_typecheckingstub__5018ee0ab96587d57885e106364eb65d0d2095d7fe9d771970f80e853049b502)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6831,9 +6810,9 @@ class CfnMailManagerIngressPoint(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6849,9 +6828,9 @@ class CfnMailManagerIngressPoint(
     @jsii.member(jsii_name="mailManagerIngressPointRef")
     def mail_manager_ingress_point_ref(
         self,
-    ) -> "_MailManagerIngressPointReference_5c89c08c":
+    ) -> "_aws_ses_9999e6ba.MailManagerIngressPointReference":
         '''A reference to a MailManagerIngressPoint resource.'''
-        return typing.cast("_MailManagerIngressPointReference_5c89c08c", jsii.get(self, "mailManagerIngressPointRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerIngressPointReference", jsii.get(self, "mailManagerIngressPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleSetId")
@@ -6862,7 +6841,7 @@ class CfnMailManagerIngressPoint(
     @rule_set_id.setter
     def rule_set_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6391bbcb9d72c4cdd97464a6a47760889739123451ae2548ba58854d3cdbbb24)
+            type_hints = cached_type_hints(_typecheckingstub__6391bbcb9d72c4cdd97464a6a47760889739123451ae2548ba58854d3cdbbb24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleSetId", value) # pyright: ignore[reportArgumentType]
 
@@ -6875,7 +6854,7 @@ class CfnMailManagerIngressPoint(
     @traffic_policy_id.setter
     def traffic_policy_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef6f659f1baf9c139ab844f1b8ceb5ce471087728013753a6a40891b7d2f0ced)
+            type_hints = cached_type_hints(_typecheckingstub__ef6f659f1baf9c139ab844f1b8ceb5ce471087728013753a6a40891b7d2f0ced)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trafficPolicyId", value) # pyright: ignore[reportArgumentType]
 
@@ -6888,7 +6867,7 @@ class CfnMailManagerIngressPoint(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dc74352451f5646087bf0cb18a9041da6597bfb97348c610d7c710577b746df)
+            type_hints = cached_type_hints(_typecheckingstub__2dc74352451f5646087bf0cb18a9041da6597bfb97348c610d7c710577b746df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -6896,17 +6875,17 @@ class CfnMailManagerIngressPoint(
     @jsii.member(jsii_name="ingressPointConfiguration")
     def ingress_point_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]]:
         '''The configuration of the ingress endpoint resource.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]], jsii.get(self, "ingressPointConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]], jsii.get(self, "ingressPointConfiguration"))
 
     @ingress_point_configuration.setter
     def ingress_point_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ecef020b62c8ec9b73b3b62d93e463d5a95b084869ed38937d7b420e469ae38)
+            type_hints = cached_type_hints(_typecheckingstub__6ecef020b62c8ec9b73b3b62d93e463d5a95b084869ed38937d7b420e469ae38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingressPointConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6919,7 +6898,7 @@ class CfnMailManagerIngressPoint(
     @ingress_point_name.setter
     def ingress_point_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47a33bb2ac7c6600470d2eeac418be17d66b98bcd085e465db6dba93b8c2de7b)
+            type_hints = cached_type_hints(_typecheckingstub__47a33bb2ac7c6600470d2eeac418be17d66b98bcd085e465db6dba93b8c2de7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingressPointName", value) # pyright: ignore[reportArgumentType]
 
@@ -6927,17 +6906,17 @@ class CfnMailManagerIngressPoint(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]]:
         '''The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fde2e4577760382a77b31bc0573fe3d8360be0fb229556d97fbde4dad4dd5248)
+            type_hints = cached_type_hints(_typecheckingstub__fde2e4577760382a77b31bc0573fe3d8360be0fb229556d97fbde4dad4dd5248)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6950,20 +6929,23 @@ class CfnMailManagerIngressPoint(
     @status_to_update.setter
     def status_to_update(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__681e417ef520acfe754a35e65d8ecb2a8e270ef54acf705fd91dd2427921f20d)
+            type_hints = cached_type_hints(_typecheckingstub__681e417ef520acfe754a35e65d8ecb2a8e270ef54acf705fd91dd2427921f20d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statusToUpdate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cce45f739601c47c27bc527ba7632a6a2242cd64cc012548482a4bb3a9926f40)
+            type_hints = cached_type_hints(_typecheckingstub__cce45f739601c47c27bc527ba7632a6a2242cd64cc012548482a4bb3a9926f40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6975,7 +6957,7 @@ class CfnMailManagerIngressPoint(
     @tls_policy.setter
     def tls_policy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24584d962b5789a4ebba111e496d5a01e7f04620b2ad08dc1a014bc01e840b6c)
+            type_hints = cached_type_hints(_typecheckingstub__24584d962b5789a4ebba111e496d5a01e7f04620b2ad08dc1a014bc01e840b6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tlsPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -6994,7 +6976,7 @@ class CfnMailManagerIngressPoint(
             *,
             secret_arn: typing.Optional[builtins.str] = None,
             smtp_password: typing.Optional[builtins.str] = None,
-            tls_auth_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.TlsAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tls_auth_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.TlsAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the ingress endpoint resource.
 
@@ -7030,7 +7012,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3799ee40c4fb2a5153cb73f62102e77ad68fed1ac1eec8eef79d4bb8f44e8ea0)
+                type_hints = cached_type_hints(_typecheckingstub__3799ee40c4fb2a5153cb73f62102e77ad68fed1ac1eec8eef79d4bb8f44e8ea0)
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
                 check_type(argname="argument smtp_password", value=smtp_password, expected_type=type_hints["smtp_password"])
                 check_type(argname="argument tls_auth_configuration", value=tls_auth_configuration, expected_type=type_hints["tls_auth_configuration"])
@@ -7063,12 +7045,12 @@ class CfnMailManagerIngressPoint(
         @builtins.property
         def tls_auth_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-ingresspointconfiguration.html#cfn-ses-mailmanageringresspoint-ingresspointconfiguration-tlsauthconfiguration
             '''
             result = self._values.get("tls_auth_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7093,8 +7075,8 @@ class CfnMailManagerIngressPoint(
         def __init__(
             self,
             *,
-            private_network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            public_network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            private_network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            public_network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
 
@@ -7120,7 +7102,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e92f82eaa7f5bbe8dc091ccf3d1447df4bd68dce8ee9521169489e610fdf9bca)
+                type_hints = cached_type_hints(_typecheckingstub__e92f82eaa7f5bbe8dc091ccf3d1447df4bd68dce8ee9521169489e610fdf9bca)
                 check_type(argname="argument private_network_configuration", value=private_network_configuration, expected_type=type_hints["private_network_configuration"])
                 check_type(argname="argument public_network_configuration", value=public_network_configuration, expected_type=type_hints["public_network_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7132,24 +7114,24 @@ class CfnMailManagerIngressPoint(
         @builtins.property
         def private_network_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty"]]:
             '''Specifies the network configuration for the private ingress point.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-networkconfiguration.html#cfn-ses-mailmanageringresspoint-networkconfiguration-privatenetworkconfiguration
             '''
             result = self._values.get("private_network_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty"]], result)
 
         @builtins.property
         def public_network_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty"]]:
             '''Specifies the network configuration for the public ingress point.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-networkconfiguration.html#cfn-ses-mailmanageringresspoint-networkconfiguration-publicnetworkconfiguration
             '''
             result = self._values.get("public_network_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7187,7 +7169,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39ad05460de649e352f4049e7ce64b0e145719d25a16cf7e4823946f080e2b6a)
+                type_hints = cached_type_hints(_typecheckingstub__39ad05460de649e352f4049e7ce64b0e145719d25a16cf7e4823946f080e2b6a)
                 check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "vpc_endpoint_id": vpc_endpoint_id,
@@ -7239,7 +7221,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__44de118258c4f2ec589299800463fecb183b1dbbd040e740d7547fd88ac18ef2)
+                type_hints = cached_type_hints(_typecheckingstub__44de118258c4f2ec589299800463fecb183b1dbbd040e740d7547fd88ac18ef2)
                 check_type(argname="argument ip_type", value=ip_type, expected_type=type_hints["ip_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "ip_type": ip_type,
@@ -7277,7 +7259,7 @@ class CfnMailManagerIngressPoint(
         def __init__(
             self,
             *,
-            trust_store: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.TrustStoreProperty", typing.Dict[builtins.str, typing.Any]]],
+            trust_store: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.TrustStoreProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param trust_store: 
@@ -7302,7 +7284,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e31fb5a20e3f2e0f2bc0d19c2180fc15176f7fa1de8292a41c2c93290c09d6c3)
+                type_hints = cached_type_hints(_typecheckingstub__e31fb5a20e3f2e0f2bc0d19c2180fc15176f7fa1de8292a41c2c93290c09d6c3)
                 check_type(argname="argument trust_store", value=trust_store, expected_type=type_hints["trust_store"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "trust_store": trust_store,
@@ -7311,13 +7293,13 @@ class CfnMailManagerIngressPoint(
         @builtins.property
         def trust_store(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TrustStoreProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.TrustStoreProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-tlsauthconfiguration.html#cfn-ses-mailmanageringresspoint-tlsauthconfiguration-truststore
             '''
             result = self._values.get("trust_store")
             assert result is not None, "Required property 'trust_store' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TrustStoreProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.TrustStoreProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7370,7 +7352,7 @@ class CfnMailManagerIngressPoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1e3b465353ba41a923f2f375703c24b2c179303fdf2722a3571d4724525a5559)
+                type_hints = cached_type_hints(_typecheckingstub__1e3b465353ba41a923f2f375703c24b2c179303fdf2722a3571d4724525a5559)
                 check_type(argname="argument ca_content", value=ca_content, expected_type=type_hints["ca_content"])
                 check_type(argname="argument crl_content", value=crl_content, expected_type=type_hints["crl_content"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
@@ -7441,11 +7423,11 @@ class CfnMailManagerIngressPointProps:
         rule_set_id: builtins.str,
         traffic_policy_id: builtins.str,
         type: builtins.str,
-        ingress_point_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.IngressPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_point_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.IngressPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingress_point_name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status_to_update: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         tls_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerIngressPoint``.
@@ -7507,7 +7489,7 @@ class CfnMailManagerIngressPointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1)
+            type_hints = cached_type_hints(_typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1)
             check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
             check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -7568,13 +7550,13 @@ class CfnMailManagerIngressPointProps:
     @builtins.property
     def ingress_point_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]]:
         '''The configuration of the ingress endpoint resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-ingresspointconfiguration
         '''
         result = self._values.get("ingress_point_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]], result)
 
     @builtins.property
     def ingress_point_name(self) -> typing.Optional[builtins.str]:
@@ -7588,13 +7570,13 @@ class CfnMailManagerIngressPointProps:
     @builtins.property
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]]:
         '''The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-networkconfiguration
         '''
         result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]], result)
 
     @builtins.property
     def status_to_update(self) -> typing.Optional[builtins.str]:
@@ -7606,7 +7588,7 @@ class CfnMailManagerIngressPointProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -7614,7 +7596,7 @@ class CfnMailManagerIngressPointProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def tls_policy(self) -> typing.Optional[builtins.str]:
@@ -7636,9 +7618,9 @@ class CfnMailManagerIngressPointProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerRelayRef_09ae75d1, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerRelayRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerRelay(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRelay",
 ):
@@ -7679,11 +7661,11 @@ class CfnMailManagerRelay(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRelay.RelayAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        authentication: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRelay.RelayAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
         server_name: builtins.str,
         server_port: jsii.Number,
         relay_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerRelay``.
 
@@ -7696,7 +7678,7 @@ class CfnMailManagerRelay(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9ee528cdf366e99e1f68b7018c131315da04193c666245fa2c99e56bdf434e4)
+            type_hints = cached_type_hints(_typecheckingstub__c9ee528cdf366e99e1f68b7018c131315da04193c666245fa2c99e56bdf434e4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerRelayProps(
@@ -7713,13 +7695,13 @@ class CfnMailManagerRelay(
     @builtins.classmethod
     def arn_for_mail_manager_relay(
         cls,
-        resource: "_IMailManagerRelayRef_09ae75d1",
+        resource: "_aws_ses_9999e6ba.IMailManagerRelayRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__201b94b5d17a1097e3cdbed611e2692931738375845f6805fe2c3dad089d737e)
+            type_hints = cached_type_hints(_typecheckingstub__201b94b5d17a1097e3cdbed611e2692931738375845f6805fe2c3dad089d737e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerRelay", [resource]))
 
@@ -7730,7 +7712,7 @@ class CfnMailManagerRelay(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerRelayRef_09ae75d1":
+    ) -> "_aws_ses_9999e6ba.IMailManagerRelayRef":
         '''Creates a new IMailManagerRelayRef from an ARN.
 
         :param scope: -
@@ -7738,11 +7720,11 @@ class CfnMailManagerRelay(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b409b20999c21668e427d3fcc2bdf8c5f602edeea3398fef179f8d37266de3e2)
+            type_hints = cached_type_hints(_typecheckingstub__b409b20999c21668e427d3fcc2bdf8c5f602edeea3398fef179f8d37266de3e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerRelayRef_09ae75d1", jsii.sinvoke(cls, "fromMailManagerRelayArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerRelayRef", jsii.sinvoke(cls, "fromMailManagerRelayArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromRelayId")
     @builtins.classmethod
@@ -7751,7 +7733,7 @@ class CfnMailManagerRelay(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         relay_id: builtins.str,
-    ) -> "_IMailManagerRelayRef_09ae75d1":
+    ) -> "_aws_ses_9999e6ba.IMailManagerRelayRef":
         '''Creates a new IMailManagerRelayRef from a relayId.
 
         :param scope: -
@@ -7759,11 +7741,11 @@ class CfnMailManagerRelay(
         :param relay_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20d085590a05ce27b9599b7ddb5dc4d721ab8fc87c006babf37032cd0ffc46ed)
+            type_hints = cached_type_hints(_typecheckingstub__20d085590a05ce27b9599b7ddb5dc4d721ab8fc87c006babf37032cd0ffc46ed)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument relay_id", value=relay_id, expected_type=type_hints["relay_id"])
-        return typing.cast("_IMailManagerRelayRef_09ae75d1", jsii.sinvoke(cls, "fromRelayId", [scope, id, relay_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerRelayRef", jsii.sinvoke(cls, "fromRelayId", [scope, id, relay_id]))
 
     @jsii.member(jsii_name="isCfnMailManagerRelay")
     @builtins.classmethod
@@ -7773,18 +7755,18 @@ class CfnMailManagerRelay(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bbce469d8b845824f498308b7175290d5dad433208301d220b2ced384df8495)
+            type_hints = cached_type_hints(_typecheckingstub__2bbce469d8b845824f498308b7175290d5dad433208301d220b2ced384df8495)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerRelay", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5816a1b4f596fadebac48eac5ab989ccf692d395eb95689083e0aa60a4ac275e)
+            type_hints = cached_type_hints(_typecheckingstub__5816a1b4f596fadebac48eac5ab989ccf692d395eb95689083e0aa60a4ac275e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7797,7 +7779,7 @@ class CfnMailManagerRelay(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30e82dfb3c738132d0655d1c9b8db44cfcd49568e594e2d6040884f98db2a2e1)
+            type_hints = cached_type_hints(_typecheckingstub__30e82dfb3c738132d0655d1c9b8db44cfcd49568e594e2d6040884f98db2a2e1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7827,9 +7809,9 @@ class CfnMailManagerRelay(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7843,25 +7825,25 @@ class CfnMailManagerRelay(
 
     @builtins.property
     @jsii.member(jsii_name="mailManagerRelayRef")
-    def mail_manager_relay_ref(self) -> "_MailManagerRelayReference_655db003":
+    def mail_manager_relay_ref(self) -> "_aws_ses_9999e6ba.MailManagerRelayReference":
         '''A reference to a MailManagerRelay resource.'''
-        return typing.cast("_MailManagerRelayReference_655db003", jsii.get(self, "mailManagerRelayRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerRelayReference", jsii.get(self, "mailManagerRelayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authentication")
     def authentication(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRelay.RelayAuthenticationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRelay.RelayAuthenticationProperty"]:
         '''Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRelay.RelayAuthenticationProperty"], jsii.get(self, "authentication"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRelay.RelayAuthenticationProperty"], jsii.get(self, "authentication"))
 
     @authentication.setter
     def authentication(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMailManagerRelay.RelayAuthenticationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRelay.RelayAuthenticationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d053ec02b59c6d6eeb1138338d3c6e01f9b05c95e79c9b27925807cc8f604e1)
+            type_hints = cached_type_hints(_typecheckingstub__4d053ec02b59c6d6eeb1138338d3c6e01f9b05c95e79c9b27925807cc8f604e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authentication", value) # pyright: ignore[reportArgumentType]
 
@@ -7874,7 +7856,7 @@ class CfnMailManagerRelay(
     @server_name.setter
     def server_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a551461b10e4cc1ebc513847e7d8cbe9ac48e561b8b82c8e668640c1b7bdb7b1)
+            type_hints = cached_type_hints(_typecheckingstub__a551461b10e4cc1ebc513847e7d8cbe9ac48e561b8b82c8e668640c1b7bdb7b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverName", value) # pyright: ignore[reportArgumentType]
 
@@ -7887,7 +7869,7 @@ class CfnMailManagerRelay(
     @server_port.setter
     def server_port(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfd52a0e98b49e0fdb71b82b9b9cded5bf44442f6083d7bf3f4f91d861fb847b)
+            type_hints = cached_type_hints(_typecheckingstub__cfd52a0e98b49e0fdb71b82b9b9cded5bf44442f6083d7bf3f4f91d861fb847b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverPort", value) # pyright: ignore[reportArgumentType]
 
@@ -7900,20 +7882,23 @@ class CfnMailManagerRelay(
     @relay_name.setter
     def relay_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63ed1e47ebcd5e2f47eb1d5240b0e942edd69aa9601c96414de5aaa1a2757cd1)
+            type_hints = cached_type_hints(_typecheckingstub__63ed1e47ebcd5e2f47eb1d5240b0e942edd69aa9601c96414de5aaa1a2757cd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "relayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f648115c01720fe23dc8d4e884a957f38c7e42ad1a0a84cea8d1f86df1ba3dd)
+            type_hints = cached_type_hints(_typecheckingstub__5f648115c01720fe23dc8d4e884a957f38c7e42ad1a0a84cea8d1f86df1ba3dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -7958,7 +7943,7 @@ class CfnMailManagerRelay(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__43dfcada45f91f06fd9d7504799d90465587ba4c4b8214f065a8c7a144d7aa8d)
+                type_hints = cached_type_hints(_typecheckingstub__43dfcada45f91f06fd9d7504799d90465587ba4c4b8214f065a8c7a144d7aa8d)
                 check_type(argname="argument no_authentication", value=no_authentication, expected_type=type_hints["no_authentication"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8012,11 +7997,11 @@ class CfnMailManagerRelayProps:
     def __init__(
         self,
         *,
-        authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRelay.RelayAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        authentication: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRelay.RelayAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
         server_name: builtins.str,
         server_port: jsii.Number,
         relay_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerRelay``.
 
@@ -8055,7 +8040,7 @@ class CfnMailManagerRelayProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971)
+            type_hints = cached_type_hints(_typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971)
             check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
             check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
             check_type(argname="argument server_port", value=server_port, expected_type=type_hints["server_port"])
@@ -8074,14 +8059,14 @@ class CfnMailManagerRelayProps:
     @builtins.property
     def authentication(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRelay.RelayAuthenticationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRelay.RelayAuthenticationProperty"]:
         '''Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-authentication
         '''
         result = self._values.get("authentication")
         assert result is not None, "Required property 'authentication' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRelay.RelayAuthenticationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRelay.RelayAuthenticationProperty"], result)
 
     @builtins.property
     def server_name(self) -> builtins.str:
@@ -8113,7 +8098,7 @@ class CfnMailManagerRelayProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -8121,7 +8106,7 @@ class CfnMailManagerRelayProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8135,9 +8120,9 @@ class CfnMailManagerRelayProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerRuleSetRef_4d1ad1a8, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerRuleSetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerRuleSet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSet",
 ):
@@ -8375,9 +8360,9 @@ class CfnMailManagerRuleSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         rule_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerRuleSet``.
 
@@ -8388,7 +8373,7 @@ class CfnMailManagerRuleSet(
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__105680c1fa2be5692f8220b99da3b58468d88eba3dfec1c0ec0e390506bc1eda)
+            type_hints = cached_type_hints(_typecheckingstub__105680c1fa2be5692f8220b99da3b58468d88eba3dfec1c0ec0e390506bc1eda)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerRuleSetProps(
@@ -8401,13 +8386,13 @@ class CfnMailManagerRuleSet(
     @builtins.classmethod
     def arn_for_mail_manager_rule_set(
         cls,
-        resource: "_IMailManagerRuleSetRef_4d1ad1a8",
+        resource: "_aws_ses_9999e6ba.IMailManagerRuleSetRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2403959e366de4b1a81ff43ef8d0c8be3b72a5759232deb0d7addb03fe92602)
+            type_hints = cached_type_hints(_typecheckingstub__c2403959e366de4b1a81ff43ef8d0c8be3b72a5759232deb0d7addb03fe92602)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerRuleSet", [resource]))
 
@@ -8418,7 +8403,7 @@ class CfnMailManagerRuleSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerRuleSetRef_4d1ad1a8":
+    ) -> "_aws_ses_9999e6ba.IMailManagerRuleSetRef":
         '''Creates a new IMailManagerRuleSetRef from an ARN.
 
         :param scope: -
@@ -8426,11 +8411,11 @@ class CfnMailManagerRuleSet(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d82db9d1c96584a8dc878d517bd23d01f881d8c083d4581a3273dbaf17b3f76)
+            type_hints = cached_type_hints(_typecheckingstub__2d82db9d1c96584a8dc878d517bd23d01f881d8c083d4581a3273dbaf17b3f76)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerRuleSetRef_4d1ad1a8", jsii.sinvoke(cls, "fromMailManagerRuleSetArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerRuleSetRef", jsii.sinvoke(cls, "fromMailManagerRuleSetArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromRuleSetId")
     @builtins.classmethod
@@ -8439,7 +8424,7 @@ class CfnMailManagerRuleSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         rule_set_id: builtins.str,
-    ) -> "_IMailManagerRuleSetRef_4d1ad1a8":
+    ) -> "_aws_ses_9999e6ba.IMailManagerRuleSetRef":
         '''Creates a new IMailManagerRuleSetRef from a ruleSetId.
 
         :param scope: -
@@ -8447,11 +8432,11 @@ class CfnMailManagerRuleSet(
         :param rule_set_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78355a4a2620715789c2e5c3123619e35973a72ffc685bd95914181f608af137)
+            type_hints = cached_type_hints(_typecheckingstub__78355a4a2620715789c2e5c3123619e35973a72ffc685bd95914181f608af137)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
-        return typing.cast("_IMailManagerRuleSetRef_4d1ad1a8", jsii.sinvoke(cls, "fromRuleSetId", [scope, id, rule_set_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerRuleSetRef", jsii.sinvoke(cls, "fromRuleSetId", [scope, id, rule_set_id]))
 
     @jsii.member(jsii_name="isCfnMailManagerRuleSet")
     @builtins.classmethod
@@ -8461,18 +8446,18 @@ class CfnMailManagerRuleSet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__275644fc7ad99c4591767cec90f537d834d244da3a0b9ce7014511ad446ffd0f)
+            type_hints = cached_type_hints(_typecheckingstub__275644fc7ad99c4591767cec90f537d834d244da3a0b9ce7014511ad446ffd0f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerRuleSet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0759f4c8304ca6f49025af7426410384933255e335181351fb5750c57ec3769f)
+            type_hints = cached_type_hints(_typecheckingstub__0759f4c8304ca6f49025af7426410384933255e335181351fb5750c57ec3769f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -8485,7 +8470,7 @@ class CfnMailManagerRuleSet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd126298166d3dbd6b6457bb8e11f12768735b24da03583f18bed0b9562d0ab1)
+            type_hints = cached_type_hints(_typecheckingstub__fd126298166d3dbd6b6457bb8e11f12768735b24da03583f18bed0b9562d0ab1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -8515,9 +8500,9 @@ class CfnMailManagerRuleSet(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -8531,25 +8516,27 @@ class CfnMailManagerRuleSet(
 
     @builtins.property
     @jsii.member(jsii_name="mailManagerRuleSetRef")
-    def mail_manager_rule_set_ref(self) -> "_MailManagerRuleSetReference_5cca7d98":
+    def mail_manager_rule_set_ref(
+        self,
+    ) -> "_aws_ses_9999e6ba.MailManagerRuleSetReference":
         '''A reference to a MailManagerRuleSet resource.'''
-        return typing.cast("_MailManagerRuleSetReference_5cca7d98", jsii.get(self, "mailManagerRuleSetRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerRuleSetReference", jsii.get(self, "mailManagerRuleSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleProperty"]]]:
         '''Conditional rules that are evaluated for determining actions on email.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleProperty"]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleProperty"]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d0adba6e545d7f02cadf214c14f052d406f0b51d70ee72d1f4d35fe35ec8e8e)
+            type_hints = cached_type_hints(_typecheckingstub__7d0adba6e545d7f02cadf214c14f052d406f0b51d70ee72d1f4d35fe35ec8e8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
 
@@ -8562,20 +8549,23 @@ class CfnMailManagerRuleSet(
     @rule_set_name.setter
     def rule_set_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1df1d5f00b49e431788b12868b551bb9e00212f6bd26caafa1e928b593c95bc4)
+            type_hints = cached_type_hints(_typecheckingstub__1df1d5f00b49e431788b12868b551bb9e00212f6bd26caafa1e928b593c95bc4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleSetName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f82f6627eed7535a45401be03792d1cd27791a319e250db048ddff13a71585)
+            type_hints = cached_type_hints(_typecheckingstub__78f82f6627eed7535a45401be03792d1cd27791a319e250db048ddff13a71585)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -8613,7 +8603,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f8f006da023353c324f48b11537b98b4db340d70308cfdc558bfa6c7c8519bc)
+                type_hints = cached_type_hints(_typecheckingstub__4f8f006da023353c324f48b11537b98b4db340d70308cfdc558bfa6c7c8519bc)
                 check_type(argname="argument header_name", value=header_name, expected_type=type_hints["header_name"])
                 check_type(argname="argument header_value", value=header_value, expected_type=type_hints["header_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8688,7 +8678,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ded3a906e094124971897d16d3630fdd3b095f90923a9cb7043426e87be61047)
+                type_hints = cached_type_hints(_typecheckingstub__ded3a906e094124971897d16d3630fdd3b095f90923a9cb7043426e87be61047)
                 check_type(argname="argument analyzer", value=analyzer, expected_type=type_hints["analyzer"])
                 check_type(argname="argument result_field", value=result_field, expected_type=type_hints["result_field"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8764,7 +8754,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__518af23c328c1f1a91be07d8044820bea7565371ff76042a86769644097260b0)
+                type_hints = cached_type_hints(_typecheckingstub__518af23c328c1f1a91be07d8044820bea7565371ff76042a86769644097260b0)
                 check_type(argname="argument target_archive", value=target_archive, expected_type=type_hints["target_archive"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8861,7 +8851,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a3d33598e29d9218ef5404a2b7e9e322959999debd653ce5bc9262d308558747)
+                type_hints = cached_type_hints(_typecheckingstub__a3d33598e29d9218ef5404a2b7e9e322959999debd653ce5bc9262d308558747)
                 check_type(argname="argument diagnostic_message", value=diagnostic_message, expected_type=type_hints["diagnostic_message"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument sender", value=sender, expected_type=type_hints["sender"])
@@ -8994,7 +8984,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f83f79033a3d3e41cc283500ac0cae687aff7a85f60f1ed286d539e65e6d58f3)
+                type_hints = cached_type_hints(_typecheckingstub__f83f79033a3d3e41cc283500ac0cae687aff7a85f60f1ed286d539e65e6d58f3)
                 check_type(argname="argument mailbox_arn", value=mailbox_arn, expected_type=type_hints["mailbox_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
@@ -9094,7 +9084,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bd73a70e10ea34690bce68c862abcfb0eb828f9546668bcdea3ffbc529c95c9)
+                type_hints = cached_type_hints(_typecheckingstub__9bd73a70e10ea34690bce68c862abcfb0eb828f9546668bcdea3ffbc529c95c9)
                 check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
                 check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -9209,7 +9199,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cacf681e0e6982078f5633a333a1337db9fbf1d3063eac31f1cfedea626626dd)
+                type_hints = cached_type_hints(_typecheckingstub__cacf681e0e6982078f5633a333a1337db9fbf1d3063eac31f1cfedea626626dd)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -9320,7 +9310,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee1b6c41bf7e9edfdf9ce8016febd1bcf8525a8b0d7c5da2fa7bd000d3076e77)
+                type_hints = cached_type_hints(_typecheckingstub__ee1b6c41bf7e9edfdf9ce8016febd1bcf8525a8b0d7c5da2fa7bd000d3076e77)
                 check_type(argname="argument relay", value=relay, expected_type=type_hints["relay"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
                 check_type(argname="argument mail_from", value=mail_from, expected_type=type_hints["mail_from"])
@@ -9404,7 +9394,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__62513f6af30991e46b6f85049ba72def400b040c57eafb91074ef1ab914f62a3)
+                type_hints = cached_type_hints(_typecheckingstub__62513f6af30991e46b6f85049ba72def400b040c57eafb91074ef1ab914f62a3)
                 check_type(argname="argument replace_with", value=replace_with, expected_type=type_hints["replace_with"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if replace_with is not None:
@@ -9452,18 +9442,18 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            add_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AddHeaderActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            archive: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.ArchiveActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            bounce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.BounceActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            deliver_to_mailbox: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.DeliverToMailboxActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            deliver_to_q_business: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.DeliverToQBusinessActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            add_header: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.AddHeaderActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            archive: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.ArchiveActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bounce: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.BounceActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deliver_to_mailbox: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.DeliverToMailboxActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deliver_to_q_business: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.DeliverToQBusinessActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             drop: typing.Any = None,
-            invoke_lambda: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.InvokeLambdaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            publish_to_sns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.SnsActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            relay: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RelayActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            replace_recipient: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.ReplaceRecipientActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            send: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.SendActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            write_to_s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.S3ActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            invoke_lambda: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.InvokeLambdaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            publish_to_sns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.SnsActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            relay: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RelayActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            replace_recipient: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.ReplaceRecipientActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            send: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.SendActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            write_to_s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.S3ActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The action for a rule to take. Only one of the contained actions can be set.
 
@@ -9579,7 +9569,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__305f0be9d67c9da493953a4770d737df26a1af8dedfd249fd9135006243da951)
+                type_hints = cached_type_hints(_typecheckingstub__305f0be9d67c9da493953a4770d737df26a1af8dedfd249fd9135006243da951)
                 check_type(argname="argument add_header", value=add_header, expected_type=type_hints["add_header"])
                 check_type(argname="argument archive", value=archive, expected_type=type_hints["archive"])
                 check_type(argname="argument bounce", value=bounce, expected_type=type_hints["bounce"])
@@ -9621,7 +9611,7 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def add_header(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AddHeaderActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AddHeaderActionProperty"]]:
             '''This action adds a header.
 
             This can be used to add arbitrary email headers.
@@ -9629,12 +9619,12 @@ class CfnMailManagerRuleSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-addheader
             '''
             result = self._values.get("add_header")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AddHeaderActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AddHeaderActionProperty"]], result)
 
         @builtins.property
         def archive(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.ArchiveActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.ArchiveActionProperty"]]:
             '''This action archives the email.
 
             This can be used to deliver an email to an archive.
@@ -9642,39 +9632,39 @@ class CfnMailManagerRuleSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-archive
             '''
             result = self._values.get("archive")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.ArchiveActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.ArchiveActionProperty"]], result)
 
         @builtins.property
         def bounce(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.BounceActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.BounceActionProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-bounce
             '''
             result = self._values.get("bounce")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.BounceActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.BounceActionProperty"]], result)
 
         @builtins.property
         def deliver_to_mailbox(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.DeliverToMailboxActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.DeliverToMailboxActionProperty"]]:
             '''This action delivers an email to a WorkMail mailbox.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-delivertomailbox
             '''
             result = self._values.get("deliver_to_mailbox")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.DeliverToMailboxActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.DeliverToMailboxActionProperty"]], result)
 
         @builtins.property
         def deliver_to_q_business(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.DeliverToQBusinessActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.DeliverToQBusinessActionProperty"]]:
             '''This action delivers an email to an Amazon Q Business application for ingestion into its knowledge base.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-delivertoqbusiness
             '''
             result = self._values.get("deliver_to_q_business")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.DeliverToQBusinessActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.DeliverToQBusinessActionProperty"]], result)
 
         @builtins.property
         def drop(self) -> typing.Any:
@@ -9688,67 +9678,67 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def invoke_lambda(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-invokelambda
             '''
             result = self._values.get("invoke_lambda")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]], result)
 
         @builtins.property
         def publish_to_sns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.SnsActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.SnsActionProperty"]]:
             '''This action publishes the email content to an Amazon SNS topic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-publishtosns
             '''
             result = self._values.get("publish_to_sns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.SnsActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.SnsActionProperty"]], result)
 
         @builtins.property
         def relay(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RelayActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RelayActionProperty"]]:
             '''This action relays the email to another SMTP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-relay
             '''
             result = self._values.get("relay")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RelayActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RelayActionProperty"]], result)
 
         @builtins.property
         def replace_recipient(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.ReplaceRecipientActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.ReplaceRecipientActionProperty"]]:
             '''The action replaces certain or all recipients with a different set of recipients.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-replacerecipient
             '''
             result = self._values.get("replace_recipient")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.ReplaceRecipientActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.ReplaceRecipientActionProperty"]], result)
 
         @builtins.property
         def send(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.SendActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.SendActionProperty"]]:
             '''This action sends the email to the internet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-send
             '''
             result = self._values.get("send")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.SendActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.SendActionProperty"]], result)
 
         @builtins.property
         def write_to_s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.S3ActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.S3ActionProperty"]]:
             '''This action writes the MIME content of the email to an S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-writetos3
             '''
             result = self._values.get("write_to_s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.S3ActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.S3ActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9770,7 +9760,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
         ) -> None:
             '''A boolean expression to be used in a rule condition.
@@ -9803,7 +9793,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__688b96a0a95702a17f251ed7d15e4b0d218b7df748dc4b0dae35ee5be0532c3d)
+                type_hints = cached_type_hints(_typecheckingstub__688b96a0a95702a17f251ed7d15e4b0d218b7df748dc4b0dae35ee5be0532c3d)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9814,14 +9804,14 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty"]:
             '''The operand on which to perform a boolean condition operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulebooleanexpression.html#cfn-ses-mailmanagerruleset-rulebooleanexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -9857,9 +9847,9 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             attribute: typing.Optional[builtins.str] = None,
-            is_in_address_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleIsInAddressListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_in_address_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleIsInAddressListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The union type representing the allowed types of operands for a boolean condition.
 
@@ -9889,7 +9879,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__837a4286b4e8b71b3f01d430cb3025b92d9655011a10dc38d56eb207d40ebc95)
+                type_hints = cached_type_hints(_typecheckingstub__837a4286b4e8b71b3f01d430cb3025b92d9655011a10dc38d56eb207d40ebc95)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
                 check_type(argname="argument is_in_address_list", value=is_in_address_list, expected_type=type_hints["is_in_address_list"])
@@ -9904,13 +9894,13 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def analysis(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]]:
             '''The Add On ARN and its returned value to evaluate in a boolean condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulebooleantoevaluate.html#cfn-ses-mailmanagerruleset-rulebooleantoevaluate-analysis
             '''
             result = self._values.get("analysis")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
 
         @builtins.property
         def attribute(self) -> typing.Optional[builtins.str]:
@@ -9924,13 +9914,13 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def is_in_address_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIsInAddressListProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIsInAddressListProperty"]]:
             '''The structure representing the address lists and address list attribute that will be used in evaluation of boolean expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulebooleantoevaluate.html#cfn-ses-mailmanagerruleset-rulebooleantoevaluate-isinaddresslist
             '''
             result = self._values.get("is_in_address_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIsInAddressListProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIsInAddressListProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9959,12 +9949,12 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            boolean_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleBooleanExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dmarc_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleDmarcExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ip_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleIpExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            number_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleNumberExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            string_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleStringExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            verdict_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleVerdictExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            boolean_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleBooleanExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dmarc_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleDmarcExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleIpExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            number_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleNumberExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            string_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleStringExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            verdict_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleVerdictExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The conditional expression used to evaluate an email for determining if a rule action should be taken.
 
@@ -10048,7 +10038,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__74a2c2f31ea791429d1f552fdf72ea9571017fa5e4cb3ed890024f19a05ba37c)
+                type_hints = cached_type_hints(_typecheckingstub__74a2c2f31ea791429d1f552fdf72ea9571017fa5e4cb3ed890024f19a05ba37c)
                 check_type(argname="argument boolean_expression", value=boolean_expression, expected_type=type_hints["boolean_expression"])
                 check_type(argname="argument dmarc_expression", value=dmarc_expression, expected_type=type_hints["dmarc_expression"])
                 check_type(argname="argument ip_expression", value=ip_expression, expected_type=type_hints["ip_expression"])
@@ -10072,68 +10062,68 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def boolean_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleBooleanExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleBooleanExpressionProperty"]]:
             '''The condition applies to a boolean expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-booleanexpression
             '''
             result = self._values.get("boolean_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleBooleanExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleBooleanExpressionProperty"]], result)
 
         @builtins.property
         def dmarc_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleDmarcExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleDmarcExpressionProperty"]]:
             '''The condition applies to a DMARC policy expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-dmarcexpression
             '''
             result = self._values.get("dmarc_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleDmarcExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleDmarcExpressionProperty"]], result)
 
         @builtins.property
         def ip_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIpExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIpExpressionProperty"]]:
             '''The condition applies to an IP address expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-ipexpression
             '''
             result = self._values.get("ip_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIpExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIpExpressionProperty"]], result)
 
         @builtins.property
         def number_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleNumberExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleNumberExpressionProperty"]]:
             '''The condition applies to a number expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-numberexpression
             '''
             result = self._values.get("number_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleNumberExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleNumberExpressionProperty"]], result)
 
         @builtins.property
         def string_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleStringExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleStringExpressionProperty"]]:
             '''The condition applies to a string expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-stringexpression
             '''
             result = self._values.get("string_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleStringExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleStringExpressionProperty"]], result)
 
         @builtins.property
         def verdict_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleVerdictExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleVerdictExpressionProperty"]]:
             '''The condition applies to a verdict expression passed in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulecondition.html#cfn-ses-mailmanagerruleset-rulecondition-verdictexpression
             '''
             result = self._values.get("verdict_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleVerdictExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleVerdictExpressionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10180,7 +10170,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__61a2e28034f33f130c6caf370ded5bfe5f69e8d9ae4887cb935ee3ddf9dfec39)
+                type_hints = cached_type_hints(_typecheckingstub__61a2e28034f33f130c6caf370ded5bfe5f69e8d9ae4887cb935ee3ddf9dfec39)
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10234,7 +10224,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleIpToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleIpToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -10262,7 +10252,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a78815c83da5faa29d71e53f0ad521ece66311959d1e9d553d5f7b86b5a8c3a7)
+                type_hints = cached_type_hints(_typecheckingstub__a78815c83da5faa29d71e53f0ad521ece66311959d1e9d553d5f7b86b5a8c3a7)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -10275,14 +10265,14 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIpToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIpToEvaluateProperty"]:
             '''The IP address to evaluate in this condition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleipexpression.html#cfn-ses-mailmanagerruleset-ruleipexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleIpToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleIpToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -10340,7 +10330,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a8c2b9cf0bccc9e370467c278e9d38253a9c27c0d0536268fbf47e4a05d0527)
+                type_hints = cached_type_hints(_typecheckingstub__3a8c2b9cf0bccc9e370467c278e9d38253a9c27c0d0536268fbf47e4a05d0527)
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attribute": attribute,
@@ -10399,7 +10389,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c73eebae950a2c422d0d245422988b23abb78b0806a5c9c6767b4faf77f00de5)
+                type_hints = cached_type_hints(_typecheckingstub__c73eebae950a2c422d0d245422988b23abb78b0806a5c9c6767b4faf77f00de5)
                 check_type(argname="argument address_lists", value=address_lists, expected_type=type_hints["address_lists"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10451,7 +10441,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleNumberToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleNumberToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             value: jsii.Number,
         ) -> None:
@@ -10479,7 +10469,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__83799e1775b2d85cafb6fe8436a34354f3fb2f96ece05a92a7ff5946391395b2)
+                type_hints = cached_type_hints(_typecheckingstub__83799e1775b2d85cafb6fe8436a34354f3fb2f96ece05a92a7ff5946391395b2)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -10492,14 +10482,14 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleNumberToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleNumberToEvaluateProperty"]:
             '''The number to evaluate in a numeric condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulenumberexpression.html#cfn-ses-mailmanagerruleset-rulenumberexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleNumberToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleNumberToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -10557,7 +10547,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__34edfd1c5b6c0acab2996fde873e036c099e47a2b540f3e837e560fa0094d19c)
+                type_hints = cached_type_hints(_typecheckingstub__34edfd1c5b6c0acab2996fde873e036c099e47a2b540f3e837e560fa0094d19c)
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attribute": attribute,
@@ -10598,10 +10588,10 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            actions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             name: typing.Optional[builtins.str] = None,
-            unless: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            unless: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule contains conditions, "unless conditions" and actions.
 
@@ -10828,7 +10818,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__901a023bbfa4473dc1d451247d1be12b76d54679fa6a88a6bfcb3265302f814e)
+                type_hints = cached_type_hints(_typecheckingstub__901a023bbfa4473dc1d451247d1be12b76d54679fa6a88a6bfcb3265302f814e)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -10846,19 +10836,19 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleActionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleActionProperty"]]]:
             '''The list of actions to execute when the conditions match the incoming email, and none of the "unless conditions" match.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rule.html#cfn-ses-mailmanagerruleset-rule-actions
             '''
             result = self._values.get("actions")
             assert result is not None, "Required property 'actions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleActionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleActionProperty"]]], result)
 
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleConditionProperty"]]]]:
             '''The conditions of this rule.
 
             All conditions must match the email for the actions to be executed. An empty list of conditions means that all emails match, but are still subject to any "unless conditions"
@@ -10866,7 +10856,7 @@ class CfnMailManagerRuleSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rule.html#cfn-ses-mailmanagerruleset-rule-conditions
             '''
             result = self._values.get("conditions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleConditionProperty"]]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -10880,7 +10870,7 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def unless(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleConditionProperty"]]]]:
             '''The "unless conditions" of this rule.
 
             None of the conditions can match the email for the actions to be executed. If any of these conditions do match the email, then the actions are not executed.
@@ -10888,7 +10878,7 @@ class CfnMailManagerRuleSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rule.html#cfn-ses-mailmanagerruleset-rule-unless
             '''
             result = self._values.get("unless")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleConditionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10914,7 +10904,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleStringToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleStringToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -10948,7 +10938,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac58a8ffbfedfd8a37ee59f94996c3194a29e1aa4e2893a82291934e755a099d)
+                type_hints = cached_type_hints(_typecheckingstub__ac58a8ffbfedfd8a37ee59f94996c3194a29e1aa4e2893a82291934e755a099d)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -10961,14 +10951,14 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleStringToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleStringToEvaluateProperty"]:
             '''The string to evaluate in a string condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulestringexpression.html#cfn-ses-mailmanagerruleset-rulestringexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleStringToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleStringToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -11017,7 +11007,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             attribute: typing.Optional[builtins.str] = None,
             client_certificate_attribute: typing.Optional[builtins.str] = None,
             mime_header_attribute: typing.Optional[builtins.str] = None,
@@ -11053,7 +11043,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba92a64fd5)
+                type_hints = cached_type_hints(_typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba92a64fd5)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
                 check_type(argname="argument client_certificate_attribute", value=client_certificate_attribute, expected_type=type_hints["client_certificate_attribute"])
@@ -11071,13 +11061,13 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def analysis(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]]:
             '''The Add On ARN and its returned value to evaluate in a string condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulestringtoevaluate.html#cfn-ses-mailmanagerruleset-rulestringtoevaluate-analysis
             '''
             result = self._values.get("analysis")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
 
         @builtins.property
         def attribute(self) -> typing.Optional[builtins.str]:
@@ -11129,7 +11119,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -11161,7 +11151,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d67a86888839f543a83c18b74a100ab0031e252d0c42ac93bf68724856f7b89)
+                type_hints = cached_type_hints(_typecheckingstub__4d67a86888839f543a83c18b74a100ab0031e252d0c42ac93bf68724856f7b89)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -11174,14 +11164,14 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty"]:
             '''The verdict to evaluate in a verdict condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleverdictexpression.html#cfn-ses-mailmanagerruleset-ruleverdictexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -11225,7 +11215,7 @@ class CfnMailManagerRuleSet(
         def __init__(
             self,
             *,
-            analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             attribute: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The verdict to evaluate in a verdict condition expression.
@@ -11255,7 +11245,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d38d89bd200d9acf227dcc6d83b027ad47c9bddcd505261f4374ecee4f3b3583)
+                type_hints = cached_type_hints(_typecheckingstub__d38d89bd200d9acf227dcc6d83b027ad47c9bddcd505261f4374ecee4f3b3583)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11267,13 +11257,13 @@ class CfnMailManagerRuleSet(
         @builtins.property
         def analysis(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]]:
             '''The Add On ARN and its returned value to evaluate in a verdict condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleverdicttoevaluate.html#cfn-ses-mailmanagerruleset-ruleverdicttoevaluate-analysis
             '''
             result = self._values.get("analysis")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.AnalysisProperty"]], result)
 
         @builtins.property
         def attribute(self) -> typing.Optional[builtins.str]:
@@ -11344,7 +11334,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c2a8d5fe22da293046687f0a4893cf922e075ff523d8250a3645ed6ddb80f49c)
+                type_hints = cached_type_hints(_typecheckingstub__c2a8d5fe22da293046687f0a4893cf922e075ff523d8250a3645ed6ddb80f49c)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
@@ -11460,7 +11450,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__55318dc538596167d3b14e3c3844f14a00b3cbe799ecfea26bbb89d5275e4dd0)
+                type_hints = cached_type_hints(_typecheckingstub__55318dc538596167d3b14e3c3844f14a00b3cbe799ecfea26bbb89d5275e4dd0)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11554,7 +11544,7 @@ class CfnMailManagerRuleSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1dba6e94fdb5a871528ffcc897120b50f8c7998718a851aaed472055a2a05a6)
+                type_hints = cached_type_hints(_typecheckingstub__c1dba6e94fdb5a871528ffcc897120b50f8c7998718a851aaed472055a2a05a6)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
                 check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
@@ -11647,9 +11637,9 @@ class CfnMailManagerRuleSetProps:
     def __init__(
         self,
         *,
-        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerRuleSet.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         rule_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerRuleSet``.
 
@@ -11883,7 +11873,7 @@ class CfnMailManagerRuleSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf)
+            type_hints = cached_type_hints(_typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf)
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -11898,14 +11888,14 @@ class CfnMailManagerRuleSetProps:
     @builtins.property
     def rules(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleProperty"]]]:
         '''Conditional rules that are evaluated for determining actions on email.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-rules
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.RuleProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerRuleSet.RuleProperty"]]], result)
 
     @builtins.property
     def rule_set_name(self) -> typing.Optional[builtins.str]:
@@ -11917,7 +11907,7 @@ class CfnMailManagerRuleSetProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -11925,7 +11915,7 @@ class CfnMailManagerRuleSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11939,9 +11929,9 @@ class CfnMailManagerRuleSetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMailManagerTrafficPolicyRef_cb765a4d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMailManagerTrafficPolicyRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMailManagerTrafficPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerTrafficPolicy",
 ):
@@ -12027,9 +12017,9 @@ class CfnMailManagerTrafficPolicy(
         id: builtins.str,
         *,
         default_action: builtins.str,
-        policy_statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy_statements: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         max_message_size_bytes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         traffic_policy_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerTrafficPolicy``.
@@ -12043,7 +12033,7 @@ class CfnMailManagerTrafficPolicy(
         :param traffic_policy_name: The name of the policy. The policy name cannot exceed 64 characters and can only include alphanumeric characters, dashes, and underscores.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__450b0bd78f68450d39a41b2242250c64ec412e1a58381c2d9d31cc0b92bf5457)
+            type_hints = cached_type_hints(_typecheckingstub__450b0bd78f68450d39a41b2242250c64ec412e1a58381c2d9d31cc0b92bf5457)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMailManagerTrafficPolicyProps(
@@ -12060,13 +12050,13 @@ class CfnMailManagerTrafficPolicy(
     @builtins.classmethod
     def arn_for_mail_manager_traffic_policy(
         cls,
-        resource: "_IMailManagerTrafficPolicyRef_cb765a4d",
+        resource: "_aws_ses_9999e6ba.IMailManagerTrafficPolicyRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__492cc7c52443bae48d0461a08b1c95d2ff8c68112aa0b9c89dd01bebb07cfded)
+            type_hints = cached_type_hints(_typecheckingstub__492cc7c52443bae48d0461a08b1c95d2ff8c68112aa0b9c89dd01bebb07cfded)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMailManagerTrafficPolicy", [resource]))
 
@@ -12077,7 +12067,7 @@ class CfnMailManagerTrafficPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMailManagerTrafficPolicyRef_cb765a4d":
+    ) -> "_aws_ses_9999e6ba.IMailManagerTrafficPolicyRef":
         '''Creates a new IMailManagerTrafficPolicyRef from an ARN.
 
         :param scope: -
@@ -12085,11 +12075,11 @@ class CfnMailManagerTrafficPolicy(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea2f2dfae6cbe9f97aaee8415354e6ff3d81f338df075f35170a7b1aa9a34432)
+            type_hints = cached_type_hints(_typecheckingstub__ea2f2dfae6cbe9f97aaee8415354e6ff3d81f338df075f35170a7b1aa9a34432)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMailManagerTrafficPolicyRef_cb765a4d", jsii.sinvoke(cls, "fromMailManagerTrafficPolicyArn", [scope, id, arn]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerTrafficPolicyRef", jsii.sinvoke(cls, "fromMailManagerTrafficPolicyArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromTrafficPolicyId")
     @builtins.classmethod
@@ -12098,7 +12088,7 @@ class CfnMailManagerTrafficPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         traffic_policy_id: builtins.str,
-    ) -> "_IMailManagerTrafficPolicyRef_cb765a4d":
+    ) -> "_aws_ses_9999e6ba.IMailManagerTrafficPolicyRef":
         '''Creates a new IMailManagerTrafficPolicyRef from a trafficPolicyId.
 
         :param scope: -
@@ -12106,11 +12096,11 @@ class CfnMailManagerTrafficPolicy(
         :param traffic_policy_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__395da52cf16177971e7e9b795c457d2866532863ec94dc2aa23f2270e7a7d028)
+            type_hints = cached_type_hints(_typecheckingstub__395da52cf16177971e7e9b795c457d2866532863ec94dc2aa23f2270e7a7d028)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
-        return typing.cast("_IMailManagerTrafficPolicyRef_cb765a4d", jsii.sinvoke(cls, "fromTrafficPolicyId", [scope, id, traffic_policy_id]))
+        return typing.cast("_aws_ses_9999e6ba.IMailManagerTrafficPolicyRef", jsii.sinvoke(cls, "fromTrafficPolicyId", [scope, id, traffic_policy_id]))
 
     @jsii.member(jsii_name="isCfnMailManagerTrafficPolicy")
     @builtins.classmethod
@@ -12120,18 +12110,18 @@ class CfnMailManagerTrafficPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e17522a9faff5a3883c0f614087ec01fd29711b350d925d8948af558d04750d)
+            type_hints = cached_type_hints(_typecheckingstub__6e17522a9faff5a3883c0f614087ec01fd29711b350d925d8948af558d04750d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMailManagerTrafficPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2890273fd92b44df72c26923985873fcfcfde9cc0a10280486cd24096655fb4)
+            type_hints = cached_type_hints(_typecheckingstub__c2890273fd92b44df72c26923985873fcfcfde9cc0a10280486cd24096655fb4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -12144,7 +12134,7 @@ class CfnMailManagerTrafficPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__792202bff4d10a96b39d15882c262fd6528b4fb447a7adcbe4f8efb578338de6)
+            type_hints = cached_type_hints(_typecheckingstub__792202bff4d10a96b39d15882c262fd6528b4fb447a7adcbe4f8efb578338de6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -12174,9 +12164,9 @@ class CfnMailManagerTrafficPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -12192,9 +12182,9 @@ class CfnMailManagerTrafficPolicy(
     @jsii.member(jsii_name="mailManagerTrafficPolicyRef")
     def mail_manager_traffic_policy_ref(
         self,
-    ) -> "_MailManagerTrafficPolicyReference_4209d122":
+    ) -> "_aws_ses_9999e6ba.MailManagerTrafficPolicyReference":
         '''A reference to a MailManagerTrafficPolicy resource.'''
-        return typing.cast("_MailManagerTrafficPolicyReference_4209d122", jsii.get(self, "mailManagerTrafficPolicyRef"))
+        return typing.cast("_aws_ses_9999e6ba.MailManagerTrafficPolicyReference", jsii.get(self, "mailManagerTrafficPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultAction")
@@ -12205,7 +12195,7 @@ class CfnMailManagerTrafficPolicy(
     @default_action.setter
     def default_action(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__339511404d21b47cfc8095af60e808222c4fc0f88f53b8124efefeca0b042f78)
+            type_hints = cached_type_hints(_typecheckingstub__339511404d21b47cfc8095af60e808222c4fc0f88f53b8124efefeca0b042f78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultAction", value) # pyright: ignore[reportArgumentType]
 
@@ -12213,17 +12203,17 @@ class CfnMailManagerTrafficPolicy(
     @jsii.member(jsii_name="policyStatements")
     def policy_statements(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]]:
         '''Conditional statements for filtering email traffic.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]], jsii.get(self, "policyStatements"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]], jsii.get(self, "policyStatements"))
 
     @policy_statements.setter
     def policy_statements(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96a3c0284e49558dd4b978a158f3c1d0b5a469b990ff5b6a4d67808893d3cc0e)
+            type_hints = cached_type_hints(_typecheckingstub__96a3c0284e49558dd4b978a158f3c1d0b5a469b990ff5b6a4d67808893d3cc0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyStatements", value) # pyright: ignore[reportArgumentType]
 
@@ -12236,20 +12226,23 @@ class CfnMailManagerTrafficPolicy(
     @max_message_size_bytes.setter
     def max_message_size_bytes(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b3b4c8029d6683e1833773325543c5d28e4cb472830c9de6d016bfdf9f75671)
+            type_hints = cached_type_hints(_typecheckingstub__0b3b4c8029d6683e1833773325543c5d28e4cb472830c9de6d016bfdf9f75671)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxMessageSizeBytes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae972fc210c05e90b7ee9ac3cf59c41db2631edcfd53a8c059fc005c09c3a787)
+            type_hints = cached_type_hints(_typecheckingstub__ae972fc210c05e90b7ee9ac3cf59c41db2631edcfd53a8c059fc005c09c3a787)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -12262,7 +12255,7 @@ class CfnMailManagerTrafficPolicy(
     @traffic_policy_name.setter
     def traffic_policy_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acd9c6db31f2bf6c067a8b4ad8726dfc6cb40a994f5c2f92c0c1fe5835fdf44f)
+            type_hints = cached_type_hints(_typecheckingstub__acd9c6db31f2bf6c067a8b4ad8726dfc6cb40a994f5c2f92c0c1fe5835fdf44f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trafficPolicyName", value) # pyright: ignore[reportArgumentType]
 
@@ -12298,7 +12291,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b5719f32eba45fc040832a336973ac6697acceb79400d167b2432cb2060b7946)
+                type_hints = cached_type_hints(_typecheckingstub__b5719f32eba45fc040832a336973ac6697acceb79400d167b2432cb2060b7946)
                 check_type(argname="argument analyzer", value=analyzer, expected_type=type_hints["analyzer"])
                 check_type(argname="argument result_field", value=result_field, expected_type=type_hints["result_field"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12346,7 +12339,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
         ) -> None:
             '''The structure for a boolean condition matching on the incoming mail.
@@ -12378,7 +12371,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e11e4c9f67eb243bdb70a5e11d25dcc15331b3869022e75e712d05bc36ec2c72)
+                type_hints = cached_type_hints(_typecheckingstub__e11e4c9f67eb243bdb70a5e11d25dcc15331b3869022e75e712d05bc36ec2c72)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12389,14 +12382,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty"]:
             '''The operand on which to perform a boolean condition operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressbooleanexpression.html#cfn-ses-mailmanagertrafficpolicy-ingressbooleanexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -12428,8 +12421,8 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressAnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_in_address_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressAnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_in_address_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The union type representing the allowed types of operands for a boolean condition.
 
@@ -12457,7 +12450,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f984617bda8a2e4d661237f8f2d083ff4f9510ebc7ccbff62ef023d22ebe961f)
+                type_hints = cached_type_hints(_typecheckingstub__f984617bda8a2e4d661237f8f2d083ff4f9510ebc7ccbff62ef023d22ebe961f)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument is_in_address_list", value=is_in_address_list, expected_type=type_hints["is_in_address_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12469,24 +12462,24 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def analysis(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]]:
             '''The structure type for a boolean condition stating the Add On ARN and its returned value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate-analysis
             '''
             result = self._values.get("analysis")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]], result)
 
         @builtins.property
         def is_in_address_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty"]]:
             '''The structure type for a boolean condition that provides the address lists to evaluate incoming traffic on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate-isinaddresslist
             '''
             result = self._values.get("is_in_address_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12524,7 +12517,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1798a6bd726cbf071261fbbd9c4f0df966baaedb1adbd5293f374108b262e6b1)
+                type_hints = cached_type_hints(_typecheckingstub__1798a6bd726cbf071261fbbd9c4f0df966baaedb1adbd5293f374108b262e6b1)
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attribute": attribute,
@@ -12564,7 +12557,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -12592,7 +12585,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1248838eeec484271fe69ec5cdab36ff11554891aebb417809a0af08e0e617d7)
+                type_hints = cached_type_hints(_typecheckingstub__1248838eeec484271fe69ec5cdab36ff11554891aebb417809a0af08e0e617d7)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -12605,14 +12598,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty"]:
             '''The left hand side argument of an IP condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv4expression.html#cfn-ses-mailmanagertrafficpolicy-ingressipv4expression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -12658,7 +12651,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -12686,7 +12679,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__466f6fc45cc786424b25d62d8ee6b11ee8502c69bd8f436961b31e9360d6dbca)
+                type_hints = cached_type_hints(_typecheckingstub__466f6fc45cc786424b25d62d8ee6b11ee8502c69bd8f436961b31e9360d6dbca)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -12699,14 +12692,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty"]:
             '''The left hand side argument of an IPv6 condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6expression.html#cfn-ses-mailmanagertrafficpolicy-ingressipv6expression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -12764,7 +12757,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f68a4c434cfdeacf5dcff0a6cf5c8e887cc1ed9849ea5b6b80bbd66457f4ee0c)
+                type_hints = cached_type_hints(_typecheckingstub__f68a4c434cfdeacf5dcff0a6cf5c8e887cc1ed9849ea5b6b80bbd66457f4ee0c)
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attribute": attribute,
@@ -12823,7 +12816,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5756963845a73e3e00c9928d7ef48ca41a788f8ce93f22f31e10d1f99dbfe7fd)
+                type_hints = cached_type_hints(_typecheckingstub__5756963845a73e3e00c9928d7ef48ca41a788f8ce93f22f31e10d1f99dbfe7fd)
                 check_type(argname="argument address_lists", value=address_lists, expected_type=type_hints["address_lists"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12875,7 +12868,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
@@ -12907,7 +12900,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ade2199cf4a326636b60ff7fe58a2b746de093bc3c1b7294612d9b84ad813746)
+                type_hints = cached_type_hints(_typecheckingstub__ade2199cf4a326636b60ff7fe58a2b746de093bc3c1b7294612d9b84ad813746)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -12920,14 +12913,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty"]:
             '''The left hand side argument of a string condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressstringexpression.html#cfn-ses-mailmanagertrafficpolicy-ingressstringexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -12968,7 +12961,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressAnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressAnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             attribute: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The union type representing the allowed types for the left hand side of a string condition.
@@ -12994,7 +12987,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3c9e450d2f2ff23fc01d2665ec4ed8c7483fa7d75c8c5484472b23f8a2c583fc)
+                type_hints = cached_type_hints(_typecheckingstub__3c9e450d2f2ff23fc01d2665ec4ed8c7483fa7d75c8c5484472b23f8a2c583fc)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13006,13 +12999,13 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def analysis(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]]:
             '''The structure type for a string condition stating the Add On ARN and its returned value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressstringtoevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressstringtoevaluate-analysis
             '''
             result = self._values.get("analysis")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]], result)
 
         @builtins.property
         def attribute(self) -> typing.Optional[builtins.str]:
@@ -13047,7 +13040,7 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            evaluate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty", typing.Dict[builtins.str, typing.Any]]],
             operator: builtins.str,
             value: builtins.str,
         ) -> None:
@@ -13075,7 +13068,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c683a4cfcf2f04f9f10523e9949162f615a9c293bcf437af66dd921b9aa5585a)
+                type_hints = cached_type_hints(_typecheckingstub__c683a4cfcf2f04f9f10523e9949162f615a9c293bcf437af66dd921b9aa5585a)
                 check_type(argname="argument evaluate", value=evaluate, expected_type=type_hints["evaluate"])
                 check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -13088,14 +13081,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def evaluate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty"]:
             '''The left hand side argument of a TLS condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingresstlsprotocolexpression.html#cfn-ses-mailmanagertrafficpolicy-ingresstlsprotocolexpression-evaluate
             '''
             result = self._values.get("evaluate")
             assert result is not None, "Required property 'evaluate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty"], result)
 
         @builtins.property
         def operator(self) -> builtins.str:
@@ -13153,7 +13146,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5427b0fc505c91299dfb885f9eee68a941418328f9c015e863761b56ddc6846e)
+                type_hints = cached_type_hints(_typecheckingstub__5427b0fc505c91299dfb885f9eee68a941418328f9c015e863761b56ddc6846e)
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attribute": attribute,
@@ -13195,11 +13188,11 @@ class CfnMailManagerTrafficPolicy(
         def __init__(
             self,
             *,
-            boolean_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ip_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ipv6_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            string_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressStringExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tls_expression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            boolean_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ipv6_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            string_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressStringExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tls_expression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The email traffic filtering conditions which are contained in a traffic policy resource.
 
@@ -13271,7 +13264,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb7b0b679bef5a6b24b2249f4b258188dd4f805799243b563fb1a1699e938bb6)
+                type_hints = cached_type_hints(_typecheckingstub__cb7b0b679bef5a6b24b2249f4b258188dd4f805799243b563fb1a1699e938bb6)
                 check_type(argname="argument boolean_expression", value=boolean_expression, expected_type=type_hints["boolean_expression"])
                 check_type(argname="argument ip_expression", value=ip_expression, expected_type=type_hints["ip_expression"])
                 check_type(argname="argument ipv6_expression", value=ipv6_expression, expected_type=type_hints["ipv6_expression"])
@@ -13292,7 +13285,7 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def boolean_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty"]]:
             '''This represents a boolean type condition matching on the incoming mail.
 
             It performs the boolean operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
@@ -13300,12 +13293,12 @@ class CfnMailManagerTrafficPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-booleanexpression
             '''
             result = self._values.get("boolean_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty"]], result)
 
         @builtins.property
         def ip_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty"]]:
             '''This represents an IP based condition matching on the incoming mail.
 
             It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
@@ -13313,12 +13306,12 @@ class CfnMailManagerTrafficPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-ipexpression
             '''
             result = self._values.get("ip_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty"]], result)
 
         @builtins.property
         def ipv6_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty"]]:
             '''This represents an IPv6 based condition matching on the incoming mail.
 
             It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
@@ -13326,12 +13319,12 @@ class CfnMailManagerTrafficPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-ipv6expression
             '''
             result = self._values.get("ipv6_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty"]], result)
 
         @builtins.property
         def string_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressStringExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressStringExpressionProperty"]]:
             '''This represents a string based condition matching on the incoming mail.
 
             It performs the string operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
@@ -13339,12 +13332,12 @@ class CfnMailManagerTrafficPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-stringexpression
             '''
             result = self._values.get("string_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressStringExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressStringExpressionProperty"]], result)
 
         @builtins.property
         def tls_expression(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty"]]:
             '''This represents a TLS based condition matching on the incoming mail.
 
             It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
@@ -13352,7 +13345,7 @@ class CfnMailManagerTrafficPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-tlsexpression
             '''
             result = self._values.get("tls_expression")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13375,7 +13368,7 @@ class CfnMailManagerTrafficPolicy(
             self,
             *,
             action: builtins.str,
-            conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.PolicyConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.PolicyConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The structure containing traffic policy conditions and actions.
 
@@ -13443,7 +13436,7 @@ class CfnMailManagerTrafficPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b922305a6b38d117885f741ba67de50b32b60f8d84e07583f5e79f9efd3182aa)
+                type_hints = cached_type_hints(_typecheckingstub__b922305a6b38d117885f741ba67de50b32b60f8d84e07583f5e79f9efd3182aa)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13464,14 +13457,14 @@ class CfnMailManagerTrafficPolicy(
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyConditionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyConditionProperty"]]]:
             '''The list of conditions to apply to incoming messages for filtering email traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policystatement.html#cfn-ses-mailmanagertrafficpolicy-policystatement-conditions
             '''
             result = self._values.get("conditions")
             assert result is not None, "Required property 'conditions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyConditionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyConditionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13501,9 +13494,9 @@ class CfnMailManagerTrafficPolicyProps:
         self,
         *,
         default_action: builtins.str,
-        policy_statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerTrafficPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        policy_statements: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMailManagerTrafficPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         max_message_size_bytes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         traffic_policy_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerTrafficPolicy``.
@@ -13587,7 +13580,7 @@ class CfnMailManagerTrafficPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef)
+            type_hints = cached_type_hints(_typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef)
             check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
             check_type(argname="argument policy_statements", value=policy_statements, expected_type=type_hints["policy_statements"])
             check_type(argname="argument max_message_size_bytes", value=max_message_size_bytes, expected_type=type_hints["max_message_size_bytes"])
@@ -13617,14 +13610,14 @@ class CfnMailManagerTrafficPolicyProps:
     @builtins.property
     def policy_statements(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]]:
         '''Conditional statements for filtering email traffic.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-policystatements
         '''
         result = self._values.get("policy_statements")
         assert result is not None, "Required property 'policy_statements' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]], result)
 
     @builtins.property
     def max_message_size_bytes(self) -> typing.Optional[jsii.Number]:
@@ -13636,7 +13629,7 @@ class CfnMailManagerTrafficPolicyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for the resource.
 
         For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -13644,7 +13637,7 @@ class CfnMailManagerTrafficPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def traffic_policy_name(self) -> typing.Optional[builtins.str]:
@@ -13669,9 +13662,9 @@ class CfnMailManagerTrafficPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMultiRegionEndpointRef_cfd99631, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IMultiRegionEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMultiRegionEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMultiRegionEndpoint",
 ):
@@ -13711,9 +13704,9 @@ class CfnMultiRegionEndpoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiRegionEndpoint.DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMultiRegionEndpoint.DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         endpoint_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MultiRegionEndpoint``.
 
@@ -13724,7 +13717,7 @@ class CfnMultiRegionEndpoint(
         :param tags: An array of objects that define the tags (keys and values) to associate with the multi-region endpoint (global-endpoint).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d7e94f6d9cd343f5c2c621d4e2a086c1db0d608865fb3a5015d0b11df5b0c2a)
+            type_hints = cached_type_hints(_typecheckingstub__8d7e94f6d9cd343f5c2c621d4e2a086c1db0d608865fb3a5015d0b11df5b0c2a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMultiRegionEndpointProps(
@@ -13737,13 +13730,13 @@ class CfnMultiRegionEndpoint(
     @builtins.classmethod
     def arn_for_multi_region_endpoint(
         cls,
-        resource: "_IMultiRegionEndpointRef_cfd99631",
+        resource: "_aws_ses_9999e6ba.IMultiRegionEndpointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dafae91114723063f1dbfdeb9faa90b4186daa9a0a81ec70ec225f8d5940ad0)
+            type_hints = cached_type_hints(_typecheckingstub__0dafae91114723063f1dbfdeb9faa90b4186daa9a0a81ec70ec225f8d5940ad0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiRegionEndpoint", [resource]))
 
@@ -13754,7 +13747,7 @@ class CfnMultiRegionEndpoint(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         endpoint_name: builtins.str,
-    ) -> "_IMultiRegionEndpointRef_cfd99631":
+    ) -> "_aws_ses_9999e6ba.IMultiRegionEndpointRef":
         '''Creates a new IMultiRegionEndpointRef from a endpointName.
 
         :param scope: -
@@ -13762,11 +13755,11 @@ class CfnMultiRegionEndpoint(
         :param endpoint_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60db9638b227c18d6130c9b4de856bffa2b0375f5ed82b4e032ca9c754147df2)
+            type_hints = cached_type_hints(_typecheckingstub__60db9638b227c18d6130c9b4de856bffa2b0375f5ed82b4e032ca9c754147df2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
-        return typing.cast("_IMultiRegionEndpointRef_cfd99631", jsii.sinvoke(cls, "fromEndpointName", [scope, id, endpoint_name]))
+        return typing.cast("_aws_ses_9999e6ba.IMultiRegionEndpointRef", jsii.sinvoke(cls, "fromEndpointName", [scope, id, endpoint_name]))
 
     @jsii.member(jsii_name="isCfnMultiRegionEndpoint")
     @builtins.classmethod
@@ -13776,18 +13769,18 @@ class CfnMultiRegionEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88292b93f23d1434f08df0f28e25063b72498ccabe5d322a0c9417b140b54c88)
+            type_hints = cached_type_hints(_typecheckingstub__88292b93f23d1434f08df0f28e25063b72498ccabe5d322a0c9417b140b54c88)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiRegionEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f993acea62f4c5cd3c13afb39ae933a70876025dda136db5641662ea3652c35)
+            type_hints = cached_type_hints(_typecheckingstub__3f993acea62f4c5cd3c13afb39ae933a70876025dda136db5641662ea3652c35)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -13800,7 +13793,7 @@ class CfnMultiRegionEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f108c3712c98e873a0ab1929f7b0f152b6ad3d8f5741b41d2dde160eedd78e2)
+            type_hints = cached_type_hints(_typecheckingstub__2f108c3712c98e873a0ab1929f7b0f152b6ad3d8f5741b41d2dde160eedd78e2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -13812,9 +13805,9 @@ class CfnMultiRegionEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13828,25 +13821,27 @@ class CfnMultiRegionEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionEndpointRef")
-    def multi_region_endpoint_ref(self) -> "_MultiRegionEndpointReference_887ccebf":
+    def multi_region_endpoint_ref(
+        self,
+    ) -> "_aws_ses_9999e6ba.MultiRegionEndpointReference":
         '''A reference to a MultiRegionEndpoint resource.'''
-        return typing.cast("_MultiRegionEndpointReference_887ccebf", jsii.get(self, "multiRegionEndpointRef"))
+        return typing.cast("_aws_ses_9999e6ba.MultiRegionEndpointReference", jsii.get(self, "multiRegionEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="details")
     def details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.DetailsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.DetailsProperty"]:
         '''Contains details of a multi-region endpoint (global-endpoint) being created.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.DetailsProperty"], jsii.get(self, "details"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.DetailsProperty"], jsii.get(self, "details"))
 
     @details.setter
     def details(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.DetailsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.DetailsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b6fe78ccfdd3e52f3ea0fa2cdbcc2b8e26a69603c27d6b58c6704fbd2a0ad13)
+            type_hints = cached_type_hints(_typecheckingstub__8b6fe78ccfdd3e52f3ea0fa2cdbcc2b8e26a69603c27d6b58c6704fbd2a0ad13)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "details", value) # pyright: ignore[reportArgumentType]
 
@@ -13859,20 +13854,23 @@ class CfnMultiRegionEndpoint(
     @endpoint_name.setter
     def endpoint_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bf2a5fc1697872607b9cda5e8ef19be750bfa13e5b84b586c2d1af23751f67c)
+            type_hints = cached_type_hints(_typecheckingstub__7bf2a5fc1697872607b9cda5e8ef19be750bfa13e5b84b586c2d1af23751f67c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) to associate with the multi-region endpoint (global-endpoint).'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4368de0d96781c022795655dd0619af76bd764cf632a2d910010e1ad5a99ee4e)
+            type_hints = cached_type_hints(_typecheckingstub__4368de0d96781c022795655dd0619af76bd764cf632a2d910010e1ad5a99ee4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -13885,7 +13883,7 @@ class CfnMultiRegionEndpoint(
         def __init__(
             self,
             *,
-            route_details: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiRegionEndpoint.RouteDetailsItemsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            route_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMultiRegionEndpoint.RouteDetailsItemsProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''An object that contains configuration details of multi-region endpoint (global-endpoint).
 
@@ -13907,7 +13905,7 @@ class CfnMultiRegionEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7bf5e81365da54bbabfd37fbc5ec361541cc57cda7f472f24767be48687701f8)
+                type_hints = cached_type_hints(_typecheckingstub__7bf5e81365da54bbabfd37fbc5ec361541cc57cda7f472f24767be48687701f8)
                 check_type(argname="argument route_details", value=route_details, expected_type=type_hints["route_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "route_details": route_details,
@@ -13916,7 +13914,7 @@ class CfnMultiRegionEndpoint(
         @builtins.property
         def route_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.RouteDetailsItemsProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.RouteDetailsItemsProperty"]]]:
             '''A list of route configuration details.
 
             Must contain exactly one route configuration.
@@ -13925,7 +13923,7 @@ class CfnMultiRegionEndpoint(
             '''
             result = self._values.get("route_details")
             assert result is not None, "Required property 'route_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.RouteDetailsItemsProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.RouteDetailsItemsProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13965,7 +13963,7 @@ class CfnMultiRegionEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7d51ee9c9a4e7b5a8da21548086284c2214dfc2fe31b5a7e2c4b493a0a17b1a2)
+                type_hints = cached_type_hints(_typecheckingstub__7d51ee9c9a4e7b5a8da21548086284c2214dfc2fe31b5a7e2c4b493a0a17b1a2)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "region": region,
@@ -14006,9 +14004,9 @@ class CfnMultiRegionEndpointProps:
     def __init__(
         self,
         *,
-        details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiRegionEndpoint.DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMultiRegionEndpoint.DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         endpoint_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMultiRegionEndpoint``.
 
@@ -14042,7 +14040,7 @@ class CfnMultiRegionEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__214e30eaa4e6cecb1b023c19b13ef049c4e864d6956eb232163e2fc35159eda5)
+            type_hints = cached_type_hints(_typecheckingstub__214e30eaa4e6cecb1b023c19b13ef049c4e864d6956eb232163e2fc35159eda5)
             check_type(argname="argument details", value=details, expected_type=type_hints["details"])
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -14056,14 +14054,14 @@ class CfnMultiRegionEndpointProps:
     @builtins.property
     def details(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.DetailsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.DetailsProperty"]:
         '''Contains details of a multi-region endpoint (global-endpoint) being created.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-multiregionendpoint.html#cfn-ses-multiregionendpoint-details
         '''
         result = self._values.get("details")
         assert result is not None, "Required property 'details' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMultiRegionEndpoint.DetailsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMultiRegionEndpoint.DetailsProperty"], result)
 
     @builtins.property
     def endpoint_name(self) -> builtins.str:
@@ -14076,13 +14074,13 @@ class CfnMultiRegionEndpointProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) to associate with the multi-region endpoint (global-endpoint).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-multiregionendpoint.html#cfn-ses-multiregionendpoint-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14096,9 +14094,9 @@ class CfnMultiRegionEndpointProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReceiptFilterRef_dbfb106a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IReceiptFilterRef)
 class CfnReceiptFilter(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnReceiptFilter",
 ):
@@ -14134,7 +14132,7 @@ class CfnReceiptFilter(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptFilter.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptFilter.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::SES::ReceiptFilter``.
 
@@ -14143,7 +14141,7 @@ class CfnReceiptFilter(
         :param filter: A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a1615f3821db38c2d17213d45f5aaf7419e2ac2a387e68854a97ab1b660aa82)
+            type_hints = cached_type_hints(_typecheckingstub__1a1615f3821db38c2d17213d45f5aaf7419e2ac2a387e68854a97ab1b660aa82)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReceiptFilterProps(filter=filter)
@@ -14158,18 +14156,18 @@ class CfnReceiptFilter(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ad4c9f2a2392bffac57ce9d1b91c5c5469e5a5fcc5cafa4881c4c55a32f2535)
+            type_hints = cached_type_hints(_typecheckingstub__6ad4c9f2a2392bffac57ce9d1b91c5c5469e5a5fcc5cafa4881c4c55a32f2535)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReceiptFilter", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68a616fc9bd0bc8eef7e85693c8a2bc90546b0b7c578a2cb94a4f7fa8c67f519)
+            type_hints = cached_type_hints(_typecheckingstub__68a616fc9bd0bc8eef7e85693c8a2bc90546b0b7c578a2cb94a4f7fa8c67f519)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -14182,7 +14180,7 @@ class CfnReceiptFilter(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1149bfa381ad182958c44071a0ae46750ca96fdf6137ff9e951ac1be17625bb1)
+            type_hints = cached_type_hints(_typecheckingstub__1149bfa381ad182958c44071a0ae46750ca96fdf6137ff9e951ac1be17625bb1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -14212,25 +14210,25 @@ class CfnReceiptFilter(
 
     @builtins.property
     @jsii.member(jsii_name="receiptFilterRef")
-    def receipt_filter_ref(self) -> "_ReceiptFilterReference_d15ec7c1":
+    def receipt_filter_ref(self) -> "_aws_ses_9999e6ba.ReceiptFilterReference":
         '''A reference to a ReceiptFilter resource.'''
-        return typing.cast("_ReceiptFilterReference_d15ec7c1", jsii.get(self, "receiptFilterRef"))
+        return typing.cast("_aws_ses_9999e6ba.ReceiptFilterReference", jsii.get(self, "receiptFilterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="filter")
     def filter(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.FilterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.FilterProperty"]:
         '''A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.FilterProperty"], jsii.get(self, "filter"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.FilterProperty"], jsii.get(self, "filter"))
 
     @filter.setter
     def filter(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.FilterProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.FilterProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f3559694a52690944f1517571fda28128591a08e4458775af6322f62533e068)
+            type_hints = cached_type_hints(_typecheckingstub__3f3559694a52690944f1517571fda28128591a08e4458775af6322f62533e068)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "filter", value) # pyright: ignore[reportArgumentType]
 
@@ -14243,7 +14241,7 @@ class CfnReceiptFilter(
         def __init__(
             self,
             *,
-            ip_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptFilter.IpFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+            ip_filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptFilter.IpFilterProperty", typing.Dict[builtins.str, typing.Any]]],
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies an IP address filter.
@@ -14271,7 +14269,7 @@ class CfnReceiptFilter(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a42218c982fb4338e6794b2fe9415b047ee10364d513a6dd4d4f68d79950fb97)
+                type_hints = cached_type_hints(_typecheckingstub__a42218c982fb4338e6794b2fe9415b047ee10364d513a6dd4d4f68d79950fb97)
                 check_type(argname="argument ip_filter", value=ip_filter, expected_type=type_hints["ip_filter"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14283,14 +14281,14 @@ class CfnReceiptFilter(
         @builtins.property
         def ip_filter(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.IpFilterProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.IpFilterProperty"]:
             '''A structure that provides the IP addresses to block or allow, and whether to block or allow incoming mail from them.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptfilter-filter.html#cfn-ses-receiptfilter-filter-ipfilter
             '''
             result = self._values.get("ip_filter")
             assert result is not None, "Required property 'ip_filter' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.IpFilterProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.IpFilterProperty"], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -14345,7 +14343,7 @@ class CfnReceiptFilter(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a491d6597c852f28ae26e9b6690598de1ef3f7a5ee8865818d9104b055030f97)
+                type_hints = cached_type_hints(_typecheckingstub__a491d6597c852f28ae26e9b6690598de1ef3f7a5ee8865818d9104b055030f97)
                 check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
                 check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14396,7 +14394,7 @@ class CfnReceiptFilterProps:
     def __init__(
         self,
         *,
-        filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptFilter.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        filter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptFilter.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnReceiptFilter``.
 
@@ -14424,7 +14422,7 @@ class CfnReceiptFilterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f)
+            type_hints = cached_type_hints(_typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f)
             check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "filter": filter,
@@ -14433,14 +14431,14 @@ class CfnReceiptFilterProps:
     @builtins.property
     def filter(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.FilterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.FilterProperty"]:
         '''A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptfilter.html#cfn-ses-receiptfilter-filter
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReceiptFilter.FilterProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptFilter.FilterProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14454,9 +14452,9 @@ class CfnReceiptFilterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReceiptRuleRef_0f93d846)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IReceiptRuleRef)
 class CfnReceiptRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRule",
 ):
@@ -14543,7 +14541,7 @@ class CfnReceiptRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_set_name: builtins.str,
         after: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -14556,7 +14554,7 @@ class CfnReceiptRule(
         :param after: The name of an existing rule after which the new rule is placed. If this parameter is null, the new rule is inserted at the beginning of the rule list.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f11dbb9bc20b6ae8f4dbfe7500db6c36368680fbb7f5b0198623b727ca3fe253)
+            type_hints = cached_type_hints(_typecheckingstub__f11dbb9bc20b6ae8f4dbfe7500db6c36368680fbb7f5b0198623b727ca3fe253)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReceiptRuleProps(
@@ -14573,18 +14571,18 @@ class CfnReceiptRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a58f97db9165547fc1f1c1ff07e51db278c8a08041cdc99c734731d4b5eb9b11)
+            type_hints = cached_type_hints(_typecheckingstub__a58f97db9165547fc1f1c1ff07e51db278c8a08041cdc99c734731d4b5eb9b11)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReceiptRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cc6c8bd23ccd04352f140aa0292c18970d3c08ee118a8a3b0fdf3f9d4ca1a77)
+            type_hints = cached_type_hints(_typecheckingstub__0cc6c8bd23ccd04352f140aa0292c18970d3c08ee118a8a3b0fdf3f9d4ca1a77)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -14597,7 +14595,7 @@ class CfnReceiptRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94942bbf4a200e9bab75fe3f2144c540718074bf55275f72234642a257755afa)
+            type_hints = cached_type_hints(_typecheckingstub__94942bbf4a200e9bab75fe3f2144c540718074bf55275f72234642a257755afa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -14627,25 +14625,25 @@ class CfnReceiptRule(
 
     @builtins.property
     @jsii.member(jsii_name="receiptRuleRef")
-    def receipt_rule_ref(self) -> "_ReceiptRuleReference_2b9e9bb2":
+    def receipt_rule_ref(self) -> "_aws_ses_9999e6ba.ReceiptRuleReference":
         '''A reference to a ReceiptRule resource.'''
-        return typing.cast("_ReceiptRuleReference_2b9e9bb2", jsii.get(self, "receiptRuleRef"))
+        return typing.cast("_aws_ses_9999e6ba.ReceiptRuleReference", jsii.get(self, "receiptRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rule")
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.RuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.RuleProperty"]:
         '''A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.RuleProperty"], jsii.get(self, "rule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.RuleProperty"], jsii.get(self, "rule"))
 
     @rule.setter
     def rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.RuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.RuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2b7e7d80f05bbed4301e74bf1978bd0403bb680b80c53091fbc2d73a2feb77c)
+            type_hints = cached_type_hints(_typecheckingstub__e2b7e7d80f05bbed4301e74bf1978bd0403bb680b80c53091fbc2d73a2feb77c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
@@ -14658,7 +14656,7 @@ class CfnReceiptRule(
     @rule_set_name.setter
     def rule_set_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a32508b7af75c5c3090736f7c37dc05f9a14f28535c005a911e735e4bf7360d9)
+            type_hints = cached_type_hints(_typecheckingstub__a32508b7af75c5c3090736f7c37dc05f9a14f28535c005a911e735e4bf7360d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleSetName", value) # pyright: ignore[reportArgumentType]
 
@@ -14671,7 +14669,7 @@ class CfnReceiptRule(
     @after.setter
     def after(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e01f4460f2e7da87350c32dda6e4b23e8e3064fa60b2167f2ef07c44203cf85)
+            type_hints = cached_type_hints(_typecheckingstub__7e01f4460f2e7da87350c32dda6e4b23e8e3064fa60b2167f2ef07c44203cf85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "after", value) # pyright: ignore[reportArgumentType]
 
@@ -14693,14 +14691,14 @@ class CfnReceiptRule(
         def __init__(
             self,
             *,
-            add_header_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.AddHeaderActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            bounce_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.BounceActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            connect_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.ConnectActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lambda_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.LambdaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.S3ActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sns_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.SNSActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            stop_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.StopActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            workmail_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.WorkmailActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            add_header_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.AddHeaderActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bounce_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.BounceActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connect_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.ConnectActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.LambdaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.S3ActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.SNSActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stop_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.StopActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            workmail_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.WorkmailActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An action that Amazon SES can take when it receives an email on behalf of one or more email addresses or domains that you own.
 
@@ -14779,7 +14777,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2e23836e118e42c034b0eb896988a7fe715dbbacb7c1a69f5eabb3a0a74e54f3)
+                type_hints = cached_type_hints(_typecheckingstub__2e23836e118e42c034b0eb896988a7fe715dbbacb7c1a69f5eabb3a0a74e54f3)
                 check_type(argname="argument add_header_action", value=add_header_action, expected_type=type_hints["add_header_action"])
                 check_type(argname="argument bounce_action", value=bounce_action, expected_type=type_hints["bounce_action"])
                 check_type(argname="argument connect_action", value=connect_action, expected_type=type_hints["connect_action"])
@@ -14809,90 +14807,90 @@ class CfnReceiptRule(
         @builtins.property
         def add_header_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.AddHeaderActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.AddHeaderActionProperty"]]:
             '''Adds a header to the received email.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-addheaderaction
             '''
             result = self._values.get("add_header_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.AddHeaderActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.AddHeaderActionProperty"]], result)
 
         @builtins.property
         def bounce_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.BounceActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.BounceActionProperty"]]:
             '''Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon Simple Notification Service (Amazon SNS).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-bounceaction
             '''
             result = self._values.get("bounce_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.BounceActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.BounceActionProperty"]], result)
 
         @builtins.property
         def connect_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.ConnectActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.ConnectActionProperty"]]:
             '''The action that informs a traffic policy resource to either allow or block the email if it matches a condition in the policy statement.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-connectaction
             '''
             result = self._values.get("connect_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.ConnectActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.ConnectActionProperty"]], result)
 
         @builtins.property
         def lambda_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.LambdaActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.LambdaActionProperty"]]:
             '''Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-lambdaaction
             '''
             result = self._values.get("lambda_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.LambdaActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.LambdaActionProperty"]], result)
 
         @builtins.property
         def s3_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.S3ActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.S3ActionProperty"]]:
             '''Saves the received message to an Amazon Simple Storage Service (Amazon S3) bucket and, optionally, publishes a notification to Amazon SNS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-s3action
             '''
             result = self._values.get("s3_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.S3ActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.S3ActionProperty"]], result)
 
         @builtins.property
         def sns_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.SNSActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.SNSActionProperty"]]:
             '''Publishes the email content within a notification to Amazon SNS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-snsaction
             '''
             result = self._values.get("sns_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.SNSActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.SNSActionProperty"]], result)
 
         @builtins.property
         def stop_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.StopActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.StopActionProperty"]]:
             '''Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-stopaction
             '''
             result = self._values.get("stop_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.StopActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.StopActionProperty"]], result)
 
         @builtins.property
         def workmail_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.WorkmailActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.WorkmailActionProperty"]]:
             '''Calls Amazon WorkMail and, optionally, publishes a notification to Amazon SNS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-workmailaction
             '''
             result = self._values.get("workmail_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.WorkmailActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.WorkmailActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14939,7 +14937,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1a5686953122507299501d79da819371b0b28543d8d5b2e65f1ce0521437dedb)
+                type_hints = cached_type_hints(_typecheckingstub__1a5686953122507299501d79da819371b0b28543d8d5b2e65f1ce0521437dedb)
                 check_type(argname="argument header_name", value=header_name, expected_type=type_hints["header_name"])
                 check_type(argname="argument header_value", value=header_value, expected_type=type_hints["header_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15033,7 +15031,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4b06ec88c0d55564d050fb3ddbd619284526dd4ec4bb0b1de97a62e89e1bbc82)
+                type_hints = cached_type_hints(_typecheckingstub__4b06ec88c0d55564d050fb3ddbd619284526dd4ec4bb0b1de97a62e89e1bbc82)
                 check_type(argname="argument message", value=message, expected_type=type_hints["message"])
                 check_type(argname="argument sender", value=sender, expected_type=type_hints["sender"])
                 check_type(argname="argument smtp_reply_code", value=smtp_reply_code, expected_type=type_hints["smtp_reply_code"])
@@ -15152,7 +15150,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__136f3d4eccd9049aa185c9b501554d1dd93f3381bbb67d185fa1b2e84aee15c0)
+                type_hints = cached_type_hints(_typecheckingstub__136f3d4eccd9049aa185c9b501554d1dd93f3381bbb67d185fa1b2e84aee15c0)
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
                 check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15240,7 +15238,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e86c072abf438c4f550f87a4bbdea46bb58e82f5fe5547fafb68649041ba546f)
+                type_hints = cached_type_hints(_typecheckingstub__e86c072abf438c4f550f87a4bbdea46bb58e82f5fe5547fafb68649041ba546f)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
@@ -15318,11 +15316,11 @@ class CfnReceiptRule(
         def __init__(
             self,
             *,
-            actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             name: typing.Optional[builtins.str] = None,
             recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-            scan_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            scan_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             tls_policy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Receipt rules enable you to specify which actions Amazon SES should take when it receives mail on behalf of one or more email addresses or domains that you own.
@@ -15407,7 +15405,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__597a4926fee926f01951cda574fa9265912d5bc1c5bf1e98c3410d25dd232a03)
+                type_hints = cached_type_hints(_typecheckingstub__597a4926fee926f01951cda574fa9265912d5bc1c5bf1e98c3410d25dd232a03)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -15431,18 +15429,18 @@ class CfnReceiptRule(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.ActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.ActionProperty"]]]]:
             '''An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-rule.html#cfn-ses-receiptrule-rule-actions
             '''
             result = self._values.get("actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.ActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.ActionProperty"]]]], result)
 
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , the receipt rule is active.
 
             The default value is ``false`` .
@@ -15450,7 +15448,7 @@ class CfnReceiptRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-rule.html#cfn-ses-receiptrule-rule-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -15479,7 +15477,7 @@ class CfnReceiptRule(
         @builtins.property
         def scan_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , then messages that this receipt rule applies to are scanned for spam and viruses.
 
             The default value is ``false`` .
@@ -15487,7 +15485,7 @@ class CfnReceiptRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-rule.html#cfn-ses-receiptrule-rule-scanenabled
             '''
             result = self._values.get("scan_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def tls_policy(self) -> typing.Optional[builtins.str]:
@@ -15569,7 +15567,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39d61a089bfe9f0df546774b89ce5903a571f298fca9c95b6767da42860a40aa)
+                type_hints = cached_type_hints(_typecheckingstub__39d61a089bfe9f0df546774b89ce5903a571f298fca9c95b6767da42860a40aa)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
@@ -15704,7 +15702,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c7b69991ab1bae6b3b263f1a32cdb917531b7939f873cf674e3a6f502dac1460)
+                type_hints = cached_type_hints(_typecheckingstub__c7b69991ab1bae6b3b263f1a32cdb917531b7939f873cf674e3a6f502dac1460)
                 check_type(argname="argument encoding", value=encoding, expected_type=type_hints["encoding"])
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15780,7 +15778,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__929ccdfb2c00fb70aa707e5c7a40fde32e556e0f220a13e8231bbacd2653b8a4)
+                type_hints = cached_type_hints(_typecheckingstub__929ccdfb2c00fb70aa707e5c7a40fde32e556e0f220a13e8231bbacd2653b8a4)
                 check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15863,7 +15861,7 @@ class CfnReceiptRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__af2dae7f39846f3f50114d44fa542e8b0390a51e98f63405b5a32de3f95af669)
+                type_hints = cached_type_hints(_typecheckingstub__af2dae7f39846f3f50114d44fa542e8b0390a51e98f63405b5a32de3f95af669)
                 check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15922,7 +15920,7 @@ class CfnReceiptRuleProps:
     def __init__(
         self,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReceiptRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReceiptRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         rule_set_name: builtins.str,
         after: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -16007,7 +16005,7 @@ class CfnReceiptRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1)
+            type_hints = cached_type_hints(_typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
             check_type(argname="argument after", value=after, expected_type=type_hints["after"])
@@ -16021,14 +16019,14 @@ class CfnReceiptRuleProps:
     @builtins.property
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.RuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.RuleProperty"]:
         '''A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-rule
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReceiptRule.RuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReceiptRule.RuleProperty"], result)
 
     @builtins.property
     def rule_set_name(self) -> builtins.str:
@@ -16063,9 +16061,9 @@ class CfnReceiptRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReceiptRuleSetRef_f6b881e9)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IReceiptRuleSetRef)
 class CfnReceiptRuleSet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRuleSet",
 ):
@@ -16104,7 +16102,7 @@ class CfnReceiptRuleSet(
         :param rule_set_name: The name of the receipt rule set to make active. Setting this value to null disables all email receiving.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8e8c05ea09aa8fb4e787d2e45cbe7d16eaf164f24c154797b3e350dd0b5316c)
+            type_hints = cached_type_hints(_typecheckingstub__c8e8c05ea09aa8fb4e787d2e45cbe7d16eaf164f24c154797b3e350dd0b5316c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReceiptRuleSetProps(rule_set_name=rule_set_name)
@@ -16119,18 +16117,18 @@ class CfnReceiptRuleSet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92b763326ac0f018a80748b9ac18b44522b5b120da9c0265d14b165f8ab6e2e6)
+            type_hints = cached_type_hints(_typecheckingstub__92b763326ac0f018a80748b9ac18b44522b5b120da9c0265d14b165f8ab6e2e6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReceiptRuleSet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c30f7f0ed5cc61e57a58c5fb1de4ed0806ee6c9530ac2ce5ec04192a40fadbb)
+            type_hints = cached_type_hints(_typecheckingstub__7c30f7f0ed5cc61e57a58c5fb1de4ed0806ee6c9530ac2ce5ec04192a40fadbb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -16143,7 +16141,7 @@ class CfnReceiptRuleSet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45b28225e64d365acc2eb75263d1547441c57ed192fa484b706bcc0a87784fb8)
+            type_hints = cached_type_hints(_typecheckingstub__45b28225e64d365acc2eb75263d1547441c57ed192fa484b706bcc0a87784fb8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -16173,9 +16171,9 @@ class CfnReceiptRuleSet(
 
     @builtins.property
     @jsii.member(jsii_name="receiptRuleSetRef")
-    def receipt_rule_set_ref(self) -> "_ReceiptRuleSetReference_0daf31cb":
+    def receipt_rule_set_ref(self) -> "_aws_ses_9999e6ba.ReceiptRuleSetReference":
         '''A reference to a ReceiptRuleSet resource.'''
-        return typing.cast("_ReceiptRuleSetReference_0daf31cb", jsii.get(self, "receiptRuleSetRef"))
+        return typing.cast("_aws_ses_9999e6ba.ReceiptRuleSetReference", jsii.get(self, "receiptRuleSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleSetName")
@@ -16186,7 +16184,7 @@ class CfnReceiptRuleSet(
     @rule_set_name.setter
     def rule_set_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7df684309baff9de02a1535483083992de84a7e4b7e34279f0dd37bd4bb1fcb)
+            type_hints = cached_type_hints(_typecheckingstub__d7df684309baff9de02a1535483083992de84a7e4b7e34279f0dd37bd4bb1fcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleSetName", value) # pyright: ignore[reportArgumentType]
 
@@ -16216,7 +16214,7 @@ class CfnReceiptRuleSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636)
+            type_hints = cached_type_hints(_typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636)
             check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if rule_set_name is not None:
@@ -16245,9 +16243,9 @@ class CfnReceiptRuleSetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITemplateRef_efd84872, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.ITemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnTemplate",
 ):
@@ -16287,8 +16285,8 @@ class CfnTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::Template``.
 
@@ -16298,7 +16296,7 @@ class CfnTemplate(
         :param template: The content of the email, composed of a subject line and either an HTML part or a text-only part.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4c2a147151a6167a3d150f74c144fd60570fc7ac0777706d24a8e9f23813a8d)
+            type_hints = cached_type_hints(_typecheckingstub__c4c2a147151a6167a3d150f74c144fd60570fc7ac0777706d24a8e9f23813a8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTemplateProps(tags=tags, template=template)
@@ -16313,18 +16311,18 @@ class CfnTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__686f70bc25bf4721b5e526064e1572e87be2925fd51cf29a0404613d07574411)
+            type_hints = cached_type_hints(_typecheckingstub__686f70bc25bf4721b5e526064e1572e87be2925fd51cf29a0404613d07574411)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d39d28f6ac0b8cfc4db621cda159b70e8ee1c7d0086afcb587c1b723beed970a)
+            type_hints = cached_type_hints(_typecheckingstub__d39d28f6ac0b8cfc4db621cda159b70e8ee1c7d0086afcb587c1b723beed970a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -16337,7 +16335,7 @@ class CfnTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fff6f1c96944fa0c793bff8f36a0f674d1885a636bfa82f985a29ba0ee07623)
+            type_hints = cached_type_hints(_typecheckingstub__9fff6f1c96944fa0c793bff8f36a0f674d1885a636bfa82f985a29ba0ee07623)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -16357,9 +16355,9 @@ class CfnTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -16373,20 +16371,23 @@ class CfnTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="templateRef")
-    def template_ref(self) -> "_TemplateReference_cceb8bea":
+    def template_ref(self) -> "_aws_ses_9999e6ba.TemplateReference":
         '''A reference to a Template resource.'''
-        return typing.cast("_TemplateReference_cceb8bea", jsii.get(self, "templateRef"))
+        return typing.cast("_aws_ses_9999e6ba.TemplateReference", jsii.get(self, "templateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags (keys and values) associated with the email template.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bbac80e03f4895c98412be26aa175f3b2117feffa065c91bfd3de287860c7dc)
+            type_hints = cached_type_hints(_typecheckingstub__5bbac80e03f4895c98412be26aa175f3b2117feffa065c91bfd3de287860c7dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -16394,17 +16395,17 @@ class CfnTemplate(
     @jsii.member(jsii_name="template")
     def template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTemplate.TemplateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTemplate.TemplateProperty"]]:
         '''The content of the email, composed of a subject line and either an HTML part or a text-only part.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTemplate.TemplateProperty"]], jsii.get(self, "template"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTemplate.TemplateProperty"]], jsii.get(self, "template"))
 
     @template.setter
     def template(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTemplate.TemplateProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTemplate.TemplateProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfedec4ff1cee818b04e3b27b75fd775d9a21039cce2bb50f0eee75bbe3b7d0c)
+            type_hints = cached_type_hints(_typecheckingstub__dfedec4ff1cee818b04e3b27b75fd775d9a21039cce2bb50f0eee75bbe3b7d0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "template", value) # pyright: ignore[reportArgumentType]
 
@@ -16455,7 +16456,7 @@ class CfnTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6894407236d481fe73e1d7b05b61377a9e1a2ea9e6ee4bfaa48a81bd5fb84352)
+                type_hints = cached_type_hints(_typecheckingstub__6894407236d481fe73e1d7b05b61377a9e1a2ea9e6ee4bfaa48a81bd5fb84352)
                 check_type(argname="argument subject_part", value=subject_part, expected_type=type_hints["subject_part"])
                 check_type(argname="argument html_part", value=html_part, expected_type=type_hints["html_part"])
                 check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
@@ -16530,8 +16531,8 @@ class CfnTemplateProps:
     def __init__(
         self,
         *,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTemplate``.
 
@@ -16564,7 +16565,7 @@ class CfnTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317)
+            type_hints = cached_type_hints(_typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -16574,24 +16575,24 @@ class CfnTemplateProps:
             self._values["template"] = template
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags (keys and values) associated with the email template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html#cfn-ses-template-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTemplate.TemplateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTemplate.TemplateProperty"]]:
         '''The content of the email, composed of a subject line and either an HTML part or a text-only part.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html#cfn-ses-template-template
         '''
         result = self._values.get("template")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTemplate.TemplateProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTemplate.TemplateProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16605,9 +16606,9 @@ class CfnTemplateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITenantRef_8eda0461, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.ITenantRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTenant(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnTenant",
 ):
@@ -16646,8 +16647,8 @@ class CfnTenant(
         id: builtins.str,
         *,
         tenant_name: builtins.str,
-        resource_associations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTenant.ResourceAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_associations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTenant.ResourceAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::Tenant``.
 
@@ -16658,7 +16659,7 @@ class CfnTenant(
         :param tags: An array of objects that define the tags (keys and values) associated with the tenant.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8afe8bad335ae56d9b7cf1a6b54cd155eda9d7a80a0674f08798ca9c04508944)
+            type_hints = cached_type_hints(_typecheckingstub__8afe8bad335ae56d9b7cf1a6b54cd155eda9d7a80a0674f08798ca9c04508944)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTenantProps(
@@ -16671,12 +16672,12 @@ class CfnTenant(
 
     @jsii.member(jsii_name="arnForTenant")
     @builtins.classmethod
-    def arn_for_tenant(cls, resource: "_ITenantRef_8eda0461") -> builtins.str:
+    def arn_for_tenant(cls, resource: "_aws_ses_9999e6ba.ITenantRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4749f5833d8a34347944cc3ccc308c8fb19fef29768ff30ef0eb219ee4adba1e)
+            type_hints = cached_type_hints(_typecheckingstub__4749f5833d8a34347944cc3ccc308c8fb19fef29768ff30ef0eb219ee4adba1e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTenant", [resource]))
 
@@ -16688,18 +16689,18 @@ class CfnTenant(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7afb5791b9705a07d18e073eb102dcb0593874f5e435fa1f09e6f1dcd5bb1eac)
+            type_hints = cached_type_hints(_typecheckingstub__7afb5791b9705a07d18e073eb102dcb0593874f5e435fa1f09e6f1dcd5bb1eac)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTenant", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cf4572d44c57b57b1596c928273def13452f0aa5771b3b18d196aff518637d9)
+            type_hints = cached_type_hints(_typecheckingstub__7cf4572d44c57b57b1596c928273def13452f0aa5771b3b18d196aff518637d9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -16712,7 +16713,7 @@ class CfnTenant(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1e44ef19861f1fa3a1f2198cafa6a4b4e32f8416bb8c626c04563c611a338ca)
+            type_hints = cached_type_hints(_typecheckingstub__a1e44ef19861f1fa3a1f2198cafa6a4b4e32f8416bb8c626c04563c611a338ca)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -16733,9 +16734,9 @@ class CfnTenant(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -16749,9 +16750,9 @@ class CfnTenant(
 
     @builtins.property
     @jsii.member(jsii_name="tenantRef")
-    def tenant_ref(self) -> "_TenantReference_e44a55e9":
+    def tenant_ref(self) -> "_aws_ses_9999e6ba.TenantReference":
         '''A reference to a Tenant resource.'''
-        return typing.cast("_TenantReference_e44a55e9", jsii.get(self, "tenantRef"))
+        return typing.cast("_aws_ses_9999e6ba.TenantReference", jsii.get(self, "tenantRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tenantName")
@@ -16762,7 +16763,7 @@ class CfnTenant(
     @tenant_name.setter
     def tenant_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34fe26a4d80b5512361200d6c21b54df76aea11af8c20349237ffff5256bed34)
+            type_hints = cached_type_hints(_typecheckingstub__34fe26a4d80b5512361200d6c21b54df76aea11af8c20349237ffff5256bed34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tenantName", value) # pyright: ignore[reportArgumentType]
 
@@ -16770,30 +16771,33 @@ class CfnTenant(
     @jsii.member(jsii_name="resourceAssociations")
     def resource_associations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTenant.ResourceAssociationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTenant.ResourceAssociationProperty"]]]]:
         '''The list of resources to associate with the tenant.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTenant.ResourceAssociationProperty"]]]], jsii.get(self, "resourceAssociations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTenant.ResourceAssociationProperty"]]]], jsii.get(self, "resourceAssociations"))
 
     @resource_associations.setter
     def resource_associations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTenant.ResourceAssociationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTenant.ResourceAssociationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1741cf6d14a23b36c921da3d7a241aedb375ce50a68859f432f53bf9b9bbd9a3)
+            type_hints = cached_type_hints(_typecheckingstub__1741cf6d14a23b36c921da3d7a241aedb375ce50a68859f432f53bf9b9bbd9a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceAssociations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) associated with the tenant.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f0f5e6d96cf5c8601d208f815d8e3457c0ce78b21682d07365215e306622bb8)
+            type_hints = cached_type_hints(_typecheckingstub__2f0f5e6d96cf5c8601d208f815d8e3457c0ce78b21682d07365215e306622bb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -16822,7 +16826,7 @@ class CfnTenant(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3a6c95f07133b3f17ee5e2d1078781d3f54b7c7bc85abea0f63a6fd56ac472ad)
+                type_hints = cached_type_hints(_typecheckingstub__3a6c95f07133b3f17ee5e2d1078781d3f54b7c7bc85abea0f63a6fd56ac472ad)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
@@ -16864,8 +16868,8 @@ class CfnTenantProps:
         self,
         *,
         tenant_name: builtins.str,
-        resource_associations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTenant.ResourceAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_associations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTenant.ResourceAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTenant``.
 
@@ -16897,7 +16901,7 @@ class CfnTenantProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09e125457aa1b297a1b416e06f152e90446de602e45d374c7d213ac3e9033d53)
+            type_hints = cached_type_hints(_typecheckingstub__09e125457aa1b297a1b416e06f152e90446de602e45d374c7d213ac3e9033d53)
             check_type(argname="argument tenant_name", value=tenant_name, expected_type=type_hints["tenant_name"])
             check_type(argname="argument resource_associations", value=resource_associations, expected_type=type_hints["resource_associations"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -16924,22 +16928,22 @@ class CfnTenantProps:
     @builtins.property
     def resource_associations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTenant.ResourceAssociationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTenant.ResourceAssociationProperty"]]]]:
         '''The list of resources to associate with the tenant.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-tenant.html#cfn-ses-tenant-resourceassociations
         '''
         result = self._values.get("resource_associations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTenant.ResourceAssociationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTenant.ResourceAssociationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of objects that define the tags (keys and values) associated with the tenant.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-tenant.html#cfn-ses-tenant-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16953,9 +16957,9 @@ class CfnTenantProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVdmAttributesRef_2d5b2489)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IVdmAttributesRef)
 class CfnVdmAttributes(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnVdmAttributes",
 ):
@@ -16986,8 +16990,8 @@ class CfnVdmAttributes(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        dashboard_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVdmAttributes.DashboardAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        guardian_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVdmAttributes.GuardianAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dashboard_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVdmAttributes.DashboardAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        guardian_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVdmAttributes.GuardianAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::VdmAttributes``.
 
@@ -16997,7 +17001,7 @@ class CfnVdmAttributes(
         :param guardian_attributes: Specifies additional settings for your VDM configuration as applicable to the Guardian.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8da690d721f4dc54f54ac8a93b1521ab4f1dbb885e7ddaa381dfa79dcb6e469f)
+            type_hints = cached_type_hints(_typecheckingstub__8da690d721f4dc54f54ac8a93b1521ab4f1dbb885e7ddaa381dfa79dcb6e469f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVdmAttributesProps(
@@ -17015,18 +17019,18 @@ class CfnVdmAttributes(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5a8f4ee7ec59652f4c5e04e69ed397f5d012c169122327b108e39dea22be384)
+            type_hints = cached_type_hints(_typecheckingstub__b5a8f4ee7ec59652f4c5e04e69ed397f5d012c169122327b108e39dea22be384)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVdmAttributes", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19e20bbedca430ef6dc1634692c0b7c55c20f1fdf5542edb402f0e0b5bb364c7)
+            type_hints = cached_type_hints(_typecheckingstub__19e20bbedca430ef6dc1634692c0b7c55c20f1fdf5542edb402f0e0b5bb364c7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -17039,7 +17043,7 @@ class CfnVdmAttributes(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08e60b0b9db028ea74a1508c4ca53cf07d947a35c08e25b8bd2e6c491ef82c63)
+            type_hints = cached_type_hints(_typecheckingstub__08e60b0b9db028ea74a1508c4ca53cf07d947a35c08e25b8bd2e6c491ef82c63)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -17070,25 +17074,25 @@ class CfnVdmAttributes(
 
     @builtins.property
     @jsii.member(jsii_name="vdmAttributesRef")
-    def vdm_attributes_ref(self) -> "_VdmAttributesReference_007eac2c":
+    def vdm_attributes_ref(self) -> "_aws_ses_9999e6ba.VdmAttributesReference":
         '''A reference to a VdmAttributes resource.'''
-        return typing.cast("_VdmAttributesReference_007eac2c", jsii.get(self, "vdmAttributesRef"))
+        return typing.cast("_aws_ses_9999e6ba.VdmAttributesReference", jsii.get(self, "vdmAttributesRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dashboardAttributes")
     def dashboard_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.DashboardAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.DashboardAttributesProperty"]]:
         '''Specifies additional settings for your VDM configuration as applicable to the Dashboard.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.DashboardAttributesProperty"]], jsii.get(self, "dashboardAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.DashboardAttributesProperty"]], jsii.get(self, "dashboardAttributes"))
 
     @dashboard_attributes.setter
     def dashboard_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.DashboardAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.DashboardAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6de577b4b973e97e1a4f2e820f91d3de6f0608ab40978d3d66537a9fc470544)
+            type_hints = cached_type_hints(_typecheckingstub__d6de577b4b973e97e1a4f2e820f91d3de6f0608ab40978d3d66537a9fc470544)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashboardAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -17096,17 +17100,17 @@ class CfnVdmAttributes(
     @jsii.member(jsii_name="guardianAttributes")
     def guardian_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.GuardianAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.GuardianAttributesProperty"]]:
         '''Specifies additional settings for your VDM configuration as applicable to the Guardian.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.GuardianAttributesProperty"]], jsii.get(self, "guardianAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.GuardianAttributesProperty"]], jsii.get(self, "guardianAttributes"))
 
     @guardian_attributes.setter
     def guardian_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.GuardianAttributesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.GuardianAttributesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d777849ef648598e745e2dd5179eb670b0345a6656279e557481001d8bfa0419)
+            type_hints = cached_type_hints(_typecheckingstub__d777849ef648598e745e2dd5179eb670b0345a6656279e557481001d8bfa0419)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "guardianAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -17139,7 +17143,7 @@ class CfnVdmAttributes(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7bb318ca7ff1c3e34c0a31904f95354c80864527eeb292bf9db6ea3ac8dab61c)
+                type_hints = cached_type_hints(_typecheckingstub__7bb318ca7ff1c3e34c0a31904f95354c80864527eeb292bf9db6ea3ac8dab61c)
                 check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if engagement_metrics is not None:
@@ -17197,7 +17201,7 @@ class CfnVdmAttributes(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c129497041cde369dd20c917699582d68e5a27620a3bdb6da3a7048e743a3cdf)
+                type_hints = cached_type_hints(_typecheckingstub__c129497041cde369dd20c917699582d68e5a27620a3bdb6da3a7048e743a3cdf)
                 check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if optimized_shared_delivery is not None:
@@ -17239,8 +17243,8 @@ class CfnVdmAttributesProps:
     def __init__(
         self,
         *,
-        dashboard_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVdmAttributes.DashboardAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        guardian_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVdmAttributes.GuardianAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dashboard_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVdmAttributes.DashboardAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        guardian_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVdmAttributes.GuardianAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnVdmAttributes``.
 
@@ -17266,7 +17270,7 @@ class CfnVdmAttributesProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825)
+            type_hints = cached_type_hints(_typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825)
             check_type(argname="argument dashboard_attributes", value=dashboard_attributes, expected_type=type_hints["dashboard_attributes"])
             check_type(argname="argument guardian_attributes", value=guardian_attributes, expected_type=type_hints["guardian_attributes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -17278,24 +17282,24 @@ class CfnVdmAttributesProps:
     @builtins.property
     def dashboard_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.DashboardAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.DashboardAttributesProperty"]]:
         '''Specifies additional settings for your VDM configuration as applicable to the Dashboard.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-dashboardattributes
         '''
         result = self._values.get("dashboard_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.DashboardAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.DashboardAttributesProperty"]], result)
 
     @builtins.property
     def guardian_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.GuardianAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.GuardianAttributesProperty"]]:
         '''Specifies additional settings for your VDM configuration as applicable to the Guardian.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-guardianattributes
         '''
         result = self._values.get("guardian_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVdmAttributes.GuardianAttributesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVdmAttributes.GuardianAttributesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17343,7 +17347,7 @@ class CloudWatchDimension:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a)
+            type_hints = cached_type_hints(_typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a)
             check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
@@ -17455,7 +17459,7 @@ class ConfigurationSetEventDestinationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6)
+            type_hints = cached_type_hints(_typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -17535,7 +17539,7 @@ class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOpti
         configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
         events: typing.Optional[typing.Sequence["EmailSendingEvent"]] = None,
-        configuration_set: "_IConfigurationSetRef_c4f30d41",
+        configuration_set: "_aws_ses_9999e6ba.IConfigurationSetRef",
     ) -> None:
         '''Properties for a configuration set event destination.
 
@@ -17568,7 +17572,7 @@ class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOpti
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8)
+            type_hints = cached_type_hints(_typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -17620,11 +17624,11 @@ class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOpti
         return typing.cast(typing.Optional[typing.List["EmailSendingEvent"]], result)
 
     @builtins.property
-    def configuration_set(self) -> "_IConfigurationSetRef_c4f30d41":
+    def configuration_set(self) -> "_aws_ses_9999e6ba.IConfigurationSetRef":
         '''The configuration set that contains the event destination.'''
         result = self._values.get("configuration_set")
         assert result is not None, "Required property 'configuration_set' is missing"
-        return typing.cast("_IConfigurationSetRef_c4f30d41", result)
+        return typing.cast("_aws_ses_9999e6ba.IConfigurationSetRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17665,10 +17669,10 @@ class ConfigurationSetProps:
         configuration_set_name: typing.Optional[builtins.str] = None,
         custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
         custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-        dedicated_ip_pool: typing.Optional["_IDedicatedIpPoolRef_c0fd271c"] = None,
+        dedicated_ip_pool: typing.Optional["_aws_ses_9999e6ba.IDedicatedIpPoolRef"] = None,
         disable_auto_validation: typing.Optional[builtins.bool] = None,
         disable_suppression_list: typing.Optional[builtins.bool] = None,
-        max_delivery_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delivery_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         reputation_metrics: typing.Optional[builtins.bool] = None,
         sending_enabled: typing.Optional[builtins.bool] = None,
         suppression_reasons: typing.Optional["SuppressionReasons"] = None,
@@ -17703,7 +17707,7 @@ class ConfigurationSetProps:
         if isinstance(vdm_options, dict):
             vdm_options = VdmOptions(**vdm_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d)
+            type_hints = cached_type_hints(_typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d)
             check_type(argname="argument auto_validation_threshold", value=auto_validation_threshold, expected_type=type_hints["auto_validation_threshold"])
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
             check_type(argname="argument custom_tracking_https_policy", value=custom_tracking_https_policy, expected_type=type_hints["custom_tracking_https_policy"])
@@ -17787,13 +17791,15 @@ class ConfigurationSetProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dedicated_ip_pool(self) -> typing.Optional["_IDedicatedIpPoolRef_c0fd271c"]:
+    def dedicated_ip_pool(
+        self,
+    ) -> typing.Optional["_aws_ses_9999e6ba.IDedicatedIpPoolRef"]:
         '''The dedicated IP pool to associate with the configuration set.
 
         :default: - do not use a dedicated IP pool
         '''
         result = self._values.get("dedicated_ip_pool")
-        return typing.cast(typing.Optional["_IDedicatedIpPoolRef_c0fd271c"], result)
+        return typing.cast(typing.Optional["_aws_ses_9999e6ba.IDedicatedIpPoolRef"], result)
 
     @builtins.property
     def disable_auto_validation(self) -> typing.Optional[builtins.bool]:
@@ -17826,7 +17832,7 @@ class ConfigurationSetProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_delivery_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_delivery_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time that Amazon SES API v2 will attempt delivery of email.
 
         This value must be greater than or equal to 5 minutes and less than or equal to 14 hours.
@@ -17834,7 +17840,7 @@ class ConfigurationSetProps:
         :default: undefined - SES defaults to 14 hours
         '''
         result = self._values.get("max_delivery_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def reputation_metrics(self) -> typing.Optional[builtins.bool]:
@@ -17952,7 +17958,7 @@ class DedicatedIpPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0)
+            type_hints = cached_type_hints(_typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0)
             check_type(argname="argument dedicated_ip_pool_name", value=dedicated_ip_pool_name, expected_type=type_hints["dedicated_ip_pool_name"])
             check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -18029,7 +18035,7 @@ class DkimIdentity(
     def byo_dkim(
         cls,
         *,
-        private_key: "_SecretValue_3dd0ddae",
+        private_key: "_aws_cdk_0cae9daa.SecretValue",
         selector: builtins.str,
         public_key: typing.Optional[builtins.str] = None,
     ) -> "DkimIdentity":
@@ -18060,7 +18066,7 @@ class DkimIdentity(
         :see: https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc)
+            type_hints = cached_type_hints(_typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc)
             check_type(argname="argument signing_key_length", value=signing_key_length, expected_type=type_hints["signing_key_length"])
         return typing.cast("DkimIdentity", jsii.sinvoke(cls, "easyDkim", [signing_key_length]))
 
@@ -18069,7 +18075,7 @@ class DkimIdentity(
     def bind(
         self,
         email_identity: "EmailIdentity",
-        hosted_zone: typing.Optional["_IPublicHostedZone_9b6e7da4"] = None,
+        hosted_zone: typing.Optional["_aws_route53_ea3eecac.IPublicHostedZone"] = None,
     ) -> typing.Optional["DkimIdentityConfig"]:
         '''Binds this DKIM identity to the email identity.
 
@@ -18084,7 +18090,7 @@ class _DkimIdentityProxy(DkimIdentity):
     def bind(
         self,
         email_identity: "EmailIdentity",
-        hosted_zone: typing.Optional["_IPublicHostedZone_9b6e7da4"] = None,
+        hosted_zone: typing.Optional["_aws_route53_ea3eecac.IPublicHostedZone"] = None,
     ) -> typing.Optional["DkimIdentityConfig"]:
         '''Binds this DKIM identity to the email identity.
 
@@ -18092,7 +18098,7 @@ class _DkimIdentityProxy(DkimIdentity):
         :param hosted_zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db)
+            type_hints = cached_type_hints(_typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db)
             check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
         return typing.cast(typing.Optional["DkimIdentityConfig"], jsii.invoke(self, "bind", [email_identity, hosted_zone]))
@@ -18139,7 +18145,7 @@ class DkimIdentityConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb)
+            type_hints = cached_type_hints(_typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb)
             check_type(argname="argument domain_signing_private_key", value=domain_signing_private_key, expected_type=type_hints["domain_signing_private_key"])
             check_type(argname="argument domain_signing_selector", value=domain_signing_selector, expected_type=type_hints["domain_signing_selector"])
             check_type(argname="argument next_signing_key_length", value=next_signing_key_length, expected_type=type_hints["next_signing_key_length"])
@@ -18219,7 +18225,7 @@ class DkimRecord:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6)
+            type_hints = cached_type_hints(_typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -18293,9 +18299,9 @@ class DropSpamReceiptRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule_set: "_IReceiptRuleSetRef_f6b881e9",
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -18315,7 +18321,7 @@ class DropSpamReceiptRule(
         :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152)
+            type_hints = cached_type_hints(_typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DropSpamReceiptRuleProps(
@@ -18371,7 +18377,7 @@ class EmailIdentityProps:
         self,
         *,
         identity: "Identity",
-        configuration_set: typing.Optional["_IConfigurationSetRef_c4f30d41"] = None,
+        configuration_set: typing.Optional["_aws_ses_9999e6ba.IConfigurationSetRef"] = None,
         dkim_identity: typing.Optional["DkimIdentity"] = None,
         dkim_signing: typing.Optional[builtins.bool] = None,
         feedback_forwarding: typing.Optional[builtins.bool] = None,
@@ -18403,7 +18409,7 @@ class EmailIdentityProps:
             identity.grant_send_email(user)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030)
+            type_hints = cached_type_hints(_typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
             check_type(argname="argument dkim_identity", value=dkim_identity, expected_type=type_hints["dkim_identity"])
@@ -18435,13 +18441,15 @@ class EmailIdentityProps:
         return typing.cast("Identity", result)
 
     @builtins.property
-    def configuration_set(self) -> typing.Optional["_IConfigurationSetRef_c4f30d41"]:
+    def configuration_set(
+        self,
+    ) -> typing.Optional["_aws_ses_9999e6ba.IConfigurationSetRef"]:
         '''The configuration set to associate with the email identity.
 
         :default: - do not use a specific configuration set
         '''
         result = self._values.get("configuration_set")
-        return typing.cast(typing.Optional["_IConfigurationSetRef_c4f30d41"], result)
+        return typing.cast(typing.Optional["_aws_ses_9999e6ba.IConfigurationSetRef"], result)
 
     @builtins.property
     def dkim_identity(self) -> typing.Optional["DkimIdentity"]:
@@ -18598,19 +18606,22 @@ class EventDestination(
         :param dimensions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92)
+            type_hints = cached_type_hints(_typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92)
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         return typing.cast("EventDestination", jsii.sinvoke(cls, "cloudWatchDimensions", [dimensions]))
 
     @jsii.member(jsii_name="eventBus")
     @builtins.classmethod
-    def event_bus(cls, event_bus: "_IEventBusRef_aa86e9b4") -> "EventDestination":
+    def event_bus(
+        cls,
+        event_bus: "_aws_events_49a540ff.IEventBusRef",
+    ) -> "EventDestination":
         '''Use Event Bus as event destination.
 
         :param event_bus: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567)
+            type_hints = cached_type_hints(_typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567)
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
         return typing.cast("EventDestination", jsii.sinvoke(cls, "eventBus", [event_bus]))
 
@@ -18619,8 +18630,8 @@ class EventDestination(
     def firehose_delivery_stream(
         cls,
         *,
-        delivery_stream: "_IDeliveryStream_8f118861",
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        delivery_stream: "_aws_kinesisfirehose_7262737d.IDeliveryStream",
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "EventDestination":
         '''Use Firehose Delivery Stream as event destination.
 
@@ -18635,20 +18646,20 @@ class EventDestination(
 
     @jsii.member(jsii_name="snsTopic")
     @builtins.classmethod
-    def sns_topic(cls, topic: "_ITopic_9eca4852") -> "EventDestination":
+    def sns_topic(cls, topic: "_aws_sns_07ffc8ab.ITopic") -> "EventDestination":
         '''Use a SNS topic as event destination.
 
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c)
+            type_hints = cached_type_hints(_typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         return typing.cast("EventDestination", jsii.sinvoke(cls, "snsTopic", [topic]))
 
     @builtins.property
     @jsii.member(jsii_name="bus")
     @abc.abstractmethod
-    def bus(self) -> typing.Optional["_IEventBusRef_aa86e9b4"]:
+    def bus(self) -> typing.Optional["_aws_events_49a540ff.IEventBusRef"]:
         '''Use Event Bus as event destination.
 
         :default: - do not send events to Event bus
@@ -18678,7 +18689,7 @@ class EventDestination(
     @builtins.property
     @jsii.member(jsii_name="topic")
     @abc.abstractmethod
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''A SNS topic to use as event destination.
 
         :default: - do not send events to a SNS topic
@@ -18689,12 +18700,12 @@ class EventDestination(
 class _EventDestinationProxy(EventDestination):
     @builtins.property
     @jsii.member(jsii_name="bus")
-    def bus(self) -> typing.Optional["_IEventBusRef_aa86e9b4"]:
+    def bus(self) -> typing.Optional["_aws_events_49a540ff.IEventBusRef"]:
         '''Use Event Bus as event destination.
 
         :default: - do not send events to Event bus
         '''
-        return typing.cast(typing.Optional["_IEventBusRef_aa86e9b4"], jsii.get(self, "bus"))
+        return typing.cast(typing.Optional["_aws_events_49a540ff.IEventBusRef"], jsii.get(self, "bus"))
 
     @builtins.property
     @jsii.member(jsii_name="dimensions")
@@ -18716,12 +18727,12 @@ class _EventDestinationProxy(EventDestination):
 
     @builtins.property
     @jsii.member(jsii_name="topic")
-    def topic(self) -> typing.Optional["_ITopic_9eca4852"]:
+    def topic(self) -> typing.Optional["_aws_sns_07ffc8ab.ITopic"]:
         '''A SNS topic to use as event destination.
 
         :default: - do not send events to a SNS topic
         '''
-        return typing.cast(typing.Optional["_ITopic_9eca4852"], jsii.get(self, "topic"))
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.ITopic"], jsii.get(self, "topic"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, EventDestination).__jsii_proxy_class__ = lambda : _EventDestinationProxy
@@ -18736,8 +18747,8 @@ class FirehoseDeliveryStreamDestination:
     def __init__(
         self,
         *,
-        delivery_stream: "_IDeliveryStream_8f118861",
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        delivery_stream: "_aws_kinesisfirehose_7262737d.IDeliveryStream",
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''An object that defines an Amazon Data Firehose destination for email events.
 
@@ -18772,7 +18783,7 @@ class FirehoseDeliveryStreamDestination:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464)
+            type_hints = cached_type_hints(_typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464)
             check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -18782,20 +18793,20 @@ class FirehoseDeliveryStreamDestination:
             self._values["role"] = role
 
     @builtins.property
-    def delivery_stream(self) -> "_IDeliveryStream_8f118861":
+    def delivery_stream(self) -> "_aws_kinesisfirehose_7262737d.IDeliveryStream":
         '''The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.'''
         result = self._values.get("delivery_stream")
         assert result is not None, "Required property 'delivery_stream' is missing"
-        return typing.cast("_IDeliveryStream_8f118861", result)
+        return typing.cast("_aws_kinesisfirehose_7262737d.IDeliveryStream", result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream.
 
         :default: - Create IAM Role for Amazon Data Firehose Delivery stream
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18839,8 +18850,8 @@ class HttpsPolicy(enum.Enum):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSet")
 class IConfigurationSet(
-    _IResource_c80c4260,
-    _IConfigurationSetRef_c4f30d41,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IConfigurationSetRef,
     typing_extensions.Protocol,
 ):
     '''A configuration set.'''
@@ -18856,8 +18867,8 @@ class IConfigurationSet(
 
 
 class _IConfigurationSetProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IConfigurationSetRef_c4f30d41), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IConfigurationSetRef), # type: ignore[misc]
 ):
     '''A configuration set.'''
 
@@ -18878,8 +18889,8 @@ typing.cast(typing.Any, IConfigurationSet).__jsii_proxy_class__ = lambda : _ICon
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSetEventDestination")
 class IConfigurationSetEventDestination(
-    _IResource_c80c4260,
-    _IConfigurationSetEventDestinationRef_937b7110,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IConfigurationSetEventDestinationRef,
     typing_extensions.Protocol,
 ):
     '''A configuration set event destination.'''
@@ -18895,8 +18906,8 @@ class IConfigurationSetEventDestination(
 
 
 class _IConfigurationSetEventDestinationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IConfigurationSetEventDestinationRef_937b7110), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IConfigurationSetEventDestinationRef), # type: ignore[misc]
 ):
     '''A configuration set event destination.'''
 
@@ -18917,8 +18928,8 @@ typing.cast(typing.Any, IConfigurationSetEventDestination).__jsii_proxy_class__ 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IDedicatedIpPool")
 class IDedicatedIpPool(
-    _IResource_c80c4260,
-    _IDedicatedIpPoolRef_c0fd271c,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IDedicatedIpPoolRef,
     typing_extensions.Protocol,
 ):
     '''A dedicated IP pool.'''
@@ -18934,8 +18945,8 @@ class IDedicatedIpPool(
 
 
 class _IDedicatedIpPoolProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IDedicatedIpPoolRef_c0fd271c), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IDedicatedIpPoolRef), # type: ignore[misc]
 ):
     '''A dedicated IP pool.'''
 
@@ -18956,8 +18967,8 @@ typing.cast(typing.Any, IDedicatedIpPool).__jsii_proxy_class__ = lambda : _IDedi
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IEmailIdentity")
 class IEmailIdentity(
-    _IResource_c80c4260,
-    _IEmailIdentityRef_317356c6,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IEmailIdentityRef,
     typing_extensions.Protocol,
 ):
     '''An email identity.'''
@@ -18983,9 +18994,9 @@ class IEmailIdentity(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
 
         :param grantee: the principal (no-op if undefined).
@@ -18994,7 +19005,10 @@ class IEmailIdentity(
         ...
 
     @jsii.member(jsii_name="grantSendEmail")
-    def grant_send_email(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_email(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Permits an IAM principal the send email action.
 
         Actions: SendEmail.
@@ -19005,8 +19019,8 @@ class IEmailIdentity(
 
 
 class _IEmailIdentityProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IEmailIdentityRef_317356c6), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IEmailIdentityRef), # type: ignore[misc]
 ):
     '''An email identity.'''
 
@@ -19033,22 +19047,25 @@ class _IEmailIdentityProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
 
         :param grantee: the principal (no-op if undefined).
         :param actions: the set of actions to allow.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702)
+            type_hints = cached_type_hints(_typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantSendEmail")
-    def grant_send_email(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_email(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Permits an IAM principal the send email action.
 
         Actions: SendEmail.
@@ -19056,9 +19073,9 @@ class _IEmailIdentityProxy(
         :param grantee: the principal to grant access to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd)
+            type_hints = cached_type_hints(_typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSendEmail", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSendEmail", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IEmailIdentity).__jsii_proxy_class__ = lambda : _IEmailIdentityProxy
@@ -19066,8 +19083,8 @@ typing.cast(typing.Any, IEmailIdentity).__jsii_proxy_class__ = lambda : _IEmailI
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRule")
 class IReceiptRule(
-    _IResource_c80c4260,
-    _IReceiptRuleRef_0f93d846,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IReceiptRuleRef,
     typing_extensions.Protocol,
 ):
     '''A receipt rule.'''
@@ -19083,8 +19100,8 @@ class IReceiptRule(
 
 
 class _IReceiptRuleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IReceiptRuleRef_0f93d846), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IReceiptRuleRef), # type: ignore[misc]
 ):
     '''A receipt rule.'''
 
@@ -19110,7 +19127,7 @@ class IReceiptRuleAction(typing_extensions.Protocol):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        receipt_rule: "_IReceiptRuleRef_0f93d846",
+        receipt_rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
     ) -> "ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
@@ -19127,14 +19144,14 @@ class _IReceiptRuleActionProxy:
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        receipt_rule: "_IReceiptRuleRef_0f93d846",
+        receipt_rule: "_aws_ses_9999e6ba.IReceiptRuleRef",
     ) -> "ReceiptRuleActionConfig":
         '''Returns the receipt rule action specification.
 
         :param receipt_rule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5)
+            type_hints = cached_type_hints(_typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5)
             check_type(argname="argument receipt_rule", value=receipt_rule, expected_type=type_hints["receipt_rule"])
         return typing.cast("ReceiptRuleActionConfig", jsii.invoke(self, "bind", [receipt_rule]))
 
@@ -19144,8 +19161,8 @@ typing.cast(typing.Any, IReceiptRuleAction).__jsii_proxy_class__ = lambda : _IRe
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleSet")
 class IReceiptRuleSet(
-    _IResource_c80c4260,
-    _IReceiptRuleSetRef_f6b881e9,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IReceiptRuleSetRef,
     typing_extensions.Protocol,
 ):
     '''A receipt rule set.'''
@@ -19165,7 +19182,7 @@ class IReceiptRuleSet(
         id: builtins.str,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19190,8 +19207,8 @@ class IReceiptRuleSet(
 
 
 class _IReceiptRuleSetProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IReceiptRuleSetRef_f6b881e9), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IReceiptRuleSetRef), # type: ignore[misc]
 ):
     '''A receipt rule set.'''
 
@@ -19212,7 +19229,7 @@ class _IReceiptRuleSetProxy(
         id: builtins.str,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19234,7 +19251,7 @@ class _IReceiptRuleSetProxy(
         :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15)
+            type_hints = cached_type_hints(_typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ReceiptRuleOptions(
             actions=actions,
@@ -19254,8 +19271,8 @@ typing.cast(typing.Any, IReceiptRuleSet).__jsii_proxy_class__ = lambda : _IRecei
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IVdmAttributes")
 class IVdmAttributes(
-    _IResource_c80c4260,
-    _IVdmAttributesRef_2d5b2489,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ses_9999e6ba.IVdmAttributesRef,
     typing_extensions.Protocol,
 ):
     '''Virtual Deliverability Manager (VDM) attributes.'''
@@ -19271,8 +19288,8 @@ class IVdmAttributes(
 
 
 class _IVdmAttributesProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IVdmAttributesRef_2d5b2489), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ses_9999e6ba.IVdmAttributesRef), # type: ignore[misc]
 ):
     '''Virtual Deliverability Manager (VDM) attributes.'''
 
@@ -19326,7 +19343,7 @@ class Identity(
         :param domain: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5)
+            type_hints = cached_type_hints(_typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
         return typing.cast("Identity", jsii.sinvoke(cls, "domain", [domain]))
 
@@ -19341,7 +19358,7 @@ class Identity(
         :param email: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6)
+            type_hints = cached_type_hints(_typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
         return typing.cast("Identity", jsii.sinvoke(cls, "email", [email]))
 
@@ -19349,7 +19366,7 @@ class Identity(
     @builtins.classmethod
     def public_hosted_zone(
         cls,
-        hosted_zone: "_IPublicHostedZone_9b6e7da4",
+        hosted_zone: "_aws_route53_ea3eecac.IPublicHostedZone",
     ) -> "Identity":
         '''Verify a public hosted zone.
 
@@ -19359,7 +19376,7 @@ class Identity(
         :param hosted_zone: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776)
+            type_hints = cached_type_hints(_typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
         return typing.cast("Identity", jsii.sinvoke(cls, "publicHostedZone", [hosted_zone]))
 
@@ -19373,7 +19390,7 @@ class Identity(
     @builtins.property
     @jsii.member(jsii_name="hostedZone")
     @abc.abstractmethod
-    def hosted_zone(self) -> typing.Optional["_IPublicHostedZone_9b6e7da4"]:
+    def hosted_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IPublicHostedZone"]:
         '''The hosted zone associated with this identity.
 
         :default: - no hosted zone is associated and no records are created
@@ -19390,12 +19407,12 @@ class _IdentityProxy(Identity):
 
     @builtins.property
     @jsii.member(jsii_name="hostedZone")
-    def hosted_zone(self) -> typing.Optional["_IPublicHostedZone_9b6e7da4"]:
+    def hosted_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IPublicHostedZone"]:
         '''The hosted zone associated with this identity.
 
         :default: - no hosted zone is associated and no records are created
         '''
-        return typing.cast(typing.Optional["_IPublicHostedZone_9b6e7da4"], jsii.get(self, "hostedZone"))
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IPublicHostedZone"], jsii.get(self, "hostedZone"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, Identity).__jsii_proxy_class__ = lambda : _IdentityProxy
@@ -19441,7 +19458,7 @@ class LambdaActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa)
+            type_hints = cached_type_hints(_typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa)
             check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
             check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
@@ -19508,7 +19525,7 @@ class MailFromBehaviorOnMxFailure(enum.Enum):
 
 
 class ReceiptFilter(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.ReceiptFilter",
 ):
@@ -19543,7 +19560,7 @@ class ReceiptFilter(
         :param receipt_filter_name: The name for the receipt filter. Default: a CloudFormation generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f)
+            type_hints = cached_type_hints(_typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ReceiptFilterProps(
@@ -19601,7 +19618,7 @@ class ReceiptFilterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce)
+            type_hints = cached_type_hints(_typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce)
             check_type(argname="argument ip", value=ip, expected_type=type_hints["ip"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument receipt_filter_name", value=receipt_filter_name, expected_type=type_hints["receipt_filter_name"])
@@ -19654,7 +19671,7 @@ class ReceiptFilterProps:
 
 @jsii.implements(IReceiptRule)
 class ReceiptRule(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.ReceiptRule",
 ):
@@ -19676,9 +19693,9 @@ class ReceiptRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule_set: "_IReceiptRuleSetRef_f6b881e9",
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19698,7 +19715,7 @@ class ReceiptRule(
         :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3)
+            type_hints = cached_type_hints(_typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ReceiptRuleProps(
@@ -19728,7 +19745,7 @@ class ReceiptRule(
         :param receipt_rule_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c)
+            type_hints = cached_type_hints(_typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
@@ -19741,7 +19758,7 @@ class ReceiptRule(
         :param action: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b)
+            type_hints = cached_type_hints(_typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
         return typing.cast(None, jsii.invoke(self, "addAction", [action]))
 
@@ -19759,9 +19776,9 @@ class ReceiptRule(
 
     @builtins.property
     @jsii.member(jsii_name="receiptRuleRef")
-    def receipt_rule_ref(self) -> "_ReceiptRuleReference_2b9e9bb2":
+    def receipt_rule_ref(self) -> "_aws_ses_9999e6ba.ReceiptRuleReference":
         '''A reference to a ReceiptRule resource.'''
-        return typing.cast("_ReceiptRuleReference_2b9e9bb2", jsii.get(self, "receiptRuleRef"))
+        return typing.cast("_aws_ses_9999e6ba.ReceiptRuleReference", jsii.get(self, "receiptRuleRef"))
 
 
 @jsii.data_type(
@@ -19869,7 +19886,7 @@ class ReceiptRuleActionConfig:
         if isinstance(workmail_action, dict):
             workmail_action = WorkmailActionConfig(**workmail_action)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c)
+            type_hints = cached_type_hints(_typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c)
             check_type(argname="argument add_header_action", value=add_header_action, expected_type=type_hints["add_header_action"])
             check_type(argname="argument bounce_action", value=bounce_action, expected_type=type_hints["bounce_action"])
             check_type(argname="argument lambda_action", value=lambda_action, expected_type=type_hints["lambda_action"])
@@ -19965,7 +19982,7 @@ class ReceiptRuleOptions:
         self,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19993,7 +20010,7 @@ class ReceiptRuleOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab)
+            type_hints = cached_type_hints(_typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument after", value=after, expected_type=type_hints["after"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -20027,13 +20044,13 @@ class ReceiptRuleOptions:
         return typing.cast(typing.Optional[typing.List["IReceiptRuleAction"]], result)
 
     @builtins.property
-    def after(self) -> typing.Optional["_IReceiptRuleRef_0f93d846"]:
+    def after(self) -> typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"]:
         '''An existing rule after which the new rule will be placed.
 
         :default: - The new rule is inserted at the beginning of the rule list.
         '''
         result = self._values.get("after")
-        return typing.cast(typing.Optional["_IReceiptRuleRef_0f93d846"], result)
+        return typing.cast(typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -20111,13 +20128,13 @@ class ReceiptRuleProps(ReceiptRuleOptions):
         self,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
         scan_enabled: typing.Optional[builtins.bool] = None,
         tls_policy: typing.Optional["TlsPolicy"] = None,
-        rule_set: "_IReceiptRuleSetRef_f6b881e9",
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
     ) -> None:
         '''Construction properties for a ReceiptRule.
 
@@ -20157,7 +20174,7 @@ class ReceiptRuleProps(ReceiptRuleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b)
+            type_hints = cached_type_hints(_typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument after", value=after, expected_type=type_hints["after"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -20194,13 +20211,13 @@ class ReceiptRuleProps(ReceiptRuleOptions):
         return typing.cast(typing.Optional[typing.List["IReceiptRuleAction"]], result)
 
     @builtins.property
-    def after(self) -> typing.Optional["_IReceiptRuleRef_0f93d846"]:
+    def after(self) -> typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"]:
         '''An existing rule after which the new rule will be placed.
 
         :default: - The new rule is inserted at the beginning of the rule list.
         '''
         result = self._values.get("after")
-        return typing.cast(typing.Optional["_IReceiptRuleRef_0f93d846"], result)
+        return typing.cast(typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -20248,11 +20265,11 @@ class ReceiptRuleProps(ReceiptRuleOptions):
         return typing.cast(typing.Optional["TlsPolicy"], result)
 
     @builtins.property
-    def rule_set(self) -> "_IReceiptRuleSetRef_f6b881e9":
+    def rule_set(self) -> "_aws_ses_9999e6ba.IReceiptRuleSetRef":
         '''The name of the rule set that the receipt rule will be added to.'''
         result = self._values.get("rule_set")
         assert result is not None, "Required property 'rule_set' is missing"
-        return typing.cast("_IReceiptRuleSetRef_f6b881e9", result)
+        return typing.cast("_aws_ses_9999e6ba.IReceiptRuleSetRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20268,7 +20285,7 @@ class ReceiptRuleProps(ReceiptRuleOptions):
 
 @jsii.implements(IReceiptRuleSet)
 class ReceiptRuleSet(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSet",
 ):
@@ -20302,7 +20319,7 @@ class ReceiptRuleSet(
         :param rules: The list of rules to add to this rule set. Rules are added in the same order as they appear in the list. Default: - No rules are added to the rule set.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a)
+            type_hints = cached_type_hints(_typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ReceiptRuleSetProps(
@@ -20328,7 +20345,7 @@ class ReceiptRuleSet(
         :param receipt_rule_set_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832)
+            type_hints = cached_type_hints(_typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
@@ -20345,7 +20362,7 @@ class ReceiptRuleSet(
         id: builtins.str,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -20367,7 +20384,7 @@ class ReceiptRuleSet(
         :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a)
+            type_hints = cached_type_hints(_typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ReceiptRuleOptions(
             actions=actions,
@@ -20395,9 +20412,9 @@ class ReceiptRuleSet(
 
     @builtins.property
     @jsii.member(jsii_name="receiptRuleSetRef")
-    def receipt_rule_set_ref(self) -> "_ReceiptRuleSetReference_0daf31cb":
+    def receipt_rule_set_ref(self) -> "_aws_ses_9999e6ba.ReceiptRuleSetReference":
         '''A reference to a ReceiptRuleSet resource.'''
-        return typing.cast("_ReceiptRuleSetReference_0daf31cb", jsii.get(self, "receiptRuleSetRef"))
+        return typing.cast("_aws_ses_9999e6ba.ReceiptRuleSetReference", jsii.get(self, "receiptRuleSetRef"))
 
 
 @jsii.data_type(
@@ -20442,7 +20459,7 @@ class ReceiptRuleSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe)
+            type_hints = cached_type_hints(_typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe)
             check_type(argname="argument drop_spam", value=drop_spam, expected_type=type_hints["drop_spam"])
             check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
@@ -20540,7 +20557,7 @@ class S3ActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182)
+            type_hints = cached_type_hints(_typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182)
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument object_key_prefix", value=object_key_prefix, expected_type=type_hints["object_key_prefix"])
@@ -20641,7 +20658,7 @@ class SNSActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af)
+            type_hints = cached_type_hints(_typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af)
             check_type(argname="argument encoding", value=encoding, expected_type=type_hints["encoding"])
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -20738,7 +20755,7 @@ class StopActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc)
+            type_hints = cached_type_hints(_typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -20826,7 +20843,7 @@ class TlsPolicy(enum.Enum):
 
 @jsii.implements(IVdmAttributes)
 class VdmAttributes(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.VdmAttributes",
 ):
@@ -20855,7 +20872,7 @@ class VdmAttributes(
         :param optimized_shared_delivery: Whether optimized shared delivery is enabled for your account. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000)
+            type_hints = cached_type_hints(_typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = VdmAttributesProps(
@@ -20880,7 +20897,7 @@ class VdmAttributes(
         :param vdm_attributes_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325)
+            type_hints = cached_type_hints(_typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument vdm_attributes_name", value=vdm_attributes_name, expected_type=type_hints["vdm_attributes_name"])
@@ -20900,9 +20917,9 @@ class VdmAttributes(
 
     @builtins.property
     @jsii.member(jsii_name="vdmAttributesRef")
-    def vdm_attributes_ref(self) -> "_VdmAttributesReference_007eac2c":
+    def vdm_attributes_ref(self) -> "_aws_ses_9999e6ba.VdmAttributesReference":
         '''A reference to a VdmAttributes resource.'''
-        return typing.cast("_VdmAttributesReference_007eac2c", jsii.get(self, "vdmAttributesRef"))
+        return typing.cast("_aws_ses_9999e6ba.VdmAttributesReference", jsii.get(self, "vdmAttributesRef"))
 
     @builtins.property
     @jsii.member(jsii_name="vdmAttributesResourceId")
@@ -20948,7 +20965,7 @@ class VdmAttributesProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0)
+            type_hints = cached_type_hints(_typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0)
             check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
             check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -21019,7 +21036,7 @@ class VdmOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa)
+            type_hints = cached_type_hints(_typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa)
             check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
             check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -21091,7 +21108,7 @@ class WorkmailActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b)
+            type_hints = cached_type_hints(_typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b)
             check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -21135,7 +21152,7 @@ class WorkmailActionConfig:
 
 @jsii.implements(IConfigurationSet)
 class ConfigurationSet(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.ConfigurationSet",
 ):
@@ -21160,10 +21177,10 @@ class ConfigurationSet(
         configuration_set_name: typing.Optional[builtins.str] = None,
         custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
         custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-        dedicated_ip_pool: typing.Optional["_IDedicatedIpPoolRef_c0fd271c"] = None,
+        dedicated_ip_pool: typing.Optional["_aws_ses_9999e6ba.IDedicatedIpPoolRef"] = None,
         disable_auto_validation: typing.Optional[builtins.bool] = None,
         disable_suppression_list: typing.Optional[builtins.bool] = None,
-        max_delivery_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delivery_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         reputation_metrics: typing.Optional[builtins.bool] = None,
         sending_enabled: typing.Optional[builtins.bool] = None,
         suppression_reasons: typing.Optional["SuppressionReasons"] = None,
@@ -21188,7 +21205,7 @@ class ConfigurationSet(
         :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set. Default: - VDM options not configured at the configuration set level. In this case, use account level settings. (To set the account level settings using CDK, use the ``VdmAttributes`` Construct.)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52b42851a408d3eb2b07399f2b34603200cef443be5e9f913f4a1d80a47ac83e)
+            type_hints = cached_type_hints(_typecheckingstub__52b42851a408d3eb2b07399f2b34603200cef443be5e9f913f4a1d80a47ac83e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ConfigurationSetProps(
@@ -21224,7 +21241,7 @@ class ConfigurationSet(
         :param configuration_set_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ae99096d05b68163763ffbed7aafa034cd3a774f632bff2370d017f76194045)
+            type_hints = cached_type_hints(_typecheckingstub__2ae99096d05b68163763ffbed7aafa034cd3a774f632bff2370d017f76194045)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
@@ -21249,7 +21266,7 @@ class ConfigurationSet(
         :param events: The type of email sending events to publish to the event destination. Default: - send all event types
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__969c3bbc0e7891ce9eb910e67644f0f9bcb29f65f5ec021df94eed425cb0d707)
+            type_hints = cached_type_hints(_typecheckingstub__969c3bbc0e7891ce9eb910e67644f0f9bcb29f65f5ec021df94eed425cb0d707)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ConfigurationSetEventDestinationOptions(
             destination=destination,
@@ -21274,14 +21291,14 @@ class ConfigurationSet(
 
     @builtins.property
     @jsii.member(jsii_name="configurationSetRef")
-    def configuration_set_ref(self) -> "_ConfigurationSetReference_07006bc6":
+    def configuration_set_ref(self) -> "_aws_ses_9999e6ba.ConfigurationSetReference":
         '''A reference to a ConfigurationSet resource.'''
-        return typing.cast("_ConfigurationSetReference_07006bc6", jsii.get(self, "configurationSetRef"))
+        return typing.cast("_aws_ses_9999e6ba.ConfigurationSetReference", jsii.get(self, "configurationSetRef"))
 
 
 @jsii.implements(IConfigurationSetEventDestination)
 class ConfigurationSetEventDestination(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestination",
 ):
@@ -21315,7 +21332,7 @@ class ConfigurationSetEventDestination(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration_set: "_IConfigurationSetRef_c4f30d41",
+        configuration_set: "_aws_ses_9999e6ba.IConfigurationSetRef",
         destination: "EventDestination",
         configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
@@ -21331,7 +21348,7 @@ class ConfigurationSetEventDestination(
         :param events: The type of email sending events to publish to the event destination. Default: - send all event types
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf213dc05e866bbe3e9422388bafa084e54ef674803fa10657e5b96b908d6965)
+            type_hints = cached_type_hints(_typecheckingstub__cf213dc05e866bbe3e9422388bafa084e54ef674803fa10657e5b96b908d6965)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ConfigurationSetEventDestinationProps(
@@ -21359,7 +21376,7 @@ class ConfigurationSetEventDestination(
         :param configuration_set_event_destination_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4740349c6047d2ad783d767c6424ac19156d882d3534207b1440beda62370433)
+            type_hints = cached_type_hints(_typecheckingstub__4740349c6047d2ad783d767c6424ac19156d882d3534207b1440beda62370433)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument configuration_set_event_destination_id", value=configuration_set_event_destination_id, expected_type=type_hints["configuration_set_event_destination_id"])
@@ -21381,14 +21398,14 @@ class ConfigurationSetEventDestination(
     @jsii.member(jsii_name="configurationSetEventDestinationRef")
     def configuration_set_event_destination_ref(
         self,
-    ) -> "_ConfigurationSetEventDestinationReference_122c29c6":
+    ) -> "_aws_ses_9999e6ba.ConfigurationSetEventDestinationReference":
         '''A reference to a ConfigurationSetEventDestination resource.'''
-        return typing.cast("_ConfigurationSetEventDestinationReference_122c29c6", jsii.get(self, "configurationSetEventDestinationRef"))
+        return typing.cast("_aws_ses_9999e6ba.ConfigurationSetEventDestinationReference", jsii.get(self, "configurationSetEventDestinationRef"))
 
 
 @jsii.implements(IDedicatedIpPool)
 class DedicatedIpPool(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.DedicatedIpPool",
 ):
@@ -21419,7 +21436,7 @@ class DedicatedIpPool(
         :param scaling_mode: The type of scailing mode to use for this IP pool. Updating ScalingMode doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED``. However, updating ScalingMode from ``MANAGED`` to ``STANDARD`` is not supported. Default: ScalingMode.STANDARD
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4f168ec9aad173d023a8ac330a62f7c1ce87601f0a8876e8cbf35c7dcd89ead)
+            type_hints = cached_type_hints(_typecheckingstub__a4f168ec9aad173d023a8ac330a62f7c1ce87601f0a8876e8cbf35c7dcd89ead)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DedicatedIpPoolProps(
@@ -21443,7 +21460,7 @@ class DedicatedIpPool(
         :param dedicated_ip_pool_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d620bd493f43394b0479d58a02acf7d3c1644c63cc64fc186abe29e763516bf)
+            type_hints = cached_type_hints(_typecheckingstub__6d620bd493f43394b0479d58a02acf7d3c1644c63cc64fc186abe29e763516bf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument dedicated_ip_pool_name", value=dedicated_ip_pool_name, expected_type=type_hints["dedicated_ip_pool_name"])
@@ -21463,9 +21480,9 @@ class DedicatedIpPool(
 
     @builtins.property
     @jsii.member(jsii_name="dedicatedIpPoolRef")
-    def dedicated_ip_pool_ref(self) -> "_DedicatedIpPoolReference_05fca49e":
+    def dedicated_ip_pool_ref(self) -> "_aws_ses_9999e6ba.DedicatedIpPoolReference":
         '''A reference to a DedicatedIpPool resource.'''
-        return typing.cast("_DedicatedIpPoolReference_05fca49e", jsii.get(self, "dedicatedIpPoolRef"))
+        return typing.cast("_aws_ses_9999e6ba.DedicatedIpPoolReference", jsii.get(self, "dedicatedIpPoolRef"))
 
 
 @jsii.data_type(
@@ -21487,13 +21504,13 @@ class DropSpamReceiptRuleProps(ReceiptRuleProps):
         self,
         *,
         actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["_IReceiptRuleRef_0f93d846"] = None,
+        after: typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"] = None,
         enabled: typing.Optional[builtins.bool] = None,
         receipt_rule_name: typing.Optional[builtins.str] = None,
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
         scan_enabled: typing.Optional[builtins.bool] = None,
         tls_policy: typing.Optional["TlsPolicy"] = None,
-        rule_set: "_IReceiptRuleSetRef_f6b881e9",
+        rule_set: "_aws_ses_9999e6ba.IReceiptRuleSetRef",
     ) -> None:
         '''
         :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
@@ -21532,7 +21549,7 @@ class DropSpamReceiptRuleProps(ReceiptRuleProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f78c7c8898fbe6486ab42279bd1b1abce1f0305e2d0cc19d79400e08c909951f)
+            type_hints = cached_type_hints(_typecheckingstub__f78c7c8898fbe6486ab42279bd1b1abce1f0305e2d0cc19d79400e08c909951f)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument after", value=after, expected_type=type_hints["after"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -21569,13 +21586,13 @@ class DropSpamReceiptRuleProps(ReceiptRuleProps):
         return typing.cast(typing.Optional[typing.List["IReceiptRuleAction"]], result)
 
     @builtins.property
-    def after(self) -> typing.Optional["_IReceiptRuleRef_0f93d846"]:
+    def after(self) -> typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"]:
         '''An existing rule after which the new rule will be placed.
 
         :default: - The new rule is inserted at the beginning of the rule list.
         '''
         result = self._values.get("after")
-        return typing.cast(typing.Optional["_IReceiptRuleRef_0f93d846"], result)
+        return typing.cast(typing.Optional["_aws_ses_9999e6ba.IReceiptRuleRef"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -21623,11 +21640,11 @@ class DropSpamReceiptRuleProps(ReceiptRuleProps):
         return typing.cast(typing.Optional["TlsPolicy"], result)
 
     @builtins.property
-    def rule_set(self) -> "_IReceiptRuleSetRef_f6b881e9":
+    def rule_set(self) -> "_aws_ses_9999e6ba.IReceiptRuleSetRef":
         '''The name of the rule set that the receipt rule will be added to.'''
         result = self._values.get("rule_set")
         assert result is not None, "Required property 'rule_set' is missing"
-        return typing.cast("_IReceiptRuleSetRef_f6b881e9", result)
+        return typing.cast("_aws_ses_9999e6ba.IReceiptRuleSetRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21643,7 +21660,7 @@ class DropSpamReceiptRuleProps(ReceiptRuleProps):
 
 @jsii.implements(IEmailIdentity)
 class EmailIdentity(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.EmailIdentity",
 ):
@@ -21670,7 +21687,7 @@ class EmailIdentity(
         id: builtins.str,
         *,
         identity: "Identity",
-        configuration_set: typing.Optional["_IConfigurationSetRef_c4f30d41"] = None,
+        configuration_set: typing.Optional["_aws_ses_9999e6ba.IConfigurationSetRef"] = None,
         dkim_identity: typing.Optional["DkimIdentity"] = None,
         dkim_signing: typing.Optional[builtins.bool] = None,
         feedback_forwarding: typing.Optional[builtins.bool] = None,
@@ -21689,7 +21706,7 @@ class EmailIdentity(
         :param mail_from_domain: The custom MAIL FROM domain that you want the verified identity to use. The MAIL FROM domain must meet the following criteria: - It has to be a subdomain of the verified identity - It can't be used to receive email - It can't be used in a "From" address if the MAIL FROM domain is a destination for feedback forwarding emails Default: - use amazonses.com
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0d44bf733be67b29d51a6c681c3faafee6103884474147b68d4b466a07017e9)
+            type_hints = cached_type_hints(_typecheckingstub__a0d44bf733be67b29d51a6c681c3faafee6103884474147b68d4b466a07017e9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EmailIdentityProps(
@@ -21719,7 +21736,7 @@ class EmailIdentity(
         :param email_identity_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2de9549a4fca6f40216fb37a5702ca1bed885d852e1611aee32de9a296311f79)
+            type_hints = cached_type_hints(_typecheckingstub__2de9549a4fca6f40216fb37a5702ca1bed885d852e1611aee32de9a296311f79)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument email_identity_arn", value=email_identity_arn, expected_type=type_hints["email_identity_arn"])
@@ -21740,7 +21757,7 @@ class EmailIdentity(
         :param email_identity_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb1cb50e69249e3f61387a80db0e14cc9a9790c024548390466a511484409a85)
+            type_hints = cached_type_hints(_typecheckingstub__eb1cb50e69249e3f61387a80db0e14cc9a9790c024548390466a511484409a85)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument email_identity_name", value=email_identity_name, expected_type=type_hints["email_identity_name"])
@@ -21749,9 +21766,9 @@ class EmailIdentity(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
 
         [disable-awslint:no-grants]
@@ -21760,13 +21777,16 @@ class EmailIdentity(
         :param actions: the set of actions to allow.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__201fd562ac01abcf39bae4ac240c6e3bd36c3ab202bc573ee6e08045ef02e36f)
+            type_hints = cached_type_hints(_typecheckingstub__201fd562ac01abcf39bae4ac240c6e3bd36c3ab202bc573ee6e08045ef02e36f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantSendEmail")
-    def grant_send_email(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_send_email(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Permits an IAM principal the send email action.
 
         Actions: SendEmail, SendRawEmail.
@@ -21776,9 +21796,9 @@ class EmailIdentity(
         :param grantee: the principal to grant access to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c92b3cf4c512d5ff21aa2749ab5ec60562bb7ed4c53c41d882ac2cb7cd5752b8)
+            type_hints = cached_type_hints(_typecheckingstub__c92b3cf4c512d5ff21aa2749ab5ec60562bb7ed4c53c41d882ac2cb7cd5752b8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSendEmail", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSendEmail", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -21860,9 +21880,9 @@ class EmailIdentity(
 
     @builtins.property
     @jsii.member(jsii_name="emailIdentityRef")
-    def email_identity_ref(self) -> "_EmailIdentityReference_f9b00141":
+    def email_identity_ref(self) -> "_aws_ses_9999e6ba.EmailIdentityReference":
         '''A reference to a EmailIdentity resource.'''
-        return typing.cast("_EmailIdentityReference_f9b00141", jsii.get(self, "emailIdentityRef"))
+        return typing.cast("_aws_ses_9999e6ba.EmailIdentityReference", jsii.get(self, "emailIdentityRef"))
 
 
 __all__ = [
@@ -22007,7 +22027,7 @@ def _typecheckingstub__0ed2c8bc5cd582573c72e7ec8ce40272efe39b764d2bea49d78fc57f7
 
 def _typecheckingstub__b4e23b7bc7e365a5b875e5ba4ad81ccfb3182ca4059f46dfe11066714a13fffb(
     *,
-    private_key: _SecretValue_3dd0ddae,
+    private_key: _aws_cdk_0cae9daa.SecretValue,
     selector: builtins.str,
     public_key: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22018,21 +22038,21 @@ def _typecheckingstub__ad84a733d05a7160c0517733c56c249f6a299231ebcf8e982ed1aeda9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    archiving_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    archiving_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reputation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sending_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    suppression_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracking_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vdm_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6d526509c4a74554f02a1e75329c7b254b642024595fc23d96e2f2ce1b0049da(
-    resource: _IConfigurationSetRef_c4f30d41,
+    resource: _aws_ses_9999e6ba.IConfigurationSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22052,7 +22072,7 @@ def _typecheckingstub__a877be83e9ff07cf697a8d80f4cffe98afd51b6bf96953a798e3ecd7d
     pass
 
 def _typecheckingstub__703d8eb12ae21101f4f93e6ab7089d820f42a27a22e1028eee983deee4056343(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22064,13 +22084,13 @@ def _typecheckingstub__3ec352b38e2d7189e23d09b362a1b86566764825e5e48e241ee1b2ef5
     pass
 
 def _typecheckingstub__98dddff2c17ff16f32868cbb08375468ce0e032bcd59174639e7ea9c59e0597a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.ArchivingOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.ArchivingOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d5255bb6021541c7e84379b09a4ffd806238f1ac83ad0e7000ea7e34028bc9a3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.DeliveryOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.DeliveryOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22082,37 +22102,37 @@ def _typecheckingstub__9757b0b78870ccfafd1e870ca194f545ac0873693da40dc15e29ba8b5
     pass
 
 def _typecheckingstub__dcb56d1f8e63eec7f19208aaf5c6887b110d769aa45bfe8a7329339a1cc321b6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.ReputationOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.ReputationOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfa327a56576655b9670d914964b52df069b29497d84b812a2f15586b1c5faa9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SendingOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.SendingOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4d6e92203e0b0fb9ad18351409d2e930bd3b3881d922fcb2f2b38b337f5f4c55(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SuppressionOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.SuppressionOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c62b9f68ee9b0075b17aa0e2ad90c86281aa22d6d7e67129dbeee761ce2c5d4f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0e2738cc83fe741aa7d2c58d5db581a79f89d7427a9504ac697d8f7dd2004ea9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.TrackingOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.TrackingOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3f115779032dd22d020f87b590d89ccdd0a4fc3f269b15bbecfde29ad92e4289(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.VdmOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSet.VdmOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22127,7 +22147,7 @@ def _typecheckingstub__6258c0fb16c48115872d650a20ab8971bed1bbfea75dd131a319a2cc6
 def _typecheckingstub__3bd7cfef5b77c938973f3ba95098801eddfbe74e3f05b89c64ce9101abba9e4e(
     *,
     condition_threshold_enabled: builtins.str,
-    overall_confidence_threshold: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.OverallConfidenceThresholdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    overall_confidence_threshold: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.OverallConfidenceThresholdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22164,14 +22184,14 @@ def _typecheckingstub__d1f6f28524e2176fa5dd889536525c3adb3d5a5d9c20ee8939a816f9b
 
 def _typecheckingstub__66f701bd9f49ad0c515c9634599b8e0616f4f3b15f2e4f6b9f906f2542e78676(
     *,
-    reputation_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    reputation_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a548843fec9d94e10684140077e38c05264eb17e9e2997b3e7a864cb183318b8(
     *,
-    sending_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sending_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22179,7 +22199,7 @@ def _typecheckingstub__a548843fec9d94e10684140077e38c05264eb17e9e2997b3e7a864cb1
 def _typecheckingstub__8d9a9f4a0b048a750b42ffb05bbf2f29193ab82552fe268e651a27bc5bf661be(
     *,
     suppressed_reasons: typing.Optional[typing.Sequence[builtins.str]] = None,
-    validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ValidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ValidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22194,15 +22214,15 @@ def _typecheckingstub__9cb3a7d8357d451a88f3bdd86fea15ef7d167ba61579a61a8e1fe9eb6
 
 def _typecheckingstub__f216e55cbc608a35466db76c5902896415705befe41a4d13cf4958599c21e18c(
     *,
-    condition_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ConditionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
+    condition_threshold: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ConditionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__94fcd9f4369b7da06731e9702fc08a13db56c4b817946b6fda1167dfc314ecd2(
     *,
-    dashboard_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DashboardOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    guardian_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.GuardianOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dashboard_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.DashboardOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    guardian_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.GuardianOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22211,8 +22231,8 @@ def _typecheckingstub__e0376f935c1363b5c7cfddd668508c112d2a00f2637b1a84086b70c96
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration_set_name: typing.Union[builtins.str, _IConfigurationSetRef_c4f30d41],
-    event_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration_set_name: typing.Union[builtins.str, _aws_ses_9999e6ba.IConfigurationSetRef],
+    event_destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22224,7 +22244,7 @@ def _typecheckingstub__5426c24035203cb4402501bb84560acd16e2d3ea726c2745399600d38
     pass
 
 def _typecheckingstub__d77d1e029fcf58a1f079cf11a321a2e3416ae4150d8df3576a09e3c62095ca35(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22242,14 +22262,14 @@ def _typecheckingstub__a9ebb672423cac8794fa77851a8fa78b27a8be4beabf8025723862ad9
     pass
 
 def _typecheckingstub__c5bde831b7591d8114916d0e9453c13daabe44cbe1f0da50b7cd72b598079dfa(
-    value: typing.Union[_IResolvable_da3f097b, CfnConfigurationSetEventDestination.EventDestinationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationSetEventDestination.EventDestinationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e60b6436d0d38ae03fe0a4f110271b401e922dc980b2b61e9f401dd25eb1061c(
     *,
-    dimension_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.DimensionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimension_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.DimensionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22273,12 +22293,12 @@ def _typecheckingstub__3a4907cb327688c60af2197dae9e175f413bab66ce8ecf29fe40b1fdc
 def _typecheckingstub__b77a9a6a44a2946da816730acf4f2c79407a57e401fb25707130b8e68609c0b9(
     *,
     matching_event_types: typing.Sequence[builtins.str],
-    cloud_watch_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.CloudWatchDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_bridge_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventBridgeDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_firehose_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.CloudWatchDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    event_bridge_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.EventBridgeDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_firehose_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    sns_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.SnsDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sns_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.SnsDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22300,23 +22320,23 @@ def _typecheckingstub__088fd890007dccc782783b2f90e64f8c72607c080bdc0d3a15c7d13f1
 
 def _typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2(
     *,
-    configuration_set_name: typing.Union[builtins.str, _IConfigurationSetRef_c4f30d41],
-    event_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration_set_name: typing.Union[builtins.str, _aws_ses_9999e6ba.IConfigurationSetRef],
+    event_destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa(
     *,
-    archiving_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    archiving_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delivery_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reputation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sending_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    suppression_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracking_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vdm_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22327,14 +22347,14 @@ def _typecheckingstub__4f5901f6c4687a5069b93788dd46825d3f820617b06ab7617c713daa1
     *,
     contact_list_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e371967a8bd466f3463ea9d54700ed3f19ce40efcad9a72d43755f3be4261e4(
-    resource: _IContactListRef_1c876363,
+    resource: _aws_ses_9999e6ba.IContactListRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22354,7 +22374,7 @@ def _typecheckingstub__6fa29e89e475e02426bfc70921046ac7e8676412a7ab4ec371598c9ed
     pass
 
 def _typecheckingstub__04e7980d7184167e42f7e01ae8cec876d43f150d71c7057fca33fc0a3e2d3e6b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22378,13 +22398,13 @@ def _typecheckingstub__b772e4221fab9fd85e09441b0917a7c5c4c012cb7676e6a6ea38ce5c6
     pass
 
 def _typecheckingstub__f3ca0b0993b5ed610f353a70ff69c08d5866611a4967d6f45f069e82edf1d5a8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a1a4f7da14b40f7178c1c0c458459ea9ecbdb3914bfe6c065e5ff051b6bd8728(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContactList.TopicProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnContactList.TopicProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22403,8 +22423,8 @@ def _typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aa
     *,
     contact_list_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22419,13 +22439,13 @@ def _typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c76
     template_content: builtins.str,
     template_name: builtins.str,
     template_subject: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7d67be7170103654c15a22cc5705e4bc7ad0e14fa356b509fcde66ca1eff238d(
-    resource: _ICustomVerificationEmailTemplateRef_81ee24b9,
+    resource: _aws_ses_9999e6ba.ICustomVerificationEmailTemplateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22445,7 +22465,7 @@ def _typecheckingstub__746a63bcb9f079383d07a768780b52e734883ae69b7182e783317547b
     pass
 
 def _typecheckingstub__27ff82feeb4f00cbd90a942d6236d5c9aae8a6f9e9d9757f7d119a612c9fbc21(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22493,7 +22513,7 @@ def _typecheckingstub__6472780b973a0319efdd5de5236dfc6756ad0c955fb92f85861cd0add
     pass
 
 def _typecheckingstub__a7df680e720153fc9fa60f06839c7f5d133e1af971b21fed62754eaeff4d7ad7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22506,7 +22526,7 @@ def _typecheckingstub__f90246f0557bb193f785a3ef894e01c0c1875a936262e84ce03093f35
     template_content: builtins.str,
     template_name: builtins.str,
     template_subject: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22517,7 +22537,7 @@ def _typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595
     *,
     pool_name: typing.Optional[builtins.str] = None,
     scaling_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22529,7 +22549,7 @@ def _typecheckingstub__b9fd59cf4e963a65b868b760f42df8c49d4e04ebb87fcf4cf9db9c5d7
     pass
 
 def _typecheckingstub__8104b1859d7ffadca75f36effd5e88f40353e147cbb9ff43a0adf3b020c8e7d5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22553,7 +22573,7 @@ def _typecheckingstub__cfe768b550097b0e81974377ae65fba6791743f6787f72492af555cd1
     pass
 
 def _typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22562,7 +22582,7 @@ def _typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0
     *,
     pool_name: typing.Optional[builtins.str] = None,
     scaling_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22572,12 +22592,12 @@ def _typecheckingstub__6dd153888b73988faf47365b573ef9e102d03faf2ff7fc2112c9b8596
     id: builtins.str,
     *,
     email_identity: builtins.str,
-    configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_set_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_signing_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    feedback_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mail_from_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22589,7 +22609,7 @@ def _typecheckingstub__dcf13c1f67aed2f19c15ac81932b51ce22898a74bbc609b0c1b62f15f
     pass
 
 def _typecheckingstub__a2e59b4607b3737bad6d0d3dceb2602acfb4a055cf1db675a6a32c09ab24c984(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22607,37 +22627,37 @@ def _typecheckingstub__dfc02af0c8ad1580f31a20eefddf3de5c4670d5d0e9e982f351c0a3f7
     pass
 
 def _typecheckingstub__9e09bbe6ddf5291794cc13ffe01ceeb6dcf8075492dc575256ad5b6bc2f17638(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.ConfigurationSetAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEmailIdentity.ConfigurationSetAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0032af7abed57412a3e4cb21bdf05c96c4c8d5c6176a0fce6a2c461dbb5af5d8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEmailIdentity.DkimAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__465a3dad3389da07777bdda5eb33e345536e854073c4b594e089dcd18dc12c5b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimSigningAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEmailIdentity.DkimSigningAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0a601ac2f79b10ccfae6354e861623ca5b230f127792ee0f9473a78ac29db37d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.FeedbackAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEmailIdentity.FeedbackAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3bfc642d317ef43c146d5f2aed5754d7210e533815ccd7d6339a4f0946d9ad7c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.MailFromAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEmailIdentity.MailFromAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__734a5169a3a8e4af6fa9920987d51d19a7ae6a49e4504934eb9c54d8bf21aa81(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22651,7 +22671,7 @@ def _typecheckingstub__f43c178a47220933c21060d38f5105353a7af12378df167bc4dc7fca0
 
 def _typecheckingstub__b7e4c6c543bf26936e4c81fcb8702db27a3007ffd82e4712715e42011c5c1573(
     *,
-    signing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    signing_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22667,7 +22687,7 @@ def _typecheckingstub__fc9546dbbff56dcd597c3802b6ffb4259c44e6f78bb7195f924f2ee9a
 
 def _typecheckingstub__ed64b7518613c037c1bda6f3af605613ea5857d02ec6233dbc9bb1eb38581b8c(
     *,
-    email_forwarding_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    email_forwarding_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22683,12 +22703,12 @@ def _typecheckingstub__172959be1e69fff5bd9bf8f0d9d248c8bcc08b8792f68376cb22ae484
 def _typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54(
     *,
     email_identity: builtins.str,
-    configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_set_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_signing_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    feedback_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mail_from_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22698,13 +22718,13 @@ def _typecheckingstub__b264df921b4ca04913aa8a8375e2c83055fd8df0a14752396030e13fc
     id: builtins.str,
     *,
     addon_subscription_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8773a7a5dd2f2e7171cb3d2c73ca9e97ee05adf2adfee514d9a55451e066e1b3(
-    resource: _IMailManagerAddonInstanceRef_6d78bf1e,
+    resource: _aws_ses_9999e6ba.IMailManagerAddonInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22732,7 +22752,7 @@ def _typecheckingstub__2c8f48557151a44ce46cfb0909c5c995fdb8ed8d6bc3a8f66155a95e9
     pass
 
 def _typecheckingstub__af96657c240160581260abbc9d1a8bc62bbf6e2d5f9988be88caa5605fea6193(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22750,7 +22770,7 @@ def _typecheckingstub__1c833ec80f9a2cc32ab374cb53026b9f1d8d3c1f0e49a56b5215425a3
     pass
 
 def _typecheckingstub__45f7138156b176186763c85a97772c803146dbab0e3cb8ee80efe5d4cd89834d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22758,7 +22778,7 @@ def _typecheckingstub__45f7138156b176186763c85a97772c803146dbab0e3cb8ee80efe5d4c
 def _typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3(
     *,
     addon_subscription_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22768,13 +22788,13 @@ def _typecheckingstub__0d0f399046a02347b7c8f90e068f3fd2b8d48f9ff28b35ef6bf0ae7e0
     id: builtins.str,
     *,
     addon_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__960817fbb96ca1e5bdef2610e9d6fc2510bb0b7e2b10c35196c5f194e6a14a2a(
-    resource: _IMailManagerAddonSubscriptionRef_5202f9cc,
+    resource: _aws_ses_9999e6ba.IMailManagerAddonSubscriptionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22802,7 +22822,7 @@ def _typecheckingstub__adb97f00e811b0e2973cd4fc639ecade6bcae8a9d37e3ca4f0808b0bd
     pass
 
 def _typecheckingstub__5938bdd1bc8d27ccb42b21d788b8b4b509125ca0348f4b02156af62aa3fc658d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22820,7 +22840,7 @@ def _typecheckingstub__50efd02784f541bb31a94c7b34a0a93fa7c577d8cebc97ba1bbc75449
     pass
 
 def _typecheckingstub__29c55bb74fd3d612b39c13ec35f22819219ba03de6b766602d804e921da951a6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22828,7 +22848,7 @@ def _typecheckingstub__29c55bb74fd3d612b39c13ec35f22819219ba03de6b766602d804e921
 def _typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd(
     *,
     addon_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22838,13 +22858,13 @@ def _typecheckingstub__6a8a172d98fe048a3419d1b92dcaf2e59e8461e9b0baf073f812b3916
     id: builtins.str,
     *,
     address_list_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__741ed4b6bad22bfbafabeea359ebf52a8d6323ad4f66ba2154f90e9af6098436(
-    resource: _IMailManagerAddressListRef_60a1eed4,
+    resource: _aws_ses_9999e6ba.IMailManagerAddressListRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22872,7 +22892,7 @@ def _typecheckingstub__5fc5879ac45b7219fa38caebedf664145ef88f1e65998986545dbb23b
     pass
 
 def _typecheckingstub__4f6a8901ab278ee698ce069b658195d6cc144f36006c6c634fd9c8598d24d83d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22890,7 +22910,7 @@ def _typecheckingstub__53d1505dab469f39095f9e22ba4d8bdae2405adbe8d8d641e4d4a1abb
     pass
 
 def _typecheckingstub__f941c234d4973425d4ac187f87f54965bfdb82848d3fcf93664acc11143c1068(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22898,7 +22918,7 @@ def _typecheckingstub__f941c234d4973425d4ac187f87f54965bfdb82848d3fcf93664acc111
 def _typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9(
     *,
     address_list_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22909,14 +22929,14 @@ def _typecheckingstub__22dd3c6f42e37a1d2959a6aa4871e671e1737ebb4110933d8bfa22c2c
     *,
     archive_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9afa36325e91c6b56a4f1819404111f25c24d044f04adaace2627af78b729aec(
-    resource: _IMailManagerArchiveRef_0d35e3dc,
+    resource: _aws_ses_9999e6ba.IMailManagerArchiveRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22944,7 +22964,7 @@ def _typecheckingstub__f49baff95921dee2c4d4f0450bed25f3a8c7cd45dfd6f48b617e3b87c
     pass
 
 def _typecheckingstub__ab6bbd8ed2986ac0e486edacc5048b747fb9a30a15f56c21ed3845accc6da320(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22968,13 +22988,13 @@ def _typecheckingstub__7aa96f9a673e848edea2e964de6f6c2e97009a117dd1bc4924a9ff4ee
     pass
 
 def _typecheckingstub__46b3d8d9376d69574a456716e3c85c3529a9d750af88cf18df645155da95df82(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerArchive.ArchiveRetentionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerArchive.ArchiveRetentionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f356c2c7a0aabd9047f921ce42c4491a563cc8afe412db26f32819d3013e4a5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22990,8 +23010,8 @@ def _typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c82
     *,
     archive_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23003,18 +23023,18 @@ def _typecheckingstub__1ceb1a8308b4e72eecdc0962cf663d2c0564dbffbabebaa887b776484
     rule_set_id: builtins.str,
     traffic_policy_id: builtins.str,
     type: builtins.str,
-    ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_point_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingress_point_name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status_to_update: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__702d051d4c1f4acd0407ce11b444ab140c14fb12dd784d29782f88e1040ebd17(
-    resource: _IMailManagerIngressPointRef_17ebca73,
+    resource: _aws_ses_9999e6ba.IMailManagerIngressPointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23042,7 +23062,7 @@ def _typecheckingstub__26c882317eafe6d8fe218bf900ebd8546a5094fea87a4fc0b49d84686
     pass
 
 def _typecheckingstub__dc5b9905beb0e52af2daaf480d19b3056ba66ec86e4ed3b13577551722a1efe8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23072,7 +23092,7 @@ def _typecheckingstub__2dc74352451f5646087bf0cb18a9041da6597bfb97348c610d7c71057
     pass
 
 def _typecheckingstub__6ecef020b62c8ec9b73b3b62d93e463d5a95b084869ed38937d7b420e469ae38(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.IngressPointConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerIngressPoint.IngressPointConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23084,7 +23104,7 @@ def _typecheckingstub__47a33bb2ac7c6600470d2eeac418be17d66b98bcd085e465db6dba93b
     pass
 
 def _typecheckingstub__fde2e4577760382a77b31bc0573fe3d8360be0fb229556d97fbde4dad4dd5248(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.NetworkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerIngressPoint.NetworkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23096,7 +23116,7 @@ def _typecheckingstub__681e417ef520acfe754a35e65d8ecb2a8e270ef54acf705fd91dd2427
     pass
 
 def _typecheckingstub__cce45f739601c47c27bc527ba7632a6a2242cd64cc012548482a4bb3a9926f40(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23111,15 +23131,15 @@ def _typecheckingstub__3799ee40c4fb2a5153cb73f62102e77ad68fed1ac1eec8eef79d4bb8f
     *,
     secret_arn: typing.Optional[builtins.str] = None,
     smtp_password: typing.Optional[builtins.str] = None,
-    tls_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.TlsAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_auth_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.TlsAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e92f82eaa7f5bbe8dc091ccf3d1447df4bd68dce8ee9521169489e610fdf9bca(
     *,
-    private_network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    public_network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    private_network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    public_network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23140,7 +23160,7 @@ def _typecheckingstub__44de118258c4f2ec589299800463fecb183b1dbbd040e740d7547fd88
 
 def _typecheckingstub__e31fb5a20e3f2e0f2bc0d19c2180fc15176f7fa1de8292a41c2c93290c09d6c3(
     *,
-    trust_store: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.TrustStoreProperty, typing.Dict[builtins.str, typing.Any]]],
+    trust_store: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.TrustStoreProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23159,11 +23179,11 @@ def _typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d612
     rule_set_id: builtins.str,
     traffic_policy_id: builtins.str,
     type: builtins.str,
-    ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_point_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingress_point_name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status_to_update: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23173,17 +23193,17 @@ def _typecheckingstub__c9ee528cdf366e99e1f68b7018c131315da04193c666245fa2c99e56b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    authentication: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
     server_name: builtins.str,
     server_port: jsii.Number,
     relay_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__201b94b5d17a1097e3cdbed611e2692931738375845f6805fe2c3dad089d737e(
-    resource: _IMailManagerRelayRef_09ae75d1,
+    resource: _aws_ses_9999e6ba.IMailManagerRelayRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23211,7 +23231,7 @@ def _typecheckingstub__2bbce469d8b845824f498308b7175290d5dad433208301d220b2ced38
     pass
 
 def _typecheckingstub__5816a1b4f596fadebac48eac5ab989ccf692d395eb95689083e0aa60a4ac275e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23223,7 +23243,7 @@ def _typecheckingstub__30e82dfb3c738132d0655d1c9b8db44cfcd49568e594e2d6040884f98
     pass
 
 def _typecheckingstub__4d053ec02b59c6d6eeb1138338d3c6e01f9b05c95e79c9b27925807cc8f604e1(
-    value: typing.Union[_IResolvable_da3f097b, CfnMailManagerRelay.RelayAuthenticationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerRelay.RelayAuthenticationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23247,7 +23267,7 @@ def _typecheckingstub__63ed1e47ebcd5e2f47eb1d5240b0e942edd69aa9601c96414de5aaa1a
     pass
 
 def _typecheckingstub__5f648115c01720fe23dc8d4e884a957f38c7e42ad1a0a84cea8d1f86df1ba3dd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23262,11 +23282,11 @@ def _typecheckingstub__43dfcada45f91f06fd9d7504799d90465587ba4c4b8214f065a8c7a14
 
 def _typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971(
     *,
-    authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    authentication: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
     server_name: builtins.str,
     server_port: jsii.Number,
     relay_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23275,15 +23295,15 @@ def _typecheckingstub__105680c1fa2be5692f8220b99da3b58468d88eba3dfec1c0ec0e39050
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     rule_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c2403959e366de4b1a81ff43ef8d0c8be3b72a5759232deb0d7addb03fe92602(
-    resource: _IMailManagerRuleSetRef_4d1ad1a8,
+    resource: _aws_ses_9999e6ba.IMailManagerRuleSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23311,7 +23331,7 @@ def _typecheckingstub__275644fc7ad99c4591767cec90f537d834d244da3a0b9ce7014511ad4
     pass
 
 def _typecheckingstub__0759f4c8304ca6f49025af7426410384933255e335181351fb5750c57ec3769f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23323,7 +23343,7 @@ def _typecheckingstub__fd126298166d3dbd6b6457bb8e11f12768735b24da03583f18bed0b95
     pass
 
 def _typecheckingstub__7d0adba6e545d7f02cadf214c14f052d406f0b51d70ee72d1f4d35fe35ec8e8e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerRuleSet.RuleProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerRuleSet.RuleProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23335,7 +23355,7 @@ def _typecheckingstub__1df1d5f00b49e431788b12868b551bb9e00212f6bd26caafa1e928b59
     pass
 
 def _typecheckingstub__78f82f6627eed7535a45401be03792d1cd27791a319e250db048ddff13a71585(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23425,25 +23445,25 @@ def _typecheckingstub__62513f6af30991e46b6f85049ba72def400b040c57eafb91074ef1ab9
 
 def _typecheckingstub__305f0be9d67c9da493953a4770d737df26a1af8dedfd249fd9135006243da951(
     *,
-    add_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AddHeaderActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    archive: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.ArchiveActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bounce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.BounceActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deliver_to_mailbox: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.DeliverToMailboxActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deliver_to_q_business: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.DeliverToQBusinessActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    add_header: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.AddHeaderActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    archive: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.ArchiveActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bounce: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.BounceActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deliver_to_mailbox: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.DeliverToMailboxActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deliver_to_q_business: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.DeliverToQBusinessActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     drop: typing.Any = None,
-    invoke_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.InvokeLambdaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish_to_sns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.SnsActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    relay: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RelayActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replace_recipient: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.ReplaceRecipientActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    send: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.SendActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    write_to_s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.S3ActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    invoke_lambda: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.InvokeLambdaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publish_to_sns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.SnsActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    relay: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RelayActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replace_recipient: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.ReplaceRecipientActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    send: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.SendActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    write_to_s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.S3ActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__688b96a0a95702a17f251ed7d15e4b0d218b7df748dc4b0dae35ee5be0532c3d(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -23451,21 +23471,21 @@ def _typecheckingstub__688b96a0a95702a17f251ed7d15e4b0d218b7df748dc4b0dae35ee5be
 
 def _typecheckingstub__837a4286b4e8b71b3f01d430cb3025b92d9655011a10dc38d56eb207d40ebc95(
     *,
-    analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attribute: typing.Optional[builtins.str] = None,
-    is_in_address_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleIsInAddressListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_in_address_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleIsInAddressListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__74a2c2f31ea791429d1f552fdf72ea9571017fa5e4cb3ed890024f19a05ba37c(
     *,
-    boolean_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleBooleanExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dmarc_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleDmarcExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ip_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleIpExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    number_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleNumberExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    string_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleStringExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    verdict_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleVerdictExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    boolean_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleBooleanExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dmarc_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleDmarcExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ip_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleIpExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    number_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleNumberExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    string_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleStringExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    verdict_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleVerdictExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23480,7 +23500,7 @@ def _typecheckingstub__61a2e28034f33f130c6caf370ded5bfe5f69e8d9ae4887cb935ee3ddf
 
 def _typecheckingstub__a78815c83da5faa29d71e53f0ad521ece66311959d1e9d553d5f7b86b5a8c3a7(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleIpToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleIpToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23504,7 +23524,7 @@ def _typecheckingstub__c73eebae950a2c422d0d245422988b23abb78b0806a5c9c6767b4faf7
 
 def _typecheckingstub__83799e1775b2d85cafb6fe8436a34354f3fb2f96ece05a92a7ff5946391395b2(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleNumberToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleNumberToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     value: jsii.Number,
 ) -> None:
@@ -23520,17 +23540,17 @@ def _typecheckingstub__34edfd1c5b6c0acab2996fde873e036c099e47a2b540f3e837e560fa0
 
 def _typecheckingstub__901a023bbfa4473dc1d451247d1be12b76d54679fa6a88a6bfcb3265302f814e(
     *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    unless: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    unless: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ac58a8ffbfedfd8a37ee59f94996c3194a29e1aa4e2893a82291934e755a099d(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleStringToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleStringToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23539,7 +23559,7 @@ def _typecheckingstub__ac58a8ffbfedfd8a37ee59f94996c3194a29e1aa4e2893a82291934e7
 
 def _typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba92a64fd5(
     *,
-    analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attribute: typing.Optional[builtins.str] = None,
     client_certificate_attribute: typing.Optional[builtins.str] = None,
     mime_header_attribute: typing.Optional[builtins.str] = None,
@@ -23549,7 +23569,7 @@ def _typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba9
 
 def _typecheckingstub__4d67a86888839f543a83c18b74a100ab0031e252d0c42ac93bf68724856f7b89(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23558,7 +23578,7 @@ def _typecheckingstub__4d67a86888839f543a83c18b74a100ab0031e252d0c42ac93bf687248
 
 def _typecheckingstub__d38d89bd200d9acf227dcc6d83b027ad47c9bddcd505261f4374ecee4f3b3583(
     *,
-    analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attribute: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23596,9 +23616,9 @@ def _typecheckingstub__c1dba6e94fdb5a871528ffcc897120b50f8c7998718a851aaed472055
 
 def _typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     rule_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23608,16 +23628,16 @@ def _typecheckingstub__450b0bd78f68450d39a41b2242250c64ec412e1a58381c2d9d31cc0b9
     id: builtins.str,
     *,
     default_action: builtins.str,
-    policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    policy_statements: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
     max_message_size_bytes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     traffic_policy_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__492cc7c52443bae48d0461a08b1c95d2ff8c68112aa0b9c89dd01bebb07cfded(
-    resource: _IMailManagerTrafficPolicyRef_cb765a4d,
+    resource: _aws_ses_9999e6ba.IMailManagerTrafficPolicyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23645,7 +23665,7 @@ def _typecheckingstub__6e17522a9faff5a3883c0f614087ec01fd29711b350d925d8948af558
     pass
 
 def _typecheckingstub__c2890273fd92b44df72c26923985873fcfcfde9cc0a10280486cd24096655fb4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23663,7 +23683,7 @@ def _typecheckingstub__339511404d21b47cfc8095af60e808222c4fc0f88f53b8124efefeca0
     pass
 
 def _typecheckingstub__96a3c0284e49558dd4b978a158f3c1d0b5a469b990ff5b6a4d67808893d3cc0e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerTrafficPolicy.PolicyStatementProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMailManagerTrafficPolicy.PolicyStatementProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23675,7 +23695,7 @@ def _typecheckingstub__0b3b4c8029d6683e1833773325543c5d28e4cb472830c9de6d016bfdf
     pass
 
 def _typecheckingstub__ae972fc210c05e90b7ee9ac3cf59c41db2631edcfd53a8c059fc005c09c3a787(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23696,7 +23716,7 @@ def _typecheckingstub__b5719f32eba45fc040832a336973ac6697acceb79400d167b2432cb20
 
 def _typecheckingstub__e11e4c9f67eb243bdb70a5e11d25dcc15331b3869022e75e712d05bc36ec2c72(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -23704,8 +23724,8 @@ def _typecheckingstub__e11e4c9f67eb243bdb70a5e11d25dcc15331b3869022e75e712d05bc3
 
 def _typecheckingstub__f984617bda8a2e4d661237f8f2d083ff4f9510ebc7ccbff62ef023d22ebe961f(
     *,
-    analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressAnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    is_in_address_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressAnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_in_address_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23719,7 +23739,7 @@ def _typecheckingstub__1798a6bd726cbf071261fbbd9c4f0df966baaedb1adbd5293f374108b
 
 def _typecheckingstub__1248838eeec484271fe69ec5cdab36ff11554891aebb417809a0af08e0e617d7(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23728,7 +23748,7 @@ def _typecheckingstub__1248838eeec484271fe69ec5cdab36ff11554891aebb417809a0af08e
 
 def _typecheckingstub__466f6fc45cc786424b25d62d8ee6b11ee8502c69bd8f436961b31e9360d6dbca(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23752,7 +23772,7 @@ def _typecheckingstub__5756963845a73e3e00c9928d7ef48ca41a788f8ce93f22f31e10d1f99
 
 def _typecheckingstub__ade2199cf4a326636b60ff7fe58a2b746de093bc3c1b7294612d9b84ad813746(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -23761,7 +23781,7 @@ def _typecheckingstub__ade2199cf4a326636b60ff7fe58a2b746de093bc3c1b7294612d9b84a
 
 def _typecheckingstub__3c9e450d2f2ff23fc01d2665ec4ed8c7483fa7d75c8c5484472b23f8a2c583fc(
     *,
-    analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressAnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressAnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attribute: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23769,7 +23789,7 @@ def _typecheckingstub__3c9e450d2f2ff23fc01d2665ec4ed8c7483fa7d75c8c5484472b23f8a
 
 def _typecheckingstub__c683a4cfcf2f04f9f10523e9949162f615a9c293bcf437af66dd921b9aa5585a(
     *,
-    evaluate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty, typing.Dict[builtins.str, typing.Any]]],
     operator: builtins.str,
     value: builtins.str,
 ) -> None:
@@ -23785,11 +23805,11 @@ def _typecheckingstub__5427b0fc505c91299dfb885f9eee68a941418328f9c015e863761b56d
 
 def _typecheckingstub__cb7b0b679bef5a6b24b2249f4b258188dd4f805799243b563fb1a1699e938bb6(
     *,
-    boolean_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ip_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ipv6_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    string_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressStringExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_expression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    boolean_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ip_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ipv6_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    string_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressStringExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_expression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23797,7 +23817,7 @@ def _typecheckingstub__cb7b0b679bef5a6b24b2249f4b258188dd4f805799243b563fb1a1699
 def _typecheckingstub__b922305a6b38d117885f741ba67de50b32b60f8d84e07583f5e79f9efd3182aa(
     *,
     action: builtins.str,
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.PolicyConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23805,9 +23825,9 @@ def _typecheckingstub__b922305a6b38d117885f741ba67de50b32b60f8d84e07583f5e79f9ef
 def _typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef(
     *,
     default_action: builtins.str,
-    policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    policy_statements: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
     max_message_size_bytes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     traffic_policy_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23817,15 +23837,15 @@ def _typecheckingstub__8d7e94f6d9cd343f5c2c621d4e2a086c1db0d608865fb3a5015d0b11d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionEndpoint.DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMultiRegionEndpoint.DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     endpoint_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0dafae91114723063f1dbfdeb9faa90b4186daa9a0a81ec70ec225f8d5940ad0(
-    resource: _IMultiRegionEndpointRef_cfd99631,
+    resource: _aws_ses_9999e6ba.IMultiRegionEndpointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23845,7 +23865,7 @@ def _typecheckingstub__88292b93f23d1434f08df0f28e25063b72498ccabe5d322a0c9417b14
     pass
 
 def _typecheckingstub__3f993acea62f4c5cd3c13afb39ae933a70876025dda136db5641662ea3652c35(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23857,7 +23877,7 @@ def _typecheckingstub__2f108c3712c98e873a0ab1929f7b0f152b6ad3d8f5741b41d2dde160e
     pass
 
 def _typecheckingstub__8b6fe78ccfdd3e52f3ea0fa2cdbcc2b8e26a69603c27d6b58c6704fbd2a0ad13(
-    value: typing.Union[_IResolvable_da3f097b, CfnMultiRegionEndpoint.DetailsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMultiRegionEndpoint.DetailsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23869,14 +23889,14 @@ def _typecheckingstub__7bf2a5fc1697872607b9cda5e8ef19be750bfa13e5b84b586c2d1af23
     pass
 
 def _typecheckingstub__4368de0d96781c022795655dd0619af76bd764cf632a2d910010e1ad5a99ee4e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7bf5e81365da54bbabfd37fbc5ec361541cc57cda7f472f24767be48687701f8(
     *,
-    route_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionEndpoint.RouteDetailsItemsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    route_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMultiRegionEndpoint.RouteDetailsItemsProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23890,9 +23910,9 @@ def _typecheckingstub__7d51ee9c9a4e7b5a8da21548086284c2214dfc2fe31b5a7e2c4b493a0
 
 def _typecheckingstub__214e30eaa4e6cecb1b023c19b13ef049c4e864d6956eb232163e2fc35159eda5(
     *,
-    details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionEndpoint.DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMultiRegionEndpoint.DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     endpoint_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23901,7 +23921,7 @@ def _typecheckingstub__1a1615f3821db38c2d17213d45f5aaf7419e2ac2a387e68854a97ab1b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23913,7 +23933,7 @@ def _typecheckingstub__6ad4c9f2a2392bffac57ce9d1b91c5c5469e5a5fcc5cafa4881c4c55a
     pass
 
 def _typecheckingstub__68a616fc9bd0bc8eef7e85693c8a2bc90546b0b7c578a2cb94a4f7fa8c67f519(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23925,14 +23945,14 @@ def _typecheckingstub__1149bfa381ad182958c44071a0ae46750ca96fdf6137ff9e951ac1be1
     pass
 
 def _typecheckingstub__3f3559694a52690944f1517571fda28128591a08e4458775af6322f62533e068(
-    value: typing.Union[_IResolvable_da3f097b, CfnReceiptFilter.FilterProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReceiptFilter.FilterProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a42218c982fb4338e6794b2fe9415b047ee10364d513a6dd4d4f68d79950fb97(
     *,
-    ip_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.IpFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    ip_filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptFilter.IpFilterProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23948,7 +23968,7 @@ def _typecheckingstub__a491d6597c852f28ae26e9b6690598de1ef3f7a5ee8865818d9104b05
 
 def _typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f(
     *,
-    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    filter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23957,7 +23977,7 @@ def _typecheckingstub__f11dbb9bc20b6ae8f4dbfe7500db6c36368680fbb7f5b0198623b727c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_set_name: builtins.str,
     after: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23971,7 +23991,7 @@ def _typecheckingstub__a58f97db9165547fc1f1c1ff07e51db278c8a08041cdc99c734731d4b
     pass
 
 def _typecheckingstub__0cc6c8bd23ccd04352f140aa0292c18970d3c08ee118a8a3b0fdf3f9d4ca1a77(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23983,7 +24003,7 @@ def _typecheckingstub__94942bbf4a200e9bab75fe3f2144c540718074bf55275f72234642a25
     pass
 
 def _typecheckingstub__e2b7e7d80f05bbed4301e74bf1978bd0403bb680b80c53091fbc2d73a2feb77c(
-    value: typing.Union[_IResolvable_da3f097b, CfnReceiptRule.RuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReceiptRule.RuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24002,14 +24022,14 @@ def _typecheckingstub__7e01f4460f2e7da87350c32dda6e4b23e8e3064fa60b2167f2ef07c44
 
 def _typecheckingstub__2e23836e118e42c034b0eb896988a7fe715dbbacb7c1a69f5eabb3a0a74e54f3(
     *,
-    add_header_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.AddHeaderActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bounce_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.BounceActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connect_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.ConnectActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lambda_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.LambdaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.S3ActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sns_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.SNSActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stop_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.StopActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    workmail_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.WorkmailActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    add_header_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.AddHeaderActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bounce_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.BounceActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connect_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.ConnectActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.LambdaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.S3ActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sns_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.SNSActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stop_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.StopActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workmail_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.WorkmailActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24052,11 +24072,11 @@ def _typecheckingstub__e86c072abf438c4f550f87a4bbdea46bb58e82f5fe5547fafb6864904
 
 def _typecheckingstub__597a4926fee926f01951cda574fa9265912d5bc1c5bf1e98c3410d25dd232a03(
     *,
-    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    scan_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tls_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24099,7 +24119,7 @@ def _typecheckingstub__af2dae7f39846f3f50114d44fa542e8b0390a51e98f63405b5a32de3f
 
 def _typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1(
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     rule_set_name: builtins.str,
     after: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -24122,7 +24142,7 @@ def _typecheckingstub__92b763326ac0f018a80748b9ac18b44522b5b120da9c0265d14b165f8
     pass
 
 def _typecheckingstub__7c30f7f0ed5cc61e57a58c5fb1de4ed0806ee6c9530ac2ce5ec04192a40fadbb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24150,8 +24170,8 @@ def _typecheckingstub__c4c2a147151a6167a3d150f74c144fd60570fc7ac0777706d24a8e9f2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24163,7 +24183,7 @@ def _typecheckingstub__686f70bc25bf4721b5e526064e1572e87be2925fd51cf29a0404613d0
     pass
 
 def _typecheckingstub__d39d28f6ac0b8cfc4db621cda159b70e8ee1c7d0086afcb587c1b723beed970a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24175,13 +24195,13 @@ def _typecheckingstub__9fff6f1c96944fa0c793bff8f36a0f674d1885a636bfa82f985a29ba0
     pass
 
 def _typecheckingstub__5bbac80e03f4895c98412be26aa175f3b2117feffa065c91bfd3de287860c7dc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dfedec4ff1cee818b04e3b27b75fd775d9a21039cce2bb50f0eee75bbe3b7d0c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTemplate.TemplateProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24198,8 +24218,8 @@ def _typecheckingstub__6894407236d481fe73e1d7b05b61377a9e1a2ea9e6ee4bfaa48a81bd5
 
 def _typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317(
     *,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24209,14 +24229,14 @@ def _typecheckingstub__8afe8bad335ae56d9b7cf1a6b54cd155eda9d7a80a0674f08798ca9c0
     id: builtins.str,
     *,
     tenant_name: builtins.str,
-    resource_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTenant.ResourceAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_associations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTenant.ResourceAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4749f5833d8a34347944cc3ccc308c8fb19fef29768ff30ef0eb219ee4adba1e(
-    resource: _ITenantRef_8eda0461,
+    resource: _aws_ses_9999e6ba.ITenantRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24228,7 +24248,7 @@ def _typecheckingstub__7afb5791b9705a07d18e073eb102dcb0593874f5e435fa1f09e6f1dcd
     pass
 
 def _typecheckingstub__7cf4572d44c57b57b1596c928273def13452f0aa5771b3b18d196aff518637d9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24246,13 +24266,13 @@ def _typecheckingstub__34fe26a4d80b5512361200d6c21b54df76aea11af8c20349237ffff52
     pass
 
 def _typecheckingstub__1741cf6d14a23b36c921da3d7a241aedb375ce50a68859f432f53bf9b9bbd9a3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTenant.ResourceAssociationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTenant.ResourceAssociationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2f0f5e6d96cf5c8601d208f815d8e3457c0ce78b21682d07365215e306622bb8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24267,8 +24287,8 @@ def _typecheckingstub__3a6c95f07133b3f17ee5e2d1078781d3f54b7c7bc85abea0f63a6fd56
 def _typecheckingstub__09e125457aa1b297a1b416e06f152e90446de602e45d374c7d213ac3e9033d53(
     *,
     tenant_name: builtins.str,
-    resource_associations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTenant.ResourceAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_associations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTenant.ResourceAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24277,8 +24297,8 @@ def _typecheckingstub__8da690d721f4dc54f54ac8a93b1521ab4f1dbb885e7ddaa381dfa79dc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dashboard_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    guardian_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24290,7 +24310,7 @@ def _typecheckingstub__b5a8f4ee7ec59652f4c5e04e69ed397f5d012c169122327b108e39dea
     pass
 
 def _typecheckingstub__19e20bbedca430ef6dc1634692c0b7c55c20f1fdf5542edb402f0e0b5bb364c7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24302,13 +24322,13 @@ def _typecheckingstub__08e60b0b9db028ea74a1508c4ca53cf07d947a35c08e25b8bd2e6c491
     pass
 
 def _typecheckingstub__d6de577b4b973e97e1a4f2e820f91d3de6f0608ab40978d3d66537a9fc470544(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.DashboardAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVdmAttributes.DashboardAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d777849ef648598e745e2dd5179eb670b0345a6656279e557481001d8bfa0419(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.GuardianAttributesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVdmAttributes.GuardianAttributesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24329,8 +24349,8 @@ def _typecheckingstub__c129497041cde369dd20c917699582d68e5a27620a3bdb6da3a7048e7
 
 def _typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825(
     *,
-    dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dashboard_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    guardian_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24360,7 +24380,7 @@ def _typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4
     configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
     events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
-    configuration_set: _IConfigurationSetRef_c4f30d41,
+    configuration_set: _aws_ses_9999e6ba.IConfigurationSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24371,10 +24391,10 @@ def _typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a
     configuration_set_name: typing.Optional[builtins.str] = None,
     custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
     custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-    dedicated_ip_pool: typing.Optional[_IDedicatedIpPoolRef_c0fd271c] = None,
+    dedicated_ip_pool: typing.Optional[_aws_ses_9999e6ba.IDedicatedIpPoolRef] = None,
     disable_auto_validation: typing.Optional[builtins.bool] = None,
     disable_suppression_list: typing.Optional[builtins.bool] = None,
-    max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_delivery_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     reputation_metrics: typing.Optional[builtins.bool] = None,
     sending_enabled: typing.Optional[builtins.bool] = None,
     suppression_reasons: typing.Optional[SuppressionReasons] = None,
@@ -24400,7 +24420,7 @@ def _typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7
 
 def _typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db(
     email_identity: EmailIdentity,
-    hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
+    hosted_zone: typing.Optional[_aws_route53_ea3eecac.IPublicHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24426,9 +24446,9 @@ def _typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d81
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule_set: _IReceiptRuleSetRef_f6b881e9,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -24441,7 +24461,7 @@ def _typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d81
 def _typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030(
     *,
     identity: Identity,
-    configuration_set: typing.Optional[_IConfigurationSetRef_c4f30d41] = None,
+    configuration_set: typing.Optional[_aws_ses_9999e6ba.IConfigurationSetRef] = None,
     dkim_identity: typing.Optional[DkimIdentity] = None,
     dkim_signing: typing.Optional[builtins.bool] = None,
     feedback_forwarding: typing.Optional[builtins.bool] = None,
@@ -24458,40 +24478,40 @@ def _typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a45
     pass
 
 def _typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567(
-    event_bus: _IEventBusRef_aa86e9b4,
+    event_bus: _aws_events_49a540ff.IEventBusRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464(
     *,
-    delivery_stream: _IDeliveryStream_8f118861,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    delivery_stream: _aws_kinesisfirehose_7262737d.IDeliveryStream,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5(
-    receipt_rule: _IReceiptRuleRef_0f93d846,
+    receipt_rule: _aws_ses_9999e6ba.IReceiptRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24500,7 +24520,7 @@ def _typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5
     id: builtins.str,
     *,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -24523,7 +24543,7 @@ def _typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d139
     pass
 
 def _typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776(
-    hosted_zone: _IPublicHostedZone_9b6e7da4,
+    hosted_zone: _aws_route53_ea3eecac.IPublicHostedZone,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24561,9 +24581,9 @@ def _typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule_set: _IReceiptRuleSetRef_f6b881e9,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -24603,7 +24623,7 @@ def _typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf
 def _typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab(
     *,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -24616,13 +24636,13 @@ def _typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae4
 def _typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b(
     *,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     scan_enabled: typing.Optional[builtins.bool] = None,
     tls_policy: typing.Optional[TlsPolicy] = None,
-    rule_set: _IReceiptRuleSetRef_f6b881e9,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24650,7 +24670,7 @@ def _typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451
     id: builtins.str,
     *,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -24745,10 +24765,10 @@ def _typecheckingstub__52b42851a408d3eb2b07399f2b34603200cef443be5e9f913f4a1d80a
     configuration_set_name: typing.Optional[builtins.str] = None,
     custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
     custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-    dedicated_ip_pool: typing.Optional[_IDedicatedIpPoolRef_c0fd271c] = None,
+    dedicated_ip_pool: typing.Optional[_aws_ses_9999e6ba.IDedicatedIpPoolRef] = None,
     disable_auto_validation: typing.Optional[builtins.bool] = None,
     disable_suppression_list: typing.Optional[builtins.bool] = None,
-    max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_delivery_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     reputation_metrics: typing.Optional[builtins.bool] = None,
     sending_enabled: typing.Optional[builtins.bool] = None,
     suppression_reasons: typing.Optional[SuppressionReasons] = None,
@@ -24781,7 +24801,7 @@ def _typecheckingstub__cf213dc05e866bbe3e9422388bafa084e54ef674803fa10657e5b96b9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration_set: _IConfigurationSetRef_c4f30d41,
+    configuration_set: _aws_ses_9999e6ba.IConfigurationSetRef,
     destination: EventDestination,
     configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
@@ -24819,13 +24839,13 @@ def _typecheckingstub__6d620bd493f43394b0479d58a02acf7d3c1644c63cc64fc186abe29e7
 def _typecheckingstub__f78c7c8898fbe6486ab42279bd1b1abce1f0305e2d0cc19d79400e08c909951f(
     *,
     actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[_IReceiptRuleRef_0f93d846] = None,
+    after: typing.Optional[_aws_ses_9999e6ba.IReceiptRuleRef] = None,
     enabled: typing.Optional[builtins.bool] = None,
     receipt_rule_name: typing.Optional[builtins.str] = None,
     recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     scan_enabled: typing.Optional[builtins.bool] = None,
     tls_policy: typing.Optional[TlsPolicy] = None,
-    rule_set: _IReceiptRuleSetRef_f6b881e9,
+    rule_set: _aws_ses_9999e6ba.IReceiptRuleSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24835,7 +24855,7 @@ def _typecheckingstub__a0d44bf733be67b29d51a6c681c3faafee6103884474147b68d4b466a
     id: builtins.str,
     *,
     identity: Identity,
-    configuration_set: typing.Optional[_IConfigurationSetRef_c4f30d41] = None,
+    configuration_set: typing.Optional[_aws_ses_9999e6ba.IConfigurationSetRef] = None,
     dkim_identity: typing.Optional[DkimIdentity] = None,
     dkim_signing: typing.Optional[builtins.bool] = None,
     feedback_forwarding: typing.Optional[builtins.bool] = None,
@@ -24862,14 +24882,14 @@ def _typecheckingstub__eb1cb50e69249e3f61387a80db0e14cc9a9790c024548390466a51148
     pass
 
 def _typecheckingstub__201fd562ac01abcf39bae4ac240c6e3bd36c3ab202bc573ee6e08045ef02e36f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c92b3cf4c512d5ff21aa2749ab5ec60562bb7ed4c53c41d882ac2cb7cd5752b8(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass

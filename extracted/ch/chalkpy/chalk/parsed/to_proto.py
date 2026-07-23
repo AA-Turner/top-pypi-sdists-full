@@ -213,6 +213,14 @@ class ToProtoConverter:
                 planner_options=parsed_planner_options,
                 file_name=source.filename,
                 valid_plan_not_required=source.valid_plan_not_required,
+                resource_groups=(
+                    None
+                    if source.resource_groups is None
+                    else {
+                        env: pb.NamedQueryResourceGroups(groups=groups)
+                        for env, groups in source.resource_groups.items()
+                    }
+                ),
             )
         except Exception as e:
             raise ValueError(f"Could not convert named query '{source.name}'") from e

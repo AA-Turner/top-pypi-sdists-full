@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,43 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_opsworkscm import (
-    IServerRef as _IServerRef_62338428, ServerReference as _ServerReference_8c1e5305
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_opsworkscm as _aws_opsworkscm_197a754b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_opsworkscm_197a754b = _LazyImport("aws_cdk.interfaces.aws_opsworkscm")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IServerRef_62338428, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_opsworkscm_197a754b.IServerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnServer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_opsworkscm.CfnServer",
 ):
@@ -133,15 +128,15 @@ class CfnServer(
         instance_profile_arn: builtins.str,
         instance_type: builtins.str,
         service_role_arn: builtins.str,
-        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         backup_id: typing.Optional[builtins.str] = None,
         backup_retention_count: typing.Optional[jsii.Number] = None,
         custom_certificate: typing.Optional[builtins.str] = None,
         custom_domain: typing.Optional[builtins.str] = None,
         custom_private_key: typing.Optional[builtins.str] = None,
-        disable_automated_backup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        disable_automated_backup: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         engine: typing.Optional[builtins.str] = None,
-        engine_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServer.EngineAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        engine_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServer.EngineAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         engine_model: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional[builtins.str] = None,
@@ -149,7 +144,7 @@ class CfnServer(
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpsWorksCM::Server``.
 
@@ -177,7 +172,7 @@ class CfnServer(
         :param tags: A map that contains tag keys and tag values to attach to an AWS OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise server. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: `+ - = . _ : /
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fcf3005231c62e7682797d2e25d33ceb0c0b9602a2f2ffe6a7c3dabf9da5450)
+            type_hints = cached_type_hints(_typecheckingstub__4fcf3005231c62e7682797d2e25d33ceb0c0b9602a2f2ffe6a7c3dabf9da5450)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServerProps(
@@ -207,12 +202,15 @@ class CfnServer(
 
     @jsii.member(jsii_name="arnForServer")
     @builtins.classmethod
-    def arn_for_server(cls, resource: "_IServerRef_62338428") -> builtins.str:
+    def arn_for_server(
+        cls,
+        resource: "_aws_opsworkscm_197a754b.IServerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7addaa0f5a0a8dacb6627c6a0d2534172c69540994c4c32158526275f0a932ec)
+            type_hints = cached_type_hints(_typecheckingstub__7addaa0f5a0a8dacb6627c6a0d2534172c69540994c4c32158526275f0a932ec)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServer", [resource]))
 
@@ -224,18 +222,18 @@ class CfnServer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__122b4ef67f454e988cf51339f770f2945d837a44df7630addaaf012658e1d3f6)
+            type_hints = cached_type_hints(_typecheckingstub__122b4ef67f454e988cf51339f770f2945d837a44df7630addaaf012658e1d3f6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19f2feeaf9088052d1e3d91318248757951a8853d230fb27b822589707fba494)
+            type_hints = cached_type_hints(_typecheckingstub__19f2feeaf9088052d1e3d91318248757951a8853d230fb27b822589707fba494)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -248,7 +246,7 @@ class CfnServer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04f0ea48bc08ee57eae94ea7e74cde1be9a4eb55ead4693f6becb5ba26cbdd90)
+            type_hints = cached_type_hints(_typecheckingstub__04f0ea48bc08ee57eae94ea7e74cde1be9a4eb55ead4693f6becb5ba26cbdd90)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -298,15 +296,15 @@ class CfnServer(
 
     @builtins.property
     @jsii.member(jsii_name="serverRef")
-    def server_ref(self) -> "_ServerReference_8c1e5305":
+    def server_ref(self) -> "_aws_opsworkscm_197a754b.ServerReference":
         '''A reference to a Server resource.'''
-        return typing.cast("_ServerReference_8c1e5305", jsii.get(self, "serverRef"))
+        return typing.cast("_aws_opsworkscm_197a754b.ServerReference", jsii.get(self, "serverRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceProfileArn")
@@ -317,7 +315,7 @@ class CfnServer(
     @instance_profile_arn.setter
     def instance_profile_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cea404186dae083539bd261d91a2f704a0ad4ec99d3abe052a149ec64595f96)
+            type_hints = cached_type_hints(_typecheckingstub__4cea404186dae083539bd261d91a2f704a0ad4ec99d3abe052a149ec64595f96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceProfileArn", value) # pyright: ignore[reportArgumentType]
 
@@ -330,7 +328,7 @@ class CfnServer(
     @instance_type.setter
     def instance_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3258bb290dc0840f3f119cff658102d64e3429e9d5268528b404ca2ecf77aae5)
+            type_hints = cached_type_hints(_typecheckingstub__3258bb290dc0840f3f119cff658102d64e3429e9d5268528b404ca2ecf77aae5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -343,7 +341,7 @@ class CfnServer(
     @service_role_arn.setter
     def service_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27e33b0e01ec2af856c064c8227863649264c091a560be64ce5e0057d50e27e8)
+            type_hints = cached_type_hints(_typecheckingstub__27e33b0e01ec2af856c064c8227863649264c091a560be64ce5e0057d50e27e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -351,17 +349,17 @@ class CfnServer(
     @jsii.member(jsii_name="associatePublicIpAddress")
     def associate_public_ip_address(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Associate a public IP address with a server that you are launching.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "associatePublicIpAddress"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "associatePublicIpAddress"))
 
     @associate_public_ip_address.setter
     def associate_public_ip_address(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3c45f815d3ef6098f824925685877dd7c49f4e57de602dc79fe506c8adeab8a)
+            type_hints = cached_type_hints(_typecheckingstub__a3c45f815d3ef6098f824925685877dd7c49f4e57de602dc79fe506c8adeab8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associatePublicIpAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -374,7 +372,7 @@ class CfnServer(
     @backup_id.setter
     def backup_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ff36405f0c4238b4f820f697148f11af2c945cc9e1512bdbf6a26697c92bac2)
+            type_hints = cached_type_hints(_typecheckingstub__2ff36405f0c4238b4f820f697148f11af2c945cc9e1512bdbf6a26697c92bac2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupId", value) # pyright: ignore[reportArgumentType]
 
@@ -387,7 +385,7 @@ class CfnServer(
     @backup_retention_count.setter
     def backup_retention_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__602a97f999cfcf118a833fda9b050dc1c19210323de39137eae7639fa35fa512)
+            type_hints = cached_type_hints(_typecheckingstub__602a97f999cfcf118a833fda9b050dc1c19210323de39137eae7639fa35fa512)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupRetentionCount", value) # pyright: ignore[reportArgumentType]
 
@@ -400,7 +398,7 @@ class CfnServer(
     @custom_certificate.setter
     def custom_certificate(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65e65fd3bac358e350993fab131e8924caaa5509a261eb6929615ea06d6aa40f)
+            type_hints = cached_type_hints(_typecheckingstub__65e65fd3bac358e350993fab131e8924caaa5509a261eb6929615ea06d6aa40f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customCertificate", value) # pyright: ignore[reportArgumentType]
 
@@ -413,7 +411,7 @@ class CfnServer(
     @custom_domain.setter
     def custom_domain(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49d14cd4b4c8a5a3194a4dc123e3b901df963d3dce3180595609cc817dbcf699)
+            type_hints = cached_type_hints(_typecheckingstub__49d14cd4b4c8a5a3194a4dc123e3b901df963d3dce3180595609cc817dbcf699)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customDomain", value) # pyright: ignore[reportArgumentType]
 
@@ -426,7 +424,7 @@ class CfnServer(
     @custom_private_key.setter
     def custom_private_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39571623019f045a76d90d7f9729edd88d7d6963801142ea34b3c8153919a142)
+            type_hints = cached_type_hints(_typecheckingstub__39571623019f045a76d90d7f9729edd88d7d6963801142ea34b3c8153919a142)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customPrivateKey", value) # pyright: ignore[reportArgumentType]
 
@@ -434,17 +432,17 @@ class CfnServer(
     @jsii.member(jsii_name="disableAutomatedBackup")
     def disable_automated_backup(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enable or disable scheduled backups.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "disableAutomatedBackup"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "disableAutomatedBackup"))
 
     @disable_automated_backup.setter
     def disable_automated_backup(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b46443fdafed279ac49545af3fa84aa00384aacb75e125ca14388f79d9cfb786)
+            type_hints = cached_type_hints(_typecheckingstub__b46443fdafed279ac49545af3fa84aa00384aacb75e125ca14388f79d9cfb786)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disableAutomatedBackup", value) # pyright: ignore[reportArgumentType]
 
@@ -457,7 +455,7 @@ class CfnServer(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d41af7192af6a5b257f30522feb9b821520405f3d11fdcc7845a94b8d910f44)
+            type_hints = cached_type_hints(_typecheckingstub__6d41af7192af6a5b257f30522feb9b821520405f3d11fdcc7845a94b8d910f44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -465,17 +463,17 @@ class CfnServer(
     @jsii.member(jsii_name="engineAttributes")
     def engine_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServer.EngineAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.EngineAttributeProperty"]]]]:
         '''Optional engine attributes on a specified server.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServer.EngineAttributeProperty"]]]], jsii.get(self, "engineAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.EngineAttributeProperty"]]]], jsii.get(self, "engineAttributes"))
 
     @engine_attributes.setter
     def engine_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServer.EngineAttributeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.EngineAttributeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__348bb1528287c10d8bc70ea5676023d151054ec708b5c1cba5a2b8ec906b759b)
+            type_hints = cached_type_hints(_typecheckingstub__348bb1528287c10d8bc70ea5676023d151054ec708b5c1cba5a2b8ec906b759b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -488,7 +486,7 @@ class CfnServer(
     @engine_model.setter
     def engine_model(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cb402a1e7248fab4c783a38c551c26fc366f3d61896f1dad658eddde63b52a8)
+            type_hints = cached_type_hints(_typecheckingstub__7cb402a1e7248fab4c783a38c551c26fc366f3d61896f1dad658eddde63b52a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineModel", value) # pyright: ignore[reportArgumentType]
 
@@ -501,7 +499,7 @@ class CfnServer(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15e50201c5f7c3740fbea434ec68a86d658a7e64e35b180f30aaa5f9594f858c)
+            type_hints = cached_type_hints(_typecheckingstub__15e50201c5f7c3740fbea434ec68a86d658a7e64e35b180f30aaa5f9594f858c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -514,7 +512,7 @@ class CfnServer(
     @key_pair.setter
     def key_pair(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d73128a54fec0b519b3d2b7e1aa04cb520dc6435e37c750821725b46ddcdf0d5)
+            type_hints = cached_type_hints(_typecheckingstub__d73128a54fec0b519b3d2b7e1aa04cb520dc6435e37c750821725b46ddcdf0d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyPair", value) # pyright: ignore[reportArgumentType]
 
@@ -527,7 +525,7 @@ class CfnServer(
     @preferred_backup_window.setter
     def preferred_backup_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64463af4a3732dff3189eb07ca005e06511180ee587cbd4997c7ba95ea989072)
+            type_hints = cached_type_hints(_typecheckingstub__64463af4a3732dff3189eb07ca005e06511180ee587cbd4997c7ba95ea989072)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -543,7 +541,7 @@ class CfnServer(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b24b9a8fe79cad6d7297372ca05dcffd87916dc46d9475f22e55bcac954c78ea)
+            type_hints = cached_type_hints(_typecheckingstub__b24b9a8fe79cad6d7297372ca05dcffd87916dc46d9475f22e55bcac954c78ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -559,7 +557,7 @@ class CfnServer(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7663e937d0fabd66d40de7584fca886669aae87261a418b199493778688eb09)
+            type_hints = cached_type_hints(_typecheckingstub__d7663e937d0fabd66d40de7584fca886669aae87261a418b199493778688eb09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -572,20 +570,23 @@ class CfnServer(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6d133d8dd209b40a7f4c3900293e312fe8b95abc9cfff43e88a6fd1608b595b)
+            type_hints = cached_type_hints(_typecheckingstub__e6d133d8dd209b40a7f4c3900293e312fe8b95abc9cfff43e88a6fd1608b595b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map that contains tag keys and tag values to attach to an AWS OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise server.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f1391da7f04a55c9f7f9adf16c4634190fb6dbb84aa6805530fa127a387881e)
+            type_hints = cached_type_hints(_typecheckingstub__7f1391da7f04a55c9f7f9adf16c4634190fb6dbb84aa6805530fa127a387881e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -623,7 +624,7 @@ class CfnServer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67fded34344e0064de0c9f210bea59e7367c41094d8989087df77f333f754b2b)
+                type_hints = cached_type_hints(_typecheckingstub__67fded34344e0064de0c9f210bea59e7367c41094d8989087df77f333f754b2b)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -719,15 +720,15 @@ class CfnServerProps:
         instance_profile_arn: builtins.str,
         instance_type: builtins.str,
         service_role_arn: builtins.str,
-        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         backup_id: typing.Optional[builtins.str] = None,
         backup_retention_count: typing.Optional[jsii.Number] = None,
         custom_certificate: typing.Optional[builtins.str] = None,
         custom_domain: typing.Optional[builtins.str] = None,
         custom_private_key: typing.Optional[builtins.str] = None,
-        disable_automated_backup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        disable_automated_backup: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         engine: typing.Optional[builtins.str] = None,
-        engine_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServer.EngineAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        engine_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServer.EngineAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         engine_model: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional[builtins.str] = None,
@@ -735,7 +736,7 @@ class CfnServerProps:
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServer``.
 
@@ -802,7 +803,7 @@ class CfnServerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f3d9a63c768f1a40206835320dfa128b267da1fa702fbb4ecd8ac94b87e6841)
+            type_hints = cached_type_hints(_typecheckingstub__6f3d9a63c768f1a40206835320dfa128b267da1fa702fbb4ecd8ac94b87e6841)
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
@@ -898,7 +899,7 @@ class CfnServerProps:
     @builtins.property
     def associate_public_ip_address(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Associate a public IP address with a server that you are launching.
 
         Valid values are ``true`` or ``false`` . The default value is ``true`` .
@@ -906,7 +907,7 @@ class CfnServerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworkscm-server.html#cfn-opsworkscm-server-associatepublicipaddress
         '''
         result = self._values.get("associate_public_ip_address")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def backup_id(self) -> typing.Optional[builtins.str]:
@@ -964,7 +965,7 @@ class CfnServerProps:
     @builtins.property
     def disable_automated_backup(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enable or disable scheduled backups.
 
         Valid values are ``true`` or ``false`` . The default value is ``true`` .
@@ -972,7 +973,7 @@ class CfnServerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworkscm-server.html#cfn-opsworkscm-server-disableautomatedbackup
         '''
         result = self._values.get("disable_automated_backup")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def engine(self) -> typing.Optional[builtins.str]:
@@ -988,7 +989,7 @@ class CfnServerProps:
     @builtins.property
     def engine_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServer.EngineAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.EngineAttributeProperty"]]]]:
         '''Optional engine attributes on a specified server.
 
         **Attributes accepted in a Chef createServer request:** - ``CHEF_AUTOMATE_PIVOTAL_KEY`` : A base64-encoded RSA public key. The corresponding private key is required to access the Chef API. When no CHEF_AUTOMATE_PIVOTAL_KEY is set, a private key is generated and returned in the response. When you are specifying the value of CHEF_AUTOMATE_PIVOTAL_KEY as a parameter in the CloudFormation console, you must add newline ( ``\\n`` ) characters at the end of each line of the pivotal key value.
@@ -1003,7 +1004,7 @@ class CfnServerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworkscm-server.html#cfn-opsworkscm-server-engineattributes
         '''
         result = self._values.get("engine_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnServer.EngineAttributeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.EngineAttributeProperty"]]]], result)
 
     @builtins.property
     def engine_model(self) -> typing.Optional[builtins.str]:
@@ -1100,7 +1101,7 @@ class CfnServerProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map that contains tag keys and tag values to attach to an AWS OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise server.
 
         - The key cannot be empty.
@@ -1116,7 +1117,7 @@ class CfnServerProps:
         - A maximum of 50 user-applied tags is allowed for any AWS OpsWorks CM server.
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1144,15 +1145,15 @@ def _typecheckingstub__4fcf3005231c62e7682797d2e25d33ceb0c0b9602a2f2ffe6a7c3dabf
     instance_profile_arn: builtins.str,
     instance_type: builtins.str,
     service_role_arn: builtins.str,
-    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     backup_id: typing.Optional[builtins.str] = None,
     backup_retention_count: typing.Optional[jsii.Number] = None,
     custom_certificate: typing.Optional[builtins.str] = None,
     custom_domain: typing.Optional[builtins.str] = None,
     custom_private_key: typing.Optional[builtins.str] = None,
-    disable_automated_backup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_automated_backup: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     engine: typing.Optional[builtins.str] = None,
-    engine_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.EngineAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    engine_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServer.EngineAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     engine_model: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[builtins.str] = None,
@@ -1160,13 +1161,13 @@ def _typecheckingstub__4fcf3005231c62e7682797d2e25d33ceb0c0b9602a2f2ffe6a7c3dabf
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7addaa0f5a0a8dacb6627c6a0d2534172c69540994c4c32158526275f0a932ec(
-    resource: _IServerRef_62338428,
+    resource: _aws_opsworkscm_197a754b.IServerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1178,7 +1179,7 @@ def _typecheckingstub__122b4ef67f454e988cf51339f770f2945d837a44df7630addaaf01265
     pass
 
 def _typecheckingstub__19f2feeaf9088052d1e3d91318248757951a8853d230fb27b822589707fba494(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1208,7 +1209,7 @@ def _typecheckingstub__27e33b0e01ec2af856c064c8227863649264c091a560be64ce5e0057d
     pass
 
 def _typecheckingstub__a3c45f815d3ef6098f824925685877dd7c49f4e57de602dc79fe506c8adeab8a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1244,7 +1245,7 @@ def _typecheckingstub__39571623019f045a76d90d7f9729edd88d7d6963801142ea34b3c8153
     pass
 
 def _typecheckingstub__b46443fdafed279ac49545af3fa84aa00384aacb75e125ca14388f79d9cfb786(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1256,7 +1257,7 @@ def _typecheckingstub__6d41af7192af6a5b257f30522feb9b821520405f3d11fdcc7845a94b8
     pass
 
 def _typecheckingstub__348bb1528287c10d8bc70ea5676023d151054ec708b5c1cba5a2b8ec906b759b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServer.EngineAttributeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServer.EngineAttributeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1304,7 +1305,7 @@ def _typecheckingstub__e6d133d8dd209b40a7f4c3900293e312fe8b95abc9cfff43e88a6fd16
     pass
 
 def _typecheckingstub__7f1391da7f04a55c9f7f9adf16c4634190fb6dbb84aa6805530fa127a387881e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1322,15 +1323,15 @@ def _typecheckingstub__6f3d9a63c768f1a40206835320dfa128b267da1fa702fbb4ecd8ac94b
     instance_profile_arn: builtins.str,
     instance_type: builtins.str,
     service_role_arn: builtins.str,
-    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     backup_id: typing.Optional[builtins.str] = None,
     backup_retention_count: typing.Optional[jsii.Number] = None,
     custom_certificate: typing.Optional[builtins.str] = None,
     custom_domain: typing.Optional[builtins.str] = None,
     custom_private_key: typing.Optional[builtins.str] = None,
-    disable_automated_backup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_automated_backup: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     engine: typing.Optional[builtins.str] = None,
-    engine_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.EngineAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    engine_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServer.EngineAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     engine_model: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[builtins.str] = None,
@@ -1338,7 +1339,7 @@ def _typecheckingstub__6f3d9a63c768f1a40206835320dfa128b267da1fa702fbb4ecd8ac94b
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

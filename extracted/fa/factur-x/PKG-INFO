@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: factur-x
-Version: 6.5
+Version: 6.6
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -193,6 +193,10 @@ Contributors
 
 Changelog
 =========
+
+* Version 6.6 dated 2026-07-22:
+
+  * fix support for BT-83 in generate_xml()
 
 * Version 6.5 dated 2026-07-21:
 

@@ -220,6 +220,9 @@ def generate_report(
     dir_images = Path(parser.get("PATHS", "dir_metadata", fallback="")) / "images"
     logo_harvest = dir_images / parser.get("AGMET", "logo_harvest", fallback="harvest.png")
     logo_geoglam = dir_images / parser.get("AGMET", "logo_geoglam", fallback="geoglam.png")
+    # [ML] show_partner_branding (default True): when False, omit GEOGLAM /
+    # NASA Harvest partner logos from the footer (used e.g. for the USA report).
+    show_partner_branding = parser.getboolean("ML", "show_partner_branding", fallback=True)
 
     def _add_image(path, max_width=None, max_height=None, caption=None, description=None):
         """Add an image scaled to fit, preserving aspect ratio."""
@@ -303,7 +306,8 @@ def generate_report(
         max_logo_w = 1.2 * inch
         y_logo = 0.3 * cm
         x_cursor = 1.5 * cm
-        for lp in [logo_harvest, logo_geoglam]:
+        _logos = [logo_harvest, logo_geoglam] if show_partner_branding else []
+        for lp in _logos:
             if lp.exists():
                 try:
                     from PIL import Image as PILImage

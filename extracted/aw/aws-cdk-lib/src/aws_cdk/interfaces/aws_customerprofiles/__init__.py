@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class CalculatedAttributeDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69c9f928479930b4b44080f25dd85b476623eec3824c328993708294648462b1)
+            type_hints = cached_type_hints(_typecheckingstub__69c9f928479930b4b44080f25dd85b476623eec3824c328993708294648462b1)
             check_type(argname="argument calculated_attribute_name", value=calculated_attribute_name, expected_type=type_hints["calculated_attribute_name"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -133,7 +137,7 @@ class DomainObjectTypeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f3e71ba7f93ac45d9f086fdb183490a2cf37929f784dbd03e381f61157bfac8)
+            type_hints = cached_type_hints(_typecheckingstub__2f3e71ba7f93ac45d9f086fdb183490a2cf37929f784dbd03e381f61157bfac8)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -191,7 +195,7 @@ class DomainReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__085431f7ef067509a28b7dcfd8d0009bde06b147b2e50777fc5636a355898a85)
+            type_hints = cached_type_hints(_typecheckingstub__085431f7ef067509a28b7dcfd8d0009bde06b147b2e50777fc5636a355898a85)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_name": domain_name,
@@ -254,7 +258,7 @@ class EventStreamReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f85d0947924869d1226fd3a731b5037d6538589e1a7a8c514366dc5156e00a23)
+            type_hints = cached_type_hints(_typecheckingstub__f85d0947924869d1226fd3a731b5037d6538589e1a7a8c514366dc5156e00a23)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument event_stream_arn", value=event_stream_arn, expected_type=type_hints["event_stream_arn"])
             check_type(argname="argument event_stream_name", value=event_stream_name, expected_type=type_hints["event_stream_name"])
@@ -331,7 +335,7 @@ class EventTriggerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84611b6f2bbd585ebcc9429b7fcf0cc74a8710c38b133dc685a584140c6db520)
+            type_hints = cached_type_hints(_typecheckingstub__84611b6f2bbd585ebcc9429b7fcf0cc74a8710c38b133dc685a584140c6db520)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument event_trigger_name", value=event_trigger_name, expected_type=type_hints["event_trigger_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -370,7 +374,7 @@ class EventTriggerReference:
 )
 class ICalculatedAttributeDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CalculatedAttributeDefinition.
@@ -392,7 +396,7 @@ class ICalculatedAttributeDefinitionRef(
 
 class _ICalculatedAttributeDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CalculatedAttributeDefinition.
 
@@ -421,7 +425,7 @@ typing.cast(typing.Any, ICalculatedAttributeDefinitionRef).__jsii_proxy_class__ 
 )
 class IDomainObjectTypeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainObjectType.
@@ -441,7 +445,7 @@ class IDomainObjectTypeRef(
 
 class _IDomainObjectTypeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainObjectType.
 
@@ -466,7 +470,7 @@ typing.cast(typing.Any, IDomainObjectTypeRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IDomainRef")
 class IDomainRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Domain.
@@ -486,7 +490,7 @@ class IDomainRef(
 
 class _IDomainRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Domain.
 
@@ -513,7 +517,7 @@ typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefP
 )
 class IEventStreamRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventStream.
@@ -533,7 +537,7 @@ class IEventStreamRef(
 
 class _IEventStreamRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventStream.
 
@@ -560,7 +564,7 @@ typing.cast(typing.Any, IEventStreamRef).__jsii_proxy_class__ = lambda : _IEvent
 )
 class IEventTriggerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventTrigger.
@@ -580,7 +584,7 @@ class IEventTriggerRef(
 
 class _IEventTriggerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventTrigger.
 
@@ -607,7 +611,7 @@ typing.cast(typing.Any, IEventTriggerRef).__jsii_proxy_class__ = lambda : _IEven
 )
 class IIntegrationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Integration.
@@ -627,7 +631,7 @@ class IIntegrationRef(
 
 class _IIntegrationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Integration.
 
@@ -652,7 +656,7 @@ typing.cast(typing.Any, IIntegrationRef).__jsii_proxy_class__ = lambda : _IInteg
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IObjectTypeRef")
 class IObjectTypeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ObjectType.
@@ -672,7 +676,7 @@ class IObjectTypeRef(
 
 class _IObjectTypeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ObjectType.
 
@@ -699,7 +703,7 @@ typing.cast(typing.Any, IObjectTypeRef).__jsii_proxy_class__ = lambda : _IObject
 )
 class IRecommenderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Recommender.
@@ -719,7 +723,7 @@ class IRecommenderRef(
 
 class _IRecommenderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Recommender.
 
@@ -746,7 +750,7 @@ typing.cast(typing.Any, IRecommenderRef).__jsii_proxy_class__ = lambda : _IRecom
 )
 class ISegmentDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SegmentDefinition.
@@ -766,7 +770,7 @@ class ISegmentDefinitionRef(
 
 class _ISegmentDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SegmentDefinition.
 
@@ -814,7 +818,7 @@ class IntegrationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94eec83ed0b43d1237d9672aa6820fc456e2f4bf8d1743901aaa16e7d122586d)
+            type_hints = cached_type_hints(_typecheckingstub__94eec83ed0b43d1237d9672aa6820fc456e2f4bf8d1743901aaa16e7d122586d)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -879,7 +883,7 @@ class ObjectTypeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcdfa1e22cd22dc7400da7632968be09334b8baeadcbbfcdcedf890b2e396cf1)
+            type_hints = cached_type_hints(_typecheckingstub__dcdfa1e22cd22dc7400da7632968be09334b8baeadcbbfcdcedf890b2e396cf1)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -951,7 +955,7 @@ class RecommenderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc1b3c919)
+            type_hints = cached_type_hints(_typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc1b3c919)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument recommender_arn", value=recommender_arn, expected_type=type_hints["recommender_arn"])
             check_type(argname="argument recommender_name", value=recommender_name, expected_type=type_hints["recommender_name"])
@@ -1032,7 +1036,7 @@ class SegmentDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d8f457d6)
+            type_hints = cached_type_hints(_typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d8f457d6)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument segment_definition_arn", value=segment_definition_arn, expected_type=type_hints["segment_definition_arn"])
             check_type(argname="argument segment_definition_name", value=segment_definition_name, expected_type=type_hints["segment_definition_name"])

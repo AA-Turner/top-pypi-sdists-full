@@ -760,6 +760,8 @@ EcsDeployment({
 })
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -773,68 +775,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_autoscaling import (
-    AutoScalingGroup as _AutoScalingGroup_c547a7b9,
-    IAutoScalingGroup as _IAutoScalingGroup_360f1cde,
-)
-from ..aws_ecs import IBaseService as _IBaseService_3fcdd913
-from ..aws_elasticloadbalancing import LoadBalancer as _LoadBalancer_a894d40e
-from ..aws_elasticloadbalancingv2 import (
-    IApplicationTargetGroup as _IApplicationTargetGroup_57799827,
-    INetworkTargetGroup as _INetworkTargetGroup_abca2df7,
-    ITargetGroup as _ITargetGroup_83c6f8c4,
-)
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IRole as _IRole_235f5d8e,
-)
-from ..aws_lambda import Alias as _Alias_55be8873, IFunction as _IFunction_6adb0ab8
-from ..interfaces.aws_cloudwatch import IAlarmRef as _IAlarmRef_2bb0e5de
-from ..interfaces.aws_codedeploy import (
-    ApplicationReference as _ApplicationReference_936fe716,
-    DeploymentConfigReference as _DeploymentConfigReference_df2fccdb,
-    DeploymentGroupReference as _DeploymentGroupReference_9112f387,
-    IApplicationRef as _IApplicationRef_1ffc51d6,
-    IDeploymentConfigRef as _IDeploymentConfigRef_bc0b49ed,
-    IDeploymentGroupRef as _IDeploymentGroupRef_120f3b25,
-)
-from ..interfaces.aws_elasticloadbalancingv2 import (
-    IListenerRef as _IListenerRef_a8ced6a8
-)
-from ..interfaces.aws_lambda import IFunctionRef as _IFunctionRef_2601eb33
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_autoscaling as _aws_autoscaling_6cbf8045
+    import aws_cdk.aws_ecs as _aws_ecs_19c7ccd1
+    import aws_cdk.aws_elasticloadbalancing as _aws_elasticloadbalancing_199dfa00
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.interfaces.aws_cloudwatch as _aws_cloudwatch_70717108
+    import aws_cdk.interfaces.aws_codedeploy as _aws_codedeploy_cae50b6a
+    import aws_cdk.interfaces.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1283aa87
+    import aws_cdk.interfaces.aws_lambda as _aws_lambda_aaab8031
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_autoscaling_6cbf8045 = _LazyImport("aws_cdk.aws_autoscaling")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_70717108 = _LazyImport("aws_cdk.interfaces.aws_cloudwatch")
+    _aws_codedeploy_cae50b6a = _LazyImport("aws_cdk.interfaces.aws_codedeploy")
+    _aws_ecs_19c7ccd1 = _LazyImport("aws_cdk.aws_ecs")
+    _aws_elasticloadbalancing_199dfa00 = _LazyImport("aws_cdk.aws_elasticloadbalancing")
+    _aws_elasticloadbalancingv2_1283aa87 = _LazyImport("aws_cdk.interfaces.aws_elasticloadbalancingv2")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_lambda_aaab8031 = _LazyImport("aws_cdk.interfaces.aws_lambda")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -913,7 +896,7 @@ class AutoRollbackConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__689450aae2d9ca9a482d433f9f5a1fc7e3667c388258352cecb6392405eed69a)
+            type_hints = cached_type_hints(_typecheckingstub__689450aae2d9ca9a482d433f9f5a1fc7e3667c388258352cecb6392405eed69a)
             check_type(argname="argument deployment_in_alarm", value=deployment_in_alarm, expected_type=type_hints["deployment_in_alarm"])
             check_type(argname="argument failed_deployment", value=failed_deployment, expected_type=type_hints["failed_deployment"])
             check_type(argname="argument stopped_deployment", value=stopped_deployment, expected_type=type_hints["stopped_deployment"])
@@ -992,7 +975,7 @@ class BaseDeploymentConfigOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05a78df220a94eafb19c1fb09bf8cd1183e1f0942b3041c0d3aed8a339fd8ada)
+            type_hints = cached_type_hints(_typecheckingstub__05a78df220a94eafb19c1fb09bf8cd1183e1f0942b3041c0d3aed8a339fd8ada)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if deployment_config_name is not None:
@@ -1076,7 +1059,7 @@ class BaseDeploymentConfigProps(BaseDeploymentConfigOptions):
         if isinstance(zonal_config, dict):
             zonal_config = ZonalConfig(**zonal_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d482592e3c5f65fb9559b3e230fe81eab72a36fdd6c5a5b3cad1b4206b327f9f)
+            type_hints = cached_type_hints(_typecheckingstub__d482592e3c5f65fb9559b3e230fe81eab72a36fdd6c5a5b3cad1b4206b327f9f)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument compute_platform", value=compute_platform, expected_type=type_hints["compute_platform"])
             check_type(argname="argument minimum_healthy_hosts", value=minimum_healthy_hosts, expected_type=type_hints["minimum_healthy_hosts"])
@@ -1164,7 +1147,7 @@ class BaseTrafficShiftingConfigProps:
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> None:
         '''Common properties of traffic shifting routing configurations.
@@ -1187,7 +1170,7 @@ class BaseTrafficShiftingConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d5ec69046dd60e940973497323ace19e7ca99f17fbf8c276127a2f0ac4bce26)
+            type_hints = cached_type_hints(_typecheckingstub__7d5ec69046dd60e940973497323ace19e7ca99f17fbf8c276127a2f0ac4bce26)
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1196,11 +1179,11 @@ class BaseTrafficShiftingConfigProps:
         }
 
     @builtins.property
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The amount of time between traffic shifts.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def percentage(self) -> jsii.Number:
@@ -1255,7 +1238,7 @@ class CanaryTrafficRoutingConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b220d2e40da00bdd6575561fd7cdb02d36ddf0940793b63fdbd380655db12905)
+            type_hints = cached_type_hints(_typecheckingstub__b220d2e40da00bdd6575561fd7cdb02d36ddf0940793b63fdbd380655db12905)
             check_type(argname="argument canary_interval", value=canary_interval, expected_type=type_hints["canary_interval"])
             check_type(argname="argument canary_percentage", value=canary_percentage, expected_type=type_hints["canary_percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1289,9 +1272,9 @@ class CanaryTrafficRoutingConfig:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_1ffc51d6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codedeploy_cae50b6a.IApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.CfnApplication",
 ):
@@ -1325,9 +1308,9 @@ class CfnApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application_name: typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]] = None,
+        application_name: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]] = None,
         compute_platform: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeDeploy::Application``.
 
@@ -1338,7 +1321,7 @@ class CfnApplication(
         :param tags: The metadata that you apply to CodeDeploy applications to help you organize and categorize them. Each tag consists of a key and an optional value, both of which you define.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdb5a43a5eee290cb73c7a01531e1ffdf06d171c94caaa945bee8063be1b20cb)
+            type_hints = cached_type_hints(_typecheckingstub__cdb5a43a5eee290cb73c7a01531e1ffdf06d171c94caaa945bee8063be1b20cb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
@@ -1351,12 +1334,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_1ffc51d6") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_codedeploy_cae50b6a.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65fb096b527288448183f1879f6664e320555e133980271cc54dfb32999430f0)
+            type_hints = cached_type_hints(_typecheckingstub__65fb096b527288448183f1879f6664e320555e133980271cc54dfb32999430f0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -1367,7 +1353,7 @@ class CfnApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_name: builtins.str,
-    ) -> "_IApplicationRef_1ffc51d6":
+    ) -> "_aws_codedeploy_cae50b6a.IApplicationRef":
         '''Creates a new IApplicationRef from a applicationName.
 
         :param scope: -
@@ -1375,11 +1361,11 @@ class CfnApplication(
         :param application_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__994304faea12eda1f4933ffaf6eb6e8dd9709b690e69aaa2758aac884c2b1f42)
+            type_hints = cached_type_hints(_typecheckingstub__994304faea12eda1f4933ffaf6eb6e8dd9709b690e69aaa2758aac884c2b1f42)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-        return typing.cast("_IApplicationRef_1ffc51d6", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
+        return typing.cast("_aws_codedeploy_cae50b6a.IApplicationRef", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
 
     @jsii.member(jsii_name="isCfnApplication")
     @builtins.classmethod
@@ -1389,18 +1375,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f05223981a99573905734a5d52b4c3728fc3e8d5a46b4000e84b710903ac435e)
+            type_hints = cached_type_hints(_typecheckingstub__f05223981a99573905734a5d52b4c3728fc3e8d5a46b4000e84b710903ac435e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__472dad38d3229c543cd45d013c4792382a9a9ff72b6a1c296cd46ddee9866459)
+            type_hints = cached_type_hints(_typecheckingstub__472dad38d3229c543cd45d013c4792382a9a9ff72b6a1c296cd46ddee9866459)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1413,7 +1399,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a41fadf993de0854abe41941db98e76215ad0ec2ffd27ae1223e12e06bacf4c)
+            type_hints = cached_type_hints(_typecheckingstub__9a41fadf993de0854abe41941db98e76215ad0ec2ffd27ae1223e12e06bacf4c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1425,9 +1411,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_936fe716":
+    def application_ref(self) -> "_aws_codedeploy_cae50b6a.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_936fe716", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1441,9 +1427,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -1454,7 +1440,7 @@ class CfnApplication(
     @application_name.setter
     def application_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__728dce9dc041502139649117dd6edec48c37d9c568f82ee3be92de1b22e2d700)
+            type_hints = cached_type_hints(_typecheckingstub__728dce9dc041502139649117dd6edec48c37d9c568f82ee3be92de1b22e2d700)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -1467,20 +1453,23 @@ class CfnApplication(
     @compute_platform.setter
     def compute_platform(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1915728b28efc5c1d28ee6eddc170806e157b6c8dea55af22c18fe4e3b4ac191)
+            type_hints = cached_type_hints(_typecheckingstub__1915728b28efc5c1d28ee6eddc170806e157b6c8dea55af22c18fe4e3b4ac191)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The metadata that you apply to CodeDeploy applications to help you organize and categorize them.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b760e30495233c290b05641b219df0417ec34a7cdcb66209b76925733db09c3)
+            type_hints = cached_type_hints(_typecheckingstub__3b760e30495233c290b05641b219df0417ec34a7cdcb66209b76925733db09c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1498,9 +1487,9 @@ class CfnApplicationProps:
     def __init__(
         self,
         *,
-        application_name: typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]] = None,
+        application_name: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]] = None,
         compute_platform: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
@@ -1528,7 +1517,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3aeaaf4451457e6e36767224eb97c6e700e8d8faacb23edf47d5dd4c18588590)
+            type_hints = cached_type_hints(_typecheckingstub__3aeaaf4451457e6e36767224eb97c6e700e8d8faacb23edf47d5dd4c18588590)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument compute_platform", value=compute_platform, expected_type=type_hints["compute_platform"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1543,7 +1532,7 @@ class CfnApplicationProps:
     @builtins.property
     def application_name(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]]:
         '''A name for the application.
 
         If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the application name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ .
@@ -1554,7 +1543,7 @@ class CfnApplicationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-application.html#cfn-codedeploy-application-applicationname
         '''
         result = self._values.get("application_name")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IFunctionRef_2601eb33"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]], result)
 
     @builtins.property
     def compute_platform(self) -> typing.Optional[builtins.str]:
@@ -1566,7 +1555,7 @@ class CfnApplicationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The metadata that you apply to CodeDeploy applications to help you organize and categorize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -1574,7 +1563,7 @@ class CfnApplicationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-application.html#cfn-codedeploy-application-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1588,9 +1577,9 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeploymentConfigRef_bc0b49ed)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codedeploy_cae50b6a.IDeploymentConfigRef)
 class CfnDeploymentConfig(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentConfig",
 ):
@@ -1646,9 +1635,9 @@ class CfnDeploymentConfig(
         *,
         compute_platform: typing.Optional[builtins.str] = None,
         deployment_config_name: typing.Optional[builtins.str] = None,
-        minimum_healthy_hosts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        traffic_routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.TrafficRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        zonal_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.ZonalConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        minimum_healthy_hosts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        traffic_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.TrafficRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        zonal_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.ZonalConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeDeploy::DeploymentConfig``.
 
@@ -1661,7 +1650,7 @@ class CfnDeploymentConfig(
         :param zonal_config: Configure the ``ZonalConfig`` object if you want AWS CodeDeploy to deploy your application to one `Availability Zone <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones>`_ at a time, within an AWS Region. For more information about the zonal configuration feature, see `zonal configuration <https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations-create.html#zonal-config>`_ in the *CodeDeploy User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1601263a429a6a400738eca0c5abc3bd436649919830aa684054ba853d401c1f)
+            type_hints = cached_type_hints(_typecheckingstub__1601263a429a6a400738eca0c5abc3bd436649919830aa684054ba853d401c1f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeploymentConfigProps(
@@ -1682,18 +1671,18 @@ class CfnDeploymentConfig(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daa2d6c6f9d646eac53e561c1d67ebde325b634758e0986f0a295b805ce694d0)
+            type_hints = cached_type_hints(_typecheckingstub__daa2d6c6f9d646eac53e561c1d67ebde325b634758e0986f0a295b805ce694d0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeploymentConfig", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de25cf19eea9e6556b0b2281a81290d8a5bf22139c91cc21523d85735c1acaa3)
+            type_hints = cached_type_hints(_typecheckingstub__de25cf19eea9e6556b0b2281a81290d8a5bf22139c91cc21523d85735c1acaa3)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1706,7 +1695,7 @@ class CfnDeploymentConfig(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f45dd75f7b342e01e5b93540f71f720aa8d7caaf6291470bbe12a5b6f3885e9)
+            type_hints = cached_type_hints(_typecheckingstub__7f45dd75f7b342e01e5b93540f71f720aa8d7caaf6291470bbe12a5b6f3885e9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1728,9 +1717,11 @@ class CfnDeploymentConfig(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfigRef")
-    def deployment_config_ref(self) -> "_DeploymentConfigReference_df2fccdb":
+    def deployment_config_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentConfigReference":
         '''A reference to a DeploymentConfig resource.'''
-        return typing.cast("_DeploymentConfigReference_df2fccdb", jsii.get(self, "deploymentConfigRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentConfigReference", jsii.get(self, "deploymentConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="computePlatform")
@@ -1741,7 +1732,7 @@ class CfnDeploymentConfig(
     @compute_platform.setter
     def compute_platform(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fccd76b57c8ae8e5170ce23818cd0a34ba59302c6ce3d4c180222152061e2922)
+            type_hints = cached_type_hints(_typecheckingstub__fccd76b57c8ae8e5170ce23818cd0a34ba59302c6ce3d4c180222152061e2922)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
 
@@ -1754,7 +1745,7 @@ class CfnDeploymentConfig(
     @deployment_config_name.setter
     def deployment_config_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2be2e5144bd03df4a4fa40048f27e95c3e5304df13985412b42828a3a74d0e4d)
+            type_hints = cached_type_hints(_typecheckingstub__2be2e5144bd03df4a4fa40048f27e95c3e5304df13985412b42828a3a74d0e4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentConfigName", value) # pyright: ignore[reportArgumentType]
 
@@ -1762,17 +1753,17 @@ class CfnDeploymentConfig(
     @jsii.member(jsii_name="minimumHealthyHosts")
     def minimum_healthy_hosts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]]:
         '''The minimum number of healthy instances that should be available at any time during the deployment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]], jsii.get(self, "minimumHealthyHosts"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]], jsii.get(self, "minimumHealthyHosts"))
 
     @minimum_healthy_hosts.setter
     def minimum_healthy_hosts(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a51d4f90c94e060ed843233d31547707cbf9d10d3d4de60cd6205bda621edc94)
+            type_hints = cached_type_hints(_typecheckingstub__a51d4f90c94e060ed843233d31547707cbf9d10d3d4de60cd6205bda621edc94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minimumHealthyHosts", value) # pyright: ignore[reportArgumentType]
 
@@ -1780,17 +1771,17 @@ class CfnDeploymentConfig(
     @jsii.member(jsii_name="trafficRoutingConfig")
     def traffic_routing_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]]:
         '''The configuration that specifies how the deployment traffic is routed.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]], jsii.get(self, "trafficRoutingConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]], jsii.get(self, "trafficRoutingConfig"))
 
     @traffic_routing_config.setter
     def traffic_routing_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe1bae2a6b88ba41a47472dc8dc7bbf6f72bde54b89b4ed3b8f8e3fd35645ce4)
+            type_hints = cached_type_hints(_typecheckingstub__fe1bae2a6b88ba41a47472dc8dc7bbf6f72bde54b89b4ed3b8f8e3fd35645ce4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trafficRoutingConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1798,17 +1789,17 @@ class CfnDeploymentConfig(
     @jsii.member(jsii_name="zonalConfig")
     def zonal_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.ZonalConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.ZonalConfigProperty"]]:
         '''Configure the ``ZonalConfig`` object if you want AWS CodeDeploy to deploy your application to one `Availability Zone <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones>`_ at a time, within an AWS Region.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.ZonalConfigProperty"]], jsii.get(self, "zonalConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.ZonalConfigProperty"]], jsii.get(self, "zonalConfig"))
 
     @zonal_config.setter
     def zonal_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.ZonalConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.ZonalConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0fc8d5b7ad2a2a7cd82c46195cb23f97c32d3c56a1872111486e2ce1020d343)
+            type_hints = cached_type_hints(_typecheckingstub__b0fc8d5b7ad2a2a7cd82c46195cb23f97c32d3c56a1872111486e2ce1020d343)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "zonalConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -1839,7 +1830,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__89b1c958e0c1fc5c8d7e76d50581e6a23f2e3c3a2d0966981f3ee3ade58830fb)
+                type_hints = cached_type_hints(_typecheckingstub__89b1c958e0c1fc5c8d7e76d50581e6a23f2e3c3a2d0966981f3ee3ade58830fb)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1905,7 +1896,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__564f19ccdd0db2b16c3c238ca2a96b350c9884c519827c6fb91e0d1d234c91d7)
+                type_hints = cached_type_hints(_typecheckingstub__564f19ccdd0db2b16c3c238ca2a96b350c9884c519827c6fb91e0d1d234c91d7)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1991,7 +1982,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c4bcdd7787167974941b5c2516ab391320979aae485b7c1b94a03555868b2102)
+                type_hints = cached_type_hints(_typecheckingstub__c4bcdd7787167974941b5c2516ab391320979aae485b7c1b94a03555868b2102)
                 check_type(argname="argument canary_interval", value=canary_interval, expected_type=type_hints["canary_interval"])
                 check_type(argname="argument canary_percentage", value=canary_percentage, expected_type=type_hints["canary_percentage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2067,7 +2058,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e2df4e7a87402b186b362bc4d946424539c4a60d7802ac7dcc0731829bf567cb)
+                type_hints = cached_type_hints(_typecheckingstub__e2df4e7a87402b186b362bc4d946424539c4a60d7802ac7dcc0731829bf567cb)
                 check_type(argname="argument linear_interval", value=linear_interval, expected_type=type_hints["linear_interval"])
                 check_type(argname="argument linear_percentage", value=linear_percentage, expected_type=type_hints["linear_percentage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2120,8 +2111,8 @@ class CfnDeploymentConfig(
             self,
             *,
             type: builtins.str,
-            time_based_canary: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.TimeBasedCanaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            time_based_linear: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.TimeBasedLinearProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based_canary: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.TimeBasedCanaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based_linear: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.TimeBasedLinearProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration that specifies how traffic is shifted from one version of a Lambda function to another version during an AWS Lambda deployment, or from one Amazon ECS task set to another during an Amazon ECS deployment.
 
@@ -2153,7 +2144,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6b1a59608913355745ad3536a5af2b299b48dfb68b88ee15dd0c479874845c5a)
+                type_hints = cached_type_hints(_typecheckingstub__6b1a59608913355745ad3536a5af2b299b48dfb68b88ee15dd0c479874845c5a)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument time_based_canary", value=time_based_canary, expected_type=type_hints["time_based_canary"])
                 check_type(argname="argument time_based_linear", value=time_based_linear, expected_type=type_hints["time_based_linear"])
@@ -2178,7 +2169,7 @@ class CfnDeploymentConfig(
         @builtins.property
         def time_based_canary(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TimeBasedCanaryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TimeBasedCanaryProperty"]]:
             '''A configuration that shifts traffic from one version of a Lambda function or ECS task set to another in two increments.
 
             The original and target Lambda function versions or ECS task sets are specified in the deployment's AppSpec file.
@@ -2186,12 +2177,12 @@ class CfnDeploymentConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentconfig-trafficroutingconfig.html#cfn-codedeploy-deploymentconfig-trafficroutingconfig-timebasedcanary
             '''
             result = self._values.get("time_based_canary")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TimeBasedCanaryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TimeBasedCanaryProperty"]], result)
 
         @builtins.property
         def time_based_linear(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TimeBasedLinearProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TimeBasedLinearProperty"]]:
             '''A configuration that shifts traffic from one version of a Lambda function or Amazon ECS task set to another in equal increments, with an equal number of minutes between each increment.
 
             The original and target Lambda function versions or Amazon ECS task sets are specified in the deployment's AppSpec file.
@@ -2199,7 +2190,7 @@ class CfnDeploymentConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentconfig-trafficroutingconfig.html#cfn-codedeploy-deploymentconfig-trafficroutingconfig-timebasedlinear
             '''
             result = self._values.get("time_based_linear")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TimeBasedLinearProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TimeBasedLinearProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2226,7 +2217,7 @@ class CfnDeploymentConfig(
             self,
             *,
             first_zone_monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
-            minimum_healthy_hosts_per_zone: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            minimum_healthy_hosts_per_zone: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Configure the ``ZonalConfig`` object if you want AWS CodeDeploy to deploy your application to one `Availability Zone <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones>`_ at a time, within an AWS Region. By deploying to one Availability Zone at a time, you can expose your deployment to a progressively larger audience as confidence in the deployment's performance and viability grows. If you don't configure the ``ZonalConfig`` object, CodeDeploy deploys your application to a random selection of hosts across a Region.
@@ -2256,7 +2247,7 @@ class CfnDeploymentConfig(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d0322a57eb722fe06a715f272f3ec7473c80fcc783d030b62fdbaa0cc8cc047)
+                type_hints = cached_type_hints(_typecheckingstub__8d0322a57eb722fe06a715f272f3ec7473c80fcc783d030b62fdbaa0cc8cc047)
                 check_type(argname="argument first_zone_monitor_duration_in_seconds", value=first_zone_monitor_duration_in_seconds, expected_type=type_hints["first_zone_monitor_duration_in_seconds"])
                 check_type(argname="argument minimum_healthy_hosts_per_zone", value=minimum_healthy_hosts_per_zone, expected_type=type_hints["minimum_healthy_hosts_per_zone"])
                 check_type(argname="argument monitor_duration_in_seconds", value=monitor_duration_in_seconds, expected_type=type_hints["monitor_duration_in_seconds"])
@@ -2286,7 +2277,7 @@ class CfnDeploymentConfig(
         @builtins.property
         def minimum_healthy_hosts_per_zone(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty"]]:
             '''The number or percentage of instances that must remain available per Availability Zone during a deployment.
 
             This option works in conjunction with the ``MinimumHealthyHosts`` option. For more information, see `About the minimum number of healthy hosts per Availability Zone <https://docs.aws.amazon.com//codedeploy/latest/userguide/instances-health.html#minimum-healthy-hosts-az>`_ in the *CodeDeploy User Guide* .
@@ -2298,7 +2289,7 @@ class CfnDeploymentConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentconfig-zonalconfig.html#cfn-codedeploy-deploymentconfig-zonalconfig-minimumhealthyhostsperzone
             '''
             result = self._values.get("minimum_healthy_hosts_per_zone")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty"]], result)
 
         @builtins.property
         def monitor_duration_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -2342,9 +2333,9 @@ class CfnDeploymentConfigProps:
         *,
         compute_platform: typing.Optional[builtins.str] = None,
         deployment_config_name: typing.Optional[builtins.str] = None,
-        minimum_healthy_hosts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        traffic_routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.TrafficRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        zonal_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentConfig.ZonalConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        minimum_healthy_hosts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.MinimumHealthyHostsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        traffic_routing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.TrafficRoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        zonal_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentConfig.ZonalConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDeploymentConfig``.
 
@@ -2394,7 +2385,7 @@ class CfnDeploymentConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d50cfbd3bc3fca6105506273e4e48e992de4fbb025dced2c525ba1da4bacaadb)
+            type_hints = cached_type_hints(_typecheckingstub__d50cfbd3bc3fca6105506273e4e48e992de4fbb025dced2c525ba1da4bacaadb)
             check_type(argname="argument compute_platform", value=compute_platform, expected_type=type_hints["compute_platform"])
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument minimum_healthy_hosts", value=minimum_healthy_hosts, expected_type=type_hints["minimum_healthy_hosts"])
@@ -2438,7 +2429,7 @@ class CfnDeploymentConfigProps:
     @builtins.property
     def minimum_healthy_hosts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]]:
         '''The minimum number of healthy instances that should be available at any time during the deployment.
 
         There are two parameters expected in the input: type and value.
@@ -2457,23 +2448,23 @@ class CfnDeploymentConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentconfig.html#cfn-codedeploy-deploymentconfig-minimumhealthyhosts
         '''
         result = self._values.get("minimum_healthy_hosts")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.MinimumHealthyHostsProperty"]], result)
 
     @builtins.property
     def traffic_routing_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]]:
         '''The configuration that specifies how the deployment traffic is routed.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentconfig.html#cfn-codedeploy-deploymentconfig-trafficroutingconfig
         '''
         result = self._values.get("traffic_routing_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.TrafficRoutingConfigProperty"]], result)
 
     @builtins.property
     def zonal_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.ZonalConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.ZonalConfigProperty"]]:
         '''Configure the ``ZonalConfig`` object if you want AWS CodeDeploy to deploy your application to one `Availability Zone <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones>`_ at a time, within an AWS Region.
 
         For more information about the zonal configuration feature, see `zonal configuration <https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations-create.html#zonal-config>`_ in the *CodeDeploy User Guide* .
@@ -2481,7 +2472,7 @@ class CfnDeploymentConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentconfig.html#cfn-codedeploy-deploymentconfig-zonalconfig
         '''
         result = self._values.get("zonal_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentConfig.ZonalConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentConfig.ZonalConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2495,9 +2486,9 @@ class CfnDeploymentConfigProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeploymentGroupRef_120f3b25, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codedeploy_cae50b6a.IDeploymentGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDeploymentGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentGroup",
 ):
@@ -2649,24 +2640,24 @@ class CfnDeploymentGroup(
         *,
         application_name: builtins.str,
         service_role_arn: builtins.str,
-        alarm_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.AlarmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        auto_rollback_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.AutoRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.AlarmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_rollback_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.AutoRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         auto_scaling_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        blue_green_deployment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        deployment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.DeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        blue_green_deployment_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deployment_config_name: typing.Optional[builtins.str] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
-        deployment_style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ec2_tag_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ec2_tag_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ecs_services: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        load_balancer_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.LoadBalancerInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_premises_instance_tag_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        on_premises_tag_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.OnPremisesTagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ec2_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ec2_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ecs_services: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        load_balancer_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.LoadBalancerInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_premises_instance_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        on_premises_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.OnPremisesTagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         outdated_instances_strategy: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        trigger_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        trigger_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeDeploy::DeploymentGroup``.
 
@@ -2694,7 +2685,7 @@ class CfnDeploymentGroup(
         :param trigger_configurations: Information about triggers associated with the deployment group. Duplicates are not allowed
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afc1bc74c13d6392d70ae9e55ed64b8ec6f2cfed100b230e370997efe94283fc)
+            type_hints = cached_type_hints(_typecheckingstub__afc1bc74c13d6392d70ae9e55ed64b8ec6f2cfed100b230e370997efe94283fc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeploymentGroupProps(
@@ -2730,18 +2721,18 @@ class CfnDeploymentGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e02347a41f861ae2ca4988a56366a8f04999deef510bddf41e34add35e785ce2)
+            type_hints = cached_type_hints(_typecheckingstub__e02347a41f861ae2ca4988a56366a8f04999deef510bddf41e34add35e785ce2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeploymentGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3307a6c43ea08ab3400b7fc835536202e54b37286849aee24bbada2786dd74cf)
+            type_hints = cached_type_hints(_typecheckingstub__3307a6c43ea08ab3400b7fc835536202e54b37286849aee24bbada2786dd74cf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2754,7 +2745,7 @@ class CfnDeploymentGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1713bf55d2b8953310377b4afb89de903e08433197c638276d6cc30c5d16e48d)
+            type_hints = cached_type_hints(_typecheckingstub__1713bf55d2b8953310377b4afb89de903e08433197c638276d6cc30c5d16e48d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2776,15 +2767,17 @@ class CfnDeploymentGroup(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentGroupRef")
-    def deployment_group_ref(self) -> "_DeploymentGroupReference_9112f387":
+    def deployment_group_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentGroupReference":
         '''A reference to a DeploymentGroup resource.'''
-        return typing.cast("_DeploymentGroupReference_9112f387", jsii.get(self, "deploymentGroupRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentGroupReference", jsii.get(self, "deploymentGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -2795,7 +2788,7 @@ class CfnDeploymentGroup(
     @application_name.setter
     def application_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddb70a956898eec48889a079260c8cc973bf43c5f7612ee24bff5dbbbf459fe5)
+            type_hints = cached_type_hints(_typecheckingstub__ddb70a956898eec48889a079260c8cc973bf43c5f7612ee24bff5dbbbf459fe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
@@ -2808,7 +2801,7 @@ class CfnDeploymentGroup(
     @service_role_arn.setter
     def service_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66b7f059438dd5722aa9d8f744a278bc5625386e8ce3d4fc1eb8a281e2f306c2)
+            type_hints = cached_type_hints(_typecheckingstub__66b7f059438dd5722aa9d8f744a278bc5625386e8ce3d4fc1eb8a281e2f306c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2816,17 +2809,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="alarmConfiguration")
     def alarm_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmConfigurationProperty"]]:
         '''Information about the Amazon CloudWatch alarms that are associated with the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmConfigurationProperty"]], jsii.get(self, "alarmConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmConfigurationProperty"]], jsii.get(self, "alarmConfiguration"))
 
     @alarm_configuration.setter
     def alarm_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e91a52d4fd08a0b9deb3baefb2ccf408f0cb24c44a56893da4cb20fc1d8c83c)
+            type_hints = cached_type_hints(_typecheckingstub__5e91a52d4fd08a0b9deb3baefb2ccf408f0cb24c44a56893da4cb20fc1d8c83c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2834,17 +2827,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="autoRollbackConfiguration")
     def auto_rollback_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]]:
         '''Information about the automatic rollback configuration that is associated with the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]], jsii.get(self, "autoRollbackConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]], jsii.get(self, "autoRollbackConfiguration"))
 
     @auto_rollback_configuration.setter
     def auto_rollback_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69accffcb10c8665244d6da2f6e58570690d0e957e337792a901cb7be04905b7)
+            type_hints = cached_type_hints(_typecheckingstub__69accffcb10c8665244d6da2f6e58570690d0e957e337792a901cb7be04905b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoRollbackConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2860,7 +2853,7 @@ class CfnDeploymentGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e04b36b090b14ba34ad491347fe2aca8d51c1e1877ebf2c7e060f1741102a50)
+            type_hints = cached_type_hints(_typecheckingstub__7e04b36b090b14ba34ad491347fe2aca8d51c1e1877ebf2c7e060f1741102a50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -2868,17 +2861,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="blueGreenDeploymentConfiguration")
     def blue_green_deployment_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]]:
         '''Information about blue/green deployment options for a deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]], jsii.get(self, "blueGreenDeploymentConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]], jsii.get(self, "blueGreenDeploymentConfiguration"))
 
     @blue_green_deployment_configuration.setter
     def blue_green_deployment_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e01bb8b0c5b5d341a669261e31783fa832409200e3eb8a634fe33223a72f7306)
+            type_hints = cached_type_hints(_typecheckingstub__e01bb8b0c5b5d341a669261e31783fa832409200e3eb8a634fe33223a72f7306)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blueGreenDeploymentConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2886,17 +2879,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="deployment")
     def deployment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentProperty"]]:
         '''The application revision to deploy to this deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentProperty"]], jsii.get(self, "deployment"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentProperty"]], jsii.get(self, "deployment"))
 
     @deployment.setter
     def deployment(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08845fc7de26e5f1faa42234a437c12699ffe9eb475932cf303f7acd1c272595)
+            type_hints = cached_type_hints(_typecheckingstub__08845fc7de26e5f1faa42234a437c12699ffe9eb475932cf303f7acd1c272595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deployment", value) # pyright: ignore[reportArgumentType]
 
@@ -2909,7 +2902,7 @@ class CfnDeploymentGroup(
     @deployment_config_name.setter
     def deployment_config_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a74c90812b52cdad890ecf4f6486df9ad8780f8c6a1c163cd9479e4971f08402)
+            type_hints = cached_type_hints(_typecheckingstub__a74c90812b52cdad890ecf4f6486df9ad8780f8c6a1c163cd9479e4971f08402)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentConfigName", value) # pyright: ignore[reportArgumentType]
 
@@ -2922,7 +2915,7 @@ class CfnDeploymentGroup(
     @deployment_group_name.setter
     def deployment_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e42dd2dab2a2d9e3bc41f1ad0d0e48a8811bc6c996da34cbbfacc9757b3286d)
+            type_hints = cached_type_hints(_typecheckingstub__8e42dd2dab2a2d9e3bc41f1ad0d0e48a8811bc6c996da34cbbfacc9757b3286d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2930,17 +2923,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="deploymentStyle")
     def deployment_style(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentStyleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]]:
         '''Attributes that determine the type of deployment to run and whether to route deployment traffic behind a load balancer.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentStyleProperty"]], jsii.get(self, "deploymentStyle"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]], jsii.get(self, "deploymentStyle"))
 
     @deployment_style.setter
     def deployment_style(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentStyleProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80)
+            type_hints = cached_type_hints(_typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentStyle", value) # pyright: ignore[reportArgumentType]
 
@@ -2948,17 +2941,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="ec2TagFilters")
     def ec2_tag_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
         '''The Amazon EC2 tags that are already applied to Amazon EC2 instances that you want to include in the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], jsii.get(self, "ec2TagFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], jsii.get(self, "ec2TagFilters"))
 
     @ec2_tag_filters.setter
     def ec2_tag_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee79962691a5c39e41198cbe8d3feba8224218b0f0150b5f282db760c6c767ab)
+            type_hints = cached_type_hints(_typecheckingstub__ee79962691a5c39e41198cbe8d3feba8224218b0f0150b5f282db760c6c767ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ec2TagFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -2966,17 +2959,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="ec2TagSet")
     def ec2_tag_set(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetProperty"]]:
         '''Information about groups of tags applied to Amazon EC2 instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetProperty"]], jsii.get(self, "ec2TagSet"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetProperty"]], jsii.get(self, "ec2TagSet"))
 
     @ec2_tag_set.setter
     def ec2_tag_set(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6196a4cb27800772b6bd881880397500b9e720f740bb7b6289f13d2f51e04863)
+            type_hints = cached_type_hints(_typecheckingstub__6196a4cb27800772b6bd881880397500b9e720f740bb7b6289f13d2f51e04863)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ec2TagSet", value) # pyright: ignore[reportArgumentType]
 
@@ -2984,17 +2977,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="ecsServices")
     def ecs_services(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ECSServiceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ECSServiceProperty"]]]]:
         '''The target Amazon ECS services in the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ECSServiceProperty"]]]], jsii.get(self, "ecsServices"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ECSServiceProperty"]]]], jsii.get(self, "ecsServices"))
 
     @ecs_services.setter
     def ecs_services(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ECSServiceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ECSServiceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04e313b8ad9be6363e7a8552e9cf937d4c0cf7ff77b9f105105f6b3bab3b53c6)
+            type_hints = cached_type_hints(_typecheckingstub__04e313b8ad9be6363e7a8552e9cf937d4c0cf7ff77b9f105105f6b3bab3b53c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ecsServices", value) # pyright: ignore[reportArgumentType]
 
@@ -3002,17 +2995,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="loadBalancerInfo")
     def load_balancer_info(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.LoadBalancerInfoProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.LoadBalancerInfoProperty"]]:
         '''Information about the load balancer to use in a deployment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.LoadBalancerInfoProperty"]], jsii.get(self, "loadBalancerInfo"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.LoadBalancerInfoProperty"]], jsii.get(self, "loadBalancerInfo"))
 
     @load_balancer_info.setter
     def load_balancer_info(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.LoadBalancerInfoProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.LoadBalancerInfoProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72f10ac10d280e8586e5bdb5699bdb0c53aab83965020339a2a5611d15d4061e)
+            type_hints = cached_type_hints(_typecheckingstub__72f10ac10d280e8586e5bdb5699bdb0c53aab83965020339a2a5611d15d4061e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancerInfo", value) # pyright: ignore[reportArgumentType]
 
@@ -3020,17 +3013,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="onPremisesInstanceTagFilters")
     def on_premises_instance_tag_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]]:
         '''The on-premises instance tags already applied to on-premises instances that you want to include in the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]], jsii.get(self, "onPremisesInstanceTagFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]], jsii.get(self, "onPremisesInstanceTagFilters"))
 
     @on_premises_instance_tag_filters.setter
     def on_premises_instance_tag_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f88440801309d20e368d659f0132d109e5c37cb01b5a5f894053f4f9081f75f1)
+            type_hints = cached_type_hints(_typecheckingstub__f88440801309d20e368d659f0132d109e5c37cb01b5a5f894053f4f9081f75f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "onPremisesInstanceTagFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -3038,17 +3031,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="onPremisesTagSet")
     def on_premises_tag_set(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetProperty"]]:
         '''Information about groups of tags applied to on-premises instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetProperty"]], jsii.get(self, "onPremisesTagSet"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetProperty"]], jsii.get(self, "onPremisesTagSet"))
 
     @on_premises_tag_set.setter
     def on_premises_tag_set(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1da01bcd68da7d01c5ffa220e48c83cd4d65bd034d7416a79c12856e9a25fad)
+            type_hints = cached_type_hints(_typecheckingstub__e1da01bcd68da7d01c5ffa220e48c83cd4d65bd034d7416a79c12856e9a25fad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "onPremisesTagSet", value) # pyright: ignore[reportArgumentType]
 
@@ -3061,20 +3054,23 @@ class CfnDeploymentGroup(
     @outdated_instances_strategy.setter
     def outdated_instances_strategy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9af30b6e3ffc37ae09bbaa003b72063af09adae4e47a022a24f8e942d28ea799)
+            type_hints = cached_type_hints(_typecheckingstub__9af30b6e3ffc37ae09bbaa003b72063af09adae4e47a022a24f8e942d28ea799)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outdatedInstancesStrategy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The metadata that you apply to CodeDeploy deployment groups to help you organize and categorize them.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca51d486320d92369410ca709970091be367eabeebde41a60143404eeb1cc6a8)
+            type_hints = cached_type_hints(_typecheckingstub__ca51d486320d92369410ca709970091be367eabeebde41a60143404eeb1cc6a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3082,17 +3078,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="terminationHookEnabled")
     def termination_hook_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the deployment group was configured to have CodeDeploy install a termination hook into an Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "terminationHookEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "terminationHookEnabled"))
 
     @termination_hook_enabled.setter
     def termination_hook_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf9c1fbb66f570f500b907e6dae98c96270a20d62e93986637535a81ad80522)
+            type_hints = cached_type_hints(_typecheckingstub__2bf9c1fbb66f570f500b907e6dae98c96270a20d62e93986637535a81ad80522)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "terminationHookEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3100,17 +3096,17 @@ class CfnDeploymentGroup(
     @jsii.member(jsii_name="triggerConfigurations")
     def trigger_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TriggerConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TriggerConfigProperty"]]]]:
         '''Information about triggers associated with the deployment group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TriggerConfigProperty"]]]], jsii.get(self, "triggerConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TriggerConfigProperty"]]]], jsii.get(self, "triggerConfigurations"))
 
     @trigger_configurations.setter
     def trigger_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TriggerConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TriggerConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19f14404bcc2f5c2897842d997eb29c01baf8bcd6619fdc09e6b87d0df1f7693)
+            type_hints = cached_type_hints(_typecheckingstub__19f14404bcc2f5c2897842d997eb29c01baf8bcd6619fdc09e6b87d0df1f7693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggerConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -3127,9 +3123,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.AlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            ignore_poll_alarm_failure: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            alarms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.AlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            ignore_poll_alarm_failure: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The ``AlarmConfiguration`` property type configures CloudWatch alarms for an AWS CodeDeploy deployment group.
 
@@ -3157,7 +3153,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a9049a177037c3e8ef4e71b7faa8d7ccdc08bd8b6c11e4af29269d336bc4d6f)
+                type_hints = cached_type_hints(_typecheckingstub__4a9049a177037c3e8ef4e71b7faa8d7ccdc08bd8b6c11e4af29269d336bc4d6f)
                 check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument ignore_poll_alarm_failure", value=ignore_poll_alarm_failure, expected_type=type_hints["ignore_poll_alarm_failure"])
@@ -3172,7 +3168,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def alarms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmProperty"]]]]:
             '''A list of alarms configured for the deployment or deployment group.
 
             A maximum of 10 alarms can be added.
@@ -3180,23 +3176,23 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-alarmconfiguration.html#cfn-codedeploy-deploymentgroup-alarmconfiguration-alarms
             '''
             result = self._values.get("alarms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmProperty"]]]], result)
 
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the alarm configuration is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-alarmconfiguration.html#cfn-codedeploy-deploymentgroup-alarmconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def ignore_poll_alarm_failure(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether a deployment should continue if information about the current state of alarms cannot be retrieved from Amazon CloudWatch .
 
             The default value is ``false`` .
@@ -3207,7 +3203,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-alarmconfiguration.html#cfn-codedeploy-deploymentgroup-alarmconfiguration-ignorepollalarmfailure
             '''
             result = self._values.get("ignore_poll_alarm_failure")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3247,7 +3243,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__03e2a9b2ed59c3404f1d3022f2f33080db793f19b46ee08a71091c574e4f91bf)
+                type_hints = cached_type_hints(_typecheckingstub__03e2a9b2ed59c3404f1d3022f2f33080db793f19b46ee08a71091c574e4f91bf)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if name is not None:
@@ -3284,7 +3280,7 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             events: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''The ``AutoRollbackConfiguration`` property type configures automatic rollback for an AWS CodeDeploy deployment group when a deployment is not completed successfully.
@@ -3311,7 +3307,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a36fa5e61b5cc5a6cdc586ebcdd6624cb49131a6f67b88c2c5bcf44e6a75371f)
+                type_hints = cached_type_hints(_typecheckingstub__a36fa5e61b5cc5a6cdc586ebcdd6624cb49131a6f67b88c2c5bcf44e6a75371f)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3323,13 +3319,13 @@ class CfnDeploymentGroup(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether a defined automatic rollback configuration is currently enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-autorollbackconfiguration.html#cfn-codedeploy-deploymentgroup-autorollbackconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def events(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3366,9 +3362,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            deployment_ready_option: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.DeploymentReadyOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            green_fleet_provisioning_option: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.GreenFleetProvisioningOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            terminate_blue_instances_on_deployment_success: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.BlueInstanceTerminationOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deployment_ready_option: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentReadyOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            green_fleet_provisioning_option: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.GreenFleetProvisioningOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            terminate_blue_instances_on_deployment_success: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.BlueInstanceTerminationOptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about blue/green deployment options for a deployment group.
 
@@ -3400,7 +3396,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b7f7b94df2ec70381780abbf295dc60aec98ca6cee8249a44d4e591068ed620)
+                type_hints = cached_type_hints(_typecheckingstub__5b7f7b94df2ec70381780abbf295dc60aec98ca6cee8249a44d4e591068ed620)
                 check_type(argname="argument deployment_ready_option", value=deployment_ready_option, expected_type=type_hints["deployment_ready_option"])
                 check_type(argname="argument green_fleet_provisioning_option", value=green_fleet_provisioning_option, expected_type=type_hints["green_fleet_provisioning_option"])
                 check_type(argname="argument terminate_blue_instances_on_deployment_success", value=terminate_blue_instances_on_deployment_success, expected_type=type_hints["terminate_blue_instances_on_deployment_success"])
@@ -3415,35 +3411,35 @@ class CfnDeploymentGroup(
         @builtins.property
         def deployment_ready_option(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentReadyOptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentReadyOptionProperty"]]:
             '''Information about the action to take when newly provisioned instances are ready to receive traffic in a blue/green deployment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html#cfn-codedeploy-deploymentgroup-bluegreendeploymentconfiguration-deploymentreadyoption
             '''
             result = self._values.get("deployment_ready_option")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentReadyOptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentReadyOptionProperty"]], result)
 
         @builtins.property
         def green_fleet_provisioning_option(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.GreenFleetProvisioningOptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.GreenFleetProvisioningOptionProperty"]]:
             '''Information about how instances are provisioned for a replacement environment in a blue/green deployment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html#cfn-codedeploy-deploymentgroup-bluegreendeploymentconfiguration-greenfleetprovisioningoption
             '''
             result = self._values.get("green_fleet_provisioning_option")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.GreenFleetProvisioningOptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.GreenFleetProvisioningOptionProperty"]], result)
 
         @builtins.property
         def terminate_blue_instances_on_deployment_success(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueInstanceTerminationOptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueInstanceTerminationOptionProperty"]]:
             '''Information about whether to terminate instances in the original fleet during a blue/green deployment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html#cfn-codedeploy-deploymentgroup-bluegreendeploymentconfiguration-terminateblueinstancesondeploymentsuccess
             '''
             result = self._values.get("terminate_blue_instances_on_deployment_success")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueInstanceTerminationOptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueInstanceTerminationOptionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3493,7 +3489,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ace1975d2c13f6a63616292118c632b714e3f1acc2008b3030af06cf79e1b5e0)
+                type_hints = cached_type_hints(_typecheckingstub__ace1975d2c13f6a63616292118c632b714e3f1acc2008b3030af06cf79e1b5e0)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument termination_wait_time_in_minutes", value=termination_wait_time_in_minutes, expected_type=type_hints["termination_wait_time_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3551,9 +3547,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            revision: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.RevisionLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            revision: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.RevisionLocationProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
-            ignore_application_stop_failures: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ignore_application_stop_failures: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''``Deployment`` is a property of the `DeploymentGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html>`_ resource that specifies an AWS CodeDeploy application revision to be deployed to instances in the deployment group. If you specify an application revision, your target revision is deployed as soon as the provisioning process is complete.
 
@@ -3594,7 +3590,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d8d7106fc8a20bc76da89cc9e6f595c31863f43d9fa4324b6eb51a8bc1dada19)
+                type_hints = cached_type_hints(_typecheckingstub__d8d7106fc8a20bc76da89cc9e6f595c31863f43d9fa4324b6eb51a8bc1dada19)
                 check_type(argname="argument revision", value=revision, expected_type=type_hints["revision"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument ignore_application_stop_failures", value=ignore_application_stop_failures, expected_type=type_hints["ignore_application_stop_failures"])
@@ -3609,14 +3605,14 @@ class CfnDeploymentGroup(
         @builtins.property
         def revision(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.RevisionLocationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.RevisionLocationProperty"]:
             '''Information about the location of stored application artifacts and the service from which to retrieve them.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-deployment.html#cfn-codedeploy-deploymentgroup-deployment-revision
             '''
             result = self._values.get("revision")
             assert result is not None, "Required property 'revision' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.RevisionLocationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.RevisionLocationProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -3630,7 +3626,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def ignore_application_stop_failures(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If true, then if an ``ApplicationStop`` , ``BeforeBlockTraffic`` , or ``AfterBlockTraffic`` deployment lifecycle event to an instance fails, then the deployment continues to the next deployment lifecycle event.
 
             For example, if ``ApplicationStop`` fails, the deployment continues with DownloadBundle. If ``BeforeBlockTraffic`` fails, the deployment continues with ``BlockTraffic`` . If ``AfterBlockTraffic`` fails, the deployment continues with ``ApplicationStop`` .
@@ -3644,7 +3640,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-deployment.html#cfn-codedeploy-deploymentgroup-deployment-ignoreapplicationstopfailures
             '''
             result = self._values.get("ignore_application_stop_failures")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3692,7 +3688,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9191e174499f04c901c65523928f85f4ae3a2b619e5821f1dcd040efd65da4d6)
+                type_hints = cached_type_hints(_typecheckingstub__9191e174499f04c901c65523928f85f4ae3a2b619e5821f1dcd040efd65da4d6)
                 check_type(argname="argument action_on_timeout", value=action_on_timeout, expected_type=type_hints["action_on_timeout"])
                 check_type(argname="argument wait_time_in_minutes", value=wait_time_in_minutes, expected_type=type_hints["wait_time_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3770,7 +3766,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6043290c4b631767b4c4d436c6262f5d79a876cdc721342d1ef120eda81d2060)
+                type_hints = cached_type_hints(_typecheckingstub__6043290c4b631767b4c4d436c6262f5d79a876cdc721342d1ef120eda81d2060)
                 check_type(argname="argument deployment_option", value=deployment_option, expected_type=type_hints["deployment_option"])
                 check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3849,7 +3845,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b4123febfdeb60265474ec5b72d4ed596f0cc20f7693da9000b91cc6f3c79da)
+                type_hints = cached_type_hints(_typecheckingstub__9b4123febfdeb60265474ec5b72d4ed596f0cc20f7693da9000b91cc6f3c79da)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3912,7 +3908,7 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            ec2_tag_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ec2_tag_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``EC2TagSet`` property type specifies information about groups of tags applied to Amazon EC2 instances.
 
@@ -3942,7 +3938,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fff319f820316a004ead743ff5c8ad36448e48325ee845cbff5fcfd512773f6c)
+                type_hints = cached_type_hints(_typecheckingstub__fff319f820316a004ead743ff5c8ad36448e48325ee845cbff5fcfd512773f6c)
                 check_type(argname="argument ec2_tag_group", value=ec2_tag_group, expected_type=type_hints["ec2_tag_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ec2_tag_group is not None:
@@ -3951,7 +3947,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def ec2_tag_group(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
             '''A list that contains other lists of Amazon EC2 instance tag groups.
 
             For an instance to be included in the deployment group, it must be identified by all of the tag groups in the list.
@@ -3959,7 +3955,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-ec2tagsetlistobject.html#cfn-codedeploy-deploymentgroup-ec2tagsetlistobject-ec2taggroup
             '''
             result = self._values.get("ec2_tag_group")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3981,7 +3977,7 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            ec2_tag_set_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagSetListObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ec2_tag_set_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagSetListObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``EC2TagSet`` property type specifies information about groups of tags applied to Amazon EC2 instances.
 
@@ -4011,7 +4007,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a2ba29487a84183313e702cd8e61c88a4f0351eb6fd78f229d2580ae39e8e3e0)
+                type_hints = cached_type_hints(_typecheckingstub__a2ba29487a84183313e702cd8e61c88a4f0351eb6fd78f229d2580ae39e8e3e0)
                 check_type(argname="argument ec2_tag_set_list", value=ec2_tag_set_list, expected_type=type_hints["ec2_tag_set_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ec2_tag_set_list is not None:
@@ -4020,7 +4016,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def ec2_tag_set_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetListObjectProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetListObjectProperty"]]]]:
             '''The Amazon EC2 tags that are already applied to Amazon EC2 instances that you want to include in the deployment group.
 
             CodeDeploy includes all Amazon EC2 instances identified by any of the tags you specify in this deployment group.
@@ -4030,7 +4026,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-ec2tagset.html#cfn-codedeploy-deploymentgroup-ec2tagset-ec2tagsetlist
             '''
             result = self._values.get("ec2_tag_set_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetListObjectProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetListObjectProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4075,7 +4071,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c6525e95eaf4a440450af5d2e22a53ae3b16a83e28290e48e8aaeda963614fc)
+                type_hints = cached_type_hints(_typecheckingstub__0c6525e95eaf4a440450af5d2e22a53ae3b16a83e28290e48e8aaeda963614fc)
                 check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
                 check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4143,7 +4139,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1e1b138b2ef18765e84f9ebeee5de46f0b1d44931eeb67199e9796e5085caa7f)
+                type_hints = cached_type_hints(_typecheckingstub__1e1b138b2ef18765e84f9ebeee5de46f0b1d44931eeb67199e9796e5085caa7f)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if name is not None:
@@ -4206,7 +4202,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed147000e92beb1f04d3f0454dc3a873381abc78c1a6b36b05a6e71f1e816253)
+                type_hints = cached_type_hints(_typecheckingstub__ed147000e92beb1f04d3f0454dc3a873381abc78c1a6b36b05a6e71f1e816253)
                 check_type(argname="argument commit_id", value=commit_id, expected_type=type_hints["commit_id"])
                 check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4272,7 +4268,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e876af08ef6424feae19da396da079af3de5bc150f304e98d88f569bd98449dc)
+                type_hints = cached_type_hints(_typecheckingstub__e876af08ef6424feae19da396da079af3de5bc150f304e98d88f569bd98449dc)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if action is not None:
@@ -4314,9 +4310,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            elb_info_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.ELBInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_info_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TargetGroupInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_pair_info_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TargetGroupPairInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            elb_info_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.ELBInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_info_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TargetGroupInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_pair_info_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TargetGroupPairInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``LoadBalancerInfo`` property type specifies information about the load balancer or target group used for an AWS CodeDeploy deployment group.
 
@@ -4363,7 +4359,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3433798b0214903267b0b0c3d8bd53b5bf256f9e32a4864f4aa3e7de53a3e0d6)
+                type_hints = cached_type_hints(_typecheckingstub__3433798b0214903267b0b0c3d8bd53b5bf256f9e32a4864f4aa3e7de53a3e0d6)
                 check_type(argname="argument elb_info_list", value=elb_info_list, expected_type=type_hints["elb_info_list"])
                 check_type(argname="argument target_group_info_list", value=target_group_info_list, expected_type=type_hints["target_group_info_list"])
                 check_type(argname="argument target_group_pair_info_list", value=target_group_pair_info_list, expected_type=type_hints["target_group_pair_info_list"])
@@ -4378,7 +4374,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def elb_info_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ELBInfoProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ELBInfoProperty"]]]]:
             '''An array that contains information about the load balancers to use for load balancing in a deployment.
 
             If you're using Classic Load Balancers, specify those load balancers in this array.
@@ -4389,12 +4385,12 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-loadbalancerinfo.html#cfn-codedeploy-deploymentgroup-loadbalancerinfo-elbinfolist
             '''
             result = self._values.get("elb_info_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ELBInfoProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ELBInfoProperty"]]]], result)
 
         @builtins.property
         def target_group_info_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]]:
             '''An array that contains information about the target groups to use for load balancing in a deployment.
 
             If you're using Application Load Balancers and Network Load Balancers, specify their associated target groups in this array.
@@ -4405,12 +4401,12 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-loadbalancerinfo.html#cfn-codedeploy-deploymentgroup-loadbalancerinfo-targetgroupinfolist
             '''
             result = self._values.get("target_group_info_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]], result)
 
         @builtins.property
         def target_group_pair_info_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupPairInfoProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupPairInfoProperty"]]]]:
             '''The target group pair information.
 
             This is an array of ``TargeGroupPairInfo`` objects with a maximum size of one.
@@ -4418,7 +4414,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-loadbalancerinfo.html#cfn-codedeploy-deploymentgroup-loadbalancerinfo-targetgrouppairinfolist
             '''
             result = self._values.get("target_group_pair_info_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupPairInfoProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupPairInfoProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4440,7 +4436,7 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            on_premises_tag_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            on_premises_tag_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``OnPremisesTagSetListObject`` property type specifies lists of on-premises instance tag groups.
 
@@ -4468,7 +4464,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4011b432f9b5ed3fcdaa688b15c75cc1850efecdc1b1a6c9b90e48052559ec5b)
+                type_hints = cached_type_hints(_typecheckingstub__4011b432f9b5ed3fcdaa688b15c75cc1850efecdc1b1a6c9b90e48052559ec5b)
                 check_type(argname="argument on_premises_tag_group", value=on_premises_tag_group, expected_type=type_hints["on_premises_tag_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if on_premises_tag_group is not None:
@@ -4477,13 +4473,13 @@ class CfnDeploymentGroup(
         @builtins.property
         def on_premises_tag_group(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]]:
             '''Information about groups of on-premises instance tags.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-onpremisestagsetlistobject.html#cfn-codedeploy-deploymentgroup-onpremisestagsetlistobject-onpremisestaggroup
             '''
             result = self._values.get("on_premises_tag_group")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4505,7 +4501,7 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            on_premises_tag_set_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.OnPremisesTagSetListObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            on_premises_tag_set_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.OnPremisesTagSetListObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``OnPremisesTagSet`` property type specifies a list containing other lists of on-premises instance tag groups.
 
@@ -4537,7 +4533,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36ece4f2e243605e790c8b3d869b089b200ff22c8a77da7ce3d7477f6504f697)
+                type_hints = cached_type_hints(_typecheckingstub__36ece4f2e243605e790c8b3d869b089b200ff22c8a77da7ce3d7477f6504f697)
                 check_type(argname="argument on_premises_tag_set_list", value=on_premises_tag_set_list, expected_type=type_hints["on_premises_tag_set_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if on_premises_tag_set_list is not None:
@@ -4546,7 +4542,7 @@ class CfnDeploymentGroup(
         @builtins.property
         def on_premises_tag_set_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetListObjectProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetListObjectProperty"]]]]:
             '''A list that contains other lists of on-premises instance tag groups.
 
             For an instance to be included in the deployment group, it must be identified by all of the tag groups in the list.
@@ -4556,7 +4552,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-onpremisestagset.html#cfn-codedeploy-deploymentgroup-onpremisestagset-onpremisestagsetlist
             '''
             result = self._values.get("on_premises_tag_set_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetListObjectProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetListObjectProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4582,9 +4578,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            git_hub_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.GitHubLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git_hub_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.GitHubLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             revision_type: typing.Optional[builtins.str] = None,
-            s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''``RevisionLocation`` is a property that defines the location of the CodeDeploy application revision to deploy.
 
@@ -4619,7 +4615,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f29088b2f9a724cb557a6d1896af99895cac8961456ede05c903a4cb938ff48d)
+                type_hints = cached_type_hints(_typecheckingstub__f29088b2f9a724cb557a6d1896af99895cac8961456ede05c903a4cb938ff48d)
                 check_type(argname="argument git_hub_location", value=git_hub_location, expected_type=type_hints["git_hub_location"])
                 check_type(argname="argument revision_type", value=revision_type, expected_type=type_hints["revision_type"])
                 check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
@@ -4634,13 +4630,13 @@ class CfnDeploymentGroup(
         @builtins.property
         def git_hub_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.GitHubLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.GitHubLocationProperty"]]:
             '''Information about the location of application artifacts stored in GitHub.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-revisionlocation.html#cfn-codedeploy-deploymentgroup-revisionlocation-githublocation
             '''
             result = self._values.get("git_hub_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.GitHubLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.GitHubLocationProperty"]], result)
 
         @builtins.property
         def revision_type(self) -> typing.Optional[builtins.str]:
@@ -4659,13 +4655,13 @@ class CfnDeploymentGroup(
         @builtins.property
         def s3_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.S3LocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.S3LocationProperty"]]:
             '''Information about the location of a revision stored in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-revisionlocation.html#cfn-codedeploy-deploymentgroup-revisionlocation-s3location
             '''
             result = self._values.get("s3_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.S3LocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.S3LocationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4727,7 +4723,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c51f97a2e756174dd9b616cbc2cf2e3a30fc7670a54bc88414aabf5142992ec)
+                type_hints = cached_type_hints(_typecheckingstub__7c51f97a2e756174dd9b616cbc2cf2e3a30fc7670a54bc88414aabf5142992ec)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument bundle_type", value=bundle_type, expected_type=type_hints["bundle_type"])
@@ -4849,7 +4845,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__63f4128dda3c53a5291d286360b72c038c5228704c806b5dfffed5bf290d6317)
+                type_hints = cached_type_hints(_typecheckingstub__63f4128dda3c53a5291d286360b72c038c5228704c806b5dfffed5bf290d6317)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4934,7 +4930,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16465f8a39251aa9907267031575771f643f1897cd1cfea422dfafe3c33e4e92)
+                type_hints = cached_type_hints(_typecheckingstub__16465f8a39251aa9907267031575771f643f1897cd1cfea422dfafe3c33e4e92)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if name is not None:
@@ -4980,9 +4976,9 @@ class CfnDeploymentGroup(
         def __init__(
             self,
             *,
-            prod_traffic_route: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TrafficRouteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TargetGroupInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            test_traffic_route: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TrafficRouteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prod_traffic_route: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TrafficRouteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TargetGroupInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            test_traffic_route: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TrafficRouteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about two target groups and how traffic is routed during an Amazon ECS deployment.
 
@@ -5014,7 +5010,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7e5e2e921fcbd8db2d985022ed2557366a9e03a443be17ad0a66dc2940dfe1f1)
+                type_hints = cached_type_hints(_typecheckingstub__7e5e2e921fcbd8db2d985022ed2557366a9e03a443be17ad0a66dc2940dfe1f1)
                 check_type(argname="argument prod_traffic_route", value=prod_traffic_route, expected_type=type_hints["prod_traffic_route"])
                 check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
                 check_type(argname="argument test_traffic_route", value=test_traffic_route, expected_type=type_hints["test_traffic_route"])
@@ -5029,18 +5025,18 @@ class CfnDeploymentGroup(
         @builtins.property
         def prod_traffic_route(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TrafficRouteProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TrafficRouteProperty"]]:
             '''The path used by a load balancer to route production traffic when an Amazon ECS deployment is complete.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-targetgrouppairinfo.html#cfn-codedeploy-deploymentgroup-targetgrouppairinfo-prodtrafficroute
             '''
             result = self._values.get("prod_traffic_route")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TrafficRouteProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TrafficRouteProperty"]], result)
 
         @builtins.property
         def target_groups(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]]:
             '''One pair of target groups.
 
             One is associated with the original task set. The second is associated with the task set that serves traffic after the deployment is complete.
@@ -5048,12 +5044,12 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-targetgrouppairinfo.html#cfn-codedeploy-deploymentgroup-targetgrouppairinfo-targetgroups
             '''
             result = self._values.get("target_groups")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TargetGroupInfoProperty"]]]], result)
 
         @builtins.property
         def test_traffic_route(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TrafficRouteProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TrafficRouteProperty"]]:
             '''An optional path used by a load balancer to route test traffic after an Amazon ECS deployment.
 
             Validation can occur while test traffic is served during a deployment.
@@ -5061,7 +5057,7 @@ class CfnDeploymentGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-targetgrouppairinfo.html#cfn-codedeploy-deploymentgroup-targetgrouppairinfo-testtrafficroute
             '''
             result = self._values.get("test_traffic_route")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TrafficRouteProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TrafficRouteProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5105,7 +5101,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__658bb64cfd11bd3a4440b0f5de1ea0cdd277919eeaddf444d9b6438282bad659)
+                type_hints = cached_type_hints(_typecheckingstub__658bb64cfd11bd3a4440b0f5de1ea0cdd277919eeaddf444d9b6438282bad659)
                 check_type(argname="argument listener_arns", value=listener_arns, expected_type=type_hints["listener_arns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if listener_arns is not None:
@@ -5172,7 +5168,7 @@ class CfnDeploymentGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__08bf43d66fb9d8d74aceca78cf370506dcc65400910ba065753222415226e3c5)
+                type_hints = cached_type_hints(_typecheckingstub__08bf43d66fb9d8d74aceca78cf370506dcc65400910ba065753222415226e3c5)
                 check_type(argname="argument trigger_events", value=trigger_events, expected_type=type_hints["trigger_events"])
                 check_type(argname="argument trigger_name", value=trigger_name, expected_type=type_hints["trigger_name"])
                 check_type(argname="argument trigger_target_arn", value=trigger_target_arn, expected_type=type_hints["trigger_target_arn"])
@@ -5255,24 +5251,24 @@ class CfnDeploymentGroupProps:
         *,
         application_name: builtins.str,
         service_role_arn: builtins.str,
-        alarm_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.AlarmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        auto_rollback_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.AutoRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.AlarmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_rollback_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.AutoRollbackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         auto_scaling_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        blue_green_deployment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        deployment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.DeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        blue_green_deployment_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deployment_config_name: typing.Optional[builtins.str] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
-        deployment_style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ec2_tag_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ec2_tag_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ecs_services: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        load_balancer_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.LoadBalancerInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_premises_instance_tag_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        on_premises_tag_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.OnPremisesTagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ec2_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ec2_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ecs_services: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        load_balancer_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.LoadBalancerInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_premises_instance_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        on_premises_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.OnPremisesTagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         outdated_instances_strategy: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        trigger_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeploymentGroup.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        trigger_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDeploymentGroup``.
 
@@ -5430,7 +5426,7 @@ class CfnDeploymentGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6511a1a48658d7f16b747353194a86e2a15daf184e4957a0f2924cfee66716bc)
+            type_hints = cached_type_hints(_typecheckingstub__6511a1a48658d7f16b747353194a86e2a15daf184e4957a0f2924cfee66716bc)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
             check_type(argname="argument alarm_configuration", value=alarm_configuration, expected_type=type_hints["alarm_configuration"])
@@ -5520,18 +5516,18 @@ class CfnDeploymentGroupProps:
     @builtins.property
     def alarm_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmConfigurationProperty"]]:
         '''Information about the Amazon CloudWatch alarms that are associated with the deployment group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-alarmconfiguration
         '''
         result = self._values.get("alarm_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AlarmConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AlarmConfigurationProperty"]], result)
 
     @builtins.property
     def auto_rollback_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]]:
         '''Information about the automatic rollback configuration that is associated with the deployment group.
 
         If you specify this property, don't specify the ``Deployment`` property.
@@ -5539,7 +5535,7 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-autorollbackconfiguration
         '''
         result = self._values.get("auto_rollback_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.AutoRollbackConfigurationProperty"]], result)
 
     @builtins.property
     def auto_scaling_groups(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5555,18 +5551,18 @@ class CfnDeploymentGroupProps:
     @builtins.property
     def blue_green_deployment_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]]:
         '''Information about blue/green deployment options for a deployment group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-bluegreendeploymentconfiguration
         '''
         result = self._values.get("blue_green_deployment_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty"]], result)
 
     @builtins.property
     def deployment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentProperty"]]:
         '''The application revision to deploy to this deployment group.
 
         If you specify this property, your target application revision is deployed as soon as the provisioning process is complete. If you specify this property, don't specify the ``AutoRollbackConfiguration`` property.
@@ -5574,7 +5570,7 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-deployment
         '''
         result = self._values.get("deployment")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentProperty"]], result)
 
     @builtins.property
     def deployment_config_name(self) -> typing.Optional[builtins.str]:
@@ -5604,7 +5600,7 @@ class CfnDeploymentGroupProps:
     @builtins.property
     def deployment_style(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentStyleProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]]:
         '''Attributes that determine the type of deployment to run and whether to route deployment traffic behind a load balancer.
 
         If you specify this property with a blue/green deployment type, don't specify the ``AutoScalingGroups`` , ``LoadBalancerInfo`` , or ``Deployment`` properties.
@@ -5615,12 +5611,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-deploymentstyle
         '''
         result = self._values.get("deployment_style")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.DeploymentStyleProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]], result)
 
     @builtins.property
     def ec2_tag_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]]:
         '''The Amazon EC2 tags that are already applied to Amazon EC2 instances that you want to include in the deployment group.
 
         CodeDeploy includes all Amazon EC2 instances identified by any of the tags you specify in this deployment group. Duplicates are not allowed.
@@ -5630,12 +5626,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-ec2tagfilters
         '''
         result = self._values.get("ec2_tag_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagFilterProperty"]]]], result)
 
     @builtins.property
     def ec2_tag_set(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetProperty"]]:
         '''Information about groups of tags applied to Amazon EC2 instances.
 
         The deployment group includes only Amazon EC2 instances identified by all the tag groups. Cannot be used in the same call as ``ec2TagFilter`` .
@@ -5643,12 +5639,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-ec2tagset
         '''
         result = self._values.get("ec2_tag_set")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.EC2TagSetProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.EC2TagSetProperty"]], result)
 
     @builtins.property
     def ecs_services(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ECSServiceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ECSServiceProperty"]]]]:
         '''The target Amazon ECS services in the deployment group.
 
         This applies only to deployment groups that use the Amazon ECS compute platform. A target Amazon ECS service is specified as an Amazon ECS cluster and service name pair using the format ``<clustername>:<servicename>`` .
@@ -5656,12 +5652,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-ecsservices
         '''
         result = self._values.get("ecs_services")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.ECSServiceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.ECSServiceProperty"]]]], result)
 
     @builtins.property
     def load_balancer_info(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.LoadBalancerInfoProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.LoadBalancerInfoProperty"]]:
         '''Information about the load balancer to use in a deployment.
 
         For more information, see `Integrating CodeDeploy with Elastic Load Balancing <https://docs.aws.amazon.com/codedeploy/latest/userguide/integrations-aws-elastic-load-balancing.html>`_ in the *AWS CodeDeploy User Guide* .
@@ -5669,12 +5665,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-loadbalancerinfo
         '''
         result = self._values.get("load_balancer_info")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.LoadBalancerInfoProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.LoadBalancerInfoProperty"]], result)
 
     @builtins.property
     def on_premises_instance_tag_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]]:
         '''The on-premises instance tags already applied to on-premises instances that you want to include in the deployment group.
 
         CodeDeploy includes all on-premises instances identified by any of the tags you specify in this deployment group. To register on-premises instances with CodeDeploy , see `Working with On-Premises Instances for CodeDeploy <https://docs.aws.amazon.com/codedeploy/latest/userguide/instances-on-premises.html>`_ in the *AWS CodeDeploy User Guide* . Duplicates are not allowed.
@@ -5684,12 +5680,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-onpremisesinstancetagfilters
         '''
         result = self._values.get("on_premises_instance_tag_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TagFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TagFilterProperty"]]]], result)
 
     @builtins.property
     def on_premises_tag_set(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetProperty"]]:
         '''Information about groups of tags applied to on-premises instances.
 
         The deployment group includes only on-premises instances identified by all the tag groups.
@@ -5699,7 +5695,7 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-onpremisestagset
         '''
         result = self._values.get("on_premises_tag_set")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.OnPremisesTagSetProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.OnPremisesTagSetProperty"]], result)
 
     @builtins.property
     def outdated_instances_strategy(self) -> typing.Optional[builtins.str]:
@@ -5715,7 +5711,7 @@ class CfnDeploymentGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The metadata that you apply to CodeDeploy deployment groups to help you organize and categorize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -5723,12 +5719,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def termination_hook_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the deployment group was configured to have CodeDeploy install a termination hook into an Auto Scaling group.
 
         For more information about the termination hook, see `How Amazon EC2 Auto Scaling works with CodeDeploy <https://docs.aws.amazon.com//codedeploy/latest/userguide/integrations-aws-auto-scaling.html#integrations-aws-auto-scaling-behaviors>`_ in the *AWS CodeDeploy User Guide* .
@@ -5736,12 +5732,12 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-terminationhookenabled
         '''
         result = self._values.get("termination_hook_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def trigger_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TriggerConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TriggerConfigProperty"]]]]:
         '''Information about triggers associated with the deployment group.
 
         Duplicates are not allowed
@@ -5749,7 +5745,7 @@ class CfnDeploymentGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-triggerconfigurations
         '''
         result = self._values.get("trigger_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeploymentGroup.TriggerConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.TriggerConfigProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5789,7 +5785,7 @@ class CustomLambdaDeploymentConfigProps:
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
         type: "CustomLambdaDeploymentConfigType",
         deployment_config_name: typing.Optional[builtins.str] = None,
@@ -5823,7 +5819,7 @@ class CustomLambdaDeploymentConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f8c53864749c97e11693362fedad7242c31fc477d04c6e3dede64774251fad3)
+            type_hints = cached_type_hints(_typecheckingstub__6f8c53864749c97e11693362fedad7242c31fc477d04c6e3dede64774251fad3)
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -5837,7 +5833,7 @@ class CustomLambdaDeploymentConfigProps:
             self._values["deployment_config_name"] = deployment_config_name
 
     @builtins.property
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''(deprecated) The interval, in number of minutes: - For LINEAR, how frequently additional traffic is shifted - For CANARY, how long to shift traffic before the full deployment.
 
         :deprecated: Use ``LambdaDeploymentConfig``
@@ -5846,7 +5842,7 @@ class CustomLambdaDeploymentConfigProps:
         '''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def percentage(self) -> jsii.Number:
@@ -5949,7 +5945,7 @@ class EcsApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31617a0bd5a72eae80bdaf60a12a3c49a0948473616c9a8e908f3d9bd671d2f5)
+            type_hints = cached_type_hints(_typecheckingstub__31617a0bd5a72eae80bdaf60a12a3c49a0948473616c9a8e908f3d9bd671d2f5)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if application_name is not None:
@@ -5992,12 +5988,12 @@ class EcsBlueGreenDeploymentConfig:
     def __init__(
         self,
         *,
-        blue_target_group: "_ITargetGroup_83c6f8c4",
-        green_target_group: "_ITargetGroup_83c6f8c4",
-        listener: "_IListenerRef_a8ced6a8",
-        deployment_approval_wait_time: typing.Optional["_Duration_4839e8c3"] = None,
-        termination_wait_time: typing.Optional["_Duration_4839e8c3"] = None,
-        test_listener: typing.Optional["_IListenerRef_a8ced6a8"] = None,
+        blue_target_group: "_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup",
+        green_target_group: "_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup",
+        listener: "_aws_elasticloadbalancingv2_1283aa87.IListenerRef",
+        deployment_approval_wait_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        termination_wait_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        test_listener: typing.Optional["_aws_elasticloadbalancingv2_1283aa87.IListenerRef"] = None,
     ) -> None:
         '''Specify how the deployment behaves and how traffic is routed to the ECS service during a blue-green ECS deployment.
 
@@ -6040,7 +6036,7 @@ class EcsBlueGreenDeploymentConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b251dc2bb3166b5b08fc4a016e350d50231d6a3f0a8566638996a295262e0269)
+            type_hints = cached_type_hints(_typecheckingstub__b251dc2bb3166b5b08fc4a016e350d50231d6a3f0a8566638996a295262e0269)
             check_type(argname="argument blue_target_group", value=blue_target_group, expected_type=type_hints["blue_target_group"])
             check_type(argname="argument green_target_group", value=green_target_group, expected_type=type_hints["green_target_group"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
@@ -6060,28 +6056,30 @@ class EcsBlueGreenDeploymentConfig:
             self._values["test_listener"] = test_listener
 
     @builtins.property
-    def blue_target_group(self) -> "_ITargetGroup_83c6f8c4":
+    def blue_target_group(self) -> "_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup":
         '''The target group that will be associated with the 'blue' ECS task set during a blue-green deployment.'''
         result = self._values.get("blue_target_group")
         assert result is not None, "Required property 'blue_target_group' is missing"
-        return typing.cast("_ITargetGroup_83c6f8c4", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup", result)
 
     @builtins.property
-    def green_target_group(self) -> "_ITargetGroup_83c6f8c4":
+    def green_target_group(self) -> "_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup":
         '''The target group that will be associated with the 'green' ECS task set during a blue-green deployment.'''
         result = self._values.get("green_target_group")
         assert result is not None, "Required property 'green_target_group' is missing"
-        return typing.cast("_ITargetGroup_83c6f8c4", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ITargetGroup", result)
 
     @builtins.property
-    def listener(self) -> "_IListenerRef_a8ced6a8":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1283aa87.IListenerRef":
         '''The load balancer listener used to serve production traffic and to shift production traffic from the 'blue' ECS task set to the 'green' ECS task set during a blue-green deployment.'''
         result = self._values.get("listener")
         assert result is not None, "Required property 'listener' is missing"
-        return typing.cast("_IListenerRef_a8ced6a8", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1283aa87.IListenerRef", result)
 
     @builtins.property
-    def deployment_approval_wait_time(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def deployment_approval_wait_time(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specify how long CodeDeploy waits for approval to continue a blue-green deployment before it stops the deployment.
 
         After provisioning the 'green' ECS task set and re-routing test traffic, CodeDeploy can wait for approval before
@@ -6098,10 +6096,10 @@ class EcsBlueGreenDeploymentConfig:
         :default: 0
         '''
         result = self._values.get("deployment_approval_wait_time")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def termination_wait_time(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def termination_wait_time(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specify how long CodeDeploy waits before it terminates the original 'blue' ECS task set when a blue-green deployment is complete.
 
         During this wait time, CodeDeploy will continue to monitor any CloudWatch alarms specified for the deployment group,
@@ -6114,10 +6112,12 @@ class EcsBlueGreenDeploymentConfig:
         :default: 0
         '''
         result = self._values.get("termination_wait_time")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def test_listener(self) -> typing.Optional["_IListenerRef_a8ced6a8"]:
+    def test_listener(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1283aa87.IListenerRef"]:
         '''The load balancer listener used to route test traffic to the 'green' ECS task set during a blue-green deployment.
 
         During a blue-green deployment, validation can occur after test traffic has been re-routed and before production
@@ -6132,7 +6132,7 @@ class EcsBlueGreenDeploymentConfig:
         :default: No test listener will be added
         '''
         result = self._values.get("test_listener")
-        return typing.cast(typing.Optional["_IListenerRef_a8ced6a8"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1283aa87.IListenerRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6178,7 +6178,7 @@ class EcsDeploymentConfigProps(BaseDeploymentConfigOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82f77eb6fc251ed7746cecc68aaaaf5706c1f2831b79812175c6abd5ba12b754)
+            type_hints = cached_type_hints(_typecheckingstub__82f77eb6fc251ed7746cecc68aaaaf5706c1f2831b79812175c6abd5ba12b754)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument traffic_routing", value=traffic_routing, expected_type=type_hints["traffic_routing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6230,9 +6230,9 @@ class EcsDeploymentGroupAttributes:
     def __init__(
         self,
         *,
-        application: "_IApplicationRef_1ffc51d6",
+        application: "_aws_codedeploy_cae50b6a.IApplicationRef",
         deployment_group_name: builtins.str,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
     ) -> None:
         '''Properties of a reference to a CodeDeploy ECS Deployment Group.
 
@@ -6253,7 +6253,7 @@ class EcsDeploymentGroupAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__171917799e985d16bcafd7fcbcf48ad64ae8bcb175f7e2b8f9fe1f74316e63df)
+            type_hints = cached_type_hints(_typecheckingstub__171917799e985d16bcafd7fcbcf48ad64ae8bcb175f7e2b8f9fe1f74316e63df)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
             check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
@@ -6265,11 +6265,11 @@ class EcsDeploymentGroupAttributes:
             self._values["deployment_config"] = deployment_config
 
     @builtins.property
-    def application(self) -> "_IApplicationRef_1ffc51d6":
+    def application(self) -> "_aws_codedeploy_cae50b6a.IApplicationRef":
         '''The reference to the CodeDeploy ECS Application that this Deployment Group belongs to.'''
         result = self._values.get("application")
         assert result is not None, "Required property 'application' is missing"
-        return typing.cast("_IApplicationRef_1ffc51d6", result)
+        return typing.cast("_aws_codedeploy_cae50b6a.IApplicationRef", result)
 
     @builtins.property
     def deployment_group_name(self) -> builtins.str:
@@ -6279,13 +6279,15 @@ class EcsDeploymentGroupAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def deployment_config(self) -> typing.Optional["_IDeploymentConfigRef_bc0b49ed"]:
+    def deployment_config(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"]:
         '''The Deployment Configuration this Deployment Group uses.
 
         :default: EcsDeploymentConfig.ALL_AT_ONCE
         '''
         result = self._values.get("deployment_config")
-        return typing.cast(typing.Optional["_IDeploymentConfigRef_bc0b49ed"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6320,15 +6322,15 @@ class EcsDeploymentGroupProps:
         self,
         *,
         blue_green_deployment_config: typing.Union["EcsBlueGreenDeploymentConfig", typing.Dict[builtins.str, typing.Any]],
-        service: "_IBaseService_3fcdd913",
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
-        application: typing.Optional["_IApplicationRef_1ffc51d6"] = None,
+        service: "_aws_ecs_19c7ccd1.IBaseService",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        application: typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
         ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Construction properties for ``EcsDeploymentGroup``.
 
@@ -6378,7 +6380,7 @@ class EcsDeploymentGroupProps:
         if isinstance(auto_rollback, dict):
             auto_rollback = AutoRollbackConfig(**auto_rollback)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7adf7c582969f2d223ca19321a889bd4195cc6c299e92558e985e0fdcdea2cd0)
+            type_hints = cached_type_hints(_typecheckingstub__7adf7c582969f2d223ca19321a889bd4195cc6c299e92558e985e0fdcdea2cd0)
             check_type(argname="argument blue_green_deployment_config", value=blue_green_deployment_config, expected_type=type_hints["blue_green_deployment_config"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
@@ -6418,14 +6420,16 @@ class EcsDeploymentGroupProps:
         return typing.cast("EcsBlueGreenDeploymentConfig", result)
 
     @builtins.property
-    def service(self) -> "_IBaseService_3fcdd913":
+    def service(self) -> "_aws_ecs_19c7ccd1.IBaseService":
         '''The ECS service to deploy with this Deployment Group.'''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
-        return typing.cast("_IBaseService_3fcdd913", result)
+        return typing.cast("_aws_ecs_19c7ccd1.IBaseService", result)
 
     @builtins.property
-    def alarms(self) -> typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]]:
+    def alarms(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]]:
         '''The CloudWatch alarms associated with this Deployment Group.
 
         CodeDeploy will stop (and optionally roll back)
@@ -6438,16 +6442,18 @@ class EcsDeploymentGroupProps:
         :see: https://docs.aws.amazon.com/codedeploy/latest/userguide/monitoring-create-alarms.html
         '''
         result = self._values.get("alarms")
-        return typing.cast(typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]], result)
 
     @builtins.property
-    def application(self) -> typing.Optional["_IApplicationRef_1ffc51d6"]:
+    def application(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"]:
         '''The reference to the CodeDeploy ECS Application that this Deployment Group belongs to.
 
         :default: One will be created for you.
         '''
         result = self._values.get("application")
-        return typing.cast(typing.Optional["_IApplicationRef_1ffc51d6"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"], result)
 
     @builtins.property
     def auto_rollback(self) -> typing.Optional["AutoRollbackConfig"]:
@@ -6459,13 +6465,15 @@ class EcsDeploymentGroupProps:
         return typing.cast(typing.Optional["AutoRollbackConfig"], result)
 
     @builtins.property
-    def deployment_config(self) -> typing.Optional["_IDeploymentConfigRef_bc0b49ed"]:
+    def deployment_config(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"]:
         '''The Deployment Configuration this Deployment Group uses.
 
         :default: EcsDeploymentConfig.ALL_AT_ONCE
         '''
         result = self._values.get("deployment_config")
-        return typing.cast(typing.Optional["_IDeploymentConfigRef_bc0b49ed"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"], result)
 
     @builtins.property
     def deployment_group_name(self) -> typing.Optional[builtins.str]:
@@ -6495,13 +6503,13 @@ class EcsDeploymentGroupProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The service Role of this Deployment Group.
 
         :default: - A new Role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6516,7 +6524,10 @@ class EcsDeploymentGroupProps:
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IBaseDeploymentConfig")
-class IBaseDeploymentConfig(_IDeploymentConfigRef_bc0b49ed, typing_extensions.Protocol):
+class IBaseDeploymentConfig(
+    _aws_codedeploy_cae50b6a.IDeploymentConfigRef,
+    typing_extensions.Protocol,
+):
     '''The base class for ServerDeploymentConfig, EcsDeploymentConfig, and LambdaDeploymentConfig deployment configurations.'''
 
     @builtins.property
@@ -6539,7 +6550,7 @@ class IBaseDeploymentConfig(_IDeploymentConfigRef_bc0b49ed, typing_extensions.Pr
 
 
 class _IBaseDeploymentConfigProxy(
-    jsii.proxy_for(_IDeploymentConfigRef_bc0b49ed), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IDeploymentConfigRef), # type: ignore[misc]
 ):
     '''The base class for ServerDeploymentConfig, EcsDeploymentConfig, and LambdaDeploymentConfig deployment configurations.'''
 
@@ -6569,7 +6580,7 @@ typing.cast(typing.Any, IBaseDeploymentConfig).__jsii_proxy_class__ = lambda : _
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IBindableDeploymentConfig")
 class IBindableDeploymentConfig(
-    _IDeploymentConfigRef_bc0b49ed,
+    _aws_codedeploy_cae50b6a.IDeploymentConfigRef,
     typing_extensions.Protocol,
 ):
     '''A DeploymentConfig that can specialize itself based on the target group it will be used for.
@@ -6587,8 +6598,8 @@ class IBindableDeploymentConfig(
     @jsii.member(jsii_name="bindEnvironment")
     def bind_environment(
         self,
-        deployment_group: "_IDeploymentGroupRef_120f3b25",
-    ) -> "_IDeploymentConfigRef_bc0b49ed":
+        deployment_group: "_aws_codedeploy_cae50b6a.IDeploymentGroupRef",
+    ) -> "_aws_codedeploy_cae50b6a.IDeploymentConfigRef":
         '''Bind the predefined deployment config to the environment of the given resource.
 
         :param deployment_group: -
@@ -6597,7 +6608,7 @@ class IBindableDeploymentConfig(
 
 
 class _IBindableDeploymentConfigProxy(
-    jsii.proxy_for(_IDeploymentConfigRef_bc0b49ed), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IDeploymentConfigRef), # type: ignore[misc]
 ):
     '''A DeploymentConfig that can specialize itself based on the target group it will be used for.
 
@@ -6616,16 +6627,16 @@ class _IBindableDeploymentConfigProxy(
     @jsii.member(jsii_name="bindEnvironment")
     def bind_environment(
         self,
-        deployment_group: "_IDeploymentGroupRef_120f3b25",
-    ) -> "_IDeploymentConfigRef_bc0b49ed":
+        deployment_group: "_aws_codedeploy_cae50b6a.IDeploymentGroupRef",
+    ) -> "_aws_codedeploy_cae50b6a.IDeploymentConfigRef":
         '''Bind the predefined deployment config to the environment of the given resource.
 
         :param deployment_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba97b3918e8b33752fcb76aaa34476f79974fb3fba51e966de959dda226b115a)
+            type_hints = cached_type_hints(_typecheckingstub__ba97b3918e8b33752fcb76aaa34476f79974fb3fba51e966de959dda226b115a)
             check_type(argname="argument deployment_group", value=deployment_group, expected_type=type_hints["deployment_group"])
-        return typing.cast("_IDeploymentConfigRef_bc0b49ed", jsii.invoke(self, "bindEnvironment", [deployment_group]))
+        return typing.cast("_aws_codedeploy_cae50b6a.IDeploymentConfigRef", jsii.invoke(self, "bindEnvironment", [deployment_group]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IBindableDeploymentConfig).__jsii_proxy_class__ = lambda : _IBindableDeploymentConfigProxy
@@ -6633,8 +6644,8 @@ typing.cast(typing.Any, IBindableDeploymentConfig).__jsii_proxy_class__ = lambda
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IEcsApplication")
 class IEcsApplication(
-    _IResource_c80c4260,
-    _IApplicationRef_1ffc51d6,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IApplicationRef,
     typing_extensions.Protocol,
 ):
     '''Represents a reference to a CodeDeploy Application deploying to Amazon ECS.
@@ -6665,8 +6676,8 @@ class IEcsApplication(
 
 
 class _IEcsApplicationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IApplicationRef_1ffc51d6), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IApplicationRef), # type: ignore[misc]
 ):
     '''Represents a reference to a CodeDeploy Application deploying to Amazon ECS.
 
@@ -6743,8 +6754,8 @@ typing.cast(typing.Any, IEcsDeploymentConfig).__jsii_proxy_class__ = lambda : _I
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IEcsDeploymentGroup")
 class IEcsDeploymentGroup(
-    _IResource_c80c4260,
-    _IDeploymentGroupRef_120f3b25,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IDeploymentGroupRef,
     typing_extensions.Protocol,
 ):
     '''Interface for an ECS deployment group.'''
@@ -6781,8 +6792,8 @@ class IEcsDeploymentGroup(
 
 
 class _IEcsDeploymentGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IDeploymentGroupRef_120f3b25), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IDeploymentGroupRef), # type: ignore[misc]
 ):
     '''Interface for an ECS deployment group.'''
 
@@ -6824,8 +6835,8 @@ typing.cast(typing.Any, IEcsDeploymentGroup).__jsii_proxy_class__ = lambda : _IE
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.ILambdaApplication")
 class ILambdaApplication(
-    _IResource_c80c4260,
-    _IApplicationRef_1ffc51d6,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IApplicationRef,
     typing_extensions.Protocol,
 ):
     '''Represents a reference to a CodeDeploy Application deploying to AWS Lambda.
@@ -6856,8 +6867,8 @@ class ILambdaApplication(
 
 
 class _ILambdaApplicationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IApplicationRef_1ffc51d6), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IApplicationRef), # type: ignore[misc]
 ):
     '''Represents a reference to a CodeDeploy Application deploying to AWS Lambda.
 
@@ -6934,8 +6945,8 @@ typing.cast(typing.Any, ILambdaDeploymentConfig).__jsii_proxy_class__ = lambda :
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.ILambdaDeploymentGroup")
 class ILambdaDeploymentGroup(
-    _IResource_c80c4260,
-    _IDeploymentGroupRef_120f3b25,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IDeploymentGroupRef,
     typing_extensions.Protocol,
 ):
     '''Interface for a Lambda deployment groups.'''
@@ -6972,8 +6983,8 @@ class ILambdaDeploymentGroup(
 
 
 class _ILambdaDeploymentGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IDeploymentGroupRef_120f3b25), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IDeploymentGroupRef), # type: ignore[misc]
 ):
     '''Interface for a Lambda deployment groups.'''
 
@@ -7015,8 +7026,8 @@ typing.cast(typing.Any, ILambdaDeploymentGroup).__jsii_proxy_class__ = lambda : 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IServerApplication")
 class IServerApplication(
-    _IResource_c80c4260,
-    _IApplicationRef_1ffc51d6,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IApplicationRef,
     typing_extensions.Protocol,
 ):
     '''Represents a reference to a CodeDeploy Application deploying to EC2/on-premise instances.
@@ -7047,8 +7058,8 @@ class IServerApplication(
 
 
 class _IServerApplicationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IApplicationRef_1ffc51d6), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IApplicationRef), # type: ignore[misc]
 ):
     '''Represents a reference to a CodeDeploy Application deploying to EC2/on-premise instances.
 
@@ -7115,8 +7126,8 @@ typing.cast(typing.Any, IServerDeploymentConfig).__jsii_proxy_class__ = lambda :
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codedeploy.IServerDeploymentGroup")
 class IServerDeploymentGroup(
-    _IResource_c80c4260,
-    _IDeploymentGroupRef_120f3b25,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codedeploy_cae50b6a.IDeploymentGroupRef,
     typing_extensions.Protocol,
 ):
     @builtins.property
@@ -7149,18 +7160,18 @@ class IServerDeploymentGroup(
     @jsii.member(jsii_name="autoScalingGroups")
     def auto_scaling_groups(
         self,
-    ) -> typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]]:
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]]:
         ...
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         ...
 
 
 class _IServerDeploymentGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IDeploymentGroupRef_120f3b25), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codedeploy_cae50b6a.IDeploymentGroupRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codedeploy.IServerDeploymentGroup"
 
@@ -7194,13 +7205,13 @@ class _IServerDeploymentGroupProxy(
     @jsii.member(jsii_name="autoScalingGroups")
     def auto_scaling_groups(
         self,
-    ) -> typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]]:
-        return typing.cast(typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]], jsii.get(self, "autoScalingGroups"))
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]], jsii.get(self, "autoScalingGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IServerDeploymentGroup).__jsii_proxy_class__ = lambda : _IServerDeploymentGroupProxy
@@ -7277,7 +7288,7 @@ class InstanceTagSet(
         :param instance_tag_groups: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64b9abb1b571fcb8018ddc7afe78c42eb103fc0f0e19660e4bb0469356dd1564)
+            type_hints = cached_type_hints(_typecheckingstub__64b9abb1b571fcb8018ddc7afe78c42eb103fc0f0e19660e4bb0469356dd1564)
             check_type(argname="argument instance_tag_groups", value=instance_tag_groups, expected_type=typing.Tuple[type_hints["instance_tag_groups"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*instance_tag_groups])
 
@@ -7291,7 +7302,7 @@ class InstanceTagSet(
 
 @jsii.implements(ILambdaApplication)
 class LambdaApplication(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.LambdaApplication",
 ):
@@ -7320,7 +7331,7 @@ class LambdaApplication(
         :param application_name: The physical, human-readable name of the CodeDeploy Application. Default: an auto-generated name will be used
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32e68c167bb11e7bc23a290f22241a7b484b9a93c7477bfc8c699fd61d487e2)
+            type_hints = cached_type_hints(_typecheckingstub__e32e68c167bb11e7bc23a290f22241a7b484b9a93c7477bfc8c699fd61d487e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LambdaApplicationProps(application_name=application_name)
@@ -7344,7 +7355,7 @@ class LambdaApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d61dd07d8a44ddb86bf93e059a6adddbf9f337ddc2950868f8521d6d384940a3)
+            type_hints = cached_type_hints(_typecheckingstub__d61dd07d8a44ddb86bf93e059a6adddbf9f337ddc2950868f8521d6d384940a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lambda_application_arn", value=lambda_application_arn, expected_type=type_hints["lambda_application_arn"])
@@ -7370,7 +7381,7 @@ class LambdaApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1450d2b1c6c573bfe2bedfa6cd62cfe0f9b692ed8c0d2be4332b4ad5579ec629)
+            type_hints = cached_type_hints(_typecheckingstub__1450d2b1c6c573bfe2bedfa6cd62cfe0f9b692ed8c0d2be4332b4ad5579ec629)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lambda_application_name", value=lambda_application_name, expected_type=type_hints["lambda_application_name"])
@@ -7394,9 +7405,9 @@ class LambdaApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_936fe716":
+    def application_ref(self) -> "_aws_codedeploy_cae50b6a.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_936fe716", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.ApplicationReference", jsii.get(self, "applicationRef"))
 
 
 @jsii.data_type(
@@ -7423,7 +7434,7 @@ class LambdaApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92ab1acbc62b972c13cc918ece32b4065ed5e2d1fd027313d6a8f70f0f7f7d7a)
+            type_hints = cached_type_hints(_typecheckingstub__92ab1acbc62b972c13cc918ece32b4065ed5e2d1fd027313d6a8f70f0f7f7d7a)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if application_name is not None:
@@ -7475,7 +7486,7 @@ class LambdaDeploymentConfigImportProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87bb46cc3cd2b6f2e34d49e71d8065dcab36372a5cc7cbe2a6cb84bf8150c93a)
+            type_hints = cached_type_hints(_typecheckingstub__87bb46cc3cd2b6f2e34d49e71d8065dcab36372a5cc7cbe2a6cb84bf8150c93a)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "deployment_config_name": deployment_config_name,
@@ -7539,7 +7550,7 @@ class LambdaDeploymentConfigProps(BaseDeploymentConfigOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc83553749492603e2a4699e478de4d29b9ccf880c156fb0da254af8ec807aee)
+            type_hints = cached_type_hints(_typecheckingstub__dc83553749492603e2a4699e478de4d29b9ccf880c156fb0da254af8ec807aee)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument traffic_routing", value=traffic_routing, expected_type=type_hints["traffic_routing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7580,7 +7591,7 @@ class LambdaDeploymentConfigProps(BaseDeploymentConfigOptions):
 
 @jsii.implements(ILambdaDeploymentGroup)
 class LambdaDeploymentGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.LambdaDeploymentGroup",
 ):
@@ -7610,17 +7621,17 @@ class LambdaDeploymentGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        alias: "_Alias_55be8873",
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
+        alias: "_aws_lambda_b8f2f472.Alias",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
         application: typing.Optional["ILambdaApplication"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_config: typing.Optional["ILambdaDeploymentConfig"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
         ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-        post_hook: typing.Optional["_IFunction_6adb0ab8"] = None,
-        pre_hook: typing.Optional["_IFunction_6adb0ab8"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        post_hook: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        pre_hook: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -7638,7 +7649,7 @@ class LambdaDeploymentGroup(
         :param role: The service Role of this Deployment Group. Default: - A new Role will be created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c26416b16de08b4064de631244255b96e87828c1c22b3d5795282b4183224b2f)
+            type_hints = cached_type_hints(_typecheckingstub__c26416b16de08b4064de631244255b96e87828c1c22b3d5795282b4183224b2f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LambdaDeploymentGroupProps(
@@ -7681,7 +7692,7 @@ class LambdaDeploymentGroup(
         :return: a Construct representing a reference to an existing Deployment Group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fd4dfddfe47c0a8dd92426b46cd63260d58eb3379c02a54f9334570681da9bd)
+            type_hints = cached_type_hints(_typecheckingstub__8fd4dfddfe47c0a8dd92426b46cd63260d58eb3379c02a54f9334570681da9bd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = LambdaDeploymentGroupAttributes(
@@ -7693,18 +7704,18 @@ class LambdaDeploymentGroup(
         return typing.cast("ILambdaDeploymentGroup", jsii.sinvoke(cls, "fromLambdaDeploymentGroupAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addAlarm")
-    def add_alarm(self, alarm: "_IAlarmRef_2bb0e5de") -> None:
+    def add_alarm(self, alarm: "_aws_cloudwatch_70717108.IAlarmRef") -> None:
         '''Associates an additional alarm with this Deployment Group.
 
         :param alarm: the alarm to associate with this Deployment Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b711b8130a1d80370d61b0db615c68c614d3077ac9c81be826135376059b97e)
+            type_hints = cached_type_hints(_typecheckingstub__9b711b8130a1d80370d61b0db615c68c614d3077ac9c81be826135376059b97e)
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
         return typing.cast(None, jsii.invoke(self, "addAlarm", [alarm]))
 
     @jsii.member(jsii_name="addPostHook")
-    def add_post_hook(self, post_hook: "_IFunction_6adb0ab8") -> None:
+    def add_post_hook(self, post_hook: "_aws_lambda_b8f2f472.IFunction") -> None:
         '''Associate a function to run after deployment completes.
 
         :param post_hook: function to run after deployment completes.
@@ -7712,12 +7723,12 @@ class LambdaDeploymentGroup(
         :throws: an error if a post-hook function is already configured
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52088593799588d855f46763ba6983d5b95d7128d66002267869967f0a287d99)
+            type_hints = cached_type_hints(_typecheckingstub__52088593799588d855f46763ba6983d5b95d7128d66002267869967f0a287d99)
             check_type(argname="argument post_hook", value=post_hook, expected_type=type_hints["post_hook"])
         return typing.cast(None, jsii.invoke(self, "addPostHook", [post_hook]))
 
     @jsii.member(jsii_name="addPreHook")
-    def add_pre_hook(self, pre_hook: "_IFunction_6adb0ab8") -> None:
+    def add_pre_hook(self, pre_hook: "_aws_lambda_b8f2f472.IFunction") -> None:
         '''Associate a function to run before deployment begins.
 
         :param pre_hook: function to run before deployment beings.
@@ -7725,15 +7736,15 @@ class LambdaDeploymentGroup(
         :throws: an error if a pre-hook function is already configured
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9479e7d155c760cd01795544331c610a1cab348cb04f2ac1aaa5373c713b9424)
+            type_hints = cached_type_hints(_typecheckingstub__9479e7d155c760cd01795544331c610a1cab348cb04f2ac1aaa5373c713b9424)
             check_type(argname="argument pre_hook", value=pre_hook, expected_type=type_hints["pre_hook"])
         return typing.cast(None, jsii.invoke(self, "addPreHook", [pre_hook]))
 
     @jsii.member(jsii_name="grantPutLifecycleEventHookExecutionStatus")
     def grant_put_lifecycle_event_hook_execution_status(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant a principal permission to codedeploy:PutLifecycleEventHookExecutionStatus on this deployment group resource.
 
         [disable-awslint:no-grants]
@@ -7741,9 +7752,9 @@ class LambdaDeploymentGroup(
         :param grantee: to grant permission to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d8689c21818340ec688b7586fd416bd82b1e7011d11184910717b5859285cb4)
+            type_hints = cached_type_hints(_typecheckingstub__6d8689c21818340ec688b7586fd416bd82b1e7011d11184910717b5859285cb4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPutLifecycleEventHookExecutionStatus", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPutLifecycleEventHookExecutionStatus", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -7783,15 +7794,17 @@ class LambdaDeploymentGroup(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentGroupRef")
-    def deployment_group_ref(self) -> "_DeploymentGroupReference_9112f387":
+    def deployment_group_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentGroupReference":
         '''A reference to a DeploymentGroup resource.'''
-        return typing.cast("_DeploymentGroupReference_9112f387", jsii.get(self, "deploymentGroupRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentGroupReference", jsii.get(self, "deploymentGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The service Role of this Deployment Group.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -7830,7 +7843,7 @@ class LambdaDeploymentGroupAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08bd7879a63053a6c7bc752ef445954728069ab3039a8ede60d6b4eeea401e64)
+            type_hints = cached_type_hints(_typecheckingstub__08bd7879a63053a6c7bc752ef445954728069ab3039a8ede60d6b4eeea401e64)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
             check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
@@ -7897,17 +7910,17 @@ class LambdaDeploymentGroupProps:
     def __init__(
         self,
         *,
-        alias: "_Alias_55be8873",
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
+        alias: "_aws_lambda_b8f2f472.Alias",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
         application: typing.Optional["ILambdaApplication"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_config: typing.Optional["ILambdaDeploymentConfig"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
         ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-        post_hook: typing.Optional["_IFunction_6adb0ab8"] = None,
-        pre_hook: typing.Optional["_IFunction_6adb0ab8"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        post_hook: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        pre_hook: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Construction properties for ``LambdaDeploymentGroup``.
 
@@ -7945,7 +7958,7 @@ class LambdaDeploymentGroupProps:
         if isinstance(auto_rollback, dict):
             auto_rollback = AutoRollbackConfig(**auto_rollback)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__874e757437525f2d71406c292cf5ac7fae66797609da322dac9063247a871238)
+            type_hints = cached_type_hints(_typecheckingstub__874e757437525f2d71406c292cf5ac7fae66797609da322dac9063247a871238)
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
             check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
@@ -7982,17 +7995,19 @@ class LambdaDeploymentGroupProps:
             self._values["role"] = role
 
     @builtins.property
-    def alias(self) -> "_Alias_55be8873":
+    def alias(self) -> "_aws_lambda_b8f2f472.Alias":
         '''Lambda Alias to shift traffic. Updating the version of the alias will trigger a CodeDeploy deployment.
 
         [disable-awslint:ref-via-interface] since we need to modify the alias CFN resource update policy
         '''
         result = self._values.get("alias")
         assert result is not None, "Required property 'alias' is missing"
-        return typing.cast("_Alias_55be8873", result)
+        return typing.cast("_aws_lambda_b8f2f472.Alias", result)
 
     @builtins.property
-    def alarms(self) -> typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]]:
+    def alarms(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]]:
         '''The CloudWatch alarms associated with this Deployment Group.
 
         CodeDeploy will stop (and optionally roll back)
@@ -8005,7 +8020,7 @@ class LambdaDeploymentGroupProps:
         :see: https://docs.aws.amazon.com/codedeploy/latest/userguide/monitoring-create-alarms.html
         '''
         result = self._values.get("alarms")
-        return typing.cast(typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]], result)
 
     @builtins.property
     def application(self) -> typing.Optional["ILambdaApplication"]:
@@ -8062,31 +8077,31 @@ class LambdaDeploymentGroupProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def post_hook(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def post_hook(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''The Lambda function to run after traffic routing starts.
 
         :default: - None.
         '''
         result = self._values.get("post_hook")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def pre_hook(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def pre_hook(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''The Lambda function to run before traffic routing starts.
 
         :default: - None.
         '''
         result = self._values.get("pre_hook")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The service Role of this Deployment Group.
 
         :default: - A new Role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8134,7 +8149,7 @@ class LinearTrafficRoutingConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370bf2390e5c88cb8bbf9c66f599b85ef458396f8157823b987c090f4826d4ef)
+            type_hints = cached_type_hints(_typecheckingstub__370bf2390e5c88cb8bbf9c66f599b85ef458396f8157823b987c090f4826d4ef)
             check_type(argname="argument linear_interval", value=linear_interval, expected_type=type_hints["linear_interval"])
             check_type(argname="argument linear_percentage", value=linear_percentage, expected_type=type_hints["linear_percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8198,26 +8213,29 @@ class LoadBalancer(
     @builtins.classmethod
     def application(
         cls,
-        alb_target_group: "_IApplicationTargetGroup_57799827",
+        alb_target_group: "_aws_elasticloadbalancingv2_1d9af53a.IApplicationTargetGroup",
     ) -> "LoadBalancer":
         '''Creates a new CodeDeploy load balancer from an Application Load Balancer Target Group.
 
         :param alb_target_group: an ALB Target Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c36a2f946c61769d76c913c28d5738063c97172f02aedd94b235d81679262630)
+            type_hints = cached_type_hints(_typecheckingstub__c36a2f946c61769d76c913c28d5738063c97172f02aedd94b235d81679262630)
             check_type(argname="argument alb_target_group", value=alb_target_group, expected_type=type_hints["alb_target_group"])
         return typing.cast("LoadBalancer", jsii.sinvoke(cls, "application", [alb_target_group]))
 
     @jsii.member(jsii_name="classic")
     @builtins.classmethod
-    def classic(cls, load_balancer: "_LoadBalancer_a894d40e") -> "LoadBalancer":
+    def classic(
+        cls,
+        load_balancer: "_aws_elasticloadbalancing_199dfa00.LoadBalancer",
+    ) -> "LoadBalancer":
         '''Creates a new CodeDeploy load balancer from a Classic ELB Load Balancer.
 
         :param load_balancer: a classic ELB Load Balancer.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8808efa456e0bde58915d9f2353dc69253ae06e9b202151c399da611d72dc3a7)
+            type_hints = cached_type_hints(_typecheckingstub__8808efa456e0bde58915d9f2353dc69253ae06e9b202151c399da611d72dc3a7)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         return typing.cast("LoadBalancer", jsii.sinvoke(cls, "classic", [load_balancer]))
 
@@ -8225,14 +8243,14 @@ class LoadBalancer(
     @builtins.classmethod
     def network(
         cls,
-        nlb_target_group: "_INetworkTargetGroup_abca2df7",
+        nlb_target_group: "_aws_elasticloadbalancingv2_1d9af53a.INetworkTargetGroup",
     ) -> "LoadBalancer":
         '''Creates a new CodeDeploy load balancer from a Network Load Balancer Target Group.
 
         :param nlb_target_group: an NLB Target Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c09dbdbc45c1037d7977cfe1df1e715bec88560b2da64188007c9c48538f678)
+            type_hints = cached_type_hints(_typecheckingstub__9c09dbdbc45c1037d7977cfe1df1e715bec88560b2da64188007c9c48538f678)
             check_type(argname="argument nlb_target_group", value=nlb_target_group, expected_type=type_hints["nlb_target_group"])
         return typing.cast("LoadBalancer", jsii.sinvoke(cls, "network", [nlb_target_group]))
 
@@ -8299,7 +8317,7 @@ class MinimumHealthyHosts(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43a212ab251dfefee2c1b1ee5cee194431e2a0ddeec2d9373bc5962fcc70beac)
+            type_hints = cached_type_hints(_typecheckingstub__43a212ab251dfefee2c1b1ee5cee194431e2a0ddeec2d9373bc5962fcc70beac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("MinimumHealthyHosts", jsii.sinvoke(cls, "count", [value]))
 
@@ -8311,7 +8329,7 @@ class MinimumHealthyHosts(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c2a97036f753857be857236ee3fb97ddf235514bd9c31466fb2e569196a8670)
+            type_hints = cached_type_hints(_typecheckingstub__6c2a97036f753857be857236ee3fb97ddf235514bd9c31466fb2e569196a8670)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("MinimumHealthyHosts", jsii.sinvoke(cls, "percentage", [value]))
 
@@ -8344,7 +8362,7 @@ class MinimumHealthyHostsPerZone(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eccc54cbc4cc48bc8d4e0d61ba6ab67a555a3dd8c67ba3c554298b4550ec6f59)
+            type_hints = cached_type_hints(_typecheckingstub__eccc54cbc4cc48bc8d4e0d61ba6ab67a555a3dd8c67ba3c554298b4550ec6f59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("MinimumHealthyHostsPerZone", jsii.sinvoke(cls, "count", [value]))
 
@@ -8356,14 +8374,14 @@ class MinimumHealthyHostsPerZone(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75bdd06c1ec9d52232bc0151dd7dbfd975c0fe0a98b66121298028c191aae9e1)
+            type_hints = cached_type_hints(_typecheckingstub__75bdd06c1ec9d52232bc0151dd7dbfd975c0fe0a98b66121298028c191aae9e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("MinimumHealthyHostsPerZone", jsii.sinvoke(cls, "percentage", [value]))
 
 
 @jsii.implements(IServerApplication)
 class ServerApplication(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.ServerApplication",
 ):
@@ -8392,7 +8410,7 @@ class ServerApplication(
         :param application_name: The physical, human-readable name of the CodeDeploy Application. Default: an auto-generated name will be used
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff491d45a3da21d4d70991ac332ef8f240b72138a59519fcf6c3da3a3a9cb970)
+            type_hints = cached_type_hints(_typecheckingstub__ff491d45a3da21d4d70991ac332ef8f240b72138a59519fcf6c3da3a3a9cb970)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServerApplicationProps(application_name=application_name)
@@ -8416,7 +8434,7 @@ class ServerApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf6f1cc9e06bced10736cddcc278aca232660b56bc0451a57cced62037ec8590)
+            type_hints = cached_type_hints(_typecheckingstub__bf6f1cc9e06bced10736cddcc278aca232660b56bc0451a57cced62037ec8590)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument server_application_arn", value=server_application_arn, expected_type=type_hints["server_application_arn"])
@@ -8442,7 +8460,7 @@ class ServerApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__926add8da73c5c44e3476965c380244e6b8d904443a6d509c4211b7aeebc5804)
+            type_hints = cached_type_hints(_typecheckingstub__926add8da73c5c44e3476965c380244e6b8d904443a6d509c4211b7aeebc5804)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument server_application_name", value=server_application_name, expected_type=type_hints["server_application_name"])
@@ -8466,9 +8484,9 @@ class ServerApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_936fe716":
+    def application_ref(self) -> "_aws_codedeploy_cae50b6a.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_936fe716", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.ApplicationReference", jsii.get(self, "applicationRef"))
 
 
 @jsii.data_type(
@@ -8495,7 +8513,7 @@ class ServerApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5712e790d967a85a2bf9b346a95ce6db55b781233d88b2df81a98394233a8fb)
+            type_hints = cached_type_hints(_typecheckingstub__a5712e790d967a85a2bf9b346a95ce6db55b781233d88b2df81a98394233a8fb)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if application_name is not None:
@@ -8558,7 +8576,7 @@ class ServerDeploymentConfigProps(BaseDeploymentConfigOptions):
         if isinstance(zonal_config, dict):
             zonal_config = ZonalConfig(**zonal_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46be421d00313823efbbb0072b871dc311f7d9fca8dee4c13562ddd078f8cd37)
+            type_hints = cached_type_hints(_typecheckingstub__46be421d00313823efbbb0072b871dc311f7d9fca8dee4c13562ddd078f8cd37)
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument minimum_healthy_hosts", value=minimum_healthy_hosts, expected_type=type_hints["minimum_healthy_hosts"])
             check_type(argname="argument zonal_config", value=zonal_config, expected_type=type_hints["zonal_config"])
@@ -8609,7 +8627,7 @@ class ServerDeploymentConfigProps(BaseDeploymentConfigOptions):
 
 @jsii.implements(IServerDeploymentGroup)
 class ServerDeploymentGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.ServerDeploymentGroup",
 ):
@@ -8635,11 +8653,11 @@ class ServerDeploymentGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
-        application: typing.Optional["_IApplicationRef_1ffc51d6"] = None,
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        application: typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_scaling_groups: typing.Optional[typing.Sequence["_IAutoScalingGroup_360f1cde"]] = None,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        auto_scaling_groups: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ec2_instance_tags: typing.Optional["InstanceTagSet"] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
@@ -8648,7 +8666,7 @@ class ServerDeploymentGroup(
         load_balancer: typing.Optional["LoadBalancer"] = None,
         load_balancers: typing.Optional[typing.Sequence["LoadBalancer"]] = None,
         on_premise_instance_tags: typing.Optional["InstanceTagSet"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         termination_hook: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -8671,7 +8689,7 @@ class ServerDeploymentGroup(
         :param termination_hook: Indicates whether the deployment group was configured to have CodeDeploy install a termination hook into an Auto Scaling group. Default: - false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0364d4b48c02675a1899e742e45b411f0e83905e634a84441d088a41fe25c8f)
+            type_hints = cached_type_hints(_typecheckingstub__e0364d4b48c02675a1899e742e45b411f0e83905e634a84441d088a41fe25c8f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServerDeploymentGroupProps(
@@ -8701,9 +8719,9 @@ class ServerDeploymentGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application: "_IApplicationRef_1ffc51d6",
+        application: "_aws_codedeploy_cae50b6a.IApplicationRef",
         deployment_group_name: builtins.str,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
     ) -> "IServerDeploymentGroup":
         '''Import an EC2/on-premise Deployment Group defined either outside the CDK app, or in a different region.
 
@@ -8716,7 +8734,7 @@ class ServerDeploymentGroup(
         :return: a Construct representing a reference to an existing Deployment Group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8af8e520b8abc653e37c88dc9f6e51e7d52aa5f24d99a8bcc8765154067e55f)
+            type_hints = cached_type_hints(_typecheckingstub__d8af8e520b8abc653e37c88dc9f6e51e7d52aa5f24d99a8bcc8765154067e55f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ServerDeploymentGroupAttributes(
@@ -8728,24 +8746,27 @@ class ServerDeploymentGroup(
         return typing.cast("IServerDeploymentGroup", jsii.sinvoke(cls, "fromServerDeploymentGroupAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addAlarm")
-    def add_alarm(self, alarm: "_IAlarmRef_2bb0e5de") -> None:
+    def add_alarm(self, alarm: "_aws_cloudwatch_70717108.IAlarmRef") -> None:
         '''Associates an additional alarm with this Deployment Group.
 
         :param alarm: the alarm to associate with this Deployment Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__356a323fcb86d198006a31f41e7e9d1c8a6892ac423e8cb69666cd1ddcb8e718)
+            type_hints = cached_type_hints(_typecheckingstub__356a323fcb86d198006a31f41e7e9d1c8a6892ac423e8cb69666cd1ddcb8e718)
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
         return typing.cast(None, jsii.invoke(self, "addAlarm", [alarm]))
 
     @jsii.member(jsii_name="addAutoScalingGroup")
-    def add_auto_scaling_group(self, asg: "_AutoScalingGroup_c547a7b9") -> None:
+    def add_auto_scaling_group(
+        self,
+        asg: "_aws_autoscaling_6cbf8045.AutoScalingGroup",
+    ) -> None:
         '''Adds an additional auto-scaling group to this Deployment Group.
 
         :param asg: the auto-scaling group to add to this Deployment Group. [disable-awslint:ref-via-interface] is needed in order to install the code deploy agent by updating the ASGs user data.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eb5bbbb7e095997fadbddebece8f587dfbebf76e4fba6c071f9def29db693c8)
+            type_hints = cached_type_hints(_typecheckingstub__8eb5bbbb7e095997fadbddebece8f587dfbebf76e4fba6c071f9def29db693c8)
             check_type(argname="argument asg", value=asg, expected_type=type_hints["asg"])
         return typing.cast(None, jsii.invoke(self, "addAutoScalingGroup", [asg]))
 
@@ -8785,22 +8806,24 @@ class ServerDeploymentGroup(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentGroupRef")
-    def deployment_group_ref(self) -> "_DeploymentGroupReference_9112f387":
+    def deployment_group_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentGroupReference":
         '''A reference to a DeploymentGroup resource.'''
-        return typing.cast("_DeploymentGroupReference_9112f387", jsii.get(self, "deploymentGroupRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentGroupReference", jsii.get(self, "deploymentGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroups")
     def auto_scaling_groups(
         self,
-    ) -> typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]]:
-        return typing.cast(typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]], jsii.get(self, "autoScalingGroups"))
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]], jsii.get(self, "autoScalingGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The service Role of this Deployment Group.'''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -8816,9 +8839,9 @@ class ServerDeploymentGroupAttributes:
     def __init__(
         self,
         *,
-        application: "_IApplicationRef_1ffc51d6",
+        application: "_aws_codedeploy_cae50b6a.IApplicationRef",
         deployment_group_name: builtins.str,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
     ) -> None:
         '''Properties of a reference to a CodeDeploy EC2/on-premise Deployment Group.
 
@@ -8839,7 +8862,7 @@ class ServerDeploymentGroupAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c78d15fd80ffece3b49e232b4a29903107350aac8446220b8caea80c448a80)
+            type_hints = cached_type_hints(_typecheckingstub__a7c78d15fd80ffece3b49e232b4a29903107350aac8446220b8caea80c448a80)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
             check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
@@ -8851,11 +8874,11 @@ class ServerDeploymentGroupAttributes:
             self._values["deployment_config"] = deployment_config
 
     @builtins.property
-    def application(self) -> "_IApplicationRef_1ffc51d6":
+    def application(self) -> "_aws_codedeploy_cae50b6a.IApplicationRef":
         '''The reference to the CodeDeploy EC2/on-premise Application that this Deployment Group belongs to.'''
         result = self._values.get("application")
         assert result is not None, "Required property 'application' is missing"
-        return typing.cast("_IApplicationRef_1ffc51d6", result)
+        return typing.cast("_aws_codedeploy_cae50b6a.IApplicationRef", result)
 
     @builtins.property
     def deployment_group_name(self) -> builtins.str:
@@ -8865,13 +8888,15 @@ class ServerDeploymentGroupAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def deployment_config(self) -> typing.Optional["_IDeploymentConfigRef_bc0b49ed"]:
+    def deployment_config(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"]:
         '''The Deployment Configuration this Deployment Group uses.
 
         :default: ServerDeploymentConfig#OneAtATime
         '''
         result = self._values.get("deployment_config")
-        return typing.cast(typing.Optional["_IDeploymentConfigRef_bc0b49ed"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8910,11 +8935,11 @@ class ServerDeploymentGroupProps:
     def __init__(
         self,
         *,
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
-        application: typing.Optional["_IApplicationRef_1ffc51d6"] = None,
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        application: typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_scaling_groups: typing.Optional[typing.Sequence["_IAutoScalingGroup_360f1cde"]] = None,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        auto_scaling_groups: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ec2_instance_tags: typing.Optional["InstanceTagSet"] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
@@ -8923,7 +8948,7 @@ class ServerDeploymentGroupProps:
         load_balancer: typing.Optional["LoadBalancer"] = None,
         load_balancers: typing.Optional[typing.Sequence["LoadBalancer"]] = None,
         on_premise_instance_tags: typing.Optional["InstanceTagSet"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         termination_hook: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Construction properties for ``ServerDeploymentGroup``.
@@ -8960,7 +8985,7 @@ class ServerDeploymentGroupProps:
         if isinstance(auto_rollback, dict):
             auto_rollback = AutoRollbackConfig(**auto_rollback)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3ad41a581be1a234fd5722299d51aa77bd7beaf51e0511c95ee742d49944018)
+            type_hints = cached_type_hints(_typecheckingstub__a3ad41a581be1a234fd5722299d51aa77bd7beaf51e0511c95ee742d49944018)
             check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument auto_rollback", value=auto_rollback, expected_type=type_hints["auto_rollback"])
@@ -9009,7 +9034,9 @@ class ServerDeploymentGroupProps:
             self._values["termination_hook"] = termination_hook
 
     @builtins.property
-    def alarms(self) -> typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]]:
+    def alarms(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]]:
         '''The CloudWatch alarms associated with this Deployment Group.
 
         CodeDeploy will stop (and optionally roll back)
@@ -9022,16 +9049,18 @@ class ServerDeploymentGroupProps:
         :see: https://docs.aws.amazon.com/codedeploy/latest/userguide/monitoring-create-alarms.html
         '''
         result = self._values.get("alarms")
-        return typing.cast(typing.Optional[typing.List["_IAlarmRef_2bb0e5de"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]], result)
 
     @builtins.property
-    def application(self) -> typing.Optional["_IApplicationRef_1ffc51d6"]:
+    def application(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"]:
         '''The CodeDeploy EC2/on-premise Application this Deployment Group belongs to.
 
         :default: - A new Application will be created.
         '''
         result = self._values.get("application")
-        return typing.cast(typing.Optional["_IApplicationRef_1ffc51d6"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"], result)
 
     @builtins.property
     def auto_rollback(self) -> typing.Optional["AutoRollbackConfig"]:
@@ -9045,7 +9074,7 @@ class ServerDeploymentGroupProps:
     @builtins.property
     def auto_scaling_groups(
         self,
-    ) -> typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]]:
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]]:
         '''The auto-scaling groups belonging to this Deployment Group.
 
         Auto-scaling groups can also be added after the Deployment Group is created
@@ -9057,16 +9086,18 @@ class ServerDeploymentGroupProps:
         :default: []
         '''
         result = self._values.get("auto_scaling_groups")
-        return typing.cast(typing.Optional[typing.List["_IAutoScalingGroup_360f1cde"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.IAutoScalingGroup"]], result)
 
     @builtins.property
-    def deployment_config(self) -> typing.Optional["_IDeploymentConfigRef_bc0b49ed"]:
+    def deployment_config(
+        self,
+    ) -> typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"]:
         '''The EC2/on-premise Deployment Configuration to use for this Deployment Group.
 
         :default: ServerDeploymentConfig#OneAtATime
         '''
         result = self._values.get("deployment_config")
-        return typing.cast(typing.Optional["_IDeploymentConfigRef_bc0b49ed"], result)
+        return typing.cast(typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"], result)
 
     @builtins.property
     def deployment_group_name(self) -> typing.Optional[builtins.str]:
@@ -9153,13 +9184,13 @@ class ServerDeploymentGroupProps:
         return typing.cast(typing.Optional["InstanceTagSet"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The service Role of this Deployment Group.
 
         :default: - A new Role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def termination_hook(self) -> typing.Optional[builtins.bool]:
@@ -9193,7 +9224,7 @@ class TimeBasedCanaryTrafficRoutingProps(BaseTrafficShiftingConfigProps):
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> None:
         '''Construction properties for ``TimeBasedCanaryTrafficRouting``.
@@ -9214,7 +9245,7 @@ class TimeBasedCanaryTrafficRoutingProps(BaseTrafficShiftingConfigProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06d16b3e96e0fa33fc82ea5d170af742eef9ed50a9cbf223cb2ed4b3a79e12b0)
+            type_hints = cached_type_hints(_typecheckingstub__06d16b3e96e0fa33fc82ea5d170af742eef9ed50a9cbf223cb2ed4b3a79e12b0)
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9223,11 +9254,11 @@ class TimeBasedCanaryTrafficRoutingProps(BaseTrafficShiftingConfigProps):
         }
 
     @builtins.property
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The amount of time between traffic shifts.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def percentage(self) -> jsii.Number:
@@ -9257,7 +9288,7 @@ class TimeBasedLinearTrafficRoutingProps(BaseTrafficShiftingConfigProps):
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> None:
         '''Construction properties for ``TimeBasedLinearTrafficRouting``.
@@ -9280,7 +9311,7 @@ class TimeBasedLinearTrafficRoutingProps(BaseTrafficShiftingConfigProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ae43dc71a0186139db7c80b7def0fee785a31717f8577d65e13a868d2b3817a)
+            type_hints = cached_type_hints(_typecheckingstub__3ae43dc71a0186139db7c80b7def0fee785a31717f8577d65e13a868d2b3817a)
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9289,11 +9320,11 @@ class TimeBasedLinearTrafficRoutingProps(BaseTrafficShiftingConfigProps):
         }
 
     @builtins.property
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The amount of time between traffic shifts.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def percentage(self) -> jsii.Number:
@@ -9347,7 +9378,7 @@ class TrafficRouting(
     def time_based_canary(
         cls,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> "TrafficRouting":
         '''Shifts a specified percentage of traffic, waits for a specified amount of time, then shifts the rest of traffic.
@@ -9366,7 +9397,7 @@ class TrafficRouting(
     def time_based_linear(
         cls,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> "TrafficRouting":
         '''Keeps shifting a specified percentage of traffic until reaching 100%, waiting for a specified amount of time in between each traffic shift.
@@ -9398,7 +9429,7 @@ class _TrafficRoutingProxy(TrafficRouting):
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd12a268dfe455277ad66728e6406ae5106e0f7beedf165c115e8e39ace124f0)
+            type_hints = cached_type_hints(_typecheckingstub__fd12a268dfe455277ad66728e6406ae5106e0f7beedf165c115e8e39ace124f0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("TrafficRoutingConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -9456,7 +9487,7 @@ class TrafficRoutingConfig:
         if isinstance(time_based_linear, dict):
             time_based_linear = LinearTrafficRoutingConfig(**time_based_linear)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b845a8828051dc720d79c0332ea3470f754dd765be05c704a97b6582380610fb)
+            type_hints = cached_type_hints(_typecheckingstub__b845a8828051dc720d79c0332ea3470f754dd765be05c704a97b6582380610fb)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument time_based_canary", value=time_based_canary, expected_type=type_hints["time_based_canary"])
             check_type(argname="argument time_based_linear", value=time_based_linear, expected_type=type_hints["time_based_linear"])
@@ -9518,9 +9549,9 @@ class ZonalConfig:
     def __init__(
         self,
         *,
-        first_zone_monitor_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        first_zone_monitor_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         minimum_healthy_hosts_per_zone: typing.Optional["MinimumHealthyHostsPerZone"] = None,
-        monitor_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        monitor_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Configuration for CodeDeploy to deploy your application to one Availability Zone at a time within an AWS Region.
 
@@ -9542,7 +9573,7 @@ class ZonalConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e3b953d8872e36c383f9e09cfb712143f81f7357675dc0a7a44b700b05d5168)
+            type_hints = cached_type_hints(_typecheckingstub__4e3b953d8872e36c383f9e09cfb712143f81f7357675dc0a7a44b700b05d5168)
             check_type(argname="argument first_zone_monitor_duration", value=first_zone_monitor_duration, expected_type=type_hints["first_zone_monitor_duration"])
             check_type(argname="argument minimum_healthy_hosts_per_zone", value=minimum_healthy_hosts_per_zone, expected_type=type_hints["minimum_healthy_hosts_per_zone"])
             check_type(argname="argument monitor_duration", value=monitor_duration, expected_type=type_hints["monitor_duration"])
@@ -9555,7 +9586,9 @@ class ZonalConfig:
             self._values["monitor_duration"] = monitor_duration
 
     @builtins.property
-    def first_zone_monitor_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def first_zone_monitor_duration(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time that CodeDeploy must wait after completing a deployment to the first Availability Zone.
 
         Accepted Values:
@@ -9566,7 +9599,7 @@ class ZonalConfig:
         :default: - the same value as ``monitorDuration``
         '''
         result = self._values.get("first_zone_monitor_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def minimum_healthy_hosts_per_zone(
@@ -9584,7 +9617,7 @@ class ZonalConfig:
         return typing.cast(typing.Optional["MinimumHealthyHostsPerZone"], result)
 
     @builtins.property
-    def monitor_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def monitor_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time that CodeDeploy must wait after completing a deployment to an Availability Zone.
 
         Accepted Values:
@@ -9595,7 +9628,7 @@ class ZonalConfig:
         :default: - CodeDeploy starts deploying to the next Availability Zone immediately
         '''
         result = self._values.get("monitor_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9637,14 +9670,14 @@ class AllAtOnceTrafficRouting(
         :param _scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f05ebc00e48366a13e2ad293e1822da6d979a050647a74d9f563aab403921d0d)
+            type_hints = cached_type_hints(_typecheckingstub__f05ebc00e48366a13e2ad293e1822da6d979a050647a74d9f563aab403921d0d)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("TrafficRoutingConfig", jsii.invoke(self, "bind", [_scope]))
 
 
 @jsii.implements(IBaseDeploymentConfig)
 class BaseDeploymentConfig(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_codedeploy.BaseDeploymentConfig",
 ):
@@ -9674,7 +9707,7 @@ class BaseDeploymentConfig(
         :param deployment_config_name: The physical, human-readable name of the Deployment Configuration. Default: - automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7be4ac008b1dbe1f91bb986ac7bb32dd779f4962b7a7696d9064b17fa3e5e35)
+            type_hints = cached_type_hints(_typecheckingstub__f7be4ac008b1dbe1f91bb986ac7bb32dd779f4962b7a7696d9064b17fa3e5e35)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BaseDeploymentConfigProps(
@@ -9704,7 +9737,7 @@ class BaseDeploymentConfig(
         :return: a Construct representing a reference to an existing custom Deployment Configuration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f696afb42fc23d24c96d39b2254f0b625ecbfacca97da38df5ba1831b8c62a53)
+            type_hints = cached_type_hints(_typecheckingstub__f696afb42fc23d24c96d39b2254f0b625ecbfacca97da38df5ba1831b8c62a53)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
@@ -9724,14 +9757,16 @@ class BaseDeploymentConfig(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfigRef")
-    def deployment_config_ref(self) -> "_DeploymentConfigReference_df2fccdb":
+    def deployment_config_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentConfigReference":
         '''A reference to a DeploymentConfig resource.'''
-        return typing.cast("_DeploymentConfigReference_df2fccdb", jsii.get(self, "deploymentConfigRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentConfigReference", jsii.get(self, "deploymentConfigRef"))
 
 
 class _BaseDeploymentConfigProxy(
     BaseDeploymentConfig,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     pass
 
@@ -9741,7 +9776,7 @@ typing.cast(typing.Any, BaseDeploymentConfig).__jsii_proxy_class__ = lambda : _B
 
 @jsii.implements(ILambdaDeploymentConfig, IBindableDeploymentConfig)
 class CustomLambdaDeploymentConfig(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.CustomLambdaDeploymentConfig",
 ):
@@ -9775,7 +9810,7 @@ class CustomLambdaDeploymentConfig(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
         type: "CustomLambdaDeploymentConfigType",
         deployment_config_name: typing.Optional[builtins.str] = None,
@@ -9791,7 +9826,7 @@ class CustomLambdaDeploymentConfig(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ac867d6e5022c0be7de76fadf84363729e8cfde59c1d36f19b324981b6e8053)
+            type_hints = cached_type_hints(_typecheckingstub__1ac867d6e5022c0be7de76fadf84363729e8cfde59c1d36f19b324981b6e8053)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CustomLambdaDeploymentConfigProps(
@@ -9806,8 +9841,8 @@ class CustomLambdaDeploymentConfig(
     @jsii.member(jsii_name="bindEnvironment")
     def bind_environment(
         self,
-        deployment_group: "_IDeploymentGroupRef_120f3b25",
-    ) -> "_IDeploymentConfigRef_bc0b49ed":
+        deployment_group: "_aws_codedeploy_cae50b6a.IDeploymentGroupRef",
+    ) -> "_aws_codedeploy_cae50b6a.IDeploymentConfigRef":
         '''(deprecated) Bind the predefined deployment config to the environment of the given resource.
 
         :param deployment_group: -
@@ -9815,9 +9850,9 @@ class CustomLambdaDeploymentConfig(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af835e0838e9a55fd88273c0ee770a919bf24bea3d59baeffcb3d515786a87c6)
+            type_hints = cached_type_hints(_typecheckingstub__af835e0838e9a55fd88273c0ee770a919bf24bea3d59baeffcb3d515786a87c6)
             check_type(argname="argument deployment_group", value=deployment_group, expected_type=type_hints["deployment_group"])
-        return typing.cast("_IDeploymentConfigRef_bc0b49ed", jsii.invoke(self, "bindEnvironment", [deployment_group]))
+        return typing.cast("_aws_codedeploy_cae50b6a.IDeploymentConfigRef", jsii.invoke(self, "bindEnvironment", [deployment_group]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -9854,17 +9889,19 @@ class CustomLambdaDeploymentConfig(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfigRef")
-    def deployment_config_ref(self) -> "_DeploymentConfigReference_df2fccdb":
+    def deployment_config_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentConfigReference":
         '''(deprecated) A reference to a DeploymentConfig resource.
 
         :stability: deprecated
         '''
-        return typing.cast("_DeploymentConfigReference_df2fccdb", jsii.get(self, "deploymentConfigRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentConfigReference", jsii.get(self, "deploymentConfigRef"))
 
 
 @jsii.implements(IEcsApplication)
 class EcsApplication(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.EcsApplication",
 ):
@@ -9893,7 +9930,7 @@ class EcsApplication(
         :param application_name: The physical, human-readable name of the CodeDeploy Application. Default: an auto-generated name will be used
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4edf5fb61452170b1877882129fc1df2e63797e3a9f6b183813f1e20bf3b8854)
+            type_hints = cached_type_hints(_typecheckingstub__4edf5fb61452170b1877882129fc1df2e63797e3a9f6b183813f1e20bf3b8854)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EcsApplicationProps(application_name=application_name)
@@ -9917,7 +9954,7 @@ class EcsApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a15b4054e084bc53dcd5e21cbb4878436d9d1074cc50177d7007d7382b209c85)
+            type_hints = cached_type_hints(_typecheckingstub__a15b4054e084bc53dcd5e21cbb4878436d9d1074cc50177d7007d7382b209c85)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ecs_application_arn", value=ecs_application_arn, expected_type=type_hints["ecs_application_arn"])
@@ -9943,7 +9980,7 @@ class EcsApplication(
         :return: a Construct representing a reference to an existing Application
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10762c159701d6da1d6d041f0ac41aba5c82b3d604e4bad2002ef52f91f66339)
+            type_hints = cached_type_hints(_typecheckingstub__10762c159701d6da1d6d041f0ac41aba5c82b3d604e4bad2002ef52f91f66339)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ecs_application_name", value=ecs_application_name, expected_type=type_hints["ecs_application_name"])
@@ -9967,9 +10004,9 @@ class EcsApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_936fe716":
+    def application_ref(self) -> "_aws_codedeploy_cae50b6a.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_936fe716", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.ApplicationReference", jsii.get(self, "applicationRef"))
 
 
 @jsii.implements(IEcsDeploymentConfig)
@@ -10025,7 +10062,7 @@ class EcsDeploymentConfig(
         :param deployment_config_name: The physical, human-readable name of the Deployment Configuration. Default: - automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2d7f681f3251c7de51922fccb03d9839dc0514700deb88855b4a1e3e089d308)
+            type_hints = cached_type_hints(_typecheckingstub__e2d7f681f3251c7de51922fccb03d9839dc0514700deb88855b4a1e3e089d308)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EcsDeploymentConfigProps(
@@ -10052,7 +10089,7 @@ class EcsDeploymentConfig(
         :return: a Construct representing a reference to an existing custom Deployment Configuration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99681a26417ad9494dc9331a9865e7f0cf7cb6ec84094cf3b3a4888af4a81b06)
+            type_hints = cached_type_hints(_typecheckingstub__99681a26417ad9494dc9331a9865e7f0cf7cb6ec84094cf3b3a4888af4a81b06)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ecs_deployment_config_name", value=ecs_deployment_config_name, expected_type=type_hints["ecs_deployment_config_name"])
@@ -10103,7 +10140,7 @@ class EcsDeploymentConfig(
 
 @jsii.implements(IEcsDeploymentGroup)
 class EcsDeploymentGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codedeploy.EcsDeploymentGroup",
 ):
@@ -10147,15 +10184,15 @@ class EcsDeploymentGroup(
         id: builtins.str,
         *,
         blue_green_deployment_config: typing.Union["EcsBlueGreenDeploymentConfig", typing.Dict[builtins.str, typing.Any]],
-        service: "_IBaseService_3fcdd913",
-        alarms: typing.Optional[typing.Sequence["_IAlarmRef_2bb0e5de"]] = None,
-        application: typing.Optional["_IApplicationRef_1ffc51d6"] = None,
+        service: "_aws_ecs_19c7ccd1.IBaseService",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        application: typing.Optional["_aws_codedeploy_cae50b6a.IApplicationRef"] = None,
         auto_rollback: typing.Optional[typing.Union["AutoRollbackConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
         ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -10172,7 +10209,7 @@ class EcsDeploymentGroup(
         :param role: The service Role of this Deployment Group. Default: - A new Role will be created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d5a27f58faebed8ad465b39d408bd717722f646f6471896e02b8ea95b82bc49)
+            type_hints = cached_type_hints(_typecheckingstub__1d5a27f58faebed8ad465b39d408bd717722f646f6471896e02b8ea95b82bc49)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EcsDeploymentGroupProps(
@@ -10197,9 +10234,9 @@ class EcsDeploymentGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application: "_IApplicationRef_1ffc51d6",
+        application: "_aws_codedeploy_cae50b6a.IApplicationRef",
         deployment_group_name: builtins.str,
-        deployment_config: typing.Optional["_IDeploymentConfigRef_bc0b49ed"] = None,
+        deployment_config: typing.Optional["_aws_codedeploy_cae50b6a.IDeploymentConfigRef"] = None,
     ) -> "IEcsDeploymentGroup":
         '''Reference an ECS Deployment Group defined outside the CDK app.
 
@@ -10214,7 +10251,7 @@ class EcsDeploymentGroup(
         :return: a Construct representing a reference to an existing Deployment Group
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e21d5d2081ae62e02eb318efb6845c80afcd2a31d1f65949b88d5e28b3887b2f)
+            type_hints = cached_type_hints(_typecheckingstub__e21d5d2081ae62e02eb318efb6845c80afcd2a31d1f65949b88d5e28b3887b2f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = EcsDeploymentGroupAttributes(
@@ -10226,13 +10263,13 @@ class EcsDeploymentGroup(
         return typing.cast("IEcsDeploymentGroup", jsii.sinvoke(cls, "fromEcsDeploymentGroupAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addAlarm")
-    def add_alarm(self, alarm: "_IAlarmRef_2bb0e5de") -> None:
+    def add_alarm(self, alarm: "_aws_cloudwatch_70717108.IAlarmRef") -> None:
         '''Associates an additional alarm with this Deployment Group.
 
         :param alarm: the alarm to associate with this Deployment Group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbfe2758d485b20b4d7753475293fc67c26edc4d904112e8a409df22ce5f06c)
+            type_hints = cached_type_hints(_typecheckingstub__ecbfe2758d485b20b4d7753475293fc67c26edc4d904112e8a409df22ce5f06c)
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
         return typing.cast(None, jsii.invoke(self, "addAlarm", [alarm]))
 
@@ -10274,15 +10311,17 @@ class EcsDeploymentGroup(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentGroupRef")
-    def deployment_group_ref(self) -> "_DeploymentGroupReference_9112f387":
+    def deployment_group_ref(
+        self,
+    ) -> "_aws_codedeploy_cae50b6a.DeploymentGroupReference":
         '''A reference to a DeploymentGroup resource.'''
-        return typing.cast("_DeploymentGroupReference_9112f387", jsii.get(self, "deploymentGroupRef"))
+        return typing.cast("_aws_codedeploy_cae50b6a.DeploymentGroupReference", jsii.get(self, "deploymentGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The service Role of this Deployment Group.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 
 @jsii.implements(ILambdaDeploymentConfig)
@@ -10328,7 +10367,7 @@ class LambdaDeploymentConfig(
         :param deployment_config_name: The physical, human-readable name of the Deployment Configuration. Default: - automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5058ddee6c11563a4a133d87a712b18e3c1621329942e72104da625c5e6242b)
+            type_hints = cached_type_hints(_typecheckingstub__b5058ddee6c11563a4a133d87a712b18e3c1621329942e72104da625c5e6242b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LambdaDeploymentConfigProps(
@@ -10355,7 +10394,7 @@ class LambdaDeploymentConfig(
         :return: a Construct representing a reference to an existing Lambda Deployment Configuration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98c000174f0f5fb89592424d7fb95552d79f3a850e96cfda07890bde08230908)
+            type_hints = cached_type_hints(_typecheckingstub__98c000174f0f5fb89592424d7fb95552d79f3a850e96cfda07890bde08230908)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lambda_deployment_config_name", value=lambda_deployment_config_name, expected_type=type_hints["lambda_deployment_config_name"])
@@ -10383,7 +10422,7 @@ class LambdaDeploymentConfig(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1505251b6329a0bcb03ec5f5656f675b1c5236b529a51019e64f1fee9d98cdb6)
+            type_hints = cached_type_hints(_typecheckingstub__1505251b6329a0bcb03ec5f5656f675b1c5236b529a51019e64f1fee9d98cdb6)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
         props = LambdaDeploymentConfigImportProps(
@@ -10502,7 +10541,7 @@ class ServerDeploymentConfig(
         :param deployment_config_name: The physical, human-readable name of the Deployment Configuration. Default: - automatically generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0188bedb6550f8f8ec5175aae5830d1c200a93e114c45fc9d6b3942b7d6123a7)
+            type_hints = cached_type_hints(_typecheckingstub__0188bedb6550f8f8ec5175aae5830d1c200a93e114c45fc9d6b3942b7d6123a7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServerDeploymentConfigProps(
@@ -10530,7 +10569,7 @@ class ServerDeploymentConfig(
         :return: a Construct representing a reference to an existing custom Deployment Configuration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ea4e0fbba82ec61d62008656825ba154d6ab7a16569e404ef56dd5d012b2d4)
+            type_hints = cached_type_hints(_typecheckingstub__d0ea4e0fbba82ec61d62008656825ba154d6ab7a16569e404ef56dd5d012b2d4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument server_deployment_config_name", value=server_deployment_config_name, expected_type=type_hints["server_deployment_config_name"])
@@ -10593,7 +10632,7 @@ class TimeBasedCanaryTrafficRouting(
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> None:
         '''
@@ -10613,15 +10652,15 @@ class TimeBasedCanaryTrafficRouting(
         :param _scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f62d359f751a6aad86ee02e74d93fa8692f764928aa7fa26224cb9b7679affc8)
+            type_hints = cached_type_hints(_typecheckingstub__f62d359f751a6aad86ee02e74d93fa8692f764928aa7fa26224cb9b7679affc8)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("TrafficRoutingConfig", jsii.invoke(self, "bind", [_scope]))
 
     @builtins.property
     @jsii.member(jsii_name="interval")
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The amount of time between additional traffic shifts.'''
-        return typing.cast("_Duration_4839e8c3", jsii.get(self, "interval"))
+        return typing.cast("_aws_cdk_0cae9daa.Duration", jsii.get(self, "interval"))
 
     @builtins.property
     @jsii.member(jsii_name="percentage")
@@ -10651,7 +10690,7 @@ class TimeBasedLinearTrafficRouting(
     def __init__(
         self,
         *,
-        interval: "_Duration_4839e8c3",
+        interval: "_aws_cdk_0cae9daa.Duration",
         percentage: jsii.Number,
     ) -> None:
         '''
@@ -10671,15 +10710,15 @@ class TimeBasedLinearTrafficRouting(
         :param _scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa5564b995bb046b6d26e38cc462ee09779219878f550d6e7a210ed2d50a5b84)
+            type_hints = cached_type_hints(_typecheckingstub__aa5564b995bb046b6d26e38cc462ee09779219878f550d6e7a210ed2d50a5b84)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
         return typing.cast("TrafficRoutingConfig", jsii.invoke(self, "bind", [_scope]))
 
     @builtins.property
     @jsii.member(jsii_name="interval")
-    def interval(self) -> "_Duration_4839e8c3":
+    def interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The amount of time between additional traffic shifts.'''
-        return typing.cast("_Duration_4839e8c3", jsii.get(self, "interval"))
+        return typing.cast("_aws_cdk_0cae9daa.Duration", jsii.get(self, "interval"))
 
     @builtins.property
     @jsii.member(jsii_name="percentage")
@@ -10786,7 +10825,7 @@ def _typecheckingstub__d482592e3c5f65fb9559b3e230fe81eab72a36fdd6c5a5b3cad1b4206
 
 def _typecheckingstub__7d5ec69046dd60e940973497323ace19e7ca99f17fbf8c276127a2f0ac4bce26(
     *,
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
     percentage: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -10804,15 +10843,15 @@ def _typecheckingstub__cdb5a43a5eee290cb73c7a01531e1ffdf06d171c94caaa945bee8063b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application_name: typing.Optional[typing.Union[builtins.str, _IFunctionRef_2601eb33]] = None,
+    application_name: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef]] = None,
     compute_platform: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__65fb096b527288448183f1879f6664e320555e133980271cc54dfb32999430f0(
-    resource: _IApplicationRef_1ffc51d6,
+    resource: _aws_codedeploy_cae50b6a.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10832,7 +10871,7 @@ def _typecheckingstub__f05223981a99573905734a5d52b4c3728fc3e8d5a46b4000e84b71090
     pass
 
 def _typecheckingstub__472dad38d3229c543cd45d013c4792382a9a9ff72b6a1c296cd46ddee9866459(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10856,16 +10895,16 @@ def _typecheckingstub__1915728b28efc5c1d28ee6eddc170806e157b6c8dea55af22c18fe4e3
     pass
 
 def _typecheckingstub__3b760e30495233c290b05641b219df0417ec34a7cdcb66209b76925733db09c3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3aeaaf4451457e6e36767224eb97c6e700e8d8faacb23edf47d5dd4c18588590(
     *,
-    application_name: typing.Optional[typing.Union[builtins.str, _IFunctionRef_2601eb33]] = None,
+    application_name: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef]] = None,
     compute_platform: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10876,9 +10915,9 @@ def _typecheckingstub__1601263a429a6a400738eca0c5abc3bd436649919830aa684054ba853
     *,
     compute_platform: typing.Optional[builtins.str] = None,
     deployment_config_name: typing.Optional[builtins.str] = None,
-    minimum_healthy_hosts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    traffic_routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.TrafficRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zonal_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.ZonalConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    minimum_healthy_hosts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.TrafficRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zonal_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.ZonalConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10890,7 +10929,7 @@ def _typecheckingstub__daa2d6c6f9d646eac53e561c1d67ebde325b634758e0986f0a295b805
     pass
 
 def _typecheckingstub__de25cf19eea9e6556b0b2281a81290d8a5bf22139c91cc21523d85735c1acaa3(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10914,19 +10953,19 @@ def _typecheckingstub__2be2e5144bd03df4a4fa40048f27e95c3e5304df13985412b42828a3a
     pass
 
 def _typecheckingstub__a51d4f90c94e060ed843233d31547707cbf9d10d3d4de60cd6205bda621edc94(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentConfig.MinimumHealthyHostsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentConfig.MinimumHealthyHostsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe1bae2a6b88ba41a47472dc8dc7bbf6f72bde54b89b4ed3b8f8e3fd35645ce4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentConfig.TrafficRoutingConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentConfig.TrafficRoutingConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b0fc8d5b7ad2a2a7cd82c46195cb23f97c32d3c56a1872111486e2ce1020d343(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentConfig.ZonalConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentConfig.ZonalConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10966,8 +11005,8 @@ def _typecheckingstub__e2df4e7a87402b186b362bc4d946424539c4a60d7802ac7dcc0731829
 def _typecheckingstub__6b1a59608913355745ad3536a5af2b299b48dfb68b88ee15dd0c479874845c5a(
     *,
     type: builtins.str,
-    time_based_canary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.TimeBasedCanaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_based_linear: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.TimeBasedLinearProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_based_canary: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.TimeBasedCanaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_based_linear: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.TimeBasedLinearProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10975,7 +11014,7 @@ def _typecheckingstub__6b1a59608913355745ad3536a5af2b299b48dfb68b88ee15dd0c47987
 def _typecheckingstub__8d0322a57eb722fe06a715f272f3ec7473c80fcc783d030b62fdbaa0cc8cc047(
     *,
     first_zone_monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
-    minimum_healthy_hosts_per_zone: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    minimum_healthy_hosts_per_zone: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10985,9 +11024,9 @@ def _typecheckingstub__d50cfbd3bc3fca6105506273e4e48e992de4fbb025dced2c525ba1da4
     *,
     compute_platform: typing.Optional[builtins.str] = None,
     deployment_config_name: typing.Optional[builtins.str] = None,
-    minimum_healthy_hosts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    traffic_routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.TrafficRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zonal_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentConfig.ZonalConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    minimum_healthy_hosts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.MinimumHealthyHostsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_routing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.TrafficRoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zonal_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentConfig.ZonalConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10998,24 +11037,24 @@ def _typecheckingstub__afc1bc74c13d6392d70ae9e55ed64b8ec6f2cfed100b230e370997efe
     *,
     application_name: builtins.str,
     service_role_arn: builtins.str,
-    alarm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.AlarmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.AutoRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.AlarmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_rollback_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.AutoRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auto_scaling_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    blue_green_deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.DeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    blue_green_deployment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_config_name: typing.Optional[builtins.str] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
-    deployment_style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ec2_tag_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ec2_tag_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_services: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    load_balancer_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.LoadBalancerInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    on_premises_instance_tag_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    on_premises_tag_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.OnPremisesTagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ec2_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ec2_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    load_balancer_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.LoadBalancerInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_premises_instance_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_premises_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.OnPremisesTagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     outdated_instances_strategy: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    trigger_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    trigger_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11027,7 +11066,7 @@ def _typecheckingstub__e02347a41f861ae2ca4988a56366a8f04999deef510bddf41e34add35
     pass
 
 def _typecheckingstub__3307a6c43ea08ab3400b7fc835536202e54b37286849aee24bbada2786dd74cf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11051,13 +11090,13 @@ def _typecheckingstub__66b7f059438dd5722aa9d8f744a278bc5625386e8ce3d4fc1eb8a281e
     pass
 
 def _typecheckingstub__5e91a52d4fd08a0b9deb3baefb2ccf408f0cb24c44a56893da4cb20fc1d8c83c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.AlarmConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.AlarmConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__69accffcb10c8665244d6da2f6e58570690d0e957e337792a901cb7be04905b7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.AutoRollbackConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.AutoRollbackConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11069,13 +11108,13 @@ def _typecheckingstub__7e04b36b090b14ba34ad491347fe2aca8d51c1e1877ebf2c7e060f174
     pass
 
 def _typecheckingstub__e01bb8b0c5b5d341a669261e31783fa832409200e3eb8a634fe33223a72f7306(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__08845fc7de26e5f1faa42234a437c12699ffe9eb475932cf303f7acd1c272595(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.DeploymentProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.DeploymentProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11093,43 +11132,43 @@ def _typecheckingstub__8e42dd2dab2a2d9e3bc41f1ad0d0e48a8811bc6c996da34cbbfacc975
     pass
 
 def _typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.DeploymentStyleProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.DeploymentStyleProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee79962691a5c39e41198cbe8d3feba8224218b0f0150b5f282db760c6c767ab(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.EC2TagFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.EC2TagFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6196a4cb27800772b6bd881880397500b9e720f740bb7b6289f13d2f51e04863(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.EC2TagSetProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.EC2TagSetProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__04e313b8ad9be6363e7a8552e9cf937d4c0cf7ff77b9f105105f6b3bab3b53c6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.ECSServiceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.ECSServiceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__72f10ac10d280e8586e5bdb5699bdb0c53aab83965020339a2a5611d15d4061e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.LoadBalancerInfoProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.LoadBalancerInfoProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f88440801309d20e368d659f0132d109e5c37cb01b5a5f894053f4f9081f75f1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.TagFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.TagFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e1da01bcd68da7d01c5ffa220e48c83cd4d65bd034d7416a79c12856e9a25fad(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.OnPremisesTagSetProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.OnPremisesTagSetProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11141,28 +11180,28 @@ def _typecheckingstub__9af30b6e3ffc37ae09bbaa003b72063af09adae4e47a022a24f8e942d
     pass
 
 def _typecheckingstub__ca51d486320d92369410ca709970091be367eabeebde41a60143404eeb1cc6a8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2bf9c1fbb66f570f500b907e6dae98c96270a20d62e93986637535a81ad80522(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19f14404bcc2f5c2897842d997eb29c01baf8bcd6619fdc09e6b87d0df1f7693(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeploymentGroup.TriggerConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.TriggerConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4a9049a177037c3e8ef4e71b7faa8d7ccdc08bd8b6c11e4af29269d336bc4d6f(
     *,
-    alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.AlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ignore_poll_alarm_failure: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    alarms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.AlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    ignore_poll_alarm_failure: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11176,7 +11215,7 @@ def _typecheckingstub__03e2a9b2ed59c3404f1d3022f2f33080db793f19b46ee08a71091c574
 
 def _typecheckingstub__a36fa5e61b5cc5a6cdc586ebcdd6624cb49131a6f67b88c2c5bcf44e6a75371f(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     events: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11184,9 +11223,9 @@ def _typecheckingstub__a36fa5e61b5cc5a6cdc586ebcdd6624cb49131a6f67b88c2c5bcf44e6
 
 def _typecheckingstub__5b7f7b94df2ec70381780abbf295dc60aec98ca6cee8249a44d4e591068ed620(
     *,
-    deployment_ready_option: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.DeploymentReadyOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    green_fleet_provisioning_option: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.GreenFleetProvisioningOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    terminate_blue_instances_on_deployment_success: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.BlueInstanceTerminationOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_ready_option: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentReadyOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    green_fleet_provisioning_option: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.GreenFleetProvisioningOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    terminate_blue_instances_on_deployment_success: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.BlueInstanceTerminationOptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11201,9 +11240,9 @@ def _typecheckingstub__ace1975d2c13f6a63616292118c632b714e3f1acc2008b3030af06cf7
 
 def _typecheckingstub__d8d7106fc8a20bc76da89cc9e6f595c31863f43d9fa4324b6eb51a8bc1dada19(
     *,
-    revision: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.RevisionLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    revision: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.RevisionLocationProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    ignore_application_stop_failures: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ignore_application_stop_failures: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11235,14 +11274,14 @@ def _typecheckingstub__9b4123febfdeb60265474ec5b72d4ed596f0cc20f7693da9000b91cc6
 
 def _typecheckingstub__fff319f820316a004ead743ff5c8ad36448e48325ee845cbff5fcfd512773f6c(
     *,
-    ec2_tag_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ec2_tag_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a2ba29487a84183313e702cd8e61c88a4f0351eb6fd78f229d2580ae39e8e3e0(
     *,
-    ec2_tag_set_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagSetListObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ec2_tag_set_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagSetListObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11279,32 +11318,32 @@ def _typecheckingstub__e876af08ef6424feae19da396da079af3de5bc150f304e98d88f569bd
 
 def _typecheckingstub__3433798b0214903267b0b0c3d8bd53b5bf256f9e32a4864f4aa3e7de53a3e0d6(
     *,
-    elb_info_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.ELBInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_info_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TargetGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_pair_info_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TargetGroupPairInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    elb_info_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.ELBInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_info_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TargetGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_pair_info_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TargetGroupPairInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4011b432f9b5ed3fcdaa688b15c75cc1850efecdc1b1a6c9b90e48052559ec5b(
     *,
-    on_premises_tag_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_premises_tag_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36ece4f2e243605e790c8b3d869b089b200ff22c8a77da7ce3d7477f6504f697(
     *,
-    on_premises_tag_set_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.OnPremisesTagSetListObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_premises_tag_set_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.OnPremisesTagSetListObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f29088b2f9a724cb557a6d1896af99895cac8961456ede05c903a4cb938ff48d(
     *,
-    git_hub_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.GitHubLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git_hub_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.GitHubLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     revision_type: typing.Optional[builtins.str] = None,
-    s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11338,9 +11377,9 @@ def _typecheckingstub__16465f8a39251aa9907267031575771f643f1897cd1cfea422dfafe3c
 
 def _typecheckingstub__7e5e2e921fcbd8db2d985022ed2557366a9e03a443be17ad0a66dc2940dfe1f1(
     *,
-    prod_traffic_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TrafficRouteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TargetGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    test_traffic_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TrafficRouteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prod_traffic_route: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TrafficRouteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TargetGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    test_traffic_route: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TrafficRouteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11365,31 +11404,31 @@ def _typecheckingstub__6511a1a48658d7f16b747353194a86e2a15daf184e4957a0f2924cfee
     *,
     application_name: builtins.str,
     service_role_arn: builtins.str,
-    alarm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.AlarmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_rollback_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.AutoRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.AlarmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_rollback_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.AutoRollbackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auto_scaling_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    blue_green_deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.DeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    blue_green_deployment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.BlueGreenDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_config_name: typing.Optional[builtins.str] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
-    deployment_style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ec2_tag_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ec2_tag_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_services: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    load_balancer_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.LoadBalancerInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    on_premises_instance_tag_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    on_premises_tag_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.OnPremisesTagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ec2_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ec2_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    load_balancer_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.LoadBalancerInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_premises_instance_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_premises_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.OnPremisesTagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     outdated_instances_strategy: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    trigger_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeploymentGroup.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_hook_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    trigger_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6f8c53864749c97e11693362fedad7242c31fc477d04c6e3dede64774251fad3(
     *,
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
     percentage: jsii.Number,
     type: CustomLambdaDeploymentConfigType,
     deployment_config_name: typing.Optional[builtins.str] = None,
@@ -11406,12 +11445,12 @@ def _typecheckingstub__31617a0bd5a72eae80bdaf60a12a3c49a0948473616c9a8e908f3d9bd
 
 def _typecheckingstub__b251dc2bb3166b5b08fc4a016e350d50231d6a3f0a8566638996a295262e0269(
     *,
-    blue_target_group: _ITargetGroup_83c6f8c4,
-    green_target_group: _ITargetGroup_83c6f8c4,
-    listener: _IListenerRef_a8ced6a8,
-    deployment_approval_wait_time: typing.Optional[_Duration_4839e8c3] = None,
-    termination_wait_time: typing.Optional[_Duration_4839e8c3] = None,
-    test_listener: typing.Optional[_IListenerRef_a8ced6a8] = None,
+    blue_target_group: _aws_elasticloadbalancingv2_1d9af53a.ITargetGroup,
+    green_target_group: _aws_elasticloadbalancingv2_1d9af53a.ITargetGroup,
+    listener: _aws_elasticloadbalancingv2_1283aa87.IListenerRef,
+    deployment_approval_wait_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    termination_wait_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    test_listener: typing.Optional[_aws_elasticloadbalancingv2_1283aa87.IListenerRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11426,9 +11465,9 @@ def _typecheckingstub__82f77eb6fc251ed7746cecc68aaaaf5706c1f2831b79812175c6abd5b
 
 def _typecheckingstub__171917799e985d16bcafd7fcbcf48ad64ae8bcb175f7e2b8f9fe1f74316e63df(
     *,
-    application: _IApplicationRef_1ffc51d6,
+    application: _aws_codedeploy_cae50b6a.IApplicationRef,
     deployment_group_name: builtins.str,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11436,21 +11475,21 @@ def _typecheckingstub__171917799e985d16bcafd7fcbcf48ad64ae8bcb175f7e2b8f9fe1f743
 def _typecheckingstub__7adf7c582969f2d223ca19321a889bd4195cc6c299e92558e985e0fdcdea2cd0(
     *,
     blue_green_deployment_config: typing.Union[EcsBlueGreenDeploymentConfig, typing.Dict[builtins.str, typing.Any]],
-    service: _IBaseService_3fcdd913,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
-    application: typing.Optional[_IApplicationRef_1ffc51d6] = None,
+    service: _aws_ecs_19c7ccd1.IBaseService,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
+    application: typing.Optional[_aws_codedeploy_cae50b6a.IApplicationRef] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
     ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ba97b3918e8b33752fcb76aaa34476f79974fb3fba51e966de959dda226b115a(
-    deployment_group: _IDeploymentGroupRef_120f3b25,
+    deployment_group: _aws_codedeploy_cae50b6a.IDeploymentGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11512,17 +11551,17 @@ def _typecheckingstub__c26416b16de08b4064de631244255b96e87828c1c22b3d5795282b418
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    alias: _Alias_55be8873,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
+    alias: _aws_lambda_b8f2f472.Alias,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
     application: typing.Optional[ILambdaApplication] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_config: typing.Optional[ILambdaDeploymentConfig] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
     ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-    post_hook: typing.Optional[_IFunction_6adb0ab8] = None,
-    pre_hook: typing.Optional[_IFunction_6adb0ab8] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    post_hook: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    pre_hook: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11539,25 +11578,25 @@ def _typecheckingstub__8fd4dfddfe47c0a8dd92426b46cd63260d58eb3379c02a54f93345706
     pass
 
 def _typecheckingstub__9b711b8130a1d80370d61b0db615c68c614d3077ac9c81be826135376059b97e(
-    alarm: _IAlarmRef_2bb0e5de,
+    alarm: _aws_cloudwatch_70717108.IAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__52088593799588d855f46763ba6983d5b95d7128d66002267869967f0a287d99(
-    post_hook: _IFunction_6adb0ab8,
+    post_hook: _aws_lambda_b8f2f472.IFunction,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9479e7d155c760cd01795544331c610a1cab348cb04f2ac1aaa5373c713b9424(
-    pre_hook: _IFunction_6adb0ab8,
+    pre_hook: _aws_lambda_b8f2f472.IFunction,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6d8689c21818340ec688b7586fd416bd82b1e7011d11184910717b5859285cb4(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11573,17 +11612,17 @@ def _typecheckingstub__08bd7879a63053a6c7bc752ef445954728069ab3039a8ede60d6b4eee
 
 def _typecheckingstub__874e757437525f2d71406c292cf5ac7fae66797609da322dac9063247a871238(
     *,
-    alias: _Alias_55be8873,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
+    alias: _aws_lambda_b8f2f472.Alias,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
     application: typing.Optional[ILambdaApplication] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_config: typing.Optional[ILambdaDeploymentConfig] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
     ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-    post_hook: typing.Optional[_IFunction_6adb0ab8] = None,
-    pre_hook: typing.Optional[_IFunction_6adb0ab8] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    post_hook: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    pre_hook: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11597,19 +11636,19 @@ def _typecheckingstub__370bf2390e5c88cb8bbf9c66f599b85ef458396f8157823b987c090f4
     pass
 
 def _typecheckingstub__c36a2f946c61769d76c913c28d5738063c97172f02aedd94b235d81679262630(
-    alb_target_group: _IApplicationTargetGroup_57799827,
+    alb_target_group: _aws_elasticloadbalancingv2_1d9af53a.IApplicationTargetGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8808efa456e0bde58915d9f2353dc69253ae06e9b202151c399da611d72dc3a7(
-    load_balancer: _LoadBalancer_a894d40e,
+    load_balancer: _aws_elasticloadbalancing_199dfa00.LoadBalancer,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9c09dbdbc45c1037d7977cfe1df1e715bec88560b2da64188007c9c48538f678(
-    nlb_target_group: _INetworkTargetGroup_abca2df7,
+    nlb_target_group: _aws_elasticloadbalancingv2_1d9af53a.INetworkTargetGroup,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11683,11 +11722,11 @@ def _typecheckingstub__e0364d4b48c02675a1899e742e45b411f0e83905e634a84441d088a41
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
-    application: typing.Optional[_IApplicationRef_1ffc51d6] = None,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
+    application: typing.Optional[_aws_codedeploy_cae50b6a.IApplicationRef] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_scaling_groups: typing.Optional[typing.Sequence[_IAutoScalingGroup_360f1cde]] = None,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    auto_scaling_groups: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.IAutoScalingGroup]] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ec2_instance_tags: typing.Optional[InstanceTagSet] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
@@ -11696,7 +11735,7 @@ def _typecheckingstub__e0364d4b48c02675a1899e742e45b411f0e83905e634a84441d088a41
     load_balancer: typing.Optional[LoadBalancer] = None,
     load_balancers: typing.Optional[typing.Sequence[LoadBalancer]] = None,
     on_premise_instance_tags: typing.Optional[InstanceTagSet] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     termination_hook: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11706,41 +11745,41 @@ def _typecheckingstub__d8af8e520b8abc653e37c88dc9f6e51e7d52aa5f24d99a8bcc8765154
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application: _IApplicationRef_1ffc51d6,
+    application: _aws_codedeploy_cae50b6a.IApplicationRef,
     deployment_group_name: builtins.str,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__356a323fcb86d198006a31f41e7e9d1c8a6892ac423e8cb69666cd1ddcb8e718(
-    alarm: _IAlarmRef_2bb0e5de,
+    alarm: _aws_cloudwatch_70717108.IAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8eb5bbbb7e095997fadbddebece8f587dfbebf76e4fba6c071f9def29db693c8(
-    asg: _AutoScalingGroup_c547a7b9,
+    asg: _aws_autoscaling_6cbf8045.AutoScalingGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a7c78d15fd80ffece3b49e232b4a29903107350aac8446220b8caea80c448a80(
     *,
-    application: _IApplicationRef_1ffc51d6,
+    application: _aws_codedeploy_cae50b6a.IApplicationRef,
     deployment_group_name: builtins.str,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a3ad41a581be1a234fd5722299d51aa77bd7beaf51e0511c95ee742d49944018(
     *,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
-    application: typing.Optional[_IApplicationRef_1ffc51d6] = None,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
+    application: typing.Optional[_aws_codedeploy_cae50b6a.IApplicationRef] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    auto_scaling_groups: typing.Optional[typing.Sequence[_IAutoScalingGroup_360f1cde]] = None,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    auto_scaling_groups: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.IAutoScalingGroup]] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ec2_instance_tags: typing.Optional[InstanceTagSet] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
@@ -11749,7 +11788,7 @@ def _typecheckingstub__a3ad41a581be1a234fd5722299d51aa77bd7beaf51e0511c95ee742d4
     load_balancer: typing.Optional[LoadBalancer] = None,
     load_balancers: typing.Optional[typing.Sequence[LoadBalancer]] = None,
     on_premise_instance_tags: typing.Optional[InstanceTagSet] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     termination_hook: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11757,7 +11796,7 @@ def _typecheckingstub__a3ad41a581be1a234fd5722299d51aa77bd7beaf51e0511c95ee742d4
 
 def _typecheckingstub__06d16b3e96e0fa33fc82ea5d170af742eef9ed50a9cbf223cb2ed4b3a79e12b0(
     *,
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
     percentage: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -11765,7 +11804,7 @@ def _typecheckingstub__06d16b3e96e0fa33fc82ea5d170af742eef9ed50a9cbf223cb2ed4b3a
 
 def _typecheckingstub__3ae43dc71a0186139db7c80b7def0fee785a31717f8577d65e13a868d2b3817a(
     *,
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
     percentage: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -11788,9 +11827,9 @@ def _typecheckingstub__b845a8828051dc720d79c0332ea3470f754dd765be05c704a97b65823
 
 def _typecheckingstub__4e3b953d8872e36c383f9e09cfb712143f81f7357675dc0a7a44b700b05d5168(
     *,
-    first_zone_monitor_duration: typing.Optional[_Duration_4839e8c3] = None,
+    first_zone_monitor_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     minimum_healthy_hosts_per_zone: typing.Optional[MinimumHealthyHostsPerZone] = None,
-    monitor_duration: typing.Optional[_Duration_4839e8c3] = None,
+    monitor_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11826,7 +11865,7 @@ def _typecheckingstub__1ac867d6e5022c0be7de76fadf84363729e8cfde59c1d36f19b324981
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    interval: _Duration_4839e8c3,
+    interval: _aws_cdk_0cae9daa.Duration,
     percentage: jsii.Number,
     type: CustomLambdaDeploymentConfigType,
     deployment_config_name: typing.Optional[builtins.str] = None,
@@ -11835,7 +11874,7 @@ def _typecheckingstub__1ac867d6e5022c0be7de76fadf84363729e8cfde59c1d36f19b324981
     pass
 
 def _typecheckingstub__af835e0838e9a55fd88273c0ee770a919bf24bea3d59baeffcb3d515786a87c6(
-    deployment_group: _IDeploymentGroupRef_120f3b25,
+    deployment_group: _aws_codedeploy_cae50b6a.IDeploymentGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11888,15 +11927,15 @@ def _typecheckingstub__1d5a27f58faebed8ad465b39d408bd717722f646f6471896e02b8ea95
     id: builtins.str,
     *,
     blue_green_deployment_config: typing.Union[EcsBlueGreenDeploymentConfig, typing.Dict[builtins.str, typing.Any]],
-    service: _IBaseService_3fcdd913,
-    alarms: typing.Optional[typing.Sequence[_IAlarmRef_2bb0e5de]] = None,
-    application: typing.Optional[_IApplicationRef_1ffc51d6] = None,
+    service: _aws_ecs_19c7ccd1.IBaseService,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
+    application: typing.Optional[_aws_codedeploy_cae50b6a.IApplicationRef] = None,
     auto_rollback: typing.Optional[typing.Union[AutoRollbackConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     ignore_alarm_configuration: typing.Optional[builtins.bool] = None,
     ignore_poll_alarms_failure: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11905,15 +11944,15 @@ def _typecheckingstub__e21d5d2081ae62e02eb318efb6845c80afcd2a31d1f65949b88d5e28b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application: _IApplicationRef_1ffc51d6,
+    application: _aws_codedeploy_cae50b6a.IApplicationRef,
     deployment_group_name: builtins.str,
-    deployment_config: typing.Optional[_IDeploymentConfigRef_bc0b49ed] = None,
+    deployment_config: typing.Optional[_aws_codedeploy_cae50b6a.IDeploymentConfigRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ecbfe2758d485b20b4d7753475293fc67c26edc4d904112e8a409df22ce5f06c(
-    alarm: _IAlarmRef_2bb0e5de,
+    alarm: _aws_cloudwatch_70717108.IAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass

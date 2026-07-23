@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,40 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_uxc import (
-    AccountCustomizationReference as _AccountCustomizationReference_0125a280,
-    IAccountCustomizationRef as _IAccountCustomizationRef_810be58f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_uxc as _aws_uxc_4b5d9053
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_uxc_4b5d9053 = _LazyImport("aws_cdk.interfaces.aws_uxc")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccountCustomizationRef_810be58f)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_uxc_4b5d9053.IAccountCustomizationRef)
 class CfnAccountCustomization(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_uxc.CfnAccountCustomization",
 ):
@@ -122,7 +120,7 @@ class CfnAccountCustomization(
         :param visible_services: A list of AWS service identifiers visible to the account in the AWS Console.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37c3b0d81c6b7512bc96c1c47c66ff0d335f357bc15062efd61024a544724110)
+            type_hints = cached_type_hints(_typecheckingstub__37c3b0d81c6b7512bc96c1c47c66ff0d335f357bc15062efd61024a544724110)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccountCustomizationProps(
@@ -141,18 +139,18 @@ class CfnAccountCustomization(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05c8c620c8dd0a4e833234db63f5d93ade58fc126bbe58e7f39258f2c75352d9)
+            type_hints = cached_type_hints(_typecheckingstub__05c8c620c8dd0a4e833234db63f5d93ade58fc126bbe58e7f39258f2c75352d9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccountCustomization", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd6eb1c7925d951608c029acd52255f9764cb4bb949698dc09fa593f648014ae)
+            type_hints = cached_type_hints(_typecheckingstub__bd6eb1c7925d951608c029acd52255f9764cb4bb949698dc09fa593f648014ae)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -165,7 +163,7 @@ class CfnAccountCustomization(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f44f9dfa72f040bcf16ba6635b9f0b72e82f46b90b3b6674e6047f2cdbed7485)
+            type_hints = cached_type_hints(_typecheckingstub__f44f9dfa72f040bcf16ba6635b9f0b72e82f46b90b3b6674e6047f2cdbed7485)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -177,9 +175,11 @@ class CfnAccountCustomization(
 
     @builtins.property
     @jsii.member(jsii_name="accountCustomizationRef")
-    def account_customization_ref(self) -> "_AccountCustomizationReference_0125a280":
+    def account_customization_ref(
+        self,
+    ) -> "_aws_uxc_4b5d9053.AccountCustomizationReference":
         '''A reference to a AccountCustomization resource.'''
-        return typing.cast("_AccountCustomizationReference_0125a280", jsii.get(self, "accountCustomizationRef"))
+        return typing.cast("_aws_uxc_4b5d9053.AccountCustomizationReference", jsii.get(self, "accountCustomizationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
@@ -211,7 +211,7 @@ class CfnAccountCustomization(
     @account_color.setter
     def account_color(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fb8c33ae449fd87ad7af669a2c39936de2c4feb6e650c02c6a8b93dd1570ef4)
+            type_hints = cached_type_hints(_typecheckingstub__4fb8c33ae449fd87ad7af669a2c39936de2c4feb6e650c02c6a8b93dd1570ef4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountColor", value) # pyright: ignore[reportArgumentType]
 
@@ -227,7 +227,7 @@ class CfnAccountCustomization(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a55eb948736eaf0670badbd62d8e1ebbf2c698792a92b39d1dcc56ab066af92)
+            type_hints = cached_type_hints(_typecheckingstub__0a55eb948736eaf0670badbd62d8e1ebbf2c698792a92b39d1dcc56ab066af92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visibleRegions", value) # pyright: ignore[reportArgumentType]
 
@@ -243,7 +243,7 @@ class CfnAccountCustomization(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96dac46328c85397990b4e60031f31361219f12ab70c79223e8b87d9aea08886)
+            type_hints = cached_type_hints(_typecheckingstub__96dac46328c85397990b4e60031f31361219f12ab70c79223e8b87d9aea08886)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "visibleServices", value) # pyright: ignore[reportArgumentType]
 
@@ -287,7 +287,7 @@ class CfnAccountCustomizationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d2da66c4c7da714261fc3babf37cab227f03a7b15ede0ef0e55a3145b55332a)
+            type_hints = cached_type_hints(_typecheckingstub__6d2da66c4c7da714261fc3babf37cab227f03a7b15ede0ef0e55a3145b55332a)
             check_type(argname="argument account_color", value=account_color, expected_type=type_hints["account_color"])
             check_type(argname="argument visible_regions", value=visible_regions, expected_type=type_hints["visible_regions"])
             check_type(argname="argument visible_services", value=visible_services, expected_type=type_hints["visible_services"])
@@ -363,7 +363,7 @@ def _typecheckingstub__05c8c620c8dd0a4e833234db63f5d93ade58fc126bbe58e7f39258f2c
     pass
 
 def _typecheckingstub__bd6eb1c7925d951608c029acd52255f9764cb4bb949698dc09fa593f648014ae(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

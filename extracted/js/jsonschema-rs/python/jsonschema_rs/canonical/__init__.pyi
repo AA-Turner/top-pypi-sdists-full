@@ -31,6 +31,36 @@ class TypedGroupView:
     def body(self) -> CanonicalSchema: ...
 
 @final
+class StringView:
+    """A string value within a length window matching every pattern."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def min_length(self) -> int | None: ...
+    @property
+    def max_length(self) -> int | None: ...
+    @property
+    def patterns(self) -> list[str]: ...
+
+@final
+class IntegerView:
+    """An integer value within a range."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def minimum(self) -> int | None: ...
+    @property
+    def maximum(self) -> int | None: ...
+
+@final
+class AnyOfView:
+    """A value matches iff at least one branch matches."""
+
+    __match_args__: tuple[str, ...]
+    @property
+    def branches(self) -> list[CanonicalSchema]: ...
+
+@final
 class ConstView:
     """Exactly one admitted value."""
 
@@ -54,7 +84,18 @@ class RawView:
     @property
     def schema(self) -> JsonValue: ...
 
-CanonicalViewType: TypeAlias = TrueView | FalseView | MultiTypeView | TypedGroupView | ConstView | EnumView | RawView
+CanonicalViewType: TypeAlias = (
+    TrueView
+    | FalseView
+    | MultiTypeView
+    | TypedGroupView
+    | StringView
+    | IntegerView
+    | AnyOfView
+    | ConstView
+    | EnumView
+    | RawView
+)
 
 class CanonicalizationError(ValueError):
     """A schema could not be reduced to canonical form."""
@@ -64,3 +105,6 @@ class CanonicalizationError(ValueError):
 
 class InvalidSchemaType(CanonicalizationError):
     """The schema root is neither a boolean nor an object."""
+
+class InvalidPattern(CanonicalizationError):
+    """A ``pattern`` value is not a valid regular expression."""

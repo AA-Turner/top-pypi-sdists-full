@@ -46,6 +46,13 @@ class SessionHydrator:
         )
         if record.trajectory is not None:
             session.restore_trajectory(record.trajectory, persist=False)
+        # If the persisted model is empty (e.g. the session was saved before
+        # the first turn resolved a canonical model), try to recover it from
+        # the restored trajectory's last generation step.
+        if not session.model and record.trajectory is not None:
+            recovered = _model_from_trajectory(record.trajectory)
+            if recovered:
+                session.model = recovered
         self.sessions[record.session_id] = session
         return session
 
@@ -97,6 +104,17 @@ class SessionHydrator:
                 messages_data=messages_data,
                 current_system_prompt=data.get("current_system_prompt"),
             )
+            # If the session-level model is empty (e.g. the session was
+            # registered before the first turn resolved a canonical model),
+            # recover it from the last assistant message's model field.
+            # Without this, ``to_info()`` returns ``model=None`` and the
+            # TUI resume path falls back to the default model instead of
+            # preserving the model the session actually used.
+            if not session.model:
+                for msg in reversed(messages_data):
+                    if msg.get("role") == "assistant" and msg.get("model"):
+                        session.model = msg["model"]
+                        break
 
         session._platform_registered = True
         session.mark_sync_ok()
@@ -214,3 +232,29 @@ def _api_messages_to_openai_format(messages_data: list[dict[str, t.Any]]) -> lis
             converted["metadata"] = msg["metadata"]
         openai_messages.append(converted)
     return openai_messages
+
+
+def _model_from_trajectory(trajectory_data: dict[str, t.Any]) -> str | None:
+    """Recover the model from the last generation step in a serialized trajectory.
+
+    The trajectory dict may contain a ``steps`` list with ``GenerationStep``
+    entries that carry a ``model`` field. We walk backwards to find the most
+    recent one. Returns ``None`` when no step has a usable model.
+    """
+    steps = trajectory_data.get("steps")
+    if not isinstance(steps, list):
+        return None
+    for step in reversed(steps):
+        if not isinstance(step, dict):
+            continue
+        # GenerationStep stores the model at the top level or inside
+        # ``generator_config`` depending on the serialization version.
+        step_typed = t.cast("dict[str, t.Any]", step)
+        model = step_typed.get("model")
+        if not model:
+            config = step_typed.get("generator_config")
+            if isinstance(config, dict):
+                model = t.cast("dict[str, t.Any]", config).get("model")
+        if model and isinstance(model, str):
+            return model
+    return None

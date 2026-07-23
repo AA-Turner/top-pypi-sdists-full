@@ -1,6 +1,6 @@
 [package]
 name = "serpyco-rs"
-version = "1.20.0"
+version = "1.21.0"
 edition = "2021"
 homepage = "https://github.com/ermakov-oleg/serpyco-rs"
 repository = "https://github.com/ermakov-oleg/serpyco-rs"
@@ -11,18 +11,17 @@ name = "serpyco_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.27", features = ["extension-module", "py-clone"] }
-pyo3-ffi = "0.27"
+pyo3 = { version = "0.29", features = ["extension-module", "py-clone"] }
+pyo3-ffi = "0.29"
 speedate = "0.17.0"
 
 dyn-clone = "1.0.20"
-atomic_refcell = "0.1.13"
-nohash-hasher = "*"
+nohash-hasher = "0.2"
 
 uuid = "1"
 
 [build-dependencies]
-pyo3-build-config = { version = "0.27", features = ["resolve-config"] }
+pyo3-build-config = { version = "0.29", features = ["resolve-config"] }
 
 [profile.release]
 codegen-units = 1

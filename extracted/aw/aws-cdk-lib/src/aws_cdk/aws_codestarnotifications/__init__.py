@@ -70,6 +70,8 @@ For the complete list of supported event types for CodeBuild and CodePipeline, s
 * [Events for notification rules on build projects](https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#events-ref-buildproject).
 * [Events for notification rules on pipelines](https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#events-ref-pipeline).
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -83,45 +85,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_codestarnotifications import (
-    INotificationRuleRef as _INotificationRuleRef_72554e3b,
-    NotificationRuleReference as _NotificationRuleReference_9dbce4a4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_codestarnotifications as _aws_codestarnotifications_d4702007
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codestarnotifications_d4702007 = _LazyImport("aws_cdk.interfaces.aws_codestarnotifications")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _INotificationRuleRef_72554e3b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codestarnotifications_d4702007.INotificationRuleRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnNotificationRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRule",
 ):
@@ -169,7 +162,7 @@ class CfnNotificationRule(
         event_type_ids: typing.Sequence[builtins.str],
         name: builtins.str,
         resource: builtins.str,
-        targets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        targets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
         created_by: typing.Optional[builtins.str] = None,
         event_type_id: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
@@ -192,7 +185,7 @@ class CfnNotificationRule(
         :param target_address: The Amazon Resource Name (ARN) of the Amazon topic or client.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c1086ace)
+            type_hints = cached_type_hints(_typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c1086ace)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNotificationRuleProps(
@@ -214,13 +207,13 @@ class CfnNotificationRule(
     @builtins.classmethod
     def arn_for_notification_rule(
         cls,
-        resource: "_INotificationRuleRef_72554e3b",
+        resource: "_aws_codestarnotifications_d4702007.INotificationRuleRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e81708227acb98da73d79e733ff85bbe1c6146c47676c1ea6b92d00ee0dac1f5)
+            type_hints = cached_type_hints(_typecheckingstub__e81708227acb98da73d79e733ff85bbe1c6146c47676c1ea6b92d00ee0dac1f5)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNotificationRule", [resource]))
 
@@ -232,18 +225,18 @@ class CfnNotificationRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30aaea3fdc79a268b1a12d5425c0141bf2c12fc2f8c5922ee8871c55ace9b01b)
+            type_hints = cached_type_hints(_typecheckingstub__30aaea3fdc79a268b1a12d5425c0141bf2c12fc2f8c5922ee8871c55ace9b01b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87ef25f46cfb8cebf7f1dcf20988342af27ada2610c31d3973ea93bae9079a0c)
+            type_hints = cached_type_hints(_typecheckingstub__87ef25f46cfb8cebf7f1dcf20988342af27ada2610c31d3973ea93bae9079a0c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -256,7 +249,7 @@ class CfnNotificationRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40d4fee78d1cb9b3932feffc8bdedc027a5eb171eb25256c49259b1081959e4d)
+            type_hints = cached_type_hints(_typecheckingstub__40d4fee78d1cb9b3932feffc8bdedc027a5eb171eb25256c49259b1081959e4d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -287,15 +280,17 @@ class CfnNotificationRule(
 
     @builtins.property
     @jsii.member(jsii_name="notificationRuleRef")
-    def notification_rule_ref(self) -> "_NotificationRuleReference_9dbce4a4":
+    def notification_rule_ref(
+        self,
+    ) -> "_aws_codestarnotifications_d4702007.NotificationRuleReference":
         '''A reference to a NotificationRule resource.'''
-        return typing.cast("_NotificationRuleReference_9dbce4a4", jsii.get(self, "notificationRuleRef"))
+        return typing.cast("_aws_codestarnotifications_d4702007.NotificationRuleReference", jsii.get(self, "notificationRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="detailType")
@@ -306,7 +301,7 @@ class CfnNotificationRule(
     @detail_type.setter
     def detail_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e77575e9e7fed1aaa856782984f55190cacebb0127b3a420e5abd83c05124eb6)
+            type_hints = cached_type_hints(_typecheckingstub__e77575e9e7fed1aaa856782984f55190cacebb0127b3a420e5abd83c05124eb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "detailType", value) # pyright: ignore[reportArgumentType]
 
@@ -319,7 +314,7 @@ class CfnNotificationRule(
     @event_type_ids.setter
     def event_type_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb90cf2b1d4d9f08c073745d794c6b1baab1fbeeb5c0bbda2d12a48b0d9f5108)
+            type_hints = cached_type_hints(_typecheckingstub__fb90cf2b1d4d9f08c073745d794c6b1baab1fbeeb5c0bbda2d12a48b0d9f5108)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventTypeIds", value) # pyright: ignore[reportArgumentType]
 
@@ -332,7 +327,7 @@ class CfnNotificationRule(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5204aa375f9e4e9997555d623037738864aa5e6cea213dafa3cc2dbd08fe4b5f)
+            type_hints = cached_type_hints(_typecheckingstub__5204aa375f9e4e9997555d623037738864aa5e6cea213dafa3cc2dbd08fe4b5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -345,7 +340,7 @@ class CfnNotificationRule(
     @resource.setter
     def resource(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e7eb7809f54a6ab1cc7633e54f753ffc88aee5242769abb918737ba1ece93e)
+            type_hints = cached_type_hints(_typecheckingstub__a9e7eb7809f54a6ab1cc7633e54f753ffc88aee5242769abb918737ba1ece93e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
 
@@ -353,17 +348,17 @@ class CfnNotificationRule(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNotificationRule.TargetProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNotificationRule.TargetProperty"]]]:
         '''A list of Amazon Resource Names (ARNs) of Amazon  topics and  clients to associate with the notification rule.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNotificationRule.TargetProperty"]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNotificationRule.TargetProperty"]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNotificationRule.TargetProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNotificationRule.TargetProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4259d2e21a6aa16f5b382a6da87f39d19bce9c3ff108949185b9a52a0cdc3fb1)
+            type_hints = cached_type_hints(_typecheckingstub__4259d2e21a6aa16f5b382a6da87f39d19bce9c3ff108949185b9a52a0cdc3fb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
 
@@ -376,7 +371,7 @@ class CfnNotificationRule(
     @created_by.setter
     def created_by(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a38c963a2f57c2eef37336737a4291ab12ddbea2f275489ad41a0f3b1626c2)
+            type_hints = cached_type_hints(_typecheckingstub__d3a38c963a2f57c2eef37336737a4291ab12ddbea2f275489ad41a0f3b1626c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "createdBy", value) # pyright: ignore[reportArgumentType]
 
@@ -389,7 +384,7 @@ class CfnNotificationRule(
     @event_type_id.setter
     def event_type_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f4c0a2f101ac5756c08ca6fb073dca683dc73b0a107311500211b14b0fa45bd)
+            type_hints = cached_type_hints(_typecheckingstub__3f4c0a2f101ac5756c08ca6fb073dca683dc73b0a107311500211b14b0fa45bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventTypeId", value) # pyright: ignore[reportArgumentType]
 
@@ -402,7 +397,7 @@ class CfnNotificationRule(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__912dbe323db8cf96405e266076a8cdf4072b4a2dd758c0d981017c758190eab3)
+            type_hints = cached_type_hints(_typecheckingstub__912dbe323db8cf96405e266076a8cdf4072b4a2dd758c0d981017c758190eab3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -418,7 +413,7 @@ class CfnNotificationRule(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__659b0f3db6d4ef27d56157bd416c0c93d14864433c289b856f1de2e84a2263eb)
+            type_hints = cached_type_hints(_typecheckingstub__659b0f3db6d4ef27d56157bd416c0c93d14864433c289b856f1de2e84a2263eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -431,7 +426,7 @@ class CfnNotificationRule(
     @target_address.setter
     def target_address(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b60a2bf9b823ac3550ee164c0b5272642cbc4e5c916ec347fa569051a338b1b)
+            type_hints = cached_type_hints(_typecheckingstub__0b60a2bf9b823ac3550ee164c0b5272642cbc4e5c916ec347fa569051a338b1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -467,7 +462,7 @@ class CfnNotificationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5808f80235ebed2f288b2e5e65437084fde23b48cb2a5daa84d6bf156a1aa57)
+                type_hints = cached_type_hints(_typecheckingstub__c5808f80235ebed2f288b2e5e65437084fde23b48cb2a5daa84d6bf156a1aa57)
                 check_type(argname="argument target_address", value=target_address, expected_type=type_hints["target_address"])
                 check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -535,7 +530,7 @@ class CfnNotificationRuleProps:
         event_type_ids: typing.Sequence[builtins.str],
         name: builtins.str,
         resource: builtins.str,
-        targets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        targets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
         created_by: typing.Optional[builtins.str] = None,
         event_type_id: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
@@ -585,7 +580,7 @@ class CfnNotificationRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__952abbe5911505f5e5382fd91146586f2692114d447a4f16d4f5749cae4799fe)
+            type_hints = cached_type_hints(_typecheckingstub__952abbe5911505f5e5382fd91146586f2692114d447a4f16d4f5749cae4799fe)
             check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
             check_type(argname="argument event_type_ids", value=event_type_ids, expected_type=type_hints["event_type_ids"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -665,14 +660,14 @@ class CfnNotificationRuleProps:
     @builtins.property
     def targets(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNotificationRule.TargetProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNotificationRule.TargetProperty"]]]:
         '''A list of Amazon Resource Names (ARNs) of Amazon  topics and  clients to associate with the notification rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarnotifications-notificationrule.html#cfn-codestarnotifications-notificationrule-targets
         '''
         result = self._values.get("targets")
         assert result is not None, "Required property 'targets' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNotificationRule.TargetProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNotificationRule.TargetProperty"]]], result)
 
     @builtins.property
     def created_by(self) -> typing.Optional[builtins.str]:
@@ -782,8 +777,8 @@ class DetailType(enum.Enum):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codestarnotifications.INotificationRule")
 class INotificationRule(
-    _IResource_c80c4260,
-    _INotificationRuleRef_72554e3b,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codestarnotifications_d4702007.INotificationRuleRef,
     typing_extensions.Protocol,
 ):
     '''Represents a notification rule.'''
@@ -809,8 +804,8 @@ class INotificationRule(
 
 
 class _INotificationRuleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_INotificationRuleRef_72554e3b), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codestarnotifications_d4702007.INotificationRuleRef), # type: ignore[misc]
 ):
     '''Represents a notification rule.'''
 
@@ -834,7 +829,7 @@ class _INotificationRuleProxy(
         :return: boolean - return true if it had any effect
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83568cba2bd196cd0611084c807a07f3158a16140c8d6c4d35238d6419431a3e)
+            type_hints = cached_type_hints(_typecheckingstub__83568cba2bd196cd0611084c807a07f3158a16140c8d6c4d35238d6419431a3e)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addTarget", [target]))
 
@@ -875,7 +870,7 @@ class _INotificationRuleSourceProxy:
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5450ef736fad66a5746a2acf129158273757bccca5695cd9088cbd31c1190d4a)
+            type_hints = cached_type_hints(_typecheckingstub__5450ef736fad66a5746a2acf129158273757bccca5695cd9088cbd31c1190d4a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("NotificationRuleSourceConfig", jsii.invoke(self, "bindAsNotificationRuleSource", [scope]))
 
@@ -916,7 +911,7 @@ class _INotificationRuleTargetProxy:
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aabe87bcc3bcfcb31e776adf52a667c84dfa7282f1c25dd08dd858cf88b5792)
+            type_hints = cached_type_hints(_typecheckingstub__1aabe87bcc3bcfcb31e776adf52a667c84dfa7282f1c25dd08dd858cf88b5792)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("NotificationRuleTargetConfig", jsii.invoke(self, "bindAsNotificationRuleTarget", [scope]))
 
@@ -926,7 +921,7 @@ typing.cast(typing.Any, INotificationRuleTarget).__jsii_proxy_class__ = lambda :
 
 @jsii.implements(INotificationRule)
 class NotificationRule(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codestarnotifications.NotificationRule",
 ):
@@ -991,7 +986,7 @@ class NotificationRule(
         :param notification_rule_name: The name for the notification rule. Notification rule names must be unique in your AWS account. Default: - generated from the ``id``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ee042127cf39a85f944067772f0419c8ac6769379b69d847458271eeb8ab318)
+            type_hints = cached_type_hints(_typecheckingstub__2ee042127cf39a85f944067772f0419c8ac6769379b69d847458271eeb8ab318)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NotificationRuleProps(
@@ -1021,7 +1016,7 @@ class NotificationRule(
         :param notification_rule_arn: Notification rule ARN (i.e. arn:aws:codestar-notifications:::notificationrule/01234abcde).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c632c338e62acde6cbe6e9a621df456c5b97c1a83557f6e8004c96305cca6d53)
+            type_hints = cached_type_hints(_typecheckingstub__c632c338e62acde6cbe6e9a621df456c5b97c1a83557f6e8004c96305cca6d53)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument notification_rule_arn", value=notification_rule_arn, expected_type=type_hints["notification_rule_arn"])
@@ -1034,7 +1029,7 @@ class NotificationRule(
         :param target: The SNS topic or AWS Chatbot Slack target.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ae4822f460efa58f235b9774da89d7f779da55fe51601a3cdfdf7b24e56913c)
+            type_hints = cached_type_hints(_typecheckingstub__7ae4822f460efa58f235b9774da89d7f779da55fe51601a3cdfdf7b24e56913c)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addTarget", [target]))
 
@@ -1055,9 +1050,11 @@ class NotificationRule(
 
     @builtins.property
     @jsii.member(jsii_name="notificationRuleRef")
-    def notification_rule_ref(self) -> "_NotificationRuleReference_9dbce4a4":
+    def notification_rule_ref(
+        self,
+    ) -> "_aws_codestarnotifications_d4702007.NotificationRuleReference":
         '''A reference to a NotificationRule resource.'''
-        return typing.cast("_NotificationRuleReference_9dbce4a4", jsii.get(self, "notificationRuleRef"))
+        return typing.cast("_aws_codestarnotifications_d4702007.NotificationRuleReference", jsii.get(self, "notificationRuleRef"))
 
 
 @jsii.data_type(
@@ -1102,7 +1099,7 @@ class NotificationRuleOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eefabcfdf7bed8d3d87d052ee762b71c3b6147378fc2dcef592f76197869ec52)
+            type_hints = cached_type_hints(_typecheckingstub__eefabcfdf7bed8d3d87d052ee762b71c3b6147378fc2dcef592f76197869ec52)
             check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
             check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -1242,7 +1239,7 @@ class NotificationRuleProps(NotificationRuleOptions):
             rule.add_target(slack)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07e191339712f728b76ba8a634b1678dff009608132b685c7342315eab988d78)
+            type_hints = cached_type_hints(_typecheckingstub__07e191339712f728b76ba8a634b1678dff009608132b685c7342315eab988d78)
             check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
             check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -1379,7 +1376,7 @@ class NotificationRuleSourceConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d360e17c334b6a0f70e67ffff0c1887ea63e43f8b4efcce27df4db191f21ce0)
+            type_hints = cached_type_hints(_typecheckingstub__4d360e17c334b6a0f70e67ffff0c1887ea63e43f8b4efcce27df4db191f21ce0)
             check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "source_arn": source_arn,
@@ -1435,7 +1432,7 @@ class NotificationRuleTargetConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6f32c99ca69e59363f10dc680579548d678dad8805ff6c48b7a60d0aa5f940c)
+            type_hints = cached_type_hints(_typecheckingstub__a6f32c99ca69e59363f10dc680579548d678dad8805ff6c48b7a60d0aa5f940c)
             check_type(argname="argument target_address", value=target_address, expected_type=type_hints["target_address"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1496,7 +1493,7 @@ def _typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c
     event_type_ids: typing.Sequence[builtins.str],
     name: builtins.str,
     resource: builtins.str,
-    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    targets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
     created_by: typing.Optional[builtins.str] = None,
     event_type_id: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
@@ -1507,7 +1504,7 @@ def _typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c
     pass
 
 def _typecheckingstub__e81708227acb98da73d79e733ff85bbe1c6146c47676c1ea6b92d00ee0dac1f5(
-    resource: _INotificationRuleRef_72554e3b,
+    resource: _aws_codestarnotifications_d4702007.INotificationRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1519,7 +1516,7 @@ def _typecheckingstub__30aaea3fdc79a268b1a12d5425c0141bf2c12fc2f8c5922ee8871c55a
     pass
 
 def _typecheckingstub__87ef25f46cfb8cebf7f1dcf20988342af27ada2610c31d3973ea93bae9079a0c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1555,7 +1552,7 @@ def _typecheckingstub__a9e7eb7809f54a6ab1cc7633e54f753ffc88aee5242769abb918737ba
     pass
 
 def _typecheckingstub__4259d2e21a6aa16f5b382a6da87f39d19bce9c3ff108949185b9a52a0cdc3fb1(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnNotificationRule.TargetProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnNotificationRule.TargetProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1604,7 +1601,7 @@ def _typecheckingstub__952abbe5911505f5e5382fd91146586f2692114d447a4f16d4f5749ca
     event_type_ids: typing.Sequence[builtins.str],
     name: builtins.str,
     resource: builtins.str,
-    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    targets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
     created_by: typing.Optional[builtins.str] = None,
     event_type_id: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,

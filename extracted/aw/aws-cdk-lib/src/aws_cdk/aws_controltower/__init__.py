@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_controltower import (
-    EnabledBaselineReference as _EnabledBaselineReference_fc2f59a9,
-    EnabledControlReference as _EnabledControlReference_bbbf16c6,
-    IEnabledBaselineRef as _IEnabledBaselineRef_5ab0e530,
-    IEnabledControlRef as _IEnabledControlRef_c4d4bf0a,
-    ILandingZoneRef as _ILandingZoneRef_c378ff0b,
-    LandingZoneReference as _LandingZoneReference_e8582b94,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_controltower as _aws_controltower_d5e7f7be
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_controltower_d5e7f7be = _LazyImport("aws_cdk.interfaces.aws_controltower")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnabledBaselineRef_5ab0e530, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_controltower_d5e7f7be.IEnabledBaselineRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEnabledBaseline(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledBaseline",
 ):
@@ -123,8 +113,8 @@ class CfnEnabledBaseline(
         baseline_identifier: builtins.str,
         baseline_version: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ControlTower::EnabledBaseline``.
 
@@ -137,7 +127,7 @@ class CfnEnabledBaseline(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ea8761029fec1b3c1fb5fb985be9ac741a889e29fe3445cfb5a962436cab528)
+            type_hints = cached_type_hints(_typecheckingstub__1ea8761029fec1b3c1fb5fb985be9ac741a889e29fe3445cfb5a962436cab528)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnabledBaselineProps(
@@ -158,18 +148,18 @@ class CfnEnabledBaseline(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e09a5dba630535a2f8d2e5d15a3d49c069893b08b0228a19c8000f2a78fe220)
+            type_hints = cached_type_hints(_typecheckingstub__5e09a5dba630535a2f8d2e5d15a3d49c069893b08b0228a19c8000f2a78fe220)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnabledBaseline", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5abe9c6604e1de27a08b948cef7b25d1d00ac0fd4f37eae3c69039eafa98f1eb)
+            type_hints = cached_type_hints(_typecheckingstub__5abe9c6604e1de27a08b948cef7b25d1d00ac0fd4f37eae3c69039eafa98f1eb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -182,7 +172,7 @@ class CfnEnabledBaseline(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d058552bbbb5c0f63483ccf116562ca76df6186349bcfda930d4858b8ec89a17)
+            type_hints = cached_type_hints(_typecheckingstub__d058552bbbb5c0f63483ccf116562ca76df6186349bcfda930d4858b8ec89a17)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -202,9 +192,9 @@ class CfnEnabledBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -218,9 +208,11 @@ class CfnEnabledBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="enabledBaselineRef")
-    def enabled_baseline_ref(self) -> "_EnabledBaselineReference_fc2f59a9":
+    def enabled_baseline_ref(
+        self,
+    ) -> "_aws_controltower_d5e7f7be.EnabledBaselineReference":
         '''A reference to a EnabledBaseline resource.'''
-        return typing.cast("_EnabledBaselineReference_fc2f59a9", jsii.get(self, "enabledBaselineRef"))
+        return typing.cast("_aws_controltower_d5e7f7be.EnabledBaselineReference", jsii.get(self, "enabledBaselineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="baselineIdentifier")
@@ -231,7 +223,7 @@ class CfnEnabledBaseline(
     @baseline_identifier.setter
     def baseline_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57b2e3563053c046f1ff16bb1039bd1ef2a8fe88dfa1d7e2f7597f4728b4e655)
+            type_hints = cached_type_hints(_typecheckingstub__57b2e3563053c046f1ff16bb1039bd1ef2a8fe88dfa1d7e2f7597f4728b4e655)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "baselineIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -244,7 +236,7 @@ class CfnEnabledBaseline(
     @baseline_version.setter
     def baseline_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52d8aafe8b718b522d97264d203dd2054ded5b9659a63bd9d0e8ba81ad6988d2)
+            type_hints = cached_type_hints(_typecheckingstub__52d8aafe8b718b522d97264d203dd2054ded5b9659a63bd9d0e8ba81ad6988d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "baselineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -257,7 +249,7 @@ class CfnEnabledBaseline(
     @target_identifier.setter
     def target_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33691a19619ca8f1a07bbce396790320cab38048162971280b54976d64d10b18)
+            type_hints = cached_type_hints(_typecheckingstub__33691a19619ca8f1a07bbce396790320cab38048162971280b54976d64d10b18)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -265,29 +257,32 @@ class CfnEnabledBaseline(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledBaseline.ParameterProperty"]]]]:
         '''Shows the parameters that are applied when enabling this ``Baseline`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledBaseline.ParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledBaseline.ParameterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85aec378e74e2e896fd36d14071fb0792f36ba92c5c2dbed45d60aed4145fb66)
+            type_hints = cached_type_hints(_typecheckingstub__85aec378e74e2e896fd36d14071fb0792f36ba92c5c2dbed45d60aed4145fb66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a9dd44360aa5f3a328dba2dbcea76058e61fb30293a75243bec51585249eacf)
+            type_hints = cached_type_hints(_typecheckingstub__9a9dd44360aa5f3a328dba2dbcea76058e61fb30293a75243bec51585249eacf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -324,7 +319,7 @@ class CfnEnabledBaseline(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29cd4b6989b5df874eedae62a39653d1a63188dc5b54322534381839629e6b4c)
+                type_hints = cached_type_hints(_typecheckingstub__29cd4b6989b5df874eedae62a39653d1a63188dc5b54322534381839629e6b4c)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -379,8 +374,8 @@ class CfnEnabledBaselineProps:
         baseline_identifier: builtins.str,
         baseline_version: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnabledBaseline``.
 
@@ -419,7 +414,7 @@ class CfnEnabledBaselineProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec)
+            type_hints = cached_type_hints(_typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec)
             check_type(argname="argument baseline_identifier", value=baseline_identifier, expected_type=type_hints["baseline_identifier"])
             check_type(argname="argument baseline_version", value=baseline_version, expected_type=type_hints["baseline_version"])
             check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
@@ -468,21 +463,21 @@ class CfnEnabledBaselineProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledBaseline.ParameterProperty"]]]]:
         '''Shows the parameters that are applied when enabling this ``Baseline`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledBaseline.ParameterProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -496,9 +491,9 @@ class CfnEnabledBaselineProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnabledControlRef_c4d4bf0a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_controltower_d5e7f7be.IEnabledControlRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEnabledControl(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledControl",
 ):
@@ -542,8 +537,8 @@ class CfnEnabledControl(
         *,
         control_identifier: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ControlTower::EnabledControl``.
 
@@ -555,7 +550,7 @@ class CfnEnabledControl(
         :param tags: A set of tags to assign to the enabled control.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f147c3cf3aed5100105feba92fb41fa040a90e250e566c4f852830a75cfc586)
+            type_hints = cached_type_hints(_typecheckingstub__1f147c3cf3aed5100105feba92fb41fa040a90e250e566c4f852830a75cfc586)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnabledControlProps(
@@ -575,18 +570,18 @@ class CfnEnabledControl(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9e764ea81c10e2fcb4b5c9268a99900232bdfe55916559ad3f65773288d27ef)
+            type_hints = cached_type_hints(_typecheckingstub__f9e764ea81c10e2fcb4b5c9268a99900232bdfe55916559ad3f65773288d27ef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnabledControl", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f48fb910d3eecb04d51dd6fcc7cb9241b6efe5d9c5090dd7e2fd56008e8b927d)
+            type_hints = cached_type_hints(_typecheckingstub__f48fb910d3eecb04d51dd6fcc7cb9241b6efe5d9c5090dd7e2fd56008e8b927d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -599,7 +594,7 @@ class CfnEnabledControl(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__261484f697e7db6197c5dc87066a21bee7f59b77e85daa6773dbaf62c8d80eea)
+            type_hints = cached_type_hints(_typecheckingstub__261484f697e7db6197c5dc87066a21bee7f59b77e85daa6773dbaf62c8d80eea)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -611,9 +606,9 @@ class CfnEnabledControl(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -627,9 +622,11 @@ class CfnEnabledControl(
 
     @builtins.property
     @jsii.member(jsii_name="enabledControlRef")
-    def enabled_control_ref(self) -> "_EnabledControlReference_bbbf16c6":
+    def enabled_control_ref(
+        self,
+    ) -> "_aws_controltower_d5e7f7be.EnabledControlReference":
         '''A reference to a EnabledControl resource.'''
-        return typing.cast("_EnabledControlReference_bbbf16c6", jsii.get(self, "enabledControlRef"))
+        return typing.cast("_aws_controltower_d5e7f7be.EnabledControlReference", jsii.get(self, "enabledControlRef"))
 
     @builtins.property
     @jsii.member(jsii_name="controlIdentifier")
@@ -640,7 +637,7 @@ class CfnEnabledControl(
     @control_identifier.setter
     def control_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8a36ed174761f649221cc9963f7efb537dbfdcc36152637e5c027b145c88fbe)
+            type_hints = cached_type_hints(_typecheckingstub__f8a36ed174761f649221cc9963f7efb537dbfdcc36152637e5c027b145c88fbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "controlIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -653,7 +650,7 @@ class CfnEnabledControl(
     @target_identifier.setter
     def target_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9224f8582867a991a7807db81df627cf779770c76fc707cfecf8fd568b7998a)
+            type_hints = cached_type_hints(_typecheckingstub__e9224f8582867a991a7807db81df627cf779770c76fc707cfecf8fd568b7998a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -661,30 +658,33 @@ class CfnEnabledControl(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
         '''Array of ``EnabledControlParameter`` objects.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledControl.EnabledControlParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledControl.EnabledControlParameterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d515a7308c280d71a9dde323de4153a28a8fd50c1d63b3e432f221eb67cc226)
+            type_hints = cached_type_hints(_typecheckingstub__4d515a7308c280d71a9dde323de4153a28a8fd50c1d63b3e432f221eb67cc226)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags to assign to the enabled control.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbb8154bebca6a968563b4cbc9e3dac6895358c7f3c169f15f270de236454f6a)
+            type_hints = cached_type_hints(_typecheckingstub__cbb8154bebca6a968563b4cbc9e3dac6895358c7f3c169f15f270de236454f6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -719,7 +719,7 @@ class CfnEnabledControl(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4fcf81607a6c1e1854e0f8d566886b58dcc76d98bca786eda233fcfda5f007e4)
+                type_hints = cached_type_hints(_typecheckingstub__4fcf81607a6c1e1854e0f8d566886b58dcc76d98bca786eda233fcfda5f007e4)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -779,8 +779,8 @@ class CfnEnabledControlProps:
         *,
         control_identifier: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnabledControl``.
 
@@ -817,7 +817,7 @@ class CfnEnabledControlProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f)
+            type_hints = cached_type_hints(_typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f)
             check_type(argname="argument control_identifier", value=control_identifier, expected_type=type_hints["control_identifier"])
             check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -858,22 +858,22 @@ class CfnEnabledControlProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
         '''Array of ``EnabledControlParameter`` objects.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnabledControl.EnabledControlParameterProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A set of tags to assign to the enabled control.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -887,9 +887,9 @@ class CfnEnabledControlProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILandingZoneRef_c378ff0b, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_controltower_d5e7f7be.ILandingZoneRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLandingZone(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_controltower.CfnLandingZone",
 ):
@@ -931,7 +931,7 @@ class CfnLandingZone(
         manifest: typing.Any,
         version: builtins.str,
         remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ControlTower::LandingZone``.
 
@@ -943,7 +943,7 @@ class CfnLandingZone(
         :param tags: Tags to be applied to the landing zone.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af3c2c6625c6aae1afd50bbbd83dafe3289d77c3e128938fa7a5e5c8c7ddf150)
+            type_hints = cached_type_hints(_typecheckingstub__af3c2c6625c6aae1afd50bbbd83dafe3289d77c3e128938fa7a5e5c8c7ddf150)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLandingZoneProps(
@@ -959,13 +959,13 @@ class CfnLandingZone(
     @builtins.classmethod
     def arn_for_landing_zone(
         cls,
-        resource: "_ILandingZoneRef_c378ff0b",
+        resource: "_aws_controltower_d5e7f7be.ILandingZoneRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36638b5e73ae0759a65f449689a9ef46f9b511d7843e7813f777d3775441d74e)
+            type_hints = cached_type_hints(_typecheckingstub__36638b5e73ae0759a65f449689a9ef46f9b511d7843e7813f777d3775441d74e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLandingZone", [resource]))
 
@@ -977,18 +977,18 @@ class CfnLandingZone(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fbf2e6c872dcc975b073b7baf401268403ffd771bd9a450b5d5ac60e3101f75)
+            type_hints = cached_type_hints(_typecheckingstub__0fbf2e6c872dcc975b073b7baf401268403ffd771bd9a450b5d5ac60e3101f75)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLandingZone", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0d56a7dc8ba80b56dd66a841e7e3da6e2e5ff196ed627e202ce0b501f32afe2)
+            type_hints = cached_type_hints(_typecheckingstub__b0d56a7dc8ba80b56dd66a841e7e3da6e2e5ff196ed627e202ce0b501f32afe2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1001,7 +1001,7 @@ class CfnLandingZone(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdedd2a6b11698e1ddadd84cf4edea18986d77eb329c8e69790ef015dc016ac0)
+            type_hints = cached_type_hints(_typecheckingstub__bdedd2a6b11698e1ddadd84cf4edea18986d77eb329c8e69790ef015dc016ac0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1060,9 +1060,9 @@ class CfnLandingZone(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1076,9 +1076,9 @@ class CfnLandingZone(
 
     @builtins.property
     @jsii.member(jsii_name="landingZoneRef")
-    def landing_zone_ref(self) -> "_LandingZoneReference_e8582b94":
+    def landing_zone_ref(self) -> "_aws_controltower_d5e7f7be.LandingZoneReference":
         '''A reference to a LandingZone resource.'''
-        return typing.cast("_LandingZoneReference_e8582b94", jsii.get(self, "landingZoneRef"))
+        return typing.cast("_aws_controltower_d5e7f7be.LandingZoneReference", jsii.get(self, "landingZoneRef"))
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
@@ -1089,7 +1089,7 @@ class CfnLandingZone(
     @manifest.setter
     def manifest(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a92b83913378997bcb3264bef174ae6f2a1a9003e0c9e506f3ea364329334ad2)
+            type_hints = cached_type_hints(_typecheckingstub__a92b83913378997bcb3264bef174ae6f2a1a9003e0c9e506f3ea364329334ad2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "manifest", value) # pyright: ignore[reportArgumentType]
 
@@ -1102,7 +1102,7 @@ class CfnLandingZone(
     @version.setter
     def version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32b3e7b64f2950f24c12755b01848b9ebe791c11c2152b740f8f62257157e39)
+            type_hints = cached_type_hints(_typecheckingstub__e32b3e7b64f2950f24c12755b01848b9ebe791c11c2152b740f8f62257157e39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
 
@@ -1118,20 +1118,23 @@ class CfnLandingZone(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__badc32ecfa75b42f613106c567a87838b0d41f56d15482c8dc388641897b80ff)
+            type_hints = cached_type_hints(_typecheckingstub__badc32ecfa75b42f613106c567a87838b0d41f56d15482c8dc388641897b80ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "remediationTypes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to be applied to the landing zone.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74f7c6529f7d31ad5ed3d98ad190f8c0fed87380c25f04fc3e960c88ff73bdaf)
+            type_hints = cached_type_hints(_typecheckingstub__74f7c6529f7d31ad5ed3d98ad190f8c0fed87380c25f04fc3e960c88ff73bdaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1153,7 +1156,7 @@ class CfnLandingZoneProps:
         manifest: typing.Any,
         version: builtins.str,
         remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLandingZone``.
 
@@ -1187,7 +1190,7 @@ class CfnLandingZoneProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e)
+            type_hints = cached_type_hints(_typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e)
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument remediation_types", value=remediation_types, expected_type=type_hints["remediation_types"])
@@ -1231,13 +1234,13 @@ class CfnLandingZoneProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to be applied to the landing zone.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1269,8 +1272,8 @@ def _typecheckingstub__1ea8761029fec1b3c1fb5fb985be9ac741a889e29fe3445cfb5a96243
     baseline_identifier: builtins.str,
     baseline_version: builtins.str,
     target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1282,7 +1285,7 @@ def _typecheckingstub__5e09a5dba630535a2f8d2e5d15a3d49c069893b08b0228a19c8000f2a
     pass
 
 def _typecheckingstub__5abe9c6604e1de27a08b948cef7b25d1d00ac0fd4f37eae3c69039eafa98f1eb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1312,13 +1315,13 @@ def _typecheckingstub__33691a19619ca8f1a07bbce396790320cab38048162971280b54976d6
     pass
 
 def _typecheckingstub__85aec378e74e2e896fd36d14071fb0792f36ba92c5c2dbed45d60aed4145fb66(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnabledBaseline.ParameterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnabledBaseline.ParameterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9a9dd44360aa5f3a328dba2dbcea76058e61fb30293a75243bec51585249eacf(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1336,8 +1339,8 @@ def _typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab
     baseline_identifier: builtins.str,
     baseline_version: builtins.str,
     target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1348,8 +1351,8 @@ def _typecheckingstub__1f147c3cf3aed5100105feba92fb41fa040a90e250e566c4f852830a7
     *,
     control_identifier: builtins.str,
     target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1361,7 +1364,7 @@ def _typecheckingstub__f9e764ea81c10e2fcb4b5c9268a99900232bdfe55916559ad3f657732
     pass
 
 def _typecheckingstub__f48fb910d3eecb04d51dd6fcc7cb9241b6efe5d9c5090dd7e2fd56008e8b927d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1385,13 +1388,13 @@ def _typecheckingstub__e9224f8582867a991a7807db81df627cf779770c76fc707cfecf8fd56
     pass
 
 def _typecheckingstub__4d515a7308c280d71a9dde323de4153a28a8fd50c1d63b3e432f221eb67cc226(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnabledControl.EnabledControlParameterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnabledControl.EnabledControlParameterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cbb8154bebca6a968563b4cbc9e3dac6895358c7f3c169f15f270de236454f6a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1408,8 +1411,8 @@ def _typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d
     *,
     control_identifier: builtins.str,
     target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1421,13 +1424,13 @@ def _typecheckingstub__af3c2c6625c6aae1afd50bbbd83dafe3289d77c3e128938fa7a5e5c8c
     manifest: typing.Any,
     version: builtins.str,
     remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36638b5e73ae0759a65f449689a9ef46f9b511d7843e7813f777d3775441d74e(
-    resource: _ILandingZoneRef_c378ff0b,
+    resource: _aws_controltower_d5e7f7be.ILandingZoneRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1439,7 +1442,7 @@ def _typecheckingstub__0fbf2e6c872dcc975b073b7baf401268403ffd771bd9a450b5d5ac60e
     pass
 
 def _typecheckingstub__b0d56a7dc8ba80b56dd66a841e7e3da6e2e5ff196ed627e202ce0b501f32afe2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1469,7 +1472,7 @@ def _typecheckingstub__badc32ecfa75b42f613106c567a87838b0d41f56d15482c8dc3886418
     pass
 
 def _typecheckingstub__74f7c6529f7d31ad5ed3d98ad190f8c0fed87380c25f04fc3e960c88ff73bdaf(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1479,7 +1482,7 @@ def _typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778
     manifest: typing.Any,
     version: builtins.str,
     remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

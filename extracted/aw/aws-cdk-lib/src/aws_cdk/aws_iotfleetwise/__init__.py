@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,57 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iotfleetwise import (
-    CampaignReference as _CampaignReference_9a8f5f98,
-    DecoderManifestReference as _DecoderManifestReference_7a284aa6,
-    FleetReference as _FleetReference_69cf4cd9,
-    ICampaignRef as _ICampaignRef_030980d3,
-    IDecoderManifestRef as _IDecoderManifestRef_479753bf,
-    IFleetRef as _IFleetRef_204c4594,
-    IModelManifestRef as _IModelManifestRef_8f6a3086,
-    ISignalCatalogRef as _ISignalCatalogRef_16c8a20e,
-    IStateTemplateRef as _IStateTemplateRef_97119241,
-    IVehicleRef as _IVehicleRef_dea699b2,
-    ModelManifestReference as _ModelManifestReference_0770b7b5,
-    SignalCatalogReference as _SignalCatalogReference_58330223,
-    StateTemplateReference as _StateTemplateReference_a51db8f9,
-    VehicleReference as _VehicleReference_856ec27a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iotfleetwise as _aws_iotfleetwise_144e3cab
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iotfleetwise_144e3cab = _LazyImport("aws_cdk.interfaces.aws_iotfleetwise")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICampaignRef_030980d3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.ICampaignRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCampaign(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnCampaign",
 ):
@@ -217,25 +198,25 @@ class CfnCampaign(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        collection_scheme: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
+        collection_scheme: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         signal_catalog_arn: builtins.str,
         target_arn: builtins.str,
         action: typing.Optional[builtins.str] = None,
         compression: typing.Optional[builtins.str] = None,
-        data_destination_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_destination_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        data_partitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_partitions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         diagnostics_mode: typing.Optional[builtins.str] = None,
         expiry_time: typing.Optional[builtins.str] = None,
         post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
         priority: typing.Optional[jsii.Number] = None,
-        signals_to_collect: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signals_to_fetch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_collect: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_fetch: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         spooling_mode: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::Campaign``.
 
@@ -262,7 +243,7 @@ class CfnCampaign(
         :param tags: Metadata that can be used to manage the campaign.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7abc45d2046b48ec3bc5807ec2826a784930a5009b41b194dd6e4bed2413f8d)
+            type_hints = cached_type_hints(_typecheckingstub__f7abc45d2046b48ec3bc5807ec2826a784930a5009b41b194dd6e4bed2413f8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCampaignProps(
@@ -291,12 +272,15 @@ class CfnCampaign(
 
     @jsii.member(jsii_name="arnForCampaign")
     @builtins.classmethod
-    def arn_for_campaign(cls, resource: "_ICampaignRef_030980d3") -> builtins.str:
+    def arn_for_campaign(
+        cls,
+        resource: "_aws_iotfleetwise_144e3cab.ICampaignRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d61ab81a2d8f001cd2baeb04e6f0f8c94ddb4121bd3eea71d4d230d9960f8b2)
+            type_hints = cached_type_hints(_typecheckingstub__5d61ab81a2d8f001cd2baeb04e6f0f8c94ddb4121bd3eea71d4d230d9960f8b2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCampaign", [resource]))
 
@@ -307,7 +291,7 @@ class CfnCampaign(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ICampaignRef_030980d3":
+    ) -> "_aws_iotfleetwise_144e3cab.ICampaignRef":
         '''Creates a new ICampaignRef from an ARN.
 
         :param scope: -
@@ -315,11 +299,11 @@ class CfnCampaign(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c51ab85405ba663d7d52a30e3c3b34e16806ad52f1c92f929d00fbb7ff2dfcf8)
+            type_hints = cached_type_hints(_typecheckingstub__c51ab85405ba663d7d52a30e3c3b34e16806ad52f1c92f929d00fbb7ff2dfcf8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ICampaignRef_030980d3", jsii.sinvoke(cls, "fromCampaignArn", [scope, id, arn]))
+        return typing.cast("_aws_iotfleetwise_144e3cab.ICampaignRef", jsii.sinvoke(cls, "fromCampaignArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromCampaignName")
     @builtins.classmethod
@@ -328,7 +312,7 @@ class CfnCampaign(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         campaign_name: builtins.str,
-    ) -> "_ICampaignRef_030980d3":
+    ) -> "_aws_iotfleetwise_144e3cab.ICampaignRef":
         '''Creates a new ICampaignRef from a campaignName.
 
         :param scope: -
@@ -336,11 +320,11 @@ class CfnCampaign(
         :param campaign_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae2c2e2ec2c5152f8ac3315300b27b15147bc728c8312a967a15c3fb997d60ec)
+            type_hints = cached_type_hints(_typecheckingstub__ae2c2e2ec2c5152f8ac3315300b27b15147bc728c8312a967a15c3fb997d60ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument campaign_name", value=campaign_name, expected_type=type_hints["campaign_name"])
-        return typing.cast("_ICampaignRef_030980d3", jsii.sinvoke(cls, "fromCampaignName", [scope, id, campaign_name]))
+        return typing.cast("_aws_iotfleetwise_144e3cab.ICampaignRef", jsii.sinvoke(cls, "fromCampaignName", [scope, id, campaign_name]))
 
     @jsii.member(jsii_name="isCfnCampaign")
     @builtins.classmethod
@@ -350,18 +334,18 @@ class CfnCampaign(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b42aa9a0e2b886846904d45eb71ed6ebe3540cefb5483ddf62d418485db90386)
+            type_hints = cached_type_hints(_typecheckingstub__b42aa9a0e2b886846904d45eb71ed6ebe3540cefb5483ddf62d418485db90386)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCampaign", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09fbf1d259fb24b3ffc81851949fdbc1abbaa3df7fef9d0031938dd5b723205f)
+            type_hints = cached_type_hints(_typecheckingstub__09fbf1d259fb24b3ffc81851949fdbc1abbaa3df7fef9d0031938dd5b723205f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -374,7 +358,7 @@ class CfnCampaign(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d4f6e55fdf4b8418716e773b2a62dc1763b8a2553490a7567e2cfe6f27d77f)
+            type_hints = cached_type_hints(_typecheckingstub__89d4f6e55fdf4b8418716e773b2a62dc1763b8a2553490a7567e2cfe6f27d77f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -424,9 +408,9 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> "_CampaignReference_9a8f5f98":
+    def campaign_ref(self) -> "_aws_iotfleetwise_144e3cab.CampaignReference":
         '''A reference to a Campaign resource.'''
-        return typing.cast("_CampaignReference_9a8f5f98", jsii.get(self, "campaignRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.CampaignReference", jsii.get(self, "campaignRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -440,25 +424,25 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="collectionScheme")
     def collection_scheme(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CollectionSchemeProperty"]:
         '''The data collection scheme associated with the campaign.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"], jsii.get(self, "collectionScheme"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CollectionSchemeProperty"], jsii.get(self, "collectionScheme"))
 
     @collection_scheme.setter
     def collection_scheme(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CollectionSchemeProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868a9ff35e32583e37d3c029fdca22ea031055a38c7dd0dcbfa1f30846ee551d)
+            type_hints = cached_type_hints(_typecheckingstub__868a9ff35e32583e37d3c029fdca22ea031055a38c7dd0dcbfa1f30846ee551d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "collectionScheme", value) # pyright: ignore[reportArgumentType]
 
@@ -471,7 +455,7 @@ class CfnCampaign(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61dfb8819034de21f19e0466ab15e542f6b7270be82092cfffb60970bbc9708b)
+            type_hints = cached_type_hints(_typecheckingstub__61dfb8819034de21f19e0466ab15e542f6b7270be82092cfffb60970bbc9708b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -484,7 +468,7 @@ class CfnCampaign(
     @signal_catalog_arn.setter
     def signal_catalog_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5a5ce376850a7a86f93938b2f133fca5cc48d27769ddbdcaf2291ab00d48bac)
+            type_hints = cached_type_hints(_typecheckingstub__e5a5ce376850a7a86f93938b2f133fca5cc48d27769ddbdcaf2291ab00d48bac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalCatalogArn", value) # pyright: ignore[reportArgumentType]
 
@@ -497,7 +481,7 @@ class CfnCampaign(
     @target_arn.setter
     def target_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6154b7ad20e73a4e23143d3707a09d050bbb1092b307bc8e0145589083575f5a)
+            type_hints = cached_type_hints(_typecheckingstub__6154b7ad20e73a4e23143d3707a09d050bbb1092b307bc8e0145589083575f5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetArn", value) # pyright: ignore[reportArgumentType]
 
@@ -513,7 +497,7 @@ class CfnCampaign(
     @action.setter
     def action(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66dafa89e69b8562346040c56213280b8861d04a6b73911f5471941f58e3d463)
+            type_hints = cached_type_hints(_typecheckingstub__66dafa89e69b8562346040c56213280b8861d04a6b73911f5471941f58e3d463)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
 
@@ -526,7 +510,7 @@ class CfnCampaign(
     @compression.setter
     def compression(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17ec1dfb29d11e0d55dc84fc23937babfb2d1e33fdf8192c23c4130716fa6a02)
+            type_hints = cached_type_hints(_typecheckingstub__17ec1dfb29d11e0d55dc84fc23937babfb2d1e33fdf8192c23c4130716fa6a02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "compression", value) # pyright: ignore[reportArgumentType]
 
@@ -534,17 +518,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="dataDestinationConfigs")
     def data_destination_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataDestinationConfigProperty"]]]]:
         '''The destination where the campaign sends data.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]], jsii.get(self, "dataDestinationConfigs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataDestinationConfigProperty"]]]], jsii.get(self, "dataDestinationConfigs"))
 
     @data_destination_configs.setter
     def data_destination_configs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataDestinationConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82921435d923d6321ee61688fc07b3aa8e4790a3f86fff3b232ba9bb71993646)
+            type_hints = cached_type_hints(_typecheckingstub__82921435d923d6321ee61688fc07b3aa8e4790a3f86fff3b232ba9bb71993646)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataDestinationConfigs", value) # pyright: ignore[reportArgumentType]
 
@@ -560,7 +544,7 @@ class CfnCampaign(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d948dada7b0177410b9932e42eb5ef3a76fe3c3274594fb0b3ffa49ded440324)
+            type_hints = cached_type_hints(_typecheckingstub__d948dada7b0177410b9932e42eb5ef3a76fe3c3274594fb0b3ffa49ded440324)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataExtraDimensions", value) # pyright: ignore[reportArgumentType]
 
@@ -568,17 +552,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="dataPartitions")
     def data_partitions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionProperty"]]]]:
         '''The data partitions associated with the signals collected from the vehicle.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]], jsii.get(self, "dataPartitions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionProperty"]]]], jsii.get(self, "dataPartitions"))
 
     @data_partitions.setter
     def data_partitions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e28c8d41eff51a2c0a71a4106b83d99272cca3ed1db06bf167cc4f519354dd1)
+            type_hints = cached_type_hints(_typecheckingstub__0e28c8d41eff51a2c0a71a4106b83d99272cca3ed1db06bf167cc4f519354dd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataPartitions", value) # pyright: ignore[reportArgumentType]
 
@@ -591,7 +575,7 @@ class CfnCampaign(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24bd4808a24c1ef5c17e4550fe902693202fc86dca7d97ddddcd994c722276bf)
+            type_hints = cached_type_hints(_typecheckingstub__24bd4808a24c1ef5c17e4550fe902693202fc86dca7d97ddddcd994c722276bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -604,7 +588,7 @@ class CfnCampaign(
     @diagnostics_mode.setter
     def diagnostics_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e28d99e6bd56db5b97b272b04aeb5c1af8103d1b8b0080fe05d1a5f2fb149e2)
+            type_hints = cached_type_hints(_typecheckingstub__4e28d99e6bd56db5b97b272b04aeb5c1af8103d1b8b0080fe05d1a5f2fb149e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "diagnosticsMode", value) # pyright: ignore[reportArgumentType]
 
@@ -617,7 +601,7 @@ class CfnCampaign(
     @expiry_time.setter
     def expiry_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11cce95e76c12143123da5bc8c755592e90256d2ed3e61b6cd5a6d839e9318e9)
+            type_hints = cached_type_hints(_typecheckingstub__11cce95e76c12143123da5bc8c755592e90256d2ed3e61b6cd5a6d839e9318e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expiryTime", value) # pyright: ignore[reportArgumentType]
 
@@ -633,7 +617,7 @@ class CfnCampaign(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__660bebd5ebd77dcec64e7fcb6fd086f3ce7252832c2b9967a58fbda5d5fe6bd2)
+            type_hints = cached_type_hints(_typecheckingstub__660bebd5ebd77dcec64e7fcb6fd086f3ce7252832c2b9967a58fbda5d5fe6bd2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "postTriggerCollectionDuration", value) # pyright: ignore[reportArgumentType]
 
@@ -646,7 +630,7 @@ class CfnCampaign(
     @priority.setter
     def priority(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eceb1aaf4de04c54d69e423a5e6de547b2e207a605050b36deefed0ccc4c9b8)
+            type_hints = cached_type_hints(_typecheckingstub__7eceb1aaf4de04c54d69e423a5e6de547b2e207a605050b36deefed0ccc4c9b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
@@ -654,17 +638,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="signalsToCollect")
     def signals_to_collect(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalInformationProperty"]]]]:
         '''A list of information about signals to collect.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]], jsii.get(self, "signalsToCollect"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalInformationProperty"]]]], jsii.get(self, "signalsToCollect"))
 
     @signals_to_collect.setter
     def signals_to_collect(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalInformationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49e9a686748dfc74bfa8ee7c7e9c87ccd64dc236b6b72144f22cebb87065a3d7)
+            type_hints = cached_type_hints(_typecheckingstub__49e9a686748dfc74bfa8ee7c7e9c87ccd64dc236b6b72144f22cebb87065a3d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalsToCollect", value) # pyright: ignore[reportArgumentType]
 
@@ -672,17 +656,17 @@ class CfnCampaign(
     @jsii.member(jsii_name="signalsToFetch")
     def signals_to_fetch(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchInformationProperty"]]]]:
         '''A list of information about signals to fetch.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]], jsii.get(self, "signalsToFetch"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchInformationProperty"]]]], jsii.get(self, "signalsToFetch"))
 
     @signals_to_fetch.setter
     def signals_to_fetch(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchInformationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da949c7830745c6406e29a86a584eac30d385afd88a7608bc2c36f6371ab5b8b)
+            type_hints = cached_type_hints(_typecheckingstub__da949c7830745c6406e29a86a584eac30d385afd88a7608bc2c36f6371ab5b8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalsToFetch", value) # pyright: ignore[reportArgumentType]
 
@@ -695,7 +679,7 @@ class CfnCampaign(
     @spooling_mode.setter
     def spooling_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2470f955a4e2089dd25722e38734a0e9fffc60420def257c19a15c6db378b523)
+            type_hints = cached_type_hints(_typecheckingstub__2470f955a4e2089dd25722e38734a0e9fffc60420def257c19a15c6db378b523)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "spoolingMode", value) # pyright: ignore[reportArgumentType]
 
@@ -711,20 +695,23 @@ class CfnCampaign(
     @start_time.setter
     def start_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67bb9c23f09e7b35b9a93baa91bd26954a931e9dac0ecfa4b472a8de197849a7)
+            type_hints = cached_type_hints(_typecheckingstub__67bb9c23f09e7b35b9a93baa91bd26954a931e9dac0ecfa4b472a8de197849a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startTime", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the campaign.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3493674fad7a8f212642ff0171f2ddf22e133359a2aee9ae22d9b3da5be4a8b6)
+            type_hints = cached_type_hints(_typecheckingstub__3493674fad7a8f212642ff0171f2ddf22e133359a2aee9ae22d9b3da5be4a8b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -740,8 +727,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            condition_based_collection_scheme: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ConditionBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            time_based_collection_scheme: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            condition_based_collection_scheme: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ConditionBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based_collection_scheme: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies what data to collect and how often or when to collect it.
 
@@ -772,7 +759,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1d2862e457404e83c11e21830d9ccb15c52f442305bb2db0a1ebf80b0de3877a)
+                type_hints = cached_type_hints(_typecheckingstub__1d2862e457404e83c11e21830d9ccb15c52f442305bb2db0a1ebf80b0de3877a)
                 check_type(argname="argument condition_based_collection_scheme", value=condition_based_collection_scheme, expected_type=type_hints["condition_based_collection_scheme"])
                 check_type(argname="argument time_based_collection_scheme", value=time_based_collection_scheme, expected_type=type_hints["time_based_collection_scheme"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -784,24 +771,24 @@ class CfnCampaign(
         @builtins.property
         def condition_based_collection_scheme(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]]:
             '''Information about a collection scheme that uses a simple logical expression to recognize what data to collect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-collectionscheme.html#cfn-iotfleetwise-campaign-collectionscheme-conditionbasedcollectionscheme
             '''
             result = self._values.get("condition_based_collection_scheme")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]], result)
 
         @builtins.property
         def time_based_collection_scheme(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedCollectionSchemeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeBasedCollectionSchemeProperty"]]:
             '''Information about a collection scheme that uses a time period to decide how often to collect data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-collectionscheme.html#cfn-iotfleetwise-campaign-collectionscheme-timebasedcollectionscheme
             '''
             result = self._values.get("time_based_collection_scheme")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedCollectionSchemeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeBasedCollectionSchemeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -859,7 +846,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd3351de9470a98f13f006dd95deedef6c30dbfc08cdfe7bde2b9d950d547615)
+                type_hints = cached_type_hints(_typecheckingstub__dd3351de9470a98f13f006dd95deedef6c30dbfc08cdfe7bde2b9d950d547615)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument condition_language_version", value=condition_language_version, expected_type=type_hints["condition_language_version"])
                 check_type(argname="argument minimum_trigger_interval_ms", value=minimum_trigger_interval_ms, expected_type=type_hints["minimum_trigger_interval_ms"])
@@ -965,7 +952,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__098372f705b13524c2d755dc2678c8d54bbf827d156581e9b771f5ca763e471f)
+                type_hints = cached_type_hints(_typecheckingstub__098372f705b13524c2d755dc2678c8d54bbf827d156581e9b771f5ca763e471f)
                 check_type(argname="argument condition_expression", value=condition_expression, expected_type=type_hints["condition_expression"])
                 check_type(argname="argument trigger_mode", value=trigger_mode, expected_type=type_hints["trigger_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1017,9 +1004,9 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            mqtt_topic_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.MqttTopicConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timestream_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimestreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mqtt_topic_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.MqttTopicConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timestream_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimestreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The destination where the AWS IoT FleetWise campaign sends data.
 
@@ -1058,7 +1045,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a76d3ecac8a3286ba64142d7bb2621dd82495be58438bdb339be1559bb8129f3)
+                type_hints = cached_type_hints(_typecheckingstub__a76d3ecac8a3286ba64142d7bb2621dd82495be58438bdb339be1559bb8129f3)
                 check_type(argname="argument mqtt_topic_config", value=mqtt_topic_config, expected_type=type_hints["mqtt_topic_config"])
                 check_type(argname="argument s3_config", value=s3_config, expected_type=type_hints["s3_config"])
                 check_type(argname="argument timestream_config", value=timestream_config, expected_type=type_hints["timestream_config"])
@@ -1073,7 +1060,7 @@ class CfnCampaign(
         @builtins.property
         def mqtt_topic_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.MqttTopicConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.MqttTopicConfigProperty"]]:
             '''The MQTT topic to which the AWS IoT FleetWise campaign routes data.
 
             .. epigraph::
@@ -1083,29 +1070,29 @@ class CfnCampaign(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-mqtttopicconfig
             '''
             result = self._values.get("mqtt_topic_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.MqttTopicConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.MqttTopicConfigProperty"]], result)
 
         @builtins.property
         def s3_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.S3ConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.S3ConfigProperty"]]:
             '''The Amazon S3 bucket where the AWS IoT FleetWise campaign sends data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-s3config
             '''
             result = self._values.get("s3_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.S3ConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.S3ConfigProperty"]], result)
 
         @builtins.property
         def timestream_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimestreamConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimestreamConfigProperty"]]:
             '''The Amazon Timestream table where the campaign sends data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-timestreamconfig
             '''
             result = self._values.get("timestream_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimestreamConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimestreamConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1132,8 +1119,8 @@ class CfnCampaign(
             self,
             *,
             id: builtins.str,
-            storage_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
-            upload_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionUploadOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            storage_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataPartitionStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            upload_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataPartitionUploadOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for signal data storage and upload options.
 
@@ -1179,7 +1166,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd3787864cce71fcf61244d09dfdf6e1bd60880492a62d83defdbedd1f2eac64)
+                type_hints = cached_type_hints(_typecheckingstub__bd3787864cce71fcf61244d09dfdf6e1bd60880492a62d83defdbedd1f2eac64)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument storage_options", value=storage_options, expected_type=type_hints["storage_options"])
                 check_type(argname="argument upload_options", value=upload_options, expected_type=type_hints["upload_options"])
@@ -1205,25 +1192,25 @@ class CfnCampaign(
         @builtins.property
         def storage_options(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionStorageOptionsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionStorageOptionsProperty"]:
             '''The storage options for a data partition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datapartition.html#cfn-iotfleetwise-campaign-datapartition-storageoptions
             '''
             result = self._values.get("storage_options")
             assert result is not None, "Required property 'storage_options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionStorageOptionsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionStorageOptionsProperty"], result)
 
         @builtins.property
         def upload_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionUploadOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionUploadOptionsProperty"]]:
             '''The upload options for the data partition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datapartition.html#cfn-iotfleetwise-campaign-datapartition-uploadoptions
             '''
             result = self._values.get("upload_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionUploadOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionUploadOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1249,8 +1236,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            maximum_size: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.StorageMaximumSizeProperty", typing.Dict[builtins.str, typing.Any]]],
-            minimum_time_to_live: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.StorageMinimumTimeToLiveProperty", typing.Dict[builtins.str, typing.Any]]],
+            maximum_size: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.StorageMaximumSizeProperty", typing.Dict[builtins.str, typing.Any]]],
+            minimum_time_to_live: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.StorageMinimumTimeToLiveProperty", typing.Dict[builtins.str, typing.Any]]],
             storage_location: builtins.str,
         ) -> None:
             '''Size, time, and location options for the data partition.
@@ -1281,7 +1268,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ddb9a8ece0eb78c362a50476995f8af80aa96a84db84ef19d43d9110cfdc6b6)
+                type_hints = cached_type_hints(_typecheckingstub__3ddb9a8ece0eb78c362a50476995f8af80aa96a84db84ef19d43d9110cfdc6b6)
                 check_type(argname="argument maximum_size", value=maximum_size, expected_type=type_hints["maximum_size"])
                 check_type(argname="argument minimum_time_to_live", value=minimum_time_to_live, expected_type=type_hints["minimum_time_to_live"])
                 check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
@@ -1294,7 +1281,7 @@ class CfnCampaign(
         @builtins.property
         def maximum_size(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMaximumSizeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.StorageMaximumSizeProperty"]:
             '''The maximum storage size of the data stored in the data partition.
 
             .. epigraph::
@@ -1305,12 +1292,12 @@ class CfnCampaign(
             '''
             result = self._values.get("maximum_size")
             assert result is not None, "Required property 'maximum_size' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMaximumSizeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.StorageMaximumSizeProperty"], result)
 
         @builtins.property
         def minimum_time_to_live(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMinimumTimeToLiveProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.StorageMinimumTimeToLiveProperty"]:
             '''The amount of time that data in this partition will be kept on disk.
 
             - After the designated amount of time passes, the data can be removed, but it's not guaranteed to be removed.
@@ -1321,7 +1308,7 @@ class CfnCampaign(
             '''
             result = self._values.get("minimum_time_to_live")
             assert result is not None, "Required property 'minimum_time_to_live' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMinimumTimeToLiveProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.StorageMinimumTimeToLiveProperty"], result)
 
         @builtins.property
         def storage_location(self) -> builtins.str:
@@ -1386,7 +1373,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aca6d049845089d2536492d500325ea4834413145c7570a89e3f0ce2f388890a)
+                type_hints = cached_type_hints(_typecheckingstub__aca6d049845089d2536492d500325ea4834413145c7570a89e3f0ce2f388890a)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument condition_language_version", value=condition_language_version, expected_type=type_hints["condition_language_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1469,7 +1456,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__209686ec18cb4107b2d1b131e663816da747fda2930c62c84213e6efecdbbb97)
+                type_hints = cached_type_hints(_typecheckingstub__209686ec18cb4107b2d1b131e663816da747fda2930c62c84213e6efecdbbb97)
                 check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
                 check_type(argname="argument mqtt_topic_arn", value=mqtt_topic_arn, expected_type=type_hints["mqtt_topic_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1555,7 +1542,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb82e0c92a9fdd48764ec7ba91d5dabd16d19776d63621d9b09fba43e604eb8a)
+                type_hints = cached_type_hints(_typecheckingstub__cb82e0c92a9fdd48764ec7ba91d5dabd16d19776d63621d9b09fba43e604eb8a)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
@@ -1636,8 +1623,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            condition_based: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ConditionBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            time_based: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            condition_based: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.ConditionBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.TimeBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the signal fetch operation.
 
@@ -1668,7 +1655,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca1820ed0602e93ad63464d2024852554d77196b666913dcbfab888a1fdd4613)
+                type_hints = cached_type_hints(_typecheckingstub__ca1820ed0602e93ad63464d2024852554d77196b666913dcbfab888a1fdd4613)
                 check_type(argname="argument condition_based", value=condition_based, expected_type=type_hints["condition_based"])
                 check_type(argname="argument time_based", value=time_based, expected_type=type_hints["time_based"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1680,24 +1667,24 @@ class CfnCampaign(
         @builtins.property
         def condition_based(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]]:
             '''The configuration of a condition-based signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchconfig.html#cfn-iotfleetwise-campaign-signalfetchconfig-conditionbased
             '''
             result = self._values.get("condition_based")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]], result)
 
         @builtins.property
         def time_based(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]]:
             '''The configuration of a time-based signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchconfig.html#cfn-iotfleetwise-campaign-signalfetchconfig-timebased
             '''
             result = self._values.get("time_based")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1726,7 +1713,7 @@ class CfnCampaign(
             *,
             actions: typing.Sequence[builtins.str],
             fully_qualified_name: builtins.str,
-            signal_fetch_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            signal_fetch_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             condition_language_version: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Information about the signal to be fetched.
@@ -1767,7 +1754,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0ce7b2e7c039b451b026dce9f5179434b5d1dc7492a291c8db13df52d9e5f47e)
+                type_hints = cached_type_hints(_typecheckingstub__0ce7b2e7c039b451b026dce9f5179434b5d1dc7492a291c8db13df52d9e5f47e)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument signal_fetch_config", value=signal_fetch_config, expected_type=type_hints["signal_fetch_config"])
@@ -1803,14 +1790,14 @@ class CfnCampaign(
         @builtins.property
         def signal_fetch_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchConfigProperty"]:
             '''The configuration of the signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchinformation.html#cfn-iotfleetwise-campaign-signalfetchinformation-signalfetchconfig
             '''
             result = self._values.get("signal_fetch_config")
             assert result is not None, "Required property 'signal_fetch_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchConfigProperty"], result)
 
         @builtins.property
         def condition_language_version(self) -> typing.Optional[jsii.Number]:
@@ -1877,7 +1864,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__53d5027f8c4da8a26f3f9cf9e5ab42f41c46c70820c567f2c340ad26784c6997)
+                type_hints = cached_type_hints(_typecheckingstub__53d5027f8c4da8a26f3f9cf9e5ab42f41c46c70820c567f2c340ad26784c6997)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument data_partition_id", value=data_partition_id, expected_type=type_hints["data_partition_id"])
                 check_type(argname="argument max_sample_count", value=max_sample_count, expected_type=type_hints["max_sample_count"])
@@ -1980,7 +1967,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dab410f1ac2779faa20576e047ffe3cdff59cdfae9a7dbce24e8e3e75eac9e48)
+                type_hints = cached_type_hints(_typecheckingstub__dab410f1ac2779faa20576e047ffe3cdff59cdfae9a7dbce24e8e3e75eac9e48)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2050,7 +2037,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cbb810fca8a5157fc86e587282874091be40e430fe297cd022bba3f49e8358ac)
+                type_hints = cached_type_hints(_typecheckingstub__cbb810fca8a5157fc86e587282874091be40e430fe297cd022bba3f49e8358ac)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2114,7 +2101,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7bffeabbd9e812e2b77c405369e410069d9bd5d47737b57d4b23d11433d93329)
+                type_hints = cached_type_hints(_typecheckingstub__7bffeabbd9e812e2b77c405369e410069d9bd5d47737b57d4b23d11433d93329)
                 check_type(argname="argument period_ms", value=period_ms, expected_type=type_hints["period_ms"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "period_ms": period_ms,
@@ -2168,7 +2155,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__75a3c6f8580807207761d988ea349845062836e50e8544a902a02a7fe987d3c0)
+                type_hints = cached_type_hints(_typecheckingstub__75a3c6f8580807207761d988ea349845062836e50e8544a902a02a7fe987d3c0)
                 check_type(argname="argument execution_frequency_ms", value=execution_frequency_ms, expected_type=type_hints["execution_frequency_ms"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "execution_frequency_ms": execution_frequency_ms,
@@ -2232,7 +2219,7 @@ class CfnCampaign(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5788ae222c7e21aaed8bd9dbed72cfbc09a7c423d494e8aa4ae9d7a226350700)
+                type_hints = cached_type_hints(_typecheckingstub__5788ae222c7e21aaed8bd9dbed72cfbc09a7c423d494e8aa4ae9d7a226350700)
                 check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
                 check_type(argname="argument timestream_table_arn", value=timestream_table_arn, expected_type=type_hints["timestream_table_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2301,25 +2288,25 @@ class CfnCampaignProps:
     def __init__(
         self,
         *,
-        collection_scheme: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
+        collection_scheme: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         signal_catalog_arn: builtins.str,
         target_arn: builtins.str,
         action: typing.Optional[builtins.str] = None,
         compression: typing.Optional[builtins.str] = None,
-        data_destination_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_destination_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        data_partitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_partitions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         diagnostics_mode: typing.Optional[builtins.str] = None,
         expiry_time: typing.Optional[builtins.str] = None,
         post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
         priority: typing.Optional[jsii.Number] = None,
-        signals_to_collect: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signals_to_fetch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_collect: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_fetch: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         spooling_mode: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCampaign``.
 
@@ -2453,7 +2440,7 @@ class CfnCampaignProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71)
+            type_hints = cached_type_hints(_typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71)
             check_type(argname="argument collection_scheme", value=collection_scheme, expected_type=type_hints["collection_scheme"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
@@ -2513,7 +2500,7 @@ class CfnCampaignProps:
     @builtins.property
     def collection_scheme(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CollectionSchemeProperty"]:
         '''The data collection scheme associated with the campaign.
 
         You can specify a scheme that collects data based on time or an event.
@@ -2522,7 +2509,7 @@ class CfnCampaignProps:
         '''
         result = self._values.get("collection_scheme")
         assert result is not None, "Required property 'collection_scheme' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CollectionSchemeProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -2586,7 +2573,7 @@ class CfnCampaignProps:
     @builtins.property
     def data_destination_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataDestinationConfigProperty"]]]]:
         '''The destination where the campaign sends data.
 
         You can choose to send data to be stored in Amazon S3 or Amazon Timestream .
@@ -2598,7 +2585,7 @@ class CfnCampaignProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datadestinationconfigs
         '''
         result = self._values.get("data_destination_configs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataDestinationConfigProperty"]]]], result)
 
     @builtins.property
     def data_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2616,13 +2603,13 @@ class CfnCampaignProps:
     @builtins.property
     def data_partitions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionProperty"]]]]:
         '''The data partitions associated with the signals collected from the vehicle.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datapartitions
         '''
         result = self._values.get("data_partitions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.DataPartitionProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2696,24 +2683,24 @@ class CfnCampaignProps:
     @builtins.property
     def signals_to_collect(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalInformationProperty"]]]]:
         '''A list of information about signals to collect.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstocollect
         '''
         result = self._values.get("signals_to_collect")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalInformationProperty"]]]], result)
 
     @builtins.property
     def signals_to_fetch(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchInformationProperty"]]]]:
         '''A list of information about signals to fetch.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstofetch
         '''
         result = self._values.get("signals_to_fetch")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.SignalFetchInformationProperty"]]]], result)
 
     @builtins.property
     def spooling_mode(self) -> typing.Optional[builtins.str]:
@@ -2744,13 +2731,13 @@ class CfnCampaignProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the campaign.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2764,9 +2751,9 @@ class CfnCampaignProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDecoderManifestRef_479753bf, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.IDecoderManifestRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDecoderManifest(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnDecoderManifest",
 ):
@@ -2876,10 +2863,10 @@ class CfnDecoderManifest(
         name: builtins.str,
         default_for_unmapped_signals: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        network_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signal_decoders: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        network_interfaces: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signal_decoders: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::DecoderManifest``.
 
@@ -2895,7 +2882,7 @@ class CfnDecoderManifest(
         :param tags: Metadata that can be used to manage the decoder manifest.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd0d8efce6baca0fa606fb0cf95bebcdeda196fcde2fb7e18542334332eb8ba4)
+            type_hints = cached_type_hints(_typecheckingstub__bd0d8efce6baca0fa606fb0cf95bebcdeda196fcde2fb7e18542334332eb8ba4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDecoderManifestProps(
@@ -2915,13 +2902,13 @@ class CfnDecoderManifest(
     @builtins.classmethod
     def arn_for_decoder_manifest(
         cls,
-        resource: "_IDecoderManifestRef_479753bf",
+        resource: "_aws_iotfleetwise_144e3cab.IDecoderManifestRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70015e1b3ea9ebb01dadbe7d995a8467cb2ecc6fa1868933b5d3e1c25ee6d86c)
+            type_hints = cached_type_hints(_typecheckingstub__70015e1b3ea9ebb01dadbe7d995a8467cb2ecc6fa1868933b5d3e1c25ee6d86c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDecoderManifest", [resource]))
 
@@ -2933,18 +2920,18 @@ class CfnDecoderManifest(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfbb7e114a77fe6528edc35ec9781cbfce93a3fdd6a8f9a57b52063ce2e48a84)
+            type_hints = cached_type_hints(_typecheckingstub__cfbb7e114a77fe6528edc35ec9781cbfce93a3fdd6a8f9a57b52063ce2e48a84)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDecoderManifest", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c1f4e3cc81a06a60eef4d178a3aaf54f7c99cca4a0481a51c50d560d76ba09)
+            type_hints = cached_type_hints(_typecheckingstub__a7c1f4e3cc81a06a60eef4d178a3aaf54f7c99cca4a0481a51c50d560d76ba09)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2957,7 +2944,7 @@ class CfnDecoderManifest(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d12e1e0a1684404c74ecc86ed4ae33ffdac8b3611db04d45a6a46ef55c87bbbe)
+            type_hints = cached_type_hints(_typecheckingstub__d12e1e0a1684404c74ecc86ed4ae33ffdac8b3611db04d45a6a46ef55c87bbbe)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3006,15 +2993,17 @@ class CfnDecoderManifest(
 
     @builtins.property
     @jsii.member(jsii_name="decoderManifestRef")
-    def decoder_manifest_ref(self) -> "_DecoderManifestReference_7a284aa6":
+    def decoder_manifest_ref(
+        self,
+    ) -> "_aws_iotfleetwise_144e3cab.DecoderManifestReference":
         '''A reference to a DecoderManifest resource.'''
-        return typing.cast("_DecoderManifestReference_7a284aa6", jsii.get(self, "decoderManifestRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.DecoderManifestReference", jsii.get(self, "decoderManifestRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="modelManifestArn")
@@ -3025,7 +3014,7 @@ class CfnDecoderManifest(
     @model_manifest_arn.setter
     def model_manifest_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b8f77dd16bf3c88bd7f097b2327803bb360213ddb0b320722348c6a1b99afce)
+            type_hints = cached_type_hints(_typecheckingstub__9b8f77dd16bf3c88bd7f097b2327803bb360213ddb0b320722348c6a1b99afce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "modelManifestArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3038,7 +3027,7 @@ class CfnDecoderManifest(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a5a43cce0da85f8ef5934babccfc93088317c19ae303a38ae3adc573ad6c633)
+            type_hints = cached_type_hints(_typecheckingstub__9a5a43cce0da85f8ef5934babccfc93088317c19ae303a38ae3adc573ad6c633)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3054,7 +3043,7 @@ class CfnDecoderManifest(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d210b3f11bc1efe8c19f629b502c0e1e1fbcf1c23ae2d514eb28d3b59482cfc)
+            type_hints = cached_type_hints(_typecheckingstub__3d210b3f11bc1efe8c19f629b502c0e1e1fbcf1c23ae2d514eb28d3b59482cfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultForUnmappedSignals", value) # pyright: ignore[reportArgumentType]
 
@@ -3067,7 +3056,7 @@ class CfnDecoderManifest(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1e4501ad7312a6dac9b29817aed239a25a724386677541e036223da190a2d9b)
+            type_hints = cached_type_hints(_typecheckingstub__b1e4501ad7312a6dac9b29817aed239a25a724386677541e036223da190a2d9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3075,17 +3064,17 @@ class CfnDecoderManifest(
     @jsii.member(jsii_name="networkInterfaces")
     def network_interfaces(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
         '''A list of information about available network interfaces.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], jsii.get(self, "networkInterfaces"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], jsii.get(self, "networkInterfaces"))
 
     @network_interfaces.setter
     def network_interfaces(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4059f7868b58b43acd642cd2537b59a16c939681bb626ef560a6efbc8d7cda5)
+            type_hints = cached_type_hints(_typecheckingstub__e4059f7868b58b43acd642cd2537b59a16c939681bb626ef560a6efbc8d7cda5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkInterfaces", value) # pyright: ignore[reportArgumentType]
 
@@ -3093,17 +3082,17 @@ class CfnDecoderManifest(
     @jsii.member(jsii_name="signalDecoders")
     def signal_decoders(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
         '''A list of information about signal decoders.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], jsii.get(self, "signalDecoders"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], jsii.get(self, "signalDecoders"))
 
     @signal_decoders.setter
     def signal_decoders(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32a124503ae0a9be522e3691aef89b61eb023aea0d8b57342dcef4a708073af0)
+            type_hints = cached_type_hints(_typecheckingstub__32a124503ae0a9be522e3691aef89b61eb023aea0d8b57342dcef4a708073af0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalDecoders", value) # pyright: ignore[reportArgumentType]
 
@@ -3116,20 +3105,23 @@ class CfnDecoderManifest(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8428ef9254e1885dc4fbe7c358202136e77b7b7c68b9e9b92c6016edfca9ad8)
+            type_hints = cached_type_hints(_typecheckingstub__f8428ef9254e1885dc4fbe7c358202136e77b7b7c68b9e9b92c6016edfca9ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the decoder manifest.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7589d4cace83e702bf125b3cef9c6977200de03aea448dca5adc0790c282933)
+            type_hints = cached_type_hints(_typecheckingstub__b7589d4cace83e702bf125b3cef9c6977200de03aea448dca5adc0790c282933)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3174,7 +3166,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f41ef25a35e6c8526ccaa9ecc87becb68ccffe031fd1ae9c650719807164dc68)
+                type_hints = cached_type_hints(_typecheckingstub__f41ef25a35e6c8526ccaa9ecc87becb68ccffe031fd1ae9c650719807164dc68)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument protocol_name", value=protocol_name, expected_type=type_hints["protocol_name"])
                 check_type(argname="argument protocol_version", value=protocol_version, expected_type=type_hints["protocol_version"])
@@ -3238,7 +3230,7 @@ class CfnDecoderManifest(
         def __init__(
             self,
             *,
-            can_interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            can_interface: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
             interface_id: builtins.str,
             type: builtins.str,
         ) -> None:
@@ -3274,7 +3266,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b1254441c18c12325ded72e4eeb9b3d36d94b7f5b9ff298529a028d2b2d735a3)
+                type_hints = cached_type_hints(_typecheckingstub__b1254441c18c12325ded72e4eeb9b3d36d94b7f5b9ff298529a028d2b2d735a3)
                 check_type(argname="argument can_interface", value=can_interface, expected_type=type_hints["can_interface"])
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -3287,14 +3279,14 @@ class CfnDecoderManifest(
         @builtins.property
         def can_interface(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanInterfaceProperty"]:
             '''Information about a network interface specified by the Controller Area Network (CAN) protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-cannetworkinterface.html#cfn-iotfleetwise-decodermanifest-cannetworkinterface-caninterface
             '''
             result = self._values.get("can_interface")
             assert result is not None, "Required property 'can_interface' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanInterfaceProperty"], result)
 
         @builtins.property
         def interface_id(self) -> builtins.str:
@@ -3343,7 +3335,7 @@ class CfnDecoderManifest(
         def __init__(
             self,
             *,
-            can_signal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]],
+            can_signal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]],
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
             type: builtins.str,
@@ -3384,7 +3376,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a43ee038ead545f634e09871c712c71b73d4a94505498eb010ce592d21e11b3a)
+                type_hints = cached_type_hints(_typecheckingstub__a43ee038ead545f634e09871c712c71b73d4a94505498eb010ce592d21e11b3a)
                 check_type(argname="argument can_signal", value=can_signal, expected_type=type_hints["can_signal"])
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
@@ -3399,14 +3391,14 @@ class CfnDecoderManifest(
         @builtins.property
         def can_signal(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanSignalProperty"]:
             '''Information about a single controller area network (CAN) signal and the messages it receives and transmits.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-cansignaldecoder.html#cfn-iotfleetwise-decodermanifest-cansignaldecoder-cansignal
             '''
             result = self._values.get("can_signal")
             assert result is not None, "Required property 'can_signal' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanSignalProperty"], result)
 
         @builtins.property
         def fully_qualified_name(self) -> builtins.str:
@@ -3516,7 +3508,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d1fdd86137a92797754860d3b8da115496d862a2f95c8e39c08a70fdf76855c4)
+                type_hints = cached_type_hints(_typecheckingstub__d1fdd86137a92797754860d3b8da115496d862a2f95c8e39c08a70fdf76855c4)
                 check_type(argname="argument factor", value=factor, expected_type=type_hints["factor"])
                 check_type(argname="argument is_big_endian", value=is_big_endian, expected_type=type_hints["is_big_endian"])
                 check_type(argname="argument is_signed", value=is_signed, expected_type=type_hints["is_signed"])
@@ -3659,8 +3651,8 @@ class CfnDecoderManifest(
             *,
             interface_id: builtins.str,
             type: builtins.str,
-            can_interface: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            obd_interface: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            can_interface: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            obd_interface: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A list of information about available network interfaces.
 
@@ -3704,7 +3696,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__763a8a9c006b5f64d4a07d45a9f83b3a4b0be692630292c6e33fd7f6c09a4c07)
+                type_hints = cached_type_hints(_typecheckingstub__763a8a9c006b5f64d4a07d45a9f83b3a4b0be692630292c6e33fd7f6c09a4c07)
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument can_interface", value=can_interface, expected_type=type_hints["can_interface"])
@@ -3739,22 +3731,22 @@ class CfnDecoderManifest(
         @builtins.property
         def can_interface(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanInterfaceProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-networkinterfacesitems.html#cfn-iotfleetwise-decodermanifest-networkinterfacesitems-caninterface
             '''
             result = self._values.get("can_interface")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanInterfaceProperty"]], result)
 
         @builtins.property
         def obd_interface(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdInterfaceProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-networkinterfacesitems.html#cfn-iotfleetwise-decodermanifest-networkinterfacesitems-obdinterface
             '''
             result = self._values.get("obd_interface")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdInterfaceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3824,7 +3816,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__619deb4a5a81c6ae8bcb58cd0d96a9beddd6b7ac867f4e945e1bd4668fc25b17)
+                type_hints = cached_type_hints(_typecheckingstub__619deb4a5a81c6ae8bcb58cd0d96a9beddd6b7ac867f4e945e1bd4668fc25b17)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument request_message_id", value=request_message_id, expected_type=type_hints["request_message_id"])
                 check_type(argname="argument dtc_request_interval_seconds", value=dtc_request_interval_seconds, expected_type=type_hints["dtc_request_interval_seconds"])
@@ -3937,7 +3929,7 @@ class CfnDecoderManifest(
             self,
             *,
             interface_id: builtins.str,
-            obd_interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            obd_interface: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''Information about a network interface specified by the On-board diagnostic (OBD) II protocol.
@@ -3972,7 +3964,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c45c63503d1f718c56dd74e773036e65da8f350e05d1468a20136ad9ee6cfaf7)
+                type_hints = cached_type_hints(_typecheckingstub__c45c63503d1f718c56dd74e773036e65da8f350e05d1468a20136ad9ee6cfaf7)
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
                 check_type(argname="argument obd_interface", value=obd_interface, expected_type=type_hints["obd_interface"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -3995,14 +3987,14 @@ class CfnDecoderManifest(
         @builtins.property
         def obd_interface(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdInterfaceProperty"]:
             '''Information about a network interface specified by the On-board diagnostic (OBD) II protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdnetworkinterface.html#cfn-iotfleetwise-decodermanifest-obdnetworkinterface-obdinterface
             '''
             result = self._values.get("obd_interface")
             assert result is not None, "Required property 'obd_interface' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdInterfaceProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -4043,7 +4035,7 @@ class CfnDecoderManifest(
             *,
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
-            obd_signal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]],
+            obd_signal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''A list of information about signal decoders.
@@ -4084,7 +4076,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b66ad96f7c649fd06e9447c0e2e4b23db06a0053d635376375d3d5fcf7fc8e7)
+                type_hints = cached_type_hints(_typecheckingstub__5b66ad96f7c649fd06e9447c0e2e4b23db06a0053d635376375d3d5fcf7fc8e7)
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
                 check_type(argname="argument obd_signal", value=obd_signal, expected_type=type_hints["obd_signal"])
@@ -4119,14 +4111,14 @@ class CfnDecoderManifest(
         @builtins.property
         def obd_signal(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdSignalProperty"]:
             '''Information about signal messages using the on-board diagnostics (OBD) II protocol in a vehicle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdsignaldecoder.html#cfn-iotfleetwise-decodermanifest-obdsignaldecoder-obdsignal
             '''
             result = self._values.get("obd_signal")
             assert result is not None, "Required property 'obd_signal' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdSignalProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -4181,7 +4173,7 @@ class CfnDecoderManifest(
             start_byte: builtins.str,
             bit_mask_length: typing.Optional[builtins.str] = None,
             bit_right_shift: typing.Optional[builtins.str] = None,
-            is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             signal_value_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about signal messages using the on-board diagnostics (OBD) II protocol in a vehicle.
@@ -4224,7 +4216,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ccb776ce607aa563ef4bc105956ab186267e45066ee492c162a4555709004e4b)
+                type_hints = cached_type_hints(_typecheckingstub__ccb776ce607aa563ef4bc105956ab186267e45066ee492c162a4555709004e4b)
                 check_type(argname="argument byte_length", value=byte_length, expected_type=type_hints["byte_length"])
                 check_type(argname="argument offset", value=offset, expected_type=type_hints["offset"])
                 check_type(argname="argument pid", value=pid, expected_type=type_hints["pid"])
@@ -4347,7 +4339,7 @@ class CfnDecoderManifest(
         @builtins.property
         def is_signed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.str, builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Determines whether the message is signed ( ``true`` ) or not ( ``false`` ).
 
             If it's signed, the message can represent both positive and negative numbers. The ``isSigned`` parameter only applies to the ``INTEGER`` raw signal type, and it doesn't affect the ``FLOATING_POINT`` raw signal type. The default value is ``false`` .
@@ -4355,7 +4347,7 @@ class CfnDecoderManifest(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdsignal.html#cfn-iotfleetwise-decodermanifest-obdsignal-issigned
             '''
             result = self._values.get("is_signed")
-            return typing.cast(typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.str, builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def signal_value_type(self) -> typing.Optional[builtins.str]:
@@ -4397,8 +4389,8 @@ class CfnDecoderManifest(
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
             type: builtins.str,
-            can_signal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            obd_signal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            can_signal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            obd_signal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about a signal decoder.
 
@@ -4454,7 +4446,7 @@ class CfnDecoderManifest(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5832121c7c16050419993147c157e7f5739fca1dc1afba25d1f52da2d4bd75fb)
+                type_hints = cached_type_hints(_typecheckingstub__5832121c7c16050419993147c157e7f5739fca1dc1afba25d1f52da2d4bd75fb)
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument interface_id", value=interface_id, expected_type=type_hints["interface_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -4500,22 +4492,22 @@ class CfnDecoderManifest(
         @builtins.property
         def can_signal(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanSignalProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-signaldecodersitems.html#cfn-iotfleetwise-decodermanifest-signaldecodersitems-cansignal
             '''
             result = self._values.get("can_signal")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.CanSignalProperty"]], result)
 
         @builtins.property
         def obd_signal(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdSignalProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-signaldecodersitems.html#cfn-iotfleetwise-decodermanifest-signaldecodersitems-obdsignal
             '''
             result = self._values.get("obd_signal")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.ObdSignalProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4551,10 +4543,10 @@ class CfnDecoderManifestProps:
         name: builtins.str,
         default_for_unmapped_signals: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        network_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signal_decoders: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        network_interfaces: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signal_decoders: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDecoderManifest``.
 
@@ -4651,7 +4643,7 @@ class CfnDecoderManifestProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c)
+            type_hints = cached_type_hints(_typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c)
             check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument default_for_unmapped_signals", value=default_for_unmapped_signals, expected_type=type_hints["default_for_unmapped_signals"])
@@ -4720,24 +4712,24 @@ class CfnDecoderManifestProps:
     @builtins.property
     def network_interfaces(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
         '''A list of information about available network interfaces.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-networkinterfaces
         '''
         result = self._values.get("network_interfaces")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], result)
 
     @builtins.property
     def signal_decoders(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
         '''A list of information about signal decoders.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-signaldecoders
         '''
         result = self._values.get("signal_decoders")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -4753,13 +4745,13 @@ class CfnDecoderManifestProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the decoder manifest.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4773,9 +4765,9 @@ class CfnDecoderManifestProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFleetRef_204c4594, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.IFleetRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFleet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnFleet",
 ):
@@ -4819,7 +4811,7 @@ class CfnFleet(
         id: builtins.str,
         signal_catalog_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::Fleet``.
 
@@ -4831,7 +4823,7 @@ class CfnFleet(
         :param tags: Metadata that can be used to manage the fleet.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be2399a288ba3f0fe4eba6c31d42082d31eac165febede18736a759d92f2120d)
+            type_hints = cached_type_hints(_typecheckingstub__be2399a288ba3f0fe4eba6c31d42082d31eac165febede18736a759d92f2120d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         props = CfnFleetProps(
@@ -4845,12 +4837,15 @@ class CfnFleet(
 
     @jsii.member(jsii_name="arnForFleet")
     @builtins.classmethod
-    def arn_for_fleet(cls, resource: "_IFleetRef_204c4594") -> builtins.str:
+    def arn_for_fleet(
+        cls,
+        resource: "_aws_iotfleetwise_144e3cab.IFleetRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37144edf60e3806842f78ed86053c7d81858f021606a38932ef6845e07a2d909)
+            type_hints = cached_type_hints(_typecheckingstub__37144edf60e3806842f78ed86053c7d81858f021606a38932ef6845e07a2d909)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFleet", [resource]))
 
@@ -4861,7 +4856,7 @@ class CfnFleet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IFleetRef_204c4594":
+    ) -> "_aws_iotfleetwise_144e3cab.IFleetRef":
         '''Creates a new IFleetRef from an ARN.
 
         :param scope: -
@@ -4869,11 +4864,11 @@ class CfnFleet(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d7fcef721ba4c089f7301c5aef8c2013b79b8c192a29a9b67a9c0276b6d819a)
+            type_hints = cached_type_hints(_typecheckingstub__7d7fcef721ba4c089f7301c5aef8c2013b79b8c192a29a9b67a9c0276b6d819a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IFleetRef_204c4594", jsii.sinvoke(cls, "fromFleetArn", [scope, id, arn]))
+        return typing.cast("_aws_iotfleetwise_144e3cab.IFleetRef", jsii.sinvoke(cls, "fromFleetArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromFleetId")
     @builtins.classmethod
@@ -4882,7 +4877,7 @@ class CfnFleet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         fleet_id: builtins.str,
-    ) -> "_IFleetRef_204c4594":
+    ) -> "_aws_iotfleetwise_144e3cab.IFleetRef":
         '''Creates a new IFleetRef from a fleetId.
 
         :param scope: -
@@ -4890,11 +4885,11 @@ class CfnFleet(
         :param fleet_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19c86fa181d292c4885e8803f1244f1e6377b8ff0a96227ec1c732e3f5334b5e)
+            type_hints = cached_type_hints(_typecheckingstub__19c86fa181d292c4885e8803f1244f1e6377b8ff0a96227ec1c732e3f5334b5e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
-        return typing.cast("_IFleetRef_204c4594", jsii.sinvoke(cls, "fromFleetId", [scope, id, fleet_id]))
+        return typing.cast("_aws_iotfleetwise_144e3cab.IFleetRef", jsii.sinvoke(cls, "fromFleetId", [scope, id, fleet_id]))
 
     @jsii.member(jsii_name="isCfnFleet")
     @builtins.classmethod
@@ -4904,18 +4899,18 @@ class CfnFleet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffa9ce0725e9deb8e8a6a91ce8b72fd09e5dc3e75952c0b9e7665d5003a1b86a)
+            type_hints = cached_type_hints(_typecheckingstub__ffa9ce0725e9deb8e8a6a91ce8b72fd09e5dc3e75952c0b9e7665d5003a1b86a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFleet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b66a25ffe3875464ec35ff63e6d6335f63f5bd966c356414cfa0ec840225eedd)
+            type_hints = cached_type_hints(_typecheckingstub__b66a25ffe3875464ec35ff63e6d6335f63f5bd966c356414cfa0ec840225eedd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4928,7 +4923,7 @@ class CfnFleet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19ef6ad0585e294dae29b4c919f9fbf11b89c72deadd5a5cda8a56f1433235a8)
+            type_hints = cached_type_hints(_typecheckingstub__19ef6ad0585e294dae29b4c919f9fbf11b89c72deadd5a5cda8a56f1433235a8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4977,15 +4972,15 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> "_FleetReference_69cf4cd9":
+    def fleet_ref(self) -> "_aws_iotfleetwise_144e3cab.FleetReference":
         '''A reference to a Fleet resource.'''
-        return typing.cast("_FleetReference_69cf4cd9", jsii.get(self, "fleetRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.FleetReference", jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -4996,7 +4991,7 @@ class CfnFleet(
     @id.setter
     def id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__521c3cdc3b4991a92beb684d8c8af88ceab73dcbd34d08d120663c9c7f94d059)
+            type_hints = cached_type_hints(_typecheckingstub__521c3cdc3b4991a92beb684d8c8af88ceab73dcbd34d08d120663c9c7f94d059)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
 
@@ -5009,7 +5004,7 @@ class CfnFleet(
     @signal_catalog_arn.setter
     def signal_catalog_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eec1aed040f26806fdbfee937ccf8c8b0ccb036bc460096cfbb5b04da65cccca)
+            type_hints = cached_type_hints(_typecheckingstub__eec1aed040f26806fdbfee937ccf8c8b0ccb036bc460096cfbb5b04da65cccca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalCatalogArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5022,20 +5017,23 @@ class CfnFleet(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47625bcd41335399a9f769fa64574c2375f2937ed4511d09a3984dbd0abef447)
+            type_hints = cached_type_hints(_typecheckingstub__47625bcd41335399a9f769fa64574c2375f2937ed4511d09a3984dbd0abef447)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the fleet.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b778328780cd48e8666cfdebbdaa84f93e4dd8ae56fc24f3ac40fb8baa31791)
+            type_hints = cached_type_hints(_typecheckingstub__5b778328780cd48e8666cfdebbdaa84f93e4dd8ae56fc24f3ac40fb8baa31791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5057,7 +5055,7 @@ class CfnFleetProps:
         id: builtins.str,
         signal_catalog_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFleet``.
 
@@ -5089,7 +5087,7 @@ class CfnFleetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8)
+            type_hints = cached_type_hints(_typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5133,13 +5131,13 @@ class CfnFleetProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the fleet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5153,9 +5151,9 @@ class CfnFleetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IModelManifestRef_8f6a3086, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.IModelManifestRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnModelManifest(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnModelManifest",
 ):
@@ -5199,7 +5197,7 @@ class CfnModelManifest(
         description: typing.Optional[builtins.str] = None,
         nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::ModelManifest``.
 
@@ -5213,7 +5211,7 @@ class CfnModelManifest(
         :param tags: Metadata that can be used to manage the vehicle model.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f0e03fe14f53de97f2e7071c7f10132492e794782f840695921dc42cd286a81)
+            type_hints = cached_type_hints(_typecheckingstub__2f0e03fe14f53de97f2e7071c7f10132492e794782f840695921dc42cd286a81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnModelManifestProps(
@@ -5231,13 +5229,13 @@ class CfnModelManifest(
     @builtins.classmethod
     def arn_for_model_manifest(
         cls,
-        resource: "_IModelManifestRef_8f6a3086",
+        resource: "_aws_iotfleetwise_144e3cab.IModelManifestRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5523f499ffc777818e6ce55c505d402f379c8c63b417377d35e586bc6843b5fc)
+            type_hints = cached_type_hints(_typecheckingstub__5523f499ffc777818e6ce55c505d402f379c8c63b417377d35e586bc6843b5fc)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForModelManifest", [resource]))
 
@@ -5249,18 +5247,18 @@ class CfnModelManifest(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fca7491951ba6d52de10a54491f2bf5108cbdc7aa475ad971144147db4ff6b5d)
+            type_hints = cached_type_hints(_typecheckingstub__fca7491951ba6d52de10a54491f2bf5108cbdc7aa475ad971144147db4ff6b5d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnModelManifest", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26ab7dc28e60a5682365801d22047c22eca01f42fd1ecbb3b9b379fa832ee14c)
+            type_hints = cached_type_hints(_typecheckingstub__26ab7dc28e60a5682365801d22047c22eca01f42fd1ecbb3b9b379fa832ee14c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5273,7 +5271,7 @@ class CfnModelManifest(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6a3d382e4e768e4426411dff74ffd0bcaba33058efbe3e880fae9c7ace6d5d3)
+            type_hints = cached_type_hints(_typecheckingstub__c6a3d382e4e768e4426411dff74ffd0bcaba33058efbe3e880fae9c7ace6d5d3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5322,15 +5320,15 @@ class CfnModelManifest(
 
     @builtins.property
     @jsii.member(jsii_name="modelManifestRef")
-    def model_manifest_ref(self) -> "_ModelManifestReference_0770b7b5":
+    def model_manifest_ref(self) -> "_aws_iotfleetwise_144e3cab.ModelManifestReference":
         '''A reference to a ModelManifest resource.'''
-        return typing.cast("_ModelManifestReference_0770b7b5", jsii.get(self, "modelManifestRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.ModelManifestReference", jsii.get(self, "modelManifestRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5341,7 +5339,7 @@ class CfnModelManifest(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf56f12f94bd9c70533145a1dbb473b412b33dff8bc3791a2bcad34f29302b8d)
+            type_hints = cached_type_hints(_typecheckingstub__bf56f12f94bd9c70533145a1dbb473b412b33dff8bc3791a2bcad34f29302b8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5354,7 +5352,7 @@ class CfnModelManifest(
     @signal_catalog_arn.setter
     def signal_catalog_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9c26dfed7e5cc0b2e5105665abac1ffd59d367b056759c9e21642fa1214969e)
+            type_hints = cached_type_hints(_typecheckingstub__b9c26dfed7e5cc0b2e5105665abac1ffd59d367b056759c9e21642fa1214969e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalCatalogArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5367,7 +5365,7 @@ class CfnModelManifest(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d266113c8b366f668b05115f1bddeefd3b243d1c8fd8eecc3c143d130167d11)
+            type_hints = cached_type_hints(_typecheckingstub__4d266113c8b366f668b05115f1bddeefd3b243d1c8fd8eecc3c143d130167d11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5380,7 +5378,7 @@ class CfnModelManifest(
     @nodes.setter
     def nodes(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f0af1e0b1687e8bdbdeec73691f1b3cac6582b744e41041b611118e281c9134)
+            type_hints = cached_type_hints(_typecheckingstub__7f0af1e0b1687e8bdbdeec73691f1b3cac6582b744e41041b611118e281c9134)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodes", value) # pyright: ignore[reportArgumentType]
 
@@ -5393,20 +5391,23 @@ class CfnModelManifest(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f57f8c832da7ae938e0025bdef8ca3f24978b35cafd09be0c6bc21a8ee3329a9)
+            type_hints = cached_type_hints(_typecheckingstub__f57f8c832da7ae938e0025bdef8ca3f24978b35cafd09be0c6bc21a8ee3329a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the vehicle model.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0971ec828be6bb2e46ba031c824132b8b86c7ad424636cd3dd01983d63fc1adc)
+            type_hints = cached_type_hints(_typecheckingstub__0971ec828be6bb2e46ba031c824132b8b86c7ad424636cd3dd01983d63fc1adc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5432,7 +5433,7 @@ class CfnModelManifestProps:
         description: typing.Optional[builtins.str] = None,
         nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnModelManifest``.
 
@@ -5468,7 +5469,7 @@ class CfnModelManifestProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260)
+            type_hints = cached_type_hints(_typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5540,13 +5541,13 @@ class CfnModelManifestProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the vehicle model.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5560,9 +5561,9 @@ class CfnModelManifestProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISignalCatalogRef_16c8a20e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.ISignalCatalogRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSignalCatalog(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnSignalCatalog",
 ):
@@ -5649,9 +5650,9 @@ class CfnSignalCatalog(
         *,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        node_counts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        node_counts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nodes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::SignalCatalog``.
 
@@ -5664,7 +5665,7 @@ class CfnSignalCatalog(
         :param tags: Metadata that can be used to manage the signal catalog.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00a926b4b26fd9efc933b63c5d4e497e8bfeceb8f4fb16790d18152e0fd2e282)
+            type_hints = cached_type_hints(_typecheckingstub__00a926b4b26fd9efc933b63c5d4e497e8bfeceb8f4fb16790d18152e0fd2e282)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSignalCatalogProps(
@@ -5681,13 +5682,13 @@ class CfnSignalCatalog(
     @builtins.classmethod
     def arn_for_signal_catalog(
         cls,
-        resource: "_ISignalCatalogRef_16c8a20e",
+        resource: "_aws_iotfleetwise_144e3cab.ISignalCatalogRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75bc510396f9a3e66dbb9d8b50eba09d181c43c4cb892f2c72f2adb74a14883b)
+            type_hints = cached_type_hints(_typecheckingstub__75bc510396f9a3e66dbb9d8b50eba09d181c43c4cb892f2c72f2adb74a14883b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSignalCatalog", [resource]))
 
@@ -5699,18 +5700,18 @@ class CfnSignalCatalog(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8b9b881b100540328cdf49c69ac498a0a23062caca138c194de964283d3cce3)
+            type_hints = cached_type_hints(_typecheckingstub__e8b9b881b100540328cdf49c69ac498a0a23062caca138c194de964283d3cce3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSignalCatalog", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d1771c8f83cb9b124255f0cb877c396f7dc19033885dac73e197f274702fe58)
+            type_hints = cached_type_hints(_typecheckingstub__0d1771c8f83cb9b124255f0cb877c396f7dc19033885dac73e197f274702fe58)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5723,7 +5724,7 @@ class CfnSignalCatalog(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c1bc0963e13c138e8b1a9d56f8dfaba2b1c3f856cd9d0bc996158b2c5b704bb)
+            type_hints = cached_type_hints(_typecheckingstub__3c1bc0963e13c138e8b1a9d56f8dfaba2b1c3f856cd9d0bc996158b2c5b704bb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5762,48 +5763,48 @@ class CfnSignalCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalActuators")
-    def attr_node_counts_total_actuators(self) -> "_IResolvable_da3f097b":
+    def attr_node_counts_total_actuators(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total number of nodes in a vehicle network that represent actuators.
 
         :cloudformationAttribute: NodeCounts.TotalActuators
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalActuators"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeCountsTotalActuators"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalAttributes")
-    def attr_node_counts_total_attributes(self) -> "_IResolvable_da3f097b":
+    def attr_node_counts_total_attributes(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total number of nodes in a vehicle network that represent attributes.
 
         :cloudformationAttribute: NodeCounts.TotalAttributes
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalAttributes"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeCountsTotalAttributes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalBranches")
-    def attr_node_counts_total_branches(self) -> "_IResolvable_da3f097b":
+    def attr_node_counts_total_branches(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total number of nodes in a vehicle network that represent branches.
 
         :cloudformationAttribute: NodeCounts.TotalBranches
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalBranches"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeCountsTotalBranches"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalNodes")
-    def attr_node_counts_total_nodes(self) -> "_IResolvable_da3f097b":
+    def attr_node_counts_total_nodes(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total number of nodes in a vehicle network.
 
         :cloudformationAttribute: NodeCounts.TotalNodes
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalNodes"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeCountsTotalNodes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalSensors")
-    def attr_node_counts_total_sensors(self) -> "_IResolvable_da3f097b":
+    def attr_node_counts_total_sensors(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The total number of nodes in a vehicle network that represent sensors.
 
         :cloudformationAttribute: NodeCounts.TotalSensors
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalSensors"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeCountsTotalSensors"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5817,15 +5818,15 @@ class CfnSignalCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="signalCatalogRef")
-    def signal_catalog_ref(self) -> "_SignalCatalogReference_58330223":
+    def signal_catalog_ref(self) -> "_aws_iotfleetwise_144e3cab.SignalCatalogReference":
         '''A reference to a SignalCatalog resource.'''
-        return typing.cast("_SignalCatalogReference_58330223", jsii.get(self, "signalCatalogRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.SignalCatalogReference", jsii.get(self, "signalCatalogRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5836,7 +5837,7 @@ class CfnSignalCatalog(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f426284778d609b7de7cea520eccf5230e025cc40e766b3f3f0a9b3c536bfe4a)
+            type_hints = cached_type_hints(_typecheckingstub__f426284778d609b7de7cea520eccf5230e025cc40e766b3f3f0a9b3c536bfe4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5849,7 +5850,7 @@ class CfnSignalCatalog(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be488894dded62944d72e0b078393e92b8c846e12e5682732e5b292abdf03c1)
+            type_hints = cached_type_hints(_typecheckingstub__1be488894dded62944d72e0b078393e92b8c846e12e5682732e5b292abdf03c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5857,17 +5858,17 @@ class CfnSignalCatalog(
     @jsii.member(jsii_name="nodeCounts")
     def node_counts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeCountsProperty"]]:
         '''Information about the number of nodes and node types in a vehicle network.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]], jsii.get(self, "nodeCounts"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeCountsProperty"]], jsii.get(self, "nodeCounts"))
 
     @node_counts.setter
     def node_counts(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeCountsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f8c5daca018b1e857e68a1c38c2d8c8ad48c3e10d76e27f1b88db531cc7800d)
+            type_hints = cached_type_hints(_typecheckingstub__1f8c5daca018b1e857e68a1c38c2d8c8ad48c3e10d76e27f1b88db531cc7800d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeCounts", value) # pyright: ignore[reportArgumentType]
 
@@ -5875,30 +5876,33 @@ class CfnSignalCatalog(
     @jsii.member(jsii_name="nodes")
     def nodes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeProperty"]]]]:
         '''A list of information about nodes, which are a general abstraction of signals.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]], jsii.get(self, "nodes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeProperty"]]]], jsii.get(self, "nodes"))
 
     @nodes.setter
     def nodes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__017bfa378203e76812e9cd13928c4c7498a8ed198568cb4d309d165dee01a3b3)
+            type_hints = cached_type_hints(_typecheckingstub__017bfa378203e76812e9cd13928c4c7498a8ed198568cb4d309d165dee01a3b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the signal catalog.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da7834679bb5499c36909d22cd0d467aafe0c8ddde54a7ee3e9dda5f794b7bbb)
+            type_hints = cached_type_hints(_typecheckingstub__da7834679bb5499c36909d22cd0d467aafe0c8ddde54a7ee3e9dda5f794b7bbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5968,7 +5972,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3692c9418e6188deb5e6f1b10c8f51484f74857c2b24c543b0730826f0e8014c)
+                type_hints = cached_type_hints(_typecheckingstub__3692c9418e6188deb5e6f1b10c8f51484f74857c2b24c543b0730826f0e8014c)
                 check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
@@ -6146,7 +6150,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__34812da89e0890988b83a21707bc72187e1251886f85c8d31c8bad4f51a5ad5d)
+                type_hints = cached_type_hints(_typecheckingstub__34812da89e0890988b83a21707bc72187e1251886f85c8d31c8bad4f51a5ad5d)
                 check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
@@ -6308,7 +6312,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__10c551cff70ab7e9a7ade619807100cf531ce4f17b5ade4cfc711a7110032c76)
+                type_hints = cached_type_hints(_typecheckingstub__10c551cff70ab7e9a7ade619807100cf531ce4f17b5ade4cfc711a7110032c76)
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6396,7 +6400,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e0ecad1dc29fa151da6ab7009debe26c40391783260739fb2c93faa85a3ff88d)
+                type_hints = cached_type_hints(_typecheckingstub__e0ecad1dc29fa151da6ab7009debe26c40391783260739fb2c93faa85a3ff88d)
                 check_type(argname="argument total_actuators", value=total_actuators, expected_type=type_hints["total_actuators"])
                 check_type(argname="argument total_attributes", value=total_attributes, expected_type=type_hints["total_attributes"])
                 check_type(argname="argument total_branches", value=total_branches, expected_type=type_hints["total_branches"])
@@ -6484,10 +6488,10 @@ class CfnSignalCatalog(
         def __init__(
             self,
             *,
-            actuator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.ActuatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            attribute: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            branch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.BranchProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sensor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.SensorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            actuator: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.ActuatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            attribute: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            branch: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.BranchProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sensor: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.SensorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A general abstraction of a signal.
 
@@ -6553,7 +6557,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3f7b644285514f42793054887b78a595b6a6dc6b59e3a153fd29b94fb12c45e0)
+                type_hints = cached_type_hints(_typecheckingstub__3f7b644285514f42793054887b78a595b6a6dc6b59e3a153fd29b94fb12c45e0)
                 check_type(argname="argument actuator", value=actuator, expected_type=type_hints["actuator"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
                 check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
@@ -6571,7 +6575,7 @@ class CfnSignalCatalog(
         @builtins.property
         def actuator(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.ActuatorProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.ActuatorProperty"]]:
             '''Information about a node specified as an actuator.
 
             .. epigraph::
@@ -6581,12 +6585,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-actuator
             '''
             result = self._values.get("actuator")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.ActuatorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.ActuatorProperty"]], result)
 
         @builtins.property
         def attribute(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.AttributeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.AttributeProperty"]]:
             '''Information about a node specified as an attribute.
 
             .. epigraph::
@@ -6596,12 +6600,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-attribute
             '''
             result = self._values.get("attribute")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.AttributeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.AttributeProperty"]], result)
 
         @builtins.property
         def branch(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.BranchProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.BranchProperty"]]:
             '''Information about a node specified as a branch.
 
             .. epigraph::
@@ -6611,12 +6615,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-branch
             '''
             result = self._values.get("branch")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.BranchProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.BranchProperty"]], result)
 
         @builtins.property
         def sensor(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.SensorProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.SensorProperty"]]:
             '''An input component that reports the environmental condition of a vehicle.
 
             .. epigraph::
@@ -6626,7 +6630,7 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-sensor
             '''
             result = self._values.get("sensor")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.SensorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.SensorProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6700,7 +6704,7 @@ class CfnSignalCatalog(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94596961b895ad256763fda2e339ce98264b2f53e8048d34957d691a584debcf)
+                type_hints = cached_type_hints(_typecheckingstub__94596961b895ad256763fda2e339ce98264b2f53e8048d34957d691a584debcf)
                 check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
                 check_type(argname="argument fully_qualified_name", value=fully_qualified_name, expected_type=type_hints["fully_qualified_name"])
                 check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
@@ -6819,9 +6823,9 @@ class CfnSignalCatalogProps:
         *,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        node_counts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        node_counts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nodes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSignalCatalog``.
 
@@ -6902,7 +6906,7 @@ class CfnSignalCatalogProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd)
+            type_hints = cached_type_hints(_typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument node_counts", value=node_counts, expected_type=type_hints["node_counts"])
@@ -6941,33 +6945,33 @@ class CfnSignalCatalogProps:
     @builtins.property
     def node_counts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeCountsProperty"]]:
         '''Information about the number of nodes and node types in a vehicle network.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodecounts
         '''
         result = self._values.get("node_counts")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeCountsProperty"]], result)
 
     @builtins.property
     def nodes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeProperty"]]]]:
         '''A list of information about nodes, which are a general abstraction of signals.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodes
         '''
         result = self._values.get("nodes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSignalCatalog.NodeProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the signal catalog.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6981,9 +6985,9 @@ class CfnSignalCatalogProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStateTemplateRef_97119241, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.IStateTemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnStateTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnStateTemplate",
 ):
@@ -7034,7 +7038,7 @@ class CfnStateTemplate(
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::StateTemplate``.
 
@@ -7049,7 +7053,7 @@ class CfnStateTemplate(
         :param tags: Metadata that can be used to manage the state template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abb7c39bd72174c6927a0144336547ba8eb6d6e1a1e3b03c36137d528cc0517e)
+            type_hints = cached_type_hints(_typecheckingstub__abb7c39bd72174c6927a0144336547ba8eb6d6e1a1e3b03c36137d528cc0517e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStateTemplateProps(
@@ -7068,13 +7072,13 @@ class CfnStateTemplate(
     @builtins.classmethod
     def arn_for_state_template(
         cls,
-        resource: "_IStateTemplateRef_97119241",
+        resource: "_aws_iotfleetwise_144e3cab.IStateTemplateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df7d59d58fa8dbbf6986d371147fd02f522314bc2814556113ca0d387da593d)
+            type_hints = cached_type_hints(_typecheckingstub__0df7d59d58fa8dbbf6986d371147fd02f522314bc2814556113ca0d387da593d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStateTemplate", [resource]))
 
@@ -7086,18 +7090,18 @@ class CfnStateTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a6bc74fb224ac1a82c94332c26ba77e513320bae8f885744778e5b0f698be27)
+            type_hints = cached_type_hints(_typecheckingstub__0a6bc74fb224ac1a82c94332c26ba77e513320bae8f885744778e5b0f698be27)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStateTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__023876b0892019068eae11329147db15c493a19f3c3aaa1f07c72970b12e3bda)
+            type_hints = cached_type_hints(_typecheckingstub__023876b0892019068eae11329147db15c493a19f3c3aaa1f07c72970b12e3bda)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7110,7 +7114,7 @@ class CfnStateTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__240ffae6c05a011b97e9e81ad3f007590f273d8b4efcb1e11ad4b4323e088ff0)
+            type_hints = cached_type_hints(_typecheckingstub__240ffae6c05a011b97e9e81ad3f007590f273d8b4efcb1e11ad4b4323e088ff0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7158,9 +7162,9 @@ class CfnStateTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7174,9 +7178,9 @@ class CfnStateTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="stateTemplateRef")
-    def state_template_ref(self) -> "_StateTemplateReference_a51db8f9":
+    def state_template_ref(self) -> "_aws_iotfleetwise_144e3cab.StateTemplateReference":
         '''A reference to a StateTemplate resource.'''
-        return typing.cast("_StateTemplateReference_a51db8f9", jsii.get(self, "stateTemplateRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.StateTemplateReference", jsii.get(self, "stateTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -7187,7 +7191,7 @@ class CfnStateTemplate(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36385bddc5b397b7f956fb1c0b04069c9ebf5960aab30ef12f2493e28595e1f1)
+            type_hints = cached_type_hints(_typecheckingstub__36385bddc5b397b7f956fb1c0b04069c9ebf5960aab30ef12f2493e28595e1f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -7200,7 +7204,7 @@ class CfnStateTemplate(
     @signal_catalog_arn.setter
     def signal_catalog_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27a840727f29e62be6bbd510f866836050b8857803605fea1417134dea96d266)
+            type_hints = cached_type_hints(_typecheckingstub__27a840727f29e62be6bbd510f866836050b8857803605fea1417134dea96d266)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signalCatalogArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7213,7 +7217,7 @@ class CfnStateTemplate(
     @state_template_properties.setter
     def state_template_properties(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5965939ee8e58624ca94131bf3a1a550feb2416fc464e55dbb973bea62bc3ea0)
+            type_hints = cached_type_hints(_typecheckingstub__5965939ee8e58624ca94131bf3a1a550feb2416fc464e55dbb973bea62bc3ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateTemplateProperties", value) # pyright: ignore[reportArgumentType]
 
@@ -7229,7 +7233,7 @@ class CfnStateTemplate(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19421b7dfae3a07d6c498f1f38a62544c446c06d6e43b6a9ae138bca4a765472)
+            type_hints = cached_type_hints(_typecheckingstub__19421b7dfae3a07d6c498f1f38a62544c446c06d6e43b6a9ae138bca4a765472)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataExtraDimensions", value) # pyright: ignore[reportArgumentType]
 
@@ -7242,7 +7246,7 @@ class CfnStateTemplate(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efec27c415a19def60c4cdf390d49a1cfe3a88e80f44e798e0a30ca90f7f44b2)
+            type_hints = cached_type_hints(_typecheckingstub__efec27c415a19def60c4cdf390d49a1cfe3a88e80f44e798e0a30ca90f7f44b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -7258,20 +7262,23 @@ class CfnStateTemplate(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54306b96085449c8906b2e1feda97b6033703ecaf9d0f0ba4130192827b1521a)
+            type_hints = cached_type_hints(_typecheckingstub__54306b96085449c8906b2e1feda97b6033703ecaf9d0f0ba4130192827b1521a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataExtraDimensions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the state template.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ef4f2ac55a1c6e0b59ca37f1b5ee09c02856c397d9352b10181d8135c6c0f1a)
+            type_hints = cached_type_hints(_typecheckingstub__5ef4f2ac55a1c6e0b59ca37f1b5ee09c02856c397d9352b10181d8135c6c0f1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -7299,7 +7306,7 @@ class CfnStateTemplateProps:
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateTemplate``.
 
@@ -7337,7 +7344,7 @@ class CfnStateTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4)
+            type_hints = cached_type_hints(_typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
             check_type(argname="argument state_template_properties", value=state_template_properties, expected_type=type_hints["state_template_properties"])
@@ -7421,13 +7428,13 @@ class CfnStateTemplateProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that can be used to manage the state template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7441,9 +7448,9 @@ class CfnStateTemplateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVehicleRef_dea699b2, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotfleetwise_144e3cab.IVehicleRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVehicle(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnVehicle",
 ):
@@ -7507,9 +7514,9 @@ class CfnVehicle(
         model_manifest_arn: builtins.str,
         name: builtins.str,
         association_behavior: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        state_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        state_templates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTFleetWise::Vehicle``.
 
@@ -7524,7 +7531,7 @@ class CfnVehicle(
         :param tags: Metadata which can be used to manage the vehicle.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7269c48709f71a558e1053c22bd1ef391024711944714eff09133981d39ff54)
+            type_hints = cached_type_hints(_typecheckingstub__c7269c48709f71a558e1053c22bd1ef391024711944714eff09133981d39ff54)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVehicleProps(
@@ -7541,12 +7548,15 @@ class CfnVehicle(
 
     @jsii.member(jsii_name="arnForVehicle")
     @builtins.classmethod
-    def arn_for_vehicle(cls, resource: "_IVehicleRef_dea699b2") -> builtins.str:
+    def arn_for_vehicle(
+        cls,
+        resource: "_aws_iotfleetwise_144e3cab.IVehicleRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef0ac32134f164c3a90e00ff5f38a5384223115f37b4608aabc6d611adc97cb6)
+            type_hints = cached_type_hints(_typecheckingstub__ef0ac32134f164c3a90e00ff5f38a5384223115f37b4608aabc6d611adc97cb6)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVehicle", [resource]))
 
@@ -7558,18 +7568,18 @@ class CfnVehicle(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__052ebc0e1e858fd5290315e85abd264a36720bc86fc30a74fa12c314adf7b5a5)
+            type_hints = cached_type_hints(_typecheckingstub__052ebc0e1e858fd5290315e85abd264a36720bc86fc30a74fa12c314adf7b5a5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVehicle", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9b760c35be3bf4d0675af37ba807d0a1697ff44f4ca74c19616752539cb068e)
+            type_hints = cached_type_hints(_typecheckingstub__b9b760c35be3bf4d0675af37ba807d0a1697ff44f4ca74c19616752539cb068e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7582,7 +7592,7 @@ class CfnVehicle(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95af86f45386152805565188e4a1543fd1b5baf694bb584c01d1362547cffb8a)
+            type_hints = cached_type_hints(_typecheckingstub__95af86f45386152805565188e4a1543fd1b5baf694bb584c01d1362547cffb8a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7631,15 +7641,15 @@ class CfnVehicle(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vehicleRef")
-    def vehicle_ref(self) -> "_VehicleReference_856ec27a":
+    def vehicle_ref(self) -> "_aws_iotfleetwise_144e3cab.VehicleReference":
         '''A reference to a Vehicle resource.'''
-        return typing.cast("_VehicleReference_856ec27a", jsii.get(self, "vehicleRef"))
+        return typing.cast("_aws_iotfleetwise_144e3cab.VehicleReference", jsii.get(self, "vehicleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="decoderManifestArn")
@@ -7650,7 +7660,7 @@ class CfnVehicle(
     @decoder_manifest_arn.setter
     def decoder_manifest_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07dfd0df1edc272a1b88da28d8fb52906df9f9da3594e4adc19e6bed64630a13)
+            type_hints = cached_type_hints(_typecheckingstub__07dfd0df1edc272a1b88da28d8fb52906df9f9da3594e4adc19e6bed64630a13)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "decoderManifestArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7663,7 +7673,7 @@ class CfnVehicle(
     @model_manifest_arn.setter
     def model_manifest_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44d29d9f9e6bcafa63b7a5a0e813e2a6bc9bf4dce13cba6bf0c8f3674cb8ab42)
+            type_hints = cached_type_hints(_typecheckingstub__44d29d9f9e6bcafa63b7a5a0e813e2a6bc9bf4dce13cba6bf0c8f3674cb8ab42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "modelManifestArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7676,7 +7686,7 @@ class CfnVehicle(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4505759fcded180f5aeb7d85f70fe4449363a0030d04d86046e82cc83a56ab92)
+            type_hints = cached_type_hints(_typecheckingstub__4505759fcded180f5aeb7d85f70fe4449363a0030d04d86046e82cc83a56ab92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -7689,7 +7699,7 @@ class CfnVehicle(
     @association_behavior.setter
     def association_behavior(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58744563e98ef419016bcbd09088b8ed734d062980dbe0b3fa2e4ff0fe8f722d)
+            type_hints = cached_type_hints(_typecheckingstub__58744563e98ef419016bcbd09088b8ed734d062980dbe0b3fa2e4ff0fe8f722d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associationBehavior", value) # pyright: ignore[reportArgumentType]
 
@@ -7697,17 +7707,17 @@ class CfnVehicle(
     @jsii.member(jsii_name="attributes")
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Static information about a vehicle in a key-value pair.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "attributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "attributes"))
 
     @attributes.setter
     def attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58c16f565864833e1b877bedd4f136bed80dfb02ea2ee4627d0b77770775cf1c)
+            type_hints = cached_type_hints(_typecheckingstub__58c16f565864833e1b877bedd4f136bed80dfb02ea2ee4627d0b77770775cf1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
 
@@ -7715,30 +7725,33 @@ class CfnVehicle(
     @jsii.member(jsii_name="stateTemplates")
     def state_templates(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
         '''Associate state templates to track the state of the vehicle.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]], jsii.get(self, "stateTemplates"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateAssociationProperty"]]]], jsii.get(self, "stateTemplates"))
 
     @state_templates.setter
     def state_templates(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateAssociationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92c142edd55adbf21fcff6129d9010d853e2d127a9eab1465ddcc3ba243e83c9)
+            type_hints = cached_type_hints(_typecheckingstub__92c142edd55adbf21fcff6129d9010d853e2d127a9eab1465ddcc3ba243e83c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateTemplates", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata which can be used to manage the vehicle.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289b2e31ff1b98481910d4cc38b6e283cbc14d5b0abe0266ffe3aff2d0287c48)
+            type_hints = cached_type_hints(_typecheckingstub__289b2e31ff1b98481910d4cc38b6e283cbc14d5b0abe0266ffe3aff2d0287c48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7751,7 +7764,7 @@ class CfnVehicle(
         def __init__(
             self,
             *,
-            state_template_update_rate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+            state_template_update_rate: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVehicle.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Vehicles associated with the state template will stream telemetry data during a specified time period.
 
@@ -7774,7 +7787,7 @@ class CfnVehicle(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0f546595e4326fd4826ce88cf8ecc692f82c23378b12bbcb4c299f501e209127)
+                type_hints = cached_type_hints(_typecheckingstub__0f546595e4326fd4826ce88cf8ecc692f82c23378b12bbcb4c299f501e209127)
                 check_type(argname="argument state_template_update_rate", value=state_template_update_rate, expected_type=type_hints["state_template_update_rate"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "state_template_update_rate": state_template_update_rate,
@@ -7783,13 +7796,13 @@ class CfnVehicle(
         @builtins.property
         def state_template_update_rate(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnVehicle.TimePeriodProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.TimePeriodProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-periodicstatetemplateupdatestrategy.html#cfn-iotfleetwise-vehicle-periodicstatetemplateupdatestrategy-statetemplateupdaterate
             '''
             result = self._values.get("state_template_update_rate")
             assert result is not None, "Required property 'state_template_update_rate' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVehicle.TimePeriodProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.TimePeriodProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7815,7 +7828,7 @@ class CfnVehicle(
             self,
             *,
             identifier: builtins.str,
-            state_template_update_strategy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+            state_template_update_strategy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVehicle.StateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The state template associated with a vehicle.
 
@@ -7852,7 +7865,7 @@ class CfnVehicle(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c37e1e5efd6cbede6d8b9e7f47c1fb23b88690130e7a3e4fb1099a4a4013b90)
+                type_hints = cached_type_hints(_typecheckingstub__8c37e1e5efd6cbede6d8b9e7f47c1fb23b88690130e7a3e4fb1099a4a4013b90)
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
                 check_type(argname="argument state_template_update_strategy", value=state_template_update_strategy, expected_type=type_hints["state_template_update_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7873,13 +7886,13 @@ class CfnVehicle(
         @builtins.property
         def state_template_update_strategy(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateUpdateStrategyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateUpdateStrategyProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-statetemplateassociation.html#cfn-iotfleetwise-vehicle-statetemplateassociation-statetemplateupdatestrategy
             '''
             result = self._values.get("state_template_update_strategy")
             assert result is not None, "Required property 'state_template_update_strategy' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateUpdateStrategyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateUpdateStrategyProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7902,7 +7915,7 @@ class CfnVehicle(
             self,
             *,
             on_change: typing.Any = None,
-            periodic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            periodic: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The update strategy for the state template.
 
@@ -7936,7 +7949,7 @@ class CfnVehicle(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5ba42710b4d59f98cd05d01967a0a0aa20e120e6b8c3c84b42d3119efe7d902)
+                type_hints = cached_type_hints(_typecheckingstub__c5ba42710b4d59f98cd05d01967a0a0aa20e120e6b8c3c84b42d3119efe7d902)
                 check_type(argname="argument on_change", value=on_change, expected_type=type_hints["on_change"])
                 check_type(argname="argument periodic", value=periodic, expected_type=type_hints["periodic"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7956,12 +7969,12 @@ class CfnVehicle(
         @builtins.property
         def periodic(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-statetemplateupdatestrategy.html#cfn-iotfleetwise-vehicle-statetemplateupdatestrategy-periodic
             '''
             result = self._values.get("periodic")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8001,7 +8014,7 @@ class CfnVehicle(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b611088881b0facef1ec2b4be3ae8a9434e0cbd3be7d744ebbf90a96b88ae72)
+                type_hints = cached_type_hints(_typecheckingstub__9b611088881b0facef1ec2b4be3ae8a9434e0cbd3be7d744ebbf90a96b88ae72)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8062,9 +8075,9 @@ class CfnVehicleProps:
         model_manifest_arn: builtins.str,
         name: builtins.str,
         association_behavior: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        state_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        state_templates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnVehicle``.
 
@@ -8117,7 +8130,7 @@ class CfnVehicleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826)
+            type_hints = cached_type_hints(_typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826)
             check_type(argname="argument decoder_manifest_arn", value=decoder_manifest_arn, expected_type=type_hints["decoder_manifest_arn"])
             check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -8181,7 +8194,7 @@ class CfnVehicleProps:
     @builtins.property
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Static information about a vehicle in a key-value pair.
 
         For example: ``"engine Type"`` : ``"v6"``
@@ -8189,12 +8202,12 @@ class CfnVehicleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-attributes
         '''
         result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def state_templates(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
         '''Associate state templates to track the state of the vehicle.
 
         State templates determine which signal updates the vehicle sends to the cloud.
@@ -8202,16 +8215,16 @@ class CfnVehicleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-statetemplates
         '''
         result = self._values.get("state_templates")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVehicle.StateTemplateAssociationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata which can be used to manage the vehicle.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8248,31 +8261,31 @@ def _typecheckingstub__f7abc45d2046b48ec3bc5807ec2826a784930a5009b41b194dd6e4bed
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
+    collection_scheme: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     signal_catalog_arn: builtins.str,
     target_arn: builtins.str,
     action: typing.Optional[builtins.str] = None,
     compression: typing.Optional[builtins.str] = None,
-    data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_destination_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_partitions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     diagnostics_mode: typing.Optional[builtins.str] = None,
     expiry_time: typing.Optional[builtins.str] = None,
     post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
     priority: typing.Optional[jsii.Number] = None,
-    signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signals_to_collect: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signals_to_fetch: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     spooling_mode: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5d61ab81a2d8f001cd2baeb04e6f0f8c94ddb4121bd3eea71d4d230d9960f8b2(
-    resource: _ICampaignRef_030980d3,
+    resource: _aws_iotfleetwise_144e3cab.ICampaignRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8300,7 +8313,7 @@ def _typecheckingstub__b42aa9a0e2b886846904d45eb71ed6ebe3540cefb5483ddf62d418485
     pass
 
 def _typecheckingstub__09fbf1d259fb24b3ffc81851949fdbc1abbaa3df7fef9d0031938dd5b723205f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8312,7 +8325,7 @@ def _typecheckingstub__89d4f6e55fdf4b8418716e773b2a62dc1763b8a2553490a7567e2cfe6
     pass
 
 def _typecheckingstub__868a9ff35e32583e37d3c029fdca22ea031055a38c7dd0dcbfa1f30846ee551d(
-    value: typing.Union[_IResolvable_da3f097b, CfnCampaign.CollectionSchemeProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.CollectionSchemeProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8348,7 +8361,7 @@ def _typecheckingstub__17ec1dfb29d11e0d55dc84fc23937babfb2d1e33fdf8192c23c413071
     pass
 
 def _typecheckingstub__82921435d923d6321ee61688fc07b3aa8e4790a3f86fff3b232ba9bb71993646(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.DataDestinationConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.DataDestinationConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8360,7 +8373,7 @@ def _typecheckingstub__d948dada7b0177410b9932e42eb5ef3a76fe3c3274594fb0b3ffa49de
     pass
 
 def _typecheckingstub__0e28c8d41eff51a2c0a71a4106b83d99272cca3ed1db06bf167cc4f519354dd1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.DataPartitionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.DataPartitionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8396,13 +8409,13 @@ def _typecheckingstub__7eceb1aaf4de04c54d69e423a5e6de547b2e207a605050b36deefed0c
     pass
 
 def _typecheckingstub__49e9a686748dfc74bfa8ee7c7e9c87ccd64dc236b6b72144f22cebb87065a3d7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.SignalInformationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.SignalInformationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da949c7830745c6406e29a86a584eac30d385afd88a7608bc2c36f6371ab5b8b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.SignalFetchInformationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.SignalFetchInformationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8420,15 +8433,15 @@ def _typecheckingstub__67bb9c23f09e7b35b9a93baa91bd26954a931e9dac0ecfa4b472a8de1
     pass
 
 def _typecheckingstub__3493674fad7a8f212642ff0171f2ddf22e133359a2aee9ae22d9b3da5be4a8b6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1d2862e457404e83c11e21830d9ccb15c52f442305bb2db0a1ebf80b0de3877a(
     *,
-    condition_based_collection_scheme: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ConditionBasedCollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_based_collection_scheme: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeBasedCollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    condition_based_collection_scheme: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ConditionBasedCollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_based_collection_scheme: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeBasedCollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8453,9 +8466,9 @@ def _typecheckingstub__098372f705b13524c2d755dc2678c8d54bbf827d156581e9b771f5ca7
 
 def _typecheckingstub__a76d3ecac8a3286ba64142d7bb2621dd82495be58438bdb339be1559bb8129f3(
     *,
-    mqtt_topic_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.MqttTopicConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timestream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimestreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mqtt_topic_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.MqttTopicConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timestream_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimestreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8463,16 +8476,16 @@ def _typecheckingstub__a76d3ecac8a3286ba64142d7bb2621dd82495be58438bdb339be1559b
 def _typecheckingstub__bd3787864cce71fcf61244d09dfdf6e1bd60880492a62d83defdbedd1f2eac64(
     *,
     id: builtins.str,
-    storage_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionStorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
-    upload_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionUploadOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataPartitionStorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    upload_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataPartitionUploadOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3ddb9a8ece0eb78c362a50476995f8af80aa96a84db84ef19d43d9110cfdc6b6(
     *,
-    maximum_size: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.StorageMaximumSizeProperty, typing.Dict[builtins.str, typing.Any]]],
-    minimum_time_to_live: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.StorageMinimumTimeToLiveProperty, typing.Dict[builtins.str, typing.Any]]],
+    maximum_size: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.StorageMaximumSizeProperty, typing.Dict[builtins.str, typing.Any]]],
+    minimum_time_to_live: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.StorageMinimumTimeToLiveProperty, typing.Dict[builtins.str, typing.Any]]],
     storage_location: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -8506,8 +8519,8 @@ def _typecheckingstub__cb82e0c92a9fdd48764ec7ba91d5dabd16d19776d63621d9b09fba43e
 
 def _typecheckingstub__ca1820ed0602e93ad63464d2024852554d77196b666913dcbfab888a1fdd4613(
     *,
-    condition_based: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ConditionBasedSignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_based: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TimeBasedSignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    condition_based: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.ConditionBasedSignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_based: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.TimeBasedSignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8516,7 +8529,7 @@ def _typecheckingstub__0ce7b2e7c039b451b026dce9f5179434b5d1dc7492a291c8db13df52d
     *,
     actions: typing.Sequence[builtins.str],
     fully_qualified_name: builtins.str,
-    signal_fetch_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    signal_fetch_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SignalFetchConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     condition_language_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8572,25 +8585,25 @@ def _typecheckingstub__5788ae222c7e21aaed8bd9dbed72cfbc09a7c423d494e8aa4ae9d7a22
 
 def _typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71(
     *,
-    collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
+    collection_scheme: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     signal_catalog_arn: builtins.str,
     target_arn: builtins.str,
     action: typing.Optional[builtins.str] = None,
     compression: typing.Optional[builtins.str] = None,
-    data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_destination_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_partitions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     diagnostics_mode: typing.Optional[builtins.str] = None,
     expiry_time: typing.Optional[builtins.str] = None,
     post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
     priority: typing.Optional[jsii.Number] = None,
-    signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signals_to_collect: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signals_to_fetch: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     spooling_mode: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8603,16 +8616,16 @@ def _typecheckingstub__bd0d8efce6baca0fa606fb0cf95bebcdeda196fcde2fb7e1854233433
     name: builtins.str,
     default_for_unmapped_signals: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    network_interfaces: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signal_decoders: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__70015e1b3ea9ebb01dadbe7d995a8467cb2ecc6fa1868933b5d3e1c25ee6d86c(
-    resource: _IDecoderManifestRef_479753bf,
+    resource: _aws_iotfleetwise_144e3cab.IDecoderManifestRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8624,7 +8637,7 @@ def _typecheckingstub__cfbb7e114a77fe6528edc35ec9781cbfce93a3fdd6a8f9a57b52063ce
     pass
 
 def _typecheckingstub__a7c1f4e3cc81a06a60eef4d178a3aaf54f7c99cca4a0481a51c50d560d76ba09(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8660,13 +8673,13 @@ def _typecheckingstub__b1e4501ad7312a6dac9b29817aed239a25a724386677541e036223da1
     pass
 
 def _typecheckingstub__e4059f7868b58b43acd642cd2537b59a16c939681bb626ef560a6efbc8d7cda5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDecoderManifest.NetworkInterfacesItemsProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDecoderManifest.NetworkInterfacesItemsProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__32a124503ae0a9be522e3691aef89b61eb023aea0d8b57342dcef4a708073af0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDecoderManifest.SignalDecodersItemsProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDecoderManifest.SignalDecodersItemsProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8678,7 +8691,7 @@ def _typecheckingstub__f8428ef9254e1885dc4fbe7c358202136e77b7b7c68b9e9b92c6016ed
     pass
 
 def _typecheckingstub__b7589d4cace83e702bf125b3cef9c6977200de03aea448dca5adc0790c282933(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8694,7 +8707,7 @@ def _typecheckingstub__f41ef25a35e6c8526ccaa9ecc87becb68ccffe031fd1ae9c650719807
 
 def _typecheckingstub__b1254441c18c12325ded72e4eeb9b3d36d94b7f5b9ff298529a028d2b2d735a3(
     *,
-    can_interface: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.CanInterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
+    can_interface: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.CanInterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
     interface_id: builtins.str,
     type: builtins.str,
 ) -> None:
@@ -8703,7 +8716,7 @@ def _typecheckingstub__b1254441c18c12325ded72e4eeb9b3d36d94b7f5b9ff298529a028d2b
 
 def _typecheckingstub__a43ee038ead545f634e09871c712c71b73d4a94505498eb010ce592d21e11b3a(
     *,
-    can_signal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.CanSignalProperty, typing.Dict[builtins.str, typing.Any]]],
+    can_signal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.CanSignalProperty, typing.Dict[builtins.str, typing.Any]]],
     fully_qualified_name: builtins.str,
     interface_id: builtins.str,
     type: builtins.str,
@@ -8730,8 +8743,8 @@ def _typecheckingstub__763a8a9c006b5f64d4a07d45a9f83b3a4b0be692630292c6e33fd7f6c
     *,
     interface_id: builtins.str,
     type: builtins.str,
-    can_interface: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.CanInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    obd_interface: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.ObdInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    can_interface: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.CanInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    obd_interface: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.ObdInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8752,7 +8765,7 @@ def _typecheckingstub__619deb4a5a81c6ae8bcb58cd0d96a9beddd6b7ac867f4e945e1bd4668
 def _typecheckingstub__c45c63503d1f718c56dd74e773036e65da8f350e05d1468a20136ad9ee6cfaf7(
     *,
     interface_id: builtins.str,
-    obd_interface: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.ObdInterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
+    obd_interface: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.ObdInterfaceProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -8762,7 +8775,7 @@ def _typecheckingstub__5b66ad96f7c649fd06e9447c0e2e4b23db06a0053d635376375d3d5fc
     *,
     fully_qualified_name: builtins.str,
     interface_id: builtins.str,
-    obd_signal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.ObdSignalProperty, typing.Dict[builtins.str, typing.Any]]],
+    obd_signal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.ObdSignalProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -8779,7 +8792,7 @@ def _typecheckingstub__ccb776ce607aa563ef4bc105956ab186267e45066ee492c162a455570
     start_byte: builtins.str,
     bit_mask_length: typing.Optional[builtins.str] = None,
     bit_right_shift: typing.Optional[builtins.str] = None,
-    is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, _IResolvable_da3f097b]] = None,
+    is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     signal_value_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8790,8 +8803,8 @@ def _typecheckingstub__5832121c7c16050419993147c157e7f5739fca1dc1afba25d1f52da2d
     fully_qualified_name: builtins.str,
     interface_id: builtins.str,
     type: builtins.str,
-    can_signal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.CanSignalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    obd_signal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.ObdSignalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    can_signal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.CanSignalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    obd_signal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.ObdSignalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8802,10 +8815,10 @@ def _typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af
     name: builtins.str,
     default_for_unmapped_signals: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    network_interfaces: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signal_decoders: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8817,13 +8830,13 @@ def _typecheckingstub__be2399a288ba3f0fe4eba6c31d42082d31eac165febede18736a759d9
     id: builtins.str,
     signal_catalog_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37144edf60e3806842f78ed86053c7d81858f021606a38932ef6845e07a2d909(
-    resource: _IFleetRef_204c4594,
+    resource: _aws_iotfleetwise_144e3cab.IFleetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8851,7 +8864,7 @@ def _typecheckingstub__ffa9ce0725e9deb8e8a6a91ce8b72fd09e5dc3e75952c0b9e7665d500
     pass
 
 def _typecheckingstub__b66a25ffe3875464ec35ff63e6d6335f63f5bd966c356414cfa0ec840225eedd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8881,7 +8894,7 @@ def _typecheckingstub__47625bcd41335399a9f769fa64574c2375f2937ed4511d09a3984dbd0
     pass
 
 def _typecheckingstub__5b778328780cd48e8666cfdebbdaa84f93e4dd8ae56fc24f3ac40fb8baa31791(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8891,7 +8904,7 @@ def _typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0
     id: builtins.str,
     signal_catalog_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8905,13 +8918,13 @@ def _typecheckingstub__2f0e03fe14f53de97f2e7071c7f10132492e794782f840695921dc42c
     description: typing.Optional[builtins.str] = None,
     nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5523f499ffc777818e6ce55c505d402f379c8c63b417377d35e586bc6843b5fc(
-    resource: _IModelManifestRef_8f6a3086,
+    resource: _aws_iotfleetwise_144e3cab.IModelManifestRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8923,7 +8936,7 @@ def _typecheckingstub__fca7491951ba6d52de10a54491f2bf5108cbdc7aa475ad971144147db
     pass
 
 def _typecheckingstub__26ab7dc28e60a5682365801d22047c22eca01f42fd1ecbb3b9b379fa832ee14c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8965,7 +8978,7 @@ def _typecheckingstub__f57f8c832da7ae938e0025bdef8ca3f24978b35cafd09be0c6bc21a8e
     pass
 
 def _typecheckingstub__0971ec828be6bb2e46ba031c824132b8b86c7ad424636cd3dd01983d63fc1adc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8977,7 +8990,7 @@ def _typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a9
     description: typing.Optional[builtins.str] = None,
     nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8988,15 +9001,15 @@ def _typecheckingstub__00a926b4b26fd9efc933b63c5d4e497e8bfeceb8f4fb16790d18152e0
     *,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    node_counts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nodes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__75bc510396f9a3e66dbb9d8b50eba09d181c43c4cb892f2c72f2adb74a14883b(
-    resource: _ISignalCatalogRef_16c8a20e,
+    resource: _aws_iotfleetwise_144e3cab.ISignalCatalogRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9008,7 +9021,7 @@ def _typecheckingstub__e8b9b881b100540328cdf49c69ac498a0a23062caca138c194de96428
     pass
 
 def _typecheckingstub__0d1771c8f83cb9b124255f0cb877c396f7dc19033885dac73e197f274702fe58(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9032,19 +9045,19 @@ def _typecheckingstub__1be488894dded62944d72e0b078393e92b8c846e12e5682732e5b292a
     pass
 
 def _typecheckingstub__1f8c5daca018b1e857e68a1c38c2d8c8ad48c3e10d76e27f1b88db531cc7800d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSignalCatalog.NodeCountsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSignalCatalog.NodeCountsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__017bfa378203e76812e9cd13928c4c7498a8ed198568cb4d309d165dee01a3b3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSignalCatalog.NodeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSignalCatalog.NodeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da7834679bb5499c36909d22cd0d467aafe0c8ddde54a7ee3e9dda5f794b7bbb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9099,10 +9112,10 @@ def _typecheckingstub__e0ecad1dc29fa151da6ab7009debe26c40391783260739fb2c93faa85
 
 def _typecheckingstub__3f7b644285514f42793054887b78a595b6a6dc6b59e3a153fd29b94fb12c45e0(
     *,
-    actuator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.ActuatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attribute: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    branch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.BranchProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sensor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.SensorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    actuator: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.ActuatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attribute: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    branch: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.BranchProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sensor: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.SensorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9124,9 +9137,9 @@ def _typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae209
     *,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    node_counts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nodes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9141,13 +9154,13 @@ def _typecheckingstub__abb7c39bd72174c6927a0144336547ba8eb6d6e1a1e3b03c36137d528
     data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0df7d59d58fa8dbbf6986d371147fd02f522314bc2814556113ca0d387da593d(
-    resource: _IStateTemplateRef_97119241,
+    resource: _aws_iotfleetwise_144e3cab.IStateTemplateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9159,7 +9172,7 @@ def _typecheckingstub__0a6bc74fb224ac1a82c94332c26ba77e513320bae8f885744778e5b0f
     pass
 
 def _typecheckingstub__023876b0892019068eae11329147db15c493a19f3c3aaa1f07c72970b12e3bda(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9207,7 +9220,7 @@ def _typecheckingstub__54306b96085449c8906b2e1feda97b6033703ecaf9d0f0ba413019282
     pass
 
 def _typecheckingstub__5ef4f2ac55a1c6e0b59ca37f1b5ee09c02856c397d9352b10181d8135c6c0f1a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9220,7 +9233,7 @@ def _typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0
     data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9233,15 +9246,15 @@ def _typecheckingstub__c7269c48709f71a558e1053c22bd1ef391024711944714eff09133981
     model_manifest_arn: builtins.str,
     name: builtins.str,
     association_behavior: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    state_templates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ef0ac32134f164c3a90e00ff5f38a5384223115f37b4608aabc6d611adc97cb6(
-    resource: _IVehicleRef_dea699b2,
+    resource: _aws_iotfleetwise_144e3cab.IVehicleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9253,7 +9266,7 @@ def _typecheckingstub__052ebc0e1e858fd5290315e85abd264a36720bc86fc30a74fa12c314a
     pass
 
 def _typecheckingstub__b9b760c35be3bf4d0675af37ba807d0a1697ff44f4ca74c19616752539cb068e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9289,26 +9302,26 @@ def _typecheckingstub__58744563e98ef419016bcbd09088b8ed734d062980dbe0b3fa2e4ff0f
     pass
 
 def _typecheckingstub__58c16f565864833e1b877bedd4f136bed80dfb02ea2ee4627d0b77770775cf1c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__92c142edd55adbf21fcff6129d9010d853e2d127a9eab1465ddcc3ba243e83c9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVehicle.StateTemplateAssociationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVehicle.StateTemplateAssociationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__289b2e31ff1b98481910d4cc38b6e283cbc14d5b0abe0266ffe3aff2d0287c48(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0f546595e4326fd4826ce88cf8ecc692f82c23378b12bbcb4c299f501e209127(
     *,
-    state_template_update_rate: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    state_template_update_rate: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVehicle.TimePeriodProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9316,7 +9329,7 @@ def _typecheckingstub__0f546595e4326fd4826ce88cf8ecc692f82c23378b12bbcb4c299f501
 def _typecheckingstub__8c37e1e5efd6cbede6d8b9e7f47c1fb23b88690130e7a3e4fb1099a4a4013b90(
     *,
     identifier: builtins.str,
-    state_template_update_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateUpdateStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    state_template_update_strategy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVehicle.StateTemplateUpdateStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9324,7 +9337,7 @@ def _typecheckingstub__8c37e1e5efd6cbede6d8b9e7f47c1fb23b88690130e7a3e4fb1099a4a
 def _typecheckingstub__c5ba42710b4d59f98cd05d01967a0a0aa20e120e6b8c3c84b42d3119efe7d902(
     *,
     on_change: typing.Any = None,
-    periodic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    periodic: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9343,9 +9356,9 @@ def _typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58
     model_manifest_arn: builtins.str,
     name: builtins.str,
     association_behavior: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    state_templates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

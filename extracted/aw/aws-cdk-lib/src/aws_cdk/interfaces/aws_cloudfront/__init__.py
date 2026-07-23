@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AnycastIpListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0935893f040727b890159b2a61c53744a19e903fa583f51fd1335094286a882)
+            type_hints = cached_type_hints(_typecheckingstub__b0935893f040727b890159b2a61c53744a19e903fa583f51fd1335094286a882)
             check_type(argname="argument anycast_ip_list_id", value=anycast_ip_list_id, expected_type=type_hints["anycast_ip_list_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "anycast_ip_list_id": anycast_ip_list_id,
@@ -107,7 +111,7 @@ class CachePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eafc53ec8d44d91d599196eff2812b8d3e750f75445fecc22787175206a425f4)
+            type_hints = cached_type_hints(_typecheckingstub__eafc53ec8d44d91d599196eff2812b8d3e750f75445fecc22787175206a425f4)
             check_type(argname="argument cache_policy_id", value=cache_policy_id, expected_type=type_hints["cache_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cache_policy_id": cache_policy_id,
@@ -158,7 +162,7 @@ class CloudFrontOriginAccessIdentityReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac62879d2ba5cdd6aa45b9be7d13a0247d5901fc9a2cbb8b4ce248ceeae24403)
+            type_hints = cached_type_hints(_typecheckingstub__ac62879d2ba5cdd6aa45b9be7d13a0247d5901fc9a2cbb8b4ce248ceeae24403)
             check_type(argname="argument cloud_front_origin_access_identity_id", value=cloud_front_origin_access_identity_id, expected_type=type_hints["cloud_front_origin_access_identity_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_front_origin_access_identity_id": cloud_front_origin_access_identity_id,
@@ -217,7 +221,7 @@ class ConnectionFunctionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd7b0bb64cedf15636618e6b755d87dc4aca386789f0be0876627def8997a3ad)
+            type_hints = cached_type_hints(_typecheckingstub__fd7b0bb64cedf15636618e6b755d87dc4aca386789f0be0876627def8997a3ad)
             check_type(argname="argument connection_function_arn", value=connection_function_arn, expected_type=type_hints["connection_function_arn"])
             check_type(argname="argument connection_function_id", value=connection_function_id, expected_type=type_hints["connection_function_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -285,7 +289,7 @@ class ConnectionGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03040cdfe38372fca8182c71a8a7787ed0a443239bca593242923e506cd17202)
+            type_hints = cached_type_hints(_typecheckingstub__03040cdfe38372fca8182c71a8a7787ed0a443239bca593242923e506cd17202)
             check_type(argname="argument connection_group_arn", value=connection_group_arn, expected_type=type_hints["connection_group_arn"])
             check_type(argname="argument connection_group_id", value=connection_group_id, expected_type=type_hints["connection_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -343,7 +347,7 @@ class ContinuousDeploymentPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45ecf47f2529275c1a72313ada238b7dd48f33d72dcbaad3303f04dc5489a6c4)
+            type_hints = cached_type_hints(_typecheckingstub__45ecf47f2529275c1a72313ada238b7dd48f33d72dcbaad3303f04dc5489a6c4)
             check_type(argname="argument continuous_deployment_policy_id", value=continuous_deployment_policy_id, expected_type=type_hints["continuous_deployment_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "continuous_deployment_policy_id": continuous_deployment_policy_id,
@@ -392,7 +396,7 @@ class DistributionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f97cc6a786fec9feb4764e7b259ccc05ed440a2e51df2dded3b144c438636683)
+            type_hints = cached_type_hints(_typecheckingstub__f97cc6a786fec9feb4764e7b259ccc05ed440a2e51df2dded3b144c438636683)
             check_type(argname="argument distribution_id", value=distribution_id, expected_type=type_hints["distribution_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "distribution_id": distribution_id,
@@ -451,7 +455,7 @@ class DistributionTenantReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d850f4f750196ae341c242dc801ed452e2f72f450f61ca0bec654fc3744e247)
+            type_hints = cached_type_hints(_typecheckingstub__2d850f4f750196ae341c242dc801ed452e2f72f450f61ca0bec654fc3744e247)
             check_type(argname="argument distribution_tenant_arn", value=distribution_tenant_arn, expected_type=type_hints["distribution_tenant_arn"])
             check_type(argname="argument distribution_tenant_id", value=distribution_tenant_id, expected_type=type_hints["distribution_tenant_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -509,7 +513,7 @@ class FunctionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32506104c4cd233c3476b42913670893c3370f22bfb6aca3a771d89e4c4cd669)
+            type_hints = cached_type_hints(_typecheckingstub__32506104c4cd233c3476b42913670893c3370f22bfb6aca3a771d89e4c4cd669)
             check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_arn": function_arn,
@@ -537,7 +541,7 @@ class FunctionReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IAnycastIpListRef")
 class IAnycastIpListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnycastIpList.
@@ -557,7 +561,7 @@ class IAnycastIpListRef(
 
 class _IAnycastIpListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnycastIpList.
 
@@ -582,7 +586,7 @@ typing.cast(typing.Any, IAnycastIpListRef).__jsii_proxy_class__ = lambda : _IAny
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.ICachePolicyRef")
 class ICachePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CachePolicy.
@@ -602,7 +606,7 @@ class ICachePolicyRef(
 
 class _ICachePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CachePolicy.
 
@@ -629,7 +633,7 @@ typing.cast(typing.Any, ICachePolicyRef).__jsii_proxy_class__ = lambda : _ICache
 )
 class ICloudFrontOriginAccessIdentityRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFrontOriginAccessIdentity.
@@ -651,7 +655,7 @@ class ICloudFrontOriginAccessIdentityRef(
 
 class _ICloudFrontOriginAccessIdentityRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFrontOriginAccessIdentity.
 
@@ -680,7 +684,7 @@ typing.cast(typing.Any, ICloudFrontOriginAccessIdentityRef).__jsii_proxy_class__
 )
 class IConnectionFunctionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectionFunction.
@@ -700,7 +704,7 @@ class IConnectionFunctionRef(
 
 class _IConnectionFunctionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectionFunction.
 
@@ -725,7 +729,7 @@ typing.cast(typing.Any, IConnectionFunctionRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IConnectionGroupRef")
 class IConnectionGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectionGroup.
@@ -745,7 +749,7 @@ class IConnectionGroupRef(
 
 class _IConnectionGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectionGroup.
 
@@ -772,7 +776,7 @@ typing.cast(typing.Any, IConnectionGroupRef).__jsii_proxy_class__ = lambda : _IC
 )
 class IContinuousDeploymentPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContinuousDeploymentPolicy.
@@ -792,7 +796,7 @@ class IContinuousDeploymentPolicyRef(
 
 class _IContinuousDeploymentPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ContinuousDeploymentPolicy.
 
@@ -817,7 +821,7 @@ typing.cast(typing.Any, IContinuousDeploymentPolicyRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IDistributionRef")
 class IDistributionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Distribution.
@@ -837,7 +841,7 @@ class IDistributionRef(
 
 class _IDistributionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Distribution.
 
@@ -864,7 +868,7 @@ typing.cast(typing.Any, IDistributionRef).__jsii_proxy_class__ = lambda : _IDist
 )
 class IDistributionTenantRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DistributionTenant.
@@ -884,7 +888,7 @@ class IDistributionTenantRef(
 
 class _IDistributionTenantRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DistributionTenant.
 
@@ -909,7 +913,7 @@ typing.cast(typing.Any, IDistributionTenantRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IFunctionRef")
 class IFunctionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Function.
@@ -929,7 +933,7 @@ class IFunctionRef(
 
 class _IFunctionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Function.
 
@@ -954,7 +958,7 @@ typing.cast(typing.Any, IFunctionRef).__jsii_proxy_class__ = lambda : _IFunction
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IKeyGroupRef")
 class IKeyGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyGroup.
@@ -974,7 +978,7 @@ class IKeyGroupRef(
 
 class _IKeyGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyGroup.
 
@@ -999,7 +1003,7 @@ typing.cast(typing.Any, IKeyGroupRef).__jsii_proxy_class__ = lambda : _IKeyGroup
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IKeyValueStoreRef")
 class IKeyValueStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyValueStore.
@@ -1019,7 +1023,7 @@ class IKeyValueStoreRef(
 
 class _IKeyValueStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyValueStore.
 
@@ -1046,7 +1050,7 @@ typing.cast(typing.Any, IKeyValueStoreRef).__jsii_proxy_class__ = lambda : _IKey
 )
 class IMonitoringSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MonitoringSubscription.
@@ -1066,7 +1070,7 @@ class IMonitoringSubscriptionRef(
 
 class _IMonitoringSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MonitoringSubscription.
 
@@ -1093,7 +1097,7 @@ typing.cast(typing.Any, IMonitoringSubscriptionRef).__jsii_proxy_class__ = lambd
 )
 class IOriginAccessControlRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginAccessControl.
@@ -1113,7 +1117,7 @@ class IOriginAccessControlRef(
 
 class _IOriginAccessControlRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginAccessControl.
 
@@ -1140,7 +1144,7 @@ typing.cast(typing.Any, IOriginAccessControlRef).__jsii_proxy_class__ = lambda :
 )
 class IOriginRequestPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginRequestPolicy.
@@ -1160,7 +1164,7 @@ class IOriginRequestPolicyRef(
 
 class _IOriginRequestPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginRequestPolicy.
 
@@ -1185,7 +1189,7 @@ typing.cast(typing.Any, IOriginRequestPolicyRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IPublicKeyRef")
 class IPublicKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicKey.
@@ -1205,7 +1209,7 @@ class IPublicKeyRef(
 
 class _IPublicKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicKey.
 
@@ -1232,7 +1236,7 @@ typing.cast(typing.Any, IPublicKeyRef).__jsii_proxy_class__ = lambda : _IPublicK
 )
 class IRealtimeLogConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RealtimeLogConfig.
@@ -1252,7 +1256,7 @@ class IRealtimeLogConfigRef(
 
 class _IRealtimeLogConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RealtimeLogConfig.
 
@@ -1279,7 +1283,7 @@ typing.cast(typing.Any, IRealtimeLogConfigRef).__jsii_proxy_class__ = lambda : _
 )
 class IResponseHeadersPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResponseHeadersPolicy.
@@ -1299,7 +1303,7 @@ class IResponseHeadersPolicyRef(
 
 class _IResponseHeadersPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResponseHeadersPolicy.
 
@@ -1326,7 +1330,7 @@ typing.cast(typing.Any, IResponseHeadersPolicyRef).__jsii_proxy_class__ = lambda
 )
 class IStreamingDistributionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StreamingDistribution.
@@ -1346,7 +1350,7 @@ class IStreamingDistributionRef(
 
 class _IStreamingDistributionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StreamingDistribution.
 
@@ -1371,7 +1375,7 @@ typing.cast(typing.Any, IStreamingDistributionRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.ITrustStoreRef")
 class ITrustStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrustStore.
@@ -1391,7 +1395,7 @@ class ITrustStoreRef(
 
 class _ITrustStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrustStore.
 
@@ -1416,7 +1420,7 @@ typing.cast(typing.Any, ITrustStoreRef).__jsii_proxy_class__ = lambda : _ITrustS
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IVpcOriginRef")
 class IVpcOriginRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcOrigin.
@@ -1436,7 +1440,7 @@ class IVpcOriginRef(
 
 class _IVpcOriginRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcOrigin.
 
@@ -1482,7 +1486,7 @@ class KeyGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__464ae77084d63c7646b271a3e37cb2e98cacce805a2d61d9f5dbdda96f46dff5)
+            type_hints = cached_type_hints(_typecheckingstub__464ae77084d63c7646b271a3e37cb2e98cacce805a2d61d9f5dbdda96f46dff5)
             check_type(argname="argument key_group_id", value=key_group_id, expected_type=type_hints["key_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_group_id": key_group_id,
@@ -1541,7 +1545,7 @@ class KeyValueStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d2ab8f161da96de4216494194339f84571b4f0f1cfe710f61f155cda66cbac5)
+            type_hints = cached_type_hints(_typecheckingstub__6d2ab8f161da96de4216494194339f84571b4f0f1cfe710f61f155cda66cbac5)
             check_type(argname="argument key_value_store_arn", value=key_value_store_arn, expected_type=type_hints["key_value_store_arn"])
             check_type(argname="argument key_value_store_name", value=key_value_store_name, expected_type=type_hints["key_value_store_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1599,7 +1603,7 @@ class MonitoringSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d5bb5962d3c7a0d02baa196ea6a6d69ae11b813483a64036a3f44a0ae233a1b)
+            type_hints = cached_type_hints(_typecheckingstub__8d5bb5962d3c7a0d02baa196ea6a6d69ae11b813483a64036a3f44a0ae233a1b)
             check_type(argname="argument distribution_id", value=distribution_id, expected_type=type_hints["distribution_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "distribution_id": distribution_id,
@@ -1648,7 +1652,7 @@ class OriginAccessControlReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__429e437a384e20047c9d315562ddd9afc7c6dd4195379b01aac06dbca9a4ed7f)
+            type_hints = cached_type_hints(_typecheckingstub__429e437a384e20047c9d315562ddd9afc7c6dd4195379b01aac06dbca9a4ed7f)
             check_type(argname="argument origin_access_control_id", value=origin_access_control_id, expected_type=type_hints["origin_access_control_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "origin_access_control_id": origin_access_control_id,
@@ -1697,7 +1701,7 @@ class OriginRequestPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea02d8cc04a4b9b5e9d8c6b151d0cec103783598556595ac38e67940c74abe9f)
+            type_hints = cached_type_hints(_typecheckingstub__ea02d8cc04a4b9b5e9d8c6b151d0cec103783598556595ac38e67940c74abe9f)
             check_type(argname="argument origin_request_policy_id", value=origin_request_policy_id, expected_type=type_hints["origin_request_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "origin_request_policy_id": origin_request_policy_id,
@@ -1746,7 +1750,7 @@ class PublicKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71250d930f6cbefe85b005d8166f7ddd62c5ea16b33c52aa38ec5d4681c2d375)
+            type_hints = cached_type_hints(_typecheckingstub__71250d930f6cbefe85b005d8166f7ddd62c5ea16b33c52aa38ec5d4681c2d375)
             check_type(argname="argument public_key_id", value=public_key_id, expected_type=type_hints["public_key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "public_key_id": public_key_id,
@@ -1795,7 +1799,7 @@ class RealtimeLogConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e47f76633903c72c57cd74c16acb44209796d52559c9feb527ba4eabfd8fe49)
+            type_hints = cached_type_hints(_typecheckingstub__7e47f76633903c72c57cd74c16acb44209796d52559c9feb527ba4eabfd8fe49)
             check_type(argname="argument realtime_log_config_arn", value=realtime_log_config_arn, expected_type=type_hints["realtime_log_config_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "realtime_log_config_arn": realtime_log_config_arn,
@@ -1844,7 +1848,7 @@ class ResponseHeadersPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef3bb5e942491b4c267ba48598eda169bb96e3379b4df3fb4e54758952407d5)
+            type_hints = cached_type_hints(_typecheckingstub__fef3bb5e942491b4c267ba48598eda169bb96e3379b4df3fb4e54758952407d5)
             check_type(argname="argument response_headers_policy_id", value=response_headers_policy_id, expected_type=type_hints["response_headers_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "response_headers_policy_id": response_headers_policy_id,
@@ -1893,7 +1897,7 @@ class StreamingDistributionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b0342b4ece7f7cd84a2ff3923fb6055994a168bcd5e993a8ba1befb62dced2a)
+            type_hints = cached_type_hints(_typecheckingstub__7b0342b4ece7f7cd84a2ff3923fb6055994a168bcd5e993a8ba1befb62dced2a)
             check_type(argname="argument streaming_distribution_id", value=streaming_distribution_id, expected_type=type_hints["streaming_distribution_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "streaming_distribution_id": streaming_distribution_id,
@@ -1952,7 +1956,7 @@ class TrustStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ea92e634c7fa221353c2d687de12f6ab13af0db86b5e21a3c35016b0e6bd651)
+            type_hints = cached_type_hints(_typecheckingstub__4ea92e634c7fa221353c2d687de12f6ab13af0db86b5e21a3c35016b0e6bd651)
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
             check_type(argname="argument trust_store_id", value=trust_store_id, expected_type=type_hints["trust_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2017,7 +2021,7 @@ class VpcOriginReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69b032e15f12676ea4499a1b53874c8d182ed57bcf8be49701395b5cf79741f1)
+            type_hints = cached_type_hints(_typecheckingstub__69b032e15f12676ea4499a1b53874c8d182ed57bcf8be49701395b5cf79741f1)
             check_type(argname="argument vpc_origin_arn", value=vpc_origin_arn, expected_type=type_hints["vpc_origin_arn"])
             check_type(argname="argument vpc_origin_id", value=vpc_origin_id, expected_type=type_hints["vpc_origin_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

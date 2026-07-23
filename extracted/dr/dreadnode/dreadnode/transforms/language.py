@@ -82,14 +82,17 @@ Return ONLY the adapted text without explanations or meta-commentary."""
             preserve_meaning, help="Whether to prioritize semantic accuracy"
         ),
     ) -> str:
+        from dreadnode.generators.proxy import resolve_dn_model_to_generator
+
+        resolved_model = resolve_dn_model_to_generator(adapter_model)
         generator: Generator
-        if isinstance(adapter_model, str):
+        if isinstance(resolved_model, str):
             generator = get_generator(
-                adapter_model,
+                resolved_model,
                 params=GenerateParams.model_validate(model_params) if model_params else None,
             )
         else:
-            generator = adapter_model
+            generator = resolved_model
 
         style_guidance = {
             "formal": "Use formal, professional language appropriate for official communication.",
@@ -436,14 +439,17 @@ def code_switch(
             switch_ratio, ge=0.0, le=1.0, help="Proportion of text to switch"
         ),
     ) -> str:
+        from dreadnode.generators.proxy import resolve_dn_model_to_generator
+
+        resolved_model = resolve_dn_model_to_generator(adapter_model)
         generator: Generator
-        if isinstance(adapter_model, str):
+        if isinstance(resolved_model, str):
             generator = get_generator(
-                adapter_model,
+                resolved_model,
                 params=GenerateParams.model_validate(model_params) if model_params else None,
             )
         else:
-            generator = adapter_model
+            generator = resolved_model
 
         langs_str = ", ".join(languages)
 
@@ -526,14 +532,17 @@ def dialectal_variation(
             intensity, help="How heavily to apply dialectal features"
         ),
     ) -> str:
+        from dreadnode.generators.proxy import resolve_dn_model_to_generator
+
+        resolved_model = resolve_dn_model_to_generator(adapter_model)
         generator: Generator
-        if isinstance(adapter_model, str):
+        if isinstance(resolved_model, str):
             generator = get_generator(
-                adapter_model,
+                resolved_model,
                 params=GenerateParams.model_validate(model_params) if model_params else None,
             )
         else:
-            generator = adapter_model
+            generator = resolved_model
 
         intensity_guidance = {
             "light": "Apply subtle dialectal features while keeping most of the text standard.",

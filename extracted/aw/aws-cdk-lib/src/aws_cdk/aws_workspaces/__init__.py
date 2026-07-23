@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,49 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_workspaces import (
-    ConnectionAliasReference as _ConnectionAliasReference_a310d825,
-    IConnectionAliasRef as _IConnectionAliasRef_a1aae65e,
-    IWorkspaceRef as _IWorkspaceRef_2a5ebc43,
-    IWorkspacesPoolRef as _IWorkspacesPoolRef_7d9266b1,
-    WorkspaceReference as _WorkspaceReference_b4042199,
-    WorkspacesPoolReference as _WorkspacesPoolReference_66c3bd23,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_workspaces as _aws_workspaces_4620141e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_workspaces_4620141e = _LazyImport("aws_cdk.interfaces.aws_workspaces")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionAliasRef_a1aae65e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IConnectionAliasRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnConnectionAlias(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspaces.CfnConnectionAlias",
 ):
@@ -116,7 +105,7 @@ class CfnConnectionAlias(
         id: builtins.str,
         *,
         connection_string: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpaces::ConnectionAlias``.
 
@@ -126,7 +115,7 @@ class CfnConnectionAlias(
         :param tags: The tags to associate with the connection alias.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fd73d00432c1164a74beb35acf6162e3d82fa91d51a0edf8c896028b6e3c6d2)
+            type_hints = cached_type_hints(_typecheckingstub__3fd73d00432c1164a74beb35acf6162e3d82fa91d51a0edf8c896028b6e3c6d2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionAliasProps(connection_string=connection_string, tags=tags)
@@ -141,18 +130,18 @@ class CfnConnectionAlias(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76f39ec24ce0950d3ba9ddf713f5b5c8349a489a83df314a68c350efb2fde838)
+            type_hints = cached_type_hints(_typecheckingstub__76f39ec24ce0950d3ba9ddf713f5b5c8349a489a83df314a68c350efb2fde838)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnectionAlias", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d07e3ef46b7d1868d493367bae11c00c38fa0bb35cfa4e162e97b1482bf156)
+            type_hints = cached_type_hints(_typecheckingstub__70d07e3ef46b7d1868d493367bae11c00c38fa0bb35cfa4e162e97b1482bf156)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -165,7 +154,7 @@ class CfnConnectionAlias(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d590d73fb55367a8be64477837c062053aa020d8931e1f1983124013786434f)
+            type_hints = cached_type_hints(_typecheckingstub__5d590d73fb55367a8be64477837c062053aa020d8931e1f1983124013786434f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -186,12 +175,12 @@ class CfnConnectionAlias(
 
     @builtins.property
     @jsii.member(jsii_name="attrAssociations")
-    def attr_associations(self) -> "_IResolvable_da3f097b":
+    def attr_associations(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The association status of the connection alias.
 
         :cloudformationAttribute: Associations
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAssociations"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAssociations"))
 
     @builtins.property
     @jsii.member(jsii_name="attrConnectionAliasState")
@@ -214,15 +203,17 @@ class CfnConnectionAlias(
 
     @builtins.property
     @jsii.member(jsii_name="connectionAliasRef")
-    def connection_alias_ref(self) -> "_ConnectionAliasReference_a310d825":
+    def connection_alias_ref(
+        self,
+    ) -> "_aws_workspaces_4620141e.ConnectionAliasReference":
         '''A reference to a ConnectionAlias resource.'''
-        return typing.cast("_ConnectionAliasReference_a310d825", jsii.get(self, "connectionAliasRef"))
+        return typing.cast("_aws_workspaces_4620141e.ConnectionAliasReference", jsii.get(self, "connectionAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionString")
@@ -233,20 +224,23 @@ class CfnConnectionAlias(
     @connection_string.setter
     def connection_string(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac8b72c0a6880f896fe31f0555dd87dfdcce86c05579ff4a417ab736a03b4fda)
+            type_hints = cached_type_hints(_typecheckingstub__ac8b72c0a6880f896fe31f0555dd87dfdcce86c05579ff4a417ab736a03b4fda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionString", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to associate with the connection alias.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cf34741743106631ede324d61fdd5ed726b94e64d09574347d59201303db6f9)
+            type_hints = cached_type_hints(_typecheckingstub__6cf34741743106631ede324d61fdd5ed726b94e64d09574347d59201303db6f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -295,7 +289,7 @@ class CfnConnectionAlias(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__614a827f45558e3ee89a9937d774dc07580e2d2d88ccf9a78ea211acad9d7c19)
+                type_hints = cached_type_hints(_typecheckingstub__614a827f45558e3ee89a9937d774dc07580e2d2d88ccf9a78ea211acad9d7c19)
                 check_type(argname="argument associated_account_id", value=associated_account_id, expected_type=type_hints["associated_account_id"])
                 check_type(argname="argument association_status", value=association_status, expected_type=type_hints["association_status"])
                 check_type(argname="argument connection_identifier", value=connection_identifier, expected_type=type_hints["connection_identifier"])
@@ -370,7 +364,7 @@ class CfnConnectionAliasProps:
         self,
         *,
         connection_string: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnectionAlias``.
 
@@ -398,7 +392,7 @@ class CfnConnectionAliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33d1c548638caf6c8699dd74d5bcc8d8df516e1a0738521496aee37402727de8)
+            type_hints = cached_type_hints(_typecheckingstub__33d1c548638caf6c8699dd74d5bcc8d8df516e1a0738521496aee37402727de8)
             check_type(argname="argument connection_string", value=connection_string, expected_type=type_hints["connection_string"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -420,13 +414,13 @@ class CfnConnectionAliasProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to associate with the connection alias.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-connectionalias.html#cfn-workspaces-connectionalias-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -440,9 +434,9 @@ class CfnConnectionAliasProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkspaceRef_2a5ebc43, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IWorkspaceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkspace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspace",
 ):
@@ -492,11 +486,11 @@ class CfnWorkspace(
         bundle_id: builtins.str,
         directory_id: builtins.str,
         user_name: builtins.str,
-        root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         volume_encryption_key: typing.Optional[builtins.str] = None,
-        workspace_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.WorkspacePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.WorkspacePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpaces::Workspace``.
 
@@ -512,7 +506,7 @@ class CfnWorkspace(
         :param workspace_properties: The WorkSpace properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecf9321ac6e165dfc96d72b093b8636e1ff9e82acf9cea2e5176beb79bb65839)
+            type_hints = cached_type_hints(_typecheckingstub__ecf9321ac6e165dfc96d72b093b8636e1ff9e82acf9cea2e5176beb79bb65839)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkspaceProps(
@@ -530,12 +524,15 @@ class CfnWorkspace(
 
     @jsii.member(jsii_name="arnForWorkspace")
     @builtins.classmethod
-    def arn_for_workspace(cls, resource: "_IWorkspaceRef_2a5ebc43") -> builtins.str:
+    def arn_for_workspace(
+        cls,
+        resource: "_aws_workspaces_4620141e.IWorkspaceRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d6d998e49570cc52ccb0ecfad0db07c3b31d793cd316fcd6de9bd3cde91f30e)
+            type_hints = cached_type_hints(_typecheckingstub__8d6d998e49570cc52ccb0ecfad0db07c3b31d793cd316fcd6de9bd3cde91f30e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkspace", [resource]))
 
@@ -546,7 +543,7 @@ class CfnWorkspace(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         workspace_id: builtins.str,
-    ) -> "_IWorkspaceRef_2a5ebc43":
+    ) -> "_aws_workspaces_4620141e.IWorkspaceRef":
         '''Creates a new IWorkspaceRef from a workspaceId.
 
         :param scope: -
@@ -554,11 +551,11 @@ class CfnWorkspace(
         :param workspace_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d89928bc3143b40dfcbe60436eb821c87d4ca5d7e96d4ce7e5b5f26125f7d08)
+            type_hints = cached_type_hints(_typecheckingstub__4d89928bc3143b40dfcbe60436eb821c87d4ca5d7e96d4ce7e5b5f26125f7d08)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-        return typing.cast("_IWorkspaceRef_2a5ebc43", jsii.sinvoke(cls, "fromWorkspaceId", [scope, id, workspace_id]))
+        return typing.cast("_aws_workspaces_4620141e.IWorkspaceRef", jsii.sinvoke(cls, "fromWorkspaceId", [scope, id, workspace_id]))
 
     @jsii.member(jsii_name="isCfnWorkspace")
     @builtins.classmethod
@@ -568,18 +565,18 @@ class CfnWorkspace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0189c0ab3f83c44331c574b9d6fa036f364fb409d35f51f73b8fba8ae858db28)
+            type_hints = cached_type_hints(_typecheckingstub__0189c0ab3f83c44331c574b9d6fa036f364fb409d35f51f73b8fba8ae858db28)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e772192f4dd8e60f99b92beca96b37f99aca30dac13f906848601f52405c8d90)
+            type_hints = cached_type_hints(_typecheckingstub__e772192f4dd8e60f99b92beca96b37f99aca30dac13f906848601f52405c8d90)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -592,7 +589,7 @@ class CfnWorkspace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4902c0d49db4502ddf5bb0c1b99a8dd9ce3aa66f14904ef46eb1b040033e0f6f)
+            type_hints = cached_type_hints(_typecheckingstub__4902c0d49db4502ddf5bb0c1b99a8dd9ce3aa66f14904ef46eb1b040033e0f6f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -631,15 +628,15 @@ class CfnWorkspace(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="workspaceRef")
-    def workspace_ref(self) -> "_WorkspaceReference_b4042199":
+    def workspace_ref(self) -> "_aws_workspaces_4620141e.WorkspaceReference":
         '''A reference to a Workspace resource.'''
-        return typing.cast("_WorkspaceReference_b4042199", jsii.get(self, "workspaceRef"))
+        return typing.cast("_aws_workspaces_4620141e.WorkspaceReference", jsii.get(self, "workspaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bundleId")
@@ -650,7 +647,7 @@ class CfnWorkspace(
     @bundle_id.setter
     def bundle_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2f2e671a0d784d1293a9f59800a4ee9327ac8c35d2975eb4bccf99d78c24ba3)
+            type_hints = cached_type_hints(_typecheckingstub__f2f2e671a0d784d1293a9f59800a4ee9327ac8c35d2975eb4bccf99d78c24ba3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
 
@@ -663,7 +660,7 @@ class CfnWorkspace(
     @directory_id.setter
     def directory_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__098a48aaecf371ba14035ae50fde38957b608503f7c78dc0f9568806cd61b926)
+            type_hints = cached_type_hints(_typecheckingstub__098a48aaecf371ba14035ae50fde38957b608503f7c78dc0f9568806cd61b926)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directoryId", value) # pyright: ignore[reportArgumentType]
 
@@ -676,7 +673,7 @@ class CfnWorkspace(
     @user_name.setter
     def user_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__225037370c6d4ae1d7c6fb794db70699fb16815233054c687f769b05c6298ddc)
+            type_hints = cached_type_hints(_typecheckingstub__225037370c6d4ae1d7c6fb794db70699fb16815233054c687f769b05c6298ddc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -684,30 +681,33 @@ class CfnWorkspace(
     @jsii.member(jsii_name="rootVolumeEncryptionEnabled")
     def root_volume_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data stored on the root volume is encrypted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "rootVolumeEncryptionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "rootVolumeEncryptionEnabled"))
 
     @root_volume_encryption_enabled.setter
     def root_volume_encryption_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb29c66862be75fab751682c7102c72c4846798afbc12b529f0ece9b38719128)
+            type_hints = cached_type_hints(_typecheckingstub__bb29c66862be75fab751682c7102c72c4846798afbc12b529f0ece9b38719128)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rootVolumeEncryptionEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the WorkSpace.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f2a501e8ab3d90f102a797f62bdece7b78195c5b29e714a25825ca056f061c4)
+            type_hints = cached_type_hints(_typecheckingstub__1f2a501e8ab3d90f102a797f62bdece7b78195c5b29e714a25825ca056f061c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -715,17 +715,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="userVolumeEncryptionEnabled")
     def user_volume_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data stored on the user volume is encrypted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "userVolumeEncryptionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "userVolumeEncryptionEnabled"))
 
     @user_volume_encryption_enabled.setter
     def user_volume_encryption_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bd38103f5213efdd25dca3a2f0c8dcbf665bbcfb052ef6f4c929ce79e0719d6)
+            type_hints = cached_type_hints(_typecheckingstub__8bd38103f5213efdd25dca3a2f0c8dcbf665bbcfb052ef6f4c929ce79e0719d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userVolumeEncryptionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -738,7 +738,7 @@ class CfnWorkspace(
     @volume_encryption_key.setter
     def volume_encryption_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0670847357c5e2a262f5f7ce5cb07d9b48f5d29700739766ad22e91419e89b88)
+            type_hints = cached_type_hints(_typecheckingstub__0670847357c5e2a262f5f7ce5cb07d9b48f5d29700739766ad22e91419e89b88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "volumeEncryptionKey", value) # pyright: ignore[reportArgumentType]
 
@@ -746,17 +746,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="workspaceProperties")
     def workspace_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.WorkspacePropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.WorkspacePropertiesProperty"]]:
         '''The WorkSpace properties.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.WorkspacePropertiesProperty"]], jsii.get(self, "workspaceProperties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.WorkspacePropertiesProperty"]], jsii.get(self, "workspaceProperties"))
 
     @workspace_properties.setter
     def workspace_properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.WorkspacePropertiesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.WorkspacePropertiesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbfa33f0e5fe13fa6e31e4fac282721ea7584fa1e07cea2b5dc3a6a41028a2ad)
+            type_hints = cached_type_hints(_typecheckingstub__cbfa33f0e5fe13fa6e31e4fac282721ea7584fa1e07cea2b5dc3a6a41028a2ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workspaceProperties", value) # pyright: ignore[reportArgumentType]
 
@@ -807,7 +807,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ba35df0c40a72c6300f0149e43d82fc399d7f07da77a68563d45ca0546db330)
+                type_hints = cached_type_hints(_typecheckingstub__2ba35df0c40a72c6300f0149e43d82fc399d7f07da77a68563d45ca0546db330)
                 check_type(argname="argument compute_type_name", value=compute_type_name, expected_type=type_hints["compute_type_name"])
                 check_type(argname="argument root_volume_size_gib", value=root_volume_size_gib, expected_type=type_hints["root_volume_size_gib"])
                 check_type(argname="argument running_mode", value=running_mode, expected_type=type_hints["running_mode"])
@@ -915,11 +915,11 @@ class CfnWorkspaceProps:
         bundle_id: builtins.str,
         directory_id: builtins.str,
         user_name: builtins.str,
-        root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         volume_encryption_key: typing.Optional[builtins.str] = None,
-        workspace_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.WorkspacePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.WorkspacePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkspace``.
 
@@ -965,7 +965,7 @@ class CfnWorkspaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a25f87093526ea01aa087ea6dc9cc539b9abec4e01cf4bf21ae13159b6e31d52)
+            type_hints = cached_type_hints(_typecheckingstub__a25f87093526ea01aa087ea6dc9cc539b9abec4e01cf4bf21ae13159b6e31d52)
             check_type(argname="argument bundle_id", value=bundle_id, expected_type=type_hints["bundle_id"])
             check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
@@ -1025,33 +1025,33 @@ class CfnWorkspaceProps:
     @builtins.property
     def root_volume_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data stored on the root volume is encrypted.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspace.html#cfn-workspaces-workspace-rootvolumeencryptionenabled
         '''
         result = self._values.get("root_volume_encryption_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the WorkSpace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspace.html#cfn-workspaces-workspace-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def user_volume_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data stored on the user volume is encrypted.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspace.html#cfn-workspaces-workspace-uservolumeencryptionenabled
         '''
         result = self._values.get("user_volume_encryption_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def volume_encryption_key(self) -> typing.Optional[builtins.str]:
@@ -1067,13 +1067,13 @@ class CfnWorkspaceProps:
     @builtins.property
     def workspace_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.WorkspacePropertiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.WorkspacePropertiesProperty"]]:
         '''The WorkSpace properties.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspace.html#cfn-workspaces-workspace-workspaceproperties
         '''
         result = self._values.get("workspace_properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.WorkspacePropertiesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.WorkspacePropertiesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1087,9 +1087,9 @@ class CfnWorkspaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkspacesPoolRef_7d9266b1, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IWorkspacesPoolRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkspacesPool(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspacesPool",
 ):
@@ -1141,14 +1141,14 @@ class CfnWorkspacesPool(
         id: builtins.str,
         *,
         bundle_id: builtins.str,
-        capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
+        capacity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
         directory_id: builtins.str,
         pool_name: builtins.str,
-        application_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         running_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        timeout_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.TimeoutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.TimeoutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::WorkSpaces::WorkspacesPool``.
 
@@ -1165,7 +1165,7 @@ class CfnWorkspacesPool(
         :param timeout_settings: The amount of time that a pool session remains active after users disconnect. If they try to reconnect to the pool session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new pool instance.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d46eb37beb6bc915a0a0c68f02dfa689a2d725a4252e6874da1ed60602a91e4)
+            type_hints = cached_type_hints(_typecheckingstub__2d46eb37beb6bc915a0a0c68f02dfa689a2d725a4252e6874da1ed60602a91e4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkspacesPoolProps(
@@ -1186,13 +1186,13 @@ class CfnWorkspacesPool(
     @builtins.classmethod
     def arn_for_workspaces_pool(
         cls,
-        resource: "_IWorkspacesPoolRef_7d9266b1",
+        resource: "_aws_workspaces_4620141e.IWorkspacesPoolRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2dbd5f4064559f5e78985e554d7a34aa799b2798c681d557e9855c751c0916f)
+            type_hints = cached_type_hints(_typecheckingstub__c2dbd5f4064559f5e78985e554d7a34aa799b2798c681d557e9855c751c0916f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkspacesPool", [resource]))
 
@@ -1203,7 +1203,7 @@ class CfnWorkspacesPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         pool_id: builtins.str,
-    ) -> "_IWorkspacesPoolRef_7d9266b1":
+    ) -> "_aws_workspaces_4620141e.IWorkspacesPoolRef":
         '''Creates a new IWorkspacesPoolRef from a poolId.
 
         :param scope: -
@@ -1211,11 +1211,11 @@ class CfnWorkspacesPool(
         :param pool_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aca13282ecc7b7c8ac155574994d5d8d845bec6aa4ca0daf161949c9810e9624)
+            type_hints = cached_type_hints(_typecheckingstub__aca13282ecc7b7c8ac155574994d5d8d845bec6aa4ca0daf161949c9810e9624)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument pool_id", value=pool_id, expected_type=type_hints["pool_id"])
-        return typing.cast("_IWorkspacesPoolRef_7d9266b1", jsii.sinvoke(cls, "fromPoolId", [scope, id, pool_id]))
+        return typing.cast("_aws_workspaces_4620141e.IWorkspacesPoolRef", jsii.sinvoke(cls, "fromPoolId", [scope, id, pool_id]))
 
     @jsii.member(jsii_name="fromWorkspacesPoolArn")
     @builtins.classmethod
@@ -1224,7 +1224,7 @@ class CfnWorkspacesPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IWorkspacesPoolRef_7d9266b1":
+    ) -> "_aws_workspaces_4620141e.IWorkspacesPoolRef":
         '''Creates a new IWorkspacesPoolRef from an ARN.
 
         :param scope: -
@@ -1232,11 +1232,11 @@ class CfnWorkspacesPool(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__465631994003e79f30cef2521513b6f1d5f50c2aa738f7e794eda5bec14dc824)
+            type_hints = cached_type_hints(_typecheckingstub__465631994003e79f30cef2521513b6f1d5f50c2aa738f7e794eda5bec14dc824)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IWorkspacesPoolRef_7d9266b1", jsii.sinvoke(cls, "fromWorkspacesPoolArn", [scope, id, arn]))
+        return typing.cast("_aws_workspaces_4620141e.IWorkspacesPoolRef", jsii.sinvoke(cls, "fromWorkspacesPoolArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnWorkspacesPool")
     @builtins.classmethod
@@ -1246,18 +1246,18 @@ class CfnWorkspacesPool(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d95fd45f53c6dbbf035cfa65feb9e596460f33a7c75ea9712267b2a083e3d9e0)
+            type_hints = cached_type_hints(_typecheckingstub__d95fd45f53c6dbbf035cfa65feb9e596460f33a7c75ea9712267b2a083e3d9e0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspacesPool", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f53d77ec5dfd335f69439256c79f2f3c6b1b45896c302f8bc1c0ec35d59c6d29)
+            type_hints = cached_type_hints(_typecheckingstub__f53d77ec5dfd335f69439256c79f2f3c6b1b45896c302f8bc1c0ec35d59c6d29)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1270,7 +1270,7 @@ class CfnWorkspacesPool(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6572b9ddfe4047dc8ae204de87ae166ce2e8e400e06ba8974d92873782c30b29)
+            type_hints = cached_type_hints(_typecheckingstub__6572b9ddfe4047dc8ae204de87ae166ce2e8e400e06ba8974d92873782c30b29)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1309,9 +1309,9 @@ class CfnWorkspacesPool(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1325,9 +1325,9 @@ class CfnWorkspacesPool(
 
     @builtins.property
     @jsii.member(jsii_name="workspacesPoolRef")
-    def workspaces_pool_ref(self) -> "_WorkspacesPoolReference_66c3bd23":
+    def workspaces_pool_ref(self) -> "_aws_workspaces_4620141e.WorkspacesPoolReference":
         '''A reference to a WorkspacesPool resource.'''
-        return typing.cast("_WorkspacesPoolReference_66c3bd23", jsii.get(self, "workspacesPoolRef"))
+        return typing.cast("_aws_workspaces_4620141e.WorkspacesPoolReference", jsii.get(self, "workspacesPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bundleId")
@@ -1338,7 +1338,7 @@ class CfnWorkspacesPool(
     @bundle_id.setter
     def bundle_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0452074a51df88aa4932643faa31ebd1eccc5cee06312ade358694132b52084a)
+            type_hints = cached_type_hints(_typecheckingstub__0452074a51df88aa4932643faa31ebd1eccc5cee06312ade358694132b52084a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
 
@@ -1346,17 +1346,17 @@ class CfnWorkspacesPool(
     @jsii.member(jsii_name="capacity")
     def capacity(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.CapacityProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.CapacityProperty"]:
         '''Describes the user capacity for the pool.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.CapacityProperty"], jsii.get(self, "capacity"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.CapacityProperty"], jsii.get(self, "capacity"))
 
     @capacity.setter
     def capacity(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.CapacityProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.CapacityProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c57f030f2306ece2ea0c01485d454bac3da27c5dc44bd0b7ba4d7e46018432e)
+            type_hints = cached_type_hints(_typecheckingstub__6c57f030f2306ece2ea0c01485d454bac3da27c5dc44bd0b7ba4d7e46018432e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacity", value) # pyright: ignore[reportArgumentType]
 
@@ -1369,7 +1369,7 @@ class CfnWorkspacesPool(
     @directory_id.setter
     def directory_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8d6e0e3699724e780725f41f79c5fa5a20dddef0c63fb39c3b1dc0ad1f999af)
+            type_hints = cached_type_hints(_typecheckingstub__b8d6e0e3699724e780725f41f79c5fa5a20dddef0c63fb39c3b1dc0ad1f999af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directoryId", value) # pyright: ignore[reportArgumentType]
 
@@ -1382,7 +1382,7 @@ class CfnWorkspacesPool(
     @pool_name.setter
     def pool_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be64bf569690a63465e1cb83bfe620df5dc0e4eb9288b061c8c5ce9acc7ed6cf)
+            type_hints = cached_type_hints(_typecheckingstub__be64bf569690a63465e1cb83bfe620df5dc0e4eb9288b061c8c5ce9acc7ed6cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "poolName", value) # pyright: ignore[reportArgumentType]
 
@@ -1390,17 +1390,17 @@ class CfnWorkspacesPool(
     @jsii.member(jsii_name="applicationSettings")
     def application_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.ApplicationSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.ApplicationSettingsProperty"]]:
         '''The persistent application settings for users of the pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.ApplicationSettingsProperty"]], jsii.get(self, "applicationSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.ApplicationSettingsProperty"]], jsii.get(self, "applicationSettings"))
 
     @application_settings.setter
     def application_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.ApplicationSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.ApplicationSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__910fbbdd803ad5d164bc189f1acae9c33a7b4357cf407bdba7e99d2fa0824bb7)
+            type_hints = cached_type_hints(_typecheckingstub__910fbbdd803ad5d164bc189f1acae9c33a7b4357cf407bdba7e99d2fa0824bb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -1413,7 +1413,7 @@ class CfnWorkspacesPool(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0a41c1359bb84431b1e88b8ac1a3bbf0d34dc2ab1b9004f79a2f0891725fd76)
+            type_hints = cached_type_hints(_typecheckingstub__c0a41c1359bb84431b1e88b8ac1a3bbf0d34dc2ab1b9004f79a2f0891725fd76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1426,24 +1426,27 @@ class CfnWorkspacesPool(
     @running_mode.setter
     def running_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__360e48883f6f5eb30b47d1d804ac1d51f3162354f1b454a279520a266673b89b)
+            type_hints = cached_type_hints(_typecheckingstub__360e48883f6f5eb30b47d1d804ac1d51f3162354f1b454a279520a266673b89b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runningMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a940a91e0c4bd8a1424475cae423b68c22b5107bb7454e6d62fa5d1a232ac829)
+            type_hints = cached_type_hints(_typecheckingstub__a940a91e0c4bd8a1424475cae423b68c22b5107bb7454e6d62fa5d1a232ac829)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1451,17 +1454,17 @@ class CfnWorkspacesPool(
     @jsii.member(jsii_name="timeoutSettings")
     def timeout_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.TimeoutSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.TimeoutSettingsProperty"]]:
         '''The amount of time that a pool session remains active after users disconnect.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.TimeoutSettingsProperty"]], jsii.get(self, "timeoutSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.TimeoutSettingsProperty"]], jsii.get(self, "timeoutSettings"))
 
     @timeout_settings.setter
     def timeout_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.TimeoutSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.TimeoutSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1878f21dfd9d97896d58974c22ca93f62dbad42d1696ecad5a5dd10ef4d5a465)
+            type_hints = cached_type_hints(_typecheckingstub__1878f21dfd9d97896d58974c22ca93f62dbad42d1696ecad5a5dd10ef4d5a465)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeoutSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -1499,7 +1502,7 @@ class CfnWorkspacesPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e13c075b4f811931f6538f282bd7fba14fae39c758507a1d16dca095b2fec9f7)
+                type_hints = cached_type_hints(_typecheckingstub__e13c075b4f811931f6538f282bd7fba14fae39c758507a1d16dca095b2fec9f7)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument settings_group", value=settings_group, expected_type=type_hints["settings_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1563,7 +1566,7 @@ class CfnWorkspacesPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c51935746c4546a0264ecc802bfcdee7763273ebc05cf76e764d89dabc01d24d)
+                type_hints = cached_type_hints(_typecheckingstub__c51935746c4546a0264ecc802bfcdee7763273ebc05cf76e764d89dabc01d24d)
                 check_type(argname="argument desired_user_sessions", value=desired_user_sessions, expected_type=type_hints["desired_user_sessions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "desired_user_sessions": desired_user_sessions,
@@ -1629,7 +1632,7 @@ class CfnWorkspacesPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57bd34e59b9d7d1fcbeb50272ac7cbdec29ebf1c3f4ef3146b6cddd5bf9cf52e)
+                type_hints = cached_type_hints(_typecheckingstub__57bd34e59b9d7d1fcbeb50272ac7cbdec29ebf1c3f4ef3146b6cddd5bf9cf52e)
                 check_type(argname="argument disconnect_timeout_in_seconds", value=disconnect_timeout_in_seconds, expected_type=type_hints["disconnect_timeout_in_seconds"])
                 check_type(argname="argument idle_disconnect_timeout_in_seconds", value=idle_disconnect_timeout_in_seconds, expected_type=type_hints["idle_disconnect_timeout_in_seconds"])
                 check_type(argname="argument max_user_duration_in_seconds", value=max_user_duration_in_seconds, expected_type=type_hints["max_user_duration_in_seconds"])
@@ -1704,14 +1707,14 @@ class CfnWorkspacesPoolProps:
         self,
         *,
         bundle_id: builtins.str,
-        capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
+        capacity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
         directory_id: builtins.str,
         pool_name: builtins.str,
-        application_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         running_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        timeout_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspacesPool.TimeoutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspacesPool.TimeoutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkspacesPool``.
 
@@ -1764,7 +1767,7 @@ class CfnWorkspacesPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb4cf19658d50453aaf837ebc448848141de5ab5627b58be920162b658ff8854)
+            type_hints = cached_type_hints(_typecheckingstub__cb4cf19658d50453aaf837ebc448848141de5ab5627b58be920162b658ff8854)
             check_type(argname="argument bundle_id", value=bundle_id, expected_type=type_hints["bundle_id"])
             check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
             check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
@@ -1804,14 +1807,14 @@ class CfnWorkspacesPoolProps:
     @builtins.property
     def capacity(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.CapacityProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.CapacityProperty"]:
         '''Describes the user capacity for the pool.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspacespool.html#cfn-workspaces-workspacespool-capacity
         '''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.CapacityProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.CapacityProperty"], result)
 
     @builtins.property
     def directory_id(self) -> builtins.str:
@@ -1836,13 +1839,13 @@ class CfnWorkspacesPoolProps:
     @builtins.property
     def application_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.ApplicationSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.ApplicationSettingsProperty"]]:
         '''The persistent application settings for users of the pool.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspacespool.html#cfn-workspaces-workspacespool-applicationsettings
         '''
         result = self._values.get("application_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.ApplicationSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.ApplicationSettingsProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1863,7 +1866,7 @@ class CfnWorkspacesPoolProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :deprecated: this property has been deprecated
 
@@ -1871,12 +1874,12 @@ class CfnWorkspacesPoolProps:
         :stability: deprecated
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def timeout_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.TimeoutSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.TimeoutSettingsProperty"]]:
         '''The amount of time that a pool session remains active after users disconnect.
 
         If they try to reconnect to the pool session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new pool instance.
@@ -1884,7 +1887,7 @@ class CfnWorkspacesPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspacespool.html#cfn-workspaces-workspacespool-timeoutsettings
         '''
         result = self._values.get("timeout_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspacesPool.TimeoutSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspacesPool.TimeoutSettingsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1914,7 +1917,7 @@ def _typecheckingstub__3fd73d00432c1164a74beb35acf6162e3d82fa91d51a0edf8c896028b
     id: builtins.str,
     *,
     connection_string: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1926,7 +1929,7 @@ def _typecheckingstub__76f39ec24ce0950d3ba9ddf713f5b5c8349a489a83df314a68c350efb
     pass
 
 def _typecheckingstub__70d07e3ef46b7d1868d493367bae11c00c38fa0bb35cfa4e162e97b1482bf156(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1944,7 +1947,7 @@ def _typecheckingstub__ac8b72c0a6880f896fe31f0555dd87dfdcce86c05579ff4a417ab736a
     pass
 
 def _typecheckingstub__6cf34741743106631ede324d61fdd5ed726b94e64d09574347d59201303db6f9(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1962,7 +1965,7 @@ def _typecheckingstub__614a827f45558e3ee89a9937d774dc07580e2d2d88ccf9a78ea211aca
 def _typecheckingstub__33d1c548638caf6c8699dd74d5bcc8d8df516e1a0738521496aee37402727de8(
     *,
     connection_string: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1974,17 +1977,17 @@ def _typecheckingstub__ecf9321ac6e165dfc96d72b093b8636e1ff9e82acf9cea2e5176beb79
     bundle_id: builtins.str,
     directory_id: builtins.str,
     user_name: builtins.str,
-    root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     volume_encryption_key: typing.Optional[builtins.str] = None,
-    workspace_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.WorkspacePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.WorkspacePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8d6d998e49570cc52ccb0ecfad0db07c3b31d793cd316fcd6de9bd3cde91f30e(
-    resource: _IWorkspaceRef_2a5ebc43,
+    resource: _aws_workspaces_4620141e.IWorkspaceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2004,7 +2007,7 @@ def _typecheckingstub__0189c0ab3f83c44331c574b9d6fa036f364fb409d35f51f73b8fba8ae
     pass
 
 def _typecheckingstub__e772192f4dd8e60f99b92beca96b37f99aca30dac13f906848601f52405c8d90(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2034,19 +2037,19 @@ def _typecheckingstub__225037370c6d4ae1d7c6fb794db70699fb16815233054c687f769b05c
     pass
 
 def _typecheckingstub__bb29c66862be75fab751682c7102c72c4846798afbc12b529f0ece9b38719128(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1f2a501e8ab3d90f102a797f62bdece7b78195c5b29e714a25825ca056f061c4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8bd38103f5213efdd25dca3a2f0c8dcbf665bbcfb052ef6f4c929ce79e0719d6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2058,7 +2061,7 @@ def _typecheckingstub__0670847357c5e2a262f5f7ce5cb07d9b48f5d29700739766ad22e9141
     pass
 
 def _typecheckingstub__cbfa33f0e5fe13fa6e31e4fac282721ea7584fa1e07cea2b5dc3a6a41028a2ad(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.WorkspacePropertiesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.WorkspacePropertiesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2079,11 +2082,11 @@ def _typecheckingstub__a25f87093526ea01aa087ea6dc9cc539b9abec4e01cf4bf21ae13159b
     bundle_id: builtins.str,
     directory_id: builtins.str,
     user_name: builtins.str,
-    root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    root_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_volume_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     volume_encryption_key: typing.Optional[builtins.str] = None,
-    workspace_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.WorkspacePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.WorkspacePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2093,20 +2096,20 @@ def _typecheckingstub__2d46eb37beb6bc915a0a0c68f02dfa689a2d725a4252e6874da1ed606
     id: builtins.str,
     *,
     bundle_id: builtins.str,
-    capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
+    capacity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
     directory_id: builtins.str,
     pool_name: builtins.str,
-    application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     running_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.TimeoutSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.TimeoutSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c2dbd5f4064559f5e78985e554d7a34aa799b2798c681d557e9855c751c0916f(
-    resource: _IWorkspacesPoolRef_7d9266b1,
+    resource: _aws_workspaces_4620141e.IWorkspacesPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2134,7 +2137,7 @@ def _typecheckingstub__d95fd45f53c6dbbf035cfa65feb9e596460f33a7c75ea9712267b2a08
     pass
 
 def _typecheckingstub__f53d77ec5dfd335f69439256c79f2f3c6b1b45896c302f8bc1c0ec35d59c6d29(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2152,7 +2155,7 @@ def _typecheckingstub__0452074a51df88aa4932643faa31ebd1eccc5cee06312ade358694132
     pass
 
 def _typecheckingstub__6c57f030f2306ece2ea0c01485d454bac3da27c5dc44bd0b7ba4d7e46018432e(
-    value: typing.Union[_IResolvable_da3f097b, CfnWorkspacesPool.CapacityProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspacesPool.CapacityProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2170,7 +2173,7 @@ def _typecheckingstub__be64bf569690a63465e1cb83bfe620df5dc0e4eb9288b061c8c5ce9ac
     pass
 
 def _typecheckingstub__910fbbdd803ad5d164bc189f1acae9c33a7b4357cf407bdba7e99d2fa0824bb7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspacesPool.ApplicationSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspacesPool.ApplicationSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2188,13 +2191,13 @@ def _typecheckingstub__360e48883f6f5eb30b47d1d804ac1d51f3162354f1b454a279520a266
     pass
 
 def _typecheckingstub__a940a91e0c4bd8a1424475cae423b68c22b5107bb7454e6d62fa5d1a232ac829(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1878f21dfd9d97896d58974c22ca93f62dbad42d1696ecad5a5dd10ef4d5a465(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspacesPool.TimeoutSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspacesPool.TimeoutSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2226,14 +2229,14 @@ def _typecheckingstub__57bd34e59b9d7d1fcbeb50272ac7cbdec29ebf1c3f4ef3146b6cddd5b
 def _typecheckingstub__cb4cf19658d50453aaf837ebc448848141de5ab5627b58be920162b658ff8854(
     *,
     bundle_id: builtins.str,
-    capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
+    capacity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
     directory_id: builtins.str,
     pool_name: builtins.str,
-    application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     running_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspacesPool.TimeoutSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspacesPool.TimeoutSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

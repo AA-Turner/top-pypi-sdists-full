@@ -408,7 +408,14 @@ def _resolve_capability(capability_path: Path) -> _CapabilityResolution:
     )
     skills_paths = _resolve_skill_paths(capability_path, manifest.skills, component_health) or None
     skills_path = skills_paths[0] if skills_paths else None
-    skill_count = sum(1 for h in component_health if h.get("kind") == "skill")
+    # ``degraded`` skill entries record a path that never resolved, so they must
+    # not count toward CAP-VALID-008 — otherwise a missing declared skills path
+    # would satisfy the "exports at least one component" check on its own.
+    # ``error`` entries (unparseable SKILL.md) still count: excluding them would
+    # reject capabilities that load today. Tracked separately.
+    skill_count = sum(
+        1 for h in component_health if h.get("kind") == "skill" and h.get("status") != "degraded"
+    )
     exported_count = (
         len(agents)
         + skill_count
@@ -856,10 +863,25 @@ def _resolve_skill_paths(
     paths: list[Path] = []
     for ref in refs:
         resolved = (capability_path / ref.path).resolve()
+        # ``required`` marks an author-declared path. Auto-discovered defaults
+        # are pre-filtered for existence in ``_build_export_refs``, so staying
+        # quiet about them avoids a health entry on every capability that
+        # simply has no skills/ directory.
         if not resolved.exists():
+            if ref.required and component_health is not None:
+                logger.warning("Declared skills path not found: {}", resolved)
+                component_health.append(
+                    _dropped_component(
+                        "skill",
+                        ref.path,
+                        f"Declared skills path not found: {ref.path}",
+                        "Listed under skills: in capability.yaml but missing from the capability",
+                    )
+                )
             continue
-        if not _is_contained_within(resolved, capability_path):
-            continue
+        # CAP-VALID-007 containment is enforced by ``_build_export_refs`` for both
+        # ref sources (auto-discovered paths are dropped, configured paths raise),
+        # so nothing that escapes the capability root reaches this loop.
         # Record health for each skill subdirectory by attempting to parse its
         # SKILL.md. Mirrors `_load_agent_from_markdown` so frontmatter parse /
         # validation failures surface to `dreadnode capability validate` instead
@@ -926,6 +948,18 @@ def _resolve_agent_definitions(
     for ref in refs:
         resolved = _resolve_export_path(capability_path, ref)
         if not resolved:
+            # Only author-declared paths are reported — auto-discovered
+            # defaults are pre-filtered for existence in ``_build_export_refs``.
+            if ref.required:
+                logger.warning("[{}] Declared agents path not found: {}", capability_name, ref.path)
+                component_health.append(
+                    _dropped_component(
+                        "agent",
+                        ref.path,
+                        f"Declared agents path not found: {ref.path}",
+                        "Listed under agents: in capability.yaml but missing from the capability",
+                    )
+                )
             continue
 
         files: list[Path] = []
@@ -1068,12 +1102,24 @@ def _python_export_paths(
         seen_roots.add(resolved)
         roots.append(resolved)
 
+    # Roots are deduped, but a file can still be reached twice — declaring
+    # ``tools: [tools/a.py]`` adds it as its own root alongside the auto-discovered
+    # ``tools/`` directory that already globs it. Scanning it twice would import it
+    # twice and report every component in it as a duplicate of itself.
     files: list[Path] = []
+    seen_files: set[Path] = set()
     for root in roots:
         if root.is_dir():
-            files.extend(file for file in sorted(root.rglob("*.py")) if file.name != "__init__.py")
+            candidates = [file for file in sorted(root.rglob("*.py")) if file.name != "__init__.py"]
         elif root.suffix.lower() == ".py" and root.name != "__init__.py":
-            files.append(root)
+            candidates = [root]
+        else:
+            continue
+        for file in candidates:
+            if file in seen_files:
+                continue
+            seen_files.add(file)
+            files.append(file)
     return files
 
 
@@ -1105,6 +1151,94 @@ def _instantiate_toolset(toolset_cls: type[t.Any]) -> t.Any | None:
         return None
 
 
+def _dropped_component(
+    kind: str,
+    name: str,
+    error: str,
+    detail: str,
+) -> dict[str, t.Any]:
+    """Build a health entry for a component that was found but never loaded.
+
+    Discovery is deliberately forgiving — a file that fails to contribute a
+    component is skipped so the rest of the capability still loads. Skipping
+    silently, though, makes the failure undiagnosable on every surface
+    including the live runtime, so each skip records why it happened.
+
+    Uses ``degraded`` rather than ``error``: the capability loaded and other
+    components are unaffected, but something the author wrote did not reach
+    the runtime. ``warning`` is deliberately *not* used — it is not part of
+    the ``ComponentStatusInfo.status`` vocabulary and emitting it would fail
+    serialization of ``GET /api/runtime``.
+    """
+    return {
+        "kind": kind,
+        "name": name,
+        "status": "degraded",
+        "error": error,
+        "detail": detail,
+    }
+
+
+def _is_support_module(file_path: Path, capability_path: Path) -> bool:
+    """Whether a discovered export file reads as a private helper module.
+
+    ``_python_export_paths`` globs every ``.py`` under an export root, so shared
+    helpers live alongside real exports. An underscore prefix is the Python
+    convention for "not part of the public surface", and is the escape hatch we
+    point authors at instead of reporting the file as contributing nothing.
+
+    Any underscore-prefixed *directory* on the path counts too — marking a whole
+    private package (``tools/_internal/``) has to work without renaming every
+    file inside it. Only the portion below the capability root is inspected, so
+    an underscore somewhere in the absolute path can't silence a real export.
+    """
+    try:
+        relative = file_path.relative_to(capability_path)
+    except ValueError:
+        relative = Path(file_path.name)
+    return any(part.startswith("_") for part in relative.parts)
+
+
+def _collect_toolset_tools(
+    toolset: t.Any,
+    tools: list[t.Any],
+    seen: set[str],
+    component_health: list[dict[str, t.Any]],
+    *,
+    capability_name: str,
+    file_path: Path,
+) -> None:
+    """Append a toolset's tools, recording any dropped as duplicates."""
+    for tool in toolset.get_tools():
+        if tool.name in seen:
+            logger.warning(
+                "[{}] Duplicate tool name '{}' from toolset in {} — keeping the first definition",
+                capability_name,
+                tool.name,
+                file_path,
+            )
+            component_health.append(
+                _dropped_component(
+                    "tool",
+                    tool.name,
+                    f"Duplicate tool name '{tool.name}' from a toolset in {file_path.name}",
+                    "Another tool already registered this name — rename one of them",
+                )
+            )
+            continue
+        tools.append(tool)
+        seen.add(tool.name)
+        component_health.append(
+            {
+                "kind": "tool",
+                "name": tool.name,
+                "status": "ok",
+                "error": None,
+                "detail": None,
+            }
+        )
+
+
 def _discover_python_tools(
     capability_path: Path,
     manifest: CapabilityManifest,
@@ -1115,6 +1249,14 @@ def _discover_python_tools(
 
     tools: list[t.Any] = []
     seen: set[str] = set()
+    # Tools re-exported across sibling modules (``from .search import search_tool``)
+    # surface again in the importing module's namespace. Tracking identity keeps
+    # those quiet while still reporting two *distinct* tools claiming one name.
+    seen_objects: set[int] = set()
+    # Accumulates across files: a Toolset class imported into a second module
+    # must not be auto-instantiated again once another module supplied the
+    # instance, or every one of its tools is re-reported as a duplicate.
+    instantiated_toolsets: set[type] = set()
     for file_path in _python_export_paths(capability_path, manifest.tools, "tools/"):
         try:
             module = _load_python_module(file_path, capability_path, manifest.name, "tool")
@@ -1131,40 +1273,75 @@ def _discover_python_tools(
             )
             continue
 
+        # A module can contribute by *referencing* a component another module
+        # already registered (re-exports), which records no health entry — so
+        # "did this file give us anything recognizable" can't be answered by
+        # comparing health length alone.
+        contributed = False
+        # A module-level ``my_tools = MyTools()`` alongside ``class MyTools(Toolset)``
+        # is the documented pattern; the instance is authoritative, so the class
+        # branch must not instantiate a second copy and report every tool as a dupe.
+        instantiated_toolsets.update(
+            type(value) for value in vars(module).values() if isinstance(value, Toolset)
+        )
         for value in vars(module).values():
             if isinstance(value, Tool):
-                if value.name not in seen:
-                    tools.append(value)
-                    seen.add(value.name)
-                    component_health.append(
-                        {
-                            "kind": "tool",
-                            "name": value.name,
-                            "status": "ok",
-                            "error": None,
-                            "detail": None,
-                        }
+                contributed = True
+                if id(value) in seen_objects:
+                    continue
+                if value.name in seen:
+                    logger.warning(
+                        "[{}] Duplicate tool name '{}' in {} — keeping the first definition",
+                        manifest.name,
+                        value.name,
+                        file_path,
                     )
+                    component_health.append(
+                        _dropped_component(
+                            "tool",
+                            value.name,
+                            f"Duplicate tool name '{value.name}' in {file_path.name}",
+                            "Another tool already registered this name — rename one of them",
+                        )
+                    )
+                    continue
+                tools.append(value)
+                seen.add(value.name)
+                seen_objects.add(id(value))
+                component_health.append(
+                    {
+                        "kind": "tool",
+                        "name": value.name,
+                        "status": "ok",
+                        "error": None,
+                        "detail": None,
+                    }
+                )
                 continue
 
             if isinstance(value, Toolset):
-                for tool in value.get_tools():
-                    if tool.name in seen:
-                        continue
-                    tools.append(tool)
-                    seen.add(tool.name)
-                    component_health.append(
-                        {
-                            "kind": "tool",
-                            "name": tool.name,
-                            "status": "ok",
-                            "error": None,
-                            "detail": None,
-                        }
-                    )
+                contributed = True
+                if id(value) in seen_objects:
+                    continue
+                seen_objects.add(id(value))
+                _collect_toolset_tools(
+                    value,
+                    tools,
+                    seen,
+                    component_health,
+                    capability_name=manifest.name,
+                    file_path=file_path,
+                )
                 continue
 
             if isinstance(value, type) and issubclass(value, Toolset) and value is not Toolset:
+                contributed = True
+                # Skip both the instantiated class itself and any base class it
+                # inherits from — a ``BaseTools(Toolset)`` alongside a concrete
+                # ``ProdTools(BaseTools)`` instance already had its tools
+                # collected through the subclass.
+                if any(issubclass(cls, value) for cls in instantiated_toolsets):
+                    continue
                 toolset = _instantiate_toolset(value)
                 if toolset is None:
                     logger.warning(
@@ -1181,20 +1358,26 @@ def _discover_python_tools(
                         }
                     )
                     continue
-                for tool in toolset.get_tools():
-                    if tool.name in seen:
-                        continue
-                    tools.append(tool)
-                    seen.add(tool.name)
-                    component_health.append(
-                        {
-                            "kind": "tool",
-                            "name": tool.name,
-                            "status": "ok",
-                            "error": None,
-                            "detail": None,
-                        }
-                    )
+                _collect_toolset_tools(
+                    toolset,
+                    tools,
+                    seen,
+                    component_health,
+                    capability_name=manifest.name,
+                    file_path=file_path,
+                )
+
+        if not contributed and not _is_support_module(file_path, capability_path):
+            logger.warning("[{}] {} imported but contributed no tools", manifest.name, file_path)
+            component_health.append(
+                _dropped_component(
+                    "tool",
+                    file_path.stem,
+                    f"{file_path.name} imported but defined no tools",
+                    "Check that @tool is imported from dreadnode and applied, or rename "
+                    "shared helpers with a leading underscore",
+                )
+            )
     return tools
 
 
@@ -1208,6 +1391,8 @@ def _discover_python_hooks(
 
     hooks: list[t.Any] = []
     seen: set[str] = set()
+    # See ``_discover_python_tools``: identity keeps re-exports quiet.
+    seen_objects: set[int] = set()
     for file_path in _python_export_paths(capability_path, manifest.hooks, "hooks/"):
         try:
             module = _load_python_module(file_path, capability_path, manifest.name, "hook")
@@ -1224,14 +1409,46 @@ def _discover_python_hooks(
             )
             continue
 
+        # See ``_discover_python_tools``: a re-export records no health entry,
+        # so track recognition separately from health length.
+        contributed = False
         for value in vars(module).values():
             if not isinstance(value, Hook):
                 continue
+            contributed = True
+            if id(value) in seen_objects:
+                continue
             name = getattr(value, "__name__", getattr(value, "name", ""))
-            if not name or name in seen:
+            if not name:
+                logger.warning("[{}] Unnamed hook in {} — skipping", manifest.name, file_path)
+                component_health.append(
+                    _dropped_component(
+                        "hook",
+                        file_path.stem,
+                        f"A hook in {file_path.name} has no resolvable name",
+                        "Give the decorated function a name, or check the @hook decorator",
+                    )
+                )
+                continue
+            if name in seen:
+                logger.warning(
+                    "[{}] Duplicate hook name '{}' in {} — keeping the first definition",
+                    manifest.name,
+                    name,
+                    file_path,
+                )
+                component_health.append(
+                    _dropped_component(
+                        "hook",
+                        name,
+                        f"Duplicate hook name '{name}' in {file_path.name}",
+                        "Another hook already registered this name — rename one of them",
+                    )
+                )
                 continue
             hooks.append(value)
             seen.add(name)
+            seen_objects.add(id(value))
             component_health.append(
                 {
                     "kind": "hook",
@@ -1240,6 +1457,18 @@ def _discover_python_hooks(
                     "error": None,
                     "detail": None,
                 }
+            )
+
+        if not contributed and not _is_support_module(file_path, capability_path):
+            logger.warning("[{}] {} imported but contributed no hooks", manifest.name, file_path)
+            component_health.append(
+                _dropped_component(
+                    "hook",
+                    file_path.stem,
+                    f"{file_path.name} imported but defined no hooks",
+                    "Check that @hook is imported from dreadnode and applied to a "
+                    "module-level function — a plain function is not a Hook",
+                )
             )
     return hooks
 
@@ -1266,6 +1495,8 @@ def _discover_python_policies(
     although authors are expected to subclass it for the
     Pydantic-fields and ``@hook`` machinery to work.
     """
+    from dreadnode.policies import SessionPolicy
+
     policies: list[t.Any] = []
     seen: set[str] = set()
     configured = manifest.policies if hasattr(manifest, "policies") else None
@@ -1285,6 +1516,19 @@ def _discover_python_policies(
             )
             continue
 
+        health_before = len(component_health)
+        contributed = False
+        # An intermediate base (``class BasePolicy(SessionPolicy)`` with concrete
+        # subclasses) has no ``name`` by design. Recognising it by "some other
+        # policy class in this module inherits from it" keeps the missing-name
+        # complaint pointed at classes that really meant to be registered.
+        module_policies = [
+            value
+            for value in vars(module).values()
+            if isinstance(value, type)
+            and getattr(value, "__module__", None) == module.__name__
+            and issubclass(value, SessionPolicy)
+        ]
         for attr_name, value in vars(module).items():
             if not isinstance(value, type):
                 continue
@@ -1295,8 +1539,47 @@ def _discover_python_policies(
                 continue
             policy_name = getattr(value, "name", None)
             if not isinstance(policy_name, str) or not policy_name:
+                # Duck-typing means a policies/ module's helper dataclasses and
+                # enums land here too. Only complain about classes that clearly
+                # *meant* to be policies — anything else is a support type.
+                if not issubclass(value, SessionPolicy):
+                    continue
+                if any(
+                    other is not value and issubclass(other, value) for other in module_policies
+                ):
+                    # Abstract base — its concrete subclasses carry the names.
+                    contributed = True
+                    continue
+                logger.warning(
+                    "[{}] Class {} in {} has no usable 'name' — skipping",
+                    manifest.name,
+                    attr_name,
+                    file_path,
+                )
+                component_health.append(
+                    _dropped_component(
+                        "policy",
+                        attr_name,
+                        f"Class {attr_name} in {file_path.name} has no non-empty str 'name'",
+                        "Declare a 'name' ClassVar on the policy class",
+                    )
+                )
                 continue
             if policy_name in seen:
+                logger.warning(
+                    "[{}] Duplicate policy name '{}' in {} — keeping the first definition",
+                    manifest.name,
+                    policy_name,
+                    file_path,
+                )
+                component_health.append(
+                    _dropped_component(
+                        "policy",
+                        f"{attr_name} (policy={policy_name!r})",
+                        f"Duplicate policy name '{policy_name}' in {file_path.name}",
+                        "Another policy already registered this name — rename one of them",
+                    )
+                )
                 continue
             policies.append(value)
             seen.add(policy_name)
@@ -1308,6 +1591,22 @@ def _discover_python_policies(
                     "error": None,
                     "detail": None,
                 }
+            )
+
+        if (
+            len(component_health) == health_before
+            and not contributed
+            and not _is_support_module(file_path, capability_path)
+        ):
+            logger.warning("[{}] {} imported but contributed no policies", manifest.name, file_path)
+            component_health.append(
+                _dropped_component(
+                    "policy",
+                    file_path.stem,
+                    f"{file_path.name} imported but defined no policies",
+                    "A policy must be a class defined in this file with a non-empty "
+                    "'name' ClassVar — imported classes are skipped",
+                )
             )
     return policies
 
@@ -1828,19 +2127,69 @@ def parse_mcp_servers(
                 file_servers.update(_load_mcp_file(p))
     else:
         # Load from files first
-        files = mcp.get("files", [])
+        # ``or []`` not ``get(..., [])``: a key present with an empty value
+        # (``files:`` on its own line) is legal YAML that parses to ``None``,
+        # and reporting that as a malformed block is a false alarm.
+        files = mcp.get("files") or []
         if isinstance(files, list):
             for rel in files:
+                if not isinstance(rel, str):
+                    logger.warning("Ignoring mcp.files entry: expected a path string, got {}", rel)
+                    if component_health is not None:
+                        component_health.append(
+                            _dropped_component(
+                                "capability",
+                                "mcp.files",
+                                f"Expected a path string in mcp.files, got {type(rel).__name__}",
+                                "Each mcp.files entry must be a path relative to the capability",
+                            )
+                        )
+                    continue
                 p = capability_path / rel
                 if p.exists():
                     file_servers.update(_load_mcp_file(p))
                 else:
                     logger.warning("MCP config file not found: {}", p)
+                    if component_health is not None:
+                        component_health.append(
+                            _dropped_component(
+                                # Not a server — naming it ``mcp_server`` would
+                                # render a phantom, uninspectable row in the TUI
+                                # Services list, which only ever holds real
+                                # entries from ``MCPLifecycleManager``.
+                                "capability",
+                                rel,
+                                f"MCP config file not found: {p}",
+                                "Declared under mcp.files but missing from the capability",
+                            )
+                        )
+        elif component_health is not None:
+            logger.warning("Ignoring mcp.files: expected a list, got {}", type(files).__name__)
+            component_health.append(
+                _dropped_component(
+                    "capability",
+                    "mcp.files",
+                    f"Expected mcp.files to be a list, got {type(files).__name__}",
+                    "Fix the mcp.files block in capability.yaml",
+                )
+            )
 
         # Inline servers override file-loaded (CAP-MCP-001)
-        servers = mcp.get("servers", {})
+        servers = mcp.get("servers") or {}
         if isinstance(servers, dict):
             inline_servers.update(servers)
+        elif component_health is not None:
+            logger.warning(
+                "Ignoring mcp.servers: expected an object, got {}", type(servers).__name__
+            )
+            component_health.append(
+                _dropped_component(
+                    "capability",
+                    "mcp.servers",
+                    f"Expected mcp.servers to be an object, got {type(servers).__name__}",
+                    "Fix the mcp.servers block in capability.yaml",
+                )
+            )
 
     # Merge: inline wins on name conflict
     merged: dict[str, tuple[dict[str, t.Any], t.Literal["inline", "file"]]] = {
@@ -1853,6 +2202,15 @@ def parse_mcp_servers(
     for name, (raw, source) in merged.items():
         if not isinstance(raw, dict):
             logger.warning("Skipping MCP server '{}': expected object", name)
+            if component_health is not None:
+                component_health.append(
+                    _dropped_component(
+                        "mcp_server",
+                        name,
+                        f"Expected an object for MCP server '{name}', got {type(raw).__name__}",
+                        "Each MCP server entry must be an object with 'command' or 'url'",
+                    )
+                )
             continue
         try:
             server_def = _parse_server_entry(name, raw, capability_path, source=source)

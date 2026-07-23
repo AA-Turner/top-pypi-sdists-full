@@ -1301,6 +1301,8 @@ network_loadbalanced_ec2_service = ecs_patterns.NetworkLoadBalancedEc2Service(se
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1314,82 +1316,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import Duration as _Duration_4839e8c3
-from ..aws_applicationautoscaling import (
-    ScalingInterval as _ScalingInterval_093a9434, Schedule as _Schedule_e93ba733
-)
-from ..aws_certificatemanager import ICertificate as _ICertificate_c194c70b
-from ..aws_ec2 import (
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_ecs import (
-    AwsLogDriver as _AwsLogDriver_6f9b44e9,
-    BaseService as _BaseService_7af63dd6,
-    CapacityProviderStrategy as _CapacityProviderStrategy_8d7b6657,
-    CloudMapOptions as _CloudMapOptions_444ee9f2,
-    Cluster as _Cluster_2c790643,
-    ContainerDefinition as _ContainerDefinition_8f3b54dc,
-    ContainerImage as _ContainerImage_94af1b43,
-    DeploymentCircuitBreaker as _DeploymentCircuitBreaker_9739d940,
-    DeploymentController as _DeploymentController_d3f94589,
-    Ec2Service as _Ec2Service_7a3674b4,
-    Ec2TaskDefinition as _Ec2TaskDefinition_db8fc15c,
-    FargatePlatformVersion as _FargatePlatformVersion_55d8be5c,
-    FargateService as _FargateService_7c56217e,
-    FargateTaskDefinition as _FargateTaskDefinition_83754b60,
-    HealthCheck as _HealthCheck_6459d04f,
-    ICluster as _ICluster_16cddd09,
-    LogDriver as _LogDriver_393a21bb,
-    PlacementConstraint as _PlacementConstraint_11d82a52,
-    PlacementStrategy as _PlacementStrategy_2bb6c232,
-    PropagatedTagSource as _PropagatedTagSource_ad4e874a,
-    Protocol as _Protocol_fbb75f56,
-    RuntimePlatform as _RuntimePlatform_5ed98a9c,
-    Secret as _Secret_6be2f64f,
-    TaskDefinition as _TaskDefinition_a541a103,
-)
-from ..aws_elasticloadbalancingv2 import (
-    ApplicationListener as _ApplicationListener_e0620bf5,
-    ApplicationLoadBalancer as _ApplicationLoadBalancer_341e4ec1,
-    ApplicationProtocol as _ApplicationProtocol_aa5e9f29,
-    ApplicationProtocolVersion as _ApplicationProtocolVersion_dddfe47b,
-    ApplicationTargetGroup as _ApplicationTargetGroup_906fe365,
-    IApplicationLoadBalancer as _IApplicationLoadBalancer_4cbd50ab,
-    IListenerCertificate as _IListenerCertificate_94ab42d7,
-    INetworkLoadBalancer as _INetworkLoadBalancer_96e17101,
-    IpAddressType as _IpAddressType_c43b240e,
-    NetworkListener as _NetworkListener_539c17bf,
-    NetworkLoadBalancer as _NetworkLoadBalancer_de7c0323,
-    NetworkTargetGroup as _NetworkTargetGroup_e772364a,
-    SslPolicy as _SslPolicy_cb8ce9f8,
-)
-from ..aws_events import Rule as _Rule_334ed2b5
-from ..aws_events_targets import EcsTask as _EcsTask_782f4fa3, Tag as _Tag_dc8ac6d2
-from ..aws_iam import IRole as _IRole_235f5d8e
-from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
-from ..aws_sqs import IQueue as _IQueue_7ed6f679
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_applicationautoscaling as _aws_applicationautoscaling_2d911ee5
+    import aws_cdk.aws_certificatemanager as _aws_certificatemanager_3032d3c1
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_ecs as _aws_ecs_19c7ccd1
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_events_targets as _aws_events_targets_175aebb6
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_applicationautoscaling_2d911ee5 = _LazyImport("aws_cdk.aws_applicationautoscaling")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_3032d3c1 = _LazyImport("aws_cdk.aws_certificatemanager")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ecs_19c7ccd1 = _LazyImport("aws_cdk.aws_ecs")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_events_targets_175aebb6 = _LazyImport("aws_cdk.aws_events_targets")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -1408,10 +1377,10 @@ class ApplicationListenerProps:
         self,
         *,
         name: builtins.str,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
         port: typing.Optional[jsii.Number] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
     ) -> None:
         '''Properties to define an application listener.
 
@@ -1444,7 +1413,7 @@ class ApplicationListenerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b46073a2c95991cc29ca5af3cdf9e1c19e92fd9ca594d388a15d6aa74dfb92a3)
+            type_hints = cached_type_hints(_typecheckingstub__b46073a2c95991cc29ca5af3cdf9e1c19e92fd9ca594d388a15d6aa74dfb92a3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -1470,7 +1439,9 @@ class ApplicationListenerProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificate_c194c70b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"]:
         '''Certificate Manager certificate to associate with the load balancer.
 
         Setting this option will set the load balancer protocol to HTTPS.
@@ -1482,7 +1453,7 @@ class ApplicationListenerProps:
         created for the load balancer's specified domain name.
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificate_c194c70b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
@@ -1494,7 +1465,9 @@ class ApplicationListenerProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from clients to the load balancer.
 
         The load balancer port is determined from the protocol (port 80 for
@@ -1507,16 +1480,18 @@ class ApplicationListenerProps:
         set by default to ApplicationProtocol.HTTPS.
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
-    def ssl_policy(self) -> typing.Optional["_SslPolicy_cb8ce9f8"]:
+    def ssl_policy(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"]:
         '''The security policy that defines which ciphers and protocols are supported by the ALB Listener.
 
         :default: - The recommended elastic load balancing security policy
         '''
         result = self._values.get("ssl_policy")
-        return typing.cast(typing.Optional["_SslPolicy_cb8ce9f8"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1542,37 +1517,37 @@ class ApplicationLoadBalancedServiceBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationLoadBalancedServiceBase class.
 
@@ -1611,7 +1586,7 @@ class ApplicationLoadBalancedServiceBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c3ede040de35ed817f7c39537976690e81673c7be443b152e959f7f980600e0)
+            type_hints = cached_type_hints(_typecheckingstub__8c3ede040de35ed817f7c39537976690e81673c7be443b152e959f7f980600e0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationLoadBalancedServiceBaseProps(
@@ -1651,72 +1626,81 @@ class ApplicationLoadBalancedServiceBase(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addServiceAsTarget")
-    def _add_service_as_target(self, service: "_BaseService_7af63dd6") -> None:
+    def _add_service_as_target(self, service: "_aws_ecs_19c7ccd1.BaseService") -> None:
         '''Adds service as a target of the target group.
 
         :param service: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e214184dfe4b23795f56715f9aa4ce7e8f4af6bfcb43d1e6ab1791a4f22afc9d)
+            type_hints = cached_type_hints(_typecheckingstub__e214184dfe4b23795f56715f9aa4ce7e8f4af6bfcb43d1e6ab1791a4f22afc9d)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(None, jsii.invoke(self, "addServiceAsTarget", [service]))
 
     @jsii.member(jsii_name="createAWSLogDriver")
-    def _create_aws_log_driver(self, prefix: builtins.str) -> "_AwsLogDriver_6f9b44e9":
+    def _create_aws_log_driver(
+        self,
+        prefix: builtins.str,
+    ) -> "_aws_ecs_19c7ccd1.AwsLogDriver":
         '''
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bd16af13cdab2e9940792e6671c8c6c31e6877085b4f254794372ed342627c1)
+            type_hints = cached_type_hints(_typecheckingstub__6bd16af13cdab2e9940792e6671c8c6c31e6877085b4f254794372ed342627c1)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        return typing.cast("_AwsLogDriver_6f9b44e9", jsii.invoke(self, "createAWSLogDriver", [prefix]))
+        return typing.cast("_aws_ecs_19c7ccd1.AwsLogDriver", jsii.invoke(self, "createAWSLogDriver", [prefix]))
 
     @jsii.member(jsii_name="getDefaultCluster")
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98de5756e91b719c4f20ca96d4fd78e3a1a08dca58db4e62f745b0592a730420)
+            type_hints = cached_type_hints(_typecheckingstub__98de5756e91b719c4f20ca96d4fd78e3a1a08dca58db4e62f745b0592a730420)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The cluster that hosts the service.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="listener")
-    def listener(self) -> "_ApplicationListener_e0620bf5":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener":
         '''The listener for the service.'''
-        return typing.cast("_ApplicationListener_e0620bf5", jsii.get(self, "listener"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener", jsii.get(self, "listener"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancer")
-    def load_balancer(self) -> "_ApplicationLoadBalancer_341e4ec1":
+    def load_balancer(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer":
         '''The Application Load Balancer for the service.'''
-        return typing.cast("_ApplicationLoadBalancer_341e4ec1", jsii.get(self, "loadBalancer"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer", jsii.get(self, "loadBalancer"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_ApplicationTargetGroup_906fe365":
+    def target_group(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup":
         '''The target group for the service.'''
-        return typing.cast("_ApplicationTargetGroup_906fe365", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="certificate")
-    def certificate(self) -> typing.Optional["_ICertificate_c194c70b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"]:
         '''Certificate Manager certificate to associate with the load balancer.'''
-        return typing.cast(typing.Optional["_ICertificate_c194c70b"], jsii.get(self, "certificate"))
+        return typing.cast(typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"], jsii.get(self, "certificate"))
 
     @builtins.property
     @jsii.member(jsii_name="internalDesiredCount")
@@ -1730,9 +1714,11 @@ class ApplicationLoadBalancedServiceBase(
 
     @builtins.property
     @jsii.member(jsii_name="redirectListener")
-    def redirect_listener(self) -> typing.Optional["_ApplicationListener_e0620bf5"]:
+    def redirect_listener(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener"]:
         '''The redirect listener for the service if redirectHTTP is enabled.'''
-        return typing.cast(typing.Optional["_ApplicationListener_e0620bf5"], jsii.get(self, "redirectListener"))
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener"], jsii.get(self, "redirectListener"))
 
 
 class _ApplicationLoadBalancedServiceBaseProxy(ApplicationLoadBalancedServiceBase):
@@ -1783,37 +1769,37 @@ class ApplicationLoadBalancedServiceBaseProps:
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base ApplicationLoadBalancedEc2Service or ApplicationLoadBalancedFargateService service.
 
@@ -1953,15 +1939,15 @@ class ApplicationLoadBalancedServiceBaseProps:
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageOptions(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a68b3d7133b7b22b27e8c904e21f15f3a38d6a44c16a16cdf89d4051b43617d3)
+            type_hints = cached_type_hints(_typecheckingstub__a68b3d7133b7b22b27e8c904e21f15f3a38d6a44c16a16cdf89d4051b43617d3)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
@@ -2060,16 +2046,18 @@ class ApplicationLoadBalancedServiceBaseProps:
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificate_c194c70b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"]:
         '''Certificate Manager certificate to associate with the load balancer.
 
         Setting this option will set the load balancer protocol to HTTPS.
@@ -2082,10 +2070,12 @@ class ApplicationLoadBalancedServiceBaseProps:
         and domain zone are specified.
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificate_c194c70b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -2094,19 +2084,19 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -2114,12 +2104,12 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -2128,7 +2118,7 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -2154,13 +2144,13 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -2184,16 +2174,18 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer idle timeout, in seconds.
 
         Can be between 1 and 4000 seconds
@@ -2201,16 +2193,18 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - CloudFormation sets idle timeout to 60 seconds
         '''
         result = self._values.get("idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP address to use.
 
         :default: - IpAddressType.IPV4
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -2225,7 +2219,9 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_IApplicationLoadBalancer_4cbd50ab"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"]:
         '''The application load balancer that will serve traffic to the service.
 
         The VPC attribute of a load balancer must be specified for it to be used
@@ -2236,7 +2232,7 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_IApplicationLoadBalancer_4cbd50ab"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"], result)
 
     @builtins.property
     def load_balancer_name(self) -> typing.Optional[builtins.str]:
@@ -2275,7 +2271,9 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -2283,10 +2281,12 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from clients to the load balancer.
 
         The load balancer port is determined from the protocol (port 80 for
@@ -2299,18 +2299,18 @@ class ApplicationLoadBalancedServiceBaseProps:
         set by default to HTTPS.
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def protocol_version(
         self,
-    ) -> typing.Optional["_ApplicationProtocolVersion_dddfe47b"]:
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"]:
         '''The protocol version to use.
 
         :default: ApplicationProtocolVersion.HTTP1
         '''
         result = self._values.get("protocol_version")
-        return typing.cast(typing.Optional["_ApplicationProtocolVersion_dddfe47b"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -2355,16 +2355,20 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ssl_policy(self) -> typing.Optional["_SslPolicy_cb8ce9f8"]:
+    def ssl_policy(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"]:
         '''The security policy that defines which ciphers and protocols are supported by the ALB Listener.
 
         :default: - The recommended elastic load balancing security policy
         '''
         result = self._values.get("ssl_policy")
-        return typing.cast(typing.Optional["_SslPolicy_cb8ce9f8"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"], result)
 
     @builtins.property
-    def target_protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def target_protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from the load balancer to the ECS tasks.
 
         The default target port is determined from the protocol (port 80 for
@@ -2373,7 +2377,7 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: HTTP.
         '''
         result = self._values.get("target_protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def task_image_options(
@@ -2389,7 +2393,7 @@ class ApplicationLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -2397,7 +2401,7 @@ class ApplicationLoadBalancedServiceBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2448,7 +2452,7 @@ class ApplicationLoadBalancedTaskImageOptions:
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_name: typing.Optional[builtins.str] = None,
         container_port: typing.Optional[jsii.Number] = None,
@@ -2456,11 +2460,11 @@ class ApplicationLoadBalancedTaskImageOptions:
         enable_logging: typing.Optional[builtins.bool] = None,
         entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         family: typing.Optional[builtins.str] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
-        task_role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
+        task_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param image: The image used to start a container. Image or taskDefinition must be specified, not both. Default: - none
@@ -2499,7 +2503,7 @@ class ApplicationLoadBalancedTaskImageOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0a715be1c8377ff07328b44dda7fd678f687acf495dfe57e86f13e8a26ec834)
+            type_hints = cached_type_hints(_typecheckingstub__d0a715be1c8377ff07328b44dda7fd678f687acf495dfe57e86f13e8a26ec834)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
@@ -2542,7 +2546,7 @@ class ApplicationLoadBalancedTaskImageOptions:
             self._values["task_role"] = task_role
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, not both.
@@ -2551,7 +2555,7 @@ class ApplicationLoadBalancedTaskImageOptions:
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2644,13 +2648,13 @@ class ApplicationLoadBalancedTaskImageOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task execution IAM role that grants the Amazon ECS container agent permission to call AWS APIs on your behalf.
 
         :default: - No value
         '''
         result = self._values.get("execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def family(self) -> typing.Optional[builtins.str]:
@@ -2664,33 +2668,33 @@ class ApplicationLoadBalancedTaskImageOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def task_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task IAM role that grants containers in the task permission to call AWS APIs on your behalf.
 
         :default: - A task role is automatically created for you.
         '''
         result = self._values.get("task_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2725,17 +2729,17 @@ class ApplicationLoadBalancedTaskImageProps:
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         container_name: typing.Optional[builtins.str] = None,
         container_ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
         docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         family: typing.Optional[builtins.str] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
-        task_role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
+        task_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Options for configuring a new container.
 
@@ -2816,7 +2820,7 @@ class ApplicationLoadBalancedTaskImageProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cec175267a3dac708f871b0e7645a31942f2a9d9f8f0ed1587783015cc06211)
+            type_hints = cached_type_hints(_typecheckingstub__4cec175267a3dac708f871b0e7645a31942f2a9d9f8f0ed1587783015cc06211)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
             check_type(argname="argument container_ports", value=container_ports, expected_type=type_hints["container_ports"])
@@ -2853,7 +2857,7 @@ class ApplicationLoadBalancedTaskImageProps:
             self._values["task_role"] = task_role
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, not both.
@@ -2862,7 +2866,7 @@ class ApplicationLoadBalancedTaskImageProps:
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
@@ -2923,13 +2927,13 @@ class ApplicationLoadBalancedTaskImageProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task execution IAM role that grants the Amazon ECS container agent permission to call AWS APIs on your behalf.
 
         :default: - No value
         '''
         result = self._values.get("execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def family(self) -> typing.Optional[builtins.str]:
@@ -2943,33 +2947,33 @@ class ApplicationLoadBalancedTaskImageProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secrets to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def task_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task IAM role that grants containers in the task permission to call AWS APIs on your behalf.
 
         :default: - A task role is automatically created for you.
         '''
         result = self._values.get("task_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3002,8 +3006,8 @@ class ApplicationLoadBalancerProps:
         listeners: typing.Sequence[typing.Union["ApplicationListenerProps", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties to define an application load balancer.
@@ -3050,7 +3054,7 @@ class ApplicationLoadBalancerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79ebff39a666081bf01e0399f5335ad9eb19b8b894df0c23432e1f8648cdff16)
+            type_hints = cached_type_hints(_typecheckingstub__79ebff39a666081bf01e0399f5335ad9eb19b8b894df0c23432e1f8648cdff16)
             check_type(argname="argument listeners", value=listeners, expected_type=type_hints["listeners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -3094,16 +3098,16 @@ class ApplicationLoadBalancerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
-    def idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer idle timeout, in seconds.
 
         Can be between 1 and 4000 seconds.
@@ -3111,7 +3115,7 @@ class ApplicationLoadBalancerProps:
         :default: - CloudFormation sets idle timeout to 60 seconds
         '''
         result = self._values.get("idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -3146,18 +3150,18 @@ class ApplicationMultipleTargetGroupsServiceBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationMultipleTargetGroupsServiceBase class.
 
@@ -3177,7 +3181,7 @@ class ApplicationMultipleTargetGroupsServiceBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20c1b34dce53e1122a1dfd01a0d1887608b54749b5015b1b7db31c1b7cc39dc5)
+            type_hints = cached_type_hints(_typecheckingstub__20c1b34dce53e1122a1dfd01a0d1887608b54749b5015b1b7db31c1b7cc39dc5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationMultipleTargetGroupsServiceBaseProps(
@@ -3200,7 +3204,7 @@ class ApplicationMultipleTargetGroupsServiceBase(
     @jsii.member(jsii_name="addPortMappingForTargets")
     def _add_port_mapping_for_targets(
         self,
-        container: "_ContainerDefinition_8f3b54dc",
+        container: "_aws_ecs_19c7ccd1.ContainerDefinition",
         targets: typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''
@@ -3208,115 +3212,126 @@ class ApplicationMultipleTargetGroupsServiceBase(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a79345835d4ef672b42bb3c793158345effda1dbb30a21df1570c071ffb48d0)
+            type_hints = cached_type_hints(_typecheckingstub__7a79345835d4ef672b42bb3c793158345effda1dbb30a21df1570c071ffb48d0)
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
         return typing.cast(None, jsii.invoke(self, "addPortMappingForTargets", [container, targets]))
 
     @jsii.member(jsii_name="createAWSLogDriver")
-    def _create_aws_log_driver(self, prefix: builtins.str) -> "_AwsLogDriver_6f9b44e9":
+    def _create_aws_log_driver(
+        self,
+        prefix: builtins.str,
+    ) -> "_aws_ecs_19c7ccd1.AwsLogDriver":
         '''
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb6a89d67c09198c167cf265c93db7529c559217e1220cec21b22c76a84ba214)
+            type_hints = cached_type_hints(_typecheckingstub__cb6a89d67c09198c167cf265c93db7529c559217e1220cec21b22c76a84ba214)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        return typing.cast("_AwsLogDriver_6f9b44e9", jsii.invoke(self, "createAWSLogDriver", [prefix]))
+        return typing.cast("_aws_ecs_19c7ccd1.AwsLogDriver", jsii.invoke(self, "createAWSLogDriver", [prefix]))
 
     @jsii.member(jsii_name="findListener")
     def _find_listener(
         self,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_ApplicationListener_e0620bf5":
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener":
         '''
         :param name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ebf407ba1da2cc0a9df6dd4bea88dee86f28cad3a17e05e657898978d434a56)
+            type_hints = cached_type_hints(_typecheckingstub__9ebf407ba1da2cc0a9df6dd4bea88dee86f28cad3a17e05e657898978d434a56)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast("_ApplicationListener_e0620bf5", jsii.invoke(self, "findListener", [name]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener", jsii.invoke(self, "findListener", [name]))
 
     @jsii.member(jsii_name="getDefaultCluster")
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58dc0ae498075eeee9bf19da299c30088806731c7dcf9d66863c91734f166ad0)
+            type_hints = cached_type_hints(_typecheckingstub__58dc0ae498075eeee9bf19da299c30088806731c7dcf9d66863c91734f166ad0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @jsii.member(jsii_name="registerECSTargets")
     def _register_ecs_targets(
         self,
-        service: "_BaseService_7af63dd6",
-        container: "_ContainerDefinition_8f3b54dc",
+        service: "_aws_ecs_19c7ccd1.BaseService",
+        container: "_aws_ecs_19c7ccd1.ContainerDefinition",
         targets: typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]],
-    ) -> "_ApplicationTargetGroup_906fe365":
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup":
         '''
         :param service: -
         :param container: -
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcf6a3b4759357dbc4db856fdf773a73135d6fd1cebedc7ff1376fb6fce82c05)
+            type_hints = cached_type_hints(_typecheckingstub__dcf6a3b4759357dbc4db856fdf773a73135d6fd1cebedc7ff1376fb6fce82c05)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-        return typing.cast("_ApplicationTargetGroup_906fe365", jsii.invoke(self, "registerECSTargets", [service, container, targets]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup", jsii.invoke(self, "registerECSTargets", [service, container, targets]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The cluster that hosts the service.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="listener")
-    def listener(self) -> "_ApplicationListener_e0620bf5":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener":
         '''(deprecated) The default listener for the service (first added listener).
 
         :deprecated: - Use ``listeners`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_ApplicationListener_e0620bf5", jsii.get(self, "listener"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener", jsii.get(self, "listener"))
 
     @builtins.property
     @jsii.member(jsii_name="listeners")
-    def listeners(self) -> typing.List["_ApplicationListener_e0620bf5"]:
+    def listeners(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener"]:
         '''The listeners of the service.'''
-        return typing.cast(typing.List["_ApplicationListener_e0620bf5"], jsii.get(self, "listeners"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationListener"], jsii.get(self, "listeners"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancer")
-    def load_balancer(self) -> "_ApplicationLoadBalancer_341e4ec1":
+    def load_balancer(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer":
         '''(deprecated) The default Application Load Balancer for the service (first added load balancer).
 
         :deprecated: - Use ``loadBalancers`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_ApplicationLoadBalancer_341e4ec1", jsii.get(self, "loadBalancer"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer", jsii.get(self, "loadBalancer"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancers")
-    def load_balancers(self) -> typing.List["_ApplicationLoadBalancer_341e4ec1"]:
+    def load_balancers(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer"]:
         '''The load balancers of the service.'''
-        return typing.cast(typing.List["_ApplicationLoadBalancer_341e4ec1"], jsii.get(self, "loadBalancers"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationLoadBalancer"], jsii.get(self, "loadBalancers"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroups")
-    def target_groups(self) -> typing.List["_ApplicationTargetGroup_906fe365"]:
+    def target_groups(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup"]:
         '''The target groups of the service.'''
-        return typing.cast(typing.List["_ApplicationTargetGroup_906fe365"], jsii.get(self, "targetGroups"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup"], jsii.get(self, "targetGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="internalDesiredCount")
@@ -3330,13 +3345,16 @@ class ApplicationMultipleTargetGroupsServiceBase(
 
     @builtins.property
     @jsii.member(jsii_name="logDriver")
-    def _log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], jsii.get(self, "logDriver"))
+    def _log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], jsii.get(self, "logDriver"))
 
     @_log_driver.setter
-    def _log_driver(self, value: typing.Optional["_LogDriver_393a21bb"]) -> None:
+    def _log_driver(
+        self,
+        value: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ce32419c103730d687d929ad3e0549575fbb87951cb910f7368ee6d7100fde1)
+            type_hints = cached_type_hints(_typecheckingstub__4ce32419c103730d687d929ad3e0549575fbb87951cb910f7368ee6d7100fde1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDriver", value) # pyright: ignore[reportArgumentType]
 
@@ -3372,18 +3390,18 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base ApplicationMultipleTargetGroupsEc2Service or ApplicationMultipleTargetGroupsFargateService service.
 
@@ -3497,11 +3515,11 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageProps(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__723ca29ab050c74c4e631fcdd507260726c7d5056063c4d50dfcc2b4755958fc)
+            type_hints = cached_type_hints(_typecheckingstub__723ca29ab050c74c4e631fcdd507260726c7d5056063c4d50dfcc2b4755958fc)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -3541,16 +3559,16 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -3558,7 +3576,7 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -3594,13 +3612,15 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -3614,7 +3634,9 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional[typing.List["ApplicationLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -3622,7 +3644,7 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -3656,7 +3678,7 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -3664,7 +3686,7 @@ class ApplicationMultipleTargetGroupsServiceBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3699,7 +3721,7 @@ class ApplicationTargetProps:
         listener: typing.Optional[builtins.str] = None,
         path_pattern: typing.Optional[builtins.str] = None,
         priority: typing.Optional[jsii.Number] = None,
-        protocol: typing.Optional["_Protocol_fbb75f56"] = None,
+        protocol: typing.Optional["_aws_ecs_19c7ccd1.Protocol"] = None,
     ) -> None:
         '''Properties to define an application target group.
 
@@ -3731,7 +3753,7 @@ class ApplicationTargetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71d73c2659fa1f33af684ebf8ddbca1ec7e44bab1dd25721962f3dd2e3d374b8)
+            type_hints = cached_type_hints(_typecheckingstub__71d73c2659fa1f33af684ebf8ddbca1ec7e44bab1dd25721962f3dd2e3d374b8)
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
             check_type(argname="argument host_header", value=host_header, expected_type=type_hints["host_header"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
@@ -3817,7 +3839,7 @@ class ApplicationTargetProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_Protocol_fbb75f56"]:
+    def protocol(self) -> typing.Optional["_aws_ecs_19c7ccd1.Protocol"]:
         '''The protocol used for the port mapping.
 
         Only applicable when using application load balancers.
@@ -3825,7 +3847,7 @@ class ApplicationTargetProps:
         :default: ecs.Protocol.TCP
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_Protocol_fbb75f56"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.Protocol"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3856,13 +3878,13 @@ class FargateServiceBaseProps:
     def __init__(
         self,
         *,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
@@ -3903,11 +3925,11 @@ class FargateServiceBaseProps:
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be57306e3f86de996d7bf3938a60ebd3f8fd4e38da3fbde2b8a23f728f3a7ef7)
+            type_hints = cached_type_hints(_typecheckingstub__be57306e3f86de996d7bf3938a60ebd3f8fd4e38da3fbde2b8a23f728f3a7ef7)
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
@@ -3932,7 +3954,9 @@ class FargateServiceBaseProps:
             self._values["task_definition"] = task_definition
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -3941,7 +3965,7 @@ class FargateServiceBaseProps:
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -4012,7 +4036,9 @@ class FargateServiceBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -4022,19 +4048,21 @@ class FargateServiceBaseProps:
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -4042,7 +4070,7 @@ class FargateServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4089,7 +4117,7 @@ class NetworkListenerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__518f30ac762bfdf8058118a604c95640341b9c194c5d96cbe79ae8b047299916)
+            type_hints = cached_type_hints(_typecheckingstub__518f30ac762bfdf8058118a604c95640341b9c194c5d96cbe79ae8b047299916)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4138,29 +4166,29 @@ class NetworkLoadBalancedServiceBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkLoadBalancedServiceBase class.
 
@@ -4191,7 +4219,7 @@ class NetworkLoadBalancedServiceBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12b53d0ee1ed0e067bd3d89a143b1004884a752670676417fa81284f7cdfa884)
+            type_hints = cached_type_hints(_typecheckingstub__12b53d0ee1ed0e067bd3d89a143b1004884a752670676417fa81284f7cdfa884)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkLoadBalancedServiceBaseProps(
@@ -4223,66 +4251,71 @@ class NetworkLoadBalancedServiceBase(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addServiceAsTarget")
-    def _add_service_as_target(self, service: "_BaseService_7af63dd6") -> None:
+    def _add_service_as_target(self, service: "_aws_ecs_19c7ccd1.BaseService") -> None:
         '''Adds service as a target of the target group.
 
         :param service: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75389372addc5b0dd12a94a0b4d1ce03eada5cfef6d9be6f82716f3013ef3250)
+            type_hints = cached_type_hints(_typecheckingstub__75389372addc5b0dd12a94a0b4d1ce03eada5cfef6d9be6f82716f3013ef3250)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(None, jsii.invoke(self, "addServiceAsTarget", [service]))
 
     @jsii.member(jsii_name="createAWSLogDriver")
-    def _create_aws_log_driver(self, prefix: builtins.str) -> "_AwsLogDriver_6f9b44e9":
+    def _create_aws_log_driver(
+        self,
+        prefix: builtins.str,
+    ) -> "_aws_ecs_19c7ccd1.AwsLogDriver":
         '''
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f38751a148a29bda026e863bae578fca4f85717eac9652a1846ba8bb0ed174da)
+            type_hints = cached_type_hints(_typecheckingstub__f38751a148a29bda026e863bae578fca4f85717eac9652a1846ba8bb0ed174da)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        return typing.cast("_AwsLogDriver_6f9b44e9", jsii.invoke(self, "createAWSLogDriver", [prefix]))
+        return typing.cast("_aws_ecs_19c7ccd1.AwsLogDriver", jsii.invoke(self, "createAWSLogDriver", [prefix]))
 
     @jsii.member(jsii_name="getDefaultCluster")
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8459c92a381797b6679a8b9e979a57547da7b512d6cca15a184fa32611069650)
+            type_hints = cached_type_hints(_typecheckingstub__8459c92a381797b6679a8b9e979a57547da7b512d6cca15a184fa32611069650)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The cluster that hosts the service.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="listener")
-    def listener(self) -> "_NetworkListener_539c17bf":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkListener":
         '''The listener for the service.'''
-        return typing.cast("_NetworkListener_539c17bf", jsii.get(self, "listener"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkListener", jsii.get(self, "listener"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancer")
-    def load_balancer(self) -> "_NetworkLoadBalancer_de7c0323":
+    def load_balancer(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer":
         '''The Network Load Balancer for the service.'''
-        return typing.cast("_NetworkLoadBalancer_de7c0323", jsii.get(self, "loadBalancer"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer", jsii.get(self, "loadBalancer"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_NetworkTargetGroup_e772364a":
+    def target_group(self) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup":
         '''The target group for the service.'''
-        return typing.cast("_NetworkTargetGroup_e772364a", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="internalDesiredCount")
@@ -4335,29 +4368,29 @@ class NetworkLoadBalancedServiceBaseProps:
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base NetworkLoadBalancedEc2Service or NetworkLoadBalancedFargateService service.
 
@@ -4478,15 +4511,15 @@ class NetworkLoadBalancedServiceBaseProps:
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageOptions(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8c23351e0c4b39637462c662d702bdc3b000214d7335a22d67c31895e786dfa)
+            type_hints = cached_type_hints(_typecheckingstub__b8c23351e0c4b39637462c662d702bdc3b000214d7335a22d67c31895e786dfa)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
@@ -4561,16 +4594,18 @@ class NetworkLoadBalancedServiceBaseProps:
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -4579,19 +4614,19 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -4599,12 +4634,12 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -4613,7 +4648,7 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -4639,13 +4674,13 @@ class NetworkLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -4669,16 +4704,20 @@ class NetworkLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP addresses to use.
 
         If you want to add a UDP or TCP_UDP listener to the load balancer,
@@ -4689,10 +4728,12 @@ class NetworkLoadBalancedServiceBaseProps:
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-ip-address-type.html
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
-    def listener_certificate(self) -> typing.Optional["_IListenerCertificate_94ab42d7"]:
+    def listener_certificate(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"]:
         '''Listener certificate list of ACM cert ARNs.
 
         If you provide a certificate, the listener's protocol will be TLS.
@@ -4701,7 +4742,7 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("listener_certificate")
-        return typing.cast(typing.Optional["_IListenerCertificate_94ab42d7"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -4713,7 +4754,9 @@ class NetworkLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_INetworkLoadBalancer_96e17101"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"]:
         '''The network load balancer that will serve traffic to the service.
 
         If the load balancer has been imported, the vpc attribute must be specified
@@ -4724,7 +4767,7 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_INetworkLoadBalancer_96e17101"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -4745,7 +4788,9 @@ class NetworkLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -4753,7 +4798,7 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -4798,7 +4843,7 @@ class NetworkLoadBalancedServiceBaseProps:
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -4806,7 +4851,7 @@ class NetworkLoadBalancedServiceBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4855,17 +4900,17 @@ class NetworkLoadBalancedTaskImageOptions:
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         container_name: typing.Optional[builtins.str] = None,
         container_port: typing.Optional[jsii.Number] = None,
         docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         family: typing.Optional[builtins.str] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
-        task_role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
+        task_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param image: The image used to start a container. Image or taskDefinition must be specified, but not both. Default: - none
@@ -4910,7 +4955,7 @@ class NetworkLoadBalancedTaskImageOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f694932765e82b2fa3fedbddd1e610e2d5911b6e1bdbbd8d44070c7bad40ca46)
+            type_hints = cached_type_hints(_typecheckingstub__f694932765e82b2fa3fedbddd1e610e2d5911b6e1bdbbd8d44070c7bad40ca46)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
@@ -4947,7 +4992,7 @@ class NetworkLoadBalancedTaskImageOptions:
             self._values["task_role"] = task_role
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, but not both.
@@ -4956,7 +5001,7 @@ class NetworkLoadBalancedTaskImageOptions:
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
@@ -5017,13 +5062,13 @@ class NetworkLoadBalancedTaskImageOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task execution IAM role that grants the Amazon ECS container agent permission to call AWS APIs on your behalf.
 
         :default: - No value
         '''
         result = self._values.get("execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def family(self) -> typing.Optional[builtins.str]:
@@ -5037,33 +5082,33 @@ class NetworkLoadBalancedTaskImageOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def task_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task IAM role that grants containers in the task permission to call AWS APIs on your behalf.
 
         :default: - A task role is automatically created for you.
         '''
         result = self._values.get("task_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5098,17 +5143,17 @@ class NetworkLoadBalancedTaskImageProps:
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         container_name: typing.Optional[builtins.str] = None,
         container_ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
         docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         family: typing.Optional[builtins.str] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
-        task_role: typing.Optional["_IRole_235f5d8e"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
+        task_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Options for configuring a new container.
 
@@ -5162,7 +5207,7 @@ class NetworkLoadBalancedTaskImageProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30852f6dbf162daf12d00cda724cfba106d4d6135d680cf94ee9a74133bf9974)
+            type_hints = cached_type_hints(_typecheckingstub__30852f6dbf162daf12d00cda724cfba106d4d6135d680cf94ee9a74133bf9974)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
             check_type(argname="argument container_ports", value=container_ports, expected_type=type_hints["container_ports"])
@@ -5199,7 +5244,7 @@ class NetworkLoadBalancedTaskImageProps:
             self._values["task_role"] = task_role
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, but not both.
@@ -5208,7 +5253,7 @@ class NetworkLoadBalancedTaskImageProps:
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
@@ -5269,13 +5314,13 @@ class NetworkLoadBalancedTaskImageProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task execution IAM role that grants the Amazon ECS container agent permission to call AWS APIs on your behalf.
 
         :default: - No value
         '''
         result = self._values.get("execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def family(self) -> typing.Optional[builtins.str]:
@@ -5289,33 +5334,33 @@ class NetworkLoadBalancedTaskImageProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secrets to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def task_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The name of the task IAM role that grants containers in the task permission to call AWS APIs on your behalf.
 
         :default: - A task role is automatically created for you.
         '''
         result = self._values.get("task_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5347,7 +5392,7 @@ class NetworkLoadBalancerProps:
         listeners: typing.Sequence[typing.Union["NetworkListenerProps", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties to define an network load balancer.
@@ -5385,7 +5430,7 @@ class NetworkLoadBalancerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90c8df6d9fe43f579778207c9aa008c3548e5f4910f76201072fe647daa0a7e9)
+            type_hints = cached_type_hints(_typecheckingstub__90c8df6d9fe43f579778207c9aa008c3548e5f4910f76201072fe647daa0a7e9)
             check_type(argname="argument listeners", value=listeners, expected_type=type_hints["listeners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -5429,13 +5474,13 @@ class NetworkLoadBalancerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -5470,18 +5515,18 @@ class NetworkMultipleTargetGroupsServiceBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkMultipleTargetGroupsServiceBase class.
 
@@ -5501,7 +5546,7 @@ class NetworkMultipleTargetGroupsServiceBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b33ff19bdb7a9cffd7fed82b93ddea74ad2fb488ef347f6a89265a720bbbf8c)
+            type_hints = cached_type_hints(_typecheckingstub__5b33ff19bdb7a9cffd7fed82b93ddea74ad2fb488ef347f6a89265a720bbbf8c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkMultipleTargetGroupsServiceBaseProps(
@@ -5524,7 +5569,7 @@ class NetworkMultipleTargetGroupsServiceBase(
     @jsii.member(jsii_name="addPortMappingForTargets")
     def _add_port_mapping_for_targets(
         self,
-        container: "_ContainerDefinition_8f3b54dc",
+        container: "_aws_ecs_19c7ccd1.ContainerDefinition",
         targets: typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''
@@ -5532,115 +5577,126 @@ class NetworkMultipleTargetGroupsServiceBase(
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a64668ad45e97650a1206a441002c419a4975bde8b0bccaa7772098ade23f43b)
+            type_hints = cached_type_hints(_typecheckingstub__a64668ad45e97650a1206a441002c419a4975bde8b0bccaa7772098ade23f43b)
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
         return typing.cast(None, jsii.invoke(self, "addPortMappingForTargets", [container, targets]))
 
     @jsii.member(jsii_name="createAWSLogDriver")
-    def _create_aws_log_driver(self, prefix: builtins.str) -> "_AwsLogDriver_6f9b44e9":
+    def _create_aws_log_driver(
+        self,
+        prefix: builtins.str,
+    ) -> "_aws_ecs_19c7ccd1.AwsLogDriver":
         '''
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f502272e524aa84c181c273c002356b46b8b8239ee9cffd0e77acbc70bb35634)
+            type_hints = cached_type_hints(_typecheckingstub__f502272e524aa84c181c273c002356b46b8b8239ee9cffd0e77acbc70bb35634)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        return typing.cast("_AwsLogDriver_6f9b44e9", jsii.invoke(self, "createAWSLogDriver", [prefix]))
+        return typing.cast("_aws_ecs_19c7ccd1.AwsLogDriver", jsii.invoke(self, "createAWSLogDriver", [prefix]))
 
     @jsii.member(jsii_name="findListener")
     def _find_listener(
         self,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_NetworkListener_539c17bf":
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkListener":
         '''
         :param name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77abe388b8bf30f5c6c932be0a0ab673a898289ef2cf386e839cc4fc0918af23)
+            type_hints = cached_type_hints(_typecheckingstub__77abe388b8bf30f5c6c932be0a0ab673a898289ef2cf386e839cc4fc0918af23)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast("_NetworkListener_539c17bf", jsii.invoke(self, "findListener", [name]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkListener", jsii.invoke(self, "findListener", [name]))
 
     @jsii.member(jsii_name="getDefaultCluster")
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57176086c039f2967d403c593b99bb586afe303629ce5b9c0de3e9b23859b850)
+            type_hints = cached_type_hints(_typecheckingstub__57176086c039f2967d403c593b99bb586afe303629ce5b9c0de3e9b23859b850)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @jsii.member(jsii_name="registerECSTargets")
     def _register_ecs_targets(
         self,
-        service: "_BaseService_7af63dd6",
-        container: "_ContainerDefinition_8f3b54dc",
+        service: "_aws_ecs_19c7ccd1.BaseService",
+        container: "_aws_ecs_19c7ccd1.ContainerDefinition",
         targets: typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]],
-    ) -> "_NetworkTargetGroup_e772364a":
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup":
         '''
         :param service: -
         :param container: -
         :param targets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f36f948aedf82d95a68e5c875d0a0425bac06d7e494abb8bea14957cfe326bf6)
+            type_hints = cached_type_hints(_typecheckingstub__f36f948aedf82d95a68e5c875d0a0425bac06d7e494abb8bea14957cfe326bf6)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-        return typing.cast("_NetworkTargetGroup_e772364a", jsii.invoke(self, "registerECSTargets", [service, container, targets]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup", jsii.invoke(self, "registerECSTargets", [service, container, targets]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The cluster that hosts the service.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="listener")
-    def listener(self) -> "_NetworkListener_539c17bf":
+    def listener(self) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkListener":
         '''(deprecated) The listener for the service.
 
         :deprecated: - Use ``listeners`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_NetworkListener_539c17bf", jsii.get(self, "listener"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkListener", jsii.get(self, "listener"))
 
     @builtins.property
     @jsii.member(jsii_name="listeners")
-    def listeners(self) -> typing.List["_NetworkListener_539c17bf"]:
+    def listeners(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkListener"]:
         '''The listeners of the service.'''
-        return typing.cast(typing.List["_NetworkListener_539c17bf"], jsii.get(self, "listeners"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkListener"], jsii.get(self, "listeners"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancer")
-    def load_balancer(self) -> "_NetworkLoadBalancer_de7c0323":
+    def load_balancer(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer":
         '''(deprecated) The Network Load Balancer for the service.
 
         :deprecated: - Use ``loadBalancers`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_NetworkLoadBalancer_de7c0323", jsii.get(self, "loadBalancer"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer", jsii.get(self, "loadBalancer"))
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancers")
-    def load_balancers(self) -> typing.List["_NetworkLoadBalancer_de7c0323"]:
+    def load_balancers(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer"]:
         '''The load balancers of the service.'''
-        return typing.cast(typing.List["_NetworkLoadBalancer_de7c0323"], jsii.get(self, "loadBalancers"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkLoadBalancer"], jsii.get(self, "loadBalancers"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroups")
-    def target_groups(self) -> typing.List["_NetworkTargetGroup_e772364a"]:
+    def target_groups(
+        self,
+    ) -> typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup"]:
         '''The target groups of the service.'''
-        return typing.cast(typing.List["_NetworkTargetGroup_e772364a"], jsii.get(self, "targetGroups"))
+        return typing.cast(typing.List["_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup"], jsii.get(self, "targetGroups"))
 
     @builtins.property
     @jsii.member(jsii_name="internalDesiredCount")
@@ -5654,13 +5710,16 @@ class NetworkMultipleTargetGroupsServiceBase(
 
     @builtins.property
     @jsii.member(jsii_name="logDriver")
-    def _log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], jsii.get(self, "logDriver"))
+    def _log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], jsii.get(self, "logDriver"))
 
     @_log_driver.setter
-    def _log_driver(self, value: typing.Optional["_LogDriver_393a21bb"]) -> None:
+    def _log_driver(
+        self,
+        value: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be3093e7d26d71cbdd75ea955c17a38c66bdd2dd8a1746dd02daa5799410b76)
+            type_hints = cached_type_hints(_typecheckingstub__6be3093e7d26d71cbdd75ea955c17a38c66bdd2dd8a1746dd02daa5799410b76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDriver", value) # pyright: ignore[reportArgumentType]
 
@@ -5696,18 +5755,18 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base NetworkMultipleTargetGroupsEc2Service or NetworkMultipleTargetGroupsFargateService service.
 
@@ -5810,11 +5869,11 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageProps(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c08737cabd856e08d1babfdaa1a3f7ef5f5bdb1b9647975a5f16903980fb7fa)
+            type_hints = cached_type_hints(_typecheckingstub__2c08737cabd856e08d1babfdaa1a3f7ef5f5bdb1b9647975a5f16903980fb7fa)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -5854,16 +5913,16 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -5871,7 +5930,7 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -5909,13 +5968,15 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -5929,7 +5990,9 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional[typing.List["NetworkLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -5937,7 +6000,7 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -5971,7 +6034,7 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -5979,7 +6042,7 @@ class NetworkMultipleTargetGroupsServiceBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6026,7 +6089,7 @@ class NetworkTargetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf192b827eee73774d2f9772e9b2a0bdf7bc1fdcc91660429d483660f2c7c15)
+            type_hints = cached_type_hints(_typecheckingstub__2bf192b827eee73774d2f9772e9b2a0bdf7bc1fdcc91660429d483660f2c7c15)
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6078,34 +6141,34 @@ class QueueProcessingServiceBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the QueueProcessingServiceBase class.
 
@@ -6141,7 +6204,7 @@ class QueueProcessingServiceBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fc71af757020f767be8812de7989d3d33a9bd30209b4100ed047bcc34fd8b9f)
+            type_hints = cached_type_hints(_typecheckingstub__5fc71af757020f767be8812de7989d3d33a9bd30209b4100ed047bcc34fd8b9f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = QueueProcessingServiceBaseProps(
@@ -6180,14 +6243,14 @@ class QueueProcessingServiceBase(
     @jsii.member(jsii_name="configureAutoscalingForService")
     def _configure_autoscaling_for_service(
         self,
-        service: "_BaseService_7af63dd6",
+        service: "_aws_ecs_19c7ccd1.BaseService",
     ) -> None:
         '''Configure autoscaling based off of CPU utilization as well as the number of messages visible in the SQS queue.
 
         :param service: the ECS/Fargate service for which to apply the autoscaling rules to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebd145566af297ea7ea035bb40354c39317c438beed9c109f09245dc6a5c19d9)
+            type_hints = cached_type_hints(_typecheckingstub__ebd145566af297ea7ea035bb40354c39317c438beed9c109f09245dc6a5c19d9)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(None, jsii.invoke(self, "configureAutoscalingForService", [service]))
 
@@ -6195,35 +6258,38 @@ class QueueProcessingServiceBase(
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a9a322f340e5aed3c0a55cce5d21ff41e2ec8343595aef9931470d5494f86a5)
+            type_hints = cached_type_hints(_typecheckingstub__5a9a322f340e5aed3c0a55cce5d21ff41e2ec8343595aef9931470d5494f86a5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @jsii.member(jsii_name="grantPermissionsToService")
-    def _grant_permissions_to_service(self, service: "_BaseService_7af63dd6") -> None:
+    def _grant_permissions_to_service(
+        self,
+        service: "_aws_ecs_19c7ccd1.BaseService",
+    ) -> None:
         '''Grant SQS permissions to an ECS service.
 
         :param service: the ECS/Fargate service to which to grant SQS permissions.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37d377968624397001d0437d8277df12d88594198df072720227cb206b6cb55b)
+            type_hints = cached_type_hints(_typecheckingstub__37d377968624397001d0437d8277df12d88594198df072720227cb206b6cb55b)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToService", [service]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The cluster where your service will be deployed.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="environment")
@@ -6245,35 +6311,37 @@ class QueueProcessingServiceBase(
 
     @builtins.property
     @jsii.member(jsii_name="scalingSteps")
-    def scaling_steps(self) -> typing.List["_ScalingInterval_093a9434"]:
+    def scaling_steps(
+        self,
+    ) -> typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]:
         '''The scaling interval for autoscaling based off an SQS Queue size.'''
-        return typing.cast(typing.List["_ScalingInterval_093a9434"], jsii.get(self, "scalingSteps"))
+        return typing.cast(typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"], jsii.get(self, "scalingSteps"))
 
     @builtins.property
     @jsii.member(jsii_name="sqsQueue")
-    def sqs_queue(self) -> "_IQueue_7ed6f679":
+    def sqs_queue(self) -> "_aws_sqs_24ab9de4.IQueue":
         '''The SQS queue that the service will process from.'''
-        return typing.cast("_IQueue_7ed6f679", jsii.get(self, "sqsQueue"))
+        return typing.cast("_aws_sqs_24ab9de4.IQueue", jsii.get(self, "sqsQueue"))
 
     @builtins.property
     @jsii.member(jsii_name="deadLetterQueue")
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''The dead letter queue for the primary SQS queue.'''
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], jsii.get(self, "deadLetterQueue"))
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], jsii.get(self, "deadLetterQueue"))
 
     @builtins.property
     @jsii.member(jsii_name="logDriver")
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The AwsLogDriver to use for logging if logging is enabled.'''
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], jsii.get(self, "logDriver"))
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], jsii.get(self, "logDriver"))
 
     @builtins.property
     @jsii.member(jsii_name="secrets")
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret environment variables.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], jsii.get(self, "secrets"))
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], jsii.get(self, "secrets"))
 
 
 class _QueueProcessingServiceBaseProxy(QueueProcessingServiceBase):
@@ -6321,34 +6389,34 @@ class QueueProcessingServiceBaseProps:
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base QueueProcessingEc2Service or QueueProcessingFargateService service.
 
@@ -6453,11 +6521,11 @@ class QueueProcessingServiceBaseProps:
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff388b11e5bd7ab901448e691582759de30893b9591641393bec2ce4f8302d48)
+            type_hints = cached_type_hints(_typecheckingstub__ff388b11e5bd7ab901448e691582759de30893b9591641393bec2ce4f8302d48)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -6547,16 +6615,18 @@ class QueueProcessingServiceBaseProps:
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -6565,10 +6635,10 @@ class QueueProcessingServiceBaseProps:
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -6576,7 +6646,7 @@ class QueueProcessingServiceBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6590,7 +6660,7 @@ class QueueProcessingServiceBaseProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Grace period after scaling activity in seconds.
 
         Subsequent scale outs during the cooldown period are squashed so that only
@@ -6603,7 +6673,7 @@ class QueueProcessingServiceBaseProps:
         :see: https://docs.aws.amazon.com/autoscaling/application/APIReference/API_StepScalingPolicyConfiguration.html
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def cpu_target_utilization_percent(self) -> typing.Optional[jsii.Number]:
@@ -6617,7 +6687,7 @@ class QueueProcessingServiceBaseProps:
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -6626,7 +6696,7 @@ class QueueProcessingServiceBaseProps:
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def disable_cpu_based_scaling(self) -> typing.Optional[builtins.bool]:
@@ -6693,7 +6763,7 @@ class QueueProcessingServiceBaseProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def image(self) -> typing.Optional["_ContainerImage_94af1b43"]:
+    def image(self) -> typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"]:
         '''The image used to start a container.
 
         For ``QueueProcessingFargateService``, either ``image`` or ``taskDefinition`` must be specified, but not both.
@@ -6702,16 +6772,16 @@ class QueueProcessingServiceBaseProps:
         :default: - the image of the task definition is used for Fargate, required otherwise
         '''
         result = self._values.get("image")
-        return typing.cast(typing.Optional["_ContainerImage_94af1b43"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -6763,7 +6833,9 @@ class QueueProcessingServiceBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -6771,10 +6843,10 @@ class QueueProcessingServiceBaseProps:
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''A queue for which to process items from.
 
         If specified and this is a FIFO queue, the queue name must end in the string '.fifo'. See
@@ -6783,10 +6855,10 @@ class QueueProcessingServiceBaseProps:
         :default: 'SQSQueue with CloudFormation-generated name'
         '''
         result = self._values.get("queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
-    def retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of seconds that Dead Letter Queue retains a message.
 
         If the queue construct is specified, retentionPeriod should be omitted.
@@ -6794,12 +6866,12 @@ class QueueProcessingServiceBaseProps:
         :default: Duration.days(14)
         '''
         result = self._values.get("retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def scaling_steps(
         self,
-    ) -> typing.Optional[typing.List["_ScalingInterval_093a9434"]]:
+    ) -> typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]]:
         '''The intervals for scaling based on the SQS queue's ApproximateNumberOfMessagesVisible metric.
 
         Maps a range of metric values to a particular scaling behavior. See
@@ -6808,18 +6880,18 @@ class QueueProcessingServiceBaseProps:
         :default: [{ upper: 0, change: -1 },{ lower: 100, change: +1 },{ lower: 500, change: +5 }]
         '''
         result = self._values.get("scaling_steps")
-        return typing.cast(typing.Optional[typing.List["_ScalingInterval_093a9434"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -6831,7 +6903,7 @@ class QueueProcessingServiceBaseProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def visibility_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def visibility_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout of processing a single message.
 
         After dequeuing, the processor has this much time to handle the message and delete it from the queue
@@ -6842,10 +6914,10 @@ class QueueProcessingServiceBaseProps:
         :default: Duration.seconds(30)
         '''
         result = self._values.get("visibility_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -6853,7 +6925,7 @@ class QueueProcessingServiceBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6873,7 +6945,11 @@ class QueueProcessingServiceBaseProps:
     name_mapping={"task_definition": "taskDefinition"},
 )
 class ScheduledEc2TaskDefinitionOptions:
-    def __init__(self, *, task_definition: "_Ec2TaskDefinition_db8fc15c") -> None:
+    def __init__(
+        self,
+        *,
+        task_definition: "_aws_ecs_19c7ccd1.Ec2TaskDefinition",
+    ) -> None:
         '''The properties for the ScheduledEc2Task using a task definition.
 
         :param task_definition: The task definition to use for tasks in the service. One of image or taskDefinition must be specified. [disable-awslint:ref-via-interface] Default: - none
@@ -6894,14 +6970,14 @@ class ScheduledEc2TaskDefinitionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31b57dada5b3a8cc1672281ef95589bb52a2211349ee9830175e91ecfe0827b)
+            type_hints = cached_type_hints(_typecheckingstub__d31b57dada5b3a8cc1672281ef95589bb52a2211349ee9830175e91ecfe0827b)
             check_type(argname="argument task_definition", value=task_definition, expected_type=type_hints["task_definition"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "task_definition": task_definition,
         }
 
     @builtins.property
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The task definition to use for tasks in the service. One of image or taskDefinition must be specified.
 
         [disable-awslint:ref-via-interface]
@@ -6910,7 +6986,7 @@ class ScheduledEc2TaskDefinitionOptions:
         '''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", result)
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6930,7 +7006,11 @@ class ScheduledEc2TaskDefinitionOptions:
     name_mapping={"task_definition": "taskDefinition"},
 )
 class ScheduledFargateTaskDefinitionOptions:
-    def __init__(self, *, task_definition: "_FargateTaskDefinition_83754b60") -> None:
+    def __init__(
+        self,
+        *,
+        task_definition: "_aws_ecs_19c7ccd1.FargateTaskDefinition",
+    ) -> None:
         '''The properties for the ScheduledFargateTask using a task definition.
 
         :param task_definition: The task definition to use for tasks in the service. Image or taskDefinition must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
@@ -6951,14 +7031,14 @@ class ScheduledFargateTaskDefinitionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c106dcaea6483e969093fc9c84a12221a5cf2e191e3e9579f7efdfe2f60914)
+            type_hints = cached_type_hints(_typecheckingstub__96c106dcaea6483e969093fc9c84a12221a5cf2e191e3e9579f7efdfe2f60914)
             check_type(argname="argument task_definition", value=task_definition, expected_type=type_hints["task_definition"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "task_definition": task_definition,
         }
 
     @builtins.property
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The task definition to use for tasks in the service. Image or taskDefinition must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -6967,7 +7047,7 @@ class ScheduledFargateTaskDefinitionOptions:
         '''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast("_FargateTaskDefinition_83754b60", result)
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6993,16 +7073,16 @@ class ScheduledTaskBase(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ScheduledTaskBase class.
 
@@ -7020,7 +7100,7 @@ class ScheduledTaskBase(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c684610d334b5c0d396a61b01a9c32d65a5b3385610b503c553e8e403dbefafe)
+            type_hints = cached_type_hints(_typecheckingstub__c684610d334b5c0d396a61b01a9c32d65a5b3385610b503c553e8e403dbefafe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduledTaskBaseProps(
@@ -7039,63 +7119,69 @@ class ScheduledTaskBase(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addTaskAsTarget")
-    def _add_task_as_target(self, ecs_task_target: "_EcsTask_782f4fa3") -> None:
+    def _add_task_as_target(
+        self,
+        ecs_task_target: "_aws_events_targets_175aebb6.EcsTask",
+    ) -> None:
         '''Adds task as a target of the scheduled event rule.
 
         :param ecs_task_target: the EcsTask to add to the event rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7093227e96d0fa9baa247769b05729178e6068bee2100d2a8c9463d628ead328)
+            type_hints = cached_type_hints(_typecheckingstub__7093227e96d0fa9baa247769b05729178e6068bee2100d2a8c9463d628ead328)
             check_type(argname="argument ecs_task_target", value=ecs_task_target, expected_type=type_hints["ecs_task_target"])
         return typing.cast(None, jsii.invoke(self, "addTaskAsTarget", [ecs_task_target]))
 
     @jsii.member(jsii_name="addTaskDefinitionToEventTarget")
     def _add_task_definition_to_event_target(
         self,
-        task_definition: "_TaskDefinition_a541a103",
-    ) -> "_EcsTask_782f4fa3":
+        task_definition: "_aws_ecs_19c7ccd1.TaskDefinition",
+    ) -> "_aws_events_targets_175aebb6.EcsTask":
         '''Create an ECS task using the task definition provided and add it to the scheduled event rule.
 
         :param task_definition: the TaskDefinition to add to the event rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf04b6d393e171cecfee893711b0a4370c53877620bc6a93fc1d6fb12a9441df)
+            type_hints = cached_type_hints(_typecheckingstub__bf04b6d393e171cecfee893711b0a4370c53877620bc6a93fc1d6fb12a9441df)
             check_type(argname="argument task_definition", value=task_definition, expected_type=type_hints["task_definition"])
-        return typing.cast("_EcsTask_782f4fa3", jsii.invoke(self, "addTaskDefinitionToEventTarget", [task_definition]))
+        return typing.cast("_aws_events_targets_175aebb6.EcsTask", jsii.invoke(self, "addTaskDefinitionToEventTarget", [task_definition]))
 
     @jsii.member(jsii_name="createAWSLogDriver")
-    def _create_aws_log_driver(self, prefix: builtins.str) -> "_AwsLogDriver_6f9b44e9":
+    def _create_aws_log_driver(
+        self,
+        prefix: builtins.str,
+    ) -> "_aws_ecs_19c7ccd1.AwsLogDriver":
         '''Create an AWS Log Driver with the provided streamPrefix.
 
         :param prefix: the Cloudwatch logging prefix.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60df4e6a59a918f2f6b43d30e71acf42f1362dc6764e49c3528f77418bee89b7)
+            type_hints = cached_type_hints(_typecheckingstub__60df4e6a59a918f2f6b43d30e71acf42f1362dc6764e49c3528f77418bee89b7)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        return typing.cast("_AwsLogDriver_6f9b44e9", jsii.invoke(self, "createAWSLogDriver", [prefix]))
+        return typing.cast("_aws_ecs_19c7ccd1.AwsLogDriver", jsii.invoke(self, "createAWSLogDriver", [prefix]))
 
     @jsii.member(jsii_name="getDefaultCluster")
     def _get_default_cluster(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-    ) -> "_Cluster_2c790643":
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> "_aws_ecs_19c7ccd1.Cluster":
         '''Returns the default cluster.
 
         :param scope: -
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd28fb5ab9d182b7f3695a0b9d3eff967988f670f6fffa3d5e0533e274027da5)
+            type_hints = cached_type_hints(_typecheckingstub__fd28fb5ab9d182b7f3695a0b9d3eff967988f670f6fffa3d5e0533e274027da5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_Cluster_2c790643", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
+        return typing.cast("_aws_ecs_19c7ccd1.Cluster", jsii.invoke(self, "getDefaultCluster", [scope, vpc]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> "_ICluster_16cddd09":
+    def cluster(self) -> "_aws_ecs_19c7ccd1.ICluster":
         '''The name of the cluster that hosts the service.'''
-        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
+        return typing.cast("_aws_ecs_19c7ccd1.ICluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="desiredTaskCount")
@@ -7108,42 +7194,44 @@ class ScheduledTaskBase(
 
     @builtins.property
     @jsii.member(jsii_name="eventRule")
-    def event_rule(self) -> "_Rule_334ed2b5":
+    def event_rule(self) -> "_aws_events_27c08586.Rule":
         '''The CloudWatch Events rule for the service.'''
-        return typing.cast("_Rule_334ed2b5", jsii.get(self, "eventRule"))
+        return typing.cast("_aws_events_27c08586.Rule", jsii.get(self, "eventRule"))
 
     @builtins.property
     @jsii.member(jsii_name="subnetSelection")
-    def subnet_selection(self) -> "_SubnetSelection_e57d76df":
+    def subnet_selection(self) -> "_aws_ec2_09840e12.SubnetSelection":
         '''In what subnets to place the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
 
         :default: Private subnets
         '''
-        return typing.cast("_SubnetSelection_e57d76df", jsii.get(self, "subnetSelection"))
+        return typing.cast("_aws_ec2_09840e12.SubnetSelection", jsii.get(self, "subnetSelection"))
 
     @builtins.property
     @jsii.member(jsii_name="propagateTags")
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition to the task.
 
         If no value is specified, the tags are not propagated.
 
         :default: - Tags will not be propagated
         '''
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], jsii.get(self, "propagateTags"))
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], jsii.get(self, "propagateTags"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_Tag_dc8ac6d2"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
 
         :default: - No tags are applied to the task
         '''
-        return typing.cast(typing.Optional[typing.List["_Tag_dc8ac6d2"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]], jsii.get(self, "tags"))
 
 
 class _ScheduledTaskBaseProxy(ScheduledTaskBase):
@@ -7173,16 +7261,16 @@ class ScheduledTaskBaseProps:
     def __init__(
         self,
         *,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''The properties for the base ScheduledEc2Task or ScheduledFargateTask task.
 
@@ -7242,9 +7330,9 @@ class ScheduledTaskBaseProps:
             )
         '''
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16091b162cf6ab50efc372f5c3c73ed34874522bcaf7b65f6052fd966e3909fe)
+            type_hints = cached_type_hints(_typecheckingstub__16091b162cf6ab50efc372f5c3c73ed34874522bcaf7b65f6052fd966e3909fe)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_task_count", value=desired_task_count, expected_type=type_hints["desired_task_count"])
@@ -7278,7 +7366,7 @@ class ScheduledTaskBaseProps:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def schedule(self) -> "_Schedule_e93ba733":
+    def schedule(self) -> "_aws_applicationautoscaling_2d911ee5.Schedule":
         '''The schedule or rate (frequency) that determines when CloudWatch Events runs the rule.
 
         For more information, see
@@ -7287,10 +7375,10 @@ class ScheduledTaskBaseProps:
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast("_Schedule_e93ba733", result)
+        return typing.cast("_aws_applicationautoscaling_2d911ee5.Schedule", result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -7298,7 +7386,7 @@ class ScheduledTaskBaseProps:
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_task_count(self) -> typing.Optional[jsii.Number]:
@@ -7319,7 +7407,9 @@ class ScheduledTaskBaseProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition to the task.
 
         If no value is specified, the tags are not propagated.
@@ -7327,7 +7417,7 @@ class ScheduledTaskBaseProps:
         :default: - Tags will not be propagated
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -7344,16 +7434,16 @@ class ScheduledTaskBaseProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Existing security groups to use for your service.
 
         :default: - a new security group will be created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''In what subnets to place the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
@@ -7361,10 +7451,10 @@ class ScheduledTaskBaseProps:
         :default: Private subnets
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_Tag_dc8ac6d2"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -7372,10 +7462,10 @@ class ScheduledTaskBaseProps:
         :default: - No tags are applied to the task
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_Tag_dc8ac6d2"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -7383,7 +7473,7 @@ class ScheduledTaskBaseProps:
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7413,12 +7503,12 @@ class ScheduledTaskImageProps:
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
     ) -> None:
         '''
         :param image: The image used to start a container. Image or taskDefinition must be specified, but not both. Default: - none
@@ -7457,7 +7547,7 @@ class ScheduledTaskImageProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4aa2efa8ff1cfca00647a05fc250401ad24348dd97b5fa82c5f8ca12e0c43302)
+            type_hints = cached_type_hints(_typecheckingstub__4aa2efa8ff1cfca00647a05fc250401ad24348dd97b5fa82c5f8ca12e0c43302)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
@@ -7479,7 +7569,7 @@ class ScheduledTaskImageProps:
             self._values["secrets"] = secrets
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, but not both.
@@ -7488,7 +7578,7 @@ class ScheduledTaskImageProps:
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7522,24 +7612,24 @@ class ScheduledTaskImageProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7591,40 +7681,40 @@ class ApplicationLoadBalancedEc2Service(
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationLoadBalancedEc2Service class.
 
@@ -7669,7 +7759,7 @@ class ApplicationLoadBalancedEc2Service(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7c2728dc66395799b8f32553505628c230427b49bbbc6fd682aa72087cfdd7f)
+            type_hints = cached_type_hints(_typecheckingstub__c7c2728dc66395799b8f32553505628c230427b49bbbc6fd682aa72087cfdd7f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationLoadBalancedEc2ServiceProps(
@@ -7716,15 +7806,15 @@ class ApplicationLoadBalancedEc2Service(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_Ec2Service_7a3674b4":
+    def service(self) -> "_aws_ecs_19c7ccd1.Ec2Service":
         '''The EC2 service in this construct.'''
-        return typing.cast("_Ec2Service_7a3674b4", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2Service", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 Task Definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -7774,43 +7864,43 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
     ) -> None:
         '''The properties for the ApplicationLoadBalancedEc2Service service.
 
@@ -7875,15 +7965,15 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageOptions(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3f33e583b66138930e8047d22ea9454885645ecc97e1b8505d5c0a26b69851e)
+            type_hints = cached_type_hints(_typecheckingstub__b3f33e583b66138930e8047d22ea9454885645ecc97e1b8505d5c0a26b69851e)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
@@ -8000,16 +8090,18 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificate_c194c70b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"]:
         '''Certificate Manager certificate to associate with the load balancer.
 
         Setting this option will set the load balancer protocol to HTTPS.
@@ -8022,10 +8114,12 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         and domain zone are specified.
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificate_c194c70b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -8034,19 +8128,19 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -8054,12 +8148,12 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -8068,7 +8162,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -8094,13 +8188,13 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -8124,16 +8218,18 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer idle timeout, in seconds.
 
         Can be between 1 and 4000 seconds
@@ -8141,16 +8237,18 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - CloudFormation sets idle timeout to 60 seconds
         '''
         result = self._values.get("idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP address to use.
 
         :default: - IpAddressType.IPV4
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -8165,7 +8263,9 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_IApplicationLoadBalancer_4cbd50ab"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"]:
         '''The application load balancer that will serve traffic to the service.
 
         The VPC attribute of a load balancer must be specified for it to be used
@@ -8176,7 +8276,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_IApplicationLoadBalancer_4cbd50ab"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"], result)
 
     @builtins.property
     def load_balancer_name(self) -> typing.Optional[builtins.str]:
@@ -8215,7 +8315,9 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -8223,10 +8325,12 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from clients to the load balancer.
 
         The load balancer port is determined from the protocol (port 80 for
@@ -8239,18 +8343,18 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         set by default to HTTPS.
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def protocol_version(
         self,
-    ) -> typing.Optional["_ApplicationProtocolVersion_dddfe47b"]:
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"]:
         '''The protocol version to use.
 
         :default: ApplicationProtocolVersion.HTTP1
         '''
         result = self._values.get("protocol_version")
-        return typing.cast(typing.Optional["_ApplicationProtocolVersion_dddfe47b"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -8295,16 +8399,20 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ssl_policy(self) -> typing.Optional["_SslPolicy_cb8ce9f8"]:
+    def ssl_policy(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"]:
         '''The security policy that defines which ciphers and protocols are supported by the ALB Listener.
 
         :default: - The recommended elastic load balancing security policy
         '''
         result = self._values.get("ssl_policy")
-        return typing.cast(typing.Optional["_SslPolicy_cb8ce9f8"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"], result)
 
     @builtins.property
-    def target_protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def target_protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from the load balancer to the ECS tasks.
 
         The default target port is determined from the protocol (port 80 for
@@ -8313,7 +8421,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: HTTP.
         '''
         result = self._values.get("target_protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def task_image_options(
@@ -8329,7 +8437,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -8337,7 +8445,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -8395,7 +8503,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]]:
         '''The placement constraints to use for tasks in the service.
 
         For more information, see
@@ -8404,12 +8512,12 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - No constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]]:
         '''The placement strategies to use for tasks in the service.
 
         For more information, see
@@ -8418,10 +8526,10 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - No strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_Ec2TaskDefinition_db8fc15c"]:
+    def task_definition(self) -> typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both..
 
         [disable-awslint:ref-via-interface]
@@ -8429,7 +8537,7 @@ class ApplicationLoadBalancedEc2ServiceProps(ApplicationLoadBalancedServiceBaseP
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_Ec2TaskDefinition_db8fc15c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8489,46 +8597,46 @@ class ApplicationLoadBalancedFargateService(
         assign_public_ip: typing.Optional[builtins.bool] = None,
         container_cpu: typing.Optional[jsii.Number] = None,
         container_memory_limit_mib: typing.Optional[jsii.Number] = None,
-        health_check: typing.Optional[typing.Union["_HealthCheck_6459d04f", typing.Dict[builtins.str, typing.Any]]] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        health_check: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationLoadBalancedFargateService class.
 
@@ -8579,7 +8687,7 @@ class ApplicationLoadBalancedFargateService(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52e4707f036e6b5ab8a12a1dd88ad78656d9ef102eb7d04caef957d69102b04a)
+            type_hints = cached_type_hints(_typecheckingstub__52e4707f036e6b5ab8a12a1dd88ad78656d9ef102eb7d04caef957d69102b04a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationLoadBalancedFargateServiceProps(
@@ -8644,15 +8752,15 @@ class ApplicationLoadBalancedFargateService(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_FargateService_7c56217e":
+    def service(self) -> "_aws_ecs_19c7ccd1.FargateService":
         '''The Fargate service in this construct.'''
-        return typing.cast("_FargateService_7c56217e", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateService", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -8713,49 +8821,49 @@ class ApplicationLoadBalancedFargateServiceProps(
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        certificate: typing.Optional["_ICertificate_c194c70b"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate: typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        idle_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        idle_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_IApplicationLoadBalancer_4cbd50ab"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"] = None,
         load_balancer_name: typing.Optional[builtins.str] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         open_listener: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
-        protocol_version: typing.Optional["_ApplicationProtocolVersion_dddfe47b"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
+        protocol_version: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["ApplicationLoadBalancedServiceRecordType"] = None,
         redirect_http: typing.Optional[builtins.bool] = None,
         service_name: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional["_SslPolicy_cb8ce9f8"] = None,
-        target_protocol: typing.Optional["_ApplicationProtocol_aa5e9f29"] = None,
+        ssl_policy: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"] = None,
+        target_protocol: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
         container_cpu: typing.Optional[jsii.Number] = None,
         container_memory_limit_mib: typing.Optional[jsii.Number] = None,
-        health_check: typing.Optional[typing.Union["_HealthCheck_6459d04f", typing.Dict[builtins.str, typing.Any]]] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        health_check: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''The properties for the ApplicationLoadBalancedFargateService service.
 
@@ -8834,21 +8942,21 @@ class ApplicationLoadBalancedFargateServiceProps(
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageOptions(**task_image_options)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if isinstance(health_check, dict):
-            health_check = _HealthCheck_6459d04f(**health_check)
+            health_check = _aws_ecs_19c7ccd1.HealthCheck(**health_check)
         if isinstance(task_subnets, dict):
-            task_subnets = _SubnetSelection_e57d76df(**task_subnets)
+            task_subnets = _aws_ec2_09840e12.SubnetSelection(**task_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdcb8bd483faaddad588ad37d4527fa1a0028fc2307a21fc3690044a0acb0583)
+            type_hints = cached_type_hints(_typecheckingstub__cdcb8bd483faaddad588ad37d4527fa1a0028fc2307a21fc3690044a0acb0583)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
@@ -8983,16 +9091,18 @@ class ApplicationLoadBalancedFargateServiceProps(
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificate_c194c70b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"]:
         '''Certificate Manager certificate to associate with the load balancer.
 
         Setting this option will set the load balancer protocol to HTTPS.
@@ -9005,10 +9115,12 @@ class ApplicationLoadBalancedFargateServiceProps(
         and domain zone are specified.
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificate_c194c70b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_3032d3c1.ICertificate"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -9017,19 +9129,19 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -9037,12 +9149,12 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -9051,7 +9163,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -9077,13 +9189,13 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -9107,16 +9219,18 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def idle_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def idle_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The load balancer idle timeout, in seconds.
 
         Can be between 1 and 4000 seconds
@@ -9124,16 +9238,18 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - CloudFormation sets idle timeout to 60 seconds
         '''
         result = self._values.get("idle_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP address to use.
 
         :default: - IpAddressType.IPV4
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -9148,7 +9264,9 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_IApplicationLoadBalancer_4cbd50ab"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"]:
         '''The application load balancer that will serve traffic to the service.
 
         The VPC attribute of a load balancer must be specified for it to be used
@@ -9159,7 +9277,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_IApplicationLoadBalancer_4cbd50ab"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer"], result)
 
     @builtins.property
     def load_balancer_name(self) -> typing.Optional[builtins.str]:
@@ -9198,7 +9316,9 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -9206,10 +9326,12 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from clients to the load balancer.
 
         The load balancer port is determined from the protocol (port 80 for
@@ -9222,18 +9344,18 @@ class ApplicationLoadBalancedFargateServiceProps(
         set by default to HTTPS.
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def protocol_version(
         self,
-    ) -> typing.Optional["_ApplicationProtocolVersion_dddfe47b"]:
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"]:
         '''The protocol version to use.
 
         :default: ApplicationProtocolVersion.HTTP1
         '''
         result = self._values.get("protocol_version")
-        return typing.cast(typing.Optional["_ApplicationProtocolVersion_dddfe47b"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -9278,16 +9400,20 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ssl_policy(self) -> typing.Optional["_SslPolicy_cb8ce9f8"]:
+    def ssl_policy(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"]:
         '''The security policy that defines which ciphers and protocols are supported by the ALB Listener.
 
         :default: - The recommended elastic load balancing security policy
         '''
         result = self._values.get("ssl_policy")
-        return typing.cast(typing.Optional["_SslPolicy_cb8ce9f8"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.SslPolicy"], result)
 
     @builtins.property
-    def target_protocol(self) -> typing.Optional["_ApplicationProtocol_aa5e9f29"]:
+    def target_protocol(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"]:
         '''The protocol for connections from the load balancer to the ECS tasks.
 
         The default target port is determined from the protocol (port 80 for
@@ -9296,7 +9422,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: HTTP.
         '''
         result = self._values.get("target_protocol")
-        return typing.cast(typing.Optional["_ApplicationProtocol_aa5e9f29"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol"], result)
 
     @builtins.property
     def task_image_options(
@@ -9312,7 +9438,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -9320,7 +9446,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -9391,7 +9517,9 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -9401,19 +9529,21 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -9421,7 +9551,7 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -9454,18 +9584,18 @@ class ApplicationLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def health_check(self) -> typing.Optional["_HealthCheck_6459d04f"]:
+    def health_check(self) -> typing.Optional["_aws_ecs_19c7ccd1.HealthCheck"]:
         '''The health check command and associated configuration parameters for the container.
 
         :default: - Health check configuration from container.
         '''
         result = self._values.get("health_check")
-        return typing.cast(typing.Optional["_HealthCheck_6459d04f"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.HealthCheck"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The security groups to associate with the service.
 
         If you do not specify a security group, a new security group is created.
@@ -9473,16 +9603,16 @@ class ApplicationLoadBalancedFargateServiceProps(
         :default: - A new security group is created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def task_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def task_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The subnets to associate with the service.
 
         :default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
         '''
         result = self._values.get("task_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9535,21 +9665,21 @@ class ApplicationMultipleTargetGroupsEc2Service(
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationMultipleTargetGroupsEc2Service class.
 
@@ -9575,7 +9705,7 @@ class ApplicationMultipleTargetGroupsEc2Service(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__085c95c6ad3f6ac3456b4514d5ac1bc4241baaa32e2c2388c676e4ee48544a10)
+            type_hints = cached_type_hints(_typecheckingstub__085c95c6ad3f6ac3456b4514d5ac1bc4241baaa32e2c2388c676e4ee48544a10)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationMultipleTargetGroupsEc2ServiceProps(
@@ -9603,26 +9733,28 @@ class ApplicationMultipleTargetGroupsEc2Service(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_Ec2Service_7a3674b4":
+    def service(self) -> "_aws_ecs_19c7ccd1.Ec2Service":
         '''The EC2 service in this construct.'''
-        return typing.cast("_Ec2Service_7a3674b4", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2Service", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_ApplicationTargetGroup_906fe365":
+    def target_group(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup":
         '''(deprecated) The default target group for the service.
 
         :deprecated: - Use ``targetGroups`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_ApplicationTargetGroup_906fe365", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 Task Definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -9655,24 +9787,24 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
     ) -> None:
         '''The properties for the ApplicationMultipleTargetGroupsEc2Service service.
 
@@ -9719,11 +9851,11 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageProps(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a21cebbb7cab210049752a1d5fa34bab7a3db090f107cdbe500200245b1d89ec)
+            type_hints = cached_type_hints(_typecheckingstub__a21cebbb7cab210049752a1d5fa34bab7a3db090f107cdbe500200245b1d89ec)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -9781,16 +9913,16 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
             self._values["task_definition"] = task_definition
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -9798,7 +9930,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -9834,13 +9966,15 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -9854,7 +9988,9 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional[typing.List["ApplicationLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -9862,7 +9998,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -9896,7 +10032,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -9904,7 +10040,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -9953,7 +10089,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]]:
         '''The placement constraints to use for tasks in the service.
 
         For more information, see
@@ -9962,12 +10098,12 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - No constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]]:
         '''The placement strategies to use for tasks in the service.
 
         For more information, see
@@ -9976,10 +10112,10 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - No strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_Ec2TaskDefinition_db8fc15c"]:
+    def task_definition(self) -> typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"]:
         '''The task definition to use for tasks in the service. Only one of TaskDefinition or TaskImageOptions must be specified.
 
         [disable-awslint:ref-via-interface]
@@ -9987,7 +10123,7 @@ class ApplicationMultipleTargetGroupsEc2ServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_Ec2TaskDefinition_db8fc15c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10079,25 +10215,25 @@ class ApplicationMultipleTargetGroupsFargateService(
         id: builtins.str,
         *,
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the ApplicationMultipleTargetGroupsFargateService class.
 
@@ -10125,7 +10261,7 @@ class ApplicationMultipleTargetGroupsFargateService(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21d949e97492f7aeebbdedfda795498da7248be2cc48f01eb45a80ef9ea77886)
+            type_hints = cached_type_hints(_typecheckingstub__21d949e97492f7aeebbdedfda795498da7248be2cc48f01eb45a80ef9ea77886)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationMultipleTargetGroupsFargateServiceProps(
@@ -10167,26 +10303,28 @@ class ApplicationMultipleTargetGroupsFargateService(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_FargateService_7c56217e":
+    def service(self) -> "_aws_ecs_19c7ccd1.FargateService":
         '''The Fargate service in this construct.'''
-        return typing.cast("_FargateService_7c56217e", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateService", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_ApplicationTargetGroup_906fe365":
+    def target_group(
+        self,
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup":
         '''(deprecated) The default target group for the service.
 
         :deprecated: - Use ``targetGroups`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_ApplicationTargetGroup_906fe365", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -10224,25 +10362,25 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["ApplicationLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''The properties for the ApplicationMultipleTargetGroupsFargateService service.
@@ -10333,15 +10471,15 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageProps(**task_image_options)
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b52f632d3e26b256f0a917de129f36c8484b906c75d27af3ae333c612fde5d)
+            type_hints = cached_type_hints(_typecheckingstub__73b52f632d3e26b256f0a917de129f36c8484b906c75d27af3ae333c612fde5d)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -10405,16 +10543,16 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
             self._values["assign_public_ip"] = assign_public_ip
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -10422,7 +10560,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -10458,13 +10596,15 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -10478,7 +10618,9 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[typing.List["ApplicationLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -10486,7 +10628,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -10520,7 +10662,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional["ApplicationLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -10528,10 +10670,12 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -10540,7 +10684,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -10611,7 +10755,9 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -10621,19 +10767,21 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -10641,7 +10789,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -10709,32 +10857,32 @@ class NetworkLoadBalancedEc2Service(
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkLoadBalancedEc2Service class.
 
@@ -10771,7 +10919,7 @@ class NetworkLoadBalancedEc2Service(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25a24a1cd170ed236f46460373e5ad18864ab4b8845363c5e05a08cd3e44c2c9)
+            type_hints = cached_type_hints(_typecheckingstub__25a24a1cd170ed236f46460373e5ad18864ab4b8845363c5e05a08cd3e44c2c9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkLoadBalancedEc2ServiceProps(
@@ -10810,15 +10958,15 @@ class NetworkLoadBalancedEc2Service(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_Ec2Service_7a3674b4":
+    def service(self) -> "_aws_ecs_19c7ccd1.Ec2Service":
         '''The ECS service in this construct.'''
-        return typing.cast("_Ec2Service_7a3674b4", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2Service", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 Task Definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -10860,35 +11008,35 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
     ) -> None:
         '''The properties for the NetworkLoadBalancedEc2Service service.
 
@@ -10952,15 +11100,15 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageOptions(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b000aecf519f70fc3affe03da9de2d9fb2bdfca5ee4102634f4e17198c0c5103)
+            type_hints = cached_type_hints(_typecheckingstub__b000aecf519f70fc3affe03da9de2d9fb2bdfca5ee4102634f4e17198c0c5103)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
@@ -11053,16 +11201,18 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -11071,19 +11221,19 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -11091,12 +11241,12 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -11105,7 +11255,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -11131,13 +11281,13 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -11161,16 +11311,20 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP addresses to use.
 
         If you want to add a UDP or TCP_UDP listener to the load balancer,
@@ -11181,10 +11335,12 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-ip-address-type.html
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
-    def listener_certificate(self) -> typing.Optional["_IListenerCertificate_94ab42d7"]:
+    def listener_certificate(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"]:
         '''Listener certificate list of ACM cert ARNs.
 
         If you provide a certificate, the listener's protocol will be TLS.
@@ -11193,7 +11349,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - none
         '''
         result = self._values.get("listener_certificate")
-        return typing.cast(typing.Optional["_IListenerCertificate_94ab42d7"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -11205,7 +11361,9 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_INetworkLoadBalancer_96e17101"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"]:
         '''The network load balancer that will serve traffic to the service.
 
         If the load balancer has been imported, the vpc attribute must be specified
@@ -11216,7 +11374,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_INetworkLoadBalancer_96e17101"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -11237,7 +11395,9 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -11245,7 +11405,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -11290,7 +11450,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -11298,7 +11458,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -11356,7 +11516,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]]:
         '''The placement constraints to use for tasks in the service.
 
         For more information, see
@@ -11365,12 +11525,12 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - No constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]]:
         '''The placement strategies to use for tasks in the service.
 
         For more information, see
@@ -11379,10 +11539,10 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - No strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_Ec2TaskDefinition_db8fc15c"]:
+    def task_definition(self) -> typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both..
 
         [disable-awslint:ref-via-interface]
@@ -11390,7 +11550,7 @@ class NetworkLoadBalancedEc2ServiceProps(NetworkLoadBalancedServiceBaseProps):
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_Ec2TaskDefinition_db8fc15c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11435,37 +11595,37 @@ class NetworkLoadBalancedFargateService(
         id: builtins.str,
         *,
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkLoadBalancedFargateService class.
 
@@ -11505,7 +11665,7 @@ class NetworkLoadBalancedFargateService(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__633773eb8c5e71fd9d413b4600a4460d67ddbbf4f0d1ad414b05ab210f39eb3c)
+            type_hints = cached_type_hints(_typecheckingstub__633773eb8c5e71fd9d413b4600a4460d67ddbbf4f0d1ad414b05ab210f39eb3c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkLoadBalancedFargateServiceProps(
@@ -11558,15 +11718,15 @@ class NetworkLoadBalancedFargateService(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_FargateService_7c56217e":
+    def service(self) -> "_aws_ecs_19c7ccd1.FargateService":
         '''The Fargate service in this construct.'''
-        return typing.cast("_FargateService_7c56217e", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateService", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -11614,38 +11774,38 @@ class NetworkLoadBalancedFargateServiceProps(
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        domain_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        domain_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        ip_address_type: typing.Optional["_IpAddressType_c43b240e"] = None,
-        listener_certificate: typing.Optional["_IListenerCertificate_94ab42d7"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        ip_address_type: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"] = None,
+        listener_certificate: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"] = None,
         listener_port: typing.Optional[jsii.Number] = None,
-        load_balancer: typing.Optional["_INetworkLoadBalancer_96e17101"] = None,
+        load_balancer: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         public_load_balancer: typing.Optional[builtins.bool] = None,
         record_type: typing.Optional["NetworkLoadBalancedServiceRecordType"] = None,
         service_name: typing.Optional[builtins.str] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''The properties for the NetworkLoadBalancedFargateService service.
 
@@ -11700,19 +11860,19 @@ class NetworkLoadBalancedFargateServiceProps(
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageOptions(**task_image_options)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if isinstance(task_subnets, dict):
-            task_subnets = _SubnetSelection_e57d76df(**task_subnets)
+            task_subnets = _aws_ec2_09840e12.SubnetSelection(**task_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__883e3ba9ce3759b7fedc824d271d29edacc0ccdd564e943054039dc844b479c0)
+            type_hints = cached_type_hints(_typecheckingstub__883e3ba9ce3759b7fedc824d271d29edacc0ccdd564e943054039dc844b479c0)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
@@ -11814,16 +11974,18 @@ class NetworkLoadBalancedFargateServiceProps(
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -11832,19 +11994,19 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -11852,12 +12014,12 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -11866,7 +12028,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -11892,13 +12054,13 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def domain_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def domain_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The Route53 hosted zone for the domain, e.g. "example.com.".
 
         :default: - No Route53 hosted domain zone.
         '''
         result = self._values.get("domain_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -11922,16 +12084,20 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional["_IpAddressType_c43b240e"]:
+    def ip_address_type(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"]:
         '''The type of IP addresses to use.
 
         If you want to add a UDP or TCP_UDP listener to the load balancer,
@@ -11942,10 +12108,12 @@ class NetworkLoadBalancedFargateServiceProps(
         :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-ip-address-type.html
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["_IpAddressType_c43b240e"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IpAddressType"], result)
 
     @builtins.property
-    def listener_certificate(self) -> typing.Optional["_IListenerCertificate_94ab42d7"]:
+    def listener_certificate(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"]:
         '''Listener certificate list of ACM cert ARNs.
 
         If you provide a certificate, the listener's protocol will be TLS.
@@ -11954,7 +12122,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("listener_certificate")
-        return typing.cast(typing.Optional["_IListenerCertificate_94ab42d7"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate"], result)
 
     @builtins.property
     def listener_port(self) -> typing.Optional[jsii.Number]:
@@ -11966,7 +12134,9 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def load_balancer(self) -> typing.Optional["_INetworkLoadBalancer_96e17101"]:
+    def load_balancer(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"]:
         '''The network load balancer that will serve traffic to the service.
 
         If the load balancer has been imported, the vpc attribute must be specified
@@ -11977,7 +12147,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - a new load balancer will be created.
         '''
         result = self._values.get("load_balancer")
-        return typing.cast(typing.Optional["_INetworkLoadBalancer_96e17101"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -11998,7 +12168,9 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -12006,7 +12178,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -12051,7 +12223,7 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageOptions"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -12059,7 +12231,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -12130,7 +12302,9 @@ class NetworkLoadBalancedFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -12140,19 +12314,21 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -12160,7 +12336,7 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -12174,7 +12350,7 @@ class NetworkLoadBalancedFargateServiceProps(
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The security groups to associate with the service.
 
         If you do not specify a security group, a new security group is created.
@@ -12182,16 +12358,16 @@ class NetworkLoadBalancedFargateServiceProps(
         :default: - A new security group is created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def task_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def task_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The subnets to associate with the service.
 
         :default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
         '''
         result = self._values.get("task_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12258,21 +12434,21 @@ class NetworkMultipleTargetGroupsEc2Service(
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkMultipleTargetGroupsEc2Service class.
 
@@ -12298,7 +12474,7 @@ class NetworkMultipleTargetGroupsEc2Service(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8f3bb45e9394023cda445b5fe48f1e7932a583159c4b3a07ba1983321146bfa)
+            type_hints = cached_type_hints(_typecheckingstub__e8f3bb45e9394023cda445b5fe48f1e7932a583159c4b3a07ba1983321146bfa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkMultipleTargetGroupsEc2ServiceProps(
@@ -12326,26 +12502,26 @@ class NetworkMultipleTargetGroupsEc2Service(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_Ec2Service_7a3674b4":
+    def service(self) -> "_aws_ecs_19c7ccd1.Ec2Service":
         '''The EC2 service in this construct.'''
-        return typing.cast("_Ec2Service_7a3674b4", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2Service", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_NetworkTargetGroup_e772364a":
+    def target_group(self) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup":
         '''(deprecated) The default target group for the service.
 
         :deprecated: - Use ``targetGroups`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_NetworkTargetGroup_e772364a", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 Task Definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -12378,24 +12554,24 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        task_definition: typing.Optional["_Ec2TaskDefinition_db8fc15c"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"] = None,
     ) -> None:
         '''The properties for the NetworkMultipleTargetGroupsEc2Service service.
 
@@ -12456,11 +12632,11 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageProps(**task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5e5f7b863339f16e084dfb5a1721f956a707511c4c2012a7f076b02cf26639d)
+            type_hints = cached_type_hints(_typecheckingstub__e5e5f7b863339f16e084dfb5a1721f956a707511c4c2012a7f076b02cf26639d)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -12518,16 +12694,16 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
             self._values["task_definition"] = task_definition
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -12535,7 +12711,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -12573,13 +12749,15 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -12593,7 +12771,9 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional[typing.List["NetworkLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -12601,7 +12781,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -12635,7 +12815,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -12643,7 +12823,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -12692,7 +12872,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]]:
         '''The placement constraints to use for tasks in the service.
 
         For more information, see
@@ -12701,12 +12881,12 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - No constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]]:
         '''The placement strategies to use for tasks in the service.
 
         For more information, see
@@ -12715,10 +12895,10 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - No strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_Ec2TaskDefinition_db8fc15c"]:
+    def task_definition(self) -> typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"]:
         '''The task definition to use for tasks in the service. Only one of TaskDefinition or TaskImageOptions must be specified.
 
         [disable-awslint:ref-via-interface]
@@ -12726,7 +12906,7 @@ class NetworkMultipleTargetGroupsEc2ServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_Ec2TaskDefinition_db8fc15c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.Ec2TaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12795,25 +12975,25 @@ class NetworkMultipleTargetGroupsFargateService(
         assign_public_ip: typing.Optional[builtins.bool] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the NetworkMultipleTargetGroupsFargateService class.
 
@@ -12843,7 +13023,7 @@ class NetworkMultipleTargetGroupsFargateService(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0896ef010a141982cad4e6363ddf5474e1d63a5c38dc712f84a1d13e390191a)
+            type_hints = cached_type_hints(_typecheckingstub__d0896ef010a141982cad4e6363ddf5474e1d63a5c38dc712f84a1d13e390191a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkMultipleTargetGroupsFargateServiceProps(
@@ -12887,26 +13067,26 @@ class NetworkMultipleTargetGroupsFargateService(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_FargateService_7c56217e":
+    def service(self) -> "_aws_ecs_19c7ccd1.FargateService":
         '''The Fargate service in this construct.'''
-        return typing.cast("_FargateService_7c56217e", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateService", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="targetGroup")
-    def target_group(self) -> "_NetworkTargetGroup_e772364a":
+    def target_group(self) -> "_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup":
         '''(deprecated) The default target group for the service.
 
         :deprecated: - Use ``targetGroups`` instead.
 
         :stability: deprecated
         '''
-        return typing.cast("_NetworkTargetGroup_e772364a", jsii.get(self, "targetGroup"))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.NetworkTargetGroup", jsii.get(self, "targetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -12946,25 +13126,25 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
     def __init__(
         self,
         *,
-        cloud_map_options: typing.Optional[typing.Union["_CloudMapOptions_444ee9f2", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        cloud_map_options: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         load_balancers: typing.Optional[typing.Sequence[typing.Union["NetworkLoadBalancerProps", typing.Dict[builtins.str, typing.Any]]]] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         service_name: typing.Optional[builtins.str] = None,
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -13034,15 +13214,15 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
             )
         '''
         if isinstance(cloud_map_options, dict):
-            cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
+            cloud_map_options = _aws_ecs_19c7ccd1.CloudMapOptions(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageProps(**task_image_options)
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__052b2be34bb887cde358099c21efe7f3e968827a5a4e4c975e35f96daf0c8a07)
+            type_hints = cached_type_hints(_typecheckingstub__052b2be34bb887cde358099c21efe7f3e968827a5a4e4c975e35f96daf0c8a07)
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
@@ -13112,16 +13292,16 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
             self._values["min_healthy_percent"] = min_healthy_percent
 
     @builtins.property
-    def cloud_map_options(self) -> typing.Optional["_CloudMapOptions_444ee9f2"]:
+    def cloud_map_options(self) -> typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"]:
         '''The options for configuring an Amazon ECS service to use service discovery.
 
         :default: - AWS Cloud Map service discovery is not enabled.
         '''
         result = self._values.get("cloud_map_options")
-        return typing.cast(typing.Optional["_CloudMapOptions_444ee9f2"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.CloudMapOptions"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -13129,7 +13309,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
@@ -13167,13 +13347,15 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def load_balancers(
@@ -13187,7 +13369,9 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[typing.List["NetworkLoadBalancerProps"]], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -13195,7 +13379,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -13229,7 +13413,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional["NetworkLoadBalancedTaskImageProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -13237,10 +13421,12 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -13249,7 +13435,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -13320,7 +13506,9 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -13330,19 +13518,21 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -13350,7 +13540,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -13431,36 +13621,36 @@ class QueueProcessingEc2Service(
         gpu_count: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the QueueProcessingEc2Service class.
 
@@ -13503,7 +13693,7 @@ class QueueProcessingEc2Service(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1f673ce3ccb5c9cc5919c4c4ba0e238d9474e15155174bbab78fb20c8bcb753)
+            type_hints = cached_type_hints(_typecheckingstub__a1f673ce3ccb5c9cc5919c4c4ba0e238d9474e15155174bbab78fb20c8bcb753)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = QueueProcessingEc2ServiceProps(
@@ -13548,15 +13738,15 @@ class QueueProcessingEc2Service(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_Ec2Service_7a3674b4":
+    def service(self) -> "_aws_ecs_19c7ccd1.Ec2Service":
         '''The EC2 service in this construct.'''
-        return typing.cast("_Ec2Service_7a3674b4", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2Service", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 task definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -13604,41 +13794,41 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         container_name: typing.Optional[builtins.str] = None,
         cpu: typing.Optional[jsii.Number] = None,
         gpu_count: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
-        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
-        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementConstraint"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_aws_ecs_19c7ccd1.PlacementStrategy"]] = None,
     ) -> None:
         '''The properties for the QueueProcessingEc2Service service.
 
@@ -13701,11 +13891,11 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e95e6c05537f51e447243b2184fab854deab866deba12bae1b89f383f457ef27)
+            type_hints = cached_type_hints(_typecheckingstub__e95e6c05537f51e447243b2184fab854deab866deba12bae1b89f383f457ef27)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -13816,16 +14006,18 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -13834,10 +14026,10 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -13845,7 +14037,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13859,7 +14051,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Grace period after scaling activity in seconds.
 
         Subsequent scale outs during the cooldown period are squashed so that only
@@ -13872,7 +14064,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :see: https://docs.aws.amazon.com/autoscaling/application/APIReference/API_StepScalingPolicyConfiguration.html
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def cpu_target_utilization_percent(self) -> typing.Optional[jsii.Number]:
@@ -13886,7 +14078,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -13895,7 +14087,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def disable_cpu_based_scaling(self) -> typing.Optional[builtins.bool]:
@@ -13962,7 +14154,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def image(self) -> typing.Optional["_ContainerImage_94af1b43"]:
+    def image(self) -> typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"]:
         '''The image used to start a container.
 
         For ``QueueProcessingFargateService``, either ``image`` or ``taskDefinition`` must be specified, but not both.
@@ -13971,16 +14163,16 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - the image of the task definition is used for Fargate, required otherwise
         '''
         result = self._values.get("image")
-        return typing.cast(typing.Optional["_ContainerImage_94af1b43"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -14032,7 +14224,9 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -14040,10 +14234,10 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''A queue for which to process items from.
 
         If specified and this is a FIFO queue, the queue name must end in the string '.fifo'. See
@@ -14052,10 +14246,10 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: 'SQSQueue with CloudFormation-generated name'
         '''
         result = self._values.get("queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
-    def retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of seconds that Dead Letter Queue retains a message.
 
         If the queue construct is specified, retentionPeriod should be omitted.
@@ -14063,12 +14257,12 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: Duration.days(14)
         '''
         result = self._values.get("retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def scaling_steps(
         self,
-    ) -> typing.Optional[typing.List["_ScalingInterval_093a9434"]]:
+    ) -> typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]]:
         '''The intervals for scaling based on the SQS queue's ApproximateNumberOfMessagesVisible metric.
 
         Maps a range of metric values to a particular scaling behavior. See
@@ -14077,18 +14271,18 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: [{ upper: 0, change: -1 },{ lower: 100, change: +1 },{ lower: 500, change: +5 }]
         '''
         result = self._values.get("scaling_steps")
-        return typing.cast(typing.Optional[typing.List["_ScalingInterval_093a9434"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -14100,7 +14294,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def visibility_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def visibility_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout of processing a single message.
 
         After dequeuing, the processor has this much time to handle the message and delete it from the queue
@@ -14111,10 +14305,10 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: Duration.seconds(30)
         '''
         result = self._values.get("visibility_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -14122,7 +14316,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
@@ -14200,7 +14394,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]]:
         '''The placement constraints to use for tasks in the service.
 
         For more information, see
@@ -14209,12 +14403,12 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - No constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementConstraint"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]]:
         '''The placement strategies to use for tasks in the service.
 
         For more information, see
@@ -14223,7 +14417,7 @@ class QueueProcessingEc2ServiceProps(QueueProcessingServiceBaseProps):
         :default: - No strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.PlacementStrategy"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14275,44 +14469,44 @@ class QueueProcessingFargateService(
         *,
         assign_public_ip: typing.Optional[builtins.bool] = None,
         container_name: typing.Optional[builtins.str] = None,
-        health_check: typing.Optional[typing.Union["_HealthCheck_6459d04f", typing.Dict[builtins.str, typing.Any]]] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        health_check: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the QueueProcessingFargateService class.
 
@@ -14360,7 +14554,7 @@ class QueueProcessingFargateService(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7f1cc7ffec4414918cb71e7371c364ad046987205ab7eb0cbe7ad6fc1f1717a)
+            type_hints = cached_type_hints(_typecheckingstub__f7f1cc7ffec4414918cb71e7371c364ad046987205ab7eb0cbe7ad6fc1f1717a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = QueueProcessingFargateServiceProps(
@@ -14410,15 +14604,15 @@ class QueueProcessingFargateService(
 
     @builtins.property
     @jsii.member(jsii_name="service")
-    def service(self) -> "_FargateService_7c56217e":
+    def service(self) -> "_aws_ecs_19c7ccd1.FargateService":
         '''The Fargate service in this construct.'''
-        return typing.cast("_FargateService_7c56217e", jsii.get(self, "service"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateService", jsii.get(self, "service"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -14474,46 +14668,46 @@ class QueueProcessingFargateServiceProps(
     def __init__(
         self,
         *,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_aws_ecs_19c7ccd1.CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-        deployment_controller: typing.Optional[typing.Union["_DeploymentController_d3f94589", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_controller: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         enable_logging: typing.Optional[builtins.bool] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         family: typing.Optional[builtins.str] = None,
-        image: typing.Optional["_ContainerImage_94af1b43"] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
+        image: typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
         max_scaling_capacity: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         min_scaling_capacity: typing.Optional[jsii.Number] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
-        queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_ScalingInterval_093a9434", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
+        queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        scaling_steps: typing.Optional[typing.Sequence[typing.Union["_aws_applicationautoscaling_2d911ee5.ScalingInterval", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        visibility_timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        visibility_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
         container_name: typing.Optional[builtins.str] = None,
-        health_check: typing.Optional[typing.Union["_HealthCheck_6459d04f", typing.Dict[builtins.str, typing.Any]]] = None,
-        health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        task_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        health_check: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        health_check_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        task_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''The properties for the QueueProcessingFargateService service.
 
@@ -14582,17 +14776,17 @@ class QueueProcessingFargateServiceProps(
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(deployment_controller, dict):
-            deployment_controller = _DeploymentController_d3f94589(**deployment_controller)
+            deployment_controller = _aws_ecs_19c7ccd1.DeploymentController(**deployment_controller)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if isinstance(health_check, dict):
-            health_check = _HealthCheck_6459d04f(**health_check)
+            health_check = _aws_ecs_19c7ccd1.HealthCheck(**health_check)
         if isinstance(task_subnets, dict):
-            task_subnets = _SubnetSelection_e57d76df(**task_subnets)
+            task_subnets = _aws_ec2_09840e12.SubnetSelection(**task_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9959b47db027250927e99f3cbc475109465e4e426a52383adb8d29f2226d8a8c)
+            type_hints = cached_type_hints(_typecheckingstub__9959b47db027250927e99f3cbc475109465e4e426a52383adb8d29f2226d8a8c)
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -14718,16 +14912,18 @@ class QueueProcessingFargateServiceProps(
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
+    ) -> typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]]:
         '''A list of Capacity Provider strategies used to place a service.
 
         :default: - undefined
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ecs_19c7ccd1.CapacityProviderStrategy"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -14736,10 +14932,10 @@ class QueueProcessingFargateServiceProps(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -14747,7 +14943,7 @@ class QueueProcessingFargateServiceProps(
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14761,7 +14957,7 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Grace period after scaling activity in seconds.
 
         Subsequent scale outs during the cooldown period are squashed so that only
@@ -14774,7 +14970,7 @@ class QueueProcessingFargateServiceProps(
         :see: https://docs.aws.amazon.com/autoscaling/application/APIReference/API_StepScalingPolicyConfiguration.html
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def cpu_target_utilization_percent(self) -> typing.Optional[jsii.Number]:
@@ -14788,7 +14984,7 @@ class QueueProcessingFargateServiceProps(
     @builtins.property
     def deployment_controller(
         self,
-    ) -> typing.Optional["_DeploymentController_d3f94589"]:
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"]:
         '''Specifies which deployment controller to use for the service.
 
         For more information, see
@@ -14797,7 +14993,7 @@ class QueueProcessingFargateServiceProps(
         :default: - Rolling update (ECS)
         '''
         result = self._values.get("deployment_controller")
-        return typing.cast(typing.Optional["_DeploymentController_d3f94589"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentController"], result)
 
     @builtins.property
     def disable_cpu_based_scaling(self) -> typing.Optional[builtins.bool]:
@@ -14864,7 +15060,7 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def image(self) -> typing.Optional["_ContainerImage_94af1b43"]:
+    def image(self) -> typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"]:
         '''The image used to start a container.
 
         For ``QueueProcessingFargateService``, either ``image`` or ``taskDefinition`` must be specified, but not both.
@@ -14873,16 +15069,16 @@ class QueueProcessingFargateServiceProps(
         :default: - the image of the task definition is used for Fargate, required otherwise
         '''
         result = self._values.get("image")
-        return typing.cast(typing.Optional["_ContainerImage_94af1b43"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ContainerImage"], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -14934,7 +15130,9 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition or the service to the tasks in the service.
 
         Tags can only be propagated to the tasks within the service during service creation.
@@ -14942,10 +15140,10 @@ class QueueProcessingFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
-    def queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''A queue for which to process items from.
 
         If specified and this is a FIFO queue, the queue name must end in the string '.fifo'. See
@@ -14954,10 +15152,10 @@ class QueueProcessingFargateServiceProps(
         :default: 'SQSQueue with CloudFormation-generated name'
         '''
         result = self._values.get("queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
-    def retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of seconds that Dead Letter Queue retains a message.
 
         If the queue construct is specified, retentionPeriod should be omitted.
@@ -14965,12 +15163,12 @@ class QueueProcessingFargateServiceProps(
         :default: Duration.days(14)
         '''
         result = self._values.get("retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def scaling_steps(
         self,
-    ) -> typing.Optional[typing.List["_ScalingInterval_093a9434"]]:
+    ) -> typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]]:
         '''The intervals for scaling based on the SQS queue's ApproximateNumberOfMessagesVisible metric.
 
         Maps a range of metric values to a particular scaling behavior. See
@@ -14979,18 +15177,18 @@ class QueueProcessingFargateServiceProps(
         :default: [{ upper: 0, change: -1 },{ lower: 100, change: +1 },{ lower: 500, change: +5 }]
         '''
         result = self._values.get("scaling_steps")
-        return typing.cast(typing.Optional[typing.List["_ScalingInterval_093a9434"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_applicationautoscaling_2d911ee5.ScalingInterval"]], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -15002,7 +15200,7 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def visibility_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def visibility_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout of processing a single message.
 
         After dequeuing, the processor has this much time to handle the message and delete it from the queue
@@ -15013,10 +15211,10 @@ class QueueProcessingFargateServiceProps(
         :default: Duration.seconds(30)
         '''
         result = self._values.get("visibility_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -15024,7 +15222,7 @@ class QueueProcessingFargateServiceProps(
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -15095,7 +15293,9 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -15105,19 +15305,21 @@ class QueueProcessingFargateServiceProps(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -15125,7 +15327,7 @@ class QueueProcessingFargateServiceProps(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -15150,27 +15352,29 @@ class QueueProcessingFargateServiceProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def health_check(self) -> typing.Optional["_HealthCheck_6459d04f"]:
+    def health_check(self) -> typing.Optional["_aws_ecs_19c7ccd1.HealthCheck"]:
         '''The health check command and associated configuration parameters for the container.
 
         :default: - Health check configuration from container.
         '''
         result = self._values.get("health_check")
-        return typing.cast(typing.Optional["_HealthCheck_6459d04f"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.HealthCheck"], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_grace_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
 
         :default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         '''
         result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The security groups to associate with the service.
 
         If you do not specify a security group, a new security group is created.
@@ -15178,16 +15382,16 @@ class QueueProcessingFargateServiceProps(
         :default: - A new security group is created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def task_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def task_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The subnets to associate with the service.
 
         :default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
         '''
         result = self._values.get("task_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15235,16 +15439,16 @@ class ScheduledEc2Task(
         *,
         scheduled_ec2_task_definition_options: typing.Optional[typing.Union["ScheduledEc2TaskDefinitionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         scheduled_ec2_task_image_options: typing.Optional[typing.Union["ScheduledEc2TaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Constructs a new instance of the ScheduledEc2Task class.
 
@@ -15264,7 +15468,7 @@ class ScheduledEc2Task(
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__350ae15706cb0099128976e9351a10da375f99e6c2d7fcc54d6a9071c1ffa147)
+            type_hints = cached_type_hints(_typecheckingstub__350ae15706cb0099128976e9351a10da375f99e6c2d7fcc54d6a9071c1ffa147)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduledEc2TaskProps(
@@ -15286,15 +15490,15 @@ class ScheduledEc2Task(
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> "_EcsTask_782f4fa3":
+    def task(self) -> "_aws_events_targets_175aebb6.EcsTask":
         '''The ECS task in this construct.'''
-        return typing.cast("_EcsTask_782f4fa3", jsii.get(self, "task"))
+        return typing.cast("_aws_events_targets_175aebb6.EcsTask", jsii.get(self, "task"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_Ec2TaskDefinition_db8fc15c":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.Ec2TaskDefinition":
         '''The EC2 task definition in this construct.'''
-        return typing.cast("_Ec2TaskDefinition_db8fc15c", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.Ec2TaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -15316,12 +15520,12 @@ class ScheduledEc2TaskImageOptions(ScheduledTaskImageProps):
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
         memory_reservation_mib: typing.Optional[jsii.Number] = None,
@@ -15358,7 +15562,7 @@ class ScheduledEc2TaskImageOptions(ScheduledTaskImageProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e93374ad5dd5f7125f15d5a78dc084f3c790e70e31747218ac4971e2100b17a5)
+            type_hints = cached_type_hints(_typecheckingstub__e93374ad5dd5f7125f15d5a78dc084f3c790e70e31747218ac4971e2100b17a5)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
@@ -15389,7 +15593,7 @@ class ScheduledEc2TaskImageOptions(ScheduledTaskImageProps):
             self._values["memory_reservation_mib"] = memory_reservation_mib
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, but not both.
@@ -15398,7 +15602,7 @@ class ScheduledEc2TaskImageOptions(ScheduledTaskImageProps):
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -15432,24 +15636,24 @@ class ScheduledEc2TaskImageOptions(ScheduledTaskImageProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -15524,16 +15728,16 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
     def __init__(
         self,
         *,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         scheduled_ec2_task_definition_options: typing.Optional[typing.Union["ScheduledEc2TaskDefinitionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         scheduled_ec2_task_image_options: typing.Optional[typing.Union["ScheduledEc2TaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -15572,13 +15776,13 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
             )
         '''
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if isinstance(scheduled_ec2_task_definition_options, dict):
             scheduled_ec2_task_definition_options = ScheduledEc2TaskDefinitionOptions(**scheduled_ec2_task_definition_options)
         if isinstance(scheduled_ec2_task_image_options, dict):
             scheduled_ec2_task_image_options = ScheduledEc2TaskImageOptions(**scheduled_ec2_task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22ecc85bd65d64c7736c4a8928851864e084f6e5d571d6833c2284384221f89e)
+            type_hints = cached_type_hints(_typecheckingstub__22ecc85bd65d64c7736c4a8928851864e084f6e5d571d6833c2284384221f89e)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_task_count", value=desired_task_count, expected_type=type_hints["desired_task_count"])
@@ -15618,7 +15822,7 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
             self._values["scheduled_ec2_task_image_options"] = scheduled_ec2_task_image_options
 
     @builtins.property
-    def schedule(self) -> "_Schedule_e93ba733":
+    def schedule(self) -> "_aws_applicationautoscaling_2d911ee5.Schedule":
         '''The schedule or rate (frequency) that determines when CloudWatch Events runs the rule.
 
         For more information, see
@@ -15627,10 +15831,10 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast("_Schedule_e93ba733", result)
+        return typing.cast("_aws_applicationautoscaling_2d911ee5.Schedule", result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -15638,7 +15842,7 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_task_count(self) -> typing.Optional[jsii.Number]:
@@ -15659,7 +15863,9 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition to the task.
 
         If no value is specified, the tags are not propagated.
@@ -15667,7 +15873,7 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         :default: - Tags will not be propagated
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -15684,16 +15890,16 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Existing security groups to use for your service.
 
         :default: - a new security group will be created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''In what subnets to place the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
@@ -15701,10 +15907,10 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         :default: Private subnets
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_Tag_dc8ac6d2"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -15712,10 +15918,10 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         :default: - No tags are applied to the task
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_Tag_dc8ac6d2"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -15723,7 +15929,7 @@ class ScheduledEc2TaskProps(ScheduledTaskBaseProps):
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def scheduled_ec2_task_definition_options(
@@ -15799,23 +16005,23 @@ class ScheduledFargateTask(
         *,
         scheduled_fargate_task_definition_options: typing.Optional[typing.Union["ScheduledFargateTaskDefinitionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         scheduled_fargate_task_image_options: typing.Optional[typing.Union["ScheduledFargateTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''Constructs a new instance of the ScheduledFargateTask class.
 
@@ -15842,7 +16048,7 @@ class ScheduledFargateTask(
         :param task_definition: The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both. [disable-awslint:ref-via-interface] Default: - none
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15eedf0b4c0341f211d295e779c0f7ee21fa9c4c54661f567547054dac9c57c1)
+            type_hints = cached_type_hints(_typecheckingstub__15eedf0b4c0341f211d295e779c0f7ee21fa9c4c54661f567547054dac9c57c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduledFargateTaskProps(
@@ -15871,15 +16077,15 @@ class ScheduledFargateTask(
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> "_EcsTask_782f4fa3":
+    def task(self) -> "_aws_events_targets_175aebb6.EcsTask":
         '''The ECS task in this construct.'''
-        return typing.cast("_EcsTask_782f4fa3", jsii.get(self, "task"))
+        return typing.cast("_aws_events_targets_175aebb6.EcsTask", jsii.get(self, "task"))
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinition")
-    def task_definition(self) -> "_FargateTaskDefinition_83754b60":
+    def task_definition(self) -> "_aws_ecs_19c7ccd1.FargateTaskDefinition":
         '''The Fargate task definition in this construct.'''
-        return typing.cast("_FargateTaskDefinition_83754b60", jsii.get(self, "taskDefinition"))
+        return typing.cast("_aws_ecs_19c7ccd1.FargateTaskDefinition", jsii.get(self, "taskDefinition"))
 
 
 @jsii.data_type(
@@ -15908,19 +16114,19 @@ class ScheduledFargateTaskImageOptions(
     def __init__(
         self,
         *,
-        image: "_ContainerImage_94af1b43",
+        image: "_aws_ecs_19c7ccd1.ContainerImage",
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        log_driver: typing.Optional["_aws_ecs_19c7ccd1.LogDriver"] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
     ) -> None:
         '''The properties for the ScheduledFargateTask using an image.
 
@@ -15956,11 +16162,11 @@ class ScheduledFargateTaskImageOptions(
             )
         '''
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a749e8e91135e4a7ff734b7c08ac37ec5bc550062036c75493dec9505f90952)
+            type_hints = cached_type_hints(_typecheckingstub__4a749e8e91135e4a7ff734b7c08ac37ec5bc550062036c75493dec9505f90952)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
@@ -16003,7 +16209,7 @@ class ScheduledFargateTaskImageOptions(
             self._values["task_definition"] = task_definition
 
     @builtins.property
-    def image(self) -> "_ContainerImage_94af1b43":
+    def image(self) -> "_aws_ecs_19c7ccd1.ContainerImage":
         '''The image used to start a container.
 
         Image or taskDefinition must be specified, but not both.
@@ -16012,7 +16218,7 @@ class ScheduledFargateTaskImageOptions(
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
-        return typing.cast("_ContainerImage_94af1b43", result)
+        return typing.cast("_aws_ecs_19c7ccd1.ContainerImage", result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -16046,27 +16252,29 @@ class ScheduledFargateTaskImageOptions(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def log_driver(self) -> typing.Optional["_LogDriver_393a21bb"]:
+    def log_driver(self) -> typing.Optional["_aws_ecs_19c7ccd1.LogDriver"]:
         '''The log driver to use.
 
         :default: - AwsLogDriver if enableLogging is true
         '''
         result = self._values.get("log_driver")
-        return typing.cast(typing.Optional["_LogDriver_393a21bb"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.LogDriver"], result)
 
     @builtins.property
     def secrets(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]]:
         '''The secret to expose to the container as an environment variable.
 
         :default: - No secret environment variables.
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_ecs_19c7ccd1.Secret"]], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -16075,7 +16283,7 @@ class ScheduledFargateTaskImageOptions(
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -16146,7 +16354,9 @@ class ScheduledFargateTaskImageOptions(
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -16156,19 +16366,21 @@ class ScheduledFargateTaskImageOptions(
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -16176,7 +16388,7 @@ class ScheduledFargateTaskImageOptions(
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16219,23 +16431,23 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
     def __init__(
         self,
         *,
-        schedule: "_Schedule_e93ba733",
-        cluster: typing.Optional["_ICluster_16cddd09"] = None,
+        schedule: "_aws_applicationautoscaling_2d911ee5.Schedule",
+        cluster: typing.Optional["_aws_ecs_19c7ccd1.ICluster"] = None,
         desired_task_count: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        propagate_tags: typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_events_targets_175aebb6.Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
-        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
-        runtime_platform: typing.Optional[typing.Union["_RuntimePlatform_5ed98a9c", typing.Dict[builtins.str, typing.Any]]] = None,
-        task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
+        platform_version: typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"] = None,
+        runtime_platform: typing.Optional[typing.Union["_aws_ecs_19c7ccd1.RuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
+        task_definition: typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"] = None,
         scheduled_fargate_task_definition_options: typing.Optional[typing.Union["ScheduledFargateTaskDefinitionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         scheduled_fargate_task_image_options: typing.Optional[typing.Union["ScheduledFargateTaskImageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -16283,17 +16495,17 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
             )
         '''
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if isinstance(circuit_breaker, dict):
-            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
+            circuit_breaker = _aws_ecs_19c7ccd1.DeploymentCircuitBreaker(**circuit_breaker)
         if isinstance(runtime_platform, dict):
-            runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
+            runtime_platform = _aws_ecs_19c7ccd1.RuntimePlatform(**runtime_platform)
         if isinstance(scheduled_fargate_task_definition_options, dict):
             scheduled_fargate_task_definition_options = ScheduledFargateTaskDefinitionOptions(**scheduled_fargate_task_definition_options)
         if isinstance(scheduled_fargate_task_image_options, dict):
             scheduled_fargate_task_image_options = ScheduledFargateTaskImageOptions(**scheduled_fargate_task_image_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f90096eb899a3c06d73ca9750fbecb38041c3e8d6b078cc4e3353aafddee6abb)
+            type_hints = cached_type_hints(_typecheckingstub__f90096eb899a3c06d73ca9750fbecb38041c3e8d6b078cc4e3353aafddee6abb)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument desired_task_count", value=desired_task_count, expected_type=type_hints["desired_task_count"])
@@ -16354,7 +16566,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
             self._values["scheduled_fargate_task_image_options"] = scheduled_fargate_task_image_options
 
     @builtins.property
-    def schedule(self) -> "_Schedule_e93ba733":
+    def schedule(self) -> "_aws_applicationautoscaling_2d911ee5.Schedule":
         '''The schedule or rate (frequency) that determines when CloudWatch Events runs the rule.
 
         For more information, see
@@ -16363,10 +16575,10 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast("_Schedule_e93ba733", result)
+        return typing.cast("_aws_applicationautoscaling_2d911ee5.Schedule", result)
 
     @builtins.property
-    def cluster(self) -> typing.Optional["_ICluster_16cddd09"]:
+    def cluster(self) -> typing.Optional["_aws_ecs_19c7ccd1.ICluster"]:
         '''The name of the cluster that hosts the service.
 
         If a cluster is specified, the vpc construct should be omitted. Alternatively, you can omit both cluster and vpc.
@@ -16374,7 +16586,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - create a new cluster; if both cluster and vpc are omitted, a new VPC will be created for you.
         '''
         result = self._values.get("cluster")
-        return typing.cast(typing.Optional["_ICluster_16cddd09"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.ICluster"], result)
 
     @builtins.property
     def desired_task_count(self) -> typing.Optional[jsii.Number]:
@@ -16395,7 +16607,9 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
+    def propagate_tags(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"]:
         '''Specifies whether to propagate the tags from the task definition to the task.
 
         If no value is specified, the tags are not propagated.
@@ -16403,7 +16617,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - Tags will not be propagated
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.PropagatedTagSource"], result)
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
@@ -16420,16 +16634,16 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Existing security groups to use for your service.
 
         :default: - a new security group will be created.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''In what subnets to place the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
@@ -16437,10 +16651,10 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: Private subnets
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_Tag_dc8ac6d2"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -16448,10 +16662,10 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - No tags are applied to the task
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_Tag_dc8ac6d2"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_events_targets_175aebb6.Tag"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed.
 
         If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster.
@@ -16459,10 +16673,12 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - uses the VPC defined in the cluster or creates a new VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+    def circuit_breaker(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"]:
         '''Whether to enable the deployment circuit breaker.
 
         If this property is defined, circuit breaker will be implicitly
@@ -16471,7 +16687,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - disabled
         '''
         result = self._values.get("circuit_breaker")
-        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.DeploymentCircuitBreaker"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -16542,7 +16758,9 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
+    def platform_version(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"]:
         '''The platform version on which to run your service.
 
         If one is not specified, the LATEST platform version is used by default. For more information, see
@@ -16552,19 +16770,21 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: Latest
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargatePlatformVersion"], result)
 
     @builtins.property
-    def runtime_platform(self) -> typing.Optional["_RuntimePlatform_5ed98a9c"]:
+    def runtime_platform(self) -> typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"]:
         '''The runtime platform of the task definition.
 
         :default: - If the property is undefined, ``operatingSystemFamily`` is LINUX and ``cpuArchitecture`` is X86_64
         '''
         result = self._values.get("runtime_platform")
-        return typing.cast(typing.Optional["_RuntimePlatform_5ed98a9c"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.RuntimePlatform"], result)
 
     @builtins.property
-    def task_definition(self) -> typing.Optional["_FargateTaskDefinition_83754b60"]:
+    def task_definition(
+        self,
+    ) -> typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"]:
         '''The task definition to use for tasks in the service. TaskDefinition or TaskImageOptions must be specified, but not both.
 
         [disable-awslint:ref-via-interface]
@@ -16572,7 +16792,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :default: - none
         '''
         result = self._values.get("task_definition")
-        return typing.cast(typing.Optional["_FargateTaskDefinition_83754b60"], result)
+        return typing.cast(typing.Optional["_aws_ecs_19c7ccd1.FargateTaskDefinition"], result)
 
     @builtins.property
     def scheduled_fargate_task_definition_options(
@@ -16674,10 +16894,10 @@ publication.publish()
 def _typecheckingstub__b46073a2c95991cc29ca5af3cdf9e1c19e92fd9ca594d388a15d6aa74dfb92a3(
     *,
     name: builtins.str,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
     port: typing.Optional[jsii.Number] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16686,43 +16906,43 @@ def _typecheckingstub__8c3ede040de35ed817f7c39537976690e81673c7be443b152e959f7f9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e214184dfe4b23795f56715f9aa4ce7e8f4af6bfcb43d1e6ab1791a4f22afc9d(
-    service: _BaseService_7af63dd6,
+    service: _aws_ecs_19c7ccd1.BaseService,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16735,51 +16955,51 @@ def _typecheckingstub__6bd16af13cdab2e9940792e6671c8c6c31e6877085b4f254794372ed3
 
 def _typecheckingstub__98de5756e91b719c4f20ca96d4fd78e3a1a08dca58db4e62f745b0592a730420(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a68b3d7133b7b22b27e8c904e21f15f3a38d6a44c16a16cdf89d4051b43617d3(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d0a715be1c8377ff07328b44dda7fd678f687acf495dfe57e86f13e8a26ec834(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_name: typing.Optional[builtins.str] = None,
     container_port: typing.Optional[jsii.Number] = None,
@@ -16787,28 +17007,28 @@ def _typecheckingstub__d0a715be1c8377ff07328b44dda7fd678f687acf495dfe57e86f13e8a
     enable_logging: typing.Optional[builtins.bool] = None,
     entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     family: typing.Optional[builtins.str] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
-    task_role: typing.Optional[_IRole_235f5d8e] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
+    task_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4cec175267a3dac708f871b0e7645a31942f2a9d9f8f0ed1587783015cc06211(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     container_name: typing.Optional[builtins.str] = None,
     container_ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     family: typing.Optional[builtins.str] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
-    task_role: typing.Optional[_IRole_235f5d8e] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
+    task_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16818,8 +17038,8 @@ def _typecheckingstub__79ebff39a666081bf01e0399f5335ad9eb19b8b894df0c23432e1f864
     listeners: typing.Sequence[typing.Union[ApplicationListenerProps, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16829,24 +17049,24 @@ def _typecheckingstub__20c1b34dce53e1122a1dfd01a0d1887608b54749b5015b1b7db31c1b7
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7a79345835d4ef672b42bb3c793158345effda1dbb30a21df1570c071ffb48d0(
-    container: _ContainerDefinition_8f3b54dc,
+    container: _aws_ecs_19c7ccd1.ContainerDefinition,
     targets: typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
@@ -16866,39 +17086,39 @@ def _typecheckingstub__9ebf407ba1da2cc0a9df6dd4bea88dee86f28cad3a17e05e657898978
 
 def _typecheckingstub__58dc0ae498075eeee9bf19da299c30088806731c7dcf9d66863c91734f166ad0(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dcf6a3b4759357dbc4db856fdf773a73135d6fd1cebedc7ff1376fb6fce82c05(
-    service: _BaseService_7af63dd6,
-    container: _ContainerDefinition_8f3b54dc,
+    service: _aws_ecs_19c7ccd1.BaseService,
+    container: _aws_ecs_19c7ccd1.ContainerDefinition,
     targets: typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4ce32419c103730d687d929ad3e0549575fbb87951cb910f7368ee6d7100fde1(
-    value: typing.Optional[_LogDriver_393a21bb],
+    value: typing.Optional[_aws_ecs_19c7ccd1.LogDriver],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__723ca29ab050c74c4e631fcdd507260726c7d5056063c4d50dfcc2b4755958fc(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16910,20 +17130,20 @@ def _typecheckingstub__71d73c2659fa1f33af684ebf8ddbca1ec7e44bab1dd25721962f3dd2e
     listener: typing.Optional[builtins.str] = None,
     path_pattern: typing.Optional[builtins.str] = None,
     priority: typing.Optional[jsii.Number] = None,
-    protocol: typing.Optional[_Protocol_fbb75f56] = None,
+    protocol: typing.Optional[_aws_ecs_19c7ccd1.Protocol] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__be57306e3f86de996d7bf3938a60ebd3f8fd4e38da3fbde2b8a23f728f3a7ef7(
     *,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16940,35 +17160,35 @@ def _typecheckingstub__12b53d0ee1ed0e067bd3d89a143b1004884a752670676417fa81284f7
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__75389372addc5b0dd12a94a0b4d1ce03eada5cfef6d9be6f82716f3013ef3250(
-    service: _BaseService_7af63dd6,
+    service: _aws_ecs_19c7ccd1.BaseService,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16981,70 +17201,70 @@ def _typecheckingstub__f38751a148a29bda026e863bae578fca4f85717eac9652a1846ba8bb0
 
 def _typecheckingstub__8459c92a381797b6679a8b9e979a57547da7b512d6cca15a184fa32611069650(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b8c23351e0c4b39637462c662d702bdc3b000214d7335a22d67c31895e786dfa(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f694932765e82b2fa3fedbddd1e610e2d5911b6e1bdbbd8d44070c7bad40ca46(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     container_name: typing.Optional[builtins.str] = None,
     container_port: typing.Optional[jsii.Number] = None,
     docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     family: typing.Optional[builtins.str] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
-    task_role: typing.Optional[_IRole_235f5d8e] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
+    task_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__30852f6dbf162daf12d00cda724cfba106d4d6135d680cf94ee9a74133bf9974(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     container_name: typing.Optional[builtins.str] = None,
     container_ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     docker_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     family: typing.Optional[builtins.str] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
-    task_role: typing.Optional[_IRole_235f5d8e] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
+    task_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17054,7 +17274,7 @@ def _typecheckingstub__90c8df6d9fe43f579778207c9aa008c3548e5f4910f76201072fe647d
     listeners: typing.Sequence[typing.Union[NetworkListenerProps, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17064,24 +17284,24 @@ def _typecheckingstub__5b33ff19bdb7a9cffd7fed82b93ddea74ad2fb488ef347f6a89265a72
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a64668ad45e97650a1206a441002c419a4975bde8b0bccaa7772098ade23f43b(
-    container: _ContainerDefinition_8f3b54dc,
+    container: _aws_ecs_19c7ccd1.ContainerDefinition,
     targets: typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
@@ -17101,39 +17321,39 @@ def _typecheckingstub__77abe388b8bf30f5c6c932be0a0ab673a898289ef2cf386e839cc4fc0
 
 def _typecheckingstub__57176086c039f2967d403c593b99bb586afe303629ce5b9c0de3e9b23859b850(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f36f948aedf82d95a68e5c875d0a0425bac06d7e494abb8bea14957cfe326bf6(
-    service: _BaseService_7af63dd6,
-    container: _ContainerDefinition_8f3b54dc,
+    service: _aws_ecs_19c7ccd1.BaseService,
+    container: _aws_ecs_19c7ccd1.ContainerDefinition,
     targets: typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6be3093e7d26d71cbdd75ea955c17a38c66bdd2dd8a1746dd02daa5799410b76(
-    value: typing.Optional[_LogDriver_393a21bb],
+    value: typing.Optional[_aws_ecs_19c7ccd1.LogDriver],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2c08737cabd856e08d1babfdaa1a3f7ef5f5bdb1b9647975a5f16903980fb7fa(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17150,101 +17370,101 @@ def _typecheckingstub__5fc71af757020f767be8812de7989d3d33a9bd30209b4100ed047bcc3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ebd145566af297ea7ea035bb40354c39317c438beed9c109f09245dc6a5c19d9(
-    service: _BaseService_7af63dd6,
+    service: _aws_ecs_19c7ccd1.BaseService,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5a9a322f340e5aed3c0a55cce5d21ff41e2ec8343595aef9931470d5494f86a5(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37d377968624397001d0437d8277df12d88594198df072720227cb206b6cb55b(
-    service: _BaseService_7af63dd6,
+    service: _aws_ecs_19c7ccd1.BaseService,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ff388b11e5bd7ab901448e691582759de30893b9591641393bec2ce4f8302d48(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d31b57dada5b3a8cc1672281ef95589bb52a2211349ee9830175e91ecfe0827b(
     *,
-    task_definition: _Ec2TaskDefinition_db8fc15c,
+    task_definition: _aws_ecs_19c7ccd1.Ec2TaskDefinition,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__96c106dcaea6483e969093fc9c84a12221a5cf2e191e3e9579f7efdfe2f60914(
     *,
-    task_definition: _FargateTaskDefinition_83754b60,
+    task_definition: _aws_ecs_19c7ccd1.FargateTaskDefinition,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17253,28 +17473,28 @@ def _typecheckingstub__c684610d334b5c0d396a61b01a9c32d65a5b3385610b503c553e8e403
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7093227e96d0fa9baa247769b05729178e6068bee2100d2a8c9463d628ead328(
-    ecs_task_target: _EcsTask_782f4fa3,
+    ecs_task_target: _aws_events_targets_175aebb6.EcsTask,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bf04b6d393e171cecfee893711b0a4370c53877620bc6a93fc1d6fb12a9441df(
-    task_definition: _TaskDefinition_a541a103,
+    task_definition: _aws_ecs_19c7ccd1.TaskDefinition,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17287,35 +17507,35 @@ def _typecheckingstub__60df4e6a59a918f2f6b43d30e71acf42f1362dc6764e49c3528f77418
 
 def _typecheckingstub__fd28fb5ab9d182b7f3695a0b9d3eff967988f670f6fffa3d5e0533e274027da5(
     scope: _constructs_77d1e7e8.Construct,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__16091b162cf6ab50efc372f5c3c73ed34874522bcaf7b65f6052fd966e3909fe(
     *,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4aa2efa8ff1cfca00647a05fc250401ad24348dd97b5fa82c5f8ca12e0c43302(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17327,83 +17547,83 @@ def _typecheckingstub__c7c2728dc66395799b8f32553505628c230427b49bbbc6fd682aa7208
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b3f33e583b66138930e8047d22ea9454885645ecc97e1b8505d5c0a26b69851e(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17415,95 +17635,95 @@ def _typecheckingstub__52e4707f036e6b5ab8a12a1dd88ad78656d9ef102eb7d04caef957d69
     assign_public_ip: typing.Optional[builtins.bool] = None,
     container_cpu: typing.Optional[jsii.Number] = None,
     container_memory_limit_mib: typing.Optional[jsii.Number] = None,
-    health_check: typing.Optional[typing.Union[_HealthCheck_6459d04f, typing.Dict[builtins.str, typing.Any]]] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    health_check: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cdcb8bd483faaddad588ad37d4527fa1a0028fc2307a21fc3690044a0acb0583(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate: typing.Optional[_aws_certificatemanager_3032d3c1.ICertificate] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    idle_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    idle_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_IApplicationLoadBalancer_4cbd50ab] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     open_listener: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
-    protocol_version: typing.Optional[_ApplicationProtocolVersion_dddfe47b] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
+    protocol_version: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocolVersion] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[ApplicationLoadBalancedServiceRecordType] = None,
     redirect_http: typing.Optional[builtins.bool] = None,
     service_name: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[_SslPolicy_cb8ce9f8] = None,
-    target_protocol: typing.Optional[_ApplicationProtocol_aa5e9f29] = None,
+    ssl_policy: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.SslPolicy] = None,
+    target_protocol: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationProtocol] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     assign_public_ip: typing.Optional[builtins.bool] = None,
     container_cpu: typing.Optional[jsii.Number] = None,
     container_memory_limit_mib: typing.Optional[jsii.Number] = None,
-    health_check: typing.Optional[typing.Union[_HealthCheck_6459d04f, typing.Dict[builtins.str, typing.Any]]] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    health_check: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17515,45 +17735,45 @@ def _typecheckingstub__085c95c6ad3f6ac3456b4514d5ac1bc4241baaa32e2c2388c676e4ee4
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a21cebbb7cab210049752a1d5fa34bab7a3db090f107cdbe500200245b1d89ec(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17563,50 +17783,50 @@ def _typecheckingstub__21d949e97492f7aeebbdedfda795498da7248be2cc48f01eb45a80ef9
     id: builtins.str,
     *,
     assign_public_ip: typing.Optional[builtins.bool] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__73b52f632d3e26b256f0a917de129f36c8484b906c75d27af3ae333c612fde5d(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[ApplicationLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     assign_public_ip: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17619,67 +17839,67 @@ def _typecheckingstub__25a24a1cd170ed236f46460373e5ad18864ab4b8845363c5e05a08cd3
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b000aecf519f70fc3affe03da9de2d9fb2bdfca5ee4102634f4e17198c0c5103(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17689,75 +17909,75 @@ def _typecheckingstub__633773eb8c5e71fd9d413b4600a4460d67ddbbf4f0d1ad414b05ab210
     id: builtins.str,
     *,
     assign_public_ip: typing.Optional[builtins.bool] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__883e3ba9ce3759b7fedc824d271d29edacc0ccdd564e943054039dc844b479c0(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    domain_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    domain_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    ip_address_type: typing.Optional[_IpAddressType_c43b240e] = None,
-    listener_certificate: typing.Optional[_IListenerCertificate_94ab42d7] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    ip_address_type: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IpAddressType] = None,
+    listener_certificate: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.IListenerCertificate] = None,
     listener_port: typing.Optional[jsii.Number] = None,
-    load_balancer: typing.Optional[_INetworkLoadBalancer_96e17101] = None,
+    load_balancer: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     public_load_balancer: typing.Optional[builtins.bool] = None,
     record_type: typing.Optional[NetworkLoadBalancedServiceRecordType] = None,
     service_name: typing.Optional[builtins.str] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     assign_public_ip: typing.Optional[builtins.bool] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17769,45 +17989,45 @@ def _typecheckingstub__e8f3bb45e9394023cda445b5fe48f1e7932a583159c4b3a07ba198332
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e5e5f7b863339f16e084dfb5a1721f956a707511c4c2012a7f076b02cf26639d(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    task_definition: typing.Optional[_Ec2TaskDefinition_db8fc15c] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.Ec2TaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17819,50 +18039,50 @@ def _typecheckingstub__d0896ef010a141982cad4e6363ddf5474e1d63a5c38dc712f84a1d13e
     assign_public_ip: typing.Optional[builtins.bool] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__052b2be34bb887cde358099c21efe7f3e968827a5a4e4c975e35f96daf0c8a07(
     *,
-    cloud_map_options: typing.Optional[typing.Union[_CloudMapOptions_444ee9f2, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    cloud_map_options: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     load_balancers: typing.Optional[typing.Sequence[typing.Union[NetworkLoadBalancerProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     service_name: typing.Optional[builtins.str] = None,
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     assign_public_ip: typing.Optional[builtins.bool] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -17879,77 +18099,77 @@ def _typecheckingstub__a1f673ce3ccb5c9cc5919c4c4ba0e238d9474e15155174bbab78fb20c
     gpu_count: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e95e6c05537f51e447243b2184fab854deab866deba12bae1b89f383f457ef27(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     container_name: typing.Optional[builtins.str] = None,
     cpu: typing.Optional[jsii.Number] = None,
     gpu_count: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
-    placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-    placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
+    placement_constraints: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementConstraint]] = None,
+    placement_strategies: typing.Optional[typing.Sequence[_aws_ecs_19c7ccd1.PlacementStrategy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17960,90 +18180,90 @@ def _typecheckingstub__f7f1cc7ffec4414918cb71e7371c364ad046987205ab7eb0cbe7ad6fc
     *,
     assign_public_ip: typing.Optional[builtins.bool] = None,
     container_name: typing.Optional[builtins.str] = None,
-    health_check: typing.Optional[typing.Union[_HealthCheck_6459d04f, typing.Dict[builtins.str, typing.Any]]] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    health_check: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9959b47db027250927e99f3cbc475109465e4e426a52383adb8d29f2226d8a8c(
     *,
-    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_aws_ecs_19c7ccd1.CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     cpu_target_utilization_percent: typing.Optional[jsii.Number] = None,
-    deployment_controller: typing.Optional[typing.Union[_DeploymentController_d3f94589, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_controller: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_cpu_based_scaling: typing.Optional[builtins.bool] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     enable_logging: typing.Optional[builtins.bool] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     family: typing.Optional[builtins.str] = None,
-    image: typing.Optional[_ContainerImage_94af1b43] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
+    image: typing.Optional[_aws_ecs_19c7ccd1.ContainerImage] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     max_receive_count: typing.Optional[jsii.Number] = None,
     max_scaling_capacity: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     min_scaling_capacity: typing.Optional[jsii.Number] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-    queue: typing.Optional[_IQueue_7ed6f679] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_ScalingInterval_093a9434, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
+    queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    scaling_steps: typing.Optional[typing.Sequence[typing.Union[_aws_applicationautoscaling_2d911ee5.ScalingInterval, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    visibility_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     assign_public_ip: typing.Optional[builtins.bool] = None,
     container_name: typing.Optional[builtins.str] = None,
-    health_check: typing.Optional[typing.Union[_HealthCheck_6459d04f, typing.Dict[builtins.str, typing.Any]]] = None,
-    health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    task_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    health_check: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    task_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18054,28 +18274,28 @@ def _typecheckingstub__350ae15706cb0099128976e9351a10da375f99e6c2d7fcc54d6a9071c
     *,
     scheduled_ec2_task_definition_options: typing.Optional[typing.Union[ScheduledEc2TaskDefinitionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     scheduled_ec2_task_image_options: typing.Optional[typing.Union[ScheduledEc2TaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e93374ad5dd5f7125f15d5a78dc084f3c790e70e31747218ac4971e2100b17a5(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
     memory_reservation_mib: typing.Optional[jsii.Number] = None,
@@ -18085,16 +18305,16 @@ def _typecheckingstub__e93374ad5dd5f7125f15d5a78dc084f3c790e70e31747218ac4971e21
 
 def _typecheckingstub__22ecc85bd65d64c7736c4a8928851864e084f6e5d571d6833c2284384221f89e(
     *,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     scheduled_ec2_task_definition_options: typing.Optional[typing.Union[ScheduledEc2TaskDefinitionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     scheduled_ec2_task_image_options: typing.Optional[typing.Union[ScheduledEc2TaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -18107,65 +18327,65 @@ def _typecheckingstub__15eedf0b4c0341f211d295e779c0f7ee21fa9c4c54661f567547054da
     *,
     scheduled_fargate_task_definition_options: typing.Optional[typing.Union[ScheduledFargateTaskDefinitionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     scheduled_fargate_task_image_options: typing.Optional[typing.Union[ScheduledFargateTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4a749e8e91135e4a7ff734b7c08ac37ec5bc550062036c75493dec9505f90952(
     *,
-    image: _ContainerImage_94af1b43,
+    image: _aws_ecs_19c7ccd1.ContainerImage,
     command: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    log_driver: typing.Optional[_LogDriver_393a21bb] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    log_driver: typing.Optional[_aws_ecs_19c7ccd1.LogDriver] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_ecs_19c7ccd1.Secret]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f90096eb899a3c06d73ca9750fbecb38041c3e8d6b078cc4e3353aafddee6abb(
     *,
-    schedule: _Schedule_e93ba733,
-    cluster: typing.Optional[_ICluster_16cddd09] = None,
+    schedule: _aws_applicationautoscaling_2d911ee5.Schedule,
+    cluster: typing.Optional[_aws_ecs_19c7ccd1.ICluster] = None,
     desired_task_count: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
-    propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
+    propagate_tags: typing.Optional[_aws_ecs_19c7ccd1.PropagatedTagSource] = None,
     rule_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_events_targets_175aebb6.Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    circuit_breaker: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
-    platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-    runtime_platform: typing.Optional[typing.Union[_RuntimePlatform_5ed98a9c, typing.Dict[builtins.str, typing.Any]]] = None,
-    task_definition: typing.Optional[_FargateTaskDefinition_83754b60] = None,
+    platform_version: typing.Optional[_aws_ecs_19c7ccd1.FargatePlatformVersion] = None,
+    runtime_platform: typing.Optional[typing.Union[_aws_ecs_19c7ccd1.RuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
+    task_definition: typing.Optional[_aws_ecs_19c7ccd1.FargateTaskDefinition] = None,
     scheduled_fargate_task_definition_options: typing.Optional[typing.Union[ScheduledFargateTaskDefinitionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     scheduled_fargate_task_image_options: typing.Optional[typing.Union[ScheduledFargateTaskImageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

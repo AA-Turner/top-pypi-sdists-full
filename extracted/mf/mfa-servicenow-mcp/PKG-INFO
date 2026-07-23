@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mfa-servicenow-mcp
-Version: 1.21.0
+Version: 1.21.5
 Summary: A Model Context Protocol (MCP) server implementation for ServiceNow
 Author: jshsakura
 License:                                  Apache License
@@ -136,7 +136,7 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.11
 Requires-Dist: curl-cffi<1,>=0.7.0
 Requires-Dist: httpx<1,>=0.28.0
-Requires-Dist: mcp[cli]<2,>=1.27.0
+Requires-Dist: mcp[cli]<2,>=1.28.1
 Requires-Dist: orjson<4,>=3.9.0
 Requires-Dist: pydantic<3,>=2.0.0
 Requires-Dist: python-dotenv<2,>=1.0.0

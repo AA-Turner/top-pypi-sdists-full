@@ -127,6 +127,14 @@ def load_recent_queries_tab(
     (fed back to `filter_recent_queries` for in-memory `query_type` / `subtype`
     filtering) and the initial visible subset. A lookback change, mode change, or
     explicit refresh calls this tool again.
+
+    Each row carries the safe `database_name` (MotherDuck database = Sonar source
+    schema, parsed from the query's `iceberg_scan` S3 path) and `source_id`
+    (Airbyte source UUID parsed from `database_name`). `database_name` is blank
+    only when the query has no such path; `source_id` is blank when
+    `database_name` is absent *or* its trailing segment is not a canonical UUID,
+    so `database_name` may be populated while `source_id` is blank. Verbatim SQL
+    is still never surfaced.
     """
     data = load_recent_query_rows(lookback_hours=lookback_hours, mode=mode)
     rows: list[QueryRow] = data.rows

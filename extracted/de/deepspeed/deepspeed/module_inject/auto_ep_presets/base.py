@@ -98,6 +98,8 @@ class AutoEPConfig:
 
     enabled: bool = False
     autoep_size: int = 1
+    expert_tensor_parallel_size: int = 1
+    validate_folding_routing: bool = False
     preset_model: str | None = None
     moe_layer_pattern: str | None = None
     expert_pattern: str | None = None
@@ -322,7 +324,7 @@ def _retarget_transformers_output_recorders_for_modules(
 ) -> int:
     try:
         from transformers.utils import output_capturing
-    except Exception:
+    except ImportError:
         return 0
 
     registry = getattr(output_capturing, "_CAN_RECORD_REGISTRY", None)

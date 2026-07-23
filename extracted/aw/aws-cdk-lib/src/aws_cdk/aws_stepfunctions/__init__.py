@@ -1701,6 +1701,8 @@ sfn.StateMachine.from_state_machine_arn(self, "ViaArnImportedStateMachine", "arn
 sfn.StateMachine.from_state_machine_name(self, "ViaResourceNameImportedStateMachine", "StateMachine2E01A3A5-N5TJppzoevKQ")
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1714,77 +1716,57 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    AssetHashType as _AssetHashType_05b67f2d,
-    BundlingOptions as _BundlingOptions_588cc936,
-    CfnResource as _CfnResource_9df397a6,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    IgnoreMode as _IgnoreMode_655a98e8,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
-from ..interfaces.aws_dynamodb import ITableRef as _ITableRef_4478f0ad
-from ..interfaces.aws_ecs import ITaskDefinitionRef as _ITaskDefinitionRef_8091fc1c
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_lambda import (
-    IFunctionRef as _IFunctionRef_2601eb33, IVersionRef as _IVersionRef_4fdb94ad
-)
-from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
-from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
-from ..interfaces.aws_sqs import IQueueRef as _IQueueRef_fa8b2198
-from ..interfaces.aws_stepfunctions import (
-    ActivityReference as _ActivityReference_781f8e4f,
-    IActivityRef as _IActivityRef_cfa2906a,
-    IStateMachineAliasRef as _IStateMachineAliasRef_f68ce683,
-    IStateMachineRef as _IStateMachineRef_65490661,
-    IStateMachineVersionRef as _IStateMachineVersionRef_33f36186,
-    StateMachineAliasReference as _StateMachineAliasReference_f0ebcede,
-    StateMachineReference as _StateMachineReference_db0983bb,
-    StateMachineVersionReference as _StateMachineVersionReference_c50b7750,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_s3_assets as _aws_s3_assets_2dba96fa
+    import aws_cdk.interfaces.aws_dynamodb as _aws_dynamodb_948f46d7
+    import aws_cdk.interfaces.aws_ecs as _aws_ecs_143f71cb
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_lambda as _aws_lambda_aaab8031
+    import aws_cdk.interfaces.aws_logs as _aws_logs_8e99d4be
+    import aws_cdk.interfaces.aws_sns as _aws_sns_c06cc191
+    import aws_cdk.interfaces.aws_sqs as _aws_sqs_5e3fc237
+    import aws_cdk.interfaces.aws_stepfunctions as _aws_stepfunctions_322ef9fd
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_dynamodb_948f46d7 = _LazyImport("aws_cdk.interfaces.aws_dynamodb")
+    _aws_ecs_143f71cb = _LazyImport("aws_cdk.interfaces.aws_ecs")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_lambda_aaab8031 = _LazyImport("aws_cdk.interfaces.aws_lambda")
+    _aws_logs_8e99d4be = _LazyImport("aws_cdk.interfaces.aws_logs")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_s3_assets_2dba96fa = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_sns_c06cc191 = _LazyImport("aws_cdk.interfaces.aws_sns")
+    _aws_sqs_5e3fc237 = _LazyImport("aws_cdk.interfaces.aws_sqs")
+    _aws_stepfunctions_322ef9fd = _LazyImport("aws_cdk.interfaces.aws_stepfunctions")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -1822,7 +1804,7 @@ class ActivityProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22b644ed0224ed8911beae00f4c015272b0b6846f925702d315e05b17bfc26e)
+            type_hints = cached_type_hints(_typecheckingstub__b22b644ed0224ed8911beae00f4c015272b0b6846f925702d315e05b17bfc26e)
             check_type(argname="argument activity_name", value=activity_name, expected_type=type_hints["activity_name"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1895,7 +1877,7 @@ class AfterwardsOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4085645c0aa11ea16f29fe0328307d94fbc700a6b908a2c9d2b3209bc2f7af6)
+            type_hints = cached_type_hints(_typecheckingstub__e4085645c0aa11ea16f29fe0328307d94fbc700a6b908a2c9d2b3209bc2f7af6)
             check_type(argname="argument include_error_handlers", value=include_error_handlers, expected_type=type_hints["include_error_handlers"])
             check_type(argname="argument include_otherwise", value=include_otherwise, expected_type=type_hints["include_otherwise"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1972,7 +1954,7 @@ class AssignableStateOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12af711ddeb84d1973ae70c351b21dfe3456bc29c23b4e034a4dc94ae7229bb4)
+            type_hints = cached_type_hints(_typecheckingstub__12af711ddeb84d1973ae70c351b21dfe3456bc29c23b4e034a4dc94ae7229bb4)
             check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if assign is not None:
@@ -2050,7 +2032,7 @@ class CatchProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4b30052ea4266ae7ac11a0c2eaab9f31db04561d9040ab8175bd34b849414a0)
+            type_hints = cached_type_hints(_typecheckingstub__d4b30052ea4266ae7ac11a0c2eaab9f31db04561d9040ab8175bd34b849414a0)
             check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
             check_type(argname="argument errors", value=errors, expected_type=type_hints["errors"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
@@ -2133,9 +2115,9 @@ class CatchProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IActivityRef_cfa2906a, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IActivityRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnActivity(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity",
 ):
@@ -2179,7 +2161,7 @@ class CfnActivity(
         id: builtins.str,
         *,
         name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnActivity.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::StepFunctions::Activity``.
@@ -2191,7 +2173,7 @@ class CfnActivity(
         :param tags: The list of tags to add to a resource. Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2)
+            type_hints = cached_type_hints(_typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnActivityProps(
@@ -2202,12 +2184,15 @@ class CfnActivity(
 
     @jsii.member(jsii_name="arnForActivity")
     @builtins.classmethod
-    def arn_for_activity(cls, resource: "_IActivityRef_cfa2906a") -> builtins.str:
+    def arn_for_activity(
+        cls,
+        resource: "_aws_stepfunctions_322ef9fd.IActivityRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f7e160f7dd9ef3f1dcc66f61145c9dd96c1f0a4a40003fdca9ecd64ba53ad85)
+            type_hints = cached_type_hints(_typecheckingstub__3f7e160f7dd9ef3f1dcc66f61145c9dd96c1f0a4a40003fdca9ecd64ba53ad85)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForActivity", [resource]))
 
@@ -2219,18 +2204,18 @@ class CfnActivity(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8af6ddc50e7527fa472dc7a5623873265353d6eabba5bb59957acbfa53e6379)
+            type_hints = cached_type_hints(_typecheckingstub__e8af6ddc50e7527fa472dc7a5623873265353d6eabba5bb59957acbfa53e6379)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnActivity", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d)
+            type_hints = cached_type_hints(_typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2243,7 +2228,7 @@ class CfnActivity(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2)
+            type_hints = cached_type_hints(_typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2255,9 +2240,9 @@ class CfnActivity(
 
     @builtins.property
     @jsii.member(jsii_name="activityRef")
-    def activity_ref(self) -> "_ActivityReference_781f8e4f":
+    def activity_ref(self) -> "_aws_stepfunctions_322ef9fd.ActivityReference":
         '''A reference to a Activity resource.'''
-        return typing.cast("_ActivityReference_781f8e4f", jsii.get(self, "activityRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.ActivityReference", jsii.get(self, "activityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -2297,9 +2282,9 @@ class CfnActivity(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2310,7 +2295,7 @@ class CfnActivity(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120)
+            type_hints = cached_type_hints(_typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2318,17 +2303,17 @@ class CfnActivity(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnActivity.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnActivity.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the activity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnActivity.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnActivity.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnActivity.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnActivity.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54)
+            type_hints = cached_type_hints(_typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2344,7 +2329,7 @@ class CfnActivity(
         value: typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65)
+            type_hints = cached_type_hints(_typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2391,7 +2376,7 @@ class CfnActivity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a)
+                type_hints = cached_type_hints(_typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
@@ -2473,7 +2458,7 @@ class CfnActivity(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7)
+                type_hints = cached_type_hints(_typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2527,7 +2512,7 @@ class CfnActivityProps:
         self,
         *,
         name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnActivity.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnActivity``.
@@ -2563,7 +2548,7 @@ class CfnActivityProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84792b5435bbf43a453a6bf0f4d6e6d61a7c86759e3f95b4d4af4d4e56f641c4)
+            type_hints = cached_type_hints(_typecheckingstub__84792b5435bbf43a453a6bf0f4d6e6d61a7c86759e3f95b4d4af4d4e56f641c4)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2600,7 +2585,7 @@ class CfnActivityProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnActivity.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnActivity.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the activity.
 
         Activity configuration is immutable, and resource names must be unique. To set customer managed keys for encryption, you must create a *new Activity* . If you attempt to change the configuration in your CFN template for an existing activity, you will receive an ``ActivityAlreadyExists`` exception.
@@ -2610,7 +2595,7 @@ class CfnActivityProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html#cfn-stepfunctions-activity-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnActivity.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnActivity.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]]:
@@ -2636,9 +2621,9 @@ class CfnActivityProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStateMachineRef_65490661, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IStateMachineRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStateMachine(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
 ):
@@ -2707,17 +2692,17 @@ class CfnStateMachine(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         definition: typing.Any = None,
-        definition_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_string: typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_string: typing.Optional[typing.Union[builtins.str, "_aws_dynamodb_948f46d7.ITableRef", "_aws_ecs_143f71cb.ITaskDefinitionRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_lambda_aaab8031.IVersionRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
         state_machine_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnStateMachine.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::StepFunctions::StateMachine``.
 
@@ -2736,7 +2721,7 @@ class CfnStateMachine(
         :param tracing_configuration: Selects whether or not the state machine's AWS X-Ray tracing is enabled.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0)
+            type_hints = cached_type_hints(_typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStateMachineProps(
@@ -2759,13 +2744,13 @@ class CfnStateMachine(
     @builtins.classmethod
     def arn_for_state_machine(
         cls,
-        resource: "_IStateMachineRef_65490661",
+        resource: "_aws_stepfunctions_322ef9fd.IStateMachineRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a82cb5a8329c79bcee71524051adb67344241d911c3a68db772135c13c32fedd)
+            type_hints = cached_type_hints(_typecheckingstub__a82cb5a8329c79bcee71524051adb67344241d911c3a68db772135c13c32fedd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStateMachine", [resource]))
 
@@ -2777,18 +2762,18 @@ class CfnStateMachine(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9433b0e2c5e9f677457c6da78684e47c16e55f17e66d280d7a30b7525043bd7)
+            type_hints = cached_type_hints(_typecheckingstub__c9433b0e2c5e9f677457c6da78684e47c16e55f17e66d280d7a30b7525043bd7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStateMachine", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549)
+            type_hints = cached_type_hints(_typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2801,7 +2786,7 @@ class CfnStateMachine(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef)
+            type_hints = cached_type_hints(_typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2862,15 +2847,15 @@ class CfnStateMachine(
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineRef")
-    def state_machine_ref(self) -> "_StateMachineReference_db0983bb":
+    def state_machine_ref(self) -> "_aws_stepfunctions_322ef9fd.StateMachineReference":
         '''A reference to a StateMachine resource.'''
-        return typing.cast("_StateMachineReference_db0983bb", jsii.get(self, "stateMachineRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.StateMachineReference", jsii.get(self, "stateMachineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="definition")
@@ -2881,7 +2866,7 @@ class CfnStateMachine(
     @definition.setter
     def definition(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
+            type_hints = cached_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
 
@@ -2894,7 +2879,7 @@ class CfnStateMachine(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
+            type_hints = cached_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2902,17 +2887,17 @@ class CfnStateMachine(
     @jsii.member(jsii_name="definitionS3Location")
     def definition_s3_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.S3LocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.S3LocationProperty"]]:
         '''The name of the S3 bucket where the state machine definition is stored.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.S3LocationProperty"]], jsii.get(self, "definitionS3Location"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.S3LocationProperty"]], jsii.get(self, "definitionS3Location"))
 
     @definition_s3_location.setter
     def definition_s3_location(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.S3LocationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.S3LocationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da)
+            type_hints = cached_type_hints(_typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
 
@@ -2925,7 +2910,7 @@ class CfnStateMachine(
     @definition_string.setter
     def definition_string(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3)
+            type_hints = cached_type_hints(_typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionString", value) # pyright: ignore[reportArgumentType]
 
@@ -2933,17 +2918,17 @@ class CfnStateMachine(
     @jsii.member(jsii_name="definitionSubstitutions")
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "definitionSubstitutions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "definitionSubstitutions"))
 
     @definition_substitutions.setter
     def definition_substitutions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415)
+            type_hints = cached_type_hints(_typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionSubstitutions", value) # pyright: ignore[reportArgumentType]
 
@@ -2951,17 +2936,17 @@ class CfnStateMachine(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the state machine.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5)
+            type_hints = cached_type_hints(_typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2969,17 +2954,17 @@ class CfnStateMachine(
     @jsii.member(jsii_name="loggingConfiguration")
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LoggingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LoggingConfigurationProperty"]]:
         '''Defines what execution history events are logged and where they are logged.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
     def logging_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LoggingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LoggingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301)
+            type_hints = cached_type_hints(_typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2992,7 +2977,7 @@ class CfnStateMachine(
     @state_machine_name.setter
     def state_machine_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542)
+            type_hints = cached_type_hints(_typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineName", value) # pyright: ignore[reportArgumentType]
 
@@ -3005,7 +2990,7 @@ class CfnStateMachine(
     @state_machine_type.setter
     def state_machine_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e)
+            type_hints = cached_type_hints(_typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineType", value) # pyright: ignore[reportArgumentType]
 
@@ -3023,7 +3008,7 @@ class CfnStateMachine(
         value: typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0)
+            type_hints = cached_type_hints(_typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3031,17 +3016,17 @@ class CfnStateMachine(
     @jsii.member(jsii_name="tracingConfiguration")
     def tracing_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.TracingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.TracingConfigurationProperty"]]:
         '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.TracingConfigurationProperty"]], jsii.get(self, "tracingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.TracingConfigurationProperty"]], jsii.get(self, "tracingConfiguration"))
 
     @tracing_configuration.setter
     def tracing_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.TracingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.TracingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01)
+            type_hints = cached_type_hints(_typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tracingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3078,7 +3063,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644)
+                type_hints = cached_type_hints(_typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644)
                 check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_group_arn is not None:
@@ -3149,7 +3134,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93)
+                type_hints = cached_type_hints(_typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
@@ -3213,7 +3198,7 @@ class CfnStateMachine(
         def __init__(
             self,
             *,
-            cloud_watch_logs_log_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.CloudWatchLogsLogGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs_log_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.CloudWatchLogsLogGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines a destination for ``LoggingConfiguration`` .
 
@@ -3239,7 +3224,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1)
+                type_hints = cached_type_hints(_typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1)
                 check_type(argname="argument cloud_watch_logs_log_group", value=cloud_watch_logs_log_group, expected_type=type_hints["cloud_watch_logs_log_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if cloud_watch_logs_log_group is not None:
@@ -3248,7 +3233,7 @@ class CfnStateMachine(
         @builtins.property
         def cloud_watch_logs_log_group(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.CloudWatchLogsLogGroupProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.CloudWatchLogsLogGroupProperty"]]:
             '''An object describing a CloudWatch log group.
 
             For more information, see `AWS::Logs::LogGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html>`_ in the CloudFormation User Guide.
@@ -3256,7 +3241,7 @@ class CfnStateMachine(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-logdestination.html#cfn-stepfunctions-statemachine-logdestination-cloudwatchlogsloggroup
             '''
             result = self._values.get("cloud_watch_logs_log_group")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.CloudWatchLogsLogGroupProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.CloudWatchLogsLogGroupProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3282,8 +3267,8 @@ class CfnStateMachine(
         def __init__(
             self,
             *,
-            destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            include_execution_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            include_execution_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines what execution history events are logged and where they are logged.
@@ -3317,7 +3302,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a)
+                type_hints = cached_type_hints(_typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a)
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
                 check_type(argname="argument include_execution_data", value=include_execution_data, expected_type=type_hints["include_execution_data"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -3332,7 +3317,7 @@ class CfnStateMachine(
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LogDestinationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LogDestinationProperty"]]]]:
             '''An array of objects that describes where your execution history events will be logged.
 
             Limited to size 1. Required, if your log level is not set to ``OFF`` .
@@ -3340,12 +3325,12 @@ class CfnStateMachine(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-destinations
             '''
             result = self._values.get("destinations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LogDestinationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LogDestinationProperty"]]]], result)
 
         @builtins.property
         def include_execution_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Determines whether execution data is included in your log.
 
             When set to ``false`` , data is excluded.
@@ -3353,7 +3338,7 @@ class CfnStateMachine(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-includeexecutiondata
             '''
             result = self._values.get("include_execution_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def level(self) -> typing.Optional[builtins.str]:
@@ -3414,7 +3399,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d)
+                type_hints = cached_type_hints(_typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -3492,7 +3477,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1)
+                type_hints = cached_type_hints(_typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3540,7 +3525,7 @@ class CfnStateMachine(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.
 
@@ -3562,7 +3547,7 @@ class CfnStateMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d)
+                type_hints = cached_type_hints(_typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -3571,13 +3556,13 @@ class CfnStateMachine(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When set to ``true`` , X-Ray tracing is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tracingconfiguration.html#cfn-stepfunctions-statemachine-tracingconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3591,9 +3576,9 @@ class CfnStateMachine(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStateMachineAliasRef_f68ce683)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IStateMachineAliasRef)
 class CfnStateMachineAlias(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias",
 ):
@@ -3636,10 +3621,10 @@ class CfnStateMachineAlias(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        deployment_preference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_preference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        routing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        routing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         state_machine_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::StepFunctions::StateMachineAlias``.
@@ -3653,7 +3638,7 @@ class CfnStateMachineAlias(
         :param state_machine_arn: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913)
+            type_hints = cached_type_hints(_typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStateMachineAliasProps(
@@ -3670,13 +3655,13 @@ class CfnStateMachineAlias(
     @builtins.classmethod
     def arn_for_state_machine_alias(
         cls,
-        resource: "_IStateMachineAliasRef_f68ce683",
+        resource: "_aws_stepfunctions_322ef9fd.IStateMachineAliasRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ce483a836646fea542d1e8f052259985312c521b0a407791d895e50acd3e4d2)
+            type_hints = cached_type_hints(_typecheckingstub__1ce483a836646fea542d1e8f052259985312c521b0a407791d895e50acd3e4d2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStateMachineAlias", [resource]))
 
@@ -3688,18 +3673,18 @@ class CfnStateMachineAlias(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2d0e91fd1b3b179b94289a232ecff501eb3c256f85ff5915fb2e74ce5831fd2)
+            type_hints = cached_type_hints(_typecheckingstub__d2d0e91fd1b3b179b94289a232ecff501eb3c256f85ff5915fb2e74ce5831fd2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStateMachineAlias", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e)
+            type_hints = cached_type_hints(_typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3712,7 +3697,7 @@ class CfnStateMachineAlias(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67)
+            type_hints = cached_type_hints(_typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3745,25 +3730,27 @@ class CfnStateMachineAlias(
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineAliasRef")
-    def state_machine_alias_ref(self) -> "_StateMachineAliasReference_f0ebcede":
+    def state_machine_alias_ref(
+        self,
+    ) -> "_aws_stepfunctions_322ef9fd.StateMachineAliasReference":
         '''A reference to a StateMachineAlias resource.'''
-        return typing.cast("_StateMachineAliasReference_f0ebcede", jsii.get(self, "stateMachineAliasRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.StateMachineAliasReference", jsii.get(self, "stateMachineAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deploymentPreference")
     def deployment_preference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
         '''The settings that enable gradual state machine deployments.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.DeploymentPreferenceProperty"]], jsii.get(self, "deploymentPreference"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.DeploymentPreferenceProperty"]], jsii.get(self, "deploymentPreference"))
 
     @deployment_preference.setter
     def deployment_preference(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.DeploymentPreferenceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.DeploymentPreferenceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe)
+            type_hints = cached_type_hints(_typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentPreference", value) # pyright: ignore[reportArgumentType]
 
@@ -3776,7 +3763,7 @@ class CfnStateMachineAlias(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4)
+            type_hints = cached_type_hints(_typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3789,7 +3776,7 @@ class CfnStateMachineAlias(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358)
+            type_hints = cached_type_hints(_typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3797,17 +3784,17 @@ class CfnStateMachineAlias(
     @jsii.member(jsii_name="routingConfiguration")
     def routing_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
         '''The routing configuration of an alias.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], jsii.get(self, "routingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], jsii.get(self, "routingConfiguration"))
 
     @routing_configuration.setter
     def routing_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168)
+            type_hints = cached_type_hints(_typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3819,7 +3806,7 @@ class CfnStateMachineAlias(
     @state_machine_arn.setter
     def state_machine_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b975826a4e0a48c932ac41d98df227a50cb83d83aee5858c4882080781bcb002)
+            type_hints = cached_type_hints(_typecheckingstub__b975826a4e0a48c932ac41d98df227a50cb83d83aee5858c4882080781bcb002)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3874,7 +3861,7 @@ class CfnStateMachineAlias(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43)
+                type_hints = cached_type_hints(_typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43)
                 check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
@@ -4000,7 +3987,7 @@ class CfnStateMachineAlias(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b)
+                type_hints = cached_type_hints(_typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b)
                 check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4059,10 +4046,10 @@ class CfnStateMachineAliasProps:
     def __init__(
         self,
         *,
-        deployment_preference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_preference: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        routing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        routing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         state_machine_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateMachineAlias``.
@@ -4102,7 +4089,7 @@ class CfnStateMachineAliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d59745dc4c655a3bf10278f9b74e39163a7b157ca93bafdd0e7939d5c39662)
+            type_hints = cached_type_hints(_typecheckingstub__48d59745dc4c655a3bf10278f9b74e39163a7b157ca93bafdd0e7939d5c39662)
             check_type(argname="argument deployment_preference", value=deployment_preference, expected_type=type_hints["deployment_preference"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -4123,7 +4110,7 @@ class CfnStateMachineAliasProps:
     @builtins.property
     def deployment_preference(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
         '''The settings that enable gradual state machine deployments.
 
         These settings include `Alarms <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms>`_ , `Interval <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval>`_ , `Percentage <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage>`_ , `StateMachineVersionArn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn>`_ , and `Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type>`_ .
@@ -4147,7 +4134,7 @@ class CfnStateMachineAliasProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html#cfn-stepfunctions-statemachinealias-deploymentpreference
         '''
         result = self._values.get("deployment_preference")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.DeploymentPreferenceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.DeploymentPreferenceProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4172,7 +4159,7 @@ class CfnStateMachineAliasProps:
     @builtins.property
     def routing_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
         '''The routing configuration of an alias.
 
         Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine.
@@ -4185,7 +4172,7 @@ class CfnStateMachineAliasProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html#cfn-stepfunctions-statemachinealias-routingconfiguration
         '''
         result = self._values.get("routing_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], result)
 
     @builtins.property
     def state_machine_arn(self) -> typing.Optional[builtins.str]:
@@ -4228,17 +4215,17 @@ class CfnStateMachineProps:
     def __init__(
         self,
         *,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         definition: typing.Any = None,
-        definition_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_string: typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        definition_substitutions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_string: typing.Optional[typing.Union[builtins.str, "_aws_dynamodb_948f46d7.ITableRef", "_aws_ecs_143f71cb.ITaskDefinitionRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_lambda_aaab8031.IVersionRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        definition_substitutions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
         state_machine_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnStateMachine.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateMachine``.
 
@@ -4309,7 +4296,7 @@ class CfnStateMachineProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf4d4e83bd396b6667f5c30b66226d7e76f61626aea9c4ec1355f6e6a3631abd)
+            type_hints = cached_type_hints(_typecheckingstub__bf4d4e83bd396b6667f5c30b66226d7e76f61626aea9c4ec1355f6e6a3631abd)
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
@@ -4346,14 +4333,14 @@ class CfnStateMachineProps:
             self._values["tracing_configuration"] = tracing_configuration
 
     @builtins.property
-    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-rolearn
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def definition(self) -> typing.Any:
@@ -4369,7 +4356,7 @@ class CfnStateMachineProps:
     @builtins.property
     def definition_s3_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.S3LocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.S3LocationProperty"]]:
         '''The name of the S3 bucket where the state machine definition is stored.
 
         The state machine definition must be a JSON or YAML file.
@@ -4377,12 +4364,12 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-definitions3location
         '''
         result = self._values.get("definition_s3_location")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.S3LocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.S3LocationProperty"]], result)
 
     @builtins.property
     def definition_string(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_dynamodb_948f46d7.ITableRef", "_aws_ecs_143f71cb.ITaskDefinitionRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_lambda_aaab8031.IVersionRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
         '''The Amazon States Language definition of the state machine.
 
         The state machine definition must be in JSON. See `Amazon States Language <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-amazon-states-language.html>`_ .
@@ -4390,12 +4377,12 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-definitionstring
         '''
         result = self._values.get("definition_string")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ITableRef_4478f0ad", "_ITaskDefinitionRef_8091fc1c", "_IFunctionRef_2601eb33", "_IVersionRef_4fdb94ad", "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_dynamodb_948f46d7.ITableRef", "_aws_ecs_143f71cb.ITaskDefinitionRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_lambda_aaab8031.IVersionRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
 
     @builtins.property
     def definition_substitutions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.
 
         This enables the customer to inject values obtained at runtime, for example from intrinsic functions, in the state machine definition. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map.
@@ -4405,23 +4392,23 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-definitionsubstitutions
         '''
         result = self._values.get("definition_substitutions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the state machine.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LoggingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LoggingConfigurationProperty"]]:
         '''Defines what execution history events are logged and where they are logged.
 
         .. epigraph::
@@ -4431,7 +4418,7 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-loggingconfiguration
         '''
         result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.LoggingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.LoggingConfigurationProperty"]], result)
 
     @builtins.property
     def state_machine_name(self) -> typing.Optional[builtins.str]:
@@ -4480,13 +4467,13 @@ class CfnStateMachineProps:
     @builtins.property
     def tracing_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.TracingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.TracingConfigurationProperty"]]:
         '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-tracingconfiguration
         '''
         result = self._values.get("tracing_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStateMachine.TracingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStateMachine.TracingConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4500,9 +4487,9 @@ class CfnStateMachineProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStateMachineVersionRef_33f36186)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IStateMachineVersionRef)
 class CfnStateMachineVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineVersion",
 ):
@@ -4550,7 +4537,7 @@ class CfnStateMachineVersion(
         :param state_machine_revision_id: Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration. Only publish the state machine version if the current state machine's revision ID matches the specified ID. Use this option to avoid publishing a version if the state machine has changed since you last updated it. To specify the initial state machine revision, set the value as ``INITIAL`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc)
+            type_hints = cached_type_hints(_typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStateMachineVersionProps(
@@ -4565,13 +4552,13 @@ class CfnStateMachineVersion(
     @builtins.classmethod
     def arn_for_state_machine_version(
         cls,
-        resource: "_IStateMachineVersionRef_33f36186",
+        resource: "_aws_stepfunctions_322ef9fd.IStateMachineVersionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32028b3ef7957c0710cafb7fe3c125c79388afce77bfab19cd1115671eae8bd3)
+            type_hints = cached_type_hints(_typecheckingstub__32028b3ef7957c0710cafb7fe3c125c79388afce77bfab19cd1115671eae8bd3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStateMachineVersion", [resource]))
 
@@ -4583,18 +4570,18 @@ class CfnStateMachineVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13f75940c1191de32f750aa8afc41eced0468baa9d928bc9cbebc8481e376865)
+            type_hints = cached_type_hints(_typecheckingstub__13f75940c1191de32f750aa8afc41eced0468baa9d928bc9cbebc8481e376865)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStateMachineVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201)
+            type_hints = cached_type_hints(_typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4607,7 +4594,7 @@ class CfnStateMachineVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb)
+            type_hints = cached_type_hints(_typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4640,9 +4627,11 @@ class CfnStateMachineVersion(
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineVersionRef")
-    def state_machine_version_ref(self) -> "_StateMachineVersionReference_c50b7750":
+    def state_machine_version_ref(
+        self,
+    ) -> "_aws_stepfunctions_322ef9fd.StateMachineVersionReference":
         '''A reference to a StateMachineVersion resource.'''
-        return typing.cast("_StateMachineVersionReference_c50b7750", jsii.get(self, "stateMachineVersionRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.StateMachineVersionReference", jsii.get(self, "stateMachineVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineArn")
@@ -4653,7 +4642,7 @@ class CfnStateMachineVersion(
     @state_machine_arn.setter
     def state_machine_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d)
+            type_hints = cached_type_hints(_typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4666,7 +4655,7 @@ class CfnStateMachineVersion(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf)
+            type_hints = cached_type_hints(_typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -4679,7 +4668,7 @@ class CfnStateMachineVersion(
     @state_machine_revision_id.setter
     def state_machine_revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac)
+            type_hints = cached_type_hints(_typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineRevisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -4725,7 +4714,7 @@ class CfnStateMachineVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a26dd5401b86d66727994521c663b875a629d09b7d66d7dc260fb560b6d9642)
+            type_hints = cached_type_hints(_typecheckingstub__4a26dd5401b86d66727994521c663b875a629d09b7d66d7dc260fb560b6d9642)
             check_type(argname="argument state_machine_arn", value=state_machine_arn, expected_type=type_hints["state_machine_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument state_machine_revision_id", value=state_machine_revision_id, expected_type=type_hints["state_machine_revision_id"])
@@ -4845,7 +4834,7 @@ class ChoiceTransitionOptions(AssignableStateOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__254c8670f15896e504e7f2c5398c9717ddc003fe66835e546b52b1693c004add)
+            type_hints = cached_type_hints(_typecheckingstub__254c8670f15896e504e7f2c5398c9717ddc003fe66835e546b52b1693c004add)
             check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
@@ -4953,7 +4942,7 @@ class Condition(
         :param conditions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71eb0d2598d910c950378149f21b99ac6c39c861109d3ab21b603c6dd4a39f67)
+            type_hints = cached_type_hints(_typecheckingstub__71eb0d2598d910c950378149f21b99ac6c39c861109d3ab21b603c6dd4a39f67)
             check_type(argname="argument conditions", value=conditions, expected_type=typing.Tuple[type_hints["conditions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Condition", jsii.sinvoke(cls, "and", [*conditions]))
 
@@ -4970,7 +4959,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b9bc889cdd24c404551cfb0d6925ab10c64ddca33272041a3c7d8db3e9025c7)
+            type_hints = cached_type_hints(_typecheckingstub__9b9bc889cdd24c404551cfb0d6925ab10c64ddca33272041a3c7d8db3e9025c7)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "booleanEquals", [variable, value]))
@@ -4988,7 +4977,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db786980e3e6eb95ef1359718a8087981a167450763e1b1af4cccde32d8df67)
+            type_hints = cached_type_hints(_typecheckingstub__1db786980e3e6eb95ef1359718a8087981a167450763e1b1af4cccde32d8df67)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "booleanEqualsJsonPath", [variable, value]))
@@ -5001,7 +4990,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4044239d0ab330627f79630a789a88d7b43ad67590db42e02374bb20c513dda1)
+            type_hints = cached_type_hints(_typecheckingstub__4044239d0ab330627f79630a789a88d7b43ad67590db42e02374bb20c513dda1)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isBoolean", [variable]))
 
@@ -5013,7 +5002,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d8d8efc940c58d80b1c03cc3a965aec81d82a73fd35d57efb6446acd9501e9c)
+            type_hints = cached_type_hints(_typecheckingstub__5d8d8efc940c58d80b1c03cc3a965aec81d82a73fd35d57efb6446acd9501e9c)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotBoolean", [variable]))
 
@@ -5025,7 +5014,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a9314e2710309f34934fbe6b184bffa9367a1d71ac9f79627e6c79845fc04a5)
+            type_hints = cached_type_hints(_typecheckingstub__2a9314e2710309f34934fbe6b184bffa9367a1d71ac9f79627e6c79845fc04a5)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotNull", [variable]))
 
@@ -5037,7 +5026,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18fa5c934c072dc5c01e61c786a81241c2a66991b9f365ba7656fee9bebb6bfb)
+            type_hints = cached_type_hints(_typecheckingstub__18fa5c934c072dc5c01e61c786a81241c2a66991b9f365ba7656fee9bebb6bfb)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotNumeric", [variable]))
 
@@ -5049,7 +5038,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af8d78236cfc082603b9981a5287c2ac458428d58eba55f05b44995b4210acfd)
+            type_hints = cached_type_hints(_typecheckingstub__af8d78236cfc082603b9981a5287c2ac458428d58eba55f05b44995b4210acfd)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotPresent", [variable]))
 
@@ -5061,7 +5050,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__343e7cf6c4a403ce9824b8a1b7dfa9fca52c0c03cd770a44c56f803c37338bf6)
+            type_hints = cached_type_hints(_typecheckingstub__343e7cf6c4a403ce9824b8a1b7dfa9fca52c0c03cd770a44c56f803c37338bf6)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotString", [variable]))
 
@@ -5073,7 +5062,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7250986a16f9bb8be78a9686c2ae7dce3fef5bb1c5b8b256fbcdb015c259919e)
+            type_hints = cached_type_hints(_typecheckingstub__7250986a16f9bb8be78a9686c2ae7dce3fef5bb1c5b8b256fbcdb015c259919e)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNotTimestamp", [variable]))
 
@@ -5085,7 +5074,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f79eb1053d2162c6a58e2c2b7f0557b73ad5660d50e70b80b385adb03087993)
+            type_hints = cached_type_hints(_typecheckingstub__8f79eb1053d2162c6a58e2c2b7f0557b73ad5660d50e70b80b385adb03087993)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNull", [variable]))
 
@@ -5097,7 +5086,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__561ba17c1b749efc2328847c14b1814d33920f4ab0fb079d257f56c929ca03a4)
+            type_hints = cached_type_hints(_typecheckingstub__561ba17c1b749efc2328847c14b1814d33920f4ab0fb079d257f56c929ca03a4)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isNumeric", [variable]))
 
@@ -5109,7 +5098,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__392be928fa30637320c733f4d7810aff4b79cb72e727ae2838ba58c1b919f493)
+            type_hints = cached_type_hints(_typecheckingstub__392be928fa30637320c733f4d7810aff4b79cb72e727ae2838ba58c1b919f493)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isPresent", [variable]))
 
@@ -5121,7 +5110,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__badeb8cc1a4243c359dbfd4d33b9074f5f4d3646b5823a9c49c9fe26330592e6)
+            type_hints = cached_type_hints(_typecheckingstub__badeb8cc1a4243c359dbfd4d33b9074f5f4d3646b5823a9c49c9fe26330592e6)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isString", [variable]))
 
@@ -5133,7 +5122,7 @@ class Condition(
         :param variable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__361a2b8f339e790bd76aa839dfda488de2cc072d8a449e5a81b855b62eb59876)
+            type_hints = cached_type_hints(_typecheckingstub__361a2b8f339e790bd76aa839dfda488de2cc072d8a449e5a81b855b62eb59876)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast("Condition", jsii.sinvoke(cls, "isTimestamp", [variable]))
 
@@ -5145,7 +5134,7 @@ class Condition(
         :param condition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e62f074060381041d32772313a27f51cbcc305e53a90c24af4458d6f02fe535c)
+            type_hints = cached_type_hints(_typecheckingstub__e62f074060381041d32772313a27f51cbcc305e53a90c24af4458d6f02fe535c)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
         return typing.cast("Condition", jsii.sinvoke(cls, "jsonata", [condition]))
 
@@ -5157,7 +5146,7 @@ class Condition(
         :param condition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5acebcb4f135ed0cc9e840cb1cbaee78dd705f7b775d6b5cbe9eb4d18557941c)
+            type_hints = cached_type_hints(_typecheckingstub__5acebcb4f135ed0cc9e840cb1cbaee78dd705f7b775d6b5cbe9eb4d18557941c)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
         return typing.cast("Condition", jsii.sinvoke(cls, "not", [condition]))
 
@@ -5170,7 +5159,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc2870430bc517ffa4c051bbeec0e433e96a52f7cded7c34363a0655bc8e8283)
+            type_hints = cached_type_hints(_typecheckingstub__fc2870430bc517ffa4c051bbeec0e433e96a52f7cded7c34363a0655bc8e8283)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberEquals", [variable, value]))
@@ -5188,7 +5177,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fbfe1d112b80de4f820cf91187f730fef81616ca2bd204372e64505b28b46c1)
+            type_hints = cached_type_hints(_typecheckingstub__1fbfe1d112b80de4f820cf91187f730fef81616ca2bd204372e64505b28b46c1)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberEqualsJsonPath", [variable, value]))
@@ -5206,7 +5195,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d6d064c6f5ca8f0d29f98983b27295433d8fb18943cb0e8fb8588b430462566)
+            type_hints = cached_type_hints(_typecheckingstub__9d6d064c6f5ca8f0d29f98983b27295433d8fb18943cb0e8fb8588b430462566)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberGreaterThan", [variable, value]))
@@ -5224,7 +5213,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93f18ca4cac21cd9ca7599acbcaa3e51e34cd4c898c63ae7f85784f73b530f91)
+            type_hints = cached_type_hints(_typecheckingstub__93f18ca4cac21cd9ca7599acbcaa3e51e34cd4c898c63ae7f85784f73b530f91)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberGreaterThanEquals", [variable, value]))
@@ -5242,7 +5231,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6afb217f2f63404a040a45130eaa97bbe2d52ecc9c1d35a1c979bb3071894c0)
+            type_hints = cached_type_hints(_typecheckingstub__c6afb217f2f63404a040a45130eaa97bbe2d52ecc9c1d35a1c979bb3071894c0)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberGreaterThanEqualsJsonPath", [variable, value]))
@@ -5260,7 +5249,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a0df062863035ddc6506fe6962d7a1fc4d5a4b5e8529bc8d06dab3f53e38337)
+            type_hints = cached_type_hints(_typecheckingstub__7a0df062863035ddc6506fe6962d7a1fc4d5a4b5e8529bc8d06dab3f53e38337)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberGreaterThanJsonPath", [variable, value]))
@@ -5278,7 +5267,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85df632e1bb32eaa6062ef02209f69b58d10a8dfa8cade99ef9532416279b42d)
+            type_hints = cached_type_hints(_typecheckingstub__85df632e1bb32eaa6062ef02209f69b58d10a8dfa8cade99ef9532416279b42d)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberLessThan", [variable, value]))
@@ -5296,7 +5285,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab2dcbd2780b62793d8418faad84b7d828dd3f4f566b3e6ae53c3877bbd61227)
+            type_hints = cached_type_hints(_typecheckingstub__ab2dcbd2780b62793d8418faad84b7d828dd3f4f566b3e6ae53c3877bbd61227)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberLessThanEquals", [variable, value]))
@@ -5314,7 +5303,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5a63d516352eb231b883e8e64d9639a572564facf5dea9a3c5198a9e22876c4)
+            type_hints = cached_type_hints(_typecheckingstub__a5a63d516352eb231b883e8e64d9639a572564facf5dea9a3c5198a9e22876c4)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberLessThanEqualsJsonPath", [variable, value]))
@@ -5332,7 +5321,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__599066fbf144c3ed0066b2f899bba8d423c4bb2dc9e2b874dbaa5ebf457e11df)
+            type_hints = cached_type_hints(_typecheckingstub__599066fbf144c3ed0066b2f899bba8d423c4bb2dc9e2b874dbaa5ebf457e11df)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "numberLessThanJsonPath", [variable, value]))
@@ -5345,7 +5334,7 @@ class Condition(
         :param conditions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10ebfca9e6b416b95d0c13f84b582d58628d0adebff6b077140c28ffa89cd681)
+            type_hints = cached_type_hints(_typecheckingstub__10ebfca9e6b416b95d0c13f84b582d58628d0adebff6b077140c28ffa89cd681)
             check_type(argname="argument conditions", value=conditions, expected_type=typing.Tuple[type_hints["conditions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Condition", jsii.sinvoke(cls, "or", [*conditions]))
 
@@ -5358,7 +5347,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa5e3bcb339531b64d38b5c4df6ca6651eaefce4132a0e157a06bf0ff0f92483)
+            type_hints = cached_type_hints(_typecheckingstub__aa5e3bcb339531b64d38b5c4df6ca6651eaefce4132a0e157a06bf0ff0f92483)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringEquals", [variable, value]))
@@ -5376,7 +5365,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f169f014f9ae3df9f49252e02dead74ee520bb53ba38a05a3952b041b3e46e)
+            type_hints = cached_type_hints(_typecheckingstub__78f169f014f9ae3df9f49252e02dead74ee520bb53ba38a05a3952b041b3e46e)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringEqualsJsonPath", [variable, value]))
@@ -5394,7 +5383,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa269f3363724cd30c519d1c6741e4614000bba9e0d027da1ece94705be1180f)
+            type_hints = cached_type_hints(_typecheckingstub__fa269f3363724cd30c519d1c6741e4614000bba9e0d027da1ece94705be1180f)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringGreaterThan", [variable, value]))
@@ -5412,7 +5401,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f68add250a89ba6ac56739d0a7f86bc8888c9863e1ddfb9955559b87fdd7d19)
+            type_hints = cached_type_hints(_typecheckingstub__8f68add250a89ba6ac56739d0a7f86bc8888c9863e1ddfb9955559b87fdd7d19)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringGreaterThanEquals", [variable, value]))
@@ -5430,7 +5419,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__860e3ec79ef3c5b3b8a6b4959dcd94eaa8b6d982c515f4ec6305a18800737c02)
+            type_hints = cached_type_hints(_typecheckingstub__860e3ec79ef3c5b3b8a6b4959dcd94eaa8b6d982c515f4ec6305a18800737c02)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringGreaterThanEqualsJsonPath", [variable, value]))
@@ -5448,7 +5437,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0790ed513991abfda140a8c53d563ee6788dc73fe0008ceef63ea895a638ba7a)
+            type_hints = cached_type_hints(_typecheckingstub__0790ed513991abfda140a8c53d563ee6788dc73fe0008ceef63ea895a638ba7a)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringGreaterThanJsonPath", [variable, value]))
@@ -5466,7 +5455,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef009e1d0aeb56bc81745234de63e9ff0769c94902c109c64463af7cfe55b98c)
+            type_hints = cached_type_hints(_typecheckingstub__ef009e1d0aeb56bc81745234de63e9ff0769c94902c109c64463af7cfe55b98c)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringLessThan", [variable, value]))
@@ -5484,7 +5473,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d90066748658a5be8982e167d4dd1de780d5a8b558e1fdf6ea75bc89e3a3cc9)
+            type_hints = cached_type_hints(_typecheckingstub__8d90066748658a5be8982e167d4dd1de780d5a8b558e1fdf6ea75bc89e3a3cc9)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringLessThanEquals", [variable, value]))
@@ -5502,7 +5491,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__145b1a589a61e4fa1b0e930fb96671f16374fd9fdc4f63f3685a84951f9113cd)
+            type_hints = cached_type_hints(_typecheckingstub__145b1a589a61e4fa1b0e930fb96671f16374fd9fdc4f63f3685a84951f9113cd)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringLessThanEqualsJsonPath", [variable, value]))
@@ -5520,7 +5509,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d13f1a89d702d97299b808ac45fc1a8f5d3115c0f7f540e1e40bad59affb2fd)
+            type_hints = cached_type_hints(_typecheckingstub__2d13f1a89d702d97299b808ac45fc1a8f5d3115c0f7f540e1e40bad59affb2fd)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringLessThanJsonPath", [variable, value]))
@@ -5534,7 +5523,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de73e811b3b1426b79947865d10e188cd9a19a7803f6f2310a8d94ff46ee056f)
+            type_hints = cached_type_hints(_typecheckingstub__de73e811b3b1426b79947865d10e188cd9a19a7803f6f2310a8d94ff46ee056f)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "stringMatches", [variable, value]))
@@ -5552,7 +5541,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2c124b18e00eb90c97548b3ee174d109e9086ee3f576c7c21dea0c626b172ca)
+            type_hints = cached_type_hints(_typecheckingstub__c2c124b18e00eb90c97548b3ee174d109e9086ee3f576c7c21dea0c626b172ca)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampEquals", [variable, value]))
@@ -5570,7 +5559,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9391c794c3ff6ae9ee1ab30da37a340d85e5e712386072e80559b30234fd7263)
+            type_hints = cached_type_hints(_typecheckingstub__9391c794c3ff6ae9ee1ab30da37a340d85e5e712386072e80559b30234fd7263)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampEqualsJsonPath", [variable, value]))
@@ -5588,7 +5577,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86c020130869b22990c221979ed64ee6dc804120a40a7e5ba4388cf82a89f7f7)
+            type_hints = cached_type_hints(_typecheckingstub__86c020130869b22990c221979ed64ee6dc804120a40a7e5ba4388cf82a89f7f7)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampGreaterThan", [variable, value]))
@@ -5606,7 +5595,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae72825e4f0dba8d57cf583d4b9da4aa4228292ee1bc145787d5bae8bdd13c9c)
+            type_hints = cached_type_hints(_typecheckingstub__ae72825e4f0dba8d57cf583d4b9da4aa4228292ee1bc145787d5bae8bdd13c9c)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampGreaterThanEquals", [variable, value]))
@@ -5624,7 +5613,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1374c2638911f124c361c2f692e26a6c983ad283eb5675881a3005262018962)
+            type_hints = cached_type_hints(_typecheckingstub__a1374c2638911f124c361c2f692e26a6c983ad283eb5675881a3005262018962)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampGreaterThanEqualsJsonPath", [variable, value]))
@@ -5642,7 +5631,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5567199e7723f4a83859c8e45186b8afe013d15927c9e560684990deaf97d212)
+            type_hints = cached_type_hints(_typecheckingstub__5567199e7723f4a83859c8e45186b8afe013d15927c9e560684990deaf97d212)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampGreaterThanJsonPath", [variable, value]))
@@ -5660,7 +5649,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd9508b8a46d6979f811f9f642e6dba0f1b1ec212fffb60d21dd98ae3b0cb1b0)
+            type_hints = cached_type_hints(_typecheckingstub__cd9508b8a46d6979f811f9f642e6dba0f1b1ec212fffb60d21dd98ae3b0cb1b0)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampLessThan", [variable, value]))
@@ -5678,7 +5667,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__459421befc35cebd0bbdf1d1d350af4f3fb47bd1d5e7d03db51ddcfb96fb1eff)
+            type_hints = cached_type_hints(_typecheckingstub__459421befc35cebd0bbdf1d1d350af4f3fb47bd1d5e7d03db51ddcfb96fb1eff)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampLessThanEquals", [variable, value]))
@@ -5696,7 +5685,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e734a1f85e798bc59d4fc4f1aaf3c7a28bd4808ec5f926179da1a6a1ae53857c)
+            type_hints = cached_type_hints(_typecheckingstub__e734a1f85e798bc59d4fc4f1aaf3c7a28bd4808ec5f926179da1a6a1ae53857c)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampLessThanEqualsJsonPath", [variable, value]))
@@ -5714,7 +5703,7 @@ class Condition(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25cbb60f1773ec82d0235bd53fcbf222ee9038bc1b1039e8ad3e48e0445c9b77)
+            type_hints = cached_type_hints(_typecheckingstub__25cbb60f1773ec82d0235bd53fcbf222ee9038bc1b1039e8ad3e48e0445c9b77)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Condition", jsii.sinvoke(cls, "timestampLessThanJsonPath", [variable, value]))
@@ -5771,7 +5760,7 @@ class Credentials:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75c7ba87106a955eb0c1dd29b26afbdb125c2950c829f9cfb85b266f527c14df)
+            type_hints = cached_type_hints(_typecheckingstub__75c7ba87106a955eb0c1dd29b26afbdb125c2950c829f9cfb85b266f527c14df)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
@@ -5849,7 +5838,7 @@ class CsvHeaders(
         :return: - CsvHeaders
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bca5f165d56905bd06f4a1c77bab648cc802c173242fb36fc4310aaebc86dc6)
+            type_hints = cached_type_hints(_typecheckingstub__8bca5f165d56905bd06f4a1c77bab648cc802c173242fb36fc4310aaebc86dc6)
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
         return typing.cast("CsvHeaders", jsii.sinvoke(cls, "use", [headers]))
 
@@ -5947,7 +5936,7 @@ class CustomStateProps:
             table.grant_write_data(sm)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cde0868841af19410dad218c5615177bdc4ee1633d65f2618ef7750dfcf857d6)
+            type_hints = cached_type_hints(_typecheckingstub__cde0868841af19410dad218c5615177bdc4ee1633d65f2618ef7750dfcf857d6)
             check_type(argname="argument state_json", value=state_json, expected_type=type_hints["state_json"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "state_json": state_json,
@@ -6010,7 +5999,7 @@ class DefinitionBody(
         :param chainable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7c2a13855ce583fafff8ce021d579ed3a8ce8c50b9af46c8d337814412dd2ef)
+            type_hints = cached_type_hints(_typecheckingstub__e7c2a13855ce583fafff8ce021d579ed3a8ce8c50b9af46c8d337814412dd2ef)
             check_type(argname="argument chainable", value=chainable, expected_type=type_hints["chainable"])
         return typing.cast("DefinitionBody", jsii.sinvoke(cls, "fromChainable", [chainable]))
 
@@ -6022,14 +6011,14 @@ class DefinitionBody(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
-        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
-        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> "DefinitionBody":
         '''
         :param path: -
@@ -6045,9 +6034,9 @@ class DefinitionBody(
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e34fabd0367a0519a35d86d419baa37e6fe26ad05457e96b236a55bb8c0cc1e)
+            type_hints = cached_type_hints(_typecheckingstub__2e34fabd0367a0519a35d86d419baa37e6fe26ad05457e96b236a55bb8c0cc1e)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        options = _AssetOptions_2aa69621(
+        options = _aws_s3_assets_2dba96fa.AssetOptions(
             deploy_time=deploy_time,
             display_name=display_name,
             readers=readers,
@@ -6069,7 +6058,7 @@ class DefinitionBody(
         :param definition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9105593602193f6c430b59ac16525785e4183211394cf7f4a2cc2ba6b2354e01)
+            type_hints = cached_type_hints(_typecheckingstub__9105593602193f6c430b59ac16525785e4183211394cf7f4a2cc2ba6b2354e01)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
         return typing.cast("DefinitionBody", jsii.sinvoke(cls, "fromString", [definition]))
 
@@ -6078,7 +6067,7 @@ class DefinitionBody(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        sfn_principal: "_IPrincipal_539bb2fd",
+        sfn_principal: "_aws_iam_1f54b5e8.IPrincipal",
         sfn_props: typing.Union["StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         graph: typing.Optional["StateGraph"] = None,
     ) -> "DefinitionConfig":
@@ -6096,7 +6085,7 @@ class _DefinitionBodyProxy(DefinitionBody):
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        sfn_principal: "_IPrincipal_539bb2fd",
+        sfn_principal: "_aws_iam_1f54b5e8.IPrincipal",
         sfn_props: typing.Union["StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         graph: typing.Optional["StateGraph"] = None,
     ) -> "DefinitionConfig":
@@ -6107,7 +6096,7 @@ class _DefinitionBodyProxy(DefinitionBody):
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__982308674c1f12c5d781609eb6924d004d05afbe7d720d0e8a36fb8d432cf97c)
+            type_hints = cached_type_hints(_typecheckingstub__982308674c1f12c5d781609eb6924d004d05afbe7d720d0e8a36fb8d432cf97c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument sfn_principal", value=sfn_principal, expected_type=type_hints["sfn_principal"])
             check_type(argname="argument sfn_props", value=sfn_props, expected_type=type_hints["sfn_props"])
@@ -6166,7 +6155,7 @@ class DefinitionConfig:
         if isinstance(definition_s3_location, dict):
             definition_s3_location = CfnStateMachine.S3LocationProperty(**definition_s3_location)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0110b36a0362589a48107daf28e3afe725be68dbbc869656e5a397d958ab43dd)
+            type_hints = cached_type_hints(_typecheckingstub__0110b36a0362589a48107daf28e3afe725be68dbbc869656e5a397d958ab43dd)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
             check_type(argname="argument definition_string", value=definition_string, expected_type=type_hints["definition_string"])
@@ -6235,7 +6224,7 @@ class EncryptionConfiguration(
         :param type: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c113cc29a83ef32340618ec6ac8314a8dcfa2f673103f63dd377e6550c5fa288)
+            type_hints = cached_type_hints(_typecheckingstub__c113cc29a83ef32340618ec6ac8314a8dcfa2f673103f63dd377e6550c5fa288)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         jsii.create(self.__class__, self, [type])
 
@@ -6251,7 +6240,7 @@ class EncryptionConfiguration(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a2804b763864fbee1b32e3adb87dca68d59b11748f0449749b31ff8c5f91264)
+            type_hints = cached_type_hints(_typecheckingstub__8a2804b763864fbee1b32e3adb87dca68d59b11748f0449749b31ff8c5f91264)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -6405,7 +6394,7 @@ class FieldUtils(
         :param obj: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66d8682b1b0f9fb3dcb908bf3abca8eac95fe74d771082e1734661a049f7b124)
+            type_hints = cached_type_hints(_typecheckingstub__66d8682b1b0f9fb3dcb908bf3abca8eac95fe74d771082e1734661a049f7b124)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "containsTaskToken", [obj]))
 
@@ -6420,7 +6409,7 @@ class FieldUtils(
         :param obj: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c06b5d6a012a295ccc553ab17a70060cd3e1e30e5c31aa452a942673082b25ee)
+            type_hints = cached_type_hints(_typecheckingstub__c06b5d6a012a295ccc553ab17a70060cd3e1e30e5c31aa452a942673082b25ee)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "findReferencedPaths", [obj]))
 
@@ -6435,7 +6424,7 @@ class FieldUtils(
         :param obj: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d3d657b8055d48ebc198eb4602747aafd8a12d895196df4b25610da111bc38b)
+            type_hints = cached_type_hints(_typecheckingstub__3d3d657b8055d48ebc198eb4602747aafd8a12d895196df4b25610da111bc38b)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], jsii.sinvoke(cls, "renderObject", [obj]))
 
@@ -6465,14 +6454,14 @@ class FileDefinitionBody(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
-        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
-        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> None:
         '''
         :param path: -
@@ -6488,9 +6477,9 @@ class FileDefinitionBody(
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__526ef9213812e76ec99bd530d4fbea7cc137d220b92525fe763d6d315362734f)
+            type_hints = cached_type_hints(_typecheckingstub__526ef9213812e76ec99bd530d4fbea7cc137d220b92525fe763d6d315362734f)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        options = _AssetOptions_2aa69621(
+        options = _aws_s3_assets_2dba96fa.AssetOptions(
             deploy_time=deploy_time,
             display_name=display_name,
             readers=readers,
@@ -6509,7 +6498,7 @@ class FileDefinitionBody(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        _sfn_principal: "_IPrincipal_539bb2fd",
+        _sfn_principal: "_aws_iam_1f54b5e8.IPrincipal",
         _sfn_props: typing.Union["StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         _graph: typing.Optional["StateGraph"] = None,
     ) -> "DefinitionConfig":
@@ -6520,7 +6509,7 @@ class FileDefinitionBody(
         :param _graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__552303f8ba754bf57e2991b15cb67699f0b3be1720aaa2082c7f9e7c858151e8)
+            type_hints = cached_type_hints(_typecheckingstub__552303f8ba754bf57e2991b15cb67699f0b3be1720aaa2082c7f9e7c858151e8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument _sfn_principal", value=_sfn_principal, expected_type=type_hints["_sfn_principal"])
             check_type(argname="argument _sfn_props", value=_sfn_props, expected_type=type_hints["_sfn_props"])
@@ -6561,7 +6550,7 @@ class FindStateOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ff50e720afaefc7918f464dff492d9f8f0c7249476cc81f87395388b3a9c7e2)
+            type_hints = cached_type_hints(_typecheckingstub__2ff50e720afaefc7918f464dff492d9f8f0c7249476cc81f87395388b3a9c7e2)
             check_type(argname="argument include_error_handlers", value=include_error_handlers, expected_type=type_hints["include_error_handlers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if include_error_handlers is not None:
@@ -6590,8 +6579,8 @@ class FindStateOptions:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IActivity")
 class IActivity(
-    _IResource_c80c4260,
-    _IActivityRef_cfa2906a,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_stepfunctions_322ef9fd.IActivityRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Step Functions Activity https://docs.aws.amazon.com/step-functions/latest/dg/concepts-activities.html.'''
@@ -6625,8 +6614,8 @@ class IActivity(
 
 
 class _IActivityProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IActivityRef_cfa2906a), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_stepfunctions_322ef9fd.IActivityRef), # type: ignore[misc]
 ):
     '''Represents a Step Functions Activity https://docs.aws.amazon.com/step-functions/latest/dg/concepts-activities.html.'''
 
@@ -6719,7 +6708,7 @@ class IItemReader(typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.'''
         ...
 
@@ -6745,7 +6734,9 @@ class IItemReader(typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
         ...
 
@@ -6776,9 +6767,9 @@ class _IItemReaderProxy:
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
@@ -6802,9 +6793,11 @@ class _IItemReaderProxy:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxItems"))
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -6816,7 +6809,7 @@ class _IItemReaderProxy:
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__783b63447c23bb4d8a57ba3e21444d4647a4973f534473e7a1f006d36180cc81)
+            type_hints = cached_type_hints(_typecheckingstub__783b63447c23bb4d8a57ba3e21444d4647a4973f534473e7a1f006d36180cc81)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -6861,7 +6854,7 @@ class _INextableProxy:
         :return: The chain of states built up
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dbb71ff45be8e3c94fd024ed10a51f986e7e089ef33bfae17adc18a574bf024)
+            type_hints = cached_type_hints(_typecheckingstub__3dbb71ff45be8e3c94fd024ed10a51f986e7e089ef33bfae17adc18a574bf024)
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
         return typing.cast("Chain", jsii.invoke(self, "next", [state]))
 
@@ -6871,9 +6864,9 @@ typing.cast(typing.Any, INextable).__jsii_proxy_class__ = lambda : _INextablePro
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IStateMachine")
 class IStateMachine(
-    _IResource_c80c4260,
-    _IGrantable_71c4f5de,
-    _IStateMachineRef_65490661,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_1f54b5e8.IGrantable,
+    _aws_stepfunctions_322ef9fd.IStateMachineRef,
     typing_extensions.Protocol,
 ):
     '''A State Machine.'''
@@ -6890,9 +6883,9 @@ class IStateMachine(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param identity: The principal.
@@ -6903,9 +6896,9 @@ class IStateMachine(
     @jsii.member(jsii_name="grantExecution")
     def grant_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions for all executions of a state machine.
 
         :param identity: The principal.
@@ -6914,7 +6907,10 @@ class IStateMachine(
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity read permissions for this state machine.
 
         :param identity: The principal.
@@ -6924,8 +6920,8 @@ class IStateMachine(
     @jsii.member(jsii_name="grantRedriveExecution")
     def grant_redrive_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permission to redrive the execution of the state machine.
 
         :param identity: The principal.
@@ -6935,8 +6931,8 @@ class IStateMachine(
     @jsii.member(jsii_name="grantStartExecution")
     def grant_start_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start an execution of this state machine.
 
         :param identity: The principal.
@@ -6946,8 +6942,8 @@ class IStateMachine(
     @jsii.member(jsii_name="grantStartSyncExecution")
     def grant_start_sync_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start a synchronous execution of this state machine.
 
         :param identity: The principal.
@@ -6957,8 +6953,8 @@ class IStateMachine(
     @jsii.member(jsii_name="grantTaskResponse")
     def grant_task_response(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity read permissions for this state machine.
 
         :param identity: The principal.
@@ -6975,14 +6971,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this State Machine's executions.
 
         :param metric_name: -
@@ -7012,14 +7008,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were aborted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7048,14 +7044,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that failed.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7084,14 +7080,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were started.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7120,14 +7116,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that succeeded.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7156,14 +7152,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were throttled.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7192,14 +7188,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the interval, in milliseconds, between the time the execution starts and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7228,14 +7224,14 @@ class IStateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that timed out.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7257,9 +7253,9 @@ class IStateMachine(
 
 
 class _IStateMachineProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IGrantable_71c4f5de), # type: ignore[misc]
-    jsii.proxy_for(_IStateMachineRef_65490661), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_stepfunctions_322ef9fd.IStateMachineRef), # type: ignore[misc]
 ):
     '''A State Machine.'''
 
@@ -7277,103 +7273,106 @@ class _IStateMachineProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param identity: The principal.
         :param actions: The list of desired actions.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__330377705d17e346007692578b485457a023c38351a46c6e22975a8a2b8192ae)
+            type_hints = cached_type_hints(_typecheckingstub__330377705d17e346007692578b485457a023c38351a46c6e22975a8a2b8192ae)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [identity, *actions]))
 
     @jsii.member(jsii_name="grantExecution")
     def grant_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions for all executions of a state machine.
 
         :param identity: The principal.
         :param actions: The list of desired actions.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31bd3fa2600dc4d3bf5687e9b4e868f708b68f607efbd2cfa7fb5f71fba15756)
+            type_hints = cached_type_hints(_typecheckingstub__31bd3fa2600dc4d3bf5687e9b4e868f708b68f607efbd2cfa7fb5f71fba15756)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantExecution", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantExecution", [identity, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity read permissions for this state machine.
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67aefd85a78dbc72556e294ed43f407d7fe2e40185f6dcefcda2b91bce4a9e6c)
+            type_hints = cached_type_hints(_typecheckingstub__67aefd85a78dbc72556e294ed43f407d7fe2e40185f6dcefcda2b91bce4a9e6c)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [identity]))
 
     @jsii.member(jsii_name="grantRedriveExecution")
     def grant_redrive_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permission to redrive the execution of the state machine.
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1263659f24791988667803166a24080d04a876b31403b25165aea620a8e4fbaa)
+            type_hints = cached_type_hints(_typecheckingstub__1263659f24791988667803166a24080d04a876b31403b25165aea620a8e4fbaa)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRedriveExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRedriveExecution", [identity]))
 
     @jsii.member(jsii_name="grantStartExecution")
     def grant_start_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start an execution of this state machine.
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b84edd8c4dd517d793cea8632f963ea68ac72a33187299a17ff7549b1e1dc14d)
+            type_hints = cached_type_hints(_typecheckingstub__b84edd8c4dd517d793cea8632f963ea68ac72a33187299a17ff7549b1e1dc14d)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantStartExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantStartExecution", [identity]))
 
     @jsii.member(jsii_name="grantStartSyncExecution")
     def grant_start_sync_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start a synchronous execution of this state machine.
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92ed05a6f0e60c0385d1fe8dff7aa6ee6308b0dbdec64f6f70f98b5d1fdf23ed)
+            type_hints = cached_type_hints(_typecheckingstub__92ed05a6f0e60c0385d1fe8dff7aa6ee6308b0dbdec64f6f70f98b5d1fdf23ed)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantStartSyncExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantStartSyncExecution", [identity]))
 
     @jsii.member(jsii_name="grantTaskResponse")
     def grant_task_response(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity read permissions for this state machine.
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__789a3eccb8c002cee01668ce309a302eced31df5999f98457203940330528ab4)
+            type_hints = cached_type_hints(_typecheckingstub__789a3eccb8c002cee01668ce309a302eced31df5999f98457203940330528ab4)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantTaskResponse", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantTaskResponse", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -7385,14 +7384,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this State Machine's executions.
 
         :param metric_name: -
@@ -7412,9 +7411,9 @@ class _IStateMachineProxy(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cab371f4587948afe28a72a9dde908f44a64ec26dee050808f7b1236c4c7da9)
+            type_hints = cached_type_hints(_typecheckingstub__2cab371f4587948afe28a72a9dde908f44a64ec26dee050808f7b1236c4c7da9)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7429,7 +7428,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAborted")
     def metric_aborted(
@@ -7440,14 +7439,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were aborted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7465,7 +7464,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7480,7 +7479,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAborted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAborted", [props]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -7491,14 +7490,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that failed.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7516,7 +7515,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7531,7 +7530,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailed", [props]))
 
     @jsii.member(jsii_name="metricStarted")
     def metric_started(
@@ -7542,14 +7541,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were started.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7567,7 +7566,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7582,7 +7581,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricStarted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricStarted", [props]))
 
     @jsii.member(jsii_name="metricSucceeded")
     def metric_succeeded(
@@ -7593,14 +7592,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that succeeded.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7618,7 +7617,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7633,7 +7632,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSucceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSucceeded", [props]))
 
     @jsii.member(jsii_name="metricThrottled")
     def metric_throttled(
@@ -7644,14 +7643,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were throttled.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7669,7 +7668,7 @@ class _IStateMachineProxy(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7684,7 +7683,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricThrottled", [props]))
 
     @jsii.member(jsii_name="metricTime")
     def metric_time(
@@ -7695,14 +7694,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the interval, in milliseconds, between the time the execution starts and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7720,7 +7719,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7735,7 +7734,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTime", [props]))
 
     @jsii.member(jsii_name="metricTimedOut")
     def metric_timed_out(
@@ -7746,14 +7745,14 @@ class _IStateMachineProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that timed out.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7771,7 +7770,7 @@ class _IStateMachineProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -7786,7 +7785,7 @@ class _IStateMachineProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTimedOut", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStateMachine).__jsii_proxy_class__ = lambda : _IStateMachineProxy
@@ -7985,7 +7984,7 @@ class ItemBatcherProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28b90617c58a85778754752511df05551643031e0ec1d9e5687a61beda24688f)
+            type_hints = cached_type_hints(_typecheckingstub__28b90617c58a85778754752511df05551643031e0ec1d9e5687a61beda24688f)
             check_type(argname="argument batch_input", value=batch_input, expected_type=type_hints["batch_input"])
             check_type(argname="argument max_input_bytes_per_batch", value=max_input_bytes_per_batch, expected_type=type_hints["max_input_bytes_per_batch"])
             check_type(argname="argument max_input_bytes_per_batch_path", value=max_input_bytes_per_batch_path, expected_type=type_hints["max_input_bytes_per_batch_path"])
@@ -8095,7 +8094,7 @@ class ItemReaderProps:
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -8123,7 +8122,7 @@ class ItemReaderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8df53cde2f82ea6228f0c9a5a5ba0a4dd36c18fba9835f9f3150547f7cee754)
+            type_hints = cached_type_hints(_typecheckingstub__e8df53cde2f82ea6228f0c9a5a5ba0a4dd36c18fba9835f9f3150547f7cee754)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument bucket_name_path", value=bucket_name_path, expected_type=type_hints["bucket_name_path"])
             check_type(argname="argument max_items", value=max_items, expected_type=type_hints["max_items"])
@@ -8136,7 +8135,7 @@ class ItemReaderProps:
             self._values["max_items"] = max_items
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.
 
         :default: - S3 bucket will be determined from
@@ -8144,7 +8143,7 @@ class ItemReaderProps:
         :see: bucketNamePath
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def bucket_name_path(self) -> typing.Optional[builtins.str]:
@@ -8257,7 +8256,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f608b3fd4b201a0a1482b5f0a70098cf3a3bd7d163d2b909a61815f6ff4a6737)
+            type_hints = cached_type_hints(_typecheckingstub__f608b3fd4b201a0a1482b5f0a70098cf3a3bd7d163d2b909a61815f6ff4a6737)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(builtins.str, jsii.sinvoke(cls, "array", [*values]))
 
@@ -8274,7 +8273,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__088de6efa9a8b3d08870747fd80f1047204d1f99fcd9d2020876d01e904b961c)
+            type_hints = cached_type_hints(_typecheckingstub__088de6efa9a8b3d08870747fd80f1047204d1f99fcd9d2020876d01e904b961c)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arrayContains", [array, value]))
@@ -8292,7 +8291,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b6413ab81aefe0cb4d39cdffb2973b82823f6583665642e33f7d2e736ed49b5)
+            type_hints = cached_type_hints(_typecheckingstub__2b6413ab81aefe0cb4d39cdffb2973b82823f6583665642e33f7d2e736ed49b5)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arrayGetItem", [array, index]))
@@ -8309,7 +8308,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__066df6cc20da873d2b1d90282c5ae886a4849b38a02d69dc36feae9c5490efe1)
+            type_hints = cached_type_hints(_typecheckingstub__066df6cc20da873d2b1d90282c5ae886a4849b38a02d69dc36feae9c5490efe1)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arrayLength", [array]))
 
@@ -8330,7 +8329,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc77862b0de7c7c02295791475860476ecdd7e6e12d7c6bba98efbeb931e86e1)
+            type_hints = cached_type_hints(_typecheckingstub__fc77862b0de7c7c02295791475860476ecdd7e6e12d7c6bba98efbeb931e86e1)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
             check_type(argname="argument chunk_size", value=chunk_size, expected_type=type_hints["chunk_size"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arrayPartition", [array, chunk_size]))
@@ -8354,7 +8353,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66dc96e3ef5fe23ddc3268294a3758d98b1d5702ff86e2397d4b92453e45945c)
+            type_hints = cached_type_hints(_typecheckingstub__66dc96e3ef5fe23ddc3268294a3758d98b1d5702ff86e2397d4b92453e45945c)
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             check_type(argname="argument end", value=end, expected_type=type_hints["end"])
             check_type(argname="argument step", value=step, expected_type=type_hints["step"])
@@ -8373,7 +8372,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f7421e7bfe112627dadb759031678f094b4a6dc3c7ffb052c42413214015be)
+            type_hints = cached_type_hints(_typecheckingstub__38f7421e7bfe112627dadb759031678f094b4a6dc3c7ffb052c42413214015be)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arrayUnique", [array]))
 
@@ -8389,7 +8388,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e71d2c009521adfc2f539cfa65b95ae6f95e8c5f294620fc0b60c41a3234d22a)
+            type_hints = cached_type_hints(_typecheckingstub__e71d2c009521adfc2f539cfa65b95ae6f95e8c5f294620fc0b60c41a3234d22a)
             check_type(argname="argument base64", value=base64, expected_type=type_hints["base64"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "base64Decode", [base64]))
 
@@ -8405,7 +8404,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa34b328214814976f329340e3b2ff58e0c4bfec265b32b49a35f48c4428a7b0)
+            type_hints = cached_type_hints(_typecheckingstub__fa34b328214814976f329340e3b2ff58e0c4bfec265b32b49a35f48c4428a7b0)
             check_type(argname="argument input", value=input, expected_type=type_hints["input"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "base64Encode", [input]))
 
@@ -8426,7 +8425,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a65ae0ed7034cb9b7372f57ae44f6a74ad07f3a7e0613da2f76f53c592a3df50)
+            type_hints = cached_type_hints(_typecheckingstub__a65ae0ed7034cb9b7372f57ae44f6a74ad07f3a7e0613da2f76f53c592a3df50)
             check_type(argname="argument format_string", value=format_string, expected_type=type_hints["format_string"])
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(builtins.str, jsii.sinvoke(cls, "format", [format_string, *values]))
@@ -8444,7 +8443,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5172eedb2a8508c195d9860a659889436742614328a885cc829ec82bbb6edab0)
+            type_hints = cached_type_hints(_typecheckingstub__5172eedb2a8508c195d9860a659889436742614328a885cc829ec82bbb6edab0)
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "hash", [data, algorithm]))
@@ -8457,7 +8456,7 @@ class JsonPath(
         :param value: string to be evaluated.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf495c28eeb68a82510bf46f764aafbb98e9152a5a58c61ac08b70497e448fc7)
+            type_hints = cached_type_hints(_typecheckingstub__bf495c28eeb68a82510bf46f764aafbb98e9152a5a58c61ac08b70497e448fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isEncodedJsonPath", [value]))
 
@@ -8474,7 +8473,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e03a4f189712c0723816ff3f337f7563d3175582971c8fba095186f3644a1832)
+            type_hints = cached_type_hints(_typecheckingstub__e03a4f189712c0723816ff3f337f7563d3175582971c8fba095186f3644a1832)
             check_type(argname="argument value1", value=value1, expected_type=type_hints["value1"])
             check_type(argname="argument value2", value=value2, expected_type=type_hints["value2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "jsonMerge", [value1, value2]))
@@ -8496,7 +8495,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6436aab05f387323f9cb74a6b784dd4c768239125631c909c725501e7bf7fd0)
+            type_hints = cached_type_hints(_typecheckingstub__e6436aab05f387323f9cb74a6b784dd4c768239125631c909c725501e7bf7fd0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "jsonToString", [value]))
 
@@ -8508,7 +8507,7 @@ class JsonPath(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__791d54d72cca605dac6e53897a875a0836bef45df8935a30c09d1adb81bce886)
+            type_hints = cached_type_hints(_typecheckingstub__791d54d72cca605dac6e53897a875a0836bef45df8935a30c09d1adb81bce886)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "listAt", [path]))
 
@@ -8525,7 +8524,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de44de70b3f9d451f756efc0fe38516dbc6d81f7af66a3acd65cacf20d4e0224)
+            type_hints = cached_type_hints(_typecheckingstub__de44de70b3f9d451f756efc0fe38516dbc6d81f7af66a3acd65cacf20d4e0224)
             check_type(argname="argument num1", value=num1, expected_type=type_hints["num1"])
             check_type(argname="argument num2", value=num2, expected_type=type_hints["num2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "mathAdd", [num1, num2]))
@@ -8543,7 +8542,7 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d94e6703ef6e05edfee1f44b8f0522b8c9af9b8b61a177fe7416fbde4c0a9385)
+            type_hints = cached_type_hints(_typecheckingstub__d94e6703ef6e05edfee1f44b8f0522b8c9af9b8b61a177fe7416fbde4c0a9385)
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             check_type(argname="argument end", value=end, expected_type=type_hints["end"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "mathRandom", [start, end]))
@@ -8556,21 +8555,21 @@ class JsonPath(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff382ceecb543f17e967c677aca2b4a8ce5745808e77f81d86c5f16e859b6888)
+            type_hints = cached_type_hints(_typecheckingstub__ff382ceecb543f17e967c677aca2b4a8ce5745808e77f81d86c5f16e859b6888)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(jsii.Number, jsii.sinvoke(cls, "numberAt", [path]))
 
     @jsii.member(jsii_name="objectAt")
     @builtins.classmethod
-    def object_at(cls, path: builtins.str) -> "_IResolvable_da3f097b":
+    def object_at(cls, path: builtins.str) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Reference a complete (complex) object in a JSON path location.
 
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7664cbc5a31ad0f20576e6a4f0186b6bc4c3f582ca1f2a5e05e6947613b85107)
+            type_hints = cached_type_hints(_typecheckingstub__7664cbc5a31ad0f20576e6a4f0186b6bc4c3f582ca1f2a5e05e6947613b85107)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        return typing.cast("_IResolvable_da3f097b", jsii.sinvoke(cls, "objectAt", [path]))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.sinvoke(cls, "objectAt", [path]))
 
     @jsii.member(jsii_name="stringAt")
     @builtins.classmethod
@@ -8580,7 +8579,7 @@ class JsonPath(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72ee75a1ba7f71927b8abcece4a47abab805af4517b1944222291ca6751c1d17)
+            type_hints = cached_type_hints(_typecheckingstub__72ee75a1ba7f71927b8abcece4a47abab805af4517b1944222291ca6751c1d17)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "stringAt", [path]))
 
@@ -8601,14 +8600,17 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41f25b1cfc6bdbcf6a60207ed8a5687faef8e1cf0a749fc6aed7aa5a806f40e4)
+            type_hints = cached_type_hints(_typecheckingstub__41f25b1cfc6bdbcf6a60207ed8a5687faef8e1cf0a749fc6aed7aa5a806f40e4)
             check_type(argname="argument input_string", value=input_string, expected_type=type_hints["input_string"])
             check_type(argname="argument splitter", value=splitter, expected_type=type_hints["splitter"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "stringSplit", [input_string, splitter]))
 
     @jsii.member(jsii_name="stringToJson")
     @builtins.classmethod
-    def string_to_json(cls, json_string: builtins.str) -> "_IResolvable_da3f097b":
+    def string_to_json(
+        cls,
+        json_string: builtins.str,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Make an intrinsic States.StringToJson expression.
 
         During the execution of the Step Functions state machine, parse the given
@@ -8623,9 +8625,9 @@ class JsonPath(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-intrinsic-functions.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad3c4072377fc7d5595082ca2f09f08e9f4d6f6919262abf3916a57efba60e27)
+            type_hints = cached_type_hints(_typecheckingstub__ad3c4072377fc7d5595082ca2f09f08e9f4d6f6919262abf3916a57efba60e27)
             check_type(argname="argument json_string", value=json_string, expected_type=type_hints["json_string"])
-        return typing.cast("_IResolvable_da3f097b", jsii.sinvoke(cls, "stringToJson", [json_string]))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.sinvoke(cls, "stringToJson", [json_string]))
 
     @jsii.member(jsii_name="uuid")
     @builtins.classmethod
@@ -8771,7 +8773,7 @@ class JsonPathCommonOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87814671cd39191306b49f0ccc89dddc8ec0ce6fad6dbcbbc6de3bcee442b519)
+            type_hints = cached_type_hints(_typecheckingstub__87814671cd39191306b49f0ccc89dddc8ec0ce6fad6dbcbbc6de3bcee442b519)
             check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
             check_type(argname="argument output_path", value=output_path, expected_type=type_hints["output_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8842,7 +8844,7 @@ class JsonataCommonOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1f621b2201e95aad57e42c83b6900543ce28e1230f16a0cc652a577ebef32a4)
+            type_hints = cached_type_hints(_typecheckingstub__f1f621b2201e95aad57e42c83b6900543ce28e1230f16a0cc652a577ebef32a4)
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if outputs is not None:
@@ -8911,7 +8913,7 @@ class JsonataStateOptions(JsonataCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcf28e5e7257e423138f4865382515f73bbac4c41c327df36b853bccfb975b44)
+            type_hints = cached_type_hints(_typecheckingstub__fcf28e5e7257e423138f4865382515f73bbac4c41c327df36b853bccfb975b44)
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
             check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9010,7 +9012,7 @@ class LogOptions:
     def __init__(
         self,
         *,
-        destination: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        destination: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         include_execution_data: typing.Optional[builtins.bool] = None,
         level: typing.Optional["LogLevel"] = None,
     ) -> None:
@@ -9040,7 +9042,7 @@ class LogOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b27a348000a6495796817f9fd3b73934a015750ac2d2e09e165c45b4d2d5772)
+            type_hints = cached_type_hints(_typecheckingstub__8b27a348000a6495796817f9fd3b73934a015750ac2d2e09e165c45b4d2d5772)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument include_execution_data", value=include_execution_data, expected_type=type_hints["include_execution_data"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -9053,13 +9055,13 @@ class LogOptions:
             self._values["level"] = level
 
     @builtins.property
-    def destination(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def destination(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''The log group where the execution history events will be logged.
 
         :default: No log group. Required if your log level is not set to OFF.
         '''
         result = self._values.get("destination")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     @builtins.property
     def include_execution_data(self) -> typing.Optional[builtins.bool]:
@@ -9145,7 +9147,7 @@ class MapBaseJsonPathOptions(JsonPathCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff512e38378a134262efbff57c16b5367818e3625971ed69c441bf95ca75ff9b)
+            type_hints = cached_type_hints(_typecheckingstub__ff512e38378a134262efbff57c16b5367818e3625971ed69c441bf95ca75ff9b)
             check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
             check_type(argname="argument output_path", value=output_path, expected_type=type_hints["output_path"])
             check_type(argname="argument items_path", value=items_path, expected_type=type_hints["items_path"])
@@ -9286,7 +9288,7 @@ class MapBaseJsonataOptions(JsonataCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a537c5472fd8c41c516513cba3bdb57f6bd977d16b4afd0b27593448140d789e)
+            type_hints = cached_type_hints(_typecheckingstub__a537c5472fd8c41c516513cba3bdb57f6bd977d16b4afd0b27593448140d789e)
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
             check_type(argname="argument items", value=items, expected_type=type_hints["items"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9386,7 +9388,7 @@ class MapBaseOptions(AssignableStateOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e64b5e53f029b5753785385b8477bb5c760876cfc7efe1b7fa47a5f792fffcb)
+            type_hints = cached_type_hints(_typecheckingstub__7e64b5e53f029b5753785385b8477bb5c760876cfc7efe1b7fa47a5f792fffcb)
             check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
             check_type(argname="argument item_selector", value=item_selector, expected_type=type_hints["item_selector"])
             check_type(argname="argument jsonata_item_selector", value=jsonata_item_selector, expected_type=type_hints["jsonata_item_selector"])
@@ -9554,7 +9556,7 @@ class ProcessorConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31ff219914b0d650a3cc1eb8631c77a0fd4affa44a5d994dc200757166b4959)
+            type_hints = cached_type_hints(_typecheckingstub__d31ff219914b0d650a3cc1eb8631c77a0fd4affa44a5d994dc200757166b4959)
             check_type(argname="argument execution_type", value=execution_type, expected_type=type_hints["execution_type"])
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9688,7 +9690,7 @@ class ProvideItems(
         :param array: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dae586942df1544a50cc335427f246f4f6f834daa9aa5077899d40899c44e1d6)
+            type_hints = cached_type_hints(_typecheckingstub__dae586942df1544a50cc335427f246f4f6f834daa9aa5077899d40899c44e1d6)
             check_type(argname="argument array", value=array, expected_type=type_hints["array"])
         return typing.cast("ProvideItems", jsii.sinvoke(cls, "jsonArray", [array]))
 
@@ -9702,7 +9704,7 @@ class ProvideItems(
         :param jsonata_expression: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffbb6f16c2d695af1e8ab595dcc1a2d7898600be378a9d29f50015d354778dde)
+            type_hints = cached_type_hints(_typecheckingstub__ffbb6f16c2d695af1e8ab595dcc1a2d7898600be378a9d29f50015d354778dde)
             check_type(argname="argument jsonata_expression", value=jsonata_expression, expected_type=type_hints["jsonata_expression"])
         return typing.cast("ProvideItems", jsii.sinvoke(cls, "jsonata", [jsonata_expression]))
 
@@ -9781,7 +9783,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: result of the Pass operation.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03617b4630db9dcdb093cf33053ff1c356d21c05e74b38ea8811464bc3fd24b4)
+            type_hints = cached_type_hints(_typecheckingstub__03617b4630db9dcdb093cf33053ff1c356d21c05e74b38ea8811464bc3fd24b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -9793,7 +9795,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c5d4ed5a0f4e741ccf9d2e3ddfe01fd92fa69cd2f3bd2f4aaf2bfacf3c04823)
+            type_hints = cached_type_hints(_typecheckingstub__5c5d4ed5a0f4e741ccf9d2e3ddfe01fd92fa69cd2f3bd2f4aaf2bfacf3c04823)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Result", jsii.sinvoke(cls, "fromArray", [value]))
 
@@ -9805,7 +9807,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b54f9e8f1a575aea261b9615223628a454b88112ac3018e8bdfd096921aad1c1)
+            type_hints = cached_type_hints(_typecheckingstub__b54f9e8f1a575aea261b9615223628a454b88112ac3018e8bdfd096921aad1c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Result", jsii.sinvoke(cls, "fromBoolean", [value]))
 
@@ -9817,7 +9819,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2893d7f002c7ba8fef05ee75544a163571341072dfac17ef5901e8bb26f2f4e4)
+            type_hints = cached_type_hints(_typecheckingstub__2893d7f002c7ba8fef05ee75544a163571341072dfac17ef5901e8bb26f2f4e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Result", jsii.sinvoke(cls, "fromNumber", [value]))
 
@@ -9829,7 +9831,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db43a330458ab9fb395b00b0376ac06a03666ab606b8c9ddea25971d2ce0719f)
+            type_hints = cached_type_hints(_typecheckingstub__db43a330458ab9fb395b00b0376ac06a03666ab606b8c9ddea25971d2ce0719f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Result", jsii.sinvoke(cls, "fromObject", [value]))
 
@@ -9841,7 +9843,7 @@ class Result(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.R
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3615b36aa1e6d0193c5cb37ecfb6f1833c1503331f692609e2775414220fc42e)
+            type_hints = cached_type_hints(_typecheckingstub__3615b36aa1e6d0193c5cb37ecfb6f1833c1503331f692609e2775414220fc42e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Result", jsii.sinvoke(cls, "fromString", [value]))
 
@@ -9883,7 +9885,7 @@ class ResultWriter(
     def __init__(
         self,
         *,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -9897,12 +9899,14 @@ class ResultWriter(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''(deprecated) Compile policy statements to provide relevent permissions to the state machine.
 
         :stability: deprecated
         '''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -9916,18 +9920,18 @@ class ResultWriter(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__690debfadbf5210fcb1a54639e938d5096d2b5eefb9fa6790552d733cf404d6d)
+            type_hints = cached_type_hints(_typecheckingstub__690debfadbf5210fcb1a54639e938d5096d2b5eefb9fa6790552d733cf404d6d)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''(deprecated) S3 Bucket in which to save Map Run results.
 
         :stability: deprecated
         '''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="prefix")
@@ -9950,7 +9954,7 @@ class ResultWriterProps:
     def __init__(
         self,
         *,
-        bucket: "_IBucket_42e086fd",
+        bucket: "_aws_s3_01158f40.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(deprecated) Interface for Result Writer configuration props.
@@ -9980,7 +9984,7 @@ class ResultWriterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60e7633dd729e9dd58a8e472e766fe10b0748d68a61f3d07bfec9cc5b8b4721f)
+            type_hints = cached_type_hints(_typecheckingstub__60e7633dd729e9dd58a8e472e766fe10b0748d68a61f3d07bfec9cc5b8b4721f)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9990,14 +9994,14 @@ class ResultWriterProps:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''(deprecated) S3 Bucket in which to save Map Run results.
 
         :stability: deprecated
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("_IBucket_42e086fd", result)
+        return typing.cast("_aws_s3_01158f40.IBucket", result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -10061,7 +10065,7 @@ class ResultWriterV2(
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         prefix: typing.Optional[builtins.str] = None,
         writer_config: typing.Optional["WriterConfig"] = None,
@@ -10082,9 +10086,11 @@ class ResultWriterV2(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -10096,7 +10102,7 @@ class ResultWriterV2(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d76b7d45bf1ab379f1533a844554757a1b805fb94f1a5b1c5d2573bb12e550f)
+            type_hints = cached_type_hints(_typecheckingstub__4d76b7d45bf1ab379f1533a844554757a1b805fb94f1a5b1c5d2573bb12e550f)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -10110,9 +10116,9 @@ class ResultWriterV2(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket in which to save Map Run results.'''
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], jsii.get(self, "bucket"))
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="bucketNamePath")
@@ -10150,7 +10156,7 @@ class ResultWriterV2Props:
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         prefix: typing.Optional[builtins.str] = None,
         writer_config: typing.Optional["WriterConfig"] = None,
@@ -10187,7 +10193,7 @@ class ResultWriterV2Props:
             distributed_map.item_processor(sfn.Pass(self, "Pass State"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18a2140bb5a78d8150eb6ee1111271032f9faccf277b97a882d6bded4d0905a1)
+            type_hints = cached_type_hints(_typecheckingstub__18a2140bb5a78d8150eb6ee1111271032f9faccf277b97a882d6bded4d0905a1)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument bucket_name_path", value=bucket_name_path, expected_type=type_hints["bucket_name_path"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
@@ -10203,13 +10209,13 @@ class ResultWriterV2Props:
             self._values["writer_config"] = writer_config
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket in which to save Map Run results.
 
         :default: - specify a bucket
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def bucket_name_path(self) -> typing.Optional[builtins.str]:
@@ -10268,10 +10274,10 @@ class RetryProps:
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Retry details.
 
@@ -10312,7 +10318,7 @@ class RetryProps:
             parallel.next(close_order)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__984afa5a2055f0c35fc8c3cf6882093d3a32a8b56c725bd4e3c643f693f59d40)
+            type_hints = cached_type_hints(_typecheckingstub__984afa5a2055f0c35fc8c3cf6882093d3a32a8b56c725bd4e3c643f693f59d40)
             check_type(argname="argument backoff_rate", value=backoff_rate, expected_type=type_hints["backoff_rate"])
             check_type(argname="argument errors", value=errors, expected_type=type_hints["errors"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
@@ -10355,13 +10361,13 @@ class RetryProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How many seconds to wait initially before retrying.
 
         :default: Duration.seconds(1)
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def jitter_strategy(self) -> typing.Optional["JitterType"]:
@@ -10385,13 +10391,13 @@ class RetryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def max_delay(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Maximum limit on retry interval growth during exponential backoff.
 
         :default: - No max delay
         '''
         result = self._values.get("max_delay")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10442,7 +10448,7 @@ class S3CsvItemReader(
         csv_delimiter: typing.Optional["CsvDelimiter"] = None,
         csv_headers: typing.Optional["CsvHeaders"] = None,
         key: builtins.str,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -10466,9 +10472,11 @@ class S3CsvItemReader(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -10480,7 +10488,7 @@ class S3CsvItemReader(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53f9a2ea7d79879b70d5d22b592d43105c7737e7451602d697e1aac041f8ffe)
+            type_hints = cached_type_hints(_typecheckingstub__c53f9a2ea7d79879b70d5d22b592d43105c7737e7451602d697e1aac041f8ffe)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -10494,9 +10502,9 @@ class S3CsvItemReader(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing a file with a list to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="csvHeaders")
@@ -10557,7 +10565,7 @@ class S3FileItemReaderProps(ItemReaderProps):
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
         key: builtins.str,
@@ -10603,7 +10611,7 @@ class S3FileItemReaderProps(ItemReaderProps):
             distributed_map.item_processor(sfn.Pass(self, "Pass"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc17fd96c577f0b5f18e9d0043337043a5db7cf7c35fdc1b09e959cf7f58221c)
+            type_hints = cached_type_hints(_typecheckingstub__fc17fd96c577f0b5f18e9d0043337043a5db7cf7c35fdc1b09e959cf7f58221c)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument bucket_name_path", value=bucket_name_path, expected_type=type_hints["bucket_name_path"])
             check_type(argname="argument max_items", value=max_items, expected_type=type_hints["max_items"])
@@ -10619,7 +10627,7 @@ class S3FileItemReaderProps(ItemReaderProps):
             self._values["max_items"] = max_items
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.
 
         :default: - S3 bucket will be determined from
@@ -10627,7 +10635,7 @@ class S3FileItemReaderProps(ItemReaderProps):
         :see: bucketNamePath
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def bucket_name_path(self) -> typing.Optional[builtins.str]:
@@ -10713,7 +10721,7 @@ class S3JsonItemReader(
         self,
         *,
         key: builtins.str,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -10733,9 +10741,11 @@ class S3JsonItemReader(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -10749,7 +10759,7 @@ class S3JsonItemReader(
         :return: - JSON object
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7ba747569314ea29170c03870323ea1ddbbec560569d03719539553067efa54)
+            type_hints = cached_type_hints(_typecheckingstub__f7ba747569314ea29170c03870323ea1ddbbec560569d03719539553067efa54)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -10763,9 +10773,9 @@ class S3JsonItemReader(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing a file with a list to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="inputType")
@@ -10832,7 +10842,7 @@ class S3JsonLItemReader(
         self,
         *,
         key: builtins.str,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -10852,9 +10862,11 @@ class S3JsonLItemReader(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -10868,7 +10880,7 @@ class S3JsonLItemReader(
         :return: - JSON object
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e8cebbd9ef196d59ec6413bebd01b2d7c60f20ed3dd42b2c68bb29590c06899)
+            type_hints = cached_type_hints(_typecheckingstub__8e8cebbd9ef196d59ec6413bebd01b2d7c60f20ed3dd42b2c68bb29590c06899)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -10882,9 +10894,9 @@ class S3JsonLItemReader(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing a file with a list to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="inputType")
@@ -10951,7 +10963,7 @@ class S3ManifestItemReader(
         self,
         *,
         key: builtins.str,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -10971,9 +10983,11 @@ class S3ManifestItemReader(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -10987,7 +11001,7 @@ class S3ManifestItemReader(
         :return: - JSON object
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19056f84ae53892b20d050acc2be09f4ae779dad92d64cefcd50b3ad874b480f)
+            type_hints = cached_type_hints(_typecheckingstub__19056f84ae53892b20d050acc2be09f4ae779dad92d64cefcd50b3ad874b480f)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -11001,9 +11015,9 @@ class S3ManifestItemReader(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing a file with a list to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="inputType")
@@ -11081,7 +11095,7 @@ class S3ObjectsItemReader(
         self,
         *,
         prefix: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -11101,9 +11115,11 @@ class S3ObjectsItemReader(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="providePolicyStatements")
-    def provide_policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def provide_policy_statements(
+        self,
+    ) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''Compile policy statements to provide relevent permissions to the state machine.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.invoke(self, "providePolicyStatements", []))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.invoke(self, "providePolicyStatements", []))
 
     @jsii.member(jsii_name="render")
     def render(
@@ -11117,7 +11133,7 @@ class S3ObjectsItemReader(
         :return: - JSON object
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bc2701d4d17a9ebaf074864a8e82d7f7fa507a2201b875a0966d6306ef38032)
+            type_hints = cached_type_hints(_typecheckingstub__3bc2701d4d17a9ebaf074864a8e82d7f7fa507a2201b875a0966d6306ef38032)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "render", [query_language]))
 
@@ -11131,9 +11147,9 @@ class S3ObjectsItemReader(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "_IBucket_42e086fd":
+    def bucket(self) -> "_aws_s3_01158f40.IBucket":
         '''S3 Bucket containing objects to iterate over.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
+        return typing.cast("_aws_s3_01158f40.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
@@ -11180,7 +11196,7 @@ class S3ObjectsItemReaderProps(ItemReaderProps):
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
         prefix: typing.Optional[builtins.str] = None,
@@ -11224,7 +11240,7 @@ class S3ObjectsItemReaderProps(ItemReaderProps):
             distributed_map.item_processor(sfn.Pass(self, "Pass"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0839027a57f578b6a339286602923b0024b1f5e10dc2fb3ce8ac185f643a3bbc)
+            type_hints = cached_type_hints(_typecheckingstub__0839027a57f578b6a339286602923b0024b1f5e10dc2fb3ce8ac185f643a3bbc)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument bucket_name_path", value=bucket_name_path, expected_type=type_hints["bucket_name_path"])
             check_type(argname="argument max_items", value=max_items, expected_type=type_hints["max_items"])
@@ -11240,7 +11256,7 @@ class S3ObjectsItemReaderProps(ItemReaderProps):
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.
 
         :default: - S3 bucket will be determined from
@@ -11248,7 +11264,7 @@ class S3ObjectsItemReaderProps(ItemReaderProps):
         :see: bucketNamePath
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def bucket_name_path(self) -> typing.Optional[builtins.str]:
@@ -11353,7 +11369,7 @@ class State(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__095d7fa7ac65d852ef7641274fbdf11368859faad0abca011b7a488dead935f0)
+            type_hints = cached_type_hints(_typecheckingstub__095d7fa7ac65d852ef7641274fbdf11368859faad0abca011b7a488dead935f0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StateProps(
@@ -11383,7 +11399,7 @@ class State(
         :param states: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8285bd9e997c66a751e5455febad37743a69532169b26fb46600526e58ae970)
+            type_hints = cached_type_hints(_typecheckingstub__a8285bd9e997c66a751e5455febad37743a69532169b26fb46600526e58ae970)
             check_type(argname="argument states", value=states, expected_type=type_hints["states"])
         return typing.cast(typing.List["INextable"], jsii.sinvoke(cls, "filterNextables", [states]))
 
@@ -11401,7 +11417,7 @@ class State(
         :param include_error_handlers: Whether or not to follow error-handling transitions. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4622deb77b2918e678ad2d3a555fc84d4bb73d0ef35db3e8c844460b9bedd41c)
+            type_hints = cached_type_hints(_typecheckingstub__4622deb77b2918e678ad2d3a555fc84d4bb73d0ef35db3e8c844460b9bedd41c)
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
         options = FindStateOptions(include_error_handlers=include_error_handlers)
 
@@ -11423,7 +11439,7 @@ class State(
         :param include_error_handlers: Whether or not to follow error-handling transitions. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cec53ebef4ca820e7a85aa44b21deceeca71c230ec6ec855e5c5d6bb4880bdc0)
+            type_hints = cached_type_hints(_typecheckingstub__cec53ebef4ca820e7a85aa44b21deceeca71c230ec6ec855e5c5d6bb4880bdc0)
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
         options = FindStateOptions(include_error_handlers=include_error_handlers)
 
@@ -11442,7 +11458,7 @@ class State(
         :param prefix: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b73e6298c3658224e6c25d0abee853dc2cbd5ed77d4f935e724af3c0f2f36d9e)
+            type_hints = cached_type_hints(_typecheckingstub__b73e6298c3658224e6c25d0abee853dc2cbd5ed77d4f935e724af3c0f2f36d9e)
             check_type(argname="argument root", value=root, expected_type=type_hints["root"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast(None, jsii.sinvoke(cls, "prefixStates", [root, prefix]))
@@ -11454,7 +11470,7 @@ class State(
         :param branch: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9f89078424459b1c694d56e01d3910a25c8af32756935aaace102680b9010a8)
+            type_hints = cached_type_hints(_typecheckingstub__d9f89078424459b1c694d56e01d3910a25c8af32756935aaace102680b9010a8)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         return typing.cast(None, jsii.invoke(self, "addBranch", [branch]))
 
@@ -11477,7 +11493,7 @@ class State(
         :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df2c90f3de37dcdaf38ae6a3e70460c7cdfd78a154847df351088cd8a3b22960)
+            type_hints = cached_type_hints(_typecheckingstub__df2c90f3de37dcdaf38ae6a3e70460c7cdfd78a154847df351088cd8a3b22960)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         options = ChoiceTransitionOptions(
@@ -11501,7 +11517,7 @@ class State(
         :param mode: Specifies the execution mode for the Map workflow. Default: - ProcessorMode.INLINE if using the ``Map`` class, ProcessorMode.DISTRIBUTED if using the ``DistributedMap`` class
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5de90784fdeaa0fa9de5d18b85a161ebed718ee0e26df2989a66073001fcb12d)
+            type_hints = cached_type_hints(_typecheckingstub__5de90784fdeaa0fa9de5d18b85a161ebed718ee0e26df2989a66073001fcb12d)
             check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
         config = ProcessorConfig(execution_type=execution_type, mode=mode)
 
@@ -11514,7 +11530,7 @@ class State(
         :param iteration: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5562e3f75801d7a93e7b5728bae35a75af70b818bb2fc8dcd8e5aa13d0766eb9)
+            type_hints = cached_type_hints(_typecheckingstub__5562e3f75801d7a93e7b5728bae35a75af70b818bb2fc8dcd8e5aa13d0766eb9)
             check_type(argname="argument iteration", value=iteration, expected_type=type_hints["iteration"])
         return typing.cast(None, jsii.invoke(self, "addIterator", [iteration]))
 
@@ -11525,7 +11541,7 @@ class State(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b71fffe032923dbb5cba43a418faf869357c809484ea9fcd9d26ceea47259a)
+            type_hints = cached_type_hints(_typecheckingstub__e7b71fffe032923dbb5cba43a418faf869357c809484ea9fcd9d26ceea47259a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(None, jsii.invoke(self, "addPrefix", [x]))
 
@@ -11539,7 +11555,7 @@ class State(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bdaefb727b4b60b3bebb8ea3b5db4a529cd533e6f827f21ccc0ff1822343254)
+            type_hints = cached_type_hints(_typecheckingstub__8bdaefb727b4b60b3bebb8ea3b5db4a529cd533e6f827f21ccc0ff1822343254)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "bindToGraph", [graph]))
 
@@ -11550,7 +11566,7 @@ class State(
         :param def_: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee3ac76d6f92e799c65c47a04ad37a5bd88574a09db9de401595f330f3a126de)
+            type_hints = cached_type_hints(_typecheckingstub__ee3ac76d6f92e799c65c47a04ad37a5bd88574a09db9de401595f330f3a126de)
             check_type(argname="argument def_", value=def_, expected_type=type_hints["def_"])
         return typing.cast(None, jsii.invoke(self, "makeDefault", [def_]))
 
@@ -11561,7 +11577,7 @@ class State(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a69a1ac363b05a6ca439baf3f08831b411887d784118ecc98566dca2d8872de)
+            type_hints = cached_type_hints(_typecheckingstub__2a69a1ac363b05a6ca439baf3f08831b411887d784118ecc98566dca2d8872de)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast(None, jsii.invoke(self, "makeNext", [next]))
 
@@ -11575,7 +11591,7 @@ class State(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4acc78236dd59844b2cc8143c663ae1f8be6dd03dc76a7fe971f920ea7441a81)
+            type_hints = cached_type_hints(_typecheckingstub__4acc78236dd59844b2cc8143c663ae1f8be6dd03dc76a7fe971f920ea7441a81)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "renderAssign", [top_level_query_language]))
 
@@ -11594,7 +11610,7 @@ class State(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e3a32b6007983dcc71bd63c3c57b2a27f08b362bc476bd8bf0e333e1481a596)
+            type_hints = cached_type_hints(_typecheckingstub__0e3a32b6007983dcc71bd63c3c57b2a27f08b362bc476bd8bf0e333e1481a596)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "renderChoices", [top_level_query_language]))
 
@@ -11628,7 +11644,7 @@ class State(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13d6fad407935db9e0172cf2ebfa6eb29c6399b1dc8021c3d3588ef60284af2c)
+            type_hints = cached_type_hints(_typecheckingstub__13d6fad407935db9e0172cf2ebfa6eb29c6399b1dc8021c3d3588ef60284af2c)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "renderQueryLanguage", [top_level_query_language]))
 
@@ -11647,7 +11663,7 @@ class State(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__271ee9a8e04409f09b9c271b11627a3804e0a52e9d414dc7d9855af9e05af960)
+            type_hints = cached_type_hints(_typecheckingstub__271ee9a8e04409f09b9c271b11627a3804e0a52e9d414dc7d9855af9e05af960)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Any, jsii.invoke(self, "renderRetryCatch", [top_level_query_language]))
 
@@ -11677,7 +11693,7 @@ class State(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acfe4853db045f97378bdb44b521dcb1b8b46261f09a3786e2e5519eef4bf29d)
+            type_hints = cached_type_hints(_typecheckingstub__acfe4853db045f97378bdb44b521dcb1b8b46261f09a3786e2e5519eef4bf29d)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "whenBoundToGraph", [graph]))
 
@@ -11776,7 +11792,7 @@ class State(
     @_default_choice.setter
     def _default_choice(self, value: typing.Optional["State"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daa9d14a638bb5fe2be1b697c5d2a93e5cb602c30d93b1a5ca1eece88b36b1df)
+            type_hints = cached_type_hints(_typecheckingstub__daa9d14a638bb5fe2be1b697c5d2a93e5cb602c30d93b1a5ca1eece88b36b1df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultChoice", value) # pyright: ignore[reportArgumentType]
 
@@ -11788,7 +11804,7 @@ class State(
     @_iteration.setter
     def _iteration(self, value: typing.Optional["StateGraph"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe26ac05d39997cba9f0b774e8732e0d7e33aa2715be53c5d2b6746630255f5f)
+            type_hints = cached_type_hints(_typecheckingstub__fe26ac05d39997cba9f0b774e8732e0d7e33aa2715be53c5d2b6746630255f5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iteration", value) # pyright: ignore[reportArgumentType]
 
@@ -11800,7 +11816,7 @@ class State(
     @_processor.setter
     def _processor(self, value: typing.Optional["StateGraph"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18c6226d92e32b97a3bd2c7822b52c85358b3bd9174c0fcf373dcb3292508540)
+            type_hints = cached_type_hints(_typecheckingstub__18c6226d92e32b97a3bd2c7822b52c85358b3bd9174c0fcf373dcb3292508540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "processor", value) # pyright: ignore[reportArgumentType]
 
@@ -11812,7 +11828,7 @@ class State(
     @_processor_config.setter
     def _processor_config(self, value: typing.Optional["ProcessorConfig"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2064eb72a766ce7c2f9e0be9e43dd6ea46736ba5dd83721de5468681035dcb9f)
+            type_hints = cached_type_hints(_typecheckingstub__2064eb72a766ce7c2f9e0be9e43dd6ea46736ba5dd83721de5468681035dcb9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "processorConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -11824,7 +11840,7 @@ class State(
     @_processor_mode.setter
     def _processor_mode(self, value: typing.Optional["ProcessorMode"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2607af153540f000865a3d1354fc0086931cc826a2328eb0ae249231c9c35ef2)
+            type_hints = cached_type_hints(_typecheckingstub__2607af153540f000865a3d1354fc0086931cc826a2328eb0ae249231c9c35ef2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "processorMode", value) # pyright: ignore[reportArgumentType]
 
@@ -11840,7 +11856,7 @@ class _StateProxy(State):
         :param state_machine_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f9b82fc6ddb8ba3e20b6f210e0c1300ee7b42ee13f621c517336b893d6328db)
+            type_hints = cached_type_hints(_typecheckingstub__2f9b82fc6ddb8ba3e20b6f210e0c1300ee7b42ee13f621c517336b893d6328db)
             check_type(argname="argument state_machine_query_language", value=state_machine_query_language, expected_type=type_hints["state_machine_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [state_machine_query_language]))
 
@@ -11892,7 +11908,7 @@ class StateBaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc118f3ed2b7d38b1e2a5f3e96c4531cf8ecdac97be04d3fe14b131f8b7945c8)
+            type_hints = cached_type_hints(_typecheckingstub__dc118f3ed2b7d38b1e2a5f3e96c4531cf8ecdac97be04d3fe14b131f8b7945c8)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -11990,7 +12006,7 @@ class StateGraph(
         :param graph_description: description of the state machine.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45cc793b7e63b62353e75a13b1efe7e1c03416eb034851d41ac5b855a86cc475)
+            type_hints = cached_type_hints(_typecheckingstub__45cc793b7e63b62353e75a13b1efe7e1c03416eb034851d41ac5b855a86cc475)
             check_type(argname="argument start_state", value=start_state, expected_type=type_hints["start_state"])
             check_type(argname="argument graph_description", value=graph_description, expected_type=type_hints["graph_description"])
         jsii.create(self.__class__, self, [start_state, graph_description])
@@ -12002,18 +12018,21 @@ class StateGraph(
         :param state_machine: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c41fc2afd076bb5952af77d1651e7e739c7d0276024e5796a2d444fd4ba8db)
+            type_hints = cached_type_hints(_typecheckingstub__99c41fc2afd076bb5952af77d1651e7e739c7d0276024e5796a2d444fd4ba8db)
             check_type(argname="argument state_machine", value=state_machine, expected_type=type_hints["state_machine"])
         return typing.cast(None, jsii.invoke(self, "bind", [state_machine]))
 
     @jsii.member(jsii_name="registerPolicyStatement")
-    def register_policy_statement(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def register_policy_statement(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Register a Policy Statement used by states in this graph.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d649f93a2503f72395d055e758cb6b2340de6c8f77bdd56474547120392e535)
+            type_hints = cached_type_hints(_typecheckingstub__9d649f93a2503f72395d055e758cb6b2340de6c8f77bdd56474547120392e535)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "registerPolicyStatement", [statement]))
 
@@ -12026,7 +12045,7 @@ class StateGraph(
         :param state: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04cf5f7930ddcda9609e5560874ab06f26b4161423a2c9f15da86279c7ea7818)
+            type_hints = cached_type_hints(_typecheckingstub__04cf5f7930ddcda9609e5560874ab06f26b4161423a2c9f15da86279c7ea7818)
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
         return typing.cast(None, jsii.invoke(self, "registerState", [state]))
 
@@ -12039,7 +12058,7 @@ class StateGraph(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a7cc2af53307fbb64a215cec870e4cea5ecf0b33bda74fef438d746903abbc4)
+            type_hints = cached_type_hints(_typecheckingstub__6a7cc2af53307fbb64a215cec870e4cea5ecf0b33bda74fef438d746903abbc4)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "registerSuperGraph", [graph]))
 
@@ -12053,7 +12072,7 @@ class StateGraph(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1ec3367e36d598a3405c8d195561f2c8fbfb1dafeacd920f78b3bb588224329)
+            type_hints = cached_type_hints(_typecheckingstub__b1ec3367e36d598a3405c8d195561f2c8fbfb1dafeacd920f78b3bb588224329)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toGraphJson", [query_language]))
 
@@ -12064,9 +12083,9 @@ class StateGraph(
 
     @builtins.property
     @jsii.member(jsii_name="policyStatements")
-    def policy_statements(self) -> typing.List["_PolicyStatement_0fe33853"]:
+    def policy_statements(self) -> typing.List["_aws_iam_1f54b5e8.PolicyStatement"]:
         '''The accumulated policy statements.'''
-        return typing.cast(typing.List["_PolicyStatement_0fe33853"], jsii.get(self, "policyStatements"))
+        return typing.cast(typing.List["_aws_iam_1f54b5e8.PolicyStatement"], jsii.get(self, "policyStatements"))
 
     @builtins.property
     @jsii.member(jsii_name="startState")
@@ -12076,7 +12095,7 @@ class StateGraph(
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Set a timeout to render into the graph JSON.
 
         Read/write. Only makes sense on the top-level graph, subgraphs
@@ -12084,19 +12103,19 @@ class StateGraph(
 
         :default: No timeout
         '''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "timeout"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "timeout"))
 
     @timeout.setter
-    def timeout(self, value: typing.Optional["_Duration_4839e8c3"]) -> None:
+    def timeout(self, value: typing.Optional["_aws_cdk_0cae9daa.Duration"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d70fd99dfd053938f6857187678eff1538a49411584203816fe1ee6e2e95a57)
+            type_hints = cached_type_hints(_typecheckingstub__0d70fd99dfd053938f6857187678eff1538a49411584203816fe1ee6e2e95a57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeout", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.implements(IStateMachine)
 class StateMachine(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.StateMachine",
 ):
@@ -12138,11 +12157,11 @@ class StateMachine(
         encryption_configuration: typing.Optional["EncryptionConfiguration"] = None,
         logs: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         query_language: typing.Optional["QueryLanguage"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
         state_machine_type: typing.Optional["StateMachineType"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         tracing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -12163,7 +12182,7 @@ class StateMachine(
         :param tracing_enabled: Specifies whether Amazon X-Ray tracing is enabled for this state machine. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efdfc02291401a50a1d945e5208e9becb9828352fec32bc109ccebafc162614e)
+            type_hints = cached_type_hints(_typecheckingstub__efdfc02291401a50a1d945e5208e9becb9828352fec32bc109ccebafc162614e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StateMachineProps(
@@ -12199,7 +12218,7 @@ class StateMachine(
         :param state_machine_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dec1adbbe53b54bdacbe2c45386b0970883e6a6ea92d2dd5187b13837238802)
+            type_hints = cached_type_hints(_typecheckingstub__7dec1adbbe53b54bdacbe2c45386b0970883e6a6ea92d2dd5187b13837238802)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument state_machine_arn", value=state_machine_arn, expected_type=type_hints["state_machine_arn"])
@@ -12220,29 +12239,32 @@ class StateMachine(
         :param state_machine_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9d3d7898b3441749750d918233ae686af49db0c0bf54d9e123f31c4307ae53a)
+            type_hints = cached_type_hints(_typecheckingstub__f9d3d7898b3441749750d918233ae686af49db0c0bf54d9e123f31c4307ae53a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument state_machine_name", value=state_machine_name, expected_type=type_hints["state_machine_name"])
         return typing.cast("IStateMachine", jsii.sinvoke(cls, "fromStateMachineName", [scope, id, state_machine_name]))
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Add the given statement to the role's policy.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9722a5396d55198fc0f7899f6cd72adb62c73fdbba082f415df383e5176a389a)
+            type_hints = cached_type_hints(_typecheckingstub__9722a5396d55198fc0f7899f6cd72adb62c73fdbba082f415df383e5176a389a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         [disable-awslint:no-grants]
@@ -12251,17 +12273,17 @@ class StateMachine(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a379c65b3abf8422a7281124e586179178f0b3549b77f94825bb37365de34c5)
+            type_hints = cached_type_hints(_typecheckingstub__4a379c65b3abf8422a7281124e586179178f0b3549b77f94825bb37365de34c5)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [identity, *actions]))
 
     @jsii.member(jsii_name="grantExecution")
     def grant_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions on all executions of the state machine.
 
         The use of this method is discouraged. Please use ``grants.execution()`` instead.
@@ -12272,13 +12294,16 @@ class StateMachine(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__403096ab0bc513019435d412939f8df18641c1b52bfba18e821c391fa4b9024d)
+            type_hints = cached_type_hints(_typecheckingstub__403096ab0bc513019435d412939f8df18641c1b52bfba18e821c391fa4b9024d)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantExecution", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantExecution", [identity, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read results from state machine.
 
         The use of this method is discouraged. Please use ``grants.read()`` instead.
@@ -12288,15 +12313,15 @@ class StateMachine(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de328dbf28de2be4ba9b61ea81bce4e6d383ec0968b0e914acb7378b694c7b96)
+            type_hints = cached_type_hints(_typecheckingstub__de328dbf28de2be4ba9b61ea81bce4e6d383ec0968b0e914acb7378b694c7b96)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [identity]))
 
     @jsii.member(jsii_name="grantRedriveExecution")
     def grant_redrive_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permission to redrive the execution of the state machine.
 
         The use of this method is discouraged. Please use ``grants.redriveExecution()`` instead.
@@ -12306,15 +12331,15 @@ class StateMachine(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__105b46fe8f1d3a0f8f8d86eed1f7f5587ebf18870718ca73c5b57e8281defaf5)
+            type_hints = cached_type_hints(_typecheckingstub__105b46fe8f1d3a0f8f8d86eed1f7f5587ebf18870718ca73c5b57e8281defaf5)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRedriveExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRedriveExecution", [identity]))
 
     @jsii.member(jsii_name="grantStartExecution")
     def grant_start_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start an execution of this state machine.
 
         The use of this method is discouraged. Please use ``grants.startExecution()`` instead.
@@ -12324,15 +12349,15 @@ class StateMachine(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efa2d941a46220f1692542e8c26652619270873ffe07f55fc9aa7a063799ed08)
+            type_hints = cached_type_hints(_typecheckingstub__efa2d941a46220f1692542e8c26652619270873ffe07f55fc9aa7a063799ed08)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantStartExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantStartExecution", [identity]))
 
     @jsii.member(jsii_name="grantStartSyncExecution")
     def grant_start_sync_execution(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start a synchronous execution of this state machine.
 
         The use of this method is discouraged. Please use ``grants.startSyncExecution()`` instead.
@@ -12342,15 +12367,15 @@ class StateMachine(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1fc6bb22c960bfd2ca38ccc6a9922c3aadc1289dcf5bed18e2559bd0700d32e)
+            type_hints = cached_type_hints(_typecheckingstub__b1fc6bb22c960bfd2ca38ccc6a9922c3aadc1289dcf5bed18e2559bd0700d32e)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantStartSyncExecution", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantStartSyncExecution", [identity]))
 
     @jsii.member(jsii_name="grantTaskResponse")
     def grant_task_response(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity task response permissions on a state machine.
 
         The use of this method is discouraged. Please use ``grants.taskResponse()`` instead.
@@ -12360,9 +12385,9 @@ class StateMachine(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b16d8608f524913e06d7166d119ec903318d80b6015288e92a06223a03e95a)
+            type_hints = cached_type_hints(_typecheckingstub__95b16d8608f524913e06d7166d119ec903318d80b6015288e92a06223a03e95a)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantTaskResponse", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantTaskResponse", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -12374,14 +12399,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this State Machine's executions.
 
         :param metric_name: -
@@ -12401,9 +12426,9 @@ class StateMachine(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e00f442fc4f33cd6bcc931ba95c9117d241aef41be5171c27548e74d91fcd9be)
+            type_hints = cached_type_hints(_typecheckingstub__e00f442fc4f33cd6bcc931ba95c9117d241aef41be5171c27548e74d91fcd9be)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12418,7 +12443,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAborted")
     def metric_aborted(
@@ -12429,14 +12454,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were aborted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12454,7 +12479,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12469,7 +12494,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAborted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAborted", [props]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -12480,14 +12505,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that failed.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12505,7 +12530,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12520,7 +12545,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailed", [props]))
 
     @jsii.member(jsii_name="metricStarted")
     def metric_started(
@@ -12531,14 +12556,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were started.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12556,7 +12581,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12571,7 +12596,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricStarted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricStarted", [props]))
 
     @jsii.member(jsii_name="metricSucceeded")
     def metric_succeeded(
@@ -12582,14 +12607,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that succeeded.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12607,7 +12632,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12622,7 +12647,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSucceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSucceeded", [props]))
 
     @jsii.member(jsii_name="metricThrottled")
     def metric_throttled(
@@ -12633,14 +12658,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that were throttled.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12658,7 +12683,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12673,7 +12698,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricThrottled", [props]))
 
     @jsii.member(jsii_name="metricTime")
     def metric_time(
@@ -12684,14 +12709,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the interval, in milliseconds, between the time the execution starts and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12709,7 +12734,7 @@ class StateMachine(
 
         :default: - average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12724,7 +12749,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTime", [props]))
 
     @jsii.member(jsii_name="metricTimedOut")
     def metric_timed_out(
@@ -12735,14 +12760,14 @@ class StateMachine(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of executions that timed out.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -12760,7 +12785,7 @@ class StateMachine(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -12775,7 +12800,7 @@ class StateMachine(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTimedOut", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -12785,15 +12810,15 @@ class StateMachine(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal this state machine is running as.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''Execution role of this state machine.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineArn")
@@ -12812,9 +12837,9 @@ class StateMachine(
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineRef")
-    def state_machine_ref(self) -> "_StateMachineReference_db0983bb":
+    def state_machine_ref(self) -> "_aws_stepfunctions_322ef9fd.StateMachineReference":
         '''A reference to a StateMachine resource.'''
-        return typing.cast("_StateMachineReference_db0983bb", jsii.get(self, "stateMachineRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.StateMachineReference", jsii.get(self, "stateMachineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineRevisionId")
@@ -12843,7 +12868,7 @@ class StateMachine(
     @grants.setter
     def grants(self, value: "StateMachineGrants") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e8d9c844418e61b36bd8bad01a815456f7dca1027a1068e976414c7960807bf)
+            type_hints = cached_type_hints(_typecheckingstub__6e8d9c844418e61b36bd8bad01a815456f7dca1027a1068e976414c7960807bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "grants", value) # pyright: ignore[reportArgumentType]
 
@@ -12898,7 +12923,7 @@ class StateMachineFragment(
         :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1c5c1191e0b1af51b303ad19000be8e5c4e97e8491eb40cd68c462fa7e42f03)
+            type_hints = cached_type_hints(_typecheckingstub__b1c5c1191e0b1af51b303ad19000be8e5c4e97e8491eb40cd68c462fa7e42f03)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [scope, id])
@@ -12910,7 +12935,7 @@ class StateMachineFragment(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c75eaddac3409d6cdf5dd627e25e2ee4bb9a37cb569d80a08e1847684c226d7)
+            type_hints = cached_type_hints(_typecheckingstub__1c75eaddac3409d6cdf5dd627e25e2ee4bb9a37cb569d80a08e1847684c226d7)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -12927,7 +12952,7 @@ class StateMachineFragment(
         :param prefix: The prefix to add. Will use construct ID by default.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18974d4c0fc7d5b60c0b12888f566840996e0be64f94ae03e6639ebccff3409b)
+            type_hints = cached_type_hints(_typecheckingstub__18974d4c0fc7d5b60c0b12888f566840996e0be64f94ae03e6639ebccff3409b)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         return typing.cast("StateMachineFragment", jsii.invoke(self, "prefixStates", [prefix]))
 
@@ -13053,113 +13078,125 @@ class StateMachineGrants(
     @builtins.classmethod
     def from_state_machine(
         cls,
-        resource: "_IStateMachineRef_65490661",
+        resource: "_aws_stepfunctions_322ef9fd.IStateMachineRef",
     ) -> "StateMachineGrants":
         '''Creates grants for StateMachineGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__499a5e89de7380c7745bafb1a6b705c59b7857cd27a08356e6791849f03dc5c8)
+            type_hints = cached_type_hints(_typecheckingstub__499a5e89de7380c7745bafb1a6b705c59b7857cd27a08356e6791849f03dc5c8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("StateMachineGrants", jsii.sinvoke(cls, "fromStateMachine", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param identity: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf5f42d21e6d0b64d4ee2bcde2d74bd9b4f7249574f60308bf48d0877933f1cc)
+            type_hints = cached_type_hints(_typecheckingstub__cf5f42d21e6d0b64d4ee2bcde2d74bd9b4f7249574f60308bf48d0877933f1cc)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [identity, *actions]))
 
     @jsii.member(jsii_name="execution")
     def execution(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start an execution of this state machine.
 
         :param grantee: The principal.
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__202f211546ecc2af49fb7ad52596cf81b25d3a26837e291ca0d3f3d7f2f90f46)
+            type_hints = cached_type_hints(_typecheckingstub__202f211546ecc2af49fb7ad52596cf81b25d3a26837e291ca0d3f3d7f2f90f46)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "execution", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "execution", [grantee, *actions]))
 
     @jsii.member(jsii_name="read")
-    def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to read results from state machine.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb08fa6ada952f09683db57c2c3974467d820471582d4243f0ceff035b0d6ad3)
+            type_hints = cached_type_hints(_typecheckingstub__bb08fa6ada952f09683db57c2c3974467d820471582d4243f0ceff035b0d6ad3)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "read", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "read", [grantee]))
 
     @jsii.member(jsii_name="redriveExecution")
-    def redrive_execution(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def redrive_execution(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permission to redrive the execution of the state machine.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570f54251e220541e4bf36d9de7ccd1438bda41d3b3045f76aaf2f560f6a98f5)
+            type_hints = cached_type_hints(_typecheckingstub__570f54251e220541e4bf36d9de7ccd1438bda41d3b3045f76aaf2f560f6a98f5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "redriveExecution", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "redriveExecution", [grantee]))
 
     @jsii.member(jsii_name="startExecution")
-    def start_execution(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def start_execution(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start an execution of this state machine.
 
         :param grantee: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d79ebeeb6e79c2f50527ddfb96b6f9e66a605d2e4981eb085319b9cdd20c3405)
+            type_hints = cached_type_hints(_typecheckingstub__d79ebeeb6e79c2f50527ddfb96b6f9e66a605d2e4981eb085319b9cdd20c3405)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "startExecution", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "startExecution", [grantee]))
 
     @jsii.member(jsii_name="startSyncExecution")
     def start_sync_execution(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions to start a synchronous execution of this state machine.
 
         :param grantee: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88a2328c71da3d32259dad9c3bcdb267c0ff4a31279b91da9f02cf561412627)
+            type_hints = cached_type_hints(_typecheckingstub__d88a2328c71da3d32259dad9c3bcdb267c0ff4a31279b91da9f02cf561412627)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "startSyncExecution", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "startSyncExecution", [grantee]))
 
     @jsii.member(jsii_name="taskResponse")
-    def task_response(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def task_response(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity task response permissions on a state machine.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__780d72444143e550cd524e24d98cc675b9aaff09405978a0dfc0ffba7963d5bd)
+            type_hints = cached_type_hints(_typecheckingstub__780d72444143e550cd524e24d98cc675b9aaff09405978a0dfc0ffba7963d5bd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "taskResponse", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "taskResponse", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IStateMachineRef_65490661":
-        return typing.cast("_IStateMachineRef_65490661", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_stepfunctions_322ef9fd.IStateMachineRef":
+        return typing.cast("_aws_stepfunctions_322ef9fd.IStateMachineRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -13168,7 +13205,11 @@ class StateMachineGrants(
     name_mapping={"resource": "resource"},
 )
 class StateMachineGrantsProps:
-    def __init__(self, *, resource: "_IStateMachineRef_65490661") -> None:
+    def __init__(
+        self,
+        *,
+        resource: "_aws_stepfunctions_322ef9fd.IStateMachineRef",
+    ) -> None:
         '''Properties for StateMachineGrants.
 
         :param resource: The resource on which actions will be allowed.
@@ -13189,18 +13230,18 @@ class StateMachineGrantsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fa6405cfca42b9aaaacbffc9c3fbc63ca17d90df6484dfba1c1a8376653880f)
+            type_hints = cached_type_hints(_typecheckingstub__1fa6405cfca42b9aaaacbffc9c3fbc63ca17d90df6484dfba1c1a8376653880f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource": resource,
         }
 
     @builtins.property
-    def resource(self) -> "_IStateMachineRef_65490661":
+    def resource(self) -> "_aws_stepfunctions_322ef9fd.IStateMachineRef":
         '''The resource on which actions will be allowed.'''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_IStateMachineRef_65490661", result)
+        return typing.cast("_aws_stepfunctions_322ef9fd.IStateMachineRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13244,11 +13285,11 @@ class StateMachineProps:
         encryption_configuration: typing.Optional["EncryptionConfiguration"] = None,
         logs: typing.Optional[typing.Union["LogOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         query_language: typing.Optional["QueryLanguage"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
         state_machine_type: typing.Optional["StateMachineType"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         tracing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties for defining a State Machine.
@@ -13293,7 +13334,7 @@ class StateMachineProps:
         if isinstance(logs, dict):
             logs = LogOptions(**logs)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24d23b501c893898901860f31ff1a0a0fa81eb89f06a7acf3eef4f15e46022f6)
+            type_hints = cached_type_hints(_typecheckingstub__24d23b501c893898901860f31ff1a0a0fa81eb89f06a7acf3eef4f15e46022f6)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument definition_body", value=definition_body, expected_type=type_hints["definition_body"])
@@ -13400,22 +13441,22 @@ class StateMachineProps:
         return typing.cast(typing.Optional["QueryLanguage"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to state machine.
 
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The execution role for the state machine service.
 
         :default: A role is automatically created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def state_machine_name(self) -> typing.Optional[builtins.str]:
@@ -13436,13 +13477,13 @@ class StateMachineProps:
         return typing.cast(typing.Optional["StateMachineType"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Maximum run time for this state machine.
 
         :default: No timeout
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def tracing_enabled(self) -> typing.Optional[builtins.bool]:
@@ -13587,7 +13628,7 @@ class StateProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b03d550137d1f7258c191a636f4e39f4e3ecdc83ecee214790010cc1584599d)
+            type_hints = cached_type_hints(_typecheckingstub__3b03d550137d1f7258c191a636f4e39f4e3ecdc83ecee214790010cc1584599d)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -13802,14 +13843,14 @@ class StateTransitionMetric(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for the service's state transition metrics.
 
         :param metric_name: -
@@ -13829,9 +13870,9 @@ class StateTransitionMetric(
         :default: average over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01d556c15cb7d46dea75f4d4d5be455df4181351677d04c896b3cece7c2f4164)
+            type_hints = cached_type_hints(_typecheckingstub__01d556c15cb7d46dea75f4d4d5be455df4181351677d04c896b3cece7c2f4164)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -13846,7 +13887,7 @@ class StateTransitionMetric(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricConsumedCapacity")
     @builtins.classmethod
@@ -13858,14 +13899,14 @@ class StateTransitionMetric(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of available state transitions per second.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13883,7 +13924,7 @@ class StateTransitionMetric(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -13898,7 +13939,7 @@ class StateTransitionMetric(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricConsumedCapacity", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricConsumedCapacity", [props]))
 
     @jsii.member(jsii_name="metricProvisionedBucketSize")
     @builtins.classmethod
@@ -13910,14 +13951,14 @@ class StateTransitionMetric(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of available state transitions.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13935,7 +13976,7 @@ class StateTransitionMetric(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -13950,7 +13991,7 @@ class StateTransitionMetric(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricProvisionedBucketSize", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricProvisionedBucketSize", [props]))
 
     @jsii.member(jsii_name="metricProvisionedRefillRate")
     @builtins.classmethod
@@ -13962,14 +14003,14 @@ class StateTransitionMetric(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the provisioned steady-state execution rate.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -13987,7 +14028,7 @@ class StateTransitionMetric(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14002,7 +14043,7 @@ class StateTransitionMetric(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricProvisionedRefillRate", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricProvisionedRefillRate", [props]))
 
     @jsii.member(jsii_name="metricThrottledEvents")
     @builtins.classmethod
@@ -14014,14 +14055,14 @@ class StateTransitionMetric(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of throttled state transitions.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -14039,7 +14080,7 @@ class StateTransitionMetric(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -14054,7 +14095,7 @@ class StateTransitionMetric(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricThrottledEvents", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricThrottledEvents", [props]))
 
 
 class StringDefinitionBody(
@@ -14081,7 +14122,7 @@ class StringDefinitionBody(
         :param body: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb5817d6d61140231e4bd01c29102ec205d9d1d0f848af6dd3aa28a11467c52a)
+            type_hints = cached_type_hints(_typecheckingstub__cb5817d6d61140231e4bd01c29102ec205d9d1d0f848af6dd3aa28a11467c52a)
             check_type(argname="argument body", value=body, expected_type=type_hints["body"])
         jsii.create(self.__class__, self, [body])
 
@@ -14089,7 +14130,7 @@ class StringDefinitionBody(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _sfn_principal: "_IPrincipal_539bb2fd",
+        _sfn_principal: "_aws_iam_1f54b5e8.IPrincipal",
         _sfn_props: typing.Union["StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         _graph: typing.Optional["StateGraph"] = None,
     ) -> "DefinitionConfig":
@@ -14100,7 +14141,7 @@ class StringDefinitionBody(
         :param _graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aae45f38855ad466a878a7d83ebc926e1b656c12480ab66d4c642079849950e1)
+            type_hints = cached_type_hints(_typecheckingstub__aae45f38855ad466a878a7d83ebc926e1b656c12480ab66d4c642079849950e1)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _sfn_principal", value=_sfn_principal, expected_type=type_hints["_sfn_principal"])
             check_type(argname="argument _sfn_props", value=_sfn_props, expected_type=type_hints["_sfn_props"])
@@ -14152,7 +14193,7 @@ class Succeed(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e35ef3ad1b65975090819e8b098b2b754472124db44d9bf100117c9f3c97b861)
+            type_hints = cached_type_hints(_typecheckingstub__e35ef3ad1b65975090819e8b098b2b754472124db44d9bf100117c9f3c97b861)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SucceedProps(
@@ -14190,7 +14231,7 @@ class Succeed(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9afc6dce18affe9bf6de73b049f8cdbc1dfa76a369d5c36d598f3e7e8d8c2a78)
+            type_hints = cached_type_hints(_typecheckingstub__9afc6dce18affe9bf6de73b049f8cdbc1dfa76a369d5c36d598f3e7e8d8c2a78)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SucceedJsonataProps(
@@ -14228,7 +14269,7 @@ class Succeed(
         :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b85a006837f0d3f6f3e93059130b91db0b3ac80dd18c321a8f75b94b109981d)
+            type_hints = cached_type_hints(_typecheckingstub__8b85a006837f0d3f6f3e93059130b91db0b3ac80dd18c321a8f75b94b109981d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SucceedJsonPathProps(
@@ -14251,7 +14292,7 @@ class Succeed(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24fe9bb42efcd35f775f1f85228264bc53022321c7292176b68ca14695d1c7db)
+            type_hints = cached_type_hints(_typecheckingstub__24fe9bb42efcd35f775f1f85228264bc53022321c7292176b68ca14695d1c7db)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [query_language]))
 
@@ -14308,7 +14349,7 @@ class SucceedJsonPathProps(StateBaseProps, JsonPathCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a44554ff303fdde3729fe97cba81f9f5522851d4f4113f42969e89a734ed01)
+            type_hints = cached_type_hints(_typecheckingstub__49a44554ff303fdde3729fe97cba81f9f5522851d4f4113f42969e89a734ed01)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -14436,7 +14477,7 @@ class SucceedJsonataProps(StateBaseProps, JsonataCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c62f086ca18e203e918fcc863d7542701185197774d47a7a120023301ff7d1d6)
+            type_hints = cached_type_hints(_typecheckingstub__c62f086ca18e203e918fcc863d7542701185197774d47a7a120023301ff7d1d6)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -14562,7 +14603,7 @@ class SucceedProps(StateBaseProps, JsonPathCommonOptions, JsonataCommonOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bcb322679d9a165f0c2d8e6c39b61e6673747fb3e4fb30298aed922536d5e7d)
+            type_hints = cached_type_hints(_typecheckingstub__9bcb322679d9a165f0c2d8e6c39b61e6673747fb3e4fb30298aed922536d5e7d)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -14703,7 +14744,7 @@ class TaskInput(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a16bc413eb726c46f5b831021734efa77e701554386db73af23b8f97b5efcfab)
+            type_hints = cached_type_hints(_typecheckingstub__a16bc413eb726c46f5b831021734efa77e701554386db73af23b8f97b5efcfab)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("TaskInput", jsii.sinvoke(cls, "fromJsonPathAt", [path]))
 
@@ -14719,7 +14760,7 @@ class TaskInput(
         :param obj: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44f51b46946413e542cf081c0a3cecd65b415e2e9f64f9e57d989a11ff927db7)
+            type_hints = cached_type_hints(_typecheckingstub__44f51b46946413e542cf081c0a3cecd65b415e2e9f64f9e57d989a11ff927db7)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast("TaskInput", jsii.sinvoke(cls, "fromObject", [obj]))
 
@@ -14733,7 +14774,7 @@ class TaskInput(
         :param text: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4460ece474b7c5793d096111af286d4137cfc1cfc5ca165e37c695701d7c5af7)
+            type_hints = cached_type_hints(_typecheckingstub__4460ece474b7c5793d096111af286d4137cfc1cfc5ca165e37c695701d7c5af7)
             check_type(argname="argument text", value=text, expected_type=type_hints["text"])
         return typing.cast("TaskInput", jsii.sinvoke(cls, "fromText", [text]))
 
@@ -14795,7 +14836,7 @@ class TaskMetricsConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b853c8cb66c2f5d1054d5d4bf9d98efca35d979661a5be38eaf7dd6e44cef4cc)
+            type_hints = cached_type_hints(_typecheckingstub__b853c8cb66c2f5d1054d5d4bf9d98efca35d979661a5be38eaf7dd6e44cef4cc)
             check_type(argname="argument metric_dimensions", value=metric_dimensions, expected_type=type_hints["metric_dimensions"])
             check_type(argname="argument metric_prefix_plural", value=metric_prefix_plural, expected_type=type_hints["metric_prefix_plural"])
             check_type(argname="argument metric_prefix_singular", value=metric_prefix_singular, expected_type=type_hints["metric_prefix_singular"])
@@ -14883,13 +14924,13 @@ class TaskRole(
 
     @jsii.member(jsii_name="fromRole")
     @builtins.classmethod
-    def from_role(cls, role: "_IRole_235f5d8e") -> "TaskRole":
+    def from_role(cls, role: "_aws_iam_1f54b5e8.IRole") -> "TaskRole":
         '''Construct a task role based on the provided IAM Role.
 
         :param role: IAM Role.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bddea2e373d15cc4e0247b91d3bca3f413aeb2470100f4983965f64d4e53db0)
+            type_hints = cached_type_hints(_typecheckingstub__3bddea2e373d15cc4e0247b91d3bca3f413aeb2470100f4983965f64d4e53db0)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast("TaskRole", jsii.sinvoke(cls, "fromRole", [role]))
 
@@ -14905,7 +14946,7 @@ class TaskRole(
             sfn.TaskRole.from_role_arn_json_path("$.RoleArn")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f0576900770ad89340628b613309cb0873d7789836eb9f1f1a5eb5eea3129f9)
+            type_hints = cached_type_hints(_typecheckingstub__8f0576900770ad89340628b613309cb0873d7789836eb9f1f1a5eb5eea3129f9)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("TaskRole", jsii.sinvoke(cls, "fromRoleArnJsonPath", [expression]))
 
@@ -14968,11 +15009,11 @@ class TaskStateBase(
         query_language: typing.Optional["QueryLanguage"] = None,
         state_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[typing.Union["Credentials", typing.Dict[builtins.str, typing.Any]]] = None,
-        heartbeat: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         heartbeat_timeout: typing.Optional["Timeout"] = None,
         integration_pattern: typing.Optional["IntegrationPattern"] = None,
         task_timeout: typing.Optional["Timeout"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         input_path: typing.Optional[builtins.str] = None,
         output_path: typing.Optional[builtins.str] = None,
@@ -14998,7 +15039,7 @@ class TaskStateBase(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8030332c4c85b7a6f12c27dd03b5ae36fd9b38ad46888955d3d5325978e42311)
+            type_hints = cached_type_hints(_typecheckingstub__8030332c4c85b7a6f12c27dd03b5ae36fd9b38ad46888955d3d5325978e42311)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TaskStateBaseProps(
@@ -15043,7 +15084,7 @@ class TaskStateBase(
         :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__661e0a128e151fbb1312f41cea74fbc148d98cfa524d7238bc6d0994bff443e4)
+            type_hints = cached_type_hints(_typecheckingstub__661e0a128e151fbb1312f41cea74fbc148d98cfa524d7238bc6d0994bff443e4)
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = CatchProps(
             assign=assign, errors=errors, outputs=outputs, result_path=result_path
@@ -15057,10 +15098,10 @@ class TaskStateBase(
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TaskStateBase":
         '''Add retry configuration for this state.
 
@@ -15095,14 +15136,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Task.
 
         :param metric_name: -
@@ -15122,9 +15163,9 @@ class TaskStateBase(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e107390a3e2550b832e771f6471431f1576a6bdab08445ca9d4fef451ab0888)
+            type_hints = cached_type_hints(_typecheckingstub__9e107390a3e2550b832e771f6471431f1576a6bdab08445ca9d4fef451ab0888)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15139,7 +15180,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -15150,14 +15191,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity fails.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15175,7 +15216,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15190,7 +15231,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailed", [props]))
 
     @jsii.member(jsii_name="metricHeartbeatTimedOut")
     def metric_heartbeat_timed_out(
@@ -15201,14 +15242,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times the heartbeat times out for this activity.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15226,7 +15267,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15241,7 +15282,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHeartbeatTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHeartbeatTimedOut", [props]))
 
     @jsii.member(jsii_name="metricRunTime")
     def metric_run_time(
@@ -15252,14 +15293,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, between the time the Task starts and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15277,7 +15318,7 @@ class TaskStateBase(
 
         :default: - average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15292,7 +15333,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRunTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRunTime", [props]))
 
     @jsii.member(jsii_name="metricScheduled")
     def metric_scheduled(
@@ -15303,14 +15344,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity is scheduled.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15328,7 +15369,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15343,7 +15384,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricScheduled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricScheduled", [props]))
 
     @jsii.member(jsii_name="metricScheduleTime")
     def metric_schedule_time(
@@ -15354,14 +15395,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, for which the activity stays in the schedule state.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15379,7 +15420,7 @@ class TaskStateBase(
 
         :default: - average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15394,7 +15435,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricScheduleTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricScheduleTime", [props]))
 
     @jsii.member(jsii_name="metricStarted")
     def metric_started(
@@ -15405,14 +15446,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity is started.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15430,7 +15471,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15445,7 +15486,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricStarted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricStarted", [props]))
 
     @jsii.member(jsii_name="metricSucceeded")
     def metric_succeeded(
@@ -15456,14 +15497,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity succeeds.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15481,7 +15522,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15496,7 +15537,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSucceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSucceeded", [props]))
 
     @jsii.member(jsii_name="metricTime")
     def metric_time(
@@ -15507,14 +15548,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, between the time the activity is scheduled and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15532,7 +15573,7 @@ class TaskStateBase(
 
         :default: - average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15547,7 +15588,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTime", [props]))
 
     @jsii.member(jsii_name="metricTimedOut")
     def metric_timed_out(
@@ -15558,14 +15599,14 @@ class TaskStateBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity times out.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -15583,7 +15624,7 @@ class TaskStateBase(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -15598,7 +15639,7 @@ class TaskStateBase(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTimedOut", [props]))
 
     @jsii.member(jsii_name="next")
     def next(self, next: "IChainable") -> "Chain":
@@ -15607,7 +15648,7 @@ class TaskStateBase(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec5d5503bc58bc8692d34bfb6d62f6cd19c7cbd72d15cfc1e421a14b3a77eeb4)
+            type_hints = cached_type_hints(_typecheckingstub__ec5d5503bc58bc8692d34bfb6d62f6cd19c7cbd72d15cfc1e421a14b3a77eeb4)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -15621,7 +15662,7 @@ class TaskStateBase(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f24fea883a3d24a1778a295ce3338c4c5321e0d4d0771ab99ca1532e7655421)
+            type_hints = cached_type_hints(_typecheckingstub__1f24fea883a3d24a1778a295ce3338c4c5321e0d4d0771ab99ca1532e7655421)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -15634,7 +15675,7 @@ class TaskStateBase(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3476e23aff91128cb42df4fe5996139f3397e205600e914f57e1d211d4569d6)
+            type_hints = cached_type_hints(_typecheckingstub__b3476e23aff91128cb42df4fe5996139f3397e205600e914f57e1d211d4569d6)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "whenBoundToGraph", [graph]))
 
@@ -15655,7 +15696,7 @@ class TaskStateBase(
     @abc.abstractmethod
     def _task_policies(
         self,
-    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
         ...
 
 
@@ -15672,8 +15713,8 @@ class _TaskStateBaseProxy(
     @jsii.member(jsii_name="taskPolicies")
     def _task_policies(
         self,
-    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
-        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], jsii.get(self, "taskPolicies"))
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]], jsii.get(self, "taskPolicies"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, TaskStateBase).__jsii_proxy_class__ = lambda : _TaskStateBaseProxy
@@ -15696,11 +15737,11 @@ class TaskStateBaseOptions:
         self,
         *,
         credentials: typing.Optional[typing.Union["Credentials", typing.Dict[builtins.str, typing.Any]]] = None,
-        heartbeat: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         heartbeat_timeout: typing.Optional["Timeout"] = None,
         integration_pattern: typing.Optional["IntegrationPattern"] = None,
         task_timeout: typing.Optional["Timeout"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Base options for all task states.
 
@@ -15737,7 +15778,7 @@ class TaskStateBaseOptions:
         if isinstance(credentials, dict):
             credentials = Credentials(**credentials)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4244f06e56348aebcf528494e0a0b6672d5495d213b44c1f797f430a494b4060)
+            type_hints = cached_type_hints(_typecheckingstub__4244f06e56348aebcf528494e0a0b6672d5495d213b44c1f797f430a494b4060)
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
             check_type(argname="argument heartbeat", value=heartbeat, expected_type=type_hints["heartbeat"])
             check_type(argname="argument heartbeat_timeout", value=heartbeat_timeout, expected_type=type_hints["heartbeat_timeout"])
@@ -15772,7 +15813,7 @@ class TaskStateBaseOptions:
         return typing.cast(typing.Optional["Credentials"], result)
 
     @builtins.property
-    def heartbeat(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the heartbeat.
 
         :default: - None
@@ -15782,7 +15823,7 @@ class TaskStateBaseOptions:
         :stability: deprecated
         '''
         result = self._values.get("heartbeat")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def heartbeat_timeout(self) -> typing.Optional["Timeout"]:
@@ -15828,7 +15869,7 @@ class TaskStateBaseOptions:
         return typing.cast(typing.Optional["Timeout"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the task.
 
         :default: - None
@@ -15838,7 +15879,7 @@ class TaskStateBaseOptions:
         :stability: deprecated
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15893,11 +15934,11 @@ class TaskStateBaseProps(
         query_language: typing.Optional["QueryLanguage"] = None,
         state_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[typing.Union["Credentials", typing.Dict[builtins.str, typing.Any]]] = None,
-        heartbeat: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         heartbeat_timeout: typing.Optional["Timeout"] = None,
         integration_pattern: typing.Optional["IntegrationPattern"] = None,
         task_timeout: typing.Optional["Timeout"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         input_path: typing.Optional[builtins.str] = None,
         output_path: typing.Optional[builtins.str] = None,
@@ -15965,7 +16006,7 @@ class TaskStateBaseProps(
         if isinstance(credentials, dict):
             credentials = Credentials(**credentials)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__487ae196f9ce32bf6886dc0cf55352b7b5f5a24cc25636bf22f525ed68b9944b)
+            type_hints = cached_type_hints(_typecheckingstub__487ae196f9ce32bf6886dc0cf55352b7b5f5a24cc25636bf22f525ed68b9944b)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -16057,7 +16098,7 @@ class TaskStateBaseProps(
         return typing.cast(typing.Optional["Credentials"], result)
 
     @builtins.property
-    def heartbeat(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the heartbeat.
 
         :default: - None
@@ -16067,7 +16108,7 @@ class TaskStateBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("heartbeat")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def heartbeat_timeout(self) -> typing.Optional["Timeout"]:
@@ -16113,7 +16154,7 @@ class TaskStateBaseProps(
         return typing.cast(typing.Optional["Timeout"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the task.
 
         :default: - None
@@ -16123,7 +16164,7 @@ class TaskStateBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -16257,11 +16298,11 @@ class TaskStateJsonPathBaseProps(
         query_language: typing.Optional["QueryLanguage"] = None,
         state_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[typing.Union["Credentials", typing.Dict[builtins.str, typing.Any]]] = None,
-        heartbeat: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         heartbeat_timeout: typing.Optional["Timeout"] = None,
         integration_pattern: typing.Optional["IntegrationPattern"] = None,
         task_timeout: typing.Optional["Timeout"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         input_path: typing.Optional[builtins.str] = None,
         output_path: typing.Optional[builtins.str] = None,
@@ -16325,7 +16366,7 @@ class TaskStateJsonPathBaseProps(
         if isinstance(credentials, dict):
             credentials = Credentials(**credentials)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1759bed72f3146a0738879f43f0633d6244908e7dac6cd7eee2226ec3dbbb01)
+            type_hints = cached_type_hints(_typecheckingstub__d1759bed72f3146a0738879f43f0633d6244908e7dac6cd7eee2226ec3dbbb01)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -16414,7 +16455,7 @@ class TaskStateJsonPathBaseProps(
         return typing.cast(typing.Optional["Credentials"], result)
 
     @builtins.property
-    def heartbeat(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the heartbeat.
 
         :default: - None
@@ -16424,7 +16465,7 @@ class TaskStateJsonPathBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("heartbeat")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def heartbeat_timeout(self) -> typing.Optional["Timeout"]:
@@ -16470,7 +16511,7 @@ class TaskStateJsonPathBaseProps(
         return typing.cast(typing.Optional["Timeout"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the task.
 
         :default: - None
@@ -16480,7 +16521,7 @@ class TaskStateJsonPathBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -16594,11 +16635,11 @@ class TaskStateJsonataBaseProps(
         query_language: typing.Optional["QueryLanguage"] = None,
         state_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[typing.Union["Credentials", typing.Dict[builtins.str, typing.Any]]] = None,
-        heartbeat: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         heartbeat_timeout: typing.Optional["Timeout"] = None,
         integration_pattern: typing.Optional["IntegrationPattern"] = None,
         task_timeout: typing.Optional["Timeout"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         outputs: typing.Any = None,
     ) -> None:
@@ -16651,7 +16692,7 @@ class TaskStateJsonataBaseProps(
         if isinstance(credentials, dict):
             credentials = Credentials(**credentials)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e23a8f3239d78f9e8982f88322b94695825979264fa40d45b2382a47f748fabb)
+            type_hints = cached_type_hints(_typecheckingstub__e23a8f3239d78f9e8982f88322b94695825979264fa40d45b2382a47f748fabb)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -16731,7 +16772,7 @@ class TaskStateJsonataBaseProps(
         return typing.cast(typing.Optional["Credentials"], result)
 
     @builtins.property
-    def heartbeat(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the heartbeat.
 
         :default: - None
@@ -16741,7 +16782,7 @@ class TaskStateJsonataBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("heartbeat")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def heartbeat_timeout(self) -> typing.Optional["Timeout"]:
@@ -16787,7 +16828,7 @@ class TaskStateJsonataBaseProps(
         return typing.cast(typing.Optional["Timeout"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Timeout for the task.
 
         :default: - None
@@ -16797,7 +16838,7 @@ class TaskStateJsonataBaseProps(
         :stability: deprecated
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -16874,19 +16915,19 @@ class Timeout(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ede5a9c52734b5209acc0043a69f8b4333ea0d0bf32a48bb028d1695fc6077b9)
+            type_hints = cached_type_hints(_typecheckingstub__ede5a9c52734b5209acc0043a69f8b4333ea0d0bf32a48bb028d1695fc6077b9)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("Timeout", jsii.sinvoke(cls, "at", [path]))
 
     @jsii.member(jsii_name="duration")
     @builtins.classmethod
-    def duration(cls, duration: "_Duration_4839e8c3") -> "Timeout":
+    def duration(cls, duration: "_aws_cdk_0cae9daa.Duration") -> "Timeout":
         '''Use a duration as timeout.
 
         :param duration: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a04d027f66b61507aa552be04c2ce9593fc80d23f348ffb16cd24bef17942c5)
+            type_hints = cached_type_hints(_typecheckingstub__9a04d027f66b61507aa552be04c2ce9593fc80d23f348ffb16cd24bef17942c5)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
         return typing.cast("Timeout", jsii.sinvoke(cls, "duration", [duration]))
 
@@ -16900,7 +16941,7 @@ class Timeout(
         :param jsonata_expression: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__479bc852c59ec0d2c9264697213ebc2651bb2d9940f9f767436d1928b7c81c22)
+            type_hints = cached_type_hints(_typecheckingstub__479bc852c59ec0d2c9264697213ebc2651bb2d9940f9f767436d1928b7c81c22)
             check_type(argname="argument jsonata_expression", value=jsonata_expression, expected_type=type_hints["jsonata_expression"])
         return typing.cast("Timeout", jsii.sinvoke(cls, "jsonata", [jsonata_expression]))
 
@@ -17058,7 +17099,7 @@ class Wait(
         :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6a8ce927e9d411d4263a43306a0e94bd7a5d563bd35e990ab82dbb660c79604)
+            type_hints = cached_type_hints(_typecheckingstub__a6a8ce927e9d411d4263a43306a0e94bd7a5d563bd35e990ab82dbb660c79604)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaitProps(
@@ -17099,7 +17140,7 @@ class Wait(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce7e92d27cc21ab1595aa12f104b39b8988bdfa798297052a477220981a35de)
+            type_hints = cached_type_hints(_typecheckingstub__6ce7e92d27cc21ab1595aa12f104b39b8988bdfa798297052a477220981a35de)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaitJsonataProps(
@@ -17143,7 +17184,7 @@ class Wait(
         :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d1dfc65700e45915a3357feb4396c4d8d3fac1720c1ef0a8462e0fce431a3f8)
+            type_hints = cached_type_hints(_typecheckingstub__8d1dfc65700e45915a3357feb4396c4d8d3fac1720c1ef0a8462e0fce431a3f8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaitJsonPathProps(
@@ -17165,7 +17206,7 @@ class Wait(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ae1afef777a31475bd858e03eee2febe97f62b64e27252472e23b8636248fb2)
+            type_hints = cached_type_hints(_typecheckingstub__3ae1afef777a31475bd858e03eee2febe97f62b64e27252472e23b8636248fb2)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -17179,7 +17220,7 @@ class Wait(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__963337dc1e1c46f7e3d8a67a2ffdf1d55d9d1801b6412a79432d3b75bdce2c7a)
+            type_hints = cached_type_hints(_typecheckingstub__963337dc1e1c46f7e3d8a67a2ffdf1d55d9d1801b6412a79432d3b75bdce2c7a)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -17251,7 +17292,7 @@ class WaitJsonPathProps(StateBaseProps, AssignableStateOptions, JsonPathCommonOp
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a4c67f565d564218d843b584c3d5178c7c46e94bd7853f4c999f05da48b76ef)
+            type_hints = cached_type_hints(_typecheckingstub__5a4c67f565d564218d843b584c3d5178c7c46e94bd7853f4c999f05da48b76ef)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -17409,7 +17450,7 @@ class WaitJsonataProps(StateBaseProps, AssignableStateOptions, JsonataCommonOpti
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f08b99bb42b5daab54ab481aa64e4a2324641c4f7e4ef4f15bd20e7902af578)
+            type_hints = cached_type_hints(_typecheckingstub__4f08b99bb42b5daab54ab481aa64e4a2324641c4f7e4ef4f15bd20e7902af578)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -17569,7 +17610,7 @@ class WaitProps(StateBaseProps, AssignableStateOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__534eb46b5e3f50b25dea609490a5fd97e2e7f56c6eeed5ea19d37b6997865461)
+            type_hints = cached_type_hints(_typecheckingstub__534eb46b5e3f50b25dea609490a5fd97e2e7f56c6eeed5ea19d37b6997865461)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -17689,13 +17730,13 @@ class WaitTime(
 
     @jsii.member(jsii_name="duration")
     @builtins.classmethod
-    def duration(cls, duration: "_Duration_4839e8c3") -> "WaitTime":
+    def duration(cls, duration: "_aws_cdk_0cae9daa.Duration") -> "WaitTime":
         '''Wait a fixed amount of time.
 
         :param duration: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a809799722bcdc0c6cece03ff859948273709f66e461d30e317ffbd0ab85aca2)
+            type_hints = cached_type_hints(_typecheckingstub__a809799722bcdc0c6cece03ff859948273709f66e461d30e317ffbd0ab85aca2)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
         return typing.cast("WaitTime", jsii.sinvoke(cls, "duration", [duration]))
 
@@ -17711,7 +17752,7 @@ class WaitTime(
         :param seconds: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1cca994c22c77841da0a9eef9d14e4fb1c008398f4bc7002b7293a5a86e9a6e)
+            type_hints = cached_type_hints(_typecheckingstub__e1cca994c22c77841da0a9eef9d14e4fb1c008398f4bc7002b7293a5a86e9a6e)
             check_type(argname="argument seconds", value=seconds, expected_type=type_hints["seconds"])
         return typing.cast("WaitTime", jsii.sinvoke(cls, "seconds", [seconds]))
 
@@ -17725,7 +17766,7 @@ class WaitTime(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbd7acf00a5586f287932ed2fd2b8aea94218c4e4ed6ce940a9b4f871ce7f4ce)
+            type_hints = cached_type_hints(_typecheckingstub__dbd7acf00a5586f287932ed2fd2b8aea94218c4e4ed6ce940a9b4f871ce7f4ce)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("WaitTime", jsii.sinvoke(cls, "secondsPath", [path]))
 
@@ -17739,7 +17780,7 @@ class WaitTime(
         :param timestamp: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74e6bb97aa64089395900b447ec0f2759ffee7f85b56e84eeaded8aa5dc0a3b2)
+            type_hints = cached_type_hints(_typecheckingstub__74e6bb97aa64089395900b447ec0f2759ffee7f85b56e84eeaded8aa5dc0a3b2)
             check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
         return typing.cast("WaitTime", jsii.sinvoke(cls, "timestamp", [timestamp]))
 
@@ -17753,7 +17794,7 @@ class WaitTime(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88e6966e5553a37e050d3139be3d625237f07f7a3a9c23fa5bb2232f8c50be0)
+            type_hints = cached_type_hints(_typecheckingstub__d88e6966e5553a37e050d3139be3d625237f07f7a3a9c23fa5bb2232f8c50be0)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("WaitTime", jsii.sinvoke(cls, "timestampPath", [path]))
 
@@ -17849,7 +17890,7 @@ class WriterConfigProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6d1ebacd064a6c64b36e76d7d5ef2fc5eecd3ffda0ca7b57d0c76b957a9c449)
+            type_hints = cached_type_hints(_typecheckingstub__e6d1ebacd064a6c64b36e76d7d5ef2fc5eecd3ffda0ca7b57d0c76b957a9c449)
             check_type(argname="argument output_type", value=output_type, expected_type=type_hints["output_type"])
             check_type(argname="argument transformation", value=transformation, expected_type=type_hints["transformation"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -17885,7 +17926,7 @@ class WriterConfigProps:
 
 @jsii.implements(IActivity)
 class Activity(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_stepfunctions.Activity",
 ):
@@ -17919,7 +17960,7 @@ class Activity(
         :param encryption_configuration: The encryptionConfiguration object used for server-side encryption of the activity inputs. Default: - data is transparently encrypted using an AWS owned key
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e3c9e855deb3c2b532345b0d2587dc14ad685d296794311bbf280ab9f6b10d)
+            type_hints = cached_type_hints(_typecheckingstub__a9e3c9e855deb3c2b532345b0d2587dc14ad685d296794311bbf280ab9f6b10d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ActivityProps(
@@ -17944,7 +17985,7 @@ class Activity(
         :param activity_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b23b5f89f13e4afd1f578e47dbd171c4eb80f5231c5844de3057b40bd4e21f11)
+            type_hints = cached_type_hints(_typecheckingstub__b23b5f89f13e4afd1f578e47dbd171c4eb80f5231c5844de3057b40bd4e21f11)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument activity_arn", value=activity_arn, expected_type=type_hints["activity_arn"])
@@ -17965,7 +18006,7 @@ class Activity(
         :param activity_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b8ac7cbf2053f3b4870981fbfd4f3dd21553e4a66f1c2462b2aa64dfa477566)
+            type_hints = cached_type_hints(_typecheckingstub__2b8ac7cbf2053f3b4870981fbfd4f3dd21553e4a66f1c2462b2aa64dfa477566)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument activity_name", value=activity_name, expected_type=type_hints["activity_name"])
@@ -17974,9 +18015,9 @@ class Activity(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        identity: "_IGrantable_71c4f5de",
+        identity: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity permissions on this Activity.
 
         [disable-awslint:no-grants]
@@ -17985,10 +18026,10 @@ class Activity(
         :param actions: The list of desired actions.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01d112510c9f361d871db6717bbfc59060fea12f921f3593ef09bffe88a48574)
+            type_hints = cached_type_hints(_typecheckingstub__01d112510c9f361d871db6717bbfc59060fea12f921f3593ef09bffe88a48574)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [identity, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [identity, *actions]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -18000,14 +18041,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this Activity.
 
         :param metric_name: -
@@ -18027,9 +18068,9 @@ class Activity(
         :default: sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f960b5875dcb81c7f4b6e91c03015375df2e5c6bb3da84f476bf59c2baaba3e)
+            type_hints = cached_type_hints(_typecheckingstub__7f960b5875dcb81c7f4b6e91c03015375df2e5c6bb3da84f476bf59c2baaba3e)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18044,7 +18085,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -18055,14 +18096,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity fails.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18080,7 +18121,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18095,7 +18136,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailed", [props]))
 
     @jsii.member(jsii_name="metricHeartbeatTimedOut")
     def metric_heartbeat_timed_out(
@@ -18106,14 +18147,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times the heartbeat times out for this activity.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18131,7 +18172,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18146,7 +18187,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricHeartbeatTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricHeartbeatTimedOut", [props]))
 
     @jsii.member(jsii_name="metricRunTime")
     def metric_run_time(
@@ -18157,14 +18198,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, between the time the activity starts and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18182,7 +18223,7 @@ class Activity(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18197,7 +18238,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricRunTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricRunTime", [props]))
 
     @jsii.member(jsii_name="metricScheduled")
     def metric_scheduled(
@@ -18208,14 +18249,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity is scheduled.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18233,7 +18274,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18248,7 +18289,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricScheduled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricScheduled", [props]))
 
     @jsii.member(jsii_name="metricScheduleTime")
     def metric_schedule_time(
@@ -18259,14 +18300,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, for which the activity stays in the schedule state.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18284,7 +18325,7 @@ class Activity(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18299,7 +18340,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricScheduleTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricScheduleTime", [props]))
 
     @jsii.member(jsii_name="metricStarted")
     def metric_started(
@@ -18310,14 +18351,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity is started.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18335,7 +18376,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18350,7 +18391,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricStarted", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricStarted", [props]))
 
     @jsii.member(jsii_name="metricSucceeded")
     def metric_succeeded(
@@ -18361,14 +18402,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity succeeds.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18386,7 +18427,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18401,7 +18442,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSucceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSucceeded", [props]))
 
     @jsii.member(jsii_name="metricTime")
     def metric_time(
@@ -18412,14 +18453,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The interval, in milliseconds, between the time the activity is scheduled and the time it closes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18437,7 +18478,7 @@ class Activity(
 
         :default: average over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18452,7 +18493,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTime", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTime", [props]))
 
     @jsii.member(jsii_name="metricTimedOut")
     def metric_timed_out(
@@ -18463,14 +18504,14 @@ class Activity(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of times this activity times out.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -18488,7 +18529,7 @@ class Activity(
 
         :default: sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -18503,7 +18544,7 @@ class Activity(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTimedOut", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTimedOut", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -18525,9 +18566,9 @@ class Activity(
 
     @builtins.property
     @jsii.member(jsii_name="activityRef")
-    def activity_ref(self) -> "_ActivityReference_781f8e4f":
+    def activity_ref(self) -> "_aws_stepfunctions_322ef9fd.ActivityReference":
         '''A reference to a Activity resource.'''
-        return typing.cast("_ActivityReference_781f8e4f", jsii.get(self, "activityRef"))
+        return typing.cast("_aws_stepfunctions_322ef9fd.ActivityReference", jsii.get(self, "activityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -18610,7 +18651,7 @@ class Chain(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.Ch
         :param last_added: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26a438e6d1ba5d4cefba34fbd2fbe2750e8c479b9d8629bb5a75c0c294b63f1a)
+            type_hints = cached_type_hints(_typecheckingstub__26a438e6d1ba5d4cefba34fbd2fbe2750e8c479b9d8629bb5a75c0c294b63f1a)
             check_type(argname="argument start_state", value=start_state, expected_type=type_hints["start_state"])
             check_type(argname="argument end_states", value=end_states, expected_type=type_hints["end_states"])
             check_type(argname="argument last_added", value=last_added, expected_type=type_hints["last_added"])
@@ -18625,7 +18666,7 @@ class Chain(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.Ch
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c955028ecc98936f323c8550ebfcb4aeef25333244714448c6f9471f6ee0ad4f)
+            type_hints = cached_type_hints(_typecheckingstub__c955028ecc98936f323c8550ebfcb4aeef25333244714448c6f9471f6ee0ad4f)
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.sinvoke(cls, "sequence", [start, next]))
@@ -18638,7 +18679,7 @@ class Chain(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.Ch
         :param state: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee2c65d541581403b83500bc7df204a5106888551ba6bd48d4870081c4fd4cc5)
+            type_hints = cached_type_hints(_typecheckingstub__ee2c65d541581403b83500bc7df204a5106888551ba6bd48d4870081c4fd4cc5)
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
         return typing.cast("Chain", jsii.sinvoke(cls, "start", [state]))
 
@@ -18649,7 +18690,7 @@ class Chain(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.Ch
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bd744fb658532d41afa54a85d0b054476b1228d7172fa8e1c494c14f2fa7d5f)
+            type_hints = cached_type_hints(_typecheckingstub__1bd744fb658532d41afa54a85d0b054476b1228d7172fa8e1c494c14f2fa7d5f)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -18693,7 +18734,7 @@ class Chain(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_stepfunctions.Ch
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__468194d7b14012a289ab0c26efcba49fbd09832b9f87d79467e6334c81f8495e)
+            type_hints = cached_type_hints(_typecheckingstub__468194d7b14012a289ab0c26efcba49fbd09832b9f87d79467e6334c81f8495e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ParallelProps(
             arguments=arguments,
@@ -18754,7 +18795,7 @@ class ChainDefinitionBody(
         :param chainable: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd08795a00486d8e3c10949ac36b6c93109ecc1bb3a98a3e10990fe66c603599)
+            type_hints = cached_type_hints(_typecheckingstub__cd08795a00486d8e3c10949ac36b6c93109ecc1bb3a98a3e10990fe66c603599)
             check_type(argname="argument chainable", value=chainable, expected_type=type_hints["chainable"])
         jsii.create(self.__class__, self, [chainable])
 
@@ -18762,7 +18803,7 @@ class ChainDefinitionBody(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        _sfn_principal: "_IPrincipal_539bb2fd",
+        _sfn_principal: "_aws_iam_1f54b5e8.IPrincipal",
         sfn_props: typing.Union["StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         graph: typing.Optional["StateGraph"] = None,
     ) -> "DefinitionConfig":
@@ -18773,7 +18814,7 @@ class ChainDefinitionBody(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e36acb57c00ddfc834d6027c29b11bab26d8b33890707c567bc4f7804a9786f2)
+            type_hints = cached_type_hints(_typecheckingstub__e36acb57c00ddfc834d6027c29b11bab26d8b33890707c567bc4f7804a9786f2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument _sfn_principal", value=_sfn_principal, expected_type=type_hints["_sfn_principal"])
             check_type(argname="argument sfn_props", value=sfn_props, expected_type=type_hints["sfn_props"])
@@ -18847,7 +18888,7 @@ class Choice(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29c27d2454927afdcf01784360c45c98368486d465f54265c1199aa70baaae72)
+            type_hints = cached_type_hints(_typecheckingstub__29c27d2454927afdcf01784360c45c98368486d465f54265c1199aa70baaae72)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ChoiceProps(
@@ -18889,7 +18930,7 @@ class Choice(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b7bfe6f6dbd821fe792204d2ac1e45b3b8ad078881ca628ec7ffdff044e6c3d)
+            type_hints = cached_type_hints(_typecheckingstub__0b7bfe6f6dbd821fe792204d2ac1e45b3b8ad078881ca628ec7ffdff044e6c3d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ChoiceJsonataProps(
@@ -18931,7 +18972,7 @@ class Choice(
         :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b7944b03a9d9e389224726e19efedeb36d908eeb8fb69286f5b1678f2249111)
+            type_hints = cached_type_hints(_typecheckingstub__9b7944b03a9d9e389224726e19efedeb36d908eeb8fb69286f5b1678f2249111)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ChoiceJsonPathProps(
@@ -18976,7 +19017,7 @@ class Choice(
         :param def_: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58e659f8b3dba6c37e918b57bca058880f69e9f4da0a230edb80f223a37fbc82)
+            type_hints = cached_type_hints(_typecheckingstub__58e659f8b3dba6c37e918b57bca058880f69e9f4da0a230edb80f223a37fbc82)
             check_type(argname="argument def_", value=def_, expected_type=type_hints["def_"])
         return typing.cast("Choice", jsii.invoke(self, "otherwise", [def_]))
 
@@ -18990,7 +19031,7 @@ class Choice(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__197a7a8490ce104802d8f6eba3ee43777cb5a91d70783187e88814877f3a7617)
+            type_hints = cached_type_hints(_typecheckingstub__197a7a8490ce104802d8f6eba3ee43777cb5a91d70783187e88814877f3a7617)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -19013,7 +19054,7 @@ class Choice(
         :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5351e3ee5e1f4b5b58ec322e57749fdd65cdc8bb76443318ef63b4eedc5cb0b)
+            type_hints = cached_type_hints(_typecheckingstub__c5351e3ee5e1f4b5b58ec322e57749fdd65cdc8bb76443318ef63b4eedc5cb0b)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         options = ChoiceTransitionOptions(
@@ -19087,7 +19128,7 @@ class ChoiceJsonPathProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d881d93fa70435332dcacbf2d51733495e3d18d5c2e3f0c375a54b700bfb01f9)
+            type_hints = cached_type_hints(_typecheckingstub__d881d93fa70435332dcacbf2d51733495e3d18d5c2e3f0c375a54b700bfb01f9)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -19238,7 +19279,7 @@ class ChoiceJsonataProps(StateBaseProps, AssignableStateOptions, JsonataCommonOp
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b774bb27c54a43aaa77ef46481d98319a6b57b56f8a2f3b3be2675bdce8be15a)
+            type_hints = cached_type_hints(_typecheckingstub__b774bb27c54a43aaa77ef46481d98319a6b57b56f8a2f3b3be2675bdce8be15a)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -19388,7 +19429,7 @@ class ChoiceProps(
             choice.otherwise(handle_other_item_color)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a926bb3a79f5cf3706dd32093c49a75fa6045aeefbff3e1b4943eb654489e685)
+            type_hints = cached_type_hints(_typecheckingstub__a926bb3a79f5cf3706dd32093c49a75fa6045aeefbff3e1b4943eb654489e685)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -19590,7 +19631,7 @@ class CustomState(
         :param state_json: Amazon States Language (JSON-based) definition of the state.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab8400575bd03faff673b28e1d5b185298520835ed4e6586fba73ccac57c6f0e)
+            type_hints = cached_type_hints(_typecheckingstub__ab8400575bd03faff673b28e1d5b185298520835ed4e6586fba73ccac57c6f0e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CustomStateProps(state_json=state_json)
@@ -19619,7 +19660,7 @@ class CustomState(
         :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af51c0590f129eeca0846aafaf90162dc24f8f5c4a9df58d88432f4facb4ff08)
+            type_hints = cached_type_hints(_typecheckingstub__af51c0590f129eeca0846aafaf90162dc24f8f5c4a9df58d88432f4facb4ff08)
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = CatchProps(
             assign=assign, errors=errors, outputs=outputs, result_path=result_path
@@ -19633,10 +19674,10 @@ class CustomState(
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "CustomState":
         '''Add retry configuration for this state.
 
@@ -19668,7 +19709,7 @@ class CustomState(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c55cf19adb97a87b3d9f8561497d58ec4f0dc221883c0d757f4bec5f4690cadd)
+            type_hints = cached_type_hints(_typecheckingstub__c55cf19adb97a87b3d9f8561497d58ec4f0dc221883c0d757f4bec5f4690cadd)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -19682,7 +19723,7 @@ class CustomState(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18a43aab146056e4e112d2df13cf490470699ce4e7e2812e943745b000133fd1)
+            type_hints = cached_type_hints(_typecheckingstub__18a43aab146056e4e112d2df13cf490470699ce4e7e2812e943745b000133fd1)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [query_language]))
 
@@ -19719,42 +19760,42 @@ class CustomerManagedEncryptionConfiguration(
 
     def __init__(
         self,
-        kms_key: "_IKey_5f11635f",
-        kms_data_key_reuse_period_seconds: typing.Optional["_Duration_4839e8c3"] = None,
+        kms_key: "_aws_kms_ff87d74a.IKey",
+        kms_data_key_reuse_period_seconds: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param kms_key: -
         :param kms_data_key_reuse_period_seconds: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49c419f1b0cde6ecd2360bc2aeba72512cfc8d5f6b3745284a5b2819a1fc37bf)
+            type_hints = cached_type_hints(_typecheckingstub__49c419f1b0cde6ecd2360bc2aeba72512cfc8d5f6b3745284a5b2819a1fc37bf)
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
         jsii.create(self.__class__, self, [kms_key, kms_data_key_reuse_period_seconds])
 
     @builtins.property
     @jsii.member(jsii_name="kmsKey")
-    def kms_key(self) -> "_IKey_5f11635f":
+    def kms_key(self) -> "_aws_kms_ff87d74a.IKey":
         '''The symmetric customer managed KMS key for server-side encryption of the state machine definition, and execution history or activity inputs.
 
         Step Functions will reuse the key for a maximum of ``kmsDataKeyReusePeriodSeconds``.
 
         :default: - data is transparently encrypted using an AWS owned key
         '''
-        return typing.cast("_IKey_5f11635f", jsii.get(self, "kmsKey"))
+        return typing.cast("_aws_kms_ff87d74a.IKey", jsii.get(self, "kmsKey"))
 
     @builtins.property
     @jsii.member(jsii_name="kmsDataKeyReusePeriodSeconds")
     def kms_data_key_reuse_period_seconds(
         self,
-    ) -> typing.Optional["_Duration_4839e8c3"]:
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Maximum duration that Step Functions will reuse customer managed data keys. When the period expires, Step Functions will call GenerateDataKey.
 
         Must be between 60 and 900 seconds.
 
         :default: Duration.seconds(300)
         '''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "kmsDataKeyReusePeriodSeconds"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "kmsDataKeyReusePeriodSeconds"))
 
 
 @jsii.data_type(
@@ -19897,7 +19938,7 @@ class DistributedMapJsonPathProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec64abf9bcf7fc88fbbd0e8dea491d0fe3b15022e0a3a15ff395d55b01cdaebc)
+            type_hints = cached_type_hints(_typecheckingstub__ec64abf9bcf7fc88fbbd0e8dea491d0fe3b15022e0a3a15ff395d55b01cdaebc)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -20376,7 +20417,7 @@ class DistributedMapJsonataProps(StateBaseProps, MapBaseOptions, MapBaseJsonataO
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81ff0c38557baaa35eb92b4d57e31ecde27db396059124470432c82929c356b2)
+            type_hints = cached_type_hints(_typecheckingstub__81ff0c38557baaa35eb92b4d57e31ecde27db396059124470432c82929c356b2)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -20700,7 +20741,7 @@ class Fail(
         :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1c583b760e906e99018014914554eafc9ccbd2b3420c0edbf5013a7649fb8c0)
+            type_hints = cached_type_hints(_typecheckingstub__d1c583b760e906e99018014914554eafc9ccbd2b3420c0edbf5013a7649fb8c0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FailProps(
@@ -20741,7 +20782,7 @@ class Fail(
         :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__634142bced4cfa463045bd8b4f9f4c94f70599b7bbbc98fd4270a4388ab775ab)
+            type_hints = cached_type_hints(_typecheckingstub__634142bced4cfa463045bd8b4f9f4c94f70599b7bbbc98fd4270a4388ab775ab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FailJsonataProps(
@@ -20784,7 +20825,7 @@ class Fail(
         :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd09b35d5e192c49ae2378b3e4cc9aac09b7fa82a0ab4deebc0ba20e6f26c9de)
+            type_hints = cached_type_hints(_typecheckingstub__dd09b35d5e192c49ae2378b3e4cc9aac09b7fa82a0ab4deebc0ba20e6f26c9de)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FailJsonPathProps(
@@ -20809,7 +20850,7 @@ class Fail(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4af4ebb7460ce321e3a7524f9cbd23c8358a470c7467810777772041407ca092)
+            type_hints = cached_type_hints(_typecheckingstub__4af4ebb7460ce321e3a7524f9cbd23c8358a470c7467810777772041407ca092)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [query_language]))
 
@@ -20879,7 +20920,7 @@ class FailJsonPathProps(StateBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1772404cd6046e12e831abb45429e438a9daefc461573328e600ac9610ee8153)
+            type_hints = cached_type_hints(_typecheckingstub__1772404cd6046e12e831abb45429e438a9daefc461573328e600ac9610ee8153)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -21033,7 +21074,7 @@ class FailJsonataProps(StateBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ccca1c00253b69d61093c265b1cca0cbbc63944cd76937062dca1da8e72dac)
+            type_hints = cached_type_hints(_typecheckingstub__d2ccca1c00253b69d61093c265b1cca0cbbc63944cd76937062dca1da8e72dac)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -21156,7 +21197,7 @@ class FailProps(StateBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e34991edae92aa24b2bb75c9df693e2185f13c40aaf16ee220fc07ef991eaa7c)
+            type_hints = cached_type_hints(_typecheckingstub__e34991edae92aa24b2bb75c9df693e2185f13c40aaf16ee220fc07ef991eaa7c)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -21336,7 +21377,7 @@ class JsonPathStateProps(StateBaseProps, JsonPathCommonOptions, AssignableStateO
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__851c651dc8ba1a3037b9000945ef5bda3814730e4ad40ea4ed31bf185ff3b1a0)
+            type_hints = cached_type_hints(_typecheckingstub__851c651dc8ba1a3037b9000945ef5bda3814730e4ad40ea4ed31bf185ff3b1a0)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -21540,7 +21581,7 @@ class JsonataStateProps(StateBaseProps, JsonataStateOptions, AssignableStateOpti
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bf6c9064dea9b9c351e5ae182db1495152cd20413c80f88ed1c5a715894434c)
+            type_hints = cached_type_hints(_typecheckingstub__6bf6c9064dea9b9c351e5ae182db1495152cd20413c80f88ed1c5a715894434c)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -21704,7 +21745,7 @@ class MapBase(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d25d492eb753f17d954200a30dfae328a6f5710335312d1b5ffe0113a9ded82)
+            type_hints = cached_type_hints(_typecheckingstub__0d25d492eb753f17d954200a30dfae328a6f5710335312d1b5ffe0113a9ded82)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MapBaseProps(
@@ -21735,7 +21776,7 @@ class MapBase(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bfdae9c7d12de08b43f94e8bc33eaeef588cdf2a814eb233b86a9976943ed7b)
+            type_hints = cached_type_hints(_typecheckingstub__8bfdae9c7d12de08b43f94e8bc33eaeef588cdf2a814eb233b86a9976943ed7b)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -21749,7 +21790,7 @@ class MapBase(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1eea491eac15bc188af0a614b145e884bcb53c4c90e7213225a26adb45bc12df)
+            type_hints = cached_type_hints(_typecheckingstub__1eea491eac15bc188af0a614b145e884bcb53c4c90e7213225a26adb45bc12df)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -21906,7 +21947,7 @@ class MapBaseProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__123fd5cef3e54859ea847c1cc590a95cd39ecae394611b5e8add5b44b8354ab6)
+            type_hints = cached_type_hints(_typecheckingstub__123fd5cef3e54859ea847c1cc590a95cd39ecae394611b5e8add5b44b8354ab6)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -22265,7 +22306,7 @@ class MapJsonPathProps(StateBaseProps, MapBaseOptions, MapBaseJsonPathOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1418bfef4d27a80b418f4fccfa22e0abfc4cf5008b74d8c088c96b9912f0fd9b)
+            type_hints = cached_type_hints(_typecheckingstub__1418bfef4d27a80b418f4fccfa22e0abfc4cf5008b74d8c088c96b9912f0fd9b)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -22595,7 +22636,7 @@ class MapJsonataProps(StateBaseProps, MapBaseOptions, MapBaseJsonataOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2445c2dd683291fecf01b56e77d0cbe2d0d8486f7f01b558c189426a63d8d4f)
+            type_hints = cached_type_hints(_typecheckingstub__a2445c2dd683291fecf01b56e77d0cbe2d0d8486f7f01b558c189426a63d8d4f)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -22867,7 +22908,7 @@ class MapProps(MapBaseProps, MapBaseOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__841961f24272e2df479ccf3f591259c5dbc7bf471c2a6e11c7c7d61bf0e153ec)
+            type_hints = cached_type_hints(_typecheckingstub__841961f24272e2df479ccf3f591259c5dbc7bf471c2a6e11c7c7d61bf0e153ec)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -23224,7 +23265,7 @@ class Parallel(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94610eed4635a69c6d4a92818527e6ecdf15561092c488fb6caa8d8ec9778a22)
+            type_hints = cached_type_hints(_typecheckingstub__94610eed4635a69c6d4a92818527e6ecdf15561092c488fb6caa8d8ec9778a22)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ParallelProps(
@@ -23274,7 +23315,7 @@ class Parallel(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ab5c7926073a19b65955afd1d2f4226f739dabf27b935be372e4e09ec97fc50)
+            type_hints = cached_type_hints(_typecheckingstub__8ab5c7926073a19b65955afd1d2f4226f739dabf27b935be372e4e09ec97fc50)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ParallelJsonataProps(
@@ -23325,7 +23366,7 @@ class Parallel(
         :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59516f88fca1f12471673842bc69a84f5bc6f1e5e9870f37ee194215ed330993)
+            type_hints = cached_type_hints(_typecheckingstub__59516f88fca1f12471673842bc69a84f5bc6f1e5e9870f37ee194215ed330993)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ParallelJsonPathProps(
@@ -23364,7 +23405,7 @@ class Parallel(
         :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__182be923de45451a3be4a0e5bda7642ee82b8bfb46a7fd13f9cdc8084f23f9bb)
+            type_hints = cached_type_hints(_typecheckingstub__182be923de45451a3be4a0e5bda7642ee82b8bfb46a7fd13f9cdc8084f23f9bb)
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = CatchProps(
             assign=assign, errors=errors, outputs=outputs, result_path=result_path
@@ -23378,10 +23419,10 @@ class Parallel(
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Parallel":
         '''Add retry configuration for this state.
 
@@ -23413,7 +23454,7 @@ class Parallel(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f51369cf1df8050a9193691c532125259fc7c9e4293a269130e56f7600e8e869)
+            type_hints = cached_type_hints(_typecheckingstub__f51369cf1df8050a9193691c532125259fc7c9e4293a269130e56f7600e8e869)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "bindToGraph", [graph]))
 
@@ -23424,7 +23465,7 @@ class Parallel(
         :param branches: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697633cbf62e47597c9fdc7d002c0aee2b85afe1b449f1d0ce4917552cf01271)
+            type_hints = cached_type_hints(_typecheckingstub__697633cbf62e47597c9fdc7d002c0aee2b85afe1b449f1d0ce4917552cf01271)
             check_type(argname="argument branches", value=branches, expected_type=typing.Tuple[type_hints["branches"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Parallel", jsii.invoke(self, "branch", [*branches]))
 
@@ -23435,7 +23476,7 @@ class Parallel(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf2f89f1d526659416028630d3a07331a2f13a5067fd5e45f41dd46895179826)
+            type_hints = cached_type_hints(_typecheckingstub__bf2f89f1d526659416028630d3a07331a2f13a5067fd5e45f41dd46895179826)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -23449,7 +23490,7 @@ class Parallel(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86eeb8b905fbca725e29ef9dbc0cce94f54f93fe6f557f48b741da1ce791a607)
+            type_hints = cached_type_hints(_typecheckingstub__86eeb8b905fbca725e29ef9dbc0cce94f54f93fe6f557f48b741da1ce791a607)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -23541,7 +23582,7 @@ class ParallelJsonPathProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01751a726904e9d37b08d2e5f3e03603fcb85bd621338876a23594d1ead255c5)
+            type_hints = cached_type_hints(_typecheckingstub__01751a726904e9d37b08d2e5f3e03603fcb85bd621338876a23594d1ead255c5)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -23751,7 +23792,7 @@ class ParallelJsonataProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86aa09661bd94e980b4d31b02e3e7af40bca543b67d6884d16f31d3671f15bd6)
+            type_hints = cached_type_hints(_typecheckingstub__86aa09661bd94e980b4d31b02e3e7af40bca543b67d6884d16f31d3671f15bd6)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -23949,7 +23990,7 @@ class ParallelProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a04fcca9cbcddc34201ab96bfd6e4be7793eed6937bb07ccd5c1a2dc45a6484)
+            type_hints = cached_type_hints(_typecheckingstub__7a04fcca9cbcddc34201ab96bfd6e4be7793eed6937bb07ccd5c1a2dc45a6484)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -24187,7 +24228,7 @@ class Pass(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d42bf3e652e85f6ec94972b87e3cd78f4420b89e56b719dae3323e4b9c485f2f)
+            type_hints = cached_type_hints(_typecheckingstub__d42bf3e652e85f6ec94972b87e3cd78f4420b89e56b719dae3323e4b9c485f2f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PassProps(
@@ -24231,7 +24272,7 @@ class Pass(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c10073006e04856963845c2c846e8bbcf25a2b6f1f56137b0daae3f7bc8d228b)
+            type_hints = cached_type_hints(_typecheckingstub__c10073006e04856963845c2c846e8bbcf25a2b6f1f56137b0daae3f7bc8d228b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PassJsonataProps(
@@ -24278,7 +24319,7 @@ class Pass(
         :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c6be544f0ce581a2bea0cc42522271d4fed2f2d8820384680ba9c1240a9d9f5)
+            type_hints = cached_type_hints(_typecheckingstub__1c6be544f0ce581a2bea0cc42522271d4fed2f2d8820384680ba9c1240a9d9f5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PassJsonPathProps(
@@ -24302,7 +24343,7 @@ class Pass(
         :param next: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4f3a4b985638e018cf9da160ea401084953cf6a22e9ff97cb9b82310d664a55)
+            type_hints = cached_type_hints(_typecheckingstub__f4f3a4b985638e018cf9da160ea401084953cf6a22e9ff97cb9b82310d664a55)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("Chain", jsii.invoke(self, "next", [next]))
 
@@ -24316,7 +24357,7 @@ class Pass(
         :param top_level_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5d6b22ce2581c561fc3dfb4c03db3d0e66b2f9b53ce93b6332a6a8714822192)
+            type_hints = cached_type_hints(_typecheckingstub__e5d6b22ce2581c561fc3dfb4c03db3d0e66b2f9b53ce93b6332a6a8714822192)
             check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
 
@@ -24394,7 +24435,7 @@ class PassJsonPathProps(StateBaseProps, AssignableStateOptions, JsonPathCommonOp
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2acb2da32dfbb3a97b633e9abd9e472defcb4a38ebca04603ee6b8c2c6372d2e)
+            type_hints = cached_type_hints(_typecheckingstub__2acb2da32dfbb3a97b633e9abd9e472defcb4a38ebca04603ee6b8c2c6372d2e)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -24592,7 +24633,7 @@ class PassJsonataProps(StateBaseProps, AssignableStateOptions, JsonataCommonOpti
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e19afdc4b97b57de7d05eacc930bf835221cfbcecf47e1ac1d0eb591d34cc9b)
+            type_hints = cached_type_hints(_typecheckingstub__5e19afdc4b97b57de7d05eacc930bf835221cfbcecf47e1ac1d0eb591d34cc9b)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -24762,7 +24803,7 @@ class PassProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45d80da5dbca7702d56f2a0dd67c4a5a72e182c08bcd852d74ea0fa21442f048)
+            type_hints = cached_type_hints(_typecheckingstub__45d80da5dbca7702d56f2a0dd67c4a5a72e182c08bcd852d74ea0fa21442f048)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -24941,7 +24982,7 @@ class S3CsvItemReaderProps(S3FileItemReaderProps):
     def __init__(
         self,
         *,
-        bucket: typing.Optional["_IBucket_42e086fd"] = None,
+        bucket: typing.Optional["_aws_s3_01158f40.IBucket"] = None,
         bucket_name_path: typing.Optional[builtins.str] = None,
         max_items: typing.Optional[jsii.Number] = None,
         key: builtins.str,
@@ -24981,7 +25022,7 @@ class S3CsvItemReaderProps(S3FileItemReaderProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd148cd8282abe643b20452cf3c099e0d66560a90ddb7ec54f83740859fe615d)
+            type_hints = cached_type_hints(_typecheckingstub__fd148cd8282abe643b20452cf3c099e0d66560a90ddb7ec54f83740859fe615d)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument bucket_name_path", value=bucket_name_path, expected_type=type_hints["bucket_name_path"])
             check_type(argname="argument max_items", value=max_items, expected_type=type_hints["max_items"])
@@ -25003,7 +25044,7 @@ class S3CsvItemReaderProps(S3FileItemReaderProps):
             self._values["csv_headers"] = csv_headers
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
+    def bucket(self) -> typing.Optional["_aws_s3_01158f40.IBucket"]:
         '''S3 Bucket containing objects to iterate over or a file with a list to iterate over.
 
         :default: - S3 bucket will be determined from
@@ -25011,7 +25052,7 @@ class S3CsvItemReaderProps(S3FileItemReaderProps):
         :see: bucketNamePath
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_IBucket_42e086fd"], result)
+        return typing.cast(typing.Optional["_aws_s3_01158f40.IBucket"], result)
 
     @builtins.property
     def bucket_name_path(self) -> typing.Optional[builtins.str]:
@@ -25162,7 +25203,7 @@ class SingleStateOptions(ParallelProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bfe6c744bf72f7e27c754b7de24b3cc1c8ee511680b9a61ee46fc118dd6a5c9)
+            type_hints = cached_type_hints(_typecheckingstub__5bfe6c744bf72f7e27c754b7de24b3cc1c8ee511680b9a61ee46fc118dd6a5c9)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -25467,7 +25508,7 @@ class DistributedMap(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64f7d4222fc9728237ee261157ec268cfd8f396c371bc6402ec7a1a4ea42917d)
+            type_hints = cached_type_hints(_typecheckingstub__64f7d4222fc9728237ee261157ec268cfd8f396c371bc6402ec7a1a4ea42917d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DistributedMapProps(
@@ -25509,7 +25550,7 @@ class DistributedMap(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31933264cd976eda9b915ac15b88658cd66607d4305ac5503092b27ee9650f4)
+            type_hints = cached_type_hints(_typecheckingstub__d31933264cd976eda9b915ac15b88658cd66607d4305ac5503092b27ee9650f4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isDistributedMap", [x]))
 
@@ -25574,7 +25615,7 @@ class DistributedMap(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/concepts-asl-use-map-state-distributed.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__571881b9fd1e6c545891d3d8e303faaf2af3b7abf8dedfe7af5b088c97d6bc5e)
+            type_hints = cached_type_hints(_typecheckingstub__571881b9fd1e6c545891d3d8e303faaf2af3b7abf8dedfe7af5b088c97d6bc5e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DistributedMapJsonataProps(
@@ -25673,7 +25714,7 @@ class DistributedMap(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/concepts-asl-use-map-state-distributed.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a2f34bdddff2f64215983e3f128e7644b5b5bf72fc9af9b5b0c0e3b34c0955b)
+            type_hints = cached_type_hints(_typecheckingstub__9a2f34bdddff2f64215983e3f128e7644b5b5bf72fc9af9b5b0c0e3b34c0955b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DistributedMapJsonPathProps(
@@ -25727,7 +25768,7 @@ class DistributedMap(
         :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b96420299a828b17719584b98a81fc0affc397b69e90092f29e7d9afb2d48324)
+            type_hints = cached_type_hints(_typecheckingstub__b96420299a828b17719584b98a81fc0affc397b69e90092f29e7d9afb2d48324)
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = CatchProps(
             assign=assign, errors=errors, outputs=outputs, result_path=result_path
@@ -25741,10 +25782,10 @@ class DistributedMap(
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "DistributedMap":
         '''Add retry configuration for this state.
 
@@ -25786,7 +25827,7 @@ class DistributedMap(
         :param mode: Specifies the execution mode for the Map workflow. Default: - ProcessorMode.INLINE if using the ``Map`` class, ProcessorMode.DISTRIBUTED if using the ``DistributedMap`` class
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f10278e982625ca06b2d3266813a2418de02709637602f80e07445047d125579)
+            type_hints = cached_type_hints(_typecheckingstub__f10278e982625ca06b2d3266813a2418de02709637602f80e07445047d125579)
             check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
         config = ProcessorConfig(execution_type=execution_type, mode=mode)
 
@@ -25802,7 +25843,7 @@ class DistributedMap(
         :param state_machine_query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebfc2edef94fe499ffc951e83ccf09e26650a4edab2721e3ed4962411689131d)
+            type_hints = cached_type_hints(_typecheckingstub__ebfc2edef94fe499ffc951e83ccf09e26650a4edab2721e3ed4962411689131d)
             check_type(argname="argument state_machine_query_language", value=state_machine_query_language, expected_type=type_hints["state_machine_query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [state_machine_query_language]))
 
@@ -25820,7 +25861,7 @@ class DistributedMap(
         :param graph: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e505be41bf00ad65952efb21c612874ac8a42269a7a70f2a1c0ee866dbb902c0)
+            type_hints = cached_type_hints(_typecheckingstub__e505be41bf00ad65952efb21c612874ac8a42269a7a70f2a1c0ee866dbb902c0)
             check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
         return typing.cast(None, jsii.invoke(self, "whenBoundToGraph", [graph]))
 
@@ -25944,7 +25985,7 @@ class DistributedMapProps(
             distributed_map.item_processor(sfn.Pass(self, "Pass"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e484af477b46c0e70f635ed9610c7183f70c2184fd7a48f091a5477df9ee3d5d)
+            type_hints = cached_type_hints(_typecheckingstub__e484af477b46c0e70f635ed9610c7183f70c2184fd7a48f091a5477df9ee3d5d)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
@@ -26423,7 +26464,7 @@ class Map(
         :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78d28fbd908923a38f00f8f82b2387552ae3a53fe5d860d66d336f49ba4c36c1)
+            type_hints = cached_type_hints(_typecheckingstub__78d28fbd908923a38f00f8f82b2387552ae3a53fe5d860d66d336f49ba4c36c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MapProps(
@@ -26492,7 +26533,7 @@ class Map(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-map-state.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__117dd132ca8c26f59efc69b8fbd2855fd633da22be9b9bbcfc52095420c7fc17)
+            type_hints = cached_type_hints(_typecheckingstub__117dd132ca8c26f59efc69b8fbd2855fd633da22be9b9bbcfc52095420c7fc17)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MapJsonataProps(
@@ -26563,7 +26604,7 @@ class Map(
         :see: https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-map-state.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27e601e2ac6be39a50ef90276193f9993e276497c1482cf6fe3ebf359b281dc5)
+            type_hints = cached_type_hints(_typecheckingstub__27e601e2ac6be39a50ef90276193f9993e276497c1482cf6fe3ebf359b281dc5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MapJsonPathProps(
@@ -26608,7 +26649,7 @@ class Map(
         :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__477e230f69a651e6927594095a0d2d681abd0858db9b79de5caf573bda0f7eb6)
+            type_hints = cached_type_hints(_typecheckingstub__477e230f69a651e6927594095a0d2d681abd0858db9b79de5caf573bda0f7eb6)
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = CatchProps(
             assign=assign, errors=errors, outputs=outputs, result_path=result_path
@@ -26622,10 +26663,10 @@ class Map(
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
         errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         jitter_strategy: typing.Optional["JitterType"] = None,
         max_attempts: typing.Optional[jsii.Number] = None,
-        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+        max_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Map":
         '''Add retry configuration for this state.
 
@@ -26667,7 +26708,7 @@ class Map(
         :param mode: Specifies the execution mode for the Map workflow. Default: - ProcessorMode.INLINE if using the ``Map`` class, ProcessorMode.DISTRIBUTED if using the ``DistributedMap`` class
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57880144217f818052832dac038a8875120f8ef30f1d286864bba6785bb1afd5)
+            type_hints = cached_type_hints(_typecheckingstub__57880144217f818052832dac038a8875120f8ef30f1d286864bba6785bb1afd5)
             check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
         config = ProcessorConfig(execution_type=execution_type, mode=mode)
 
@@ -26686,7 +26727,7 @@ class Map(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46bf9177a387f4dcf5be0d20783b744edaca8974e7384b16a446321cc3bc65aa)
+            type_hints = cached_type_hints(_typecheckingstub__46bf9177a387f4dcf5be0d20783b744edaca8974e7384b16a446321cc3bc65aa)
             check_type(argname="argument iterator", value=iterator, expected_type=type_hints["iterator"])
         return typing.cast("Map", jsii.invoke(self, "iterator", [iterator]))
 
@@ -26700,7 +26741,7 @@ class Map(
         :param query_language: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d5f089eaa441d0e3ee41bfd31bf52dcf81f27d026fe808208da7e9641ade8a1)
+            type_hints = cached_type_hints(_typecheckingstub__0d5f089eaa441d0e3ee41bfd31bf52dcf81f27d026fe808208da7e9641ade8a1)
             check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
         return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [query_language]))
 
@@ -26888,14 +26929,14 @@ def _typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a
     id: builtins.str,
     *,
     name: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3f7e160f7dd9ef3f1dcc66f61145c9dd96c1f0a4a40003fdca9ecd64ba53ad85(
-    resource: _IActivityRef_cfa2906a,
+    resource: _aws_stepfunctions_322ef9fd.IActivityRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26907,7 +26948,7 @@ def _typecheckingstub__e8af6ddc50e7527fa472dc7a5623873265353d6eabba5bb59957acbfa
     pass
 
 def _typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26925,7 +26966,7 @@ def _typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe0
     pass
 
 def _typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnActivity.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnActivity.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26956,7 +26997,7 @@ def _typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f
 def _typecheckingstub__84792b5435bbf43a453a6bf0f4d6e6d61a7c86759e3f95b4d4af4d4e56f641c4(
     *,
     name: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26966,23 +27007,23 @@ def _typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     definition: typing.Any = None,
-    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_string: typing.Optional[typing.Union[builtins.str, _ITableRef_4478f0ad, _ITaskDefinitionRef_8091fc1c, _IFunctionRef_2601eb33, _IVersionRef_4fdb94ad, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_string: typing.Optional[typing.Union[builtins.str, _aws_dynamodb_948f46d7.ITableRef, _aws_ecs_143f71cb.ITaskDefinitionRef, _aws_lambda_aaab8031.IFunctionRef, _aws_lambda_aaab8031.IVersionRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state_machine_name: typing.Optional[builtins.str] = None,
     state_machine_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a82cb5a8329c79bcee71524051adb67344241d911c3a68db772135c13c32fedd(
-    resource: _IStateMachineRef_65490661,
+    resource: _aws_stepfunctions_322ef9fd.IStateMachineRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26994,7 +27035,7 @@ def _typecheckingstub__c9433b0e2c5e9f677457c6da78684e47c16e55f17e66d280d7a30b752
     pass
 
 def _typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27018,7 +27059,7 @@ def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b98
     pass
 
 def _typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachine.S3LocationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27030,19 +27071,19 @@ def _typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b7
     pass
 
 def _typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachine.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachine.LoggingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27066,7 +27107,7 @@ def _typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a7
     pass
 
 def _typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachine.TracingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27089,15 +27130,15 @@ def _typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4
 
 def _typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1(
     *,
-    cloud_watch_logs_log_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.CloudWatchLogsLogGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs_log_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.CloudWatchLogsLogGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a(
     *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_execution_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_execution_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27122,7 +27163,7 @@ def _typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c7
 
 def _typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27131,17 +27172,17 @@ def _typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_preference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    routing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     state_machine_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1ce483a836646fea542d1e8f052259985312c521b0a407791d895e50acd3e4d2(
-    resource: _IStateMachineAliasRef_f68ce683,
+    resource: _aws_stepfunctions_322ef9fd.IStateMachineAliasRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27153,7 +27194,7 @@ def _typecheckingstub__d2d0e91fd1b3b179b94289a232ecff501eb3c256f85ff5915fb2e74ce
     pass
 
 def _typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27165,7 +27206,7 @@ def _typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb7
     pass
 
 def _typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.DeploymentPreferenceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachineAlias.DeploymentPreferenceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27183,7 +27224,7 @@ def _typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df
     pass
 
 def _typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27215,10 +27256,10 @@ def _typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12
 
 def _typecheckingstub__48d59745dc4c655a3bf10278f9b74e39163a7b157ca93bafdd0e7939d5c39662(
     *,
-    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_preference: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    routing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     state_machine_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27226,17 +27267,17 @@ def _typecheckingstub__48d59745dc4c655a3bf10278f9b74e39163a7b157ca93bafdd0e7939d
 
 def _typecheckingstub__bf4d4e83bd396b6667f5c30b66226d7e76f61626aea9c4ec1355f6e6a3631abd(
     *,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     definition: typing.Any = None,
-    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_string: typing.Optional[typing.Union[builtins.str, _ITableRef_4478f0ad, _ITaskDefinitionRef_8091fc1c, _IFunctionRef_2601eb33, _IVersionRef_4fdb94ad, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_string: typing.Optional[typing.Union[builtins.str, _aws_dynamodb_948f46d7.ITableRef, _aws_ecs_143f71cb.ITaskDefinitionRef, _aws_lambda_aaab8031.IFunctionRef, _aws_lambda_aaab8031.IVersionRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    definition_substitutions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     state_machine_name: typing.Optional[builtins.str] = None,
     state_machine_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27253,7 +27294,7 @@ def _typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014c
     pass
 
 def _typecheckingstub__32028b3ef7957c0710cafb7fe3c125c79388afce77bfab19cd1115671eae8bd3(
-    resource: _IStateMachineVersionRef_33f36186,
+    resource: _aws_stepfunctions_322ef9fd.IStateMachineVersionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27265,7 +27306,7 @@ def _typecheckingstub__13f75940c1191de32f750aa8afc41eced0468baa9d928bc9cbebc8481
     pass
 
 def _typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27670,14 +27711,14 @@ def _typecheckingstub__2e34fabd0367a0519a35d86d419baa37e6fe26ad05457e96b236a55bb
     *,
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27690,7 +27731,7 @@ def _typecheckingstub__9105593602193f6c430b59ac16525785e4183211394cf7f4a2cc2ba6b
 
 def _typecheckingstub__982308674c1f12c5d781609eb6924d004d05afbe7d720d0e8a36fb8d432cf97c(
     scope: _constructs_77d1e7e8.Construct,
-    sfn_principal: _IPrincipal_539bb2fd,
+    sfn_principal: _aws_iam_1f54b5e8.IPrincipal,
     sfn_props: typing.Union[StateMachineProps, typing.Dict[builtins.str, typing.Any]],
     graph: typing.Optional[StateGraph] = None,
 ) -> None:
@@ -27741,21 +27782,21 @@ def _typecheckingstub__526ef9213812e76ec99bd530d4fbea7cc137d220b92525fe763d6d315
     *,
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__552303f8ba754bf57e2991b15cb67699f0b3be1720aaa2082c7f9e7c858151e8(
     scope: _constructs_77d1e7e8.Construct,
-    _sfn_principal: _IPrincipal_539bb2fd,
+    _sfn_principal: _aws_iam_1f54b5e8.IPrincipal,
     _sfn_props: typing.Union[StateMachineProps, typing.Dict[builtins.str, typing.Any]],
     _graph: typing.Optional[StateGraph] = None,
 ) -> None:
@@ -27782,45 +27823,45 @@ def _typecheckingstub__3dbb71ff45be8e3c94fd024ed10a51f986e7e089ef33bfae17adc18a5
     pass
 
 def _typecheckingstub__330377705d17e346007692578b485457a023c38351a46c6e22975a8a2b8192ae(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31bd3fa2600dc4d3bf5687e9b4e868f708b68f607efbd2cfa7fb5f71fba15756(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__67aefd85a78dbc72556e294ed43f407d7fe2e40185f6dcefcda2b91bce4a9e6c(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1263659f24791988667803166a24080d04a876b31403b25165aea620a8e4fbaa(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b84edd8c4dd517d793cea8632f963ea68ac72a33187299a17ff7549b1e1dc14d(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__92ed05a6f0e60c0385d1fe8dff7aa6ee6308b0dbdec64f6f70f98b5d1fdf23ed(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__789a3eccb8c002cee01668ce309a302eced31df5999f98457203940330528ab4(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27833,12 +27874,12 @@ def _typecheckingstub__2cab371f4587948afe28a72a9dde908f44a64ec26dee050808f7b1236
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27857,7 +27898,7 @@ def _typecheckingstub__28b90617c58a85778754752511df05551643031e0ec1d9e5687a61bed
 
 def _typecheckingstub__e8df53cde2f82ea6228f0c9a5a5ba0a4dd36c18fba9835f9f3150547f7cee754(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     bucket_name_path: typing.Optional[builtins.str] = None,
     max_items: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -28032,7 +28073,7 @@ def _typecheckingstub__fcf28e5e7257e423138f4865382515f73bbac4c41c327df36b853bccf
 
 def _typecheckingstub__8b27a348000a6495796817f9fd3b73934a015750ac2d2e09e165c45b4d2d5772(
     *,
-    destination: typing.Optional[_ILogGroupRef_874d025a] = None,
+    destination: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     include_execution_data: typing.Optional[builtins.bool] = None,
     level: typing.Optional[LogLevel] = None,
 ) -> None:
@@ -28134,7 +28175,7 @@ def _typecheckingstub__690debfadbf5210fcb1a54639e938d5096d2b5eefb9fa6790552d733c
 
 def _typecheckingstub__60e7633dd729e9dd58a8e472e766fe10b0748d68a61f3d07bfec9cc5b8b4721f(
     *,
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28148,7 +28189,7 @@ def _typecheckingstub__4d76b7d45bf1ab379f1533a844554757a1b805fb94f1a5b1c5d2573bb
 
 def _typecheckingstub__18a2140bb5a78d8150eb6ee1111271032f9faccf277b97a882d6bded4d0905a1(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     bucket_name_path: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
     writer_config: typing.Optional[WriterConfig] = None,
@@ -28160,10 +28201,10 @@ def _typecheckingstub__984afa5a2055f0c35fc8c3cf6882093d3a32a8b56c725bd4e3c643f69
     *,
     backoff_rate: typing.Optional[jsii.Number] = None,
     errors: typing.Optional[typing.Sequence[builtins.str]] = None,
-    interval: typing.Optional[_Duration_4839e8c3] = None,
+    interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     jitter_strategy: typing.Optional[JitterType] = None,
     max_attempts: typing.Optional[jsii.Number] = None,
-    max_delay: typing.Optional[_Duration_4839e8c3] = None,
+    max_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28176,7 +28217,7 @@ def _typecheckingstub__c53f9a2ea7d79879b70d5d22b592d43105c7737e7451602d697e1aac0
 
 def _typecheckingstub__fc17fd96c577f0b5f18e9d0043337043a5db7cf7c35fdc1b09e959cf7f58221c(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     bucket_name_path: typing.Optional[builtins.str] = None,
     max_items: typing.Optional[jsii.Number] = None,
     key: builtins.str,
@@ -28210,7 +28251,7 @@ def _typecheckingstub__3bc2701d4d17a9ebaf074864a8e82d7f7fa507a2201b875a0966d6306
 
 def _typecheckingstub__0839027a57f578b6a339286602923b0024b1f5e10dc2fb3ce8ac185f643a3bbc(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     bucket_name_path: typing.Optional[builtins.str] = None,
     max_items: typing.Optional[jsii.Number] = None,
     prefix: typing.Optional[builtins.str] = None,
@@ -28411,7 +28452,7 @@ def _typecheckingstub__99c41fc2afd076bb5952af77d1651e7e739c7d0276024e5796a2d444f
     pass
 
 def _typecheckingstub__9d649f93a2503f72395d055e758cb6b2340de6c8f77bdd56474547120392e535(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28435,7 +28476,7 @@ def _typecheckingstub__b1ec3367e36d598a3405c8d195561f2c8fbfb1dafeacd920f78b3bb58
     pass
 
 def _typecheckingstub__0d70fd99dfd053938f6857187678eff1538a49411584203816fe1ee6e2e95a57(
-    value: typing.Optional[_Duration_4839e8c3],
+    value: typing.Optional[_aws_cdk_0cae9daa.Duration],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28451,11 +28492,11 @@ def _typecheckingstub__efdfc02291401a50a1d945e5208e9becb9828352fec32bc109ccebafc
     encryption_configuration: typing.Optional[EncryptionConfiguration] = None,
     logs: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     query_language: typing.Optional[QueryLanguage] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     state_machine_name: typing.Optional[builtins.str] = None,
     state_machine_type: typing.Optional[StateMachineType] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     tracing_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28478,51 +28519,51 @@ def _typecheckingstub__f9d3d7898b3441749750d918233ae686af49db0c0bf54d9e123f31c43
     pass
 
 def _typecheckingstub__9722a5396d55198fc0f7899f6cd72adb62c73fdbba082f415df383e5176a389a(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4a379c65b3abf8422a7281124e586179178f0b3549b77f94825bb37365de34c5(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__403096ab0bc513019435d412939f8df18641c1b52bfba18e821c391fa4b9024d(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__de328dbf28de2be4ba9b61ea81bce4e6d383ec0968b0e914acb7378b694c7b96(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__105b46fe8f1d3a0f8f8d86eed1f7f5587ebf18870718ca73c5b57e8281defaf5(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__efa2d941a46220f1692542e8c26652619270873ffe07f55fc9aa7a063799ed08(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b1fc6bb22c960bfd2ca38ccc6a9922c3aadc1289dcf5bed18e2559bd0700d32e(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__95b16d8608f524913e06d7166d119ec903318d80b6015288e92a06223a03e95a(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28535,12 +28576,12 @@ def _typecheckingstub__e00f442fc4f33cd6bcc931ba95c9117d241aef41be5171c27548e74d9
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28572,58 +28613,58 @@ def _typecheckingstub__18974d4c0fc7d5b60c0b12888f566840996e0be64f94ae03e6639ebcc
     pass
 
 def _typecheckingstub__499a5e89de7380c7745bafb1a6b705c59b7857cd27a08356e6791849f03dc5c8(
-    resource: _IStateMachineRef_65490661,
+    resource: _aws_stepfunctions_322ef9fd.IStateMachineRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf5f42d21e6d0b64d4ee2bcde2d74bd9b4f7249574f60308bf48d0877933f1cc(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__202f211546ecc2af49fb7ad52596cf81b25d3a26837e291ca0d3f3d7f2f90f46(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb08fa6ada952f09683db57c2c3974467d820471582d4243f0ceff035b0d6ad3(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__570f54251e220541e4bf36d9de7ccd1438bda41d3b3045f76aaf2f560f6a98f5(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d79ebeeb6e79c2f50527ddfb96b6f9e66a605d2e4981eb085319b9cdd20c3405(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d88a2328c71da3d32259dad9c3bcdb267c0ff4a31279b91da9f02cf561412627(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__780d72444143e550cd524e24d98cc675b9aaff09405978a0dfc0ffba7963d5bd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1fa6405cfca42b9aaaacbffc9c3fbc63ca17d90df6484dfba1c1a8376653880f(
     *,
-    resource: _IStateMachineRef_65490661,
+    resource: _aws_stepfunctions_322ef9fd.IStateMachineRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28637,11 +28678,11 @@ def _typecheckingstub__24d23b501c893898901860f31ff1a0a0fa81eb89f06a7acf3eef4f15e
     encryption_configuration: typing.Optional[EncryptionConfiguration] = None,
     logs: typing.Optional[typing.Union[LogOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     query_language: typing.Optional[QueryLanguage] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     state_machine_name: typing.Optional[builtins.str] = None,
     state_machine_type: typing.Optional[StateMachineType] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     tracing_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28672,12 +28713,12 @@ def _typecheckingstub__01d556c15cb7d46dea75f4d4d5be455df4181351677d04c896b3cece7
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28691,7 +28732,7 @@ def _typecheckingstub__cb5817d6d61140231e4bd01c29102ec205d9d1d0f848af6dd3aa28a11
 
 def _typecheckingstub__aae45f38855ad466a878a7d83ebc926e1b656c12480ab66d4c642079849950e1(
     _scope: _constructs_77d1e7e8.Construct,
-    _sfn_principal: _IPrincipal_539bb2fd,
+    _sfn_principal: _aws_iam_1f54b5e8.IPrincipal,
     _sfn_props: typing.Union[StateMachineProps, typing.Dict[builtins.str, typing.Any]],
     _graph: typing.Optional[StateGraph] = None,
 ) -> None:
@@ -28804,7 +28845,7 @@ def _typecheckingstub__b853c8cb66c2f5d1054d5d4bf9d98efca35d979661a5be38eaf7dd6e4
     pass
 
 def _typecheckingstub__3bddea2e373d15cc4e0247b91d3bca3f413aeb2470100f4983965f64d4e53db0(
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28825,11 +28866,11 @@ def _typecheckingstub__8030332c4c85b7a6f12c27dd03b5ae36fd9b38ad46888955d3d532597
     query_language: typing.Optional[QueryLanguage] = None,
     state_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[typing.Union[Credentials, typing.Dict[builtins.str, typing.Any]]] = None,
-    heartbeat: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     heartbeat_timeout: typing.Optional[Timeout] = None,
     integration_pattern: typing.Optional[IntegrationPattern] = None,
     task_timeout: typing.Optional[Timeout] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     input_path: typing.Optional[builtins.str] = None,
     output_path: typing.Optional[builtins.str] = None,
@@ -28857,12 +28898,12 @@ def _typecheckingstub__9e107390a3e2550b832e771f6471431f1576a6bdab08445ca9d4fef45
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28889,11 +28930,11 @@ def _typecheckingstub__b3476e23aff91128cb42df4fe5996139f3397e205600e914f57e1d211
 def _typecheckingstub__4244f06e56348aebcf528494e0a0b6672d5495d213b44c1f797f430a494b4060(
     *,
     credentials: typing.Optional[typing.Union[Credentials, typing.Dict[builtins.str, typing.Any]]] = None,
-    heartbeat: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     heartbeat_timeout: typing.Optional[Timeout] = None,
     integration_pattern: typing.Optional[IntegrationPattern] = None,
     task_timeout: typing.Optional[Timeout] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28904,11 +28945,11 @@ def _typecheckingstub__487ae196f9ce32bf6886dc0cf55352b7b5f5a24cc25636bf22f525ed6
     query_language: typing.Optional[QueryLanguage] = None,
     state_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[typing.Union[Credentials, typing.Dict[builtins.str, typing.Any]]] = None,
-    heartbeat: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     heartbeat_timeout: typing.Optional[Timeout] = None,
     integration_pattern: typing.Optional[IntegrationPattern] = None,
     task_timeout: typing.Optional[Timeout] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     input_path: typing.Optional[builtins.str] = None,
     output_path: typing.Optional[builtins.str] = None,
@@ -28925,11 +28966,11 @@ def _typecheckingstub__d1759bed72f3146a0738879f43f0633d6244908e7dac6cd7eee2226ec
     query_language: typing.Optional[QueryLanguage] = None,
     state_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[typing.Union[Credentials, typing.Dict[builtins.str, typing.Any]]] = None,
-    heartbeat: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     heartbeat_timeout: typing.Optional[Timeout] = None,
     integration_pattern: typing.Optional[IntegrationPattern] = None,
     task_timeout: typing.Optional[Timeout] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     input_path: typing.Optional[builtins.str] = None,
     output_path: typing.Optional[builtins.str] = None,
@@ -28945,11 +28986,11 @@ def _typecheckingstub__e23a8f3239d78f9e8982f88322b94695825979264fa40d45b2382a47f
     query_language: typing.Optional[QueryLanguage] = None,
     state_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[typing.Union[Credentials, typing.Dict[builtins.str, typing.Any]]] = None,
-    heartbeat: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     heartbeat_timeout: typing.Optional[Timeout] = None,
     integration_pattern: typing.Optional[IntegrationPattern] = None,
     task_timeout: typing.Optional[Timeout] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     outputs: typing.Any = None,
 ) -> None:
@@ -28963,7 +29004,7 @@ def _typecheckingstub__ede5a9c52734b5209acc0043a69f8b4333ea0d0bf32a48bb028d1695f
     pass
 
 def _typecheckingstub__9a04d027f66b61507aa552be04c2ce9593fc80d23f348ffb16cd24bef17942c5(
-    duration: _Duration_4839e8c3,
+    duration: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29065,7 +29106,7 @@ def _typecheckingstub__534eb46b5e3f50b25dea609490a5fd97e2e7f56c6eeed5ea19d37b699
     pass
 
 def _typecheckingstub__a809799722bcdc0c6cece03ff859948273709f66e461d30e317ffbd0ab85aca2(
-    duration: _Duration_4839e8c3,
+    duration: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29129,7 +29170,7 @@ def _typecheckingstub__2b8ac7cbf2053f3b4870981fbfd4f3dd21553e4a66f1c2462b2aa64df
     pass
 
 def _typecheckingstub__01d112510c9f361d871db6717bbfc59060fea12f921f3593ef09bffe88a48574(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -29143,12 +29184,12 @@ def _typecheckingstub__7f960b5875dcb81c7f4b6e91c03015375df2e5c6bb3da84f476bf59c2
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29207,7 +29248,7 @@ def _typecheckingstub__cd08795a00486d8e3c10949ac36b6c93109ecc1bb3a98a3e10990fe66
 
 def _typecheckingstub__e36acb57c00ddfc834d6027c29b11bab26d8b33890707c567bc4f7804a9786f2(
     scope: _constructs_77d1e7e8.Construct,
-    _sfn_principal: _IPrincipal_539bb2fd,
+    _sfn_principal: _aws_iam_1f54b5e8.IPrincipal,
     sfn_props: typing.Union[StateMachineProps, typing.Dict[builtins.str, typing.Any]],
     graph: typing.Optional[StateGraph] = None,
 ) -> None:
@@ -29348,8 +29389,8 @@ def _typecheckingstub__18a43aab146056e4e112d2df13cf490470699ce4e7e2812e943745b00
     pass
 
 def _typecheckingstub__49c419f1b0cde6ecd2360bc2aeba72512cfc8d5f6b3745284a5b2819a1fc37bf(
-    kms_key: _IKey_5f11635f,
-    kms_data_key_reuse_period_seconds: typing.Optional[_Duration_4839e8c3] = None,
+    kms_key: _aws_kms_ff87d74a.IKey,
+    kms_data_key_reuse_period_seconds: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29873,7 +29914,7 @@ def _typecheckingstub__45d80da5dbca7702d56f2a0dd67c4a5a72e182c08bcd852d74ea0fa21
 
 def _typecheckingstub__fd148cd8282abe643b20452cf3c099e0d66560a90ddb7ec54f83740859fe615d(
     *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     bucket_name_path: typing.Optional[builtins.str] = None,
     max_items: typing.Optional[jsii.Number] = None,
     key: builtins.str,

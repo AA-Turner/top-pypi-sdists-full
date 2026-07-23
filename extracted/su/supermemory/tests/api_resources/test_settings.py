@@ -19,13 +19,47 @@ class TestSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    def test_method_update(self, client: Supermemory) -> None:
+    def test_method_update_overload_1(self, client: Supermemory) -> None:
+        setting = client.settings.update(
+            workspace_prompt="workspacePrompt",
+        )
+        assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_update_overload_1(self, client: Supermemory) -> None:
+        response = client.settings.with_raw_response.update(
+            workspace_prompt="workspacePrompt",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        setting = response.parse()
+        assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_update_overload_1(self, client: Supermemory) -> None:
+        with client.settings.with_streaming_response.update(
+            workspace_prompt="workspacePrompt",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            setting = response.parse()
+            assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_overload_2(self, client: Supermemory) -> None:
         setting = client.settings.update()
         assert_matches_type(SettingUpdateResponse, setting, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    def test_method_update_with_all_params(self, client: Supermemory) -> None:
+    def test_method_update_with_all_params_overload_2(self, client: Supermemory) -> None:
         setting = client.settings.update(
             chunk_size=-2147483648,
             exclude_items="string",
@@ -55,7 +89,7 @@ class TestSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    def test_raw_response_update(self, client: Supermemory) -> None:
+    def test_raw_response_update_overload_2(self, client: Supermemory) -> None:
         response = client.settings.with_raw_response.update()
 
         assert response.is_closed is True
@@ -65,7 +99,7 @@ class TestSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    def test_streaming_response_update(self, client: Supermemory) -> None:
+    def test_streaming_response_update_overload_2(self, client: Supermemory) -> None:
         with client.settings.with_streaming_response.update() as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -111,13 +145,47 @@ class TestAsyncSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    async def test_method_update(self, async_client: AsyncSupermemory) -> None:
+    async def test_method_update_overload_1(self, async_client: AsyncSupermemory) -> None:
+        setting = await async_client.settings.update(
+            workspace_prompt="workspacePrompt",
+        )
+        assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_update_overload_1(self, async_client: AsyncSupermemory) -> None:
+        response = await async_client.settings.with_raw_response.update(
+            workspace_prompt="workspacePrompt",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        setting = await response.parse()
+        assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_update_overload_1(self, async_client: AsyncSupermemory) -> None:
+        async with async_client.settings.with_streaming_response.update(
+            workspace_prompt="workspacePrompt",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            setting = await response.parse()
+            assert_matches_type(SettingUpdateResponse, setting, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_overload_2(self, async_client: AsyncSupermemory) -> None:
         setting = await async_client.settings.update()
         assert_matches_type(SettingUpdateResponse, setting, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    async def test_method_update_with_all_params(self, async_client: AsyncSupermemory) -> None:
+    async def test_method_update_with_all_params_overload_2(self, async_client: AsyncSupermemory) -> None:
         setting = await async_client.settings.update(
             chunk_size=-2147483648,
             exclude_items="string",
@@ -147,7 +215,7 @@ class TestAsyncSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    async def test_raw_response_update(self, async_client: AsyncSupermemory) -> None:
+    async def test_raw_response_update_overload_2(self, async_client: AsyncSupermemory) -> None:
         response = await async_client.settings.with_raw_response.update()
 
         assert response.is_closed is True
@@ -157,7 +225,7 @@ class TestAsyncSettings:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
-    async def test_streaming_response_update(self, async_client: AsyncSupermemory) -> None:
+    async def test_streaming_response_update_overload_2(self, async_client: AsyncSupermemory) -> None:
         async with async_client.settings.with_streaming_response.update() as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

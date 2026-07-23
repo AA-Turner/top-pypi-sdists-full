@@ -29,9 +29,9 @@ relies on (and that the conformance contract pins):
   matrix declares resume as unsupported and the orchestrator falls back
   to fresh sessions with scratchpad reinjection).
 
-Model selection is server-side: the CLI exposes no model flag, so
-``model_config.model`` never reaches the argv (the canary matrix pins
-``default`` for the same reason).
+The CLI accepts ``--model`` for explicit model selection. Bernstein's
+``default`` sentinel omits that flag so zero-config runs retain the CLI's
+server-side default.
 
 Binary discovery is a two-step cascade:
 
@@ -170,6 +170,13 @@ class AgyAdapter(CLIAdapter):
     # to the legacy binary cascade.
     provides = ("agy",)
 
+    # This is the documented sentinel for "the backend picks the model" - the
+    # same value the canary matrix pins for this adapter - and exists so the
+    # spawner's tier-name
+    # guard can resolve a spawnable model config on zero-config runs instead
+    # of refusing to spawn (issue #2743).
+    default_model = "default"
+
     external_endpoints = (("generativelanguage.googleapis.com", 443),)
     # The hosted backend returns HTTP 429 with ``RESOURCE_EXHAUSTED``
     # once per-minute quotas trip; same meter label as the gemini lane.
@@ -194,9 +201,8 @@ class AgyAdapter(CLIAdapter):
         Args:
             prompt: The prompt supplied via ``-p``; the CLI exits when done.
             workdir: Working directory for the agent process.
-            model_config: Model and effort configuration. The CLI exposes
-                no model flag (selection is server-side), so ``model`` is
-                recorded in the worker wrapper but never reaches the argv.
+            model_config: Model and effort configuration. Explicit models are
+                passed to the CLI; ``default`` retains server-side selection.
             session_id: Unique session identifier (log naming and worker
                 bookkeeping; the CLI mints its own conversation id).
             mcp_config: Optional MCP server definitions (unused).
@@ -229,6 +235,8 @@ class AgyAdapter(CLIAdapter):
             "--sandbox",
             "--dangerously-skip-permissions",
         ]
+        if model_config.model != self.default_model:
+            cmd.extend(["--model", model_config.model])
         if timeout_seconds > 0:
             # Mirror the watchdog bound onto the CLI's own print-mode
             # timeout (Go duration syntax) so both sides agree.

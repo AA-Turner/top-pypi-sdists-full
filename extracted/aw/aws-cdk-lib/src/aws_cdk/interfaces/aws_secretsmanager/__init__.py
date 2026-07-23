@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(
@@ -39,7 +43,7 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 )
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
@@ -59,7 +63,7 @@ class IResourcePolicyRef(
 
 class _IResourcePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
 
@@ -86,7 +90,7 @@ typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IRe
 )
 class IRotationScheduleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RotationSchedule.
@@ -106,7 +110,7 @@ class IRotationScheduleRef(
 
 class _IRotationScheduleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RotationSchedule.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IRotationScheduleRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_secretsmanager.ISecretRef")
 class ISecretRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Secret.
@@ -151,7 +155,7 @@ class ISecretRef(
 
 class _ISecretRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Secret.
 
@@ -178,7 +182,7 @@ typing.cast(typing.Any, ISecretRef).__jsii_proxy_class__ = lambda : _ISecretRefP
 )
 class ISecretTargetAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecretTargetAttachment.
@@ -198,7 +202,7 @@ class ISecretTargetAttachmentRef(
 
 class _ISecretTargetAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecretTargetAttachment.
 
@@ -244,7 +248,7 @@ class ResourcePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0ca96091907390a9b4159a50654cd69c9b77b7c347601999dae8b82c4aea6a9)
+            type_hints = cached_type_hints(_typecheckingstub__a0ca96091907390a9b4159a50654cd69c9b77b7c347601999dae8b82c4aea6a9)
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "secret_id": secret_id,
@@ -293,7 +297,7 @@ class RotationScheduleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a481f4d9172d19acd5eb5e9cfba83a71e1c2531a77b74666f66c54d530ec4177)
+            type_hints = cached_type_hints(_typecheckingstub__a481f4d9172d19acd5eb5e9cfba83a71e1c2531a77b74666f66c54d530ec4177)
             check_type(argname="argument rotation_schedule_id", value=rotation_schedule_id, expected_type=type_hints["rotation_schedule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rotation_schedule_id": rotation_schedule_id,
@@ -342,7 +346,7 @@ class SecretReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b324ea23961f09929b42f934498dca8c7d62f0978eebebc57a34b4668d706fb8)
+            type_hints = cached_type_hints(_typecheckingstub__b324ea23961f09929b42f934498dca8c7d62f0978eebebc57a34b4668d706fb8)
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "secret_id": secret_id,
@@ -391,7 +395,7 @@ class SecretTargetAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f70d28228dde47c628bc306d8f6780dee467d05d857b0b0b777cf8e3509c39b2)
+            type_hints = cached_type_hints(_typecheckingstub__f70d28228dde47c628bc306d8f6780dee467d05d857b0b0b777cf8e3509c39b2)
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "secret_id": secret_id,

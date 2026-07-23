@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inference-models
-Version: 0.32.1
+Version: 0.32.3
 Summary: The new inference engine for Computer Vision models
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
@@ -40,7 +40,7 @@ Requires-Dist: pyclipper<2.0.0,>=1.3.0
 Requires-Dist: shapely<3.0.0,>=2.0.0
 Requires-Dist: urllib3<3.0.0,>=2.7.0
 Requires-Dist: pillow<13.0.0,>=12.3.0
-Requires-Dist: GitPython<4.0.0,>=3.1.50
+Requires-Dist: GitPython<4.0.0,>=3.1.52
 Requires-Dist: CairoSVG<3.0.0,>=2.9.0
 Requires-Dist: fonttools<5.0.0,>=4.60.2
 Requires-Dist: Pygments<3.0.0,>=2.20.0

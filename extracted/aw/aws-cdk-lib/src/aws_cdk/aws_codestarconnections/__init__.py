@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_codestarconnections import (
-    ConnectionReference as _ConnectionReference_177186ec,
-    IConnectionRef as _IConnectionRef_df05f06e,
-    IRepositoryLinkRef as _IRepositoryLinkRef_d7247fe4,
-    ISyncConfigurationRef as _ISyncConfigurationRef_c60edbd8,
-    RepositoryLinkReference as _RepositoryLinkReference_4e0b59d6,
-    SyncConfigurationReference as _SyncConfigurationReference_038bc757,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_codestarconnections as _aws_codestarconnections_3e87a670
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codestarconnections_3e87a670 = _LazyImport("aws_cdk.interfaces.aws_codestarconnections")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionRef_df05f06e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codestarconnections_3e87a670.IConnectionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codestarconnections.CfnConnection",
 ):
@@ -119,7 +109,7 @@ class CfnConnection(
         connection_name: builtins.str,
         host_arn: typing.Optional[builtins.str] = None,
         provider_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeStarConnections::Connection``.
 
@@ -131,7 +121,7 @@ class CfnConnection(
         :param tags: Specifies the tags applied to the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b31f55bcd270757c56f65f68558594d1908e1956199257e40b61ad1328525c3)
+            type_hints = cached_type_hints(_typecheckingstub__1b31f55bcd270757c56f65f68558594d1908e1956199257e40b61ad1328525c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionProps(
@@ -145,12 +135,15 @@ class CfnConnection(
 
     @jsii.member(jsii_name="arnForConnection")
     @builtins.classmethod
-    def arn_for_connection(cls, resource: "_IConnectionRef_df05f06e") -> builtins.str:
+    def arn_for_connection(
+        cls,
+        resource: "_aws_codestarconnections_3e87a670.IConnectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f87ce1086cf1a89286f94e3773e3e344138c62742929f3e66078518ffe1f9eb8)
+            type_hints = cached_type_hints(_typecheckingstub__f87ce1086cf1a89286f94e3773e3e344138c62742929f3e66078518ffe1f9eb8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
 
@@ -162,18 +155,18 @@ class CfnConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be5c87214a4e0cd203b63eae4d20bf4aba1bf38df601efaef6dfffea0509e313)
+            type_hints = cached_type_hints(_typecheckingstub__be5c87214a4e0cd203b63eae4d20bf4aba1bf38df601efaef6dfffea0509e313)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35ee59ed14cc3a52d66e46db3ccc3d36ea0c6b5133b23c09d6f13279a0159048)
+            type_hints = cached_type_hints(_typecheckingstub__35ee59ed14cc3a52d66e46db3ccc3d36ea0c6b5133b23c09d6f13279a0159048)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -186,7 +179,7 @@ class CfnConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7439e44f0496a9ba58cb0741afc532422c7c595d46da2e7f6cc4e0b67c3387e9)
+            type_hints = cached_type_hints(_typecheckingstub__7439e44f0496a9ba58cb0741afc532422c7c595d46da2e7f6cc4e0b67c3387e9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -241,15 +234,15 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_177186ec":
+    def connection_ref(self) -> "_aws_codestarconnections_3e87a670.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_177186ec", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_codestarconnections_3e87a670.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionName")
@@ -260,7 +253,7 @@ class CfnConnection(
     @connection_name.setter
     def connection_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c74ec66d28c8d03c7f48d90efa65701a9b502cde3cf8e62b1f7d4b30a589a83)
+            type_hints = cached_type_hints(_typecheckingstub__1c74ec66d28c8d03c7f48d90efa65701a9b502cde3cf8e62b1f7d4b30a589a83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -273,7 +266,7 @@ class CfnConnection(
     @host_arn.setter
     def host_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06a35f319001e96b6f2b20bfbe5dae6f255ba9622170543150326f886683e443)
+            type_hints = cached_type_hints(_typecheckingstub__06a35f319001e96b6f2b20bfbe5dae6f255ba9622170543150326f886683e443)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostArn", value) # pyright: ignore[reportArgumentType]
 
@@ -286,20 +279,23 @@ class CfnConnection(
     @provider_type.setter
     def provider_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aca832648768d4bedc95e0dd9eb0553af2e55cd113046f9922f476f7c18ddd7)
+            type_hints = cached_type_hints(_typecheckingstub__1aca832648768d4bedc95e0dd9eb0553af2e55cd113046f9922f476f7c18ddd7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the tags applied to the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4559e698887f8e503dde8843ff791284d6d9949c323e9ac7625231409f77297)
+            type_hints = cached_type_hints(_typecheckingstub__e4559e698887f8e503dde8843ff791284d6d9949c323e9ac7625231409f77297)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -321,7 +317,7 @@ class CfnConnectionProps:
         connection_name: builtins.str,
         host_arn: typing.Optional[builtins.str] = None,
         provider_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnection``.
 
@@ -353,7 +349,7 @@ class CfnConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c17bc8ee185245b98d73051c96c32d31990b026c92635744b3a690aba461026)
+            type_hints = cached_type_hints(_typecheckingstub__3c17bc8ee185245b98d73051c96c32d31990b026c92635744b3a690aba461026)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument host_arn", value=host_arn, expected_type=type_hints["host_arn"])
             check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
@@ -399,13 +395,13 @@ class CfnConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the tags applied to the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarconnections-connection.html#cfn-codestarconnections-connection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -419,9 +415,9 @@ class CfnConnectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRepositoryLinkRef_d7247fe4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codestarconnections_3e87a670.IRepositoryLinkRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRepositoryLink(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codestarconnections.CfnRepositoryLink",
 ):
@@ -461,7 +457,7 @@ class CfnRepositoryLink(
         owner_id: builtins.str,
         repository_name: builtins.str,
         encryption_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeStarConnections::RepositoryLink``.
 
@@ -474,7 +470,7 @@ class CfnRepositoryLink(
         :param tags: The tags for the repository to be associated with the repository link.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdf48b0dfdec692a05fb0520b1d1c224a8c2e2c7f2613c7a1e42179efa8707cc)
+            type_hints = cached_type_hints(_typecheckingstub__fdf48b0dfdec692a05fb0520b1d1c224a8c2e2c7f2613c7a1e42179efa8707cc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRepositoryLinkProps(
@@ -491,13 +487,13 @@ class CfnRepositoryLink(
     @builtins.classmethod
     def arn_for_repository_link(
         cls,
-        resource: "_IRepositoryLinkRef_d7247fe4",
+        resource: "_aws_codestarconnections_3e87a670.IRepositoryLinkRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__626b6585c9a51deb3ad2ce1444c4c7c2e64e5077e9a2b32320c02a0303dff123)
+            type_hints = cached_type_hints(_typecheckingstub__626b6585c9a51deb3ad2ce1444c4c7c2e64e5077e9a2b32320c02a0303dff123)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRepositoryLink", [resource]))
 
@@ -509,18 +505,18 @@ class CfnRepositoryLink(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45ff8a2eeba18d1d6508016c508381b387c2c50570c7ac2772a736b0c11ce716)
+            type_hints = cached_type_hints(_typecheckingstub__45ff8a2eeba18d1d6508016c508381b387c2c50570c7ac2772a736b0c11ce716)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRepositoryLink", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c12cbe13f83fd7ed50821e79d7ce9f67351ce7923283498bb237f85641899258)
+            type_hints = cached_type_hints(_typecheckingstub__c12cbe13f83fd7ed50821e79d7ce9f67351ce7923283498bb237f85641899258)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -533,7 +529,7 @@ class CfnRepositoryLink(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b12f3011d520668189d58b24e4e9f8e0f5155af7ad40e14f399a0462ecebb0d4)
+            type_hints = cached_type_hints(_typecheckingstub__b12f3011d520668189d58b24e4e9f8e0f5155af7ad40e14f399a0462ecebb0d4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -572,9 +568,9 @@ class CfnRepositoryLink(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -588,9 +584,11 @@ class CfnRepositoryLink(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryLinkRef")
-    def repository_link_ref(self) -> "_RepositoryLinkReference_4e0b59d6":
+    def repository_link_ref(
+        self,
+    ) -> "_aws_codestarconnections_3e87a670.RepositoryLinkReference":
         '''A reference to a RepositoryLink resource.'''
-        return typing.cast("_RepositoryLinkReference_4e0b59d6", jsii.get(self, "repositoryLinkRef"))
+        return typing.cast("_aws_codestarconnections_3e87a670.RepositoryLinkReference", jsii.get(self, "repositoryLinkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
@@ -601,7 +599,7 @@ class CfnRepositoryLink(
     @connection_arn.setter
     def connection_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8876457702f59ff1032085cd26b110c8d6e7fae6bbd6adee023301843b8dd66)
+            type_hints = cached_type_hints(_typecheckingstub__c8876457702f59ff1032085cd26b110c8d6e7fae6bbd6adee023301843b8dd66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -614,7 +612,7 @@ class CfnRepositoryLink(
     @owner_id.setter
     def owner_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__663677d537f429830084c0b8c2eb0fb3120802794afada996d2845193413d150)
+            type_hints = cached_type_hints(_typecheckingstub__663677d537f429830084c0b8c2eb0fb3120802794afada996d2845193413d150)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ownerId", value) # pyright: ignore[reportArgumentType]
 
@@ -627,7 +625,7 @@ class CfnRepositoryLink(
     @repository_name.setter
     def repository_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ada27515939c416886b3726d8504ee6351dee56bf23a317efce0cbf60225bce)
+            type_hints = cached_type_hints(_typecheckingstub__0ada27515939c416886b3726d8504ee6351dee56bf23a317efce0cbf60225bce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
@@ -640,20 +638,23 @@ class CfnRepositoryLink(
     @encryption_key_arn.setter
     def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72d6898194f3a2786d5d0888d37cfcf4f3c06554c8dcab6f23c16f81ff241b9c)
+            type_hints = cached_type_hints(_typecheckingstub__72d6898194f3a2786d5d0888d37cfcf4f3c06554c8dcab6f23c16f81ff241b9c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the repository to be associated with the repository link.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3169870757b800cdac6097cbe92bb05d72aa36383fc08c2d273a2ef98bdfb961)
+            type_hints = cached_type_hints(_typecheckingstub__3169870757b800cdac6097cbe92bb05d72aa36383fc08c2d273a2ef98bdfb961)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -677,7 +678,7 @@ class CfnRepositoryLinkProps:
         owner_id: builtins.str,
         repository_name: builtins.str,
         encryption_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepositoryLink``.
 
@@ -711,7 +712,7 @@ class CfnRepositoryLinkProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a059e8a38cb53db73841fe9a927fc29f036c7d50538d54c9a91ff9cb6d714763)
+            type_hints = cached_type_hints(_typecheckingstub__a059e8a38cb53db73841fe9a927fc29f036c7d50538d54c9a91ff9cb6d714763)
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
             check_type(argname="argument owner_id", value=owner_id, expected_type=type_hints["owner_id"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
@@ -767,13 +768,13 @@ class CfnRepositoryLinkProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags for the repository to be associated with the repository link.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarconnections-repositorylink.html#cfn-codestarconnections-repositorylink-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -787,9 +788,9 @@ class CfnRepositoryLinkProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISyncConfigurationRef_c60edbd8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codestarconnections_3e87a670.ISyncConfigurationRef)
 class CfnSyncConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codestarconnections.CfnSyncConfiguration",
 ):
@@ -847,7 +848,7 @@ class CfnSyncConfiguration(
         :param trigger_resource_update_on: When to trigger Git sync to begin the stack update.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c8a904149088ca3c954aba811ae03db6bb18a34b324a10bedb2331c6f876b12)
+            type_hints = cached_type_hints(_typecheckingstub__6c8a904149088ca3c954aba811ae03db6bb18a34b324a10bedb2331c6f876b12)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSyncConfigurationProps(
@@ -871,18 +872,18 @@ class CfnSyncConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0e3a51f29312daf20581b130263b41b401073691821af08b152a4ec52f076c5)
+            type_hints = cached_type_hints(_typecheckingstub__c0e3a51f29312daf20581b130263b41b401073691821af08b152a4ec52f076c5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSyncConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba0212b5f34dcefde1cc911722704bbe375f7da6cc5664daf19a6b30de041172)
+            type_hints = cached_type_hints(_typecheckingstub__ba0212b5f34dcefde1cc911722704bbe375f7da6cc5664daf19a6b30de041172)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -895,7 +896,7 @@ class CfnSyncConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4c5e0bde34dbb71b2c1dca1aa91236c78ce6f4f9cce380b40392d95f60f5436)
+            type_hints = cached_type_hints(_typecheckingstub__c4c5e0bde34dbb71b2c1dca1aa91236c78ce6f4f9cce380b40392d95f60f5436)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -944,9 +945,11 @@ class CfnSyncConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="syncConfigurationRef")
-    def sync_configuration_ref(self) -> "_SyncConfigurationReference_038bc757":
+    def sync_configuration_ref(
+        self,
+    ) -> "_aws_codestarconnections_3e87a670.SyncConfigurationReference":
         '''A reference to a SyncConfiguration resource.'''
-        return typing.cast("_SyncConfigurationReference_038bc757", jsii.get(self, "syncConfigurationRef"))
+        return typing.cast("_aws_codestarconnections_3e87a670.SyncConfigurationReference", jsii.get(self, "syncConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="branch")
@@ -957,7 +960,7 @@ class CfnSyncConfiguration(
     @branch.setter
     def branch(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41b151b4d5881562900d975603bfc5389d4bab87c50dc36536cd3003bc4d791b)
+            type_hints = cached_type_hints(_typecheckingstub__41b151b4d5881562900d975603bfc5389d4bab87c50dc36536cd3003bc4d791b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "branch", value) # pyright: ignore[reportArgumentType]
 
@@ -970,7 +973,7 @@ class CfnSyncConfiguration(
     @config_file.setter
     def config_file(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f0211209d25f8536c8c1167936be2d2cebd2bf3ae3224a101371fea54254429)
+            type_hints = cached_type_hints(_typecheckingstub__4f0211209d25f8536c8c1167936be2d2cebd2bf3ae3224a101371fea54254429)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configFile", value) # pyright: ignore[reportArgumentType]
 
@@ -983,7 +986,7 @@ class CfnSyncConfiguration(
     @repository_link_id.setter
     def repository_link_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d960d0547e481ad4fe89040e67311dc4f418ffe323ada1ffc6b3f130569e8b86)
+            type_hints = cached_type_hints(_typecheckingstub__d960d0547e481ad4fe89040e67311dc4f418ffe323ada1ffc6b3f130569e8b86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryLinkId", value) # pyright: ignore[reportArgumentType]
 
@@ -996,7 +999,7 @@ class CfnSyncConfiguration(
     @resource_name.setter
     def resource_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c6a186f209425b22ba86b10b6714304808f4cb3f878507a70f06e8d9378dac4)
+            type_hints = cached_type_hints(_typecheckingstub__4c6a186f209425b22ba86b10b6714304808f4cb3f878507a70f06e8d9378dac4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceName", value) # pyright: ignore[reportArgumentType]
 
@@ -1009,7 +1012,7 @@ class CfnSyncConfiguration(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c33417a47e49bf925d46ca39cc6ac66fa3d450e28ab0ba781d48878d680eb99b)
+            type_hints = cached_type_hints(_typecheckingstub__c33417a47e49bf925d46ca39cc6ac66fa3d450e28ab0ba781d48878d680eb99b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1022,7 +1025,7 @@ class CfnSyncConfiguration(
     @sync_type.setter
     def sync_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a7aa9e776fee9e7c2ac12a6821ca735b73efe0013da11eacba140d600678d98)
+            type_hints = cached_type_hints(_typecheckingstub__9a7aa9e776fee9e7c2ac12a6821ca735b73efe0013da11eacba140d600678d98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "syncType", value) # pyright: ignore[reportArgumentType]
 
@@ -1035,7 +1038,7 @@ class CfnSyncConfiguration(
     @publish_deployment_status.setter
     def publish_deployment_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ee8fea36d4094e0ac90eb20686a90d517ffcde16742313ecf04785324f10c50)
+            type_hints = cached_type_hints(_typecheckingstub__5ee8fea36d4094e0ac90eb20686a90d517ffcde16742313ecf04785324f10c50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publishDeploymentStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -1048,7 +1051,7 @@ class CfnSyncConfiguration(
     @trigger_resource_update_on.setter
     def trigger_resource_update_on(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3019909980645630665fb7da740e906ba748d5a370476cef6024471869dea97b)
+            type_hints = cached_type_hints(_typecheckingstub__3019909980645630665fb7da740e906ba748d5a370476cef6024471869dea97b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggerResourceUpdateOn", value) # pyright: ignore[reportArgumentType]
 
@@ -1114,7 +1117,7 @@ class CfnSyncConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea619fc4ca98271e7e2c90f35350d4af5c1f35168a8e4cdc7191c86cfcfff5ce)
+            type_hints = cached_type_hints(_typecheckingstub__ea619fc4ca98271e7e2c90f35350d4af5c1f35168a8e4cdc7191c86cfcfff5ce)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument config_file", value=config_file, expected_type=type_hints["config_file"])
             check_type(argname="argument repository_link_id", value=repository_link_id, expected_type=type_hints["repository_link_id"])
@@ -1246,13 +1249,13 @@ def _typecheckingstub__1b31f55bcd270757c56f65f68558594d1908e1956199257e40b61ad13
     connection_name: builtins.str,
     host_arn: typing.Optional[builtins.str] = None,
     provider_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f87ce1086cf1a89286f94e3773e3e344138c62742929f3e66078518ffe1f9eb8(
-    resource: _IConnectionRef_df05f06e,
+    resource: _aws_codestarconnections_3e87a670.IConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1264,7 +1267,7 @@ def _typecheckingstub__be5c87214a4e0cd203b63eae4d20bf4aba1bf38df601efaef6dfffea0
     pass
 
 def _typecheckingstub__35ee59ed14cc3a52d66e46db3ccc3d36ea0c6b5133b23c09d6f13279a0159048(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1294,7 +1297,7 @@ def _typecheckingstub__1aca832648768d4bedc95e0dd9eb0553af2e55cd113046f9922f476f7
     pass
 
 def _typecheckingstub__e4559e698887f8e503dde8843ff791284d6d9949c323e9ac7625231409f77297(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1304,7 +1307,7 @@ def _typecheckingstub__3c17bc8ee185245b98d73051c96c32d31990b026c92635744b3a690ab
     connection_name: builtins.str,
     host_arn: typing.Optional[builtins.str] = None,
     provider_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1317,13 +1320,13 @@ def _typecheckingstub__fdf48b0dfdec692a05fb0520b1d1c224a8c2e2c7f2613c7a1e42179ef
     owner_id: builtins.str,
     repository_name: builtins.str,
     encryption_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__626b6585c9a51deb3ad2ce1444c4c7c2e64e5077e9a2b32320c02a0303dff123(
-    resource: _IRepositoryLinkRef_d7247fe4,
+    resource: _aws_codestarconnections_3e87a670.IRepositoryLinkRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1335,7 +1338,7 @@ def _typecheckingstub__45ff8a2eeba18d1d6508016c508381b387c2c50570c7ac2772a736b0c
     pass
 
 def _typecheckingstub__c12cbe13f83fd7ed50821e79d7ce9f67351ce7923283498bb237f85641899258(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1371,7 +1374,7 @@ def _typecheckingstub__72d6898194f3a2786d5d0888d37cfcf4f3c06554c8dcab6f23c16f81f
     pass
 
 def _typecheckingstub__3169870757b800cdac6097cbe92bb05d72aa36383fc08c2d273a2ef98bdfb961(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1382,7 +1385,7 @@ def _typecheckingstub__a059e8a38cb53db73841fe9a927fc29f036c7d50538d54c9a91ff9cb6
     owner_id: builtins.str,
     repository_name: builtins.str,
     encryption_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1410,7 +1413,7 @@ def _typecheckingstub__c0e3a51f29312daf20581b130263b41b401073691821af08b152a4ec5
     pass
 
 def _typecheckingstub__ba0212b5f34dcefde1cc911722704bbe375f7da6cc5664daf19a6b30de041172(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

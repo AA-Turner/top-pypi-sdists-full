@@ -3,6 +3,15 @@ run-name: "Rollout AutoPilot Cron (every 30 min)"
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (preview only, no mutations). Manual dispatches default to dry-run; the scheduled cron always runs for real."
+        type: boolean
+        default: true
+      with_dev_pr_ops_cli:
+        description: "Install the ops CLI from this PR's head instead of PyPI (pass a PR number). Empty installs the published release."
+        type: string
+        default: ""
   schedule:
     - cron: "*/30 * * * *"
 
@@ -45,7 +54,7 @@ jobs:
             echo ""
             echo "- auto_start: \`${gate}\`"
             echo "- auto_promote: \`${gate}\`"
-            echo "- auto_advance / auto_triage_failed / auto_supersede: always on"
+            echo "- auto_advance / auto_triage_failed / auto_close: always on"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Job name is dynamic so the run graph (and the nested reusable-workflow jobs)
@@ -58,11 +67,14 @@ jobs:
     needs: schedule-gate
     uses: ./.github/workflows/rollout-autopilot.yml
     with:
-      dry_run: false
-      auto_supersede: true
+      # Scheduled runs (no inputs context) always run for real; a manual
+      # dispatch honors its dry_run input, which defaults to true for safety.
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      auto_close: true
       auto_start: ${{ needs.schedule-gate.outputs.auto_start == 'true' }}
       auto_advance: true
       auto_promote: ${{ needs.schedule-gate.outputs.auto_promote == 'true' }}
       auto_triage_failed: true
       auto_rollback_failed: false
+      with_dev_pr_ops_cli: ${{ inputs.with_dev_pr_ops_cli || '' }}
     secrets: inherit

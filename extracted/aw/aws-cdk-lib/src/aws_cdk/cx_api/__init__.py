@@ -798,6 +798,8 @@ When disabled, the default `imageType` remains `ECS_AL2` / `EKS_AL2` for backwar
 }
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -811,59 +813,27 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-from ..cloud_assembly_schema import (
-    AmiContextQuery as _AmiContextQuery_74bf4b1b,
-    ArtifactManifest as _ArtifactManifest_f79eef21,
-    ArtifactType as _ArtifactType_1d870526,
-    AssemblyManifest as _AssemblyManifest_413b9f23,
-    AssetManifest as _AssetManifest_6cc3f0bc,
-    AssetManifestProperties as _AssetManifestProperties_9084879a,
-    AvailabilityZonesContextQuery as _AvailabilityZonesContextQuery_715a9fea,
-    AwsCloudFormationStackProperties as _AwsCloudFormationStackProperties_50fb16af,
-    BootstrapRole as _BootstrapRole_9b326056,
-    CcApiContextQuery as _CcApiContextQuery_7347fbd4,
-    ContainerImageAssetMetadataEntry as _ContainerImageAssetMetadataEntry_0a212d1d,
-    ContextProvider as _ContextProvider_fa789bb5,
-    EndpointServiceAvailabilityZonesContextQuery as _EndpointServiceAvailabilityZonesContextQuery_ea3ca0d1,
-    FeatureFlagReportProperties as _FeatureFlagReportProperties_2cfd3047,
-    FileAssetMetadataEntry as _FileAssetMetadataEntry_50173f8f,
-    HostedZoneContextQuery as _HostedZoneContextQuery_8e6ca28f,
-    ICloudAssembly as _ICloudAssembly_3b620685,
-    KeyContextQuery as _KeyContextQuery_3ac6128d,
-    LoadBalancerContextQuery as _LoadBalancerContextQuery_cb08d67c,
-    LoadBalancerListenerContextQuery as _LoadBalancerListenerContextQuery_0eaf3c16,
-    LoadManifestOptions as _LoadManifestOptions_56009fbd,
-    MetadataEntry as _MetadataEntry_13e1bf79,
-    MissingContext as _MissingContext_0ff9e334,
-    NestedCloudAssemblyProperties as _NestedCloudAssemblyProperties_c2fa342d,
-    PluginContextQuery as _PluginContextQuery_31a9d073,
-    PropertyMutationMetadataEntry as _PropertyMutationMetadataEntry_4c840639,
-    RuntimeInfo as _RuntimeInfo_3e9d9574,
-    SSMParameterContextQuery as _SSMParameterContextQuery_675de122,
-    SecurityGroupContextQuery as _SecurityGroupContextQuery_e772f3e6,
-    Tag as _Tag_554dd7f9,
-    TreeArtifactProperties as _TreeArtifactProperties_4092757e,
-    VpcContextQuery as _VpcContextQuery_a193c650,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.cloud_assembly_schema as _cloud_assembly_schema_6576227e
+else:
+
+    _cloud_assembly_schema_6576227e = _LazyImport("aws_cdk.cloud_assembly_schema")
 
 
 @jsii.data_type(
@@ -947,7 +917,7 @@ class AwsCloudFormationStackProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb5c34615f91cec20ab023825c3decd0924a1d39d649c98c600cea970833ced2)
+            type_hints = cached_type_hints(_typecheckingstub__bb5c34615f91cec20ab023825c3decd0924a1d39d649c98c600cea970833ced2)
             check_type(argname="argument template_file", value=template_file, expected_type=type_hints["template_file"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
@@ -1094,13 +1064,13 @@ class CloudArtifact(
         assembly: "CloudAssembly",
         id: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -1114,10 +1084,10 @@ class CloudArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25d9df0767e898e3c7d2743835aa9ce65467ceb2a717a448ad988e9d722408a1)
+            type_hints = cached_type_hints(_typecheckingstub__25d9df0767e898e3c7d2743835aa9ce65467ceb2a717a448ad988e9d722408a1)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        manifest = _ArtifactManifest_f79eef21(
+        manifest = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -1136,13 +1106,13 @@ class CloudArtifact(
         assembly: "CloudAssembly",
         id: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> typing.Optional["CloudArtifact"]:
         '''Returns a subclass of ``CloudArtifact`` based on the artifact type defined in the artifact manifest.
 
@@ -1159,10 +1129,10 @@ class CloudArtifact(
         :return: the ``CloudArtifact`` that matches the artifact type or ``undefined`` if it's an artifact type that is unrecognized by this module.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a43b33c096c23def76559e7ae04cbbfebe9400c25a9d7ec0ac79410d9352d1ae)
+            type_hints = cached_type_hints(_typecheckingstub__a43b33c096c23def76559e7ae04cbbfebe9400c25a9d7ec0ac79410d9352d1ae)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        artifact = _ArtifactManifest_f79eef21(
+        artifact = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -1185,7 +1155,7 @@ class CloudArtifact(
         :return: all the metadata entries of a specific type in this artifact.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd3800ffb245fcadd6ec9780f43d13dc9f50e017d0c1cf6773cb5aa63830bca1)
+            type_hints = cached_type_hints(_typecheckingstub__fd3800ffb245fcadd6ec9780f43d13dc9f50e017d0c1cf6773cb5aa63830bca1)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(typing.List["MetadataEntryResult"], jsii.invoke(self, "findMetadataByType", [type]))
 
@@ -1217,9 +1187,9 @@ class CloudArtifact(
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
-    def manifest(self) -> "_ArtifactManifest_f79eef21":
+    def manifest(self) -> "_cloud_assembly_schema_6576227e.ArtifactManifest":
         '''The artifact's manifest.'''
-        return typing.cast("_ArtifactManifest_f79eef21", jsii.get(self, "manifest"))
+        return typing.cast("_cloud_assembly_schema_6576227e.ArtifactManifest", jsii.get(self, "manifest"))
 
     @builtins.property
     @jsii.member(jsii_name="messages")
@@ -1231,12 +1201,12 @@ class CloudArtifact(
     @jsii.member(jsii_name="metadata")
     def metadata(
         self,
-    ) -> typing.Mapping[builtins.str, typing.List["_MetadataEntry_13e1bf79"]]:
+    ) -> typing.Mapping[builtins.str, typing.List["_cloud_assembly_schema_6576227e.MetadataEntry"]]:
         '''Returns the metadata associated with this Cloud Artifact.'''
-        return typing.cast(typing.Mapping[builtins.str, typing.List["_MetadataEntry_13e1bf79"]], jsii.get(self, "metadata"))
+        return typing.cast(typing.Mapping[builtins.str, typing.List["_cloud_assembly_schema_6576227e.MetadataEntry"]], jsii.get(self, "metadata"))
 
 
-@jsii.implements(_ICloudAssembly_3b620685)
+@jsii.implements(_cloud_assembly_schema_6576227e.ICloudAssembly)
 class CloudAssembly(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.cx_api.CloudAssembly",
@@ -1277,9 +1247,9 @@ class CloudAssembly(
         :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fddddcb2935767018d09ab9bba771c647da4dca6bcf2951acca71837d23ce0f2)
+            type_hints = cached_type_hints(_typecheckingstub__fddddcb2935767018d09ab9bba771c647da4dca6bcf2951acca71837d23ce0f2)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
-        load_options = _LoadManifestOptions_56009fbd(
+        load_options = _cloud_assembly_schema_6576227e.LoadManifestOptions(
             skip_enum_check=skip_enum_check,
             skip_version_check=skip_version_check,
             topo_sort=topo_sort,
@@ -1337,7 +1307,7 @@ class CloudAssembly(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1719cad616d7647f498488133f66749339f4e818506878f26a3694bde158cdc)
+            type_hints = cached_type_hints(_typecheckingstub__c1719cad616d7647f498488133f66749339f4e818506878f26a3694bde158cdc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCloudAssembly", [x]))
 
@@ -1348,7 +1318,7 @@ class CloudAssembly(
         :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f303b13d87775fd1d362c0be6661fb685434df6fe5e86613a878ccc458c13c4a)
+            type_hints = cached_type_hints(_typecheckingstub__f303b13d87775fd1d362c0be6661fb685434df6fe5e86613a878ccc458c13c4a)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("CloudAssembly", jsii.invoke(self, "getNestedAssembly", [artifact_id]))
 
@@ -1362,7 +1332,7 @@ class CloudAssembly(
         :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca1be00ea6d5a6a3181e15cd3a7f56176d04c8f133fb678d50aac534642ef410)
+            type_hints = cached_type_hints(_typecheckingstub__ca1be00ea6d5a6a3181e15cd3a7f56176d04c8f133fb678d50aac534642ef410)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("NestedCloudAssemblyArtifact", jsii.invoke(self, "getNestedAssemblyArtifact", [artifact_id]))
 
@@ -1380,7 +1350,7 @@ class CloudAssembly(
         :throws: if there is no stack artifact with that id
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b8fde0b2ca8fe6d68a7cd056ccfad10bf4236a83c0ac2d68ceff5eb735a15a1)
+            type_hints = cached_type_hints(_typecheckingstub__3b8fde0b2ca8fe6d68a7cd056ccfad10bf4236a83c0ac2d68ceff5eb735a15a1)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("CloudFormationStackArtifact", jsii.invoke(self, "getStackArtifact", [artifact_id]))
 
@@ -1403,7 +1373,7 @@ class CloudAssembly(
         use ``getStackArtifact(stack.artifactId)`` instead.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b840a228aed1fef6a09c8ac443f560499b8b76163fcfca5f4fcdae412e7ce2ec)
+            type_hints = cached_type_hints(_typecheckingstub__b840a228aed1fef6a09c8ac443f560499b8b76163fcfca5f4fcdae412e7ce2ec)
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         return typing.cast("CloudFormationStackArtifact", jsii.invoke(self, "getStackByName", [stack_name]))
 
@@ -1426,7 +1396,7 @@ class CloudAssembly(
         :return: A ``CloudArtifact`` object or ``undefined`` if the artifact does not exist in this assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef7c8acc8076027cc90b668ac3309172b04bcab88dfe6087bd99e1947e5f5824)
+            type_hints = cached_type_hints(_typecheckingstub__ef7c8acc8076027cc90b668ac3309172b04bcab88dfe6087bd99e1947e5f5824)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast(typing.Optional["CloudArtifact"], jsii.invoke(self, "tryGetArtifact", [id]))
 
@@ -1444,9 +1414,9 @@ class CloudAssembly(
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
-    def manifest(self) -> "_AssemblyManifest_413b9f23":
+    def manifest(self) -> "_cloud_assembly_schema_6576227e.AssemblyManifest":
         '''The raw assembly manifest.'''
-        return typing.cast("_AssemblyManifest_413b9f23", jsii.get(self, "manifest"))
+        return typing.cast("_cloud_assembly_schema_6576227e.AssemblyManifest", jsii.get(self, "manifest"))
 
     @builtins.property
     @jsii.member(jsii_name="nestedAssemblies")
@@ -1456,9 +1426,9 @@ class CloudAssembly(
 
     @builtins.property
     @jsii.member(jsii_name="runtime")
-    def runtime(self) -> "_RuntimeInfo_3e9d9574":
+    def runtime(self) -> "_cloud_assembly_schema_6576227e.RuntimeInfo":
         '''Runtime information such as module versions used to synthesize this assembly.'''
-        return typing.cast("_RuntimeInfo_3e9d9574", jsii.get(self, "runtime"))
+        return typing.cast("_cloud_assembly_schema_6576227e.RuntimeInfo", jsii.get(self, "runtime"))
 
     @builtins.property
     @jsii.member(jsii_name="stacks")
@@ -1517,7 +1487,7 @@ class CloudAssemblyBuilder(
         :param parent_builder: If this builder is for a nested assembly, the parent assembly builder. Default: - This is a root assembly
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac6a1363879dd2a5bcc5f520c0f431ae7555bcd85bdb9c732ec6bb62af4c7f5b)
+            type_hints = cached_type_hints(_typecheckingstub__ac6a1363879dd2a5bcc5f520c0f431ae7555bcd85bdb9c732ec6bb62af4c7f5b)
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
         props = CloudAssemblyBuilderProps(
             asset_outdir=asset_outdir, parent_builder=parent_builder
@@ -1530,13 +1500,13 @@ class CloudAssemblyBuilder(
         self,
         id: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Adds an artifact into the cloud assembly.
 
@@ -1550,9 +1520,9 @@ class CloudAssemblyBuilder(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__261d018bdb1dc9a71bf2eedbb2cef096556840e4a312cda97d52542715b7bddc)
+            type_hints = cached_type_hints(_typecheckingstub__261d018bdb1dc9a71bf2eedbb2cef096556840e4a312cda97d52542715b7bddc)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        manifest = _ArtifactManifest_f79eef21(
+        manifest = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -1569,8 +1539,8 @@ class CloudAssemblyBuilder(
         self,
         *,
         key: builtins.str,
-        props: typing.Union[typing.Union["_AmiContextQuery_74bf4b1b", typing.Dict[builtins.str, typing.Any]], typing.Union["_AvailabilityZonesContextQuery_715a9fea", typing.Dict[builtins.str, typing.Any]], typing.Union["_HostedZoneContextQuery_8e6ca28f", typing.Dict[builtins.str, typing.Any]], typing.Union["_SSMParameterContextQuery_675de122", typing.Dict[builtins.str, typing.Any]], typing.Union["_VpcContextQuery_a193c650", typing.Dict[builtins.str, typing.Any]], typing.Union["_EndpointServiceAvailabilityZonesContextQuery_ea3ca0d1", typing.Dict[builtins.str, typing.Any]], typing.Union["_LoadBalancerContextQuery_cb08d67c", typing.Dict[builtins.str, typing.Any]], typing.Union["_LoadBalancerListenerContextQuery_0eaf3c16", typing.Dict[builtins.str, typing.Any]], typing.Union["_SecurityGroupContextQuery_e772f3e6", typing.Dict[builtins.str, typing.Any]], typing.Union["_KeyContextQuery_3ac6128d", typing.Dict[builtins.str, typing.Any]], typing.Union["_CcApiContextQuery_7347fbd4", typing.Dict[builtins.str, typing.Any]], typing.Union["_PluginContextQuery_31a9d073", typing.Dict[builtins.str, typing.Any]]],
-        provider: "_ContextProvider_fa789bb5",
+        props: typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.HostedZoneContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.EndpointServiceAvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.LoadBalancerListenerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.KeyContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
+        provider: "_cloud_assembly_schema_6576227e.ContextProvider",
     ) -> None:
         '''Reports that some context is missing in order for this cloud assembly to be fully synthesized.
 
@@ -1578,7 +1548,9 @@ class CloudAssemblyBuilder(
         :param props: A set of provider-specific options.
         :param provider: The provider from which we expect this context key to be obtained.
         '''
-        missing = _MissingContext_0ff9e334(key=key, props=props, provider=provider)
+        missing = _cloud_assembly_schema_6576227e.MissingContext(
+            key=key, props=props, provider=provider
+        )
 
         return typing.cast(None, jsii.invoke(self, "addMissing", [missing]))
 
@@ -1601,7 +1573,7 @@ class CloudAssemblyBuilder(
         :param display_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e63712a9b3643ce667b29b1f646c53fbff128df67c060f5e9a1f8cd350a0354)
+            type_hints = cached_type_hints(_typecheckingstub__4e63712a9b3643ce667b29b1f646c53fbff128df67c060f5e9a1f8cd350a0354)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
         return typing.cast("CloudAssemblyBuilder", jsii.invoke(self, "createNestedAssembly", [artifact_id, display_name]))
@@ -1657,7 +1629,7 @@ class CloudAssemblyBuilderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cf08d1d4732cadcfbad0197fedaa9b4ea676984caad92dcdf90c09904e0faa5)
+            type_hints = cached_type_hints(_typecheckingstub__3cf08d1d4732cadcfbad0197fedaa9b4ea676984caad92dcdf90c09904e0faa5)
             check_type(argname="argument asset_outdir", value=asset_outdir, expected_type=type_hints["asset_outdir"])
             check_type(argname="argument parent_builder", value=parent_builder, expected_type=type_hints["parent_builder"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1775,13 +1747,13 @@ class CloudFormationStackArtifact(
         assembly: "CloudAssembly",
         artifact_id: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -1795,10 +1767,10 @@ class CloudFormationStackArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efbcfecbcc773b1f90d568df2c82e4e67168ad418a9cd97880b975d214994119)
+            type_hints = cached_type_hints(_typecheckingstub__efbcfecbcc773b1f90d568df2c82e4e67168ad418a9cd97880b975d214994119)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
-        artifact = _ArtifactManifest_f79eef21(
+        artifact = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -1832,7 +1804,7 @@ class CloudFormationStackArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b66444028144603e6b05b0b8247226ffeb9078622ddf73bd9d540b8ce722630)
+            type_hints = cached_type_hints(_typecheckingstub__5b66444028144603e6b05b0b8247226ffeb9078622ddf73bd9d540b8ce722630)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCloudFormationStackArtifact", [art]))
 
@@ -1840,9 +1812,9 @@ class CloudFormationStackArtifact(
     @jsii.member(jsii_name="assets")
     def assets(
         self,
-    ) -> typing.List[typing.Union["_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d"]]:
+    ) -> typing.List[typing.Union["_cloud_assembly_schema_6576227e.FileAssetMetadataEntry", "_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry"]]:
         '''Any assets associated with this stack.'''
-        return typing.cast(typing.List[typing.Union["_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d"]], jsii.get(self, "assets"))
+        return typing.cast(typing.List[typing.Union["_cloud_assembly_schema_6576227e.FileAssetMetadataEntry", "_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry"]], jsii.get(self, "assets"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -1959,12 +1931,14 @@ class CloudFormationStackArtifact(
 
     @builtins.property
     @jsii.member(jsii_name="lookupRole")
-    def lookup_role(self) -> typing.Optional["_BootstrapRole_9b326056"]:
+    def lookup_role(
+        self,
+    ) -> typing.Optional["_cloud_assembly_schema_6576227e.BootstrapRole"]:
         '''The role to use to look up values from the target AWS account.
 
         :default: - No role is assumed (current credentials are used)
         '''
-        return typing.cast(typing.Optional["_BootstrapRole_9b326056"], jsii.get(self, "lookupRole"))
+        return typing.cast(typing.Optional["_cloud_assembly_schema_6576227e.BootstrapRole"], jsii.get(self, "lookupRole"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationArns")
@@ -2047,7 +2021,7 @@ class EndpointServiceAvailabilityZonesContextQuery:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18b8b66b1c10428da0ac775df90fa02d4536a3abf32809fd4aa5613c7b749708)
+            type_hints = cached_type_hints(_typecheckingstub__18b8b66b1c10428da0ac775df90fa02d4536a3abf32809fd4aa5613c7b749708)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
@@ -2135,7 +2109,7 @@ class Environment:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b89ece71f0626cb86a981885eb005d80d37b76239395b1fb770f98af0feb287)
+            type_hints = cached_type_hints(_typecheckingstub__0b89ece71f0626cb86a981885eb005d80d37b76239395b1fb770f98af0feb287)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -2228,7 +2202,7 @@ class EnvironmentPlaceholderValues:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed6e19535466d26cdb82f05ca1d5f232f037fa0049d12f75cf29ad817a5d7f32)
+            type_hints = cached_type_hints(_typecheckingstub__ed6e19535466d26cdb82f05ca1d5f232f037fa0049d12f75cf29ad817a5d7f32)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument partition", value=partition, expected_type=type_hints["partition"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -2329,7 +2303,7 @@ class EnvironmentPlaceholders(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2c501acc043bc39a8bac96f39d791a6247df0ff4b85022293cf10a9e35c2cbf)
+            type_hints = cached_type_hints(_typecheckingstub__b2c501acc043bc39a8bac96f39d791a6247df0ff4b85022293cf10a9e35c2cbf)
             check_type(argname="argument object", value=object, expected_type=type_hints["object"])
         values = EnvironmentPlaceholderValues(
             account_id=account_id, partition=partition, region=region
@@ -2352,7 +2326,7 @@ class EnvironmentPlaceholders(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1afabc7b5a7558dae687aa1b5d2443a52cc7b5f0e6aab01ccd7c06217f2346d)
+            type_hints = cached_type_hints(_typecheckingstub__c1afabc7b5a7558dae687aa1b5d2443a52cc7b5f0e6aab01ccd7c06217f2346d)
             check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "replaceAsync", [object, provider]))
@@ -2418,7 +2392,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0ab540cd47ccd18967a60dbc22dd525d173430ed5fd87a09975a27c1b4a1e40)
+            type_hints = cached_type_hints(_typecheckingstub__f0ab540cd47ccd18967a60dbc22dd525d173430ed5fd87a09975a27c1b4a1e40)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "format", [account, region]))
@@ -2434,7 +2408,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc28e540849733b49f0e7ba0129dc101535f53a2636a768cad3fa3ebe9ee5dbf)
+            type_hints = cached_type_hints(_typecheckingstub__dc28e540849733b49f0e7ba0129dc101535f53a2636a768cad3fa3ebe9ee5dbf)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         return typing.cast("Environment", jsii.sinvoke(cls, "make", [account, region]))
@@ -2448,7 +2422,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b352e789835b9c9e77225861068bcffa327be4b34b87310b0ac375b17023fb)
+            type_hints = cached_type_hints(_typecheckingstub__85b352e789835b9c9e77225861068bcffa327be4b34b87310b0ac375b17023fb)
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
         return typing.cast("Environment", jsii.sinvoke(cls, "parse", [environment]))
 
@@ -2552,7 +2526,7 @@ class KeyContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f13cf02baa9a996348503c81bdcb5503ad573a31d58b8846bc221099cffd660)
+            type_hints = cached_type_hints(_typecheckingstub__0f13cf02baa9a996348503c81bdcb5503ad573a31d58b8846bc221099cffd660)
             check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_id": key_id,
@@ -2633,7 +2607,7 @@ class LoadBalancerContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ac79c3d47933ad7a274fcd1507b7e94ece2bc4338505867e28ea64343cdbe0d)
+            type_hints = cached_type_hints(_typecheckingstub__6ac79c3d47933ad7a274fcd1507b7e94ece2bc4338505867e28ea64343cdbe0d)
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_canonical_hosted_zone_id", value=load_balancer_canonical_hosted_zone_id, expected_type=type_hints["load_balancer_canonical_hosted_zone_id"])
@@ -2788,7 +2762,7 @@ class LoadBalancerListenerContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a91c0cb0c6c1935935039ee08853827eb62ce0b9747a7e1792fe0e444a64bd1)
+            type_hints = cached_type_hints(_typecheckingstub__8a91c0cb0c6c1935935039ee08853827eb62ce0b9747a7e1792fe0e444a64bd1)
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -2842,15 +2816,15 @@ class LoadBalancerListenerContextResponse:
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.cx_api.MetadataEntryResult",
-    jsii_struct_bases=[_MetadataEntry_13e1bf79],
+    jsii_struct_bases=[_cloud_assembly_schema_6576227e.MetadataEntry],
     name_mapping={"type": "type", "data": "data", "trace": "trace", "path": "path"},
 )
-class MetadataEntryResult(_MetadataEntry_13e1bf79):
+class MetadataEntryResult(_cloud_assembly_schema_6576227e.MetadataEntry):
     def __init__(
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_FileAssetMetadataEntry_50173f8f", typing.Dict[builtins.str, typing.Any]], typing.Union["_ContainerImageAssetMetadataEntry_0a212d1d", typing.Dict[builtins.str, typing.Any]], typing.Union["_PropertyMutationMetadataEntry_4c840639", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["_Tag_554dd7f9", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_cloud_assembly_schema_6576227e.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["_cloud_assembly_schema_6576227e.Tag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
         path: builtins.str,
     ) -> None:
@@ -2881,7 +2855,7 @@ class MetadataEntryResult(_MetadataEntry_13e1bf79):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acb7cda500898c592440fb240140921316008dc94a4ac6385c5fe171bac93252)
+            type_hints = cached_type_hints(_typecheckingstub__acb7cda500898c592440fb240140921316008dc94a4ac6385c5fe171bac93252)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument trace", value=trace, expected_type=type_hints["trace"])
@@ -2905,13 +2879,13 @@ class MetadataEntryResult(_MetadataEntry_13e1bf79):
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", "_PropertyMutationMetadataEntry_4c840639", typing.List[typing.Union[builtins.str, "_Tag_554dd7f9"]]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_cloud_assembly_schema_6576227e.FileAssetMetadataEntry", "_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry", "_cloud_assembly_schema_6576227e.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_cloud_assembly_schema_6576227e.Tag"]]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", "_PropertyMutationMetadataEntry_4c840639", typing.List[typing.Union[builtins.str, "_Tag_554dd7f9"]]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_cloud_assembly_schema_6576227e.FileAssetMetadataEntry", "_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry", "_cloud_assembly_schema_6576227e.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_cloud_assembly_schema_6576227e.Tag"]]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3024,13 +2998,13 @@ class NestedCloudAssemblyArtifact(
         assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3044,10 +3018,10 @@ class NestedCloudAssemblyArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58cd751fc0676bdece56072cebc370619182e12e08433ef6415db29d47ea7fb4)
+            type_hints = cached_type_hints(_typecheckingstub__58cd751fc0676bdece56072cebc370619182e12e08433ef6415db29d47ea7fb4)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        artifact = _ArtifactManifest_f79eef21(
+        artifact = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -3081,7 +3055,7 @@ class NestedCloudAssemblyArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61a2e95d592babe551ba1095814395519ee8ddb44b75386590a67acad58e21be)
+            type_hints = cached_type_hints(_typecheckingstub__61a2e95d592babe551ba1095814395519ee8ddb44b75386590a67acad58e21be)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isNestedCloudAssemblyArtifact", [art]))
 
@@ -3147,7 +3121,7 @@ class SecurityGroupContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8f30736a8fbf7f3faa6b49be9a48d529ff37ecf26b24a4bae9cb6821dbe8bdc)
+            type_hints = cached_type_hints(_typecheckingstub__d8f30736a8fbf7f3faa6b49be9a48d529ff37ecf26b24a4bae9cb6821dbe8bdc)
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3200,7 +3174,7 @@ class SynthesisMessage:
     def __init__(
         self,
         *,
-        entry: typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]],
+        entry: typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]],
         id: builtins.str,
         level: "SynthesisMessageLevel",
     ) -> None:
@@ -3234,9 +3208,9 @@ class SynthesisMessage:
             )
         '''
         if isinstance(entry, dict):
-            entry = _MetadataEntry_13e1bf79(**entry)
+            entry = _cloud_assembly_schema_6576227e.MetadataEntry(**entry)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29937f9afd429e77cb3104d8535016507a83d9824ac8c4c46469e321925a6d3e)
+            type_hints = cached_type_hints(_typecheckingstub__29937f9afd429e77cb3104d8535016507a83d9824ac8c4c46469e321925a6d3e)
             check_type(argname="argument entry", value=entry, expected_type=type_hints["entry"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -3247,13 +3221,13 @@ class SynthesisMessage:
         }
 
     @builtins.property
-    def entry(self) -> "_MetadataEntry_13e1bf79":
+    def entry(self) -> "_cloud_assembly_schema_6576227e.MetadataEntry":
         '''
         :stability: deprecated
         '''
         result = self._values.get("entry")
         assert result is not None, "Required property 'entry' is missing"
-        return typing.cast("_MetadataEntry_13e1bf79", result)
+        return typing.cast("_cloud_assembly_schema_6576227e.MetadataEntry", result)
 
     @builtins.property
     def id(self) -> builtins.str:
@@ -3386,13 +3360,13 @@ class TreeCloudArtifact(
         assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3406,10 +3380,10 @@ class TreeCloudArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ac926e1ee09e8dfca43023911e9514e33e19b8a91828eab4d450a48d0bea631)
+            type_hints = cached_type_hints(_typecheckingstub__3ac926e1ee09e8dfca43023911e9514e33e19b8a91828eab4d450a48d0bea631)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        artifact = _ArtifactManifest_f79eef21(
+        artifact = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -3443,7 +3417,7 @@ class TreeCloudArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__719623729bff1c3a8f1e1bd1a4f6a3f18b01238945d9e3de639d5e629e4b449c)
+            type_hints = cached_type_hints(_typecheckingstub__719623729bff1c3a8f1e1bd1a4f6a3f18b01238945d9e3de639d5e629e4b449c)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isTreeCloudArtifact", [art]))
 
@@ -3559,7 +3533,7 @@ class VpcContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4b99c21e77b73d3bb2ec2b5e4d552fdc6d32ae642513f2ea084181982c50129)
+            type_hints = cached_type_hints(_typecheckingstub__c4b99c21e77b73d3bb2ec2b5e4d552fdc6d32ae642513f2ea084181982c50129)
             check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             check_type(argname="argument isolated_subnet_ids", value=isolated_subnet_ids, expected_type=type_hints["isolated_subnet_ids"])
@@ -3851,7 +3825,7 @@ class VpcSubnet:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__358370651f26ad7cbe7c86ea5aa2291df4cf12ab5370c9e7592e4591ebb4acf9)
+            type_hints = cached_type_hints(_typecheckingstub__358370651f26ad7cbe7c86ea5aa2291df4cf12ab5370c9e7592e4591ebb4acf9)
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument route_table_id", value=route_table_id, expected_type=type_hints["route_table_id"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
@@ -3963,7 +3937,7 @@ class VpcSubnetGroup:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcc71b9bbef79ab1afad1f5d8848a55e138477df6b699bd401ed5d4b6be7d859)
+            type_hints = cached_type_hints(_typecheckingstub__dcc71b9bbef79ab1afad1f5d8848a55e138477df6b699bd401ed5d4b6be7d859)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -4127,13 +4101,13 @@ class AssetManifestArtifact(
         assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: "_ArtifactType_1d870526",
+        type: "_cloud_assembly_schema_6576227e.ArtifactType",
         additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_MetadataEntry_13e1bf79", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["_AwsCloudFormationStackProperties_50fb16af", typing.Dict[builtins.str, typing.Any]], typing.Union["_AssetManifestProperties_9084879a", typing.Dict[builtins.str, typing.Any]], typing.Union["_TreeArtifactProperties_4092757e", typing.Dict[builtins.str, typing.Any]], typing.Union["_NestedCloudAssemblyProperties_c2fa342d", typing.Dict[builtins.str, typing.Any]], typing.Union["_FeatureFlagReportProperties_2cfd3047", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_cloud_assembly_schema_6576227e.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_cloud_assembly_schema_6576227e.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -4147,10 +4121,10 @@ class AssetManifestArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d3ca09f65f0b6d82995f24fb98a9330c17865775e1a04d254348d053cac5636)
+            type_hints = cached_type_hints(_typecheckingstub__4d3ca09f65f0b6d82995f24fb98a9330c17865775e1a04d254348d053cac5636)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        artifact = _ArtifactManifest_f79eef21(
+        artifact = _cloud_assembly_schema_6576227e.ArtifactManifest(
             type=type,
             additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
@@ -4184,15 +4158,15 @@ class AssetManifestArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cdb3373494bc6b73de4ef674ad469482cb5462066462262be592ba7f4dedc72)
+            type_hints = cached_type_hints(_typecheckingstub__5cdb3373494bc6b73de4ef674ad469482cb5462066462262be592ba7f4dedc72)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isAssetManifestArtifact", [art]))
 
     @builtins.property
     @jsii.member(jsii_name="contents")
-    def contents(self) -> "_AssetManifest_6cc3f0bc":
+    def contents(self) -> "_cloud_assembly_schema_6576227e.AssetManifest":
         '''The Asset Manifest contents.'''
-        return typing.cast("_AssetManifest_6cc3f0bc", jsii.get(self, "contents"))
+        return typing.cast("_cloud_assembly_schema_6576227e.AssetManifest", jsii.get(self, "contents"))
 
     @builtins.property
     @jsii.member(jsii_name="file")
@@ -4263,13 +4237,13 @@ def _typecheckingstub__25d9df0767e898e3c7d2743835aa9ce65467ceb2a717a448ad988e9d7
     assembly: CloudAssembly,
     id: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4278,13 +4252,13 @@ def _typecheckingstub__a43b33c096c23def76559e7ae04cbbfebe9400c25a9d7ec0ac79410d9
     assembly: CloudAssembly,
     id: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4354,13 +4328,13 @@ def _typecheckingstub__ac6a1363879dd2a5bcc5f520c0f431ae7555bcd85bdb9c732ec6bb62a
 def _typecheckingstub__261d018bdb1dc9a71bf2eedbb2cef096556840e4a312cda97d52542715b7bddc(
     id: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4384,13 +4358,13 @@ def _typecheckingstub__efbcfecbcc773b1f90d568df2c82e4e67168ad418a9cd97880b975d21
     assembly: CloudAssembly,
     artifact_id: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4496,7 +4470,7 @@ def _typecheckingstub__8a91c0cb0c6c1935935039ee08853827eb62ce0b9747a7e1792fe0e44
 def _typecheckingstub__acb7cda500898c592440fb240140921316008dc94a4ac6385c5fe171bac93252(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_FileAssetMetadataEntry_50173f8f, typing.Dict[builtins.str, typing.Any]], typing.Union[_ContainerImageAssetMetadataEntry_0a212d1d, typing.Dict[builtins.str, typing.Any]], typing.Union[_PropertyMutationMetadataEntry_4c840639, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[_Tag_554dd7f9, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_cloud_assembly_schema_6576227e.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[_cloud_assembly_schema_6576227e.Tag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     path: builtins.str,
 ) -> None:
@@ -4507,13 +4481,13 @@ def _typecheckingstub__58cd751fc0676bdece56072cebc370619182e12e08433ef6415db29d4
     assembly: CloudAssembly,
     name: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4534,7 +4508,7 @@ def _typecheckingstub__d8f30736a8fbf7f3faa6b49be9a48d529ff37ecf26b24a4bae9cb6821
 
 def _typecheckingstub__29937f9afd429e77cb3104d8535016507a83d9824ac8c4c46469e321925a6d3e(
     *,
-    entry: typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]],
+    entry: typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]],
     id: builtins.str,
     level: SynthesisMessageLevel,
 ) -> None:
@@ -4545,13 +4519,13 @@ def _typecheckingstub__3ac926e1ee09e8dfca43023911e9514e33e19b8a91828eab4d450a48d
     assembly: CloudAssembly,
     name: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4607,13 +4581,13 @@ def _typecheckingstub__4d3ca09f65f0b6d82995f24fb98a9330c17865775e1a04d254348d053
     assembly: CloudAssembly,
     name: builtins.str,
     *,
-    type: _ArtifactType_1d870526,
+    type: _cloud_assembly_schema_6576227e.ArtifactType,
     additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
-    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_cloud_assembly_schema_6576227e.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_cloud_assembly_schema_6576227e.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_cloud_assembly_schema_6576227e.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class FarmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df99153da6eb3ca62b0608e3067ea62d99f63d137a1238499434c5a9cfe18c3a)
+            type_hints = cached_type_hints(_typecheckingstub__df99153da6eb3ca62b0608e3067ea62d99f63d137a1238499434c5a9cfe18c3a)
             check_type(argname="argument farm_arn", value=farm_arn, expected_type=type_hints["farm_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "farm_arn": farm_arn,
@@ -107,7 +111,7 @@ class FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11423614ebfe79bc624144d41e52f87151a790b2bc31e14259b38a5ab3d11b7a)
+            type_hints = cached_type_hints(_typecheckingstub__11423614ebfe79bc624144d41e52f87151a790b2bc31e14259b38a5ab3d11b7a)
             check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "fleet_arn": fleet_arn,
@@ -135,7 +139,7 @@ class FleetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IFarmRef")
 class IFarmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Farm.
@@ -155,7 +159,7 @@ class IFarmRef(
 
 class _IFarmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Farm.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IFarmRef).__jsii_proxy_class__ = lambda : _IFarmRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IFleetRef")
 class IFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
@@ -200,7 +204,7 @@ class IFleetRef(
 
 class _IFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.ILicenseEndpointRef")
 class ILicenseEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LicenseEndpoint.
@@ -245,7 +249,7 @@ class ILicenseEndpointRef(
 
 class _ILicenseEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LicenseEndpoint.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, ILicenseEndpointRef).__jsii_proxy_class__ = lambda : _IL
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.ILimitRef")
 class ILimitRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Limit.
@@ -290,7 +294,7 @@ class ILimitRef(
 
 class _ILimitRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Limit.
 
@@ -315,7 +319,7 @@ typing.cast(typing.Any, ILimitRef).__jsii_proxy_class__ = lambda : _ILimitRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IMeteredProductRef")
 class IMeteredProductRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MeteredProduct.
@@ -335,7 +339,7 @@ class IMeteredProductRef(
 
 class _IMeteredProductRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MeteredProduct.
 
@@ -360,7 +364,7 @@ typing.cast(typing.Any, IMeteredProductRef).__jsii_proxy_class__ = lambda : _IMe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IMonitorRef")
 class IMonitorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Monitor.
@@ -380,7 +384,7 @@ class IMonitorRef(
 
 class _IMonitorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Monitor.
 
@@ -405,7 +409,7 @@ typing.cast(typing.Any, IMonitorRef).__jsii_proxy_class__ = lambda : _IMonitorRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IQueueEnvironmentRef")
 class IQueueEnvironmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueEnvironment.
@@ -425,7 +429,7 @@ class IQueueEnvironmentRef(
 
 class _IQueueEnvironmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueEnvironment.
 
@@ -452,7 +456,7 @@ typing.cast(typing.Any, IQueueEnvironmentRef).__jsii_proxy_class__ = lambda : _I
 )
 class IQueueFleetAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueFleetAssociation.
@@ -472,7 +476,7 @@ class IQueueFleetAssociationRef(
 
 class _IQueueFleetAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueFleetAssociation.
 
@@ -499,7 +503,7 @@ typing.cast(typing.Any, IQueueFleetAssociationRef).__jsii_proxy_class__ = lambda
 )
 class IQueueLimitAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueLimitAssociation.
@@ -519,7 +523,7 @@ class IQueueLimitAssociationRef(
 
 class _IQueueLimitAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a QueueLimitAssociation.
 
@@ -544,7 +548,7 @@ typing.cast(typing.Any, IQueueLimitAssociationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IQueueRef")
 class IQueueRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Queue.
@@ -564,7 +568,7 @@ class IQueueRef(
 
 class _IQueueRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Queue.
 
@@ -589,7 +593,7 @@ typing.cast(typing.Any, IQueueRef).__jsii_proxy_class__ = lambda : _IQueueRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_deadline.IStorageProfileRef")
 class IStorageProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageProfile.
@@ -609,7 +613,7 @@ class IStorageProfileRef(
 
 class _IStorageProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageProfile.
 
@@ -655,7 +659,7 @@ class LicenseEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a65d81a345ecd21e0a8920fe1134f641700b5d1b805a876ebf3d9119eec56203)
+            type_hints = cached_type_hints(_typecheckingstub__a65d81a345ecd21e0a8920fe1134f641700b5d1b805a876ebf3d9119eec56203)
             check_type(argname="argument license_endpoint_arn", value=license_endpoint_arn, expected_type=type_hints["license_endpoint_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "license_endpoint_arn": license_endpoint_arn,
@@ -706,7 +710,7 @@ class LimitReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15fd5d3ace1136b8e519ab8902fd31c72a2fcf2f331b52c78b33f50e099678e9)
+            type_hints = cached_type_hints(_typecheckingstub__15fd5d3ace1136b8e519ab8902fd31c72a2fcf2f331b52c78b33f50e099678e9)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument limit_id", value=limit_id, expected_type=type_hints["limit_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -764,7 +768,7 @@ class MeteredProductReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a4ab99457156e6e3be3dc3ff89dd0d3f75d121ab0dabcab8a29d817ac0e750d)
+            type_hints = cached_type_hints(_typecheckingstub__5a4ab99457156e6e3be3dc3ff89dd0d3f75d121ab0dabcab8a29d817ac0e750d)
             check_type(argname="argument metered_product_arn", value=metered_product_arn, expected_type=type_hints["metered_product_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "metered_product_arn": metered_product_arn,
@@ -813,7 +817,7 @@ class MonitorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd1e2f3342f18dcc723759973d0d283ccd7c291e36462cf22f025595059bc1af)
+            type_hints = cached_type_hints(_typecheckingstub__dd1e2f3342f18dcc723759973d0d283ccd7c291e36462cf22f025595059bc1af)
             check_type(argname="argument monitor_arn", value=monitor_arn, expected_type=type_hints["monitor_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "monitor_arn": monitor_arn,
@@ -876,7 +880,7 @@ class QueueEnvironmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e08d0d1a8679a61e7a4646b9d545773c128ff748ae2e4766c4c560318341869)
+            type_hints = cached_type_hints(_typecheckingstub__6e08d0d1a8679a61e7a4646b9d545773c128ff748ae2e4766c4c560318341869)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument queue_environment_id", value=queue_environment_id, expected_type=type_hints["queue_environment_id"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -953,7 +957,7 @@ class QueueFleetAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f29a4c3f81d41e6f30228663837bfb0dfd1ba070a0c12c6683e9c59ee2a786eb)
+            type_hints = cached_type_hints(_typecheckingstub__f29a4c3f81d41e6f30228663837bfb0dfd1ba070a0c12c6683e9c59ee2a786eb)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -1030,7 +1034,7 @@ class QueueLimitAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3856621b5c5a42b0e69163693d3b2eff2b022f54c69e9819b7ee7ac83f596de5)
+            type_hints = cached_type_hints(_typecheckingstub__3856621b5c5a42b0e69163693d3b2eff2b022f54c69e9819b7ee7ac83f596de5)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument limit_id", value=limit_id, expected_type=type_hints["limit_id"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -1097,7 +1101,7 @@ class QueueReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d94dff445ee31e3bcdcb3f94a6b60b1559b385f92eb3fff2a2b01b1d1406fe5)
+            type_hints = cached_type_hints(_typecheckingstub__3d94dff445ee31e3bcdcb3f94a6b60b1559b385f92eb3fff2a2b01b1d1406fe5)
             check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "queue_arn": queue_arn,
@@ -1153,7 +1157,7 @@ class StorageProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f92720515e6a968365e391848e2b0c280919eebf82cb53130c21a2b13e041586)
+            type_hints = cached_type_hints(_typecheckingstub__f92720515e6a968365e391848e2b0c280919eebf82cb53130c21a2b13e041586)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

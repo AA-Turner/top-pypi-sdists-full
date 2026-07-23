@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CustomResourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b7c6fc64f1a76292b3e9c451ff5d2ef2906f21f9ee7be7f2213d5cbc5e2d8d0)
+            type_hints = cached_type_hints(_typecheckingstub__5b7c6fc64f1a76292b3e9c451ff5d2ef2906f21f9ee7be7f2213d5cbc5e2d8d0)
             check_type(argname="argument custom_resource_id", value=custom_resource_id, expected_type=type_hints["custom_resource_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "custom_resource_id": custom_resource_id,
@@ -107,7 +111,7 @@ class GuardHookReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775ac6fdd8641de5fd9822abf6f886825b2f6e4892f6bdf2d249a6c799b83b70)
+            type_hints = cached_type_hints(_typecheckingstub__775ac6fdd8641de5fd9822abf6f886825b2f6e4892f6bdf2d249a6c799b83b70)
             check_type(argname="argument hook_arn", value=hook_arn, expected_type=type_hints["hook_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hook_arn": hook_arn,
@@ -156,7 +160,7 @@ class HookDefaultVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6d0b56d2950ab15ec15c230e341be18d0f0974ea5d59e387f7232dad93053cb)
+            type_hints = cached_type_hints(_typecheckingstub__d6d0b56d2950ab15ec15c230e341be18d0f0974ea5d59e387f7232dad93053cb)
             check_type(argname="argument hook_default_version_arn", value=hook_default_version_arn, expected_type=type_hints["hook_default_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hook_default_version_arn": hook_default_version_arn,
@@ -205,7 +209,7 @@ class HookTypeConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3b50301833de36cb0604dcfcaa3be80edace6d3e1a0e6006db4da13bc85b78e)
+            type_hints = cached_type_hints(_typecheckingstub__c3b50301833de36cb0604dcfcaa3be80edace6d3e1a0e6006db4da13bc85b78e)
             check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_arn": configuration_arn,
@@ -254,7 +258,7 @@ class HookVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__266211dcc23f86069691e9aa5c7355e16923c23e8b1e58b1c126f6521314dd38)
+            type_hints = cached_type_hints(_typecheckingstub__266211dcc23f86069691e9aa5c7355e16923c23e8b1e58b1c126f6521314dd38)
             check_type(argname="argument hook_version_arn", value=hook_version_arn, expected_type=type_hints["hook_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hook_version_arn": hook_version_arn,
@@ -284,7 +288,7 @@ class HookVersionReference:
 )
 class ICustomResourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomResource.
@@ -304,7 +308,7 @@ class ICustomResourceRef(
 
 class _ICustomResourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomResource.
 
@@ -329,7 +333,7 @@ typing.cast(typing.Any, ICustomResourceRef).__jsii_proxy_class__ = lambda : _ICu
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IGuardHookRef")
 class IGuardHookRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GuardHook.
@@ -349,7 +353,7 @@ class IGuardHookRef(
 
 class _IGuardHookRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GuardHook.
 
@@ -376,7 +380,7 @@ typing.cast(typing.Any, IGuardHookRef).__jsii_proxy_class__ = lambda : _IGuardHo
 )
 class IHookDefaultVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookDefaultVersion.
@@ -396,7 +400,7 @@ class IHookDefaultVersionRef(
 
 class _IHookDefaultVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookDefaultVersion.
 
@@ -423,7 +427,7 @@ typing.cast(typing.Any, IHookDefaultVersionRef).__jsii_proxy_class__ = lambda : 
 )
 class IHookTypeConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookTypeConfig.
@@ -443,7 +447,7 @@ class IHookTypeConfigRef(
 
 class _IHookTypeConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookTypeConfig.
 
@@ -468,7 +472,7 @@ typing.cast(typing.Any, IHookTypeConfigRef).__jsii_proxy_class__ = lambda : _IHo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IHookVersionRef")
 class IHookVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookVersion.
@@ -488,7 +492,7 @@ class IHookVersionRef(
 
 class _IHookVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HookVersion.
 
@@ -513,7 +517,7 @@ typing.cast(typing.Any, IHookVersionRef).__jsii_proxy_class__ = lambda : _IHookV
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.ILambdaHookRef")
 class ILambdaHookRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LambdaHook.
@@ -533,7 +537,7 @@ class ILambdaHookRef(
 
 class _ILambdaHookRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LambdaHook.
 
@@ -558,7 +562,7 @@ typing.cast(typing.Any, ILambdaHookRef).__jsii_proxy_class__ = lambda : _ILambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IMacroRef")
 class IMacroRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Macro.
@@ -578,7 +582,7 @@ class IMacroRef(
 
 class _IMacroRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Macro.
 
@@ -605,7 +609,7 @@ typing.cast(typing.Any, IMacroRef).__jsii_proxy_class__ = lambda : _IMacroRefPro
 )
 class IModuleDefaultVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModuleDefaultVersion.
@@ -625,7 +629,7 @@ class IModuleDefaultVersionRef(
 
 class _IModuleDefaultVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModuleDefaultVersion.
 
@@ -652,7 +656,7 @@ typing.cast(typing.Any, IModuleDefaultVersionRef).__jsii_proxy_class__ = lambda 
 )
 class IModuleVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModuleVersion.
@@ -672,7 +676,7 @@ class IModuleVersionRef(
 
 class _IModuleVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModuleVersion.
 
@@ -699,7 +703,7 @@ typing.cast(typing.Any, IModuleVersionRef).__jsii_proxy_class__ = lambda : _IMod
 )
 class IPublicTypeVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicTypeVersion.
@@ -719,7 +723,7 @@ class IPublicTypeVersionRef(
 
 class _IPublicTypeVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicTypeVersion.
 
@@ -744,7 +748,7 @@ typing.cast(typing.Any, IPublicTypeVersionRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IPublisherRef")
 class IPublisherRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Publisher.
@@ -764,7 +768,7 @@ class IPublisherRef(
 
 class _IPublisherRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Publisher.
 
@@ -791,7 +795,7 @@ typing.cast(typing.Any, IPublisherRef).__jsii_proxy_class__ = lambda : _IPublish
 )
 class IResourceDefaultVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefaultVersion.
@@ -811,7 +815,7 @@ class IResourceDefaultVersionRef(
 
 class _IResourceDefaultVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDefaultVersion.
 
@@ -838,7 +842,7 @@ typing.cast(typing.Any, IResourceDefaultVersionRef).__jsii_proxy_class__ = lambd
 )
 class IResourceVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceVersion.
@@ -858,7 +862,7 @@ class IResourceVersionRef(
 
 class _IResourceVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceVersion.
 
@@ -883,7 +887,7 @@ typing.cast(typing.Any, IResourceVersionRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IStackRef")
 class IStackRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
@@ -903,7 +907,7 @@ class IStackRef(
 
 class _IStackRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
 
@@ -928,7 +932,7 @@ typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudformation.IStackSetRef")
 class IStackSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackSet.
@@ -948,7 +952,7 @@ class IStackSetRef(
 
 class _IStackSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackSet.
 
@@ -975,7 +979,7 @@ typing.cast(typing.Any, IStackSetRef).__jsii_proxy_class__ = lambda : _IStackSet
 )
 class ITypeActivationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TypeActivation.
@@ -995,7 +999,7 @@ class ITypeActivationRef(
 
 class _ITypeActivationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TypeActivation.
 
@@ -1022,7 +1026,7 @@ typing.cast(typing.Any, ITypeActivationRef).__jsii_proxy_class__ = lambda : _ITy
 )
 class IWaitConditionHandleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WaitConditionHandle.
@@ -1042,7 +1046,7 @@ class IWaitConditionHandleRef(
 
 class _IWaitConditionHandleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WaitConditionHandle.
 
@@ -1069,7 +1073,7 @@ typing.cast(typing.Any, IWaitConditionHandleRef).__jsii_proxy_class__ = lambda :
 )
 class IWaitConditionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WaitCondition.
@@ -1089,7 +1093,7 @@ class IWaitConditionRef(
 
 class _IWaitConditionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WaitCondition.
 
@@ -1135,7 +1139,7 @@ class LambdaHookReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e3e149c2cd60a1f4cbf516eb637ccb933da9baf121c066add455af8325df39a)
+            type_hints = cached_type_hints(_typecheckingstub__4e3e149c2cd60a1f4cbf516eb637ccb933da9baf121c066add455af8325df39a)
             check_type(argname="argument hook_arn", value=hook_arn, expected_type=type_hints["hook_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hook_arn": hook_arn,
@@ -1184,7 +1188,7 @@ class MacroReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__366a7715c180b8366595d728f6b7187f9dff8b33626b1e127c98125ef79544af)
+            type_hints = cached_type_hints(_typecheckingstub__366a7715c180b8366595d728f6b7187f9dff8b33626b1e127c98125ef79544af)
             check_type(argname="argument macro_id", value=macro_id, expected_type=type_hints["macro_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "macro_id": macro_id,
@@ -1233,7 +1237,7 @@ class ModuleDefaultVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1473fbf7e79219893e9298fa36b5f862fdef7e8b1af71e233a42d6186c98295c)
+            type_hints = cached_type_hints(_typecheckingstub__1473fbf7e79219893e9298fa36b5f862fdef7e8b1af71e233a42d6186c98295c)
             check_type(argname="argument module_default_version_arn", value=module_default_version_arn, expected_type=type_hints["module_default_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "module_default_version_arn": module_default_version_arn,
@@ -1282,7 +1286,7 @@ class ModuleVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a65c00ebebea4a4b826cdbacf2a78f91c0c8969030eb148a097375b93ee26475)
+            type_hints = cached_type_hints(_typecheckingstub__a65c00ebebea4a4b826cdbacf2a78f91c0c8969030eb148a097375b93ee26475)
             check_type(argname="argument module_version_arn", value=module_version_arn, expected_type=type_hints["module_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "module_version_arn": module_version_arn,
@@ -1331,7 +1335,7 @@ class PublicTypeVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6908473a67abdf74221854b71a6b8fa8e43350247630952cb02ef56a16a3a88)
+            type_hints = cached_type_hints(_typecheckingstub__e6908473a67abdf74221854b71a6b8fa8e43350247630952cb02ef56a16a3a88)
             check_type(argname="argument public_type_arn", value=public_type_arn, expected_type=type_hints["public_type_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "public_type_arn": public_type_arn,
@@ -1380,7 +1384,7 @@ class PublisherReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e30b58013075f9a66218400828f24e5a7fc49ae648010f729db35325b0e53e6e)
+            type_hints = cached_type_hints(_typecheckingstub__e30b58013075f9a66218400828f24e5a7fc49ae648010f729db35325b0e53e6e)
             check_type(argname="argument publisher_id", value=publisher_id, expected_type=type_hints["publisher_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "publisher_id": publisher_id,
@@ -1429,7 +1433,7 @@ class ResourceDefaultVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd89a00f795ff43273f16fd4e8d86052b8de8d8cdc1cf2ef6bafe998f17b0027)
+            type_hints = cached_type_hints(_typecheckingstub__fd89a00f795ff43273f16fd4e8d86052b8de8d8cdc1cf2ef6bafe998f17b0027)
             check_type(argname="argument resource_default_version_arn", value=resource_default_version_arn, expected_type=type_hints["resource_default_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_default_version_arn": resource_default_version_arn,
@@ -1478,7 +1482,7 @@ class ResourceVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7afe7f88b7b3fcd57c7d29a6b5b149948932e7b0307ab06381241d082b4405c)
+            type_hints = cached_type_hints(_typecheckingstub__e7afe7f88b7b3fcd57c7d29a6b5b149948932e7b0307ab06381241d082b4405c)
             check_type(argname="argument resource_version_arn", value=resource_version_arn, expected_type=type_hints["resource_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_version_arn": resource_version_arn,
@@ -1527,7 +1531,7 @@ class StackReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6be9545bf5a86ea5129685abb086ec5c7023f1f26f6fafbebda4620a6d57b7c)
+            type_hints = cached_type_hints(_typecheckingstub__f6be9545bf5a86ea5129685abb086ec5c7023f1f26f6fafbebda4620a6d57b7c)
             check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_id": stack_id,
@@ -1576,7 +1580,7 @@ class StackSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c9319f9e4b031c1fcadb66d55b5d5ecc5b80323ab4ec3ff28175eaf9653ffbc)
+            type_hints = cached_type_hints(_typecheckingstub__2c9319f9e4b031c1fcadb66d55b5d5ecc5b80323ab4ec3ff28175eaf9653ffbc)
             check_type(argname="argument stack_set_id", value=stack_set_id, expected_type=type_hints["stack_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_set_id": stack_set_id,
@@ -1625,7 +1629,7 @@ class TypeActivationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26329ee952aa28a16422cf96de9a99c6c0c8ac8e65f8a956838d06fd71caeac7)
+            type_hints = cached_type_hints(_typecheckingstub__26329ee952aa28a16422cf96de9a99c6c0c8ac8e65f8a956838d06fd71caeac7)
             check_type(argname="argument type_activation_arn", value=type_activation_arn, expected_type=type_hints["type_activation_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type_activation_arn": type_activation_arn,
@@ -1674,7 +1678,7 @@ class WaitConditionHandleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddc6bfcf32d0990155c44ccab804f3e6c6dddb9cb279ee3bb4506b6f0b08875c)
+            type_hints = cached_type_hints(_typecheckingstub__ddc6bfcf32d0990155c44ccab804f3e6c6dddb9cb279ee3bb4506b6f0b08875c)
             check_type(argname="argument wait_condition_handle_id", value=wait_condition_handle_id, expected_type=type_hints["wait_condition_handle_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "wait_condition_handle_id": wait_condition_handle_id,
@@ -1723,7 +1727,7 @@ class WaitConditionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d396cb2698def31eae15c415fd26053d72bd38dd3d779cb62542b599b36f389b)
+            type_hints = cached_type_hints(_typecheckingstub__d396cb2698def31eae15c415fd26053d72bd38dd3d779cb62542b599b36f389b)
             check_type(argname="argument wait_condition_id", value=wait_condition_id, expected_type=type_hints["wait_condition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "wait_condition_id": wait_condition_id,

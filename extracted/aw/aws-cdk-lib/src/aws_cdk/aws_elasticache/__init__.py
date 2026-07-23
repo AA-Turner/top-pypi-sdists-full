@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,68 +40,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-)
-from ..interfaces.aws_elasticache import (
-    CacheClusterReference as _CacheClusterReference_eaa6c194,
-    GlobalReplicationGroupReference as _GlobalReplicationGroupReference_6fafc89d,
-    ICacheClusterRef as _ICacheClusterRef_a6e2b9ff,
-    IGlobalReplicationGroupRef as _IGlobalReplicationGroupRef_64ba38b1,
-    IParameterGroupRef as _IParameterGroupRef_f36b5e48,
-    IReplicationGroupRef as _IReplicationGroupRef_0d541dee,
-    ISecurityGroupIngressRef as _ISecurityGroupIngressRef_c32b1423,
-    ISecurityGroupRef as _ISecurityGroupRef_baad40b3,
-    IServerlessCacheRef as _IServerlessCacheRef_27114db2,
-    ISubnetGroupRef as _ISubnetGroupRef_b7141182,
-    IUserGroupRef as _IUserGroupRef_2cd8e96b,
-    IUserRef as _IUserRef_7cc9cbc0,
-    ParameterGroupReference as _ParameterGroupReference_22889308,
-    ReplicationGroupReference as _ReplicationGroupReference_623f8ee0,
-    SecurityGroupIngressReference as _SecurityGroupIngressReference_4d9c7f2d,
-    SecurityGroupReference as _SecurityGroupReference_b5e68c6a,
-    ServerlessCacheReference as _ServerlessCacheReference_b26de323,
-    SubnetGroupReference as _SubnetGroupReference_532b6eda,
-    UserGroupReference as _UserGroupReference_d89cdf7b,
-    UserReference as _UserReference_7ff80ad9,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_elasticache as _aws_elasticache_452416cc
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_elasticache_452416cc = _LazyImport("aws_cdk.interfaces.aws_elasticache")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICacheClusterRef_a6e2b9ff, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ICacheClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCacheCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnCacheCluster",
 ):
@@ -170,7 +144,7 @@ class CfnCacheCluster(
         cache_node_type: builtins.str,
         engine: builtins.str,
         num_cache_nodes: jsii.Number,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         az_mode: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -178,7 +152,7 @@ class CfnCacheCluster(
         cluster_name: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         ip_discovery: typing.Optional[builtins.str] = None,
-        log_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCacheCluster.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCacheCluster.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
@@ -189,8 +163,8 @@ class CfnCacheCluster(
         snapshot_name: typing.Optional[builtins.str] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
         snapshot_window: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::CacheCluster``.
@@ -224,7 +198,7 @@ class CfnCacheCluster(
         :param vpc_security_group_ids: One or more VPC security groups associated with the cluster. Use this parameter only when you are creating a cluster in an Amazon Virtual Private Cloud (Amazon VPC).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b24aa2b8)
+            type_hints = cached_type_hints(_typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b24aa2b8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCacheClusterProps(
@@ -265,18 +239,18 @@ class CfnCacheCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4aaa2f41702ba216c91be2fb19a63b62c61e1b65839c361929bde609d066ed72)
+            type_hints = cached_type_hints(_typecheckingstub__4aaa2f41702ba216c91be2fb19a63b62c61e1b65839c361929bde609d066ed72)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCacheCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae530a9eb0474b9ffc367e7c2714f1d8b14943c9354c6c91d798290bf12e70ef)
+            type_hints = cached_type_hints(_typecheckingstub__ae530a9eb0474b9ffc367e7c2714f1d8b14943c9354c6c91d798290bf12e70ef)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -289,7 +263,7 @@ class CfnCacheCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dec52b5b4ebdf39402ca71f50f4dc30da259049be70433e6c00efc9ea6aba16)
+            type_hints = cached_type_hints(_typecheckingstub__4dec52b5b4ebdf39402ca71f50f4dc30da259049be70433e6c00efc9ea6aba16)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -301,11 +275,11 @@ class CfnCacheCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndpoint")
-    def attr_configuration_endpoint(self) -> "_IResolvable_da3f097b":
+    def attr_configuration_endpoint(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ConfigurationEndpoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrConfigurationEndpoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrConfigurationEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndpointAddress")
@@ -335,11 +309,11 @@ class CfnCacheCluster(
 
     @builtins.property
     @jsii.member(jsii_name="attrRedisEndpoint")
-    def attr_redis_endpoint(self) -> "_IResolvable_da3f097b":
+    def attr_redis_endpoint(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: RedisEndpoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRedisEndpoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRedisEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRedisEndpointAddress")
@@ -361,9 +335,9 @@ class CfnCacheCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cacheClusterRef")
-    def cache_cluster_ref(self) -> "_CacheClusterReference_eaa6c194":
+    def cache_cluster_ref(self) -> "_aws_elasticache_452416cc.CacheClusterReference":
         '''A reference to a CacheCluster resource.'''
-        return typing.cast("_CacheClusterReference_eaa6c194", jsii.get(self, "cacheClusterRef"))
+        return typing.cast("_aws_elasticache_452416cc.CacheClusterReference", jsii.get(self, "cacheClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -377,9 +351,9 @@ class CfnCacheCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="cacheNodeType")
@@ -390,7 +364,7 @@ class CfnCacheCluster(
     @cache_node_type.setter
     def cache_node_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32d9802d6751a916028ade8020c1b88f4de76492648ad82353d20bc756837067)
+            type_hints = cached_type_hints(_typecheckingstub__32d9802d6751a916028ade8020c1b88f4de76492648ad82353d20bc756837067)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheNodeType", value) # pyright: ignore[reportArgumentType]
 
@@ -403,7 +377,7 @@ class CfnCacheCluster(
     @engine.setter
     def engine(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b478c5471c9d0a76c5100e39ca78b723b0c0df15786d8701347d9cb5eabbdf7)
+            type_hints = cached_type_hints(_typecheckingstub__4b478c5471c9d0a76c5100e39ca78b723b0c0df15786d8701347d9cb5eabbdf7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -416,7 +390,7 @@ class CfnCacheCluster(
     @num_cache_nodes.setter
     def num_cache_nodes(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3efa7fe979ad2ca65054b031fb5cd53cdae6a1094de4cdb6bc9c480d5b2d7a9f)
+            type_hints = cached_type_hints(_typecheckingstub__3efa7fe979ad2ca65054b031fb5cd53cdae6a1094de4cdb6bc9c480d5b2d7a9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numCacheNodes", value) # pyright: ignore[reportArgumentType]
 
@@ -424,17 +398,17 @@ class CfnCacheCluster(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are running Valkey 7.2 or later, or Redis OSS engine version 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b74ab91b309fe8b033442df78ec7c947ef8b8ceac25b5fb4347e7e697fb388da)
+            type_hints = cached_type_hints(_typecheckingstub__b74ab91b309fe8b033442df78ec7c947ef8b8ceac25b5fb4347e7e697fb388da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -447,7 +421,7 @@ class CfnCacheCluster(
     @az_mode.setter
     def az_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a44d250f986c389a2d9f94d9cca8adc9e59c15e75d4c051e15c57482b9ae9f1)
+            type_hints = cached_type_hints(_typecheckingstub__4a44d250f986c389a2d9f94d9cca8adc9e59c15e75d4c051e15c57482b9ae9f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "azMode", value) # pyright: ignore[reportArgumentType]
 
@@ -460,7 +434,7 @@ class CfnCacheCluster(
     @cache_parameter_group_name.setter
     def cache_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc3ac1b1f30d407a5545f9f5024999aba8b2072b3d9b7d1c0941506aa6431636)
+            type_hints = cached_type_hints(_typecheckingstub__cc3ac1b1f30d407a5545f9f5024999aba8b2072b3d9b7d1c0941506aa6431636)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -481,7 +455,7 @@ class CfnCacheCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83da5de50c36f6b8acecefb71f2d1985a98bac5b47b9355f1e680a968d3b916a)
+            type_hints = cached_type_hints(_typecheckingstub__83da5de50c36f6b8acecefb71f2d1985a98bac5b47b9355f1e680a968d3b916a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSecurityGroupNames", value) # pyright: ignore[reportArgumentType]
 
@@ -494,7 +468,7 @@ class CfnCacheCluster(
     @cache_subnet_group_name.setter
     def cache_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9b8dc42c226f2bde38136c38ed0888aa8016a952545561870cd97fdb1756c48)
+            type_hints = cached_type_hints(_typecheckingstub__f9b8dc42c226f2bde38136c38ed0888aa8016a952545561870cd97fdb1756c48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -507,7 +481,7 @@ class CfnCacheCluster(
     @cluster_name.setter
     def cluster_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__411d6faf725ba835ededa6d23d62caaccc85488363ac53847d26489a9b698e4c)
+            type_hints = cached_type_hints(_typecheckingstub__411d6faf725ba835ededa6d23d62caaccc85488363ac53847d26489a9b698e4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
 
@@ -520,7 +494,7 @@ class CfnCacheCluster(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c11aa65ad582a06f82ee3dccb397779d9465180eeb2cc3743f037d45678b9315)
+            type_hints = cached_type_hints(_typecheckingstub__c11aa65ad582a06f82ee3dccb397779d9465180eeb2cc3743f037d45678b9315)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -533,7 +507,7 @@ class CfnCacheCluster(
     @ip_discovery.setter
     def ip_discovery(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d9fae8437c1df5da80ef1dcc1d540757d3eeed744bbf8056a118a155cda7c0b)
+            type_hints = cached_type_hints(_typecheckingstub__9d9fae8437c1df5da80ef1dcc1d540757d3eeed744bbf8056a118a155cda7c0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipDiscovery", value) # pyright: ignore[reportArgumentType]
 
@@ -541,17 +515,17 @@ class CfnCacheCluster(
     @jsii.member(jsii_name="logDeliveryConfigurations")
     def log_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]]:
         '''Specifies the destination, format and type of the logs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]], jsii.get(self, "logDeliveryConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]], jsii.get(self, "logDeliveryConfigurations"))
 
     @log_delivery_configurations.setter
     def log_delivery_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92cc1290aacd3e87fdb8540c5a430dd3781b4d21f64685730ff4176b05840454)
+            type_hints = cached_type_hints(_typecheckingstub__92cc1290aacd3e87fdb8540c5a430dd3781b4d21f64685730ff4176b05840454)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDeliveryConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -564,7 +538,7 @@ class CfnCacheCluster(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef16cd8be345649445baed2ab221599bc312c701ed3cae8a08ca0202aedbbe0)
+            type_hints = cached_type_hints(_typecheckingstub__fef16cd8be345649445baed2ab221599bc312c701ed3cae8a08ca0202aedbbe0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -577,7 +551,7 @@ class CfnCacheCluster(
     @notification_topic_arn.setter
     def notification_topic_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0e5b55a4eeff9a98884374f1fb103e28154e68b08e9c604194db4263d8d260c)
+            type_hints = cached_type_hints(_typecheckingstub__f0e5b55a4eeff9a98884374f1fb103e28154e68b08e9c604194db4263d8d260c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationTopicArn", value) # pyright: ignore[reportArgumentType]
 
@@ -590,7 +564,7 @@ class CfnCacheCluster(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c52a7b53b9de4c47324594ae4fcae12b0f548358d236a57d0d8180b7a52eb525)
+            type_hints = cached_type_hints(_typecheckingstub__c52a7b53b9de4c47324594ae4fcae12b0f548358d236a57d0d8180b7a52eb525)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -603,7 +577,7 @@ class CfnCacheCluster(
     @preferred_availability_zone.setter
     def preferred_availability_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba8deec010d483a5b4cccad86835cc42901ab76f481c5140bf432d398851cab3)
+            type_hints = cached_type_hints(_typecheckingstub__ba8deec010d483a5b4cccad86835cc42901ab76f481c5140bf432d398851cab3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredAvailabilityZone", value) # pyright: ignore[reportArgumentType]
 
@@ -621,7 +595,7 @@ class CfnCacheCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdfef5e25f162b7075022826fc8305415c9b26eba0d5f6a128a30b8e191ecf2d)
+            type_hints = cached_type_hints(_typecheckingstub__bdfef5e25f162b7075022826fc8305415c9b26eba0d5f6a128a30b8e191ecf2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredAvailabilityZones", value) # pyright: ignore[reportArgumentType]
 
@@ -637,7 +611,7 @@ class CfnCacheCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c036bebdfade47bb20565d6116e08cbc6b2c289599c511df24ad3ec9395670fc)
+            type_hints = cached_type_hints(_typecheckingstub__c036bebdfade47bb20565d6116e08cbc6b2c289599c511df24ad3ec9395670fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -650,7 +624,7 @@ class CfnCacheCluster(
     @snapshot_arns.setter
     def snapshot_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce434b0b24d4c0aed191822a2ef96062ce0e4f82dde36706dda0cb9378020e9d)
+            type_hints = cached_type_hints(_typecheckingstub__ce434b0b24d4c0aed191822a2ef96062ce0e4f82dde36706dda0cb9378020e9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotArns", value) # pyright: ignore[reportArgumentType]
 
@@ -663,7 +637,7 @@ class CfnCacheCluster(
     @snapshot_name.setter
     def snapshot_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ade889ee7923a82577f80b57aeef301ae196124bdb4d5ec2cd87c371be03e5a2)
+            type_hints = cached_type_hints(_typecheckingstub__ade889ee7923a82577f80b57aeef301ae196124bdb4d5ec2cd87c371be03e5a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
 
@@ -676,7 +650,7 @@ class CfnCacheCluster(
     @snapshot_retention_limit.setter
     def snapshot_retention_limit(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36088ccf4e3bb96fca149a1dc57264e825a3fdf78d280f320127ed72733b6ef2)
+            type_hints = cached_type_hints(_typecheckingstub__36088ccf4e3bb96fca149a1dc57264e825a3fdf78d280f320127ed72733b6ef2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotRetentionLimit", value) # pyright: ignore[reportArgumentType]
 
@@ -689,20 +663,23 @@ class CfnCacheCluster(
     @snapshot_window.setter
     def snapshot_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00985af0e32e63259c356a919afbcf2f8aec8c2faedaece96112bbb03f945239)
+            type_hints = cached_type_hints(_typecheckingstub__00985af0e32e63259c356a919afbcf2f8aec8c2faedaece96112bbb03f945239)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotWindow", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb033789ee709e38cf2df5c67f41474c2337ba8ce07eac9ee4a2c714fc9bc989)
+            type_hints = cached_type_hints(_typecheckingstub__bb033789ee709e38cf2df5c67f41474c2337ba8ce07eac9ee4a2c714fc9bc989)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -710,17 +687,17 @@ class CfnCacheCluster(
     @jsii.member(jsii_name="transitEncryptionEnabled")
     def transit_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables in-transit encryption when set to true.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "transitEncryptionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "transitEncryptionEnabled"))
 
     @transit_encryption_enabled.setter
     def transit_encryption_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b5c36f3eb4db3de564bb875816a147602a4348d296a24fafccdae0acba9440b)
+            type_hints = cached_type_hints(_typecheckingstub__5b5c36f3eb4db3de564bb875816a147602a4348d296a24fafccdae0acba9440b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transitEncryptionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -736,7 +713,7 @@ class CfnCacheCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ca563dd75820580354392265b3bdcb759aaa1e66fadcc95daa9e8b3b8bc892d)
+            type_hints = cached_type_hints(_typecheckingstub__2ca563dd75820580354392265b3bdcb759aaa1e66fadcc95daa9e8b3b8bc892d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -767,7 +744,7 @@ class CfnCacheCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b917ac927a2387372c693a2f8b0fcb5f6774e69a0fe6f786bb4da65afb46978c)
+                type_hints = cached_type_hints(_typecheckingstub__b917ac927a2387372c693a2f8b0fcb5f6774e69a0fe6f786bb4da65afb46978c)
                 check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_group": log_group,
@@ -806,8 +783,8 @@ class CfnCacheCluster(
         def __init__(
             self,
             *,
-            cloud_watch_logs_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_firehose_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_firehose_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration details of either a CloudWatch Logs destination or Kinesis Data Firehose destination.
 
@@ -833,7 +810,7 @@ class CfnCacheCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__000cbd02f7786299cee1e93bf5afb34c16e6ab92a2447aa9f4bf42256a0a51f1)
+                type_hints = cached_type_hints(_typecheckingstub__000cbd02f7786299cee1e93bf5afb34c16e6ab92a2447aa9f4bf42256a0a51f1)
                 check_type(argname="argument cloud_watch_logs_details", value=cloud_watch_logs_details, expected_type=type_hints["cloud_watch_logs_details"])
                 check_type(argname="argument kinesis_firehose_details", value=kinesis_firehose_details, expected_type=type_hints["kinesis_firehose_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -845,7 +822,7 @@ class CfnCacheCluster(
         @builtins.property
         def cloud_watch_logs_details(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty"]]:
             '''The configuration details of the CloudWatch Logs destination.
 
             Note that this field is marked as required but only if CloudWatch Logs was chosen as the destination.
@@ -853,12 +830,12 @@ class CfnCacheCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-destinationdetails.html#cfn-elasticache-cachecluster-destinationdetails-cloudwatchlogsdetails
             '''
             result = self._values.get("cloud_watch_logs_details")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty"]], result)
 
         @builtins.property
         def kinesis_firehose_details(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty"]]:
             '''The configuration details of the Kinesis Data Firehose destination.
 
             Note that this field is marked as required but only if Kinesis Data Firehose was chosen as the destination.
@@ -866,7 +843,7 @@ class CfnCacheCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-destinationdetails.html#cfn-elasticache-cachecluster-destinationdetails-kinesisfirehosedetails
             '''
             result = self._values.get("kinesis_firehose_details")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -910,7 +887,7 @@ class CfnCacheCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6de0a3a92625d3159a2fa3c7d1c2369e2bfd1c1164e6a71ed07082ad5bd39264)
+                type_hints = cached_type_hints(_typecheckingstub__6de0a3a92625d3159a2fa3c7d1c2369e2bfd1c1164e6a71ed07082ad5bd39264)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -973,7 +950,7 @@ class CfnCacheCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5cae1eb34767a8b034d88d62d4b6f18e4d990339139fe3e1e6652a41616e9435)
+                type_hints = cached_type_hints(_typecheckingstub__5cae1eb34767a8b034d88d62d4b6f18e4d990339139fe3e1e6652a41616e9435)
                 check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "delivery_stream": delivery_stream,
@@ -1014,7 +991,7 @@ class CfnCacheCluster(
         def __init__(
             self,
             *,
-            destination_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCacheCluster.DestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCacheCluster.DestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             destination_type: builtins.str,
             log_format: builtins.str,
             log_type: builtins.str,
@@ -1050,7 +1027,7 @@ class CfnCacheCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11fd3bc6d619f2fdddcc4d0adb3f2c760e25cb0796cacc1c490de7b091ee75a0)
+                type_hints = cached_type_hints(_typecheckingstub__11fd3bc6d619f2fdddcc4d0adb3f2c760e25cb0796cacc1c490de7b091ee75a0)
                 check_type(argname="argument destination_details", value=destination_details, expected_type=type_hints["destination_details"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
                 check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
@@ -1065,14 +1042,14 @@ class CfnCacheCluster(
         @builtins.property
         def destination_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.DestinationDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.DestinationDetailsProperty"]:
             '''Configuration details of either a CloudWatch Logs destination or Kinesis Data Firehose destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-logdeliveryconfigurationrequest.html#cfn-elasticache-cachecluster-logdeliveryconfigurationrequest-destinationdetails
             '''
             result = self._values.get("destination_details")
             assert result is not None, "Required property 'destination_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.DestinationDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.DestinationDetailsProperty"], result)
 
         @builtins.property
         def destination_type(self) -> builtins.str:
@@ -1156,7 +1133,7 @@ class CfnCacheClusterProps:
         cache_node_type: builtins.str,
         engine: builtins.str,
         num_cache_nodes: jsii.Number,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         az_mode: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1164,7 +1141,7 @@ class CfnCacheClusterProps:
         cluster_name: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         ip_discovery: typing.Optional[builtins.str] = None,
-        log_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCacheCluster.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCacheCluster.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
@@ -1175,8 +1152,8 @@ class CfnCacheClusterProps:
         snapshot_name: typing.Optional[builtins.str] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
         snapshot_window: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCacheCluster``.
@@ -1263,7 +1240,7 @@ class CfnCacheClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d011d844fc37e1278b56242476eb6678a2ec76110ae295205b57260221f991ae)
+            type_hints = cached_type_hints(_typecheckingstub__d011d844fc37e1278b56242476eb6678a2ec76110ae295205b57260221f991ae)
             check_type(argname="argument cache_node_type", value=cache_node_type, expected_type=type_hints["cache_node_type"])
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument num_cache_nodes", value=num_cache_nodes, expected_type=type_hints["num_cache_nodes"])
@@ -1437,13 +1414,13 @@ class CfnCacheClusterProps:
     @builtins.property
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are running Valkey 7.2 or later, or Redis OSS engine version 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html#cfn-elasticache-cachecluster-autominorversionupgrade
         '''
         result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def az_mode(self) -> typing.Optional[builtins.str]:
@@ -1537,13 +1514,13 @@ class CfnCacheClusterProps:
     @builtins.property
     def log_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]]:
         '''Specifies the destination, format and type of the logs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html#cfn-elasticache-cachecluster-logdeliveryconfigurations
         '''
         result = self._values.get("log_delivery_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCacheCluster.LogDeliveryConfigurationRequestProperty"]]]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
@@ -1701,24 +1678,24 @@ class CfnCacheClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html#cfn-elasticache-cachecluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transit_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables in-transit encryption when set to true.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html#cfn-elasticache-cachecluster-transitencryptionenabled
         '''
         result = self._values.get("transit_encryption_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1743,9 +1720,9 @@ class CfnCacheClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGlobalReplicationGroupRef_64ba38b1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IGlobalReplicationGroupRef)
 class CfnGlobalReplicationGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnGlobalReplicationGroup",
 ):
@@ -1797,8 +1774,8 @@ class CfnGlobalReplicationGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        members: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        members: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cache_node_type: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
@@ -1806,7 +1783,7 @@ class CfnGlobalReplicationGroup(
         global_node_group_count: typing.Optional[jsii.Number] = None,
         global_replication_group_description: typing.Optional[builtins.str] = None,
         global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
-        regional_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        regional_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::GlobalReplicationGroup``.
 
@@ -1824,7 +1801,7 @@ class CfnGlobalReplicationGroup(
         :param regional_configurations: The Regions that comprise the Global Datastore.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e779ebe3be)
+            type_hints = cached_type_hints(_typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e779ebe3be)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGlobalReplicationGroupProps(
@@ -1846,13 +1823,13 @@ class CfnGlobalReplicationGroup(
     @builtins.classmethod
     def arn_for_global_replication_group(
         cls,
-        resource: "_IGlobalReplicationGroupRef_64ba38b1",
+        resource: "_aws_elasticache_452416cc.IGlobalReplicationGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0106bf96c7e277c536b122f1c2c319b78235bf49c80c0f7e57a46e74e8286d90)
+            type_hints = cached_type_hints(_typecheckingstub__0106bf96c7e277c536b122f1c2c319b78235bf49c80c0f7e57a46e74e8286d90)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGlobalReplicationGroup", [resource]))
 
@@ -1863,7 +1840,7 @@ class CfnGlobalReplicationGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         global_replication_group_id: builtins.str,
-    ) -> "_IGlobalReplicationGroupRef_64ba38b1":
+    ) -> "_aws_elasticache_452416cc.IGlobalReplicationGroupRef":
         '''Creates a new IGlobalReplicationGroupRef from a globalReplicationGroupId.
 
         :param scope: -
@@ -1871,11 +1848,11 @@ class CfnGlobalReplicationGroup(
         :param global_replication_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff89494f4cbd1e19d9e3985a30ea573557681f435cc9ec3daa095b003c844fd1)
+            type_hints = cached_type_hints(_typecheckingstub__ff89494f4cbd1e19d9e3985a30ea573557681f435cc9ec3daa095b003c844fd1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument global_replication_group_id", value=global_replication_group_id, expected_type=type_hints["global_replication_group_id"])
-        return typing.cast("_IGlobalReplicationGroupRef_64ba38b1", jsii.sinvoke(cls, "fromGlobalReplicationGroupId", [scope, id, global_replication_group_id]))
+        return typing.cast("_aws_elasticache_452416cc.IGlobalReplicationGroupRef", jsii.sinvoke(cls, "fromGlobalReplicationGroupId", [scope, id, global_replication_group_id]))
 
     @jsii.member(jsii_name="isCfnGlobalReplicationGroup")
     @builtins.classmethod
@@ -1885,18 +1862,18 @@ class CfnGlobalReplicationGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ad463ddac0fbb43c0ecf0e44af152421cb487a8aa517ba534f7891c09d1c3fa)
+            type_hints = cached_type_hints(_typecheckingstub__6ad463ddac0fbb43c0ecf0e44af152421cb487a8aa517ba534f7891c09d1c3fa)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGlobalReplicationGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__884a154d8b8e4d93c61fe6b39de707bf773a6d1033e974181f93658b1039c0c4)
+            type_hints = cached_type_hints(_typecheckingstub__884a154d8b8e4d93c61fe6b39de707bf773a6d1033e974181f93658b1039c0c4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1909,7 +1886,7 @@ class CfnGlobalReplicationGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab038bf042b008b9efadcbadf432cd0ac40752df55c21a630a9780aae3ef72f0)
+            type_hints = cached_type_hints(_typecheckingstub__ab038bf042b008b9efadcbadf432cd0ac40752df55c21a630a9780aae3ef72f0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1953,25 +1930,25 @@ class CfnGlobalReplicationGroup(
     @jsii.member(jsii_name="globalReplicationGroupRef")
     def global_replication_group_ref(
         self,
-    ) -> "_GlobalReplicationGroupReference_6fafc89d":
+    ) -> "_aws_elasticache_452416cc.GlobalReplicationGroupReference":
         '''A reference to a GlobalReplicationGroup resource.'''
-        return typing.cast("_GlobalReplicationGroupReference_6fafc89d", jsii.get(self, "globalReplicationGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.GlobalReplicationGroupReference", jsii.get(self, "globalReplicationGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="members")
     def members(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]]:
         '''The replication groups that comprise the Global datastore.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]], jsii.get(self, "members"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]], jsii.get(self, "members"))
 
     @members.setter
     def members(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e868e518f50b5b48c699f872e36b8e20be2702ad6acf8d5f4500e986aac55b3d)
+            type_hints = cached_type_hints(_typecheckingstub__e868e518f50b5b48c699f872e36b8e20be2702ad6acf8d5f4500e986aac55b3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "members", value) # pyright: ignore[reportArgumentType]
 
@@ -1979,17 +1956,17 @@ class CfnGlobalReplicationGroup(
     @jsii.member(jsii_name="automaticFailoverEnabled")
     def automatic_failover_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "automaticFailoverEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "automaticFailoverEnabled"))
 
     @automatic_failover_enabled.setter
     def automatic_failover_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f937e9779d5fe5d88540d353152c5e7637a4c898506e495763dc389bca1a193)
+            type_hints = cached_type_hints(_typecheckingstub__8f937e9779d5fe5d88540d353152c5e7637a4c898506e495763dc389bca1a193)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "automaticFailoverEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -2002,7 +1979,7 @@ class CfnGlobalReplicationGroup(
     @cache_node_type.setter
     def cache_node_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcc0668ac08361dfeaf1c9d3b63f4ce55339cbac4acdba22253a2c6a39440c9c)
+            type_hints = cached_type_hints(_typecheckingstub__bcc0668ac08361dfeaf1c9d3b63f4ce55339cbac4acdba22253a2c6a39440c9c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheNodeType", value) # pyright: ignore[reportArgumentType]
 
@@ -2015,7 +1992,7 @@ class CfnGlobalReplicationGroup(
     @cache_parameter_group_name.setter
     def cache_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0848ddc407bc59c23bb3f0758cd29c2ca80ecb4af0b703cfbabe761143efb996)
+            type_hints = cached_type_hints(_typecheckingstub__0848ddc407bc59c23bb3f0758cd29c2ca80ecb4af0b703cfbabe761143efb996)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2028,7 +2005,7 @@ class CfnGlobalReplicationGroup(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d6acde04136c92a50e6d2ec82998a955c39b2dbab276012b19c765c13a30125)
+            type_hints = cached_type_hints(_typecheckingstub__3d6acde04136c92a50e6d2ec82998a955c39b2dbab276012b19c765c13a30125)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -2041,7 +2018,7 @@ class CfnGlobalReplicationGroup(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e6d37e14147abb9446aa94586bbfdc04bcc4cbad9c87b170bc3c934223a3dc1)
+            type_hints = cached_type_hints(_typecheckingstub__5e6d37e14147abb9446aa94586bbfdc04bcc4cbad9c87b170bc3c934223a3dc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2054,7 +2031,7 @@ class CfnGlobalReplicationGroup(
     @global_node_group_count.setter
     def global_node_group_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96e8402ce6e7036902a30a006b2e3b7c82ed86d4655e500c78d0ae603a7929b0)
+            type_hints = cached_type_hints(_typecheckingstub__96e8402ce6e7036902a30a006b2e3b7c82ed86d4655e500c78d0ae603a7929b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalNodeGroupCount", value) # pyright: ignore[reportArgumentType]
 
@@ -2070,7 +2047,7 @@ class CfnGlobalReplicationGroup(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cb8c976f8e943135a48d97d88bf3d8b7dd5f17fcd2b8759518b8b204056bba0)
+            type_hints = cached_type_hints(_typecheckingstub__3cb8c976f8e943135a48d97d88bf3d8b7dd5f17fcd2b8759518b8b204056bba0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalReplicationGroupDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -2086,7 +2063,7 @@ class CfnGlobalReplicationGroup(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65acba21207d62e08b1c8c4c4f55ea3089c76799e113952d0b5f8bd4e6ee53d5)
+            type_hints = cached_type_hints(_typecheckingstub__65acba21207d62e08b1c8c4c4f55ea3089c76799e113952d0b5f8bd4e6ee53d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalReplicationGroupIdSuffix", value) # pyright: ignore[reportArgumentType]
 
@@ -2094,17 +2071,17 @@ class CfnGlobalReplicationGroup(
     @jsii.member(jsii_name="regionalConfigurations")
     def regional_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]]:
         '''The Regions that comprise the Global Datastore.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]], jsii.get(self, "regionalConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]], jsii.get(self, "regionalConfigurations"))
 
     @regional_configurations.setter
     def regional_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efeee031dd310c05cefd1733ccdb9d7b436fc018669200525c6f11542ae97dac)
+            type_hints = cached_type_hints(_typecheckingstub__efeee031dd310c05cefd1733ccdb9d7b436fc018669200525c6f11542ae97dac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionalConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -2149,7 +2126,7 @@ class CfnGlobalReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d920057dfab2caaf1f89662c7570bd431d43559ca99a0846f6d46dae7369f9eb)
+                type_hints = cached_type_hints(_typecheckingstub__d920057dfab2caaf1f89662c7570bd431d43559ca99a0846f6d46dae7369f9eb)
                 check_type(argname="argument replication_group_id", value=replication_group_id, expected_type=type_hints["replication_group_id"])
                 check_type(argname="argument replication_group_region", value=replication_group_region, expected_type=type_hints["replication_group_region"])
                 check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -2214,7 +2191,7 @@ class CfnGlobalReplicationGroup(
             *,
             replication_group_id: typing.Optional[builtins.str] = None,
             replication_group_region: typing.Optional[builtins.str] = None,
-            resharding_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalReplicationGroup.ReshardingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resharding_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.ReshardingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A list of the replication groups.
 
@@ -2241,7 +2218,7 @@ class CfnGlobalReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aeaef8528e85da7f76144633387f423a352cf7a00b93f64470683d2a67c7bd57)
+                type_hints = cached_type_hints(_typecheckingstub__aeaef8528e85da7f76144633387f423a352cf7a00b93f64470683d2a67c7bd57)
                 check_type(argname="argument replication_group_id", value=replication_group_id, expected_type=type_hints["replication_group_id"])
                 check_type(argname="argument replication_group_region", value=replication_group_region, expected_type=type_hints["replication_group_region"])
                 check_type(argname="argument resharding_configurations", value=resharding_configurations, expected_type=type_hints["resharding_configurations"])
@@ -2274,13 +2251,13 @@ class CfnGlobalReplicationGroup(
         @builtins.property
         def resharding_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.ReshardingConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.ReshardingConfigurationProperty"]]]]:
             '''A list of PreferredAvailabilityZones objects that specifies the configuration of a node group in the resharded cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-globalreplicationgroup-regionalconfiguration.html#cfn-elasticache-globalreplicationgroup-regionalconfiguration-reshardingconfigurations
             '''
             result = self._values.get("resharding_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.ReshardingConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.ReshardingConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2328,7 +2305,7 @@ class CfnGlobalReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f5a9e68366040209fa4fb9f8e50eff4e9b1ae9ea0da836153a13ff22b2202ad5)
+                type_hints = cached_type_hints(_typecheckingstub__f5a9e68366040209fa4fb9f8e50eff4e9b1ae9ea0da836153a13ff22b2202ad5)
                 check_type(argname="argument node_group_id", value=node_group_id, expected_type=type_hints["node_group_id"])
                 check_type(argname="argument preferred_availability_zones", value=preferred_availability_zones, expected_type=type_hints["preferred_availability_zones"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2389,8 +2366,8 @@ class CfnGlobalReplicationGroupProps:
     def __init__(
         self,
         *,
-        members: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        members: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cache_node_type: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
@@ -2398,7 +2375,7 @@ class CfnGlobalReplicationGroupProps:
         global_node_group_count: typing.Optional[jsii.Number] = None,
         global_replication_group_description: typing.Optional[builtins.str] = None,
         global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
-        regional_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        regional_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalReplicationGroup``.
 
@@ -2449,7 +2426,7 @@ class CfnGlobalReplicationGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__265dda90953e13518f66b5357e00050b92a09e4dfb295f7b765b5b5d55951ace)
+            type_hints = cached_type_hints(_typecheckingstub__265dda90953e13518f66b5357e00050b92a09e4dfb295f7b765b5b5d55951ace)
             check_type(argname="argument members", value=members, expected_type=type_hints["members"])
             check_type(argname="argument automatic_failover_enabled", value=automatic_failover_enabled, expected_type=type_hints["automatic_failover_enabled"])
             check_type(argname="argument cache_node_type", value=cache_node_type, expected_type=type_hints["cache_node_type"])
@@ -2485,19 +2462,19 @@ class CfnGlobalReplicationGroupProps:
     @builtins.property
     def members(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]]:
         '''The replication groups that comprise the Global datastore.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-globalreplicationgroup.html#cfn-elasticache-globalreplicationgroup-members
         '''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty"]]], result)
 
     @builtins.property
     def automatic_failover_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails.
 
         ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups.
@@ -2505,7 +2482,7 @@ class CfnGlobalReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-globalreplicationgroup.html#cfn-elasticache-globalreplicationgroup-automaticfailoverenabled
         '''
         result = self._values.get("automatic_failover_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def cache_node_type(self) -> typing.Optional[builtins.str]:
@@ -2579,13 +2556,13 @@ class CfnGlobalReplicationGroupProps:
     @builtins.property
     def regional_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]]:
         '''The Regions that comprise the Global Datastore.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-globalreplicationgroup.html#cfn-elasticache-globalreplicationgroup-regionalconfigurations
         '''
         result = self._values.get("regional_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2599,9 +2576,9 @@ class CfnGlobalReplicationGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IParameterGroupRef_f36b5e48, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnParameterGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnParameterGroup",
 ):
@@ -2642,8 +2619,8 @@ class CfnParameterGroup(
         *,
         cache_parameter_group_family: builtins.str,
         description: builtins.str,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::ParameterGroup``.
 
@@ -2655,7 +2632,7 @@ class CfnParameterGroup(
         :param tags: A tag that can be added to an ElastiCache parameter group. Tags are composed of a Key/Value pair. You can use tags to categorize and track all your parameter groups. A tag with a null Value is permitted.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86f3b322f4ea3d0cc63e18e1b285cc656e6d789289e29668aa7acce95fdb892d)
+            type_hints = cached_type_hints(_typecheckingstub__86f3b322f4ea3d0cc63e18e1b285cc656e6d789289e29668aa7acce95fdb892d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnParameterGroupProps(
@@ -2671,13 +2648,13 @@ class CfnParameterGroup(
     @builtins.classmethod
     def arn_for_parameter_group(
         cls,
-        resource: "_IParameterGroupRef_f36b5e48",
+        resource: "_aws_elasticache_452416cc.IParameterGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__baeb5bb005b0dc62dfe17d5f8d9e8c0ae8f658e16abf26ec5a442e932ee292f2)
+            type_hints = cached_type_hints(_typecheckingstub__baeb5bb005b0dc62dfe17d5f8d9e8c0ae8f658e16abf26ec5a442e932ee292f2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForParameterGroup", [resource]))
 
@@ -2688,7 +2665,7 @@ class CfnParameterGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cache_parameter_group_name: builtins.str,
-    ) -> "_IParameterGroupRef_f36b5e48":
+    ) -> "_aws_elasticache_452416cc.IParameterGroupRef":
         '''Creates a new IParameterGroupRef from a cacheParameterGroupName.
 
         :param scope: -
@@ -2696,11 +2673,11 @@ class CfnParameterGroup(
         :param cache_parameter_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8698073c2c79628abaa44336eab31fa950987b13f7afd1265b2c7155cb2684c9)
+            type_hints = cached_type_hints(_typecheckingstub__8698073c2c79628abaa44336eab31fa950987b13f7afd1265b2c7155cb2684c9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cache_parameter_group_name", value=cache_parameter_group_name, expected_type=type_hints["cache_parameter_group_name"])
-        return typing.cast("_IParameterGroupRef_f36b5e48", jsii.sinvoke(cls, "fromCacheParameterGroupName", [scope, id, cache_parameter_group_name]))
+        return typing.cast("_aws_elasticache_452416cc.IParameterGroupRef", jsii.sinvoke(cls, "fromCacheParameterGroupName", [scope, id, cache_parameter_group_name]))
 
     @jsii.member(jsii_name="isCfnParameterGroup")
     @builtins.classmethod
@@ -2710,18 +2687,18 @@ class CfnParameterGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87aaacaf203aaee76799185d0199ad6156873205e3d3c4abdb9e616bd29d84c)
+            type_hints = cached_type_hints(_typecheckingstub__c87aaacaf203aaee76799185d0199ad6156873205e3d3c4abdb9e616bd29d84c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnParameterGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4df9ac5cd73e00bfbbdce4db59984040d76705d9fed6f259b98c08569946c00b)
+            type_hints = cached_type_hints(_typecheckingstub__4df9ac5cd73e00bfbbdce4db59984040d76705d9fed6f259b98c08569946c00b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2734,7 +2711,7 @@ class CfnParameterGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2ce285a081ee552c80c88bf27503daba85ce16849e3599360c22241be30e55e)
+            type_hints = cached_type_hints(_typecheckingstub__a2ce285a081ee552c80c88bf27503daba85ce16849e3599360c22241be30e55e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2765,15 +2742,17 @@ class CfnParameterGroup(
 
     @builtins.property
     @jsii.member(jsii_name="parameterGroupRef")
-    def parameter_group_ref(self) -> "_ParameterGroupReference_22889308":
+    def parameter_group_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.ParameterGroupReference":
         '''A reference to a ParameterGroup resource.'''
-        return typing.cast("_ParameterGroupReference_22889308", jsii.get(self, "parameterGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.ParameterGroupReference", jsii.get(self, "parameterGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="cacheParameterGroupFamily")
@@ -2784,7 +2763,7 @@ class CfnParameterGroup(
     @cache_parameter_group_family.setter
     def cache_parameter_group_family(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1c887b1c7836e155f15fbcb98f5393a2b92b4a33873814732bea60f4f1b225f)
+            type_hints = cached_type_hints(_typecheckingstub__b1c887b1c7836e155f15fbcb98f5393a2b92b4a33873814732bea60f4f1b225f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheParameterGroupFamily", value) # pyright: ignore[reportArgumentType]
 
@@ -2797,7 +2776,7 @@ class CfnParameterGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__131595ea286a946147c38535eb5fcf0537b68b2132e909e191998a1e3f21d5f3)
+            type_hints = cached_type_hints(_typecheckingstub__131595ea286a946147c38535eb5fcf0537b68b2132e909e191998a1e3f21d5f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2805,30 +2784,33 @@ class CfnParameterGroup(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A comma-delimited list of parameter name/value pairs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad995d05e00fe4d7296f16776a975d33eb5d75180391440607e5d71ae30d1f08)
+            type_hints = cached_type_hints(_typecheckingstub__ad995d05e00fe4d7296f16776a975d33eb5d75180391440607e5d71ae30d1f08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache parameter group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f00caea2443ab3a4d0d9d2f1836e1d360d238f759643e2af050c00c5ea4f3efb)
+            type_hints = cached_type_hints(_typecheckingstub__f00caea2443ab3a4d0d9d2f1836e1d360d238f759643e2af050c00c5ea4f3efb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2849,8 +2831,8 @@ class CfnParameterGroupProps:
         *,
         cache_parameter_group_family: builtins.str,
         description: builtins.str,
-        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnParameterGroup``.
 
@@ -2884,7 +2866,7 @@ class CfnParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56da2ad187e00defe2d3a6812e7eea3611b1990da4526952f58e2f80cfa1c36b)
+            type_hints = cached_type_hints(_typecheckingstub__56da2ad187e00defe2d3a6812e7eea3611b1990da4526952f58e2f80cfa1c36b)
             check_type(argname="argument cache_parameter_group_family", value=cache_parameter_group_family, expected_type=type_hints["cache_parameter_group_family"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
@@ -2923,7 +2905,7 @@ class CfnParameterGroupProps:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A comma-delimited list of parameter name/value pairs.
 
         For example::
@@ -2934,10 +2916,10 @@ class CfnParameterGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-parametergroup.html#cfn-elasticache-parametergroup-properties
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache parameter group.
 
         Tags are composed of a Key/Value pair. You can use tags to categorize and track all your parameter groups. A tag with a null Value is permitted.
@@ -2945,7 +2927,7 @@ class CfnParameterGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-parametergroup.html#cfn-elasticache-parametergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2959,9 +2941,9 @@ class CfnParameterGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReplicationGroupRef_0d541dee, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IReplicationGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnReplicationGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnReplicationGroup",
 ):
@@ -3059,26 +3041,26 @@ class CfnReplicationGroup(
         id: builtins.str,
         *,
         replication_group_description: builtins.str,
-        at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         auth_token: typing.Optional[builtins.str] = None,
-        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cache_node_type: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_mode: typing.Optional[builtins.str] = None,
-        data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         durability: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_replication_group_id: typing.Optional[builtins.str] = None,
         ip_discovery: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        log_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        multi_az_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        log_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multi_az_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        node_group_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.NodeGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_group_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.NodeGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         num_cache_clusters: typing.Optional[jsii.Number] = None,
         num_node_groups: typing.Optional[jsii.Number] = None,
@@ -3094,8 +3076,8 @@ class CfnReplicationGroup(
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
         snapshotting_cluster_id: typing.Optional[builtins.str] = None,
         snapshot_window: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         transit_encryption_mode: typing.Optional[builtins.str] = None,
         user_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -3145,7 +3127,7 @@ class CfnReplicationGroup(
         :param user_group_ids: The ID of user group to associate with the replication group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26cf0e5f50)
+            type_hints = cached_type_hints(_typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26cf0e5f50)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReplicationGroupProps(
@@ -3197,13 +3179,13 @@ class CfnReplicationGroup(
     @builtins.classmethod
     def arn_for_replication_group(
         cls,
-        resource: "_IReplicationGroupRef_0d541dee",
+        resource: "_aws_elasticache_452416cc.IReplicationGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aa68619fe12dd1873fde463f87bd54c026e88221c7456a4593b983308d83dec)
+            type_hints = cached_type_hints(_typecheckingstub__1aa68619fe12dd1873fde463f87bd54c026e88221c7456a4593b983308d83dec)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicationGroup", [resource]))
 
@@ -3214,7 +3196,7 @@ class CfnReplicationGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         replication_group_id: builtins.str,
-    ) -> "_IReplicationGroupRef_0d541dee":
+    ) -> "_aws_elasticache_452416cc.IReplicationGroupRef":
         '''Creates a new IReplicationGroupRef from a replicationGroupId.
 
         :param scope: -
@@ -3222,11 +3204,11 @@ class CfnReplicationGroup(
         :param replication_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75981c8cb310d85006f717e67834c418d105da6482bb738e7bc9a716d7ec90f7)
+            type_hints = cached_type_hints(_typecheckingstub__75981c8cb310d85006f717e67834c418d105da6482bb738e7bc9a716d7ec90f7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument replication_group_id", value=replication_group_id, expected_type=type_hints["replication_group_id"])
-        return typing.cast("_IReplicationGroupRef_0d541dee", jsii.sinvoke(cls, "fromReplicationGroupId", [scope, id, replication_group_id]))
+        return typing.cast("_aws_elasticache_452416cc.IReplicationGroupRef", jsii.sinvoke(cls, "fromReplicationGroupId", [scope, id, replication_group_id]))
 
     @jsii.member(jsii_name="isCfnReplicationGroup")
     @builtins.classmethod
@@ -3236,18 +3218,18 @@ class CfnReplicationGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc47b8bd9ce45105245dc2969ea0b9b3ddc87d50046114c018b7c7c9ef17980c)
+            type_hints = cached_type_hints(_typecheckingstub__dc47b8bd9ce45105245dc2969ea0b9b3ddc87d50046114c018b7c7c9ef17980c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93d988a8a188908fd1e785a707cc68edf28a1ba53bd404b971490bcb7100e29a)
+            type_hints = cached_type_hints(_typecheckingstub__93d988a8a188908fd1e785a707cc68edf28a1ba53bd404b971490bcb7100e29a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3260,7 +3242,7 @@ class CfnReplicationGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e69031f1e65767cd224fc587374f20072359815a32df0eaa95f2428da70c2e0)
+            type_hints = cached_type_hints(_typecheckingstub__3e69031f1e65767cd224fc587374f20072359815a32df0eaa95f2428da70c2e0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3272,11 +3254,11 @@ class CfnReplicationGroup(
 
     @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndPoint")
-    def attr_configuration_end_point(self) -> "_IResolvable_da3f097b":
+    def attr_configuration_end_point(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ConfigurationEndPoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrConfigurationEndPoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrConfigurationEndPoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndPointAddress")
@@ -3313,11 +3295,11 @@ class CfnReplicationGroup(
 
     @builtins.property
     @jsii.member(jsii_name="attrPrimaryEndPoint")
-    def attr_primary_end_point(self) -> "_IResolvable_da3f097b":
+    def attr_primary_end_point(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: PrimaryEndPoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPrimaryEndPoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPrimaryEndPoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPrimaryEndPointAddress")
@@ -3339,11 +3321,11 @@ class CfnReplicationGroup(
 
     @builtins.property
     @jsii.member(jsii_name="attrReadEndPoint")
-    def attr_read_end_point(self) -> "_IResolvable_da3f097b":
+    def attr_read_end_point(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ReadEndPoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReadEndPoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrReadEndPoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReadEndPointAddresses")
@@ -3391,11 +3373,11 @@ class CfnReplicationGroup(
 
     @builtins.property
     @jsii.member(jsii_name="attrReaderEndPoint")
-    def attr_reader_end_point(self) -> "_IResolvable_da3f097b":
+    def attr_reader_end_point(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ReaderEndPoint
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReaderEndPoint"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrReaderEndPoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReaderEndPointAddress")
@@ -3427,15 +3409,17 @@ class CfnReplicationGroup(
 
     @builtins.property
     @jsii.member(jsii_name="replicationGroupRef")
-    def replication_group_ref(self) -> "_ReplicationGroupReference_623f8ee0":
+    def replication_group_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.ReplicationGroupReference":
         '''A reference to a ReplicationGroup resource.'''
-        return typing.cast("_ReplicationGroupReference_623f8ee0", jsii.get(self, "replicationGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.ReplicationGroupReference", jsii.get(self, "replicationGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="replicationGroupDescription")
@@ -3446,7 +3430,7 @@ class CfnReplicationGroup(
     @replication_group_description.setter
     def replication_group_description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c907ced1d032518ebc8883a36eb0edf181bc2da76408e75eb584c864b5fefc9a)
+            type_hints = cached_type_hints(_typecheckingstub__c907ced1d032518ebc8883a36eb0edf181bc2da76408e75eb584c864b5fefc9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationGroupDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -3454,17 +3438,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="atRestEncryptionEnabled")
     def at_rest_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables encryption at rest when set to ``true`` .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "atRestEncryptionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "atRestEncryptionEnabled"))
 
     @at_rest_encryption_enabled.setter
     def at_rest_encryption_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa546aa730ad1a4db1a42606474b6045ffc32ec777b50d6ba31f3dbdab3a48df)
+            type_hints = cached_type_hints(_typecheckingstub__aa546aa730ad1a4db1a42606474b6045ffc32ec777b50d6ba31f3dbdab3a48df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "atRestEncryptionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3477,7 +3461,7 @@ class CfnReplicationGroup(
     @auth_token.setter
     def auth_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea5f85de07d00909dedcebd441b02e117efc2077a1e3d87f54c5a27f5206a2f5)
+            type_hints = cached_type_hints(_typecheckingstub__ea5f85de07d00909dedcebd441b02e117efc2077a1e3d87f54c5a27f5206a2f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authToken", value) # pyright: ignore[reportArgumentType]
 
@@ -3485,17 +3469,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="automaticFailoverEnabled")
     def automatic_failover_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "automaticFailoverEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "automaticFailoverEnabled"))
 
     @automatic_failover_enabled.setter
     def automatic_failover_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b966eb1df615199d14bbc7fd9f3b39c9f4709837783a9a97f8945e6c623dc56d)
+            type_hints = cached_type_hints(_typecheckingstub__b966eb1df615199d14bbc7fd9f3b39c9f4709837783a9a97f8945e6c623dc56d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "automaticFailoverEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3503,17 +3487,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are running Valkey 7.2 or later, or Redis OSS 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86b4cffb8c5e43d27133f190ebeba6d314ad935e730a8628bef824306d4d6356)
+            type_hints = cached_type_hints(_typecheckingstub__86b4cffb8c5e43d27133f190ebeba6d314ad935e730a8628bef824306d4d6356)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -3526,7 +3510,7 @@ class CfnReplicationGroup(
     @cache_node_type.setter
     def cache_node_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed33482a5f3a397014d26a736ced8371cfd5f7dcf12071c4629c9100b4d0c3cc)
+            type_hints = cached_type_hints(_typecheckingstub__ed33482a5f3a397014d26a736ced8371cfd5f7dcf12071c4629c9100b4d0c3cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheNodeType", value) # pyright: ignore[reportArgumentType]
 
@@ -3539,7 +3523,7 @@ class CfnReplicationGroup(
     @cache_parameter_group_name.setter
     def cache_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62c80def577fbbf2efb0e92fb3bd6946c8ffca559bbc2222843991c0c59a8e05)
+            type_hints = cached_type_hints(_typecheckingstub__62c80def577fbbf2efb0e92fb3bd6946c8ffca559bbc2222843991c0c59a8e05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -3560,7 +3544,7 @@ class CfnReplicationGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a35e383106650eefc6c3b806779d5aa3ad36ed505bd7313e11d94c5942d9c7b1)
+            type_hints = cached_type_hints(_typecheckingstub__a35e383106650eefc6c3b806779d5aa3ad36ed505bd7313e11d94c5942d9c7b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSecurityGroupNames", value) # pyright: ignore[reportArgumentType]
 
@@ -3573,7 +3557,7 @@ class CfnReplicationGroup(
     @cache_subnet_group_name.setter
     def cache_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b7e9b4af342ce71884b10c5713679cc1987727399ee466ef6c6e86653dcb21)
+            type_hints = cached_type_hints(_typecheckingstub__15b7e9b4af342ce71884b10c5713679cc1987727399ee466ef6c6e86653dcb21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -3586,7 +3570,7 @@ class CfnReplicationGroup(
     @cluster_mode.setter
     def cluster_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__843c2d711df69b9b78c5297321a7377fd4d364b0b8b228ae665fcbdffa0084f2)
+            type_hints = cached_type_hints(_typecheckingstub__843c2d711df69b9b78c5297321a7377fd4d364b0b8b228ae665fcbdffa0084f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterMode", value) # pyright: ignore[reportArgumentType]
 
@@ -3594,17 +3578,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="dataTieringEnabled")
     def data_tiering_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables data tiering.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "dataTieringEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "dataTieringEnabled"))
 
     @data_tiering_enabled.setter
     def data_tiering_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4366a0fcdd44e261b8f1399689f3ac4bb635223727a5c70ecced2835cb18c15)
+            type_hints = cached_type_hints(_typecheckingstub__a4366a0fcdd44e261b8f1399689f3ac4bb635223727a5c70ecced2835cb18c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataTieringEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3617,7 +3601,7 @@ class CfnReplicationGroup(
     @durability.setter
     def durability(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba471cb37f6eddc0db2acf445abb188d6fdbdb47cdc25743fec2e77d99bb9812)
+            type_hints = cached_type_hints(_typecheckingstub__ba471cb37f6eddc0db2acf445abb188d6fdbdb47cdc25743fec2e77d99bb9812)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "durability", value) # pyright: ignore[reportArgumentType]
 
@@ -3630,7 +3614,7 @@ class CfnReplicationGroup(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43efae7f07eb2d768b51436a460dd83ae934b30a7e7cc3f3b825cfd6e5ece68d)
+            type_hints = cached_type_hints(_typecheckingstub__43efae7f07eb2d768b51436a460dd83ae934b30a7e7cc3f3b825cfd6e5ece68d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -3643,7 +3627,7 @@ class CfnReplicationGroup(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5337b37fc62ed19c046ae6e4e85b8fe97cdcd4eb2fd571decbfe563e2f9bbcf5)
+            type_hints = cached_type_hints(_typecheckingstub__5337b37fc62ed19c046ae6e4e85b8fe97cdcd4eb2fd571decbfe563e2f9bbcf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -3656,7 +3640,7 @@ class CfnReplicationGroup(
     @global_replication_group_id.setter
     def global_replication_group_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf74e5c2399e48c43d257f5ef3f61c24fce45668db9e5f6d537ce076f935f780)
+            type_hints = cached_type_hints(_typecheckingstub__bf74e5c2399e48c43d257f5ef3f61c24fce45668db9e5f6d537ce076f935f780)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalReplicationGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -3669,7 +3653,7 @@ class CfnReplicationGroup(
     @ip_discovery.setter
     def ip_discovery(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea227ab737c3768eb9268ca4b7aad2a651bd5c80b060dd89e792f94c91fce7f1)
+            type_hints = cached_type_hints(_typecheckingstub__ea227ab737c3768eb9268ca4b7aad2a651bd5c80b060dd89e792f94c91fce7f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipDiscovery", value) # pyright: ignore[reportArgumentType]
 
@@ -3682,7 +3666,7 @@ class CfnReplicationGroup(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dda541c47a7be91143fbe227b05e172ef4b46d5657366c1ffff09fbb9c0c5c7)
+            type_hints = cached_type_hints(_typecheckingstub__2dda541c47a7be91143fbe227b05e172ef4b46d5657366c1ffff09fbb9c0c5c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -3690,17 +3674,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="logDeliveryConfigurations")
     def log_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]]:
         '''Specifies the destination, format and type of the logs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]], jsii.get(self, "logDeliveryConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]], jsii.get(self, "logDeliveryConfigurations"))
 
     @log_delivery_configurations.setter
     def log_delivery_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6abdf1dfe7ce2cb6bd74fcf5e71f8d01354d2ebe730f2f8811c7cca3c29115c)
+            type_hints = cached_type_hints(_typecheckingstub__c6abdf1dfe7ce2cb6bd74fcf5e71f8d01354d2ebe730f2f8811c7cca3c29115c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDeliveryConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -3708,17 +3692,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="multiAzEnabled")
     def multi_az_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag indicating if you have Multi-AZ enabled to enhance fault tolerance.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiAzEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "multiAzEnabled"))
 
     @multi_az_enabled.setter
     def multi_az_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45ea9e8732e19a78795fe185be2450c918f0ad9505938ce18be98a47595e698f)
+            type_hints = cached_type_hints(_typecheckingstub__45ea9e8732e19a78795fe185be2450c918f0ad9505938ce18be98a47595e698f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiAzEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -3731,7 +3715,7 @@ class CfnReplicationGroup(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83454ca7ec99c5872b43df5ecd3a494e042cd44f7b50d58f4bf1e6e8b660215d)
+            type_hints = cached_type_hints(_typecheckingstub__83454ca7ec99c5872b43df5ecd3a494e042cd44f7b50d58f4bf1e6e8b660215d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -3739,17 +3723,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="nodeGroupConfiguration")
     def node_group_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]]:
         '''``NodeGroupConfiguration`` is a property of the ``AWS::ElastiCache::ReplicationGroup`` resource that configures an Amazon ElastiCache (ElastiCache) Valkey or Redis OSS cluster node group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]], jsii.get(self, "nodeGroupConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]], jsii.get(self, "nodeGroupConfiguration"))
 
     @node_group_configuration.setter
     def node_group_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__063232de740d4c4cf752ba9532e0b046f204c4d85a17ea560f3688d5c78d5126)
+            type_hints = cached_type_hints(_typecheckingstub__063232de740d4c4cf752ba9532e0b046f204c4d85a17ea560f3688d5c78d5126)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeGroupConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3762,7 +3746,7 @@ class CfnReplicationGroup(
     @notification_topic_arn.setter
     def notification_topic_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afad0ef82bb9acf280293dc8234bcbfb68b0aee8e38631e29e8b0f5c0edf6436)
+            type_hints = cached_type_hints(_typecheckingstub__afad0ef82bb9acf280293dc8234bcbfb68b0aee8e38631e29e8b0f5c0edf6436)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationTopicArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3775,7 +3759,7 @@ class CfnReplicationGroup(
     @num_cache_clusters.setter
     def num_cache_clusters(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3effd0ee3abc632945998cd5c58c40c2e61c166d48aeaff02c46cb4fe172fa68)
+            type_hints = cached_type_hints(_typecheckingstub__3effd0ee3abc632945998cd5c58c40c2e61c166d48aeaff02c46cb4fe172fa68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numCacheClusters", value) # pyright: ignore[reportArgumentType]
 
@@ -3788,7 +3772,7 @@ class CfnReplicationGroup(
     @num_node_groups.setter
     def num_node_groups(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06693a02af2ea54d169b325b01dbc6b4f0fac1ded78e060c7120b709bf82ffd1)
+            type_hints = cached_type_hints(_typecheckingstub__06693a02af2ea54d169b325b01dbc6b4f0fac1ded78e060c7120b709bf82ffd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numNodeGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -3801,7 +3785,7 @@ class CfnReplicationGroup(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b77a4995911ee86ef96fab9b8d7683bd6b21726901334b6e0f5b1cd65c358352)
+            type_hints = cached_type_hints(_typecheckingstub__b77a4995911ee86ef96fab9b8d7683bd6b21726901334b6e0f5b1cd65c358352)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -3819,7 +3803,7 @@ class CfnReplicationGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3b98acbb3854c5584ac0d1b3f958aaab9acda203560a42576b7da590dd3efbb)
+            type_hints = cached_type_hints(_typecheckingstub__f3b98acbb3854c5584ac0d1b3f958aaab9acda203560a42576b7da590dd3efbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredCacheClusterAZs", value) # pyright: ignore[reportArgumentType]
 
@@ -3835,7 +3819,7 @@ class CfnReplicationGroup(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f06ffee046ee6aaf7c317d0ec481f014335323a835adf240ab1d537b192e36e)
+            type_hints = cached_type_hints(_typecheckingstub__5f06ffee046ee6aaf7c317d0ec481f014335323a835adf240ab1d537b192e36e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -3848,7 +3832,7 @@ class CfnReplicationGroup(
     @primary_cluster_id.setter
     def primary_cluster_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6512d6a9d409265e09a0a87e261fcba517621c20846549f6b30152801b2e3dee)
+            type_hints = cached_type_hints(_typecheckingstub__6512d6a9d409265e09a0a87e261fcba517621c20846549f6b30152801b2e3dee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "primaryClusterId", value) # pyright: ignore[reportArgumentType]
 
@@ -3861,7 +3845,7 @@ class CfnReplicationGroup(
     @replicas_per_node_group.setter
     def replicas_per_node_group(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cf71395d4de3cd4ca74d713e8070b525f88cd095892c0b97826bec127eea35d)
+            type_hints = cached_type_hints(_typecheckingstub__7cf71395d4de3cd4ca74d713e8070b525f88cd095892c0b97826bec127eea35d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicasPerNodeGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -3877,7 +3861,7 @@ class CfnReplicationGroup(
     @replication_group_id.setter
     def replication_group_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e382d1b245c43974606107b80af8da9323e7d5a4ec30a874e85fd0d8383a979)
+            type_hints = cached_type_hints(_typecheckingstub__5e382d1b245c43974606107b80af8da9323e7d5a4ec30a874e85fd0d8383a979)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -3893,7 +3877,7 @@ class CfnReplicationGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4bf0b926d5ed122589bca93144684bbbc765d5b48d2b43dc65e20ac75999870)
+            type_hints = cached_type_hints(_typecheckingstub__f4bf0b926d5ed122589bca93144684bbbc765d5b48d2b43dc65e20ac75999870)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3906,7 +3890,7 @@ class CfnReplicationGroup(
     @snapshot_arns.setter
     def snapshot_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__402bbedebe63e1639250243d98564e9d2abaf2ea4be044a6e822afb9573ba83b)
+            type_hints = cached_type_hints(_typecheckingstub__402bbedebe63e1639250243d98564e9d2abaf2ea4be044a6e822afb9573ba83b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotArns", value) # pyright: ignore[reportArgumentType]
 
@@ -3919,7 +3903,7 @@ class CfnReplicationGroup(
     @snapshot_name.setter
     def snapshot_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf64b55611f1dcd1385926cc1344d345fe6bb1210d40fc47034fe65bbdb3da34)
+            type_hints = cached_type_hints(_typecheckingstub__cf64b55611f1dcd1385926cc1344d345fe6bb1210d40fc47034fe65bbdb3da34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
 
@@ -3932,7 +3916,7 @@ class CfnReplicationGroup(
     @snapshot_retention_limit.setter
     def snapshot_retention_limit(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ca3b912d486d6471befbdcc0a4f6371d9c6d4fce14489c5c146523f37b67d03)
+            type_hints = cached_type_hints(_typecheckingstub__9ca3b912d486d6471befbdcc0a4f6371d9c6d4fce14489c5c146523f37b67d03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotRetentionLimit", value) # pyright: ignore[reportArgumentType]
 
@@ -3945,7 +3929,7 @@ class CfnReplicationGroup(
     @snapshotting_cluster_id.setter
     def snapshotting_cluster_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04e859b223e2f5a28ae2572ed09bf8cef9bbf00ed7571a437a364307bc63f338)
+            type_hints = cached_type_hints(_typecheckingstub__04e859b223e2f5a28ae2572ed09bf8cef9bbf00ed7571a437a364307bc63f338)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshottingClusterId", value) # pyright: ignore[reportArgumentType]
 
@@ -3958,20 +3942,23 @@ class CfnReplicationGroup(
     @snapshot_window.setter
     def snapshot_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eca3a583f11466198815da8e0f733144c677e601f7fbc08ff2f53b0f251ce1c)
+            type_hints = cached_type_hints(_typecheckingstub__7eca3a583f11466198815da8e0f733144c677e601f7fbc08ff2f53b0f251ce1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotWindow", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd34df081f3adeec74e0b10c42a2c6579d5328d707ac88af6a4c22338f3c9035)
+            type_hints = cached_type_hints(_typecheckingstub__dd34df081f3adeec74e0b10c42a2c6579d5328d707ac88af6a4c22338f3c9035)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3979,17 +3966,17 @@ class CfnReplicationGroup(
     @jsii.member(jsii_name="transitEncryptionEnabled")
     def transit_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables in-transit encryption when set to ``true`` .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "transitEncryptionEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "transitEncryptionEnabled"))
 
     @transit_encryption_enabled.setter
     def transit_encryption_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4af0273d0b69e8bd3f65054f8d56651f1f9d315c9e60fa092dd4b8e4e8844e85)
+            type_hints = cached_type_hints(_typecheckingstub__4af0273d0b69e8bd3f65054f8d56651f1f9d315c9e60fa092dd4b8e4e8844e85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transitEncryptionEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -4002,7 +3989,7 @@ class CfnReplicationGroup(
     @transit_encryption_mode.setter
     def transit_encryption_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e42c150539724e50fcb5c3e35f3cc6d260890eb3e8dedeaaac606a9539b75a56)
+            type_hints = cached_type_hints(_typecheckingstub__e42c150539724e50fcb5c3e35f3cc6d260890eb3e8dedeaaac606a9539b75a56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transitEncryptionMode", value) # pyright: ignore[reportArgumentType]
 
@@ -4015,7 +4002,7 @@ class CfnReplicationGroup(
     @user_group_ids.setter
     def user_group_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52e181f655740159c1c7f60264045e188418edbe6d092594dbf15cce26263f01)
+            type_hints = cached_type_hints(_typecheckingstub__52e181f655740159c1c7f60264045e188418edbe6d092594dbf15cce26263f01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -4046,7 +4033,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d33b9d3b5876c576f6687dd170e2161cb8acc01f4eeae0ae299a3a279b24467d)
+                type_hints = cached_type_hints(_typecheckingstub__d33b9d3b5876c576f6687dd170e2161cb8acc01f4eeae0ae299a3a279b24467d)
                 check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_group": log_group,
@@ -4085,8 +4072,8 @@ class CfnReplicationGroup(
         def __init__(
             self,
             *,
-            cloud_watch_logs_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kinesis_firehose_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_firehose_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration details of either a CloudWatch Logs destination or Kinesis Data Firehose destination.
 
@@ -4112,7 +4099,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6393b162360e08ba34e1e81372da9a50f39c9a0cc3e234d4de5535a2bb554fe6)
+                type_hints = cached_type_hints(_typecheckingstub__6393b162360e08ba34e1e81372da9a50f39c9a0cc3e234d4de5535a2bb554fe6)
                 check_type(argname="argument cloud_watch_logs_details", value=cloud_watch_logs_details, expected_type=type_hints["cloud_watch_logs_details"])
                 check_type(argname="argument kinesis_firehose_details", value=kinesis_firehose_details, expected_type=type_hints["kinesis_firehose_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4124,7 +4111,7 @@ class CfnReplicationGroup(
         @builtins.property
         def cloud_watch_logs_details(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty"]]:
             '''The configuration details of the CloudWatch Logs destination.
 
             Note that this field is marked as required but only if CloudWatch Logs was chosen as the destination.
@@ -4132,12 +4119,12 @@ class CfnReplicationGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-destinationdetails.html#cfn-elasticache-replicationgroup-destinationdetails-cloudwatchlogsdetails
             '''
             result = self._values.get("cloud_watch_logs_details")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty"]], result)
 
         @builtins.property
         def kinesis_firehose_details(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty"]]:
             '''The configuration details of the Kinesis Data Firehose destination.
 
             Note that this field is marked as required but only if Kinesis Data Firehose was chosen as the destination.
@@ -4145,7 +4132,7 @@ class CfnReplicationGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-destinationdetails.html#cfn-elasticache-replicationgroup-destinationdetails-kinesisfirehosedetails
             '''
             result = self._values.get("kinesis_firehose_details")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4189,7 +4176,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b2aee70eb2e0121f3f02e2d9e44000abf724516080b1148d7fe6ba4a416395da)
+                type_hints = cached_type_hints(_typecheckingstub__b2aee70eb2e0121f3f02e2d9e44000abf724516080b1148d7fe6ba4a416395da)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4254,7 +4241,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fdcf378b5d4262b2df61cdeb35e6e804ff747472fc30e69109cb47a8aed0fbad)
+                type_hints = cached_type_hints(_typecheckingstub__fdcf378b5d4262b2df61cdeb35e6e804ff747472fc30e69109cb47a8aed0fbad)
                 check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "delivery_stream": delivery_stream,
@@ -4295,7 +4282,7 @@ class CfnReplicationGroup(
         def __init__(
             self,
             *,
-            destination_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.DestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.DestinationDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             destination_type: builtins.str,
             log_format: builtins.str,
             log_type: builtins.str,
@@ -4331,7 +4318,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b9ff12d17e85eb513ea31c4f6d81c908ca6208f607b8673aa2d7c7e0a9fe4706)
+                type_hints = cached_type_hints(_typecheckingstub__b9ff12d17e85eb513ea31c4f6d81c908ca6208f607b8673aa2d7c7e0a9fe4706)
                 check_type(argname="argument destination_details", value=destination_details, expected_type=type_hints["destination_details"])
                 check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
                 check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
@@ -4346,14 +4333,14 @@ class CfnReplicationGroup(
         @builtins.property
         def destination_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.DestinationDetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.DestinationDetailsProperty"]:
             '''Configuration details of either a CloudWatch Logs destination or Kinesis Data Firehose destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-logdeliveryconfigurationrequest.html#cfn-elasticache-replicationgroup-logdeliveryconfigurationrequest-destinationdetails
             '''
             result = self._values.get("destination_details")
             assert result is not None, "Required property 'destination_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.DestinationDetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.DestinationDetailsProperty"], result)
 
         @builtins.property
         def destination_type(self) -> builtins.str:
@@ -4445,7 +4432,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b71a634ea38148f00c55a6a55d2a07c87ecfd6d6fbdd46f7603a23c08772dfb5)
+                type_hints = cached_type_hints(_typecheckingstub__b71a634ea38148f00c55a6a55d2a07c87ecfd6d6fbdd46f7603a23c08772dfb5)
                 check_type(argname="argument node_group_id", value=node_group_id, expected_type=type_hints["node_group_id"])
                 check_type(argname="argument primary_availability_zone", value=primary_availability_zone, expected_type=type_hints["primary_availability_zone"])
                 check_type(argname="argument replica_availability_zones", value=replica_availability_zones, expected_type=type_hints["replica_availability_zones"])
@@ -4571,7 +4558,7 @@ class CfnReplicationGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ff53f956f8f98279976e7f50fa15429cf60fdcba8ffe8ecf9f2567da15d91f9)
+                type_hints = cached_type_hints(_typecheckingstub__1ff53f956f8f98279976e7f50fa15429cf60fdcba8ffe8ecf9f2567da15d91f9)
                 check_type(argname="argument addresses", value=addresses, expected_type=type_hints["addresses"])
                 check_type(argname="argument addresses_list", value=addresses_list, expected_type=type_hints["addresses_list"])
                 check_type(argname="argument ports", value=ports, expected_type=type_hints["ports"])
@@ -4689,26 +4676,26 @@ class CfnReplicationGroupProps:
         self,
         *,
         replication_group_description: builtins.str,
-        at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         auth_token: typing.Optional[builtins.str] = None,
-        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cache_node_type: typing.Optional[builtins.str] = None,
         cache_parameter_group_name: typing.Optional[builtins.str] = None,
         cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_mode: typing.Optional[builtins.str] = None,
-        data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         durability: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_replication_group_id: typing.Optional[builtins.str] = None,
         ip_discovery: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        log_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        multi_az_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        log_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.LogDeliveryConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multi_az_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        node_group_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationGroup.NodeGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_group_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationGroup.NodeGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         num_cache_clusters: typing.Optional[jsii.Number] = None,
         num_node_groups: typing.Optional[jsii.Number] = None,
@@ -4724,8 +4711,8 @@ class CfnReplicationGroupProps:
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
         snapshotting_cluster_id: typing.Optional[builtins.str] = None,
         snapshot_window: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         transit_encryption_mode: typing.Optional[builtins.str] = None,
         user_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -4849,7 +4836,7 @@ class CfnReplicationGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7eefa3a3d)
+            type_hints = cached_type_hints(_typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7eefa3a3d)
             check_type(argname="argument replication_group_description", value=replication_group_description, expected_type=type_hints["replication_group_description"])
             check_type(argname="argument at_rest_encryption_enabled", value=at_rest_encryption_enabled, expected_type=type_hints["at_rest_encryption_enabled"])
             check_type(argname="argument auth_token", value=auth_token, expected_type=type_hints["auth_token"])
@@ -4985,7 +4972,7 @@ class CfnReplicationGroupProps:
     @builtins.property
     def at_rest_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables encryption at rest when set to ``true`` .
 
         *Required:* Only available when creating a replication group in an Amazon VPC using Redis OSS version ``3.2.6`` or ``4.x`` onward.
@@ -4997,7 +4984,7 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-atrestencryptionenabled
         '''
         result = self._values.get("at_rest_encryption_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def auth_token(self) -> typing.Optional[builtins.str]:
@@ -5027,7 +5014,7 @@ class CfnReplicationGroupProps:
     @builtins.property
     def automatic_failover_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails.
 
         ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups.
@@ -5039,18 +5026,18 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-automaticfailoverenabled
         '''
         result = self._values.get("automatic_failover_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are running Valkey 7.2 or later, or Redis OSS 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-autominorversionupgrade
         '''
         result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def cache_node_type(self) -> typing.Optional[builtins.str]:
@@ -5168,7 +5155,7 @@ class CfnReplicationGroupProps:
     @builtins.property
     def data_tiering_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables data tiering.
 
         Data tiering is only supported for replication groups using the r6gd node type. This parameter must be set to true when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/data-tiering.html>`_ .
@@ -5176,7 +5163,7 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-datatieringenabled
         '''
         result = self._values.get("data_tiering_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def durability(self) -> typing.Optional[builtins.str]:
@@ -5248,18 +5235,18 @@ class CfnReplicationGroupProps:
     @builtins.property
     def log_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]]:
         '''Specifies the destination, format and type of the logs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-logdeliveryconfigurations
         '''
         result = self._values.get("log_delivery_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.LogDeliveryConfigurationRequestProperty"]]]], result)
 
     @builtins.property
     def multi_az_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag indicating if you have Multi-AZ enabled to enhance fault tolerance.
 
         For more information, see `Minimizing Downtime: Multi-AZ <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/AutoFailover.html>`_ .
@@ -5267,7 +5254,7 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-multiazenabled
         '''
         result = self._values.get("multi_az_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
@@ -5283,7 +5270,7 @@ class CfnReplicationGroupProps:
     @builtins.property
     def node_group_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]]:
         '''``NodeGroupConfiguration`` is a property of the ``AWS::ElastiCache::ReplicationGroup`` resource that configures an Amazon ElastiCache (ElastiCache) Valkey or Redis OSS cluster node group.
 
         If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NodeGroupConfiguration`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NodeGroupConfiguration`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
@@ -5291,7 +5278,7 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-nodegroupconfiguration
         '''
         result = self._values.get("node_group_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationGroup.NodeGroupConfigurationProperty"]]]], result)
 
     @builtins.property
     def notification_topic_arn(self) -> typing.Optional[builtins.str]:
@@ -5506,7 +5493,7 @@ class CfnReplicationGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.
 
         Tags are comma-separated key,value pairs (e.g. Key= ``myKey`` , Value= ``myKeyValue`` . You can include multiple tags as shown following: Key= ``myKey`` , Value= ``myKeyValue`` Key= ``mySecondKey`` , Value= ``mySecondKeyValue`` . Tags on replication groups will be replicated to all nodes.
@@ -5514,12 +5501,12 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transit_encryption_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag that enables in-transit encryption when set to ``true`` .
 
         This parameter is only available when creating a replication group in an Amazon VPC using Valkey version ``7.2`` and above, Redis OSS version ``3.2.6`` , or Redis OSS version ``4.x`` and above, and the cluster is being created in an Amazon VPC.
@@ -5539,7 +5526,7 @@ class CfnReplicationGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-transitencryptionenabled
         '''
         result = self._values.get("transit_encryption_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def transit_encryption_mode(self) -> typing.Optional[builtins.str]:
@@ -5577,9 +5564,9 @@ class CfnReplicationGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISecurityGroupRef_baad40b3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISecurityGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSecurityGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnSecurityGroup",
 ):
@@ -5617,7 +5604,7 @@ class CfnSecurityGroup(
         id: builtins.str,
         *,
         description: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::SecurityGroup``.
 
@@ -5627,7 +5614,7 @@ class CfnSecurityGroup(
         :param tags: A tag that can be added to an ElastiCache security group. Tags are composed of a Key/Value pair. You can use tags to categorize and track all your security groups. A tag with a null Value is permitted.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a123177a3bb81237f7f7f549a05ee3a5234df818c52d76546ff68a80c39ddaed)
+            type_hints = cached_type_hints(_typecheckingstub__a123177a3bb81237f7f7f549a05ee3a5234df818c52d76546ff68a80c39ddaed)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSecurityGroupProps(description=description, tags=tags)
@@ -5642,18 +5629,18 @@ class CfnSecurityGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a0c6d81fc6cb5bfa792f055f616926211811f8c3565e50c2959fa9f8e84dfa7)
+            type_hints = cached_type_hints(_typecheckingstub__2a0c6d81fc6cb5bfa792f055f616926211811f8c3565e50c2959fa9f8e84dfa7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSecurityGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e59b6770093fdec8763d8d7b39b7d6466bc5e469d75d9f211e118781440edec1)
+            type_hints = cached_type_hints(_typecheckingstub__e59b6770093fdec8763d8d7b39b7d6466bc5e469d75d9f211e118781440edec1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5666,7 +5653,7 @@ class CfnSecurityGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb62adc1dfae487cca927c94c6b4ad1904c89719a572bef2994345a5d039ef0)
+            type_hints = cached_type_hints(_typecheckingstub__2eb62adc1dfae487cca927c94c6b4ad1904c89719a572bef2994345a5d039ef0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5696,15 +5683,15 @@ class CfnSecurityGroup(
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupRef")
-    def security_group_ref(self) -> "_SecurityGroupReference_b5e68c6a":
+    def security_group_ref(self) -> "_aws_elasticache_452416cc.SecurityGroupReference":
         '''A reference to a SecurityGroup resource.'''
-        return typing.cast("_SecurityGroupReference_b5e68c6a", jsii.get(self, "securityGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.SecurityGroupReference", jsii.get(self, "securityGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5715,27 +5702,30 @@ class CfnSecurityGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a58aa3e47b676ffbd43668bc6e1d2c79b30df11d4e23ee80c4bdefdb1e2e460)
+            type_hints = cached_type_hints(_typecheckingstub__8a58aa3e47b676ffbd43668bc6e1d2c79b30df11d4e23ee80c4bdefdb1e2e460)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache security group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d0db95241a79cc90ce9ac36752f3ee20a66c04797f992822d1387e95ab0d3dc)
+            type_hints = cached_type_hints(_typecheckingstub__8d0db95241a79cc90ce9ac36752f3ee20a66c04797f992822d1387e95ab0d3dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _ISecurityGroupIngressRef_c32b1423)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISecurityGroupIngressRef)
 class CfnSecurityGroupIngress(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnSecurityGroupIngress",
 ):
@@ -5783,7 +5773,7 @@ class CfnSecurityGroupIngress(
         :param ec2_security_group_owner_id: Specifies the Amazon Account ID of the owner of the EC2 security group specified in the EC2SecurityGroupName property. The Amazon access key ID is not an acceptable value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9fec253fa52a5ea3d4371f10b9ad50ca4993c9f60ac895b0fef6575e1ced177)
+            type_hints = cached_type_hints(_typecheckingstub__e9fec253fa52a5ea3d4371f10b9ad50ca4993c9f60ac895b0fef6575e1ced177)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSecurityGroupIngressProps(
@@ -5802,18 +5792,18 @@ class CfnSecurityGroupIngress(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd6bc71678f777ead1e2f0cca27f8a2f1be4e5f9bc46f9cb63b85bd4abf60895)
+            type_hints = cached_type_hints(_typecheckingstub__cd6bc71678f777ead1e2f0cca27f8a2f1be4e5f9bc46f9cb63b85bd4abf60895)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSecurityGroupIngress", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce56443f7fa86a2c85da65d4fe1945a48bacd9a42111d28731fb9be03ebd3098)
+            type_hints = cached_type_hints(_typecheckingstub__ce56443f7fa86a2c85da65d4fe1945a48bacd9a42111d28731fb9be03ebd3098)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5826,7 +5816,7 @@ class CfnSecurityGroupIngress(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69468cc5d27117dacd7aa3deb279d35fa03dabbd826bb6290d084f5b9f359705)
+            type_hints = cached_type_hints(_typecheckingstub__69468cc5d27117dacd7aa3deb279d35fa03dabbd826bb6290d084f5b9f359705)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5856,9 +5846,11 @@ class CfnSecurityGroupIngress(
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIngressRef")
-    def security_group_ingress_ref(self) -> "_SecurityGroupIngressReference_4d9c7f2d":
+    def security_group_ingress_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.SecurityGroupIngressReference":
         '''A reference to a SecurityGroupIngress resource.'''
-        return typing.cast("_SecurityGroupIngressReference_4d9c7f2d", jsii.get(self, "securityGroupIngressRef"))
+        return typing.cast("_aws_elasticache_452416cc.SecurityGroupIngressReference", jsii.get(self, "securityGroupIngressRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cacheSecurityGroupName")
@@ -5869,7 +5861,7 @@ class CfnSecurityGroupIngress(
     @cache_security_group_name.setter
     def cache_security_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__439c20ee90e3a27653353314240f9637cdf95b53b1cd23e4aaec9d21b5d568c9)
+            type_hints = cached_type_hints(_typecheckingstub__439c20ee90e3a27653353314240f9637cdf95b53b1cd23e4aaec9d21b5d568c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSecurityGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -5882,7 +5874,7 @@ class CfnSecurityGroupIngress(
     @ec2_security_group_name.setter
     def ec2_security_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0abb1fc13eea94e08b452064202975643af441a003c80b20a2dd84ee151b33ab)
+            type_hints = cached_type_hints(_typecheckingstub__0abb1fc13eea94e08b452064202975643af441a003c80b20a2dd84ee151b33ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ec2SecurityGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -5895,7 +5887,7 @@ class CfnSecurityGroupIngress(
     @ec2_security_group_owner_id.setter
     def ec2_security_group_owner_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d69c9ced7a396b23c621165b2be40f28744ce4080f376459c1fec4f135a9d8a9)
+            type_hints = cached_type_hints(_typecheckingstub__d69c9ced7a396b23c621165b2be40f28744ce4080f376459c1fec4f135a9d8a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ec2SecurityGroupOwnerId", value) # pyright: ignore[reportArgumentType]
 
@@ -5941,7 +5933,7 @@ class CfnSecurityGroupIngressProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbdf58872e9544b14b7cd19f9a883c3e1c2fcad8d855805f476f813cea0882e6)
+            type_hints = cached_type_hints(_typecheckingstub__bbdf58872e9544b14b7cd19f9a883c3e1c2fcad8d855805f476f813cea0882e6)
             check_type(argname="argument cache_security_group_name", value=cache_security_group_name, expected_type=type_hints["cache_security_group_name"])
             check_type(argname="argument ec2_security_group_name", value=ec2_security_group_name, expected_type=type_hints["ec2_security_group_name"])
             check_type(argname="argument ec2_security_group_owner_id", value=ec2_security_group_owner_id, expected_type=type_hints["ec2_security_group_owner_id"])
@@ -6005,7 +5997,7 @@ class CfnSecurityGroupProps:
         self,
         *,
         description: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSecurityGroup``.
 
@@ -6033,7 +6025,7 @@ class CfnSecurityGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__188ce8daf68355e05c89377b875f68542bb67a42ce5afc30df7473e1420abce9)
+            type_hints = cached_type_hints(_typecheckingstub__188ce8daf68355e05c89377b875f68542bb67a42ce5afc30df7473e1420abce9)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6053,7 +6045,7 @@ class CfnSecurityGroupProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache security group.
 
         Tags are composed of a Key/Value pair. You can use tags to categorize and track all your security groups. A tag with a null Value is permitted.
@@ -6061,7 +6053,7 @@ class CfnSecurityGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-securitygroup.html#cfn-elasticache-securitygroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6075,9 +6067,9 @@ class CfnSecurityGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServerlessCacheRef_27114db2, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IServerlessCacheRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnServerlessCache(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnServerlessCache",
 ):
@@ -6145,21 +6137,21 @@ class CfnServerlessCache(
         *,
         engine: builtins.str,
         serverless_cache_name: builtins.str,
-        cache_usage_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_usage_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         daily_snapshot_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         final_snapshot_name: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         major_engine_version: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
-        reader_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        reader_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-        subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_group_id: typing.Optional[typing.Union[builtins.str, "_IUserGroupRef_2cd8e96b"]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_group_id: typing.Optional[typing.Union[builtins.str, "_aws_elasticache_452416cc.IUserGroupRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::ServerlessCache``.
 
@@ -6184,7 +6176,7 @@ class CfnServerlessCache(
         :param user_group_id: The identifier of the user group associated with the serverless cache. Available for Valkey and Redis OSS only. Default is NULL.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f204522453489e8198605933b3b942062e9c202c1099285663a7d772a3e94ba7)
+            type_hints = cached_type_hints(_typecheckingstub__f204522453489e8198605933b3b942062e9c202c1099285663a7d772a3e94ba7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServerlessCacheProps(
@@ -6213,13 +6205,13 @@ class CfnServerlessCache(
     @builtins.classmethod
     def arn_for_serverless_cache(
         cls,
-        resource: "_IServerlessCacheRef_27114db2",
+        resource: "_aws_elasticache_452416cc.IServerlessCacheRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7507c0d871d74f6a8df94c97f10f554cf951f9ac6c733d87af665857b74e7aaa)
+            type_hints = cached_type_hints(_typecheckingstub__7507c0d871d74f6a8df94c97f10f554cf951f9ac6c733d87af665857b74e7aaa)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServerlessCache", [resource]))
 
@@ -6230,7 +6222,7 @@ class CfnServerlessCache(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IServerlessCacheRef_27114db2":
+    ) -> "_aws_elasticache_452416cc.IServerlessCacheRef":
         '''Creates a new IServerlessCacheRef from an ARN.
 
         :param scope: -
@@ -6238,11 +6230,11 @@ class CfnServerlessCache(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cb67fca1b274973ce350b57a6651199f50b5a205b91ded85873a57dbb28b734)
+            type_hints = cached_type_hints(_typecheckingstub__0cb67fca1b274973ce350b57a6651199f50b5a205b91ded85873a57dbb28b734)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IServerlessCacheRef_27114db2", jsii.sinvoke(cls, "fromServerlessCacheArn", [scope, id, arn]))
+        return typing.cast("_aws_elasticache_452416cc.IServerlessCacheRef", jsii.sinvoke(cls, "fromServerlessCacheArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromServerlessCacheName")
     @builtins.classmethod
@@ -6251,7 +6243,7 @@ class CfnServerlessCache(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         serverless_cache_name: builtins.str,
-    ) -> "_IServerlessCacheRef_27114db2":
+    ) -> "_aws_elasticache_452416cc.IServerlessCacheRef":
         '''Creates a new IServerlessCacheRef from a serverlessCacheName.
 
         :param scope: -
@@ -6259,11 +6251,11 @@ class CfnServerlessCache(
         :param serverless_cache_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f1a4fca0c9153db4261889c4ac2f57c86638b9df9a309b28a9abc65ee4dba12)
+            type_hints = cached_type_hints(_typecheckingstub__5f1a4fca0c9153db4261889c4ac2f57c86638b9df9a309b28a9abc65ee4dba12)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument serverless_cache_name", value=serverless_cache_name, expected_type=type_hints["serverless_cache_name"])
-        return typing.cast("_IServerlessCacheRef_27114db2", jsii.sinvoke(cls, "fromServerlessCacheName", [scope, id, serverless_cache_name]))
+        return typing.cast("_aws_elasticache_452416cc.IServerlessCacheRef", jsii.sinvoke(cls, "fromServerlessCacheName", [scope, id, serverless_cache_name]))
 
     @jsii.member(jsii_name="isCfnServerlessCache")
     @builtins.classmethod
@@ -6273,18 +6265,18 @@ class CfnServerlessCache(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8803630225519a6c5829c69bfd0adda47f43053bf112585f55b40979b588a925)
+            type_hints = cached_type_hints(_typecheckingstub__8803630225519a6c5829c69bfd0adda47f43053bf112585f55b40979b588a925)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServerlessCache", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7012476fc1dcf708502c3a40812f4ced90af74571a021bfa5091171717291b4)
+            type_hints = cached_type_hints(_typecheckingstub__f7012476fc1dcf708502c3a40812f4ced90af74571a021bfa5091171717291b4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6297,7 +6289,7 @@ class CfnServerlessCache(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b2123590dc90b36de3e39588015991928ac6ad2f7a93f300e83a897fbcd82d5)
+            type_hints = cached_type_hints(_typecheckingstub__0b2123590dc90b36de3e39588015991928ac6ad2f7a93f300e83a897fbcd82d5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6383,9 +6375,9 @@ class CfnServerlessCache(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6399,9 +6391,11 @@ class CfnServerlessCache(
 
     @builtins.property
     @jsii.member(jsii_name="serverlessCacheRef")
-    def serverless_cache_ref(self) -> "_ServerlessCacheReference_b26de323":
+    def serverless_cache_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.ServerlessCacheReference":
         '''A reference to a ServerlessCache resource.'''
-        return typing.cast("_ServerlessCacheReference_b26de323", jsii.get(self, "serverlessCacheRef"))
+        return typing.cast("_aws_elasticache_452416cc.ServerlessCacheReference", jsii.get(self, "serverlessCacheRef"))
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -6412,7 +6406,7 @@ class CfnServerlessCache(
     @engine.setter
     def engine(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db64b6c69d929608090194c9d83216677c91f2080ab6d4f59737f93d2e492503)
+            type_hints = cached_type_hints(_typecheckingstub__db64b6c69d929608090194c9d83216677c91f2080ab6d4f59737f93d2e492503)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -6425,7 +6419,7 @@ class CfnServerlessCache(
     @serverless_cache_name.setter
     def serverless_cache_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c553e861158121ce7a0545fdcf543b7615bf13ddc0bbd93cb52e72e27acd09d7)
+            type_hints = cached_type_hints(_typecheckingstub__c553e861158121ce7a0545fdcf543b7615bf13ddc0bbd93cb52e72e27acd09d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverlessCacheName", value) # pyright: ignore[reportArgumentType]
 
@@ -6433,17 +6427,17 @@ class CfnServerlessCache(
     @jsii.member(jsii_name="cacheUsageLimits")
     def cache_usage_limits(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.CacheUsageLimitsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]]:
         '''The cache usage limit for the serverless cache.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.CacheUsageLimitsProperty"]], jsii.get(self, "cacheUsageLimits"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]], jsii.get(self, "cacheUsageLimits"))
 
     @cache_usage_limits.setter
     def cache_usage_limits(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.CacheUsageLimitsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a90cce9924849d9cc9e8f897f51cd6502787503e9fe6f9c0b146111c1c445aa8)
+            type_hints = cached_type_hints(_typecheckingstub__a90cce9924849d9cc9e8f897f51cd6502787503e9fe6f9c0b146111c1c445aa8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheUsageLimits", value) # pyright: ignore[reportArgumentType]
 
@@ -6456,7 +6450,7 @@ class CfnServerlessCache(
     @daily_snapshot_time.setter
     def daily_snapshot_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4072f21fb5867be241aa2784268fe8e3463d10cd511019b8f3599ec5d5c2cd2)
+            type_hints = cached_type_hints(_typecheckingstub__e4072f21fb5867be241aa2784268fe8e3463d10cd511019b8f3599ec5d5c2cd2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dailySnapshotTime", value) # pyright: ignore[reportArgumentType]
 
@@ -6469,7 +6463,7 @@ class CfnServerlessCache(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6ee9bbb29fab9e6641d85980e882cc3db988c37421cc1d376048cdf7dfdcb06)
+            type_hints = cached_type_hints(_typecheckingstub__b6ee9bbb29fab9e6641d85980e882cc3db988c37421cc1d376048cdf7dfdcb06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -6477,17 +6471,17 @@ class CfnServerlessCache(
     @jsii.member(jsii_name="endpoint")
     def endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]]:
         '''Represents the information required for client programs to connect to a cache node.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]], jsii.get(self, "endpoint"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]], jsii.get(self, "endpoint"))
 
     @endpoint.setter
     def endpoint(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf26818381fc6b07f8a2615330e14830cc8722c7bea067d80e6017ceab59af6a)
+            type_hints = cached_type_hints(_typecheckingstub__cf26818381fc6b07f8a2615330e14830cc8722c7bea067d80e6017ceab59af6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -6500,7 +6494,7 @@ class CfnServerlessCache(
     @final_snapshot_name.setter
     def final_snapshot_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62246ee954ddcb344e45c430ef7cbe75d5a3b692a00d6e538baa399c5cab349a)
+            type_hints = cached_type_hints(_typecheckingstub__62246ee954ddcb344e45c430ef7cbe75d5a3b692a00d6e538baa399c5cab349a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "finalSnapshotName", value) # pyright: ignore[reportArgumentType]
 
@@ -6513,7 +6507,7 @@ class CfnServerlessCache(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cc8a3d052be3fabfdfe466bf509434f5707efc6a6dcd0770cc1a1b97e07a80)
+            type_hints = cached_type_hints(_typecheckingstub__c8cc8a3d052be3fabfdfe466bf509434f5707efc6a6dcd0770cc1a1b97e07a80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -6526,7 +6520,7 @@ class CfnServerlessCache(
     @major_engine_version.setter
     def major_engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__618e7242f4c8d6ea2092e93310602455166596d1a96215a2fb33d826bbe5fd29)
+            type_hints = cached_type_hints(_typecheckingstub__618e7242f4c8d6ea2092e93310602455166596d1a96215a2fb33d826bbe5fd29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "majorEngineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -6539,7 +6533,7 @@ class CfnServerlessCache(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf4a42d0a8e428b5d09e700c7a150e757e0e61e715630dec4d4f4cc08759ad62)
+            type_hints = cached_type_hints(_typecheckingstub__bf4a42d0a8e428b5d09e700c7a150e757e0e61e715630dec4d4f4cc08759ad62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -6547,17 +6541,17 @@ class CfnServerlessCache(
     @jsii.member(jsii_name="readerEndpoint")
     def reader_endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]]:
         '''Represents the information required for client programs to connect to a cache node.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]], jsii.get(self, "readerEndpoint"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]], jsii.get(self, "readerEndpoint"))
 
     @reader_endpoint.setter
     def reader_endpoint(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e3145e59d2b03c61c29dd7fc18ce6d775561dcfa018b131c81d1f6e06fcd65)
+            type_hints = cached_type_hints(_typecheckingstub__d7e3145e59d2b03c61c29dd7fc18ce6d775561dcfa018b131c81d1f6e06fcd65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readerEndpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -6573,7 +6567,7 @@ class CfnServerlessCache(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c96776cfdc2836177648dc34a892d382e760b03e46d603807886c25a9fc1d103)
+            type_hints = cached_type_hints(_typecheckingstub__c96776cfdc2836177648dc34a892d382e760b03e46d603807886c25a9fc1d103)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -6589,7 +6583,7 @@ class CfnServerlessCache(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2e490a4ceeec73f3d373a179650cfec51a7cf58d7c4e7f5b06544dd1a2df316)
+            type_hints = cached_type_hints(_typecheckingstub__b2e490a4ceeec73f3d373a179650cfec51a7cf58d7c4e7f5b06544dd1a2df316)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotArnsToRestore", value) # pyright: ignore[reportArgumentType]
 
@@ -6602,7 +6596,7 @@ class CfnServerlessCache(
     @snapshot_retention_limit.setter
     def snapshot_retention_limit(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fe4130c8869d67e8891f2bbbc10c149c15af0b801a4c9393fe4b4bcc848e3f0)
+            type_hints = cached_type_hints(_typecheckingstub__4fe4130c8869d67e8891f2bbbc10c149c15af0b801a4c9393fe4b4bcc848e3f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotRetentionLimit", value) # pyright: ignore[reportArgumentType]
 
@@ -6615,20 +6609,23 @@ class CfnServerlessCache(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ca2b56b13f3d8c09fd6a0e74df162e790fe2013d9a8d3d546b7b1aa5af8b507)
+            type_hints = cached_type_hints(_typecheckingstub__9ca2b56b13f3d8c09fd6a0e74df162e790fe2013d9a8d3d546b7b1aa5af8b507)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2054e990234791671dd0f6c1b491baebdfaaa093bc590373b8cbe5d6a7dec291)
+            type_hints = cached_type_hints(_typecheckingstub__2054e990234791671dd0f6c1b491baebdfaaa093bc590373b8cbe5d6a7dec291)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6641,7 +6638,7 @@ class CfnServerlessCache(
     @user_group_id.setter
     def user_group_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b592bfec207d3f2428902a54fb8adfacc60bdb7a83c47e12c1b4d76ac68444ff)
+            type_hints = cached_type_hints(_typecheckingstub__b592bfec207d3f2428902a54fb8adfacc60bdb7a83c47e12c1b4d76ac68444ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -6657,8 +6654,8 @@ class CfnServerlessCache(
         def __init__(
             self,
             *,
-            data_storage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.DataStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ecpu_per_second: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.ECPUPerSecondProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_storage: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.DataStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ecpu_per_second: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.ECPUPerSecondProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The usage limits for storage and ElastiCache Processing Units for the cache.
 
@@ -6689,7 +6686,7 @@ class CfnServerlessCache(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__77ebaaf0b703f3ff0164d4845d37449699aec6cbe500ff6d63278a3a64427450)
+                type_hints = cached_type_hints(_typecheckingstub__77ebaaf0b703f3ff0164d4845d37449699aec6cbe500ff6d63278a3a64427450)
                 check_type(argname="argument data_storage", value=data_storage, expected_type=type_hints["data_storage"])
                 check_type(argname="argument ecpu_per_second", value=ecpu_per_second, expected_type=type_hints["ecpu_per_second"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6701,24 +6698,24 @@ class CfnServerlessCache(
         @builtins.property
         def data_storage(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.DataStorageProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.DataStorageProperty"]]:
             '''The maximum data storage limit in the cache, expressed in Gigabytes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscache-cacheusagelimits.html#cfn-elasticache-serverlesscache-cacheusagelimits-datastorage
             '''
             result = self._values.get("data_storage")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.DataStorageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.DataStorageProperty"]], result)
 
         @builtins.property
         def ecpu_per_second(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.ECPUPerSecondProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.ECPUPerSecondProperty"]]:
             '''The number of ElastiCache Processing Units (ECPU) the cache can consume per second.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscache-cacheusagelimits.html#cfn-elasticache-serverlesscache-cacheusagelimits-ecpupersecond
             '''
             result = self._values.get("ecpu_per_second")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.ECPUPerSecondProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.ECPUPerSecondProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6768,7 +6765,7 @@ class CfnServerlessCache(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__14470b22401430bce81195b8e644412f38b76011c8cab7fa8399081bd44b546d)
+                type_hints = cached_type_hints(_typecheckingstub__14470b22401430bce81195b8e644412f38b76011c8cab7fa8399081bd44b546d)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument maximum", value=maximum, expected_type=type_hints["maximum"])
                 check_type(argname="argument minimum", value=minimum, expected_type=type_hints["minimum"])
@@ -6851,7 +6848,7 @@ class CfnServerlessCache(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a4a85c1f856007000025702b1b01488e1f0726e767adf52fbf709f88ed3720f1)
+                type_hints = cached_type_hints(_typecheckingstub__a4a85c1f856007000025702b1b01488e1f0726e767adf52fbf709f88ed3720f1)
                 check_type(argname="argument maximum", value=maximum, expected_type=type_hints["maximum"])
                 check_type(argname="argument minimum", value=minimum, expected_type=type_hints["minimum"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6923,7 +6920,7 @@ class CfnServerlessCache(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e66cf1143a0bb8344a2f8dd0d18b42b664e7256d7ac1eb56ff9cab6b66fff5d5)
+                type_hints = cached_type_hints(_typecheckingstub__e66cf1143a0bb8344a2f8dd0d18b42b664e7256d7ac1eb56ff9cab6b66fff5d5)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6991,21 +6988,21 @@ class CfnServerlessCacheProps:
         *,
         engine: builtins.str,
         serverless_cache_name: builtins.str,
-        cache_usage_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_usage_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         daily_snapshot_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         final_snapshot_name: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         major_engine_version: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
-        reader_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        reader_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-        subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_group_id: typing.Optional[typing.Union[builtins.str, "_IUserGroupRef_2cd8e96b"]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_group_id: typing.Optional[typing.Union[builtins.str, "_aws_elasticache_452416cc.IUserGroupRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServerlessCache``.
 
@@ -7081,7 +7078,7 @@ class CfnServerlessCacheProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b02f5886c)
+            type_hints = cached_type_hints(_typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b02f5886c)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument serverless_cache_name", value=serverless_cache_name, expected_type=type_hints["serverless_cache_name"])
             check_type(argname="argument cache_usage_limits", value=cache_usage_limits, expected_type=type_hints["cache_usage_limits"])
@@ -7157,13 +7154,13 @@ class CfnServerlessCacheProps:
     @builtins.property
     def cache_usage_limits(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.CacheUsageLimitsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]]:
         '''The cache usage limit for the serverless cache.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-cacheusagelimits
         '''
         result = self._values.get("cache_usage_limits")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.CacheUsageLimitsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]], result)
 
     @builtins.property
     def daily_snapshot_time(self) -> typing.Optional[builtins.str]:
@@ -7188,7 +7185,7 @@ class CfnServerlessCacheProps:
     @builtins.property
     def endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]]:
         '''Represents the information required for client programs to connect to a cache node.
 
         This value is read-only.
@@ -7196,7 +7193,7 @@ class CfnServerlessCacheProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-endpoint
         '''
         result = self._values.get("endpoint")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]], result)
 
     @builtins.property
     def final_snapshot_name(self) -> typing.Optional[builtins.str]:
@@ -7210,13 +7207,13 @@ class CfnServerlessCacheProps:
     @builtins.property
     def kms_key_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The ID of the AWS Key Management Service (KMS) key that is used to encrypt data at rest in the serverless cache.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-kmskeyid
         '''
         result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def major_engine_version(self) -> typing.Optional[builtins.str]:
@@ -7241,7 +7238,7 @@ class CfnServerlessCacheProps:
     @builtins.property
     def reader_endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]]:
         '''Represents the information required for client programs to connect to a cache node.
 
         This value is read-only.
@@ -7249,18 +7246,18 @@ class CfnServerlessCacheProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-readerendpoint
         '''
         result = self._values.get("reader_endpoint")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnServerlessCache.EndpointProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.EndpointProperty"]], result)
 
     @builtins.property
     def security_group_ids(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''The IDs of the EC2 security groups associated with the serverless cache.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-securitygroupids
         '''
         result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
     def snapshot_arns_to_restore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7285,7 +7282,7 @@ class CfnServerlessCacheProps:
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]]:
         '''If no subnet IDs are given and your VPC is in us-west-1, then ElastiCache will select 2 default subnets across AZs in your VPC.
 
         For all other Regions, if no subnet IDs are given then ElastiCache will select 3 default subnets across AZs in your default VPC.
@@ -7293,21 +7290,21 @@ class CfnServerlessCacheProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-subnetids
         '''
         result = self._values.get("subnet_ids")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be added to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def user_group_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IUserGroupRef_2cd8e96b"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_elasticache_452416cc.IUserGroupRef"]]:
         '''The identifier of the user group associated with the serverless cache.
 
         Available for Valkey and Redis OSS only. Default is NULL.
@@ -7315,7 +7312,7 @@ class CfnServerlessCacheProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-usergroupid
         '''
         result = self._values.get("user_group_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IUserGroupRef_2cd8e96b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_elasticache_452416cc.IUserGroupRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7329,9 +7326,9 @@ class CfnServerlessCacheProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISubnetGroupRef_b7141182, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISubnetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSubnetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnSubnetGroup",
 ):
@@ -7369,9 +7366,9 @@ class CfnSubnetGroup(
         id: builtins.str,
         *,
         description: builtins.str,
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::SubnetGroup``.
 
@@ -7383,7 +7380,7 @@ class CfnSubnetGroup(
         :param tags: A tag that can be added to an ElastiCache subnet group. Tags are composed of a Key/Value pair. You can use tags to categorize and track all your subnet groups. A tag with a null Value is permitted.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d31f960507f2c9e3587baf93d99fa25f2747d0865408ff081e5c5230bf44b04)
+            type_hints = cached_type_hints(_typecheckingstub__1d31f960507f2c9e3587baf93d99fa25f2747d0865408ff081e5c5230bf44b04)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSubnetGroupProps(
@@ -7399,13 +7396,13 @@ class CfnSubnetGroup(
     @builtins.classmethod
     def arn_for_subnet_group(
         cls,
-        resource: "_ISubnetGroupRef_b7141182",
+        resource: "_aws_elasticache_452416cc.ISubnetGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb943e4cb8962a255ad875af86b90780e5ab5df4ae4734e1cb98ac4dfe7269f4)
+            type_hints = cached_type_hints(_typecheckingstub__bb943e4cb8962a255ad875af86b90780e5ab5df4ae4734e1cb98ac4dfe7269f4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSubnetGroup", [resource]))
 
@@ -7416,7 +7413,7 @@ class CfnSubnetGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cache_subnet_group_name: builtins.str,
-    ) -> "_ISubnetGroupRef_b7141182":
+    ) -> "_aws_elasticache_452416cc.ISubnetGroupRef":
         '''Creates a new ISubnetGroupRef from a cacheSubnetGroupName.
 
         :param scope: -
@@ -7424,11 +7421,11 @@ class CfnSubnetGroup(
         :param cache_subnet_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__304329a736f16ad53a5d51fb81b5e2a5479aa5c80328667e02fc5e9f06cacc15)
+            type_hints = cached_type_hints(_typecheckingstub__304329a736f16ad53a5d51fb81b5e2a5479aa5c80328667e02fc5e9f06cacc15)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cache_subnet_group_name", value=cache_subnet_group_name, expected_type=type_hints["cache_subnet_group_name"])
-        return typing.cast("_ISubnetGroupRef_b7141182", jsii.sinvoke(cls, "fromCacheSubnetGroupName", [scope, id, cache_subnet_group_name]))
+        return typing.cast("_aws_elasticache_452416cc.ISubnetGroupRef", jsii.sinvoke(cls, "fromCacheSubnetGroupName", [scope, id, cache_subnet_group_name]))
 
     @jsii.member(jsii_name="isCfnSubnetGroup")
     @builtins.classmethod
@@ -7438,18 +7435,18 @@ class CfnSubnetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4856c283e14a5ac7fd92bed509d72582847e0cc23b10042debea584c6632e40c)
+            type_hints = cached_type_hints(_typecheckingstub__4856c283e14a5ac7fd92bed509d72582847e0cc23b10042debea584c6632e40c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSubnetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e74c02a4794273fd857125de793130ad00a35e7107b9a052fd9729c834e8c03)
+            type_hints = cached_type_hints(_typecheckingstub__8e74c02a4794273fd857125de793130ad00a35e7107b9a052fd9729c834e8c03)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7462,7 +7459,7 @@ class CfnSubnetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c394e0da879e36e1158aa11a6d2a3848b9c833cd6c8b791f2a306dcd1d6bc39)
+            type_hints = cached_type_hints(_typecheckingstub__7c394e0da879e36e1158aa11a6d2a3848b9c833cd6c8b791f2a306dcd1d6bc39)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7484,15 +7481,15 @@ class CfnSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroupRef")
-    def subnet_group_ref(self) -> "_SubnetGroupReference_532b6eda":
+    def subnet_group_ref(self) -> "_aws_elasticache_452416cc.SubnetGroupReference":
         '''A reference to a SubnetGroup resource.'''
-        return typing.cast("_SubnetGroupReference_532b6eda", jsii.get(self, "subnetGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.SubnetGroupReference", jsii.get(self, "subnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7503,7 +7500,7 @@ class CfnSubnetGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c5ab35ff7baba1205becdb157e37a43b2ffdb8d78b6a89812dec13e870110ee)
+            type_hints = cached_type_hints(_typecheckingstub__8c5ab35ff7baba1205becdb157e37a43b2ffdb8d78b6a89812dec13e870110ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -7516,7 +7513,7 @@ class CfnSubnetGroup(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__406b48aa434500b28470efd76a3cfb00968662ddd966571565ba3c47788bd26d)
+            type_hints = cached_type_hints(_typecheckingstub__406b48aa434500b28470efd76a3cfb00968662ddd966571565ba3c47788bd26d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -7532,20 +7529,23 @@ class CfnSubnetGroup(
     @cache_subnet_group_name.setter
     def cache_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26295a8a2dc7d2b6948d4efdcca51f3722ed36bec5ced2fbf24d774ea7b28163)
+            type_hints = cached_type_hints(_typecheckingstub__26295a8a2dc7d2b6948d4efdcca51f3722ed36bec5ced2fbf24d774ea7b28163)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheSubnetGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache subnet group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f6670815d10d752e7b16bcf0f681bfa6e802161e1b1eba4c63dd3a6d9846719)
+            type_hints = cached_type_hints(_typecheckingstub__3f6670815d10d752e7b16bcf0f681bfa6e802161e1b1eba4c63dd3a6d9846719)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7565,9 +7565,9 @@ class CfnSubnetGroupProps:
         self,
         *,
         description: builtins.str,
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSubnetGroup``.
 
@@ -7599,7 +7599,7 @@ class CfnSubnetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4b45c5c5c7c2f90c8c0fc4304349cfb95eff57e46669706a32a0b5b73fc2139)
+            type_hints = cached_type_hints(_typecheckingstub__a4b45c5c5c7c2f90c8c0fc4304349cfb95eff57e46669706a32a0b5b73fc2139)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument cache_subnet_group_name", value=cache_subnet_group_name, expected_type=type_hints["cache_subnet_group_name"])
@@ -7626,14 +7626,14 @@ class CfnSubnetGroupProps:
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]:
         '''The EC2 subnet IDs for the cache subnet group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-subnetgroup.html#cfn-elasticache-subnetgroup-subnetids
         '''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]], result)
 
     @builtins.property
     def cache_subnet_group_name(self) -> typing.Optional[builtins.str]:
@@ -7649,7 +7649,7 @@ class CfnSubnetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag that can be added to an ElastiCache subnet group.
 
         Tags are composed of a Key/Value pair. You can use tags to categorize and track all your subnet groups. A tag with a null Value is permitted.
@@ -7657,7 +7657,7 @@ class CfnSubnetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-subnetgroup.html#cfn-elasticache-subnetgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7671,9 +7671,9 @@ class CfnSubnetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserRef_7cc9cbc0, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IUserRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUser(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnUser",
 ):
@@ -7719,9 +7719,9 @@ class CfnUser(
         user_name: builtins.str,
         access_string: typing.Optional[builtins.str] = None,
         authentication_mode: typing.Any = None,
-        no_password_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        no_password_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::User``.
 
@@ -7737,7 +7737,7 @@ class CfnUser(
         :param tags: The list of tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3690e849b3e5bf7f482e77652d683906b1133738dbc72aea39d0186729f84fd0)
+            type_hints = cached_type_hints(_typecheckingstub__3690e849b3e5bf7f482e77652d683906b1133738dbc72aea39d0186729f84fd0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserProps(
@@ -7755,12 +7755,15 @@ class CfnUser(
 
     @jsii.member(jsii_name="arnForUser")
     @builtins.classmethod
-    def arn_for_user(cls, resource: "_IUserRef_7cc9cbc0") -> builtins.str:
+    def arn_for_user(
+        cls,
+        resource: "_aws_elasticache_452416cc.IUserRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7926c8228d0cbec24c73cc68885b3ac11dad5f7f4b6f913d423e08f7143e5eba)
+            type_hints = cached_type_hints(_typecheckingstub__7926c8228d0cbec24c73cc68885b3ac11dad5f7f4b6f913d423e08f7143e5eba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
 
@@ -7772,18 +7775,18 @@ class CfnUser(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f23ad89d2ccf92bb123aee99903910f8b0d1cc65aa8c6270ff8520b73b505375)
+            type_hints = cached_type_hints(_typecheckingstub__f23ad89d2ccf92bb123aee99903910f8b0d1cc65aa8c6270ff8520b73b505375)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUser", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8027fd2dc9d1d9c383f787790509ce0a31493b0c5928b63706caf8cd2096acf)
+            type_hints = cached_type_hints(_typecheckingstub__a8027fd2dc9d1d9c383f787790509ce0a31493b0c5928b63706caf8cd2096acf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7796,7 +7799,7 @@ class CfnUser(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d2c24ac7e99a31a4e0d4135ea5447976f3d5233d9d0e77c498d74df49e859a5)
+            type_hints = cached_type_hints(_typecheckingstub__0d2c24ac7e99a31a4e0d4135ea5447976f3d5233d9d0e77c498d74df49e859a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7838,15 +7841,15 @@ class CfnUser(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "_UserReference_7ff80ad9":
+    def user_ref(self) -> "_aws_elasticache_452416cc.UserReference":
         '''A reference to a User resource.'''
-        return typing.cast("_UserReference_7ff80ad9", jsii.get(self, "userRef"))
+        return typing.cast("_aws_elasticache_452416cc.UserReference", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authenticationMode")
@@ -7860,7 +7863,7 @@ class CfnUser(
     @authentication_mode.setter
     def authentication_mode(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
+            type_hints = cached_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
 
@@ -7873,7 +7876,7 @@ class CfnUser(
     @engine.setter
     def engine(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74df73fc62abe9fa1155cea79085975215d2cc3a30983f4b784d74b2d8dafec0)
+            type_hints = cached_type_hints(_typecheckingstub__74df73fc62abe9fa1155cea79085975215d2cc3a30983f4b784d74b2d8dafec0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -7886,7 +7889,7 @@ class CfnUser(
     @user_id.setter
     def user_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45b8eb0ca4560239c33c66aef6a7b3087bdea40d47268790b66085c594bb3ae1)
+            type_hints = cached_type_hints(_typecheckingstub__45b8eb0ca4560239c33c66aef6a7b3087bdea40d47268790b66085c594bb3ae1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userId", value) # pyright: ignore[reportArgumentType]
 
@@ -7899,7 +7902,7 @@ class CfnUser(
     @user_name.setter
     def user_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82b6eed2d66e57932003ce447ee4a3219513ca0c8161fae47c096809d764af5c)
+            type_hints = cached_type_hints(_typecheckingstub__82b6eed2d66e57932003ce447ee4a3219513ca0c8161fae47c096809d764af5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -7912,7 +7915,7 @@ class CfnUser(
     @access_string.setter
     def access_string(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64)
+            type_hints = cached_type_hints(_typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessString", value) # pyright: ignore[reportArgumentType]
 
@@ -7920,17 +7923,17 @@ class CfnUser(
     @jsii.member(jsii_name="noPasswordRequired")
     def no_password_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates a password is not required for this user.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "noPasswordRequired"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "noPasswordRequired"))
 
     @no_password_required.setter
     def no_password_required(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dc0162c51746ac68f8e6c599bd425920aec49776f251d176073c998647b402e)
+            type_hints = cached_type_hints(_typecheckingstub__1dc0162c51746ac68f8e6c599bd425920aec49776f251d176073c998647b402e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "noPasswordRequired", value) # pyright: ignore[reportArgumentType]
 
@@ -7943,20 +7946,23 @@ class CfnUser(
     @passwords.setter
     def passwords(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd01953837fe46505e356e5e6f503c48a5037161ed165b5dfa3d2124c10bf225)
+            type_hints = cached_type_hints(_typecheckingstub__fd01953837fe46505e356e5e6f503c48a5037161ed165b5dfa3d2124c10bf225)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "passwords", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eda53c926e8acd673280fda87bee7f7bcf1def006ab1883b24a6a077e43b7449)
+            type_hints = cached_type_hints(_typecheckingstub__eda53c926e8acd673280fda87bee7f7bcf1def006ab1883b24a6a077e43b7449)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7994,7 +8000,7 @@ class CfnUser(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec04d0248d22cdd45ac6431c550d1bdf03740a43412b686373b189e770fd0d91)
+                type_hints = cached_type_hints(_typecheckingstub__ec04d0248d22cdd45ac6431c550d1bdf03740a43412b686373b189e770fd0d91)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument passwords", value=passwords, expected_type=type_hints["passwords"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8036,9 +8042,9 @@ class CfnUser(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserGroupRef_2cd8e96b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IUserGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUserGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticache.CfnUserGroup",
 ):
@@ -8076,7 +8082,7 @@ class CfnUserGroup(
         engine: builtins.str,
         user_group_id: builtins.str,
         user_ids: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::UserGroup``.
 
@@ -8088,7 +8094,7 @@ class CfnUserGroup(
         :param tags: The list of tags.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc142924e04b2348d54a42d3f1272d7a6d9f1886d6e9133f1a0ed55abcda10a)
+            type_hints = cached_type_hints(_typecheckingstub__ecc142924e04b2348d54a42d3f1272d7a6d9f1886d6e9133f1a0ed55abcda10a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserGroupProps(
@@ -8099,12 +8105,15 @@ class CfnUserGroup(
 
     @jsii.member(jsii_name="arnForUserGroup")
     @builtins.classmethod
-    def arn_for_user_group(cls, resource: "_IUserGroupRef_2cd8e96b") -> builtins.str:
+    def arn_for_user_group(
+        cls,
+        resource: "_aws_elasticache_452416cc.IUserGroupRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8586bb4703f8da74dfa920ad16d7601405cd6a48e174ef6ad526f45c08786d35)
+            type_hints = cached_type_hints(_typecheckingstub__8586bb4703f8da74dfa920ad16d7601405cd6a48e174ef6ad526f45c08786d35)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUserGroup", [resource]))
 
@@ -8115,7 +8124,7 @@ class CfnUserGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IUserGroupRef_2cd8e96b":
+    ) -> "_aws_elasticache_452416cc.IUserGroupRef":
         '''Creates a new IUserGroupRef from an ARN.
 
         :param scope: -
@@ -8123,11 +8132,11 @@ class CfnUserGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__071f8f2a53921a660313da6b0f19e710249765b730ea6a1912ec3f134bb9ec39)
+            type_hints = cached_type_hints(_typecheckingstub__071f8f2a53921a660313da6b0f19e710249765b730ea6a1912ec3f134bb9ec39)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IUserGroupRef_2cd8e96b", jsii.sinvoke(cls, "fromUserGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_elasticache_452416cc.IUserGroupRef", jsii.sinvoke(cls, "fromUserGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromUserGroupId")
     @builtins.classmethod
@@ -8136,7 +8145,7 @@ class CfnUserGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         user_group_id: builtins.str,
-    ) -> "_IUserGroupRef_2cd8e96b":
+    ) -> "_aws_elasticache_452416cc.IUserGroupRef":
         '''Creates a new IUserGroupRef from a userGroupId.
 
         :param scope: -
@@ -8144,11 +8153,11 @@ class CfnUserGroup(
         :param user_group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62870b7cae1aae9a748108436bc35968fb2710fa07aee55166cf231352583450)
+            type_hints = cached_type_hints(_typecheckingstub__62870b7cae1aae9a748108436bc35968fb2710fa07aee55166cf231352583450)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_group_id", value=user_group_id, expected_type=type_hints["user_group_id"])
-        return typing.cast("_IUserGroupRef_2cd8e96b", jsii.sinvoke(cls, "fromUserGroupId", [scope, id, user_group_id]))
+        return typing.cast("_aws_elasticache_452416cc.IUserGroupRef", jsii.sinvoke(cls, "fromUserGroupId", [scope, id, user_group_id]))
 
     @jsii.member(jsii_name="isCfnUserGroup")
     @builtins.classmethod
@@ -8158,18 +8167,18 @@ class CfnUserGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecfb9c9712ca97e11feb7313d43fb85b857cd42c6e1cb8468b5754e7667261d2)
+            type_hints = cached_type_hints(_typecheckingstub__ecfb9c9712ca97e11feb7313d43fb85b857cd42c6e1cb8468b5754e7667261d2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a5d03fb1ca11359d2e12cf9829f5c78e442be6d3175a5f56c52bd5c800742a5)
+            type_hints = cached_type_hints(_typecheckingstub__6a5d03fb1ca11359d2e12cf9829f5c78e442be6d3175a5f56c52bd5c800742a5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -8182,7 +8191,7 @@ class CfnUserGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__450a9b959ab13e887b9b352f9708de268fb109cca3789dc4eeea0989d1c33d28)
+            type_hints = cached_type_hints(_typecheckingstub__450a9b959ab13e887b9b352f9708de268fb109cca3789dc4eeea0989d1c33d28)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -8224,15 +8233,15 @@ class CfnUserGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userGroupRef")
-    def user_group_ref(self) -> "_UserGroupReference_d89cdf7b":
+    def user_group_ref(self) -> "_aws_elasticache_452416cc.UserGroupReference":
         '''A reference to a UserGroup resource.'''
-        return typing.cast("_UserGroupReference_d89cdf7b", jsii.get(self, "userGroupRef"))
+        return typing.cast("_aws_elasticache_452416cc.UserGroupReference", jsii.get(self, "userGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -8243,7 +8252,7 @@ class CfnUserGroup(
     @engine.setter
     def engine(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e431968f516bc728e154bbd117b40cd38af16bf361c399b85db4f54094ac994)
+            type_hints = cached_type_hints(_typecheckingstub__6e431968f516bc728e154bbd117b40cd38af16bf361c399b85db4f54094ac994)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -8256,7 +8265,7 @@ class CfnUserGroup(
     @user_group_id.setter
     def user_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a2d97633ea9a0c04b7eee81db8315453f4d5e7436b511bc476886df00a72145)
+            type_hints = cached_type_hints(_typecheckingstub__7a2d97633ea9a0c04b7eee81db8315453f4d5e7436b511bc476886df00a72145)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -8269,20 +8278,23 @@ class CfnUserGroup(
     @user_ids.setter
     def user_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537c18038663c50194ccf261d54d663088b0bde017663b14868ca50759a76109)
+            type_hints = cached_type_hints(_typecheckingstub__537c18038663c50194ccf261d54d663088b0bde017663b14868ca50759a76109)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of tags.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f91d8988fa4ff59ae0f0f6e912aaa87f88df9ee98afddb86934a2611c1d0da39)
+            type_hints = cached_type_hints(_typecheckingstub__f91d8988fa4ff59ae0f0f6e912aaa87f88df9ee98afddb86934a2611c1d0da39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -8304,7 +8316,7 @@ class CfnUserGroupProps:
         engine: builtins.str,
         user_group_id: builtins.str,
         user_ids: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserGroup``.
 
@@ -8336,7 +8348,7 @@ class CfnUserGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__781d57350a7876de81adb05f4b5f1c6a6733fe48684f64bf990d3377377290ab)
+            type_hints = cached_type_hints(_typecheckingstub__781d57350a7876de81adb05f4b5f1c6a6733fe48684f64bf990d3377377290ab)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument user_group_id", value=user_group_id, expected_type=type_hints["user_group_id"])
             check_type(argname="argument user_ids", value=user_ids, expected_type=type_hints["user_ids"])
@@ -8382,13 +8394,13 @@ class CfnUserGroupProps:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-usergroup.html#cfn-elasticache-usergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8425,9 +8437,9 @@ class CfnUserProps:
         user_name: builtins.str,
         access_string: typing.Optional[builtins.str] = None,
         authentication_mode: typing.Any = None,
-        no_password_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        no_password_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUser``.
 
@@ -8469,7 +8481,7 @@ class CfnUserProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd58f3eed78cb4ce0cff0a0f48e20670425d5891d9c8b2bd0b6006a78cfe7ab5)
+            type_hints = cached_type_hints(_typecheckingstub__cd58f3eed78cb4ce0cff0a0f48e20670425d5891d9c8b2bd0b6006a78cfe7ab5)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
@@ -8550,13 +8562,13 @@ class CfnUserProps:
     @builtins.property
     def no_password_required(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates a password is not required for this user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-user.html#cfn-elasticache-user-nopasswordrequired
         '''
         result = self._values.get("no_password_required")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def passwords(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8570,13 +8582,13 @@ class CfnUserProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The list of tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-user.html#cfn-elasticache-user-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8622,7 +8634,7 @@ def _typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b
     cache_node_type: builtins.str,
     engine: builtins.str,
     num_cache_nodes: jsii.Number,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     az_mode: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8630,7 +8642,7 @@ def _typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b
     cluster_name: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     ip_discovery: typing.Optional[builtins.str] = None,
-    log_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCacheCluster.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
@@ -8641,8 +8653,8 @@ def _typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b
     snapshot_name: typing.Optional[builtins.str] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
     snapshot_window: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8655,7 +8667,7 @@ def _typecheckingstub__4aaa2f41702ba216c91be2fb19a63b62c61e1b65839c361929bde609d
     pass
 
 def _typecheckingstub__ae530a9eb0474b9ffc367e7c2714f1d8b14943c9354c6c91d798290bf12e70ef(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8685,7 +8697,7 @@ def _typecheckingstub__3efa7fe979ad2ca65054b031fb5cd53cdae6a1094de4cdb6bc9c480d5
     pass
 
 def _typecheckingstub__b74ab91b309fe8b033442df78ec7c947ef8b8ceac25b5fb4347e7e697fb388da(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8733,7 +8745,7 @@ def _typecheckingstub__9d9fae8437c1df5da80ef1dcc1d540757d3eeed744bbf8056a118a155
     pass
 
 def _typecheckingstub__92cc1290aacd3e87fdb8540c5a430dd3781b4d21f64685730ff4176b05840454(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCacheCluster.LogDeliveryConfigurationRequestProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCacheCluster.LogDeliveryConfigurationRequestProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8799,13 +8811,13 @@ def _typecheckingstub__00985af0e32e63259c356a919afbcf2f8aec8c2faedaece96112bbb03
     pass
 
 def _typecheckingstub__bb033789ee709e38cf2df5c67f41474c2337ba8ce07eac9ee4a2c714fc9bc989(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5b5c36f3eb4db3de564bb875816a147602a4348d296a24fafccdae0acba9440b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8825,8 +8837,8 @@ def _typecheckingstub__b917ac927a2387372c693a2f8b0fcb5f6774e69a0fe6f786bb4da65af
 
 def _typecheckingstub__000cbd02f7786299cee1e93bf5afb34c16e6ab92a2447aa9f4bf42256a0a51f1(
     *,
-    cloud_watch_logs_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_firehose_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_firehose_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8848,7 +8860,7 @@ def _typecheckingstub__5cae1eb34767a8b034d88d62d4b6f18e4d990339139fe3e1e6652a416
 
 def _typecheckingstub__11fd3bc6d619f2fdddcc4d0adb3f2c760e25cb0796cacc1c490de7b091ee75a0(
     *,
-    destination_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.DestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCacheCluster.DestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     destination_type: builtins.str,
     log_format: builtins.str,
     log_type: builtins.str,
@@ -8861,7 +8873,7 @@ def _typecheckingstub__d011d844fc37e1278b56242476eb6678a2ec76110ae295205b5726022
     cache_node_type: builtins.str,
     engine: builtins.str,
     num_cache_nodes: jsii.Number,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     az_mode: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8869,7 +8881,7 @@ def _typecheckingstub__d011d844fc37e1278b56242476eb6678a2ec76110ae295205b5726022
     cluster_name: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     ip_discovery: typing.Optional[builtins.str] = None,
-    log_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCacheCluster.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
@@ -8880,8 +8892,8 @@ def _typecheckingstub__d011d844fc37e1278b56242476eb6678a2ec76110ae295205b5726022
     snapshot_name: typing.Optional[builtins.str] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
     snapshot_window: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8891,8 +8903,8 @@ def _typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e77
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    members: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cache_node_type: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
@@ -8900,13 +8912,13 @@ def _typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e77
     global_node_group_count: typing.Optional[jsii.Number] = None,
     global_replication_group_description: typing.Optional[builtins.str] = None,
     global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
-    regional_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    regional_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0106bf96c7e277c536b122f1c2c319b78235bf49c80c0f7e57a46e74e8286d90(
-    resource: _IGlobalReplicationGroupRef_64ba38b1,
+    resource: _aws_elasticache_452416cc.IGlobalReplicationGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8926,7 +8938,7 @@ def _typecheckingstub__6ad463ddac0fbb43c0ecf0e44af152421cb487a8aa517ba534f7891c0
     pass
 
 def _typecheckingstub__884a154d8b8e4d93c61fe6b39de707bf773a6d1033e974181f93658b1039c0c4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8938,13 +8950,13 @@ def _typecheckingstub__ab038bf042b008b9efadcbadf432cd0ac40752df55c21a630a9780aae
     pass
 
 def _typecheckingstub__e868e518f50b5b48c699f872e36b8e20be2702ad6acf8d5f4500e986aac55b3d(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8f937e9779d5fe5d88540d353152c5e7637a4c898506e495763dc389bca1a193(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8992,7 +9004,7 @@ def _typecheckingstub__65acba21207d62e08b1c8c4c4f55ea3089c76799e113952d0b5f8bd4e
     pass
 
 def _typecheckingstub__efeee031dd310c05cefd1733ccdb9d7b436fc018669200525c6f11542ae97dac(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalReplicationGroup.RegionalConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGlobalReplicationGroup.RegionalConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9010,7 +9022,7 @@ def _typecheckingstub__aeaef8528e85da7f76144633387f423a352cf7a00b93f64470683d2a6
     *,
     replication_group_id: typing.Optional[builtins.str] = None,
     replication_group_region: typing.Optional[builtins.str] = None,
-    resharding_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalReplicationGroup.ReshardingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resharding_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.ReshardingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9025,8 +9037,8 @@ def _typecheckingstub__f5a9e68366040209fa4fb9f8e50eff4e9b1ae9ea0da836153a13ff22b
 
 def _typecheckingstub__265dda90953e13518f66b5357e00050b92a09e4dfb295f7b765b5b5d55951ace(
     *,
-    members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    members: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cache_node_type: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
@@ -9034,7 +9046,7 @@ def _typecheckingstub__265dda90953e13518f66b5357e00050b92a09e4dfb295f7b765b5b5d5
     global_node_group_count: typing.Optional[jsii.Number] = None,
     global_replication_group_description: typing.Optional[builtins.str] = None,
     global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
-    regional_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    regional_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9045,14 +9057,14 @@ def _typecheckingstub__86f3b322f4ea3d0cc63e18e1b285cc656e6d789289e29668aa7acce95
     *,
     cache_parameter_group_family: builtins.str,
     description: builtins.str,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__baeb5bb005b0dc62dfe17d5f8d9e8c0ae8f658e16abf26ec5a442e932ee292f2(
-    resource: _IParameterGroupRef_f36b5e48,
+    resource: _aws_elasticache_452416cc.IParameterGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9072,7 +9084,7 @@ def _typecheckingstub__c87aaacaf203aaee76799185d0199ad6156873205e3d3c4abdb9e616b
     pass
 
 def _typecheckingstub__4df9ac5cd73e00bfbbdce4db59984040d76705d9fed6f259b98c08569946c00b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9096,13 +9108,13 @@ def _typecheckingstub__131595ea286a946147c38535eb5fcf0537b68b2132e909e191998a1e3
     pass
 
 def _typecheckingstub__ad995d05e00fe4d7296f16776a975d33eb5d75180391440607e5d71ae30d1f08(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f00caea2443ab3a4d0d9d2f1836e1d360d238f759643e2af050c00c5ea4f3efb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9111,8 +9123,8 @@ def _typecheckingstub__56da2ad187e00defe2d3a6812e7eea3611b1990da4526952f58e2f80c
     *,
     cache_parameter_group_family: builtins.str,
     description: builtins.str,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9122,26 +9134,26 @@ def _typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26c
     id: builtins.str,
     *,
     replication_group_description: builtins.str,
-    at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     auth_token: typing.Optional[builtins.str] = None,
-    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cache_node_type: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_mode: typing.Optional[builtins.str] = None,
-    data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     durability: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_replication_group_id: typing.Optional[builtins.str] = None,
     ip_discovery: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    log_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    multi_az_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    log_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multi_az_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    node_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.NodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_group_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.NodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     num_cache_clusters: typing.Optional[jsii.Number] = None,
     num_node_groups: typing.Optional[jsii.Number] = None,
@@ -9157,8 +9169,8 @@ def _typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26c
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
     snapshotting_cluster_id: typing.Optional[builtins.str] = None,
     snapshot_window: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     transit_encryption_mode: typing.Optional[builtins.str] = None,
     user_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -9166,7 +9178,7 @@ def _typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26c
     pass
 
 def _typecheckingstub__1aa68619fe12dd1873fde463f87bd54c026e88221c7456a4593b983308d83dec(
-    resource: _IReplicationGroupRef_0d541dee,
+    resource: _aws_elasticache_452416cc.IReplicationGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9186,7 +9198,7 @@ def _typecheckingstub__dc47b8bd9ce45105245dc2969ea0b9b3ddc87d50046114c018b7c7c9e
     pass
 
 def _typecheckingstub__93d988a8a188908fd1e785a707cc68edf28a1ba53bd404b971490bcb7100e29a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9204,7 +9216,7 @@ def _typecheckingstub__c907ced1d032518ebc8883a36eb0edf181bc2da76408e75eb584c864b
     pass
 
 def _typecheckingstub__aa546aa730ad1a4db1a42606474b6045ffc32ec777b50d6ba31f3dbdab3a48df(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9216,13 +9228,13 @@ def _typecheckingstub__ea5f85de07d00909dedcebd441b02e117efc2077a1e3d87f54c5a27f5
     pass
 
 def _typecheckingstub__b966eb1df615199d14bbc7fd9f3b39c9f4709837783a9a97f8945e6c623dc56d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__86b4cffb8c5e43d27133f190ebeba6d314ad935e730a8628bef824306d4d6356(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9258,7 +9270,7 @@ def _typecheckingstub__843c2d711df69b9b78c5297321a7377fd4d364b0b8b228ae665fcbdff
     pass
 
 def _typecheckingstub__a4366a0fcdd44e261b8f1399689f3ac4bb635223727a5c70ecced2835cb18c15(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9300,13 +9312,13 @@ def _typecheckingstub__2dda541c47a7be91143fbe227b05e172ef4b46d5657366c1ffff09fbb
     pass
 
 def _typecheckingstub__c6abdf1dfe7ce2cb6bd74fcf5e71f8d01354d2ebe730f2f8811c7cca3c29115c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicationGroup.LogDeliveryConfigurationRequestProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReplicationGroup.LogDeliveryConfigurationRequestProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45ea9e8732e19a78795fe185be2450c918f0ad9505938ce18be98a47595e698f(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9318,7 +9330,7 @@ def _typecheckingstub__83454ca7ec99c5872b43df5ecd3a494e042cd44f7b50d58f4bf1e6e8b
     pass
 
 def _typecheckingstub__063232de740d4c4cf752ba9532e0b046f204c4d85a17ea560f3688d5c78d5126(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicationGroup.NodeGroupConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReplicationGroup.NodeGroupConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9414,13 +9426,13 @@ def _typecheckingstub__7eca3a583f11466198815da8e0f733144c677e601f7fbc08ff2f53b0f
     pass
 
 def _typecheckingstub__dd34df081f3adeec74e0b10c42a2c6579d5328d707ac88af6a4c22338f3c9035(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4af0273d0b69e8bd3f65054f8d56651f1f9d315c9e60fa092dd4b8e4e8844e85(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9446,8 +9458,8 @@ def _typecheckingstub__d33b9d3b5876c576f6687dd170e2161cb8acc01f4eeae0ae299a3a279
 
 def _typecheckingstub__6393b162360e08ba34e1e81372da9a50f39c9a0cc3e234d4de5535a2bb554fe6(
     *,
-    cloud_watch_logs_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_firehose_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.CloudWatchLogsDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_firehose_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9469,7 +9481,7 @@ def _typecheckingstub__fdcf378b5d4262b2df61cdeb35e6e804ff747472fc30e69109cb47a8a
 
 def _typecheckingstub__b9ff12d17e85eb513ea31c4f6d81c908ca6208f607b8673aa2d7c7e0a9fe4706(
     *,
-    destination_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.DestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.DestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     destination_type: builtins.str,
     log_format: builtins.str,
     log_type: builtins.str,
@@ -9501,26 +9513,26 @@ def _typecheckingstub__1ff53f956f8f98279976e7f50fa15429cf60fdcba8ffe8ecf9f2567da
 def _typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7eefa3a3d(
     *,
     replication_group_description: builtins.str,
-    at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    at_rest_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     auth_token: typing.Optional[builtins.str] = None,
-    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    automatic_failover_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cache_node_type: typing.Optional[builtins.str] = None,
     cache_parameter_group_name: typing.Optional[builtins.str] = None,
     cache_security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_mode: typing.Optional[builtins.str] = None,
-    data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     durability: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_replication_group_id: typing.Optional[builtins.str] = None,
     ip_discovery: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    log_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    multi_az_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    log_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.LogDeliveryConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multi_az_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    node_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationGroup.NodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_group_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationGroup.NodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     num_cache_clusters: typing.Optional[jsii.Number] = None,
     num_node_groups: typing.Optional[jsii.Number] = None,
@@ -9536,8 +9548,8 @@ def _typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7e
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
     snapshotting_cluster_id: typing.Optional[builtins.str] = None,
     snapshot_window: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     transit_encryption_mode: typing.Optional[builtins.str] = None,
     user_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -9549,7 +9561,7 @@ def _typecheckingstub__a123177a3bb81237f7f7f549a05ee3a5234df818c52d76546ff68a80c
     id: builtins.str,
     *,
     description: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9561,7 +9573,7 @@ def _typecheckingstub__2a0c6d81fc6cb5bfa792f055f616926211811f8c3565e50c2959fa9f8
     pass
 
 def _typecheckingstub__e59b6770093fdec8763d8d7b39b7d6466bc5e469d75d9f211e118781440edec1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9579,7 +9591,7 @@ def _typecheckingstub__8a58aa3e47b676ffbd43668bc6e1d2c79b30df11d4e23ee80c4bdefdb
     pass
 
 def _typecheckingstub__8d0db95241a79cc90ce9ac36752f3ee20a66c04797f992822d1387e95ab0d3dc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9602,7 +9614,7 @@ def _typecheckingstub__cd6bc71678f777ead1e2f0cca27f8a2f1be4e5f9bc46f9cb63b85bd4a
     pass
 
 def _typecheckingstub__ce56443f7fa86a2c85da65d4fe1945a48bacd9a42111d28731fb9be03ebd3098(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9643,7 +9655,7 @@ def _typecheckingstub__bbdf58872e9544b14b7cd19f9a883c3e1c2fcad8d855805f476f813ce
 def _typecheckingstub__188ce8daf68355e05c89377b875f68542bb67a42ce5afc30df7473e1420abce9(
     *,
     description: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9654,27 +9666,27 @@ def _typecheckingstub__f204522453489e8198605933b3b942062e9c202c1099285663a7d772a
     *,
     engine: builtins.str,
     serverless_cache_name: builtins.str,
-    cache_usage_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cache_usage_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     daily_snapshot_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     final_snapshot_name: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     major_engine_version: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
-    reader_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    reader_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-    subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_group_id: typing.Optional[typing.Union[builtins.str, _IUserGroupRef_2cd8e96b]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_group_id: typing.Optional[typing.Union[builtins.str, _aws_elasticache_452416cc.IUserGroupRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7507c0d871d74f6a8df94c97f10f554cf951f9ac6c733d87af665857b74e7aaa(
-    resource: _IServerlessCacheRef_27114db2,
+    resource: _aws_elasticache_452416cc.IServerlessCacheRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9702,7 +9714,7 @@ def _typecheckingstub__8803630225519a6c5829c69bfd0adda47f43053bf112585f55b40979b
     pass
 
 def _typecheckingstub__f7012476fc1dcf708502c3a40812f4ced90af74571a021bfa5091171717291b4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9726,7 +9738,7 @@ def _typecheckingstub__c553e861158121ce7a0545fdcf543b7615bf13ddc0bbd93cb52e72e27
     pass
 
 def _typecheckingstub__a90cce9924849d9cc9e8f897f51cd6502787503e9fe6f9c0b146111c1c445aa8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServerlessCache.CacheUsageLimitsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServerlessCache.CacheUsageLimitsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9744,7 +9756,7 @@ def _typecheckingstub__b6ee9bbb29fab9e6641d85980e882cc3db988c37421cc1d376048cdf7
     pass
 
 def _typecheckingstub__cf26818381fc6b07f8a2615330e14830cc8722c7bea067d80e6017ceab59af6a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServerlessCache.EndpointProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServerlessCache.EndpointProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9774,7 +9786,7 @@ def _typecheckingstub__bf4a42d0a8e428b5d09e700c7a150e757e0e61e715630dec4d4f4cc08
     pass
 
 def _typecheckingstub__d7e3145e59d2b03c61c29dd7fc18ce6d775561dcfa018b131c81d1f6e06fcd65(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServerlessCache.EndpointProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServerlessCache.EndpointProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9804,7 +9816,7 @@ def _typecheckingstub__9ca2b56b13f3d8c09fd6a0e74df162e790fe2013d9a8d3d546b7b1aa5
     pass
 
 def _typecheckingstub__2054e990234791671dd0f6c1b491baebdfaaa093bc590373b8cbe5d6a7dec291(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9817,8 +9829,8 @@ def _typecheckingstub__b592bfec207d3f2428902a54fb8adfacc60bdb7a83c47e12c1b4d76ac
 
 def _typecheckingstub__77ebaaf0b703f3ff0164d4845d37449699aec6cbe500ff6d63278a3a64427450(
     *,
-    data_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.DataStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecpu_per_second: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.ECPUPerSecondProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_storage: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.DataStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecpu_per_second: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.ECPUPerSecondProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9852,21 +9864,21 @@ def _typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b0
     *,
     engine: builtins.str,
     serverless_cache_name: builtins.str,
-    cache_usage_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cache_usage_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     daily_snapshot_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     final_snapshot_name: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     major_engine_version: typing.Optional[builtins.str] = None,
     network_type: typing.Optional[builtins.str] = None,
-    reader_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    reader_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     snapshot_arns_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-    subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_group_id: typing.Optional[typing.Union[builtins.str, _IUserGroupRef_2cd8e96b]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_group_id: typing.Optional[typing.Union[builtins.str, _aws_elasticache_452416cc.IUserGroupRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9876,15 +9888,15 @@ def _typecheckingstub__1d31f960507f2c9e3587baf93d99fa25f2747d0865408ff081e5c5230
     id: builtins.str,
     *,
     description: builtins.str,
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb943e4cb8962a255ad875af86b90780e5ab5df4ae4734e1cb98ac4dfe7269f4(
-    resource: _ISubnetGroupRef_b7141182,
+    resource: _aws_elasticache_452416cc.ISubnetGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9904,7 +9916,7 @@ def _typecheckingstub__4856c283e14a5ac7fd92bed509d72582847e0cc23b10042debea584c6
     pass
 
 def _typecheckingstub__8e74c02a4794273fd857125de793130ad00a35e7107b9a052fd9729c834e8c03(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9934,7 +9946,7 @@ def _typecheckingstub__26295a8a2dc7d2b6948d4efdcca51f3722ed36bec5ced2fbf24d774ea
     pass
 
 def _typecheckingstub__3f6670815d10d752e7b16bcf0f681bfa6e802161e1b1eba4c63dd3a6d9846719(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9942,9 +9954,9 @@ def _typecheckingstub__3f6670815d10d752e7b16bcf0f681bfa6e802161e1b1eba4c63dd3a6d
 def _typecheckingstub__a4b45c5c5c7c2f90c8c0fc4304349cfb95eff57e46669706a32a0b5b73fc2139(
     *,
     description: builtins.str,
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9958,15 +9970,15 @@ def _typecheckingstub__3690e849b3e5bf7f482e77652d683906b1133738dbc72aea39d018672
     user_name: builtins.str,
     access_string: typing.Optional[builtins.str] = None,
     authentication_mode: typing.Any = None,
-    no_password_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    no_password_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7926c8228d0cbec24c73cc68885b3ac11dad5f7f4b6f913d423e08f7143e5eba(
-    resource: _IUserRef_7cc9cbc0,
+    resource: _aws_elasticache_452416cc.IUserRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9978,7 +9990,7 @@ def _typecheckingstub__f23ad89d2ccf92bb123aee99903910f8b0d1cc65aa8c6270ff8520b73
     pass
 
 def _typecheckingstub__a8027fd2dc9d1d9c383f787790509ce0a31493b0c5928b63706caf8cd2096acf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10020,7 +10032,7 @@ def _typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfc
     pass
 
 def _typecheckingstub__1dc0162c51746ac68f8e6c599bd425920aec49776f251d176073c998647b402e(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10032,7 +10044,7 @@ def _typecheckingstub__fd01953837fe46505e356e5e6f503c48a5037161ed165b5dfa3d2124c
     pass
 
 def _typecheckingstub__eda53c926e8acd673280fda87bee7f7bcf1def006ab1883b24a6a077e43b7449(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10052,13 +10064,13 @@ def _typecheckingstub__ecc142924e04b2348d54a42d3f1272d7a6d9f1886d6e9133f1a0ed55a
     engine: builtins.str,
     user_group_id: builtins.str,
     user_ids: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8586bb4703f8da74dfa920ad16d7601405cd6a48e174ef6ad526f45c08786d35(
-    resource: _IUserGroupRef_2cd8e96b,
+    resource: _aws_elasticache_452416cc.IUserGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10086,7 +10098,7 @@ def _typecheckingstub__ecfb9c9712ca97e11feb7313d43fb85b857cd42c6e1cb8468b5754e76
     pass
 
 def _typecheckingstub__6a5d03fb1ca11359d2e12cf9829f5c78e442be6d3175a5f56c52bd5c800742a5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10116,7 +10128,7 @@ def _typecheckingstub__537c18038663c50194ccf261d54d663088b0bde017663b14868ca5075
     pass
 
 def _typecheckingstub__f91d8988fa4ff59ae0f0f6e912aaa87f88df9ee98afddb86934a2611c1d0da39(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10126,7 +10138,7 @@ def _typecheckingstub__781d57350a7876de81adb05f4b5f1c6a6733fe48684f64bf990d33773
     engine: builtins.str,
     user_group_id: builtins.str,
     user_ids: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10138,9 +10150,9 @@ def _typecheckingstub__cd58f3eed78cb4ce0cff0a0f48e20670425d5891d9c8b2bd0b6006a78
     user_name: builtins.str,
     access_string: typing.Optional[builtins.str] = None,
     authentication_mode: typing.Any = None,
-    no_password_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    no_password_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

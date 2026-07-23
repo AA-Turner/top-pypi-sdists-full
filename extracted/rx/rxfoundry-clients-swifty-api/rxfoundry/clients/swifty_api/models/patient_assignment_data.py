@@ -30,7 +30,7 @@ class PatientAssignmentData(BaseModel):
     A patient's assignment to a specific sub_tenant
     """ # noqa: E501
     object_type: StrictStr = Field(description="The discriminator used to determine the type of the object.  This is required for the discriminator to work correctly.")
-    sub_tenant_slug: Annotated[str, Field(strict=True, max_length=50)] = Field(description="The slug of the sub tenant that the patient is assigned to.")
+    sub_tenant_slug: Annotated[str, Field(strict=True, max_length=10)] = Field(description="The slug of the sub tenant that the patient is assigned to.")
     external_references: Optional[List[PatientExternalIdentifier]] = None
     __properties: ClassVar[List[str]] = ["object_type", "sub_tenant_slug", "external_references"]
 

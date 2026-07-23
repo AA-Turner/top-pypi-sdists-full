@@ -36,6 +36,10 @@ OUTPUT_TYPE = TypeVar(
     bound=Union[str, List[List[float]], MESSAGE_FORMAT, List[MESSAGE_FORMAT], Iterator],
 )
 
+MODEL_ID_GEO_PREFIXES = frozenset(
+    {"eu", "us", "us-gov", "apac", "sa", "amer", "global", "jp", "au"}
+)
+
 
 class ContentHandlerBase(Generic[INPUT_TYPE, OUTPUT_TYPE]):
     """A handler class to transform input from LLM and BaseChatModel to a
@@ -465,9 +469,27 @@ def create_aws_bedrock_runtime_client(
     return BedrockRuntimeClient(config=config)
 
 
+def parse_model_provider(model_id: str) -> str:
+    """Extract the provider from a Bedrock model ID."""
+    parts = model_id.split(".", maxsplit=2)
+    if len(parts) > 1 and parts[0].lower() in MODEL_ID_GEO_PREFIXES:
+        return parts[1]
+    return parts[0]
+
+
 def thinking_in_params(params: dict) -> bool:
     """Check if the thinking parameter is enabled in the request."""
     return params.get("thinking", {}).get("type") in ("enabled", "adaptive")
+
+
+def thinking_disabled_in_params(params: dict) -> bool:
+    """Check if thinking is explicitly disabled in the request."""
+    return params.get("thinking", {}).get("type") == "disabled"
+
+
+def thinking_on_by_default(model: str) -> bool:
+    """Check if the model runs adaptive thinking without a thinking parameter."""
+    return any(x in model for x in ("claude-sonnet-5", "claude-fable-5"))
 
 
 def thinking_forced_tool_use_unsupported(model: str) -> bool:

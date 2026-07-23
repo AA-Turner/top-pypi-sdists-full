@@ -14,6 +14,7 @@ from airbyte_ops_mcp.mcp.connector_registry import (
     YANK_WORKFLOW_REPO_NAME,
     YANK_WORKFLOW_REPO_OWNER,
     get_connector_version_yank_detail,
+    list_connectors_in_registry,
     list_yanked_connector_versions,
     yank_connector_version,
 )
@@ -297,3 +298,63 @@ def test_get_connector_version_yank_detail_when_not_yanked(
     assert result.yanked_at == ""
     assert result.reason == ""
     assert result.approval_url == ""
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors")
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors_filtered")
+def test_list_connectors_in_registry_name_contains_unfiltered_path(
+    mock_filtered: MagicMock,
+    mock_unfiltered: MagicMock,
+) -> None:
+    mock_unfiltered.return_value = [
+        "destination-github",
+        "source-GitHub",
+        "source-postgres",
+    ]
+
+    result = list_connectors_in_registry(name_contains="github")
+
+    # No support/type/language filters => unfiltered (glob) path is used.
+    mock_unfiltered.assert_called_once()
+    mock_filtered.assert_not_called()
+    # Case-insensitive substring match, order preserved.
+    assert result.connectors == ["destination-github", "source-GitHub"]
+    assert result.connector_count == 2
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors")
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors_filtered")
+def test_list_connectors_in_registry_name_contains_filtered_path(
+    mock_filtered: MagicMock,
+    mock_unfiltered: MagicMock,
+) -> None:
+    mock_filtered.return_value = ["source-github", "source-postgres"]
+
+    result = list_connectors_in_registry(
+        connector_type="source",
+        name_contains="POSTGRES",
+    )
+
+    # A typed filter => compiled-index (filtered) path is used.
+    mock_filtered.assert_called_once()
+    mock_unfiltered.assert_not_called()
+    assert result.connectors == ["source-postgres"]
+    assert result.connector_count == 1
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors")
+@patch("airbyte_ops_mcp.mcp.connector_registry.list_registry_connectors_filtered")
+def test_list_connectors_in_registry_name_contains_whitespace_is_noop(
+    mock_filtered: MagicMock,
+    mock_unfiltered: MagicMock,
+) -> None:
+    mock_unfiltered.return_value = ["source-github", "source-postgres"]
+
+    result = list_connectors_in_registry(name_contains="   ")
+
+    # Whitespace-only input must not act as a filter.
+    assert result.connectors == ["source-github", "source-postgres"]
+    assert result.connector_count == 2

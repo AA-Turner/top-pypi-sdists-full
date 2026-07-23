@@ -44,9 +44,10 @@ public static class Download
     // Auto-update check interval (1 hour).
     private const int UpdateCheckInterval = 3600;
 
-    // Free-tier welcome banner re-show interval (3 days, seconds). Free users see
-    // the Pro upsell again after this gap; Pro users see it only once (see ShowWelcome).
-    internal const long WelcomeFreeInterval = 3L * 24 * 3600;
+    // Free-tier welcome banner re-show interval (1 day, seconds). Free users see
+    // the "get the latest free" invite again after this gap; Pro users see it only
+    // once (see ShowWelcome).
+    internal const long WelcomeFreeInterval = 24L * 3600;
 
     private static readonly HttpClient Http = CreateHttpClient();
 
@@ -85,12 +86,6 @@ public static class Download
     private const string ProMajor = "150";
 
     /// <summary>
-    /// Show the first-launch welcome banner once (gated by a marker file). The
-    /// Pro-upsell line is shown to free-tier users only; Pro users get a plain
-    /// banner (no "running free tier" message, which would be false for them).
-    /// Mirrors Python <c>_show_welcome(pro=...)</c>.
-    /// </summary>
-    /// <summary>
     /// Whether the welcome banner should be shown now. Pro: once ever (only when
     /// the marker is absent). Free: re-show when the marker is absent or its
     /// timestamp is older than <see cref="WelcomeFreeInterval"/>. Unreadable or
@@ -112,27 +107,43 @@ public static class Download
         }
     }
 
-    private static void ShowWelcome(bool pro = false)
+    /// <summary>
+    /// Show the launch welcome banner. A marker file gates the cadence: a paid
+    /// (Pro) key shows once ever; free (keyless or a free GitHub key) re-shows
+    /// every <see cref="WelcomeFreeInterval"/>. Mirrors Python <c>_show_welcome(tier)</c>.
+    ///
+    /// <paramref name="tier"/>:
+    ///   "pro"     — a paid license key (Pro banner + support address)
+    ///   "free"    — a free GitHub key (latest binary, one concurrent session)
+    ///   "keyless" — no key, running the older free binary (invite the free login)
+    /// </summary>
+    private static void ShowWelcome(string tier = "keyless")
     {
         var marker = Path.Combine(Config.GetCacheDir(), ".welcome_shown");
-        if (!WelcomeDue(marker, pro)) return;
+        if (!WelcomeDue(marker, tier == "pro")) return;
 
         var sb = new System.Text.StringBuilder();
         sb.Append('\n');
-        sb.Append("  CloakBrowser - stealth Chromium for automation\n");
+        sb.Append("  CloakBrowser — stealth Chromium for automation\n");
         sb.Append("  https://github.com/CloakHQ/CloakBrowser\n");
         sb.Append('\n');
-        if (pro)
+        if (tier == "pro")
         {
-            sb.Append($"  CloakBrowser Pro active (v{ProMajor}) - latest binary, newest patches.\n");
-            sb.Append("  Pro support -> support@cloakbrowser.dev\n");
+            sb.Append($"  CloakBrowser Pro active (v{ProMajor}) — latest binary, newest patches.\n");
+            sb.Append("  Pro support → support@cloakbrowser.dev\n");
+        }
+        else if (tier == "free")
+        {
+            sb.Append($"  CloakBrowser free (v{ProMajor}): the latest binary, 1 concurrent session.\n");
+            sb.Append("  For more than one concurrent session → https://cloakbrowser.dev\n");
         }
         else
         {
             var freeMajor = Config.GetChromiumVersion().Split('.')[0];
-            sb.Append($"  Running free tier (v{freeMajor}). " +
-                      $"Pro = latest binary (v{ProMajor}) + newest anti-bot patches.\n");
-            sb.Append("  Get Pro for the latest binary + newest patches -> https://cloakbrowser.dev\n");
+            sb.Append($"  Running the free binary (v{freeMajor}). " +
+                      $"The latest binary (v{ProMajor}) is free too, with 1 concurrent session.\n");
+            sb.Append("  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free\n");
+            sb.Append("  For more than one concurrent session → https://cloakbrowser.dev\n");
         }
         sb.Append("  Star us if CloakBrowser helps your project!\n");
         sb.Append('\n');
@@ -190,13 +201,18 @@ public static class Download
             var info = License.ValidateLicense(key);
             if (info != null && info.Valid)
             {
+                // Free tier always gets the latest build. Drop any version pin: the
+                // server force-serves latest to free keys, so fetching a pinned
+                // version's signed manifest would mismatch the served bytes and fail
+                // checksum verification. Paid keys keep pinning/rollback.
+                var proVersion = info.Plan == "free" ? null : requestedVersion;
                 // A valid license is entitled to Pro, so Pro failures surface loudly
                 // rather than silently substituting the older free binary. (A blip
                 // during a routine update never reaches here: EnsureProBinaryAsync
                 // returns the cached Pro binary and updates in the background.)
                 try
                 {
-                    return await EnsureProBinaryAsync(key, requestedVersion, ct).ConfigureAwait(false);
+                    return await EnsureProBinaryAsync(key, proVersion, info.Plan, ct).ConfigureAwait(false);
                 }
                 catch (BinaryVerificationError)
                 {
@@ -343,15 +359,19 @@ public static class Download
 
     /// <summary>Ensure the Pro binary is downloaded and cached. Returns the binary path.</summary>
     private static async Task<string> EnsureProBinaryAsync(
-        string licenseKey, string? requestedVersion, CancellationToken ct)
+        string licenseKey, string? requestedVersion, string? plan, CancellationToken ct)
     {
+        // A validated free GitHub key routes here too (it downloads the latest binary),
+        // but its welcome banner is the "free" one, not the paid Pro banner.
+        var welcomeTier = plan == "free" ? "free" : "pro";
+
         if (requestedVersion != null)
         {
             var pinnedPath = Config.GetBinaryPath(requestedVersion, pro: true);
             if (File.Exists(pinnedPath) && IsExecutable(pinnedPath))
             {
                 CloakLog.Debug("Pinned Pro binary found in cache: {0} (version {1})", pinnedPath, requestedVersion);
-                ShowWelcome(pro: true);
+                ShowWelcome(welcomeTier);
                 return pinnedPath;
             }
 
@@ -365,7 +385,7 @@ public static class Download
 
             // Do NOT write the Pro version marker for a pinned download. A rollback
             // pin must not make future unpinned launches stick to the old build.
-            ShowWelcome(pro: true);
+            ShowWelcome(welcomeTier);
             return pinnedPath;
         }
 
@@ -381,7 +401,7 @@ public static class Download
             StringComparison.OrdinalIgnoreCase);
         if (frozen && ProBinaryReady(effective))
         {
-            ShowWelcome(pro: true);
+            ShowWelcome(welcomeTier);
             return Config.GetBinaryPath(effective, pro: true);
         }
 
@@ -418,7 +438,7 @@ public static class Download
             if (version != effective)
                 WriteProVersionMarker(version);
             CloakLog.Debug("Pro binary found in cache: {0} (version {1})", readyPath, version);
-            ShowWelcome(pro: true);
+            ShowWelcome(welcomeTier);
             return readyPath;
         }
 
@@ -440,7 +460,7 @@ public static class Download
             if (ProBinaryReady(effective))
             {
                 CloakLog.Warning("Pro update to {0} failed; launching cached Pro binary {1}", version, effective);
-                ShowWelcome(pro: true);
+                ShowWelcome(welcomeTier);
                 return Config.GetBinaryPath(effective, pro: true);
             }
             throw;
@@ -452,7 +472,7 @@ public static class Download
                 $"Pro download completed but binary not found at: {downloadedPath}");
 
         WriteProVersionMarker(version);
-        ShowWelcome(pro: true);
+        ShowWelcome(welcomeTier);
         return downloadedPath;
     }
 

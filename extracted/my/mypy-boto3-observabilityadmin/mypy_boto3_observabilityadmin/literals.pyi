@@ -83,6 +83,9 @@ ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_f
 ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
 LogTypeType = Literal[
     "ACCESS_LOGS",
+    "ALB_ACCESS_LOGS",
+    "ALB_CONNECTION_LOGS",
+    "ALB_HEALTH_CHECK_LOGS",
     "APPLICATION_LOGS",
     "CONNECTION_LOGS",
     "S3_SERVER_ACCESS_LOGS",
@@ -95,6 +98,7 @@ MskEnhancedMonitoringLevelType = Literal[
 OutputFormatType = Literal["json", "plain"]
 RecordFormatType = Literal["JSON", "STRING"]
 ResourceTypeType = Literal[
+    "AWS::Bedrock::KnowledgeBase",
     "AWS::BedrockAgentCore::Browser",
     "AWS::BedrockAgentCore::CodeInterpreter",
     "AWS::BedrockAgentCore::Gateway",
@@ -430,6 +434,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

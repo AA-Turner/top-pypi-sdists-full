@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab_chat
-Version: 0.22.1
+Version: 0.23.0
 Summary: A chat extension based on shared documents
 Project-URL: documentation, https://jupyter-chat.readthedocs.io/
 Project-URL: homepage, https://github.com/jupyterlab/jupyter-chat
@@ -51,10 +51,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: jupyter-collaboration<5,>=4
+Requires-Dist: jupyter-collaboration<6,>=4
 Requires-Dist: jupyter-server<3,>=2.0.1
-Requires-Dist: jupyter-ydoc<4.0.0,>=3.0.0
-Requires-Dist: pycrdt<0.13.0,>=0.12.48
+Requires-Dist: jupyter-ydoc<5.0.0,>=3.0.0
+Requires-Dist: pycrdt<0.15.0,>=0.12.48
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: mypy; extra == 'test'
@@ -131,7 +131,7 @@ The `jlpm` command is JupyterLab's pinned version of
 # Install package in development mode
 pip install -e ".[test]"
 # Link your development version of the extension with JupyterLab
-jupyter labextension develop . --overwrite
+jupyter-builder develop . --overwrite
 # Rebuild extension Typescript source after making changes
 jlpm build
 ```
@@ -159,7 +159,7 @@ jupyter lab build --minimize=False
 pip uninstall jupyterlab_chat
 ```
 
-In development mode, you will also need to remove the symlink created by `jupyter labextension develop`
+In development mode, you will also need to remove the symlink created by `jupyter-builder develop`
 command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
 folder is located. Then you can remove the symlink named `jupyterlab-chat-extension` within that folder.
 

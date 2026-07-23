@@ -12,6 +12,7 @@ import sentry_protos.billing.v1.common.v1.billing_interval_pb2
 import sentry_protos.billing.v1.common.v1.flexible_price_pb2
 import sentry_protos.billing.v1.common.v1.line_item_details_pb2
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
+import sentry_protos.billing.v1.common.v1.retention_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -156,6 +157,7 @@ class PackageConfig(google.protobuf.message.Message):
     IS_ENTERPRISE_FIELD_NUMBER: builtins.int
     USER_SELECTABLE_FIELD_NUMBER: builtins.int
     HAS_PAYG_MODES_FIELD_NUMBER: builtins.int
+    RETENTION_DEFAULTS_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -184,6 +186,13 @@ class PackageConfig(google.protobuf.message.Message):
         [1] = monthly only, [1, 12] = monthly or annual, [12] = annual only.
         """
 
+    @property
+    def retention_defaults(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.common.v1.retention_pb2.DataCategoryRetention]:
+        """Default retention settings for this package.
+        Each entry uses a billing data category.
+        A category can occur only once.
+        """
+
     def __init__(
         self,
         *,
@@ -199,8 +208,9 @@ class PackageConfig(google.protobuf.message.Message):
         is_enterprise: builtins.bool = ...,
         user_selectable: builtins.bool = ...,
         has_payg_modes: builtins.bool = ...,
+        retention_defaults: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.retention_pb2.DataCategoryRetention] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
 
 global___PackageConfig = PackageConfig

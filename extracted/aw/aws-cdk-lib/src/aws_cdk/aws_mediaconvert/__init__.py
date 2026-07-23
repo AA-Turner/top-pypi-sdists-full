@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mediaconvert import (
-    IJobTemplateRef as _IJobTemplateRef_427db06b,
-    IPresetRef as _IPresetRef_e69b176f,
-    IQueueRef as _IQueueRef_ef5dbb18,
-    JobTemplateReference as _JobTemplateReference_f805d838,
-    PresetReference as _PresetReference_4047edf2,
-    QueueReference as _QueueReference_e4ca703e,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mediaconvert as _aws_mediaconvert_552fcf0b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mediaconvert_552fcf0b = _LazyImport("aws_cdk.interfaces.aws_mediaconvert")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IJobTemplateRef_427db06b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconvert_552fcf0b.IJobTemplateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnJobTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconvert.CfnJobTemplate",
 ):
@@ -129,10 +120,10 @@ class CfnJobTemplate(
         id: builtins.str,
         *,
         settings_json: typing.Any,
-        acceleration_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobTemplate.AccelerationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        acceleration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.AccelerationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         category: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        hop_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobTemplate.HopDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        hop_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.HopDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         priority: typing.Optional[jsii.Number] = None,
         queue: typing.Optional[builtins.str] = None,
@@ -155,7 +146,7 @@ class CfnJobTemplate(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6069a4448c0af7d940ed2037ac3ca32f293c46dc85314fc300ccf64aa573c06e)
+            type_hints = cached_type_hints(_typecheckingstub__6069a4448c0af7d940ed2037ac3ca32f293c46dc85314fc300ccf64aa573c06e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnJobTemplateProps(
@@ -177,13 +168,13 @@ class CfnJobTemplate(
     @builtins.classmethod
     def arn_for_job_template(
         cls,
-        resource: "_IJobTemplateRef_427db06b",
+        resource: "_aws_mediaconvert_552fcf0b.IJobTemplateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d56f628bc50defd3c895e5ef7b41a1bff57cf0d2d4793131956d13c4cd10603)
+            type_hints = cached_type_hints(_typecheckingstub__0d56f628bc50defd3c895e5ef7b41a1bff57cf0d2d4793131956d13c4cd10603)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForJobTemplate", [resource]))
 
@@ -194,7 +185,7 @@ class CfnJobTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IJobTemplateRef_427db06b":
+    ) -> "_aws_mediaconvert_552fcf0b.IJobTemplateRef":
         '''Creates a new IJobTemplateRef from an ARN.
 
         :param scope: -
@@ -202,11 +193,11 @@ class CfnJobTemplate(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4809f63cfa5b0eaee3116ae30c7b0bf5157633abac0b37990d00160446adaa96)
+            type_hints = cached_type_hints(_typecheckingstub__4809f63cfa5b0eaee3116ae30c7b0bf5157633abac0b37990d00160446adaa96)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IJobTemplateRef_427db06b", jsii.sinvoke(cls, "fromJobTemplateArn", [scope, id, arn]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IJobTemplateRef", jsii.sinvoke(cls, "fromJobTemplateArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromJobTemplateName")
     @builtins.classmethod
@@ -215,7 +206,7 @@ class CfnJobTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         job_template_name: builtins.str,
-    ) -> "_IJobTemplateRef_427db06b":
+    ) -> "_aws_mediaconvert_552fcf0b.IJobTemplateRef":
         '''Creates a new IJobTemplateRef from a jobTemplateName.
 
         :param scope: -
@@ -223,11 +214,11 @@ class CfnJobTemplate(
         :param job_template_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42a3479bd074b701111f61398d999f046219fd2dd8f086d27c182f1740564d00)
+            type_hints = cached_type_hints(_typecheckingstub__42a3479bd074b701111f61398d999f046219fd2dd8f086d27c182f1740564d00)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument job_template_name", value=job_template_name, expected_type=type_hints["job_template_name"])
-        return typing.cast("_IJobTemplateRef_427db06b", jsii.sinvoke(cls, "fromJobTemplateName", [scope, id, job_template_name]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IJobTemplateRef", jsii.sinvoke(cls, "fromJobTemplateName", [scope, id, job_template_name]))
 
     @jsii.member(jsii_name="isCfnJobTemplate")
     @builtins.classmethod
@@ -237,18 +228,18 @@ class CfnJobTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__accf5c8b3c4c8b776f5e518a7795c6424f8e866ef33996cedcd6d6fd19952101)
+            type_hints = cached_type_hints(_typecheckingstub__accf5c8b3c4c8b776f5e518a7795c6424f8e866ef33996cedcd6d6fd19952101)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnJobTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8f5895955d49b09751b4fb43700086c0c6f207fe9b5fcb5d23033da6657c979)
+            type_hints = cached_type_hints(_typecheckingstub__c8f5895955d49b09751b4fb43700086c0c6f207fe9b5fcb5d23033da6657c979)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -261,7 +252,7 @@ class CfnJobTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ad73f75b8da14e8668b904177606346b0c9ece117fa65fbe3945c2e37323559)
+            type_hints = cached_type_hints(_typecheckingstub__1ad73f75b8da14e8668b904177606346b0c9ece117fa65fbe3945c2e37323559)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -309,15 +300,15 @@ class CfnJobTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="jobTemplateRef")
-    def job_template_ref(self) -> "_JobTemplateReference_f805d838":
+    def job_template_ref(self) -> "_aws_mediaconvert_552fcf0b.JobTemplateReference":
         '''A reference to a JobTemplate resource.'''
-        return typing.cast("_JobTemplateReference_f805d838", jsii.get(self, "jobTemplateRef"))
+        return typing.cast("_aws_mediaconvert_552fcf0b.JobTemplateReference", jsii.get(self, "jobTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="settingsJson")
@@ -328,7 +319,7 @@ class CfnJobTemplate(
     @settings_json.setter
     def settings_json(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e6db6646d87945ef34e2e03c7b1efcd1666e1928a1f124f94694a92e717301e)
+            type_hints = cached_type_hints(_typecheckingstub__6e6db6646d87945ef34e2e03c7b1efcd1666e1928a1f124f94694a92e717301e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "settingsJson", value) # pyright: ignore[reportArgumentType]
 
@@ -341,7 +332,7 @@ class CfnJobTemplate(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2)
+            type_hints = cached_type_hints(_typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -349,17 +340,17 @@ class CfnJobTemplate(
     @jsii.member(jsii_name="accelerationSettings")
     def acceleration_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.AccelerationSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.AccelerationSettingsProperty"]]:
         '''Accelerated transcoding can significantly speed up jobs with long, visually complex content.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.AccelerationSettingsProperty"]], jsii.get(self, "accelerationSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.AccelerationSettingsProperty"]], jsii.get(self, "accelerationSettings"))
 
     @acceleration_settings.setter
     def acceleration_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.AccelerationSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.AccelerationSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__296e89e4fb7eab6d9c3e9ffb503c8e7d494b915aaf6ffbeb356846e5b1550dce)
+            type_hints = cached_type_hints(_typecheckingstub__296e89e4fb7eab6d9c3e9ffb503c8e7d494b915aaf6ffbeb356846e5b1550dce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accelerationSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -372,7 +363,7 @@ class CfnJobTemplate(
     @category.setter
     def category(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6095b41f6b841d7de23758c4cfbb980b07b9f13c80a19eaba6ce4cb684801138)
+            type_hints = cached_type_hints(_typecheckingstub__6095b41f6b841d7de23758c4cfbb980b07b9f13c80a19eaba6ce4cb684801138)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "category", value) # pyright: ignore[reportArgumentType]
 
@@ -385,7 +376,7 @@ class CfnJobTemplate(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad608e45172465d082cca6fda5cb45f46b8e4c24a10cc48ce5e66f5cdf31de04)
+            type_hints = cached_type_hints(_typecheckingstub__ad608e45172465d082cca6fda5cb45f46b8e4c24a10cc48ce5e66f5cdf31de04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -393,17 +384,17 @@ class CfnJobTemplate(
     @jsii.member(jsii_name="hopDestinations")
     def hop_destinations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.HopDestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.HopDestinationProperty"]]]]:
         '''Optional.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.HopDestinationProperty"]]]], jsii.get(self, "hopDestinations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.HopDestinationProperty"]]]], jsii.get(self, "hopDestinations"))
 
     @hop_destinations.setter
     def hop_destinations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.HopDestinationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.HopDestinationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d0fbb738f4409f521b0e8bc0586e0749bf26afe3de32a968ad27dd11e7b4fbf)
+            type_hints = cached_type_hints(_typecheckingstub__6d0fbb738f4409f521b0e8bc0586e0749bf26afe3de32a968ad27dd11e7b4fbf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hopDestinations", value) # pyright: ignore[reportArgumentType]
 
@@ -416,7 +407,7 @@ class CfnJobTemplate(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1fc4f350531fbb055c67bb24d69f0b90cf0af1a38ab15fc697b8366b45b11cd)
+            type_hints = cached_type_hints(_typecheckingstub__b1fc4f350531fbb055c67bb24d69f0b90cf0af1a38ab15fc697b8366b45b11cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -429,7 +420,7 @@ class CfnJobTemplate(
     @priority.setter
     def priority(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3857d89372a6fa395bbb9853843690578b7b6cae11814baed484c6fc8ad08938)
+            type_hints = cached_type_hints(_typecheckingstub__3857d89372a6fa395bbb9853843690578b7b6cae11814baed484c6fc8ad08938)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
@@ -442,7 +433,7 @@ class CfnJobTemplate(
     @queue.setter
     def queue(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38320802a437cf0443d85acae426f6340d11d937df74fc400e5b5c7ed14b4d29)
+            type_hints = cached_type_hints(_typecheckingstub__38320802a437cf0443d85acae426f6340d11d937df74fc400e5b5c7ed14b4d29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queue", value) # pyright: ignore[reportArgumentType]
 
@@ -455,7 +446,7 @@ class CfnJobTemplate(
     @status_update_interval.setter
     def status_update_interval(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7ec7ad96104e4f7c1074d1d53806893f862c74346b89d72958e599f9b3bf47c)
+            type_hints = cached_type_hints(_typecheckingstub__e7ec7ad96104e4f7c1074d1d53806893f862c74346b89d72958e599f9b3bf47c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statusUpdateInterval", value) # pyright: ignore[reportArgumentType]
 
@@ -486,7 +477,7 @@ class CfnJobTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f54269f0b30388de6a173382a5295a5105a846a1d29caf99299d166e2d8d450)
+                type_hints = cached_type_hints(_typecheckingstub__8f54269f0b30388de6a173382a5295a5105a846a1d29caf99299d166e2d8d450)
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "mode": mode,
@@ -554,7 +545,7 @@ class CfnJobTemplate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__846cbb381389bc2995682d6266fbd2025526247b0442dfab6d6624ea1dedcad1)
+                type_hints = cached_type_hints(_typecheckingstub__846cbb381389bc2995682d6266fbd2025526247b0442dfab6d6624ea1dedcad1)
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
                 check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
                 check_type(argname="argument wait_minutes", value=wait_minutes, expected_type=type_hints["wait_minutes"])
@@ -632,10 +623,10 @@ class CfnJobTemplateProps:
         self,
         *,
         settings_json: typing.Any,
-        acceleration_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobTemplate.AccelerationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        acceleration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.AccelerationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         category: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        hop_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobTemplate.HopDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        hop_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.HopDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         priority: typing.Optional[jsii.Number] = None,
         queue: typing.Optional[builtins.str] = None,
@@ -689,7 +680,7 @@ class CfnJobTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9)
+            type_hints = cached_type_hints(_typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9)
             check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
             check_type(argname="argument acceleration_settings", value=acceleration_settings, expected_type=type_hints["acceleration_settings"])
             check_type(argname="argument category", value=category, expected_type=type_hints["category"])
@@ -739,7 +730,7 @@ class CfnJobTemplateProps:
     @builtins.property
     def acceleration_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.AccelerationSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.AccelerationSettingsProperty"]]:
         '''Accelerated transcoding can significantly speed up jobs with long, visually complex content.
 
         Outputs that use this feature incur pro-tier pricing. For information about feature limitations, For more information, see `Job Limitations for Accelerated Transcoding in AWS Elemental MediaConvert <https://docs.aws.amazon.com/mediaconvert/latest/ug/job-requirements.html>`_ in the *AWS Elemental MediaConvert User Guide* .
@@ -747,7 +738,7 @@ class CfnJobTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-accelerationsettings
         '''
         result = self._values.get("acceleration_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.AccelerationSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.AccelerationSettingsProperty"]], result)
 
     @builtins.property
     def category(self) -> typing.Optional[builtins.str]:
@@ -774,7 +765,7 @@ class CfnJobTemplateProps:
     @builtins.property
     def hop_destinations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.HopDestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.HopDestinationProperty"]]]]:
         '''Optional.
 
         Configuration for a destination queue to which the job can hop once a customer-defined minimum wait time has passed. For more information, see `Setting Up Queue Hopping to Avoid Long Waits <https://docs.aws.amazon.com/mediaconvert/latest/ug/setting-up-queue-hopping-to-avoid-long-waits.html>`_ in the *AWS Elemental MediaConvert User Guide* .
@@ -782,7 +773,7 @@ class CfnJobTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-hopdestinations
         '''
         result = self._values.get("hop_destinations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobTemplate.HopDestinationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.HopDestinationProperty"]]]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -881,9 +872,9 @@ class CfnJobTemplateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPresetRef_e69b176f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconvert_552fcf0b.IPresetRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPreset(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconvert.CfnPreset",
 ):
@@ -939,7 +930,7 @@ class CfnPreset(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e9a02a55f71ce4dc1d1bd91234e42ae8b4f331a5204d9de2337abf478f6742)
+            type_hints = cached_type_hints(_typecheckingstub__c7e9a02a55f71ce4dc1d1bd91234e42ae8b4f331a5204d9de2337abf478f6742)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPresetProps(
@@ -954,12 +945,15 @@ class CfnPreset(
 
     @jsii.member(jsii_name="arnForPreset")
     @builtins.classmethod
-    def arn_for_preset(cls, resource: "_IPresetRef_e69b176f") -> builtins.str:
+    def arn_for_preset(
+        cls,
+        resource: "_aws_mediaconvert_552fcf0b.IPresetRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2167b00fe5ac49cfe022a479389e7426bccc0b9b2d60c4347501e6fc7cf0598)
+            type_hints = cached_type_hints(_typecheckingstub__b2167b00fe5ac49cfe022a479389e7426bccc0b9b2d60c4347501e6fc7cf0598)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPreset", [resource]))
 
@@ -970,7 +964,7 @@ class CfnPreset(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IPresetRef_e69b176f":
+    ) -> "_aws_mediaconvert_552fcf0b.IPresetRef":
         '''Creates a new IPresetRef from an ARN.
 
         :param scope: -
@@ -978,11 +972,11 @@ class CfnPreset(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a99241dadc7fc99a26e224c8535217403cfb796a22b5efefe6afc0f46aa38ac9)
+            type_hints = cached_type_hints(_typecheckingstub__a99241dadc7fc99a26e224c8535217403cfb796a22b5efefe6afc0f46aa38ac9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IPresetRef_e69b176f", jsii.sinvoke(cls, "fromPresetArn", [scope, id, arn]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IPresetRef", jsii.sinvoke(cls, "fromPresetArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromPresetName")
     @builtins.classmethod
@@ -991,7 +985,7 @@ class CfnPreset(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         preset_name: builtins.str,
-    ) -> "_IPresetRef_e69b176f":
+    ) -> "_aws_mediaconvert_552fcf0b.IPresetRef":
         '''Creates a new IPresetRef from a presetName.
 
         :param scope: -
@@ -999,11 +993,11 @@ class CfnPreset(
         :param preset_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daeb5e1026c75b763773d2e35369da112badf0f684fcbfd804ba7f76690d5fb3)
+            type_hints = cached_type_hints(_typecheckingstub__daeb5e1026c75b763773d2e35369da112badf0f684fcbfd804ba7f76690d5fb3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument preset_name", value=preset_name, expected_type=type_hints["preset_name"])
-        return typing.cast("_IPresetRef_e69b176f", jsii.sinvoke(cls, "fromPresetName", [scope, id, preset_name]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IPresetRef", jsii.sinvoke(cls, "fromPresetName", [scope, id, preset_name]))
 
     @jsii.member(jsii_name="isCfnPreset")
     @builtins.classmethod
@@ -1013,18 +1007,18 @@ class CfnPreset(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d17a3590cdd9de6ce33c7070b5a010746adeeb948ec8eb093321a86812723b18)
+            type_hints = cached_type_hints(_typecheckingstub__d17a3590cdd9de6ce33c7070b5a010746adeeb948ec8eb093321a86812723b18)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPreset", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfdd12e2c70eaa4ee51ce8c0175f9e9a23741111e6220d5d757029b1f4107fa5)
+            type_hints = cached_type_hints(_typecheckingstub__cfdd12e2c70eaa4ee51ce8c0175f9e9a23741111e6220d5d757029b1f4107fa5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1037,7 +1031,7 @@ class CfnPreset(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29f0f92cec59e5e0767a2d876973de8cdf8e0c2615c8ffe28a990ecf9773cac0)
+            type_hints = cached_type_hints(_typecheckingstub__29f0f92cec59e5e0767a2d876973de8cdf8e0c2615c8ffe28a990ecf9773cac0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1085,15 +1079,15 @@ class CfnPreset(
 
     @builtins.property
     @jsii.member(jsii_name="presetRef")
-    def preset_ref(self) -> "_PresetReference_4047edf2":
+    def preset_ref(self) -> "_aws_mediaconvert_552fcf0b.PresetReference":
         '''A reference to a Preset resource.'''
-        return typing.cast("_PresetReference_4047edf2", jsii.get(self, "presetRef"))
+        return typing.cast("_aws_mediaconvert_552fcf0b.PresetReference", jsii.get(self, "presetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="settingsJson")
@@ -1104,7 +1098,7 @@ class CfnPreset(
     @settings_json.setter
     def settings_json(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__896f46fb2b42116c3b9470123dec62b22cfd06c04c5bcbb998592a5d3a201e15)
+            type_hints = cached_type_hints(_typecheckingstub__896f46fb2b42116c3b9470123dec62b22cfd06c04c5bcbb998592a5d3a201e15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "settingsJson", value) # pyright: ignore[reportArgumentType]
 
@@ -1117,7 +1111,7 @@ class CfnPreset(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0)
+            type_hints = cached_type_hints(_typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1130,7 +1124,7 @@ class CfnPreset(
     @category.setter
     def category(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7416b46e5f0f9cea5c961f17373253f1be2553f7983af31716026cb07ec40daa)
+            type_hints = cached_type_hints(_typecheckingstub__7416b46e5f0f9cea5c961f17373253f1be2553f7983af31716026cb07ec40daa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "category", value) # pyright: ignore[reportArgumentType]
 
@@ -1143,7 +1137,7 @@ class CfnPreset(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6edaf93908a0193523b483e749d20ba3928b5255280ab8214729a4e86b108a04)
+            type_hints = cached_type_hints(_typecheckingstub__6edaf93908a0193523b483e749d20ba3928b5255280ab8214729a4e86b108a04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1156,7 +1150,7 @@ class CfnPreset(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5cfa13481ef470c412166b972128fb907f80e1f74bfc400f30cd3339e066f4a)
+            type_hints = cached_type_hints(_typecheckingstub__f5cfa13481ef470c412166b972128fb907f80e1f74bfc400f30cd3339e066f4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1213,7 +1207,7 @@ class CfnPresetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28)
+            type_hints = cached_type_hints(_typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28)
             check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
             check_type(argname="argument category", value=category, expected_type=type_hints["category"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1295,9 +1289,9 @@ class CfnPresetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueRef_ef5dbb18, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconvert_552fcf0b.IQueueRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnQueue(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediaconvert.CfnQueue",
 ):
@@ -1354,7 +1348,7 @@ class CfnQueue(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce85d095c93254b82e67ee70a5cae96a78ca7b1fbb86f6494f48602d8a586d98)
+            type_hints = cached_type_hints(_typecheckingstub__ce85d095c93254b82e67ee70a5cae96a78ca7b1fbb86f6494f48602d8a586d98)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueProps(
@@ -1371,12 +1365,15 @@ class CfnQueue(
 
     @jsii.member(jsii_name="arnForQueue")
     @builtins.classmethod
-    def arn_for_queue(cls, resource: "_IQueueRef_ef5dbb18") -> builtins.str:
+    def arn_for_queue(
+        cls,
+        resource: "_aws_mediaconvert_552fcf0b.IQueueRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7f8d877fb1ae486c5c8540a8f28e337951176af9d4b7bd7598fe14b7db2d1c7)
+            type_hints = cached_type_hints(_typecheckingstub__a7f8d877fb1ae486c5c8540a8f28e337951176af9d4b7bd7598fe14b7db2d1c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForQueue", [resource]))
 
@@ -1387,7 +1384,7 @@ class CfnQueue(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IQueueRef_ef5dbb18":
+    ) -> "_aws_mediaconvert_552fcf0b.IQueueRef":
         '''Creates a new IQueueRef from an ARN.
 
         :param scope: -
@@ -1395,11 +1392,11 @@ class CfnQueue(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cf257fa04bd949ea2c8d3833cd6de6e214c953996fa70bc69c261422ed43c6a)
+            type_hints = cached_type_hints(_typecheckingstub__3cf257fa04bd949ea2c8d3833cd6de6e214c953996fa70bc69c261422ed43c6a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IQueueRef_ef5dbb18", jsii.sinvoke(cls, "fromQueueArn", [scope, id, arn]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IQueueRef", jsii.sinvoke(cls, "fromQueueArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromQueueName")
     @builtins.classmethod
@@ -1408,7 +1405,7 @@ class CfnQueue(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         queue_name: builtins.str,
-    ) -> "_IQueueRef_ef5dbb18":
+    ) -> "_aws_mediaconvert_552fcf0b.IQueueRef":
         '''Creates a new IQueueRef from a queueName.
 
         :param scope: -
@@ -1416,11 +1413,11 @@ class CfnQueue(
         :param queue_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b981e07a22c42bfd1c724172570cd43ae112b4bdf2b68e051887b23734c9bded)
+            type_hints = cached_type_hints(_typecheckingstub__b981e07a22c42bfd1c724172570cd43ae112b4bdf2b68e051887b23734c9bded)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument queue_name", value=queue_name, expected_type=type_hints["queue_name"])
-        return typing.cast("_IQueueRef_ef5dbb18", jsii.sinvoke(cls, "fromQueueName", [scope, id, queue_name]))
+        return typing.cast("_aws_mediaconvert_552fcf0b.IQueueRef", jsii.sinvoke(cls, "fromQueueName", [scope, id, queue_name]))
 
     @jsii.member(jsii_name="isCfnQueue")
     @builtins.classmethod
@@ -1430,18 +1427,18 @@ class CfnQueue(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__704d286b7d75cd7f8c1e19d93cc7f4d0252fbc7e8346d8ba341df8702d4d455b)
+            type_hints = cached_type_hints(_typecheckingstub__704d286b7d75cd7f8c1e19d93cc7f4d0252fbc7e8346d8ba341df8702d4d455b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueue", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44bf2af7e922fe606b4e888de0517c75f280a99541185e941a3e92f997fc97e8)
+            type_hints = cached_type_hints(_typecheckingstub__44bf2af7e922fe606b4e888de0517c75f280a99541185e941a3e92f997fc97e8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1454,7 +1451,7 @@ class CfnQueue(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35c318d1b3afa3029c00b3041ce2990e84ecd612460683bdfc3995e4ff1f1397)
+            type_hints = cached_type_hints(_typecheckingstub__35c318d1b3afa3029c00b3041ce2990e84ecd612460683bdfc3995e4ff1f1397)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1502,15 +1499,15 @@ class CfnQueue(
 
     @builtins.property
     @jsii.member(jsii_name="queueRef")
-    def queue_ref(self) -> "_QueueReference_e4ca703e":
+    def queue_ref(self) -> "_aws_mediaconvert_552fcf0b.QueueReference":
         '''A reference to a Queue resource.'''
-        return typing.cast("_QueueReference_e4ca703e", jsii.get(self, "queueRef"))
+        return typing.cast("_aws_mediaconvert_552fcf0b.QueueReference", jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1521,7 +1518,7 @@ class CfnQueue(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d)
+            type_hints = cached_type_hints(_typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1534,7 +1531,7 @@ class CfnQueue(
     @concurrent_jobs.setter
     def concurrent_jobs(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__993fd95d91379114b61414ca4c663149a086fb421eb4dca35dd60e83c0abae78)
+            type_hints = cached_type_hints(_typecheckingstub__993fd95d91379114b61414ca4c663149a086fb421eb4dca35dd60e83c0abae78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "concurrentJobs", value) # pyright: ignore[reportArgumentType]
 
@@ -1547,7 +1544,7 @@ class CfnQueue(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e85c7cbaa4ed5f47efbb96c65b1b5f493c2811227a36b5f2af1c323b91af1598)
+            type_hints = cached_type_hints(_typecheckingstub__e85c7cbaa4ed5f47efbb96c65b1b5f493c2811227a36b5f2af1c323b91af1598)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1559,7 +1556,7 @@ class CfnQueue(
     @maximum_concurrent_feeds.setter
     def maximum_concurrent_feeds(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdc52d018c01592ea173bc3ec5f793b439e41f80b6dfcf0a8add677447b7f5ce)
+            type_hints = cached_type_hints(_typecheckingstub__cdc52d018c01592ea173bc3ec5f793b439e41f80b6dfcf0a8add677447b7f5ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumConcurrentFeeds", value) # pyright: ignore[reportArgumentType]
 
@@ -1572,7 +1569,7 @@ class CfnQueue(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd8d8c3dde443d166f24457acfce6e106f213d1607655d8d767e1db9afc13094)
+            type_hints = cached_type_hints(_typecheckingstub__dd8d8c3dde443d166f24457acfce6e106f213d1607655d8d767e1db9afc13094)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1585,7 +1582,7 @@ class CfnQueue(
     @pricing_plan.setter
     def pricing_plan(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__544728ca404947ab22b89e6afbdd2fe9562a7e292914ea684ded3f462fd1a7d0)
+            type_hints = cached_type_hints(_typecheckingstub__544728ca404947ab22b89e6afbdd2fe9562a7e292914ea684ded3f462fd1a7d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pricingPlan", value) # pyright: ignore[reportArgumentType]
 
@@ -1598,7 +1595,7 @@ class CfnQueue(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85fd14d7b664ec173f54ec0449201dc6c6f6738e85506a3f02565bad2b42761b)
+            type_hints = cached_type_hints(_typecheckingstub__85fd14d7b664ec173f54ec0449201dc6c6f6738e85506a3f02565bad2b42761b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -1660,7 +1657,7 @@ class CfnQueueProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05)
+            type_hints = cached_type_hints(_typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05)
             check_type(argname="argument concurrent_jobs", value=concurrent_jobs, expected_type=type_hints["concurrent_jobs"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument maximum_concurrent_feeds", value=maximum_concurrent_feeds, expected_type=type_hints["maximum_concurrent_feeds"])
@@ -1786,10 +1783,10 @@ def _typecheckingstub__6069a4448c0af7d940ed2037ac3ca32f293c46dc85314fc300ccf64aa
     id: builtins.str,
     *,
     settings_json: typing.Any,
-    acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    acceleration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     category: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    hop_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     priority: typing.Optional[jsii.Number] = None,
     queue: typing.Optional[builtins.str] = None,
@@ -1800,7 +1797,7 @@ def _typecheckingstub__6069a4448c0af7d940ed2037ac3ca32f293c46dc85314fc300ccf64aa
     pass
 
 def _typecheckingstub__0d56f628bc50defd3c895e5ef7b41a1bff57cf0d2d4793131956d13c4cd10603(
-    resource: _IJobTemplateRef_427db06b,
+    resource: _aws_mediaconvert_552fcf0b.IJobTemplateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1828,7 +1825,7 @@ def _typecheckingstub__accf5c8b3c4c8b776f5e518a7795c6424f8e866ef33996cedcd6d6fd1
     pass
 
 def _typecheckingstub__c8f5895955d49b09751b4fb43700086c0c6f207fe9b5fcb5d23033da6657c979(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1852,7 +1849,7 @@ def _typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9e
     pass
 
 def _typecheckingstub__296e89e4fb7eab6d9c3e9ffb503c8e7d494b915aaf6ffbeb356846e5b1550dce(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.AccelerationSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJobTemplate.AccelerationSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1870,7 +1867,7 @@ def _typecheckingstub__ad608e45172465d082cca6fda5cb45f46b8e4c24a10cc48ce5e66f5cd
     pass
 
 def _typecheckingstub__6d0fbb738f4409f521b0e8bc0586e0749bf26afe3de32a968ad27dd11e7b4fbf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.HopDestinationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJobTemplate.HopDestinationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1918,10 +1915,10 @@ def _typecheckingstub__846cbb381389bc2995682d6266fbd2025526247b0442dfab6d6624ea1
 def _typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9(
     *,
     settings_json: typing.Any,
-    acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    acceleration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     category: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    hop_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     name: typing.Optional[builtins.str] = None,
     priority: typing.Optional[jsii.Number] = None,
     queue: typing.Optional[builtins.str] = None,
@@ -1945,7 +1942,7 @@ def _typecheckingstub__c7e9a02a55f71ce4dc1d1bd91234e42ae8b4f331a5204d9de2337abf4
     pass
 
 def _typecheckingstub__b2167b00fe5ac49cfe022a479389e7426bccc0b9b2d60c4347501e6fc7cf0598(
-    resource: _IPresetRef_e69b176f,
+    resource: _aws_mediaconvert_552fcf0b.IPresetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1973,7 +1970,7 @@ def _typecheckingstub__d17a3590cdd9de6ce33c7070b5a010746adeeb948ec8eb093321a8681
     pass
 
 def _typecheckingstub__cfdd12e2c70eaa4ee51ce8c0175f9e9a23741111e6220d5d757029b1f4107fa5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2041,7 +2038,7 @@ def _typecheckingstub__ce85d095c93254b82e67ee70a5cae96a78ca7b1fbb86f6494f48602d8
     pass
 
 def _typecheckingstub__a7f8d877fb1ae486c5c8540a8f28e337951176af9d4b7bd7598fe14b7db2d1c7(
-    resource: _IQueueRef_ef5dbb18,
+    resource: _aws_mediaconvert_552fcf0b.IQueueRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2069,7 +2066,7 @@ def _typecheckingstub__704d286b7d75cd7f8c1e19d93cc7f4d0252fbc7e8346d8ba341df8702
     pass
 
 def _typecheckingstub__44bf2af7e922fe606b4e888de0517c75f280a99541185e941a3e92f997fc97e8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

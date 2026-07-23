@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AccessGrantReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2b9d960ce14e960f08458c9ac22e2b78d14384f82fbd6476384932f77dbc8cf)
+            type_hints = cached_type_hints(_typecheckingstub__d2b9d960ce14e960f08458c9ac22e2b78d14384f82fbd6476384932f77dbc8cf)
             check_type(argname="argument access_grant_arn", value=access_grant_arn, expected_type=type_hints["access_grant_arn"])
             check_type(argname="argument access_grant_id", value=access_grant_id, expected_type=type_hints["access_grant_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class AccessGrantsInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6882e22550c905206235673e76562dae233a359ecba7d4a358b594f17e669437)
+            type_hints = cached_type_hints(_typecheckingstub__6882e22550c905206235673e76562dae233a359ecba7d4a358b594f17e669437)
             check_type(argname="argument access_grants_instance_arn", value=access_grants_instance_arn, expected_type=type_hints["access_grants_instance_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_grants_instance_arn": access_grants_instance_arn,
@@ -185,7 +189,7 @@ class AccessGrantsLocationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0b00f27a86590451e707e5f9757bcdd3bfbbc7e059e60a4d272b8f3522770cc)
+            type_hints = cached_type_hints(_typecheckingstub__a0b00f27a86590451e707e5f9757bcdd3bfbbc7e059e60a4d272b8f3522770cc)
             check_type(argname="argument access_grants_location_arn", value=access_grants_location_arn, expected_type=type_hints["access_grants_location_arn"])
             check_type(argname="argument access_grants_location_id", value=access_grants_location_id, expected_type=type_hints["access_grants_location_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -253,7 +257,7 @@ class AccessPointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70bc662d8702c2672c8da085db71b2c5a2f5ee3a7194eef2874c223c0294491c)
+            type_hints = cached_type_hints(_typecheckingstub__70bc662d8702c2672c8da085db71b2c5a2f5ee3a7194eef2874c223c0294491c)
             check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
             check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -311,7 +315,7 @@ class BucketPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__648001e44782b37217f2dad0940d8392cd3a2df9ae248c11eafad2237b8432c1)
+            type_hints = cached_type_hints(_typecheckingstub__648001e44782b37217f2dad0940d8392cd3a2df9ae248c11eafad2237b8432c1)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket": bucket,
@@ -362,7 +366,7 @@ class BucketReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c390862ed887d712b51bf2a68505e2d7c3438e2ed55aefc40c7d935daca5c7e5)
+            type_hints = cached_type_hints(_typecheckingstub__c390862ed887d712b51bf2a68505e2d7c3438e2ed55aefc40c7d935daca5c7e5)
             check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -399,7 +403,7 @@ class BucketReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IAccessGrantRef")
 class IAccessGrantRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
@@ -419,7 +423,7 @@ class IAccessGrantRef(
 
 class _IAccessGrantRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
 
@@ -444,7 +448,7 @@ typing.cast(typing.Any, IAccessGrantRef).__jsii_proxy_class__ = lambda : _IAcces
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IAccessGrantsInstanceRef")
 class IAccessGrantsInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrantsInstance.
@@ -464,7 +468,7 @@ class IAccessGrantsInstanceRef(
 
 class _IAccessGrantsInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrantsInstance.
 
@@ -489,7 +493,7 @@ typing.cast(typing.Any, IAccessGrantsInstanceRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IAccessGrantsLocationRef")
 class IAccessGrantsLocationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrantsLocation.
@@ -509,7 +513,7 @@ class IAccessGrantsLocationRef(
 
 class _IAccessGrantsLocationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessGrantsLocation.
 
@@ -534,7 +538,7 @@ typing.cast(typing.Any, IAccessGrantsLocationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IAccessPointRef")
 class IAccessPointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
@@ -554,7 +558,7 @@ class IAccessPointRef(
 
 class _IAccessPointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
 
@@ -579,7 +583,7 @@ typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAcces
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IBucketPolicyRef")
 class IBucketPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
@@ -599,7 +603,7 @@ class IBucketPolicyRef(
 
 class _IBucketPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
 
@@ -624,7 +628,7 @@ typing.cast(typing.Any, IBucketPolicyRef).__jsii_proxy_class__ = lambda : _IBuck
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IBucketRef")
 class IBucketRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
@@ -644,7 +648,7 @@ class IBucketRef(
 
 class _IBucketRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
 
@@ -671,7 +675,7 @@ typing.cast(typing.Any, IBucketRef).__jsii_proxy_class__ = lambda : _IBucketRefP
 )
 class IMultiRegionAccessPointPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPointPolicy.
@@ -693,7 +697,7 @@ class IMultiRegionAccessPointPolicyRef(
 
 class _IMultiRegionAccessPointPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPointPolicy.
 
@@ -720,7 +724,7 @@ typing.cast(typing.Any, IMultiRegionAccessPointPolicyRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IMultiRegionAccessPointRef")
 class IMultiRegionAccessPointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPoint.
@@ -740,7 +744,7 @@ class IMultiRegionAccessPointRef(
 
 class _IMultiRegionAccessPointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPoint.
 
@@ -765,7 +769,7 @@ typing.cast(typing.Any, IMultiRegionAccessPointRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IStorageLensGroupRef")
 class IStorageLensGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageLensGroup.
@@ -785,7 +789,7 @@ class IStorageLensGroupRef(
 
 class _IStorageLensGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageLensGroup.
 
@@ -810,7 +814,7 @@ typing.cast(typing.Any, IStorageLensGroupRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3.IStorageLensRef")
 class IStorageLensRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageLens.
@@ -830,7 +834,7 @@ class IStorageLensRef(
 
 class _IStorageLensRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageLens.
 
@@ -876,7 +880,7 @@ class MultiRegionAccessPointPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83698ccd203d7ef0aaeaede8ccc9068d56382ec5d05eba2f67bb5b98e53b201d)
+            type_hints = cached_type_hints(_typecheckingstub__83698ccd203d7ef0aaeaede8ccc9068d56382ec5d05eba2f67bb5b98e53b201d)
             check_type(argname="argument mrap_name", value=mrap_name, expected_type=type_hints["mrap_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "mrap_name": mrap_name,
@@ -925,7 +929,7 @@ class MultiRegionAccessPointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6c8b17851d17a7c93d55c2b7eaa2f77a8f92c96887adecbf9996904e252221e)
+            type_hints = cached_type_hints(_typecheckingstub__d6c8b17851d17a7c93d55c2b7eaa2f77a8f92c96887adecbf9996904e252221e)
             check_type(argname="argument multi_region_access_point_name", value=multi_region_access_point_name, expected_type=type_hints["multi_region_access_point_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "multi_region_access_point_name": multi_region_access_point_name,
@@ -984,7 +988,7 @@ class StorageLensGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a99bdd92fd550c1ad5d4db9a599187e4998a22d114151485e67bcf0c0c70fa9a)
+            type_hints = cached_type_hints(_typecheckingstub__a99bdd92fd550c1ad5d4db9a599187e4998a22d114151485e67bcf0c0c70fa9a)
             check_type(argname="argument storage_lens_group_arn", value=storage_lens_group_arn, expected_type=type_hints["storage_lens_group_arn"])
             check_type(argname="argument storage_lens_group_name", value=storage_lens_group_name, expected_type=type_hints["storage_lens_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1042,7 +1046,7 @@ class StorageLensReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48afede48fab0fc852739a5bf1354f8c3adb42f983e3f8b4a4c446a1bcc765a9)
+            type_hints = cached_type_hints(_typecheckingstub__48afede48fab0fc852739a5bf1354f8c3adb42f983e3f8b4a4c446a1bcc765a9)
             check_type(argname="argument storage_lens_id", value=storage_lens_id, expected_type=type_hints["storage_lens_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "storage_lens_id": storage_lens_id,

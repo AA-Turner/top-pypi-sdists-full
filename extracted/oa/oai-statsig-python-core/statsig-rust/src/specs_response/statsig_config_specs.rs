@@ -55,6 +55,8 @@ pub struct Spec {
     pub forward_all_exposures: ::core::option::Option<bool>,
     #[prost(string, repeated, tag = "14")]
     pub fields_used: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "15")]
+    pub session_update_mode: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Rule {

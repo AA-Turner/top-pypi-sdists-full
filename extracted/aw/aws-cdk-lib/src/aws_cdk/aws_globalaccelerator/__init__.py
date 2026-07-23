@@ -195,6 +195,8 @@ aga_sg = endpoint_group.connections_peer("GlobalAcceleratorSG", vpc)
 alb.connections.allow_from(aga_sg, ec2.Port.tcp(443))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -208,50 +210,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import IPeer as _IPeer_cf58db9a, IVpc as _IVpc_f30d5663
-from ..interfaces.aws_globalaccelerator import (
-    AcceleratorReference as _AcceleratorReference_0e68657d,
-    CrossAccountAttachmentReference as _CrossAccountAttachmentReference_d500bf06,
-    EndpointGroupReference as _EndpointGroupReference_940f730d,
-    IAcceleratorRef as _IAcceleratorRef_b1855670,
-    ICrossAccountAttachmentRef as _ICrossAccountAttachmentRef_5ac583ee,
-    IEndpointGroupRef as _IEndpointGroupRef_9302598c,
-    IListenerRef as _IListenerRef_efaa8e2a,
-    ListenerReference as _ListenerReference_4b812def,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.interfaces.aws_globalaccelerator as _aws_globalaccelerator_fa1fa226
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_globalaccelerator_fa1fa226 = _LazyImport("aws_cdk.interfaces.aws_globalaccelerator")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -302,7 +287,7 @@ class AcceleratorAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4371a70b7d534af654b9cc12851521c8acec71fdb086a600705883f650b2944)
+            type_hints = cached_type_hints(_typecheckingstub__f4371a70b7d534af654b9cc12851521c8acec71fdb086a600705883f650b2944)
             check_type(argname="argument accelerator_arn", value=accelerator_arn, expected_type=type_hints["accelerator_arn"])
             check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
             check_type(argname="argument dual_stack_dns_name", value=dual_stack_dns_name, expected_type=type_hints["dual_stack_dns_name"])
@@ -409,7 +394,7 @@ class AcceleratorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1eab71c63f483327001613aa51732cc5e98e31a5a218e48c6bf0ba95746086a)
+            type_hints = cached_type_hints(_typecheckingstub__b1eab71c63f483327001613aa51732cc5e98e31a5a218e48c6bf0ba95746086a)
             check_type(argname="argument accelerator_name", value=accelerator_name, expected_type=type_hints["accelerator_name"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
@@ -485,9 +470,9 @@ class AcceleratorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAcceleratorRef_b1855670, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_globalaccelerator_fa1fa226.IAcceleratorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAccelerator(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.CfnAccelerator",
 ):
@@ -529,13 +514,13 @@ class CfnAccelerator(
         id: builtins.str,
         *,
         name: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
         flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::GlobalAccelerator::Accelerator``.
 
@@ -551,7 +536,7 @@ class CfnAccelerator(
         :param tags: Create tags for an accelerator. For more information, see `Tagging <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b4e9743a0b90ee8f6751e3f45acf5d26ac65581ea6ebfd2056c793432e2edfa)
+            type_hints = cached_type_hints(_typecheckingstub__1b4e9743a0b90ee8f6751e3f45acf5d26ac65581ea6ebfd2056c793432e2edfa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAcceleratorProps(
@@ -569,12 +554,15 @@ class CfnAccelerator(
 
     @jsii.member(jsii_name="arnForAccelerator")
     @builtins.classmethod
-    def arn_for_accelerator(cls, resource: "_IAcceleratorRef_b1855670") -> builtins.str:
+    def arn_for_accelerator(
+        cls,
+        resource: "_aws_globalaccelerator_fa1fa226.IAcceleratorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8efa56abdff179981206b16ea3320502b510b1c29fedecb93bd598db48104a1)
+            type_hints = cached_type_hints(_typecheckingstub__d8efa56abdff179981206b16ea3320502b510b1c29fedecb93bd598db48104a1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccelerator", [resource]))
 
@@ -586,18 +574,18 @@ class CfnAccelerator(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d1087efac1a3c1f09cb1c29b976d2bfe090a8f12ecc39f277f2e1b540a3fa4)
+            type_hints = cached_type_hints(_typecheckingstub__70d1087efac1a3c1f09cb1c29b976d2bfe090a8f12ecc39f277f2e1b540a3fa4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccelerator", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__397b300551025b97bbac4a4e556a29883f3095ff492b64e883ba89d1f2e65361)
+            type_hints = cached_type_hints(_typecheckingstub__397b300551025b97bbac4a4e556a29883f3095ff492b64e883ba89d1f2e65361)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -610,7 +598,7 @@ class CfnAccelerator(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b8410a867d0c3569f998c99b8529e5bb908b58b002c33eabc2f9efcfb7cad75)
+            type_hints = cached_type_hints(_typecheckingstub__7b8410a867d0c3569f998c99b8529e5bb908b58b002c33eabc2f9efcfb7cad75)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -622,9 +610,9 @@ class CfnAccelerator(
 
     @builtins.property
     @jsii.member(jsii_name="acceleratorRef")
-    def accelerator_ref(self) -> "_AcceleratorReference_0e68657d":
+    def accelerator_ref(self) -> "_aws_globalaccelerator_fa1fa226.AcceleratorReference":
         '''A reference to a Accelerator resource.'''
-        return typing.cast("_AcceleratorReference_0e68657d", jsii.get(self, "acceleratorRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.AcceleratorReference", jsii.get(self, "acceleratorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAcceleratorArn")
@@ -687,9 +675,9 @@ class CfnAccelerator(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -700,7 +688,7 @@ class CfnAccelerator(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf71d58233f1c96ba3800438272161e875fc26a01900f616c2cd156ddb63ae7b)
+            type_hints = cached_type_hints(_typecheckingstub__cf71d58233f1c96ba3800438272161e875fc26a01900f616c2cd156ddb63ae7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -708,20 +696,20 @@ class CfnAccelerator(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the accelerator is enabled.
 
         The value is true or false. The default value is true.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__212958a90fe602ec7bd5bd63e1af9ffdda7f4715f76bb918b2954de8c3fc5f17)
+            type_hints = cached_type_hints(_typecheckingstub__212958a90fe602ec7bd5bd63e1af9ffdda7f4715f76bb918b2954de8c3fc5f17)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
@@ -729,17 +717,17 @@ class CfnAccelerator(
     @jsii.member(jsii_name="flowLogsEnabled")
     def flow_logs_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether flow logs are enabled for the accelerator.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "flowLogsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "flowLogsEnabled"))
 
     @flow_logs_enabled.setter
     def flow_logs_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcedca76e28811bd5bce3857f1faa6755cd17be97660969a2edfd3d16b0070e4)
+            type_hints = cached_type_hints(_typecheckingstub__dcedca76e28811bd5bce3857f1faa6755cd17be97660969a2edfd3d16b0070e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowLogsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -752,7 +740,7 @@ class CfnAccelerator(
     @flow_logs_s3_bucket.setter
     def flow_logs_s3_bucket(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51bd47ec1a2b46d2f2b55c698f27f2c00efd66c964580d2f2dc4447869a7e342)
+            type_hints = cached_type_hints(_typecheckingstub__51bd47ec1a2b46d2f2b55c698f27f2c00efd66c964580d2f2dc4447869a7e342)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowLogsS3Bucket", value) # pyright: ignore[reportArgumentType]
 
@@ -765,7 +753,7 @@ class CfnAccelerator(
     @flow_logs_s3_prefix.setter
     def flow_logs_s3_prefix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c530b9a7eb2940cda8481b01fb3cad74037cc5a16cc80386013da7668048e1e)
+            type_hints = cached_type_hints(_typecheckingstub__1c530b9a7eb2940cda8481b01fb3cad74037cc5a16cc80386013da7668048e1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowLogsS3Prefix", value) # pyright: ignore[reportArgumentType]
 
@@ -778,7 +766,7 @@ class CfnAccelerator(
     @ip_addresses.setter
     def ip_addresses(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9293ebc99ee17e886faff8e0d9efb40ef7bebbbd4b48380c60934c13184439d)
+            type_hints = cached_type_hints(_typecheckingstub__c9293ebc99ee17e886faff8e0d9efb40ef7bebbbd4b48380c60934c13184439d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddresses", value) # pyright: ignore[reportArgumentType]
 
@@ -791,20 +779,23 @@ class CfnAccelerator(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91bc3303436010bfc300aa1aca956ac62d5555ca9debf4f2e9618b6448589eb3)
+            type_hints = cached_type_hints(_typecheckingstub__91bc3303436010bfc300aa1aca956ac62d5555ca9debf4f2e9618b6448589eb3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Create tags for an accelerator.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e063ea35adf85272242f49261080bb463b395478144ea6e06a187ccbb6032229)
+            type_hints = cached_type_hints(_typecheckingstub__e063ea35adf85272242f49261080bb463b395478144ea6e06a187ccbb6032229)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -828,13 +819,13 @@ class CfnAcceleratorProps:
         self,
         *,
         name: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
         flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccelerator``.
 
@@ -874,7 +865,7 @@ class CfnAcceleratorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a2b1dd32a23d6d5146bbceed209c5576192a998d13fcf3817f2dc4f8d691406)
+            type_hints = cached_type_hints(_typecheckingstub__5a2b1dd32a23d6d5146bbceed209c5576192a998d13fcf3817f2dc4f8d691406)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument flow_logs_enabled", value=flow_logs_enabled, expected_type=type_hints["flow_logs_enabled"])
@@ -916,7 +907,7 @@ class CfnAcceleratorProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the accelerator is enabled. The value is true or false. The default value is true.
 
         If the value is set to true, the accelerator cannot be deleted. If set to false, accelerator can be deleted.
@@ -926,12 +917,12 @@ class CfnAcceleratorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def flow_logs_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether flow logs are enabled for the accelerator.
 
         :default: - false
@@ -939,7 +930,7 @@ class CfnAcceleratorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-flowlogsenabled
         '''
         result = self._values.get("flow_logs_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def flow_logs_s3_bucket(self) -> typing.Optional[builtins.str]:
@@ -990,7 +981,7 @@ class CfnAcceleratorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Create tags for an accelerator.
 
         For more information, see `Tagging <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
@@ -998,7 +989,7 @@ class CfnAcceleratorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1012,9 +1003,9 @@ class CfnAcceleratorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICrossAccountAttachmentRef_5ac583ee, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_globalaccelerator_fa1fa226.ICrossAccountAttachmentRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCrossAccountAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.CfnCrossAccountAttachment",
 ):
@@ -1065,8 +1056,8 @@ class CfnCrossAccountAttachment(
         *,
         name: builtins.str,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCrossAccountAttachment.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCrossAccountAttachment.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::GlobalAccelerator::CrossAccountAttachment``.
 
@@ -1078,7 +1069,7 @@ class CfnCrossAccountAttachment(
         :param tags: Add tags for a cross-account attachment. For more information, see `Tagging in AWS Global Accelerator <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba1ec3d469e5dcabcf7399e8e8e79a3f5365c953f4994522f2f99f4785e9351d)
+            type_hints = cached_type_hints(_typecheckingstub__ba1ec3d469e5dcabcf7399e8e8e79a3f5365c953f4994522f2f99f4785e9351d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCrossAccountAttachmentProps(
@@ -1095,18 +1086,18 @@ class CfnCrossAccountAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f97087dbeec67609879a2b72573383a1288dc4129a20900268b9a5ac5fb8713)
+            type_hints = cached_type_hints(_typecheckingstub__9f97087dbeec67609879a2b72573383a1288dc4129a20900268b9a5ac5fb8713)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCrossAccountAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22786fe9cf42aaba90a851e34bed5295d6cb83ef62c09ae6bc29c753ad99c5ff)
+            type_hints = cached_type_hints(_typecheckingstub__22786fe9cf42aaba90a851e34bed5295d6cb83ef62c09ae6bc29c753ad99c5ff)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1119,7 +1110,7 @@ class CfnCrossAccountAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cd632424889de088176e87245805d03f5bdd773dc61b13fb9b6b0ca8d5801b5)
+            type_hints = cached_type_hints(_typecheckingstub__7cd632424889de088176e87245805d03f5bdd773dc61b13fb9b6b0ca8d5801b5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1140,9 +1131,9 @@ class CfnCrossAccountAttachment(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1158,9 +1149,9 @@ class CfnCrossAccountAttachment(
     @jsii.member(jsii_name="crossAccountAttachmentRef")
     def cross_account_attachment_ref(
         self,
-    ) -> "_CrossAccountAttachmentReference_d500bf06":
+    ) -> "_aws_globalaccelerator_fa1fa226.CrossAccountAttachmentReference":
         '''A reference to a CrossAccountAttachment resource.'''
-        return typing.cast("_CrossAccountAttachmentReference_d500bf06", jsii.get(self, "crossAccountAttachmentRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.CrossAccountAttachmentReference", jsii.get(self, "crossAccountAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1171,7 +1162,7 @@ class CfnCrossAccountAttachment(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19782d3e7f6cd3af16e9e78c249289e2593a7ff1d4e1c7a86db71dc5f399fb46)
+            type_hints = cached_type_hints(_typecheckingstub__19782d3e7f6cd3af16e9e78c249289e2593a7ff1d4e1c7a86db71dc5f399fb46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1184,7 +1175,7 @@ class CfnCrossAccountAttachment(
     @principals.setter
     def principals(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08ec8314d2cbd2120a78129320bf34d1678991d2ed2d2b8df5bf723a99a7c254)
+            type_hints = cached_type_hints(_typecheckingstub__08ec8314d2cbd2120a78129320bf34d1678991d2ed2d2b8df5bf723a99a7c254)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principals", value) # pyright: ignore[reportArgumentType]
 
@@ -1192,30 +1183,33 @@ class CfnCrossAccountAttachment(
     @jsii.member(jsii_name="resources")
     def resources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCrossAccountAttachment.ResourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCrossAccountAttachment.ResourceProperty"]]]]:
         '''The resources included in the cross-account attachment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCrossAccountAttachment.ResourceProperty"]]]], jsii.get(self, "resources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCrossAccountAttachment.ResourceProperty"]]]], jsii.get(self, "resources"))
 
     @resources.setter
     def resources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCrossAccountAttachment.ResourceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCrossAccountAttachment.ResourceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e879fec7df8ee76103a0479812b95ae371bbbe6b3312bbaebe1d912c7185fd3)
+            type_hints = cached_type_hints(_typecheckingstub__4e879fec7df8ee76103a0479812b95ae371bbbe6b3312bbaebe1d912c7185fd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Add tags for a cross-account attachment.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41d583733963eebabfa0286562bcae1a6871814ce66e72f32e495b730a151c15)
+            type_hints = cached_type_hints(_typecheckingstub__41d583733963eebabfa0286562bcae1a6871814ce66e72f32e495b730a151c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1254,7 +1248,7 @@ class CfnCrossAccountAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7bd30ea319625d12c404c84e89e35a95437c89cec1dad797148fd3a2c913ddb7)
+                type_hints = cached_type_hints(_typecheckingstub__7bd30ea319625d12c404c84e89e35a95437c89cec1dad797148fd3a2c913ddb7)
                 check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
                 check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -1327,8 +1321,8 @@ class CfnCrossAccountAttachmentProps:
         *,
         name: builtins.str,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCrossAccountAttachment.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCrossAccountAttachment.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCrossAccountAttachment``.
 
@@ -1364,7 +1358,7 @@ class CfnCrossAccountAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf43e1c90e824b6fcd56b5cbed6fc8b38a0a663b52303ae4fd2eac734194141)
+            type_hints = cached_type_hints(_typecheckingstub__8cf43e1c90e824b6fcd56b5cbed6fc8b38a0a663b52303ae4fd2eac734194141)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument principals", value=principals, expected_type=type_hints["principals"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
@@ -1401,16 +1395,16 @@ class CfnCrossAccountAttachmentProps:
     @builtins.property
     def resources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCrossAccountAttachment.ResourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCrossAccountAttachment.ResourceProperty"]]]]:
         '''The resources included in the cross-account attachment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-crossaccountattachment.html#cfn-globalaccelerator-crossaccountattachment-resources
         '''
         result = self._values.get("resources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCrossAccountAttachment.ResourceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCrossAccountAttachment.ResourceProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Add tags for a cross-account attachment.
 
         For more information, see `Tagging in AWS Global Accelerator <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
@@ -1418,7 +1412,7 @@ class CfnCrossAccountAttachmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-crossaccountattachment.html#cfn-globalaccelerator-crossaccountattachment-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1432,9 +1426,9 @@ class CfnCrossAccountAttachmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEndpointGroupRef_9302598c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_globalaccelerator_fa1fa226.IEndpointGroupRef)
 class CfnEndpointGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.CfnEndpointGroup",
 ):
@@ -1484,13 +1478,13 @@ class CfnEndpointGroup(
         id: builtins.str,
         *,
         endpoint_group_region: builtins.str,
-        listener_arn: typing.Union[builtins.str, "_IListenerRef_efaa8e2a"],
-        endpoint_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointGroup.EndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_arn: typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IListenerRef"],
+        endpoint_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointGroup.EndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         health_check_interval_seconds: typing.Optional[jsii.Number] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional[builtins.str] = None,
-        port_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointGroup.PortOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        port_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointGroup.PortOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         threshold_count: typing.Optional[jsii.Number] = None,
         traffic_dial_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -1510,7 +1504,7 @@ class CfnEndpointGroup(
         :param traffic_dial_percentage: The percentage of traffic to send to an AWS Regions . Additional traffic is distributed to other endpoint groups for this listener. Use this action to increase (dial up) or decrease (dial down) traffic to a specific Region. The percentage is applied to the traffic that would otherwise have been routed to the Region based on optimal routing. The default value is 100. Default: - 100
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4abd958de92d302b6b9aa605f8d58d76fb06143d26797b6f9d857004005dd21)
+            type_hints = cached_type_hints(_typecheckingstub__d4abd958de92d302b6b9aa605f8d58d76fb06143d26797b6f9d857004005dd21)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEndpointGroupProps(
@@ -1532,13 +1526,13 @@ class CfnEndpointGroup(
     @builtins.classmethod
     def arn_for_endpoint_group(
         cls,
-        resource: "_IEndpointGroupRef_9302598c",
+        resource: "_aws_globalaccelerator_fa1fa226.IEndpointGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d0c1cebf70a4fd1e6be12516ab8abafd7f1ae69b65c0627f06153d61cbccad7)
+            type_hints = cached_type_hints(_typecheckingstub__0d0c1cebf70a4fd1e6be12516ab8abafd7f1ae69b65c0627f06153d61cbccad7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEndpointGroup", [resource]))
 
@@ -1550,18 +1544,18 @@ class CfnEndpointGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__907e43dccd78078006bdc580e5276244730177fb42528d037fd0c47d78344c9b)
+            type_hints = cached_type_hints(_typecheckingstub__907e43dccd78078006bdc580e5276244730177fb42528d037fd0c47d78344c9b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpointGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7325404475ea701e06428e0ebf1da49bd6a9f2d8cc2b3d2b8119cd6010f1126)
+            type_hints = cached_type_hints(_typecheckingstub__c7325404475ea701e06428e0ebf1da49bd6a9f2d8cc2b3d2b8119cd6010f1126)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1574,7 +1568,7 @@ class CfnEndpointGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__409e6b12e2088d36c92a58569af909ba7ae0236144ba3365662e16035a350777)
+            type_hints = cached_type_hints(_typecheckingstub__409e6b12e2088d36c92a58569af909ba7ae0236144ba3365662e16035a350777)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1605,9 +1599,11 @@ class CfnEndpointGroup(
 
     @builtins.property
     @jsii.member(jsii_name="endpointGroupRef")
-    def endpoint_group_ref(self) -> "_EndpointGroupReference_940f730d":
+    def endpoint_group_ref(
+        self,
+    ) -> "_aws_globalaccelerator_fa1fa226.EndpointGroupReference":
         '''A reference to a EndpointGroup resource.'''
-        return typing.cast("_EndpointGroupReference_940f730d", jsii.get(self, "endpointGroupRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.EndpointGroupReference", jsii.get(self, "endpointGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="endpointGroupRegion")
@@ -1618,7 +1614,7 @@ class CfnEndpointGroup(
     @endpoint_group_region.setter
     def endpoint_group_region(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f23a786ee8c58760443235c1f4809edbb499e45156b0da5d75022f1431ea2491)
+            type_hints = cached_type_hints(_typecheckingstub__f23a786ee8c58760443235c1f4809edbb499e45156b0da5d75022f1431ea2491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointGroupRegion", value) # pyright: ignore[reportArgumentType]
 
@@ -1631,7 +1627,7 @@ class CfnEndpointGroup(
     @listener_arn.setter
     def listener_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1c4c31ac465a44a4fcfd46e5b9a99daf2303e5c9e30d9cade8f8fe5b4bc21c)
+            type_hints = cached_type_hints(_typecheckingstub__be1c4c31ac465a44a4fcfd46e5b9a99daf2303e5c9e30d9cade8f8fe5b4bc21c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1639,17 +1635,17 @@ class CfnEndpointGroup(
     @jsii.member(jsii_name="endpointConfigurations")
     def endpoint_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.EndpointConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.EndpointConfigurationProperty"]]]]:
         '''The list of endpoint objects.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.EndpointConfigurationProperty"]]]], jsii.get(self, "endpointConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.EndpointConfigurationProperty"]]]], jsii.get(self, "endpointConfigurations"))
 
     @endpoint_configurations.setter
     def endpoint_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.EndpointConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.EndpointConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0daf5e18e36444ca1cae5324b585719642e80c78de4ebede6e9d5deb9a3b767)
+            type_hints = cached_type_hints(_typecheckingstub__a0daf5e18e36444ca1cae5324b585719642e80c78de4ebede6e9d5deb9a3b767)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -1665,7 +1661,7 @@ class CfnEndpointGroup(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f7cefbf9eda028bc48c49875b6190b2172cb2f5bd93cf149e942d2044e71a3e)
+            type_hints = cached_type_hints(_typecheckingstub__6f7cefbf9eda028bc48c49875b6190b2172cb2f5bd93cf149e942d2044e71a3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckIntervalSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -1678,7 +1674,7 @@ class CfnEndpointGroup(
     @health_check_path.setter
     def health_check_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b5a2907722142c9e874658a7ccff72e9181b6a59d918239ca1283edcc4139b0)
+            type_hints = cached_type_hints(_typecheckingstub__2b5a2907722142c9e874658a7ccff72e9181b6a59d918239ca1283edcc4139b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckPath", value) # pyright: ignore[reportArgumentType]
 
@@ -1691,7 +1687,7 @@ class CfnEndpointGroup(
     @health_check_port.setter
     def health_check_port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0c56060420cc5e2e9573de7244eab46c22f629c527a104c631efec4e26d50e0)
+            type_hints = cached_type_hints(_typecheckingstub__f0c56060420cc5e2e9573de7244eab46c22f629c527a104c631efec4e26d50e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckPort", value) # pyright: ignore[reportArgumentType]
 
@@ -1704,7 +1700,7 @@ class CfnEndpointGroup(
     @health_check_protocol.setter
     def health_check_protocol(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00fe2b518dfa2fc48bcaf1fd1ad273ed1dc229f98728b3a0309987533dc9d899)
+            type_hints = cached_type_hints(_typecheckingstub__00fe2b518dfa2fc48bcaf1fd1ad273ed1dc229f98728b3a0309987533dc9d899)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckProtocol", value) # pyright: ignore[reportArgumentType]
 
@@ -1712,17 +1708,17 @@ class CfnEndpointGroup(
     @jsii.member(jsii_name="portOverrides")
     def port_overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.PortOverrideProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.PortOverrideProperty"]]]]:
         '''Allows you to override the destination ports used to route traffic to an endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.PortOverrideProperty"]]]], jsii.get(self, "portOverrides"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.PortOverrideProperty"]]]], jsii.get(self, "portOverrides"))
 
     @port_overrides.setter
     def port_overrides(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.PortOverrideProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.PortOverrideProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7af44a8cc6ef072b9bed34da2997f4f09e8129157189ae4d92f3e85157f4c71e)
+            type_hints = cached_type_hints(_typecheckingstub__7af44a8cc6ef072b9bed34da2997f4f09e8129157189ae4d92f3e85157f4c71e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portOverrides", value) # pyright: ignore[reportArgumentType]
 
@@ -1735,7 +1731,7 @@ class CfnEndpointGroup(
     @threshold_count.setter
     def threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db126c6c8d3713ff8c0af13a75b73d77de3063c72b7acef17d1d2f36c2804367)
+            type_hints = cached_type_hints(_typecheckingstub__db126c6c8d3713ff8c0af13a75b73d77de3063c72b7acef17d1d2f36c2804367)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thresholdCount", value) # pyright: ignore[reportArgumentType]
 
@@ -1748,7 +1744,7 @@ class CfnEndpointGroup(
     @traffic_dial_percentage.setter
     def traffic_dial_percentage(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b998e2081e2d308a57549976a631b6e5b339bbb2de70383a025b0b1ca9a2699a)
+            type_hints = cached_type_hints(_typecheckingstub__b998e2081e2d308a57549976a631b6e5b339bbb2de70383a025b0b1ca9a2699a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trafficDialPercentage", value) # pyright: ignore[reportArgumentType]
 
@@ -1768,7 +1764,7 @@ class CfnEndpointGroup(
             *,
             endpoint_id: builtins.str,
             attachment_arn: typing.Optional[builtins.str] = None,
-            client_ip_preservation_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            client_ip_preservation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             weight: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''A complex type for endpoints.
@@ -1799,7 +1795,7 @@ class CfnEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__92c85da4eae87afc5ac8c89581478057db742227d39e533959a7e6176c16fdc4)
+                type_hints = cached_type_hints(_typecheckingstub__92c85da4eae87afc5ac8c89581478057db742227d39e533959a7e6176c16fdc4)
                 check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
                 check_type(argname="argument attachment_arn", value=attachment_arn, expected_type=type_hints["attachment_arn"])
                 check_type(argname="argument client_ip_preservation_enabled", value=client_ip_preservation_enabled, expected_type=type_hints["client_ip_preservation_enabled"])
@@ -1840,7 +1836,7 @@ class CfnEndpointGroup(
         @builtins.property
         def client_ip_preservation_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether client IP address preservation is enabled for an Application Load Balancer endpoint.
 
             The value is true or false. The default value is true for new accelerators.
@@ -1854,7 +1850,7 @@ class CfnEndpointGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-globalaccelerator-endpointgroup-endpointconfiguration.html#cfn-globalaccelerator-endpointgroup-endpointconfiguration-clientippreservationenabled
             '''
             result = self._values.get("client_ip_preservation_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def weight(self) -> typing.Optional[jsii.Number]:
@@ -1919,7 +1915,7 @@ class CfnEndpointGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3359d163f3a349b1fc497520e7db3252e20286310ca0cc9c6ea1f9c4f48ef5a)
+                type_hints = cached_type_hints(_typecheckingstub__e3359d163f3a349b1fc497520e7db3252e20286310ca0cc9c6ea1f9c4f48ef5a)
                 check_type(argname="argument endpoint_port", value=endpoint_port, expected_type=type_hints["endpoint_port"])
                 check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1984,13 +1980,13 @@ class CfnEndpointGroupProps:
         self,
         *,
         endpoint_group_region: builtins.str,
-        listener_arn: typing.Union[builtins.str, "_IListenerRef_efaa8e2a"],
-        endpoint_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointGroup.EndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_arn: typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IListenerRef"],
+        endpoint_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointGroup.EndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         health_check_interval_seconds: typing.Optional[jsii.Number] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional[builtins.str] = None,
-        port_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointGroup.PortOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        port_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEndpointGroup.PortOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         threshold_count: typing.Optional[jsii.Number] = None,
         traffic_dial_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -2042,7 +2038,7 @@ class CfnEndpointGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f9460739d2070644400ee87add34d6bb290f1d4cb7749e5cebc8f8958fc491a)
+            type_hints = cached_type_hints(_typecheckingstub__4f9460739d2070644400ee87add34d6bb290f1d4cb7749e5cebc8f8958fc491a)
             check_type(argname="argument endpoint_group_region", value=endpoint_group_region, expected_type=type_hints["endpoint_group_region"])
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
             check_type(argname="argument endpoint_configurations", value=endpoint_configurations, expected_type=type_hints["endpoint_configurations"])
@@ -2085,25 +2081,27 @@ class CfnEndpointGroupProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def listener_arn(self) -> typing.Union[builtins.str, "_IListenerRef_efaa8e2a"]:
+    def listener_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IListenerRef"]:
         '''The Amazon Resource Name (ARN) of the listener.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-endpointgroup.html#cfn-globalaccelerator-endpointgroup-listenerarn
         '''
         result = self._values.get("listener_arn")
         assert result is not None, "Required property 'listener_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IListenerRef_efaa8e2a"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IListenerRef"], result)
 
     @builtins.property
     def endpoint_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.EndpointConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.EndpointConfigurationProperty"]]]]:
         '''The list of endpoint objects.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-endpointgroup.html#cfn-globalaccelerator-endpointgroup-endpointconfigurations
         '''
         result = self._values.get("endpoint_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.EndpointConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.EndpointConfigurationProperty"]]]], result)
 
     @builtins.property
     def health_check_interval_seconds(self) -> typing.Optional[jsii.Number]:
@@ -2160,7 +2158,7 @@ class CfnEndpointGroupProps:
     @builtins.property
     def port_overrides(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.PortOverrideProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.PortOverrideProperty"]]]]:
         '''Allows you to override the destination ports used to route traffic to an endpoint.
 
         Using a port override lets you map a list of external destination ports (that your users send traffic to) to a list of internal destination ports that you want an application endpoint to receive traffic on.
@@ -2168,7 +2166,7 @@ class CfnEndpointGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-endpointgroup.html#cfn-globalaccelerator-endpointgroup-portoverrides
         '''
         result = self._values.get("port_overrides")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointGroup.PortOverrideProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEndpointGroup.PortOverrideProperty"]]]], result)
 
     @builtins.property
     def threshold_count(self) -> typing.Optional[jsii.Number]:
@@ -2212,9 +2210,9 @@ class CfnEndpointGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IListenerRef_efaa8e2a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_globalaccelerator_fa1fa226.IListenerRef)
 class CfnListener(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.CfnListener",
 ):
@@ -2250,8 +2248,8 @@ class CfnListener(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        accelerator_arn: typing.Union[builtins.str, "_IAcceleratorRef_b1855670"],
-        port_ranges: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        accelerator_arn: typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IAcceleratorRef"],
+        port_ranges: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         protocol: builtins.str,
         client_affinity: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2265,7 +2263,7 @@ class CfnListener(
         :param client_affinity: Client affinity lets you direct all requests from a user to the same endpoint, if you have stateful applications, regardless of the port and protocol of the client request. Client affinity gives you control over whether to always route each client to the same specific endpoint. AWS Global Accelerator uses a consistent-flow hashing algorithm to choose the optimal endpoint for a connection. If client affinity is ``NONE`` , Global Accelerator uses the "five-tuple" (5-tuple) properties—source IP address, source port, destination IP address, destination port, and protocol—to select the hash value, and then chooses the best endpoint. However, with this setting, if someone uses different ports to connect to Global Accelerator, their connections might not be always routed to the same endpoint because the hash value changes. If you want a given client to always be routed to the same endpoint, set client affinity to ``SOURCE_IP`` instead. When you use the ``SOURCE_IP`` setting, Global Accelerator uses the "two-tuple" (2-tuple) properties— source (client) IP address and destination IP address—to select the hash value. The default value is ``NONE`` . Default: - "NONE"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f5343495fec1a9582d0f433b059b03c9d1a0192305d421ce867f1a58f682a43)
+            type_hints = cached_type_hints(_typecheckingstub__8f5343495fec1a9582d0f433b059b03c9d1a0192305d421ce867f1a58f682a43)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnListenerProps(
@@ -2279,12 +2277,15 @@ class CfnListener(
 
     @jsii.member(jsii_name="arnForListener")
     @builtins.classmethod
-    def arn_for_listener(cls, resource: "_IListenerRef_efaa8e2a") -> builtins.str:
+    def arn_for_listener(
+        cls,
+        resource: "_aws_globalaccelerator_fa1fa226.IListenerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fba60f9012acb9ca61a7413fed047846735076670e88351b992226c2f537565c)
+            type_hints = cached_type_hints(_typecheckingstub__fba60f9012acb9ca61a7413fed047846735076670e88351b992226c2f537565c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForListener", [resource]))
 
@@ -2296,18 +2297,18 @@ class CfnListener(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b2ad5be71bbfcc53eac44e066c193ce22c0652b590b262fbad1e90124c07503)
+            type_hints = cached_type_hints(_typecheckingstub__3b2ad5be71bbfcc53eac44e066c193ce22c0652b590b262fbad1e90124c07503)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnListener", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ae05d3a77f8fddc3fcb3c466c5abd5a0ab67809e85eeebcd80b3d2214653533)
+            type_hints = cached_type_hints(_typecheckingstub__9ae05d3a77f8fddc3fcb3c466c5abd5a0ab67809e85eeebcd80b3d2214653533)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2320,7 +2321,7 @@ class CfnListener(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0a2ca2bb98fcd7d3aa2e1afc2c911c66cb1004b2e0bb4f589e15c8552ce6b59)
+            type_hints = cached_type_hints(_typecheckingstub__b0a2ca2bb98fcd7d3aa2e1afc2c911c66cb1004b2e0bb4f589e15c8552ce6b59)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2351,9 +2352,9 @@ class CfnListener(
 
     @builtins.property
     @jsii.member(jsii_name="listenerRef")
-    def listener_ref(self) -> "_ListenerReference_4b812def":
+    def listener_ref(self) -> "_aws_globalaccelerator_fa1fa226.ListenerReference":
         '''A reference to a Listener resource.'''
-        return typing.cast("_ListenerReference_4b812def", jsii.get(self, "listenerRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.ListenerReference", jsii.get(self, "listenerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="acceleratorArn")
@@ -2364,7 +2365,7 @@ class CfnListener(
     @accelerator_arn.setter
     def accelerator_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f229c1bd196311ff7f21cdaa40c79d81ef8338f38b68833d422f3c4fe5c08803)
+            type_hints = cached_type_hints(_typecheckingstub__f229c1bd196311ff7f21cdaa40c79d81ef8338f38b68833d422f3c4fe5c08803)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "acceleratorArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2372,17 +2373,17 @@ class CfnListener(
     @jsii.member(jsii_name="portRanges")
     def port_ranges(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.PortRangeProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.PortRangeProperty"]]]:
         '''The list of port ranges for the connections from clients to the accelerator.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.PortRangeProperty"]]], jsii.get(self, "portRanges"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.PortRangeProperty"]]], jsii.get(self, "portRanges"))
 
     @port_ranges.setter
     def port_ranges(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.PortRangeProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.PortRangeProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3750e5a7b4d3e910c0f804d651ae31662fd1487e6e05e9ada3abb9b41686826d)
+            type_hints = cached_type_hints(_typecheckingstub__3750e5a7b4d3e910c0f804d651ae31662fd1487e6e05e9ada3abb9b41686826d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "portRanges", value) # pyright: ignore[reportArgumentType]
 
@@ -2395,7 +2396,7 @@ class CfnListener(
     @protocol.setter
     def protocol(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d5b5d195a8fbd59029679cecbf78d9cc2d3175fedcfc33326b932e974640392)
+            type_hints = cached_type_hints(_typecheckingstub__1d5b5d195a8fbd59029679cecbf78d9cc2d3175fedcfc33326b932e974640392)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
@@ -2408,7 +2409,7 @@ class CfnListener(
     @client_affinity.setter
     def client_affinity(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd1eef04c5fc95882d21a85d1c8a17627234c3456e04df26c8e80fa16d4befef)
+            type_hints = cached_type_hints(_typecheckingstub__bd1eef04c5fc95882d21a85d1c8a17627234c3456e04df26c8e80fa16d4befef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientAffinity", value) # pyright: ignore[reportArgumentType]
 
@@ -2439,7 +2440,7 @@ class CfnListener(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86bf56f4cda82b244e4962ced169b2d38c73f4a86245d20b41765496a523c46d)
+                type_hints = cached_type_hints(_typecheckingstub__86bf56f4cda82b244e4962ced169b2d38c73f4a86245d20b41765496a523c46d)
                 check_type(argname="argument from_port", value=from_port, expected_type=type_hints["from_port"])
                 check_type(argname="argument to_port", value=to_port, expected_type=type_hints["to_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2493,8 +2494,8 @@ class CfnListenerProps:
     def __init__(
         self,
         *,
-        accelerator_arn: typing.Union[builtins.str, "_IAcceleratorRef_b1855670"],
-        port_ranges: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnListener.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        accelerator_arn: typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IAcceleratorRef"],
+        port_ranges: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnListener.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         protocol: builtins.str,
         client_affinity: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2527,7 +2528,7 @@ class CfnListenerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88bb06fc642c8ec33e109cd4ab1bc649b4bad09dd5edd5bb9719c9cccb9d86c)
+            type_hints = cached_type_hints(_typecheckingstub__d88bb06fc642c8ec33e109cd4ab1bc649b4bad09dd5edd5bb9719c9cccb9d86c)
             check_type(argname="argument accelerator_arn", value=accelerator_arn, expected_type=type_hints["accelerator_arn"])
             check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
@@ -2543,26 +2544,26 @@ class CfnListenerProps:
     @builtins.property
     def accelerator_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IAcceleratorRef_b1855670"]:
+    ) -> typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IAcceleratorRef"]:
         '''The Amazon Resource Name (ARN) of your accelerator.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-listener.html#cfn-globalaccelerator-listener-acceleratorarn
         '''
         result = self._values.get("accelerator_arn")
         assert result is not None, "Required property 'accelerator_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IAcceleratorRef_b1855670"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_globalaccelerator_fa1fa226.IAcceleratorRef"], result)
 
     @builtins.property
     def port_ranges(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.PortRangeProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.PortRangeProperty"]]]:
         '''The list of port ranges for the connections from clients to the accelerator.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-listener.html#cfn-globalaccelerator-listener-portranges
         '''
         result = self._values.get("port_ranges")
         assert result is not None, "Required property 'port_ranges' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnListener.PortRangeProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnListener.PortRangeProperty"]]], result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
@@ -2655,7 +2656,7 @@ class EndpointGroupOptions:
         *,
         endpoint_group_name: typing.Optional[builtins.str] = None,
         endpoints: typing.Optional[typing.Sequence["IEndpoint"]] = None,
-        health_check_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional["HealthCheckProtocol"] = None,
@@ -2695,7 +2696,7 @@ class EndpointGroupOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__911157b05b64f429931698b3f36f074f40d2596ebd775d34cff7fb1696a438e5)
+            type_hints = cached_type_hints(_typecheckingstub__911157b05b64f429931698b3f36f074f40d2596ebd775d34cff7fb1696a438e5)
             check_type(argname="argument endpoint_group_name", value=endpoint_group_name, expected_type=type_hints["endpoint_group_name"])
             check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
             check_type(argname="argument health_check_interval", value=health_check_interval, expected_type=type_hints["health_check_interval"])
@@ -2747,7 +2748,7 @@ class EndpointGroupOptions:
         return typing.cast(typing.Optional[typing.List["IEndpoint"]], result)
 
     @builtins.property
-    def health_check_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The time between health checks for each endpoint.
 
         Must be either 10 or 30 seconds.
@@ -2755,7 +2756,7 @@ class EndpointGroupOptions:
         :default: Duration.seconds(30)
         '''
         result = self._values.get("health_check_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check_path(self) -> typing.Optional[builtins.str]:
@@ -2862,7 +2863,7 @@ class EndpointGroupProps(EndpointGroupOptions):
         *,
         endpoint_group_name: typing.Optional[builtins.str] = None,
         endpoints: typing.Optional[typing.Sequence["IEndpoint"]] = None,
-        health_check_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional["HealthCheckProtocol"] = None,
@@ -2870,7 +2871,7 @@ class EndpointGroupProps(EndpointGroupOptions):
         port_overrides: typing.Optional[typing.Sequence[typing.Union["PortOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         region: typing.Optional[builtins.str] = None,
         traffic_dial_percentage: typing.Optional[jsii.Number] = None,
-        listener: "_IListenerRef_efaa8e2a",
+        listener: "_aws_globalaccelerator_fa1fa226.IListenerRef",
     ) -> None:
         '''Property of the EndpointGroup.
 
@@ -2919,7 +2920,7 @@ class EndpointGroupProps(EndpointGroupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f240e077c43bf1d1438df9fed96b8c90b6ac4fe31ce50798acea9853ab5342fc)
+            type_hints = cached_type_hints(_typecheckingstub__f240e077c43bf1d1438df9fed96b8c90b6ac4fe31ce50798acea9853ab5342fc)
             check_type(argname="argument endpoint_group_name", value=endpoint_group_name, expected_type=type_hints["endpoint_group_name"])
             check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
             check_type(argname="argument health_check_interval", value=health_check_interval, expected_type=type_hints["health_check_interval"])
@@ -2974,7 +2975,7 @@ class EndpointGroupProps(EndpointGroupOptions):
         return typing.cast(typing.Optional[typing.List["IEndpoint"]], result)
 
     @builtins.property
-    def health_check_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def health_check_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The time between health checks for each endpoint.
 
         Must be either 10 or 30 seconds.
@@ -2982,7 +2983,7 @@ class EndpointGroupProps(EndpointGroupOptions):
         :default: Duration.seconds(30)
         '''
         result = self._values.get("health_check_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def health_check_path(self) -> typing.Optional[builtins.str]:
@@ -3055,11 +3056,11 @@ class EndpointGroupProps(EndpointGroupOptions):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def listener(self) -> "_IListenerRef_efaa8e2a":
+    def listener(self) -> "_aws_globalaccelerator_fa1fa226.IListenerRef":
         '''The Amazon Resource Name (ARN) of the listener.'''
         result = self._values.get("listener")
         assert result is not None, "Required property 'listener' is missing"
-        return typing.cast("_IListenerRef_efaa8e2a", result)
+        return typing.cast("_aws_globalaccelerator_fa1fa226.IListenerRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3087,8 +3088,8 @@ class HealthCheckProtocol(enum.Enum):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_globalaccelerator.IAccelerator")
 class IAccelerator(
-    _IResource_c80c4260,
-    _IAcceleratorRef_b1855670,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_globalaccelerator_fa1fa226.IAcceleratorRef,
     typing_extensions.Protocol,
 ):
     '''The interface of the Accelerator.'''
@@ -3144,8 +3145,8 @@ class IAccelerator(
 
 
 class _IAcceleratorProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IAcceleratorRef_b1855670), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_globalaccelerator_fa1fa226.IAcceleratorRef), # type: ignore[misc]
 ):
     '''The interface of the Accelerator.'''
 
@@ -3254,8 +3255,8 @@ typing.cast(typing.Any, IEndpoint).__jsii_proxy_class__ = lambda : _IEndpointPro
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_globalaccelerator.IEndpointGroup")
 class IEndpointGroup(
-    _IResource_c80c4260,
-    _IEndpointGroupRef_9302598c,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_globalaccelerator_fa1fa226.IEndpointGroupRef,
     typing_extensions.Protocol,
 ):
     '''The interface of the EndpointGroup.'''
@@ -3271,8 +3272,8 @@ class IEndpointGroup(
 
 
 class _IEndpointGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IEndpointGroupRef_9302598c), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_globalaccelerator_fa1fa226.IEndpointGroupRef), # type: ignore[misc]
 ):
     '''The interface of the EndpointGroup.'''
 
@@ -3293,8 +3294,8 @@ typing.cast(typing.Any, IEndpointGroup).__jsii_proxy_class__ = lambda : _IEndpoi
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_globalaccelerator.IListener")
 class IListener(
-    _IResource_c80c4260,
-    _IListenerRef_efaa8e2a,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_globalaccelerator_fa1fa226.IListenerRef,
     typing_extensions.Protocol,
 ):
     '''Interface of the Listener.'''
@@ -3310,8 +3311,8 @@ class IListener(
 
 
 class _IListenerProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IListenerRef_efaa8e2a), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_globalaccelerator_fa1fa226.IListenerRef), # type: ignore[misc]
 ):
     '''Interface of the Listener.'''
 
@@ -3353,7 +3354,7 @@ class IpAddressType(enum.Enum):
 
 @jsii.implements(IListener)
 class Listener(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.Listener",
 ):
@@ -3397,7 +3398,7 @@ class Listener(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        accelerator: "_IAcceleratorRef_b1855670",
+        accelerator: "_aws_globalaccelerator_fa1fa226.IAcceleratorRef",
         port_ranges: typing.Sequence[typing.Union["PortRange", typing.Dict[builtins.str, typing.Any]]],
         client_affinity: typing.Optional["ClientAffinity"] = None,
         listener_name: typing.Optional[builtins.str] = None,
@@ -3413,7 +3414,7 @@ class Listener(
         :param protocol: The protocol for the connections from clients to the accelerator. Default: ConnectionProtocol.TCP
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de4b03cb2514f2868f42c3e0a65af5726624595649474f6817f53a9c9f97088d)
+            type_hints = cached_type_hints(_typecheckingstub__de4b03cb2514f2868f42c3e0a65af5726624595649474f6817f53a9c9f97088d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ListenerProps(
@@ -3441,7 +3442,7 @@ class Listener(
         :param listener_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17e1fb9f9e558fb821329088716c50745404e4b38295205fd0a0317d1a24b86a)
+            type_hints = cached_type_hints(_typecheckingstub__17e1fb9f9e558fb821329088716c50745404e4b38295205fd0a0317d1a24b86a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
@@ -3454,7 +3455,7 @@ class Listener(
         *,
         endpoint_group_name: typing.Optional[builtins.str] = None,
         endpoints: typing.Optional[typing.Sequence["IEndpoint"]] = None,
-        health_check_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional["HealthCheckProtocol"] = None,
@@ -3478,7 +3479,7 @@ class Listener(
         :param traffic_dial_percentage: The percentage of traffic to send to this AWS Region. The percentage is applied to the traffic that would otherwise have been routed to the Region based on optimal routing. Additional traffic is distributed to other endpoint groups for this listener. Default: 100
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__645f80847a2711f4ee1d8e356bad90e291a431b7fd1af3ff2c5aba87398a423c)
+            type_hints = cached_type_hints(_typecheckingstub__645f80847a2711f4ee1d8e356bad90e291a431b7fd1af3ff2c5aba87398a423c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = EndpointGroupOptions(
             endpoint_group_name=endpoint_group_name,
@@ -3518,9 +3519,9 @@ class Listener(
 
     @builtins.property
     @jsii.member(jsii_name="listenerRef")
-    def listener_ref(self) -> "_ListenerReference_4b812def":
+    def listener_ref(self) -> "_aws_globalaccelerator_fa1fa226.ListenerReference":
         '''A reference to a Listener resource.'''
-        return typing.cast("_ListenerReference_4b812def", jsii.get(self, "listenerRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.ListenerReference", jsii.get(self, "listenerRef"))
 
 
 @jsii.data_type(
@@ -3582,7 +3583,7 @@ class ListenerOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f83150d0c41f3d9372d26ba0b52f41a0cfab75fdee3b36cf01f53c716a56204)
+            type_hints = cached_type_hints(_typecheckingstub__1f83150d0c41f3d9372d26ba0b52f41a0cfab75fdee3b36cf01f53c716a56204)
             check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
             check_type(argname="argument client_affinity", value=client_affinity, expected_type=type_hints["client_affinity"])
             check_type(argname="argument listener_name", value=listener_name, expected_type=type_hints["listener_name"])
@@ -3669,7 +3670,7 @@ class ListenerProps(ListenerOptions):
         client_affinity: typing.Optional["ClientAffinity"] = None,
         listener_name: typing.Optional[builtins.str] = None,
         protocol: typing.Optional["ConnectionProtocol"] = None,
-        accelerator: "_IAcceleratorRef_b1855670",
+        accelerator: "_aws_globalaccelerator_fa1fa226.IAcceleratorRef",
     ) -> None:
         '''Construct properties for Listener.
 
@@ -3706,7 +3707,7 @@ class ListenerProps(ListenerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e8dff6076e29c33015f8bf435ee5b98f62049e4b309a1fba9711778e606aa24)
+            type_hints = cached_type_hints(_typecheckingstub__1e8dff6076e29c33015f8bf435ee5b98f62049e4b309a1fba9711778e606aa24)
             check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
             check_type(argname="argument client_affinity", value=client_affinity, expected_type=type_hints["client_affinity"])
             check_type(argname="argument listener_name", value=listener_name, expected_type=type_hints["listener_name"])
@@ -3765,11 +3766,11 @@ class ListenerProps(ListenerOptions):
         return typing.cast(typing.Optional["ConnectionProtocol"], result)
 
     @builtins.property
-    def accelerator(self) -> "_IAcceleratorRef_b1855670":
+    def accelerator(self) -> "_aws_globalaccelerator_fa1fa226.IAcceleratorRef":
         '''The accelerator for this listener.'''
         result = self._values.get("accelerator")
         assert result is not None, "Required property 'accelerator' is missing"
-        return typing.cast("_IAcceleratorRef_b1855670", result)
+        return typing.cast("_aws_globalaccelerator_fa1fa226.IAcceleratorRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3814,7 +3815,7 @@ class PortOverride:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31531e50fd50575305cd2b1117bf216c5fc7260d8129068ecff2d5d669d58b8e)
+            type_hints = cached_type_hints(_typecheckingstub__31531e50fd50575305cd2b1117bf216c5fc7260d8129068ecff2d5d669d58b8e)
             check_type(argname="argument endpoint_port", value=endpoint_port, expected_type=type_hints["endpoint_port"])
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3887,7 +3888,7 @@ class PortRange:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28d807982be946e080616a44b953216d1f4d274fbd7ae547fb15134b0ca96646)
+            type_hints = cached_type_hints(_typecheckingstub__28d807982be946e080616a44b953216d1f4d274fbd7ae547fb15134b0ca96646)
             check_type(argname="argument from_port", value=from_port, expected_type=type_hints["from_port"])
             check_type(argname="argument to_port", value=to_port, expected_type=type_hints["to_port"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4035,7 +4036,7 @@ class RawEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7acdbd39471dae1951f2c2ce5162ee263c508a2c2c5a5cf57bfc2eca2873272b)
+            type_hints = cached_type_hints(_typecheckingstub__7acdbd39471dae1951f2c2ce5162ee263c508a2c2c5a5cf57bfc2eca2873272b)
             check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
             check_type(argname="argument preserve_client_ip", value=preserve_client_ip, expected_type=type_hints["preserve_client_ip"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -4111,7 +4112,7 @@ class RawEndpointProps:
 
 @jsii.implements(IAccelerator)
 class Accelerator(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.Accelerator",
 ):
@@ -4169,7 +4170,7 @@ class Accelerator(
         :param ip_address_type: The IP address type that an accelerator supports. For a standard accelerator, the value can be IPV4 or DUAL_STACK. Default: - "IPV4"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a256f0c1217b76db7c042560e40cb5d690be46fa75e0167df9384b51eca638a)
+            type_hints = cached_type_hints(_typecheckingstub__8a256f0c1217b76db7c042560e40cb5d690be46fa75e0167df9384b51eca638a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AcceleratorProps(
@@ -4205,7 +4206,7 @@ class Accelerator(
         :param ipv6_addresses: The array of IPv6 addresses in the IP address set. Default: - undefined
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc909295e88a26238435e0667a8802f63a34c55a9760cf79c3ad968a55c4f635)
+            type_hints = cached_type_hints(_typecheckingstub__bc909295e88a26238435e0667a8802f63a34c55a9760cf79c3ad968a55c4f635)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AcceleratorAttributes(
@@ -4237,7 +4238,7 @@ class Accelerator(
         :param protocol: The protocol for the connections from clients to the accelerator. Default: ConnectionProtocol.TCP
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd79976e2e96d110e4c36fdc91bfcc72e3764e6ed8b5e48635dab856f5a37afd)
+            type_hints = cached_type_hints(_typecheckingstub__bd79976e2e96d110e4c36fdc91bfcc72e3764e6ed8b5e48635dab856f5a37afd)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ListenerOptions(
             port_ranges=port_ranges,
@@ -4262,9 +4263,9 @@ class Accelerator(
 
     @builtins.property
     @jsii.member(jsii_name="acceleratorRef")
-    def accelerator_ref(self) -> "_AcceleratorReference_0e68657d":
+    def accelerator_ref(self) -> "_aws_globalaccelerator_fa1fa226.AcceleratorReference":
         '''A reference to a Accelerator resource.'''
-        return typing.cast("_AcceleratorReference_0e68657d", jsii.get(self, "acceleratorRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.AcceleratorReference", jsii.get(self, "acceleratorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dnsName")
@@ -4293,7 +4294,7 @@ class Accelerator(
 
 @jsii.implements(IEndpointGroup)
 class EndpointGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator.EndpointGroup",
 ):
@@ -4330,10 +4331,10 @@ class EndpointGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        listener: "_IListenerRef_efaa8e2a",
+        listener: "_aws_globalaccelerator_fa1fa226.IListenerRef",
         endpoint_group_name: typing.Optional[builtins.str] = None,
         endpoints: typing.Optional[typing.Sequence["IEndpoint"]] = None,
-        health_check_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        health_check_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         health_check_path: typing.Optional[builtins.str] = None,
         health_check_port: typing.Optional[jsii.Number] = None,
         health_check_protocol: typing.Optional["HealthCheckProtocol"] = None,
@@ -4358,7 +4359,7 @@ class EndpointGroup(
         :param traffic_dial_percentage: The percentage of traffic to send to this AWS Region. The percentage is applied to the traffic that would otherwise have been routed to the Region based on optimal routing. Additional traffic is distributed to other endpoint groups for this listener. Default: 100
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da9f1789b70ad68c208b8516991be41850e88fcd2234b59c19127b242288a985)
+            type_hints = cached_type_hints(_typecheckingstub__da9f1789b70ad68c208b8516991be41850e88fcd2234b59c19127b242288a985)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EndpointGroupProps(
@@ -4392,7 +4393,7 @@ class EndpointGroup(
         :param endpoint_group_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4010228e96a965fd592b42b4fa73520704d32f9d35cfa38c03d174ed973f045c)
+            type_hints = cached_type_hints(_typecheckingstub__4010228e96a965fd592b42b4fa73520704d32f9d35cfa38c03d174ed973f045c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument endpoint_group_arn", value=endpoint_group_arn, expected_type=type_hints["endpoint_group_arn"])
@@ -4405,7 +4406,7 @@ class EndpointGroup(
         :param endpoint: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bddbcfbda1081e910f73609d392b092eedb7c3893756f815394c3ce9252e26ec)
+            type_hints = cached_type_hints(_typecheckingstub__bddbcfbda1081e910f73609d392b092eedb7c3893756f815394c3ce9252e26ec)
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
         return typing.cast(None, jsii.invoke(self, "addEndpoint", [endpoint]))
 
@@ -4413,8 +4414,8 @@ class EndpointGroup(
     def connections_peer(
         self,
         id: builtins.str,
-        vpc: "_IVpc_f30d5663",
-    ) -> "_IPeer_cf58db9a":
+        vpc: "_aws_ec2_09840e12.IVpc",
+    ) -> "_aws_ec2_09840e12.IPeer":
         '''Return an object that represents the Accelerator's Security Group.
 
         Uses a Custom Resource to look up the Security Group that Accelerator
@@ -4431,10 +4432,10 @@ class EndpointGroup(
         :param vpc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5584d08f4072fbbf9e9d66c9017724b55953c2769202cb14497490b7148a7318)
+            type_hints = cached_type_hints(_typecheckingstub__5584d08f4072fbbf9e9d66c9017724b55953c2769202cb14497490b7148a7318)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        return typing.cast("_IPeer_cf58db9a", jsii.invoke(self, "connectionsPeer", [id, vpc]))
+        return typing.cast("_aws_ec2_09840e12.IPeer", jsii.invoke(self, "connectionsPeer", [id, vpc]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -4459,9 +4460,11 @@ class EndpointGroup(
 
     @builtins.property
     @jsii.member(jsii_name="endpointGroupRef")
-    def endpoint_group_ref(self) -> "_EndpointGroupReference_940f730d":
+    def endpoint_group_ref(
+        self,
+    ) -> "_aws_globalaccelerator_fa1fa226.EndpointGroupReference":
         '''A reference to a EndpointGroup resource.'''
-        return typing.cast("_EndpointGroupReference_940f730d", jsii.get(self, "endpointGroupRef"))
+        return typing.cast("_aws_globalaccelerator_fa1fa226.EndpointGroupReference", jsii.get(self, "endpointGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="endpoints")
@@ -4529,19 +4532,19 @@ def _typecheckingstub__1b4e9743a0b90ee8f6751e3f45acf5d26ac65581ea6ebfd2056c79343
     id: builtins.str,
     *,
     name: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
     flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
     ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d8efa56abdff179981206b16ea3320502b510b1c29fedecb93bd598db48104a1(
-    resource: _IAcceleratorRef_b1855670,
+    resource: _aws_globalaccelerator_fa1fa226.IAcceleratorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4553,7 +4556,7 @@ def _typecheckingstub__70d1087efac1a3c1f09cb1c29b976d2bfe090a8f12ecc39f277f2e1b5
     pass
 
 def _typecheckingstub__397b300551025b97bbac4a4e556a29883f3095ff492b64e883ba89d1f2e65361(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4571,13 +4574,13 @@ def _typecheckingstub__cf71d58233f1c96ba3800438272161e875fc26a01900f616c2cd156dd
     pass
 
 def _typecheckingstub__212958a90fe602ec7bd5bd63e1af9ffdda7f4715f76bb918b2954de8c3fc5f17(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dcedca76e28811bd5bce3857f1faa6755cd17be97660969a2edfd3d16b0070e4(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4607,7 +4610,7 @@ def _typecheckingstub__91bc3303436010bfc300aa1aca956ac62d5555ca9debf4f2e9618b644
     pass
 
 def _typecheckingstub__e063ea35adf85272242f49261080bb463b395478144ea6e06a187ccbb6032229(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4615,13 +4618,13 @@ def _typecheckingstub__e063ea35adf85272242f49261080bb463b395478144ea6e06a187ccbb
 def _typecheckingstub__5a2b1dd32a23d6d5146bbceed209c5576192a998d13fcf3817f2dc4f8d691406(
     *,
     name: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
     flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
     ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4632,8 +4635,8 @@ def _typecheckingstub__ba1ec3d469e5dcabcf7399e8e8e79a3f5365c953f4994522f2f99f478
     *,
     name: builtins.str,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCrossAccountAttachment.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCrossAccountAttachment.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4645,7 +4648,7 @@ def _typecheckingstub__9f97087dbeec67609879a2b72573383a1288dc4129a20900268b9a5ac
     pass
 
 def _typecheckingstub__22786fe9cf42aaba90a851e34bed5295d6cb83ef62c09ae6bc29c753ad99c5ff(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4669,13 +4672,13 @@ def _typecheckingstub__08ec8314d2cbd2120a78129320bf34d1678991d2ed2d2b8df5bf723a9
     pass
 
 def _typecheckingstub__4e879fec7df8ee76103a0479812b95ae371bbbe6b3312bbaebe1d912c7185fd3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCrossAccountAttachment.ResourceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCrossAccountAttachment.ResourceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__41d583733963eebabfa0286562bcae1a6871814ce66e72f32e495b730a151c15(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4693,8 +4696,8 @@ def _typecheckingstub__8cf43e1c90e824b6fcd56b5cbed6fc8b38a0a663b52303ae4fd2eac73
     *,
     name: builtins.str,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCrossAccountAttachment.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCrossAccountAttachment.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4704,13 +4707,13 @@ def _typecheckingstub__d4abd958de92d302b6b9aa605f8d58d76fb06143d26797b6f9d857004
     id: builtins.str,
     *,
     endpoint_group_region: builtins.str,
-    listener_arn: typing.Union[builtins.str, _IListenerRef_efaa8e2a],
-    endpoint_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointGroup.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_arn: typing.Union[builtins.str, _aws_globalaccelerator_fa1fa226.IListenerRef],
+    endpoint_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointGroup.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     health_check_interval_seconds: typing.Optional[jsii.Number] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[builtins.str] = None,
-    port_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointGroup.PortOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    port_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointGroup.PortOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     threshold_count: typing.Optional[jsii.Number] = None,
     traffic_dial_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -4718,7 +4721,7 @@ def _typecheckingstub__d4abd958de92d302b6b9aa605f8d58d76fb06143d26797b6f9d857004
     pass
 
 def _typecheckingstub__0d0c1cebf70a4fd1e6be12516ab8abafd7f1ae69b65c0627f06153d61cbccad7(
-    resource: _IEndpointGroupRef_9302598c,
+    resource: _aws_globalaccelerator_fa1fa226.IEndpointGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4730,7 +4733,7 @@ def _typecheckingstub__907e43dccd78078006bdc580e5276244730177fb42528d037fd0c47d7
     pass
 
 def _typecheckingstub__c7325404475ea701e06428e0ebf1da49bd6a9f2d8cc2b3d2b8119cd6010f1126(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4754,7 +4757,7 @@ def _typecheckingstub__be1c4c31ac465a44a4fcfd46e5b9a99daf2303e5c9e30d9cade8f8fe5
     pass
 
 def _typecheckingstub__a0daf5e18e36444ca1cae5324b585719642e80c78de4ebede6e9d5deb9a3b767(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEndpointGroup.EndpointConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpointGroup.EndpointConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4784,7 +4787,7 @@ def _typecheckingstub__00fe2b518dfa2fc48bcaf1fd1ad273ed1dc229f98728b3a0309987533
     pass
 
 def _typecheckingstub__7af44a8cc6ef072b9bed34da2997f4f09e8129157189ae4d92f3e85157f4c71e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEndpointGroup.PortOverrideProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEndpointGroup.PortOverrideProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4805,7 +4808,7 @@ def _typecheckingstub__92c85da4eae87afc5ac8c89581478057db742227d39e533959a7e6176
     *,
     endpoint_id: builtins.str,
     attachment_arn: typing.Optional[builtins.str] = None,
-    client_ip_preservation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    client_ip_preservation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4822,13 +4825,13 @@ def _typecheckingstub__e3359d163f3a349b1fc497520e7db3252e20286310ca0cc9c6ea1f9c4
 def _typecheckingstub__4f9460739d2070644400ee87add34d6bb290f1d4cb7749e5cebc8f8958fc491a(
     *,
     endpoint_group_region: builtins.str,
-    listener_arn: typing.Union[builtins.str, _IListenerRef_efaa8e2a],
-    endpoint_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointGroup.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_arn: typing.Union[builtins.str, _aws_globalaccelerator_fa1fa226.IListenerRef],
+    endpoint_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointGroup.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     health_check_interval_seconds: typing.Optional[jsii.Number] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[builtins.str] = None,
-    port_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointGroup.PortOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    port_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpointGroup.PortOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     threshold_count: typing.Optional[jsii.Number] = None,
     traffic_dial_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -4839,8 +4842,8 @@ def _typecheckingstub__8f5343495fec1a9582d0f433b059b03c9d1a0192305d421ce867f1a58
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    accelerator_arn: typing.Union[builtins.str, _IAcceleratorRef_b1855670],
-    port_ranges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    accelerator_arn: typing.Union[builtins.str, _aws_globalaccelerator_fa1fa226.IAcceleratorRef],
+    port_ranges: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     protocol: builtins.str,
     client_affinity: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4848,7 +4851,7 @@ def _typecheckingstub__8f5343495fec1a9582d0f433b059b03c9d1a0192305d421ce867f1a58
     pass
 
 def _typecheckingstub__fba60f9012acb9ca61a7413fed047846735076670e88351b992226c2f537565c(
-    resource: _IListenerRef_efaa8e2a,
+    resource: _aws_globalaccelerator_fa1fa226.IListenerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4860,7 +4863,7 @@ def _typecheckingstub__3b2ad5be71bbfcc53eac44e066c193ce22c0652b590b262fbad1e9012
     pass
 
 def _typecheckingstub__9ae05d3a77f8fddc3fcb3c466c5abd5a0ab67809e85eeebcd80b3d2214653533(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4878,7 +4881,7 @@ def _typecheckingstub__f229c1bd196311ff7f21cdaa40c79d81ef8338f38b68833d422f3c4fe
     pass
 
 def _typecheckingstub__3750e5a7b4d3e910c0f804d651ae31662fd1487e6e05e9ada3abb9b41686826d(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.PortRangeProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnListener.PortRangeProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4905,8 +4908,8 @@ def _typecheckingstub__86bf56f4cda82b244e4962ced169b2d38c73f4a86245d20b41765496a
 
 def _typecheckingstub__d88bb06fc642c8ec33e109cd4ab1bc649b4bad09dd5edd5bb9719c9cccb9d86c(
     *,
-    accelerator_arn: typing.Union[builtins.str, _IAcceleratorRef_b1855670],
-    port_ranges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    accelerator_arn: typing.Union[builtins.str, _aws_globalaccelerator_fa1fa226.IAcceleratorRef],
+    port_ranges: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnListener.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     protocol: builtins.str,
     client_affinity: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -4917,7 +4920,7 @@ def _typecheckingstub__911157b05b64f429931698b3f36f074f40d2596ebd775d34cff7fb169
     *,
     endpoint_group_name: typing.Optional[builtins.str] = None,
     endpoints: typing.Optional[typing.Sequence[IEndpoint]] = None,
-    health_check_interval: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[HealthCheckProtocol] = None,
@@ -4933,7 +4936,7 @@ def _typecheckingstub__f240e077c43bf1d1438df9fed96b8c90b6ac4fe31ce50798acea9853a
     *,
     endpoint_group_name: typing.Optional[builtins.str] = None,
     endpoints: typing.Optional[typing.Sequence[IEndpoint]] = None,
-    health_check_interval: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[HealthCheckProtocol] = None,
@@ -4941,7 +4944,7 @@ def _typecheckingstub__f240e077c43bf1d1438df9fed96b8c90b6ac4fe31ce50798acea9853a
     port_overrides: typing.Optional[typing.Sequence[typing.Union[PortOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
     region: typing.Optional[builtins.str] = None,
     traffic_dial_percentage: typing.Optional[jsii.Number] = None,
-    listener: _IListenerRef_efaa8e2a,
+    listener: _aws_globalaccelerator_fa1fa226.IListenerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4950,7 +4953,7 @@ def _typecheckingstub__de4b03cb2514f2868f42c3e0a65af5726624595649474f6817f53a9c9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    accelerator: _IAcceleratorRef_b1855670,
+    accelerator: _aws_globalaccelerator_fa1fa226.IAcceleratorRef,
     port_ranges: typing.Sequence[typing.Union[PortRange, typing.Dict[builtins.str, typing.Any]]],
     client_affinity: typing.Optional[ClientAffinity] = None,
     listener_name: typing.Optional[builtins.str] = None,
@@ -4972,7 +4975,7 @@ def _typecheckingstub__645f80847a2711f4ee1d8e356bad90e291a431b7fd1af3ff2c5aba873
     *,
     endpoint_group_name: typing.Optional[builtins.str] = None,
     endpoints: typing.Optional[typing.Sequence[IEndpoint]] = None,
-    health_check_interval: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[HealthCheckProtocol] = None,
@@ -5000,7 +5003,7 @@ def _typecheckingstub__1e8dff6076e29c33015f8bf435ee5b98f62049e4b309a1fba9711778e
     client_affinity: typing.Optional[ClientAffinity] = None,
     listener_name: typing.Optional[builtins.str] = None,
     protocol: typing.Optional[ConnectionProtocol] = None,
-    accelerator: _IAcceleratorRef_b1855670,
+    accelerator: _aws_globalaccelerator_fa1fa226.IAcceleratorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5071,10 +5074,10 @@ def _typecheckingstub__da9f1789b70ad68c208b8516991be41850e88fcd2234b59c19127b242
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    listener: _IListenerRef_efaa8e2a,
+    listener: _aws_globalaccelerator_fa1fa226.IListenerRef,
     endpoint_group_name: typing.Optional[builtins.str] = None,
     endpoints: typing.Optional[typing.Sequence[IEndpoint]] = None,
-    health_check_interval: typing.Optional[_Duration_4839e8c3] = None,
+    health_check_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     health_check_path: typing.Optional[builtins.str] = None,
     health_check_port: typing.Optional[jsii.Number] = None,
     health_check_protocol: typing.Optional[HealthCheckProtocol] = None,
@@ -5102,7 +5105,7 @@ def _typecheckingstub__bddbcfbda1081e910f73609d392b092eedb7c3893756f815394c3ce92
 
 def _typecheckingstub__5584d08f4072fbbf9e9d66c9017724b55953c2769202cb14497490b7148a7318(
     id: builtins.str,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
 ) -> None:
     """Type checking stubs"""
     pass

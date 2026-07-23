@@ -298,8 +298,39 @@ class Study(
         raise NotImplementedError("Study uses _stream, not _stream_batch")
         yield  # Make this a generator
 
+    def _inherit_assessment_context(self) -> None:
+        """When an attack is run bare (``await attack.run()``) inside an
+        ``async with Assessment(...)`` block, pull the assessment id, goal
+        category, and model identifiers from the active assessment onto this
+        study. The assessment id in particular must live on the study (not just
+        the top span) so every trial span links to the assessment - otherwise the
+        finding aggregates zero trials and reports a 0 score under an
+        "Uncategorized" goal. This makes bare ``attack.run()`` behave like
+        ``assessment.run(attack)`` for optimization attacks (TAP, GOAT, etc.)."""
+        try:
+            from dreadnode.airt.assessment import _current_assessment
+
+            current = _current_assessment.get()
+        except ImportError:
+            current = None
+        if current is None:
+            return
+        if not self.airt_assessment_id and getattr(current, "assessment_id", None):
+            self.airt_assessment_id = current.assessment_id
+        if not self.airt_goal_category and getattr(current, "goal_category", None):
+            self.airt_goal_category = current.goal_category
+            self.airt_category = self.airt_category or current.goal_category
+            self.airt_sub_category = self.airt_sub_category or current.goal_category
+        if not self.airt_target_model and getattr(current, "target_model", None):
+            self.airt_target_model = current.target_model
+        if not self.airt_attacker_model and getattr(current, "attacker_model", None):
+            self.airt_attacker_model = current.attacker_model
+        if not self.airt_evaluator_model and getattr(current, "judge_model", None):
+            self.airt_evaluator_model = current.judge_model
+
     def _create_span(self) -> t.ContextManager["TaskSpan[t.Any] | None"]:
         """Create a study span for tracing."""
+        self._inherit_assessment_context()
         try:
             from dreadnode.tracing.spans import study_span
 

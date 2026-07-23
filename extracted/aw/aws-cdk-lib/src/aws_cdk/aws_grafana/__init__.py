@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,42 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_grafana import (
-    IWorkspaceRef as _IWorkspaceRef_9ec37edd,
-    WorkspaceReference as _WorkspaceReference_e8dd807e,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_grafana as _aws_grafana_1ffb7640
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_grafana_1ffb7640 = _LazyImport("aws_cdk.interfaces.aws_grafana")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkspaceRef_9ec37edd)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_grafana_1ffb7640.IWorkspaceRef)
 class CfnWorkspace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_grafana.CfnWorkspace",
 ):
@@ -154,15 +152,15 @@ class CfnWorkspace(
         description: typing.Optional[builtins.str] = None,
         grafana_version: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        network_access_control: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_access_control: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
         organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
         organization_role_name: typing.Optional[builtins.str] = None,
-        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        saml_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        saml_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_set_name: typing.Optional[builtins.str] = None,
-        vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Grafana::Workspace``.
 
@@ -187,7 +185,7 @@ class CfnWorkspace(
         :param vpc_configuration: The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to. .. epigraph:: Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3024c82d)
+            type_hints = cached_type_hints(_typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3024c82d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkspaceProps(
@@ -220,18 +218,18 @@ class CfnWorkspace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9274823263c6be15890be7c903ef1b08a6f3c1a4f98b32dbf2de7b1093ade0fd)
+            type_hints = cached_type_hints(_typecheckingstub__9274823263c6be15890be7c903ef1b08a6f3c1a4f98b32dbf2de7b1093ade0fd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d1ddbb2c282ef63cbb246c4096b7de3713eca2c5e898a4fb0399bceaaea80a2)
+            type_hints = cached_type_hints(_typecheckingstub__2d1ddbb2c282ef63cbb246c4096b7de3713eca2c5e898a4fb0399bceaaea80a2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -244,7 +242,7 @@ class CfnWorkspace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e08c8dd7b33829bf4264a10897017350edb485216cf0320b30df6a4971d42cb2)
+            type_hints = cached_type_hints(_typecheckingstub__e08c8dd7b33829bf4264a10897017350edb485216cf0320b30df6a4971d42cb2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -358,9 +356,9 @@ class CfnWorkspace(
 
     @builtins.property
     @jsii.member(jsii_name="workspaceRef")
-    def workspace_ref(self) -> "_WorkspaceReference_e8dd807e":
+    def workspace_ref(self) -> "_aws_grafana_1ffb7640.WorkspaceReference":
         '''A reference to a Workspace resource.'''
-        return typing.cast("_WorkspaceReference_e8dd807e", jsii.get(self, "workspaceRef"))
+        return typing.cast("_aws_grafana_1ffb7640.WorkspaceReference", jsii.get(self, "workspaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accountAccessType")
@@ -371,7 +369,7 @@ class CfnWorkspace(
     @account_access_type.setter
     def account_access_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4788a164346232bc27f2ed87a4f889be94efaa385debfe7555b9c38ef7b43c82)
+            type_hints = cached_type_hints(_typecheckingstub__4788a164346232bc27f2ed87a4f889be94efaa385debfe7555b9c38ef7b43c82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountAccessType", value) # pyright: ignore[reportArgumentType]
 
@@ -384,7 +382,7 @@ class CfnWorkspace(
     @authentication_providers.setter
     def authentication_providers(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d659e2c8f9a80dbb1ff10a5d496ecce9ddb784e34300fef292b95604867dd120)
+            type_hints = cached_type_hints(_typecheckingstub__d659e2c8f9a80dbb1ff10a5d496ecce9ddb784e34300fef292b95604867dd120)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationProviders", value) # pyright: ignore[reportArgumentType]
 
@@ -397,7 +395,7 @@ class CfnWorkspace(
     @permission_type.setter
     def permission_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2912f1e45e2bf3ca7cdbd6783ea28e244af545c2648fd8b9c918da6bdfb2a69e)
+            type_hints = cached_type_hints(_typecheckingstub__2912f1e45e2bf3ca7cdbd6783ea28e244af545c2648fd8b9c918da6bdfb2a69e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionType", value) # pyright: ignore[reportArgumentType]
 
@@ -410,7 +408,7 @@ class CfnWorkspace(
     @client_token.setter
     def client_token(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67e7c7d4ab889d7976d4a0296a9cbd591db1c64ed24ef025e255a240848da349)
+            type_hints = cached_type_hints(_typecheckingstub__67e7c7d4ab889d7976d4a0296a9cbd591db1c64ed24ef025e255a240848da349)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
 
@@ -423,7 +421,7 @@ class CfnWorkspace(
     @data_sources.setter
     def data_sources(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3dfcb10305df8d464fbbcb5e8fd3d5b6da64568993c8b2c51b8dcd3395b6ac9)
+            type_hints = cached_type_hints(_typecheckingstub__d3dfcb10305df8d464fbbcb5e8fd3d5b6da64568993c8b2c51b8dcd3395b6ac9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSources", value) # pyright: ignore[reportArgumentType]
 
@@ -436,7 +434,7 @@ class CfnWorkspace(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8893d9a8b4f97f5af788c15dca1db97953d288f193df1c206ed4015e08c9c2d)
+            type_hints = cached_type_hints(_typecheckingstub__c8893d9a8b4f97f5af788c15dca1db97953d288f193df1c206ed4015e08c9c2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -449,7 +447,7 @@ class CfnWorkspace(
     @grafana_version.setter
     def grafana_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e4308c35a065c03ee627cb5701121189468012d288e12b57c195d80da9b1af5)
+            type_hints = cached_type_hints(_typecheckingstub__1e4308c35a065c03ee627cb5701121189468012d288e12b57c195d80da9b1af5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "grafanaVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -462,7 +460,7 @@ class CfnWorkspace(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3054f2932686c0aea4252a167d3c57cd2cac6f217af055688e0e4ad5956bce3)
+            type_hints = cached_type_hints(_typecheckingstub__c3054f2932686c0aea4252a167d3c57cd2cac6f217af055688e0e4ad5956bce3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -470,17 +468,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="networkAccessControl")
     def network_access_control(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.NetworkAccessControlProperty"]]:
         '''The configuration settings for network access to your workspace.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]], jsii.get(self, "networkAccessControl"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.NetworkAccessControlProperty"]], jsii.get(self, "networkAccessControl"))
 
     @network_access_control.setter
     def network_access_control(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.NetworkAccessControlProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2b77604f954551d96e38e737bb2b7eb8862626320461b61a851932a089d4ade)
+            type_hints = cached_type_hints(_typecheckingstub__e2b77604f954551d96e38e737bb2b7eb8862626320461b61a851932a089d4ade)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkAccessControl", value) # pyright: ignore[reportArgumentType]
 
@@ -496,7 +494,7 @@ class CfnWorkspace(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b512e7c00943f52045050d8d881411bf80d8753e7e5db4cfa04be2d23c840a5)
+            type_hints = cached_type_hints(_typecheckingstub__7b512e7c00943f52045050d8d881411bf80d8753e7e5db4cfa04be2d23c840a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationDestinations", value) # pyright: ignore[reportArgumentType]
 
@@ -512,7 +510,7 @@ class CfnWorkspace(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ab5eb86d4408bb6fa769c29f35ddd196f30186a96e904ce407fa53d08a69a42)
+            type_hints = cached_type_hints(_typecheckingstub__2ab5eb86d4408bb6fa769c29f35ddd196f30186a96e904ce407fa53d08a69a42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "organizationalUnits", value) # pyright: ignore[reportArgumentType]
 
@@ -525,7 +523,7 @@ class CfnWorkspace(
     @organization_role_name.setter
     def organization_role_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a0bc3f30f5cd3553fef63aadcf02d8cd56cd0a20cd147f34b2b500608b2dba8)
+            type_hints = cached_type_hints(_typecheckingstub__7a0bc3f30f5cd3553fef63aadcf02d8cd56cd0a20cd147f34b2b500608b2dba8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "organizationRoleName", value) # pyright: ignore[reportArgumentType]
 
@@ -533,17 +531,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="pluginAdminEnabled")
     def plugin_admin_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether plugin administration is enabled in the workspace.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "pluginAdminEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "pluginAdminEnabled"))
 
     @plugin_admin_enabled.setter
     def plugin_admin_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6fff51e5ca5203d89a130603e0c8c8afd747ed83cfd23221fbe96546480b53b)
+            type_hints = cached_type_hints(_typecheckingstub__c6fff51e5ca5203d89a130603e0c8c8afd747ed83cfd23221fbe96546480b53b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pluginAdminEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -556,7 +554,7 @@ class CfnWorkspace(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edafda7b927ef527400465d2e8fb7713cb6a76ed45cd51372ae245440c1f42ec)
+            type_hints = cached_type_hints(_typecheckingstub__edafda7b927ef527400465d2e8fb7713cb6a76ed45cd51372ae245440c1f42ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -564,17 +562,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="samlConfiguration")
     def saml_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.SamlConfigurationProperty"]]:
         '''If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]], jsii.get(self, "samlConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.SamlConfigurationProperty"]], jsii.get(self, "samlConfiguration"))
 
     @saml_configuration.setter
     def saml_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.SamlConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__512287bf24818cb838cc5045af81a100afbe0fdcf464601403fff719622ccc4d)
+            type_hints = cached_type_hints(_typecheckingstub__512287bf24818cb838cc5045af81a100afbe0fdcf464601403fff719622ccc4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "samlConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -587,7 +585,7 @@ class CfnWorkspace(
     @stack_set_name.setter
     def stack_set_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61ab7cafff5a486f361d533b95f12ec0ab7499ff5e38660d0dcabb7a049a78e7)
+            type_hints = cached_type_hints(_typecheckingstub__61ab7cafff5a486f361d533b95f12ec0ab7499ff5e38660d0dcabb7a049a78e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stackSetName", value) # pyright: ignore[reportArgumentType]
 
@@ -595,17 +593,17 @@ class CfnWorkspace(
     @jsii.member(jsii_name="vpcConfiguration")
     def vpc_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]]:
         '''The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]], jsii.get(self, "vpcConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]], jsii.get(self, "vpcConfiguration"))
 
     @vpc_configuration.setter
     def vpc_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3586128c84bb5e8c9eb62049d7b06e9ab6ddb8d155288a89902a4fa5056539a0)
+            type_hints = cached_type_hints(_typecheckingstub__3586128c84bb5e8c9eb62049d7b06e9ab6ddb8d155288a89902a4fa5056539a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -660,7 +658,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__426a4b6fbcb381e0187dcb5da594244c44b4957c28015e552b55102d8f9d90bb)
+                type_hints = cached_type_hints(_typecheckingstub__426a4b6fbcb381e0187dcb5da594244c44b4957c28015e552b55102d8f9d90bb)
                 check_type(argname="argument email", value=email, expected_type=type_hints["email"])
                 check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
                 check_type(argname="argument login", value=login, expected_type=type_hints["login"])
@@ -780,7 +778,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__795bb61a773252bae3dfe518ca3d5b70274419b485b5d57f1ce43409a8952902)
+                type_hints = cached_type_hints(_typecheckingstub__795bb61a773252bae3dfe518ca3d5b70274419b485b5d57f1ce43409a8952902)
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument xml", value=xml, expected_type=type_hints["xml"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -861,7 +859,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c02272b8b48b51b6de7c529d470496327fd606d00decbbf6ae8c49f2f615bda6)
+                type_hints = cached_type_hints(_typecheckingstub__c02272b8b48b51b6de7c529d470496327fd606d00decbbf6ae8c49f2f615bda6)
                 check_type(argname="argument prefix_list_ids", value=prefix_list_ids, expected_type=type_hints["prefix_list_ids"])
                 check_type(argname="argument vpce_ids", value=vpce_ids, expected_type=type_hints["vpce_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -948,7 +946,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e9a8bcd06f64d00222d2b41bf08f31c81d292e457d23272ddb87234eda7f15a0)
+                type_hints = cached_type_hints(_typecheckingstub__e9a8bcd06f64d00222d2b41bf08f31c81d292e457d23272ddb87234eda7f15a0)
                 check_type(argname="argument admin", value=admin, expected_type=type_hints["admin"])
                 check_type(argname="argument editor", value=editor, expected_type=type_hints["editor"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1001,11 +999,11 @@ class CfnWorkspace(
         def __init__(
             self,
             *,
-            idp_metadata: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.IdpMetadataProperty", typing.Dict[builtins.str, typing.Any]]],
+            idp_metadata: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.IdpMetadataProperty", typing.Dict[builtins.str, typing.Any]]],
             allowed_organizations: typing.Optional[typing.Sequence[builtins.str]] = None,
-            assertion_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.AssertionAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            assertion_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.AssertionAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             login_validity_duration: typing.Optional[jsii.Number] = None,
-            role_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.RoleValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            role_values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.RoleValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure containing information about how this workspace works with SAML.
 
@@ -1048,7 +1046,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__14277625e97dae304b4384016dde2bbc729157d1053eb0a76e4c512ebf08325d)
+                type_hints = cached_type_hints(_typecheckingstub__14277625e97dae304b4384016dde2bbc729157d1053eb0a76e4c512ebf08325d)
                 check_type(argname="argument idp_metadata", value=idp_metadata, expected_type=type_hints["idp_metadata"])
                 check_type(argname="argument allowed_organizations", value=allowed_organizations, expected_type=type_hints["allowed_organizations"])
                 check_type(argname="argument assertion_attributes", value=assertion_attributes, expected_type=type_hints["assertion_attributes"])
@@ -1069,14 +1067,14 @@ class CfnWorkspace(
         @builtins.property
         def idp_metadata(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkspace.IdpMetadataProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.IdpMetadataProperty"]:
             '''A structure containing the identity provider (IdP) metadata used to integrate the identity provider with this workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-idpmetadata
             '''
             result = self._values.get("idp_metadata")
             assert result is not None, "Required property 'idp_metadata' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkspace.IdpMetadataProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.IdpMetadataProperty"], result)
 
         @builtins.property
         def allowed_organizations(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1092,13 +1090,13 @@ class CfnWorkspace(
         @builtins.property
         def assertion_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.AssertionAttributesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.AssertionAttributesProperty"]]:
             '''A structure that defines which attributes in the SAML assertion are to be used to define information about the users authenticated by that IdP to use the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-assertionattributes
             '''
             result = self._values.get("assertion_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.AssertionAttributesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.AssertionAttributesProperty"]], result)
 
         @builtins.property
         def login_validity_duration(self) -> typing.Optional[jsii.Number]:
@@ -1112,13 +1110,13 @@ class CfnWorkspace(
         @builtins.property
         def role_values(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.RoleValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.RoleValuesProperty"]]:
             '''A structure containing arrays that map group names in the SAML assertion to the Grafana ``Admin`` and ``Editor`` roles in the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-rolevalues
             '''
             result = self._values.get("role_values")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.RoleValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.RoleValuesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1172,7 +1170,7 @@ class CfnWorkspace(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de315e4fbef1f0e0f6baf284e1253102bd4adaf752296040880b7f54c95b72e9)
+                type_hints = cached_type_hints(_typecheckingstub__de315e4fbef1f0e0f6baf284e1253102bd4adaf752296040880b7f54c95b72e9)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1259,15 +1257,15 @@ class CfnWorkspaceProps:
         description: typing.Optional[builtins.str] = None,
         grafana_version: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        network_access_control: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_access_control: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
         organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
         organization_role_name: typing.Optional[builtins.str] = None,
-        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        saml_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        saml_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_set_name: typing.Optional[builtins.str] = None,
-        vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkspace``.
 
@@ -1348,7 +1346,7 @@ class CfnWorkspaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280)
+            type_hints = cached_type_hints(_typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280)
             check_type(argname="argument account_access_type", value=account_access_type, expected_type=type_hints["account_access_type"])
             check_type(argname="argument authentication_providers", value=authentication_providers, expected_type=type_hints["authentication_providers"])
             check_type(argname="argument permission_type", value=permission_type, expected_type=type_hints["permission_type"])
@@ -1496,13 +1494,13 @@ class CfnWorkspaceProps:
     @builtins.property
     def network_access_control(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.NetworkAccessControlProperty"]]:
         '''The configuration settings for network access to your workspace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-networkaccesscontrol
         '''
         result = self._values.get("network_access_control")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.NetworkAccessControlProperty"]], result)
 
     @builtins.property
     def notification_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1536,7 +1534,7 @@ class CfnWorkspaceProps:
     @builtins.property
     def plugin_admin_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether plugin administration is enabled in the workspace.
 
         Setting to ``true`` allows workspace admins to install, uninstall, and update plugins from within the Grafana workspace.
@@ -1547,12 +1545,12 @@ class CfnWorkspaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-pluginadminenabled
         '''
         result = self._values.get("plugin_admin_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The IAM role that grants permissions to the AWS resources that the workspace will view data from.
 
         This role must already exist.
@@ -1560,18 +1558,18 @@ class CfnWorkspaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-rolearn
         '''
         result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def saml_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.SamlConfigurationProperty"]]:
         '''If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-samlconfiguration
         '''
         result = self._values.get("saml_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.SamlConfigurationProperty"]], result)
 
     @builtins.property
     def stack_set_name(self) -> typing.Optional[builtins.str]:
@@ -1585,7 +1583,7 @@ class CfnWorkspaceProps:
     @builtins.property
     def vpc_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]]:
         '''The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to.
 
         .. epigraph::
@@ -1595,7 +1593,7 @@ class CfnWorkspaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-vpcconfiguration
         '''
         result = self._values.get("vpc_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1628,15 +1626,15 @@ def _typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3
     description: typing.Optional[builtins.str] = None,
     grafana_version: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_access_control: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
     organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
     organization_role_name: typing.Optional[builtins.str] = None,
-    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    saml_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_set_name: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1648,7 +1646,7 @@ def _typecheckingstub__9274823263c6be15890be7c903ef1b08a6f3c1a4f98b32dbf2de7b109
     pass
 
 def _typecheckingstub__2d1ddbb2c282ef63cbb246c4096b7de3713eca2c5e898a4fb0399bceaaea80a2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1708,7 +1706,7 @@ def _typecheckingstub__c3054f2932686c0aea4252a167d3c57cd2cac6f217af055688e0e4ad5
     pass
 
 def _typecheckingstub__e2b77604f954551d96e38e737bb2b7eb8862626320461b61a851932a089d4ade(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.NetworkAccessControlProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.NetworkAccessControlProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1732,7 +1730,7 @@ def _typecheckingstub__7a0bc3f30f5cd3553fef63aadcf02d8cd56cd0a20cd147f34b2b50060
     pass
 
 def _typecheckingstub__c6fff51e5ca5203d89a130603e0c8c8afd747ed83cfd23221fbe96546480b53b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1744,7 +1742,7 @@ def _typecheckingstub__edafda7b927ef527400465d2e8fb7713cb6a76ed45cd51372ae245440
     pass
 
 def _typecheckingstub__512287bf24818cb838cc5045af81a100afbe0fdcf464601403fff719622ccc4d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.SamlConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.SamlConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1756,7 +1754,7 @@ def _typecheckingstub__61ab7cafff5a486f361d533b95f12ec0ab7499ff5e38660d0dcabb7a0
     pass
 
 def _typecheckingstub__3586128c84bb5e8c9eb62049d7b06e9ab6ddb8d155288a89902a4fa5056539a0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.VpcConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.VpcConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1799,11 +1797,11 @@ def _typecheckingstub__e9a8bcd06f64d00222d2b41bf08f31c81d292e457d23272ddb87234ed
 
 def _typecheckingstub__14277625e97dae304b4384016dde2bbc729157d1053eb0a76e4c512ebf08325d(
     *,
-    idp_metadata: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.IdpMetadataProperty, typing.Dict[builtins.str, typing.Any]]],
+    idp_metadata: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.IdpMetadataProperty, typing.Dict[builtins.str, typing.Any]]],
     allowed_organizations: typing.Optional[typing.Sequence[builtins.str]] = None,
-    assertion_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.AssertionAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    assertion_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.AssertionAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     login_validity_duration: typing.Optional[jsii.Number] = None,
-    role_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.RoleValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role_values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.RoleValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1826,15 +1824,15 @@ def _typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbde
     description: typing.Optional[builtins.str] = None,
     grafana_version: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_access_control: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
     organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
     organization_role_name: typing.Optional[builtins.str] = None,
-    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    saml_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_set_name: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

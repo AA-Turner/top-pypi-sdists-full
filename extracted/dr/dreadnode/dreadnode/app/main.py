@@ -334,6 +334,24 @@ class Dreadnode:
             self._api = None
             self._profile = None
 
+        # Register a lazy proxy provisioner so `dn/<model>` ids route through the
+        # platform LiteLLM gateway from a local SDK process - the same mechanism the
+        # TUI uses. It mints a short-lived, credit-metered *virtual* key on first
+        # `dn/` use (no provider keys ever reach the machine). In-memory only.
+        from dreadnode.generators.proxy import (
+            provision_platform_proxy,
+            register_proxy_provisioner,
+        )
+
+        if self._api is not None and self.organization is not None:
+            _api = self._api
+            _org = str(self.organization)
+            register_proxy_provisioner(
+                lambda: provision_platform_proxy(_api, _org, "dreadnode-sdk")
+            )
+        else:
+            register_proxy_provisioner(None)
+
         self._storage = Storage(
             profile=self._profile,
             cache=self.cache,

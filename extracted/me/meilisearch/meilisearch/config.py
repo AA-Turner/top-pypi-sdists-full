@@ -28,6 +28,7 @@ class Config:
         synonyms = "synonyms"
         accept_new_fields = "accept-new-fields"
         filterable_attributes = "filterable-attributes"
+        foreign_keys = "foreign-keys"
         sortable_attributes = "sortable-attributes"
         typo_tolerance = "typo-tolerance"
         dumps = "dumps"
@@ -47,8 +48,10 @@ class Config:
         edit = "edit"
         network = "network"
         experimental_features = "experimental-features"
+        dynamic_search_rules = "dynamic-search-rules"
         webhooks = "webhooks"
         export = "export"
+        render_template = "render-template"
 
     def __init__(
         self,

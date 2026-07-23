@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ivschat import (
-    ILoggingConfigurationRef as _ILoggingConfigurationRef_0ca02c43,
-    IRoomRef as _IRoomRef_54a258f7,
-    LoggingConfigurationReference as _LoggingConfigurationReference_415d9c3a,
-    RoomReference as _RoomReference_99cba8a5,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ivschat as _aws_ivschat_a191a6aa
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ivschat_a191a6aa = _LazyImport("aws_cdk.interfaces.aws_ivschat")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoggingConfigurationRef_0ca02c43, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ivschat_a191a6aa.ILoggingConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLoggingConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ivschat.CfnLoggingConfiguration",
 ):
@@ -123,9 +115,9 @@ class CfnLoggingConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        destination_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        destination_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IVSChat::LoggingConfiguration``.
 
@@ -136,7 +128,7 @@ class CfnLoggingConfiguration(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f95aa7fbca48607e1b7f21599890b14234d06edef03619f810c807a7b1121eb9)
+            type_hints = cached_type_hints(_typecheckingstub__f95aa7fbca48607e1b7f21599890b14234d06edef03619f810c807a7b1121eb9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoggingConfigurationProps(
@@ -149,13 +141,13 @@ class CfnLoggingConfiguration(
     @builtins.classmethod
     def arn_for_logging_configuration(
         cls,
-        resource: "_ILoggingConfigurationRef_0ca02c43",
+        resource: "_aws_ivschat_a191a6aa.ILoggingConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3098f82ef72b00cf08ebe6070a684c703dd13dc8b6a8d0c67c9cd57a38098450)
+            type_hints = cached_type_hints(_typecheckingstub__3098f82ef72b00cf08ebe6070a684c703dd13dc8b6a8d0c67c9cd57a38098450)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLoggingConfiguration", [resource]))
 
@@ -167,18 +159,18 @@ class CfnLoggingConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc1a51adc281df3eadda9dbc8f2a03c6f3cb7f1de4b5bc6e379c26d27e6f45a8)
+            type_hints = cached_type_hints(_typecheckingstub__cc1a51adc281df3eadda9dbc8f2a03c6f3cb7f1de4b5bc6e379c26d27e6f45a8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoggingConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27c1d1ba5ffc0c9e4e4e7ece89f8cc2e8faaf83bbca86ce90359f6b2f8ce3bcd)
+            type_hints = cached_type_hints(_typecheckingstub__27c1d1ba5ffc0c9e4e4e7ece89f8cc2e8faaf83bbca86ce90359f6b2f8ce3bcd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -191,7 +183,7 @@ class CfnLoggingConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__960cfee712ac9c0a17c9e88a4c6409009f6eab60519ca06d434746d8c82a22e1)
+            type_hints = cached_type_hints(_typecheckingstub__960cfee712ac9c0a17c9e88a4c6409009f6eab60519ca06d434746d8c82a22e1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -246,31 +238,33 @@ class CfnLoggingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfigurationRef")
-    def logging_configuration_ref(self) -> "_LoggingConfigurationReference_415d9c3a":
+    def logging_configuration_ref(
+        self,
+    ) -> "_aws_ivschat_a191a6aa.LoggingConfigurationReference":
         '''A reference to a LoggingConfiguration resource.'''
-        return typing.cast("_LoggingConfigurationReference_415d9c3a", jsii.get(self, "loggingConfigurationRef"))
+        return typing.cast("_aws_ivschat_a191a6aa.LoggingConfigurationReference", jsii.get(self, "loggingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationConfiguration")
     def destination_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.DestinationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.DestinationConfigurationProperty"]:
         '''The DestinationConfiguration is a complex type that contains information about where chat content will be logged.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.DestinationConfigurationProperty"], jsii.get(self, "destinationConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.DestinationConfigurationProperty"], jsii.get(self, "destinationConfiguration"))
 
     @destination_configuration.setter
     def destination_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.DestinationConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.DestinationConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e46decd1e1c506586056a4500db47bf530da54ddb65e39302dbbaf6ec3a931d1)
+            type_hints = cached_type_hints(_typecheckingstub__e46decd1e1c506586056a4500db47bf530da54ddb65e39302dbbaf6ec3a931d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -283,20 +277,23 @@ class CfnLoggingConfiguration(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26ed8c160f39e69de50d5c80393304dffb844ea45ad771cb30d8defdb30ce9f8)
+            type_hints = cached_type_hints(_typecheckingstub__26ed8c160f39e69de50d5c80393304dffb844ea45ad771cb30d8defdb30ce9f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__836b5ee2ad1b8daae63f67c3a8136ba0d9480523fa98563aacd6b2dbb595de39)
+            type_hints = cached_type_hints(_typecheckingstub__836b5ee2ad1b8daae63f67c3a8136ba0d9480523fa98563aacd6b2dbb595de39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -325,7 +322,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__692a23b9c3f78e60addd9b8dcdcc9084e9ccef85c62bfcb7da6c98b0c8e17021)
+                type_hints = cached_type_hints(_typecheckingstub__692a23b9c3f78e60addd9b8dcdcc9084e9ccef85c62bfcb7da6c98b0c8e17021)
                 check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_group_name": log_group_name,
@@ -365,9 +362,9 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            cloud_watch_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            firehose: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The DestinationConfiguration property type describes a location where chat logs will be stored.
 
@@ -399,7 +396,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__444c65021c218d7e77439678be8af18e8e2dc2bccc2bfac5f3047a512bcda98c)
+                type_hints = cached_type_hints(_typecheckingstub__444c65021c218d7e77439678be8af18e8e2dc2bccc2bfac5f3047a512bcda98c)
                 check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
                 check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
                 check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
@@ -414,35 +411,35 @@ class CfnLoggingConfiguration(
         @builtins.property
         def cloud_watch_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty"]]:
             '''An Amazon CloudWatch Logs destination configuration where chat activity will be logged.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-destinationconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration-cloudwatchlogs
             '''
             result = self._values.get("cloud_watch_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty"]], result)
 
         @builtins.property
         def firehose(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty"]]:
             '''An Amazon Kinesis Data Firehose destination configuration where chat activity will be logged.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-destinationconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration-firehose
             '''
             result = self._values.get("firehose")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty"]], result)
 
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.S3DestinationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.S3DestinationConfigurationProperty"]]:
             '''An Amazon S3 destination configuration where chat activity will be logged.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-destinationconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.S3DestinationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.S3DestinationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -480,7 +477,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a25c4e628ef47763b45189497fc2d57f8d09166b892dda63567ac89ab67a4125)
+                type_hints = cached_type_hints(_typecheckingstub__a25c4e628ef47763b45189497fc2d57f8d09166b892dda63567ac89ab67a4125)
                 check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "delivery_stream_name": delivery_stream_name,
@@ -532,7 +529,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c037cb3283641604b00606142bfc019ab700b409deb4e9436a93bc4c24eb662f)
+                type_hints = cached_type_hints(_typecheckingstub__c037cb3283641604b00606142bfc019ab700b409deb4e9436a93bc4c24eb662f)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "bucket_name": bucket_name,
@@ -573,9 +570,9 @@ class CfnLoggingConfigurationProps:
     def __init__(
         self,
         *,
-        destination_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        destination_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLoggingConfiguration``.
 
@@ -615,7 +612,7 @@ class CfnLoggingConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688)
+            type_hints = cached_type_hints(_typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688)
             check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -630,14 +627,14 @@ class CfnLoggingConfigurationProps:
     @builtins.property
     def destination_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.DestinationConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.DestinationConfigurationProperty"]:
         '''The DestinationConfiguration is a complex type that contains information about where chat content will be logged.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration
         '''
         result = self._values.get("destination_configuration")
         assert result is not None, "Required property 'destination_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.DestinationConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.DestinationConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -651,7 +648,7 @@ class CfnLoggingConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
@@ -659,7 +656,7 @@ class CfnLoggingConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -673,9 +670,9 @@ class CfnLoggingConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRoomRef_54a258f7, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ivschat_a191a6aa.IRoomRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRoom(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ivschat.CfnRoom",
 ):
@@ -715,12 +712,12 @@ class CfnRoom(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ILoggingConfigurationRef_0ca02c43"]]] = None,
+        logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ivschat_a191a6aa.ILoggingConfigurationRef"]]] = None,
         maximum_message_length: typing.Optional[jsii.Number] = None,
         maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-        message_review_handler: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRoom.MessageReviewHandlerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        message_review_handler: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRoom.MessageReviewHandlerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IVSChat::Room``.
 
@@ -734,7 +731,7 @@ class CfnRoom(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b4e5ca285f18f1e8f75ce6f44ea1cf5cd39a13086ac408f0f6de6c51064f22d)
+            type_hints = cached_type_hints(_typecheckingstub__3b4e5ca285f18f1e8f75ce6f44ea1cf5cd39a13086ac408f0f6de6c51064f22d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRoomProps(
@@ -750,12 +747,12 @@ class CfnRoom(
 
     @jsii.member(jsii_name="arnForRoom")
     @builtins.classmethod
-    def arn_for_room(cls, resource: "_IRoomRef_54a258f7") -> builtins.str:
+    def arn_for_room(cls, resource: "_aws_ivschat_a191a6aa.IRoomRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d19754b4903595adf8c1d2f8bc17536ce27cdba4153a02a5dc3d932cc9ce4339)
+            type_hints = cached_type_hints(_typecheckingstub__d19754b4903595adf8c1d2f8bc17536ce27cdba4153a02a5dc3d932cc9ce4339)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRoom", [resource]))
 
@@ -767,18 +764,18 @@ class CfnRoom(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17b6f660c7d76f3ebffe0597d9da98e6a9608d3bf8cbfa89bd2cb49438394641)
+            type_hints = cached_type_hints(_typecheckingstub__17b6f660c7d76f3ebffe0597d9da98e6a9608d3bf8cbfa89bd2cb49438394641)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRoom", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ce1c1c052b08ab9350a756228819c19dc398433872a68be1f852466c2eb1f71)
+            type_hints = cached_type_hints(_typecheckingstub__5ce1c1c052b08ab9350a756228819c19dc398433872a68be1f852466c2eb1f71)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -791,7 +788,7 @@ class CfnRoom(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d783e239ad0d8f6dfc82d8df73722abb0544413600c3439c3777ac5e52cc5e4e)
+            type_hints = cached_type_hints(_typecheckingstub__d783e239ad0d8f6dfc82d8df73722abb0544413600c3439c3777ac5e52cc5e4e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -835,15 +832,15 @@ class CfnRoom(
 
     @builtins.property
     @jsii.member(jsii_name="roomRef")
-    def room_ref(self) -> "_RoomReference_99cba8a5":
+    def room_ref(self) -> "_aws_ivschat_a191a6aa.RoomReference":
         '''A reference to a Room resource.'''
-        return typing.cast("_RoomReference_99cba8a5", jsii.get(self, "roomRef"))
+        return typing.cast("_aws_ivschat_a191a6aa.RoomReference", jsii.get(self, "roomRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfigurationIdentifiers")
@@ -859,7 +856,7 @@ class CfnRoom(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__715c94a6d3106670ad6914a07671851743aaab45133544bce1c05e91ef1afee3)
+            type_hints = cached_type_hints(_typecheckingstub__715c94a6d3106670ad6914a07671851743aaab45133544bce1c05e91ef1afee3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfigurationIdentifiers", value) # pyright: ignore[reportArgumentType]
 
@@ -872,7 +869,7 @@ class CfnRoom(
     @maximum_message_length.setter
     def maximum_message_length(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ad0052f323da91d86d28797dbfe265aad9f18133d2aed326936401d24e74e5f)
+            type_hints = cached_type_hints(_typecheckingstub__1ad0052f323da91d86d28797dbfe265aad9f18133d2aed326936401d24e74e5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumMessageLength", value) # pyright: ignore[reportArgumentType]
 
@@ -888,7 +885,7 @@ class CfnRoom(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b897f8b0aae144b6ad3e2979d91ce62b5b66428bf3306bc6bc790b664db0f053)
+            type_hints = cached_type_hints(_typecheckingstub__b897f8b0aae144b6ad3e2979d91ce62b5b66428bf3306bc6bc790b664db0f053)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumMessageRatePerSecond", value) # pyright: ignore[reportArgumentType]
 
@@ -896,17 +893,17 @@ class CfnRoom(
     @jsii.member(jsii_name="messageReviewHandler")
     def message_review_handler(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRoom.MessageReviewHandlerProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRoom.MessageReviewHandlerProperty"]]:
         '''Configuration information for optional review of messages.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRoom.MessageReviewHandlerProperty"]], jsii.get(self, "messageReviewHandler"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRoom.MessageReviewHandlerProperty"]], jsii.get(self, "messageReviewHandler"))
 
     @message_review_handler.setter
     def message_review_handler(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRoom.MessageReviewHandlerProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRoom.MessageReviewHandlerProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e799bee581432f25d4ae8c52d6061972639da5726d12f7994dd765f9dce685f)
+            type_hints = cached_type_hints(_typecheckingstub__9e799bee581432f25d4ae8c52d6061972639da5726d12f7994dd765f9dce685f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "messageReviewHandler", value) # pyright: ignore[reportArgumentType]
 
@@ -919,20 +916,23 @@ class CfnRoom(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1321d29c7baab529603b109b828d2f7d3139eb364593ec2f54a0ff1585184366)
+            type_hints = cached_type_hints(_typecheckingstub__1321d29c7baab529603b109b828d2f7d3139eb364593ec2f54a0ff1585184366)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c129383c713cecd593f8d586f57442188747729d3736326bbf0a38bacba4a349)
+            type_hints = cached_type_hints(_typecheckingstub__c129383c713cecd593f8d586f57442188747729d3736326bbf0a38bacba4a349)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -968,7 +968,7 @@ class CfnRoom(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8de671f791820abae21cf6b0bd8d2f03cbf454fb6af42a06db0dd74e9fa2d28)
+                type_hints = cached_type_hints(_typecheckingstub__b8de671f791820abae21cf6b0bd8d2f03cbf454fb6af42a06db0dd74e9fa2d28)
                 check_type(argname="argument fallback_result", value=fallback_result, expected_type=type_hints["fallback_result"])
                 check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1031,12 +1031,12 @@ class CfnRoomProps:
     def __init__(
         self,
         *,
-        logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ILoggingConfigurationRef_0ca02c43"]]] = None,
+        logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ivschat_a191a6aa.ILoggingConfigurationRef"]]] = None,
         maximum_message_length: typing.Optional[jsii.Number] = None,
         maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-        message_review_handler: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRoom.MessageReviewHandlerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        message_review_handler: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRoom.MessageReviewHandlerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRoom``.
 
@@ -1073,7 +1073,7 @@ class CfnRoomProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3)
+            type_hints = cached_type_hints(_typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3)
             check_type(argname="argument logging_configuration_identifiers", value=logging_configuration_identifiers, expected_type=type_hints["logging_configuration_identifiers"])
             check_type(argname="argument maximum_message_length", value=maximum_message_length, expected_type=type_hints["maximum_message_length"])
             check_type(argname="argument maximum_message_rate_per_second", value=maximum_message_rate_per_second, expected_type=type_hints["maximum_message_rate_per_second"])
@@ -1097,13 +1097,13 @@ class CfnRoomProps:
     @builtins.property
     def logging_configuration_identifiers(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ILoggingConfigurationRef_0ca02c43"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ivschat_a191a6aa.ILoggingConfigurationRef"]]]:
         '''List of logging-configuration identifiers attached to the room.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-loggingconfigurationidentifiers
         '''
         result = self._values.get("logging_configuration_identifiers")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ILoggingConfigurationRef_0ca02c43"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ivschat_a191a6aa.ILoggingConfigurationRef"]]], result)
 
     @builtins.property
     def maximum_message_length(self) -> typing.Optional[jsii.Number]:
@@ -1132,13 +1132,13 @@ class CfnRoomProps:
     @builtins.property
     def message_review_handler(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRoom.MessageReviewHandlerProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRoom.MessageReviewHandlerProperty"]]:
         '''Configuration information for optional review of messages.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-messagereviewhandler
         '''
         result = self._values.get("message_review_handler")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRoom.MessageReviewHandlerProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRoom.MessageReviewHandlerProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1152,7 +1152,7 @@ class CfnRoomProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
@@ -1160,7 +1160,7 @@ class CfnRoomProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1187,15 +1187,15 @@ def _typecheckingstub__f95aa7fbca48607e1b7f21599890b14234d06edef03619f810c807a7b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3098f82ef72b00cf08ebe6070a684c703dd13dc8b6a8d0c67c9cd57a38098450(
-    resource: _ILoggingConfigurationRef_0ca02c43,
+    resource: _aws_ivschat_a191a6aa.ILoggingConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1207,7 +1207,7 @@ def _typecheckingstub__cc1a51adc281df3eadda9dbc8f2a03c6f3cb7f1de4b5bc6e379c26d27
     pass
 
 def _typecheckingstub__27c1d1ba5ffc0c9e4e4e7ece89f8cc2e8faaf83bbca86ce90359f6b2f8ce3bcd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1219,7 +1219,7 @@ def _typecheckingstub__960cfee712ac9c0a17c9e88a4c6409009f6eab60519ca06d434746d8c
     pass
 
 def _typecheckingstub__e46decd1e1c506586056a4500db47bf530da54ddb65e39302dbbaf6ec3a931d1(
-    value: typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.DestinationConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoggingConfiguration.DestinationConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1231,7 +1231,7 @@ def _typecheckingstub__26ed8c160f39e69de50d5c80393304dffb844ea45ad771cb30d8defdb
     pass
 
 def _typecheckingstub__836b5ee2ad1b8daae63f67c3a8136ba0d9480523fa98563aacd6b2dbb595de39(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1245,9 +1245,9 @@ def _typecheckingstub__692a23b9c3f78e60addd9b8dcdcc9084e9ccef85c62bfcb7da6c98b0c
 
 def _typecheckingstub__444c65021c218d7e77439678be8af18e8e2dc2bccc2bfac5f3047a512bcda98c(
     *,
-    cloud_watch_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    firehose: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1268,9 +1268,9 @@ def _typecheckingstub__c037cb3283641604b00606142bfc019ab700b409deb4e9436a93bc4c2
 
 def _typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688(
     *,
-    destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1279,18 +1279,18 @@ def _typecheckingstub__3b4e5ca285f18f1e8f75ce6f44ea1cf5cd39a13086ac408f0f6de6c51
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ILoggingConfigurationRef_0ca02c43]]] = None,
+    logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ivschat_a191a6aa.ILoggingConfigurationRef]]] = None,
     maximum_message_length: typing.Optional[jsii.Number] = None,
     maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-    message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    message_review_handler: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d19754b4903595adf8c1d2f8bc17536ce27cdba4153a02a5dc3d932cc9ce4339(
-    resource: _IRoomRef_54a258f7,
+    resource: _aws_ivschat_a191a6aa.IRoomRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1302,7 +1302,7 @@ def _typecheckingstub__17b6f660c7d76f3ebffe0597d9da98e6a9608d3bf8cbfa89bd2cb4943
     pass
 
 def _typecheckingstub__5ce1c1c052b08ab9350a756228819c19dc398433872a68be1f852466c2eb1f71(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1332,7 +1332,7 @@ def _typecheckingstub__b897f8b0aae144b6ad3e2979d91ce62b5b66428bf3306bc6bc790b664
     pass
 
 def _typecheckingstub__9e799bee581432f25d4ae8c52d6061972639da5726d12f7994dd765f9dce685f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoom.MessageReviewHandlerProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRoom.MessageReviewHandlerProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1344,7 +1344,7 @@ def _typecheckingstub__1321d29c7baab529603b109b828d2f7d3139eb364593ec2f54a0ff158
     pass
 
 def _typecheckingstub__c129383c713cecd593f8d586f57442188747729d3736326bbf0a38bacba4a349(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1359,12 +1359,12 @@ def _typecheckingstub__b8de671f791820abae21cf6b0bd8d2f03cbf454fb6af42a06db0dd74e
 
 def _typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3(
     *,
-    logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ILoggingConfigurationRef_0ca02c43]]] = None,
+    logging_configuration_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ivschat_a191a6aa.ILoggingConfigurationRef]]] = None,
     maximum_message_length: typing.Optional[jsii.Number] = None,
     maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-    message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    message_review_handler: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

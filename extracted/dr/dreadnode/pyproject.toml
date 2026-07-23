@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.35"
+version = "2.0.38"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -94,7 +94,23 @@ claude-code = [
 # and is a no-op.
 nova-sonic = []
 
-all = ["dreadnode[scoring,training,video]"]
+# Traditional-ML attack surrogates (model extraction / membership inference /
+# evasion). scikit-learn covers the tabular + text (TF-IDF) surrogates and the
+# no-train membership methods; torch backs the image soft-label surrogate.
+#
+# NOTE: adversarial-robustness-toolbox is intentionally NOT a dependency. It
+# imports as the top-level `art` module, which collides with the ASCII-art `art`
+# package the SDK already depends on (dreadnode.transforms.stylistic uses
+# `text2art`). The extraction engine detects a real ART install at runtime
+# (see dreadnode.airt.art_engine.art_available) and uses it when present in a
+# compatible environment; otherwise the native numpy/sklearn engine runs, so
+# nothing here needs it.
+airt-ml = [
+    "scikit-learn>=1.7.1,<2.0.0",
+    "torch>=2.9.0",
+]
+
+all = ["dreadnode[scoring,training,video,airt-ml]"]
 
 [dependency-groups]
 dev = [
@@ -117,6 +133,10 @@ dev = [
     "datasets>=4.4.1",
     "respx>=0.22.0",
     "pytest-cov>=7.0.0",
+    # Surrogate models for the model-extraction / membership-inference tests
+    # (dreadnode.airt.extraction / membership). torch stays out of CI — those
+    # tests use only the sklearn/TF-IDF surrogates, not the image torch_mlp path.
+    "scikit-learn>=1.7.1,<2.0.0",
 ]
 # Used by packages/docs/scripts/generate_{,cli_}docs.py via the
 # sync_*_reference.sh pre-commit wrappers. Kept self-sufficient so the
@@ -281,6 +301,10 @@ allowed-unresolved-imports = [
     "presidio_analyzer.**", "rapidfuzz.**", "sentence_transformers.**",
     "sklearn.**", "jsonpath.**", "textstat.**", "textblob.**", "nltk.**",
     "confusables.**",
+    # optional ART engine (adversarial-robustness-toolbox) - imports as `art`,
+    # which collides with the ASCII-art `art` dep, so it is never installed here
+    # and the airt.art_engine imports resolve only when a user provides it.
+    "art.attacks.**", "art.estimators.**", "joblib.**",
     # optional integrations
     "ddgs.**", "moviepy.**", "tinker.**", "textual_plot.**",
     "networkx.**", "reportlab.**", "storage.**",

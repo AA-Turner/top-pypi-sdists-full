@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-opentelemetry
-Version: 1.3.5
+Version: 1.3.6
 Summary: Minimal template for the Microsoft OpenTelemetry distro for Python
 Project-URL: Homepage, https://github.com/microsoft/opentelemetry-distro-python
 Project-URL: Repository, https://github.com/microsoft/opentelemetry-distro-python

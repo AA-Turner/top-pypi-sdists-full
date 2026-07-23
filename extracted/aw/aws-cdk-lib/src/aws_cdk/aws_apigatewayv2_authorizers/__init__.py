@@ -372,6 +372,8 @@ authorizer = HttpAuthorizer.from_http_authorizer_attributes(self, "HttpAuthorize
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -385,46 +387,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import Duration as _Duration_4839e8c3
-from ..aws_apigatewayv2 import (
-    HttpAuthorizerType as _HttpAuthorizerType_9da7a607,
-    HttpRouteAuthorizerBindOptions as _HttpRouteAuthorizerBindOptions_0416479e,
-    HttpRouteAuthorizerConfig as _HttpRouteAuthorizerConfig_162cee40,
-    IHttpRoute as _IHttpRoute_2fbc6171,
-    IHttpRouteAuthorizer as _IHttpRouteAuthorizer_6333bae7,
-    IWebSocketRoute as _IWebSocketRoute_006c2390,
-    IWebSocketRouteAuthorizer as _IWebSocketRouteAuthorizer_a0e95c16,
-    WebSocketRouteAuthorizerBindOptions as _WebSocketRouteAuthorizerBindOptions_d7976c1d,
-    WebSocketRouteAuthorizerConfig as _WebSocketRouteAuthorizerConfig_3aa7e761,
-)
-from ..aws_cognito import (
-    IUserPool as _IUserPool_1f1029e2, IUserPoolClient as _IUserPoolClient_75623ba4
-)
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_apigatewayv2 as _aws_apigatewayv2_110df5de
+    import aws_cdk.aws_cognito as _aws_cognito_4f282b4c
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_apigatewayv2_110df5de = _LazyImport("aws_cdk.aws_apigatewayv2")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cognito_4f282b4c = _LazyImport("aws_cdk.aws_cognito")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IHttpRouteAuthorizer_6333bae7)
+@jsii.implements(_aws_apigatewayv2_110df5de.IHttpRouteAuthorizer)
 class HttpIamAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.HttpIamAuthorizer",
@@ -462,26 +458,28 @@ class HttpIamAuthorizer(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteAuthorizerConfig_162cee40":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        _options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
+        _options = _aws_apigatewayv2_110df5de.HttpRouteAuthorizerBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig", jsii.invoke(self, "bind", [_options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
-    def authorization_type(self) -> "_HttpAuthorizerType_9da7a607":
+    def authorization_type(self) -> "_aws_apigatewayv2_110df5de.HttpAuthorizerType":
         '''The authorizationType used for IAM Authorizer.'''
-        return typing.cast("_HttpAuthorizerType_9da7a607", jsii.get(self, "authorizationType"))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpAuthorizerType", jsii.get(self, "authorizationType"))
 
 
-@jsii.implements(_IHttpRouteAuthorizer_6333bae7)
+@jsii.implements(_aws_apigatewayv2_110df5de.IHttpRouteAuthorizer)
 class HttpJwtAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.HttpJwtAuthorizer",
@@ -528,7 +526,7 @@ class HttpJwtAuthorizer(
         :param identity_source: The identity source for which authorization is requested. Default: ['$request.header.Authorization']
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10512a16b980ce8067e855cfb354d7fa7e31b99c902144f6e224eb490c672759)
+            type_hints = cached_type_hints(_typecheckingstub__10512a16b980ce8067e855cfb354d7fa7e31b99c902144f6e224eb490c672759)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument jwt_issuer", value=jwt_issuer, expected_type=type_hints["jwt_issuer"])
         props = HttpJwtAuthorizerProps(
@@ -543,17 +541,19 @@ class HttpJwtAuthorizer(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteAuthorizerConfig_162cee40":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteAuthorizerBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -613,7 +613,7 @@ class HttpJwtAuthorizerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afd9026b1de0feb1db35992640bc3f7f3746a1aa22094ea74319d21e3ede9a4b)
+            type_hints = cached_type_hints(_typecheckingstub__afd9026b1de0feb1db35992640bc3f7f3746a1aa22094ea74319d21e3ede9a4b)
             check_type(argname="argument jwt_audience", value=jwt_audience, expected_type=type_hints["jwt_audience"])
             check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
             check_type(argname="argument identity_source", value=identity_source, expected_type=type_hints["identity_source"])
@@ -665,7 +665,7 @@ class HttpJwtAuthorizerProps:
         )
 
 
-@jsii.implements(_IHttpRouteAuthorizer_6333bae7)
+@jsii.implements(_aws_apigatewayv2_110df5de.IHttpRouteAuthorizer)
 class HttpLambdaAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.HttpLambdaAuthorizer",
@@ -703,13 +703,13 @@ class HttpLambdaAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        handler: "_IFunction_6adb0ab8",
+        handler: "_aws_lambda_b8f2f472.IFunction",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
-        results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        results_cache_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> None:
         '''Initialize a lambda authorizer to be bound with HTTP route.
 
@@ -722,7 +722,7 @@ class HttpLambdaAuthorizer(
         :param role: The IAM role that the API Gateway service assumes while invoking the authorizer. Supported only for REQUEST authorizers. Default: - No role
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9dfd289d96085c1bacae84e1686b20fe545518f32edd1c7873fb7f286532f88)
+            type_hints = cached_type_hints(_typecheckingstub__f9dfd289d96085c1bacae84e1686b20fe545518f32edd1c7873fb7f286532f88)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = HttpLambdaAuthorizerProps(
@@ -739,17 +739,19 @@ class HttpLambdaAuthorizer(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteAuthorizerConfig_162cee40":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteAuthorizerBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -782,8 +784,8 @@ class HttpLambdaAuthorizerProps:
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
-        results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        results_cache_ttl: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> None:
         '''Properties to initialize HttpTokenAuthorizer.
 
@@ -821,7 +823,7 @@ class HttpLambdaAuthorizerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89dc09a234be8e090cbe13cf95c66656012ddc54d4b0cece939a05ea9f526fd3)
+            type_hints = cached_type_hints(_typecheckingstub__89dc09a234be8e090cbe13cf95c66656012ddc54d4b0cece939a05ea9f526fd3)
             check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
             check_type(argname="argument identity_source", value=identity_source, expected_type=type_hints["identity_source"])
             check_type(argname="argument response_types", value=response_types, expected_type=type_hints["response_types"])
@@ -872,7 +874,7 @@ class HttpLambdaAuthorizerProps:
         return typing.cast(typing.Optional[typing.List["HttpLambdaResponseType"]], result)
 
     @builtins.property
-    def results_cache_ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def results_cache_ttl(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How long APIGateway should cache the results.
 
         Max 1 hour.
@@ -881,10 +883,10 @@ class HttpLambdaAuthorizerProps:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("results_cache_ttl")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The IAM role that the API Gateway service assumes while invoking the authorizer.
 
         Supported only for REQUEST authorizers.
@@ -892,7 +894,7 @@ class HttpLambdaAuthorizerProps:
         :default: - No role
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -916,7 +918,7 @@ class HttpLambdaResponseType(enum.Enum):
     '''Returns an IAM Policy.'''
 
 
-@jsii.implements(_IHttpRouteAuthorizer_6333bae7)
+@jsii.implements(_aws_apigatewayv2_110df5de.IHttpRouteAuthorizer)
 class HttpUserPoolAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.HttpUserPoolAuthorizer",
@@ -948,11 +950,11 @@ class HttpUserPoolAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        pool: "_IUserPool_1f1029e2",
+        pool: "_aws_cognito_4f282b4c.IUserPool",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        user_pool_clients: typing.Optional[typing.Sequence["_IUserPoolClient_75623ba4"]] = None,
+        user_pool_clients: typing.Optional[typing.Sequence["_aws_cognito_4f282b4c.IUserPoolClient"]] = None,
         user_pool_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Initialize a Cognito user pool authorizer to be bound with HTTP route.
@@ -965,7 +967,7 @@ class HttpUserPoolAuthorizer(
         :param user_pool_region: The AWS region in which the user pool is present. Default: - same region as the Route the authorizer is attached to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__892a1b40652c3ee056ad7e6492623924f582681b4d49bfeb982e1aca5405e39b)
+            type_hints = cached_type_hints(_typecheckingstub__892a1b40652c3ee056ad7e6492623924f582681b4d49bfeb982e1aca5405e39b)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument pool", value=pool, expected_type=type_hints["pool"])
         props = HttpUserPoolAuthorizerProps(
@@ -981,17 +983,19 @@ class HttpUserPoolAuthorizer(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteAuthorizerConfig_162cee40":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteAuthorizerBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteAuthorizerConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -1022,7 +1026,7 @@ class HttpUserPoolAuthorizerProps:
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        user_pool_clients: typing.Optional[typing.Sequence["_IUserPoolClient_75623ba4"]] = None,
+        user_pool_clients: typing.Optional[typing.Sequence["_aws_cognito_4f282b4c.IUserPoolClient"]] = None,
         user_pool_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties to initialize HttpUserPoolAuthorizer.
@@ -1051,7 +1055,7 @@ class HttpUserPoolAuthorizerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cfa69c43bb43a9f2c40c459efea56163544150c2b385c31f1147a3e49c6ea5)
+            type_hints = cached_type_hints(_typecheckingstub__37cfa69c43bb43a9f2c40c459efea56163544150c2b385c31f1147a3e49c6ea5)
             check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
             check_type(argname="argument identity_source", value=identity_source, expected_type=type_hints["identity_source"])
             check_type(argname="argument user_pool_clients", value=user_pool_clients, expected_type=type_hints["user_pool_clients"])
@@ -1087,13 +1091,13 @@ class HttpUserPoolAuthorizerProps:
     @builtins.property
     def user_pool_clients(
         self,
-    ) -> typing.Optional[typing.List["_IUserPoolClient_75623ba4"]]:
+    ) -> typing.Optional[typing.List["_aws_cognito_4f282b4c.IUserPoolClient"]]:
         '''The user pool clients that should be used to authorize requests with the user pool.
 
         :default: - a new client will be created for the given user pool
         '''
         result = self._values.get("user_pool_clients")
-        return typing.cast(typing.Optional[typing.List["_IUserPoolClient_75623ba4"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cognito_4f282b4c.IUserPoolClient"]], result)
 
     @builtins.property
     def user_pool_region(self) -> typing.Optional[builtins.str]:
@@ -1116,7 +1120,7 @@ class HttpUserPoolAuthorizerProps:
         )
 
 
-@jsii.implements(_IWebSocketRouteAuthorizer_a0e95c16)
+@jsii.implements(_aws_apigatewayv2_110df5de.IWebSocketRouteAuthorizer)
 class WebSocketIamAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.WebSocketIamAuthorizer",
@@ -1168,22 +1172,22 @@ class WebSocketIamAuthorizer(
     def bind(
         self,
         *,
-        route: "_IWebSocketRoute_006c2390",
+        route: "_aws_apigatewayv2_110df5de.IWebSocketRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_WebSocketRouteAuthorizerConfig_3aa7e761":
+    ) -> "_aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerConfig":
         '''Bind this authorizer to a specified WebSocket route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        _options = _WebSocketRouteAuthorizerBindOptions_d7976c1d(
+        _options = _aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerBindOptions(
             route=route, scope=scope
         )
 
-        return typing.cast("_WebSocketRouteAuthorizerConfig_3aa7e761", jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerConfig", jsii.invoke(self, "bind", [_options]))
 
 
-@jsii.implements(_IWebSocketRouteAuthorizer_a0e95c16)
+@jsii.implements(_aws_apigatewayv2_110df5de.IWebSocketRouteAuthorizer)
 class WebSocketLambdaAuthorizer(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_authorizers.WebSocketLambdaAuthorizer",
@@ -1219,7 +1223,7 @@ class WebSocketLambdaAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        handler: "_IFunction_6adb0ab8",
+        handler: "_aws_lambda_b8f2f472.IFunction",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1231,7 +1235,7 @@ class WebSocketLambdaAuthorizer(
         :param identity_source: The identity source for which authorization is requested. Request parameter match ``'route.request.querystring|header.[a-zA-z0-9._-]+'``. Staged variable match ``'stageVariables.[a-zA-Z0-9._-]+'``. Context parameter match ``'context.[a-zA-Z0-9._-]+'``. Default: ['route.request.header.Authorization']
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f53a6a37fb8bbc4022f8abeab17012d443cfed2d2349453ea862580c257cea41)
+            type_hints = cached_type_hints(_typecheckingstub__f53a6a37fb8bbc4022f8abeab17012d443cfed2d2349453ea862580c257cea41)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = WebSocketLambdaAuthorizerProps(
@@ -1244,19 +1248,19 @@ class WebSocketLambdaAuthorizer(
     def bind(
         self,
         *,
-        route: "_IWebSocketRoute_006c2390",
+        route: "_aws_apigatewayv2_110df5de.IWebSocketRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_WebSocketRouteAuthorizerConfig_3aa7e761":
+    ) -> "_aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerConfig":
         '''Bind this authorizer to a specified WebSocket route.
 
         :param route: The route to which the authorizer is being bound.
         :param scope: The scope for any constructs created as part of the bind.
         '''
-        options = _WebSocketRouteAuthorizerBindOptions_d7976c1d(
+        options = _aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerBindOptions(
             route=route, scope=scope
         )
 
-        return typing.cast("_WebSocketRouteAuthorizerConfig_3aa7e761", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.WebSocketRouteAuthorizerConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -1293,7 +1297,7 @@ class WebSocketLambdaAuthorizerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__107260b751beeefa7875bcb2a13eebe82eb77b36fc7364eae1f04ae5f3986bd0)
+            type_hints = cached_type_hints(_typecheckingstub__107260b751beeefa7875bcb2a13eebe82eb77b36fc7364eae1f04ae5f3986bd0)
             check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
             check_type(argname="argument identity_source", value=identity_source, expected_type=type_hints["identity_source"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1374,13 +1378,13 @@ def _typecheckingstub__afd9026b1de0feb1db35992640bc3f7f3746a1aa22094ea74319d21e3
 
 def _typecheckingstub__f9dfd289d96085c1bacae84e1686b20fe545518f32edd1c7873fb7f286532f88(
     id: builtins.str,
-    handler: _IFunction_6adb0ab8,
+    handler: _aws_lambda_b8f2f472.IFunction,
     *,
     authorizer_name: typing.Optional[builtins.str] = None,
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
     response_types: typing.Optional[typing.Sequence[HttpLambdaResponseType]] = None,
-    results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    results_cache_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1390,19 +1394,19 @@ def _typecheckingstub__89dc09a234be8e090cbe13cf95c66656012ddc54d4b0cece939a05ea9
     authorizer_name: typing.Optional[builtins.str] = None,
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
     response_types: typing.Optional[typing.Sequence[HttpLambdaResponseType]] = None,
-    results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    results_cache_ttl: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__892a1b40652c3ee056ad7e6492623924f582681b4d49bfeb982e1aca5405e39b(
     id: builtins.str,
-    pool: _IUserPool_1f1029e2,
+    pool: _aws_cognito_4f282b4c.IUserPool,
     *,
     authorizer_name: typing.Optional[builtins.str] = None,
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-    user_pool_clients: typing.Optional[typing.Sequence[_IUserPoolClient_75623ba4]] = None,
+    user_pool_clients: typing.Optional[typing.Sequence[_aws_cognito_4f282b4c.IUserPoolClient]] = None,
     user_pool_region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1412,7 +1416,7 @@ def _typecheckingstub__37cfa69c43bb43a9f2c40c459efea56163544150c2b385c31f1147a3e
     *,
     authorizer_name: typing.Optional[builtins.str] = None,
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-    user_pool_clients: typing.Optional[typing.Sequence[_IUserPoolClient_75623ba4]] = None,
+    user_pool_clients: typing.Optional[typing.Sequence[_aws_cognito_4f282b4c.IUserPoolClient]] = None,
     user_pool_region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1420,7 +1424,7 @@ def _typecheckingstub__37cfa69c43bb43a9f2c40c459efea56163544150c2b385c31f1147a3e
 
 def _typecheckingstub__f53a6a37fb8bbc4022f8abeab17012d443cfed2d2349453ea862580c257cea41(
     id: builtins.str,
-    handler: _IFunction_6adb0ab8,
+    handler: _aws_lambda_b8f2f472.IFunction,
     *,
     authorizer_name: typing.Optional[builtins.str] = None,
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,

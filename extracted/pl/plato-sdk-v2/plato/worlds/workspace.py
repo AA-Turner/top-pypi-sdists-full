@@ -29,7 +29,7 @@ from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
 from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
-from plato.worlds.dvc_models import S3Config
+from plato.worlds.dvc_models import S3Config, credential_refresh_config
 
 logger = logging.getLogger(__name__)
 
@@ -781,12 +781,7 @@ class Workspace:
     def _credential_refresh_config(self) -> dict[str, str | int] | None:
         if not (self.chronos_url and self.repo_id and self.api_key):
             return None
-        return {
-            "chronos_url": self.chronos_url,
-            "repo_id": self.repo_id,
-            "api_key": self.api_key,
-            "refresh_margin_seconds": 300,
-        }
+        return credential_refresh_config(self.chronos_url, self.repo_id, self.api_key)
 
     def _s3_config(self) -> S3Config:
         return S3Config(

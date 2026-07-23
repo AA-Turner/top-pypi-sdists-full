@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,42 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_mwaa import (
-    EnvironmentReference as _EnvironmentReference_14c1e070,
-    IEnvironmentRef as _IEnvironmentRef_842152e5,
-)
-from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_mwaa as _aws_mwaa_44609b70
+    import aws_cdk.interfaces.aws_s3 as _aws_s3_03fe213b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_mwaa_44609b70 = _LazyImport("aws_cdk.interfaces.aws_mwaa")
+    _aws_s3_03fe213b = _LazyImport("aws_cdk.interfaces.aws_s3")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentRef_842152e5, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mwaa_44609b70.IEnvironmentRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnEnvironment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mwaa.CfnEnvironment",
 ):
@@ -168,20 +166,20 @@ class CfnEnvironment(
         dag_s3_path: typing.Optional[builtins.str] = None,
         endpoint_management: typing.Optional[builtins.str] = None,
         environment_class: typing.Optional[builtins.str] = None,
-        execution_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        kms_key: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        execution_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        kms_key: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_webservers: typing.Optional[jsii.Number] = None,
         max_workers: typing.Optional[jsii.Number] = None,
         min_webservers: typing.Optional[jsii.Number] = None,
         min_workers: typing.Optional[jsii.Number] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         plugins_s3_object_version: typing.Optional[builtins.str] = None,
         plugins_s3_path: typing.Optional[builtins.str] = None,
         requirements_s3_object_version: typing.Optional[builtins.str] = None,
         requirements_s3_path: typing.Optional[builtins.str] = None,
         schedulers: typing.Optional[jsii.Number] = None,
-        source_bucket_arn: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
+        source_bucket_arn: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         startup_script_s3_object_version: typing.Optional[builtins.str] = None,
         startup_script_s3_path: typing.Optional[builtins.str] = None,
         tags: typing.Any = None,
@@ -221,7 +219,7 @@ class CfnEnvironment(
         :param worker_replacement_strategy: The worker replacement strategy to use when updating the environment. Valid values: ``FORCED``, ``GRACEFUL``. FORCED means Apache Airflow workers will be stopped and replaced without waiting for tasks to complete before an update. GRACEFUL means Apache Airflow workers will be able to complete running tasks for up to 12 hours during an update before being stopped and replaced.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d573efb1c)
+            type_hints = cached_type_hints(_typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d573efb1c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentProps(
@@ -257,12 +255,15 @@ class CfnEnvironment(
 
     @jsii.member(jsii_name="arnForEnvironment")
     @builtins.classmethod
-    def arn_for_environment(cls, resource: "_IEnvironmentRef_842152e5") -> builtins.str:
+    def arn_for_environment(
+        cls,
+        resource: "_aws_mwaa_44609b70.IEnvironmentRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96b224375ff0273e6eac6dff1f2e5250275c43e5a9c26a0b28420ec7640ce43f)
+            type_hints = cached_type_hints(_typecheckingstub__96b224375ff0273e6eac6dff1f2e5250275c43e5a9c26a0b28420ec7640ce43f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironment", [resource]))
 
@@ -273,7 +274,7 @@ class CfnEnvironment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IEnvironmentRef_842152e5":
+    ) -> "_aws_mwaa_44609b70.IEnvironmentRef":
         '''Creates a new IEnvironmentRef from an ARN.
 
         :param scope: -
@@ -281,11 +282,11 @@ class CfnEnvironment(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeab8395584e59cc2c2e2e79af17a538406c85ef97d8a9a2859b93823146cf1b)
+            type_hints = cached_type_hints(_typecheckingstub__eeab8395584e59cc2c2e2e79af17a538406c85ef97d8a9a2859b93823146cf1b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IEnvironmentRef_842152e5", jsii.sinvoke(cls, "fromEnvironmentArn", [scope, id, arn]))
+        return typing.cast("_aws_mwaa_44609b70.IEnvironmentRef", jsii.sinvoke(cls, "fromEnvironmentArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromEnvironmentName")
     @builtins.classmethod
@@ -294,7 +295,7 @@ class CfnEnvironment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         environment_name: builtins.str,
-    ) -> "_IEnvironmentRef_842152e5":
+    ) -> "_aws_mwaa_44609b70.IEnvironmentRef":
         '''Creates a new IEnvironmentRef from a environmentName.
 
         :param scope: -
@@ -302,11 +303,11 @@ class CfnEnvironment(
         :param environment_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00555161bf97ecf8a9091b34e1df9c2c441f970660c275c1bdb7afa29596b2cf)
+            type_hints = cached_type_hints(_typecheckingstub__00555161bf97ecf8a9091b34e1df9c2c441f970660c275c1bdb7afa29596b2cf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-        return typing.cast("_IEnvironmentRef_842152e5", jsii.sinvoke(cls, "fromEnvironmentName", [scope, id, environment_name]))
+        return typing.cast("_aws_mwaa_44609b70.IEnvironmentRef", jsii.sinvoke(cls, "fromEnvironmentName", [scope, id, environment_name]))
 
     @jsii.member(jsii_name="isCfnEnvironment")
     @builtins.classmethod
@@ -316,18 +317,18 @@ class CfnEnvironment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e31766c374b0ebabb0d8d9358da939671ab569fd093349f6ff17defed052656)
+            type_hints = cached_type_hints(_typecheckingstub__3e31766c374b0ebabb0d8d9358da939671ab569fd093349f6ff17defed052656)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99fe3af42168ce58625550be04e1ab2f3619e791f954ebcc45ea31fac6418d74)
+            type_hints = cached_type_hints(_typecheckingstub__99fe3af42168ce58625550be04e1ab2f3619e791f954ebcc45ea31fac6418d74)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -340,7 +341,7 @@ class CfnEnvironment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a60d7a2655a02c98c9d573b0523e09e82b17523acc47348eac66b5063684497a)
+            type_hints = cached_type_hints(_typecheckingstub__a60d7a2655a02c98c9d573b0523e09e82b17523acc47348eac66b5063684497a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -462,15 +463,15 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> "_EnvironmentReference_14c1e070":
+    def environment_ref(self) -> "_aws_mwaa_44609b70.EnvironmentReference":
         '''A reference to a Environment resource.'''
-        return typing.cast("_EnvironmentReference_14c1e070", jsii.get(self, "environmentRef"))
+        return typing.cast("_aws_mwaa_44609b70.EnvironmentReference", jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="airflowConfigurationOptions")
@@ -481,7 +482,7 @@ class CfnEnvironment(
     @airflow_configuration_options.setter
     def airflow_configuration_options(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b)
+            type_hints = cached_type_hints(_typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "airflowConfigurationOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -494,7 +495,7 @@ class CfnEnvironment(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a37ddb6096a60d8065a1dc2caf7d063561818ed0c4e6e97ad86b9a3d907d4c8f)
+            type_hints = cached_type_hints(_typecheckingstub__a37ddb6096a60d8065a1dc2caf7d063561818ed0c4e6e97ad86b9a3d907d4c8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -510,7 +511,7 @@ class CfnEnvironment(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8)
+            type_hints = cached_type_hints(_typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -523,7 +524,7 @@ class CfnEnvironment(
     @airflow_version.setter
     def airflow_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed975d4df99a5fde779ae3f2b186497fa36ce1bb285a1b7f55f1605d56390320)
+            type_hints = cached_type_hints(_typecheckingstub__ed975d4df99a5fde779ae3f2b186497fa36ce1bb285a1b7f55f1605d56390320)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "airflowVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -536,7 +537,7 @@ class CfnEnvironment(
     @dag_s3_path.setter
     def dag_s3_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1a71a5a0b8013ee757182629297ba4a75e6806173de11972da672ba8f44967c)
+            type_hints = cached_type_hints(_typecheckingstub__a1a71a5a0b8013ee757182629297ba4a75e6806173de11972da672ba8f44967c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dagS3Path", value) # pyright: ignore[reportArgumentType]
 
@@ -549,7 +550,7 @@ class CfnEnvironment(
     @endpoint_management.setter
     def endpoint_management(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4476ed787b8ff178cb6d755b6bfdd138a76cfef6627272fc1c40f20ade5978c)
+            type_hints = cached_type_hints(_typecheckingstub__e4476ed787b8ff178cb6d755b6bfdd138a76cfef6627272fc1c40f20ade5978c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointManagement", value) # pyright: ignore[reportArgumentType]
 
@@ -562,7 +563,7 @@ class CfnEnvironment(
     @environment_class.setter
     def environment_class(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ceab871f965a8fc1ba17f7d497490fb21a3199979b4953a98322571ba6f88cf)
+            type_hints = cached_type_hints(_typecheckingstub__0ceab871f965a8fc1ba17f7d497490fb21a3199979b4953a98322571ba6f88cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentClass", value) # pyright: ignore[reportArgumentType]
 
@@ -575,7 +576,7 @@ class CfnEnvironment(
     @execution_role_arn.setter
     def execution_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54cc7f09d2b32c1f74a7f471eec9d0c7e97de13b8efd25ca2add91285402fdbc)
+            type_hints = cached_type_hints(_typecheckingstub__54cc7f09d2b32c1f74a7f471eec9d0c7e97de13b8efd25ca2add91285402fdbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -588,7 +589,7 @@ class CfnEnvironment(
     @kms_key.setter
     def kms_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20be4a6c2a8d23795165d89ef068fc76e8f67c6825b3108973093ddd02fa79ae)
+            type_hints = cached_type_hints(_typecheckingstub__20be4a6c2a8d23795165d89ef068fc76e8f67c6825b3108973093ddd02fa79ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKey", value) # pyright: ignore[reportArgumentType]
 
@@ -596,17 +597,17 @@ class CfnEnvironment(
     @jsii.member(jsii_name="loggingConfiguration")
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LoggingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LoggingConfigurationProperty"]]:
         '''The Apache Airflow logs being sent to CloudWatch Logs: ``DagProcessingLogs`` , ``SchedulerLogs`` , ``TaskLogs`` , ``WebserverLogs`` , ``WorkerLogs`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
     def logging_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LoggingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LoggingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc4cab34c101780b1065b32efa9590f9b8c2d6fa987fc778866acc8e135735b0)
+            type_hints = cached_type_hints(_typecheckingstub__dc4cab34c101780b1065b32efa9590f9b8c2d6fa987fc778866acc8e135735b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -619,7 +620,7 @@ class CfnEnvironment(
     @max_webservers.setter
     def max_webservers(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ace80ce4bf224db5acf9b2d002dbf0c6465577906fe1f157e8937fd211c4052)
+            type_hints = cached_type_hints(_typecheckingstub__4ace80ce4bf224db5acf9b2d002dbf0c6465577906fe1f157e8937fd211c4052)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxWebservers", value) # pyright: ignore[reportArgumentType]
 
@@ -632,7 +633,7 @@ class CfnEnvironment(
     @max_workers.setter
     def max_workers(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb875076a1c8d331e4bdfcf6a1b5ea37cdddb27dc548d6ee55f94defe51ef6f)
+            type_hints = cached_type_hints(_typecheckingstub__ecb875076a1c8d331e4bdfcf6a1b5ea37cdddb27dc548d6ee55f94defe51ef6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxWorkers", value) # pyright: ignore[reportArgumentType]
 
@@ -645,7 +646,7 @@ class CfnEnvironment(
     @min_webservers.setter
     def min_webservers(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9db4aa506403c82a8e296ab8ac3cf5ed4d1b2abb57c31261f23c170b389d9069)
+            type_hints = cached_type_hints(_typecheckingstub__9db4aa506403c82a8e296ab8ac3cf5ed4d1b2abb57c31261f23c170b389d9069)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minWebservers", value) # pyright: ignore[reportArgumentType]
 
@@ -658,7 +659,7 @@ class CfnEnvironment(
     @min_workers.setter
     def min_workers(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a55d820acc52ddec2ba61ae2c198accc1e02d19de67a71e84a3356d7371702ab)
+            type_hints = cached_type_hints(_typecheckingstub__a55d820acc52ddec2ba61ae2c198accc1e02d19de67a71e84a3356d7371702ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minWorkers", value) # pyright: ignore[reportArgumentType]
 
@@ -666,17 +667,17 @@ class CfnEnvironment(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.NetworkConfigurationProperty"]]:
         '''The VPC networking components used to secure and enable network traffic between the AWS resources for your environment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa2a5da444619534928020a611413143accbcdd88aa14355626af4899385c73a)
+            type_hints = cached_type_hints(_typecheckingstub__aa2a5da444619534928020a611413143accbcdd88aa14355626af4899385c73a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -689,7 +690,7 @@ class CfnEnvironment(
     @plugins_s3_object_version.setter
     def plugins_s3_object_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a99940c0cc4f750c45db524f9ae8daba6f5ad859ffcf11a0ae6fd25e322512f2)
+            type_hints = cached_type_hints(_typecheckingstub__a99940c0cc4f750c45db524f9ae8daba6f5ad859ffcf11a0ae6fd25e322512f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pluginsS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -702,7 +703,7 @@ class CfnEnvironment(
     @plugins_s3_path.setter
     def plugins_s3_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b495cb205cc5e30536d587e57390f5c1e099c11cf3fe0de627424066a4838f09)
+            type_hints = cached_type_hints(_typecheckingstub__b495cb205cc5e30536d587e57390f5c1e099c11cf3fe0de627424066a4838f09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pluginsS3Path", value) # pyright: ignore[reportArgumentType]
 
@@ -718,7 +719,7 @@ class CfnEnvironment(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b02f6a63345ee725961b4a13a94868c12933484401f8f4917745e0fc70e2039d)
+            type_hints = cached_type_hints(_typecheckingstub__b02f6a63345ee725961b4a13a94868c12933484401f8f4917745e0fc70e2039d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requirementsS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -731,7 +732,7 @@ class CfnEnvironment(
     @requirements_s3_path.setter
     def requirements_s3_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b21a132437156544547b8f9926353b399b2e201b2ec7c271b6a57dc6b63a840)
+            type_hints = cached_type_hints(_typecheckingstub__1b21a132437156544547b8f9926353b399b2e201b2ec7c271b6a57dc6b63a840)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requirementsS3Path", value) # pyright: ignore[reportArgumentType]
 
@@ -747,7 +748,7 @@ class CfnEnvironment(
     @schedulers.setter
     def schedulers(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aefd5d0ab5fb759bc82b90e20d34dae2b9a92e035c60918d41a48b6f2a40f71)
+            type_hints = cached_type_hints(_typecheckingstub__5aefd5d0ab5fb759bc82b90e20d34dae2b9a92e035c60918d41a48b6f2a40f71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedulers", value) # pyright: ignore[reportArgumentType]
 
@@ -760,7 +761,7 @@ class CfnEnvironment(
     @source_bucket_arn.setter
     def source_bucket_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aedd02a13d0dcf7970ae346c08229240911bc7b9d7cbf71d281e5995215d4aa6)
+            type_hints = cached_type_hints(_typecheckingstub__aedd02a13d0dcf7970ae346c08229240911bc7b9d7cbf71d281e5995215d4aa6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -776,7 +777,7 @@ class CfnEnvironment(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6027cf352b46c42abb5a9a07b830322d6a170945f459de6ceae996b6e0d3bf80)
+            type_hints = cached_type_hints(_typecheckingstub__6027cf352b46c42abb5a9a07b830322d6a170945f459de6ceae996b6e0d3bf80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startupScriptS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -792,7 +793,7 @@ class CfnEnvironment(
     @startup_script_s3_path.setter
     def startup_script_s3_path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9be888a29bdd036c7a17e6251a771f0f88b203aacc22033b8c42adc9dc7ed8c7)
+            type_hints = cached_type_hints(_typecheckingstub__9be888a29bdd036c7a17e6251a771f0f88b203aacc22033b8c42adc9dc7ed8c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startupScriptS3Path", value) # pyright: ignore[reportArgumentType]
 
@@ -805,7 +806,7 @@ class CfnEnvironment(
     @webserver_access_mode.setter
     def webserver_access_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67d30d1c1ec781f42fa1686eff45aa7e4d79b300e393b02172f5d8d00e2b01b0)
+            type_hints = cached_type_hints(_typecheckingstub__67d30d1c1ec781f42fa1686eff45aa7e4d79b300e393b02172f5d8d00e2b01b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webserverAccessMode", value) # pyright: ignore[reportArgumentType]
 
@@ -821,7 +822,7 @@ class CfnEnvironment(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4b7b1ca9a0752d370dddfd37838d62fc0fdbdce81d79923961a78bfa58597a8)
+            type_hints = cached_type_hints(_typecheckingstub__c4b7b1ca9a0752d370dddfd37838d62fc0fdbdce81d79923961a78bfa58597a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "weeklyMaintenanceWindowStart", value) # pyright: ignore[reportArgumentType]
 
@@ -834,7 +835,7 @@ class CfnEnvironment(
     @worker_replacement_strategy.setter
     def worker_replacement_strategy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a69a886eac1c8570e29fe73891b3d0a6bf8bc1d04ac36bc656c130c6498adef)
+            type_hints = cached_type_hints(_typecheckingstub__6a69a886eac1c8570e29fe73891b3d0a6bf8bc1d04ac36bc656c130c6498adef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workerReplacementStrategy", value) # pyright: ignore[reportArgumentType]
 
@@ -853,11 +854,11 @@ class CfnEnvironment(
         def __init__(
             self,
             *,
-            dag_processing_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scheduler_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            task_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            webserver_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            worker_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dag_processing_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scheduler_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            task_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            webserver_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            worker_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ModuleLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The type of Apache Airflow logs to send to CloudWatch Logs.
 
@@ -905,7 +906,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d823c014bd64bec48bc3afd2f5085d92c0e9f9e6f7641f491eeb3020665639f5)
+                type_hints = cached_type_hints(_typecheckingstub__d823c014bd64bec48bc3afd2f5085d92c0e9f9e6f7641f491eeb3020665639f5)
                 check_type(argname="argument dag_processing_logs", value=dag_processing_logs, expected_type=type_hints["dag_processing_logs"])
                 check_type(argname="argument scheduler_logs", value=scheduler_logs, expected_type=type_hints["scheduler_logs"])
                 check_type(argname="argument task_logs", value=task_logs, expected_type=type_hints["task_logs"])
@@ -926,57 +927,57 @@ class CfnEnvironment(
         @builtins.property
         def dag_processing_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
             '''Defines the processing logs sent to CloudWatch Logs and the logging level to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-loggingconfiguration.html#cfn-mwaa-environment-loggingconfiguration-dagprocessinglogs
             '''
             result = self._values.get("dag_processing_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
 
         @builtins.property
         def scheduler_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
             '''Defines the scheduler logs sent to CloudWatch Logs and the logging level to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-loggingconfiguration.html#cfn-mwaa-environment-loggingconfiguration-schedulerlogs
             '''
             result = self._values.get("scheduler_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
 
         @builtins.property
         def task_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
             '''Defines the task logs sent to CloudWatch Logs and the logging level to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-loggingconfiguration.html#cfn-mwaa-environment-loggingconfiguration-tasklogs
             '''
             result = self._values.get("task_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
 
         @builtins.property
         def webserver_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
             '''Defines the web server logs sent to CloudWatch Logs and the logging level to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-loggingconfiguration.html#cfn-mwaa-environment-loggingconfiguration-webserverlogs
             '''
             result = self._values.get("webserver_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
 
         @builtins.property
         def worker_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]]:
             '''Defines the worker logs sent to CloudWatch Logs and the logging level to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-loggingconfiguration.html#cfn-mwaa-environment-loggingconfiguration-workerlogs
             '''
             result = self._values.get("worker_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ModuleLoggingConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1003,7 +1004,7 @@ class CfnEnvironment(
             self,
             *,
             cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             log_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Defines the type of logs to send for the Apache Airflow log type (e.g. ``DagProcessingLogs`` ).
@@ -1028,7 +1029,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c6a5117b2e48950b9cf3cb6591ccb275c4038c591a1df52effcf41e32ad5f232)
+                type_hints = cached_type_hints(_typecheckingstub__c6a5117b2e48950b9cf3cb6591ccb275c4038c591a1df52effcf41e32ad5f232)
                 check_type(argname="argument cloud_watch_log_group_arn", value=cloud_watch_log_group_arn, expected_type=type_hints["cloud_watch_log_group_arn"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
@@ -1056,13 +1057,13 @@ class CfnEnvironment(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to enable the Apache Airflow log type (e.g. ``DagProcessingLogs`` ) in CloudWatch Logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaa-environment-moduleloggingconfiguration.html#cfn-mwaa-environment-moduleloggingconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def log_level(self) -> typing.Optional[builtins.str]:
@@ -1121,7 +1122,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8495822577cf5da4312474c3eb2f73589ac26428a858fe9413976d151aa232fc)
+                type_hints = cached_type_hints(_typecheckingstub__8495822577cf5da4312474c3eb2f73589ac26428a858fe9413976d151aa232fc)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1206,20 +1207,20 @@ class CfnEnvironmentProps:
         dag_s3_path: typing.Optional[builtins.str] = None,
         endpoint_management: typing.Optional[builtins.str] = None,
         environment_class: typing.Optional[builtins.str] = None,
-        execution_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        kms_key: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        execution_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        kms_key: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_webservers: typing.Optional[jsii.Number] = None,
         max_workers: typing.Optional[jsii.Number] = None,
         min_webservers: typing.Optional[jsii.Number] = None,
         min_workers: typing.Optional[jsii.Number] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         plugins_s3_object_version: typing.Optional[builtins.str] = None,
         plugins_s3_path: typing.Optional[builtins.str] = None,
         requirements_s3_object_version: typing.Optional[builtins.str] = None,
         requirements_s3_path: typing.Optional[builtins.str] = None,
         schedulers: typing.Optional[jsii.Number] = None,
-        source_bucket_arn: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
+        source_bucket_arn: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         startup_script_s3_object_version: typing.Optional[builtins.str] = None,
         startup_script_s3_path: typing.Optional[builtins.str] = None,
         tags: typing.Any = None,
@@ -1329,7 +1330,7 @@ class CfnEnvironmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d7baed808ece1f6aca4fce5dbeac04c731d688aec6f3395e1f0892eae95adc4)
+            type_hints = cached_type_hints(_typecheckingstub__9d7baed808ece1f6aca4fce5dbeac04c731d688aec6f3395e1f0892eae95adc4)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument airflow_configuration_options", value=airflow_configuration_options, expected_type=type_hints["airflow_configuration_options"])
             check_type(argname="argument airflow_version", value=airflow_version, expected_type=type_hints["airflow_version"])
@@ -1482,7 +1483,7 @@ class CfnEnvironmentProps:
     @builtins.property
     def execution_role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The Amazon Resource Name (ARN) of the execution role in IAM that allows MWAA to access AWS resources in your environment.
 
         For example, ``arn:aws:iam::123456789:role/my-execution-role`` . To learn more, see `Amazon MWAA Execution role <https://docs.aws.amazon.com/mwaa/latest/userguide/mwaa-create-role.html>`_ .
@@ -1490,12 +1491,12 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-executionrolearn
         '''
         result = self._values.get("execution_role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def kms_key(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The AWS Key Management Service (KMS) key to encrypt and decrypt the data in your environment.
 
         You can use an AWS KMS key managed by MWAA, or a customer-managed KMS key (advanced).
@@ -1503,18 +1504,18 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-kmskey
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LoggingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LoggingConfigurationProperty"]]:
         '''The Apache Airflow logs being sent to CloudWatch Logs: ``DagProcessingLogs`` , ``SchedulerLogs`` , ``TaskLogs`` , ``WebserverLogs`` , ``WorkerLogs`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-loggingconfiguration
         '''
         result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LoggingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LoggingConfigurationProperty"]], result)
 
     @builtins.property
     def max_webservers(self) -> typing.Optional[jsii.Number]:
@@ -1567,7 +1568,7 @@ class CfnEnvironmentProps:
     @builtins.property
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.NetworkConfigurationProperty"]]:
         '''The VPC networking components used to secure and enable network traffic between the AWS resources for your environment.
 
         To learn more, see `About networking on Amazon MWAA <https://docs.aws.amazon.com/mwaa/latest/userguide/networking-about.html>`_ .
@@ -1575,7 +1576,7 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-networkconfiguration
         '''
         result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.NetworkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.NetworkConfigurationProperty"]], result)
 
     @builtins.property
     def plugins_s3_object_version(self) -> typing.Optional[builtins.str]:
@@ -1628,7 +1629,7 @@ class CfnEnvironmentProps:
     @builtins.property
     def source_bucket_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]]:
         '''The Amazon Resource Name (ARN) of the Amazon S3 bucket where your DAG code and supporting files are stored.
 
         For example, ``arn:aws:s3:::my-airflow-bucket-unique-name`` . To learn more, see `Create an Amazon S3 bucket for Amazon MWAA <https://docs.aws.amazon.com/mwaa/latest/userguide/mwaa-s3-bucket.html>`_ .
@@ -1636,7 +1637,7 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-sourcebucketarn
         '''
         result = self._values.get("source_bucket_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]], result)
 
     @builtins.property
     def startup_script_s3_object_version(self) -> typing.Optional[builtins.str]:
@@ -1741,20 +1742,20 @@ def _typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d5
     dag_s3_path: typing.Optional[builtins.str] = None,
     endpoint_management: typing.Optional[builtins.str] = None,
     environment_class: typing.Optional[builtins.str] = None,
-    execution_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    kms_key: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    execution_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    kms_key: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_webservers: typing.Optional[jsii.Number] = None,
     max_workers: typing.Optional[jsii.Number] = None,
     min_webservers: typing.Optional[jsii.Number] = None,
     min_workers: typing.Optional[jsii.Number] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     plugins_s3_object_version: typing.Optional[builtins.str] = None,
     plugins_s3_path: typing.Optional[builtins.str] = None,
     requirements_s3_object_version: typing.Optional[builtins.str] = None,
     requirements_s3_path: typing.Optional[builtins.str] = None,
     schedulers: typing.Optional[jsii.Number] = None,
-    source_bucket_arn: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
+    source_bucket_arn: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     startup_script_s3_object_version: typing.Optional[builtins.str] = None,
     startup_script_s3_path: typing.Optional[builtins.str] = None,
     tags: typing.Any = None,
@@ -1766,7 +1767,7 @@ def _typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d5
     pass
 
 def _typecheckingstub__96b224375ff0273e6eac6dff1f2e5250275c43e5a9c26a0b28420ec7640ce43f(
-    resource: _IEnvironmentRef_842152e5,
+    resource: _aws_mwaa_44609b70.IEnvironmentRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1794,7 +1795,7 @@ def _typecheckingstub__3e31766c374b0ebabb0d8d9358da939671ab569fd093349f6ff17defe
     pass
 
 def _typecheckingstub__99fe3af42168ce58625550be04e1ab2f3619e791f954ebcc45ea31fac6418d74(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1860,7 +1861,7 @@ def _typecheckingstub__20be4a6c2a8d23795165d89ef068fc76e8f67c6825b3108973093ddd0
     pass
 
 def _typecheckingstub__dc4cab34c101780b1065b32efa9590f9b8c2d6fa987fc778866acc8e135735b0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.LoggingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.LoggingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1890,7 +1891,7 @@ def _typecheckingstub__a55d820acc52ddec2ba61ae2c198accc1e02d19de67a71e84a3356d73
     pass
 
 def _typecheckingstub__aa2a5da444619534928020a611413143accbcdd88aa14355626af4899385c73a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.NetworkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.NetworkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1963,11 +1964,11 @@ def _typecheckingstub__6a69a886eac1c8570e29fe73891b3d0a6bf8bc1d04ac36bc656c130c6
 
 def _typecheckingstub__d823c014bd64bec48bc3afd2f5085d92c0e9f9e6f7641f491eeb3020665639f5(
     *,
-    dag_processing_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scheduler_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    task_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    webserver_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    worker_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dag_processing_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduler_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    webserver_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    worker_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1975,7 +1976,7 @@ def _typecheckingstub__d823c014bd64bec48bc3afd2f5085d92c0e9f9e6f7641f491eeb30206
 def _typecheckingstub__c6a5117b2e48950b9cf3cb6591ccb275c4038c591a1df52effcf41e32ad5f232(
     *,
     cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     log_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1997,20 +1998,20 @@ def _typecheckingstub__9d7baed808ece1f6aca4fce5dbeac04c731d688aec6f3395e1f0892ea
     dag_s3_path: typing.Optional[builtins.str] = None,
     endpoint_management: typing.Optional[builtins.str] = None,
     environment_class: typing.Optional[builtins.str] = None,
-    execution_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    kms_key: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    execution_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    kms_key: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_webservers: typing.Optional[jsii.Number] = None,
     max_workers: typing.Optional[jsii.Number] = None,
     min_webservers: typing.Optional[jsii.Number] = None,
     min_workers: typing.Optional[jsii.Number] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     plugins_s3_object_version: typing.Optional[builtins.str] = None,
     plugins_s3_path: typing.Optional[builtins.str] = None,
     requirements_s3_object_version: typing.Optional[builtins.str] = None,
     requirements_s3_path: typing.Optional[builtins.str] = None,
     schedulers: typing.Optional[jsii.Number] = None,
-    source_bucket_arn: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
+    source_bucket_arn: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     startup_script_s3_object_version: typing.Optional[builtins.str] = None,
     startup_script_s3_path: typing.Optional[builtins.str] = None,
     tags: typing.Any = None,

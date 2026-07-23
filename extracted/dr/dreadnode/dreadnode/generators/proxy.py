@@ -7,14 +7,69 @@ platform model id. Task code routes through the gateway with
 model id without depending on the agent runtime's ``dn/`` convention.
 """
 
+import logging
 import os
 import typing as t
 
 if t.TYPE_CHECKING:
+    from dreadnode.app.api.client import ApiClient
     from dreadnode.generators.generator import Generator
+
+logger = logging.getLogger("dreadnode")
 
 DREADNODE_LLM_BASE_ENV = "DREADNODE_LLM_BASE"
 DREADNODE_LLM_API_KEY_ENV = "DREADNODE_LLM_API_KEY"
+
+# A process-wide hook, registered by dn.configure(), that provisions the platform
+# LiteLLM proxy on demand: it mints a short-lived *virtual* key (no provider keys
+# ever leave the platform) and sets the two env vars below. Kept in-memory only.
+# Held in a dict (mutated, never rebound) so no `global` statement is needed.
+_proxy_state: "dict[str, t.Any]" = {"provisioner": None, "attempted": False}
+
+
+def register_proxy_provisioner(provisioner: "t.Callable[[], bool] | None") -> None:
+    """Register (or clear) the lazy proxy provisioner. Called by dn.configure()."""
+    _proxy_state["provisioner"] = provisioner
+    _proxy_state["attempted"] = False
+
+
+def _proxy_env_present() -> bool:
+    return bool(
+        os.environ.get(DREADNODE_LLM_BASE_ENV, "").strip()
+        and os.environ.get(DREADNODE_LLM_API_KEY_ENV, "").strip()
+    )
+
+
+def _ensure_proxy_env() -> bool:
+    """Provision the proxy lazily on first ``dn/`` use if a provisioner is
+    registered and the env isn't already set. Idempotent per process."""
+    if _proxy_env_present():
+        return True
+    if _proxy_state["provisioner"] is None or _proxy_state["attempted"]:
+        return _proxy_env_present()
+    _proxy_state["attempted"] = True
+    try:
+        _proxy_state["provisioner"]()
+    except Exception as exc:
+        logger.debug("Proxy provisioning failed: %s", exc)
+    return _proxy_env_present()
+
+
+def provision_platform_proxy(api: "ApiClient", org: str, client_id: str) -> bool:
+    """Mint a short-lived LiteLLM *virtual* key for ``org`` and set the proxy env
+    vars in-memory for this process. Returns True on success.
+
+    The virtual key only fronts the Dreadnode gateway (never a provider key) and
+    every call is metered to the org's credits, so it is safe to hold locally -
+    the same mechanism the TUI uses. Never written to disk or logged."""
+    result = api.provision_inference_key(org, client_id)
+    base_url = result.get("base_url") or result.get("url")
+    api_key = result.get("api_key") or result.get("key")
+    if isinstance(base_url, str) and isinstance(api_key, str) and base_url and api_key:
+        os.environ[DREADNODE_LLM_BASE_ENV] = base_url
+        os.environ[DREADNODE_LLM_API_KEY_ENV] = api_key
+        return True
+    return False
 
 
 def build_proxy_generator(
@@ -52,6 +107,7 @@ def get_proxied_generator(model: str) -> "str | Generator":
     prefix. Without them, the call is a no-op and ``model`` resolves through the
     usual provider lookup.
     """
+    _ensure_proxy_env()
     api_base = os.environ.get(DREADNODE_LLM_BASE_ENV, "").strip() or None
     api_key = os.environ.get(DREADNODE_LLM_API_KEY_ENV, "").strip() or None
     if not api_base or not api_key:
@@ -67,6 +123,7 @@ def resolve_dn_model_to_generator(model: "str | Generator") -> "str | Generator"
     if not isinstance(model, str) or not model.startswith("dn/"):
         return model
 
+    _ensure_proxy_env()
     api_base = os.environ.get(DREADNODE_LLM_BASE_ENV, "").strip() or None
     api_key = os.environ.get(DREADNODE_LLM_API_KEY_ENV, "").strip() or None
     missing: list[str] = []

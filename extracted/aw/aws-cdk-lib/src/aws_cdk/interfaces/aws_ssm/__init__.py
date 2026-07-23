@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775cc1fff0c5bb13a3195ec65e12083c34d45a6e8ae92b01ac08b89b1d2dc956)
+            type_hints = cached_type_hints(_typecheckingstub__775cc1fff0c5bb13a3195ec65e12083c34d45a6e8ae92b01ac08b89b1d2dc956)
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_id": association_id,
@@ -107,7 +111,7 @@ class DocumentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcb6101d3c62b0309a6bc1a2847a94afe116c447d404db2cbbf9e653f97509ab)
+            type_hints = cached_type_hints(_typecheckingstub__bcb6101d3c62b0309a6bc1a2847a94afe116c447d404db2cbbf9e653f97509ab)
             check_type(argname="argument document_name", value=document_name, expected_type=type_hints["document_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "document_name": document_name,
@@ -135,7 +139,7 @@ class DocumentReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IAssociationRef")
 class IAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Association.
@@ -155,7 +159,7 @@ class IAssociationRef(
 
 class _IAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Association.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IAssociationRef).__jsii_proxy_class__ = lambda : _IAssoc
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IDocumentRef")
 class IDocumentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Document.
@@ -200,7 +204,7 @@ class IDocumentRef(
 
 class _IDocumentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Document.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IDocumentRef).__jsii_proxy_class__ = lambda : _IDocument
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IMaintenanceWindowRef")
 class IMaintenanceWindowRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindow.
@@ -245,7 +249,7 @@ class IMaintenanceWindowRef(
 
 class _IMaintenanceWindowRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindow.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IMaintenanceWindowRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IMaintenanceWindowTargetRef")
 class IMaintenanceWindowTargetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTarget.
@@ -290,7 +294,7 @@ class IMaintenanceWindowTargetRef(
 
 class _IMaintenanceWindowTargetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTarget.
 
@@ -315,7 +319,7 @@ typing.cast(typing.Any, IMaintenanceWindowTargetRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IMaintenanceWindowTaskRef")
 class IMaintenanceWindowTaskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTask.
@@ -335,7 +339,7 @@ class IMaintenanceWindowTaskRef(
 
 class _IMaintenanceWindowTaskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTask.
 
@@ -360,7 +364,7 @@ typing.cast(typing.Any, IMaintenanceWindowTaskRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IParameterRef")
 class IParameterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Parameter.
@@ -380,7 +384,7 @@ class IParameterRef(
 
 class _IParameterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Parameter.
 
@@ -405,7 +409,7 @@ typing.cast(typing.Any, IParameterRef).__jsii_proxy_class__ = lambda : _IParamet
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IPatchBaselineRef")
 class IPatchBaselineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PatchBaseline.
@@ -425,7 +429,7 @@ class IPatchBaselineRef(
 
 class _IPatchBaselineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PatchBaseline.
 
@@ -450,7 +454,7 @@ typing.cast(typing.Any, IPatchBaselineRef).__jsii_proxy_class__ = lambda : _IPat
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IResourceDataSyncRef")
 class IResourceDataSyncRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDataSync.
@@ -470,7 +474,7 @@ class IResourceDataSyncRef(
 
 class _IResourceDataSyncRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceDataSync.
 
@@ -495,7 +499,7 @@ typing.cast(typing.Any, IResourceDataSyncRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
@@ -515,7 +519,7 @@ class IResourcePolicyRef(
 
 class _IResourcePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
 
@@ -561,7 +565,7 @@ class MaintenanceWindowReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cb33a09c3dfc7973432d718faac07715f6677b4083711351d04c330763c198d)
+            type_hints = cached_type_hints(_typecheckingstub__2cb33a09c3dfc7973432d718faac07715f6677b4083711351d04c330763c198d)
             check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "window_id": window_id,
@@ -617,7 +621,7 @@ class MaintenanceWindowTargetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc7aececd4d9fd7cb0a70989a13064463485da38e07d1eaa1206e9cd8f73d5d2)
+            type_hints = cached_type_hints(_typecheckingstub__bc7aececd4d9fd7cb0a70989a13064463485da38e07d1eaa1206e9cd8f73d5d2)
             check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
             check_type(argname="argument window_target_id", value=window_target_id, expected_type=type_hints["window_target_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -682,7 +686,7 @@ class MaintenanceWindowTaskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a84f17a335bbe7c6ba37477bd79adba76a951afd9da1ec43ae2a7499c062733f)
+            type_hints = cached_type_hints(_typecheckingstub__a84f17a335bbe7c6ba37477bd79adba76a951afd9da1ec43ae2a7499c062733f)
             check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
             check_type(argname="argument window_task_id", value=window_task_id, expected_type=type_hints["window_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -719,12 +723,18 @@ class MaintenanceWindowTaskReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ssm.ParameterReference",
     jsii_struct_bases=[],
-    name_mapping={"parameter_name": "parameterName"},
+    name_mapping={"parameter_arn": "parameterArn", "parameter_name": "parameterName"},
 )
 class ParameterReference:
-    def __init__(self, *, parameter_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        parameter_arn: builtins.str,
+        parameter_name: builtins.str,
+    ) -> None:
         '''A reference to a Parameter resource.
 
+        :param parameter_arn: The ARN of the Parameter resource.
         :param parameter_name: The Name of the Parameter resource.
 
         :exampleMetadata: fixture=_generated
@@ -736,15 +746,25 @@ class ParameterReference:
             from aws_cdk.interfaces import aws_ssm as interfaces_ssm
             
             parameter_reference = interfaces_ssm.ParameterReference(
+                parameter_arn="parameterArn",
                 parameter_name="parameterName"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cda39a1fa0093c99b1bbd37f52b1d52b1ddd1c2c6ae9eb197226b61a63c9e49)
+            type_hints = cached_type_hints(_typecheckingstub__4cda39a1fa0093c99b1bbd37f52b1d52b1ddd1c2c6ae9eb197226b61a63c9e49)
+            check_type(argname="argument parameter_arn", value=parameter_arn, expected_type=type_hints["parameter_arn"])
             check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_arn": parameter_arn,
             "parameter_name": parameter_name,
         }
+
+    @builtins.property
+    def parameter_arn(self) -> builtins.str:
+        '''The ARN of the Parameter resource.'''
+        result = self._values.get("parameter_arn")
+        assert result is not None, "Required property 'parameter_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameter_name(self) -> builtins.str:
@@ -789,7 +809,7 @@ class PatchBaselineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d38742fd3f9891646ab25cf167f2c29b28b5f57b8f0c6475eceb2a5c8a8ce7c7)
+            type_hints = cached_type_hints(_typecheckingstub__d38742fd3f9891646ab25cf167f2c29b28b5f57b8f0c6475eceb2a5c8a8ce7c7)
             check_type(argname="argument patch_baseline_id", value=patch_baseline_id, expected_type=type_hints["patch_baseline_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "patch_baseline_id": patch_baseline_id,
@@ -838,7 +858,7 @@ class ResourceDataSyncReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c828c669554ca1cd6c34cbdf3b2e519d30f0114e72e73595e3ebbdb3b97abdea)
+            type_hints = cached_type_hints(_typecheckingstub__c828c669554ca1cd6c34cbdf3b2e519d30f0114e72e73595e3ebbdb3b97abdea)
             check_type(argname="argument sync_name", value=sync_name, expected_type=type_hints["sync_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "sync_name": sync_name,
@@ -889,7 +909,7 @@ class ResourcePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__624afa9dab00ea919f3780ec78ff1eba149e1b5a7a7f48fbce5c7d0bf6b1d84f)
+            type_hints = cached_type_hints(_typecheckingstub__624afa9dab00ea919f3780ec78ff1eba149e1b5a7a7f48fbce5c7d0bf6b1d84f)
             check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -985,6 +1005,7 @@ def _typecheckingstub__a84f17a335bbe7c6ba37477bd79adba76a951afd9da1ec43ae2a7499c
 
 def _typecheckingstub__4cda39a1fa0093c99b1bbd37f52b1d52b1ddd1c2c6ae9eb197226b61a63c9e49(
     *,
+    parameter_arn: builtins.str,
     parameter_name: builtins.str,
 ) -> None:
     """Type checking stubs"""

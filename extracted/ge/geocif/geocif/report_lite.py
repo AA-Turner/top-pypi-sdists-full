@@ -264,6 +264,14 @@ class _LiteReport:
         self.logo_geoglam = dir_images / parser.get(
             "AGMET", "logo_geoglam", fallback="geoglam.png")
 
+        # [ML] show_partner_branding (default True): when False, omit the
+        # GEOGLAM / NASA Harvest partner logos AND drop any GEOGLAM / NASA
+        # Harvest mentions from the References section (used e.g. for the USA
+        # report). Other data-source/method references are unaffected.
+        self.show_partner_branding = parser.getboolean(
+            "ML", "show_partner_branding", fallback=True
+        )
+
     # ---- Page template with footer (logos + page number) ----
     def _footer(self, canvas, doc):
         canvas.saveState()
@@ -276,7 +284,8 @@ class _LiteReport:
         max_logo_w = 1.2 * inch
         y_logo = 0.3 * cm
         x_cursor = 1.5 * cm
-        for lp in [self.logo_harvest, self.logo_geoglam]:
+        _logos = [self.logo_harvest, self.logo_geoglam] if self.show_partner_branding else []
+        for lp in _logos:
             if lp.exists():
                 try:
                     from PIL import Image as PILImage
@@ -439,6 +448,14 @@ class _LiteReport:
         ``method_references`` = optional list of (citation, url|'') rendered under
         a 'GEOCIF & methodology' sub-heading."""
         self.section("References / Data sources")
+        # Drop GEOGLAM / NASA Harvest mentions when partner branding is off.
+        if not self.show_partner_branding:
+            def _no_partner(txt):
+                t = (txt or "").lower()
+                return "geoglam" not in t and "nasa harvest" not in t
+            references = [r for r in references if _no_partner(f"{r[0]} {r[1]}")]
+            if method_references:
+                method_references = [m for m in method_references if _no_partner(m[0])]
         for label, desc, url in references:
             self.elements.append(
                 Paragraph(f"<b>{label}</b> &mdash; {desc}", self.styles["Normal"]))

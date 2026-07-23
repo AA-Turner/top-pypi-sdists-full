@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,43 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_identitystore import (
-    GroupMembershipReference as _GroupMembershipReference_77539a0d,
-    GroupReference as _GroupReference_05ee17f3,
-    IGroupMembershipRef as _IGroupMembershipRef_0d737030,
-    IGroupRef as _IGroupRef_28a5ba9a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_identitystore as _aws_identitystore_22a099c6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_identitystore_22a099c6 = _LazyImport("aws_cdk.interfaces.aws_identitystore")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupRef_28a5ba9a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_identitystore_22a099c6.IGroupRef)
 class CfnGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_identitystore.CfnGroup",
 ):
@@ -117,7 +112,7 @@ class CfnGroup(
         :param description: A string containing the description of the group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37e27ff46dfa4082cad1981cc4ade1e2a9ce445cf9aad4a8eb75e162b9b429f1)
+            type_hints = cached_type_hints(_typecheckingstub__37e27ff46dfa4082cad1981cc4ade1e2a9ce445cf9aad4a8eb75e162b9b429f1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupProps(
@@ -130,12 +125,15 @@ class CfnGroup(
 
     @jsii.member(jsii_name="arnForGroup")
     @builtins.classmethod
-    def arn_for_group(cls, resource: "_IGroupRef_28a5ba9a") -> builtins.str:
+    def arn_for_group(
+        cls,
+        resource: "_aws_identitystore_22a099c6.IGroupRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01ab3c0d3cca733429f775beb080c97f01d0699872b9a2cf17cb7dec5795d17c)
+            type_hints = cached_type_hints(_typecheckingstub__01ab3c0d3cca733429f775beb080c97f01d0699872b9a2cf17cb7dec5795d17c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGroup", [resource]))
 
@@ -147,18 +145,18 @@ class CfnGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b25553d499e3434e811a8393022add9b93718a56b976df383923e4e30e5c468f)
+            type_hints = cached_type_hints(_typecheckingstub__b25553d499e3434e811a8393022add9b93718a56b976df383923e4e30e5c468f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd30cf433d0f11c47c01b425898b3b3494dae8561dd252ec97cb62a6f3ea01c0)
+            type_hints = cached_type_hints(_typecheckingstub__fd30cf433d0f11c47c01b425898b3b3494dae8561dd252ec97cb62a6f3ea01c0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -171,7 +169,7 @@ class CfnGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__181a3492db49132403d11a30d4f4ede267eaa3675413217fae9f2a57427d93a5)
+            type_hints = cached_type_hints(_typecheckingstub__181a3492db49132403d11a30d4f4ede267eaa3675413217fae9f2a57427d93a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -202,9 +200,9 @@ class CfnGroup(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_05ee17f3":
+    def group_ref(self) -> "_aws_identitystore_22a099c6.GroupReference":
         '''A reference to a Group resource.'''
-        return typing.cast("_GroupReference_05ee17f3", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_identitystore_22a099c6.GroupReference", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -215,7 +213,7 @@ class CfnGroup(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e2f0d1e640344318d6ca1684bf877149c58a04ff3b658cc26437fd42577ae42)
+            type_hints = cached_type_hints(_typecheckingstub__5e2f0d1e640344318d6ca1684bf877149c58a04ff3b658cc26437fd42577ae42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -228,7 +226,7 @@ class CfnGroup(
     @identity_store_id.setter
     def identity_store_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ec5af9bcaa29b5bd7b1489efc7cb2d8be21651e7c0abc6581d713983f718c75)
+            type_hints = cached_type_hints(_typecheckingstub__1ec5af9bcaa29b5bd7b1489efc7cb2d8be21651e7c0abc6581d713983f718c75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
 
@@ -241,14 +239,14 @@ class CfnGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adb1a463b108d61759d25cd969fb5fed9a681bdbfadbf09cefe6655715c026df)
+            type_hints = cached_type_hints(_typecheckingstub__adb1a463b108d61759d25cd969fb5fed9a681bdbfadbf09cefe6655715c026df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupMembershipRef_0d737030)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_identitystore_22a099c6.IGroupMembershipRef)
 class CfnGroupMembership(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_identitystore.CfnGroupMembership",
 ):
@@ -282,7 +280,7 @@ class CfnGroupMembership(
         *,
         group_id: builtins.str,
         identity_store_id: builtins.str,
-        member_id: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroupMembership.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]],
+        member_id: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroupMembership.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::IdentityStore::GroupMembership``.
 
@@ -293,7 +291,7 @@ class CfnGroupMembership(
         :param member_id: An object containing the identifier of a group member. Setting the ``MemberId`` 's ``UserId`` field to a specific User's ID indicates that user is a member of the group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76d55a804ce565c6f3a413944bff86b3236786318808951cf53ad4eff71316db)
+            type_hints = cached_type_hints(_typecheckingstub__76d55a804ce565c6f3a413944bff86b3236786318808951cf53ad4eff71316db)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupMembershipProps(
@@ -306,13 +304,13 @@ class CfnGroupMembership(
     @builtins.classmethod
     def arn_for_group_membership(
         cls,
-        resource: "_IGroupMembershipRef_0d737030",
+        resource: "_aws_identitystore_22a099c6.IGroupMembershipRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff9fad22921b91752db10653f5c61dd0bc13a0bf8a3b3888623273813a4e50c)
+            type_hints = cached_type_hints(_typecheckingstub__7ff9fad22921b91752db10653f5c61dd0bc13a0bf8a3b3888623273813a4e50c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGroupMembership", [resource]))
 
@@ -324,18 +322,18 @@ class CfnGroupMembership(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc267ec839f05f7b319ddb3ef057abfd744e9c55e1ac011a7d51c236a00817e1)
+            type_hints = cached_type_hints(_typecheckingstub__dc267ec839f05f7b319ddb3ef057abfd744e9c55e1ac011a7d51c236a00817e1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroupMembership", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bbe599298882f9cb39ad950a183df2f00325817213542a0979da08b15e837de)
+            type_hints = cached_type_hints(_typecheckingstub__9bbe599298882f9cb39ad950a183df2f00325817213542a0979da08b15e837de)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -348,7 +346,7 @@ class CfnGroupMembership(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8c6b11b08fd290fc0948df25fb4993347b63ee62d6cc093b9fdb1639f9be8e9)
+            type_hints = cached_type_hints(_typecheckingstub__f8c6b11b08fd290fc0948df25fb4993347b63ee62d6cc093b9fdb1639f9be8e9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -379,9 +377,11 @@ class CfnGroupMembership(
 
     @builtins.property
     @jsii.member(jsii_name="groupMembershipRef")
-    def group_membership_ref(self) -> "_GroupMembershipReference_77539a0d":
+    def group_membership_ref(
+        self,
+    ) -> "_aws_identitystore_22a099c6.GroupMembershipReference":
         '''A reference to a GroupMembership resource.'''
-        return typing.cast("_GroupMembershipReference_77539a0d", jsii.get(self, "groupMembershipRef"))
+        return typing.cast("_aws_identitystore_22a099c6.GroupMembershipReference", jsii.get(self, "groupMembershipRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupId")
@@ -392,7 +392,7 @@ class CfnGroupMembership(
     @group_id.setter
     def group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84854d3f76ffaf3fcbc3f65a33c1661f74f5b69424e248ef1e8272d270ac7f78)
+            type_hints = cached_type_hints(_typecheckingstub__84854d3f76ffaf3fcbc3f65a33c1661f74f5b69424e248ef1e8272d270ac7f78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupId", value) # pyright: ignore[reportArgumentType]
 
@@ -405,7 +405,7 @@ class CfnGroupMembership(
     @identity_store_id.setter
     def identity_store_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbe6d44611bf93ff14a416179e20aded09542ea5eeadef3315ca4e2b9610a458)
+            type_hints = cached_type_hints(_typecheckingstub__cbe6d44611bf93ff14a416179e20aded09542ea5eeadef3315ca4e2b9610a458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
 
@@ -413,17 +413,17 @@ class CfnGroupMembership(
     @jsii.member(jsii_name="memberId")
     def member_id(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnGroupMembership.MemberIdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupMembership.MemberIdProperty"]:
         '''An object containing the identifier of a group member.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGroupMembership.MemberIdProperty"], jsii.get(self, "memberId"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupMembership.MemberIdProperty"], jsii.get(self, "memberId"))
 
     @member_id.setter
     def member_id(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnGroupMembership.MemberIdProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupMembership.MemberIdProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cf491e3e3c3bfc7f52caab31db7140718db94dfca804458b592c7195b7552ec)
+            type_hints = cached_type_hints(_typecheckingstub__1cf491e3e3c3bfc7f52caab31db7140718db94dfca804458b592c7195b7552ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
 
@@ -454,7 +454,7 @@ class CfnGroupMembership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aa85e069965fcc2401129e3357a969b039233bb2ccffdd9a02afd5dde1c53e25)
+                type_hints = cached_type_hints(_typecheckingstub__aa85e069965fcc2401129e3357a969b039233bb2ccffdd9a02afd5dde1c53e25)
                 check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "user_id": user_id,
@@ -497,7 +497,7 @@ class CfnGroupMembershipProps:
         *,
         group_id: builtins.str,
         identity_store_id: builtins.str,
-        member_id: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroupMembership.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]],
+        member_id: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroupMembership.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnGroupMembership``.
 
@@ -523,7 +523,7 @@ class CfnGroupMembershipProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44a916716d7f3a98b073b5f0337cf90a6d86bd04dc851e6b431e842d7c7184b8)
+            type_hints = cached_type_hints(_typecheckingstub__44a916716d7f3a98b073b5f0337cf90a6d86bd04dc851e6b431e842d7c7184b8)
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
             check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
@@ -556,7 +556,7 @@ class CfnGroupMembershipProps:
     @builtins.property
     def member_id(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnGroupMembership.MemberIdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupMembership.MemberIdProperty"]:
         '''An object containing the identifier of a group member.
 
         Setting the ``MemberId`` 's ``UserId`` field to a specific User's ID indicates that user is a member of the group.
@@ -565,7 +565,7 @@ class CfnGroupMembershipProps:
         '''
         result = self._values.get("member_id")
         assert result is not None, "Required property 'member_id' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGroupMembership.MemberIdProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroupMembership.MemberIdProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -620,7 +620,7 @@ class CfnGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84bf79ae8bc719d02791d6f72a1b629f44562f761a2049ee295009880b02ea18)
+            type_hints = cached_type_hints(_typecheckingstub__84bf79ae8bc719d02791d6f72a1b629f44562f761a2049ee295009880b02ea18)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -697,7 +697,7 @@ def _typecheckingstub__37e27ff46dfa4082cad1981cc4ade1e2a9ce445cf9aad4a8eb75e162b
     pass
 
 def _typecheckingstub__01ab3c0d3cca733429f775beb080c97f01d0699872b9a2cf17cb7dec5795d17c(
-    resource: _IGroupRef_28a5ba9a,
+    resource: _aws_identitystore_22a099c6.IGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -709,7 +709,7 @@ def _typecheckingstub__b25553d499e3434e811a8393022add9b93718a56b976df383923e4e30
     pass
 
 def _typecheckingstub__fd30cf433d0f11c47c01b425898b3b3494dae8561dd252ec97cb62a6f3ea01c0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -744,13 +744,13 @@ def _typecheckingstub__76d55a804ce565c6f3a413944bff86b3236786318808951cf53ad4eff
     *,
     group_id: builtins.str,
     identity_store_id: builtins.str,
-    member_id: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroupMembership.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]],
+    member_id: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroupMembership.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7ff9fad22921b91752db10653f5c61dd0bc13a0bf8a3b3888623273813a4e50c(
-    resource: _IGroupMembershipRef_0d737030,
+    resource: _aws_identitystore_22a099c6.IGroupMembershipRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -762,7 +762,7 @@ def _typecheckingstub__dc267ec839f05f7b319ddb3ef057abfd744e9c55e1ac011a7d51c236a
     pass
 
 def _typecheckingstub__9bbe599298882f9cb39ad950a183df2f00325817213542a0979da08b15e837de(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -786,7 +786,7 @@ def _typecheckingstub__cbe6d44611bf93ff14a416179e20aded09542ea5eeadef3315ca4e2b9
     pass
 
 def _typecheckingstub__1cf491e3e3c3bfc7f52caab31db7140718db94dfca804458b592c7195b7552ec(
-    value: typing.Union[_IResolvable_da3f097b, CfnGroupMembership.MemberIdProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGroupMembership.MemberIdProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -802,7 +802,7 @@ def _typecheckingstub__44a916716d7f3a98b073b5f0337cf90a6d86bd04dc851e6b431e842d7
     *,
     group_id: builtins.str,
     identity_store_id: builtins.str,
-    member_id: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroupMembership.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]],
+    member_id: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroupMembership.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

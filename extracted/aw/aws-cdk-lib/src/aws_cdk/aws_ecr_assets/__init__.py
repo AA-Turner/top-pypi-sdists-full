@@ -294,6 +294,8 @@ grant pull permissions on the resource policy of the repository. Since the repos
 the following permissions must be granted there, or granted manually on the repository: "ecr:GetDownloadUrlForLayer",
 "ecr:BatchGetImage" and "ecr:BatchCheckLayerAvailability".
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -307,33 +309,31 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    FileFingerprintOptions as _FileFingerprintOptions_115b8b51,
-    IgnoreMode as _IgnoreMode_655a98e8,
-    SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
-)
-from ..aws_ecr import IRepository as _IRepository_e6004aa6
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ecr as _aws_ecr_7549cade
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ecr_7549cade = _LazyImport("aws_cdk.aws_ecr")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -367,7 +367,7 @@ class DockerCacheOption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad9419c3da81effe8638841dcb5d0fc89a048d78025f5679f399689b950f5256)
+            type_hints = cached_type_hints(_typecheckingstub__ad9419c3da81effe8638841dcb5d0fc89a048d78025f5679f399689b950f5256)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument params", value=params, expected_type=type_hints["params"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -473,8 +473,8 @@ class DockerImageAsset(
         target: typing.Optional[builtins.str] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -501,7 +501,7 @@ class DockerImageAsset(
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__797fbc31925afd247c6567a5b5c30dcdc13a3d9b17aba80ece42c86bd04216a7)
+            type_hints = cached_type_hints(_typecheckingstub__797fbc31925afd247c6567a5b5c30dcdc13a3d9b17aba80ece42c86bd04216a7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DockerImageAssetProps(
@@ -532,7 +532,7 @@ class DockerImageAsset(
     @jsii.member(jsii_name="addResourceMetadata")
     def add_resource_metadata(
         self,
-        resource: "_CfnResource_9df397a6",
+        resource: "_aws_cdk_0cae9daa.CfnResource",
         resource_property: builtins.str,
     ) -> None:
         '''Adds CloudFormation template metadata to the specified resource with information that indicates which resource property is mapped to this local asset.
@@ -550,7 +550,7 @@ class DockerImageAsset(
         :see: https://github.com/aws/aws-cdk/issues/1432
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c4a1c0cfa93309b38627e98ca811fbe0fe946fcef54da4d678fbbb020869aa9)
+            type_hints = cached_type_hints(_typecheckingstub__2c4a1c0cfa93309b38627e98ca811fbe0fe946fcef54da4d678fbbb020869aa9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
             check_type(argname="argument resource_property", value=resource_property, expected_type=type_hints["resource_property"])
         return typing.cast(None, jsii.invoke(self, "addResourceMetadata", [resource, resource_property]))
@@ -594,20 +594,20 @@ class DockerImageAsset(
     @image_uri.setter
     def image_uri(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a2eae0bc05bbae9216a5746bc31160fa3e0fb1dfb204b05e8b4460c1d592652)
+            type_hints = cached_type_hints(_typecheckingstub__6a2eae0bc05bbae9216a5746bc31160fa3e0fb1dfb204b05e8b4460c1d592652)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageUri", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="repository")
-    def repository(self) -> "_IRepository_e6004aa6":
+    def repository(self) -> "_aws_ecr_7549cade.IRepository":
         '''Repository where the image is stored.'''
-        return typing.cast("_IRepository_e6004aa6", jsii.get(self, "repository"))
+        return typing.cast("_aws_ecr_7549cade.IRepository", jsii.get(self, "repository"))
 
     @repository.setter
-    def repository(self, value: "_IRepository_e6004aa6") -> None:
+    def repository(self, value: "_aws_ecr_7549cade.IRepository") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6ceab41a9ba)
+            type_hints = cached_type_hints(_typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6ceab41a9ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
 
@@ -677,7 +677,7 @@ class DockerImageAssetInvalidationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81627cbb76e02c4366e7249ba22ecc8384c24639f62db324ccde3c3dd90d6d80)
+            type_hints = cached_type_hints(_typecheckingstub__81627cbb76e02c4366e7249ba22ecc8384c24639f62db324ccde3c3dd90d6d80)
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
             check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
@@ -826,7 +826,7 @@ class DockerImageAssetInvalidationOptions:
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecr_assets.DockerImageAssetOptions",
-    jsii_struct_bases=[_FileFingerprintOptions_115b8b51],
+    jsii_struct_bases=[_aws_cdk_0cae9daa.FileFingerprintOptions],
     name_mapping={
         "exclude": "exclude",
         "follow_symlinks": "followSymlinks",
@@ -849,13 +849,13 @@ class DockerImageAssetInvalidationOptions:
         "target": "target",
     },
 )
-class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
+class DockerImageAssetOptions(_aws_cdk_0cae9daa.FileFingerprintOptions):
     def __init__(
         self,
         *,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -966,7 +966,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         if isinstance(invalidation, dict):
             invalidation = DockerImageAssetInvalidationOptions(**invalidation)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be58b9ab6157641d31b553709d8decad6c9801460bec8e3ff07aadc336f83bff)
+            type_hints = cached_type_hints(_typecheckingstub__be58b9ab6157641d31b553709d8decad6c9801460bec8e3ff07aadc336f83bff)
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument follow_symlinks", value=follow_symlinks, expected_type=type_hints["follow_symlinks"])
             check_type(argname="argument ignore_mode", value=ignore_mode, expected_type=type_hints["ignore_mode"])
@@ -1039,22 +1039,22 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
+    def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
+    def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
 
     @builtins.property
     def extra_hash(self) -> typing.Optional[builtins.str]:
@@ -1306,8 +1306,8 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         self,
         *,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
-        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1369,7 +1369,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         if isinstance(invalidation, dict):
             invalidation = DockerImageAssetInvalidationOptions(**invalidation)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1abde6bc94231492c7b40171b32143e7c5533e907120fe3e3c2ebeca225cefd9)
+            type_hints = cached_type_hints(_typecheckingstub__1abde6bc94231492c7b40171b32143e7c5533e907120fe3e3c2ebeca225cefd9)
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument follow_symlinks", value=follow_symlinks, expected_type=type_hints["follow_symlinks"])
             check_type(argname="argument ignore_mode", value=ignore_mode, expected_type=type_hints["ignore_mode"])
@@ -1445,22 +1445,22 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
+    def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
+    def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
 
     @builtins.property
     def extra_hash(self) -> typing.Optional[builtins.str]:
@@ -1718,7 +1718,7 @@ class NetworkMode(
         :param mode: The networking mode to use for docker build.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f8d8c6403f901d8551692a871bf90e61484d2689a91a2d4657cfbb8fbc027ef)
+            type_hints = cached_type_hints(_typecheckingstub__4f8d8c6403f901d8551692a871bf90e61484d2689a91a2d4657cfbb8fbc027ef)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
         return typing.cast("NetworkMode", jsii.sinvoke(cls, "custom", [mode]))
 
@@ -1730,7 +1730,7 @@ class NetworkMode(
         :param container_id: The target container's id or name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39a508fd6d847e45dec0e540f453d59e2c2ff0115f17e6ce130b364d3bd85feb)
+            type_hints = cached_type_hints(_typecheckingstub__39a508fd6d847e45dec0e540f453d59e2c2ff0115f17e6ce130b364d3bd85feb)
             check_type(argname="argument container_id", value=container_id, expected_type=type_hints["container_id"])
         return typing.cast("NetworkMode", jsii.sinvoke(cls, "fromContainer", [container_id]))
 
@@ -1786,7 +1786,7 @@ class Platform(
         :param platform: The platform to use for docker build.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cca0d33972ff79dfe541d669145958c23cec6650e40df29cd7caec618b0cd7e)
+            type_hints = cached_type_hints(_typecheckingstub__9cca0d33972ff79dfe541d669145958c23cec6650e40df29cd7caec618b0cd7e)
             check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
         return typing.cast("Platform", jsii.sinvoke(cls, "custom", [platform]))
 
@@ -1845,7 +1845,7 @@ class TarballImageAsset(
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the ``TarballImageAsset`` construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAssetImage()``), this will look like ``MyFunction/AssetImage``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e0eaaf11f2e3e296d6157cf12d477a55316a9aefb390c2f9de1711f911d5450)
+            type_hints = cached_type_hints(_typecheckingstub__3e0eaaf11f2e3e296d6157cf12d477a55316a9aefb390c2f9de1711f911d5450)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TarballImageAssetProps(
@@ -1887,20 +1887,20 @@ class TarballImageAsset(
     @image_uri.setter
     def image_uri(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e5be1a7955548e99522c60499ad4723f8d659920228401ac7006d323cd4ee2a)
+            type_hints = cached_type_hints(_typecheckingstub__6e5be1a7955548e99522c60499ad4723f8d659920228401ac7006d323cd4ee2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageUri", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="repository")
-    def repository(self) -> "_IRepository_e6004aa6":
+    def repository(self) -> "_aws_ecr_7549cade.IRepository":
         '''Repository where the image is stored.'''
-        return typing.cast("_IRepository_e6004aa6", jsii.get(self, "repository"))
+        return typing.cast("_aws_ecr_7549cade.IRepository", jsii.get(self, "repository"))
 
     @repository.setter
-    def repository(self, value: "_IRepository_e6004aa6") -> None:
+    def repository(self, value: "_aws_ecr_7549cade.IRepository") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccb91ed092745a33fafd3df8d94f545ae143be6b4949103c115bc71350c947bb)
+            type_hints = cached_type_hints(_typecheckingstub__ccb91ed092745a33fafd3df8d94f545ae143be6b4949103c115bc71350c947bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
 
@@ -1934,7 +1934,7 @@ class TarballImageAssetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1555ea2241a0a5236409111ebbad425ecc370ebc8987c4a7871719d32389658b)
+            type_hints = cached_type_hints(_typecheckingstub__1555ea2241a0a5236409111ebbad425ecc370ebc8987c4a7871719d32389658b)
             check_type(argname="argument tarball_file", value=tarball_file, expected_type=type_hints["tarball_file"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2035,14 +2035,14 @@ def _typecheckingstub__797fbc31925afd247c6567a5b5c30dcdc13a3d9b17aba80ece42c86bd
     target: typing.Optional[builtins.str] = None,
     extra_hash: typing.Optional[builtins.str] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2c4a1c0cfa93309b38627e98ca811fbe0fe946fcef54da4d678fbbb020869aa9(
-    resource: _CfnResource_9df397a6,
+    resource: _aws_cdk_0cae9daa.CfnResource,
     resource_property: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2055,7 +2055,7 @@ def _typecheckingstub__6a2eae0bc05bbae9216a5746bc31160fa3e0fb1dfb204b05e8b4460c1
     pass
 
 def _typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6ceab41a9ba(
-    value: _IRepository_e6004aa6,
+    value: _aws_ecr_7549cade.IRepository,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2080,8 +2080,8 @@ def _typecheckingstub__81627cbb76e02c4366e7249ba22ecc8384c24639f62db324ccde3c3dd
 def _typecheckingstub__be58b9ab6157641d31b553709d8decad6c9801460bec8e3ff07aadc336f83bff(
     *,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
     extra_hash: typing.Optional[builtins.str] = None,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2105,8 +2105,8 @@ def _typecheckingstub__be58b9ab6157641d31b553709d8decad6c9801460bec8e3ff07aadc33
 def _typecheckingstub__1abde6bc94231492c7b40171b32143e7c5533e907120fe3e3c2ebeca225cefd9(
     *,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
     extra_hash: typing.Optional[builtins.str] = None,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2163,7 +2163,7 @@ def _typecheckingstub__6e5be1a7955548e99522c60499ad4723f8d659920228401ac7006d323
     pass
 
 def _typecheckingstub__ccb91ed092745a33fafd3df8d94f545ae143be6b4949103c115bc71350c947bb(
-    value: _IRepository_e6004aa6,
+    value: _aws_ecr_7549cade.IRepository,
 ) -> None:
     """Type checking stubs"""
     pass

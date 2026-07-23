@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_bedrockmantle import (
-    IProjectRef as _IProjectRef_8be6ab13,
-    ProjectReference as _ProjectReference_620aa46d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_bedrockmantle as _aws_bedrockmantle_c1422a17
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_bedrockmantle_c1422a17 = _LazyImport("aws_cdk.interfaces.aws_bedrockmantle")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IProjectRef_8be6ab13, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrockmantle_c1422a17.IProjectRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProject(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bedrockmantle.CfnProject",
 ):
@@ -118,7 +113,7 @@ class CfnProject(
         id: builtins.str,
         *,
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockMantle::Project``.
 
@@ -128,7 +123,7 @@ class CfnProject(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e82da6da69cc76b79f1f5b5b88473e9096ec7f824da3c8990b84a275c549cafc)
+            type_hints = cached_type_hints(_typecheckingstub__e82da6da69cc76b79f1f5b5b88473e9096ec7f824da3c8990b84a275c549cafc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProjectProps(name=name, tags=tags)
@@ -137,12 +132,15 @@ class CfnProject(
 
     @jsii.member(jsii_name="arnForProject")
     @builtins.classmethod
-    def arn_for_project(cls, resource: "_IProjectRef_8be6ab13") -> builtins.str:
+    def arn_for_project(
+        cls,
+        resource: "_aws_bedrockmantle_c1422a17.IProjectRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb8b5acf667b20e95e9ebdedc30519ece2285b63300237364b73a1aa6cac22df)
+            type_hints = cached_type_hints(_typecheckingstub__bb8b5acf667b20e95e9ebdedc30519ece2285b63300237364b73a1aa6cac22df)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProject", [resource]))
 
@@ -154,18 +152,18 @@ class CfnProject(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f907fc4786120d038f3b963085010036d572ed3243b74308d2eec0db39d2f15)
+            type_hints = cached_type_hints(_typecheckingstub__6f907fc4786120d038f3b963085010036d572ed3243b74308d2eec0db39d2f15)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProject", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4ae8dc85980807e31cdc274bd73919ca01b047fc72d346c9a313b26d3a01e9c)
+            type_hints = cached_type_hints(_typecheckingstub__a4ae8dc85980807e31cdc274bd73919ca01b047fc72d346c9a313b26d3a01e9c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -178,7 +176,7 @@ class CfnProject(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2371de9b76a9ef11a5118ae3d251062f5e2513b41a60ec03865a55f20eda181e)
+            type_hints = cached_type_hints(_typecheckingstub__2371de9b76a9ef11a5118ae3d251062f5e2513b41a60ec03865a55f20eda181e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -217,9 +215,9 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -233,9 +231,9 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> "_ProjectReference_620aa46d":
+    def project_ref(self) -> "_aws_bedrockmantle_c1422a17.ProjectReference":
         '''A reference to a Project resource.'''
-        return typing.cast("_ProjectReference_620aa46d", jsii.get(self, "projectRef"))
+        return typing.cast("_aws_bedrockmantle_c1422a17.ProjectReference", jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -246,20 +244,23 @@ class CfnProject(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00ec8a37d239036aef45828df6e1641281eb61322381f581dbbda703e0e1dce9)
+            type_hints = cached_type_hints(_typecheckingstub__00ec8a37d239036aef45828df6e1641281eb61322381f581dbbda703e0e1dce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4f62758f6eeae919189869cdb1eb7a8cf59cbd7740027cb53f368c0c732f7ba)
+            type_hints = cached_type_hints(_typecheckingstub__d4f62758f6eeae919189869cdb1eb7a8cf59cbd7740027cb53f368c0c732f7ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -274,7 +275,7 @@ class CfnProjectProps:
         self,
         *,
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProject``.
 
@@ -302,7 +303,7 @@ class CfnProjectProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78afd3647ce663c205601ca426a2bb92e0274bfe1c32159db2d5719354e084f7)
+            type_hints = cached_type_hints(_typecheckingstub__78afd3647ce663c205601ca426a2bb92e0274bfe1c32159db2d5719354e084f7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -322,13 +323,13 @@ class CfnProjectProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockmantle-project.html#cfn-bedrockmantle-project-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -354,13 +355,13 @@ def _typecheckingstub__e82da6da69cc76b79f1f5b5b88473e9096ec7f824da3c8990b84a275c
     id: builtins.str,
     *,
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb8b5acf667b20e95e9ebdedc30519ece2285b63300237364b73a1aa6cac22df(
-    resource: _IProjectRef_8be6ab13,
+    resource: _aws_bedrockmantle_c1422a17.IProjectRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -372,7 +373,7 @@ def _typecheckingstub__6f907fc4786120d038f3b963085010036d572ed3243b74308d2eec0db
     pass
 
 def _typecheckingstub__a4ae8dc85980807e31cdc274bd73919ca01b047fc72d346c9a313b26d3a01e9c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -390,7 +391,7 @@ def _typecheckingstub__00ec8a37d239036aef45828df6e1641281eb61322381f581dbbda703e
     pass
 
 def _typecheckingstub__d4f62758f6eeae919189869cdb1eb7a8cf59cbd7740027cb53f368c0c732f7ba(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -398,7 +399,7 @@ def _typecheckingstub__d4f62758f6eeae919189869cdb1eb7a8cf59cbd7740027cb53f368c0c
 def _typecheckingstub__78afd3647ce663c205601ca426a2bb92e0274bfe1c32159db2d5719354e084f7(
     *,
     name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,54 +45,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_apprunner import (
-    AutoScalingConfigurationReference as _AutoScalingConfigurationReference_5973090e,
-    IAutoScalingConfigurationRef as _IAutoScalingConfigurationRef_99168b63,
-    IObservabilityConfigurationRef as _IObservabilityConfigurationRef_fbef63e4,
-    IServiceRef as _IServiceRef_276b8cc6,
-    IVpcConnectorRef as _IVpcConnectorRef_37eb44ed,
-    IVpcIngressConnectionRef as _IVpcIngressConnectionRef_58d73e34,
-    ObservabilityConfigurationReference as _ObservabilityConfigurationReference_802385c5,
-    ServiceReference as _ServiceReference_b4605cef,
-    VpcConnectorReference as _VpcConnectorReference_0d63765c,
-    VpcIngressConnectionReference as _VpcIngressConnectionReference_64b165fb,
-)
-from ..interfaces.aws_ec2 import ISecurityGroupRef as _ISecurityGroupRef_efa4ff18
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_apprunner as _aws_apprunner_0e15bed4
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_apprunner_0e15bed4 = _LazyImport("aws_cdk.interfaces.aws_apprunner")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAutoScalingConfigurationRef_99168b63, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apprunner_0e15bed4.IAutoScalingConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAutoScalingConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apprunner.CfnAutoScalingConfiguration",
 ):
@@ -138,7 +124,7 @@ class CfnAutoScalingConfiguration(
         max_concurrency: typing.Optional[jsii.Number] = None,
         max_size: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AppRunner::AutoScalingConfiguration``.
 
@@ -151,7 +137,7 @@ class CfnAutoScalingConfiguration(
         :param tags: A list of metadata items that you can associate with your auto scaling configuration resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef4bed0e8)
+            type_hints = cached_type_hints(_typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef4bed0e8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAutoScalingConfigurationProps(
@@ -168,13 +154,13 @@ class CfnAutoScalingConfiguration(
     @builtins.classmethod
     def arn_for_auto_scaling_configuration(
         cls,
-        resource: "_IAutoScalingConfigurationRef_99168b63",
+        resource: "_aws_apprunner_0e15bed4.IAutoScalingConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b07092ed9a3c8f611b357cee86d2b88d22d76e53f344d607685c237ceccda147)
+            type_hints = cached_type_hints(_typecheckingstub__b07092ed9a3c8f611b357cee86d2b88d22d76e53f344d607685c237ceccda147)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAutoScalingConfiguration", [resource]))
 
@@ -186,18 +172,18 @@ class CfnAutoScalingConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18cec198649927ccc038a8e1bf53fc79b383c537c0d1abf4ed2b1d2ce0b6af22)
+            type_hints = cached_type_hints(_typecheckingstub__18cec198649927ccc038a8e1bf53fc79b383c537c0d1abf4ed2b1d2ce0b6af22)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutoScalingConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__543708ceb6604b166bc6eed37718011031e49891f6312bd156560547d85091a3)
+            type_hints = cached_type_hints(_typecheckingstub__543708ceb6604b166bc6eed37718011031e49891f6312bd156560547d85091a3)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -210,7 +196,7 @@ class CfnAutoScalingConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5274d724f0f7ae4be497d58f3e9e326d502d1ea6864cfb94650b4339848ad179)
+            type_hints = cached_type_hints(_typecheckingstub__5274d724f0f7ae4be497d58f3e9e326d502d1ea6864cfb94650b4339848ad179)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -242,28 +228,28 @@ class CfnAutoScalingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="attrLatest")
-    def attr_latest(self) -> "_IResolvable_da3f097b":
+    def attr_latest(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''It's set to true for the configuration with the highest ``Revision`` among all configurations that share the same ``AutoScalingConfigurationName`` .
 
         It's set to false otherwise. App Runner temporarily doubles the number of provisioned instances during deployments, to maintain the same capacity for both old and new code.
 
         :cloudformationAttribute: Latest
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLatest"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLatest"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingConfigurationRef")
     def auto_scaling_configuration_ref(
         self,
-    ) -> "_AutoScalingConfigurationReference_5973090e":
+    ) -> "_aws_apprunner_0e15bed4.AutoScalingConfigurationReference":
         '''A reference to a AutoScalingConfiguration resource.'''
-        return typing.cast("_AutoScalingConfigurationReference_5973090e", jsii.get(self, "autoScalingConfigurationRef"))
+        return typing.cast("_aws_apprunner_0e15bed4.AutoScalingConfigurationReference", jsii.get(self, "autoScalingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -287,7 +273,7 @@ class CfnAutoScalingConfiguration(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e356312a777bbadb57bd63f0dfc33fb70c5d8e557376009f249840b11d66bd5)
+            type_hints = cached_type_hints(_typecheckingstub__5e356312a777bbadb57bd63f0dfc33fb70c5d8e557376009f249840b11d66bd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingConfigurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -300,7 +286,7 @@ class CfnAutoScalingConfiguration(
     @max_concurrency.setter
     def max_concurrency(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__283d39757b13fe904a4b3d64120221a2d431ba2ec1d757638e1c345e78c3f7cf)
+            type_hints = cached_type_hints(_typecheckingstub__283d39757b13fe904a4b3d64120221a2d431ba2ec1d757638e1c345e78c3f7cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxConcurrency", value) # pyright: ignore[reportArgumentType]
 
@@ -313,7 +299,7 @@ class CfnAutoScalingConfiguration(
     @max_size.setter
     def max_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b95fc2bf6f77f9647d9a90116b7d9f7e048c77120c45dd9da79cf0fac82b8f)
+            type_hints = cached_type_hints(_typecheckingstub__03b95fc2bf6f77f9647d9a90116b7d9f7e048c77120c45dd9da79cf0fac82b8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxSize", value) # pyright: ignore[reportArgumentType]
 
@@ -326,20 +312,23 @@ class CfnAutoScalingConfiguration(
     @min_size.setter
     def min_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__804986513a4dd9744a0afef975cf1e8a6c7345cb309f071e4ff0a913123c0fcf)
+            type_hints = cached_type_hints(_typecheckingstub__804986513a4dd9744a0afef975cf1e8a6c7345cb309f071e4ff0a913123c0fcf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your auto scaling configuration resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9af5660a)
+            type_hints = cached_type_hints(_typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9af5660a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -363,7 +352,7 @@ class CfnAutoScalingConfigurationProps:
         max_concurrency: typing.Optional[jsii.Number] = None,
         max_size: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAutoScalingConfiguration``.
 
@@ -395,7 +384,7 @@ class CfnAutoScalingConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d64ff92813f3f968746f4f41c6f17d2e277154809c684b9c520b7ab47bbcdfb7)
+            type_hints = cached_type_hints(_typecheckingstub__d64ff92813f3f968746f4f41c6f17d2e277154809c684b9c520b7ab47bbcdfb7)
             check_type(argname="argument auto_scaling_configuration_name", value=auto_scaling_configuration_name, expected_type=type_hints["auto_scaling_configuration_name"])
             check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
             check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
@@ -460,7 +449,7 @@ class CfnAutoScalingConfigurationProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your auto scaling configuration resource.
 
         A tag is a key-value pair.
@@ -468,7 +457,7 @@ class CfnAutoScalingConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-autoscalingconfiguration.html#cfn-apprunner-autoscalingconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -482,9 +471,9 @@ class CfnAutoScalingConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IObservabilityConfigurationRef_fbef63e4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apprunner_0e15bed4.IObservabilityConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnObservabilityConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apprunner.CfnObservabilityConfiguration",
 ):
@@ -527,8 +516,8 @@ class CfnObservabilityConfiguration(
         id: builtins.str,
         *,
         observability_configuration_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trace_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trace_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AppRunner::ObservabilityConfiguration``.
 
@@ -539,7 +528,7 @@ class CfnObservabilityConfiguration(
         :param trace_configuration: The configuration of the tracing feature within this observability configuration. If you don't specify it, App Runner doesn't enable tracing.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b238f814243acf19fa88af79842810e60380a88ae9065727ec71a1f3e03c1798)
+            type_hints = cached_type_hints(_typecheckingstub__b238f814243acf19fa88af79842810e60380a88ae9065727ec71a1f3e03c1798)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnObservabilityConfigurationProps(
@@ -554,13 +543,13 @@ class CfnObservabilityConfiguration(
     @builtins.classmethod
     def arn_for_observability_configuration(
         cls,
-        resource: "_IObservabilityConfigurationRef_fbef63e4",
+        resource: "_aws_apprunner_0e15bed4.IObservabilityConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd84b25eaccc90a9b1c076d3c7ca8fa5d7ea74d4897284e61f1b4cc1e05e16ca)
+            type_hints = cached_type_hints(_typecheckingstub__cd84b25eaccc90a9b1c076d3c7ca8fa5d7ea74d4897284e61f1b4cc1e05e16ca)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForObservabilityConfiguration", [resource]))
 
@@ -572,18 +561,18 @@ class CfnObservabilityConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ff284e1a609d460abc9b878e675e5f0e40fb8eedf50b6445dd1447f4369a716)
+            type_hints = cached_type_hints(_typecheckingstub__1ff284e1a609d460abc9b878e675e5f0e40fb8eedf50b6445dd1447f4369a716)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnObservabilityConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7573b8057d1f727c6f989a8a051a5419de5cb4e5bfba9e84827ba331b857930b)
+            type_hints = cached_type_hints(_typecheckingstub__7573b8057d1f727c6f989a8a051a5419de5cb4e5bfba9e84827ba331b857930b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -596,7 +585,7 @@ class CfnObservabilityConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85d3e6ee4fc274cb1c65005b12130712ef169b4fb6b51f4a4df5ba7ba8373c53)
+            type_hints = cached_type_hints(_typecheckingstub__85d3e6ee4fc274cb1c65005b12130712ef169b4fb6b51f4a4df5ba7ba8373c53)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -608,14 +597,14 @@ class CfnObservabilityConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="attrLatest")
-    def attr_latest(self) -> "_IResolvable_da3f097b":
+    def attr_latest(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''It's set to ``true`` for the configuration with the highest ``Revision`` among all configurations that share the same ``ObservabilityConfigurationName`` .
 
         It's set to ``false`` otherwise.
 
         :cloudformationAttribute: Latest
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLatest"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLatest"))
 
     @builtins.property
     @jsii.member(jsii_name="attrObservabilityConfigurationArn")
@@ -651,15 +640,15 @@ class CfnObservabilityConfiguration(
     @jsii.member(jsii_name="observabilityConfigurationRef")
     def observability_configuration_ref(
         self,
-    ) -> "_ObservabilityConfigurationReference_802385c5":
+    ) -> "_aws_apprunner_0e15bed4.ObservabilityConfigurationReference":
         '''A reference to a ObservabilityConfiguration resource.'''
-        return typing.cast("_ObservabilityConfigurationReference_802385c5", jsii.get(self, "observabilityConfigurationRef"))
+        return typing.cast("_aws_apprunner_0e15bed4.ObservabilityConfigurationReference", jsii.get(self, "observabilityConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="observabilityConfigurationName")
@@ -673,20 +662,23 @@ class CfnObservabilityConfiguration(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c26a7cba97d979e2a8926b0558d823516db0c33215fa2d3d69c31dbda532dc09)
+            type_hints = cached_type_hints(_typecheckingstub__c26a7cba97d979e2a8926b0558d823516db0c33215fa2d3d69c31dbda532dc09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "observabilityConfigurationName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your observability configuration resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce47e83931668ff51ac71d820c33d01c438549553e61f61b5004c469dc989b24)
+            type_hints = cached_type_hints(_typecheckingstub__ce47e83931668ff51ac71d820c33d01c438549553e61f61b5004c469dc989b24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -694,17 +686,17 @@ class CfnObservabilityConfiguration(
     @jsii.member(jsii_name="traceConfiguration")
     def trace_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
         '''The configuration of the tracing feature within this observability configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], jsii.get(self, "traceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], jsii.get(self, "traceConfiguration"))
 
     @trace_configuration.setter
     def trace_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnObservabilityConfiguration.TraceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd55266808c4e55e36644c988b23fab8e1251933cfea55aef9c05afb1e4df38)
+            type_hints = cached_type_hints(_typecheckingstub__9bd55266808c4e55e36644c988b23fab8e1251933cfea55aef9c05afb1e4df38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "traceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -733,7 +725,7 @@ class CfnObservabilityConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e60603c83c7c60d6c57801b50c84000528fb34ca799fc3840032663efef1221a)
+                type_hints = cached_type_hints(_typecheckingstub__e60603c83c7c60d6c57801b50c84000528fb34ca799fc3840032663efef1221a)
                 check_type(argname="argument vendor", value=vendor, expected_type=type_hints["vendor"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "vendor": vendor,
@@ -775,8 +767,8 @@ class CfnObservabilityConfigurationProps:
         self,
         *,
         observability_configuration_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        trace_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        trace_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnObservabilityConfiguration.TraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnObservabilityConfiguration``.
 
@@ -806,7 +798,7 @@ class CfnObservabilityConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2)
+            type_hints = cached_type_hints(_typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2)
             check_type(argname="argument observability_configuration_name", value=observability_configuration_name, expected_type=type_hints["observability_configuration_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument trace_configuration", value=trace_configuration, expected_type=type_hints["trace_configuration"])
@@ -837,7 +829,7 @@ class CfnObservabilityConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your observability configuration resource.
 
         A tag is a key-value pair.
@@ -845,12 +837,12 @@ class CfnObservabilityConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def trace_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnObservabilityConfiguration.TraceConfigurationProperty"]]:
         '''The configuration of the tracing feature within this observability configuration.
 
         If you don't specify it, App Runner doesn't enable tracing.
@@ -858,7 +850,7 @@ class CfnObservabilityConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-observabilityconfiguration.html#cfn-apprunner-observabilityconfiguration-traceconfiguration
         '''
         result = self._values.get("trace_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnObservabilityConfiguration.TraceConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -872,9 +864,9 @@ class CfnObservabilityConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceRef_276b8cc6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apprunner_0e15bed4.IServiceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnService(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apprunner.CfnService",
 ):
@@ -1000,15 +992,15 @@ class CfnService(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        source_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        observability_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        observability_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AppRunner::Service``.
 
@@ -1025,7 +1017,7 @@ class CfnService(
         :param tags: An optional list of metadata items that you can associate with the App Runner service resource. A tag is a key-value pair.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f3344ac8fb704588f823f8fe3348e96180ce7161e948774f8ff0039717ac7d1)
+            type_hints = cached_type_hints(_typecheckingstub__4f3344ac8fb704588f823f8fe3348e96180ce7161e948774f8ff0039717ac7d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceProps(
@@ -1044,12 +1036,15 @@ class CfnService(
 
     @jsii.member(jsii_name="arnForService")
     @builtins.classmethod
-    def arn_for_service(cls, resource: "_IServiceRef_276b8cc6") -> builtins.str:
+    def arn_for_service(
+        cls,
+        resource: "_aws_apprunner_0e15bed4.IServiceRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6f8abcf3c751311864f64ca375c6961e4b50cd160a536f5f02bccee469b4f34)
+            type_hints = cached_type_hints(_typecheckingstub__c6f8abcf3c751311864f64ca375c6961e4b50cd160a536f5f02bccee469b4f34)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForService", [resource]))
 
@@ -1061,18 +1056,18 @@ class CfnService(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76b7035bf29e41568ef40a90ec58591492eff458a87e3f62638e02ddd9b15f2e)
+            type_hints = cached_type_hints(_typecheckingstub__76b7035bf29e41568ef40a90ec58591492eff458a87e3f62638e02ddd9b15f2e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnService", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3cf8e51d4eccb32ee3ef3461167841e06a93d9694b1e83f5dc77dbb74162e65)
+            type_hints = cached_type_hints(_typecheckingstub__f3cf8e51d4eccb32ee3ef3461167841e06a93d9694b1e83f5dc77dbb74162e65)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1085,7 +1080,7 @@ class CfnService(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19aa03b24cc6712dedc0bf27c1e5234ddbcc99a0e361aaca63670154b108f203)
+            type_hints = cached_type_hints(_typecheckingstub__19aa03b24cc6712dedc0bf27c1e5234ddbcc99a0e361aaca63670154b108f203)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1150,31 +1145,31 @@ class CfnService(
 
     @builtins.property
     @jsii.member(jsii_name="serviceRef")
-    def service_ref(self) -> "_ServiceReference_b4605cef":
+    def service_ref(self) -> "_aws_apprunner_0e15bed4.ServiceReference":
         '''A reference to a Service resource.'''
-        return typing.cast("_ServiceReference_b4605cef", jsii.get(self, "serviceRef"))
+        return typing.cast("_aws_apprunner_0e15bed4.ServiceReference", jsii.get(self, "serviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="sourceConfiguration")
     def source_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceConfigurationProperty"]:
         '''The source to deploy to the App Runner service.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"], jsii.get(self, "sourceConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceConfigurationProperty"], jsii.get(self, "sourceConfiguration"))
 
     @source_configuration.setter
     def source_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f906f3589e623c80d2665ec2f81b5b46a9bfd75fc62158280dc192dc67e9080a)
+            type_hints = cached_type_hints(_typecheckingstub__f906f3589e623c80d2665ec2f81b5b46a9bfd75fc62158280dc192dc67e9080a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1190,7 +1185,7 @@ class CfnService(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__830032968a02bd9d8caa04a33e010b953e99500f74dbb0205d3bf7810e095356)
+            type_hints = cached_type_hints(_typecheckingstub__830032968a02bd9d8caa04a33e010b953e99500f74dbb0205d3bf7810e095356)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1198,17 +1193,17 @@ class CfnService(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EncryptionConfigurationProperty"]]:
         '''An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01e3a7e233a752aeff40d77129499d66848c13059c089f87f3bb99c5c1252ec2)
+            type_hints = cached_type_hints(_typecheckingstub__01e3a7e233a752aeff40d77129499d66848c13059c089f87f3bb99c5c1252ec2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1216,17 +1211,17 @@ class CfnService(
     @jsii.member(jsii_name="healthCheckConfiguration")
     def health_check_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigurationProperty"]]:
         '''The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]], jsii.get(self, "healthCheckConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigurationProperty"]], jsii.get(self, "healthCheckConfiguration"))
 
     @health_check_configuration.setter
     def health_check_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2852aa3e1fcf08cbe02de00601e5be10bd2bac5a7477e1953199f545c46795cc)
+            type_hints = cached_type_hints(_typecheckingstub__2852aa3e1fcf08cbe02de00601e5be10bd2bac5a7477e1953199f545c46795cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1234,17 +1229,17 @@ class CfnService(
     @jsii.member(jsii_name="instanceConfiguration")
     def instance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.InstanceConfigurationProperty"]]:
         '''The runtime configuration of instances (scaling units) of your service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]], jsii.get(self, "instanceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.InstanceConfigurationProperty"]], jsii.get(self, "instanceConfiguration"))
 
     @instance_configuration.setter
     def instance_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.InstanceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8ee1f12a50b167c1a9699060f4057c41f5a075862c428087001b8d07a6413b5)
+            type_hints = cached_type_hints(_typecheckingstub__b8ee1f12a50b167c1a9699060f4057c41f5a075862c428087001b8d07a6413b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1252,17 +1247,17 @@ class CfnService(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.NetworkConfigurationProperty"]]:
         '''Configuration settings related to network traffic of the web application that the App Runner service runs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af223adf09794f1f0c996dedbd19dd70289a9751ee54ff8b7d4b84ca0192e8a9)
+            type_hints = cached_type_hints(_typecheckingstub__af223adf09794f1f0c996dedbd19dd70289a9751ee54ff8b7d4b84ca0192e8a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1270,17 +1265,17 @@ class CfnService(
     @jsii.member(jsii_name="observabilityConfiguration")
     def observability_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceObservabilityConfigurationProperty"]]:
         '''The observability configuration of your service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]], jsii.get(self, "observabilityConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceObservabilityConfigurationProperty"]], jsii.get(self, "observabilityConfiguration"))
 
     @observability_configuration.setter
     def observability_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceObservabilityConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d5c2cafccb24b7204e32b739f13c908a8446a7a9ff65741a742b58db4fef347)
+            type_hints = cached_type_hints(_typecheckingstub__6d5c2cafccb24b7204e32b739f13c908a8446a7a9ff65741a742b58db4fef347)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "observabilityConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1293,20 +1288,23 @@ class CfnService(
     @service_name.setter
     def service_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76c8ce698d6dc1e05d9ea8ec49310addce6b06b6e33ed66d51296ca06479eb5d)
+            type_hints = cached_type_hints(_typecheckingstub__76c8ce698d6dc1e05d9ea8ec49310addce6b06b6e33ed66d51296ca06479eb5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the App Runner service resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6597cd10121d1839d04290eed34b55273823d79529be0202ecac53c9024d8b4)
+            type_hints = cached_type_hints(_typecheckingstub__a6597cd10121d1839d04290eed34b55273823d79529be0202ecac53c9024d8b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1347,7 +1345,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30b5454bc76bfa3acad5b8180bd5d14cae0f0cef45569b007bdd5780adb8b08a)
+                type_hints = cached_type_hints(_typecheckingstub__30b5454bc76bfa3acad5b8180bd5d14cae0f0cef45569b007bdd5780adb8b08a)
                 check_type(argname="argument access_role_arn", value=access_role_arn, expected_type=type_hints["access_role_arn"])
                 check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1402,7 +1400,7 @@ class CfnService(
             self,
             *,
             configuration_source: builtins.str,
-            code_configuration_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeConfigurationValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_configuration_values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.CodeConfigurationValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration that AWS App Runner uses to build and run an App Runner service from a source code repository.
 
@@ -1441,7 +1439,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bdc80c8b1b9fde246d05e948f871c86f580cb4c5a42e76d87cac13d2da0f0d88)
+                type_hints = cached_type_hints(_typecheckingstub__bdc80c8b1b9fde246d05e948f871c86f580cb4c5a42e76d87cac13d2da0f0d88)
                 check_type(argname="argument configuration_source", value=configuration_source, expected_type=type_hints["configuration_source"])
                 check_type(argname="argument code_configuration_values", value=code_configuration_values, expected_type=type_hints["code_configuration_values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1466,7 +1464,7 @@ class CfnService(
         @builtins.property
         def code_configuration_values(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeConfigurationValuesProperty"]]:
             '''The basic configuration for building and running the App Runner service.
 
             Use it to quickly launch an App Runner service without providing a ``apprunner.yaml`` file in the source code repository (or ignoring the file if it exists).
@@ -1474,7 +1472,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfiguration.html#cfn-apprunner-service-codeconfiguration-codeconfigurationvalues
             '''
             result = self._values.get("code_configuration_values")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeConfigurationValuesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1506,8 +1504,8 @@ class CfnService(
             runtime: builtins.str,
             build_command: typing.Optional[builtins.str] = None,
             port: typing.Optional[builtins.str] = None,
-            runtime_environment_secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            runtime_environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_secrets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             start_command: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the basic configuration needed for building and running an AWS App Runner service.
@@ -1548,7 +1546,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8ff281e24562ce64ca7e6650ff7d53db9017e2cd96873b1811de38a0d9e93f8d)
+                type_hints = cached_type_hints(_typecheckingstub__8ff281e24562ce64ca7e6650ff7d53db9017e2cd96873b1811de38a0d9e93f8d)
                 check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
                 check_type(argname="argument build_command", value=build_command, expected_type=type_hints["build_command"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -1604,7 +1602,7 @@ class CfnService(
         @builtins.property
         def runtime_environment_secrets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]]:
             '''An array of key-value pairs representing the secrets and parameters that get referenced to your service as an environment variable.
 
             The supported values are either the full Amazon Resource Name (ARN) of the AWS Secrets Manager secret or the full ARN of the parameter in the AWS Systems Manager Parameter Store.
@@ -1616,12 +1614,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfigurationvalues.html#cfn-apprunner-service-codeconfigurationvalues-runtimeenvironmentsecrets
             '''
             result = self._values.get("runtime_environment_secrets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def runtime_environment_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]]:
             '''The environment variables that are available to your running AWS App Runner service.
 
             An array of key-value pairs.
@@ -1629,7 +1627,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-codeconfigurationvalues.html#cfn-apprunner-service-codeconfigurationvalues-runtimeenvironmentvariables
             '''
             result = self._values.get("runtime_environment_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def start_command(self) -> typing.Optional[builtins.str]:
@@ -1666,8 +1664,8 @@ class CfnService(
             self,
             *,
             repository_url: builtins.str,
-            source_code_version: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceCodeVersionProperty", typing.Dict[builtins.str, typing.Any]]],
-            code_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_code_version: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.SourceCodeVersionProperty", typing.Dict[builtins.str, typing.Any]]],
+            code_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.CodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             source_directory: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes a source code repository.
@@ -1719,7 +1717,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e57d98a975d0c8c64544e6ebe1f5749961d6621131b9650e9c5c571fb374136)
+                type_hints = cached_type_hints(_typecheckingstub__0e57d98a975d0c8c64544e6ebe1f5749961d6621131b9650e9c5c571fb374136)
                 check_type(argname="argument repository_url", value=repository_url, expected_type=type_hints["repository_url"])
                 check_type(argname="argument source_code_version", value=source_code_version, expected_type=type_hints["source_code_version"])
                 check_type(argname="argument code_configuration", value=code_configuration, expected_type=type_hints["code_configuration"])
@@ -1746,19 +1744,19 @@ class CfnService(
         @builtins.property
         def source_code_version(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceCodeVersionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceCodeVersionProperty"]:
             '''The version that should be used within the source code repository.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-coderepository.html#cfn-apprunner-service-coderepository-sourcecodeversion
             '''
             result = self._values.get("source_code_version")
             assert result is not None, "Required property 'source_code_version' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceCodeVersionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceCodeVersionProperty"], result)
 
         @builtins.property
         def code_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeConfigurationProperty"]]:
             '''Configuration for building and running the service from a source code repository.
 
             .. epigraph::
@@ -1768,7 +1766,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-coderepository.html#cfn-apprunner-service-coderepository-codeconfiguration
             '''
             result = self._values.get("code_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeConfigurationProperty"]], result)
 
         @builtins.property
         def source_directory(self) -> typing.Optional[builtins.str]:
@@ -1829,7 +1827,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9aa7300a0ca2f45d7ad8f456f3e12ff6d2c58968cda0f6bff5cf32d86beb0a0e)
+                type_hints = cached_type_hints(_typecheckingstub__9aa7300a0ca2f45d7ad8f456f3e12ff6d2c58968cda0f6bff5cf32d86beb0a0e)
                 check_type(argname="argument egress_type", value=egress_type, expected_type=type_hints["egress_type"])
                 check_type(argname="argument vpc_connector_arn", value=vpc_connector_arn, expected_type=type_hints["vpc_connector_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1899,7 +1897,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dcf4b087c55d0f65d04bce2a56335fb14d4f38cc947dfe30e76df078b84dd053)
+                type_hints = cached_type_hints(_typecheckingstub__dcf4b087c55d0f65d04bce2a56335fb14d4f38cc947dfe30e76df078b84dd053)
                 check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "kms_key": kms_key,
@@ -1977,7 +1975,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6c511197949231301c5b4f96bfc5acfeeb4efc21990365c703df50783e284fe)
+                type_hints = cached_type_hints(_typecheckingstub__f6c511197949231301c5b4f96bfc5acfeeb4efc21990365c703df50783e284fe)
                 check_type(argname="argument healthy_threshold", value=healthy_threshold, expected_type=type_hints["healthy_threshold"])
                 check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2094,8 +2092,8 @@ class CfnService(
             self,
             *,
             port: typing.Optional[builtins.str] = None,
-            runtime_environment_secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            runtime_environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_secrets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            runtime_environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             start_command: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the configuration that AWS App Runner uses to run an App Runner service using an image pulled from a source image repository.
@@ -2128,7 +2126,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b462e731657fa3a312801448c4742df6463407a2dcd5ce1c4ae46c5f7a9db6f3)
+                type_hints = cached_type_hints(_typecheckingstub__b462e731657fa3a312801448c4742df6463407a2dcd5ce1c4ae46c5f7a9db6f3)
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument runtime_environment_secrets", value=runtime_environment_secrets, expected_type=type_hints["runtime_environment_secrets"])
                 check_type(argname="argument runtime_environment_variables", value=runtime_environment_variables, expected_type=type_hints["runtime_environment_variables"])
@@ -2157,7 +2155,7 @@ class CfnService(
         @builtins.property
         def runtime_environment_secrets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]]:
             '''An array of key-value pairs representing the secrets and parameters that get referenced to your service as an environment variable.
 
             The supported values are either the full Amazon Resource Name (ARN) of the AWS Secrets Manager secret or the full ARN of the parameter in the AWS Systems Manager Parameter Store.
@@ -2169,12 +2167,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imageconfiguration.html#cfn-apprunner-service-imageconfiguration-runtimeenvironmentsecrets
             '''
             result = self._values.get("runtime_environment_secrets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def runtime_environment_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]]:
             '''Environment variables that are available to your running App Runner service.
 
             An array of key-value pairs.
@@ -2182,7 +2180,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imageconfiguration.html#cfn-apprunner-service-imageconfiguration-runtimeenvironmentvariables
             '''
             result = self._values.get("runtime_environment_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.KeyValuePairProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.KeyValuePairProperty"]]]], result)
 
         @builtins.property
         def start_command(self) -> typing.Optional[builtins.str]:
@@ -2221,7 +2219,7 @@ class CfnService(
             *,
             image_identifier: builtins.str,
             image_repository_type: builtins.str,
-            image_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes a source image repository.
 
@@ -2258,7 +2256,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39e14e61edb5acbf99056085513b11e8b9db8f919d2e4ada418733b25d52b7c4)
+                type_hints = cached_type_hints(_typecheckingstub__39e14e61edb5acbf99056085513b11e8b9db8f919d2e4ada418733b25d52b7c4)
                 check_type(argname="argument image_identifier", value=image_identifier, expected_type=type_hints["image_identifier"])
                 check_type(argname="argument image_repository_type", value=image_repository_type, expected_type=type_hints["image_repository_type"])
                 check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
@@ -2296,13 +2294,13 @@ class CfnService(
         @builtins.property
         def image_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ImageConfigurationProperty"]]:
             '''Configuration for running the identified image.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-imagerepository.html#cfn-apprunner-service-imagerepository-imageconfiguration
             '''
             result = self._values.get("image_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ImageConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2324,7 +2322,7 @@ class CfnService(
         def __init__(
             self,
             *,
-            is_publicly_accessible: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            is_publicly_accessible: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Network configuration settings for inbound network traffic.
 
@@ -2344,7 +2342,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b531c1f1e02cf0fb643d9fc867b2df6e13a708713664c32fc4b9fc70f38c4b5e)
+                type_hints = cached_type_hints(_typecheckingstub__b531c1f1e02cf0fb643d9fc867b2df6e13a708713664c32fc4b9fc70f38c4b5e)
                 check_type(argname="argument is_publicly_accessible", value=is_publicly_accessible, expected_type=type_hints["is_publicly_accessible"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "is_publicly_accessible": is_publicly_accessible,
@@ -2353,7 +2351,7 @@ class CfnService(
         @builtins.property
         def is_publicly_accessible(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether your App Runner service is publicly accessible.
 
             To make the service publicly accessible set it to ``True`` . To make the service privately accessible, from only within an Amazon VPC set it to ``False`` .
@@ -2362,7 +2360,7 @@ class CfnService(
             '''
             result = self._values.get("is_publicly_accessible")
             assert result is not None, "Required property 'is_publicly_accessible' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2414,7 +2412,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c2ea788bc7a30c83814ed0cbcd539bdaba16e04ffd0e4142985e615d5563cd6)
+                type_hints = cached_type_hints(_typecheckingstub__2c2ea788bc7a30c83814ed0cbcd539bdaba16e04ffd0e4142985e615d5563cd6)
                 check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
                 check_type(argname="argument instance_role_arn", value=instance_role_arn, expected_type=type_hints["instance_role_arn"])
                 check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
@@ -2502,7 +2500,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ad5b38a165675b32873604a58a5b6333391d6020c2ec2524d1a089109b36fa43)
+                type_hints = cached_type_hints(_typecheckingstub__ad5b38a165675b32873604a58a5b6333391d6020c2ec2524d1a089109b36fa43)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2553,8 +2551,8 @@ class CfnService(
         def __init__(
             self,
             *,
-            egress_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EgressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ingress_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.IngressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            egress_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.EgressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ingress_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.IngressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_address_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes configuration settings related to network traffic of an AWS App Runner service.
@@ -2588,7 +2586,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d032584a280064bb60d87b518e3b84a91c70e15015ddb757b83c7545dcc84496)
+                type_hints = cached_type_hints(_typecheckingstub__d032584a280064bb60d87b518e3b84a91c70e15015ddb757b83c7545dcc84496)
                 check_type(argname="argument egress_configuration", value=egress_configuration, expected_type=type_hints["egress_configuration"])
                 check_type(argname="argument ingress_configuration", value=ingress_configuration, expected_type=type_hints["ingress_configuration"])
                 check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
@@ -2603,24 +2601,24 @@ class CfnService(
         @builtins.property
         def egress_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EgressConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EgressConfigurationProperty"]]:
             '''Network configuration settings for outbound message traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html#cfn-apprunner-service-networkconfiguration-egressconfiguration
             '''
             result = self._values.get("egress_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EgressConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EgressConfigurationProperty"]], result)
 
         @builtins.property
         def ingress_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.IngressConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.IngressConfigurationProperty"]]:
             '''Network configuration settings for inbound message traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-networkconfiguration.html#cfn-apprunner-service-networkconfiguration-ingressconfiguration
             '''
             result = self._values.get("ingress_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.IngressConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.IngressConfigurationProperty"]], result)
 
         @builtins.property
         def ip_address_type(self) -> typing.Optional[builtins.str]:
@@ -2656,7 +2654,7 @@ class CfnService(
         def __init__(
             self,
             *,
-            observability_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            observability_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             observability_configuration_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the observability configuration of an AWS App Runner service.
@@ -2683,7 +2681,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11747a926ba64608c74d8a6613e39dc7029d1347c5e88c4498dc163a5720084c)
+                type_hints = cached_type_hints(_typecheckingstub__11747a926ba64608c74d8a6613e39dc7029d1347c5e88c4498dc163a5720084c)
                 check_type(argname="argument observability_enabled", value=observability_enabled, expected_type=type_hints["observability_enabled"])
                 check_type(argname="argument observability_configuration_arn", value=observability_configuration_arn, expected_type=type_hints["observability_configuration_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2695,14 +2693,14 @@ class CfnService(
         @builtins.property
         def observability_enabled(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''When ``true`` , an observability configuration resource is associated with the service, and an ``ObservabilityConfigurationArn`` is specified.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-serviceobservabilityconfiguration.html#cfn-apprunner-service-serviceobservabilityconfiguration-observabilityenabled
             '''
             result = self._values.get("observability_enabled")
             assert result is not None, "Required property 'observability_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def observability_configuration_arn(self) -> typing.Optional[builtins.str]:
@@ -2757,7 +2755,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8e9142c1e1ff6b21306b8295ae86641c592a9ee7f4abb1584e1b81f4c14d228)
+                type_hints = cached_type_hints(_typecheckingstub__c8e9142c1e1ff6b21306b8295ae86641c592a9ee7f4abb1584e1b81f4c14d228)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2814,10 +2812,10 @@ class CfnService(
         def __init__(
             self,
             *,
-            authentication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            code_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.CodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            image_repository: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ImageRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authentication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.AuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            code_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.CodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_repository: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ImageRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the source deployed to an AWS App Runner service.
 
@@ -2895,7 +2893,7 @@ class CfnService(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba4fb6cc4d2a777620eb88ed6607040beb32a47eaf68f2d10e8187935bd51b4a)
+                type_hints = cached_type_hints(_typecheckingstub__ba4fb6cc4d2a777620eb88ed6607040beb32a47eaf68f2d10e8187935bd51b4a)
                 check_type(argname="argument authentication_configuration", value=authentication_configuration, expected_type=type_hints["authentication_configuration"])
                 check_type(argname="argument auto_deployments_enabled", value=auto_deployments_enabled, expected_type=type_hints["auto_deployments_enabled"])
                 check_type(argname="argument code_repository", value=code_repository, expected_type=type_hints["code_repository"])
@@ -2913,18 +2911,18 @@ class CfnService(
         @builtins.property
         def authentication_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AuthenticationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.AuthenticationConfigurationProperty"]]:
             '''Describes the resources that are needed to authenticate access to some source repositories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-authenticationconfiguration
             '''
             result = self._values.get("authentication_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AuthenticationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.AuthenticationConfigurationProperty"]], result)
 
         @builtins.property
         def auto_deployments_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , continuous integration from the source repository is enabled for the App Runner service.
 
             Each repository change (including any source code commit or new image version) starts a deployment.
@@ -2934,12 +2932,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-autodeploymentsenabled
             '''
             result = self._values.get("auto_deployments_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def code_repository(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeRepositoryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeRepositoryProperty"]]:
             '''The description of a source code repository.
 
             You must provide either this member or ``ImageRepository`` (but not both).
@@ -2947,12 +2945,12 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-coderepository
             '''
             result = self._values.get("code_repository")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.CodeRepositoryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.CodeRepositoryProperty"]], result)
 
         @builtins.property
         def image_repository(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageRepositoryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ImageRepositoryProperty"]]:
             '''The description of a source image repository.
 
             You must provide either this member or ``CodeRepository`` (but not both).
@@ -2960,7 +2958,7 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apprunner-service-sourceconfiguration.html#cfn-apprunner-service-sourceconfiguration-imagerepository
             '''
             result = self._values.get("image_repository")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ImageRepositoryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ImageRepositoryProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2993,15 +2991,15 @@ class CfnServiceProps:
     def __init__(
         self,
         *,
-        source_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        observability_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        observability_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceObservabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         service_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnService``.
 
@@ -3127,7 +3125,7 @@ class CfnServiceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa)
+            type_hints = cached_type_hints(_typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa)
             check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
             check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
@@ -3160,7 +3158,7 @@ class CfnServiceProps:
     @builtins.property
     def source_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceConfigurationProperty"]:
         '''The source to deploy to the App Runner service.
 
         It can be a code or an image repository.
@@ -3169,7 +3167,7 @@ class CfnServiceProps:
         '''
         result = self._values.get("source_configuration")
         assert result is not None, "Required property 'source_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.SourceConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.SourceConfigurationProperty"], result)
 
     @builtins.property
     def auto_scaling_configuration_arn(self) -> typing.Optional[builtins.str]:
@@ -3189,7 +3187,7 @@ class CfnServiceProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EncryptionConfigurationProperty"]]:
         '''An optional custom encryption key that App Runner uses to encrypt the copy of your source repository that it maintains and your service logs.
 
         By default, App Runner uses an AWS managed key .
@@ -3197,51 +3195,51 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def health_check_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigurationProperty"]]:
         '''The settings for the health check that AWS App Runner performs to monitor the health of the App Runner service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-healthcheckconfiguration
         '''
         result = self._values.get("health_check_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.HealthCheckConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.HealthCheckConfigurationProperty"]], result)
 
     @builtins.property
     def instance_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.InstanceConfigurationProperty"]]:
         '''The runtime configuration of instances (scaling units) of your service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-instanceconfiguration
         '''
         result = self._values.get("instance_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.InstanceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.InstanceConfigurationProperty"]], result)
 
     @builtins.property
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.NetworkConfigurationProperty"]]:
         '''Configuration settings related to network traffic of the web application that the App Runner service runs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-networkconfiguration
         '''
         result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NetworkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.NetworkConfigurationProperty"]], result)
 
     @builtins.property
     def observability_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceObservabilityConfigurationProperty"]]:
         '''The observability configuration of your service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-observabilityconfiguration
         '''
         result = self._values.get("observability_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceObservabilityConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceObservabilityConfigurationProperty"]], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -3257,7 +3255,7 @@ class CfnServiceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the App Runner service resource.
 
         A tag is a key-value pair.
@@ -3265,7 +3263,7 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-service.html#cfn-apprunner-service-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3279,9 +3277,9 @@ class CfnServiceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVpcConnectorRef_37eb44ed, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apprunner_0e15bed4.IVpcConnectorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVpcConnector(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcConnector",
 ):
@@ -3321,8 +3319,8 @@ class CfnVpcConnector(
         id: builtins.str,
         *,
         subnets: typing.Sequence[builtins.str],
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_connector_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::AppRunner::VpcConnector``.
@@ -3335,7 +3333,7 @@ class CfnVpcConnector(
         :param vpc_connector_name: A name for the VPC connector. If you don't specify a name, CloudFormation generates a name for your VPC connector.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be589026c3fd7633e7cbbae6a2059ec8d285e62b05b7dce52a6d06b534940bf3)
+            type_hints = cached_type_hints(_typecheckingstub__be589026c3fd7633e7cbbae6a2059ec8d285e62b05b7dce52a6d06b534940bf3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVpcConnectorProps(
@@ -3351,13 +3349,13 @@ class CfnVpcConnector(
     @builtins.classmethod
     def arn_for_vpc_connector(
         cls,
-        resource: "_IVpcConnectorRef_37eb44ed",
+        resource: "_aws_apprunner_0e15bed4.IVpcConnectorRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d48e3355ae4016b25937c4573225ac7242b4d9111c8bd0fc755da7d061a66a5e)
+            type_hints = cached_type_hints(_typecheckingstub__d48e3355ae4016b25937c4573225ac7242b4d9111c8bd0fc755da7d061a66a5e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcConnector", [resource]))
 
@@ -3369,18 +3367,18 @@ class CfnVpcConnector(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__436fd6424b015a73bbd8d79679748076cc457e3435ed3478642a123aa79a1f3c)
+            type_hints = cached_type_hints(_typecheckingstub__436fd6424b015a73bbd8d79679748076cc457e3435ed3478642a123aa79a1f3c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVpcConnector", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b371f940488f7fa52b8c0a37052f1002b78c797329074722d8cd41d136966b)
+            type_hints = cached_type_hints(_typecheckingstub__e7b371f940488f7fa52b8c0a37052f1002b78c797329074722d8cd41d136966b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3393,7 +3391,7 @@ class CfnVpcConnector(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1bf179d010e21327b912bc88a37f13c42e0b69b1a0ae11b8ccba53ac85ac73f)
+            type_hints = cached_type_hints(_typecheckingstub__d1bf179d010e21327b912bc88a37f13c42e0b69b1a0ae11b8ccba53ac85ac73f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3438,15 +3436,15 @@ class CfnVpcConnector(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcConnectorRef")
-    def vpc_connector_ref(self) -> "_VpcConnectorReference_0d63765c":
+    def vpc_connector_ref(self) -> "_aws_apprunner_0e15bed4.VpcConnectorReference":
         '''A reference to a VpcConnector resource.'''
-        return typing.cast("_VpcConnectorReference_0d63765c", jsii.get(self, "vpcConnectorRef"))
+        return typing.cast("_aws_apprunner_0e15bed4.VpcConnectorReference", jsii.get(self, "vpcConnectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="subnets")
@@ -3457,7 +3455,7 @@ class CfnVpcConnector(
     @subnets.setter
     def subnets(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc85cb9354005c37a9ed05d8af5f08ab9efac90811d669fd89b15dfdc01f4e4f)
+            type_hints = cached_type_hints(_typecheckingstub__cc85cb9354005c37a9ed05d8af5f08ab9efac90811d669fd89b15dfdc01f4e4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
 
@@ -3473,20 +3471,23 @@ class CfnVpcConnector(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9179e71101f183e34524aa60ee5842981915b91fd8bd3763409dde35761ee21)
+            type_hints = cached_type_hints(_typecheckingstub__f9179e71101f183e34524aa60ee5842981915b91fd8bd3763409dde35761ee21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your VPC connector resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e48b3594376ff2dc2aa341938ae9d299f6aac12ddb2a5b0aeb8fe1a0aff994a)
+            type_hints = cached_type_hints(_typecheckingstub__1e48b3594376ff2dc2aa341938ae9d299f6aac12ddb2a5b0aeb8fe1a0aff994a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3499,7 +3500,7 @@ class CfnVpcConnector(
     @vpc_connector_name.setter
     def vpc_connector_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73ecdd2e55710876cadbdcb04b4c04bb7358741703d21df85a608b981ffd28f4)
+            type_hints = cached_type_hints(_typecheckingstub__73ecdd2e55710876cadbdcb04b4c04bb7358741703d21df85a608b981ffd28f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConnectorName", value) # pyright: ignore[reportArgumentType]
 
@@ -3519,8 +3520,8 @@ class CfnVpcConnectorProps:
         self,
         *,
         subnets: typing.Sequence[builtins.str],
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_connector_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVpcConnector``.
@@ -3553,7 +3554,7 @@ class CfnVpcConnectorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282)
+            type_hints = cached_type_hints(_typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282)
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3586,7 +3587,7 @@ class CfnVpcConnectorProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets.
 
         If not specified, App Runner uses the default security group of the Amazon VPC. The default security group allows all outbound traffic.
@@ -3594,10 +3595,10 @@ class CfnVpcConnectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-securitygroups
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of metadata items that you can associate with your VPC connector resource.
 
         A tag is a key-value pair.
@@ -3608,7 +3609,7 @@ class CfnVpcConnectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcconnector.html#cfn-apprunner-vpcconnector-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_connector_name(self) -> typing.Optional[builtins.str]:
@@ -3633,9 +3634,9 @@ class CfnVpcConnectorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVpcIngressConnectionRef_58d73e34, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_apprunner_0e15bed4.IVpcIngressConnectionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVpcIngressConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apprunner.CfnVpcIngressConnection",
 ):
@@ -3677,9 +3678,9 @@ class CfnVpcIngressConnection(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ingress_vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ingress_vpc_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         service_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::AppRunner::VpcIngressConnection``.
@@ -3692,7 +3693,7 @@ class CfnVpcIngressConnection(
         :param vpc_ingress_connection_name: The customer-provided VPC Ingress Connection name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afbb5f9e033f465b7f8f245446cf2a67c499f7755bf4e573bb4e74c62012e3eb)
+            type_hints = cached_type_hints(_typecheckingstub__afbb5f9e033f465b7f8f245446cf2a67c499f7755bf4e573bb4e74c62012e3eb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVpcIngressConnectionProps(
@@ -3708,13 +3709,13 @@ class CfnVpcIngressConnection(
     @builtins.classmethod
     def arn_for_vpc_ingress_connection(
         cls,
-        resource: "_IVpcIngressConnectionRef_58d73e34",
+        resource: "_aws_apprunner_0e15bed4.IVpcIngressConnectionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c87b856f3cb85d608c841ce8d6e4b56eafbf705ac36b1d61858622e6d2db264)
+            type_hints = cached_type_hints(_typecheckingstub__8c87b856f3cb85d608c841ce8d6e4b56eafbf705ac36b1d61858622e6d2db264)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcIngressConnection", [resource]))
 
@@ -3726,18 +3727,18 @@ class CfnVpcIngressConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3a0eded22f4136a4a96f2a671ff2024d17d8484517dd7707ab33cfb4dce2d82)
+            type_hints = cached_type_hints(_typecheckingstub__b3a0eded22f4136a4a96f2a671ff2024d17d8484517dd7707ab33cfb4dce2d82)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVpcIngressConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f67f9fb8c3bc36500287f4f15ffe9e2aac73bd9264d825a1b8feca96b5ab9947)
+            type_hints = cached_type_hints(_typecheckingstub__f67f9fb8c3bc36500287f4f15ffe9e2aac73bd9264d825a1b8feca96b5ab9947)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3750,7 +3751,7 @@ class CfnVpcIngressConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81a7c201018ce7d862062f57e76a1eba22f6f743e6df0d2d572da65e50cb8e0f)
+            type_hints = cached_type_hints(_typecheckingstub__81a7c201018ce7d862062f57e76a1eba22f6f743e6df0d2d572da65e50cb8e0f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3801,31 +3802,33 @@ class CfnVpcIngressConnection(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcIngressConnectionRef")
-    def vpc_ingress_connection_ref(self) -> "_VpcIngressConnectionReference_64b165fb":
+    def vpc_ingress_connection_ref(
+        self,
+    ) -> "_aws_apprunner_0e15bed4.VpcIngressConnectionReference":
         '''A reference to a VpcIngressConnection resource.'''
-        return typing.cast("_VpcIngressConnectionReference_64b165fb", jsii.get(self, "vpcIngressConnectionRef"))
+        return typing.cast("_aws_apprunner_0e15bed4.VpcIngressConnectionReference", jsii.get(self, "vpcIngressConnectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ingressVpcConfiguration")
     def ingress_vpc_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
         '''Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], jsii.get(self, "ingressVpcConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], jsii.get(self, "ingressVpcConfiguration"))
 
     @ingress_vpc_configuration.setter
     def ingress_vpc_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abe73cbc5a7819f686471275cf17a497ef6a4bf8e5abc645677efae99b1c050b)
+            type_hints = cached_type_hints(_typecheckingstub__abe73cbc5a7819f686471275cf17a497ef6a4bf8e5abc645677efae99b1c050b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ingressVpcConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3838,20 +3841,23 @@ class CfnVpcIngressConnection(
     @service_arn.setter
     def service_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d22ffa367118e7d931a0e85912e911ee55aa08d47a290fa3c4ce8c7cb2bfd9d)
+            type_hints = cached_type_hints(_typecheckingstub__1d22ffa367118e7d931a0e85912e911ee55aa08d47a290fa3c4ce8c7cb2bfd9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the VPC Ingress Connection resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a0945b23398d82cc256f9ca7475c53f36cd50e0a5efa6f3fba8bcb142420715)
+            type_hints = cached_type_hints(_typecheckingstub__2a0945b23398d82cc256f9ca7475c53f36cd50e0a5efa6f3fba8bcb142420715)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3864,7 +3870,7 @@ class CfnVpcIngressConnection(
     @vpc_ingress_connection_name.setter
     def vpc_ingress_connection_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2254246359157fd8f5f145f18ba7aa688c879c038dd392722baf08dbca2caec5)
+            type_hints = cached_type_hints(_typecheckingstub__2254246359157fd8f5f145f18ba7aa688c879c038dd392722baf08dbca2caec5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcIngressConnectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -3900,7 +3906,7 @@ class CfnVpcIngressConnection(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0d93a874adc86f6dd70420bba4844973e5ec9219b31184c142b1e2f968d6b0e0)
+                type_hints = cached_type_hints(_typecheckingstub__0d93a874adc86f6dd70420bba4844973e5ec9219b31184c142b1e2f968d6b0e0)
                 check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3954,9 +3960,9 @@ class CfnVpcIngressConnectionProps:
     def __init__(
         self,
         *,
-        ingress_vpc_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ingress_vpc_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcIngressConnection.IngressVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         service_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVpcIngressConnection``.
@@ -3992,7 +3998,7 @@ class CfnVpcIngressConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706)
+            type_hints = cached_type_hints(_typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706)
             check_type(argname="argument ingress_vpc_configuration", value=ingress_vpc_configuration, expected_type=type_hints["ingress_vpc_configuration"])
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4009,14 +4015,14 @@ class CfnVpcIngressConnectionProps:
     @builtins.property
     def ingress_vpc_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"]:
         '''Specifications for the customer’s Amazon VPC and the related AWS PrivateLink VPC endpoint that are used to create the VPC Ingress Connection resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-ingressvpcconfiguration
         '''
         result = self._values.get("ingress_vpc_configuration")
         assert result is not None, "Required property 'ingress_vpc_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcIngressConnection.IngressVpcConfigurationProperty"], result)
 
     @builtins.property
     def service_arn(self) -> builtins.str:
@@ -4029,7 +4035,7 @@ class CfnVpcIngressConnectionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the VPC Ingress Connection resource.
 
         A tag is a key-value pair.
@@ -4037,7 +4043,7 @@ class CfnVpcIngressConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apprunner-vpcingressconnection.html#cfn-apprunner-vpcingressconnection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_ingress_connection_name(self) -> typing.Optional[builtins.str]:
@@ -4083,13 +4089,13 @@ def _typecheckingstub__a097973cb063319e04b0f6e6c21b4cfd5c92b8418d4ae98fd7a13b5ef
     max_concurrency: typing.Optional[jsii.Number] = None,
     max_size: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b07092ed9a3c8f611b357cee86d2b88d22d76e53f344d607685c237ceccda147(
-    resource: _IAutoScalingConfigurationRef_99168b63,
+    resource: _aws_apprunner_0e15bed4.IAutoScalingConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4101,7 +4107,7 @@ def _typecheckingstub__18cec198649927ccc038a8e1bf53fc79b383c537c0d1abf4ed2b1d2ce
     pass
 
 def _typecheckingstub__543708ceb6604b166bc6eed37718011031e49891f6312bd156560547d85091a3(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4137,7 +4143,7 @@ def _typecheckingstub__804986513a4dd9744a0afef975cf1e8a6c7345cb309f071e4ff0a9131
     pass
 
 def _typecheckingstub__eb90876342a230c9991099f852e8e245b9b8c860b209c3ebdfa443bf9af5660a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4148,7 +4154,7 @@ def _typecheckingstub__d64ff92813f3f968746f4f41c6f17d2e277154809c684b9c520b7ab47
     max_concurrency: typing.Optional[jsii.Number] = None,
     max_size: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4158,14 +4164,14 @@ def _typecheckingstub__b238f814243acf19fa88af79842810e60380a88ae9065727ec71a1f3e
     id: builtins.str,
     *,
     observability_configuration_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trace_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd84b25eaccc90a9b1c076d3c7ca8fa5d7ea74d4897284e61f1b4cc1e05e16ca(
-    resource: _IObservabilityConfigurationRef_fbef63e4,
+    resource: _aws_apprunner_0e15bed4.IObservabilityConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4177,7 +4183,7 @@ def _typecheckingstub__1ff284e1a609d460abc9b878e675e5f0e40fb8eedf50b6445dd1447f4
     pass
 
 def _typecheckingstub__7573b8057d1f727c6f989a8a051a5419de5cb4e5bfba9e84827ba331b857930b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4195,13 +4201,13 @@ def _typecheckingstub__c26a7cba97d979e2a8926b0558d823516db0c33215fa2d3d69c31dbda
     pass
 
 def _typecheckingstub__ce47e83931668ff51ac71d820c33d01c438549553e61f61b5004c469dc989b24(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9bd55266808c4e55e36644c988b23fab8e1251933cfea55aef9c05afb1e4df38(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnObservabilityConfiguration.TraceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnObservabilityConfiguration.TraceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4216,8 +4222,8 @@ def _typecheckingstub__e60603c83c7c60d6c57801b50c84000528fb34ca799fc3840032663ef
 def _typecheckingstub__c1debdf716fbe9ec809b1573ccbd25ac6c6aa5901a77a6b6c323eb8445dd9cc2(
     *,
     observability_configuration_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trace_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnObservabilityConfiguration.TraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4226,21 +4232,21 @@ def _typecheckingstub__4f3344ac8fb704588f823f8fe3348e96180ce7161e948774f8ff00397
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    observability_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c6f8abcf3c751311864f64ca375c6961e4b50cd160a536f5f02bccee469b4f34(
-    resource: _IServiceRef_276b8cc6,
+    resource: _aws_apprunner_0e15bed4.IServiceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4252,7 +4258,7 @@ def _typecheckingstub__76b7035bf29e41568ef40a90ec58591492eff458a87e3f62638e02ddd
     pass
 
 def _typecheckingstub__f3cf8e51d4eccb32ee3ef3461167841e06a93d9694b1e83f5dc77dbb74162e65(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4264,7 +4270,7 @@ def _typecheckingstub__19aa03b24cc6712dedc0bf27c1e5234ddbcc99a0e361aaca63670154b
     pass
 
 def _typecheckingstub__f906f3589e623c80d2665ec2f81b5b46a9bfd75fc62158280dc192dc67e9080a(
-    value: typing.Union[_IResolvable_da3f097b, CfnService.SourceConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.SourceConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4276,31 +4282,31 @@ def _typecheckingstub__830032968a02bd9d8caa04a33e010b953e99500f74dbb0205d3bf7810
     pass
 
 def _typecheckingstub__01e3a7e233a752aeff40d77129499d66848c13059c089f87f3bb99c5c1252ec2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2852aa3e1fcf08cbe02de00601e5be10bd2bac5a7477e1953199f545c46795cc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.HealthCheckConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.HealthCheckConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b8ee1f12a50b167c1a9699060f4057c41f5a075862c428087001b8d07a6413b5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.InstanceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.InstanceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__af223adf09794f1f0c996dedbd19dd70289a9751ee54ff8b7d4b84ca0192e8a9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.NetworkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.NetworkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6d5c2cafccb24b7204e32b739f13c908a8446a7a9ff65741a742b58db4fef347(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ServiceObservabilityConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.ServiceObservabilityConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4312,7 +4318,7 @@ def _typecheckingstub__76c8ce698d6dc1e05d9ea8ec49310addce6b06b6e33ed66d51296ca06
     pass
 
 def _typecheckingstub__a6597cd10121d1839d04290eed34b55273823d79529be0202ecac53c9024d8b4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4328,7 +4334,7 @@ def _typecheckingstub__30b5454bc76bfa3acad5b8180bd5d14cae0f0cef45569b007bdd5780a
 def _typecheckingstub__bdc80c8b1b9fde246d05e948f871c86f580cb4c5a42e76d87cac13d2da0f0d88(
     *,
     configuration_source: builtins.str,
-    code_configuration_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.CodeConfigurationValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code_configuration_values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.CodeConfigurationValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4338,8 +4344,8 @@ def _typecheckingstub__8ff281e24562ce64ca7e6650ff7d53db9017e2cd96873b1811de38a0d
     runtime: builtins.str,
     build_command: typing.Optional[builtins.str] = None,
     port: typing.Optional[builtins.str] = None,
-    runtime_environment_secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    runtime_environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    runtime_environment_secrets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    runtime_environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     start_command: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4348,8 +4354,8 @@ def _typecheckingstub__8ff281e24562ce64ca7e6650ff7d53db9017e2cd96873b1811de38a0d
 def _typecheckingstub__0e57d98a975d0c8c64544e6ebe1f5749961d6621131b9650e9c5c571fb374136(
     *,
     repository_url: builtins.str,
-    source_code_version: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SourceCodeVersionProperty, typing.Dict[builtins.str, typing.Any]]],
-    code_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.CodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_code_version: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.SourceCodeVersionProperty, typing.Dict[builtins.str, typing.Any]]],
+    code_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.CodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4385,8 +4391,8 @@ def _typecheckingstub__f6c511197949231301c5b4f96bfc5acfeeb4efc21990365c703df5078
 def _typecheckingstub__b462e731657fa3a312801448c4742df6463407a2dcd5ce1c4ae46c5f7a9db6f3(
     *,
     port: typing.Optional[builtins.str] = None,
-    runtime_environment_secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    runtime_environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    runtime_environment_secrets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    runtime_environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     start_command: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4396,14 +4402,14 @@ def _typecheckingstub__39e14e61edb5acbf99056085513b11e8b9db8f919d2e4ada418733b25
     *,
     image_identifier: builtins.str,
     image_repository_type: builtins.str,
-    image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ImageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ImageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b531c1f1e02cf0fb643d9fc867b2df6e13a708713664c32fc4b9fc70f38c4b5e(
     *,
-    is_publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    is_publicly_accessible: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4427,8 +4433,8 @@ def _typecheckingstub__ad5b38a165675b32873604a58a5b6333391d6020c2ec2524d1a089109
 
 def _typecheckingstub__d032584a280064bb60d87b518e3b84a91c70e15015ddb757b83c7545dcc84496(
     *,
-    egress_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.EgressConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.IngressConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    egress_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.EgressConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.IngressConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4436,7 +4442,7 @@ def _typecheckingstub__d032584a280064bb60d87b518e3b84a91c70e15015ddb757b83c7545d
 
 def _typecheckingstub__11747a926ba64608c74d8a6613e39dc7029d1347c5e88c4498dc163a5720084c(
     *,
-    observability_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    observability_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     observability_configuration_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4452,25 +4458,25 @@ def _typecheckingstub__c8e9142c1e1ff6b21306b8295ae86641c592a9ee7f4abb1584e1b81f4
 
 def _typecheckingstub__ba4fb6cc4d2a777620eb88ed6607040beb32a47eaf68f2d10e8187935bd51b4a(
     *,
-    authentication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    code_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.CodeRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_repository: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ImageRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authentication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.AuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_deployments_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    code_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.CodeRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_repository: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ImageRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37772da8e2081252d29ad212c4bce9ca489c11a77271153d93e81976b37d45aa(
     *,
-    source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     auto_scaling_configuration_arn: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    observability_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    observability_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceObservabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4480,15 +4486,15 @@ def _typecheckingstub__be589026c3fd7633e7cbbae6a2059ec8d285e62b05b7dce52a6d06b53
     id: builtins.str,
     *,
     subnets: typing.Sequence[builtins.str],
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_connector_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d48e3355ae4016b25937c4573225ac7242b4d9111c8bd0fc755da7d061a66a5e(
-    resource: _IVpcConnectorRef_37eb44ed,
+    resource: _aws_apprunner_0e15bed4.IVpcConnectorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4500,7 +4506,7 @@ def _typecheckingstub__436fd6424b015a73bbd8d79679748076cc457e3435ed3478642a123aa
     pass
 
 def _typecheckingstub__e7b371f940488f7fa52b8c0a37052f1002b78c797329074722d8cd41d136966b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4524,7 +4530,7 @@ def _typecheckingstub__f9179e71101f183e34524aa60ee5842981915b91fd8bd3763409dde35
     pass
 
 def _typecheckingstub__1e48b3594376ff2dc2aa341938ae9d299f6aac12ddb2a5b0aeb8fe1a0aff994a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4538,8 +4544,8 @@ def _typecheckingstub__73ecdd2e55710876cadbdcb04b4c04bb7358741703d21df85a608b981
 def _typecheckingstub__b3874001d469c9a53bc1ebacc92f127d716349bc989287cfb6de624b3a435282(
     *,
     subnets: typing.Sequence[builtins.str],
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_connector_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4549,16 +4555,16 @@ def _typecheckingstub__afbb5f9e033f465b7f8f245446cf2a67c499f7755bf4e573bb4e74c62
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    ingress_vpc_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8c87b856f3cb85d608c841ce8d6e4b56eafbf705ac36b1d61858622e6d2db264(
-    resource: _IVpcIngressConnectionRef_58d73e34,
+    resource: _aws_apprunner_0e15bed4.IVpcIngressConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4570,7 +4576,7 @@ def _typecheckingstub__b3a0eded22f4136a4a96f2a671ff2024d17d8484517dd7707ab33cfb4
     pass
 
 def _typecheckingstub__f67f9fb8c3bc36500287f4f15ffe9e2aac73bd9264d825a1b8feca96b5ab9947(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4582,7 +4588,7 @@ def _typecheckingstub__81a7c201018ce7d862062f57e76a1eba22f6f743e6df0d2d572da65e5
     pass
 
 def _typecheckingstub__abe73cbc5a7819f686471275cf17a497ef6a4bf8e5abc645677efae99b1c050b(
-    value: typing.Union[_IResolvable_da3f097b, CfnVpcIngressConnection.IngressVpcConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcIngressConnection.IngressVpcConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4594,7 +4600,7 @@ def _typecheckingstub__1d22ffa367118e7d931a0e85912e911ee55aa08d47a290fa3c4ce8c7c
     pass
 
 def _typecheckingstub__2a0945b23398d82cc256f9ca7475c53f36cd50e0a5efa6f3fba8bcb142420715(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4615,9 +4621,9 @@ def _typecheckingstub__0d93a874adc86f6dd70420bba4844973e5ec9219b31184c142b1e2f96
 
 def _typecheckingstub__2bf477654ff7633b979d8887848a90ba10d61fd01fb42e291521adefbd4d3706(
     *,
-    ingress_vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    ingress_vpc_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcIngressConnection.IngressVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

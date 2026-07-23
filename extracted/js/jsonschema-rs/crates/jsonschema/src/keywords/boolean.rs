@@ -4,26 +4,26 @@ use crate::{
     error::ValidationError,
     keywords::CompilationResult,
     validator::{Validate, ValidationContext},
+    Json, JsonNode,
 };
-use serde_json::Value;
 
 pub(crate) struct FalseValidator {
     location: Location,
 }
 impl FalseValidator {
     #[inline]
-    pub(crate) fn compile<'a>(location: Location) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(location: Location) -> CompilationResult<'a, F> {
         Ok(Box::new(FalseValidator { location }))
     }
 }
-impl Validate for FalseValidator {
-    fn is_valid(&self, _: &Value, _ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for FalseValidator {
+    fn is_valid(&self, _: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         false
     }
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
@@ -32,7 +32,7 @@ impl Validate for FalseValidator {
             self.location.clone(),
             crate::paths::capture_evaluation_path(tracker, &self.location),
             location.into(),
-            instance,
+            instance.to_value(),
         ))
     }
 }

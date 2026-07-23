@@ -318,6 +318,7 @@ class AgentHealthCheckType(pycarlo.lib.types.Enum):
     Enumeration Choices:
 
     * `CODE_REF`None
+    * `CONFIG_CHANGE`None
     * `COVERAGE`None
     * `DEPLOY_RESOLUTION`None
     * `PR`None
@@ -325,7 +326,7 @@ class AgentHealthCheckType(pycarlo.lib.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("CODE_REF", "COVERAGE", "DEPLOY_RESOLUTION", "PR", "RECOVERY")
+    __choices__ = ("CODE_REF", "CONFIG_CHANGE", "COVERAGE", "DEPLOY_RESOLUTION", "PR", "RECOVERY")
 
 
 class AgentHealthCheckValidity(pycarlo.lib.types.Enum):
@@ -10285,7 +10286,6 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "max_clusters",
         "discovery_sample_size",
         "discovery_lookback_days",
-        "min_nonempty_user_turns",
         "classify_cap_per_run",
         "min_confidence",
         "user_input_char_cap",
@@ -10311,9 +10311,6 @@ class ClusteringConfigInput(sgqlc.types.Input):
     discovery_lookback_days = sgqlc.types.Field(Int, graphql_name="discoveryLookbackDays")
     """Maximum history, in days, discovery scans back to fill its sample."""
 
-    min_nonempty_user_turns = sgqlc.types.Field(Int, graphql_name="minNonemptyUserTurns")
-    """Discovery-only floor on a conversation's non-empty user turns."""
-
     classify_cap_per_run = sgqlc.types.Field(Int, graphql_name="classifyCapPerRun")
     """Maximum conversations classified per run (uniform random sample)."""
 
@@ -10334,9 +10331,10 @@ class ClusteringConfigInput(sgqlc.types.Input):
     classify_cadence_minutes = sgqlc.types.Field(Int, graphql_name="classifyCadenceMinutes")
     """Minimum minutes between COMPLETED runs of a kind before the
     orchestrator dispatches the next — it rate-limits both
-    classification and (pre-taxonomy) discovery dispatch. Only
-    COMPLETED runs count, so a failed run is retried on the next tick
-    rather than waiting out this interval.
+    classification and (pre-taxonomy) discovery dispatch. A single
+    failed run is retried on the next tick rather than waiting out
+    this interval; consecutive failures back off exponentially, capped
+    at this interval.
     """
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
@@ -24978,7 +24976,6 @@ class ClusteringConfig(sgqlc.types.Type):
         "max_clusters",
         "discovery_sample_size",
         "discovery_lookback_days",
-        "min_nonempty_user_turns",
         "classify_cap_per_run",
         "min_confidence",
         "user_input_char_cap",
@@ -25012,11 +25009,6 @@ class ClusteringConfig(sgqlc.types.Type):
     )
     """Maximum history, in days, discovery scans back to fill its sample."""
 
-    min_nonempty_user_turns = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="minNonemptyUserTurns"
-    )
-    """Discovery-only floor on a conversation's non-empty user turns."""
-
     classify_cap_per_run = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="classifyCapPerRun"
     )
@@ -25047,9 +25039,10 @@ class ClusteringConfig(sgqlc.types.Type):
     )
     """Minimum minutes between COMPLETED runs of a kind before the
     orchestrator dispatches the next — it rate-limits both
-    classification and (pre-taxonomy) discovery dispatch. Only
-    COMPLETED runs count, so a failed run is retried on the next tick
-    rather than waiting out this interval.
+    classification and (pre-taxonomy) discovery dispatch. A single
+    failed run is retried on the next tick rather than waiting out
+    this interval; consecutive failures back off exponentially, capped
+    at this interval.
     """
 
     collection_lag_hours = sgqlc.types.Field(
@@ -27414,7 +27407,7 @@ class CreateOrUpdateCustomSqlRule(sgqlc.types.Type):
     """Create or update a custom SQL rule"""
 
     __schema__ = schema
-    __field_names__ = ("custom_rule", "yaml", "queries")
+    __field_names__ = ("custom_rule", "yaml", "queries", "estimated_credits")
     custom_rule = sgqlc.types.Field("CustomRule", graphql_name="customRule")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -27423,6 +27416,40 @@ class CreateOrUpdateCustomSqlRule(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
     )
     """SQL queries that will be run by the monitor on each execution."""
+
+    estimated_credits = sgqlc.types.Field(
+        "EstimatedCredits",
+        graphql_name="estimatedCredits",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "segment_count_hint",
+                    sgqlc.types.Arg(Int, graphql_name="segmentCountHint", default=None),
+                ),
+                (
+                    "resolve_segment_count",
+                    sgqlc.types.Arg(Boolean, graphql_name="resolveSegmentCount", default=False),
+                ),
+            )
+        ),
+    )
+    """Spec-derived daily credit estimate. Computed from the provided
+    input config, not from persisted DB state — so dry-run, draft, and
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
+
+    Arguments:
+
+    * `segment_count_hint` (`Int`): Explicit segment count to use when
+      computing the estimate. Takes precedence over any cached hint on
+      an existing monitor.
+    * `resolve_segment_count` (`Boolean`): When true and the spec
+      refers to an existing monitor, fall back to the cached
+      `segment_count_hint` on that monitor if no explicit hint is
+      provided. Never triggers a live warehouse query. (default:
+      `false`)
+    """
 
 
 class CreateOrUpdateDashboard(sgqlc.types.Type):
@@ -27892,7 +27919,7 @@ class CreateOrUpdateValidation(sgqlc.types.Type):
     """Create or update a validation"""
 
     __schema__ = schema
-    __field_names__ = ("validation", "yaml", "queries")
+    __field_names__ = ("validation", "yaml", "queries", "estimated_credits")
     validation = sgqlc.types.Field("CustomRule", graphql_name="validation")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -27901,6 +27928,40 @@ class CreateOrUpdateValidation(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
     )
     """SQL queries that will be run by the monitor on each execution."""
+
+    estimated_credits = sgqlc.types.Field(
+        "EstimatedCredits",
+        graphql_name="estimatedCredits",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "segment_count_hint",
+                    sgqlc.types.Arg(Int, graphql_name="segmentCountHint", default=None),
+                ),
+                (
+                    "resolve_segment_count",
+                    sgqlc.types.Arg(Boolean, graphql_name="resolveSegmentCount", default=False),
+                ),
+            )
+        ),
+    )
+    """Spec-derived daily credit estimate. Computed from the provided
+    input config, not from persisted DB state — so dry-run, draft, and
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
+
+    Arguments:
+
+    * `segment_count_hint` (`Int`): Explicit segment count to use when
+      computing the estimate. Takes precedence over any cached hint on
+      an existing monitor.
+    * `resolve_segment_count` (`Boolean`): When true and the spec
+      refers to an existing monitor, fall back to the cached
+      `segment_count_hint` on that monitor if no explicit hint is
+      provided. Never triggers a live warehouse query. (default:
+      `false`)
+    """
 
 
 class CreateOrUpdateVolumeRule(sgqlc.types.Type):
@@ -40357,6 +40418,7 @@ class MonitorLabelObject(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -40417,6 +40479,10 @@ class MonitorLabelObject(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -40468,6 +40534,10 @@ class MonitorLabelObject(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -40497,6 +40567,12 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -59952,7 +60028,9 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Generate a fresh set of single-use SSO recovery
     codes for the account, invalidating any previously active set. The
-    plaintext codes are returned once.
+    plaintext codes are returned once. Generating also opts the
+    account back into recovery-code prompts if it had opted out by
+    revoking.
     """
 
     confirm_sso_recovery_codes = sgqlc.types.Field(
@@ -59985,7 +60063,10 @@ class Mutation(sgqlc.types.Type):
         "RevokeSsoRecoveryCodes", graphql_name="revokeSsoRecoveryCodes"
     )
     """(experimental) Invalidate all of the account's active SSO recovery
-    codes.
+    codes. An explicit revoke also opts the account out of recovery-
+    code prompts: saving changes to an existing SSO configuration is
+    no longer gated on holding codes until a new set is generated.
+    Initial SSO setup still requires codes.
     """
 
     invite_users = sgqlc.types.Field(
@@ -68352,6 +68433,7 @@ class Query(sgqlc.types.Type):
         "get_notebooks",
         "get_network_access_control_lists",
         "get_current_client_ip",
+        "get_monte_carlo_support_ips",
         "get_ms_teams_integrations",
         "get_ms_teams_channels",
         "get_github_integrations",
@@ -73863,6 +73945,17 @@ class Query(sgqlc.types.Type):
     network access controls.
     """
 
+    get_monte_carlo_support_ips = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="getMonteCarloSupportIps",
+    )
+    """(general availability) Get the egress IP addresses used by Monte
+    Carlo Support when accessing customer accounts. Include these in
+    IP allow lists (especially the UI and Global scopes) so Monte
+    Carlo Support keeps access when network access controls are
+    enabled.
+    """
+
     get_ms_teams_integrations = sgqlc.types.Field(
         MsTeamsInstallationList, graphql_name="getMsTeamsIntegrations"
     )
@@ -78899,6 +78992,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -78959,6 +79053,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -79010,6 +79108,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -79039,6 +79141,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -79188,6 +79296,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -79248,6 +79357,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -79299,6 +79412,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -79328,6 +79445,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -79477,6 +79600,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -79537,6 +79661,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -79588,6 +79716,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -79617,6 +79749,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -79766,6 +79904,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -79826,6 +79965,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -79877,6 +80020,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -79906,6 +80053,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -80055,6 +80208,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -80115,6 +80269,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -80166,6 +80324,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -80195,6 +80357,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -80344,6 +80512,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -80404,6 +80573,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -80455,6 +80628,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -80484,6 +80661,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -80633,6 +80816,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -80693,6 +80877,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -80744,6 +80932,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -80773,6 +80965,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -80922,6 +81120,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -80982,6 +81181,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -81033,6 +81236,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -81062,6 +81269,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -81211,6 +81424,7 @@ class Query(sgqlc.types.Type):
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
+                ("noisy_only", sgqlc.types.Arg(Boolean, graphql_name="noisyOnly", default=None)),
                 (
                     "tags",
                     sgqlc.types.Arg(
@@ -81271,6 +81485,10 @@ class Query(sgqlc.types.Type):
                     "created_before",
                     sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
                 ),
+                (
+                    "last_run_within_hours",
+                    sgqlc.types.Arg(Int, graphql_name="lastRunWithinHours", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -81322,6 +81540,10 @@ class Query(sgqlc.types.Type):
       these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
+    * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
+      noisy monitors — those with a high number of distinct incidents
+      over the trailing 7 days. When false or omitted, no noise filter
+      is applied. Also honored by getMonitorsCount.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
@@ -81351,6 +81573,12 @@ class Query(sgqlc.types.Type):
     * `created_before` (`DateTime`): Only include monitors created
       before this time (exclusive). When null or omitted, no upper-
       bound time filter is applied.
+    * `last_run_within_hours` (`Int`): Only include monitors whose
+      most recent run was within this many hours (e.g. 24 for a "ran
+      in the last day" filter). Monitors that have never run are
+      excluded. Must be positive. When null or omitted, no last-run
+      filter is applied. Cannot be combined with includeOotbMonitors.
+      Also honored by getMonitorsCount.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -88263,8 +88491,9 @@ class Query(sgqlc.types.Type):
         "SsoRecoveryCodeStatus", graphql_name="ssoRecoveryCodeStatus"
     )
     """(experimental) Status of the account's SSO recovery codes: how
-    many are currently active (unused and unrevoked). Requires the
-    Edit SSO Settings permission.
+    many are currently active (unused and unrevoked) and whether the
+    account opted out of code prompts by revoking. Requires the Edit
+    SSO Settings permission.
     """
 
     get_warehouses = sgqlc.types.Field(
@@ -91625,7 +91854,7 @@ class Query(sgqlc.types.Type):
     """
 
     get_triage_cost_estimate = sgqlc.types.Field(
-        sgqlc.types.non_null("TriageCostEstimateOutput"),
+        "TriageCostEstimateOutput",
         graphql_name="getTriageCostEstimate",
         args=sgqlc.types.ArgDict(
             (
@@ -91641,7 +91870,9 @@ class Query(sgqlc.types.Type):
     """(experimental) Estimate what automatically triaging the account's
     recent alerts would cost: counts the alerts from the trailing
     window that the current triage configuration would triage, and
-    projects the credits after the monthly free allowance.
+    projects the credits after the monthly free allowance. Null for
+    accounts not on credit-based pricing, where a credit estimate does
+    not apply.
 
     Arguments:
 
@@ -95595,7 +95826,7 @@ class SsoDetails(sgqlc.types.Type):
 
 class SsoRecoveryCodeStatus(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("active_count", "has_active_codes")
+    __field_names__ = ("active_count", "has_active_codes", "opted_out")
     active_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="activeCount")
     """Number of recovery codes currently active (unused and unrevoked)
     for the account.
@@ -95605,6 +95836,14 @@ class SsoRecoveryCodeStatus(sgqlc.types.Type):
         sgqlc.types.non_null(Boolean), graphql_name="hasActiveCodes"
     )
     """Whether the account has any active recovery codes."""
+
+    opted_out = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="optedOut")
+    """Whether the account explicitly opted out of SSO recovery-code
+    prompts by revoking its codes. While opted out, saving changes to
+    an existing SSO configuration is not gated on holding codes;
+    generating a new set opts back in. Initial SSO setup always
+    requires codes, opted out or not.
+    """
 
 
 class StartDatabricksWarehouse(sgqlc.types.Type):

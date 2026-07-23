@@ -8,7 +8,7 @@ import sys
 from typing import Union, Optional, List, Tuple, Callable, Any, Dict, Sequence, TypeVar
 
 from fakeredis import _msgs as msgs
-from fakeredis._command_args_parsing import extract_args
+from fakeredis._command_args_parsing import extract_args, parse_mpop_args
 from fakeredis._commands import (
     command,
     Key,
@@ -16,15 +16,13 @@ from fakeredis._commands import (
     Float,
     CommandItem,
     Timeout,
-    ScoreTest,
     StringTest,
     fix_range,
+    AfterAny,
+    BeforeAny,
+    RedisType,
 )
-from fakeredis._helpers import (
-    SimpleError,
-    casematch,
-    null_terminate,
-)
+from fakeredis._helpers import SimpleError, casematch, null_terminate
 from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import ZSet, ExpiringMembersSet
 
@@ -38,6 +36,48 @@ SORTED_SET_METHODS = {
 }
 
 _T = TypeVar("_T")
+
+
+class ScoreTest(RedisType):
+    """Argument converter for sorted set score endpoints."""
+
+    def __init__(self, value: float, exclusive: bool = False, bytes_val: Optional[bytes] = None):
+        self.value = value
+        self.exclusive = exclusive
+        self.bytes_val = bytes_val
+
+    @classmethod
+    def decode(cls, value: bytes) -> "ScoreTest":
+        try:
+            original_value = value
+            exclusive = False
+            if value[:1] == b"(":
+                exclusive = True
+                value = value[1:]
+            fvalue = Float.decode(
+                value,
+                allow_leading_whitespace=True,
+                allow_erange=True,
+                allow_empty=True,
+                crop_null=True,
+            )
+            return cls(fvalue, exclusive, original_value)
+        except SimpleError:
+            raise SimpleError(msgs.INVALID_MIN_MAX_FLOAT_MSG)
+
+    def __str__(self) -> str:
+        if self.exclusive:
+            return "({!r}".format(self.value)
+        else:
+            return repr(self.value)
+
+    @property
+    def lower_bound(self) -> Tuple[float, Union[AfterAny, BeforeAny]]:
+        return self.value, AfterAny() if self.exclusive else BeforeAny()
+
+    @property
+    def upper_bound(self) -> Tuple[float, Union[AfterAny, BeforeAny]]:
+        return self.value, BeforeAny() if self.exclusive else AfterAny()
 
 
 class SortedSetCommandsMixin(CommandsMixinBase):
@@ -420,7 +460,9 @@ class SortedSetCommandsMixin(CommandsMixinBase):
                 i += numkeys + 1
             elif casematch(arg, b"aggregate") and i + 1 < len(args):
                 aggregate = null_terminate(args[i + 1]).lower()
-                if aggregate not in (b"sum", b"min", b"max"):
+                # The COUNT aggregator was added in redis 8.8
+                count_supported = self.version >= (8, 8) and self.server_type == "redis"
+                if aggregate not in (b"sum", b"min", b"max") and not (aggregate == b"count" and count_supported):
                     raise SimpleError(msgs.SYNTAX_ERROR_MSG)
                 i += 2
             else:
@@ -444,7 +486,8 @@ class SortedSetCommandsMixin(CommandsMixinBase):
         # so we can't be sure to match it in all cases.
         for s, w in sorted(zip(sets, weights), key=lambda x: len(x[0])):
             for member, score in s.items():
-                score *= w
+                # With COUNT, each set contributes its weight regardless of the member's score.
+                score = w if aggregate == b"count" else score * w
                 # Redis only does this step for ZUNIONSTORE. See
                 # https://github.com/antirez/redis/issues/3954.
                 if func in {"ZUNIONSTORE", "ZUNION"} and math.isnan(score):
@@ -453,7 +496,7 @@ class SortedSetCommandsMixin(CommandsMixinBase):
                     continue
                 if member in out:
                     old = out[member]
-                    if aggregate == b"sum":
+                    if aggregate in (b"sum", b"count"):
                         score += old
                         if math.isnan(score):
                             score = 0.0
@@ -593,31 +636,13 @@ class SortedSetCommandsMixin(CommandsMixinBase):
 
     @command(fixed=(Int,), repeat=(bytes,))
     def zmpop(self, numkeys: int, *args: bytes) -> Optional[List[Any]]:
-        if numkeys == 0:
-            raise SimpleError(msgs.NUMKEYS_GREATER_THAN_ZERO_MSG)
-        if casematch(args[-2], b"count"):
-            count = Int.decode(args[-1])
-            args = args[:-2]
-        else:
-            count = 1
-        if len(args) != numkeys + 1 or (not casematch(args[-1], b"min") and not casematch(args[-1], b"max")):
-            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
-
-        return self._zmpop(args[:-1], count, casematch(args[-1], b"max"), False)
+        keys, count, reverse = parse_mpop_args("zmpop", numkeys, args, ("max", "min"))
+        return self._zmpop(keys, count, reverse, False)
 
     @command(fixed=(Timeout, Int), repeat=(bytes,))
     def bzmpop(self, timeout: float, numkeys: int, *args: bytes) -> Optional[List[Any]]:
-        if numkeys == 0:
-            raise SimpleError(msgs.NUMKEYS_GREATER_THAN_ZERO_MSG)
-        if casematch(args[-2], b"count"):
-            count = Int.decode(args[-1])
-            args = args[:-2]
-        else:
-            count = 1
-        if len(args) != numkeys + 1 or (not casematch(args[-1], b"min") and not casematch(args[-1], b"max")):
-            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
-
+        keys, count, reverse = parse_mpop_args("bzmpop", numkeys, args, ("max", "min"))
         return self._blocking(  # type: ignore[no-any-return]
             timeout,
-            functools.partial(self._zmpop, args[:-1], count, casematch(args[-1], b"max")),
+            functools.partial(self._zmpop, keys, count, reverse),
         )

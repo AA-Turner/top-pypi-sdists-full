@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CloudAutonomousVmClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24f47f559e097d1f99e8b694a5a38dbdc87eddb68da4937ccedaf72af612ea50)
+            type_hints = cached_type_hints(_typecheckingstub__24f47f559e097d1f99e8b694a5a38dbdc87eddb68da4937ccedaf72af612ea50)
             check_type(argname="argument cloud_autonomous_vm_cluster_arn", value=cloud_autonomous_vm_cluster_arn, expected_type=type_hints["cloud_autonomous_vm_cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_autonomous_vm_cluster_arn": cloud_autonomous_vm_cluster_arn,
@@ -107,7 +111,7 @@ class CloudExadataInfrastructureReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42c18f800ef88ea913172e37ac6192f7948d1899683a6b17f70c472ee560f9a6)
+            type_hints = cached_type_hints(_typecheckingstub__42c18f800ef88ea913172e37ac6192f7948d1899683a6b17f70c472ee560f9a6)
             check_type(argname="argument cloud_exadata_infrastructure_arn", value=cloud_exadata_infrastructure_arn, expected_type=type_hints["cloud_exadata_infrastructure_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_exadata_infrastructure_arn": cloud_exadata_infrastructure_arn,
@@ -156,7 +160,7 @@ class CloudVmClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6787835ee51e3576a47e957c925da1d5f69df18d0710d2ad1d4db086a7ce0c81)
+            type_hints = cached_type_hints(_typecheckingstub__6787835ee51e3576a47e957c925da1d5f69df18d0710d2ad1d4db086a7ce0c81)
             check_type(argname="argument cloud_vm_cluster_arn", value=cloud_vm_cluster_arn, expected_type=type_hints["cloud_vm_cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_vm_cluster_arn": cloud_vm_cluster_arn,
@@ -186,7 +190,7 @@ class CloudVmClusterReference:
 )
 class ICloudAutonomousVmClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudAutonomousVmCluster.
@@ -206,7 +210,7 @@ class ICloudAutonomousVmClusterRef(
 
 class _ICloudAutonomousVmClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudAutonomousVmCluster.
 
@@ -233,7 +237,7 @@ typing.cast(typing.Any, ICloudAutonomousVmClusterRef).__jsii_proxy_class__ = lam
 )
 class ICloudExadataInfrastructureRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudExadataInfrastructure.
@@ -253,7 +257,7 @@ class ICloudExadataInfrastructureRef(
 
 class _ICloudExadataInfrastructureRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudExadataInfrastructure.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, ICloudExadataInfrastructureRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_odb.ICloudVmClusterRef")
 class ICloudVmClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudVmCluster.
@@ -298,7 +302,7 @@ class ICloudVmClusterRef(
 
 class _ICloudVmClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudVmCluster.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, ICloudVmClusterRef).__jsii_proxy_class__ = lambda : _ICl
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_odb.IOdbNetworkRef")
 class IOdbNetworkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OdbNetwork.
@@ -343,7 +347,7 @@ class IOdbNetworkRef(
 
 class _IOdbNetworkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OdbNetwork.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, IOdbNetworkRef).__jsii_proxy_class__ = lambda : _IOdbNet
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_odb.IOdbPeeringConnectionRef")
 class IOdbPeeringConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OdbPeeringConnection.
@@ -388,7 +392,7 @@ class IOdbPeeringConnectionRef(
 
 class _IOdbPeeringConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OdbPeeringConnection.
 
@@ -434,7 +438,7 @@ class OdbNetworkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcd10c7758ee3a6ea3380811028675124f296c973d2ee34053ad8b5c6732f9c7)
+            type_hints = cached_type_hints(_typecheckingstub__dcd10c7758ee3a6ea3380811028675124f296c973d2ee34053ad8b5c6732f9c7)
             check_type(argname="argument odb_network_arn", value=odb_network_arn, expected_type=type_hints["odb_network_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "odb_network_arn": odb_network_arn,
@@ -483,7 +487,7 @@ class OdbPeeringConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__618c5752938ece684b449b51809742fa009be29d013b2b4dee097d8cb9aac13a)
+            type_hints = cached_type_hints(_typecheckingstub__618c5752938ece684b449b51809742fa009be29d013b2b4dee097d8cb9aac13a)
             check_type(argname="argument odb_peering_connection_arn", value=odb_peering_connection_arn, expected_type=type_hints["odb_peering_connection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "odb_peering_connection_arn": odb_peering_connection_arn,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class CidrCollectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a29c970e3dc59eb61f1e0e1c4183e889924847e040535cfbaa68366929f5a856)
+            type_hints = cached_type_hints(_typecheckingstub__a29c970e3dc59eb61f1e0e1c4183e889924847e040535cfbaa68366929f5a856)
             check_type(argname="argument cidr_collection_arn", value=cidr_collection_arn, expected_type=type_hints["cidr_collection_arn"])
             check_type(argname="argument cidr_collection_id", value=cidr_collection_id, expected_type=type_hints["cidr_collection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class DNSSECReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5f748a2bea377e2fd2ed6d48058439646815e844893d9564084429051caf8f4)
+            type_hints = cached_type_hints(_typecheckingstub__b5f748a2bea377e2fd2ed6d48058439646815e844893d9564084429051caf8f4)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hosted_zone_id": hosted_zone_id,
@@ -175,7 +179,7 @@ class HealthCheckReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93a61fcf52d45a4375dfb1ae5d0b7b0555ae1091958107075e82bc35ca0d0275)
+            type_hints = cached_type_hints(_typecheckingstub__93a61fcf52d45a4375dfb1ae5d0b7b0555ae1091958107075e82bc35ca0d0275)
             check_type(argname="argument health_check_id", value=health_check_id, expected_type=type_hints["health_check_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "health_check_id": health_check_id,
@@ -224,7 +228,7 @@ class HostedZoneReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b4ca2affe8c503a8b4867d3e31a36ed15f0aa004cff0a9202da3d2bbbb7fe4c)
+            type_hints = cached_type_hints(_typecheckingstub__3b4ca2affe8c503a8b4867d3e31a36ed15f0aa004cff0a9202da3d2bbbb7fe4c)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hosted_zone_id": hosted_zone_id,
@@ -252,7 +256,7 @@ class HostedZoneReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.ICidrCollectionRef")
 class ICidrCollectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CidrCollection.
@@ -272,7 +276,7 @@ class ICidrCollectionRef(
 
 class _ICidrCollectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CidrCollection.
 
@@ -297,7 +301,7 @@ typing.cast(typing.Any, ICidrCollectionRef).__jsii_proxy_class__ = lambda : _ICi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IDNSSECRef")
 class IDNSSECRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DNSSEC.
@@ -317,7 +321,7 @@ class IDNSSECRef(
 
 class _IDNSSECRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DNSSEC.
 
@@ -342,7 +346,7 @@ typing.cast(typing.Any, IDNSSECRef).__jsii_proxy_class__ = lambda : _IDNSSECRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IHealthCheckRef")
 class IHealthCheckRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HealthCheck.
@@ -362,7 +366,7 @@ class IHealthCheckRef(
 
 class _IHealthCheckRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HealthCheck.
 
@@ -387,7 +391,7 @@ typing.cast(typing.Any, IHealthCheckRef).__jsii_proxy_class__ = lambda : _IHealt
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IHostedZoneRef")
 class IHostedZoneRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HostedZone.
@@ -407,7 +411,7 @@ class IHostedZoneRef(
 
 class _IHostedZoneRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HostedZone.
 
@@ -432,7 +436,7 @@ typing.cast(typing.Any, IHostedZoneRef).__jsii_proxy_class__ = lambda : _IHosted
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IKeySigningKeyRef")
 class IKeySigningKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeySigningKey.
@@ -452,7 +456,7 @@ class IKeySigningKeyRef(
 
 class _IKeySigningKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeySigningKey.
 
@@ -477,7 +481,7 @@ typing.cast(typing.Any, IKeySigningKeyRef).__jsii_proxy_class__ = lambda : _IKey
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IRecordSetGroupRef")
 class IRecordSetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordSetGroup.
@@ -497,7 +501,7 @@ class IRecordSetGroupRef(
 
 class _IRecordSetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordSetGroup.
 
@@ -522,7 +526,7 @@ typing.cast(typing.Any, IRecordSetGroupRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IRecordSetRef")
 class IRecordSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordSet.
@@ -542,7 +546,7 @@ class IRecordSetRef(
 
 class _IRecordSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordSet.
 
@@ -598,7 +602,7 @@ class KeySigningKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__740b6b79569b61714dbaad1664d38c2e457f5ba4d550ba6271197a8fd1b8e59d)
+            type_hints = cached_type_hints(_typecheckingstub__740b6b79569b61714dbaad1664d38c2e457f5ba4d550ba6271197a8fd1b8e59d)
             check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
             check_type(argname="argument key_signing_key_name", value=key_signing_key_name, expected_type=type_hints["key_signing_key_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -656,7 +660,7 @@ class RecordSetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__843f82028bf43583ae47be1e10363ba4894e39f9bd7f71769ddfdced48189b19)
+            type_hints = cached_type_hints(_typecheckingstub__843f82028bf43583ae47be1e10363ba4894e39f9bd7f71769ddfdced48189b19)
             check_type(argname="argument record_set_group_id", value=record_set_group_id, expected_type=type_hints["record_set_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "record_set_group_id": record_set_group_id,
@@ -705,7 +709,7 @@ class RecordSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__309b4ebd3a2bc9de4559b92e46a6d5aa5ef18238d81d559d28fffaf3353eda80)
+            type_hints = cached_type_hints(_typecheckingstub__309b4ebd3a2bc9de4559b92e46a6d5aa5ef18238d81d559d28fffaf3353eda80)
             check_type(argname="argument record_set_name", value=record_set_name, expected_type=type_hints["record_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "record_set_name": record_set_name,

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_amazonmq import (
-    BrokerReference as _BrokerReference_1d1cbbf7,
-    ConfigurationAssociationReference as _ConfigurationAssociationReference_c6685840,
-    ConfigurationReference as _ConfigurationReference_19cddfe8,
-    IBrokerRef as _IBrokerRef_bd875819,
-    IConfigurationAssociationRef as _IConfigurationAssociationRef_98fafe4d,
-    IConfigurationRef as _IConfigurationRef_769e84b9,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_amazonmq as _aws_amazonmq_36a4bea9
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_amazonmq_36a4bea9 = _LazyImport("aws_cdk.interfaces.aws_amazonmq")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IBrokerRef_bd875819, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amazonmq_36a4bea9.IBrokerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnBroker(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amazonmq.CfnBroker",
 ):
@@ -193,23 +184,23 @@ class CfnBroker(
         deployment_mode: builtins.str,
         engine_type: builtins.str,
         host_instance_type: builtins.str,
-        publicly_accessible: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        publicly_accessible: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         authentication_strategy: typing.Optional[builtins.str] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_replication_mode: typing.Optional[builtins.str] = None,
         data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-        encryption_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.EncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.EncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         engine_version: typing.Optional[builtins.str] = None,
-        ldap_server_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        maintenance_window_start_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ldap_server_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window_start_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnBroker.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        users: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.UserProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        users: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.UserProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AmazonMQ::Broker``.
 
@@ -238,7 +229,7 @@ class CfnBroker(
         :param users: The list of broker users (persons or applications) who can access queues and topics. For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent broker users are created by making RabbitMQ API calls directly to brokers or via the RabbitMQ web console. When OAuth 2.0 is enabled, the broker accepts one or no users.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce87535c69cb7)
+            type_hints = cached_type_hints(_typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce87535c69cb7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnBrokerProps(
@@ -269,12 +260,15 @@ class CfnBroker(
 
     @jsii.member(jsii_name="arnForBroker")
     @builtins.classmethod
-    def arn_for_broker(cls, resource: "_IBrokerRef_bd875819") -> builtins.str:
+    def arn_for_broker(
+        cls,
+        resource: "_aws_amazonmq_36a4bea9.IBrokerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65a3807b80344d52e1ebf0357601d8262aeda03bd226f1c2f04feac612ffef01)
+            type_hints = cached_type_hints(_typecheckingstub__65a3807b80344d52e1ebf0357601d8262aeda03bd226f1c2f04feac612ffef01)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBroker", [resource]))
 
@@ -286,18 +280,18 @@ class CfnBroker(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea939fad96987bea5c10e671be6d5ed49dde85c9738dd8b10127967a455157e1)
+            type_hints = cached_type_hints(_typecheckingstub__ea939fad96987bea5c10e671be6d5ed49dde85c9738dd8b10127967a455157e1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBroker", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d7a61b5b47c0d5f9d4072378260a383a676994ae22eab1593156375aeda79a7)
+            type_hints = cached_type_hints(_typecheckingstub__2d7a61b5b47c0d5f9d4072378260a383a676994ae22eab1593156375aeda79a7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -310,7 +304,7 @@ class CfnBroker(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b2faabcb2fd601665f655b0a42ddecd67459d337d8e81f23d1a39ee8cbb4bb0)
+            type_hints = cached_type_hints(_typecheckingstub__5b2faabcb2fd601665f655b0a42ddecd67459d337d8e81f23d1a39ee8cbb4bb0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -448,9 +442,9 @@ class CfnBroker(
 
     @builtins.property
     @jsii.member(jsii_name="brokerRef")
-    def broker_ref(self) -> "_BrokerReference_1d1cbbf7":
+    def broker_ref(self) -> "_aws_amazonmq_36a4bea9.BrokerReference":
         '''A reference to a Broker resource.'''
-        return typing.cast("_BrokerReference_1d1cbbf7", jsii.get(self, "brokerRef"))
+        return typing.cast("_aws_amazonmq_36a4bea9.BrokerReference", jsii.get(self, "brokerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -464,9 +458,9 @@ class CfnBroker(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="brokerName")
@@ -477,7 +471,7 @@ class CfnBroker(
     @broker_name.setter
     def broker_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0511cf4804dad2e6e03dc33f21bf9d654b3598349ced7ea110e5591745f76bdc)
+            type_hints = cached_type_hints(_typecheckingstub__0511cf4804dad2e6e03dc33f21bf9d654b3598349ced7ea110e5591745f76bdc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "brokerName", value) # pyright: ignore[reportArgumentType]
 
@@ -490,7 +484,7 @@ class CfnBroker(
     @deployment_mode.setter
     def deployment_mode(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35ac0143ff0fe5df5b06639c734e8dce854395762102045c72ecfdd080395609)
+            type_hints = cached_type_hints(_typecheckingstub__35ac0143ff0fe5df5b06639c734e8dce854395762102045c72ecfdd080395609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentMode", value) # pyright: ignore[reportArgumentType]
 
@@ -503,7 +497,7 @@ class CfnBroker(
     @engine_type.setter
     def engine_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edb02169dcf378d5d01cba6368876329b4e7f4e34fde8d2f0f58da09a46b65bd)
+            type_hints = cached_type_hints(_typecheckingstub__edb02169dcf378d5d01cba6368876329b4e7f4e34fde8d2f0f58da09a46b65bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineType", value) # pyright: ignore[reportArgumentType]
 
@@ -516,7 +510,7 @@ class CfnBroker(
     @host_instance_type.setter
     def host_instance_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8a51a01838222e13c8eba50f7d568dc975a2e3c5c2d18f21339bc702ffc284b)
+            type_hints = cached_type_hints(_typecheckingstub__a8a51a01838222e13c8eba50f7d568dc975a2e3c5c2d18f21339bc702ffc284b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostInstanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -524,17 +518,17 @@ class CfnBroker(
     @jsii.member(jsii_name="publiclyAccessible")
     def publicly_accessible(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Enables connections from applications outside of the VPC that hosts the broker's subnets.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "publiclyAccessible"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "publiclyAccessible"))
 
     @publicly_accessible.setter
     def publicly_accessible(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a82a112ececec828f3c746f7c18e6b6ce32a5aa08550a05a69d7babd8852a7e)
+            type_hints = cached_type_hints(_typecheckingstub__4a82a112ececec828f3c746f7c18e6b6ce32a5aa08550a05a69d7babd8852a7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
 
@@ -547,7 +541,7 @@ class CfnBroker(
     @authentication_strategy.setter
     def authentication_strategy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3eab9258c47a74b1aabb4a39e66512dbb010a0f1c8838ec359338808e1f64681)
+            type_hints = cached_type_hints(_typecheckingstub__3eab9258c47a74b1aabb4a39e66512dbb010a0f1c8838ec359338808e1f64681)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationStrategy", value) # pyright: ignore[reportArgumentType]
 
@@ -555,17 +549,17 @@ class CfnBroker(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables automatic upgrades to new patch versions for brokers as new versions are released and supported by Amazon MQ.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1becedc098602474059b0aaa465b25ea1b7124443411ed6a42b02d6a5344cdda)
+            type_hints = cached_type_hints(_typecheckingstub__1becedc098602474059b0aaa465b25ea1b7124443411ed6a42b02d6a5344cdda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -573,17 +567,17 @@ class CfnBroker(
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.ConfigurationIdProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.ConfigurationIdProperty"]]:
         '''A list of information about the configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.ConfigurationIdProperty"]], jsii.get(self, "configuration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.ConfigurationIdProperty"]], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.ConfigurationIdProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.ConfigurationIdProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eabdb321f6595584d9f056a97a3a7481faa1ad417f76f3ea42484e5ef0b195f)
+            type_hints = cached_type_hints(_typecheckingstub__0eabdb321f6595584d9f056a97a3a7481faa1ad417f76f3ea42484e5ef0b195f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -596,7 +590,7 @@ class CfnBroker(
     @data_replication_mode.setter
     def data_replication_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb3d9abae1cb6570b9ccf260c74e4f47d43eda2d732d8b3bcfa03b254143b3e)
+            type_hints = cached_type_hints(_typecheckingstub__5fb3d9abae1cb6570b9ccf260c74e4f47d43eda2d732d8b3bcfa03b254143b3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataReplicationMode", value) # pyright: ignore[reportArgumentType]
 
@@ -612,7 +606,7 @@ class CfnBroker(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8ffdb4011b4637fc96f4f2d0dcab95738383a77b9240b6d0f3cdf96f87e7725)
+            type_hints = cached_type_hints(_typecheckingstub__b8ffdb4011b4637fc96f4f2d0dcab95738383a77b9240b6d0f3cdf96f87e7725)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataReplicationPrimaryBrokerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -620,17 +614,17 @@ class CfnBroker(
     @jsii.member(jsii_name="encryptionOptions")
     def encryption_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.EncryptionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.EncryptionOptionsProperty"]]:
         '''Encryption options for the broker.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.EncryptionOptionsProperty"]], jsii.get(self, "encryptionOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.EncryptionOptionsProperty"]], jsii.get(self, "encryptionOptions"))
 
     @encryption_options.setter
     def encryption_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.EncryptionOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.EncryptionOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3846e06a73702f6e76ab386acc1ad9128b00ec2357b3396abf86d893cdbae15d)
+            type_hints = cached_type_hints(_typecheckingstub__3846e06a73702f6e76ab386acc1ad9128b00ec2357b3396abf86d893cdbae15d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -643,7 +637,7 @@ class CfnBroker(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__631fd780aebb5b339c2238752e33306ea6591245c7231c4db165256d69094ceb)
+            type_hints = cached_type_hints(_typecheckingstub__631fd780aebb5b339c2238752e33306ea6591245c7231c4db165256d69094ceb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -651,17 +645,17 @@ class CfnBroker(
     @jsii.member(jsii_name="ldapServerMetadata")
     def ldap_server_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LdapServerMetadataProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LdapServerMetadataProperty"]]:
         '''Optional.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LdapServerMetadataProperty"]], jsii.get(self, "ldapServerMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LdapServerMetadataProperty"]], jsii.get(self, "ldapServerMetadata"))
 
     @ldap_server_metadata.setter
     def ldap_server_metadata(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LdapServerMetadataProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LdapServerMetadataProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8de6a532c388b2fc838b3141f942b6cbbc5d1a796bb76e3fc3fe5a446d932f8)
+            type_hints = cached_type_hints(_typecheckingstub__b8de6a532c388b2fc838b3141f942b6cbbc5d1a796bb76e3fc3fe5a446d932f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ldapServerMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -669,17 +663,17 @@ class CfnBroker(
     @jsii.member(jsii_name="logs")
     def logs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LogListProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LogListProperty"]]:
         '''Enables Amazon CloudWatch logging for brokers.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LogListProperty"]], jsii.get(self, "logs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LogListProperty"]], jsii.get(self, "logs"))
 
     @logs.setter
     def logs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LogListProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LogListProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36b6d40f90e93b4b35c3ffbb3065567a24c0bd9312758826697afa2118901335)
+            type_hints = cached_type_hints(_typecheckingstub__36b6d40f90e93b4b35c3ffbb3065567a24c0bd9312758826697afa2118901335)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logs", value) # pyright: ignore[reportArgumentType]
 
@@ -687,17 +681,17 @@ class CfnBroker(
     @jsii.member(jsii_name="maintenanceWindowStartTime")
     def maintenance_window_start_time(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.MaintenanceWindowProperty"]]:
         '''The parameters that determine the WeeklyStartTime.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindowStartTime"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.MaintenanceWindowProperty"]], jsii.get(self, "maintenanceWindowStartTime"))
 
     @maintenance_window_start_time.setter
     def maintenance_window_start_time(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.MaintenanceWindowProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e2d1a75b2e491fa226b7065a64e24f522ac7be048073da54600cfd720b1240f)
+            type_hints = cached_type_hints(_typecheckingstub__7e2d1a75b2e491fa226b7065a64e24f522ac7be048073da54600cfd720b1240f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceWindowStartTime", value) # pyright: ignore[reportArgumentType]
 
@@ -713,7 +707,7 @@ class CfnBroker(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4fb441530888b175b9f570c128957515418482cfc70b74f98682c74e4dc66c4)
+            type_hints = cached_type_hints(_typecheckingstub__d4fb441530888b175b9f570c128957515418482cfc70b74f98682c74e4dc66c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceShareArns", value) # pyright: ignore[reportArgumentType]
 
@@ -729,7 +723,7 @@ class CfnBroker(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e87ea78ee8e3d556f9e322090479023fa17920888ca10cd4413f4e00c942ffec)
+            type_hints = cached_type_hints(_typecheckingstub__e87ea78ee8e3d556f9e322090479023fa17920888ca10cd4413f4e00c942ffec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -742,7 +736,7 @@ class CfnBroker(
     @storage_type.setter
     def storage_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc1a4f009fd81070f5c68b6193804c7fd4733299a2c55d2e81fd5c11f62da6ec)
+            type_hints = cached_type_hints(_typecheckingstub__cc1a4f009fd81070f5c68b6193804c7fd4733299a2c55d2e81fd5c11f62da6ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
 
@@ -755,7 +749,7 @@ class CfnBroker(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa1ab62865033946dc6d8cee45676096e4e10411bffb97c3db615e4d2aa1652f)
+            type_hints = cached_type_hints(_typecheckingstub__aa1ab62865033946dc6d8cee45676096e4e10411bffb97c3db615e4d2aa1652f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -771,7 +765,7 @@ class CfnBroker(
         value: typing.Optional[typing.List["CfnBroker.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__739d50e75e2a93ab9671710563ad1ed5176802aef44a2986de718c86a94e7e8e)
+            type_hints = cached_type_hints(_typecheckingstub__739d50e75e2a93ab9671710563ad1ed5176802aef44a2986de718c86a94e7e8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -779,17 +773,17 @@ class CfnBroker(
     @jsii.member(jsii_name="users")
     def users(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBroker.UserProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.UserProperty"]]]]:
         '''The list of broker users (persons or applications) who can access queues and topics.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBroker.UserProperty"]]]], jsii.get(self, "users"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.UserProperty"]]]], jsii.get(self, "users"))
 
     @users.setter
     def users(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBroker.UserProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.UserProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b9c0c3c3aa438279362aeaae2a3de844ec906edf5b12b7601c78bc63fbfd6b)
+            type_hints = cached_type_hints(_typecheckingstub__85b9c0c3c3aa438279362aeaae2a3de844ec906edf5b12b7601c78bc63fbfd6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
@@ -820,7 +814,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f9d5131bf29ed360bf06fb2fc10b8d6ac62da622a4f41bd0e435a4436ba5511c)
+                type_hints = cached_type_hints(_typecheckingstub__f9d5131bf29ed360bf06fb2fc10b8d6ac62da622a4f41bd0e435a4436ba5511c)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument revision", value=revision, expected_type=type_hints["revision"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -870,7 +864,7 @@ class CfnBroker(
         def __init__(
             self,
             *,
-            use_aws_owned_key: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            use_aws_owned_key: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Encryption options for the broker.
@@ -895,7 +889,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__95df5a3839d7c2d80c93cb1b9948b6d4ef43f2e19eb9097abb3cbae048c164aa)
+                type_hints = cached_type_hints(_typecheckingstub__95df5a3839d7c2d80c93cb1b9948b6d4ef43f2e19eb9097abb3cbae048c164aa)
                 check_type(argname="argument use_aws_owned_key", value=use_aws_owned_key, expected_type=type_hints["use_aws_owned_key"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -907,7 +901,7 @@ class CfnBroker(
         @builtins.property
         def use_aws_owned_key(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Enables the use of an AWS owned CMK using AWS  (KMS).
 
             Set to ``true`` by default, if no value is provided, for example, for RabbitMQ brokers.
@@ -916,7 +910,7 @@ class CfnBroker(
             '''
             result = self._values.get("use_aws_owned_key")
             assert result is not None, "Required property 'use_aws_owned_key' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -968,10 +962,10 @@ class CfnBroker(
             user_base: builtins.str,
             user_search_matching: builtins.str,
             role_name: typing.Optional[builtins.str] = None,
-            role_search_subtree: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            role_search_subtree: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             service_account_password: typing.Optional[builtins.str] = None,
             user_role_name: typing.Optional[builtins.str] = None,
-            user_search_subtree: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            user_search_subtree: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Optional.
 
@@ -1015,7 +1009,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__282093319da5ca5716ae9202b23fde6f2380a3a720f7bac369f166119c58cfa8)
+                type_hints = cached_type_hints(_typecheckingstub__282093319da5ca5716ae9202b23fde6f2380a3a720f7bac369f166119c58cfa8)
                 check_type(argname="argument hosts", value=hosts, expected_type=type_hints["hosts"])
                 check_type(argname="argument role_base", value=role_base, expected_type=type_hints["role_base"])
                 check_type(argname="argument role_search_matching", value=role_search_matching, expected_type=type_hints["role_search_matching"])
@@ -1111,12 +1105,12 @@ class CfnBroker(
         @builtins.property
         def role_search_subtree(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-ldapservermetadata.html#cfn-amazonmq-broker-ldapservermetadata-rolesearchsubtree
             '''
             result = self._values.get("role_search_subtree")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def service_account_password(self) -> typing.Optional[builtins.str]:
@@ -1137,12 +1131,12 @@ class CfnBroker(
         @builtins.property
         def user_search_subtree(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-ldapservermetadata.html#cfn-amazonmq-broker-ldapservermetadata-usersearchsubtree
             '''
             result = self._values.get("user_search_subtree")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1164,8 +1158,8 @@ class CfnBroker(
         def __init__(
             self,
             *,
-            audit: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            general: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            audit: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            general: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The list of information about logs to be enabled for the specified broker.
 
@@ -1187,7 +1181,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc6518d5765d0a7bdb0ead05cff3d08ab216b44006da8bba35424620fea26077)
+                type_hints = cached_type_hints(_typecheckingstub__cc6518d5765d0a7bdb0ead05cff3d08ab216b44006da8bba35424620fea26077)
                 check_type(argname="argument audit", value=audit, expected_type=type_hints["audit"])
                 check_type(argname="argument general", value=general, expected_type=type_hints["general"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1199,7 +1193,7 @@ class CfnBroker(
         @builtins.property
         def audit(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables audit logging.
 
             Every user management action made using JMX or the ActiveMQ Web Console is logged. Does not apply to RabbitMQ brokers.
@@ -1207,18 +1201,18 @@ class CfnBroker(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-loglist.html#cfn-amazonmq-broker-loglist-audit
             '''
             result = self._values.get("audit")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def general(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables general logging.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-loglist.html#cfn-amazonmq-broker-loglist-general
             '''
             result = self._values.get("general")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1270,7 +1264,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cd0060c95e384a30563d722724745751c5579e5b53fa378c0b36e301bb067795)
+                type_hints = cached_type_hints(_typecheckingstub__cd0060c95e384a30563d722724745751c5579e5b53fa378c0b36e301bb067795)
                 check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
                 check_type(argname="argument time_of_day", value=time_of_day, expected_type=type_hints["time_of_day"])
                 check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
@@ -1352,7 +1346,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7825e3fdf121f81e27fcd00d00f2c5d2d105311b09671d687ee257d56a749171)
+                type_hints = cached_type_hints(_typecheckingstub__7825e3fdf121f81e27fcd00d00f2c5d2d105311b09671d687ee257d56a749171)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1406,9 +1400,9 @@ class CfnBroker(
             *,
             password: builtins.str,
             username: builtins.str,
-            console_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            console_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-            replication_user: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            replication_user: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The list of broker users (persons or applications) who can access queues and topics.
 
@@ -1442,7 +1436,7 @@ class CfnBroker(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8a458786a0cd0d4269adef0bf3c85862386851ab69649004d5d3dcba4c238445)
+                type_hints = cached_type_hints(_typecheckingstub__8a458786a0cd0d4269adef0bf3c85862386851ab69649004d5d3dcba4c238445)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
                 check_type(argname="argument console_access", value=console_access, expected_type=type_hints["console_access"])
@@ -1491,7 +1485,7 @@ class CfnBroker(
         @builtins.property
         def console_access(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables access to the ActiveMQ Web Console for the ActiveMQ user.
 
             Does not apply to RabbitMQ brokers.
@@ -1499,7 +1493,7 @@ class CfnBroker(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-user.html#cfn-amazonmq-broker-user-consoleaccess
             '''
             result = self._values.get("console_access")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def groups(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1515,13 +1509,13 @@ class CfnBroker(
         @builtins.property
         def replication_user(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Defines if this user is intended for CRDR replication purposes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-user.html#cfn-amazonmq-broker-user-replicationuser
             '''
             result = self._values.get("replication_user")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1570,23 +1564,23 @@ class CfnBrokerProps:
         deployment_mode: builtins.str,
         engine_type: builtins.str,
         host_instance_type: builtins.str,
-        publicly_accessible: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        publicly_accessible: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         authentication_strategy: typing.Optional[builtins.str] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_replication_mode: typing.Optional[builtins.str] = None,
         data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-        encryption_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.EncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.EncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         engine_version: typing.Optional[builtins.str] = None,
-        ldap_server_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        maintenance_window_start_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ldap_server_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window_start_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnBroker.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        users: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.UserProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        users: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.UserProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBroker``.
 
@@ -1688,7 +1682,7 @@ class CfnBrokerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c)
+            type_hints = cached_type_hints(_typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c)
             check_type(argname="argument broker_name", value=broker_name, expected_type=type_hints["broker_name"])
             check_type(argname="argument deployment_mode", value=deployment_mode, expected_type=type_hints["deployment_mode"])
             check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
@@ -1804,7 +1798,7 @@ class CfnBrokerProps:
     @builtins.property
     def publicly_accessible(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Enables connections from applications outside of the VPC that hosts the broker's subnets.
 
         Set to ``false`` by default, if no value is provided.
@@ -1813,7 +1807,7 @@ class CfnBrokerProps:
         '''
         result = self._values.get("publicly_accessible")
         assert result is not None, "Required property 'publicly_accessible' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def authentication_strategy(self) -> typing.Optional[builtins.str]:
@@ -1829,7 +1823,7 @@ class CfnBrokerProps:
     @builtins.property
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables automatic upgrades to new patch versions for brokers as new versions are released and supported by Amazon MQ.
 
         Automatic upgrades occur during the scheduled maintenance window or after a manual broker reboot. Set to ``true`` by default, if no value is specified.
@@ -1840,18 +1834,18 @@ class CfnBrokerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-autominorversionupgrade
         '''
         result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.ConfigurationIdProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.ConfigurationIdProperty"]]:
         '''A list of information about the configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-configuration
         '''
         result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.ConfigurationIdProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.ConfigurationIdProperty"]], result)
 
     @builtins.property
     def data_replication_mode(self) -> typing.Optional[builtins.str]:
@@ -1876,13 +1870,13 @@ class CfnBrokerProps:
     @builtins.property
     def encryption_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.EncryptionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.EncryptionOptionsProperty"]]:
         '''Encryption options for the broker.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-encryptionoptions
         '''
         result = self._values.get("encryption_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.EncryptionOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.EncryptionOptionsProperty"]], result)
 
     @builtins.property
     def engine_version(self) -> typing.Optional[builtins.str]:
@@ -1898,7 +1892,7 @@ class CfnBrokerProps:
     @builtins.property
     def ldap_server_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LdapServerMetadataProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LdapServerMetadataProperty"]]:
         '''Optional.
 
         The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
@@ -1906,29 +1900,29 @@ class CfnBrokerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-ldapservermetadata
         '''
         result = self._values.get("ldap_server_metadata")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LdapServerMetadataProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LdapServerMetadataProperty"]], result)
 
     @builtins.property
     def logs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LogListProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LogListProperty"]]:
         '''Enables Amazon CloudWatch logging for brokers.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-logs
         '''
         result = self._values.get("logs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.LogListProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.LogListProperty"]], result)
 
     @builtins.property
     def maintenance_window_start_time(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.MaintenanceWindowProperty"]]:
         '''The parameters that determine the WeeklyStartTime.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-maintenancewindowstarttime
         '''
         result = self._values.get("maintenance_window_start_time")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.MaintenanceWindowProperty"]], result)
 
     @builtins.property
     def resource_share_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1983,7 +1977,7 @@ class CfnBrokerProps:
     @builtins.property
     def users(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBroker.UserProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.UserProperty"]]]]:
         '''The list of broker users (persons or applications) who can access queues and topics.
 
         For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent broker users are created by making RabbitMQ API calls directly to brokers or via the RabbitMQ web console.
@@ -1993,7 +1987,7 @@ class CfnBrokerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-users
         '''
         result = self._values.get("users")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBroker.UserProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBroker.UserProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2007,9 +2001,9 @@ class CfnBrokerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigurationRef_769e84b9, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amazonmq_36a4bea9.IConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfiguration",
 ):
@@ -2069,7 +2063,7 @@ class CfnConfiguration(
         :param tags: Create tags when creating the configuration.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5d8c71c30a8f2bd8b3e455320ae87cc2204a9546d3ee226605a9575372df4fc)
+            type_hints = cached_type_hints(_typecheckingstub__e5d8c71c30a8f2bd8b3e455320ae87cc2204a9546d3ee226605a9575372df4fc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationProps(
@@ -2088,13 +2082,13 @@ class CfnConfiguration(
     @builtins.classmethod
     def arn_for_configuration(
         cls,
-        resource: "_IConfigurationRef_769e84b9",
+        resource: "_aws_amazonmq_36a4bea9.IConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43365c105d93276bbd5e65bdc4db2f6781b8ffcdda71dd9ace1c156148647846)
+            type_hints = cached_type_hints(_typecheckingstub__43365c105d93276bbd5e65bdc4db2f6781b8ffcdda71dd9ace1c156148647846)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConfiguration", [resource]))
 
@@ -2105,7 +2099,7 @@ class CfnConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IConfigurationRef_769e84b9":
+    ) -> "_aws_amazonmq_36a4bea9.IConfigurationRef":
         '''Creates a new IConfigurationRef from an ARN.
 
         :param scope: -
@@ -2113,11 +2107,11 @@ class CfnConfiguration(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__952d6fa5f0120d9649475d290d7db9a47e3510ed333c700851b2aaa6a8ceeea1)
+            type_hints = cached_type_hints(_typecheckingstub__952d6fa5f0120d9649475d290d7db9a47e3510ed333c700851b2aaa6a8ceeea1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IConfigurationRef_769e84b9", jsii.sinvoke(cls, "fromConfigurationArn", [scope, id, arn]))
+        return typing.cast("_aws_amazonmq_36a4bea9.IConfigurationRef", jsii.sinvoke(cls, "fromConfigurationArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromConfigurationId")
     @builtins.classmethod
@@ -2126,7 +2120,7 @@ class CfnConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         configuration_id: builtins.str,
-    ) -> "_IConfigurationRef_769e84b9":
+    ) -> "_aws_amazonmq_36a4bea9.IConfigurationRef":
         '''Creates a new IConfigurationRef from a configurationId.
 
         :param scope: -
@@ -2134,11 +2128,11 @@ class CfnConfiguration(
         :param configuration_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a206d532f247ca241ebd211136e297c9461a4b800008d2c7db68e5a8ba25948)
+            type_hints = cached_type_hints(_typecheckingstub__3a206d532f247ca241ebd211136e297c9461a4b800008d2c7db68e5a8ba25948)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument configuration_id", value=configuration_id, expected_type=type_hints["configuration_id"])
-        return typing.cast("_IConfigurationRef_769e84b9", jsii.sinvoke(cls, "fromConfigurationId", [scope, id, configuration_id]))
+        return typing.cast("_aws_amazonmq_36a4bea9.IConfigurationRef", jsii.sinvoke(cls, "fromConfigurationId", [scope, id, configuration_id]))
 
     @jsii.member(jsii_name="isCfnConfiguration")
     @builtins.classmethod
@@ -2148,18 +2142,18 @@ class CfnConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a305d46d9a3234f4baadcaded400dc4e2ca1f06cdaaafe63d9422ffca47d3f60)
+            type_hints = cached_type_hints(_typecheckingstub__a305d46d9a3234f4baadcaded400dc4e2ca1f06cdaaafe63d9422ffca47d3f60)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df4e9311d1aa33bca48575d715d3a7e801184dc0b0d7ccbd91d39c5dd0ca05ce)
+            type_hints = cached_type_hints(_typecheckingstub__df4e9311d1aa33bca48575d715d3a7e801184dc0b0d7ccbd91d39c5dd0ca05ce)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2172,7 +2166,7 @@ class CfnConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d26068de9c2c4b31dd208267b790265051c2f549c0e83ce735c10dbb4dd1fb3)
+            type_hints = cached_type_hints(_typecheckingstub__3d26068de9c2c4b31dd208267b790265051c2f549c0e83ce735c10dbb4dd1fb3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2227,15 +2221,15 @@ class CfnConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="configurationRef")
-    def configuration_ref(self) -> "_ConfigurationReference_19cddfe8":
+    def configuration_ref(self) -> "_aws_amazonmq_36a4bea9.ConfigurationReference":
         '''A reference to a Configuration resource.'''
-        return typing.cast("_ConfigurationReference_19cddfe8", jsii.get(self, "configurationRef"))
+        return typing.cast("_aws_amazonmq_36a4bea9.ConfigurationReference", jsii.get(self, "configurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="engineType")
@@ -2246,7 +2240,7 @@ class CfnConfiguration(
     @engine_type.setter
     def engine_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c128a8f454f5f3c6aa7f53673b3a6ff18a16f9a57d23f00a8ae771a0e07fd47)
+            type_hints = cached_type_hints(_typecheckingstub__1c128a8f454f5f3c6aa7f53673b3a6ff18a16f9a57d23f00a8ae771a0e07fd47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineType", value) # pyright: ignore[reportArgumentType]
 
@@ -2259,7 +2253,7 @@ class CfnConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289eb9b7603fb0304d15adaf4ff07e313a569aa2af4bf93d7cb2c2f30ad39faf)
+            type_hints = cached_type_hints(_typecheckingstub__289eb9b7603fb0304d15adaf4ff07e313a569aa2af4bf93d7cb2c2f30ad39faf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2272,7 +2266,7 @@ class CfnConfiguration(
     @authentication_strategy.setter
     def authentication_strategy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff746c5afeef7636cc2943e0307f0c73fc2e55dc7ec0a26556d504a9fcb0fc00)
+            type_hints = cached_type_hints(_typecheckingstub__ff746c5afeef7636cc2943e0307f0c73fc2e55dc7ec0a26556d504a9fcb0fc00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationStrategy", value) # pyright: ignore[reportArgumentType]
 
@@ -2285,7 +2279,7 @@ class CfnConfiguration(
     @data.setter
     def data(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93df7b636c49e24d098eef8a55838ad32b99b6986e3499b80882163f47bcceff)
+            type_hints = cached_type_hints(_typecheckingstub__93df7b636c49e24d098eef8a55838ad32b99b6986e3499b80882163f47bcceff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "data", value) # pyright: ignore[reportArgumentType]
 
@@ -2298,7 +2292,7 @@ class CfnConfiguration(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__480fb06649e1285f95654ba53b3a408febbb52196799763e9131443825beeeaf)
+            type_hints = cached_type_hints(_typecheckingstub__480fb06649e1285f95654ba53b3a408febbb52196799763e9131443825beeeaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2311,7 +2305,7 @@ class CfnConfiguration(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2a28dc59c3dc2c56f801f6ba425c8d15fa5408a1e6494c0c27387fdd42210c5)
+            type_hints = cached_type_hints(_typecheckingstub__a2a28dc59c3dc2c56f801f6ba425c8d15fa5408a1e6494c0c27387fdd42210c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2329,7 +2323,7 @@ class CfnConfiguration(
         value: typing.Optional[typing.List["CfnConfiguration.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a054ae8c8be290faa22413b18b520f85d06186364109595d98e6fe5dab6126e6)
+            type_hints = cached_type_hints(_typecheckingstub__a054ae8c8be290faa22413b18b520f85d06186364109595d98e6fe5dab6126e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2360,7 +2354,7 @@ class CfnConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4fe3f9e966befae25ac877bbbdd63895c649331fa5425c359414dd8f24ccc11b)
+                type_hints = cached_type_hints(_typecheckingstub__4fe3f9e966befae25ac877bbbdd63895c649331fa5425c359414dd8f24ccc11b)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2398,9 +2392,9 @@ class CfnConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConfigurationAssociationRef_98fafe4d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_amazonmq_36a4bea9.IConfigurationAssociationRef)
 class CfnConfigurationAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfigurationAssociation",
 ):
@@ -2431,7 +2425,7 @@ class CfnConfigurationAssociation(
         id: builtins.str,
         *,
         broker: builtins.str,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationAssociation.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationAssociation.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::AmazonMQ::ConfigurationAssociation``.
 
@@ -2441,7 +2435,7 @@ class CfnConfigurationAssociation(
         :param configuration: Returns information about all configurations.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bc27c46ef5e7e06d6d69ca58cb1eeb529e57c3a1b1af3771750fe74a0e5a436)
+            type_hints = cached_type_hints(_typecheckingstub__7bc27c46ef5e7e06d6d69ca58cb1eeb529e57c3a1b1af3771750fe74a0e5a436)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationAssociationProps(
@@ -2458,18 +2452,18 @@ class CfnConfigurationAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1635b46bcf1f3a7fcb7b74a7cdddc2051a83daf1e2c26aa487e1bd00144b7ad7)
+            type_hints = cached_type_hints(_typecheckingstub__1635b46bcf1f3a7fcb7b74a7cdddc2051a83daf1e2c26aa487e1bd00144b7ad7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfigurationAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79c1d4520032b7f7c0b21bb027542ad67eed75cc3f2420a71560985cd7a5d95b)
+            type_hints = cached_type_hints(_typecheckingstub__79c1d4520032b7f7c0b21bb027542ad67eed75cc3f2420a71560985cd7a5d95b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2482,7 +2476,7 @@ class CfnConfigurationAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2bf2d4a5d6c557ed603a44c98984b27963d1c37cb39e57f78967d32993bebfe)
+            type_hints = cached_type_hints(_typecheckingstub__c2bf2d4a5d6c557ed603a44c98984b27963d1c37cb39e57f78967d32993bebfe)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2515,9 +2509,9 @@ class CfnConfigurationAssociation(
     @jsii.member(jsii_name="configurationAssociationRef")
     def configuration_association_ref(
         self,
-    ) -> "_ConfigurationAssociationReference_c6685840":
+    ) -> "_aws_amazonmq_36a4bea9.ConfigurationAssociationReference":
         '''A reference to a ConfigurationAssociation resource.'''
-        return typing.cast("_ConfigurationAssociationReference_c6685840", jsii.get(self, "configurationAssociationRef"))
+        return typing.cast("_aws_amazonmq_36a4bea9.ConfigurationAssociationReference", jsii.get(self, "configurationAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="broker")
@@ -2528,7 +2522,7 @@ class CfnConfigurationAssociation(
     @broker.setter
     def broker(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdbfb700e696e0a2f32b9de9d84566a84719a73bda01942e115e55df84e2750b)
+            type_hints = cached_type_hints(_typecheckingstub__bdbfb700e696e0a2f32b9de9d84566a84719a73bda01942e115e55df84e2750b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "broker", value) # pyright: ignore[reportArgumentType]
 
@@ -2536,17 +2530,17 @@ class CfnConfigurationAssociation(
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfigurationAssociation.ConfigurationIdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationAssociation.ConfigurationIdProperty"]:
         '''Returns information about all configurations.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfigurationAssociation.ConfigurationIdProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationAssociation.ConfigurationIdProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConfigurationAssociation.ConfigurationIdProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationAssociation.ConfigurationIdProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4880b79512d307d86febbd936290d7f133d94115f216f3f043c71ceab0b3e4c)
+            type_hints = cached_type_hints(_typecheckingstub__f4880b79512d307d86febbd936290d7f133d94115f216f3f043c71ceab0b3e4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -2577,7 +2571,7 @@ class CfnConfigurationAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__08e92a82af3e279f734ea3e7cb4083780249c19e2dd02ec38e2bacb5b5a4b39b)
+                type_hints = cached_type_hints(_typecheckingstub__08e92a82af3e279f734ea3e7cb4083780249c19e2dd02ec38e2bacb5b5a4b39b)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument revision", value=revision, expected_type=type_hints["revision"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2629,7 +2623,7 @@ class CfnConfigurationAssociationProps:
         self,
         *,
         broker: builtins.str,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationAssociation.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationAssociation.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnConfigurationAssociation``.
 
@@ -2654,7 +2648,7 @@ class CfnConfigurationAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8)
+            type_hints = cached_type_hints(_typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8)
             check_type(argname="argument broker", value=broker, expected_type=type_hints["broker"])
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2675,14 +2669,14 @@ class CfnConfigurationAssociationProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfigurationAssociation.ConfigurationIdProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationAssociation.ConfigurationIdProperty"]:
         '''Returns information about all configurations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html#cfn-amazonmq-configurationassociation-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfigurationAssociation.ConfigurationIdProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationAssociation.ConfigurationIdProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2756,7 +2750,7 @@ class CfnConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc)
+            type_hints = cached_type_hints(_typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc)
             check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument authentication_strategy", value=authentication_strategy, expected_type=type_hints["authentication_strategy"])
@@ -2887,29 +2881,29 @@ def _typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce8753
     deployment_mode: builtins.str,
     engine_type: builtins.str,
     host_instance_type: builtins.str,
-    publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    publicly_accessible: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     authentication_strategy: typing.Optional[builtins.str] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_replication_mode: typing.Optional[builtins.str] = None,
     data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-    encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     engine_version: typing.Optional[builtins.str] = None,
-    ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ldap_server_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window_start_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    users: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    users: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__65a3807b80344d52e1ebf0357601d8262aeda03bd226f1c2f04feac612ffef01(
-    resource: _IBrokerRef_bd875819,
+    resource: _aws_amazonmq_36a4bea9.IBrokerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2921,7 +2915,7 @@ def _typecheckingstub__ea939fad96987bea5c10e671be6d5ed49dde85c9738dd8b10127967a4
     pass
 
 def _typecheckingstub__2d7a61b5b47c0d5f9d4072378260a383a676994ae22eab1593156375aeda79a7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2957,7 +2951,7 @@ def _typecheckingstub__a8a51a01838222e13c8eba50f7d568dc975a2e3c5c2d18f21339bc702
     pass
 
 def _typecheckingstub__4a82a112ececec828f3c746f7c18e6b6ce32a5aa08550a05a69d7babd8852a7e(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2969,13 +2963,13 @@ def _typecheckingstub__3eab9258c47a74b1aabb4a39e66512dbb010a0f1c8838ec359338808e
     pass
 
 def _typecheckingstub__1becedc098602474059b0aaa465b25ea1b7124443411ed6a42b02d6a5344cdda(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0eabdb321f6595584d9f056a97a3a7481faa1ad417f76f3ea42484e5ef0b195f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.ConfigurationIdProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.ConfigurationIdProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2993,7 +2987,7 @@ def _typecheckingstub__b8ffdb4011b4637fc96f4f2d0dcab95738383a77b9240b6d0f3cdf96f
     pass
 
 def _typecheckingstub__3846e06a73702f6e76ab386acc1ad9128b00ec2357b3396abf86d893cdbae15d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.EncryptionOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.EncryptionOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3005,19 +2999,19 @@ def _typecheckingstub__631fd780aebb5b339c2238752e33306ea6591245c7231c4db165256d6
     pass
 
 def _typecheckingstub__b8de6a532c388b2fc838b3141f942b6cbbc5d1a796bb76e3fc3fe5a446d932f8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LdapServerMetadataProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.LdapServerMetadataProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36b6d40f90e93b4b35c3ffbb3065567a24c0bd9312758826697afa2118901335(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LogListProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.LogListProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7e2d1a75b2e491fa226b7065a64e24f522ac7be048073da54600cfd720b1240f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.MaintenanceWindowProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.MaintenanceWindowProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3053,7 +3047,7 @@ def _typecheckingstub__739d50e75e2a93ab9671710563ad1ed5176802aef44a2986de718c86a
     pass
 
 def _typecheckingstub__85b9c0c3c3aa438279362aeaae2a3de844ec906edf5b12b7601c78bc63fbfd6b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBroker.UserProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBroker.UserProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3068,7 +3062,7 @@ def _typecheckingstub__f9d5131bf29ed360bf06fb2fc10b8d6ac62da622a4f41bd0e435a4436
 
 def _typecheckingstub__95df5a3839d7c2d80c93cb1b9948b6d4ef43f2e19eb9097abb3cbae048c164aa(
     *,
-    use_aws_owned_key: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    use_aws_owned_key: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3083,18 +3077,18 @@ def _typecheckingstub__282093319da5ca5716ae9202b23fde6f2380a3a720f7bac369f166119
     user_base: builtins.str,
     user_search_matching: builtins.str,
     role_name: typing.Optional[builtins.str] = None,
-    role_search_subtree: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_search_subtree: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     service_account_password: typing.Optional[builtins.str] = None,
     user_role_name: typing.Optional[builtins.str] = None,
-    user_search_subtree: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    user_search_subtree: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cc6518d5765d0a7bdb0ead05cff3d08ab216b44006da8bba35424620fea26077(
     *,
-    audit: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    general: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    audit: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    general: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3120,9 +3114,9 @@ def _typecheckingstub__8a458786a0cd0d4269adef0bf3c85862386851ab69649004d5d3dcba4
     *,
     password: builtins.str,
     username: builtins.str,
-    console_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    console_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    replication_user: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    replication_user: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3133,23 +3127,23 @@ def _typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fa
     deployment_mode: builtins.str,
     engine_type: builtins.str,
     host_instance_type: builtins.str,
-    publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    publicly_accessible: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     authentication_strategy: typing.Optional[builtins.str] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_replication_mode: typing.Optional[builtins.str] = None,
     data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-    encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     engine_version: typing.Optional[builtins.str] = None,
-    ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ldap_server_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window_start_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    users: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    users: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3170,7 +3164,7 @@ def _typecheckingstub__e5d8c71c30a8f2bd8b3e455320ae87cc2204a9546d3ee226605a95753
     pass
 
 def _typecheckingstub__43365c105d93276bbd5e65bdc4db2f6781b8ffcdda71dd9ace1c156148647846(
-    resource: _IConfigurationRef_769e84b9,
+    resource: _aws_amazonmq_36a4bea9.IConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3198,7 +3192,7 @@ def _typecheckingstub__a305d46d9a3234f4baadcaded400dc4e2ca1f06cdaaafe63d9422ffca
     pass
 
 def _typecheckingstub__df4e9311d1aa33bca48575d715d3a7e801184dc0b0d7ccbd91d39c5dd0ca05ce(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3264,7 +3258,7 @@ def _typecheckingstub__7bc27c46ef5e7e06d6d69ca58cb1eeb529e57c3a1b1af3771750fe74a
     id: builtins.str,
     *,
     broker: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3276,7 +3270,7 @@ def _typecheckingstub__1635b46bcf1f3a7fcb7b74a7cdddc2051a83daf1e2c26aa487e1bd001
     pass
 
 def _typecheckingstub__79c1d4520032b7f7c0b21bb027542ad67eed75cc3f2420a71560985cd7a5d95b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3294,7 +3288,7 @@ def _typecheckingstub__bdbfb700e696e0a2f32b9de9d84566a84719a73bda01942e115e55df8
     pass
 
 def _typecheckingstub__f4880b79512d307d86febbd936290d7f133d94115f216f3f043c71ceab0b3e4c(
-    value: typing.Union[_IResolvable_da3f097b, CfnConfigurationAssociation.ConfigurationIdProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationAssociation.ConfigurationIdProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3310,7 +3304,7 @@ def _typecheckingstub__08e92a82af3e279f734ea3e7cb4083780249c19e2dd02ec38e2bacb5b
 def _typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8(
     *,
     broker: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

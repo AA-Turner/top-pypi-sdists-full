@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class EnabledBaselineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__131ca4cc561cbb4aa73ec0084a3232b76e8f345bad523722000b9a6806841282)
+            type_hints = cached_type_hints(_typecheckingstub__131ca4cc561cbb4aa73ec0084a3232b76e8f345bad523722000b9a6806841282)
             check_type(argname="argument enabled_baseline_identifier", value=enabled_baseline_identifier, expected_type=type_hints["enabled_baseline_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "enabled_baseline_identifier": enabled_baseline_identifier,
@@ -117,7 +121,7 @@ class EnabledControlReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cb9591522b427f0e2c9e99083beb4f143ec50e993bdc26049fcce9d1b5fd5f4)
+            type_hints = cached_type_hints(_typecheckingstub__2cb9591522b427f0e2c9e99083beb4f143ec50e993bdc26049fcce9d1b5fd5f4)
             check_type(argname="argument control_identifier", value=control_identifier, expected_type=type_hints["control_identifier"])
             check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -156,7 +160,7 @@ class EnabledControlReference:
 )
 class IEnabledBaselineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnabledBaseline.
@@ -176,7 +180,7 @@ class IEnabledBaselineRef(
 
 class _IEnabledBaselineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnabledBaseline.
 
@@ -201,7 +205,7 @@ typing.cast(typing.Any, IEnabledBaselineRef).__jsii_proxy_class__ = lambda : _IE
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_controltower.IEnabledControlRef")
 class IEnabledControlRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnabledControl.
@@ -221,7 +225,7 @@ class IEnabledControlRef(
 
 class _IEnabledControlRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnabledControl.
 
@@ -246,7 +250,7 @@ typing.cast(typing.Any, IEnabledControlRef).__jsii_proxy_class__ = lambda : _IEn
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_controltower.ILandingZoneRef")
 class ILandingZoneRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LandingZone.
@@ -266,7 +270,7 @@ class ILandingZoneRef(
 
 class _ILandingZoneRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LandingZone.
 
@@ -322,7 +326,7 @@ class LandingZoneReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__433a90da81f818d83b8df0e666ab36391cc14c2e043d9d9957de21c1d16101d6)
+            type_hints = cached_type_hints(_typecheckingstub__433a90da81f818d83b8df0e666ab36391cc14c2e043d9d9957de21c1d16101d6)
             check_type(argname="argument landing_zone_arn", value=landing_zone_arn, expected_type=type_hints["landing_zone_arn"])
             check_type(argname="argument landing_zone_identifier", value=landing_zone_identifier, expected_type=type_hints["landing_zone_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

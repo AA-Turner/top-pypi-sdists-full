@@ -2,6 +2,7 @@ import os
 import re
 import sys
 from subprocess import PIPE, Popen
+from urllib.parse import quote
 
 import pytest
 import responses
@@ -15,6 +16,7 @@ from internetarchive.utils import json
 PROTOCOL = 'https:'
 BASE_URL = 'https://archive.org/'
 METADATA_URL = f'{BASE_URL}metadata/'
+DOWNLOAD_URL_RE = re.compile(r'https?://archive\.org/download/.*')
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEST_CONFIG = os.path.join(ROOT_DIR, 'tests/ia.ini')
 NASA_METADATA_PATH = os.path.join(ROOT_DIR, 'tests/data/metadata/nasa.json')
@@ -74,9 +76,19 @@ def call_cmd(cmd, expected_exit_code=0):
 
 
 class IaRequestsMock(RequestsMock):
-    def add_metadata_mock(self, identifier, body=None, method=responses.GET,
-                          protocol='https?', transform_body=None):
-        url = re.compile(f'{protocol}://archive.org/metadata/{identifier}')
+    def add_metadata_mock(
+        self,
+        identifier,
+        body=None,
+        method=responses.GET,
+        protocol='https?',
+        transform_body=None,
+    ):
+        # requests percent-encodes non-ASCII identifiers in the URL, so match
+        # the quoted form; re.escape guards regex metachars (e.g. '.') in ids.
+        url = re.compile(
+            rf'{protocol}://archive\.org/metadata/{re.escape(quote(identifier))}'
+        )
         if body is None:
             body = load_test_data_file(f'metadata/{identifier}.json')
         if transform_body:
@@ -84,7 +96,7 @@ class IaRequestsMock(RequestsMock):
         self.add(method, url, body=body, content_type='application/json')
 
     def mock_all_downloads(self, num_calls=1, body='test content', protocol='https?'):
-        url = re.compile(f'{protocol}://archive.org/download/.*')
+        url = re.compile(rf'{protocol}://archive\.org/download/.*')
         for _ in range(6):
             self.add(responses.GET, url, body=body)
 
@@ -103,14 +115,6 @@ def nasa_mocker():
 
 
 @pytest.fixture
-def nasa_item():
-    session = get_session()
-    with IaRequestsMock() as mocker:
-        mocker.add_metadata_mock('nasa')
-        yield session.get_item('nasa')
-
-
-@pytest.fixture
 def session():
     return get_session(config={'s3': {'access': 'access', 'secret': 'secret'}})
 
@@ -120,7 +124,6 @@ def nasa_metadata():
     return json.loads(load_test_data_file('metadata/nasa.json'))
 
 
-# TODO: Why is this function defined twice in this file?  See issue #505
-@pytest.fixture  # type: ignore
-def nasa_item(nasa_mocker):  # noqa: F811
+@pytest.fixture
+def nasa_item(nasa_mocker):
     return get_item('nasa')

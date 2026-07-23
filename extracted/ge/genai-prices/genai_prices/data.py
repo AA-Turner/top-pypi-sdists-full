@@ -2233,6 +2233,15 @@ providers: list[Provider] = [
                     UsageExtractorMapping(path='candidatesTokenCount', dest='output_tokens', required=False),
                     UsageExtractorMapping(path='thoughtsTokenCount', dest='output_tokens', required=False),
                     UsageExtractorMapping(path='toolUsePromptTokenCount', dest='input_tokens', required=False),
+                    UsageExtractorMapping(
+                        path=[
+                            'toolUsePromptTokensDetails',
+                            ArrayMatch(type='array-match', field='modality', match=ClauseEquals(equals='AUDIO')),
+                            'tokenCount',
+                        ],
+                        dest='input_audio_tokens',
+                        required=False,
+                    ),
                 ],
                 api_flavor='default',
                 model_path='modelVersion',
@@ -2663,12 +2672,40 @@ providers: list[Provider] = [
             ),
             ModelInfo(
                 id='gemini-3.5-flash',
-                match=ClauseStartsWith(starts_with='gemini-3.5-flash'),
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gemini-3.5-flash'),
+                        ClauseStartsWith(starts_with='gemini-3.5-flash-preview'),
+                        ClauseRegex(regex='^gemini-3\\.5-flash-\\d'),
+                    ]
+                ),
                 name='Gemini 3.5 Flash',
                 description="Google's most intelligent model built for speed, combining frontier intelligence with improved reasoning, coding, and multimodal understanding.",
                 context_window=1000000,
                 price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount on input/output.',
                 prices=ModelPrice(input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('9')),
+            ),
+            ModelInfo(
+                id='gemini-3.5-flash-lite',
+                match=ClauseStartsWith(starts_with='gemini-3.5-flash-lite'),
+                name='Gemini 3.5 Flash Lite',
+                description="Google's fastest and most cost-efficient Gemini 3.5 series model, optimized for high-volume, low-latency applications while maintaining strong multimodal capabilities.",
+                context_window=1000000,
+                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount. Input rate is unified across text/image/video/audio (no separate audio rate).',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.3'), cache_read_mtok=Decimal('0.03'), output_mtok=Decimal('2.5')
+                ),
+            ),
+            ModelInfo(
+                id='gemini-3.6-flash',
+                match=ClauseStartsWith(starts_with='gemini-3.6-flash'),
+                name='Gemini 3.6 Flash',
+                description="Google's most intelligent model built for speed, combining frontier intelligence with improved reasoning, coding, and multimodal understanding.",
+                context_window=1000000,
+                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount. No separate audio input rate documented.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('7.5')
+                ),
             ),
             ModelInfo(
                 id='gemini-embedding-001',
@@ -5813,6 +5850,15 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='kimi-k3',
+                match=ClauseEquals(equals='kimi-k3'),
+                name='Kimi K3',
+                description="Kimi's flagship reasoning model with always-on thinking, native multimodal (image and video) input, tool use, and structured output. 2.8 trillion total parameters MoE.",
+                context_window=1048576,
+                price_comments='Ref: https://platform.kimi.ai/docs/pricing/chat-k3.md',
+                prices=ModelPrice(input_mtok=Decimal('3'), cache_read_mtok=Decimal('0.3'), output_mtok=Decimal('15')),
+            ),
+            ModelInfo(
                 id='moonshot-v1-128k',
                 match=ClauseOr(
                     or_=[
@@ -6032,6 +6078,8 @@ providers: list[Provider] = [
         name='OpenAI',
         api_pattern='https://api\\.openai\\.com',
         pricing_urls=[
+            'https://developers.openai.com/api/docs/pricing',
+            'https://developers.openai.com/api/docs/guides/prompt-caching',
             'https://platform.openai.com/docs/pricing',
             'https://openai.com/api/pricing/',
             'https://platform.openai.com/docs/models',
@@ -6046,6 +6094,9 @@ providers: list[Provider] = [
                     UsageExtractorMapping(path='prompt_tokens', dest='input_tokens', required=True),
                     UsageExtractorMapping(
                         path=['prompt_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['prompt_tokens_details', 'cache_write_tokens'], dest='cache_write_tokens', required=False
                     ),
                     UsageExtractorMapping(
                         path=['prompt_tokens_details', 'audio_tokens'], dest='input_audio_tokens', required=False
@@ -6064,6 +6115,9 @@ providers: list[Provider] = [
                     UsageExtractorMapping(path='input_tokens', dest='input_tokens', required=True),
                     UsageExtractorMapping(
                         path=['input_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['input_tokens_details', 'cache_write_tokens'], dest='cache_write_tokens', required=False
                     ),
                     UsageExtractorMapping(path='output_tokens', dest='output_tokens', required=True),
                 ],
@@ -6703,7 +6757,15 @@ providers: list[Provider] = [
                 name='GPT-5.6 Luna',
                 description='GPT-5.6 model optimized for cost-sensitive workloads.',
                 context_window=1050000,
-                prices=ModelPrice(input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('6')),
+                price_comments='Cache writes are billed at 1.25x the uncached input rate. Ref: https://developers.openai.com/api/docs/guides/prompt-caching',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
+                    output_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=272000, price=Decimal('9'))]),
+                ),
             ),
             ModelInfo(
                 id='gpt-5.6-sol',
@@ -6718,7 +6780,15 @@ providers: list[Provider] = [
                 name='GPT-5.6 Sol',
                 description='Frontier model for complex professional work.',
                 context_window=1050000,
-                prices=ModelPrice(input_mtok=Decimal('5'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('30')),
+                price_comments='Cache writes are billed at 1.25x the uncached input rate. Ref: https://developers.openai.com/api/docs/guides/prompt-caching',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('6.25'), tiers=[Tier(start=272000, price=Decimal('12.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]),
+                    output_mtok=TieredPrices(base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('45'))]),
+                ),
             ),
             ModelInfo(
                 id='gpt-5.6-terra',
@@ -6726,8 +6796,16 @@ providers: list[Provider] = [
                 name='GPT-5.6 Terra',
                 description='GPT-5.6 model that balances intelligence and cost.',
                 context_window=1050000,
+                price_comments='Cache writes are billed at 1.25x the uncached input rate. Ref: https://developers.openai.com/api/docs/guides/prompt-caching',
                 prices=ModelPrice(
-                    input_mtok=Decimal('2.5'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('15')
+                    input_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('3.125'), tiers=[Tier(start=272000, price=Decimal('6.25'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.5'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('15'), tiers=[Tier(start=272000, price=Decimal('22.5'))]),
                 ),
             ),
             ModelInfo(
@@ -9759,6 +9837,16 @@ providers: list[Provider] = [
                 prices=ModelPrice(
                     input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.16'), output_mtok=Decimal('3.5')
                 ),
+            ),
+            ModelInfo(
+                id='moonshotai/kimi-k3',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='moonshotai/kimi-k3'), ClauseEquals(equals='moonshotai/kimi-k3-20260715')]
+                ),
+                name='Kimi K3',
+                context_window=1048576,
+                price_comments='Ref: https://openrouter.ai/api/v1/models',
+                prices=ModelPrice(input_mtok=Decimal('3'), cache_read_mtok=Decimal('0.3'), output_mtok=Decimal('15')),
             ),
             ModelInfo(
                 id='moonshotai/kimi-vl-a3b-thinking:free',

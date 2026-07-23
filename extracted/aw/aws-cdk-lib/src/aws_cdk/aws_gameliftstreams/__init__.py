@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,45 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_gameliftstreams import (
-    ApplicationReference as _ApplicationReference_3d673e1c,
-    IApplicationRef as _IApplicationRef_2ee70e7c,
-    IStreamGroupRef as _IStreamGroupRef_ad23a873,
-    StreamGroupReference as _StreamGroupReference_fe90a10e,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_gameliftstreams as _aws_gameliftstreams_eb28072a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_gameliftstreams_eb28072a = _LazyImport("aws_cdk.interfaces.aws_gameliftstreams")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_2ee70e7c, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_gameliftstreams_eb28072a.IApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnApplication",
 ):
@@ -132,7 +125,7 @@ class CfnApplication(
         application_source_uri: builtins.str,
         description: builtins.str,
         executable_path: builtins.str,
-        runtime_environment: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
+        runtime_environment: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
         application_log_output_uri: typing.Optional[builtins.str] = None,
         application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -150,7 +143,7 @@ class CfnApplication(
         :param tags: A list of labels to assign to the new application resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824dffcb57)
+            type_hints = cached_type_hints(_typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824dffcb57)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
@@ -167,12 +160,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_2ee70e7c") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_gameliftstreams_eb28072a.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c94c187779bbccffe5da1d4a0c4f62df421d8664f8a29a623939455de67474bc)
+            type_hints = cached_type_hints(_typecheckingstub__c94c187779bbccffe5da1d4a0c4f62df421d8664f8a29a623939455de67474bc)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -184,18 +180,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f508b760aafe53023b2165f38ccb270bc42890b15036b660e740327c548c7909)
+            type_hints = cached_type_hints(_typecheckingstub__f508b760aafe53023b2165f38ccb270bc42890b15036b660e740327c548c7909)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d76bc5828ad9405857a447dd5e09d353f094e8dace57a54f0cf310c8491cdf2)
+            type_hints = cached_type_hints(_typecheckingstub__2d76bc5828ad9405857a447dd5e09d353f094e8dace57a54f0cf310c8491cdf2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -208,7 +204,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50c31bcf353c2c84c0618a01ad12939bc1543325af7012c982b33b3805174c1c)
+            type_hints = cached_type_hints(_typecheckingstub__50c31bcf353c2c84c0618a01ad12939bc1543325af7012c982b33b3805174c1c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -220,9 +216,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_3d673e1c":
+    def application_ref(self) -> "_aws_gameliftstreams_eb28072a.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_3d673e1c", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_gameliftstreams_eb28072a.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -248,9 +244,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -271,7 +267,7 @@ class CfnApplication(
     @application_source_uri.setter
     def application_source_uri(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1879374230d6341862d7d814f31258e5fa681d1bb031c6cda6c5b47607c67d17)
+            type_hints = cached_type_hints(_typecheckingstub__1879374230d6341862d7d814f31258e5fa681d1bb031c6cda6c5b47607c67d17)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationSourceUri", value) # pyright: ignore[reportArgumentType]
 
@@ -284,7 +280,7 @@ class CfnApplication(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8714b4b46e3aca8a02e428c362995e23942e3b680d88f693386d95f4351f36e6)
+            type_hints = cached_type_hints(_typecheckingstub__8714b4b46e3aca8a02e428c362995e23942e3b680d88f693386d95f4351f36e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -297,7 +293,7 @@ class CfnApplication(
     @executable_path.setter
     def executable_path(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31e9a9acdd861e63cdd99c001364a9e3ba706bbf503797c4fd9ac585c1f76a0c)
+            type_hints = cached_type_hints(_typecheckingstub__31e9a9acdd861e63cdd99c001364a9e3ba706bbf503797c4fd9ac585c1f76a0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executablePath", value) # pyright: ignore[reportArgumentType]
 
@@ -305,17 +301,17 @@ class CfnApplication(
     @jsii.member(jsii_name="runtimeEnvironment")
     def runtime_environment(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RuntimeEnvironmentProperty"]:
         '''A set of configuration settings to run the application on a stream group.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"], jsii.get(self, "runtimeEnvironment"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RuntimeEnvironmentProperty"], jsii.get(self, "runtimeEnvironment"))
 
     @runtime_environment.setter
     def runtime_environment(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RuntimeEnvironmentProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99f6582f76f3c6a11837e068e6e72ca864955b2789dca17c695fab2bad3ca516)
+            type_hints = cached_type_hints(_typecheckingstub__99f6582f76f3c6a11837e068e6e72ca864955b2789dca17c695fab2bad3ca516)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runtimeEnvironment", value) # pyright: ignore[reportArgumentType]
 
@@ -328,7 +324,7 @@ class CfnApplication(
     @application_log_output_uri.setter
     def application_log_output_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fd55d29c5f92dec6b4e922ca4c78d4fbe17f68d92c455f0fe391ec69b4687c9)
+            type_hints = cached_type_hints(_typecheckingstub__3fd55d29c5f92dec6b4e922ca4c78d4fbe17f68d92c455f0fe391ec69b4687c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationLogOutputUri", value) # pyright: ignore[reportArgumentType]
 
@@ -344,7 +340,7 @@ class CfnApplication(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b132398da4b4570c9a85ae72bf79d405aa40a1c75f2961f628de9d9b1224e0eb)
+            type_hints = cached_type_hints(_typecheckingstub__b132398da4b4570c9a85ae72bf79d405aa40a1c75f2961f628de9d9b1224e0eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationLogPaths", value) # pyright: ignore[reportArgumentType]
 
@@ -360,7 +356,7 @@ class CfnApplication(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7a1896b47cdd07eb41b16d50651877cd16a2b19eb7ee93b0abc4e48422f849f)
+            type_hints = cached_type_hints(_typecheckingstub__d7a1896b47cdd07eb41b16d50651877cd16a2b19eb7ee93b0abc4e48422f849f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -403,7 +399,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36db25239f5829e6be78b8afc94eb689056b154e144d17ae679806f522900e44)
+                type_hints = cached_type_hints(_typecheckingstub__36db25239f5829e6be78b8afc94eb689056b154e144d17ae679806f522900e44)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -465,7 +461,7 @@ class CfnApplicationProps:
         application_source_uri: builtins.str,
         description: builtins.str,
         executable_path: builtins.str,
-        runtime_environment: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
+        runtime_environment: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
         application_log_output_uri: typing.Optional[builtins.str] = None,
         application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -507,7 +503,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4)
+            type_hints = cached_type_hints(_typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4)
             check_type(argname="argument application_source_uri", value=application_source_uri, expected_type=type_hints["application_source_uri"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument executable_path", value=executable_path, expected_type=type_hints["executable_path"])
@@ -572,7 +568,7 @@ class CfnApplicationProps:
     @builtins.property
     def runtime_environment(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RuntimeEnvironmentProperty"]:
         '''A set of configuration settings to run the application on a stream group.
 
         This configures the operating system, and can include compatibility layers and other drivers.
@@ -581,7 +577,7 @@ class CfnApplicationProps:
         '''
         result = self._values.get("runtime_environment")
         assert result is not None, "Required property 'runtime_environment' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.RuntimeEnvironmentProperty"], result)
 
     @builtins.property
     def application_log_output_uri(self) -> typing.Optional[builtins.str]:
@@ -628,9 +624,9 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStreamGroupRef_ad23a873, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_gameliftstreams_eb28072a.IStreamGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnStreamGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnStreamGroup",
 ):
@@ -692,9 +688,9 @@ class CfnStreamGroup(
         id: builtins.str,
         *,
         description: builtins.str,
-        location_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        location_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         stream_class: builtins.str,
-        default_application: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_application: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::GameLiftStreams::StreamGroup``.
@@ -708,7 +704,7 @@ class CfnStreamGroup(
         :param tags: A list of labels to assign to the new stream group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f0f973b06de7ae1a48df1df69579c9c8dfd0885945a959686fdddf31cc2674)
+            type_hints = cached_type_hints(_typecheckingstub__79f0f973b06de7ae1a48df1df69579c9c8dfd0885945a959686fdddf31cc2674)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStreamGroupProps(
@@ -725,13 +721,13 @@ class CfnStreamGroup(
     @builtins.classmethod
     def arn_for_stream_group(
         cls,
-        resource: "_IStreamGroupRef_ad23a873",
+        resource: "_aws_gameliftstreams_eb28072a.IStreamGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8540278fdd3b8a4498e2cc4cfa8e5b9cc8d4b5c4d3cc416a36f562cacdbd5ba)
+            type_hints = cached_type_hints(_typecheckingstub__a8540278fdd3b8a4498e2cc4cfa8e5b9cc8d4b5c4d3cc416a36f562cacdbd5ba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStreamGroup", [resource]))
 
@@ -743,18 +739,18 @@ class CfnStreamGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d09e3d7bd23e058bf82fe12a34d8bf2b19d08ebf87feb9dc5cb17e72c7ccfef)
+            type_hints = cached_type_hints(_typecheckingstub__0d09e3d7bd23e058bf82fe12a34d8bf2b19d08ebf87feb9dc5cb17e72c7ccfef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStreamGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb56536ce44817c859b61b163e409d7355fcd5587161451f9e349b151919e117)
+            type_hints = cached_type_hints(_typecheckingstub__cb56536ce44817c859b61b163e409d7355fcd5587161451f9e349b151919e117)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -767,7 +763,7 @@ class CfnStreamGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e452216970f4fb3ed8f8671a8e3d85dc54c1eb595b151c7880df187fd3ffc5e1)
+            type_hints = cached_type_hints(_typecheckingstub__e452216970f4fb3ed8f8671a8e3d85dc54c1eb595b151c7880df187fd3ffc5e1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -799,9 +795,9 @@ class CfnStreamGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -815,9 +811,9 @@ class CfnStreamGroup(
 
     @builtins.property
     @jsii.member(jsii_name="streamGroupRef")
-    def stream_group_ref(self) -> "_StreamGroupReference_fe90a10e":
+    def stream_group_ref(self) -> "_aws_gameliftstreams_eb28072a.StreamGroupReference":
         '''A reference to a StreamGroup resource.'''
-        return typing.cast("_StreamGroupReference_fe90a10e", jsii.get(self, "streamGroupRef"))
+        return typing.cast("_aws_gameliftstreams_eb28072a.StreamGroupReference", jsii.get(self, "streamGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -828,7 +824,7 @@ class CfnStreamGroup(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be883277b66b56e75f860926d2ccdff02bbe3ad4484bdf975afaa283e57056d4)
+            type_hints = cached_type_hints(_typecheckingstub__be883277b66b56e75f860926d2ccdff02bbe3ad4484bdf975afaa283e57056d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -836,17 +832,17 @@ class CfnStreamGroup(
     @jsii.member(jsii_name="locationConfigurations")
     def location_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.LocationConfigurationProperty"]]]:
         '''A set of one or more locations and the streaming capacity for each location.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]], jsii.get(self, "locationConfigurations"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.LocationConfigurationProperty"]]], jsii.get(self, "locationConfigurations"))
 
     @location_configurations.setter
     def location_configurations(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.LocationConfigurationProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dce7069bc18c5adbe92459796919490fb80e38f9a3fe455b779e19b0b30da98)
+            type_hints = cached_type_hints(_typecheckingstub__5dce7069bc18c5adbe92459796919490fb80e38f9a3fe455b779e19b0b30da98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "locationConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -859,7 +855,7 @@ class CfnStreamGroup(
     @stream_class.setter
     def stream_class(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__936ee9ce8407944010c50c15e2b4554c116b1f3d52c2407d116cc9635a8f1cef)
+            type_hints = cached_type_hints(_typecheckingstub__936ee9ce8407944010c50c15e2b4554c116b1f3d52c2407d116cc9635a8f1cef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamClass", value) # pyright: ignore[reportArgumentType]
 
@@ -867,17 +863,17 @@ class CfnStreamGroup(
     @jsii.member(jsii_name="defaultApplication")
     def default_application(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.DefaultApplicationProperty"]]:
         '''Object that identifies the Amazon GameLift Streams application to stream with this stream group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]], jsii.get(self, "defaultApplication"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.DefaultApplicationProperty"]], jsii.get(self, "defaultApplication"))
 
     @default_application.setter
     def default_application(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.DefaultApplicationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4aa4ce53af802ec6bb329423326bcefed0b20e44bbe786ff2d23e1de4a242ec9)
+            type_hints = cached_type_hints(_typecheckingstub__4aa4ce53af802ec6bb329423326bcefed0b20e44bbe786ff2d23e1de4a242ec9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultApplication", value) # pyright: ignore[reportArgumentType]
 
@@ -893,7 +889,7 @@ class CfnStreamGroup(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__491f8e30ff0958f00c4865b688648d82e82269ac2cd26ab478fe4579914e9c64)
+            type_hints = cached_type_hints(_typecheckingstub__491f8e30ff0958f00c4865b688648d82e82269ac2cd26ab478fe4579914e9c64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -929,7 +925,7 @@ class CfnStreamGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c9b2ab7b0a09f30591f6dfe285dd0f1f30dec2efec3678c3961dddd6549f7a49)
+                type_hints = cached_type_hints(_typecheckingstub__c9b2ab7b0a09f30591f6dfe285dd0f1f30dec2efec3678c3961dddd6549f7a49)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -990,7 +986,7 @@ class CfnStreamGroup(
             maximum_capacity: typing.Optional[jsii.Number] = None,
             on_demand_capacity: typing.Optional[jsii.Number] = None,
             target_idle_capacity: typing.Optional[jsii.Number] = None,
-            vpc_transit_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.VpcTransitConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_transit_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamGroup.VpcTransitConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings that define a stream group's stream capacity for a location.
 
@@ -1027,7 +1023,7 @@ class CfnStreamGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49bec9a86e)
+                type_hints = cached_type_hints(_typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49bec9a86e)
                 check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
                 check_type(argname="argument always_on_capacity", value=always_on_capacity, expected_type=type_hints["always_on_capacity"])
                 check_type(argname="argument maximum_capacity", value=maximum_capacity, expected_type=type_hints["maximum_capacity"])
@@ -1101,12 +1097,12 @@ class CfnStreamGroup(
         @builtins.property
         def vpc_transit_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.VpcTransitConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.VpcTransitConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-vpctransitconfiguration
             '''
             result = self._values.get("vpc_transit_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.VpcTransitConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.VpcTransitConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1150,7 +1146,7 @@ class CfnStreamGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a26cfff523fc519d694b3a7a86b56ae8093ceb6a504a08e63d90ebf21ed0782e)
+                type_hints = cached_type_hints(_typecheckingstub__a26cfff523fc519d694b3a7a86b56ae8093ceb6a504a08e63d90ebf21ed0782e)
                 check_type(argname="argument ipv4_cidr_blocks", value=ipv4_cidr_blocks, expected_type=type_hints["ipv4_cidr_blocks"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1204,9 +1200,9 @@ class CfnStreamGroupProps:
         self,
         *,
         description: builtins.str,
-        location_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        location_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         stream_class: builtins.str,
-        default_application: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_application: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStreamGroup``.
@@ -1254,7 +1250,7 @@ class CfnStreamGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8)
+            type_hints = cached_type_hints(_typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument location_configurations", value=location_configurations, expected_type=type_hints["location_configurations"])
             check_type(argname="argument stream_class", value=stream_class, expected_type=type_hints["stream_class"])
@@ -1283,7 +1279,7 @@ class CfnStreamGroupProps:
     @builtins.property
     def location_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.LocationConfigurationProperty"]]]:
         '''A set of one or more locations and the streaming capacity for each location.
 
         One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
@@ -1292,7 +1288,7 @@ class CfnStreamGroupProps:
         '''
         result = self._values.get("location_configurations")
         assert result is not None, "Required property 'location_configurations' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.LocationConfigurationProperty"]]], result)
 
     @builtins.property
     def stream_class(self) -> builtins.str:
@@ -1377,13 +1373,13 @@ class CfnStreamGroupProps:
     @builtins.property
     def default_application(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.DefaultApplicationProperty"]]:
         '''Object that identifies the Amazon GameLift Streams application to stream with this stream group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-defaultapplication
         '''
         result = self._values.get("default_application")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStreamGroup.DefaultApplicationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1424,7 +1420,7 @@ def _typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824
     application_source_uri: builtins.str,
     description: builtins.str,
     executable_path: builtins.str,
-    runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
+    runtime_environment: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
     application_log_output_uri: typing.Optional[builtins.str] = None,
     application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1433,7 +1429,7 @@ def _typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824
     pass
 
 def _typecheckingstub__c94c187779bbccffe5da1d4a0c4f62df421d8664f8a29a623939455de67474bc(
-    resource: _IApplicationRef_2ee70e7c,
+    resource: _aws_gameliftstreams_eb28072a.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1445,7 +1441,7 @@ def _typecheckingstub__f508b760aafe53023b2165f38ccb270bc42890b15036b660e740327c5
     pass
 
 def _typecheckingstub__2d76bc5828ad9405857a447dd5e09d353f094e8dace57a54f0cf310c8491cdf2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1475,7 +1471,7 @@ def _typecheckingstub__31e9a9acdd861e63cdd99c001364a9e3ba706bbf503797c4fd9ac585c
     pass
 
 def _typecheckingstub__99f6582f76f3c6a11837e068e6e72ca864955b2789dca17c695fab2bad3ca516(
-    value: typing.Union[_IResolvable_da3f097b, CfnApplication.RuntimeEnvironmentProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.RuntimeEnvironmentProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1511,7 +1507,7 @@ def _typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e599
     application_source_uri: builtins.str,
     description: builtins.str,
     executable_path: builtins.str,
-    runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
+    runtime_environment: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
     application_log_output_uri: typing.Optional[builtins.str] = None,
     application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1524,16 +1520,16 @@ def _typecheckingstub__79f0f973b06de7ae1a48df1df69579c9c8dfd0885945a959686fdddf3
     id: builtins.str,
     *,
     description: builtins.str,
-    location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    location_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     stream_class: builtins.str,
-    default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_application: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a8540278fdd3b8a4498e2cc4cfa8e5b9cc8d4b5c4d3cc416a36f562cacdbd5ba(
-    resource: _IStreamGroupRef_ad23a873,
+    resource: _aws_gameliftstreams_eb28072a.IStreamGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1545,7 +1541,7 @@ def _typecheckingstub__0d09e3d7bd23e058bf82fe12a34d8bf2b19d08ebf87feb9dc5cb17e72
     pass
 
 def _typecheckingstub__cb56536ce44817c859b61b163e409d7355fcd5587161451f9e349b151919e117(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1563,7 +1559,7 @@ def _typecheckingstub__be883277b66b56e75f860926d2ccdff02bbe3ad4484bdf975afaa283e
     pass
 
 def _typecheckingstub__5dce7069bc18c5adbe92459796919490fb80e38f9a3fe455b779e19b0b30da98(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStreamGroup.LocationConfigurationProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamGroup.LocationConfigurationProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1575,7 +1571,7 @@ def _typecheckingstub__936ee9ce8407944010c50c15e2b4554c116b1f3d52c2407d116cc9635
     pass
 
 def _typecheckingstub__4aa4ce53af802ec6bb329423326bcefed0b20e44bbe786ff2d23e1de4a242ec9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamGroup.DefaultApplicationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStreamGroup.DefaultApplicationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1601,7 +1597,7 @@ def _typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49b
     maximum_capacity: typing.Optional[jsii.Number] = None,
     on_demand_capacity: typing.Optional[jsii.Number] = None,
     target_idle_capacity: typing.Optional[jsii.Number] = None,
-    vpc_transit_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.VpcTransitConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_transit_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamGroup.VpcTransitConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1617,9 +1613,9 @@ def _typecheckingstub__a26cfff523fc519d694b3a7a86b56ae8093ceb6a504a08e63d90ebf21
 def _typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8(
     *,
     description: builtins.str,
-    location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    location_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     stream_class: builtins.str,
-    default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_application: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

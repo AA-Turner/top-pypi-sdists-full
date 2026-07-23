@@ -139,13 +139,18 @@ class AutopilotResult:
     actions: list[AutopilotAction] = field(default_factory=list)
     skipped: list[AutopilotAction] = field(default_factory=list)
     errors: list[AutopilotAction] = field(default_factory=list)
+    warnings: list[AutopilotAction] = field(default_factory=list)
 
     @property
     def summary(self) -> str:
         parts = [f"[{self.command}]"]
         if self.dry_run:
             parts.append("(DRY RUN)")
-        parts.append(
-            f"{len(self.actions)} acted, {len(self.skipped)} skipped, {len(self.errors)} errors"
+        summary = (
+            f"{len(self.actions)} acted, {len(self.skipped)} skipped, "
+            f"{len(self.errors)} errors"
         )
+        if self.warnings:
+            summary += f", {len(self.warnings)} warnings"
+        parts.append(summary)
         return " ".join(parts)

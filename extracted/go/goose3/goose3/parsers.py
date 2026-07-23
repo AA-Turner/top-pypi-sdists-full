@@ -191,28 +191,15 @@ class Parser:
 
     @classmethod
     def previous_siblings(cls, node):
-        nodes = []
-        for _, val in enumerate(node.itersiblings(preceding=True)):
-            nodes.append(val)
-        return nodes
+        return list(node.itersiblings(preceding=True))
 
     @classmethod
     def previous_sibling(cls, node):
-        nodes = []
-        for idx, val in enumerate(node.itersiblings(preceding=True)):
-            nodes.append(val)
-            if idx == 0:
-                break
-        return nodes[0] if nodes else None
+        return next(node.itersiblings(preceding=True), None)
 
     @classmethod
     def next_sibling(cls, node):
-        nodes = []
-        for idx, val in enumerate(node.itersiblings(preceding=False)):
-            nodes.append(val)
-            if idx == 0:
-                break
-        return nodes[0] if nodes else None
+        return next(node.itersiblings(preceding=False), None)
 
     @classmethod
     def is_text_node(cls, node):

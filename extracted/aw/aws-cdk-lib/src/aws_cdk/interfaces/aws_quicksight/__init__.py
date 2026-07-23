@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class ActionConnectorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31055bc274e952c4fc3166d11f0fbbc107ed08b00575ccf7d73fa07a9e5f9f9f)
+            type_hints = cached_type_hints(_typecheckingstub__31055bc274e952c4fc3166d11f0fbbc107ed08b00575ccf7d73fa07a9e5f9f9f)
             check_type(argname="argument action_connector_arn", value=action_connector_arn, expected_type=type_hints["action_connector_arn"])
             check_type(argname="argument action_connector_id", value=action_connector_id, expected_type=type_hints["action_connector_id"])
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
@@ -153,7 +157,7 @@ class AnalysisReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162c545988)
+            type_hints = cached_type_hints(_typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162c545988)
             check_type(argname="argument analysis_arn", value=analysis_arn, expected_type=type_hints["analysis_arn"])
             check_type(argname="argument analysis_id", value=analysis_id, expected_type=type_hints["analysis_id"])
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
@@ -197,6 +201,142 @@ class AnalysisReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AssetBundleExportJobReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "asset_bundle_export_job_arn": "assetBundleExportJobArn",
+        "asset_bundle_export_job_id": "assetBundleExportJobId",
+    },
+)
+class AssetBundleExportJobReference:
+    def __init__(
+        self,
+        *,
+        asset_bundle_export_job_arn: builtins.str,
+        asset_bundle_export_job_id: builtins.str,
+    ) -> None:
+        '''A reference to a AssetBundleExportJob resource.
+
+        :param asset_bundle_export_job_arn: The ARN of the AssetBundleExportJob resource.
+        :param asset_bundle_export_job_id: The AssetBundleExportJobId of the AssetBundleExportJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            asset_bundle_export_job_reference = interfaces_quicksight.AssetBundleExportJobReference(
+                asset_bundle_export_job_arn="assetBundleExportJobArn",
+                asset_bundle_export_job_id="assetBundleExportJobId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a65e4fbda9e58f80b2e831d0e18b763aa2a9d6c95bade5514bad3996e7f2ae8b)
+            check_type(argname="argument asset_bundle_export_job_arn", value=asset_bundle_export_job_arn, expected_type=type_hints["asset_bundle_export_job_arn"])
+            check_type(argname="argument asset_bundle_export_job_id", value=asset_bundle_export_job_id, expected_type=type_hints["asset_bundle_export_job_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_bundle_export_job_arn": asset_bundle_export_job_arn,
+            "asset_bundle_export_job_id": asset_bundle_export_job_id,
+        }
+
+    @builtins.property
+    def asset_bundle_export_job_arn(self) -> builtins.str:
+        '''The ARN of the AssetBundleExportJob resource.'''
+        result = self._values.get("asset_bundle_export_job_arn")
+        assert result is not None, "Required property 'asset_bundle_export_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_bundle_export_job_id(self) -> builtins.str:
+        '''The AssetBundleExportJobId of the AssetBundleExportJob resource.'''
+        result = self._values.get("asset_bundle_export_job_id")
+        assert result is not None, "Required property 'asset_bundle_export_job_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssetBundleExportJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AssetBundleImportJobReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "asset_bundle_import_job_arn": "assetBundleImportJobArn",
+        "asset_bundle_import_job_id": "assetBundleImportJobId",
+    },
+)
+class AssetBundleImportJobReference:
+    def __init__(
+        self,
+        *,
+        asset_bundle_import_job_arn: builtins.str,
+        asset_bundle_import_job_id: builtins.str,
+    ) -> None:
+        '''A reference to a AssetBundleImportJob resource.
+
+        :param asset_bundle_import_job_arn: The ARN of the AssetBundleImportJob resource.
+        :param asset_bundle_import_job_id: The AssetBundleImportJobId of the AssetBundleImportJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            asset_bundle_import_job_reference = interfaces_quicksight.AssetBundleImportJobReference(
+                asset_bundle_import_job_arn="assetBundleImportJobArn",
+                asset_bundle_import_job_id="assetBundleImportJobId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cbf29610dad9eb775f1363fa5c2d71776bc5b966708430d21eb1549b5113afa2)
+            check_type(argname="argument asset_bundle_import_job_arn", value=asset_bundle_import_job_arn, expected_type=type_hints["asset_bundle_import_job_arn"])
+            check_type(argname="argument asset_bundle_import_job_id", value=asset_bundle_import_job_id, expected_type=type_hints["asset_bundle_import_job_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_bundle_import_job_arn": asset_bundle_import_job_arn,
+            "asset_bundle_import_job_id": asset_bundle_import_job_id,
+        }
+
+    @builtins.property
+    def asset_bundle_import_job_arn(self) -> builtins.str:
+        '''The ARN of the AssetBundleImportJob resource.'''
+        result = self._values.get("asset_bundle_import_job_arn")
+        assert result is not None, "Required property 'asset_bundle_import_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_bundle_import_job_id(self) -> builtins.str:
+        '''The AssetBundleImportJobId of the AssetBundleImportJob resource.'''
+        result = self._values.get("asset_bundle_import_job_id")
+        assert result is not None, "Required property 'asset_bundle_import_job_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssetBundleImportJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.CustomPermissionsReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -234,7 +374,7 @@ class CustomPermissionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcbb01a6ae4003c466f2c9facde86b4a9228b2947e8db14b07e90c8828b892fc)
+            type_hints = cached_type_hints(_typecheckingstub__bcbb01a6ae4003c466f2c9facde86b4a9228b2947e8db14b07e90c8828b892fc)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument custom_permissions_arn", value=custom_permissions_arn, expected_type=type_hints["custom_permissions_arn"])
             check_type(argname="argument custom_permissions_name", value=custom_permissions_name, expected_type=type_hints["custom_permissions_name"])
@@ -315,7 +455,7 @@ class DashboardReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e1998cd35473accee4a1dd066f5d4e4af29b9cdfdf78293c732f43e8ae1071f)
+            type_hints = cached_type_hints(_typecheckingstub__6e1998cd35473accee4a1dd066f5d4e4af29b9cdfdf78293c732f43e8ae1071f)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument dashboard_arn", value=dashboard_arn, expected_type=type_hints["dashboard_arn"])
             check_type(argname="argument dashboard_id", value=dashboard_id, expected_type=type_hints["dashboard_id"])
@@ -396,7 +536,7 @@ class DataSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39696e8afe9ffe21ed7b01deb7349ba2563b8d2cdae5e74d20ee2a0e637d3f7f)
+            type_hints = cached_type_hints(_typecheckingstub__39696e8afe9ffe21ed7b01deb7349ba2563b8d2cdae5e74d20ee2a0e637d3f7f)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument data_set_arn", value=data_set_arn, expected_type=type_hints["data_set_arn"])
             check_type(argname="argument data_set_id", value=data_set_id, expected_type=type_hints["data_set_id"])
@@ -477,7 +617,7 @@ class DataSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70b8fb657688960b4dae12c4a8f205b2a58737c1dd982d8e201b45cf5cb10c90)
+            type_hints = cached_type_hints(_typecheckingstub__70b8fb657688960b4dae12c4a8f205b2a58737c1dd982d8e201b45cf5cb10c90)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
             check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
@@ -521,6 +661,55 @@ class DataSourceReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.FlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn"},
+)
+class FlowReference:
+    def __init__(self, *, flow_arn: builtins.str) -> None:
+        '''A reference to a Flow resource.
+
+        :param flow_arn: The Arn of the Flow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            flow_reference = interfaces_quicksight.FlowReference(
+                flow_arn="flowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__470eb9fd2b4da5c9e387310ce01fafebaef9834aa0f831affc5f726fd1583c13)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Arn of the Flow resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.FolderReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -558,7 +747,7 @@ class FolderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68d11833d18be618b7ec87af3be2a77728a162bc466dd4aaa5584c1b4c7d4012)
+            type_hints = cached_type_hints(_typecheckingstub__68d11833d18be618b7ec87af3be2a77728a162bc466dd4aaa5584c1b4c7d4012)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument folder_arn", value=folder_arn, expected_type=type_hints["folder_arn"])
             check_type(argname="argument folder_id", value=folder_id, expected_type=type_hints["folder_id"])
@@ -604,7 +793,7 @@ class FolderReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IActionConnectorRef")
 class IActionConnectorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ActionConnector.
@@ -624,7 +813,7 @@ class IActionConnectorRef(
 
 class _IActionConnectorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ActionConnector.
 
@@ -649,7 +838,7 @@ typing.cast(typing.Any, IActionConnectorRef).__jsii_proxy_class__ = lambda : _IA
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAnalysisRef")
 class IAnalysisRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Analysis.
@@ -669,7 +858,7 @@ class IAnalysisRef(
 
 class _IAnalysisRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Analysis.
 
@@ -692,11 +881,105 @@ typing.cast(typing.Any, IAnalysisRef).__jsii_proxy_class__ = lambda : _IAnalysis
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleExportJobRef"
+)
+class IAssetBundleExportJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssetBundleExportJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assetBundleExportJobRef")
+    def asset_bundle_export_job_ref(self) -> "AssetBundleExportJobReference":
+        '''(experimental) A reference to a AssetBundleExportJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssetBundleExportJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssetBundleExportJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleExportJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assetBundleExportJobRef")
+    def asset_bundle_export_job_ref(self) -> "AssetBundleExportJobReference":
+        '''(experimental) A reference to a AssetBundleExportJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AssetBundleExportJobReference", jsii.get(self, "assetBundleExportJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssetBundleExportJobRef).__jsii_proxy_class__ = lambda : _IAssetBundleExportJobRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleImportJobRef"
+)
+class IAssetBundleImportJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssetBundleImportJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assetBundleImportJobRef")
+    def asset_bundle_import_job_ref(self) -> "AssetBundleImportJobReference":
+        '''(experimental) A reference to a AssetBundleImportJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssetBundleImportJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssetBundleImportJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleImportJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assetBundleImportJobRef")
+    def asset_bundle_import_job_ref(self) -> "AssetBundleImportJobReference":
+        '''(experimental) A reference to a AssetBundleImportJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AssetBundleImportJobReference", jsii.get(self, "assetBundleImportJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssetBundleImportJobRef).__jsii_proxy_class__ = lambda : _IAssetBundleImportJobRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ICustomPermissionsRef"
 )
 class ICustomPermissionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomPermissions.
@@ -716,7 +999,7 @@ class ICustomPermissionsRef(
 
 class _ICustomPermissionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomPermissions.
 
@@ -741,7 +1024,7 @@ typing.cast(typing.Any, ICustomPermissionsRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDashboardRef")
 class IDashboardRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
@@ -761,7 +1044,7 @@ class IDashboardRef(
 
 class _IDashboardRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
 
@@ -786,7 +1069,7 @@ typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDataSetRef")
 class IDataSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSet.
@@ -806,7 +1089,7 @@ class IDataSetRef(
 
 class _IDataSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSet.
 
@@ -831,7 +1114,7 @@ typing.cast(typing.Any, IDataSetRef).__jsii_proxy_class__ = lambda : _IDataSetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDataSourceRef")
 class IDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
@@ -851,7 +1134,7 @@ class IDataSourceRef(
 
 class _IDataSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
 
@@ -873,10 +1156,55 @@ class _IDataSourceRefProxy(
 typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSourceRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IFlowRef")
+class IFlowRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> "FlowReference":
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> "FlowReference":
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FlowReference", jsii.get(self, "flowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowRef).__jsii_proxy_class__ = lambda : _IFlowRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IFolderRef")
 class IFolderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Folder.
@@ -896,7 +1224,7 @@ class IFolderRef(
 
 class _IFolderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Folder.
 
@@ -918,10 +1246,57 @@ class _IFolderRefProxy(
 typing.cast(typing.Any, IFolderRef).__jsii_proxy_class__ = lambda : _IFolderRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IOAuthClientApplicationRef"
+)
+class IOAuthClientApplicationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OAuthClientApplication.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuthClientApplicationRef")
+    def o_auth_client_application_ref(self) -> "OAuthClientApplicationReference":
+        '''(experimental) A reference to a OAuthClientApplication resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOAuthClientApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OAuthClientApplication.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IOAuthClientApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuthClientApplicationRef")
+    def o_auth_client_application_ref(self) -> "OAuthClientApplicationReference":
+        '''(experimental) A reference to a OAuthClientApplication resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OAuthClientApplicationReference", jsii.get(self, "oAuthClientApplicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOAuthClientApplicationRef).__jsii_proxy_class__ = lambda : _IOAuthClientApplicationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IRefreshScheduleRef")
 class IRefreshScheduleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RefreshSchedule.
@@ -941,7 +1316,7 @@ class IRefreshScheduleRef(
 
 class _IRefreshScheduleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RefreshSchedule.
 
@@ -966,7 +1341,7 @@ typing.cast(typing.Any, IRefreshScheduleRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ITemplateRef")
 class ITemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
@@ -986,7 +1361,7 @@ class ITemplateRef(
 
 class _ITemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
 
@@ -1011,7 +1386,7 @@ typing.cast(typing.Any, ITemplateRef).__jsii_proxy_class__ = lambda : _ITemplate
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IThemeRef")
 class IThemeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Theme.
@@ -1031,7 +1406,7 @@ class IThemeRef(
 
 class _IThemeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Theme.
 
@@ -1056,7 +1431,7 @@ typing.cast(typing.Any, IThemeRef).__jsii_proxy_class__ = lambda : _IThemeRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ITopicRef")
 class ITopicRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Topic.
@@ -1076,7 +1451,7 @@ class ITopicRef(
 
 class _ITopicRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Topic.
 
@@ -1101,7 +1476,7 @@ typing.cast(typing.Any, ITopicRef).__jsii_proxy_class__ = lambda : _ITopicRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IVPCConnectionRef")
 class IVPCConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCConnection.
@@ -1121,7 +1496,7 @@ class IVPCConnectionRef(
 
 class _IVPCConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCConnection.
 
@@ -1141,6 +1516,55 @@ class _IVPCConnectionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IVPCConnectionRef).__jsii_proxy_class__ = lambda : _IVPCConnectionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.OAuthClientApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"o_auth_client_application_arn": "oAuthClientApplicationArn"},
+)
+class OAuthClientApplicationReference:
+    def __init__(self, *, o_auth_client_application_arn: builtins.str) -> None:
+        '''A reference to a OAuthClientApplication resource.
+
+        :param o_auth_client_application_arn: The Arn of the OAuthClientApplication resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            o_auth_client_application_reference = interfaces_quicksight.OAuthClientApplicationReference(
+                o_auth_client_application_arn="oAuthClientApplicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1da0f0dbb95217952fac925b01457b1c48d3db3d3961d62ab097ab0defadb3a3)
+            check_type(argname="argument o_auth_client_application_arn", value=o_auth_client_application_arn, expected_type=type_hints["o_auth_client_application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "o_auth_client_application_arn": o_auth_client_application_arn,
+        }
+
+    @builtins.property
+    def o_auth_client_application_arn(self) -> builtins.str:
+        '''The Arn of the OAuthClientApplication resource.'''
+        result = self._values.get("o_auth_client_application_arn")
+        assert result is not None, "Required property 'o_auth_client_application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuthClientApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -1185,7 +1609,7 @@ class RefreshScheduleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8723d097fe811477bf46d6e8328f08cbc18d550832e45dfd85d0a290a2e9c9ea)
+            type_hints = cached_type_hints(_typecheckingstub__8723d097fe811477bf46d6e8328f08cbc18d550832e45dfd85d0a290a2e9c9ea)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument data_set_id", value=data_set_id, expected_type=type_hints["data_set_id"])
             check_type(argname="argument refresh_schedule_arn", value=refresh_schedule_arn, expected_type=type_hints["refresh_schedule_arn"])
@@ -1275,7 +1699,7 @@ class TemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5bef292799a30d68c18b479c9372960c83ce75f740acf6872746b1c68a4f4be)
+            type_hints = cached_type_hints(_typecheckingstub__c5bef292799a30d68c18b479c9372960c83ce75f740acf6872746b1c68a4f4be)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
             check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
@@ -1356,7 +1780,7 @@ class ThemeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__145097322a7b346d435b378f4f5398ed66d47436afe9e55c22372eab8a112c87)
+            type_hints = cached_type_hints(_typecheckingstub__145097322a7b346d435b378f4f5398ed66d47436afe9e55c22372eab8a112c87)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument theme_arn", value=theme_arn, expected_type=type_hints["theme_arn"])
             check_type(argname="argument theme_id", value=theme_id, expected_type=type_hints["theme_id"])
@@ -1437,7 +1861,7 @@ class TopicReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__644dc61611189aa4ef3678efd6b78c7718549c2efda0dd7842ca761132bca1a7)
+            type_hints = cached_type_hints(_typecheckingstub__644dc61611189aa4ef3678efd6b78c7718549c2efda0dd7842ca761132bca1a7)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
             check_type(argname="argument topic_id", value=topic_id, expected_type=type_hints["topic_id"])
@@ -1518,7 +1942,7 @@ class VPCConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64bafb27b)
+            type_hints = cached_type_hints(_typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64bafb27b)
             check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
             check_type(argname="argument vpc_connection_arn", value=vpc_connection_arn, expected_type=type_hints["vpc_connection_arn"])
             check_type(argname="argument vpc_connection_id", value=vpc_connection_id, expected_type=type_hints["vpc_connection_id"])
@@ -1564,23 +1988,31 @@ class VPCConnectionReference:
 __all__ = [
     "ActionConnectorReference",
     "AnalysisReference",
+    "AssetBundleExportJobReference",
+    "AssetBundleImportJobReference",
     "CustomPermissionsReference",
     "DashboardReference",
     "DataSetReference",
     "DataSourceReference",
+    "FlowReference",
     "FolderReference",
     "IActionConnectorRef",
     "IAnalysisRef",
+    "IAssetBundleExportJobRef",
+    "IAssetBundleImportJobRef",
     "ICustomPermissionsRef",
     "IDashboardRef",
     "IDataSetRef",
     "IDataSourceRef",
+    "IFlowRef",
     "IFolderRef",
+    "IOAuthClientApplicationRef",
     "IRefreshScheduleRef",
     "ITemplateRef",
     "IThemeRef",
     "ITopicRef",
     "IVPCConnectionRef",
+    "OAuthClientApplicationReference",
     "RefreshScheduleReference",
     "TemplateReference",
     "ThemeReference",
@@ -1604,6 +2036,22 @@ def _typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162
     analysis_arn: builtins.str,
     analysis_id: builtins.str,
     aws_account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a65e4fbda9e58f80b2e831d0e18b763aa2a9d6c95bade5514bad3996e7f2ae8b(
+    *,
+    asset_bundle_export_job_arn: builtins.str,
+    asset_bundle_export_job_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbf29610dad9eb775f1363fa5c2d71776bc5b966708430d21eb1549b5113afa2(
+    *,
+    asset_bundle_import_job_arn: builtins.str,
+    asset_bundle_import_job_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1644,11 +2092,25 @@ def _typecheckingstub__70b8fb657688960b4dae12c4a8f205b2a58737c1dd982d8e201b45cf5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__470eb9fd2b4da5c9e387310ce01fafebaef9834aa0f831affc5f726fd1583c13(
+    *,
+    flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__68d11833d18be618b7ec87af3be2a77728a162bc466dd4aaa5584c1b4c7d4012(
     *,
     aws_account_id: builtins.str,
     folder_arn: builtins.str,
     folder_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1da0f0dbb95217952fac925b01457b1c48d3db3d3961d62ab097ab0defadb3a3(
+    *,
+    o_auth_client_application_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1699,5 +2161,5 @@ def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64
     """Type checking stubs"""
     pass
 
-for cls in [IActionConnectorRef, IAnalysisRef, ICustomPermissionsRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFolderRef, IRefreshScheduleRef, ITemplateRef, IThemeRef, ITopicRef, IVPCConnectionRef]:
+for cls in [IActionConnectorRef, IAnalysisRef, IAssetBundleExportJobRef, IAssetBundleImportJobRef, ICustomPermissionsRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ITemplateRef, IThemeRef, ITopicRef, IVPCConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

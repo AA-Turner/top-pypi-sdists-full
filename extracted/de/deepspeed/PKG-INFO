@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepspeed
-Version: 0.19.2
+Version: 0.19.3
 Summary: DeepSpeed library
 Home-page: http://deepspeed.ai
 Author: DeepSpeed Team
@@ -88,53 +88,56 @@ Provides-Extra: triton
 Requires-Dist: triton==2.1.0; extra == "triton"
 Provides-Extra: deepcompile
 Requires-Dist: scipy; extra == "deepcompile"
+Provides-Extra: torchembed
+Requires-Dist: torchembed>=0.3.1; extra == "torchembed"
 Provides-Extra: all
-Requires-Dist: transformers>=4.51.3; extra == "all"
-Requires-Dist: pre-commit>=3.2.0; extra == "all"
-Requires-Dist: future; extra == "all"
-Requires-Dist: pytest-forked; extra == "all"
-Requires-Dist: sphinx-rtd-theme; extra == "all"
-Requires-Dist: torchvision; extra == "all"
-Requires-Dist: pytest-randomly; extra == "all"
-Requires-Dist: comet_ml>=3.41.0; extra == "all"
-Requires-Dist: torch>=2.0.0; extra == "all"
-Requires-Dist: tqdm; extra == "all"
-Requires-Dist: triton==1.0.0; extra == "all"
-Requires-Dist: google; extra == "all"
-Requires-Dist: clang-format==18.1.3; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: packaging; extra == "all"
-Requires-Dist: qtorch; extra == "all"
-Requires-Dist: triton>=2.1.0; extra == "all"
-Requires-Dist: pydantic>=2.0.0; extra == "all"
-Requires-Dist: triton==2.1.0; extra == "all"
-Requires-Dist: py-cpuinfo; extra == "all"
-Requires-Dist: safetensors; extra == "all"
-Requires-Dist: psutil; extra == "all"
-Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: lm-eval==0.3.0; extra == "all"
-Requires-Dist: protobuf; extra == "all"
-Requires-Dist: mpi4py; extra == "all"
 Requires-Dist: scipy; extra == "all"
-Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
-Requires-Dist: diffusers>=0.25.0; extra == "all"
-Requires-Dist: transformers>=4.32.1; extra == "all"
-Requires-Dist: mup; extra == "all"
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: neural-compressor==2.1.0; extra == "all"
-Requires-Dist: hjson; extra == "all"
-Requires-Dist: wandb; extra == "all"
+Requires-Dist: pre-commit>=3.2.0; extra == "all"
+Requires-Dist: torchvision; extra == "all"
+Requires-Dist: qtorch; extra == "all"
+Requires-Dist: transformers>=4.51.3; extra == "all"
 Requires-Dist: qtorch==0.3.0; extra == "all"
-Requires-Dist: tabulate; extra == "all"
-Requires-Dist: sentencepiece; extra == "all"
-Requires-Dist: tensorboard; extra == "all"
+Requires-Dist: future; extra == "all"
+Requires-Dist: triton==2.1.0; extra == "all"
 Requires-Dist: xgboost; extra == "all"
-Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
+Requires-Dist: sphinx-rtd-theme; extra == "all"
+Requires-Dist: comet_ml>=3.41.0; extra == "all"
+Requires-Dist: tabulate; extra == "all"
+Requires-Dist: hjson; extra == "all"
+Requires-Dist: py-cpuinfo; extra == "all"
 Requires-Dist: recommonmark; extra == "all"
-Requires-Dist: docutils<0.18; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: transformers>=4.32.1; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
 Requires-Dist: accelerate; extra == "all"
+Requires-Dist: wandb; extra == "all"
+Requires-Dist: neural-compressor==2.1.0; extra == "all"
+Requires-Dist: safetensors; extra == "all"
 Requires-Dist: importlib-metadata>=4; extra == "all"
+Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
+Requires-Dist: mpi4py; extra == "all"
+Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
+Requires-Dist: torchembed>=0.3.1; extra == "all"
+Requires-Dist: mup; extra == "all"
+Requires-Dist: lm-eval==0.3.0; extra == "all"
+Requires-Dist: google; extra == "all"
+Requires-Dist: diffusers>=0.25.0; extra == "all"
+Requires-Dist: pytest-randomly; extra == "all"
+Requires-Dist: docutils<0.18; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: sentencepiece; extra == "all"
+Requires-Dist: protobuf; extra == "all"
+Requires-Dist: pydantic>=2.0.0; extra == "all"
+Requires-Dist: triton>=2.1.0; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
+Requires-Dist: tensorboard; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: psutil; extra == "all"
+Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
+Requires-Dist: triton==1.0.0; extra == "all"
+Requires-Dist: clang-format==18.1.3; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -257,7 +260,7 @@ DeepSpeed has been integrated with several different popular open-source DL fram
 
 | Description | Status |
 | ----------- | ------ |
-| NVIDIA | [![nv-pre-compile-ops](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-pre-compile-ops.yml/badge.svg)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-pre-compile-ops.yml) [![aws-torch-latest](https://github.com/deepspeedai/DeepSpeed/actions/workflows/aws-torch-latest.yml/badge.svg)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/aws-torch-latest.yml) |
+| NVIDIA | [![nv-pre-compile-ops](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-pre-compile-ops.yml/badge.svg)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-pre-compile-ops.yml) [![modal-torch-latest](https://github.com/deepspeedai/DeepSpeed/actions/workflows/modal-torch-latest.yml/badge.svg)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/modal-torch-latest.yml) |
 | AMD | [![amd-mi200](https://github.com/deepspeedai/DeepSpeed/actions/workflows/amd-mi200.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/amd-mi200.yml) |
 | CPU | [![torch-latest-cpu](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml) |
 | Intel Gaudi | [![hpu-gaudi2](https://github.com/deepspeedai/DeepSpeed/actions/workflows/hpu-gaudi2.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/hpu-gaudi2.yml) |
@@ -403,7 +406,8 @@ Conduct](https://opensource.microsoft.com/codeofconduct/). For more information 
 33. Xinyu Lian, Sam Ade Jacobs, Lev Kurilenko, Masahiro Tanaka, Stas Bekman, Olatunji Ruwase, Minjia Zhang. (2024) Universal Checkpointing: Efficient and Flexible Checkpointing for Large Scale Distributed Training [arXiv:2406.18820](https://arxiv.org/abs/2406.18820)
 34. Stas Bekman, Samyam Rajbhandari, Michael Wyatt, Jeff Rasley, Tunji Ruwase, Zhewei Yao, Aurick Qiao, Yuxiong He. (2025) Arctic Long Sequence Training: Scalable And Efficient Training For Multi-Million Token Sequences [arXiv:2506.13996](https://arxiv.org/abs/2506.13996)
 35. Tingfeng Lan, Yusen Wu, Bin Ma, Zhaoyuan Su, Rui Yang, Tekin Bicer, Masahiro Tanaka, Olatunji Ruwase, Dong Li, Yue Cheng. (2025) ZenFlow: Enabling Stall-Free Offloading Training via Asynchronous Updates [arXiv:2505.12242](https://arxiv.org/abs/2505.12242)
-36. Xinyu Lian, Masahiro Tanaka, Olatunji Ruwase, Minjia Zhang. (2026) SuperOffload: Unleashing the Power of Large-Scale LLM Training on Superchips [arxiv](https://arxiv.org/abs/2509.21271), [ASPLOS 2026](https://www.asplos-conference.org/asplos2026)
+36. Kayhan Behdin, Ata Fatahibaarzi, Qingquan Song, Yun Dai, Aman Gupta, Zhipeng Wang, Hejian Sang, Shao Tang, Gregory Dexter, Sirou Zhu, Siyu Zhu, Tejas Dharamsi, Vignesh Kothapalli, Zhoutong Fu, Yihan Cao, Pin-Lun Hsu, Fedor Borisyuk, Natesh S. Pillai, Luke Simon, Rahul Mazumder.(2025) Scaling Down, Serving Fast: Compressing and Deploying Efficient LLMs for Recommendation Systems [EMNLP 2025](https://aclanthology.org/2025.emnlp-industry.119/)
+37. Xinyu Lian, Masahiro Tanaka, Olatunji Ruwase, Minjia Zhang. (2026) SuperOffload: Unleashing the Power of Large-Scale LLM Training on Superchips [arxiv](https://arxiv.org/abs/2509.21271), [ASPLOS 2026](https://www.asplos-conference.org/asplos2026)
 
 # Videos
 1. DeepSpeed KDD 2020 Tutorial

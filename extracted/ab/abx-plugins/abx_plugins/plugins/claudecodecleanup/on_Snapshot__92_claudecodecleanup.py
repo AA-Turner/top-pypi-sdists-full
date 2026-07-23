@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../claudecode/config.json:required_binaries,./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -9,7 +9,7 @@ Runs near the end of the snapshot pipeline (priority 92, before hashes at 93)
 to analyze all extractor outputs, identify duplicates and redundant files,
 and keep only the best version of each.
 
-Requires the claudecode plugin to have installed Claude Code CLI.
+Resolves the Claude Code CLI through the claudecode plugin's required binaries.
 
 Usage: on_Snapshot__92_claudecodecleanup.py --url=<url>
 Output: Creates claudecodecleanup/ directory with cleanup_report.txt
@@ -52,12 +52,23 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Make one pass over the extractor outputs listed in the snapshot context. "
-    "Inspect each potentially redundant group once, keep its best-quality output, "
-    "and delete only clearly inferior duplicates, incomplete temporary files, and "
-    "empty directories. Then write cleanup_report.txt describing every deletion "
-    "and every group retained. Do not repeat an inspection or revisit a completed "
-    "decision."
+    "Complete one cleanup pass in at most three Bash calls. First, use one Bash call "
+    "to inspect every listed extractor output as a single batch: recursively collect "
+    "each file's path, size, and type; hash same-size duplicate candidates; and collect "
+    "at most 200 bytes per text-like file with at most 64 KiB of inspection output total. "
+    "Do not run a separate command per file. If that batch leaves a "
+    "genuine ambiguity, use at most one additional batched Bash call covering all "
+    "ambiguous files together; otherwise skip it. From that evidence, keep the best "
+    "output in each redundant group and, in one Bash call, delete only clearly inferior "
+    "duplicates, incomplete or failed outputs, and empty directories; when uncertain, "
+    "keep the output. Never delete hashes/ or any JSON metadata. Never read, modify, "
+    "rename, or delete ArchiveBox process-control files ending in .stdout.log, "
+    ".stderr.log, .pid, or .sh; they may belong to processes still running. Never inspect, "
+    "modify, rename, or delete the claudecodecleanup/ output directory. Then stop "
+    "using tools and return a concise final report. Name every extractor directory "
+    "inspected, list every deletion, summarize every retained duplicate group, and keep "
+    "the report under 500 words. Do not re-list, re-read, verify, narrate further, or "
+    "revisit any decision."
 )
 
 
@@ -130,10 +141,14 @@ def main(url: str, snapshot_id: str):
                 "target a path within the snapshot directory.\n\n"
                 "## Invariants\n"
                 "- Never delete hashes/ or any .json metadata file.\n"
+                "- Never read, write, modify, rename, or delete ArchiveBox process-control "
+                "files ending in .stdout.log, .stderr.log, .pid, or .sh; they may belong "
+                "to processes that are still running.\n"
+                f"- Never inspect, modify, rename, or delete the hook-owned output directory: {OUTPUT_DIR}\n"
                 "- Inspect a file or directory at most once and do not revisit completed decisions.\n"
                 "- Make one cleanup pass; do not repeatedly inventory or verify the snapshot.\n"
-                f"- Finish by writing a non-empty report to {OUTPUT_DIR}/cleanup_report.txt, "
-                "even when nothing was removed. Stop immediately after writing the report."
+                "- Finish with a concise, non-empty final response that reports the cleanup, "
+                "even when nothing was removed. The hook will save that response."
             ),
         )
 
@@ -144,7 +159,7 @@ def main(url: str, snapshot_id: str):
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Task:\n{user_prompt}\n\n"
-            f"Write the final report to {OUTPUT_DIR}/cleanup_report.txt and then stop."
+            "Return the cleanup report as your final response and then stop."
         )
 
         # Run Claude Code with full permissions within SNAP_DIR.
@@ -157,22 +172,16 @@ def main(url: str, snapshot_id: str):
             timeout=timeout,
             max_turns=max_turns,
             model=model,
-            allowed_tools=[
-                "Read",
-                "Write",
-                "Edit",
-                "Bash",
-                "Glob",
-                "Grep",
-            ],
+            allowed_tools=["Bash"],
             session_log_path=OUTPUT_DIR / "session.json",
         )
 
         if stderr:
             print(stderr, file=sys.stderr)
 
-        # Save Claude's response
+        # Claude performs inspection and cleanup; the hook persists its final report.
         if stdout:
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             response_path = OUTPUT_DIR / "response.txt"
             response_path.write_text(stdout, encoding="utf-8")
 
@@ -182,6 +191,9 @@ def main(url: str, snapshot_id: str):
             )
             emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
+
+        if stdout.strip():
+            (OUTPUT_DIR / "cleanup_report.txt").write_text(stdout, encoding="utf-8")
 
         # Check for cleanup report
         report_path = OUTPUT_DIR / "cleanup_report.txt"

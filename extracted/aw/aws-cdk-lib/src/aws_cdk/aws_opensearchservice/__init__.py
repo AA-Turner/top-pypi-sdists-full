@@ -622,6 +622,8 @@ domain = Domain(self, "Domain",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -635,74 +637,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    PermissionsOptions as _PermissionsOptions_0351e60e,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    EbsDeviceVolumeType as _EbsDeviceVolumeType_6792555b,
-    IConnectable as _IConnectable_10015a05,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
-from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
-from ..interfaces.aws_certificatemanager import (
-    ICertificateRef as _ICertificateRef_1878d79b
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
-from ..interfaces.aws_opensearchservice import (
-    ApplicationReference as _ApplicationReference_41b9a662,
-    DomainReference as _DomainReference_37396432,
-    IApplicationRef as _IApplicationRef_3664810d,
-    IDomainRef as _IDomainRef_76d6bc00,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_logs as _aws_logs_ab8ef8ce
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_logs as _aws_logs_8e99d4be
+    import aws_cdk.interfaces.aws_opensearchservice as _aws_opensearchservice_70ff3770
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_logs_8e99d4be = _LazyImport("aws_cdk.interfaces.aws_logs")
+    _aws_logs_ab8ef8ce = _LazyImport("aws_cdk.aws_logs")
+    _aws_opensearchservice_70ff3770 = _LazyImport("aws_cdk.interfaces.aws_opensearchservice")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -722,7 +699,7 @@ class AdvancedSecurityOptions:
         *,
         master_user_arn: typing.Optional[builtins.str] = None,
         master_user_name: typing.Optional[builtins.str] = None,
-        master_user_password: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        master_user_password: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         saml_authentication_enabled: typing.Optional[builtins.bool] = None,
         saml_authentication_options: typing.Optional[typing.Union["SAMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -759,7 +736,7 @@ class AdvancedSecurityOptions:
         if isinstance(saml_authentication_options, dict):
             saml_authentication_options = SAMLOptionsProperty(**saml_authentication_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1e95392d4761126042f2d6d6160889a80c269d2f13c21476fe92febdb7f04e3)
+            type_hints = cached_type_hints(_typecheckingstub__c1e95392d4761126042f2d6d6160889a80c269d2f13c21476fe92febdb7f04e3)
             check_type(argname="argument master_user_arn", value=master_user_arn, expected_type=type_hints["master_user_arn"])
             check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
             check_type(argname="argument master_user_password", value=master_user_password, expected_type=type_hints["master_user_password"])
@@ -800,7 +777,7 @@ class AdvancedSecurityOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def master_user_password(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def master_user_password(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''Password for the master user.
 
         You can use ``SecretValue.unsafePlainText`` to specify a password in plain text or
@@ -810,7 +787,7 @@ class AdvancedSecurityOptions:
         :default: - A Secrets Manager generated password
         '''
         result = self._values.get("master_user_password")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     @builtins.property
     def saml_authentication_enabled(self) -> typing.Optional[builtins.bool]:
@@ -907,7 +884,7 @@ class CapacityConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48cdec23c4ecd3d168ddd937e9295b924cdea583f9951d98aacce1c1c90cad71)
+            type_hints = cached_type_hints(_typecheckingstub__48cdec23c4ecd3d168ddd937e9295b924cdea583f9951d98aacce1c1c90cad71)
             check_type(argname="argument data_node_instance_type", value=data_node_instance_type, expected_type=type_hints["data_node_instance_type"])
             check_type(argname="argument data_nodes", value=data_nodes, expected_type=type_hints["data_nodes"])
             check_type(argname="argument master_node_instance_type", value=master_node_instance_type, expected_type=type_hints["master_node_instance_type"])
@@ -1024,9 +1001,9 @@ class CapacityConfig:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationRef_3664810d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_opensearchservice_70ff3770.IApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_opensearchservice.CfnApplication",
 ):
@@ -1079,12 +1056,12 @@ class CfnApplication(
         id: builtins.str,
         *,
         name: builtins.str,
-        app_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.AppConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        app_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.AppConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         endpoint: typing.Optional[builtins.str] = None,
-        iam_identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iam_identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchService::Application``.
 
@@ -1099,7 +1076,7 @@ class CfnApplication(
         :param tags: An arbitrary set of tags (key-value pairs) for this application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac25677906ac058ff21dd4dd3fa4bc5649dbf0708d3cec14da66245bc1bb24b)
+            type_hints = cached_type_hints(_typecheckingstub__9ac25677906ac058ff21dd4dd3fa4bc5649dbf0708d3cec14da66245bc1bb24b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
@@ -1116,12 +1093,15 @@ class CfnApplication(
 
     @jsii.member(jsii_name="arnForApplication")
     @builtins.classmethod
-    def arn_for_application(cls, resource: "_IApplicationRef_3664810d") -> builtins.str:
+    def arn_for_application(
+        cls,
+        resource: "_aws_opensearchservice_70ff3770.IApplicationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__322cb6fb73e5eb5873a4fb2838c44691f6a54118d1b70841067679f204578f57)
+            type_hints = cached_type_hints(_typecheckingstub__322cb6fb73e5eb5873a4fb2838c44691f6a54118d1b70841067679f204578f57)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
 
@@ -1133,18 +1113,18 @@ class CfnApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11435f3b38389f59b991e7c280594e96568ced4d6768eb98216699745e2535ae)
+            type_hints = cached_type_hints(_typecheckingstub__11435f3b38389f59b991e7c280594e96568ced4d6768eb98216699745e2535ae)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__010596563813f2e4ea0ec0e832557f7f62393de348b04daaa36cd0c1173c0fab)
+            type_hints = cached_type_hints(_typecheckingstub__010596563813f2e4ea0ec0e832557f7f62393de348b04daaa36cd0c1173c0fab)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1157,7 +1137,7 @@ class CfnApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f1efe9410c953ee3f3c8e0eaa8d99b40d76540855ecd95e833141f2eb8a5afa)
+            type_hints = cached_type_hints(_typecheckingstub__6f1efe9410c953ee3f3c8e0eaa8d99b40d76540855ecd95e833141f2eb8a5afa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1169,9 +1149,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> "_ApplicationReference_41b9a662":
+    def application_ref(self) -> "_aws_opensearchservice_70ff3770.ApplicationReference":
         '''A reference to a Application resource.'''
-        return typing.cast("_ApplicationReference_41b9a662", jsii.get(self, "applicationRef"))
+        return typing.cast("_aws_opensearchservice_70ff3770.ApplicationReference", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1195,9 +1175,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1218,7 +1198,7 @@ class CfnApplication(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b3c3fc4422c425a7f7a26e6e6fbeefb10ac8367e4dd888d53a0c786b75228e1)
+            type_hints = cached_type_hints(_typecheckingstub__0b3c3fc4422c425a7f7a26e6e6fbeefb10ac8367e4dd888d53a0c786b75228e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1226,17 +1206,17 @@ class CfnApplication(
     @jsii.member(jsii_name="appConfigs")
     def app_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.AppConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AppConfigProperty"]]]]:
         '''List of application configurations.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.AppConfigProperty"]]]], jsii.get(self, "appConfigs"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AppConfigProperty"]]]], jsii.get(self, "appConfigs"))
 
     @app_configs.setter
     def app_configs(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.AppConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AppConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694a0111ad52c0ebd9b61a1b51fd19463f0f74be607a8dc318a66972b32e5262)
+            type_hints = cached_type_hints(_typecheckingstub__694a0111ad52c0ebd9b61a1b51fd19463f0f74be607a8dc318a66972b32e5262)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appConfigs", value) # pyright: ignore[reportArgumentType]
 
@@ -1244,17 +1224,17 @@ class CfnApplication(
     @jsii.member(jsii_name="dataSources")
     def data_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.DataSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DataSourceProperty"]]]]:
         '''List of data sources.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.DataSourceProperty"]]]], jsii.get(self, "dataSources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DataSourceProperty"]]]], jsii.get(self, "dataSources"))
 
     @data_sources.setter
     def data_sources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.DataSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DataSourceProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bba1674c959c98d5b3d45d6eaf7a8d20c797c65902fe99c536ac7530200af8ff)
+            type_hints = cached_type_hints(_typecheckingstub__bba1674c959c98d5b3d45d6eaf7a8d20c797c65902fe99c536ac7530200af8ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataSources", value) # pyright: ignore[reportArgumentType]
 
@@ -1267,7 +1247,7 @@ class CfnApplication(
     @endpoint.setter
     def endpoint(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5f696a51a461e6b6e5c354d390867e41b97f8fc31e7c4a34db75c3f882b5b4a)
+            type_hints = cached_type_hints(_typecheckingstub__f5f696a51a461e6b6e5c354d390867e41b97f8fc31e7c4a34db75c3f882b5b4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -1275,17 +1255,17 @@ class CfnApplication(
     @jsii.member(jsii_name="iamIdentityCenterOptions")
     def iam_identity_center_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.IamIdentityCenterOptionsProperty"]]:
         '''Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]], jsii.get(self, "iamIdentityCenterOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.IamIdentityCenterOptionsProperty"]], jsii.get(self, "iamIdentityCenterOptions"))
 
     @iam_identity_center_options.setter
     def iam_identity_center_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.IamIdentityCenterOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__905379ee8909936359e4e55480945820a97987b6908dbca0355618f385959e81)
+            type_hints = cached_type_hints(_typecheckingstub__905379ee8909936359e4e55480945820a97987b6908dbca0355618f385959e81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamIdentityCenterOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1298,20 +1278,23 @@ class CfnApplication(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__892a31269f72a79e55c114dd392262fb429d253208e1b65c1417b0da4f5000f4)
+            type_hints = cached_type_hints(_typecheckingstub__892a31269f72a79e55c114dd392262fb429d253208e1b65c1417b0da4f5000f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key-value pairs) for this application.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d20068bc5112f252408ee83569f019899dca7f54b496b672a61b37e57f49966a)
+            type_hints = cached_type_hints(_typecheckingstub__d20068bc5112f252408ee83569f019899dca7f54b496b672a61b37e57f49966a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1344,7 +1327,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__da9648ff491c49ec988147c5ad2223fc7ed1d96a3d5cdccc2104b06b262e8250)
+                type_hints = cached_type_hints(_typecheckingstub__da9648ff491c49ec988147c5ad2223fc7ed1d96a3d5cdccc2104b06b262e8250)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1420,7 +1403,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cef2fd6c56ca998ce2d1bd34cfd370f3a19aa7c85986f7f9098273145dbe62b6)
+                type_hints = cached_type_hints(_typecheckingstub__cef2fd6c56ca998ce2d1bd34cfd370f3a19aa7c85986f7f9098273145dbe62b6)
                 check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
                 check_type(argname="argument data_source_description", value=data_source_description, expected_type=type_hints["data_source_description"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1472,7 +1455,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             iam_identity_center_instance_arn: typing.Optional[builtins.str] = None,
             iam_role_for_identity_center_application_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1498,7 +1481,7 @@ class CfnApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__58c97e96e8e1ce004fea8b82d1b09d335f940c83119efbabb4975a7015b6f5e3)
+                type_hints = cached_type_hints(_typecheckingstub__58c97e96e8e1ce004fea8b82d1b09d335f940c83119efbabb4975a7015b6f5e3)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument iam_identity_center_instance_arn", value=iam_identity_center_instance_arn, expected_type=type_hints["iam_identity_center_instance_arn"])
                 check_type(argname="argument iam_role_for_identity_center_application_arn", value=iam_role_for_identity_center_application_arn, expected_type=type_hints["iam_role_for_identity_center_application_arn"])
@@ -1513,13 +1496,13 @@ class CfnApplication(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether IAM Identity Center is enabled for the OpenSearch application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-application-iamidentitycenteroptions.html#cfn-opensearchservice-application-iamidentitycenteroptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def iam_identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
@@ -1571,12 +1554,12 @@ class CfnApplicationProps:
         self,
         *,
         name: builtins.str,
-        app_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.AppConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        app_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.AppConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         endpoint: typing.Optional[builtins.str] = None,
-        iam_identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iam_identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
@@ -1626,7 +1609,7 @@ class CfnApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545)
+            type_hints = cached_type_hints(_typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument app_configs", value=app_configs, expected_type=type_hints["app_configs"])
             check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
@@ -1663,24 +1646,24 @@ class CfnApplicationProps:
     @builtins.property
     def app_configs(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.AppConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AppConfigProperty"]]]]:
         '''List of application configurations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-appconfigs
         '''
         result = self._values.get("app_configs")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.AppConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AppConfigProperty"]]]], result)
 
     @builtins.property
     def data_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.DataSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DataSourceProperty"]]]]:
         '''List of data sources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-datasources
         '''
         result = self._values.get("data_sources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.DataSourceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.DataSourceProperty"]]]], result)
 
     @builtins.property
     def endpoint(self) -> typing.Optional[builtins.str]:
@@ -1694,7 +1677,7 @@ class CfnApplicationProps:
     @builtins.property
     def iam_identity_center_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.IamIdentityCenterOptionsProperty"]]:
         '''Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources.
 
         This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
@@ -1702,7 +1685,7 @@ class CfnApplicationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-iamidentitycenteroptions
         '''
         result = self._values.get("iam_identity_center_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.IamIdentityCenterOptionsProperty"]], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
@@ -1714,13 +1697,13 @@ class CfnApplicationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key-value pairs) for this application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1734,9 +1717,9 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDomainRef_76d6bc00, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_opensearchservice_70ff3770.IDomainRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDomain(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain",
 ):
@@ -1917,29 +1900,29 @@ class CfnDomain(
         id: builtins.str,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        automated_snapshot_pause_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        advanced_security_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aiml_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        automated_snapshot_pause_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cluster_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_strategy_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
-        domain_endpoint_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_endpoint_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        ebs_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        encryption_at_rest_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_at_rest_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         engine_version: typing.Optional[builtins.str] = None,
-        identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        log_publishing_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        node_to_node_encryption_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        off_peak_window_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.OffPeakWindowOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        snapshot_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        software_update_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_publishing_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_to_node_encryption_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        off_peak_window_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.OffPeakWindowOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        snapshot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        software_update_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchService::Domain``.
 
@@ -1971,7 +1954,7 @@ class CfnDomain(
         :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* . If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d3db5770)
+            type_hints = cached_type_hints(_typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d3db5770)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(
@@ -2005,12 +1988,15 @@ class CfnDomain(
 
     @jsii.member(jsii_name="arnForDomain")
     @builtins.classmethod
-    def arn_for_domain(cls, resource: "_IDomainRef_76d6bc00") -> builtins.str:
+    def arn_for_domain(
+        cls,
+        resource: "_aws_opensearchservice_70ff3770.IDomainRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d175f3a7353e79d8542c1e609de1b5d7e6a378ef82167bc6256507b89b56c777)
+            type_hints = cached_type_hints(_typecheckingstub__d175f3a7353e79d8542c1e609de1b5d7e6a378ef82167bc6256507b89b56c777)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomain", [resource]))
 
@@ -2021,7 +2007,7 @@ class CfnDomain(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDomainRef_76d6bc00":
+    ) -> "_aws_opensearchservice_70ff3770.IDomainRef":
         '''Creates a new IDomainRef from an ARN.
 
         :param scope: -
@@ -2029,11 +2015,11 @@ class CfnDomain(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2708216d2638c9e5c5bcbeda7fafaa1058fab53ab235b1e6a6387d5d705d8d1)
+            type_hints = cached_type_hints(_typecheckingstub__b2708216d2638c9e5c5bcbeda7fafaa1058fab53ab235b1e6a6387d5d705d8d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDomainRef_76d6bc00", jsii.sinvoke(cls, "fromDomainArn", [scope, id, arn]))
+        return typing.cast("_aws_opensearchservice_70ff3770.IDomainRef", jsii.sinvoke(cls, "fromDomainArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDomainName")
     @builtins.classmethod
@@ -2042,7 +2028,7 @@ class CfnDomain(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         domain_name: builtins.str,
-    ) -> "_IDomainRef_76d6bc00":
+    ) -> "_aws_opensearchservice_70ff3770.IDomainRef":
         '''Creates a new IDomainRef from a domainName.
 
         :param scope: -
@@ -2050,11 +2036,11 @@ class CfnDomain(
         :param domain_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aef0b900a2703d083f24bd9797f860fe581d2375f4aa106d0ea25803fd3d1d4)
+            type_hints = cached_type_hints(_typecheckingstub__8aef0b900a2703d083f24bd9797f860fe581d2375f4aa106d0ea25803fd3d1d4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-        return typing.cast("_IDomainRef_76d6bc00", jsii.sinvoke(cls, "fromDomainName", [scope, id, domain_name]))
+        return typing.cast("_aws_opensearchservice_70ff3770.IDomainRef", jsii.sinvoke(cls, "fromDomainName", [scope, id, domain_name]))
 
     @jsii.member(jsii_name="isCfnDomain")
     @builtins.classmethod
@@ -2064,18 +2050,18 @@ class CfnDomain(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b28bf62abef9cfdda720a4031afdec5a223e3dbc0de6e0d6d81f98ca4d487a3)
+            type_hints = cached_type_hints(_typecheckingstub__3b28bf62abef9cfdda720a4031afdec5a223e3dbc0de6e0d6d81f98ca4d487a3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36055c1f3a4932ba1e8f0542c29f5149d636738c30a3d9d1bdafb864d00f2e64)
+            type_hints = cached_type_hints(_typecheckingstub__36055c1f3a4932ba1e8f0542c29f5149d636738c30a3d9d1bdafb864d00f2e64)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2088,7 +2074,7 @@ class CfnDomain(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82c494c700f6860a942b3abd6b86cf929f307e898357419f56692f0b4084c2a5)
+            type_hints = cached_type_hints(_typecheckingstub__82c494c700f6860a942b3abd6b86cf929f307e898357419f56692f0b4084c2a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2131,11 +2117,11 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrDomainEndpoints")
-    def attr_domain_endpoints(self) -> "_IResolvable_da3f097b":
+    def attr_domain_endpoints(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: DomainEndpoints
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDomainEndpoints"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrDomainEndpoints"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDomainEndpointV2")
@@ -2181,11 +2167,11 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptions")
-    def attr_service_software_options(self) -> "_IResolvable_da3f097b":
+    def attr_service_software_options(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ServiceSoftwareOptions
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrServiceSoftwareOptions"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrServiceSoftwareOptions"))
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptionsAutomatedUpdateDate")
@@ -2197,11 +2183,13 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptionsCancellable")
-    def attr_service_software_options_cancellable(self) -> "_IResolvable_da3f097b":
+    def attr_service_software_options_cancellable(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ServiceSoftwareOptions.Cancellable
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrServiceSoftwareOptionsCancellable"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrServiceSoftwareOptionsCancellable"))
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptionsCurrentVersion")
@@ -2231,19 +2219,21 @@ class CfnDomain(
     @jsii.member(jsii_name="attrServiceSoftwareOptionsOptionalDeployment")
     def attr_service_software_options_optional_deployment(
         self,
-    ) -> "_IResolvable_da3f097b":
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ServiceSoftwareOptions.OptionalDeployment
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrServiceSoftwareOptionsOptionalDeployment"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrServiceSoftwareOptionsOptionalDeployment"))
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptionsUpdateAvailable")
-    def attr_service_software_options_update_available(self) -> "_IResolvable_da3f097b":
+    def attr_service_software_options_update_available(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ServiceSoftwareOptions.UpdateAvailable
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrServiceSoftwareOptionsUpdateAvailable"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrServiceSoftwareOptionsUpdateAvailable"))
 
     @builtins.property
     @jsii.member(jsii_name="attrServiceSoftwareOptionsUpdateStatus")
@@ -2265,15 +2255,15 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> "_DomainReference_37396432":
+    def domain_ref(self) -> "_aws_opensearchservice_70ff3770.DomainReference":
         '''A reference to a Domain resource.'''
-        return typing.cast("_DomainReference_37396432", jsii.get(self, "domainRef"))
+        return typing.cast("_aws_opensearchservice_70ff3770.DomainReference", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="accessPolicies")
@@ -2284,7 +2274,7 @@ class CfnDomain(
     @access_policies.setter
     def access_policies(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64113df8f)
+            type_hints = cached_type_hints(_typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64113df8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessPolicies", value) # pyright: ignore[reportArgumentType]
 
@@ -2292,17 +2282,17 @@ class CfnDomain(
     @jsii.member(jsii_name="advancedOptions")
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "advancedOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "advancedOptions"))
 
     @advanced_options.setter
     def advanced_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a8bbf96e0583433dd9f44c7bc58405687275c5e3102497c3de8597470024609)
+            type_hints = cached_type_hints(_typecheckingstub__4a8bbf96e0583433dd9f44c7bc58405687275c5e3102497c3de8597470024609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "advancedOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2310,17 +2300,17 @@ class CfnDomain(
     @jsii.member(jsii_name="advancedSecurityOptions")
     def advanced_security_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
         '''Specifies options for fine-grained access control and SAML authentication.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AdvancedSecurityOptionsInputProperty"]], jsii.get(self, "advancedSecurityOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AdvancedSecurityOptionsInputProperty"]], jsii.get(self, "advancedSecurityOptions"))
 
     @advanced_security_options.setter
     def advanced_security_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AdvancedSecurityOptionsInputProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AdvancedSecurityOptionsInputProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__228f471e13ce4e3daa56e3913f7b610971afccf6ec06adc08af42a85ad0abde9)
+            type_hints = cached_type_hints(_typecheckingstub__228f471e13ce4e3daa56e3913f7b610971afccf6ec06adc08af42a85ad0abde9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "advancedSecurityOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2328,17 +2318,17 @@ class CfnDomain(
     @jsii.member(jsii_name="aimlOptions")
     def aiml_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AIMLOptionsProperty"]]:
         '''Container for parameters required to enable all machine learning features.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]], jsii.get(self, "aimlOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AIMLOptionsProperty"]], jsii.get(self, "aimlOptions"))
 
     @aiml_options.setter
     def aiml_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AIMLOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__809f26ae46117bca5e245e0d9e88b91751a9fe6f8137586a0925a3b568e6a6bb)
+            type_hints = cached_type_hints(_typecheckingstub__809f26ae46117bca5e245e0d9e88b91751a9fe6f8137586a0925a3b568e6a6bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aimlOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2346,16 +2336,16 @@ class CfnDomain(
     @jsii.member(jsii_name="automatedSnapshotPauseOptions")
     def automated_snapshot_pause_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], jsii.get(self, "automatedSnapshotPauseOptions"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], jsii.get(self, "automatedSnapshotPauseOptions"))
 
     @automated_snapshot_pause_options.setter
     def automated_snapshot_pause_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f92a3bac154c3b486a9655621e10bbdb7909ea9f1c7ebd3041b6fdbbf095151)
+            type_hints = cached_type_hints(_typecheckingstub__6f92a3bac154c3b486a9655621e10bbdb7909ea9f1c7ebd3041b6fdbbf095151)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "automatedSnapshotPauseOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2363,17 +2353,17 @@ class CfnDomain(
     @jsii.member(jsii_name="clusterConfig")
     def cluster_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ClusterConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ClusterConfigProperty"]]:
         '''Container for the cluster configuration of a domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ClusterConfigProperty"]], jsii.get(self, "clusterConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ClusterConfigProperty"]], jsii.get(self, "clusterConfig"))
 
     @cluster_config.setter
     def cluster_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ClusterConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ClusterConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa86e4bef09a3455a33af8fe1a0310646154d89f5113370b517cfbe529c69080)
+            type_hints = cached_type_hints(_typecheckingstub__fa86e4bef09a3455a33af8fe1a0310646154d89f5113370b517cfbe529c69080)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -2381,17 +2371,17 @@ class CfnDomain(
     @jsii.member(jsii_name="cognitoOptions")
     def cognito_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CognitoOptionsProperty"]]:
         '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]], jsii.get(self, "cognitoOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CognitoOptionsProperty"]], jsii.get(self, "cognitoOptions"))
 
     @cognito_options.setter
     def cognito_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CognitoOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba3653fa5c99276b72d7f6127ab8c7a58e79d65fa1bb3870a642aae948411169)
+            type_hints = cached_type_hints(_typecheckingstub__ba3653fa5c99276b72d7f6127ab8c7a58e79d65fa1bb3870a642aae948411169)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cognitoOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2399,16 +2389,16 @@ class CfnDomain(
     @jsii.member(jsii_name="deploymentStrategyOptions")
     def deployment_strategy_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]], jsii.get(self, "deploymentStrategyOptions"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DeploymentStrategyOptionsProperty"]], jsii.get(self, "deploymentStrategyOptions"))
 
     @deployment_strategy_options.setter
     def deployment_strategy_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DeploymentStrategyOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1925734e443422328c7e1339f3d058c20d78014eefe9f5aeb8153c79db653256)
+            type_hints = cached_type_hints(_typecheckingstub__1925734e443422328c7e1339f3d058c20d78014eefe9f5aeb8153c79db653256)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentStrategyOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2420,7 +2410,7 @@ class CfnDomain(
     @domain_arn.setter
     def domain_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3136cec5fb1c8bfbc63aa354d269746af30bf8ace2a1386b3c54154aef71642)
+            type_hints = cached_type_hints(_typecheckingstub__e3136cec5fb1c8bfbc63aa354d269746af30bf8ace2a1386b3c54154aef71642)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2428,17 +2418,17 @@ class CfnDomain(
     @jsii.member(jsii_name="domainEndpointOptions")
     def domain_endpoint_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainEndpointOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DomainEndpointOptionsProperty"]]:
         '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainEndpointOptionsProperty"]], jsii.get(self, "domainEndpointOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DomainEndpointOptionsProperty"]], jsii.get(self, "domainEndpointOptions"))
 
     @domain_endpoint_options.setter
     def domain_endpoint_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainEndpointOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DomainEndpointOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af44788b6e909cca8e8e5c9cb554dda8dc1f217fe434e42fd8738b0f0636804e)
+            type_hints = cached_type_hints(_typecheckingstub__af44788b6e909cca8e8e5c9cb554dda8dc1f217fe434e42fd8738b0f0636804e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainEndpointOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2451,7 +2441,7 @@ class CfnDomain(
     @domain_name.setter
     def domain_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fbf0bdf5087e279e6006801d40e67891ae239f2249b16c7c14ce58bd2d0e85e)
+            type_hints = cached_type_hints(_typecheckingstub__8fbf0bdf5087e279e6006801d40e67891ae239f2249b16c7c14ce58bd2d0e85e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -2459,17 +2449,17 @@ class CfnDomain(
     @jsii.member(jsii_name="ebsOptions")
     def ebs_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EBSOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EBSOptionsProperty"]]:
         '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EBSOptionsProperty"]], jsii.get(self, "ebsOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EBSOptionsProperty"]], jsii.get(self, "ebsOptions"))
 
     @ebs_options.setter
     def ebs_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EBSOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EBSOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c4377e2450f1c3438e90e2429bf9650c6490320abe0c622e2a80734761fec52)
+            type_hints = cached_type_hints(_typecheckingstub__3c4377e2450f1c3438e90e2429bf9650c6490320abe0c622e2a80734761fec52)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2477,17 +2467,17 @@ class CfnDomain(
     @jsii.member(jsii_name="encryptionAtRestOptions")
     def encryption_at_rest_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EncryptionAtRestOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]]:
         '''Whether the domain should encrypt data at rest, and if so, the AWS  key to use.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EncryptionAtRestOptionsProperty"]], jsii.get(self, "encryptionAtRestOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]], jsii.get(self, "encryptionAtRestOptions"))
 
     @encryption_at_rest_options.setter
     def encryption_at_rest_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EncryptionAtRestOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a2b92e6c487faf5299f3c6d1f31ea619c1b1d93925b6634dfc0b81cde67cf89)
+            type_hints = cached_type_hints(_typecheckingstub__2a2b92e6c487faf5299f3c6d1f31ea619c1b1d93925b6634dfc0b81cde67cf89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionAtRestOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2500,7 +2490,7 @@ class CfnDomain(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88301df742e18b9ab560ac04b99b966a761eeee663731308b40ab8ca4cd509f1)
+            type_hints = cached_type_hints(_typecheckingstub__88301df742e18b9ab560ac04b99b966a761eeee663731308b40ab8ca4cd509f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2508,17 +2498,17 @@ class CfnDomain(
     @jsii.member(jsii_name="identityCenterOptions")
     def identity_center_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdentityCenterOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterOptionsProperty"]]:
         '''Configuration options for controlling IAM Identity Center integration within a domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdentityCenterOptionsProperty"]], jsii.get(self, "identityCenterOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterOptionsProperty"]], jsii.get(self, "identityCenterOptions"))
 
     @identity_center_options.setter
     def identity_center_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdentityCenterOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b19eb039a71e8e1e83ff32229a3facab2ba5a6ceb6e5a5574dc7bc067c3f149)
+            type_hints = cached_type_hints(_typecheckingstub__5b19eb039a71e8e1e83ff32229a3facab2ba5a6ceb6e5a5574dc7bc067c3f149)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityCenterOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2531,7 +2521,7 @@ class CfnDomain(
     @ip_address_type.setter
     def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15de3b6bee67c94e6a9ff942356ecb4f67771482ab0d1655f673b885868135c2)
+            type_hints = cached_type_hints(_typecheckingstub__15de3b6bee67c94e6a9ff942356ecb4f67771482ab0d1655f673b885868135c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
@@ -2539,17 +2529,17 @@ class CfnDomain(
     @jsii.member(jsii_name="logPublishingOptions")
     def log_publishing_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomain.LogPublishingOptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.LogPublishingOptionProperty"]]]]:
         '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomain.LogPublishingOptionProperty"]]]], jsii.get(self, "logPublishingOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.LogPublishingOptionProperty"]]]], jsii.get(self, "logPublishingOptions"))
 
     @log_publishing_options.setter
     def log_publishing_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomain.LogPublishingOptionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.LogPublishingOptionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ad842d30b972e4535042c97d9a43923a473c809de18faef95c075764d365933)
+            type_hints = cached_type_hints(_typecheckingstub__7ad842d30b972e4535042c97d9a43923a473c809de18faef95c075764d365933)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logPublishingOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2557,17 +2547,17 @@ class CfnDomain(
     @jsii.member(jsii_name="nodeToNodeEncryptionOptions")
     def node_to_node_encryption_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
         '''Specifies whether node-to-node encryption is enabled.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], jsii.get(self, "nodeToNodeEncryptionOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], jsii.get(self, "nodeToNodeEncryptionOptions"))
 
     @node_to_node_encryption_options.setter
     def node_to_node_encryption_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd0a25ab3a544c4d8cceb480a502adf178ccdbe1d5fdc2273557e28bb2a3b65a)
+            type_hints = cached_type_hints(_typecheckingstub__cd0a25ab3a544c4d8cceb480a502adf178ccdbe1d5fdc2273557e28bb2a3b65a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeToNodeEncryptionOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2575,17 +2565,17 @@ class CfnDomain(
     @jsii.member(jsii_name="offPeakWindowOptions")
     def off_peak_window_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowOptionsProperty"]]:
         '''Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowOptionsProperty"]], jsii.get(self, "offPeakWindowOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowOptionsProperty"]], jsii.get(self, "offPeakWindowOptions"))
 
     @off_peak_window_options.setter
     def off_peak_window_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a3a2b200397209bed0a90cb39485a3ccb08bcbb3d56bbecc1ef0b66b5d0e9c4)
+            type_hints = cached_type_hints(_typecheckingstub__9a3a2b200397209bed0a90cb39485a3ccb08bcbb3d56bbecc1ef0b66b5d0e9c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "offPeakWindowOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2593,16 +2583,16 @@ class CfnDomain(
     @jsii.member(jsii_name="skipShardMigrationWait")
     def skip_shard_migration_wait(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "skipShardMigrationWait"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "skipShardMigrationWait"))
 
     @skip_shard_migration_wait.setter
     def skip_shard_migration_wait(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2219753353ca3a6a30279b3606e2de2e1ee4acbc605b0d2bfd0ddf82122d2440)
+            type_hints = cached_type_hints(_typecheckingstub__2219753353ca3a6a30279b3606e2de2e1ee4acbc605b0d2bfd0ddf82122d2440)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "skipShardMigrationWait", value) # pyright: ignore[reportArgumentType]
 
@@ -2610,17 +2600,17 @@ class CfnDomain(
     @jsii.member(jsii_name="snapshotOptions")
     def snapshot_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SnapshotOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SnapshotOptionsProperty"]]:
         '''*DEPRECATED* .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SnapshotOptionsProperty"]], jsii.get(self, "snapshotOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SnapshotOptionsProperty"]], jsii.get(self, "snapshotOptions"))
 
     @snapshot_options.setter
     def snapshot_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SnapshotOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SnapshotOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4355f39393b86da5d9d2bb3c03113864e6a1293ce3a4a9b21ccbc2f55009520a)
+            type_hints = cached_type_hints(_typecheckingstub__4355f39393b86da5d9d2bb3c03113864e6a1293ce3a4a9b21ccbc2f55009520a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2628,30 +2618,33 @@ class CfnDomain(
     @jsii.member(jsii_name="softwareUpdateOptions")
     def software_update_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SoftwareUpdateOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SoftwareUpdateOptionsProperty"]]:
         '''Service software update options for the domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SoftwareUpdateOptionsProperty"]], jsii.get(self, "softwareUpdateOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SoftwareUpdateOptionsProperty"]], jsii.get(self, "softwareUpdateOptions"))
 
     @software_update_options.setter
     def software_update_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SoftwareUpdateOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SoftwareUpdateOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8acae61e3be2830b5d0094ea6fec133fbcd21857779bf3d47fd39615ad0e27eb)
+            type_hints = cached_type_hints(_typecheckingstub__8acae61e3be2830b5d0094ea6fec133fbcd21857779bf3d47fd39615ad0e27eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "softwareUpdateOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__492b192acd9acaa788b5501251071046e08d3e3cb47dc8fe653c58c5857dbc08)
+            type_hints = cached_type_hints(_typecheckingstub__492b192acd9acaa788b5501251071046e08d3e3cb47dc8fe653c58c5857dbc08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2659,17 +2652,17 @@ class CfnDomain(
     @jsii.member(jsii_name="vpcOptions")
     def vpc_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.VPCOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.VPCOptionsProperty"]]:
         '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.VPCOptionsProperty"]], jsii.get(self, "vpcOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.VPCOptionsProperty"]], jsii.get(self, "vpcOptions"))
 
     @vpc_options.setter
     def vpc_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.VPCOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.VPCOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b93b8c5b5730096cbd511fb71c9b9508cb307bcbfee46f7a0c11da785c33d2e8)
+            type_hints = cached_type_hints(_typecheckingstub__b93b8c5b5730096cbd511fb71c9b9508cb307bcbfee46f7a0c11da785c33d2e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -2685,8 +2678,8 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            s3_vectors_engine: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.S3VectorsEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            serverless_vector_acceleration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ServerlessVectorAccelerationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_vectors_engine: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.S3VectorsEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            serverless_vector_acceleration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.ServerlessVectorAccelerationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param s3_vectors_engine: 
@@ -2711,7 +2704,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173126426f)
+                type_hints = cached_type_hints(_typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173126426f)
                 check_type(argname="argument s3_vectors_engine", value=s3_vectors_engine, expected_type=type_hints["s3_vectors_engine"])
                 check_type(argname="argument serverless_vector_acceleration", value=serverless_vector_acceleration, expected_type=type_hints["serverless_vector_acceleration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2723,22 +2716,22 @@ class CfnDomain(
         @builtins.property
         def s3_vectors_engine(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.S3VectorsEngineProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.S3VectorsEngineProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-aimloptions.html#cfn-opensearchservice-domain-aimloptions-s3vectorsengine
             '''
             result = self._values.get("s3_vectors_engine")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.S3VectorsEngineProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.S3VectorsEngineProperty"]], result)
 
         @builtins.property
         def serverless_vector_acceleration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ServerlessVectorAccelerationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ServerlessVectorAccelerationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-aimloptions.html#cfn-opensearchservice-domain-aimloptions-serverlessvectoracceleration
             '''
             result = self._values.get("serverless_vector_acceleration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ServerlessVectorAccelerationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ServerlessVectorAccelerationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2770,13 +2763,13 @@ class CfnDomain(
             self,
             *,
             anonymous_auth_disable_date: typing.Optional[builtins.str] = None,
-            anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            iam_federation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.IAMFederationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            jwt_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.JWTOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            master_user_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.MasterUserOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            saml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SAMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            iam_federation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IAMFederationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            jwt_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.JWTOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            master_user_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.MasterUserOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            saml_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SAMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies options for fine-grained access control.
 
@@ -2836,7 +2829,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd5c3c68239a044600ab387ec52e22ed8852c6e213d5626aa4396b28aab3af9e)
+                type_hints = cached_type_hints(_typecheckingstub__fd5c3c68239a044600ab387ec52e22ed8852c6e213d5626aa4396b28aab3af9e)
                 check_type(argname="argument anonymous_auth_disable_date", value=anonymous_auth_disable_date, expected_type=type_hints["anonymous_auth_disable_date"])
                 check_type(argname="argument anonymous_auth_enabled", value=anonymous_auth_enabled, expected_type=type_hints["anonymous_auth_enabled"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -2877,7 +2870,7 @@ class CfnDomain(
         @builtins.property
         def anonymous_auth_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to enable a 30-day migration period during which administrators can create role mappings.
 
             Only necessary when `enabling fine-grained access control on an existing domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/fgac.html#fgac-enabling-existing>`_ .
@@ -2885,12 +2878,12 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-anonymousauthenabled
             '''
             result = self._values.get("anonymous_auth_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to enable fine-grained access control.
 
             You must also enable encryption of data at rest and node-to-node encryption. See `Fine-grained access control in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/fgac.html>`_ .
@@ -2898,62 +2891,62 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def iam_federation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IAMFederationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IAMFederationOptionsProperty"]]:
             '''Input configuration for IAM identity federation within advanced security options.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-iamfederationoptions
             '''
             result = self._values.get("iam_federation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IAMFederationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IAMFederationOptionsProperty"]], result)
 
         @builtins.property
         def internal_user_database_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to enable the internal user database.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-internaluserdatabaseenabled
             '''
             result = self._values.get("internal_user_database_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def jwt_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.JWTOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.JWTOptionsProperty"]]:
             '''Container for information about the JWT configuration of the Amazon OpenSearch Service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-jwtoptions
             '''
             result = self._values.get("jwt_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.JWTOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.JWTOptionsProperty"]], result)
 
         @builtins.property
         def master_user_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MasterUserOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.MasterUserOptionsProperty"]]:
             '''Specifies information about the master user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-masteruseroptions
             '''
             result = self._values.get("master_user_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MasterUserOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.MasterUserOptionsProperty"]], result)
 
         @builtins.property
         def saml_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SAMLOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SAMLOptionsProperty"]]:
             '''Container for information about the SAML configuration for OpenSearch Dashboards.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-samloptions
             '''
             result = self._values.get("saml_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SAMLOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SAMLOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2979,7 +2972,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             end_time: typing.Optional[builtins.str] = None,
             start_time: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3006,7 +2999,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd86ae1b11)
+                type_hints = cached_type_hints(_typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd86ae1b11)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
@@ -3019,13 +3012,15 @@ class CfnDomain(
                 self._values["start_time"] = start_time
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def end_time(self) -> typing.Optional[builtins.str]:
@@ -3077,19 +3072,19 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            cold_storage_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ColdStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cold_storage_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.ColdStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dedicated_master_count: typing.Optional[jsii.Number] = None,
-            dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             dedicated_master_type: typing.Optional[builtins.str] = None,
             instance_count: typing.Optional[jsii.Number] = None,
             instance_type: typing.Optional[builtins.str] = None,
-            multi_az_with_standby_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            node_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.NodeOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            multi_az_with_standby_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            node_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.NodeOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             warm_count: typing.Optional[jsii.Number] = None,
-            warm_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            warm_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             warm_type: typing.Optional[builtins.str] = None,
-            zone_awareness_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ZoneAwarenessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            zone_awareness_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.ZoneAwarenessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The cluster configuration for the OpenSearch Service domain.
 
@@ -3146,7 +3141,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3aeae3d5b66cfdff675e691ae3d90b2e82990d0dc2a13a8fbab733bba4e26eda)
+                type_hints = cached_type_hints(_typecheckingstub__3aeae3d5b66cfdff675e691ae3d90b2e82990d0dc2a13a8fbab733bba4e26eda)
                 check_type(argname="argument cold_storage_options", value=cold_storage_options, expected_type=type_hints["cold_storage_options"])
                 check_type(argname="argument dedicated_master_count", value=dedicated_master_count, expected_type=type_hints["dedicated_master_count"])
                 check_type(argname="argument dedicated_master_enabled", value=dedicated_master_enabled, expected_type=type_hints["dedicated_master_enabled"])
@@ -3191,13 +3186,13 @@ class CfnDomain(
         @builtins.property
         def cold_storage_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ColdStorageOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ColdStorageOptionsProperty"]]:
             '''Container for cold storage configuration options.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-coldstorageoptions
             '''
             result = self._values.get("cold_storage_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ColdStorageOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ColdStorageOptionsProperty"]], result)
 
         @builtins.property
         def dedicated_master_count(self) -> typing.Optional[jsii.Number]:
@@ -3213,7 +3208,7 @@ class CfnDomain(
         @builtins.property
         def dedicated_master_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to use a dedicated master node for the OpenSearch Service domain.
 
             A dedicated master node is a cluster node that performs cluster management tasks, but doesn't hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. See `Dedicated master nodes in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-dedicatedmasternodes.html>`_ .
@@ -3221,7 +3216,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-dedicatedmasterenabled
             '''
             result = self._values.get("dedicated_master_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def dedicated_master_type(self) -> typing.Optional[builtins.str]:
@@ -3253,7 +3248,7 @@ class CfnDomain(
         @builtins.property
         def multi_az_with_standby_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether Multi-AZ with Standby deployment option is enabled.
 
             For more information, see `Multi-AZ with Standby <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html#managedomains-za-standby>`_ .
@@ -3261,18 +3256,18 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-multiazwithstandbyenabled
             '''
             result = self._values.get("multi_az_with_standby_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def node_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeOptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeOptionProperty"]]]]:
             '''List of node options for the domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-nodeoptions
             '''
             result = self._values.get("node_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeOptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeOptionProperty"]]]], result)
 
         @builtins.property
         def warm_count(self) -> typing.Optional[jsii.Number]:
@@ -3286,7 +3281,7 @@ class CfnDomain(
         @builtins.property
         def warm_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether to enable UltraWarm storage for the cluster.
 
             See `UltraWarm storage for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ultrawarm.html>`_ .
@@ -3294,7 +3289,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-warmenabled
             '''
             result = self._values.get("warm_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def warm_type(self) -> typing.Optional[builtins.str]:
@@ -3308,7 +3303,7 @@ class CfnDomain(
         @builtins.property
         def zone_awareness_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ZoneAwarenessConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ZoneAwarenessConfigProperty"]]:
             '''Specifies zone awareness configuration options.
 
             Only use if ``ZoneAwarenessEnabled`` is ``true`` .
@@ -3316,12 +3311,12 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-zoneawarenessconfig
             '''
             result = self._values.get("zone_awareness_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ZoneAwarenessConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ZoneAwarenessConfigProperty"]], result)
 
         @builtins.property
         def zone_awareness_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to enable zone awareness for the OpenSearch Service domain.
 
             When you enable zone awareness, OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a multi-AZ domain in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ .
@@ -3329,7 +3324,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-clusterconfig.html#cfn-opensearchservice-domain-clusterconfig-zoneawarenessenabled
             '''
             result = self._values.get("zone_awareness_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3356,7 +3351,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             identity_pool_id: typing.Optional[builtins.str] = None,
             role_arn: typing.Optional[builtins.str] = None,
             user_pool_id: typing.Optional[builtins.str] = None,
@@ -3385,7 +3380,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e167c0d00635fad84f1646761ab6a47124b645d9a98a38bc74beb3d2ecbca1c2)
+                type_hints = cached_type_hints(_typecheckingstub__e167c0d00635fad84f1646761ab6a47124b645d9a98a38bc74beb3d2ecbca1c2)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -3403,7 +3398,7 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether to enable or disable Amazon Cognito authentication for OpenSearch Dashboards.
 
             See `Amazon Cognito authentication for OpenSearch Dashboards <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html>`_ .
@@ -3411,7 +3406,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-cognitooptions.html#cfn-opensearchservice-domain-cognitooptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def identity_pool_id(self) -> typing.Optional[builtins.str]:
@@ -3466,7 +3461,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Container for the parameters required to enable cold storage for an OpenSearch Service domain.
 
@@ -3488,7 +3483,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c3864a36f4132782987b173c24fdcbec6040683b2f632146b11bb53578fc274f)
+                type_hints = cached_type_hints(_typecheckingstub__c3864a36f4132782987b173c24fdcbec6040683b2f632146b11bb53578fc274f)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -3497,7 +3492,7 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether to enable or disable cold storage on the domain.
 
             You must enable UltraWarm storage to enable cold storage.
@@ -3505,7 +3500,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-coldstorageoptions.html#cfn-opensearchservice-domain-coldstorageoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3546,7 +3541,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__468c5510df6f7dfbc342238c860d47fa571718119ec0c3a92c761bdbdb6da339)
+                type_hints = cached_type_hints(_typecheckingstub__468c5510df6f7dfbc342238c860d47fa571718119ec0c3a92c761bdbdb6da339)
                 check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if deployment_strategy is not None:
@@ -3588,8 +3583,8 @@ class CfnDomain(
             *,
             custom_endpoint: typing.Optional[builtins.str] = None,
             custom_endpoint_certificate_arn: typing.Optional[builtins.str] = None,
-            custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enforce_https: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enforce_https: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             tls_security_policy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
@@ -3618,7 +3613,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e1afb3f072b83950253cff17b0d6c2d24505ec14925f8f1b645dd5c539c2ca4d)
+                type_hints = cached_type_hints(_typecheckingstub__e1afb3f072b83950253cff17b0d6c2d24505ec14925f8f1b645dd5c539c2ca4d)
                 check_type(argname="argument custom_endpoint", value=custom_endpoint, expected_type=type_hints["custom_endpoint"])
                 check_type(argname="argument custom_endpoint_certificate_arn", value=custom_endpoint_certificate_arn, expected_type=type_hints["custom_endpoint_certificate_arn"])
                 check_type(argname="argument custom_endpoint_enabled", value=custom_endpoint_enabled, expected_type=type_hints["custom_endpoint_enabled"])
@@ -3661,7 +3656,7 @@ class CfnDomain(
         @builtins.property
         def custom_endpoint_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to enable a custom endpoint for the domain.
 
             If enabled, you must also provide values for ``CustomEndpoint`` and ``CustomEndpointCertificateArn`` .
@@ -3669,12 +3664,12 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html#cfn-opensearchservice-domain-domainendpointoptions-customendpointenabled
             '''
             result = self._values.get("custom_endpoint_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enforce_https(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to require that all traffic to the domain arrive over HTTPS.
 
             Required if you enable fine-grained access control in `AdvancedSecurityOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html>`_ .
@@ -3682,7 +3677,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html#cfn-opensearchservice-domain-domainendpointoptions-enforcehttps
             '''
             result = self._values.get("enforce_https")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def tls_security_policy(self) -> typing.Optional[builtins.str]:
@@ -3723,7 +3718,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            ebs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ebs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             iops: typing.Optional[jsii.Number] = None,
             throughput: typing.Optional[jsii.Number] = None,
             volume_size: typing.Optional[jsii.Number] = None,
@@ -3757,7 +3752,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0edcf62ab77376e080d4b111ffdeee55bda3d1ea1c392a1acb86f78ce234e31b)
+                type_hints = cached_type_hints(_typecheckingstub__0edcf62ab77376e080d4b111ffdeee55bda3d1ea1c392a1acb86f78ce234e31b)
                 check_type(argname="argument ebs_enabled", value=ebs_enabled, expected_type=type_hints["ebs_enabled"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -3778,13 +3773,13 @@ class CfnDomain(
         @builtins.property
         def ebs_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether Amazon EBS volumes are attached to data nodes in the OpenSearch Service domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-ebsoptions.html#cfn-opensearchservice-domain-ebsoptions-ebsenabled
             '''
             result = self._values.get("ebs_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def iops(self) -> typing.Optional[jsii.Number]:
@@ -3850,7 +3845,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.
@@ -3873,7 +3868,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dcd4f9cbc)
+                type_hints = cached_type_hints(_typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dcd4f9cbc)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3885,7 +3880,7 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify ``true`` to enable encryption at rest. Required if you enable fine-grained access control in `AdvancedSecurityOptionsInput <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html>`_ .
 
             If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
@@ -3893,7 +3888,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html#cfn-opensearchservice-domain-encryptionatrestoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -3932,7 +3927,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             roles_key: typing.Optional[builtins.str] = None,
             subject_key: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3957,7 +3952,7 @@ class CfnDomain(
                 }
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77bea23c6)
+                type_hints = cached_type_hints(_typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77bea23c6)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument roles_key", value=roles_key, expected_type=type_hints["roles_key"])
                 check_type(argname="argument subject_key", value=subject_key, expected_type=type_hints["subject_key"])
@@ -3972,12 +3967,12 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-iamfederationoptions.html#cfn-opensearchservice-domain-iamfederationoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def roles_key(self) -> typing.Optional[builtins.str]:
@@ -4022,7 +4017,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled_api_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled_api_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             identity_center_application_arn: typing.Optional[builtins.str] = None,
             identity_center_instance_arn: typing.Optional[builtins.str] = None,
             identity_store_id: typing.Optional[builtins.str] = None,
@@ -4059,7 +4054,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9205eb32a18ebed75ca975205de43322a1836abdff793eaed7f00cdef41743bd)
+                type_hints = cached_type_hints(_typecheckingstub__9205eb32a18ebed75ca975205de43322a1836abdff793eaed7f00cdef41743bd)
                 check_type(argname="argument enabled_api_access", value=enabled_api_access, expected_type=type_hints["enabled_api_access"])
                 check_type(argname="argument identity_center_application_arn", value=identity_center_application_arn, expected_type=type_hints["identity_center_application_arn"])
                 check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
@@ -4083,13 +4078,13 @@ class CfnDomain(
         @builtins.property
         def enabled_api_access(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether IAM Identity Center is enabled for the application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-identitycenteroptions.html#cfn-opensearchservice-domain-identitycenteroptions-enabledapiaccess
             '''
             result = self._values.get("enabled_api_access")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def identity_center_application_arn(self) -> typing.Optional[builtins.str]:
@@ -4179,7 +4174,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__df207d57c5bf0c99afe86b2563e40142d554f359eddff25bfecdf22c97a3ed72)
+                type_hints = cached_type_hints(_typecheckingstub__df207d57c5bf0c99afe86b2563e40142d554f359eddff25bfecdf22c97a3ed72)
                 check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
                 check_type(argname="argument metadata_content", value=metadata_content, expected_type=type_hints["metadata_content"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4232,7 +4227,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             public_key: typing.Optional[builtins.str] = None,
             roles_key: typing.Optional[builtins.str] = None,
             subject_key: typing.Optional[builtins.str] = None,
@@ -4260,7 +4255,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be8fc4de4af3d5862315e2f6983641a93c9f0277e7b66f8223fd6ca32d8b02e6)
+                type_hints = cached_type_hints(_typecheckingstub__be8fc4de4af3d5862315e2f6983641a93c9f0277e7b66f8223fd6ca32d8b02e6)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument public_key", value=public_key, expected_type=type_hints["public_key"])
                 check_type(argname="argument roles_key", value=roles_key, expected_type=type_hints["roles_key"])
@@ -4278,12 +4273,12 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-jwtoptions.html#cfn-opensearchservice-domain-jwtoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def public_key(self) -> typing.Optional[builtins.str]:
@@ -4333,7 +4328,7 @@ class CfnDomain(
             self,
             *,
             cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies whether the OpenSearch Service domain publishes application, search slow logs, or index slow logs to Amazon CloudWatch.
 
@@ -4359,7 +4354,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f619e98a16faa2be95396251f0c046225b41dc39039c1064a235021c6127a509)
+                type_hints = cached_type_hints(_typecheckingstub__f619e98a16faa2be95396251f0c046225b41dc39039c1064a235021c6127a509)
                 check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4382,7 +4377,7 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``true`` , enables the publishing of logs to CloudWatch.
 
             Default: ``false`` .
@@ -4390,7 +4385,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-logpublishingoption.html#cfn-opensearchservice-domain-logpublishingoption-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4444,7 +4439,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d898e88f61289087d3cdae775ccfc96a5810d38fd1a901ddd469c8377d40e163)
+                type_hints = cached_type_hints(_typecheckingstub__d898e88f61289087d3cdae775ccfc96a5810d38fd1a901ddd469c8377d40e163)
                 check_type(argname="argument master_user_arn", value=master_user_arn, expected_type=type_hints["master_user_arn"])
                 check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
                 check_type(argname="argument master_user_password", value=master_user_password, expected_type=type_hints["master_user_password"])
@@ -4510,7 +4505,7 @@ class CfnDomain(
             self,
             *,
             count: typing.Optional[jsii.Number] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration options for defining the setup of any node type within the cluster.
@@ -4535,7 +4530,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29e71e7d7b964cb5531555bce148a36e9563ff407034f0a06a02f9621a2c7b99)
+                type_hints = cached_type_hints(_typecheckingstub__29e71e7d7b964cb5531555bce148a36e9563ff407034f0a06a02f9621a2c7b99)
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -4559,13 +4554,13 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A boolean value indicating whether a specific node type is active or inactive.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodeconfig.html#cfn-opensearchservice-domain-nodeconfig-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -4596,7 +4591,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            node_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.NodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            node_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.NodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             node_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration settings for defining the node type within a cluster.
@@ -4623,7 +4618,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f030833a5f6ccca0ecd9bdbb55d77a1515771982d7e9b75b7523a5dfc513f26b)
+                type_hints = cached_type_hints(_typecheckingstub__f030833a5f6ccca0ecd9bdbb55d77a1515771982d7e9b75b7523a5dfc513f26b)
                 check_type(argname="argument node_config", value=node_config, expected_type=type_hints["node_config"])
                 check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4635,13 +4630,13 @@ class CfnDomain(
         @builtins.property
         def node_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeConfigProperty"]]:
             '''Configuration options for defining the setup of any node type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodeoption.html#cfn-opensearchservice-domain-nodeoption-nodeconfig
             '''
             result = self._values.get("node_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeConfigProperty"]], result)
 
         @builtins.property
         def node_type(self) -> typing.Optional[builtins.str]:
@@ -4672,7 +4667,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies options for node-to-node encryption.
 
@@ -4692,7 +4687,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fbea990af8e11f12ced7e27d027040c8ec8f64ffa1f9d71f254282114946ea92)
+                type_hints = cached_type_hints(_typecheckingstub__fbea990af8e11f12ced7e27d027040c8ec8f64ffa1f9d71f254282114946ea92)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -4701,7 +4696,7 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies to enable or disable node-to-node encryption on the domain.
 
             Required if you enable fine-grained access control in `AdvancedSecurityOptionsInput <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html>`_ .
@@ -4709,7 +4704,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html#cfn-opensearchservice-domain-nodetonodeencryptionoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4731,8 +4726,8 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            off_peak_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.OffPeakWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            off_peak_window: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.OffPeakWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Off-peak window settings for the domain.
 
@@ -4759,7 +4754,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__60d60226ff032c6e6c2d237e050aa8d3a58b6a67c4b5e0bdb59300620e1b4ad6)
+                type_hints = cached_type_hints(_typecheckingstub__60d60226ff032c6e6c2d237e050aa8d3a58b6a67c4b5e0bdb59300620e1b4ad6)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument off_peak_window", value=off_peak_window, expected_type=type_hints["off_peak_window"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4771,24 +4766,24 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether off-peak window settings are enabled for the domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-offpeakwindowoptions.html#cfn-opensearchservice-domain-offpeakwindowoptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def off_peak_window(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowProperty"]]:
             '''Off-peak window settings for the domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-offpeakwindowoptions.html#cfn-opensearchservice-domain-offpeakwindowoptions-offpeakwindow
             '''
             result = self._values.get("off_peak_window")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4810,7 +4805,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            window_start_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.WindowStartTimeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            window_start_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.WindowStartTimeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A custom 10-hour, low-traffic window during which OpenSearch Service can perform mandatory configuration changes on the domain.
 
@@ -4835,7 +4830,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30d779e62b9e7bc4d33e575c2c20d7da26b34d1299cff8c0f1810cd484dc86e3)
+                type_hints = cached_type_hints(_typecheckingstub__30d779e62b9e7bc4d33e575c2c20d7da26b34d1299cff8c0f1810cd484dc86e3)
                 check_type(argname="argument window_start_time", value=window_start_time, expected_type=type_hints["window_start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if window_start_time is not None:
@@ -4844,13 +4839,13 @@ class CfnDomain(
         @builtins.property
         def window_start_time(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.WindowStartTimeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.WindowStartTimeProperty"]]:
             '''The desired start time for an off-peak maintenance window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-offpeakwindow.html#cfn-opensearchservice-domain-offpeakwindow-windowstarttime
             '''
             result = self._values.get("window_start_time")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.WindowStartTimeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.WindowStartTimeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4872,7 +4867,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Options for enabling S3 vectors engine features on the specified domain.
 
@@ -4892,21 +4887,23 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c5cacbc71e186563dfacc47a3e5812e0f2818862efee38451bcc544e4431878)
+                type_hints = cached_type_hints(_typecheckingstub__0c5cacbc71e186563dfacc47a3e5812e0f2818862efee38451bcc544e4431878)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "enabled": enabled,
             }
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Enables S3 vectors engine features.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-s3vectorsengine.html#cfn-opensearchservice-domain-s3vectorsengine-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4936,8 +4933,8 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            idp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.IdpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            idp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             master_backend_role: typing.Optional[builtins.str] = None,
             master_user_name: typing.Optional[builtins.str] = None,
             roles_key: typing.Optional[builtins.str] = None,
@@ -4977,7 +4974,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b5e21e3867bc5223d95d43002facac59aeb4bf08a5eb92c2adf7498d4b99a166)
+                type_hints = cached_type_hints(_typecheckingstub__b5e21e3867bc5223d95d43002facac59aeb4bf08a5eb92c2adf7498d4b99a166)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument idp", value=idp, expected_type=type_hints["idp"])
                 check_type(argname="argument master_backend_role", value=master_backend_role, expected_type=type_hints["master_backend_role"])
@@ -5004,24 +5001,24 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True to enable SAML authentication for a domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-samloptions.html#cfn-opensearchservice-domain-samloptions-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def idp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdpProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdpProperty"]]:
             '''The SAML Identity Provider's information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-samloptions.html#cfn-opensearchservice-domain-samloptions-idp
             '''
             result = self._values.get("idp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdpProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdpProperty"]], result)
 
         @builtins.property
         def master_backend_role(self) -> typing.Optional[builtins.str]:
@@ -5094,7 +5091,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''
             :param enabled: Whether to enable serverless vector acceleration.
@@ -5113,7 +5110,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d070456093)
+                type_hints = cached_type_hints(_typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d070456093)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -5122,13 +5119,13 @@ class CfnDomain(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether to enable serverless vector acceleration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-serverlessvectoracceleration.html#cfn-opensearchservice-domain-serverlessvectoracceleration-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5160,12 +5157,12 @@ class CfnDomain(
             self,
             *,
             automated_update_date: typing.Optional[builtins.str] = None,
-            cancellable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            cancellable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             current_version: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             new_version: typing.Optional[builtins.str] = None,
-            optional_deployment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            update_available: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            optional_deployment: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            update_available: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             update_status: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The current status of the service software for an Amazon OpenSearch Service domain.
@@ -5202,7 +5199,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17b60fc8205546d1616e28c359a0065b932fe65e39fe26c0c36bf78a39640570)
+                type_hints = cached_type_hints(_typecheckingstub__17b60fc8205546d1616e28c359a0065b932fe65e39fe26c0c36bf78a39640570)
                 check_type(argname="argument automated_update_date", value=automated_update_date, expected_type=type_hints["automated_update_date"])
                 check_type(argname="argument cancellable", value=cancellable, expected_type=type_hints["cancellable"])
                 check_type(argname="argument current_version", value=current_version, expected_type=type_hints["current_version"])
@@ -5243,7 +5240,7 @@ class CfnDomain(
         @builtins.property
         def cancellable(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True if you're able to cancel your service software version update.
 
             False if you can't cancel your service software update.
@@ -5251,7 +5248,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-servicesoftwareoptions.html#cfn-opensearchservice-domain-servicesoftwareoptions-cancellable
             '''
             result = self._values.get("cancellable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def current_version(self) -> typing.Optional[builtins.str]:
@@ -5283,7 +5280,7 @@ class CfnDomain(
         @builtins.property
         def optional_deployment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True if a service software is never automatically updated.
 
             False if a service software is automatically updated after the automated update date.
@@ -5291,12 +5288,12 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-servicesoftwareoptions.html#cfn-opensearchservice-domain-servicesoftwareoptions-optionaldeployment
             '''
             result = self._values.get("optional_deployment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def update_available(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''True if you're able to update your service software version.
 
             False if you can't update your service software version.
@@ -5304,7 +5301,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-servicesoftwareoptions.html#cfn-opensearchservice-domain-servicesoftwareoptions-updateavailable
             '''
             result = self._values.get("update_available")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def update_status(self) -> typing.Optional[builtins.str]:
@@ -5359,7 +5356,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36321f8809b3e46d31ad2079d9c9a47da5cdee345f411bb1e57bf166897c2d1c)
+                type_hints = cached_type_hints(_typecheckingstub__36321f8809b3e46d31ad2079d9c9a47da5cdee345f411bb1e57bf166897c2d1c)
                 check_type(argname="argument automated_snapshot_start_hour", value=automated_snapshot_start_hour, expected_type=type_hints["automated_snapshot_start_hour"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if automated_snapshot_start_hour is not None:
@@ -5396,7 +5393,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Options for configuring service software updates for a domain.
 
@@ -5416,7 +5413,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc7ecc912)
+                type_hints = cached_type_hints(_typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc7ecc912)
                 check_type(argname="argument auto_software_update_enabled", value=auto_software_update_enabled, expected_type=type_hints["auto_software_update_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if auto_software_update_enabled is not None:
@@ -5425,13 +5422,13 @@ class CfnDomain(
         @builtins.property
         def auto_software_update_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether automatic service software updates are enabled for the domain.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html#cfn-opensearchservice-domain-softwareupdateoptions-autosoftwareupdateenabled
             '''
             result = self._values.get("auto_software_update_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5457,7 +5454,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            egress_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            egress_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -5485,7 +5482,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b5e509f3eeacdd0fd9d933797c926acbd5e00cdfca76bc715ee89c0ba33d541)
+                type_hints = cached_type_hints(_typecheckingstub__0b5e509f3eeacdd0fd9d933797c926acbd5e00cdfca76bc715ee89c0ba33d541)
                 check_type(argname="argument egress_enabled", value=egress_enabled, expected_type=type_hints["egress_enabled"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
@@ -5500,13 +5497,13 @@ class CfnDomain(
         @builtins.property
         def egress_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Controls whether egress traffic from the domain is routed through the customer VPC.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-vpcoptions.html#cfn-opensearchservice-domain-vpcoptions-egressenabled
             '''
             result = self._values.get("egress_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5572,7 +5569,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6090d0f7ef0a5ff38223c37e3fded0a822e4e3052cd46ba0b2430b408bd5f698)
+                type_hints = cached_type_hints(_typecheckingstub__6090d0f7ef0a5ff38223c37e3fded0a822e4e3052cd46ba0b2430b408bd5f698)
                 check_type(argname="argument hours", value=hours, expected_type=type_hints["hours"])
                 check_type(argname="argument minutes", value=minutes, expected_type=type_hints["minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5646,7 +5643,7 @@ class CfnDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33dc255b2)
+                type_hints = cached_type_hints(_typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33dc255b2)
                 check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if availability_zone_count is not None:
@@ -5710,29 +5707,29 @@ class CfnDomainProps:
         self,
         *,
         access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        advanced_security_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        automated_snapshot_pause_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        advanced_security_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aiml_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        automated_snapshot_pause_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AutomatedSnapshotPauseOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cluster_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_strategy_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
-        domain_endpoint_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_endpoint_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        ebs_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        encryption_at_rest_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_at_rest_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         engine_version: typing.Optional[builtins.str] = None,
-        identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        log_publishing_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        node_to_node_encryption_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        off_peak_window_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.OffPeakWindowOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        snapshot_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        software_update_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_publishing_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_to_node_encryption_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        off_peak_window_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.OffPeakWindowOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        snapshot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        software_update_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
@@ -5929,7 +5926,7 @@ class CfnDomainProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52)
+            type_hints = cached_type_hints(_typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52)
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
             check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
             check_type(argname="argument advanced_security_options", value=advanced_security_options, expected_type=type_hints["advanced_security_options"])
@@ -6018,7 +6015,7 @@ class CfnDomainProps:
     @builtins.property
     def advanced_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''Additional options to specify for the OpenSearch Service domain.
 
         For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
@@ -6026,12 +6023,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedoptions
         '''
         result = self._values.get("advanced_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def advanced_security_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
         '''Specifies options for fine-grained access control and SAML authentication.
 
         If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
@@ -6039,60 +6036,60 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedsecurityoptions
         '''
         result = self._values.get("advanced_security_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AdvancedSecurityOptionsInputProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AdvancedSecurityOptionsInputProperty"]], result)
 
     @builtins.property
     def aiml_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AIMLOptionsProperty"]]:
         '''Container for parameters required to enable all machine learning features.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-aimloptions
         '''
         result = self._values.get("aiml_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AIMLOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AIMLOptionsProperty"]], result)
 
     @builtins.property
     def automated_snapshot_pause_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-automatedsnapshotpauseoptions
         '''
         result = self._values.get("automated_snapshot_pause_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.AutomatedSnapshotPauseOptionsProperty"]], result)
 
     @builtins.property
     def cluster_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ClusterConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ClusterConfigProperty"]]:
         '''Container for the cluster configuration of a domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-clusterconfig
         '''
         result = self._values.get("cluster_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ClusterConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.ClusterConfigProperty"]], result)
 
     @builtins.property
     def cognito_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CognitoOptionsProperty"]]:
         '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-cognitooptions
         '''
         result = self._values.get("cognito_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.CognitoOptionsProperty"]], result)
 
     @builtins.property
     def deployment_strategy_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-deploymentstrategyoptions
         '''
         result = self._values.get("deployment_strategy_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DeploymentStrategyOptionsProperty"]], result)
 
     @builtins.property
     def domain_arn(self) -> typing.Optional[builtins.str]:
@@ -6105,13 +6102,13 @@ class CfnDomainProps:
     @builtins.property
     def domain_endpoint_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainEndpointOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DomainEndpointOptionsProperty"]]:
         '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainendpointoptions
         '''
         result = self._values.get("domain_endpoint_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DomainEndpointOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.DomainEndpointOptionsProperty"]], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -6132,7 +6129,7 @@ class CfnDomainProps:
     @builtins.property
     def ebs_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EBSOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EBSOptionsProperty"]]:
         '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
 
         For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
@@ -6140,12 +6137,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-ebsoptions
         '''
         result = self._values.get("ebs_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EBSOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EBSOptionsProperty"]], result)
 
     @builtins.property
     def encryption_at_rest_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EncryptionAtRestOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]]:
         '''Whether the domain should encrypt data at rest, and if so, the AWS  key to use.
 
         See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
@@ -6155,7 +6152,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-encryptionatrestoptions
         '''
         result = self._values.get("encryption_at_rest_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.EncryptionAtRestOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]], result)
 
     @builtins.property
     def engine_version(self) -> typing.Optional[builtins.str]:
@@ -6173,13 +6170,13 @@ class CfnDomainProps:
     @builtins.property
     def identity_center_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdentityCenterOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterOptionsProperty"]]:
         '''Configuration options for controlling IAM Identity Center integration within a domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-identitycenteroptions
         '''
         result = self._values.get("identity_center_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.IdentityCenterOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterOptionsProperty"]], result)
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional[builtins.str]:
@@ -6195,7 +6192,7 @@ class CfnDomainProps:
     @builtins.property
     def log_publishing_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomain.LogPublishingOptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.LogPublishingOptionProperty"]]]]:
         '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.
 
         Each key needs a valid ``LogPublishingOption`` value. For the full syntax, see the `examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--examples>`_ .
@@ -6203,12 +6200,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-logpublishingoptions
         '''
         result = self._values.get("log_publishing_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomain.LogPublishingOptionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.LogPublishingOptionProperty"]]]], result)
 
     @builtins.property
     def node_to_node_encryption_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
         '''Specifies whether node-to-node encryption is enabled.
 
         See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
@@ -6216,33 +6213,33 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-nodetonodeencryptionoptions
         '''
         result = self._values.get("node_to_node_encryption_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], result)
 
     @builtins.property
     def off_peak_window_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowOptionsProperty"]]:
         '''Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-offpeakwindowoptions
         '''
         result = self._values.get("off_peak_window_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.OffPeakWindowOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.OffPeakWindowOptionsProperty"]], result)
 
     @builtins.property
     def skip_shard_migration_wait(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-skipshardmigrationwait
         '''
         result = self._values.get("skip_shard_migration_wait")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def snapshot_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SnapshotOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SnapshotOptionsProperty"]]:
         '''*DEPRECATED* .
 
         The automated snapshot configuration for the OpenSearch Service domain indexes.
@@ -6250,32 +6247,32 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-snapshotoptions
         '''
         result = self._values.get("snapshot_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SnapshotOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SnapshotOptionsProperty"]], result)
 
     @builtins.property
     def software_update_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SoftwareUpdateOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SoftwareUpdateOptionsProperty"]]:
         '''Service software update options for the domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-softwareupdateoptions
         '''
         result = self._values.get("software_update_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.SoftwareUpdateOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.SoftwareUpdateOptionsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def vpc_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.VPCOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.VPCOptionsProperty"]]:
         '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
 
         For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
@@ -6285,7 +6282,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-vpcoptions
         '''
         result = self._values.get("vpc_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.VPCOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.VPCOptionsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6313,7 +6310,7 @@ class CognitoOptions:
         self,
         *,
         identity_pool_id: builtins.str,
-        role: "_IRoleRef_8400221f",
+        role: "_aws_iam_632e20f6.IRoleRef",
         user_pool_id: builtins.str,
     ) -> None:
         '''Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
@@ -6337,7 +6334,7 @@ class CognitoOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9)
+            type_hints = cached_type_hints(_typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9)
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
@@ -6355,7 +6352,7 @@ class CognitoOptions:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role(self) -> "_IRoleRef_8400221f":
+    def role(self) -> "_aws_iam_632e20f6.IRoleRef":
         '''A role that allows Amazon OpenSearch Service to configure your user pool and identity pool.
 
         It must have the ``AmazonESCognitoAccess`` policy attached to it.
@@ -6364,7 +6361,7 @@ class CognitoOptions:
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast("_IRoleRef_8400221f", result)
+        return typing.cast("_aws_iam_632e20f6.IRoleRef", result)
 
     @builtins.property
     def user_pool_id(self) -> builtins.str:
@@ -6399,8 +6396,8 @@ class CustomEndpointOptions:
         self,
         *,
         domain_name: builtins.str,
-        certificate: typing.Optional["_ICertificateRef_1878d79b"] = None,
-        hosted_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        certificate: typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"] = None,
+        hosted_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
     ) -> None:
         '''Configures a custom domain endpoint for the Amazon OpenSearch Service domain.
 
@@ -6421,7 +6418,7 @@ class CustomEndpointOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24)
+            type_hints = cached_type_hints(_typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
@@ -6441,22 +6438,24 @@ class CustomEndpointOptions:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificateRef_1878d79b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"]:
         '''The certificate to use.
 
         :default: - create a new one
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificateRef_1878d79b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"], result)
 
     @builtins.property
-    def hosted_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def hosted_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''The hosted zone in Route53 to create the CNAME record in.
 
         :default: - do not create a CNAME
         '''
         result = self._values.get("hosted_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6499,7 +6498,7 @@ class DomainAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3)
+            type_hints = cached_type_hints(_typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3)
             check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
             check_type(argname="argument domain_endpoint", value=domain_endpoint, expected_type=type_hints["domain_endpoint"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6555,24 +6554,27 @@ class DomainGrants(
 
     @jsii.member(jsii_name="fromDomain")
     @builtins.classmethod
-    def from_domain(cls, resource: "_IDomainRef_76d6bc00") -> "DomainGrants":
+    def from_domain(
+        cls,
+        resource: "_aws_opensearchservice_70ff3770.IDomainRef",
+    ) -> "DomainGrants":
         '''Creates grants for DomainGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c05b5e6c2622e28136ae7e0c800f7b7b2c849b94600b2728e8bbb4999895fc64)
+            type_hints = cached_type_hints(_typecheckingstub__c05b5e6c2622e28136ae7e0c800f7b7b2c849b94600b2728e8bbb4999895fc64)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("DomainGrants", jsii.sinvoke(cls, "fromDomain", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -6580,50 +6582,59 @@ class DomainGrants(
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e23dc76959b5ede92812769db593697c9a0744640dde38aae706286dd6c41168)
+            type_hints = cached_type_hints(_typecheckingstub__e23dc76959b5ede92812769db593697c9a0744640dde38aae706286dd6c41168)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="read")
-    def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23f73381edb9e1295bad38d862ffb702564626613f8014c5394723564fd83f8d)
+            type_hints = cached_type_hints(_typecheckingstub__23f73381edb9e1295bad38d862ffb702564626613f8014c5394723564fd83f8d)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "read", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "read", [grantee]))
 
     @jsii.member(jsii_name="readWrite")
-    def read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72c8b5e09a1ef1856f94ea228cf21efa5b6349e341956ca81b5123aaac97e76e)
+            type_hints = cached_type_hints(_typecheckingstub__72c8b5e09a1ef1856f94ea228cf21efa5b6349e341956ca81b5123aaac97e76e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "readWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "readWrite", [grantee]))
 
     @jsii.member(jsii_name="write")
-    def write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8012ae6fae980a13fe28041ecc0ef8a9a469764946d61279a2b8887aa7aca6e6)
+            type_hints = cached_type_hints(_typecheckingstub__8012ae6fae980a13fe28041ecc0ef8a9a469764946d61279a2b8887aa7aca6e6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "write", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "write", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IDomainRef_76d6bc00":
-        return typing.cast("_IDomainRef_76d6bc00", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_opensearchservice_70ff3770.IDomainRef":
+        return typing.cast("_aws_opensearchservice_70ff3770.IDomainRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -6666,7 +6677,7 @@ class DomainProps:
         self,
         *,
         version: "EngineVersion",
-        access_policies: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
+        access_policies: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.PolicyStatement"]] = None,
         advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
         capacity: typing.Optional[typing.Union["CapacityConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6685,14 +6696,14 @@ class DomainProps:
         node_to_node_encryption: typing.Optional[builtins.bool] = None,
         off_peak_window_enabled: typing.Optional[builtins.bool] = None,
         off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
         use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
         zone_awareness: typing.Optional[typing.Union["ZoneAwarenessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for an Amazon OpenSearch Service domain.
@@ -6763,7 +6774,7 @@ class DomainProps:
         if isinstance(zone_awareness, dict):
             zone_awareness = ZoneAwarenessConfig(**zone_awareness)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74)
+            type_hints = cached_type_hints(_typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
             check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
@@ -6863,13 +6874,13 @@ class DomainProps:
     @builtins.property
     def access_policies(
         self,
-    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]]:
         '''Domain access policies.
 
         :default: - No access policies.
         '''
         result = self._values.get("access_policies")
-        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.PolicyStatement"]], result)
 
     @builtins.property
     def advanced_options(
@@ -7072,13 +7083,13 @@ class DomainProps:
         return typing.cast(typing.Optional["WindowStartTime"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the domain is removed from the stack.
 
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def s3_vectors_engine_enabled(self) -> typing.Optional[builtins.bool]:
@@ -7102,7 +7113,7 @@ class DomainProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The list of security groups that are associated with the VPC endpoints for the domain.
 
         Only used if ``vpc`` is specified.
@@ -7112,7 +7123,7 @@ class DomainProps:
         :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
     def suppress_logs_resource_policy(self) -> typing.Optional[builtins.bool]:
@@ -7160,7 +7171,7 @@ class DomainProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''Place the domain inside this VPC.
 
         :default: - Domain is not placed in a VPC.
@@ -7168,10 +7179,12 @@ class DomainProps:
         :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List["_SubnetSelection_e57d76df"]]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]]:
         '''The specific vpc subnets the domain will be placed in.
 
         You must provide one subnet for each Availability Zone
@@ -7185,7 +7198,7 @@ class DomainProps:
         :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List["_SubnetSelection_e57d76df"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]], result)
 
     @builtins.property
     def zone_awareness(self) -> typing.Optional["ZoneAwarenessConfig"]:
@@ -7227,7 +7240,7 @@ class EbsOptions:
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
         volume_size: typing.Optional[jsii.Number] = None,
-        volume_type: typing.Optional["_EbsDeviceVolumeType_6792555b"] = None,
+        volume_type: typing.Optional["_aws_ec2_09840e12.EbsDeviceVolumeType"] = None,
     ) -> None:
         '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain.
 
@@ -7264,7 +7277,7 @@ class EbsOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38)
+            type_hints = cached_type_hints(_typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -7330,13 +7343,13 @@ class EbsOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def volume_type(self) -> typing.Optional["_EbsDeviceVolumeType_6792555b"]:
+    def volume_type(self) -> typing.Optional["_aws_ec2_09840e12.EbsDeviceVolumeType"]:
         '''The EBS volume type to use with the Amazon OpenSearch Service domain, such as standard, gp2, io1.
 
         :default: gp2
         '''
         result = self._values.get("volume_type")
-        return typing.cast(typing.Optional["_EbsDeviceVolumeType_6792555b"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.EbsDeviceVolumeType"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7360,7 +7373,7 @@ class EncryptionAtRestOptions:
         self,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
     ) -> None:
         '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service (KMS) key to use.
 
@@ -7393,7 +7406,7 @@ class EncryptionAtRestOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523)
+            type_hints = cached_type_hints(_typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7412,13 +7425,13 @@ class EncryptionAtRestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''Supply if using KMS key for encryption at rest.
 
         :default: - uses default aws/es KMS key.
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7464,7 +7477,7 @@ class EngineVersion(
         :param version: custom version number.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d)
+            type_hints = cached_type_hints(_typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast("EngineVersion", jsii.sinvoke(cls, "elasticsearch", [version]))
 
@@ -7476,7 +7489,7 @@ class EngineVersion(
         :param version: custom version number.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b)
+            type_hints = cached_type_hints(_typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast("EngineVersion", jsii.sinvoke(cls, "openSearch", [version]))
 
@@ -7715,7 +7728,11 @@ class EngineVersion(
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchservice.IDomain")
-class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Protocol):
+class IDomain(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_opensearchservice_70ff3770.IDomainRef,
+    typing_extensions.Protocol,
+):
     '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
 
     @builtins.property
@@ -7758,8 +7775,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_index_read(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
@@ -7771,8 +7788,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_index_read_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
@@ -7784,8 +7801,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_index_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
@@ -7797,8 +7814,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_path_read(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
@@ -7810,8 +7827,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_path_read_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
@@ -7823,8 +7840,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
     def grant_path_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
@@ -7833,7 +7850,10 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
@@ -7841,7 +7861,10 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
@@ -7849,7 +7872,10 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
@@ -7866,14 +7892,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this domain.
 
         :param metric_name: -
@@ -7901,14 +7927,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for automated snapshot failures.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7937,14 +7963,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the cluster blocking index writes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -7973,14 +7999,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is red.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8009,14 +8035,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is yellow.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8045,14 +8071,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8081,14 +8107,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the storage space of nodes in the cluster.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8117,14 +8143,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for indexing latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8153,14 +8179,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8189,14 +8215,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key errors.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8225,14 +8251,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key being inaccessible.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8261,14 +8287,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8297,14 +8323,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8333,14 +8359,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of nodes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8369,14 +8395,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for number of searchable documents.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8405,14 +8431,14 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for search latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8434,8 +8460,8 @@ class IDomain(_IResource_c80c4260, _IDomainRef_76d6bc00, typing_extensions.Proto
 
 
 class _IDomainProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IDomainRef_76d6bc00), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_opensearchservice_70ff3770.IDomainRef), # type: ignore[misc]
 ):
     '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
 
@@ -8481,136 +8507,145 @@ class _IDomainProxy(
     def grant_index_read(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2)
+            type_hints = cached_type_hints(_typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexRead", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexRead", [index, identity]))
 
     @jsii.member(jsii_name="grantIndexReadWrite")
     def grant_index_read_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d)
+            type_hints = cached_type_hints(_typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
 
     @jsii.member(jsii_name="grantIndexWrite")
     def grant_index_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         :param index: The index to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0)
+            type_hints = cached_type_hints(_typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexWrite", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexWrite", [index, identity]))
 
     @jsii.member(jsii_name="grantPathRead")
     def grant_path_read(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb)
+            type_hints = cached_type_hints(_typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathRead", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathRead", [path, identity]))
 
     @jsii.member(jsii_name="grantPathReadWrite")
     def grant_path_read_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5)
+            type_hints = cached_type_hints(_typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathReadWrite", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathReadWrite", [path, identity]))
 
     @jsii.member(jsii_name="grantPathWrite")
     def grant_path_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         :param path: The path to grant permissions for.
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762)
+            type_hints = cached_type_hints(_typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathWrite", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathWrite", [path, identity]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f)
+            type_hints = cached_type_hints(_typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [identity]))
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b)
+            type_hints = cached_type_hints(_typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadWrite", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadWrite", [identity]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1)
+            type_hints = cached_type_hints(_typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -8622,14 +8657,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this domain.
 
         :param metric_name: -
@@ -8647,9 +8682,9 @@ class _IDomainProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08)
+            type_hints = cached_type_hints(_typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8664,7 +8699,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
     def metric_automated_snapshot_failure(
@@ -8675,14 +8710,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for automated snapshot failures.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8700,7 +8735,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8715,7 +8750,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
 
     @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
     def metric_cluster_index_writes_blocked(
@@ -8726,14 +8761,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the cluster blocking index writes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8751,7 +8786,7 @@ class _IDomainProxy(
 
         :default: maximum over 1 minute
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8766,7 +8801,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
 
     @jsii.member(jsii_name="metricClusterStatusRed")
     def metric_cluster_status_red(
@@ -8777,14 +8812,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is red.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8802,7 +8837,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8817,7 +8852,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterStatusRed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterStatusRed", [props]))
 
     @jsii.member(jsii_name="metricClusterStatusYellow")
     def metric_cluster_status_yellow(
@@ -8828,14 +8863,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is yellow.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8853,7 +8888,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8868,7 +8903,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterStatusYellow", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterStatusYellow", [props]))
 
     @jsii.member(jsii_name="metricCPUUtilization")
     def metric_cpu_utilization(
@@ -8879,14 +8914,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8904,7 +8939,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8919,7 +8954,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricCPUUtilization", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricCPUUtilization", [props]))
 
     @jsii.member(jsii_name="metricFreeStorageSpace")
     def metric_free_storage_space(
@@ -8930,14 +8965,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the storage space of nodes in the cluster.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -8955,7 +8990,7 @@ class _IDomainProxy(
 
         :default: minimum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -8970,7 +9005,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFreeStorageSpace", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFreeStorageSpace", [props]))
 
     @jsii.member(jsii_name="metricIndexingLatency")
     def metric_indexing_latency(
@@ -8981,14 +9016,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for indexing latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9006,7 +9041,7 @@ class _IDomainProxy(
 
         :default: p99 over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9021,7 +9056,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIndexingLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIndexingLatency", [props]))
 
     @jsii.member(jsii_name="metricJVMMemoryPressure")
     def metric_jvm_memory_pressure(
@@ -9032,14 +9067,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9057,7 +9092,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9072,7 +9107,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricJVMMemoryPressure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricJVMMemoryPressure", [props]))
 
     @jsii.member(jsii_name="metricKMSKeyError")
     def metric_kms_key_error(
@@ -9083,14 +9118,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key errors.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9108,7 +9143,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9123,7 +9158,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricKMSKeyError", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricKMSKeyError", [props]))
 
     @jsii.member(jsii_name="metricKMSKeyInaccessible")
     def metric_kms_key_inaccessible(
@@ -9134,14 +9169,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key being inaccessible.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9159,7 +9194,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9174,7 +9209,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
 
     @jsii.member(jsii_name="metricMasterCPUUtilization")
     def metric_master_cpu_utilization(
@@ -9185,14 +9220,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9210,7 +9245,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9225,7 +9260,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricMasterCPUUtilization", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricMasterCPUUtilization", [props]))
 
     @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
     def metric_master_jvm_memory_pressure(
@@ -9236,14 +9271,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9261,7 +9296,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9276,7 +9311,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
 
     @jsii.member(jsii_name="metricNodes")
     def metric_nodes(
@@ -9287,14 +9322,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of nodes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9312,7 +9347,7 @@ class _IDomainProxy(
 
         :default: minimum over 1 hour
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9327,7 +9362,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNodes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNodes", [props]))
 
     @jsii.member(jsii_name="metricSearchableDocuments")
     def metric_searchable_documents(
@@ -9338,14 +9373,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for number of searchable documents.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9363,7 +9398,7 @@ class _IDomainProxy(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9378,7 +9413,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSearchableDocuments", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSearchableDocuments", [props]))
 
     @jsii.member(jsii_name="metricSearchLatency")
     def metric_search_latency(
@@ -9389,14 +9424,14 @@ class _IDomainProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for search latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -9414,7 +9449,7 @@ class _IDomainProxy(
 
         :default: p99 over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -9429,7 +9464,7 @@ class _IDomainProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSearchLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSearchLatency", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDomain).__jsii_proxy_class__ = lambda : _IDomainProxy
@@ -9474,13 +9509,13 @@ class LoggingOptions:
         self,
         *,
         app_log_enabled: typing.Optional[builtins.bool] = None,
-        app_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        app_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         audit_log_enabled: typing.Optional[builtins.bool] = None,
-        audit_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        audit_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         slow_index_log_enabled: typing.Optional[builtins.bool] = None,
-        slow_index_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        slow_index_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         slow_search_log_enabled: typing.Optional[builtins.bool] = None,
-        slow_search_log_group: typing.Optional["_ILogGroupRef_874d025a"] = None,
+        slow_search_log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
     ) -> None:
         '''Configures log settings for the domain.
 
@@ -9517,7 +9552,7 @@ class LoggingOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593)
+            type_hints = cached_type_hints(_typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593)
             check_type(argname="argument app_log_enabled", value=app_log_enabled, expected_type=type_hints["app_log_enabled"])
             check_type(argname="argument app_log_group", value=app_log_group, expected_type=type_hints["app_log_group"])
             check_type(argname="argument audit_log_enabled", value=audit_log_enabled, expected_type=type_hints["audit_log_enabled"])
@@ -9557,13 +9592,13 @@ class LoggingOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def app_log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def app_log_group(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''Log Amazon OpenSearch Service application logs to this log group.
 
         :default: - a new log group is created if app logging is enabled
         '''
         result = self._values.get("app_log_group")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     @builtins.property
     def audit_log_enabled(self) -> typing.Optional[builtins.bool]:
@@ -9577,13 +9612,13 @@ class LoggingOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def audit_log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def audit_log_group(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''Log Amazon OpenSearch Service audit logs to this log group.
 
         :default: - a new log group is created if audit logging is enabled
         '''
         result = self._values.get("audit_log_group")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     @builtins.property
     def slow_index_log_enabled(self) -> typing.Optional[builtins.bool]:
@@ -9598,13 +9633,15 @@ class LoggingOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def slow_index_log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def slow_index_log_group(
+        self,
+    ) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''Log slow indices to this log group.
 
         :default: - a new log group is created if slow index logging is enabled
         '''
         result = self._values.get("slow_index_log_group")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     @builtins.property
     def slow_search_log_enabled(self) -> typing.Optional[builtins.bool]:
@@ -9619,13 +9656,15 @@ class LoggingOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def slow_search_log_group(self) -> typing.Optional["_ILogGroupRef_874d025a"]:
+    def slow_search_log_group(
+        self,
+    ) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
         '''Log slow searches to this log group.
 
         :default: - a new log group is created if slow search logging is enabled
         '''
         result = self._values.get("slow_search_log_group")
-        return typing.cast(typing.Optional["_ILogGroupRef_874d025a"], result)
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9681,7 +9720,7 @@ class NodeConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc)
+            type_hints = cached_type_hints(_typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc)
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -9769,7 +9808,7 @@ class NodeOptions:
         if isinstance(node_config, dict):
             node_config = NodeConfig(**node_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42)
+            type_hints = cached_type_hints(_typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42)
             check_type(argname="argument node_config", value=node_config, expected_type=type_hints["node_config"])
             check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9895,7 +9934,7 @@ class SAMLOptionsProperty:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b)
+            type_hints = cached_type_hints(_typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b)
             check_type(argname="argument idp_entity_id", value=idp_entity_id, expected_type=type_hints["idp_entity_id"])
             check_type(argname="argument idp_metadata_content", value=idp_metadata_content, expected_type=type_hints["idp_metadata_content"])
             check_type(argname="argument master_backend_role", value=master_backend_role, expected_type=type_hints["master_backend_role"])
@@ -10033,7 +10072,7 @@ class WindowStartTime:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c)
+            type_hints = cached_type_hints(_typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c)
             check_type(argname="argument hours", value=hours, expected_type=type_hints["hours"])
             check_type(argname="argument minutes", value=minutes, expected_type=type_hints["minutes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10118,7 +10157,7 @@ class ZoneAwarenessConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d)
+            type_hints = cached_type_hints(_typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d)
             check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10167,9 +10206,9 @@ class ZoneAwarenessConfig:
         )
 
 
-@jsii.implements(IDomain, _IConnectable_10015a05)
+@jsii.implements(IDomain, _aws_ec2_09840e12.IConnectable)
 class Domain(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_opensearchservice.Domain",
 ):
@@ -10199,7 +10238,7 @@ class Domain(
         id: builtins.str,
         *,
         version: "EngineVersion",
-        access_policies: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
+        access_policies: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.PolicyStatement"]] = None,
         advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
         capacity: typing.Optional[typing.Union["CapacityConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10218,14 +10257,14 @@ class Domain(
         node_to_node_encryption: typing.Optional[builtins.bool] = None,
         off_peak_window_enabled: typing.Optional[builtins.bool] = None,
         off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
         use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
         zone_awareness: typing.Optional[typing.Union["ZoneAwarenessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -10262,7 +10301,7 @@ class Domain(
         :param zone_awareness: The cluster zone awareness configuration for the Amazon OpenSearch Service domain. Default: - no zone awareness (1 AZ)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949f77adea)
+            type_hints = cached_type_hints(_typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949f77adea)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DomainProps(
@@ -10317,7 +10356,7 @@ class Domain(
         :param domain_endpoint: The domain endpoint of the Amazon OpenSearch Service domain.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6ffa71310423abeed383c9f52ba32bb0fa317ad14f132816245815b3e940310)
+            type_hints = cached_type_hints(_typecheckingstub__c6ffa71310423abeed383c9f52ba32bb0fa317ad14f132816245815b3e940310)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = DomainAttributes(
@@ -10341,7 +10380,7 @@ class Domain(
         :param domain_endpoint: The domain's endpoint.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4120385867c55130a3cf133cb8085f5cefe334d66a5d6e70d3e9e9418245d08)
+            type_hints = cached_type_hints(_typecheckingstub__a4120385867c55130a3cf133cb8085f5cefe334d66a5d6e70d3e9e9418245d08)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain_endpoint", value=domain_endpoint, expected_type=type_hints["domain_endpoint"])
@@ -10350,14 +10389,14 @@ class Domain(
     @jsii.member(jsii_name="addAccessPolicies")
     def add_access_policies(
         self,
-        *access_policy_statements: "_PolicyStatement_0fe33853",
+        *access_policy_statements: "_aws_iam_1f54b5e8.PolicyStatement",
     ) -> None:
         '''Add policy statements to the domain access policy.
 
         :param access_policy_statements: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b574b4a514e3bb203cffb9ddd5209b2b2a01ce79dc36360161e899511707241)
+            type_hints = cached_type_hints(_typecheckingstub__6b574b4a514e3bb203cffb9ddd5209b2b2a01ce79dc36360161e899511707241)
             check_type(argname="argument access_policy_statements", value=access_policy_statements, expected_type=typing.Tuple[type_hints["access_policy_statements"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addAccessPolicies", [*access_policy_statements]))
 
@@ -10365,8 +10404,8 @@ class Domain(
     def grant_index_read(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10375,17 +10414,17 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c17a1b5f2df8ec5a2fbde2e82d834e9e1b50beea702cbb05d271229424738353)
+            type_hints = cached_type_hints(_typecheckingstub__c17a1b5f2df8ec5a2fbde2e82d834e9e1b50beea702cbb05d271229424738353)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexRead", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexRead", [index, identity]))
 
     @jsii.member(jsii_name="grantIndexReadWrite")
     def grant_index_read_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10394,17 +10433,17 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e5c489ad7012b9bc81a711bc734d7e0782fc54f9027a928d5dcecc0f5f9a5cd)
+            type_hints = cached_type_hints(_typecheckingstub__1e5c489ad7012b9bc81a711bc734d7e0782fc54f9027a928d5dcecc0f5f9a5cd)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
 
     @jsii.member(jsii_name="grantIndexWrite")
     def grant_index_write(
         self,
         index: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10413,17 +10452,17 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12e3d51a1fcb874e85363acb5e8f0dbd4d4cfaf3ecab7e205a09b56b62f5cfb9)
+            type_hints = cached_type_hints(_typecheckingstub__12e3d51a1fcb874e85363acb5e8f0dbd4d4cfaf3ecab7e205a09b56b62f5cfb9)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantIndexWrite", [index, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantIndexWrite", [index, identity]))
 
     @jsii.member(jsii_name="grantPathRead")
     def grant_path_read(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10432,17 +10471,17 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b65bb1298d94b6f4088f13d08e6ce44ee6510750e19ada7afcdc19f34d811c3)
+            type_hints = cached_type_hints(_typecheckingstub__9b65bb1298d94b6f4088f13d08e6ce44ee6510750e19ada7afcdc19f34d811c3)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathRead", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathRead", [path, identity]))
 
     @jsii.member(jsii_name="grantPathReadWrite")
     def grant_path_read_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10451,17 +10490,17 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c1b795776f466d929f266cb75cc2986ee3561aab1dd23fb27d4d8804261a3e1)
+            type_hints = cached_type_hints(_typecheckingstub__5c1b795776f466d929f266cb75cc2986ee3561aab1dd23fb27d4d8804261a3e1)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathReadWrite", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathReadWrite", [path, identity]))
 
     @jsii.member(jsii_name="grantPathWrite")
     def grant_path_write(
         self,
         path: builtins.str,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10470,13 +10509,16 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64fe8266b2ff4c33565a7997602913043cc928b6eea646853e875600e42a903d)
+            type_hints = cached_type_hints(_typecheckingstub__64fe8266b2ff4c33565a7997602913043cc928b6eea646853e875600e42a903d)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPathWrite", [path, identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPathWrite", [path, identity]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10484,12 +10526,15 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b96664d302cdbc2c0ca76918ba82604a1ae24a6a91a3c254fbb0bfcbe9cdf81)
+            type_hints = cached_type_hints(_typecheckingstub__0b96664d302cdbc2c0ca76918ba82604a1ae24a6a91a3c254fbb0bfcbe9cdf81)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [identity]))
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10497,12 +10542,15 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92539b4ce708945aca7b9c15b640902718548cbad21caf4c3c3a9fd778873d8b)
+            type_hints = cached_type_hints(_typecheckingstub__92539b4ce708945aca7b9c15b640902718548cbad21caf4c3c3a9fd778873d8b)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadWrite", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadWrite", [identity]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -10510,9 +10558,9 @@ class Domain(
         :param identity: The principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6f47f51e3eed25d674651e29b33fb23e5edd9d7efd2f0b81fc604ddaaa7a711)
+            type_hints = cached_type_hints(_typecheckingstub__b6f47f51e3eed25d674651e29b33fb23e5edd9d7efd2f0b81fc604ddaaa7a711)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -10524,14 +10572,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this domain.
 
         :param metric_name: -
@@ -10549,9 +10597,9 @@ class Domain(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6380e234537911c13695e16580579ea3144cdf17f001286bfce646a753cc3d3)
+            type_hints = cached_type_hints(_typecheckingstub__f6380e234537911c13695e16580579ea3144cdf17f001286bfce646a753cc3d3)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10566,7 +10614,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
     def metric_automated_snapshot_failure(
@@ -10577,14 +10625,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for automated snapshot failures.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10602,7 +10650,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10617,7 +10665,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
 
     @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
     def metric_cluster_index_writes_blocked(
@@ -10628,14 +10676,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the cluster blocking index writes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10653,7 +10701,7 @@ class Domain(
 
         :default: maximum over 1 minute
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10668,7 +10716,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
 
     @jsii.member(jsii_name="metricClusterStatusRed")
     def metric_cluster_status_red(
@@ -10679,14 +10727,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is red.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10704,7 +10752,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10719,7 +10767,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterStatusRed", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterStatusRed", [props]))
 
     @jsii.member(jsii_name="metricClusterStatusYellow")
     def metric_cluster_status_yellow(
@@ -10730,14 +10778,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the time the cluster status is yellow.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10755,7 +10803,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10770,7 +10818,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricClusterStatusYellow", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricClusterStatusYellow", [props]))
 
     @jsii.member(jsii_name="metricCPUUtilization")
     def metric_cpu_utilization(
@@ -10781,14 +10829,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10806,7 +10854,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10821,7 +10869,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricCPUUtilization", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricCPUUtilization", [props]))
 
     @jsii.member(jsii_name="metricFreeStorageSpace")
     def metric_free_storage_space(
@@ -10832,14 +10880,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the storage space of nodes in the cluster.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10857,7 +10905,7 @@ class Domain(
 
         :default: minimum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10872,7 +10920,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFreeStorageSpace", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFreeStorageSpace", [props]))
 
     @jsii.member(jsii_name="metricIndexingLatency")
     def metric_indexing_latency(
@@ -10883,14 +10931,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for indexing latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10908,7 +10956,7 @@ class Domain(
 
         :default: p99 over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10923,7 +10971,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIndexingLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIndexingLatency", [props]))
 
     @jsii.member(jsii_name="metricJVMMemoryPressure")
     def metric_jvm_memory_pressure(
@@ -10934,14 +10982,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -10959,7 +11007,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -10974,7 +11022,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricJVMMemoryPressure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricJVMMemoryPressure", [props]))
 
     @jsii.member(jsii_name="metricKMSKeyError")
     def metric_kms_key_error(
@@ -10985,14 +11033,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key errors.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11010,7 +11058,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11025,7 +11073,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricKMSKeyError", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricKMSKeyError", [props]))
 
     @jsii.member(jsii_name="metricKMSKeyInaccessible")
     def metric_kms_key_inaccessible(
@@ -11036,14 +11084,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for KMS key being inaccessible.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11061,7 +11109,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11076,7 +11124,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
 
     @jsii.member(jsii_name="metricMasterCPUUtilization")
     def metric_master_cpu_utilization(
@@ -11087,14 +11135,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master CPU utilization.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11112,7 +11160,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11127,7 +11175,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricMasterCPUUtilization", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricMasterCPUUtilization", [props]))
 
     @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
     def metric_master_jvm_memory_pressure(
@@ -11138,14 +11186,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for master JVM memory pressure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11163,7 +11211,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11178,7 +11226,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
 
     @jsii.member(jsii_name="metricNodes")
     def metric_nodes(
@@ -11189,14 +11237,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of nodes.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11214,7 +11262,7 @@ class Domain(
 
         :default: minimum over 1 hour
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11229,7 +11277,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricNodes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricNodes", [props]))
 
     @jsii.member(jsii_name="metricSearchableDocuments")
     def metric_searchable_documents(
@@ -11240,14 +11288,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for number of searchable documents.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11265,7 +11313,7 @@ class Domain(
 
         :default: maximum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11280,7 +11328,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSearchableDocuments", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSearchableDocuments", [props]))
 
     @jsii.member(jsii_name="metricSearchLatency")
     def metric_search_latency(
@@ -11291,14 +11339,14 @@ class Domain(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for search latency.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -11316,7 +11364,7 @@ class Domain(
 
         :default: p99 over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -11331,7 +11379,7 @@ class Domain(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSearchLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSearchLatency", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -11341,13 +11389,13 @@ class Domain(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Manages network connections to the domain.
 
         This will throw an error in case the domain
         is not placed inside a VPC.
         '''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="domainArn")
@@ -11375,9 +11423,9 @@ class Domain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> "_DomainReference_37396432":
+    def domain_ref(self) -> "_aws_opensearchservice_70ff3770.DomainReference":
         '''A reference to a Domain resource.'''
-        return typing.cast("_DomainReference_37396432", jsii.get(self, "domainRef"))
+        return typing.cast("_aws_opensearchservice_70ff3770.DomainReference", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="grants")
@@ -11387,45 +11435,45 @@ class Domain(
 
     @builtins.property
     @jsii.member(jsii_name="appLogGroup")
-    def app_log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def app_log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''Log group that application logs are logged to.
 
         :attribute: true
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "appLogGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "appLogGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="auditLogGroup")
-    def audit_log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def audit_log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''Log group that audit logs are logged to.
 
         :attribute: true
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "auditLogGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "auditLogGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="masterUserPassword")
-    def master_user_password(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def master_user_password(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''Master user password if fine grained access control is configured.'''
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], jsii.get(self, "masterUserPassword"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], jsii.get(self, "masterUserPassword"))
 
     @builtins.property
     @jsii.member(jsii_name="slowIndexLogGroup")
-    def slow_index_log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def slow_index_log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''Log group that slow indices are logged to.
 
         :attribute: true
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "slowIndexLogGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "slowIndexLogGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="slowSearchLogGroup")
-    def slow_search_log_group(self) -> typing.Optional["_ILogGroup_3c4fa718"]:
+    def slow_search_log_group(self) -> typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"]:
         '''Log group that slow searches are logged to.
 
         :attribute: true
         '''
-        return typing.cast(typing.Optional["_ILogGroup_3c4fa718"], jsii.get(self, "slowSearchLogGroup"))
+        return typing.cast(typing.Optional["_aws_logs_ab8ef8ce.ILogGroup"], jsii.get(self, "slowSearchLogGroup"))
 
 
 __all__ = [
@@ -11462,7 +11510,7 @@ def _typecheckingstub__c1e95392d4761126042f2d6d6160889a80c269d2f13c21476fe92febd
     *,
     master_user_arn: typing.Optional[builtins.str] = None,
     master_user_name: typing.Optional[builtins.str] = None,
-    master_user_password: typing.Optional[_SecretValue_3dd0ddae] = None,
+    master_user_password: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     saml_authentication_enabled: typing.Optional[builtins.bool] = None,
     saml_authentication_options: typing.Optional[typing.Union[SAMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -11488,18 +11536,18 @@ def _typecheckingstub__9ac25677906ac058ff21dd4dd3fa4bc5649dbf0708d3cec14da66245b
     id: builtins.str,
     *,
     name: builtins.str,
-    app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    app_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     endpoint: typing.Optional[builtins.str] = None,
-    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__322cb6fb73e5eb5873a4fb2838c44691f6a54118d1b70841067679f204578f57(
-    resource: _IApplicationRef_3664810d,
+    resource: _aws_opensearchservice_70ff3770.IApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11511,7 +11559,7 @@ def _typecheckingstub__11435f3b38389f59b991e7c280594e96568ced4d6768eb98216699745
     pass
 
 def _typecheckingstub__010596563813f2e4ea0ec0e832557f7f62393de348b04daaa36cd0c1173c0fab(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11529,13 +11577,13 @@ def _typecheckingstub__0b3c3fc4422c425a7f7a26e6e6fbeefb10ac8367e4dd888d53a0c786b
     pass
 
 def _typecheckingstub__694a0111ad52c0ebd9b61a1b51fd19463f0f74be607a8dc318a66972b32e5262(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.AppConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.AppConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bba1674c959c98d5b3d45d6eaf7a8d20c797c65902fe99c536ac7530200af8ff(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.DataSourceProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.DataSourceProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11547,7 +11595,7 @@ def _typecheckingstub__f5f696a51a461e6b6e5c354d390867e41b97f8fc31e7c4a34db75c3f8
     pass
 
 def _typecheckingstub__905379ee8909936359e4e55480945820a97987b6908dbca0355618f385959e81(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IamIdentityCenterOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.IamIdentityCenterOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11559,7 +11607,7 @@ def _typecheckingstub__892a31269f72a79e55c114dd392262fb429d253208e1b65c1417b0da4
     pass
 
 def _typecheckingstub__d20068bc5112f252408ee83569f019899dca7f54b496b672a61b37e57f49966a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11582,7 +11630,7 @@ def _typecheckingstub__cef2fd6c56ca998ce2d1bd34cfd370f3a19aa7c85986f7f9098273145
 
 def _typecheckingstub__58c97e96e8e1ce004fea8b82d1b09d335f940c83119efbabb4975a7015b6f5e3(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     iam_identity_center_instance_arn: typing.Optional[builtins.str] = None,
     iam_role_for_identity_center_application_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11592,12 +11640,12 @@ def _typecheckingstub__58c97e96e8e1ce004fea8b82d1b09d335f940c83119efbabb4975a701
 def _typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545(
     *,
     name: builtins.str,
-    app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    app_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     endpoint: typing.Optional[builtins.str] = None,
-    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11607,35 +11655,35 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     id: builtins.str,
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    automated_snapshot_pause_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    advanced_security_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aiml_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    automated_snapshot_pause_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cluster_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_strategy_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
-    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_endpoint_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_at_rest_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     engine_version: typing.Optional[builtins.str] = None,
-    identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_publishing_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_to_node_encryption_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    off_peak_window_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    snapshot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    software_update_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d175f3a7353e79d8542c1e609de1b5d7e6a378ef82167bc6256507b89b56c777(
-    resource: _IDomainRef_76d6bc00,
+    resource: _aws_opensearchservice_70ff3770.IDomainRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11663,7 +11711,7 @@ def _typecheckingstub__3b28bf62abef9cfdda720a4031afdec5a223e3dbc0de6e0d6d81f98ca
     pass
 
 def _typecheckingstub__36055c1f3a4932ba1e8f0542c29f5149d636738c30a3d9d1bdafb864d00f2e64(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11681,43 +11729,43 @@ def _typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64
     pass
 
 def _typecheckingstub__4a8bbf96e0583433dd9f44c7bc58405687275c5e3102497c3de8597470024609(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__228f471e13ce4e3daa56e3913f7b610971afccf6ec06adc08af42a85ad0abde9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AdvancedSecurityOptionsInputProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.AdvancedSecurityOptionsInputProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__809f26ae46117bca5e245e0d9e88b91751a9fe6f8137586a0925a3b568e6a6bb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AIMLOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.AIMLOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6f92a3bac154c3b486a9655621e10bbdb7909ea9f1c7ebd3041b6fdbbf095151(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AutomatedSnapshotPauseOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.AutomatedSnapshotPauseOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fa86e4bef09a3455a33af8fe1a0310646154d89f5113370b517cfbe529c69080(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.ClusterConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.ClusterConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ba3653fa5c99276b72d7f6127ab8c7a58e79d65fa1bb3870a642aae948411169(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.CognitoOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1925734e443422328c7e1339f3d058c20d78014eefe9f5aeb8153c79db653256(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DeploymentStrategyOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.DeploymentStrategyOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11729,7 +11777,7 @@ def _typecheckingstub__e3136cec5fb1c8bfbc63aa354d269746af30bf8ace2a1386b3c54154a
     pass
 
 def _typecheckingstub__af44788b6e909cca8e8e5c9cb554dda8dc1f217fe434e42fd8738b0f0636804e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEndpointOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.DomainEndpointOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11741,13 +11789,13 @@ def _typecheckingstub__8fbf0bdf5087e279e6006801d40e67891ae239f2249b16c7c14ce58bd
     pass
 
 def _typecheckingstub__3c4377e2450f1c3438e90e2429bf9650c6490320abe0c622e2a80734761fec52(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EBSOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.EBSOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a2b92e6c487faf5299f3c6d1f31ea619c1b1d93925b6634dfc0b81cde67cf89(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EncryptionAtRestOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.EncryptionAtRestOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11759,7 +11807,7 @@ def _typecheckingstub__88301df742e18b9ab560ac04b99b966a761eeee663731308b40ab8ca4
     pass
 
 def _typecheckingstub__5b19eb039a71e8e1e83ff32229a3facab2ba5a6ceb6e5a5574dc7bc067c3f149(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.IdentityCenterOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.IdentityCenterOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11771,57 +11819,57 @@ def _typecheckingstub__15de3b6bee67c94e6a9ff942356ecb4f67771482ab0d1655f673b8858
     pass
 
 def _typecheckingstub__7ad842d30b972e4535042c97d9a43923a473c809de18faef95c075764d365933(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomain.LogPublishingOptionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.LogPublishingOptionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd0a25ab3a544c4d8cceb480a502adf178ccdbe1d5fdc2273557e28bb2a3b65a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.NodeToNodeEncryptionOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.NodeToNodeEncryptionOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9a3a2b200397209bed0a90cb39485a3ccb08bcbb3d56bbecc1ef0b66b5d0e9c4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.OffPeakWindowOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.OffPeakWindowOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2219753353ca3a6a30279b3606e2de2e1ee4acbc605b0d2bfd0ddf82122d2440(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4355f39393b86da5d9d2bb3c03113864e6a1293ce3a4a9b21ccbc2f55009520a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SnapshotOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.SnapshotOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8acae61e3be2830b5d0094ea6fec133fbcd21857779bf3d47fd39615ad0e27eb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SoftwareUpdateOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.SoftwareUpdateOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__492b192acd9acaa788b5501251071046e08d3e3cb47dc8fe653c58c5857dbc08(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b93b8c5b5730096cbd511fb71c9b9508cb307bcbfee46f7a0c11da785c33d2e8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.VPCOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.VPCOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173126426f(
     *,
-    s3_vectors_engine: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.S3VectorsEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    serverless_vector_acceleration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ServerlessVectorAccelerationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_vectors_engine: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.S3VectorsEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    serverless_vector_acceleration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.ServerlessVectorAccelerationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11829,20 +11877,20 @@ def _typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173
 def _typecheckingstub__fd5c3c68239a044600ab387ec52e22ed8852c6e213d5626aa4396b28aab3af9e(
     *,
     anonymous_auth_disable_date: typing.Optional[builtins.str] = None,
-    anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iam_federation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IAMFederationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    jwt_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.JWTOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MasterUserOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SAMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    iam_federation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IAMFederationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    jwt_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.JWTOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    master_user_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.MasterUserOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    saml_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SAMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd86ae1b11(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     end_time: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11851,26 +11899,26 @@ def _typecheckingstub__c96428e25485832a87761dd01daf4b60459c20bf146d46a8399ed4fd8
 
 def _typecheckingstub__3aeae3d5b66cfdff675e691ae3d90b2e82990d0dc2a13a8fbab733bba4e26eda(
     *,
-    cold_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ColdStorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cold_storage_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.ColdStorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dedicated_master_count: typing.Optional[jsii.Number] = None,
-    dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     dedicated_master_type: typing.Optional[builtins.str] = None,
     instance_count: typing.Optional[jsii.Number] = None,
     instance_type: typing.Optional[builtins.str] = None,
-    multi_az_with_standby_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    node_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multi_az_with_standby_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    node_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.NodeOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_count: typing.Optional[jsii.Number] = None,
-    warm_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    warm_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     warm_type: typing.Optional[builtins.str] = None,
-    zone_awareness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ZoneAwarenessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    zone_awareness_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.ZoneAwarenessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e167c0d00635fad84f1646761ab6a47124b645d9a98a38bc74beb3d2ecbca1c2(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     identity_pool_id: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
     user_pool_id: typing.Optional[builtins.str] = None,
@@ -11880,7 +11928,7 @@ def _typecheckingstub__e167c0d00635fad84f1646761ab6a47124b645d9a98a38bc74beb3d2e
 
 def _typecheckingstub__c3864a36f4132782987b173c24fdcbec6040683b2f632146b11bb53578fc274f(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11896,8 +11944,8 @@ def _typecheckingstub__e1afb3f072b83950253cff17b0d6c2d24505ec14925f8f1b645dd5c53
     *,
     custom_endpoint: typing.Optional[builtins.str] = None,
     custom_endpoint_certificate_arn: typing.Optional[builtins.str] = None,
-    custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enforce_https: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enforce_https: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tls_security_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11905,7 +11953,7 @@ def _typecheckingstub__e1afb3f072b83950253cff17b0d6c2d24505ec14925f8f1b645dd5c53
 
 def _typecheckingstub__0edcf62ab77376e080d4b111ffdeee55bda3d1ea1c392a1acb86f78ce234e31b(
     *,
-    ebs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ebs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
     volume_size: typing.Optional[jsii.Number] = None,
@@ -11916,7 +11964,7 @@ def _typecheckingstub__0edcf62ab77376e080d4b111ffdeee55bda3d1ea1c392a1acb86f78ce
 
 def _typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dcd4f9cbc(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11924,7 +11972,7 @@ def _typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dc
 
 def _typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77bea23c6(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     roles_key: typing.Optional[builtins.str] = None,
     subject_key: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11933,7 +11981,7 @@ def _typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77
 
 def _typecheckingstub__9205eb32a18ebed75ca975205de43322a1836abdff793eaed7f00cdef41743bd(
     *,
-    enabled_api_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled_api_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     identity_center_application_arn: typing.Optional[builtins.str] = None,
     identity_center_instance_arn: typing.Optional[builtins.str] = None,
     identity_store_id: typing.Optional[builtins.str] = None,
@@ -11953,7 +12001,7 @@ def _typecheckingstub__df207d57c5bf0c99afe86b2563e40142d554f359eddff25bfecdf22c9
 
 def _typecheckingstub__be8fc4de4af3d5862315e2f6983641a93c9f0277e7b66f8223fd6ca32d8b02e6(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     public_key: typing.Optional[builtins.str] = None,
     roles_key: typing.Optional[builtins.str] = None,
     subject_key: typing.Optional[builtins.str] = None,
@@ -11964,7 +12012,7 @@ def _typecheckingstub__be8fc4de4af3d5862315e2f6983641a93c9f0277e7b66f8223fd6ca32
 def _typecheckingstub__f619e98a16faa2be95396251f0c046225b41dc39039c1064a235021c6127a509(
     *,
     cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11981,7 +12029,7 @@ def _typecheckingstub__d898e88f61289087d3cdae775ccfc96a5810d38fd1a901ddd469c8377
 def _typecheckingstub__29e71e7d7b964cb5531555bce148a36e9563ff407034f0a06a02f9621a2c7b99(
     *,
     count: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11989,7 +12037,7 @@ def _typecheckingstub__29e71e7d7b964cb5531555bce148a36e9563ff407034f0a06a02f9621
 
 def _typecheckingstub__f030833a5f6ccca0ecd9bdbb55d77a1515771982d7e9b75b7523a5dfc513f26b(
     *,
-    node_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    node_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.NodeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     node_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11997,37 +12045,37 @@ def _typecheckingstub__f030833a5f6ccca0ecd9bdbb55d77a1515771982d7e9b75b7523a5dfc
 
 def _typecheckingstub__fbea990af8e11f12ced7e27d027040c8ec8f64ffa1f9d71f254282114946ea92(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__60d60226ff032c6e6c2d237e050aa8d3a58b6a67c4b5e0bdb59300620e1b4ad6(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    off_peak_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    off_peak_window: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.OffPeakWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__30d779e62b9e7bc4d33e575c2c20d7da26b34d1299cff8c0f1810cd484dc86e3(
     *,
-    window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.WindowStartTimeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    window_start_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.WindowStartTimeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0c5cacbc71e186563dfacc47a3e5812e0f2818862efee38451bcc544e4431878(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b5e21e3867bc5223d95d43002facac59aeb4bf08a5eb92c2adf7498d4b99a166(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    idp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    idp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     master_backend_role: typing.Optional[builtins.str] = None,
     master_user_name: typing.Optional[builtins.str] = None,
     roles_key: typing.Optional[builtins.str] = None,
@@ -12039,7 +12087,7 @@ def _typecheckingstub__b5e21e3867bc5223d95d43002facac59aeb4bf08a5eb92c2adf7498d4
 
 def _typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d070456093(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12047,12 +12095,12 @@ def _typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d07
 def _typecheckingstub__17b60fc8205546d1616e28c359a0065b932fe65e39fe26c0c36bf78a39640570(
     *,
     automated_update_date: typing.Optional[builtins.str] = None,
-    cancellable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cancellable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     current_version: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     new_version: typing.Optional[builtins.str] = None,
-    optional_deployment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    update_available: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    optional_deployment: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    update_available: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     update_status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12067,14 +12115,14 @@ def _typecheckingstub__36321f8809b3e46d31ad2079d9c9a47da5cdee345f411bb1e57bf1668
 
 def _typecheckingstub__3f5b07fb34bad0710947f07e46bcb56c9b4dde81217ab11372e2037cc7ecc912(
     *,
-    auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0b5e509f3eeacdd0fd9d933797c926acbd5e00cdfca76bc715ee89c0ba33d541(
     *,
-    egress_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    egress_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -12099,29 +12147,29 @@ def _typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33
 def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52(
     *,
     access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    automated_snapshot_pause_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    advanced_security_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aiml_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    automated_snapshot_pause_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AutomatedSnapshotPauseOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cluster_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_strategy_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
-    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_endpoint_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_name: typing.Optional[builtins.str] = None,
-    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ebs_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_at_rest_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     engine_version: typing.Optional[builtins.str] = None,
-    identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
-    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_publishing_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_to_node_encryption_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    off_peak_window_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    snapshot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    software_update_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12129,7 +12177,7 @@ def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d6
 def _typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9(
     *,
     identity_pool_id: builtins.str,
-    role: _IRoleRef_8400221f,
+    role: _aws_iam_632e20f6.IRoleRef,
     user_pool_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -12138,8 +12186,8 @@ def _typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d117
 def _typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24(
     *,
     domain_name: builtins.str,
-    certificate: typing.Optional[_ICertificateRef_1878d79b] = None,
-    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    certificate: typing.Optional[_aws_certificatemanager_7969630d.ICertificateRef] = None,
+    hosted_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12153,13 +12201,13 @@ def _typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e9026929555296059
     pass
 
 def _typecheckingstub__c05b5e6c2622e28136ae7e0c800f7b7b2c849b94600b2728e8bbb4999895fc64(
-    resource: _IDomainRef_76d6bc00,
+    resource: _aws_opensearchservice_70ff3770.IDomainRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e23dc76959b5ede92812769db593697c9a0744640dde38aae706286dd6c41168(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -12168,19 +12216,19 @@ def _typecheckingstub__e23dc76959b5ede92812769db593697c9a0744640dde38aae706286dd
     pass
 
 def _typecheckingstub__23f73381edb9e1295bad38d862ffb702564626613f8014c5394723564fd83f8d(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__72c8b5e09a1ef1856f94ea228cf21efa5b6349e341956ca81b5123aaac97e76e(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8012ae6fae980a13fe28041ecc0ef8a9a469764946d61279a2b8887aa7aca6e6(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12188,7 +12236,7 @@ def _typecheckingstub__8012ae6fae980a13fe28041ecc0ef8a9a469764946d61279a2b8887aa
 def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74(
     *,
     version: EngineVersion,
-    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+    access_policies: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.PolicyStatement]] = None,
     advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
     capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -12207,14 +12255,14 @@ def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08
     node_to_node_encryption: typing.Optional[builtins.bool] = None,
     off_peak_window_enabled: typing.Optional[builtins.bool] = None,
     off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
     use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
     zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12226,7 +12274,7 @@ def _typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
     volume_size: typing.Optional[jsii.Number] = None,
-    volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
+    volume_type: typing.Optional[_aws_ec2_09840e12.EbsDeviceVolumeType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12234,7 +12282,7 @@ def _typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e
 def _typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523(
     *,
     enabled: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12253,60 +12301,60 @@ def _typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b2600
 
 def _typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12319,12 +12367,12 @@ def _typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12333,13 +12381,13 @@ def _typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4
 def _typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593(
     *,
     app_log_enabled: typing.Optional[builtins.bool] = None,
-    app_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
+    app_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     audit_log_enabled: typing.Optional[builtins.bool] = None,
-    audit_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
+    audit_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     slow_index_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_index_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
+    slow_index_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     slow_search_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_search_log_group: typing.Optional[_ILogGroupRef_874d025a] = None,
+    slow_search_log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12395,7 +12443,7 @@ def _typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949
     id: builtins.str,
     *,
     version: EngineVersion,
-    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+    access_policies: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.PolicyStatement]] = None,
     advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
     capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -12414,14 +12462,14 @@ def _typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949
     node_to_node_encryption: typing.Optional[builtins.bool] = None,
     off_peak_window_enabled: typing.Optional[builtins.bool] = None,
     off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
     use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
     zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12446,67 +12494,67 @@ def _typecheckingstub__a4120385867c55130a3cf133cb8085f5cefe334d66a5d6e70d3e9e941
     pass
 
 def _typecheckingstub__6b574b4a514e3bb203cffb9ddd5209b2b2a01ce79dc36360161e899511707241(
-    *access_policy_statements: _PolicyStatement_0fe33853,
+    *access_policy_statements: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c17a1b5f2df8ec5a2fbde2e82d834e9e1b50beea702cbb05d271229424738353(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1e5c489ad7012b9bc81a711bc734d7e0782fc54f9027a928d5dcecc0f5f9a5cd(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12e3d51a1fcb874e85363acb5e8f0dbd4d4cfaf3ecab7e205a09b56b62f5cfb9(
     index: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9b65bb1298d94b6f4088f13d08e6ce44ee6510750e19ada7afcdc19f34d811c3(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5c1b795776f466d929f266cb75cc2986ee3561aab1dd23fb27d4d8804261a3e1(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__64fe8266b2ff4c33565a7997602913043cc928b6eea646853e875600e42a903d(
     path: builtins.str,
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0b96664d302cdbc2c0ca76918ba82604a1ae24a6a91a3c254fbb0bfcbe9cdf81(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__92539b4ce708945aca7b9c15b640902718548cbad21caf4c3c3a9fd778873d8b(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b6f47f51e3eed25d674651e29b33fb23e5edd9d7efd2f0b81fc604ddaaa7a711(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12519,12 +12567,12 @@ def _typecheckingstub__f6380e234537911c13695e16580579ea3144cdf17f001286bfce646a7
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

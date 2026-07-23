@@ -200,53 +200,42 @@ def _m_allow_dense(mjm: mujoco.MjModel) -> bool:
 def m_block_layout(mjm: mujoco.MjModel) -> dict:
   """Per-block dense/sparse layout for M's diagonal blocks.
 
-  Blocks (connected sub-trees, each a contiguous dof range) are classified into three per-block
-  categories by coupling and size:
-    - simple: a decoupled block (M is diagonal -- a "simple body" like a point mass on orthogonal
-      slides) needs no factorization, just D = 1/diag, so it bypasses both factor paths.
-    - dense: a coupled block small enough for a dense tile-Cholesky (size <= M_BLOCK_DENSE_MAX).
-    - sparse: a coupled block too large for a tile, via the sparse LDL factor.
-  Dense block factors are packed back to back (block k's b*b factor at the prefix sum of preceding
-  dense block areas). Returns:
-    total:      packed length of the dense region (also the offset of the LDL region)
-    dof_adr:    per-dof packed offset within the dense region (0 for non-dense dofs)
-    blocks:     all (start, size) blocks
-    dense_blocks: (start, size) blocks using the packed dense layout
-    dof_dense:  per-dof flag, 1 if the dof's block is dense
-    dof_simple: per-dof flag, 1 if the dof's block is simple (diagonal)
-    has_dense / has_simple / has_sparse: whether any block falls in that category
+  Blocks use scalar Cholesky through six DOFs, tile Cholesky through M_BLOCK_DENSE_MAX, and sparse
+  LDL beyond that. Compact diagonal blocks also use the scalar path without allocating a factor.
   """
   nv = mjm.nv
   blocks = _m_blocks(mjm)
   allow_dense = _m_allow_dense(mjm)
-  rownnz = mjm.M_rownnz
-  dof_adr = np.zeros(nv, dtype=np.int32)
-  dof_dense = np.zeros(nv, dtype=np.int32)
-  dof_simple = np.zeros(nv, dtype=np.int32)
-  dense_blocks = []
+  dof_adr = np.full(nv, types.Q_LD_BLOCK_SPARSE, dtype=np.int32)
+  scalar_tiles = {}
+  gather_tiles = {}
   off = 0
-  has_sparse = False
   for start, size in blocks:
-    coupled = bool(np.max(rownnz[start : start + size]) > 1)
-    if not coupled:
-      dof_simple[start : start + size] = 1
+    last = start + size - 1
+    madr = int(mjm.M_rowadr[start])
+    nnz = int(mjm.M_rowadr[last] + mjm.M_rownnz[last] - madr)
+    compact = nnz == size
+    triangular = nnz == size * (size + 1) // 2
+
+    if size <= types.M_BLOCK_SCALAR_MAX and (compact or (allow_dense and triangular)):
+      scalar_tiles.setdefault(size, []).append(start)
+      if compact:
+        dof_adr[start : start + size] = types.Q_LD_BLOCK_COMPACT
+      else:
+        dof_adr[start : start + size] = off
+        off += size * size
     elif allow_dense and size <= types.M_BLOCK_DENSE_MAX:
-      dense_blocks.append((start, size))
+      gather_tiles.setdefault(size, []).append(start)
       dof_adr[start : start + size] = off
-      dof_dense[start : start + size] = 1
       off += size * size
-    else:
-      has_sparse = True
+  for starts in scalar_tiles.values():
+    starts.sort(key=lambda start: dof_adr[start] >= 0)
   return {
     "total": off,
     "dof_adr": dof_adr,
-    "blocks": blocks,
-    "dense_blocks": dense_blocks,
-    "dof_dense": dof_dense,
-    "dof_simple": dof_simple,
-    "has_dense": len(dense_blocks) > 0,
-    "has_simple": bool(dof_simple.any()),
-    "has_sparse": has_sparse,
+    "scalar_tiles": scalar_tiles,
+    "gather_tiles": gather_tiles,
+    "has_sparse": bool(np.any(dof_adr == types.Q_LD_BLOCK_SPARSE)),
   }
 
 
@@ -501,7 +490,7 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   m.block_dim.solve_search_update_cg = _nv_block
   m.block_dim.solve_init_search_cg = _nv_block
   if mjm.nv > 500:
-    m.block_dim.linesearch_iterative = 512
+    m.block_dim.linesearch_iterative = 256
   m.is_sparse = is_sparse(mjm)
   m.has_fluid = mjm.opt.wind.any() or mjm.opt.density > 0 or mjm.opt.viscosity > 0
 
@@ -942,50 +931,47 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
     for j in range(mjm.mesh_vertnum[mjm.sensor_objid[i]])
   ]
 
-  # Per-block dense/sparse layout (see m_block_layout). M_tiles holds the dense blocks grouped by
-  # size; a model may use both paths at once (e.g. one large tree + many small free joints).
+  # Per-block scalar/tile/sparse layout (see m_block_layout).
   _lay = m_block_layout(mjm)
-  dof_dense = _lay["dof_dense"]
-  dof_simple = _lay["dof_simple"]
-  m.qLD_has_dense = _lay["has_dense"]
-  m.qLD_has_simple = _lay["has_simple"]
-  m.qLD_has_sparse = _lay["has_sparse"]
   m.qLD_block_total = _lay["total"]  # packed dense region length / offset of the LDL region
   m.qLD_block_adr = _lay["dof_adr"]
-  m.qLD_dof_dense = dof_dense  # per-dof: 1 if the dof's block is dense (packed)
-  m.qLD_dof_simple = dof_simple  # per-dof: 1 if the dof's block is simple (diagonal -> 1/diag)
-  m.qLD_simple_dofs = np.nonzero(dof_simple)[0].astype(np.int32)  # the simple dof indices
 
-  tiles = {}
-  for start, size in _lay["dense_blocks"]:
-    tiles.setdefault(size, []).append(start)
-  m.M_tiles = tuple(types.TileSet(adr=wp.array(tiles[sz], dtype=int), size=sz) for sz in sorted(tiles.keys()))
+  scalar_tiles = [
+    types.TileSet(
+      adr=wp.array(_lay["scalar_tiles"][size], dtype=int),
+      size=size,
+    )
+    for size in sorted(_lay["scalar_tiles"])
+  ]
+  gather_tiles = [
+    types.TileSet(adr=wp.array(_lay["gather_tiles"][size], dtype=int), size=size) for size in sorted(_lay["gather_tiles"])
+  ]
+  m.M_tiles = tuple(scalar_tiles + gather_tiles)
 
-  # qLD_updates has dof tree ordering of qLD updates for the sparse LDL factor. Only sparse-block
-  # dofs are included; dense blocks use the packed Cholesky and never touch the LDL region.
-  qLD_updates, dof_depth = {}, np.zeros(mjm.nv, dtype=int) - 1
+  # Group sparse LDL updates by tree depth. Block-path DOFs never touch the LDL region.
+  sparse_updates, dof_depth = {}, np.zeros(mjm.nv, dtype=int) - 1
 
   for k in range(mjm.nv):
     # skip diagonal rows
     if mjm.M_rownnz[k] == 1:
       continue
     dof_depth[k] = dof_depth[mjm.dof_parentid[k]] + 1
-    if dof_dense[k]:
-      continue  # dense block: handled by the packed Cholesky, not the LDL factor
+    if _lay["dof_adr"][k] != types.Q_LD_BLOCK_SPARSE:
+      continue
     i = mjm.dof_parentid[k]
     diag_k = mjm.M_rowadr[k] + mjm.M_rownnz[k] - 1
     Madr_ki = diag_k - 1
     while i > -1:
-      qLD_updates.setdefault(dof_depth[i], []).append((i, k, Madr_ki))
+      sparse_updates.setdefault(dof_depth[i], []).append((i, k, Madr_ki))
       i = mjm.dof_parentid[i]
       Madr_ki -= 1
-  m.qLD_updates = tuple(wp.array(qLD_updates[i], dtype=wp.vec3i) for i in sorted(qLD_updates))
+  m.qLD_updates = tuple(wp.array(sparse_updates[i], dtype=wp.vec3i) for i in sorted(sparse_updates))
 
   # Build concatenated updates for fused kernel
   all_updates_flat = []
   level_offsets = [0]
-  for level in sorted(qLD_updates):
-    all_updates_flat.extend(qLD_updates[level])
+  for level in sorted(sparse_updates):
+    all_updates_flat.extend(sparse_updates[level])
     level_offsets.append(len(all_updates_flat))
   m.qLD_all_updates = all_updates_flat if all_updates_flat else [(0, 0, 0)]
   m.qLD_level_offsets = level_offsets
@@ -1022,9 +1008,9 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   # dense block and flat slot (row, col), store the CSR address of M[max(i,j), min(i,j)], or nC
   # (out of bounds -> read as 0) for structurally absent pairs. Laid out [block, slot] so the kernel
   # reads slice (block_size^2,) at offset blk * block_size^2.
-  for tile in m.M_tiles:
+  for tile in gather_tiles:
     sz = tile.size
-    starts = np.array(tiles[sz], dtype=np.int32)  # host block starts; no device round-trip
+    starts = np.array(_lay["gather_tiles"][sz], dtype=np.int32)
     dofs = starts[:, None] + np.arange(sz)[None, :]  # (nblock, sz) global dof per block row
     gi = dofs[:, :, None]  # (nblock, sz, 1)
     gj = dofs[:, None, :]  # (nblock, 1, sz)
@@ -2112,20 +2098,23 @@ def put_data(
   d.solver_niter = wp.full((nworld,), mjd.solver_niter[0], dtype=int)
 
   d.M = wp.array(np.full((nworld, mjm.nC), mjd.M), dtype=float)
-  # qLD = [packed dense-block Cholesky | nC LDL region]. Dense blocks store their upper Cholesky
+  # qLD = [packed block Cholesky | nC LDL region]. Block factors store their upper Cholesky
   # packed; the LDL region (present iff some block is sparse) holds MuJoCo's full L'DL factor (only
   # its sparse-block entries are read by the solve).
   lay = m_block_layout(mjm)
   qld_total = lay["total"] + (mjm.nC if lay["has_sparse"] else 0)
   qLD = np.zeros(qld_total, dtype=np.float32)
-  if lay["has_dense"]:
+  if lay["total"]:
     Mfull = np.zeros((mjm.nv, mjm.nv))
     mujoco.mju_sym2dense(Mfull, mjd.M, mjm.M_rownnz, mjm.M_rowadr, mjm.M_colind)
-    for start, size in lay["dense_blocks"]:
-      off = lay["dof_adr"][start]
-      blk = Mfull[start : start + size, start : start + size]
-      if blk.any():
-        qLD[off : off + size * size] = np.linalg.cholesky(blk).T.reshape(-1)
+    for size, starts in list(lay["scalar_tiles"].items()) + list(lay["gather_tiles"].items()):
+      for start in starts:
+        off = lay["dof_adr"][start]
+        if off < 0:
+          continue
+        blk = Mfull[start : start + size, start : start + size]
+        if blk.any():
+          qLD[off : off + size * size] = np.linalg.cholesky(blk).T.reshape(-1)
   if lay["has_sparse"]:
     qLD[lay["total"] :] = mjd.qLD
   d.qLD = wp.array(np.full((nworld, qld_total), qLD), dtype=float)
@@ -2294,9 +2283,8 @@ def get_data_into(
 
   result.M[:] = d.M.numpy()[world_id]
   _lay = m_block_layout(mjm)
-  if _lay["has_dense"] or _lay["has_simple"]:
-    # d.qLD is not MuJoCo's LDL: dense blocks are a packed Cholesky and simple blocks are factored
-    # into qLDiagInv (their LDL slots are never written). Recompute the LDL factor from M.
+  if _lay["scalar_tiles"] or _lay["gather_tiles"]:
+    # Block factors do not use MuJoCo's LDL representation.
     mujoco.mj_factorM(mjm, result)
   else:
     # Pure sparse: qLD is exactly MuJoCo's nC LDL factor.
@@ -3314,12 +3302,13 @@ def set_const_fixed(m: types.Model, d: types.Data):
     m: The model containing kinematic and dynamic information (device).
     d: The data object containing the current state and output arrays (device).
   """
-  wp.launch(_init_subtreemass, dim=(d.nworld, m.nbody), inputs=[m.body_mass], outputs=[m.body_subtreemass])
+  nworld_subtreemass = m.body_subtreemass.shape[0]
+  wp.launch(_init_subtreemass, dim=(nworld_subtreemass, m.nbody), inputs=[m.body_mass], outputs=[m.body_subtreemass])
   for i in reversed(range(len(m.body_tree))):
     body_tree = m.body_tree[i]
     wp.launch(
       _accumulate_subtreemass,
-      dim=(d.nworld, body_tree.size),
+      dim=(nworld_subtreemass, body_tree.size),
       inputs=[m.body_parentid, m.body_subtreemass, body_tree],
     )
 
@@ -3363,16 +3352,16 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
   # Compute meaninertia from M diagonal at qpos0
   wp.launch(
     _compute_meaninertia,
-    dim=d.nworld,
+    dim=m.stat.meaninertia.shape[0],
     inputs=[m.nv, m.M_rownnz, m.M_rowadr, d.M],
     outputs=[m.stat.meaninertia],
   )
 
-  wp.launch(_copy_tendon_length0, dim=(d.nworld, m.ntendon), inputs=[d.ten_length], outputs=[m.tendon_length0])
+  wp.launch(_copy_tendon_length0, dim=(m.tendon_length0.shape[0], m.ntendon), inputs=[d.ten_length], outputs=[m.tendon_length0])
 
   wp.launch(
     _compute_eq_data0,
-    dim=(d.nworld, m.neq),
+    dim=(m.eq_data.shape[0], m.neq),
     inputs=[m.eq_type, m.eq_obj1id, m.eq_obj2id, m.eq_objtype, d.xpos, d.xquat, d.xmat],
     outputs=[m.eq_data],
   )
@@ -3394,7 +3383,7 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
 
     wp.launch(
       _finalize_dof_invweight0,
-      dim=(d.nworld, m.nv),
+      dim=(m.dof_invweight0.shape[0], m.nv),
       inputs=[m.dof_jntid, m.jnt_type, m.jnt_dofadr, dof_A_diag],
       outputs=[m.dof_invweight0],
     )
@@ -3437,7 +3426,7 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
 
     wp.launch(
       _finalize_body_invweight0,
-      dim=(d.nworld, m.nbody),
+      dim=(m.body_invweight0.shape[0], m.nbody),
       inputs=[m.body_weldid, body_A_diag],
       outputs=[m.body_invweight0],
     )
@@ -3460,21 +3449,23 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
       smooth.solve_m(m, d, ten_result_vec, ten_J_vec)
       wp.launch(
         _compute_tendon_dot_product,
-        dim=d.nworld,
+        dim=m.tendon_invweight0.shape[0],
         inputs=[m.ten_J_rownnz, m.ten_J_rowadr, m.ten_J_colind, tenid, d.ten_J, ten_result_vec],
         outputs=[m.tendon_invweight0],
       )
 
+  nworld_cam = np.max([m.cam_pos0.shape[0], m.cam_poscom0.shape[0], m.cam_mat0.shape[0]])
   wp.launch(
     _compute_cam_pos0,
-    dim=(d.nworld, m.ncam),
+    dim=(nworld_cam, m.ncam),
     inputs=[m.cam_bodyid, m.cam_targetbodyid, d.cam_xpos, d.cam_xmat, d.xpos, d.subtree_com],
     outputs=[m.cam_pos0, m.cam_poscom0, m.cam_mat0],
   )
 
+  nworld_light = np.max([m.light_pos0.shape[0], m.light_poscom0.shape[0], m.light_dir0.shape[0]])
   wp.launch(
     _compute_light_pos0,
-    dim=(d.nworld, m.nlight),
+    dim=(nworld_light, m.nlight),
     inputs=[m.light_bodyid, m.light_targetbodyid, d.light_xpos, d.light_xdir, d.xpos, d.subtree_com],
     outputs=[m.light_pos0, m.light_poscom0, m.light_dir0],
   )
@@ -3492,7 +3483,9 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
         outputs=[act_moment_vec],
       )
       smooth.solve_m(m, d, act_result_vec, act_moment_vec)
-      wp.launch(_compute_actuator_acc0, dim=d.nworld, inputs=[actid, m.nv, act_result_vec], outputs=[m.actuator_acc0])
+      wp.launch(
+        _compute_actuator_acc0, dim=m.actuator_acc0.shape[0], inputs=[actid, m.nv, act_result_vec], outputs=[m.actuator_acc0]
+      )
 
   # resolve dampratio: compute dof_M0, then convert dampratio to damping
   if m.nu > 0 and m.nv > 0:
@@ -3505,7 +3498,7 @@ def set_const_0(m: types.Model, d: types.Data, restore: bool = True):
     )
     wp.launch(
       _resolve_dampratio,
-      dim=(d.nworld, m.nu),
+      dim=(m.actuator_biasprm.shape[0], m.nu),
       inputs=[
         m.actuator_biastype,
         m.actuator_gainprm,
@@ -3553,7 +3546,7 @@ def set_const_spring(m: types.Model, d: types.Data, restore: bool = True):
 
   wp.launch(
     _resolve_tendon_lengthspring,
-    dim=(d.nworld, m.ntendon),
+    dim=(m.tendon_lengthspring.shape[0], m.ntendon),
     inputs=[d.ten_length],
     outputs=[m.tendon_lengthspring],
   )
@@ -3866,6 +3859,7 @@ def create_render_context(
   render_depth: list[bool] | bool | None = None,
   render_seg: list[bool] | bool | None = None,
   use_textures: bool = True,
+  use_fast_math: bool = True,
   use_shadows: bool = False,
   use_ambient_lighting: bool = True,
   enabled_geom_groups: list[int] = [0, 1, 2],
@@ -3891,6 +3885,7 @@ def create_render_context(
     render_seg: Whether to render segmentation (per-pixel object ID/type pairs).
       If None, uses the MuJoCo model values.
     use_textures: Whether to use textures.
+    use_fast_math: Whether to enable fast math for the render kernel.
     use_shadows: Whether to use shadows.
     use_ambient_lighting: Top-level ambient switch. When False, skips all
                           ambient contributions, including headlight ambient,
@@ -4113,6 +4108,7 @@ def create_render_context(
     cam_res=cam_res_arr,
     cam_id_map=wp.array(active_cam_indices, dtype=int),
     use_textures=use_textures,
+    use_fast_math=use_fast_math,
     use_shadows=use_shadows,
     use_ambient_lighting=use_ambient_lighting,
     background_color=render_util.pack_rgba_to_uint32(

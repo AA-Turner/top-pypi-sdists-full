@@ -1,23 +1,24 @@
 Metadata-Version: 2.4
 Name: presidio_anonymizer
-Version: 2.2.363
+Version: 2.2.364
 Summary: Presidio Anonymizer package - replaces analyzed text with desired values.
 License-Expression: MIT
 Keywords: presidio_anonymizer
 Author: Presidio
-Author-email: presidio@microsoft.com
-Requires-Python: >=3.10,<4.0
+Author-email: presidio@dataprivacystack.org
+Requires-Python: >=3.10,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: ahds
 Provides-Extra: server
 Requires-Dist: azure-health-deidentification (>=1.1.0b1,<2.0.0) ; extra == "ahds"
 Requires-Dist: azure-identity (>=1.25.3,<2.0.0) ; extra == "ahds"
-Requires-Dist: cryptography (>=46.0.4,<47.0.0)
+Requires-Dist: cryptography (>=48.0.1,<49.0.0)
 Requires-Dist: flask (>=1.1,<4.0.0) ; extra == "server"
 Requires-Dist: gunicorn (>=20.0.0,<26.0.0) ; (platform_system != "Windows") and (extra == "server")
 Requires-Dist: waitress (>=2.0.0,<4.0.0) ; (platform_system == "Windows") and (extra == "server")
@@ -214,6 +215,28 @@ result = engine.deanonymize(
 
 print(result)
 
+```
+
+Batch deanonymization works the same way for lists and nested dictionaries:
+```python
+from presidio_anonymizer import BatchDeanonymizeEngine
+from presidio_anonymizer.entities import OperatorConfig, OperatorResult
+
+engine = BatchDeanonymizeEngine()
+
+results = engine.deanonymize_list(
+    texts=[
+        "My name is S184CMt9Drj7QaKQ21JTrpYzghnboTF9pn/neN8JME0=",
+        "My name is S184CMt9Drj7QaKQ21JTrpYzghnboTF9pn/neN8JME0=",
+    ],
+    entities_list=[
+        [OperatorResult(start=11, end=55, entity_type="PERSON")],
+        [OperatorResult(start=11, end=55, entity_type="PERSON")],
+    ],
+    operators={"DEFAULT": OperatorConfig("decrypt", {"key": "WmZq4t7w!z%C&F)J"})},
+)
+
+print(results)
 ```
 
 ### As docker service:

@@ -65,9 +65,10 @@ DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 # Auto-update check interval (1 hour)
 UPDATE_CHECK_INTERVAL = 3600
 
-# Free-tier welcome banner re-show interval (3 days). Free users see the Pro
-# upsell again after this gap; Pro users see it only once (see _show_welcome).
-WELCOME_FREE_INTERVAL = 3 * 24 * 3600
+# Free-tier welcome banner re-show interval (1 day). Free users see the
+# "get the latest free" invite again after this gap; Pro users see it only once
+# (see _show_welcome).
+WELCOME_FREE_INTERVAL = 24 * 3600
 
 # Pro Chromium major shown in the free-tier welcome banner. Bump at each Pro
 # major release (there is no local constant to derive it from — the live Pro
@@ -93,33 +94,46 @@ def _welcome_due(marker: Path, pro: bool) -> bool:
     return (time.time() - last) >= WELCOME_FREE_INTERVAL
 
 
-def _show_welcome(pro: bool = False) -> None:
-    """Show welcome message on launch. A marker file gates the cadence:
-    Pro shows once ever; free re-shows every WELCOME_FREE_INTERVAL.
+def _show_welcome(tier: str = "keyless") -> None:
+    """Show welcome message on launch. A marker file gates the cadence: a paid
+    (Pro) key shows once ever; free (keyless or a free GitHub key) re-shows every
+    WELCOME_FREE_INTERVAL.
 
-    The Pro-upsell line is shown to free-tier users only; Pro users get a plain
-    banner (no "running free tier" message, which would be false for them).
+    tier:
+      "pro"     — a paid license key (Pro banner + support address)
+      "free"    — a free GitHub key (latest binary, one concurrent session)
+      "keyless" — no key, running the older free binary (invite the free login)
     """
     marker = get_cache_dir() / ".welcome_shown"
-    if not _welcome_due(marker, pro):
+    if not _welcome_due(marker, pro=(tier == "pro")):
         return
     sys.stderr.write("\n")
     sys.stderr.write("  CloakBrowser — stealth Chromium for automation\n")
     sys.stderr.write("  https://github.com/CloakHQ/CloakBrowser\n")
     sys.stderr.write("\n")
-    if pro:
+    if tier == "pro":
         sys.stderr.write(
             f"  CloakBrowser Pro active (v{PRO_MAJOR}) — latest binary, newest patches.\n"
         )
         sys.stderr.write("  Pro support → support@cloakbrowser.dev\n")
+    elif tier == "free":
+        sys.stderr.write(
+            f"  CloakBrowser free (v{PRO_MAJOR}): the latest binary, 1 concurrent session.\n"
+        )
+        sys.stderr.write(
+            "  For more than one concurrent session → https://cloakbrowser.dev\n"
+        )
     else:
         free_major = CHROMIUM_VERSION.split(".")[0]
         sys.stderr.write(
-            f"  Running free tier (v{free_major}). "
-            f"Pro = latest binary (v{PRO_MAJOR}) + newest anti-bot patches.\n"
+            f"  Running the free binary (v{free_major}). "
+            f"The latest binary (v{PRO_MAJOR}) is free too, with 1 concurrent session.\n"
         )
         sys.stderr.write(
-            "  Get Pro for the latest binary + newest patches → https://cloakbrowser.dev\n"
+            "  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free\n"
+        )
+        sys.stderr.write(
+            "  For more than one concurrent session → https://cloakbrowser.dev\n"
         )
     sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
     sys.stderr.write("\n")
@@ -167,12 +181,18 @@ def ensure_binary(
     if key:
         info = validate_license(key)
         if info and info.valid:
+            # Free tier always gets the latest build. Drop any version pin: the
+            # server force-serves latest to free keys, so fetching a pinned
+            # version's signed manifest would mismatch the served bytes and fail
+            # checksum verification. Paid keys keep pinning/rollback.
+            if info.plan == "free":
+                requested_version = None
             # A valid license is entitled to Pro, so Pro failures surface loudly
             # rather than silently substituting the older free binary. (A blip
             # during a routine update never reaches here: _ensure_pro_binary
             # returns the cached Pro binary and updates in the background.)
             try:
-                return _ensure_pro_binary(key, requested_version=requested_version)
+                return _ensure_pro_binary(key, requested_version=requested_version, plan=info.plan)
             except BinaryVerificationError:
                 # Authenticity could not be confirmed — surface verbatim.
                 raise
@@ -317,14 +337,19 @@ def _pro_binary_ready(version: str | None) -> bool:
 def _ensure_pro_binary(
     license_key: str,
     requested_version: str | None = None,
+    plan: str | None = None,
 ) -> str:
-    """Ensure the Pro binary is downloaded and cached. Returns the binary path.
+    """Ensure the latest (keyed) binary is downloaded and cached. Returns its path.
 
-    A valid Pro license NEVER falls back to the free binary. If the latest Pro
-    build cannot be resolved or downloaded and no cached Pro binary exists, the
-    error is raised rather than silently launching the free tier.
+    Used for both free-tier GitHub keys (plan="free") and paid keys — both fetch
+    the same latest build; the server enforces the concurrency cap. A valid key
+    NEVER falls back to the older free binary: if the latest build cannot be
+    resolved or downloaded and none is cached, the error is raised.
     """
     from .license import get_pro_latest_version
+
+    # Banner tier: a free GitHub key gets the free banner, paid keys the Pro one.
+    welcome_tier = "free" if plan == "free" else "pro"
 
     # --- Pinned: launch the exact requested version, no server cross-check, no
     # marker write (a rollback pin must not stick future unpinned launches). ---
@@ -336,7 +361,7 @@ def _ensure_pro_binary(
                 binary_path,
                 requested_version,
             )
-            _show_welcome(pro=True)
+            _show_welcome(welcome_tier)
             return str(binary_path)
         logger.info(
             "Downloading Pro Chromium %s for %s...", requested_version, get_platform_tag()
@@ -347,7 +372,7 @@ def _ensure_pro_binary(
             raise RuntimeError(
                 f"Pro download completed but binary not found at: {binary_path}"
             )
-        _show_welcome(pro=True)
+        _show_welcome(welcome_tier)
         return str(binary_path)
 
     # --- Unpinned: track the server's latest stable. ---
@@ -360,7 +385,7 @@ def _ensure_pro_binary(
     frozen = os.environ.get("CLOAKBROWSER_AUTO_UPDATE", "").lower() == "false"
     if frozen and _pro_binary_ready(effective):
         logger.debug("Pro auto-update disabled; using cached %s", effective)
-        _show_welcome(pro=True)
+        _show_welcome(welcome_tier)
         return str(get_binary_path(effective, pro=True))
 
     # get_pro_latest_version() is rate-limited to one network call per hour and
@@ -394,7 +419,7 @@ def _ensure_pro_binary(
             except OSError:
                 pass
         logger.debug("Pro binary found in cache: %s (version %s)", binary_path, version)
-        _show_welcome(pro=True)
+        _show_welcome(welcome_tier)
         return str(binary_path)
 
     # `version` (the server latest) needs downloading. On failure, fall back to a
@@ -415,7 +440,7 @@ def _ensure_pro_binary(
                 version,
                 effective,
             )
-            _show_welcome(pro=True)
+            _show_welcome(welcome_tier)
             return str(get_binary_path(effective, pro=True))
         raise
 
@@ -431,7 +456,7 @@ def _ensure_pro_binary(
     except OSError:
         pass
 
-    _show_welcome(pro=True)
+    _show_welcome(welcome_tier)
     return str(binary_path)
 
 

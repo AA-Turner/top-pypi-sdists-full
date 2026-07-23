@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AutoScalingGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad45614f4e540bae613323f2166957137deb5300bd434a60a612b05401cb8925)
+            type_hints = cached_type_hints(_typecheckingstub__ad45614f4e540bae613323f2166957137deb5300bd434a60a612b05401cb8925)
             check_type(argname="argument auto_scaling_group_arn", value=auto_scaling_group_arn, expected_type=type_hints["auto_scaling_group_arn"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -107,7 +111,7 @@ class AutoScalingGroupReference:
 )
 class IAutoScalingGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AutoScalingGroup.
@@ -127,7 +131,7 @@ class IAutoScalingGroupRef(
 
 class _IAutoScalingGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AutoScalingGroup.
 
@@ -154,7 +158,7 @@ typing.cast(typing.Any, IAutoScalingGroupRef).__jsii_proxy_class__ = lambda : _I
 )
 class ILaunchConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchConfiguration.
@@ -174,7 +178,7 @@ class ILaunchConfigurationRef(
 
 class _ILaunchConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchConfiguration.
 
@@ -199,7 +203,7 @@ typing.cast(typing.Any, ILaunchConfigurationRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_autoscaling.ILifecycleHookRef")
 class ILifecycleHookRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecycleHook.
@@ -219,7 +223,7 @@ class ILifecycleHookRef(
 
 class _ILifecycleHookRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecycleHook.
 
@@ -244,7 +248,7 @@ typing.cast(typing.Any, ILifecycleHookRef).__jsii_proxy_class__ = lambda : _ILif
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_autoscaling.IScalingPolicyRef")
 class IScalingPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScalingPolicy.
@@ -264,7 +268,7 @@ class IScalingPolicyRef(
 
 class _IScalingPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScalingPolicy.
 
@@ -289,7 +293,7 @@ typing.cast(typing.Any, IScalingPolicyRef).__jsii_proxy_class__ = lambda : _ISca
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_autoscaling.IScheduledActionRef")
 class IScheduledActionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
@@ -309,7 +313,7 @@ class IScheduledActionRef(
 
 class _IScheduledActionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
 
@@ -334,7 +338,7 @@ typing.cast(typing.Any, IScheduledActionRef).__jsii_proxy_class__ = lambda : _IS
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_autoscaling.IWarmPoolRef")
 class IWarmPoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WarmPool.
@@ -354,7 +358,7 @@ class IWarmPoolRef(
 
 class _IWarmPoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WarmPool.
 
@@ -400,7 +404,7 @@ class LaunchConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3fa8a982c10d16bbd63e360d6f0e8cff9f8feaecd45456bd47c23b1269b8d34)
+            type_hints = cached_type_hints(_typecheckingstub__c3fa8a982c10d16bbd63e360d6f0e8cff9f8feaecd45456bd47c23b1269b8d34)
             check_type(argname="argument launch_configuration_name", value=launch_configuration_name, expected_type=type_hints["launch_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_configuration_name": launch_configuration_name,
@@ -459,7 +463,7 @@ class LifecycleHookReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ced7483939a52f1ec5b5da2200247858df3161c0baf391c68b5f88e83421f0c)
+            type_hints = cached_type_hints(_typecheckingstub__1ced7483939a52f1ec5b5da2200247858df3161c0baf391c68b5f88e83421f0c)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument lifecycle_hook_name", value=lifecycle_hook_name, expected_type=type_hints["lifecycle_hook_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -517,7 +521,7 @@ class ScalingPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f19fc8b2662ee23dbd839ce57c057a1df4351872941878b457a13bed57b62f16)
+            type_hints = cached_type_hints(_typecheckingstub__f19fc8b2662ee23dbd839ce57c057a1df4351872941878b457a13bed57b62f16)
             check_type(argname="argument scaling_policy_arn", value=scaling_policy_arn, expected_type=type_hints["scaling_policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "scaling_policy_arn": scaling_policy_arn,
@@ -576,7 +580,7 @@ class ScheduledActionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b4d80dbd2ead593879b1bc9f78e71f88eb4873cb4d8d137e9a3f1496e3008c)
+            type_hints = cached_type_hints(_typecheckingstub__32b4d80dbd2ead593879b1bc9f78e71f88eb4873cb4d8d137e9a3f1496e3008c)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument scheduled_action_name", value=scheduled_action_name, expected_type=type_hints["scheduled_action_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -634,7 +638,7 @@ class WarmPoolReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d87eff8ecb72679c107374932e5c8d2d0e0f062a50f3493c2042083b741dba86)
+            type_hints = cached_type_hints(_typecheckingstub__d87eff8ecb72679c107374932e5c8d2d0e0f062a50f3493c2042083b741dba86)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "auto_scaling_group_name": auto_scaling_group_name,

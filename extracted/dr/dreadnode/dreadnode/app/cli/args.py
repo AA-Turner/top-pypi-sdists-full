@@ -263,3 +263,11 @@ class TuiArgs(PlatformScopeArgs):
             help="Policy parameter as key=value (repeatable). Forwarded to the policy spec.",
         ),
     ] = None
+    project_memory_preload_limit: t.Annotated[
+        int,
+        cyclopts.Parameter(
+            group=TUI_GROUP,
+            validator=cyclopts.validators.Number(gte=1, lte=200),
+            help="Project memories to preload for each new session",
+        ),
+    ] = 20

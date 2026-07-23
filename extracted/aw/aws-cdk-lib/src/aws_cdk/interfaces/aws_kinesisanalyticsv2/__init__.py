@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -64,7 +68,7 @@ class ApplicationCloudWatchLoggingOptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f8a246b267dcf66927f7d28716d327ef1bcdb2934e5fc953d206a2e899b8630)
+            type_hints = cached_type_hints(_typecheckingstub__2f8a246b267dcf66927f7d28716d327ef1bcdb2934e5fc953d206a2e899b8630)
             check_type(argname="argument application_cloud_watch_logging_option_id", value=application_cloud_watch_logging_option_id, expected_type=type_hints["application_cloud_watch_logging_option_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_cloud_watch_logging_option_id": application_cloud_watch_logging_option_id,
@@ -113,7 +117,7 @@ class ApplicationOutputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa3fb6015fc0c5ec88161bcc061bd360450dd475c18e6d3cf70cc24841b13b6)
+            type_hints = cached_type_hints(_typecheckingstub__afa3fb6015fc0c5ec88161bcc061bd360450dd475c18e6d3cf70cc24841b13b6)
             check_type(argname="argument application_output_id", value=application_output_id, expected_type=type_hints["application_output_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_output_id": application_output_id,
@@ -162,7 +166,7 @@ class ApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08bf72e70c6818b577a9f599411c03a33aced8681df05639b0b6cb4d32506f63)
+            type_hints = cached_type_hints(_typecheckingstub__08bf72e70c6818b577a9f599411c03a33aced8681df05639b0b6cb4d32506f63)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_name": application_name,
@@ -213,7 +217,7 @@ class ApplicationReferenceDataSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cca7193af9dd0db26b3420ccc8595e5ecfa0e043f75a4357ece05bd4a135a78c)
+            type_hints = cached_type_hints(_typecheckingstub__cca7193af9dd0db26b3420ccc8595e5ecfa0e043f75a4357ece05bd4a135a78c)
             check_type(argname="argument application_reference_data_source_id", value=application_reference_data_source_id, expected_type=type_hints["application_reference_data_source_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_reference_data_source_id": application_reference_data_source_id,
@@ -243,7 +247,7 @@ class ApplicationReferenceDataSourceReference:
 )
 class IApplicationCloudWatchLoggingOptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
@@ -265,7 +269,7 @@ class IApplicationCloudWatchLoggingOptionRef(
 
 class _IApplicationCloudWatchLoggingOptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
 
@@ -294,7 +298,7 @@ typing.cast(typing.Any, IApplicationCloudWatchLoggingOptionRef).__jsii_proxy_cla
 )
 class IApplicationOutputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
@@ -314,7 +318,7 @@ class IApplicationOutputRef(
 
 class _IApplicationOutputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
 
@@ -341,7 +345,7 @@ typing.cast(typing.Any, IApplicationOutputRef).__jsii_proxy_class__ = lambda : _
 )
 class IApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
@@ -361,7 +365,7 @@ class IApplicationRef(
 
 class _IApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
 
@@ -388,7 +392,7 @@ typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IAppli
 )
 class IApplicationReferenceDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
@@ -410,7 +414,7 @@ class IApplicationReferenceDataSourceRef(
 
 class _IApplicationReferenceDataSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
 

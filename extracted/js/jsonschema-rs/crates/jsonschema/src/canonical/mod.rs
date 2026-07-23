@@ -9,7 +9,10 @@
 //! use serde_json::json;
 //!
 //! let schema = canonicalize(&json!({"type": "integer", "minimum": 0})).unwrap();
-//! assert_eq!(schema.to_json_schema(), json!({"type": "integer", "minimum": 0}));
+//! assert_eq!(
+//!     schema.to_json_schema(),
+//!     json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "integer", "minimum": 0})
+//! );
 //! ```
 //!
 //! # Entry points
@@ -22,6 +25,8 @@
 
 pub mod json;
 
+pub(crate) mod algebra;
+pub(crate) mod context;
 pub(crate) mod emit;
 pub(crate) mod error;
 pub(crate) mod ir;

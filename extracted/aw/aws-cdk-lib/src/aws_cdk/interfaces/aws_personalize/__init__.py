@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,97 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.DataDeletionJobReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_deletion_job_arn": "dataDeletionJobArn",
+        "data_deletion_job_id": "dataDeletionJobId",
+    },
+)
+class DataDeletionJobReference:
+    def __init__(
+        self,
+        *,
+        data_deletion_job_arn: builtins.str,
+        data_deletion_job_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataDeletionJob resource.
+
+        :param data_deletion_job_arn: The ARN of the DataDeletionJob resource.
+        :param data_deletion_job_id: The Id of the DataDeletionJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            data_deletion_job_reference = interfaces_personalize.DataDeletionJobReference(
+                data_deletion_job_arn="dataDeletionJobArn",
+                data_deletion_job_id="dataDeletionJobId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94)
+            check_type(argname="argument data_deletion_job_arn", value=data_deletion_job_arn, expected_type=type_hints["data_deletion_job_arn"])
+            check_type(argname="argument data_deletion_job_id", value=data_deletion_job_id, expected_type=type_hints["data_deletion_job_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_deletion_job_arn": data_deletion_job_arn,
+            "data_deletion_job_id": data_deletion_job_id,
+        }
+
+    @builtins.property
+    def data_deletion_job_arn(self) -> builtins.str:
+        '''The ARN of the DataDeletionJob resource.'''
+        result = self._values.get("data_deletion_job_arn")
+        assert result is not None, "Required property 'data_deletion_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_deletion_job_id(self) -> builtins.str:
+        '''The Id of the DataDeletionJob resource.'''
+        result = self._values.get("data_deletion_job_id")
+        assert result is not None, "Required property 'data_deletion_job_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataDeletionJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -58,7 +130,7 @@ class DatasetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd607e866ffb5f894ee4515b429500888071106bbb3684630b35c3f634570cb)
+            type_hints = cached_type_hints(_typecheckingstub__9bd607e866ffb5f894ee4515b429500888071106bbb3684630b35c3f634570cb)
             check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_group_arn": dataset_group_arn,
@@ -107,7 +179,7 @@ class DatasetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8259ee192b97f65bb1bfb7dd2c09770b403cad7400c4318eae4c7d5c897451f3)
+            type_hints = cached_type_hints(_typecheckingstub__8259ee192b97f65bb1bfb7dd2c09770b403cad7400c4318eae4c7d5c897451f3)
             check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataset_arn": dataset_arn,
@@ -132,10 +204,55 @@ class DatasetReference:
         )
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDataDeletionJobRef")
+class IDataDeletionJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataDeletionJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataDeletionJobRef")
+    def data_deletion_job_ref(self) -> "DataDeletionJobReference":
+        '''(experimental) A reference to a DataDeletionJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataDeletionJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataDeletionJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IDataDeletionJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataDeletionJobRef")
+    def data_deletion_job_ref(self) -> "DataDeletionJobReference":
+        '''(experimental) A reference to a DataDeletionJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DataDeletionJobReference", jsii.get(self, "dataDeletionJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataDeletionJobRef).__jsii_proxy_class__ = lambda : _IDataDeletionJobRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDatasetGroupRef")
 class IDatasetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
@@ -155,7 +272,7 @@ class IDatasetGroupRef(
 
 class _IDatasetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
 
@@ -180,7 +297,7 @@ typing.cast(typing.Any, IDatasetGroupRef).__jsii_proxy_class__ = lambda : _IData
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDatasetRef")
 class IDatasetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
@@ -200,7 +317,7 @@ class IDatasetRef(
 
 class _IDatasetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dataset.
 
@@ -225,7 +342,7 @@ typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ISchemaRef")
 class ISchemaRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schema.
@@ -245,7 +362,7 @@ class ISchemaRef(
 
 class _ISchemaRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Schema.
 
@@ -270,7 +387,7 @@ typing.cast(typing.Any, ISchemaRef).__jsii_proxy_class__ = lambda : _ISchemaRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ISolutionRef")
 class ISolutionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Solution.
@@ -290,7 +407,7 @@ class ISolutionRef(
 
 class _ISolutionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Solution.
 
@@ -336,7 +453,7 @@ class SchemaReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6cd5ef72a7892e6fc2e89c44ce2a2108abd8cb5fa5db53e6d641fbf75e6fd0e)
+            type_hints = cached_type_hints(_typecheckingstub__a6cd5ef72a7892e6fc2e89c44ce2a2108abd8cb5fa5db53e6d641fbf75e6fd0e)
             check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schema_arn": schema_arn,
@@ -385,7 +502,7 @@ class SolutionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4a677c4d)
+            type_hints = cached_type_hints(_typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4a677c4d)
             check_type(argname="argument solution_arn", value=solution_arn, expected_type=type_hints["solution_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "solution_arn": solution_arn,
@@ -411,8 +528,10 @@ class SolutionReference:
 
 
 __all__ = [
+    "DataDeletionJobReference",
     "DatasetGroupReference",
     "DatasetReference",
+    "IDataDeletionJobRef",
     "IDatasetGroupRef",
     "IDatasetRef",
     "ISchemaRef",
@@ -422,6 +541,14 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94(
+    *,
+    data_deletion_job_arn: builtins.str,
+    data_deletion_job_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__9bd607e866ffb5f894ee4515b429500888071106bbb3684630b35c3f634570cb(
     *,
@@ -451,5 +578,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [IDatasetGroupRef, IDatasetRef, ISchemaRef, ISolutionRef]:
+for cls in [IDataDeletionJobRef, IDatasetGroupRef, IDatasetRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_healthlake import (
-    FHIRDatastoreReference as _FHIRDatastoreReference_1e134f03,
-    IFHIRDatastoreRef as _IFHIRDatastoreRef_e4faecab,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_healthlake as _aws_healthlake_d03fc20c
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_healthlake_d03fc20c = _LazyImport("aws_cdk.interfaces.aws_healthlake")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IFHIRDatastoreRef_e4faecab, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_healthlake_d03fc20c.IFHIRDatastoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFHIRDatastore(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore",
 ):
@@ -134,10 +128,10 @@ class CfnFHIRDatastore(
         *,
         datastore_type_version: builtins.str,
         datastore_name: typing.Optional[builtins.str] = None,
-        identity_provider_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        preload_data_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        preload_data_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::HealthLake::FHIRDatastore``.
 
@@ -151,7 +145,7 @@ class CfnFHIRDatastore(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a84066c5df4c48a34d687987d48edfe8b65e8bda26e4da5f30db9c938e54b90)
+            type_hints = cached_type_hints(_typecheckingstub__5a84066c5df4c48a34d687987d48edfe8b65e8bda26e4da5f30db9c938e54b90)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFHIRDatastoreProps(
@@ -169,13 +163,13 @@ class CfnFHIRDatastore(
     @builtins.classmethod
     def arn_for_fhir_datastore(
         cls,
-        resource: "_IFHIRDatastoreRef_e4faecab",
+        resource: "_aws_healthlake_d03fc20c.IFHIRDatastoreRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f0cb1aa981e44d9252c4ccb23e5e4300e3380368e5dead8a05fb5dd9f413b00)
+            type_hints = cached_type_hints(_typecheckingstub__3f0cb1aa981e44d9252c4ccb23e5e4300e3380368e5dead8a05fb5dd9f413b00)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFHIRDatastore", [resource]))
 
@@ -186,7 +180,7 @@ class CfnFHIRDatastore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         datastore_id: builtins.str,
-    ) -> "_IFHIRDatastoreRef_e4faecab":
+    ) -> "_aws_healthlake_d03fc20c.IFHIRDatastoreRef":
         '''Creates a new IFHIRDatastoreRef from a datastoreId.
 
         :param scope: -
@@ -194,11 +188,11 @@ class CfnFHIRDatastore(
         :param datastore_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aca17223f33eab4c3c32fe59502f6e15af4d519ea58e4d602d2408ce0b1dfa4)
+            type_hints = cached_type_hints(_typecheckingstub__1aca17223f33eab4c3c32fe59502f6e15af4d519ea58e4d602d2408ce0b1dfa4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument datastore_id", value=datastore_id, expected_type=type_hints["datastore_id"])
-        return typing.cast("_IFHIRDatastoreRef_e4faecab", jsii.sinvoke(cls, "fromDatastoreId", [scope, id, datastore_id]))
+        return typing.cast("_aws_healthlake_d03fc20c.IFHIRDatastoreRef", jsii.sinvoke(cls, "fromDatastoreId", [scope, id, datastore_id]))
 
     @jsii.member(jsii_name="fromFHIRDatastoreArn")
     @builtins.classmethod
@@ -207,7 +201,7 @@ class CfnFHIRDatastore(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IFHIRDatastoreRef_e4faecab":
+    ) -> "_aws_healthlake_d03fc20c.IFHIRDatastoreRef":
         '''Creates a new IFHIRDatastoreRef from an ARN.
 
         :param scope: -
@@ -215,11 +209,11 @@ class CfnFHIRDatastore(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb13a8ddb4107ab5128d62b9ccef2aef1a010a8f819b0cbe0bd1abf0438e0d22)
+            type_hints = cached_type_hints(_typecheckingstub__fb13a8ddb4107ab5128d62b9ccef2aef1a010a8f819b0cbe0bd1abf0438e0d22)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IFHIRDatastoreRef_e4faecab", jsii.sinvoke(cls, "fromFHIRDatastoreArn", [scope, id, arn]))
+        return typing.cast("_aws_healthlake_d03fc20c.IFHIRDatastoreRef", jsii.sinvoke(cls, "fromFHIRDatastoreArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnFHIRDatastore")
     @builtins.classmethod
@@ -229,18 +223,18 @@ class CfnFHIRDatastore(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67828597c6b23eb59e180c8c9477691634e8d3539e804a608e5af42e84fe8bc8)
+            type_hints = cached_type_hints(_typecheckingstub__67828597c6b23eb59e180c8c9477691634e8d3539e804a608e5af42e84fe8bc8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFHIRDatastore", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9041dc50c8109815f2c8dd04e804c6471002a65ab5f8f21a4695f6a237e3703)
+            type_hints = cached_type_hints(_typecheckingstub__f9041dc50c8109815f2c8dd04e804c6471002a65ab5f8f21a4695f6a237e3703)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -253,7 +247,7 @@ class CfnFHIRDatastore(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98c34e70b6ec2df3b888529b3c31e66d8c6bede9b01bd8e9f59661918d44ba4f)
+            type_hints = cached_type_hints(_typecheckingstub__98c34e70b6ec2df3b888529b3c31e66d8c6bede9b01bd8e9f59661918d44ba4f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -265,12 +259,12 @@ class CfnFHIRDatastore(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
-    def attr_created_at(self) -> "_IResolvable_da3f097b":
+    def attr_created_at(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The time that a Data Store was created.
 
         :cloudformationAttribute: CreatedAt
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCreatedAt"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedAt"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAtNanos")
@@ -340,15 +334,15 @@ class CfnFHIRDatastore(
 
     @builtins.property
     @jsii.member(jsii_name="fhirDatastoreRef")
-    def fhir_datastore_ref(self) -> "_FHIRDatastoreReference_1e134f03":
+    def fhir_datastore_ref(self) -> "_aws_healthlake_d03fc20c.FHIRDatastoreReference":
         '''A reference to a FHIRDatastore resource.'''
-        return typing.cast("_FHIRDatastoreReference_1e134f03", jsii.get(self, "fhirDatastoreRef"))
+        return typing.cast("_aws_healthlake_d03fc20c.FHIRDatastoreReference", jsii.get(self, "fhirDatastoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="datastoreTypeVersion")
@@ -359,7 +353,7 @@ class CfnFHIRDatastore(
     @datastore_type_version.setter
     def datastore_type_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5808500ce498cbcd60021c25c05f2f5ec6982551bc42bc79b3964a61257718e7)
+            type_hints = cached_type_hints(_typecheckingstub__5808500ce498cbcd60021c25c05f2f5ec6982551bc42bc79b3964a61257718e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datastoreTypeVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -372,7 +366,7 @@ class CfnFHIRDatastore(
     @datastore_name.setter
     def datastore_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a3d86ac6fd32fffececf8454df94145383c2e779b9b5f1a30896102278cd1a9)
+            type_hints = cached_type_hints(_typecheckingstub__7a3d86ac6fd32fffececf8454df94145383c2e779b9b5f1a30896102278cd1a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datastoreName", value) # pyright: ignore[reportArgumentType]
 
@@ -380,17 +374,17 @@ class CfnFHIRDatastore(
     @jsii.member(jsii_name="identityProviderConfiguration")
     def identity_provider_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]]:
         '''The identity provider configuration selected when the data store was created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]], jsii.get(self, "identityProviderConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]], jsii.get(self, "identityProviderConfiguration"))
 
     @identity_provider_configuration.setter
     def identity_provider_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__612b8cf4bba44e8e4744db8a7c2eaefe0b9bd601172c067d2c5a9feeb75cb14f)
+            type_hints = cached_type_hints(_typecheckingstub__612b8cf4bba44e8e4744db8a7c2eaefe0b9bd601172c067d2c5a9feeb75cb14f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -398,17 +392,17 @@ class CfnFHIRDatastore(
     @jsii.member(jsii_name="preloadDataConfig")
     def preload_data_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.PreloadDataConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]]:
         '''The preloaded Synthea data configuration for the data store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.PreloadDataConfigProperty"]], jsii.get(self, "preloadDataConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]], jsii.get(self, "preloadDataConfig"))
 
     @preload_data_config.setter
     def preload_data_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.PreloadDataConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b4d362bc0e9c9065e9f83741b0f46cfc52f253212d6a4551c7a2d9e4fd7e630)
+            type_hints = cached_type_hints(_typecheckingstub__4b4d362bc0e9c9065e9f83741b0f46cfc52f253212d6a4551c7a2d9e4fd7e630)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preloadDataConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -416,30 +410,33 @@ class CfnFHIRDatastore(
     @jsii.member(jsii_name="sseConfiguration")
     def sse_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.SseConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.SseConfigurationProperty"]]:
         '''The server-side encryption key configuration for a customer-provided encryption key specified for creating a data store.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.SseConfigurationProperty"]], jsii.get(self, "sseConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.SseConfigurationProperty"]], jsii.get(self, "sseConfiguration"))
 
     @sse_configuration.setter
     def sse_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.SseConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.SseConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d21d284c17f3b1e178b27b28fe912e0eaebeaa7ca9612eff81512c42f71c29d2)
+            type_hints = cached_type_hints(_typecheckingstub__d21d284c17f3b1e178b27b28fe912e0eaebeaa7ca9612eff81512c42f71c29d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sseConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28ffa2ce0bad1140b8ffa060738f5e180bc7033b7f2e9f274ce2d1d871b5d620)
+            type_hints = cached_type_hints(_typecheckingstub__28ffa2ce0bad1140b8ffa060738f5e180bc7033b7f2e9f274ce2d1d871b5d620)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -470,7 +467,7 @@ class CfnFHIRDatastore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__914232fa94e4874b18f9fa312fe19be92103d3c527212c1cc7038dd05916c72f)
+                type_hints = cached_type_hints(_typecheckingstub__914232fa94e4874b18f9fa312fe19be92103d3c527212c1cc7038dd05916c72f)
                 check_type(argname="argument nanos", value=nanos, expected_type=type_hints["nanos"])
                 check_type(argname="argument seconds", value=seconds, expected_type=type_hints["seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -524,7 +521,7 @@ class CfnFHIRDatastore(
             self,
             *,
             authorization_strategy: builtins.str,
-            fine_grained_authorization_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            fine_grained_authorization_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             idp_lambda_arn: typing.Optional[builtins.str] = None,
             metadata: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -554,7 +551,7 @@ class CfnFHIRDatastore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0f028d556a7a738b78a7fbfb130c7243f69ba20b6367ea5c21f2e6bcc60445fb)
+                type_hints = cached_type_hints(_typecheckingstub__0f028d556a7a738b78a7fbfb130c7243f69ba20b6367ea5c21f2e6bcc60445fb)
                 check_type(argname="argument authorization_strategy", value=authorization_strategy, expected_type=type_hints["authorization_strategy"])
                 check_type(argname="argument fine_grained_authorization_enabled", value=fine_grained_authorization_enabled, expected_type=type_hints["fine_grained_authorization_enabled"])
                 check_type(argname="argument idp_lambda_arn", value=idp_lambda_arn, expected_type=type_hints["idp_lambda_arn"])
@@ -590,13 +587,13 @@ class CfnFHIRDatastore(
         @builtins.property
         def fine_grained_authorization_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The parameter to enable SMART on FHIR fine-grained authorization for the data store.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-identityproviderconfiguration.html#cfn-healthlake-fhirdatastore-identityproviderconfiguration-finegrainedauthorizationenabled
             '''
             result = self._values.get("fine_grained_authorization_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def idp_lambda_arn(self) -> typing.Optional[builtins.str]:
@@ -675,7 +672,7 @@ class CfnFHIRDatastore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a204f0ae0d6b5a9246c0ce66e5f12f0873c70941743ebe67b84b3bf96c81207a)
+                type_hints = cached_type_hints(_typecheckingstub__a204f0ae0d6b5a9246c0ce66e5f12f0873c70941743ebe67b84b3bf96c81207a)
                 check_type(argname="argument cmk_type", value=cmk_type, expected_type=type_hints["cmk_type"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -741,7 +738,7 @@ class CfnFHIRDatastore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2807add39d82212bb123d916748097e974e9ff969a2403ee51221376730abb77)
+                type_hints = cached_type_hints(_typecheckingstub__2807add39d82212bb123d916748097e974e9ff969a2403ee51221376730abb77)
                 check_type(argname="argument preload_data_type", value=preload_data_type, expected_type=type_hints["preload_data_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "preload_data_type": preload_data_type,
@@ -779,7 +776,7 @@ class CfnFHIRDatastore(
         def __init__(
             self,
             *,
-            kms_encryption_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.KmsEncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            kms_encryption_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.KmsEncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The server-side encryption key configuration for a customer-provided encryption key.
 
@@ -804,7 +801,7 @@ class CfnFHIRDatastore(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ddeddf28afa132e70cf3cdeca1b03ad8c2e5de2f7786f5db94037eb39e61032d)
+                type_hints = cached_type_hints(_typecheckingstub__ddeddf28afa132e70cf3cdeca1b03ad8c2e5de2f7786f5db94037eb39e61032d)
                 check_type(argname="argument kms_encryption_config", value=kms_encryption_config, expected_type=type_hints["kms_encryption_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "kms_encryption_config": kms_encryption_config,
@@ -813,14 +810,14 @@ class CfnFHIRDatastore(
         @builtins.property
         def kms_encryption_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.KmsEncryptionConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.KmsEncryptionConfigProperty"]:
             '''The server-side encryption key configuration for a customer provided encryption key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-sseconfiguration.html#cfn-healthlake-fhirdatastore-sseconfiguration-kmsencryptionconfig
             '''
             result = self._values.get("kms_encryption_config")
             assert result is not None, "Required property 'kms_encryption_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.KmsEncryptionConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.KmsEncryptionConfigProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -852,10 +849,10 @@ class CfnFHIRDatastoreProps:
         *,
         datastore_type_version: builtins.str,
         datastore_name: typing.Optional[builtins.str] = None,
-        identity_provider_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        preload_data_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        preload_data_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFHIRDatastore``.
 
@@ -907,7 +904,7 @@ class CfnFHIRDatastoreProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f7e172077b0d6f3f4825d2eeb030b9523f0239350078a907c09cabc7ce33420)
+            type_hints = cached_type_hints(_typecheckingstub__0f7e172077b0d6f3f4825d2eeb030b9523f0239350078a907c09cabc7ce33420)
             check_type(argname="argument datastore_type_version", value=datastore_type_version, expected_type=type_hints["datastore_type_version"])
             check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
             check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
@@ -952,38 +949,38 @@ class CfnFHIRDatastoreProps:
     @builtins.property
     def identity_provider_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]]:
         '''The identity provider configuration selected when the data store was created.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-identityproviderconfiguration
         '''
         result = self._values.get("identity_provider_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]], result)
 
     @builtins.property
     def preload_data_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.PreloadDataConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]]:
         '''The preloaded Synthea data configuration for the data store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-preloaddataconfig
         '''
         result = self._values.get("preload_data_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.PreloadDataConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]], result)
 
     @builtins.property
     def sse_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.SseConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.SseConfigurationProperty"]]:
         '''The server-side encryption key configuration for a customer-provided encryption key specified for creating a data store.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-sseconfiguration
         '''
         result = self._values.get("sse_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFHIRDatastore.SseConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.SseConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -991,7 +988,7 @@ class CfnFHIRDatastoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1018,16 +1015,16 @@ def _typecheckingstub__5a84066c5df4c48a34d687987d48edfe8b65e8bda26e4da5f30db9c93
     *,
     datastore_type_version: builtins.str,
     datastore_name: typing.Optional[builtins.str] = None,
-    identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    preload_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preload_data_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3f0cb1aa981e44d9252c4ccb23e5e4300e3380368e5dead8a05fb5dd9f413b00(
-    resource: _IFHIRDatastoreRef_e4faecab,
+    resource: _aws_healthlake_d03fc20c.IFHIRDatastoreRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1055,7 +1052,7 @@ def _typecheckingstub__67828597c6b23eb59e180c8c9477691634e8d3539e804a608e5af42e8
     pass
 
 def _typecheckingstub__f9041dc50c8109815f2c8dd04e804c6471002a65ab5f8f21a4695f6a237e3703(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1079,25 +1076,25 @@ def _typecheckingstub__7a3d86ac6fd32fffececf8454df94145383c2e779b9b5f1a308961022
     pass
 
 def _typecheckingstub__612b8cf4bba44e8e4744db8a7c2eaefe0b9bd601172c067d2c5a9feeb75cb14f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFHIRDatastore.IdentityProviderConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.IdentityProviderConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4b4d362bc0e9c9065e9f83741b0f46cfc52f253212d6a4551c7a2d9e4fd7e630(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFHIRDatastore.PreloadDataConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.PreloadDataConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d21d284c17f3b1e178b27b28fe912e0eaebeaa7ca9612eff81512c42f71c29d2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFHIRDatastore.SseConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.SseConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__28ffa2ce0bad1140b8ffa060738f5e180bc7033b7f2e9f274ce2d1d871b5d620(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1113,7 +1110,7 @@ def _typecheckingstub__914232fa94e4874b18f9fa312fe19be92103d3c527212c1cc7038dd05
 def _typecheckingstub__0f028d556a7a738b78a7fbfb130c7243f69ba20b6367ea5c21f2e6bcc60445fb(
     *,
     authorization_strategy: builtins.str,
-    fine_grained_authorization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fine_grained_authorization_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     idp_lambda_arn: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1137,7 +1134,7 @@ def _typecheckingstub__2807add39d82212bb123d916748097e974e9ff969a2403ee512213767
 
 def _typecheckingstub__ddeddf28afa132e70cf3cdeca1b03ad8c2e5de2f7786f5db94037eb39e61032d(
     *,
-    kms_encryption_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.KmsEncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    kms_encryption_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.KmsEncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1146,10 +1143,10 @@ def _typecheckingstub__0f7e172077b0d6f3f4825d2eeb030b9523f0239350078a907c09cabc7
     *,
     datastore_type_version: builtins.str,
     datastore_name: typing.Optional[builtins.str] = None,
-    identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    preload_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preload_data_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

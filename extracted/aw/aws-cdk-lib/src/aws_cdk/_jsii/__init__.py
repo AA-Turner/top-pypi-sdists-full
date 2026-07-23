@@ -11,22 +11,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 import aws_cdk.asset_awscli_v1._jsii
 import aws_cdk.asset_node_proxy_agent_v6._jsii
@@ -116,10 +102,12 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_connect": "aws_cdk.aws_connect",
     "aws-cdk-lib.aws_connectcampaigns": "aws_cdk.aws_connectcampaigns",
     "aws-cdk-lib.aws_connectcampaignsv2": "aws_cdk.aws_connectcampaignsv2",
+    "aws-cdk-lib.aws_controlcatalog": "aws_cdk.aws_controlcatalog",
     "aws-cdk-lib.aws_controltower": "aws_cdk.aws_controltower",
     "aws-cdk-lib.aws_cur": "aws_cdk.aws_cur",
     "aws-cdk-lib.aws_customerprofiles": "aws_cdk.aws_customerprofiles",
     "aws-cdk-lib.aws_databrew": "aws_cdk.aws_databrew",
+    "aws-cdk-lib.aws_dataexchange": "aws_cdk.aws_dataexchange",
     "aws-cdk-lib.aws_datapipeline": "aws_cdk.aws_datapipeline",
     "aws-cdk-lib.aws_datasync": "aws_cdk.aws_datasync",
     "aws-cdk-lib.aws_datazone": "aws_cdk.aws_datazone",
@@ -259,6 +247,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_opsworkscm": "aws_cdk.aws_opsworkscm",
     "aws-cdk-lib.aws_organizations": "aws_cdk.aws_organizations",
     "aws-cdk-lib.aws_osis": "aws_cdk.aws_osis",
+    "aws-cdk-lib.aws_outposts": "aws_cdk.aws_outposts",
     "aws-cdk-lib.aws_panorama": "aws_cdk.aws_panorama",
     "aws-cdk-lib.aws_paymentcryptography": "aws_cdk.aws_paymentcryptography",
     "aws-cdk-lib.aws_pcaconnectorad": "aws_cdk.aws_pcaconnectorad",
@@ -431,10 +420,12 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_connect": "aws_cdk.interfaces.aws_connect",
     "aws-cdk-lib.interfaces.aws_connectcampaigns": "aws_cdk.interfaces.aws_connectcampaigns",
     "aws-cdk-lib.interfaces.aws_connectcampaignsv2": "aws_cdk.interfaces.aws_connectcampaignsv2",
+    "aws-cdk-lib.interfaces.aws_controlcatalog": "aws_cdk.interfaces.aws_controlcatalog",
     "aws-cdk-lib.interfaces.aws_controltower": "aws_cdk.interfaces.aws_controltower",
     "aws-cdk-lib.interfaces.aws_cur": "aws_cdk.interfaces.aws_cur",
     "aws-cdk-lib.interfaces.aws_customerprofiles": "aws_cdk.interfaces.aws_customerprofiles",
     "aws-cdk-lib.interfaces.aws_databrew": "aws_cdk.interfaces.aws_databrew",
+    "aws-cdk-lib.interfaces.aws_dataexchange": "aws_cdk.interfaces.aws_dataexchange",
     "aws-cdk-lib.interfaces.aws_datapipeline": "aws_cdk.interfaces.aws_datapipeline",
     "aws-cdk-lib.interfaces.aws_datasync": "aws_cdk.interfaces.aws_datasync",
     "aws-cdk-lib.interfaces.aws_datazone": "aws_cdk.interfaces.aws_datazone",
@@ -561,6 +552,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_opsworkscm": "aws_cdk.interfaces.aws_opsworkscm",
     "aws-cdk-lib.interfaces.aws_organizations": "aws_cdk.interfaces.aws_organizations",
     "aws-cdk-lib.interfaces.aws_osis": "aws_cdk.interfaces.aws_osis",
+    "aws-cdk-lib.interfaces.aws_outposts": "aws_cdk.interfaces.aws_outposts",
     "aws-cdk-lib.interfaces.aws_panorama": "aws_cdk.interfaces.aws_panorama",
     "aws-cdk-lib.interfaces.aws_paymentcryptography": "aws_cdk.interfaces.aws_paymentcryptography",
     "aws-cdk-lib.interfaces.aws_pcaconnectorad": "aws_cdk.interfaces.aws_pcaconnectorad",
@@ -653,7 +645,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.261.0", __name__[0:-6], "aws-cdk-lib@2.261.0.jsii.tgz"
+    "aws-cdk-lib", "2.262.0", __name__[0:-6], "aws-cdk-lib@2.262.0.jsii.tgz"
 )
 
 __all__ = [

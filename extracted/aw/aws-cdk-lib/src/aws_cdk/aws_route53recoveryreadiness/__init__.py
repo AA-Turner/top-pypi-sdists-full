@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,50 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_route53recoveryreadiness import (
-    CellReference as _CellReference_3f8eb289,
-    ICellRef as _ICellRef_a44b0425,
-    IReadinessCheckRef as _IReadinessCheckRef_2d346bec,
-    IRecoveryGroupRef as _IRecoveryGroupRef_84a1f4af,
-    IResourceSetRef as _IResourceSetRef_34f28033,
-    ReadinessCheckReference as _ReadinessCheckReference_5b8807b0,
-    RecoveryGroupReference as _RecoveryGroupReference_f98f34c9,
-    ResourceSetReference as _ResourceSetReference_54af36af,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_route53recoveryreadiness as _aws_route53recoveryreadiness_65844590
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_route53recoveryreadiness_65844590 = _LazyImport("aws_cdk.interfaces.aws_route53recoveryreadiness")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICellRef_a44b0425, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoveryreadiness_65844590.ICellRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCell(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoveryreadiness.CfnCell",
 ):
@@ -123,7 +111,7 @@ class CfnCell(
         *,
         cell_name: typing.Optional[builtins.str] = None,
         cells: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryReadiness::Cell``.
 
@@ -134,7 +122,7 @@ class CfnCell(
         :param tags: A collection of tags associated with a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13c868895ca08bff854c8fe7678338e1867e993f867d49908046cd6a17629e31)
+            type_hints = cached_type_hints(_typecheckingstub__13c868895ca08bff854c8fe7678338e1867e993f867d49908046cd6a17629e31)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCellProps(cell_name=cell_name, cells=cells, tags=tags)
@@ -143,12 +131,15 @@ class CfnCell(
 
     @jsii.member(jsii_name="arnForCell")
     @builtins.classmethod
-    def arn_for_cell(cls, resource: "_ICellRef_a44b0425") -> builtins.str:
+    def arn_for_cell(
+        cls,
+        resource: "_aws_route53recoveryreadiness_65844590.ICellRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5904b606289a5ac3dfc427dba4339ab94fac01f3408a07a926189174c40178fd)
+            type_hints = cached_type_hints(_typecheckingstub__5904b606289a5ac3dfc427dba4339ab94fac01f3408a07a926189174c40178fd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCell", [resource]))
 
@@ -159,7 +150,7 @@ class CfnCell(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ICellRef_a44b0425":
+    ) -> "_aws_route53recoveryreadiness_65844590.ICellRef":
         '''Creates a new ICellRef from an ARN.
 
         :param scope: -
@@ -167,11 +158,11 @@ class CfnCell(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6384526a3a16df29e41d1e0c5d9c81ec2669c9b7911801fdf4022e3a8b4f4956)
+            type_hints = cached_type_hints(_typecheckingstub__6384526a3a16df29e41d1e0c5d9c81ec2669c9b7911801fdf4022e3a8b4f4956)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ICellRef_a44b0425", jsii.sinvoke(cls, "fromCellArn", [scope, id, arn]))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.ICellRef", jsii.sinvoke(cls, "fromCellArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromCellName")
     @builtins.classmethod
@@ -180,7 +171,7 @@ class CfnCell(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cell_name: builtins.str,
-    ) -> "_ICellRef_a44b0425":
+    ) -> "_aws_route53recoveryreadiness_65844590.ICellRef":
         '''Creates a new ICellRef from a cellName.
 
         :param scope: -
@@ -188,11 +179,11 @@ class CfnCell(
         :param cell_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__490cd1ec8bad2bbf8558d3345ceae28cce102a92e3ba7672076e995e2785050e)
+            type_hints = cached_type_hints(_typecheckingstub__490cd1ec8bad2bbf8558d3345ceae28cce102a92e3ba7672076e995e2785050e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cell_name", value=cell_name, expected_type=type_hints["cell_name"])
-        return typing.cast("_ICellRef_a44b0425", jsii.sinvoke(cls, "fromCellName", [scope, id, cell_name]))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.ICellRef", jsii.sinvoke(cls, "fromCellName", [scope, id, cell_name]))
 
     @jsii.member(jsii_name="isCfnCell")
     @builtins.classmethod
@@ -202,18 +193,18 @@ class CfnCell(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02962a817b0dcca3c4427353ca6ca7da22622cf7bce82a85430ffc299f31b65e)
+            type_hints = cached_type_hints(_typecheckingstub__02962a817b0dcca3c4427353ca6ca7da22622cf7bce82a85430ffc299f31b65e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCell", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26df4eeedb5a0c616a1f3dad8c75f078f50e698da7a0e84e3a5d5735d6c00031)
+            type_hints = cached_type_hints(_typecheckingstub__26df4eeedb5a0c616a1f3dad8c75f078f50e698da7a0e84e3a5d5735d6c00031)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -226,7 +217,7 @@ class CfnCell(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d601dfd1114a47f09e8e4cc5e2fc61a0bc1bf8d65d07fa8a618424b7fe19fba)
+            type_hints = cached_type_hints(_typecheckingstub__7d601dfd1114a47f09e8e4cc5e2fc61a0bc1bf8d65d07fa8a618424b7fe19fba)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -258,9 +249,9 @@ class CfnCell(
 
     @builtins.property
     @jsii.member(jsii_name="cellRef")
-    def cell_ref(self) -> "_CellReference_3f8eb289":
+    def cell_ref(self) -> "_aws_route53recoveryreadiness_65844590.CellReference":
         '''A reference to a Cell resource.'''
-        return typing.cast("_CellReference_3f8eb289", jsii.get(self, "cellRef"))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.CellReference", jsii.get(self, "cellRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -274,9 +265,9 @@ class CfnCell(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="cellName")
@@ -287,7 +278,7 @@ class CfnCell(
     @cell_name.setter
     def cell_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63cf36126d8dd3b5e19180b0442de9842488ed8e561e44cde76e6ed852c19ad8)
+            type_hints = cached_type_hints(_typecheckingstub__63cf36126d8dd3b5e19180b0442de9842488ed8e561e44cde76e6ed852c19ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cellName", value) # pyright: ignore[reportArgumentType]
 
@@ -300,20 +291,23 @@ class CfnCell(
     @cells.setter
     def cells(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3e9f11291a25b5e6f4ae9c7ac92db4cdc610f3d4102f4a96a81ba897fa1d87a)
+            type_hints = cached_type_hints(_typecheckingstub__a3e9f11291a25b5e6f4ae9c7ac92db4cdc610f3d4102f4a96a81ba897fa1d87a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cells", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62f10011bc9a0c74b1e4ea8cc9c9bbf3a0a134a424b6f640abf9c44879051377)
+            type_hints = cached_type_hints(_typecheckingstub__62f10011bc9a0c74b1e4ea8cc9c9bbf3a0a134a424b6f640abf9c44879051377)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -329,7 +323,7 @@ class CfnCellProps:
         *,
         cell_name: typing.Optional[builtins.str] = None,
         cells: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCell``.
 
@@ -357,7 +351,7 @@ class CfnCellProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__073034bd9956a2710068070b5d811ab42b3869de8e1a5c263d9e23a04df0cdfe)
+            type_hints = cached_type_hints(_typecheckingstub__073034bd9956a2710068070b5d811ab42b3869de8e1a5c263d9e23a04df0cdfe)
             check_type(argname="argument cell_name", value=cell_name, expected_type=type_hints["cell_name"])
             check_type(argname="argument cells", value=cells, expected_type=type_hints["cells"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -390,13 +384,13 @@ class CfnCellProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoveryreadiness-cell.html#cfn-route53recoveryreadiness-cell-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -410,9 +404,9 @@ class CfnCellProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReadinessCheckRef_2d346bec, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoveryreadiness_65844590.IReadinessCheckRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnReadinessCheck(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoveryreadiness.CfnReadinessCheck",
 ):
@@ -452,7 +446,7 @@ class CfnReadinessCheck(
         *,
         readiness_check_name: typing.Optional[builtins.str] = None,
         resource_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryReadiness::ReadinessCheck``.
 
@@ -463,7 +457,7 @@ class CfnReadinessCheck(
         :param tags: A collection of tags associated with a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bfbc5fa46ba2840c24892c634f80e8275ce2c76eb60922ee3c04a4b324e5b29)
+            type_hints = cached_type_hints(_typecheckingstub__0bfbc5fa46ba2840c24892c634f80e8275ce2c76eb60922ee3c04a4b324e5b29)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReadinessCheckProps(
@@ -478,13 +472,13 @@ class CfnReadinessCheck(
     @builtins.classmethod
     def arn_for_readiness_check(
         cls,
-        resource: "_IReadinessCheckRef_2d346bec",
+        resource: "_aws_route53recoveryreadiness_65844590.IReadinessCheckRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f42d9d24beaeccdd9523268be378da54d3376100630c543c7ada666140b3c223)
+            type_hints = cached_type_hints(_typecheckingstub__f42d9d24beaeccdd9523268be378da54d3376100630c543c7ada666140b3c223)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReadinessCheck", [resource]))
 
@@ -496,18 +490,18 @@ class CfnReadinessCheck(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fddab4628dac58150b41d8821a2d7eba4c9c5faec628c2b74745153084381a17)
+            type_hints = cached_type_hints(_typecheckingstub__fddab4628dac58150b41d8821a2d7eba4c9c5faec628c2b74745153084381a17)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReadinessCheck", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dc7ffe6a29dd5f6e715a9726b09f80833380e0fbe980f5834be46b1ccd41b66)
+            type_hints = cached_type_hints(_typecheckingstub__5dc7ffe6a29dd5f6e715a9726b09f80833380e0fbe980f5834be46b1ccd41b66)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -520,7 +514,7 @@ class CfnReadinessCheck(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6e1cff4db070736f87d566522f4b3545a4ad286947133e85c7ced4c96cedc81)
+            type_hints = cached_type_hints(_typecheckingstub__a6e1cff4db070736f87d566522f4b3545a4ad286947133e85c7ced4c96cedc81)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -551,15 +545,17 @@ class CfnReadinessCheck(
 
     @builtins.property
     @jsii.member(jsii_name="readinessCheckRef")
-    def readiness_check_ref(self) -> "_ReadinessCheckReference_5b8807b0":
+    def readiness_check_ref(
+        self,
+    ) -> "_aws_route53recoveryreadiness_65844590.ReadinessCheckReference":
         '''A reference to a ReadinessCheck resource.'''
-        return typing.cast("_ReadinessCheckReference_5b8807b0", jsii.get(self, "readinessCheckRef"))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.ReadinessCheckReference", jsii.get(self, "readinessCheckRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="readinessCheckName")
@@ -570,7 +566,7 @@ class CfnReadinessCheck(
     @readiness_check_name.setter
     def readiness_check_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f3539c459e090a80aab3f1856cae71bbd8d5f0f2c8667cf9e39d7014435f965)
+            type_hints = cached_type_hints(_typecheckingstub__7f3539c459e090a80aab3f1856cae71bbd8d5f0f2c8667cf9e39d7014435f965)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readinessCheckName", value) # pyright: ignore[reportArgumentType]
 
@@ -583,20 +579,23 @@ class CfnReadinessCheck(
     @resource_set_name.setter
     def resource_set_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44d71b9a26b0dfffda11f6844c9805bb334cdaf3e1a1e32bcd05e04e31050f43)
+            type_hints = cached_type_hints(_typecheckingstub__44d71b9a26b0dfffda11f6844c9805bb334cdaf3e1a1e32bcd05e04e31050f43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceSetName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e79dc3aec0a3b3131b20694a730ecd7706f552f333a9b6a0ddcd951311d439c3)
+            type_hints = cached_type_hints(_typecheckingstub__e79dc3aec0a3b3131b20694a730ecd7706f552f333a9b6a0ddcd951311d439c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -616,7 +615,7 @@ class CfnReadinessCheckProps:
         *,
         readiness_check_name: typing.Optional[builtins.str] = None,
         resource_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReadinessCheck``.
 
@@ -644,7 +643,7 @@ class CfnReadinessCheckProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3c438502ee1a60d4adaea3215d352734901afcdf6cd40ef143a801e67d7e601)
+            type_hints = cached_type_hints(_typecheckingstub__f3c438502ee1a60d4adaea3215d352734901afcdf6cd40ef143a801e67d7e601)
             check_type(argname="argument readiness_check_name", value=readiness_check_name, expected_type=type_hints["readiness_check_name"])
             check_type(argname="argument resource_set_name", value=resource_set_name, expected_type=type_hints["resource_set_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -675,13 +674,13 @@ class CfnReadinessCheckProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoveryreadiness-readinesscheck.html#cfn-route53recoveryreadiness-readinesscheck-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -695,9 +694,9 @@ class CfnReadinessCheckProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRecoveryGroupRef_84a1f4af, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoveryreadiness_65844590.IRecoveryGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRecoveryGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoveryreadiness.CfnRecoveryGroup",
 ):
@@ -737,7 +736,7 @@ class CfnRecoveryGroup(
         *,
         cells: typing.Optional[typing.Sequence[builtins.str]] = None,
         recovery_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryReadiness::RecoveryGroup``.
 
@@ -748,7 +747,7 @@ class CfnRecoveryGroup(
         :param tags: A collection of tags associated with a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99277ba24eed449052f2cdf23737421f1433215fdc3cfd730a4385c704b3d713)
+            type_hints = cached_type_hints(_typecheckingstub__99277ba24eed449052f2cdf23737421f1433215fdc3cfd730a4385c704b3d713)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRecoveryGroupProps(
@@ -761,13 +760,13 @@ class CfnRecoveryGroup(
     @builtins.classmethod
     def arn_for_recovery_group(
         cls,
-        resource: "_IRecoveryGroupRef_84a1f4af",
+        resource: "_aws_route53recoveryreadiness_65844590.IRecoveryGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f0f8a4bbf8f100f73e669ea95426cc00474e1a28da067e8574cf2c7fe5704a1)
+            type_hints = cached_type_hints(_typecheckingstub__7f0f8a4bbf8f100f73e669ea95426cc00474e1a28da067e8574cf2c7fe5704a1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecoveryGroup", [resource]))
 
@@ -779,18 +778,18 @@ class CfnRecoveryGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a00b0c0efcefca8e15c5400833a340cf93bf2265824272b334276315b6f7432)
+            type_hints = cached_type_hints(_typecheckingstub__5a00b0c0efcefca8e15c5400833a340cf93bf2265824272b334276315b6f7432)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecoveryGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db42d74a58f7864ec5ade4f46151f65d1fa1d6ce64c6818e481b49190794f1ef)
+            type_hints = cached_type_hints(_typecheckingstub__db42d74a58f7864ec5ade4f46151f65d1fa1d6ce64c6818e481b49190794f1ef)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -803,7 +802,7 @@ class CfnRecoveryGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f57608369ed24b503beb8852606ac5b02696eec54ae288e3e1b88defdd9c7816)
+            type_hints = cached_type_hints(_typecheckingstub__f57608369ed24b503beb8852606ac5b02696eec54ae288e3e1b88defdd9c7816)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -834,15 +833,17 @@ class CfnRecoveryGroup(
 
     @builtins.property
     @jsii.member(jsii_name="recoveryGroupRef")
-    def recovery_group_ref(self) -> "_RecoveryGroupReference_f98f34c9":
+    def recovery_group_ref(
+        self,
+    ) -> "_aws_route53recoveryreadiness_65844590.RecoveryGroupReference":
         '''A reference to a RecoveryGroup resource.'''
-        return typing.cast("_RecoveryGroupReference_f98f34c9", jsii.get(self, "recoveryGroupRef"))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.RecoveryGroupReference", jsii.get(self, "recoveryGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="cells")
@@ -853,7 +854,7 @@ class CfnRecoveryGroup(
     @cells.setter
     def cells(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5560294538ccfc7bb97ce8e2648a8ee6987e7a11a8852c027f1ae32197b5ced6)
+            type_hints = cached_type_hints(_typecheckingstub__5560294538ccfc7bb97ce8e2648a8ee6987e7a11a8852c027f1ae32197b5ced6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cells", value) # pyright: ignore[reportArgumentType]
 
@@ -866,20 +867,23 @@ class CfnRecoveryGroup(
     @recovery_group_name.setter
     def recovery_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5e7b96d2a45ee2f819b9208f20855952769d9f0b63ad222e9e8c5279db457c1)
+            type_hints = cached_type_hints(_typecheckingstub__d5e7b96d2a45ee2f819b9208f20855952769d9f0b63ad222e9e8c5279db457c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recoveryGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5466e3c5b9c14b878f6f4476a3156bdb5bc5565b79e490b847655152995e7ee0)
+            type_hints = cached_type_hints(_typecheckingstub__5466e3c5b9c14b878f6f4476a3156bdb5bc5565b79e490b847655152995e7ee0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -899,7 +903,7 @@ class CfnRecoveryGroupProps:
         *,
         cells: typing.Optional[typing.Sequence[builtins.str]] = None,
         recovery_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRecoveryGroup``.
 
@@ -927,7 +931,7 @@ class CfnRecoveryGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d342dcd3563435baa37fbbe16fdf0ff7b67201aa0844f5e1cf9d141d0bf9cd7)
+            type_hints = cached_type_hints(_typecheckingstub__8d342dcd3563435baa37fbbe16fdf0ff7b67201aa0844f5e1cf9d141d0bf9cd7)
             check_type(argname="argument cells", value=cells, expected_type=type_hints["cells"])
             check_type(argname="argument recovery_group_name", value=recovery_group_name, expected_type=type_hints["recovery_group_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -958,13 +962,13 @@ class CfnRecoveryGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoveryreadiness-recoverygroup.html#cfn-route53recoveryreadiness-recoverygroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -978,9 +982,9 @@ class CfnRecoveryGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceSetRef_34f28033, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53recoveryreadiness_65844590.IResourceSetRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResourceSet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_route53recoveryreadiness.CfnResourceSet",
 ):
@@ -1042,10 +1046,10 @@ class CfnResourceSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         resource_set_type: builtins.str,
         resource_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53RecoveryReadiness::ResourceSet``.
 
@@ -1057,7 +1061,7 @@ class CfnResourceSet(
         :param tags: A tag to associate with the parameters for a resource set.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf6ebc0a9f935f88e0a23244138eb8cafe24b7630a5d785402d2354855596ebf)
+            type_hints = cached_type_hints(_typecheckingstub__cf6ebc0a9f935f88e0a23244138eb8cafe24b7630a5d785402d2354855596ebf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceSetProps(
@@ -1073,13 +1077,13 @@ class CfnResourceSet(
     @builtins.classmethod
     def arn_for_resource_set(
         cls,
-        resource: "_IResourceSetRef_34f28033",
+        resource: "_aws_route53recoveryreadiness_65844590.IResourceSetRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e64fa1a54e3f8f7945f2a17681431c7136bd122095dde6054409a615b0bcb4f)
+            type_hints = cached_type_hints(_typecheckingstub__5e64fa1a54e3f8f7945f2a17681431c7136bd122095dde6054409a615b0bcb4f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceSet", [resource]))
 
@@ -1091,18 +1095,18 @@ class CfnResourceSet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57ea4c7641b9f3a85d4652ad7489f5f2582b0dd5a4eea043a65456da46e65e5d)
+            type_hints = cached_type_hints(_typecheckingstub__57ea4c7641b9f3a85d4652ad7489f5f2582b0dd5a4eea043a65456da46e65e5d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceSet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef85644281cf421ef43660e50fdbdb7916d6d66f698ce5050c537f21b4acc67)
+            type_hints = cached_type_hints(_typecheckingstub__fef85644281cf421ef43660e50fdbdb7916d6d66f698ce5050c537f21b4acc67)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1115,7 +1119,7 @@ class CfnResourceSet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d1ced2fffee0146aab77f129ff62ca87caa55cd5db0cbf2406e2baa2d316e27)
+            type_hints = cached_type_hints(_typecheckingstub__6d1ced2fffee0146aab77f129ff62ca87caa55cd5db0cbf2406e2baa2d316e27)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1146,31 +1150,33 @@ class CfnResourceSet(
 
     @builtins.property
     @jsii.member(jsii_name="resourceSetRef")
-    def resource_set_ref(self) -> "_ResourceSetReference_54af36af":
+    def resource_set_ref(
+        self,
+    ) -> "_aws_route53recoveryreadiness_65844590.ResourceSetReference":
         '''A reference to a ResourceSet resource.'''
-        return typing.cast("_ResourceSetReference_54af36af", jsii.get(self, "resourceSetRef"))
+        return typing.cast("_aws_route53recoveryreadiness_65844590.ResourceSetReference", jsii.get(self, "resourceSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="resources")
     def resources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.ResourceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.ResourceProperty"]]]:
         '''A list of resource objects in the resource set.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.ResourceProperty"]]], jsii.get(self, "resources"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.ResourceProperty"]]], jsii.get(self, "resources"))
 
     @resources.setter
     def resources(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.ResourceProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.ResourceProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a4df7976fde8840dbbd29fd87b41d6fde568c4d3f43e84abd295e34dc123b85)
+            type_hints = cached_type_hints(_typecheckingstub__4a4df7976fde8840dbbd29fd87b41d6fde568c4d3f43e84abd295e34dc123b85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
 
@@ -1186,7 +1192,7 @@ class CfnResourceSet(
     @resource_set_type.setter
     def resource_set_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16cdb7ef88bcfa5e79a6b24f5a7afa77f90bc848a7011c10d11293035c9283fd)
+            type_hints = cached_type_hints(_typecheckingstub__16cdb7ef88bcfa5e79a6b24f5a7afa77f90bc848a7011c10d11293035c9283fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceSetType", value) # pyright: ignore[reportArgumentType]
 
@@ -1199,20 +1205,23 @@ class CfnResourceSet(
     @resource_set_name.setter
     def resource_set_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d8323a736d4d8bc880e1dd4c2787e873cd4353286043e264ff9457c074a93d)
+            type_hints = cached_type_hints(_typecheckingstub__48d8323a736d4d8bc880e1dd4c2787e873cd4353286043e264ff9457c074a93d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceSetName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag to associate with the parameters for a resource set.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8ce7b0dd37445da5365919573096496787ce1ddd7ea67b054df32684fa0cb5f)
+            type_hints = cached_type_hints(_typecheckingstub__e8ce7b0dd37445da5365919573096496787ce1ddd7ea67b054df32684fa0cb5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1235,7 +1244,7 @@ class CfnResourceSet(
             hosted_zone_arn: typing.Optional[builtins.str] = None,
             record_set_id: typing.Optional[builtins.str] = None,
             record_type: typing.Optional[builtins.str] = None,
-            target_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.TargetResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.TargetResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A component for DNS/routing control readiness checks and architecture checks.
 
@@ -1271,7 +1280,7 @@ class CfnResourceSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32358efbe7c385e7d76edfec00d6be4356e94128de2d64a8d0ace0fa96702e2c)
+                type_hints = cached_type_hints(_typecheckingstub__32358efbe7c385e7d76edfec00d6be4356e94128de2d64a8d0ace0fa96702e2c)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument hosted_zone_arn", value=hosted_zone_arn, expected_type=type_hints["hosted_zone_arn"])
                 check_type(argname="argument record_set_id", value=record_set_id, expected_type=type_hints["record_set_id"])
@@ -1328,13 +1337,13 @@ class CfnResourceSet(
         @builtins.property
         def target_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.TargetResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.TargetResourceProperty"]]:
             '''The target resource that the Route 53 record points to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53recoveryreadiness-resourceset-dnstargetresource.html#cfn-route53recoveryreadiness-resourceset-dnstargetresource-targetresource
             '''
             result = self._values.get("target_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.TargetResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.TargetResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1372,7 +1381,7 @@ class CfnResourceSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__600815406b2a1e95c6a05550df4fc06db9418b487fd1d28b01318205286ef457)
+                type_hints = cached_type_hints(_typecheckingstub__600815406b2a1e95c6a05550df4fc06db9418b487fd1d28b01318205286ef457)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
@@ -1430,7 +1439,7 @@ class CfnResourceSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__05047634c6d70b5f1c983a80d886ef2a301a0fc1ef82f3a4aa86d4063f4d0a68)
+                type_hints = cached_type_hints(_typecheckingstub__05047634c6d70b5f1c983a80d886ef2a301a0fc1ef82f3a4aa86d4063f4d0a68)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument record_set_id", value=record_set_id, expected_type=type_hints["record_set_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1483,7 +1492,7 @@ class CfnResourceSet(
             self,
             *,
             component_id: typing.Optional[builtins.str] = None,
-            dns_target_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.DNSTargetResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dns_target_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.DNSTargetResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             readiness_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
             resource_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1525,7 +1534,7 @@ class CfnResourceSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__afec2888efa0ee04a661bcde195c3a04b092b5644744184d2c35c93c03801d07)
+                type_hints = cached_type_hints(_typecheckingstub__afec2888efa0ee04a661bcde195c3a04b092b5644744184d2c35c93c03801d07)
                 check_type(argname="argument component_id", value=component_id, expected_type=type_hints["component_id"])
                 check_type(argname="argument dns_target_resource", value=dns_target_resource, expected_type=type_hints["dns_target_resource"])
                 check_type(argname="argument readiness_scopes", value=readiness_scopes, expected_type=type_hints["readiness_scopes"])
@@ -1552,7 +1561,7 @@ class CfnResourceSet(
         @builtins.property
         def dns_target_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.DNSTargetResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.DNSTargetResourceProperty"]]:
             '''A component for DNS/routing control readiness checks.
 
             This is a required setting when ``ResourceSet`` ``ResourceSetType`` is set to ``AWS::Route53RecoveryReadiness::DNSTargetResource`` . Do not set it for any other ``ResourceSetType`` setting.
@@ -1560,7 +1569,7 @@ class CfnResourceSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53recoveryreadiness-resourceset-resource.html#cfn-route53recoveryreadiness-resourceset-resource-dnstargetresource
             '''
             result = self._values.get("dns_target_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.DNSTargetResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.DNSTargetResourceProperty"]], result)
 
         @builtins.property
         def readiness_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1602,8 +1611,8 @@ class CfnResourceSet(
         def __init__(
             self,
             *,
-            nlb_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.NLBResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            r53_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.R53ResourceRecordProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nlb_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.NLBResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            r53_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.R53ResourceRecordProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The target resource that the Route 53 record points to.
 
@@ -1630,7 +1639,7 @@ class CfnResourceSet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16ba16f97722031f82a55ec2c9c68e5635ae95c709411fdf3cc1a49625a8b6da)
+                type_hints = cached_type_hints(_typecheckingstub__16ba16f97722031f82a55ec2c9c68e5635ae95c709411fdf3cc1a49625a8b6da)
                 check_type(argname="argument nlb_resource", value=nlb_resource, expected_type=type_hints["nlb_resource"])
                 check_type(argname="argument r53_resource", value=r53_resource, expected_type=type_hints["r53_resource"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1642,24 +1651,24 @@ class CfnResourceSet(
         @builtins.property
         def nlb_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.NLBResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.NLBResourceProperty"]]:
             '''The Network Load Balancer resource that a DNS target resource points to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53recoveryreadiness-resourceset-targetresource.html#cfn-route53recoveryreadiness-resourceset-targetresource-nlbresource
             '''
             result = self._values.get("nlb_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.NLBResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.NLBResourceProperty"]], result)
 
         @builtins.property
         def r53_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.R53ResourceRecordProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.R53ResourceRecordProperty"]]:
             '''The Route 53 resource that a DNS target resource record points to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53recoveryreadiness-resourceset-targetresource.html#cfn-route53recoveryreadiness-resourceset-targetresource-r53resource
             '''
             result = self._values.get("r53_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.R53ResourceRecordProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.R53ResourceRecordProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1687,10 +1696,10 @@ class CfnResourceSetProps:
     def __init__(
         self,
         *,
-        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceSet.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceSet.ResourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         resource_set_type: builtins.str,
         resource_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResourceSet``.
 
@@ -1741,7 +1750,7 @@ class CfnResourceSetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06d1c28c31b64001c9f66d444600c6ed3d54876f5b918f83e00293963c674ba4)
+            type_hints = cached_type_hints(_typecheckingstub__06d1c28c31b64001c9f66d444600c6ed3d54876f5b918f83e00293963c674ba4)
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
             check_type(argname="argument resource_set_type", value=resource_set_type, expected_type=type_hints["resource_set_type"])
             check_type(argname="argument resource_set_name", value=resource_set_name, expected_type=type_hints["resource_set_name"])
@@ -1758,14 +1767,14 @@ class CfnResourceSetProps:
     @builtins.property
     def resources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.ResourceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.ResourceProperty"]]]:
         '''A list of resource objects in the resource set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoveryreadiness-resourceset.html#cfn-route53recoveryreadiness-resourceset-resources
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceSet.ResourceProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceSet.ResourceProperty"]]], result)
 
     @builtins.property
     def resource_set_type(self) -> builtins.str:
@@ -1791,13 +1800,13 @@ class CfnResourceSetProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A tag to associate with the parameters for a resource set.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53recoveryreadiness-resourceset.html#cfn-route53recoveryreadiness-resourceset-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1830,13 +1839,13 @@ def _typecheckingstub__13c868895ca08bff854c8fe7678338e1867e993f867d49908046cd6a1
     *,
     cell_name: typing.Optional[builtins.str] = None,
     cells: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5904b606289a5ac3dfc427dba4339ab94fac01f3408a07a926189174c40178fd(
-    resource: _ICellRef_a44b0425,
+    resource: _aws_route53recoveryreadiness_65844590.ICellRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1864,7 +1873,7 @@ def _typecheckingstub__02962a817b0dcca3c4427353ca6ca7da22622cf7bce82a85430ffc299
     pass
 
 def _typecheckingstub__26df4eeedb5a0c616a1f3dad8c75f078f50e698da7a0e84e3a5d5735d6c00031(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1888,7 +1897,7 @@ def _typecheckingstub__a3e9f11291a25b5e6f4ae9c7ac92db4cdc610f3d4102f4a96a81ba897
     pass
 
 def _typecheckingstub__62f10011bc9a0c74b1e4ea8cc9c9bbf3a0a134a424b6f640abf9c44879051377(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1897,7 +1906,7 @@ def _typecheckingstub__073034bd9956a2710068070b5d811ab42b3869de8e1a5c263d9e23a04
     *,
     cell_name: typing.Optional[builtins.str] = None,
     cells: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1908,13 +1917,13 @@ def _typecheckingstub__0bfbc5fa46ba2840c24892c634f80e8275ce2c76eb60922ee3c04a4b3
     *,
     readiness_check_name: typing.Optional[builtins.str] = None,
     resource_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f42d9d24beaeccdd9523268be378da54d3376100630c543c7ada666140b3c223(
-    resource: _IReadinessCheckRef_2d346bec,
+    resource: _aws_route53recoveryreadiness_65844590.IReadinessCheckRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1926,7 +1935,7 @@ def _typecheckingstub__fddab4628dac58150b41d8821a2d7eba4c9c5faec628c2b7474515308
     pass
 
 def _typecheckingstub__5dc7ffe6a29dd5f6e715a9726b09f80833380e0fbe980f5834be46b1ccd41b66(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1950,7 +1959,7 @@ def _typecheckingstub__44d71b9a26b0dfffda11f6844c9805bb334cdaf3e1a1e32bcd05e04e3
     pass
 
 def _typecheckingstub__e79dc3aec0a3b3131b20694a730ecd7706f552f333a9b6a0ddcd951311d439c3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1959,7 +1968,7 @@ def _typecheckingstub__f3c438502ee1a60d4adaea3215d352734901afcdf6cd40ef143a801e6
     *,
     readiness_check_name: typing.Optional[builtins.str] = None,
     resource_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1970,13 +1979,13 @@ def _typecheckingstub__99277ba24eed449052f2cdf23737421f1433215fdc3cfd730a4385c70
     *,
     cells: typing.Optional[typing.Sequence[builtins.str]] = None,
     recovery_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7f0f8a4bbf8f100f73e669ea95426cc00474e1a28da067e8574cf2c7fe5704a1(
-    resource: _IRecoveryGroupRef_84a1f4af,
+    resource: _aws_route53recoveryreadiness_65844590.IRecoveryGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1988,7 +1997,7 @@ def _typecheckingstub__5a00b0c0efcefca8e15c5400833a340cf93bf2265824272b334276315
     pass
 
 def _typecheckingstub__db42d74a58f7864ec5ade4f46151f65d1fa1d6ce64c6818e481b49190794f1ef(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2012,7 +2021,7 @@ def _typecheckingstub__d5e7b96d2a45ee2f819b9208f20855952769d9f0b63ad222e9e8c5279
     pass
 
 def _typecheckingstub__5466e3c5b9c14b878f6f4476a3156bdb5bc5565b79e490b847655152995e7ee0(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2021,7 +2030,7 @@ def _typecheckingstub__8d342dcd3563435baa37fbbe16fdf0ff7b67201aa0844f5e1cf9d141d
     *,
     cells: typing.Optional[typing.Sequence[builtins.str]] = None,
     recovery_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2030,16 +2039,16 @@ def _typecheckingstub__cf6ebc0a9f935f88e0a23244138eb8cafe24b7630a5d785402d235485
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
     resource_set_type: builtins.str,
     resource_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e64fa1a54e3f8f7945f2a17681431c7136bd122095dde6054409a615b0bcb4f(
-    resource: _IResourceSetRef_34f28033,
+    resource: _aws_route53recoveryreadiness_65844590.IResourceSetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2051,7 +2060,7 @@ def _typecheckingstub__57ea4c7641b9f3a85d4652ad7489f5f2582b0dd5a4eea043a65456da4
     pass
 
 def _typecheckingstub__fef85644281cf421ef43660e50fdbdb7916d6d66f698ce5050c537f21b4acc67(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2063,7 +2072,7 @@ def _typecheckingstub__6d1ced2fffee0146aab77f129ff62ca87caa55cd5db0cbf2406e2baa2
     pass
 
 def _typecheckingstub__4a4df7976fde8840dbbd29fd87b41d6fde568c4d3f43e84abd295e34dc123b85(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResourceSet.ResourceProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResourceSet.ResourceProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2081,7 +2090,7 @@ def _typecheckingstub__48d8323a736d4d8bc880e1dd4c2787e873cd4353286043e264ff9457c
     pass
 
 def _typecheckingstub__e8ce7b0dd37445da5365919573096496787ce1ddd7ea67b054df32684fa0cb5f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2092,7 +2101,7 @@ def _typecheckingstub__32358efbe7c385e7d76edfec00d6be4356e94128de2d64a8d0ace0fa9
     hosted_zone_arn: typing.Optional[builtins.str] = None,
     record_set_id: typing.Optional[builtins.str] = None,
     record_type: typing.Optional[builtins.str] = None,
-    target_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.TargetResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.TargetResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2115,7 +2124,7 @@ def _typecheckingstub__05047634c6d70b5f1c983a80d886ef2a301a0fc1ef82f3a4aa86d4063
 def _typecheckingstub__afec2888efa0ee04a661bcde195c3a04b092b5644744184d2c35c93c03801d07(
     *,
     component_id: typing.Optional[builtins.str] = None,
-    dns_target_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.DNSTargetResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_target_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.DNSTargetResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     readiness_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -2124,18 +2133,18 @@ def _typecheckingstub__afec2888efa0ee04a661bcde195c3a04b092b5644744184d2c35c93c0
 
 def _typecheckingstub__16ba16f97722031f82a55ec2c9c68e5635ae95c709411fdf3cc1a49625a8b6da(
     *,
-    nlb_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.NLBResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    r53_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.R53ResourceRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nlb_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.NLBResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    r53_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.R53ResourceRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__06d1c28c31b64001c9f66d444600c6ed3d54876f5b918f83e00293963c674ba4(
     *,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceSet.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceSet.ResourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
     resource_set_type: builtins.str,
     resource_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

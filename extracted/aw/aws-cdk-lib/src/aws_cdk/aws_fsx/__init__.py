@@ -276,6 +276,8 @@ file_system = fsx.LustreFileSystem(self, "FsxLustreFileSystem",
 The L2 construct for the FSx for Windows File Server has not yet been implemented. To instantiate an FSx for Windows
 file system, the L1 constructs can be used as defined by CloudFormation.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -289,66 +291,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    ISubnet as _ISubnet_d57d1229,
-    IVpc as _IVpc_f30d5663,
-)
-from ..interfaces.aws_fsx import (
-    DataRepositoryAssociationReference as _DataRepositoryAssociationReference_ec908964,
-    FileSystemReference as _FileSystemReference_1300395b,
-    IDataRepositoryAssociationRef as _IDataRepositoryAssociationRef_1317fd39,
-    IFileSystemRef as _IFileSystemRef_0a2e414d,
-    IS3AccessPointAttachmentRef as _IS3AccessPointAttachmentRef_22b962a0,
-    ISnapshotRef as _ISnapshotRef_fbdde5f5,
-    IStorageVirtualMachineRef as _IStorageVirtualMachineRef_3a0f4396,
-    IVolumeRef as _IVolumeRef_7f52c3ee,
-    S3AccessPointAttachmentReference as _S3AccessPointAttachmentReference_4957ffc1,
-    SnapshotReference as _SnapshotReference_84fbb991,
-    StorageVirtualMachineReference as _StorageVirtualMachineReference_27e496a6,
-    VolumeReference as _VolumeReference_ad7f96eb,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.interfaces.aws_fsx as _aws_fsx_fc5af96b
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_fsx_fc5af96b = _LazyImport("aws_cdk.interfaces.aws_fsx")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataRepositoryAssociationRef_1317fd39, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IDataRepositoryAssociationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDataRepositoryAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnDataRepositoryAssociation",
 ):
@@ -400,10 +376,10 @@ class CfnDataRepositoryAssociation(
         data_repository_path: builtins.str,
         file_system_id: builtins.str,
         file_system_path: builtins.str,
-        batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         imported_file_chunk_size: typing.Optional[jsii.Number] = None,
-        s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataRepositoryAssociation.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataRepositoryAssociation.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::DataRepositoryAssociation``.
 
@@ -418,7 +394,7 @@ class CfnDataRepositoryAssociation(
         :param tags: A list of ``Tag`` values, with a maximum of 50 elements.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbe6e92927c4082cced17704c323c0e8dfbb17ada263b6e29e1a80b6990378c7)
+            type_hints = cached_type_hints(_typecheckingstub__dbe6e92927c4082cced17704c323c0e8dfbb17ada263b6e29e1a80b6990378c7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataRepositoryAssociationProps(
@@ -441,18 +417,18 @@ class CfnDataRepositoryAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec2964d32a48fe526042aee95a1a423f4a496e235f2ce481f01a4c8bc6ee3f16)
+            type_hints = cached_type_hints(_typecheckingstub__ec2964d32a48fe526042aee95a1a423f4a496e235f2ce481f01a4c8bc6ee3f16)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataRepositoryAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91cc4e67660a8ade53fdb55d0b22b24057bd4d13556bece96527303175e40fb2)
+            type_hints = cached_type_hints(_typecheckingstub__91cc4e67660a8ade53fdb55d0b22b24057bd4d13556bece96527303175e40fb2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -465,7 +441,7 @@ class CfnDataRepositoryAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bba49550eb8bee01e8078cb8a2943aee26a03cc1c58996aa2e38682c179fdfd2)
+            type_hints = cached_type_hints(_typecheckingstub__bba49550eb8bee01e8078cb8a2943aee26a03cc1c58996aa2e38682c179fdfd2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -511,15 +487,15 @@ class CfnDataRepositoryAssociation(
     @jsii.member(jsii_name="dataRepositoryAssociationRef")
     def data_repository_association_ref(
         self,
-    ) -> "_DataRepositoryAssociationReference_ec908964":
+    ) -> "_aws_fsx_fc5af96b.DataRepositoryAssociationReference":
         '''A reference to a DataRepositoryAssociation resource.'''
-        return typing.cast("_DataRepositoryAssociationReference_ec908964", jsii.get(self, "dataRepositoryAssociationRef"))
+        return typing.cast("_aws_fsx_fc5af96b.DataRepositoryAssociationReference", jsii.get(self, "dataRepositoryAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dataRepositoryPath")
@@ -530,7 +506,7 @@ class CfnDataRepositoryAssociation(
     @data_repository_path.setter
     def data_repository_path(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8f2f7268487be83bdc6b7fa20e8556e97ad994aaf368d557076d24c62735643)
+            type_hints = cached_type_hints(_typecheckingstub__e8f2f7268487be83bdc6b7fa20e8556e97ad994aaf368d557076d24c62735643)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataRepositoryPath", value) # pyright: ignore[reportArgumentType]
 
@@ -543,7 +519,7 @@ class CfnDataRepositoryAssociation(
     @file_system_id.setter
     def file_system_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fcb9b3a86c8740d6ed87bed20942efe5b632b1b8fa186ecda06f11014c9128f)
+            type_hints = cached_type_hints(_typecheckingstub__1fcb9b3a86c8740d6ed87bed20942efe5b632b1b8fa186ecda06f11014c9128f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemId", value) # pyright: ignore[reportArgumentType]
 
@@ -556,7 +532,7 @@ class CfnDataRepositoryAssociation(
     @file_system_path.setter
     def file_system_path(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab8ea2139716ac0a4738752fd4cc02c3eeff50271a2531f36fb6cbbc8ad0bc98)
+            type_hints = cached_type_hints(_typecheckingstub__ab8ea2139716ac0a4738752fd4cc02c3eeff50271a2531f36fb6cbbc8ad0bc98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemPath", value) # pyright: ignore[reportArgumentType]
 
@@ -564,17 +540,17 @@ class CfnDataRepositoryAssociation(
     @jsii.member(jsii_name="batchImportMetaDataOnCreate")
     def batch_import_meta_data_on_create(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A boolean flag indicating whether an import data repository task to import metadata should run after the data repository association is created.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "batchImportMetaDataOnCreate"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "batchImportMetaDataOnCreate"))
 
     @batch_import_meta_data_on_create.setter
     def batch_import_meta_data_on_create(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66eebe886c3f0810ceaf823210df9d48c8a819acffcccea06fb28a46a9476c9c)
+            type_hints = cached_type_hints(_typecheckingstub__66eebe886c3f0810ceaf823210df9d48c8a819acffcccea06fb28a46a9476c9c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "batchImportMetaDataOnCreate", value) # pyright: ignore[reportArgumentType]
 
@@ -587,7 +563,7 @@ class CfnDataRepositoryAssociation(
     @imported_file_chunk_size.setter
     def imported_file_chunk_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17a425cf37f3cbf2bfc5ef9646e6cfee33226e1bebec498ea26afc423da95bd4)
+            type_hints = cached_type_hints(_typecheckingstub__17a425cf37f3cbf2bfc5ef9646e6cfee33226e1bebec498ea26afc423da95bd4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "importedFileChunkSize", value) # pyright: ignore[reportArgumentType]
 
@@ -595,30 +571,33 @@ class CfnDataRepositoryAssociation(
     @jsii.member(jsii_name="s3")
     def s3(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.S3Property"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.S3Property"]]:
         '''The configuration for an Amazon S3 data repository linked to an Amazon FSx Lustre file system with a data repository association.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.S3Property"]], jsii.get(self, "s3"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.S3Property"]], jsii.get(self, "s3"))
 
     @s3.setter
     def s3(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.S3Property"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.S3Property"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b26b64eafc3f22ff73c4e762a5a0160c62bfbb5da4b94dcfbfc5ee130fd3dbbe)
+            type_hints = cached_type_hints(_typecheckingstub__b26b64eafc3f22ff73c4e762a5a0160c62bfbb5da4b94dcfbfc5ee130fd3dbbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b17b8dd1997c9e3ce27b7046b8e926e741f7ff40cb4c08761a6963b701aa37b)
+            type_hints = cached_type_hints(_typecheckingstub__5b17b8dd1997c9e3ce27b7046b8e926e741f7ff40cb4c08761a6963b701aa37b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -651,7 +630,7 @@ class CfnDataRepositoryAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dcb68d159a9382a2f0206ad788aacbf37e8b33fe900039046bfb4e14ea7f0f35)
+                type_hints = cached_type_hints(_typecheckingstub__dcb68d159a9382a2f0206ad788aacbf37e8b33fe900039046bfb4e14ea7f0f35)
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "events": events,
@@ -713,7 +692,7 @@ class CfnDataRepositoryAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__262052dc27e2af1639bfdd6f20b77906b9cde3ab7f7cf41f5d1ce4dd7807bdea)
+                type_hints = cached_type_hints(_typecheckingstub__262052dc27e2af1639bfdd6f20b77906b9cde3ab7f7cf41f5d1ce4dd7807bdea)
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "events": events,
@@ -758,8 +737,8 @@ class CfnDataRepositoryAssociation(
         def __init__(
             self,
             *,
-            auto_export_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataRepositoryAssociation.AutoExportPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            auto_import_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataRepositoryAssociation.AutoImportPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_export_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataRepositoryAssociation.AutoExportPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_import_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataRepositoryAssociation.AutoImportPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for an Amazon S3 data repository linked to an Amazon FSx Lustre file system with a data repository association.
 
@@ -787,7 +766,7 @@ class CfnDataRepositoryAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c51222c92a9dea45727ad5662c4192ce5a6465b93f100d4aca9ba1ae0dd36f0f)
+                type_hints = cached_type_hints(_typecheckingstub__c51222c92a9dea45727ad5662c4192ce5a6465b93f100d4aca9ba1ae0dd36f0f)
                 check_type(argname="argument auto_export_policy", value=auto_export_policy, expected_type=type_hints["auto_export_policy"])
                 check_type(argname="argument auto_import_policy", value=auto_import_policy, expected_type=type_hints["auto_import_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -799,7 +778,7 @@ class CfnDataRepositoryAssociation(
         @builtins.property
         def auto_export_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.AutoExportPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.AutoExportPolicyProperty"]]:
             '''Describes a data repository association's automatic export policy.
 
             The ``AutoExportPolicy`` defines the types of updated objects on the file system that will be automatically exported to the data repository. As you create, modify, or delete files, Amazon FSx for Lustre automatically exports the defined changes asynchronously once your application finishes modifying the file.
@@ -809,12 +788,12 @@ class CfnDataRepositoryAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-datarepositoryassociation-s3.html#cfn-fsx-datarepositoryassociation-s3-autoexportpolicy
             '''
             result = self._values.get("auto_export_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.AutoExportPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.AutoExportPolicyProperty"]], result)
 
         @builtins.property
         def auto_import_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.AutoImportPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.AutoImportPolicyProperty"]]:
             '''Describes the data repository association's automatic import policy.
 
             The AutoImportPolicy defines how Amazon FSx keeps your file metadata and directory listings up to date by importing changes to your Amazon FSx for Lustre file system as you modify objects in a linked S3 bucket.
@@ -824,7 +803,7 @@ class CfnDataRepositoryAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-datarepositoryassociation-s3.html#cfn-fsx-datarepositoryassociation-s3-autoimportpolicy
             '''
             result = self._values.get("auto_import_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.AutoImportPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.AutoImportPolicyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -858,10 +837,10 @@ class CfnDataRepositoryAssociationProps:
         data_repository_path: builtins.str,
         file_system_id: builtins.str,
         file_system_path: builtins.str,
-        batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         imported_file_chunk_size: typing.Optional[jsii.Number] = None,
-        s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataRepositoryAssociation.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataRepositoryAssociation.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataRepositoryAssociation``.
 
@@ -906,7 +885,7 @@ class CfnDataRepositoryAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44687c3c12e4575aa7d1eed69c1c33c3b113d2851a10f81139de84750d2dd9b8)
+            type_hints = cached_type_hints(_typecheckingstub__44687c3c12e4575aa7d1eed69c1c33c3b113d2851a10f81139de84750d2dd9b8)
             check_type(argname="argument data_repository_path", value=data_repository_path, expected_type=type_hints["data_repository_path"])
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
             check_type(argname="argument file_system_path", value=file_system_path, expected_type=type_hints["file_system_path"])
@@ -970,7 +949,7 @@ class CfnDataRepositoryAssociationProps:
     @builtins.property
     def batch_import_meta_data_on_create(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A boolean flag indicating whether an import data repository task to import metadata should run after the data repository association is created.
 
         The task runs if this flag is set to ``true`` .
@@ -978,7 +957,7 @@ class CfnDataRepositoryAssociationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-datarepositoryassociation.html#cfn-fsx-datarepositoryassociation-batchimportmetadataoncreate
         '''
         result = self._values.get("batch_import_meta_data_on_create")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def imported_file_chunk_size(self) -> typing.Optional[jsii.Number]:
@@ -996,7 +975,7 @@ class CfnDataRepositoryAssociationProps:
     @builtins.property
     def s3(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.S3Property"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.S3Property"]]:
         '''The configuration for an Amazon S3 data repository linked to an Amazon FSx Lustre file system with a data repository association.
 
         The configuration defines which file events (new, changed, or deleted files or directories) are automatically imported from the linked data repository to the file system or automatically exported from the file system to the data repository.
@@ -1004,16 +983,16 @@ class CfnDataRepositoryAssociationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-datarepositoryassociation.html#cfn-fsx-datarepositoryassociation-s3
         '''
         result = self._values.get("s3")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataRepositoryAssociation.S3Property"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataRepositoryAssociation.S3Property"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-datarepositoryassociation.html#cfn-fsx-datarepositoryassociation-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1027,9 +1006,9 @@ class CfnDataRepositoryAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFileSystemRef_0a2e414d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IFileSystemRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFileSystem(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnFileSystem",
 ):
@@ -1206,15 +1185,15 @@ class CfnFileSystem(
         backup_id: typing.Optional[builtins.str] = None,
         file_system_type_version: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        lustre_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lustre_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_capacity: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        windows_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.WindowsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        windows_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.WindowsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::FileSystem``.
 
@@ -1236,7 +1215,7 @@ class CfnFileSystem(
         :param windows_configuration: The configuration object for the Microsoft Windows file system you are creating. This configuration is required if ``FileSystemType`` is set to ``WINDOWS`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d13764c3dcb8d96799af4fa191d042ff4511c33cfd1aecbf235dded3234d3c5)
+            type_hints = cached_type_hints(_typecheckingstub__2d13764c3dcb8d96799af4fa191d042ff4511c33cfd1aecbf235dded3234d3c5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFileSystemProps(
@@ -1266,18 +1245,18 @@ class CfnFileSystem(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a96b8e60d5803996a8d064489e9cac37bd2c6ccc9675e614051c3b31228f0a9)
+            type_hints = cached_type_hints(_typecheckingstub__9a96b8e60d5803996a8d064489e9cac37bd2c6ccc9675e614051c3b31228f0a9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFileSystem", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efa97d460c79f89f1c93c67811b11bb8189aad31dab4f902b9e5edeb2032b5ad)
+            type_hints = cached_type_hints(_typecheckingstub__efa97d460c79f89f1c93c67811b11bb8189aad31dab4f902b9e5edeb2032b5ad)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1290,7 +1269,7 @@ class CfnFileSystem(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d7b7d6f258c56d9406574089c76827a5f043d12078c3bb957c36bb84b56d244)
+            type_hints = cached_type_hints(_typecheckingstub__5d7b7d6f258c56d9406574089c76827a5f043d12078c3bb957c36bb84b56d244)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1366,15 +1345,15 @@ class CfnFileSystem(
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemRef")
-    def file_system_ref(self) -> "_FileSystemReference_1300395b":
+    def file_system_ref(self) -> "_aws_fsx_fc5af96b.FileSystemReference":
         '''A reference to a FileSystem resource.'''
-        return typing.cast("_FileSystemReference_1300395b", jsii.get(self, "fileSystemRef"))
+        return typing.cast("_aws_fsx_fc5af96b.FileSystemReference", jsii.get(self, "fileSystemRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemType")
@@ -1385,7 +1364,7 @@ class CfnFileSystem(
     @file_system_type.setter
     def file_system_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f5cba14b266c3dc6dc03553bea16a995938707ad20b0b8dc87e594f450c2a23)
+            type_hints = cached_type_hints(_typecheckingstub__5f5cba14b266c3dc6dc03553bea16a995938707ad20b0b8dc87e594f450c2a23)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemType", value) # pyright: ignore[reportArgumentType]
 
@@ -1398,7 +1377,7 @@ class CfnFileSystem(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1afb0a4f7d83e5c4f7fb481d12da7fa3c2d653baa06aa6a6b6472eab443934d3)
+            type_hints = cached_type_hints(_typecheckingstub__1afb0a4f7d83e5c4f7fb481d12da7fa3c2d653baa06aa6a6b6472eab443934d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1411,7 +1390,7 @@ class CfnFileSystem(
     @backup_id.setter
     def backup_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d3a037dfc344a67776a4d0dad30b1e69860c3d8c564e2f3aafe69b4da36c919)
+            type_hints = cached_type_hints(_typecheckingstub__7d3a037dfc344a67776a4d0dad30b1e69860c3d8c564e2f3aafe69b4da36c919)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupId", value) # pyright: ignore[reportArgumentType]
 
@@ -1424,7 +1403,7 @@ class CfnFileSystem(
     @file_system_type_version.setter
     def file_system_type_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b12003b319fb176a5b99a4e3f0675d4bc727c5725f3c4a200ab06225f4750730)
+            type_hints = cached_type_hints(_typecheckingstub__b12003b319fb176a5b99a4e3f0675d4bc727c5725f3c4a200ab06225f4750730)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemTypeVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1437,7 +1416,7 @@ class CfnFileSystem(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a995a5203534aaa7de420e181d7312324d19d173e082b126d80f3d48dd04e1c)
+            type_hints = cached_type_hints(_typecheckingstub__2a995a5203534aaa7de420e181d7312324d19d173e082b126d80f3d48dd04e1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -1445,17 +1424,17 @@ class CfnFileSystem(
     @jsii.member(jsii_name="lustreConfiguration")
     def lustre_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.LustreConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LustreConfigurationProperty"]]:
         '''The Lustre configuration for the file system being created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.LustreConfigurationProperty"]], jsii.get(self, "lustreConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LustreConfigurationProperty"]], jsii.get(self, "lustreConfiguration"))
 
     @lustre_configuration.setter
     def lustre_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.LustreConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LustreConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8646d19693a6f9abdd169bfa6ea6d4e784eba3f5391bff175f38918b462ca24a)
+            type_hints = cached_type_hints(_typecheckingstub__8646d19693a6f9abdd169bfa6ea6d4e784eba3f5391bff175f38918b462ca24a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lustreConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1468,7 +1447,7 @@ class CfnFileSystem(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7799a7898c1d78dcdd2f9531854e7ff35a8f4a27f4de33e706134e2fa35387ac)
+            type_hints = cached_type_hints(_typecheckingstub__7799a7898c1d78dcdd2f9531854e7ff35a8f4a27f4de33e706134e2fa35387ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -1476,17 +1455,17 @@ class CfnFileSystem(
     @jsii.member(jsii_name="ontapConfiguration")
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OntapConfigurationProperty"]]:
         '''The ONTAP configuration properties of the FSx for ONTAP file system that you are creating.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
 
     @ontap_configuration.setter
     def ontap_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OntapConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OntapConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc9b2f53e3a613c4a5e71936700bde6bac2b8c2691534dac7d5a5ce18f7e0687)
+            type_hints = cached_type_hints(_typecheckingstub__bc9b2f53e3a613c4a5e71936700bde6bac2b8c2691534dac7d5a5ce18f7e0687)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ontapConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1494,17 +1473,17 @@ class CfnFileSystem(
     @jsii.member(jsii_name="openZfsConfiguration")
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OpenZFSConfigurationProperty"]]:
         '''The Amazon FSx for OpenZFS configuration properties for the file system that you are creating.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
 
     @open_zfs_configuration.setter
     def open_zfs_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OpenZFSConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OpenZFSConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80c2475105ebf7a37b52d7be075d63b18127d19bbaf5585ca32a46cdec15b7a3)
+            type_hints = cached_type_hints(_typecheckingstub__80c2475105ebf7a37b52d7be075d63b18127d19bbaf5585ca32a46cdec15b7a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openZfsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1520,7 +1499,7 @@ class CfnFileSystem(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85126102cead74f4c8e5ddbf0812aa6c9fa2ba8bf1e1be98ef71939c03414386)
+            type_hints = cached_type_hints(_typecheckingstub__85126102cead74f4c8e5ddbf0812aa6c9fa2ba8bf1e1be98ef71939c03414386)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1533,7 +1512,7 @@ class CfnFileSystem(
     @storage_capacity.setter
     def storage_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34013adaab5abdb9e9d467b903dbcc6ce8d077475123c3610d89d7534d6ca155)
+            type_hints = cached_type_hints(_typecheckingstub__34013adaab5abdb9e9d467b903dbcc6ce8d077475123c3610d89d7534d6ca155)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -1546,20 +1525,23 @@ class CfnFileSystem(
     @storage_type.setter
     def storage_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fce57a2ae10cfa104c280794987aec0333bdfd909f65b4859aeebcf9b5229443)
+            type_hints = cached_type_hints(_typecheckingstub__fce57a2ae10cfa104c280794987aec0333bdfd909f65b4859aeebcf9b5229443)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to associate with the file system.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e720c29458830d75de1bdfe562cd79a9e10dc997dc803507ee904c454c56ac0)
+            type_hints = cached_type_hints(_typecheckingstub__2e720c29458830d75de1bdfe562cd79a9e10dc997dc803507ee904c454c56ac0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1567,17 +1549,17 @@ class CfnFileSystem(
     @jsii.member(jsii_name="windowsConfiguration")
     def windows_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.WindowsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.WindowsConfigurationProperty"]]:
         '''The configuration object for the Microsoft Windows file system you are creating.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.WindowsConfigurationProperty"]], jsii.get(self, "windowsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.WindowsConfigurationProperty"]], jsii.get(self, "windowsConfiguration"))
 
     @windows_configuration.setter
     def windows_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.WindowsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.WindowsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c37e88d82ec2034f4c5130e12938ecf5cd2b51c51c06bfc9fdb84426b3e5117)
+            type_hints = cached_type_hints(_typecheckingstub__8c37e88d82ec2034f4c5130e12938ecf5cd2b51c51c06bfc9fdb84426b3e5117)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "windowsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1622,7 +1604,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__989fd572e1135c5a83968ca07d4d3f086a337e829809e3bc14b1fcace5dad248)
+                type_hints = cached_type_hints(_typecheckingstub__989fd572e1135c5a83968ca07d4d3f086a337e829809e3bc14b1fcace5dad248)
                 check_type(argname="argument file_access_audit_log_level", value=file_access_audit_log_level, expected_type=type_hints["file_access_audit_log_level"])
                 check_type(argname="argument file_share_access_audit_log_level", value=file_share_access_audit_log_level, expected_type=type_hints["file_share_access_audit_log_level"])
                 check_type(argname="argument audit_log_destination", value=audit_log_destination, expected_type=type_hints["audit_log_destination"])
@@ -1721,7 +1703,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57b05166432d66017c1f4937608bf668fb87a580b457f8d7fc86cb69879b55b9)
+                type_hints = cached_type_hints(_typecheckingstub__57b05166432d66017c1f4937608bf668fb87a580b457f8d7fc86cb69879b55b9)
                 check_type(argname="argument clients", value=clients, expected_type=type_hints["clients"])
                 check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1798,7 +1780,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3cb2d4a98bff48f203d8eaee325b8f6c388372cb868c4fa792f5c5693518337f)
+                type_hints = cached_type_hints(_typecheckingstub__3cb2d4a98bff48f203d8eaee325b8f6c388372cb868c4fa792f5c5693518337f)
                 check_type(argname="argument size_gib", value=size_gib, expected_type=type_hints["size_gib"])
                 check_type(argname="argument sizing_mode", value=sizing_mode, expected_type=type_hints["sizing_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1876,7 +1858,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ae47548d0ff6b28a7e7311347d5b08153a4d8130c5f4cd5b7ebd258836f4c7e0)
+                type_hints = cached_type_hints(_typecheckingstub__ae47548d0ff6b28a7e7311347d5b08153a4d8130c5f4cd5b7ebd258836f4c7e0)
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1930,7 +1912,7 @@ class CfnFileSystem(
         def __init__(
             self,
             *,
-            fsrm_service_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            fsrm_service_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             event_log_destination: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
@@ -1954,7 +1936,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4f31cfe5)
+                type_hints = cached_type_hints(_typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4f31cfe5)
                 check_type(argname="argument fsrm_service_enabled", value=fsrm_service_enabled, expected_type=type_hints["fsrm_service_enabled"])
                 check_type(argname="argument event_log_destination", value=event_log_destination, expected_type=type_hints["event_log_destination"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1966,13 +1948,13 @@ class CfnFileSystem(
         @builtins.property
         def fsrm_service_enabled(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-fsrmconfiguration.html#cfn-fsx-filesystem-fsrmconfiguration-fsrmserviceenabled
             '''
             result = self._values.get("fsrm_service_enabled")
             assert result is not None, "Required property 'fsrm_service_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def event_log_destination(self) -> typing.Optional[builtins.str]:
@@ -2021,17 +2003,17 @@ class CfnFileSystem(
             *,
             auto_import_policy: typing.Optional[builtins.str] = None,
             automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
             data_compression_type: typing.Optional[builtins.str] = None,
-            data_read_cache_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.DataReadCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_read_cache_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.DataReadCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deployment_type: typing.Optional[builtins.str] = None,
             drive_cache_type: typing.Optional[builtins.str] = None,
-            efa_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            efa_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             export_path: typing.Optional[builtins.str] = None,
             imported_file_chunk_size: typing.Optional[jsii.Number] = None,
             import_path: typing.Optional[builtins.str] = None,
-            metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metadata_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             per_unit_storage_throughput: typing.Optional[jsii.Number] = None,
             throughput_capacity: typing.Optional[jsii.Number] = None,
             weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
@@ -2090,7 +2072,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160d615a99)
+                type_hints = cached_type_hints(_typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160d615a99)
                 check_type(argname="argument auto_import_policy", value=auto_import_policy, expected_type=type_hints["auto_import_policy"])
                 check_type(argname="argument automatic_backup_retention_days", value=automatic_backup_retention_days, expected_type=type_hints["automatic_backup_retention_days"])
                 check_type(argname="argument copy_tags_to_backups", value=copy_tags_to_backups, expected_type=type_hints["copy_tags_to_backups"])
@@ -2176,7 +2158,7 @@ class CfnFileSystem(
         @builtins.property
         def copy_tags_to_backups(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''(Optional) Not available for use with file systems that are linked to a data repository.
 
             A boolean flag indicating whether tags for the file system should be copied to backups. The default value is false. If ``CopyTagsToBackups`` is set to true, all file system tags are copied to all automatic and user-initiated backups when the user doesn't specify any backup-specific tags. If ``CopyTagsToBackups`` is set to true and you specify one or more backup tags, only the specified tags are copied to backups. If you specify one or more tags when creating a user-initiated backup, no tags are copied from the file system, regardless of this value.
@@ -2188,7 +2170,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-copytagstobackups
             '''
             result = self._values.get("copy_tags_to_backups")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def daily_automatic_backup_start_time(self) -> typing.Optional[builtins.str]:
@@ -2218,7 +2200,7 @@ class CfnFileSystem(
         @builtins.property
         def data_read_cache_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DataReadCacheConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DataReadCacheConfigurationProperty"]]:
             '''Specifies the optional provisioned SSD read cache on FSx for Lustre file systems that use the Intelligent-Tiering storage class.
 
             Required when ``StorageType`` is set to ``INTELLIGENT_TIERING`` .
@@ -2226,7 +2208,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-datareadcacheconfiguration
             '''
             result = self._values.get("data_read_cache_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DataReadCacheConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DataReadCacheConfigurationProperty"]], result)
 
         @builtins.property
         def deployment_type(self) -> typing.Optional[builtins.str]:
@@ -2266,7 +2248,7 @@ class CfnFileSystem(
         @builtins.property
         def efa_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''(Optional) Specifies whether Elastic Fabric Adapter (EFA) and GPUDirect Storage (GDS) support is enabled for the Amazon FSx for Lustre file system.
 
             (Default = ``false`` )
@@ -2274,7 +2256,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-efaenabled
             '''
             result = self._values.get("efa_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def export_path(self) -> typing.Optional[builtins.str]:
@@ -2325,13 +2307,13 @@ class CfnFileSystem(
         @builtins.property
         def metadata_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.MetadataConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.MetadataConfigurationProperty"]]:
             '''The Lustre metadata performance configuration for the creation of an FSx for Lustre file system using a ``PERSISTENT_2`` deployment type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-metadataconfiguration
             '''
             result = self._values.get("metadata_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.MetadataConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.MetadataConfigurationProperty"]], result)
 
         @builtins.property
         def per_unit_storage_throughput(self) -> typing.Optional[jsii.Number]:
@@ -2415,7 +2397,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7aa9a7707baff419117abba7f05ab48bf7b1de77cbcd91feed4ec16f2cb54ffc)
+                type_hints = cached_type_hints(_typecheckingstub__7aa9a7707baff419117abba7f05ab48bf7b1de77cbcd91feed4ec16f2cb54ffc)
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2462,7 +2444,7 @@ class CfnFileSystem(
         def __init__(
             self,
             *,
-            client_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.ClientConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            client_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.ClientConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The configuration object for mounting a file system.
 
@@ -2485,7 +2467,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf7e8e549f94791653e718c0386fce4703f149298e88872cacd000f16d38ec9d)
+                type_hints = cached_type_hints(_typecheckingstub__cf7e8e549f94791653e718c0386fce4703f149298e88872cacd000f16d38ec9d)
                 check_type(argname="argument client_configurations", value=client_configurations, expected_type=type_hints["client_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if client_configurations is not None:
@@ -2494,13 +2476,13 @@ class CfnFileSystem(
         @builtins.property
         def client_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.ClientConfigurationsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.ClientConfigurationsProperty"]]]]:
             '''A list of configuration objects that contain the client and options for mounting the OpenZFS file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-nfsexports.html#cfn-fsx-filesystem-nfsexports-clientconfigurations
             '''
             result = self._values.get("client_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.ClientConfigurationsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.ClientConfigurationsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2539,7 +2521,7 @@ class CfnFileSystem(
             deployment_type: builtins.str,
             automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
-            disk_iops_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disk_iops_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             endpoint_ip_address_range: typing.Optional[builtins.str] = None,
             endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
             fsx_admin_password: typing.Optional[builtins.str] = None,
@@ -2597,7 +2579,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0edc01444089461fa7f6973acca3d475ebd67f0229380856776cb1bcbb636bef)
+                type_hints = cached_type_hints(_typecheckingstub__0edc01444089461fa7f6973acca3d475ebd67f0229380856776cb1bcbb636bef)
                 check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
                 check_type(argname="argument automatic_backup_retention_days", value=automatic_backup_retention_days, expected_type=type_hints["automatic_backup_retention_days"])
                 check_type(argname="argument daily_automatic_backup_start_time", value=daily_automatic_backup_start_time, expected_type=type_hints["daily_automatic_backup_start_time"])
@@ -2681,13 +2663,13 @@ class CfnFileSystem(
         @builtins.property
         def disk_iops_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
             '''The SSD IOPS configuration for the FSx for ONTAP file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-ontapconfiguration.html#cfn-fsx-filesystem-ontapconfiguration-diskiopsconfiguration
             '''
             result = self._values.get("disk_iops_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
 
         @builtins.property
         def endpoint_ip_address_range(self) -> typing.Optional[builtins.str]:
@@ -2846,16 +2828,16 @@ class CfnFileSystem(
             *,
             deployment_type: builtins.str,
             automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            copy_tags_to_volumes: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            copy_tags_to_volumes: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
-            disk_iops_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disk_iops_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             endpoint_ip_address_range: typing.Optional[builtins.str] = None,
             endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
             options: typing.Optional[typing.Sequence[builtins.str]] = None,
             preferred_subnet_id: typing.Optional[builtins.str] = None,
-            read_cache_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.ReadCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            root_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.RootVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_cache_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.ReadCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            root_volume_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.RootVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             throughput_capacity: typing.Optional[jsii.Number] = None,
             weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
@@ -2930,7 +2912,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5472f29690b088eacdf6c6853ffd8b23cd15c760dc30d812107be1280b2a43fb)
+                type_hints = cached_type_hints(_typecheckingstub__5472f29690b088eacdf6c6853ffd8b23cd15c760dc30d812107be1280b2a43fb)
                 check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
                 check_type(argname="argument automatic_backup_retention_days", value=automatic_backup_retention_days, expected_type=type_hints["automatic_backup_retention_days"])
                 check_type(argname="argument copy_tags_to_backups", value=copy_tags_to_backups, expected_type=type_hints["copy_tags_to_backups"])
@@ -3010,7 +2992,7 @@ class CfnFileSystem(
         @builtins.property
         def copy_tags_to_backups(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether tags for the file system should be copied to backups.
 
             This value defaults to ``false`` . If it's set to ``true`` , all tags for the file system are copied to all automatic and user-initiated backups where the user doesn't specify tags. If this value is ``true`` , and you specify one or more tags, only the specified tags are copied to backups. If you specify one or more tags when creating a user-initiated backup, no tags are copied from the file system, regardless of this value.
@@ -3018,12 +3000,12 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-copytagstobackups
             '''
             result = self._values.get("copy_tags_to_backups")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def copy_tags_to_volumes(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether tags for the file system should be copied to volumes.
 
             This value defaults to ``false`` . If it's set to ``true`` , all tags for the file system are copied to volumes where the user doesn't specify tags. If this value is ``true`` , and you specify one or more tags, only the specified tags are copied to volumes. If you specify one or more tags when creating the volume, no tags are copied from the file system, regardless of this value.
@@ -3031,7 +3013,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-copytagstovolumes
             '''
             result = self._values.get("copy_tags_to_volumes")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def daily_automatic_backup_start_time(self) -> typing.Optional[builtins.str]:
@@ -3047,7 +3029,7 @@ class CfnFileSystem(
         @builtins.property
         def disk_iops_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
             '''The SSD IOPS (input/output operations per second) configuration for an Amazon FSx for NetApp ONTAP, Amazon FSx for Windows File Server, or FSx for OpenZFS file system.
 
             By default, Amazon FSx automatically provisions 3 IOPS per GB of storage capacity. You can provision additional IOPS per GB of storage. The configuration consists of the total number of provisioned SSD IOPS and how it is was provisioned, or the mode (by the customer or by Amazon FSx).
@@ -3055,7 +3037,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-diskiopsconfiguration
             '''
             result = self._values.get("disk_iops_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
 
         @builtins.property
         def endpoint_ip_address_range(self) -> typing.Optional[builtins.str]:
@@ -3104,18 +3086,18 @@ class CfnFileSystem(
         @builtins.property
         def read_cache_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.ReadCacheConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.ReadCacheConfigurationProperty"]]:
             '''Specifies the optional provisioned SSD read cache on file systems that use the Intelligent-Tiering storage class.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-readcacheconfiguration
             '''
             result = self._values.get("read_cache_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.ReadCacheConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.ReadCacheConfigurationProperty"]], result)
 
         @builtins.property
         def root_volume_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.RootVolumeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.RootVolumeConfigurationProperty"]]:
             '''The configuration Amazon FSx uses when creating the root value of the Amazon FSx for OpenZFS file system.
 
             All volumes are children of the root volume.
@@ -3123,7 +3105,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-openzfsconfiguration.html#cfn-fsx-filesystem-openzfsconfiguration-rootvolumeconfiguration
             '''
             result = self._values.get("root_volume_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.RootVolumeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.RootVolumeConfigurationProperty"]], result)
 
         @builtins.property
         def route_table_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3208,7 +3190,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5da424653f281066f7140c38ddd8b33a2fdb52a49e2f3ecfacac378ab1825ad9)
+                type_hints = cached_type_hints(_typecheckingstub__5da424653f281066f7140c38ddd8b33a2fdb52a49e2f3ecfacac378ab1825ad9)
                 check_type(argname="argument size_gib", value=size_gib, expected_type=type_hints["size_gib"])
                 check_type(argname="argument sizing_mode", value=sizing_mode, expected_type=type_hints["sizing_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3268,12 +3250,12 @@ class CfnFileSystem(
         def __init__(
             self,
             *,
-            copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             data_compression_type: typing.Optional[builtins.str] = None,
-            nfs_exports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.NfsExportsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            nfs_exports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.NfsExportsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            read_only: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             record_size_kib: typing.Optional[jsii.Number] = None,
-            user_and_group_quotas: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.UserAndGroupQuotasProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            user_and_group_quotas: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.UserAndGroupQuotasProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The configuration of an Amazon FSx for OpenZFS root volume.
 
@@ -3312,7 +3294,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c2a873402766c6577ffe7568330e8c952efaedecdfd993af4793d2ea6d69f8b)
+                type_hints = cached_type_hints(_typecheckingstub__7c2a873402766c6577ffe7568330e8c952efaedecdfd993af4793d2ea6d69f8b)
                 check_type(argname="argument copy_tags_to_snapshots", value=copy_tags_to_snapshots, expected_type=type_hints["copy_tags_to_snapshots"])
                 check_type(argname="argument data_compression_type", value=data_compression_type, expected_type=type_hints["data_compression_type"])
                 check_type(argname="argument nfs_exports", value=nfs_exports, expected_type=type_hints["nfs_exports"])
@@ -3336,7 +3318,7 @@ class CfnFileSystem(
         @builtins.property
         def copy_tags_to_snapshots(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether tags for the volume should be copied to snapshots of the volume.
 
             This value defaults to ``false`` . If it's set to ``true`` , all tags for the volume are copied to snapshots where the user doesn't specify tags. If this value is ``true`` and you specify one or more tags, only the specified tags are copied to snapshots. If you specify one or more tags when creating the snapshot, no tags are copied from the volume, regardless of this value.
@@ -3344,7 +3326,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-rootvolumeconfiguration.html#cfn-fsx-filesystem-rootvolumeconfiguration-copytagstosnapshots
             '''
             result = self._values.get("copy_tags_to_snapshots")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def data_compression_type(self) -> typing.Optional[builtins.str]:
@@ -3362,18 +3344,18 @@ class CfnFileSystem(
         @builtins.property
         def nfs_exports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.NfsExportsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.NfsExportsProperty"]]]]:
             '''The configuration object for mounting a file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-rootvolumeconfiguration.html#cfn-fsx-filesystem-rootvolumeconfiguration-nfsexports
             '''
             result = self._values.get("nfs_exports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.NfsExportsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.NfsExportsProperty"]]]], result)
 
         @builtins.property
         def read_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether the volume is read-only.
 
             Setting this value to ``true`` can be useful after you have completed changes to a volume and no longer want changes to occur.
@@ -3381,7 +3363,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-rootvolumeconfiguration.html#cfn-fsx-filesystem-rootvolumeconfiguration-readonly
             '''
             result = self._values.get("read_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def record_size_kib(self) -> typing.Optional[jsii.Number]:
@@ -3397,13 +3379,13 @@ class CfnFileSystem(
         @builtins.property
         def user_and_group_quotas(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.UserAndGroupQuotasProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.UserAndGroupQuotasProperty"]]]]:
             '''An object specifying how much storage users or groups can use on the volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-rootvolumeconfiguration.html#cfn-fsx-filesystem-rootvolumeconfiguration-userandgroupquotas
             '''
             result = self._values.get("user_and_group_quotas")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.UserAndGroupQuotasProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.UserAndGroupQuotasProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3473,7 +3455,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__05cd77bf3248987e2b91bad0b37d9b1e7816e83c864af316676794a924b2ef9a)
+                type_hints = cached_type_hints(_typecheckingstub__05cd77bf3248987e2b91bad0b37d9b1e7816e83c864af316676794a924b2ef9a)
                 check_type(argname="argument dns_ips", value=dns_ips, expected_type=type_hints["dns_ips"])
                 check_type(argname="argument domain_join_service_account_secret", value=domain_join_service_account_secret, expected_type=type_hints["domain_join_service_account_secret"])
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -3632,7 +3614,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__736c7709040c79d5d8c66b2e2adcc3180668863d4d3836e9970e69aa54c0bd3e)
+                type_hints = cached_type_hints(_typecheckingstub__736c7709040c79d5d8c66b2e2adcc3180668863d4d3836e9970e69aa54c0bd3e)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument storage_capacity_quota_gib", value=storage_capacity_quota_gib, expected_type=type_hints["storage_capacity_quota_gib"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -3708,15 +3690,15 @@ class CfnFileSystem(
             throughput_capacity: jsii.Number,
             active_directory_id: typing.Optional[builtins.str] = None,
             aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
-            audit_log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.AuditLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audit_log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.AuditLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
             deployment_type: typing.Optional[builtins.str] = None,
-            disk_iops_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fsrm_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.FsrmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disk_iops_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fsrm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.FsrmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             preferred_subnet_id: typing.Optional[builtins.str] = None,
-            self_managed_active_directory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            self_managed_active_directory_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The Microsoft Windows configuration for the file system that's being created.
@@ -3785,7 +3767,7 @@ class CfnFileSystem(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6f9cac75c57fdd9a5bd887a9ae65722d8acdd7a64ee9180917b3aa6b9dfed824)
+                type_hints = cached_type_hints(_typecheckingstub__6f9cac75c57fdd9a5bd887a9ae65722d8acdd7a64ee9180917b3aa6b9dfed824)
                 check_type(argname="argument throughput_capacity", value=throughput_capacity, expected_type=type_hints["throughput_capacity"])
                 check_type(argname="argument active_directory_id", value=active_directory_id, expected_type=type_hints["active_directory_id"])
                 check_type(argname="argument aliases", value=aliases, expected_type=type_hints["aliases"])
@@ -3877,13 +3859,13 @@ class CfnFileSystem(
         @builtins.property
         def audit_log_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.AuditLogConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.AuditLogConfigurationProperty"]]:
             '''The configuration that Amazon FSx for Windows File Server uses to audit and log user accesses of files, folders, and file shares on the Amazon FSx for Windows File Server file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-auditlogconfiguration
             '''
             result = self._values.get("audit_log_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.AuditLogConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.AuditLogConfigurationProperty"]], result)
 
         @builtins.property
         def automatic_backup_retention_days(self) -> typing.Optional[jsii.Number]:
@@ -3899,7 +3881,7 @@ class CfnFileSystem(
         @builtins.property
         def copy_tags_to_backups(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A boolean flag indicating whether tags for the file system should be copied to backups.
 
             This value defaults to false. If it's set to true, all tags for the file system are copied to all automatic and user-initiated backups where the user doesn't specify tags. If this value is true, and you specify one or more tags, only the specified tags are copied to backups. If you specify one or more tags when creating a user-initiated backup, no tags are copied from the file system, regardless of this value.
@@ -3907,7 +3889,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-copytagstobackups
             '''
             result = self._values.get("copy_tags_to_backups")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def daily_automatic_backup_start_time(self) -> typing.Optional[builtins.str]:
@@ -3938,7 +3920,7 @@ class CfnFileSystem(
         @builtins.property
         def disk_iops_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]]:
             '''The SSD IOPS (input/output operations per second) configuration for an Amazon FSx for Windows file system.
 
             By default, Amazon FSx automatically provisions 3 IOPS per GiB of storage capacity. You can provision additional IOPS per GiB of storage, up to the maximum limit associated with your chosen throughput capacity.
@@ -3946,17 +3928,17 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-diskiopsconfiguration
             '''
             result = self._values.get("disk_iops_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
 
         @builtins.property
         def fsrm_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.FsrmConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.FsrmConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-fsrmconfiguration
             '''
             result = self._values.get("fsrm_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.FsrmConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.FsrmConfigurationProperty"]], result)
 
         @builtins.property
         def preferred_subnet_id(self) -> typing.Optional[builtins.str]:
@@ -3972,7 +3954,7 @@ class CfnFileSystem(
         @builtins.property
         def self_managed_active_directory_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty"]]:
             '''The configuration that Amazon FSx uses to join a FSx for Windows File Server file system or an FSx for ONTAP storage virtual machine (SVM) to a self-managed (including on-premises) Microsoft Active Directory (AD) directory.
 
             For more information, see `Using Amazon FSx for Windows with your self-managed Microsoft Active Directory <https://docs.aws.amazon.com/fsx/latest/WindowsGuide/self-managed-AD.html>`_ or `Managing FSx for ONTAP SVMs <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ .
@@ -3980,7 +3962,7 @@ class CfnFileSystem(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-selfmanagedactivedirectoryconfiguration
             '''
             result = self._values.get("self_managed_active_directory_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty"]], result)
 
         @builtins.property
         def weekly_maintenance_start_time(self) -> typing.Optional[builtins.str]:
@@ -4032,15 +4014,15 @@ class CfnFileSystemProps:
         backup_id: typing.Optional[builtins.str] = None,
         file_system_type_version: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        lustre_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lustre_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_capacity: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        windows_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.WindowsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        windows_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileSystem.WindowsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFileSystem``.
 
@@ -4212,7 +4194,7 @@ class CfnFileSystemProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc6cf655096c0830614c2b73c7ebf907b07fc70f50859b1aa0f76bbf6e31609d)
+            type_hints = cached_type_hints(_typecheckingstub__cc6cf655096c0830614c2b73c7ebf907b07fc70f50859b1aa0f76bbf6e31609d)
             check_type(argname="argument file_system_type", value=file_system_type, expected_type=type_hints["file_system_type"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
@@ -4335,7 +4317,7 @@ class CfnFileSystemProps:
     @builtins.property
     def lustre_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.LustreConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LustreConfigurationProperty"]]:
         '''The Lustre configuration for the file system being created.
 
         This configuration is required if the ``FileSystemType`` is set to ``LUSTRE`` .
@@ -4351,7 +4333,7 @@ class CfnFileSystemProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-lustreconfiguration
         '''
         result = self._values.get("lustre_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.LustreConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.LustreConfigurationProperty"]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
@@ -4365,7 +4347,7 @@ class CfnFileSystemProps:
     @builtins.property
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OntapConfigurationProperty"]]:
         '''The ONTAP configuration properties of the FSx for ONTAP file system that you are creating.
 
         This configuration is required if the ``FileSystemType`` is set to ``ONTAP`` .
@@ -4373,12 +4355,12 @@ class CfnFileSystemProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-ontapconfiguration
         '''
         result = self._values.get("ontap_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OntapConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OntapConfigurationProperty"]], result)
 
     @builtins.property
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OpenZFSConfigurationProperty"]]:
         '''The Amazon FSx for OpenZFS configuration properties for the file system that you are creating.
 
         This configuration is required if the ``FileSystemType`` is set to ``OPENZFS`` .
@@ -4386,7 +4368,7 @@ class CfnFileSystemProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-openzfsconfiguration
         '''
         result = self._values.get("open_zfs_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.OpenZFSConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.OpenZFSConfigurationProperty"]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4446,7 +4428,7 @@ class CfnFileSystemProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to associate with the file system.
 
         For more information, see `Tagging your Amazon FSx resources <https://docs.aws.amazon.com/fsx/latest/LustreGuide/tag-resources.html>`_ in the *Amazon FSx for Lustre User Guide* .
@@ -4454,12 +4436,12 @@ class CfnFileSystemProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def windows_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.WindowsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.WindowsConfigurationProperty"]]:
         '''The configuration object for the Microsoft Windows file system you are creating.
 
         This configuration is required if ``FileSystemType`` is set to ``WINDOWS`` .
@@ -4467,7 +4449,7 @@ class CfnFileSystemProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filesystem.html#cfn-fsx-filesystem-windowsconfiguration
         '''
         result = self._values.get("windows_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.WindowsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileSystem.WindowsConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4481,9 +4463,9 @@ class CfnFileSystemProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IS3AccessPointAttachmentRef_22b962a0)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IS3AccessPointAttachmentRef)
 class CfnS3AccessPointAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment",
 ):
@@ -4553,9 +4535,9 @@ class CfnS3AccessPointAttachment(
         *,
         name: builtins.str,
         type: builtins.str,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        s3_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_access_point: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::S3AccessPointAttachment``.
 
@@ -4568,7 +4550,7 @@ class CfnS3AccessPointAttachment(
         :param s3_access_point: The S3 access point configuration of the S3 access point attachment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f51e0b107c6c6ca8bc284dbcf4013f6c7bcdd088cb084476fdf615b4d8ae257e)
+            type_hints = cached_type_hints(_typecheckingstub__f51e0b107c6c6ca8bc284dbcf4013f6c7bcdd088cb084476fdf615b4d8ae257e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnS3AccessPointAttachmentProps(
@@ -4589,18 +4571,18 @@ class CfnS3AccessPointAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d540dafa7fae09ad03b252b57b50ded7c907de9e2c8c4d193e684b1a26eefee9)
+            type_hints = cached_type_hints(_typecheckingstub__d540dafa7fae09ad03b252b57b50ded7c907de9e2c8c4d193e684b1a26eefee9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnS3AccessPointAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e021f2b2cc052b241526f0c8b04451cdbb773840ed5e597d710011b7885f25f)
+            type_hints = cached_type_hints(_typecheckingstub__6e021f2b2cc052b241526f0c8b04451cdbb773840ed5e597d710011b7885f25f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4613,7 +4595,7 @@ class CfnS3AccessPointAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4764700463d52298286c209b2ab565142140f7bfb04556d307ca9bd56430fb2)
+            type_hints = cached_type_hints(_typecheckingstub__e4764700463d52298286c209b2ab565142140f7bfb04556d307ca9bd56430fb2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4664,9 +4646,9 @@ class CfnS3AccessPointAttachment(
     @jsii.member(jsii_name="s3AccessPointAttachmentRef")
     def s3_access_point_attachment_ref(
         self,
-    ) -> "_S3AccessPointAttachmentReference_4957ffc1":
+    ) -> "_aws_fsx_fc5af96b.S3AccessPointAttachmentReference":
         '''A reference to a S3AccessPointAttachment resource.'''
-        return typing.cast("_S3AccessPointAttachmentReference_4957ffc1", jsii.get(self, "s3AccessPointAttachmentRef"))
+        return typing.cast("_aws_fsx_fc5af96b.S3AccessPointAttachmentReference", jsii.get(self, "s3AccessPointAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4677,7 +4659,7 @@ class CfnS3AccessPointAttachment(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__644edd6bd850880f5ebd47e103e56e49b7d7f21e620f2807e12dac453933e59d)
+            type_hints = cached_type_hints(_typecheckingstub__644edd6bd850880f5ebd47e103e56e49b7d7f21e620f2807e12dac453933e59d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -4690,7 +4672,7 @@ class CfnS3AccessPointAttachment(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ece88a5ab6d3a69d75415d92fc3eea5b9fd91186f1a15239e5ec10f6c6c0005a)
+            type_hints = cached_type_hints(_typecheckingstub__ece88a5ab6d3a69d75415d92fc3eea5b9fd91186f1a15239e5ec10f6c6c0005a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -4698,17 +4680,17 @@ class CfnS3AccessPointAttachment(
     @jsii.member(jsii_name="ontapConfiguration")
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]]:
         '''The ONTAP configuration of the S3 access point attachment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
 
     @ontap_configuration.setter
     def ontap_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccdbf866601ccc3fde6f940ff739a2562cc1c309ef90b42b775dd99df2fdfcaa)
+            type_hints = cached_type_hints(_typecheckingstub__ccdbf866601ccc3fde6f940ff739a2562cc1c309ef90b42b775dd99df2fdfcaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ontapConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4716,17 +4698,17 @@ class CfnS3AccessPointAttachment(
     @jsii.member(jsii_name="openZfsConfiguration")
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]]:
         '''The OpenZFSConfiguration of the S3 access point attachment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
 
     @open_zfs_configuration.setter
     def open_zfs_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0756a73fef71599ffefeead45c6d0ea227439b511cdc73a360780b4f4c0df186)
+            type_hints = cached_type_hints(_typecheckingstub__0756a73fef71599ffefeead45c6d0ea227439b511cdc73a360780b4f4c0df186)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openZfsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4734,17 +4716,17 @@ class CfnS3AccessPointAttachment(
     @jsii.member(jsii_name="s3AccessPoint")
     def s3_access_point(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointProperty"]]:
         '''The S3 access point configuration of the S3 access point attachment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointProperty"]], jsii.get(self, "s3AccessPoint"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointProperty"]], jsii.get(self, "s3AccessPoint"))
 
     @s3_access_point.setter
     def s3_access_point(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1588dcc78f8354bc56e434d157b8dadab331295e3cbf0c065b7bd4b4b793aaa0)
+            type_hints = cached_type_hints(_typecheckingstub__1588dcc78f8354bc56e434d157b8dadab331295e3cbf0c065b7bd4b4b793aaa0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "s3AccessPoint", value) # pyright: ignore[reportArgumentType]
 
@@ -4773,7 +4755,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__72efd25b3b6057030d910de35b2f8e4104cb66dc72f89dc8ebb3b89daaf6a69f)
+                type_hints = cached_type_hints(_typecheckingstub__72efd25b3b6057030d910de35b2f8e4104cb66dc72f89dc8ebb3b89daaf6a69f)
                 check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "gid": gid,
@@ -4814,8 +4796,8 @@ class CfnS3AccessPointAttachment(
             self,
             *,
             type: builtins.str,
-            unix_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            windows_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            unix_user: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            windows_user: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the file system user identity that will be used for authorizing all file access requests that are made using the S3 access point.
 
@@ -4847,7 +4829,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8fa52e228c3f00dff810dd25b1ab25944a00d021001f5f7deba29831ba7ad146)
+                type_hints = cached_type_hints(_typecheckingstub__8fa52e228c3f00dff810dd25b1ab25944a00d021001f5f7deba29831ba7ad146)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument unix_user", value=unix_user, expected_type=type_hints["unix_user"])
                 check_type(argname="argument windows_user", value=windows_user, expected_type=type_hints["windows_user"])
@@ -4874,24 +4856,24 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def unix_user(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty"]]:
             '''Specifies the UNIX user identity for file system operations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-ontapfilesystemidentity.html#cfn-fsx-s3accesspointattachment-ontapfilesystemidentity-unixuser
             '''
             result = self._values.get("unix_user")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty"]], result)
 
         @builtins.property
         def windows_user(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty"]]:
             '''Specifies the Windows user identity for file system operations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-ontapfilesystemidentity.html#cfn-fsx-s3accesspointattachment-ontapfilesystemidentity-windowsuser
             '''
             result = self._values.get("windows_user")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4929,7 +4911,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33262a68318537d884ae72ad491504359ca70f4d8684f9b525171d4fe490ef59)
+                type_hints = cached_type_hints(_typecheckingstub__33262a68318537d884ae72ad491504359ca70f4d8684f9b525171d4fe490ef59)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -4983,7 +4965,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6eec503de84fe72fceb217f03035b3a3c1189dee09fa8745ec2750b960f671b8)
+                type_hints = cached_type_hints(_typecheckingstub__6eec503de84fe72fceb217f03035b3a3c1189dee09fa8745ec2750b960f671b8)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -5021,7 +5003,7 @@ class CfnS3AccessPointAttachment(
         def __init__(
             self,
             *,
-            posix_user: typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]],
+            posix_user: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''Specifies the file system user identity that will be used for authorizing all file access requests that are made using the S3 access point.
@@ -5052,7 +5034,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__af3bbbb456f8fdedf7c641c4786d89bf08acb663687e1b91f1ffdb83ab9819cb)
+                type_hints = cached_type_hints(_typecheckingstub__af3bbbb456f8fdedf7c641c4786d89bf08acb663687e1b91f1ffdb83ab9819cb)
                 check_type(argname="argument posix_user", value=posix_user, expected_type=type_hints["posix_user"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5063,14 +5045,14 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def posix_user(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"]:
             '''Specifies the UID and GIDs of the file system POSIX user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsfilesystemidentity.html#cfn-fsx-s3accesspointattachment-openzfsfilesystemidentity-posixuser
             '''
             result = self._values.get("posix_user")
             assert result is not None, "Required property 'posix_user' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -5104,7 +5086,7 @@ class CfnS3AccessPointAttachment(
             *,
             gid: jsii.Number,
             uid: jsii.Number,
-            secondary_gids: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.FileSystemGIDProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            secondary_gids: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.FileSystemGIDProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The FSx for OpenZFS file system user that is used for authorizing all file access requests that are made using the S3 access point.
 
@@ -5132,7 +5114,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3decc490fdc822be6603dab799c80c7e004416dbd58cc34ea290fa556e81be39)
+                type_hints = cached_type_hints(_typecheckingstub__3decc490fdc822be6603dab799c80c7e004416dbd58cc34ea290fa556e81be39)
                 check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
                 check_type(argname="argument uid", value=uid, expected_type=type_hints["uid"])
                 check_type(argname="argument secondary_gids", value=secondary_gids, expected_type=type_hints["secondary_gids"])
@@ -5166,13 +5148,13 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def secondary_gids(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]]:
             '''The list of secondary GIDs for the file system user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsposixfilesystemuser.html#cfn-fsx-s3accesspointattachment-openzfsposixfilesystemuser-secondarygids
             '''
             result = self._values.get("secondary_gids")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5197,7 +5179,7 @@ class CfnS3AccessPointAttachment(
         def __init__(
             self,
             *,
-            file_system_identity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
+            file_system_identity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
             volume_id: builtins.str,
         ) -> None:
             '''Describes the FSx for ONTAP attachment configuration of an S3 access point attachment.
@@ -5230,7 +5212,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__623512723a65c5bd3489003d2a55e48c3b784ec61cdf28eadea014b98b2026a1)
+                type_hints = cached_type_hints(_typecheckingstub__623512723a65c5bd3489003d2a55e48c3b784ec61cdf28eadea014b98b2026a1)
                 check_type(argname="argument file_system_identity", value=file_system_identity, expected_type=type_hints["file_system_identity"])
                 check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5241,14 +5223,14 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def file_system_identity(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty"]:
             '''The file system identity used to authorize file access requests made using the S3 access point.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointontapconfiguration.html#cfn-fsx-s3accesspointattachment-s3accesspointontapconfiguration-filesystemidentity
             '''
             result = self._values.get("file_system_identity")
             assert result is not None, "Required property 'file_system_identity' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty"], result)
 
         @builtins.property
         def volume_id(self) -> builtins.str:
@@ -5283,7 +5265,7 @@ class CfnS3AccessPointAttachment(
         def __init__(
             self,
             *,
-            file_system_identity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
+            file_system_identity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
             volume_id: builtins.str,
         ) -> None:
             '''Describes the FSx for OpenZFS attachment configuration of an S3 access point attachment.
@@ -5317,7 +5299,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__19e4ea8fd55e864f4fe150ca7ce6a9a2838595c2d032b53647f2917e1f00ccfa)
+                type_hints = cached_type_hints(_typecheckingstub__19e4ea8fd55e864f4fe150ca7ce6a9a2838595c2d032b53647f2917e1f00ccfa)
                 check_type(argname="argument file_system_identity", value=file_system_identity, expected_type=type_hints["file_system_identity"])
                 check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5328,14 +5310,14 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def file_system_identity(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"]:
             '''The file system identity used to authorize file access requests made using the S3 access point.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration.html#cfn-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration-filesystemidentity
             '''
             result = self._values.get("file_system_identity")
             assert result is not None, "Required property 'file_system_identity' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"], result)
 
         @builtins.property
         def volume_id(self) -> builtins.str:
@@ -5375,7 +5357,7 @@ class CfnS3AccessPointAttachment(
             alias: typing.Optional[builtins.str] = None,
             policy: typing.Any = None,
             resource_arn: typing.Optional[builtins.str] = None,
-            vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the S3 access point configuration of the S3 access point attachment.
 
@@ -5405,7 +5387,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f4a6a2c709cd1951841b5d405e10b97412387430297e85aa1495d3aab1b70367)
+                type_hints = cached_type_hints(_typecheckingstub__f4a6a2c709cd1951841b5d405e10b97412387430297e85aa1495d3aab1b70367)
                 check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
                 check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
@@ -5450,13 +5432,13 @@ class CfnS3AccessPointAttachment(
         @builtins.property
         def vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]]:
             '''The S3 access point's virtual private cloud (VPC) configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html#cfn-fsx-s3accesspointattachment-s3accesspoint-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5494,7 +5476,7 @@ class CfnS3AccessPointAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca5b9e5f42caf136a78ce4c94fb03a42b36504167d07de97e63171ff15aab81d)
+                type_hints = cached_type_hints(_typecheckingstub__ca5b9e5f42caf136a78ce4c94fb03a42b36504167d07de97e63171ff15aab81d)
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "vpc_id": vpc_id,
@@ -5539,9 +5521,9 @@ class CfnS3AccessPointAttachmentProps:
         *,
         name: builtins.str,
         type: builtins.str,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        s3_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnS3AccessPointAttachment.S3AccessPointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_access_point: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnS3AccessPointAttachment.S3AccessPointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnS3AccessPointAttachment``.
 
@@ -5607,7 +5589,7 @@ class CfnS3AccessPointAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8d86aefcd2904a1c36c865f774d6ff97130a2707963573cf5c4a4173e91ab0e)
+            type_hints = cached_type_hints(_typecheckingstub__f8d86aefcd2904a1c36c865f774d6ff97130a2707963573cf5c4a4173e91ab0e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument ontap_configuration", value=ontap_configuration, expected_type=type_hints["ontap_configuration"])
@@ -5649,35 +5631,35 @@ class CfnS3AccessPointAttachmentProps:
     @builtins.property
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]]:
         '''The ONTAP configuration of the S3 access point attachment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-ontapconfiguration
         '''
         result = self._values.get("ontap_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty"]], result)
 
     @builtins.property
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]]:
         '''The OpenZFSConfiguration of the S3 access point attachment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-openzfsconfiguration
         '''
         result = self._values.get("open_zfs_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]], result)
 
     @builtins.property
     def s3_access_point(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointProperty"]]:
         '''The S3 access point configuration of the S3 access point attachment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-s3accesspoint
         '''
         result = self._values.get("s3_access_point")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnS3AccessPointAttachment.S3AccessPointProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnS3AccessPointAttachment.S3AccessPointProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5691,9 +5673,9 @@ class CfnS3AccessPointAttachmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISnapshotRef_fbdde5f5, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.ISnapshotRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSnapshot(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnSnapshot",
 ):
@@ -5729,7 +5711,7 @@ class CfnSnapshot(
         *,
         name: builtins.str,
         volume_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::Snapshot``.
 
@@ -5740,7 +5722,7 @@ class CfnSnapshot(
         :param tags: A list of ``Tag`` values, with a maximum of 50 elements.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5d4adee5d5cd344131498bc7092a1109dbe23b110d78c712b65bf1439e1c88)
+            type_hints = cached_type_hints(_typecheckingstub__9d5d4adee5d5cd344131498bc7092a1109dbe23b110d78c712b65bf1439e1c88)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSnapshotProps(name=name, volume_id=volume_id, tags=tags)
@@ -5755,18 +5737,18 @@ class CfnSnapshot(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7540d3c0a594f1d80faa8559da6b9ca57fbb2d98ebb188f822c5a63246359396)
+            type_hints = cached_type_hints(_typecheckingstub__7540d3c0a594f1d80faa8559da6b9ca57fbb2d98ebb188f822c5a63246359396)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshot", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e16496e8dfd463b470127a5c588838d852660a318c398df552c6e9b695f66236)
+            type_hints = cached_type_hints(_typecheckingstub__e16496e8dfd463b470127a5c588838d852660a318c398df552c6e9b695f66236)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5779,7 +5761,7 @@ class CfnSnapshot(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3e3bd556cc47f7c2328465711080b238cb725ec8bc8a9c0921a233d25612923)
+            type_hints = cached_type_hints(_typecheckingstub__c3e3bd556cc47f7c2328465711080b238cb725ec8bc8a9c0921a233d25612923)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5820,15 +5802,15 @@ class CfnSnapshot(
 
     @builtins.property
     @jsii.member(jsii_name="snapshotRef")
-    def snapshot_ref(self) -> "_SnapshotReference_84fbb991":
+    def snapshot_ref(self) -> "_aws_fsx_fc5af96b.SnapshotReference":
         '''A reference to a Snapshot resource.'''
-        return typing.cast("_SnapshotReference_84fbb991", jsii.get(self, "snapshotRef"))
+        return typing.cast("_aws_fsx_fc5af96b.SnapshotReference", jsii.get(self, "snapshotRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5839,7 +5821,7 @@ class CfnSnapshot(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f3fd045f50c3cee3f4387ac2dbf54cc97908f9d1454b384fe9a1e1979d7dc43)
+            type_hints = cached_type_hints(_typecheckingstub__4f3fd045f50c3cee3f4387ac2dbf54cc97908f9d1454b384fe9a1e1979d7dc43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5852,20 +5834,23 @@ class CfnSnapshot(
     @volume_id.setter
     def volume_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bfe067c48a4e1e3f0d2d4622cbee11e41cf31d4cd3c0593f27e984eca018818)
+            type_hints = cached_type_hints(_typecheckingstub__6bfe067c48a4e1e3f0d2d4622cbee11e41cf31d4cd3c0593f27e984eca018818)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "volumeId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__240c01330f696630f8aa879c03a1e67f9e74372d6432d08d7ec8fe84e6ad0a72)
+            type_hints = cached_type_hints(_typecheckingstub__240c01330f696630f8aa879c03a1e67f9e74372d6432d08d7ec8fe84e6ad0a72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5881,7 +5866,7 @@ class CfnSnapshotProps:
         *,
         name: builtins.str,
         volume_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSnapshot``.
 
@@ -5911,7 +5896,7 @@ class CfnSnapshotProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d536d6d64d7e0b96291479b71956ab2d19009e1e9c06dadd5d7bbce6ed8f2d08)
+            type_hints = cached_type_hints(_typecheckingstub__d536d6d64d7e0b96291479b71956ab2d19009e1e9c06dadd5d7bbce6ed8f2d08)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -5943,13 +5928,13 @@ class CfnSnapshotProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-snapshot.html#cfn-fsx-snapshot-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5963,9 +5948,9 @@ class CfnSnapshotProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStorageVirtualMachineRef_3a0f4396, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IStorageVirtualMachineRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStorageVirtualMachine(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnStorageVirtualMachine",
 ):
@@ -6015,10 +6000,10 @@ class CfnStorageVirtualMachine(
         *,
         file_system_id: builtins.str,
         name: builtins.str,
-        active_directory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        active_directory_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         root_volume_security_style: typing.Optional[builtins.str] = None,
         svm_admin_password: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::StorageVirtualMachine``.
 
@@ -6032,7 +6017,7 @@ class CfnStorageVirtualMachine(
         :param tags: A list of ``Tag`` values, with a maximum of 50 elements.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3859c7ed2c6acfabdeba44c5147f6c5a5bf3d7d6a4e09a2dac79cbdc9802324f)
+            type_hints = cached_type_hints(_typecheckingstub__3859c7ed2c6acfabdeba44c5147f6c5a5bf3d7d6a4e09a2dac79cbdc9802324f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStorageVirtualMachineProps(
@@ -6054,18 +6039,18 @@ class CfnStorageVirtualMachine(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c4a933de1c37ba35741fa2dafde79b84698f85b280474873d8e023c7b06cd1)
+            type_hints = cached_type_hints(_typecheckingstub__12c4a933de1c37ba35741fa2dafde79b84698f85b280474873d8e023c7b06cd1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStorageVirtualMachine", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31b1cfcc22cc24d2b1a1c747cbd80eac430e58627890c3c4c8e63fcd6215a5f6)
+            type_hints = cached_type_hints(_typecheckingstub__31b1cfcc22cc24d2b1a1c747cbd80eac430e58627890c3c4c8e63fcd6215a5f6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6078,7 +6063,7 @@ class CfnStorageVirtualMachine(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ac2d3a5b112febd29f269696e1db90ec8cc785c925ceea12d85a4bb8065efc2)
+            type_hints = cached_type_hints(_typecheckingstub__8ac2d3a5b112febd29f269696e1db90ec8cc785c925ceea12d85a4bb8065efc2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6133,15 +6118,17 @@ class CfnStorageVirtualMachine(
 
     @builtins.property
     @jsii.member(jsii_name="storageVirtualMachineRef")
-    def storage_virtual_machine_ref(self) -> "_StorageVirtualMachineReference_27e496a6":
+    def storage_virtual_machine_ref(
+        self,
+    ) -> "_aws_fsx_fc5af96b.StorageVirtualMachineReference":
         '''A reference to a StorageVirtualMachine resource.'''
-        return typing.cast("_StorageVirtualMachineReference_27e496a6", jsii.get(self, "storageVirtualMachineRef"))
+        return typing.cast("_aws_fsx_fc5af96b.StorageVirtualMachineReference", jsii.get(self, "storageVirtualMachineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemId")
@@ -6152,7 +6139,7 @@ class CfnStorageVirtualMachine(
     @file_system_id.setter
     def file_system_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__506919ca72738280c862358d8c4473f90216303836c204dab7ff5ee795175eaa)
+            type_hints = cached_type_hints(_typecheckingstub__506919ca72738280c862358d8c4473f90216303836c204dab7ff5ee795175eaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemId", value) # pyright: ignore[reportArgumentType]
 
@@ -6165,7 +6152,7 @@ class CfnStorageVirtualMachine(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c4f0c6321de43aeb7b5d99b2267a514ba4c3834c1361fea70b5802034c536b5)
+            type_hints = cached_type_hints(_typecheckingstub__9c4f0c6321de43aeb7b5d99b2267a514ba4c3834c1361fea70b5802034c536b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6173,17 +6160,17 @@ class CfnStorageVirtualMachine(
     @jsii.member(jsii_name="activeDirectoryConfiguration")
     def active_directory_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]]:
         '''Describes the Microsoft Active Directory configuration to which the SVM is joined, if applicable.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]], jsii.get(self, "activeDirectoryConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]], jsii.get(self, "activeDirectoryConfiguration"))
 
     @active_directory_configuration.setter
     def active_directory_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6d378bddb8b214a0ee61f681ebc3e6e2a6e039306c8569fe43fd3a40f9d8b82)
+            type_hints = cached_type_hints(_typecheckingstub__f6d378bddb8b214a0ee61f681ebc3e6e2a6e039306c8569fe43fd3a40f9d8b82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "activeDirectoryConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6199,7 +6186,7 @@ class CfnStorageVirtualMachine(
     @root_volume_security_style.setter
     def root_volume_security_style(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__498d87900da72bdb316f1ac99c735b33d65d8aaa83699d7c5d3a5db872b44240)
+            type_hints = cached_type_hints(_typecheckingstub__498d87900da72bdb316f1ac99c735b33d65d8aaa83699d7c5d3a5db872b44240)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rootVolumeSecurityStyle", value) # pyright: ignore[reportArgumentType]
 
@@ -6212,20 +6199,23 @@ class CfnStorageVirtualMachine(
     @svm_admin_password.setter
     def svm_admin_password(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5e1df55a059871987c3d2b8e45ef92f03b9b86300f13c97f410229db7bd7a7f)
+            type_hints = cached_type_hints(_typecheckingstub__b5e1df55a059871987c3d2b8e45ef92f03b9b86300f13c97f410229db7bd7a7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "svmAdminPassword", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c36644ee4704160a7ea3d6f3129675404852974497abe8a0a6b5373b6c063f92)
+            type_hints = cached_type_hints(_typecheckingstub__c36644ee4704160a7ea3d6f3129675404852974497abe8a0a6b5373b6c063f92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6242,7 +6232,7 @@ class CfnStorageVirtualMachine(
             self,
             *,
             net_bios_name: typing.Optional[builtins.str] = None,
-            self_managed_active_directory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            self_managed_active_directory_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the self-managed Microsoft Active Directory to which you want to join the SVM.
 
@@ -6274,7 +6264,7 @@ class CfnStorageVirtualMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__004395de3c18e64bb2e0a0809b7f0ebf750cd4ce948a172a9f8ad61dc7e1c91d)
+                type_hints = cached_type_hints(_typecheckingstub__004395de3c18e64bb2e0a0809b7f0ebf750cd4ce948a172a9f8ad61dc7e1c91d)
                 check_type(argname="argument net_bios_name", value=net_bios_name, expected_type=type_hints["net_bios_name"])
                 check_type(argname="argument self_managed_active_directory_configuration", value=self_managed_active_directory_configuration, expected_type=type_hints["self_managed_active_directory_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6295,13 +6285,13 @@ class CfnStorageVirtualMachine(
         @builtins.property
         def self_managed_active_directory_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty"]]:
             '''The configuration that Amazon FSx uses to join the ONTAP storage virtual machine (SVM) to your self-managed (including on-premises) Microsoft Active Directory directory.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-storagevirtualmachine-activedirectoryconfiguration.html#cfn-fsx-storagevirtualmachine-activedirectoryconfiguration-selfmanagedactivedirectoryconfiguration
             '''
             result = self._values.get("self_managed_active_directory_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6369,7 +6359,7 @@ class CfnStorageVirtualMachine(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8bb380fdb7ba1ca5c077052d19123ba2eb29d1e66aacb824878cb799542936c)
+                type_hints = cached_type_hints(_typecheckingstub__c8bb380fdb7ba1ca5c077052d19123ba2eb29d1e66aacb824878cb799542936c)
                 check_type(argname="argument dns_ips", value=dns_ips, expected_type=type_hints["dns_ips"])
                 check_type(argname="argument domain_join_service_account_secret", value=domain_join_service_account_secret, expected_type=type_hints["domain_join_service_account_secret"])
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -6506,10 +6496,10 @@ class CfnStorageVirtualMachineProps:
         *,
         file_system_id: builtins.str,
         name: builtins.str,
-        active_directory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        active_directory_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         root_volume_security_style: typing.Optional[builtins.str] = None,
         svm_admin_password: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStorageVirtualMachine``.
 
@@ -6556,7 +6546,7 @@ class CfnStorageVirtualMachineProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5433d27fd2f228fdff93b984ea8b9bcef2161e6ed49b4b01861a400f3ac6663)
+            type_hints = cached_type_hints(_typecheckingstub__f5433d27fd2f228fdff93b984ea8b9bcef2161e6ed49b4b01861a400f3ac6663)
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument active_directory_configuration", value=active_directory_configuration, expected_type=type_hints["active_directory_configuration"])
@@ -6599,13 +6589,13 @@ class CfnStorageVirtualMachineProps:
     @builtins.property
     def active_directory_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]]:
         '''Describes the Microsoft Active Directory configuration to which the SVM is joined, if applicable.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-storagevirtualmachine.html#cfn-fsx-storagevirtualmachine-activedirectoryconfiguration
         '''
         result = self._values.get("active_directory_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty"]], result)
 
     @builtins.property
     def root_volume_security_style(self) -> typing.Optional[builtins.str]:
@@ -6632,13 +6622,13 @@ class CfnStorageVirtualMachineProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of ``Tag`` values, with a maximum of 50 elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-storagevirtualmachine.html#cfn-fsx-storagevirtualmachine-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6652,9 +6642,9 @@ class CfnStorageVirtualMachineProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVolumeRef_7f52c3ee, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IVolumeRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVolume(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_fsx.CfnVolume",
 ):
@@ -6774,9 +6764,9 @@ class CfnVolume(
         *,
         name: builtins.str,
         backup_id: typing.Optional[builtins.str] = None,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::Volume``.
@@ -6791,7 +6781,7 @@ class CfnVolume(
         :param volume_type: The type of the volume.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8032dc0135fe914a968f543d77b52c3a075a98fbe43ae2b6c95c8ef1f70fb377)
+            type_hints = cached_type_hints(_typecheckingstub__8032dc0135fe914a968f543d77b52c3a075a98fbe43ae2b6c95c8ef1f70fb377)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVolumeProps(
@@ -6813,18 +6803,18 @@ class CfnVolume(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f54676aad4c6fc45165240c1ef076784b084beae9efcc0c2fd08219a2c44d72)
+            type_hints = cached_type_hints(_typecheckingstub__4f54676aad4c6fc45165240c1ef076784b084beae9efcc0c2fd08219a2c44d72)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVolume", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__685e83727e385640b6d5ed975f59b17a0bb8b610904662d23a1881638e8bb87a)
+            type_hints = cached_type_hints(_typecheckingstub__685e83727e385640b6d5ed975f59b17a0bb8b610904662d23a1881638e8bb87a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6837,7 +6827,7 @@ class CfnVolume(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31d37891e77c711dbe4a59ef057e43e6b0f37edb5f42e063a5c4f0934fbe4e27)
+            type_hints = cached_type_hints(_typecheckingstub__31d37891e77c711dbe4a59ef057e43e6b0f37edb5f42e063a5c4f0934fbe4e27)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6892,15 +6882,15 @@ class CfnVolume(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="volumeRef")
-    def volume_ref(self) -> "_VolumeReference_ad7f96eb":
+    def volume_ref(self) -> "_aws_fsx_fc5af96b.VolumeReference":
         '''A reference to a Volume resource.'''
-        return typing.cast("_VolumeReference_ad7f96eb", jsii.get(self, "volumeRef"))
+        return typing.cast("_aws_fsx_fc5af96b.VolumeReference", jsii.get(self, "volumeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6911,7 +6901,7 @@ class CfnVolume(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb14c66682a14fe2ad7c0e5ccff8d3703b7fcfb56d5027d4935d625acf1ff66c)
+            type_hints = cached_type_hints(_typecheckingstub__fb14c66682a14fe2ad7c0e5ccff8d3703b7fcfb56d5027d4935d625acf1ff66c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6924,7 +6914,7 @@ class CfnVolume(
     @backup_id.setter
     def backup_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7a383e3e87a1e093e9488d60889ef5ad7153045c3f5346810d327ec55da2681)
+            type_hints = cached_type_hints(_typecheckingstub__a7a383e3e87a1e093e9488d60889ef5ad7153045c3f5346810d327ec55da2681)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupId", value) # pyright: ignore[reportArgumentType]
 
@@ -6932,17 +6922,17 @@ class CfnVolume(
     @jsii.member(jsii_name="ontapConfiguration")
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OntapConfigurationProperty"]]:
         '''The configuration of an Amazon FSx for NetApp ONTAP volume.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OntapConfigurationProperty"]], jsii.get(self, "ontapConfiguration"))
 
     @ontap_configuration.setter
     def ontap_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OntapConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OntapConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d9d5aa82b45919603e76f1eb93e8d847f3f30ecda3dd0f9daafc4ac8393f820)
+            type_hints = cached_type_hints(_typecheckingstub__9d9d5aa82b45919603e76f1eb93e8d847f3f30ecda3dd0f9daafc4ac8393f820)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ontapConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6950,30 +6940,33 @@ class CfnVolume(
     @jsii.member(jsii_name="openZfsConfiguration")
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OpenZFSConfigurationProperty"]]:
         '''The configuration of an Amazon FSx for OpenZFS volume.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OpenZFSConfigurationProperty"]], jsii.get(self, "openZfsConfiguration"))
 
     @open_zfs_configuration.setter
     def open_zfs_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OpenZFSConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OpenZFSConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8c561a21f1815fe46ff87dc14e109264d04a4cb99e438a866e3e0f045e636db)
+            type_hints = cached_type_hints(_typecheckingstub__b8c561a21f1815fe46ff87dc14e109264d04a4cb99e438a866e3e0f045e636db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openZfsConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__634c85533e9a6b79f20e610d3f3d0cf9acdaa9fc5989a7eaf5e5c378160ab13e)
+            type_hints = cached_type_hints(_typecheckingstub__634c85533e9a6b79f20e610d3f3d0cf9acdaa9fc5989a7eaf5e5c378160ab13e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6986,7 +6979,7 @@ class CfnVolume(
     @volume_type.setter
     def volume_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__befc18924bc9ab71fba375a76c516faae324b6340032acfea544e4c22c8db3a5)
+            type_hints = cached_type_hints(_typecheckingstub__befc18924bc9ab71fba375a76c516faae324b6340032acfea544e4c22c8db3a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "volumeType", value) # pyright: ignore[reportArgumentType]
 
@@ -7025,7 +7018,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__032132073de89bb70128a105b7bf5354437b4162df7e65ca6f1556e5d3d4888e)
+                type_hints = cached_type_hints(_typecheckingstub__032132073de89bb70128a105b7bf5354437b4162df7e65ca6f1556e5d3d4888e)
                 check_type(argname="argument aggregates", value=aggregates, expected_type=type_hints["aggregates"])
                 check_type(argname="argument constituents_per_aggregate", value=constituents_per_aggregate, expected_type=type_hints["constituents_per_aggregate"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7109,7 +7102,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__152833347979f591d8a43edb239bbfdb5ebbbfa13c577f9a1c4e8047e0bdd076)
+                type_hints = cached_type_hints(_typecheckingstub__152833347979f591d8a43edb239bbfdb5ebbbfa13c577f9a1c4e8047e0bdd076)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7190,7 +7183,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f08ab33ef646aec0cb0f4643c61979f34643d3c70468c74e2a416bd6d5203d00)
+                type_hints = cached_type_hints(_typecheckingstub__f08ab33ef646aec0cb0f4643c61979f34643d3c70468c74e2a416bd6d5203d00)
                 check_type(argname="argument clients", value=clients, expected_type=type_hints["clients"])
                 check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7245,7 +7238,7 @@ class CfnVolume(
         def __init__(
             self,
             *,
-            client_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.ClientConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            client_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.ClientConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The configuration object for mounting a Network File System (NFS) file system.
 
@@ -7268,7 +7261,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb01e79bd54d686dc3dcaddeeb0ff9010745b22b116acad7cd9a42674578991a)
+                type_hints = cached_type_hints(_typecheckingstub__cb01e79bd54d686dc3dcaddeeb0ff9010745b22b116acad7cd9a42674578991a)
                 check_type(argname="argument client_configurations", value=client_configurations, expected_type=type_hints["client_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_configurations": client_configurations,
@@ -7277,14 +7270,14 @@ class CfnVolume(
         @builtins.property
         def client_configurations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.ClientConfigurationsProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.ClientConfigurationsProperty"]]]:
             '''A list of configuration objects that contain the client and options for mounting the OpenZFS file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-nfsexports.html#cfn-fsx-volume-nfsexports-clientconfigurations
             '''
             result = self._values.get("client_configurations")
             assert result is not None, "Required property 'client_configurations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.ClientConfigurationsProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.ClientConfigurationsProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7321,17 +7314,17 @@ class CfnVolume(
             self,
             *,
             storage_virtual_machine_id: builtins.str,
-            aggregate_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.AggregateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aggregate_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.AggregateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             copy_tags_to_backups: typing.Optional[builtins.str] = None,
             junction_path: typing.Optional[builtins.str] = None,
             ontap_volume_type: typing.Optional[builtins.str] = None,
             security_style: typing.Optional[builtins.str] = None,
             size_in_bytes: typing.Optional[builtins.str] = None,
             size_in_megabytes: typing.Optional[builtins.str] = None,
-            snaplock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.SnaplockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snaplock_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.SnaplockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             snapshot_policy: typing.Optional[builtins.str] = None,
             storage_efficiency_enabled: typing.Optional[builtins.str] = None,
-            tiering_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.TieringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tiering_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.TieringPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             volume_style: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the configuration of the ONTAP volume that you are creating.
@@ -7417,7 +7410,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c59057f0564a68f2e8b0856d1abaafd720a53334166b90e51d10188cfce02503)
+                type_hints = cached_type_hints(_typecheckingstub__c59057f0564a68f2e8b0856d1abaafd720a53334166b90e51d10188cfce02503)
                 check_type(argname="argument storage_virtual_machine_id", value=storage_virtual_machine_id, expected_type=type_hints["storage_virtual_machine_id"])
                 check_type(argname="argument aggregate_configuration", value=aggregate_configuration, expected_type=type_hints["aggregate_configuration"])
                 check_type(argname="argument copy_tags_to_backups", value=copy_tags_to_backups, expected_type=type_hints["copy_tags_to_backups"])
@@ -7472,13 +7465,13 @@ class CfnVolume(
         @builtins.property
         def aggregate_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.AggregateConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.AggregateConfigurationProperty"]]:
             '''Used to specify the configuration options for an FSx for ONTAP volume's storage aggregate or aggregates.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-ontapconfiguration.html#cfn-fsx-volume-ontapconfiguration-aggregateconfiguration
             '''
             result = self._values.get("aggregate_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.AggregateConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.AggregateConfigurationProperty"]], result)
 
         @builtins.property
         def copy_tags_to_backups(self) -> typing.Optional[builtins.str]:
@@ -7556,13 +7549,13 @@ class CfnVolume(
         @builtins.property
         def snaplock_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.SnaplockConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.SnaplockConfigurationProperty"]]:
             '''The SnapLock configuration object for an FSx for ONTAP SnapLock volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-ontapconfiguration.html#cfn-fsx-volume-ontapconfiguration-snaplockconfiguration
             '''
             result = self._values.get("snaplock_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.SnaplockConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.SnaplockConfigurationProperty"]], result)
 
         @builtins.property
         def snapshot_policy(self) -> typing.Optional[builtins.str]:
@@ -7595,7 +7588,7 @@ class CfnVolume(
         @builtins.property
         def tiering_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.TieringPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.TieringPolicyProperty"]]:
             '''Describes the data tiering policy for an ONTAP volume.
 
             When enabled, Amazon FSx for ONTAP's intelligent tiering automatically transitions a volume's data between the file system's primary storage and capacity pool storage based on your access patterns.
@@ -7610,7 +7603,7 @@ class CfnVolume(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-ontapconfiguration.html#cfn-fsx-volume-ontapconfiguration-tieringpolicy
             '''
             result = self._values.get("tiering_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.TieringPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.TieringPolicyProperty"]], result)
 
         @builtins.property
         def volume_style(self) -> typing.Optional[builtins.str]:
@@ -7656,16 +7649,16 @@ class CfnVolume(
             self,
             *,
             parent_volume_id: builtins.str,
-            copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             data_compression_type: typing.Optional[builtins.str] = None,
-            nfs_exports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.NfsExportsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            nfs_exports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.NfsExportsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             options: typing.Optional[typing.Sequence[builtins.str]] = None,
-            origin_snapshot: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.OriginSnapshotProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            origin_snapshot: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.OriginSnapshotProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_only: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             record_size_kib: typing.Optional[jsii.Number] = None,
             storage_capacity_quota_gib: typing.Optional[jsii.Number] = None,
             storage_capacity_reservation_gib: typing.Optional[jsii.Number] = None,
-            user_and_group_quotas: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.UserAndGroupQuotasProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            user_and_group_quotas: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.UserAndGroupQuotasProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies the configuration of the Amazon FSx for OpenZFS volume that you are creating.
 
@@ -7719,7 +7712,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6871ad9e290cb99fa362c6c95d24dbb5f632a72fc3f981d29d37fa59454bc57)
+                type_hints = cached_type_hints(_typecheckingstub__b6871ad9e290cb99fa362c6c95d24dbb5f632a72fc3f981d29d37fa59454bc57)
                 check_type(argname="argument parent_volume_id", value=parent_volume_id, expected_type=type_hints["parent_volume_id"])
                 check_type(argname="argument copy_tags_to_snapshots", value=copy_tags_to_snapshots, expected_type=type_hints["copy_tags_to_snapshots"])
                 check_type(argname="argument data_compression_type", value=data_compression_type, expected_type=type_hints["data_compression_type"])
@@ -7768,7 +7761,7 @@ class CfnVolume(
         @builtins.property
         def copy_tags_to_snapshots(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether tags for the volume should be copied to snapshots.
 
             This value defaults to ``false`` . If this value is set to ``true`` , and you do not specify any tags, all tags for the original volume are copied over to snapshots. If this value is set to ``true`` , and you do specify one or more tags, only the specified tags for the original volume are copied over to snapshots. If you specify one or more tags when creating a new snapshot, no tags are copied over from the original volume, regardless of this value.
@@ -7776,7 +7769,7 @@ class CfnVolume(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-openzfsconfiguration.html#cfn-fsx-volume-openzfsconfiguration-copytagstosnapshots
             '''
             result = self._values.get("copy_tags_to_snapshots")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def data_compression_type(self) -> typing.Optional[builtins.str]:
@@ -7794,13 +7787,13 @@ class CfnVolume(
         @builtins.property
         def nfs_exports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.NfsExportsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.NfsExportsProperty"]]]]:
             '''The configuration object for mounting a Network File System (NFS) file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-openzfsconfiguration.html#cfn-fsx-volume-openzfsconfiguration-nfsexports
             '''
             result = self._values.get("nfs_exports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.NfsExportsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.NfsExportsProperty"]]]], result)
 
         @builtins.property
         def options(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7814,24 +7807,24 @@ class CfnVolume(
         @builtins.property
         def origin_snapshot(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OriginSnapshotProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OriginSnapshotProperty"]]:
             '''The configuration object that specifies the snapshot to use as the origin of the data for the volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-openzfsconfiguration.html#cfn-fsx-volume-openzfsconfiguration-originsnapshot
             '''
             result = self._values.get("origin_snapshot")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OriginSnapshotProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OriginSnapshotProperty"]], result)
 
         @builtins.property
         def read_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value indicating whether the volume is read-only.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-openzfsconfiguration.html#cfn-fsx-volume-openzfsconfiguration-readonly
             '''
             result = self._values.get("read_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def record_size_kib(self) -> typing.Optional[jsii.Number]:
@@ -7871,13 +7864,13 @@ class CfnVolume(
         @builtins.property
         def user_and_group_quotas(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.UserAndGroupQuotasProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.UserAndGroupQuotasProperty"]]]]:
             '''Configures how much storage users and groups can use on the volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-openzfsconfiguration.html#cfn-fsx-volume-openzfsconfiguration-userandgroupquotas
             '''
             result = self._values.get("user_and_group_quotas")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVolume.UserAndGroupQuotasProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.UserAndGroupQuotasProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7922,7 +7915,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0d5d518fc8476eefdc07bf60e93773be990e44c78f22034acf64251134905f62)
+                type_hints = cached_type_hints(_typecheckingstub__0d5d518fc8476eefdc07bf60e93773be990e44c78f22034acf64251134905f62)
                 check_type(argname="argument copy_strategy", value=copy_strategy, expected_type=type_hints["copy_strategy"])
                 check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8007,7 +8000,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__654fa3c95eb13d685c99ec5694113a59b00b3100940030bcddc493d21d6d5579)
+                type_hints = cached_type_hints(_typecheckingstub__654fa3c95eb13d685c99ec5694113a59b00b3100940030bcddc493d21d6d5579)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8075,9 +8068,9 @@ class CfnVolume(
             *,
             snaplock_type: builtins.str,
             audit_log_volume: typing.Optional[builtins.str] = None,
-            autocommit_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.AutocommitPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            autocommit_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.AutocommitPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             privileged_delete: typing.Optional[builtins.str] = None,
-            retention_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.SnaplockRetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retention_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.SnaplockRetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             volume_append_mode_enabled: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the SnapLock configuration for an FSx for ONTAP SnapLock volume.
@@ -8134,7 +8127,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f9e0ebadbb084801a8369e10dedaa357ee613ae071ef81d54a887da83f8118c)
+                type_hints = cached_type_hints(_typecheckingstub__8f9e0ebadbb084801a8369e10dedaa357ee613ae071ef81d54a887da83f8118c)
                 check_type(argname="argument snaplock_type", value=snaplock_type, expected_type=type_hints["snaplock_type"])
                 check_type(argname="argument audit_log_volume", value=audit_log_volume, expected_type=type_hints["audit_log_volume"])
                 check_type(argname="argument autocommit_period", value=autocommit_period, expected_type=type_hints["autocommit_period"])
@@ -8186,13 +8179,13 @@ class CfnVolume(
         @builtins.property
         def autocommit_period(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.AutocommitPeriodProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.AutocommitPeriodProperty"]]:
             '''The configuration object for setting the autocommit period of files in an FSx for ONTAP SnapLock volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-snaplockconfiguration.html#cfn-fsx-volume-snaplockconfiguration-autocommitperiod
             '''
             result = self._values.get("autocommit_period")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.AutocommitPeriodProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.AutocommitPeriodProperty"]], result)
 
         @builtins.property
         def privileged_delete(self) -> typing.Optional[builtins.str]:
@@ -8210,13 +8203,13 @@ class CfnVolume(
         @builtins.property
         def retention_period(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.SnaplockRetentionPeriodProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.SnaplockRetentionPeriodProperty"]]:
             '''Specifies the retention period of an FSx for ONTAP SnapLock volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-snaplockconfiguration.html#cfn-fsx-volume-snaplockconfiguration-retentionperiod
             '''
             result = self._values.get("retention_period")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.SnaplockRetentionPeriodProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.SnaplockRetentionPeriodProperty"]], result)
 
         @builtins.property
         def volume_append_mode_enabled(self) -> typing.Optional[builtins.str]:
@@ -8255,9 +8248,9 @@ class CfnVolume(
         def __init__(
             self,
             *,
-            default_retention: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
-            maximum_retention: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
-            minimum_retention: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+            default_retention: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+            maximum_retention: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+            minimum_retention: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The configuration to set the retention period of an FSx for ONTAP SnapLock volume.
 
@@ -8298,7 +8291,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3cc407f519635d66c9812be9384b014c58f8485db353359a8ead1b22b78049a8)
+                type_hints = cached_type_hints(_typecheckingstub__3cc407f519635d66c9812be9384b014c58f8485db353359a8ead1b22b78049a8)
                 check_type(argname="argument default_retention", value=default_retention, expected_type=type_hints["default_retention"])
                 check_type(argname="argument maximum_retention", value=maximum_retention, expected_type=type_hints["maximum_retention"])
                 check_type(argname="argument minimum_retention", value=minimum_retention, expected_type=type_hints["minimum_retention"])
@@ -8311,7 +8304,7 @@ class CfnVolume(
         @builtins.property
         def default_retention(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"]:
             '''The retention period assigned to a write once, read many (WORM) file by default if an explicit retention period is not set for an FSx for ONTAP SnapLock volume.
 
             The default retention period must be greater than or equal to the minimum retention period and less than or equal to the maximum retention period.
@@ -8320,31 +8313,31 @@ class CfnVolume(
             '''
             result = self._values.get("default_retention")
             assert result is not None, "Required property 'default_retention' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"], result)
 
         @builtins.property
         def maximum_retention(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"]:
             '''The longest retention period that can be assigned to a WORM file on an FSx for ONTAP SnapLock volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-snaplockretentionperiod.html#cfn-fsx-volume-snaplockretentionperiod-maximumretention
             '''
             result = self._values.get("maximum_retention")
             assert result is not None, "Required property 'maximum_retention' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"], result)
 
         @builtins.property
         def minimum_retention(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"]:
             '''The shortest retention period that can be assigned to a WORM file on an FSx for ONTAP SnapLock volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-volume-snaplockretentionperiod.html#cfn-fsx-volume-snaplockretentionperiod-minimumretention
             '''
             result = self._values.get("minimum_retention")
             assert result is not None, "Required property 'minimum_retention' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVolume.RetentionPeriodProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.RetentionPeriodProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8398,7 +8391,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b692923d54326142c54c7197939361db410c7d92989a353ad4230826914c25cf)
+                type_hints = cached_type_hints(_typecheckingstub__b692923d54326142c54c7197939361db410c7d92989a353ad4230826914c25cf)
                 check_type(argname="argument cooling_period", value=cooling_period, expected_type=type_hints["cooling_period"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8482,7 +8475,7 @@ class CfnVolume(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__89aae5ce79550d3a8d47f24bddceaa5a85fa089f8b8ca69bca147a0541cde314)
+                type_hints = cached_type_hints(_typecheckingstub__89aae5ce79550d3a8d47f24bddceaa5a85fa089f8b8ca69bca147a0541cde314)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument storage_capacity_quota_gib", value=storage_capacity_quota_gib, expected_type=type_hints["storage_capacity_quota_gib"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -8552,9 +8545,9 @@ class CfnVolumeProps:
         *,
         name: builtins.str,
         backup_id: typing.Optional[builtins.str] = None,
-        ontap_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_zfs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVolume.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ontap_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.OntapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_zfs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVolume.OpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVolume``.
@@ -8672,7 +8665,7 @@ class CfnVolumeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba019369261767d6713a59ea11f0b77df010707dad4c986d34b90921d5f573ef)
+            type_hints = cached_type_hints(_typecheckingstub__ba019369261767d6713a59ea11f0b77df010707dad4c986d34b90921d5f573ef)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
             check_type(argname="argument ontap_configuration", value=ontap_configuration, expected_type=type_hints["ontap_configuration"])
@@ -8715,27 +8708,27 @@ class CfnVolumeProps:
     @builtins.property
     def ontap_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OntapConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OntapConfigurationProperty"]]:
         '''The configuration of an Amazon FSx for NetApp ONTAP volume.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-volume.html#cfn-fsx-volume-ontapconfiguration
         '''
         result = self._values.get("ontap_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OntapConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OntapConfigurationProperty"]], result)
 
     @builtins.property
     def open_zfs_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OpenZFSConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OpenZFSConfigurationProperty"]]:
         '''The configuration of an Amazon FSx for OpenZFS volume.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-volume.html#cfn-fsx-volume-openzfsconfiguration
         '''
         result = self._values.get("open_zfs_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVolume.OpenZFSConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVolume.OpenZFSConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -8743,7 +8736,7 @@ class CfnVolumeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-volume.html#cfn-fsx-volume-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
@@ -8829,7 +8822,7 @@ class DailyAutomaticBackupStartTimeProps:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44f298a8565ab83be6194258a86fb2bd0bd7844cc3b7e42c0cbdd5ded4c6f84f)
+            type_hints = cached_type_hints(_typecheckingstub__44f298a8565ab83be6194258a86fb2bd0bd7844cc3b7e42c0cbdd5ded4c6f84f)
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8907,7 +8900,7 @@ class FileSystemAttributes:
         *,
         dns_name: builtins.str,
         file_system_id: builtins.str,
-        security_group: "_ISecurityGroup_acf8a799",
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
     ) -> None:
         '''Properties that describe an existing FSx file system.
 
@@ -8946,7 +8939,7 @@ class FileSystemAttributes:
             fs.connections.allow_default_port_from(inst)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__244a68ed58458734fc468d2488bea9a1a0709a590b99f26e51e4624fd2762694)
+            type_hints = cached_type_hints(_typecheckingstub__244a68ed58458734fc468d2488bea9a1a0709a590b99f26e51e4624fd2762694)
             check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
@@ -8971,11 +8964,11 @@ class FileSystemAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def security_group(self) -> "_ISecurityGroup_acf8a799":
+    def security_group(self) -> "_aws_ec2_09840e12.ISecurityGroup":
         '''The security group of the file system.'''
         result = self._values.get("security_group")
         assert result is not None, "Required property 'security_group' is missing"
-        return typing.cast("_ISecurityGroup_acf8a799", result)
+        return typing.cast("_aws_ec2_09840e12.ISecurityGroup", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9007,11 +9000,11 @@ class FileSystemProps:
         self,
         *,
         storage_capacity_gib: jsii.Number,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         backup_id: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         storage_type: typing.Optional["StorageType"] = None,
     ) -> None:
         '''Properties for the FSx file system.
@@ -9053,7 +9046,7 @@ class FileSystemProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53f2e92923bf875c7e108f12d87a8f496daa12a3810536a41e896037f8b1098a)
+            type_hints = cached_type_hints(_typecheckingstub__53f2e92923bf875c7e108f12d87a8f496daa12a3810536a41e896037f8b1098a)
             check_type(argname="argument storage_capacity_gib", value=storage_capacity_gib, expected_type=type_hints["storage_capacity_gib"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
@@ -9090,11 +9083,11 @@ class FileSystemProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC to launch the file system in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def backup_id(self) -> typing.Optional[builtins.str]:
@@ -9108,31 +9101,31 @@ class FileSystemProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''The KMS key used for encryption to protect your data at rest.
 
         :default: - the aws/fsx default KMS key for the AWS account being deployed into.
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the file system is removed from the stack.
 
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security Group to assign to this file system.
 
         :default: - creates new security group which allows all outbound traffic.
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def storage_type(self) -> typing.Optional["StorageType"]:
@@ -9186,7 +9179,7 @@ class FileSystemTypeVersion(enum.Enum):
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_fsx.IFileSystem")
-class IFileSystem(_IConnectable_10015a05, typing_extensions.Protocol):
+class IFileSystem(_aws_ec2_09840e12.IConnectable, typing_extensions.Protocol):
     '''Interface to implement FSx File Systems.'''
 
     @builtins.property
@@ -9200,7 +9193,7 @@ class IFileSystem(_IConnectable_10015a05, typing_extensions.Protocol):
 
 
 class _IFileSystemProxy(
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
 ):
     '''Interface to implement FSx File Systems.'''
 
@@ -9294,7 +9287,7 @@ class LustreConfiguration:
         *,
         deployment_type: "LustreDeploymentType",
         auto_import_policy: typing.Optional["LustreAutoImportPolicy"] = None,
-        automatic_backup_retention: typing.Optional["_Duration_4839e8c3"] = None,
+        automatic_backup_retention: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         copy_tags_to_backups: typing.Optional[builtins.bool] = None,
         daily_automatic_backup_start_time: typing.Optional["DailyAutomaticBackupStartTime"] = None,
         data_compression_type: typing.Optional["LustreDataCompressionType"] = None,
@@ -9346,7 +9339,7 @@ class LustreConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__567936f469e5b9500e7485b8f46c5424a41d75153adaae2a59be9e33735a9e0a)
+            type_hints = cached_type_hints(_typecheckingstub__567936f469e5b9500e7485b8f46c5424a41d75153adaae2a59be9e33735a9e0a)
             check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
             check_type(argname="argument auto_import_policy", value=auto_import_policy, expected_type=type_hints["auto_import_policy"])
             check_type(argname="argument automatic_backup_retention", value=automatic_backup_retention, expected_type=type_hints["automatic_backup_retention"])
@@ -9411,7 +9404,9 @@ class LustreConfiguration:
         return typing.cast(typing.Optional["LustreAutoImportPolicy"], result)
 
     @builtins.property
-    def automatic_backup_retention(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def automatic_backup_retention(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of days to retain automatic backups.
 
         Setting this property to 0 disables automatic backups.
@@ -9422,7 +9417,7 @@ class LustreConfiguration:
         :default: Duration.days(0)
         '''
         result = self._values.get("automatic_backup_retention")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def copy_tags_to_backups(self) -> typing.Optional[builtins.bool]:
@@ -9643,14 +9638,14 @@ class LustreFileSystemProps(FileSystemProps):
         self,
         *,
         storage_capacity_gib: jsii.Number,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         backup_id: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         storage_type: typing.Optional["StorageType"] = None,
         lustre_configuration: typing.Union["LustreConfiguration", typing.Dict[builtins.str, typing.Any]],
-        vpc_subnet: "_ISubnet_d57d1229",
+        vpc_subnet: "_aws_ec2_09840e12.ISubnet",
         file_system_type_version: typing.Optional["FileSystemTypeVersion"] = None,
     ) -> None:
         '''Properties specific to the Lustre version of the FSx file system.
@@ -9693,7 +9688,7 @@ class LustreFileSystemProps(FileSystemProps):
         if isinstance(lustre_configuration, dict):
             lustre_configuration = LustreConfiguration(**lustre_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a492bedf6926d6b61f8888b09c8516deeb8bda6c3b965e000434ef737080610)
+            type_hints = cached_type_hints(_typecheckingstub__4a492bedf6926d6b61f8888b09c8516deeb8bda6c3b965e000434ef737080610)
             check_type(argname="argument storage_capacity_gib", value=storage_capacity_gib, expected_type=type_hints["storage_capacity_gib"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
@@ -9737,11 +9732,11 @@ class LustreFileSystemProps(FileSystemProps):
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC to launch the file system in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
     def backup_id(self) -> typing.Optional[builtins.str]:
@@ -9755,31 +9750,31 @@ class LustreFileSystemProps(FileSystemProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''The KMS key used for encryption to protect your data at rest.
 
         :default: - the aws/fsx default KMS key for the AWS account being deployed into.
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the file system is removed from the stack.
 
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security Group to assign to this file system.
 
         :default: - creates new security group which allows all outbound traffic.
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def storage_type(self) -> typing.Optional["StorageType"]:
@@ -9800,11 +9795,11 @@ class LustreFileSystemProps(FileSystemProps):
         return typing.cast("LustreConfiguration", result)
 
     @builtins.property
-    def vpc_subnet(self) -> "_ISubnet_d57d1229":
+    def vpc_subnet(self) -> "_aws_ec2_09840e12.ISubnet":
         '''The subnet that the file system will be accessible from.'''
         result = self._values.get("vpc_subnet")
         assert result is not None, "Required property 'vpc_subnet' is missing"
-        return typing.cast("_ISubnet_d57d1229", result)
+        return typing.cast("_aws_ec2_09840e12.ISubnet", result)
 
     @builtins.property
     def file_system_type_version(self) -> typing.Optional["FileSystemTypeVersion"]:
@@ -9906,7 +9901,7 @@ class LustreMaintenanceTimeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc94f6200f3eee388a3437ca1b21ccfd3114301cc6d1380acbedd38b5fcbb15c)
+            type_hints = cached_type_hints(_typecheckingstub__dc94f6200f3eee388a3437ca1b21ccfd3114301cc6d1380acbedd38b5fcbb15c)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -9999,7 +9994,7 @@ class Weekday(enum.Enum):
 
 @jsii.implements(IFileSystem)
 class FileSystemBase(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_fsx.FileSystemBase",
 ):
@@ -10024,10 +10019,10 @@ class FileSystemBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13c8eb2a054ba34d62a2d853d84f6f55a7fbd17e6ab29d9766b15060d6500aa4)
+            type_hints = cached_type_hints(_typecheckingstub__13c8eb2a054ba34d62a2d853d84f6f55a7fbd17e6ab29d9766b15060d6500aa4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -10039,7 +10034,7 @@ class FileSystemBase(
     @builtins.property
     @jsii.member(jsii_name="connections")
     @abc.abstractmethod
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The security groups/rules used to allow network connections to the file system.
 
         :attribute: true
@@ -10069,16 +10064,16 @@ class FileSystemBase(
 
 class _FileSystemBaseProxy(
     FileSystemBase,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The security groups/rules used to allow network connections to the file system.
 
         :attribute: true
         '''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="dnsName")
@@ -10142,14 +10137,14 @@ class LustreFileSystem(
         id: builtins.str,
         *,
         lustre_configuration: typing.Union["LustreConfiguration", typing.Dict[builtins.str, typing.Any]],
-        vpc_subnet: "_ISubnet_d57d1229",
+        vpc_subnet: "_aws_ec2_09840e12.ISubnet",
         file_system_type_version: typing.Optional["FileSystemTypeVersion"] = None,
         storage_capacity_gib: jsii.Number,
-        vpc: "_IVpc_f30d5663",
+        vpc: "_aws_ec2_09840e12.IVpc",
         backup_id: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         storage_type: typing.Optional["StorageType"] = None,
     ) -> None:
         '''
@@ -10167,7 +10162,7 @@ class LustreFileSystem(
         :param storage_type: The storage type for the file system that you're creating. Default: StorageType.SSD
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb0a1c17b53cef80f7d054c1b0c4d50733434d66dd0658819e0a58df8a35eede)
+            type_hints = cached_type_hints(_typecheckingstub__fb0a1c17b53cef80f7d054c1b0c4d50733434d66dd0658819e0a58df8a35eede)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LustreFileSystemProps(
@@ -10194,7 +10189,7 @@ class LustreFileSystem(
         *,
         dns_name: builtins.str,
         file_system_id: builtins.str,
-        security_group: "_ISecurityGroup_acf8a799",
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
     ) -> "IFileSystem":
         '''Import an existing FSx for Lustre file system from the given properties.
 
@@ -10205,7 +10200,7 @@ class LustreFileSystem(
         :param security_group: The security group of the file system.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09e9dff8e14ff81d8a495f07b5f7c6e2a9d756a63b5d283b892189cdc09aac1d)
+            type_hints = cached_type_hints(_typecheckingstub__09e9dff8e14ff81d8a495f07b5f7c6e2a9d756a63b5d283b892189cdc09aac1d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = FileSystemAttributes(
@@ -10224,9 +10219,9 @@ class LustreFileSystem(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The security groups/rules used to allow network connections to the file system.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="dnsName")
@@ -10292,10 +10287,10 @@ def _typecheckingstub__dbe6e92927c4082cced17704c323c0e8dfbb17ada263b6e29e1a80b69
     data_repository_path: builtins.str,
     file_system_id: builtins.str,
     file_system_path: builtins.str,
-    batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     imported_file_chunk_size: typing.Optional[jsii.Number] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataRepositoryAssociation.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataRepositoryAssociation.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10307,7 +10302,7 @@ def _typecheckingstub__ec2964d32a48fe526042aee95a1a423f4a496e235f2ce481f01a4c8bc
     pass
 
 def _typecheckingstub__91cc4e67660a8ade53fdb55d0b22b24057bd4d13556bece96527303175e40fb2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10337,7 +10332,7 @@ def _typecheckingstub__ab8ea2139716ac0a4738752fd4cc02c3eeff50271a2531f36fb6cbbc8
     pass
 
 def _typecheckingstub__66eebe886c3f0810ceaf823210df9d48c8a819acffcccea06fb28a46a9476c9c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10349,13 +10344,13 @@ def _typecheckingstub__17a425cf37f3cbf2bfc5ef9646e6cfee33226e1bebec498ea26afc423
     pass
 
 def _typecheckingstub__b26b64eafc3f22ff73c4e762a5a0160c62bfbb5da4b94dcfbfc5ee130fd3dbbe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataRepositoryAssociation.S3Property]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataRepositoryAssociation.S3Property]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5b17b8dd1997c9e3ce27b7046b8e926e741f7ff40cb4c08761a6963b701aa37b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10376,8 +10371,8 @@ def _typecheckingstub__262052dc27e2af1639bfdd6f20b77906b9cde3ab7f7cf41f5d1ce4dd7
 
 def _typecheckingstub__c51222c92a9dea45727ad5662c4192ce5a6465b93f100d4aca9ba1ae0dd36f0f(
     *,
-    auto_export_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataRepositoryAssociation.AutoExportPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_import_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataRepositoryAssociation.AutoImportPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_export_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataRepositoryAssociation.AutoExportPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_import_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataRepositoryAssociation.AutoImportPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10387,10 +10382,10 @@ def _typecheckingstub__44687c3c12e4575aa7d1eed69c1c33c3b113d2851a10f81139de84750
     data_repository_path: builtins.str,
     file_system_id: builtins.str,
     file_system_path: builtins.str,
-    batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     imported_file_chunk_size: typing.Optional[jsii.Number] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataRepositoryAssociation.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataRepositoryAssociation.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10404,15 +10399,15 @@ def _typecheckingstub__2d13764c3dcb8d96799af4fa191d042ff4511c33cfd1aecbf235dded3
     backup_id: typing.Optional[builtins.str] = None,
     file_system_type_version: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lustre_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_capacity: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    windows_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.WindowsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    windows_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.WindowsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10424,7 +10419,7 @@ def _typecheckingstub__9a96b8e60d5803996a8d064489e9cac37bd2c6ccc9675e614051c3b31
     pass
 
 def _typecheckingstub__efa97d460c79f89f1c93c67811b11bb8189aad31dab4f902b9e5edeb2032b5ad(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10466,7 +10461,7 @@ def _typecheckingstub__2a995a5203534aaa7de420e181d7312324d19d173e082b126d80f3d48
     pass
 
 def _typecheckingstub__8646d19693a6f9abdd169bfa6ea6d4e784eba3f5391bff175f38918b462ca24a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.LustreConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileSystem.LustreConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10478,13 +10473,13 @@ def _typecheckingstub__7799a7898c1d78dcdd2f9531854e7ff35a8f4a27f4de33e706134e2fa
     pass
 
 def _typecheckingstub__bc9b2f53e3a613c4a5e71936700bde6bac2b8c2691534dac7d5a5ce18f7e0687(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.OntapConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileSystem.OntapConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__80c2475105ebf7a37b52d7be075d63b18127d19bbaf5585ca32a46cdec15b7a3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.OpenZFSConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileSystem.OpenZFSConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10508,13 +10503,13 @@ def _typecheckingstub__fce57a2ae10cfa104c280794987aec0333bdfd909f65b4859aeebcf9b
     pass
 
 def _typecheckingstub__2e720c29458830d75de1bdfe562cd79a9e10dc997dc803507ee904c454c56ac0(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8c37e88d82ec2034f4c5130e12938ecf5cd2b51c51c06bfc9fdb84426b3e5117(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFileSystem.WindowsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileSystem.WindowsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10554,7 +10549,7 @@ def _typecheckingstub__ae47548d0ff6b28a7e7311347d5b08153a4d8130c5f4cd5b7ebd25883
 
 def _typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4f31cfe5(
     *,
-    fsrm_service_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    fsrm_service_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     event_log_destination: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10564,17 +10559,17 @@ def _typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160
     *,
     auto_import_policy: typing.Optional[builtins.str] = None,
     automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
     data_compression_type: typing.Optional[builtins.str] = None,
-    data_read_cache_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DataReadCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_read_cache_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.DataReadCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     drive_cache_type: typing.Optional[builtins.str] = None,
-    efa_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    efa_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     export_path: typing.Optional[builtins.str] = None,
     imported_file_chunk_size: typing.Optional[jsii.Number] = None,
     import_path: typing.Optional[builtins.str] = None,
-    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     per_unit_storage_throughput: typing.Optional[jsii.Number] = None,
     throughput_capacity: typing.Optional[jsii.Number] = None,
     weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
@@ -10592,7 +10587,7 @@ def _typecheckingstub__7aa9a7707baff419117abba7f05ab48bf7b1de77cbcd91feed4ec16f2
 
 def _typecheckingstub__cf7e8e549f94791653e718c0386fce4703f149298e88872cacd000f16d38ec9d(
     *,
-    client_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.ClientConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    client_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.ClientConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10602,7 +10597,7 @@ def _typecheckingstub__0edc01444089461fa7f6973acca3d475ebd67f0229380856776cb1bcb
     deployment_type: builtins.str,
     automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
-    disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disk_iops_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     endpoint_ip_address_range: typing.Optional[builtins.str] = None,
     endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
     fsx_admin_password: typing.Optional[builtins.str] = None,
@@ -10620,16 +10615,16 @@ def _typecheckingstub__5472f29690b088eacdf6c6853ffd8b23cd15c760dc30d812107be1280
     *,
     deployment_type: builtins.str,
     automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    copy_tags_to_volumes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    copy_tags_to_volumes: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
-    disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disk_iops_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     endpoint_ip_address_range: typing.Optional[builtins.str] = None,
     endpoint_ipv6_address_range: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Sequence[builtins.str]] = None,
     preferred_subnet_id: typing.Optional[builtins.str] = None,
-    read_cache_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.ReadCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    root_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.RootVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_cache_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.ReadCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    root_volume_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.RootVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     throughput_capacity: typing.Optional[jsii.Number] = None,
     weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
@@ -10647,12 +10642,12 @@ def _typecheckingstub__5da424653f281066f7140c38ddd8b33a2fdb52a49e2f3ecfacac378ab
 
 def _typecheckingstub__7c2a873402766c6577ffe7568330e8c952efaedecdfd993af4793d2ea6d69f8b(
     *,
-    copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     data_compression_type: typing.Optional[builtins.str] = None,
-    nfs_exports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.NfsExportsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    nfs_exports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.NfsExportsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    read_only: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     record_size_kib: typing.Optional[jsii.Number] = None,
-    user_and_group_quotas: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.UserAndGroupQuotasProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_and_group_quotas: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.UserAndGroupQuotasProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10684,15 +10679,15 @@ def _typecheckingstub__6f9cac75c57fdd9a5bd887a9ae65722d8acdd7a64ee9180917b3aa6b9
     throughput_capacity: jsii.Number,
     active_directory_id: typing.Optional[builtins.str] = None,
     aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
-    audit_log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.AuditLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    audit_log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.AuditLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     automatic_backup_retention_days: typing.Optional[jsii.Number] = None,
-    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_backups: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
-    disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fsrm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.FsrmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disk_iops_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fsrm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.FsrmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     preferred_subnet_id: typing.Optional[builtins.str] = None,
-    self_managed_active_directory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    self_managed_active_directory_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10705,15 +10700,15 @@ def _typecheckingstub__cc6cf655096c0830614c2b73c7ebf907b07fc70f50859b1aa0f76bbf6
     backup_id: typing.Optional[builtins.str] = None,
     file_system_type_version: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    lustre_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lustre_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_capacity: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    windows_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.WindowsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    windows_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileSystem.WindowsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10724,9 +10719,9 @@ def _typecheckingstub__f51e0b107c6c6ca8bc284dbcf4013f6c7bcdd088cb084476fdf615b4d
     *,
     name: builtins.str,
     type: builtins.str,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_access_point: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10738,7 +10733,7 @@ def _typecheckingstub__d540dafa7fae09ad03b252b57b50ded7c907de9e2c8c4d193e684b1a2
     pass
 
 def _typecheckingstub__6e021f2b2cc052b241526f0c8b04451cdbb773840ed5e597d710011b7885f25f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10762,19 +10757,19 @@ def _typecheckingstub__ece88a5ab6d3a69d75415d92fc3eea5b9fd91186f1a15239e5ec10f6c
     pass
 
 def _typecheckingstub__ccdbf866601ccc3fde6f940ff739a2562cc1c309ef90b42b775dd99df2fdfcaa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0756a73fef71599ffefeead45c6d0ea227439b511cdc73a360780b4f4c0df186(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1588dcc78f8354bc56e434d157b8dadab331295e3cbf0c065b7bd4b4b793aaa0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnS3AccessPointAttachment.S3AccessPointProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10789,8 +10784,8 @@ def _typecheckingstub__72efd25b3b6057030d910de35b2f8e4104cb66dc72f89dc8ebb3b89da
 def _typecheckingstub__8fa52e228c3f00dff810dd25b1ab25944a00d021001f5f7deba29831ba7ad146(
     *,
     type: builtins.str,
-    unix_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    windows_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unix_user: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.OntapUnixFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    windows_user: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.OntapWindowsFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10811,7 +10806,7 @@ def _typecheckingstub__6eec503de84fe72fceb217f03035b3a3c1189dee09fa8745ec2750b96
 
 def _typecheckingstub__af3bbbb456f8fdedf7c641c4786d89bf08acb663687e1b91f1ffdb83ab9819cb(
     *,
-    posix_user: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]],
+    posix_user: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -10821,14 +10816,14 @@ def _typecheckingstub__3decc490fdc822be6603dab799c80c7e004416dbd58cc34ea290fa556
     *,
     gid: jsii.Number,
     uid: jsii.Number,
-    secondary_gids: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.FileSystemGIDProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    secondary_gids: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.FileSystemGIDProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__623512723a65c5bd3489003d2a55e48c3b784ec61cdf28eadea014b98b2026a1(
     *,
-    file_system_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
+    file_system_identity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.OntapFileSystemIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
     volume_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -10836,7 +10831,7 @@ def _typecheckingstub__623512723a65c5bd3489003d2a55e48c3b784ec61cdf28eadea014b98
 
 def _typecheckingstub__19e4ea8fd55e864f4fe150ca7ce6a9a2838595c2d032b53647f2917e1f00ccfa(
     *,
-    file_system_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
+    file_system_identity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
     volume_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -10847,7 +10842,7 @@ def _typecheckingstub__f4a6a2c709cd1951841b5d405e10b97412387430297e85aa1495d3aab
     alias: typing.Optional[builtins.str] = None,
     policy: typing.Any = None,
     resource_arn: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10863,9 +10858,9 @@ def _typecheckingstub__f8d86aefcd2904a1c36c865f774d6ff97130a2707963573cf5c4a4173
     *,
     name: builtins.str,
     type: builtins.str,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_access_point: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10876,7 +10871,7 @@ def _typecheckingstub__9d5d4adee5d5cd344131498bc7092a1109dbe23b110d78c712b65bf14
     *,
     name: builtins.str,
     volume_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10888,7 +10883,7 @@ def _typecheckingstub__7540d3c0a594f1d80faa8559da6b9ca57fbb2d98ebb188f822c5a6324
     pass
 
 def _typecheckingstub__e16496e8dfd463b470127a5c588838d852660a318c398df552c6e9b695f66236(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10912,7 +10907,7 @@ def _typecheckingstub__6bfe067c48a4e1e3f0d2d4622cbee11e41cf31d4cd3c0593f27e984ec
     pass
 
 def _typecheckingstub__240c01330f696630f8aa879c03a1e67f9e74372d6432d08d7ec8fe84e6ad0a72(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10921,7 +10916,7 @@ def _typecheckingstub__d536d6d64d7e0b96291479b71956ab2d19009e1e9c06dadd5d7bbce6e
     *,
     name: builtins.str,
     volume_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10932,10 +10927,10 @@ def _typecheckingstub__3859c7ed2c6acfabdeba44c5147f6c5a5bf3d7d6a4e09a2dac79cbdc9
     *,
     file_system_id: builtins.str,
     name: builtins.str,
-    active_directory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    active_directory_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     root_volume_security_style: typing.Optional[builtins.str] = None,
     svm_admin_password: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10947,7 +10942,7 @@ def _typecheckingstub__12c4a933de1c37ba35741fa2dafde79b84698f85b280474873d8e023c
     pass
 
 def _typecheckingstub__31b1cfcc22cc24d2b1a1c747cbd80eac430e58627890c3c4c8e63fcd6215a5f6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10971,7 +10966,7 @@ def _typecheckingstub__9c4f0c6321de43aeb7b5d99b2267a514ba4c3834c1361fea70b580203
     pass
 
 def _typecheckingstub__f6d378bddb8b214a0ee61f681ebc3e6e2a6e039306c8569fe43fd3a40f9d8b82(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10989,7 +10984,7 @@ def _typecheckingstub__b5e1df55a059871987c3d2b8e45ef92f03b9b86300f13c97f410229db
     pass
 
 def _typecheckingstub__c36644ee4704160a7ea3d6f3129675404852974497abe8a0a6b5373b6c063f92(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10997,7 +10992,7 @@ def _typecheckingstub__c36644ee4704160a7ea3d6f3129675404852974497abe8a0a6b5373b6
 def _typecheckingstub__004395de3c18e64bb2e0a0809b7f0ebf750cd4ce948a172a9f8ad61dc7e1c91d(
     *,
     net_bios_name: typing.Optional[builtins.str] = None,
-    self_managed_active_directory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    self_managed_active_directory_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageVirtualMachine.SelfManagedActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11019,10 +11014,10 @@ def _typecheckingstub__f5433d27fd2f228fdff93b984ea8b9bcef2161e6ed49b4b01861a400f
     *,
     file_system_id: builtins.str,
     name: builtins.str,
-    active_directory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    active_directory_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageVirtualMachine.ActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     root_volume_security_style: typing.Optional[builtins.str] = None,
     svm_admin_password: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11033,9 +11028,9 @@ def _typecheckingstub__8032dc0135fe914a968f543d77b52c3a075a98fbe43ae2b6c95c8ef1f
     *,
     name: builtins.str,
     backup_id: typing.Optional[builtins.str] = None,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     volume_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11048,7 +11043,7 @@ def _typecheckingstub__4f54676aad4c6fc45165240c1ef076784b084beae9efcc0c2fd08219a
     pass
 
 def _typecheckingstub__685e83727e385640b6d5ed975f59b17a0bb8b610904662d23a1881638e8bb87a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11072,19 +11067,19 @@ def _typecheckingstub__a7a383e3e87a1e093e9488d60889ef5ad7153045c3f5346810d327ec5
     pass
 
 def _typecheckingstub__9d9d5aa82b45919603e76f1eb93e8d847f3f30ecda3dd0f9daafc4ac8393f820(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVolume.OntapConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVolume.OntapConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b8c561a21f1815fe46ff87dc14e109264d04a4cb99e438a866e3e0f045e636db(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVolume.OpenZFSConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVolume.OpenZFSConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__634c85533e9a6b79f20e610d3f3d0cf9acdaa9fc5989a7eaf5e5c378160ab13e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11121,7 +11116,7 @@ def _typecheckingstub__f08ab33ef646aec0cb0f4643c61979f34643d3c70468c74e2a416bd6d
 
 def _typecheckingstub__cb01e79bd54d686dc3dcaddeeb0ff9010745b22b116acad7cd9a42674578991a(
     *,
-    client_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.ClientConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    client_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.ClientConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11129,17 +11124,17 @@ def _typecheckingstub__cb01e79bd54d686dc3dcaddeeb0ff9010745b22b116acad7cd9a42674
 def _typecheckingstub__c59057f0564a68f2e8b0856d1abaafd720a53334166b90e51d10188cfce02503(
     *,
     storage_virtual_machine_id: builtins.str,
-    aggregate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.AggregateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aggregate_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.AggregateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     copy_tags_to_backups: typing.Optional[builtins.str] = None,
     junction_path: typing.Optional[builtins.str] = None,
     ontap_volume_type: typing.Optional[builtins.str] = None,
     security_style: typing.Optional[builtins.str] = None,
     size_in_bytes: typing.Optional[builtins.str] = None,
     size_in_megabytes: typing.Optional[builtins.str] = None,
-    snaplock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.SnaplockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snaplock_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.SnaplockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_policy: typing.Optional[builtins.str] = None,
     storage_efficiency_enabled: typing.Optional[builtins.str] = None,
-    tiering_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.TieringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tiering_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.TieringPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     volume_style: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11148,16 +11143,16 @@ def _typecheckingstub__c59057f0564a68f2e8b0856d1abaafd720a53334166b90e51d10188cf
 def _typecheckingstub__b6871ad9e290cb99fa362c6c95d24dbb5f632a72fc3f981d29d37fa59454bc57(
     *,
     parent_volume_id: builtins.str,
-    copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    copy_tags_to_snapshots: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     data_compression_type: typing.Optional[builtins.str] = None,
-    nfs_exports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.NfsExportsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nfs_exports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.NfsExportsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     options: typing.Optional[typing.Sequence[builtins.str]] = None,
-    origin_snapshot: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.OriginSnapshotProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    origin_snapshot: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.OriginSnapshotProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_only: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     record_size_kib: typing.Optional[jsii.Number] = None,
     storage_capacity_quota_gib: typing.Optional[jsii.Number] = None,
     storage_capacity_reservation_gib: typing.Optional[jsii.Number] = None,
-    user_and_group_quotas: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.UserAndGroupQuotasProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_and_group_quotas: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.UserAndGroupQuotasProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11182,9 +11177,9 @@ def _typecheckingstub__8f9e0ebadbb084801a8369e10dedaa357ee613ae071ef81d54a887da8
     *,
     snaplock_type: builtins.str,
     audit_log_volume: typing.Optional[builtins.str] = None,
-    autocommit_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.AutocommitPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    autocommit_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.AutocommitPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     privileged_delete: typing.Optional[builtins.str] = None,
-    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.SnaplockRetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.SnaplockRetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     volume_append_mode_enabled: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11192,9 +11187,9 @@ def _typecheckingstub__8f9e0ebadbb084801a8369e10dedaa357ee613ae071ef81d54a887da8
 
 def _typecheckingstub__3cc407f519635d66c9812be9384b014c58f8485db353359a8ead1b22b78049a8(
     *,
-    default_retention: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
-    maximum_retention: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
-    minimum_retention: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    default_retention: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    maximum_retention: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    minimum_retention: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11220,9 +11215,9 @@ def _typecheckingstub__ba019369261767d6713a59ea11f0b77df010707dad4c986d34b90921d
     *,
     name: builtins.str,
     backup_id: typing.Optional[builtins.str] = None,
-    ontap_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_zfs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ontap_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.OntapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_zfs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVolume.OpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     volume_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11240,7 +11235,7 @@ def _typecheckingstub__244a68ed58458734fc468d2488bea9a1a0709a590b99f26e51e4624fd
     *,
     dns_name: builtins.str,
     file_system_id: builtins.str,
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11248,11 +11243,11 @@ def _typecheckingstub__244a68ed58458734fc468d2488bea9a1a0709a590b99f26e51e4624fd
 def _typecheckingstub__53f2e92923bf875c7e108f12d87a8f496daa12a3810536a41e896037f8b1098a(
     *,
     storage_capacity_gib: jsii.Number,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     backup_id: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     storage_type: typing.Optional[StorageType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11262,7 +11257,7 @@ def _typecheckingstub__567936f469e5b9500e7485b8f46c5424a41d75153adaae2a59be9e337
     *,
     deployment_type: LustreDeploymentType,
     auto_import_policy: typing.Optional[LustreAutoImportPolicy] = None,
-    automatic_backup_retention: typing.Optional[_Duration_4839e8c3] = None,
+    automatic_backup_retention: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     copy_tags_to_backups: typing.Optional[builtins.bool] = None,
     daily_automatic_backup_start_time: typing.Optional[DailyAutomaticBackupStartTime] = None,
     data_compression_type: typing.Optional[LustreDataCompressionType] = None,
@@ -11279,14 +11274,14 @@ def _typecheckingstub__567936f469e5b9500e7485b8f46c5424a41d75153adaae2a59be9e337
 def _typecheckingstub__4a492bedf6926d6b61f8888b09c8516deeb8bda6c3b965e000434ef737080610(
     *,
     storage_capacity_gib: jsii.Number,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     backup_id: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     storage_type: typing.Optional[StorageType] = None,
     lustre_configuration: typing.Union[LustreConfiguration, typing.Dict[builtins.str, typing.Any]],
-    vpc_subnet: _ISubnet_d57d1229,
+    vpc_subnet: _aws_ec2_09840e12.ISubnet,
     file_system_type_version: typing.Optional[FileSystemTypeVersion] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11318,14 +11313,14 @@ def _typecheckingstub__fb0a1c17b53cef80f7d054c1b0c4d50733434d66dd0658819e0a58df8
     id: builtins.str,
     *,
     lustre_configuration: typing.Union[LustreConfiguration, typing.Dict[builtins.str, typing.Any]],
-    vpc_subnet: _ISubnet_d57d1229,
+    vpc_subnet: _aws_ec2_09840e12.ISubnet,
     file_system_type_version: typing.Optional[FileSystemTypeVersion] = None,
     storage_capacity_gib: jsii.Number,
-    vpc: _IVpc_f30d5663,
+    vpc: _aws_ec2_09840e12.IVpc,
     backup_id: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     storage_type: typing.Optional[StorageType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11337,7 +11332,7 @@ def _typecheckingstub__09e9dff8e14ff81d8a495f07b5f7c6e2a9d756a63b5d283b892189cdc
     *,
     dns_name: builtins.str,
     file_system_id: builtins.str,
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
 ) -> None:
     """Type checking stubs"""
     pass

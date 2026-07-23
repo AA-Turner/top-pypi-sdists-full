@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, cell::Cell, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
 use rkyv::{primitive::ArchivedU64, vec::ArchivedVec};
@@ -26,6 +26,93 @@ const TAG: &str = "SpecsHashMap";
 #[derive(PartialEq, Debug, Default)] /* DO_NOT_CLONE */
 pub struct SpecsHashMap(pub HashMap<InternedString, SpecPointer>);
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct SpecDecodeStats {
+    pub(crate) total: usize,
+    pub(crate) mmap: usize,
+}
+
+thread_local! {
+    // Count representation while maps are already being materialized so telemetry does not
+    // require another O(n) walk over production-sized specs. Delta decoding seeds this count from
+    // the previous snapshot before applying its changes.
+    static ACTIVE_SPEC_DECODE_STATS: Cell<Option<SpecDecodeStats>> = const { Cell::new(None) };
+}
+
+struct SpecDecodeStatsGuard {
+    previous: Option<SpecDecodeStats>,
+}
+
+impl Drop for SpecDecodeStatsGuard {
+    fn drop(&mut self) {
+        ACTIVE_SPEC_DECODE_STATS.with(|stats| stats.set(self.previous));
+    }
+}
+
+pub(crate) fn track_spec_decodes<T>(callback: impl FnOnce() -> T) -> (T, SpecDecodeStats) {
+    let previous =
+        ACTIVE_SPEC_DECODE_STATS.with(|stats| stats.replace(Some(SpecDecodeStats::default())));
+    let guard = SpecDecodeStatsGuard { previous };
+    let result = callback();
+    let stats = ACTIVE_SPEC_DECODE_STATS.with(Cell::get).unwrap_or_default();
+    drop(guard);
+    (result, stats)
+}
+
+pub(crate) fn seed_spec_decode_stats(stats: SpecDecodeStats) {
+    ACTIVE_SPEC_DECODE_STATS.with(|active| {
+        if active.get().is_some() {
+            active.set(Some(stats));
+        }
+    });
+}
+
+fn record_specs_cleared(values: &HashMap<InternedString, SpecPointer>) {
+    ACTIVE_SPEC_DECODE_STATS.with(|active| {
+        let Some(mut stats) = active.get() else {
+            return;
+        };
+
+        stats.total -= values.len();
+        stats.mmap -= values.values().filter(|value| value.is_mmap()).count();
+        active.set(Some(stats));
+    });
+}
+
+fn record_spec_change(previous_is_mmap: Option<bool>, next_is_mmap: Option<bool>) {
+    ACTIVE_SPEC_DECODE_STATS.with(|active| {
+        let Some(mut stats) = active.get() else {
+            return;
+        };
+
+        if let Some(previous_is_mmap) = previous_is_mmap {
+            stats.total -= 1;
+            stats.mmap -= usize::from(previous_is_mmap);
+        }
+        if let Some(next_is_mmap) = next_is_mmap {
+            stats.total += 1;
+            stats.mmap += usize::from(next_is_mmap);
+        }
+        active.set(Some(stats));
+    });
+}
+
+#[cfg(test)]
+mod decode_stats_tests {
+    use super::{record_spec_change, seed_spec_decode_stats, track_spec_decodes, SpecDecodeStats};
+
+    #[test]
+    fn seeded_stats_track_replacements_and_deletions() {
+        let (_, stats) = track_spec_decodes(|| {
+            seed_spec_decode_stats(SpecDecodeStats { total: 3, mmap: 2 });
+            record_spec_change(Some(true), Some(false));
+            record_spec_change(Some(false), None);
+        });
+
+        assert_eq!(stats, SpecDecodeStats { total: 2, mmap: 1 });
+    }
+}
+
 impl<'de> Deserialize<'de> for SpecsHashMap {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
@@ -34,7 +121,7 @@ impl<'de> Deserialize<'de> for SpecsHashMap {
         let raw_values: HashMap<InternedString, Box<RawValue>> =
             Deserialize::deserialize(_deserializer)?;
 
-        let mut result = HashMap::with_capacity(raw_values.len());
+        let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
         for (key, raw_value) in raw_values.into_iter() {
             let json_string = raw_value.get();
 
@@ -75,7 +162,7 @@ impl<'de> Deserialize<'de> for SpecsHashMap {
             }
         }
 
-        Ok(SpecsHashMap(result))
+        Ok(result)
     }
 }
 
@@ -111,7 +198,12 @@ impl SpecsHashMap {
     }
 
     pub fn insert(&mut self, key: InternedString, value: SpecPointer) {
-        self.0.insert(key, value);
+        let next_is_mmap = value.is_mmap();
+        let previous = self.0.insert(key, value);
+        record_spec_change(
+            previous.as_ref().map(SpecPointer::is_mmap),
+            Some(next_is_mmap),
+        );
     }
 
     pub fn len(&self) -> usize {
@@ -123,11 +215,14 @@ impl SpecsHashMap {
     }
 
     pub fn clear(&mut self) {
+        record_specs_cleared(&self.0);
         self.0.clear();
     }
 
     pub fn remove(&mut self, key: &InternedString) -> Option<SpecPointer> {
-        self.0.remove(key)
+        let previous = self.0.remove(key);
+        record_spec_change(previous.as_ref().map(SpecPointer::is_mmap), None);
+        previous
     }
 }
 
@@ -215,7 +310,6 @@ impl SpecPointer {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn is_mmap(&self) -> bool {
         matches!(self.inner, SpecPointerInner::Mmap(_))
     }

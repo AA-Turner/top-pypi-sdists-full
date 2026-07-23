@@ -951,7 +951,7 @@ def process_file(
                 "filename": filename,
                 "name": name + version,
                 "nodes": nodes,
-                "deps": [x for x in set(deps)],
+                "deps": list(set(deps)),
                 "tokens": doc.tokens,
                 "description": description,
                 "warnings": doc.warnings,

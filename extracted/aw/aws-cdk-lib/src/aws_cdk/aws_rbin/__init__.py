@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_rbin import (
-    IRuleRef as _IRuleRef_4e521f27, RuleReference as _RuleReference_c80dfd0f
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_rbin as _aws_rbin_1c7a6c9f
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_rbin_1c7a6c9f = _LazyImport("aws_cdk.interfaces.aws_rbin")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IRuleRef_4e521f27, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rbin_1c7a6c9f.IRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rbin.CfnRule",
 ):
@@ -141,13 +136,13 @@ class CfnRule(
         id: builtins.str,
         *,
         resource_type: builtins.str,
-        retention_period: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+        retention_period: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        exclude_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        exclude_resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lock_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Rbin::Rule``.
 
@@ -163,7 +158,7 @@ class CfnRule(
         :param tags: Information about the tags to assign to the retention rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38111a34066818ca2f172524180ec7dec02ce564c681ac0c87097b02350ebe17)
+            type_hints = cached_type_hints(_typecheckingstub__38111a34066818ca2f172524180ec7dec02ce564c681ac0c87097b02350ebe17)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRuleProps(
@@ -181,12 +176,12 @@ class CfnRule(
 
     @jsii.member(jsii_name="arnForRule")
     @builtins.classmethod
-    def arn_for_rule(cls, resource: "_IRuleRef_4e521f27") -> builtins.str:
+    def arn_for_rule(cls, resource: "_aws_rbin_1c7a6c9f.IRuleRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7da27deaca2198440ed34a5309980243bc9e8578e620ae1d2780c39a98dee670)
+            type_hints = cached_type_hints(_typecheckingstub__7da27deaca2198440ed34a5309980243bc9e8578e620ae1d2780c39a98dee670)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRule", [resource]))
 
@@ -198,18 +193,18 @@ class CfnRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7930d1844a2fb30bdc1c6f84cf00255e7313e63639ab82659d1bb857ec18294d)
+            type_hints = cached_type_hints(_typecheckingstub__7930d1844a2fb30bdc1c6f84cf00255e7313e63639ab82659d1bb857ec18294d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5e2d558e79cd4c1853664243affb2788ae164a541fe9173013893487ad12468)
+            type_hints = cached_type_hints(_typecheckingstub__a5e2d558e79cd4c1853664243affb2788ae164a541fe9173013893487ad12468)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -222,7 +217,7 @@ class CfnRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f8034d4fc6a3ab8d042623ec8857f056b79c1bd97f0d82b66729845c9f14fa5)
+            type_hints = cached_type_hints(_typecheckingstub__6f8034d4fc6a3ab8d042623ec8857f056b79c1bd97f0d82b66729845c9f14fa5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -266,9 +261,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -282,9 +277,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "_RuleReference_c80dfd0f":
+    def rule_ref(self) -> "_aws_rbin_1c7a6c9f.RuleReference":
         '''A reference to a Rule resource.'''
-        return typing.cast("_RuleReference_c80dfd0f", jsii.get(self, "ruleRef"))
+        return typing.cast("_aws_rbin_1c7a6c9f.RuleReference", jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceType")
@@ -295,7 +290,7 @@ class CfnRule(
     @resource_type.setter
     def resource_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c74a6102cda767f81d08a2ce4a9f380c01bef76688ed3f2426a6abc2f6878bc)
+            type_hints = cached_type_hints(_typecheckingstub__5c74a6102cda767f81d08a2ce4a9f380c01bef76688ed3f2426a6abc2f6878bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
 
@@ -303,17 +298,17 @@ class CfnRule(
     @jsii.member(jsii_name="retentionPeriod")
     def retention_period(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetentionPeriodProperty"]:
         '''Information about the retention period for which the retention rule is to retain resources.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"], jsii.get(self, "retentionPeriod"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetentionPeriodProperty"], jsii.get(self, "retentionPeriod"))
 
     @retention_period.setter
     def retention_period(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetentionPeriodProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0d27934aff5d763d4a0cff90f748b18d817167613cec2de784a19e0980a2fe4)
+            type_hints = cached_type_hints(_typecheckingstub__d0d27934aff5d763d4a0cff90f748b18d817167613cec2de784a19e0980a2fe4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "retentionPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -326,7 +321,7 @@ class CfnRule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3d64ebf98762cb6f5e840690eeebd382523d8cea931da2c8618a90f770698c9)
+            type_hints = cached_type_hints(_typecheckingstub__d3d64ebf98762cb6f5e840690eeebd382523d8cea931da2c8618a90f770698c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -334,17 +329,17 @@ class CfnRule(
     @jsii.member(jsii_name="excludeResourceTags")
     def exclude_resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]]:
         '''[Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "excludeResourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "excludeResourceTags"))
 
     @exclude_resource_tags.setter
     def exclude_resource_tags(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20704aef7f8bc3c60046956bdcd1dc4e858b35b183e74b90587dae29d670872b)
+            type_hints = cached_type_hints(_typecheckingstub__20704aef7f8bc3c60046956bdcd1dc4e858b35b183e74b90587dae29d670872b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "excludeResourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -352,17 +347,17 @@ class CfnRule(
     @jsii.member(jsii_name="lockConfiguration")
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.UnlockDelayProperty"]]:
         '''Information about the retention rule lock configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]], jsii.get(self, "lockConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.UnlockDelayProperty"]], jsii.get(self, "lockConfiguration"))
 
     @lock_configuration.setter
     def lock_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.UnlockDelayProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f565c87c44cc6deeef0351aeb8e4b8ead6860f0e90c735ebf7826cdbc04ae0a)
+            type_hints = cached_type_hints(_typecheckingstub__9f565c87c44cc6deeef0351aeb8e4b8ead6860f0e90c735ebf7826cdbc04ae0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lockConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -370,17 +365,17 @@ class CfnRule(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]]:
         '''[Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e0b94a905f0a4a1448048e0ead85a45b5b5aa837fc74feedc20218875209250)
+            type_hints = cached_type_hints(_typecheckingstub__5e0b94a905f0a4a1448048e0ead85a45b5b5aa837fc74feedc20218875209250)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
 
@@ -393,20 +388,23 @@ class CfnRule(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb14fdab3dd71774cb9bab4038b816ff578268a68dda7042fda45b88adf4a647)
+            type_hints = cached_type_hints(_typecheckingstub__cb14fdab3dd71774cb9bab4038b816ff578268a68dda7042fda45b88adf4a647)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Information about the tags to assign to the retention rule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce724038f2c5f6b081624628cfc2e8ecba465376fcb9fc6a115d81b322693c72)
+            type_hints = cached_type_hints(_typecheckingstub__ce724038f2c5f6b081624628cfc2e8ecba465376fcb9fc6a115d81b322693c72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -445,7 +443,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86dbca3d8e90ed21aab495dd4465cd65c5600b932f6947382977ac6049cfdc9b)
+                type_hints = cached_type_hints(_typecheckingstub__86dbca3d8e90ed21aab495dd4465cd65c5600b932f6947382977ac6049cfdc9b)
                 check_type(argname="argument resource_tag_key", value=resource_tag_key, expected_type=type_hints["resource_tag_key"])
                 check_type(argname="argument resource_tag_value", value=resource_tag_value, expected_type=type_hints["resource_tag_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -519,7 +517,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c623c23074f8bcff0ea21ef370a8648f359985c15fca05e00e93100e4fc5254)
+                type_hints = cached_type_hints(_typecheckingstub__8c623c23074f8bcff0ea21ef370a8648f359985c15fca05e00e93100e4fc5254)
                 check_type(argname="argument retention_period_unit", value=retention_period_unit, expected_type=type_hints["retention_period_unit"])
                 check_type(argname="argument retention_period_value", value=retention_period_value, expected_type=type_hints["retention_period_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -602,7 +600,7 @@ class CfnRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5cb70d54df5cb782865dd65947c16d9455e200989ec0b11ea250d28107e4894)
+                type_hints = cached_type_hints(_typecheckingstub__d5cb70d54df5cb782865dd65947c16d9455e200989ec0b11ea250d28107e4894)
                 check_type(argname="argument unlock_delay_unit", value=unlock_delay_unit, expected_type=type_hints["unlock_delay_unit"])
                 check_type(argname="argument unlock_delay_value", value=unlock_delay_value, expected_type=type_hints["unlock_delay_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -662,13 +660,13 @@ class CfnRuleProps:
         self,
         *,
         resource_type: builtins.str,
-        retention_period: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+        retention_period: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        exclude_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        exclude_resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lock_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRule``.
 
@@ -720,7 +718,7 @@ class CfnRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa)
+            type_hints = cached_type_hints(_typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa)
             check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
             check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -765,14 +763,14 @@ class CfnRuleProps:
     @builtins.property
     def retention_period(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetentionPeriodProperty"]:
         '''Information about the retention period for which the retention rule is to retain resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-retentionperiod
         '''
         result = self._values.get("retention_period")
         assert result is not None, "Required property 'retention_period' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.RetentionPeriodProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -786,7 +784,7 @@ class CfnRuleProps:
     @builtins.property
     def exclude_resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]]:
         '''[Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule.
 
         Resources that have any of these tags are not retained by the retention rule upon deletion.
@@ -796,23 +794,23 @@ class CfnRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-excluderesourcetags
         '''
         result = self._values.get("exclude_resource_tags")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]], result)
 
     @builtins.property
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.UnlockDelayProperty"]]:
         '''Information about the retention rule lock configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-lockconfiguration
         '''
         result = self._values.get("lock_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.UnlockDelayProperty"]], result)
 
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]]:
         '''[Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule.
 
         For tag-level retention rules, only deleted resources, of the specified resource type, that have one or more of the specified tag key and value pairs are retained. If a resource is deleted, but it does not have any of the specified tag key and value pairs, it is immediately deleted without being retained by the retention rule.
@@ -824,7 +822,7 @@ class CfnRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.ResourceTagProperty"]]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -838,13 +836,13 @@ class CfnRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Information about the tags to assign to the retention rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -870,19 +868,19 @@ def _typecheckingstub__38111a34066818ca2f172524180ec7dec02ce564c681ac0c87097b023
     id: builtins.str,
     *,
     resource_type: builtins.str,
-    retention_period: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    retention_period: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    exclude_resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lock_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7da27deaca2198440ed34a5309980243bc9e8578e620ae1d2780c39a98dee670(
-    resource: _IRuleRef_4e521f27,
+    resource: _aws_rbin_1c7a6c9f.IRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -894,7 +892,7 @@ def _typecheckingstub__7930d1844a2fb30bdc1c6f84cf00255e7313e63639ab82659d1bb857e
     pass
 
 def _typecheckingstub__a5e2d558e79cd4c1853664243affb2788ae164a541fe9173013893487ad12468(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -912,7 +910,7 @@ def _typecheckingstub__5c74a6102cda767f81d08a2ce4a9f380c01bef76688ed3f2426a6abc2
     pass
 
 def _typecheckingstub__d0d27934aff5d763d4a0cff90f748b18d817167613cec2de784a19e0980a2fe4(
-    value: typing.Union[_IResolvable_da3f097b, CfnRule.RetentionPeriodProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRule.RetentionPeriodProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -924,19 +922,19 @@ def _typecheckingstub__d3d64ebf98762cb6f5e840690eeebd382523d8cea931da2c8618a90f7
     pass
 
 def _typecheckingstub__20704aef7f8bc3c60046956bdcd1dc4e858b35b183e74b90587dae29d670872b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRule.ResourceTagProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRule.ResourceTagProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9f565c87c44cc6deeef0351aeb8e4b8ead6860f0e90c735ebf7826cdbc04ae0a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRule.UnlockDelayProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRule.UnlockDelayProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e0b94a905f0a4a1448048e0ead85a45b5b5aa837fc74feedc20218875209250(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRule.ResourceTagProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRule.ResourceTagProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -948,7 +946,7 @@ def _typecheckingstub__cb14fdab3dd71774cb9bab4038b816ff578268a68dda7042fda45b88a
     pass
 
 def _typecheckingstub__ce724038f2c5f6b081624628cfc2e8ecba465376fcb9fc6a115d81b322693c72(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -980,13 +978,13 @@ def _typecheckingstub__d5cb70d54df5cb782865dd65947c16d9455e200989ec0b11ea250d281
 def _typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa(
     *,
     resource_type: builtins.str,
-    retention_period: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    retention_period: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
-    exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    exclude_resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lock_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AppBlockBuilderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ccf44c8df86ddb2aaa3dd1c1344df0034b12c7bbaed1ab37b6250d970e02b0f)
+            type_hints = cached_type_hints(_typecheckingstub__3ccf44c8df86ddb2aaa3dd1c1344df0034b12c7bbaed1ab37b6250d970e02b0f)
             check_type(argname="argument app_block_builder_arn", value=app_block_builder_arn, expected_type=type_hints["app_block_builder_arn"])
             check_type(argname="argument app_block_builder_name", value=app_block_builder_name, expected_type=type_hints["app_block_builder_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class AppBlockReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__999361d2192091ecfd78bba01c6482ad6b51ef4092d3d6e058fcf3faa9dbd0e2)
+            type_hints = cached_type_hints(_typecheckingstub__999361d2192091ecfd78bba01c6482ad6b51ef4092d3d6e058fcf3faa9dbd0e2)
             check_type(argname="argument app_block_arn", value=app_block_arn, expected_type=type_hints["app_block_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_block_arn": app_block_arn,
@@ -189,7 +193,7 @@ class ApplicationEntitlementAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed86ac6d622d5886a019c6a70ccba7b459759e3530109ee3fcb194657d268885)
+            type_hints = cached_type_hints(_typecheckingstub__ed86ac6d622d5886a019c6a70ccba7b459759e3530109ee3fcb194657d268885)
             check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
             check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
@@ -263,7 +267,7 @@ class ApplicationFleetAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__769a3917223ace7abfe471cf26313b453db8d1524a1dbbc471df0cb4285f6e51)
+            type_hints = cached_type_hints(_typecheckingstub__769a3917223ace7abfe471cf26313b453db8d1524a1dbbc471df0cb4285f6e51)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
             check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -321,7 +325,7 @@ class ApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20e27f24e60cc84ecd4863218985a438ab83cddfd32614837a12eaccaef5b26d)
+            type_hints = cached_type_hints(_typecheckingstub__20e27f24e60cc84ecd4863218985a438ab83cddfd32614837a12eaccaef5b26d)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_arn": application_arn,
@@ -370,7 +374,7 @@ class DirectoryConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0769cbea8784800cc76f29c4da14a24e3f6a31b7b69f3317cd404dd3dc7e2c51)
+            type_hints = cached_type_hints(_typecheckingstub__0769cbea8784800cc76f29c4da14a24e3f6a31b7b69f3317cd404dd3dc7e2c51)
             check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "directory_name": directory_name,
@@ -426,7 +430,7 @@ class EntitlementReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5da2f4531a553fc09946f90e2f23bdd0a0a94f048a8afd6773a3cee741fdb4db)
+            type_hints = cached_type_hints(_typecheckingstub__5da2f4531a553fc09946f90e2f23bdd0a0a94f048a8afd6773a3cee741fdb4db)
             check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -484,7 +488,7 @@ class FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff6eedaec7cca9f61d584878f912a02aa3f25654ba401a7b5a184b2cbc6dd3e)
+            type_hints = cached_type_hints(_typecheckingstub__7ff6eedaec7cca9f61d584878f912a02aa3f25654ba401a7b5a184b2cbc6dd3e)
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "fleet_id": fleet_id,
@@ -512,7 +516,7 @@ class FleetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IAppBlockBuilderRef")
 class IAppBlockBuilderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppBlockBuilder.
@@ -532,7 +536,7 @@ class IAppBlockBuilderRef(
 
 class _IAppBlockBuilderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppBlockBuilder.
 
@@ -557,7 +561,7 @@ typing.cast(typing.Any, IAppBlockBuilderRef).__jsii_proxy_class__ = lambda : _IA
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IAppBlockRef")
 class IAppBlockRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppBlock.
@@ -577,7 +581,7 @@ class IAppBlockRef(
 
 class _IAppBlockRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppBlock.
 
@@ -604,7 +608,7 @@ typing.cast(typing.Any, IAppBlockRef).__jsii_proxy_class__ = lambda : _IAppBlock
 )
 class IApplicationEntitlementAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationEntitlementAssociation.
@@ -626,7 +630,7 @@ class IApplicationEntitlementAssociationRef(
 
 class _IApplicationEntitlementAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationEntitlementAssociation.
 
@@ -655,7 +659,7 @@ typing.cast(typing.Any, IApplicationEntitlementAssociationRef).__jsii_proxy_clas
 )
 class IApplicationFleetAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationFleetAssociation.
@@ -677,7 +681,7 @@ class IApplicationFleetAssociationRef(
 
 class _IApplicationFleetAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationFleetAssociation.
 
@@ -704,7 +708,7 @@ typing.cast(typing.Any, IApplicationFleetAssociationRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IApplicationRef")
 class IApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
@@ -724,7 +728,7 @@ class IApplicationRef(
 
 class _IApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
 
@@ -749,7 +753,7 @@ typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IAppli
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IDirectoryConfigRef")
 class IDirectoryConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectoryConfig.
@@ -769,7 +773,7 @@ class IDirectoryConfigRef(
 
 class _IDirectoryConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectoryConfig.
 
@@ -794,7 +798,7 @@ typing.cast(typing.Any, IDirectoryConfigRef).__jsii_proxy_class__ = lambda : _ID
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IEntitlementRef")
 class IEntitlementRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Entitlement.
@@ -814,7 +818,7 @@ class IEntitlementRef(
 
 class _IEntitlementRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Entitlement.
 
@@ -839,7 +843,7 @@ typing.cast(typing.Any, IEntitlementRef).__jsii_proxy_class__ = lambda : _IEntit
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IFleetRef")
 class IFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
@@ -859,7 +863,7 @@ class IFleetRef(
 
 class _IFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
 
@@ -884,7 +888,7 @@ typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IImageBuilderRef")
 class IImageBuilderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImageBuilder.
@@ -904,7 +908,7 @@ class IImageBuilderRef(
 
 class _IImageBuilderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ImageBuilder.
 
@@ -931,7 +935,7 @@ typing.cast(typing.Any, IImageBuilderRef).__jsii_proxy_class__ = lambda : _IImag
 )
 class IStackFleetAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackFleetAssociation.
@@ -951,7 +955,7 @@ class IStackFleetAssociationRef(
 
 class _IStackFleetAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackFleetAssociation.
 
@@ -976,7 +980,7 @@ typing.cast(typing.Any, IStackFleetAssociationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IStackRef")
 class IStackRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
@@ -996,7 +1000,7 @@ class IStackRef(
 
 class _IStackRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stack.
 
@@ -1023,7 +1027,7 @@ typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefPro
 )
 class IStackUserAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackUserAssociation.
@@ -1043,7 +1047,7 @@ class IStackUserAssociationRef(
 
 class _IStackUserAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackUserAssociation.
 
@@ -1068,7 +1072,7 @@ typing.cast(typing.Any, IStackUserAssociationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appstream.IUserRef")
 class IUserRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a User.
@@ -1088,7 +1092,7 @@ class IUserRef(
 
 class _IUserRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a User.
 
@@ -1134,7 +1138,7 @@ class ImageBuilderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efd8c28dc257befffc80371dd057b43178b4a6070998fd325b2917af4c7b13dd)
+            type_hints = cached_type_hints(_typecheckingstub__efd8c28dc257befffc80371dd057b43178b4a6070998fd325b2917af4c7b13dd)
             check_type(argname="argument image_builder_name", value=image_builder_name, expected_type=type_hints["image_builder_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "image_builder_name": image_builder_name,
@@ -1185,7 +1189,7 @@ class StackFleetAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528)
+            type_hints = cached_type_hints(_typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528)
             check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1243,7 +1247,7 @@ class StackReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18e2db2f88ee8958e1ce93ecd8dee4f9694f7bd4fd83892ea90f8bae81bdabfb)
+            type_hints = cached_type_hints(_typecheckingstub__18e2db2f88ee8958e1ce93ecd8dee4f9694f7bd4fd83892ea90f8bae81bdabfb)
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_name": stack_name,
@@ -1306,7 +1310,7 @@ class StackUserAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2130170f8c1e17f1e893b413b87fa336531a5bfd65795c1f55dd180b4c23cb2)
+            type_hints = cached_type_hints(_typecheckingstub__b2130170f8c1e17f1e893b413b87fa336531a5bfd65795c1f55dd180b4c23cb2)
             check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
@@ -1387,7 +1391,7 @@ class UserReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ebf6320aef40f4a25ef1a995b2ab69386c3f385461a0216574eee343afd525e)
+            type_hints = cached_type_hints(_typecheckingstub__6ebf6320aef40f4a25ef1a995b2ab69386c3f385461a0216574eee343afd525e)
             check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
             check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])

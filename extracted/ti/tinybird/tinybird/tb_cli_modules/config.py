@@ -88,7 +88,7 @@ class CLIConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Helper to ease"""
         result: Dict[str, Any] = self._parent.to_dict() if self._parent else {}
-        result.update(dict((v.name, deepcopy(v.value)) for v in self._values.values()))
+        result.update({v.name: deepcopy(v.value) for v in self._values.values()})
         return result
 
     def __getitem__(self, key) -> Any:

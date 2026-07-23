@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ram import (
-    IPermissionRef as _IPermissionRef_0711eda0,
-    IResourceShareRef as _IResourceShareRef_43a2a79e,
-    PermissionReference as _PermissionReference_51dc2d59,
-    ResourceShareReference as _ResourceShareReference_a7fbd0a4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ram as _aws_ram_73155c9b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ram_73155c9b = _LazyImport("aws_cdk.interfaces.aws_ram")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IPermissionRef_0711eda0, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.IPermissionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPermission(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ram.CfnPermission",
 ):
@@ -119,7 +111,7 @@ class CfnPermission(
         name: builtins.str,
         policy_template: typing.Any,
         resource_type: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RAM::Permission``.
 
@@ -131,7 +123,7 @@ class CfnPermission(
         :param tags: Specifies a list of one or more tag key and value pairs to attach to the permission.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e6fe3eae2e441449bee4fa9cdbdbd3fa3faa77d6312d1d0b6173f4ab5e4f62c)
+            type_hints = cached_type_hints(_typecheckingstub__4e6fe3eae2e441449bee4fa9cdbdbd3fa3faa77d6312d1d0b6173f4ab5e4f62c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPermissionProps(
@@ -145,12 +137,15 @@ class CfnPermission(
 
     @jsii.member(jsii_name="arnForPermission")
     @builtins.classmethod
-    def arn_for_permission(cls, resource: "_IPermissionRef_0711eda0") -> builtins.str:
+    def arn_for_permission(
+        cls,
+        resource: "_aws_ram_73155c9b.IPermissionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd9650545c65b77576c422e40dcbb81abb763828b97edf304b5a8786a7902334)
+            type_hints = cached_type_hints(_typecheckingstub__fd9650545c65b77576c422e40dcbb81abb763828b97edf304b5a8786a7902334)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPermission", [resource]))
 
@@ -162,18 +157,18 @@ class CfnPermission(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3280cb41e56a951983fc454e18ff5fd2dd3a4c608ee7d9882b7275effb3b2b58)
+            type_hints = cached_type_hints(_typecheckingstub__3280cb41e56a951983fc454e18ff5fd2dd3a4c608ee7d9882b7275effb3b2b58)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPermission", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d951b94e05f47918844ee4c94dafebba369732ccc302f7ad923dca32b5000fc7)
+            type_hints = cached_type_hints(_typecheckingstub__d951b94e05f47918844ee4c94dafebba369732ccc302f7ad923dca32b5000fc7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -186,7 +181,7 @@ class CfnPermission(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b815722571219a975ded0c832e480c433d1106c5c3874c31f41a623df4840bef)
+            type_hints = cached_type_hints(_typecheckingstub__b815722571219a975ded0c832e480c433d1106c5c3874c31f41a623df4840bef)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -207,12 +202,12 @@ class CfnPermission(
 
     @builtins.property
     @jsii.member(jsii_name="attrIsResourceTypeDefault")
-    def attr_is_resource_type_default(self) -> "_IResolvable_da3f097b":
+    def attr_is_resource_type_default(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Specifies whether this permission is the default for new resource shares that include resources of the associated resource type.
 
         :cloudformationAttribute: IsResourceTypeDefault
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsResourceTypeDefault"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsResourceTypeDefault"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPermissionType")
@@ -247,15 +242,15 @@ class CfnPermission(
 
     @builtins.property
     @jsii.member(jsii_name="permissionRef")
-    def permission_ref(self) -> "_PermissionReference_51dc2d59":
+    def permission_ref(self) -> "_aws_ram_73155c9b.PermissionReference":
         '''A reference to a Permission resource.'''
-        return typing.cast("_PermissionReference_51dc2d59", jsii.get(self, "permissionRef"))
+        return typing.cast("_aws_ram_73155c9b.PermissionReference", jsii.get(self, "permissionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -266,7 +261,7 @@ class CfnPermission(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__952aaf926012eb44626e889296cc608af4a071943b783cc37c41445ba67cacbd)
+            type_hints = cached_type_hints(_typecheckingstub__952aaf926012eb44626e889296cc608af4a071943b783cc37c41445ba67cacbd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -279,7 +274,7 @@ class CfnPermission(
     @policy_template.setter
     def policy_template(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d786ce0393d6d5e9b23b457d7d296ea4e1b64dde74cbe0351155d84dbe06a21b)
+            type_hints = cached_type_hints(_typecheckingstub__d786ce0393d6d5e9b23b457d7d296ea4e1b64dde74cbe0351155d84dbe06a21b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -292,20 +287,23 @@ class CfnPermission(
     @resource_type.setter
     def resource_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d012bd3d642b7557eafa85e0a130a59f59fd9bf570abb055165847be25a9e515)
+            type_hints = cached_type_hints(_typecheckingstub__d012bd3d642b7557eafa85e0a130a59f59fd9bf570abb055165847be25a9e515)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies a list of one or more tag key and value pairs to attach to the permission.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e38f5af40d9dfeea4630580bc03fc46db30f305dafe61dc85a0a22e71eb103d)
+            type_hints = cached_type_hints(_typecheckingstub__4e38f5af40d9dfeea4630580bc03fc46db30f305dafe61dc85a0a22e71eb103d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -327,7 +325,7 @@ class CfnPermissionProps:
         name: builtins.str,
         policy_template: typing.Any,
         resource_type: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPermission``.
 
@@ -361,7 +359,7 @@ class CfnPermissionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9e72a90559f1f4c0f547098b5369dbfeed98afe29faf887a6f20cad208db7e3)
+            type_hints = cached_type_hints(_typecheckingstub__c9e72a90559f1f4c0f547098b5369dbfeed98afe29faf887a6f20cad208db7e3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument policy_template", value=policy_template, expected_type=type_hints["policy_template"])
             check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
@@ -415,13 +413,13 @@ class CfnPermissionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies a list of one or more tag key and value pairs to attach to the permission.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permission.html#cfn-ram-permission-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -435,9 +433,9 @@ class CfnPermissionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceShareRef_43a2a79e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.IResourceShareRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResourceShare(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ram.CfnResourceShare",
 ):
@@ -485,13 +483,13 @@ class CfnResourceShare(
         id: builtins.str,
         *,
         name: builtins.str,
-        allow_external_principals: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_external_principals: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resource_share_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_share_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RAM::ResourceShare``.
 
@@ -507,7 +505,7 @@ class CfnResourceShare(
         :param tags: Specifies one or more tags to attach to the resource share itself. It doesn't attach the tags to the resources associated with the resource share.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fea9cca1996f068f8dde2c34bf4c41d370ee8638f9da1d855f8b0022d75af5d)
+            type_hints = cached_type_hints(_typecheckingstub__1fea9cca1996f068f8dde2c34bf4c41d370ee8638f9da1d855f8b0022d75af5d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceShareProps(
@@ -527,13 +525,13 @@ class CfnResourceShare(
     @builtins.classmethod
     def arn_for_resource_share(
         cls,
-        resource: "_IResourceShareRef_43a2a79e",
+        resource: "_aws_ram_73155c9b.IResourceShareRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2465c7da6b1c48b2189a3540bb11f2d7763d8b628f6f5095ae15b4b34de4c14e)
+            type_hints = cached_type_hints(_typecheckingstub__2465c7da6b1c48b2189a3540bb11f2d7763d8b628f6f5095ae15b4b34de4c14e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceShare", [resource]))
 
@@ -545,18 +543,18 @@ class CfnResourceShare(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b78a9719eeef0b1e7174c7dedf9623a922048240bb0ee41197b83f526301b4)
+            type_hints = cached_type_hints(_typecheckingstub__e7b78a9719eeef0b1e7174c7dedf9623a922048240bb0ee41197b83f526301b4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceShare", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8defbc280b992fb09ff90651c627ce1c4211d498c66f7c4b62a4b3a5285f92d)
+            type_hints = cached_type_hints(_typecheckingstub__a8defbc280b992fb09ff90651c627ce1c4211d498c66f7c4b62a4b3a5285f92d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -569,7 +567,7 @@ class CfnResourceShare(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e124e85df525ca5d702f0b9a2b5bb739a12519bf552f8ea08a9f673f4077d696)
+            type_hints = cached_type_hints(_typecheckingstub__e124e85df525ca5d702f0b9a2b5bb739a12519bf552f8ea08a9f673f4077d696)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -649,15 +647,15 @@ class CfnResourceShare(
 
     @builtins.property
     @jsii.member(jsii_name="resourceShareRef")
-    def resource_share_ref(self) -> "_ResourceShareReference_a7fbd0a4":
+    def resource_share_ref(self) -> "_aws_ram_73155c9b.ResourceShareReference":
         '''A reference to a ResourceShare resource.'''
-        return typing.cast("_ResourceShareReference_a7fbd0a4", jsii.get(self, "resourceShareRef"))
+        return typing.cast("_aws_ram_73155c9b.ResourceShareReference", jsii.get(self, "resourceShareRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -668,7 +666,7 @@ class CfnResourceShare(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb76bd909afa4dee66debdd78e087883e909ff481a0f08820b4aee17388a74e3)
+            type_hints = cached_type_hints(_typecheckingstub__bb76bd909afa4dee66debdd78e087883e909ff481a0f08820b4aee17388a74e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -676,17 +674,17 @@ class CfnResourceShare(
     @jsii.member(jsii_name="allowExternalPrincipals")
     def allow_external_principals(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether principals outside your organization in AWS Organizations can be associated with a resource share.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowExternalPrincipals"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowExternalPrincipals"))
 
     @allow_external_principals.setter
     def allow_external_principals(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a8ac8ee18a992b418a8b6fc421772eee1a5d5b0b675ccfe6c0ce0c7f18b40e7)
+            type_hints = cached_type_hints(_typecheckingstub__1a8ac8ee18a992b418a8b6fc421772eee1a5d5b0b675ccfe6c0ce0c7f18b40e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowExternalPrincipals", value) # pyright: ignore[reportArgumentType]
 
@@ -702,7 +700,7 @@ class CfnResourceShare(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__411d88d3990f34296ef5770eb3cb3792a55b6b7805c6e7381207750e8fa15042)
+            type_hints = cached_type_hints(_typecheckingstub__411d88d3990f34296ef5770eb3cb3792a55b6b7805c6e7381207750e8fa15042)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionArns", value) # pyright: ignore[reportArgumentType]
 
@@ -718,7 +716,7 @@ class CfnResourceShare(
     @principals.setter
     def principals(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27e4971e92d1679357249799c9998f6cde7d19d4a39eec3a7d952e11f95d0b64)
+            type_hints = cached_type_hints(_typecheckingstub__27e4971e92d1679357249799c9998f6cde7d19d4a39eec3a7d952e11f95d0b64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principals", value) # pyright: ignore[reportArgumentType]
 
@@ -731,7 +729,7 @@ class CfnResourceShare(
     @resource_arns.setter
     def resource_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebcfa059a044b9468256f95fd1dc2d90bce40e3d6d96d59d1755b38b7d15db67)
+            type_hints = cached_type_hints(_typecheckingstub__ebcfa059a044b9468256f95fd1dc2d90bce40e3d6d96d59d1755b38b7d15db67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
 
@@ -739,17 +737,17 @@ class CfnResourceShare(
     @jsii.member(jsii_name="resourceShareConfiguration")
     def resource_share_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
         '''The configuration for a resource share.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]], jsii.get(self, "resourceShareConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceShare.ResourceShareConfigurationProperty"]], jsii.get(self, "resourceShareConfiguration"))
 
     @resource_share_configuration.setter
     def resource_share_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceShare.ResourceShareConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bbe169a562bf96addb295092d013df62468e87386fc039d6a6fa805db687e32)
+            type_hints = cached_type_hints(_typecheckingstub__8bbe169a562bf96addb295092d013df62468e87386fc039d6a6fa805db687e32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceShareConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -762,20 +760,23 @@ class CfnResourceShare(
     @sources.setter
     def sources(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df7ab5400bf3b8953cb4a0db7747c4174b63b9e7963dfae4ea6eda15e4f55030)
+            type_hints = cached_type_hints(_typecheckingstub__df7ab5400bf3b8953cb4a0db7747c4174b63b9e7963dfae4ea6eda15e4f55030)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies one or more tags to attach to the resource share itself.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e8df76745e5c0758e8b5233e879c50ee5a6f6f817a0850af55da2744c10ef55)
+            type_hints = cached_type_hints(_typecheckingstub__2e8df76745e5c0758e8b5233e879c50ee5a6f6f817a0850af55da2744c10ef55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -791,8 +792,8 @@ class CfnResourceShare(
         def __init__(
             self,
             *,
-            exclusive_account_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            exclusive_account_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The configuration for a resource share.
 
@@ -814,7 +815,7 @@ class CfnResourceShare(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a9da1512)
+                type_hints = cached_type_hints(_typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a9da1512)
                 check_type(argname="argument exclusive_account_access", value=exclusive_account_access, expected_type=type_hints["exclusive_account_access"])
                 check_type(argname="argument retain_sharing_on_account_leave_organization", value=retain_sharing_on_account_leave_organization, expected_type=type_hints["retain_sharing_on_account_leave_organization"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -826,24 +827,24 @@ class CfnResourceShare(
         @builtins.property
         def exclusive_account_access(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The resource share restricts access to an account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ram-resourceshare-resourceshareconfiguration.html#cfn-ram-resourceshare-resourceshareconfiguration-exclusiveaccountaccess
             '''
             result = self._values.get("exclusive_account_access")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def retain_sharing_on_account_leave_organization(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the consumer account retains access to the resource share after leaving the organization.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ram-resourceshare-resourceshareconfiguration.html#cfn-ram-resourceshare-resourceshareconfiguration-retainsharingonaccountleaveorganization
             '''
             result = self._values.get("retain_sharing_on_account_leave_organization")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -876,13 +877,13 @@ class CfnResourceShareProps:
         self,
         *,
         name: builtins.str,
-        allow_external_principals: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_external_principals: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resource_share_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_share_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResourceShare``.
 
@@ -925,7 +926,7 @@ class CfnResourceShareProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a268961a)
+            type_hints = cached_type_hints(_typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a268961a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument allow_external_principals", value=allow_external_principals, expected_type=type_hints["allow_external_principals"])
             check_type(argname="argument permission_arns", value=permission_arns, expected_type=type_hints["permission_arns"])
@@ -965,7 +966,7 @@ class CfnResourceShareProps:
     @builtins.property
     def allow_external_principals(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether principals outside your organization in AWS Organizations can be associated with a resource share.
 
         A value of ``true`` lets you share with individual AWS accounts that are *not* in your organization. A value of ``false`` only has meaning if your account is a member of an AWS Organization. The default value is ``true`` .
@@ -973,7 +974,7 @@ class CfnResourceShareProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceshare.html#cfn-ram-resourceshare-allowexternalprincipals
         '''
         result = self._values.get("allow_external_principals")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def permission_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1015,13 +1016,13 @@ class CfnResourceShareProps:
     @builtins.property
     def resource_share_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
         '''The configuration for a resource share.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceshare.html#cfn-ram-resourceshare-resourceshareconfiguration
         '''
         result = self._values.get("resource_share_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceShare.ResourceShareConfigurationProperty"]], result)
 
     @builtins.property
     def sources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1033,7 +1034,7 @@ class CfnResourceShareProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies one or more tags to attach to the resource share itself.
 
         It doesn't attach the tags to the resources associated with the resource share.
@@ -1041,7 +1042,7 @@ class CfnResourceShareProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceshare.html#cfn-ram-resourceshare-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1071,13 +1072,13 @@ def _typecheckingstub__4e6fe3eae2e441449bee4fa9cdbdbd3fa3faa77d6312d1d0b6173f4ab
     name: builtins.str,
     policy_template: typing.Any,
     resource_type: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fd9650545c65b77576c422e40dcbb81abb763828b97edf304b5a8786a7902334(
-    resource: _IPermissionRef_0711eda0,
+    resource: _aws_ram_73155c9b.IPermissionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1089,7 +1090,7 @@ def _typecheckingstub__3280cb41e56a951983fc454e18ff5fd2dd3a4c608ee7d9882b7275eff
     pass
 
 def _typecheckingstub__d951b94e05f47918844ee4c94dafebba369732ccc302f7ad923dca32b5000fc7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1119,7 +1120,7 @@ def _typecheckingstub__d012bd3d642b7557eafa85e0a130a59f59fd9bf570abb055165847be2
     pass
 
 def _typecheckingstub__4e38f5af40d9dfeea4630580bc03fc46db30f305dafe61dc85a0a22e71eb103d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1129,7 +1130,7 @@ def _typecheckingstub__c9e72a90559f1f4c0f547098b5369dbfeed98afe29faf887a6f20cad2
     name: builtins.str,
     policy_template: typing.Any,
     resource_type: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1139,19 +1140,19 @@ def _typecheckingstub__1fea9cca1996f068f8dde2c34bf4c41d370ee8638f9da1d855f8b0022
     id: builtins.str,
     *,
     name: builtins.str,
-    allow_external_principals: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_external_principals: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resource_share_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_share_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2465c7da6b1c48b2189a3540bb11f2d7763d8b628f6f5095ae15b4b34de4c14e(
-    resource: _IResourceShareRef_43a2a79e,
+    resource: _aws_ram_73155c9b.IResourceShareRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1163,7 +1164,7 @@ def _typecheckingstub__e7b78a9719eeef0b1e7174c7dedf9623a922048240bb0ee41197b83f5
     pass
 
 def _typecheckingstub__a8defbc280b992fb09ff90651c627ce1c4211d498c66f7c4b62a4b3a5285f92d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1181,7 +1182,7 @@ def _typecheckingstub__bb76bd909afa4dee66debdd78e087883e909ff481a0f08820b4aee173
     pass
 
 def _typecheckingstub__1a8ac8ee18a992b418a8b6fc421772eee1a5d5b0b675ccfe6c0ce0c7f18b40e7(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1205,7 +1206,7 @@ def _typecheckingstub__ebcfa059a044b9468256f95fd1dc2d90bce40e3d6d96d59d1755b38b7
     pass
 
 def _typecheckingstub__8bbe169a562bf96addb295092d013df62468e87386fc039d6a6fa805db687e32(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceShare.ResourceShareConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResourceShare.ResourceShareConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1217,15 +1218,15 @@ def _typecheckingstub__df7ab5400bf3b8953cb4a0db7747c4174b63b9e7963dfae4ea6eda15e
     pass
 
 def _typecheckingstub__2e8df76745e5c0758e8b5233e879c50ee5a6f6f817a0850af55da2744c10ef55(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a9da1512(
     *,
-    exclusive_account_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    exclusive_account_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1233,13 +1234,13 @@ def _typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a
 def _typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a268961a(
     *,
     name: builtins.str,
-    allow_external_principals: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_external_principals: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resource_share_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_share_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

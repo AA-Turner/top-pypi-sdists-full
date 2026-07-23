@@ -21,14 +21,17 @@ from bernstein.cli.first_run_guard import handle_first_run_exception
 from bernstein.cli.helpers import (
     SDD_DIRS,
     SERVER_URL,
+    adapter_cli_choice,
     auth_headers,
     console,
     find_seed_file,
+    persist_server_port,
     print_banner,
     print_startup_banner,
     server_get,
 )
 from bernstein.cli.run_preflight import (
+    _abort_if_default_branch_merge_target,
     _configure_quality_gate_bypass,
     _emit_preflight_runtime_warnings,
     _estimate_run_preview,
@@ -160,7 +163,7 @@ def _load_dry_run_tasks(plan_file: Path | None) -> list[Any]:
         resp.raise_for_status()
         tasks_data = resp.json()
     except httpx.ConnectError as err:
-        console.print("[red]Task server not running. Start with `bernstein conduct` first,[/red]")
+        console.print("[red]Task server not running. Start with `bernstein run` first,[/red]")
         console.print("[red]or pass a plan file: `bernstein run --dry-run plan.yaml`[/red]")
         raise SystemExit(1) from err
     except Exception as exc:
@@ -1029,6 +1032,80 @@ def _wait_for_run_completion(
     return last_status
 
 
+#: How long the exiting CLI waits for the first spawn outcome (roughly one
+#: spawner tick plus slack) before detaching without a verdict.
+_FIRST_SPAWN_WAIT_S = 10.0
+#: Delay between first-spawn outcome polls.
+_FIRST_SPAWN_POLL_S = 0.5
+#: Consecutive unreachable-server polls before giving up early.
+_FIRST_SPAWN_MAX_UNREACHABLE = 3
+#: Failed tasks older than this are attributed to a previous run and ignored.
+_FIRST_SPAWN_FRESHNESS_S = 300.0
+
+
+def _await_first_spawn_outcome(
+    *,
+    timeout_s: float = _FIRST_SPAWN_WAIT_S,
+    poll_interval_s: float = _FIRST_SPAWN_POLL_S,
+) -> tuple[str, str | None]:
+    """Briefly poll the task server for the outcome of the first agent spawn.
+
+    The CLI detaches right after bootstrap, so a spawn refusal in the
+    background orchestrator would otherwise never reach the terminal and
+    ``bernstein run`` would exit 0 with an empty summary (gh-2744).
+
+    A failed task counts only when its failure reason is a spawn failure and
+    it completed recently; failed tasks reloaded from a previous run are
+    ignored.  Transient spawn failures are given the rest of the window to
+    recover before being reported.
+
+    Args:
+        timeout_s: Maximum total time to wait for a verdict.
+        poll_interval_s: Delay between polls.
+
+    Returns:
+        ``("spawned", None)`` once at least one agent is live,
+        ``("refused", reason)`` when the first spawn attempt failed before
+        any agent did work, or ``("unknown", None)`` when no verdict arrived
+        within ``timeout_s`` (including an unreachable server).
+    """
+    deadline = time.time() + timeout_s
+    transient_reason: str | None = None
+    unreachable_polls = 0
+    while True:
+        health = server_get("/health")
+        if not isinstance(health, dict):
+            unreachable_polls += 1
+            if unreachable_polls >= _FIRST_SPAWN_MAX_UNREACHABLE:
+                return "unknown", None
+        else:
+            unreachable_polls = 0
+            if int(health.get("agent_count", 0) or 0) > 0:
+                return "spawned", None
+            failed_page: Any = server_get("/tasks?status=failed&limit=50")
+            entries = failed_page.get("tasks", []) if isinstance(failed_page, dict) else []
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                reason = str(entry.get("result_summary") or "")
+                if not reason.startswith("Spawn failed"):
+                    continue
+                completed_at = float(entry.get("completed_at") or 0.0)
+                if completed_at < time.time() - _FIRST_SPAWN_FRESHNESS_S:
+                    continue
+                if "(transient" in reason:
+                    # A retry may still succeed - keep polling until deadline.
+                    transient_reason = reason
+                    continue
+                return "refused", reason
+        if time.time() >= deadline:
+            break
+        time.sleep(poll_interval_s)
+    if transient_reason is not None:
+        return "refused", transient_reason
+    return "unknown", None
+
+
 def exec_restart() -> None:
     """Re-exec the current process as ``bernstein run`` (full stack restart).
 
@@ -1094,7 +1171,7 @@ def exec_restart() -> None:
 @click.option(
     "--cli",
     default=None,
-    type=click.Choice(["auto", "claude", "codex", "gemini", "aider", "qwen"], case_sensitive=False),
+    type=adapter_cli_choice(),
     help="Force specific CLI agent (overrides auto-detection and config file).",
 )
 @click.option(
@@ -1589,27 +1666,27 @@ def _run_impl(
 
     \b
       bernstein run plan.yaml                  # loadable YAML plan (stages + steps)
-      bernstein conduct                        # reads bernstein.yaml
-      bernstein conduct --goal "Build X"       # inline goal
-      bernstein conduct --seed custom.yaml     # custom seed file
-      bernstein conduct --plan-only            # show plan without executing
-      bernstein conduct --from-plan plan.md    # execute a saved plan
-      bernstein conduct --auto-approve         # skip confirmation prompt
-      bernstein conduct --cells 3              # 3 parallel cells (multi-cell mode)
-      bernstein conduct --remote               # bind to 0.0.0.0 for cluster access
-      bernstein conduct --cli claude           # force Claude Code agent
-      bernstein conduct --model opus           # force Opus model
-      bernstein conduct --workflow governed    # governed workflow mode
-      bernstein conduct --routing bandit       # contextual bandit routing (learns over time)
-      bernstein conduct --routing bandit-shadow  # log bandit decisions without changing live routing
-      bernstein conduct --compliance standard  # compliance mode (development/standard/regulated)
-      bernstein conduct --container            # run agents in containers
-      bernstein conduct --sandbox docker       # run agents in Docker sandbox
-      bernstein conduct --container --two-phase-sandbox  # two-phase sandboxed execution
-      bernstein conduct --audit                # SOC 2 audit mode (HMAC-chained log + Merkle seal)
-      bernstein conduct --max-cost-usd 1.50    # hard cap total run spend at $1.50
+      bernstein run                            # reads bernstein.yaml
+      bernstein run --goal "Build X"           # inline goal
+      bernstein run --seed custom.yaml         # custom seed file
+      bernstein run --plan-only                # show plan without executing
+      bernstein run --from-plan plan.md        # execute a saved plan
+      bernstein run --auto-approve             # skip confirmation prompt
+      bernstein run --cells 3                  # 3 parallel cells (multi-cell mode)
+      bernstein run --remote                   # bind to 0.0.0.0 for cluster access
+      bernstein run --cli claude               # force Claude Code agent
+      bernstein run --model opus               # force Opus model
+      bernstein run --workflow governed        # governed workflow mode
+      bernstein run --routing bandit           # contextual bandit routing (learns over time)
+      bernstein run --routing bandit-shadow    # log bandit decisions without changing live routing
+      bernstein run --compliance standard      # compliance mode (development/standard/regulated)
+      bernstein run --container                # run agents in containers
+      bernstein run --sandbox docker           # run agents in Docker sandbox
+      bernstein run --container --two-phase-sandbox  # two-phase sandboxed execution
+      bernstein run --audit                    # SOC 2 audit mode (HMAC-chained log + Merkle seal)
+      bernstein run --max-cost-usd 1.50        # hard cap total run spend at $1.50
       bernstein run plan.yaml --budget 5usd --hard-budget 10usd  # soft + hard caps (#1320)
-      bernstein conduct --budget-cap 5.00      # abort spawn if preflight p90 > $5
+      bernstein run --budget-cap 5.00          # abort spawn if preflight p90 > $5
     """
     # Opt-in operator observability (spec 2026-05-17).  Defaults to off.
     # Prints the one-time notice and emits first_run_* events around the
@@ -1801,6 +1878,12 @@ def _run_impl(
 
     workdir = Path.cwd()
     if not plan_only:
+        # Fail fast when agent merges would target the repository default
+        # branch (gh-2756): without this every agent does its work and the
+        # spawner merge guard then silently discards it at reap time.
+        # Applies only to modes that merge agent work back -- --dry-run
+        # returned above and --plan-only skips this block.
+        _abort_if_default_branch_merge_target(workdir)
         estimate = _estimate_run_preview(
             workdir=workdir,
             plan_file=plan_file,
@@ -1852,6 +1935,7 @@ def _run_impl(
                     tasks=tasks,
                     ab_test=ab_test,
                 )
+                persist_server_port(port, workdir)
 
             _finalize_run_output(quiet=quiet)
             return
@@ -1936,6 +2020,7 @@ def _run_impl(
                     cli=cli or "auto",  # Default to "auto" if not specified
                     model=model,
                 )
+                persist_server_port(port, workdir)
         except RuntimeError as exc:
             from bernstein.cli.errors import bootstrap_failed
 
@@ -1973,6 +2058,7 @@ def _run_impl(
                 model=model,
                 worker_role=worker_role,
             )
+            persist_server_port(port, workdir)
     except SeedError as exc:
         from bernstein.cli.errors import seed_parse_error
 
@@ -2014,7 +2100,7 @@ def _run_impl(
     help="Port for the task server.",
 )
 def start(goal: str | None, seed_file: str, port: int) -> None:
-    """Start server and spawn manager (legacy, use 'conduct')."""
+    """Start server and spawn manager (legacy alias of 'run')."""
     try:
         _start_impl(goal, seed_file, port)
     except (click.UsageError, SystemExit):
@@ -2068,3 +2154,57 @@ def _start_impl(goal: str | None, seed_file: str, port: int) -> None:
             bootstrap_failed(exc).print()
             raise SystemExit(1) from exc
     _show_run_summary()
+
+
+@click.command("serve")
+@click.option(
+    "--host",
+    "bind_host",
+    default=None,
+    help=(
+        "Interface to bind. Defaults to $BERNSTEIN_BIND_HOST, else 127.0.0.1. "
+        "Use 0.0.0.0 to expose a central/coordinator node to other cluster hosts."
+    ),
+)
+@click.option(
+    "--port",
+    default=8052,
+    show_default=True,
+    type=int,
+    help="Port for the task server.",
+)
+@click.option(
+    "--log-level",
+    "log_level",
+    default="info",
+    show_default=True,
+    help="Uvicorn log level.",
+)
+def serve(bind_host: str | None, port: int, log_level: str) -> None:
+    """Run the task server in the foreground until stopped.
+
+    Unlike ``bernstein run`` / ``bernstein start`` - which detach the task
+    server as a background process and return - ``serve`` runs the server
+    in-process and blocks until it receives SIGINT/SIGTERM. This keeps the
+    process alive as PID 1 inside a container, so the published image can host a
+    long-lived central/coordinator node whose ``/health`` endpoint stays
+    reachable for the lifetime of the container.
+
+    Set ``BERNSTEIN_BIND_HOST=0.0.0.0`` (or pass ``--host 0.0.0.0``) and
+    ``BERNSTEIN_CLUSTER_ENABLED=1`` before start to bind all interfaces and
+    expose cluster endpoints to other nodes.
+    """
+    import uvicorn
+
+    host = bind_host or os.environ.get("BERNSTEIN_BIND_HOST", "127.0.0.1")
+    # Keep the cluster config's advertised bind host aligned with the socket we
+    # actually bind, and pin single-worker mode - the TaskStore is
+    # single-process and multi-worker mode corrupts JSONL / double-claims tasks.
+    os.environ["BERNSTEIN_BIND_HOST"] = host
+    os.environ.setdefault("BERNSTEIN_WORKERS", "1")
+
+    console.print(f"[green]Task server (foreground):[/green] http://{host}:{port}/  (Ctrl-C or SIGTERM to stop)")
+    # In-process, blocking run against the same ASGI app the detached path
+    # launches (server_launch._start_server). No start_new_session detach here:
+    # the CLI process stays in the foreground so a container's PID 1 lives.
+    uvicorn.run("bernstein.core.server:app", host=host, port=port, log_level=log_level)

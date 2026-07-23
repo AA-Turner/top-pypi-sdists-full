@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,41 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ssmguiconnect import (
-    IPreferencesRef as _IPreferencesRef_b733ef4b,
-    PreferencesReference as _PreferencesReference_1ed48663,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ssmguiconnect as _aws_ssmguiconnect_f92c5882
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ssmguiconnect_f92c5882 = _LazyImport("aws_cdk.interfaces.aws_ssmguiconnect")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IPreferencesRef_b733ef4b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssmguiconnect_f92c5882.IPreferencesRef)
 class CfnPreferences(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ssmguiconnect.CfnPreferences",
 ):
@@ -116,7 +113,7 @@ class CfnPreferences(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connection_recording_preferences: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPreferences.ConnectionRecordingPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_recording_preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPreferences.ConnectionRecordingPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SSMGuiConnect::Preferences``.
 
@@ -125,7 +122,7 @@ class CfnPreferences(
         :param connection_recording_preferences: The set of preferences used for recording RDP connections in the requesting AWS account and AWS Region . This includes details such as which S3 bucket recordings are stored in.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045e31f70bcabcaa4437ed6c7e11fb8462233ba15c60675b143088abfe090752)
+            type_hints = cached_type_hints(_typecheckingstub__045e31f70bcabcaa4437ed6c7e11fb8462233ba15c60675b143088abfe090752)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPreferencesProps(
@@ -142,18 +139,18 @@ class CfnPreferences(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6562f2bf90b68b48dc09b0a75ee01b5351c8960048d32d4959c0c685cf566e01)
+            type_hints = cached_type_hints(_typecheckingstub__6562f2bf90b68b48dc09b0a75ee01b5351c8960048d32d4959c0c685cf566e01)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPreferences", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59c7a3e2f3cdd2e9d3e4372020a482f624a989ea6d129be44dbf7f070aacda70)
+            type_hints = cached_type_hints(_typecheckingstub__59c7a3e2f3cdd2e9d3e4372020a482f624a989ea6d129be44dbf7f070aacda70)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -166,7 +163,7 @@ class CfnPreferences(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3749ba458af11bbb5fb93542c69a8b02362071d74426f5a7f030e9ea0836efac)
+            type_hints = cached_type_hints(_typecheckingstub__3749ba458af11bbb5fb93542c69a8b02362071d74426f5a7f030e9ea0836efac)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -197,25 +194,25 @@ class CfnPreferences(
 
     @builtins.property
     @jsii.member(jsii_name="preferencesRef")
-    def preferences_ref(self) -> "_PreferencesReference_1ed48663":
+    def preferences_ref(self) -> "_aws_ssmguiconnect_f92c5882.PreferencesReference":
         '''A reference to a Preferences resource.'''
-        return typing.cast("_PreferencesReference_1ed48663", jsii.get(self, "preferencesRef"))
+        return typing.cast("_aws_ssmguiconnect_f92c5882.PreferencesReference", jsii.get(self, "preferencesRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionRecordingPreferences")
     def connection_recording_preferences(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPreferences.ConnectionRecordingPreferencesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.ConnectionRecordingPreferencesProperty"]]:
         '''The set of preferences used for recording RDP connections in the requesting AWS account and AWS Region .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPreferences.ConnectionRecordingPreferencesProperty"]], jsii.get(self, "connectionRecordingPreferences"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.ConnectionRecordingPreferencesProperty"]], jsii.get(self, "connectionRecordingPreferences"))
 
     @connection_recording_preferences.setter
     def connection_recording_preferences(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPreferences.ConnectionRecordingPreferencesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.ConnectionRecordingPreferencesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c66582ef0ec82c9acb896e156d048eb1944403cdb814f8c249895be7c4d8043)
+            type_hints = cached_type_hints(_typecheckingstub__9c66582ef0ec82c9acb896e156d048eb1944403cdb814f8c249895be7c4d8043)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionRecordingPreferences", value) # pyright: ignore[reportArgumentType]
 
@@ -232,7 +229,7 @@ class CfnPreferences(
             self,
             *,
             kms_key_arn: builtins.str,
-            recording_destinations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPreferences.RecordingDestinationsProperty", typing.Dict[builtins.str, typing.Any]]],
+            recording_destinations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPreferences.RecordingDestinationsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The set of preferences used for recording RDP connections in the requesting AWS account and AWS Region .
 
@@ -261,7 +258,7 @@ class CfnPreferences(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9f83b9fd07eaf3bda97494ddce8a45cd58dcb54692ec0360bf9d23845c3be5f1)
+                type_hints = cached_type_hints(_typecheckingstub__9f83b9fd07eaf3bda97494ddce8a45cd58dcb54692ec0360bf9d23845c3be5f1)
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument recording_destinations", value=recording_destinations, expected_type=type_hints["recording_destinations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -284,14 +281,14 @@ class CfnPreferences(
         @builtins.property
         def recording_destinations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPreferences.RecordingDestinationsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.RecordingDestinationsProperty"]:
             '''Determines where recordings of RDP connections are stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmguiconnect-preferences-connectionrecordingpreferences.html#cfn-ssmguiconnect-preferences-connectionrecordingpreferences-recordingdestinations
             '''
             result = self._values.get("recording_destinations")
             assert result is not None, "Required property 'recording_destinations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPreferences.RecordingDestinationsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.RecordingDestinationsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -313,7 +310,7 @@ class CfnPreferences(
         def __init__(
             self,
             *,
-            s3_buckets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPreferences.S3BucketProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            s3_buckets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPreferences.S3BucketProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Determines where recordings of RDP connections are stored.
 
@@ -336,7 +333,7 @@ class CfnPreferences(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21f97360ac6f836d446e4669043ec91e366abd4faef63955c501e70a94faac1b)
+                type_hints = cached_type_hints(_typecheckingstub__21f97360ac6f836d446e4669043ec91e366abd4faef63955c501e70a94faac1b)
                 check_type(argname="argument s3_buckets", value=s3_buckets, expected_type=type_hints["s3_buckets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_buckets": s3_buckets,
@@ -345,14 +342,14 @@ class CfnPreferences(
         @builtins.property
         def s3_buckets(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPreferences.S3BucketProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.S3BucketProperty"]]]:
             '''The S3 bucket where RDP connection recordings are stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmguiconnect-preferences-recordingdestinations.html#cfn-ssmguiconnect-preferences-recordingdestinations-s3buckets
             '''
             result = self._values.get("s3_buckets")
             assert result is not None, "Required property 's3_buckets' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPreferences.S3BucketProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.S3BucketProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -397,7 +394,7 @@ class CfnPreferences(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3939ea87d6ea5ac56e97e4118631928a1de532647a270d9cb345a6e1e23ad144)
+                type_hints = cached_type_hints(_typecheckingstub__3939ea87d6ea5ac56e97e4118631928a1de532647a270d9cb345a6e1e23ad144)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -448,7 +445,7 @@ class CfnPreferencesProps:
     def __init__(
         self,
         *,
-        connection_recording_preferences: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPreferences.ConnectionRecordingPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_recording_preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPreferences.ConnectionRecordingPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPreferences``.
 
@@ -476,7 +473,7 @@ class CfnPreferencesProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98cae01e7635c618ff7b373fa87c04c806f9ee04274631cc3ad753469d5b8661)
+            type_hints = cached_type_hints(_typecheckingstub__98cae01e7635c618ff7b373fa87c04c806f9ee04274631cc3ad753469d5b8661)
             check_type(argname="argument connection_recording_preferences", value=connection_recording_preferences, expected_type=type_hints["connection_recording_preferences"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection_recording_preferences is not None:
@@ -485,7 +482,7 @@ class CfnPreferencesProps:
     @builtins.property
     def connection_recording_preferences(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPreferences.ConnectionRecordingPreferencesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.ConnectionRecordingPreferencesProperty"]]:
         '''The set of preferences used for recording RDP connections in the requesting AWS account and AWS Region .
 
         This includes details such as which S3 bucket recordings are stored in.
@@ -493,7 +490,7 @@ class CfnPreferencesProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmguiconnect-preferences.html#cfn-ssmguiconnect-preferences-connectionrecordingpreferences
         '''
         result = self._values.get("connection_recording_preferences")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPreferences.ConnectionRecordingPreferencesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPreferences.ConnectionRecordingPreferencesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -518,7 +515,7 @@ def _typecheckingstub__045e31f70bcabcaa4437ed6c7e11fb8462233ba15c60675b143088abf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    connection_recording_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPreferences.ConnectionRecordingPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_recording_preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPreferences.ConnectionRecordingPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -530,7 +527,7 @@ def _typecheckingstub__6562f2bf90b68b48dc09b0a75ee01b5351c8960048d32d4959c0c685c
     pass
 
 def _typecheckingstub__59c7a3e2f3cdd2e9d3e4372020a482f624a989ea6d129be44dbf7f070aacda70(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -542,7 +539,7 @@ def _typecheckingstub__3749ba458af11bbb5fb93542c69a8b02362071d74426f5a7f030e9ea0
     pass
 
 def _typecheckingstub__9c66582ef0ec82c9acb896e156d048eb1944403cdb814f8c249895be7c4d8043(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPreferences.ConnectionRecordingPreferencesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPreferences.ConnectionRecordingPreferencesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -550,14 +547,14 @@ def _typecheckingstub__9c66582ef0ec82c9acb896e156d048eb1944403cdb814f8c249895be7
 def _typecheckingstub__9f83b9fd07eaf3bda97494ddce8a45cd58dcb54692ec0360bf9d23845c3be5f1(
     *,
     kms_key_arn: builtins.str,
-    recording_destinations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPreferences.RecordingDestinationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    recording_destinations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPreferences.RecordingDestinationsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__21f97360ac6f836d446e4669043ec91e366abd4faef63955c501e70a94faac1b(
     *,
-    s3_buckets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPreferences.S3BucketProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    s3_buckets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPreferences.S3BucketProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -572,7 +569,7 @@ def _typecheckingstub__3939ea87d6ea5ac56e97e4118631928a1de532647a270d9cb345a6e1e
 
 def _typecheckingstub__98cae01e7635c618ff7b373fa87c04c806f9ee04274631cc3ad753469d5b8661(
     *,
-    connection_recording_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPreferences.ConnectionRecordingPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_recording_preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPreferences.ConnectionRecordingPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

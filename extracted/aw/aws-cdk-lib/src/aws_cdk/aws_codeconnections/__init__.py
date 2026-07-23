@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_codeconnections import (
-    ConnectionReference as _ConnectionReference_c7ca42e3,
-    IConnectionRef as _IConnectionRef_31f0710d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_codeconnections as _aws_codeconnections_a8ecd32b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codeconnections_a8ecd32b = _LazyImport("aws_cdk.interfaces.aws_codeconnections")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectionRef_31f0710d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeconnections_a8ecd32b.IConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeconnections.CfnConnection",
 ):
@@ -124,7 +119,7 @@ class CfnConnection(
         connection_name: builtins.str,
         host_arn: typing.Optional[builtins.str] = None,
         provider_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeConnections::Connection``.
 
@@ -136,7 +131,7 @@ class CfnConnection(
         :param tags: Specifies the tags applied to a connection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da00c1ce515c51afa7843809dadd2cb48a76e0e91dd2a8096cc430768e89a815)
+            type_hints = cached_type_hints(_typecheckingstub__da00c1ce515c51afa7843809dadd2cb48a76e0e91dd2a8096cc430768e89a815)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectionProps(
@@ -150,12 +145,15 @@ class CfnConnection(
 
     @jsii.member(jsii_name="arnForConnection")
     @builtins.classmethod
-    def arn_for_connection(cls, resource: "_IConnectionRef_31f0710d") -> builtins.str:
+    def arn_for_connection(
+        cls,
+        resource: "_aws_codeconnections_a8ecd32b.IConnectionRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0ebbeeb1a7e2051887bff67db79721fdc6e69076719f3a98c63ec4924102c1b)
+            type_hints = cached_type_hints(_typecheckingstub__f0ebbeeb1a7e2051887bff67db79721fdc6e69076719f3a98c63ec4924102c1b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
 
@@ -167,18 +165,18 @@ class CfnConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9da098eb0ec1eadf1e6c8e2874d960931a10c48234cfa2f71152fac89bc28721)
+            type_hints = cached_type_hints(_typecheckingstub__9da098eb0ec1eadf1e6c8e2874d960931a10c48234cfa2f71152fac89bc28721)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78744497e1b5bae3f2ea20b9d3496e178855aef0e29d2de71777b026a6d27a1a)
+            type_hints = cached_type_hints(_typecheckingstub__78744497e1b5bae3f2ea20b9d3496e178855aef0e29d2de71777b026a6d27a1a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -191,7 +189,7 @@ class CfnConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__440f5e3662e5ab05ab71cf41aafae8bf45c3a11a457c7bbc13517a3eb9e7278e)
+            type_hints = cached_type_hints(_typecheckingstub__440f5e3662e5ab05ab71cf41aafae8bf45c3a11a457c7bbc13517a3eb9e7278e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -237,9 +235,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -253,9 +251,9 @@ class CfnConnection(
 
     @builtins.property
     @jsii.member(jsii_name="connectionRef")
-    def connection_ref(self) -> "_ConnectionReference_c7ca42e3":
+    def connection_ref(self) -> "_aws_codeconnections_a8ecd32b.ConnectionReference":
         '''A reference to a Connection resource.'''
-        return typing.cast("_ConnectionReference_c7ca42e3", jsii.get(self, "connectionRef"))
+        return typing.cast("_aws_codeconnections_a8ecd32b.ConnectionReference", jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionName")
@@ -266,7 +264,7 @@ class CfnConnection(
     @connection_name.setter
     def connection_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d759fec9e0861542e9267cd70eacda49ebbb2a1399fb2f36364a2a01d38cdc0)
+            type_hints = cached_type_hints(_typecheckingstub__7d759fec9e0861542e9267cd70eacda49ebbb2a1399fb2f36364a2a01d38cdc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionName", value) # pyright: ignore[reportArgumentType]
 
@@ -279,7 +277,7 @@ class CfnConnection(
     @host_arn.setter
     def host_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c6c22c4d5132fe518d2a74aed1b6d9c89f7a2fbb163195a459d8af8791cf1c9)
+            type_hints = cached_type_hints(_typecheckingstub__6c6c22c4d5132fe518d2a74aed1b6d9c89f7a2fbb163195a459d8af8791cf1c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostArn", value) # pyright: ignore[reportArgumentType]
 
@@ -292,20 +290,23 @@ class CfnConnection(
     @provider_type.setter
     def provider_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ec396e84dc4ee92669ed87aa685780cf9af74b974c8d0d7f12b0c1196dc17d6)
+            type_hints = cached_type_hints(_typecheckingstub__2ec396e84dc4ee92669ed87aa685780cf9af74b974c8d0d7f12b0c1196dc17d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the tags applied to a connection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd277a1214d747c2b8b1a0998909d0fe0edc54719c5d7b8ae3621585dbf60405)
+            type_hints = cached_type_hints(_typecheckingstub__cd277a1214d747c2b8b1a0998909d0fe0edc54719c5d7b8ae3621585dbf60405)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -327,7 +328,7 @@ class CfnConnectionProps:
         connection_name: builtins.str,
         host_arn: typing.Optional[builtins.str] = None,
         provider_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnection``.
 
@@ -359,7 +360,7 @@ class CfnConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde)
+            type_hints = cached_type_hints(_typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument host_arn", value=host_arn, expected_type=type_hints["host_arn"])
             check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
@@ -405,13 +406,13 @@ class CfnConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the tags applied to a connection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -439,13 +440,13 @@ def _typecheckingstub__da00c1ce515c51afa7843809dadd2cb48a76e0e91dd2a8096cc430768
     connection_name: builtins.str,
     host_arn: typing.Optional[builtins.str] = None,
     provider_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f0ebbeeb1a7e2051887bff67db79721fdc6e69076719f3a98c63ec4924102c1b(
-    resource: _IConnectionRef_31f0710d,
+    resource: _aws_codeconnections_a8ecd32b.IConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -457,7 +458,7 @@ def _typecheckingstub__9da098eb0ec1eadf1e6c8e2874d960931a10c48234cfa2f71152fac89
     pass
 
 def _typecheckingstub__78744497e1b5bae3f2ea20b9d3496e178855aef0e29d2de71777b026a6d27a1a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -487,7 +488,7 @@ def _typecheckingstub__2ec396e84dc4ee92669ed87aa685780cf9af74b974c8d0d7f12b0c119
     pass
 
 def _typecheckingstub__cd277a1214d747c2b8b1a0998909d0fe0edc54719c5d7b8ae3621585dbf60405(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -497,7 +498,7 @@ def _typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec
     connection_name: builtins.str,
     host_arn: typing.Optional[builtins.str] = None,
     provider_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

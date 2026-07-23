@@ -46,6 +46,7 @@ class PrescriptionMessageType(str, Enum):
     MANUAL_NEW_RX = 'Manual_NewRx'
     RXRENEWALREQUEST = 'RxRenewalRequest'
     RXUPDATE = 'RxUpdate'
+    CENTERWELL_RX_EVENT = 'Centerwell_RxEvent'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

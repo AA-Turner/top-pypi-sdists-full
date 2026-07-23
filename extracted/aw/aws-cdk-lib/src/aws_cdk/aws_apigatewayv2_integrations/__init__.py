@@ -546,6 +546,8 @@ import software.amazon.awscdk.aws_apigatewayv2_integrations.*;
 import software.amazon.awscdk.aws_apigatewayv2_integrations.WebSocketAwsIntegration;
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -559,60 +561,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import Duration as _Duration_4839e8c3
-from ..aws_apigatewayv2 import (
-    ContentHandling as _ContentHandling_1512a7da,
-    HttpConnectionType as _HttpConnectionType_02a8b6fb,
-    HttpIntegrationSubtype as _HttpIntegrationSubtype_beb63b59,
-    HttpIntegrationType as _HttpIntegrationType_aee0d440,
-    HttpMethod as _HttpMethod_4c4f3090,
-    HttpRouteIntegration as _HttpRouteIntegration_d3ee7c34,
-    HttpRouteIntegrationBindOptions as _HttpRouteIntegrationBindOptions_f870a39e,
-    HttpRouteIntegrationConfig as _HttpRouteIntegrationConfig_aafc4b76,
-    IHttpRoute as _IHttpRoute_2fbc6171,
-    IVpcLink as _IVpcLink_adecf0e2,
-    IWebSocketRoute as _IWebSocketRoute_006c2390,
-    ParameterMapping as _ParameterMapping_c11a48e0,
-    PassthroughBehavior as _PassthroughBehavior_379b8a9e,
-    PayloadFormatVersion as _PayloadFormatVersion_a469cb03,
-    WebSocketRouteIntegration as _WebSocketRouteIntegration_bb950e43,
-    WebSocketRouteIntegrationBindOptions as _WebSocketRouteIntegrationBindOptions_4f27dddb,
-    WebSocketRouteIntegrationConfig as _WebSocketRouteIntegrationConfig_7402c18a,
-)
-from ..aws_elasticloadbalancingv2 import (
-    IApplicationListener as _IApplicationListener_60f2beb6,
-    INetworkListener as _INetworkListener_fccca3bd,
-)
-from ..aws_iam import IRole as _IRole_235f5d8e
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_sqs import IQueue as _IQueue_7ed6f679
-from ..aws_stepfunctions import StateMachine as _StateMachine_a256d24f
-from ..interfaces.aws_events import EventBusReference as _EventBusReference_f9e830e1
-from ..interfaces.aws_servicediscovery import IServiceRef as _IServiceRef_687c8f74
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_apigatewayv2 as _aws_apigatewayv2_110df5de
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
+    import aws_cdk.aws_stepfunctions as _aws_stepfunctions_24675d1b
+    import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
+    import aws_cdk.interfaces.aws_servicediscovery as _aws_servicediscovery_1f14693a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_apigatewayv2_110df5de = _LazyImport("aws_cdk.aws_apigatewayv2")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_events_49a540ff = _LazyImport("aws_cdk.interfaces.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_servicediscovery_1f14693a = _LazyImport("aws_cdk.interfaces.aws_servicediscovery")
+    _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
+    _aws_stepfunctions_24675d1b = _LazyImport("aws_cdk.aws_stepfunctions")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class HttpAlbIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpAlbIntegration",
 ):
@@ -640,13 +631,13 @@ class HttpAlbIntegration(
     def __init__(
         self,
         id: builtins.str,
-        listener: "_IApplicationListener_60f2beb6",
+        listener: "_aws_elasticloadbalancingv2_1d9af53a.IApplicationListener",
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -658,7 +649,7 @@ class HttpAlbIntegration(
         :param vpc_link: The vpc link to be used for the private integration. Default: - a new VpcLink is created
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__928f282b08310c18e1704595722c48f29856eea7d0afc8e0dd89d67e61a77820)
+            type_hints = cached_type_hints(_typecheckingstub__928f282b08310c18e1704595722c48f29856eea7d0afc8e0dd89d67e61a77820)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         props = HttpAlbIntegrationProps(
@@ -675,69 +666,82 @@ class HttpAlbIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
-        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_aws_apigatewayv2_110df5de.HttpConnectionType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpConnectionType", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
+    def _connection_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpConnectionType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddd81275967dd8f82fea61a7accd8241f873539fe596998c66af3c580e913284)
+            type_hints = cached_type_hints(_typecheckingstub__ddd81275967dd8f82fea61a7accd8241f873539fe596998c66af3c580e913284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> "_HttpMethod_4c4f3090":
-        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_aws_apigatewayv2_110df5de.HttpMethod":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpMethod", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
+    def _http_method(self, value: "_aws_apigatewayv2_110df5de.HttpMethod") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49d2707c331ffacddcce15a9f8462f5b4bd86acafca4f99ffac86d61fdd968c5)
+            type_hints = cached_type_hints(_typecheckingstub__49d2707c331ffacddcce15a9f8462f5b4bd86acafca4f99ffac86d61fdd968c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
-        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_aws_apigatewayv2_110df5de.HttpIntegrationType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpIntegrationType", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
+    def _integration_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpIntegrationType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68d6f772e2a89442556f1760d95c537293e8868e69f39350b976830ea7c5d7c8)
+            type_hints = cached_type_hints(_typecheckingstub__68d6f772e2a89442556f1760d95c537293e8868e69f39350b976830ea7c5d7c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
-        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(
+        self,
+    ) -> "_aws_apigatewayv2_110df5de.PayloadFormatVersion":
+        return typing.cast("_aws_apigatewayv2_110df5de.PayloadFormatVersion", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
+    def _payload_format_version(
+        self,
+        value: "_aws_apigatewayv2_110df5de.PayloadFormatVersion",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c78203b26)
+            type_hints = cached_type_hints(_typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c78203b26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
 
 
 class HttpEventBridgeIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpEventBridgeIntegration",
 ):
@@ -778,9 +782,9 @@ class HttpEventBridgeIntegration(
         self,
         id: builtins.str,
         *,
-        event_bus_ref: typing.Union["_EventBusReference_f9e830e1", typing.Dict[builtins.str, typing.Any]],
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        event_bus_ref: typing.Union["_aws_events_49a540ff.EventBusReference", typing.Dict[builtins.str, typing.Any]],
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -789,7 +793,7 @@ class HttpEventBridgeIntegration(
         :param subtype: The subtype of the HTTP integration. Only subtypes starting with EVENTBRIDGE_ can be specified. Default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__609af0872658996b1dce86a297d0ff58f1ab3aefbe3d96cefe78de4451616435)
+            type_hints = cached_type_hints(_typecheckingstub__609af0872658996b1dce86a297d0ff58f1ab3aefbe3d96cefe78de4451616435)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpEventBridgeIntegrationProps(
             event_bus_ref=event_bus_ref,
@@ -803,17 +807,19 @@ class HttpEventBridgeIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -829,9 +835,9 @@ class HttpEventBridgeIntegrationProps:
     def __init__(
         self,
         *,
-        event_bus_ref: typing.Union["_EventBusReference_f9e830e1", typing.Dict[builtins.str, typing.Any]],
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        event_bus_ref: typing.Union["_aws_events_49a540ff.EventBusReference", typing.Dict[builtins.str, typing.Any]],
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''Properties to initialize ``HttpEventBridgeIntegration``.
 
@@ -870,9 +876,9 @@ class HttpEventBridgeIntegrationProps:
             )
         '''
         if isinstance(event_bus_ref, dict):
-            event_bus_ref = _EventBusReference_f9e830e1(**event_bus_ref)
+            event_bus_ref = _aws_events_49a540ff.EventBusReference(**event_bus_ref)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44a0ff213f971757eba3fb6cb3f1b6ae080190a2af293a1bc01e8798d084e611)
+            type_hints = cached_type_hints(_typecheckingstub__44a0ff213f971757eba3fb6cb3f1b6ae080190a2af293a1bc01e8798d084e611)
             check_type(argname="argument event_bus_ref", value=event_bus_ref, expected_type=type_hints["event_bus_ref"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
@@ -885,14 +891,16 @@ class HttpEventBridgeIntegrationProps:
             self._values["subtype"] = subtype
 
     @builtins.property
-    def event_bus_ref(self) -> "_EventBusReference_f9e830e1":
+    def event_bus_ref(self) -> "_aws_events_49a540ff.EventBusReference":
         '''EventBridge event bus that integrates with API Gateway.'''
         result = self._values.get("event_bus_ref")
         assert result is not None, "Required property 'event_bus_ref' is missing"
-        return typing.cast("_EventBusReference_f9e830e1", result)
+        return typing.cast("_aws_events_49a540ff.EventBusReference", result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         When not provided, a default mapping will be used that expects the
@@ -912,10 +920,12 @@ class HttpEventBridgeIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-aws-services-reference.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
-    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
+    def subtype(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"]:
         '''The subtype of the HTTP integration.
 
         Only subtypes starting with EVENTBRIDGE_ can be specified.
@@ -923,7 +933,7 @@ class HttpEventBridgeIntegrationProps:
         :default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
         '''
         result = self._values.get("subtype")
-        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -938,7 +948,7 @@ class HttpEventBridgeIntegrationProps:
 
 
 class HttpLambdaIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpLambdaIntegration",
 ):
@@ -973,12 +983,12 @@ class HttpLambdaIntegration(
     def __init__(
         self,
         id: builtins.str,
-        handler: "_IFunction_6adb0ab8",
+        handler: "_aws_lambda_b8f2f472.IFunction",
         *,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        payload_format_version: typing.Optional["_PayloadFormatVersion_a469cb03"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        payload_format_version: typing.Optional["_aws_apigatewayv2_110df5de.PayloadFormatVersion"] = None,
         scope_permission_to_route: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -989,7 +999,7 @@ class HttpLambdaIntegration(
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__186fcdf4e12ad29dbad06f4ae566e815dd0e4855b4b9ffd6626f945f2a4aee19)
+            type_hints = cached_type_hints(_typecheckingstub__186fcdf4e12ad29dbad06f4ae566e815dd0e4855b4b9ffd6626f945f2a4aee19)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = HttpLambdaIntegrationProps(
@@ -1005,23 +1015,25 @@ class HttpLambdaIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        _options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        _options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [_options]))
 
     @jsii.member(jsii_name="completeBind")
     def _complete_bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
     ) -> None:
         '''Complete the binding of the integration to the route.
@@ -1036,7 +1048,9 @@ class HttpLambdaIntegration(
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
         return typing.cast(None, jsii.invoke(self, "completeBind", [options]))
 
@@ -1055,10 +1069,10 @@ class HttpLambdaIntegrationProps:
     def __init__(
         self,
         *,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        payload_format_version: typing.Optional["_PayloadFormatVersion_a469cb03"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        payload_format_version: typing.Optional["_aws_apigatewayv2_110df5de.PayloadFormatVersion"] = None,
         scope_permission_to_route: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Lambda Proxy integration properties.
 
@@ -1098,7 +1112,7 @@ class HttpLambdaIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7494501e4bf220385c831472b8042a561df79a565c497e77d41cfc10427bce41)
+            type_hints = cached_type_hints(_typecheckingstub__7494501e4bf220385c831472b8042a561df79a565c497e77d41cfc10427bce41)
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument payload_format_version", value=payload_format_version, expected_type=type_hints["payload_format_version"])
             check_type(argname="argument scope_permission_to_route", value=scope_permission_to_route, expected_type=type_hints["scope_permission_to_route"])
@@ -1114,7 +1128,9 @@ class HttpLambdaIntegrationProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1122,12 +1138,12 @@ class HttpLambdaIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
     def payload_format_version(
         self,
-    ) -> typing.Optional["_PayloadFormatVersion_a469cb03"]:
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.PayloadFormatVersion"]:
         '''Version of the payload sent to the lambda handler.
 
         :default: PayloadFormatVersion.VERSION_2_0
@@ -1135,7 +1151,7 @@ class HttpLambdaIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
         '''
         result = self._values.get("payload_format_version")
-        return typing.cast(typing.Optional["_PayloadFormatVersion_a469cb03"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.PayloadFormatVersion"], result)
 
     @builtins.property
     def scope_permission_to_route(self) -> typing.Optional[builtins.bool]:
@@ -1151,7 +1167,7 @@ class HttpLambdaIntegrationProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1159,7 +1175,7 @@ class HttpLambdaIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1174,7 +1190,7 @@ class HttpLambdaIntegrationProps:
 
 
 class HttpNlbIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpNlbIntegration",
 ):
@@ -1202,13 +1218,13 @@ class HttpNlbIntegration(
     def __init__(
         self,
         id: builtins.str,
-        listener: "_INetworkListener_fccca3bd",
+        listener: "_aws_elasticloadbalancingv2_1d9af53a.INetworkListener",
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1220,7 +1236,7 @@ class HttpNlbIntegration(
         :param vpc_link: The vpc link to be used for the private integration. Default: - a new VpcLink is created
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__543e48e97b53816262605885854d56b7f2c624e9fe59f7e60eadcde801acaebd)
+            type_hints = cached_type_hints(_typecheckingstub__543e48e97b53816262605885854d56b7f2c624e9fe59f7e60eadcde801acaebd)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
         props = HttpNlbIntegrationProps(
@@ -1237,63 +1253,76 @@ class HttpNlbIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
-        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_aws_apigatewayv2_110df5de.HttpConnectionType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpConnectionType", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
+    def _connection_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpConnectionType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d360e4b817e6fc6c8ae4e1350d9dd6b3d69b40c54401465c6ef888953f765e38)
+            type_hints = cached_type_hints(_typecheckingstub__d360e4b817e6fc6c8ae4e1350d9dd6b3d69b40c54401465c6ef888953f765e38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> "_HttpMethod_4c4f3090":
-        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_aws_apigatewayv2_110df5de.HttpMethod":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpMethod", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
+    def _http_method(self, value: "_aws_apigatewayv2_110df5de.HttpMethod") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c789ab75d5a6290c76fe8fce0b824cd0926bb50f6f9fb91ff77ef01e82a1ea0)
+            type_hints = cached_type_hints(_typecheckingstub__4c789ab75d5a6290c76fe8fce0b824cd0926bb50f6f9fb91ff77ef01e82a1ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
-        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_aws_apigatewayv2_110df5de.HttpIntegrationType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpIntegrationType", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
+    def _integration_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpIntegrationType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__585857799e486703df2825ecce003717b9e731a7928c8409a6da811435c79165)
+            type_hints = cached_type_hints(_typecheckingstub__585857799e486703df2825ecce003717b9e731a7928c8409a6da811435c79165)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
-        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(
+        self,
+    ) -> "_aws_apigatewayv2_110df5de.PayloadFormatVersion":
+        return typing.cast("_aws_apigatewayv2_110df5de.PayloadFormatVersion", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
+    def _payload_format_version(
+        self,
+        value: "_aws_apigatewayv2_110df5de.PayloadFormatVersion",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36f10890866a2476ef7a837c18a7bab079976e4adf47e736ccebe3fc7ec980ca)
+            type_hints = cached_type_hints(_typecheckingstub__36f10890866a2476ef7a837c18a7bab079976e4adf47e736ccebe3fc7ec980ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1313,11 +1342,11 @@ class HttpPrivateIntegrationOptions:
     def __init__(
         self,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''Base options for private integration.
 
@@ -1349,7 +1378,7 @@ class HttpPrivateIntegrationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d60e74e57400fa0f9757a69ecb53197543ad6fd054f8168eaa56d7cd010107b5)
+            type_hints = cached_type_hints(_typecheckingstub__d60e74e57400fa0f9757a69ecb53197543ad6fd054f8168eaa56d7cd010107b5)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument secure_server_name", value=secure_server_name, expected_type=type_hints["secure_server_name"])
@@ -1368,16 +1397,18 @@ class HttpPrivateIntegrationOptions:
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
+    def method(self) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1385,7 +1416,7 @@ class HttpPrivateIntegrationOptions:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -1399,7 +1430,7 @@ class HttpPrivateIntegrationOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1407,16 +1438,16 @@ class HttpPrivateIntegrationOptions:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
+    def vpc_link(self) -> typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1431,7 +1462,7 @@ class HttpPrivateIntegrationOptions:
 
 
 class HttpServiceDiscoveryIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpServiceDiscoveryIntegration",
 ):
@@ -1463,13 +1494,13 @@ class HttpServiceDiscoveryIntegration(
     def __init__(
         self,
         id: builtins.str,
-        service: "_IServiceRef_687c8f74",
+        service: "_aws_servicediscovery_1f14693a.IServiceRef",
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1481,7 +1512,7 @@ class HttpServiceDiscoveryIntegration(
         :param vpc_link: The vpc link to be used for the private integration. Default: - a new VpcLink is created
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc876ae5ee3ca1141486563e7214d682fb6d2e3b3b1ab6b4f91e525d7a19b53e)
+            type_hints = cached_type_hints(_typecheckingstub__dc876ae5ee3ca1141486563e7214d682fb6d2e3b3b1ab6b4f91e525d7a19b53e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         props = HttpServiceDiscoveryIntegrationProps(
@@ -1498,63 +1529,76 @@ class HttpServiceDiscoveryIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
-        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_aws_apigatewayv2_110df5de.HttpConnectionType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpConnectionType", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
+    def _connection_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpConnectionType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88fa11bc73bf44288cb7467c39d6aa21cc34611adb58ae52dbcb42fe2150a266)
+            type_hints = cached_type_hints(_typecheckingstub__88fa11bc73bf44288cb7467c39d6aa21cc34611adb58ae52dbcb42fe2150a266)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> "_HttpMethod_4c4f3090":
-        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_aws_apigatewayv2_110df5de.HttpMethod":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpMethod", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
+    def _http_method(self, value: "_aws_apigatewayv2_110df5de.HttpMethod") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cc3ee501484e0e7058df9083bcfc3e410c2de2357a283e797038514e45bae8e)
+            type_hints = cached_type_hints(_typecheckingstub__3cc3ee501484e0e7058df9083bcfc3e410c2de2357a283e797038514e45bae8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
-        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_aws_apigatewayv2_110df5de.HttpIntegrationType":
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpIntegrationType", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
+    def _integration_type(
+        self,
+        value: "_aws_apigatewayv2_110df5de.HttpIntegrationType",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5909d37808307699be7a07730689164f1e138383252eae1d7c68420302f2e9c4)
+            type_hints = cached_type_hints(_typecheckingstub__5909d37808307699be7a07730689164f1e138383252eae1d7c68420302f2e9c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
-        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(
+        self,
+    ) -> "_aws_apigatewayv2_110df5de.PayloadFormatVersion":
+        return typing.cast("_aws_apigatewayv2_110df5de.PayloadFormatVersion", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
+    def _payload_format_version(
+        self,
+        value: "_aws_apigatewayv2_110df5de.PayloadFormatVersion",
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2db70ce1255fd6ff4a3b0a88a1c0a0096c5eb165bf1ce3544bee82d10bcc54d7)
+            type_hints = cached_type_hints(_typecheckingstub__2db70ce1255fd6ff4a3b0a88a1c0a0096c5eb165bf1ce3544bee82d10bcc54d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1574,11 +1618,11 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''Properties to initialize ``HttpServiceDiscoveryIntegration``.
 
@@ -1611,7 +1655,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bbb857ee24522818d504a3830c65b95bbc66b9ef70c67fa5b85fbdca1aaf1c1)
+            type_hints = cached_type_hints(_typecheckingstub__8bbb857ee24522818d504a3830c65b95bbc66b9ef70c67fa5b85fbdca1aaf1c1)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument secure_server_name", value=secure_server_name, expected_type=type_hints["secure_server_name"])
@@ -1630,16 +1674,18 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
+    def method(self) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1647,7 +1693,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -1661,7 +1707,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1669,16 +1715,16 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
+    def vpc_link(self) -> typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1693,7 +1739,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
 
 
 class HttpSqsIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpSqsIntegration",
 ):
@@ -1760,9 +1806,9 @@ class HttpSqsIntegration(
         self,
         id: builtins.str,
         *,
-        queue: "_IQueue_7ed6f679",
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        queue: "_aws_sqs_24ab9de4.IQueue",
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1771,7 +1817,7 @@ class HttpSqsIntegration(
         :param subtype: The subtype of the HTTP integration. Only subtypes starting with SQS_ can be specified. Default: HttpIntegrationSubtype.SQS_SEND_MESSAGE
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26e844829cda3c6c377e33299ff9302e7502c75bb44dad66e9545facd663d244)
+            type_hints = cached_type_hints(_typecheckingstub__26e844829cda3c6c377e33299ff9302e7502c75bb44dad66e9545facd663d244)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpSqsIntegrationProps(
             queue=queue, parameter_mapping=parameter_mapping, subtype=subtype
@@ -1783,17 +1829,19 @@ class HttpSqsIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -1809,9 +1857,9 @@ class HttpSqsIntegrationProps:
     def __init__(
         self,
         *,
-        queue: "_IQueue_7ed6f679",
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        queue: "_aws_sqs_24ab9de4.IQueue",
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''Properties to initialize ``HttpSqsIntegration``.
 
@@ -1876,7 +1924,7 @@ class HttpSqsIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a7e21b776e0221926527e68875c71cef4289537168431b8f7179bdb31603f63)
+            type_hints = cached_type_hints(_typecheckingstub__8a7e21b776e0221926527e68875c71cef4289537168431b8f7179bdb31603f63)
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
@@ -1889,14 +1937,16 @@ class HttpSqsIntegrationProps:
             self._values["subtype"] = subtype
 
     @builtins.property
-    def queue(self) -> "_IQueue_7ed6f679":
+    def queue(self) -> "_aws_sqs_24ab9de4.IQueue":
         '''SQS queue that Integrates with API Gateway.'''
         result = self._values.get("queue")
         assert result is not None, "Required property 'queue' is missing"
-        return typing.cast("_IQueue_7ed6f679", result)
+        return typing.cast("_aws_sqs_24ab9de4.IQueue", result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default:
@@ -1907,10 +1957,12 @@ class HttpSqsIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-aws-services-reference.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
-    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
+    def subtype(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"]:
         '''The subtype of the HTTP integration.
 
         Only subtypes starting with SQS_ can be specified.
@@ -1918,7 +1970,7 @@ class HttpSqsIntegrationProps:
         :default: HttpIntegrationSubtype.SQS_SEND_MESSAGE
         '''
         result = self._values.get("subtype")
-        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1933,7 +1985,7 @@ class HttpSqsIntegrationProps:
 
 
 class HttpStepFunctionsIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpStepFunctionsIntegration",
 ):
@@ -1984,9 +2036,9 @@ class HttpStepFunctionsIntegration(
         self,
         id: builtins.str,
         *,
-        state_machine: "_StateMachine_a256d24f",
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        state_machine: "_aws_stepfunctions_24675d1b.StateMachine",
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1995,7 +2047,7 @@ class HttpStepFunctionsIntegration(
         :param subtype: The subtype of the HTTP integration. Only subtypes starting with STEPFUNCTIONS_ can be specified. Default: HttpIntegrationSubtype.STEPFUNCTIONS_START_EXECUTION
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76518171338936bd0fbff4054b2b72b876355e21b6eef931d4dd4f111fc7889f)
+            type_hints = cached_type_hints(_typecheckingstub__76518171338936bd0fbff4054b2b72b876355e21b6eef931d4dd4f111fc7889f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpStepFunctionsIntegrationProps(
             state_machine=state_machine,
@@ -2009,17 +2061,19 @@ class HttpStepFunctionsIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -2035,9 +2089,9 @@ class HttpStepFunctionsIntegrationProps:
     def __init__(
         self,
         *,
-        state_machine: "_StateMachine_a256d24f",
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+        state_machine: "_aws_stepfunctions_24675d1b.StateMachine",
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        subtype: typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"] = None,
     ) -> None:
         '''Properties to initialize ``HttpStepFunctionsIntegration``.
 
@@ -2086,7 +2140,7 @@ class HttpStepFunctionsIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7072515a6bcc56ecf05d39b9b84f7dde9de04e9c2caf9ada206b863db8625ed)
+            type_hints = cached_type_hints(_typecheckingstub__a7072515a6bcc56ecf05d39b9b84f7dde9de04e9c2caf9ada206b863db8625ed)
             check_type(argname="argument state_machine", value=state_machine, expected_type=type_hints["state_machine"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
@@ -2099,14 +2153,16 @@ class HttpStepFunctionsIntegrationProps:
             self._values["subtype"] = subtype
 
     @builtins.property
-    def state_machine(self) -> "_StateMachine_a256d24f":
+    def state_machine(self) -> "_aws_stepfunctions_24675d1b.StateMachine":
         '''Statemachine that Integrates with API Gateway.'''
         result = self._values.get("state_machine")
         assert result is not None, "Required property 'state_machine' is missing"
-        return typing.cast("_StateMachine_a256d24f", result)
+        return typing.cast("_aws_stepfunctions_24675d1b.StateMachine", result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         When the subtype is either ``START_EXECUTION`` or ``START_SYNC_EXECUTION``,
@@ -2118,10 +2174,12 @@ class HttpStepFunctionsIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
-    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
+    def subtype(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"]:
         '''The subtype of the HTTP integration.
 
         Only subtypes starting with STEPFUNCTIONS_ can be specified.
@@ -2129,7 +2187,7 @@ class HttpStepFunctionsIntegrationProps:
         :default: HttpIntegrationSubtype.STEPFUNCTIONS_START_EXECUTION
         '''
         result = self._values.get("subtype")
-        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpIntegrationSubtype"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2144,7 +2202,7 @@ class HttpStepFunctionsIntegrationProps:
 
 
 class HttpUrlIntegration(
-    _HttpRouteIntegration_d3ee7c34,
+    _aws_apigatewayv2_110df5de.HttpRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpUrlIntegration",
 ):
@@ -2177,9 +2235,9 @@ class HttpUrlIntegration(
         id: builtins.str,
         url: builtins.str,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -2189,7 +2247,7 @@ class HttpUrlIntegration(
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39ce64d79e6c4249c8c60321022b7721149966e379b0f947f602cb248aee9bce)
+            type_hints = cached_type_hints(_typecheckingstub__39ce64d79e6c4249c8c60321022b7721149966e379b0f947f602cb248aee9bce)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         props = HttpUrlIntegrationProps(
@@ -2202,17 +2260,19 @@ class HttpUrlIntegration(
     def bind(
         self,
         *,
-        route: "_IHttpRoute_2fbc6171",
+        route: "_aws_apigatewayv2_110df5de.IHttpRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+    ) -> "_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        _options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+        _options = _aws_apigatewayv2_110df5de.HttpRouteIntegrationBindOptions(
+            route=route, scope=scope
+        )
 
-        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.HttpRouteIntegrationConfig", jsii.invoke(self, "bind", [_options]))
 
 
 @jsii.data_type(
@@ -2228,9 +2288,9 @@ class HttpUrlIntegrationProps:
     def __init__(
         self,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties to initialize a new ``HttpProxyIntegration``.
 
@@ -2257,7 +2317,7 @@ class HttpUrlIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abe29aa89dc1da944745a812d1d5e87dd81ab57867504a928a129c8b904c99da)
+            type_hints = cached_type_hints(_typecheckingstub__abe29aa89dc1da944745a812d1d5e87dd81ab57867504a928a129c8b904c99da)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
@@ -2270,16 +2330,18 @@ class HttpUrlIntegrationProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
+    def method(self) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -2287,10 +2349,10 @@ class HttpUrlIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2298,7 +2360,7 @@ class HttpUrlIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2313,7 +2375,7 @@ class HttpUrlIntegrationProps:
 
 
 class WebSocketAwsIntegration(
-    _WebSocketRouteIntegration_bb950e43,
+    _aws_apigatewayv2_110df5de.WebSocketRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.WebSocketAwsIntegration",
 ):
@@ -2362,13 +2424,13 @@ class WebSocketAwsIntegration(
         *,
         integration_method: builtins.str,
         integration_uri: builtins.str,
-        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
-        credentials_role: typing.Optional["_IRole_235f5d8e"] = None,
-        passthrough_behavior: typing.Optional["_PassthroughBehavior_379b8a9e"] = None,
+        content_handling: typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"] = None,
+        credentials_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        passthrough_behavior: typing.Optional["_aws_apigatewayv2_110df5de.PassthroughBehavior"] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         template_selection_expression: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -2383,7 +2445,7 @@ class WebSocketAwsIntegration(
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bba00d2a284a155db9e940bdf51118b0715f0312e8109e916f7848b20023815)
+            type_hints = cached_type_hints(_typecheckingstub__9bba00d2a284a155db9e940bdf51118b0715f0312e8109e916f7848b20023815)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WebSocketAwsIntegrationProps(
             integration_method=integration_method,
@@ -2403,19 +2465,19 @@ class WebSocketAwsIntegration(
     def bind(
         self,
         *,
-        route: "_IWebSocketRoute_006c2390",
+        route: "_aws_apigatewayv2_110df5de.IWebSocketRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
+    ) -> "_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``WebSocketRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        _options = _WebSocketRouteIntegrationBindOptions_4f27dddb(
+        _options = _aws_apigatewayv2_110df5de.WebSocketRouteIntegrationBindOptions(
             route=route, scope=scope
         )
 
-        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig", jsii.invoke(self, "bind", [_options]))
 
 
 @jsii.data_type(
@@ -2439,13 +2501,13 @@ class WebSocketAwsIntegrationProps:
         *,
         integration_method: builtins.str,
         integration_uri: builtins.str,
-        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
-        credentials_role: typing.Optional["_IRole_235f5d8e"] = None,
-        passthrough_behavior: typing.Optional["_PassthroughBehavior_379b8a9e"] = None,
+        content_handling: typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"] = None,
+        credentials_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        passthrough_behavior: typing.Optional["_aws_apigatewayv2_110df5de.PassthroughBehavior"] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         template_selection_expression: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Props for AWS type integration for a WebSocket Api.
 
@@ -2496,7 +2558,7 @@ class WebSocketAwsIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa585be6945644a75e60414b518cacf76637190e70170ea912e9826651e3e5ea)
+            type_hints = cached_type_hints(_typecheckingstub__aa585be6945644a75e60414b518cacf76637190e70170ea912e9826651e3e5ea)
             check_type(argname="argument integration_method", value=integration_method, expected_type=type_hints["integration_method"])
             check_type(argname="argument integration_uri", value=integration_uri, expected_type=type_hints["integration_uri"])
             check_type(argname="argument content_handling", value=content_handling, expected_type=type_hints["content_handling"])
@@ -2540,7 +2602,9 @@ class WebSocketAwsIntegrationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def content_handling(self) -> typing.Optional["_ContentHandling_1512a7da"]:
+    def content_handling(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"]:
         '''Specifies how to handle response payload content type conversions.
 
         :default:
@@ -2549,19 +2613,21 @@ class WebSocketAwsIntegrationProps:
         the route response or method response without modification.
         '''
         result = self._values.get("content_handling")
-        return typing.cast(typing.Optional["_ContentHandling_1512a7da"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"], result)
 
     @builtins.property
-    def credentials_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def credentials_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Specifies the credentials role required for the integration.
 
         :default: - No credential role provided.
         '''
         result = self._values.get("credentials_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def passthrough_behavior(self) -> typing.Optional["_PassthroughBehavior_379b8a9e"]:
+    def passthrough_behavior(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.PassthroughBehavior"]:
         '''Specifies the pass-through behavior for incoming requests based on the Content-Type header in the request, and the available mapping templates specified as the requestTemplates property on the Integration resource.
 
         There are three valid values: WHEN_NO_MATCH, WHEN_NO_TEMPLATES, and
@@ -2570,7 +2636,7 @@ class WebSocketAwsIntegrationProps:
         :default: - No passthrough behavior required.
         '''
         result = self._values.get("passthrough_behavior")
-        return typing.cast(typing.Optional["_PassthroughBehavior_379b8a9e"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.PassthroughBehavior"], result)
 
     @builtins.property
     def request_parameters(
@@ -2611,7 +2677,7 @@ class WebSocketAwsIntegrationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2619,7 +2685,7 @@ class WebSocketAwsIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2634,7 +2700,7 @@ class WebSocketAwsIntegrationProps:
 
 
 class WebSocketLambdaIntegration(
-    _WebSocketRouteIntegration_bb950e43,
+    _aws_apigatewayv2_110df5de.WebSocketRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.WebSocketLambdaIntegration",
 ):
@@ -2663,10 +2729,10 @@ class WebSocketLambdaIntegration(
     def __init__(
         self,
         id: builtins.str,
-        handler: "_IFunction_6adb0ab8",
+        handler: "_aws_lambda_b8f2f472.IFunction",
         *,
-        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        content_handling: typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -2675,7 +2741,7 @@ class WebSocketLambdaIntegration(
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__990acb5e6eea396fa4e1595408a45c01b4b03ad6d7085d83c680a56888ae6a6a)
+            type_hints = cached_type_hints(_typecheckingstub__990acb5e6eea396fa4e1595408a45c01b4b03ad6d7085d83c680a56888ae6a6a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
         props = WebSocketLambdaIntegrationProps(
@@ -2688,19 +2754,19 @@ class WebSocketLambdaIntegration(
     def bind(
         self,
         *,
-        route: "_IWebSocketRoute_006c2390",
+        route: "_aws_apigatewayv2_110df5de.IWebSocketRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
+    ) -> "_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``WebSocketRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _WebSocketRouteIntegrationBindOptions_4f27dddb(
+        options = _aws_apigatewayv2_110df5de.WebSocketRouteIntegrationBindOptions(
             route=route, scope=scope
         )
 
-        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -2712,8 +2778,8 @@ class WebSocketLambdaIntegrationProps:
     def __init__(
         self,
         *,
-        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        content_handling: typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Props for Lambda type integration for a WebSocket Api.
 
@@ -2736,7 +2802,7 @@ class WebSocketLambdaIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3043b7d6bcd4be959d4924c0dbbe6ad490dc788f95ab7a014933e7e1b2fefff)
+            type_hints = cached_type_hints(_typecheckingstub__b3043b7d6bcd4be959d4924c0dbbe6ad490dc788f95ab7a014933e7e1b2fefff)
             check_type(argname="argument content_handling", value=content_handling, expected_type=type_hints["content_handling"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2746,7 +2812,9 @@ class WebSocketLambdaIntegrationProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def content_handling(self) -> typing.Optional["_ContentHandling_1512a7da"]:
+    def content_handling(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"]:
         '''Specifies how to handle response payload content type conversions.
 
         :default:
@@ -2755,10 +2823,10 @@ class WebSocketLambdaIntegrationProps:
         the route response or method response without modification.
         '''
         result = self._values.get("content_handling")
-        return typing.cast(typing.Optional["_ContentHandling_1512a7da"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ContentHandling"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2766,7 +2834,7 @@ class WebSocketLambdaIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2781,7 +2849,7 @@ class WebSocketLambdaIntegrationProps:
 
 
 class WebSocketMockIntegration(
-    _WebSocketRouteIntegration_bb950e43,
+    _aws_apigatewayv2_110df5de.WebSocketRouteIntegration,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.WebSocketMockIntegration",
 ):
@@ -2823,7 +2891,7 @@ class WebSocketMockIntegration(
         :param template_selection_expression: The template selection expression for the integration. Default: - No template selection expression provided.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0919a4fac21867e16e13ed094546c03cf261043724396e00ccd357f077081bad)
+            type_hints = cached_type_hints(_typecheckingstub__0919a4fac21867e16e13ed094546c03cf261043724396e00ccd357f077081bad)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WebSocketMockIntegrationProps(
             request_templates=request_templates,
@@ -2836,19 +2904,19 @@ class WebSocketMockIntegration(
     def bind(
         self,
         *,
-        route: "_IWebSocketRoute_006c2390",
+        route: "_aws_apigatewayv2_110df5de.IWebSocketRoute",
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
+    ) -> "_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
         :param scope: The current scope in which the bind is occurring. If the ``WebSocketRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
         '''
-        options = _WebSocketRouteIntegrationBindOptions_4f27dddb(
+        options = _aws_apigatewayv2_110df5de.WebSocketRouteIntegrationBindOptions(
             route=route, scope=scope
         )
 
-        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [options]))
+        return typing.cast("_aws_apigatewayv2_110df5de.WebSocketRouteIntegrationConfig", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -2894,7 +2962,7 @@ class WebSocketMockIntegrationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6654c6762caad4ba2ce48d0dd2c9946c37d0961c47d7df1f0618055fb20fbf2)
+            type_hints = cached_type_hints(_typecheckingstub__d6654c6762caad4ba2ce48d0dd2c9946c37d0961c47d7df1f0618055fb20fbf2)
             check_type(argname="argument request_templates", value=request_templates, expected_type=type_hints["request_templates"])
             check_type(argname="argument template_selection_expression", value=template_selection_expression, expected_type=type_hints["template_selection_expression"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2956,11 +3024,11 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''Properties to initialize ``HttpAlbIntegration``.
 
@@ -2990,7 +3058,7 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__888094a9f19868567acc15fa299310b8ddeaefe11dd88694812981a0e5f266e7)
+            type_hints = cached_type_hints(_typecheckingstub__888094a9f19868567acc15fa299310b8ddeaefe11dd88694812981a0e5f266e7)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument secure_server_name", value=secure_server_name, expected_type=type_hints["secure_server_name"])
@@ -3009,16 +3077,18 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
+    def method(self) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -3026,7 +3096,7 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -3040,7 +3110,7 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -3048,16 +3118,16 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
+    def vpc_link(self) -> typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3086,11 +3156,11 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
-        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        method: typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"] = None,
+        parameter_mapping: typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        vpc_link: typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"] = None,
     ) -> None:
         '''Properties to initialize ``HttpNlbIntegration``.
 
@@ -3122,7 +3192,7 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26b3884985e428aa291cb06dd5d372bf9b2520356516ccc3fd63c2d6fc1fe361)
+            type_hints = cached_type_hints(_typecheckingstub__26b3884985e428aa291cb06dd5d372bf9b2520356516ccc3fd63c2d6fc1fe361)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument secure_server_name", value=secure_server_name, expected_type=type_hints["secure_server_name"])
@@ -3141,16 +3211,18 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
+    def method(self) -> typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.HttpMethod"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+    def parameter_mapping(
+        self,
+    ) -> typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -3158,7 +3230,7 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.ParameterMapping"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -3172,7 +3244,7 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -3180,16 +3252,16 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
+    def vpc_link(self) -> typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
+        return typing.cast(typing.Optional["_aws_apigatewayv2_110df5de.IVpcLink"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3233,37 +3305,37 @@ publication.publish()
 
 def _typecheckingstub__928f282b08310c18e1704595722c48f29856eea7d0afc8e0dd89d67e61a77820(
     id: builtins.str,
-    listener: _IApplicationListener_60f2beb6,
+    listener: _aws_elasticloadbalancingv2_1d9af53a.IApplicationListener,
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ddd81275967dd8f82fea61a7accd8241f873539fe596998c66af3c580e913284(
-    value: _HttpConnectionType_02a8b6fb,
+    value: _aws_apigatewayv2_110df5de.HttpConnectionType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__49d2707c331ffacddcce15a9f8462f5b4bd86acafca4f99ffac86d61fdd968c5(
-    value: _HttpMethod_4c4f3090,
+    value: _aws_apigatewayv2_110df5de.HttpMethod,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__68d6f772e2a89442556f1760d95c537293e8868e69f39350b976830ea7c5d7c8(
-    value: _HttpIntegrationType_aee0d440,
+    value: _aws_apigatewayv2_110df5de.HttpIntegrationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c78203b26(
-    value: _PayloadFormatVersion_a469cb03,
+    value: _aws_apigatewayv2_110df5de.PayloadFormatVersion,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3271,136 +3343,136 @@ def _typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c7
 def _typecheckingstub__609af0872658996b1dce86a297d0ff58f1ab3aefbe3d96cefe78de4451616435(
     id: builtins.str,
     *,
-    event_bus_ref: typing.Union[_EventBusReference_f9e830e1, typing.Dict[builtins.str, typing.Any]],
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    event_bus_ref: typing.Union[_aws_events_49a540ff.EventBusReference, typing.Dict[builtins.str, typing.Any]],
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__44a0ff213f971757eba3fb6cb3f1b6ae080190a2af293a1bc01e8798d084e611(
     *,
-    event_bus_ref: typing.Union[_EventBusReference_f9e830e1, typing.Dict[builtins.str, typing.Any]],
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    event_bus_ref: typing.Union[_aws_events_49a540ff.EventBusReference, typing.Dict[builtins.str, typing.Any]],
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__186fcdf4e12ad29dbad06f4ae566e815dd0e4855b4b9ffd6626f945f2a4aee19(
     id: builtins.str,
-    handler: _IFunction_6adb0ab8,
+    handler: _aws_lambda_b8f2f472.IFunction,
     *,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    payload_format_version: typing.Optional[_aws_apigatewayv2_110df5de.PayloadFormatVersion] = None,
     scope_permission_to_route: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7494501e4bf220385c831472b8042a561df79a565c497e77d41cfc10427bce41(
     *,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    payload_format_version: typing.Optional[_aws_apigatewayv2_110df5de.PayloadFormatVersion] = None,
     scope_permission_to_route: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__543e48e97b53816262605885854d56b7f2c624e9fe59f7e60eadcde801acaebd(
     id: builtins.str,
-    listener: _INetworkListener_fccca3bd,
+    listener: _aws_elasticloadbalancingv2_1d9af53a.INetworkListener,
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d360e4b817e6fc6c8ae4e1350d9dd6b3d69b40c54401465c6ef888953f765e38(
-    value: _HttpConnectionType_02a8b6fb,
+    value: _aws_apigatewayv2_110df5de.HttpConnectionType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4c789ab75d5a6290c76fe8fce0b824cd0926bb50f6f9fb91ff77ef01e82a1ea0(
-    value: _HttpMethod_4c4f3090,
+    value: _aws_apigatewayv2_110df5de.HttpMethod,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__585857799e486703df2825ecce003717b9e731a7928c8409a6da811435c79165(
-    value: _HttpIntegrationType_aee0d440,
+    value: _aws_apigatewayv2_110df5de.HttpIntegrationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__36f10890866a2476ef7a837c18a7bab079976e4adf47e736ccebe3fc7ec980ca(
-    value: _PayloadFormatVersion_a469cb03,
+    value: _aws_apigatewayv2_110df5de.PayloadFormatVersion,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d60e74e57400fa0f9757a69ecb53197543ad6fd054f8168eaa56d7cd010107b5(
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dc876ae5ee3ca1141486563e7214d682fb6d2e3b3b1ab6b4f91e525d7a19b53e(
     id: builtins.str,
-    service: _IServiceRef_687c8f74,
+    service: _aws_servicediscovery_1f14693a.IServiceRef,
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__88fa11bc73bf44288cb7467c39d6aa21cc34611adb58ae52dbcb42fe2150a266(
-    value: _HttpConnectionType_02a8b6fb,
+    value: _aws_apigatewayv2_110df5de.HttpConnectionType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3cc3ee501484e0e7058df9083bcfc3e410c2de2357a283e797038514e45bae8e(
-    value: _HttpMethod_4c4f3090,
+    value: _aws_apigatewayv2_110df5de.HttpMethod,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5909d37808307699be7a07730689164f1e138383252eae1d7c68420302f2e9c4(
-    value: _HttpIntegrationType_aee0d440,
+    value: _aws_apigatewayv2_110df5de.HttpIntegrationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2db70ce1255fd6ff4a3b0a88a1c0a0096c5eb165bf1ce3544bee82d10bcc54d7(
-    value: _PayloadFormatVersion_a469cb03,
+    value: _aws_apigatewayv2_110df5de.PayloadFormatVersion,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8bbb857ee24522818d504a3830c65b95bbc66b9ef70c67fa5b85fbdca1aaf1c1(
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3408,18 +3480,18 @@ def _typecheckingstub__8bbb857ee24522818d504a3830c65b95bbc66b9ef70c67fa5b85fbdca
 def _typecheckingstub__26e844829cda3c6c377e33299ff9302e7502c75bb44dad66e9545facd663d244(
     id: builtins.str,
     *,
-    queue: _IQueue_7ed6f679,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    queue: _aws_sqs_24ab9de4.IQueue,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8a7e21b776e0221926527e68875c71cef4289537168431b8f7179bdb31603f63(
     *,
-    queue: _IQueue_7ed6f679,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    queue: _aws_sqs_24ab9de4.IQueue,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3427,18 +3499,18 @@ def _typecheckingstub__8a7e21b776e0221926527e68875c71cef4289537168431b8f7179bdb3
 def _typecheckingstub__76518171338936bd0fbff4054b2b72b876355e21b6eef931d4dd4f111fc7889f(
     id: builtins.str,
     *,
-    state_machine: _StateMachine_a256d24f,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    state_machine: _aws_stepfunctions_24675d1b.StateMachine,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a7072515a6bcc56ecf05d39b9b84f7dde9de04e9c2caf9ada206b863db8625ed(
     *,
-    state_machine: _StateMachine_a256d24f,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+    state_machine: _aws_stepfunctions_24675d1b.StateMachine,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    subtype: typing.Optional[_aws_apigatewayv2_110df5de.HttpIntegrationSubtype] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3447,18 +3519,18 @@ def _typecheckingstub__39ce64d79e6c4249c8c60321022b7721149966e379b0f947f602cb248
     id: builtins.str,
     url: builtins.str,
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__abe29aa89dc1da944745a812d1d5e87dd81ab57867504a928a129c8b904c99da(
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3468,13 +3540,13 @@ def _typecheckingstub__9bba00d2a284a155db9e940bdf51118b0715f0312e8109e916f7848b2
     *,
     integration_method: builtins.str,
     integration_uri: builtins.str,
-    content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-    credentials_role: typing.Optional[_IRole_235f5d8e] = None,
-    passthrough_behavior: typing.Optional[_PassthroughBehavior_379b8a9e] = None,
+    content_handling: typing.Optional[_aws_apigatewayv2_110df5de.ContentHandling] = None,
+    credentials_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    passthrough_behavior: typing.Optional[_aws_apigatewayv2_110df5de.PassthroughBehavior] = None,
     request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     template_selection_expression: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3483,31 +3555,31 @@ def _typecheckingstub__aa585be6945644a75e60414b518cacf76637190e70170ea912e982665
     *,
     integration_method: builtins.str,
     integration_uri: builtins.str,
-    content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-    credentials_role: typing.Optional[_IRole_235f5d8e] = None,
-    passthrough_behavior: typing.Optional[_PassthroughBehavior_379b8a9e] = None,
+    content_handling: typing.Optional[_aws_apigatewayv2_110df5de.ContentHandling] = None,
+    credentials_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    passthrough_behavior: typing.Optional[_aws_apigatewayv2_110df5de.PassthroughBehavior] = None,
     request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     template_selection_expression: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__990acb5e6eea396fa4e1595408a45c01b4b03ad6d7085d83c680a56888ae6a6a(
     id: builtins.str,
-    handler: _IFunction_6adb0ab8,
+    handler: _aws_lambda_b8f2f472.IFunction,
     *,
-    content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    content_handling: typing.Optional[_aws_apigatewayv2_110df5de.ContentHandling] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b3043b7d6bcd4be959d4924c0dbbe6ad490dc788f95ab7a014933e7e1b2fefff(
     *,
-    content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    content_handling: typing.Optional[_aws_apigatewayv2_110df5de.ContentHandling] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3531,22 +3603,22 @@ def _typecheckingstub__d6654c6762caad4ba2ce48d0dd2c9946c37d0961c47d7df1f0618055f
 
 def _typecheckingstub__888094a9f19868567acc15fa299310b8ddeaefe11dd88694812981a0e5f266e7(
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__26b3884985e428aa291cb06dd5d372bf9b2520356516ccc3fd63c2d6fc1fe361(
     *,
-    method: typing.Optional[_HttpMethod_4c4f3090] = None,
-    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    method: typing.Optional[_aws_apigatewayv2_110df5de.HttpMethod] = None,
+    parameter_mapping: typing.Optional[_aws_apigatewayv2_110df5de.ParameterMapping] = None,
     secure_server_name: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    vpc_link: typing.Optional[_aws_apigatewayv2_110df5de.IVpcLink] = None,
 ) -> None:
     """Type checking stubs"""
     pass

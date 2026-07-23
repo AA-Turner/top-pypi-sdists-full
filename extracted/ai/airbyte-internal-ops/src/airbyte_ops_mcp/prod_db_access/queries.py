@@ -206,7 +206,7 @@ def query_connection_sync_activity_from_prod(
 def query_connections_by_connector(
     connector_definition_id: str,
     organization_id: str | None = None,
-    limit: int = 1000,
+    limit: int | None = 1000,
     *,
     exclude_pinned: bool = False,
     enabled_schedules_only: bool = False,
@@ -217,7 +217,10 @@ def query_connections_by_connector(
     Args:
         connector_definition_id: Connector definition UUID to filter by
         organization_id: Optional organization UUID to search within
-        limit: Maximum number of results (default: 1000)
+        limit: Maximum number of results (default: 1000). Pass `None` to return
+            every matching row (the `LIMIT` clause is dropped) — use this when an
+            exact count is required and truncation to an arbitrary sample would
+            be incorrect.
         exclude_pinned: If True, exclude connections where the actor has a
             version pin at any scope (actor, workspace, or organization).
             Filtering is applied at the SQL level so the full `limit`
@@ -240,12 +243,16 @@ def query_connections_by_connector(
             query = _inject_exclude_pinned(query)
         if enabled_schedules_only:
             query = _inject_enabled_schedules_only(query)
+        parameters: dict[str, Any] = {
+            "connector_definition_id": connector_definition_id
+        }
+        if limit is None:
+            query = _without_limit_clause(query)
+        else:
+            parameters["limit"] = limit
         return _run_sql_query(
             query,
-            parameters={
-                "connector_definition_id": connector_definition_id,
-                "limit": limit,
-            },
+            parameters=parameters,
             query_name="SELECT_CONNECTIONS_BY_CONNECTOR",
             gsm_client=gsm_client,
         )
@@ -255,13 +262,17 @@ def query_connections_by_connector(
         query = _inject_exclude_pinned(query)
     if enabled_schedules_only:
         query = _inject_enabled_schedules_only(query)
+    parameters = {
+        "connector_definition_id": connector_definition_id,
+        "organization_id": organization_id,
+    }
+    if limit is None:
+        query = _without_limit_clause(query)
+    else:
+        parameters["limit"] = limit
     return _run_sql_query(
         query,
-        parameters={
-            "connector_definition_id": connector_definition_id,
-            "organization_id": organization_id,
-            "limit": limit,
-        },
+        parameters=parameters,
         query_name="SELECT_CONNECTIONS_BY_CONNECTOR_AND_ORG",
         gsm_client=gsm_client,
     )
@@ -270,7 +281,7 @@ def query_connections_by_connector(
 def query_connections_by_destination_connector(
     connector_definition_id: str,
     organization_id: str | None = None,
-    limit: int = 1000,
+    limit: int | None = 1000,
     *,
     exclude_pinned: bool = False,
     enabled_schedules_only: bool = False,
@@ -281,7 +292,10 @@ def query_connections_by_destination_connector(
     Args:
         connector_definition_id: Destination connector definition UUID to filter by
         organization_id: Optional organization UUID to search within
-        limit: Maximum number of results (default: 1000)
+        limit: Maximum number of results (default: 1000). Pass `None` to return
+            every matching row (the `LIMIT` clause is dropped) — use this when an
+            exact count is required and truncation to an arbitrary sample would
+            be incorrect.
         exclude_pinned: If True, exclude connections where the actor has a
             version pin at any scope (actor, workspace, or organization).
             Filtering is applied at the SQL level so the full `limit`
@@ -302,12 +316,16 @@ def query_connections_by_destination_connector(
             query = _inject_exclude_pinned(query)
         if enabled_schedules_only:
             query = _inject_enabled_schedules_only(query)
+        parameters: dict[str, Any] = {
+            "connector_definition_id": connector_definition_id
+        }
+        if limit is None:
+            query = _without_limit_clause(query)
+        else:
+            parameters["limit"] = limit
         return _run_sql_query(
             query,
-            parameters={
-                "connector_definition_id": connector_definition_id,
-                "limit": limit,
-            },
+            parameters=parameters,
             query_name="SELECT_CONNECTIONS_BY_DESTINATION_CONNECTOR",
             gsm_client=gsm_client,
         )
@@ -317,13 +335,17 @@ def query_connections_by_destination_connector(
         query = _inject_exclude_pinned(query)
     if enabled_schedules_only:
         query = _inject_enabled_schedules_only(query)
+    parameters = {
+        "connector_definition_id": connector_definition_id,
+        "organization_id": organization_id,
+    }
+    if limit is None:
+        query = _without_limit_clause(query)
+    else:
+        parameters["limit"] = limit
     return _run_sql_query(
         query,
-        parameters={
-            "connector_definition_id": connector_definition_id,
-            "organization_id": organization_id,
-            "limit": limit,
-        },
+        parameters=parameters,
         query_name="SELECT_CONNECTIONS_BY_DESTINATION_CONNECTOR_AND_ORG",
         gsm_client=gsm_client,
     )

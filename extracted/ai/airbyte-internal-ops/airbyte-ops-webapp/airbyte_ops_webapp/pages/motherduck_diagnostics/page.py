@@ -498,7 +498,19 @@ _QUERY_COLUMNS = [
     DataTableColumn(key="start_time_display", header="Start", sortable=True),
     DataTableColumn(key="user_name_display", header="User", sortable=True),
     DataTableColumn(key="query_hash_display", header="Query Hash", sortable=True),
-    DataTableColumn(key="error_message", header="Error", sortable=True),
+    # Error messages are often long; cap the column width and show a truncated
+    # preview (`error_message_display`). The full text is in the detail modal.
+    DataTableColumn(
+        key="error_message_display",
+        header="Error",
+        sortable=True,
+        max_width="24rem",
+        cell_class="truncate",
+    ),
+    # Source DB is wide and only occasionally scanned, so it trails every other
+    # column (source_id is intentionally table-omitted — it is redundant with the
+    # database name and shown in the detail modal instead).
+    DataTableColumn(key="database_name_display", header="Source DB", sortable=True),
 ]
 
 
@@ -752,6 +764,8 @@ def _open_detail_actions() -> list:
         SetState("query_detail_hash", EVENT.query_hash_display),
         SetState("query_detail_type", EVENT.query_type),
         SetState("query_detail_subtype", EVENT.query_subtype),
+        SetState("query_detail_database_display", EVENT.database_name_display),
+        SetState("query_detail_source_id_display", EVENT.source_id_display),
         SetState("query_detail_user", EVENT.user_name),
         SetState("query_detail_start", EVENT.start_time),
         SetState("query_detail_elapsed", EVENT.elapsed),
@@ -802,6 +816,11 @@ def _render_query_detail_modal() -> None:
                     _detail_row("Total elapsed", STATE.query_detail_elapsed)
                     _detail_row("Execution", STATE.query_detail_execution)
                     _detail_row("Wait", STATE.query_detail_wait)
+            # Source DB / Source ID are wide, so they sit full-width below the
+            # two-column grid rather than crowding the left column.
+            with Column(gap=2):
+                _detail_row("Source DB", STATE.query_detail_database_display)
+                _detail_row("Source ID", STATE.query_detail_source_id_display)
             AbFieldLabel(
                 "Redacted SQL — string literals replaced with ?, truncated to "
                 "1000 characters."
@@ -844,6 +863,9 @@ _CONNECTION_COLUMNS = [
         align="right",
         header_class="[&>button]:justify-end",
     ),
+    # Source DB trails the thinner status/timing columns (source_id is omitted
+    # from the table as redundant with the database name).
+    DataTableColumn(key="database_name_display", header="Source DB", sortable=True),
 ]
 
 

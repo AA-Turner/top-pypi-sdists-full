@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(
@@ -39,7 +43,7 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 )
 class INamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Namespace.
@@ -59,7 +63,7 @@ class INamespaceRef(
 
 class _INamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Namespace.
 
@@ -84,7 +88,7 @@ typing.cast(typing.Any, INamespaceRef).__jsii_proxy_class__ = lambda : _INamespa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshiftserverless.ISnapshotRef")
 class ISnapshotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Snapshot.
@@ -104,7 +108,7 @@ class ISnapshotRef(
 
 class _ISnapshotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Snapshot.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshot
 )
 class IWorkgroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workgroup.
@@ -151,7 +155,7 @@ class IWorkgroupRef(
 
 class _IWorkgroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workgroup.
 
@@ -197,7 +201,7 @@ class NamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb47b5ad1846229985e2e40d4fc80ad91bfd5c560018da49be206fd628154053)
+            type_hints = cached_type_hints(_typecheckingstub__bb47b5ad1846229985e2e40d4fc80ad91bfd5c560018da49be206fd628154053)
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "namespace_name": namespace_name,
@@ -246,7 +250,7 @@ class SnapshotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74fe30cf9dcd3013012d493eb5cf4a8fd167f4aebc1b526478f43197ed27b09b)
+            type_hints = cached_type_hints(_typecheckingstub__74fe30cf9dcd3013012d493eb5cf4a8fd167f4aebc1b526478f43197ed27b09b)
             check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "snapshot_name": snapshot_name,
@@ -295,7 +299,7 @@ class WorkgroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55c1cec7cb09d8068c5498b75c2b2ce1723ddd0f4dcedf266da3ea6045d1d962)
+            type_hints = cached_type_hints(_typecheckingstub__55c1cec7cb09d8068c5498b75c2b2ce1723ddd0f4dcedf266da3ea6045d1d962)
             check_type(argname="argument workgroup_name", value=workgroup_name, expected_type=type_hints["workgroup_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "workgroup_name": workgroup_name,

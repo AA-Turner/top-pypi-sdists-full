@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,46 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mpa import (
-    ApprovalTeamReference as _ApprovalTeamReference_07b042c7,
-    IApprovalTeamRef as _IApprovalTeamRef_f6d8bc35,
-    IIdentitySourceRef as _IIdentitySourceRef_9af3da94,
-    IdentitySourceReference as _IdentitySourceReference_9ce9cccf,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mpa as _aws_mpa_9399424e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mpa_9399424e = _LazyImport("aws_cdk.interfaces.aws_mpa")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApprovalTeamRef_f6d8bc35, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mpa_9399424e.IApprovalTeamRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnApprovalTeam(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mpa.CfnApprovalTeam",
 ):
@@ -140,12 +132,12 @@ class CfnApprovalTeam(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        approval_strategy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.ApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
-        approvers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.ApproverProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        approval_strategy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.ApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+        approvers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.ApproverProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: builtins.str,
         name: builtins.str,
-        policies: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        policies: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MPA::ApprovalTeam``.
 
@@ -159,7 +151,7 @@ class CfnApprovalTeam(
         :param tags: Tags that you have added to the specified resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__386990d7f44b867156b4ae1be61f59dcf68b732d47a10262382c529e91f18365)
+            type_hints = cached_type_hints(_typecheckingstub__386990d7f44b867156b4ae1be61f59dcf68b732d47a10262382c529e91f18365)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApprovalTeamProps(
@@ -177,13 +169,13 @@ class CfnApprovalTeam(
     @builtins.classmethod
     def arn_for_approval_team(
         cls,
-        resource: "_IApprovalTeamRef_f6d8bc35",
+        resource: "_aws_mpa_9399424e.IApprovalTeamRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8b8489a985cfe781f4a21148eafdc04cb7e5a117fbdf98829af14f73c6b896)
+            type_hints = cached_type_hints(_typecheckingstub__2a8b8489a985cfe781f4a21148eafdc04cb7e5a117fbdf98829af14f73c6b896)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApprovalTeam", [resource]))
 
@@ -195,18 +187,18 @@ class CfnApprovalTeam(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__218957d09577fee1c2b632e6e2d928d343f26bf42e8a0d35d11692365e55e471)
+            type_hints = cached_type_hints(_typecheckingstub__218957d09577fee1c2b632e6e2d928d343f26bf42e8a0d35d11692365e55e471)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApprovalTeam", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dba069c00d1a308983f1858c860837ee043b1a2f961d8a9723e5b6ab33cc7f30)
+            type_hints = cached_type_hints(_typecheckingstub__dba069c00d1a308983f1858c860837ee043b1a2f961d8a9723e5b6ab33cc7f30)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -219,7 +211,7 @@ class CfnApprovalTeam(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75ba9035ba86d7cbf51b44474da24ea7dc3325fb3d54c692b9f7bd885fa89138)
+            type_hints = cached_type_hints(_typecheckingstub__75ba9035ba86d7cbf51b44474da24ea7dc3325fb3d54c692b9f7bd885fa89138)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -231,9 +223,9 @@ class CfnApprovalTeam(
 
     @builtins.property
     @jsii.member(jsii_name="approvalTeamRef")
-    def approval_team_ref(self) -> "_ApprovalTeamReference_07b042c7":
+    def approval_team_ref(self) -> "_aws_mpa_9399424e.ApprovalTeamReference":
         '''A reference to a ApprovalTeam resource.'''
-        return typing.cast("_ApprovalTeamReference_07b042c7", jsii.get(self, "approvalTeamRef"))
+        return typing.cast("_aws_mpa_9399424e.ApprovalTeamReference", jsii.get(self, "approvalTeamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -322,9 +314,9 @@ class CfnApprovalTeam(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -340,17 +332,17 @@ class CfnApprovalTeam(
     @jsii.member(jsii_name="approvalStrategy")
     def approval_strategy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApprovalStrategyProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApprovalStrategyProperty"]:
         '''Contains details for how an approval team grants approval.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApprovalStrategyProperty"], jsii.get(self, "approvalStrategy"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApprovalStrategyProperty"], jsii.get(self, "approvalStrategy"))
 
     @approval_strategy.setter
     def approval_strategy(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApprovalStrategyProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApprovalStrategyProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ec22b692d714a3a436a85095d2cb14c5395173e9390a7d17279d7b92a0e5186)
+            type_hints = cached_type_hints(_typecheckingstub__4ec22b692d714a3a436a85095d2cb14c5395173e9390a7d17279d7b92a0e5186)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "approvalStrategy", value) # pyright: ignore[reportArgumentType]
 
@@ -358,17 +350,17 @@ class CfnApprovalTeam(
     @jsii.member(jsii_name="approvers")
     def approvers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApproverProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApproverProperty"]]]:
         '''Contains details for an approver.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApproverProperty"]]], jsii.get(self, "approvers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApproverProperty"]]], jsii.get(self, "approvers"))
 
     @approvers.setter
     def approvers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApproverProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApproverProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0eaf16236f7ec9b60a4b70a3f4b6ec8d4c38b2a19b3bcfd2b71bc112aa84697)
+            type_hints = cached_type_hints(_typecheckingstub__f0eaf16236f7ec9b60a4b70a3f4b6ec8d4c38b2a19b3bcfd2b71bc112aa84697)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "approvers", value) # pyright: ignore[reportArgumentType]
 
@@ -381,7 +373,7 @@ class CfnApprovalTeam(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5329ac4998f7b59d7d1e54592bf7342bbee963874c6616e24205a5f906bb7c8a)
+            type_hints = cached_type_hints(_typecheckingstub__5329ac4998f7b59d7d1e54592bf7342bbee963874c6616e24205a5f906bb7c8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -394,7 +386,7 @@ class CfnApprovalTeam(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e39f33a9d3b76bbe323d54d7d73234df05c9a544c11e71f2803cfa2ba185bfde)
+            type_hints = cached_type_hints(_typecheckingstub__e39f33a9d3b76bbe323d54d7d73234df05c9a544c11e71f2803cfa2ba185bfde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -402,30 +394,33 @@ class CfnApprovalTeam(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.PolicyProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.PolicyProperty"]]]:
         '''Contains details for a policy.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.PolicyProperty"]]], jsii.get(self, "policies"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.PolicyProperty"]]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.PolicyProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.PolicyProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a7c415cd8a7816dfb413751381ef0ef0d82b8795bc1c9d3776bc7988dc32fe)
+            type_hints = cached_type_hints(_typecheckingstub__d3a7c415cd8a7816dfb413751381ef0ef0d82b8795bc1c9d3776bc7988dc32fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags that you have added to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31b1fab5555e70c4496aadbffef5ef28d65db31b88ab4e99ebb5030f3b22bad)
+            type_hints = cached_type_hints(_typecheckingstub__d31b1fab5555e70c4496aadbffef5ef28d65db31b88ab4e99ebb5030f3b22bad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -438,7 +433,7 @@ class CfnApprovalTeam(
         def __init__(
             self,
             *,
-            mof_n: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.MofNApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+            mof_n: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.MofNApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Strategy for how an approval team grants approval.
 
@@ -460,7 +455,7 @@ class CfnApprovalTeam(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cace1306ec287bf286eedec7b306e0183888aef06e1e0a1d74cc4532b3ae145b)
+                type_hints = cached_type_hints(_typecheckingstub__cace1306ec287bf286eedec7b306e0183888aef06e1e0a1d74cc4532b3ae145b)
                 check_type(argname="argument mof_n", value=mof_n, expected_type=type_hints["mof_n"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "mof_n": mof_n,
@@ -469,14 +464,14 @@ class CfnApprovalTeam(
         @builtins.property
         def mof_n(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.MofNApprovalStrategyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.MofNApprovalStrategyProperty"]:
             '''Minimum number of approvals (M) required for a total number of approvers (N).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mpa-approvalteam-approvalstrategy.html#cfn-mpa-approvalteam-approvalstrategy-mofn
             '''
             result = self._values.get("mof_n")
             assert result is not None, "Required property 'mof_n' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.MofNApprovalStrategyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.MofNApprovalStrategyProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -538,7 +533,7 @@ class CfnApprovalTeam(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36558bdfdc85f3fc5feb84a058bedb6b2533db65993cd67119e308af416d59bd)
+                type_hints = cached_type_hints(_typecheckingstub__36558bdfdc85f3fc5feb84a058bedb6b2533db65993cd67119e308af416d59bd)
                 check_type(argname="argument primary_identity_id", value=primary_identity_id, expected_type=type_hints["primary_identity_id"])
                 check_type(argname="argument primary_identity_source_arn", value=primary_identity_source_arn, expected_type=type_hints["primary_identity_source_arn"])
                 check_type(argname="argument approver_id", value=approver_id, expected_type=type_hints["approver_id"])
@@ -642,7 +637,7 @@ class CfnApprovalTeam(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c9128fe21a2ecc0edffaa444518ee4e665f9c001202934e3a6ce10274d631042)
+                type_hints = cached_type_hints(_typecheckingstub__c9128fe21a2ecc0edffaa444518ee4e665f9c001202934e3a6ce10274d631042)
                 check_type(argname="argument min_approvals_required", value=min_approvals_required, expected_type=type_hints["min_approvals_required"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "min_approvals_required": min_approvals_required,
@@ -696,7 +691,7 @@ class CfnApprovalTeam(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__75ccc78545af23823b4f234ee8de6d1d0e7b956206086f97f9aa04f82d00b6f1)
+                type_hints = cached_type_hints(_typecheckingstub__75ccc78545af23823b4f234ee8de6d1d0e7b956206086f97f9aa04f82d00b6f1)
                 check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "policy_arn": policy_arn,
@@ -739,12 +734,12 @@ class CfnApprovalTeamProps:
     def __init__(
         self,
         *,
-        approval_strategy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.ApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
-        approvers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.ApproverProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        approval_strategy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.ApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+        approvers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.ApproverProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: builtins.str,
         name: builtins.str,
-        policies: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApprovalTeam.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        policies: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApprovalTeam.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApprovalTeam``.
 
@@ -794,7 +789,7 @@ class CfnApprovalTeamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98)
+            type_hints = cached_type_hints(_typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98)
             check_type(argname="argument approval_strategy", value=approval_strategy, expected_type=type_hints["approval_strategy"])
             check_type(argname="argument approvers", value=approvers, expected_type=type_hints["approvers"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -814,26 +809,26 @@ class CfnApprovalTeamProps:
     @builtins.property
     def approval_strategy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApprovalStrategyProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApprovalStrategyProperty"]:
         '''Contains details for how an approval team grants approval.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvalstrategy
         '''
         result = self._values.get("approval_strategy")
         assert result is not None, "Required property 'approval_strategy' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApprovalStrategyProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApprovalStrategyProperty"], result)
 
     @builtins.property
     def approvers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApproverProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApproverProperty"]]]:
         '''Contains details for an approver.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvers
         '''
         result = self._values.get("approvers")
         assert result is not None, "Required property 'approvers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.ApproverProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.ApproverProperty"]]], result)
 
     @builtins.property
     def description(self) -> builtins.str:
@@ -858,7 +853,7 @@ class CfnApprovalTeamProps:
     @builtins.property
     def policies(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.PolicyProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.PolicyProperty"]]]:
         '''Contains details for a policy.
 
         Policies define what operations a team that define the permissions for team resources.
@@ -867,16 +862,16 @@ class CfnApprovalTeamProps:
         '''
         result = self._values.get("policies")
         assert result is not None, "Required property 'policies' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApprovalTeam.PolicyProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApprovalTeam.PolicyProperty"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags that you have added to the specified resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -890,9 +885,9 @@ class CfnApprovalTeamProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIdentitySourceRef_9af3da94, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mpa_9399424e.IIdentitySourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIdentitySource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mpa.CfnIdentitySource",
 ):
@@ -935,8 +930,8 @@ class CfnIdentitySource(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        identity_source_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentitySource.IdentitySourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_source_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentitySource.IdentitySourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MPA::IdentitySource``.
 
@@ -946,7 +941,7 @@ class CfnIdentitySource(
         :param tags: Tags that you have added to the specified resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ccadabc10958f9b34637bf63683a7ae402b738916eaae8b4554005edd9a7f4e)
+            type_hints = cached_type_hints(_typecheckingstub__4ccadabc10958f9b34637bf63683a7ae402b738916eaae8b4554005edd9a7f4e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIdentitySourceProps(
@@ -959,13 +954,13 @@ class CfnIdentitySource(
     @builtins.classmethod
     def arn_for_identity_source(
         cls,
-        resource: "_IIdentitySourceRef_9af3da94",
+        resource: "_aws_mpa_9399424e.IIdentitySourceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8cb5e044fadf6be3d664d0edc59f70d10d3255de91c61f00a4d43723ad831d1)
+            type_hints = cached_type_hints(_typecheckingstub__e8cb5e044fadf6be3d664d0edc59f70d10d3255de91c61f00a4d43723ad831d1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIdentitySource", [resource]))
 
@@ -977,18 +972,18 @@ class CfnIdentitySource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7ae044d4671324ad20eb5d61ed16df806b213c4609578a82d83bad37ae865dd)
+            type_hints = cached_type_hints(_typecheckingstub__e7ae044d4671324ad20eb5d61ed16df806b213c4609578a82d83bad37ae865dd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdentitySource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__958a95f31b67e8f309896314f9522aadfa2c69a0264848ce97b3ad043e59f942)
+            type_hints = cached_type_hints(_typecheckingstub__958a95f31b67e8f309896314f9522aadfa2c69a0264848ce97b3ad043e59f942)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1001,7 +996,7 @@ class CfnIdentitySource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c387c3be49c9c1559f9200673f4589cb8729c2ec8c7770beb57a1e5e35378256)
+            type_hints = cached_type_hints(_typecheckingstub__c387c3be49c9c1559f9200673f4589cb8729c2ec8c7770beb57a1e5e35378256)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1082,9 +1077,9 @@ class CfnIdentitySource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1098,38 +1093,41 @@ class CfnIdentitySource(
 
     @builtins.property
     @jsii.member(jsii_name="identitySourceRef")
-    def identity_source_ref(self) -> "_IdentitySourceReference_9ce9cccf":
+    def identity_source_ref(self) -> "_aws_mpa_9399424e.IdentitySourceReference":
         '''A reference to a IdentitySource resource.'''
-        return typing.cast("_IdentitySourceReference_9ce9cccf", jsii.get(self, "identitySourceRef"))
+        return typing.cast("_aws_mpa_9399424e.IdentitySourceReference", jsii.get(self, "identitySourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identitySourceParameters")
     def identity_source_parameters(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IdentitySourceParametersProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IdentitySourceParametersProperty"]:
         '''A ``IdentitySourceParameters`` object.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IdentitySourceParametersProperty"], jsii.get(self, "identitySourceParameters"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IdentitySourceParametersProperty"], jsii.get(self, "identitySourceParameters"))
 
     @identity_source_parameters.setter
     def identity_source_parameters(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IdentitySourceParametersProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IdentitySourceParametersProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edf6a9866153061ef7d7e82b292ccb765e9c0faa36bd2f2b5fbe62010c82e44f)
+            type_hints = cached_type_hints(_typecheckingstub__edf6a9866153061ef7d7e82b292ccb765e9c0faa36bd2f2b5fbe62010c82e44f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identitySourceParameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags that you have added to the specified resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2348313ff968eefe1739ee64d5e35820f3cb200528d000a5072b402def990d94)
+            type_hints = cached_type_hints(_typecheckingstub__2348313ff968eefe1739ee64d5e35820f3cb200528d000a5072b402def990d94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1176,7 +1174,7 @@ class CfnIdentitySource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ad03e7c03292e16adba0239cd21aae5665927b223a3d024fb5b1e7a0e5d618f0)
+                type_hints = cached_type_hints(_typecheckingstub__ad03e7c03292e16adba0239cd21aae5665927b223a3d024fb5b1e7a0e5d618f0)
                 check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument approval_portal_url", value=approval_portal_url, expected_type=type_hints["approval_portal_url"])
@@ -1236,7 +1234,7 @@ class CfnIdentitySource(
         def __init__(
             self,
             *,
-            iam_identity_center: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentitySource.IamIdentityCenterProperty", typing.Dict[builtins.str, typing.Any]]],
+            iam_identity_center: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentitySource.IamIdentityCenterProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains details for the resource that provides identities to the identity source.
 
@@ -1264,7 +1262,7 @@ class CfnIdentitySource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cdb131b4f18fdc2f28197cd3ec3c8e53cc57a860dfad6d92280cc24753500fc2)
+                type_hints = cached_type_hints(_typecheckingstub__cdb131b4f18fdc2f28197cd3ec3c8e53cc57a860dfad6d92280cc24753500fc2)
                 check_type(argname="argument iam_identity_center", value=iam_identity_center, expected_type=type_hints["iam_identity_center"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "iam_identity_center": iam_identity_center,
@@ -1273,14 +1271,14 @@ class CfnIdentitySource(
         @builtins.property
         def iam_identity_center(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IamIdentityCenterProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IamIdentityCenterProperty"]:
             '''SSOlong credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mpa-identitysource-identitysourceparameters.html#cfn-mpa-identitysource-identitysourceparameters-iamidentitycenter
             '''
             result = self._values.get("iam_identity_center")
             assert result is not None, "Required property 'iam_identity_center' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IamIdentityCenterProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IamIdentityCenterProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1306,8 +1304,8 @@ class CfnIdentitySourceProps:
     def __init__(
         self,
         *,
-        identity_source_parameters: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentitySource.IdentitySourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_source_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentitySource.IdentitySourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIdentitySource``.
 
@@ -1343,7 +1341,7 @@ class CfnIdentitySourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b)
+            type_hints = cached_type_hints(_typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b)
             check_type(argname="argument identity_source_parameters", value=identity_source_parameters, expected_type=type_hints["identity_source_parameters"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1355,7 +1353,7 @@ class CfnIdentitySourceProps:
     @builtins.property
     def identity_source_parameters(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IdentitySourceParametersProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IdentitySourceParametersProperty"]:
         '''A ``IdentitySourceParameters`` object.
 
         Contains details for the resource that provides identities to the identity source. For example, an IAM Identity Center instance.
@@ -1364,16 +1362,16 @@ class CfnIdentitySourceProps:
         '''
         result = self._values.get("identity_source_parameters")
         assert result is not None, "Required property 'identity_source_parameters' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIdentitySource.IdentitySourceParametersProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentitySource.IdentitySourceParametersProperty"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags that you have added to the specified resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html#cfn-mpa-identitysource-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1400,18 +1398,18 @@ def _typecheckingstub__386990d7f44b867156b4ae1be61f59dcf68b732d47a10262382c529e9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-    approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    approval_strategy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    approvers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
     description: builtins.str,
     name: builtins.str,
-    policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policies: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a8b8489a985cfe781f4a21148eafdc04cb7e5a117fbdf98829af14f73c6b896(
-    resource: _IApprovalTeamRef_f6d8bc35,
+    resource: _aws_mpa_9399424e.IApprovalTeamRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1423,7 +1421,7 @@ def _typecheckingstub__218957d09577fee1c2b632e6e2d928d343f26bf42e8a0d35d11692365
     pass
 
 def _typecheckingstub__dba069c00d1a308983f1858c860837ee043b1a2f961d8a9723e5b6ab33cc7f30(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1435,13 +1433,13 @@ def _typecheckingstub__75ba9035ba86d7cbf51b44474da24ea7dc3325fb3d54c692b9f7bd885
     pass
 
 def _typecheckingstub__4ec22b692d714a3a436a85095d2cb14c5395173e9390a7d17279d7b92a0e5186(
-    value: typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApprovalStrategyProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApprovalTeam.ApprovalStrategyProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f0eaf16236f7ec9b60a4b70a3f4b6ec8d4c38b2a19b3bcfd2b71bc112aa84697(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApproverProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApprovalTeam.ApproverProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1459,20 +1457,20 @@ def _typecheckingstub__e39f33a9d3b76bbe323d54d7d73234df05c9a544c11e71f2803cfa2ba
     pass
 
 def _typecheckingstub__d3a7c415cd8a7816dfb413751381ef0ef0d82b8795bc1c9d3776bc7988dc32fe(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.PolicyProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApprovalTeam.PolicyProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d31b1fab5555e70c4496aadbffef5ef28d65db31b88ab4e99ebb5030f3b22bad(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cace1306ec287bf286eedec7b306e0183888aef06e1e0a1d74cc4532b3ae145b(
     *,
-    mof_n: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.MofNApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    mof_n: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.MofNApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1504,12 +1502,12 @@ def _typecheckingstub__75ccc78545af23823b4f234ee8de6d1d0e7b956206086f97f9aa04f82
 
 def _typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98(
     *,
-    approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-    approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    approval_strategy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    approvers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
     description: builtins.str,
     name: builtins.str,
-    policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policies: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1518,14 +1516,14 @@ def _typecheckingstub__4ccadabc10958f9b34637bf63683a7ae402b738916eaae8b4554005ed
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_source_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e8cb5e044fadf6be3d664d0edc59f70d10d3255de91c61f00a4d43723ad831d1(
-    resource: _IIdentitySourceRef_9af3da94,
+    resource: _aws_mpa_9399424e.IIdentitySourceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1537,7 +1535,7 @@ def _typecheckingstub__e7ae044d4671324ad20eb5d61ed16df806b213c4609578a82d83bad37
     pass
 
 def _typecheckingstub__958a95f31b67e8f309896314f9522aadfa2c69a0264848ce97b3ad043e59f942(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1549,13 +1547,13 @@ def _typecheckingstub__c387c3be49c9c1559f9200673f4589cb8729c2ec8c7770beb57a1e5e3
     pass
 
 def _typecheckingstub__edf6a9866153061ef7d7e82b292ccb765e9c0faa36bd2f2b5fbe62010c82e44f(
-    value: typing.Union[_IResolvable_da3f097b, CfnIdentitySource.IdentitySourceParametersProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIdentitySource.IdentitySourceParametersProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2348313ff968eefe1739ee64d5e35820f3cb200528d000a5072b402def990d94(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1571,15 +1569,15 @@ def _typecheckingstub__ad03e7c03292e16adba0239cd21aae5665927b223a3d024fb5b1e7a0e
 
 def _typecheckingstub__cdb131b4f18fdc2f28197cd3ec3c8e53cc57a860dfad6d92280cc24753500fc2(
     *,
-    iam_identity_center: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IamIdentityCenterProperty, typing.Dict[builtins.str, typing.Any]]],
+    iam_identity_center: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentitySource.IamIdentityCenterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b(
     *,
-    identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_source_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

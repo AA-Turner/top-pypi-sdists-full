@@ -18,7 +18,7 @@ from ..._grpc.grpcwrapper import ydb_query_public_types as _ydb_query_public
 
 from ...query import base
 from ...query.session import BaseQuerySession
-from ...opentelemetry.tracing import SpanName, create_ydb_span, set_peer_attributes, span_finish_callback
+from ...observability.tracing import SpanName, create_ydb_span, set_peer_attributes, span_finish_callback
 
 from ..._constants import DEFAULT_INITIAL_RESPONSE_TIMEOUT
 
@@ -109,6 +109,7 @@ class QuerySession(BaseQuerySession["AsyncDriver"]):
             await self._create_call(settings=settings)
             set_peer_attributes(span, self._peer)
             await self._attach()
+            self._session_metrics.count_open()
 
         return self
 

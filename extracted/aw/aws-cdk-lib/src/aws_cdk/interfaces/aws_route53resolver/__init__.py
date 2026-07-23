@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,97 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.FirewallConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_config_arn": "firewallConfigArn",
+        "firewall_config_id": "firewallConfigId",
+    },
+)
+class FirewallConfigReference:
+    def __init__(
+        self,
+        *,
+        firewall_config_arn: builtins.str,
+        firewall_config_id: builtins.str,
+    ) -> None:
+        '''A reference to a FirewallConfig resource.
+
+        :param firewall_config_arn: The ARN of the FirewallConfig resource.
+        :param firewall_config_id: The Id of the FirewallConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_route53resolver as interfaces_route53resolver
+            
+            firewall_config_reference = interfaces_route53resolver.FirewallConfigReference(
+                firewall_config_arn="firewallConfigArn",
+                firewall_config_id="firewallConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51f750fb5515c2f2309ce8b0b8fa06cbab2bd1cd4a908169771cc931636e9882)
+            check_type(argname="argument firewall_config_arn", value=firewall_config_arn, expected_type=type_hints["firewall_config_arn"])
+            check_type(argname="argument firewall_config_id", value=firewall_config_id, expected_type=type_hints["firewall_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_config_arn": firewall_config_arn,
+            "firewall_config_id": firewall_config_id,
+        }
+
+    @builtins.property
+    def firewall_config_arn(self) -> builtins.str:
+        '''The ARN of the FirewallConfig resource.'''
+        result = self._values.get("firewall_config_arn")
+        assert result is not None, "Required property 'firewall_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def firewall_config_id(self) -> builtins.str:
+        '''The Id of the FirewallConfig resource.'''
+        result = self._values.get("firewall_config_id")
+        assert result is not None, "Required property 'firewall_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirewallConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -68,7 +140,7 @@ class FirewallDomainListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bf26bc13d02b48d108b0edfc29fb7bc53aef5731dbe1b57caba69dd98ecbfac)
+            type_hints = cached_type_hints(_typecheckingstub__1bf26bc13d02b48d108b0edfc29fb7bc53aef5731dbe1b57caba69dd98ecbfac)
             check_type(argname="argument firewall_domain_list_arn", value=firewall_domain_list_arn, expected_type=type_hints["firewall_domain_list_arn"])
             check_type(argname="argument firewall_domain_list_id", value=firewall_domain_list_id, expected_type=type_hints["firewall_domain_list_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -136,7 +208,7 @@ class FirewallRuleGroupAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46e8ff6df398f45a730cf43a6bbe148b653b85a105d71099a1c4fae3f1c35344)
+            type_hints = cached_type_hints(_typecheckingstub__46e8ff6df398f45a730cf43a6bbe148b653b85a105d71099a1c4fae3f1c35344)
             check_type(argname="argument firewall_rule_group_association_arn", value=firewall_rule_group_association_arn, expected_type=type_hints["firewall_rule_group_association_arn"])
             check_type(argname="argument firewall_rule_group_association_id", value=firewall_rule_group_association_id, expected_type=type_hints["firewall_rule_group_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -204,7 +276,7 @@ class FirewallRuleGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3bb3b7e45198a710b1aebc5a8bde8be5e78ec122d40eda2d11f6a9553edc365)
+            type_hints = cached_type_hints(_typecheckingstub__e3bb3b7e45198a710b1aebc5a8bde8be5e78ec122d40eda2d11f6a9553edc365)
             check_type(argname="argument firewall_rule_group_arn", value=firewall_rule_group_arn, expected_type=type_hints["firewall_rule_group_arn"])
             check_type(argname="argument firewall_rule_group_id", value=firewall_rule_group_id, expected_type=type_hints["firewall_rule_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -239,11 +311,58 @@ class FirewallRuleGroupReference:
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.IFirewallConfigRef"
+)
+class IFirewallConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallConfigRef")
+    def firewall_config_ref(self) -> "FirewallConfigReference":
+        '''(experimental) A reference to a FirewallConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFirewallConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_route53resolver.IFirewallConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallConfigRef")
+    def firewall_config_ref(self) -> "FirewallConfigReference":
+        '''(experimental) A reference to a FirewallConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FirewallConfigReference", jsii.get(self, "firewallConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFirewallConfigRef).__jsii_proxy_class__ = lambda : _IFirewallConfigRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.IFirewallDomainListRef"
 )
 class IFirewallDomainListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
@@ -263,7 +382,7 @@ class IFirewallDomainListRef(
 
 class _IFirewallDomainListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
 
@@ -290,7 +409,7 @@ typing.cast(typing.Any, IFirewallDomainListRef).__jsii_proxy_class__ = lambda : 
 )
 class IFirewallRuleGroupAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroupAssociation.
@@ -312,7 +431,7 @@ class IFirewallRuleGroupAssociationRef(
 
 class _IFirewallRuleGroupAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroupAssociation.
 
@@ -341,7 +460,7 @@ typing.cast(typing.Any, IFirewallRuleGroupAssociationRef).__jsii_proxy_class__ =
 )
 class IFirewallRuleGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroup.
@@ -361,7 +480,7 @@ class IFirewallRuleGroupRef(
 
 class _IFirewallRuleGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroup.
 
@@ -388,7 +507,7 @@ typing.cast(typing.Any, IFirewallRuleGroupRef).__jsii_proxy_class__ = lambda : _
 )
 class IOutpostResolverRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OutpostResolver.
@@ -408,7 +527,7 @@ class IOutpostResolverRef(
 
 class _IOutpostResolverRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OutpostResolver.
 
@@ -435,7 +554,7 @@ typing.cast(typing.Any, IOutpostResolverRef).__jsii_proxy_class__ = lambda : _IO
 )
 class IResolverConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverConfig.
@@ -455,7 +574,7 @@ class IResolverConfigRef(
 
 class _IResolverConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverConfig.
 
@@ -482,7 +601,7 @@ typing.cast(typing.Any, IResolverConfigRef).__jsii_proxy_class__ = lambda : _IRe
 )
 class IResolverDNSSECConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverDNSSECConfig.
@@ -502,7 +621,7 @@ class IResolverDNSSECConfigRef(
 
 class _IResolverDNSSECConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverDNSSECConfig.
 
@@ -529,7 +648,7 @@ typing.cast(typing.Any, IResolverDNSSECConfigRef).__jsii_proxy_class__ = lambda 
 )
 class IResolverEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverEndpoint.
@@ -549,7 +668,7 @@ class IResolverEndpointRef(
 
 class _IResolverEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverEndpoint.
 
@@ -576,7 +695,7 @@ typing.cast(typing.Any, IResolverEndpointRef).__jsii_proxy_class__ = lambda : _I
 )
 class IResolverQueryLoggingConfigAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfigAssociation.
@@ -598,7 +717,7 @@ class IResolverQueryLoggingConfigAssociationRef(
 
 class _IResolverQueryLoggingConfigAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfigAssociation.
 
@@ -627,7 +746,7 @@ typing.cast(typing.Any, IResolverQueryLoggingConfigAssociationRef).__jsii_proxy_
 )
 class IResolverQueryLoggingConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfig.
@@ -649,7 +768,7 @@ class IResolverQueryLoggingConfigRef(
 
 class _IResolverQueryLoggingConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfig.
 
@@ -678,7 +797,7 @@ typing.cast(typing.Any, IResolverQueryLoggingConfigRef).__jsii_proxy_class__ = l
 )
 class IResolverRuleAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverRuleAssociation.
@@ -698,7 +817,7 @@ class IResolverRuleAssociationRef(
 
 class _IResolverRuleAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverRuleAssociation.
 
@@ -725,7 +844,7 @@ typing.cast(typing.Any, IResolverRuleAssociationRef).__jsii_proxy_class__ = lamb
 )
 class IResolverRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverRule.
@@ -745,7 +864,7 @@ class IResolverRuleRef(
 
 class _IResolverRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResolverRule.
 
@@ -801,7 +920,7 @@ class OutpostResolverReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58d8c072a122db5e03c5c035dc2260fb48d219428c3dfd96ee6e4b0a9f5d7d40)
+            type_hints = cached_type_hints(_typecheckingstub__58d8c072a122db5e03c5c035dc2260fb48d219428c3dfd96ee6e4b0a9f5d7d40)
             check_type(argname="argument outpost_resolver_arn", value=outpost_resolver_arn, expected_type=type_hints["outpost_resolver_arn"])
             check_type(argname="argument outpost_resolver_id", value=outpost_resolver_id, expected_type=type_hints["outpost_resolver_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -859,7 +978,7 @@ class ResolverConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58d5ae0ee1df899dbc217fd0725240d397063fd50893944ebf4629ab012e0cf7)
+            type_hints = cached_type_hints(_typecheckingstub__58d5ae0ee1df899dbc217fd0725240d397063fd50893944ebf4629ab012e0cf7)
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_id": resource_id,
@@ -908,7 +1027,7 @@ class ResolverDNSSECConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dce2b54750214517feba4541a02f77768c4e02fa2592d2d4b50dd650c3ead18c)
+            type_hints = cached_type_hints(_typecheckingstub__dce2b54750214517feba4541a02f77768c4e02fa2592d2d4b50dd650c3ead18c)
             check_type(argname="argument resolver_dnssec_config_id", value=resolver_dnssec_config_id, expected_type=type_hints["resolver_dnssec_config_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resolver_dnssec_config_id": resolver_dnssec_config_id,
@@ -967,7 +1086,7 @@ class ResolverEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4aa7f314e764cb5c357ca22e41a1690a70f58c4ba08cf363ed38c3b51b2fda7)
+            type_hints = cached_type_hints(_typecheckingstub__c4aa7f314e764cb5c357ca22e41a1690a70f58c4ba08cf363ed38c3b51b2fda7)
             check_type(argname="argument resolver_endpoint_arn", value=resolver_endpoint_arn, expected_type=type_hints["resolver_endpoint_arn"])
             check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1031,7 +1150,7 @@ class ResolverQueryLoggingConfigAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dff8c1f9e9bdd8143b0cfdd2a91d4f3f8431700a7ffe8b2a2f5c97cea7e2c5fe)
+            type_hints = cached_type_hints(_typecheckingstub__dff8c1f9e9bdd8143b0cfdd2a91d4f3f8431700a7ffe8b2a2f5c97cea7e2c5fe)
             check_type(argname="argument resolver_query_logging_config_association_id", value=resolver_query_logging_config_association_id, expected_type=type_hints["resolver_query_logging_config_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resolver_query_logging_config_association_id": resolver_query_logging_config_association_id,
@@ -1090,7 +1209,7 @@ class ResolverQueryLoggingConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0d5364a381ebab5d7aaa2797878ad7ea3ed07d3f527d78983ec42a2786415b6)
+            type_hints = cached_type_hints(_typecheckingstub__c0d5364a381ebab5d7aaa2797878ad7ea3ed07d3f527d78983ec42a2786415b6)
             check_type(argname="argument resolver_query_logging_config_arn", value=resolver_query_logging_config_arn, expected_type=type_hints["resolver_query_logging_config_arn"])
             check_type(argname="argument resolver_query_logging_config_id", value=resolver_query_logging_config_id, expected_type=type_hints["resolver_query_logging_config_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1148,7 +1267,7 @@ class ResolverRuleAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57338d9a3b847259ab09be21e8fbf419560901185878b5668c79766211dbc4b0)
+            type_hints = cached_type_hints(_typecheckingstub__57338d9a3b847259ab09be21e8fbf419560901185878b5668c79766211dbc4b0)
             check_type(argname="argument resolver_rule_association_id", value=resolver_rule_association_id, expected_type=type_hints["resolver_rule_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resolver_rule_association_id": resolver_rule_association_id,
@@ -1207,7 +1326,7 @@ class ResolverRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6baf9e71960d6a8381d3bcfa8868ee7ce3bb3b4f7b1146e63b09c3a0a704dea7)
+            type_hints = cached_type_hints(_typecheckingstub__6baf9e71960d6a8381d3bcfa8868ee7ce3bb3b4f7b1146e63b09c3a0a704dea7)
             check_type(argname="argument resolver_rule_arn", value=resolver_rule_arn, expected_type=type_hints["resolver_rule_arn"])
             check_type(argname="argument resolver_rule_id", value=resolver_rule_id, expected_type=type_hints["resolver_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1242,9 +1361,11 @@ class ResolverRuleReference:
 
 
 __all__ = [
+    "FirewallConfigReference",
     "FirewallDomainListReference",
     "FirewallRuleGroupAssociationReference",
     "FirewallRuleGroupReference",
+    "IFirewallConfigRef",
     "IFirewallDomainListRef",
     "IFirewallRuleGroupAssociationRef",
     "IFirewallRuleGroupRef",
@@ -1267,6 +1388,14 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__51f750fb5515c2f2309ce8b0b8fa06cbab2bd1cd4a908169771cc931636e9882(
+    *,
+    firewall_config_arn: builtins.str,
+    firewall_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1bf26bc13d02b48d108b0edfc29fb7bc53aef5731dbe1b57caba69dd98ecbfac(
     *,
@@ -1352,5 +1481,5 @@ def _typecheckingstub__6baf9e71960d6a8381d3bcfa8868ee7ce3bb3b4f7b1146e63b09c3a0a
     """Type checking stubs"""
     pass
 
-for cls in [IFirewallDomainListRef, IFirewallRuleGroupAssociationRef, IFirewallRuleGroupRef, IOutpostResolverRef, IResolverConfigRef, IResolverDNSSECConfigRef, IResolverEndpointRef, IResolverQueryLoggingConfigAssociationRef, IResolverQueryLoggingConfigRef, IResolverRuleAssociationRef, IResolverRuleRef]:
+for cls in [IFirewallConfigRef, IFirewallDomainListRef, IFirewallRuleGroupAssociationRef, IFirewallRuleGroupRef, IOutpostResolverRef, IResolverConfigRef, IResolverDNSSECConfigRef, IResolverEndpointRef, IResolverQueryLoggingConfigAssociationRef, IResolverQueryLoggingConfigRef, IResolverRuleAssociationRef, IResolverRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

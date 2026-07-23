@@ -20,10 +20,16 @@ from dbt.task.runnable import GraphRunnableTask
 from dbt.task.seed import SeedRunner
 from dbt.task.test import TestRunner
 
+try:
+    from dbt.task.run import MicrobatchModelRunner, MicrobatchBatchRunner
+except ImportError:
+    # dbt < 1.9 has no microbatch runners
+    MicrobatchModelRunner = MicrobatchBatchRunner = None  # type: ignore[assignment,misc]
+
 if t.TYPE_CHECKING:
     from dbt.config.runtime import RuntimeConfig
     from dbt.contracts.graph.manifest import Manifest
-    from dbt.contracts.graph.nodes import ManifestNode
+    from dbt.contracts.graph.nodes import ManifestNode, ModelNode
     from dbt.contracts.results import RunResult
 
     from dbt_state._typing import ModelOrSnapshotNode
@@ -43,6 +49,9 @@ ORIGINALS: t.Dict[str, t.Callable] = {
     "CompileTask.defer_to_manifest": CompileTask.defer_to_manifest,
     "RunTask.defer_to_manifest": RunTask.defer_to_manifest,
 }
+
+if MicrobatchModelRunner is not None:
+    ORIGINALS["MicrobatchModelRunner.execute"] = MicrobatchModelRunner.execute
 
 SIGNAL_HANDLER_ORIGINALS: t.Dict[str, t.Union[t.Optional[t.Callable], int]] = {
     "SIGINT": signal.getsignal(signal.SIGINT),
@@ -69,6 +78,7 @@ def set_runner_overrides() -> None:
 
     runner_override = RunnerOverride(
         ORIGINALS["ModelRunner.execute"],
+        ORIGINALS.get("MicrobatchModelRunner.execute"),
         ORIGINALS["dbt_test.generate_runtime_model_context"],
     )
 
@@ -87,6 +97,11 @@ def set_runner_overrides() -> None:
         model: ManifestNode, config: RuntimeConfig, manifest: Manifest
     ) -> t.Dict[str, t.Any]:
         return runner_override.generate_runtime_model_context_override(model, config, manifest)
+
+    def microbatch_execute_override(
+        self: "MicrobatchModelRunner", node: ModelNode, manifest: Manifest
+    ) -> RunResult:
+        return runner_override.microbatch_execute_override(self, node, manifest)
 
     def defer_to_manifest_override(self: GraphRunnableTask, *args: t.Any) -> None:
         runner_override.defer_to_manifest_override(self)
@@ -107,6 +122,8 @@ def set_runner_overrides() -> None:
     GraphRunnableTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     CompileTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
+    if MicrobatchModelRunner is not None:
+        MicrobatchModelRunner.execute = microbatch_execute_override  # ty: ignore[invalid-assignment]
 
     cancelled = False
 
@@ -157,6 +174,8 @@ def remove_runner_overrides() -> None:
     GraphRunnableTask.defer_to_manifest = ORIGINALS["GraphRunnableTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     CompileTask.defer_to_manifest = ORIGINALS["CompileTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = ORIGINALS["RunTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
+    if MicrobatchModelRunner is not None and "MicrobatchModelRunner.execute" in ORIGINALS:
+        MicrobatchModelRunner.execute = ORIGINALS["MicrobatchModelRunner.execute"]  # ty: ignore[invalid-assignment]
 
 
 def install_state_config_support() -> None:

@@ -219,6 +219,8 @@ route_calculator = location.RouteCalculator(self, "RouteCalculator",
 route_calculator.grant_read(role)
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -232,29 +234,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-location-alpha.AllowMapsAction")
@@ -471,7 +477,7 @@ class ApiKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fefe79c3c3f11720df74a6b3ca3ee04549f9cebd75d8bb48ff783b2661ff94c5)
+            type_hints = cached_type_hints(_typecheckingstub__fefe79c3c3f11720df74a6b3ca3ee04549f9cebd75d8bb48ff783b2661ff94c5)
             check_type(argname="argument allow_maps_actions", value=allow_maps_actions, expected_type=type_hints["allow_maps_actions"])
             check_type(argname="argument allow_places_actions", value=allow_places_actions, expected_type=type_hints["allow_places_actions"])
             check_type(argname="argument allow_referers", value=allow_referers, expected_type=type_hints["allow_referers"])
@@ -742,7 +748,7 @@ class GeofenceCollectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbdd3197c12b6d89ece6dfce72294a7f00d61e7a28da5918141a6d8e57c35fc5)
+            type_hints = cached_type_hints(_typecheckingstub__bbdd3197c12b6d89ece6dfce72294a7f00d61e7a28da5918141a6d8e57c35fc5)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument geofence_collection_name", value=geofence_collection_name, expected_type=type_hints["geofence_collection_name"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
@@ -1240,7 +1246,7 @@ class Map(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eadf3225dad1551d12c46d02a8cc99fbedbc63844ea7721e06578672f9d6ec8)
+            type_hints = cached_type_hints(_typecheckingstub__2eadf3225dad1551d12c46d02a8cc99fbedbc63844ea7721e06578672f9d6ec8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MapProps(
@@ -1270,7 +1276,7 @@ class Map(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f608f3b299254757f5028a9f2e4f5929f7b7427cbe4e467211bda7962954150d)
+            type_hints = cached_type_hints(_typecheckingstub__f608f3b299254757f5028a9f2e4f5929f7b7427cbe4e467211bda7962954150d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument map_arn", value=map_arn, expected_type=type_hints["map_arn"])
@@ -1293,7 +1299,7 @@ class Map(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7019e487b4362e4e8d871612adfc04be5a9738c6cab349a06b8592cc88ba9266)
+            type_hints = cached_type_hints(_typecheckingstub__7019e487b4362e4e8d871612adfc04be5a9738c6cab349a06b8592cc88ba9266)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
@@ -1315,7 +1321,7 @@ class Map(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4809bc2f3cfb1477d362738d53375b214633eb839957012fb44961fd99084aa6)
+            type_hints = cached_type_hints(_typecheckingstub__4809bc2f3cfb1477d362738d53375b214633eb839957012fb44961fd99084aa6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -1333,7 +1339,7 @@ class Map(
         :See: https://docs.aws.amazon.com/location/latest/developerguide/security_iam_id-based-policy-examples.html#security_iam_id-based-policy-examples-get-map-tiles
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02e6cb38b13b5146f675aba863b0eee89900e770c744b3787f12fb9d74532e14)
+            type_hints = cached_type_hints(_typecheckingstub__02e6cb38b13b5146f675aba863b0eee89900e770c744b3787f12fb9d74532e14)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRendering", [grantee]))
 
@@ -1426,7 +1432,7 @@ class MapProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d1be245b764afdcc2db39c787bcdecaadb897250339c996f9d1a627507694f0)
+            type_hints = cached_type_hints(_typecheckingstub__2d1be245b764afdcc2db39c787bcdecaadb897250339c996f9d1a627507694f0)
             check_type(argname="argument style", value=style, expected_type=type_hints["style"])
             check_type(argname="argument custom_layers", value=custom_layers, expected_type=type_hints["custom_layers"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1558,7 +1564,7 @@ class PlaceIndex(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45352af3f6c713374f537c829e98f8db51c9684d0ccc55eedcc24f34b4115a7d)
+            type_hints = cached_type_hints(_typecheckingstub__45352af3f6c713374f537c829e98f8db51c9684d0ccc55eedcc24f34b4115a7d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PlaceIndexProps(
@@ -1587,7 +1593,7 @@ class PlaceIndex(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__248ee08bccad0771877a2fcc90a9b08d64668a1cf797c90deb8c53fec79af85d)
+            type_hints = cached_type_hints(_typecheckingstub__248ee08bccad0771877a2fcc90a9b08d64668a1cf797c90deb8c53fec79af85d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument place_index_arn", value=place_index_arn, expected_type=type_hints["place_index_arn"])
@@ -1610,7 +1616,7 @@ class PlaceIndex(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d8d45231ce3a808cab553413e12ee6462eb276374dc71795aae0d1b4cbc7651)
+            type_hints = cached_type_hints(_typecheckingstub__2d8d45231ce3a808cab553413e12ee6462eb276374dc71795aae0d1b4cbc7651)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument place_index_name", value=place_index_name, expected_type=type_hints["place_index_name"])
@@ -1632,7 +1638,7 @@ class PlaceIndex(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29f4422a489b304c7bbc9bfabd28b7282eb0ff8e5a625351b01c27528783eef2)
+            type_hints = cached_type_hints(_typecheckingstub__29f4422a489b304c7bbc9bfabd28b7282eb0ff8e5a625351b01c27528783eef2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -1649,7 +1655,7 @@ class PlaceIndex(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2d5a407a04ad6cfe5d7ad704c60c4485d954e37151f87d42b4a0f8aae3e8fcf)
+            type_hints = cached_type_hints(_typecheckingstub__d2d5a407a04ad6cfe5d7ad704c60c4485d954e37151f87d42b4a0f8aae3e8fcf)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantSearch", [grantee]))
 
@@ -1738,7 +1744,7 @@ class PlaceIndexProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46e973a0eacea346fe0253fb892d398121998cd91fd16cfdf5bb8eef740a62ae)
+            type_hints = cached_type_hints(_typecheckingstub__46e973a0eacea346fe0253fb892d398121998cd91fd16cfdf5bb8eef740a62ae)
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument intended_use", value=intended_use, expected_type=type_hints["intended_use"])
@@ -1897,7 +1903,7 @@ class RouteCalculator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9af41e5356dde101b2f7d28e76f19330d092400bd851a479a7c51d4b70d6ac1f)
+            type_hints = cached_type_hints(_typecheckingstub__9af41e5356dde101b2f7d28e76f19330d092400bd851a479a7c51d4b70d6ac1f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RouteCalculatorProps(
@@ -1925,7 +1931,7 @@ class RouteCalculator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed0d60ea9b320e4df73bddc9f80af1bcfeaa74f622e88af28e53323441a3387c)
+            type_hints = cached_type_hints(_typecheckingstub__ed0d60ea9b320e4df73bddc9f80af1bcfeaa74f622e88af28e53323441a3387c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument route_calculator_arn", value=route_calculator_arn, expected_type=type_hints["route_calculator_arn"])
@@ -1948,7 +1954,7 @@ class RouteCalculator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05ef972620710e32d97c1d2b6fa9ebfc34b54c1c88a8f8c80857c7fdebbde2c7)
+            type_hints = cached_type_hints(_typecheckingstub__05ef972620710e32d97c1d2b6fa9ebfc34b54c1c88a8f8c80857c7fdebbde2c7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument route_calculator_name", value=route_calculator_name, expected_type=type_hints["route_calculator_name"])
@@ -1970,7 +1976,7 @@ class RouteCalculator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f3391610111a73c6ee96e73f5e17a3c9cddb23b67d8a28e1805bf8faaa22bc8)
+            type_hints = cached_type_hints(_typecheckingstub__0f3391610111a73c6ee96e73f5e17a3c9cddb23b67d8a28e1805bf8faaa22bc8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -1990,7 +1996,7 @@ class RouteCalculator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c86b7ba6b7e16aa871608205c39da05ef7d2d1b2ada137a5f97dd34cb28c376)
+            type_hints = cached_type_hints(_typecheckingstub__6c86b7ba6b7e16aa871608205c39da05ef7d2d1b2ada137a5f97dd34cb28c376)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -2076,7 +2082,7 @@ class RouteCalculatorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1b8eda31c4f31d27ee29d731ed37fab83bdc7ebef9e0313fc6f1b2a411cf11c)
+            type_hints = cached_type_hints(_typecheckingstub__e1b8eda31c4f31d27ee29d731ed37fab83bdc7ebef9e0313fc6f1b2a411cf11c)
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument route_calculator_name", value=route_calculator_name, expected_type=type_hints["route_calculator_name"])
@@ -2319,7 +2325,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2211a106e7e5710c4de360395860635ff3245ee6a83d2bf78c7eeb37b0e6f79)
+            type_hints = cached_type_hints(_typecheckingstub__a2211a106e7e5710c4de360395860635ff3245ee6a83d2bf78c7eeb37b0e6f79)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TrackerProps(
@@ -2351,7 +2357,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aaf78e9d6747e25be75a149cccb6a48e78969dea61646f87e4af65300cfe442)
+            type_hints = cached_type_hints(_typecheckingstub__8aaf78e9d6747e25be75a149cccb6a48e78969dea61646f87e4af65300cfe442)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument tracker_arn", value=tracker_arn, expected_type=type_hints["tracker_arn"])
@@ -2374,7 +2380,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ecfa3fa986d96f28caf6d0a033616b0ad71938a8fde3a6d61857cd92df89d01)
+            type_hints = cached_type_hints(_typecheckingstub__4ecfa3fa986d96f28caf6d0a033616b0ad71938a8fde3a6d61857cd92df89d01)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
@@ -2392,7 +2398,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11c67f04e3612462490f986f42955ba19b27bf0ec5bf1600668e3ca817696f2a)
+            type_hints = cached_type_hints(_typecheckingstub__11c67f04e3612462490f986f42955ba19b27bf0ec5bf1600668e3ca817696f2a)
             check_type(argname="argument geofence_collections", value=geofence_collections, expected_type=typing.Tuple[type_hints["geofence_collections"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addGeofenceCollections", [*geofence_collections]))
 
@@ -2412,7 +2418,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b320ed516d390c019ee16a3586fa4951639478b393bbffb39f4520f1a3659257)
+            type_hints = cached_type_hints(_typecheckingstub__b320ed516d390c019ee16a3586fa4951639478b393bbffb39f4520f1a3659257)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -2430,7 +2436,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88b001f1b18f9c1f021c2dddea61f197114a6e228ae3d252b1435029a865e6a5)
+            type_hints = cached_type_hints(_typecheckingstub__88b001f1b18f9c1f021c2dddea61f197114a6e228ae3d252b1435029a865e6a5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -2447,7 +2453,7 @@ class Tracker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28ff8457f8444ff5ff29f27ab6030e3a070222cfdd44c714ced8ef9fed0916b5)
+            type_hints = cached_type_hints(_typecheckingstub__28ff8457f8444ff5ff29f27ab6030e3a070222cfdd44c714ced8ef9fed0916b5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUpdateDevicePositions", [grantee]))
 
@@ -2549,7 +2555,7 @@ class TrackerProps:
             tracker.grant_read(role)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__599de512474f3cd3fd707f8824c641cdab90d7a71bfa4bb5c4de59d0e1575deb)
+            type_hints = cached_type_hints(_typecheckingstub__599de512474f3cd3fd707f8824c641cdab90d7a71bfa4bb5c4de59d0e1575deb)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_bridge_enabled", value=event_bridge_enabled, expected_type=type_hints["event_bridge_enabled"])
             check_type(argname="argument geofence_collections", value=geofence_collections, expected_type=type_hints["geofence_collections"])
@@ -2730,7 +2736,7 @@ class ApiKey(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e21e5d885f8c36b7fe1d50d74aa35023dd7a4c6fe81403cef115f4af8c904e42)
+            type_hints = cached_type_hints(_typecheckingstub__e21e5d885f8c36b7fe1d50d74aa35023dd7a4c6fe81403cef115f4af8c904e42)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApiKeyProps(
@@ -2765,7 +2771,7 @@ class ApiKey(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e119dff406ab60af0446492eed2f6ee397c8dad047df9c4776789c0a34217449)
+            type_hints = cached_type_hints(_typecheckingstub__e119dff406ab60af0446492eed2f6ee397c8dad047df9c4776789c0a34217449)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
@@ -2788,7 +2794,7 @@ class ApiKey(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96466e2c8f7620fd4ea0ee3983e5c26d20f7708c9f013a3c40dea56272fc0afe)
+            type_hints = cached_type_hints(_typecheckingstub__96466e2c8f7620fd4ea0ee3983e5c26d20f7708c9f013a3c40dea56272fc0afe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument api_key_name", value=api_key_name, expected_type=type_hints["api_key_name"])
@@ -2884,7 +2890,7 @@ class GeofenceCollection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46515b575b3aea76a1e7b6fb58cf0b2fb74b8eab224b06940310470f76183f7c)
+            type_hints = cached_type_hints(_typecheckingstub__46515b575b3aea76a1e7b6fb58cf0b2fb74b8eab224b06940310470f76183f7c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GeofenceCollectionProps(
@@ -2912,7 +2918,7 @@ class GeofenceCollection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb916f69d0fe4399d9278aecbd25559dc350b950a717f4bd2cbd4262712301a0)
+            type_hints = cached_type_hints(_typecheckingstub__cb916f69d0fe4399d9278aecbd25559dc350b950a717f4bd2cbd4262712301a0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument geofence_collection_arn", value=geofence_collection_arn, expected_type=type_hints["geofence_collection_arn"])
@@ -2935,7 +2941,7 @@ class GeofenceCollection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96d0b73947b903aff64888db96cb07d68b0f8e10dea23e7b62d37c937970f738)
+            type_hints = cached_type_hints(_typecheckingstub__96d0b73947b903aff64888db96cb07d68b0f8e10dea23e7b62d37c937970f738)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument geofence_collection_name", value=geofence_collection_name, expected_type=type_hints["geofence_collection_name"])
@@ -2957,7 +2963,7 @@ class GeofenceCollection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd2b0b7d842c9c09abfd524da8f0b754d8bd5dac77b3ac3c48fa2e42486e2816)
+            type_hints = cached_type_hints(_typecheckingstub__bd2b0b7d842c9c09abfd524da8f0b754d8bd5dac77b3ac3c48fa2e42486e2816)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -2975,7 +2981,7 @@ class GeofenceCollection(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a75e3f479665495211d879861c613331d0480d70c6adba492329ff9bc728ba0d)
+            type_hints = cached_type_hints(_typecheckingstub__a75e3f479665495211d879861c613331d0480d70c6adba492329ff9bc728ba0d)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 

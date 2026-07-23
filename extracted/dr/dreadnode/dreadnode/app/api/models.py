@@ -940,6 +940,7 @@ class SessionInfo(BaseModel):
     session_dir: str | None = None
     capability: str | None = None
     agent: str | None = None
+    model: str | None = None
     title: str | None = None
     preview: str | None = None
     policy_name: str = "interactive"
@@ -993,6 +994,12 @@ class SessionCreateRequest(BaseModel):
     enable_project_memory_preload: bool = Field(
         default=True,
         validation_alias="enableProjectMemoryPreload",
+    )
+    project_memory_preload_limit: int = Field(
+        default=20,
+        ge=1,
+        le=200,
+        validation_alias="projectMemoryPreloadLimit",
     )
 
     model_config = ConfigDict(populate_by_name=True)
@@ -1104,10 +1111,26 @@ class CapabilityAgentInfo(BaseModel):
     capability: str
 
 
+ComponentKind = t.Literal[
+    "agent",
+    "tool",
+    "hook",
+    "skill",
+    "mcp_server",
+    "capability",
+    "check",
+    "worker",
+    "policy",
+]
+"""Kinds emitted in loader health dicts. Keep in sync with the discovery sites
+in ``dreadnode/capabilities/loader.py`` — a kind missing here used to take down
+health reporting for the whole runtime (ENG-7606)."""
+
+
 class ComponentStatusInfo(BaseModel):
     """Component-level load/runtime status."""
 
-    kind: t.Literal["agent", "tool", "hook", "skill", "mcp_server", "capability", "check", "worker"]
+    kind: ComponentKind
     name: str
     # ``connecting`` and ``needs_auth`` are MCP-only statuses introduced by
     # the non-blocking startup work (ENG-6989 / CAP-MCP-009).

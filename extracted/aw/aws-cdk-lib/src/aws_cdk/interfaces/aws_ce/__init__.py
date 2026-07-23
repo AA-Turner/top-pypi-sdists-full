@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AnomalyMonitorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed3609e8a43465e6a53b43b8a8a35257a1c5f3993b9489c9e006a1be44dff216)
+            type_hints = cached_type_hints(_typecheckingstub__ed3609e8a43465e6a53b43b8a8a35257a1c5f3993b9489c9e006a1be44dff216)
             check_type(argname="argument monitor_arn", value=monitor_arn, expected_type=type_hints["monitor_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "monitor_arn": monitor_arn,
@@ -107,7 +111,7 @@ class AnomalySubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__106a89614cd42a7f8720180d08e75010e04cb9c0d2f2a8a4fd2833455de784f5)
+            type_hints = cached_type_hints(_typecheckingstub__106a89614cd42a7f8720180d08e75010e04cb9c0d2f2a8a4fd2833455de784f5)
             check_type(argname="argument subscription_arn", value=subscription_arn, expected_type=type_hints["subscription_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subscription_arn": subscription_arn,
@@ -156,7 +160,7 @@ class CostCategoryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bec5afaf1a6a4d600e9135f783e3d10198ee5f54398e1cd009aa8863a8efb94)
+            type_hints = cached_type_hints(_typecheckingstub__0bec5afaf1a6a4d600e9135f783e3d10198ee5f54398e1cd009aa8863a8efb94)
             check_type(argname="argument cost_category_arn", value=cost_category_arn, expected_type=type_hints["cost_category_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cost_category_arn": cost_category_arn,
@@ -184,7 +188,7 @@ class CostCategoryReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ce.IAnomalyMonitorRef")
 class IAnomalyMonitorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalyMonitor.
@@ -204,7 +208,7 @@ class IAnomalyMonitorRef(
 
 class _IAnomalyMonitorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalyMonitor.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IAnomalyMonitorRef).__jsii_proxy_class__ = lambda : _IAn
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ce.IAnomalySubscriptionRef")
 class IAnomalySubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalySubscription.
@@ -249,7 +253,7 @@ class IAnomalySubscriptionRef(
 
 class _IAnomalySubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AnomalySubscription.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IAnomalySubscriptionRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ce.ICostCategoryRef")
 class ICostCategoryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CostCategory.
@@ -294,7 +298,7 @@ class ICostCategoryRef(
 
 class _ICostCategoryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CostCategory.
 

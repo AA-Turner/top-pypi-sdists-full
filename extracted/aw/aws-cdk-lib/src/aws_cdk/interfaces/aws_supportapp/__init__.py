@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AccountAliasReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cbfc73ad02b0cfbbd572dade878ab0cc7dd9fd45df162fe838240830498ae41)
+            type_hints = cached_type_hints(_typecheckingstub__3cbfc73ad02b0cfbbd572dade878ab0cc7dd9fd45df162fe838240830498ae41)
             check_type(argname="argument account_alias_resource_id", value=account_alias_resource_id, expected_type=type_hints["account_alias_resource_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_alias_resource_id": account_alias_resource_id,
@@ -86,7 +90,7 @@ class AccountAliasReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_supportapp.IAccountAliasRef")
 class IAccountAliasRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccountAlias.
@@ -106,7 +110,7 @@ class IAccountAliasRef(
 
 class _IAccountAliasRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccountAlias.
 
@@ -133,7 +137,7 @@ typing.cast(typing.Any, IAccountAliasRef).__jsii_proxy_class__ = lambda : _IAcco
 )
 class ISlackChannelConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SlackChannelConfiguration.
@@ -153,7 +157,7 @@ class ISlackChannelConfigurationRef(
 
 class _ISlackChannelConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SlackChannelConfiguration.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, ISlackChannelConfigurationRef).__jsii_proxy_class__ = la
 )
 class ISlackWorkspaceConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SlackWorkspaceConfiguration.
@@ -202,7 +206,7 @@ class ISlackWorkspaceConfigurationRef(
 
 class _ISlackWorkspaceConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SlackWorkspaceConfiguration.
 
@@ -252,7 +256,7 @@ class SlackChannelConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e11716b41ce775987ee786a99354fa1bf2262378e41747b3c3d74d34d8e69e1d)
+            type_hints = cached_type_hints(_typecheckingstub__e11716b41ce775987ee786a99354fa1bf2262378e41747b3c3d74d34d8e69e1d)
             check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
             check_type(argname="argument team_id", value=team_id, expected_type=type_hints["team_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -310,7 +314,7 @@ class SlackWorkspaceConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78a4a00a40fa7ba351842c19f70c6a2bc11715a667c30ed25e62c63ea25d6599)
+            type_hints = cached_type_hints(_typecheckingstub__78a4a00a40fa7ba351842c19f70c6a2bc11715a667c30ed25e62c63ea25d6599)
             check_type(argname="argument team_id", value=team_id, expected_type=type_hints["team_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "team_id": team_id,

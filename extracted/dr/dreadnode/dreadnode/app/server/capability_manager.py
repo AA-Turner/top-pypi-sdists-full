@@ -10,6 +10,7 @@ from loguru import logger
 from dreadnode.app.api.models import (
     CapabilityAgentInfo,
     CapabilityInfo,
+    ComponentKind,
     ComponentStatusInfo,
     FlagInfo,
     RuntimeInfoResponse,
@@ -27,6 +28,54 @@ if t.TYPE_CHECKING:
 def _tool_name(tool: t.Any) -> str:
     """Get the name of a tool object."""
     return getattr(tool, "name", "")
+
+
+_COMPONENT_KINDS: frozenset[str] = frozenset(t.get_args(ComponentKind))
+_LOGGED_MALFORMED_ENTRIES: set[str] = set()
+
+
+def _component_status(entry: dict[str, t.Any]) -> ComponentStatusInfo:
+    """Build a ComponentStatusInfo from a loader-produced health dict.
+
+    Loader dicts are plain ``dict``s assembled across a dozen discovery sites,
+    so a ``kind`` or ``status`` the model doesn't know about is a real
+    possibility (ENG-7606). Degrade that single entry rather than raising and
+    taking down health reporting for every capability on the runtime.
+    """
+    try:
+        return ComponentStatusInfo(**entry)
+    except Exception as e:
+        raw_kind = entry.get("kind")
+        name = str(entry.get("name") or "<unknown>")
+
+        # ``to_runtime_info`` runs on every GET /api/runtime, which both the TUI
+        # and the frontend poll — log a given bad entry once, not once a second.
+        dedupe_key = f"{raw_kind!r}/{name}"
+        if dedupe_key not in _LOGGED_MALFORMED_ENTRIES:
+            _LOGGED_MALFORMED_ENTRIES.add(dedupe_key)
+            logger.warning("Unserializable component health entry {!r}: {}", name, e)
+
+        # Keep the real kind whenever it's some *other* field that drifted;
+        # kind-keyed consumers (TUI service collectors, frontend grouping) drop
+        # the component entirely if we relabel it.
+        kind: ComponentKind = (
+            t.cast("ComponentKind", raw_kind) if raw_kind in _COMPONENT_KINDS else "capability"
+        )
+
+        # Preserve the loader's own diagnostics — they're usually the actionable
+        # half (import tracebacks, dependency hints) — and append ours.
+        note = f"Malformed component health entry (kind={raw_kind!r}): {e}"
+        original_error = entry.get("error")
+        original_detail = entry.get("detail")
+        return ComponentStatusInfo(
+            kind=kind,
+            name=name,
+            status="degraded",
+            error=f"{original_error} · {note}" if original_error else note,
+            detail=str(original_detail)
+            if original_detail
+            else "This is a runtime bug — the component may be fine.",
+        )
 
 
 @dataclass(slots=True)
@@ -343,7 +392,7 @@ class CapabilityRegistry:
                         )
                         for f in getattr(capability, "resolved_flags", [])
                     ],
-                    components=[ComponentStatusInfo(**entry) for entry in health],
+                    components=[_component_status(entry) for entry in health],
                     dependencies=(
                         {
                             "python": _cap_deps.python,

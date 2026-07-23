@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,51 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ssmcontacts import (
-    ContactChannelReference as _ContactChannelReference_dd79a1a8,
-    ContactReference as _ContactReference_c56fd368,
-    IContactChannelRef as _IContactChannelRef_c6b96ce3,
-    IContactRef as _IContactRef_43eeaa3a,
-    IPlanRef as _IPlanRef_78302c0c,
-    IRotationRef as _IRotationRef_bdee0de7,
-    PlanReference as _PlanReference_94ce2026,
-    RotationReference as _RotationReference_49f95d50,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ssmcontacts as _aws_ssmcontacts_8735111e
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ssmcontacts_8735111e = _LazyImport("aws_cdk.interfaces.aws_ssmcontacts")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IContactRef_43eeaa3a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssmcontacts_8735111e.IContactRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnContact(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ssmcontacts.CfnContact",
 ):
@@ -136,8 +123,8 @@ class CfnContact(
         alias: builtins.str,
         display_name: builtins.str,
         type: builtins.str,
-        plan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContact.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        plan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContact.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SSMContacts::Contact``.
 
@@ -150,7 +137,7 @@ class CfnContact(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96185056d36e15643884f48a931b8d7005ac84a62576223bb952c88328d7d90c)
+            type_hints = cached_type_hints(_typecheckingstub__96185056d36e15643884f48a931b8d7005ac84a62576223bb952c88328d7d90c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnContactProps(
@@ -161,12 +148,15 @@ class CfnContact(
 
     @jsii.member(jsii_name="arnForContact")
     @builtins.classmethod
-    def arn_for_contact(cls, resource: "_IContactRef_43eeaa3a") -> builtins.str:
+    def arn_for_contact(
+        cls,
+        resource: "_aws_ssmcontacts_8735111e.IContactRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e68c3750de35e8cfdd54217dda1642ea9dca9e003466917e1b02e390c32bb36)
+            type_hints = cached_type_hints(_typecheckingstub__9e68c3750de35e8cfdd54217dda1642ea9dca9e003466917e1b02e390c32bb36)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContact", [resource]))
 
@@ -178,18 +168,18 @@ class CfnContact(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dc75b94e7466d89e887973ad976e563695563f0bb4abb6528660e9380ccd802)
+            type_hints = cached_type_hints(_typecheckingstub__0dc75b94e7466d89e887973ad976e563695563f0bb4abb6528660e9380ccd802)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContact", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d145b029ad2942410a46b8ef97eda343598f927706f2322d3e0ecae3a114269c)
+            type_hints = cached_type_hints(_typecheckingstub__d145b029ad2942410a46b8ef97eda343598f927706f2322d3e0ecae3a114269c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -202,7 +192,7 @@ class CfnContact(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b081f8848b9d4742d3d4a3b6aa1dbb241d062469b6ef8e173e25b21525f7a27)
+            type_hints = cached_type_hints(_typecheckingstub__2b081f8848b9d4742d3d4a3b6aa1dbb241d062469b6ef8e173e25b21525f7a27)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -223,9 +213,9 @@ class CfnContact(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -239,9 +229,9 @@ class CfnContact(
 
     @builtins.property
     @jsii.member(jsii_name="contactRef")
-    def contact_ref(self) -> "_ContactReference_c56fd368":
+    def contact_ref(self) -> "_aws_ssmcontacts_8735111e.ContactReference":
         '''A reference to a Contact resource.'''
-        return typing.cast("_ContactReference_c56fd368", jsii.get(self, "contactRef"))
+        return typing.cast("_aws_ssmcontacts_8735111e.ContactReference", jsii.get(self, "contactRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alias")
@@ -252,7 +242,7 @@ class CfnContact(
     @alias.setter
     def alias(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bba8290dd4eb067f8393c42927f143c8caf24ad18958b81d84a3b8407981a2c)
+            type_hints = cached_type_hints(_typecheckingstub__4bba8290dd4eb067f8393c42927f143c8caf24ad18958b81d84a3b8407981a2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alias", value) # pyright: ignore[reportArgumentType]
 
@@ -265,7 +255,7 @@ class CfnContact(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55de424a70da49fdee77dff632e72d116d463a39a20c87708b14539025047922)
+            type_hints = cached_type_hints(_typecheckingstub__55de424a70da49fdee77dff632e72d116d463a39a20c87708b14539025047922)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -278,7 +268,7 @@ class CfnContact(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa02d91e10d2171d1f6f9fba4357f22de345c2007b02d0535df28e85a09c5c89)
+            type_hints = cached_type_hints(_typecheckingstub__fa02d91e10d2171d1f6f9fba4357f22de345c2007b02d0535df28e85a09c5c89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -286,29 +276,32 @@ class CfnContact(
     @jsii.member(jsii_name="plan")
     def plan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.StageProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.StageProperty"]]]]:
         '''A list of stages.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.StageProperty"]]]], jsii.get(self, "plan"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.StageProperty"]]]], jsii.get(self, "plan"))
 
     @plan.setter
     def plan(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.StageProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.StageProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b53265c2630d58664ca7f46c1ce619caeab6eec0dc5682af154a1d6e5fadc5b)
+            type_hints = cached_type_hints(_typecheckingstub__1b53265c2630d58664ca7f46c1ce619caeab6eec0dc5682af154a1d6e5fadc5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "plan", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59cff570ee94d66883c27c541d2b2e0ef7a60913a10e8561bd8fcab3f1a9341a)
+            type_hints = cached_type_hints(_typecheckingstub__59cff570ee94d66883c27c541d2b2e0ef7a60913a10e8561bd8fcab3f1a9341a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -347,7 +340,7 @@ class CfnContact(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d9859de101893bc6eb79fa20a2bb897c167951655effac5d46a65e9ddbe0e527)
+                type_hints = cached_type_hints(_typecheckingstub__d9859de101893bc6eb79fa20a2bb897c167951655effac5d46a65e9ddbe0e527)
                 check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
                 check_type(argname="argument retry_interval_in_minutes", value=retry_interval_in_minutes, expected_type=type_hints["retry_interval_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -396,7 +389,7 @@ class CfnContact(
             self,
             *,
             contact_id: builtins.str,
-            is_essential: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            is_essential: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''The contact that Incident Manager is engaging during an incident.
 
@@ -418,7 +411,7 @@ class CfnContact(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d65e32e1631ab40569f09ec16aaa5d8215a382cf1eb5593a2f809b42ba4936ad)
+                type_hints = cached_type_hints(_typecheckingstub__d65e32e1631ab40569f09ec16aaa5d8215a382cf1eb5593a2f809b42ba4936ad)
                 check_type(argname="argument contact_id", value=contact_id, expected_type=type_hints["contact_id"])
                 check_type(argname="argument is_essential", value=is_essential, expected_type=type_hints["is_essential"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -437,14 +430,16 @@ class CfnContact(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def is_essential(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def is_essential(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''A Boolean value determining if the contact's acknowledgement stops the progress of stages in the plan.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-contact-contacttargetinfo.html#cfn-ssmcontacts-contact-contacttargetinfo-isessential
             '''
             result = self._values.get("is_essential")
             assert result is not None, "Required property 'is_essential' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -472,7 +467,7 @@ class CfnContact(
             *,
             duration_in_minutes: typing.Optional[jsii.Number] = None,
             rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-            targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContact.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContact.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``Stage`` property type specifies a set amount of time that an escalation plan or engagement plan engages the specified contacts or contact methods.
 
@@ -505,7 +500,7 @@ class CfnContact(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f305b28534efe8d339e08837352556855e9044627d7362d0ef784e32e9b4e6e)
+                type_hints = cached_type_hints(_typecheckingstub__8f305b28534efe8d339e08837352556855e9044627d7362d0ef784e32e9b4e6e)
                 check_type(argname="argument duration_in_minutes", value=duration_in_minutes, expected_type=type_hints["duration_in_minutes"])
                 check_type(argname="argument rotation_ids", value=rotation_ids, expected_type=type_hints["rotation_ids"])
                 check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
@@ -540,13 +535,13 @@ class CfnContact(
         @builtins.property
         def targets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.TargetsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.TargetsProperty"]]]]:
             '''The contacts or contact methods that the escalation plan or engagement plan is engaging.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-contact-stage.html#cfn-ssmcontacts-contact-stage-targets
             '''
             result = self._values.get("targets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.TargetsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.TargetsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -571,8 +566,8 @@ class CfnContact(
         def __init__(
             self,
             *,
-            channel_target_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContact.ChannelTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            contact_target_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContact.ContactTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            channel_target_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContact.ChannelTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            contact_target_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContact.ContactTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The contact or contact channel that's being engaged.
 
@@ -600,7 +595,7 @@ class CfnContact(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__55603f1f49aeead31e2b8475c5647006fc8de1390e7ca4158f8c5047373348e2)
+                type_hints = cached_type_hints(_typecheckingstub__55603f1f49aeead31e2b8475c5647006fc8de1390e7ca4158f8c5047373348e2)
                 check_type(argname="argument channel_target_info", value=channel_target_info, expected_type=type_hints["channel_target_info"])
                 check_type(argname="argument contact_target_info", value=contact_target_info, expected_type=type_hints["contact_target_info"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -612,24 +607,24 @@ class CfnContact(
         @builtins.property
         def channel_target_info(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContact.ChannelTargetInfoProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.ChannelTargetInfoProperty"]]:
             '''Information about the contact channel that Incident Manager engages.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-contact-targets.html#cfn-ssmcontacts-contact-targets-channeltargetinfo
             '''
             result = self._values.get("channel_target_info")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContact.ChannelTargetInfoProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.ChannelTargetInfoProperty"]], result)
 
         @builtins.property
         def contact_target_info(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContact.ContactTargetInfoProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.ContactTargetInfoProperty"]]:
             '''The contact that Incident Manager is engaging during an incident.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-contact-targets.html#cfn-ssmcontacts-contact-targets-contacttargetinfo
             '''
             result = self._values.get("contact_target_info")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContact.ContactTargetInfoProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.ContactTargetInfoProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -643,9 +638,9 @@ class CfnContact(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IContactChannelRef_c6b96ce3)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssmcontacts_8735111e.IContactChannelRef)
 class CfnContactChannel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ssmcontacts.CfnContactChannel",
 ):
@@ -685,7 +680,7 @@ class CfnContactChannel(
         channel_name: builtins.str,
         channel_type: builtins.str,
         contact_id: builtins.str,
-        defer_activation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        defer_activation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::SSMContacts::ContactChannel``.
 
@@ -698,7 +693,7 @@ class CfnContactChannel(
         :param defer_activation: If you want to activate the channel at a later time, you can choose to defer activation. Incident Manager can't engage your contact channel until it has been activated.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1617a23866261103ffbfe512be7356fd9cfde9f098fbbb8abeafd44e741a1dea)
+            type_hints = cached_type_hints(_typecheckingstub__1617a23866261103ffbfe512be7356fd9cfde9f098fbbb8abeafd44e741a1dea)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnContactChannelProps(
@@ -715,13 +710,13 @@ class CfnContactChannel(
     @builtins.classmethod
     def arn_for_contact_channel(
         cls,
-        resource: "_IContactChannelRef_c6b96ce3",
+        resource: "_aws_ssmcontacts_8735111e.IContactChannelRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8973c90d8cc94ee0e98690a6c5eb9062189dfc2809fcca6cd876d975dfdc8701)
+            type_hints = cached_type_hints(_typecheckingstub__8973c90d8cc94ee0e98690a6c5eb9062189dfc2809fcca6cd876d975dfdc8701)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContactChannel", [resource]))
 
@@ -733,18 +728,18 @@ class CfnContactChannel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e86dd94d8a84e794e67807de20823acdeca714d13ff800579e816968f24a2f9)
+            type_hints = cached_type_hints(_typecheckingstub__9e86dd94d8a84e794e67807de20823acdeca714d13ff800579e816968f24a2f9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContactChannel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c79c2a0f8c2fcfce619e0d43bafe063c344e896341db65e50b14635676b3f64)
+            type_hints = cached_type_hints(_typecheckingstub__1c79c2a0f8c2fcfce619e0d43bafe063c344e896341db65e50b14635676b3f64)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -757,7 +752,7 @@ class CfnContactChannel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c8a7d2ebe7d9a66479c5bec6bb0d272cd150e7d9b19dccb5e0f02eecc1f2f02)
+            type_hints = cached_type_hints(_typecheckingstub__7c8a7d2ebe7d9a66479c5bec6bb0d272cd150e7d9b19dccb5e0f02eecc1f2f02)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -788,9 +783,11 @@ class CfnContactChannel(
 
     @builtins.property
     @jsii.member(jsii_name="contactChannelRef")
-    def contact_channel_ref(self) -> "_ContactChannelReference_dd79a1a8":
+    def contact_channel_ref(
+        self,
+    ) -> "_aws_ssmcontacts_8735111e.ContactChannelReference":
         '''A reference to a ContactChannel resource.'''
-        return typing.cast("_ContactChannelReference_dd79a1a8", jsii.get(self, "contactChannelRef"))
+        return typing.cast("_aws_ssmcontacts_8735111e.ContactChannelReference", jsii.get(self, "contactChannelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelAddress")
@@ -801,7 +798,7 @@ class CfnContactChannel(
     @channel_address.setter
     def channel_address(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a5a7089d37931a755aff5c986c6109960e59c48f9af4ed79a8953b93ca748ec)
+            type_hints = cached_type_hints(_typecheckingstub__4a5a7089d37931a755aff5c986c6109960e59c48f9af4ed79a8953b93ca748ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -814,7 +811,7 @@ class CfnContactChannel(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3bba3adfea78f0f5c6aec4ef81d3a19e05bcb6013d7d1557bd5d87a56b91406)
+            type_hints = cached_type_hints(_typecheckingstub__e3bba3adfea78f0f5c6aec4ef81d3a19e05bcb6013d7d1557bd5d87a56b91406)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -830,7 +827,7 @@ class CfnContactChannel(
     @channel_type.setter
     def channel_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e76494fe71820cd79123d1c58f52f9734511b5f0e9ebc904568cc4a3614d236a)
+            type_hints = cached_type_hints(_typecheckingstub__e76494fe71820cd79123d1c58f52f9734511b5f0e9ebc904568cc4a3614d236a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelType", value) # pyright: ignore[reportArgumentType]
 
@@ -843,7 +840,7 @@ class CfnContactChannel(
     @contact_id.setter
     def contact_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82ab7a7941dcaf019ff883ded9ab61de82e25ca982f876491b992626ec103136)
+            type_hints = cached_type_hints(_typecheckingstub__82ab7a7941dcaf019ff883ded9ab61de82e25ca982f876491b992626ec103136)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactId", value) # pyright: ignore[reportArgumentType]
 
@@ -851,17 +848,17 @@ class CfnContactChannel(
     @jsii.member(jsii_name="deferActivation")
     def defer_activation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you want to activate the channel at a later time, you can choose to defer activation.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deferActivation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deferActivation"))
 
     @defer_activation.setter
     def defer_activation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99b9167dee5265e65d4f53f0abd17410ef25ee43a5aaa99fd33f989d172a3844)
+            type_hints = cached_type_hints(_typecheckingstub__99b9167dee5265e65d4f53f0abd17410ef25ee43a5aaa99fd33f989d172a3844)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deferActivation", value) # pyright: ignore[reportArgumentType]
 
@@ -885,7 +882,7 @@ class CfnContactChannelProps:
         channel_name: builtins.str,
         channel_type: builtins.str,
         contact_id: builtins.str,
-        defer_activation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        defer_activation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnContactChannel``.
 
@@ -915,7 +912,7 @@ class CfnContactChannelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60153d8d82b752412e4b3852bb6bfda95115461ca88ac40d1598f699bd2681fd)
+            type_hints = cached_type_hints(_typecheckingstub__60153d8d82b752412e4b3852bb6bfda95115461ca88ac40d1598f699bd2681fd)
             check_type(argname="argument channel_address", value=channel_address, expected_type=type_hints["channel_address"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument channel_type", value=channel_type, expected_type=type_hints["channel_type"])
@@ -977,7 +974,7 @@ class CfnContactChannelProps:
     @builtins.property
     def defer_activation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you want to activate the channel at a later time, you can choose to defer activation.
 
         Incident Manager can't engage your contact channel until it has been activated.
@@ -985,7 +982,7 @@ class CfnContactChannelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-contactchannel.html#cfn-ssmcontacts-contactchannel-deferactivation
         '''
         result = self._values.get("defer_activation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1017,8 +1014,8 @@ class CfnContactProps:
         alias: builtins.str,
         display_name: builtins.str,
         type: builtins.str,
-        plan: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContact.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        plan: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContact.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnContact``.
 
@@ -1065,7 +1062,7 @@ class CfnContactProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f741949260f507a90eb76a4ec5f8c03a5b8eeee237bc39b33a8add5cdc74d026)
+            type_hints = cached_type_hints(_typecheckingstub__f741949260f507a90eb76a4ec5f8c03a5b8eeee237bc39b33a8add5cdc74d026)
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1118,7 +1115,7 @@ class CfnContactProps:
     @builtins.property
     def plan(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.StageProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.StageProperty"]]]]:
         '''A list of stages.
 
         A contact has an engagement plan with stages that contact specified contact channels. An escalation plan uses stages that contact specified contacts.
@@ -1126,15 +1123,15 @@ class CfnContactProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-contact.html#cfn-ssmcontacts-contact-plan
         '''
         result = self._values.get("plan")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContact.StageProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContact.StageProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-contact.html#cfn-ssmcontacts-contact-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1148,9 +1145,9 @@ class CfnContactProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPlanRef_78302c0c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssmcontacts_8735111e.IPlanRef)
 class CfnPlan(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ssmcontacts.CfnPlan",
 ):
@@ -1200,7 +1197,7 @@ class CfnPlan(
         *,
         contact_id: builtins.str,
         rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        stages: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        stages: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SSMContacts::Plan``.
 
@@ -1211,7 +1208,7 @@ class CfnPlan(
         :param stages: A list of stages that the escalation plan or engagement plan uses to engage contacts and contact methods.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6e0c22680f733d3f22f01f5aa4b1401c09fcbf33bd52ea8ce6e156657761291)
+            type_hints = cached_type_hints(_typecheckingstub__f6e0c22680f733d3f22f01f5aa4b1401c09fcbf33bd52ea8ce6e156657761291)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPlanProps(
@@ -1222,12 +1219,15 @@ class CfnPlan(
 
     @jsii.member(jsii_name="arnForPlan")
     @builtins.classmethod
-    def arn_for_plan(cls, resource: "_IPlanRef_78302c0c") -> builtins.str:
+    def arn_for_plan(
+        cls,
+        resource: "_aws_ssmcontacts_8735111e.IPlanRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6e701e027b441a628d79619ec19edde99ef2cd1c8745fad4906d20a829af237)
+            type_hints = cached_type_hints(_typecheckingstub__e6e701e027b441a628d79619ec19edde99ef2cd1c8745fad4906d20a829af237)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPlan", [resource]))
 
@@ -1239,18 +1239,18 @@ class CfnPlan(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__846b799d30457a99ec1057fec34dcfc247b9a3672447f6156a50b544e06b072d)
+            type_hints = cached_type_hints(_typecheckingstub__846b799d30457a99ec1057fec34dcfc247b9a3672447f6156a50b544e06b072d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPlan", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__137ec9788a7a67aa1b51d2a0c7a6b9ed547385e0bf491539d328f6f2be03fcfe)
+            type_hints = cached_type_hints(_typecheckingstub__137ec9788a7a67aa1b51d2a0c7a6b9ed547385e0bf491539d328f6f2be03fcfe)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1263,7 +1263,7 @@ class CfnPlan(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b96bebac55eb6729cb601463e9b625faf9ce4e9fbabd3b393117d992fd302b)
+            type_hints = cached_type_hints(_typecheckingstub__32b96bebac55eb6729cb601463e9b625faf9ce4e9fbabd3b393117d992fd302b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1294,9 +1294,9 @@ class CfnPlan(
 
     @builtins.property
     @jsii.member(jsii_name="planRef")
-    def plan_ref(self) -> "_PlanReference_94ce2026":
+    def plan_ref(self) -> "_aws_ssmcontacts_8735111e.PlanReference":
         '''A reference to a Plan resource.'''
-        return typing.cast("_PlanReference_94ce2026", jsii.get(self, "planRef"))
+        return typing.cast("_aws_ssmcontacts_8735111e.PlanReference", jsii.get(self, "planRef"))
 
     @builtins.property
     @jsii.member(jsii_name="contactId")
@@ -1307,7 +1307,7 @@ class CfnPlan(
     @contact_id.setter
     def contact_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59045e1db75e26927310a75a7663c8e46347a898fd847f92c5322b25b3166292)
+            type_hints = cached_type_hints(_typecheckingstub__59045e1db75e26927310a75a7663c8e46347a898fd847f92c5322b25b3166292)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactId", value) # pyright: ignore[reportArgumentType]
 
@@ -1320,7 +1320,7 @@ class CfnPlan(
     @rotation_ids.setter
     def rotation_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7f8dbf20ba74a1032313ecba1522fc91898adade9f71310759089010f26013d)
+            type_hints = cached_type_hints(_typecheckingstub__e7f8dbf20ba74a1032313ecba1522fc91898adade9f71310759089010f26013d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rotationIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1328,17 +1328,17 @@ class CfnPlan(
     @jsii.member(jsii_name="stages")
     def stages(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StageProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.StageProperty"]]]]:
         '''A list of stages that the escalation plan or engagement plan uses to engage contacts and contact methods.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StageProperty"]]]], jsii.get(self, "stages"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.StageProperty"]]]], jsii.get(self, "stages"))
 
     @stages.setter
     def stages(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StageProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.StageProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98071cbe25b9c5fdcd471387b967afcc5792d313a75945efade94d8eb76ca785)
+            type_hints = cached_type_hints(_typecheckingstub__98071cbe25b9c5fdcd471387b967afcc5792d313a75945efade94d8eb76ca785)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stages", value) # pyright: ignore[reportArgumentType]
 
@@ -1377,7 +1377,7 @@ class CfnPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__84e76848537282e977dcde0f14f8ddb961f9ff06debd5fe09940f053ebe3cf2a)
+                type_hints = cached_type_hints(_typecheckingstub__84e76848537282e977dcde0f14f8ddb961f9ff06debd5fe09940f053ebe3cf2a)
                 check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
                 check_type(argname="argument retry_interval_in_minutes", value=retry_interval_in_minutes, expected_type=type_hints["retry_interval_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1426,7 +1426,7 @@ class CfnPlan(
             self,
             *,
             contact_id: builtins.str,
-            is_essential: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            is_essential: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''The contact that Incident Manager is engaging during an incident.
 
@@ -1448,7 +1448,7 @@ class CfnPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__610765f953ad183b666776caf683f78dbb8fa01e0c136d028fb058346bfde1ff)
+                type_hints = cached_type_hints(_typecheckingstub__610765f953ad183b666776caf683f78dbb8fa01e0c136d028fb058346bfde1ff)
                 check_type(argname="argument contact_id", value=contact_id, expected_type=type_hints["contact_id"])
                 check_type(argname="argument is_essential", value=is_essential, expected_type=type_hints["is_essential"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1467,14 +1467,16 @@ class CfnPlan(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def is_essential(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def is_essential(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''A Boolean value determining if the contact's acknowledgement stops the progress of stages in the plan.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-plan-contacttargetinfo.html#cfn-ssmcontacts-plan-contacttargetinfo-isessential
             '''
             result = self._values.get("is_essential")
             assert result is not None, "Required property 'is_essential' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1500,7 +1502,7 @@ class CfnPlan(
             self,
             *,
             duration_in_minutes: jsii.Number,
-            targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A set amount of time that an escalation plan or engagement plan engages the specified contacts or contact methods.
 
@@ -1533,7 +1535,7 @@ class CfnPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23656d44cd1599e50fb9a1834c8723f0417861b7725022518d862812e406042b)
+                type_hints = cached_type_hints(_typecheckingstub__23656d44cd1599e50fb9a1834c8723f0417861b7725022518d862812e406042b)
                 check_type(argname="argument duration_in_minutes", value=duration_in_minutes, expected_type=type_hints["duration_in_minutes"])
                 check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1557,13 +1559,13 @@ class CfnPlan(
         @builtins.property
         def targets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TargetsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.TargetsProperty"]]]]:
             '''The contacts or contact methods that the escalation plan or engagement plan is engaging.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-plan-stage.html#cfn-ssmcontacts-plan-stage-targets
             '''
             result = self._values.get("targets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TargetsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.TargetsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1588,8 +1590,8 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            channel_target_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ChannelTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            contact_target_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ContactTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            channel_target_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.ChannelTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            contact_target_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.ContactTargetInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The contact or contact channel that's being engaged.
 
@@ -1617,7 +1619,7 @@ class CfnPlan(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6975d159f87be06849c92d03bb48f0cd4d1b06bb5e3f9555822c686d405c5e4e)
+                type_hints = cached_type_hints(_typecheckingstub__6975d159f87be06849c92d03bb48f0cd4d1b06bb5e3f9555822c686d405c5e4e)
                 check_type(argname="argument channel_target_info", value=channel_target_info, expected_type=type_hints["channel_target_info"])
                 check_type(argname="argument contact_target_info", value=contact_target_info, expected_type=type_hints["contact_target_info"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1629,24 +1631,24 @@ class CfnPlan(
         @builtins.property
         def channel_target_info(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ChannelTargetInfoProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.ChannelTargetInfoProperty"]]:
             '''Information about the contact channel that Incident Manager engages.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-plan-targets.html#cfn-ssmcontacts-plan-targets-channeltargetinfo
             '''
             result = self._values.get("channel_target_info")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ChannelTargetInfoProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.ChannelTargetInfoProperty"]], result)
 
         @builtins.property
         def contact_target_info(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ContactTargetInfoProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.ContactTargetInfoProperty"]]:
             '''Information about the contact that Incident Manager engages.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-plan-targets.html#cfn-ssmcontacts-plan-targets-contacttargetinfo
             '''
             result = self._values.get("contact_target_info")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ContactTargetInfoProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.ContactTargetInfoProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1675,7 +1677,7 @@ class CfnPlanProps:
         *,
         contact_id: builtins.str,
         rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        stages: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        stages: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.StageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPlan``.
 
@@ -1715,7 +1717,7 @@ class CfnPlanProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8efc2cb087519575d349f15e5f11bf8abf775e3bdb2501c2d28a6f2690c8f17f)
+            type_hints = cached_type_hints(_typecheckingstub__8efc2cb087519575d349f15e5f11bf8abf775e3bdb2501c2d28a6f2690c8f17f)
             check_type(argname="argument contact_id", value=contact_id, expected_type=type_hints["contact_id"])
             check_type(argname="argument rotation_ids", value=rotation_ids, expected_type=type_hints["rotation_ids"])
             check_type(argname="argument stages", value=stages, expected_type=type_hints["stages"])
@@ -1749,13 +1751,13 @@ class CfnPlanProps:
     @builtins.property
     def stages(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StageProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.StageProperty"]]]]:
         '''A list of stages that the escalation plan or engagement plan uses to engage contacts and contact methods.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-plan.html#cfn-ssmcontacts-plan-stages
         '''
         result = self._values.get("stages")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StageProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.StageProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1769,9 +1771,9 @@ class CfnPlanProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRotationRef_bdee0de7, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssmcontacts_8735111e.IRotationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRotation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ssmcontacts.CfnRotation",
 ):
@@ -1835,10 +1837,10 @@ class CfnRotation(
         *,
         contact_ids: typing.Sequence[builtins.str],
         name: builtins.str,
-        recurrence: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.RecurrenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        recurrence: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.RecurrenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         start_time: builtins.str,
         time_zone_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SSMContacts::Rotation``.
 
@@ -1852,7 +1854,7 @@ class CfnRotation(
         :param tags: Optional metadata to assign to the rotation. Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For more information, see `Tagging Incident Manager resources <https://docs.aws.amazon.com/incident-manager/latest/userguide/tagging.html>`_ in the *Incident Manager User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26eef7672fdd8123b01e699b8130ced5537ce3c542ab77ee1c6c06cb09cbf930)
+            type_hints = cached_type_hints(_typecheckingstub__26eef7672fdd8123b01e699b8130ced5537ce3c542ab77ee1c6c06cb09cbf930)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRotationProps(
@@ -1868,12 +1870,15 @@ class CfnRotation(
 
     @jsii.member(jsii_name="arnForRotation")
     @builtins.classmethod
-    def arn_for_rotation(cls, resource: "_IRotationRef_bdee0de7") -> builtins.str:
+    def arn_for_rotation(
+        cls,
+        resource: "_aws_ssmcontacts_8735111e.IRotationRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da85f123f37e43a633240d553fdcbe617197cb7333c30755fea61ec2cd153c8c)
+            type_hints = cached_type_hints(_typecheckingstub__da85f123f37e43a633240d553fdcbe617197cb7333c30755fea61ec2cd153c8c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRotation", [resource]))
 
@@ -1885,18 +1890,18 @@ class CfnRotation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8519cbde06c861678d7e953949ef4a34a9cac2675cc17216f25a9fae0569602)
+            type_hints = cached_type_hints(_typecheckingstub__a8519cbde06c861678d7e953949ef4a34a9cac2675cc17216f25a9fae0569602)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRotation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__737a3930064adb508425fd82524f603fb39f45e289da49869aa4d8d4df27b36a)
+            type_hints = cached_type_hints(_typecheckingstub__737a3930064adb508425fd82524f603fb39f45e289da49869aa4d8d4df27b36a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1909,7 +1914,7 @@ class CfnRotation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b88c043eeb8e592d641499ebecdca207c839d7d68a19e163641d132e62530a4b)
+            type_hints = cached_type_hints(_typecheckingstub__b88c043eeb8e592d641499ebecdca207c839d7d68a19e163641d132e62530a4b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1940,15 +1945,15 @@ class CfnRotation(
 
     @builtins.property
     @jsii.member(jsii_name="rotationRef")
-    def rotation_ref(self) -> "_RotationReference_49f95d50":
+    def rotation_ref(self) -> "_aws_ssmcontacts_8735111e.RotationReference":
         '''A reference to a Rotation resource.'''
-        return typing.cast("_RotationReference_49f95d50", jsii.get(self, "rotationRef"))
+        return typing.cast("_aws_ssmcontacts_8735111e.RotationReference", jsii.get(self, "rotationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="contactIds")
@@ -1959,7 +1964,7 @@ class CfnRotation(
     @contact_ids.setter
     def contact_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cbd1cbfab002f07a6d2bffee561f6c31760fc539bfe7a1e613f37f4e07fb206)
+            type_hints = cached_type_hints(_typecheckingstub__1cbd1cbfab002f07a6d2bffee561f6c31760fc539bfe7a1e613f37f4e07fb206)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1972,7 +1977,7 @@ class CfnRotation(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__947d78575ed0d1c185f504ba957c2e81b4696b00927ea2c6c79d4dc7a169dd19)
+            type_hints = cached_type_hints(_typecheckingstub__947d78575ed0d1c185f504ba957c2e81b4696b00927ea2c6c79d4dc7a169dd19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1980,17 +1985,17 @@ class CfnRotation(
     @jsii.member(jsii_name="recurrence")
     def recurrence(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRotation.RecurrenceSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.RecurrenceSettingsProperty"]:
         '''Information about the rule that specifies when shift team members rotate.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRotation.RecurrenceSettingsProperty"], jsii.get(self, "recurrence"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.RecurrenceSettingsProperty"], jsii.get(self, "recurrence"))
 
     @recurrence.setter
     def recurrence(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRotation.RecurrenceSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.RecurrenceSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15da7772d8591fe2320b8ab1b99e597707b586730055c9d05111aeb272ccd4e9)
+            type_hints = cached_type_hints(_typecheckingstub__15da7772d8591fe2320b8ab1b99e597707b586730055c9d05111aeb272ccd4e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recurrence", value) # pyright: ignore[reportArgumentType]
 
@@ -2003,7 +2008,7 @@ class CfnRotation(
     @start_time.setter
     def start_time(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c73526f3a03d5d0c27d0420ed51553cfdf3eb29e824bdee17839275d7c957cd)
+            type_hints = cached_type_hints(_typecheckingstub__5c73526f3a03d5d0c27d0420ed51553cfdf3eb29e824bdee17839275d7c957cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startTime", value) # pyright: ignore[reportArgumentType]
 
@@ -2016,20 +2021,23 @@ class CfnRotation(
     @time_zone_id.setter
     def time_zone_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e822e7f1d29cbe95f2fb771175a652c3ae4e0cba9709976aee85050382d94b1c)
+            type_hints = cached_type_hints(_typecheckingstub__e822e7f1d29cbe95f2fb771175a652c3ae4e0cba9709976aee85050382d94b1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeZoneId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Optional metadata to assign to the rotation.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a05c65df6e2e0154dd878cf7783bed608ad778e57fdc781109dc1f9297a2ff64)
+            type_hints = cached_type_hints(_typecheckingstub__a05c65df6e2e0154dd878cf7783bed608ad778e57fdc781109dc1f9297a2ff64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2060,7 +2068,7 @@ class CfnRotation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5471c5c00a3ee14c4782530651c75ea7604939ef0fa51223f6a883ed7864ef9e)
+                type_hints = cached_type_hints(_typecheckingstub__5471c5c00a3ee14c4782530651c75ea7604939ef0fa51223f6a883ed7864ef9e)
                 check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2131,7 +2139,7 @@ class CfnRotation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4acc5d36b459ef219c0d9e8696ba8d79a8dc692c3d46f15b8f7590249f318c89)
+                type_hints = cached_type_hints(_typecheckingstub__4acc5d36b459ef219c0d9e8696ba8d79a8dc692c3d46f15b8f7590249f318c89)
                 check_type(argname="argument day_of_month", value=day_of_month, expected_type=type_hints["day_of_month"])
                 check_type(argname="argument hand_off_time", value=hand_off_time, expected_type=type_hints["hand_off_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2189,9 +2197,9 @@ class CfnRotation(
             number_of_on_calls: jsii.Number,
             recurrence_multiplier: jsii.Number,
             daily_settings: typing.Optional[typing.Sequence[builtins.str]] = None,
-            monthly_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.MonthlySettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            shift_coverages: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.ShiftCoverageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            weekly_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.WeeklySettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            monthly_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.MonthlySettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            shift_coverages: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.ShiftCoverageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            weekly_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.WeeklySettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Information about when an on-call rotation is in effect and how long the rotation period lasts.
 
@@ -2235,7 +2243,7 @@ class CfnRotation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1c7e912eafde708159eeee02d146481d7aad1c73b0a5b641a391970ddad57bbb)
+                type_hints = cached_type_hints(_typecheckingstub__1c7e912eafde708159eeee02d146481d7aad1c73b0a5b641a391970ddad57bbb)
                 check_type(argname="argument number_of_on_calls", value=number_of_on_calls, expected_type=type_hints["number_of_on_calls"])
                 check_type(argname="argument recurrence_multiplier", value=recurrence_multiplier, expected_type=type_hints["recurrence_multiplier"])
                 check_type(argname="argument daily_settings", value=daily_settings, expected_type=type_hints["daily_settings"])
@@ -2289,35 +2297,35 @@ class CfnRotation(
         @builtins.property
         def monthly_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.MonthlySettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.MonthlySettingProperty"]]]]:
             '''Information about on-call rotations that recur monthly.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-rotation-recurrencesettings.html#cfn-ssmcontacts-rotation-recurrencesettings-monthlysettings
             '''
             result = self._values.get("monthly_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.MonthlySettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.MonthlySettingProperty"]]]], result)
 
         @builtins.property
         def shift_coverages(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.ShiftCoverageProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.ShiftCoverageProperty"]]]]:
             '''Information about the days of the week included in on-call rotation coverage.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-rotation-recurrencesettings.html#cfn-ssmcontacts-rotation-recurrencesettings-shiftcoverages
             '''
             result = self._values.get("shift_coverages")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.ShiftCoverageProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.ShiftCoverageProperty"]]]], result)
 
         @builtins.property
         def weekly_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.WeeklySettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.WeeklySettingProperty"]]]]:
             '''Information about on-call rotations that recur weekly.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-rotation-recurrencesettings.html#cfn-ssmcontacts-rotation-recurrencesettings-weeklysettings
             '''
             result = self._values.get("weekly_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.WeeklySettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.WeeklySettingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2339,7 +2347,7 @@ class CfnRotation(
         def __init__(
             self,
             *,
-            coverage_times: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.CoverageTimeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            coverage_times: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.CoverageTimeProperty", typing.Dict[builtins.str, typing.Any]]]]],
             day_of_week: builtins.str,
         ) -> None:
             '''Information about the days of the week that the on-call rotation coverage includes.
@@ -2365,7 +2373,7 @@ class CfnRotation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9812f77378c4a6af9579759f5ec079ebc4b0cd0e6e34d34ad7898495e1e5ab2d)
+                type_hints = cached_type_hints(_typecheckingstub__9812f77378c4a6af9579759f5ec079ebc4b0cd0e6e34d34ad7898495e1e5ab2d)
                 check_type(argname="argument coverage_times", value=coverage_times, expected_type=type_hints["coverage_times"])
                 check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2376,14 +2384,14 @@ class CfnRotation(
         @builtins.property
         def coverage_times(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.CoverageTimeProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.CoverageTimeProperty"]]]:
             '''The start and end times of the shift.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssmcontacts-rotation-shiftcoverage.html#cfn-ssmcontacts-rotation-shiftcoverage-coveragetimes
             '''
             result = self._values.get("coverage_times")
             assert result is not None, "Required property 'coverage_times' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotation.CoverageTimeProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.CoverageTimeProperty"]]], result)
 
         @builtins.property
         def day_of_week(self) -> builtins.str:
@@ -2438,7 +2446,7 @@ class CfnRotation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c14404de3c73953c4e847ede12a15215fcadf495c7dffd1cc41c93ec2cf26200)
+                type_hints = cached_type_hints(_typecheckingstub__c14404de3c73953c4e847ede12a15215fcadf495c7dffd1cc41c93ec2cf26200)
                 check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
                 check_type(argname="argument hand_off_time", value=hand_off_time, expected_type=type_hints["hand_off_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2496,10 +2504,10 @@ class CfnRotationProps:
         *,
         contact_ids: typing.Sequence[builtins.str],
         name: builtins.str,
-        recurrence: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotation.RecurrenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        recurrence: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotation.RecurrenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         start_time: builtins.str,
         time_zone_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRotation``.
 
@@ -2556,7 +2564,7 @@ class CfnRotationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f29cf5a650f09297dec7b1ce2f14bd8b674754ea6d93bd8481ddf8a4ec8375f)
+            type_hints = cached_type_hints(_typecheckingstub__8f29cf5a650f09297dec7b1ce2f14bd8b674754ea6d93bd8481ddf8a4ec8375f)
             check_type(argname="argument contact_ids", value=contact_ids, expected_type=type_hints["contact_ids"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument recurrence", value=recurrence, expected_type=type_hints["recurrence"])
@@ -2602,14 +2610,14 @@ class CfnRotationProps:
     @builtins.property
     def recurrence(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRotation.RecurrenceSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.RecurrenceSettingsProperty"]:
         '''Information about the rule that specifies when shift team members rotate.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-rotation.html#cfn-ssmcontacts-rotation-recurrence
         '''
         result = self._values.get("recurrence")
         assert result is not None, "Required property 'recurrence' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRotation.RecurrenceSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotation.RecurrenceSettingsProperty"], result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
@@ -2637,7 +2645,7 @@ class CfnRotationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Optional metadata to assign to the rotation.
 
         Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For more information, see `Tagging Incident Manager resources <https://docs.aws.amazon.com/incident-manager/latest/userguide/tagging.html>`_ in the *Incident Manager User Guide* .
@@ -2645,7 +2653,7 @@ class CfnRotationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmcontacts-rotation.html#cfn-ssmcontacts-rotation-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2679,14 +2687,14 @@ def _typecheckingstub__96185056d36e15643884f48a931b8d7005ac84a62576223bb952c8832
     alias: builtins.str,
     display_name: builtins.str,
     type: builtins.str,
-    plan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContact.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    plan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContact.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9e68c3750de35e8cfdd54217dda1642ea9dca9e003466917e1b02e390c32bb36(
-    resource: _IContactRef_43eeaa3a,
+    resource: _aws_ssmcontacts_8735111e.IContactRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2698,7 +2706,7 @@ def _typecheckingstub__0dc75b94e7466d89e887973ad976e563695563f0bb4abb6528660e938
     pass
 
 def _typecheckingstub__d145b029ad2942410a46b8ef97eda343598f927706f2322d3e0ecae3a114269c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2728,13 +2736,13 @@ def _typecheckingstub__fa02d91e10d2171d1f6f9fba4357f22de345c2007b02d0535df28e85a
     pass
 
 def _typecheckingstub__1b53265c2630d58664ca7f46c1ce619caeab6eec0dc5682af154a1d6e5fadc5b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContact.StageProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnContact.StageProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__59cff570ee94d66883c27c541d2b2e0ef7a60913a10e8561bd8fcab3f1a9341a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2750,7 +2758,7 @@ def _typecheckingstub__d9859de101893bc6eb79fa20a2bb897c167951655effac5d46a65e9dd
 def _typecheckingstub__d65e32e1631ab40569f09ec16aaa5d8215a382cf1eb5593a2f809b42ba4936ad(
     *,
     contact_id: builtins.str,
-    is_essential: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    is_essential: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2759,15 +2767,15 @@ def _typecheckingstub__8f305b28534efe8d339e08837352556855e9044627d7362d0ef784e32
     *,
     duration_in_minutes: typing.Optional[jsii.Number] = None,
     rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContact.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContact.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__55603f1f49aeead31e2b8475c5647006fc8de1390e7ca4158f8c5047373348e2(
     *,
-    channel_target_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContact.ChannelTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    contact_target_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContact.ContactTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_target_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContact.ChannelTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    contact_target_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContact.ContactTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2780,13 +2788,13 @@ def _typecheckingstub__1617a23866261103ffbfe512be7356fd9cfde9f098fbbb8abeafd44e7
     channel_name: builtins.str,
     channel_type: builtins.str,
     contact_id: builtins.str,
-    defer_activation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    defer_activation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8973c90d8cc94ee0e98690a6c5eb9062189dfc2809fcca6cd876d975dfdc8701(
-    resource: _IContactChannelRef_c6b96ce3,
+    resource: _aws_ssmcontacts_8735111e.IContactChannelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2798,7 +2806,7 @@ def _typecheckingstub__9e86dd94d8a84e794e67807de20823acdeca714d13ff800579e816968
     pass
 
 def _typecheckingstub__1c79c2a0f8c2fcfce619e0d43bafe063c344e896341db65e50b14635676b3f64(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2834,7 +2842,7 @@ def _typecheckingstub__82ab7a7941dcaf019ff883ded9ab61de82e25ca982f876491b992626e
     pass
 
 def _typecheckingstub__99b9167dee5265e65d4f53f0abd17410ef25ee43a5aaa99fd33f989d172a3844(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2845,7 +2853,7 @@ def _typecheckingstub__60153d8d82b752412e4b3852bb6bfda95115461ca88ac40d1598f699b
     channel_name: builtins.str,
     channel_type: builtins.str,
     contact_id: builtins.str,
-    defer_activation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    defer_activation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2855,8 +2863,8 @@ def _typecheckingstub__f741949260f507a90eb76a4ec5f8c03a5b8eeee237bc39b33a8add5cd
     alias: builtins.str,
     display_name: builtins.str,
     type: builtins.str,
-    plan: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContact.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    plan: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContact.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2867,13 +2875,13 @@ def _typecheckingstub__f6e0c22680f733d3f22f01f5aa4b1401c09fcbf33bd52ea8ce6e15665
     *,
     contact_id: builtins.str,
     rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    stages: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stages: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e6e701e027b441a628d79619ec19edde99ef2cd1c8745fad4906d20a829af237(
-    resource: _IPlanRef_78302c0c,
+    resource: _aws_ssmcontacts_8735111e.IPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2885,7 +2893,7 @@ def _typecheckingstub__846b799d30457a99ec1057fec34dcfc247b9a3672447f6156a50b544e
     pass
 
 def _typecheckingstub__137ec9788a7a67aa1b51d2a0c7a6b9ed547385e0bf491539d328f6f2be03fcfe(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2909,7 +2917,7 @@ def _typecheckingstub__e7f8dbf20ba74a1032313ecba1522fc91898adade9f71310759089010
     pass
 
 def _typecheckingstub__98071cbe25b9c5fdcd471387b967afcc5792d313a75945efade94d8eb76ca785(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPlan.StageProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlan.StageProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2925,7 +2933,7 @@ def _typecheckingstub__84e76848537282e977dcde0f14f8ddb961f9ff06debd5fe09940f053e
 def _typecheckingstub__610765f953ad183b666776caf683f78dbb8fa01e0c136d028fb058346bfde1ff(
     *,
     contact_id: builtins.str,
-    is_essential: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    is_essential: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2933,15 +2941,15 @@ def _typecheckingstub__610765f953ad183b666776caf683f78dbb8fa01e0c136d028fb058346
 def _typecheckingstub__23656d44cd1599e50fb9a1834c8723f0417861b7725022518d862812e406042b(
     *,
     duration_in_minutes: jsii.Number,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6975d159f87be06849c92d03bb48f0cd4d1b06bb5e3f9555822c686d405c5e4e(
     *,
-    channel_target_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ChannelTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    contact_target_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ContactTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_target_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.ChannelTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    contact_target_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.ContactTargetInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2950,7 +2958,7 @@ def _typecheckingstub__8efc2cb087519575d349f15e5f11bf8abf775e3bdb2501c2d28a6f269
     *,
     contact_id: builtins.str,
     rotation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    stages: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stages: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.StageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2961,16 +2969,16 @@ def _typecheckingstub__26eef7672fdd8123b01e699b8130ced5537ce3c542ab77ee1c6c06cb0
     *,
     contact_ids: typing.Sequence[builtins.str],
     name: builtins.str,
-    recurrence: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.RecurrenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    recurrence: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.RecurrenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     start_time: builtins.str,
     time_zone_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__da85f123f37e43a633240d553fdcbe617197cb7333c30755fea61ec2cd153c8c(
-    resource: _IRotationRef_bdee0de7,
+    resource: _aws_ssmcontacts_8735111e.IRotationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2982,7 +2990,7 @@ def _typecheckingstub__a8519cbde06c861678d7e953949ef4a34a9cac2675cc17216f25a9fae
     pass
 
 def _typecheckingstub__737a3930064adb508425fd82524f603fb39f45e289da49869aa4d8d4df27b36a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3006,7 +3014,7 @@ def _typecheckingstub__947d78575ed0d1c185f504ba957c2e81b4696b00927ea2c6c79d4dc7a
     pass
 
 def _typecheckingstub__15da7772d8591fe2320b8ab1b99e597707b586730055c9d05111aeb272ccd4e9(
-    value: typing.Union[_IResolvable_da3f097b, CfnRotation.RecurrenceSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRotation.RecurrenceSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3024,7 +3032,7 @@ def _typecheckingstub__e822e7f1d29cbe95f2fb771175a652c3ae4e0cba9709976aee8505038
     pass
 
 def _typecheckingstub__a05c65df6e2e0154dd878cf7783bed608ad778e57fdc781109dc1f9297a2ff64(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3050,16 +3058,16 @@ def _typecheckingstub__1c7e912eafde708159eeee02d146481d7aad1c73b0a5b641a391970dd
     number_of_on_calls: jsii.Number,
     recurrence_multiplier: jsii.Number,
     daily_settings: typing.Optional[typing.Sequence[builtins.str]] = None,
-    monthly_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.MonthlySettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    shift_coverages: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.ShiftCoverageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    weekly_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.WeeklySettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    monthly_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.MonthlySettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    shift_coverages: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.ShiftCoverageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    weekly_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.WeeklySettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9812f77378c4a6af9579759f5ec079ebc4b0cd0e6e34d34ad7898495e1e5ab2d(
     *,
-    coverage_times: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.CoverageTimeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    coverage_times: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.CoverageTimeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     day_of_week: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3077,10 +3085,10 @@ def _typecheckingstub__8f29cf5a650f09297dec7b1ce2f14bd8b674754ea6d93bd8481ddf8a4
     *,
     contact_ids: typing.Sequence[builtins.str],
     name: builtins.str,
-    recurrence: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotation.RecurrenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    recurrence: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotation.RecurrenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     start_time: builtins.str,
     time_zone_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

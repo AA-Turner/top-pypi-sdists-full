@@ -9,8 +9,10 @@ Pipeline (per-boot):
 1. ``packages`` — apt-get per capability. Skipped when the install marker
    is already present in the capability's cache directory.
 2. ``python`` — combined ``uv pip install`` (or ``python -m pip install``)
-   across every capability's pins. Runs every boot so the venv re-resolves
-   when the binding set changes; pip is fast on already-satisfied specs.
+   across every capability's pins, targeting the active virtualenv when there
+   is one and the system interpreter (via sudo) when there is not. Runs every
+   boot so the environment re-resolves when the binding set changes; pip is
+   fast on already-satisfied specs.
 3. ``scripts`` — bash scripts per capability, in declaration order. Skipped
    when the install marker is already present.
 
@@ -132,11 +134,16 @@ def _install_packages(
 
 
 def _privileged_command_prefix(sudo: str | None) -> list[str] | None:
-    """Return the prefix needed to run an apt command with root privileges."""
+    """Return the prefix needed to run a command with root privileges.
+
+    ``-n`` keeps the runtime non-interactive: an image whose sudoers entry is
+    not NOPASSWD fails immediately instead of blocking on the password prompt
+    until the 600s subprocess timeout.
+    """
     if os.geteuid() == 0:
         return []
     if sudo:
-        return [sudo]
+        return [sudo, "-n"]
     return None
 
 
@@ -155,8 +162,14 @@ def _install_python_combined(
         return
 
     cmd = _python_install_cmd(union)
-    logger.info("Installing python deps (combined across {} caps): {}", len(specs), union)
-    err = _run(cmd)
+    if cmd is None:
+        err: str | None = (
+            "no virtualenv is active and installing into the system interpreter "
+            "requires root privileges, but sudo is unavailable"
+        )
+    else:
+        logger.info("Installing python deps (combined across {} caps): {}", len(specs), union)
+        err = _run(cmd)
     if err is None:
         return
 
@@ -185,11 +198,66 @@ def _install_scripts(
                 break
 
 
-def _python_install_cmd(packages: list[str]) -> list[str]:
-    """Prefer ``uv pip install`` when available; fall back to ``python -m pip``."""
-    if shutil.which("uv"):
-        return ["uv", "pip", "install", *packages]
-    return [sys.executable, "-m", "pip", "install", *packages]
+def _python_install_cmd(packages: list[str]) -> list[str] | None:
+    """Build the combined python install command for this host's environment.
+
+    Two sandbox image shapes have to be satisfied. When a virtualenv is active
+    the runtime user owns it, so uv's own environment discovery targets it and
+    no escalation is needed. Without one the running interpreter is the image's
+    root-owned system python: uv refuses to touch it without ``--system``, and
+    the non-root runtime user cannot write to its site-packages without sudo —
+    the same escalation ``packages:`` already performs for apt.
+
+    Every variant pins the target to ``sys.executable`` so uv and pip install
+    into the interpreter the runtime actually imports from, rather than
+    whichever python each tool discovers on its own.
+
+    Returns ``None`` when escalation is required but unavailable.
+    """
+    uv = shutil.which("uv")
+
+    if _in_virtualenv():
+        if uv:
+            return [uv, "pip", "install", "--python", sys.executable, *packages]
+        return [sys.executable, "-m", "pip", "install", *packages]
+
+    command_prefix = _privileged_command_prefix(shutil.which("sudo"))
+    if command_prefix is None:
+        return None
+    # `--break-system-packages` is required on PEP 668 images (Debian bookworm,
+    # Ubuntu 24.04), where both uv and pip refuse to touch the externally
+    # managed system interpreter without it.
+    if uv:
+        return [
+            *command_prefix,
+            uv,
+            "pip",
+            "install",
+            "--python",
+            sys.executable,
+            "--system",
+            "--break-system-packages",
+            *packages,
+        ]
+    return [
+        *command_prefix,
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--break-system-packages",
+        *packages,
+    ]
+
+
+def _in_virtualenv() -> bool:
+    """Whether the running interpreter lives inside a virtualenv.
+
+    ``VIRTUAL_ENV`` is only set by ``bin/activate``, so an image that execs the
+    venv interpreter directly (``/opt/venv/bin/python -m dreadnode ...``) leaves
+    it unset; ``sys.prefix``/``sys.base_prefix`` is the reliable signal.
+    """
+    return sys.prefix != sys.base_prefix or bool(os.environ.get("VIRTUAL_ENV", "").strip())
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> str | None:

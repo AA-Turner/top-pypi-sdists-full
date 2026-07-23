@@ -40,6 +40,8 @@ signing_profile = signer.SigningProfile(self, "SigningProfile",
 
 A signing profile is valid by default for 135 months. This can be modified by specifying the `signatureValidityPeriod` property.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -53,49 +55,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_signer import (
-    IProfilePermissionRef as _IProfilePermissionRef_c66915a3,
-    ISigningProfileRef as _ISigningProfileRef_80e46916,
-    ProfilePermissionReference as _ProfilePermissionReference_df1b4f98,
-    SigningProfileReference as _SigningProfileReference_9219187c,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_signer as _aws_signer_fcf3aa48
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_signer_fcf3aa48 = _LazyImport("aws_cdk.interfaces.aws_signer")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IProfilePermissionRef_c66915a3)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_signer_fcf3aa48.IProfilePermissionRef)
 class CfnProfilePermission(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_signer.CfnProfilePermission",
 ):
@@ -144,7 +133,7 @@ class CfnProfilePermission(
         :param profile_version: The version of the signing profile.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b7dd51e7eac664b5afe9a1b7d1972f7da8883244b3f554de5c8d1e0cc84f053)
+            type_hints = cached_type_hints(_typecheckingstub__7b7dd51e7eac664b5afe9a1b7d1972f7da8883244b3f554de5c8d1e0cc84f053)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProfilePermissionProps(
@@ -165,18 +154,18 @@ class CfnProfilePermission(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa9b2b5c20a313a6a8736730c6a3112613d411a11743beb2f9de986fce357c4a)
+            type_hints = cached_type_hints(_typecheckingstub__fa9b2b5c20a313a6a8736730c6a3112613d411a11743beb2f9de986fce357c4a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProfilePermission", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c27c534af2f676e9fe9c9b1c8462b7339b8b65f0c4b9b08f485033feefe4741)
+            type_hints = cached_type_hints(_typecheckingstub__1c27c534af2f676e9fe9c9b1c8462b7339b8b65f0c4b9b08f485033feefe4741)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -189,7 +178,7 @@ class CfnProfilePermission(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__662ce8c205095e7c693616c7c2d43b18432d9c948d131c1a3e91e7b5aafc2323)
+            type_hints = cached_type_hints(_typecheckingstub__662ce8c205095e7c693616c7c2d43b18432d9c948d131c1a3e91e7b5aafc2323)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -211,9 +200,11 @@ class CfnProfilePermission(
 
     @builtins.property
     @jsii.member(jsii_name="profilePermissionRef")
-    def profile_permission_ref(self) -> "_ProfilePermissionReference_df1b4f98":
+    def profile_permission_ref(
+        self,
+    ) -> "_aws_signer_fcf3aa48.ProfilePermissionReference":
         '''A reference to a ProfilePermission resource.'''
-        return typing.cast("_ProfilePermissionReference_df1b4f98", jsii.get(self, "profilePermissionRef"))
+        return typing.cast("_aws_signer_fcf3aa48.ProfilePermissionReference", jsii.get(self, "profilePermissionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="action")
@@ -224,7 +215,7 @@ class CfnProfilePermission(
     @action.setter
     def action(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b8c32d87b73fa4fb5094ae3e46175df93629f45d64c0d2b3130d5471eca086e)
+            type_hints = cached_type_hints(_typecheckingstub__9b8c32d87b73fa4fb5094ae3e46175df93629f45d64c0d2b3130d5471eca086e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
 
@@ -237,7 +228,7 @@ class CfnProfilePermission(
     @principal.setter
     def principal(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37b3db8c74061df8a65eeda431f6a41091db1cf687f78d71f79a9441f95b0644)
+            type_hints = cached_type_hints(_typecheckingstub__37b3db8c74061df8a65eeda431f6a41091db1cf687f78d71f79a9441f95b0644)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
 
@@ -250,7 +241,7 @@ class CfnProfilePermission(
     @profile_name.setter
     def profile_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0284177166884a4428819ca021ca73daecd877943a7bf90e79aec6e00f5ad07a)
+            type_hints = cached_type_hints(_typecheckingstub__0284177166884a4428819ca021ca73daecd877943a7bf90e79aec6e00f5ad07a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
 
@@ -263,7 +254,7 @@ class CfnProfilePermission(
     @statement_id.setter
     def statement_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e8ca5148f26e102d75c04bb95550132d3a29824e2932a98f9f87725df3962fc)
+            type_hints = cached_type_hints(_typecheckingstub__9e8ca5148f26e102d75c04bb95550132d3a29824e2932a98f9f87725df3962fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statementId", value) # pyright: ignore[reportArgumentType]
 
@@ -276,7 +267,7 @@ class CfnProfilePermission(
     @profile_version.setter
     def profile_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80bd95afa9c654fc5d026db2cad497a96dc240f466154896c0c5c3cc15b54bdd)
+            type_hints = cached_type_hints(_typecheckingstub__80bd95afa9c654fc5d026db2cad497a96dc240f466154896c0c5c3cc15b54bdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profileVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -330,7 +321,7 @@ class CfnProfilePermissionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc7158edcf57ecc13c1e912574c38dd0ad2f9585f23f02536376f63ed728fe86)
+            type_hints = cached_type_hints(_typecheckingstub__cc7158edcf57ecc13c1e912574c38dd0ad2f9585f23f02536376f63ed728fe86)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             check_type(argname="argument profile_name", value=profile_name, expected_type=type_hints["profile_name"])
@@ -408,9 +399,9 @@ class CfnProfilePermissionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISigningProfileRef_80e46916, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_signer_fcf3aa48.ISigningProfileRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSigningProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_signer.CfnSigningProfile",
 ):
@@ -452,8 +443,8 @@ class CfnSigningProfile(
         *,
         platform_id: builtins.str,
         profile_name: typing.Optional[builtins.str] = None,
-        signature_validity_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSigningProfile.SignatureValidityPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        signature_validity_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSigningProfile.SignatureValidityPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Signer::SigningProfile``.
 
@@ -465,7 +456,7 @@ class CfnSigningProfile(
         :param tags: A list of tags associated with the signing profile.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d84fe196f81722ce814c09f8bd21719acd97c32e92c1de922d0f04c31912d65b)
+            type_hints = cached_type_hints(_typecheckingstub__d84fe196f81722ce814c09f8bd21719acd97c32e92c1de922d0f04c31912d65b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSigningProfileProps(
@@ -481,13 +472,13 @@ class CfnSigningProfile(
     @builtins.classmethod
     def arn_for_signing_profile(
         cls,
-        resource: "_ISigningProfileRef_80e46916",
+        resource: "_aws_signer_fcf3aa48.ISigningProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f88b9c5ab8f3709756f086e40d555988785e2364dbe7e70f2cd9c77e7cc59634)
+            type_hints = cached_type_hints(_typecheckingstub__f88b9c5ab8f3709756f086e40d555988785e2364dbe7e70f2cd9c77e7cc59634)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSigningProfile", [resource]))
 
@@ -499,18 +490,18 @@ class CfnSigningProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3e32d4beb10fbb8b17ae147070d2bc9be76eea0d4a93458b396357b7b5d3473)
+            type_hints = cached_type_hints(_typecheckingstub__c3e32d4beb10fbb8b17ae147070d2bc9be76eea0d4a93458b396357b7b5d3473)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSigningProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__796b31e3d9d2ce1d3b20283186f1c0c54ce0f3bb426633c056466f92264e35b9)
+            type_hints = cached_type_hints(_typecheckingstub__796b31e3d9d2ce1d3b20283186f1c0c54ce0f3bb426633c056466f92264e35b9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -523,7 +514,7 @@ class CfnSigningProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59eb44451cc01c28f44f21713cf6296a564f672edd6fd097e34d4dadad14cdf5)
+            type_hints = cached_type_hints(_typecheckingstub__59eb44451cc01c28f44f21713cf6296a564f672edd6fd097e34d4dadad14cdf5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -581,15 +572,15 @@ class CfnSigningProfile(
 
     @builtins.property
     @jsii.member(jsii_name="signingProfileRef")
-    def signing_profile_ref(self) -> "_SigningProfileReference_9219187c":
+    def signing_profile_ref(self) -> "_aws_signer_fcf3aa48.SigningProfileReference":
         '''A reference to a SigningProfile resource.'''
-        return typing.cast("_SigningProfileReference_9219187c", jsii.get(self, "signingProfileRef"))
+        return typing.cast("_aws_signer_fcf3aa48.SigningProfileReference", jsii.get(self, "signingProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="platformId")
@@ -600,7 +591,7 @@ class CfnSigningProfile(
     @platform_id.setter
     def platform_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe4af9baf88789da4f861a18d37152a49a2947c30e555d2e1fff8d9d3f3d5f1a)
+            type_hints = cached_type_hints(_typecheckingstub__fe4af9baf88789da4f861a18d37152a49a2947c30e555d2e1fff8d9d3f3d5f1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "platformId", value) # pyright: ignore[reportArgumentType]
 
@@ -613,7 +604,7 @@ class CfnSigningProfile(
     @profile_name.setter
     def profile_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2972dbaf65147ccdb4e647ac0428126af6fbc8681dd95b936d84537b98769a3e)
+            type_hints = cached_type_hints(_typecheckingstub__2972dbaf65147ccdb4e647ac0428126af6fbc8681dd95b936d84537b98769a3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
 
@@ -621,30 +612,33 @@ class CfnSigningProfile(
     @jsii.member(jsii_name="signatureValidityPeriod")
     def signature_validity_period(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSigningProfile.SignatureValidityPeriodProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningProfile.SignatureValidityPeriodProperty"]]:
         '''The validity period override for any signature generated using this signing profile.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSigningProfile.SignatureValidityPeriodProperty"]], jsii.get(self, "signatureValidityPeriod"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningProfile.SignatureValidityPeriodProperty"]], jsii.get(self, "signatureValidityPeriod"))
 
     @signature_validity_period.setter
     def signature_validity_period(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSigningProfile.SignatureValidityPeriodProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningProfile.SignatureValidityPeriodProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3142352951a0c8c38151f31fb1da21f644b00a82a7383e211cfa3feb49aaea8)
+            type_hints = cached_type_hints(_typecheckingstub__d3142352951a0c8c38151f31fb1da21f644b00a82a7383e211cfa3feb49aaea8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "signatureValidityPeriod", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags associated with the signing profile.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__580ec6652b4c39cad7404de2ec2116ee0ba26fab741371a13d0201ad7c60ad0c)
+            type_hints = cached_type_hints(_typecheckingstub__580ec6652b4c39cad7404de2ec2116ee0ba26fab741371a13d0201ad7c60ad0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -680,7 +674,7 @@ class CfnSigningProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3efe44bef5492c74fa08cef22b7e2a158db85808147bf0c6792e238cfdcc5fa4)
+                type_hints = cached_type_hints(_typecheckingstub__3efe44bef5492c74fa08cef22b7e2a158db85808147bf0c6792e238cfdcc5fa4)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -735,8 +729,8 @@ class CfnSigningProfileProps:
         *,
         platform_id: builtins.str,
         profile_name: typing.Optional[builtins.str] = None,
-        signature_validity_period: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSigningProfile.SignatureValidityPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        signature_validity_period: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSigningProfile.SignatureValidityPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSigningProfile``.
 
@@ -771,7 +765,7 @@ class CfnSigningProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e40d7ccf57c93b4e1db5a4e6b98b562bce8ff86b219931d0d4cfb16a346cb0e)
+            type_hints = cached_type_hints(_typecheckingstub__9e40d7ccf57c93b4e1db5a4e6b98b562bce8ff86b219931d0d4cfb16a346cb0e)
             check_type(argname="argument platform_id", value=platform_id, expected_type=type_hints["platform_id"])
             check_type(argname="argument profile_name", value=profile_name, expected_type=type_hints["profile_name"])
             check_type(argname="argument signature_validity_period", value=signature_validity_period, expected_type=type_hints["signature_validity_period"])
@@ -808,7 +802,7 @@ class CfnSigningProfileProps:
     @builtins.property
     def signature_validity_period(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSigningProfile.SignatureValidityPeriodProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningProfile.SignatureValidityPeriodProperty"]]:
         '''The validity period override for any signature generated using this signing profile.
 
         If unspecified, the default is 135 months.
@@ -816,16 +810,16 @@ class CfnSigningProfileProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-signer-signingprofile.html#cfn-signer-signingprofile-signaturevalidityperiod
         '''
         result = self._values.get("signature_validity_period")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSigningProfile.SignatureValidityPeriodProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSigningProfile.SignatureValidityPeriodProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags associated with the signing profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-signer-signingprofile.html#cfn-signer-signingprofile-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -841,8 +835,8 @@ class CfnSigningProfileProps:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_signer.ISigningProfile")
 class ISigningProfile(
-    _IResource_c80c4260,
-    _ISigningProfileRef_80e46916,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_signer_fcf3aa48.ISigningProfileRef,
     typing_extensions.Protocol,
 ):
     '''A Signer Profile.'''
@@ -885,8 +879,8 @@ class ISigningProfile(
 
 
 class _ISigningProfileProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ISigningProfileRef_80e46916), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_signer_fcf3aa48.ISigningProfileRef), # type: ignore[misc]
 ):
     '''A Signer Profile.'''
 
@@ -969,20 +963,30 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-signer-signingprofile.html#cfn-signer-signingprofile-platformid
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d87af39f6269f8a900ddd70cc76e7c44cea15649627230d7b387b9814c9d1672)
+            type_hints = cached_type_hints(_typecheckingstub__d87af39f6269f8a900ddd70cc76e7c44cea15649627230d7b387b9814c9d1672)
             check_type(argname="argument platform_id", value=platform_id, expected_type=type_hints["platform_id"])
         return typing.cast("Platform", jsii.sinvoke(cls, "of", [platform_id]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_FREE_RTOS_DEFAULT")
     def AMAZON_FREE_RTOS_DEFAULT(cls) -> "Platform":
-        '''Specification of signature format and signing algorithms with SHA256 hash and ECDSA encryption for Amazon FreeRTOS.'''
+        '''(deprecated) Specification of signature format and signing algorithms with SHA256 hash and ECDSA encryption for Amazon FreeRTOS.
+
+        :deprecated: This signature platform has been discontinued.
+
+        :stability: deprecated
+        '''
         return typing.cast("Platform", jsii.sget(cls, "AMAZON_FREE_RTOS_DEFAULT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_FREE_RTOS_TI_CC3220SF")
     def AMAZON_FREE_RTOS_TI_CC3220_SF(cls) -> "Platform":
-        '''Specification of signature format and signing algorithms with SHA1 hash and RSA encryption for Amazon FreeRTOS.'''
+        '''(deprecated) Specification of signature format and signing algorithms with SHA1 hash and RSA encryption for Amazon FreeRTOS.
+
+        :deprecated: This signature platform has been discontinued.
+
+        :stability: deprecated
+        '''
         return typing.cast("Platform", jsii.sget(cls, "AMAZON_FREE_RTOS_TI_CC3220SF"))
 
     @jsii.python.classproperty
@@ -1012,7 +1016,7 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
 
 @jsii.implements(ISigningProfile)
 class SigningProfile(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_signer.SigningProfile",
 ):
@@ -1048,7 +1052,7 @@ class SigningProfile(
         id: builtins.str,
         *,
         platform: "Platform",
-        signature_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        signature_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         signing_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -1059,7 +1063,7 @@ class SigningProfile(
         :param signing_profile_name: Physical name of this Signing Profile. Default: - Assigned by CloudFormation (recommended).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98d9bc1982105f0416e608780fc4048b7d0a29f62734adc8b7c72c6ddb875169)
+            type_hints = cached_type_hints(_typecheckingstub__98d9bc1982105f0416e608780fc4048b7d0a29f62734adc8b7c72c6ddb875169)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SigningProfileProps(
@@ -1088,7 +1092,7 @@ class SigningProfile(
         :param signing_profile_version: The version of signing profile.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc8f241831391377f031dff9aa28ccba43b2e0c1261214e4326b1d0b861b1e9e)
+            type_hints = cached_type_hints(_typecheckingstub__dc8f241831391377f031dff9aa28ccba43b2e0c1261214e4326b1d0b861b1e9e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = SigningProfileAttributes(
@@ -1118,9 +1122,9 @@ class SigningProfile(
 
     @builtins.property
     @jsii.member(jsii_name="signingProfileRef")
-    def signing_profile_ref(self) -> "_SigningProfileReference_9219187c":
+    def signing_profile_ref(self) -> "_aws_signer_fcf3aa48.SigningProfileReference":
         '''A reference to a SigningProfile resource.'''
-        return typing.cast("_SigningProfileReference_9219187c", jsii.get(self, "signingProfileRef"))
+        return typing.cast("_aws_signer_fcf3aa48.SigningProfileReference", jsii.get(self, "signingProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="signingProfileVersion")
@@ -1169,7 +1173,7 @@ class SigningProfileAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__322df56afb65c36b455aea6e5bb84898157da190e69f2f74001dcb0db998fcca)
+            type_hints = cached_type_hints(_typecheckingstub__322df56afb65c36b455aea6e5bb84898157da190e69f2f74001dcb0db998fcca)
             check_type(argname="argument signing_profile_name", value=signing_profile_name, expected_type=type_hints["signing_profile_name"])
             check_type(argname="argument signing_profile_version", value=signing_profile_version, expected_type=type_hints["signing_profile_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1217,7 +1221,7 @@ class SigningProfileProps:
         self,
         *,
         platform: "Platform",
-        signature_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        signature_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         signing_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Construction properties for a Signing Profile object.
@@ -1249,7 +1253,7 @@ class SigningProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec491d4441d5ea10770b4741a09e04ab0b29fa9f7cfddbbaa4ee950829f0085f)
+            type_hints = cached_type_hints(_typecheckingstub__ec491d4441d5ea10770b4741a09e04ab0b29fa9f7cfddbbaa4ee950829f0085f)
             check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
             check_type(argname="argument signature_validity", value=signature_validity, expected_type=type_hints["signature_validity"])
             check_type(argname="argument signing_profile_name", value=signing_profile_name, expected_type=type_hints["signing_profile_name"])
@@ -1272,13 +1276,13 @@ class SigningProfileProps:
         return typing.cast("Platform", result)
 
     @builtins.property
-    def signature_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def signature_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The validity period for signatures generated using this signing profile.
 
         :default: - 135 months
         '''
         result = self._values.get("signature_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def signing_profile_name(self) -> typing.Optional[builtins.str]:
@@ -1335,7 +1339,7 @@ def _typecheckingstub__fa9b2b5c20a313a6a8736730c6a3112613d411a11743beb2f9de986fc
     pass
 
 def _typecheckingstub__1c27c534af2f676e9fe9c9b1c8462b7339b8b65f0c4b9b08f485033feefe4741(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1393,14 +1397,14 @@ def _typecheckingstub__d84fe196f81722ce814c09f8bd21719acd97c32e92c1de922d0f04c31
     *,
     platform_id: builtins.str,
     profile_name: typing.Optional[builtins.str] = None,
-    signature_validity_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSigningProfile.SignatureValidityPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signature_validity_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSigningProfile.SignatureValidityPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f88b9c5ab8f3709756f086e40d555988785e2364dbe7e70f2cd9c77e7cc59634(
-    resource: _ISigningProfileRef_80e46916,
+    resource: _aws_signer_fcf3aa48.ISigningProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1412,7 +1416,7 @@ def _typecheckingstub__c3e32d4beb10fbb8b17ae147070d2bc9be76eea0d4a93458b396357b7
     pass
 
 def _typecheckingstub__796b31e3d9d2ce1d3b20283186f1c0c54ce0f3bb426633c056466f92264e35b9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1436,13 +1440,13 @@ def _typecheckingstub__2972dbaf65147ccdb4e647ac0428126af6fbc8681dd95b936d84537b9
     pass
 
 def _typecheckingstub__d3142352951a0c8c38151f31fb1da21f644b00a82a7383e211cfa3feb49aaea8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSigningProfile.SignatureValidityPeriodProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSigningProfile.SignatureValidityPeriodProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__580ec6652b4c39cad7404de2ec2116ee0ba26fab741371a13d0201ad7c60ad0c(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1459,8 +1463,8 @@ def _typecheckingstub__9e40d7ccf57c93b4e1db5a4e6b98b562bce8ff86b219931d0d4cfb16a
     *,
     platform_id: builtins.str,
     profile_name: typing.Optional[builtins.str] = None,
-    signature_validity_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSigningProfile.SignatureValidityPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signature_validity_period: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSigningProfile.SignatureValidityPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1476,7 +1480,7 @@ def _typecheckingstub__98d9bc1982105f0416e608780fc4048b7d0a29f62734adc8b7c72c6dd
     id: builtins.str,
     *,
     platform: Platform,
-    signature_validity: typing.Optional[_Duration_4839e8c3] = None,
+    signature_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     signing_profile_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1503,7 +1507,7 @@ def _typecheckingstub__322df56afb65c36b455aea6e5bb84898157da190e69f2f74001dcb0db
 def _typecheckingstub__ec491d4441d5ea10770b4741a09e04ab0b29fa9f7cfddbbaa4ee950829f0085f(
     *,
     platform: Platform,
-    signature_validity: typing.Optional[_Duration_4839e8c3] = None,
+    signature_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     signing_profile_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

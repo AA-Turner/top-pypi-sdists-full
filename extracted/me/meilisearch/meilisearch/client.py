@@ -7,20 +7,19 @@ import hmac
 import json
 import re
 from collections.abc import Iterator, Mapping, MutableMapping, Sequence
-from typing import (
-    Any,
-)
+from typing import Any
 from urllib import parse
 
 from meilisearch._httprequests import HttpRequests
 from meilisearch.config import Config
-from meilisearch.errors import (  # noqa: F401
-    MeilisearchApiError,
+from meilisearch.errors import (
     MeilisearchCommunicationError,
     MeilisearchError,
 )
 from meilisearch.index import Index
+from meilisearch.models.index import SizeFormat
 from meilisearch.models.key import Key, KeysResults
+from meilisearch.models.search_rule import SearchRule, SearchRulesResults
 from meilisearch.models.task import Batch, BatchResults, Task, TaskInfo, TaskResults
 from meilisearch.models.webhook import Webhook, WebhooksResults
 from meilisearch.task import TaskHandler
@@ -280,6 +279,45 @@ class Client:
             body={"queries": queries, "federation": federation},
         )
 
+    def render_template(
+        self,
+        template: Mapping[str, Any],
+        input: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render a template against an input document.
+
+        This is an experimental route. Enable the ``renderRoute`` feature on your
+        Meilisearch instance before calling it, for example
+        ``client.update_experimental_features({"renderRoute": True})``.
+
+        https://www.meilisearch.com/docs/reference/api/template
+
+        Parameters
+        ----------
+        template:
+            Dictionary describing the template or fragment to render, for example
+            {"kind": "inlineDocumentTemplate", "inline": "Rendered on {{doc.id}}"}.
+        input (optional):
+            Dictionary describing what to render the template with, for example
+            {"kind": "inlineDocument", "inline": {"id": "this document"}}. When omitted
+            the route returns the unrendered template and ``rendered`` is null.
+
+        Returns
+        -------
+        rendered:
+            Dictionary with the unrendered ``template`` and the ``rendered`` result.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        body: dict[str, Any] = {"template": template}
+        if input is not None:
+            body["input"] = input
+
+        return self.http.post(self.config.paths.render_template, body=body)
+
     def update_documents_by_function(
         self, index_uid: str, queries: dict[str, list[dict[str, Any]]]
     ) -> dict[str, Any]:
@@ -307,11 +345,25 @@ class Client:
             body=dict(queries),
         )
 
-    def get_all_stats(self) -> dict[str, Any]:
+    def get_all_stats(
+        self,
+        *,
+        show_internal_database_sizes: bool | None = None,
+        size_format: SizeFormat | str | None = None,
+    ) -> dict[str, Any]:
         """Get all stats of Meilisearch
 
         Get information about database size and all indexes
         https://www.meilisearch.com/docs/reference/api/stats
+
+        Parameters
+        ----------
+        show_internal_database_sizes (optional):
+            When true, index stat objects contain an additional internalDatabaseSizes key
+            with the size of each internal database. Defaults to false.
+        size_format (optional):
+            When set to "human", database sizes are returned as strings with units (e.g. "1.5 GiB").
+            When set to "raw" or omitted, sizes are returned as numbers in bytes.
 
         Returns
         -------
@@ -323,7 +375,18 @@ class Client:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.http.get(self.config.paths.stat)
+        params: dict[str, Any] = {}
+        if show_internal_database_sizes is not None:
+            params["showInternalDatabaseSizes"] = str(show_internal_database_sizes).lower()
+        if size_format is not None:
+            params["sizeFormat"] = (
+                size_format.value if isinstance(size_format, SizeFormat) else size_format
+            )
+
+        path = self.config.paths.stat
+        if params:
+            path = f"{path}?{parse.urlencode(params)}"
+        return self.http.get(path)
 
     def health(self) -> dict[str, str]:
         """Get health of the Meilisearch server.
@@ -585,6 +648,117 @@ class Client:
         """
         response = self.http.delete(f"{self.config.paths.webhooks}/{webhook_uuid}")
         return response.status_code
+
+    # DYNAMIC SEARCH RULES ROUTES
+
+    def get_dynamic_search_rules(
+        self, parameters: Mapping[str, Any] | None = None
+    ) -> SearchRulesResults:
+        """Get dynamic search rules with optional pagination and filtering.
+
+        Parameters
+        ----------
+        parameters (optional):
+            Pagination and filter parameters accepted by the list dynamic search rules route.
+
+        Returns
+        -------
+        search_rules:
+            SearchRulesResults containing the matching rules and pagination information.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process the request.
+        """
+        if parameters is None:
+            parameters = {}
+
+        search_rules = self.http.post(self.config.paths.dynamic_search_rules, parameters)
+        return SearchRulesResults(**search_rules)
+
+    def get_dynamic_search_rule(self, uid: str) -> SearchRule:
+        """Get a dynamic search rule by UID.
+
+        Parameters
+        ----------
+        uid:
+            UID of the dynamic search rule.
+
+        Returns
+        -------
+        search_rule:
+            The requested dynamic search rule.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process the request.
+        """
+        search_rule = self.http.get(f"{self.config.paths.dynamic_search_rules}/{uid}")
+        return SearchRule(**search_rule)
+
+    def update_dynamic_search_rule(
+        self,
+        uid: str,
+        options: Mapping[str, Any],
+        *,
+        metadata: str | None = None,
+    ) -> TaskInfo:
+        """Update a dynamic search rule, or create it when it doesn't exist.
+
+        Parameters
+        ----------
+        uid:
+            UID of the dynamic search rule.
+        options:
+            Fields to update on the dynamic search rule.
+        metadata (optional):
+            Custom metadata string to attach to the task.
+
+        Returns
+        -------
+        task_info:
+            Information about the enqueued update task.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process the request.
+        """
+        url = f"{self.config.paths.dynamic_search_rules}/{uid}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+
+        task = self.http.patch(url, options)
+        return TaskInfo(**task)
+
+    def delete_dynamic_search_rule(self, uid: str, *, metadata: str | None = None) -> TaskInfo:
+        """Delete a dynamic search rule.
+
+        Parameters
+        ----------
+        uid:
+            UID of the dynamic search rule.
+        metadata (optional):
+            Custom metadata string to attach to the task.
+
+        Returns
+        -------
+        task_info:
+            Information about the enqueued deletion task.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process the request.
+        """
+        url = f"{self.config.paths.dynamic_search_rules}/{uid}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+
+        task = self.http.delete(url)
+        return TaskInfo(**task)
 
     def get_version(self) -> dict[str, str]:
         """Get version Meilisearch

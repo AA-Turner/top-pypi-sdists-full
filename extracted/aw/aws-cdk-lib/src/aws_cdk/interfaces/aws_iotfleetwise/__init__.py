@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -65,7 +69,7 @@ class CampaignReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abc62ce3a2eacc41973eb932cb914110df6dc4f94aa69bbc965f10b97056a756)
+            type_hints = cached_type_hints(_typecheckingstub__abc62ce3a2eacc41973eb932cb914110df6dc4f94aa69bbc965f10b97056a756)
             check_type(argname="argument campaign_arn", value=campaign_arn, expected_type=type_hints["campaign_arn"])
             check_type(argname="argument campaign_name", value=campaign_name, expected_type=type_hints["campaign_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -133,7 +137,7 @@ class DecoderManifestReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8b332dc87c650b4957bb4734c63a524f7479215b9b9ebea23f3040cb605f988)
+            type_hints = cached_type_hints(_typecheckingstub__e8b332dc87c650b4957bb4734c63a524f7479215b9b9ebea23f3040cb605f988)
             check_type(argname="argument decoder_manifest_arn", value=decoder_manifest_arn, expected_type=type_hints["decoder_manifest_arn"])
             check_type(argname="argument decoder_manifest_name", value=decoder_manifest_name, expected_type=type_hints["decoder_manifest_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -193,7 +197,7 @@ class FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e0609989cc7ef5b004c59e00dddcd2a8df28f027b02b4a7e0375d119d6cb1f6)
+            type_hints = cached_type_hints(_typecheckingstub__1e0609989cc7ef5b004c59e00dddcd2a8df28f027b02b4a7e0375d119d6cb1f6)
             check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -230,7 +234,7 @@ class FleetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.ICampaignRef")
 class ICampaignRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Campaign.
@@ -250,7 +254,7 @@ class ICampaignRef(
 
 class _ICampaignRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Campaign.
 
@@ -277,7 +281,7 @@ typing.cast(typing.Any, ICampaignRef).__jsii_proxy_class__ = lambda : _ICampaign
 )
 class IDecoderManifestRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DecoderManifest.
@@ -297,7 +301,7 @@ class IDecoderManifestRef(
 
 class _IDecoderManifestRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DecoderManifest.
 
@@ -322,7 +326,7 @@ typing.cast(typing.Any, IDecoderManifestRef).__jsii_proxy_class__ = lambda : _ID
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.IFleetRef")
 class IFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
@@ -342,7 +346,7 @@ class IFleetRef(
 
 class _IFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
 
@@ -367,7 +371,7 @@ typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.IModelManifestRef")
 class IModelManifestRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModelManifest.
@@ -387,7 +391,7 @@ class IModelManifestRef(
 
 class _IModelManifestRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ModelManifest.
 
@@ -412,7 +416,7 @@ typing.cast(typing.Any, IModelManifestRef).__jsii_proxy_class__ = lambda : _IMod
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.ISignalCatalogRef")
 class ISignalCatalogRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SignalCatalog.
@@ -432,7 +436,7 @@ class ISignalCatalogRef(
 
 class _ISignalCatalogRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SignalCatalog.
 
@@ -457,7 +461,7 @@ typing.cast(typing.Any, ISignalCatalogRef).__jsii_proxy_class__ = lambda : _ISig
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.IStateTemplateRef")
 class IStateTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateTemplate.
@@ -477,7 +481,7 @@ class IStateTemplateRef(
 
 class _IStateTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StateTemplate.
 
@@ -502,7 +506,7 @@ typing.cast(typing.Any, IStateTemplateRef).__jsii_proxy_class__ = lambda : _ISta
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotfleetwise.IVehicleRef")
 class IVehicleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Vehicle.
@@ -522,7 +526,7 @@ class IVehicleRef(
 
 class _IVehicleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Vehicle.
 
@@ -578,7 +582,7 @@ class ModelManifestReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4303e142edab0f0c5eb3c9461f6c56820799360689aca63aaa6a668d84b2a93a)
+            type_hints = cached_type_hints(_typecheckingstub__4303e142edab0f0c5eb3c9461f6c56820799360689aca63aaa6a668d84b2a93a)
             check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
             check_type(argname="argument model_manifest_name", value=model_manifest_name, expected_type=type_hints["model_manifest_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -646,7 +650,7 @@ class SignalCatalogReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98e9822856469d474940f4c2ac25de3c10953f46dd1d0c442a1a314b4b6e9476)
+            type_hints = cached_type_hints(_typecheckingstub__98e9822856469d474940f4c2ac25de3c10953f46dd1d0c442a1a314b4b6e9476)
             check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
             check_type(argname="argument signal_catalog_name", value=signal_catalog_name, expected_type=type_hints["signal_catalog_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -714,7 +718,7 @@ class StateTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1087b3d664239f66965dd186def702c54e8343ca53339db0ed9ed72438c8e638)
+            type_hints = cached_type_hints(_typecheckingstub__1087b3d664239f66965dd186def702c54e8343ca53339db0ed9ed72438c8e638)
             check_type(argname="argument state_template_arn", value=state_template_arn, expected_type=type_hints["state_template_arn"])
             check_type(argname="argument state_template_name", value=state_template_name, expected_type=type_hints["state_template_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -779,7 +783,7 @@ class VehicleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61d06ffc90ff9869984bafa037edf58645afe38a2d5c4db478b3c1e90a67194c)
+            type_hints = cached_type_hints(_typecheckingstub__61d06ffc90ff9869984bafa037edf58645afe38a2d5c4db478b3c1e90a67194c)
             check_type(argname="argument vehicle_arn", value=vehicle_arn, expected_type=type_hints["vehicle_arn"])
             check_type(argname="argument vehicle_name", value=vehicle_name, expected_type=type_hints["vehicle_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

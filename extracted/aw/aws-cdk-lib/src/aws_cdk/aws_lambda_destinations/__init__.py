@@ -152,6 +152,8 @@ by the source function.
 Using the `responseOnly` option allows to easily chain asynchronous Lambda functions without
 having to deal with data extraction in the runtime code.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -165,40 +167,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from ..aws_events import IEventBus as _IEventBus_88d13111
-from ..aws_lambda import (
-    DestinationConfig as _DestinationConfig_6f7459c3,
-    DestinationOptions as _DestinationOptions_3f2abf0e,
-    DestinationType as _DestinationType_2872235c,
-    IDestination as _IDestination_40f19de4,
-    IFunction as _IFunction_6adb0ab8,
-)
-from ..aws_s3 import IBucket as _IBucket_42e086fd
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..aws_sqs import IQueue as _IQueue_7ed6f679
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IDestination_40f19de4)
+@jsii.implements(_aws_lambda_b8f2f472.IDestination)
 class EventBridgeDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda_destinations.EventBridgeDestination",
@@ -223,7 +225,7 @@ class EventBridgeDestination(
 
     def __init__(
         self,
-        event_bus: typing.Optional["_IEventBus_88d13111"] = None,
+        event_bus: typing.Optional["_aws_events_27c08586.IEventBus"] = None,
     ) -> None:
         '''
         :param event_bus: -
@@ -231,7 +233,7 @@ class EventBridgeDestination(
         :default: - use the default event bus
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec5811812c80a00371ef2993fdfecee160d7a363f3b8104f18cd519afbe9081a)
+            type_hints = cached_type_hints(_typecheckingstub__ec5811812c80a00371ef2993fdfecee160d7a363f3b8104f18cd519afbe9081a)
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
         jsii.create(self.__class__, self, [event_bus])
 
@@ -239,10 +241,10 @@ class EventBridgeDestination(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        type: "_DestinationType_2872235c",
-    ) -> "_DestinationConfig_6f7459c3":
+        type: "_aws_lambda_b8f2f472.DestinationType",
+    ) -> "_aws_lambda_b8f2f472.DestinationConfig":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -250,15 +252,15 @@ class EventBridgeDestination(
         :param type: The destination type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62923385ba6a61dfe180f01a892dbdb99a4bacd827b8b2df11bf1f39ad462b1f)
+            type_hints = cached_type_hints(_typecheckingstub__62923385ba6a61dfe180f01a892dbdb99a4bacd827b8b2df11bf1f39ad462b1f)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
-        _options = _DestinationOptions_3f2abf0e(type=type)
+        _options = _aws_lambda_b8f2f472.DestinationOptions(type=type)
 
-        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_aws_lambda_b8f2f472.DestinationConfig", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
-@jsii.implements(_IDestination_40f19de4)
+@jsii.implements(_aws_lambda_b8f2f472.IDestination)
 class LambdaDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda_destinations.LambdaDestination",
@@ -286,7 +288,7 @@ class LambdaDestination(
 
     def __init__(
         self,
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
         response_only: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -295,7 +297,7 @@ class LambdaDestination(
         :param response_only: Whether the destination function receives only the ``responsePayload`` of the source function. When set to ``true`` and used as ``onSuccess`` destination, the destination function will be invoked with the payload returned by the source function. When set to ``true`` and used as ``onFailure`` destination, the destination function will be invoked with the error object returned by source function. See the README of this module to see a full explanation of this option. Default: false The destination function receives the full invocation record.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4a82978199747b37ebd7e81b7b6e0685f82bdf278e62dfa93ab08003e71f72c)
+            type_hints = cached_type_hints(_typecheckingstub__e4a82978199747b37ebd7e81b7b6e0685f82bdf278e62dfa93ab08003e71f72c)
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         options = LambdaDestinationOptions(response_only=response_only)
 
@@ -305,10 +307,10 @@ class LambdaDestination(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        type: "_DestinationType_2872235c",
-    ) -> "_DestinationConfig_6f7459c3":
+        type: "_aws_lambda_b8f2f472.DestinationType",
+    ) -> "_aws_lambda_b8f2f472.DestinationConfig":
         '''Returns a destination configuration.
 
         :param scope: -
@@ -316,12 +318,12 @@ class LambdaDestination(
         :param type: The destination type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8668a0e71a33fa9d96e10e979e471c302c8a46555e60028475ab801c0a4c276c)
+            type_hints = cached_type_hints(_typecheckingstub__8668a0e71a33fa9d96e10e979e471c302c8a46555e60028475ab801c0a4c276c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
-        options = _DestinationOptions_3f2abf0e(type=type)
+        options = _aws_lambda_b8f2f472.DestinationOptions(type=type)
 
-        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [scope, fn, options]))
+        return typing.cast("_aws_lambda_b8f2f472.DestinationConfig", jsii.invoke(self, "bind", [scope, fn, options]))
 
 
 @jsii.data_type(
@@ -354,7 +356,7 @@ class LambdaDestinationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c99f6a6bf8bcf694e2e5c9f5c69825b83541adab1d1d27cd08f36f737ba208)
+            type_hints = cached_type_hints(_typecheckingstub__a7c99f6a6bf8bcf694e2e5c9f5c69825b83541adab1d1d27cd08f36f737ba208)
             check_type(argname="argument response_only", value=response_only, expected_type=type_hints["response_only"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if response_only is not None:
@@ -389,7 +391,7 @@ class LambdaDestinationOptions:
         )
 
 
-@jsii.implements(_IDestination_40f19de4)
+@jsii.implements(_aws_lambda_b8f2f472.IDestination)
 class S3Destination(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda_destinations.S3Destination",
@@ -410,12 +412,12 @@ class S3Destination(
         s3_destination = lambda_destinations.S3Destination(bucket)
     '''
 
-    def __init__(self, bucket: "_IBucket_42e086fd") -> None:
+    def __init__(self, bucket: "_aws_s3_01158f40.IBucket") -> None:
         '''
         :param bucket: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19ce994678bf430d4bf8c27699213b91b48000db20e031ef641903ad7cba32bb)
+            type_hints = cached_type_hints(_typecheckingstub__19ce994678bf430d4bf8c27699213b91b48000db20e031ef641903ad7cba32bb)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         jsii.create(self.__class__, self, [bucket])
 
@@ -423,10 +425,10 @@ class S3Destination(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        type: "_DestinationType_2872235c",
-    ) -> "_DestinationConfig_6f7459c3":
+        type: "_aws_lambda_b8f2f472.DestinationType",
+    ) -> "_aws_lambda_b8f2f472.DestinationConfig":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -434,15 +436,15 @@ class S3Destination(
         :param type: The destination type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8041d5190555a336db2fde21ca0f75545969f47e7841f3664219b3ace0fbf4bd)
+            type_hints = cached_type_hints(_typecheckingstub__8041d5190555a336db2fde21ca0f75545969f47e7841f3664219b3ace0fbf4bd)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
-        _options = _DestinationOptions_3f2abf0e(type=type)
+        _options = _aws_lambda_b8f2f472.DestinationOptions(type=type)
 
-        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_aws_lambda_b8f2f472.DestinationConfig", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
-@jsii.implements(_IDestination_40f19de4)
+@jsii.implements(_aws_lambda_b8f2f472.IDestination)
 class SnsDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda_destinations.SnsDestination",
@@ -468,12 +470,12 @@ class SnsDestination(
         )
     '''
 
-    def __init__(self, topic: "_ITopic_9eca4852") -> None:
+    def __init__(self, topic: "_aws_sns_07ffc8ab.ITopic") -> None:
         '''
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0474b18a4b0c020ae5b8822345f59885f437a1137749c013b61839b711396931)
+            type_hints = cached_type_hints(_typecheckingstub__0474b18a4b0c020ae5b8822345f59885f437a1137749c013b61839b711396931)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         jsii.create(self.__class__, self, [topic])
 
@@ -481,10 +483,10 @@ class SnsDestination(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        type: "_DestinationType_2872235c",
-    ) -> "_DestinationConfig_6f7459c3":
+        type: "_aws_lambda_b8f2f472.DestinationType",
+    ) -> "_aws_lambda_b8f2f472.DestinationConfig":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -492,15 +494,15 @@ class SnsDestination(
         :param type: The destination type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4535c2ecef73a940936f4ccb64a316d3aee08e01c02da8593a218e90b5538f44)
+            type_hints = cached_type_hints(_typecheckingstub__4535c2ecef73a940936f4ccb64a316d3aee08e01c02da8593a218e90b5538f44)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
-        _options = _DestinationOptions_3f2abf0e(type=type)
+        _options = _aws_lambda_b8f2f472.DestinationOptions(type=type)
 
-        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_aws_lambda_b8f2f472.DestinationConfig", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
-@jsii.implements(_IDestination_40f19de4)
+@jsii.implements(_aws_lambda_b8f2f472.IDestination)
 class SqsDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda_destinations.SqsDestination",
@@ -526,12 +528,12 @@ class SqsDestination(
         )
     '''
 
-    def __init__(self, queue: "_IQueue_7ed6f679") -> None:
+    def __init__(self, queue: "_aws_sqs_24ab9de4.IQueue") -> None:
         '''
         :param queue: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__905ce202d82ae2305761d4a0557934eaffd7d772cff05c8e551c1a21fe4f221a)
+            type_hints = cached_type_hints(_typecheckingstub__905ce202d82ae2305761d4a0557934eaffd7d772cff05c8e551c1a21fe4f221a)
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
         jsii.create(self.__class__, self, [queue])
 
@@ -539,10 +541,10 @@ class SqsDestination(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        type: "_DestinationType_2872235c",
-    ) -> "_DestinationConfig_6f7459c3":
+        type: "_aws_lambda_b8f2f472.DestinationType",
+    ) -> "_aws_lambda_b8f2f472.DestinationConfig":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -550,12 +552,12 @@ class SqsDestination(
         :param type: The destination type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe2e7d248f70222086b27a677c76f12cc3e13f7b9473b4199df9208d4dbc7a0c)
+            type_hints = cached_type_hints(_typecheckingstub__fe2e7d248f70222086b27a677c76f12cc3e13f7b9473b4199df9208d4dbc7a0c)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
-        _options = _DestinationOptions_3f2abf0e(type=type)
+        _options = _aws_lambda_b8f2f472.DestinationOptions(type=type)
 
-        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_aws_lambda_b8f2f472.DestinationConfig", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
 __all__ = [
@@ -570,22 +572,22 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__ec5811812c80a00371ef2993fdfecee160d7a363f3b8104f18cd519afbe9081a(
-    event_bus: typing.Optional[_IEventBus_88d13111] = None,
+    event_bus: typing.Optional[_aws_events_27c08586.IEventBus] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__62923385ba6a61dfe180f01a892dbdb99a4bacd827b8b2df11bf1f39ad462b1f(
     _scope: _constructs_77d1e7e8.Construct,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    type: _DestinationType_2872235c,
+    type: _aws_lambda_b8f2f472.DestinationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e4a82978199747b37ebd7e81b7b6e0685f82bdf278e62dfa93ab08003e71f72c(
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
     response_only: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -594,9 +596,9 @@ def _typecheckingstub__e4a82978199747b37ebd7e81b7b6e0685f82bdf278e62dfa93ab08003
 
 def _typecheckingstub__8668a0e71a33fa9d96e10e979e471c302c8a46555e60028475ab801c0a4c276c(
     scope: _constructs_77d1e7e8.Construct,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    type: _DestinationType_2872235c,
+    type: _aws_lambda_b8f2f472.DestinationType,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -609,46 +611,46 @@ def _typecheckingstub__a7c99f6a6bf8bcf694e2e5c9f5c69825b83541adab1d1d27cd08f36f7
     pass
 
 def _typecheckingstub__19ce994678bf430d4bf8c27699213b91b48000db20e031ef641903ad7cba32bb(
-    bucket: _IBucket_42e086fd,
+    bucket: _aws_s3_01158f40.IBucket,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8041d5190555a336db2fde21ca0f75545969f47e7841f3664219b3ace0fbf4bd(
     _scope: _constructs_77d1e7e8.Construct,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    type: _DestinationType_2872235c,
+    type: _aws_lambda_b8f2f472.DestinationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0474b18a4b0c020ae5b8822345f59885f437a1137749c013b61839b711396931(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4535c2ecef73a940936f4ccb64a316d3aee08e01c02da8593a218e90b5538f44(
     _scope: _constructs_77d1e7e8.Construct,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    type: _DestinationType_2872235c,
+    type: _aws_lambda_b8f2f472.DestinationType,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__905ce202d82ae2305761d4a0557934eaffd7d772cff05c8e551c1a21fe4f221a(
-    queue: _IQueue_7ed6f679,
+    queue: _aws_sqs_24ab9de4.IQueue,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe2e7d248f70222086b27a677c76f12cc3e13f7b9473b4199df9208d4dbc7a0c(
     _scope: _constructs_77d1e7e8.Construct,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    type: _DestinationType_2872235c,
+    type: _aws_lambda_b8f2f472.DestinationType,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -133,6 +133,31 @@ def _is_transient_api_error(error: BaseException) -> bool:
     return False
 
 
+def _replayable(messages: list[Message]) -> list[Message]:
+    """Drop assistant messages that carry nothing worth sending back.
+
+    A generation stopped by a content filter leaves an empty assistant message.
+    The trajectory keeps it — it is the record of what the provider did, and
+    the transcript renders a warning from it — but replaying it on the next
+    turn sends an empty text block, which some providers reject outright
+    (see ``CacheControlOnEmptyTextFixup``) and none can use (ENG-7585).
+
+    Reasoning lives in ``metadata``, not ``content``, so a thinking-only
+    message is still replayable and must survive this filter.
+    """
+
+    def carries_nothing(message: Message) -> bool:
+        return (
+            message.role == "assistant"
+            and not message.content
+            and not message.tool_calls
+            and not message.metadata.get("reasoning_content")
+            and not message.metadata.get("thinking_blocks")
+        )
+
+    return [message for message in messages if not carries_nothing(message)]
+
+
 class Agent(Executor[AgentEvent, Trajectory]):
     """
     Agent abstraction for applying tools, event logic, and message state to LLM generation.
@@ -776,7 +801,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
         """
         traj = trajectory if trajectory is not None else self.trajectory
         messages = [
-            *deepcopy(traj.messages),
+            *_replayable(deepcopy(traj.messages)),
             Message(
                 "user",
                 str(self._current_input),
@@ -925,6 +950,15 @@ class Agent(Executor[AgentEvent, Trajectory]):
                         break
 
                     step_chat.generated[-1].metadata.update(step_chat.extra)
+                    # The provider's stop reason belongs to the assistant
+                    # message, not to a particular event stream — stamping it
+                    # here (before any event is dispatched) lets hooks,
+                    # transcript reloads and non-live consumers all recover the
+                    # same outcome live GenerationEnd observers see (ENG-7585).
+                    if step_chat.stop_reason:
+                        step_chat.generated[-1].metadata["generation_stop_reason"] = (
+                            step_chat.stop_reason
+                        )
                     for msg in step_chat.generated:
                         msg.metadata.setdefault("agent", self.name)
                         msg.metadata.setdefault("model", self.model_name)

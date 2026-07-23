@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class GatewayRouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32f9dfc866e97093a7680c54e7baaba765d04e694a0898a329ffd7263580b8b3)
+            type_hints = cached_type_hints(_typecheckingstub__32f9dfc866e97093a7680c54e7baaba765d04e694a0898a329ffd7263580b8b3)
             check_type(argname="argument gateway_route_arn", value=gateway_route_arn, expected_type=type_hints["gateway_route_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "gateway_route_arn": gateway_route_arn,
@@ -86,7 +90,7 @@ class GatewayRouteReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IGatewayRouteRef")
 class IGatewayRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GatewayRoute.
@@ -106,7 +110,7 @@ class IGatewayRouteRef(
 
 class _IGatewayRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GatewayRoute.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IGatewayRouteRef).__jsii_proxy_class__ = lambda : _IGate
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IMeshRef")
 class IMeshRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Mesh.
@@ -151,7 +155,7 @@ class IMeshRef(
 
 class _IMeshRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Mesh.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IMeshRef).__jsii_proxy_class__ = lambda : _IMeshRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IRouteRef")
 class IRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Route.
@@ -196,7 +200,7 @@ class IRouteRef(
 
 class _IRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Route.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IRouteRef).__jsii_proxy_class__ = lambda : _IRouteRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IVirtualGatewayRef")
 class IVirtualGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualGateway.
@@ -241,7 +245,7 @@ class IVirtualGatewayRef(
 
 class _IVirtualGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualGateway.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, IVirtualGatewayRef).__jsii_proxy_class__ = lambda : _IVi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IVirtualNodeRef")
 class IVirtualNodeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualNode.
@@ -286,7 +290,7 @@ class IVirtualNodeRef(
 
 class _IVirtualNodeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualNode.
 
@@ -311,7 +315,7 @@ typing.cast(typing.Any, IVirtualNodeRef).__jsii_proxy_class__ = lambda : _IVirtu
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IVirtualRouterRef")
 class IVirtualRouterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualRouter.
@@ -331,7 +335,7 @@ class IVirtualRouterRef(
 
 class _IVirtualRouterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualRouter.
 
@@ -356,7 +360,7 @@ typing.cast(typing.Any, IVirtualRouterRef).__jsii_proxy_class__ = lambda : _IVir
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appmesh.IVirtualServiceRef")
 class IVirtualServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualService.
@@ -376,7 +380,7 @@ class IVirtualServiceRef(
 
 class _IVirtualServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualService.
 
@@ -422,7 +426,7 @@ class MeshReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b90d52e88f982a2eae93b3122a7a4c5eecc4ef9a4b13b5c948b3446f391e924)
+            type_hints = cached_type_hints(_typecheckingstub__2b90d52e88f982a2eae93b3122a7a4c5eecc4ef9a4b13b5c948b3446f391e924)
             check_type(argname="argument mesh_arn", value=mesh_arn, expected_type=type_hints["mesh_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "mesh_arn": mesh_arn,
@@ -471,7 +475,7 @@ class RouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69bbf3d73f757ba9320fb88c0be633121bdabd4fc70b89f3cf930233e793be1b)
+            type_hints = cached_type_hints(_typecheckingstub__69bbf3d73f757ba9320fb88c0be633121bdabd4fc70b89f3cf930233e793be1b)
             check_type(argname="argument route_arn", value=route_arn, expected_type=type_hints["route_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "route_arn": route_arn,
@@ -520,7 +524,7 @@ class VirtualGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a3f6112a2ac96415941139a80c912bcbd3cc4150f9d19ffb2ed8301bc438506)
+            type_hints = cached_type_hints(_typecheckingstub__7a3f6112a2ac96415941139a80c912bcbd3cc4150f9d19ffb2ed8301bc438506)
             check_type(argname="argument virtual_gateway_arn", value=virtual_gateway_arn, expected_type=type_hints["virtual_gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_gateway_arn": virtual_gateway_arn,
@@ -569,7 +573,7 @@ class VirtualNodeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5598969a1377de6ec924d41db272dd5dd531fc0efe16da92d5a1cbd9267d4ee8)
+            type_hints = cached_type_hints(_typecheckingstub__5598969a1377de6ec924d41db272dd5dd531fc0efe16da92d5a1cbd9267d4ee8)
             check_type(argname="argument virtual_node_arn", value=virtual_node_arn, expected_type=type_hints["virtual_node_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_node_arn": virtual_node_arn,
@@ -618,7 +622,7 @@ class VirtualRouterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30b6512320fa651664ac7d23cd15a484325a424f57eed28afda6ea95f36525f8)
+            type_hints = cached_type_hints(_typecheckingstub__30b6512320fa651664ac7d23cd15a484325a424f57eed28afda6ea95f36525f8)
             check_type(argname="argument virtual_router_arn", value=virtual_router_arn, expected_type=type_hints["virtual_router_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_router_arn": virtual_router_arn,
@@ -667,7 +671,7 @@ class VirtualServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a1da06971cf3191917cdf6392ad724b0f7117725e942fd00648526ac541a5c)
+            type_hints = cached_type_hints(_typecheckingstub__31a1da06971cf3191917cdf6392ad724b0f7117725e942fd00648526ac541a5c)
             check_type(argname="argument virtual_service_arn", value=virtual_service_arn, expected_type=type_hints["virtual_service_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "virtual_service_arn": virtual_service_arn,

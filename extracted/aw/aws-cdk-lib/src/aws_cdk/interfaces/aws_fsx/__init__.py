@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DataRepositoryAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1721b2217c8a769d168dd3182f74b58f64a161dc58300822743bdefbab90fc9b)
+            type_hints = cached_type_hints(_typecheckingstub__1721b2217c8a769d168dd3182f74b58f64a161dc58300822743bdefbab90fc9b)
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_id": association_id,
@@ -107,7 +111,7 @@ class FileSystemReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0a33871199f6693f73a9bdd995bca31d1c63f7798a526d177f21c3a07e0a6e3)
+            type_hints = cached_type_hints(_typecheckingstub__d0a33871199f6693f73a9bdd995bca31d1c63f7798a526d177f21c3a07e0a6e3)
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "file_system_id": file_system_id,
@@ -137,7 +141,7 @@ class FileSystemReference:
 )
 class IDataRepositoryAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataRepositoryAssociation.
@@ -157,7 +161,7 @@ class IDataRepositoryAssociationRef(
 
 class _IDataRepositoryAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataRepositoryAssociation.
 
@@ -182,7 +186,7 @@ typing.cast(typing.Any, IDataRepositoryAssociationRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IFileSystemRef")
 class IFileSystemRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystem.
@@ -202,7 +206,7 @@ class IFileSystemRef(
 
 class _IFileSystemRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystem.
 
@@ -227,7 +231,7 @@ typing.cast(typing.Any, IFileSystemRef).__jsii_proxy_class__ = lambda : _IFileSy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IS3AccessPointAttachmentRef")
 class IS3AccessPointAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a S3AccessPointAttachment.
@@ -247,7 +251,7 @@ class IS3AccessPointAttachmentRef(
 
 class _IS3AccessPointAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a S3AccessPointAttachment.
 
@@ -272,7 +276,7 @@ typing.cast(typing.Any, IS3AccessPointAttachmentRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.ISnapshotRef")
 class ISnapshotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Snapshot.
@@ -292,7 +296,7 @@ class ISnapshotRef(
 
 class _ISnapshotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Snapshot.
 
@@ -317,7 +321,7 @@ typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshot
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IStorageVirtualMachineRef")
 class IStorageVirtualMachineRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageVirtualMachine.
@@ -337,7 +341,7 @@ class IStorageVirtualMachineRef(
 
 class _IStorageVirtualMachineRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageVirtualMachine.
 
@@ -362,7 +366,7 @@ typing.cast(typing.Any, IStorageVirtualMachineRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IVolumeRef")
 class IVolumeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
@@ -382,7 +386,7 @@ class IVolumeRef(
 
 class _IVolumeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
 
@@ -428,7 +432,7 @@ class S3AccessPointAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b69ad480bd3986298df21c8960981ce7acf3e4e3a690a221cb9fa219eb1e65)
+            type_hints = cached_type_hints(_typecheckingstub__e7b69ad480bd3986298df21c8960981ce7acf3e4e3a690a221cb9fa219eb1e65)
             check_type(argname="argument s3_access_point_attachment_name", value=s3_access_point_attachment_name, expected_type=type_hints["s3_access_point_attachment_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "s3_access_point_attachment_name": s3_access_point_attachment_name,
@@ -477,7 +481,7 @@ class SnapshotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__050d9d405c475bcb5f2999f68089075cc8c795ac3b96823f7b5a6af5812769c9)
+            type_hints = cached_type_hints(_typecheckingstub__050d9d405c475bcb5f2999f68089075cc8c795ac3b96823f7b5a6af5812769c9)
             check_type(argname="argument snapshot_id", value=snapshot_id, expected_type=type_hints["snapshot_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "snapshot_id": snapshot_id,
@@ -526,7 +530,7 @@ class StorageVirtualMachineReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c3b13daf1ed04abe471acb64003f29823aa258b5808489f7e3ec0e2d69c6875)
+            type_hints = cached_type_hints(_typecheckingstub__4c3b13daf1ed04abe471acb64003f29823aa258b5808489f7e3ec0e2d69c6875)
             check_type(argname="argument storage_virtual_machine_id", value=storage_virtual_machine_id, expected_type=type_hints["storage_virtual_machine_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "storage_virtual_machine_id": storage_virtual_machine_id,
@@ -575,7 +579,7 @@ class VolumeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61f38b8d84730ff5f4ebf7e7fea2aba7014e031fcdb9669434a022fbac741c6e)
+            type_hints = cached_type_hints(_typecheckingstub__61f38b8d84730ff5f4ebf7e7fea2aba7014e031fcdb9669434a022fbac741c6e)
             check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "volume_id": volume_id,

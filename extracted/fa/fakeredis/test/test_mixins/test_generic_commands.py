@@ -410,6 +410,7 @@ def test_expire_gt_lt_no_ttl_and_equal(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(max_redis_ver="6.9")
+@pytest.mark.unsupported_server_types("valkey")
 def test_expire_extra_params_return_error(r: ClientType):
     with pytest.raises(redis.exceptions.ResponseError) as ctx:
         r.expire("foo", 1, nx=True)
@@ -858,3 +859,24 @@ def test_copy_same_db(r: ClientType):
     with pytest.raises(Exception, match=msgs.SRC_DST_SAME_MSG[4:]) as ctx:
         r.copy("foo", "foo", destination_db="1")
     assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="6.2")
+def test_copy_db_index_out_of_range(r: ClientType):
+    r.set("foo", "0")
+    for db in (-1, 16, 99):
+        with pytest.raises(Exception, match=msgs.INVALID_DB_MSG[4:]) as ctx:
+            raw_command(r, "copy", "foo", "bar", "DB", db)
+        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert r.exists("bar") == 0
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="6.2")
+def test_copy_to_db_0(r: ClientType):
+    # the test connection uses db 2; an explicit DB 0 must not fall back to the current db
+    r.set("foo", "0")
+    assert r.copy("foo", "bar", destination_db=0) == 1
+    assert r.exists("bar") == 0
+    r.select(0)
+    assert r.get("bar") == b"0"
+    r.select(2)

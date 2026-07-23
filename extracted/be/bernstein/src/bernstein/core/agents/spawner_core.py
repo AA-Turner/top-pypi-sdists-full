@@ -1247,8 +1247,15 @@ class AgentSpawner:
         default_model: str | None = None,
         provider_availability: dict[str, Any] | None = None,
         availability_prober: Callable[[ChainElement], ProbeResult] | None = None,
+        adapter_pinned: bool = False,
     ) -> None:
         self._enable_caching = enable_caching
+        # True when the run-level adapter was explicitly selected by the
+        # operator (--adapter flag, BERNSTEIN_ADAPTER env var, or a non-"auto"
+        # seed ``cli`` value) rather than defaulted by auto mode. An explicit
+        # pin must never be overridden by model-name substring inference --
+        # see :meth:`_infer_adapter_name_for_provider` (#2751).
+        self._adapter_pinned = adapter_pinned
         # Run-level model (e.g. from ``bernstein run --model``), threaded in by
         # the orchestrator from the CLI flag / seed config. Used to coerce
         # Claude tier names (opus/sonnet/haiku) emitted by the heuristic
@@ -2089,13 +2096,47 @@ class AgentSpawner:
         ``self._adapter.name()`` -- the currently-active adapter -- exactly
         as before, so Claude-only / unrecognized-provider operators are
         unaffected.
+
+        When the run-level adapter is an explicit operator pin
+        (``adapter_pinned=True``: the ``--adapter`` flag, the
+        ``BERNSTEIN_ADAPTER`` env var, or a non-``auto`` seed ``cli`` value),
+        the model string is never consulted (#2751). Without this guard, an
+        aggregator route id such as ``openai/gpt-oss-20b:free`` substring-
+        matches the ``openai`` alias and hijacks a qwen-pinned spawn to the
+        codex adapter. A per-spawn provider selection (task ``cli:`` or
+        ``role_model_policy.<role>.provider``) is a more specific explicit
+        choice and still wins over the pin, but it is resolved against the
+        provider text alone; if it resolves to nothing, the pinned adapter
+        is used. Model-name inference applies only when nothing is pinned
+        anywhere.
         """
         logger.debug(
-            "_infer_adapter_name_for_provider: provider_name=%r model=%r current_adapter=%r",
+            "_infer_adapter_name_for_provider: provider_name=%r model=%r current_adapter=%r adapter_pinned=%r",
             provider_name,
             model,
             self._adapter.name(),
+            self._adapter_pinned,
         )
+        if self._adapter_pinned:
+            resolved = adapter_name_for_provider(provider_name, "") if provider_name else None
+            if resolved is not None:
+                logger.info(
+                    "_infer_adapter_name_for_provider: per-spawn provider_name=%r -> adapter=%r "
+                    "(overrides run-level pin %r)",
+                    provider_name,
+                    resolved,
+                    self._adapter.name(),
+                )
+                return resolved
+            pinned = self._adapter.name()
+            logger.info(
+                "_infer_adapter_name_for_provider: run-level adapter pin %r wins; "
+                "model-name inference skipped for provider_name=%r model=%r",
+                pinned,
+                provider_name,
+                model,
+            )
+            return pinned
         resolved = adapter_name_for_provider(provider_name, model)
         if resolved is not None:
             logger.info(
@@ -2901,6 +2942,28 @@ class AgentSpawner:
             if preferred_provider:
                 provider_name = preferred_provider
             routing_source = "operator-config" if role_policy.get("model") else "heuristic"
+            # Adapter-aware heuristic (issue #2743): the batch/heuristic
+            # selectors and role templates emit Claude tier names
+            # (opus/sonnet/haiku) with no adapter awareness. When the
+            # run-level adapter is authoritative (no provider redirection)
+            # and no operator pin is in play, resolve the adapter's own
+            # default_model here so the routing decision - and the log line
+            # below - never proposes an unpinned tier name a non-Claude
+            # adapter cannot run. Claude-compatible adapters and non-tier
+            # models pass through byte-identical; a tier name with no
+            # default anywhere still refuses (ModelNotConfiguredError),
+            # same as the downstream guard it front-runs.
+            if routing_source == "heuristic" and provider_name is None:
+                _task_metadata = tasks[0].metadata or {}
+                _model_unpinned = not _task_metadata.get("pinned_model") and (
+                    not tasks[0].model or tasks[0].model in _CLAUDE_TIER_MODELS
+                )
+                if _model_unpinned:
+                    model_config = _coerce_model_for_non_claude_adapter(
+                        model_config,
+                        adapter_name=self._adapter.name(),
+                        adapter_default_model=self._default_model or getattr(self._adapter, "default_model", None),
+                    )
             logger.info(
                 "Router skipped for role=%s (adapter=%s): using %s/%s (source=%s)",
                 tasks[0].role,

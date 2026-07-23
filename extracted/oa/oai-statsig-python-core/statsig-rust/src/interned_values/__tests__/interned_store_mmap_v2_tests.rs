@@ -1,6 +1,8 @@
+use brotli::enc::BrotliEncoderParams;
+use prost::Message;
 use rusty_fork::rusty_fork_test;
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{collections::HashMap, io::Write, sync::Arc, time::Instant};
 
 use crate::{
     dyn_value,
@@ -25,18 +27,219 @@ use crate::{
         InternedStore,
     },
     networking::ResponseData,
-    observability::ops_stats::OpsStatsForInstance,
-    specs_response::proto_specs::deserialize_protobuf,
-    specs_response::spec_types::{ConditionOperator, Spec, SpecsResponseFull},
+    observability::{
+        observability_client_adapter::MetricType,
+        ops_stats::{OpsStatsEvent, OpsStatsForInstance, OPS_STATS},
+    },
+    sdk_event_emitter::SdkEventEmitter,
+    specs_response::{
+        proto_specs::deserialize_protobuf,
+        proto_stream_reader::BUFFER_SIZE,
+        spec_types::{ConditionOperator, Spec, SpecsResponseFull},
+        statsig_config_specs as pb,
+    },
     user::{user_value::UserValueRef, StatsigUserInternal},
-    OverrideAdapter, StatsigErr, StatsigLocalOverrideAdapter, StatsigUser,
+    OverrideAdapter, SpecStore, SpecsSource, SpecsUpdate, StatsigErr, StatsigLocalOverrideAdapter,
+    StatsigRuntime, StatsigUser,
 };
 
 const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.json");
 const EVAL_PROJ_PROTO: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.pb.br");
 const DEMO_PROJ_PROTO: &[u8] = include_bytes!("../../../tests/data/demo_proj_dcs.pb.br");
 
+fn receive_spec_decode_tags(
+    receiver: &mut tokio::sync::broadcast::Receiver<OpsStatsEvent>,
+) -> HashMap<String, String> {
+    loop {
+        let event = receiver
+            .try_recv()
+            .expect("spec decode metric should be emitted synchronously");
+        let OpsStatsEvent::Observability(event) = event else {
+            continue;
+        };
+        if event.metric_name == "interned_mmap.spec_decode.count" {
+            assert!(matches!(event.metric_type, MetricType::Increment));
+            return event.tags.expect("spec decode metric should have tags");
+        }
+    }
+}
+
+fn apply_json_specs(store: &SpecStore, data: Vec<u8>) {
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(data),
+            source: SpecsSource::Network,
+            received_at: 2_000,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
+}
+
+fn materialized_delta(current: &SpecsResponseFull, lcut: u64) -> ResponseData {
+    let serialized = serde_json::to_value(current).unwrap();
+    let sum_field_checksums = |field: &str| {
+        serialized
+            .get(field)
+            .and_then(serde_json::Value::as_object)
+            .into_iter()
+            .flatten()
+            .fold(0u64, |sum, (_, value)| {
+                let checksum = value
+                    .get("checksum")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|checksum| checksum.parse::<u32>().ok())
+                    .unwrap_or_default();
+                sum.wrapping_add(checksum as u64)
+            })
+    };
+    let field_checksums = [
+        "condition_map",
+        "dynamic_configs",
+        "feature_gates",
+        "layer_configs",
+        "param_stores",
+    ]
+    .into_iter()
+    .map(|field| (field.to_string(), sum_field_checksums(field)))
+    .collect();
+
+    let mut common_fields = serialized;
+    let fields = common_fields.as_object_mut().unwrap();
+    for field in [
+        "checksum",
+        "company_id",
+        "condition_map",
+        "dynamic_configs",
+        "feature_gates",
+        "has_updates",
+        "layer_configs",
+        "param_stores",
+        "response_format",
+        "time",
+    ] {
+        fields.remove(field);
+    }
+    fields.insert(
+        "default_environment".to_string(),
+        json!("delta-environment"),
+    );
+
+    let envelopes = [
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::CopyPrev as i32,
+            ..pb::SpecsEnvelope::default()
+        },
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+            data: Some(
+                pb::SpecsTopLevel {
+                    has_updates: true,
+                    time: lcut,
+                    company_id: current.company_id.clone().unwrap_or_default(),
+                    response_format: current.response_format.clone().unwrap_or_default(),
+                    checksum: "spec-decode-mmap-delta".to_string(),
+                    rest: serde_json::to_vec(&common_fields).unwrap(),
+                }
+                .encode_to_vec(),
+            ),
+            ..pb::SpecsEnvelope::default()
+        },
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::Checksums as i32,
+            data: Some(pb::RulesetsChecksums { field_checksums }.encode_to_vec()),
+            ..pb::SpecsEnvelope::default()
+        },
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::Done as i32,
+            ..pb::SpecsEnvelope::default()
+        },
+    ];
+    let mut encoded = Vec::new();
+    for envelope in envelopes {
+        envelope.encode_length_delimited(&mut encoded).unwrap();
+    }
+
+    let mut compressed = Vec::new();
+    {
+        let mut writer = brotli::CompressorWriter::with_params(
+            &mut compressed,
+            BUFFER_SIZE,
+            &BrotliEncoderParams::default(),
+        );
+        writer.write_all(&encoded).unwrap();
+        writer.flush().unwrap();
+    }
+
+    ResponseData::from_bytes_with_headers(
+        compressed,
+        Some(HashMap::from([
+            (
+                "content-type".to_string(),
+                "application/octet-stream".to_string(),
+            ),
+            ("content-encoding".to_string(), "statsig-br".to_string()),
+            ("x-deltas-used".to_string(), "true".to_string()),
+        ])),
+    )
+}
+
 rusty_fork_test! {
+    #[test]
+    fn v2_spec_decode_metric_reports_mmap_delta_and_mixed_roots() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("interned-store-v2-spec-decode-metric.mmap");
+        write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+
+        let sdk_key = "secret-mmap-metric-test";
+        let ops_stats = OPS_STATS.get_for_instance(sdk_key);
+        let mut receiver = ops_stats.subscribe_for_test();
+        let store = SpecStore::new(
+            sdk_key,
+            sdk_key.to_string(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            None,
+        );
+
+        apply_json_specs(&store, EVAL_PROJ_JSON.to_vec());
+        let tags = receive_spec_decode_tags(&mut receiver);
+        assert_eq!(tags.get("source").map(String::as_str), Some("mmap"));
+        assert_eq!(tags.get("reason").map(String::as_str), Some("preloaded"));
+
+        let current = store.load_data();
+        store
+            .set_values(SpecsUpdate {
+                data: materialized_delta(current.snapshot.as_ref(), current.lcut() + 1),
+                source: SpecsSource::Network,
+                received_at: 2_001,
+                source_api: None,
+                has_updates: None,
+            })
+            .unwrap();
+        let tags = receive_spec_decode_tags(&mut receiver);
+        assert_eq!(tags.get("source").map(String::as_str), Some("mmap"));
+        assert_eq!(tags.get("reason").map(String::as_str), Some("preloaded"));
+
+        let mut mixed: serde_json::Value = serde_json::from_slice(EVAL_PROJ_JSON).unwrap();
+        let gate = mixed["feature_gates"]
+            .as_object_mut()
+            .and_then(|gates| gates.values_mut().next())
+            .expect("fixture should contain a feature gate");
+        gate["checksum"] = json!("spec-decode-mismatch");
+        mixed["checksum"] = json!("spec-decode-mixed-response");
+        mixed["time"] = json!(mixed["time"].as_u64().unwrap_or_default() + 2);
+
+        apply_json_specs(&store, serde_json::to_vec(&mixed).unwrap());
+        let tags = receive_spec_decode_tags(&mut receiver);
+        assert_eq!(tags.get("source").map(String::as_str), Some("mixed"));
+        assert_eq!(
+            tags.get("reason").map(String::as_str),
+            Some("partial_match")
+        );
+    }
+
     #[test]
     fn v2_write_after_byte_preload_includes_immortal_references() {
         InternedStore::preload_multi(&[EVAL_PROJ_JSON, DEMO_PROJ_PROTO]).unwrap();

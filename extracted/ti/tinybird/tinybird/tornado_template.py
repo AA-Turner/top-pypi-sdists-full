@@ -916,10 +916,10 @@ def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
 
         # Intermediate ("else", "elif", etc) blocks
         intermediate_blocks = {
-            "else": set(["if", "for", "while", "try"]),
-            "elif": set(["if"]),
-            "except": set(["try"]),
-            "finally": set(["try"]),
+            "else": {"if", "for", "while", "try"},
+            "elif": {"if"},
+            "except": {"try"},
+            "finally": {"try"},
         }
         allowed_parents = intermediate_blocks.get(operator)
 
@@ -997,7 +997,7 @@ def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
 
         elif operator in ("break", "continue"):
             if not in_loop:
-                reader.raise_parse_error("%s outside %s block" % (operator, set(["for", "while"])))
+                reader.raise_parse_error("%s outside %s block" % (operator, {"for", "while"}))
             body.chunks.append(_Statement(contents, line))
             continue
 

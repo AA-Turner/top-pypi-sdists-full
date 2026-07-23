@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CertificateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dddbb2d150dcddbead74d31a5ed63e027a36c883e3adff1a6625fb7bf556ba97)
+            type_hints = cached_type_hints(_typecheckingstub__dddbb2d150dcddbead74d31a5ed63e027a36c883e3adff1a6625fb7bf556ba97)
             check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "certificate_id": certificate_id,
@@ -107,7 +111,7 @@ class DataMigrationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7ce32da77e89591c1e645a63211fb840843830d36317162cdaeb7c245a833fc)
+            type_hints = cached_type_hints(_typecheckingstub__b7ce32da77e89591c1e645a63211fb840843830d36317162cdaeb7c245a833fc)
             check_type(argname="argument data_migration_arn", value=data_migration_arn, expected_type=type_hints["data_migration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_migration_arn": data_migration_arn,
@@ -156,7 +160,7 @@ class DataProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__538ed4e8d5aaca3877a044998ac0a9f566f87cf7e0155ab9c32b465fb4eec685)
+            type_hints = cached_type_hints(_typecheckingstub__538ed4e8d5aaca3877a044998ac0a9f566f87cf7e0155ab9c32b465fb4eec685)
             check_type(argname="argument data_provider_arn", value=data_provider_arn, expected_type=type_hints["data_provider_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_provider_arn": data_provider_arn,
@@ -205,7 +209,7 @@ class EndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bacd7fb4a98e49b4d9cba342b46e91b7d78d2478a75083429d89359bedf9c098)
+            type_hints = cached_type_hints(_typecheckingstub__bacd7fb4a98e49b4d9cba342b46e91b7d78d2478a75083429d89359bedf9c098)
             check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_id": endpoint_id,
@@ -254,7 +258,7 @@ class EventSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e10f1fa5fdaaffb8747b447030f241bdfa52238714c1ac890118f7dccdb0da41)
+            type_hints = cached_type_hints(_typecheckingstub__e10f1fa5fdaaffb8747b447030f241bdfa52238714c1ac890118f7dccdb0da41)
             check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subscription_name": subscription_name,
@@ -282,7 +286,7 @@ class EventSubscriptionReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.ICertificateRef")
 class ICertificateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
@@ -302,7 +306,7 @@ class ICertificateRef(
 
 class _ICertificateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
 
@@ -327,7 +331,7 @@ typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICerti
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IDataMigrationRef")
 class IDataMigrationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataMigration.
@@ -347,7 +351,7 @@ class IDataMigrationRef(
 
 class _IDataMigrationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataMigration.
 
@@ -372,7 +376,7 @@ typing.cast(typing.Any, IDataMigrationRef).__jsii_proxy_class__ = lambda : _IDat
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IDataProviderRef")
 class IDataProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataProvider.
@@ -392,7 +396,7 @@ class IDataProviderRef(
 
 class _IDataProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataProvider.
 
@@ -417,7 +421,7 @@ typing.cast(typing.Any, IDataProviderRef).__jsii_proxy_class__ = lambda : _IData
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IEndpointRef")
 class IEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Endpoint.
@@ -437,7 +441,7 @@ class IEndpointRef(
 
 class _IEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Endpoint.
 
@@ -462,7 +466,7 @@ typing.cast(typing.Any, IEndpointRef).__jsii_proxy_class__ = lambda : _IEndpoint
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IEventSubscriptionRef")
 class IEventSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
@@ -482,7 +486,7 @@ class IEventSubscriptionRef(
 
 class _IEventSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
 
@@ -507,7 +511,7 @@ typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IInstanceProfileRef")
 class IInstanceProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
@@ -527,7 +531,7 @@ class IInstanceProfileRef(
 
 class _IInstanceProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
 
@@ -552,7 +556,7 @@ typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _II
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IMigrationProjectRef")
 class IMigrationProjectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MigrationProject.
@@ -572,7 +576,7 @@ class IMigrationProjectRef(
 
 class _IMigrationProjectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MigrationProject.
 
@@ -597,7 +601,7 @@ typing.cast(typing.Any, IMigrationProjectRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IReplicationConfigRef")
 class IReplicationConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationConfig.
@@ -617,7 +621,7 @@ class IReplicationConfigRef(
 
 class _IReplicationConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationConfig.
 
@@ -642,7 +646,7 @@ typing.cast(typing.Any, IReplicationConfigRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IReplicationInstanceRef")
 class IReplicationInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationInstance.
@@ -662,7 +666,7 @@ class IReplicationInstanceRef(
 
 class _IReplicationInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationInstance.
 
@@ -687,7 +691,7 @@ typing.cast(typing.Any, IReplicationInstanceRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IReplicationSubnetGroupRef")
 class IReplicationSubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationSubnetGroup.
@@ -707,7 +711,7 @@ class IReplicationSubnetGroupRef(
 
 class _IReplicationSubnetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationSubnetGroup.
 
@@ -732,7 +736,7 @@ typing.cast(typing.Any, IReplicationSubnetGroupRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dms.IReplicationTaskRef")
 class IReplicationTaskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationTask.
@@ -752,7 +756,7 @@ class IReplicationTaskRef(
 
 class _IReplicationTaskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationTask.
 
@@ -798,7 +802,7 @@ class InstanceProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ad79cce0bb086ac777e79c29e51e8cc96f70404e6f03a6e3d173a80e0999bad)
+            type_hints = cached_type_hints(_typecheckingstub__5ad79cce0bb086ac777e79c29e51e8cc96f70404e6f03a6e3d173a80e0999bad)
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_profile_arn": instance_profile_arn,
@@ -847,7 +851,7 @@ class MigrationProjectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc8a9913b1fcf4ed076942ac157867ddfe027285874dc18c58504cb4e088f278)
+            type_hints = cached_type_hints(_typecheckingstub__fc8a9913b1fcf4ed076942ac157867ddfe027285874dc18c58504cb4e088f278)
             check_type(argname="argument migration_project_arn", value=migration_project_arn, expected_type=type_hints["migration_project_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "migration_project_arn": migration_project_arn,
@@ -896,7 +900,7 @@ class ReplicationConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fb56c33f244da855425f02482766c202aa4645f2c315245851c9ead4284fb8a)
+            type_hints = cached_type_hints(_typecheckingstub__9fb56c33f244da855425f02482766c202aa4645f2c315245851c9ead4284fb8a)
             check_type(argname="argument replication_config_arn", value=replication_config_arn, expected_type=type_hints["replication_config_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_config_arn": replication_config_arn,
@@ -945,7 +949,7 @@ class ReplicationInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b41cdc31c0ea172c3879c0deb65a6a9b70b9f824f53d77389b4c9d272a2f37ce)
+            type_hints = cached_type_hints(_typecheckingstub__b41cdc31c0ea172c3879c0deb65a6a9b70b9f824f53d77389b4c9d272a2f37ce)
             check_type(argname="argument replication_instance_id", value=replication_instance_id, expected_type=type_hints["replication_instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_instance_id": replication_instance_id,
@@ -994,7 +998,7 @@ class ReplicationSubnetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc5d133dd09a422b7b86d14f260b9aff35300fe810630d9349a741a5ec07733d)
+            type_hints = cached_type_hints(_typecheckingstub__dc5d133dd09a422b7b86d14f260b9aff35300fe810630d9349a741a5ec07733d)
             check_type(argname="argument replication_subnet_group_id", value=replication_subnet_group_id, expected_type=type_hints["replication_subnet_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_subnet_group_id": replication_subnet_group_id,
@@ -1043,7 +1047,7 @@ class ReplicationTaskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b)
+            type_hints = cached_type_hints(_typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b)
             check_type(argname="argument replication_task_id", value=replication_task_id, expected_type=type_hints["replication_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_task_id": replication_task_id,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CapacityManagerDataExportReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b9a5eb41f01361d654103936a1b9162b653c840153b29de7c1a9fd3b59192fb)
+            type_hints = cached_type_hints(_typecheckingstub__6b9a5eb41f01361d654103936a1b9162b653c840153b29de7c1a9fd3b59192fb)
             check_type(argname="argument capacity_manager_data_export_id", value=capacity_manager_data_export_id, expected_type=type_hints["capacity_manager_data_export_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_manager_data_export_id": capacity_manager_data_export_id,
@@ -107,7 +111,7 @@ class CapacityReservationFleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a639beaf30f994702c8cce7edf0705ad867304287d6ef4b89b9d26288bcf32dc)
+            type_hints = cached_type_hints(_typecheckingstub__a639beaf30f994702c8cce7edf0705ad867304287d6ef4b89b9d26288bcf32dc)
             check_type(argname="argument capacity_reservation_fleet_id", value=capacity_reservation_fleet_id, expected_type=type_hints["capacity_reservation_fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_reservation_fleet_id": capacity_reservation_fleet_id,
@@ -166,7 +170,7 @@ class CapacityReservationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9ad69aaf7d522f4991de0383043ae158e9356f51e89f794bed440c4a0e47da)
+            type_hints = cached_type_hints(_typecheckingstub__9c9ad69aaf7d522f4991de0383043ae158e9356f51e89f794bed440c4a0e47da)
             check_type(argname="argument capacity_reservation_arn", value=capacity_reservation_arn, expected_type=type_hints["capacity_reservation_arn"])
             check_type(argname="argument capacity_reservation_id", value=capacity_reservation_id, expected_type=type_hints["capacity_reservation_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -224,7 +228,7 @@ class CarrierGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0e46133742af7c64acb96c7643cdd4b68523b466749e2e2f37a9b8fb3c3e311)
+            type_hints = cached_type_hints(_typecheckingstub__f0e46133742af7c64acb96c7643cdd4b68523b466749e2e2f37a9b8fb3c3e311)
             check_type(argname="argument carrier_gateway_id", value=carrier_gateway_id, expected_type=type_hints["carrier_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "carrier_gateway_id": carrier_gateway_id,
@@ -273,7 +277,7 @@ class ClientVpnAuthorizationRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57fa36bad5ea59002afc4e1ffe1f5e727fc3229f1b2cfb394708c3fe01884cd7)
+            type_hints = cached_type_hints(_typecheckingstub__57fa36bad5ea59002afc4e1ffe1f5e727fc3229f1b2cfb394708c3fe01884cd7)
             check_type(argname="argument client_vpn_authorization_rule_id", value=client_vpn_authorization_rule_id, expected_type=type_hints["client_vpn_authorization_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_vpn_authorization_rule_id": client_vpn_authorization_rule_id,
@@ -322,7 +326,7 @@ class ClientVpnEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3483bfe3b3da3b5359fa2a5ef1fcb0071cbabc25dc4825b83c857cc83437b76)
+            type_hints = cached_type_hints(_typecheckingstub__c3483bfe3b3da3b5359fa2a5ef1fcb0071cbabc25dc4825b83c857cc83437b76)
             check_type(argname="argument client_vpn_endpoint_id", value=client_vpn_endpoint_id, expected_type=type_hints["client_vpn_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_vpn_endpoint_id": client_vpn_endpoint_id,
@@ -371,7 +375,7 @@ class ClientVpnRouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__955d0e41ede8d58fe3f1e03206fcc6cf2c837c6a701c1cdbfcdb58c18e7fef2f)
+            type_hints = cached_type_hints(_typecheckingstub__955d0e41ede8d58fe3f1e03206fcc6cf2c837c6a701c1cdbfcdb58c18e7fef2f)
             check_type(argname="argument client_vpn_route_id", value=client_vpn_route_id, expected_type=type_hints["client_vpn_route_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_vpn_route_id": client_vpn_route_id,
@@ -426,7 +430,7 @@ class ClientVpnTargetNetworkAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3c7fcd523c40c46f0da3e82691f5dd7318f305bacc934e54d00ced4247cdc9d)
+            type_hints = cached_type_hints(_typecheckingstub__b3c7fcd523c40c46f0da3e82691f5dd7318f305bacc934e54d00ced4247cdc9d)
             check_type(argname="argument client_vpn_target_network_association_id", value=client_vpn_target_network_association_id, expected_type=type_hints["client_vpn_target_network_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_vpn_target_network_association_id": client_vpn_target_network_association_id,
@@ -475,7 +479,7 @@ class CustomerGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3af586fe619a2c65fed2a5927f842d40e7d8218e2affcc6d9632c1f96c1a5f08)
+            type_hints = cached_type_hints(_typecheckingstub__3af586fe619a2c65fed2a5927f842d40e7d8218e2affcc6d9632c1f96c1a5f08)
             check_type(argname="argument customer_gateway_id", value=customer_gateway_id, expected_type=type_hints["customer_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "customer_gateway_id": customer_gateway_id,
@@ -524,7 +528,7 @@ class DHCPOptionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e883f4c5fc03af683cd9793dfbd9657b07f02feb74e5fc9ccaaa558e82d8b1cb)
+            type_hints = cached_type_hints(_typecheckingstub__e883f4c5fc03af683cd9793dfbd9657b07f02feb74e5fc9ccaaa558e82d8b1cb)
             check_type(argname="argument dhcp_options_id", value=dhcp_options_id, expected_type=type_hints["dhcp_options_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dhcp_options_id": dhcp_options_id,
@@ -573,7 +577,7 @@ class EC2FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40a9a7b73ab5651dd8a52334ffb8d29401dc3fa34c2fe49e7a22e3dfcd471697)
+            type_hints = cached_type_hints(_typecheckingstub__40a9a7b73ab5651dd8a52334ffb8d29401dc3fa34c2fe49e7a22e3dfcd471697)
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "fleet_id": fleet_id,
@@ -622,7 +626,7 @@ class EIPAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa3055e31c0189eeb8900337e9a55041990b609176240fdfb650e8d6ea71ce4f)
+            type_hints = cached_type_hints(_typecheckingstub__aa3055e31c0189eeb8900337e9a55041990b609176240fdfb650e8d6ea71ce4f)
             check_type(argname="argument eip_association_id", value=eip_association_id, expected_type=type_hints["eip_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "eip_association_id": eip_association_id,
@@ -673,7 +677,7 @@ class EIPReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a670552386e3bc70dcecf664a8471c2e1ae1e3d6daecb073bb63f3a449edf2e)
+            type_hints = cached_type_hints(_typecheckingstub__4a670552386e3bc70dcecf664a8471c2e1ae1e3d6daecb073bb63f3a449edf2e)
             check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
             check_type(argname="argument public_ip", value=public_ip, expected_type=type_hints["public_ip"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -731,7 +735,7 @@ class EgressOnlyInternetGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d13b682c8162d3e06226c015673682f4ca0b635bf82debdfa16df85ebff4c9c4)
+            type_hints = cached_type_hints(_typecheckingstub__d13b682c8162d3e06226c015673682f4ca0b635bf82debdfa16df85ebff4c9c4)
             check_type(argname="argument egress_only_internet_gateway_id", value=egress_only_internet_gateway_id, expected_type=type_hints["egress_only_internet_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "egress_only_internet_gateway_id": egress_only_internet_gateway_id,
@@ -787,7 +791,7 @@ class EnclaveCertificateIamRoleAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52a31f01eec480fc55294e086132d2231213830dc4e9ffe9768bac28e14e514b)
+            type_hints = cached_type_hints(_typecheckingstub__52a31f01eec480fc55294e086132d2231213830dc4e9ffe9768bac28e14e514b)
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -845,7 +849,7 @@ class FlowLogReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c7f7816dd23c5966fe0b62e931bf88b8f149b9f474737f0550657e967cf640f)
+            type_hints = cached_type_hints(_typecheckingstub__0c7f7816dd23c5966fe0b62e931bf88b8f149b9f474737f0550657e967cf640f)
             check_type(argname="argument flow_log_id", value=flow_log_id, expected_type=type_hints["flow_log_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "flow_log_id": flow_log_id,
@@ -894,7 +898,7 @@ class GatewayRouteTableAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73d71f159bc2caf82458bd401787c04be0e393554b0767a258a4c1f03a7254ee)
+            type_hints = cached_type_hints(_typecheckingstub__73d71f159bc2caf82458bd401787c04be0e393554b0767a258a4c1f03a7254ee)
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "gateway_id": gateway_id,
@@ -943,7 +947,7 @@ class HostReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d7ca0868625d89fec5ae55e8e630cc64fa2b42416142c1e2df8e9388dc41c50)
+            type_hints = cached_type_hints(_typecheckingstub__5d7ca0868625d89fec5ae55e8e630cc64fa2b42416142c1e2df8e9388dc41c50)
             check_type(argname="argument host_id", value=host_id, expected_type=type_hints["host_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "host_id": host_id,
@@ -973,7 +977,7 @@ class HostReference:
 )
 class ICapacityManagerDataExportRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityManagerDataExport.
@@ -993,7 +997,7 @@ class ICapacityManagerDataExportRef(
 
 class _ICapacityManagerDataExportRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityManagerDataExport.
 
@@ -1020,7 +1024,7 @@ typing.cast(typing.Any, ICapacityManagerDataExportRef).__jsii_proxy_class__ = la
 )
 class ICapacityReservationFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservationFleet.
@@ -1040,7 +1044,7 @@ class ICapacityReservationFleetRef(
 
 class _ICapacityReservationFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservationFleet.
 
@@ -1065,7 +1069,7 @@ typing.cast(typing.Any, ICapacityReservationFleetRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ICapacityReservationRef")
 class ICapacityReservationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
@@ -1085,7 +1089,7 @@ class ICapacityReservationRef(
 
 class _ICapacityReservationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
 
@@ -1110,7 +1114,7 @@ typing.cast(typing.Any, ICapacityReservationRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ICarrierGatewayRef")
 class ICarrierGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CarrierGateway.
@@ -1130,7 +1134,7 @@ class ICarrierGatewayRef(
 
 class _ICarrierGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CarrierGateway.
 
@@ -1157,7 +1161,7 @@ typing.cast(typing.Any, ICarrierGatewayRef).__jsii_proxy_class__ = lambda : _ICa
 )
 class IClientVpnAuthorizationRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnAuthorizationRule.
@@ -1179,7 +1183,7 @@ class IClientVpnAuthorizationRuleRef(
 
 class _IClientVpnAuthorizationRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnAuthorizationRule.
 
@@ -1206,7 +1210,7 @@ typing.cast(typing.Any, IClientVpnAuthorizationRuleRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IClientVpnEndpointRef")
 class IClientVpnEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnEndpoint.
@@ -1226,7 +1230,7 @@ class IClientVpnEndpointRef(
 
 class _IClientVpnEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnEndpoint.
 
@@ -1251,7 +1255,7 @@ typing.cast(typing.Any, IClientVpnEndpointRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IClientVpnRouteRef")
 class IClientVpnRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnRoute.
@@ -1271,7 +1275,7 @@ class IClientVpnRouteRef(
 
 class _IClientVpnRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnRoute.
 
@@ -1298,7 +1302,7 @@ typing.cast(typing.Any, IClientVpnRouteRef).__jsii_proxy_class__ = lambda : _ICl
 )
 class IClientVpnTargetNetworkAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnTargetNetworkAssociation.
@@ -1320,7 +1324,7 @@ class IClientVpnTargetNetworkAssociationRef(
 
 class _IClientVpnTargetNetworkAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClientVpnTargetNetworkAssociation.
 
@@ -1347,7 +1351,7 @@ typing.cast(typing.Any, IClientVpnTargetNetworkAssociationRef).__jsii_proxy_clas
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ICustomerGatewayRef")
 class ICustomerGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomerGateway.
@@ -1367,7 +1371,7 @@ class ICustomerGatewayRef(
 
 class _ICustomerGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CustomerGateway.
 
@@ -1392,7 +1396,7 @@ typing.cast(typing.Any, ICustomerGatewayRef).__jsii_proxy_class__ = lambda : _IC
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IDHCPOptionsRef")
 class IDHCPOptionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DHCPOptions.
@@ -1412,7 +1416,7 @@ class IDHCPOptionsRef(
 
 class _IDHCPOptionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DHCPOptions.
 
@@ -1437,7 +1441,7 @@ typing.cast(typing.Any, IDHCPOptionsRef).__jsii_proxy_class__ = lambda : _IDHCPO
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IEC2FleetRef")
 class IEC2FleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EC2Fleet.
@@ -1457,7 +1461,7 @@ class IEC2FleetRef(
 
 class _IEC2FleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EC2Fleet.
 
@@ -1482,7 +1486,7 @@ typing.cast(typing.Any, IEC2FleetRef).__jsii_proxy_class__ = lambda : _IEC2Fleet
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IEIPAssociationRef")
 class IEIPAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EIPAssociation.
@@ -1502,7 +1506,7 @@ class IEIPAssociationRef(
 
 class _IEIPAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EIPAssociation.
 
@@ -1527,7 +1531,7 @@ typing.cast(typing.Any, IEIPAssociationRef).__jsii_proxy_class__ = lambda : _IEI
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IEIPRef")
 class IEIPRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EIP.
@@ -1547,7 +1551,7 @@ class IEIPRef(
 
 class _IEIPRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EIP.
 
@@ -1574,7 +1578,7 @@ typing.cast(typing.Any, IEIPRef).__jsii_proxy_class__ = lambda : _IEIPRefProxy
 )
 class IEgressOnlyInternetGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EgressOnlyInternetGateway.
@@ -1594,7 +1598,7 @@ class IEgressOnlyInternetGatewayRef(
 
 class _IEgressOnlyInternetGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EgressOnlyInternetGateway.
 
@@ -1621,7 +1625,7 @@ typing.cast(typing.Any, IEgressOnlyInternetGatewayRef).__jsii_proxy_class__ = la
 )
 class IEnclaveCertificateIamRoleAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnclaveCertificateIamRoleAssociation.
@@ -1643,7 +1647,7 @@ class IEnclaveCertificateIamRoleAssociationRef(
 
 class _IEnclaveCertificateIamRoleAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnclaveCertificateIamRoleAssociation.
 
@@ -1670,7 +1674,7 @@ typing.cast(typing.Any, IEnclaveCertificateIamRoleAssociationRef).__jsii_proxy_c
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IFlowLogRef")
 class IFlowLogRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowLog.
@@ -1690,7 +1694,7 @@ class IFlowLogRef(
 
 class _IFlowLogRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FlowLog.
 
@@ -1717,7 +1721,7 @@ typing.cast(typing.Any, IFlowLogRef).__jsii_proxy_class__ = lambda : _IFlowLogRe
 )
 class IGatewayRouteTableAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GatewayRouteTableAssociation.
@@ -1739,7 +1743,7 @@ class IGatewayRouteTableAssociationRef(
 
 class _IGatewayRouteTableAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GatewayRouteTableAssociation.
 
@@ -1766,7 +1770,7 @@ typing.cast(typing.Any, IGatewayRouteTableAssociationRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IHostRef")
 class IHostRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Host.
@@ -1786,7 +1790,7 @@ class IHostRef(
 
 class _IHostRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Host.
 
@@ -1811,7 +1815,7 @@ typing.cast(typing.Any, IHostRef).__jsii_proxy_class__ = lambda : _IHostRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMAllocationRef")
 class IIPAMAllocationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMAllocation.
@@ -1831,7 +1835,7 @@ class IIPAMAllocationRef(
 
 class _IIPAMAllocationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMAllocation.
 
@@ -1856,7 +1860,7 @@ typing.cast(typing.Any, IIPAMAllocationRef).__jsii_proxy_class__ = lambda : _IIP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMPoolCidrRef")
 class IIPAMPoolCidrRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPoolCidr.
@@ -1876,7 +1880,7 @@ class IIPAMPoolCidrRef(
 
 class _IIPAMPoolCidrRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPoolCidr.
 
@@ -1901,7 +1905,7 @@ typing.cast(typing.Any, IIPAMPoolCidrRef).__jsii_proxy_class__ = lambda : _IIPAM
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMPoolRef")
 class IIPAMPoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPool.
@@ -1921,7 +1925,7 @@ class IIPAMPoolRef(
 
 class _IIPAMPoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPool.
 
@@ -1946,7 +1950,7 @@ typing.cast(typing.Any, IIPAMPoolRef).__jsii_proxy_class__ = lambda : _IIPAMPool
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMPrefixListResolverRef")
 class IIPAMPrefixListResolverRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolver.
@@ -1966,7 +1970,7 @@ class IIPAMPrefixListResolverRef(
 
 class _IIPAMPrefixListResolverRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolver.
 
@@ -1993,7 +1997,7 @@ typing.cast(typing.Any, IIPAMPrefixListResolverRef).__jsii_proxy_class__ = lambd
 )
 class IIPAMPrefixListResolverTargetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolverTarget.
@@ -2015,7 +2019,7 @@ class IIPAMPrefixListResolverTargetRef(
 
 class _IIPAMPrefixListResolverTargetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolverTarget.
 
@@ -2042,7 +2046,7 @@ typing.cast(typing.Any, IIPAMPrefixListResolverTargetRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMRef")
 class IIPAMRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAM.
@@ -2062,7 +2066,7 @@ class IIPAMRef(
 
 class _IIPAMRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAM.
 
@@ -2089,7 +2093,7 @@ typing.cast(typing.Any, IIPAMRef).__jsii_proxy_class__ = lambda : _IIPAMRefProxy
 )
 class IIPAMResourceDiscoveryAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMResourceDiscoveryAssociation.
@@ -2111,7 +2115,7 @@ class IIPAMResourceDiscoveryAssociationRef(
 
 class _IIPAMResourceDiscoveryAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMResourceDiscoveryAssociation.
 
@@ -2138,7 +2142,7 @@ typing.cast(typing.Any, IIPAMResourceDiscoveryAssociationRef).__jsii_proxy_class
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMResourceDiscoveryRef")
 class IIPAMResourceDiscoveryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMResourceDiscovery.
@@ -2158,7 +2162,7 @@ class IIPAMResourceDiscoveryRef(
 
 class _IIPAMResourceDiscoveryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMResourceDiscovery.
 
@@ -2183,7 +2187,7 @@ typing.cast(typing.Any, IIPAMResourceDiscoveryRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMScopeRef")
 class IIPAMScopeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMScope.
@@ -2203,7 +2207,7 @@ class IIPAMScopeRef(
 
 class _IIPAMScopeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPAMScope.
 
@@ -2228,7 +2232,7 @@ typing.cast(typing.Any, IIPAMScopeRef).__jsii_proxy_class__ = lambda : _IIPAMSco
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInstanceConnectEndpointRef")
 class IInstanceConnectEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceConnectEndpoint.
@@ -2248,7 +2252,7 @@ class IInstanceConnectEndpointRef(
 
 class _IInstanceConnectEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceConnectEndpoint.
 
@@ -2273,7 +2277,7 @@ typing.cast(typing.Any, IInstanceConnectEndpointRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInstanceRef")
 class IInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
@@ -2293,7 +2297,7 @@ class IInstanceRef(
 
 class _IInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
 
@@ -2318,7 +2322,7 @@ typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstance
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInternetGatewayRef")
 class IInternetGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InternetGateway.
@@ -2338,7 +2342,7 @@ class IInternetGatewayRef(
 
 class _IInternetGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InternetGateway.
 
@@ -2365,7 +2369,7 @@ typing.cast(typing.Any, IInternetGatewayRef).__jsii_proxy_class__ = lambda : _II
 )
 class IIpPoolRouteTableAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IpPoolRouteTableAssociation.
@@ -2387,7 +2391,7 @@ class IIpPoolRouteTableAssociationRef(
 
 class _IIpPoolRouteTableAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IpPoolRouteTableAssociation.
 
@@ -2414,7 +2418,7 @@ typing.cast(typing.Any, IIpPoolRouteTableAssociationRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IKeyPairRef")
 class IKeyPairRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyPair.
@@ -2434,7 +2438,7 @@ class IKeyPairRef(
 
 class _IKeyPairRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a KeyPair.
 
@@ -2459,7 +2463,7 @@ typing.cast(typing.Any, IKeyPairRef).__jsii_proxy_class__ = lambda : _IKeyPairRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ILaunchTemplateRef")
 class ILaunchTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchTemplate.
@@ -2479,7 +2483,7 @@ class ILaunchTemplateRef(
 
 class _ILaunchTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchTemplate.
 
@@ -2504,7 +2508,7 @@ typing.cast(typing.Any, ILaunchTemplateRef).__jsii_proxy_class__ = lambda : _ILa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ILocalGatewayRouteRef")
 class ILocalGatewayRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRoute.
@@ -2524,7 +2528,7 @@ class ILocalGatewayRouteRef(
 
 class _ILocalGatewayRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRoute.
 
@@ -2549,7 +2553,7 @@ typing.cast(typing.Any, ILocalGatewayRouteRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ILocalGatewayRouteTableRef")
 class ILocalGatewayRouteTableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTable.
@@ -2569,7 +2573,7 @@ class ILocalGatewayRouteTableRef(
 
 class _ILocalGatewayRouteTableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTable.
 
@@ -2596,7 +2600,7 @@ typing.cast(typing.Any, ILocalGatewayRouteTableRef).__jsii_proxy_class__ = lambd
 )
 class ILocalGatewayRouteTableVPCAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTableVPCAssociation.
@@ -2618,7 +2622,7 @@ class ILocalGatewayRouteTableVPCAssociationRef(
 
 class _ILocalGatewayRouteTableVPCAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTableVPCAssociation.
 
@@ -2647,7 +2651,7 @@ typing.cast(typing.Any, ILocalGatewayRouteTableVPCAssociationRef).__jsii_proxy_c
 )
 class ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTableVirtualInterfaceGroupAssociation.
@@ -2669,7 +2673,7 @@ class ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef(
 
 class _ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayRouteTableVirtualInterfaceGroupAssociation.
 
@@ -2698,7 +2702,7 @@ typing.cast(typing.Any, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationR
 )
 class ILocalGatewayVirtualInterfaceGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayVirtualInterfaceGroup.
@@ -2720,7 +2724,7 @@ class ILocalGatewayVirtualInterfaceGroupRef(
 
 class _ILocalGatewayVirtualInterfaceGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayVirtualInterfaceGroup.
 
@@ -2749,7 +2753,7 @@ typing.cast(typing.Any, ILocalGatewayVirtualInterfaceGroupRef).__jsii_proxy_clas
 )
 class ILocalGatewayVirtualInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayVirtualInterface.
@@ -2771,7 +2775,7 @@ class ILocalGatewayVirtualInterfaceRef(
 
 class _ILocalGatewayVirtualInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocalGatewayVirtualInterface.
 
@@ -2798,7 +2802,7 @@ typing.cast(typing.Any, ILocalGatewayVirtualInterfaceRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INatGatewayRef")
 class INatGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NatGateway.
@@ -2818,7 +2822,7 @@ class INatGatewayRef(
 
 class _INatGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NatGateway.
 
@@ -2843,7 +2847,7 @@ typing.cast(typing.Any, INatGatewayRef).__jsii_proxy_class__ = lambda : _INatGat
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INetworkAclEntryRef")
 class INetworkAclEntryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAclEntry.
@@ -2863,7 +2867,7 @@ class INetworkAclEntryRef(
 
 class _INetworkAclEntryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAclEntry.
 
@@ -2888,7 +2892,7 @@ typing.cast(typing.Any, INetworkAclEntryRef).__jsii_proxy_class__ = lambda : _IN
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INetworkAclRef")
 class INetworkAclRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAcl.
@@ -2908,7 +2912,7 @@ class INetworkAclRef(
 
 class _INetworkAclRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkAcl.
 
@@ -2935,7 +2939,7 @@ typing.cast(typing.Any, INetworkAclRef).__jsii_proxy_class__ = lambda : _INetwor
 )
 class INetworkInsightsAccessScopeAnalysisRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAccessScopeAnalysis.
@@ -2957,7 +2961,7 @@ class INetworkInsightsAccessScopeAnalysisRef(
 
 class _INetworkInsightsAccessScopeAnalysisRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAccessScopeAnalysis.
 
@@ -2986,7 +2990,7 @@ typing.cast(typing.Any, INetworkInsightsAccessScopeAnalysisRef).__jsii_proxy_cla
 )
 class INetworkInsightsAccessScopeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAccessScope.
@@ -3008,7 +3012,7 @@ class INetworkInsightsAccessScopeRef(
 
 class _INetworkInsightsAccessScopeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAccessScope.
 
@@ -3035,7 +3039,7 @@ typing.cast(typing.Any, INetworkInsightsAccessScopeRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INetworkInsightsAnalysisRef")
 class INetworkInsightsAnalysisRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAnalysis.
@@ -3055,7 +3059,7 @@ class INetworkInsightsAnalysisRef(
 
 class _INetworkInsightsAnalysisRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsAnalysis.
 
@@ -3080,7 +3084,7 @@ typing.cast(typing.Any, INetworkInsightsAnalysisRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INetworkInsightsPathRef")
 class INetworkInsightsPathRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsPath.
@@ -3100,7 +3104,7 @@ class INetworkInsightsPathRef(
 
 class _INetworkInsightsPathRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInsightsPath.
 
@@ -3127,7 +3131,7 @@ typing.cast(typing.Any, INetworkInsightsPathRef).__jsii_proxy_class__ = lambda :
 )
 class INetworkInterfaceAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterfaceAttachment.
@@ -3147,7 +3151,7 @@ class INetworkInterfaceAttachmentRef(
 
 class _INetworkInterfaceAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterfaceAttachment.
 
@@ -3174,7 +3178,7 @@ typing.cast(typing.Any, INetworkInterfaceAttachmentRef).__jsii_proxy_class__ = l
 )
 class INetworkInterfacePermissionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterfacePermission.
@@ -3194,7 +3198,7 @@ class INetworkInterfacePermissionRef(
 
 class _INetworkInterfacePermissionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterfacePermission.
 
@@ -3219,7 +3223,7 @@ typing.cast(typing.Any, INetworkInterfacePermissionRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.INetworkInterfaceRef")
 class INetworkInterfaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterface.
@@ -3239,7 +3243,7 @@ class INetworkInterfaceRef(
 
 class _INetworkInterfaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkInterface.
 
@@ -3266,7 +3270,7 @@ typing.cast(typing.Any, INetworkInterfaceRef).__jsii_proxy_class__ = lambda : _I
 )
 class INetworkPerformanceMetricSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkPerformanceMetricSubscription.
@@ -3288,7 +3292,7 @@ class INetworkPerformanceMetricSubscriptionRef(
 
 class _INetworkPerformanceMetricSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NetworkPerformanceMetricSubscription.
 
@@ -3350,7 +3354,7 @@ class IPAMAllocationReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7feb4439f565248f1d51f179a7e018bb0fb9c2a8a48ea0d41c27aed11307ea75)
+            type_hints = cached_type_hints(_typecheckingstub__7feb4439f565248f1d51f179a7e018bb0fb9c2a8a48ea0d41c27aed11307ea75)
             check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument ipam_pool_allocation_id", value=ipam_pool_allocation_id, expected_type=type_hints["ipam_pool_allocation_id"])
             check_type(argname="argument ipam_pool_id", value=ipam_pool_id, expected_type=type_hints["ipam_pool_id"])
@@ -3424,7 +3428,7 @@ class IPAMPoolCidrReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3683b95716ecb232814e443e685b635edbf9643420649ae07689e14b51dfcc17)
+            type_hints = cached_type_hints(_typecheckingstub__3683b95716ecb232814e443e685b635edbf9643420649ae07689e14b51dfcc17)
             check_type(argname="argument ipam_pool_cidr_id", value=ipam_pool_cidr_id, expected_type=type_hints["ipam_pool_cidr_id"])
             check_type(argname="argument ipam_pool_id", value=ipam_pool_id, expected_type=type_hints["ipam_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3489,7 +3493,7 @@ class IPAMPoolReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54638f34ae06307f1bc4313c2916619169655bbba473fe8a9c1bc2378c38dbc8)
+            type_hints = cached_type_hints(_typecheckingstub__54638f34ae06307f1bc4313c2916619169655bbba473fe8a9c1bc2378c38dbc8)
             check_type(argname="argument ipam_pool_arn", value=ipam_pool_arn, expected_type=type_hints["ipam_pool_arn"])
             check_type(argname="argument ipam_pool_id", value=ipam_pool_id, expected_type=type_hints["ipam_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3557,7 +3561,7 @@ class IPAMPrefixListResolverReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7ac17af28aa1061e001efd103ab675ccb82fc60c97079265f5fdddbcde5fdd3)
+            type_hints = cached_type_hints(_typecheckingstub__a7ac17af28aa1061e001efd103ab675ccb82fc60c97079265f5fdddbcde5fdd3)
             check_type(argname="argument ipam_prefix_list_resolver_arn", value=ipam_prefix_list_resolver_arn, expected_type=type_hints["ipam_prefix_list_resolver_arn"])
             check_type(argname="argument ipam_prefix_list_resolver_id", value=ipam_prefix_list_resolver_id, expected_type=type_hints["ipam_prefix_list_resolver_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3625,7 +3629,7 @@ class IPAMPrefixListResolverTargetReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__106ec7abe370b1f3692c6d330fcd1bdb1d392dee52a6ae15cb42d05c30df434b)
+            type_hints = cached_type_hints(_typecheckingstub__106ec7abe370b1f3692c6d330fcd1bdb1d392dee52a6ae15cb42d05c30df434b)
             check_type(argname="argument ipam_prefix_list_resolver_target_arn", value=ipam_prefix_list_resolver_target_arn, expected_type=type_hints["ipam_prefix_list_resolver_target_arn"])
             check_type(argname="argument ipam_prefix_list_resolver_target_id", value=ipam_prefix_list_resolver_target_id, expected_type=type_hints["ipam_prefix_list_resolver_target_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3685,7 +3689,7 @@ class IPAMReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4b18eb7f984a38a0d1b97de048402fd4bff3a9c791619a68aa7bba3b69b606c)
+            type_hints = cached_type_hints(_typecheckingstub__f4b18eb7f984a38a0d1b97de048402fd4bff3a9c791619a68aa7bba3b69b606c)
             check_type(argname="argument ipam_arn", value=ipam_arn, expected_type=type_hints["ipam_arn"])
             check_type(argname="argument ipam_id", value=ipam_id, expected_type=type_hints["ipam_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3753,7 +3757,7 @@ class IPAMResourceDiscoveryAssociationReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc737e46a3649729021f88f43561d31e8fdcefc112469a6222d8a7681574227)
+            type_hints = cached_type_hints(_typecheckingstub__adc737e46a3649729021f88f43561d31e8fdcefc112469a6222d8a7681574227)
             check_type(argname="argument ipam_resource_discovery_association_arn", value=ipam_resource_discovery_association_arn, expected_type=type_hints["ipam_resource_discovery_association_arn"])
             check_type(argname="argument ipam_resource_discovery_association_id", value=ipam_resource_discovery_association_id, expected_type=type_hints["ipam_resource_discovery_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3821,7 +3825,7 @@ class IPAMResourceDiscoveryReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2ea9e66efdddfa8669cc157e45981e03ce182eab234c9a9ea016baa95bd4659)
+            type_hints = cached_type_hints(_typecheckingstub__c2ea9e66efdddfa8669cc157e45981e03ce182eab234c9a9ea016baa95bd4659)
             check_type(argname="argument ipam_resource_discovery_arn", value=ipam_resource_discovery_arn, expected_type=type_hints["ipam_resource_discovery_arn"])
             check_type(argname="argument ipam_resource_discovery_id", value=ipam_resource_discovery_id, expected_type=type_hints["ipam_resource_discovery_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3886,7 +3890,7 @@ class IPAMScopeReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da183a6f045185e65fe67a7bb0f4e74662c652173a7c3c2d9103452e54ccbbbf)
+            type_hints = cached_type_hints(_typecheckingstub__da183a6f045185e65fe67a7bb0f4e74662c652173a7c3c2d9103452e54ccbbbf)
             check_type(argname="argument ipam_scope_arn", value=ipam_scope_arn, expected_type=type_hints["ipam_scope_arn"])
             check_type(argname="argument ipam_scope_id", value=ipam_scope_id, expected_type=type_hints["ipam_scope_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3923,7 +3927,7 @@ class IPAMScopeReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IPlacementGroupRef")
 class IPlacementGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlacementGroup.
@@ -3943,7 +3947,7 @@ class IPlacementGroupRef(
 
 class _IPlacementGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlacementGroup.
 
@@ -3968,7 +3972,7 @@ typing.cast(typing.Any, IPlacementGroupRef).__jsii_proxy_class__ = lambda : _IPl
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IPrefixListRef")
 class IPrefixListRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrefixList.
@@ -3988,7 +3992,7 @@ class IPrefixListRef(
 
 class _IPrefixListRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrefixList.
 
@@ -4013,7 +4017,7 @@ typing.cast(typing.Any, IPrefixListRef).__jsii_proxy_class__ = lambda : _IPrefix
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteRef")
 class IRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Route.
@@ -4033,7 +4037,7 @@ class IRouteRef(
 
 class _IRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Route.
 
@@ -4058,7 +4062,7 @@ typing.cast(typing.Any, IRouteRef).__jsii_proxy_class__ = lambda : _IRouteRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteServerAssociationRef")
 class IRouteServerAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerAssociation.
@@ -4078,7 +4082,7 @@ class IRouteServerAssociationRef(
 
 class _IRouteServerAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerAssociation.
 
@@ -4103,7 +4107,7 @@ typing.cast(typing.Any, IRouteServerAssociationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteServerEndpointRef")
 class IRouteServerEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerEndpoint.
@@ -4123,7 +4127,7 @@ class IRouteServerEndpointRef(
 
 class _IRouteServerEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerEndpoint.
 
@@ -4148,7 +4152,7 @@ typing.cast(typing.Any, IRouteServerEndpointRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteServerPeerRef")
 class IRouteServerPeerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerPeer.
@@ -4168,7 +4172,7 @@ class IRouteServerPeerRef(
 
 class _IRouteServerPeerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerPeer.
 
@@ -4193,7 +4197,7 @@ typing.cast(typing.Any, IRouteServerPeerRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteServerPropagationRef")
 class IRouteServerPropagationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerPropagation.
@@ -4213,7 +4217,7 @@ class IRouteServerPropagationRef(
 
 class _IRouteServerPropagationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServerPropagation.
 
@@ -4238,7 +4242,7 @@ typing.cast(typing.Any, IRouteServerPropagationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteServerRef")
 class IRouteServerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServer.
@@ -4258,7 +4262,7 @@ class IRouteServerRef(
 
 class _IRouteServerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteServer.
 
@@ -4283,7 +4287,7 @@ typing.cast(typing.Any, IRouteServerRef).__jsii_proxy_class__ = lambda : _IRoute
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteTableRef")
 class IRouteTableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteTable.
@@ -4303,7 +4307,7 @@ class IRouteTableRef(
 
 class _IRouteTableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteTable.
 
@@ -4328,7 +4332,7 @@ typing.cast(typing.Any, IRouteTableRef).__jsii_proxy_class__ = lambda : _IRouteT
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISecurityGroupEgressRef")
 class ISecurityGroupEgressRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupEgress.
@@ -4348,7 +4352,7 @@ class ISecurityGroupEgressRef(
 
 class _ISecurityGroupEgressRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupEgress.
 
@@ -4373,7 +4377,7 @@ typing.cast(typing.Any, ISecurityGroupEgressRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISecurityGroupIngressRef")
 class ISecurityGroupIngressRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupIngress.
@@ -4393,7 +4397,7 @@ class ISecurityGroupIngressRef(
 
 class _ISecurityGroupIngressRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupIngress.
 
@@ -4418,7 +4422,7 @@ typing.cast(typing.Any, ISecurityGroupIngressRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISecurityGroupRef")
 class ISecurityGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroup.
@@ -4438,7 +4442,7 @@ class ISecurityGroupRef(
 
 class _ISecurityGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroup.
 
@@ -4465,7 +4469,7 @@ typing.cast(typing.Any, ISecurityGroupRef).__jsii_proxy_class__ = lambda : _ISec
 )
 class ISecurityGroupVpcAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupVpcAssociation.
@@ -4487,7 +4491,7 @@ class ISecurityGroupVpcAssociationRef(
 
 class _ISecurityGroupVpcAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityGroupVpcAssociation.
 
@@ -4516,7 +4520,7 @@ typing.cast(typing.Any, ISecurityGroupVpcAssociationRef).__jsii_proxy_class__ = 
 )
 class ISnapshotBlockPublicAccessRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SnapshotBlockPublicAccess.
@@ -4536,7 +4540,7 @@ class ISnapshotBlockPublicAccessRef(
 
 class _ISnapshotBlockPublicAccessRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SnapshotBlockPublicAccess.
 
@@ -4561,7 +4565,7 @@ typing.cast(typing.Any, ISnapshotBlockPublicAccessRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISpotFleetRef")
 class ISpotFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SpotFleet.
@@ -4581,7 +4585,7 @@ class ISpotFleetRef(
 
 class _ISpotFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SpotFleet.
 
@@ -4608,7 +4612,7 @@ typing.cast(typing.Any, ISpotFleetRef).__jsii_proxy_class__ = lambda : _ISpotFle
 )
 class ISqlHaStandbyDetectedInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SqlHaStandbyDetectedInstance.
@@ -4630,7 +4634,7 @@ class ISqlHaStandbyDetectedInstanceRef(
 
 class _ISqlHaStandbyDetectedInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SqlHaStandbyDetectedInstance.
 
@@ -4657,7 +4661,7 @@ typing.cast(typing.Any, ISqlHaStandbyDetectedInstanceRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISubnetCidrBlockRef")
 class ISubnetCidrBlockRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetCidrBlock.
@@ -4677,7 +4681,7 @@ class ISubnetCidrBlockRef(
 
 class _ISubnetCidrBlockRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetCidrBlock.
 
@@ -4704,7 +4708,7 @@ typing.cast(typing.Any, ISubnetCidrBlockRef).__jsii_proxy_class__ = lambda : _IS
 )
 class ISubnetNetworkAclAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetNetworkAclAssociation.
@@ -4726,7 +4730,7 @@ class ISubnetNetworkAclAssociationRef(
 
 class _ISubnetNetworkAclAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetNetworkAclAssociation.
 
@@ -4753,7 +4757,7 @@ typing.cast(typing.Any, ISubnetNetworkAclAssociationRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISubnetRef")
 class ISubnetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Subnet.
@@ -4773,7 +4777,7 @@ class ISubnetRef(
 
 class _ISubnetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Subnet.
 
@@ -4800,7 +4804,7 @@ typing.cast(typing.Any, ISubnetRef).__jsii_proxy_class__ = lambda : _ISubnetRefP
 )
 class ISubnetRouteTableAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetRouteTableAssociation.
@@ -4822,7 +4826,7 @@ class ISubnetRouteTableAssociationRef(
 
 class _ISubnetRouteTableAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SubnetRouteTableAssociation.
 
@@ -4849,7 +4853,7 @@ typing.cast(typing.Any, ISubnetRouteTableAssociationRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITrafficMirrorFilterRef")
 class ITrafficMirrorFilterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorFilter.
@@ -4869,7 +4873,7 @@ class ITrafficMirrorFilterRef(
 
 class _ITrafficMirrorFilterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorFilter.
 
@@ -4894,7 +4898,7 @@ typing.cast(typing.Any, ITrafficMirrorFilterRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITrafficMirrorFilterRuleRef")
 class ITrafficMirrorFilterRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorFilterRule.
@@ -4914,7 +4918,7 @@ class ITrafficMirrorFilterRuleRef(
 
 class _ITrafficMirrorFilterRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorFilterRule.
 
@@ -4939,7 +4943,7 @@ typing.cast(typing.Any, ITrafficMirrorFilterRuleRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITrafficMirrorSessionRef")
 class ITrafficMirrorSessionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorSession.
@@ -4959,7 +4963,7 @@ class ITrafficMirrorSessionRef(
 
 class _ITrafficMirrorSessionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorSession.
 
@@ -4984,7 +4988,7 @@ typing.cast(typing.Any, ITrafficMirrorSessionRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITrafficMirrorTargetRef")
 class ITrafficMirrorTargetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorTarget.
@@ -5004,7 +5008,7 @@ class ITrafficMirrorTargetRef(
 
 class _ITrafficMirrorTargetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrafficMirrorTarget.
 
@@ -5031,7 +5035,7 @@ typing.cast(typing.Any, ITrafficMirrorTargetRef).__jsii_proxy_class__ = lambda :
 )
 class ITransitGatewayAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayAttachment.
@@ -5051,7 +5055,7 @@ class ITransitGatewayAttachmentRef(
 
 class _ITransitGatewayAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayAttachment.
 
@@ -5078,7 +5082,7 @@ typing.cast(typing.Any, ITransitGatewayAttachmentRef).__jsii_proxy_class__ = lam
 )
 class ITransitGatewayConnectPeerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayConnectPeer.
@@ -5098,7 +5102,7 @@ class ITransitGatewayConnectPeerRef(
 
 class _ITransitGatewayConnectPeerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayConnectPeer.
 
@@ -5123,7 +5127,7 @@ typing.cast(typing.Any, ITransitGatewayConnectPeerRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayConnectRef")
 class ITransitGatewayConnectRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayConnect.
@@ -5143,7 +5147,7 @@ class ITransitGatewayConnectRef(
 
 class _ITransitGatewayConnectRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayConnect.
 
@@ -5170,7 +5174,7 @@ typing.cast(typing.Any, ITransitGatewayConnectRef).__jsii_proxy_class__ = lambda
 )
 class ITransitGatewayMeteringPolicyEntryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMeteringPolicyEntry.
@@ -5192,7 +5196,7 @@ class ITransitGatewayMeteringPolicyEntryRef(
 
 class _ITransitGatewayMeteringPolicyEntryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMeteringPolicyEntry.
 
@@ -5221,7 +5225,7 @@ typing.cast(typing.Any, ITransitGatewayMeteringPolicyEntryRef).__jsii_proxy_clas
 )
 class ITransitGatewayMeteringPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMeteringPolicy.
@@ -5243,7 +5247,7 @@ class ITransitGatewayMeteringPolicyRef(
 
 class _ITransitGatewayMeteringPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMeteringPolicy.
 
@@ -5272,7 +5276,7 @@ typing.cast(typing.Any, ITransitGatewayMeteringPolicyRef).__jsii_proxy_class__ =
 )
 class ITransitGatewayMulticastDomainAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastDomainAssociation.
@@ -5294,7 +5298,7 @@ class ITransitGatewayMulticastDomainAssociationRef(
 
 class _ITransitGatewayMulticastDomainAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastDomainAssociation.
 
@@ -5323,7 +5327,7 @@ typing.cast(typing.Any, ITransitGatewayMulticastDomainAssociationRef).__jsii_pro
 )
 class ITransitGatewayMulticastDomainRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastDomain.
@@ -5345,7 +5349,7 @@ class ITransitGatewayMulticastDomainRef(
 
 class _ITransitGatewayMulticastDomainRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastDomain.
 
@@ -5374,7 +5378,7 @@ typing.cast(typing.Any, ITransitGatewayMulticastDomainRef).__jsii_proxy_class__ 
 )
 class ITransitGatewayMulticastGroupMemberRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastGroupMember.
@@ -5396,7 +5400,7 @@ class ITransitGatewayMulticastGroupMemberRef(
 
 class _ITransitGatewayMulticastGroupMemberRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastGroupMember.
 
@@ -5425,7 +5429,7 @@ typing.cast(typing.Any, ITransitGatewayMulticastGroupMemberRef).__jsii_proxy_cla
 )
 class ITransitGatewayMulticastGroupSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastGroupSource.
@@ -5447,7 +5451,7 @@ class ITransitGatewayMulticastGroupSourceRef(
 
 class _ITransitGatewayMulticastGroupSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayMulticastGroupSource.
 
@@ -5476,7 +5480,7 @@ typing.cast(typing.Any, ITransitGatewayMulticastGroupSourceRef).__jsii_proxy_cla
 )
 class ITransitGatewayPeeringAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayPeeringAttachment.
@@ -5498,7 +5502,7 @@ class ITransitGatewayPeeringAttachmentRef(
 
 class _ITransitGatewayPeeringAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayPeeringAttachment.
 
@@ -5525,7 +5529,7 @@ typing.cast(typing.Any, ITransitGatewayPeeringAttachmentRef).__jsii_proxy_class_
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayRef")
 class ITransitGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGateway.
@@ -5545,7 +5549,7 @@ class ITransitGatewayRef(
 
 class _ITransitGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGateway.
 
@@ -5570,7 +5574,7 @@ typing.cast(typing.Any, ITransitGatewayRef).__jsii_proxy_class__ = lambda : _ITr
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayRouteRef")
 class ITransitGatewayRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRoute.
@@ -5590,7 +5594,7 @@ class ITransitGatewayRouteRef(
 
 class _ITransitGatewayRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRoute.
 
@@ -5617,7 +5621,7 @@ typing.cast(typing.Any, ITransitGatewayRouteRef).__jsii_proxy_class__ = lambda :
 )
 class ITransitGatewayRouteTableAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTableAssociation.
@@ -5639,7 +5643,7 @@ class ITransitGatewayRouteTableAssociationRef(
 
 class _ITransitGatewayRouteTableAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTableAssociation.
 
@@ -5668,7 +5672,7 @@ typing.cast(typing.Any, ITransitGatewayRouteTableAssociationRef).__jsii_proxy_cl
 )
 class ITransitGatewayRouteTablePropagationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTablePropagation.
@@ -5690,7 +5694,7 @@ class ITransitGatewayRouteTablePropagationRef(
 
 class _ITransitGatewayRouteTablePropagationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTablePropagation.
 
@@ -5719,7 +5723,7 @@ typing.cast(typing.Any, ITransitGatewayRouteTablePropagationRef).__jsii_proxy_cl
 )
 class ITransitGatewayRouteTableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTable.
@@ -5739,7 +5743,7 @@ class ITransitGatewayRouteTableRef(
 
 class _ITransitGatewayRouteTableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayRouteTable.
 
@@ -5766,7 +5770,7 @@ typing.cast(typing.Any, ITransitGatewayRouteTableRef).__jsii_proxy_class__ = lam
 )
 class ITransitGatewayVpcAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayVpcAttachment.
@@ -5788,7 +5792,7 @@ class ITransitGatewayVpcAttachmentRef(
 
 class _ITransitGatewayVpcAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TransitGatewayVpcAttachment.
 
@@ -5817,7 +5821,7 @@ typing.cast(typing.Any, ITransitGatewayVpcAttachmentRef).__jsii_proxy_class__ = 
 )
 class IVPCBlockPublicAccessExclusionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCBlockPublicAccessExclusion.
@@ -5839,7 +5843,7 @@ class IVPCBlockPublicAccessExclusionRef(
 
 class _IVPCBlockPublicAccessExclusionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCBlockPublicAccessExclusion.
 
@@ -5868,7 +5872,7 @@ typing.cast(typing.Any, IVPCBlockPublicAccessExclusionRef).__jsii_proxy_class__ 
 )
 class IVPCBlockPublicAccessOptionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCBlockPublicAccessOptions.
@@ -5890,7 +5894,7 @@ class IVPCBlockPublicAccessOptionsRef(
 
 class _IVPCBlockPublicAccessOptionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCBlockPublicAccessOptions.
 
@@ -5917,7 +5921,7 @@ typing.cast(typing.Any, IVPCBlockPublicAccessOptionsRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCCidrBlockRef")
 class IVPCCidrBlockRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCCidrBlock.
@@ -5937,7 +5941,7 @@ class IVPCCidrBlockRef(
 
 class _IVPCCidrBlockRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCCidrBlock.
 
@@ -5964,7 +5968,7 @@ typing.cast(typing.Any, IVPCCidrBlockRef).__jsii_proxy_class__ = lambda : _IVPCC
 )
 class IVPCDHCPOptionsAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCDHCPOptionsAssociation.
@@ -5984,7 +5988,7 @@ class IVPCDHCPOptionsAssociationRef(
 
 class _IVPCDHCPOptionsAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCDHCPOptionsAssociation.
 
@@ -6009,7 +6013,7 @@ typing.cast(typing.Any, IVPCDHCPOptionsAssociationRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCEncryptionControlRef")
 class IVPCEncryptionControlRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEncryptionControl.
@@ -6029,7 +6033,7 @@ class IVPCEncryptionControlRef(
 
 class _IVPCEncryptionControlRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEncryptionControl.
 
@@ -6056,7 +6060,7 @@ typing.cast(typing.Any, IVPCEncryptionControlRef).__jsii_proxy_class__ = lambda 
 )
 class IVPCEndpointConnectionNotificationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointConnectionNotification.
@@ -6078,7 +6082,7 @@ class IVPCEndpointConnectionNotificationRef(
 
 class _IVPCEndpointConnectionNotificationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointConnectionNotification.
 
@@ -6105,7 +6109,7 @@ typing.cast(typing.Any, IVPCEndpointConnectionNotificationRef).__jsii_proxy_clas
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCEndpointRef")
 class IVPCEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpoint.
@@ -6125,7 +6129,7 @@ class IVPCEndpointRef(
 
 class _IVPCEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpoint.
 
@@ -6152,7 +6156,7 @@ typing.cast(typing.Any, IVPCEndpointRef).__jsii_proxy_class__ = lambda : _IVPCEn
 )
 class IVPCEndpointServicePermissionsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointServicePermissions.
@@ -6174,7 +6178,7 @@ class IVPCEndpointServicePermissionsRef(
 
 class _IVPCEndpointServicePermissionsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointServicePermissions.
 
@@ -6201,7 +6205,7 @@ typing.cast(typing.Any, IVPCEndpointServicePermissionsRef).__jsii_proxy_class__ 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCEndpointServiceRef")
 class IVPCEndpointServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointService.
@@ -6221,7 +6225,7 @@ class IVPCEndpointServiceRef(
 
 class _IVPCEndpointServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCEndpointService.
 
@@ -6246,7 +6250,7 @@ typing.cast(typing.Any, IVPCEndpointServiceRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCGatewayAttachmentRef")
 class IVPCGatewayAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCGatewayAttachment.
@@ -6266,7 +6270,7 @@ class IVPCGatewayAttachmentRef(
 
 class _IVPCGatewayAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCGatewayAttachment.
 
@@ -6291,7 +6295,7 @@ typing.cast(typing.Any, IVPCGatewayAttachmentRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCPeeringConnectionRef")
 class IVPCPeeringConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCPeeringConnection.
@@ -6311,7 +6315,7 @@ class IVPCPeeringConnectionRef(
 
 class _IVPCPeeringConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPCPeeringConnection.
 
@@ -6336,7 +6340,7 @@ typing.cast(typing.Any, IVPCPeeringConnectionRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPCRef")
 class IVPCRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPC.
@@ -6356,7 +6360,7 @@ class IVPCRef(
 
 class _IVPCRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPC.
 
@@ -6381,7 +6385,7 @@ typing.cast(typing.Any, IVPCRef).__jsii_proxy_class__ = lambda : _IVPCRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPNConcentratorRef")
 class IVPNConcentratorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConcentrator.
@@ -6401,7 +6405,7 @@ class IVPNConcentratorRef(
 
 class _IVPNConcentratorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConcentrator.
 
@@ -6426,7 +6430,7 @@ typing.cast(typing.Any, IVPNConcentratorRef).__jsii_proxy_class__ = lambda : _IV
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPNConnectionRef")
 class IVPNConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConnection.
@@ -6446,7 +6450,7 @@ class IVPNConnectionRef(
 
 class _IVPNConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConnection.
 
@@ -6471,7 +6475,7 @@ typing.cast(typing.Any, IVPNConnectionRef).__jsii_proxy_class__ = lambda : _IVPN
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPNConnectionRouteRef")
 class IVPNConnectionRouteRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConnectionRoute.
@@ -6491,7 +6495,7 @@ class IVPNConnectionRouteRef(
 
 class _IVPNConnectionRouteRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNConnectionRoute.
 
@@ -6516,7 +6520,7 @@ typing.cast(typing.Any, IVPNConnectionRouteRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVPNGatewayRef")
 class IVPNGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNGateway.
@@ -6536,7 +6540,7 @@ class IVPNGatewayRef(
 
 class _IVPNGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNGateway.
 
@@ -6563,7 +6567,7 @@ typing.cast(typing.Any, IVPNGatewayRef).__jsii_proxy_class__ = lambda : _IVPNGat
 )
 class IVPNGatewayRoutePropagationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNGatewayRoutePropagation.
@@ -6585,7 +6589,7 @@ class IVPNGatewayRoutePropagationRef(
 
 class _IVPNGatewayRoutePropagationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VPNGatewayRoutePropagation.
 
@@ -6612,7 +6616,7 @@ typing.cast(typing.Any, IVPNGatewayRoutePropagationRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVerifiedAccessEndpointRef")
 class IVerifiedAccessEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessEndpoint.
@@ -6632,7 +6636,7 @@ class IVerifiedAccessEndpointRef(
 
 class _IVerifiedAccessEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessEndpoint.
 
@@ -6657,7 +6661,7 @@ typing.cast(typing.Any, IVerifiedAccessEndpointRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVerifiedAccessGroupRef")
 class IVerifiedAccessGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessGroup.
@@ -6677,7 +6681,7 @@ class IVerifiedAccessGroupRef(
 
 class _IVerifiedAccessGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessGroup.
 
@@ -6702,7 +6706,7 @@ typing.cast(typing.Any, IVerifiedAccessGroupRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVerifiedAccessInstanceRef")
 class IVerifiedAccessInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessInstance.
@@ -6722,7 +6726,7 @@ class IVerifiedAccessInstanceRef(
 
 class _IVerifiedAccessInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessInstance.
 
@@ -6749,7 +6753,7 @@ typing.cast(typing.Any, IVerifiedAccessInstanceRef).__jsii_proxy_class__ = lambd
 )
 class IVerifiedAccessTrustProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessTrustProvider.
@@ -6771,7 +6775,7 @@ class IVerifiedAccessTrustProviderRef(
 
 class _IVerifiedAccessTrustProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VerifiedAccessTrustProvider.
 
@@ -6798,7 +6802,7 @@ typing.cast(typing.Any, IVerifiedAccessTrustProviderRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVolumeAttachmentRef")
 class IVolumeAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VolumeAttachment.
@@ -6818,7 +6822,7 @@ class IVolumeAttachmentRef(
 
 class _IVolumeAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VolumeAttachment.
 
@@ -6843,7 +6847,7 @@ typing.cast(typing.Any, IVolumeAttachmentRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IVolumeRef")
 class IVolumeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
@@ -6863,7 +6867,7 @@ class IVolumeRef(
 
 class _IVolumeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Volume.
 
@@ -6919,7 +6923,7 @@ class InstanceConnectEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04da4a11a170a51c13416eafbc1b7d6de587ae16bc76f69212089fec3dfd9e2d)
+            type_hints = cached_type_hints(_typecheckingstub__04da4a11a170a51c13416eafbc1b7d6de587ae16bc76f69212089fec3dfd9e2d)
             check_type(argname="argument instance_connect_endpoint_arn", value=instance_connect_endpoint_arn, expected_type=type_hints["instance_connect_endpoint_arn"])
             check_type(argname="argument instance_connect_endpoint_id", value=instance_connect_endpoint_id, expected_type=type_hints["instance_connect_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6977,7 +6981,7 @@ class InstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f06433ab2ca29228d26a3591c15861f26cba4cd81aba9c2d95cda5f8b7ddb93)
+            type_hints = cached_type_hints(_typecheckingstub__5f06433ab2ca29228d26a3591c15861f26cba4cd81aba9c2d95cda5f8b7ddb93)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
@@ -7026,7 +7030,7 @@ class InternetGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44bb15a882c5a2c056f5f6ae2f3ea1217cad905768d2e54391ba3718f7a8c283)
+            type_hints = cached_type_hints(_typecheckingstub__44bb15a882c5a2c056f5f6ae2f3ea1217cad905768d2e54391ba3718f7a8c283)
             check_type(argname="argument internet_gateway_id", value=internet_gateway_id, expected_type=type_hints["internet_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "internet_gateway_id": internet_gateway_id,
@@ -7075,7 +7079,7 @@ class IpPoolRouteTableAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71fccb9d8f2781c81145acb20d4e9edac01046a309260fa70dfd46e9491669a0)
+            type_hints = cached_type_hints(_typecheckingstub__71fccb9d8f2781c81145acb20d4e9edac01046a309260fa70dfd46e9491669a0)
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_id": association_id,
@@ -7124,7 +7128,7 @@ class KeyPairReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61e5782f64150528470b5920f05080292456f4ab0004df01a7d5afe7c860185d)
+            type_hints = cached_type_hints(_typecheckingstub__61e5782f64150528470b5920f05080292456f4ab0004df01a7d5afe7c860185d)
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_name": key_name,
@@ -7173,7 +7177,7 @@ class LaunchTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf47688316c53ea06bfbe8962e54c57c82ca920e2a4490a900c685306cb1a87b)
+            type_hints = cached_type_hints(_typecheckingstub__bf47688316c53ea06bfbe8962e54c57c82ca920e2a4490a900c685306cb1a87b)
             check_type(argname="argument launch_template_id", value=launch_template_id, expected_type=type_hints["launch_template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_template_id": launch_template_id,
@@ -7232,7 +7236,7 @@ class LocalGatewayRouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ba56b317ffe4dc9f02859993fc6b89e6bbbcc41dd1a50a72d27cd2dae68daff)
+            type_hints = cached_type_hints(_typecheckingstub__5ba56b317ffe4dc9f02859993fc6b89e6bbbcc41dd1a50a72d27cd2dae68daff)
             check_type(argname="argument destination_cidr_block", value=destination_cidr_block, expected_type=type_hints["destination_cidr_block"])
             check_type(argname="argument local_gateway_route_table_id", value=local_gateway_route_table_id, expected_type=type_hints["local_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7300,7 +7304,7 @@ class LocalGatewayRouteTableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4d3ef1777d1ce52dbb1979acf4bb44d1f866b94d6fce26dcda3c6bbdbeed15e)
+            type_hints = cached_type_hints(_typecheckingstub__d4d3ef1777d1ce52dbb1979acf4bb44d1f866b94d6fce26dcda3c6bbdbeed15e)
             check_type(argname="argument local_gateway_route_table_arn", value=local_gateway_route_table_arn, expected_type=type_hints["local_gateway_route_table_arn"])
             check_type(argname="argument local_gateway_route_table_id", value=local_gateway_route_table_id, expected_type=type_hints["local_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7364,7 +7368,7 @@ class LocalGatewayRouteTableVPCAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__723ff6293ea9c624c32784a1606ec5d4a9a0ce6894e65dd54743fbb3288df447)
+            type_hints = cached_type_hints(_typecheckingstub__723ff6293ea9c624c32784a1606ec5d4a9a0ce6894e65dd54743fbb3288df447)
             check_type(argname="argument local_gateway_route_table_vpc_association_id", value=local_gateway_route_table_vpc_association_id, expected_type=type_hints["local_gateway_route_table_vpc_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "local_gateway_route_table_vpc_association_id": local_gateway_route_table_vpc_association_id,
@@ -7419,7 +7423,7 @@ class LocalGatewayRouteTableVirtualInterfaceGroupAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0076a6af4d4d2b3e177ad2bcea7af4a8750788c36d756571817af42a9bc1795)
+            type_hints = cached_type_hints(_typecheckingstub__d0076a6af4d4d2b3e177ad2bcea7af4a8750788c36d756571817af42a9bc1795)
             check_type(argname="argument local_gateway_route_table_virtual_interface_group_association_id", value=local_gateway_route_table_virtual_interface_group_association_id, expected_type=type_hints["local_gateway_route_table_virtual_interface_group_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "local_gateway_route_table_virtual_interface_group_association_id": local_gateway_route_table_virtual_interface_group_association_id,
@@ -7480,7 +7484,7 @@ class LocalGatewayVirtualInterfaceGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c90fb542fdb8637b80e36f928d9aeceac19bf3776dfe903d370479c61f0d98e)
+            type_hints = cached_type_hints(_typecheckingstub__3c90fb542fdb8637b80e36f928d9aeceac19bf3776dfe903d370479c61f0d98e)
             check_type(argname="argument local_gateway_virtual_interface_group_arn", value=local_gateway_virtual_interface_group_arn, expected_type=type_hints["local_gateway_virtual_interface_group_arn"])
             check_type(argname="argument local_gateway_virtual_interface_group_id", value=local_gateway_virtual_interface_group_id, expected_type=type_hints["local_gateway_virtual_interface_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7540,7 +7544,7 @@ class LocalGatewayVirtualInterfaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d5bf34161cfcac3c7f30d5f7b7235fdbb2ef9fbd82094e8dab5402940143604)
+            type_hints = cached_type_hints(_typecheckingstub__2d5bf34161cfcac3c7f30d5f7b7235fdbb2ef9fbd82094e8dab5402940143604)
             check_type(argname="argument local_gateway_virtual_interface_id", value=local_gateway_virtual_interface_id, expected_type=type_hints["local_gateway_virtual_interface_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "local_gateway_virtual_interface_id": local_gateway_virtual_interface_id,
@@ -7589,7 +7593,7 @@ class NatGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9284f94b93190b143fb72727e011f823e94d36b5c25f65e1bd8cee3b963d87b6)
+            type_hints = cached_type_hints(_typecheckingstub__9284f94b93190b143fb72727e011f823e94d36b5c25f65e1bd8cee3b963d87b6)
             check_type(argname="argument nat_gateway_id", value=nat_gateway_id, expected_type=type_hints["nat_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "nat_gateway_id": nat_gateway_id,
@@ -7638,7 +7642,7 @@ class NetworkAclEntryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27f02a8f8524fa23ca08af1d692e0639a10fc0d9e01667fcd46edd61ce7c70ba)
+            type_hints = cached_type_hints(_typecheckingstub__27f02a8f8524fa23ca08af1d692e0639a10fc0d9e01667fcd46edd61ce7c70ba)
             check_type(argname="argument network_acl_entry_id", value=network_acl_entry_id, expected_type=type_hints["network_acl_entry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_acl_entry_id": network_acl_entry_id,
@@ -7687,7 +7691,7 @@ class NetworkAclReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c66ff6eb994eb559c72f9480f9db93a2eeb06c8c6d37ef4e6525316539cc49e5)
+            type_hints = cached_type_hints(_typecheckingstub__c66ff6eb994eb559c72f9480f9db93a2eeb06c8c6d37ef4e6525316539cc49e5)
             check_type(argname="argument network_acl_id", value=network_acl_id, expected_type=type_hints["network_acl_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_acl_id": network_acl_id,
@@ -7746,7 +7750,7 @@ class NetworkInsightsAccessScopeAnalysisReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b304b9f1134521a55ecdd3ca088bf067a718845c1201a93e296c0ab9a63efd7)
+            type_hints = cached_type_hints(_typecheckingstub__2b304b9f1134521a55ecdd3ca088bf067a718845c1201a93e296c0ab9a63efd7)
             check_type(argname="argument network_insights_access_scope_analysis_arn", value=network_insights_access_scope_analysis_arn, expected_type=type_hints["network_insights_access_scope_analysis_arn"])
             check_type(argname="argument network_insights_access_scope_analysis_id", value=network_insights_access_scope_analysis_id, expected_type=type_hints["network_insights_access_scope_analysis_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7814,7 +7818,7 @@ class NetworkInsightsAccessScopeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df6fa29d56c295e8cc643265a349fa9299af85d29a099b44f05f728333bc7d68)
+            type_hints = cached_type_hints(_typecheckingstub__df6fa29d56c295e8cc643265a349fa9299af85d29a099b44f05f728333bc7d68)
             check_type(argname="argument network_insights_access_scope_arn", value=network_insights_access_scope_arn, expected_type=type_hints["network_insights_access_scope_arn"])
             check_type(argname="argument network_insights_access_scope_id", value=network_insights_access_scope_id, expected_type=type_hints["network_insights_access_scope_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7882,7 +7886,7 @@ class NetworkInsightsAnalysisReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41c5de5540a2b0098d268fa120f8031f855048589a832d2a31a668185bbddab1)
+            type_hints = cached_type_hints(_typecheckingstub__41c5de5540a2b0098d268fa120f8031f855048589a832d2a31a668185bbddab1)
             check_type(argname="argument network_insights_analysis_arn", value=network_insights_analysis_arn, expected_type=type_hints["network_insights_analysis_arn"])
             check_type(argname="argument network_insights_analysis_id", value=network_insights_analysis_id, expected_type=type_hints["network_insights_analysis_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7950,7 +7954,7 @@ class NetworkInsightsPathReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66a7973f92c21942c518f8eeb207fddd4f05cd8a3b3d6d4b882c4fec4bcd415b)
+            type_hints = cached_type_hints(_typecheckingstub__66a7973f92c21942c518f8eeb207fddd4f05cd8a3b3d6d4b882c4fec4bcd415b)
             check_type(argname="argument network_insights_path_arn", value=network_insights_path_arn, expected_type=type_hints["network_insights_path_arn"])
             check_type(argname="argument network_insights_path_id", value=network_insights_path_id, expected_type=type_hints["network_insights_path_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8008,7 +8012,7 @@ class NetworkInterfaceAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c88066168b198ea6639664fda4fc84ed5b24c2b90541bb4cc402eacbcf26c1a)
+            type_hints = cached_type_hints(_typecheckingstub__0c88066168b198ea6639664fda4fc84ed5b24c2b90541bb4cc402eacbcf26c1a)
             check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "attachment_id": attachment_id,
@@ -8057,7 +8061,7 @@ class NetworkInterfacePermissionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd3c3c5b9969f763f0c64ce39c680f2e98370b3255f0d5a443eae02ab17ce9bd)
+            type_hints = cached_type_hints(_typecheckingstub__bd3c3c5b9969f763f0c64ce39c680f2e98370b3255f0d5a443eae02ab17ce9bd)
             check_type(argname="argument network_interface_permission_id", value=network_interface_permission_id, expected_type=type_hints["network_interface_permission_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_interface_permission_id": network_interface_permission_id,
@@ -8106,7 +8110,7 @@ class NetworkInterfaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5919adb4a6febe429841e83e6060ccb4cbef8c3abc4f8e3b6d90e67f7774664b)
+            type_hints = cached_type_hints(_typecheckingstub__5919adb4a6febe429841e83e6060ccb4cbef8c3abc4f8e3b6d90e67f7774664b)
             check_type(argname="argument network_interface_id", value=network_interface_id, expected_type=type_hints["network_interface_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_interface_id": network_interface_id,
@@ -8173,7 +8177,7 @@ class NetworkPerformanceMetricSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae7ca3b2520848fb208f1f073b999fa18862f731f22e0ed61b0f33e113e84314)
+            type_hints = cached_type_hints(_typecheckingstub__ae7ca3b2520848fb208f1f073b999fa18862f731f22e0ed61b0f33e113e84314)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
@@ -8249,7 +8253,7 @@ class PlacementGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5765f3379a78633c12e5a0f7f44b8607e7ec0673147343d6ed57ff461fe296d5)
+            type_hints = cached_type_hints(_typecheckingstub__5765f3379a78633c12e5a0f7f44b8607e7ec0673147343d6ed57ff461fe296d5)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "group_name": group_name,
@@ -8308,7 +8312,7 @@ class PrefixListReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5511f84caafda82a5823be04257a6bc66b8e650cafde60346ea5dba962bbe45f)
+            type_hints = cached_type_hints(_typecheckingstub__5511f84caafda82a5823be04257a6bc66b8e650cafde60346ea5dba962bbe45f)
             check_type(argname="argument prefix_list_arn", value=prefix_list_arn, expected_type=type_hints["prefix_list_arn"])
             check_type(argname="argument prefix_list_id", value=prefix_list_id, expected_type=type_hints["prefix_list_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8373,7 +8377,7 @@ class RouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__071d8281200dbc8a56815f028a15047533e43d4006bd454bb2112a062187aab6)
+            type_hints = cached_type_hints(_typecheckingstub__071d8281200dbc8a56815f028a15047533e43d4006bd454bb2112a062187aab6)
             check_type(argname="argument cidr_block", value=cidr_block, expected_type=type_hints["cidr_block"])
             check_type(argname="argument route_table_id", value=route_table_id, expected_type=type_hints["route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8433,7 +8437,7 @@ class RouteServerAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32c2b597b0ef56b2be955617b20c204c3229f2200a027ab101729b15cdd488fa)
+            type_hints = cached_type_hints(_typecheckingstub__32c2b597b0ef56b2be955617b20c204c3229f2200a027ab101729b15cdd488fa)
             check_type(argname="argument route_server_id", value=route_server_id, expected_type=type_hints["route_server_id"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8501,7 +8505,7 @@ class RouteServerEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__604ffb342b3bdc73a00058584dee047a0c158a0fa83d67bf2ec1d41fcbb63ebc)
+            type_hints = cached_type_hints(_typecheckingstub__604ffb342b3bdc73a00058584dee047a0c158a0fa83d67bf2ec1d41fcbb63ebc)
             check_type(argname="argument route_server_endpoint_arn", value=route_server_endpoint_arn, expected_type=type_hints["route_server_endpoint_arn"])
             check_type(argname="argument route_server_endpoint_id", value=route_server_endpoint_id, expected_type=type_hints["route_server_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8569,7 +8573,7 @@ class RouteServerPeerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6236f4a0ba03f39efd5e1046cbc3f9787eab627bd9c7605cbb239e875dff53f)
+            type_hints = cached_type_hints(_typecheckingstub__c6236f4a0ba03f39efd5e1046cbc3f9787eab627bd9c7605cbb239e875dff53f)
             check_type(argname="argument route_server_peer_arn", value=route_server_peer_arn, expected_type=type_hints["route_server_peer_arn"])
             check_type(argname="argument route_server_peer_id", value=route_server_peer_id, expected_type=type_hints["route_server_peer_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8637,7 +8641,7 @@ class RouteServerPropagationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec6dc1a55da909a26dc9a339b304e6d77d5744cf4ff250a9f9be3d9b775a66e4)
+            type_hints = cached_type_hints(_typecheckingstub__ec6dc1a55da909a26dc9a339b304e6d77d5744cf4ff250a9f9be3d9b775a66e4)
             check_type(argname="argument route_server_id", value=route_server_id, expected_type=type_hints["route_server_id"])
             check_type(argname="argument route_table_id", value=route_table_id, expected_type=type_hints["route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8705,7 +8709,7 @@ class RouteServerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efff2c3f9e57b3b247745af2b155b69f9d9e3ead1daec3dd115ce2158e01e375)
+            type_hints = cached_type_hints(_typecheckingstub__efff2c3f9e57b3b247745af2b155b69f9d9e3ead1daec3dd115ce2158e01e375)
             check_type(argname="argument route_server_arn", value=route_server_arn, expected_type=type_hints["route_server_arn"])
             check_type(argname="argument route_server_id", value=route_server_id, expected_type=type_hints["route_server_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8763,7 +8767,7 @@ class RouteTableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__188eecb4e01c772367f802e75fe78a87fe1af4420eb919a629db4f794178d131)
+            type_hints = cached_type_hints(_typecheckingstub__188eecb4e01c772367f802e75fe78a87fe1af4420eb919a629db4f794178d131)
             check_type(argname="argument route_table_id", value=route_table_id, expected_type=type_hints["route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "route_table_id": route_table_id,
@@ -8812,7 +8816,7 @@ class SecurityGroupEgressReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0be0b2564d7c31d9bc03311d9327527e8e38438583c1dddcc84256ea3117542)
+            type_hints = cached_type_hints(_typecheckingstub__a0be0b2564d7c31d9bc03311d9327527e8e38438583c1dddcc84256ea3117542)
             check_type(argname="argument security_group_egress_id", value=security_group_egress_id, expected_type=type_hints["security_group_egress_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_group_egress_id": security_group_egress_id,
@@ -8861,7 +8865,7 @@ class SecurityGroupIngressReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65e5c9332b43e9c0da2df0fc5e03d679f818b14c48802afad4a3142afd64c3be)
+            type_hints = cached_type_hints(_typecheckingstub__65e5c9332b43e9c0da2df0fc5e03d679f818b14c48802afad4a3142afd64c3be)
             check_type(argname="argument security_group_ingress_id", value=security_group_ingress_id, expected_type=type_hints["security_group_ingress_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_group_ingress_id": security_group_ingress_id,
@@ -8910,7 +8914,7 @@ class SecurityGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0db1d7cd391a8af80a1fb9ff07216b42a4dd0046e0970b88a8c980e5fc5dba6f)
+            type_hints = cached_type_hints(_typecheckingstub__0db1d7cd391a8af80a1fb9ff07216b42a4dd0046e0970b88a8c980e5fc5dba6f)
             check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_group_id": security_group_id,
@@ -8961,7 +8965,7 @@ class SecurityGroupVpcAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99b958e983f4c514199c4bea21e7fb7965cfcb29980b1b4db814bdbab612a999)
+            type_hints = cached_type_hints(_typecheckingstub__99b958e983f4c514199c4bea21e7fb7965cfcb29980b1b4db814bdbab612a999)
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9019,7 +9023,7 @@ class SnapshotBlockPublicAccessReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ad7a412bb4a7b19786369fbb394c471b2636bbcb63104a8ad0494d4e1333101)
+            type_hints = cached_type_hints(_typecheckingstub__6ad7a412bb4a7b19786369fbb394c471b2636bbcb63104a8ad0494d4e1333101)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -9068,7 +9072,7 @@ class SpotFleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e118107621a5bd1c8bc349d74994c79a1a88962c110757dc9faba1d47504c73a)
+            type_hints = cached_type_hints(_typecheckingstub__e118107621a5bd1c8bc349d74994c79a1a88962c110757dc9faba1d47504c73a)
             check_type(argname="argument spot_fleet_id", value=spot_fleet_id, expected_type=type_hints["spot_fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "spot_fleet_id": spot_fleet_id,
@@ -9117,7 +9121,7 @@ class SqlHaStandbyDetectedInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e0fc44bd7688cacf09a167c4442dd9f4fc5294b2dc974d3c030094ee9c8be3c)
+            type_hints = cached_type_hints(_typecheckingstub__4e0fc44bd7688cacf09a167c4442dd9f4fc5294b2dc974d3c030094ee9c8be3c)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
@@ -9166,7 +9170,7 @@ class SubnetCidrBlockReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6afd0bd0b6454ebc029c534dc448712d3ba20ac3ab16969fba368228dfe49c40)
+            type_hints = cached_type_hints(_typecheckingstub__6afd0bd0b6454ebc029c534dc448712d3ba20ac3ab16969fba368228dfe49c40)
             check_type(argname="argument subnet_cidr_block_id", value=subnet_cidr_block_id, expected_type=type_hints["subnet_cidr_block_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subnet_cidr_block_id": subnet_cidr_block_id,
@@ -9215,7 +9219,7 @@ class SubnetNetworkAclAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33b2d56f1de8c36fb8b18796caf24be422cd959f3d196021081df0f784129620)
+            type_hints = cached_type_hints(_typecheckingstub__33b2d56f1de8c36fb8b18796caf24be422cd959f3d196021081df0f784129620)
             check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_id": association_id,
@@ -9264,7 +9268,7 @@ class SubnetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c11ffeb00d907db6208591d4cb8554a1a39e42d75f3167e4dcbd07f49ae5a8aa)
+            type_hints = cached_type_hints(_typecheckingstub__c11ffeb00d907db6208591d4cb8554a1a39e42d75f3167e4dcbd07f49ae5a8aa)
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subnet_id": subnet_id,
@@ -9315,7 +9319,7 @@ class SubnetRouteTableAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa99ad2bc407d92eb9c3198a931831d5546abe03377f0579d8446168cb939e4)
+            type_hints = cached_type_hints(_typecheckingstub__afa99ad2bc407d92eb9c3198a931831d5546abe03377f0579d8446168cb939e4)
             check_type(argname="argument subnet_route_table_association_id", value=subnet_route_table_association_id, expected_type=type_hints["subnet_route_table_association_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subnet_route_table_association_id": subnet_route_table_association_id,
@@ -9364,7 +9368,7 @@ class TrafficMirrorFilterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0402b0873722cf0cf79c419e8abf4342bb2693c80a72aa75fa35e89dd6a4978f)
+            type_hints = cached_type_hints(_typecheckingstub__0402b0873722cf0cf79c419e8abf4342bb2693c80a72aa75fa35e89dd6a4978f)
             check_type(argname="argument traffic_mirror_filter_id", value=traffic_mirror_filter_id, expected_type=type_hints["traffic_mirror_filter_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "traffic_mirror_filter_id": traffic_mirror_filter_id,
@@ -9413,7 +9417,7 @@ class TrafficMirrorFilterRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f48e3d119ce3b20c46298a4e32d4308e1c544570d3335943e89cc9b985cce45b)
+            type_hints = cached_type_hints(_typecheckingstub__f48e3d119ce3b20c46298a4e32d4308e1c544570d3335943e89cc9b985cce45b)
             check_type(argname="argument traffic_mirror_filter_rule_id", value=traffic_mirror_filter_rule_id, expected_type=type_hints["traffic_mirror_filter_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "traffic_mirror_filter_rule_id": traffic_mirror_filter_rule_id,
@@ -9462,7 +9466,7 @@ class TrafficMirrorSessionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef09d27d4ecc067dd0ecc3aaf93fa5b28de397da0443888e4044c29b20c3ecb0)
+            type_hints = cached_type_hints(_typecheckingstub__ef09d27d4ecc067dd0ecc3aaf93fa5b28de397da0443888e4044c29b20c3ecb0)
             check_type(argname="argument traffic_mirror_session_id", value=traffic_mirror_session_id, expected_type=type_hints["traffic_mirror_session_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "traffic_mirror_session_id": traffic_mirror_session_id,
@@ -9511,7 +9515,7 @@ class TrafficMirrorTargetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3ab01ca9a5683fa84e2013c5b5dd1998daa11eb9d67b91630464d8c40e967cb)
+            type_hints = cached_type_hints(_typecheckingstub__b3ab01ca9a5683fa84e2013c5b5dd1998daa11eb9d67b91630464d8c40e967cb)
             check_type(argname="argument traffic_mirror_target_id", value=traffic_mirror_target_id, expected_type=type_hints["traffic_mirror_target_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "traffic_mirror_target_id": traffic_mirror_target_id,
@@ -9560,7 +9564,7 @@ class TransitGatewayAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d00c8241f7c73c4c87059cfd039d51f5660c67a6100348cac3bd46760ada98c)
+            type_hints = cached_type_hints(_typecheckingstub__6d00c8241f7c73c4c87059cfd039d51f5660c67a6100348cac3bd46760ada98c)
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_attachment_id": transit_gateway_attachment_id,
@@ -9609,7 +9613,7 @@ class TransitGatewayConnectPeerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd6c8f8f03f34359b5ba738fbf290977b3fe4bc7cb209923bf5cec9052480554)
+            type_hints = cached_type_hints(_typecheckingstub__fd6c8f8f03f34359b5ba738fbf290977b3fe4bc7cb209923bf5cec9052480554)
             check_type(argname="argument transit_gateway_connect_peer_id", value=transit_gateway_connect_peer_id, expected_type=type_hints["transit_gateway_connect_peer_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_connect_peer_id": transit_gateway_connect_peer_id,
@@ -9658,7 +9662,7 @@ class TransitGatewayConnectReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8890329f7e30c11a4944c99fc332973f5280ac00a0222b1631d4e50bd7f262d)
+            type_hints = cached_type_hints(_typecheckingstub__e8890329f7e30c11a4944c99fc332973f5280ac00a0222b1631d4e50bd7f262d)
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_attachment_id": transit_gateway_attachment_id,
@@ -9717,7 +9721,7 @@ class TransitGatewayMeteringPolicyEntryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b5ab879ac9cab67aeb0a61553565ffea8f306e89f552a533dfd930f59d7ed24)
+            type_hints = cached_type_hints(_typecheckingstub__1b5ab879ac9cab67aeb0a61553565ffea8f306e89f552a533dfd930f59d7ed24)
             check_type(argname="argument policy_rule_number", value=policy_rule_number, expected_type=type_hints["policy_rule_number"])
             check_type(argname="argument transit_gateway_metering_policy_id", value=transit_gateway_metering_policy_id, expected_type=type_hints["transit_gateway_metering_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9777,7 +9781,7 @@ class TransitGatewayMeteringPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01cc92df7f25b3e6a54bc6e93fbabb355be5b5f7dec1c6e4fc273e7f663f7d38)
+            type_hints = cached_type_hints(_typecheckingstub__01cc92df7f25b3e6a54bc6e93fbabb355be5b5f7dec1c6e4fc273e7f663f7d38)
             check_type(argname="argument transit_gateway_metering_policy_id", value=transit_gateway_metering_policy_id, expected_type=type_hints["transit_gateway_metering_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_metering_policy_id": transit_gateway_metering_policy_id,
@@ -9840,7 +9844,7 @@ class TransitGatewayMulticastDomainAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__095a9cdfacf328704a9d19f22212da96cbb6e9c6e1ec4bc67d2a0d960e1ec805)
+            type_hints = cached_type_hints(_typecheckingstub__095a9cdfacf328704a9d19f22212da96cbb6e9c6e1ec4bc67d2a0d960e1ec805)
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
             check_type(argname="argument transit_gateway_multicast_domain_id", value=transit_gateway_multicast_domain_id, expected_type=type_hints["transit_gateway_multicast_domain_id"])
@@ -9917,7 +9921,7 @@ class TransitGatewayMulticastDomainReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f5a19765b0859abb7dae874b479771317759b9e92e4cc5f27ae398b2afb775c)
+            type_hints = cached_type_hints(_typecheckingstub__8f5a19765b0859abb7dae874b479771317759b9e92e4cc5f27ae398b2afb775c)
             check_type(argname="argument transit_gateway_multicast_domain_arn", value=transit_gateway_multicast_domain_arn, expected_type=type_hints["transit_gateway_multicast_domain_arn"])
             check_type(argname="argument transit_gateway_multicast_domain_id", value=transit_gateway_multicast_domain_id, expected_type=type_hints["transit_gateway_multicast_domain_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9989,7 +9993,7 @@ class TransitGatewayMulticastGroupMemberReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c224bd05272e424c61d5175c14f8f89e49fa9d16676a2eff3ad0883ffd152668)
+            type_hints = cached_type_hints(_typecheckingstub__c224bd05272e424c61d5175c14f8f89e49fa9d16676a2eff3ad0883ffd152668)
             check_type(argname="argument group_ip_address", value=group_ip_address, expected_type=type_hints["group_ip_address"])
             check_type(argname="argument network_interface_id", value=network_interface_id, expected_type=type_hints["network_interface_id"])
             check_type(argname="argument transit_gateway_multicast_domain_id", value=transit_gateway_multicast_domain_id, expected_type=type_hints["transit_gateway_multicast_domain_id"])
@@ -10070,7 +10074,7 @@ class TransitGatewayMulticastGroupSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4289e401a4bd5d88d9c836aee8d224ff8c8f11d601afe36b0f89e72cb3c14aa6)
+            type_hints = cached_type_hints(_typecheckingstub__4289e401a4bd5d88d9c836aee8d224ff8c8f11d601afe36b0f89e72cb3c14aa6)
             check_type(argname="argument group_ip_address", value=group_ip_address, expected_type=type_hints["group_ip_address"])
             check_type(argname="argument network_interface_id", value=network_interface_id, expected_type=type_hints["network_interface_id"])
             check_type(argname="argument transit_gateway_multicast_domain_id", value=transit_gateway_multicast_domain_id, expected_type=type_hints["transit_gateway_multicast_domain_id"])
@@ -10137,7 +10141,7 @@ class TransitGatewayPeeringAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64897c67231def1034314d171a43235f95e68fe614b1f5d838fb9917e3da522)
+            type_hints = cached_type_hints(_typecheckingstub__f64897c67231def1034314d171a43235f95e68fe614b1f5d838fb9917e3da522)
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_attachment_id": transit_gateway_attachment_id,
@@ -10196,7 +10200,7 @@ class TransitGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d42ecfd465267df55b09ea969ba78c292f56d9299bc36fff859bc519571119ae)
+            type_hints = cached_type_hints(_typecheckingstub__d42ecfd465267df55b09ea969ba78c292f56d9299bc36fff859bc519571119ae)
             check_type(argname="argument transit_gateway_arn", value=transit_gateway_arn, expected_type=type_hints["transit_gateway_arn"])
             check_type(argname="argument transit_gateway_id", value=transit_gateway_id, expected_type=type_hints["transit_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10264,7 +10268,7 @@ class TransitGatewayRouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cd7817dd4938ea0b305988047341a875562b9b0809ef57097bc4e4ffd4460fb)
+            type_hints = cached_type_hints(_typecheckingstub__9cd7817dd4938ea0b305988047341a875562b9b0809ef57097bc4e4ffd4460fb)
             check_type(argname="argument destination_cidr_block", value=destination_cidr_block, expected_type=type_hints["destination_cidr_block"])
             check_type(argname="argument transit_gateway_route_table_id", value=transit_gateway_route_table_id, expected_type=type_hints["transit_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10332,7 +10336,7 @@ class TransitGatewayRouteTableAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c33d3d19d0e848e40b21297daa62bca5880d7bc107c8facc1dd71b21ff33ce67)
+            type_hints = cached_type_hints(_typecheckingstub__c33d3d19d0e848e40b21297daa62bca5880d7bc107c8facc1dd71b21ff33ce67)
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
             check_type(argname="argument transit_gateway_route_table_id", value=transit_gateway_route_table_id, expected_type=type_hints["transit_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10400,7 +10404,7 @@ class TransitGatewayRouteTablePropagationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26cc3fa7b96f8ff924a971f4c6aba753df2b70d2228ac1957647f1bdbbf93ddd)
+            type_hints = cached_type_hints(_typecheckingstub__26cc3fa7b96f8ff924a971f4c6aba753df2b70d2228ac1957647f1bdbbf93ddd)
             check_type(argname="argument transit_gateway_attachment_id", value=transit_gateway_attachment_id, expected_type=type_hints["transit_gateway_attachment_id"])
             check_type(argname="argument transit_gateway_route_table_id", value=transit_gateway_route_table_id, expected_type=type_hints["transit_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10458,7 +10462,7 @@ class TransitGatewayRouteTableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d136220ebea5c59d10453273ed8808e0d88ffa850ad4d4e3c6c3b0e5b44f71a0)
+            type_hints = cached_type_hints(_typecheckingstub__d136220ebea5c59d10453273ed8808e0d88ffa850ad4d4e3c6c3b0e5b44f71a0)
             check_type(argname="argument transit_gateway_route_table_id", value=transit_gateway_route_table_id, expected_type=type_hints["transit_gateway_route_table_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_route_table_id": transit_gateway_route_table_id,
@@ -10509,7 +10513,7 @@ class TransitGatewayVpcAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e885276231a10adb8fbe57ea37365132400a9fdca6f023b139de68a78ba903e6)
+            type_hints = cached_type_hints(_typecheckingstub__e885276231a10adb8fbe57ea37365132400a9fdca6f023b139de68a78ba903e6)
             check_type(argname="argument transit_gateway_vpc_attachment_id", value=transit_gateway_vpc_attachment_id, expected_type=type_hints["transit_gateway_vpc_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "transit_gateway_vpc_attachment_id": transit_gateway_vpc_attachment_id,
@@ -10558,7 +10562,7 @@ class VPCBlockPublicAccessExclusionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64ac34d1e793b8a1d8cd1d1a75292e5b7b029250a6390d5ca27acedbd3fecb4f)
+            type_hints = cached_type_hints(_typecheckingstub__64ac34d1e793b8a1d8cd1d1a75292e5b7b029250a6390d5ca27acedbd3fecb4f)
             check_type(argname="argument exclusion_id", value=exclusion_id, expected_type=type_hints["exclusion_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "exclusion_id": exclusion_id,
@@ -10607,7 +10611,7 @@ class VPCBlockPublicAccessOptionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2a531906cb95c5eef8a6c02d378c377fd729bc96102c0833ec0ab0e2d7f254)
+            type_hints = cached_type_hints(_typecheckingstub__9e2a531906cb95c5eef8a6c02d378c377fd729bc96102c0833ec0ab0e2d7f254)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -10663,7 +10667,7 @@ class VPCCidrBlockReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32e1c330fb9834ac94e8aa6803768ee36f502b213c52c48c0933f09b30b57ea1)
+            type_hints = cached_type_hints(_typecheckingstub__32e1c330fb9834ac94e8aa6803768ee36f502b213c52c48c0933f09b30b57ea1)
             check_type(argname="argument vpc_cidr_block_id", value=vpc_cidr_block_id, expected_type=type_hints["vpc_cidr_block_id"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10723,7 +10727,7 @@ class VPCDHCPOptionsAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28adc76405810a691e2dce4b43c95660c0222b01d8b1608d5d87395daec6db7a)
+            type_hints = cached_type_hints(_typecheckingstub__28adc76405810a691e2dce4b43c95660c0222b01d8b1608d5d87395daec6db7a)
             check_type(argname="argument dhcp_options_id", value=dhcp_options_id, expected_type=type_hints["dhcp_options_id"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10781,7 +10785,7 @@ class VPCEncryptionControlReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ed3ca4369a94bd67b33fd9728c1616ecc391d119a17b6a19ab268a1aca8e83)
+            type_hints = cached_type_hints(_typecheckingstub__50ed3ca4369a94bd67b33fd9728c1616ecc391d119a17b6a19ab268a1aca8e83)
             check_type(argname="argument vpc_encryption_control_id", value=vpc_encryption_control_id, expected_type=type_hints["vpc_encryption_control_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_encryption_control_id": vpc_encryption_control_id,
@@ -10836,7 +10840,7 @@ class VPCEndpointConnectionNotificationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b45a1f3c71e5b9b9649f83833be2f40dc9cf8841b63e22009a2633c261982ea)
+            type_hints = cached_type_hints(_typecheckingstub__6b45a1f3c71e5b9b9649f83833be2f40dc9cf8841b63e22009a2633c261982ea)
             check_type(argname="argument vpc_endpoint_connection_notification_id", value=vpc_endpoint_connection_notification_id, expected_type=type_hints["vpc_endpoint_connection_notification_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_endpoint_connection_notification_id": vpc_endpoint_connection_notification_id,
@@ -10885,7 +10889,7 @@ class VPCEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a81418feee4b7635ba4140c24db110bc53e15bf753a79d0166d5354282595c2)
+            type_hints = cached_type_hints(_typecheckingstub__1a81418feee4b7635ba4140c24db110bc53e15bf753a79d0166d5354282595c2)
             check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_endpoint_id": vpc_endpoint_id,
@@ -10934,7 +10938,7 @@ class VPCEndpointServicePermissionsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__722a1440530819cc37aa35cb38e324750dd1ca13f95b4198238e1c6e4c45b5b9)
+            type_hints = cached_type_hints(_typecheckingstub__722a1440530819cc37aa35cb38e324750dd1ca13f95b4198238e1c6e4c45b5b9)
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_id": service_id,
@@ -10983,7 +10987,7 @@ class VPCEndpointServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1efcd12a0cc1df35811dc764325f9bce362912be0e055d83f68803ed158167de)
+            type_hints = cached_type_hints(_typecheckingstub__1efcd12a0cc1df35811dc764325f9bce362912be0e055d83f68803ed158167de)
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_id": service_id,
@@ -11034,7 +11038,7 @@ class VPCGatewayAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0683bb8dcc4090236382f6417afb8c7a6f1b028b789970abf6518876d8ece05)
+            type_hints = cached_type_hints(_typecheckingstub__c0683bb8dcc4090236382f6417afb8c7a6f1b028b789970abf6518876d8ece05)
             check_type(argname="argument attachment_type", value=attachment_type, expected_type=type_hints["attachment_type"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11092,7 +11096,7 @@ class VPCPeeringConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e223c0b1eeb03afe708e1dfb3a2d0d857eed62cf5a55e4f8ae20a75afe6e2435)
+            type_hints = cached_type_hints(_typecheckingstub__e223c0b1eeb03afe708e1dfb3a2d0d857eed62cf5a55e4f8ae20a75afe6e2435)
             check_type(argname="argument vpc_peering_connection_id", value=vpc_peering_connection_id, expected_type=type_hints["vpc_peering_connection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_peering_connection_id": vpc_peering_connection_id,
@@ -11141,7 +11145,7 @@ class VPCReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eebcb09c1a21f835d06e0bc7c5cb0b566f1c84adaf87a8ad692fff4be8a5c6ff)
+            type_hints = cached_type_hints(_typecheckingstub__eebcb09c1a21f835d06e0bc7c5cb0b566f1c84adaf87a8ad692fff4be8a5c6ff)
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_id": vpc_id,
@@ -11190,7 +11194,7 @@ class VPNConcentratorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf28dff327f18ae4342188e770ccb6c452865572f40526391ed06f1edfedcc2c)
+            type_hints = cached_type_hints(_typecheckingstub__bf28dff327f18ae4342188e770ccb6c452865572f40526391ed06f1edfedcc2c)
             check_type(argname="argument vpn_concentrator_id", value=vpn_concentrator_id, expected_type=type_hints["vpn_concentrator_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpn_concentrator_id": vpn_concentrator_id,
@@ -11239,7 +11243,7 @@ class VPNConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4d9cf45193f00d245a613110cda3f4a881f72d8c00abbeb935c2280eaa78b66)
+            type_hints = cached_type_hints(_typecheckingstub__b4d9cf45193f00d245a613110cda3f4a881f72d8c00abbeb935c2280eaa78b66)
             check_type(argname="argument vpn_connection_id", value=vpn_connection_id, expected_type=type_hints["vpn_connection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpn_connection_id": vpn_connection_id,
@@ -11298,7 +11302,7 @@ class VPNConnectionRouteReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5418a3e3d502676e61ccb4a41db85956ba34b47557ef8ea770f0910743f9846b)
+            type_hints = cached_type_hints(_typecheckingstub__5418a3e3d502676e61ccb4a41db85956ba34b47557ef8ea770f0910743f9846b)
             check_type(argname="argument destination_cidr_block", value=destination_cidr_block, expected_type=type_hints["destination_cidr_block"])
             check_type(argname="argument vpn_connection_id", value=vpn_connection_id, expected_type=type_hints["vpn_connection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11356,7 +11360,7 @@ class VPNGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bd8afece8203d01cc095d20caf9bdef6bbf03a1e3f942d508190dcc3cd88fa5)
+            type_hints = cached_type_hints(_typecheckingstub__4bd8afece8203d01cc095d20caf9bdef6bbf03a1e3f942d508190dcc3cd88fa5)
             check_type(argname="argument vpn_gateway_id", value=vpn_gateway_id, expected_type=type_hints["vpn_gateway_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpn_gateway_id": vpn_gateway_id,
@@ -11405,7 +11409,7 @@ class VPNGatewayRoutePropagationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fad5fd83b7e306265db68f7eccd5e0df0448e18217d065355e4d3147a79369c)
+            type_hints = cached_type_hints(_typecheckingstub__1fad5fd83b7e306265db68f7eccd5e0df0448e18217d065355e4d3147a79369c)
             check_type(argname="argument vpn_gateway_route_propagation_id", value=vpn_gateway_route_propagation_id, expected_type=type_hints["vpn_gateway_route_propagation_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpn_gateway_route_propagation_id": vpn_gateway_route_propagation_id,
@@ -11454,7 +11458,7 @@ class VerifiedAccessEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85ecc9afe5fbda6fa04024d3d80e183ff29e91a92d20dfc1140bdc996140de87)
+            type_hints = cached_type_hints(_typecheckingstub__85ecc9afe5fbda6fa04024d3d80e183ff29e91a92d20dfc1140bdc996140de87)
             check_type(argname="argument verified_access_endpoint_id", value=verified_access_endpoint_id, expected_type=type_hints["verified_access_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "verified_access_endpoint_id": verified_access_endpoint_id,
@@ -11513,7 +11517,7 @@ class VerifiedAccessGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef9fe84154b9d4ff637f01793f165ccc0a606d42f823be80cfc517d8b164869)
+            type_hints = cached_type_hints(_typecheckingstub__fef9fe84154b9d4ff637f01793f165ccc0a606d42f823be80cfc517d8b164869)
             check_type(argname="argument verified_access_group_arn", value=verified_access_group_arn, expected_type=type_hints["verified_access_group_arn"])
             check_type(argname="argument verified_access_group_id", value=verified_access_group_id, expected_type=type_hints["verified_access_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11571,7 +11575,7 @@ class VerifiedAccessInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__028ce8f85d9922da12b435f8f369c360fd406edd22e248398f659ddadef6d19a)
+            type_hints = cached_type_hints(_typecheckingstub__028ce8f85d9922da12b435f8f369c360fd406edd22e248398f659ddadef6d19a)
             check_type(argname="argument verified_access_instance_id", value=verified_access_instance_id, expected_type=type_hints["verified_access_instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "verified_access_instance_id": verified_access_instance_id,
@@ -11622,7 +11626,7 @@ class VerifiedAccessTrustProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c2d7cfcee71ba991341eb870c161ff0526f7cf949d8a80fddd7285c12bf1e99)
+            type_hints = cached_type_hints(_typecheckingstub__0c2d7cfcee71ba991341eb870c161ff0526f7cf949d8a80fddd7285c12bf1e99)
             check_type(argname="argument verified_access_trust_provider_id", value=verified_access_trust_provider_id, expected_type=type_hints["verified_access_trust_provider_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "verified_access_trust_provider_id": verified_access_trust_provider_id,
@@ -11673,7 +11677,7 @@ class VolumeAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d705bbd7e7c8da982741cbdc4293faebde0fbc97f74c5042697e55eebd73f25d)
+            type_hints = cached_type_hints(_typecheckingstub__d705bbd7e7c8da982741cbdc4293faebde0fbc97f74c5042697e55eebd73f25d)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11731,7 +11735,7 @@ class VolumeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db0830b42)
+            type_hints = cached_type_hints(_typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db0830b42)
             check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "volume_id": volume_id,

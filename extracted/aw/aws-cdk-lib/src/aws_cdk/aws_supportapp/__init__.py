@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_supportapp import (
-    AccountAliasReference as _AccountAliasReference_0ae4a14e,
-    IAccountAliasRef as _IAccountAliasRef_9eb989a0,
-    ISlackChannelConfigurationRef as _ISlackChannelConfigurationRef_47e00b52,
-    ISlackWorkspaceConfigurationRef as _ISlackWorkspaceConfigurationRef_fb5618d1,
-    SlackChannelConfigurationReference as _SlackChannelConfigurationReference_c172d31a,
-    SlackWorkspaceConfigurationReference as _SlackWorkspaceConfigurationReference_b2a7ecf6,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_supportapp as _aws_supportapp_7a2bf6a0
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_supportapp_7a2bf6a0 = _LazyImport("aws_cdk.interfaces.aws_supportapp")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccountAliasRef_9eb989a0)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_supportapp_7a2bf6a0.IAccountAliasRef)
 class CfnAccountAlias(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_supportapp.CfnAccountAlias",
 ):
@@ -116,7 +110,7 @@ class CfnAccountAlias(
         :param account_alias: An alias or short name for an AWS account .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc663f014a8631377fa42be2ddca3e4697c00856f997592dde64d9a2f62fff8)
+            type_hints = cached_type_hints(_typecheckingstub__adc663f014a8631377fa42be2ddca3e4697c00856f997592dde64d9a2f62fff8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccountAliasProps(account_alias=account_alias)
@@ -131,18 +125,18 @@ class CfnAccountAlias(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2627c852433b7be2f24451508a5f8b5039463770bf2186254854bbb43207e11a)
+            type_hints = cached_type_hints(_typecheckingstub__2627c852433b7be2f24451508a5f8b5039463770bf2186254854bbb43207e11a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccountAlias", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3dd85fea57bcb6e9e53f9b8689a087277bd089365db5931813d3993e7bada0a)
+            type_hints = cached_type_hints(_typecheckingstub__c3dd85fea57bcb6e9e53f9b8689a087277bd089365db5931813d3993e7bada0a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -155,7 +149,7 @@ class CfnAccountAlias(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b34a975b7c3c8e237070c408182a45665ce2b5bb2f7a80177873f4b757f08eea)
+            type_hints = cached_type_hints(_typecheckingstub__b34a975b7c3c8e237070c408182a45665ce2b5bb2f7a80177873f4b757f08eea)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -167,9 +161,9 @@ class CfnAccountAlias(
 
     @builtins.property
     @jsii.member(jsii_name="accountAliasRef")
-    def account_alias_ref(self) -> "_AccountAliasReference_0ae4a14e":
+    def account_alias_ref(self) -> "_aws_supportapp_7a2bf6a0.AccountAliasReference":
         '''A reference to a AccountAlias resource.'''
-        return typing.cast("_AccountAliasReference_0ae4a14e", jsii.get(self, "accountAliasRef"))
+        return typing.cast("_aws_supportapp_7a2bf6a0.AccountAliasReference", jsii.get(self, "accountAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountAliasResourceId")
@@ -201,7 +195,7 @@ class CfnAccountAlias(
     @account_alias.setter
     def account_alias(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fde9ac7f5be17538e97741bfe840be954079267e66852796867becf705e946c7)
+            type_hints = cached_type_hints(_typecheckingstub__fde9ac7f5be17538e97741bfe840be954079267e66852796867becf705e946c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountAlias", value) # pyright: ignore[reportArgumentType]
 
@@ -231,7 +225,7 @@ class CfnAccountAliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bd7f9fb021f2681b1ee1ddee9d4508a19d0b9c944c0121f242a80ec2227de5e)
+            type_hints = cached_type_hints(_typecheckingstub__2bd7f9fb021f2681b1ee1ddee9d4508a19d0b9c944c0121f242a80ec2227de5e)
             check_type(argname="argument account_alias", value=account_alias, expected_type=type_hints["account_alias"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_alias": account_alias,
@@ -259,9 +253,9 @@ class CfnAccountAliasProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISlackChannelConfigurationRef_47e00b52)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_supportapp_7a2bf6a0.ISlackChannelConfigurationRef)
 class CfnSlackChannelConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_supportapp.CfnSlackChannelConfiguration",
 ):
@@ -310,13 +304,13 @@ class CfnSlackChannelConfiguration(
         id: builtins.str,
         *,
         channel_id: builtins.str,
-        channel_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        channel_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         notify_on_case_severity: builtins.str,
         team_id: builtins.str,
         channel_name: typing.Optional[builtins.str] = None,
-        notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::SupportApp::SlackChannelConfiguration``.
 
@@ -332,7 +326,7 @@ class CfnSlackChannelConfiguration(
         :param notify_on_resolve_case: Whether to get notified when your support cases are resolved.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e35f22740d18bea5877d00346f0c0dfc0f8a99695f5876d0bb73d3f74836be30)
+            type_hints = cached_type_hints(_typecheckingstub__e35f22740d18bea5877d00346f0c0dfc0f8a99695f5876d0bb73d3f74836be30)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSlackChannelConfigurationProps(
@@ -356,18 +350,18 @@ class CfnSlackChannelConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7da40d46598615866f47d3400d328caa7cca3ed0bbd9cc29e10c08ac68f2c23)
+            type_hints = cached_type_hints(_typecheckingstub__a7da40d46598615866f47d3400d328caa7cca3ed0bbd9cc29e10c08ac68f2c23)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSlackChannelConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0fcceb2218bf8cf1c54787e7d3ee2882c22cde356972b41b0b399cc8b4363c6)
+            type_hints = cached_type_hints(_typecheckingstub__b0fcceb2218bf8cf1c54787e7d3ee2882c22cde356972b41b0b399cc8b4363c6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -380,7 +374,7 @@ class CfnSlackChannelConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__292f2c17279ab74c21868d9008d2fa26a484eae189ddaec0d6e021f6ef5e2462)
+            type_hints = cached_type_hints(_typecheckingstub__292f2c17279ab74c21868d9008d2fa26a484eae189ddaec0d6e021f6ef5e2462)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -404,9 +398,9 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="slackChannelConfigurationRef")
     def slack_channel_configuration_ref(
         self,
-    ) -> "_SlackChannelConfigurationReference_c172d31a":
+    ) -> "_aws_supportapp_7a2bf6a0.SlackChannelConfigurationReference":
         '''A reference to a SlackChannelConfiguration resource.'''
-        return typing.cast("_SlackChannelConfigurationReference_c172d31a", jsii.get(self, "slackChannelConfigurationRef"))
+        return typing.cast("_aws_supportapp_7a2bf6a0.SlackChannelConfigurationReference", jsii.get(self, "slackChannelConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelId")
@@ -417,7 +411,7 @@ class CfnSlackChannelConfiguration(
     @channel_id.setter
     def channel_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffe28b2d0eb8b11fbc4a2c27fcd61a83f5a100fe03c0ab639b4c6e4b3e33ad97)
+            type_hints = cached_type_hints(_typecheckingstub__ffe28b2d0eb8b11fbc4a2c27fcd61a83f5a100fe03c0ab639b4c6e4b3e33ad97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelId", value) # pyright: ignore[reportArgumentType]
 
@@ -430,7 +424,7 @@ class CfnSlackChannelConfiguration(
     @channel_role_arn.setter
     def channel_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f715a6c77d680fa338c311c1d85f10785a34855a6418e2e273d0601b721ae55a)
+            type_hints = cached_type_hints(_typecheckingstub__f715a6c77d680fa338c311c1d85f10785a34855a6418e2e273d0601b721ae55a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -443,7 +437,7 @@ class CfnSlackChannelConfiguration(
     @notify_on_case_severity.setter
     def notify_on_case_severity(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43889d99461b4eb354d3cda7eac0e70aa64aa695099d6d58aea1b4450edcce73)
+            type_hints = cached_type_hints(_typecheckingstub__43889d99461b4eb354d3cda7eac0e70aa64aa695099d6d58aea1b4450edcce73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifyOnCaseSeverity", value) # pyright: ignore[reportArgumentType]
 
@@ -456,7 +450,7 @@ class CfnSlackChannelConfiguration(
     @team_id.setter
     def team_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0c8b06d535fec4288c5729f7abbd4b628bc6d95a8d237291be707222bb4dfa5)
+            type_hints = cached_type_hints(_typecheckingstub__b0c8b06d535fec4288c5729f7abbd4b628bc6d95a8d237291be707222bb4dfa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
 
@@ -469,7 +463,7 @@ class CfnSlackChannelConfiguration(
     @channel_name.setter
     def channel_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ee993d7f3cacc21f7ddb4348e334d9d7988e68e53fe09ce2a5c9584d0eece64)
+            type_hints = cached_type_hints(_typecheckingstub__3ee993d7f3cacc21f7ddb4348e334d9d7988e68e53fe09ce2a5c9584d0eece64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -477,17 +471,17 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="notifyOnAddCorrespondenceToCase")
     def notify_on_add_correspondence_to_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when a correspondence is added to your support cases.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "notifyOnAddCorrespondenceToCase"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "notifyOnAddCorrespondenceToCase"))
 
     @notify_on_add_correspondence_to_case.setter
     def notify_on_add_correspondence_to_case(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8cd4cea2b5fb7897f3ab091e75cdd4a5ca0265e070b473a358a38c910b33c90)
+            type_hints = cached_type_hints(_typecheckingstub__b8cd4cea2b5fb7897f3ab091e75cdd4a5ca0265e070b473a358a38c910b33c90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifyOnAddCorrespondenceToCase", value) # pyright: ignore[reportArgumentType]
 
@@ -495,17 +489,17 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="notifyOnCreateOrReopenCase")
     def notify_on_create_or_reopen_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when your support cases are created or reopened.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "notifyOnCreateOrReopenCase"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "notifyOnCreateOrReopenCase"))
 
     @notify_on_create_or_reopen_case.setter
     def notify_on_create_or_reopen_case(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__921399ffc2d54516aa2373e50e1a3e13600afdf675d89510f94d97c081fd7154)
+            type_hints = cached_type_hints(_typecheckingstub__921399ffc2d54516aa2373e50e1a3e13600afdf675d89510f94d97c081fd7154)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifyOnCreateOrReopenCase", value) # pyright: ignore[reportArgumentType]
 
@@ -513,17 +507,17 @@ class CfnSlackChannelConfiguration(
     @jsii.member(jsii_name="notifyOnResolveCase")
     def notify_on_resolve_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when your support cases are resolved.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "notifyOnResolveCase"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "notifyOnResolveCase"))
 
     @notify_on_resolve_case.setter
     def notify_on_resolve_case(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdf168cfdf59423abb532004d6218672a01d6693597b0f69fecd68f3be197540)
+            type_hints = cached_type_hints(_typecheckingstub__bdf168cfdf59423abb532004d6218672a01d6693597b0f69fecd68f3be197540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notifyOnResolveCase", value) # pyright: ignore[reportArgumentType]
 
@@ -547,13 +541,13 @@ class CfnSlackChannelConfigurationProps:
         self,
         *,
         channel_id: builtins.str,
-        channel_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        channel_role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         notify_on_case_severity: builtins.str,
         team_id: builtins.str,
         channel_name: typing.Optional[builtins.str] = None,
-        notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSlackChannelConfiguration``.
 
@@ -589,7 +583,7 @@ class CfnSlackChannelConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1843e7081e108ba747a740558f507bae85fe1c8cfcc3feaeba051b183cee274)
+            type_hints = cached_type_hints(_typecheckingstub__f1843e7081e108ba747a740558f507bae85fe1c8cfcc3feaeba051b183cee274)
             check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
             check_type(argname="argument channel_role_arn", value=channel_role_arn, expected_type=type_hints["channel_role_arn"])
             check_type(argname="argument notify_on_case_severity", value=notify_on_case_severity, expected_type=type_hints["notify_on_case_severity"])
@@ -626,7 +620,9 @@ class CfnSlackChannelConfigurationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def channel_role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def channel_role_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The Amazon Resource Name (ARN) of the IAM role for this Slack channel configuration.
 
         The  App uses this role to perform  and Service Quotas actions on your behalf.
@@ -635,7 +631,7 @@ class CfnSlackChannelConfigurationProps:
         '''
         result = self._values.get("channel_role_arn")
         assert result is not None, "Required property 'channel_role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def notify_on_case_severity(self) -> builtins.str:
@@ -675,35 +671,35 @@ class CfnSlackChannelConfigurationProps:
     @builtins.property
     def notify_on_add_correspondence_to_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when a correspondence is added to your support cases.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-supportapp-slackchannelconfiguration.html#cfn-supportapp-slackchannelconfiguration-notifyonaddcorrespondencetocase
         '''
         result = self._values.get("notify_on_add_correspondence_to_case")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def notify_on_create_or_reopen_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when your support cases are created or reopened.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-supportapp-slackchannelconfiguration.html#cfn-supportapp-slackchannelconfiguration-notifyoncreateorreopencase
         '''
         result = self._values.get("notify_on_create_or_reopen_case")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def notify_on_resolve_case(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to get notified when your support cases are resolved.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-supportapp-slackchannelconfiguration.html#cfn-supportapp-slackchannelconfiguration-notifyonresolvecase
         '''
         result = self._values.get("notify_on_resolve_case")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -717,9 +713,9 @@ class CfnSlackChannelConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISlackWorkspaceConfigurationRef_fb5618d1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_supportapp_7a2bf6a0.ISlackWorkspaceConfigurationRef)
 class CfnSlackWorkspaceConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_supportapp.CfnSlackWorkspaceConfiguration",
 ):
@@ -769,7 +765,7 @@ class CfnSlackWorkspaceConfiguration(
         :param version_id: An identifier used to update an existing Slack workspace configuration in AWS CloudFormation , such as ``100`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d0583297d2e6c375e6cdb181da90b314f05ff30ac14e4871aee08c02c6e3ba9)
+            type_hints = cached_type_hints(_typecheckingstub__4d0583297d2e6c375e6cdb181da90b314f05ff30ac14e4871aee08c02c6e3ba9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSlackWorkspaceConfigurationProps(
@@ -786,18 +782,18 @@ class CfnSlackWorkspaceConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8ac65701df3ec4c31b90d9cb38ed71d90dffa2de0818fd12877ce1b080f669b)
+            type_hints = cached_type_hints(_typecheckingstub__d8ac65701df3ec4c31b90d9cb38ed71d90dffa2de0818fd12877ce1b080f669b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSlackWorkspaceConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3918e45acd71c83f26b84dca0a2a8bed71a05ca2b72eb939649bb36c55f6b17b)
+            type_hints = cached_type_hints(_typecheckingstub__3918e45acd71c83f26b84dca0a2a8bed71a05ca2b72eb939649bb36c55f6b17b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -810,7 +806,7 @@ class CfnSlackWorkspaceConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5877cbec75443b7954d3eaadf8db63d435ba5f2aee8512840a994c27f8609ad5)
+            type_hints = cached_type_hints(_typecheckingstub__5877cbec75443b7954d3eaadf8db63d435ba5f2aee8512840a994c27f8609ad5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -834,9 +830,9 @@ class CfnSlackWorkspaceConfiguration(
     @jsii.member(jsii_name="slackWorkspaceConfigurationRef")
     def slack_workspace_configuration_ref(
         self,
-    ) -> "_SlackWorkspaceConfigurationReference_b2a7ecf6":
+    ) -> "_aws_supportapp_7a2bf6a0.SlackWorkspaceConfigurationReference":
         '''A reference to a SlackWorkspaceConfiguration resource.'''
-        return typing.cast("_SlackWorkspaceConfigurationReference_b2a7ecf6", jsii.get(self, "slackWorkspaceConfigurationRef"))
+        return typing.cast("_aws_supportapp_7a2bf6a0.SlackWorkspaceConfigurationReference", jsii.get(self, "slackWorkspaceConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="teamId")
@@ -847,7 +843,7 @@ class CfnSlackWorkspaceConfiguration(
     @team_id.setter
     def team_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a96287eac0dcd1b969ed2409312a0160a9263ba631a67ad99c2e8535a2d29da0)
+            type_hints = cached_type_hints(_typecheckingstub__a96287eac0dcd1b969ed2409312a0160a9263ba631a67ad99c2e8535a2d29da0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
 
@@ -860,7 +856,7 @@ class CfnSlackWorkspaceConfiguration(
     @version_id.setter
     def version_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f10519eb1d45ed1305e842ac3665885bde5d1c65940455981356edc1d9e295e)
+            type_hints = cached_type_hints(_typecheckingstub__1f10519eb1d45ed1305e842ac3665885bde5d1c65940455981356edc1d9e295e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
 
@@ -899,7 +895,7 @@ class CfnSlackWorkspaceConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b53646f592b68acb6be1739217822ffee1d340b2812e0c7ac946b5c0f163437)
+            type_hints = cached_type_hints(_typecheckingstub__1b53646f592b68acb6be1739217822ffee1d340b2812e0c7ac946b5c0f163437)
             check_type(argname="argument team_id", value=team_id, expected_type=type_hints["team_id"])
             check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -968,7 +964,7 @@ def _typecheckingstub__2627c852433b7be2f24451508a5f8b5039463770bf2186254854bbb43
     pass
 
 def _typecheckingstub__c3dd85fea57bcb6e9e53f9b8689a087277bd089365db5931813d3993e7bada0a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -997,13 +993,13 @@ def _typecheckingstub__e35f22740d18bea5877d00346f0c0dfc0f8a99695f5876d0bb73d3f74
     id: builtins.str,
     *,
     channel_id: builtins.str,
-    channel_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    channel_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     notify_on_case_severity: builtins.str,
     team_id: builtins.str,
     channel_name: typing.Optional[builtins.str] = None,
-    notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1015,7 +1011,7 @@ def _typecheckingstub__a7da40d46598615866f47d3400d328caa7cca3ed0bbd9cc29e10c08ac
     pass
 
 def _typecheckingstub__b0fcceb2218bf8cf1c54787e7d3ee2882c22cde356972b41b0b399cc8b4363c6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1057,19 +1053,19 @@ def _typecheckingstub__3ee993d7f3cacc21f7ddb4348e334d9d7988e68e53fe09ce2a5c9584d
     pass
 
 def _typecheckingstub__b8cd4cea2b5fb7897f3ab091e75cdd4a5ca0265e070b473a358a38c910b33c90(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__921399ffc2d54516aa2373e50e1a3e13600afdf675d89510f94d97c081fd7154(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bdf168cfdf59423abb532004d6218672a01d6693597b0f69fecd68f3be197540(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1077,13 +1073,13 @@ def _typecheckingstub__bdf168cfdf59423abb532004d6218672a01d6693597b0f69fecd68f3b
 def _typecheckingstub__f1843e7081e108ba747a740558f507bae85fe1c8cfcc3feaeba051b183cee274(
     *,
     channel_id: builtins.str,
-    channel_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    channel_role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     notify_on_case_severity: builtins.str,
     team_id: builtins.str,
     channel_name: typing.Optional[builtins.str] = None,
-    notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    notify_on_add_correspondence_to_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notify_on_create_or_reopen_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notify_on_resolve_case: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1105,7 +1101,7 @@ def _typecheckingstub__d8ac65701df3ec4c31b90d9cb38ed71d90dffa2de0818fd12877ce1b0
     pass
 
 def _typecheckingstub__3918e45acd71c83f26b84dca0a2a8bed71a05ca2b72eb939649bb36c55f6b17b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

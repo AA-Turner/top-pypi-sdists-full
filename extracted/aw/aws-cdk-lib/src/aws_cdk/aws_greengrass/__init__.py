@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,73 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_greengrass import (
-    ConnectorDefinitionReference as _ConnectorDefinitionReference_972bd9f9,
-    ConnectorDefinitionVersionReference as _ConnectorDefinitionVersionReference_f2013ce7,
-    CoreDefinitionReference as _CoreDefinitionReference_738d37b1,
-    CoreDefinitionVersionReference as _CoreDefinitionVersionReference_7207f70e,
-    DeviceDefinitionReference as _DeviceDefinitionReference_dc019c8a,
-    DeviceDefinitionVersionReference as _DeviceDefinitionVersionReference_6f18a846,
-    FunctionDefinitionReference as _FunctionDefinitionReference_1088ab15,
-    FunctionDefinitionVersionReference as _FunctionDefinitionVersionReference_70e6e367,
-    GroupReference as _GroupReference_945f41ac,
-    GroupVersionReference as _GroupVersionReference_ec8143a5,
-    IConnectorDefinitionRef as _IConnectorDefinitionRef_07e220d3,
-    IConnectorDefinitionVersionRef as _IConnectorDefinitionVersionRef_3b315b46,
-    ICoreDefinitionRef as _ICoreDefinitionRef_4183d6fb,
-    ICoreDefinitionVersionRef as _ICoreDefinitionVersionRef_6eadc5e0,
-    IDeviceDefinitionRef as _IDeviceDefinitionRef_24aad2cb,
-    IDeviceDefinitionVersionRef as _IDeviceDefinitionVersionRef_6b314797,
-    IFunctionDefinitionRef as _IFunctionDefinitionRef_06f82201,
-    IFunctionDefinitionVersionRef as _IFunctionDefinitionVersionRef_9747348a,
-    IGroupRef as _IGroupRef_b9515ae3,
-    IGroupVersionRef as _IGroupVersionRef_85b4bfe9,
-    ILoggerDefinitionRef as _ILoggerDefinitionRef_c2baf8f3,
-    ILoggerDefinitionVersionRef as _ILoggerDefinitionVersionRef_6b5b4edd,
-    IResourceDefinitionRef as _IResourceDefinitionRef_17d6c7ff,
-    IResourceDefinitionVersionRef as _IResourceDefinitionVersionRef_18fa3afc,
-    ISubscriptionDefinitionRef as _ISubscriptionDefinitionRef_e341c654,
-    ISubscriptionDefinitionVersionRef as _ISubscriptionDefinitionVersionRef_d9259780,
-    LoggerDefinitionReference as _LoggerDefinitionReference_6ca7a459,
-    LoggerDefinitionVersionReference as _LoggerDefinitionVersionReference_8df439cc,
-    ResourceDefinitionReference as _ResourceDefinitionReference_3c5e0e00,
-    ResourceDefinitionVersionReference as _ResourceDefinitionVersionReference_1a87c34e,
-    SubscriptionDefinitionReference as _SubscriptionDefinitionReference_7d3dba0c,
-    SubscriptionDefinitionVersionReference as _SubscriptionDefinitionVersionReference_05af159d,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_greengrass as _aws_greengrass_b1e66511
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_greengrass_b1e66511 = _LazyImport("aws_cdk.interfaces.aws_greengrass")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectorDefinitionRef_07e220d3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IConnectorDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnConnectorDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinition",
 ):
@@ -155,7 +120,7 @@ class CfnConnectorDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorDefinition.ConnectorDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorDefinition.ConnectorDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::ConnectorDefinition``.
@@ -167,7 +132,7 @@ class CfnConnectorDefinition(
         :param tags: Application-specific metadata to attach to the connector definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__481b9a854466614791f45d6769989966b8f812de4d4fa3e31d53b297fc3cf25a)
+            type_hints = cached_type_hints(_typecheckingstub__481b9a854466614791f45d6769989966b8f812de4d4fa3e31d53b297fc3cf25a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectorDefinitionProps(
@@ -180,13 +145,13 @@ class CfnConnectorDefinition(
     @builtins.classmethod
     def arn_for_connector_definition(
         cls,
-        resource: "_IConnectorDefinitionRef_07e220d3",
+        resource: "_aws_greengrass_b1e66511.IConnectorDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1af4c5f0ceee0db3c3082312ce711f82430bf48c23b6ce511aab97cdca8e3ce7)
+            type_hints = cached_type_hints(_typecheckingstub__1af4c5f0ceee0db3c3082312ce711f82430bf48c23b6ce511aab97cdca8e3ce7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectorDefinition", [resource]))
 
@@ -197,7 +162,7 @@ class CfnConnectorDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IConnectorDefinitionRef_07e220d3":
+    ) -> "_aws_greengrass_b1e66511.IConnectorDefinitionRef":
         '''Creates a new IConnectorDefinitionRef from an ARN.
 
         :param scope: -
@@ -205,11 +170,11 @@ class CfnConnectorDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5144a9ccbd1b06b980de83b1308fd52256fecb77c19a555a2d9a9ffc1935f0dd)
+            type_hints = cached_type_hints(_typecheckingstub__5144a9ccbd1b06b980de83b1308fd52256fecb77c19a555a2d9a9ffc1935f0dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IConnectorDefinitionRef_07e220d3", jsii.sinvoke(cls, "fromConnectorDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.IConnectorDefinitionRef", jsii.sinvoke(cls, "fromConnectorDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromConnectorDefinitionId")
     @builtins.classmethod
@@ -218,7 +183,7 @@ class CfnConnectorDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         connector_definition_id: builtins.str,
-    ) -> "_IConnectorDefinitionRef_07e220d3":
+    ) -> "_aws_greengrass_b1e66511.IConnectorDefinitionRef":
         '''Creates a new IConnectorDefinitionRef from a connectorDefinitionId.
 
         :param scope: -
@@ -226,11 +191,11 @@ class CfnConnectorDefinition(
         :param connector_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4ddf88206a65b85900faf3e2133de65c3161cb123b63f77ef1da1dfb654433b)
+            type_hints = cached_type_hints(_typecheckingstub__c4ddf88206a65b85900faf3e2133de65c3161cb123b63f77ef1da1dfb654433b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
-        return typing.cast("_IConnectorDefinitionRef_07e220d3", jsii.sinvoke(cls, "fromConnectorDefinitionId", [scope, id, connector_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.IConnectorDefinitionRef", jsii.sinvoke(cls, "fromConnectorDefinitionId", [scope, id, connector_definition_id]))
 
     @jsii.member(jsii_name="isCfnConnectorDefinition")
     @builtins.classmethod
@@ -240,18 +205,18 @@ class CfnConnectorDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6617dd0a708eddbc4138ac37d0b1f82299580ecd61dde3f2fafb437fbf612c17)
+            type_hints = cached_type_hints(_typecheckingstub__6617dd0a708eddbc4138ac37d0b1f82299580ecd61dde3f2fafb437fbf612c17)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnectorDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24c07fb6ad50afe14bef1d7010d53ca0ed36ba7ee67a12442f8fefe27c993eb3)
+            type_hints = cached_type_hints(_typecheckingstub__24c07fb6ad50afe14bef1d7010d53ca0ed36ba7ee67a12442f8fefe27c993eb3)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -264,7 +229,7 @@ class CfnConnectorDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__274c71989e410af72c071839e2a648c2c533621f117a8c0e486c9527e7470195)
+            type_hints = cached_type_hints(_typecheckingstub__274c71989e410af72c071839e2a648c2c533621f117a8c0e486c9527e7470195)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -322,15 +287,17 @@ class CfnConnectorDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="connectorDefinitionRef")
-    def connector_definition_ref(self) -> "_ConnectorDefinitionReference_972bd9f9":
+    def connector_definition_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.ConnectorDefinitionReference":
         '''A reference to a ConnectorDefinition resource.'''
-        return typing.cast("_ConnectorDefinitionReference_972bd9f9", jsii.get(self, "connectorDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.ConnectorDefinitionReference", jsii.get(self, "connectorDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -341,7 +308,7 @@ class CfnConnectorDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab45f89ff0cfe141f0220b75cd71c3d899658dfb0c0d902360ceac2645761b8c)
+            type_hints = cached_type_hints(_typecheckingstub__ab45f89ff0cfe141f0220b75cd71c3d899658dfb0c0d902360ceac2645761b8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -354,7 +321,7 @@ class CfnConnectorDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b)
+            type_hints = cached_type_hints(_typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -362,17 +329,17 @@ class CfnConnectorDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]]:
         '''The connector definition version to include when the connector definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e)
+            type_hints = cached_type_hints(_typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -385,7 +352,7 @@ class CfnConnectorDefinition(
         def __init__(
             self,
             *,
-            connectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorDefinition.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            connectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorDefinition.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A connector definition version contains a list of connectors.
 
@@ -419,7 +386,7 @@ class CfnConnectorDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e0ebd178e9a062570c1b341d7167254254483a31aa5611c9784ea999dbf17f21)
+                type_hints = cached_type_hints(_typecheckingstub__e0ebd178e9a062570c1b341d7167254254483a31aa5611c9784ea999dbf17f21)
                 check_type(argname="argument connectors", value=connectors, expected_type=type_hints["connectors"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "connectors": connectors,
@@ -428,7 +395,7 @@ class CfnConnectorDefinition(
         @builtins.property
         def connectors(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorProperty"]]]:
             '''The connectors in this version.
 
             Only one instance of a given connector can be added to a connector definition version at a time.
@@ -437,7 +404,7 @@ class CfnConnectorDefinition(
             '''
             result = self._values.get("connectors")
             assert result is not None, "Required property 'connectors' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -497,7 +464,7 @@ class CfnConnectorDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9296d577ecfbbed3bc2c2debdad72ad7c40138384002b64be6231a4a65308aec)
+                type_hints = cached_type_hints(_typecheckingstub__9296d577ecfbbed3bc2c2debdad72ad7c40138384002b64be6231a4a65308aec)
                 check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -565,7 +532,7 @@ class CfnConnectorDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorDefinition.ConnectorDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorDefinition.ConnectorDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnConnectorDefinition``.
@@ -603,7 +570,7 @@ class CfnConnectorDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c)
+            type_hints = cached_type_hints(_typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -628,7 +595,7 @@ class CfnConnectorDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]]:
         '''The connector definition version to include when the connector definition is created.
 
         A connector definition version contains a list of ```connector`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-connectordefinition-connector.html>`_ property types.
@@ -639,7 +606,7 @@ class CfnConnectorDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -669,9 +636,9 @@ class CfnConnectorDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectorDefinitionVersionRef_3b315b46)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IConnectorDefinitionVersionRef)
 class CfnConnectorDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionVersion",
 ):
@@ -714,7 +681,7 @@ class CfnConnectorDefinitionVersion(
         id: builtins.str,
         *,
         connector_definition_id: builtins.str,
-        connectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorDefinitionVersion.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorDefinitionVersion.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::ConnectorDefinitionVersion``.
 
@@ -724,7 +691,7 @@ class CfnConnectorDefinitionVersion(
         :param connectors: The connectors in this version. Only one instance of a given connector can be added to the connector definition version at a time.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97b0440a60203f7d65611b69dca729e027a591c6aa92f00dc0aebb40960143af)
+            type_hints = cached_type_hints(_typecheckingstub__97b0440a60203f7d65611b69dca729e027a591c6aa92f00dc0aebb40960143af)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectorDefinitionVersionProps(
@@ -741,18 +708,18 @@ class CfnConnectorDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d77f1bd1e6c3dfac7dd60f65a0aed4b2a1eb6f3c6e78474744a89c02bfd14cd2)
+            type_hints = cached_type_hints(_typecheckingstub__d77f1bd1e6c3dfac7dd60f65a0aed4b2a1eb6f3c6e78474744a89c02bfd14cd2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnectorDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28930916b9351f935867712c00b802adf7b173a69fafdb3c311d8cd529a223ce)
+            type_hints = cached_type_hints(_typecheckingstub__28930916b9351f935867712c00b802adf7b173a69fafdb3c311d8cd529a223ce)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -765,7 +732,7 @@ class CfnConnectorDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bda14e12f8fd37f15240b23bb63562be66f84404eec1690445f8ff0f960d0321)
+            type_hints = cached_type_hints(_typecheckingstub__bda14e12f8fd37f15240b23bb63562be66f84404eec1690445f8ff0f960d0321)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -797,9 +764,9 @@ class CfnConnectorDefinitionVersion(
     @jsii.member(jsii_name="connectorDefinitionVersionRef")
     def connector_definition_version_ref(
         self,
-    ) -> "_ConnectorDefinitionVersionReference_f2013ce7":
+    ) -> "_aws_greengrass_b1e66511.ConnectorDefinitionVersionReference":
         '''A reference to a ConnectorDefinitionVersion resource.'''
-        return typing.cast("_ConnectorDefinitionVersionReference_f2013ce7", jsii.get(self, "connectorDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.ConnectorDefinitionVersionReference", jsii.get(self, "connectorDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectorDefinitionId")
@@ -810,7 +777,7 @@ class CfnConnectorDefinitionVersion(
     @connector_definition_id.setter
     def connector_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46572beae401fe5e838cb0b02ec437b067f98ac0ae5835d7ef8ce870c4ac7d90)
+            type_hints = cached_type_hints(_typecheckingstub__46572beae401fe5e838cb0b02ec437b067f98ac0ae5835d7ef8ce870c4ac7d90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -818,17 +785,17 @@ class CfnConnectorDefinitionVersion(
     @jsii.member(jsii_name="connectors")
     def connectors(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinitionVersion.ConnectorProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinitionVersion.ConnectorProperty"]]]:
         '''The connectors in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinitionVersion.ConnectorProperty"]]], jsii.get(self, "connectors"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinitionVersion.ConnectorProperty"]]], jsii.get(self, "connectors"))
 
     @connectors.setter
     def connectors(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinitionVersion.ConnectorProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinitionVersion.ConnectorProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ed3abea511a407254df28d178fbfb71f43dee9315c0aeca3095f062663236ce)
+            type_hints = cached_type_hints(_typecheckingstub__5ed3abea511a407254df28d178fbfb71f43dee9315c0aeca3095f062663236ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectors", value) # pyright: ignore[reportArgumentType]
 
@@ -879,7 +846,7 @@ class CfnConnectorDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d59c31c39abe32b4f18b9663d07cf39015d1cce8e87ebaa475937de0f283249d)
+                type_hints = cached_type_hints(_typecheckingstub__d59c31c39abe32b4f18b9663d07cf39015d1cce8e87ebaa475937de0f283249d)
                 check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -950,7 +917,7 @@ class CfnConnectorDefinitionVersionProps:
         self,
         *,
         connector_definition_id: builtins.str,
-        connectors: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorDefinitionVersion.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        connectors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorDefinitionVersion.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnConnectorDefinitionVersion``.
 
@@ -980,7 +947,7 @@ class CfnConnectorDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3)
+            type_hints = cached_type_hints(_typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3)
             check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
             check_type(argname="argument connectors", value=connectors, expected_type=type_hints["connectors"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1003,7 +970,7 @@ class CfnConnectorDefinitionVersionProps:
     @builtins.property
     def connectors(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinitionVersion.ConnectorProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinitionVersion.ConnectorProperty"]]]:
         '''The connectors in this version.
 
         Only one instance of a given connector can be added to the connector definition version at a time.
@@ -1012,7 +979,7 @@ class CfnConnectorDefinitionVersionProps:
         '''
         result = self._values.get("connectors")
         assert result is not None, "Required property 'connectors' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnectorDefinitionVersion.ConnectorProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorDefinitionVersion.ConnectorProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1026,9 +993,9 @@ class CfnConnectorDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICoreDefinitionRef_4183d6fb, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ICoreDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCoreDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinition",
 ):
@@ -1079,7 +1046,7 @@ class CfnCoreDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCoreDefinition.CoreDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCoreDefinition.CoreDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::CoreDefinition``.
@@ -1091,7 +1058,7 @@ class CfnCoreDefinition(
         :param tags: Application-specific metadata to attach to the core definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7fe5635b210e6632e07b82d21d8907b6d36d805b6d4fb2198f0433417d780a1)
+            type_hints = cached_type_hints(_typecheckingstub__b7fe5635b210e6632e07b82d21d8907b6d36d805b6d4fb2198f0433417d780a1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCoreDefinitionProps(
@@ -1104,13 +1071,13 @@ class CfnCoreDefinition(
     @builtins.classmethod
     def arn_for_core_definition(
         cls,
-        resource: "_ICoreDefinitionRef_4183d6fb",
+        resource: "_aws_greengrass_b1e66511.ICoreDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08874596bb0d90e685ff8a21b0dfc42e7f3e6c854ec1fdae12268d1c07a727c4)
+            type_hints = cached_type_hints(_typecheckingstub__08874596bb0d90e685ff8a21b0dfc42e7f3e6c854ec1fdae12268d1c07a727c4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCoreDefinition", [resource]))
 
@@ -1121,7 +1088,7 @@ class CfnCoreDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ICoreDefinitionRef_4183d6fb":
+    ) -> "_aws_greengrass_b1e66511.ICoreDefinitionRef":
         '''Creates a new ICoreDefinitionRef from an ARN.
 
         :param scope: -
@@ -1129,11 +1096,11 @@ class CfnCoreDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0154aea1945c31b886d35e67cd87aaa236db1b728a1b43bcedfedd88afa17a3a)
+            type_hints = cached_type_hints(_typecheckingstub__0154aea1945c31b886d35e67cd87aaa236db1b728a1b43bcedfedd88afa17a3a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ICoreDefinitionRef_4183d6fb", jsii.sinvoke(cls, "fromCoreDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.ICoreDefinitionRef", jsii.sinvoke(cls, "fromCoreDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromCoreDefinitionId")
     @builtins.classmethod
@@ -1142,7 +1109,7 @@ class CfnCoreDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         core_definition_id: builtins.str,
-    ) -> "_ICoreDefinitionRef_4183d6fb":
+    ) -> "_aws_greengrass_b1e66511.ICoreDefinitionRef":
         '''Creates a new ICoreDefinitionRef from a coreDefinitionId.
 
         :param scope: -
@@ -1150,11 +1117,11 @@ class CfnCoreDefinition(
         :param core_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a17d37d54ccf73f4f70e35da510c6d6a4c3a27611c34136ea3950f852c16a952)
+            type_hints = cached_type_hints(_typecheckingstub__a17d37d54ccf73f4f70e35da510c6d6a4c3a27611c34136ea3950f852c16a952)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
-        return typing.cast("_ICoreDefinitionRef_4183d6fb", jsii.sinvoke(cls, "fromCoreDefinitionId", [scope, id, core_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.ICoreDefinitionRef", jsii.sinvoke(cls, "fromCoreDefinitionId", [scope, id, core_definition_id]))
 
     @jsii.member(jsii_name="isCfnCoreDefinition")
     @builtins.classmethod
@@ -1164,18 +1131,18 @@ class CfnCoreDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__323cda17b174fb697335f0c9bd2053f4718b401fd7f17c15178aedb5313e19b7)
+            type_hints = cached_type_hints(_typecheckingstub__323cda17b174fb697335f0c9bd2053f4718b401fd7f17c15178aedb5313e19b7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCoreDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64368dbb58b3df35d74d10a3113a88fb2dc06fc0237665e15968f378a8fbbd09)
+            type_hints = cached_type_hints(_typecheckingstub__64368dbb58b3df35d74d10a3113a88fb2dc06fc0237665e15968f378a8fbbd09)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1188,7 +1155,7 @@ class CfnCoreDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b38774760bbfa1d8286cc0bcbc098a0bc3dccc52ef7c7d0390f236a771e6087)
+            type_hints = cached_type_hints(_typecheckingstub__6b38774760bbfa1d8286cc0bcbc098a0bc3dccc52ef7c7d0390f236a771e6087)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1246,15 +1213,15 @@ class CfnCoreDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="coreDefinitionRef")
-    def core_definition_ref(self) -> "_CoreDefinitionReference_738d37b1":
+    def core_definition_ref(self) -> "_aws_greengrass_b1e66511.CoreDefinitionReference":
         '''A reference to a CoreDefinition resource.'''
-        return typing.cast("_CoreDefinitionReference_738d37b1", jsii.get(self, "coreDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.CoreDefinitionReference", jsii.get(self, "coreDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1265,7 +1232,7 @@ class CfnCoreDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac51622030b12c5c1ad466a72f36fc6ae109a83246daf2e9b37011f5db34b4b7)
+            type_hints = cached_type_hints(_typecheckingstub__ac51622030b12c5c1ad466a72f36fc6ae109a83246daf2e9b37011f5db34b4b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1278,7 +1245,7 @@ class CfnCoreDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8)
+            type_hints = cached_type_hints(_typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1286,17 +1253,17 @@ class CfnCoreDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreDefinitionVersionProperty"]]:
         '''The core definition version to include when the core definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7)
+            type_hints = cached_type_hints(_typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1309,7 +1276,7 @@ class CfnCoreDefinition(
         def __init__(
             self,
             *,
-            cores: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCoreDefinition.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            cores: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCoreDefinition.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A core definition version contains a Greengrass `core <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ .
 
@@ -1342,7 +1309,7 @@ class CfnCoreDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4ef4f67c3c3830d5b5644db7ec3e809f18d3cab655c6a7fd98232bccd93382e3)
+                type_hints = cached_type_hints(_typecheckingstub__4ef4f67c3c3830d5b5644db7ec3e809f18d3cab655c6a7fd98232bccd93382e3)
                 check_type(argname="argument cores", value=cores, expected_type=type_hints["cores"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cores": cores,
@@ -1351,7 +1318,7 @@ class CfnCoreDefinition(
         @builtins.property
         def cores(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreProperty"]]]:
             '''The Greengrass core in this version.
 
             Currently, the ``Cores`` property for a core definition version can contain only one core.
@@ -1360,7 +1327,7 @@ class CfnCoreDefinition(
             '''
             result = self._values.get("cores")
             assert result is not None, "Required property 'cores' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1390,7 +1357,7 @@ class CfnCoreDefinition(
             certificate_arn: builtins.str,
             id: builtins.str,
             thing_arn: builtins.str,
-            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A core is an AWS IoT device that runs the AWS IoT Greengrass core software and manages local processes for a Greengrass group.
 
@@ -1422,7 +1389,7 @@ class CfnCoreDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16d7e03cdaed925e2b5ec8c65e84a5b6cf10c5209e1d1de097ab201c492621ce)
+                type_hints = cached_type_hints(_typecheckingstub__16d7e03cdaed925e2b5ec8c65e84a5b6cf10c5209e1d1de097ab201c492621ce)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument thing_arn", value=thing_arn, expected_type=type_hints["thing_arn"])
@@ -1472,7 +1439,7 @@ class CfnCoreDefinition(
         @builtins.property
         def sync_shadow(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the core's local shadow is synced with the cloud automatically.
 
             The default is false.
@@ -1480,7 +1447,7 @@ class CfnCoreDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html#cfn-greengrass-coredefinition-core-syncshadow
             '''
             result = self._values.get("sync_shadow")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1504,7 +1471,7 @@ class CfnCoreDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCoreDefinition.CoreDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCoreDefinition.CoreDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnCoreDefinition``.
@@ -1542,7 +1509,7 @@ class CfnCoreDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c)
+            type_hints = cached_type_hints(_typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1567,7 +1534,7 @@ class CfnCoreDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreDefinitionVersionProperty"]]:
         '''The core definition version to include when the core definition is created.
 
         Currently, a core definition version can contain only one ```core`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ .
@@ -1578,7 +1545,7 @@ class CfnCoreDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinition.CoreDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinition.CoreDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -1608,9 +1575,9 @@ class CfnCoreDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICoreDefinitionVersionRef_6eadc5e0)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ICoreDefinitionVersionRef)
 class CfnCoreDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionVersion",
 ):
@@ -1652,7 +1619,7 @@ class CfnCoreDefinitionVersion(
         id: builtins.str,
         *,
         core_definition_id: builtins.str,
-        cores: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCoreDefinitionVersion.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        cores: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCoreDefinitionVersion.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::CoreDefinitionVersion``.
 
@@ -1662,7 +1629,7 @@ class CfnCoreDefinitionVersion(
         :param cores: The Greengrass core in this version. Currently, the ``Cores`` property for a core definition version can contain only one core.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98b8071f110db36c2b93c49d75516709035bb93997aae3c35adc25c4ab4d53c3)
+            type_hints = cached_type_hints(_typecheckingstub__98b8071f110db36c2b93c49d75516709035bb93997aae3c35adc25c4ab4d53c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCoreDefinitionVersionProps(
@@ -1679,18 +1646,18 @@ class CfnCoreDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56622d7c15144853be0815ea7c5cc2a0c3aa3bfb9c6fabc4e971837ce0dd5368)
+            type_hints = cached_type_hints(_typecheckingstub__56622d7c15144853be0815ea7c5cc2a0c3aa3bfb9c6fabc4e971837ce0dd5368)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCoreDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b4e0682ef4a26ccff2d2d377b87519933191b35ee2f3c927013cb65d537b304)
+            type_hints = cached_type_hints(_typecheckingstub__9b4e0682ef4a26ccff2d2d377b87519933191b35ee2f3c927013cb65d537b304)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1703,7 +1670,7 @@ class CfnCoreDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12d9b9142f952fb03ff2494686a42ca4db8c5b291082063611639ee867890701)
+            type_hints = cached_type_hints(_typecheckingstub__12d9b9142f952fb03ff2494686a42ca4db8c5b291082063611639ee867890701)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1733,9 +1700,11 @@ class CfnCoreDefinitionVersion(
 
     @builtins.property
     @jsii.member(jsii_name="coreDefinitionVersionRef")
-    def core_definition_version_ref(self) -> "_CoreDefinitionVersionReference_7207f70e":
+    def core_definition_version_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.CoreDefinitionVersionReference":
         '''A reference to a CoreDefinitionVersion resource.'''
-        return typing.cast("_CoreDefinitionVersionReference_7207f70e", jsii.get(self, "coreDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.CoreDefinitionVersionReference", jsii.get(self, "coreDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="coreDefinitionId")
@@ -1746,7 +1715,7 @@ class CfnCoreDefinitionVersion(
     @core_definition_id.setter
     def core_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce705d0cc1809364da37b409e24bfddfab55386d0858b4c4146d9a22a2a2f40a)
+            type_hints = cached_type_hints(_typecheckingstub__ce705d0cc1809364da37b409e24bfddfab55386d0858b4c4146d9a22a2a2f40a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "coreDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -1754,17 +1723,17 @@ class CfnCoreDefinitionVersion(
     @jsii.member(jsii_name="cores")
     def cores(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinitionVersion.CoreProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinitionVersion.CoreProperty"]]]:
         '''The Greengrass core in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinitionVersion.CoreProperty"]]], jsii.get(self, "cores"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinitionVersion.CoreProperty"]]], jsii.get(self, "cores"))
 
     @cores.setter
     def cores(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinitionVersion.CoreProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinitionVersion.CoreProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1bffbbd7f9c7ce8f8528729042b02d09f335ab5562e19bf5da873a4a6ae6b05)
+            type_hints = cached_type_hints(_typecheckingstub__a1bffbbd7f9c7ce8f8528729042b02d09f335ab5562e19bf5da873a4a6ae6b05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cores", value) # pyright: ignore[reportArgumentType]
 
@@ -1785,7 +1754,7 @@ class CfnCoreDefinitionVersion(
             certificate_arn: builtins.str,
             id: builtins.str,
             thing_arn: builtins.str,
-            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A core is an AWS IoT device that runs the AWS IoT Greengrass core software and manages local processes for a Greengrass group.
 
@@ -1817,7 +1786,7 @@ class CfnCoreDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07e3ed0ad844b4ecbd124f2fc0f6fcb8c8ca64bd7f1b2ebe17ecf825baa15ea8)
+                type_hints = cached_type_hints(_typecheckingstub__07e3ed0ad844b4ecbd124f2fc0f6fcb8c8ca64bd7f1b2ebe17ecf825baa15ea8)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument thing_arn", value=thing_arn, expected_type=type_hints["thing_arn"])
@@ -1867,7 +1836,7 @@ class CfnCoreDefinitionVersion(
         @builtins.property
         def sync_shadow(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the core's local shadow is synced with the cloud automatically.
 
             The default is false.
@@ -1875,7 +1844,7 @@ class CfnCoreDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinitionversion-core.html#cfn-greengrass-coredefinitionversion-core-syncshadow
             '''
             result = self._values.get("sync_shadow")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1899,7 +1868,7 @@ class CfnCoreDefinitionVersionProps:
         self,
         *,
         core_definition_id: builtins.str,
-        cores: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCoreDefinitionVersion.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        cores: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCoreDefinitionVersion.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnCoreDefinitionVersion``.
 
@@ -1928,7 +1897,7 @@ class CfnCoreDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f)
+            type_hints = cached_type_hints(_typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f)
             check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
             check_type(argname="argument cores", value=cores, expected_type=type_hints["cores"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1951,7 +1920,7 @@ class CfnCoreDefinitionVersionProps:
     @builtins.property
     def cores(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinitionVersion.CoreProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinitionVersion.CoreProperty"]]]:
         '''The Greengrass core in this version.
 
         Currently, the ``Cores`` property for a core definition version can contain only one core.
@@ -1960,7 +1929,7 @@ class CfnCoreDefinitionVersionProps:
         '''
         result = self._values.get("cores")
         assert result is not None, "Required property 'cores' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCoreDefinitionVersion.CoreProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCoreDefinitionVersion.CoreProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1974,9 +1943,9 @@ class CfnCoreDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeviceDefinitionRef_24aad2cb, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IDeviceDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDeviceDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinition",
 ):
@@ -2027,7 +1996,7 @@ class CfnDeviceDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceDefinition.DeviceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceDefinition.DeviceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::DeviceDefinition``.
@@ -2039,7 +2008,7 @@ class CfnDeviceDefinition(
         :param tags: Application-specific metadata to attach to the device definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6388724d13149e0aad9e17e0abeb2962bcb4c5f435c6c0744dc4914379c75ae1)
+            type_hints = cached_type_hints(_typecheckingstub__6388724d13149e0aad9e17e0abeb2962bcb4c5f435c6c0744dc4914379c75ae1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeviceDefinitionProps(
@@ -2052,13 +2021,13 @@ class CfnDeviceDefinition(
     @builtins.classmethod
     def arn_for_device_definition(
         cls,
-        resource: "_IDeviceDefinitionRef_24aad2cb",
+        resource: "_aws_greengrass_b1e66511.IDeviceDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29a54774827f95af61a2958cc980996f1b944be420969037dedab5377494dac5)
+            type_hints = cached_type_hints(_typecheckingstub__29a54774827f95af61a2958cc980996f1b944be420969037dedab5377494dac5)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeviceDefinition", [resource]))
 
@@ -2069,7 +2038,7 @@ class CfnDeviceDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IDeviceDefinitionRef_24aad2cb":
+    ) -> "_aws_greengrass_b1e66511.IDeviceDefinitionRef":
         '''Creates a new IDeviceDefinitionRef from an ARN.
 
         :param scope: -
@@ -2077,11 +2046,11 @@ class CfnDeviceDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f87adeee868abf8b13b85edfe973d5813ee46a9ba62767a5e6f399650ecf480a)
+            type_hints = cached_type_hints(_typecheckingstub__f87adeee868abf8b13b85edfe973d5813ee46a9ba62767a5e6f399650ecf480a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IDeviceDefinitionRef_24aad2cb", jsii.sinvoke(cls, "fromDeviceDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.IDeviceDefinitionRef", jsii.sinvoke(cls, "fromDeviceDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromDeviceDefinitionId")
     @builtins.classmethod
@@ -2090,7 +2059,7 @@ class CfnDeviceDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         device_definition_id: builtins.str,
-    ) -> "_IDeviceDefinitionRef_24aad2cb":
+    ) -> "_aws_greengrass_b1e66511.IDeviceDefinitionRef":
         '''Creates a new IDeviceDefinitionRef from a deviceDefinitionId.
 
         :param scope: -
@@ -2098,11 +2067,11 @@ class CfnDeviceDefinition(
         :param device_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab3eb03f44363b8f713f72fa7b5a36f0d1ff332e1348d031336f4233cc569183)
+            type_hints = cached_type_hints(_typecheckingstub__ab3eb03f44363b8f713f72fa7b5a36f0d1ff332e1348d031336f4233cc569183)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
-        return typing.cast("_IDeviceDefinitionRef_24aad2cb", jsii.sinvoke(cls, "fromDeviceDefinitionId", [scope, id, device_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.IDeviceDefinitionRef", jsii.sinvoke(cls, "fromDeviceDefinitionId", [scope, id, device_definition_id]))
 
     @jsii.member(jsii_name="isCfnDeviceDefinition")
     @builtins.classmethod
@@ -2112,18 +2081,18 @@ class CfnDeviceDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f738446db078aa3d5f1ef2b3934c4f7e4a8025edc92bd7ed7f97b231f3da5382)
+            type_hints = cached_type_hints(_typecheckingstub__f738446db078aa3d5f1ef2b3934c4f7e4a8025edc92bd7ed7f97b231f3da5382)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeviceDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42b7b2748a017da66012466c961f889765dd501d6bce1063c38a88cf58c3f181)
+            type_hints = cached_type_hints(_typecheckingstub__42b7b2748a017da66012466c961f889765dd501d6bce1063c38a88cf58c3f181)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2136,7 +2105,7 @@ class CfnDeviceDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5718b5621957658ebf68cf3e23503ef4a017494ec185b843a1c3fd424fb6f807)
+            type_hints = cached_type_hints(_typecheckingstub__5718b5621957658ebf68cf3e23503ef4a017494ec185b843a1c3fd424fb6f807)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2194,15 +2163,17 @@ class CfnDeviceDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="deviceDefinitionRef")
-    def device_definition_ref(self) -> "_DeviceDefinitionReference_dc019c8a":
+    def device_definition_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.DeviceDefinitionReference":
         '''A reference to a DeviceDefinition resource.'''
-        return typing.cast("_DeviceDefinitionReference_dc019c8a", jsii.get(self, "deviceDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.DeviceDefinitionReference", jsii.get(self, "deviceDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2213,7 +2184,7 @@ class CfnDeviceDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a2194bc46e61deb1c1fcc4553ae866524155d250a4d6110495f31209d88865d)
+            type_hints = cached_type_hints(_typecheckingstub__3a2194bc46e61deb1c1fcc4553ae866524155d250a4d6110495f31209d88865d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2226,7 +2197,7 @@ class CfnDeviceDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb)
+            type_hints = cached_type_hints(_typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2234,17 +2205,17 @@ class CfnDeviceDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]]:
         '''The device definition version to include when the device definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260)
+            type_hints = cached_type_hints(_typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2257,7 +2228,7 @@ class CfnDeviceDefinition(
         def __init__(
             self,
             *,
-            devices: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceDefinition.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            devices: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceDefinition.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A device definition version contains a list of `devices <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ .
 
@@ -2290,7 +2261,7 @@ class CfnDeviceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d0c5ec14762edf351c870b2f17efb8d815ee293da253da248851bce6b21751ce)
+                type_hints = cached_type_hints(_typecheckingstub__d0c5ec14762edf351c870b2f17efb8d815ee293da253da248851bce6b21751ce)
                 check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "devices": devices,
@@ -2299,14 +2270,14 @@ class CfnDeviceDefinition(
         @builtins.property
         def devices(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceProperty"]]]:
             '''The devices in this version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-devicedefinitionversion.html#cfn-greengrass-devicedefinition-devicedefinitionversion-devices
             '''
             result = self._values.get("devices")
             assert result is not None, "Required property 'devices' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2336,7 +2307,7 @@ class CfnDeviceDefinition(
             certificate_arn: builtins.str,
             id: builtins.str,
             thing_arn: builtins.str,
-            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A device is an AWS IoT device (thing) that's added to a Greengrass group.
 
@@ -2368,7 +2339,7 @@ class CfnDeviceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__812e639d6663b05c08a6e0a7e6aea0c4d9cb91c3144a1113dcbf3d7933594fa4)
+                type_hints = cached_type_hints(_typecheckingstub__812e639d6663b05c08a6e0a7e6aea0c4d9cb91c3144a1113dcbf3d7933594fa4)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument thing_arn", value=thing_arn, expected_type=type_hints["thing_arn"])
@@ -2418,13 +2389,13 @@ class CfnDeviceDefinition(
         @builtins.property
         def sync_shadow(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the device's local shadow is synced with the cloud automatically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html#cfn-greengrass-devicedefinition-device-syncshadow
             '''
             result = self._values.get("sync_shadow")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2448,7 +2419,7 @@ class CfnDeviceDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceDefinition.DeviceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceDefinition.DeviceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnDeviceDefinition``.
@@ -2486,7 +2457,7 @@ class CfnDeviceDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c)
+            type_hints = cached_type_hints(_typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2511,7 +2482,7 @@ class CfnDeviceDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]]:
         '''The device definition version to include when the device definition is created.
 
         A device definition version contains a list of ```device`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ property types.
@@ -2522,7 +2493,7 @@ class CfnDeviceDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -2552,9 +2523,9 @@ class CfnDeviceDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeviceDefinitionVersionRef_6b314797)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IDeviceDefinitionVersionRef)
 class CfnDeviceDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionVersion",
 ):
@@ -2596,7 +2567,7 @@ class CfnDeviceDefinitionVersion(
         id: builtins.str,
         *,
         device_definition_id: builtins.str,
-        devices: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceDefinitionVersion.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        devices: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceDefinitionVersion.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::DeviceDefinitionVersion``.
 
@@ -2606,7 +2577,7 @@ class CfnDeviceDefinitionVersion(
         :param devices: The devices in this version.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64493ebfeeb96fc14eb8e8054338af97e554d939f196f64d5d512c73ace31a93)
+            type_hints = cached_type_hints(_typecheckingstub__64493ebfeeb96fc14eb8e8054338af97e554d939f196f64d5d512c73ace31a93)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeviceDefinitionVersionProps(
@@ -2623,18 +2594,18 @@ class CfnDeviceDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5272f04761eb5f2432bd05d8aa79b6224f401ea465a058aeb7bc073b39c074c6)
+            type_hints = cached_type_hints(_typecheckingstub__5272f04761eb5f2432bd05d8aa79b6224f401ea465a058aeb7bc073b39c074c6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeviceDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f75f076efee1cfe7e6a6aa35cffba776ede5eb8c3ebc6b05d12324b9ed098c8c)
+            type_hints = cached_type_hints(_typecheckingstub__f75f076efee1cfe7e6a6aa35cffba776ede5eb8c3ebc6b05d12324b9ed098c8c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2647,7 +2618,7 @@ class CfnDeviceDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82c976f156be131579618e357fb04ee79c5fa16268fa8502ebebf331489243c8)
+            type_hints = cached_type_hints(_typecheckingstub__82c976f156be131579618e357fb04ee79c5fa16268fa8502ebebf331489243c8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2679,9 +2650,9 @@ class CfnDeviceDefinitionVersion(
     @jsii.member(jsii_name="deviceDefinitionVersionRef")
     def device_definition_version_ref(
         self,
-    ) -> "_DeviceDefinitionVersionReference_6f18a846":
+    ) -> "_aws_greengrass_b1e66511.DeviceDefinitionVersionReference":
         '''A reference to a DeviceDefinitionVersion resource.'''
-        return typing.cast("_DeviceDefinitionVersionReference_6f18a846", jsii.get(self, "deviceDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.DeviceDefinitionVersionReference", jsii.get(self, "deviceDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deviceDefinitionId")
@@ -2692,7 +2663,7 @@ class CfnDeviceDefinitionVersion(
     @device_definition_id.setter
     def device_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e81c0aa8405667eeeaadd67c78cb7b7ddd5bc27f106a564e32912851386e4931)
+            type_hints = cached_type_hints(_typecheckingstub__e81c0aa8405667eeeaadd67c78cb7b7ddd5bc27f106a564e32912851386e4931)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deviceDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -2700,17 +2671,17 @@ class CfnDeviceDefinitionVersion(
     @jsii.member(jsii_name="devices")
     def devices(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinitionVersion.DeviceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinitionVersion.DeviceProperty"]]]:
         '''The devices in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinitionVersion.DeviceProperty"]]], jsii.get(self, "devices"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinitionVersion.DeviceProperty"]]], jsii.get(self, "devices"))
 
     @devices.setter
     def devices(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinitionVersion.DeviceProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinitionVersion.DeviceProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0aabdafe61d8e2100f8e9a731798871a20d7438db750e894f114287763994f9)
+            type_hints = cached_type_hints(_typecheckingstub__a0aabdafe61d8e2100f8e9a731798871a20d7438db750e894f114287763994f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "devices", value) # pyright: ignore[reportArgumentType]
 
@@ -2731,7 +2702,7 @@ class CfnDeviceDefinitionVersion(
             certificate_arn: builtins.str,
             id: builtins.str,
             thing_arn: builtins.str,
-            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            sync_shadow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A device is an AWS IoT device (thing) that's added to a Greengrass group.
 
@@ -2763,7 +2734,7 @@ class CfnDeviceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__253b05ead7f7258dbe7d542a3d84a1dcb9e7461853810ffd646f2efad7c3cd74)
+                type_hints = cached_type_hints(_typecheckingstub__253b05ead7f7258dbe7d542a3d84a1dcb9e7461853810ffd646f2efad7c3cd74)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument thing_arn", value=thing_arn, expected_type=type_hints["thing_arn"])
@@ -2813,13 +2784,13 @@ class CfnDeviceDefinitionVersion(
         @builtins.property
         def sync_shadow(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the device's local shadow is synced with the cloud automatically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinitionversion-device.html#cfn-greengrass-devicedefinitionversion-device-syncshadow
             '''
             result = self._values.get("sync_shadow")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2843,7 +2814,7 @@ class CfnDeviceDefinitionVersionProps:
         self,
         *,
         device_definition_id: builtins.str,
-        devices: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeviceDefinitionVersion.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        devices: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeviceDefinitionVersion.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnDeviceDefinitionVersion``.
 
@@ -2872,7 +2843,7 @@ class CfnDeviceDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09)
+            type_hints = cached_type_hints(_typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09)
             check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
             check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2895,14 +2866,14 @@ class CfnDeviceDefinitionVersionProps:
     @builtins.property
     def devices(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinitionVersion.DeviceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinitionVersion.DeviceProperty"]]]:
         '''The devices in this version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html#cfn-greengrass-devicedefinitionversion-devices
         '''
         result = self._values.get("devices")
         assert result is not None, "Required property 'devices' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeviceDefinitionVersion.DeviceProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeviceDefinitionVersion.DeviceProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2916,9 +2887,9 @@ class CfnDeviceDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFunctionDefinitionRef_06f82201, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IFunctionDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFunctionDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinition",
 ):
@@ -3002,7 +2973,7 @@ class CfnFunctionDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.FunctionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.FunctionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::FunctionDefinition``.
@@ -3014,7 +2985,7 @@ class CfnFunctionDefinition(
         :param tags: Application-specific metadata to attach to the function definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc054a16da2a52b953d26f46ac8928cd46a0d3b00ea138b637dba87125670b02)
+            type_hints = cached_type_hints(_typecheckingstub__dc054a16da2a52b953d26f46ac8928cd46a0d3b00ea138b637dba87125670b02)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFunctionDefinitionProps(
@@ -3027,13 +2998,13 @@ class CfnFunctionDefinition(
     @builtins.classmethod
     def arn_for_function_definition(
         cls,
-        resource: "_IFunctionDefinitionRef_06f82201",
+        resource: "_aws_greengrass_b1e66511.IFunctionDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10772cb602dbb3eeabd71e8cd46153287260385c9af4a43a7c240bce1bca59ed)
+            type_hints = cached_type_hints(_typecheckingstub__10772cb602dbb3eeabd71e8cd46153287260385c9af4a43a7c240bce1bca59ed)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFunctionDefinition", [resource]))
 
@@ -3044,7 +3015,7 @@ class CfnFunctionDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IFunctionDefinitionRef_06f82201":
+    ) -> "_aws_greengrass_b1e66511.IFunctionDefinitionRef":
         '''Creates a new IFunctionDefinitionRef from an ARN.
 
         :param scope: -
@@ -3052,11 +3023,11 @@ class CfnFunctionDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c223e72e5affc82dfb7081f5bcd5aab5f3932a5a254be93e5191eb3a1314f5bf)
+            type_hints = cached_type_hints(_typecheckingstub__c223e72e5affc82dfb7081f5bcd5aab5f3932a5a254be93e5191eb3a1314f5bf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IFunctionDefinitionRef_06f82201", jsii.sinvoke(cls, "fromFunctionDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.IFunctionDefinitionRef", jsii.sinvoke(cls, "fromFunctionDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromFunctionDefinitionId")
     @builtins.classmethod
@@ -3065,7 +3036,7 @@ class CfnFunctionDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         function_definition_id: builtins.str,
-    ) -> "_IFunctionDefinitionRef_06f82201":
+    ) -> "_aws_greengrass_b1e66511.IFunctionDefinitionRef":
         '''Creates a new IFunctionDefinitionRef from a functionDefinitionId.
 
         :param scope: -
@@ -3073,11 +3044,11 @@ class CfnFunctionDefinition(
         :param function_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__867fa67e8674b05b42bb9214a1b69aaaf8b87cd392fb2be4f9d0418f4cf64691)
+            type_hints = cached_type_hints(_typecheckingstub__867fa67e8674b05b42bb9214a1b69aaaf8b87cd392fb2be4f9d0418f4cf64691)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
-        return typing.cast("_IFunctionDefinitionRef_06f82201", jsii.sinvoke(cls, "fromFunctionDefinitionId", [scope, id, function_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.IFunctionDefinitionRef", jsii.sinvoke(cls, "fromFunctionDefinitionId", [scope, id, function_definition_id]))
 
     @jsii.member(jsii_name="isCfnFunctionDefinition")
     @builtins.classmethod
@@ -3087,18 +3058,18 @@ class CfnFunctionDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c36ced146f44c3fdcb1654b196d2abc46fe2ae9df58db5d6b4974a4544f1cc)
+            type_hints = cached_type_hints(_typecheckingstub__99c36ced146f44c3fdcb1654b196d2abc46fe2ae9df58db5d6b4974a4544f1cc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFunctionDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__883759389b9b6062c199dfa06474e6b6eae814f3d29cb567a6c1accc041ac340)
+            type_hints = cached_type_hints(_typecheckingstub__883759389b9b6062c199dfa06474e6b6eae814f3d29cb567a6c1accc041ac340)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3111,7 +3082,7 @@ class CfnFunctionDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5eb475f6df385b65a6fa5feebde3a756e64967f6ed1a1c94c355e0641d025d4)
+            type_hints = cached_type_hints(_typecheckingstub__f5eb475f6df385b65a6fa5feebde3a756e64967f6ed1a1c94c355e0641d025d4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3169,15 +3140,17 @@ class CfnFunctionDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="functionDefinitionRef")
-    def function_definition_ref(self) -> "_FunctionDefinitionReference_1088ab15":
+    def function_definition_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.FunctionDefinitionReference":
         '''A reference to a FunctionDefinition resource.'''
-        return typing.cast("_FunctionDefinitionReference_1088ab15", jsii.get(self, "functionDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.FunctionDefinitionReference", jsii.get(self, "functionDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3188,7 +3161,7 @@ class CfnFunctionDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63f3586ebd22c8d7efa859e3b07e7a1d59b40ead5bd2fcda78d352eb33e98b21)
+            type_hints = cached_type_hints(_typecheckingstub__63f3586ebd22c8d7efa859e3b07e7a1d59b40ead5bd2fcda78d352eb33e98b21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3201,7 +3174,7 @@ class CfnFunctionDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd)
+            type_hints = cached_type_hints(_typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3209,17 +3182,17 @@ class CfnFunctionDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]]:
         '''The function definition version to include when the function definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b)
+            type_hints = cached_type_hints(_typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -3232,7 +3205,7 @@ class CfnFunctionDefinition(
         def __init__(
             self,
             *,
-            execution: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]],
+            execution: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The default configuration that applies to all Lambda functions in the function definition version.
 
@@ -3262,7 +3235,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8141acc3a004423bffa1be5752871f489d86a51c46b744ac79a869e6a745c4d4)
+                type_hints = cached_type_hints(_typecheckingstub__8141acc3a004423bffa1be5752871f489d86a51c46b744ac79a869e6a745c4d4)
                 check_type(argname="argument execution", value=execution, expected_type=type_hints["execution"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "execution": execution,
@@ -3271,14 +3244,14 @@ class CfnFunctionDefinition(
         @builtins.property
         def execution(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ExecutionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ExecutionProperty"]:
             '''Configuration settings for the Lambda execution environment on the AWS IoT Greengrass core.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-defaultconfig.html#cfn-greengrass-functiondefinition-defaultconfig-execution
             '''
             result = self._values.get("execution")
             assert result is not None, "Required property 'execution' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ExecutionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ExecutionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3305,9 +3278,9 @@ class CfnFunctionDefinition(
         def __init__(
             self,
             *,
-            access_sysfs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            execution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            resource_access_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.ResourceAccessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            access_sysfs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            execution: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resource_access_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.ResourceAccessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             variables: typing.Any = None,
         ) -> None:
             '''The environment configuration for a Lambda function on the AWS IoT Greengrass core.
@@ -3349,7 +3322,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a4292cc2a15784a3b0bab48fede867f394d01dc9f076e30078fc77deaf8381cc)
+                type_hints = cached_type_hints(_typecheckingstub__a4292cc2a15784a3b0bab48fede867f394d01dc9f076e30078fc77deaf8381cc)
                 check_type(argname="argument access_sysfs", value=access_sysfs, expected_type=type_hints["access_sysfs"])
                 check_type(argname="argument execution", value=execution, expected_type=type_hints["execution"])
                 check_type(argname="argument resource_access_policies", value=resource_access_policies, expected_type=type_hints["resource_access_policies"])
@@ -3367,7 +3340,7 @@ class CfnFunctionDefinition(
         @builtins.property
         def access_sysfs(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the function is allowed to access the ``/sys`` directory on the core device, which allows the read device information from ``/sys`` .
 
             .. epigraph::
@@ -3377,23 +3350,23 @@ class CfnFunctionDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-environment.html#cfn-greengrass-functiondefinition-environment-accesssysfs
             '''
             result = self._values.get("access_sysfs")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def execution(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ExecutionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ExecutionProperty"]]:
             '''Settings for the Lambda execution environment in AWS IoT Greengrass .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-environment.html#cfn-greengrass-functiondefinition-environment-execution
             '''
             result = self._values.get("execution")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ExecutionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ExecutionProperty"]], result)
 
         @builtins.property
         def resource_access_policies(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ResourceAccessPolicyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ResourceAccessPolicyProperty"]]]]:
             '''A list of the `resources <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourceinstance.html>`_ in the group that the function can access, with the corresponding read-only or read-write permissions. The maximum is 10 resources.
 
             .. epigraph::
@@ -3403,7 +3376,7 @@ class CfnFunctionDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-environment.html#cfn-greengrass-functiondefinition-environment-resourceaccesspolicies
             '''
             result = self._values.get("resource_access_policies")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.ResourceAccessPolicyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.ResourceAccessPolicyProperty"]]]], result)
 
         @builtins.property
         def variables(self) -> typing.Any:
@@ -3435,7 +3408,7 @@ class CfnFunctionDefinition(
             self,
             *,
             isolation_mode: typing.Optional[builtins.str] = None,
-            run_as: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.RunAsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            run_as: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.RunAsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings for the Lambda execution environment on the AWS IoT Greengrass core.
 
@@ -3462,7 +3435,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b70e9d861e6b33c0e42706480eb4da7187fb3ff64d5ada17a7940f9296fd2a9e)
+                type_hints = cached_type_hints(_typecheckingstub__b70e9d861e6b33c0e42706480eb4da7187fb3ff64d5ada17a7940f9296fd2a9e)
                 check_type(argname="argument isolation_mode", value=isolation_mode, expected_type=type_hints["isolation_mode"])
                 check_type(argname="argument run_as", value=run_as, expected_type=type_hints["run_as"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3492,7 +3465,7 @@ class CfnFunctionDefinition(
         @builtins.property
         def run_as(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.RunAsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.RunAsProperty"]]:
             '''The user and group permissions used to run the Lambda function.
 
             Typically, this is the ggc_user and ggc_group. For more information, see `Run as <https://docs.aws.amazon.com/greengrass/v1/developerguide/lambda-group-config.html#lambda-access-identity.html>`_ in the *Developer Guide* .
@@ -3507,7 +3480,7 @@ class CfnFunctionDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-execution.html#cfn-greengrass-functiondefinition-execution-runas
             '''
             result = self._values.get("run_as")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.RunAsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.RunAsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3538,11 +3511,11 @@ class CfnFunctionDefinition(
             self,
             *,
             encoding_type: typing.Optional[builtins.str] = None,
-            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             exec_args: typing.Optional[builtins.str] = None,
             executable: typing.Optional[builtins.str] = None,
             memory_size: typing.Optional[jsii.Number] = None,
-            pinned: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            pinned: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The group-specific configuration settings for a Lambda function.
@@ -3597,7 +3570,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__98d434196f1da3f825c92283259908906d812252031be392844dfd7ad5a1d266)
+                type_hints = cached_type_hints(_typecheckingstub__98d434196f1da3f825c92283259908906d812252031be392844dfd7ad5a1d266)
                 check_type(argname="argument encoding_type", value=encoding_type, expected_type=type_hints["encoding_type"])
                 check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
                 check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
@@ -3635,13 +3608,13 @@ class CfnFunctionDefinition(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.EnvironmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.EnvironmentProperty"]]:
             '''The environment configuration of the function.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-functionconfiguration.html#cfn-greengrass-functiondefinition-functionconfiguration-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.EnvironmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.EnvironmentProperty"]], result)
 
         @builtins.property
         def exec_args(self) -> typing.Optional[builtins.str]:
@@ -3677,7 +3650,7 @@ class CfnFunctionDefinition(
         @builtins.property
         def pinned(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the function is pinned (or *long-lived* ).
 
             Pinned functions start when the core starts and process all requests in the same container. The default value is false.
@@ -3685,7 +3658,7 @@ class CfnFunctionDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-functionconfiguration.html#cfn-greengrass-functiondefinition-functionconfiguration-pinned
             '''
             result = self._values.get("pinned")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def timeout(self) -> typing.Optional[jsii.Number]:
@@ -3718,8 +3691,8 @@ class CfnFunctionDefinition(
         def __init__(
             self,
             *,
-            functions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            default_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            functions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            default_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A function definition version contains a list of functions.
 
@@ -3787,7 +3760,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3cf2ab9fa59092d61d89f64ed51286c1ffbcc6ff91799c90c41d5102213f0f32)
+                type_hints = cached_type_hints(_typecheckingstub__3cf2ab9fa59092d61d89f64ed51286c1ffbcc6ff91799c90c41d5102213f0f32)
                 check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
                 check_type(argname="argument default_config", value=default_config, expected_type=type_hints["default_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3799,19 +3772,19 @@ class CfnFunctionDefinition(
         @builtins.property
         def functions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionProperty"]]]:
             '''The functions in this version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-functiondefinitionversion.html#cfn-greengrass-functiondefinition-functiondefinitionversion-functions
             '''
             result = self._values.get("functions")
             assert result is not None, "Required property 'functions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionProperty"]]], result)
 
         @builtins.property
         def default_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.DefaultConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.DefaultConfigProperty"]]:
             '''The default configuration that applies to all Lambda functions in the group.
 
             Individual Lambda functions can override these settings.
@@ -3819,7 +3792,7 @@ class CfnFunctionDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-functiondefinitionversion.html#cfn-greengrass-functiondefinition-functiondefinitionversion-defaultconfig
             '''
             result = self._values.get("default_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.DefaultConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.DefaultConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3846,7 +3819,7 @@ class CfnFunctionDefinition(
             self,
             *,
             function_arn: builtins.str,
-            function_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.FunctionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            function_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.FunctionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             id: builtins.str,
         ) -> None:
             '''A function is a Lambda function that's referenced from an AWS IoT Greengrass group.
@@ -3901,7 +3874,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2d06406f22f33062b37608c66ede16429af10bcb88224eaae6da351e8b512eb5)
+                type_hints = cached_type_hints(_typecheckingstub__2d06406f22f33062b37608c66ede16429af10bcb88224eaae6da351e8b512eb5)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument function_configuration", value=function_configuration, expected_type=type_hints["function_configuration"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -3924,7 +3897,7 @@ class CfnFunctionDefinition(
         @builtins.property
         def function_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionConfigurationProperty"]:
             '''The group-specific settings of the Lambda function.
 
             These settings configure the function's behavior in the Greengrass group.
@@ -3933,7 +3906,7 @@ class CfnFunctionDefinition(
             '''
             result = self._values.get("function_configuration")
             assert result is not None, "Required property 'function_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionConfigurationProperty"], result)
 
         @builtins.property
         def id(self) -> builtins.str:
@@ -3998,7 +3971,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__83ce8dcd35f15a7c52707cb20e4f653d274051d0b69be412461a84fde59d4747)
+                type_hints = cached_type_hints(_typecheckingstub__83ce8dcd35f15a7c52707cb20e4f653d274051d0b69be412461a84fde59d4747)
                 check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
                 check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4080,7 +4053,7 @@ class CfnFunctionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__044b15bdedd91446b78ce0f57b82c3734bcbedd95c01454cdca47d61efccb494)
+                type_hints = cached_type_hints(_typecheckingstub__044b15bdedd91446b78ce0f57b82c3734bcbedd95c01454cdca47d61efccb494)
                 check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
                 check_type(argname="argument uid", value=uid, expected_type=type_hints["uid"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4133,7 +4106,7 @@ class CfnFunctionDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinition.FunctionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinition.FunctionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnFunctionDefinition``.
@@ -4204,7 +4177,7 @@ class CfnFunctionDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a)
+            type_hints = cached_type_hints(_typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4229,7 +4202,7 @@ class CfnFunctionDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]]:
         '''The function definition version to include when the function definition is created.
 
         A function definition version contains a list of ```function`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-function.html>`_ property types.
@@ -4240,7 +4213,7 @@ class CfnFunctionDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -4270,9 +4243,9 @@ class CfnFunctionDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFunctionDefinitionVersionRef_9747348a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IFunctionDefinitionVersionRef)
 class CfnFunctionDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionVersion",
 ):
@@ -4348,8 +4321,8 @@ class CfnFunctionDefinitionVersion(
         id: builtins.str,
         *,
         function_definition_id: builtins.str,
-        functions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        default_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        functions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        default_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::FunctionDefinitionVersion``.
 
@@ -4360,7 +4333,7 @@ class CfnFunctionDefinitionVersion(
         :param default_config: The default configuration that applies to all Lambda functions in the group. Individual Lambda functions can override these settings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74049a58818d8fb74724e45f074f2d356fba374467a1926758e3e761c205d756)
+            type_hints = cached_type_hints(_typecheckingstub__74049a58818d8fb74724e45f074f2d356fba374467a1926758e3e761c205d756)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFunctionDefinitionVersionProps(
@@ -4379,18 +4352,18 @@ class CfnFunctionDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08e8dd2531d9f132f6a2d3550e7edb89fd47718929253f318681939d31169a93)
+            type_hints = cached_type_hints(_typecheckingstub__08e8dd2531d9f132f6a2d3550e7edb89fd47718929253f318681939d31169a93)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFunctionDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53d31f9160e02bf734beeedf9a11d142ba8858555d274b4c85da63595775c72)
+            type_hints = cached_type_hints(_typecheckingstub__e53d31f9160e02bf734beeedf9a11d142ba8858555d274b4c85da63595775c72)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4403,7 +4376,7 @@ class CfnFunctionDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea22062ecf7322056761cf0f4266b5142070757362434ce77d6180f10611daee)
+            type_hints = cached_type_hints(_typecheckingstub__ea22062ecf7322056761cf0f4266b5142070757362434ce77d6180f10611daee)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4435,9 +4408,9 @@ class CfnFunctionDefinitionVersion(
     @jsii.member(jsii_name="functionDefinitionVersionRef")
     def function_definition_version_ref(
         self,
-    ) -> "_FunctionDefinitionVersionReference_70e6e367":
+    ) -> "_aws_greengrass_b1e66511.FunctionDefinitionVersionReference":
         '''A reference to a FunctionDefinitionVersion resource.'''
-        return typing.cast("_FunctionDefinitionVersionReference_70e6e367", jsii.get(self, "functionDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.FunctionDefinitionVersionReference", jsii.get(self, "functionDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="functionDefinitionId")
@@ -4448,7 +4421,7 @@ class CfnFunctionDefinitionVersion(
     @function_definition_id.setter
     def function_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__089983427f200b57e702fff54bb0b007c29cdd60772ebee7e6374971f11b5d3e)
+            type_hints = cached_type_hints(_typecheckingstub__089983427f200b57e702fff54bb0b007c29cdd60772ebee7e6374971f11b5d3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "functionDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -4456,17 +4429,17 @@ class CfnFunctionDefinitionVersion(
     @jsii.member(jsii_name="functions")
     def functions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionProperty"]]]:
         '''The functions in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionProperty"]]], jsii.get(self, "functions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionProperty"]]], jsii.get(self, "functions"))
 
     @functions.setter
     def functions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__793cfd87f23bbd9bf6e301d174c974540fcb771743c65e05c1a0a4025bf87005)
+            type_hints = cached_type_hints(_typecheckingstub__793cfd87f23bbd9bf6e301d174c974540fcb771743c65e05c1a0a4025bf87005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "functions", value) # pyright: ignore[reportArgumentType]
 
@@ -4474,17 +4447,17 @@ class CfnFunctionDefinitionVersion(
     @jsii.member(jsii_name="defaultConfig")
     def default_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]]:
         '''The default configuration that applies to all Lambda functions in the group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]], jsii.get(self, "defaultConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]], jsii.get(self, "defaultConfig"))
 
     @default_config.setter
     def default_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0390fd3aa93f9d9e878e662d53c38486d861c310d7e93ad7f1c0f86c70cee20c)
+            type_hints = cached_type_hints(_typecheckingstub__0390fd3aa93f9d9e878e662d53c38486d861c310d7e93ad7f1c0f86c70cee20c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -4497,7 +4470,7 @@ class CfnFunctionDefinitionVersion(
         def __init__(
             self,
             *,
-            execution: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]],
+            execution: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The default configuration that applies to all Lambda functions in the function definition version.
 
@@ -4527,7 +4500,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dfacedad0a59ccb5e2eaec7676b018b92ee6862f373104646bf110f388b3e418)
+                type_hints = cached_type_hints(_typecheckingstub__dfacedad0a59ccb5e2eaec7676b018b92ee6862f373104646bf110f388b3e418)
                 check_type(argname="argument execution", value=execution, expected_type=type_hints["execution"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "execution": execution,
@@ -4536,14 +4509,14 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def execution(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ExecutionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ExecutionProperty"]:
             '''Configuration settings for the Lambda execution environment on the AWS IoT Greengrass core.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-defaultconfig.html#cfn-greengrass-functiondefinitionversion-defaultconfig-execution
             '''
             result = self._values.get("execution")
             assert result is not None, "Required property 'execution' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ExecutionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ExecutionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4570,9 +4543,9 @@ class CfnFunctionDefinitionVersion(
         def __init__(
             self,
             *,
-            access_sysfs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            execution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            resource_access_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            access_sysfs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            execution: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.ExecutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resource_access_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             variables: typing.Any = None,
         ) -> None:
             '''The environment configuration for a Lambda function on the AWS IoT Greengrass core.
@@ -4614,7 +4587,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__955f01f10cbdbbb5ea2b4005e2fdd4b4733b2c02fd34963370b597105324bef9)
+                type_hints = cached_type_hints(_typecheckingstub__955f01f10cbdbbb5ea2b4005e2fdd4b4733b2c02fd34963370b597105324bef9)
                 check_type(argname="argument access_sysfs", value=access_sysfs, expected_type=type_hints["access_sysfs"])
                 check_type(argname="argument execution", value=execution, expected_type=type_hints["execution"])
                 check_type(argname="argument resource_access_policies", value=resource_access_policies, expected_type=type_hints["resource_access_policies"])
@@ -4632,7 +4605,7 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def access_sysfs(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the function is allowed to access the ``/sys`` directory on the core device, which allows the read device information from ``/sys`` .
 
             .. epigraph::
@@ -4642,23 +4615,23 @@ class CfnFunctionDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-environment.html#cfn-greengrass-functiondefinitionversion-environment-accesssysfs
             '''
             result = self._values.get("access_sysfs")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def execution(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ExecutionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ExecutionProperty"]]:
             '''Settings for the Lambda execution environment in AWS IoT Greengrass .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-environment.html#cfn-greengrass-functiondefinitionversion-environment-execution
             '''
             result = self._values.get("execution")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ExecutionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ExecutionProperty"]], result)
 
         @builtins.property
         def resource_access_policies(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty"]]]]:
             '''A list of the `resources <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourceinstance.html>`_ in the group that the function can access, with the corresponding read-only or read-write permissions. The maximum is 10 resources.
 
             .. epigraph::
@@ -4668,7 +4641,7 @@ class CfnFunctionDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-environment.html#cfn-greengrass-functiondefinitionversion-environment-resourceaccesspolicies
             '''
             result = self._values.get("resource_access_policies")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty"]]]], result)
 
         @builtins.property
         def variables(self) -> typing.Any:
@@ -4700,7 +4673,7 @@ class CfnFunctionDefinitionVersion(
             self,
             *,
             isolation_mode: typing.Optional[builtins.str] = None,
-            run_as: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.RunAsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            run_as: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.RunAsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings for the Lambda execution environment on the AWS IoT Greengrass core.
 
@@ -4727,7 +4700,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d250f03acfa6e718d9c76fc540c990c972324de4f76328354b14aa9eb0e6788)
+                type_hints = cached_type_hints(_typecheckingstub__5d250f03acfa6e718d9c76fc540c990c972324de4f76328354b14aa9eb0e6788)
                 check_type(argname="argument isolation_mode", value=isolation_mode, expected_type=type_hints["isolation_mode"])
                 check_type(argname="argument run_as", value=run_as, expected_type=type_hints["run_as"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4757,7 +4730,7 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def run_as(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.RunAsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.RunAsProperty"]]:
             '''The user and group permissions used to run the Lambda function.
 
             Typically, this is the ggc_user and ggc_group. For more information, see `Run as <https://docs.aws.amazon.com/greengrass/v1/developerguide/lambda-group-config.html#lambda-access-identity.html>`_ in the *Developer Guide* .
@@ -4772,7 +4745,7 @@ class CfnFunctionDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-execution.html#cfn-greengrass-functiondefinitionversion-execution-runas
             '''
             result = self._values.get("run_as")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.RunAsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.RunAsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4803,11 +4776,11 @@ class CfnFunctionDefinitionVersion(
             self,
             *,
             encoding_type: typing.Optional[builtins.str] = None,
-            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             exec_args: typing.Optional[builtins.str] = None,
             executable: typing.Optional[builtins.str] = None,
             memory_size: typing.Optional[jsii.Number] = None,
-            pinned: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            pinned: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The group-specific configuration settings for a Lambda function.
@@ -4862,7 +4835,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0305775d160fba73e4f75590e6bf752341fc5c40b45ed63434363b50709bf554)
+                type_hints = cached_type_hints(_typecheckingstub__0305775d160fba73e4f75590e6bf752341fc5c40b45ed63434363b50709bf554)
                 check_type(argname="argument encoding_type", value=encoding_type, expected_type=type_hints["encoding_type"])
                 check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
                 check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
@@ -4900,13 +4873,13 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def environment(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.EnvironmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.EnvironmentProperty"]]:
             '''The environment configuration of the function.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-functionconfiguration.html#cfn-greengrass-functiondefinitionversion-functionconfiguration-environment
             '''
             result = self._values.get("environment")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.EnvironmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.EnvironmentProperty"]], result)
 
         @builtins.property
         def exec_args(self) -> typing.Optional[builtins.str]:
@@ -4942,7 +4915,7 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def pinned(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the function is pinned (or *long-lived* ).
 
             Pinned functions start when the core starts and process all requests in the same container. The default value is false.
@@ -4950,7 +4923,7 @@ class CfnFunctionDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinitionversion-functionconfiguration.html#cfn-greengrass-functiondefinitionversion-functionconfiguration-pinned
             '''
             result = self._values.get("pinned")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def timeout(self) -> typing.Optional[jsii.Number]:
@@ -4988,7 +4961,7 @@ class CfnFunctionDefinitionVersion(
             self,
             *,
             function_arn: builtins.str,
-            function_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.FunctionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            function_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.FunctionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             id: builtins.str,
         ) -> None:
             '''A function is a Lambda function that's referenced from an AWS IoT Greengrass group.
@@ -5043,7 +5016,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__63a9205f2a39c9362a5f7f6b72de2b4c074656b9c7a7c287a91949ece94cf5dd)
+                type_hints = cached_type_hints(_typecheckingstub__63a9205f2a39c9362a5f7f6b72de2b4c074656b9c7a7c287a91949ece94cf5dd)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument function_configuration", value=function_configuration, expected_type=type_hints["function_configuration"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -5066,7 +5039,7 @@ class CfnFunctionDefinitionVersion(
         @builtins.property
         def function_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionConfigurationProperty"]:
             '''The group-specific settings of the Lambda function.
 
             These settings configure the function's behavior in the Greengrass group.
@@ -5075,7 +5048,7 @@ class CfnFunctionDefinitionVersion(
             '''
             result = self._values.get("function_configuration")
             assert result is not None, "Required property 'function_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionConfigurationProperty"], result)
 
         @builtins.property
         def id(self) -> builtins.str:
@@ -5140,7 +5113,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a0c05252ba2866efa6819404f70d8c46ab9150857916aa6aabac49f53006c7b)
+                type_hints = cached_type_hints(_typecheckingstub__4a0c05252ba2866efa6819404f70d8c46ab9150857916aa6aabac49f53006c7b)
                 check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
                 check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5222,7 +5195,7 @@ class CfnFunctionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5ebc14c39db2ef6662e5e8568947f430b45c6b165cfdcb6f5bd1a30fcf649a1b)
+                type_hints = cached_type_hints(_typecheckingstub__5ebc14c39db2ef6662e5e8568947f430b45c6b165cfdcb6f5bd1a30fcf649a1b)
                 check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
                 check_type(argname="argument uid", value=uid, expected_type=type_hints["uid"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5279,8 +5252,8 @@ class CfnFunctionDefinitionVersionProps:
         self,
         *,
         function_definition_id: builtins.str,
-        functions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        default_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunctionDefinitionVersion.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        functions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        default_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunctionDefinitionVersion.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFunctionDefinitionVersion``.
 
@@ -5344,7 +5317,7 @@ class CfnFunctionDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356)
+            type_hints = cached_type_hints(_typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356)
             check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
             check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
             check_type(argname="argument default_config", value=default_config, expected_type=type_hints["default_config"])
@@ -5370,19 +5343,19 @@ class CfnFunctionDefinitionVersionProps:
     @builtins.property
     def functions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionProperty"]]]:
         '''The functions in this version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-functions
         '''
         result = self._values.get("functions")
         assert result is not None, "Required property 'functions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.FunctionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.FunctionProperty"]]], result)
 
     @builtins.property
     def default_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]]:
         '''The default configuration that applies to all Lambda functions in the group.
 
         Individual Lambda functions can override these settings.
@@ -5390,7 +5363,7 @@ class CfnFunctionDefinitionVersionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-defaultconfig
         '''
         result = self._values.get("default_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunctionDefinitionVersion.DefaultConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5404,9 +5377,9 @@ class CfnFunctionDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupRef_b9515ae3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnGroup",
 ):
@@ -5468,7 +5441,7 @@ class CfnGroup(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.GroupVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroup.GroupVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Any = None,
     ) -> None:
@@ -5482,7 +5455,7 @@ class CfnGroup(
         :param tags: Application-specific metadata to attach to the group. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726a7d2c4960c5df3ad6e991be61efa251e71f218d0d72f1df21a3c5903ebe7f)
+            type_hints = cached_type_hints(_typecheckingstub__726a7d2c4960c5df3ad6e991be61efa251e71f218d0d72f1df21a3c5903ebe7f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupProps(
@@ -5493,12 +5466,15 @@ class CfnGroup(
 
     @jsii.member(jsii_name="arnForGroup")
     @builtins.classmethod
-    def arn_for_group(cls, resource: "_IGroupRef_b9515ae3") -> builtins.str:
+    def arn_for_group(
+        cls,
+        resource: "_aws_greengrass_b1e66511.IGroupRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fa77504ea72520ef703e6a6ab9eeb782300cc2b2ebc38bec77a2d1785df9800)
+            type_hints = cached_type_hints(_typecheckingstub__1fa77504ea72520ef703e6a6ab9eeb782300cc2b2ebc38bec77a2d1785df9800)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGroup", [resource]))
 
@@ -5509,7 +5485,7 @@ class CfnGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IGroupRef_b9515ae3":
+    ) -> "_aws_greengrass_b1e66511.IGroupRef":
         '''Creates a new IGroupRef from an ARN.
 
         :param scope: -
@@ -5517,11 +5493,11 @@ class CfnGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeeef20ab58d4f35b813ba9d3b0842e1b68bcb2d24dc95b38fc59d1aaa8195fb)
+            type_hints = cached_type_hints(_typecheckingstub__eeeef20ab58d4f35b813ba9d3b0842e1b68bcb2d24dc95b38fc59d1aaa8195fb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IGroupRef_b9515ae3", jsii.sinvoke(cls, "fromGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.IGroupRef", jsii.sinvoke(cls, "fromGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromGroupId")
     @builtins.classmethod
@@ -5530,7 +5506,7 @@ class CfnGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         group_id: builtins.str,
-    ) -> "_IGroupRef_b9515ae3":
+    ) -> "_aws_greengrass_b1e66511.IGroupRef":
         '''Creates a new IGroupRef from a groupId.
 
         :param scope: -
@@ -5538,11 +5514,11 @@ class CfnGroup(
         :param group_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e93bbb9df2e97474b5aba8bb98f1f39c2ef7b28fa4eb41b2a49c7f7913e28ebc)
+            type_hints = cached_type_hints(_typecheckingstub__e93bbb9df2e97474b5aba8bb98f1f39c2ef7b28fa4eb41b2a49c7f7913e28ebc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
-        return typing.cast("_IGroupRef_b9515ae3", jsii.sinvoke(cls, "fromGroupId", [scope, id, group_id]))
+        return typing.cast("_aws_greengrass_b1e66511.IGroupRef", jsii.sinvoke(cls, "fromGroupId", [scope, id, group_id]))
 
     @jsii.member(jsii_name="isCfnGroup")
     @builtins.classmethod
@@ -5552,18 +5528,18 @@ class CfnGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeed97ed0723ad7f720f2289b8f4414e2cb259917a65f7ffcb8523739e16ab42)
+            type_hints = cached_type_hints(_typecheckingstub__eeed97ed0723ad7f720f2289b8f4414e2cb259917a65f7ffcb8523739e16ab42)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1154c99a9c32510d4c5f12de88ee6aa74b4b71171411ee6688346f3c78d26e8)
+            type_hints = cached_type_hints(_typecheckingstub__c1154c99a9c32510d4c5f12de88ee6aa74b4b71171411ee6688346f3c78d26e8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5576,7 +5552,7 @@ class CfnGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__371d9153ea3fc52290ce86f5a599394cc2955ebf44fd35dce75ed6aa04a4cb03)
+            type_hints = cached_type_hints(_typecheckingstub__371d9153ea3fc52290ce86f5a599394cc2955ebf44fd35dce75ed6aa04a4cb03)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5652,15 +5628,15 @@ class CfnGroup(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_945f41ac":
+    def group_ref(self) -> "_aws_greengrass_b1e66511.GroupReference":
         '''A reference to a Group resource.'''
-        return typing.cast("_GroupReference_945f41ac", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_greengrass_b1e66511.GroupReference", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5671,7 +5647,7 @@ class CfnGroup(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea2b1b818ef0cc72e4ff310dbf9eae157f92e5c04d08514478628c08a3dc867)
+            type_hints = cached_type_hints(_typecheckingstub__7ea2b1b818ef0cc72e4ff310dbf9eae157f92e5c04d08514478628c08a3dc867)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -5684,7 +5660,7 @@ class CfnGroup(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb)
+            type_hints = cached_type_hints(_typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5692,17 +5668,17 @@ class CfnGroup(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGroup.GroupVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.GroupVersionProperty"]]:
         '''The group version to include when the group is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGroup.GroupVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.GroupVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGroup.GroupVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.GroupVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38beb0169bc)
+            type_hints = cached_type_hints(_typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38beb0169bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -5715,7 +5691,7 @@ class CfnGroup(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6675e04cf0ab21e346afb29e4e19bde19ea87ea432acc7787de29c5be10f7aa2)
+            type_hints = cached_type_hints(_typecheckingstub__6675e04cf0ab21e346afb29e4e19bde19ea87ea432acc7787de29c5be10f7aa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5778,7 +5754,7 @@ class CfnGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23017f69761595410cb920f0188f7bac8a8a1c92bdabee3f081b74455da416fb)
+                type_hints = cached_type_hints(_typecheckingstub__23017f69761595410cb920f0188f7bac8a8a1c92bdabee3f081b74455da416fb)
                 check_type(argname="argument connector_definition_version_arn", value=connector_definition_version_arn, expected_type=type_hints["connector_definition_version_arn"])
                 check_type(argname="argument core_definition_version_arn", value=core_definition_version_arn, expected_type=type_hints["core_definition_version_arn"])
                 check_type(argname="argument device_definition_version_arn", value=device_definition_version_arn, expected_type=type_hints["device_definition_version_arn"])
@@ -5894,7 +5870,7 @@ class CfnGroupProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.GroupVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroup.GroupVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Any = None,
     ) -> None:
@@ -5934,7 +5910,7 @@ class CfnGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4)
+            type_hints = cached_type_hints(_typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -5962,7 +5938,7 @@ class CfnGroupProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGroup.GroupVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.GroupVersionProperty"]]:
         '''The group version to include when the group is created.
 
         A group version references the Amazon Resource Name (ARN) of a core definition version, device definition version, subscription definition version, and other version types. The group version must reference a core definition version that contains one core. Other version types are optionally included, depending on your business need.
@@ -5973,7 +5949,7 @@ class CfnGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGroup.GroupVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.GroupVersionProperty"]], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
@@ -6014,9 +5990,9 @@ class CfnGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupVersionRef_85b4bfe9)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IGroupVersionRef)
 class CfnGroupVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnGroupVersion",
 ):
@@ -6079,7 +6055,7 @@ class CfnGroupVersion(
         :param subscription_definition_version_arn: The ARN of the subscription definition version that contains the subscriptions you want to deploy with the group version.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09e429513d4ed5c36de946aa9233f1743627bcb10cb35191a8cf2b05862bf588)
+            type_hints = cached_type_hints(_typecheckingstub__09e429513d4ed5c36de946aa9233f1743627bcb10cb35191a8cf2b05862bf588)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupVersionProps(
@@ -6103,18 +6079,18 @@ class CfnGroupVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e21a44cd1c4dbab65eb675e2f5e2c3f2e22fcdcc5c5450e8302cda97c8b8579d)
+            type_hints = cached_type_hints(_typecheckingstub__e21a44cd1c4dbab65eb675e2f5e2c3f2e22fcdcc5c5450e8302cda97c8b8579d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroupVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2069ae3c84e6655780c7b21f27d46fb1bee9a88231128d102cc86e616b776fa)
+            type_hints = cached_type_hints(_typecheckingstub__a2069ae3c84e6655780c7b21f27d46fb1bee9a88231128d102cc86e616b776fa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6127,7 +6103,7 @@ class CfnGroupVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00e6e203e326396ee46b6f09d4950a4f2a60460aab9dd7801a5e998d496f282a)
+            type_hints = cached_type_hints(_typecheckingstub__00e6e203e326396ee46b6f09d4950a4f2a60460aab9dd7801a5e998d496f282a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6157,9 +6133,9 @@ class CfnGroupVersion(
 
     @builtins.property
     @jsii.member(jsii_name="groupVersionRef")
-    def group_version_ref(self) -> "_GroupVersionReference_ec8143a5":
+    def group_version_ref(self) -> "_aws_greengrass_b1e66511.GroupVersionReference":
         '''A reference to a GroupVersion resource.'''
-        return typing.cast("_GroupVersionReference_ec8143a5", jsii.get(self, "groupVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.GroupVersionReference", jsii.get(self, "groupVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupId")
@@ -6170,7 +6146,7 @@ class CfnGroupVersion(
     @group_id.setter
     def group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b70513b04a0647c95bbd78b71c611749688212d95d6b7f6be24e153474ced833)
+            type_hints = cached_type_hints(_typecheckingstub__b70513b04a0647c95bbd78b71c611749688212d95d6b7f6be24e153474ced833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupId", value) # pyright: ignore[reportArgumentType]
 
@@ -6186,7 +6162,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b4083383be53e8192919e7978982b4c98f55ff47f025a1a51181578579b3852)
+            type_hints = cached_type_hints(_typecheckingstub__9b4083383be53e8192919e7978982b4c98f55ff47f025a1a51181578579b3852)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6199,7 +6175,7 @@ class CfnGroupVersion(
     @core_definition_version_arn.setter
     def core_definition_version_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c64b7407ff4176f922aa431270cee22c78db47ad08a470b616f3102fe257bdb2)
+            type_hints = cached_type_hints(_typecheckingstub__c64b7407ff4176f922aa431270cee22c78db47ad08a470b616f3102fe257bdb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "coreDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6215,7 +6191,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4af68e21601bf6750c71f6f0c2bc6538974bed68a360dd4d6148cec732594fb4)
+            type_hints = cached_type_hints(_typecheckingstub__4af68e21601bf6750c71f6f0c2bc6538974bed68a360dd4d6148cec732594fb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deviceDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6231,7 +6207,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bafc0081999bcf69f5529249f5611a5bfac796128da383e18f805601ef9f7d1b)
+            type_hints = cached_type_hints(_typecheckingstub__bafc0081999bcf69f5529249f5611a5bfac796128da383e18f805601ef9f7d1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "functionDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6247,7 +6223,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e34a3066bf41e65e71062cbc53c28ee0f3c8407b337545091f2f03096c48c2aa)
+            type_hints = cached_type_hints(_typecheckingstub__e34a3066bf41e65e71062cbc53c28ee0f3c8407b337545091f2f03096c48c2aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggerDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6263,7 +6239,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a37b5dcc0ee3133f870c3a3fe994fa624423839bc6ae69bf0187a55c1045179)
+            type_hints = cached_type_hints(_typecheckingstub__7a37b5dcc0ee3133f870c3a3fe994fa624423839bc6ae69bf0187a55c1045179)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6279,7 +6255,7 @@ class CfnGroupVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__401c05e2b55805214eb63cf50bc055afc162c24db366d22d1d8583f411101e56)
+            type_hints = cached_type_hints(_typecheckingstub__401c05e2b55805214eb63cf50bc055afc162c24db366d22d1d8583f411101e56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscriptionDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6345,7 +6321,7 @@ class CfnGroupVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48)
+            type_hints = cached_type_hints(_typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48)
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument connector_definition_version_arn", value=connector_definition_version_arn, expected_type=type_hints["connector_definition_version_arn"])
             check_type(argname="argument core_definition_version_arn", value=core_definition_version_arn, expected_type=type_hints["core_definition_version_arn"])
@@ -6461,9 +6437,9 @@ class CfnGroupVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoggerDefinitionRef_c2baf8f3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ILoggerDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLoggerDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinition",
 ):
@@ -6515,7 +6491,7 @@ class CfnLoggerDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggerDefinition.LoggerDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggerDefinition.LoggerDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::LoggerDefinition``.
@@ -6527,7 +6503,7 @@ class CfnLoggerDefinition(
         :param tags: Application-specific metadata to attach to the logger definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3141ac6c65d7407c94dc3062e91bf204de61524d95c83b87b6aab3da0639d32)
+            type_hints = cached_type_hints(_typecheckingstub__d3141ac6c65d7407c94dc3062e91bf204de61524d95c83b87b6aab3da0639d32)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoggerDefinitionProps(
@@ -6540,13 +6516,13 @@ class CfnLoggerDefinition(
     @builtins.classmethod
     def arn_for_logger_definition(
         cls,
-        resource: "_ILoggerDefinitionRef_c2baf8f3",
+        resource: "_aws_greengrass_b1e66511.ILoggerDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd0bbf27304d2d8c84f280888a8b3afd5395ac7b7659fb948028fdf60ecda32)
+            type_hints = cached_type_hints(_typecheckingstub__9bd0bbf27304d2d8c84f280888a8b3afd5395ac7b7659fb948028fdf60ecda32)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLoggerDefinition", [resource]))
 
@@ -6557,7 +6533,7 @@ class CfnLoggerDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ILoggerDefinitionRef_c2baf8f3":
+    ) -> "_aws_greengrass_b1e66511.ILoggerDefinitionRef":
         '''Creates a new ILoggerDefinitionRef from an ARN.
 
         :param scope: -
@@ -6565,11 +6541,11 @@ class CfnLoggerDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac40f7547b7db47cd628856b27098b17b798c2311a93f2b1ad780ea733e27d8)
+            type_hints = cached_type_hints(_typecheckingstub__9ac40f7547b7db47cd628856b27098b17b798c2311a93f2b1ad780ea733e27d8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ILoggerDefinitionRef_c2baf8f3", jsii.sinvoke(cls, "fromLoggerDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.ILoggerDefinitionRef", jsii.sinvoke(cls, "fromLoggerDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromLoggerDefinitionId")
     @builtins.classmethod
@@ -6578,7 +6554,7 @@ class CfnLoggerDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         logger_definition_id: builtins.str,
-    ) -> "_ILoggerDefinitionRef_c2baf8f3":
+    ) -> "_aws_greengrass_b1e66511.ILoggerDefinitionRef":
         '''Creates a new ILoggerDefinitionRef from a loggerDefinitionId.
 
         :param scope: -
@@ -6586,11 +6562,11 @@ class CfnLoggerDefinition(
         :param logger_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bad4c3c4c5f93da2573886e39f1cc81073e00375138c2a30ca484b80bd0bf39)
+            type_hints = cached_type_hints(_typecheckingstub__6bad4c3c4c5f93da2573886e39f1cc81073e00375138c2a30ca484b80bd0bf39)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
-        return typing.cast("_ILoggerDefinitionRef_c2baf8f3", jsii.sinvoke(cls, "fromLoggerDefinitionId", [scope, id, logger_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.ILoggerDefinitionRef", jsii.sinvoke(cls, "fromLoggerDefinitionId", [scope, id, logger_definition_id]))
 
     @jsii.member(jsii_name="isCfnLoggerDefinition")
     @builtins.classmethod
@@ -6600,18 +6576,18 @@ class CfnLoggerDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ae229ca5e19cca1fa33cc99e5d3af553a806893ac6ee42062d81072ea875884)
+            type_hints = cached_type_hints(_typecheckingstub__9ae229ca5e19cca1fa33cc99e5d3af553a806893ac6ee42062d81072ea875884)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoggerDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ca6d7f3da4fbad4f376abd5d28521fed1cf98cbc7b1bdecf6ba568a679007af)
+            type_hints = cached_type_hints(_typecheckingstub__8ca6d7f3da4fbad4f376abd5d28521fed1cf98cbc7b1bdecf6ba568a679007af)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6624,7 +6600,7 @@ class CfnLoggerDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b123a6c4bbc3ff9b8ce1479c01e3e2a438c7ef1a70dd2ccf41371497b257205)
+            type_hints = cached_type_hints(_typecheckingstub__4b123a6c4bbc3ff9b8ce1479c01e3e2a438c7ef1a70dd2ccf41371497b257205)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6682,15 +6658,17 @@ class CfnLoggerDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="loggerDefinitionRef")
-    def logger_definition_ref(self) -> "_LoggerDefinitionReference_6ca7a459":
+    def logger_definition_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.LoggerDefinitionReference":
         '''A reference to a LoggerDefinition resource.'''
-        return typing.cast("_LoggerDefinitionReference_6ca7a459", jsii.get(self, "loggerDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.LoggerDefinitionReference", jsii.get(self, "loggerDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6701,7 +6679,7 @@ class CfnLoggerDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03643a56201d8ee41ec6cb2d06bf4a744b44f9e140baade1eee0f8923f4de100)
+            type_hints = cached_type_hints(_typecheckingstub__03643a56201d8ee41ec6cb2d06bf4a744b44f9e140baade1eee0f8923f4de100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -6714,7 +6692,7 @@ class CfnLoggerDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3)
+            type_hints = cached_type_hints(_typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6722,17 +6700,17 @@ class CfnLoggerDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]]:
         '''The logger definition version to include when the logger definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123)
+            type_hints = cached_type_hints(_typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -6745,7 +6723,7 @@ class CfnLoggerDefinition(
         def __init__(
             self,
             *,
-            loggers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggerDefinition.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            loggers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggerDefinition.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A logger definition version contains a list of `loggers <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ .
 
@@ -6779,7 +6757,7 @@ class CfnLoggerDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__afb77b1dd70ac4fe4579018e45f452bb02bc14d56a2ce5d000c6bd4cc542d183)
+                type_hints = cached_type_hints(_typecheckingstub__afb77b1dd70ac4fe4579018e45f452bb02bc14d56a2ce5d000c6bd4cc542d183)
                 check_type(argname="argument loggers", value=loggers, expected_type=type_hints["loggers"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "loggers": loggers,
@@ -6788,14 +6766,14 @@ class CfnLoggerDefinition(
         @builtins.property
         def loggers(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerProperty"]]]:
             '''The loggers in this version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-loggerdefinitionversion.html#cfn-greengrass-loggerdefinition-loggerdefinitionversion-loggers
             '''
             result = self._values.get("loggers")
             assert result is not None, "Required property 'loggers' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6861,7 +6839,7 @@ class CfnLoggerDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ef56df2cb15dd1d03dc55bf6372cddbfc94e06fb51a6d1a1422c713d37dd808c)
+                type_hints = cached_type_hints(_typecheckingstub__ef56df2cb15dd1d03dc55bf6372cddbfc94e06fb51a6d1a1422c713d37dd808c)
                 check_type(argname="argument component", value=component, expected_type=type_hints["component"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -6957,7 +6935,7 @@ class CfnLoggerDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggerDefinition.LoggerDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggerDefinition.LoggerDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnLoggerDefinition``.
@@ -6996,7 +6974,7 @@ class CfnLoggerDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707)
+            type_hints = cached_type_hints(_typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -7021,7 +6999,7 @@ class CfnLoggerDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]]:
         '''The logger definition version to include when the logger definition is created.
 
         A logger definition version contains a list of ```logger`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ property types.
@@ -7032,7 +7010,7 @@ class CfnLoggerDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -7062,9 +7040,9 @@ class CfnLoggerDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoggerDefinitionVersionRef_6b5b4edd)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ILoggerDefinitionVersionRef)
 class CfnLoggerDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionVersion",
 ):
@@ -7107,7 +7085,7 @@ class CfnLoggerDefinitionVersion(
         id: builtins.str,
         *,
         logger_definition_id: builtins.str,
-        loggers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggerDefinitionVersion.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        loggers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggerDefinitionVersion.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::LoggerDefinitionVersion``.
 
@@ -7117,7 +7095,7 @@ class CfnLoggerDefinitionVersion(
         :param loggers: The loggers in this version.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb45ce0812f07c5afc2310bc7a288eff7e5cdc4a5609d10f2a19f5b87faf7fe5)
+            type_hints = cached_type_hints(_typecheckingstub__fb45ce0812f07c5afc2310bc7a288eff7e5cdc4a5609d10f2a19f5b87faf7fe5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoggerDefinitionVersionProps(
@@ -7134,18 +7112,18 @@ class CfnLoggerDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e21701c77a6169e55c0e0f1f468aa49d77f72dcd0ba9e229496ec6bd8fbe718)
+            type_hints = cached_type_hints(_typecheckingstub__9e21701c77a6169e55c0e0f1f468aa49d77f72dcd0ba9e229496ec6bd8fbe718)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoggerDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e52fdc9bf427c5c69aa25405bc527eac098df7759f0f8a65d64cf2ac634260dd)
+            type_hints = cached_type_hints(_typecheckingstub__e52fdc9bf427c5c69aa25405bc527eac098df7759f0f8a65d64cf2ac634260dd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7158,7 +7136,7 @@ class CfnLoggerDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7a42b772a8bb7406067e698e43fd8f7d878cfc6b68255652cf2e0940da66a4f)
+            type_hints = cached_type_hints(_typecheckingstub__f7a42b772a8bb7406067e698e43fd8f7d878cfc6b68255652cf2e0940da66a4f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7190,9 +7168,9 @@ class CfnLoggerDefinitionVersion(
     @jsii.member(jsii_name="loggerDefinitionVersionRef")
     def logger_definition_version_ref(
         self,
-    ) -> "_LoggerDefinitionVersionReference_8df439cc":
+    ) -> "_aws_greengrass_b1e66511.LoggerDefinitionVersionReference":
         '''A reference to a LoggerDefinitionVersion resource.'''
-        return typing.cast("_LoggerDefinitionVersionReference_8df439cc", jsii.get(self, "loggerDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.LoggerDefinitionVersionReference", jsii.get(self, "loggerDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="loggerDefinitionId")
@@ -7203,7 +7181,7 @@ class CfnLoggerDefinitionVersion(
     @logger_definition_id.setter
     def logger_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dccc4692452b48425650c13195e73d6c200e1a8087f73abc40b4266aa7098102)
+            type_hints = cached_type_hints(_typecheckingstub__dccc4692452b48425650c13195e73d6c200e1a8087f73abc40b4266aa7098102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggerDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -7211,17 +7189,17 @@ class CfnLoggerDefinitionVersion(
     @jsii.member(jsii_name="loggers")
     def loggers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinitionVersion.LoggerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinitionVersion.LoggerProperty"]]]:
         '''The loggers in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinitionVersion.LoggerProperty"]]], jsii.get(self, "loggers"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinitionVersion.LoggerProperty"]]], jsii.get(self, "loggers"))
 
     @loggers.setter
     def loggers(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinitionVersion.LoggerProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinitionVersion.LoggerProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__935a7882eea62e6e59dbe2f8f1f89290502193c1dc3234cdc82edf49948aac83)
+            type_hints = cached_type_hints(_typecheckingstub__935a7882eea62e6e59dbe2f8f1f89290502193c1dc3234cdc82edf49948aac83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggers", value) # pyright: ignore[reportArgumentType]
 
@@ -7278,7 +7256,7 @@ class CfnLoggerDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17bd21c4fd76afa67a356eb02e70cf8770d286a8abba3a95fc65604a3e4ca18f)
+                type_hints = cached_type_hints(_typecheckingstub__17bd21c4fd76afa67a356eb02e70cf8770d286a8abba3a95fc65604a3e4ca18f)
                 check_type(argname="argument component", value=component, expected_type=type_hints["component"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -7374,7 +7352,7 @@ class CfnLoggerDefinitionVersionProps:
         self,
         *,
         logger_definition_id: builtins.str,
-        loggers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggerDefinitionVersion.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        loggers: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggerDefinitionVersion.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnLoggerDefinitionVersion``.
 
@@ -7404,7 +7382,7 @@ class CfnLoggerDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7)
+            type_hints = cached_type_hints(_typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7)
             check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
             check_type(argname="argument loggers", value=loggers, expected_type=type_hints["loggers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7427,14 +7405,14 @@ class CfnLoggerDefinitionVersionProps:
     @builtins.property
     def loggers(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinitionVersion.LoggerProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinitionVersion.LoggerProperty"]]]:
         '''The loggers in this version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html#cfn-greengrass-loggerdefinitionversion-loggers
         '''
         result = self._values.get("loggers")
         assert result is not None, "Required property 'loggers' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggerDefinitionVersion.LoggerProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggerDefinitionVersion.LoggerProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7448,9 +7426,9 @@ class CfnLoggerDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceDefinitionRef_17d6c7ff, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IResourceDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResourceDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinition",
 ):
@@ -7548,7 +7526,7 @@ class CfnResourceDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::ResourceDefinition``.
@@ -7560,7 +7538,7 @@ class CfnResourceDefinition(
         :param tags: Application-specific metadata to attach to the resource definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__047c0e38fb370750fe5db940a38d857f066bb4490f8e079801f4c24d210372c3)
+            type_hints = cached_type_hints(_typecheckingstub__047c0e38fb370750fe5db940a38d857f066bb4490f8e079801f4c24d210372c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceDefinitionProps(
@@ -7573,13 +7551,13 @@ class CfnResourceDefinition(
     @builtins.classmethod
     def arn_for_resource_definition(
         cls,
-        resource: "_IResourceDefinitionRef_17d6c7ff",
+        resource: "_aws_greengrass_b1e66511.IResourceDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28f7231980d4eb95a881a42ea1d0bdef53c3e5becc44535e1c0ad5e5acd2b0d1)
+            type_hints = cached_type_hints(_typecheckingstub__28f7231980d4eb95a881a42ea1d0bdef53c3e5becc44535e1c0ad5e5acd2b0d1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceDefinition", [resource]))
 
@@ -7590,7 +7568,7 @@ class CfnResourceDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IResourceDefinitionRef_17d6c7ff":
+    ) -> "_aws_greengrass_b1e66511.IResourceDefinitionRef":
         '''Creates a new IResourceDefinitionRef from an ARN.
 
         :param scope: -
@@ -7598,11 +7576,11 @@ class CfnResourceDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d72045c7e44a08294fb0ce6dfbd70a93c16f8f48ee2f36a14bf35d261cf678b)
+            type_hints = cached_type_hints(_typecheckingstub__2d72045c7e44a08294fb0ce6dfbd70a93c16f8f48ee2f36a14bf35d261cf678b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IResourceDefinitionRef_17d6c7ff", jsii.sinvoke(cls, "fromResourceDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.IResourceDefinitionRef", jsii.sinvoke(cls, "fromResourceDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromResourceDefinitionId")
     @builtins.classmethod
@@ -7611,7 +7589,7 @@ class CfnResourceDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         resource_definition_id: builtins.str,
-    ) -> "_IResourceDefinitionRef_17d6c7ff":
+    ) -> "_aws_greengrass_b1e66511.IResourceDefinitionRef":
         '''Creates a new IResourceDefinitionRef from a resourceDefinitionId.
 
         :param scope: -
@@ -7619,11 +7597,11 @@ class CfnResourceDefinition(
         :param resource_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f5a25cf668ead9ce72121914b03179df794f1f2034aa4fec1655a9e6419f94d)
+            type_hints = cached_type_hints(_typecheckingstub__7f5a25cf668ead9ce72121914b03179df794f1f2034aa4fec1655a9e6419f94d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
-        return typing.cast("_IResourceDefinitionRef_17d6c7ff", jsii.sinvoke(cls, "fromResourceDefinitionId", [scope, id, resource_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.IResourceDefinitionRef", jsii.sinvoke(cls, "fromResourceDefinitionId", [scope, id, resource_definition_id]))
 
     @jsii.member(jsii_name="isCfnResourceDefinition")
     @builtins.classmethod
@@ -7633,18 +7611,18 @@ class CfnResourceDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1058e6323d1dd06c531a1bb3c454aac93244c710c6a641a809ea050112cc4ab4)
+            type_hints = cached_type_hints(_typecheckingstub__1058e6323d1dd06c531a1bb3c454aac93244c710c6a641a809ea050112cc4ab4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42977d53c22197ecb3e5aa75d8273dbffa91f7bab1c2d271a874285225a099b8)
+            type_hints = cached_type_hints(_typecheckingstub__42977d53c22197ecb3e5aa75d8273dbffa91f7bab1c2d271a874285225a099b8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7657,7 +7635,7 @@ class CfnResourceDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a345a654c8dbd28db74cdcdaa4cf76ca9f4596ded63638879400c3589d09227)
+            type_hints = cached_type_hints(_typecheckingstub__8a345a654c8dbd28db74cdcdaa4cf76ca9f4596ded63638879400c3589d09227)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7715,15 +7693,17 @@ class CfnResourceDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="resourceDefinitionRef")
-    def resource_definition_ref(self) -> "_ResourceDefinitionReference_3c5e0e00":
+    def resource_definition_ref(
+        self,
+    ) -> "_aws_greengrass_b1e66511.ResourceDefinitionReference":
         '''A reference to a ResourceDefinition resource.'''
-        return typing.cast("_ResourceDefinitionReference_3c5e0e00", jsii.get(self, "resourceDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.ResourceDefinitionReference", jsii.get(self, "resourceDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -7734,7 +7714,7 @@ class CfnResourceDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0256b19a6270c50864dd0afa1219a1b6be7518258daea855f19ca60744fa0d27)
+            type_hints = cached_type_hints(_typecheckingstub__0256b19a6270c50864dd0afa1219a1b6be7518258daea855f19ca60744fa0d27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -7747,7 +7727,7 @@ class CfnResourceDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975)
+            type_hints = cached_type_hints(_typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7755,17 +7735,17 @@ class CfnResourceDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]]:
         '''The resource definition version to include when the resource definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e)
+            type_hints = cached_type_hints(_typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -7781,7 +7761,7 @@ class CfnResourceDefinition(
         def __init__(
             self,
             *,
-            auto_add_group_owner: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            auto_add_group_owner: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             group_owner: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
@@ -7810,7 +7790,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dee09549db08436516a33cdfd3af7e5ad5db5fe672d89da865d7405e9d83a1b7)
+                type_hints = cached_type_hints(_typecheckingstub__dee09549db08436516a33cdfd3af7e5ad5db5fe672d89da865d7405e9d83a1b7)
                 check_type(argname="argument auto_add_group_owner", value=auto_add_group_owner, expected_type=type_hints["auto_add_group_owner"])
                 check_type(argname="argument group_owner", value=group_owner, expected_type=type_hints["group_owner"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7822,7 +7802,7 @@ class CfnResourceDefinition(
         @builtins.property
         def auto_add_group_owner(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Indicates whether to give the privileges of the Linux group that owns the resource to the Lambda process.
 
             This gives the Lambda process the file access permissions of the Linux group.
@@ -7831,7 +7811,7 @@ class CfnResourceDefinition(
             '''
             result = self._values.get("auto_add_group_owner")
             assert result is not None, "Required property 'auto_add_group_owner' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def group_owner(self) -> typing.Optional[builtins.str]:
@@ -7868,7 +7848,7 @@ class CfnResourceDefinition(
             self,
             *,
             source_path: builtins.str,
-            group_owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            group_owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for a local device resource, which represents a file under ``/dev`` .
 
@@ -7901,7 +7881,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__519c96577980326dba50fcff850097de74fac4e031ecd0c5b0699a683334e6e7)
+                type_hints = cached_type_hints(_typecheckingstub__519c96577980326dba50fcff850097de74fac4e031ecd0c5b0699a683334e6e7)
                 check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
                 check_type(argname="argument group_owner_setting", value=group_owner_setting, expected_type=type_hints["group_owner_setting"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7925,13 +7905,13 @@ class CfnResourceDefinition(
         @builtins.property
         def group_owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.GroupOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.GroupOwnerSettingProperty"]]:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-localdeviceresourcedata.html#cfn-greengrass-resourcedefinition-localdeviceresourcedata-groupownersetting
             '''
             result = self._values.get("group_owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.GroupOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.GroupOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7959,7 +7939,7 @@ class CfnResourceDefinition(
             *,
             destination_path: builtins.str,
             source_path: builtins.str,
-            group_owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            group_owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for a local volume resource, which represents a file or directory on the root file system.
 
@@ -7994,7 +7974,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6a3bf7a5d451ecfb7a0028a5410ae5923ddd2e13f2d619750140c5474472942a)
+                type_hints = cached_type_hints(_typecheckingstub__6a3bf7a5d451ecfb7a0028a5410ae5923ddd2e13f2d619750140c5474472942a)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
                 check_type(argname="argument group_owner_setting", value=group_owner_setting, expected_type=type_hints["group_owner_setting"])
@@ -8030,13 +8010,13 @@ class CfnResourceDefinition(
         @builtins.property
         def group_owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.GroupOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.GroupOwnerSettingProperty"]]:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-localvolumeresourcedata.html#cfn-greengrass-resourcedefinition-localvolumeresourcedata-groupownersetting
             '''
             result = self._values.get("group_owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.GroupOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.GroupOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8064,11 +8044,11 @@ class CfnResourceDefinition(
         def __init__(
             self,
             *,
-            local_device_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.LocalDeviceResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            local_volume_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.LocalVolumeResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_machine_learning_model_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.S3MachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            secrets_manager_secret_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.SecretsManagerSecretResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_device_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.LocalDeviceResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_volume_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.LocalVolumeResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_machine_learning_model_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.S3MachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_secret_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.SecretsManagerSecretResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A container for resource data, which defines the resource type.
 
@@ -8147,7 +8127,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__396357cb8698a2ab08ce94b2efcdff53c907a511665a527e7b6df7aeab58eaff)
+                type_hints = cached_type_hints(_typecheckingstub__396357cb8698a2ab08ce94b2efcdff53c907a511665a527e7b6df7aeab58eaff)
                 check_type(argname="argument local_device_resource_data", value=local_device_resource_data, expected_type=type_hints["local_device_resource_data"])
                 check_type(argname="argument local_volume_resource_data", value=local_volume_resource_data, expected_type=type_hints["local_volume_resource_data"])
                 check_type(argname="argument s3_machine_learning_model_resource_data", value=s3_machine_learning_model_resource_data, expected_type=type_hints["s3_machine_learning_model_resource_data"])
@@ -8168,57 +8148,57 @@ class CfnResourceDefinition(
         @builtins.property
         def local_device_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.LocalDeviceResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.LocalDeviceResourceDataProperty"]]:
             '''Settings for a local device resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedatacontainer.html#cfn-greengrass-resourcedefinition-resourcedatacontainer-localdeviceresourcedata
             '''
             result = self._values.get("local_device_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.LocalDeviceResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.LocalDeviceResourceDataProperty"]], result)
 
         @builtins.property
         def local_volume_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.LocalVolumeResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.LocalVolumeResourceDataProperty"]]:
             '''Settings for a local volume resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedatacontainer.html#cfn-greengrass-resourcedefinition-resourcedatacontainer-localvolumeresourcedata
             '''
             result = self._values.get("local_volume_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.LocalVolumeResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.LocalVolumeResourceDataProperty"]], result)
 
         @builtins.property
         def s3_machine_learning_model_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.S3MachineLearningModelResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.S3MachineLearningModelResourceDataProperty"]]:
             '''Settings for a machine learning resource stored in Amazon S3 .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedatacontainer.html#cfn-greengrass-resourcedefinition-resourcedatacontainer-s3machinelearningmodelresourcedata
             '''
             result = self._values.get("s3_machine_learning_model_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.S3MachineLearningModelResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.S3MachineLearningModelResourceDataProperty"]], result)
 
         @builtins.property
         def sage_maker_machine_learning_model_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty"]]:
             '''Settings for a machine learning resource saved as an SageMaker AI training job.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedatacontainer.html#cfn-greengrass-resourcedefinition-resourcedatacontainer-sagemakermachinelearningmodelresourcedata
             '''
             result = self._values.get("sage_maker_machine_learning_model_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty"]], result)
 
         @builtins.property
         def secrets_manager_secret_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.SecretsManagerSecretResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.SecretsManagerSecretResourceDataProperty"]]:
             '''Settings for a secret resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedatacontainer.html#cfn-greengrass-resourcedefinition-resourcedatacontainer-secretsmanagersecretresourcedata
             '''
             result = self._values.get("secrets_manager_secret_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.SecretsManagerSecretResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.SecretsManagerSecretResourceDataProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8240,7 +8220,7 @@ class CfnResourceDefinition(
         def __init__(
             self,
             *,
-            resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A resource definition version contains a list of resources. (In CloudFormation , resources are named *resource instances* .).
 
@@ -8320,7 +8300,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4c2b639a854266ea9e4614285d20bfcd34ae6e76ad6b8c645cd458ea74d79b1d)
+                type_hints = cached_type_hints(_typecheckingstub__4c2b639a854266ea9e4614285d20bfcd34ae6e76ad6b8c645cd458ea74d79b1d)
                 check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resources": resources,
@@ -8329,14 +8309,14 @@ class CfnResourceDefinition(
         @builtins.property
         def resources(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceInstanceProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceInstanceProperty"]]]:
             '''The resources in this version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourcedefinitionversion.html#cfn-greengrass-resourcedefinition-resourcedefinitionversion-resources
             '''
             result = self._values.get("resources")
             assert result is not None, "Required property 'resources' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceInstanceProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceInstanceProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8388,7 +8368,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ef1515394b8f7bc78aa0cb5c9c538e8d26325857332890bc231c259b12d7c585)
+                type_hints = cached_type_hints(_typecheckingstub__ef1515394b8f7bc78aa0cb5c9c538e8d26325857332890bc231c259b12d7c585)
                 check_type(argname="argument group_owner", value=group_owner, expected_type=type_hints["group_owner"])
                 check_type(argname="argument group_permission", value=group_permission, expected_type=type_hints["group_permission"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8446,7 +8426,7 @@ class CfnResourceDefinition(
             *,
             id: builtins.str,
             name: builtins.str,
-            resource_data_container: typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceDataContainerProperty", typing.Dict[builtins.str, typing.Any]]],
+            resource_data_container: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceDataContainerProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A local resource, machine learning resource, or secret resource.
 
@@ -8524,7 +8504,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5049866f9bc9b9b69029fc4e81f22c8620cd6a6cded5d5499d0011b8e4f438e)
+                type_hints = cached_type_hints(_typecheckingstub__c5049866f9bc9b9b69029fc4e81f22c8620cd6a6cded5d5499d0011b8e4f438e)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument resource_data_container", value=resource_data_container, expected_type=type_hints["resource_data_container"])
@@ -8561,7 +8541,7 @@ class CfnResourceDefinition(
         @builtins.property
         def resource_data_container(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDataContainerProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDataContainerProperty"]:
             '''A container for resource data.
 
             The container takes only one of the following supported resource data types: ``LocalDeviceResourceData`` , ``LocalVolumeResourceData`` , ``SageMakerMachineLearningModelResourceData`` , ``S3MachineLearningModelResourceData`` , or ``SecretsManagerSecretResourceData`` .
@@ -8573,7 +8553,7 @@ class CfnResourceDefinition(
             '''
             result = self._values.get("resource_data_container")
             assert result is not None, "Required property 'resource_data_container' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDataContainerProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDataContainerProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8601,7 +8581,7 @@ class CfnResourceDefinition(
             *,
             destination_path: builtins.str,
             s3_uri: builtins.str,
-            owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for an Amazon S3 machine learning resource.
 
@@ -8634,7 +8614,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5bb7ffbcaf0627cc8969d8e7b4223d2abe7b6803cebdf191f694ccdb20da9b1)
+                type_hints = cached_type_hints(_typecheckingstub__a5bb7ffbcaf0627cc8969d8e7b4223d2abe7b6803cebdf191f694ccdb20da9b1)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
                 check_type(argname="argument owner_setting", value=owner_setting, expected_type=type_hints["owner_setting"])
@@ -8670,7 +8650,7 @@ class CfnResourceDefinition(
         @builtins.property
         def owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]]:
             '''The owner setting for the downloaded machine learning resource.
 
             For more information, see `Access Machine Learning Resources from Lambda Functions <https://docs.aws.amazon.com/greengrass/v1/developerguide/access-ml-resources.html>`_ in the *Developer Guide* .
@@ -8678,7 +8658,7 @@ class CfnResourceDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-s3machinelearningmodelresourcedata.html#cfn-greengrass-resourcedefinition-s3machinelearningmodelresourcedata-ownersetting
             '''
             result = self._values.get("owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8706,7 +8686,7 @@ class CfnResourceDefinition(
             *,
             destination_path: builtins.str,
             sage_maker_job_arn: builtins.str,
-            owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for an Secrets Manager machine learning resource.
 
@@ -8739,7 +8719,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3995e8ba195b1f7e333172d25dc3c1e984db53c31650fe725fa3554fa39e8c03)
+                type_hints = cached_type_hints(_typecheckingstub__3995e8ba195b1f7e333172d25dc3c1e984db53c31650fe725fa3554fa39e8c03)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument sage_maker_job_arn", value=sage_maker_job_arn, expected_type=type_hints["sage_maker_job_arn"])
                 check_type(argname="argument owner_setting", value=owner_setting, expected_type=type_hints["owner_setting"])
@@ -8773,7 +8753,7 @@ class CfnResourceDefinition(
         @builtins.property
         def owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]]:
             '''The owner setting for the downloaded machine learning resource.
 
             For more information, see `Access Machine Learning Resources from Lambda Functions <https://docs.aws.amazon.com/greengrass/v1/developerguide/access-ml-resources.html>`_ in the *Developer Guide* .
@@ -8781,7 +8761,7 @@ class CfnResourceDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-sagemakermachinelearningmodelresourcedata.html#cfn-greengrass-resourcedefinition-sagemakermachinelearningmodelresourcedata-ownersetting
             '''
             result = self._values.get("owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDownloadOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8835,7 +8815,7 @@ class CfnResourceDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7665349bcf6d8c447b8247f984eb20a41ebfec207c55b6f809ba23f39db5e941)
+                type_hints = cached_type_hints(_typecheckingstub__7665349bcf6d8c447b8247f984eb20a41ebfec207c55b6f809ba23f39db5e941)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument additional_staging_labels_to_download", value=additional_staging_labels_to_download, expected_type=type_hints["additional_staging_labels_to_download"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8889,7 +8869,7 @@ class CfnResourceDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinition.ResourceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinition.ResourceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnResourceDefinition``.
@@ -8974,7 +8954,7 @@ class CfnResourceDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009)
+            type_hints = cached_type_hints(_typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -8999,7 +8979,7 @@ class CfnResourceDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]]:
         '''The resource definition version to include when the resource definition is created.
 
         A resource definition version contains a list of ```resource instance`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourceinstance.html>`_ property types.
@@ -9010,7 +8990,7 @@ class CfnResourceDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinition.ResourceDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -9040,9 +9020,9 @@ class CfnResourceDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceDefinitionVersionRef_18fa3afc)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.IResourceDefinitionVersionRef)
 class CfnResourceDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionVersion",
 ):
@@ -9131,7 +9111,7 @@ class CfnResourceDefinitionVersion(
         id: builtins.str,
         *,
         resource_definition_id: builtins.str,
-        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::ResourceDefinitionVersion``.
 
@@ -9141,7 +9121,7 @@ class CfnResourceDefinitionVersion(
         :param resources: The resources in this version.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89e106c323b7cfeaacd807745287aed9743502c2e5353d29679ad3381a494b6a)
+            type_hints = cached_type_hints(_typecheckingstub__89e106c323b7cfeaacd807745287aed9743502c2e5353d29679ad3381a494b6a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceDefinitionVersionProps(
@@ -9158,18 +9138,18 @@ class CfnResourceDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ef01bafff85164b7f377a83c609e7d8280fb735ddf9ba45417402e6bc8530e9)
+            type_hints = cached_type_hints(_typecheckingstub__2ef01bafff85164b7f377a83c609e7d8280fb735ddf9ba45417402e6bc8530e9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62f5d9f4cfb364bba693491c17e35b128c2b8ee571b3a2e22a37a57beae0a3b5)
+            type_hints = cached_type_hints(_typecheckingstub__62f5d9f4cfb364bba693491c17e35b128c2b8ee571b3a2e22a37a57beae0a3b5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9182,7 +9162,7 @@ class CfnResourceDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dc49d5697e9f2028c7bd3fb79a84e389f982ae6aff558a88094ca6c07cdc1ee)
+            type_hints = cached_type_hints(_typecheckingstub__5dc49d5697e9f2028c7bd3fb79a84e389f982ae6aff558a88094ca6c07cdc1ee)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9214,9 +9194,9 @@ class CfnResourceDefinitionVersion(
     @jsii.member(jsii_name="resourceDefinitionVersionRef")
     def resource_definition_version_ref(
         self,
-    ) -> "_ResourceDefinitionVersionReference_1a87c34e":
+    ) -> "_aws_greengrass_b1e66511.ResourceDefinitionVersionReference":
         '''A reference to a ResourceDefinitionVersion resource.'''
-        return typing.cast("_ResourceDefinitionVersionReference_1a87c34e", jsii.get(self, "resourceDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.ResourceDefinitionVersionReference", jsii.get(self, "resourceDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceDefinitionId")
@@ -9227,7 +9207,7 @@ class CfnResourceDefinitionVersion(
     @resource_definition_id.setter
     def resource_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62580ea31539bd91a408bb34b014f3d32df9c5903336db1a3dd73bad8e783dc2)
+            type_hints = cached_type_hints(_typecheckingstub__62580ea31539bd91a408bb34b014f3d32df9c5903336db1a3dd73bad8e783dc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -9235,17 +9215,17 @@ class CfnResourceDefinitionVersion(
     @jsii.member(jsii_name="resources")
     def resources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]]:
         '''The resources in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]], jsii.get(self, "resources"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]], jsii.get(self, "resources"))
 
     @resources.setter
     def resources(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74096283c52a878723fa8ea3375fb7a3d8f6b1924db6d17a865bc7f6ab31cce8)
+            type_hints = cached_type_hints(_typecheckingstub__74096283c52a878723fa8ea3375fb7a3d8f6b1924db6d17a865bc7f6ab31cce8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
 
@@ -9261,7 +9241,7 @@ class CfnResourceDefinitionVersion(
         def __init__(
             self,
             *,
-            auto_add_group_owner: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            auto_add_group_owner: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             group_owner: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
@@ -9290,7 +9270,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a8988f1c5c6c177915d440c485ec6d617ad5fab37340bb66f4512f8046513d05)
+                type_hints = cached_type_hints(_typecheckingstub__a8988f1c5c6c177915d440c485ec6d617ad5fab37340bb66f4512f8046513d05)
                 check_type(argname="argument auto_add_group_owner", value=auto_add_group_owner, expected_type=type_hints["auto_add_group_owner"])
                 check_type(argname="argument group_owner", value=group_owner, expected_type=type_hints["group_owner"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9302,7 +9282,7 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def auto_add_group_owner(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Indicates whether to give the privileges of the Linux group that owns the resource to the Lambda process.
 
             This gives the Lambda process the file access permissions of the Linux group.
@@ -9311,7 +9291,7 @@ class CfnResourceDefinitionVersion(
             '''
             result = self._values.get("auto_add_group_owner")
             assert result is not None, "Required property 'auto_add_group_owner' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def group_owner(self) -> typing.Optional[builtins.str]:
@@ -9348,7 +9328,7 @@ class CfnResourceDefinitionVersion(
             self,
             *,
             source_path: builtins.str,
-            group_owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            group_owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for a local device resource, which represents a file under ``/dev`` .
 
@@ -9381,7 +9361,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ad1e5ad5d32a1c882a19870f66bf8426f59f3e8a4b04c0e26abd1cfd58c9da20)
+                type_hints = cached_type_hints(_typecheckingstub__ad1e5ad5d32a1c882a19870f66bf8426f59f3e8a4b04c0e26abd1cfd58c9da20)
                 check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
                 check_type(argname="argument group_owner_setting", value=group_owner_setting, expected_type=type_hints["group_owner_setting"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9405,13 +9385,13 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def group_owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]]:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-localdeviceresourcedata.html#cfn-greengrass-resourcedefinitionversion-localdeviceresourcedata-groupownersetting
             '''
             result = self._values.get("group_owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9439,7 +9419,7 @@ class CfnResourceDefinitionVersion(
             *,
             destination_path: builtins.str,
             source_path: builtins.str,
-            group_owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            group_owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.GroupOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for a local volume resource, which represents a file or directory on the root file system.
 
@@ -9474,7 +9454,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aba79cc6c8d101b2524627c61005b837fe8f6106d075960b72da33a2448402a1)
+                type_hints = cached_type_hints(_typecheckingstub__aba79cc6c8d101b2524627c61005b837fe8f6106d075960b72da33a2448402a1)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
                 check_type(argname="argument group_owner_setting", value=group_owner_setting, expected_type=type_hints["group_owner_setting"])
@@ -9510,13 +9490,13 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def group_owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]]:
             '''Settings that define additional Linux OS group permissions to give to the Lambda function process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-localvolumeresourcedata.html#cfn-greengrass-resourcedefinitionversion-localvolumeresourcedata-groupownersetting
             '''
             result = self._values.get("group_owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.GroupOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9544,11 +9524,11 @@ class CfnResourceDefinitionVersion(
         def __init__(
             self,
             *,
-            local_device_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            local_volume_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_machine_learning_model_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            secrets_manager_secret_resource_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_device_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_volume_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_machine_learning_model_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_secret_resource_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A container for resource data, which defines the resource type.
 
@@ -9627,7 +9607,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e1f173a21b203c0c5e80391a9ec0fbd6e1e7fc332eafdd65534039d45a1fa167)
+                type_hints = cached_type_hints(_typecheckingstub__e1f173a21b203c0c5e80391a9ec0fbd6e1e7fc332eafdd65534039d45a1fa167)
                 check_type(argname="argument local_device_resource_data", value=local_device_resource_data, expected_type=type_hints["local_device_resource_data"])
                 check_type(argname="argument local_volume_resource_data", value=local_volume_resource_data, expected_type=type_hints["local_volume_resource_data"])
                 check_type(argname="argument s3_machine_learning_model_resource_data", value=s3_machine_learning_model_resource_data, expected_type=type_hints["s3_machine_learning_model_resource_data"])
@@ -9648,57 +9628,57 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def local_device_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty"]]:
             '''Settings for a local device resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourcedatacontainer.html#cfn-greengrass-resourcedefinitionversion-resourcedatacontainer-localdeviceresourcedata
             '''
             result = self._values.get("local_device_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty"]], result)
 
         @builtins.property
         def local_volume_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty"]]:
             '''Settings for a local volume resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourcedatacontainer.html#cfn-greengrass-resourcedefinitionversion-resourcedatacontainer-localvolumeresourcedata
             '''
             result = self._values.get("local_volume_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty"]], result)
 
         @builtins.property
         def s3_machine_learning_model_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty"]]:
             '''Settings for a machine learning resource stored in Amazon S3 .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourcedatacontainer.html#cfn-greengrass-resourcedefinitionversion-resourcedatacontainer-s3machinelearningmodelresourcedata
             '''
             result = self._values.get("s3_machine_learning_model_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty"]], result)
 
         @builtins.property
         def sage_maker_machine_learning_model_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty"]]:
             '''Settings for a machine learning resource saved as an SageMaker AI training job.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourcedatacontainer.html#cfn-greengrass-resourcedefinitionversion-resourcedatacontainer-sagemakermachinelearningmodelresourcedata
             '''
             result = self._values.get("sage_maker_machine_learning_model_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty"]], result)
 
         @builtins.property
         def secrets_manager_secret_resource_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty"]]:
             '''Settings for a secret resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-resourcedatacontainer.html#cfn-greengrass-resourcedefinitionversion-resourcedatacontainer-secretsmanagersecretresourcedata
             '''
             result = self._values.get("secrets_manager_secret_resource_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9750,7 +9730,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc0a8bffe4da2c9d860929131465d097b2e15f4dec1ec670a751d2b96dd405f9)
+                type_hints = cached_type_hints(_typecheckingstub__bc0a8bffe4da2c9d860929131465d097b2e15f4dec1ec670a751d2b96dd405f9)
                 check_type(argname="argument group_owner", value=group_owner, expected_type=type_hints["group_owner"])
                 check_type(argname="argument group_permission", value=group_permission, expected_type=type_hints["group_permission"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9808,7 +9788,7 @@ class CfnResourceDefinitionVersion(
             *,
             id: builtins.str,
             name: builtins.str,
-            resource_data_container: typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.ResourceDataContainerProperty", typing.Dict[builtins.str, typing.Any]]],
+            resource_data_container: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.ResourceDataContainerProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A local resource, machine learning resource, or secret resource.
 
@@ -9886,7 +9866,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fabb819cca9f473b88a301180b791a2610681e8c3e39303f273979230419cbb1)
+                type_hints = cached_type_hints(_typecheckingstub__fabb819cca9f473b88a301180b791a2610681e8c3e39303f273979230419cbb1)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument resource_data_container", value=resource_data_container, expected_type=type_hints["resource_data_container"])
@@ -9923,7 +9903,7 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def resource_data_container(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDataContainerProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDataContainerProperty"]:
             '''A container for resource data.
 
             The container takes only one of the following supported resource data types: ``LocalDeviceResourceData`` , ``LocalVolumeResourceData`` , ``SageMakerMachineLearningModelResourceData`` , ``S3MachineLearningModelResourceData`` , or ``SecretsManagerSecretResourceData`` .
@@ -9935,7 +9915,7 @@ class CfnResourceDefinitionVersion(
             '''
             result = self._values.get("resource_data_container")
             assert result is not None, "Required property 'resource_data_container' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDataContainerProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDataContainerProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9963,7 +9943,7 @@ class CfnResourceDefinitionVersion(
             *,
             destination_path: builtins.str,
             s3_uri: builtins.str,
-            owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for an Amazon S3 machine learning resource.
 
@@ -9996,7 +9976,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7db5c429251ce7c49fb1d990fb9ac0519fcc4eb330460a7b1fe8b12ce83f3500)
+                type_hints = cached_type_hints(_typecheckingstub__7db5c429251ce7c49fb1d990fb9ac0519fcc4eb330460a7b1fe8b12ce83f3500)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
                 check_type(argname="argument owner_setting", value=owner_setting, expected_type=type_hints["owner_setting"])
@@ -10032,7 +10012,7 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]]:
             '''The owner setting for the downloaded machine learning resource.
 
             For more information, see `Access Machine Learning Resources from Lambda Functions <https://docs.aws.amazon.com/greengrass/v1/developerguide/access-ml-resources.html>`_ in the *Developer Guide* .
@@ -10040,7 +10020,7 @@ class CfnResourceDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-s3machinelearningmodelresourcedata.html#cfn-greengrass-resourcedefinitionversion-s3machinelearningmodelresourcedata-ownersetting
             '''
             result = self._values.get("owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10068,7 +10048,7 @@ class CfnResourceDefinitionVersion(
             *,
             destination_path: builtins.str,
             sage_maker_job_arn: builtins.str,
-            owner_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            owner_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for an Secrets Manager machine learning resource.
 
@@ -10101,7 +10081,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__733b10b4c3a727471582d5422b71ecf16f8bc7480a54f897d6d6167da4004e7d)
+                type_hints = cached_type_hints(_typecheckingstub__733b10b4c3a727471582d5422b71ecf16f8bc7480a54f897d6d6167da4004e7d)
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument sage_maker_job_arn", value=sage_maker_job_arn, expected_type=type_hints["sage_maker_job_arn"])
                 check_type(argname="argument owner_setting", value=owner_setting, expected_type=type_hints["owner_setting"])
@@ -10135,7 +10115,7 @@ class CfnResourceDefinitionVersion(
         @builtins.property
         def owner_setting(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]]:
             '''The owner setting for the downloaded machine learning resource.
 
             For more information, see `Access Machine Learning Resources from Lambda Functions <https://docs.aws.amazon.com/greengrass/v1/developerguide/access-ml-resources.html>`_ in the *Developer Guide* .
@@ -10143,7 +10123,7 @@ class CfnResourceDefinitionVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinitionversion-sagemakermachinelearningmodelresourcedata.html#cfn-greengrass-resourcedefinitionversion-sagemakermachinelearningmodelresourcedata-ownersetting
             '''
             result = self._values.get("owner_setting")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10197,7 +10177,7 @@ class CfnResourceDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__42b5f8b52b565c9d97f0c8313cdb4b5f55c17c63cd32aa5bdc087f665e4894a2)
+                type_hints = cached_type_hints(_typecheckingstub__42b5f8b52b565c9d97f0c8313cdb4b5f55c17c63cd32aa5bdc087f665e4894a2)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument additional_staging_labels_to_download", value=additional_staging_labels_to_download, expected_type=type_hints["additional_staging_labels_to_download"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10254,7 +10234,7 @@ class CfnResourceDefinitionVersionProps:
         self,
         *,
         resource_definition_id: builtins.str,
-        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDefinitionVersion.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceDefinitionVersion.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnResourceDefinitionVersion``.
 
@@ -10330,7 +10310,7 @@ class CfnResourceDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427)
+            type_hints = cached_type_hints(_typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427)
             check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10353,14 +10333,14 @@ class CfnResourceDefinitionVersionProps:
     @builtins.property
     def resources(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]]:
         '''The resources in this version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html#cfn-greengrass-resourcedefinitionversion-resources
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10374,9 +10354,9 @@ class CfnResourceDefinitionVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISubscriptionDefinitionRef_e341c654, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ISubscriptionDefinitionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSubscriptionDefinition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinition",
 ):
@@ -10425,7 +10405,7 @@ class CfnSubscriptionDefinition(
         id: builtins.str,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Greengrass::SubscriptionDefinition``.
@@ -10437,7 +10417,7 @@ class CfnSubscriptionDefinition(
         :param tags: Application-specific metadata to attach to the subscription definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b231a8b03315437dd52b155f4e7c1d32a92f2a3b0e6f37ae1bfae2e72938fb22)
+            type_hints = cached_type_hints(_typecheckingstub__b231a8b03315437dd52b155f4e7c1d32a92f2a3b0e6f37ae1bfae2e72938fb22)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSubscriptionDefinitionProps(
@@ -10450,13 +10430,13 @@ class CfnSubscriptionDefinition(
     @builtins.classmethod
     def arn_for_subscription_definition(
         cls,
-        resource: "_ISubscriptionDefinitionRef_e341c654",
+        resource: "_aws_greengrass_b1e66511.ISubscriptionDefinitionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d66493a5f84161a466a4e33b7fae3f839ffc7264a838f8aee26e264cac9dbe6)
+            type_hints = cached_type_hints(_typecheckingstub__9d66493a5f84161a466a4e33b7fae3f839ffc7264a838f8aee26e264cac9dbe6)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSubscriptionDefinition", [resource]))
 
@@ -10467,7 +10447,7 @@ class CfnSubscriptionDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ISubscriptionDefinitionRef_e341c654":
+    ) -> "_aws_greengrass_b1e66511.ISubscriptionDefinitionRef":
         '''Creates a new ISubscriptionDefinitionRef from an ARN.
 
         :param scope: -
@@ -10475,11 +10455,11 @@ class CfnSubscriptionDefinition(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58ca8c961830bdbe7992eda4c37a79036b4e5db7abfd2eab2a87f8d4f6cc59aa)
+            type_hints = cached_type_hints(_typecheckingstub__58ca8c961830bdbe7992eda4c37a79036b4e5db7abfd2eab2a87f8d4f6cc59aa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ISubscriptionDefinitionRef_e341c654", jsii.sinvoke(cls, "fromSubscriptionDefinitionArn", [scope, id, arn]))
+        return typing.cast("_aws_greengrass_b1e66511.ISubscriptionDefinitionRef", jsii.sinvoke(cls, "fromSubscriptionDefinitionArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromSubscriptionDefinitionId")
     @builtins.classmethod
@@ -10488,7 +10468,7 @@ class CfnSubscriptionDefinition(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         subscription_definition_id: builtins.str,
-    ) -> "_ISubscriptionDefinitionRef_e341c654":
+    ) -> "_aws_greengrass_b1e66511.ISubscriptionDefinitionRef":
         '''Creates a new ISubscriptionDefinitionRef from a subscriptionDefinitionId.
 
         :param scope: -
@@ -10496,11 +10476,11 @@ class CfnSubscriptionDefinition(
         :param subscription_definition_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c799fc1e69f34091edf7792e64c48811b283f98b7e01afb6604ee2e39c2b6e2e)
+            type_hints = cached_type_hints(_typecheckingstub__c799fc1e69f34091edf7792e64c48811b283f98b7e01afb6604ee2e39c2b6e2e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
-        return typing.cast("_ISubscriptionDefinitionRef_e341c654", jsii.sinvoke(cls, "fromSubscriptionDefinitionId", [scope, id, subscription_definition_id]))
+        return typing.cast("_aws_greengrass_b1e66511.ISubscriptionDefinitionRef", jsii.sinvoke(cls, "fromSubscriptionDefinitionId", [scope, id, subscription_definition_id]))
 
     @jsii.member(jsii_name="isCfnSubscriptionDefinition")
     @builtins.classmethod
@@ -10510,18 +10490,18 @@ class CfnSubscriptionDefinition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2ebb5163cdaa399771f645b6e59facd7ee1959b519361748149e48d8f963f1b)
+            type_hints = cached_type_hints(_typecheckingstub__f2ebb5163cdaa399771f645b6e59facd7ee1959b519361748149e48d8f963f1b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSubscriptionDefinition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3b55b221d1074330e22fd2822066e10cb57a859717ce6d479ff80b008c96af7)
+            type_hints = cached_type_hints(_typecheckingstub__a3b55b221d1074330e22fd2822066e10cb57a859717ce6d479ff80b008c96af7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10534,7 +10514,7 @@ class CfnSubscriptionDefinition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b6fd2bcdb28de44a008408c98ea58d67bc1442faa5d9fa707802f568ddb1d2)
+            type_hints = cached_type_hints(_typecheckingstub__95b6fd2bcdb28de44a008408c98ea58d67bc1442faa5d9fa707802f568ddb1d2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10594,15 +10574,15 @@ class CfnSubscriptionDefinition(
     @jsii.member(jsii_name="subscriptionDefinitionRef")
     def subscription_definition_ref(
         self,
-    ) -> "_SubscriptionDefinitionReference_7d3dba0c":
+    ) -> "_aws_greengrass_b1e66511.SubscriptionDefinitionReference":
         '''A reference to a SubscriptionDefinition resource.'''
-        return typing.cast("_SubscriptionDefinitionReference_7d3dba0c", jsii.get(self, "subscriptionDefinitionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.SubscriptionDefinitionReference", jsii.get(self, "subscriptionDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -10613,7 +10593,7 @@ class CfnSubscriptionDefinition(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7419a41b1a2fd9cbc8893cf41814a9d4402f8bbf4b3926c9d4eae1050a3cb2c)
+            type_hints = cached_type_hints(_typecheckingstub__c7419a41b1a2fd9cbc8893cf41814a9d4402f8bbf4b3926c9d4eae1050a3cb2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -10626,7 +10606,7 @@ class CfnSubscriptionDefinition(
     @tags_raw.setter
     def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37)
+            type_hints = cached_type_hints(_typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -10634,17 +10614,17 @@ class CfnSubscriptionDefinition(
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]]:
         '''The subscription definition version to include when the subscription definition is created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]], jsii.get(self, "initialVersion"))
 
     @initial_version.setter
     def initial_version(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a)
+            type_hints = cached_type_hints(_typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -10657,7 +10637,7 @@ class CfnSubscriptionDefinition(
         def __init__(
             self,
             *,
-            subscriptions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSubscriptionDefinition.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            subscriptions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriptionDefinition.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A subscription definition version contains a list of `subscriptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ .
 
@@ -10688,7 +10668,7 @@ class CfnSubscriptionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd466a90e730b214d5682e7f3c520c2a2084f5919c5b4a34dc43d11ebd863f01)
+                type_hints = cached_type_hints(_typecheckingstub__dd466a90e730b214d5682e7f3c520c2a2084f5919c5b4a34dc43d11ebd863f01)
                 check_type(argname="argument subscriptions", value=subscriptions, expected_type=type_hints["subscriptions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "subscriptions": subscriptions,
@@ -10697,14 +10677,14 @@ class CfnSubscriptionDefinition(
         @builtins.property
         def subscriptions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionProperty"]]]:
             '''The subscriptions in this version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinition-subscriptiondefinitionversion-subscriptions
             '''
             result = self._values.get("subscriptions")
             assert result is not None, "Required property 'subscriptions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10764,7 +10744,7 @@ class CfnSubscriptionDefinition(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b7552743b0092a7b8371fc4c1a1476bd190cbed44e48e0e59b996d8305d666b)
+                type_hints = cached_type_hints(_typecheckingstub__8b7552743b0092a7b8371fc4c1a1476bd190cbed44e48e0e59b996d8305d666b)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
                 check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
@@ -10844,7 +10824,7 @@ class CfnSubscriptionDefinitionProps:
         self,
         *,
         name: builtins.str,
-        initial_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_version: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnSubscriptionDefinition``.
@@ -10880,7 +10860,7 @@ class CfnSubscriptionDefinitionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98)
+            type_hints = cached_type_hints(_typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -10905,7 +10885,7 @@ class CfnSubscriptionDefinitionProps:
     @builtins.property
     def initial_version(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]]:
         '''The subscription definition version to include when the subscription definition is created.
 
         A subscription definition version contains a list of ```subscription`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ property types.
@@ -10916,7 +10896,7 @@ class CfnSubscriptionDefinitionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-initialversion
         '''
         result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Any:
@@ -10946,9 +10926,9 @@ class CfnSubscriptionDefinitionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISubscriptionDefinitionVersionRef_d9259780)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrass_b1e66511.ISubscriptionDefinitionVersionRef)
 class CfnSubscriptionDefinitionVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionVersion",
 ):
@@ -10988,7 +10968,7 @@ class CfnSubscriptionDefinitionVersion(
         id: builtins.str,
         *,
         subscription_definition_id: builtins.str,
-        subscriptions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSubscriptionDefinitionVersion.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscriptions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriptionDefinitionVersion.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Create a new ``AWS::Greengrass::SubscriptionDefinitionVersion``.
 
@@ -10998,7 +10978,7 @@ class CfnSubscriptionDefinitionVersion(
         :param subscriptions: The subscriptions in this version.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__196d53b9c9e2e632eb88d7a7f73e15b80a4e83c869df484747f40505cd07b62a)
+            type_hints = cached_type_hints(_typecheckingstub__196d53b9c9e2e632eb88d7a7f73e15b80a4e83c869df484747f40505cd07b62a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSubscriptionDefinitionVersionProps(
@@ -11016,18 +10996,18 @@ class CfnSubscriptionDefinitionVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b44fa39d6a95daf5a1be73a66c9ce8cfd4e0cac7c9741f544ec1b7a0eb581636)
+            type_hints = cached_type_hints(_typecheckingstub__b44fa39d6a95daf5a1be73a66c9ce8cfd4e0cac7c9741f544ec1b7a0eb581636)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSubscriptionDefinitionVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f5cbbce137768ad4bc517ba5824ec70d35a12d68a33dcc26d9f212c7554f8d8)
+            type_hints = cached_type_hints(_typecheckingstub__1f5cbbce137768ad4bc517ba5824ec70d35a12d68a33dcc26d9f212c7554f8d8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -11040,7 +11020,7 @@ class CfnSubscriptionDefinitionVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74274a470594f3024a0879f542f07460bf8dbc14aba0fa410317cbfb126bf38f)
+            type_hints = cached_type_hints(_typecheckingstub__74274a470594f3024a0879f542f07460bf8dbc14aba0fa410317cbfb126bf38f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -11072,9 +11052,9 @@ class CfnSubscriptionDefinitionVersion(
     @jsii.member(jsii_name="subscriptionDefinitionVersionRef")
     def subscription_definition_version_ref(
         self,
-    ) -> "_SubscriptionDefinitionVersionReference_05af159d":
+    ) -> "_aws_greengrass_b1e66511.SubscriptionDefinitionVersionReference":
         '''A reference to a SubscriptionDefinitionVersion resource.'''
-        return typing.cast("_SubscriptionDefinitionVersionReference_05af159d", jsii.get(self, "subscriptionDefinitionVersionRef"))
+        return typing.cast("_aws_greengrass_b1e66511.SubscriptionDefinitionVersionReference", jsii.get(self, "subscriptionDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionDefinitionId")
@@ -11085,7 +11065,7 @@ class CfnSubscriptionDefinitionVersion(
     @subscription_definition_id.setter
     def subscription_definition_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9eaeca2366167091d0a98772cb6ca7a6cc6e0b9cb92f4e5f40dbbe066f0768e)
+            type_hints = cached_type_hints(_typecheckingstub__a9eaeca2366167091d0a98772cb6ca7a6cc6e0b9cb92f4e5f40dbbe066f0768e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscriptionDefinitionId", value) # pyright: ignore[reportArgumentType]
 
@@ -11093,17 +11073,17 @@ class CfnSubscriptionDefinitionVersion(
     @jsii.member(jsii_name="subscriptions")
     def subscriptions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]]:
         '''The subscriptions in this version.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]], jsii.get(self, "subscriptions"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]], jsii.get(self, "subscriptions"))
 
     @subscriptions.setter
     def subscriptions(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ba4cd67c8807aa76b5b15f0cc7031c8c93e9db957d1dcbe2f07f9d22c3d9b57)
+            type_hints = cached_type_hints(_typecheckingstub__9ba4cd67c8807aa76b5b15f0cc7031c8c93e9db957d1dcbe2f07f9d22c3d9b57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subscriptions", value) # pyright: ignore[reportArgumentType]
 
@@ -11154,7 +11134,7 @@ class CfnSubscriptionDefinitionVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2d3123a4ba54f33ea17e4d551e1741ceae6c3e217ae977d2d28f5c60c81ab526)
+                type_hints = cached_type_hints(_typecheckingstub__2d3123a4ba54f33ea17e4d551e1741ceae6c3e217ae977d2d28f5c60c81ab526)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
                 check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
@@ -11237,7 +11217,7 @@ class CfnSubscriptionDefinitionVersionProps:
         self,
         *,
         subscription_definition_id: builtins.str,
-        subscriptions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSubscriptionDefinitionVersion.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscriptions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriptionDefinitionVersion.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
         '''Properties for defining a ``CfnSubscriptionDefinitionVersion``.
 
@@ -11264,7 +11244,7 @@ class CfnSubscriptionDefinitionVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8)
+            type_hints = cached_type_hints(_typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8)
             check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
             check_type(argname="argument subscriptions", value=subscriptions, expected_type=type_hints["subscriptions"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11287,14 +11267,14 @@ class CfnSubscriptionDefinitionVersionProps:
     @builtins.property
     def subscriptions(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]]:
         '''The subscriptions in this version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinitionversion-subscriptions
         '''
         result = self._values.get("subscriptions")
         assert result is not None, "Required property 'subscriptions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11350,14 +11330,14 @@ def _typecheckingstub__481b9a854466614791f45d6769989966b8f812de4d4fa3e31d53b297f
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1af4c5f0ceee0db3c3082312ce711f82430bf48c23b6ce511aab97cdca8e3ce7(
-    resource: _IConnectorDefinitionRef_07e220d3,
+    resource: _aws_greengrass_b1e66511.IConnectorDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11385,7 +11365,7 @@ def _typecheckingstub__6617dd0a708eddbc4138ac37d0b1f82299580ecd61dde3f2fafb437fb
     pass
 
 def _typecheckingstub__24c07fb6ad50afe14bef1d7010d53ca0ed36ba7ee67a12442f8fefe27c993eb3(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11409,14 +11389,14 @@ def _typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004
     pass
 
 def _typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e0ebd178e9a062570c1b341d7167254254483a31aa5611c9784ea999dbf17f21(
     *,
-    connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorDefinition.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11433,7 +11413,7 @@ def _typecheckingstub__9296d577ecfbbed3bc2c2debdad72ad7c40138384002b64be6231a4a6
 def _typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -11444,7 +11424,7 @@ def _typecheckingstub__97b0440a60203f7d65611b69dca729e027a591c6aa92f00dc0aebb409
     id: builtins.str,
     *,
     connector_definition_id: builtins.str,
-    connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11456,7 +11436,7 @@ def _typecheckingstub__d77f1bd1e6c3dfac7dd60f65a0aed4b2a1eb6f3c6e78474744a89c02b
     pass
 
 def _typecheckingstub__28930916b9351f935867712c00b802adf7b173a69fafdb3c311d8cd529a223ce(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11474,7 +11454,7 @@ def _typecheckingstub__46572beae401fe5e838cb0b02ec437b067f98ac0ae5835d7ef8ce870c
     pass
 
 def _typecheckingstub__5ed3abea511a407254df28d178fbfb71f43dee9315c0aeca3095f062663236ce(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinitionVersion.ConnectorProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectorDefinitionVersion.ConnectorProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11491,7 +11471,7 @@ def _typecheckingstub__d59c31c39abe32b4f18b9663d07cf39015d1cce8e87ebaa475937de0f
 def _typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3(
     *,
     connector_definition_id: builtins.str,
-    connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    connectors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11501,14 +11481,14 @@ def _typecheckingstub__b7fe5635b210e6632e07b82d21d8907b6d36d805b6d4fb2198f043341
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__08874596bb0d90e685ff8a21b0dfc42e7f3e6c854ec1fdae12268d1c07a727c4(
-    resource: _ICoreDefinitionRef_4183d6fb,
+    resource: _aws_greengrass_b1e66511.ICoreDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11536,7 +11516,7 @@ def _typecheckingstub__323cda17b174fb697335f0c9bd2053f4718b401fd7f17c15178aedb53
     pass
 
 def _typecheckingstub__64368dbb58b3df35d74d10a3113a88fb2dc06fc0237665e15968f378a8fbbd09(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11560,14 +11540,14 @@ def _typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f1
     pass
 
 def _typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCoreDefinition.CoreDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCoreDefinition.CoreDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4ef4f67c3c3830d5b5644db7ec3e809f18d3cab655c6a7fd98232bccd93382e3(
     *,
-    cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cores: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCoreDefinition.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11577,7 +11557,7 @@ def _typecheckingstub__16d7e03cdaed925e2b5ec8c65e84a5b6cf10c5209e1d1de097ab201c4
     certificate_arn: builtins.str,
     id: builtins.str,
     thing_arn: builtins.str,
-    sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sync_shadow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11585,7 +11565,7 @@ def _typecheckingstub__16d7e03cdaed925e2b5ec8c65e84a5b6cf10c5209e1d1de097ab201c4
 def _typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -11596,7 +11576,7 @@ def _typecheckingstub__98b8071f110db36c2b93c49d75516709035bb93997aae3c35adc25c4a
     id: builtins.str,
     *,
     core_definition_id: builtins.str,
-    cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cores: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11608,7 +11588,7 @@ def _typecheckingstub__56622d7c15144853be0815ea7c5cc2a0c3aa3bfb9c6fabc4e971837ce
     pass
 
 def _typecheckingstub__9b4e0682ef4a26ccff2d2d377b87519933191b35ee2f3c927013cb65d537b304(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11626,7 +11606,7 @@ def _typecheckingstub__ce705d0cc1809364da37b409e24bfddfab55386d0858b4c4146d9a22a
     pass
 
 def _typecheckingstub__a1bffbbd7f9c7ce8f8528729042b02d09f335ab5562e19bf5da873a4a6ae6b05(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCoreDefinitionVersion.CoreProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCoreDefinitionVersion.CoreProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11636,7 +11616,7 @@ def _typecheckingstub__07e3ed0ad844b4ecbd124f2fc0f6fcb8c8ca64bd7f1b2ebe17ecf825b
     certificate_arn: builtins.str,
     id: builtins.str,
     thing_arn: builtins.str,
-    sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sync_shadow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11644,7 +11624,7 @@ def _typecheckingstub__07e3ed0ad844b4ecbd124f2fc0f6fcb8c8ca64bd7f1b2ebe17ecf825b
 def _typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f(
     *,
     core_definition_id: builtins.str,
-    cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cores: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11654,14 +11634,14 @@ def _typecheckingstub__6388724d13149e0aad9e17e0abeb2962bcb4c5f435c6c0744dc491437
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__29a54774827f95af61a2958cc980996f1b944be420969037dedab5377494dac5(
-    resource: _IDeviceDefinitionRef_24aad2cb,
+    resource: _aws_greengrass_b1e66511.IDeviceDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11689,7 +11669,7 @@ def _typecheckingstub__f738446db078aa3d5f1ef2b3934c4f7e4a8025edc92bd7ed7f97b231f
     pass
 
 def _typecheckingstub__42b7b2748a017da66012466c961f889765dd501d6bce1063c38a88cf58c3f181(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11713,14 +11693,14 @@ def _typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda8855
     pass
 
 def _typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinition.DeviceDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeviceDefinition.DeviceDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d0c5ec14762edf351c870b2f17efb8d815ee293da253da248851bce6b21751ce(
     *,
-    devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    devices: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceDefinition.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11730,7 +11710,7 @@ def _typecheckingstub__812e639d6663b05c08a6e0a7e6aea0c4d9cb91c3144a1113dcbf3d793
     certificate_arn: builtins.str,
     id: builtins.str,
     thing_arn: builtins.str,
-    sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sync_shadow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11738,7 +11718,7 @@ def _typecheckingstub__812e639d6663b05c08a6e0a7e6aea0c4d9cb91c3144a1113dcbf3d793
 def _typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -11749,7 +11729,7 @@ def _typecheckingstub__64493ebfeeb96fc14eb8e8054338af97e554d939f196f64d5d512c73a
     id: builtins.str,
     *,
     device_definition_id: builtins.str,
-    devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    devices: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11761,7 +11741,7 @@ def _typecheckingstub__5272f04761eb5f2432bd05d8aa79b6224f401ea465a058aeb7bc073b3
     pass
 
 def _typecheckingstub__f75f076efee1cfe7e6a6aa35cffba776ede5eb8c3ebc6b05d12324b9ed098c8c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11779,7 +11759,7 @@ def _typecheckingstub__e81c0aa8405667eeeaadd67c78cb7b7ddd5bc27f106a564e329128513
     pass
 
 def _typecheckingstub__a0aabdafe61d8e2100f8e9a731798871a20d7438db750e894f114287763994f9(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinitionVersion.DeviceProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeviceDefinitionVersion.DeviceProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11789,7 +11769,7 @@ def _typecheckingstub__253b05ead7f7258dbe7d542a3d84a1dcb9e7461853810ffd646f2efad
     certificate_arn: builtins.str,
     id: builtins.str,
     thing_arn: builtins.str,
-    sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sync_shadow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11797,7 +11777,7 @@ def _typecheckingstub__253b05ead7f7258dbe7d542a3d84a1dcb9e7461853810ffd646f2efad
 def _typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09(
     *,
     device_definition_id: builtins.str,
-    devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    devices: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11807,14 +11787,14 @@ def _typecheckingstub__dc054a16da2a52b953d26f46ac8928cd46a0d3b00ea138b637dba8712
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__10772cb602dbb3eeabd71e8cd46153287260385c9af4a43a7c240bce1bca59ed(
-    resource: _IFunctionDefinitionRef_06f82201,
+    resource: _aws_greengrass_b1e66511.IFunctionDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11842,7 +11822,7 @@ def _typecheckingstub__99c36ced146f44c3fdcb1654b196d2abc46fe2ae9df58db5d6b4974a4
     pass
 
 def _typecheckingstub__883759389b9b6062c199dfa06474e6b6eae814f3d29cb567a6c1accc041ac340(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11866,23 +11846,23 @@ def _typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6ead
     pass
 
 def _typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinition.FunctionDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunctionDefinition.FunctionDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8141acc3a004423bffa1be5752871f489d86a51c46b744ac79a869e6a745c4d4(
     *,
-    execution: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a4292cc2a15784a3b0bab48fede867f394d01dc9f076e30078fc77deaf8381cc(
     *,
-    access_sysfs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    execution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_access_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.ResourceAccessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    access_sysfs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    execution: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_access_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.ResourceAccessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     variables: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -11891,7 +11871,7 @@ def _typecheckingstub__a4292cc2a15784a3b0bab48fede867f394d01dc9f076e30078fc77dea
 def _typecheckingstub__b70e9d861e6b33c0e42706480eb4da7187fb3ff64d5ada17a7940f9296fd2a9e(
     *,
     isolation_mode: typing.Optional[builtins.str] = None,
-    run_as: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.RunAsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_as: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.RunAsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11899,11 +11879,11 @@ def _typecheckingstub__b70e9d861e6b33c0e42706480eb4da7187fb3ff64d5ada17a7940f929
 def _typecheckingstub__98d434196f1da3f825c92283259908906d812252031be392844dfd7ad5a1d266(
     *,
     encoding_type: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     exec_args: typing.Optional[builtins.str] = None,
     executable: typing.Optional[builtins.str] = None,
     memory_size: typing.Optional[jsii.Number] = None,
-    pinned: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pinned: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11911,8 +11891,8 @@ def _typecheckingstub__98d434196f1da3f825c92283259908906d812252031be392844dfd7ad
 
 def _typecheckingstub__3cf2ab9fa59092d61d89f64ed51286c1ffbcc6ff91799c90c41d5102213f0f32(
     *,
-    functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    functions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    default_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11920,7 +11900,7 @@ def _typecheckingstub__3cf2ab9fa59092d61d89f64ed51286c1ffbcc6ff91799c90c41d51022
 def _typecheckingstub__2d06406f22f33062b37608c66ede16429af10bcb88224eaae6da351e8b512eb5(
     *,
     function_arn: builtins.str,
-    function_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    function_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.FunctionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -11945,7 +11925,7 @@ def _typecheckingstub__044b15bdedd91446b78ce0f57b82c3734bcbedd95c01454cdca47d61e
 def _typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -11956,8 +11936,8 @@ def _typecheckingstub__74049a58818d8fb74724e45f074f2d356fba374467a1926758e3e761c
     id: builtins.str,
     *,
     function_definition_id: builtins.str,
-    functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    functions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    default_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11969,7 +11949,7 @@ def _typecheckingstub__08e8dd2531d9f132f6a2d3550e7edb89fd47718929253f318681939d3
     pass
 
 def _typecheckingstub__e53d31f9160e02bf734beeedf9a11d142ba8858555d274b4c85da63595775c72(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11987,29 +11967,29 @@ def _typecheckingstub__089983427f200b57e702fff54bb0b007c29cdd60772ebee7e6374971f
     pass
 
 def _typecheckingstub__793cfd87f23bbd9bf6e301d174c974540fcb771743c65e05c1a0a4025bf87005(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.FunctionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunctionDefinitionVersion.FunctionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0390fd3aa93f9d9e878e662d53c38486d861c310d7e93ad7f1c0f86c70cee20c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.DefaultConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunctionDefinitionVersion.DefaultConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dfacedad0a59ccb5e2eaec7676b018b92ee6862f373104646bf110f388b3e418(
     *,
-    execution: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__955f01f10cbdbbb5ea2b4005e2fdd4b4733b2c02fd34963370b597105324bef9(
     *,
-    access_sysfs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    execution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_access_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    access_sysfs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    execution: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.ExecutionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_access_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     variables: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -12018,7 +11998,7 @@ def _typecheckingstub__955f01f10cbdbbb5ea2b4005e2fdd4b4733b2c02fd34963370b597105
 def _typecheckingstub__5d250f03acfa6e718d9c76fc540c990c972324de4f76328354b14aa9eb0e6788(
     *,
     isolation_mode: typing.Optional[builtins.str] = None,
-    run_as: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.RunAsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_as: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.RunAsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12026,11 +12006,11 @@ def _typecheckingstub__5d250f03acfa6e718d9c76fc540c990c972324de4f76328354b14aa9e
 def _typecheckingstub__0305775d160fba73e4f75590e6bf752341fc5c40b45ed63434363b50709bf554(
     *,
     encoding_type: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     exec_args: typing.Optional[builtins.str] = None,
     executable: typing.Optional[builtins.str] = None,
     memory_size: typing.Optional[jsii.Number] = None,
-    pinned: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pinned: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12039,7 +12019,7 @@ def _typecheckingstub__0305775d160fba73e4f75590e6bf752341fc5c40b45ed63434363b507
 def _typecheckingstub__63a9205f2a39c9362a5f7f6b72de2b4c074656b9c7a7c287a91949ece94cf5dd(
     *,
     function_arn: builtins.str,
-    function_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    function_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.FunctionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     id: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -12064,8 +12044,8 @@ def _typecheckingstub__5ebc14c39db2ef6662e5e8568947f430b45c6b165cfdcb6f5bd1a30fc
 def _typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356(
     *,
     function_definition_id: builtins.str,
-    functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    functions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    default_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12075,7 +12055,7 @@ def _typecheckingstub__726a7d2c4960c5df3ad6e991be61efa251e71f218d0d72f1df21a3c59
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Any = None,
 ) -> None:
@@ -12083,7 +12063,7 @@ def _typecheckingstub__726a7d2c4960c5df3ad6e991be61efa251e71f218d0d72f1df21a3c59
     pass
 
 def _typecheckingstub__1fa77504ea72520ef703e6a6ab9eeb782300cc2b2ebc38bec77a2d1785df9800(
-    resource: _IGroupRef_b9515ae3,
+    resource: _aws_greengrass_b1e66511.IGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12111,7 +12091,7 @@ def _typecheckingstub__eeed97ed0723ad7f720f2289b8f4414e2cb259917a65f7ffcb8523739
     pass
 
 def _typecheckingstub__c1154c99a9c32510d4c5f12de88ee6aa74b4b71171411ee6688346f3c78d26e8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12135,7 +12115,7 @@ def _typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea8
     pass
 
 def _typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38beb0169bc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.GroupVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGroup.GroupVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12162,7 +12142,7 @@ def _typecheckingstub__23017f69761595410cb920f0188f7bac8a8a1c92bdabee3f081b74455
 def _typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Any = None,
 ) -> None:
@@ -12192,7 +12172,7 @@ def _typecheckingstub__e21a44cd1c4dbab65eb675e2f5e2c3f2e22fcdcc5c5450e8302cda97c
     pass
 
 def _typecheckingstub__a2069ae3c84e6655780c7b21f27d46fb1bee9a88231128d102cc86e616b776fa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12270,14 +12250,14 @@ def _typecheckingstub__d3141ac6c65d7407c94dc3062e91bf204de61524d95c83b87b6aab3da
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9bd0bbf27304d2d8c84f280888a8b3afd5395ac7b7659fb948028fdf60ecda32(
-    resource: _ILoggerDefinitionRef_c2baf8f3,
+    resource: _aws_greengrass_b1e66511.ILoggerDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12305,7 +12285,7 @@ def _typecheckingstub__9ae229ca5e19cca1fa33cc99e5d3af553a806893ac6ee42062d81072e
     pass
 
 def _typecheckingstub__8ca6d7f3da4fbad4f376abd5d28521fed1cf98cbc7b1bdecf6ba568a679007af(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12329,14 +12309,14 @@ def _typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b
     pass
 
 def _typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinition.LoggerDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoggerDefinition.LoggerDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__afb77b1dd70ac4fe4579018e45f452bb02bc14d56a2ce5d000c6bd4cc542d183(
     *,
-    loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    loggers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggerDefinition.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12355,7 +12335,7 @@ def _typecheckingstub__ef56df2cb15dd1d03dc55bf6372cddbfc94e06fb51a6d1a1422c713d3
 def _typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -12366,7 +12346,7 @@ def _typecheckingstub__fb45ce0812f07c5afc2310bc7a288eff7e5cdc4a5609d10f2a19f5b87
     id: builtins.str,
     *,
     logger_definition_id: builtins.str,
-    loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    loggers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12378,7 +12358,7 @@ def _typecheckingstub__9e21701c77a6169e55c0e0f1f468aa49d77f72dcd0ba9e229496ec6bd
     pass
 
 def _typecheckingstub__e52fdc9bf427c5c69aa25405bc527eac098df7759f0f8a65d64cf2ac634260dd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12396,7 +12376,7 @@ def _typecheckingstub__dccc4692452b48425650c13195e73d6c200e1a8087f73abc40b4266aa
     pass
 
 def _typecheckingstub__935a7882eea62e6e59dbe2f8f1f89290502193c1dc3234cdc82edf49948aac83(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinitionVersion.LoggerProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoggerDefinitionVersion.LoggerProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12415,7 +12395,7 @@ def _typecheckingstub__17bd21c4fd76afa67a356eb02e70cf8770d286a8abba3a95fc65604a3
 def _typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7(
     *,
     logger_definition_id: builtins.str,
-    loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    loggers: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12425,14 +12405,14 @@ def _typecheckingstub__047c0e38fb370750fe5db940a38d857f066bb4490f8e079801f4c24d2
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__28f7231980d4eb95a881a42ea1d0bdef53c3e5becc44535e1c0ad5e5acd2b0d1(
-    resource: _IResourceDefinitionRef_17d6c7ff,
+    resource: _aws_greengrass_b1e66511.IResourceDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12460,7 +12440,7 @@ def _typecheckingstub__1058e6323d1dd06c531a1bb3c454aac93244c710c6a641a809ea05011
     pass
 
 def _typecheckingstub__42977d53c22197ecb3e5aa75d8273dbffa91f7bab1c2d271a874285225a099b8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12484,14 +12464,14 @@ def _typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac
     pass
 
 def _typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceDefinition.ResourceDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResourceDefinition.ResourceDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dee09549db08436516a33cdfd3af7e5ad5db5fe672d89da865d7405e9d83a1b7(
     *,
-    auto_add_group_owner: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    auto_add_group_owner: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     group_owner: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12500,7 +12480,7 @@ def _typecheckingstub__dee09549db08436516a33cdfd3af7e5ad5db5fe672d89da865d7405e9
 def _typecheckingstub__519c96577980326dba50fcff850097de74fac4e031ecd0c5b0699a683334e6e7(
     *,
     source_path: builtins.str,
-    group_owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    group_owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12509,25 +12489,25 @@ def _typecheckingstub__6a3bf7a5d451ecfb7a0028a5410ae5923ddd2e13f2d619750140c5474
     *,
     destination_path: builtins.str,
     source_path: builtins.str,
-    group_owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    group_owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__396357cb8698a2ab08ce94b2efcdff53c907a511665a527e7b6df7aeab58eaff(
     *,
-    local_device_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.LocalDeviceResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    local_volume_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.LocalVolumeResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_machine_learning_model_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.S3MachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets_manager_secret_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.SecretsManagerSecretResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_device_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.LocalDeviceResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_volume_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.LocalVolumeResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_machine_learning_model_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.S3MachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_secret_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.SecretsManagerSecretResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4c2b639a854266ea9e4614285d20bfcd34ae6e76ad6b8c645cd458ea74d79b1d(
     *,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12544,7 +12524,7 @@ def _typecheckingstub__c5049866f9bc9b9b69029fc4e81f22c8620cd6a6cded5d5499d0011b8
     *,
     id: builtins.str,
     name: builtins.str,
-    resource_data_container: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDataContainerProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_data_container: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceDataContainerProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12553,7 +12533,7 @@ def _typecheckingstub__a5bb7ffbcaf0627cc8969d8e7b4223d2abe7b6803cebdf191f694ccdb
     *,
     destination_path: builtins.str,
     s3_uri: builtins.str,
-    owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12562,7 +12542,7 @@ def _typecheckingstub__3995e8ba195b1f7e333172d25dc3c1e984db53c31650fe725fa3554fa
     *,
     destination_path: builtins.str,
     sage_maker_job_arn: builtins.str,
-    owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12578,7 +12558,7 @@ def _typecheckingstub__7665349bcf6d8c447b8247f984eb20a41ebfec207c55b6f809ba23f39
 def _typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -12589,7 +12569,7 @@ def _typecheckingstub__89e106c323b7cfeaacd807745287aed9743502c2e5353d29679ad3381
     id: builtins.str,
     *,
     resource_definition_id: builtins.str,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12601,7 +12581,7 @@ def _typecheckingstub__2ef01bafff85164b7f377a83c609e7d8280fb735ddf9ba45417402e6b
     pass
 
 def _typecheckingstub__62f5d9f4cfb364bba693491c17e35b128c2b8ee571b3a2e22a37a57beae0a3b5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12619,14 +12599,14 @@ def _typecheckingstub__62580ea31539bd91a408bb34b014f3d32df9c5903336db1a3dd73bad8
     pass
 
 def _typecheckingstub__74096283c52a878723fa8ea3375fb7a3d8f6b1924db6d17a865bc7f6ab31cce8(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResourceDefinitionVersion.ResourceInstanceProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResourceDefinitionVersion.ResourceInstanceProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a8988f1c5c6c177915d440c485ec6d617ad5fab37340bb66f4512f8046513d05(
     *,
-    auto_add_group_owner: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    auto_add_group_owner: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     group_owner: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12635,7 +12615,7 @@ def _typecheckingstub__a8988f1c5c6c177915d440c485ec6d617ad5fab37340bb66f4512f804
 def _typecheckingstub__ad1e5ad5d32a1c882a19870f66bf8426f59f3e8a4b04c0e26abd1cfd58c9da20(
     *,
     source_path: builtins.str,
-    group_owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    group_owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12644,18 +12624,18 @@ def _typecheckingstub__aba79cc6c8d101b2524627c61005b837fe8f6106d075960b72da33a24
     *,
     destination_path: builtins.str,
     source_path: builtins.str,
-    group_owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    group_owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.GroupOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e1f173a21b203c0c5e80391a9ec0fbd6e1e7fc332eafdd65534039d45a1fa167(
     *,
-    local_device_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    local_volume_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_machine_learning_model_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secrets_manager_secret_resource_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_device_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_volume_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_machine_learning_model_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_machine_learning_model_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_secret_resource_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12672,7 +12652,7 @@ def _typecheckingstub__fabb819cca9f473b88a301180b791a2610681e8c3e39303f273979230
     *,
     id: builtins.str,
     name: builtins.str,
-    resource_data_container: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceDataContainerProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_data_container: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.ResourceDataContainerProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12681,7 +12661,7 @@ def _typecheckingstub__7db5c429251ce7c49fb1d990fb9ac0519fcc4eb330460a7b1fe8b12ce
     *,
     destination_path: builtins.str,
     s3_uri: builtins.str,
-    owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12690,7 +12670,7 @@ def _typecheckingstub__733b10b4c3a727471582d5422b71ecf16f8bc7480a54f897d6d6167da
     *,
     destination_path: builtins.str,
     sage_maker_job_arn: builtins.str,
-    owner_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    owner_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12706,7 +12686,7 @@ def _typecheckingstub__42b5f8b52b565c9d97f0c8313cdb4b5f55c17c63cd32aa5bdc087f665
 def _typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427(
     *,
     resource_definition_id: builtins.str,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12716,14 +12696,14 @@ def _typecheckingstub__b231a8b03315437dd52b155f4e7c1d32a92f2a3b0e6f37ae1bfae2e72
     id: builtins.str,
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9d66493a5f84161a466a4e33b7fae3f839ffc7264a838f8aee26e264cac9dbe6(
-    resource: _ISubscriptionDefinitionRef_e341c654,
+    resource: _aws_greengrass_b1e66511.ISubscriptionDefinitionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12751,7 +12731,7 @@ def _typecheckingstub__f2ebb5163cdaa399771f645b6e59facd7ee1959b519361748149e48d8
     pass
 
 def _typecheckingstub__a3b55b221d1074330e22fd2822066e10cb57a859717ce6d479ff80b008c96af7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12775,14 +12755,14 @@ def _typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5
     pass
 
 def _typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dd466a90e730b214d5682e7f3c520c2a2084f5919c5b4a34dc43d11ebd863f01(
     *,
-    subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscriptions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriptionDefinition.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12800,7 +12780,7 @@ def _typecheckingstub__8b7552743b0092a7b8371fc4c1a1476bd190cbed44e48e0e59b996d83
 def _typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98(
     *,
     name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_version: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -12811,7 +12791,7 @@ def _typecheckingstub__196d53b9c9e2e632eb88d7a7f73e15b80a4e83c869df484747f40505c
     id: builtins.str,
     *,
     subscription_definition_id: builtins.str,
-    subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscriptions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12823,7 +12803,7 @@ def _typecheckingstub__b44fa39d6a95daf5a1be73a66c9ce8cfd4e0cac7c9741f544ec1b7a0e
     pass
 
 def _typecheckingstub__1f5cbbce137768ad4bc517ba5824ec70d35a12d68a33dcc26d9f212c7554f8d8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12841,7 +12821,7 @@ def _typecheckingstub__a9eaeca2366167091d0a98772cb6ca7a6cc6e0b9cb92f4e5f40dbbe06
     pass
 
 def _typecheckingstub__9ba4cd67c8807aa76b5b15f0cc7031c8c93e9db957d1dcbe2f07f9d22c3d9b57(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinitionVersion.SubscriptionProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSubscriptionDefinitionVersion.SubscriptionProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12859,7 +12839,7 @@ def _typecheckingstub__2d3123a4ba54f33ea17e4d551e1741ceae6c3e217ae977d2d28f5c60c
 def _typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8(
     *,
     subscription_definition_id: builtins.str,
-    subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscriptions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass

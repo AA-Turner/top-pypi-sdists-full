@@ -94,6 +94,7 @@ from montecarlodata.tools import (
     add_common_options,
     convert_empty_str_callback,
     convert_uuid_callback,
+    prompt_for_hidden_values,
     validate_json_callback,
 )
 
@@ -2521,6 +2522,11 @@ def create_role(ctx, file, aws_profile, dc_id, agent_id):
               \b
               \n
               E.g. --changes '{"user":"Apollo"}'
+              \b
+              \n
+              Set a value to "-1" to be prompted for it interactively with hidden
+              input, so secrets never appear in the command. E.g. --changes
+              '{"databricks_client_secret":"-1"}'
               """,
     required=False,
     cls=AdvancedOptions,
@@ -2566,6 +2572,7 @@ def update_credentials(
     """
     Update credentials for a connection
     """
+    changes = prompt_for_hidden_values(changes)
     ConnectionOperationsService(
         config=ctx["config"],
         command_name="integrations update_credentials",

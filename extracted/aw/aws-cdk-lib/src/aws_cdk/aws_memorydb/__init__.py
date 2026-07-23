@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,59 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-)
-from ..interfaces.aws_memorydb import (
-    ACLReference as _ACLReference_054b0a92,
-    ClusterReference as _ClusterReference_75855dd3,
-    IACLRef as _IACLRef_c364f794,
-    IClusterRef as _IClusterRef_8cb56f6f,
-    IMultiRegionClusterRef as _IMultiRegionClusterRef_b7a8c236,
-    IParameterGroupRef as _IParameterGroupRef_471eb1a8,
-    ISubnetGroupRef as _ISubnetGroupRef_efc982f4,
-    IUserRef as _IUserRef_ee6ccd70,
-    MultiRegionClusterReference as _MultiRegionClusterReference_24d0cd7a,
-    ParameterGroupReference as _ParameterGroupReference_bde11e60,
-    SubnetGroupReference as _SubnetGroupReference_69a6dcdb,
-    UserReference as _UserReference_10bdf757,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_memorydb as _aws_memorydb_f0938d3f
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_memorydb_f0938d3f = _LazyImport("aws_cdk.interfaces.aws_memorydb")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IACLRef_c364f794, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IACLRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnACL(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnACL",
 ):
@@ -127,7 +108,7 @@ class CfnACL(
         id: builtins.str,
         *,
         acl_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::ACL``.
@@ -139,7 +120,7 @@ class CfnACL(
         :param user_names: The list of users that belong to the Access Control List.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1acb261875)
+            type_hints = cached_type_hints(_typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1acb261875)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnACLProps(acl_name=acl_name, tags=tags, user_names=user_names)
@@ -148,12 +129,12 @@ class CfnACL(
 
     @jsii.member(jsii_name="arnForACL")
     @builtins.classmethod
-    def arn_for_acl(cls, resource: "_IACLRef_c364f794") -> builtins.str:
+    def arn_for_acl(cls, resource: "_aws_memorydb_f0938d3f.IACLRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f48f14679e937bb7eaffacfca87491363bb5fae1fbf23622f6a3837e034a983)
+            type_hints = cached_type_hints(_typecheckingstub__9f48f14679e937bb7eaffacfca87491363bb5fae1fbf23622f6a3837e034a983)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForACL", [resource]))
 
@@ -164,7 +145,7 @@ class CfnACL(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IACLRef_c364f794":
+    ) -> "_aws_memorydb_f0938d3f.IACLRef":
         '''Creates a new IACLRef from an ARN.
 
         :param scope: -
@@ -172,11 +153,11 @@ class CfnACL(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01e08140f4608bc1201cfa00751f482f04b61a9cbccdbd85b8a30ecdb464d6f6)
+            type_hints = cached_type_hints(_typecheckingstub__01e08140f4608bc1201cfa00751f482f04b61a9cbccdbd85b8a30ecdb464d6f6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IACLRef_c364f794", jsii.sinvoke(cls, "fromACLArn", [scope, id, arn]))
+        return typing.cast("_aws_memorydb_f0938d3f.IACLRef", jsii.sinvoke(cls, "fromACLArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromAclName")
     @builtins.classmethod
@@ -185,7 +166,7 @@ class CfnACL(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         acl_name: builtins.str,
-    ) -> "_IACLRef_c364f794":
+    ) -> "_aws_memorydb_f0938d3f.IACLRef":
         '''Creates a new IACLRef from a aclName.
 
         :param scope: -
@@ -193,11 +174,11 @@ class CfnACL(
         :param acl_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02073185f42e3aab0bcd382a58d62c282bc7a5841909e235bb26999421f72701)
+            type_hints = cached_type_hints(_typecheckingstub__02073185f42e3aab0bcd382a58d62c282bc7a5841909e235bb26999421f72701)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
-        return typing.cast("_IACLRef_c364f794", jsii.sinvoke(cls, "fromAclName", [scope, id, acl_name]))
+        return typing.cast("_aws_memorydb_f0938d3f.IACLRef", jsii.sinvoke(cls, "fromAclName", [scope, id, acl_name]))
 
     @jsii.member(jsii_name="isCfnACL")
     @builtins.classmethod
@@ -207,18 +188,18 @@ class CfnACL(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23d57aea9ad7d7ee06a7c1cf8df517dd7ef3bcf0d40023f03c0b070c75165182)
+            type_hints = cached_type_hints(_typecheckingstub__23d57aea9ad7d7ee06a7c1cf8df517dd7ef3bcf0d40023f03c0b070c75165182)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnACL", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccc6a711d3d8a9748de4a3ff47996a84e749aad94d25a5dda512b2da78cc1038)
+            type_hints = cached_type_hints(_typecheckingstub__ccc6a711d3d8a9748de4a3ff47996a84e749aad94d25a5dda512b2da78cc1038)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -231,7 +212,7 @@ class CfnACL(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4acff847fe3f6b78cef61522d272a00a00cc6e9e52bdeb53d457a7ef9445111)
+            type_hints = cached_type_hints(_typecheckingstub__a4acff847fe3f6b78cef61522d272a00a00cc6e9e52bdeb53d457a7ef9445111)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -243,9 +224,9 @@ class CfnACL(
 
     @builtins.property
     @jsii.member(jsii_name="aclRef")
-    def acl_ref(self) -> "_ACLReference_054b0a92":
+    def acl_ref(self) -> "_aws_memorydb_f0938d3f.ACLReference":
         '''A reference to a ACL resource.'''
-        return typing.cast("_ACLReference_054b0a92", jsii.get(self, "aclRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.ACLReference", jsii.get(self, "aclRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -279,9 +260,9 @@ class CfnACL(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="aclName")
@@ -292,20 +273,23 @@ class CfnACL(
     @acl_name.setter
     def acl_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f59d44321ba67be64a21cd7280a133eb5eafce74ce555870a7e52de3bbadcbf)
+            type_hints = cached_type_hints(_typecheckingstub__5f59d44321ba67be64a21cd7280a133eb5eafce74ce555870a7e52de3bbadcbf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aclName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19dfb38b66bc6a76c22f50b7a62a4979bd2a681026ccd6e3e50920eb6c5cf6f4)
+            type_hints = cached_type_hints(_typecheckingstub__19dfb38b66bc6a76c22f50b7a62a4979bd2a681026ccd6e3e50920eb6c5cf6f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -318,7 +302,7 @@ class CfnACL(
     @user_names.setter
     def user_names(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2166de66)
+            type_hints = cached_type_hints(_typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2166de66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userNames", value) # pyright: ignore[reportArgumentType]
 
@@ -333,7 +317,7 @@ class CfnACLProps:
         self,
         *,
         acl_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnACL``.
@@ -364,7 +348,7 @@ class CfnACLProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__848e1428f1884a88285ca152ff429f50733c57eca32906e1deaae2e8b3f4cd9a)
+            type_hints = cached_type_hints(_typecheckingstub__848e1428f1884a88285ca152ff429f50733c57eca32906e1deaae2e8b3f4cd9a)
             check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument user_names", value=user_names, expected_type=type_hints["user_names"])
@@ -387,7 +371,7 @@ class CfnACLProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -395,7 +379,7 @@ class CfnACLProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-acl.html#cfn-memorydb-acl-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def user_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -418,9 +402,9 @@ class CfnACLProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IClusterRef_8cb56f6f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IClusterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnCluster",
 ):
@@ -488,8 +472,8 @@ class CfnCluster(
         acl_name: builtins.str,
         cluster_name: builtins.str,
         node_type: builtins.str,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        cluster_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        cluster_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_tiering: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
@@ -504,7 +488,7 @@ class CfnCluster(
         num_shards: typing.Optional[jsii.Number] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         snapshot_name: typing.Optional[builtins.str] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -512,8 +496,8 @@ class CfnCluster(
         sns_topic_arn: typing.Optional[builtins.str] = None,
         sns_topic_status: typing.Optional[builtins.str] = None,
         subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::Cluster``.
 
@@ -550,7 +534,7 @@ class CfnCluster(
         :param tls_enabled: A flag to indicate if In-transit encryption is enabled.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4612235b)
+            type_hints = cached_type_hints(_typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4612235b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(
@@ -589,12 +573,15 @@ class CfnCluster(
 
     @jsii.member(jsii_name="arnForCluster")
     @builtins.classmethod
-    def arn_for_cluster(cls, resource: "_IClusterRef_8cb56f6f") -> builtins.str:
+    def arn_for_cluster(
+        cls,
+        resource: "_aws_memorydb_f0938d3f.IClusterRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5b8292313a9705294af4c7ea9229bc91aa301e7e4fa9bca7a3798e33d7f28cd)
+            type_hints = cached_type_hints(_typecheckingstub__b5b8292313a9705294af4c7ea9229bc91aa301e7e4fa9bca7a3798e33d7f28cd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCluster", [resource]))
 
@@ -605,7 +592,7 @@ class CfnCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IClusterRef_8cb56f6f":
+    ) -> "_aws_memorydb_f0938d3f.IClusterRef":
         '''Creates a new IClusterRef from an ARN.
 
         :param scope: -
@@ -613,11 +600,11 @@ class CfnCluster(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b2b45dd1758ff1ef8a9f1b9d2f6b8e5817eb809b34909e9534ffa76ac714624)
+            type_hints = cached_type_hints(_typecheckingstub__6b2b45dd1758ff1ef8a9f1b9d2f6b8e5817eb809b34909e9534ffa76ac714624)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IClusterRef_8cb56f6f", jsii.sinvoke(cls, "fromClusterArn", [scope, id, arn]))
+        return typing.cast("_aws_memorydb_f0938d3f.IClusterRef", jsii.sinvoke(cls, "fromClusterArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromClusterName")
     @builtins.classmethod
@@ -626,7 +613,7 @@ class CfnCluster(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cluster_name: builtins.str,
-    ) -> "_IClusterRef_8cb56f6f":
+    ) -> "_aws_memorydb_f0938d3f.IClusterRef":
         '''Creates a new IClusterRef from a clusterName.
 
         :param scope: -
@@ -634,11 +621,11 @@ class CfnCluster(
         :param cluster_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__052150f6187192008b1d92fe063af7be600bf783ef6fa136fb0ccd2320686ffe)
+            type_hints = cached_type_hints(_typecheckingstub__052150f6187192008b1d92fe063af7be600bf783ef6fa136fb0ccd2320686ffe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-        return typing.cast("_IClusterRef_8cb56f6f", jsii.sinvoke(cls, "fromClusterName", [scope, id, cluster_name]))
+        return typing.cast("_aws_memorydb_f0938d3f.IClusterRef", jsii.sinvoke(cls, "fromClusterName", [scope, id, cluster_name]))
 
     @jsii.member(jsii_name="isCfnCluster")
     @builtins.classmethod
@@ -648,18 +635,18 @@ class CfnCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4976a0fb87cd1155ef960fb139c75981962679f0c14f205c013288b3eacf98f)
+            type_hints = cached_type_hints(_typecheckingstub__b4976a0fb87cd1155ef960fb139c75981962679f0c14f205c013288b3eacf98f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76cb969e4927216a06a434c27c39efb5cdd385529b9ea5e0319d2951238e010e)
+            type_hints = cached_type_hints(_typecheckingstub__76cb969e4927216a06a434c27c39efb5cdd385529b9ea5e0319d2951238e010e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -672,7 +659,7 @@ class CfnCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c01db201d255a330f5adbc767e7d8534c144fe92bcc19d9c60759ff18a74cd98)
+            type_hints = cached_type_hints(_typecheckingstub__c01db201d255a330f5adbc767e7d8534c144fe92bcc19d9c60759ff18a74cd98)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -741,15 +728,15 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> "_ClusterReference_75855dd3":
+    def cluster_ref(self) -> "_aws_memorydb_f0938d3f.ClusterReference":
         '''A reference to a Cluster resource.'''
-        return typing.cast("_ClusterReference_75855dd3", jsii.get(self, "clusterRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.ClusterReference", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="aclName")
@@ -760,7 +747,7 @@ class CfnCluster(
     @acl_name.setter
     def acl_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c3c2eddecf623588f80ccc7dc138eb7bbc48ab8fb8408ae9fce592041db4684)
+            type_hints = cached_type_hints(_typecheckingstub__1c3c2eddecf623588f80ccc7dc138eb7bbc48ab8fb8408ae9fce592041db4684)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aclName", value) # pyright: ignore[reportArgumentType]
 
@@ -773,7 +760,7 @@ class CfnCluster(
     @cluster_name.setter
     def cluster_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa662ca2d6af7f3a9fcaf06f14705152ff3589c084e25ab2f001d9e1b25c26d1)
+            type_hints = cached_type_hints(_typecheckingstub__fa662ca2d6af7f3a9fcaf06f14705152ff3589c084e25ab2f001d9e1b25c26d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
 
@@ -786,7 +773,7 @@ class CfnCluster(
     @node_type.setter
     def node_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eaa925a9d7f42afc3b5dfd02b1e7d763fb4a92eaa811c0f438b6b77f5b2d2d16)
+            type_hints = cached_type_hints(_typecheckingstub__eaa925a9d7f42afc3b5dfd02b1e7d763fb4a92eaa811c0f438b6b77f5b2d2d16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeType", value) # pyright: ignore[reportArgumentType]
 
@@ -794,17 +781,17 @@ class CfnCluster(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When set to true, the cluster will automatically receive minor engine version upgrades after launch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85ceb7f4779e4cc3158fd10ae0f789f977bf4ec7b305427de026b71410314aa2)
+            type_hints = cached_type_hints(_typecheckingstub__85ceb7f4779e4cc3158fd10ae0f789f977bf4ec7b305427de026b71410314aa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
 
@@ -812,17 +799,17 @@ class CfnCluster(
     @jsii.member(jsii_name="clusterEndpoint")
     def cluster_endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EndpointProperty"]]:
         '''The cluster 's configuration endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], jsii.get(self, "clusterEndpoint"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EndpointProperty"]], jsii.get(self, "clusterEndpoint"))
 
     @cluster_endpoint.setter
     def cluster_endpoint(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EndpointProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cb933d0258a10b86325bdd089031bbb07512679b44ad9da34f9d222d2a6f441)
+            type_hints = cached_type_hints(_typecheckingstub__8cb933d0258a10b86325bdd089031bbb07512679b44ad9da34f9d222d2a6f441)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterEndpoint", value) # pyright: ignore[reportArgumentType]
 
@@ -835,7 +822,7 @@ class CfnCluster(
     @data_tiering.setter
     def data_tiering(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10d5c055bea0f63e6e3a2941e61801b460bb5413a94982bc6c27b2009874a78)
+            type_hints = cached_type_hints(_typecheckingstub__d10d5c055bea0f63e6e3a2941e61801b460bb5413a94982bc6c27b2009874a78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataTiering", value) # pyright: ignore[reportArgumentType]
 
@@ -848,7 +835,7 @@ class CfnCluster(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53812133543a07114ef48993753a17493cf0eaec35b4f165d5b5360b4c26b52f)
+            type_hints = cached_type_hints(_typecheckingstub__53812133543a07114ef48993753a17493cf0eaec35b4f165d5b5360b4c26b52f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -861,7 +848,7 @@ class CfnCluster(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6436ef83a7f7f89cc4b2219adef9c30e44c3b601a40994ca9062e40dc861cd99)
+            type_hints = cached_type_hints(_typecheckingstub__6436ef83a7f7f89cc4b2219adef9c30e44c3b601a40994ca9062e40dc861cd99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -874,7 +861,7 @@ class CfnCluster(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__169ccd9bb3c17f7e26324bbd84534aada6e77306d49160dd24968619a98599f9)
+            type_hints = cached_type_hints(_typecheckingstub__169ccd9bb3c17f7e26324bbd84534aada6e77306d49160dd24968619a98599f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -887,7 +874,7 @@ class CfnCluster(
     @final_snapshot_name.setter
     def final_snapshot_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__301d4a99b6e66b0220c0a2c677e41494ec8f873a343c7550ef2a5a37c2b926fb)
+            type_hints = cached_type_hints(_typecheckingstub__301d4a99b6e66b0220c0a2c677e41494ec8f873a343c7550ef2a5a37c2b926fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "finalSnapshotName", value) # pyright: ignore[reportArgumentType]
 
@@ -900,7 +887,7 @@ class CfnCluster(
     @ip_discovery.setter
     def ip_discovery(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7cfe190131506c2eb0d44b2cd500ac93c644462cbe720c5364aa51f64eb3b6e)
+            type_hints = cached_type_hints(_typecheckingstub__c7cfe190131506c2eb0d44b2cd500ac93c644462cbe720c5364aa51f64eb3b6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipDiscovery", value) # pyright: ignore[reportArgumentType]
 
@@ -913,7 +900,7 @@ class CfnCluster(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59a09adc41454c2729b7ba3708a53bab49bfe2b1339006a09bcdd1059df89bb7)
+            type_hints = cached_type_hints(_typecheckingstub__59a09adc41454c2729b7ba3708a53bab49bfe2b1339006a09bcdd1059df89bb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -926,7 +913,7 @@ class CfnCluster(
     @maintenance_window.setter
     def maintenance_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09056b85563d6a2905d89569ae90fbdb30eac108e48fcbb7dd5f0ebd2fadb818)
+            type_hints = cached_type_hints(_typecheckingstub__09056b85563d6a2905d89569ae90fbdb30eac108e48fcbb7dd5f0ebd2fadb818)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -939,7 +926,7 @@ class CfnCluster(
     @multi_region_cluster_name.setter
     def multi_region_cluster_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a714c813d8884d17d733f70558b9be80395f41104c444aa08355b14427047a2)
+            type_hints = cached_type_hints(_typecheckingstub__5a714c813d8884d17d733f70558b9be80395f41104c444aa08355b14427047a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegionClusterName", value) # pyright: ignore[reportArgumentType]
 
@@ -952,7 +939,7 @@ class CfnCluster(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff0ff8aa35bc788f502c8cd437846e864f84c835f5a297a9f09f0a938f2d437)
+            type_hints = cached_type_hints(_typecheckingstub__7ff0ff8aa35bc788f502c8cd437846e864f84c835f5a297a9f09f0a938f2d437)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
@@ -965,7 +952,7 @@ class CfnCluster(
     @num_replicas_per_shard.setter
     def num_replicas_per_shard(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__479de98a506cf9095cbe7cc894a5d9900271b75b5ba2f28140084d5f265184a7)
+            type_hints = cached_type_hints(_typecheckingstub__479de98a506cf9095cbe7cc894a5d9900271b75b5ba2f28140084d5f265184a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numReplicasPerShard", value) # pyright: ignore[reportArgumentType]
 
@@ -978,7 +965,7 @@ class CfnCluster(
     @num_shards.setter
     def num_shards(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9135b8b8321239dd0eec70d6b0b8e9c9786b7f31b39fca12acff646ca5ac847a)
+            type_hints = cached_type_hints(_typecheckingstub__9135b8b8321239dd0eec70d6b0b8e9c9786b7f31b39fca12acff646ca5ac847a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numShards", value) # pyright: ignore[reportArgumentType]
 
@@ -991,7 +978,7 @@ class CfnCluster(
     @parameter_group_name.setter
     def parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afe7bb6b934e8c26f66b356ef270e262cafc5cb83f3ccd7f2c0e73e7a8c53a86)
+            type_hints = cached_type_hints(_typecheckingstub__afe7bb6b934e8c26f66b356ef270e262cafc5cb83f3ccd7f2c0e73e7a8c53a86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -1004,7 +991,7 @@ class CfnCluster(
     @port.setter
     def port(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__514c944046b7e1b4d74e9f68444e13be7441e98d16292246e9e63d3a03acf09e)
+            type_hints = cached_type_hints(_typecheckingstub__514c944046b7e1b4d74e9f68444e13be7441e98d16292246e9e63d3a03acf09e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
 
@@ -1020,7 +1007,7 @@ class CfnCluster(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c15744036c88b29c766bdf4d57428776ee376a9c3a84a09d0d2b17f1691ce873)
+            type_hints = cached_type_hints(_typecheckingstub__c15744036c88b29c766bdf4d57428776ee376a9c3a84a09d0d2b17f1691ce873)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -1033,7 +1020,7 @@ class CfnCluster(
     @snapshot_arns.setter
     def snapshot_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8318d1f21d46a1ae1d8dd7ef1d3bffaf1187d17aa4b3e86a78283323fcbc00ed)
+            type_hints = cached_type_hints(_typecheckingstub__8318d1f21d46a1ae1d8dd7ef1d3bffaf1187d17aa4b3e86a78283323fcbc00ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotArns", value) # pyright: ignore[reportArgumentType]
 
@@ -1046,7 +1033,7 @@ class CfnCluster(
     @snapshot_name.setter
     def snapshot_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__804f6c88ce3d1f28a2ee2674d669c579358fa826656fb307dfb51d0218e29253)
+            type_hints = cached_type_hints(_typecheckingstub__804f6c88ce3d1f28a2ee2674d669c579358fa826656fb307dfb51d0218e29253)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
 
@@ -1059,7 +1046,7 @@ class CfnCluster(
     @snapshot_retention_limit.setter
     def snapshot_retention_limit(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a974ab4488e4f73743ed4fde25eaf3834528b3a7c7cbaec76bc82aa64b3f38f5)
+            type_hints = cached_type_hints(_typecheckingstub__a974ab4488e4f73743ed4fde25eaf3834528b3a7c7cbaec76bc82aa64b3f38f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotRetentionLimit", value) # pyright: ignore[reportArgumentType]
 
@@ -1072,7 +1059,7 @@ class CfnCluster(
     @snapshot_window.setter
     def snapshot_window(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25236d19ef16b48436cefd0501c036250a6efde6040b75c7c137f53c18680083)
+            type_hints = cached_type_hints(_typecheckingstub__25236d19ef16b48436cefd0501c036250a6efde6040b75c7c137f53c18680083)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -1085,7 +1072,7 @@ class CfnCluster(
     @sns_topic_arn.setter
     def sns_topic_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b881a509aa28847923e821bbd39f9fe72db3a10833d11edf261679abeffffcb)
+            type_hints = cached_type_hints(_typecheckingstub__1b881a509aa28847923e821bbd39f9fe72db3a10833d11edf261679abeffffcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1098,7 +1085,7 @@ class CfnCluster(
     @sns_topic_status.setter
     def sns_topic_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537157a3978a51b06802ba8f249faf9b7508885f9892ec03421fcbb0b008a92c)
+            type_hints = cached_type_hints(_typecheckingstub__537157a3978a51b06802ba8f249faf9b7508885f9892ec03421fcbb0b008a92c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snsTopicStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -1111,20 +1098,23 @@ class CfnCluster(
     @subnet_group_name.setter
     def subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ec6f6b0257f531ddbc438480683e55ab4636f2133f40c6730f1fef7235204e8)
+            type_hints = cached_type_hints(_typecheckingstub__0ec6f6b0257f531ddbc438480683e55ab4636f2133f40c6730f1fef7235204e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb518ff45629b2fc5f7488c33f7e4de652dc27f32c98792c355068710db9cbd)
+            type_hints = cached_type_hints(_typecheckingstub__5fb518ff45629b2fc5f7488c33f7e4de652dc27f32c98792c355068710db9cbd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1132,17 +1122,17 @@ class CfnCluster(
     @jsii.member(jsii_name="tlsEnabled")
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag to indicate if In-transit encryption is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "tlsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "tlsEnabled"))
 
     @tls_enabled.setter
     def tls_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c35c0a09eb3a078c7c40fabc044eb0877fe7280b70079614ef1383d482cdaa0c)
+            type_hints = cached_type_hints(_typecheckingstub__c35c0a09eb3a078c7c40fabc044eb0877fe7280b70079614ef1383d482cdaa0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tlsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1178,7 +1168,7 @@ class CfnCluster(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a97cbfefa1a4fe0796786c02815b29787b8019f1c83531b4338dd5b4d2c2ddbd)
+                type_hints = cached_type_hints(_typecheckingstub__a97cbfefa1a4fe0796786c02815b29787b8019f1c83531b4338dd5b4d2c2ddbd)
                 check_type(argname="argument address", value=address, expected_type=type_hints["address"])
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1259,8 +1249,8 @@ class CfnClusterProps:
         acl_name: builtins.str,
         cluster_name: builtins.str,
         node_type: builtins.str,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        cluster_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        cluster_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_tiering: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
@@ -1275,7 +1265,7 @@ class CfnClusterProps:
         num_shards: typing.Optional[jsii.Number] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         snapshot_name: typing.Optional[builtins.str] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -1283,8 +1273,8 @@ class CfnClusterProps:
         sns_topic_arn: typing.Optional[builtins.str] = None,
         sns_topic_status: typing.Optional[builtins.str] = None,
         subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
@@ -1369,7 +1359,7 @@ class CfnClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8)
+            type_hints = cached_type_hints(_typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8)
             check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
@@ -1490,24 +1480,24 @@ class CfnClusterProps:
     @builtins.property
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When set to true, the cluster will automatically receive minor engine version upgrades after launch.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-autominorversionupgrade
         '''
         result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def cluster_endpoint(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EndpointProperty"]]:
         '''The cluster 's configuration endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-clusterendpoint
         '''
         result = self._values.get("cluster_endpoint")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.EndpointProperty"]], result)
 
     @builtins.property
     def data_tiering(self) -> typing.Optional[builtins.str]:
@@ -1654,13 +1644,13 @@ class CfnClusterProps:
     @builtins.property
     def security_group_ids(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''A list of security group names to associate with this cluster .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-securitygroupids
         '''
         result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
     def snapshot_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1734,7 +1724,7 @@ class CfnClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -1742,18 +1732,18 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag to indicate if In-transit encryption is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tlsenabled
         '''
         result = self._values.get("tls_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1767,9 +1757,9 @@ class CfnClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMultiRegionClusterRef_b7a8c236, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IMultiRegionClusterRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMultiRegionCluster(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnMultiRegionCluster",
 ):
@@ -1817,8 +1807,8 @@ class CfnMultiRegionCluster(
         multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
         multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
         num_shards: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         update_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::MultiRegionCluster``.
@@ -1837,7 +1827,7 @@ class CfnMultiRegionCluster(
         :param update_strategy: The strategy to use for the update operation. Supported values are "coordinated" or "uncoordinated".
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f43e157f397efc77624c63e994d6c9b59f23c7e38e04f8e2e778cd657215b125)
+            type_hints = cached_type_hints(_typecheckingstub__f43e157f397efc77624c63e994d6c9b59f23c7e38e04f8e2e778cd657215b125)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMultiRegionClusterProps(
@@ -1859,13 +1849,13 @@ class CfnMultiRegionCluster(
     @builtins.classmethod
     def arn_for_multi_region_cluster(
         cls,
-        resource: "_IMultiRegionClusterRef_b7a8c236",
+        resource: "_aws_memorydb_f0938d3f.IMultiRegionClusterRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__361e9bf894b22ca7efbe46330f405c203179d386e3f5d7e2d31999eb70b3b56d)
+            type_hints = cached_type_hints(_typecheckingstub__361e9bf894b22ca7efbe46330f405c203179d386e3f5d7e2d31999eb70b3b56d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiRegionCluster", [resource]))
 
@@ -1877,18 +1867,18 @@ class CfnMultiRegionCluster(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65b77630f3e79b149bb1f21b2eabdb22afe82dc984eeb952130614f478f1af5c)
+            type_hints = cached_type_hints(_typecheckingstub__65b77630f3e79b149bb1f21b2eabdb22afe82dc984eeb952130614f478f1af5c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiRegionCluster", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365257f783935c7a1981eb4450aca8ac43d391eaf4ef37638ee8b6e32c148725)
+            type_hints = cached_type_hints(_typecheckingstub__365257f783935c7a1981eb4450aca8ac43d391eaf4ef37638ee8b6e32c148725)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1901,7 +1891,7 @@ class CfnMultiRegionCluster(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__841bafb613e9a3cb08f836c76032c8434b1940c1e700cc8e2c44a9682dd54658)
+            type_hints = cached_type_hints(_typecheckingstub__841bafb613e9a3cb08f836c76032c8434b1940c1e700cc8e2c44a9682dd54658)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1940,9 +1930,9 @@ class CfnMultiRegionCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1956,9 +1946,11 @@ class CfnMultiRegionCluster(
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionClusterRef")
-    def multi_region_cluster_ref(self) -> "_MultiRegionClusterReference_24d0cd7a":
+    def multi_region_cluster_ref(
+        self,
+    ) -> "_aws_memorydb_f0938d3f.MultiRegionClusterReference":
         '''A reference to a MultiRegionCluster resource.'''
-        return typing.cast("_MultiRegionClusterReference_24d0cd7a", jsii.get(self, "multiRegionClusterRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.MultiRegionClusterReference", jsii.get(self, "multiRegionClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="nodeType")
@@ -1969,7 +1961,7 @@ class CfnMultiRegionCluster(
     @node_type.setter
     def node_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1bdb5e5088a3280f202d8baf094162d7630dc301ae6bdc0072b5f3b49c25c09)
+            type_hints = cached_type_hints(_typecheckingstub__d1bdb5e5088a3280f202d8baf094162d7630dc301ae6bdc0072b5f3b49c25c09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "nodeType", value) # pyright: ignore[reportArgumentType]
 
@@ -1982,7 +1974,7 @@ class CfnMultiRegionCluster(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4dcf4e42e324cc0a7b4be2736b735c33a207a22665b1f7be876df4b7d4a7f31)
+            type_hints = cached_type_hints(_typecheckingstub__c4dcf4e42e324cc0a7b4be2736b735c33a207a22665b1f7be876df4b7d4a7f31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1995,7 +1987,7 @@ class CfnMultiRegionCluster(
     @engine.setter
     def engine(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a3ab8c02a294b0208844432d3f1bf8969783c03e6f0e203b242a7175fc9cbf7)
+            type_hints = cached_type_hints(_typecheckingstub__1a3ab8c02a294b0208844432d3f1bf8969783c03e6f0e203b242a7175fc9cbf7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
 
@@ -2008,7 +2000,7 @@ class CfnMultiRegionCluster(
     @engine_version.setter
     def engine_version(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1136d3e60556963377820fd10e83838fb2cf7eb315789f2c425fbb70edd06132)
+            type_hints = cached_type_hints(_typecheckingstub__1136d3e60556963377820fd10e83838fb2cf7eb315789f2c425fbb70edd06132)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -2024,7 +2016,7 @@ class CfnMultiRegionCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4d2c72fe783dd0c172079a5d7810fe5e962339cc9ab3bd88cd47d542161a83c)
+            type_hints = cached_type_hints(_typecheckingstub__a4d2c72fe783dd0c172079a5d7810fe5e962339cc9ab3bd88cd47d542161a83c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegionClusterNameSuffix", value) # pyright: ignore[reportArgumentType]
 
@@ -2040,7 +2032,7 @@ class CfnMultiRegionCluster(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5628ccad004a828d8beea11b22679912b4908d2c41a506b2c2af24e53878cdff)
+            type_hints = cached_type_hints(_typecheckingstub__5628ccad004a828d8beea11b22679912b4908d2c41a506b2c2af24e53878cdff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegionParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2053,20 +2045,23 @@ class CfnMultiRegionCluster(
     @num_shards.setter
     def num_shards(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f35169564721c48a0f9a9807ff25f1ba978f9c39b3391178832536bd1d148d03)
+            type_hints = cached_type_hints(_typecheckingstub__f35169564721c48a0f9a9807ff25f1ba978f9c39b3391178832536bd1d148d03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numShards", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the multi-Region cluster.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c31a456bc7dbec66c70a71ddb629df188e1935a42408620a3f750d3a77a57e6)
+            type_hints = cached_type_hints(_typecheckingstub__4c31a456bc7dbec66c70a71ddb629df188e1935a42408620a3f750d3a77a57e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2074,17 +2069,17 @@ class CfnMultiRegionCluster(
     @jsii.member(jsii_name="tlsEnabled")
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indiciates if the multi-Region cluster is TLS enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "tlsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "tlsEnabled"))
 
     @tls_enabled.setter
     def tls_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bb0298e9385954745a7301100806d16ede0f588fef6d462765b2aec1749a85d)
+            type_hints = cached_type_hints(_typecheckingstub__1bb0298e9385954745a7301100806d16ede0f588fef6d462765b2aec1749a85d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tlsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -2097,7 +2092,7 @@ class CfnMultiRegionCluster(
     @update_strategy.setter
     def update_strategy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__842502b31372c3bc8d35b15dbbe504d22ffcb7b578544ced356fd9e3016241c6)
+            type_hints = cached_type_hints(_typecheckingstub__842502b31372c3bc8d35b15dbbe504d22ffcb7b578544ced356fd9e3016241c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "updateStrategy", value) # pyright: ignore[reportArgumentType]
 
@@ -2129,8 +2124,8 @@ class CfnMultiRegionClusterProps:
         multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
         multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
         num_shards: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         update_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMultiRegionCluster``.
@@ -2175,7 +2170,7 @@ class CfnMultiRegionClusterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d)
+            type_hints = cached_type_hints(_typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d)
             check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
@@ -2275,24 +2270,24 @@ class CfnMultiRegionClusterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the multi-Region cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indiciates if the multi-Region cluster is TLS enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tlsenabled
         '''
         result = self._values.get("tls_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def update_strategy(self) -> typing.Optional[builtins.str]:
@@ -2317,9 +2312,9 @@ class CfnMultiRegionClusterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IParameterGroupRef_471eb1a8, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnParameterGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnParameterGroup",
 ):
@@ -2363,7 +2358,7 @@ class CfnParameterGroup(
         parameter_group_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::ParameterGroup``.
 
@@ -2376,7 +2371,7 @@ class CfnParameterGroup(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be539cccbc)
+            type_hints = cached_type_hints(_typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be539cccbc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnParameterGroupProps(
@@ -2393,13 +2388,13 @@ class CfnParameterGroup(
     @builtins.classmethod
     def arn_for_parameter_group(
         cls,
-        resource: "_IParameterGroupRef_471eb1a8",
+        resource: "_aws_memorydb_f0938d3f.IParameterGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04d7b0a0c06aae484cdbce297fc59a5df6e84a64b215b62488b1c669f3285c3d)
+            type_hints = cached_type_hints(_typecheckingstub__04d7b0a0c06aae484cdbce297fc59a5df6e84a64b215b62488b1c669f3285c3d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForParameterGroup", [resource]))
 
@@ -2410,7 +2405,7 @@ class CfnParameterGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IParameterGroupRef_471eb1a8":
+    ) -> "_aws_memorydb_f0938d3f.IParameterGroupRef":
         '''Creates a new IParameterGroupRef from an ARN.
 
         :param scope: -
@@ -2418,11 +2413,11 @@ class CfnParameterGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d28fc8873976566f3bc89a158a652d08aad33b305764700b1742dbabc4acb71b)
+            type_hints = cached_type_hints(_typecheckingstub__d28fc8873976566f3bc89a158a652d08aad33b305764700b1742dbabc4acb71b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IParameterGroupRef_471eb1a8", jsii.sinvoke(cls, "fromParameterGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_memorydb_f0938d3f.IParameterGroupRef", jsii.sinvoke(cls, "fromParameterGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromParameterGroupName")
     @builtins.classmethod
@@ -2431,7 +2426,7 @@ class CfnParameterGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         parameter_group_name: builtins.str,
-    ) -> "_IParameterGroupRef_471eb1a8":
+    ) -> "_aws_memorydb_f0938d3f.IParameterGroupRef":
         '''Creates a new IParameterGroupRef from a parameterGroupName.
 
         :param scope: -
@@ -2439,11 +2434,11 @@ class CfnParameterGroup(
         :param parameter_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbb188e3de6146df92382196ac7bd7953b94ecb705452402a7e34a6f13a90048)
+            type_hints = cached_type_hints(_typecheckingstub__bbb188e3de6146df92382196ac7bd7953b94ecb705452402a7e34a6f13a90048)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-        return typing.cast("_IParameterGroupRef_471eb1a8", jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
+        return typing.cast("_aws_memorydb_f0938d3f.IParameterGroupRef", jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
 
     @jsii.member(jsii_name="isCfnParameterGroup")
     @builtins.classmethod
@@ -2453,18 +2448,18 @@ class CfnParameterGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12f92b436e27b3d28c20b4f45f12dc83393b3add06c74f022c3d06d35460c4bc)
+            type_hints = cached_type_hints(_typecheckingstub__12f92b436e27b3d28c20b4f45f12dc83393b3add06c74f022c3d06d35460c4bc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnParameterGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7debe0fab7bb59dfcf15f4175e0f474c741a7964960dcbe155b0c5efbd1e09f)
+            type_hints = cached_type_hints(_typecheckingstub__d7debe0fab7bb59dfcf15f4175e0f474c741a7964960dcbe155b0c5efbd1e09f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2477,7 +2472,7 @@ class CfnParameterGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2849ec1f4498474dd393323e9addf1ae2cfcd99fed5607fae0ca019224dba56c)
+            type_hints = cached_type_hints(_typecheckingstub__2849ec1f4498474dd393323e9addf1ae2cfcd99fed5607fae0ca019224dba56c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2508,15 +2503,15 @@ class CfnParameterGroup(
 
     @builtins.property
     @jsii.member(jsii_name="parameterGroupRef")
-    def parameter_group_ref(self) -> "_ParameterGroupReference_bde11e60":
+    def parameter_group_ref(self) -> "_aws_memorydb_f0938d3f.ParameterGroupReference":
         '''A reference to a ParameterGroup resource.'''
-        return typing.cast("_ParameterGroupReference_bde11e60", jsii.get(self, "parameterGroupRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.ParameterGroupReference", jsii.get(self, "parameterGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="family")
@@ -2527,7 +2522,7 @@ class CfnParameterGroup(
     @family.setter
     def family(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2327ef6bcccd65d07bebc4ca23b1ce3d974747ae6a1bfc2e9bc11ca9d854f937)
+            type_hints = cached_type_hints(_typecheckingstub__2327ef6bcccd65d07bebc4ca23b1ce3d974747ae6a1bfc2e9bc11ca9d854f937)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
@@ -2540,7 +2535,7 @@ class CfnParameterGroup(
     @parameter_group_name.setter
     def parameter_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a79238fbac363251cbc8f245e05b8ca03c8a64c30125e3c5e45dde648dbc297c)
+            type_hints = cached_type_hints(_typecheckingstub__a79238fbac363251cbc8f245e05b8ca03c8a64c30125e3c5e45dde648dbc297c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2553,7 +2548,7 @@ class CfnParameterGroup(
     @parameters.setter
     def parameters(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807)
+            type_hints = cached_type_hints(_typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
@@ -2566,20 +2561,23 @@ class CfnParameterGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f85c41274)
+            type_hints = cached_type_hints(_typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f85c41274)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15c759a2a9795495d5bfdf5e24f113bc8b0166dd214c06992783c7263752a055)
+            type_hints = cached_type_hints(_typecheckingstub__15c759a2a9795495d5bfdf5e24f113bc8b0166dd214c06992783c7263752a055)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2603,7 +2601,7 @@ class CfnParameterGroupProps:
         parameter_group_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnParameterGroup``.
 
@@ -2639,7 +2637,7 @@ class CfnParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4)
+            type_hints = cached_type_hints(_typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4)
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2695,7 +2693,7 @@ class CfnParameterGroupProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2703,7 +2701,7 @@ class CfnParameterGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2717,9 +2715,9 @@ class CfnParameterGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISubnetGroupRef_efc982f4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.ISubnetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSubnetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnSubnetGroup",
 ):
@@ -2757,9 +2755,9 @@ class CfnSubnetGroup(
         id: builtins.str,
         *,
         subnet_group_name: builtins.str,
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::SubnetGroup``.
 
@@ -2771,7 +2769,7 @@ class CfnSubnetGroup(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b3dd027b7c51d2057be81ff17bfef3dbfbd3522767ca600f468a0d67ff1212e)
+            type_hints = cached_type_hints(_typecheckingstub__9b3dd027b7c51d2057be81ff17bfef3dbfbd3522767ca600f468a0d67ff1212e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSubnetGroupProps(
@@ -2787,13 +2785,13 @@ class CfnSubnetGroup(
     @builtins.classmethod
     def arn_for_subnet_group(
         cls,
-        resource: "_ISubnetGroupRef_efc982f4",
+        resource: "_aws_memorydb_f0938d3f.ISubnetGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41b29e2cf889495187c0a550635212a38587947ee2ccd14895e5d0853b53f54c)
+            type_hints = cached_type_hints(_typecheckingstub__41b29e2cf889495187c0a550635212a38587947ee2ccd14895e5d0853b53f54c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSubnetGroup", [resource]))
 
@@ -2804,7 +2802,7 @@ class CfnSubnetGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ISubnetGroupRef_efc982f4":
+    ) -> "_aws_memorydb_f0938d3f.ISubnetGroupRef":
         '''Creates a new ISubnetGroupRef from an ARN.
 
         :param scope: -
@@ -2812,11 +2810,11 @@ class CfnSubnetGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83854bccfb483863356c81ba59a6557df20eedd202aaa50cae0f8fa39bb2114d)
+            type_hints = cached_type_hints(_typecheckingstub__83854bccfb483863356c81ba59a6557df20eedd202aaa50cae0f8fa39bb2114d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ISubnetGroupRef_efc982f4", jsii.sinvoke(cls, "fromSubnetGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_memorydb_f0938d3f.ISubnetGroupRef", jsii.sinvoke(cls, "fromSubnetGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromSubnetGroupName")
     @builtins.classmethod
@@ -2825,7 +2823,7 @@ class CfnSubnetGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         subnet_group_name: builtins.str,
-    ) -> "_ISubnetGroupRef_efc982f4":
+    ) -> "_aws_memorydb_f0938d3f.ISubnetGroupRef":
         '''Creates a new ISubnetGroupRef from a subnetGroupName.
 
         :param scope: -
@@ -2833,11 +2831,11 @@ class CfnSubnetGroup(
         :param subnet_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63193b3e87b7ebddc67ea584a7da2aef68db8126ef8d627b1156bf5191d8be9d)
+            type_hints = cached_type_hints(_typecheckingstub__63193b3e87b7ebddc67ea584a7da2aef68db8126ef8d627b1156bf5191d8be9d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-        return typing.cast("_ISubnetGroupRef_efc982f4", jsii.sinvoke(cls, "fromSubnetGroupName", [scope, id, subnet_group_name]))
+        return typing.cast("_aws_memorydb_f0938d3f.ISubnetGroupRef", jsii.sinvoke(cls, "fromSubnetGroupName", [scope, id, subnet_group_name]))
 
     @jsii.member(jsii_name="isCfnSubnetGroup")
     @builtins.classmethod
@@ -2847,18 +2845,18 @@ class CfnSubnetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3ff56028ef95d244f4c99ec61776cd5e844463163ce221bcb8effd823098862)
+            type_hints = cached_type_hints(_typecheckingstub__a3ff56028ef95d244f4c99ec61776cd5e844463163ce221bcb8effd823098862)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSubnetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3145bbd399c6ddffdc2666544781343f26eb710bec8432513151b15f3216473b)
+            type_hints = cached_type_hints(_typecheckingstub__3145bbd399c6ddffdc2666544781343f26eb710bec8432513151b15f3216473b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2871,7 +2869,7 @@ class CfnSubnetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__810a98a25d7c87dba6cc582df35eb455e83853a112a565ad67819e6c431f55d4)
+            type_hints = cached_type_hints(_typecheckingstub__810a98a25d7c87dba6cc582df35eb455e83853a112a565ad67819e6c431f55d4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2913,15 +2911,15 @@ class CfnSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroupRef")
-    def subnet_group_ref(self) -> "_SubnetGroupReference_69a6dcdb":
+    def subnet_group_ref(self) -> "_aws_memorydb_f0938d3f.SubnetGroupReference":
         '''A reference to a SubnetGroup resource.'''
-        return typing.cast("_SubnetGroupReference_69a6dcdb", jsii.get(self, "subnetGroupRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.SubnetGroupReference", jsii.get(self, "subnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroupName")
@@ -2932,7 +2930,7 @@ class CfnSubnetGroup(
     @subnet_group_name.setter
     def subnet_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__303ad17b502aa93b1d211d7399cadc117544aadb4bee45b9c7c626efaa2319c5)
+            type_hints = cached_type_hints(_typecheckingstub__303ad17b502aa93b1d211d7399cadc117544aadb4bee45b9c7c626efaa2319c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2945,7 +2943,7 @@ class CfnSubnetGroup(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72108b7d31976f953c8fa13d3a84ced5445347ca890c80e5a6da1fcaf1ccd5e2)
+            type_hints = cached_type_hints(_typecheckingstub__72108b7d31976f953c8fa13d3a84ced5445347ca890c80e5a6da1fcaf1ccd5e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -2958,20 +2956,23 @@ class CfnSubnetGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f54a9326815fe3c9ee63863201b4f4e885ed0e38d3788845c6f3ba942c143885)
+            type_hints = cached_type_hints(_typecheckingstub__f54a9326815fe3c9ee63863201b4f4e885ed0e38d3788845c6f3ba942c143885)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd087ab288f)
+            type_hints = cached_type_hints(_typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd087ab288f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2991,9 +2992,9 @@ class CfnSubnetGroupProps:
         self,
         *,
         subnet_group_name: builtins.str,
-        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSubnetGroup``.
 
@@ -3025,7 +3026,7 @@ class CfnSubnetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1)
+            type_hints = cached_type_hints(_typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1)
             check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3052,14 +3053,14 @@ class CfnSubnetGroupProps:
     @builtins.property
     def subnet_ids(
         self,
-    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+    ) -> typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]:
         '''A list of Amazon VPC subnet IDs for the subnet group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-subnetids
         '''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3071,7 +3072,7 @@ class CfnSubnetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -3079,7 +3080,7 @@ class CfnSubnetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3093,9 +3094,9 @@ class CfnSubnetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserRef_ee6ccd70, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IUserRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUser(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_memorydb.CfnUser",
 ):
@@ -3137,7 +3138,7 @@ class CfnUser(
         user_name: builtins.str,
         access_string: typing.Optional[builtins.str] = None,
         authentication_mode: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MemoryDB::User``.
 
@@ -3149,7 +3150,7 @@ class CfnUser(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52b4cd545a9f18f09898b753580c602cd4bd6e39c07e6a1f9e34f4fb928fb1dc)
+            type_hints = cached_type_hints(_typecheckingstub__52b4cd545a9f18f09898b753580c602cd4bd6e39c07e6a1f9e34f4fb928fb1dc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserProps(
@@ -3163,12 +3164,12 @@ class CfnUser(
 
     @jsii.member(jsii_name="arnForUser")
     @builtins.classmethod
-    def arn_for_user(cls, resource: "_IUserRef_ee6ccd70") -> builtins.str:
+    def arn_for_user(cls, resource: "_aws_memorydb_f0938d3f.IUserRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19119698c28547952420b03330a70b4826f05e8b8bb087c1195ffd8d28cc4cf3)
+            type_hints = cached_type_hints(_typecheckingstub__19119698c28547952420b03330a70b4826f05e8b8bb087c1195ffd8d28cc4cf3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
 
@@ -3179,7 +3180,7 @@ class CfnUser(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IUserRef_ee6ccd70":
+    ) -> "_aws_memorydb_f0938d3f.IUserRef":
         '''Creates a new IUserRef from an ARN.
 
         :param scope: -
@@ -3187,11 +3188,11 @@ class CfnUser(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d410bf65fcb25fb402e9a258fc6a3fa84cea308a89b5336e8593869b0918481b)
+            type_hints = cached_type_hints(_typecheckingstub__d410bf65fcb25fb402e9a258fc6a3fa84cea308a89b5336e8593869b0918481b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IUserRef_ee6ccd70", jsii.sinvoke(cls, "fromUserArn", [scope, id, arn]))
+        return typing.cast("_aws_memorydb_f0938d3f.IUserRef", jsii.sinvoke(cls, "fromUserArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromUserName")
     @builtins.classmethod
@@ -3200,7 +3201,7 @@ class CfnUser(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         user_name: builtins.str,
-    ) -> "_IUserRef_ee6ccd70":
+    ) -> "_aws_memorydb_f0938d3f.IUserRef":
         '''Creates a new IUserRef from a userName.
 
         :param scope: -
@@ -3208,11 +3209,11 @@ class CfnUser(
         :param user_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8586f51fa3b1208ca7029fcd11cf2933a1bec57f526b68903d04bd230ea7090b)
+            type_hints = cached_type_hints(_typecheckingstub__8586f51fa3b1208ca7029fcd11cf2933a1bec57f526b68903d04bd230ea7090b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-        return typing.cast("_IUserRef_ee6ccd70", jsii.sinvoke(cls, "fromUserName", [scope, id, user_name]))
+        return typing.cast("_aws_memorydb_f0938d3f.IUserRef", jsii.sinvoke(cls, "fromUserName", [scope, id, user_name]))
 
     @jsii.member(jsii_name="isCfnUser")
     @builtins.classmethod
@@ -3222,18 +3223,18 @@ class CfnUser(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfa5d02d754bf2c646fc6d3ee82e60f82e6b2514d977fec374432c46ebe0ba21)
+            type_hints = cached_type_hints(_typecheckingstub__bfa5d02d754bf2c646fc6d3ee82e60f82e6b2514d977fec374432c46ebe0ba21)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUser", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c3bb35282143a9481bb5124eb626806569dc76eef119d8888c4373701fb4dd9)
+            type_hints = cached_type_hints(_typecheckingstub__8c3bb35282143a9481bb5124eb626806569dc76eef119d8888c4373701fb4dd9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3246,7 +3247,7 @@ class CfnUser(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b8a18b12b6297a5b86c733efcf9f7c32315d3c27a2246b6428be84b10a621b1)
+            type_hints = cached_type_hints(_typecheckingstub__4b8a18b12b6297a5b86c733efcf9f7c32315d3c27a2246b6428be84b10a621b1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3288,15 +3289,15 @@ class CfnUser(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "_UserReference_10bdf757":
+    def user_ref(self) -> "_aws_memorydb_f0938d3f.UserReference":
         '''A reference to a User resource.'''
-        return typing.cast("_UserReference_10bdf757", jsii.get(self, "userRef"))
+        return typing.cast("_aws_memorydb_f0938d3f.UserReference", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authenticationMode")
@@ -3307,7 +3308,7 @@ class CfnUser(
     @authentication_mode.setter
     def authentication_mode(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834)
+            type_hints = cached_type_hints(_typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
 
@@ -3320,7 +3321,7 @@ class CfnUser(
     @user_name.setter
     def user_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05f26f858b02f3b8efd6dc74353dbccbfa9f7dd93142545509b690f9bb6283d3)
+            type_hints = cached_type_hints(_typecheckingstub__05f26f858b02f3b8efd6dc74353dbccbfa9f7dd93142545509b690f9bb6283d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -3333,20 +3334,23 @@ class CfnUser(
     @access_string.setter
     def access_string(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5328fc755bfd9d9f30b338838f998fbf324c3bf12aaf33c79a23dedd4cb14f34)
+            type_hints = cached_type_hints(_typecheckingstub__5328fc755bfd9d9f30b338838f998fbf324c3bf12aaf33c79a23dedd4cb14f34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessString", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1caf541d919490fde818383ad7111c6060c95572004849b73f36d7935d02afe)
+            type_hints = cached_type_hints(_typecheckingstub__e1caf541d919490fde818383ad7111c6060c95572004849b73f36d7935d02afe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3384,7 +3388,7 @@ class CfnUser(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7829a96cb7f6a4249d594f7be104bbd66d8afd40591a46c942d55bbdbbbe048c)
+                type_hints = cached_type_hints(_typecheckingstub__7829a96cb7f6a4249d594f7be104bbd66d8afd40591a46c942d55bbdbbbe048c)
                 check_type(argname="argument passwords", value=passwords, expected_type=type_hints["passwords"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3442,7 +3446,7 @@ class CfnUserProps:
         user_name: builtins.str,
         access_string: typing.Optional[builtins.str] = None,
         authentication_mode: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUser``.
 
@@ -3476,7 +3480,7 @@ class CfnUserProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2)
+            type_hints = cached_type_hints(_typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2)
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
             check_type(argname="argument access_string", value=access_string, expected_type=type_hints["access_string"])
             check_type(argname="argument authentication_mode", value=authentication_mode, expected_type=type_hints["authentication_mode"])
@@ -3524,7 +3528,7 @@ class CfnUserProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -3532,7 +3536,7 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3568,14 +3572,14 @@ def _typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1ac
     id: builtins.str,
     *,
     acl_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9f48f14679e937bb7eaffacfca87491363bb5fae1fbf23622f6a3837e034a983(
-    resource: _IACLRef_c364f794,
+    resource: _aws_memorydb_f0938d3f.IACLRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3603,7 +3607,7 @@ def _typecheckingstub__23d57aea9ad7d7ee06a7c1cf8df517dd7ef3bcf0d40023f03c0b070c7
     pass
 
 def _typecheckingstub__ccc6a711d3d8a9748de4a3ff47996a84e749aad94d25a5dda512b2da78cc1038(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3621,7 +3625,7 @@ def _typecheckingstub__5f59d44321ba67be64a21cd7280a133eb5eafce74ce555870a7e52de3
     pass
 
 def _typecheckingstub__19dfb38b66bc6a76c22f50b7a62a4979bd2a681026ccd6e3e50920eb6c5cf6f4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3635,7 +3639,7 @@ def _typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2
 def _typecheckingstub__848e1428f1884a88285ca152ff429f50733c57eca32906e1deaae2e8b3f4cd9a(
     *,
     acl_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3648,8 +3652,8 @@ def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4
     acl_name: builtins.str,
     cluster_name: builtins.str,
     node_type: builtins.str,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    cluster_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_tiering: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
@@ -3664,7 +3668,7 @@ def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4
     num_shards: typing.Optional[jsii.Number] = None,
     parameter_group_name: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
-    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     snapshot_name: typing.Optional[builtins.str] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -3672,14 +3676,14 @@ def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4
     sns_topic_arn: typing.Optional[builtins.str] = None,
     sns_topic_status: typing.Optional[builtins.str] = None,
     subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b5b8292313a9705294af4c7ea9229bc91aa301e7e4fa9bca7a3798e33d7f28cd(
-    resource: _IClusterRef_8cb56f6f,
+    resource: _aws_memorydb_f0938d3f.IClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3707,7 +3711,7 @@ def _typecheckingstub__b4976a0fb87cd1155ef960fb139c75981962679f0c14f205c013288b3
     pass
 
 def _typecheckingstub__76cb969e4927216a06a434c27c39efb5cdd385529b9ea5e0319d2951238e010e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3737,13 +3741,13 @@ def _typecheckingstub__eaa925a9d7f42afc3b5dfd02b1e7d763fb4a92eaa811c0f438b6b77f5
     pass
 
 def _typecheckingstub__85ceb7f4779e4cc3158fd10ae0f789f977bf4ec7b305427de026b71410314aa2(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8cb933d0258a10b86325bdd089031bbb07512679b44ad9da34f9d222d2a6f441(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.EndpointProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.EndpointProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3881,13 +3885,13 @@ def _typecheckingstub__0ec6f6b0257f531ddbc438480683e55ab4636f2133f40c6730f1fef72
     pass
 
 def _typecheckingstub__5fb518ff45629b2fc5f7488c33f7e4de652dc27f32c98792c355068710db9cbd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c35c0a09eb3a078c7c40fabc044eb0877fe7280b70079614ef1383d482cdaa0c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3905,8 +3909,8 @@ def _typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497
     acl_name: builtins.str,
     cluster_name: builtins.str,
     node_type: builtins.str,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    cluster_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_tiering: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
@@ -3921,7 +3925,7 @@ def _typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497
     num_shards: typing.Optional[jsii.Number] = None,
     parameter_group_name: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
-    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     snapshot_name: typing.Optional[builtins.str] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -3929,8 +3933,8 @@ def _typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497
     sns_topic_arn: typing.Optional[builtins.str] = None,
     sns_topic_status: typing.Optional[builtins.str] = None,
     subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3946,15 +3950,15 @@ def _typecheckingstub__f43e157f397efc77624c63e994d6c9b59f23c7e38e04f8e2e778cd657
     multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
     multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
     num_shards: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     update_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__361e9bf894b22ca7efbe46330f405c203179d386e3f5d7e2d31999eb70b3b56d(
-    resource: _IMultiRegionClusterRef_b7a8c236,
+    resource: _aws_memorydb_f0938d3f.IMultiRegionClusterRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3966,7 +3970,7 @@ def _typecheckingstub__65b77630f3e79b149bb1f21b2eabdb22afe82dc984eeb952130614f47
     pass
 
 def _typecheckingstub__365257f783935c7a1981eb4450aca8ac43d391eaf4ef37638ee8b6e32c148725(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4020,13 +4024,13 @@ def _typecheckingstub__f35169564721c48a0f9a9807ff25f1ba978f9c39b3391178832536bd1
     pass
 
 def _typecheckingstub__4c31a456bc7dbec66c70a71ddb629df188e1935a42408620a3f750d3a77a57e6(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1bb0298e9385954745a7301100806d16ede0f588fef6d462765b2aec1749a85d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4046,8 +4050,8 @@ def _typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07
     multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
     multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
     num_shards: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     update_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4061,13 +4065,13 @@ def _typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be5
     parameter_group_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__04d7b0a0c06aae484cdbce297fc59a5df6e84a64b215b62488b1c669f3285c3d(
-    resource: _IParameterGroupRef_471eb1a8,
+    resource: _aws_memorydb_f0938d3f.IParameterGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4095,7 +4099,7 @@ def _typecheckingstub__12f92b436e27b3d28c20b4f45f12dc83393b3add06c74f022c3d06d35
     pass
 
 def _typecheckingstub__d7debe0fab7bb59dfcf15f4175e0f474c741a7964960dcbe155b0c5efbd1e09f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4131,7 +4135,7 @@ def _typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f8
     pass
 
 def _typecheckingstub__15c759a2a9795495d5bfdf5e24f113bc8b0166dd214c06992783c7263752a055(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4142,7 +4146,7 @@ def _typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6
     parameter_group_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4152,15 +4156,15 @@ def _typecheckingstub__9b3dd027b7c51d2057be81ff17bfef3dbfbd3522767ca600f468a0d67
     id: builtins.str,
     *,
     subnet_group_name: builtins.str,
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__41b29e2cf889495187c0a550635212a38587947ee2ccd14895e5d0853b53f54c(
-    resource: _ISubnetGroupRef_efc982f4,
+    resource: _aws_memorydb_f0938d3f.ISubnetGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4188,7 +4192,7 @@ def _typecheckingstub__a3ff56028ef95d244f4c99ec61776cd5e844463163ce221bcb8effd82
     pass
 
 def _typecheckingstub__3145bbd399c6ddffdc2666544781343f26eb710bec8432513151b15f3216473b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4218,7 +4222,7 @@ def _typecheckingstub__f54a9326815fe3c9ee63863201b4f4e885ed0e38d3788845c6f3ba942
     pass
 
 def _typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd087ab288f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4226,9 +4230,9 @@ def _typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd08
 def _typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1(
     *,
     subnet_group_name: builtins.str,
-    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4240,13 +4244,13 @@ def _typecheckingstub__52b4cd545a9f18f09898b753580c602cd4bd6e39c07e6a1f9e34f4fb9
     user_name: builtins.str,
     access_string: typing.Optional[builtins.str] = None,
     authentication_mode: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19119698c28547952420b03330a70b4826f05e8b8bb087c1195ffd8d28cc4cf3(
-    resource: _IUserRef_ee6ccd70,
+    resource: _aws_memorydb_f0938d3f.IUserRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4274,7 +4278,7 @@ def _typecheckingstub__bfa5d02d754bf2c646fc6d3ee82e60f82e6b2514d977fec374432c46e
     pass
 
 def _typecheckingstub__8c3bb35282143a9481bb5124eb626806569dc76eef119d8888c4373701fb4dd9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4304,7 +4308,7 @@ def _typecheckingstub__5328fc755bfd9d9f30b338838f998fbf324c3bf12aaf33c79a23dedd4
     pass
 
 def _typecheckingstub__e1caf541d919490fde818383ad7111c6060c95572004849b73f36d7935d02afe(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4322,7 +4326,7 @@ def _typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0d
     user_name: builtins.str,
     access_string: typing.Optional[builtins.str] = None,
     authentication_mode: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -12,8 +12,13 @@ from schwifty.checksum import algorithms
         ("0001501832", "DE:00"),
         ("0094012341", "DE:06"),
         ("5073321010", "DE:06"),
+        # Method 16 computes like method 06 over positions 1-9 (only method 15
+        # is restricted to positions 6-9), so a valid method-06 account is valid
+        # for method 16 too.
+        ("0094012341", "DE:16"),
         ("0012345008", "DE:10"),
         ("0087654008", "DE:10"),
+        ("1000000060", "DE:11"),
         ("0446786040", "DE:17"),
         ("0240334000", "DE:19"),
         ("0200520016", "DE:19"),
@@ -66,6 +71,10 @@ from schwifty.checksum import algorithms
         ("0847321750", "DE:99"),
         ("0396000000", "DE:99"),
         ("0499999999", "DE:99"),
+        # Method 08 applies no check digit below account number 60000, so an
+        # account in [6000, 60000) is valid regardless of its check digit.
+        ("0000006000", "DE:08"),
+        ("0000059999", "DE:08"),
     ],
 )
 def test_german_checksum_success(account_code: str, algorithm_name: str) -> None:
@@ -85,6 +94,9 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         ("8840062000", "DE:91"),
         ("8840010000", "DE:91"),
         ("8840057000", "DE:91"),
+        # From account number 60000 upward method 08 does apply the check, so a
+        # wrong check digit must still be rejected.
+        ("0000060000", "DE:08"),
     ],
 )
 def test_german_checksum_failure(account_code: str, algorithm_name: str) -> None:

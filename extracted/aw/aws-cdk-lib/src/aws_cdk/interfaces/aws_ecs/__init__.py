@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CapacityProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba991623f78206f7be97200346e58e378992549d035637dc090551a69f20ec3)
+            type_hints = cached_type_hints(_typecheckingstub__6ba991623f78206f7be97200346e58e378992549d035637dc090551a69f20ec3)
             check_type(argname="argument capacity_provider_name", value=capacity_provider_name, expected_type=type_hints["capacity_provider_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_provider_name": capacity_provider_name,
@@ -107,7 +111,7 @@ class ClusterCapacityProviderAssociationsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2b8d5b33ca63c32c0d1158dd708eba06510c3cdb10a0dedf8a251abeae5d016)
+            type_hints = cached_type_hints(_typecheckingstub__f2b8d5b33ca63c32c0d1158dd708eba06510c3cdb10a0dedf8a251abeae5d016)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
@@ -163,7 +167,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9e5dd6081100ec0e14557c42f52e5c06875846f7f419b115ab533eaa1227a4e)
+            type_hints = cached_type_hints(_typecheckingstub__e9e5dd6081100ec0e14557c42f52e5c06875846f7f419b115ab533eaa1227a4e)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -221,7 +225,7 @@ class DaemonReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a6281626ad0801af7b5a2684814c2cb7d3661f663a66f2574d9724bcc76e09b)
+            type_hints = cached_type_hints(_typecheckingstub__6a6281626ad0801af7b5a2684814c2cb7d3661f663a66f2574d9724bcc76e09b)
             check_type(argname="argument daemon_arn", value=daemon_arn, expected_type=type_hints["daemon_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "daemon_arn": daemon_arn,
@@ -270,7 +274,7 @@ class DaemonTaskDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfc2d11cece02ba970bec80710e61caa1ce876d833d597161139719d4dc06f4e)
+            type_hints = cached_type_hints(_typecheckingstub__bfc2d11cece02ba970bec80710e61caa1ce876d833d597161139719d4dc06f4e)
             check_type(argname="argument daemon_task_definition_arn", value=daemon_task_definition_arn, expected_type=type_hints["daemon_task_definition_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "daemon_task_definition_arn": daemon_task_definition_arn,
@@ -319,7 +323,7 @@ class ExpressGatewayServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea0eff1c207b387e3ce1c36391f0df7e092a4238b4d23d239261228685a988d)
+            type_hints = cached_type_hints(_typecheckingstub__7ea0eff1c207b387e3ce1c36391f0df7e092a4238b4d23d239261228685a988d)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_arn": service_arn,
@@ -347,7 +351,7 @@ class ExpressGatewayServiceReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.ICapacityProviderRef")
 class ICapacityProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityProvider.
@@ -367,7 +371,7 @@ class ICapacityProviderRef(
 
 class _ICapacityProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityProvider.
 
@@ -394,7 +398,7 @@ typing.cast(typing.Any, ICapacityProviderRef).__jsii_proxy_class__ = lambda : _I
 )
 class IClusterCapacityProviderAssociationsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterCapacityProviderAssociations.
@@ -416,7 +420,7 @@ class IClusterCapacityProviderAssociationsRef(
 
 class _IClusterCapacityProviderAssociationsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterCapacityProviderAssociations.
 
@@ -443,7 +447,7 @@ typing.cast(typing.Any, IClusterCapacityProviderAssociationsRef).__jsii_proxy_cl
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -463,7 +467,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -488,7 +492,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IDaemonRef")
 class IDaemonRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Daemon.
@@ -508,7 +512,7 @@ class IDaemonRef(
 
 class _IDaemonRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Daemon.
 
@@ -533,7 +537,7 @@ typing.cast(typing.Any, IDaemonRef).__jsii_proxy_class__ = lambda : _IDaemonRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IDaemonTaskDefinitionRef")
 class IDaemonTaskDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DaemonTaskDefinition.
@@ -553,7 +557,7 @@ class IDaemonTaskDefinitionRef(
 
 class _IDaemonTaskDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DaemonTaskDefinition.
 
@@ -578,7 +582,7 @@ typing.cast(typing.Any, IDaemonTaskDefinitionRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IExpressGatewayServiceRef")
 class IExpressGatewayServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ExpressGatewayService.
@@ -598,7 +602,7 @@ class IExpressGatewayServiceRef(
 
 class _IExpressGatewayServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ExpressGatewayService.
 
@@ -623,7 +627,7 @@ typing.cast(typing.Any, IExpressGatewayServiceRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IPrimaryTaskSetRef")
 class IPrimaryTaskSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrimaryTaskSet.
@@ -643,7 +647,7 @@ class IPrimaryTaskSetRef(
 
 class _IPrimaryTaskSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrimaryTaskSet.
 
@@ -668,7 +672,7 @@ typing.cast(typing.Any, IPrimaryTaskSetRef).__jsii_proxy_class__ = lambda : _IPr
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IServiceRef")
 class IServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
@@ -688,7 +692,7 @@ class IServiceRef(
 
 class _IServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
 
@@ -713,7 +717,7 @@ typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.ITaskDefinitionRef")
 class ITaskDefinitionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskDefinition.
@@ -733,7 +737,7 @@ class ITaskDefinitionRef(
 
 class _ITaskDefinitionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskDefinition.
 
@@ -758,7 +762,7 @@ typing.cast(typing.Any, ITaskDefinitionRef).__jsii_proxy_class__ = lambda : _ITa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.ITaskSetRef")
 class ITaskSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskSet.
@@ -778,7 +782,7 @@ class ITaskSetRef(
 
 class _ITaskSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TaskSet.
 
@@ -826,7 +830,7 @@ class PrimaryTaskSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a1b939f002ad0ae1231600a088f90e5a07ee32dc47266ea7d20bc40291c4085)
+            type_hints = cached_type_hints(_typecheckingstub__4a1b939f002ad0ae1231600a088f90e5a07ee32dc47266ea7d20bc40291c4085)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -884,7 +888,7 @@ class ServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__222e58c3bfd0aefe61c64da263b2f2f7ee538bff76050254c35072818cb84d58)
+            type_hints = cached_type_hints(_typecheckingstub__222e58c3bfd0aefe61c64da263b2f2f7ee538bff76050254c35072818cb84d58)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_arn": service_arn,
@@ -933,7 +937,7 @@ class TaskDefinitionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d3399131a06519592dee06a25b10deee54dd67b0605a0fbbe5d52f243cb02fc)
+            type_hints = cached_type_hints(_typecheckingstub__2d3399131a06519592dee06a25b10deee54dd67b0605a0fbbe5d52f243cb02fc)
             check_type(argname="argument task_definition_arn", value=task_definition_arn, expected_type=type_hints["task_definition_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "task_definition_arn": task_definition_arn,
@@ -996,7 +1000,7 @@ class TaskSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74cd9665edddb0a5616888159b532fdbf6e5e802106c342a4e8d6846d23d1674)
+            type_hints = cached_type_hints(_typecheckingstub__74cd9665edddb0a5616888159b532fdbf6e5e802106c342a4e8d6846d23d1674)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument task_set_id", value=task_set_id, expected_type=type_hints["task_set_id"])

@@ -1,17 +1,45 @@
 """Tests for content block building and session management in JaiAcpClient."""
 
 import asyncio
+import logging
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from acp.exceptions import RequestError
-from acp.schema import ResourceContentBlock, TextContentBlock
+from acp.schema import (
+    AvailableCommand,
+    AvailableCommandsUpdate,
+    ConfigOptionUpdate,
+    CurrentModeUpdate,
+    ResourceContentBlock,
+    TextContentBlock,
+    Usage,
+    UsageUpdate,
+)
 
+from jupyterlab_chat.models import User
+from jupyterlab_chat.ychat import YChat
+from pycrdt import Awareness
+
+from jupyter_ai_persona_manager import PersonaAwareness
+
+from jupyter_ai_acp_client.base_acp_persona import BaseAcpPersona
 from jupyter_ai_acp_client.default_acp_client import JaiAcpClient
 
 
 SESSION_ID = "sess-1"
+
+
+def _awareness() -> PersonaAwareness:
+    """A real PersonaAwareness over a fresh in-memory YChat. Constructed outside
+    an event loop, so the heartbeat is skipped — everything else is real."""
+    ychat = YChat()
+    ychat.awareness = Awareness(ydoc=ychat._ydoc)
+    user = User(username="test-persona", name="Test", display_name="Test")
+    return PersonaAwareness(
+        ychat=ychat, log=logging.getLogger("test"), user=user, id="test-persona"
+    )
 
 
 def _make_client_and_persona():
@@ -216,6 +244,146 @@ class TestPromptAndReplyContentBlocks:
 
         blocks = conn.prompt.call_args.kwargs["prompt"]
         assert blocks[1].uri == "../../../etc/passwd"
+
+
+def _real_usage_persona():
+    """
+    A `BaseAcpPersona` created without `__init__` (no subprocess or session),
+    carrying the real usage setters and properties so tests cover the actual
+    store-then-read round trip. Collaborators the client touches are mocked.
+    """
+
+    class _ConcreteAcpPersona(BaseAcpPersona):
+        @property
+        def defaults(self):  # pragma: no cover - never called in these tests
+            return None
+
+    persona = _ConcreteAcpPersona.__new__(_ConcreteAcpPersona)
+    persona._acp_context_usage = None
+    persona._acp_session_usage = None
+    persona.log = logging.getLogger("test")
+    # A real awareness slot so `_sync_awareness_usage` -> `report_usage`
+    # round-trips through the real typed properties.
+    persona.awareness = _awareness()
+    persona.ychat = MagicMock()
+    return persona
+
+
+class TestUsageStorage:
+    """A usage report received by the client ends up readable on the persona."""
+
+    async def test_usage_update_is_stored_as_context_usage(self):
+        client, _, _ = _make_client_and_persona()
+        client._loading_sessions = {}
+        persona = _real_usage_persona()
+        client._personas_by_session[SESSION_ID] = persona
+        update = UsageUpdate(sessionUpdate="usage_update", used=41_000, size=200_000)
+
+        await client.session_update(SESSION_ID, update)
+
+        assert persona.acp_context_usage is update
+
+    async def test_prompt_response_usage_is_stored_as_session_usage(self):
+        client, conn, _ = _make_client_and_persona()
+        persona = _real_usage_persona()
+        client._personas_by_session[SESSION_ID] = persona
+        usage = Usage(inputTokens=900, outputTokens=340, totalTokens=1_240)
+        conn.prompt = AsyncMock(return_value=MagicMock(usage=usage))
+
+        await client.prompt_and_reply(session_id=SESSION_ID, prompt="hello")
+
+        assert persona.acp_session_usage is usage
+
+    async def test_prompt_response_without_usage_stores_nothing(self):
+        client, conn, _ = _make_client_and_persona()
+        persona = _real_usage_persona()
+        client._personas_by_session[SESSION_ID] = persona
+        conn.prompt = AsyncMock(return_value=MagicMock(usage=None))
+
+        await client.prompt_and_reply(session_id=SESSION_ID, prompt="hello")
+
+        assert persona.acp_session_usage is None
+
+
+class TestExtNotification:
+    """The generic client is agent-agnostic: every ext notification (including
+    vendor `kiro.dev/*` methods, now handled only by KiroAcpClient) is unknown
+    to it and rejected as JSON-RPC method-not-found."""
+
+    async def test_ext_notification_raises_method_not_found(self):
+        client, _, _ = _make_client_and_persona()
+
+        for method in ("kiro.dev/metadata", "kiro.dev/commands/available", "other.vendor/thing"):
+            with pytest.raises(RequestError) as exc_info:
+                await client.ext_notification(method, {"sessionId": SESSION_ID})
+            assert exc_info.value.code == -32601, method
+
+    async def test_ext_method_raises_method_not_found(self):
+        client, _, _ = _make_client_and_persona()
+
+        with pytest.raises(RequestError) as exc_info:
+            await client.ext_method("kiro.dev/metadata", {"sessionId": SESSION_ID})
+        assert exc_info.value.code == -32601
+
+
+class TestAwarenessPush:
+    """The client pushes ACP updates onto the persona's awareness API too."""
+
+    async def test_available_commands_update_advertises_over_awareness(self):
+        client, _, persona = _make_client_and_persona()
+        client._loading_sessions = {}
+        persona.report_slash_commands = MagicMock()
+        update = AvailableCommandsUpdate(
+            sessionUpdate="available_commands_update",
+            availableCommands=[
+                AvailableCommand(name="compact", description="Compact context"),
+                AvailableCommand(name="/clear", description="Clear"),
+            ],
+        )
+
+        await client.session_update(SESSION_ID, update)
+
+        commands = persona.report_slash_commands.call_args[0][0]
+        # Names are leading-slash normalized.
+        assert [(c.name, c.description) for c in commands] == [
+            ("/compact", "Compact context"),
+            ("/clear", "Clear"),
+        ]
+
+    async def test_current_mode_update_rebuilds_awareness_config(self):
+        client, _, persona = _make_client_and_persona()
+        client._loading_sessions = {}
+        persona._sync_awareness_config = MagicMock()
+        update = CurrentModeUpdate(sessionUpdate="current_mode_update", currentModeId="code")
+
+        await client.session_update(SESSION_ID, update)
+
+        persona.update_acp_current_mode.assert_called_once_with("code")
+        persona._sync_awareness_config.assert_called_once()
+
+    async def test_config_option_update_rebuilds_awareness_config(self):
+        client, _, persona = _make_client_and_persona()
+        client._loading_sessions = {}
+        persona._sync_awareness_config = MagicMock()
+        update = ConfigOptionUpdate(
+            sessionUpdate="config_option_update", configOptions=[]
+        )
+
+        await client.session_update(SESSION_ID, update)
+
+        persona.update_acp_config_options.assert_called_once()
+        persona._sync_awareness_config.assert_called_once()
+
+    async def test_usage_update_pushes_awareness_usage(self):
+        client, _, persona = _make_client_and_persona()
+        client._loading_sessions = {}
+        persona._sync_awareness_usage = MagicMock()
+        update = UsageUpdate(sessionUpdate="usage_update", used=1, size=2)
+
+        await client.session_update(SESSION_ID, update)
+
+        persona.update_acp_context_usage.assert_called_once_with(update)
+        persona._sync_awareness_usage.assert_called_once()
 
 
 class TestLoadSessionCleanup:

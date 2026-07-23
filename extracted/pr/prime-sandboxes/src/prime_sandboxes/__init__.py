@@ -38,6 +38,7 @@ from .models import (
     CommandResponse,
     CreateSandboxRequest,
     DockerImageCheckResponse,
+    EgressPolicyStatus,
     ExposedPort,
     ExposePortRequest,
     FileUploadResponse,
@@ -55,6 +56,7 @@ from .models import (
     ReadFileResponse,
     RegistryCredentialSummary,
     Sandbox,
+    SandboxEgressPolicy,
     SandboxListResponse,
     SandboxStatus,
     SSHSession,
@@ -66,7 +68,7 @@ from .models import (
 )
 from .sandbox import AsyncSandboxClient, AsyncTemplateClient, SandboxClient, TemplateClient
 
-__version__ = "0.2.32"
+__version__ = "0.2.33"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -85,6 +87,7 @@ __all__ = [
     "AsyncImageClient",
     # Models
     "Sandbox",
+    "SandboxEgressPolicy",
     "SandboxStatus",
     "SandboxListResponse",
     "CreateSandboxRequest",
@@ -97,6 +100,7 @@ __all__ = [
     "BulkDeleteSandboxResponse",
     "RegistryCredentialSummary",
     "DockerImageCheckResponse",
+    "EgressPolicyStatus",
     "AdvancedConfigs",
     "BackgroundJob",
     "BackgroundJobStatus",

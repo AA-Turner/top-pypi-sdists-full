@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-ag-ui
-Version: 1.0.0rc9
+Version: 1.0.0
 Summary: AG-UI protocol integration for Agent Framework
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
@@ -8,7 +8,7 @@ Project-URL: release_notes, https://github.com/microsoft/agent-framework/release
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Author-email: Microsoft <af-support@microsoft.com>
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3

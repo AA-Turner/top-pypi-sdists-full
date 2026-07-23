@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,56 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_ec2 import IVPCRef as _IVPCRef_f02a11df
-from ..interfaces.aws_networkfirewall import (
-    FirewallPolicyReference as _FirewallPolicyReference_590b2e0a,
-    FirewallReference as _FirewallReference_2bf55714,
-    IFirewallPolicyRef as _IFirewallPolicyRef_bd446a4d,
-    IFirewallRef as _IFirewallRef_31769805,
-    ILoggingConfigurationRef as _ILoggingConfigurationRef_1588c620,
-    IRuleGroupRef as _IRuleGroupRef_f1ee71d3,
-    ITLSInspectionConfigurationRef as _ITLSInspectionConfigurationRef_6d0a6d9c,
-    IVpcEndpointAssociationRef as _IVpcEndpointAssociationRef_bd0818d9,
-    LoggingConfigurationReference as _LoggingConfigurationReference_f6c32f6c,
-    RuleGroupReference as _RuleGroupReference_b514c132,
-    TLSInspectionConfigurationReference as _TLSInspectionConfigurationReference_52bd7dd3,
-    VpcEndpointAssociationReference as _VpcEndpointAssociationReference_d627bc37,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_networkfirewall as _aws_networkfirewall_65100754
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_networkfirewall_65100754 = _LazyImport("aws_cdk.interfaces.aws_networkfirewall")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IFirewallRef_31769805, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IFirewallRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFirewall(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall",
 ):
@@ -141,18 +125,18 @@ class CfnFirewall(
         id: builtins.str,
         *,
         firewall_name: builtins.str,
-        firewall_policy_arn: typing.Union[builtins.str, "_IFirewallPolicyRef_bd446a4d"],
-        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        availability_zone_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewall.AvailabilityZoneMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        firewall_policy_arn: typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallPolicyRef"],
+        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        availability_zone_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.AvailabilityZoneMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        subnet_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transit_gateway_id: typing.Optional[builtins.str] = None,
-        vpc_id: typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]] = None,
+        vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::Firewall``.
 
@@ -173,7 +157,7 @@ class CfnFirewall(
         :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b38d4d56)
+            type_hints = cached_type_hints(_typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b38d4d56)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFirewallProps(
@@ -196,12 +180,15 @@ class CfnFirewall(
 
     @jsii.member(jsii_name="arnForFirewall")
     @builtins.classmethod
-    def arn_for_firewall(cls, resource: "_IFirewallRef_31769805") -> builtins.str:
+    def arn_for_firewall(
+        cls,
+        resource: "_aws_networkfirewall_65100754.IFirewallRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3252673ecebe9bca28767dd02ff4a5ad2fb6170a07b406430e73fc49c64efab0)
+            type_hints = cached_type_hints(_typecheckingstub__3252673ecebe9bca28767dd02ff4a5ad2fb6170a07b406430e73fc49c64efab0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFirewall", [resource]))
 
@@ -213,18 +200,18 @@ class CfnFirewall(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9d55f8dfb5c7f24877ce2c25548e45621c82fdeee1bbbb94b6857edd5652d78)
+            type_hints = cached_type_hints(_typecheckingstub__b9d55f8dfb5c7f24877ce2c25548e45621c82fdeee1bbbb94b6857edd5652d78)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFirewall", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7c4e2793da1cf8bea450c2122d2557d378fad5e129ebb26f114a36cfc6506a2)
+            type_hints = cached_type_hints(_typecheckingstub__c7c4e2793da1cf8bea450c2122d2557d378fad5e129ebb26f114a36cfc6506a2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -237,7 +224,7 @@ class CfnFirewall(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46677a58d997dd59fd033c9a9ee94e3689cafff9e028d3e2d162ddfeee718547)
+            type_hints = cached_type_hints(_typecheckingstub__46677a58d997dd59fd033c9a9ee94e3689cafff9e028d3e2d162ddfeee718547)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -299,15 +286,15 @@ class CfnFirewall(
 
     @builtins.property
     @jsii.member(jsii_name="firewallRef")
-    def firewall_ref(self) -> "_FirewallReference_2bf55714":
+    def firewall_ref(self) -> "_aws_networkfirewall_65100754.FirewallReference":
         '''A reference to a Firewall resource.'''
-        return typing.cast("_FirewallReference_2bf55714", jsii.get(self, "firewallRef"))
+        return typing.cast("_aws_networkfirewall_65100754.FirewallReference", jsii.get(self, "firewallRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="firewallName")
@@ -318,7 +305,7 @@ class CfnFirewall(
     @firewall_name.setter
     def firewall_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdb28f607bba18f9f1db46f554b41c7ddfaaf01fe3c74c5f99726bd72458a115)
+            type_hints = cached_type_hints(_typecheckingstub__fdb28f607bba18f9f1db46f554b41c7ddfaaf01fe3c74c5f99726bd72458a115)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallName", value) # pyright: ignore[reportArgumentType]
 
@@ -331,7 +318,7 @@ class CfnFirewall(
     @firewall_policy_arn.setter
     def firewall_policy_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c711ef7af7567ab69b12f083b26c4033f7cdf1593bf27227f989d7c73e8c9fc2)
+            type_hints = cached_type_hints(_typecheckingstub__c711ef7af7567ab69b12f083b26c4033f7cdf1593bf27227f989d7c73e8c9fc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallPolicyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -339,17 +326,17 @@ class CfnFirewall(
     @jsii.member(jsii_name="availabilityZoneChangeProtection")
     def availability_zone_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against changes to its Availability Zone configuration.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "availabilityZoneChangeProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "availabilityZoneChangeProtection"))
 
     @availability_zone_change_protection.setter
     def availability_zone_change_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1)
+            type_hints = cached_type_hints(_typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneChangeProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -357,17 +344,17 @@ class CfnFirewall(
     @jsii.member(jsii_name="availabilityZoneMappings")
     def availability_zone_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.AvailabilityZoneMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.AvailabilityZoneMappingProperty"]]]]:
         '''The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.AvailabilityZoneMappingProperty"]]]], jsii.get(self, "availabilityZoneMappings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.AvailabilityZoneMappingProperty"]]]], jsii.get(self, "availabilityZoneMappings"))
 
     @availability_zone_mappings.setter
     def availability_zone_mappings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.AvailabilityZoneMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.AvailabilityZoneMappingProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77)
+            type_hints = cached_type_hints(_typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneMappings", value) # pyright: ignore[reportArgumentType]
 
@@ -375,17 +362,17 @@ class CfnFirewall(
     @jsii.member(jsii_name="deleteProtection")
     def delete_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag indicating whether it is possible to delete the firewall.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deleteProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deleteProtection"))
 
     @delete_protection.setter
     def delete_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12d69795554b50f9f4f46a0470d9cf06e4d826d030dcab9f0adfc3a3d566c8b3)
+            type_hints = cached_type_hints(_typecheckingstub__12d69795554b50f9f4f46a0470d9cf06e4d826d030dcab9f0adfc3a3d566c8b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deleteProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -398,7 +385,7 @@ class CfnFirewall(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fea0349bbbe56acfbf8d2e11ce10cdd2221eb418df0a6df3602174f8015ca4f6)
+            type_hints = cached_type_hints(_typecheckingstub__fea0349bbbe56acfbf8d2e11ce10cdd2221eb418df0a6df3602174f8015ca4f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -414,7 +401,7 @@ class CfnFirewall(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc5ed44d930f34c8aab89f35a98f79157366d4a6307eb58bfc63ed737000a53)
+            type_hints = cached_type_hints(_typecheckingstub__dfc5ed44d930f34c8aab89f35a98f79157366d4a6307eb58bfc63ed737000a53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabledAnalysisTypes", value) # pyright: ignore[reportArgumentType]
 
@@ -422,17 +409,17 @@ class CfnFirewall(
     @jsii.member(jsii_name="firewallPolicyChangeProtection")
     def firewall_policy_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against a change to the firewall policy association.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "firewallPolicyChangeProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "firewallPolicyChangeProtection"))
 
     @firewall_policy_change_protection.setter
     def firewall_policy_change_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee50239d13ab311a798770d372dccb418872f67c3e07c873f5d87e11df129a35)
+            type_hints = cached_type_hints(_typecheckingstub__ee50239d13ab311a798770d372dccb418872f67c3e07c873f5d87e11df129a35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallPolicyChangeProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -440,17 +427,17 @@ class CfnFirewall(
     @jsii.member(jsii_name="subnetChangeProtection")
     def subnet_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against changes to the subnet associations.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "subnetChangeProtection"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "subnetChangeProtection"))
 
     @subnet_change_protection.setter
     def subnet_change_protection(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d514ade47)
+            type_hints = cached_type_hints(_typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d514ade47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetChangeProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -458,30 +445,33 @@ class CfnFirewall(
     @jsii.member(jsii_name="subnetMappings")
     def subnet_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.SubnetMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]]:
         '''The primary public subnets that Network Firewall is using for the firewall.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
 
     @subnet_mappings.setter
     def subnet_mappings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.SubnetMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab)
+            type_hints = cached_type_hints(_typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da)
+            type_hints = cached_type_hints(_typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -494,7 +484,7 @@ class CfnFirewall(
     @transit_gateway_id.setter
     def transit_gateway_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b55c26bc6)
+            type_hints = cached_type_hints(_typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b55c26bc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transitGatewayId", value) # pyright: ignore[reportArgumentType]
 
@@ -507,7 +497,7 @@ class CfnFirewall(
     @vpc_id.setter
     def vpc_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5)
+            type_hints = cached_type_hints(_typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -540,7 +530,7 @@ class CfnFirewall(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e12d4b074bc6fa59b990e1d43ef30390330da9da999dbf3bac9bf5e98eb30caf)
+                type_hints = cached_type_hints(_typecheckingstub__e12d4b074bc6fa59b990e1d43ef30390330da9da999dbf3bac9bf5e98eb30caf)
                 check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "availability_zone": availability_zone,
@@ -605,7 +595,7 @@ class CfnFirewall(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf86d50b8eec902ee512afbe0dfd3b1ee2bc8f0b9f4fb9acb4ac637ae3662fc0)
+                type_hints = cached_type_hints(_typecheckingstub__cf86d50b8eec902ee512afbe0dfd3b1ee2bc8f0b9f4fb9acb4ac637ae3662fc0)
                 check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
                 check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -647,9 +637,9 @@ class CfnFirewall(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFirewallPolicyRef_bd446a4d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IFirewallPolicyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFirewallPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy",
 ):
@@ -732,10 +722,10 @@ class CfnFirewallPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        firewall_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.FirewallPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+        firewall_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.FirewallPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
         firewall_policy_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::FirewallPolicy``.
 
@@ -747,7 +737,7 @@ class CfnFirewallPolicy(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88babb6ad6946bc506d4761908231f5bd58eca8a4b6bc16dfccccad329a61ca)
+            type_hints = cached_type_hints(_typecheckingstub__d88babb6ad6946bc506d4761908231f5bd58eca8a4b6bc16dfccccad329a61ca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFirewallPolicyProps(
@@ -763,13 +753,13 @@ class CfnFirewallPolicy(
     @builtins.classmethod
     def arn_for_firewall_policy(
         cls,
-        resource: "_IFirewallPolicyRef_bd446a4d",
+        resource: "_aws_networkfirewall_65100754.IFirewallPolicyRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d12ff2b086a41a0ec64e7d9e6c1464a059dde59324c1c1a4954acc2a2414366)
+            type_hints = cached_type_hints(_typecheckingstub__3d12ff2b086a41a0ec64e7d9e6c1464a059dde59324c1c1a4954acc2a2414366)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFirewallPolicy", [resource]))
 
@@ -781,18 +771,18 @@ class CfnFirewallPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9e7d17ea7810df22b8e7f65db2e63ab3fe3cb77393e21c9f89e0778f7074c89)
+            type_hints = cached_type_hints(_typecheckingstub__c9e7d17ea7810df22b8e7f65db2e63ab3fe3cb77393e21c9f89e0778f7074c89)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFirewallPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d5c5132a5b6e646e64fbde7a0f144884b26ad6646fb61ce294ea7f055ebdea9)
+            type_hints = cached_type_hints(_typecheckingstub__6d5c5132a5b6e646e64fbde7a0f144884b26ad6646fb61ce294ea7f055ebdea9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -805,7 +795,7 @@ class CfnFirewallPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56698f8e6b1c138a730626856a3d169be448aa17fd1614293c276d6b465f45a2)
+            type_hints = cached_type_hints(_typecheckingstub__56698f8e6b1c138a730626856a3d169be448aa17fd1614293c276d6b465f45a2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -845,31 +835,33 @@ class CfnFirewallPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="firewallPolicyRef")
-    def firewall_policy_ref(self) -> "_FirewallPolicyReference_590b2e0a":
+    def firewall_policy_ref(
+        self,
+    ) -> "_aws_networkfirewall_65100754.FirewallPolicyReference":
         '''A reference to a FirewallPolicy resource.'''
-        return typing.cast("_FirewallPolicyReference_590b2e0a", jsii.get(self, "firewallPolicyRef"))
+        return typing.cast("_aws_networkfirewall_65100754.FirewallPolicyReference", jsii.get(self, "firewallPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="firewallPolicy")
     def firewall_policy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FirewallPolicyProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FirewallPolicyProperty"]:
         '''The traffic filtering behavior of a firewall policy, defined in a collection of stateless and stateful rule groups and other settings.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FirewallPolicyProperty"], jsii.get(self, "firewallPolicy"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FirewallPolicyProperty"], jsii.get(self, "firewallPolicy"))
 
     @firewall_policy.setter
     def firewall_policy(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FirewallPolicyProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FirewallPolicyProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__706340078bfabf1ab4df2417fc17af1521f1718330cb1fc0087bd9afbac6b09e)
+            type_hints = cached_type_hints(_typecheckingstub__706340078bfabf1ab4df2417fc17af1521f1718330cb1fc0087bd9afbac6b09e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -882,7 +874,7 @@ class CfnFirewallPolicy(
     @firewall_policy_name.setter
     def firewall_policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c7e3a8041e7e54afea999d4d0ef02ac9ae2b07dcdf0a03eae03b540da1897f)
+            type_hints = cached_type_hints(_typecheckingstub__96c7e3a8041e7e54afea999d4d0ef02ac9ae2b07dcdf0a03eae03b540da1897f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallPolicyName", value) # pyright: ignore[reportArgumentType]
 
@@ -895,20 +887,23 @@ class CfnFirewallPolicy(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17c32ed9aaa9f9ee7c0bc9d17e141d75109032a7a60deaf6aed2663b8c4728a3)
+            type_hints = cached_type_hints(_typecheckingstub__17c32ed9aaa9f9ee7c0bc9d17e141d75109032a7a60deaf6aed2663b8c4728a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c11c99d52a27fc2ece4bf3400c4dd843466996564051d6963ae198097626d76)
+            type_hints = cached_type_hints(_typecheckingstub__8c11c99d52a27fc2ece4bf3400c4dd843466996564051d6963ae198097626d76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -921,7 +916,7 @@ class CfnFirewallPolicy(
         def __init__(
             self,
             *,
-            publish_metric_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.PublishMetricActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            publish_metric_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.PublishMetricActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A custom action to use in stateless rule actions settings.
 
@@ -945,7 +940,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__85467f041a9b94df26a26630991c0c22b625a860b01ccf1dafa4f6c431ca3d2f)
+                type_hints = cached_type_hints(_typecheckingstub__85467f041a9b94df26a26630991c0c22b625a860b01ccf1dafa4f6c431ca3d2f)
                 check_type(argname="argument publish_metric_action", value=publish_metric_action, expected_type=type_hints["publish_metric_action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if publish_metric_action is not None:
@@ -954,7 +949,7 @@ class CfnFirewallPolicy(
         @builtins.property
         def publish_metric_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.PublishMetricActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.PublishMetricActionProperty"]]:
             '''Stateless inspection criteria that publishes the specified metrics to Amazon CloudWatch for the matching packet.
 
             This setting defines a CloudWatch dimension value to be published.
@@ -964,7 +959,7 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-actiondefinition.html#cfn-networkfirewall-firewallpolicy-actiondefinition-publishmetricaction
             '''
             result = self._values.get("publish_metric_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.PublishMetricActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.PublishMetricActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -989,7 +984,7 @@ class CfnFirewallPolicy(
         def __init__(
             self,
             *,
-            action_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.ActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.ActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
             action_name: builtins.str,
         ) -> None:
             '''An optional, non-standard action to use for stateless packet handling.
@@ -1027,7 +1022,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1aea5034d17a5ca042ab3479dcb09b74cc8b32425872aa94df5c552a5d6c7fa1)
+                type_hints = cached_type_hints(_typecheckingstub__1aea5034d17a5ca042ab3479dcb09b74cc8b32425872aa94df5c552a5d6c7fa1)
                 check_type(argname="argument action_definition", value=action_definition, expected_type=type_hints["action_definition"])
                 check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1038,14 +1033,14 @@ class CfnFirewallPolicy(
         @builtins.property
         def action_definition(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.ActionDefinitionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.ActionDefinitionProperty"]:
             '''The custom action associated with the action name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-customaction.html#cfn-networkfirewall-firewallpolicy-customaction-actiondefinition
             '''
             result = self._values.get("action_definition")
             assert result is not None, "Required property 'action_definition' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.ActionDefinitionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.ActionDefinitionProperty"], result)
 
         @builtins.property
         def action_name(self) -> builtins.str:
@@ -1101,7 +1096,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__774d6b3d9a237f7aee33cd708631d88ea8bd3d72e6ab927132f715b75e77c5a8)
+                type_hints = cached_type_hints(_typecheckingstub__774d6b3d9a237f7aee33cd708631d88ea8bd3d72e6ab927132f715b75e77c5a8)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "value": value,
@@ -1150,13 +1145,13 @@ class CfnFirewallPolicy(
             *,
             stateless_default_actions: typing.Sequence[builtins.str],
             stateless_fragment_default_actions: typing.Sequence[builtins.str],
-            enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            policy_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.PolicyVariablesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            policy_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.PolicyVariablesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stateful_default_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-            stateful_engine_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.StatefulEngineOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            stateful_rule_group_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.StatefulRuleGroupReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            stateless_custom_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            stateless_rule_group_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.StatelessRuleGroupReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            stateful_engine_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatefulEngineOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stateful_rule_group_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatefulRuleGroupReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            stateless_custom_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            stateless_rule_group_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatelessRuleGroupReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             tls_inspection_configuration_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The traffic filtering behavior of a firewall policy, defined in a collection of stateless and stateful rule groups and other settings.
@@ -1230,7 +1225,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1b6a6014864b81482e4c4a383921c58673d84e8e882dc4fb7cea71a2db29fc18)
+                type_hints = cached_type_hints(_typecheckingstub__1b6a6014864b81482e4c4a383921c58673d84e8e882dc4fb7cea71a2db29fc18)
                 check_type(argname="argument stateless_default_actions", value=stateless_default_actions, expected_type=type_hints["stateless_default_actions"])
                 check_type(argname="argument stateless_fragment_default_actions", value=stateless_fragment_default_actions, expected_type=type_hints["stateless_fragment_default_actions"])
                 check_type(argname="argument enable_tls_session_holding", value=enable_tls_session_holding, expected_type=type_hints["enable_tls_session_holding"])
@@ -1297,7 +1292,7 @@ class CfnFirewallPolicy(
         @builtins.property
         def enable_tls_session_holding(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, prevents TCP and TLS packets from reaching destination servers until TLS Inspection has evaluated Server Name Indication (SNI) rules.
 
             Requires an associated TLS Inspection configuration.
@@ -1305,18 +1300,18 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-enabletlssessionholding
             '''
             result = self._values.get("enable_tls_session_holding")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def policy_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.PolicyVariablesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.PolicyVariablesProperty"]]:
             '''Contains variables that you can use to override default Suricata settings in your firewall policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-policyvariables
             '''
             result = self._values.get("policy_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.PolicyVariablesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.PolicyVariablesProperty"]], result)
 
         @builtins.property
         def stateful_default_actions(
@@ -1343,7 +1338,7 @@ class CfnFirewallPolicy(
         @builtins.property
         def stateful_engine_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulEngineOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulEngineOptionsProperty"]]:
             '''Additional options governing how Network Firewall handles stateful rules.
 
             The stateful rule groups that you use in your policy must have stateful rule options settings that are compatible with these settings.
@@ -1351,12 +1346,12 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-statefulengineoptions
             '''
             result = self._values.get("stateful_engine_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulEngineOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulEngineOptionsProperty"]], result)
 
         @builtins.property
         def stateful_rule_group_references(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulRuleGroupReferenceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulRuleGroupReferenceProperty"]]]]:
             '''References to the stateful rule groups that are used in the policy.
 
             These define the inspection criteria in stateful rules.
@@ -1364,12 +1359,12 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-statefulrulegroupreferences
             '''
             result = self._values.get("stateful_rule_group_references")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulRuleGroupReferenceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulRuleGroupReferenceProperty"]]]], result)
 
         @builtins.property
         def stateless_custom_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.CustomActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.CustomActionProperty"]]]]:
             '''The custom action definitions that are available for use in the firewall policy's ``StatelessDefaultActions`` setting.
 
             You name each custom action that you define, and then you can use it by name in your default actions specifications.
@@ -1377,12 +1372,12 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-statelesscustomactions
             '''
             result = self._values.get("stateless_custom_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.CustomActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.CustomActionProperty"]]]], result)
 
         @builtins.property
         def stateless_rule_group_references(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatelessRuleGroupReferenceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatelessRuleGroupReferenceProperty"]]]]:
             '''References to the stateless rule groups that are used in the policy.
 
             These define the matching criteria in stateless rules.
@@ -1390,7 +1385,7 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-statelessrulegroupreferences
             '''
             result = self._values.get("stateless_rule_group_references")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatelessRuleGroupReferenceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatelessRuleGroupReferenceProperty"]]]], result)
 
         @builtins.property
         def tls_inspection_configuration_arn(self) -> typing.Optional[builtins.str]:
@@ -1443,7 +1438,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4350128fa619a287451e7349f3a546602986e4c5bea091c0aa3703d7590bd54f)
+                type_hints = cached_type_hints(_typecheckingstub__4350128fa619a287451e7349f3a546602986e4c5bea091c0aa3703d7590bd54f)
                 check_type(argname="argument tcp_idle_timeout_seconds", value=tcp_idle_timeout_seconds, expected_type=type_hints["tcp_idle_timeout_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if tcp_idle_timeout_seconds is not None:
@@ -1504,7 +1499,7 @@ class CfnFirewallPolicy(
                 }
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d067b828f689f1f983a48f9f4eb8d06f4dfe2f2e6a20585837d5fe154bfc4ae8)
+                type_hints = cached_type_hints(_typecheckingstub__d067b828f689f1f983a48f9f4eb8d06f4dfe2f2e6a20585837d5fe154bfc4ae8)
                 check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if definition is not None:
@@ -1539,7 +1534,7 @@ class CfnFirewallPolicy(
         def __init__(
             self,
             *,
-            rule_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.IPSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rule_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.IPSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains variables that you can use to override default Suricata settings in your firewall policy.
 
@@ -1563,7 +1558,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9e866a0377e767391b6cb1e114ddc7eed91f1e04c8ab4203b0af3b09a8befd47)
+                type_hints = cached_type_hints(_typecheckingstub__9e866a0377e767391b6cb1e114ddc7eed91f1e04c8ab4203b0af3b09a8befd47)
                 check_type(argname="argument rule_variables", value=rule_variables, expected_type=type_hints["rule_variables"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rule_variables is not None:
@@ -1572,7 +1567,7 @@ class CfnFirewallPolicy(
         @builtins.property
         def rule_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.IPSetProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.IPSetProperty"]]]]:
             '''The IPv4 or IPv6 addresses in CIDR notation to use for the Suricata ``HOME_NET`` variable.
 
             If your firewall uses an inspection VPC, you might want to override the ``HOME_NET`` variable with the CIDRs of your home networks. If you don't override ``HOME_NET`` with your own CIDRs, Network Firewall by default uses the CIDR of your inspection VPC.
@@ -1580,7 +1575,7 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-policyvariables.html#cfn-networkfirewall-firewallpolicy-policyvariables-rulevariables
             '''
             result = self._values.get("rule_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.IPSetProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.IPSetProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1602,7 +1597,7 @@ class CfnFirewallPolicy(
         def __init__(
             self,
             *,
-            dimensions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            dimensions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Stateless inspection criteria that publishes the specified metrics to Amazon CloudWatch for the matching packet.
 
@@ -1626,7 +1621,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eab9540ab80b4dd980d8dda17b30755d1e15a920591be54fdd8184a0a4e4eb42)
+                type_hints = cached_type_hints(_typecheckingstub__eab9540ab80b4dd980d8dda17b30755d1e15a920591be54fdd8184a0a4e4eb42)
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "dimensions": dimensions,
@@ -1635,13 +1630,13 @@ class CfnFirewallPolicy(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.DimensionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.DimensionProperty"]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-publishmetricaction.html#cfn-networkfirewall-firewallpolicy-publishmetricaction-dimensions
             '''
             result = self._values.get("dimensions")
             assert result is not None, "Required property 'dimensions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.DimensionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.DimensionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1667,7 +1662,7 @@ class CfnFirewallPolicy(
         def __init__(
             self,
             *,
-            flow_timeouts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.FlowTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            flow_timeouts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.FlowTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rule_order: typing.Optional[builtins.str] = None,
             stream_exception_policy: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1695,7 +1690,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__69e95338d370bfb1bbb954499358a8d8914836eb171006f958c9fa4debca2e09)
+                type_hints = cached_type_hints(_typecheckingstub__69e95338d370bfb1bbb954499358a8d8914836eb171006f958c9fa4debca2e09)
                 check_type(argname="argument flow_timeouts", value=flow_timeouts, expected_type=type_hints["flow_timeouts"])
                 check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
                 check_type(argname="argument stream_exception_policy", value=stream_exception_policy, expected_type=type_hints["stream_exception_policy"])
@@ -1710,13 +1705,13 @@ class CfnFirewallPolicy(
         @builtins.property
         def flow_timeouts(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FlowTimeoutsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FlowTimeoutsProperty"]]:
             '''Configures the amount of time that can pass without any traffic sent through the firewall before the firewall determines that the connection is idle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statefulengineoptions.html#cfn-networkfirewall-firewallpolicy-statefulengineoptions-flowtimeouts
             '''
             result = self._values.get("flow_timeouts")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FlowTimeoutsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FlowTimeoutsProperty"]], result)
 
         @builtins.property
         def rule_order(self) -> typing.Optional[builtins.str]:
@@ -1780,7 +1775,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__62be7baa7c0ae22655f34e1d3316236c114457fe368caf2a958ba1fd9578c7f4)
+                type_hints = cached_type_hints(_typecheckingstub__62be7baa7c0ae22655f34e1d3316236c114457fe368caf2a958ba1fd9578c7f4)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if action is not None:
@@ -1823,8 +1818,8 @@ class CfnFirewallPolicy(
             self,
             *,
             resource_arn: builtins.str,
-            deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.StatefulRuleGroupOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            override: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatefulRuleGroupOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Identifier for a single stateful rule group, used in a firewall policy to refer to a rule group.
@@ -1855,7 +1850,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b35f780a3045f4df1ecbf5bb69deb711659429dcfd9f87d388080942e7b17ef8)
+                type_hints = cached_type_hints(_typecheckingstub__b35f780a3045f4df1ecbf5bb69deb711659429dcfd9f87d388080942e7b17ef8)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
                 check_type(argname="argument deep_threat_inspection", value=deep_threat_inspection, expected_type=type_hints["deep_threat_inspection"])
                 check_type(argname="argument override", value=override, expected_type=type_hints["override"])
@@ -1883,7 +1878,7 @@ class CfnFirewallPolicy(
         @builtins.property
         def deep_threat_inspection(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''AWS Network Firewall plans to augment the active threat defense managed rule group with an additional deep threat inspection capability.
 
             When this capability is released, AWS will analyze service logs of network traffic processed by these rule groups to identify threat indicators across customers. AWS will use these threat indicators to improve the active threat defense managed rule groups and protect the security of AWS customers and services.
@@ -1894,18 +1889,18 @@ class CfnFirewallPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statefulrulegroupreference.html#cfn-networkfirewall-firewallpolicy-statefulrulegroupreference-deepthreatinspection
             '''
             result = self._values.get("deep_threat_inspection")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def override(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulRuleGroupOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulRuleGroupOverrideProperty"]]:
             '''The action that allows the policy owner to override the behavior of the rule group within a policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statefulrulegroupreference.html#cfn-networkfirewall-firewallpolicy-statefulrulegroupreference-override
             '''
             result = self._values.get("override")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.StatefulRuleGroupOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.StatefulRuleGroupOverrideProperty"]], result)
 
         @builtins.property
         def priority(self) -> typing.Optional[jsii.Number]:
@@ -1965,7 +1960,7 @@ class CfnFirewallPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4abfbbd63f3454ea4b5597e2099b8d101919bc21b3cc73051aad275b321347ca)
+                type_hints = cached_type_hints(_typecheckingstub__4abfbbd63f3454ea4b5597e2099b8d101919bc21b3cc73051aad275b321347ca)
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2021,10 +2016,10 @@ class CfnFirewallPolicyProps:
     def __init__(
         self,
         *,
-        firewall_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallPolicy.FirewallPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+        firewall_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.FirewallPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
         firewall_policy_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFirewallPolicy``.
 
@@ -2102,7 +2097,7 @@ class CfnFirewallPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb2c62703239bb4479e4595613edad2d44e170db98c687d725b8c824f819e362)
+            type_hints = cached_type_hints(_typecheckingstub__fb2c62703239bb4479e4595613edad2d44e170db98c687d725b8c824f819e362)
             check_type(argname="argument firewall_policy", value=firewall_policy, expected_type=type_hints["firewall_policy"])
             check_type(argname="argument firewall_policy_name", value=firewall_policy_name, expected_type=type_hints["firewall_policy_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2119,14 +2114,14 @@ class CfnFirewallPolicyProps:
     @builtins.property
     def firewall_policy(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FirewallPolicyProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FirewallPolicyProperty"]:
         '''The traffic filtering behavior of a firewall policy, defined in a collection of stateless and stateful rule groups and other settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy
         '''
         result = self._values.get("firewall_policy")
         assert result is not None, "Required property 'firewall_policy' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFirewallPolicy.FirewallPolicyProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.FirewallPolicyProperty"], result)
 
     @builtins.property
     def firewall_policy_name(self) -> builtins.str:
@@ -2150,7 +2145,7 @@ class CfnFirewallPolicyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2158,7 +2153,7 @@ class CfnFirewallPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2196,18 +2191,18 @@ class CfnFirewallProps:
         self,
         *,
         firewall_name: builtins.str,
-        firewall_policy_arn: typing.Union[builtins.str, "_IFirewallPolicyRef_bd446a4d"],
-        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        availability_zone_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewall.AvailabilityZoneMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        firewall_policy_arn: typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallPolicyRef"],
+        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        availability_zone_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.AvailabilityZoneMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        subnet_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transit_gateway_id: typing.Optional[builtins.str] = None,
-        vpc_id: typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]] = None,
+        vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFirewall``.
 
@@ -2264,7 +2259,7 @@ class CfnFirewallProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57bc238e99)
+            type_hints = cached_type_hints(_typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57bc238e99)
             check_type(argname="argument firewall_name", value=firewall_name, expected_type=type_hints["firewall_name"])
             check_type(argname="argument firewall_policy_arn", value=firewall_policy_arn, expected_type=type_hints["firewall_policy_arn"])
             check_type(argname="argument availability_zone_change_protection", value=availability_zone_change_protection, expected_type=type_hints["availability_zone_change_protection"])
@@ -2320,7 +2315,7 @@ class CfnFirewallProps:
     @builtins.property
     def firewall_policy_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IFirewallPolicyRef_bd446a4d"]:
+    ) -> typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallPolicyRef"]:
         '''The Amazon Resource Name (ARN) of the firewall policy.
 
         The relationship of firewall to firewall policy is many to one. Each firewall requires one firewall policy association, and you can use the same firewall policy for multiple firewalls.
@@ -2329,12 +2324,12 @@ class CfnFirewallProps:
         '''
         result = self._values.get("firewall_policy_arn")
         assert result is not None, "Required property 'firewall_policy_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IFirewallPolicyRef_bd446a4d"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallPolicyRef"], result)
 
     @builtins.property
     def availability_zone_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against changes to its Availability Zone configuration.
 
         When set to ``TRUE`` , you must first disable this protection before adding or removing Availability Zones.
@@ -2342,12 +2337,12 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-availabilityzonechangeprotection
         '''
         result = self._values.get("availability_zone_change_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def availability_zone_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.AvailabilityZoneMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.AvailabilityZoneMappingProperty"]]]]:
         '''The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall.
 
         Each mapping specifies an Availability Zone where the firewall processes traffic.
@@ -2355,12 +2350,12 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-availabilityzonemappings
         '''
         result = self._values.get("availability_zone_mappings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.AvailabilityZoneMappingProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.AvailabilityZoneMappingProperty"]]]], result)
 
     @builtins.property
     def delete_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A flag indicating whether it is possible to delete the firewall.
 
         A setting of ``TRUE`` indicates that the firewall is protected against deletion. Use this setting to protect against accidentally deleting a firewall that is in use. When you create a firewall, the operation initializes this flag to ``TRUE`` .
@@ -2368,7 +2363,7 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-deleteprotection
         '''
         result = self._values.get("delete_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2391,7 +2386,7 @@ class CfnFirewallProps:
     @builtins.property
     def firewall_policy_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against a change to the firewall policy association.
 
         Use this setting to protect against accidentally modifying the firewall policy for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
@@ -2399,12 +2394,12 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-firewallpolicychangeprotection
         '''
         result = self._values.get("firewall_policy_change_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def subnet_change_protection(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''A setting indicating whether the firewall is protected against changes to the subnet associations.
 
         Use this setting to protect against accidentally modifying the subnet associations for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
@@ -2412,12 +2407,12 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-subnetchangeprotection
         '''
         result = self._values.get("subnet_change_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def subnet_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.SubnetMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]]:
         '''The primary public subnets that Network Firewall is using for the firewall.
 
         Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall.
@@ -2429,10 +2424,10 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-subnetmappings
         '''
         result = self._values.get("subnet_mappings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFirewall.SubnetMappingProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2440,7 +2435,7 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transit_gateway_id(self) -> typing.Optional[builtins.str]:
@@ -2456,7 +2451,7 @@ class CfnFirewallProps:
     @builtins.property
     def vpc_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]]:
         '''The unique identifier of the VPC where the firewall is in use.
 
         You can't change the VPC of a firewall after you create the firewall.
@@ -2464,7 +2459,7 @@ class CfnFirewallProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-vpcid
         '''
         result = self._values.get("vpc_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IVPCRef_f02a11df"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2478,9 +2473,9 @@ class CfnFirewallProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILoggingConfigurationRef_1588c620)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.ILoggingConfigurationRef)
 class CfnLoggingConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnLoggingConfiguration",
 ):
@@ -2529,9 +2524,9 @@ class CfnLoggingConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        firewall_arn: typing.Union[builtins.str, "_IFirewallRef_31769805"],
-        logging_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        firewall_arn: typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallRef"],
+        logging_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         firewall_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::LoggingConfiguration``.
@@ -2544,7 +2539,7 @@ class CfnLoggingConfiguration(
         :param firewall_name: The name of the firewall that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71487a7865ce1877156cecd1cb83afa7ffd5f6428fa2611a7537c9ccf8667afe)
+            type_hints = cached_type_hints(_typecheckingstub__71487a7865ce1877156cecd1cb83afa7ffd5f6428fa2611a7537c9ccf8667afe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLoggingConfigurationProps(
@@ -2564,18 +2559,18 @@ class CfnLoggingConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ffdd478ab66d2dfa8c7ccd514935be92518fdfb5d0aa08cd7043f94319b314c)
+            type_hints = cached_type_hints(_typecheckingstub__0ffdd478ab66d2dfa8c7ccd514935be92518fdfb5d0aa08cd7043f94319b314c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoggingConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdf1d8af41633c95dd577d7d2736c4bc7e5071ece1527fb65bc7392f72a7a43b)
+            type_hints = cached_type_hints(_typecheckingstub__cdf1d8af41633c95dd577d7d2736c4bc7e5071ece1527fb65bc7392f72a7a43b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2588,7 +2583,7 @@ class CfnLoggingConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b51b1357cb88ac7feaa787c6f1526ec7769461fd859c5b55b6f8e5caf4cf1264)
+            type_hints = cached_type_hints(_typecheckingstub__b51b1357cb88ac7feaa787c6f1526ec7769461fd859c5b55b6f8e5caf4cf1264)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2610,9 +2605,11 @@ class CfnLoggingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfigurationRef")
-    def logging_configuration_ref(self) -> "_LoggingConfigurationReference_f6c32f6c":
+    def logging_configuration_ref(
+        self,
+    ) -> "_aws_networkfirewall_65100754.LoggingConfigurationReference":
         '''A reference to a LoggingConfiguration resource.'''
-        return typing.cast("_LoggingConfigurationReference_f6c32f6c", jsii.get(self, "loggingConfigurationRef"))
+        return typing.cast("_aws_networkfirewall_65100754.LoggingConfigurationReference", jsii.get(self, "loggingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="firewallArn")
@@ -2623,7 +2620,7 @@ class CfnLoggingConfiguration(
     @firewall_arn.setter
     def firewall_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d71125ddf5ba2d377facff407ef5a2fcdbd3c618a7499d3633c68130f56adcee)
+            type_hints = cached_type_hints(_typecheckingstub__d71125ddf5ba2d377facff407ef5a2fcdbd3c618a7499d3633c68130f56adcee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2631,17 +2628,17 @@ class CfnLoggingConfiguration(
     @jsii.member(jsii_name="loggingConfiguration")
     def logging_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LoggingConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LoggingConfigurationProperty"]:
         '''Defines how AWS Network Firewall performs logging for a firewall.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LoggingConfigurationProperty"], jsii.get(self, "loggingConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LoggingConfigurationProperty"], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
     def logging_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LoggingConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LoggingConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120)
+            type_hints = cached_type_hints(_typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2649,16 +2646,16 @@ class CfnLoggingConfiguration(
     @jsii.member(jsii_name="enableMonitoringDashboard")
     def enable_monitoring_dashboard(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableMonitoringDashboard"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableMonitoringDashboard"))
 
     @enable_monitoring_dashboard.setter
     def enable_monitoring_dashboard(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe)
+            type_hints = cached_type_hints(_typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableMonitoringDashboard", value) # pyright: ignore[reportArgumentType]
 
@@ -2671,7 +2668,7 @@ class CfnLoggingConfiguration(
     @firewall_name.setter
     def firewall_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e3640e7313e33945bc2b7c00caa777b47e14239e160ded6a349405aeb0b47da)
+            type_hints = cached_type_hints(_typecheckingstub__1e3640e7313e33945bc2b7c00caa777b47e14239e160ded6a349405aeb0b47da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallName", value) # pyright: ignore[reportArgumentType]
 
@@ -2688,7 +2685,7 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            log_destination: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            log_destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
             log_destination_type: builtins.str,
             log_type: builtins.str,
         ) -> None:
@@ -2720,7 +2717,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__71b2e62cece09027ed51c224134098d51d2c868274bd4da88e455b472e9c005d)
+                type_hints = cached_type_hints(_typecheckingstub__71b2e62cece09027ed51c224134098d51d2c868274bd4da88e455b472e9c005d)
                 check_type(argname="argument log_destination", value=log_destination, expected_type=type_hints["log_destination"])
                 check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
                 check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
@@ -2733,7 +2730,7 @@ class CfnLoggingConfiguration(
         @builtins.property
         def log_destination(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
             '''The named location for the logs, provided in a key:value mapping that is specific to the chosen destination type.
 
             - For an Amazon S3 bucket, provide the name of the bucket, with key ``bucketName`` , and optionally provide a prefix, with key ``prefix`` .
@@ -2754,7 +2751,7 @@ class CfnLoggingConfiguration(
             '''
             result = self._values.get("log_destination")
             assert result is not None, "Required property 'log_destination' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
         @builtins.property
         def log_destination_type(self) -> builtins.str:
@@ -2804,7 +2801,7 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            log_destination_configs: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.LogDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            log_destination_configs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.LogDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Defines how AWS Network Firewall performs logging for a firewall.
 
@@ -2830,7 +2827,7 @@ class CfnLoggingConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7694cf2d5082b8064a259b791a222ad012a1f7bcab308d321c9d4c780c634c13)
+                type_hints = cached_type_hints(_typecheckingstub__7694cf2d5082b8064a259b791a222ad012a1f7bcab308d321c9d4c780c634c13)
                 check_type(argname="argument log_destination_configs", value=log_destination_configs, expected_type=type_hints["log_destination_configs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_destination_configs": log_destination_configs,
@@ -2839,7 +2836,7 @@ class CfnLoggingConfiguration(
         @builtins.property
         def log_destination_configs(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LogDestinationConfigProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LogDestinationConfigProperty"]]]:
             '''Defines the logging destinations for the logs for a firewall.
 
             Network Firewall generates logs for stateful rule groups.
@@ -2848,7 +2845,7 @@ class CfnLoggingConfiguration(
             '''
             result = self._values.get("log_destination_configs")
             assert result is not None, "Required property 'log_destination_configs' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LogDestinationConfigProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LogDestinationConfigProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2876,9 +2873,9 @@ class CfnLoggingConfigurationProps:
     def __init__(
         self,
         *,
-        firewall_arn: typing.Union[builtins.str, "_IFirewallRef_31769805"],
-        logging_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        firewall_arn: typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallRef"],
+        logging_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLoggingConfiguration.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         firewall_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnLoggingConfiguration``.
@@ -2915,7 +2912,7 @@ class CfnLoggingConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dab36772798ea19c1d2e2f1e86d2099a88806994c157c7bd4e0d62178ab9369)
+            type_hints = cached_type_hints(_typecheckingstub__7dab36772798ea19c1d2e2f1e86d2099a88806994c157c7bd4e0d62178ab9369)
             check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
             check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
             check_type(argname="argument enable_monitoring_dashboard", value=enable_monitoring_dashboard, expected_type=type_hints["enable_monitoring_dashboard"])
@@ -2930,7 +2927,9 @@ class CfnLoggingConfigurationProps:
             self._values["firewall_name"] = firewall_name
 
     @builtins.property
-    def firewall_arn(self) -> typing.Union[builtins.str, "_IFirewallRef_31769805"]:
+    def firewall_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallRef"]:
         '''The Amazon Resource Name (ARN) of the firewallthat the logging configuration is associated with.
 
         You can't change the firewall specification after you create the logging configuration.
@@ -2939,29 +2938,29 @@ class CfnLoggingConfigurationProps:
         '''
         result = self._values.get("firewall_arn")
         assert result is not None, "Required property 'firewall_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IFirewallRef_31769805"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_networkfirewall_65100754.IFirewallRef"], result)
 
     @builtins.property
     def logging_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LoggingConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LoggingConfigurationProperty"]:
         '''Defines how AWS Network Firewall performs logging for a firewall.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-loggingconfiguration.html#cfn-networkfirewall-loggingconfiguration-loggingconfiguration
         '''
         result = self._values.get("logging_configuration")
         assert result is not None, "Required property 'logging_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LoggingConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLoggingConfiguration.LoggingConfigurationProperty"], result)
 
     @builtins.property
     def enable_monitoring_dashboard(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-loggingconfiguration.html#cfn-networkfirewall-loggingconfiguration-enablemonitoringdashboard
         '''
         result = self._values.get("enable_monitoring_dashboard")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def firewall_name(self) -> typing.Optional[builtins.str]:
@@ -2986,9 +2985,9 @@ class CfnLoggingConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRuleGroupRef_f1ee71d3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IRuleGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRuleGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnRuleGroup",
 ):
@@ -3125,9 +3124,9 @@ class CfnRuleGroup(
         rule_group_name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        rule_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        summary_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.SummaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        summary_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.SummaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::RuleGroup``.
 
@@ -3142,7 +3141,7 @@ class CfnRuleGroup(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f1d19cebb2e7dfe2bb3a674253e22bfdb540bd48dc9cd243370420d8cec9b9e)
+            type_hints = cached_type_hints(_typecheckingstub__2f1d19cebb2e7dfe2bb3a674253e22bfdb540bd48dc9cd243370420d8cec9b9e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRuleGroupProps(
@@ -3159,12 +3158,15 @@ class CfnRuleGroup(
 
     @jsii.member(jsii_name="arnForRuleGroup")
     @builtins.classmethod
-    def arn_for_rule_group(cls, resource: "_IRuleGroupRef_f1ee71d3") -> builtins.str:
+    def arn_for_rule_group(
+        cls,
+        resource: "_aws_networkfirewall_65100754.IRuleGroupRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a5e06632968de4da79bd8acd3035e3d3daac0ba055d7028fb6a1629eba907e9)
+            type_hints = cached_type_hints(_typecheckingstub__3a5e06632968de4da79bd8acd3035e3d3daac0ba055d7028fb6a1629eba907e9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRuleGroup", [resource]))
 
@@ -3176,18 +3178,18 @@ class CfnRuleGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae7dd709f461813cb99a28faf8102b98b04b2bb658b58a854039a792f3322a93)
+            type_hints = cached_type_hints(_typecheckingstub__ae7dd709f461813cb99a28faf8102b98b04b2bb658b58a854039a792f3322a93)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRuleGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b8ef477504489cc901fa58c5454b1728231c047d069191745b232cb839f0b97)
+            type_hints = cached_type_hints(_typecheckingstub__2b8ef477504489cc901fa58c5454b1728231c047d069191745b232cb839f0b97)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3200,7 +3202,7 @@ class CfnRuleGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af5174ab9f3bed2fb8464156fa8d27c8cbbb570726e4667c2ed7634ad777c961)
+            type_hints = cached_type_hints(_typecheckingstub__af5174ab9f3bed2fb8464156fa8d27c8cbbb570726e4667c2ed7634ad777c961)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3240,15 +3242,15 @@ class CfnRuleGroup(
 
     @builtins.property
     @jsii.member(jsii_name="ruleGroupRef")
-    def rule_group_ref(self) -> "_RuleGroupReference_b514c132":
+    def rule_group_ref(self) -> "_aws_networkfirewall_65100754.RuleGroupReference":
         '''A reference to a RuleGroup resource.'''
-        return typing.cast("_RuleGroupReference_b514c132", jsii.get(self, "ruleGroupRef"))
+        return typing.cast("_aws_networkfirewall_65100754.RuleGroupReference", jsii.get(self, "ruleGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="capacity")
@@ -3259,7 +3261,7 @@ class CfnRuleGroup(
     @capacity.setter
     def capacity(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51c7651794925713a49400586d47fdec281f3586c00b18d62055515fd2ef2791)
+            type_hints = cached_type_hints(_typecheckingstub__51c7651794925713a49400586d47fdec281f3586c00b18d62055515fd2ef2791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacity", value) # pyright: ignore[reportArgumentType]
 
@@ -3272,7 +3274,7 @@ class CfnRuleGroup(
     @rule_group_name.setter
     def rule_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23a7df76066fa7162c289f359c412bcb9765e3d5b573e0d06d7daf300d391ff3)
+            type_hints = cached_type_hints(_typecheckingstub__23a7df76066fa7162c289f359c412bcb9765e3d5b573e0d06d7daf300d391ff3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -3285,7 +3287,7 @@ class CfnRuleGroup(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87ac4c425ad11cc87f637d21e3373819fe72741deca8ec3a39ab57b97c38a2e7)
+            type_hints = cached_type_hints(_typecheckingstub__87ac4c425ad11cc87f637d21e3373819fe72741deca8ec3a39ab57b97c38a2e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -3298,7 +3300,7 @@ class CfnRuleGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0c85f5fc86d4cd20434a5458984123db8b76ff5d649d26af8be38c56af6a7b1)
+            type_hints = cached_type_hints(_typecheckingstub__b0c85f5fc86d4cd20434a5458984123db8b76ff5d649d26af8be38c56af6a7b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3306,17 +3308,17 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="ruleGroup")
     def rule_group(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleGroupProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleGroupProperty"]]:
         '''An object that defines the rule group rules.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleGroupProperty"]], jsii.get(self, "ruleGroup"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleGroupProperty"]], jsii.get(self, "ruleGroup"))
 
     @rule_group.setter
     def rule_group(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleGroupProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleGroupProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1)
+            type_hints = cached_type_hints(_typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -3324,30 +3326,33 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="summaryConfiguration")
     def summary_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SummaryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.SummaryConfigurationProperty"]]:
         '''A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SummaryConfigurationProperty"]], jsii.get(self, "summaryConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.SummaryConfigurationProperty"]], jsii.get(self, "summaryConfiguration"))
 
     @summary_configuration.setter
     def summary_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SummaryConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.SummaryConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0)
+            type_hints = cached_type_hints(_typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "summaryConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5969fe74fc1a24641d71678e96d3133e152f5f87c43e5f7d72af22aa055d7db5)
+            type_hints = cached_type_hints(_typecheckingstub__5969fe74fc1a24641d71678e96d3133e152f5f87c43e5f7d72af22aa055d7db5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3360,7 +3365,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            publish_metric_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PublishMetricActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            publish_metric_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PublishMetricActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A custom action to use in stateless rule actions settings.
 
@@ -3384,7 +3389,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ffeb7b0f0ffdb417d3ac37fe775fea2d6c40814070d270c03323517593b547b9)
+                type_hints = cached_type_hints(_typecheckingstub__ffeb7b0f0ffdb417d3ac37fe775fea2d6c40814070d270c03323517593b547b9)
                 check_type(argname="argument publish_metric_action", value=publish_metric_action, expected_type=type_hints["publish_metric_action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if publish_metric_action is not None:
@@ -3393,7 +3398,7 @@ class CfnRuleGroup(
         @builtins.property
         def publish_metric_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PublishMetricActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PublishMetricActionProperty"]]:
             '''Stateless inspection criteria that publishes the specified metrics to Amazon CloudWatch for the matching packet.
 
             This setting defines a CloudWatch dimension value to be published.
@@ -3403,7 +3408,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-actiondefinition.html#cfn-networkfirewall-rulegroup-actiondefinition-publishmetricaction
             '''
             result = self._values.get("publish_metric_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PublishMetricActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PublishMetricActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3443,7 +3448,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d6067c4ca12beed4ffa424b8e13cd23b4810ac4eca1ff16680ad9a71e7289c5)
+                type_hints = cached_type_hints(_typecheckingstub__4d6067c4ca12beed4ffa424b8e13cd23b4810ac4eca1ff16680ad9a71e7289c5)
                 check_type(argname="argument address_definition", value=address_definition, expected_type=type_hints["address_definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "address_definition": address_definition,
@@ -3493,7 +3498,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            action_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.ActionDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
             action_name: builtins.str,
         ) -> None:
             '''An optional, non-standard action to use for stateless packet handling.
@@ -3531,7 +3536,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__776dc4a2267643558107c479367987cde061715c1a5e677dc3d8ad57e6bb07f7)
+                type_hints = cached_type_hints(_typecheckingstub__776dc4a2267643558107c479367987cde061715c1a5e677dc3d8ad57e6bb07f7)
                 check_type(argname="argument action_definition", value=action_definition, expected_type=type_hints["action_definition"])
                 check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3542,14 +3547,14 @@ class CfnRuleGroup(
         @builtins.property
         def action_definition(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ActionDefinitionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ActionDefinitionProperty"]:
             '''The custom action associated with the action name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-customaction.html#cfn-networkfirewall-rulegroup-customaction-actiondefinition
             '''
             result = self._values.get("action_definition")
             assert result is not None, "Required property 'action_definition' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ActionDefinitionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ActionDefinitionProperty"], result)
 
         @builtins.property
         def action_name(self) -> builtins.str:
@@ -3605,7 +3610,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__84c1411257e0aebed042d1b8352d41d7cf5b9215102a041f342d81c1abe064f3)
+                type_hints = cached_type_hints(_typecheckingstub__84c1411257e0aebed042d1b8352d41d7cf5b9215102a041f342d81c1abe064f3)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "value": value,
@@ -3685,7 +3690,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b333909d939962666b3db75451a84fc0fc672a45693aca0c6339237e2a577318)
+                type_hints = cached_type_hints(_typecheckingstub__b333909d939962666b3db75451a84fc0fc672a45693aca0c6339237e2a577318)
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
                 check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
@@ -3837,7 +3842,7 @@ class CfnRuleGroup(
                 }
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca53e469af4e88c4294a2b49d50c102b6e9e059bfbfa928cfefb0c899aeca0b6)
+                type_hints = cached_type_hints(_typecheckingstub__ca53e469af4e88c4294a2b49d50c102b6e9e059bfbfa928cfefb0c899aeca0b6)
                 check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if definition is not None:
@@ -3894,7 +3899,7 @@ class CfnRuleGroup(
                 }
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4c62ac9d27c6484f4a2b9da61680388d72bf1968a69f8864fca9a5dc2c1d420)
+                type_hints = cached_type_hints(_typecheckingstub__d4c62ac9d27c6484f4a2b9da61680388d72bf1968a69f8864fca9a5dc2c1d420)
                 check_type(argname="argument reference_arn", value=reference_arn, expected_type=type_hints["reference_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if reference_arn is not None:
@@ -3936,12 +3941,12 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            destination_ports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
-            source_ports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            tcp_flags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TCPFlagFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destination_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            source_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            tcp_flags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.TCPFlagFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Criteria for Network Firewall to use to inspect an individual packet in stateless rule inspection.
 
@@ -3988,7 +3993,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__90ce1a312793001f5c059c69ea601ba7bc963a51d06ab080c64c4cb1eae7671a)
+                type_hints = cached_type_hints(_typecheckingstub__90ce1a312793001f5c059c69ea601ba7bc963a51d06ab080c64c4cb1eae7671a)
                 check_type(argname="argument destination_ports", value=destination_ports, expected_type=type_hints["destination_ports"])
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
                 check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
@@ -4012,7 +4017,7 @@ class CfnRuleGroup(
         @builtins.property
         def destination_ports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortRangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortRangeProperty"]]]]:
             '''The destination port to inspect for.
 
             You can specify an individual port, for example ``1994`` and you can specify a port range, for example ``1990:1994`` . To match with any port, specify ``ANY`` .
@@ -4022,12 +4027,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-destinationports
             '''
             result = self._values.get("destination_ports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortRangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortRangeProperty"]]]], result)
 
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AddressProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.AddressProperty"]]]]:
             '''The destination IP addresses and address ranges to inspect for, in CIDR notation.
 
             If not specified, this matches with any destination address.
@@ -4035,12 +4040,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-destinations
             '''
             result = self._values.get("destinations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AddressProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.AddressProperty"]]]], result)
 
         @builtins.property
         def protocols(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The protocols to inspect for, specified using the assigned internet protocol number (IANA) for each protocol.
 
             If not specified, this matches with any protocol.
@@ -4048,12 +4053,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-protocols
             '''
             result = self._values.get("protocols")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def source_ports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortRangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortRangeProperty"]]]]:
             '''The source port to inspect for.
 
             You can specify an individual port, for example ``1994`` and you can specify a port range, for example ``1990:1994`` . To match with any port, specify ``ANY`` .
@@ -4065,12 +4070,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-sourceports
             '''
             result = self._values.get("source_ports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortRangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortRangeProperty"]]]], result)
 
         @builtins.property
         def sources(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AddressProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.AddressProperty"]]]]:
             '''The source IP addresses and address ranges to inspect for, in CIDR notation.
 
             If not specified, this matches with any source address.
@@ -4078,12 +4083,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-sources
             '''
             result = self._values.get("sources")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AddressProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.AddressProperty"]]]], result)
 
         @builtins.property
         def tcp_flags(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TCPFlagFieldProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TCPFlagFieldProperty"]]]]:
             '''The TCP flags and masks to inspect for.
 
             If not specified, this matches with any settings. This setting is only used for protocol 6 (TCP).
@@ -4091,7 +4096,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-matchattributes.html#cfn-networkfirewall-rulegroup-matchattributes-tcpflags
             '''
             result = self._values.get("tcp_flags")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TCPFlagFieldProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.TCPFlagFieldProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4133,7 +4138,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ebd1af803bf4604f5fe65a635655413d3719cd3b737baab39db33daf95c1ac6b)
+                type_hints = cached_type_hints(_typecheckingstub__ebd1af803bf4604f5fe65a635655413d3719cd3b737baab39db33daf95c1ac6b)
                 check_type(argname="argument from_port", value=from_port, expected_type=type_hints["from_port"])
                 check_type(argname="argument to_port", value=to_port, expected_type=type_hints["to_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4205,7 +4210,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d18f51e9866b56513a07e5af9f75eea271b0da41a1c90b0f0eb235ccaeaf6fd8)
+                type_hints = cached_type_hints(_typecheckingstub__d18f51e9866b56513a07e5af9f75eea271b0da41a1c90b0f0eb235ccaeaf6fd8)
                 check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if definition is not None:
@@ -4240,7 +4245,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            dimensions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            dimensions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Stateless inspection criteria that publishes the specified metrics to Amazon CloudWatch for the matching packet.
 
@@ -4264,7 +4269,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__41a6f7b234552866dbb2f70b78c6c9311fef5d507c07747593b0b90e4a163d46)
+                type_hints = cached_type_hints(_typecheckingstub__41a6f7b234552866dbb2f70b78c6c9311fef5d507c07747593b0b90e4a163d46)
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "dimensions": dimensions,
@@ -4273,13 +4278,13 @@ class CfnRuleGroup(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.DimensionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.DimensionProperty"]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-publishmetricaction.html#cfn-networkfirewall-rulegroup-publishmetricaction-dimensions
             '''
             result = self._values.get("dimensions")
             assert result is not None, "Required property 'dimensions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.DimensionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.DimensionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4301,7 +4306,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            ip_set_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.IPSetReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ip_set_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.IPSetReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configures the reference sets for a stateful rule group.
 
@@ -4327,7 +4332,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3955e12e3465fd3060b82c41bb430af9d8272b881b8347a0df73c8b0293b8b00)
+                type_hints = cached_type_hints(_typecheckingstub__3955e12e3465fd3060b82c41bb430af9d8272b881b8347a0df73c8b0293b8b00)
                 check_type(argname="argument ip_set_references", value=ip_set_references, expected_type=type_hints["ip_set_references"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ip_set_references is not None:
@@ -4336,13 +4341,13 @@ class CfnRuleGroup(
         @builtins.property
         def ip_set_references(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetReferenceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.IPSetReferenceProperty"]]]]:
             '''The IP set references to use in the stateful rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-referencesets.html#cfn-networkfirewall-rulegroup-referencesets-ipsetreferences
             '''
             result = self._values.get("ip_set_references")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetReferenceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.IPSetReferenceProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4365,7 +4370,7 @@ class CfnRuleGroup(
             self,
             *,
             actions: typing.Sequence[builtins.str],
-            match_attributes: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.MatchAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.MatchAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The inspection criteria and action for a single stateless rule.
 
@@ -4411,7 +4416,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6a4539cb428b880e373a3db5923e9d0f2d2f91e07045af9358db4aa1f7b47b7)
+                type_hints = cached_type_hints(_typecheckingstub__f6a4539cb428b880e373a3db5923e9d0f2d2f91e07045af9358db4aa1f7b47b7)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument match_attributes", value=match_attributes, expected_type=type_hints["match_attributes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4447,7 +4452,7 @@ class CfnRuleGroup(
         @builtins.property
         def match_attributes(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MatchAttributesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.MatchAttributesProperty"]:
             '''Criteria for Network Firewall to use to inspect an individual packet in stateless rule inspection.
 
             Each match attributes set can include one or more items such as IP address, CIDR range, port number, protocol, and TCP flags.
@@ -4456,7 +4461,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("match_attributes")
             assert result is not None, "Required property 'match_attributes' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MatchAttributesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.MatchAttributesProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4483,10 +4488,10 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            rules_source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RulesSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-            reference_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ReferenceSetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleVariablesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            stateful_rule_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatefulRuleOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rules_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RulesSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            reference_sets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.ReferenceSetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RuleVariablesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stateful_rule_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.StatefulRuleOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The object that defines the rules in a rule group.
 
@@ -4604,7 +4609,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6031839dccab8578d6df945e603f857681f1ba43a8750c6823a4956903ee6b0a)
+                type_hints = cached_type_hints(_typecheckingstub__6031839dccab8578d6df945e603f857681f1ba43a8750c6823a4956903ee6b0a)
                 check_type(argname="argument rules_source", value=rules_source, expected_type=type_hints["rules_source"])
                 check_type(argname="argument reference_sets", value=reference_sets, expected_type=type_hints["reference_sets"])
                 check_type(argname="argument rule_variables", value=rule_variables, expected_type=type_hints["rule_variables"])
@@ -4622,30 +4627,30 @@ class CfnRuleGroup(
         @builtins.property
         def rules_source(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RulesSourceProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RulesSourceProperty"]:
             '''The stateful rules or stateless rules for the rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulegroup.html#cfn-networkfirewall-rulegroup-rulegroup-rulessource
             '''
             result = self._values.get("rules_source")
             assert result is not None, "Required property 'rules_source' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RulesSourceProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RulesSourceProperty"], result)
 
         @builtins.property
         def reference_sets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ReferenceSetsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ReferenceSetsProperty"]]:
             '''The reference sets for the stateful rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulegroup.html#cfn-networkfirewall-rulegroup-rulegroup-referencesets
             '''
             result = self._values.get("reference_sets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ReferenceSetsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ReferenceSetsProperty"]], result)
 
         @builtins.property
         def rule_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleVariablesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleVariablesProperty"]]:
             '''Settings that are available for use in the rules in the rule group.
 
             You can only use these for stateful rule groups.
@@ -4653,12 +4658,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulegroup.html#cfn-networkfirewall-rulegroup-rulegroup-rulevariables
             '''
             result = self._values.get("rule_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleVariablesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleVariablesProperty"]], result)
 
         @builtins.property
         def stateful_rule_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatefulRuleOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatefulRuleOptionsProperty"]]:
             '''Additional options governing how Network Firewall handles stateful rules.
 
             The policies where you use your stateful rule group must have stateful rule options settings that are compatible with these settings. Some limitations apply; for more information, see `Strict evaluation order <https://docs.aws.amazon.com/network-firewall/latest/developerguide/suricata-limitations-caveats.html>`_ in the *AWS Network Firewall Developer Guide* .
@@ -4666,7 +4671,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulegroup.html#cfn-networkfirewall-rulegroup-rulegroup-statefulruleoptions
             '''
             result = self._values.get("stateful_rule_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatefulRuleOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatefulRuleOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4713,7 +4718,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__82f117785b5345a4a7fbef540dfb4ab49e1476bb3ee3f5b32f4bf8bdde04fa35)
+                type_hints = cached_type_hints(_typecheckingstub__82f117785b5345a4a7fbef540dfb4ab49e1476bb3ee3f5b32f4bf8bdde04fa35)
                 check_type(argname="argument keyword", value=keyword, expected_type=type_hints["keyword"])
                 check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4765,8 +4770,8 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            ip_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.IPSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            port_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PortSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ip_sets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.IPSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            port_sets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.PortSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Settings that are available for use in the rules in the rule group where this is defined.
 
@@ -4796,7 +4801,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a07f3723113c8b16a34bf34741ea1461bc25f6ab3b0720f6a8aa564d1272e4ca)
+                type_hints = cached_type_hints(_typecheckingstub__a07f3723113c8b16a34bf34741ea1461bc25f6ab3b0720f6a8aa564d1272e4ca)
                 check_type(argname="argument ip_sets", value=ip_sets, expected_type=type_hints["ip_sets"])
                 check_type(argname="argument port_sets", value=port_sets, expected_type=type_hints["port_sets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4808,24 +4813,24 @@ class CfnRuleGroup(
         @builtins.property
         def ip_sets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.IPSetProperty"]]]]:
             '''A list of IP addresses and address ranges, in CIDR notation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulevariables.html#cfn-networkfirewall-rulegroup-rulevariables-ipsets
             '''
             result = self._values.get("ip_sets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.IPSetProperty"]]]], result)
 
         @builtins.property
         def port_sets(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortSetProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortSetProperty"]]]]:
             '''A list of port ranges.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulevariables.html#cfn-networkfirewall-rulegroup-rulevariables-portsets
             '''
             result = self._values.get("port_sets")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PortSetProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.PortSetProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4881,7 +4886,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f9a485e00c504005fdc6e395458d012eb99f789685105dcedf2228712fff5a91)
+                type_hints = cached_type_hints(_typecheckingstub__f9a485e00c504005fdc6e395458d012eb99f789685105dcedf2228712fff5a91)
                 check_type(argname="argument generated_rules_type", value=generated_rules_type, expected_type=type_hints["generated_rules_type"])
                 check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
                 check_type(argname="argument target_types", value=target_types, expected_type=type_hints["target_types"])
@@ -4955,10 +4960,10 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            rules_source_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RulesSourceListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rules_source_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RulesSourceListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rules_string: typing.Optional[builtins.str] = None,
-            stateful_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatefulRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            stateless_rules_and_custom_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatelessRulesAndCustomActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stateful_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.StatefulRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            stateless_rules_and_custom_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.StatelessRulesAndCustomActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The stateless or stateful rules definitions for use in a single rule group.
 
@@ -5048,7 +5053,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__37c2f6cfa9ab89c36a10e214087cb83419a7c8be9fa0d97cb6ff5c156ec1ed2b)
+                type_hints = cached_type_hints(_typecheckingstub__37c2f6cfa9ab89c36a10e214087cb83419a7c8be9fa0d97cb6ff5c156ec1ed2b)
                 check_type(argname="argument rules_source_list", value=rules_source_list, expected_type=type_hints["rules_source_list"])
                 check_type(argname="argument rules_string", value=rules_string, expected_type=type_hints["rules_string"])
                 check_type(argname="argument stateful_rules", value=stateful_rules, expected_type=type_hints["stateful_rules"])
@@ -5066,13 +5071,13 @@ class CfnRuleGroup(
         @builtins.property
         def rules_source_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RulesSourceListProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RulesSourceListProperty"]]:
             '''Stateful inspection criteria for a domain list rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulessource.html#cfn-networkfirewall-rulegroup-rulessource-rulessourcelist
             '''
             result = self._values.get("rules_source_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RulesSourceListProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RulesSourceListProperty"]], result)
 
         @builtins.property
         def rules_string(self) -> typing.Optional[builtins.str]:
@@ -5093,7 +5098,7 @@ class CfnRuleGroup(
         @builtins.property
         def stateful_rules(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatefulRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatefulRuleProperty"]]]]:
             '''An array of individual stateful rules inspection criteria to be used together in a stateful rule group.
 
             Use this option to specify simple Suricata rules with protocol, source and destination, ports, direction, and rule options. For information about the Suricata ``Rules`` format, see `Rules Format <https://docs.aws.amazon.com/https://suricata.readthedocs.io/en/suricata-7.0.3/rules/intro.html>`_ .
@@ -5101,18 +5106,18 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulessource.html#cfn-networkfirewall-rulegroup-rulessource-statefulrules
             '''
             result = self._values.get("stateful_rules")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatefulRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatefulRuleProperty"]]]], result)
 
         @builtins.property
         def stateless_rules_and_custom_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatelessRulesAndCustomActionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatelessRulesAndCustomActionsProperty"]]:
             '''Stateless inspection criteria to be used in a stateless rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulessource.html#cfn-networkfirewall-rulegroup-rulessource-statelessrulesandcustomactions
             '''
             result = self._values.get("stateless_rules_and_custom_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatelessRulesAndCustomActionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatelessRulesAndCustomActionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5152,7 +5157,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__059685e154b150834c61bccd6793a66e1d0e92258779eb937ca1fa3a1670f3c2)
+                type_hints = cached_type_hints(_typecheckingstub__059685e154b150834c61bccd6793a66e1d0e92258779eb937ca1fa3a1670f3c2)
                 check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rule_order is not None:
@@ -5194,8 +5199,8 @@ class CfnRuleGroup(
             self,
             *,
             action: builtins.str,
-            header: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.HeaderProperty", typing.Dict[builtins.str, typing.Any]]],
-            rule_options: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleOptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            header: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.HeaderProperty", typing.Dict[builtins.str, typing.Any]]],
+            rule_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RuleOptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A single Suricata rules specification, for use in a stateful rule group.
 
@@ -5233,7 +5238,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5bb56af25d6c8c99d593795131e22b214fd8722c9ab610ce9e26db6f72cae04)
+                type_hints = cached_type_hints(_typecheckingstub__c5bb56af25d6c8c99d593795131e22b214fd8722c9ab610ce9e26db6f72cae04)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument header", value=header, expected_type=type_hints["header"])
                 check_type(argname="argument rule_options", value=rule_options, expected_type=type_hints["rule_options"])
@@ -5271,26 +5276,26 @@ class CfnRuleGroup(
         @builtins.property
         def header(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.HeaderProperty"]:
             '''The stateful inspection criteria for this rule, used to inspect traffic flows.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statefulrule.html#cfn-networkfirewall-rulegroup-statefulrule-header
             '''
             result = self._values.get("header")
             assert result is not None, "Required property 'header' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.HeaderProperty"], result)
 
         @builtins.property
         def rule_options(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleOptionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleOptionProperty"]]]:
             '''Additional settings for a stateful rule, provided as keywords and settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statefulrule.html#cfn-networkfirewall-rulegroup-statefulrule-ruleoptions
             '''
             result = self._values.get("rule_options")
             assert result is not None, "Required property 'rule_options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleOptionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleOptionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5313,7 +5318,7 @@ class CfnRuleGroup(
             self,
             *,
             priority: jsii.Number,
-            rule_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            rule_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RuleDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A single stateless rule.
 
@@ -5362,7 +5367,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8abd713c2522cea4720da70b4aa087d7eb1f6a9257d6d3a5b76148f6102fb22d)
+                type_hints = cached_type_hints(_typecheckingstub__8abd713c2522cea4720da70b4aa087d7eb1f6a9257d6d3a5b76148f6102fb22d)
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
                 check_type(argname="argument rule_definition", value=rule_definition, expected_type=type_hints["rule_definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5389,14 +5394,14 @@ class CfnRuleGroup(
         @builtins.property
         def rule_definition(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleDefinitionProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleDefinitionProperty"]:
             '''Defines the stateless 5-tuple packet inspection criteria and the action to take on a packet that matches the criteria.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statelessrule.html#cfn-networkfirewall-rulegroup-statelessrule-ruledefinition
             '''
             result = self._values.get("rule_definition")
             assert result is not None, "Required property 'rule_definition' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleDefinitionProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleDefinitionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5421,8 +5426,8 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            stateless_rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatelessRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            custom_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            stateless_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.StatelessRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            custom_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.CustomActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Stateless inspection criteria.
 
@@ -5485,7 +5490,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__71d7a12c23bdb40d0d25319bf80720d55c4205129c386e8de5676df43ea5e61b)
+                type_hints = cached_type_hints(_typecheckingstub__71d7a12c23bdb40d0d25319bf80720d55c4205129c386e8de5676df43ea5e61b)
                 check_type(argname="argument stateless_rules", value=stateless_rules, expected_type=type_hints["stateless_rules"])
                 check_type(argname="argument custom_actions", value=custom_actions, expected_type=type_hints["custom_actions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5497,19 +5502,19 @@ class CfnRuleGroup(
         @builtins.property
         def stateless_rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatelessRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatelessRuleProperty"]]]:
             '''Defines the set of stateless rules for use in a stateless rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statelessrulesandcustomactions.html#cfn-networkfirewall-rulegroup-statelessrulesandcustomactions-statelessrules
             '''
             result = self._values.get("stateless_rules")
             assert result is not None, "Required property 'stateless_rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatelessRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.StatelessRuleProperty"]]], result)
 
         @builtins.property
         def custom_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.CustomActionProperty"]]]]:
             '''Defines an array of individual custom action definitions that are available for use by the stateless rules in this ``StatelessRulesAndCustomActions`` specification.
 
             You name each custom action that you define, and then you can use it by name in your stateless rule definition ``Actions`` specification.
@@ -5517,7 +5522,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statelessrulesandcustomactions.html#cfn-networkfirewall-rulegroup-statelessrulesandcustomactions-customactions
             '''
             result = self._values.get("custom_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.CustomActionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5563,7 +5568,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__46f2fcadfd6cf356e80e3b58b0b02c7c119bd9a36d7ac33ac0ee324f887c1307)
+                type_hints = cached_type_hints(_typecheckingstub__46f2fcadfd6cf356e80e3b58b0b02c7c119bd9a36d7ac33ac0ee324f887c1307)
                 check_type(argname="argument rule_options", value=rule_options, expected_type=type_hints["rule_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rule_options is not None:
@@ -5627,7 +5632,7 @@ class CfnRuleGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__775fa1817d39168a6b1883b9e449352da902edc72fb398c55cda18aa8ead3039)
+                type_hints = cached_type_hints(_typecheckingstub__775fa1817d39168a6b1883b9e449352da902edc72fb398c55cda18aa8ead3039)
                 check_type(argname="argument flags", value=flags, expected_type=type_hints["flags"])
                 check_type(argname="argument masks", value=masks, expected_type=type_hints["masks"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5697,9 +5702,9 @@ class CfnRuleGroupProps:
         rule_group_name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        rule_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        summary_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.SummaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        summary_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.SummaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRuleGroup``.
 
@@ -5832,7 +5837,7 @@ class CfnRuleGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775b93be404fbe10bf6b023b8192636307852f30e49da9892d7e20aa443ecbd0)
+            type_hints = cached_type_hints(_typecheckingstub__775b93be404fbe10bf6b023b8192636307852f30e49da9892d7e20aa443ecbd0)
             check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
             check_type(argname="argument rule_group_name", value=rule_group_name, expected_type=type_hints["rule_group_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -5903,18 +5908,18 @@ class CfnRuleGroupProps:
     @builtins.property
     def rule_group(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleGroupProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleGroupProperty"]]:
         '''An object that defines the rule group rules.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html#cfn-networkfirewall-rulegroup-rulegroup
         '''
         result = self._values.get("rule_group")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleGroupProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.RuleGroupProperty"]], result)
 
     @builtins.property
     def summary_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SummaryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.SummaryConfigurationProperty"]]:
         '''A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` .
 
         - The ``RuleOptions`` specified in ``SummaryConfiguration``
@@ -5923,10 +5928,10 @@ class CfnRuleGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html#cfn-networkfirewall-rulegroup-summaryconfiguration
         '''
         result = self._values.get("summary_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SummaryConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.SummaryConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -5934,7 +5939,7 @@ class CfnRuleGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html#cfn-networkfirewall-rulegroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5948,9 +5953,9 @@ class CfnRuleGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITLSInspectionConfigurationRef_6d0a6d9c, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.ITLSInspectionConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTLSInspectionConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnTLSInspectionConfiguration",
 ):
@@ -6017,10 +6022,10 @@ class CfnTLSInspectionConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        tls_inspection_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tls_inspection_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         tls_inspection_configuration_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::TLSInspectionConfiguration``.
 
@@ -6032,7 +6037,7 @@ class CfnTLSInspectionConfiguration(
         :param tags: The key:value pairs to associate with the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec764b679fc98c8fe3aa11d807ebebdd11b5c6a99f92f8eb7c03b663e2ff6773)
+            type_hints = cached_type_hints(_typecheckingstub__ec764b679fc98c8fe3aa11d807ebebdd11b5c6a99f92f8eb7c03b663e2ff6773)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTLSInspectionConfigurationProps(
@@ -6048,13 +6053,13 @@ class CfnTLSInspectionConfiguration(
     @builtins.classmethod
     def arn_for_tls_inspection_configuration(
         cls,
-        resource: "_ITLSInspectionConfigurationRef_6d0a6d9c",
+        resource: "_aws_networkfirewall_65100754.ITLSInspectionConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__577f13e28f22a4321eff945e18ae9bb096b27aeab0cde6ea6860dfce636d516f)
+            type_hints = cached_type_hints(_typecheckingstub__577f13e28f22a4321eff945e18ae9bb096b27aeab0cde6ea6860dfce636d516f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTLSInspectionConfiguration", [resource]))
 
@@ -6066,18 +6071,18 @@ class CfnTLSInspectionConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb7f081e4831f1635e78ae9de3f15a73e097e54d5160862d6e25a79d4c76b176)
+            type_hints = cached_type_hints(_typecheckingstub__bb7f081e4831f1635e78ae9de3f15a73e097e54d5160862d6e25a79d4c76b176)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTLSInspectionConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fffc8d2cddb56be0caa1d022a327faef26e9d6137d82bda779515250e3fcff9)
+            type_hints = cached_type_hints(_typecheckingstub__8fffc8d2cddb56be0caa1d022a327faef26e9d6137d82bda779515250e3fcff9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6090,7 +6095,7 @@ class CfnTLSInspectionConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fba06f46a5cea5a67cd0374f887b8225a08a147db2a073ffe9bc73c588b4887)
+            type_hints = cached_type_hints(_typecheckingstub__6fba06f46a5cea5a67cd0374f887b8225a08a147db2a073ffe9bc73c588b4887)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6122,9 +6127,9 @@ class CfnTLSInspectionConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6140,25 +6145,25 @@ class CfnTLSInspectionConfiguration(
     @jsii.member(jsii_name="tlsInspectionConfigurationRef")
     def tls_inspection_configuration_ref(
         self,
-    ) -> "_TLSInspectionConfigurationReference_52bd7dd3":
+    ) -> "_aws_networkfirewall_65100754.TLSInspectionConfigurationReference":
         '''A reference to a TLSInspectionConfiguration resource.'''
-        return typing.cast("_TLSInspectionConfigurationReference_52bd7dd3", jsii.get(self, "tlsInspectionConfigurationRef"))
+        return typing.cast("_aws_networkfirewall_65100754.TLSInspectionConfigurationReference", jsii.get(self, "tlsInspectionConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tlsInspectionConfiguration")
     def tls_inspection_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"]:
         '''The object that defines a TLS inspection configuration.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"], jsii.get(self, "tlsInspectionConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"], jsii.get(self, "tlsInspectionConfiguration"))
 
     @tls_inspection_configuration.setter
     def tls_inspection_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0caa3698092eac04f0f3cb6ef31ee8a37b5620e7b43e83135c822e030a956e5)
+            type_hints = cached_type_hints(_typecheckingstub__d0caa3698092eac04f0f3cb6ef31ee8a37b5620e7b43e83135c822e030a956e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tlsInspectionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6171,7 +6176,7 @@ class CfnTLSInspectionConfiguration(
     @tls_inspection_configuration_name.setter
     def tls_inspection_configuration_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc056f1763c9b07511c09bccb7850663b8f285be14ee1f3cb521a402d621782f)
+            type_hints = cached_type_hints(_typecheckingstub__dc056f1763c9b07511c09bccb7850663b8f285be14ee1f3cb521a402d621782f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tlsInspectionConfigurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -6184,20 +6189,23 @@ class CfnTLSInspectionConfiguration(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a315bf64b464c871474cdb7416d97974a1f1ecea9dca5b529ccb217aa9b8bdbc)
+            type_hints = cached_type_hints(_typecheckingstub__a315bf64b464c871474cdb7416d97974a1f1ecea9dca5b529ccb217aa9b8bdbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key:value pairs to associate with the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1705dcb0cd17e874ce96cef7a6499dffda595fe61408ae3b8537babc4ea07e7d)
+            type_hints = cached_type_hints(_typecheckingstub__1705dcb0cd17e874ce96cef7a6499dffda595fe61408ae3b8537babc4ea07e7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6228,7 +6236,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6d082db2e4a682d2415b7a09e26862470d9c413df2a8e84b76f381e13039916b)
+                type_hints = cached_type_hints(_typecheckingstub__6d082db2e4a682d2415b7a09e26862470d9c413df2a8e84b76f381e13039916b)
                 check_type(argname="argument address_definition", value=address_definition, expected_type=type_hints["address_definition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "address_definition": address_definition,
@@ -6303,7 +6311,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1916be67886f4be6d0d11a69d9af9613d73f21c4fc6c61a438fed4e7fe9f5ffb)
+                type_hints = cached_type_hints(_typecheckingstub__1916be67886f4be6d0d11a69d9af9613d73f21c4fc6c61a438fed4e7fe9f5ffb)
                 check_type(argname="argument revoked_status_action", value=revoked_status_action, expected_type=type_hints["revoked_status_action"])
                 check_type(argname="argument unknown_status_action", value=unknown_status_action, expected_type=type_hints["unknown_status_action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6378,7 +6386,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e52a2ce05e8338187aa2dadcb1c9262256663ce3216a2ec64fc97360f74bd260)
+                type_hints = cached_type_hints(_typecheckingstub__e52a2ce05e8338187aa2dadcb1c9262256663ce3216a2ec64fc97360f74bd260)
                 check_type(argname="argument from_port", value=from_port, expected_type=type_hints["from_port"])
                 check_type(argname="argument to_port", value=to_port, expected_type=type_hints["to_port"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6436,9 +6444,9 @@ class CfnTLSInspectionConfiguration(
             self,
             *,
             certificate_authority_arn: typing.Optional[builtins.str] = None,
-            check_certificate_revocation_status: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scopes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateScopeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            server_certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            check_certificate_revocation_status: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scopes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateScopeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            server_certificates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configures the Certificate Manager certificates and scope that Network Firewall uses to decrypt and re-encrypt traffic using a `TLSInspectionConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-networkfirewall-tlsinspectionconfiguration.html>`_ . You can configure ``ServerCertificates`` for inbound SSL/TLS inspection, a ``CertificateAuthorityArn`` for outbound SSL/TLS inspection, or both. For information about working with certificates for TLS inspection, see `Using SSL/TLS server certficiates with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection-certificate-requirements.html>`_ in the *AWS Network Firewall Developer Guide* .
 
@@ -6489,7 +6497,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce24f66a34f9353756eb260c3b8a624c61eebacf13d607b9d31ec38666c435d0)
+                type_hints = cached_type_hints(_typecheckingstub__ce24f66a34f9353756eb260c3b8a624c61eebacf13d607b9d31ec38666c435d0)
                 check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
                 check_type(argname="argument check_certificate_revocation_status", value=check_certificate_revocation_status, expected_type=type_hints["check_certificate_revocation_status"])
                 check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
@@ -6525,7 +6533,7 @@ class CfnTLSInspectionConfiguration(
         @builtins.property
         def check_certificate_revocation_status(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty"]]:
             '''When enabled, Network Firewall checks if the server certificate presented by the server in the SSL/TLS connection has a revoked or unkown status.
 
             If the certificate has an unknown or revoked status, you must specify the actions that Network Firewall takes on outbound traffic. To check the certificate revocation status, you must also specify a ``CertificateAuthorityArn`` in `ServerCertificateConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-networkfirewall-servercertificateconfiguration.html>`_ .
@@ -6533,29 +6541,29 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration-checkcertificaterevocationstatus
             '''
             result = self._values.get("check_certificate_revocation_status")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty"]], result)
 
         @builtins.property
         def scopes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateScopeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateScopeProperty"]]]]:
             '''A list of scopes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration-scopes
             '''
             result = self._values.get("scopes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateScopeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateScopeProperty"]]]], result)
 
         @builtins.property
         def server_certificates(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateProperty"]]]]:
             '''The list of server certificates to use for inbound SSL/TLS inspection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificateconfiguration-servercertificates
             '''
             result = self._values.get("server_certificates")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6597,7 +6605,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1736b147376470701ba360dfaa711c9d5e294d7332704eac60cd65918d448064)
+                type_hints = cached_type_hints(_typecheckingstub__1736b147376470701ba360dfaa711c9d5e294d7332704eac60cd65918d448064)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if resource_arn is not None:
@@ -6638,11 +6646,11 @@ class CfnTLSInspectionConfiguration(
         def __init__(
             self,
             *,
-            destination_ports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
-            source_ports: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destination_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            source_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.PortRangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Settings that define the Secure Sockets Layer/Transport Layer Security (SSL/TLS) traffic that Network Firewall should decrypt for inspection by the stateful rule engine.
 
@@ -6680,7 +6688,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b5b8bcea69a86e77bb55889c9fc36d4e4fe07b98f5188185a383349870221ac)
+                type_hints = cached_type_hints(_typecheckingstub__5b5b8bcea69a86e77bb55889c9fc36d4e4fe07b98f5188185a383349870221ac)
                 check_type(argname="argument destination_ports", value=destination_ports, expected_type=type_hints["destination_ports"])
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
                 check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
@@ -6701,7 +6709,7 @@ class CfnTLSInspectionConfiguration(
         @builtins.property
         def destination_ports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]]:
             '''The destination ports to decrypt for inspection, in Transmission Control Protocol (TCP) format.
 
             If not specified, this matches with any destination port.
@@ -6711,12 +6719,12 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificatescope.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificatescope-destinationports
             '''
             result = self._values.get("destination_ports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]], result)
 
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.AddressProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.AddressProperty"]]]]:
             '''The destination IP addresses and address ranges to decrypt for inspection, in CIDR notation.
 
             If not specified, this
@@ -6725,12 +6733,12 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificatescope.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificatescope-destinations
             '''
             result = self._values.get("destinations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.AddressProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.AddressProperty"]]]], result)
 
         @builtins.property
         def protocols(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The protocols to inspect for, specified using the assigned internet protocol number (IANA) for each protocol.
 
             If not specified, this matches with any protocol.
@@ -6740,12 +6748,12 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificatescope.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificatescope-protocols
             '''
             result = self._values.get("protocols")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def source_ports(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]]:
             '''The source ports to decrypt for inspection, in Transmission Control Protocol (TCP) format.
 
             If not specified, this matches with any source port.
@@ -6755,12 +6763,12 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificatescope.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificatescope-sourceports
             '''
             result = self._values.get("source_ports")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.PortRangeProperty"]]]], result)
 
         @builtins.property
         def sources(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.AddressProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.AddressProperty"]]]]:
             '''The source IP addresses and address ranges to decrypt for inspection, in CIDR notation.
 
             If not specified, this
@@ -6769,7 +6777,7 @@ class CfnTLSInspectionConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-servercertificatescope.html#cfn-networkfirewall-tlsinspectionconfiguration-servercertificatescope-sources
             '''
             result = self._values.get("sources")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.AddressProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.AddressProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6793,7 +6801,7 @@ class CfnTLSInspectionConfiguration(
         def __init__(
             self,
             *,
-            server_certificate_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            server_certificate_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The object that defines a TLS inspection configuration. This defines the TLS inspection configuration.
 
@@ -6843,7 +6851,7 @@ class CfnTLSInspectionConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4461b2c6b1b6ac70b96136818f20b2e6fc825894b0c6c6164a3b54b575e735fd)
+                type_hints = cached_type_hints(_typecheckingstub__4461b2c6b1b6ac70b96136818f20b2e6fc825894b0c6c6164a3b54b575e735fd)
                 check_type(argname="argument server_certificate_configurations", value=server_certificate_configurations, expected_type=type_hints["server_certificate_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if server_certificate_configurations is not None:
@@ -6852,13 +6860,13 @@ class CfnTLSInspectionConfiguration(
         @builtins.property
         def server_certificate_configurations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty"]]]]:
             '''Lists the server certificate configurations that are associated with the TLS configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-tlsinspectionconfiguration-tlsinspectionconfiguration.html#cfn-networkfirewall-tlsinspectionconfiguration-tlsinspectionconfiguration-servercertificateconfigurations
             '''
             result = self._values.get("server_certificate_configurations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6886,10 +6894,10 @@ class CfnTLSInspectionConfigurationProps:
     def __init__(
         self,
         *,
-        tls_inspection_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tls_inspection_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         tls_inspection_configuration_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTLSInspectionConfiguration``.
 
@@ -6949,7 +6957,7 @@ class CfnTLSInspectionConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f05137012f831af07bffb09e4ece1302036a8c7c23718d26dcb08f4bfdfd66e9)
+            type_hints = cached_type_hints(_typecheckingstub__f05137012f831af07bffb09e4ece1302036a8c7c23718d26dcb08f4bfdfd66e9)
             check_type(argname="argument tls_inspection_configuration", value=tls_inspection_configuration, expected_type=type_hints["tls_inspection_configuration"])
             check_type(argname="argument tls_inspection_configuration_name", value=tls_inspection_configuration_name, expected_type=type_hints["tls_inspection_configuration_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -6966,7 +6974,7 @@ class CfnTLSInspectionConfigurationProps:
     @builtins.property
     def tls_inspection_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"]:
         '''The object that defines a TLS inspection configuration.
 
         AWS Network Firewall uses TLS inspection configurations to decrypt your firewall's inbound and outbound SSL/TLS traffic. After decryption, AWS Network Firewall inspects the traffic according to your firewall policy's stateful rules, and then re-encrypts it before sending it to its destination. You can enable inspection of your firewall's inbound traffic, outbound traffic, or both. To use TLS inspection with your firewall, you must first import or provision certificates using Certificate Manager , create a TLS inspection configuration, add that configuration to a new firewall policy, and then associate that policy with your firewall. For more information about using TLS inspection configurations, see `Inspecting SSL/TLS traffic with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection.html>`_ in the *AWS Network Firewall Developer Guide* .
@@ -6975,7 +6983,7 @@ class CfnTLSInspectionConfigurationProps:
         '''
         result = self._values.get("tls_inspection_configuration")
         assert result is not None, "Required property 'tls_inspection_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty"], result)
 
     @builtins.property
     def tls_inspection_configuration_name(self) -> builtins.str:
@@ -6999,13 +7007,13 @@ class CfnTLSInspectionConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key:value pairs to associate with the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-tlsinspectionconfiguration.html#cfn-networkfirewall-tlsinspectionconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7019,9 +7027,9 @@ class CfnTLSInspectionConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVpcEndpointAssociationRef_bd0818d9, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IVpcEndpointAssociationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnVpcEndpointAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnVpcEndpointAssociation",
 ):
@@ -7079,10 +7087,10 @@ class CfnVpcEndpointAssociation(
         id: builtins.str,
         *,
         firewall_arn: builtins.str,
-        subnet_mapping: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcEndpointAssociation.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]],
+        subnet_mapping: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcEndpointAssociation.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]],
         vpc_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::VpcEndpointAssociation``.
 
@@ -7095,7 +7103,7 @@ class CfnVpcEndpointAssociation(
         :param tags: The key:value pairs to associate with the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0573bf1b4145f0cb77953642be7dcead4ba79ff19313c048d55d52f50b71e1b3)
+            type_hints = cached_type_hints(_typecheckingstub__0573bf1b4145f0cb77953642be7dcead4ba79ff19313c048d55d52f50b71e1b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVpcEndpointAssociationProps(
@@ -7112,13 +7120,13 @@ class CfnVpcEndpointAssociation(
     @builtins.classmethod
     def arn_for_vpc_endpoint_association(
         cls,
-        resource: "_IVpcEndpointAssociationRef_bd0818d9",
+        resource: "_aws_networkfirewall_65100754.IVpcEndpointAssociationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d522fde1292b053eef24550ea8d4748d9dc28877a627fad44aa8e34efc2c8b18)
+            type_hints = cached_type_hints(_typecheckingstub__d522fde1292b053eef24550ea8d4748d9dc28877a627fad44aa8e34efc2c8b18)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcEndpointAssociation", [resource]))
 
@@ -7130,18 +7138,18 @@ class CfnVpcEndpointAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef2ff560bbe74ec4f245dc2488f28047e2661cd98d72183c64ed2969f8cf4e3b)
+            type_hints = cached_type_hints(_typecheckingstub__ef2ff560bbe74ec4f245dc2488f28047e2661cd98d72183c64ed2969f8cf4e3b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVpcEndpointAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65d7c392a601d79f2fd4192b7743a475440dc80e37155fc4e745f070fec7a4ac)
+            type_hints = cached_type_hints(_typecheckingstub__65d7c392a601d79f2fd4192b7743a475440dc80e37155fc4e745f070fec7a4ac)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7154,7 +7162,7 @@ class CfnVpcEndpointAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92933d91056f4ba3495b844f1c559970dc539ea1af9552b31329e79d5d06e036)
+            type_hints = cached_type_hints(_typecheckingstub__92933d91056f4ba3495b844f1c559970dc539ea1af9552b31329e79d5d06e036)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7193,9 +7201,9 @@ class CfnVpcEndpointAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7211,9 +7219,9 @@ class CfnVpcEndpointAssociation(
     @jsii.member(jsii_name="vpcEndpointAssociationRef")
     def vpc_endpoint_association_ref(
         self,
-    ) -> "_VpcEndpointAssociationReference_d627bc37":
+    ) -> "_aws_networkfirewall_65100754.VpcEndpointAssociationReference":
         '''A reference to a VpcEndpointAssociation resource.'''
-        return typing.cast("_VpcEndpointAssociationReference_d627bc37", jsii.get(self, "vpcEndpointAssociationRef"))
+        return typing.cast("_aws_networkfirewall_65100754.VpcEndpointAssociationReference", jsii.get(self, "vpcEndpointAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="firewallArn")
@@ -7224,7 +7232,7 @@ class CfnVpcEndpointAssociation(
     @firewall_arn.setter
     def firewall_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b796b3e3)
+            type_hints = cached_type_hints(_typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b796b3e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firewallArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7232,17 +7240,17 @@ class CfnVpcEndpointAssociation(
     @jsii.member(jsii_name="subnetMapping")
     def subnet_mapping(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcEndpointAssociation.SubnetMappingProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcEndpointAssociation.SubnetMappingProperty"]:
         '''The ID for a subnet that's used in an association with a firewall.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcEndpointAssociation.SubnetMappingProperty"], jsii.get(self, "subnetMapping"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcEndpointAssociation.SubnetMappingProperty"], jsii.get(self, "subnetMapping"))
 
     @subnet_mapping.setter
     def subnet_mapping(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnVpcEndpointAssociation.SubnetMappingProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcEndpointAssociation.SubnetMappingProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593)
+            type_hints = cached_type_hints(_typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetMapping", value) # pyright: ignore[reportArgumentType]
 
@@ -7255,7 +7263,7 @@ class CfnVpcEndpointAssociation(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebc60917207a96abc5156cbba4fef32ab70bea3895d16bee96406b9486bc0767)
+            type_hints = cached_type_hints(_typecheckingstub__ebc60917207a96abc5156cbba4fef32ab70bea3895d16bee96406b9486bc0767)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -7268,20 +7276,23 @@ class CfnVpcEndpointAssociation(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261fa16f80)
+            type_hints = cached_type_hints(_typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261fa16f80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key:value pairs to associate with the resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2)
+            type_hints = cached_type_hints(_typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -7321,7 +7332,7 @@ class CfnVpcEndpointAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed6e084870d225a53477b08097053cc5b851f59b0c1d2ac3ce50dcb613b85015)
+                type_hints = cached_type_hints(_typecheckingstub__ed6e084870d225a53477b08097053cc5b851f59b0c1d2ac3ce50dcb613b85015)
                 check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
                 check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7379,10 +7390,10 @@ class CfnVpcEndpointAssociationProps:
         self,
         *,
         firewall_arn: builtins.str,
-        subnet_mapping: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVpcEndpointAssociation.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]],
+        subnet_mapping: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcEndpointAssociation.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]],
         vpc_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnVpcEndpointAssociation``.
 
@@ -7421,7 +7432,7 @@ class CfnVpcEndpointAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dbb62f97ee487edf99a31ab28f86b2ab2bef9c9c70286db4f91d315d1c53f76)
+            type_hints = cached_type_hints(_typecheckingstub__3dbb62f97ee487edf99a31ab28f86b2ab2bef9c9c70286db4f91d315d1c53f76)
             check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
             check_type(argname="argument subnet_mapping", value=subnet_mapping, expected_type=type_hints["subnet_mapping"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
@@ -7450,7 +7461,7 @@ class CfnVpcEndpointAssociationProps:
     @builtins.property
     def subnet_mapping(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnVpcEndpointAssociation.SubnetMappingProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcEndpointAssociation.SubnetMappingProperty"]:
         '''The ID for a subnet that's used in an association with a firewall.
 
         This is used in ``CreateFirewall`` , ``AssociateSubnets`` , and ``CreateVpcEndpointAssociation`` . AWS Network Firewall creates an instance of the associated firewall in each subnet that you specify, to filter traffic in the subnet's Availability Zone.
@@ -7459,7 +7470,7 @@ class CfnVpcEndpointAssociationProps:
         '''
         result = self._values.get("subnet_mapping")
         assert result is not None, "Required property 'subnet_mapping' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVpcEndpointAssociation.SubnetMappingProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcEndpointAssociation.SubnetMappingProperty"], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
@@ -7481,13 +7492,13 @@ class CfnVpcEndpointAssociationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The key:value pairs to associate with the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7523,24 +7534,24 @@ def _typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b
     id: builtins.str,
     *,
     firewall_name: builtins.str,
-    firewall_policy_arn: typing.Union[builtins.str, _IFirewallPolicyRef_bd446a4d],
-    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    firewall_policy_arn: typing.Union[builtins.str, _aws_networkfirewall_65100754.IFirewallPolicyRef],
+    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    availability_zone_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transit_gateway_id: typing.Optional[builtins.str] = None,
-    vpc_id: typing.Optional[typing.Union[builtins.str, _IVPCRef_f02a11df]] = None,
+    vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3252673ecebe9bca28767dd02ff4a5ad2fb6170a07b406430e73fc49c64efab0(
-    resource: _IFirewallRef_31769805,
+    resource: _aws_networkfirewall_65100754.IFirewallRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7552,7 +7563,7 @@ def _typecheckingstub__b9d55f8dfb5c7f24877ce2c25548e45621c82fdeee1bbbb94b6857edd
     pass
 
 def _typecheckingstub__c7c4e2793da1cf8bea450c2122d2557d378fad5e129ebb26f114a36cfc6506a2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7576,19 +7587,19 @@ def _typecheckingstub__c711ef7af7567ab69b12f083b26c4033f7cdf1593bf27227f989d7c73
     pass
 
 def _typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.AvailabilityZoneMappingProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewall.AvailabilityZoneMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12d69795554b50f9f4f46a0470d9cf06e4d826d030dcab9f0adfc3a3d566c8b3(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7606,25 +7617,25 @@ def _typecheckingstub__dfc5ed44d930f34c8aab89f35a98f79157366d4a6307eb58bfc63ed73
     pass
 
 def _typecheckingstub__ee50239d13ab311a798770d372dccb418872f67c3e07c873f5d87e11df129a35(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d514ade47(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewall.SubnetMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7660,16 +7671,16 @@ def _typecheckingstub__d88babb6ad6946bc506d4761908231f5bd58eca8a4b6bc16dfccccad3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    firewall_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.FirewallPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    firewall_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.FirewallPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     firewall_policy_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3d12ff2b086a41a0ec64e7d9e6c1464a059dde59324c1c1a4954acc2a2414366(
-    resource: _IFirewallPolicyRef_bd446a4d,
+    resource: _aws_networkfirewall_65100754.IFirewallPolicyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7681,7 +7692,7 @@ def _typecheckingstub__c9e7d17ea7810df22b8e7f65db2e63ab3fe3cb77393e21c9f89e0778f
     pass
 
 def _typecheckingstub__6d5c5132a5b6e646e64fbde7a0f144884b26ad6646fb61ce294ea7f055ebdea9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7693,7 +7704,7 @@ def _typecheckingstub__56698f8e6b1c138a730626856a3d169be448aa17fd1614293c276d6b4
     pass
 
 def _typecheckingstub__706340078bfabf1ab4df2417fc17af1521f1718330cb1fc0087bd9afbac6b09e(
-    value: typing.Union[_IResolvable_da3f097b, CfnFirewallPolicy.FirewallPolicyProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewallPolicy.FirewallPolicyProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7711,21 +7722,21 @@ def _typecheckingstub__17c32ed9aaa9f9ee7c0bc9d17e141d75109032a7a60deaf6aed2663b8
     pass
 
 def _typecheckingstub__8c11c99d52a27fc2ece4bf3400c4dd843466996564051d6963ae198097626d76(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__85467f041a9b94df26a26630991c0c22b625a860b01ccf1dafa4f6c431ca3d2f(
     *,
-    publish_metric_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.PublishMetricActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publish_metric_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.PublishMetricActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1aea5034d17a5ca042ab3479dcb09b74cc8b32425872aa94df5c552a5d6c7fa1(
     *,
-    action_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.ActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    action_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.ActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     action_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -7742,13 +7753,13 @@ def _typecheckingstub__1b6a6014864b81482e4c4a383921c58673d84e8e882dc4fb7cea71a2d
     *,
     stateless_default_actions: typing.Sequence[builtins.str],
     stateless_fragment_default_actions: typing.Sequence[builtins.str],
-    enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    policy_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.PolicyVariablesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    policy_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.PolicyVariablesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stateful_default_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    stateful_engine_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.StatefulEngineOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stateful_rule_group_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.StatefulRuleGroupReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    stateless_custom_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    stateless_rule_group_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.StatelessRuleGroupReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stateful_engine_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatefulEngineOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stateful_rule_group_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatefulRuleGroupReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stateless_custom_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stateless_rule_group_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatelessRuleGroupReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tls_inspection_configuration_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7770,21 +7781,21 @@ def _typecheckingstub__d067b828f689f1f983a48f9f4eb8d06f4dfe2f2e6a20585837d5fe154
 
 def _typecheckingstub__9e866a0377e767391b6cb1e114ddc7eed91f1e04c8ab4203b0af3b09a8befd47(
     *,
-    rule_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.IPSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    rule_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.IPSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eab9540ab80b4dd980d8dda17b30755d1e15a920591be54fdd8184a0a4e4eb42(
     *,
-    dimensions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dimensions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__69e95338d370bfb1bbb954499358a8d8914836eb171006f958c9fa4debca2e09(
     *,
-    flow_timeouts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.FlowTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    flow_timeouts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.FlowTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rule_order: typing.Optional[builtins.str] = None,
     stream_exception_policy: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7801,8 +7812,8 @@ def _typecheckingstub__62be7baa7c0ae22655f34e1d3316236c114457fe368caf2a958ba1fd9
 def _typecheckingstub__b35f780a3045f4df1ecbf5bb69deb711659429dcfd9f87d388080942e7b17ef8(
     *,
     resource_arn: builtins.str,
-    deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.StatefulRuleGroupOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    override: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatefulRuleGroupOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7818,10 +7829,10 @@ def _typecheckingstub__4abfbbd63f3454ea4b5597e2099b8d101919bc21b3cc73051aad275b3
 
 def _typecheckingstub__fb2c62703239bb4479e4595613edad2d44e170db98c687d725b8c824f819e362(
     *,
-    firewall_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.FirewallPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    firewall_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.FirewallPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     firewall_policy_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7829,18 +7840,18 @@ def _typecheckingstub__fb2c62703239bb4479e4595613edad2d44e170db98c687d725b8c824f
 def _typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57bc238e99(
     *,
     firewall_name: builtins.str,
-    firewall_policy_arn: typing.Union[builtins.str, _IFirewallPolicyRef_bd446a4d],
-    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    firewall_policy_arn: typing.Union[builtins.str, _aws_networkfirewall_65100754.IFirewallPolicyRef],
+    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    availability_zone_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transit_gateway_id: typing.Optional[builtins.str] = None,
-    vpc_id: typing.Optional[typing.Union[builtins.str, _IVPCRef_f02a11df]] = None,
+    vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7849,9 +7860,9 @@ def _typecheckingstub__71487a7865ce1877156cecd1cb83afa7ffd5f6428fa2611a7537c9ccf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    firewall_arn: typing.Union[builtins.str, _IFirewallRef_31769805],
-    logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    firewall_arn: typing.Union[builtins.str, _aws_networkfirewall_65100754.IFirewallRef],
+    logging_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     firewall_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7864,7 +7875,7 @@ def _typecheckingstub__0ffdd478ab66d2dfa8c7ccd514935be92518fdfb5d0aa08cd7043f943
     pass
 
 def _typecheckingstub__cdf1d8af41633c95dd577d7d2736c4bc7e5071ece1527fb65bc7392f72a7a43b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7882,13 +7893,13 @@ def _typecheckingstub__d71125ddf5ba2d377facff407ef5a2fcdbd3c618a7499d3633c68130f
     pass
 
 def _typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120(
-    value: typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.LoggingConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLoggingConfiguration.LoggingConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7901,7 +7912,7 @@ def _typecheckingstub__1e3640e7313e33945bc2b7c00caa777b47e14239e160ded6a349405ae
 
 def _typecheckingstub__71b2e62cece09027ed51c224134098d51d2c868274bd4da88e455b472e9c005d(
     *,
-    log_destination: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    log_destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     log_destination_type: builtins.str,
     log_type: builtins.str,
 ) -> None:
@@ -7910,16 +7921,16 @@ def _typecheckingstub__71b2e62cece09027ed51c224134098d51d2c868274bd4da88e455b472
 
 def _typecheckingstub__7694cf2d5082b8064a259b791a222ad012a1f7bcab308d321c9d4c780c634c13(
     *,
-    log_destination_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LogDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    log_destination_configs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.LogDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7dab36772798ea19c1d2e2f1e86d2099a88806994c157c7bd4e0d62178ab9369(
     *,
-    firewall_arn: typing.Union[builtins.str, _IFirewallRef_31769805],
-    logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    firewall_arn: typing.Union[builtins.str, _aws_networkfirewall_65100754.IFirewallRef],
+    logging_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     firewall_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7933,15 +7944,15 @@ def _typecheckingstub__2f1d19cebb2e7dfe2bb3a674253e22bfdb540bd48dc9cd243370420d8
     rule_group_name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    summary_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3a5e06632968de4da79bd8acd3035e3d3daac0ba055d7028fb6a1629eba907e9(
-    resource: _IRuleGroupRef_f1ee71d3,
+    resource: _aws_networkfirewall_65100754.IRuleGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7953,7 +7964,7 @@ def _typecheckingstub__ae7dd709f461813cb99a28faf8102b98b04b2bb658b58a854039a792f
     pass
 
 def _typecheckingstub__2b8ef477504489cc901fa58c5454b1728231c047d069191745b232cb839f0b97(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7989,26 +8000,26 @@ def _typecheckingstub__b0c85f5fc86d4cd20434a5458984123db8b76ff5d649d26af8be38c56
     pass
 
 def _typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.RuleGroupProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRuleGroup.RuleGroupProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.SummaryConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRuleGroup.SummaryConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5969fe74fc1a24641d71678e96d3133e152f5f87c43e5f7d72af22aa055d7db5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ffeb7b0f0ffdb417d3ac37fe775fea2d6c40814070d270c03323517593b547b9(
     *,
-    publish_metric_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PublishMetricActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publish_metric_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PublishMetricActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8022,7 +8033,7 @@ def _typecheckingstub__4d6067c4ca12beed4ffa424b8e13cd23b4810ac4eca1ff16680ad9a71
 
 def _typecheckingstub__776dc4a2267643558107c479367987cde061715c1a5e677dc3d8ad57e6bb07f7(
     *,
-    action_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.ActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    action_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.ActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     action_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -8063,12 +8074,12 @@ def _typecheckingstub__d4c62ac9d27c6484f4a2b9da61680388d72bf1968a69f8864fca9a5dc
 
 def _typecheckingstub__90ce1a312793001f5c059c69ea601ba7bc963a51d06ab080c64c4cb1eae7671a(
     *,
-    destination_ports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-    source_ports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tcp_flags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.TCPFlagFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destination_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tcp_flags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.TCPFlagFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8090,14 +8101,14 @@ def _typecheckingstub__d18f51e9866b56513a07e5af9f75eea271b0da41a1c90b0f0eb235cca
 
 def _typecheckingstub__41a6f7b234552866dbb2f70b78c6c9311fef5d507c07747593b0b90e4a163d46(
     *,
-    dimensions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    dimensions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3955e12e3465fd3060b82c41bb430af9d8272b881b8347a0df73c8b0293b8b00(
     *,
-    ip_set_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.IPSetReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ip_set_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.IPSetReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8105,17 +8116,17 @@ def _typecheckingstub__3955e12e3465fd3060b82c41bb430af9d8272b881b8347a0df73c8b02
 def _typecheckingstub__f6a4539cb428b880e373a3db5923e9d0f2d2f91e07045af9358db4aa1f7b47b7(
     *,
     actions: typing.Sequence[builtins.str],
-    match_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.MatchAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
+    match_attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.MatchAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6031839dccab8578d6df945e603f857681f1ba43a8750c6823a4956903ee6b0a(
     *,
-    rules_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RulesSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    reference_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.ReferenceSetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rule_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleVariablesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stateful_rule_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatefulRuleOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rules_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RulesSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    reference_sets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.ReferenceSetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RuleVariablesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stateful_rule_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.StatefulRuleOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8130,8 +8141,8 @@ def _typecheckingstub__82f117785b5345a4a7fbef540dfb4ab49e1476bb3ee3f5b32f4bf8bdd
 
 def _typecheckingstub__a07f3723113c8b16a34bf34741ea1461bc25f6ab3b0720f6a8aa564d1272e4ca(
     *,
-    ip_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.IPSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    port_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PortSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ip_sets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.IPSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    port_sets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.PortSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8147,10 +8158,10 @@ def _typecheckingstub__f9a485e00c504005fdc6e395458d012eb99f789685105dcedf2228712
 
 def _typecheckingstub__37c2f6cfa9ab89c36a10e214087cb83419a7c8be9fa0d97cb6ff5c156ec1ed2b(
     *,
-    rules_source_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RulesSourceListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rules_source_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RulesSourceListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rules_string: typing.Optional[builtins.str] = None,
-    stateful_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatefulRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    stateless_rules_and_custom_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatelessRulesAndCustomActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stateful_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.StatefulRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stateless_rules_and_custom_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.StatelessRulesAndCustomActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8165,8 +8176,8 @@ def _typecheckingstub__059685e154b150834c61bccd6793a66e1d0e92258779eb937ca1fa3a1
 def _typecheckingstub__c5bb56af25d6c8c99d593795131e22b214fd8722c9ab610ce9e26db6f72cae04(
     *,
     action: builtins.str,
-    header: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.HeaderProperty, typing.Dict[builtins.str, typing.Any]]],
-    rule_options: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleOptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    header: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.HeaderProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RuleOptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8174,15 +8185,15 @@ def _typecheckingstub__c5bb56af25d6c8c99d593795131e22b214fd8722c9ab610ce9e26db6f
 def _typecheckingstub__8abd713c2522cea4720da70b4aa087d7eb1f6a9257d6d3a5b76148f6102fb22d(
     *,
     priority: jsii.Number,
-    rule_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RuleDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__71d7a12c23bdb40d0d25319bf80720d55c4205129c386e8de5676df43ea5e61b(
     *,
-    stateless_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatelessRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    custom_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stateless_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.StatelessRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    custom_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.CustomActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8208,9 +8219,9 @@ def _typecheckingstub__775b93be404fbe10bf6b023b8192636307852f30e49da9892d7e20aa4
     rule_group_name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    summary_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8219,16 +8230,16 @@ def _typecheckingstub__ec764b679fc98c8fe3aa11d807ebebdd11b5c6a99f92f8eb7c03b663e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    tls_inspection_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tls_inspection_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     tls_inspection_configuration_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__577f13e28f22a4321eff945e18ae9bb096b27aeab0cde6ea6860dfce636d516f(
-    resource: _ITLSInspectionConfigurationRef_6d0a6d9c,
+    resource: _aws_networkfirewall_65100754.ITLSInspectionConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8240,7 +8251,7 @@ def _typecheckingstub__bb7f081e4831f1635e78ae9de3f15a73e097e54d5160862d6e25a79d4
     pass
 
 def _typecheckingstub__8fffc8d2cddb56be0caa1d022a327faef26e9d6137d82bda779515250e3fcff9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8252,7 +8263,7 @@ def _typecheckingstub__6fba06f46a5cea5a67cd0374f887b8225a08a147db2a073ffe9bc73c5
     pass
 
 def _typecheckingstub__d0caa3698092eac04f0f3cb6ef31ee8a37b5620e7b43e83135c822e030a956e5(
-    value: typing.Union[_IResolvable_da3f097b, CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8270,7 +8281,7 @@ def _typecheckingstub__a315bf64b464c871474cdb7416d97974a1f1ecea9dca5b529ccb217aa
     pass
 
 def _typecheckingstub__1705dcb0cd17e874ce96cef7a6499dffda595fe61408ae3b8537babc4ea07e7d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8301,9 +8312,9 @@ def _typecheckingstub__e52a2ce05e8338187aa2dadcb1c9262256663ce3216a2ec64fc97360f
 def _typecheckingstub__ce24f66a34f9353756eb260c3b8a624c61eebacf13d607b9d31ec38666c435d0(
     *,
     certificate_authority_arn: typing.Optional[builtins.str] = None,
-    check_certificate_revocation_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scopes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateScopeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    server_certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    check_certificate_revocation_status: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.CheckCertificateRevocationStatusProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scopes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateScopeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    server_certificates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8317,28 +8328,28 @@ def _typecheckingstub__1736b147376470701ba360dfaa711c9d5e294d7332704eac60cd65918
 
 def _typecheckingstub__5b5b8bcea69a86e77bb55889c9fc36d4e4fe07b98f5188185a383349870221ac(
     *,
-    destination_ports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-    source_ports: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destination_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    protocols: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.PortRangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4461b2c6b1b6ac70b96136818f20b2e6fc825894b0c6c6164a3b54b575e735fd(
     *,
-    server_certificate_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    server_certificate_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.ServerCertificateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f05137012f831af07bffb09e4ece1302036a8c7c23718d26dcb08f4bfdfd66e9(
     *,
-    tls_inspection_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tls_inspection_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     tls_inspection_configuration_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8348,16 +8359,16 @@ def _typecheckingstub__0573bf1b4145f0cb77953642be7dcead4ba79ff19313c048d55d52f50
     id: builtins.str,
     *,
     firewall_arn: builtins.str,
-    subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
+    subnet_mapping: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
     vpc_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d522fde1292b053eef24550ea8d4748d9dc28877a627fad44aa8e34efc2c8b18(
-    resource: _IVpcEndpointAssociationRef_bd0818d9,
+    resource: _aws_networkfirewall_65100754.IVpcEndpointAssociationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8369,7 +8380,7 @@ def _typecheckingstub__ef2ff560bbe74ec4f245dc2488f28047e2661cd98d72183c64ed2969f
     pass
 
 def _typecheckingstub__65d7c392a601d79f2fd4192b7743a475440dc80e37155fc4e745f070fec7a4ac(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8387,7 +8398,7 @@ def _typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b
     pass
 
 def _typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593(
-    value: typing.Union[_IResolvable_da3f097b, CfnVpcEndpointAssociation.SubnetMappingProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcEndpointAssociation.SubnetMappingProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8405,7 +8416,7 @@ def _typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261
     pass
 
 def _typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8421,10 +8432,10 @@ def _typecheckingstub__ed6e084870d225a53477b08097053cc5b851f59b0c1d2ac3ce50dcb61
 def _typecheckingstub__3dbb62f97ee487edf99a31ab28f86b2ab2bef9c9c70286db4f91d315d1c53f76(
     *,
     firewall_arn: builtins.str,
-    subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
+    subnet_mapping: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
     vpc_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

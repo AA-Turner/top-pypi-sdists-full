@@ -10,28 +10,39 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Literal
 
+import requests
+import sqlalchemy.exc
 from airbyte import constants
+from airbyte.exceptions import PyAirbyteInputError
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfig as AutopilotConfig,
 )
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode as RolloutMode,
 )
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.auth import get_admin_user_id
 from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     HealthGateResult,
+    TierEligibilityEstimate,
     check_health_gate,
+    count_eligible_or_pinned_actors,
+    estimate_tier_eligible_actors,
     filter_rollouts_by_connector,
     get_connector_rollout_config,
+    get_registry_default_version,
+    get_registry_release_candidates,
     get_unsafe_downgrades,
+    parse_db_timestamp,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    FINALIZING_GRACE_MINUTES,
     STRATEGY_DEFAULT,
     STRATEGY_STEP_MAP,
     TIER_ORDER,
@@ -49,6 +60,129 @@ from airbyte_ops_mcp.slack_posting import send_hitl_notification
 logger = logging.getLogger(__name__)
 
 _AUTOPILOT_ESCALATION_TARGET = "@aaronsteers"
+
+
+# ---------------------------------------------------------------------------
+# Shared guards
+# ---------------------------------------------------------------------------
+
+
+def _safe_estimate(
+    *,
+    actor_definition_id: str,
+    docker_repository: str,
+    tier: str,
+    action: str,
+) -> TierEligibilityEstimate:
+    """Run `estimate_tier_eligible_actors`, tolerating prod-DB read failures.
+
+    The pre-flight estimate is an optimization, not the authority.  If the
+    estimate can't be computed — a bad input, a transient SQL error, or a tier
+    cache that can't be loaded/refreshed (`RuntimeError` from
+    `tier_cache._load_tier_cache` when BigQuery fails and no stale cache
+    exists) — this logs and returns an "unavailable" estimate
+    (`eligible_actor_count == -1`).  Non-recovery callers then fall through to
+    the platform's authoritative actor count, and the `workflow_started`
+    recovery guard skips rather than re-driving a tier it can't confirm.
+    """
+    try:
+        return estimate_tier_eligible_actors(
+            actor_definition_id=actor_definition_id,
+            docker_repository=docker_repository,
+            tier=tier,
+        )
+    except (PyAirbyteInputError, sqlalchemy.exc.SQLAlchemyError, RuntimeError) as e:
+        logger.warning(
+            "auto-%s: could not estimate eligibility for %s (%s): %s "
+            "— returning an unavailable estimate; the normal in-progress path "
+            "falls back to the platform actor count, while workflow_started "
+            "recovery skips (no platform sync info yet)",
+            action,
+            actor_definition_id,
+            tier,
+            e,
+        )
+        return TierEligibilityEstimate(
+            tier=tier,
+            eligible_actor_count=-1,
+            disposition="normal",
+            reason="eligibility estimate unavailable",
+        )
+
+
+def _recovery_tier_action(
+    estimate: TierEligibilityEstimate,
+) -> Literal["complete", "skip", "proceed"]:
+    """Decide how to handle a `workflow_started` rollout from its tier estimate.
+
+    A `workflow_started` rollout has no platform sync info yet, so the local
+    pre-flight estimate is the only eligibility signal available:
+
+    - `complete`: the tier is confirmed empty (`disposition == "skip"` with a
+      non-negative count).  Zero-of-zero eligible actors is *done*, not stuck —
+      the caller finalizes the rollout as `succeeded` (promotes the RC to GA)
+      instead of leaving it wedged.
+    - `skip`: the estimate is unavailable (`eligible_actor_count < 0`).  We can't
+      confirm the tier is empty or populated, so defer to a later cron cycle
+      rather than re-drive a possibly-empty tier and wedge it again.
+    - `proceed`: the tier has eligible actors — recover by restarting the
+      workflow and advancing to the initial percentage.
+    """
+    if estimate.eligible_actor_count < 0:
+        return "skip"
+    if estimate.disposition == "skip":
+        return "complete"
+    return "proceed"
+
+
+def _select_forward_tier(
+    *,
+    actor_definition_id: str,
+    docker_repository: str,
+    current_tier: str,
+    action: str,
+) -> tuple[
+    Literal["start", "ga", "unavailable"],
+    CustomerTier | None,
+    TierEligibilityEstimate | None,
+]:
+    """Scan `TIER_ORDER` forward for the next tier that has eligible actors.
+
+    Starting just after `current_tier`, this estimates each later tier in order
+    and returns a decision for the first tier with a confirmed, non-empty
+    estimate — skipping empty intermediate tiers rather than starting a rollout
+    that would wedge at `workflow_started`:
+
+    - `("start", tier, estimate)`: `tier` has eligible actors — start a rollout
+      there.
+    - `("ga", None, None)`: every later tier is confirmed empty, so no customer
+      tier remains to roll out to — finalize the current tier to GA.
+    - `("unavailable", tier, estimate)`: a candidate tier's estimate could not be
+      computed; defer rather than risk skipping a populated tier or wedging an
+      empty one.
+    """
+    order_values = [t.value for t in TIER_ORDER]
+    if current_tier in order_values:
+        start_idx = order_values.index(current_tier) + 1
+    else:
+        # A tier not in `TIER_ORDER` (e.g. a legacy `ALL` stage) has no later
+        # cohort to roll out to; the only forward move is GA.
+        start_idx = len(TIER_ORDER)
+
+    for candidate in TIER_ORDER[start_idx:]:
+        estimate = _safe_estimate(
+            actor_definition_id=actor_definition_id,
+            docker_repository=docker_repository,
+            tier=candidate.value,
+            action=action,
+        )
+        if estimate.eligible_actor_count < 0:
+            return "unavailable", candidate, estimate
+        if estimate.disposition == "skip":
+            continue
+        return "start", candidate, estimate
+
+    return "ga", None, None
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +415,12 @@ def run_auto_advance(
         bearer_token=auth.bearer_token,
     )
 
+    # Track `(actor_definition_id, rc_version)` pairs already finalized to GA in
+    # this pass. Finalizing any one of an RC's tier rollouts as `succeeded`
+    # promotes the whole RC to GA, so a connector with several empty
+    # `workflow_started` records must promote exactly once.
+    finalized_rcs: set[tuple[str, str]] = set()
+
     for rollout in advanceable:
         rc_version = rollout.rc_docker_image_tag or "unknown"
         is_recovery = rollout.state == "workflow_started"
@@ -348,13 +488,169 @@ def run_auto_advance(
 
         # --- Health gate: skip for workflow_started recovery (no sync data) ---
         if is_recovery:
+            # A `workflow_started` rollout has no sync info yet, so the local
+            # pre-flight estimate is the only eligibility signal. It classifies
+            # the tier as complete (confirmed empty — 0/0 is done), skip
+            # (unavailable — can't confirm), or proceed (has actors — recover).
+            estimate = _safe_estimate(
+                actor_definition_id=rollout.actor_definition_id,
+                docker_repository=rollout.rc_docker_repository or "",
+                tier=rollout.tier,
+                action="advance",
+            )
+            recovery_action = _recovery_tier_action(estimate)
+
+            if recovery_action == "skip":
+                logger.info(
+                    "auto-advance: %s (%s, %s) — %s",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    rollout.tier,
+                    estimate.reason,
+                )
+                result.skipped.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=False,
+                        message=f"Skipped: {estimate.reason}",
+                        tier=rollout.tier,
+                    )
+                )
+                continue
+
+            if recovery_action == "complete":
+                # Zero-of-zero eligible actors is *done*, not stuck. Finalize the
+                # empty `workflow_started` rollout as `succeeded` (promote the RC
+                # to GA) so it stops wedging the queue.
+                rc_key = (rollout.actor_definition_id, rc_version)
+                if rc_key in finalized_rcs:
+                    result.skipped.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="complete",
+                            success=False,
+                            message=(
+                                "Skipped: RC already finalized to GA this pass "
+                                "(sibling tier)"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                    continue
+
+                if dry_run:
+                    finalized_rcs.add(rc_key)
+                    result.actions.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="complete",
+                            success=True,
+                            message=(
+                                f"Would finalize empty tier as succeeded "
+                                f"(0/0 complete → GA): {estimate.reason}"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                    continue
+
+                try:
+                    api_client.finalize_connector_rollout(
+                        docker_repository=rollout.rc_docker_repository or "",
+                        docker_image_tag=rc_version,
+                        actor_definition_id=rollout.actor_definition_id,
+                        rollout_id=rollout.rollout_id,
+                        updated_by=user_id,
+                        state="succeeded",
+                        config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                        client_id=auth.client_id,
+                        client_secret=auth.client_secret,
+                        bearer_token=auth.bearer_token,
+                    )
+                except (
+                    PyAirbyteInputError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    result.errors.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="complete",
+                            success=False,
+                            message=(
+                                f"Empty tier (0 eligible actors) but failed to "
+                                f"finalize as succeeded: {e}"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                else:
+                    finalized_rcs.add(rc_key)
+                    logger.info(
+                        "auto-advance: finalized empty workflow_started rollout "
+                        "%s (%s, %s) as succeeded (0/0 complete → GA)",
+                        rollout.connector_name,
+                        rollout.rollout_id,
+                        rollout.tier,
+                    )
+                    result.actions.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="complete",
+                            success=True,
+                            message=(
+                                "Empty tier (0 eligible actors): finalized as "
+                                "succeeded (0/0 complete → promoted to GA)"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                continue
+
+            if estimate.disposition == "warn":
+                logger.warning(
+                    "auto-advance: %s (%s, %s) — %s",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    rollout.tier,
+                    estimate.reason,
+                )
+                result.warnings.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=True,
+                        message=f"Proceeding despite low eligibility: {estimate.reason}",
+                        tier=rollout.tier,
+                    )
+                )
+
             logger.info(
                 "auto-advance: Recovering workflow_started rollout %s (%s, %s) "
-                "— restarting workflow and advancing to %d%%",
+                "— restarting workflow and advancing to %d%% (%s)",
                 rollout.connector_name,
                 rollout.rollout_id,
                 rollout.tier,
                 next_pct,
+                estimate.reason,
             )
         else:
             try:
@@ -403,6 +699,36 @@ def run_auto_advance(
                         action="advance",
                         success=False,
                         message=(f"Skipped: failure threshold hit — {gate.reason}"),
+                        tier=rollout.tier,
+                    )
+                )
+                continue
+
+            # Layer 2 backstop: confirm the platform actually has eligible or
+            # pinned actors before progressing. The ops tier lists can drift
+            # from the platform's actor selection; a zero here means progressing
+            # would throw `ConnectorRolloutNotEnoughActorsProblem` and wedge the
+            # rollout, so treat it as a valid "nothing to advance" and skip.
+            if count_eligible_or_pinned_actors(sync_info) == 0:
+                logger.info(
+                    "auto-advance: %s (%s, %s) has 0 eligible or pinned actors "
+                    "— skipping advancement (nothing to do)",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    rollout.tier,
+                )
+                result.skipped.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=False,
+                        message=(
+                            "Skipped: 0 eligible or pinned actors "
+                            "(empty tier — nothing to advance)"
+                        ),
                         tier=rollout.tier,
                     )
                 )
@@ -534,10 +860,11 @@ def run_auto_promote(
     raw_rows = query_connector_rollouts(active_only=True, limit=None)
     rollouts = [ConnectorRolloutRecord.from_db_row(r) for r in raw_rows]
     rollouts = filter_rollouts_by_connector(rollouts, connector)
-    in_progress = [r for r in rollouts if r.state in ["in_progress"]]
+    in_progress = [r for r in rollouts if r.state == "in_progress"]
+    finalizing = [r for r in rollouts if r.state == "finalizing"]
 
-    if not in_progress:
-        logger.info("auto-promote: No IN_PROGRESS rollouts found.")
+    if not in_progress and not finalizing:
+        logger.info("auto-promote: No IN_PROGRESS or FINALIZING rollouts found.")
         return result
 
     user_id = get_admin_user_id(
@@ -545,6 +872,12 @@ def run_auto_promote(
         client_secret=auth.client_secret,
         bearer_token=auth.bearer_token,
     )
+
+    # Track `(actor_definition_id, rc_version)` pairs already finalized to GA in
+    # this pass. Finalizing any one of an RC's tier rollouts as `succeeded`
+    # promotes the whole RC to GA, so an RC with multiple coexisting in-progress
+    # tier records must promote exactly once.
+    finalized_rcs: set[tuple[str, str]] = set()
 
     for rollout in in_progress:
         rc_version = rollout.rc_docker_image_tag or "unknown"
@@ -670,8 +1003,29 @@ def run_auto_promote(
             gate.reason,
         )
 
+        rc_key = (rollout.actor_definition_id, rc_version)
+
         if current_tier == "ALL":
+            if rc_key in finalized_rcs:
+                result.skipped.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="promote",
+                        success=False,
+                        message=(
+                            "Skipped: RC already finalized to GA this pass "
+                            "(sibling tier)"
+                        ),
+                        tier=rollout.tier,
+                    )
+                )
+                continue
+
             if dry_run:
+                finalized_rcs.add(rc_key)
                 result.actions.append(
                     AutopilotAction(
                         rollout_id=rollout.rollout_id,
@@ -702,7 +1056,7 @@ def run_auto_promote(
                     client_secret=auth.client_secret,
                     bearer_token=auth.bearer_token,
                 )
-            except Exception as e:
+            except (PyAirbyteInputError, requests.exceptions.RequestException) as e:
                 result.errors.append(
                     AutopilotAction(
                         rollout_id=rollout.rollout_id,
@@ -716,6 +1070,7 @@ def run_auto_promote(
                     )
                 )
             else:
+                finalized_rcs.add(rc_key)
                 result.actions.append(
                     AutopilotAction(
                         rollout_id=rollout.rollout_id,
@@ -729,25 +1084,170 @@ def run_auto_promote(
                     )
                 )
         else:
-            # --- Tier progression: start a new rollout for the next tier ---
-            tier_idx = (
-                TIER_ORDER.index(CustomerTier(current_tier))
-                if current_tier in [t.value for t in TIER_ORDER]
-                else len(TIER_ORDER) - 1
-            )
-            next_t = (
-                TIER_ORDER[tier_idx + 1]
-                if tier_idx + 1 < len(TIER_ORDER)
-                else CustomerTier.ALL
-            )
+            # --- Tier progression: scan forward for the next tier with actors --
+            # Rather than only considering the immediate next sequential tier,
+            # scan `TIER_ORDER` forward and start the first later tier that has
+            # eligible actors, skipping empty intermediate tiers (starting an
+            # empty tier would throw `ConnectorRolloutNotEnoughActorsProblem` and
+            # wedge it at `workflow_started`). If no later customer tier has
+            # actors, the next eligible action is GA promotion — already gated
+            # above by `autoPromoteStages`.
             step_pct = STRATEGY_STEP_MAP[strategy_key]
+            kind, next_t, next_estimate = _select_forward_tier(
+                actor_definition_id=rollout.actor_definition_id,
+                docker_repository=rollout.rc_docker_repository or "",
+                current_tier=current_tier,
+                action="promote",
+            )
 
-            # Deduplication guard: skip if a rollout for the next tier already
-            # exists in ANY active state (not just in_progress).  A prior
-            # promotion attempt may have created a rollout that is stuck in
-            # workflow_started; auto-advance will recover it.
+            if kind == "unavailable":
+                # A candidate tier's estimate couldn't be computed; defer rather
+                # than risk skipping a populated tier or wedging an empty one.
+                result.skipped.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="promote",
+                        success=False,
+                        message=(
+                            f"Skipped: eligibility estimate unavailable for "
+                            f"{next_t.value} — deferring promotion"
+                        ),
+                        tier=rollout.tier,
+                    )
+                )
+                continue
+
+            if kind == "ga":
+                # No later customer tier has eligible actors — promote the
+                # current, validated tier straight to GA.
+                if rc_key in finalized_rcs:
+                    result.skipped.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=False,
+                            message=(
+                                "Skipped: RC already finalized to GA this pass "
+                                "(sibling tier)"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                    continue
+
+                if dry_run:
+                    finalized_rcs.add(rc_key)
+                    result.actions.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=True,
+                            message=(
+                                f"Would finalize {current_tier} as GA (no later "
+                                f"tier with eligible actors). Health: {gate.reason}"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                    continue
+
+                logger.info(
+                    "auto-promote: no later tier has actors for %s (%s); "
+                    "finalizing current tier %s as GA",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    current_tier,
+                )
+                try:
+                    api_client.finalize_connector_rollout(
+                        docker_repository=rollout.rc_docker_repository or "",
+                        docker_image_tag=rc_version,
+                        actor_definition_id=rollout.actor_definition_id,
+                        rollout_id=rollout.rollout_id,
+                        updated_by=user_id,
+                        state="succeeded",
+                        config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                        client_id=auth.client_id,
+                        client_secret=auth.client_secret,
+                        bearer_token=auth.bearer_token,
+                    )
+                except (
+                    PyAirbyteInputError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    result.errors.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=False,
+                            message=(
+                                f"No later tier has actors but failed to "
+                                f"finalize {current_tier} as GA: {e}"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                else:
+                    finalized_rcs.add(rc_key)
+                    result.actions.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=True,
+                            message=(
+                                f"No later tier has eligible actors; finalized "
+                                f"{current_tier} as succeeded (promoted to GA)"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                continue
+
+            # kind == "start": `next_t` has eligible actors.
+            if next_estimate is not None and next_estimate.disposition == "warn":
+                logger.warning(
+                    "auto-promote: %s (%s) — next tier %s: %s",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    next_t,
+                    next_estimate.reason,
+                )
+                result.warnings.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="promote",
+                        success=True,
+                        message=(
+                            f"Proceeding to {next_t.value} despite low eligibility: "
+                            f"{next_estimate.reason}"
+                        ),
+                        tier=next_t.value,
+                    )
+                )
+
+            # Deduplication guard: skip if a rollout for the chosen tier already
+            # exists in ANY active state (not just in_progress). A prior pass may
+            # have started it; auto-advance will recover or complete it.
             next_tier_exists = any(
-                r.tier == next_t
+                r.tier == next_t.value
                 and r.actor_definition_id == rollout.actor_definition_id
                 and r.rc_docker_image_tag == rc_version
                 for r in rollouts
@@ -763,7 +1263,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Skipped: {next_t} rollout already exists "
+                            f"Skipped: {next_t.value} rollout already exists "
                             f"for {rollout.connector_name} {rc_version}"
                         ),
                         tier=rollout.tier,
@@ -781,7 +1281,7 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message=(
-                            f"Would promote {current_tier} -> {next_t} "
+                            f"Would promote {current_tier} -> {next_t.value} "
                             f"(start new rollout at {step_pct}%). "
                             f"Health: {gate.reason}"
                         ),
@@ -790,9 +1290,9 @@ def run_auto_promote(
                 )
                 continue
 
-            # Phase 1: Start a new rollout for the next tier. The platform
-            # creates a distinct rollout record tagged by tier, so both
-            # the current and new rollouts coexist as IN_PROGRESS.
+            # Start a new rollout for the chosen tier. The platform creates a
+            # distinct rollout record tagged by tier, so both the current and
+            # new rollouts coexist as IN_PROGRESS.
             try:
                 start_resp = api_client.start_connector_rollout(
                     docker_repository=rollout.rc_docker_repository or "",
@@ -815,7 +1315,7 @@ def run_auto_promote(
                         rc_version=rc_version,
                         action="promote",
                         success=False,
-                        message=(f"Failed to start {next_t} rollout: {e}"),
+                        message=(f"Failed to start {next_t.value} rollout: {e}"),
                         tier=rollout.tier,
                     )
                 )
@@ -832,12 +1332,142 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Started {next_t} rollout but response "
+                            f"Started {next_t.value} rollout but response "
                             f"missing rollout ID: {start_resp}"
                         ),
                         tier=rollout.tier,
                     )
                 )
+                continue
+
+            # Platform drift backstop: the forward scan already chose a tier
+            # with a positive *local* estimate, but the platform's own actor
+            # selection can differ. If the freshly-started tier actually has zero
+            # eligible actors, progressing it would throw
+            # `ConnectorRolloutNotEnoughActorsProblem` and wedge it at
+            # `workflow_started`. Cancel the empty rollout (retaining pins) and
+            # finalize the current, validated tier to GA instead.
+            next_tier_eligible: int | None = None
+            try:
+                next_sync_info = api_client.get_actor_sync_info(
+                    rollout_id=new_rollout_id,
+                    config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                    client_id=auth.client_id,
+                    client_secret=auth.client_secret,
+                    bearer_token=auth.bearer_token,
+                )
+                next_tier_eligible = count_eligible_or_pinned_actors(next_sync_info)
+            except (PyAirbyteInputError, requests.exceptions.RequestException) as e:
+                # If eligibility can't be determined (bad input or a network-level
+                # failure), fall through to the normal progress path rather than
+                # blocking promotion.
+                logger.warning(
+                    "auto-promote: could not fetch eligibility for new %s "
+                    "rollout %s: %s",
+                    next_t,
+                    new_rollout_id,
+                    e,
+                )
+
+            if next_tier_eligible == 0:
+                logger.info(
+                    "auto-promote: %s tier is empty for %s (0 eligible actors); "
+                    "canceling empty rollout %s and promoting current tier %s "
+                    "to GA",
+                    next_t,
+                    rollout.connector_name,
+                    new_rollout_id,
+                    current_tier,
+                )
+                cancel_failed = False
+                try:
+                    api_client.finalize_connector_rollout(
+                        docker_repository=rollout.rc_docker_repository or "",
+                        docker_image_tag=rc_version,
+                        actor_definition_id=rollout.actor_definition_id,
+                        rollout_id=new_rollout_id,
+                        updated_by=user_id,
+                        state="canceled",
+                        retain_pins_on_cancellation=True,
+                        config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                        client_id=auth.client_id,
+                        client_secret=auth.client_secret,
+                        bearer_token=auth.bearer_token,
+                    )
+                except (
+                    PyAirbyteInputError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    cancel_failed = True
+                    result.errors.append(
+                        AutopilotAction(
+                            rollout_id=new_rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=False,
+                            message=(
+                                f"{next_t.value} tier is empty (0 eligible actors) but "
+                                f"failed to cancel the empty rollout: {e}"
+                            ),
+                            tier=next_t.value,
+                        )
+                    )
+                if cancel_failed:
+                    continue
+
+                try:
+                    api_client.finalize_connector_rollout(
+                        docker_repository=rollout.rc_docker_repository or "",
+                        docker_image_tag=rc_version,
+                        actor_definition_id=rollout.actor_definition_id,
+                        rollout_id=rollout.rollout_id,
+                        updated_by=user_id,
+                        state="succeeded",
+                        config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                        client_id=auth.client_id,
+                        client_secret=auth.client_secret,
+                        bearer_token=auth.bearer_token,
+                    )
+                except (
+                    PyAirbyteInputError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    result.errors.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=False,
+                            message=(
+                                f"Canceled empty {next_t.value} rollout but failed to "
+                                f"finalize current tier {current_tier} as GA: {e}"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
+                else:
+                    finalized_rcs.add(rc_key)
+                    result.actions.append(
+                        AutopilotAction(
+                            rollout_id=rollout.rollout_id,
+                            actor_definition_id=rollout.actor_definition_id,
+                            connector_name=rollout.connector_name,
+                            rc_version=rc_version,
+                            action="promote",
+                            success=True,
+                            message=(
+                                f"Skipped empty {next_t.value} tier (0 eligible actors); "
+                                f"canceled empty rollout {new_rollout_id} "
+                                f"(pins retained) and finalized {current_tier} as "
+                                f"succeeded (promoted to GA)"
+                            ),
+                            tier=rollout.tier,
+                        )
+                    )
                 continue
 
             # Phase 2: Advance the new rollout to the strategy step percentage.
@@ -864,7 +1494,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Started {next_t} rollout ({new_rollout_id}) but "
+                            f"Started {next_t.value} rollout ({new_rollout_id}) but "
                             f"failed to set initial percentage: {e}"
                         ),
                         tier=next_t.value,
@@ -888,15 +1518,229 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message=(
-                            f"Promoted {current_tier} -> {next_t}: "
+                            f"Promoted {current_tier} -> {next_t.value}: "
                             f"started new rollout {new_rollout_id} at {step_pct}%"
                         ),
                         tier=next_t.value,
                     )
                 )
 
+    _reconcile_finalizing_rollouts(
+        finalizing=finalizing,
+        auth=auth,
+        user_id=user_id,
+        result=result,
+        dry_run=dry_run,
+    )
+
     logger.info("auto-promote: %s", result.summary)
     return result
+
+
+def _reconcile_finalizing_rollouts(
+    *,
+    finalizing: list[ConnectorRolloutRecord],
+    auth: ResolvedCloudAuth,
+    user_id: str,
+    result: AutopilotResult,
+    dry_run: bool,
+) -> None:
+    """Reconcile rollouts stuck in `finalizing` as part of auto-promote.
+
+    A finalize sets `finalizing`, dispatches the GitHub promote workflow, and
+    waits (via a Temporal `verifyDefaultVersion` poll) for the registry default
+    to flip to the GA version before recording the terminal transition. If that
+    Temporal run dies, the row stays `finalizing` forever even after GA is live.
+
+    For each rollout past `FINALIZING_GRACE_MINUTES`:
+
+    - **GA is already the registry default** → re-finalize (`succeeded`). A
+      fresh Temporal run sees the default already flipped and closes the row.
+      This is the safe, idempotent auto-heal (the faker/pokeapi case).
+    - **GA is not yet the default** → record a warning for human review rather
+      than auto-dispatching the promote workflow from the cron. The GA flip
+      hasn't happened, so re-finalizing risks superseding the rollout; the
+      Webapp's Re-drive Finalize control drives that remediation deliberately.
+
+    Rollouts within the grace window — or whose `updated_at` can't be parsed,
+    so the elapsed time can't be confirmed — are left alone (still settling).
+    """
+    now = datetime.now(tz=timezone.utc)
+    for rollout in finalizing:
+        rc_version = rollout.rc_docker_image_tag or "unknown"
+        updated_at = parse_db_timestamp(rollout.updated_at)
+        if updated_at is None:
+            # Fail closed: without a parseable timestamp we can't confirm the
+            # rollout is past the grace window, and re-finalizing prematurely
+            # could supersede a still-settling rollout. Flag for review instead.
+            result.warnings.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        "Stuck finalizing but updated_at is missing/unparseable; "
+                        "cannot confirm the grace window elapsed. Needs review."
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        elapsed_min = (now - updated_at).total_seconds() / 60
+        if elapsed_min < FINALIZING_GRACE_MINUTES:
+            result.skipped.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        f"Skipped: finalizing for {elapsed_min:.0f}m "
+                        f"(< {FINALIZING_GRACE_MINUTES}m grace)"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        try:
+            ga_version = Version(rc_version).base_version
+        except InvalidVersion:
+            result.warnings.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        f"Stuck finalizing but the RC tag ({rc_version}) is not a "
+                        f"parseable version; cannot verify the GA default. "
+                        f"Needs review."
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+        try:
+            registry_default = get_registry_default_version(rollout.actor_definition_id)
+            ga_is_default = registry_default is not None and Version(
+                registry_default
+            ) == Version(ga_version)
+        except (PyAirbyteInputError, InvalidVersion) as e:
+            result.warnings.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        f"Stuck finalizing but could not resolve the registry "
+                        f"default to verify GA {ga_version}: {e}. Needs review."
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        if not ga_is_default:
+            result.warnings.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        f"Stuck finalizing: GA {ga_version} is not the registry "
+                        f"default (default={registry_default}). Needs review — "
+                        f"re-drive the promote workflow via the Webapp"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        if dry_run:
+            result.actions.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=True,
+                    message=(
+                        f"Would re-finalize (GA {ga_version} already the registry "
+                        f"default) to close the stuck finalizing row"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        try:
+            api_client.finalize_connector_rollout(
+                docker_repository=rollout.rc_docker_repository or "",
+                docker_image_tag=rc_version,
+                actor_definition_id=rollout.actor_definition_id,
+                rollout_id=rollout.rollout_id,
+                updated_by=user_id,
+                state="succeeded",
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+        except (PyAirbyteInputError, requests.exceptions.RequestException) as e:
+            result.errors.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=False,
+                    message=(
+                        f"GA {ga_version} is the registry default but re-finalize "
+                        f"to close the stuck row failed: {e}"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+        else:
+            logger.info(
+                "auto-promote: re-finalized stuck rollout %s (%s, GA %s already "
+                "default) to close it",
+                rollout.rollout_id,
+                rollout.connector_name,
+                ga_version,
+            )
+            result.actions.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="reconcile-finalizing",
+                    success=True,
+                    message=(
+                        f"Re-finalized stuck finalizing rollout (GA {ga_version} "
+                        f"already the registry default) to close it as succeeded"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
 
 
 def _build_ci_run_url() -> str:
@@ -1334,10 +2178,10 @@ def run_auto_rollback_failed(
 
 
 # ---------------------------------------------------------------------------
-# Auto-supersede: cancel older rollouts when a newer RC exists
+# Auto-close: close rollouts that are no longer the connector's active candidate
 # ---------------------------------------------------------------------------
 
-_SUPERSEDE_ELIGIBLE_STATES = frozenset(
+_CLOSE_ELIGIBLE_STATES = frozenset(
     [
         "initialized",
         "workflow_started",
@@ -1345,7 +2189,7 @@ _SUPERSEDE_ELIGIBLE_STATES = frozenset(
         "paused",
     ]
 )
-"""Rollout states eligible for supersession (non-terminal, non-errored)."""
+"""Rollout states eligible for closing (non-terminal, non-errored)."""
 
 
 def _parse_rc_version(tag: str | None) -> Version | None:
@@ -1358,32 +2202,116 @@ def _parse_rc_version(tag: str | None) -> Version | None:
         return None
 
 
-def run_auto_supersede(
+def _rc_is_already_ga(
+    rollout: ConnectorRolloutRecord,
+    default_versions: dict[str, str | None],
+) -> bool:
+    """Return whether the rollout's RC version is already the registry GA default.
+
+    A rollout whose RC equals the connector's current registry default is
+    redundant: the version is already generally available, so no progressive
+    rollout is needed. `default_versions` caches one registry lookup per
+    `actor_definition_id` across the run.
+    """
+    parsed_rc = _parse_rc_version(rollout.rc_docker_image_tag)
+    if parsed_rc is None:
+        return False
+    adid = rollout.actor_definition_id
+    if adid not in default_versions:
+        try:
+            default_versions[adid] = get_registry_default_version(adid)
+        except (PyAirbyteInputError, InvalidVersion):
+            default_versions[adid] = None
+    default = default_versions[adid]
+    if default is None:
+        return False
+    try:
+        return Version(default) == Version(parsed_rc.base_version)
+    except InvalidVersion:
+        return False
+
+
+def _parse_candidate_versions(candidates: list[str]) -> list[Version]:
+    """Parse advertised candidate keys into `Version`s, dropping unparseable ones."""
+    parsed: list[Version] = []
+    for candidate in candidates:
+        try:
+            parsed.append(Version(candidate))
+        except InvalidVersion:
+            continue
+    return parsed
+
+
+def _rc_matches_highest_candidate(
+    rollout: ConnectorRolloutRecord,
+    candidates: list[str],
+) -> bool:
+    """Return whether the rollout's RC is the highest advertised release candidate.
+
+    `candidates` is the connector's `releases.releaseCandidates` version list
+    from the compiled registry. The highest-priority candidate is the max
+    semver among them. Returns `False` when `candidates` is empty (nothing is
+    advertised, so no RC can match) or when the RC / candidates are unparseable.
+
+    Matching is prerelease-aware to avoid two failure modes: when the rollout tag
+    carries an explicit prerelease suffix (e.g. `0.2.5-rc.2`), it must match the
+    highest candidate *exactly*, so a newer prerelease of the same base
+    (`0.2.5-rc.3`) correctly supersedes it; when the rollout tag has no suffix
+    (e.g. `0.2.5`), base versions are compared so a registry key that carries a
+    suffix (`0.2.5-rc.1`) still matches its own base and is not wrongly closed.
+    """
+    parsed_rc = _parse_rc_version(rollout.rc_docker_image_tag)
+    if parsed_rc is None:
+        return False
+    parsed_candidates = _parse_candidate_versions(candidates)
+    if not parsed_candidates:
+        return False
+    highest = max(parsed_candidates)
+    if parsed_rc.pre is not None:
+        return parsed_rc == highest
+    return Version(parsed_rc.base_version) == Version(highest.base_version)
+
+
+def run_auto_close(
     *,
     auth: ResolvedCloudAuth,
     connector: str | None = None,
     dry_run: bool = False,
 ) -> AutopilotResult:
-    """Cancel older rollouts when a newer RC rollout exists for the same connector.
+    """Close rollouts a connector no longer needs, so only its active candidate remains.
 
-    When a connector has multiple active rollouts at different RC versions,
-    the older rollouts are superseded: canceled with `retain_pins_on_cancellation=True`
-    so that pinned actors remain on the old version until the new rollout
-    progressively advances to include them.
+    Three conditions close a rollout (all with `retain_pins_on_cancellation=True`,
+    so pinned actors are left undisturbed — pin cleanup is a separate step and
+    auto-close never removes pins):
 
-    The new rollout is left untouched (it will be started by `run_auto_start`).
+    - **Case A — superseded by a newer RC** (`superseded_by_newer_rc`): when a
+      connector has active rollouts at multiple RC versions, the lower versions
+      are closed so only the newest RC keeps advancing.
+    - **Case B — RC already GA** (`already_ga`): when a rollout's RC is already
+      the connector's registry default version, the version is generally
+      available and the rollout is closed. This clears the zombie rollout the
+      platform re-creates for an already-promoted version.
+    - **Else — not the highest advertised candidate** (`not_highest_candidate`):
+      the registry-driven catch-all. If a rollout survives A and B but its RC is
+      not the highest-priority candidate in the connector's compiled
+      `releaseCandidates` (including the case where none is advertised), it is
+      obsolete and closed. This absorbs race-condition leftovers.
+
+    All three fail closed: when the registry can't be resolved for a connector,
+    its rollout is left untouched. Only rollouts whose connector has
+    `defaultRolloutMode == autopilot` are acted on.
     """
-    result = AutopilotResult(command="auto-supersede", dry_run=dry_run)
+    result = AutopilotResult(command="auto-close", dry_run=dry_run)
 
     raw_rows = query_connector_rollouts(active_only=True, limit=None)
     rollouts = [ConnectorRolloutRecord.from_db_row(r) for r in raw_rows]
     rollouts = filter_rollouts_by_connector(rollouts, connector)
 
-    # Only consider rollouts in states eligible for supersession
-    eligible = [r for r in rollouts if r.state in _SUPERSEDE_ELIGIBLE_STATES]
+    # Only consider rollouts in states eligible for closing
+    eligible = [r for r in rollouts if r.state in _CLOSE_ELIGIBLE_STATES]
 
     if not eligible:
-        logger.info("auto-supersede: No eligible rollouts found.")
+        logger.info("auto-close: No eligible rollouts found.")
         return result
 
     # Group by actor_definition_id
@@ -1391,8 +2319,11 @@ def run_auto_supersede(
     for rollout in eligible:
         by_connector[rollout.actor_definition_id].append(rollout)
 
-    # Find connectors with multiple active rollouts at different versions
-    to_supersede: list[ConnectorRolloutRecord] = []
+    # `(rollout, reason)` pairs; `reason` drives the log/close message.
+    to_cancel: list[tuple[ConnectorRolloutRecord, str]] = []
+    queued_ids: set[str] = set()
+
+    # Case A: superseded by a newer active RC for the same connector.
     for _actor_def_id, connector_rollouts in by_connector.items():
         # Parse and sort by version (highest first)
         versioned: list[tuple[Version, ConnectorRolloutRecord]] = []
@@ -1409,22 +2340,57 @@ def run_auto_supersede(
         # Only supersede rollouts at strictly lower versions
         for ver, older_rollout in versioned[1:]:
             if ver < highest_version:
-                to_supersede.append(older_rollout)
+                to_cancel.append((older_rollout, "newer_rc"))
+                queued_ids.add(older_rollout.rollout_id)
 
-    if not to_supersede:
-        logger.info("auto-supersede: No superseded rollouts detected.")
+    # Case B: RC already the registry GA default (rollout no longer needed).
+    default_versions: dict[str, str | None] = {}
+    for rollout in eligible:
+        if rollout.rollout_id in queued_ids:
+            continue
+        if _rc_is_already_ga(rollout, default_versions):
+            to_cancel.append((rollout, "already_ga"))
+            queued_ids.add(rollout.rollout_id)
+
+    # Else (catch-all): not the highest advertised release candidate. Fails
+    # closed — an unresolved registry (`None`) or an unparseable RC tag leaves
+    # the rollout untouched, since neither can be reasoned about safely.
+    candidates_cache: dict[str, list[str] | None] = {}
+    for rollout in eligible:
+        if rollout.rollout_id in queued_ids:
+            continue
+        if _parse_rc_version(rollout.rc_docker_image_tag) is None:
+            continue
+        adid = rollout.actor_definition_id
+        if adid not in candidates_cache:
+            try:
+                candidates_cache[adid] = get_registry_release_candidates(adid)
+            except PyAirbyteInputError:
+                candidates_cache[adid] = None
+        candidates = candidates_cache[adid]
+        if candidates is None:
+            continue
+        if candidates and not _parse_candidate_versions(candidates):
+            # Candidates are advertised but none parse as semver: the highest
+            # candidate can't be determined, so fail closed and leave it alone.
+            # (An empty list is different — nothing is advertised, so close.)
+            continue
+        if not _rc_matches_highest_candidate(rollout, candidates):
+            to_cancel.append((rollout, "not_highest_candidate"))
+            queued_ids.add(rollout.rollout_id)
+
+    if not to_cancel:
+        logger.info("auto-close: No obsolete rollouts detected.")
         return result
 
-    user_id = get_admin_user_id(
-        client_id=auth.client_id,
-        client_secret=auth.client_secret,
-        bearer_token=auth.bearer_token,
-    )
+    # Resolved lazily below (only when a real closure runs) so a dry run stays
+    # preview-only and does not depend on admin auth.
+    user_id: str | None = None
 
-    for rollout in to_supersede:
+    for rollout, reason in to_cancel:
         rc_version = rollout.rc_docker_image_tag or "unknown"
 
-        # Gate: only auto-supersede rollouts with autopilot mode enabled
+        # Gate: only auto-close rollouts with autopilot mode enabled
         rollout_config = get_connector_rollout_config(
             rollout.actor_definition_id, rc_version=rc_version
         )
@@ -1435,13 +2401,41 @@ def run_auto_supersede(
                     actor_definition_id=rollout.actor_definition_id,
                     connector_name=rollout.connector_name,
                     rc_version=rc_version,
-                    action="supersede",
+                    action="close",
                     success=False,
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
                     tier=rollout.tier,
                 )
             )
             continue
+
+        if reason == "already_ga":
+            reason_msg = f"RC {rc_version} is already the registry GA default"
+            failed_reason = "already_ga"
+            error_msg = (
+                "AutoPilot auto-close: RC already GA (registry default); "
+                "closing obsolete rollout"
+            )
+        elif reason == "not_highest_candidate":
+            reason_msg = (
+                f"RC {rc_version} is not the highest advertised release "
+                f"candidate for {rollout.connector_name}"
+            )
+            failed_reason = "not_highest_candidate"
+            error_msg = (
+                "AutoPilot auto-close: RC is not the highest registry release "
+                "candidate; closing obsolete rollout"
+            )
+        else:
+            reason_msg = (
+                f"superseded: a newer RC exists for {rollout.connector_name}, "
+                f"so this RC {rc_version} rollout is obsolete"
+            )
+            failed_reason = "superseded_by_newer_rc"
+            error_msg = (
+                "AutoPilot auto-close: newer RC version published; "
+                "retaining pins for progressive migration"
+            )
 
         if dry_run:
             result.actions.append(
@@ -1450,16 +2444,20 @@ def run_auto_supersede(
                     actor_definition_id=rollout.actor_definition_id,
                     connector_name=rollout.connector_name,
                     rc_version=rc_version,
-                    action="supersede",
+                    action="close",
                     success=True,
-                    message=(
-                        f"Would cancel superseded rollout (retain pins) "
-                        f"for {rollout.connector_name}@{rc_version}"
-                    ),
+                    message=f"Would close obsolete rollout (retain pins): {reason_msg}",
                     tier=rollout.tier,
                 )
             )
             continue
+
+        if user_id is None:
+            user_id = get_admin_user_id(
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
 
         try:
             api_client.finalize_connector_rollout(
@@ -1473,23 +2471,20 @@ def run_auto_supersede(
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
                 bearer_token=auth.bearer_token,
-                error_msg=(
-                    "AutoPilot auto-supersede: newer RC version published; "
-                    "retaining pins for progressive migration"
-                ),
-                failed_reason="superseded_by_newer_rc",
+                error_msg=error_msg,
+                failed_reason=failed_reason,
                 retain_pins_on_cancellation=True,
             )
-        except Exception as e:
+        except (PyAirbyteInputError, requests.exceptions.RequestException) as e:
             result.errors.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
                     actor_definition_id=rollout.actor_definition_id,
                     connector_name=rollout.connector_name,
                     rc_version=rc_version,
-                    action="supersede",
+                    action="close",
                     success=False,
-                    message=f"Failed to supersede: {e}",
+                    message=f"Failed to close obsolete rollout: {e}",
                     tier=rollout.tier,
                 )
             )
@@ -1500,15 +2495,12 @@ def run_auto_supersede(
                     actor_definition_id=rollout.actor_definition_id,
                     connector_name=rollout.connector_name,
                     rc_version=rc_version,
-                    action="supersede",
+                    action="close",
                     success=True,
-                    message=(
-                        f"Canceled superseded rollout (pins retained) "
-                        f"for {rollout.connector_name}@{rc_version}"
-                    ),
+                    message=f"Closed obsolete rollout (pins retained): {reason_msg}",
                     tier=rollout.tier,
                 )
             )
 
-    logger.info("auto-supersede: %s", result.summary)
+    logger.info("auto-close: %s", result.summary)
     return result

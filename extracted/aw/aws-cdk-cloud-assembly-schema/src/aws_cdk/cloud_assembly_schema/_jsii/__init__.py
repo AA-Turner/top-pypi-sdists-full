@@ -16,9 +16,9 @@ from jsii._type_checking import check_type
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/cloud-assembly-schema",
-    "54.12.0",
+    "54.13.0",
     __name__[0:-6],
-    "cloud-assembly-schema@54.12.0.jsii.tgz",
+    "cloud-assembly-schema@54.13.0.jsii.tgz",
 )
 
 __all__ = [

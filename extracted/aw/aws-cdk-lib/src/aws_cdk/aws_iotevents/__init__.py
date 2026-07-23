@@ -30,6 +30,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -43,49 +45,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_iotevents import (
-    AlarmModelReference as _AlarmModelReference_2b426d5b,
-    DetectorModelReference as _DetectorModelReference_972f68ba,
-    IAlarmModelRef as _IAlarmModelRef_aa095d2c,
-    IDetectorModelRef as _IDetectorModelRef_06d464f3,
-    IInputRef as _IInputRef_62cda116,
-    InputReference as _InputReference_db573395,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_iotevents as _aws_iotevents_949c0131
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_iotevents_949c0131 = _LazyImport("aws_cdk.interfaces.aws_iotevents")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAlarmModelRef_aa095d2c, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotevents_949c0131.IAlarmModelRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAlarmModel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotevents.CfnAlarmModel",
 ):
@@ -248,15 +239,15 @@ class CfnAlarmModel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        alarm_rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        alarm_rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        alarm_capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        alarm_event_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmEventActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_event_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmEventActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         alarm_model_description: typing.Optional[builtins.str] = None,
         alarm_model_name: typing.Optional[builtins.str] = None,
         key: typing.Optional[builtins.str] = None,
         severity: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTEvents::AlarmModel``.
 
@@ -273,7 +264,7 @@ class CfnAlarmModel(
         :param tags: A list of key-value pairs that contain metadata for the alarm model. The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* . You can create up to 50 tags for one alarm model.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef7f48b87ae58ab2d16bfb25fbcc61ae8753eb0c9a5b0016eec37a52e79b7a7d)
+            type_hints = cached_type_hints(_typecheckingstub__ef7f48b87ae58ab2d16bfb25fbcc61ae8753eb0c9a5b0016eec37a52e79b7a7d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAlarmModelProps(
@@ -292,12 +283,15 @@ class CfnAlarmModel(
 
     @jsii.member(jsii_name="arnForAlarmModel")
     @builtins.classmethod
-    def arn_for_alarm_model(cls, resource: "_IAlarmModelRef_aa095d2c") -> builtins.str:
+    def arn_for_alarm_model(
+        cls,
+        resource: "_aws_iotevents_949c0131.IAlarmModelRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f1ed3ba9d52fbe77628ba0d4ae396b1e743cd77ad8834265ce45146b0f21e11)
+            type_hints = cached_type_hints(_typecheckingstub__5f1ed3ba9d52fbe77628ba0d4ae396b1e743cd77ad8834265ce45146b0f21e11)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlarmModel", [resource]))
 
@@ -308,7 +302,7 @@ class CfnAlarmModel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         alarm_model_name: builtins.str,
-    ) -> "_IAlarmModelRef_aa095d2c":
+    ) -> "_aws_iotevents_949c0131.IAlarmModelRef":
         '''Creates a new IAlarmModelRef from a alarmModelName.
 
         :param scope: -
@@ -316,11 +310,11 @@ class CfnAlarmModel(
         :param alarm_model_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08129328e28cb00ce8f3d88ce6a01d350ff74f935ed83c2a1b71d2c0cb21a69d)
+            type_hints = cached_type_hints(_typecheckingstub__08129328e28cb00ce8f3d88ce6a01d350ff74f935ed83c2a1b71d2c0cb21a69d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
-        return typing.cast("_IAlarmModelRef_aa095d2c", jsii.sinvoke(cls, "fromAlarmModelName", [scope, id, alarm_model_name]))
+        return typing.cast("_aws_iotevents_949c0131.IAlarmModelRef", jsii.sinvoke(cls, "fromAlarmModelName", [scope, id, alarm_model_name]))
 
     @jsii.member(jsii_name="isCfnAlarmModel")
     @builtins.classmethod
@@ -330,18 +324,18 @@ class CfnAlarmModel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf6cd0eba97f02e764c0f465137c9ffb1f555b785301fd764fc2d713dad9368)
+            type_hints = cached_type_hints(_typecheckingstub__abf6cd0eba97f02e764c0f465137c9ffb1f555b785301fd764fc2d713dad9368)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlarmModel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29efb49b22ff313d9ee99306ea7ca4bf99648d4ec281ef880884544374a005e5)
+            type_hints = cached_type_hints(_typecheckingstub__29efb49b22ff313d9ee99306ea7ca4bf99648d4ec281ef880884544374a005e5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -354,7 +348,7 @@ class CfnAlarmModel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05b98ff8d3be84f09516f43c45c6be0ea4a8c084c6b193e977f2739cd0e26d54)
+            type_hints = cached_type_hints(_typecheckingstub__05b98ff8d3be84f09516f43c45c6be0ea4a8c084c6b193e977f2739cd0e26d54)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -366,9 +360,9 @@ class CfnAlarmModel(
 
     @builtins.property
     @jsii.member(jsii_name="alarmModelRef")
-    def alarm_model_ref(self) -> "_AlarmModelReference_2b426d5b":
+    def alarm_model_ref(self) -> "_aws_iotevents_949c0131.AlarmModelReference":
         '''A reference to a AlarmModel resource.'''
-        return typing.cast("_AlarmModelReference_2b426d5b", jsii.get(self, "alarmModelRef"))
+        return typing.cast("_aws_iotevents_949c0131.AlarmModelReference", jsii.get(self, "alarmModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -382,25 +376,25 @@ class CfnAlarmModel(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="alarmRule")
     def alarm_rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmRuleProperty"]:
         '''Defines when your alarm is invoked.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmRuleProperty"], jsii.get(self, "alarmRule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmRuleProperty"], jsii.get(self, "alarmRule"))
 
     @alarm_rule.setter
     def alarm_rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmRuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmRuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36c0e05874a966c4cf11e13423d2cf0b8945f4dafb03af1bb65b04fe1f904e1c)
+            type_hints = cached_type_hints(_typecheckingstub__36c0e05874a966c4cf11e13423d2cf0b8945f4dafb03af1bb65b04fe1f904e1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
 
@@ -413,7 +407,7 @@ class CfnAlarmModel(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__667c04eef9049300d49a54887f048621c4279fc765df4962bf383ab77e428d5c)
+            type_hints = cached_type_hints(_typecheckingstub__667c04eef9049300d49a54887f048621c4279fc765df4962bf383ab77e428d5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -421,17 +415,17 @@ class CfnAlarmModel(
     @jsii.member(jsii_name="alarmCapabilities")
     def alarm_capabilities(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmCapabilitiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmCapabilitiesProperty"]]:
         '''Contains the configuration information of alarm state changes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmCapabilitiesProperty"]], jsii.get(self, "alarmCapabilities"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmCapabilitiesProperty"]], jsii.get(self, "alarmCapabilities"))
 
     @alarm_capabilities.setter
     def alarm_capabilities(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmCapabilitiesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmCapabilitiesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d85be71c4d51b50fc44306a17518e6e2409c133128f31c26dcdf967abb3e0ec7)
+            type_hints = cached_type_hints(_typecheckingstub__d85be71c4d51b50fc44306a17518e6e2409c133128f31c26dcdf967abb3e0ec7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmCapabilities", value) # pyright: ignore[reportArgumentType]
 
@@ -439,17 +433,17 @@ class CfnAlarmModel(
     @jsii.member(jsii_name="alarmEventActions")
     def alarm_event_actions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmEventActionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmEventActionsProperty"]]:
         '''Contains information about one or more alarm actions.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmEventActionsProperty"]], jsii.get(self, "alarmEventActions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmEventActionsProperty"]], jsii.get(self, "alarmEventActions"))
 
     @alarm_event_actions.setter
     def alarm_event_actions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmEventActionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmEventActionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8227f73f350bd144d86be0ccf98762b44508b027f4ffb7aef8e68eeaafd91ecd)
+            type_hints = cached_type_hints(_typecheckingstub__8227f73f350bd144d86be0ccf98762b44508b027f4ffb7aef8e68eeaafd91ecd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmEventActions", value) # pyright: ignore[reportArgumentType]
 
@@ -462,7 +456,7 @@ class CfnAlarmModel(
     @alarm_model_description.setter
     def alarm_model_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b540895073c6ca51a688168fe27abe8c0bc5df06473c9a8e026f6b4a5c1881f)
+            type_hints = cached_type_hints(_typecheckingstub__0b540895073c6ca51a688168fe27abe8c0bc5df06473c9a8e026f6b4a5c1881f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmModelDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -475,7 +469,7 @@ class CfnAlarmModel(
     @alarm_model_name.setter
     def alarm_model_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2520aa074d1ed7d38b09cd7416997eb16982c8c7dc7a4340e5fd1178569cc01a)
+            type_hints = cached_type_hints(_typecheckingstub__2520aa074d1ed7d38b09cd7416997eb16982c8c7dc7a4340e5fd1178569cc01a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmModelName", value) # pyright: ignore[reportArgumentType]
 
@@ -488,7 +482,7 @@ class CfnAlarmModel(
     @key.setter
     def key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f86ab353b386a192172ab818d729e6584ca5b5df31c6e550f1e7986ea1ce3026)
+            type_hints = cached_type_hints(_typecheckingstub__f86ab353b386a192172ab818d729e6584ca5b5df31c6e550f1e7986ea1ce3026)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
 
@@ -501,20 +495,23 @@ class CfnAlarmModel(
     @severity.setter
     def severity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc04b5b9d376105aa5bf470e04873d2255ed6412dbf222f2dbc18a074c52ed49)
+            type_hints = cached_type_hints(_typecheckingstub__cc04b5b9d376105aa5bf470e04873d2255ed6412dbf222f2dbc18a074c52ed49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "severity", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs that contain metadata for the alarm model.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__877eb82e1ea1e65eaa71c65808ed46b8a70c4cbff438aa7f010439bd4b409dcb)
+            type_hints = cached_type_hints(_typecheckingstub__877eb82e1ea1e65eaa71c65808ed46b8a70c4cbff438aa7f010439bd4b409dcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -527,7 +524,7 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specifies whether to get notified for alarm state changes.
 
@@ -547,7 +544,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6cf300e297184ec092d4441ac920d284db156ae6cb1ff9f0dde90b454a739267)
+                type_hints = cached_type_hints(_typecheckingstub__6cf300e297184ec092d4441ac920d284db156ae6cb1ff9f0dde90b454a739267)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -556,7 +553,7 @@ class CfnAlarmModel(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The value must be ``TRUE`` or ``FALSE`` .
 
             If ``TRUE`` , you receive a notification when the alarm state changes. You must choose to acknowledge the notification before the alarm state can return to ``NORMAL`` . If ``FALSE`` , you won't receive notifications. The alarm automatically changes to the ``NORMAL`` state when the input property value returns to the specified range.
@@ -564,7 +561,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-acknowledgeflow.html#cfn-iotevents-alarmmodel-acknowledgeflow-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -596,15 +593,15 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            dynamo_db: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.DynamoDBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynamo_d_bv2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.DynamoDBv2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
-            firehose: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.IotEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_site_wise: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.IotSiteWiseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_topic_publish: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.IotTopicPublishProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lambda_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.LambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.SnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.SqsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamo_db: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.DynamoDBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamo_d_bv2: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.DynamoDBv2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.IotEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_site_wise: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.IotSiteWiseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_topic_publish: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.IotTopicPublishProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.LambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.SnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.SqsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies one of the following actions to receive notifications when the alarm state changes.
 
@@ -736,7 +733,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ab691bc61d6c876d3c04cfc2eaaae2a144273102c7fd7065a4db407ff0bac487)
+                type_hints = cached_type_hints(_typecheckingstub__ab691bc61d6c876d3c04cfc2eaaae2a144273102c7fd7065a4db407ff0bac487)
                 check_type(argname="argument dynamo_db", value=dynamo_db, expected_type=type_hints["dynamo_db"])
                 check_type(argname="argument dynamo_d_bv2", value=dynamo_d_bv2, expected_type=type_hints["dynamo_d_bv2"])
                 check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
@@ -769,7 +766,7 @@ class CfnAlarmModel(
         @builtins.property
         def dynamo_db(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.DynamoDBProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.DynamoDBProperty"]]:
             '''Defines an action to write to the Amazon DynamoDB table that you created.
 
             The standard action payload contains all the information about the detector model instance and the event that triggered the action. You can customize the `payload <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Payload.html>`_ . One column of the DynamoDB table receives all attribute-value pairs in the payload that you specify.
@@ -798,12 +795,12 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-dynamodb
             '''
             result = self._values.get("dynamo_db")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.DynamoDBProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.DynamoDBProperty"]], result)
 
         @builtins.property
         def dynamo_d_bv2(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.DynamoDBv2Property"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.DynamoDBv2Property"]]:
             '''Defines an action to write to the Amazon DynamoDB table that you created.
 
             The default action payload contains all the information about the detector model instance and the event that triggered the action. You can customize the `payload <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Payload.html>`_ . A separate column of the DynamoDB table receives one attribute-value pair in the payload that you specify.
@@ -832,34 +829,34 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-dynamodbv2
             '''
             result = self._values.get("dynamo_d_bv2")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.DynamoDBv2Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.DynamoDBv2Property"]], result)
 
         @builtins.property
         def firehose(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.FirehoseProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.FirehoseProperty"]]:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-firehose
             '''
             result = self._values.get("firehose")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.FirehoseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.FirehoseProperty"]], result)
 
         @builtins.property
         def iot_events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotEventsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotEventsProperty"]]:
             '''Sends an AWS IoT Events input, passing in information about the detector model instance and the event that triggered the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-iotevents
             '''
             result = self._values.get("iot_events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotEventsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotEventsProperty"]], result)
 
         @builtins.property
         def iot_site_wise(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotSiteWiseProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotSiteWiseProperty"]]:
             '''Sends information about the detector model instance and the event that triggered the action to a specified asset property in AWS IoT SiteWise .
 
             You must use expressions for all parameters in ``IotSiteWiseAction`` . The expressions accept literals, operators, functions, references, and substitutions templates.
@@ -880,51 +877,51 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-iotsitewise
             '''
             result = self._values.get("iot_site_wise")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotSiteWiseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotSiteWiseProperty"]], result)
 
         @builtins.property
         def iot_topic_publish(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotTopicPublishProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotTopicPublishProperty"]]:
             '''Information required to publish the MQTT message through the AWS IoT message broker.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-iottopicpublish
             '''
             result = self._values.get("iot_topic_publish")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.IotTopicPublishProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.IotTopicPublishProperty"]], result)
 
         @builtins.property
         def lambda_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.LambdaProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.LambdaProperty"]]:
             '''Calls a Lambda function, passing in information about the detector model instance and the event that triggered the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-lambda
             '''
             result = self._values.get("lambda_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.LambdaProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.LambdaProperty"]], result)
 
         @builtins.property
         def sns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SnsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SnsProperty"]]:
             '''Information required to publish the Amazon SNS message.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-sns
             '''
             result = self._values.get("sns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SnsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SnsProperty"]], result)
 
         @builtins.property
         def sqs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SqsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SqsProperty"]]:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon SQS queue.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmaction.html#cfn-iotevents-alarmmodel-alarmaction-sqs
             '''
             result = self._values.get("sqs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SqsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SqsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -949,8 +946,8 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            acknowledge_flow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AcknowledgeFlowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            initialization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.InitializationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            acknowledge_flow: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AcknowledgeFlowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            initialization_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.InitializationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the configuration information of alarm state changes.
 
@@ -976,7 +973,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8cfea2cb5d08826e83e6dc83754015780aeb22a1b8774e0f8e35b1d0931455b0)
+                type_hints = cached_type_hints(_typecheckingstub__8cfea2cb5d08826e83e6dc83754015780aeb22a1b8774e0f8e35b1d0931455b0)
                 check_type(argname="argument acknowledge_flow", value=acknowledge_flow, expected_type=type_hints["acknowledge_flow"])
                 check_type(argname="argument initialization_configuration", value=initialization_configuration, expected_type=type_hints["initialization_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -988,18 +985,18 @@ class CfnAlarmModel(
         @builtins.property
         def acknowledge_flow(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AcknowledgeFlowProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AcknowledgeFlowProperty"]]:
             '''Specifies whether to get notified for alarm state changes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmcapabilities.html#cfn-iotevents-alarmmodel-alarmcapabilities-acknowledgeflow
             '''
             result = self._values.get("acknowledge_flow")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AcknowledgeFlowProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AcknowledgeFlowProperty"]], result)
 
         @builtins.property
         def initialization_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.InitializationConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.InitializationConfigurationProperty"]]:
             '''Specifies the default alarm state.
 
             The configuration applies to all alarms that were created based on this alarm model.
@@ -1007,7 +1004,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmcapabilities.html#cfn-iotevents-alarmmodel-alarmcapabilities-initializationconfiguration
             '''
             result = self._values.get("initialization_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.InitializationConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.InitializationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1029,7 +1026,7 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            alarm_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            alarm_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about one or more alarm actions.
 
@@ -1155,7 +1152,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a6ca07dd10460007b069e0fb33a778c8623f821779a57a99e1b7583f9708fb0b)
+                type_hints = cached_type_hints(_typecheckingstub__a6ca07dd10460007b069e0fb33a778c8623f821779a57a99e1b7583f9708fb0b)
                 check_type(argname="argument alarm_actions", value=alarm_actions, expected_type=type_hints["alarm_actions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if alarm_actions is not None:
@@ -1164,13 +1161,13 @@ class CfnAlarmModel(
         @builtins.property
         def alarm_actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmActionProperty"]]]]:
             '''Specifies one or more supported actions to receive notifications when the alarm state changes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmeventactions.html#cfn-iotevents-alarmmodel-alarmeventactions-alarmactions
             '''
             result = self._values.get("alarm_actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmActionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1192,7 +1189,7 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            simple_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.SimpleRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            simple_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.SimpleRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines when your alarm is invoked.
 
@@ -1216,7 +1213,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ecdb897257f52e6f2dc0b5e8aa04adf9936f47ba53e3a04c2de77b97b3007a0e)
+                type_hints = cached_type_hints(_typecheckingstub__ecdb897257f52e6f2dc0b5e8aa04adf9936f47ba53e3a04c2de77b97b3007a0e)
                 check_type(argname="argument simple_rule", value=simple_rule, expected_type=type_hints["simple_rule"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if simple_rule is not None:
@@ -1225,13 +1222,13 @@ class CfnAlarmModel(
         @builtins.property
         def simple_rule(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SimpleRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SimpleRuleProperty"]]:
             '''A rule that compares an input property value to a threshold value with a comparison operator.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-alarmrule.html#cfn-iotevents-alarmmodel-alarmrule-simplerule
             '''
             result = self._values.get("simple_rule")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.SimpleRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.SimpleRuleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1294,7 +1291,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d0faa4e9328819a8804a815994faf7d70d0f09054014c6e47dd3b002c546003d)
+                type_hints = cached_type_hints(_typecheckingstub__d0faa4e9328819a8804a815994faf7d70d0f09054014c6e47dd3b002c546003d)
                 check_type(argname="argument time_in_seconds", value=time_in_seconds, expected_type=type_hints["time_in_seconds"])
                 check_type(argname="argument offset_in_nanos", value=offset_in_nanos, expected_type=type_hints["offset_in_nanos"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1350,9 +1347,9 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AssetPropertyVariantProperty", typing.Dict[builtins.str, typing.Any]]],
+            value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AssetPropertyVariantProperty", typing.Dict[builtins.str, typing.Any]]],
             quality: typing.Optional[builtins.str] = None,
-            timestamp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AssetPropertyTimestampProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timestamp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AssetPropertyTimestampProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains value information. For more information, see `AssetPropertyValue <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_AssetPropertyValue.html>`_ in the *AWS IoT SiteWise API Reference* .
 
@@ -1396,7 +1393,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__708234624899e9edfd2c801c216045db009dc0332806973b92a2972970d186a8)
+                type_hints = cached_type_hints(_typecheckingstub__708234624899e9edfd2c801c216045db009dc0332806973b92a2972970d186a8)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument quality", value=quality, expected_type=type_hints["quality"])
                 check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
@@ -1411,14 +1408,14 @@ class CfnAlarmModel(
         @builtins.property
         def value(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyVariantProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyVariantProperty"]:
             '''The value to send to an asset property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-assetpropertyvalue.html#cfn-iotevents-alarmmodel-assetpropertyvalue-value
             '''
             result = self._values.get("value")
             assert result is not None, "Required property 'value' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyVariantProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyVariantProperty"], result)
 
         @builtins.property
         def quality(self) -> typing.Optional[builtins.str]:
@@ -1434,7 +1431,7 @@ class CfnAlarmModel(
         @builtins.property
         def timestamp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyTimestampProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyTimestampProperty"]]:
             '''The timestamp associated with the asset property value.
 
             The default is the current event time.
@@ -1442,7 +1439,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-assetpropertyvalue.html#cfn-iotevents-alarmmodel-assetpropertyvalue-timestamp
             '''
             result = self._values.get("timestamp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyTimestampProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyTimestampProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1515,7 +1512,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4caad62d2d9efb76f9ed85eeb63e97b3d0a85ede80a6e1541ef55198968a2ed3)
+                type_hints = cached_type_hints(_typecheckingstub__4caad62d2d9efb76f9ed85eeb63e97b3d0a85ede80a6e1541ef55198968a2ed3)
                 check_type(argname="argument boolean_value", value=boolean_value, expected_type=type_hints["boolean_value"])
                 check_type(argname="argument double_value", value=double_value, expected_type=type_hints["double_value"])
                 check_type(argname="argument integer_value", value=integer_value, expected_type=type_hints["integer_value"])
@@ -1610,7 +1607,7 @@ class CfnAlarmModel(
             table_name: builtins.str,
             hash_key_type: typing.Optional[builtins.str] = None,
             operation: typing.Optional[builtins.str] = None,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             payload_field: typing.Optional[builtins.str] = None,
             range_key_field: typing.Optional[builtins.str] = None,
             range_key_type: typing.Optional[builtins.str] = None,
@@ -1680,7 +1677,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5817f24cc0ee11012a378de58760f08626fd63cf7b576191502d7ed8d10b2ddf)
+                type_hints = cached_type_hints(_typecheckingstub__5817f24cc0ee11012a378de58760f08626fd63cf7b576191502d7ed8d10b2ddf)
                 check_type(argname="argument hash_key_field", value=hash_key_field, expected_type=type_hints["hash_key_field"])
                 check_type(argname="argument hash_key_value", value=hash_key_value, expected_type=type_hints["hash_key_value"])
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -1777,7 +1774,7 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''Information needed to configure the payload.
 
             By default, AWS IoT Events generates a standard payload in JSON for any action. This action payload contains all attribute-value pairs that have the information about the detector model instance and the event triggered the action. To configure the action payload, you can use ``contentExpression`` .
@@ -1785,7 +1782,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-dynamodb.html#cfn-iotevents-alarmmodel-dynamodb-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         @builtins.property
         def payload_field(self) -> typing.Optional[builtins.str]:
@@ -1853,7 +1850,7 @@ class CfnAlarmModel(
             self,
             *,
             table_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines an action to write to the Amazon DynamoDB table that you created.
 
@@ -1903,7 +1900,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__991f55661aeeabe2f112b3b55306f540afbaca55eac19af02f6046a1039bf0a0)
+                type_hints = cached_type_hints(_typecheckingstub__991f55661aeeabe2f112b3b55306f540afbaca55eac19af02f6046a1039bf0a0)
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1925,7 +1922,7 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''Information needed to configure the payload.
 
             By default, AWS IoT Events generates a standard payload in JSON for any action. This action payload contains all attribute-value pairs that have the information about the detector model instance and the event triggered the action. To configure the action payload, you can use ``contentExpression`` .
@@ -1933,7 +1930,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-dynamodbv2.html#cfn-iotevents-alarmmodel-dynamodbv2-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1960,7 +1957,7 @@ class CfnAlarmModel(
             self,
             *,
             delivery_stream_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             separator: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon Kinesis Data Firehose delivery stream.
@@ -1990,7 +1987,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6aaead57fb4199647f0274fe275fcc660e36d121f8abbc3801a7154bd92c0923)
+                type_hints = cached_type_hints(_typecheckingstub__6aaead57fb4199647f0274fe275fcc660e36d121f8abbc3801a7154bd92c0923)
                 check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
                 check_type(argname="argument separator", value=separator, expected_type=type_hints["separator"])
@@ -2015,13 +2012,13 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an Amazon Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-firehose.html#cfn-iotevents-alarmmodel-firehose-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         @builtins.property
         def separator(self) -> typing.Optional[builtins.str]:
@@ -2054,7 +2051,7 @@ class CfnAlarmModel(
         def __init__(
             self,
             *,
-            disabled_on_initialization: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            disabled_on_initialization: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Specifies the default alarm state.
 
@@ -2076,7 +2073,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f006a26469daccaeec8fbdc6b6b96590027aa831f6565f8f5bf0f295a81a2c95)
+                type_hints = cached_type_hints(_typecheckingstub__f006a26469daccaeec8fbdc6b6b96590027aa831f6565f8f5bf0f295a81a2c95)
                 check_type(argname="argument disabled_on_initialization", value=disabled_on_initialization, expected_type=type_hints["disabled_on_initialization"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "disabled_on_initialization": disabled_on_initialization,
@@ -2085,7 +2082,7 @@ class CfnAlarmModel(
         @builtins.property
         def disabled_on_initialization(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''The value must be ``TRUE`` or ``FALSE`` .
 
             If ``FALSE`` , all alarm instances created based on the alarm model are activated. The default value is ``TRUE`` .
@@ -2094,7 +2091,7 @@ class CfnAlarmModel(
             '''
             result = self._values.get("disabled_on_initialization")
             assert result is not None, "Required property 'disabled_on_initialization' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2117,7 +2114,7 @@ class CfnAlarmModel(
             self,
             *,
             input_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Sends an AWS IoT Events input, passing in information about the detector model instance and the event that triggered the action.
 
@@ -2144,7 +2141,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1159713658f7035984daf8d6dbfaf0175f9cab27b66825c395143c8befb7e719)
+                type_hints = cached_type_hints(_typecheckingstub__1159713658f7035984daf8d6dbfaf0175f9cab27b66825c395143c8befb7e719)
                 check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2166,13 +2163,13 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an AWS IoT Events input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-iotevents.html#cfn-iotevents-alarmmodel-iotevents-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2204,7 +2201,7 @@ class CfnAlarmModel(
             entry_id: typing.Optional[builtins.str] = None,
             property_alias: typing.Optional[builtins.str] = None,
             property_id: typing.Optional[builtins.str] = None,
-            property_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AssetPropertyValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            property_value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AssetPropertyValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Sends information about the detector model instance and the event that triggered the action to a specified asset property in AWS IoT SiteWise .
 
@@ -2263,7 +2260,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11694da853291108b198c9c98d58e346ab22cadc06b186dc6b980bb04d7751df)
+                type_hints = cached_type_hints(_typecheckingstub__11694da853291108b198c9c98d58e346ab22cadc06b186dc6b980bb04d7751df)
                 check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
                 check_type(argname="argument entry_id", value=entry_id, expected_type=type_hints["entry_id"])
                 check_type(argname="argument property_alias", value=property_alias, expected_type=type_hints["property_alias"])
@@ -2322,7 +2319,7 @@ class CfnAlarmModel(
         @builtins.property
         def property_value(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyValueProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyValueProperty"]]:
             '''The value to send to the asset property.
 
             This value contains timestamp, quality, and value (TQV) information.
@@ -2330,7 +2327,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-iotsitewise.html#cfn-iotevents-alarmmodel-iotsitewise-propertyvalue
             '''
             result = self._values.get("property_value")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AssetPropertyValueProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AssetPropertyValueProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2353,7 +2350,7 @@ class CfnAlarmModel(
             self,
             *,
             mqtt_topic: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information required to publish the MQTT message through the AWS IoT message broker.
 
@@ -2380,7 +2377,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd8797ce19f302d10090f97f9aa3b5045c89cb01d164ff9de6b87da2d7a6e25f)
+                type_hints = cached_type_hints(_typecheckingstub__fd8797ce19f302d10090f97f9aa3b5045c89cb01d164ff9de6b87da2d7a6e25f)
                 check_type(argname="argument mqtt_topic", value=mqtt_topic, expected_type=type_hints["mqtt_topic"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2404,13 +2401,13 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you publish a message to an AWS IoT Core topic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-iottopicpublish.html#cfn-iotevents-alarmmodel-iottopicpublish-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2433,7 +2430,7 @@ class CfnAlarmModel(
             self,
             *,
             function_arn: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Calls a Lambda function, passing in information about the detector model instance and the event that triggered the action.
 
@@ -2460,7 +2457,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a975c271127a1fe7c32f180fab5bb983fa81f890ee87d4cdd1dad0c6d4e60469)
+                type_hints = cached_type_hints(_typecheckingstub__a975c271127a1fe7c32f180fab5bb983fa81f890ee87d4cdd1dad0c6d4e60469)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2482,13 +2479,13 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to a Lambda function.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-lambda.html#cfn-iotevents-alarmmodel-lambda-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2535,7 +2532,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d18e90a4d474eeb87d607384857f4c582b60a985502109bd17120c0af558d368)
+                type_hints = cached_type_hints(_typecheckingstub__d18e90a4d474eeb87d607384857f4c582b60a985502109bd17120c0af558d368)
                 check_type(argname="argument content_expression", value=content_expression, expected_type=type_hints["content_expression"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2615,7 +2612,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__90136387b310cc21ca49a113bb812022359fee99174291ce490e1b433ef6b419)
+                type_hints = cached_type_hints(_typecheckingstub__90136387b310cc21ca49a113bb812022359fee99174291ce490e1b433ef6b419)
                 check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
                 check_type(argname="argument input_property", value=input_property, expected_type=type_hints["input_property"])
                 check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
@@ -2680,7 +2677,7 @@ class CfnAlarmModel(
             self,
             *,
             target_arn: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information required to publish the Amazon SNS message.
 
@@ -2707,7 +2704,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce9abb929fe2014828de206b11bb74d7efb0ce4f363c5b1fe4df056896e7de68)
+                type_hints = cached_type_hints(_typecheckingstub__ce9abb929fe2014828de206b11bb74d7efb0ce4f363c5b1fe4df056896e7de68)
                 check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2729,13 +2726,13 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message as an Amazon SNS push notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-sns.html#cfn-iotevents-alarmmodel-sns-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2762,8 +2759,8 @@ class CfnAlarmModel(
             self,
             *,
             queue_url: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            use_base64: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            use_base64: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon SQS queue.
 
@@ -2792,7 +2789,7 @@ class CfnAlarmModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f53bd000fd0e8e8506df9f9b2dcacf36f61e120354ff39131baa459b8dfef188)
+                type_hints = cached_type_hints(_typecheckingstub__f53bd000fd0e8e8506df9f9b2dcacf36f61e120354ff39131baa459b8dfef188)
                 check_type(argname="argument queue_url", value=queue_url, expected_type=type_hints["queue_url"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
                 check_type(argname="argument use_base64", value=use_base64, expected_type=type_hints["use_base64"])
@@ -2817,18 +2814,18 @@ class CfnAlarmModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an Amazon SQS queue.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-sqs.html#cfn-iotevents-alarmmodel-sqs-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.PayloadProperty"]], result)
 
         @builtins.property
         def use_base64(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Set this to TRUE if you want the data to be base-64 encoded before it is written to the queue.
 
             Otherwise, set this to FALSE.
@@ -2836,7 +2833,7 @@ class CfnAlarmModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-alarmmodel-sqs.html#cfn-iotevents-alarmmodel-sqs-usebase64
             '''
             result = self._values.get("use_base64")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2869,15 +2866,15 @@ class CfnAlarmModelProps:
     def __init__(
         self,
         *,
-        alarm_rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        alarm_rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmRuleProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
-        alarm_capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        alarm_event_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmModel.AlarmEventActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_event_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmModel.AlarmEventActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         alarm_model_description: typing.Optional[builtins.str] = None,
         alarm_model_name: typing.Optional[builtins.str] = None,
         key: typing.Optional[builtins.str] = None,
         severity: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAlarmModel``.
 
@@ -3040,7 +3037,7 @@ class CfnAlarmModelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8)
+            type_hints = cached_type_hints(_typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8)
             check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument alarm_capabilities", value=alarm_capabilities, expected_type=type_hints["alarm_capabilities"])
@@ -3072,14 +3069,14 @@ class CfnAlarmModelProps:
     @builtins.property
     def alarm_rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmRuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmRuleProperty"]:
         '''Defines when your alarm is invoked.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmrule
         '''
         result = self._values.get("alarm_rule")
         assert result is not None, "Required property 'alarm_rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmRuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmRuleProperty"], result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
@@ -3096,24 +3093,24 @@ class CfnAlarmModelProps:
     @builtins.property
     def alarm_capabilities(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmCapabilitiesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmCapabilitiesProperty"]]:
         '''Contains the configuration information of alarm state changes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmcapabilities
         '''
         result = self._values.get("alarm_capabilities")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmCapabilitiesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmCapabilitiesProperty"]], result)
 
     @builtins.property
     def alarm_event_actions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmEventActionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmEventActionsProperty"]]:
         '''Contains information about one or more alarm actions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmeventactions
         '''
         result = self._values.get("alarm_event_actions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmModel.AlarmEventActionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmModel.AlarmEventActionsProperty"]], result)
 
     @builtins.property
     def alarm_model_description(self) -> typing.Optional[builtins.str]:
@@ -3154,7 +3151,7 @@ class CfnAlarmModelProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs that contain metadata for the alarm model.
 
         The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* .
@@ -3164,7 +3161,7 @@ class CfnAlarmModelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3178,9 +3175,9 @@ class CfnAlarmModelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDetectorModelRef_06d464f3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotevents_949c0131.IDetectorModelRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDetectorModel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotevents.CfnDetectorModel",
 ):
@@ -3211,13 +3208,13 @@ class CfnDetectorModel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        detector_model_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.DetectorModelDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        detector_model_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.DetectorModelDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         detector_model_description: typing.Optional[builtins.str] = None,
         detector_model_name: typing.Optional[builtins.str] = None,
         evaluation_method: typing.Optional[builtins.str] = None,
         key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTEvents::DetectorModel``.
 
@@ -3232,7 +3229,7 @@ class CfnDetectorModel(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7801b6324e5f272a708fd3542c09e1cc61e7621f542ce11a4795b2717b8f7f3a)
+            type_hints = cached_type_hints(_typecheckingstub__7801b6324e5f272a708fd3542c09e1cc61e7621f542ce11a4795b2717b8f7f3a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDetectorModelProps(
@@ -3251,13 +3248,13 @@ class CfnDetectorModel(
     @builtins.classmethod
     def arn_for_detector_model(
         cls,
-        resource: "_IDetectorModelRef_06d464f3",
+        resource: "_aws_iotevents_949c0131.IDetectorModelRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33348d55e11eaefd1c7cc825fc1db475c77a3850d73ca2ed00f46f5a9be20d95)
+            type_hints = cached_type_hints(_typecheckingstub__33348d55e11eaefd1c7cc825fc1db475c77a3850d73ca2ed00f46f5a9be20d95)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDetectorModel", [resource]))
 
@@ -3268,7 +3265,7 @@ class CfnDetectorModel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         detector_model_name: builtins.str,
-    ) -> "_IDetectorModelRef_06d464f3":
+    ) -> "_aws_iotevents_949c0131.IDetectorModelRef":
         '''Creates a new IDetectorModelRef from a detectorModelName.
 
         :param scope: -
@@ -3276,11 +3273,11 @@ class CfnDetectorModel(
         :param detector_model_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04cc6f160860cf8d535ff9aaf7f302530f50cadf01201747547313644bde84e7)
+            type_hints = cached_type_hints(_typecheckingstub__04cc6f160860cf8d535ff9aaf7f302530f50cadf01201747547313644bde84e7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
-        return typing.cast("_IDetectorModelRef_06d464f3", jsii.sinvoke(cls, "fromDetectorModelName", [scope, id, detector_model_name]))
+        return typing.cast("_aws_iotevents_949c0131.IDetectorModelRef", jsii.sinvoke(cls, "fromDetectorModelName", [scope, id, detector_model_name]))
 
     @jsii.member(jsii_name="isCfnDetectorModel")
     @builtins.classmethod
@@ -3290,18 +3287,18 @@ class CfnDetectorModel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0119628e78d79891b009cfc59207ab277e17e9f6fd8d0fc2f8bd262596ca9d52)
+            type_hints = cached_type_hints(_typecheckingstub__0119628e78d79891b009cfc59207ab277e17e9f6fd8d0fc2f8bd262596ca9d52)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDetectorModel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29f2e3393710755e327caeb1124191f98f1ffdfa48556729447af0457b842077)
+            type_hints = cached_type_hints(_typecheckingstub__29f2e3393710755e327caeb1124191f98f1ffdfa48556729447af0457b842077)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3314,7 +3311,7 @@ class CfnDetectorModel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9223278334ea0b572f1758d19c1e4bcc3469b9041fea558d47a8c0c09cdbf578)
+            type_hints = cached_type_hints(_typecheckingstub__9223278334ea0b572f1758d19c1e4bcc3469b9041fea558d47a8c0c09cdbf578)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3336,31 +3333,31 @@ class CfnDetectorModel(
 
     @builtins.property
     @jsii.member(jsii_name="detectorModelRef")
-    def detector_model_ref(self) -> "_DetectorModelReference_972f68ba":
+    def detector_model_ref(self) -> "_aws_iotevents_949c0131.DetectorModelReference":
         '''A reference to a DetectorModel resource.'''
-        return typing.cast("_DetectorModelReference_972f68ba", jsii.get(self, "detectorModelRef"))
+        return typing.cast("_aws_iotevents_949c0131.DetectorModelReference", jsii.get(self, "detectorModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="detectorModelDefinition")
     def detector_model_definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DetectorModelDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DetectorModelDefinitionProperty"]:
         '''Information that defines how a detector operates.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DetectorModelDefinitionProperty"], jsii.get(self, "detectorModelDefinition"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DetectorModelDefinitionProperty"], jsii.get(self, "detectorModelDefinition"))
 
     @detector_model_definition.setter
     def detector_model_definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DetectorModelDefinitionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DetectorModelDefinitionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63791e6db81942e4097ff9f1b03dce0b5618f92376af9187df3403f25fe75d85)
+            type_hints = cached_type_hints(_typecheckingstub__63791e6db81942e4097ff9f1b03dce0b5618f92376af9187df3403f25fe75d85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "detectorModelDefinition", value) # pyright: ignore[reportArgumentType]
 
@@ -3373,7 +3370,7 @@ class CfnDetectorModel(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea88e939b3cea49f4e92a8fa44670ef9976e22c5a0fb5fe78ac052fd14c5dab0)
+            type_hints = cached_type_hints(_typecheckingstub__ea88e939b3cea49f4e92a8fa44670ef9976e22c5a0fb5fe78ac052fd14c5dab0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3386,7 +3383,7 @@ class CfnDetectorModel(
     @detector_model_description.setter
     def detector_model_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eee7f26e62967552ad2a22246ac4aa020ed80878cef3e44ceb4849bba312eda)
+            type_hints = cached_type_hints(_typecheckingstub__7eee7f26e62967552ad2a22246ac4aa020ed80878cef3e44ceb4849bba312eda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "detectorModelDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -3399,7 +3396,7 @@ class CfnDetectorModel(
     @detector_model_name.setter
     def detector_model_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4faf59137fbafe31260e949107d4c02fc4239abc15c840bc619336d54bf866e)
+            type_hints = cached_type_hints(_typecheckingstub__d4faf59137fbafe31260e949107d4c02fc4239abc15c840bc619336d54bf866e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "detectorModelName", value) # pyright: ignore[reportArgumentType]
 
@@ -3412,7 +3409,7 @@ class CfnDetectorModel(
     @evaluation_method.setter
     def evaluation_method(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb0b24d2480d69d447d4a28a886f18008b5a68a52c7e66b5764230e251def06d)
+            type_hints = cached_type_hints(_typecheckingstub__fb0b24d2480d69d447d4a28a886f18008b5a68a52c7e66b5764230e251def06d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluationMethod", value) # pyright: ignore[reportArgumentType]
 
@@ -3425,20 +3422,23 @@ class CfnDetectorModel(
     @key.setter
     def key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d0b60cb750a8707e4533e77383c39c786579957920ad5474c000e7a4565e4f4)
+            type_hints = cached_type_hints(_typecheckingstub__1d0b60cb750a8707e4533e77383c39c786579957920ad5474c000e7a4565e4f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0a32c9ce5c2628faeace1b70ec3577ac67b86fb20a6cdea89790127622b2feb)
+            type_hints = cached_type_hints(_typecheckingstub__e0a32c9ce5c2628faeace1b70ec3577ac67b86fb20a6cdea89790127622b2feb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3465,19 +3465,19 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            clear_timer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.ClearTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynamo_db: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.DynamoDBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynamo_d_bv2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.DynamoDBv2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
-            firehose: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.IotEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_site_wise: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.IotSiteWiseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iot_topic_publish: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.IotTopicPublishProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lambda_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.LambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            reset_timer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.ResetTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            set_timer: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.SetTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            set_variable: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.SetVariableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.SnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.SqsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            clear_timer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.ClearTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamo_db: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.DynamoDBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynamo_d_bv2: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.DynamoDBv2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.IotEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_site_wise: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.IotSiteWiseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iot_topic_publish: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.IotTopicPublishProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.LambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            reset_timer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.ResetTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            set_timer: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.SetTimerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            set_variable: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.SetVariableProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.SnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.SqsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An action to be performed when the ``condition`` is TRUE.
 
@@ -3632,7 +3632,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__997f21492a6bca00169c7708a8d2827cc3198fda198345353c9092e56e7792c1)
+                type_hints = cached_type_hints(_typecheckingstub__997f21492a6bca00169c7708a8d2827cc3198fda198345353c9092e56e7792c1)
                 check_type(argname="argument clear_timer", value=clear_timer, expected_type=type_hints["clear_timer"])
                 check_type(argname="argument dynamo_db", value=dynamo_db, expected_type=type_hints["dynamo_db"])
                 check_type(argname="argument dynamo_d_bv2", value=dynamo_d_bv2, expected_type=type_hints["dynamo_d_bv2"])
@@ -3677,18 +3677,18 @@ class CfnDetectorModel(
         @builtins.property
         def clear_timer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ClearTimerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ClearTimerProperty"]]:
             '''Information needed to clear the timer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-cleartimer
             '''
             result = self._values.get("clear_timer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ClearTimerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ClearTimerProperty"]], result)
 
         @builtins.property
         def dynamo_db(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DynamoDBProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DynamoDBProperty"]]:
             '''Writes to the DynamoDB table that you created.
 
             The default action payload contains all attribute-value pairs that have the information about the detector model instance and the event that triggered the action. You can customize the `payload <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Payload.html>`_ . One column of the DynamoDB table receives all attribute-value pairs in the payload that you specify. For more information, see `Actions <https://docs.aws.amazon.com/iotevents/latest/developerguide/iotevents-event-actions.html>`_ in *AWS IoT Events Developer Guide* .
@@ -3696,12 +3696,12 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-dynamodb
             '''
             result = self._values.get("dynamo_db")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DynamoDBProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DynamoDBProperty"]], result)
 
         @builtins.property
         def dynamo_d_bv2(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DynamoDBv2Property"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DynamoDBv2Property"]]:
             '''Writes to the DynamoDB table that you created.
 
             The default action payload contains all attribute-value pairs that have the information about the detector model instance and the event that triggered the action. You can customize the `payload <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Payload.html>`_ . A separate column of the DynamoDB table receives one attribute-value pair in the payload that you specify. For more information, see `Actions <https://docs.aws.amazon.com/iotevents/latest/developerguide/iotevents-event-actions.html>`_ in *AWS IoT Events Developer Guide* .
@@ -3709,117 +3709,117 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-dynamodbv2
             '''
             result = self._values.get("dynamo_d_bv2")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DynamoDBv2Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DynamoDBv2Property"]], result)
 
         @builtins.property
         def firehose(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.FirehoseProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.FirehoseProperty"]]:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon Kinesis Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-firehose
             '''
             result = self._values.get("firehose")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.FirehoseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.FirehoseProperty"]], result)
 
         @builtins.property
         def iot_events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotEventsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotEventsProperty"]]:
             '''Sends AWS IoT Events input, which passes information about the detector model instance and the event that triggered the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-iotevents
             '''
             result = self._values.get("iot_events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotEventsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotEventsProperty"]], result)
 
         @builtins.property
         def iot_site_wise(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotSiteWiseProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotSiteWiseProperty"]]:
             '''Sends information about the detector model instance and the event that triggered the action to an asset property in AWS IoT SiteWise .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-iotsitewise
             '''
             result = self._values.get("iot_site_wise")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotSiteWiseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotSiteWiseProperty"]], result)
 
         @builtins.property
         def iot_topic_publish(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotTopicPublishProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotTopicPublishProperty"]]:
             '''Publishes an MQTT message with the given topic to the AWS IoT message broker.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-iottopicpublish
             '''
             result = self._values.get("iot_topic_publish")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.IotTopicPublishProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.IotTopicPublishProperty"]], result)
 
         @builtins.property
         def lambda_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.LambdaProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.LambdaProperty"]]:
             '''Calls a Lambda function, passing in information about the detector model instance and the event that triggered the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-lambda
             '''
             result = self._values.get("lambda_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.LambdaProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.LambdaProperty"]], result)
 
         @builtins.property
         def reset_timer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ResetTimerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ResetTimerProperty"]]:
             '''Information needed to reset the timer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-resettimer
             '''
             result = self._values.get("reset_timer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ResetTimerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ResetTimerProperty"]], result)
 
         @builtins.property
         def set_timer(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SetTimerProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SetTimerProperty"]]:
             '''Information needed to set the timer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-settimer
             '''
             result = self._values.get("set_timer")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SetTimerProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SetTimerProperty"]], result)
 
         @builtins.property
         def set_variable(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SetVariableProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SetVariableProperty"]]:
             '''Sets a variable to a specified value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-setvariable
             '''
             result = self._values.get("set_variable")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SetVariableProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SetVariableProperty"]], result)
 
         @builtins.property
         def sns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SnsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SnsProperty"]]:
             '''Sends an Amazon SNS message.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-sns
             '''
             result = self._values.get("sns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SnsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SnsProperty"]], result)
 
         @builtins.property
         def sqs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SqsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SqsProperty"]]:
             '''Sends an Amazon SNS message.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-action.html#cfn-iotevents-detectormodel-action-sqs
             '''
             result = self._values.get("sqs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.SqsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.SqsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3882,7 +3882,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d22f888073f939f0cd7ee06c54bc7d6cd951574ecee193dfed4f0e55492753e8)
+                type_hints = cached_type_hints(_typecheckingstub__d22f888073f939f0cd7ee06c54bc7d6cd951574ecee193dfed4f0e55492753e8)
                 check_type(argname="argument time_in_seconds", value=time_in_seconds, expected_type=type_hints["time_in_seconds"])
                 check_type(argname="argument offset_in_nanos", value=offset_in_nanos, expected_type=type_hints["offset_in_nanos"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3938,9 +3938,9 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.AssetPropertyVariantProperty", typing.Dict[builtins.str, typing.Any]]],
+            value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.AssetPropertyVariantProperty", typing.Dict[builtins.str, typing.Any]]],
             quality: typing.Optional[builtins.str] = None,
-            timestamp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.AssetPropertyTimestampProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timestamp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.AssetPropertyTimestampProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains value information. For more information, see `AssetPropertyValue <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_AssetPropertyValue.html>`_ in the *AWS IoT SiteWise API Reference* .
 
@@ -3984,7 +3984,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__49e6195d5246f0fc1891e1c7b239860858968a5d4b50a8581dcfcb07f3c93068)
+                type_hints = cached_type_hints(_typecheckingstub__49e6195d5246f0fc1891e1c7b239860858968a5d4b50a8581dcfcb07f3c93068)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument quality", value=quality, expected_type=type_hints["quality"])
                 check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
@@ -3999,14 +3999,14 @@ class CfnDetectorModel(
         @builtins.property
         def value(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyVariantProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyVariantProperty"]:
             '''The value to send to an asset property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-assetpropertyvalue.html#cfn-iotevents-detectormodel-assetpropertyvalue-value
             '''
             result = self._values.get("value")
             assert result is not None, "Required property 'value' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyVariantProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyVariantProperty"], result)
 
         @builtins.property
         def quality(self) -> typing.Optional[builtins.str]:
@@ -4022,7 +4022,7 @@ class CfnDetectorModel(
         @builtins.property
         def timestamp(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyTimestampProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyTimestampProperty"]]:
             '''The timestamp associated with the asset property value.
 
             The default is the current event time.
@@ -4030,7 +4030,7 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-assetpropertyvalue.html#cfn-iotevents-detectormodel-assetpropertyvalue-timestamp
             '''
             result = self._values.get("timestamp")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyTimestampProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyTimestampProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4103,7 +4103,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b8b56c1e6c67193acb9830ebc279e1835d5ff3fcd79e142ad47466b5a297929e)
+                type_hints = cached_type_hints(_typecheckingstub__b8b56c1e6c67193acb9830ebc279e1835d5ff3fcd79e142ad47466b5a297929e)
                 check_type(argname="argument boolean_value", value=boolean_value, expected_type=type_hints["boolean_value"])
                 check_type(argname="argument double_value", value=double_value, expected_type=type_hints["double_value"])
                 check_type(argname="argument integer_value", value=integer_value, expected_type=type_hints["integer_value"])
@@ -4198,7 +4198,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7875bb21ca70e3332dc63f20cd6808a6f0476f0bc6e28fd0b03d0a058575500b)
+                type_hints = cached_type_hints(_typecheckingstub__7875bb21ca70e3332dc63f20cd6808a6f0476f0bc6e28fd0b03d0a058575500b)
                 check_type(argname="argument timer_name", value=timer_name, expected_type=type_hints["timer_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "timer_name": timer_name,
@@ -4235,7 +4235,7 @@ class CfnDetectorModel(
             self,
             *,
             initial_state_name: builtins.str,
-            states: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.StateProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            states: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.StateProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Information that defines how a detector operates.
 
@@ -4250,7 +4250,7 @@ class CfnDetectorModel(
                 
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e1657c0e6d089d8b904914d9cdca2ff5841ab5284a6cbd6261e40e2c2fa9cb0)
+                type_hints = cached_type_hints(_typecheckingstub__6e1657c0e6d089d8b904914d9cdca2ff5841ab5284a6cbd6261e40e2c2fa9cb0)
                 check_type(argname="argument initial_state_name", value=initial_state_name, expected_type=type_hints["initial_state_name"])
                 check_type(argname="argument states", value=states, expected_type=type_hints["states"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4271,14 +4271,14 @@ class CfnDetectorModel(
         @builtins.property
         def states(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.StateProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.StateProperty"]]]:
             '''Information about the states of the detector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-detectormodeldefinition.html#cfn-iotevents-detectormodel-detectormodeldefinition-states
             '''
             result = self._values.get("states")
             assert result is not None, "Required property 'states' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.StateProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.StateProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4316,7 +4316,7 @@ class CfnDetectorModel(
             table_name: builtins.str,
             hash_key_type: typing.Optional[builtins.str] = None,
             operation: typing.Optional[builtins.str] = None,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             payload_field: typing.Optional[builtins.str] = None,
             range_key_field: typing.Optional[builtins.str] = None,
             range_key_type: typing.Optional[builtins.str] = None,
@@ -4386,7 +4386,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f20bd32cd2bf50da45c673c93066de3531126c3c989ecc1c664070a98ae2fde)
+                type_hints = cached_type_hints(_typecheckingstub__8f20bd32cd2bf50da45c673c93066de3531126c3c989ecc1c664070a98ae2fde)
                 check_type(argname="argument hash_key_field", value=hash_key_field, expected_type=type_hints["hash_key_field"])
                 check_type(argname="argument hash_key_value", value=hash_key_value, expected_type=type_hints["hash_key_value"])
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -4483,7 +4483,7 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''Information needed to configure the payload.
 
             By default, AWS IoT Events generates a standard payload in JSON for any action. This action payload contains all attribute-value pairs that have the information about the detector model instance and the event triggered the action. To configure the action payload, you can use ``contentExpression`` .
@@ -4491,7 +4491,7 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-dynamodb.html#cfn-iotevents-detectormodel-dynamodb-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         @builtins.property
         def payload_field(self) -> typing.Optional[builtins.str]:
@@ -4559,7 +4559,7 @@ class CfnDetectorModel(
             self,
             *,
             table_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines an action to write to the Amazon DynamoDB table that you created.
 
@@ -4609,7 +4609,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce549d899ae554a89d320f79add62caba2098d6b98c681aa6ff7410626c6a145)
+                type_hints = cached_type_hints(_typecheckingstub__ce549d899ae554a89d320f79add62caba2098d6b98c681aa6ff7410626c6a145)
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4631,7 +4631,7 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''Information needed to configure the payload.
 
             By default, AWS IoT Events generates a standard payload in JSON for any action. This action payload contains all attribute-value pairs that have the information about the detector model instance and the event triggered the action. To configure the action payload, you can use ``contentExpression`` .
@@ -4639,7 +4639,7 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-dynamodbv2.html#cfn-iotevents-detectormodel-dynamodbv2-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4666,7 +4666,7 @@ class CfnDetectorModel(
             self,
             *,
             event_name: builtins.str,
-            actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             condition: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the ``actions`` to be performed when the ``condition`` evaluates to TRUE.
@@ -4818,7 +4818,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__717bd99991f8e8e6bcb7616faed1722ead70bd8378234a60048d02751c39bb8f)
+                type_hints = cached_type_hints(_typecheckingstub__717bd99991f8e8e6bcb7616faed1722ead70bd8378234a60048d02751c39bb8f)
                 check_type(argname="argument event_name", value=event_name, expected_type=type_hints["event_name"])
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -4843,13 +4843,13 @@ class CfnDetectorModel(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ActionProperty"]]]]:
             '''The actions to be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-event.html#cfn-iotevents-detectormodel-event-actions
             '''
             result = self._values.get("actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ActionProperty"]]]], result)
 
         @builtins.property
         def condition(self) -> typing.Optional[builtins.str]:
@@ -4887,7 +4887,7 @@ class CfnDetectorModel(
             self,
             *,
             delivery_stream_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             separator: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon Kinesis Data Firehose delivery stream.
@@ -4917,7 +4917,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff798f3ccc562e611abbd96aff8a343e927e8d0151d6debb2cdde0aa825102c5)
+                type_hints = cached_type_hints(_typecheckingstub__ff798f3ccc562e611abbd96aff8a343e927e8d0151d6debb2cdde0aa825102c5)
                 check_type(argname="argument delivery_stream_name", value=delivery_stream_name, expected_type=type_hints["delivery_stream_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
                 check_type(argname="argument separator", value=separator, expected_type=type_hints["separator"])
@@ -4942,13 +4942,13 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an Amazon Data Firehose delivery stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-firehose.html#cfn-iotevents-detectormodel-firehose-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         @builtins.property
         def separator(self) -> typing.Optional[builtins.str]:
@@ -4982,7 +4982,7 @@ class CfnDetectorModel(
             self,
             *,
             input_name: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Sends an AWS IoT Events input, passing in information about the detector model instance and the event that triggered the action.
 
@@ -5009,7 +5009,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39ebee23e3171868800d30327b2934e00faad4113cfed4549950bece31b8156b)
+                type_hints = cached_type_hints(_typecheckingstub__39ebee23e3171868800d30327b2934e00faad4113cfed4549950bece31b8156b)
                 check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5031,13 +5031,13 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an AWS IoT Events input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-iotevents.html#cfn-iotevents-detectormodel-iotevents-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5065,7 +5065,7 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            property_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.AssetPropertyValueProperty", typing.Dict[builtins.str, typing.Any]]],
+            property_value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.AssetPropertyValueProperty", typing.Dict[builtins.str, typing.Any]]],
             asset_id: typing.Optional[builtins.str] = None,
             entry_id: typing.Optional[builtins.str] = None,
             property_alias: typing.Optional[builtins.str] = None,
@@ -5130,7 +5130,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__297b1140450b226c15a66b0e140cd227d66d7d0506dd90d971a67e98e9a1da19)
+                type_hints = cached_type_hints(_typecheckingstub__297b1140450b226c15a66b0e140cd227d66d7d0506dd90d971a67e98e9a1da19)
                 check_type(argname="argument property_value", value=property_value, expected_type=type_hints["property_value"])
                 check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
                 check_type(argname="argument entry_id", value=entry_id, expected_type=type_hints["entry_id"])
@@ -5151,7 +5151,7 @@ class CfnDetectorModel(
         @builtins.property
         def property_value(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyValueProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyValueProperty"]:
             '''The value to send to the asset property.
 
             This value contains timestamp, quality, and value (TQV) information.
@@ -5160,7 +5160,7 @@ class CfnDetectorModel(
             '''
             result = self._values.get("property_value")
             assert result is not None, "Required property 'property_value' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.AssetPropertyValueProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.AssetPropertyValueProperty"], result)
 
         @builtins.property
         def asset_id(self) -> typing.Optional[builtins.str]:
@@ -5221,7 +5221,7 @@ class CfnDetectorModel(
             self,
             *,
             mqtt_topic: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information required to publish the MQTT message through the AWS IoT message broker.
 
@@ -5248,7 +5248,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e9a560fbb56587b6f32e68c81fe2d3de4fde7ce4fb0967fd5f984981abf33e32)
+                type_hints = cached_type_hints(_typecheckingstub__e9a560fbb56587b6f32e68c81fe2d3de4fde7ce4fb0967fd5f984981abf33e32)
                 check_type(argname="argument mqtt_topic", value=mqtt_topic, expected_type=type_hints["mqtt_topic"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5272,13 +5272,13 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you publish a message to an AWS IoT Core topic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-iottopicpublish.html#cfn-iotevents-detectormodel-iottopicpublish-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5301,7 +5301,7 @@ class CfnDetectorModel(
             self,
             *,
             function_arn: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Calls a Lambda function, passing in information about the detector model instance and the event that triggered the action.
 
@@ -5328,7 +5328,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24efb01bfc6091499688a9ae496c6a60549dc83dd01e864646eaf8bf7add6359)
+                type_hints = cached_type_hints(_typecheckingstub__24efb01bfc6091499688a9ae496c6a60549dc83dd01e864646eaf8bf7add6359)
                 check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5350,13 +5350,13 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to a Lambda function.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-lambda.html#cfn-iotevents-detectormodel-lambda-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5378,7 +5378,7 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''When entering this state, perform these ``actions`` if the ``condition`` is TRUE.
 
@@ -5529,7 +5529,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aea0f4e8f57882389b42e8f7fa9e7bbe91614a1ae3730ce67ca2fbb72ca564a4)
+                type_hints = cached_type_hints(_typecheckingstub__aea0f4e8f57882389b42e8f7fa9e7bbe91614a1ae3730ce67ca2fbb72ca564a4)
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if events is not None:
@@ -5538,13 +5538,13 @@ class CfnDetectorModel(
         @builtins.property
         def events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]]:
             '''Specifies the actions that are performed when the state is entered and the ``condition`` is ``TRUE`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-onenter.html#cfn-iotevents-detectormodel-onenter-events
             '''
             result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5566,7 +5566,7 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''When exiting this state, perform these ``actions`` if the specified ``condition`` is ``TRUE`` .
 
@@ -5717,7 +5717,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__16290de6f98bd9f79c314df78ddd48700ce8ae4aeab4507ec4086fd6db4afb4e)
+                type_hints = cached_type_hints(_typecheckingstub__16290de6f98bd9f79c314df78ddd48700ce8ae4aeab4507ec4086fd6db4afb4e)
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if events is not None:
@@ -5726,13 +5726,13 @@ class CfnDetectorModel(
         @builtins.property
         def events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]]:
             '''Specifies the ``actions`` that are performed when the state is exited and the ``condition`` is ``TRUE`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-onexit.html#cfn-iotevents-detectormodel-onexit-events
             '''
             result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5754,8 +5754,8 @@ class CfnDetectorModel(
         def __init__(
             self,
             *,
-            events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            transition_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.TransitionEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.EventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            transition_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.TransitionEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies the actions performed when the ``condition`` evaluates to TRUE.
 
@@ -6040,7 +6040,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b69ba177ba3a33e678e1629e61da95d0b56c6dbeb0deed847a52a5b6f265ecf9)
+                type_hints = cached_type_hints(_typecheckingstub__b69ba177ba3a33e678e1629e61da95d0b56c6dbeb0deed847a52a5b6f265ecf9)
                 check_type(argname="argument events", value=events, expected_type=type_hints["events"])
                 check_type(argname="argument transition_events", value=transition_events, expected_type=type_hints["transition_events"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6052,24 +6052,24 @@ class CfnDetectorModel(
         @builtins.property
         def events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]]:
             '''Specifies the actions performed when the ``condition`` evaluates to TRUE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-oninput.html#cfn-iotevents-detectormodel-oninput-events
             '''
             result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.EventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.EventProperty"]]]], result)
 
         @builtins.property
         def transition_events(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.TransitionEventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.TransitionEventProperty"]]]]:
             '''Specifies the actions performed, and the next state entered, when a ``condition`` evaluates to TRUE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-oninput.html#cfn-iotevents-detectormodel-oninput-transitionevents
             '''
             result = self._values.get("transition_events")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.TransitionEventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.TransitionEventProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6116,7 +6116,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2790fb31ad2046e675044abc890e4a9085c827804c7dd2da845e301a57019f18)
+                type_hints = cached_type_hints(_typecheckingstub__2790fb31ad2046e675044abc890e4a9085c827804c7dd2da845e301a57019f18)
                 check_type(argname="argument content_expression", value=content_expression, expected_type=type_hints["content_expression"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6184,7 +6184,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cfaaeea93082e9ba0d53049569b60b8aab40bba790a2912a29e4e02e1cad5bee)
+                type_hints = cached_type_hints(_typecheckingstub__cfaaeea93082e9ba0d53049569b60b8aab40bba790a2912a29e4e02e1cad5bee)
                 check_type(argname="argument timer_name", value=timer_name, expected_type=type_hints["timer_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "timer_name": timer_name,
@@ -6252,7 +6252,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e2d0222e1d4ee3749b41430abba08489b16cf1a6a208820083451b0c210a1d77)
+                type_hints = cached_type_hints(_typecheckingstub__e2d0222e1d4ee3749b41430abba08489b16cf1a6a208820083451b0c210a1d77)
                 check_type(argname="argument timer_name", value=timer_name, expected_type=type_hints["timer_name"])
                 check_type(argname="argument duration_expression", value=duration_expression, expected_type=type_hints["duration_expression"])
                 check_type(argname="argument seconds", value=seconds, expected_type=type_hints["seconds"])
@@ -6334,7 +6334,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f45edf8a7eb1797088c2f77a7e60ad9575cd7f0fc5b734c5a8bb4930902ab37b)
+                type_hints = cached_type_hints(_typecheckingstub__f45edf8a7eb1797088c2f77a7e60ad9575cd7f0fc5b734c5a8bb4930902ab37b)
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument variable_name", value=variable_name, expected_type=type_hints["variable_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6383,7 +6383,7 @@ class CfnDetectorModel(
             self,
             *,
             target_arn: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information required to publish the Amazon SNS message.
 
@@ -6410,7 +6410,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aa8303f7597b5d5f0f82a97b7668999b73c7153f44a25feadcc0c469f8fa3ab7)
+                type_hints = cached_type_hints(_typecheckingstub__aa8303f7597b5d5f0f82a97b7668999b73c7153f44a25feadcc0c469f8fa3ab7)
                 check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6432,13 +6432,13 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message as an Amazon SNS push notification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-sns.html#cfn-iotevents-detectormodel-sns-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6465,8 +6465,8 @@ class CfnDetectorModel(
             self,
             *,
             queue_url: builtins.str,
-            payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            use_base64: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.PayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            use_base64: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Sends information about the detector model instance and the event that triggered the action to an Amazon SQS queue.
 
@@ -6495,7 +6495,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6d99d8d56a125c522bfc1a79d3629251230e200bc099c86c56a51ac5219b4ff4)
+                type_hints = cached_type_hints(_typecheckingstub__6d99d8d56a125c522bfc1a79d3629251230e200bc099c86c56a51ac5219b4ff4)
                 check_type(argname="argument queue_url", value=queue_url, expected_type=type_hints["queue_url"])
                 check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
                 check_type(argname="argument use_base64", value=use_base64, expected_type=type_hints["use_base64"])
@@ -6520,18 +6520,18 @@ class CfnDetectorModel(
         @builtins.property
         def payload(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]]:
             '''You can configure the action payload when you send a message to an Amazon SQS queue.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-sqs.html#cfn-iotevents-detectormodel-sqs-payload
             '''
             result = self._values.get("payload")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.PayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.PayloadProperty"]], result)
 
         @builtins.property
         def use_base64(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Set this to TRUE if you want the data to be base-64 encoded before it is written to the queue.
 
             Otherwise, set this to FALSE.
@@ -6539,7 +6539,7 @@ class CfnDetectorModel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-sqs.html#cfn-iotevents-detectormodel-sqs-usebase64
             '''
             result = self._values.get("use_base64")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6567,9 +6567,9 @@ class CfnDetectorModel(
             self,
             *,
             state_name: builtins.str,
-            on_enter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.OnEnterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            on_exit: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.OnExitProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            on_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.OnInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_enter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.OnEnterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_exit: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.OnExitProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.OnInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information that defines a state of a detector.
 
@@ -6586,7 +6586,7 @@ class CfnDetectorModel(
                 
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e95f4745aae8049002469bd2d803c325a39aa9f4f8160aa8060d1cc217b9e015)
+                type_hints = cached_type_hints(_typecheckingstub__e95f4745aae8049002469bd2d803c325a39aa9f4f8160aa8060d1cc217b9e015)
                 check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
                 check_type(argname="argument on_enter", value=on_enter, expected_type=type_hints["on_enter"])
                 check_type(argname="argument on_exit", value=on_exit, expected_type=type_hints["on_exit"])
@@ -6614,35 +6614,35 @@ class CfnDetectorModel(
         @builtins.property
         def on_enter(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnEnterProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnEnterProperty"]]:
             '''When entering this state, perform these ``actions`` if the ``condition`` is TRUE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-state.html#cfn-iotevents-detectormodel-state-onenter
             '''
             result = self._values.get("on_enter")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnEnterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnEnterProperty"]], result)
 
         @builtins.property
         def on_exit(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnExitProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnExitProperty"]]:
             '''When exiting this state, perform these ``actions`` if the specified ``condition`` is ``TRUE`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-state.html#cfn-iotevents-detectormodel-state-onexit
             '''
             result = self._values.get("on_exit")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnExitProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnExitProperty"]], result)
 
         @builtins.property
         def on_input(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnInputProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnInputProperty"]]:
             '''When an input is received and the ``condition`` is TRUE, perform the specified ``actions`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-state.html#cfn-iotevents-detectormodel-state-oninput
             '''
             result = self._values.get("on_input")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.OnInputProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.OnInputProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6672,7 +6672,7 @@ class CfnDetectorModel(
             condition: builtins.str,
             event_name: builtins.str,
             next_state: builtins.str,
-            actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies the actions performed and the next state entered when a ``condition`` evaluates to TRUE.
 
@@ -6825,7 +6825,7 @@ class CfnDetectorModel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__58cc9b74b1b13a3df88f86605e6204fc4e2bb97b6a508a626a96132e5e4073bb)
+                type_hints = cached_type_hints(_typecheckingstub__58cc9b74b1b13a3df88f86605e6204fc4e2bb97b6a508a626a96132e5e4073bb)
                 check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
                 check_type(argname="argument event_name", value=event_name, expected_type=type_hints["event_name"])
                 check_type(argname="argument next_state", value=next_state, expected_type=type_hints["next_state"])
@@ -6873,13 +6873,13 @@ class CfnDetectorModel(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ActionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ActionProperty"]]]]:
             '''The actions to be performed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotevents-detectormodel-transitionevent.html#cfn-iotevents-detectormodel-transitionevent-actions
             '''
             result = self._values.get("actions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.ActionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.ActionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6910,13 +6910,13 @@ class CfnDetectorModelProps:
     def __init__(
         self,
         *,
-        detector_model_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDetectorModel.DetectorModelDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        detector_model_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDetectorModel.DetectorModelDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
         detector_model_description: typing.Optional[builtins.str] = None,
         detector_model_name: typing.Optional[builtins.str] = None,
         evaluation_method: typing.Optional[builtins.str] = None,
         key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDetectorModel``.
 
@@ -6936,7 +6936,7 @@ class CfnDetectorModelProps:
             
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb)
+            type_hints = cached_type_hints(_typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb)
             check_type(argname="argument detector_model_definition", value=detector_model_definition, expected_type=type_hints["detector_model_definition"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument detector_model_description", value=detector_model_description, expected_type=type_hints["detector_model_description"])
@@ -6962,24 +6962,24 @@ class CfnDetectorModelProps:
     @builtins.property
     def detector_model_definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DetectorModelDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DetectorModelDefinitionProperty"]:
         '''Information that defines how a detector operates.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodeldefinition
         '''
         result = self._values.get("detector_model_definition")
         assert result is not None, "Required property 'detector_model_definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDetectorModel.DetectorModelDefinitionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDetectorModel.DetectorModelDefinitionProperty"], result)
 
     @builtins.property
-    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The ARN of the role that grants permission to AWS IoT Events to perform its operations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-rolearn
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def detector_model_description(self) -> typing.Optional[builtins.str]:
@@ -7022,7 +7022,7 @@ class CfnDetectorModelProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -7030,7 +7030,7 @@ class CfnDetectorModelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7044,9 +7044,9 @@ class CfnDetectorModelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInputRef_62cda116, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotevents_949c0131.IInputRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnInput(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotevents.CfnInput",
 ):
@@ -7087,10 +7087,10 @@ class CfnInput(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        input_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInput.InputDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         input_description: typing.Optional[builtins.str] = None,
         input_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoTEvents::Input``.
 
@@ -7102,7 +7102,7 @@ class CfnInput(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11855be4f7bee53ad741f6363d8e68467f417b7f7483fc55460da1fe97129c79)
+            type_hints = cached_type_hints(_typecheckingstub__11855be4f7bee53ad741f6363d8e68467f417b7f7483fc55460da1fe97129c79)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInputProps(
@@ -7116,12 +7116,15 @@ class CfnInput(
 
     @jsii.member(jsii_name="arnForInput")
     @builtins.classmethod
-    def arn_for_input(cls, resource: "_IInputRef_62cda116") -> builtins.str:
+    def arn_for_input(
+        cls,
+        resource: "_aws_iotevents_949c0131.IInputRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__526272d642331e8f9bd4913d601582f31848a53f908f1c5736e34c2c673219dd)
+            type_hints = cached_type_hints(_typecheckingstub__526272d642331e8f9bd4913d601582f31848a53f908f1c5736e34c2c673219dd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInput", [resource]))
 
@@ -7132,7 +7135,7 @@ class CfnInput(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         input_name: builtins.str,
-    ) -> "_IInputRef_62cda116":
+    ) -> "_aws_iotevents_949c0131.IInputRef":
         '''Creates a new IInputRef from a inputName.
 
         :param scope: -
@@ -7140,11 +7143,11 @@ class CfnInput(
         :param input_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7435d9ce0842ad08e9b33dbbeb8321316d275c48b9389305fbd145a070876eb8)
+            type_hints = cached_type_hints(_typecheckingstub__7435d9ce0842ad08e9b33dbbeb8321316d275c48b9389305fbd145a070876eb8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
-        return typing.cast("_IInputRef_62cda116", jsii.sinvoke(cls, "fromInputName", [scope, id, input_name]))
+        return typing.cast("_aws_iotevents_949c0131.IInputRef", jsii.sinvoke(cls, "fromInputName", [scope, id, input_name]))
 
     @jsii.member(jsii_name="isCfnInput")
     @builtins.classmethod
@@ -7154,18 +7157,18 @@ class CfnInput(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31e93464080c5021740b171d1ceec4800b026215d6924718c9ca0c0adfa5bcf)
+            type_hints = cached_type_hints(_typecheckingstub__f31e93464080c5021740b171d1ceec4800b026215d6924718c9ca0c0adfa5bcf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInput", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02f974c7c08e022c5245f053e877e1dcb9db302c7bcb12e452bb07d8fd18b87c)
+            type_hints = cached_type_hints(_typecheckingstub__02f974c7c08e022c5245f053e877e1dcb9db302c7bcb12e452bb07d8fd18b87c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7178,7 +7181,7 @@ class CfnInput(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3260b920a311b7661b2d786c09cfeb4063947acd45edd5e41213dfde768c5e6)
+            type_hints = cached_type_hints(_typecheckingstub__b3260b920a311b7661b2d786c09cfeb4063947acd45edd5e41213dfde768c5e6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7200,31 +7203,31 @@ class CfnInput(
 
     @builtins.property
     @jsii.member(jsii_name="inputRef")
-    def input_ref(self) -> "_InputReference_db573395":
+    def input_ref(self) -> "_aws_iotevents_949c0131.InputReference":
         '''A reference to a Input resource.'''
-        return typing.cast("_InputReference_db573395", jsii.get(self, "inputRef"))
+        return typing.cast("_aws_iotevents_949c0131.InputReference", jsii.get(self, "inputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="inputDefinition")
     def input_definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnInput.InputDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.InputDefinitionProperty"]:
         '''The definition of the input.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInput.InputDefinitionProperty"], jsii.get(self, "inputDefinition"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.InputDefinitionProperty"], jsii.get(self, "inputDefinition"))
 
     @input_definition.setter
     def input_definition(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnInput.InputDefinitionProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.InputDefinitionProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0004ecf75c5e3b12b061a20c9d32313a59f1da49257f0b4e64ef4078d1319f24)
+            type_hints = cached_type_hints(_typecheckingstub__0004ecf75c5e3b12b061a20c9d32313a59f1da49257f0b4e64ef4078d1319f24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputDefinition", value) # pyright: ignore[reportArgumentType]
 
@@ -7237,7 +7240,7 @@ class CfnInput(
     @input_description.setter
     def input_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__672cf73a96fd163fb0565663222ff047175ff027f69faa2f36c053476d838b46)
+            type_hints = cached_type_hints(_typecheckingstub__672cf73a96fd163fb0565663222ff047175ff027f69faa2f36c053476d838b46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -7250,20 +7253,23 @@ class CfnInput(
     @input_name.setter
     def input_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35c7cf9f1b2f6085acdb0b2064761cbaa054e480db69e5e48683595307b7dd11)
+            type_hints = cached_type_hints(_typecheckingstub__35c7cf9f1b2f6085acdb0b2064761cbaa054e480db69e5e48683595307b7dd11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cccadfdb4d8f7d42a3fa7d77dc4ad38b0292efb2ca6816bf878c1321670ceed)
+            type_hints = cached_type_hints(_typecheckingstub__3cccadfdb4d8f7d42a3fa7d77dc4ad38b0292efb2ca6816bf878c1321670ceed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7294,7 +7300,7 @@ class CfnInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__797d37c850d2f5c2b3a62f58db5353f1f51e8c258592e33a5b8dd7a4b673ed20)
+                type_hints = cached_type_hints(_typecheckingstub__797d37c850d2f5c2b3a62f58db5353f1f51e8c258592e33a5b8dd7a4b673ed20)
                 check_type(argname="argument json_path", value=json_path, expected_type=type_hints["json_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "json_path": json_path,
@@ -7334,7 +7340,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            attributes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInput.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The definition of the input.
 
@@ -7356,7 +7362,7 @@ class CfnInput(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f28aaf2329f3541c2ea510b4c542b475eeb9d677b36275d8bffa1b5c43d44b5d)
+                type_hints = cached_type_hints(_typecheckingstub__f28aaf2329f3541c2ea510b4c542b475eeb9d677b36275d8bffa1b5c43d44b5d)
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attributes": attributes,
@@ -7365,7 +7371,7 @@ class CfnInput(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.AttributeProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.AttributeProperty"]]]:
             '''The attributes from the JSON payload that are made available by the input.
 
             Inputs are derived from messages sent to the AWS IoT Events system using ``BatchPutMessage`` . Each such message contains a JSON payload, and those attributes (and their paired values) specified here are available for use in the ``condition`` expressions used by detectors that monitor this input.
@@ -7374,7 +7380,7 @@ class CfnInput(
             '''
             result = self._values.get("attributes")
             assert result is not None, "Required property 'attributes' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.AttributeProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.AttributeProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7402,10 +7408,10 @@ class CfnInputProps:
     def __init__(
         self,
         *,
-        input_definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_definition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInput.InputDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         input_description: typing.Optional[builtins.str] = None,
         input_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnInput``.
 
@@ -7441,7 +7447,7 @@ class CfnInputProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722)
+            type_hints = cached_type_hints(_typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722)
             check_type(argname="argument input_definition", value=input_definition, expected_type=type_hints["input_definition"])
             check_type(argname="argument input_description", value=input_description, expected_type=type_hints["input_description"])
             check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
@@ -7459,14 +7465,14 @@ class CfnInputProps:
     @builtins.property
     def input_definition(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnInput.InputDefinitionProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.InputDefinitionProperty"]:
         '''The definition of the input.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputdefinition
         '''
         result = self._values.get("input_definition")
         assert result is not None, "Required property 'input_definition' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInput.InputDefinitionProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInput.InputDefinitionProperty"], result)
 
     @builtins.property
     def input_description(self) -> typing.Optional[builtins.str]:
@@ -7487,7 +7493,7 @@ class CfnInputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -7495,7 +7501,7 @@ class CfnInputProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7524,21 +7530,21 @@ def _typecheckingstub__ef7f48b87ae58ab2d16bfb25fbcc61ae8753eb0c9a5b0016eec37a52e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    alarm_rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_event_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     alarm_model_description: typing.Optional[builtins.str] = None,
     alarm_model_name: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
     severity: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5f1ed3ba9d52fbe77628ba0d4ae396b1e743cd77ad8834265ce45146b0f21e11(
-    resource: _IAlarmModelRef_aa095d2c,
+    resource: _aws_iotevents_949c0131.IAlarmModelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7558,7 +7564,7 @@ def _typecheckingstub__abf6cd0eba97f02e764c0f465137c9ffb1f555b785301fd764fc2d713
     pass
 
 def _typecheckingstub__29efb49b22ff313d9ee99306ea7ca4bf99648d4ec281ef880884544374a005e5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7570,7 +7576,7 @@ def _typecheckingstub__05b98ff8d3be84f09516f43c45c6be0ea4a8c084c6b193e977f2739cd
     pass
 
 def _typecheckingstub__36c0e05874a966c4cf11e13423d2cf0b8945f4dafb03af1bb65b04fe1f904e1c(
-    value: typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmRuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarmModel.AlarmRuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7582,13 +7588,13 @@ def _typecheckingstub__667c04eef9049300d49a54887f048621c4279fc765df4962bf383ab77
     pass
 
 def _typecheckingstub__d85be71c4d51b50fc44306a17518e6e2409c133128f31c26dcdf967abb3e0ec7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmCapabilitiesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarmModel.AlarmCapabilitiesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8227f73f350bd144d86be0ccf98762b44508b027f4ffb7aef8e68eeaafd91ecd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmEventActionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarmModel.AlarmEventActionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7618,51 +7624,51 @@ def _typecheckingstub__cc04b5b9d376105aa5bf470e04873d2255ed6412dbf222f2dbc18a074
     pass
 
 def _typecheckingstub__877eb82e1ea1e65eaa71c65808ed46b8a70c4cbff438aa7f010439bd4b409dcb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6cf300e297184ec092d4441ac920d284db156ae6cb1ff9f0dde90b454a739267(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ab691bc61d6c876d3c04cfc2eaaae2a144273102c7fd7065a4db407ff0bac487(
     *,
-    dynamo_db: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.DynamoDBProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamo_d_bv2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.DynamoDBv2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
-    firehose: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.IotEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_site_wise: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.IotSiteWiseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_topic_publish: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.IotTopicPublishProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lambda_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.LambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.SnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.SqsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_db: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.DynamoDBProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_d_bv2: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.DynamoDBv2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.IotEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_site_wise: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.IotSiteWiseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_topic_publish: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.IotTopicPublishProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.LambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.SnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.SqsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8cfea2cb5d08826e83e6dc83754015780aeb22a1b8774e0f8e35b1d0931455b0(
     *,
-    acknowledge_flow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AcknowledgeFlowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    initialization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.InitializationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    acknowledge_flow: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AcknowledgeFlowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initialization_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.InitializationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a6ca07dd10460007b069e0fb33a778c8623f821779a57a99e1b7583f9708fb0b(
     *,
-    alarm_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    alarm_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ecdb897257f52e6f2dc0b5e8aa04adf9936f47ba53e3a04c2de77b97b3007a0e(
     *,
-    simple_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.SimpleRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    simple_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.SimpleRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7677,9 +7683,9 @@ def _typecheckingstub__d0faa4e9328819a8804a815994faf7d70d0f09054014c6e47dd3b002c
 
 def _typecheckingstub__708234624899e9edfd2c801c216045db009dc0332806973b92a2972970d186a8(
     *,
-    value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AssetPropertyVariantProperty, typing.Dict[builtins.str, typing.Any]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AssetPropertyVariantProperty, typing.Dict[builtins.str, typing.Any]]],
     quality: typing.Optional[builtins.str] = None,
-    timestamp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AssetPropertyTimestampProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timestamp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AssetPropertyTimestampProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7701,7 +7707,7 @@ def _typecheckingstub__5817f24cc0ee11012a378de58760f08626fd63cf7b576191502d7ed8d
     table_name: builtins.str,
     hash_key_type: typing.Optional[builtins.str] = None,
     operation: typing.Optional[builtins.str] = None,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     payload_field: typing.Optional[builtins.str] = None,
     range_key_field: typing.Optional[builtins.str] = None,
     range_key_type: typing.Optional[builtins.str] = None,
@@ -7713,7 +7719,7 @@ def _typecheckingstub__5817f24cc0ee11012a378de58760f08626fd63cf7b576191502d7ed8d
 def _typecheckingstub__991f55661aeeabe2f112b3b55306f540afbaca55eac19af02f6046a1039bf0a0(
     *,
     table_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7721,7 +7727,7 @@ def _typecheckingstub__991f55661aeeabe2f112b3b55306f540afbaca55eac19af02f6046a10
 def _typecheckingstub__6aaead57fb4199647f0274fe275fcc660e36d121f8abbc3801a7154bd92c0923(
     *,
     delivery_stream_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7729,7 +7735,7 @@ def _typecheckingstub__6aaead57fb4199647f0274fe275fcc660e36d121f8abbc3801a7154bd
 
 def _typecheckingstub__f006a26469daccaeec8fbdc6b6b96590027aa831f6565f8f5bf0f295a81a2c95(
     *,
-    disabled_on_initialization: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    disabled_on_initialization: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7737,7 +7743,7 @@ def _typecheckingstub__f006a26469daccaeec8fbdc6b6b96590027aa831f6565f8f5bf0f295a
 def _typecheckingstub__1159713658f7035984daf8d6dbfaf0175f9cab27b66825c395143c8befb7e719(
     *,
     input_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7748,7 +7754,7 @@ def _typecheckingstub__11694da853291108b198c9c98d58e346ab22cadc06b186dc6b980bb04
     entry_id: typing.Optional[builtins.str] = None,
     property_alias: typing.Optional[builtins.str] = None,
     property_id: typing.Optional[builtins.str] = None,
-    property_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AssetPropertyValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    property_value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AssetPropertyValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7756,7 +7762,7 @@ def _typecheckingstub__11694da853291108b198c9c98d58e346ab22cadc06b186dc6b980bb04
 def _typecheckingstub__fd8797ce19f302d10090f97f9aa3b5045c89cb01d164ff9de6b87da2d7a6e25f(
     *,
     mqtt_topic: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7764,7 +7770,7 @@ def _typecheckingstub__fd8797ce19f302d10090f97f9aa3b5045c89cb01d164ff9de6b87da2d
 def _typecheckingstub__a975c271127a1fe7c32f180fab5bb983fa81f890ee87d4cdd1dad0c6d4e60469(
     *,
     function_arn: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7789,7 +7795,7 @@ def _typecheckingstub__90136387b310cc21ca49a113bb812022359fee99174291ce490e1b433
 def _typecheckingstub__ce9abb929fe2014828de206b11bb74d7efb0ce4f363c5b1fe4df056896e7de68(
     *,
     target_arn: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7797,23 +7803,23 @@ def _typecheckingstub__ce9abb929fe2014828de206b11bb74d7efb0ce4f363c5b1fe4df05689
 def _typecheckingstub__f53bd000fd0e8e8506df9f9b2dcacf36f61e120354ff39131baa459b8dfef188(
     *,
     queue_url: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_base64: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_base64: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8(
     *,
-    alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    alarm_rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
-    alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_event_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     alarm_model_description: typing.Optional[builtins.str] = None,
     alarm_model_name: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
     severity: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7822,19 +7828,19 @@ def _typecheckingstub__7801b6324e5f272a708fd3542c09e1cc61e7621f542ce11a4795b2717
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    detector_model_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     detector_model_description: typing.Optional[builtins.str] = None,
     detector_model_name: typing.Optional[builtins.str] = None,
     evaluation_method: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__33348d55e11eaefd1c7cc825fc1db475c77a3850d73ca2ed00f46f5a9be20d95(
-    resource: _IDetectorModelRef_06d464f3,
+    resource: _aws_iotevents_949c0131.IDetectorModelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7854,7 +7860,7 @@ def _typecheckingstub__0119628e78d79891b009cfc59207ab277e17e9f6fd8d0fc2f8bd26259
     pass
 
 def _typecheckingstub__29f2e3393710755e327caeb1124191f98f1ffdfa48556729447af0457b842077(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7866,7 +7872,7 @@ def _typecheckingstub__9223278334ea0b572f1758d19c1e4bcc3469b9041fea558d47a8c0c09
     pass
 
 def _typecheckingstub__63791e6db81942e4097ff9f1b03dce0b5618f92376af9187df3403f25fe75d85(
-    value: typing.Union[_IResolvable_da3f097b, CfnDetectorModel.DetectorModelDefinitionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDetectorModel.DetectorModelDefinitionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7902,26 +7908,26 @@ def _typecheckingstub__1d0b60cb750a8707e4533e77383c39c786579957920ad5474c000e7a4
     pass
 
 def _typecheckingstub__e0a32c9ce5c2628faeace1b70ec3577ac67b86fb20a6cdea89790127622b2feb(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__997f21492a6bca00169c7708a8d2827cc3198fda198345353c9092e56e7792c1(
     *,
-    clear_timer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.ClearTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamo_db: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DynamoDBProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamo_d_bv2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DynamoDBv2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
-    firehose: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.IotEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_site_wise: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.IotSiteWiseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_topic_publish: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.IotTopicPublishProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lambda_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.LambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    reset_timer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.ResetTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    set_timer: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.SetTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    set_variable: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.SetVariableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.SnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.SqsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    clear_timer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.ClearTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_db: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.DynamoDBProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_d_bv2: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.DynamoDBv2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.IotEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_site_wise: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.IotSiteWiseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_topic_publish: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.IotTopicPublishProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.LambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reset_timer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.ResetTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    set_timer: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.SetTimerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    set_variable: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.SetVariableProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.SnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.SqsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7936,9 +7942,9 @@ def _typecheckingstub__d22f888073f939f0cd7ee06c54bc7d6cd951574ecee193dfed4f0e554
 
 def _typecheckingstub__49e6195d5246f0fc1891e1c7b239860858968a5d4b50a8581dcfcb07f3c93068(
     *,
-    value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.AssetPropertyVariantProperty, typing.Dict[builtins.str, typing.Any]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.AssetPropertyVariantProperty, typing.Dict[builtins.str, typing.Any]]],
     quality: typing.Optional[builtins.str] = None,
-    timestamp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.AssetPropertyTimestampProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timestamp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.AssetPropertyTimestampProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7963,7 +7969,7 @@ def _typecheckingstub__7875bb21ca70e3332dc63f20cd6808a6f0476f0bc6e28fd0b03d0a058
 def _typecheckingstub__6e1657c0e6d089d8b904914d9cdca2ff5841ab5284a6cbd6261e40e2c2fa9cb0(
     *,
     initial_state_name: builtins.str,
-    states: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.StateProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    states: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.StateProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7975,7 +7981,7 @@ def _typecheckingstub__8f20bd32cd2bf50da45c673c93066de3531126c3c989ecc1c664070a9
     table_name: builtins.str,
     hash_key_type: typing.Optional[builtins.str] = None,
     operation: typing.Optional[builtins.str] = None,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     payload_field: typing.Optional[builtins.str] = None,
     range_key_field: typing.Optional[builtins.str] = None,
     range_key_type: typing.Optional[builtins.str] = None,
@@ -7987,7 +7993,7 @@ def _typecheckingstub__8f20bd32cd2bf50da45c673c93066de3531126c3c989ecc1c664070a9
 def _typecheckingstub__ce549d899ae554a89d320f79add62caba2098d6b98c681aa6ff7410626c6a145(
     *,
     table_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7995,7 +8001,7 @@ def _typecheckingstub__ce549d899ae554a89d320f79add62caba2098d6b98c681aa6ff741062
 def _typecheckingstub__717bd99991f8e8e6bcb7616faed1722ead70bd8378234a60048d02751c39bb8f(
     *,
     event_name: builtins.str,
-    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     condition: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8004,7 +8010,7 @@ def _typecheckingstub__717bd99991f8e8e6bcb7616faed1722ead70bd8378234a60048d02751
 def _typecheckingstub__ff798f3ccc562e611abbd96aff8a343e927e8d0151d6debb2cdde0aa825102c5(
     *,
     delivery_stream_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8013,14 +8019,14 @@ def _typecheckingstub__ff798f3ccc562e611abbd96aff8a343e927e8d0151d6debb2cdde0aa8
 def _typecheckingstub__39ebee23e3171868800d30327b2934e00faad4113cfed4549950bece31b8156b(
     *,
     input_name: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__297b1140450b226c15a66b0e140cd227d66d7d0506dd90d971a67e98e9a1da19(
     *,
-    property_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.AssetPropertyValueProperty, typing.Dict[builtins.str, typing.Any]]],
+    property_value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.AssetPropertyValueProperty, typing.Dict[builtins.str, typing.Any]]],
     asset_id: typing.Optional[builtins.str] = None,
     entry_id: typing.Optional[builtins.str] = None,
     property_alias: typing.Optional[builtins.str] = None,
@@ -8032,7 +8038,7 @@ def _typecheckingstub__297b1140450b226c15a66b0e140cd227d66d7d0506dd90d971a67e98e
 def _typecheckingstub__e9a560fbb56587b6f32e68c81fe2d3de4fde7ce4fb0967fd5f984981abf33e32(
     *,
     mqtt_topic: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8040,29 +8046,29 @@ def _typecheckingstub__e9a560fbb56587b6f32e68c81fe2d3de4fde7ce4fb0967fd5f984981a
 def _typecheckingstub__24efb01bfc6091499688a9ae496c6a60549dc83dd01e864646eaf8bf7add6359(
     *,
     function_arn: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aea0f4e8f57882389b42e8f7fa9e7bbe91614a1ae3730ce67ca2fbb72ca564a4(
     *,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__16290de6f98bd9f79c314df78ddd48700ce8ae4aeab4507ec4086fd6db4afb4e(
     *,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b69ba177ba3a33e678e1629e61da95d0b56c6dbeb0deed847a52a5b6f265ecf9(
     *,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    transition_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.TransitionEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.EventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    transition_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.TransitionEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8102,7 +8108,7 @@ def _typecheckingstub__f45edf8a7eb1797088c2f77a7e60ad9575cd7f0fc5b734c5a8bb49309
 def _typecheckingstub__aa8303f7597b5d5f0f82a97b7668999b73c7153f44a25feadcc0c469f8fa3ab7(
     *,
     target_arn: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8110,8 +8116,8 @@ def _typecheckingstub__aa8303f7597b5d5f0f82a97b7668999b73c7153f44a25feadcc0c469f
 def _typecheckingstub__6d99d8d56a125c522bfc1a79d3629251230e200bc099c86c56a51ac5219b4ff4(
     *,
     queue_url: builtins.str,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_base64: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_base64: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8119,9 +8125,9 @@ def _typecheckingstub__6d99d8d56a125c522bfc1a79d3629251230e200bc099c86c56a51ac52
 def _typecheckingstub__e95f4745aae8049002469bd2d803c325a39aa9f4f8160aa8060d1cc217b9e015(
     *,
     state_name: builtins.str,
-    on_enter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.OnEnterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    on_exit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.OnExitProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    on_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.OnInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_enter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.OnEnterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_exit: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.OnExitProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.OnInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8131,20 +8137,20 @@ def _typecheckingstub__58cc9b74b1b13a3df88f86605e6204fc4e2bb97b6a508a626a96132e5
     condition: builtins.str,
     event_name: builtins.str,
     next_state: builtins.str,
-    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb(
     *,
-    detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    detector_model_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
     detector_model_description: typing.Optional[builtins.str] = None,
     detector_model_name: typing.Optional[builtins.str] = None,
     evaluation_method: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8153,16 +8159,16 @@ def _typecheckingstub__11855be4f7bee53ad741f6363d8e68467f417b7f7483fc55460da1fe9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    input_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     input_description: typing.Optional[builtins.str] = None,
     input_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__526272d642331e8f9bd4913d601582f31848a53f908f1c5736e34c2c673219dd(
-    resource: _IInputRef_62cda116,
+    resource: _aws_iotevents_949c0131.IInputRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8182,7 +8188,7 @@ def _typecheckingstub__f31e93464080c5021740b171d1ceec4800b026215d6924718c9ca0c0a
     pass
 
 def _typecheckingstub__02f974c7c08e022c5245f053e877e1dcb9db302c7bcb12e452bb07d8fd18b87c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8194,7 +8200,7 @@ def _typecheckingstub__b3260b920a311b7661b2d786c09cfeb4063947acd45edd5e41213dfde
     pass
 
 def _typecheckingstub__0004ecf75c5e3b12b061a20c9d32313a59f1da49257f0b4e64ef4078d1319f24(
-    value: typing.Union[_IResolvable_da3f097b, CfnInput.InputDefinitionProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInput.InputDefinitionProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8212,7 +8218,7 @@ def _typecheckingstub__35c7cf9f1b2f6085acdb0b2064761cbaa054e480db69e5e4868359530
     pass
 
 def _typecheckingstub__3cccadfdb4d8f7d42a3fa7d77dc4ad38b0292efb2ca6816bf878c1321670ceed(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8226,17 +8232,17 @@ def _typecheckingstub__797d37c850d2f5c2b3a62f58db5353f1f51e8c258592e33a5b8dd7a4b
 
 def _typecheckingstub__f28aaf2329f3541c2ea510b4c542b475eeb9d677b36275d8bffa1b5c43d44b5d(
     *,
-    attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInput.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722(
     *,
-    input_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     input_description: typing.Optional[builtins.str] = None,
     input_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

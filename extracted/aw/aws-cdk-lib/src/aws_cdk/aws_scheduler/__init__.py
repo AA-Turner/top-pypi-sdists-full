@@ -322,6 +322,8 @@ See full list of metrics and their description at
 [Monitoring Using CloudWatch Metrics](https://docs.aws.amazon.com/scheduler/latest/UserGuide/monitoring-cloudwatch.html)
 in the *AWS EventBridge Scheduler User Guide*.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -335,64 +337,46 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TimeZone as _TimeZone_cdd72ac9,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_events import CronOptions as _CronOptions_6401a7a0
-from ..aws_iam import (
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IRole as _IRole_235f5d8e,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_scheduler import (
-    IScheduleGroupRef as _IScheduleGroupRef_c08a74b7,
-    IScheduleRef as _IScheduleRef_5286fcb6,
-    ScheduleGroupReference as _ScheduleGroupReference_fd0e4c46,
-    ScheduleReference as _ScheduleReference_c219736f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_events as _aws_events_27c08586
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_scheduler as _aws_scheduler_12214681
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_events_27c08586 = _LazyImport("aws_cdk.aws_events")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_scheduler_12214681 = _LazyImport("aws_cdk.interfaces.aws_scheduler")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IScheduleRef_5286fcb6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_scheduler_12214681.IScheduleRef)
 class CfnSchedule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_scheduler.CfnSchedule",
 ):
@@ -510,13 +494,13 @@ class CfnSchedule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        flexible_time_window: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.FlexibleTimeWindowProperty", typing.Dict[builtins.str, typing.Any]]],
+        flexible_time_window: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.FlexibleTimeWindowProperty", typing.Dict[builtins.str, typing.Any]]],
         schedule_expression: builtins.str,
-        target: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
+        target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         end_date: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        kms_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         name: typing.Optional[builtins.str] = None,
         schedule_expression_timezone: typing.Optional[builtins.str] = None,
         start_date: typing.Optional[builtins.str] = None,
@@ -539,7 +523,7 @@ class CfnSchedule(
         :param state: Specifies whether the schedule is enabled or disabled. *Allowed Values* : ``ENABLED`` | ``DISABLED``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099f516ea4)
+            type_hints = cached_type_hints(_typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099f516ea4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnScheduleProps(
@@ -560,12 +544,15 @@ class CfnSchedule(
 
     @jsii.member(jsii_name="arnForSchedule")
     @builtins.classmethod
-    def arn_for_schedule(cls, resource: "_IScheduleRef_5286fcb6") -> builtins.str:
+    def arn_for_schedule(
+        cls,
+        resource: "_aws_scheduler_12214681.IScheduleRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc94c2e4e6a33a3d1aa7e0663ea7d9c2d661091e25d237f9c9672f59868e9f13)
+            type_hints = cached_type_hints(_typecheckingstub__dc94c2e4e6a33a3d1aa7e0663ea7d9c2d661091e25d237f9c9672f59868e9f13)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSchedule", [resource]))
 
@@ -577,18 +564,18 @@ class CfnSchedule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6340b5f3feb910a103564b09df879082d2c5c5f6b4c02e75ddfb748af01522df)
+            type_hints = cached_type_hints(_typecheckingstub__6340b5f3feb910a103564b09df879082d2c5c5f6b4c02e75ddfb748af01522df)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSchedule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859c33780944a757aa0069dfe861a7f9ee3aaa6d51b1881276590d23b3cbc11d)
+            type_hints = cached_type_hints(_typecheckingstub__859c33780944a757aa0069dfe861a7f9ee3aaa6d51b1881276590d23b3cbc11d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -601,7 +588,7 @@ class CfnSchedule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c9dd58f37a9f244d09bdbca3ac4ea0869a0855a2cb760325d51c0d8beed730d)
+            type_hints = cached_type_hints(_typecheckingstub__1c9dd58f37a9f244d09bdbca3ac4ea0869a0855a2cb760325d51c0d8beed730d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -632,25 +619,25 @@ class CfnSchedule(
 
     @builtins.property
     @jsii.member(jsii_name="scheduleRef")
-    def schedule_ref(self) -> "_ScheduleReference_c219736f":
+    def schedule_ref(self) -> "_aws_scheduler_12214681.ScheduleReference":
         '''A reference to a Schedule resource.'''
-        return typing.cast("_ScheduleReference_c219736f", jsii.get(self, "scheduleRef"))
+        return typing.cast("_aws_scheduler_12214681.ScheduleReference", jsii.get(self, "scheduleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flexibleTimeWindow")
     def flexible_time_window(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSchedule.FlexibleTimeWindowProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.FlexibleTimeWindowProperty"]:
         '''Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSchedule.FlexibleTimeWindowProperty"], jsii.get(self, "flexibleTimeWindow"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.FlexibleTimeWindowProperty"], jsii.get(self, "flexibleTimeWindow"))
 
     @flexible_time_window.setter
     def flexible_time_window(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSchedule.FlexibleTimeWindowProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.FlexibleTimeWindowProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a)
+            type_hints = cached_type_hints(_typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flexibleTimeWindow", value) # pyright: ignore[reportArgumentType]
 
@@ -666,7 +653,7 @@ class CfnSchedule(
     @schedule_expression.setter
     def schedule_expression(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c216f94db)
+            type_hints = cached_type_hints(_typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c216f94db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduleExpression", value) # pyright: ignore[reportArgumentType]
 
@@ -674,17 +661,17 @@ class CfnSchedule(
     @jsii.member(jsii_name="target")
     def target(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSchedule.TargetProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.TargetProperty"]:
         '''The schedule's target details.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSchedule.TargetProperty"], jsii.get(self, "target"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.TargetProperty"], jsii.get(self, "target"))
 
     @target.setter
     def target(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSchedule.TargetProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.TargetProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78)
+            type_hints = cached_type_hints(_typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
 
@@ -697,7 +684,7 @@ class CfnSchedule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5864139b51db95ec1c3e6c947b577675bb4f83133b1f5476864d71c4009c2386)
+            type_hints = cached_type_hints(_typecheckingstub__5864139b51db95ec1c3e6c947b577675bb4f83133b1f5476864d71c4009c2386)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -710,7 +697,7 @@ class CfnSchedule(
     @end_date.setter
     def end_date(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3d0ae7ef525e3a588544a09eb7ec3271c357974ae47f41180a7aeb9086e2594)
+            type_hints = cached_type_hints(_typecheckingstub__c3d0ae7ef525e3a588544a09eb7ec3271c357974ae47f41180a7aeb9086e2594)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endDate", value) # pyright: ignore[reportArgumentType]
 
@@ -723,7 +710,7 @@ class CfnSchedule(
     @group_name.setter
     def group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1860ec4ad4204d90b7f2756ff633582f92f7f97d174b16a7da8e36811ebdc98)
+            type_hints = cached_type_hints(_typecheckingstub__f1860ec4ad4204d90b7f2756ff633582f92f7f97d174b16a7da8e36811ebdc98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -736,7 +723,7 @@ class CfnSchedule(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c65947df9a6be40d839d971ea07ff6a85493b9cfbab03c61fc17e54bdd0e9276)
+            type_hints = cached_type_hints(_typecheckingstub__c65947df9a6be40d839d971ea07ff6a85493b9cfbab03c61fc17e54bdd0e9276)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -749,7 +736,7 @@ class CfnSchedule(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb6bd8d80ac829e96128e011c87e852bfea080bdcd859bfdf98c7874542dc1b5)
+            type_hints = cached_type_hints(_typecheckingstub__eb6bd8d80ac829e96128e011c87e852bfea080bdcd859bfdf98c7874542dc1b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -765,7 +752,7 @@ class CfnSchedule(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb337d25b9d34da19dbe88b72514ea1e1e7a235cd91b7597abecd038498e11a9)
+            type_hints = cached_type_hints(_typecheckingstub__eb337d25b9d34da19dbe88b72514ea1e1e7a235cd91b7597abecd038498e11a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduleExpressionTimezone", value) # pyright: ignore[reportArgumentType]
 
@@ -778,7 +765,7 @@ class CfnSchedule(
     @start_date.setter
     def start_date(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38fc94567c401ce05bf3ed2461327df25f05b71764228be5a3f95fec0573d007)
+            type_hints = cached_type_hints(_typecheckingstub__38fc94567c401ce05bf3ed2461327df25f05b71764228be5a3f95fec0573d007)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startDate", value) # pyright: ignore[reportArgumentType]
 
@@ -791,7 +778,7 @@ class CfnSchedule(
     @state.setter
     def state(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__986ef975482735e4fbf46592da626ebfd4ca9636ad053fe886d40f9856d1483e)
+            type_hints = cached_type_hints(_typecheckingstub__986ef975482735e4fbf46592da626ebfd4ca9636ad053fe886d40f9856d1483e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
 
@@ -838,7 +825,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4be9629f7b1d55fb08861d6713480d5fa198e6e40012bcf701a627e532032afb)
+                type_hints = cached_type_hints(_typecheckingstub__4be9629f7b1d55fb08861d6713480d5fa198e6e40012bcf701a627e532032afb)
                 check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
                 check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -936,7 +923,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1d8897162eaa13dfb81dc83e782d5936ed604f09ed623574ad9d0fabc4a1ab7e)
+                type_hints = cached_type_hints(_typecheckingstub__1d8897162eaa13dfb81dc83e782d5936ed604f09ed623574ad9d0fabc4a1ab7e)
                 check_type(argname="argument capacity_provider", value=capacity_provider, expected_type=type_hints["capacity_provider"])
                 check_type(argname="argument base", value=base, expected_type=type_hints["base"])
                 check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
@@ -1022,7 +1009,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__147909ee33401019ceeec9c9c260dd3ac0812db04c597e1b63c26f0608f61069)
+                type_hints = cached_type_hints(_typecheckingstub__147909ee33401019ceeec9c9c260dd3ac0812db04c597e1b63c26f0608f61069)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
@@ -1073,14 +1060,14 @@ class CfnSchedule(
             self,
             *,
             task_definition_arn: builtins.str,
-            capacity_provider_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            capacity_provider_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.CapacityProviderStrategyItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             group: typing.Optional[builtins.str] = None,
             launch_type: typing.Optional[builtins.str] = None,
-            network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            placement_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            placement_strategy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            placement_constraints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            placement_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             platform_version: typing.Optional[builtins.str] = None,
             propagate_tags: typing.Optional[builtins.str] = None,
             reference_id: typing.Optional[builtins.str] = None,
@@ -1155,7 +1142,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9dc612a243a7e6a4107ac15e844d139b177440cb37d514af299c8365e71f4cf1)
+                type_hints = cached_type_hints(_typecheckingstub__9dc612a243a7e6a4107ac15e844d139b177440cb37d514af299c8365e71f4cf1)
                 check_type(argname="argument task_definition_arn", value=task_definition_arn, expected_type=type_hints["task_definition_arn"])
                 check_type(argname="argument capacity_provider_strategy", value=capacity_provider_strategy, expected_type=type_hints["capacity_provider_strategy"])
                 check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
@@ -1213,18 +1200,18 @@ class CfnSchedule(
         @builtins.property
         def capacity_provider_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.CapacityProviderStrategyItemProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.CapacityProviderStrategyItemProperty"]]]]:
             '''The capacity provider strategy to use for the task.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-capacityproviderstrategy
             '''
             result = self._values.get("capacity_provider_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.CapacityProviderStrategyItemProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.CapacityProviderStrategyItemProperty"]]]], result)
 
         @builtins.property
         def enable_ecs_managed_tags(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to enable Amazon ECS managed tags for the task.
 
             For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon ECS Developer Guide* .
@@ -1232,12 +1219,12 @@ class CfnSchedule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-enableecsmanagedtags
             '''
             result = self._values.get("enable_ecs_managed_tags")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_execute_command(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not to enable the execute command functionality for the containers in this task.
 
             If true, this enables execute command functionality on all containers in the task.
@@ -1245,7 +1232,7 @@ class CfnSchedule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-enableexecutecommand
             '''
             result = self._values.get("enable_execute_command")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def group(self) -> typing.Optional[builtins.str]:
@@ -1272,18 +1259,18 @@ class CfnSchedule(
         @builtins.property
         def network_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.NetworkConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.NetworkConfigurationProperty"]]:
             '''This structure specifies the network configuration for an ECS task.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-networkconfiguration
             '''
             result = self._values.get("network_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.NetworkConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.NetworkConfigurationProperty"]], result)
 
         @builtins.property
         def placement_constraints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.PlacementConstraintProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.PlacementConstraintProperty"]]]]:
             '''An array of placement constraint objects to use for the task.
 
             You can specify up to 10 constraints per task (including constraints in the task definition and those specified at runtime).
@@ -1291,18 +1278,18 @@ class CfnSchedule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-placementconstraints
             '''
             result = self._values.get("placement_constraints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.PlacementConstraintProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.PlacementConstraintProperty"]]]], result)
 
         @builtins.property
         def placement_strategy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.PlacementStrategyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.PlacementStrategyProperty"]]]]:
             '''The task placement strategy for a task or service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-ecsparameters.html#cfn-scheduler-schedule-ecsparameters-placementstrategy
             '''
             result = self._values.get("placement_strategy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.PlacementStrategyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.PlacementStrategyProperty"]]]], result)
 
         @builtins.property
         def platform_version(self) -> typing.Optional[builtins.str]:
@@ -1395,7 +1382,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f0e0c05434c8347bffb5179e8c9bc22fdc3ff4fdae681d5b9d995e0f7c8c1900)
+                type_hints = cached_type_hints(_typecheckingstub__f0e0c05434c8347bffb5179e8c9bc22fdc3ff4fdae681d5b9d995e0f7c8c1900)
                 check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
                 check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1471,7 +1458,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7d4dffb710d1a3208f37cc6de0f2cddceb53e1178391bdc54cfedb8ca6626ec4)
+                type_hints = cached_type_hints(_typecheckingstub__7d4dffb710d1a3208f37cc6de0f2cddceb53e1178391bdc54cfedb8ca6626ec4)
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
                 check_type(argname="argument maximum_window_in_minutes", value=maximum_window_in_minutes, expected_type=type_hints["maximum_window_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1543,7 +1530,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21a3b10246bef07a2f7fc56bf58e08c66b0fd77f7770804a87bf867fa8541cbb)
+                type_hints = cached_type_hints(_typecheckingstub__21a3b10246bef07a2f7fc56bf58e08c66b0fd77f7770804a87bf867fa8541cbb)
                 check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "partition_key": partition_key,
@@ -1581,7 +1568,7 @@ class CfnSchedule(
         def __init__(
             self,
             *,
-            awsvpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            awsvpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.AwsVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the network configuration for an ECS task.
 
@@ -1607,7 +1594,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__428ddbfd1435a3560f182001dfcf151c620cba65c309e87341f84eb7d60ba492)
+                type_hints = cached_type_hints(_typecheckingstub__428ddbfd1435a3560f182001dfcf151c620cba65c309e87341f84eb7d60ba492)
                 check_type(argname="argument awsvpc_configuration", value=awsvpc_configuration, expected_type=type_hints["awsvpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if awsvpc_configuration is not None:
@@ -1616,7 +1603,7 @@ class CfnSchedule(
         @builtins.property
         def awsvpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.AwsVpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.AwsVpcConfigurationProperty"]]:
             '''Specifies the Amazon VPC subnets and security groups for the task, and whether a public IP address is to be used.
 
             This structure is relevant only for ECS tasks that use the awsvpc network mode.
@@ -1624,7 +1611,7 @@ class CfnSchedule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-networkconfiguration.html#cfn-scheduler-schedule-networkconfiguration-awsvpcconfiguration
             '''
             result = self._values.get("awsvpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.AwsVpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.AwsVpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1669,7 +1656,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb19941ef1169a4cc78daf82b7ea64663f5a28f890fbeded34448dd3f0a3c16f)
+                type_hints = cached_type_hints(_typecheckingstub__cb19941ef1169a4cc78daf82b7ea64663f5a28f890fbeded34448dd3f0a3c16f)
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1743,7 +1730,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2d9dc80c7a08a059d79aa3db1c44bcc28c84872422d6fd991bbca1124a384865)
+                type_hints = cached_type_hints(_typecheckingstub__2d9dc80c7a08a059d79aa3db1c44bcc28c84872422d6fd991bbca1124a384865)
                 check_type(argname="argument field", value=field, expected_type=type_hints["field"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1820,7 +1807,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb66e495a2f0291cd0e58a71fc127fa67ed8d10f2d977b132a1770f7b3a1f92d)
+                type_hints = cached_type_hints(_typecheckingstub__cb66e495a2f0291cd0e58a71fc127fa67ed8d10f2d977b132a1770f7b3a1f92d)
                 check_type(argname="argument maximum_event_age_in_seconds", value=maximum_event_age_in_seconds, expected_type=type_hints["maximum_event_age_in_seconds"])
                 check_type(argname="argument maximum_retry_attempts", value=maximum_retry_attempts, expected_type=type_hints["maximum_retry_attempts"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1887,7 +1874,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c29c10cb7c0592826b32a3dc5e923a7c8d2f8b6bd9a0fe45759d650269d9f4d)
+                type_hints = cached_type_hints(_typecheckingstub__0c29c10cb7c0592826b32a3dc5e923a7c8d2f8b6bd9a0fe45759d650269d9f4d)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1935,7 +1922,7 @@ class CfnSchedule(
         def __init__(
             self,
             *,
-            pipeline_parameter_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            pipeline_parameter_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.SageMakerPipelineParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The templated target type for the Amazon SageMaker ```StartPipelineExecution`` <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_StartPipelineExecution.html>`_ API operation.
 
@@ -1958,7 +1945,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a0de727f226b2279098ba22fdf1aa02e57d81187ed9063acc8d789604e1a7f88)
+                type_hints = cached_type_hints(_typecheckingstub__a0de727f226b2279098ba22fdf1aa02e57d81187ed9063acc8d789604e1a7f88)
                 check_type(argname="argument pipeline_parameter_list", value=pipeline_parameter_list, expected_type=type_hints["pipeline_parameter_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if pipeline_parameter_list is not None:
@@ -1967,13 +1954,13 @@ class CfnSchedule(
         @builtins.property
         def pipeline_parameter_list(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SageMakerPipelineParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SageMakerPipelineParameterProperty"]]]]:
             '''List of parameter names and values to use when executing the SageMaker Model Building Pipeline.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-sagemakerpipelineparameters.html#cfn-scheduler-schedule-sagemakerpipelineparameters-pipelineparameterlist
             '''
             result = self._values.get("pipeline_parameter_list")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SageMakerPipelineParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SageMakerPipelineParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2015,7 +2002,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13762215f810c9b64aba5ce7769b7babcff69eaa35d5d19f712b7515022da7fb)
+                type_hints = cached_type_hints(_typecheckingstub__13762215f810c9b64aba5ce7769b7babcff69eaa35d5d19f712b7515022da7fb)
                 check_type(argname="argument message_group_id", value=message_group_id, expected_type=type_hints["message_group_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if message_group_id is not None:
@@ -2063,14 +2050,14 @@ class CfnSchedule(
             *,
             arn: builtins.str,
             role_arn: builtins.str,
-            dead_letter_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ecs_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            event_bridge_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.EventBridgeParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dead_letter_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ecs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            event_bridge_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.EventBridgeParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input: typing.Optional[builtins.str] = None,
-            kinesis_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            retry_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.SageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqs_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retry_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sage_maker_pipeline_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.SageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The schedule's target.
 
@@ -2168,7 +2155,7 @@ class CfnSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd5d0419478021d0554d24683f11134f17bb914856367055c32d004d8348a516)
+                type_hints = cached_type_hints(_typecheckingstub__bd5d0419478021d0554d24683f11134f17bb914856367055c32d004d8348a516)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
@@ -2223,7 +2210,7 @@ class CfnSchedule(
         @builtins.property
         def dead_letter_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.DeadLetterConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.DeadLetterConfigProperty"]]:
             '''An object that contains information about an Amazon SQS queue that EventBridge Scheduler uses as a dead-letter queue for your schedule.
 
             If specified, EventBridge Scheduler delivers failed events that could not be successfully delivered to a target to the queue.
@@ -2231,29 +2218,29 @@ class CfnSchedule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-deadletterconfig
             '''
             result = self._values.get("dead_letter_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.DeadLetterConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.DeadLetterConfigProperty"]], result)
 
         @builtins.property
         def ecs_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.EcsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.EcsParametersProperty"]]:
             '''The templated target type for the Amazon ECS ```RunTask`` <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html>`_ API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-ecsparameters
             '''
             result = self._values.get("ecs_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.EcsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.EcsParametersProperty"]], result)
 
         @builtins.property
         def event_bridge_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.EventBridgeParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.EventBridgeParametersProperty"]]:
             '''The templated target type for the EventBridge ```PutEvents`` <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutEvents.html>`_ API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-eventbridgeparameters
             '''
             result = self._values.get("event_bridge_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.EventBridgeParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.EventBridgeParametersProperty"]], result)
 
         @builtins.property
         def input(self) -> typing.Optional[builtins.str]:
@@ -2269,46 +2256,46 @@ class CfnSchedule(
         @builtins.property
         def kinesis_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.KinesisParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.KinesisParametersProperty"]]:
             '''The templated target type for the Amazon Kinesis ```PutRecord`` <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html>`_ API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-kinesisparameters
             '''
             result = self._values.get("kinesis_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.KinesisParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.KinesisParametersProperty"]], result)
 
         @builtins.property
         def retry_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.RetryPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.RetryPolicyProperty"]]:
             '''A ``RetryPolicy`` object that includes information about the retry policy settings, including the maximum age of an event, and the maximum number of times EventBridge Scheduler will try to deliver the event to a target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-retrypolicy
             '''
             result = self._values.get("retry_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.RetryPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.RetryPolicyProperty"]], result)
 
         @builtins.property
         def sage_maker_pipeline_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SageMakerPipelineParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SageMakerPipelineParametersProperty"]]:
             '''The templated target type for the Amazon SageMaker ```StartPipelineExecution`` <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_StartPipelineExecution.html>`_ API operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-sagemakerpipelineparameters
             '''
             result = self._values.get("sage_maker_pipeline_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SageMakerPipelineParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SageMakerPipelineParametersProperty"]], result)
 
         @builtins.property
         def sqs_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SqsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SqsParametersProperty"]]:
             '''The templated target type for the Amazon SQS ```SendMessage`` <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>`_ API operation. Contains the message group ID to use when the target is a FIFO queue. If you specify an Amazon SQS FIFO queue as a target, the queue must have content-based deduplication enabled. For more information, see `Using the Amazon SQS message deduplication ID <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html>`_ in the *Amazon SQS Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-target.html#cfn-scheduler-schedule-target-sqsparameters
             '''
             result = self._values.get("sqs_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSchedule.SqsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.SqsParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2322,9 +2309,9 @@ class CfnSchedule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IScheduleGroupRef_c08a74b7, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_scheduler_12214681.IScheduleGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnScheduleGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_scheduler.CfnScheduleGroup",
 ):
@@ -2360,7 +2347,7 @@ class CfnScheduleGroup(
         id: builtins.str,
         *,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Scheduler::ScheduleGroup``.
 
@@ -2370,7 +2357,7 @@ class CfnScheduleGroup(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55d5637c9b973d98ef3a23b13bf274e0a35bc07dfc27542f9b7185600a26a15e)
+            type_hints = cached_type_hints(_typecheckingstub__55d5637c9b973d98ef3a23b13bf274e0a35bc07dfc27542f9b7185600a26a15e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnScheduleGroupProps(name=name, tags=tags)
@@ -2381,13 +2368,13 @@ class CfnScheduleGroup(
     @builtins.classmethod
     def arn_for_schedule_group(
         cls,
-        resource: "_IScheduleGroupRef_c08a74b7",
+        resource: "_aws_scheduler_12214681.IScheduleGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bf41141ca45d8816e093169bacba857d10c0fee6843a589cd33bcd31e8fea8c)
+            type_hints = cached_type_hints(_typecheckingstub__3bf41141ca45d8816e093169bacba857d10c0fee6843a589cd33bcd31e8fea8c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForScheduleGroup", [resource]))
 
@@ -2399,18 +2386,18 @@ class CfnScheduleGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9982e5e82bf7e13bf33e07d14fb358120f61dd2e02374199f308b8ac352142e)
+            type_hints = cached_type_hints(_typecheckingstub__a9982e5e82bf7e13bf33e07d14fb358120f61dd2e02374199f308b8ac352142e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScheduleGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e179ed3a5ae801985e05b869adcf8daec39217aada45fa23844dd021dea92bda)
+            type_hints = cached_type_hints(_typecheckingstub__e179ed3a5ae801985e05b869adcf8daec39217aada45fa23844dd021dea92bda)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2423,7 +2410,7 @@ class CfnScheduleGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a163f755c33c470bd9bc8ba9ec2282566382000d7a5adbc8bba7aa9bd8e707d3)
+            type_hints = cached_type_hints(_typecheckingstub__a163f755c33c470bd9bc8ba9ec2282566382000d7a5adbc8bba7aa9bd8e707d3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2483,15 +2470,15 @@ class CfnScheduleGroup(
 
     @builtins.property
     @jsii.member(jsii_name="scheduleGroupRef")
-    def schedule_group_ref(self) -> "_ScheduleGroupReference_fd0e4c46":
+    def schedule_group_ref(self) -> "_aws_scheduler_12214681.ScheduleGroupReference":
         '''A reference to a ScheduleGroup resource.'''
-        return typing.cast("_ScheduleGroupReference_fd0e4c46", jsii.get(self, "scheduleGroupRef"))
+        return typing.cast("_aws_scheduler_12214681.ScheduleGroupReference", jsii.get(self, "scheduleGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2502,20 +2489,23 @@ class CfnScheduleGroup(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8a636529)
+            type_hints = cached_type_hints(_typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8a636529)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a)
+            type_hints = cached_type_hints(_typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2530,7 +2520,7 @@ class CfnScheduleGroupProps:
         self,
         *,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnScheduleGroup``.
 
@@ -2556,7 +2546,7 @@ class CfnScheduleGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7)
+            type_hints = cached_type_hints(_typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2575,7 +2565,7 @@ class CfnScheduleGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2583,7 +2573,7 @@ class CfnScheduleGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html#cfn-scheduler-schedulegroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2618,13 +2608,13 @@ class CfnScheduleProps:
     def __init__(
         self,
         *,
-        flexible_time_window: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.FlexibleTimeWindowProperty", typing.Dict[builtins.str, typing.Any]]],
+        flexible_time_window: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.FlexibleTimeWindowProperty", typing.Dict[builtins.str, typing.Any]]],
         schedule_expression: builtins.str,
-        target: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchedule.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
+        target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSchedule.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         end_date: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        kms_key_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         name: typing.Optional[builtins.str] = None,
         schedule_expression_timezone: typing.Optional[builtins.str] = None,
         start_date: typing.Optional[builtins.str] = None,
@@ -2744,7 +2734,7 @@ class CfnScheduleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7259f3f17d67e55e8ad4459f637d0d8aa80d57d58cb928f6b0403a6097a4ecf1)
+            type_hints = cached_type_hints(_typecheckingstub__7259f3f17d67e55e8ad4459f637d0d8aa80d57d58cb928f6b0403a6097a4ecf1)
             check_type(argname="argument flexible_time_window", value=flexible_time_window, expected_type=type_hints["flexible_time_window"])
             check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
@@ -2781,14 +2771,14 @@ class CfnScheduleProps:
     @builtins.property
     def flexible_time_window(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSchedule.FlexibleTimeWindowProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.FlexibleTimeWindowProperty"]:
         '''Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-flexibletimewindow
         '''
         result = self._values.get("flexible_time_window")
         assert result is not None, "Required property 'flexible_time_window' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSchedule.FlexibleTimeWindowProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.FlexibleTimeWindowProperty"], result)
 
     @builtins.property
     def schedule_expression(self) -> builtins.str:
@@ -2815,14 +2805,14 @@ class CfnScheduleProps:
     @builtins.property
     def target(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSchedule.TargetProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.TargetProperty"]:
         '''The schedule's target details.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-target
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSchedule.TargetProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSchedule.TargetProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2857,13 +2847,13 @@ class CfnScheduleProps:
     @builtins.property
     def kms_key_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The Amazon Resource Name (ARN) for the customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -2937,7 +2927,7 @@ class ContextAttribute(
         :param name: - name will replace xxx in <aws.scheduler.xxx>.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3ffc32f8d37e5b3c60f6299c8f15649e00e5778ef81be54ecc2ffbb99ac1bbc)
+            type_hints = cached_type_hints(_typecheckingstub__c3ffc32f8d37e5b3c60f6299c8f15649e00e5778ef81be54ecc2ffbb99ac1bbc)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "fromName", [name]))
 
@@ -2978,7 +2968,7 @@ class ContextAttribute(
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_scheduler.CronOptionsWithTimezone",
-    jsii_struct_bases=[_CronOptions_6401a7a0],
+    jsii_struct_bases=[_aws_events_27c08586.CronOptions],
     name_mapping={
         "day": "day",
         "hour": "hour",
@@ -2989,7 +2979,7 @@ class ContextAttribute(
         "time_zone": "timeZone",
     },
 )
-class CronOptionsWithTimezone(_CronOptions_6401a7a0):
+class CronOptionsWithTimezone(_aws_events_27c08586.CronOptions):
     def __init__(
         self,
         *,
@@ -2999,7 +2989,7 @@ class CronOptionsWithTimezone(_CronOptions_6401a7a0):
         month: typing.Optional[builtins.str] = None,
         week_day: typing.Optional[builtins.str] = None,
         year: typing.Optional[builtins.str] = None,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
     ) -> None:
         '''Options to configure a cron expression.
 
@@ -3041,7 +3031,7 @@ class CronOptionsWithTimezone(_CronOptions_6401a7a0):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87f71f166be27f7417012dedd810bd7b3cedb2ec7d0a0493ca36f93993f6c5b)
+            type_hints = cached_type_hints(_typecheckingstub__c87f71f166be27f7417012dedd810bd7b3cedb2ec7d0a0493ca36f93993f6c5b)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -3120,13 +3110,13 @@ class CronOptionsWithTimezone(_CronOptions_6401a7a0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def time_zone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
+    def time_zone(self) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''The timezone to run the schedule in.
 
         :default: - TimeZone.ETC_UTC
         '''
         result = self._values.get("time_zone")
-        return typing.cast(typing.Optional["_TimeZone_cdd72ac9"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.TimeZone"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3142,8 +3132,8 @@ class CronOptionsWithTimezone(_CronOptions_6401a7a0):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.ISchedule")
 class ISchedule(
-    _IResource_c80c4260,
-    _IScheduleRef_5286fcb6,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_scheduler_12214681.IScheduleRef,
     typing_extensions.Protocol,
 ):
     '''Interface representing a created or an imported ``Schedule``.'''
@@ -3174,8 +3164,8 @@ class ISchedule(
 
 
 class _IScheduleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IScheduleRef_5286fcb6), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_scheduler_12214681.IScheduleRef), # type: ignore[misc]
 ):
     '''Interface representing a created or an imported ``Schedule``.'''
 
@@ -3211,8 +3201,8 @@ typing.cast(typing.Any, ISchedule).__jsii_proxy_class__ = lambda : _ISchedulePro
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleGroup")
 class IScheduleGroup(
-    _IResource_c80c4260,
-    _IScheduleGroupRef_c08a74b7,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_scheduler_12214681.IScheduleGroupRef,
     typing_extensions.Protocol,
 ):
     '''Interface representing a created or an imported ``ScheduleGroup``.'''
@@ -3238,9 +3228,9 @@ class IScheduleGroup(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this group to the given principal.
 
         :param grantee: -
@@ -3251,8 +3241,8 @@ class IScheduleGroup(
     @jsii.member(jsii_name="grantDeleteSchedules")
     def grant_delete_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant delete schedule permission for schedules in this group to the given principal.
 
         :param identity: -
@@ -3262,8 +3252,8 @@ class IScheduleGroup(
     @jsii.member(jsii_name="grantReadSchedules")
     def grant_read_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant list and get schedule permissions for schedules in this group to the given principal.
 
         :param identity: -
@@ -3273,8 +3263,8 @@ class IScheduleGroup(
     @jsii.member(jsii_name="grantWriteSchedules")
     def grant_write_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant create and update schedule permissions for schedules in this group to the given principal.
 
         :param identity: -
@@ -3291,14 +3281,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this group schedules.
 
         :param metric_name: -
@@ -3328,14 +3318,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for all invocation attempts.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3364,14 +3354,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3401,14 +3391,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for failed invocations that also failed to deliver to DLQ.
 
         :param error_code: -
@@ -3438,14 +3428,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocations delivered to the DLQ.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3474,14 +3464,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3510,14 +3500,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3546,14 +3536,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocation failures due to API throttling by the target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3582,14 +3572,14 @@ class IScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3613,8 +3603,8 @@ class IScheduleGroup(
 
 
 class _IScheduleGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IScheduleGroupRef_c08a74b7), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_scheduler_12214681.IScheduleGroupRef), # type: ignore[misc]
 ):
     '''Interface representing a created or an imported ``ScheduleGroup``.'''
 
@@ -3641,61 +3631,61 @@ class _IScheduleGroupProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this group to the given principal.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__190f03a36ab90eca0db1bdfd7c06d5891c61b69defb1c7be61f45d771a66e130)
+            type_hints = cached_type_hints(_typecheckingstub__190f03a36ab90eca0db1bdfd7c06d5891c61b69defb1c7be61f45d771a66e130)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantDeleteSchedules")
     def grant_delete_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant delete schedule permission for schedules in this group to the given principal.
 
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579ff4205e0ccb1830f899a44fc742e9853277ba0f82091be749e20b4fdbf1c2)
+            type_hints = cached_type_hints(_typecheckingstub__579ff4205e0ccb1830f899a44fc742e9853277ba0f82091be749e20b4fdbf1c2)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDeleteSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDeleteSchedules", [identity]))
 
     @jsii.member(jsii_name="grantReadSchedules")
     def grant_read_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant list and get schedule permissions for schedules in this group to the given principal.
 
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66f280f7a41957c98ada2240887b088985bbe273d1067b2c4f83f8ca69d09aae)
+            type_hints = cached_type_hints(_typecheckingstub__66f280f7a41957c98ada2240887b088985bbe273d1067b2c4f83f8ca69d09aae)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadSchedules", [identity]))
 
     @jsii.member(jsii_name="grantWriteSchedules")
     def grant_write_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant create and update schedule permissions for schedules in this group to the given principal.
 
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f189e0a2b180ceb7d47a54524a64df15a2d1c7a5efe1e25873a64a68692c1d18)
+            type_hints = cached_type_hints(_typecheckingstub__f189e0a2b180ceb7d47a54524a64df15a2d1c7a5efe1e25873a64a68692c1d18)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWriteSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWriteSchedules", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -3707,14 +3697,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this group schedules.
 
         :param metric_name: -
@@ -3734,9 +3724,9 @@ class _IScheduleGroupProxy(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1a1c48be5584426072c1f842a1e31e59436e2cefe7df9e84b5a3115ad743d3e)
+            type_hints = cached_type_hints(_typecheckingstub__b1a1c48be5584426072c1f842a1e31e59436e2cefe7df9e84b5a3115ad743d3e)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3751,7 +3741,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAttempts")
     def metric_attempts(
@@ -3762,14 +3752,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for all invocation attempts.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3787,7 +3777,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3802,7 +3792,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAttempts", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAttempts", [props]))
 
     @jsii.member(jsii_name="metricDropped")
     def metric_dropped(
@@ -3813,14 +3803,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3838,7 +3828,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3853,7 +3843,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDropped", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDropped", [props]))
 
     @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
     def metric_failed_to_be_sent_to_dlq(
@@ -3865,14 +3855,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for failed invocations that also failed to deliver to DLQ.
 
         :param error_code: -
@@ -3892,9 +3882,9 @@ class _IScheduleGroupProxy(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43e3d3a73dae7296d8e1b29562f7a8fbdf941fb9885fa0ddcc13164e2352e68d)
+            type_hints = cached_type_hints(_typecheckingstub__43e3d3a73dae7296d8e1b29562f7a8fbdf941fb9885fa0ddcc13164e2352e68d)
             check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3909,7 +3899,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
 
     @jsii.member(jsii_name="metricSentToDLQ")
     def metric_sent_to_dlq(
@@ -3920,14 +3910,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocations delivered to the DLQ.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3945,7 +3935,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3960,7 +3950,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentToDLQ", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentToDLQ", [props]))
 
     @jsii.member(jsii_name="metricSentToDLQTruncated")
     def metric_sent_to_dlq_truncated(
@@ -3971,14 +3961,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3996,7 +3986,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4011,7 +4001,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentToDLQTruncated", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentToDLQTruncated", [props]))
 
     @jsii.member(jsii_name="metricTargetErrors")
     def metric_target_errors(
@@ -4022,14 +4012,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4047,7 +4037,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4062,7 +4052,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetErrors", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetErrors", [props]))
 
     @jsii.member(jsii_name="metricTargetThrottled")
     def metric_target_throttled(
@@ -4073,14 +4063,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocation failures due to API throttling by the target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4098,7 +4088,7 @@ class _IScheduleGroupProxy(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4113,7 +4103,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetThrottled", [props]))
 
     @jsii.member(jsii_name="metricThrottled")
     def metric_throttled(
@@ -4124,14 +4114,14 @@ class _IScheduleGroupProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4151,7 +4141,7 @@ class _IScheduleGroupProxy(
 
         :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4166,7 +4156,7 @@ class _IScheduleGroupProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricThrottled", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IScheduleGroup).__jsii_proxy_class__ = lambda : _IScheduleGroupProxy
@@ -4197,7 +4187,7 @@ class _IScheduleTargetProxy:
         :param _schedule: a schedule the target should be added to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db14aa1db4d786b1846e49587706992ee79b66245d52b5efebd763ccbd24c94)
+            type_hints = cached_type_hints(_typecheckingstub__1db14aa1db4d786b1846e49587706992ee79b66245d52b5efebd763ccbd24c94)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
         return typing.cast("ScheduleTargetConfig", jsii.invoke(self, "bind", [_schedule]))
 
@@ -4207,7 +4197,7 @@ typing.cast(typing.Any, IScheduleTarget).__jsii_proxy_class__ = lambda : _ISched
 
 @jsii.implements(ISchedule)
 class Schedule(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_scheduler.Schedule",
 ):
@@ -4243,7 +4233,7 @@ class Schedule(
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
         end: typing.Optional[datetime.datetime] = None,
-        key: typing.Optional["_IKey_5f11635f"] = None,
+        key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         schedule_group: typing.Optional["IScheduleGroup"] = None,
         schedule_name: typing.Optional[builtins.str] = None,
         start: typing.Optional[datetime.datetime] = None,
@@ -4264,7 +4254,7 @@ class Schedule(
         :param time_window: A time window during which EventBridge Scheduler invokes the schedule. Default: TimeWindow.off()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5e74b4c774095daccbb01abe34df777261be2bfce9f7ec773cd8688b17dbb98)
+            type_hints = cached_type_hints(_typecheckingstub__e5e74b4c774095daccbb01abe34df777261be2bfce9f7ec773cd8688b17dbb98)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduleProps(
@@ -4297,7 +4287,7 @@ class Schedule(
         :param schedule_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1372455178922293375a1300f4c6e69cee5bc442b16f4036c84aafb7d9332f93)
+            type_hints = cached_type_hints(_typecheckingstub__1372455178922293375a1300f4c6e69cee5bc442b16f4036c84aafb7d9332f93)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument schedule_arn", value=schedule_arn, expected_type=type_hints["schedule_arn"])
@@ -4314,14 +4304,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for all schedules.
 
         :param metric_name: -
@@ -4341,9 +4331,9 @@ class Schedule(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9697edf3bddfcbab866b7220407b409d24e19d71a4831cc2eae389b626c1d7)
+            type_hints = cached_type_hints(_typecheckingstub__3e9697edf3bddfcbab866b7220407b409d24e19d71a4831cc2eae389b626c1d7)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4358,7 +4348,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAll", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAll", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAllAttempts")
     @builtins.classmethod
@@ -4370,14 +4360,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for all invocation attempts across all schedules.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4395,7 +4385,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4410,7 +4400,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllAttempts", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllAttempts", [props]))
 
     @jsii.member(jsii_name="metricAllDropped")
     @builtins.classmethod
@@ -4422,14 +4412,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
 
         Metric is calculated for all schedules.
@@ -4449,7 +4439,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4464,7 +4454,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllDropped", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllDropped", [props]))
 
     @jsii.member(jsii_name="metricAllErrors")
     @builtins.classmethod
@@ -4476,14 +4466,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API across all schedules.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4501,7 +4491,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4516,7 +4506,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllErrors", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllErrors", [props]))
 
     @jsii.member(jsii_name="metricAllFailedToBeSentToDLQ")
     @builtins.classmethod
@@ -4529,14 +4519,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for failed invocations that also failed to deliver to DLQ across all schedules.
 
         :param error_code: -
@@ -4556,9 +4546,9 @@ class Schedule(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323d651b0d)
+            type_hints = cached_type_hints(_typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323d651b0d)
             check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4573,7 +4563,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllFailedToBeSentToDLQ", [error_code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllFailedToBeSentToDLQ", [error_code, props]))
 
     @jsii.member(jsii_name="metricAllSentToDLQ")
     @builtins.classmethod
@@ -4585,14 +4575,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocations delivered to the DLQ across all schedules.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4610,7 +4600,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4625,7 +4615,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllSentToDLQ", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllSentToDLQ", [props]))
 
     @jsii.member(jsii_name="metricAllSentToDLQTruncated")
     @builtins.classmethod
@@ -4637,14 +4627,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
 
         Metric is calculated for all schedules.
@@ -4664,7 +4654,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4679,7 +4669,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllSentToDLQTruncated", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllSentToDLQTruncated", [props]))
 
     @jsii.member(jsii_name="metricAllTargetThrottled")
     @builtins.classmethod
@@ -4691,14 +4681,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocation failures due to API throttling by the target across all schedules.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4716,7 +4706,7 @@ class Schedule(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4731,7 +4721,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllTargetThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllTargetThrottled", [props]))
 
     @jsii.member(jsii_name="metricAllThrottled")
     @builtins.classmethod
@@ -4743,14 +4733,14 @@ class Schedule(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of invocations that were throttled across all schedules.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4770,7 +4760,7 @@ class Schedule(
 
         :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4785,7 +4775,7 @@ class Schedule(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.sinvoke(cls, "metricAllThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.sinvoke(cls, "metricAllThrottled", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -4807,15 +4797,15 @@ class Schedule(
 
     @builtins.property
     @jsii.member(jsii_name="scheduleRef")
-    def schedule_ref(self) -> "_ScheduleReference_c219736f":
+    def schedule_ref(self) -> "_aws_scheduler_12214681.ScheduleReference":
         '''A reference to a Schedule resource.'''
-        return typing.cast("_ScheduleReference_c219736f", jsii.get(self, "scheduleRef"))
+        return typing.cast("_aws_scheduler_12214681.ScheduleReference", jsii.get(self, "scheduleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="key")
-    def key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "key"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "key"))
 
     @builtins.property
     @jsii.member(jsii_name="scheduleGroup")
@@ -4862,7 +4852,7 @@ class ScheduleExpression(
     def at(
         cls,
         date: datetime.datetime,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
     ) -> "ScheduleExpression":
         '''Construct a one-time schedule from a date.
 
@@ -4870,7 +4860,7 @@ class ScheduleExpression(
         :param time_zone: The time zone to use for interpreting the date. Default: - UTC
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__175909e9c50b88b6e35fc2db4998caa986e6da11a9a20dbde9c02ee1ca0b00b8)
+            type_hints = cached_type_hints(_typecheckingstub__175909e9c50b88b6e35fc2db4998caa986e6da11a9a20dbde9c02ee1ca0b00b8)
             check_type(argname="argument date", value=date, expected_type=type_hints["date"])
             check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "at", [date, time_zone]))
@@ -4880,7 +4870,7 @@ class ScheduleExpression(
     def cron(
         cls,
         *,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
         day: typing.Optional[builtins.str] = None,
         hour: typing.Optional[builtins.str] = None,
         minute: typing.Optional[builtins.str] = None,
@@ -4915,7 +4905,7 @@ class ScheduleExpression(
     def expression(
         cls,
         expression: builtins.str,
-        time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        time_zone: typing.Optional["_aws_cdk_0cae9daa.TimeZone"] = None,
     ) -> "ScheduleExpression":
         '''Construct a schedule from a literal schedule expression.
 
@@ -4923,14 +4913,14 @@ class ScheduleExpression(
         :param time_zone: The time zone to use for interpreting the expression. Default: - UTC
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21e89766a8d616bfc00e75a22774b5d41c55681b6f5f623f08f201c835dd2902)
+            type_hints = cached_type_hints(_typecheckingstub__21e89766a8d616bfc00e75a22774b5d41c55681b6f5f623f08f201c835dd2902)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "expression", [expression, time_zone]))
 
     @jsii.member(jsii_name="rate")
     @builtins.classmethod
-    def rate(cls, duration: "_Duration_4839e8c3") -> "ScheduleExpression":
+    def rate(cls, duration: "_aws_cdk_0cae9daa.Duration") -> "ScheduleExpression":
         '''Construct a recurring schedule from an interval and a time unit.
 
         Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
@@ -4938,7 +4928,7 @@ class ScheduleExpression(
         :param duration: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97a45c9b75fc81cb3d47817d0893dffb28ebc87496c4a4eedb9cf73b57a68cc5)
+            type_hints = cached_type_hints(_typecheckingstub__97a45c9b75fc81cb3d47817d0893dffb28ebc87496c4a4eedb9cf73b57a68cc5)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
         return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "rate", [duration]))
 
@@ -4952,7 +4942,7 @@ class ScheduleExpression(
     @builtins.property
     @jsii.member(jsii_name="timeZone")
     @abc.abstractmethod
-    def time_zone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
+    def time_zone(self) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''Retrieve the expression for this schedule.'''
         ...
 
@@ -4966,9 +4956,9 @@ class _ScheduleExpressionProxy(ScheduleExpression):
 
     @builtins.property
     @jsii.member(jsii_name="timeZone")
-    def time_zone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
+    def time_zone(self) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''Retrieve the expression for this schedule.'''
-        return typing.cast(typing.Optional["_TimeZone_cdd72ac9"], jsii.get(self, "timeZone"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.TimeZone"], jsii.get(self, "timeZone"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ScheduleExpression).__jsii_proxy_class__ = lambda : _ScheduleExpressionProxy
@@ -4976,7 +4966,7 @@ typing.cast(typing.Any, ScheduleExpression).__jsii_proxy_class__ = lambda : _Sch
 
 @jsii.implements(IScheduleGroup)
 class ScheduleGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroup",
 ):
@@ -5006,7 +4996,7 @@ class ScheduleGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         schedule_group_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -5016,7 +5006,7 @@ class ScheduleGroup(
         :param schedule_group_name: The name of the schedule group. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__736972893d2822201f3b54995126456a9f4766921d769ea7836c13c49c015d53)
+            type_hints = cached_type_hints(_typecheckingstub__736972893d2822201f3b54995126456a9f4766921d769ea7836c13c49c015d53)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduleGroupProps(
@@ -5038,7 +5028,7 @@ class ScheduleGroup(
         :param id: construct id.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7b5a1fbdcbfd0ad106f45caf1d995619df8d064b8587659c5461157f6e48926)
+            type_hints = cached_type_hints(_typecheckingstub__b7b5a1fbdcbfd0ad106f45caf1d995619df8d064b8587659c5461157f6e48926)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("IScheduleGroup", jsii.sinvoke(cls, "fromDefaultScheduleGroup", [scope, id]))
@@ -5058,7 +5048,7 @@ class ScheduleGroup(
         :param schedule_group_arn: the ARN of the schedule group to import (e.g. ``arn:aws:scheduler:region:account-id:schedule-group/group-name``).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c77731a2b0fb48c74a722651a8f036cef9066af4a6dd7b73c0b9b2d119bc36d)
+            type_hints = cached_type_hints(_typecheckingstub__9c77731a2b0fb48c74a722651a8f036cef9066af4a6dd7b73c0b9b2d119bc36d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument schedule_group_arn", value=schedule_group_arn, expected_type=type_hints["schedule_group_arn"])
@@ -5079,7 +5069,7 @@ class ScheduleGroup(
         :param schedule_group_name: the name of the existing schedule group to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0eef3cd9167e1bcf64df7282dec1f362eaac5659d22625afac3c28dcc0b7edb)
+            type_hints = cached_type_hints(_typecheckingstub__e0eef3cd9167e1bcf64df7282dec1f362eaac5659d22625afac3c28dcc0b7edb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
@@ -5088,25 +5078,25 @@ class ScheduleGroup(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this schedule group to the given principal [disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1603de1685aaaf14ff1514df8394bc631af9b5e6f8b79a44c31ff5e24157a7e0)
+            type_hints = cached_type_hints(_typecheckingstub__1603de1685aaaf14ff1514df8394bc631af9b5e6f8b79a44c31ff5e24157a7e0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantDeleteSchedules")
     def grant_delete_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant delete schedule permission for schedules in this group to the given principal.
 
         The use of this method is discouraged. Please use ``grants.deleteSchedules()`` instead.
@@ -5116,15 +5106,15 @@ class ScheduleGroup(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15bda48b16b2099393ebcd41e9be05dd66aaf7faaeae1ba65b42220d7667bce5)
+            type_hints = cached_type_hints(_typecheckingstub__15bda48b16b2099393ebcd41e9be05dd66aaf7faaeae1ba65b42220d7667bce5)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDeleteSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDeleteSchedules", [identity]))
 
     @jsii.member(jsii_name="grantReadSchedules")
     def grant_read_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant list and get schedule permissions for schedules in this group to the given principal.
 
         The use of this method is discouraged. Please use ``grants.readSchedules()`` instead.
@@ -5134,15 +5124,15 @@ class ScheduleGroup(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a9d37bafcef8d26af6e888f5ab8b2aef1359b02c7a510049f6e900c986b797)
+            type_hints = cached_type_hints(_typecheckingstub__55a9d37bafcef8d26af6e888f5ab8b2aef1359b02c7a510049f6e900c986b797)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadSchedules", [identity]))
 
     @jsii.member(jsii_name="grantWriteSchedules")
     def grant_write_schedules(
         self,
-        identity: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        identity: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant create and update schedule permissions for schedules in this group to the given principal.
 
         The use of this method is discouraged. Please use ``grants.writeSchedules()`` instead.
@@ -5152,9 +5142,9 @@ class ScheduleGroup(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2cc2856526773b02c8dfcbfcca6cf534cc4a4b00a0b0de1e8fe166c071534ab)
+            type_hints = cached_type_hints(_typecheckingstub__f2cc2856526773b02c8dfcbfcca6cf534cc4a4b00a0b0de1e8fe166c071534ab)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWriteSchedules", [identity]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWriteSchedules", [identity]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -5166,14 +5156,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the given named metric for this schedule group.
 
         :param metric_name: -
@@ -5193,9 +5183,9 @@ class ScheduleGroup(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__634bd225463be60303d9d1588926bbaa9fbd72c940ca54fecf9724d90fdefe64)
+            type_hints = cached_type_hints(_typecheckingstub__634bd225463be60303d9d1588926bbaa9fbd72c940ca54fecf9724d90fdefe64)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5210,7 +5200,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricAttempts")
     def metric_attempts(
@@ -5221,14 +5211,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for all invocation attempts.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5246,7 +5236,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5261,7 +5251,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricAttempts", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricAttempts", [props]))
 
     @jsii.member(jsii_name="metricDropped")
     def metric_dropped(
@@ -5272,14 +5262,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5297,7 +5287,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5312,7 +5302,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDropped", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDropped", [props]))
 
     @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
     def metric_failed_to_be_sent_to_dlq(
@@ -5324,14 +5314,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for failed invocations that also failed to deliver to DLQ.
 
         :param error_code: -
@@ -5351,9 +5341,9 @@ class ScheduleGroup(
         :default: - sum over 5 minutes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca970bf647095b0a6fd282ecce93e19b12761be780f7fac1db8cc3b6f97c0cbf)
+            type_hints = cached_type_hints(_typecheckingstub__ca970bf647095b0a6fd282ecce93e19b12761be780f7fac1db8cc3b6f97c0cbf)
             check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5368,7 +5358,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
 
     @jsii.member(jsii_name="metricSentToDLQ")
     def metric_sent_to_dlq(
@@ -5379,14 +5369,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocations delivered to the DLQ.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5404,7 +5394,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5419,7 +5409,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentToDLQ", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentToDLQ", [props]))
 
     @jsii.member(jsii_name="metricSentToDLQTruncated")
     def metric_sent_to_dlq_truncated(
@@ -5430,14 +5420,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5455,7 +5445,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5470,7 +5460,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSentToDLQTruncated", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricSentToDLQTruncated", [props]))
 
     @jsii.member(jsii_name="metricTargetErrors")
     def metric_target_errors(
@@ -5481,14 +5471,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5506,7 +5496,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5521,7 +5511,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetErrors", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetErrors", [props]))
 
     @jsii.member(jsii_name="metricTargetThrottled")
     def metric_target_throttled(
@@ -5532,14 +5522,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for invocation failures due to API throttling by the target.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5557,7 +5547,7 @@ class ScheduleGroup(
 
         :default: - sum over 5 minutes
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5572,7 +5562,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricTargetThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricTargetThrottled", [props]))
 
     @jsii.member(jsii_name="metricThrottled")
     def metric_throttled(
@@ -5583,14 +5573,14 @@ class ScheduleGroup(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -5610,7 +5600,7 @@ class ScheduleGroup(
 
         :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5625,7 +5615,7 @@ class ScheduleGroup(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricThrottled", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricThrottled", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5653,9 +5643,9 @@ class ScheduleGroup(
 
     @builtins.property
     @jsii.member(jsii_name="scheduleGroupRef")
-    def schedule_group_ref(self) -> "_ScheduleGroupReference_fd0e4c46":
+    def schedule_group_ref(self) -> "_aws_scheduler_12214681.ScheduleGroupReference":
         '''A reference to a ScheduleGroup resource.'''
-        return typing.cast("_ScheduleGroupReference_fd0e4c46", jsii.get(self, "scheduleGroupRef"))
+        return typing.cast("_aws_scheduler_12214681.ScheduleGroupReference", jsii.get(self, "scheduleGroupRef"))
 
 
 class ScheduleGroupGrants(
@@ -5682,54 +5672,63 @@ class ScheduleGroupGrants(
     @builtins.classmethod
     def from_schedule_group(
         cls,
-        resource: "_IScheduleGroupRef_c08a74b7",
+        resource: "_aws_scheduler_12214681.IScheduleGroupRef",
     ) -> "ScheduleGroupGrants":
         '''Creates grants for ScheduleGroupGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cc7371d647bc50970e9ca9603093e34a7c37cafd5ab6a946be6e48216ee7bfd)
+            type_hints = cached_type_hints(_typecheckingstub__9cc7371d647bc50970e9ca9603093e34a7c37cafd5ab6a946be6e48216ee7bfd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("ScheduleGroupGrants", jsii.sinvoke(cls, "fromScheduleGroup", [resource]))
 
     @jsii.member(jsii_name="deleteSchedules")
-    def delete_schedules(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def delete_schedules(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant delete schedule permission for schedules in this group to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b34ba3783d1c5bc9abcc9c2dec90f2f467794235c78c0de880c62c0019ea1d0)
+            type_hints = cached_type_hints(_typecheckingstub__9b34ba3783d1c5bc9abcc9c2dec90f2f467794235c78c0de880c62c0019ea1d0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "deleteSchedules", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "deleteSchedules", [grantee]))
 
     @jsii.member(jsii_name="readSchedules")
-    def read_schedules(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read_schedules(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant list and get schedule permissions for schedules in this group to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__189ef665f3c945785f9299c0401cde139ddfdf0b17fddea567d78da09a800d71)
+            type_hints = cached_type_hints(_typecheckingstub__189ef665f3c945785f9299c0401cde139ddfdf0b17fddea567d78da09a800d71)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "readSchedules", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "readSchedules", [grantee]))
 
     @jsii.member(jsii_name="writeSchedules")
-    def write_schedules(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def write_schedules(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant create and update schedule permissions for schedules in this group to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8df820fb6f1f94640f481f0c7ce3720efd7bdbacf688ca2fbe758e4f2e773ff2)
+            type_hints = cached_type_hints(_typecheckingstub__8df820fb6f1f94640f481f0c7ce3720efd7bdbacf688ca2fbe758e4f2e773ff2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "writeSchedules", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "writeSchedules", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IScheduleGroupRef_c08a74b7":
-        return typing.cast("_IScheduleGroupRef_c08a74b7", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_scheduler_12214681.IScheduleGroupRef":
+        return typing.cast("_aws_scheduler_12214681.IScheduleGroupRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -5744,7 +5743,7 @@ class ScheduleGroupProps:
     def __init__(
         self,
         *,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         schedule_group_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for a Schedule Group.
@@ -5770,7 +5769,7 @@ class ScheduleGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64bb15c34)
+            type_hints = cached_type_hints(_typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64bb15c34)
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5780,7 +5779,7 @@ class ScheduleGroupProps:
             self._values["schedule_group_name"] = schedule_group_name
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy for the group.
 
         If the group is removed also all schedules are removed.
@@ -5788,7 +5787,7 @@ class ScheduleGroupProps:
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def schedule_group_name(self) -> typing.Optional[builtins.str]:
@@ -5838,7 +5837,7 @@ class ScheduleProps:
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
         end: typing.Optional[datetime.datetime] = None,
-        key: typing.Optional["_IKey_5f11635f"] = None,
+        key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         schedule_group: typing.Optional["IScheduleGroup"] = None,
         schedule_name: typing.Optional[builtins.str] = None,
         start: typing.Optional[datetime.datetime] = None,
@@ -5877,7 +5876,7 @@ class ScheduleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf13677e296f)
+            type_hints = cached_type_hints(_typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf13677e296f)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5957,13 +5956,13 @@ class ScheduleProps:
         return typing.cast(typing.Optional[datetime.datetime], result)
 
     @builtins.property
-    def key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
 
         :default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
         '''
         result = self._values.get("key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def schedule_group(self) -> typing.Optional["IScheduleGroup"]:
@@ -6040,7 +6039,7 @@ class ScheduleTargetConfig:
         self,
         *,
         arn: builtins.str,
-        role: "_IRole_235f5d8e",
+        role: "_aws_iam_1f54b5e8.IRole",
         dead_letter_config: typing.Optional[typing.Union["CfnSchedule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         ecs_parameters: typing.Optional[typing.Union["CfnSchedule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         event_bridge_parameters: typing.Optional[typing.Union["CfnSchedule.EventBridgeParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6160,7 +6159,7 @@ class ScheduleTargetConfig:
         if isinstance(sqs_parameters, dict):
             sqs_parameters = CfnSchedule.SqsParametersProperty(**sqs_parameters)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39b25a1f04a872a013c3ee593bb9140da10796639b130bc7f2461018358c6292)
+            type_hints = cached_type_hints(_typecheckingstub__39b25a1f04a872a013c3ee593bb9140da10796639b130bc7f2461018358c6292)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
@@ -6200,11 +6199,11 @@ class ScheduleTargetConfig:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''Role to use to invoke this event target.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast("_IRole_235f5d8e", result)
+        return typing.cast("_aws_iam_1f54b5e8.IRole", result)
 
     @builtins.property
     def dead_letter_config(
@@ -6344,7 +6343,7 @@ class ScheduleTargetInput(
         :param obj: object to use to convert to JSON to use as input for the target.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fdac9a672a0bc2eb981e9971ac41140aa1074946d827f45e5c9d4d78673f0cd)
+            type_hints = cached_type_hints(_typecheckingstub__6fdac9a672a0bc2eb981e9971ac41140aa1074946d827f45e5c9d4d78673f0cd)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
 
@@ -6359,7 +6358,7 @@ class ScheduleTargetInput(
         :param text: Text to use as the input for the target.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0925fac0caa3d8fe93a0fe4320d4f08133f45e33174afd1af78bf68282a68524)
+            type_hints = cached_type_hints(_typecheckingstub__0925fac0caa3d8fe93a0fe4320d4f08133f45e33174afd1af78bf68282a68524)
             check_type(argname="argument text", value=text, expected_type=type_hints["text"])
         return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
 
@@ -6381,7 +6380,7 @@ class _ScheduleTargetInputProxy(ScheduleTargetInput):
         :param schedule: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399d6d4527)
+            type_hints = cached_type_hints(_typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399d6d4527)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
         return typing.cast(builtins.str, jsii.invoke(self, "bind", [schedule]))
 
@@ -6411,13 +6410,13 @@ class TimeWindow(
 
     @jsii.member(jsii_name="flexible")
     @builtins.classmethod
-    def flexible(cls, max_window: "_Duration_4839e8c3") -> "TimeWindow":
+    def flexible(cls, max_window: "_aws_cdk_0cae9daa.Duration") -> "TimeWindow":
         '''TimeWindow is enabled.
 
         :param max_window: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511)
+            type_hints = cached_type_hints(_typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511)
             check_type(argname="argument max_window", value=max_window, expected_type=type_hints["max_window"])
         return typing.cast("TimeWindow", jsii.sinvoke(cls, "flexible", [max_window]))
 
@@ -6435,14 +6434,14 @@ class TimeWindow(
 
     @builtins.property
     @jsii.member(jsii_name="maxWindow")
-    def max_window(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_window(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum time window during which the schedule can be invoked.
 
         Must be between 1 to 1440 minutes.
 
         :default: - no value
         '''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "maxWindow"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "maxWindow"))
 
 
 __all__ = [
@@ -6472,13 +6471,13 @@ def _typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
+    flexible_time_window: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
     schedule_expression: builtins.str,
-    target: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     end_date: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    kms_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     name: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_date: typing.Optional[builtins.str] = None,
@@ -6488,7 +6487,7 @@ def _typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099
     pass
 
 def _typecheckingstub__dc94c2e4e6a33a3d1aa7e0663ea7d9c2d661091e25d237f9c9672f59868e9f13(
-    resource: _IScheduleRef_5286fcb6,
+    resource: _aws_scheduler_12214681.IScheduleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6500,7 +6499,7 @@ def _typecheckingstub__6340b5f3feb910a103564b09df879082d2c5c5f6b4c02e75ddfb748af
     pass
 
 def _typecheckingstub__859c33780944a757aa0069dfe861a7f9ee3aaa6d51b1881276590d23b3cbc11d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6512,7 +6511,7 @@ def _typecheckingstub__1c9dd58f37a9f244d09bdbca3ac4ea0869a0855a2cb760325d51c0d8b
     pass
 
 def _typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a(
-    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.FlexibleTimeWindowProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSchedule.FlexibleTimeWindowProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6524,7 +6523,7 @@ def _typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c2
     pass
 
 def _typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78(
-    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.TargetProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSchedule.TargetProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6605,14 +6604,14 @@ def _typecheckingstub__147909ee33401019ceeec9c9c260dd3ac0812db04c597e1b63c26f060
 def _typecheckingstub__9dc612a243a7e6a4107ac15e844d139b177440cb37d514af299c8365e71f4cf1(
     *,
     task_definition_arn: builtins.str,
-    capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    capacity_provider_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     group: typing.Optional[builtins.str] = None,
     launch_type: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    placement_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement_constraints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     platform_version: typing.Optional[builtins.str] = None,
     propagate_tags: typing.Optional[builtins.str] = None,
     reference_id: typing.Optional[builtins.str] = None,
@@ -6647,7 +6646,7 @@ def _typecheckingstub__21a3b10246bef07a2f7fc56bf58e08c66b0fd77f7770804a87bf867fa
 
 def _typecheckingstub__428ddbfd1435a3560f182001dfcf151c620cba65c309e87341f84eb7d60ba492(
     *,
-    awsvpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    awsvpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6686,7 +6685,7 @@ def _typecheckingstub__0c29c10cb7c0592826b32a3dc5e923a7c8d2f8b6bd9a0fe45759d6502
 
 def _typecheckingstub__a0de727f226b2279098ba22fdf1aa02e57d81187ed9063acc8d789604e1a7f88(
     *,
-    pipeline_parameter_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    pipeline_parameter_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6702,14 +6701,14 @@ def _typecheckingstub__bd5d0419478021d0554d24683f11134f17bb914856367055c32d004d8
     *,
     arn: builtins.str,
     role_arn: builtins.str,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_bridge_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input: typing.Optional[builtins.str] = None,
-    kinesis_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6719,13 +6718,13 @@ def _typecheckingstub__55d5637c9b973d98ef3a23b13bf274e0a35bc07dfc27542f9b7185600
     id: builtins.str,
     *,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3bf41141ca45d8816e093169bacba857d10c0fee6843a589cd33bcd31e8fea8c(
-    resource: _IScheduleGroupRef_c08a74b7,
+    resource: _aws_scheduler_12214681.IScheduleGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6737,7 +6736,7 @@ def _typecheckingstub__a9982e5e82bf7e13bf33e07d14fb358120f61dd2e02374199f308b8ac
     pass
 
 def _typecheckingstub__e179ed3a5ae801985e05b869adcf8daec39217aada45fa23844dd021dea92bda(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6755,7 +6754,7 @@ def _typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8
     pass
 
 def _typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6763,20 +6762,20 @@ def _typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5f
 def _typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7(
     *,
     name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7259f3f17d67e55e8ad4459f637d0d8aa80d57d58cb928f6b0403a6097a4ecf1(
     *,
-    flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
+    flexible_time_window: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
     schedule_expression: builtins.str,
-    target: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     end_date: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    kms_key_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     name: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_date: typing.Optional[builtins.str] = None,
@@ -6799,32 +6798,32 @@ def _typecheckingstub__c87f71f166be27f7417012dedd810bd7b3cedb2ec7d0a0493ca36f939
     month: typing.Optional[builtins.str] = None,
     week_day: typing.Optional[builtins.str] = None,
     year: typing.Optional[builtins.str] = None,
-    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    time_zone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__190f03a36ab90eca0db1bdfd7c06d5891c61b69defb1c7be61f45d771a66e130(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__579ff4205e0ccb1830f899a44fc742e9853277ba0f82091be749e20b4fdbf1c2(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__66f280f7a41957c98ada2240887b088985bbe273d1067b2c4f83f8ca69d09aae(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f189e0a2b180ceb7d47a54524a64df15a2d1c7a5efe1e25873a64a68692c1d18(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6837,12 +6836,12 @@ def _typecheckingstub__b1a1c48be5584426072c1f842a1e31e59436e2cefe7df9e84b5a3115a
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6856,12 +6855,12 @@ def _typecheckingstub__43e3d3a73dae7296d8e1b29562f7a8fbdf941fb9885fa0ddcc13164e2
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6882,7 +6881,7 @@ def _typecheckingstub__e5e74b4c774095daccbb01abe34df777261be2bfce9f7ec773cd8688b
     description: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
     end: typing.Optional[datetime.datetime] = None,
-    key: typing.Optional[_IKey_5f11635f] = None,
+    key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     schedule_group: typing.Optional[IScheduleGroup] = None,
     schedule_name: typing.Optional[builtins.str] = None,
     start: typing.Optional[datetime.datetime] = None,
@@ -6907,12 +6906,12 @@ def _typecheckingstub__3e9697edf3bddfcbab866b7220407b409d24e19d71a4831cc2eae389b
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6926,12 +6925,12 @@ def _typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6939,20 +6938,20 @@ def _typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323
 
 def _typecheckingstub__175909e9c50b88b6e35fc2db4998caa986e6da11a9a20dbde9c02ee1ca0b00b8(
     date: datetime.datetime,
-    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    time_zone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__21e89766a8d616bfc00e75a22774b5d41c55681b6f5f623f08f201c835dd2902(
     expression: builtins.str,
-    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    time_zone: typing.Optional[_aws_cdk_0cae9daa.TimeZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__97a45c9b75fc81cb3d47817d0893dffb28ebc87496c4a4eedb9cf73b57a68cc5(
-    duration: _Duration_4839e8c3,
+    duration: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6961,7 +6960,7 @@ def _typecheckingstub__736972893d2822201f3b54995126456a9f4766921d769ea7836c13c49
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     schedule_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6991,26 +6990,26 @@ def _typecheckingstub__e0eef3cd9167e1bcf64df7282dec1f362eaac5659d22625afac3c28dc
     pass
 
 def _typecheckingstub__1603de1685aaaf14ff1514df8394bc631af9b5e6f8b79a44c31ff5e24157a7e0(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__15bda48b16b2099393ebcd41e9be05dd66aaf7faaeae1ba65b42220d7667bce5(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__55a9d37bafcef8d26af6e888f5ab8b2aef1359b02c7a510049f6e900c986b797(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f2cc2856526773b02c8dfcbfcca6cf534cc4a4b00a0b0de1e8fe166c071534ab(
-    identity: _IGrantable_71c4f5de,
+    identity: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7023,12 +7022,12 @@ def _typecheckingstub__634bd225463be60303d9d1588926bbaa9fbd72c940ca54fecf9724d90
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7042,44 +7041,44 @@ def _typecheckingstub__ca970bf647095b0a6fd282ecce93e19b12761be780f7fac1db8cc3b6f
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9cc7371d647bc50970e9ca9603093e34a7c37cafd5ab6a946be6e48216ee7bfd(
-    resource: _IScheduleGroupRef_c08a74b7,
+    resource: _aws_scheduler_12214681.IScheduleGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9b34ba3783d1c5bc9abcc9c2dec90f2f467794235c78c0de880c62c0019ea1d0(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__189ef665f3c945785f9299c0401cde139ddfdf0b17fddea567d78da09a800d71(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8df820fb6f1f94640f481f0c7ce3720efd7bdbacf688ca2fbe758e4f2e773ff2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64bb15c34(
     *,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     schedule_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7092,7 +7091,7 @@ def _typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf136
     description: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
     end: typing.Optional[datetime.datetime] = None,
-    key: typing.Optional[_IKey_5f11635f] = None,
+    key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     schedule_group: typing.Optional[IScheduleGroup] = None,
     schedule_name: typing.Optional[builtins.str] = None,
     start: typing.Optional[datetime.datetime] = None,
@@ -7104,7 +7103,7 @@ def _typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf136
 def _typecheckingstub__39b25a1f04a872a013c3ee593bb9140da10796639b130bc7f2461018358c6292(
     *,
     arn: builtins.str,
-    role: _IRole_235f5d8e,
+    role: _aws_iam_1f54b5e8.IRole,
     dead_letter_config: typing.Optional[typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     ecs_parameters: typing.Optional[typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     event_bridge_parameters: typing.Optional[typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7136,7 +7135,7 @@ def _typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399
     pass
 
 def _typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511(
-    max_window: _Duration_4839e8c3,
+    max_window: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass

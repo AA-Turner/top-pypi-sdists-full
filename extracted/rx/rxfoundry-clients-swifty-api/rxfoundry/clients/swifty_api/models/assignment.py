@@ -28,7 +28,7 @@ class Assignment(BaseModel):
     """
     Assignment
     """ # noqa: E501
-    sub_tenant_slug: Optional[Annotated[str, Field(strict=True, max_length=255)]] = Field(default=None, description="The slug of the sub tenant that the patient is assigned to.")
+    sub_tenant_slug: Optional[Annotated[str, Field(strict=True, max_length=10)]] = Field(default=None, description="The slug of the sub tenant that the patient is assigned to.")
     pharmacy_npi: Optional[Annotated[str, Field(strict=True, max_length=10)]] = Field(default=None, description="The NPI of the pharmacy that the patient is assigned to.")
     __properties: ClassVar[List[str]] = ["sub_tenant_slug", "pharmacy_npi"]
 

@@ -9,6 +9,8 @@ See the README of the `aws-cdk-lib/aws-globalaccelerator` library for more infor
 AWS Global Accelerator, and examples of all the integration classes available in
 this module.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -22,34 +24,34 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-from ..aws_ec2 import CfnEIP as _CfnEIP_f7fb6536, IInstance as _IInstance_ab239e7c
-from ..aws_elasticloadbalancingv2 import (
-    IApplicationLoadBalancer as _IApplicationLoadBalancer_4cbd50ab,
-    INetworkLoadBalancer as _INetworkLoadBalancer_96e17101,
-)
-from ..aws_globalaccelerator import IEndpoint as _IEndpoint_9ce24655
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_globalaccelerator as _aws_globalaccelerator_be468896
+else:
+
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_globalaccelerator_be468896 = _LazyImport("aws_cdk.aws_globalaccelerator")
 
 
-@jsii.implements(_IEndpoint_9ce24655)
+@jsii.implements(_aws_globalaccelerator_be468896.IEndpoint)
 class ApplicationLoadBalancerEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator_endpoints.ApplicationLoadBalancerEndpoint",
@@ -76,7 +78,7 @@ class ApplicationLoadBalancerEndpoint(
 
     def __init__(
         self,
-        load_balancer: "_IApplicationLoadBalancer_4cbd50ab",
+        load_balancer: "_aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,
@@ -87,7 +89,7 @@ class ApplicationLoadBalancerEndpoint(
         :param weight: Endpoint weight across all endpoints in the group. Must be a value between 0 and 255. Default: 128
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba4640acce1129555dd019374571778734d893a209c2784f062edff4221df6f1)
+            type_hints = cached_type_hints(_typecheckingstub__ba4640acce1129555dd019374571778734d893a209c2784f062edff4221df6f1)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         options = ApplicationLoadBalancerEndpointOptions(
             preserve_client_ip=preserve_client_ip, weight=weight
@@ -145,7 +147,7 @@ class ApplicationLoadBalancerEndpointOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c0ac3083381dd6ab3fdb91d6359ab553b1b88dc7e082a30b6e898d5733adbc0)
+            type_hints = cached_type_hints(_typecheckingstub__9c0ac3083381dd6ab3fdb91d6359ab553b1b88dc7e082a30b6e898d5733adbc0)
             check_type(argname="argument preserve_client_ip", value=preserve_client_ip, expected_type=type_hints["preserve_client_ip"])
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -192,7 +194,7 @@ class ApplicationLoadBalancerEndpointOptions:
         )
 
 
-@jsii.implements(_IEndpoint_9ce24655)
+@jsii.implements(_aws_globalaccelerator_be468896.IEndpoint)
 class CfnEipEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator_endpoints.CfnEipEndpoint",
@@ -218,7 +220,7 @@ class CfnEipEndpoint(
 
     def __init__(
         self,
-        eip: "_CfnEIP_f7fb6536",
+        eip: "_aws_ec2_09840e12.CfnEIP",
         *,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -227,7 +229,7 @@ class CfnEipEndpoint(
         :param weight: Endpoint weight across all endpoints in the group. Must be a value between 0 and 255. Default: 128
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea5231b8f6dbbebc7fcece999f2933e63d13dacdbd7d2bdc4b9c382b4aac06c7)
+            type_hints = cached_type_hints(_typecheckingstub__ea5231b8f6dbbebc7fcece999f2933e63d13dacdbd7d2bdc4b9c382b4aac06c7)
             check_type(argname="argument eip", value=eip, expected_type=type_hints["eip"])
         options = CfnEipEndpointProps(weight=weight)
 
@@ -276,7 +278,7 @@ class CfnEipEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__325966af990f79d498fd30f2d9440803965b307292d612b47a1b6dbd862fb2ef)
+            type_hints = cached_type_hints(_typecheckingstub__325966af990f79d498fd30f2d9440803965b307292d612b47a1b6dbd862fb2ef)
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if weight is not None:
@@ -305,7 +307,7 @@ class CfnEipEndpointProps:
         )
 
 
-@jsii.implements(_IEndpoint_9ce24655)
+@jsii.implements(_aws_globalaccelerator_be468896.IEndpoint)
 class InstanceEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator_endpoints.InstanceEndpoint",
@@ -332,7 +334,7 @@ class InstanceEndpoint(
 
     def __init__(
         self,
-        instance: "_IInstance_ab239e7c",
+        instance: "_aws_ec2_09840e12.IInstance",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,
@@ -343,7 +345,7 @@ class InstanceEndpoint(
         :param weight: Endpoint weight across all endpoints in the group. Must be a value between 0 and 255. Default: 128
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c2cf290b2c92721fe0ccf29dedc01f3c274ef2f3250c08926449f729dd41260)
+            type_hints = cached_type_hints(_typecheckingstub__7c2cf290b2c92721fe0ccf29dedc01f3c274ef2f3250c08926449f729dd41260)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         options = InstanceEndpointProps(
             preserve_client_ip=preserve_client_ip, weight=weight
@@ -401,7 +403,7 @@ class InstanceEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__234a90a888e0bfaab2b608e4e2c1e1a69a9e87121c40a35a442f702755d1d047)
+            type_hints = cached_type_hints(_typecheckingstub__234a90a888e0bfaab2b608e4e2c1e1a69a9e87121c40a35a442f702755d1d047)
             check_type(argname="argument preserve_client_ip", value=preserve_client_ip, expected_type=type_hints["preserve_client_ip"])
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -448,7 +450,7 @@ class InstanceEndpointProps:
         )
 
 
-@jsii.implements(_IEndpoint_9ce24655)
+@jsii.implements(_aws_globalaccelerator_be468896.IEndpoint)
 class NetworkLoadBalancerEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_globalaccelerator_endpoints.NetworkLoadBalancerEndpoint",
@@ -490,7 +492,7 @@ class NetworkLoadBalancerEndpoint(
 
     def __init__(
         self,
-        load_balancer: "_INetworkLoadBalancer_96e17101",
+        load_balancer: "_aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,
@@ -501,7 +503,7 @@ class NetworkLoadBalancerEndpoint(
         :param weight: Endpoint weight across all endpoints in the group. Must be a value between 0 and 255. Default: 128
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edacbc82e43081f03b16a95735ec03233b002430b75f4210e6958b2ecdfcde4d)
+            type_hints = cached_type_hints(_typecheckingstub__edacbc82e43081f03b16a95735ec03233b002430b75f4210e6958b2ecdfcde4d)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         options = NetworkLoadBalancerEndpointProps(
             preserve_client_ip=preserve_client_ip, weight=weight
@@ -559,7 +561,7 @@ class NetworkLoadBalancerEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3059a828313b5b869d2a1ae70c7acf7cf9e4d48942d0394e47efafc648b331f)
+            type_hints = cached_type_hints(_typecheckingstub__a3059a828313b5b869d2a1ae70c7acf7cf9e4d48942d0394e47efafc648b331f)
             check_type(argname="argument preserve_client_ip", value=preserve_client_ip, expected_type=type_hints["preserve_client_ip"])
             check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -620,7 +622,7 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__ba4640acce1129555dd019374571778734d893a209c2784f062edff4221df6f1(
-    load_balancer: _IApplicationLoadBalancer_4cbd50ab,
+    load_balancer: _aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancer,
     *,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
     weight: typing.Optional[jsii.Number] = None,
@@ -637,7 +639,7 @@ def _typecheckingstub__9c0ac3083381dd6ab3fdb91d6359ab553b1b88dc7e082a30b6e898d57
     pass
 
 def _typecheckingstub__ea5231b8f6dbbebc7fcece999f2933e63d13dacdbd7d2bdc4b9c382b4aac06c7(
-    eip: _CfnEIP_f7fb6536,
+    eip: _aws_ec2_09840e12.CfnEIP,
     *,
     weight: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -652,7 +654,7 @@ def _typecheckingstub__325966af990f79d498fd30f2d9440803965b307292d612b47a1b6dbd8
     pass
 
 def _typecheckingstub__7c2cf290b2c92721fe0ccf29dedc01f3c274ef2f3250c08926449f729dd41260(
-    instance: _IInstance_ab239e7c,
+    instance: _aws_ec2_09840e12.IInstance,
     *,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
     weight: typing.Optional[jsii.Number] = None,
@@ -669,7 +671,7 @@ def _typecheckingstub__234a90a888e0bfaab2b608e4e2c1e1a69a9e87121c40a35a442f70275
     pass
 
 def _typecheckingstub__edacbc82e43081f03b16a95735ec03233b002430b75f4210e6958b2ecdfcde4d(
-    load_balancer: _INetworkLoadBalancer_96e17101,
+    load_balancer: _aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancer,
     *,
     preserve_client_ip: typing.Optional[builtins.bool] = None,
     weight: typing.Optional[jsii.Number] = None,

@@ -28,8 +28,37 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     resolve_strategy,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.models import ConnectorRolloutRecord
+from airbyte_ops_mcp.prod_db_access.queries import (
+    query_connections_by_connector,
+    query_connections_by_destination_connector,
+)
+from airbyte_ops_mcp.tier_cache import enrich_rows_by_org, filter_rows_by_tier
 
 logger = logging.getLogger(__name__)
+
+
+def parse_db_timestamp(value: object) -> datetime | None:
+    """Coerce a DB timestamp (str or `datetime`) into a timezone-aware `datetime`.
+
+    Returns `None` when `value` is missing or cannot be parsed. Naive datetimes
+    are assumed UTC and a trailing `Z` on ISO strings is normalized to
+    `+00:00`. Fails closed (returns `None`) on an unparseable string rather than
+    raising, so a malformed DB row can't crash reconciliation.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            logger.warning("Could not parse DB timestamp: %r", value)
+            return None
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
+
 
 # ---------------------------------------------------------------------------
 # Metadata / gate helpers
@@ -96,6 +125,54 @@ def get_connector_rollout_config(
             return _parse_rollout_config(raw)
 
     return RolloutConfiguration()
+
+
+def get_registry_default_version(actor_definition_id: str) -> str | None:
+    """Return the connector's current default `dockerImageTag` from the registry.
+
+    This is the GA version that a finalized rollout must have flipped the
+    default to. Returns `None` if the connector is not found in the compiled
+    registry. Used by auto-promote to confirm that a `finalizing` rollout's GA
+    version is actually live before closing the row.
+    """
+    registry = _fetch_cloud_registry()
+    normalized_id = actor_definition_id.strip().lower()
+
+    for source in registry.get("sources", []):
+        if source.get("sourceDefinitionId", "").lower() == normalized_id:
+            return source.get("dockerImageTag")
+
+    for destination in registry.get("destinations", []):
+        if destination.get("destinationDefinitionId", "").lower() == normalized_id:
+            return destination.get("dockerImageTag")
+
+    return None
+
+
+def get_registry_release_candidates(actor_definition_id: str) -> list[str] | None:
+    """Return the connector's advertised release-candidate versions from the registry.
+
+    Reads `releases.releaseCandidates` (a version-keyed map) from the compiled
+    Cloud registry and returns its keys — the versions the platform is allowed to
+    progressively roll out. An empty list means the connector was found but
+    currently advertises no release candidate, so any active rollout is obsolete.
+    Returns `None` when the connector is not found in the registry (unknown), so
+    callers can fail closed rather than treating it as "no candidate".
+    """
+    registry = _fetch_cloud_registry()
+    normalized_id = actor_definition_id.strip().lower()
+
+    for source in registry.get("sources", []):
+        if source.get("sourceDefinitionId", "").lower() == normalized_id:
+            raw = source.get("releases", {}).get("releaseCandidates") or {}
+            return list(raw.keys())
+
+    for destination in registry.get("destinations", []):
+        if destination.get("destinationDefinitionId", "").lower() == normalized_id:
+            raw = destination.get("releases", {}).get("releaseCandidates") or {}
+            return list(raw.keys())
+
+    return None
 
 
 def get_unsafe_downgrades(actor_definition_id: str) -> list[str]:
@@ -323,3 +400,142 @@ def check_health_gate(
         signal_percent=signal_percent,
         failure_count=total_failed,
     )
+
+
+# ---------------------------------------------------------------------------
+# Actor eligibility
+# ---------------------------------------------------------------------------
+
+
+def count_eligible_or_pinned_actors(sync_info: dict) -> int:
+    """Return the number of actors eligible for pinning (or already pinned).
+
+    Extracts `numActorsEligibleOrAlreadyPinned` from a `get_actor_sync_info`
+    response, tolerant of both camelCase (raw platform response) and
+    snake_case keys.
+
+    A value of `0` means the rollout's tier has **no actors to pin**. This is
+    the zero-eligible-actor condition: `TIER_1` / `TIER_0` are named strategic
+    accounts, so a connector with no customers in that tier can never pin
+    anyone there. Progressing such a rollout to a target percentage `> 0`
+    makes the platform throw `ConnectorRolloutNotEnoughActorsProblem`
+    server-side (before the `IN_PROGRESS` write), and the surrounding
+    `@Transactional` rolls back, leaving the rollout silently frozen at
+    `workflow_started` with no recorded error. Callers should check this
+    before progressing and skip/handle the empty tier instead of wedging.
+    """
+    data = sync_info.get("data", sync_info)
+    selection_info = (
+        data.get("actorSelectionInfo") or data.get("actor_selection_info") or {}
+    )
+    return int(
+        selection_info.get("numActorsEligibleOrAlreadyPinned")
+        or selection_info.get("num_actors_eligible_or_already_pinned")
+        or 0
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight eligibility estimate
+# ---------------------------------------------------------------------------
+
+# A tier with exactly this many predicted-eligible actors is treated as empty:
+# there is nobody to pin, so a rollout to that tier is a no-op ("nothing to do")
+# rather than something we should start or advance.
+ELIGIBILITY_SKIP_AT_OR_BELOW = 0
+
+# A tier with more than `ELIGIBILITY_SKIP_AT_OR_BELOW` but at most this many
+# predicted-eligible actors is still rolled out, but the sample is too small to
+# produce a statistically meaningful health signal, so autopilot warns.
+ELIGIBILITY_WARN_AT_OR_BELOW = 3
+
+
+@dataclass
+class TierEligibilityEstimate:
+    """A local, pre-flight prediction of how many actors a tier would pin.
+
+    Derived from production connections plus the org tier cache, so it can be
+    computed **before** a rollout is started or progressed — unlike the
+    platform's `numActorsEligibleOrAlreadyPinned`, which only exists once a
+    rollout record has been created.
+
+    `disposition` is one of:
+
+    - `skip`: exactly `0` eligible actors — the tier is empty, so starting or
+      advancing a rollout there is a no-op. Callers should treat this as a valid
+      "nothing to do" signal, not an error.
+    - `warn`: `1..ELIGIBILITY_WARN_AT_OR_BELOW` eligible actors — proceed, but
+      the sample is too small for a meaningful health gate, so surface a warning.
+    - `normal`: more than `ELIGIBILITY_WARN_AT_OR_BELOW` — proceed normally.
+
+    The ops tier lists can drift slightly from the platform's, so this estimate
+    decides *intent*; callers still confirm against the platform's actual count
+    before an irreversible step (see `count_eligible_or_pinned_actors`).
+    """
+
+    tier: str
+    eligible_actor_count: int
+    disposition: str
+    reason: str
+
+
+def _classify_eligibility(tier: str, count: int) -> TierEligibilityEstimate:
+    """Map an eligible-actor `count` to a `TierEligibilityEstimate`."""
+    if count <= ELIGIBILITY_SKIP_AT_OR_BELOW:
+        disposition = "skip"
+        reason = f"{tier} has 0 predicted-eligible actors (empty tier — nothing to do)"
+    elif count <= ELIGIBILITY_WARN_AT_OR_BELOW:
+        disposition = "warn"
+        reason = (
+            f"{tier} has only {count} predicted-eligible "
+            f"actor{'s' if count != 1 else ''} "
+            f"(<= {ELIGIBILITY_WARN_AT_OR_BELOW}); health signal will be weak"
+        )
+    else:
+        disposition = "normal"
+        reason = f"{tier} has {count} predicted-eligible actors"
+    return TierEligibilityEstimate(
+        tier=tier,
+        eligible_actor_count=count,
+        disposition=disposition,
+        reason=reason,
+    )
+
+
+def estimate_tier_eligible_actors(
+    actor_definition_id: str,
+    docker_repository: str,
+    tier: str,
+) -> TierEligibilityEstimate:
+    """Predict how many actors a rollout to `tier` would be eligible to pin.
+
+    Counts distinct, unpinned actors with an active sync schedule for
+    `actor_definition_id`, enriches them with the org tier cache, filters to
+    `tier`, and classifies the result via `_classify_eligibility`.
+
+    `docker_repository` (e.g. `airbyte/source-faker` or
+    `airbyte/destination-bigquery`) selects the source vs destination query and
+    the actor-id column used for the distinct count.
+    """
+    is_destination = "/destination-" in f"/{docker_repository.split('/')[-1]}"
+    if is_destination:
+        rows = query_connections_by_destination_connector(
+            connector_definition_id=actor_definition_id,
+            limit=None,
+            exclude_pinned=True,
+            enabled_schedules_only=True,
+        )
+        actor_id_key = "destination_id"
+    else:
+        rows = query_connections_by_connector(
+            connector_definition_id=actor_definition_id,
+            limit=None,
+            exclude_pinned=True,
+            enabled_schedules_only=True,
+        )
+        actor_id_key = "source_id"
+
+    enrich_rows_by_org(rows)
+    in_tier = filter_rows_by_tier(rows, tier)
+    distinct_actors = {str(r.get(actor_id_key)) for r in in_tier if r.get(actor_id_key)}
+    return _classify_eligibility(tier, len(distinct_actors))

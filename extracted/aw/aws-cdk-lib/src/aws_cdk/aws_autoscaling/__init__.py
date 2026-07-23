@@ -915,6 +915,8 @@ This feature is particularly useful for debugging failed instances or preserving
 * [ ] CloudWatch Events (impossible to add currently as the AutoScalingGroup ARN is
   necessary to make this rule and this cannot be accessed from CloudFormation).
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -928,100 +930,53 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnCreationPolicy as _CfnCreationPolicy_d904f690,
-    CfnResource as _CfnResource_9df397a6,
-    Duration as _Duration_4839e8c3,
-    IAspect as _IAspect_118c810a,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import Alarm as _Alarm_9fbab1f1, IMetric as _IMetric_c7fd29de
-from ..aws_ec2 import (
-    CloudFormationInit as _CloudFormationInit_2bb1d1b2,
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    IKeyPair as _IKeyPair_bc344eda,
-    ILaunchTemplate as _ILaunchTemplate_f32c0fd7,
-    IMachineImage as _IMachineImage_0e8bd50b,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    InstanceType as _InstanceType_f64915b9,
-    OperatingSystemType as _OperatingSystemType_9224a1fe,
-    SubnetSelection as _SubnetSelection_e57d76df,
-    UserData as _UserData_b8b32b5e,
-)
-from ..aws_elasticloadbalancing import (
-    ILoadBalancerTarget as _ILoadBalancerTarget_2e052b5c,
-    LoadBalancer as _LoadBalancer_a894d40e,
-)
-from ..aws_elasticloadbalancingv2 import (
-    ApplicationTargetGroup as _ApplicationTargetGroup_906fe365,
-    IApplicationLoadBalancerTarget as _IApplicationLoadBalancerTarget_fabf9003,
-    IApplicationTargetGroup as _IApplicationTargetGroup_57799827,
-    INetworkLoadBalancerTarget as _INetworkLoadBalancerTarget_688b169f,
-    INetworkTargetGroup as _INetworkTargetGroup_abca2df7,
-    LoadBalancerTargetProps as _LoadBalancerTargetProps_4c30a73c,
-)
-from ..aws_iam import (
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_sns import ITopic as _ITopic_9eca4852
-from ..interfaces.aws_autoscaling import (
-    AutoScalingGroupReference as _AutoScalingGroupReference_6a7b8e35,
-    IAutoScalingGroupRef as _IAutoScalingGroupRef_2f9e9183,
-    ILaunchConfigurationRef as _ILaunchConfigurationRef_9c2fc9c2,
-    ILifecycleHookRef as _ILifecycleHookRef_bb190400,
-    IScalingPolicyRef as _IScalingPolicyRef_fcca0de5,
-    IScheduledActionRef as _IScheduledActionRef_33aa837e,
-    IWarmPoolRef as _IWarmPoolRef_3adfa724,
-    LaunchConfigurationReference as _LaunchConfigurationReference_e5f9c425,
-    LifecycleHookReference as _LifecycleHookReference_9dbdb57d,
-    ScalingPolicyReference as _ScalingPolicyReference_2748026a,
-    ScheduledActionReference as _ScheduledActionReference_554a95fb,
-    WarmPoolReference as _WarmPoolReference_d06989e8,
-)
-from ..interfaces.aws_ec2 import (
-    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
-    ISubnetRef as _ISubnetRef_ac31e361,
-)
-from ..interfaces.aws_elasticloadbalancingv2 import (
-    ITargetGroupRef as _ITargetGroupRef_9ed19d5e
-)
-from ..interfaces.aws_iam import (
-    IInstanceProfileRef as _IInstanceProfileRef_d6832c90,
-    IRoleRef as _IRoleRef_8400221f,
-)
-from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
-from ..interfaces.aws_sqs import IQueueRef as _IQueueRef_fa8b2198
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_elasticloadbalancing as _aws_elasticloadbalancing_199dfa00
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.interfaces.aws_autoscaling as _aws_autoscaling_66012b8a
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
+    import aws_cdk.interfaces.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1283aa87
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_sns as _aws_sns_c06cc191
+    import aws_cdk.interfaces.aws_sqs as _aws_sqs_5e3fc237
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_autoscaling_66012b8a = _LazyImport("aws_cdk.interfaces.aws_autoscaling")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
+    _aws_elasticloadbalancing_199dfa00 = _LazyImport("aws_cdk.aws_elasticloadbalancing")
+    _aws_elasticloadbalancingv2_1283aa87 = _LazyImport("aws_cdk.interfaces.aws_elasticloadbalancingv2")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _aws_sns_c06cc191 = _LazyImport("aws_cdk.interfaces.aws_sns")
+    _aws_sqs_5e3fc237 = _LazyImport("aws_cdk.interfaces.aws_sqs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.AdditionalHealthCheckType")
@@ -1068,7 +1023,7 @@ class AdditionalHealthChecksOptions:
         self,
         *,
         additional_types: typing.Sequence["AdditionalHealthCheckType"],
-        grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Additional Heath checks options.
 
@@ -1094,7 +1049,7 @@ class AdditionalHealthChecksOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dfdb943aaf85e88b43ad8c01d86d258ceb66c969e34e34611883dcd70953268)
+            type_hints = cached_type_hints(_typecheckingstub__6dfdb943aaf85e88b43ad8c01d86d258ceb66c969e34e34611883dcd70953268)
             check_type(argname="argument additional_types", value=additional_types, expected_type=type_hints["additional_types"])
             check_type(argname="argument grace_period", value=grace_period, expected_type=type_hints["grace_period"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1111,7 +1066,7 @@ class AdditionalHealthChecksOptions:
         return typing.cast(typing.List["AdditionalHealthCheckType"], result)
 
     @builtins.property
-    def grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def grace_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check.
 
         :default: Duration.seconds(0)
@@ -1119,7 +1074,7 @@ class AdditionalHealthChecksOptions:
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html
         '''
         result = self._values.get("grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1173,7 +1128,7 @@ class AdjustmentTier:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea44f8895fe46835c1f535a501766e354e1166b5f34e774f4402c55622be2c00)
+            type_hints = cached_type_hints(_typecheckingstub__ea44f8895fe46835c1f535a501766e354e1166b5f34e774f4402c55622be2c00)
             check_type(argname="argument adjustment", value=adjustment, expected_type=type_hints["adjustment"])
             check_type(argname="argument lower_bound", value=lower_bound, expected_type=type_hints["lower_bound"])
             check_type(argname="argument upper_bound", value=upper_bound, expected_type=type_hints["upper_bound"])
@@ -1329,7 +1284,7 @@ class ApplyCloudFormationInitOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f79d27ab1c2e9f43613e0ea3c7c572d5fecc8ecbc5fed3187ac25036e8d9e441)
+            type_hints = cached_type_hints(_typecheckingstub__f79d27ab1c2e9f43613e0ea3c7c572d5fecc8ecbc5fed3187ac25036e8d9e441)
             check_type(argname="argument config_sets", value=config_sets, expected_type=type_hints["config_sets"])
             check_type(argname="argument embed_fingerprint", value=embed_fingerprint, expected_type=type_hints["embed_fingerprint"])
             check_type(argname="argument ignore_failures", value=ignore_failures, expected_type=type_hints["ignore_failures"])
@@ -1443,7 +1398,7 @@ class ApplyCloudFormationInitOptions:
         )
 
 
-@jsii.implements(_IAspect_118c810a)
+@jsii.implements(_aws_cdk_0cae9daa.IAspect)
 class AutoScalingGroupRequireImdsv2Aspect(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.AutoScalingGroupRequireImdsv2Aspect",
@@ -1469,7 +1424,7 @@ class AutoScalingGroupRequireImdsv2Aspect(
         :param node: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbe079e871bd352381d17fc1d2874dbc0f47144cbadb85ef5427d16815427104)
+            type_hints = cached_type_hints(_typecheckingstub__fbe079e871bd352381d17fc1d2874dbc0f47144cbadb85ef5427d16815427104)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "visit", [node]))
 
@@ -1485,7 +1440,7 @@ class AutoScalingGroupRequireImdsv2Aspect(
         :param message: The warning message.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54a78dfb222929608a2bea5f551c7a098f071edae832093abb6c4b784334c92b)
+            type_hints = cached_type_hints(_typecheckingstub__54a78dfb222929608a2bea5f551c7a098f071edae832093abb6c4b784334c92b)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "warn", [node, message]))
@@ -1504,9 +1459,9 @@ class BaseTargetTrackingProps:
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Base interface for target tracking props.
 
@@ -1535,7 +1490,7 @@ class BaseTargetTrackingProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87ecdc767b167c69d3a5c4b6b757c48cd8dd03a0f2ae1a31f296e3efafee3021)
+            type_hints = cached_type_hints(_typecheckingstub__87ecdc767b167c69d3a5c4b6b757c48cd8dd03a0f2ae1a31f296e3efafee3021)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -1548,13 +1503,13 @@ class BaseTargetTrackingProps:
             self._values["estimated_instance_warmup"] = estimated_instance_warmup
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -1571,13 +1526,15 @@ class BaseTargetTrackingProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1610,11 +1567,11 @@ class BasicLifecycleHookProps:
         *,
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Basic properties for a lifecycle hook.
 
@@ -1654,7 +1611,7 @@ class BasicLifecycleHookProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f991436277d817beb78dbe6f8ee4371d5ba57465042ba2251e4893d5e9d98782)
+            type_hints = cached_type_hints(_typecheckingstub__f991436277d817beb78dbe6f8ee4371d5ba57465042ba2251e4893d5e9d98782)
             check_type(argname="argument lifecycle_transition", value=lifecycle_transition, expected_type=type_hints["lifecycle_transition"])
             check_type(argname="argument default_result", value=default_result, expected_type=type_hints["default_result"])
             check_type(argname="argument heartbeat_timeout", value=heartbeat_timeout, expected_type=type_hints["heartbeat_timeout"])
@@ -1695,7 +1652,7 @@ class BasicLifecycleHookProps:
         return typing.cast(typing.Optional["DefaultResult"], result)
 
     @builtins.property
-    def heartbeat_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Maximum time between calls to RecordLifecycleActionHeartbeat for the hook.
 
         If the lifecycle hook times out, perform the action in DefaultResult.
@@ -1703,7 +1660,7 @@ class BasicLifecycleHookProps:
         :default: - No heartbeat timeout.
         '''
         result = self._values.get("heartbeat_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def lifecycle_hook_name(self) -> typing.Optional[builtins.str]:
@@ -1733,13 +1690,13 @@ class BasicLifecycleHookProps:
         return typing.cast(typing.Optional["ILifecycleHookTarget"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role that allows publishing to the notification target.
 
         :default: - A role will be created if a target is provided. Otherwise, no role is created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1806,7 +1763,7 @@ class BasicScheduledActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79c9acc50460f89e855de5b2c3b0541c5a6bba8e2a534460115ae251f49449d5)
+            type_hints = cached_type_hints(_typecheckingstub__79c9acc50460f89e855de5b2c3b0541c5a6bba8e2a534460115ae251f49449d5)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
@@ -1949,12 +1906,12 @@ class BasicStepScalingPolicyProps:
     def __init__(
         self,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -1995,7 +1952,7 @@ class BasicStepScalingPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cdae3b81f3c040b82cde443a53388281dab2a51aeefc2c4d0d901151ff7b8fd)
+            type_hints = cached_type_hints(_typecheckingstub__8cdae3b81f3c040b82cde443a53388281dab2a51aeefc2c4d0d901151ff7b8fd)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument scaling_steps", value=scaling_steps, expected_type=type_hints["scaling_steps"])
             check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
@@ -2025,11 +1982,11 @@ class BasicStepScalingPolicyProps:
             self._values["min_adjustment_magnitude"] = min_adjustment_magnitude
 
     @builtins.property
-    def metric(self) -> "_IMetric_c7fd29de":
+    def metric(self) -> "_aws_cloudwatch_386c5543.IMetric":
         '''Metric to scale on.'''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
-        return typing.cast("_IMetric_c7fd29de", result)
+        return typing.cast("_aws_cloudwatch_386c5543.IMetric", result)
 
     @builtins.property
     def scaling_steps(self) -> typing.List["ScalingInterval"]:
@@ -2053,13 +2010,13 @@ class BasicStepScalingPolicyProps:
         return typing.cast(typing.Optional["AdjustmentType"], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Grace period after scaling activity.
 
         :default: Default cooldown period on your AutoScalingGroup
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
@@ -2077,13 +2034,15 @@ class BasicStepScalingPolicyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: Same as the cooldown
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def evaluation_periods(self) -> typing.Optional[jsii.Number]:
@@ -2152,11 +2111,11 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         target_value: jsii.Number,
-        custom_metric: typing.Optional["_IMetric_c7fd29de"] = None,
+        custom_metric: typing.Optional["_aws_cloudwatch_386c5543.IMetric"] = None,
         predefined_metric: typing.Optional["PredefinedMetric"] = None,
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2195,7 +2154,7 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c32994c9e0f386560e7512b5d8f97eef97db085bd1a2900db6b87ce79f1b935e)
+            type_hints = cached_type_hints(_typecheckingstub__c32994c9e0f386560e7512b5d8f97eef97db085bd1a2900db6b87ce79f1b935e)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -2220,13 +2179,13 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
             self._values["resource_label"] = resource_label
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -2243,13 +2202,15 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def target_value(self) -> jsii.Number:
@@ -2259,7 +2220,7 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def custom_metric(self) -> typing.Optional["_IMetric_c7fd29de"]:
+    def custom_metric(self) -> typing.Optional["_aws_cloudwatch_386c5543.IMetric"]:
         '''A custom metric for application autoscaling.
 
         The metric must track utilization. Scaling out will happen if the metric is higher than
@@ -2270,7 +2231,7 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
         :default: - No custom metric.
         '''
         result = self._values.get("custom_metric")
-        return typing.cast(typing.Optional["_IMetric_c7fd29de"], result)
+        return typing.cast(typing.Optional["_aws_cloudwatch_386c5543.IMetric"], result)
 
     @builtins.property
     def predefined_metric(self) -> typing.Optional["PredefinedMetric"]:
@@ -2322,7 +2283,7 @@ class BindHookTargetOptions:
         self,
         *,
         lifecycle_hook: "LifecycleHook",
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Options needed to bind a target to a lifecycle hook.
 
@@ -2351,7 +2312,7 @@ class BindHookTargetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c16c9108bca19be619521f14265d509dcdf939cfae6bef31656843832552c6a)
+            type_hints = cached_type_hints(_typecheckingstub__9c16c9108bca19be619521f14265d509dcdf939cfae6bef31656843832552c6a)
             check_type(argname="argument lifecycle_hook", value=lifecycle_hook, expected_type=type_hints["lifecycle_hook"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2371,7 +2332,7 @@ class BindHookTargetOptions:
         return typing.cast("LifecycleHook", result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role to use when attaching to the lifecycle hook.
 
         [disable-awslint:ref-via-interface]
@@ -2379,7 +2340,7 @@ class BindHookTargetOptions:
         :default: : a role is not created unless the target arn is specified
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2426,7 +2387,7 @@ class BlockDevice:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9dfa8863842f511ea36189510ce7311be635f9198c0e6dda7ba6df86e3802ce)
+            type_hints = cached_type_hints(_typecheckingstub__a9dfa8863842f511ea36189510ce7311be635f9198c0e6dda7ba6df86e3802ce)
             check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
             check_type(argname="argument volume", value=volume, expected_type=type_hints["volume"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2508,7 +2469,7 @@ class BlockDeviceVolume(
         :param virtual_name: Virtual device name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f623c1a178e9a7c1559125345b70159a2dcd78b6e119979797954060331d419)
+            type_hints = cached_type_hints(_typecheckingstub__4f623c1a178e9a7c1559125345b70159a2dcd78b6e119979797954060331d419)
             check_type(argname="argument ebs_device", value=ebs_device, expected_type=type_hints["ebs_device"])
             check_type(argname="argument virtual_name", value=virtual_name, expected_type=type_hints["virtual_name"])
         jsii.create(self.__class__, self, [ebs_device, virtual_name])
@@ -2535,7 +2496,7 @@ class BlockDeviceVolume(
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1285ed0c0610fe02eac319ca1d52bf7e091b1afa9d904036d608a853471ca5bd)
+            type_hints = cached_type_hints(_typecheckingstub__1285ed0c0610fe02eac319ca1d52bf7e091b1afa9d904036d608a853471ca5bd)
             check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
         options = EbsDeviceOptions(
             encrypted=encrypted,
@@ -2569,7 +2530,7 @@ class BlockDeviceVolume(
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41abea557528986e2f931c9dc068840019d81ce3ad4978c166925d5b707ebfb2)
+            type_hints = cached_type_hints(_typecheckingstub__41abea557528986e2f931c9dc068840019d81ce3ad4978c166925d5b707ebfb2)
             check_type(argname="argument snapshot_id", value=snapshot_id, expected_type=type_hints["snapshot_id"])
         options = EbsDeviceSnapshotOptions(
             volume_size=volume_size,
@@ -2591,7 +2552,7 @@ class BlockDeviceVolume(
         :param volume_index: the volume index. Must be equal or greater than 0
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c264aeefa613dd790f0a99d130fb7667762ea00d7825956158509255e340e8d)
+            type_hints = cached_type_hints(_typecheckingstub__0c264aeefa613dd790f0a99d130fb7667762ea00d7825956158509255e340e8d)
             check_type(argname="argument volume_index", value=volume_index, expected_type=type_hints["volume_index"])
         return typing.cast("BlockDeviceVolume", jsii.sinvoke(cls, "ephemeral", [volume_index]))
 
@@ -2644,9 +2605,9 @@ class CapacityDistributionStrategy(enum.Enum):
     '''If launches fail in an Availability Zone, Auto Scaling will attempt to launch in another healthy Availability Zone instead.'''
 
 
-@jsii.implements(_IInspectable_c2943556, _IAutoScalingGroupRef_2f9e9183, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.IAutoScalingGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAutoScalingGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnAutoScalingGroup",
 ):
@@ -2875,12 +2836,12 @@ class CfnAutoScalingGroup(
         max_size: builtins.str,
         min_size: builtins.str,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
-        availability_zone_distribution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_distribution: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        availability_zone_impairment_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_impairment_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        capacity_reservation_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.CapacityReservationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        capacity_reservation_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.CapacityReservationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         context: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         default_instance_warmup: typing.Optional[jsii.Number] = None,
@@ -2890,26 +2851,26 @@ class CfnAutoScalingGroup(
         health_check_grace_period: typing.Optional[jsii.Number] = None,
         health_check_type: typing.Optional[builtins.str] = None,
         instance_id: typing.Optional[builtins.str] = None,
-        instance_lifecycle_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstanceLifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_maintenance_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstanceMaintenancePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        launch_configuration_name: typing.Optional[typing.Union[builtins.str, "_ILaunchConfigurationRef_9c2fc9c2"]] = None,
-        launch_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        lifecycle_hook_specification_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LifecycleHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstanceLifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_maintenance_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstanceMaintenancePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        launch_configuration_name: typing.Optional[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.ILaunchConfigurationRef"]] = None,
+        launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lifecycle_hook_specification_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LifecycleHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         load_balancer_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         max_instance_lifetime: typing.Optional[jsii.Number] = None,
-        metrics_collection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MetricsCollectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mixed_instances_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MixedInstancesPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notification_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notification_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics_collection: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MetricsCollectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mixed_instances_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MixedInstancesPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notification_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         placement_group: typing.Optional[builtins.str] = None,
-        service_linked_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        service_linked_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnAutoScalingGroup.TagPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITargetGroupRef_9ed19d5e"]]] = None,
+        target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef"]]] = None,
         termination_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-        traffic_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.TrafficSourceIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
+        traffic_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.TrafficSourceIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
     ) -> None:
         '''Create a new ``AWS::AutoScaling::AutoScalingGroup``.
 
@@ -2955,7 +2916,7 @@ class CfnAutoScalingGroup(
         :param vpc_zone_identifier: A list of subnet IDs for a virtual private cloud (VPC) where instances in the Auto Scaling group can be created. If this resource specifies public subnets and is also in a VPC that is defined in the same stack template, you must use the `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to declare a dependency on the `VPC-gateway attachment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html>`_ . .. epigraph:: When you update ``VPCZoneIdentifier`` , this retains the same Auto Scaling group and replaces old instances with new ones, according to the specified subnets. You can optionally specify how CloudFormation handles these updates by using an `UpdatePolicy attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html>`_ . Required to launch instances into a nondefault VPC. If you specify ``VPCZoneIdentifier`` with ``AvailabilityZones`` , the subnets that you specify for this property must reside in those Availability Zones.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35669b797)
+            type_hints = cached_type_hints(_typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35669b797)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAutoScalingGroupProps(
@@ -3005,13 +2966,13 @@ class CfnAutoScalingGroup(
     @builtins.classmethod
     def arn_for_auto_scaling_group(
         cls,
-        resource: "_IAutoScalingGroupRef_2f9e9183",
+        resource: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ff7704acc34c0fac0d523a31d651e485e9b2739f4254707b7b8e32db9bc98a0)
+            type_hints = cached_type_hints(_typecheckingstub__8ff7704acc34c0fac0d523a31d651e485e9b2739f4254707b7b8e32db9bc98a0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAutoScalingGroup", [resource]))
 
@@ -3023,18 +2984,18 @@ class CfnAutoScalingGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36d843e9c959c75f6196f6565b6fbc2d5e5cf2165328f43deede898139e6f8a3)
+            type_hints = cached_type_hints(_typecheckingstub__36d843e9c959c75f6196f6565b6fbc2d5e5cf2165328f43deede898139e6f8a3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutoScalingGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f312dd276d3d70252809e3c5a9da0474186c12a2776c57e7811b571df6d42b9a)
+            type_hints = cached_type_hints(_typecheckingstub__f312dd276d3d70252809e3c5a9da0474186c12a2776c57e7811b571df6d42b9a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3047,7 +3008,7 @@ class CfnAutoScalingGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47959a7a01dbef79e5bf1d6e6e27303e1c1957b52b2b716af23464bf4a6794ff)
+            type_hints = cached_type_hints(_typecheckingstub__47959a7a01dbef79e5bf1d6e6e27303e1c1957b52b2b716af23464bf4a6794ff)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3068,9 +3029,11 @@ class CfnAutoScalingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupRef")
-    def auto_scaling_group_ref(self) -> "_AutoScalingGroupReference_6a7b8e35":
+    def auto_scaling_group_ref(
+        self,
+    ) -> "_aws_autoscaling_66012b8a.AutoScalingGroupReference":
         '''A reference to a AutoScalingGroup resource.'''
-        return typing.cast("_AutoScalingGroupReference_6a7b8e35", jsii.get(self, "autoScalingGroupRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.AutoScalingGroupReference", jsii.get(self, "autoScalingGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3084,9 +3047,9 @@ class CfnAutoScalingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="maxSize")
@@ -3097,7 +3060,7 @@ class CfnAutoScalingGroup(
     @max_size.setter
     def max_size(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f4f63f8bc517d0f73fa0c7f45cd318348c9e8fdc16144be78766518821c5ac0)
+            type_hints = cached_type_hints(_typecheckingstub__0f4f63f8bc517d0f73fa0c7f45cd318348c9e8fdc16144be78766518821c5ac0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxSize", value) # pyright: ignore[reportArgumentType]
 
@@ -3110,7 +3073,7 @@ class CfnAutoScalingGroup(
     @min_size.setter
     def min_size(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a3bec99705477b97a5e2263ba2de274457ce880e055ebfa1036a63b6251936d)
+            type_hints = cached_type_hints(_typecheckingstub__2a3bec99705477b97a5e2263ba2de274457ce880e055ebfa1036a63b6251936d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
 
@@ -3126,7 +3089,7 @@ class CfnAutoScalingGroup(
     @auto_scaling_group_name.setter
     def auto_scaling_group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40e8fdc97369d7f8797e7a890acf4c16f1c2a2166b1ca6d1644eaba121cf7435)
+            type_hints = cached_type_hints(_typecheckingstub__40e8fdc97369d7f8797e7a890acf4c16f1c2a2166b1ca6d1644eaba121cf7435)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -3134,17 +3097,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="availabilityZoneDistribution")
     def availability_zone_distribution(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]]:
         '''The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]], jsii.get(self, "availabilityZoneDistribution"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]], jsii.get(self, "availabilityZoneDistribution"))
 
     @availability_zone_distribution.setter
     def availability_zone_distribution(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5e9ae536cfa6650d411381d31454774f7e8c68d105e3c7f7476fcbdbc86ab9f)
+            type_hints = cached_type_hints(_typecheckingstub__d5e9ae536cfa6650d411381d31454774f7e8c68d105e3c7f7476fcbdbc86ab9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneDistribution", value) # pyright: ignore[reportArgumentType]
 
@@ -3160,7 +3123,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d74bd611a0b69222e5917c10f0879143bf217472e5d432a3f1b38a764ce150e1)
+            type_hints = cached_type_hints(_typecheckingstub__d74bd611a0b69222e5917c10f0879143bf217472e5d432a3f1b38a764ce150e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3168,17 +3131,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="availabilityZoneImpairmentPolicy")
     def availability_zone_impairment_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]]:
         '''The Availability Zone impairment policy for the Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]], jsii.get(self, "availabilityZoneImpairmentPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]], jsii.get(self, "availabilityZoneImpairmentPolicy"))
 
     @availability_zone_impairment_policy.setter
     def availability_zone_impairment_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a3fb95d9da967f9a1c48b970739b4471d5c5eee0beaf61d14960348810f297e)
+            type_hints = cached_type_hints(_typecheckingstub__2a3fb95d9da967f9a1c48b970739b4471d5c5eee0beaf61d14960348810f297e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneImpairmentPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3194,7 +3157,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba79ccc6a2a627119d2b42e5f2c3b0c8a81580a2589535c8255f0eb95acbdad6)
+            type_hints = cached_type_hints(_typecheckingstub__ba79ccc6a2a627119d2b42e5f2c3b0c8a81580a2589535c8255f0eb95acbdad6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
 
@@ -3202,17 +3165,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="capacityRebalance")
     def capacity_rebalance(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether Capacity Rebalancing is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "capacityRebalance"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "capacityRebalance"))
 
     @capacity_rebalance.setter
     def capacity_rebalance(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcd7ade02eab7516c3be5872ef46340937bca4fb38ec4eea0d8119ee5b20247b)
+            type_hints = cached_type_hints(_typecheckingstub__fcd7ade02eab7516c3be5872ef46340937bca4fb38ec4eea0d8119ee5b20247b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacityRebalance", value) # pyright: ignore[reportArgumentType]
 
@@ -3220,17 +3183,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="capacityReservationSpecification")
     def capacity_reservation_specification(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]]:
         '''The capacity reservation specification for the Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]], jsii.get(self, "capacityReservationSpecification"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]], jsii.get(self, "capacityReservationSpecification"))
 
     @capacity_reservation_specification.setter
     def capacity_reservation_specification(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a3669b72eed49c81bef887851936a8d3e62cc7ebbf7d0596c044449b0caa478)
+            type_hints = cached_type_hints(_typecheckingstub__6a3669b72eed49c81bef887851936a8d3e62cc7ebbf7d0596c044449b0caa478)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacityReservationSpecification", value) # pyright: ignore[reportArgumentType]
 
@@ -3243,7 +3206,7 @@ class CfnAutoScalingGroup(
     @context.setter
     def context(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52553869bb2c8e9fe528514394f739bd1e81992c61e60f7aba37579b8e417255)
+            type_hints = cached_type_hints(_typecheckingstub__52553869bb2c8e9fe528514394f739bd1e81992c61e60f7aba37579b8e417255)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "context", value) # pyright: ignore[reportArgumentType]
 
@@ -3256,7 +3219,7 @@ class CfnAutoScalingGroup(
     @cooldown.setter
     def cooldown(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00180c96190691ecfc2cce15cbbffd3a93e96f04098cb28287b5b1f2f22a4ab7)
+            type_hints = cached_type_hints(_typecheckingstub__00180c96190691ecfc2cce15cbbffd3a93e96f04098cb28287b5b1f2f22a4ab7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cooldown", value) # pyright: ignore[reportArgumentType]
 
@@ -3269,7 +3232,7 @@ class CfnAutoScalingGroup(
     @default_instance_warmup.setter
     def default_instance_warmup(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c24bc5c20f9d70adfed9b74186ec848f6dd0942c25d9923785d13b0607bd2151)
+            type_hints = cached_type_hints(_typecheckingstub__c24bc5c20f9d70adfed9b74186ec848f6dd0942c25d9923785d13b0607bd2151)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultInstanceWarmup", value) # pyright: ignore[reportArgumentType]
 
@@ -3282,7 +3245,7 @@ class CfnAutoScalingGroup(
     @deletion_protection.setter
     def deletion_protection(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d9cc80c7c716c333fc3cb8c30256c2b74418740c3737fa2363e8c98590e0f57)
+            type_hints = cached_type_hints(_typecheckingstub__8d9cc80c7c716c333fc3cb8c30256c2b74418740c3737fa2363e8c98590e0f57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -3295,7 +3258,7 @@ class CfnAutoScalingGroup(
     @desired_capacity.setter
     def desired_capacity(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a26fca7e1391078df7804e73b80d4d4bf03239a5b160de2f22cdfdb3542dcce5)
+            type_hints = cached_type_hints(_typecheckingstub__a26fca7e1391078df7804e73b80d4d4bf03239a5b160de2f22cdfdb3542dcce5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -3308,7 +3271,7 @@ class CfnAutoScalingGroup(
     @desired_capacity_type.setter
     def desired_capacity_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77e152ae9a6bd62beed66e6599aa26329b2652e03c5b0d07df1c012a46de261b)
+            type_hints = cached_type_hints(_typecheckingstub__77e152ae9a6bd62beed66e6599aa26329b2652e03c5b0d07df1c012a46de261b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredCapacityType", value) # pyright: ignore[reportArgumentType]
 
@@ -3321,7 +3284,7 @@ class CfnAutoScalingGroup(
     @health_check_grace_period.setter
     def health_check_grace_period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce99453ae7cd701daae438027248f2dd16b9004241a4861b1b0a49c7871eb464)
+            type_hints = cached_type_hints(_typecheckingstub__ce99453ae7cd701daae438027248f2dd16b9004241a4861b1b0a49c7871eb464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckGracePeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -3334,7 +3297,7 @@ class CfnAutoScalingGroup(
     @health_check_type.setter
     def health_check_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d89e3a93d75c8339966184a05a5c629f8986c31a8825839aa7fbfc3b063a2a5)
+            type_hints = cached_type_hints(_typecheckingstub__5d89e3a93d75c8339966184a05a5c629f8986c31a8825839aa7fbfc3b063a2a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "healthCheckType", value) # pyright: ignore[reportArgumentType]
 
@@ -3347,7 +3310,7 @@ class CfnAutoScalingGroup(
     @instance_id.setter
     def instance_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__807d7a9adb0f9c2f26a711c97bd951df6ae3487de3147ae199953db4f6c229cf)
+            type_hints = cached_type_hints(_typecheckingstub__807d7a9adb0f9c2f26a711c97bd951df6ae3487de3147ae199953db4f6c229cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
@@ -3355,17 +3318,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="instanceLifecyclePolicy")
     def instance_lifecycle_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]]:
         '''The instance lifecycle policy for the Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]], jsii.get(self, "instanceLifecyclePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]], jsii.get(self, "instanceLifecyclePolicy"))
 
     @instance_lifecycle_policy.setter
     def instance_lifecycle_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f7a525b4874074df11e419554e3e95ea275cf2a58e689d7dd665c65c102989b)
+            type_hints = cached_type_hints(_typecheckingstub__1f7a525b4874074df11e419554e3e95ea275cf2a58e689d7dd665c65c102989b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceLifecyclePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3373,17 +3336,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="instanceMaintenancePolicy")
     def instance_maintenance_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]]:
         '''An instance maintenance policy.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]], jsii.get(self, "instanceMaintenancePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]], jsii.get(self, "instanceMaintenancePolicy"))
 
     @instance_maintenance_policy.setter
     def instance_maintenance_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2384de22435f68950e9a800e1e5c7e2adab6fbec1cb01fd379e44fd362d2a64e)
+            type_hints = cached_type_hints(_typecheckingstub__2384de22435f68950e9a800e1e5c7e2adab6fbec1cb01fd379e44fd362d2a64e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceMaintenancePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3396,7 +3359,7 @@ class CfnAutoScalingGroup(
     @launch_configuration_name.setter
     def launch_configuration_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce1aedc9a7f8ec0ad90dfafceb72240ca56e12323bde67a3ca70fa168bd509ce)
+            type_hints = cached_type_hints(_typecheckingstub__ce1aedc9a7f8ec0ad90dfafceb72240ca56e12323bde67a3ca70fa168bd509ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "launchConfigurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -3404,17 +3367,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="launchTemplate")
     def launch_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
         '''Information used to specify the launch template and version to use to launch instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], jsii.get(self, "launchTemplate"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], jsii.get(self, "launchTemplate"))
 
     @launch_template.setter
     def launch_template(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e46a8ef6a1e77f37bd575625d13f34004ddf8d2ce4be91a94dd0bcc391e07a78)
+            type_hints = cached_type_hints(_typecheckingstub__e46a8ef6a1e77f37bd575625d13f34004ddf8d2ce4be91a94dd0bcc391e07a78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "launchTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -3422,17 +3385,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="lifecycleHookSpecificationList")
     def lifecycle_hook_specification_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]]:
         '''One or more lifecycle hooks to add to the Auto Scaling group before instances are launched.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]], jsii.get(self, "lifecycleHookSpecificationList"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]], jsii.get(self, "lifecycleHookSpecificationList"))
 
     @lifecycle_hook_specification_list.setter
     def lifecycle_hook_specification_list(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd6e8b42fa69a0df75799ee782ceadb17a838c01878e0eb9ff09ae058b90c9d8)
+            type_hints = cached_type_hints(_typecheckingstub__cd6e8b42fa69a0df75799ee782ceadb17a838c01878e0eb9ff09ae058b90c9d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecycleHookSpecificationList", value) # pyright: ignore[reportArgumentType]
 
@@ -3448,7 +3411,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a23c0b10a3091bb43ad5e60b04b91b57d605ecd2389d1c36290c46080c492847)
+            type_hints = cached_type_hints(_typecheckingstub__a23c0b10a3091bb43ad5e60b04b91b57d605ecd2389d1c36290c46080c492847)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancerNames", value) # pyright: ignore[reportArgumentType]
 
@@ -3461,7 +3424,7 @@ class CfnAutoScalingGroup(
     @max_instance_lifetime.setter
     def max_instance_lifetime(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c72588d4e6113052b7a3848095a560964c8d8d37e8ba3d61cbbb2e7ba03fea6)
+            type_hints = cached_type_hints(_typecheckingstub__0c72588d4e6113052b7a3848095a560964c8d8d37e8ba3d61cbbb2e7ba03fea6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxInstanceLifetime", value) # pyright: ignore[reportArgumentType]
 
@@ -3469,17 +3432,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="metricsCollection")
     def metrics_collection(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]]:
         '''Enables the monitoring of group metrics of an Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]], jsii.get(self, "metricsCollection"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]], jsii.get(self, "metricsCollection"))
 
     @metrics_collection.setter
     def metrics_collection(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d32a051ae8368000fa35ee4a51495330fedacfcacf365fe8a1e42d21ee86ff2d)
+            type_hints = cached_type_hints(_typecheckingstub__d32a051ae8368000fa35ee4a51495330fedacfcacf365fe8a1e42d21ee86ff2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricsCollection", value) # pyright: ignore[reportArgumentType]
 
@@ -3487,17 +3450,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="mixedInstancesPolicy")
     def mixed_instances_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]]:
         '''An embedded object that specifies a mixed instances policy.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]], jsii.get(self, "mixedInstancesPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]], jsii.get(self, "mixedInstancesPolicy"))
 
     @mixed_instances_policy.setter
     def mixed_instances_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eeb991d1cd003adb697e60e6dec4d4ee0b29f9758fba65cdeda2e67e810d031)
+            type_hints = cached_type_hints(_typecheckingstub__2eeb991d1cd003adb697e60e6dec4d4ee0b29f9758fba65cdeda2e67e810d031)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mixedInstancesPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3505,17 +3468,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="newInstancesProtectedFromScaleIn")
     def new_instances_protected_from_scale_in(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether newly launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "newInstancesProtectedFromScaleIn"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "newInstancesProtectedFromScaleIn"))
 
     @new_instances_protected_from_scale_in.setter
     def new_instances_protected_from_scale_in(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91b500624d150b98c66fcf098662c0a1fc6935e0d9cd154eff3d3691f9a107e1)
+            type_hints = cached_type_hints(_typecheckingstub__91b500624d150b98c66fcf098662c0a1fc6935e0d9cd154eff3d3691f9a107e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "newInstancesProtectedFromScaleIn", value) # pyright: ignore[reportArgumentType]
 
@@ -3523,22 +3486,22 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="notificationConfiguration")
     def notification_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]:
         '''(deprecated) A structure that specifies an Amazon SNS notification configuration for the ``NotificationConfigurations`` property of the `AWS::AutoScaling::AutoScalingGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html>`_ resource.  For an example template snippet, see `Configure Amazon EC2 Auto Scaling resources <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-ec2-auto-scaling.html>`_.  For more information, see `Get Amazon SNS notifications when your Auto Scaling group scales <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ASGettingNotifications.html>`_ in the *Amazon EC2 Auto Scaling User Guide*.
 
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]], jsii.get(self, "notificationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]], jsii.get(self, "notificationConfiguration"))
 
     @notification_configuration.setter
     def notification_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53f4e347c23deb1526103c233b67461fb33a29754d803fa4f1212f02241ece08)
+            type_hints = cached_type_hints(_typecheckingstub__53f4e347c23deb1526103c233b67461fb33a29754d803fa4f1212f02241ece08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -3546,17 +3509,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="notificationConfigurations")
     def notification_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]]:
         '''Configures an Auto Scaling group to send notifications when specified events take place.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]], jsii.get(self, "notificationConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]], jsii.get(self, "notificationConfigurations"))
 
     @notification_configurations.setter
     def notification_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c3fc9c42371a5f5fe97a5d3fb16d41213e13982291eb878e27d22e968f4e6e8)
+            type_hints = cached_type_hints(_typecheckingstub__5c3fc9c42371a5f5fe97a5d3fb16d41213e13982291eb878e27d22e968f4e6e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -3569,7 +3532,7 @@ class CfnAutoScalingGroup(
     @placement_group.setter
     def placement_group(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a770dfbb658761846c5231237bc7fd8978779e61c7725bccbe14fa238d5b2b12)
+            type_hints = cached_type_hints(_typecheckingstub__a770dfbb658761846c5231237bc7fd8978779e61c7725bccbe14fa238d5b2b12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "placementGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -3582,7 +3545,7 @@ class CfnAutoScalingGroup(
     @service_linked_role_arn.setter
     def service_linked_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed363ed16309e150caf7f0bbc1a1a1fc2c8bd1ddf6ae299fa1540076f7ad0cc9)
+            type_hints = cached_type_hints(_typecheckingstub__ed363ed16309e150caf7f0bbc1a1a1fc2c8bd1ddf6ae299fa1540076f7ad0cc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceLinkedRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3590,16 +3553,16 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="skipZonalShiftValidation")
     def skip_zonal_shift_validation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "skipZonalShiftValidation"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "skipZonalShiftValidation"))
 
     @skip_zonal_shift_validation.setter
     def skip_zonal_shift_validation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db1d7f33e11c93324444162bf80d7f4a9c258e18704f896714722a1d73e9792)
+            type_hints = cached_type_hints(_typecheckingstub__1db1d7f33e11c93324444162bf80d7f4a9c258e18704f896714722a1d73e9792)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "skipZonalShiftValidation", value) # pyright: ignore[reportArgumentType]
 
@@ -3617,7 +3580,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List["CfnAutoScalingGroup.TagPropertyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0963720a20234c31372f7701ea4ea3dfe7c6e7ca637ddd0711a893c30acaa71)
+            type_hints = cached_type_hints(_typecheckingstub__c0963720a20234c31372f7701ea4ea3dfe7c6e7ca637ddd0711a893c30acaa71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3633,7 +3596,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0bc71ae38a484fac3e58f33ebdec6854c3d29e051ecf69401bbcdde69c0ee80)
+            type_hints = cached_type_hints(_typecheckingstub__a0bc71ae38a484fac3e58f33ebdec6854c3d29e051ecf69401bbcdde69c0ee80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetGroupArns", value) # pyright: ignore[reportArgumentType]
 
@@ -3649,7 +3612,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5daca53bfde511b5f5ae7f0521ed2bd70a9a3cd0feaf10ef8bbf6e9cf4a381f6)
+            type_hints = cached_type_hints(_typecheckingstub__5daca53bfde511b5f5ae7f0521ed2bd70a9a3cd0feaf10ef8bbf6e9cf4a381f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "terminationPolicies", value) # pyright: ignore[reportArgumentType]
 
@@ -3657,17 +3620,17 @@ class CfnAutoScalingGroup(
     @jsii.member(jsii_name="trafficSources")
     def traffic_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]]:
         '''The traffic sources associated with this Auto Scaling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]], jsii.get(self, "trafficSources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]], jsii.get(self, "trafficSources"))
 
     @traffic_sources.setter
     def traffic_sources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce984ad35c9e174516e1fc0b8d3b4af0ddc300eb6a07cae978f741bc4351ef04)
+            type_hints = cached_type_hints(_typecheckingstub__ce984ad35c9e174516e1fc0b8d3b4af0ddc300eb6a07cae978f741bc4351ef04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trafficSources", value) # pyright: ignore[reportArgumentType]
 
@@ -3683,7 +3646,7 @@ class CfnAutoScalingGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f647181eceda5a9bfa4bd1a26afd8e4241f99daa32318b27594af04772070ac5)
+            type_hints = cached_type_hints(_typecheckingstub__f647181eceda5a9bfa4bd1a26afd8e4241f99daa32318b27594af04772070ac5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcZoneIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -3719,7 +3682,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__642a80bb68b5641f296fa13d9170920dc50ed692bd4e7161d4195ea8d6f7d297)
+                type_hints = cached_type_hints(_typecheckingstub__642a80bb68b5641f296fa13d9170920dc50ed692bd4e7161d4195ea8d6f7d297)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3789,7 +3752,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3e3d46345becc8f13c0ef14e2ac1b4f8c14d13995594052f0a83d66d99f20760)
+                type_hints = cached_type_hints(_typecheckingstub__3e3d46345becc8f13c0ef14e2ac1b4f8c14d13995594052f0a83d66d99f20760)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3858,7 +3821,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d355d9c2c42bbc544e31b115eb7cc171b2e1dc63696c81872c62b9256833af8a)
+                type_hints = cached_type_hints(_typecheckingstub__d355d9c2c42bbc544e31b115eb7cc171b2e1dc63696c81872c62b9256833af8a)
                 check_type(argname="argument capacity_distribution_strategy", value=capacity_distribution_strategy, expected_type=type_hints["capacity_distribution_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if capacity_distribution_strategy is not None:
@@ -3900,7 +3863,7 @@ class CfnAutoScalingGroup(
             self,
             *,
             impaired_zone_health_check_behavior: builtins.str,
-            zonal_shift_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            zonal_shift_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''Describes an Availability Zone impairment policy.
 
@@ -3922,7 +3885,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c859c5dc62959b2f82b88ba908b264057d44a144ac184fa0a7793e433657185)
+                type_hints = cached_type_hints(_typecheckingstub__0c859c5dc62959b2f82b88ba908b264057d44a144ac184fa0a7793e433657185)
                 check_type(argname="argument impaired_zone_health_check_behavior", value=impaired_zone_health_check_behavior, expected_type=type_hints["impaired_zone_health_check_behavior"])
                 check_type(argname="argument zonal_shift_enabled", value=zonal_shift_enabled, expected_type=type_hints["zonal_shift_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3945,14 +3908,14 @@ class CfnAutoScalingGroup(
         @builtins.property
         def zonal_shift_enabled(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''If ``true`` , enable zonal shift for your Auto Scaling group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-availabilityzoneimpairmentpolicy.html#cfn-autoscaling-autoscalinggroup-availabilityzoneimpairmentpolicy-zonalshiftenabled
             '''
             result = self._values.get("zonal_shift_enabled")
             assert result is not None, "Required property 'zonal_shift_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3997,7 +3960,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36b0ab4a571aa009a65070b38b6f4e5ef64fa1f94d861b2083c70c2cae437f53)
+                type_hints = cached_type_hints(_typecheckingstub__36b0ab4a571aa009a65070b38b6f4e5ef64fa1f94d861b2083c70c2cae437f53)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4044,7 +4007,7 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            cpu: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cpu: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The baseline performance to consider, using an instance family as a baseline reference.
 
@@ -4072,7 +4035,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d201229bbf8df0493f8005eab4878dceaf3ea5d9ead6d07f5daa203e74d566d1)
+                type_hints = cached_type_hints(_typecheckingstub__d201229bbf8df0493f8005eab4878dceaf3ea5d9ead6d07f5daa203e74d566d1)
                 check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if cpu is not None:
@@ -4081,13 +4044,13 @@ class CfnAutoScalingGroup(
         @builtins.property
         def cpu(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty"]]:
             '''The CPU performance to consider, using an instance family as the baseline reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-baselineperformancefactorsrequest.html#cfn-autoscaling-autoscalinggroup-baselineperformancefactorsrequest-cpu
             '''
             result = self._values.get("cpu")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4113,7 +4076,7 @@ class CfnAutoScalingGroup(
             self,
             *,
             capacity_reservation_preference: builtins.str,
-            capacity_reservation_target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.CapacityReservationTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capacity_reservation_target: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.CapacityReservationTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the Capacity Reservation preference and targeting options.
 
@@ -4142,7 +4105,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1bde97582584c247c2d01a5e0b6cd47064999134f62912522c05bd0ba4e73870)
+                type_hints = cached_type_hints(_typecheckingstub__1bde97582584c247c2d01a5e0b6cd47064999134f62912522c05bd0ba4e73870)
                 check_type(argname="argument capacity_reservation_preference", value=capacity_reservation_preference, expected_type=type_hints["capacity_reservation_preference"])
                 check_type(argname="argument capacity_reservation_target", value=capacity_reservation_target, expected_type=type_hints["capacity_reservation_target"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4169,13 +4132,13 @@ class CfnAutoScalingGroup(
         @builtins.property
         def capacity_reservation_target(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationTargetProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationTargetProperty"]]:
             '''Describes a target Capacity Reservation or Capacity Reservation resource group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-capacityreservationspecification.html#cfn-autoscaling-autoscalinggroup-capacityreservationspecification-capacityreservationtarget
             '''
             result = self._values.get("capacity_reservation_target")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationTargetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationTargetProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4225,7 +4188,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__008068c103b32f4f1d9358960d48d71e416dc2ffebeb79a29b94777a9ee6bb28)
+                type_hints = cached_type_hints(_typecheckingstub__008068c103b32f4f1d9358960d48d71e416dc2ffebeb79a29b94777a9ee6bb28)
                 check_type(argname="argument capacity_reservation_ids", value=capacity_reservation_ids, expected_type=type_hints["capacity_reservation_ids"])
                 check_type(argname="argument capacity_reservation_resource_group_arns", value=capacity_reservation_resource_group_arns, expected_type=type_hints["capacity_reservation_resource_group_arns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4276,7 +4239,7 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The CPU performance to consider, using an instance family as the baseline reference.
 
@@ -4298,7 +4261,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b278b9a78a0f65790afbe45f65bd99528e1b9698a5e94af246191f9dfe4787e1)
+                type_hints = cached_type_hints(_typecheckingstub__b278b9a78a0f65790afbe45f65bd99528e1b9698a5e94af246191f9dfe4787e1)
                 check_type(argname="argument references", value=references, expected_type=type_hints["references"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if references is not None:
@@ -4307,7 +4270,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def references(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty"]]]]:
             '''Specify an instance family to use as the baseline reference for CPU performance.
 
             All instance types that match your specified attributes will be compared against the CPU performance of the referenced instance family, regardless of CPU manufacturer or architecture differences.
@@ -4318,7 +4281,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-cpuperformancefactorrequest.html#cfn-autoscaling-autoscalinggroup-cpuperformancefactorrequest-references
             '''
             result = self._values.get("references")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4340,7 +4303,7 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            retention_triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.RetentionTriggersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            retention_triggers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.RetentionTriggersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The instance lifecycle policy for the Auto Scaling group.
 
@@ -4366,7 +4329,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9d96fe458e80aaf00a4442837403f8e7cf4bb412c4f78c80d10226c0e992fcc6)
+                type_hints = cached_type_hints(_typecheckingstub__9d96fe458e80aaf00a4442837403f8e7cf4bb412c4f78c80d10226c0e992fcc6)
                 check_type(argname="argument retention_triggers", value=retention_triggers, expected_type=type_hints["retention_triggers"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if retention_triggers is not None:
@@ -4375,7 +4338,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def retention_triggers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.RetentionTriggersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.RetentionTriggersProperty"]]:
             '''Specifies the conditions that trigger instance retention behavior.
 
             These triggers determine when instances should move to a ``Retained`` state instead of automatic termination. This allows you to maintain control over instance management when lifecycles transition and operations fail.
@@ -4383,7 +4346,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancelifecyclepolicy.html#cfn-autoscaling-autoscalinggroup-instancelifecyclepolicy-retentiontriggers
             '''
             result = self._values.get("retention_triggers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.RetentionTriggersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.RetentionTriggersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4433,7 +4396,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__87d530b3532712626606d828a108a8ef6e07c752060995be5ad0caf95141d336)
+                type_hints = cached_type_hints(_typecheckingstub__87d530b3532712626606d828a108a8ef6e07c752060995be5ad0caf95141d336)
                 check_type(argname="argument max_healthy_percentage", value=max_healthy_percentage, expected_type=type_hints["max_healthy_percentage"])
                 check_type(argname="argument min_healthy_percentage", value=min_healthy_percentage, expected_type=type_hints["min_healthy_percentage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4512,17 +4475,17 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            memory_mib: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MemoryMiBRequestProperty", typing.Dict[builtins.str, typing.Any]]],
-            v_cpu_count: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.VCpuCountRequestProperty", typing.Dict[builtins.str, typing.Any]]],
-            accelerator_count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AcceleratorCountRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            memory_mib: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MemoryMiBRequestProperty", typing.Dict[builtins.str, typing.Any]]],
+            v_cpu_count: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.VCpuCountRequestProperty", typing.Dict[builtins.str, typing.Any]]],
+            accelerator_count: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AcceleratorCountRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             accelerator_manufacturers: typing.Optional[typing.Sequence[builtins.str]] = None,
             accelerator_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            accelerator_total_memory_mib: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            accelerator_total_memory_mib: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             accelerator_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             bare_metal: typing.Optional[builtins.str] = None,
-            baseline_ebs_bandwidth_mbps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            baseline_performance_factors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            baseline_ebs_bandwidth_mbps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            baseline_performance_factors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             burstable_performance: typing.Optional[builtins.str] = None,
             cpu_manufacturers: typing.Optional[typing.Sequence[builtins.str]] = None,
             excluded_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4530,13 +4493,13 @@ class CfnAutoScalingGroup(
             local_storage: typing.Optional[builtins.str] = None,
             local_storage_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             max_spot_price_as_percentage_of_optimal_on_demand_price: typing.Optional[jsii.Number] = None,
-            memory_gib_per_v_cpu: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            network_bandwidth_gbps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            network_interface_count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            memory_gib_per_v_cpu: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_bandwidth_gbps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_interface_count: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             on_demand_max_price_percentage_over_lowest_price: typing.Optional[jsii.Number] = None,
-            require_hibernate_support: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            require_hibernate_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             spot_max_price_percentage_over_lowest_price: typing.Optional[jsii.Number] = None,
-            total_local_storage_gb: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            total_local_storage_gb: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The attributes for the instance types for a mixed instances policy.
 
@@ -4610,7 +4573,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e22358c3d5577020d9106a247f13fb06a2cf3668a83ede597e2b41db7bac111f)
+                type_hints = cached_type_hints(_typecheckingstub__e22358c3d5577020d9106a247f13fb06a2cf3668a83ede597e2b41db7bac111f)
                 check_type(argname="argument memory_mib", value=memory_mib, expected_type=type_hints["memory_mib"])
                 check_type(argname="argument v_cpu_count", value=v_cpu_count, expected_type=type_hints["v_cpu_count"])
                 check_type(argname="argument accelerator_count", value=accelerator_count, expected_type=type_hints["accelerator_count"])
@@ -4690,31 +4653,31 @@ class CfnAutoScalingGroup(
         @builtins.property
         def memory_mib(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MemoryMiBRequestProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MemoryMiBRequestProperty"]:
             '''The minimum and maximum instance memory size for an instance type, in MiB.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-memorymib
             '''
             result = self._values.get("memory_mib")
             assert result is not None, "Required property 'memory_mib' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MemoryMiBRequestProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MemoryMiBRequestProperty"], result)
 
         @builtins.property
         def v_cpu_count(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.VCpuCountRequestProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.VCpuCountRequestProperty"]:
             '''The minimum and maximum number of vCPUs for an instance type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-vcpucount
             '''
             result = self._values.get("v_cpu_count")
             assert result is not None, "Required property 'v_cpu_count' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.VCpuCountRequestProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.VCpuCountRequestProperty"], result)
 
         @builtins.property
         def accelerator_count(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AcceleratorCountRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AcceleratorCountRequestProperty"]]:
             '''The minimum and maximum number of accelerators (GPUs, FPGAs, or AWS Inferentia chips) for an instance type.
 
             To exclude accelerator-enabled instance types, set ``Max`` to ``0`` .
@@ -4724,7 +4687,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-acceleratorcount
             '''
             result = self._values.get("accelerator_count")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AcceleratorCountRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AcceleratorCountRequestProperty"]], result)
 
         @builtins.property
         def accelerator_manufacturers(
@@ -4766,7 +4729,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def accelerator_total_memory_mib(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty"]]:
             '''The minimum and maximum total memory size for the accelerators on an instance type, in MiB.
 
             Default: No minimum or maximum limits
@@ -4774,7 +4737,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-acceleratortotalmemorymib
             '''
             result = self._values.get("accelerator_total_memory_mib")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty"]], result)
 
         @builtins.property
         def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4825,7 +4788,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def baseline_ebs_bandwidth_mbps(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty"]]:
             '''The minimum and maximum baseline bandwidth performance for an instance type, in Mbps.
 
             For more information, see `Amazon EBS–optimized instances <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html>`_ in the *Amazon EC2 User Guide* .
@@ -4835,18 +4798,18 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-baselineebsbandwidthmbps
             '''
             result = self._values.get("baseline_ebs_bandwidth_mbps")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty"]], result)
 
         @builtins.property
         def baseline_performance_factors(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty"]]:
             '''The baseline performance factors for the instance requirements.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-baselineperformancefactors
             '''
             result = self._values.get("baseline_performance_factors")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty"]], result)
 
         @builtins.property
         def burstable_performance(self) -> typing.Optional[builtins.str]:
@@ -4963,7 +4926,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def memory_gib_per_v_cpu(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty"]]:
             '''The minimum and maximum amount of memory per vCPU for an instance type, in GiB.
 
             Default: No minimum or maximum limits
@@ -4971,12 +4934,12 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-memorygibpervcpu
             '''
             result = self._values.get("memory_gib_per_v_cpu")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty"]], result)
 
         @builtins.property
         def network_bandwidth_gbps(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty"]]:
             '''The minimum and maximum amount of network bandwidth, in gigabits per second (Gbps).
 
             Default: No minimum or maximum limits
@@ -4984,12 +4947,12 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-networkbandwidthgbps
             '''
             result = self._values.get("network_bandwidth_gbps")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty"]], result)
 
         @builtins.property
         def network_interface_count(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty"]]:
             '''The minimum and maximum number of network interfaces for an instance type.
 
             Default: No minimum or maximum limits
@@ -4997,7 +4960,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-networkinterfacecount
             '''
             result = self._values.get("network_interface_count")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty"]], result)
 
         @builtins.property
         def on_demand_max_price_percentage_over_lowest_price(
@@ -5023,7 +4986,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def require_hibernate_support(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether instance types must provide On-Demand Instance hibernation support.
 
             Default: ``false``
@@ -5031,7 +4994,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-requirehibernatesupport
             '''
             result = self._values.get("require_hibernate_support")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def spot_max_price_percentage_over_lowest_price(
@@ -5056,7 +5019,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def total_local_storage_gb(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty"]]:
             '''The minimum and maximum total local storage size for an instance type, in GB.
 
             Default: No minimum or maximum limits
@@ -5064,7 +5027,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancerequirements.html#cfn-autoscaling-autoscalinggroup-instancerequirements-totallocalstoragegb
             '''
             result = self._values.get("total_local_storage_gb")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5132,7 +5095,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ca530211324712c4b14f117ed8b0d0dc0ab47386d30a812f8497ab80b7bdec40)
+                type_hints = cached_type_hints(_typecheckingstub__ca530211324712c4b14f117ed8b0d0dc0ab47386d30a812f8497ab80b7bdec40)
                 check_type(argname="argument on_demand_allocation_strategy", value=on_demand_allocation_strategy, expected_type=type_hints["on_demand_allocation_strategy"])
                 check_type(argname="argument on_demand_base_capacity", value=on_demand_base_capacity, expected_type=type_hints["on_demand_base_capacity"])
                 check_type(argname="argument on_demand_percentage_above_base_capacity", value=on_demand_percentage_above_base_capacity, expected_type=type_hints["on_demand_percentage_above_base_capacity"])
@@ -5279,9 +5242,9 @@ class CfnAutoScalingGroup(
             self,
             *,
             image_id: typing.Optional[builtins.str] = None,
-            instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            instance_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_type: typing.Optional[builtins.str] = None,
-            launch_template_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            launch_template_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             weighted_capacity: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Use this structure to let Amazon EC2 Auto Scaling do the following when the Auto Scaling group has a mixed instances policy:  - Override the instance type that is specified in the launch template.
@@ -5385,7 +5348,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86885fea78f6e876794cae723fc0484932c1c7ba5727a1abf14f45861dbdb3d9)
+                type_hints = cached_type_hints(_typecheckingstub__86885fea78f6e876794cae723fc0484932c1c7ba5727a1abf14f45861dbdb3d9)
                 check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -5423,7 +5386,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def instance_requirements(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceRequirementsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceRequirementsProperty"]]:
             '''The instance requirements.
 
             Amazon EC2 Auto Scaling uses your specified requirements to identify instance types. Then, it uses your On-Demand and Spot allocation strategies to launch instances from these instance types.
@@ -5436,7 +5399,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplateoverrides.html#cfn-autoscaling-autoscalinggroup-launchtemplateoverrides-instancerequirements
             '''
             result = self._values.get("instance_requirements")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceRequirementsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceRequirementsProperty"]], result)
 
         @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
@@ -5452,7 +5415,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def launch_template_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
             '''Provides a launch template for the specified instance type or set of instance requirements.
 
             For example, some instance types might require a launch template with a different AMI. If not provided, Amazon EC2 Auto Scaling uses the launch template that's specified in the ``LaunchTemplate`` definition. For more information, see `Specifying a different launch template for an instance type <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-mixed-instances-groups-launch-template-overrides.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -5462,7 +5425,7 @@ class CfnAutoScalingGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplateoverrides.html#cfn-autoscaling-autoscalinggroup-launchtemplateoverrides-launchtemplatespecification
             '''
             result = self._values.get("launch_template_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], result)
 
         @builtins.property
         def weighted_capacity(self) -> typing.Optional[builtins.str]:
@@ -5503,8 +5466,8 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            launch_template_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateOverridesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            launch_template_specification: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateOverridesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Use this structure to specify the launch templates and instance types (overrides) for a mixed instances policy.
 
@@ -5609,7 +5572,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__058746461420956b542c7acb437dc8b0041e30c6486c094342adb80b393afe5d)
+                type_hints = cached_type_hints(_typecheckingstub__058746461420956b542c7acb437dc8b0041e30c6486c094342adb80b393afe5d)
                 check_type(argname="argument launch_template_specification", value=launch_template_specification, expected_type=type_hints["launch_template_specification"])
                 check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5621,25 +5584,25 @@ class CfnAutoScalingGroup(
         @builtins.property
         def launch_template_specification(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]:
             '''The launch template.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplate.html#cfn-autoscaling-autoscalinggroup-launchtemplate-launchtemplatespecification
             '''
             result = self._values.get("launch_template_specification")
             assert result is not None, "Required property 'launch_template_specification' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"], result)
 
         @builtins.property
         def overrides(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateOverridesProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateOverridesProperty"]]]]:
             '''Any properties that you specify override the same properties in the launch template.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplate.html#cfn-autoscaling-autoscalinggroup-launchtemplate-overrides
             '''
             result = self._values.get("overrides")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateOverridesProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateOverridesProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5704,7 +5667,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5fd486733794768df97cba56f5cfd683f8633b0926591bd68e5e61eb7c80a7a6)
+                type_hints = cached_type_hints(_typecheckingstub__5fd486733794768df97cba56f5cfd683f8633b0926591bd68e5e61eb7c80a7a6)
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
                 check_type(argname="argument launch_template_id", value=launch_template_id, expected_type=type_hints["launch_template_id"])
                 check_type(argname="argument launch_template_name", value=launch_template_name, expected_type=type_hints["launch_template_name"])
@@ -5823,7 +5786,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dfaa90f01b32f1c94bbd73c5a7ad9f9eb0fbe2c3152e55e2ffab5891022193ef)
+                type_hints = cached_type_hints(_typecheckingstub__dfaa90f01b32f1c94bbd73c5a7ad9f9eb0fbe2c3152e55e2ffab5891022193ef)
                 check_type(argname="argument lifecycle_hook_name", value=lifecycle_hook_name, expected_type=type_hints["lifecycle_hook_name"])
                 check_type(argname="argument lifecycle_transition", value=lifecycle_transition, expected_type=type_hints["lifecycle_transition"])
                 check_type(argname="argument default_result", value=default_result, expected_type=type_hints["default_result"])
@@ -5969,7 +5932,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0fa0016fc02beef29b5f52f57c3c8e7274995a201a6ea9623dbe586aa535b1ff)
+                type_hints = cached_type_hints(_typecheckingstub__0fa0016fc02beef29b5f52f57c3c8e7274995a201a6ea9623dbe586aa535b1ff)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6039,7 +6002,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__95ef1554000b7f543a637e992c7b0cbaa71e219877b4f18b7571da812b4741b8)
+                type_hints = cached_type_hints(_typecheckingstub__95ef1554000b7f543a637e992c7b0cbaa71e219877b4f18b7571da812b4741b8)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6113,7 +6076,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11d67f55b88e32b71a73d39b67ec573e08571c2264ca36d4a9c9e62c7ef1478f)
+                type_hints = cached_type_hints(_typecheckingstub__11d67f55b88e32b71a73d39b67ec573e08571c2264ca36d4a9c9e62c7ef1478f)
                 check_type(argname="argument granularity", value=granularity, expected_type=type_hints["granularity"])
                 check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6193,8 +6156,8 @@ class CfnAutoScalingGroup(
         def __init__(
             self,
             *,
-            launch_template: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
-            instances_distribution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstancesDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            launch_template: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
+            instances_distribution: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstancesDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Use this structure to launch multiple instance types and On-Demand Instances and Spot Instances within a single Auto Scaling group.
 
@@ -6322,7 +6285,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a4e1c1acb02ba7d86e2ea0004ef9019d45d3f8ed06dbe7671e059b17f5d38c71)
+                type_hints = cached_type_hints(_typecheckingstub__a4e1c1acb02ba7d86e2ea0004ef9019d45d3f8ed06dbe7671e059b17f5d38c71)
                 check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
                 check_type(argname="argument instances_distribution", value=instances_distribution, expected_type=type_hints["instances_distribution"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6334,25 +6297,25 @@ class CfnAutoScalingGroup(
         @builtins.property
         def launch_template(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateProperty"]:
             '''One or more launch templates and the instance types (overrides) that are used to launch EC2 instances to fulfill On-Demand and Spot capacities.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-mixedinstancespolicy.html#cfn-autoscaling-autoscalinggroup-mixedinstancespolicy-launchtemplate
             '''
             result = self._values.get("launch_template")
             assert result is not None, "Required property 'launch_template' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateProperty"], result)
 
         @builtins.property
         def instances_distribution(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstancesDistributionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstancesDistributionProperty"]]:
             '''The instances distribution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-mixedinstancespolicy.html#cfn-autoscaling-autoscalinggroup-mixedinstancespolicy-instancesdistribution
             '''
             result = self._values.get("instances_distribution")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstancesDistributionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstancesDistributionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6401,7 +6364,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51067dfafe115e0bef6bda658386efebaab07af5ce9fbf8cb17ca54b8965e1f8)
+                type_hints = cached_type_hints(_typecheckingstub__51067dfafe115e0bef6bda658386efebaab07af5ce9fbf8cb17ca54b8965e1f8)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6471,7 +6434,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0cee3ceb45798c5d9e25da963c1be1070967f06a2f3236c1e31761d602788aab)
+                type_hints = cached_type_hints(_typecheckingstub__0cee3ceb45798c5d9e25da963c1be1070967f06a2f3236c1e31761d602788aab)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6550,7 +6513,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d6e36a12e4115639643f5e3b4951b7f3b869c9a2cb0f8a0b3bd14224dfd252a)
+                type_hints = cached_type_hints(_typecheckingstub__5d6e36a12e4115639643f5e3b4951b7f3b869c9a2cb0f8a0b3bd14224dfd252a)
                 check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
                 check_type(argname="argument notification_types", value=notification_types, expected_type=type_hints["notification_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6631,7 +6594,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__34033c4b330b3f6db6ef7c93869bb7441a8ed29a48b38d3d762cac8933249af9)
+                type_hints = cached_type_hints(_typecheckingstub__34033c4b330b3f6db6ef7c93869bb7441a8ed29a48b38d3d762cac8933249af9)
                 check_type(argname="argument instance_family", value=instance_family, expected_type=type_hints["instance_family"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if instance_family is not None:
@@ -6707,7 +6670,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba15afb26ce6ae6d75de65156ed4f337bde04597d374405a0dacafb3c0474426)
+                type_hints = cached_type_hints(_typecheckingstub__ba15afb26ce6ae6d75de65156ed4f337bde04597d374405a0dacafb3c0474426)
                 check_type(argname="argument terminate_hook_abandon", value=terminate_hook_abandon, expected_type=type_hints["terminate_hook_abandon"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if terminate_hook_abandon is not None:
@@ -6751,7 +6714,7 @@ class CfnAutoScalingGroup(
             self,
             *,
             key: builtins.str,
-            propagate_at_launch: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            propagate_at_launch: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             value: builtins.str,
         ) -> None:
             '''A structure that specifies a tag for the ``Tags`` property of `AWS::AutoScaling::AutoScalingGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html>`_ resource.
@@ -6784,7 +6747,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fbe45b876c171c89a71ab1315093a8b32d7ef922f5c3986e220789bfa73f9633)
+                type_hints = cached_type_hints(_typecheckingstub__fbe45b876c171c89a71ab1315093a8b32d7ef922f5c3986e220789bfa73f9633)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument propagate_at_launch", value=propagate_at_launch, expected_type=type_hints["propagate_at_launch"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6807,7 +6770,7 @@ class CfnAutoScalingGroup(
         @builtins.property
         def propagate_at_launch(
             self,
-        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Set to ``true`` if you want CloudFormation to copy the tag to EC2 instances that are launched as part of the Auto Scaling group.
 
             Set to ``false`` if you want the tag attached only to the Auto Scaling group and not copied to any instances launched as part of the Auto Scaling group.
@@ -6816,7 +6779,7 @@ class CfnAutoScalingGroup(
             '''
             result = self._values.get("propagate_at_launch")
             assert result is not None, "Required property 'propagate_at_launch' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def value(self) -> builtins.str:
@@ -6871,7 +6834,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ed6e3c63aa6516366b4a7b4feb56e0d620440d9bba7489337d9951d29b96f8a)
+                type_hints = cached_type_hints(_typecheckingstub__3ed6e3c63aa6516366b4a7b4feb56e0d620440d9bba7489337d9951d29b96f8a)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6936,7 +6899,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eaea873a5edfae25f568b5d7240b5e77802aa8c5c61b0f7151943c3f8dc032d7)
+                type_hints = cached_type_hints(_typecheckingstub__eaea873a5edfae25f568b5d7240b5e77802aa8c5c61b0f7151943c3f8dc032d7)
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7027,7 +6990,7 @@ class CfnAutoScalingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a9c3111cac11a4fd207e172c8a19e31005ad8e2cfb7a69a76a4191e7dad42224)
+                type_hints = cached_type_hints(_typecheckingstub__a9c3111cac11a4fd207e172c8a19e31005ad8e2cfb7a69a76a4191e7dad42224)
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7117,12 +7080,12 @@ class CfnAutoScalingGroupProps:
         max_size: builtins.str,
         min_size: builtins.str,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
-        availability_zone_distribution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_distribution: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        availability_zone_impairment_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_impairment_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        capacity_reservation_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.CapacityReservationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        capacity_reservation_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.CapacityReservationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         context: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         default_instance_warmup: typing.Optional[jsii.Number] = None,
@@ -7132,26 +7095,26 @@ class CfnAutoScalingGroupProps:
         health_check_grace_period: typing.Optional[jsii.Number] = None,
         health_check_type: typing.Optional[builtins.str] = None,
         instance_id: typing.Optional[builtins.str] = None,
-        instance_lifecycle_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstanceLifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_maintenance_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.InstanceMaintenancePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        launch_configuration_name: typing.Optional[typing.Union[builtins.str, "_ILaunchConfigurationRef_9c2fc9c2"]] = None,
-        launch_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        lifecycle_hook_specification_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.LifecycleHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstanceLifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_maintenance_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.InstanceMaintenancePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        launch_configuration_name: typing.Optional[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.ILaunchConfigurationRef"]] = None,
+        launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lifecycle_hook_specification_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.LifecycleHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         load_balancer_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         max_instance_lifetime: typing.Optional[jsii.Number] = None,
-        metrics_collection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MetricsCollectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mixed_instances_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.MixedInstancesPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        notification_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notification_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics_collection: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MetricsCollectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mixed_instances_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.MixedInstancesPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        notification_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         placement_group: typing.Optional[builtins.str] = None,
-        service_linked_role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
-        skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        service_linked_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnAutoScalingGroup.TagPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITargetGroupRef_9ed19d5e"]]] = None,
+        target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef"]]] = None,
         termination_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-        traffic_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.TrafficSourceIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]] = None,
+        traffic_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutoScalingGroup.TrafficSourceIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAutoScalingGroup``.
 
@@ -7401,7 +7364,7 @@ class CfnAutoScalingGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2c83197a)
+            type_hints = cached_type_hints(_typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2c83197a)
             check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
             check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
@@ -7558,13 +7521,13 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def availability_zone_distribution(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]]:
         '''The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-availabilityzonedistribution
         '''
         result = self._values.get("availability_zone_distribution")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]], result)
 
     @builtins.property
     def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7578,13 +7541,13 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def availability_zone_impairment_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]]:
         '''The Availability Zone impairment policy for the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-availabilityzoneimpairmentpolicy
         '''
         result = self._values.get("availability_zone_impairment_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty"]], result)
 
     @builtins.property
     def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7600,7 +7563,7 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def capacity_rebalance(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether Capacity Rebalancing is enabled.
 
         Otherwise, Capacity Rebalancing is disabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. For more information, see `Use Capacity Rebalancing to handle Amazon EC2 Spot Interruptions <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html>`_ in the in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7608,18 +7571,18 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-capacityrebalance
         '''
         result = self._values.get("capacity_rebalance")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def capacity_reservation_specification(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]]:
         '''The capacity reservation specification for the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-capacityreservationspecification
         '''
         result = self._values.get("capacity_reservation_specification")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.CapacityReservationSpecificationProperty"]], result)
 
     @builtins.property
     def context(self) -> typing.Optional[builtins.str]:
@@ -7740,18 +7703,18 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def instance_lifecycle_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]]:
         '''The instance lifecycle policy for the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-instancelifecyclepolicy
         '''
         result = self._values.get("instance_lifecycle_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceLifecyclePolicyProperty"]], result)
 
     @builtins.property
     def instance_maintenance_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]]:
         '''An instance maintenance policy.
 
         For more information, see `Set instance maintenance policy <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-instance-maintenance-policy.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7759,12 +7722,12 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-instancemaintenancepolicy
         '''
         result = self._values.get("instance_maintenance_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.InstanceMaintenancePolicyProperty"]], result)
 
     @builtins.property
     def launch_configuration_name(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_ILaunchConfigurationRef_9c2fc9c2"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.ILaunchConfigurationRef"]]:
         '''The name of the launch configuration to use to launch instances.
 
         Required only if you don't specify ``LaunchTemplate`` , ``MixedInstancesPolicy`` , or ``InstanceId`` .
@@ -7772,12 +7735,12 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-launchconfigurationname
         '''
         result = self._values.get("launch_configuration_name")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ILaunchConfigurationRef_9c2fc9c2"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.ILaunchConfigurationRef"]], result)
 
     @builtins.property
     def launch_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]]:
         '''Information used to specify the launch template and version to use to launch instances.
 
         You can alternatively associate a launch template to the Auto Scaling group by specifying a ``MixedInstancesPolicy`` . For more information about creating launch templates, see `Create a launch template for an Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-template.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7787,18 +7750,18 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-launchtemplate
         '''
         result = self._values.get("launch_template")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LaunchTemplateSpecificationProperty"]], result)
 
     @builtins.property
     def lifecycle_hook_specification_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]]:
         '''One or more lifecycle hooks to add to the Auto Scaling group before instances are launched.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-lifecyclehookspecificationlist
         '''
         result = self._values.get("lifecycle_hook_specification_list")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.LifecycleHookSpecificationProperty"]]]], result)
 
     @builtins.property
     def load_balancer_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7825,7 +7788,7 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def metrics_collection(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]]:
         '''Enables the monitoring of group metrics of an Auto Scaling group.
 
         By default, these metrics are disabled.
@@ -7833,12 +7796,12 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-metricscollection
         '''
         result = self._values.get("metrics_collection")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MetricsCollectionProperty"]]]], result)
 
     @builtins.property
     def mixed_instances_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]]:
         '''An embedded object that specifies a mixed instances policy.
 
         The policy includes properties that not only define the distribution of On-Demand Instances and Spot Instances, the maximum price to pay for Spot Instances (optional), and how the Auto Scaling group allocates instance types to fulfill On-Demand and Spot capacities, but also the properties that specify the instance configuration information—the launch template and instance types. The policy can also include a weight for each instance type and different launch templates for individual instance types.
@@ -7848,12 +7811,12 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-mixedinstancespolicy
         '''
         result = self._values.get("mixed_instances_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.MixedInstancesPolicyProperty"]], result)
 
     @builtins.property
     def new_instances_protected_from_scale_in(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether newly launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in.
 
         For more information about preventing instances from terminating on scale in, see `Use instance scale-in protection <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-instance-protection.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7861,12 +7824,12 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-newinstancesprotectedfromscalein
         '''
         result = self._values.get("new_instances_protected_from_scale_in")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def notification_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]:
         '''(deprecated) A structure that specifies an Amazon SNS notification configuration for the ``NotificationConfigurations`` property of the `AWS::AutoScaling::AutoScalingGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html>`_ resource.  For an example template snippet, see `Configure Amazon EC2 Auto Scaling resources <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-ec2-auto-scaling.html>`_.  For more information, see `Get Amazon SNS notifications when your Auto Scaling group scales <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ASGettingNotifications.html>`_ in the *Amazon EC2 Auto Scaling User Guide*.
 
         :deprecated: this property has been deprecated
@@ -7875,18 +7838,18 @@ class CfnAutoScalingGroupProps:
         :stability: deprecated
         '''
         result = self._values.get("notification_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]], result)
 
     @builtins.property
     def notification_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]]:
         '''Configures an Auto Scaling group to send notifications when specified events take place.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-notificationconfigurations
         '''
         result = self._values.get("notification_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.NotificationConfigurationProperty"]]]], result)
 
     @builtins.property
     def placement_group(self) -> typing.Optional[builtins.str]:
@@ -7905,7 +7868,7 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def service_linked_role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The Amazon Resource Name (ARN) of the service-linked role that the Auto Scaling group uses to call other AWS service on your behalf.
 
         By default, Amazon EC2 Auto Scaling uses a service-linked role named ``AWSServiceRoleForAutoScaling`` , which it creates if it does not exist. For more information, see `Service-linked roles <https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-service-linked-role.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7913,17 +7876,17 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-servicelinkedrolearn
         '''
         result = self._values.get("service_linked_role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def skip_zonal_shift_validation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-skipzonalshiftvalidation
         '''
         result = self._values.get("skip_zonal_shift_validation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def tags(
@@ -7941,7 +7904,7 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def target_group_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITargetGroupRef_9ed19d5e"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef"]]]:
         '''The Amazon Resource Names (ARN) of the Elastic Load Balancing target groups to associate with the Auto Scaling group.
 
         Instances are registered as targets with the target groups. The target groups receive incoming traffic and route requests to one or more registered targets. For more information, see `Use Elastic Load Balancing to distribute traffic across the instances in your Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-load-balancer.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7949,7 +7912,7 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-targetgrouparns
         '''
         result = self._values.get("target_group_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITargetGroupRef_9ed19d5e"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef"]]], result)
 
     @builtins.property
     def termination_policies(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7967,18 +7930,18 @@ class CfnAutoScalingGroupProps:
     @builtins.property
     def traffic_sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]]:
         '''The traffic sources associated with this Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-trafficsources
         '''
         result = self._values.get("traffic_sources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.TrafficSourceIdentifierProperty"]]]], result)
 
     @builtins.property
     def vpc_zone_identifier(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]]:
         '''A list of subnet IDs for a virtual private cloud (VPC) where instances in the Auto Scaling group can be created.
 
         If this resource specifies public subnets and is also in a VPC that is defined in the same stack template, you must use the `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to declare a dependency on the `VPC-gateway attachment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html>`_ .
@@ -7991,7 +7954,7 @@ class CfnAutoScalingGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-vpczoneidentifier
         '''
         result = self._values.get("vpc_zone_identifier")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8005,9 +7968,9 @@ class CfnAutoScalingGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILaunchConfigurationRef_9c2fc9c2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.ILaunchConfigurationRef)
 class CfnLaunchConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnLaunchConfiguration",
 ):
@@ -8081,21 +8044,21 @@ class CfnLaunchConfiguration(
         *,
         image_id: builtins.str,
         instance_type: builtins.str,
-        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        block_device_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLaunchConfiguration.BlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        block_device_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLaunchConfiguration.BlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         classic_link_vpc_id: typing.Optional[builtins.str] = None,
         classic_link_vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        iam_instance_profile: typing.Optional[typing.Union[builtins.str, "_IInstanceProfileRef_d6832c90"]] = None,
+        ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        iam_instance_profile: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IInstanceProfileRef"]] = None,
         instance_id: typing.Optional[builtins.str] = None,
-        instance_monitoring: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        instance_monitoring: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kernel_id: typing.Optional[builtins.str] = None,
         key_name: typing.Optional[builtins.str] = None,
         launch_configuration_name: typing.Optional[builtins.str] = None,
-        metadata_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLaunchConfiguration.MetadataOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLaunchConfiguration.MetadataOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement_tenancy: typing.Optional[builtins.str] = None,
         ram_disk_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         spot_price: typing.Optional[builtins.str] = None,
         user_data: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -8124,7 +8087,7 @@ class CfnLaunchConfiguration(
         :param user_data: The Base64-encoded user data to make available to the launched EC2 instances. For more information, see `Instance metadata and user data <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html>`_ in the *Amazon EC2 User Guide for Linux Instances* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1b7dfa85ece494c51470fc8949ac83f44a43e14933517668759ff3c3d48df65)
+            type_hints = cached_type_hints(_typecheckingstub__c1b7dfa85ece494c51470fc8949ac83f44a43e14933517668759ff3c3d48df65)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLaunchConfigurationProps(
@@ -8159,18 +8122,18 @@ class CfnLaunchConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b91f839f38b5f888513d3d01f63410df9415a1b7ad1bd4df5e349bd97c720a1)
+            type_hints = cached_type_hints(_typecheckingstub__3b91f839f38b5f888513d3d01f63410df9415a1b7ad1bd4df5e349bd97c720a1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLaunchConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6d1dd362dede4d9e5d99e0867ba1c4a0a20293d42e613770137063dfbe8db7c)
+            type_hints = cached_type_hints(_typecheckingstub__f6d1dd362dede4d9e5d99e0867ba1c4a0a20293d42e613770137063dfbe8db7c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -8183,7 +8146,7 @@ class CfnLaunchConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52e42bb737deded4bdd38c8ad43308837b3d11658c0f1aa0e505ea73fa3997c1)
+            type_hints = cached_type_hints(_typecheckingstub__52e42bb737deded4bdd38c8ad43308837b3d11658c0f1aa0e505ea73fa3997c1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -8205,9 +8168,11 @@ class CfnLaunchConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="launchConfigurationRef")
-    def launch_configuration_ref(self) -> "_LaunchConfigurationReference_e5f9c425":
+    def launch_configuration_ref(
+        self,
+    ) -> "_aws_autoscaling_66012b8a.LaunchConfigurationReference":
         '''A reference to a LaunchConfiguration resource.'''
-        return typing.cast("_LaunchConfigurationReference_e5f9c425", jsii.get(self, "launchConfigurationRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.LaunchConfigurationReference", jsii.get(self, "launchConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="imageId")
@@ -8218,7 +8183,7 @@ class CfnLaunchConfiguration(
     @image_id.setter
     def image_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a590f1a11b57ee0507267c1184c4ab1fd25d4c7a2add68efd8567cf12318b59)
+            type_hints = cached_type_hints(_typecheckingstub__9a590f1a11b57ee0507267c1184c4ab1fd25d4c7a2add68efd8567cf12318b59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
 
@@ -8231,7 +8196,7 @@ class CfnLaunchConfiguration(
     @instance_type.setter
     def instance_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ebc70aaf3294dda2fcb78ecb12433a976f0a814e8b594582e5a4987925a60e0)
+            type_hints = cached_type_hints(_typecheckingstub__8ebc70aaf3294dda2fcb78ecb12433a976f0a814e8b594582e5a4987925a60e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
@@ -8239,17 +8204,17 @@ class CfnLaunchConfiguration(
     @jsii.member(jsii_name="associatePublicIpAddress")
     def associate_public_ip_address(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to assign a public IPv4 address to the group's instances.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "associatePublicIpAddress"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "associatePublicIpAddress"))
 
     @associate_public_ip_address.setter
     def associate_public_ip_address(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__674455b1254ecaf087af554d10d231002edb13b7fc7f1388a3fc37f4a56965e8)
+            type_hints = cached_type_hints(_typecheckingstub__674455b1254ecaf087af554d10d231002edb13b7fc7f1388a3fc37f4a56965e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "associatePublicIpAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -8257,17 +8222,17 @@ class CfnLaunchConfiguration(
     @jsii.member(jsii_name="blockDeviceMappings")
     def block_device_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]]:
         '''The block device mapping entries that define the block devices to attach to the instances at launch.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]], jsii.get(self, "blockDeviceMappings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]], jsii.get(self, "blockDeviceMappings"))
 
     @block_device_mappings.setter
     def block_device_mappings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc5f0729f20281d7b5dff9761abbab3b051c02184dbf4917feabace61ee2667)
+            type_hints = cached_type_hints(_typecheckingstub__bdc5f0729f20281d7b5dff9761abbab3b051c02184dbf4917feabace61ee2667)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockDeviceMappings", value) # pyright: ignore[reportArgumentType]
 
@@ -8280,7 +8245,7 @@ class CfnLaunchConfiguration(
     @classic_link_vpc_id.setter
     def classic_link_vpc_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd69ee70914f6d11d6f3b9a421b359ab003aa76f5013ffc7ab4640574f50e449)
+            type_hints = cached_type_hints(_typecheckingstub__cd69ee70914f6d11d6f3b9a421b359ab003aa76f5013ffc7ab4640574f50e449)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "classicLinkVpcId", value) # pyright: ignore[reportArgumentType]
 
@@ -8298,7 +8263,7 @@ class CfnLaunchConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fa4a3aa74644d10d77a099a33b3f970c24ddc0fd7ff782d932f948a20283fc0)
+            type_hints = cached_type_hints(_typecheckingstub__8fa4a3aa74644d10d77a099a33b3f970c24ddc0fd7ff782d932f948a20283fc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "classicLinkVpcSecurityGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -8306,17 +8271,17 @@ class CfnLaunchConfiguration(
     @jsii.member(jsii_name="ebsOptimized")
     def ebs_optimized(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the launch configuration is optimized for EBS I/O ( ``true`` ) or not ( ``false`` ).'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "ebsOptimized"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "ebsOptimized"))
 
     @ebs_optimized.setter
     def ebs_optimized(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f092d7a962971bba208cb655827dc32c385bf989c109ae62f8e956ab07a0c8ce)
+            type_hints = cached_type_hints(_typecheckingstub__f092d7a962971bba208cb655827dc32c385bf989c109ae62f8e956ab07a0c8ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ebsOptimized", value) # pyright: ignore[reportArgumentType]
 
@@ -8329,7 +8294,7 @@ class CfnLaunchConfiguration(
     @iam_instance_profile.setter
     def iam_instance_profile(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73ae36075c104a56882330fa48b634107a9dcf6b069c6c61b3625de613c66831)
+            type_hints = cached_type_hints(_typecheckingstub__73ae36075c104a56882330fa48b634107a9dcf6b069c6c61b3625de613c66831)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamInstanceProfile", value) # pyright: ignore[reportArgumentType]
 
@@ -8342,7 +8307,7 @@ class CfnLaunchConfiguration(
     @instance_id.setter
     def instance_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18e4df9fb2d7ef59c38687c0726cc07c2e349b85efc5335bcf75ca13e4ea35eb)
+            type_hints = cached_type_hints(_typecheckingstub__18e4df9fb2d7ef59c38687c0726cc07c2e349b85efc5335bcf75ca13e4ea35eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
@@ -8350,17 +8315,17 @@ class CfnLaunchConfiguration(
     @jsii.member(jsii_name="instanceMonitoring")
     def instance_monitoring(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Controls whether instances in this group are launched with detailed ( ``true`` ) or basic ( ``false`` ) monitoring.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "instanceMonitoring"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "instanceMonitoring"))
 
     @instance_monitoring.setter
     def instance_monitoring(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5ba316c82fe73e99e7f86ec88228cea720950bd4d3d42a8780880ce964b5593)
+            type_hints = cached_type_hints(_typecheckingstub__e5ba316c82fe73e99e7f86ec88228cea720950bd4d3d42a8780880ce964b5593)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceMonitoring", value) # pyright: ignore[reportArgumentType]
 
@@ -8373,7 +8338,7 @@ class CfnLaunchConfiguration(
     @kernel_id.setter
     def kernel_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a405be9848883655a34f3cb88e0b533539d91ced54ead07763579eacd873a6ae)
+            type_hints = cached_type_hints(_typecheckingstub__a405be9848883655a34f3cb88e0b533539d91ced54ead07763579eacd873a6ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kernelId", value) # pyright: ignore[reportArgumentType]
 
@@ -8386,7 +8351,7 @@ class CfnLaunchConfiguration(
     @key_name.setter
     def key_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32ad0180db900e68841993347f7d387928a6646c96dca6d80bb9717cbfd1d1d)
+            type_hints = cached_type_hints(_typecheckingstub__e32ad0180db900e68841993347f7d387928a6646c96dca6d80bb9717cbfd1d1d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyName", value) # pyright: ignore[reportArgumentType]
 
@@ -8399,7 +8364,7 @@ class CfnLaunchConfiguration(
     @launch_configuration_name.setter
     def launch_configuration_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f8bba7d570f8c476d61963ecd52300e6f67e1f6d8cac7a67b19fd3c7ad972fb)
+            type_hints = cached_type_hints(_typecheckingstub__6f8bba7d570f8c476d61963ecd52300e6f67e1f6d8cac7a67b19fd3c7ad972fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "launchConfigurationName", value) # pyright: ignore[reportArgumentType]
 
@@ -8407,17 +8372,17 @@ class CfnLaunchConfiguration(
     @jsii.member(jsii_name="metadataOptions")
     def metadata_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.MetadataOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.MetadataOptionsProperty"]]:
         '''The metadata options for the instances.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.MetadataOptionsProperty"]], jsii.get(self, "metadataOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.MetadataOptionsProperty"]], jsii.get(self, "metadataOptions"))
 
     @metadata_options.setter
     def metadata_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.MetadataOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.MetadataOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f7c6bb8da29baa11401340e2a6d03aef0bf5f521da31f4ea3631d00c07e61ac)
+            type_hints = cached_type_hints(_typecheckingstub__9f7c6bb8da29baa11401340e2a6d03aef0bf5f521da31f4ea3631d00c07e61ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -8430,7 +8395,7 @@ class CfnLaunchConfiguration(
     @placement_tenancy.setter
     def placement_tenancy(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fec1cfbab9fa9ea909ebe723dace6e2c257499f88750f54ba6a0ef402bb905b)
+            type_hints = cached_type_hints(_typecheckingstub__5fec1cfbab9fa9ea909ebe723dace6e2c257499f88750f54ba6a0ef402bb905b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "placementTenancy", value) # pyright: ignore[reportArgumentType]
 
@@ -8443,7 +8408,7 @@ class CfnLaunchConfiguration(
     @ram_disk_id.setter
     def ram_disk_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8b6c0b0981f30e6fda22d72efe839a3ede24080b79389a55877430b1a4b8284)
+            type_hints = cached_type_hints(_typecheckingstub__c8b6c0b0981f30e6fda22d72efe839a3ede24080b79389a55877430b1a4b8284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ramDiskId", value) # pyright: ignore[reportArgumentType]
 
@@ -8459,7 +8424,7 @@ class CfnLaunchConfiguration(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__290470833418a73ff89f31e864c6abc6e6a0436b8071c33102c6223fcbdc204a)
+            type_hints = cached_type_hints(_typecheckingstub__290470833418a73ff89f31e864c6abc6e6a0436b8071c33102c6223fcbdc204a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
 
@@ -8472,7 +8437,7 @@ class CfnLaunchConfiguration(
     @spot_price.setter
     def spot_price(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e9651e1cd8f7668bbbdac019ddd62ceacf7e55a6bc5288ab7d2d8a49fd2f395)
+            type_hints = cached_type_hints(_typecheckingstub__0e9651e1cd8f7668bbbdac019ddd62ceacf7e55a6bc5288ab7d2d8a49fd2f395)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "spotPrice", value) # pyright: ignore[reportArgumentType]
 
@@ -8485,7 +8450,7 @@ class CfnLaunchConfiguration(
     @user_data.setter
     def user_data(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7568c3d28d0b73eade97e8b9e92d322f8d322e9f9c73d44b4fe5e2ddfebd348c)
+            type_hints = cached_type_hints(_typecheckingstub__7568c3d28d0b73eade97e8b9e92d322f8d322e9f9c73d44b4fe5e2ddfebd348c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userData", value) # pyright: ignore[reportArgumentType]
 
@@ -8504,8 +8469,8 @@ class CfnLaunchConfiguration(
             self,
             *,
             device_name: builtins.str,
-            ebs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLaunchConfiguration.BlockDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            no_device: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ebs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLaunchConfiguration.BlockDeviceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            no_device: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             virtual_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``BlockDeviceMapping`` specifies a block device mapping for the ``BlockDeviceMappings`` property of the `AWS::AutoScaling::LaunchConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html>`_ resource.
@@ -8546,7 +8511,7 @@ class CfnLaunchConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__28cc3ae48c0185c32554edba8688366b44d110b2707329683cc7a64163c2b0bf)
+                type_hints = cached_type_hints(_typecheckingstub__28cc3ae48c0185c32554edba8688366b44d110b2707329683cc7a64163c2b0bf)
                 check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
                 check_type(argname="argument ebs", value=ebs, expected_type=type_hints["ebs"])
                 check_type(argname="argument no_device", value=no_device, expected_type=type_hints["no_device"])
@@ -8579,18 +8544,18 @@ class CfnLaunchConfiguration(
         @builtins.property
         def ebs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceProperty"]]:
             '''Information to attach an EBS volume to an instance at launch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-launchconfiguration-blockdevicemapping.html#cfn-autoscaling-launchconfiguration-blockdevicemapping-ebs
             '''
             result = self._values.get("ebs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceProperty"]], result)
 
         @builtins.property
         def no_device(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Setting this value to ``true`` prevents a volume that is included in the block device mapping of the AMI from being mapped to the specified device name at launch.
 
             If ``NoDevice`` is ``true`` for the root device, instances might fail the EC2 health check. In that case, Amazon EC2 Auto Scaling launches replacement instances.
@@ -8598,7 +8563,7 @@ class CfnLaunchConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-launchconfiguration-blockdevicemapping.html#cfn-autoscaling-launchconfiguration-blockdevicemapping-nodevice
             '''
             result = self._values.get("no_device")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def virtual_name(self) -> typing.Optional[builtins.str]:
@@ -8639,8 +8604,8 @@ class CfnLaunchConfiguration(
         def __init__(
             self,
             *,
-            delete_on_termination: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            delete_on_termination: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            encrypted: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             iops: typing.Optional[jsii.Number] = None,
             snapshot_id: typing.Optional[builtins.str] = None,
             throughput: typing.Optional[jsii.Number] = None,
@@ -8677,7 +8642,7 @@ class CfnLaunchConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb46621b8247621ce8684de7d0b8d40deb45a021b4eebaa84336924a1a9f478a)
+                type_hints = cached_type_hints(_typecheckingstub__cb46621b8247621ce8684de7d0b8d40deb45a021b4eebaa84336924a1a9f478a)
                 check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
                 check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -8704,7 +8669,7 @@ class CfnLaunchConfiguration(
         @builtins.property
         def delete_on_termination(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the volume is deleted on instance termination.
 
             For Amazon EC2 Auto Scaling, the default value is ``true`` .
@@ -8712,12 +8677,12 @@ class CfnLaunchConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-launchconfiguration-blockdevice.html#cfn-autoscaling-launchconfiguration-blockdevice-deleteontermination
             '''
             result = self._values.get("delete_on_termination")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def encrypted(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the volume should be encrypted.
 
             Encrypted EBS volumes can only be attached to instances that support Amazon EBS encryption. For more information, see `Requirements for Amazon EBS encryption <https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption-requirements.html>`_ in the *Amazon EBS User Guide* . If your AMI uses encrypted volumes, you can also only launch it on supported instance types.
@@ -8732,7 +8697,7 @@ class CfnLaunchConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-launchconfiguration-blockdevice.html#cfn-autoscaling-launchconfiguration-blockdevice-encrypted
             '''
             result = self._values.get("encrypted")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def iops(self) -> typing.Optional[jsii.Number]:
@@ -8853,7 +8818,7 @@ class CfnLaunchConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b9184da3be6946dea9c7fd293238b1b50dd5b0051db0d4fda31f6734b79f782)
+                type_hints = cached_type_hints(_typecheckingstub__5b9184da3be6946dea9c7fd293238b1b50dd5b0051db0d4fda31f6734b79f782)
                 check_type(argname="argument http_endpoint", value=http_endpoint, expected_type=type_hints["http_endpoint"])
                 check_type(argname="argument http_put_response_hop_limit", value=http_put_response_hop_limit, expected_type=type_hints["http_put_response_hop_limit"])
                 check_type(argname="argument http_tokens", value=http_tokens, expected_type=type_hints["http_tokens"])
@@ -8950,21 +8915,21 @@ class CfnLaunchConfigurationProps:
         *,
         image_id: builtins.str,
         instance_type: builtins.str,
-        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        block_device_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLaunchConfiguration.BlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        block_device_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLaunchConfiguration.BlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         classic_link_vpc_id: typing.Optional[builtins.str] = None,
         classic_link_vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        iam_instance_profile: typing.Optional[typing.Union[builtins.str, "_IInstanceProfileRef_d6832c90"]] = None,
+        ebs_optimized: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        iam_instance_profile: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IInstanceProfileRef"]] = None,
         instance_id: typing.Optional[builtins.str] = None,
-        instance_monitoring: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        instance_monitoring: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kernel_id: typing.Optional[builtins.str] = None,
         key_name: typing.Optional[builtins.str] = None,
         launch_configuration_name: typing.Optional[builtins.str] = None,
-        metadata_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLaunchConfiguration.MetadataOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLaunchConfiguration.MetadataOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement_tenancy: typing.Optional[builtins.str] = None,
         ram_disk_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
         spot_price: typing.Optional[builtins.str] = None,
         user_data: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9043,7 +9008,7 @@ class CfnLaunchConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__437aca81a1a333c2908320df15fa11c3acd609bc0ca76c62d631e3efe7b6ddd6)
+            type_hints = cached_type_hints(_typecheckingstub__437aca81a1a333c2908320df15fa11c3acd609bc0ca76c62d631e3efe7b6ddd6)
             check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument associate_public_ip_address", value=associate_public_ip_address, expected_type=type_hints["associate_public_ip_address"])
@@ -9133,7 +9098,7 @@ class CfnLaunchConfigurationProps:
     @builtins.property
     def associate_public_ip_address(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to assign a public IPv4 address to the group's instances.
 
         If the instance is launched into a default subnet, the default is to assign a public IPv4 address, unless you disabled the option to assign a public IPv4 address on the subnet. If the instance is launched into a nondefault subnet, the default is not to assign a public IPv4 address, unless you enabled the option to assign a public IPv4 address on the subnet.
@@ -9145,12 +9110,12 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-associatepublicipaddress
         '''
         result = self._values.get("associate_public_ip_address")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def block_device_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]]:
         '''The block device mapping entries that define the block devices to attach to the instances at launch.
 
         By default, the block devices specified in the block device mapping for the AMI are used. For more information, see `Block device mappings <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ in the *Amazon EC2 User Guide* .
@@ -9158,7 +9123,7 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-blockdevicemappings
         '''
         result = self._values.get("block_device_mappings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.BlockDeviceMappingProperty"]]]], result)
 
     @builtins.property
     def classic_link_vpc_id(self) -> typing.Optional[builtins.str]:
@@ -9183,7 +9148,7 @@ class CfnLaunchConfigurationProps:
     @builtins.property
     def ebs_optimized(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the launch configuration is optimized for EBS I/O ( ``true`` ) or not ( ``false`` ).
 
         The optimization provides dedicated throughput to Amazon EBS and an optimized configuration stack to provide optimal I/O performance. This optimization is not available with all instance types. Additional fees are incurred when you enable EBS optimization for an instance type that is not EBS-optimized by default. For more information, see `Amazon EBS-optimized instances <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html>`_ in the *Amazon EC2 User Guide* .
@@ -9193,12 +9158,12 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-ebsoptimized
         '''
         result = self._values.get("ebs_optimized")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def iam_instance_profile(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IInstanceProfileRef_d6832c90"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IInstanceProfileRef"]]:
         '''The name or the Amazon Resource Name (ARN) of the instance profile associated with the IAM role for the instance.
 
         The instance profile contains the IAM role. For more information, see `IAM role for applications that run on Amazon EC2 instances <https://docs.aws.amazon.com/autoscaling/ec2/userguide/us-iam-role.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -9206,7 +9171,7 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-iaminstanceprofile
         '''
         result = self._values.get("iam_instance_profile")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IInstanceProfileRef_d6832c90"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IInstanceProfileRef"]], result)
 
     @builtins.property
     def instance_id(self) -> typing.Optional[builtins.str]:
@@ -9222,7 +9187,7 @@ class CfnLaunchConfigurationProps:
     @builtins.property
     def instance_monitoring(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Controls whether instances in this group are launched with detailed ( ``true`` ) or basic ( ``false`` ) monitoring.
 
         The default value is ``true`` (enabled).
@@ -9233,7 +9198,7 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-instancemonitoring
         '''
         result = self._values.get("instance_monitoring")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def kernel_id(self) -> typing.Optional[builtins.str]:
@@ -9273,7 +9238,7 @@ class CfnLaunchConfigurationProps:
     @builtins.property
     def metadata_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.MetadataOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.MetadataOptionsProperty"]]:
         '''The metadata options for the instances.
 
         For more information, see `Configure the instance metadata options <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-config.html#launch-configurations-imds>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -9281,7 +9246,7 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-metadataoptions
         '''
         result = self._values.get("metadata_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLaunchConfiguration.MetadataOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLaunchConfiguration.MetadataOptionsProperty"]], result)
 
     @builtins.property
     def placement_tenancy(self) -> typing.Optional[builtins.str]:
@@ -9314,7 +9279,7 @@ class CfnLaunchConfigurationProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]]:
         '''A list that contains the security groups to assign to the instances in the Auto Scaling group.
 
         The list can contain both the IDs of existing security groups and references to `SecurityGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html>`_ resources created in the template.
@@ -9324,7 +9289,7 @@ class CfnLaunchConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-launchconfiguration.html#cfn-autoscaling-launchconfiguration-securitygroups
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
@@ -9365,9 +9330,9 @@ class CfnLaunchConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILifecycleHookRef_bb190400)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.ILifecycleHookRef)
 class CfnLifecycleHook(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnLifecycleHook",
 ):
@@ -9408,14 +9373,14 @@ class CfnLifecycleHook(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         lifecycle_transition: builtins.str,
         default_result: typing.Optional[builtins.str] = None,
         heartbeat_timeout: typing.Optional[jsii.Number] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
-        notification_target_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        notification_target_arn: typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::AutoScaling::LifecycleHook``.
 
@@ -9431,7 +9396,7 @@ class CfnLifecycleHook(
         :param role_arn: The ARN of the IAM role that allows the Auto Scaling group to publish to the specified notification target. For information about creating this role, see `Prepare to add a lifecycle hook to your Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/prepare-for-lifecycle-notifications.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . Valid only if the notification target is an Amazon SNS topic or an Amazon SQS queue.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dabd61d8a949732e25b3952a106099c905072c82cee5882a0626359068cddbf4)
+            type_hints = cached_type_hints(_typecheckingstub__dabd61d8a949732e25b3952a106099c905072c82cee5882a0626359068cddbf4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLifecycleHookProps(
@@ -9455,18 +9420,18 @@ class CfnLifecycleHook(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df2a0b1541001b5f4bc8251dfa14d969e9e24726543644a65efa50644af301b1)
+            type_hints = cached_type_hints(_typecheckingstub__df2a0b1541001b5f4bc8251dfa14d969e9e24726543644a65efa50644af301b1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLifecycleHook", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcd6cbadd1cca7e18a403680449778d0e0a8e19fb670a40420c3b3f21fe301b9)
+            type_hints = cached_type_hints(_typecheckingstub__dcd6cbadd1cca7e18a403680449778d0e0a8e19fb670a40420c3b3f21fe301b9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9479,7 +9444,7 @@ class CfnLifecycleHook(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adfc17ebc81352492f6cbef914cb8fe36f4240d4c671e061748d8587dcfb31fc)
+            type_hints = cached_type_hints(_typecheckingstub__adfc17ebc81352492f6cbef914cb8fe36f4240d4c671e061748d8587dcfb31fc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9501,9 +9466,9 @@ class CfnLifecycleHook(
 
     @builtins.property
     @jsii.member(jsii_name="lifecycleHookRef")
-    def lifecycle_hook_ref(self) -> "_LifecycleHookReference_9dbdb57d":
+    def lifecycle_hook_ref(self) -> "_aws_autoscaling_66012b8a.LifecycleHookReference":
         '''A reference to a LifecycleHook resource.'''
-        return typing.cast("_LifecycleHookReference_9dbdb57d", jsii.get(self, "lifecycleHookRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.LifecycleHookReference", jsii.get(self, "lifecycleHookRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupName")
@@ -9514,7 +9479,7 @@ class CfnLifecycleHook(
     @auto_scaling_group_name.setter
     def auto_scaling_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35c060ad9285fb6c54582d235f18ba5215a7979adb3b4fc8a6ff8fb11e6c1457)
+            type_hints = cached_type_hints(_typecheckingstub__35c060ad9285fb6c54582d235f18ba5215a7979adb3b4fc8a6ff8fb11e6c1457)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -9530,7 +9495,7 @@ class CfnLifecycleHook(
     @lifecycle_transition.setter
     def lifecycle_transition(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c9ac4cd78c5650b361a6ba49286daa88b90741e3e54c32bc18b68ac11fba24)
+            type_hints = cached_type_hints(_typecheckingstub__87c9ac4cd78c5650b361a6ba49286daa88b90741e3e54c32bc18b68ac11fba24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecycleTransition", value) # pyright: ignore[reportArgumentType]
 
@@ -9543,7 +9508,7 @@ class CfnLifecycleHook(
     @default_result.setter
     def default_result(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51517b719f77ce6d6ba6adb7f8c70b2413715e529443ab685154429e8fb59402)
+            type_hints = cached_type_hints(_typecheckingstub__51517b719f77ce6d6ba6adb7f8c70b2413715e529443ab685154429e8fb59402)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultResult", value) # pyright: ignore[reportArgumentType]
 
@@ -9556,7 +9521,7 @@ class CfnLifecycleHook(
     @heartbeat_timeout.setter
     def heartbeat_timeout(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38bf2cb9d10d5f01920b8eda34a7f2517db573690c3c85cffda12276b09a3b59)
+            type_hints = cached_type_hints(_typecheckingstub__38bf2cb9d10d5f01920b8eda34a7f2517db573690c3c85cffda12276b09a3b59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "heartbeatTimeout", value) # pyright: ignore[reportArgumentType]
 
@@ -9569,7 +9534,7 @@ class CfnLifecycleHook(
     @lifecycle_hook_name.setter
     def lifecycle_hook_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5bbfb114220f5d887cc11cd66c4e915d640c5992791aa59c73e07227a04e797)
+            type_hints = cached_type_hints(_typecheckingstub__d5bbfb114220f5d887cc11cd66c4e915d640c5992791aa59c73e07227a04e797)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lifecycleHookName", value) # pyright: ignore[reportArgumentType]
 
@@ -9582,7 +9547,7 @@ class CfnLifecycleHook(
     @notification_metadata.setter
     def notification_metadata(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27918b799a8772981ce11d1d726a74b3feb0bdae57a9890dac50d40416a4b102)
+            type_hints = cached_type_hints(_typecheckingstub__27918b799a8772981ce11d1d726a74b3feb0bdae57a9890dac50d40416a4b102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -9595,7 +9560,7 @@ class CfnLifecycleHook(
     @notification_target_arn.setter
     def notification_target_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be65379a9c211c2e27b903c326bd9b6c233e24d2827c4b0501fdedb5c613e1b)
+            type_hints = cached_type_hints(_typecheckingstub__1be65379a9c211c2e27b903c326bd9b6c233e24d2827c4b0501fdedb5c613e1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationTargetArn", value) # pyright: ignore[reportArgumentType]
 
@@ -9608,7 +9573,7 @@ class CfnLifecycleHook(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3efe05ccb204a2f5b10e050508641230c374dcfa8454a54ed2b9fa3d2823782)
+            type_hints = cached_type_hints(_typecheckingstub__b3efe05ccb204a2f5b10e050508641230c374dcfa8454a54ed2b9fa3d2823782)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -9631,14 +9596,14 @@ class CfnLifecycleHookProps:
     def __init__(
         self,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         lifecycle_transition: builtins.str,
         default_result: typing.Optional[builtins.str] = None,
         heartbeat_timeout: typing.Optional[jsii.Number] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
-        notification_target_arn: typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        notification_target_arn: typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLifecycleHook``.
 
@@ -9674,7 +9639,7 @@ class CfnLifecycleHookProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55ab7935babae2422463a7df532373822bd3f50d204a6ecf63bb4ac285894a64)
+            type_hints = cached_type_hints(_typecheckingstub__55ab7935babae2422463a7df532373822bd3f50d204a6ecf63bb4ac285894a64)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument lifecycle_transition", value=lifecycle_transition, expected_type=type_hints["lifecycle_transition"])
             check_type(argname="argument default_result", value=default_result, expected_type=type_hints["default_result"])
@@ -9703,14 +9668,14 @@ class CfnLifecycleHookProps:
     @builtins.property
     def auto_scaling_group_name(
         self,
-    ) -> typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"]:
+    ) -> typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"]:
         '''The name of the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-lifecyclehook.html#cfn-autoscaling-lifecyclehook-autoscalinggroupname
         '''
         result = self._values.get("auto_scaling_group_name")
         assert result is not None, "Required property 'auto_scaling_group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"], result)
 
     @builtins.property
     def lifecycle_transition(self) -> builtins.str:
@@ -9770,7 +9735,7 @@ class CfnLifecycleHookProps:
     @builtins.property
     def notification_target_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
         '''The Amazon Resource Name (ARN) of the notification target that Amazon EC2 Auto Scaling sends notifications to when an instance is in a wait state for the lifecycle hook.
 
         You can specify an Amazon SNS topic or an Amazon SQS queue.
@@ -9778,12 +9743,12 @@ class CfnLifecycleHookProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-lifecyclehook.html#cfn-autoscaling-lifecyclehook-notificationtargetarn
         '''
         result = self._values.get("notification_target_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ITopicRef_29aa9a88", "_IQueueRef_fa8b2198"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
 
     @builtins.property
     def role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The ARN of the IAM role that allows the Auto Scaling group to publish to the specified notification target.
 
         For information about creating this role, see `Prepare to add a lifecycle hook to your Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/prepare-for-lifecycle-notifications.html>`_ in the *Amazon EC2 Auto Scaling User Guide* .
@@ -9793,7 +9758,7 @@ class CfnLifecycleHookProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-lifecyclehook.html#cfn-autoscaling-lifecyclehook-rolearn
         '''
         result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9807,9 +9772,9 @@ class CfnLifecycleHookProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IScalingPolicyRef_fcca0de5)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.IScalingPolicyRef)
 class CfnScalingPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnScalingPolicy",
 ):
@@ -10011,17 +9976,17 @@ class CfnScalingPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         adjustment_type: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         estimated_instance_warmup: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional[builtins.str] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
         policy_type: typing.Optional[builtins.str] = None,
-        predictive_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        predictive_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scaling_adjustment: typing.Optional[jsii.Number] = None,
-        step_adjustments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.StepAdjustmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        target_tracking_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        step_adjustments: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.StepAdjustmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_tracking_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AutoScaling::ScalingPolicy``.
 
@@ -10040,7 +10005,7 @@ class CfnScalingPolicy(
         :param target_tracking_configuration: A target tracking scaling policy. Provides support for predefined or custom metrics. The following predefined metrics are available: - ``ASGAverageCPUUtilization`` - ``ASGAverageNetworkIn`` - ``ASGAverageNetworkOut`` - ``ALBRequestCountPerTarget`` If you specify ``ALBRequestCountPerTarget`` for the metric, you must specify the ``ResourceLabel`` property with the ``PredefinedMetricSpecification`` . Required if the policy type is ``TargetTrackingScaling`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe327b42a12b9ac1620a18cf03d5ab48d4b5a074b39f9d0b743895a53269b77a)
+            type_hints = cached_type_hints(_typecheckingstub__fe327b42a12b9ac1620a18cf03d5ab48d4b5a074b39f9d0b743895a53269b77a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnScalingPolicyProps(
@@ -10063,13 +10028,13 @@ class CfnScalingPolicy(
     @builtins.classmethod
     def arn_for_scaling_policy(
         cls,
-        resource: "_IScalingPolicyRef_fcca0de5",
+        resource: "_aws_autoscaling_66012b8a.IScalingPolicyRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b6cc04b132e188b1685254181901ce522dcda6da5f77ce913be1496395a902)
+            type_hints = cached_type_hints(_typecheckingstub__73b6cc04b132e188b1685254181901ce522dcda6da5f77ce913be1496395a902)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForScalingPolicy", [resource]))
 
@@ -10081,18 +10046,18 @@ class CfnScalingPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96edb6e5bf6fe5007a81085db7d69e2fb281ff03439aba6426740c7e9ca4ae6e)
+            type_hints = cached_type_hints(_typecheckingstub__96edb6e5bf6fe5007a81085db7d69e2fb281ff03439aba6426740c7e9ca4ae6e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScalingPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca9407810c7f1b646f3d1a65c71021ff839d9aaa29cf9dbf8c38fc97672a50e6)
+            type_hints = cached_type_hints(_typecheckingstub__ca9407810c7f1b646f3d1a65c71021ff839d9aaa29cf9dbf8c38fc97672a50e6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10105,7 +10070,7 @@ class CfnScalingPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8950f8c8dab087dbd134a08d3f741ac3dc70751ad06a5c9ca2513ec3f434bb5)
+            type_hints = cached_type_hints(_typecheckingstub__b8950f8c8dab087dbd134a08d3f741ac3dc70751ad06a5c9ca2513ec3f434bb5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10145,9 +10110,9 @@ class CfnScalingPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="scalingPolicyRef")
-    def scaling_policy_ref(self) -> "_ScalingPolicyReference_2748026a":
+    def scaling_policy_ref(self) -> "_aws_autoscaling_66012b8a.ScalingPolicyReference":
         '''A reference to a ScalingPolicy resource.'''
-        return typing.cast("_ScalingPolicyReference_2748026a", jsii.get(self, "scalingPolicyRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.ScalingPolicyReference", jsii.get(self, "scalingPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupName")
@@ -10158,7 +10123,7 @@ class CfnScalingPolicy(
     @auto_scaling_group_name.setter
     def auto_scaling_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ba0241db3897f1e174d111c17685cbc6fa63a583d3e01b9c33cebdd8f7c60b5)
+            type_hints = cached_type_hints(_typecheckingstub__5ba0241db3897f1e174d111c17685cbc6fa63a583d3e01b9c33cebdd8f7c60b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -10171,7 +10136,7 @@ class CfnScalingPolicy(
     @adjustment_type.setter
     def adjustment_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad1e7151ee36a9824de02370c80ec69093a3e830dda8ec76b0ce9cd896ae8b93)
+            type_hints = cached_type_hints(_typecheckingstub__ad1e7151ee36a9824de02370c80ec69093a3e830dda8ec76b0ce9cd896ae8b93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adjustmentType", value) # pyright: ignore[reportArgumentType]
 
@@ -10184,7 +10149,7 @@ class CfnScalingPolicy(
     @cooldown.setter
     def cooldown(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b447669ce1fb5edee7c3423b0be21b0a3196ef892a3cec7a6362af7d003b988b)
+            type_hints = cached_type_hints(_typecheckingstub__b447669ce1fb5edee7c3423b0be21b0a3196ef892a3cec7a6362af7d003b988b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cooldown", value) # pyright: ignore[reportArgumentType]
 
@@ -10197,7 +10162,7 @@ class CfnScalingPolicy(
     @estimated_instance_warmup.setter
     def estimated_instance_warmup(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c66ff62cee4c0c8f2364bf5bcc5137f8f451284c1fe9b421835285a3a6603379)
+            type_hints = cached_type_hints(_typecheckingstub__c66ff62cee4c0c8f2364bf5bcc5137f8f451284c1fe9b421835285a3a6603379)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "estimatedInstanceWarmup", value) # pyright: ignore[reportArgumentType]
 
@@ -10210,7 +10175,7 @@ class CfnScalingPolicy(
     @metric_aggregation_type.setter
     def metric_aggregation_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__babf5fc76d4b2a32dff5b20eab1cf2a2e4d55f18c07dfbc24b23dc49e9c0b7ae)
+            type_hints = cached_type_hints(_typecheckingstub__babf5fc76d4b2a32dff5b20eab1cf2a2e4d55f18c07dfbc24b23dc49e9c0b7ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricAggregationType", value) # pyright: ignore[reportArgumentType]
 
@@ -10223,7 +10188,7 @@ class CfnScalingPolicy(
     @min_adjustment_magnitude.setter
     def min_adjustment_magnitude(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9531ed0d6903bdfa76634c1cdd14be2c72654d1f10e1dbf10b9b5391cb75fc98)
+            type_hints = cached_type_hints(_typecheckingstub__9531ed0d6903bdfa76634c1cdd14be2c72654d1f10e1dbf10b9b5391cb75fc98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minAdjustmentMagnitude", value) # pyright: ignore[reportArgumentType]
 
@@ -10236,7 +10201,7 @@ class CfnScalingPolicy(
     @policy_type.setter
     def policy_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd4329445b62cbb417ca024062e90be3235f901236445dcfca9b9682478abb33)
+            type_hints = cached_type_hints(_typecheckingstub__bd4329445b62cbb417ca024062e90be3235f901236445dcfca9b9682478abb33)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyType", value) # pyright: ignore[reportArgumentType]
 
@@ -10244,20 +10209,20 @@ class CfnScalingPolicy(
     @jsii.member(jsii_name="predictiveScalingConfiguration")
     def predictive_scaling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]]:
         '''A predictive scaling policy.
 
         Provides support for predefined and custom metrics.
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]], jsii.get(self, "predictiveScalingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]], jsii.get(self, "predictiveScalingConfiguration"))
 
     @predictive_scaling_configuration.setter
     def predictive_scaling_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76cc30a2e0064b6d652232bc49d285ce28467a34c2bd8ec66a130a61970781c6)
+            type_hints = cached_type_hints(_typecheckingstub__76cc30a2e0064b6d652232bc49d285ce28467a34c2bd8ec66a130a61970781c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "predictiveScalingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -10270,7 +10235,7 @@ class CfnScalingPolicy(
     @scaling_adjustment.setter
     def scaling_adjustment(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e99a67829ea1191e8cb588be191baca3b10d1c95451c6bab05472cfb30827b1d)
+            type_hints = cached_type_hints(_typecheckingstub__e99a67829ea1191e8cb588be191baca3b10d1c95451c6bab05472cfb30827b1d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scalingAdjustment", value) # pyright: ignore[reportArgumentType]
 
@@ -10278,17 +10243,17 @@ class CfnScalingPolicy(
     @jsii.member(jsii_name="stepAdjustments")
     def step_adjustments(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.StepAdjustmentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.StepAdjustmentProperty"]]]]:
         '''A set of adjustments that enable you to scale based on the size of the alarm breach.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.StepAdjustmentProperty"]]]], jsii.get(self, "stepAdjustments"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.StepAdjustmentProperty"]]]], jsii.get(self, "stepAdjustments"))
 
     @step_adjustments.setter
     def step_adjustments(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.StepAdjustmentProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.StepAdjustmentProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38dfdb6c2b6aee9f0b1cb3e26e4e9f1c58dab8c3cf6013c4ca258d3702647ac8)
+            type_hints = cached_type_hints(_typecheckingstub__38dfdb6c2b6aee9f0b1cb3e26e4e9f1c58dab8c3cf6013c4ca258d3702647ac8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stepAdjustments", value) # pyright: ignore[reportArgumentType]
 
@@ -10296,20 +10261,20 @@ class CfnScalingPolicy(
     @jsii.member(jsii_name="targetTrackingConfiguration")
     def target_tracking_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]]:
         '''A target tracking scaling policy.
 
         Provides support for predefined or custom metrics.
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]], jsii.get(self, "targetTrackingConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]], jsii.get(self, "targetTrackingConfiguration"))
 
     @target_tracking_configuration.setter
     def target_tracking_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7edad0553749ec58702ad72a2bc68104268b76221c11cb19d8dd477ac531d53)
+            type_hints = cached_type_hints(_typecheckingstub__c7edad0553749ec58702ad72a2bc68104268b76221c11cb19d8dd477ac531d53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetTrackingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -10330,9 +10295,9 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
-            metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.TargetTrackingMetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metrics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.TargetTrackingMetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             namespace: typing.Optional[builtins.str] = None,
             period: typing.Optional[jsii.Number] = None,
             statistic: typing.Optional[builtins.str] = None,
@@ -10405,7 +10370,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8e7031340719d237d3182678de0dc2931e386340d37c2dd60e36be75ada41bb3)
+                type_hints = cached_type_hints(_typecheckingstub__8e7031340719d237d3182678de0dc2931e386340d37c2dd60e36be75ada41bb3)
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
@@ -10432,7 +10397,7 @@ class CfnScalingPolicy(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDimensionProperty"]]]]:
             '''The dimensions of the metric.
 
             Conditional: If you published your metric with dimensions, you must specify the same dimensions in your scaling policy.
@@ -10440,7 +10405,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-customizedmetricspecification.html#cfn-autoscaling-scalingpolicy-customizedmetricspecification-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDimensionProperty"]]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -10456,7 +10421,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metrics(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingMetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingMetricDataQueryProperty"]]]]:
             '''The metrics to include in the target tracking scaling policy, as a metric data query.
 
             This can include both raw metric and metric math expressions.
@@ -10464,7 +10429,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-customizedmetricspecification.html#cfn-autoscaling-scalingpolicy-customizedmetricspecification-metrics
             '''
             result = self._values.get("metrics")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingMetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingMetricDataQueryProperty"]]]], result)
 
         @builtins.property
         def namespace(self) -> typing.Optional[builtins.str]:
@@ -10535,8 +10500,8 @@ class CfnScalingPolicy(
             id: builtins.str,
             expression: typing.Optional[builtins.str] = None,
             label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            metric_stat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The metric data to return.
 
@@ -10595,7 +10560,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9e93e050292033868470978d9a82575b6db041f741e699dbbabdfe6b0c0915d0)
+                type_hints = cached_type_hints(_typecheckingstub__9e93e050292033868470978d9a82575b6db041f741e699dbbabdfe6b0c0915d0)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument label", value=label, expected_type=type_hints["label"])
@@ -10652,7 +10617,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_stat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricStatProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricStatProperty"]]:
             '''Information about the metric data to return.
 
             Conditional: Within each ``MetricDataQuery`` object, you must specify either ``Expression`` or ``MetricStat`` , but not both.
@@ -10660,12 +10625,12 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-metricdataquery.html#cfn-autoscaling-scalingpolicy-metricdataquery-metricstat
             '''
             result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricStatProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricStatProperty"]], result)
 
         @builtins.property
         def return_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to return the timestamps and raw data values of this metric.
 
             If you use any math expressions, specify ``true`` for this value for only the final math expression that the metric specification is based on. You must specify ``false`` for ``ReturnData`` for all the other metrics and expressions used in the metric specification.
@@ -10675,7 +10640,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-metricdataquery.html#cfn-autoscaling-scalingpolicy-metricdataquery-returndata
             '''
             result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10715,7 +10680,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fe263644851b54bdc57fb10d446cca360e5b21a0a9cc52aadfab88b29cde7666)
+                type_hints = cached_type_hints(_typecheckingstub__fe263644851b54bdc57fb10d446cca360e5b21a0a9cc52aadfab88b29cde7666)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10769,7 +10734,7 @@ class CfnScalingPolicy(
             *,
             metric_name: builtins.str,
             namespace: builtins.str,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Represents a specific metric.
 
@@ -10800,7 +10765,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d8123e387ec06ce553c8d5d5c99d355f1458989604b38309f3039cb3d1b694cb)
+                type_hints = cached_type_hints(_typecheckingstub__d8123e387ec06ce553c8d5d5c99d355f1458989604b38309f3039cb3d1b694cb)
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
@@ -10836,7 +10801,7 @@ class CfnScalingPolicy(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDimensionProperty"]]]]:
             '''The dimensions for the metric.
 
             For the list of available dimensions, see the AWS documentation available from the table in `AWS services that publish CloudWatch metrics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-services-cloudwatch-metrics.html>`_ in the *Amazon CloudWatch User Guide* .
@@ -10846,7 +10811,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-metric.html#cfn-autoscaling-scalingpolicy-metric-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDimensionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10868,7 +10833,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
             stat: builtins.str,
             unit: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -10909,7 +10874,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ef713283f2f2a6c305bbd7e03d73709deada07fe9d07055c2a3fee4205c3af39)
+                type_hints = cached_type_hints(_typecheckingstub__ef713283f2f2a6c305bbd7e03d73709deada07fe9d07055c2a3fee4205c3af39)
                 check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
                 check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
@@ -10923,7 +10888,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricProperty"]:
             '''The CloudWatch metric to return, including the metric name, namespace, and dimensions.
 
             To get the exact metric name, namespace, and dimensions, inspect the `Metric <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_Metric.html>`_ object that is returned by a call to `ListMetrics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_ListMetrics.html>`_ .
@@ -10932,7 +10897,7 @@ class CfnScalingPolicy(
             '''
             result = self._values.get("metric")
             assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricProperty"], result)
 
         @builtins.property
         def stat(self) -> builtins.str:
@@ -11009,7 +10974,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b547b62a61eb66aa5b42bed1a05a0a926d9bf446e9c904183bbbaa9cee54f56a)
+                type_hints = cached_type_hints(_typecheckingstub__b547b62a61eb66aa5b42bed1a05a0a926d9bf446e9c904183bbbaa9cee54f56a)
                 check_type(argname="argument predefined_metric_type", value=predefined_metric_type, expected_type=type_hints["predefined_metric_type"])
                 check_type(argname="argument resource_label", value=resource_label, expected_type=type_hints["resource_label"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11081,7 +11046,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric_specifications: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            metric_specifications: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             max_capacity_breach_behavior: typing.Optional[builtins.str] = None,
             max_capacity_buffer: typing.Optional[jsii.Number] = None,
             mode: typing.Optional[builtins.str] = None,
@@ -11217,7 +11182,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c835136b3008eece31e060ed2f94a66aed36a8978c41ac0fc35df358edc49040)
+                type_hints = cached_type_hints(_typecheckingstub__c835136b3008eece31e060ed2f94a66aed36a8978c41ac0fc35df358edc49040)
                 check_type(argname="argument metric_specifications", value=metric_specifications, expected_type=type_hints["metric_specifications"])
                 check_type(argname="argument max_capacity_breach_behavior", value=max_capacity_breach_behavior, expected_type=type_hints["max_capacity_breach_behavior"])
                 check_type(argname="argument max_capacity_buffer", value=max_capacity_buffer, expected_type=type_hints["max_capacity_buffer"])
@@ -11238,7 +11203,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_specifications(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty"]]]:
             '''This structure includes the metrics and target utilization to use for predictive scaling.
 
             This is an array, but we currently only support a single metric specification. That is, you can specify a target value and a single metric pair, or a target value and one scaling metric and one load metric.
@@ -11247,7 +11212,7 @@ class CfnScalingPolicy(
             '''
             result = self._values.get("metric_specifications")
             assert result is not None, "Required property 'metric_specifications' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty"]]], result)
 
         @builtins.property
         def max_capacity_breach_behavior(self) -> typing.Optional[builtins.str]:
@@ -11328,7 +11293,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric_data_queries: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            metric_data_queries: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains capacity metric information for the ``CustomizedCapacityMetricSpecification`` property of the `AWS::AutoScaling::ScalingPolicy PredictiveScalingMetricSpecification <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html>`_ property type.
 
@@ -11371,7 +11336,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6b8c4cdce70a16ebd1a5c2fe31cc7225458c86f82990f0ffe13403efa5cb6d2d)
+                type_hints = cached_type_hints(_typecheckingstub__6b8c4cdce70a16ebd1a5c2fe31cc7225458c86f82990f0ffe13403efa5cb6d2d)
                 check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "metric_data_queries": metric_data_queries,
@@ -11380,7 +11345,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_data_queries(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
             '''One or more metric data queries to provide the data points for a capacity metric.
 
             Use multiple metric data queries only if you are performing a math expression on returned data.
@@ -11389,7 +11354,7 @@ class CfnScalingPolicy(
             '''
             result = self._values.get("metric_data_queries")
             assert result is not None, "Required property 'metric_data_queries' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11411,7 +11376,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric_data_queries: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            metric_data_queries: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains load metric information for the ``CustomizedLoadMetricSpecification`` property of the `AWS::AutoScaling::ScalingPolicy PredictiveScalingMetricSpecification <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html>`_ property type.
 
@@ -11454,7 +11419,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6f8df7fe95ed69a9fd3f50a28eda7de1e674e48f774cc9150d21b2a0fcba8125)
+                type_hints = cached_type_hints(_typecheckingstub__6f8df7fe95ed69a9fd3f50a28eda7de1e674e48f774cc9150d21b2a0fcba8125)
                 check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "metric_data_queries": metric_data_queries,
@@ -11463,7 +11428,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_data_queries(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
             '''One or more metric data queries to provide the data points for a load metric.
 
             Use multiple metric data queries only if you are performing a math expression on returned data.
@@ -11472,7 +11437,7 @@ class CfnScalingPolicy(
             '''
             result = self._values.get("metric_data_queries")
             assert result is not None, "Required property 'metric_data_queries' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11494,7 +11459,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric_data_queries: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            metric_data_queries: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains scaling metric information for the ``CustomizedScalingMetricSpecification`` property of the `AWS::AutoScaling::ScalingPolicy PredictiveScalingMetricSpecification <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html>`_ property type.
 
@@ -11537,7 +11502,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__458a6ff3cadf721184c4e8bf120a87ac6a614c9bc06677c31d2f914a3d3bf080)
+                type_hints = cached_type_hints(_typecheckingstub__458a6ff3cadf721184c4e8bf120a87ac6a614c9bc06677c31d2f914a3d3bf080)
                 check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "metric_data_queries": metric_data_queries,
@@ -11546,7 +11511,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_data_queries(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]]:
             '''One or more metric data queries to provide the data points for a scaling metric.
 
             Use multiple metric data queries only if you are performing a math expression on returned data.
@@ -11555,7 +11520,7 @@ class CfnScalingPolicy(
             '''
             result = self._values.get("metric_data_queries")
             assert result is not None, "Required property 'metric_data_queries' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricDataQueryProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11586,12 +11551,12 @@ class CfnScalingPolicy(
             self,
             *,
             target_value: jsii.Number,
-            customized_capacity_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            customized_load_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            customized_scaling_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            predefined_load_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            predefined_metric_pair_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            predefined_scaling_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            customized_capacity_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            customized_load_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            customized_scaling_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predefined_load_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predefined_metric_pair_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predefined_scaling_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that specifies a metric specification for the ``MetricSpecifications`` property of the `AWS::AutoScaling::ScalingPolicy PredictiveScalingConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingconfiguration.html>`_ property type.
 
@@ -11727,7 +11692,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__012dc12dc1d9459ee13271aaed0c024f3ab9f083799f0ba98220ebc8754e7f33)
+                type_hints = cached_type_hints(_typecheckingstub__012dc12dc1d9459ee13271aaed0c024f3ab9f083799f0ba98220ebc8754e7f33)
                 check_type(argname="argument target_value", value=target_value, expected_type=type_hints["target_value"])
                 check_type(argname="argument customized_capacity_metric_specification", value=customized_capacity_metric_specification, expected_type=type_hints["customized_capacity_metric_specification"])
                 check_type(argname="argument customized_load_metric_specification", value=customized_load_metric_specification, expected_type=type_hints["customized_load_metric_specification"])
@@ -11768,68 +11733,68 @@ class CfnScalingPolicy(
         @builtins.property
         def customized_capacity_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty"]]:
             '''The customized capacity metric specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-customizedcapacitymetricspecification
             '''
             result = self._values.get("customized_capacity_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty"]], result)
 
         @builtins.property
         def customized_load_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty"]]:
             '''The customized load metric specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-customizedloadmetricspecification
             '''
             result = self._values.get("customized_load_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty"]], result)
 
         @builtins.property
         def customized_scaling_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty"]]:
             '''The customized scaling metric specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-customizedscalingmetricspecification
             '''
             result = self._values.get("customized_scaling_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty"]], result)
 
         @builtins.property
         def predefined_load_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty"]]:
             '''The predefined load metric specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-predefinedloadmetricspecification
             '''
             result = self._values.get("predefined_load_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty"]], result)
 
         @builtins.property
         def predefined_metric_pair_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty"]]:
             '''The predefined metric pair specification from which Amazon EC2 Auto Scaling determines the appropriate scaling metric and load metric to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-predefinedmetricpairspecification
             '''
             result = self._values.get("predefined_metric_pair_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty"]], result)
 
         @builtins.property
         def predefined_scaling_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty"]]:
             '''The predefined scaling metric specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-predictivescalingmetricspecification.html#cfn-autoscaling-scalingpolicy-predictivescalingmetricspecification-predefinedscalingmetricspecification
             '''
             result = self._values.get("predefined_scaling_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11883,7 +11848,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b892c3276a7b59850f1012ad500f9332d5dc5006d3b054fd94ade070e069bff1)
+                type_hints = cached_type_hints(_typecheckingstub__b892c3276a7b59850f1012ad500f9332d5dc5006d3b054fd94ade070e069bff1)
                 check_type(argname="argument predefined_metric_type", value=predefined_metric_type, expected_type=type_hints["predefined_metric_type"])
                 check_type(argname="argument resource_label", value=resource_label, expected_type=type_hints["resource_label"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11974,7 +11939,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c785e7f26210bff1ddc4fb3fa18fb6e02212d89551293dfc24bfc8de2cb43693)
+                type_hints = cached_type_hints(_typecheckingstub__c785e7f26210bff1ddc4fb3fa18fb6e02212d89551293dfc24bfc8de2cb43693)
                 check_type(argname="argument predefined_metric_type", value=predefined_metric_type, expected_type=type_hints["predefined_metric_type"])
                 check_type(argname="argument resource_label", value=resource_label, expected_type=type_hints["resource_label"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12069,7 +12034,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5bab617be42e89269ec2d94cc76843c277bbf8ff7acd3fc168f6539883294e2d)
+                type_hints = cached_type_hints(_typecheckingstub__5bab617be42e89269ec2d94cc76843c277bbf8ff7acd3fc168f6539883294e2d)
                 check_type(argname="argument predefined_metric_type", value=predefined_metric_type, expected_type=type_hints["predefined_metric_type"])
                 check_type(argname="argument resource_label", value=resource_label, expected_type=type_hints["resource_label"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12178,7 +12143,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7db0ee8d4961a22cdf58fd616c6c93f16a89862d95627b09d3ccbf3f7315e00f)
+                type_hints = cached_type_hints(_typecheckingstub__7db0ee8d4961a22cdf58fd616c6c93f16a89862d95627b09d3ccbf3f7315e00f)
                 check_type(argname="argument scaling_adjustment", value=scaling_adjustment, expected_type=type_hints["scaling_adjustment"])
                 check_type(argname="argument metric_interval_lower_bound", value=metric_interval_lower_bound, expected_type=type_hints["metric_interval_lower_bound"])
                 check_type(argname="argument metric_interval_upper_bound", value=metric_interval_upper_bound, expected_type=type_hints["metric_interval_upper_bound"])
@@ -12252,9 +12217,9 @@ class CfnScalingPolicy(
             self,
             *,
             target_value: jsii.Number,
-            customized_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.CustomizedMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            disable_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            predefined_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredefinedMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            customized_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.CustomizedMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disable_scale_in: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            predefined_metric_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredefinedMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''``TargetTrackingConfiguration`` is a property of the `AWS::AutoScaling::ScalingPolicy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scalingpolicy.html>`_ resource that specifies a target tracking scaling policy configuration for Amazon EC2 Auto Scaling.
 
@@ -12325,7 +12290,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__406f504322f9bf5761a5c07083390725c370252fcf12bd54230e1f02878b2da1)
+                type_hints = cached_type_hints(_typecheckingstub__406f504322f9bf5761a5c07083390725c370252fcf12bd54230e1f02878b2da1)
                 check_type(argname="argument target_value", value=target_value, expected_type=type_hints["target_value"])
                 check_type(argname="argument customized_metric_specification", value=customized_metric_specification, expected_type=type_hints["customized_metric_specification"])
                 check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
@@ -12357,7 +12322,7 @@ class CfnScalingPolicy(
         @builtins.property
         def customized_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.CustomizedMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.CustomizedMetricSpecificationProperty"]]:
             '''A customized metric.
 
             You must specify either a predefined metric or a customized metric.
@@ -12365,12 +12330,12 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingconfiguration.html#cfn-autoscaling-scalingpolicy-targettrackingconfiguration-customizedmetricspecification
             '''
             result = self._values.get("customized_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.CustomizedMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.CustomizedMetricSpecificationProperty"]], result)
 
         @builtins.property
         def disable_scale_in(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether scaling in by the target tracking scaling policy is disabled.
 
             If scaling in is disabled, the target tracking scaling policy doesn't remove instances from the Auto Scaling group. Otherwise, the target tracking scaling policy can remove instances from the Auto Scaling group. The default is ``false`` .
@@ -12378,12 +12343,12 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingconfiguration.html#cfn-autoscaling-scalingpolicy-targettrackingconfiguration-disablescalein
             '''
             result = self._values.get("disable_scale_in")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def predefined_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredefinedMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredefinedMetricSpecificationProperty"]]:
             '''A predefined metric.
 
             You must specify either a predefined metric or a customized metric.
@@ -12391,7 +12356,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingconfiguration.html#cfn-autoscaling-scalingpolicy-targettrackingconfiguration-predefinedmetricspecification
             '''
             result = self._values.get("predefined_metric_specification")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredefinedMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredefinedMetricSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12423,9 +12388,9 @@ class CfnScalingPolicy(
             id: builtins.str,
             expression: typing.Optional[builtins.str] = None,
             label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.TargetTrackingMetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_stat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.TargetTrackingMetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             period: typing.Optional[jsii.Number] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The metric data to return.
 
@@ -12481,7 +12446,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__db2b2d9653863b1d1b8f67347857edde6d9dc3f6f755a593d8da143f90fe6fe7)
+                type_hints = cached_type_hints(_typecheckingstub__db2b2d9653863b1d1b8f67347857edde6d9dc3f6f755a593d8da143f90fe6fe7)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument label", value=label, expected_type=type_hints["label"])
@@ -12541,7 +12506,7 @@ class CfnScalingPolicy(
         @builtins.property
         def metric_stat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingMetricStatProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingMetricStatProperty"]]:
             '''Information about the metric data to return.
 
             Conditional: Within each ``TargetTrackingMetricDataQuery`` object, you must specify either ``Expression`` or ``MetricStat`` , but not both.
@@ -12549,7 +12514,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingmetricdataquery.html#cfn-autoscaling-scalingpolicy-targettrackingmetricdataquery-metricstat
             '''
             result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingMetricStatProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingMetricStatProperty"]], result)
 
         @builtins.property
         def period(self) -> typing.Optional[jsii.Number]:
@@ -12565,7 +12530,7 @@ class CfnScalingPolicy(
         @builtins.property
         def return_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether to return the timestamps and raw data values of this metric.
 
             If you use any math expressions, specify ``true`` for this value for only the final math expression that the metric specification is based on. You must specify ``false`` for ``ReturnData`` for all the other metrics and expressions used in the metric specification.
@@ -12575,7 +12540,7 @@ class CfnScalingPolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingmetricdataquery.html#cfn-autoscaling-scalingpolicy-targettrackingmetricdataquery-returndata
             '''
             result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12602,7 +12567,7 @@ class CfnScalingPolicy(
         def __init__(
             self,
             *,
-            metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
             stat: builtins.str,
             period: typing.Optional[jsii.Number] = None,
             unit: typing.Optional[builtins.str] = None,
@@ -12646,7 +12611,7 @@ class CfnScalingPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__75bb120fe0d7723abf802e828deb5b42b75d441e35d1a2974ff03b0a094adfb2)
+                type_hints = cached_type_hints(_typecheckingstub__75bb120fe0d7723abf802e828deb5b42b75d441e35d1a2974ff03b0a094adfb2)
                 check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
                 check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -12663,14 +12628,14 @@ class CfnScalingPolicy(
         @builtins.property
         def metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricProperty"]:
             '''The metric to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-scalingpolicy-targettrackingmetricstat.html#cfn-autoscaling-scalingpolicy-targettrackingmetricstat-metric
             '''
             result = self._values.get("metric")
             assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.MetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.MetricProperty"], result)
 
         @builtins.property
         def stat(self) -> builtins.str:
@@ -12741,17 +12706,17 @@ class CfnScalingPolicyProps:
     def __init__(
         self,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         adjustment_type: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         estimated_instance_warmup: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional[builtins.str] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
         policy_type: typing.Optional[builtins.str] = None,
-        predictive_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.PredictiveScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        predictive_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.PredictiveScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scaling_adjustment: typing.Optional[jsii.Number] = None,
-        step_adjustments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.StepAdjustmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        target_tracking_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPolicy.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        step_adjustments: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.StepAdjustmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_tracking_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalingPolicy.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnScalingPolicy``.
 
@@ -12955,7 +12920,7 @@ class CfnScalingPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa1549144f025fb75ca19967d6520b5eaada79209726c0ec131f1146e087fc7d)
+            type_hints = cached_type_hints(_typecheckingstub__fa1549144f025fb75ca19967d6520b5eaada79209726c0ec131f1146e087fc7d)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
@@ -12994,14 +12959,14 @@ class CfnScalingPolicyProps:
     @builtins.property
     def auto_scaling_group_name(
         self,
-    ) -> typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"]:
+    ) -> typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"]:
         '''The name of the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scalingpolicy.html#cfn-autoscaling-scalingpolicy-autoscalinggroupname
         '''
         result = self._values.get("auto_scaling_group_name")
         assert result is not None, "Required property 'auto_scaling_group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"], result)
 
     @builtins.property
     def adjustment_type(self) -> typing.Optional[builtins.str]:
@@ -13093,7 +13058,7 @@ class CfnScalingPolicyProps:
     @builtins.property
     def predictive_scaling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]]:
         '''A predictive scaling policy. Provides support for predefined and custom metrics.
 
         Predefined metrics include CPU utilization, network in/out, and the Application Load Balancer request count.
@@ -13103,7 +13068,7 @@ class CfnScalingPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scalingpolicy.html#cfn-autoscaling-scalingpolicy-predictivescalingconfiguration
         '''
         result = self._values.get("predictive_scaling_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.PredictiveScalingConfigurationProperty"]], result)
 
     @builtins.property
     def scaling_adjustment(self) -> typing.Optional[jsii.Number]:
@@ -13121,7 +13086,7 @@ class CfnScalingPolicyProps:
     @builtins.property
     def step_adjustments(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.StepAdjustmentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.StepAdjustmentProperty"]]]]:
         '''A set of adjustments that enable you to scale based on the size of the alarm breach.
 
         Required if the policy type is ``StepScaling`` . (Not used with any other policy type.)
@@ -13129,12 +13094,12 @@ class CfnScalingPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scalingpolicy.html#cfn-autoscaling-scalingpolicy-stepadjustments
         '''
         result = self._values.get("step_adjustments")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.StepAdjustmentProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.StepAdjustmentProperty"]]]], result)
 
     @builtins.property
     def target_tracking_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]]:
         '''A target tracking scaling policy. Provides support for predefined or custom metrics.
 
         The following predefined metrics are available:
@@ -13151,7 +13116,7 @@ class CfnScalingPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scalingpolicy.html#cfn-autoscaling-scalingpolicy-targettrackingconfiguration
         '''
         result = self._values.get("target_tracking_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalingPolicy.TargetTrackingConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13165,9 +13130,9 @@ class CfnScalingPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IScheduledActionRef_33aa837e)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.IScheduledActionRef)
 class CfnScheduledAction(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnScheduledAction",
 ):
@@ -13206,7 +13171,7 @@ class CfnScheduledAction(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         desired_capacity: typing.Optional[jsii.Number] = None,
         end_time: typing.Optional[builtins.str] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -13229,7 +13194,7 @@ class CfnScheduledAction(
         :param time_zone: Specifies the time zone for a cron expression. If a time zone is not provided, UTC is used by default. Valid values are the canonical names of the IANA time zones, derived from the IANA Time Zone Database (such as ``Etc/GMT+9`` or ``Pacific/Tahiti`` ). For more information, see `https://en.wikipedia.org/wiki/List_of_tz_database_time_zones <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74bd532ea628d3cbc35d12b83c73435431c2df43d44c4873521366de3097d9b9)
+            type_hints = cached_type_hints(_typecheckingstub__74bd532ea628d3cbc35d12b83c73435431c2df43d44c4873521366de3097d9b9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnScheduledActionProps(
@@ -13253,18 +13218,18 @@ class CfnScheduledAction(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc0066114d873ac8fb162314847075d4a867f0c8a9bae8167cfd10e7992d858b)
+            type_hints = cached_type_hints(_typecheckingstub__dc0066114d873ac8fb162314847075d4a867f0c8a9bae8167cfd10e7992d858b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScheduledAction", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f00bf537ece7b967f35535b2f323e100a7b8276d49a9a48375e63ea4640bdaa)
+            type_hints = cached_type_hints(_typecheckingstub__6f00bf537ece7b967f35535b2f323e100a7b8276d49a9a48375e63ea4640bdaa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -13277,7 +13242,7 @@ class CfnScheduledAction(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__733e03c99ea4656dce9586e10e90b10a5743563d6ad40587ebed3c8695c9456e)
+            type_hints = cached_type_hints(_typecheckingstub__733e03c99ea4656dce9586e10e90b10a5743563d6ad40587ebed3c8695c9456e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -13308,9 +13273,11 @@ class CfnScheduledAction(
 
     @builtins.property
     @jsii.member(jsii_name="scheduledActionRef")
-    def scheduled_action_ref(self) -> "_ScheduledActionReference_554a95fb":
+    def scheduled_action_ref(
+        self,
+    ) -> "_aws_autoscaling_66012b8a.ScheduledActionReference":
         '''A reference to a ScheduledAction resource.'''
-        return typing.cast("_ScheduledActionReference_554a95fb", jsii.get(self, "scheduledActionRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.ScheduledActionReference", jsii.get(self, "scheduledActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupName")
@@ -13321,7 +13288,7 @@ class CfnScheduledAction(
     @auto_scaling_group_name.setter
     def auto_scaling_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dd441edc1488cc06dc97c3b0f6e5d68bf2b1c4c01d93f394a9fe376ad37cd23)
+            type_hints = cached_type_hints(_typecheckingstub__1dd441edc1488cc06dc97c3b0f6e5d68bf2b1c4c01d93f394a9fe376ad37cd23)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -13334,7 +13301,7 @@ class CfnScheduledAction(
     @desired_capacity.setter
     def desired_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0851483d032bf68ef1bccbf11427891bef8b6d370dbfc2be247824df6bcdae9)
+            type_hints = cached_type_hints(_typecheckingstub__c0851483d032bf68ef1bccbf11427891bef8b6d370dbfc2be247824df6bcdae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -13347,7 +13314,7 @@ class CfnScheduledAction(
     @end_time.setter
     def end_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b4fa3c4bcbd8e2248b3c2ee916128bba3cb67a90832f0a69a6860c209b662c8)
+            type_hints = cached_type_hints(_typecheckingstub__6b4fa3c4bcbd8e2248b3c2ee916128bba3cb67a90832f0a69a6860c209b662c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endTime", value) # pyright: ignore[reportArgumentType]
 
@@ -13360,7 +13327,7 @@ class CfnScheduledAction(
     @max_size.setter
     def max_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e46adcb734421554106ae9884d4d632394c132e38400a89c5db3680212032e2d)
+            type_hints = cached_type_hints(_typecheckingstub__e46adcb734421554106ae9884d4d632394c132e38400a89c5db3680212032e2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxSize", value) # pyright: ignore[reportArgumentType]
 
@@ -13373,7 +13340,7 @@ class CfnScheduledAction(
     @min_size.setter
     def min_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e3365646f584b55cee25b1399e6c5dca58fb2b8351e0160b6e5c414247f916)
+            type_hints = cached_type_hints(_typecheckingstub__73e3365646f584b55cee25b1399e6c5dca58fb2b8351e0160b6e5c414247f916)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
 
@@ -13386,7 +13353,7 @@ class CfnScheduledAction(
     @recurrence.setter
     def recurrence(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ea493c09ea513a5fb9c5a878fef603ce8133cc15aee129c7dbd8bb8d1c83796)
+            type_hints = cached_type_hints(_typecheckingstub__4ea493c09ea513a5fb9c5a878fef603ce8133cc15aee129c7dbd8bb8d1c83796)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recurrence", value) # pyright: ignore[reportArgumentType]
 
@@ -13399,7 +13366,7 @@ class CfnScheduledAction(
     @start_time.setter
     def start_time(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ffb28539347fd492bf01e79d453a6972a3045330369eba1e812203800d92462)
+            type_hints = cached_type_hints(_typecheckingstub__7ffb28539347fd492bf01e79d453a6972a3045330369eba1e812203800d92462)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startTime", value) # pyright: ignore[reportArgumentType]
 
@@ -13412,7 +13379,7 @@ class CfnScheduledAction(
     @time_zone.setter
     def time_zone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a8884960cdb0544ac67e0139227014617c99358bb79d7312ecf1d7ab5a6eb10)
+            type_hints = cached_type_hints(_typecheckingstub__8a8884960cdb0544ac67e0139227014617c99358bb79d7312ecf1d7ab5a6eb10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
 
@@ -13435,7 +13402,7 @@ class CfnScheduledActionProps:
     def __init__(
         self,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
         desired_capacity: typing.Optional[jsii.Number] = None,
         end_time: typing.Optional[builtins.str] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -13478,7 +13445,7 @@ class CfnScheduledActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8337f4190404f5d486535d4fb3527dc3a0756a9c610753786846ddda210ebb1b)
+            type_hints = cached_type_hints(_typecheckingstub__8337f4190404f5d486535d4fb3527dc3a0756a9c610753786846ddda210ebb1b)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
@@ -13508,14 +13475,14 @@ class CfnScheduledActionProps:
     @builtins.property
     def auto_scaling_group_name(
         self,
-    ) -> typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"]:
+    ) -> typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"]:
         '''The name of the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scheduledaction.html#cfn-autoscaling-scheduledaction-autoscalinggroupname
         '''
         result = self._values.get("auto_scaling_group_name")
         assert result is not None, "Required property 'auto_scaling_group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
@@ -13611,9 +13578,9 @@ class CfnScheduledActionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWarmPoolRef_3adfa724)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_autoscaling_66012b8a.IWarmPoolRef)
 class CfnWarmPool(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.CfnWarmPool",
 ):
@@ -13656,8 +13623,8 @@ class CfnWarmPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
-        instance_reuse_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWarmPool.InstanceReusePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
+        instance_reuse_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWarmPool.InstanceReusePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         pool_state: typing.Optional[builtins.str] = None,
@@ -13673,7 +13640,7 @@ class CfnWarmPool(
         :param pool_state: Sets the instance state to transition to after the lifecycle actions are complete. Default is ``Stopped`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11b655705f40e648d013ae07051251b8272b9b017ab829c80340f5640de46e5d)
+            type_hints = cached_type_hints(_typecheckingstub__11b655705f40e648d013ae07051251b8272b9b017ab829c80340f5640de46e5d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWarmPoolProps(
@@ -13694,18 +13661,18 @@ class CfnWarmPool(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f99d313114561b1e086d857bdc8baea5abc0d6f7a29074591346b3610732791)
+            type_hints = cached_type_hints(_typecheckingstub__3f99d313114561b1e086d857bdc8baea5abc0d6f7a29074591346b3610732791)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWarmPool", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__336e12b82b2e6721e49ed5add717ba97e08d6de95f9768ee47c57cd39f9567ac)
+            type_hints = cached_type_hints(_typecheckingstub__336e12b82b2e6721e49ed5add717ba97e08d6de95f9768ee47c57cd39f9567ac)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -13718,7 +13685,7 @@ class CfnWarmPool(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbbbeb184e238f3d0fd2119f582a6c5a74873218141401d40caedf519a0add22)
+            type_hints = cached_type_hints(_typecheckingstub__dbbbeb184e238f3d0fd2119f582a6c5a74873218141401d40caedf519a0add22)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -13740,9 +13707,9 @@ class CfnWarmPool(
 
     @builtins.property
     @jsii.member(jsii_name="warmPoolRef")
-    def warm_pool_ref(self) -> "_WarmPoolReference_d06989e8":
+    def warm_pool_ref(self) -> "_aws_autoscaling_66012b8a.WarmPoolReference":
         '''A reference to a WarmPool resource.'''
-        return typing.cast("_WarmPoolReference_d06989e8", jsii.get(self, "warmPoolRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.WarmPoolReference", jsii.get(self, "warmPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupName")
@@ -13753,7 +13720,7 @@ class CfnWarmPool(
     @auto_scaling_group_name.setter
     def auto_scaling_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fe7145b34e7b316830787a695baac4a9044eb1ab01b142ea8cfa75e799f5133)
+            type_hints = cached_type_hints(_typecheckingstub__5fe7145b34e7b316830787a695baac4a9044eb1ab01b142ea8cfa75e799f5133)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoScalingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -13761,17 +13728,17 @@ class CfnWarmPool(
     @jsii.member(jsii_name="instanceReusePolicy")
     def instance_reuse_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWarmPool.InstanceReusePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWarmPool.InstanceReusePolicyProperty"]]:
         '''Indicates whether instances in the Auto Scaling group can be returned to the warm pool on scale in.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWarmPool.InstanceReusePolicyProperty"]], jsii.get(self, "instanceReusePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWarmPool.InstanceReusePolicyProperty"]], jsii.get(self, "instanceReusePolicy"))
 
     @instance_reuse_policy.setter
     def instance_reuse_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWarmPool.InstanceReusePolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWarmPool.InstanceReusePolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e282eb0fff0146c783a0a0cf3c1a6bfd7c1638906a490e7da16a58d31f63e70)
+            type_hints = cached_type_hints(_typecheckingstub__0e282eb0fff0146c783a0a0cf3c1a6bfd7c1638906a490e7da16a58d31f63e70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceReusePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -13784,7 +13751,7 @@ class CfnWarmPool(
     @max_group_prepared_capacity.setter
     def max_group_prepared_capacity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b58451a7dfd60fe98c4d41ee8e47ad321ecdf032c681e2efe7d6a509319ca9ef)
+            type_hints = cached_type_hints(_typecheckingstub__b58451a7dfd60fe98c4d41ee8e47ad321ecdf032c681e2efe7d6a509319ca9ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxGroupPreparedCapacity", value) # pyright: ignore[reportArgumentType]
 
@@ -13797,7 +13764,7 @@ class CfnWarmPool(
     @min_size.setter
     def min_size(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43977a08e37915c5fe1a54890d58173d48bfc0d2e0a878326b384bb4c8ff80d8)
+            type_hints = cached_type_hints(_typecheckingstub__43977a08e37915c5fe1a54890d58173d48bfc0d2e0a878326b384bb4c8ff80d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minSize", value) # pyright: ignore[reportArgumentType]
 
@@ -13810,7 +13777,7 @@ class CfnWarmPool(
     @pool_state.setter
     def pool_state(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24bb436b66554232b9c70552368d17246634059370b0dbc27a1029d734d756a1)
+            type_hints = cached_type_hints(_typecheckingstub__24bb436b66554232b9c70552368d17246634059370b0dbc27a1029d734d756a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "poolState", value) # pyright: ignore[reportArgumentType]
 
@@ -13823,7 +13790,7 @@ class CfnWarmPool(
         def __init__(
             self,
             *,
-            reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A structure that specifies an instance reuse policy for the ``InstanceReusePolicy`` property of the `AWS::AutoScaling::WarmPool <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-warmpool.html>`_ resource.
 
@@ -13845,7 +13812,7 @@ class CfnWarmPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__53e0e158b9df1836e1187a74efd57221a6a3d593283d041862ad0fad1f8bbe41)
+                type_hints = cached_type_hints(_typecheckingstub__53e0e158b9df1836e1187a74efd57221a6a3d593283d041862ad0fad1f8bbe41)
                 check_type(argname="argument reuse_on_scale_in", value=reuse_on_scale_in, expected_type=type_hints["reuse_on_scale_in"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if reuse_on_scale_in is not None:
@@ -13854,13 +13821,13 @@ class CfnWarmPool(
         @builtins.property
         def reuse_on_scale_in(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether instances in the Auto Scaling group can be returned to the warm pool on scale in.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-warmpool-instancereusepolicy.html#cfn-autoscaling-warmpool-instancereusepolicy-reuseonscalein
             '''
             result = self._values.get("reuse_on_scale_in")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13889,8 +13856,8 @@ class CfnWarmPoolProps:
     def __init__(
         self,
         *,
-        auto_scaling_group_name: typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"],
-        instance_reuse_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWarmPool.InstanceReusePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_scaling_group_name: typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"],
+        instance_reuse_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWarmPool.InstanceReusePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         pool_state: typing.Optional[builtins.str] = None,
@@ -13925,7 +13892,7 @@ class CfnWarmPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__648cf8c58fe1c3cd5125c280b61fa42684c7000ce58e8cff5213ddb0d0547be0)
+            type_hints = cached_type_hints(_typecheckingstub__648cf8c58fe1c3cd5125c280b61fa42684c7000ce58e8cff5213ddb0d0547be0)
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument instance_reuse_policy", value=instance_reuse_policy, expected_type=type_hints["instance_reuse_policy"])
             check_type(argname="argument max_group_prepared_capacity", value=max_group_prepared_capacity, expected_type=type_hints["max_group_prepared_capacity"])
@@ -13946,19 +13913,19 @@ class CfnWarmPoolProps:
     @builtins.property
     def auto_scaling_group_name(
         self,
-    ) -> typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"]:
+    ) -> typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"]:
         '''The name of the Auto Scaling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-warmpool.html#cfn-autoscaling-warmpool-autoscalinggroupname
         '''
         result = self._values.get("auto_scaling_group_name")
         assert result is not None, "Required property 'auto_scaling_group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IAutoScalingGroupRef_2f9e9183"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IAutoScalingGroupRef"], result)
 
     @builtins.property
     def instance_reuse_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWarmPool.InstanceReusePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWarmPool.InstanceReusePolicyProperty"]]:
         '''Indicates whether instances in the Auto Scaling group can be returned to the warm pool on scale in.
 
         The default is to terminate instances in the Auto Scaling group when the group scales in.
@@ -13966,7 +13933,7 @@ class CfnWarmPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-warmpool.html#cfn-autoscaling-warmpool-instancereusepolicy
         '''
         result = self._values.get("instance_reuse_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWarmPool.InstanceReusePolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWarmPool.InstanceReusePolicyProperty"]], result)
 
     @builtins.property
     def max_group_prepared_capacity(self) -> typing.Optional[jsii.Number]:
@@ -14066,8 +14033,8 @@ class CommonAutoScalingGroupProps:
         az_capacity_distribution_strategy: typing.Optional["CapacityDistributionStrategy"] = None,
         block_devices: typing.Optional[typing.Sequence[typing.Union["BlockDevice", typing.Dict[builtins.str, typing.Any]]]] = None,
         capacity_rebalance: typing.Optional[builtins.bool] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        default_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         deletion_protection: typing.Optional["DeletionProtection"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["GroupMetrics"]] = None,
@@ -14077,9 +14044,9 @@ class CommonAutoScalingGroupProps:
         instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
+        key_pair: typing.Optional["_aws_ec2_09840e12.IKeyPair"] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
-        max_instance_lifetime: typing.Optional["_Duration_4839e8c3"] = None,
+        max_instance_lifetime: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
         notifications: typing.Optional[typing.Sequence[typing.Union["NotificationConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14089,7 +14056,7 @@ class CommonAutoScalingGroupProps:
         termination_policies: typing.Optional[typing.Sequence["TerminationPolicy"]] = None,
         termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
         update_policy: typing.Optional["UpdatePolicy"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Basic properties of an AutoScalingGroup, except the exact machines to run and where they should run.
 
@@ -14205,9 +14172,9 @@ class CommonAutoScalingGroupProps:
         if isinstance(instance_lifecycle_policy, dict):
             instance_lifecycle_policy = InstanceLifecyclePolicy(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d6cff2c5)
+            type_hints = cached_type_hints(_typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d6cff2c5)
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument associate_public_ip_address", value=associate_public_ip_address, expected_type=type_hints["associate_public_ip_address"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
@@ -14376,16 +14343,16 @@ class CommonAutoScalingGroupProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Default scaling cooldown for this AutoScalingGroup.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def default_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def default_instance_warmup(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics.
 
         This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics,
@@ -14402,7 +14369,7 @@ class CommonAutoScalingGroupProps:
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html
         '''
         result = self._values.get("default_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional["DeletionProtection"]:
@@ -14527,7 +14494,7 @@ class CommonAutoScalingGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def key_pair(self) -> typing.Optional["_IKeyPair_bc344eda"]:
+    def key_pair(self) -> typing.Optional["_aws_ec2_09840e12.IKeyPair"]:
         '''The SSH keypair to grant access to the instance.
 
         Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property.
@@ -14539,7 +14506,7 @@ class CommonAutoScalingGroupProps:
         :default: - No SSH access will be possible.
         '''
         result = self._values.get("key_pair")
-        return typing.cast(typing.Optional["_IKeyPair_bc344eda"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IKeyPair"], result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
@@ -14551,7 +14518,7 @@ class CommonAutoScalingGroupProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def max_instance_lifetime(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_instance_lifetime(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time that an instance can be in service.
 
         The maximum duration applies
@@ -14566,7 +14533,7 @@ class CommonAutoScalingGroupProps:
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-max-instance-lifetime.html
         '''
         result = self._values.get("max_instance_lifetime")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def min_capacity(self) -> typing.Optional[jsii.Number]:
@@ -14711,13 +14678,13 @@ class CommonAutoScalingGroupProps:
         return typing.cast(typing.Optional["UpdatePolicy"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Where to place instances within the VPC.
 
         :default: - All Private subnets.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14745,9 +14712,9 @@ class CpuUtilizationScalingProps(BaseTargetTrackingProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         target_utilization_percent: jsii.Number,
     ) -> None:
         '''Properties for enabling scaling based on CPU utilization.
@@ -14769,7 +14736,7 @@ class CpuUtilizationScalingProps(BaseTargetTrackingProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ab1197c14846ec6b5c20ba6ac3608b3f3b01ef6d827a983ae1e3534837dd92c)
+            type_hints = cached_type_hints(_typecheckingstub__9ab1197c14846ec6b5c20ba6ac3608b3f3b01ef6d827a983ae1e3534837dd92c)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -14785,13 +14752,13 @@ class CpuUtilizationScalingProps(BaseTargetTrackingProps):
             self._values["estimated_instance_warmup"] = estimated_instance_warmup
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -14808,13 +14775,15 @@ class CpuUtilizationScalingProps(BaseTargetTrackingProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def target_utilization_percent(self) -> jsii.Number:
@@ -14886,7 +14855,7 @@ class CronOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff2ba980d042c09d15d4b7c8a2897accea72726b7fd7c61c4e35722c413018e2)
+            type_hints = cached_type_hints(_typecheckingstub__ff2ba980d042c09d15d4b7c8a2897accea72726b7fd7c61c4e35722c413018e2)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -15036,7 +15005,7 @@ class EbsDeviceOptionsBase:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96052136c5a766e5a075c844b44c04d660a7a8b58bc20689cb18dc69ec4f0b04)
+            type_hints = cached_type_hints(_typecheckingstub__96052136c5a766e5a075c844b44c04d660a7a8b58bc20689cb18dc69ec4f0b04)
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -15156,7 +15125,7 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19e899c50f45e1e93ed8e6ceab2c1abd8b33cbf64c181c33cde0635f29175f92)
+            type_hints = cached_type_hints(_typecheckingstub__19e899c50f45e1e93ed8e6ceab2c1abd8b33cbf64c181c33cde0635f29175f92)
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -15292,7 +15261,11 @@ class EbsDeviceVolumeType(enum.Enum):
     name_mapping={"grace": "grace"},
 )
 class Ec2HealthCheckOptions:
-    def __init__(self, *, grace: typing.Optional["_Duration_4839e8c3"] = None) -> None:
+    def __init__(
+        self,
+        *,
+        grace: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+    ) -> None:
         '''(deprecated) EC2 Heath check options.
 
         :param grace: (deprecated) Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service. Default: Duration.seconds(0)
@@ -15314,14 +15287,14 @@ class Ec2HealthCheckOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ed1c4902bffca62eb69df85375bd1cbc0221879fd972e2805b0341949af215f)
+            type_hints = cached_type_hints(_typecheckingstub__7ed1c4902bffca62eb69df85375bd1cbc0221879fd972e2805b0341949af215f)
             check_type(argname="argument grace", value=grace, expected_type=type_hints["grace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if grace is not None:
             self._values["grace"] = grace
 
     @builtins.property
-    def grace(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def grace(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service.
 
         :default: Duration.seconds(0)
@@ -15329,7 +15302,7 @@ class Ec2HealthCheckOptions:
         :stability: deprecated
         '''
         result = self._values.get("grace")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15352,7 +15325,7 @@ class Ec2HealthChecksOptions:
     def __init__(
         self,
         *,
-        grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''EC2 Heath checks options.
 
@@ -15375,14 +15348,14 @@ class Ec2HealthChecksOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3300c8476638604e0d967ab62e760b25293214d044a8acec0c9d8bd70eecb3f9)
+            type_hints = cached_type_hints(_typecheckingstub__3300c8476638604e0d967ab62e760b25293214d044a8acec0c9d8bd70eecb3f9)
             check_type(argname="argument grace_period", value=grace_period, expected_type=type_hints["grace_period"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if grace_period is not None:
             self._values["grace_period"] = grace_period
 
     @builtins.property
-    def grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def grace_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check.
 
         :default: Duration.seconds(0)
@@ -15390,7 +15363,7 @@ class Ec2HealthChecksOptions:
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html
         '''
         result = self._values.get("grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15410,7 +15383,7 @@ class Ec2HealthChecksOptions:
     name_mapping={"grace": "grace"},
 )
 class ElbHealthCheckOptions:
-    def __init__(self, *, grace: "_Duration_4839e8c3") -> None:
+    def __init__(self, *, grace: "_aws_cdk_0cae9daa.Duration") -> None:
         '''(deprecated) ELB Heath check options.
 
         :param grace: (deprecated) Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service. This option is required for ELB health checks.
@@ -15432,14 +15405,14 @@ class ElbHealthCheckOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff6ee0031db4237a2d504a88db32c061b20545da01d54dbae951f9d5b57a3eb3)
+            type_hints = cached_type_hints(_typecheckingstub__ff6ee0031db4237a2d504a88db32c061b20545da01d54dbae951f9d5b57a3eb3)
             check_type(argname="argument grace", value=grace, expected_type=type_hints["grace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "grace": grace,
         }
 
     @builtins.property
-    def grace(self) -> "_Duration_4839e8c3":
+    def grace(self) -> "_aws_cdk_0cae9daa.Duration":
         '''(deprecated) Specified the time Auto Scaling waits before checking the health status of an EC2 instance that has come into service.
 
         This option is required for ELB health checks.
@@ -15448,7 +15421,7 @@ class ElbHealthCheckOptions:
         '''
         result = self._values.get("grace")
         assert result is not None, "Required property 'grace' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15505,7 +15478,7 @@ class GroupMetric(
         :param name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e1f76d6fee74688fd6dc15de2ae06cba76e8853f9c6bdc4e02f9cfe561cf16)
+            type_hints = cached_type_hints(_typecheckingstub__d1e1f76d6fee74688fd6dc15de2ae06cba76e8853f9c6bdc4e02f9cfe561cf16)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         jsii.create(self.__class__, self, [name])
 
@@ -15607,7 +15580,7 @@ class GroupMetrics(
         :param metrics: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4caa94de5310031ab350e06e7ac582fc304ebc075c4f520158c3ff48fbf6bc0)
+            type_hints = cached_type_hints(_typecheckingstub__e4caa94de5310031ab350e06e7ac582fc304ebc075c4f520158c3ff48fbf6bc0)
             check_type(argname="argument metrics", value=metrics, expected_type=typing.Tuple[type_hints["metrics"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*metrics])
 
@@ -15646,7 +15619,7 @@ class HealthCheck(
     def ec2(
         cls,
         *,
-        grace: typing.Optional["_Duration_4839e8c3"] = None,
+        grace: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "HealthCheck":
         '''(deprecated) Use EC2 for health checks.
 
@@ -15660,7 +15633,7 @@ class HealthCheck(
 
     @jsii.member(jsii_name="elb")
     @builtins.classmethod
-    def elb(cls, *, grace: "_Duration_4839e8c3") -> "HealthCheck":
+    def elb(cls, *, grace: "_aws_cdk_0cae9daa.Duration") -> "HealthCheck":
         '''(deprecated) Use ELB for health checks.
 
         It considers the instance unhealthy if it fails either the EC2 status checks or the load balancer health checks.
@@ -15683,11 +15656,11 @@ class HealthCheck(
 
     @builtins.property
     @jsii.member(jsii_name="gracePeriod")
-    def grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def grace_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "gracePeriod"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "gracePeriod"))
 
 
 class HealthChecks(
@@ -15718,7 +15691,7 @@ class HealthChecks(
     def ec2(
         cls,
         *,
-        grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "HealthChecks":
         '''Use EC2 only for health checks.
 
@@ -15734,7 +15707,7 @@ class HealthChecks(
         cls,
         *,
         additional_types: typing.Sequence["AdditionalHealthCheckType"],
-        grace_period: typing.Optional["_Duration_4839e8c3"] = None,
+        grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "HealthChecks":
         '''Use additional health checks other than EC2.
 
@@ -15757,15 +15730,15 @@ class HealthChecks(
 
     @builtins.property
     @jsii.member(jsii_name="gracePeriod")
-    def grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "gracePeriod"))
+    def grace_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "gracePeriod"))
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_autoscaling.IAutoScalingGroup")
 class IAutoScalingGroup(
-    _IAutoScalingGroupRef_2f9e9183,
-    _IResource_c80c4260,
-    _IGrantable_71c4f5de,
+    _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_1f54b5e8.IGrantable,
     typing_extensions.Protocol,
 ):
     '''An AutoScalingGroup.'''
@@ -15790,7 +15763,7 @@ class IAutoScalingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="osType")
-    def os_type(self) -> "_OperatingSystemType_9224a1fe":
+    def os_type(self) -> "_aws_ec2_09840e12.OperatingSystemType":
         '''The operating system family that the instances in this auto-scaling group belong to.
 
         Is 'UNKNOWN' for imported ASGs.
@@ -15804,11 +15777,11 @@ class IAutoScalingGroup(
         *,
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "LifecycleHook":
         '''Send a message to either an SQS queue or SNS topic when instances launch or terminate.
 
@@ -15858,9 +15831,9 @@ class IAutoScalingGroup(
         id: builtins.str,
         *,
         target_utilization_percent: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target CPU utilization.
 
@@ -15878,9 +15851,9 @@ class IAutoScalingGroup(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network ingress rate.
 
@@ -15897,12 +15870,12 @@ class IAutoScalingGroup(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -15928,9 +15901,9 @@ class IAutoScalingGroup(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network egress rate.
 
@@ -15973,11 +15946,11 @@ class IAutoScalingGroup(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         target_value: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in in order to keep a metric around a target value.
 
@@ -15992,9 +15965,9 @@ class IAutoScalingGroup(
 
 
 class _IAutoScalingGroupProxy(
-    jsii.proxy_for(_IAutoScalingGroupRef_2f9e9183), # type: ignore[misc]
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IGrantable_71c4f5de), # type: ignore[misc]
+    jsii.proxy_for(_aws_autoscaling_66012b8a.IAutoScalingGroupRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IGrantable), # type: ignore[misc]
 ):
     '''An AutoScalingGroup.'''
 
@@ -16020,12 +15993,12 @@ class _IAutoScalingGroupProxy(
 
     @builtins.property
     @jsii.member(jsii_name="osType")
-    def os_type(self) -> "_OperatingSystemType_9224a1fe":
+    def os_type(self) -> "_aws_ec2_09840e12.OperatingSystemType":
         '''The operating system family that the instances in this auto-scaling group belong to.
 
         Is 'UNKNOWN' for imported ASGs.
         '''
-        return typing.cast("_OperatingSystemType_9224a1fe", jsii.get(self, "osType"))
+        return typing.cast("_aws_ec2_09840e12.OperatingSystemType", jsii.get(self, "osType"))
 
     @jsii.member(jsii_name="addLifecycleHook")
     def add_lifecycle_hook(
@@ -16034,11 +16007,11 @@ class _IAutoScalingGroupProxy(
         *,
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "LifecycleHook":
         '''Send a message to either an SQS queue or SNS topic when instances launch or terminate.
 
@@ -16052,7 +16025,7 @@ class _IAutoScalingGroupProxy(
         :param role: The role that allows publishing to the notification target. Default: - A role will be created if a target is provided. Otherwise, no role is created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab9f01a9b271d7397ec179829698e896314a3ff91d8c9925ce60c1a7e1f8152a)
+            type_hints = cached_type_hints(_typecheckingstub__ab9f01a9b271d7397ec179829698e896314a3ff91d8c9925ce60c1a7e1f8152a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicLifecycleHookProps(
             lifecycle_transition=lifecycle_transition,
@@ -16076,7 +16049,7 @@ class _IAutoScalingGroupProxy(
         :param commands: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a06b5ce71e367f3e231d4f04f4818efa216316eaa294c279886ba7601c8fd8e1)
+            type_hints = cached_type_hints(_typecheckingstub__a06b5ce71e367f3e231d4f04f4818efa216316eaa294c279886ba7601c8fd8e1)
             check_type(argname="argument commands", value=commands, expected_type=typing.Tuple[type_hints["commands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addUserData", [*commands]))
 
@@ -16111,9 +16084,9 @@ class _IAutoScalingGroupProxy(
         id: builtins.str,
         *,
         target_utilization_percent: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target CPU utilization.
 
@@ -16124,7 +16097,7 @@ class _IAutoScalingGroupProxy(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77f448e75ef9c561d8a2e618f3a5836428850eb489fd269f4be00725e79cc782)
+            type_hints = cached_type_hints(_typecheckingstub__77f448e75ef9c561d8a2e618f3a5836428850eb489fd269f4be00725e79cc782)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CpuUtilizationScalingProps(
             target_utilization_percent=target_utilization_percent,
@@ -16141,9 +16114,9 @@ class _IAutoScalingGroupProxy(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network ingress rate.
 
@@ -16154,7 +16127,7 @@ class _IAutoScalingGroupProxy(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fa88e81790fc7fec6dc0adb813f1c6a5f164cf91d6ae5c166cf580536ceba4f)
+            type_hints = cached_type_hints(_typecheckingstub__4fa88e81790fc7fec6dc0adb813f1c6a5f164cf91d6ae5c166cf580536ceba4f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkUtilizationScalingProps(
             target_bytes_per_second=target_bytes_per_second,
@@ -16170,12 +16143,12 @@ class _IAutoScalingGroupProxy(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -16194,7 +16167,7 @@ class _IAutoScalingGroupProxy(
         :param min_adjustment_magnitude: Minimum absolute number to adjust capacity with as result of percentage scaling. Only when using AdjustmentType = PercentChangeInCapacity, this number controls the minimum absolute effect size. Default: No minimum scaling effect
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfc7f1f455e355ca47e5ecb7405720cfd89dade7e0863a60891f859107bd9c7f)
+            type_hints = cached_type_hints(_typecheckingstub__cfc7f1f455e355ca47e5ecb7405720cfd89dade7e0863a60891f859107bd9c7f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicStepScalingPolicyProps(
             metric=metric,
@@ -16216,9 +16189,9 @@ class _IAutoScalingGroupProxy(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network egress rate.
 
@@ -16229,7 +16202,7 @@ class _IAutoScalingGroupProxy(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c99749922be06a8e6a6ae56f9ba82fc31a391c7432ef7609a9997fb4b3777be8)
+            type_hints = cached_type_hints(_typecheckingstub__c99749922be06a8e6a6ae56f9ba82fc31a391c7432ef7609a9997fb4b3777be8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkUtilizationScalingProps(
             target_bytes_per_second=target_bytes_per_second,
@@ -16265,7 +16238,7 @@ class _IAutoScalingGroupProxy(
         :param time_zone: Specifies the time zone for a cron expression. If a time zone is not provided, UTC is used by default. Valid values are the canonical names of the IANA time zones, derived from the IANA Time Zone Database (such as Etc/GMT+9 or Pacific/Tahiti). For more information, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones. Default: - UTC
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb399691f6facd38db7c6fafc541af1753d52ff948133ce68b6da663ac0cee9d)
+            type_hints = cached_type_hints(_typecheckingstub__fb399691f6facd38db7c6fafc541af1753d52ff948133ce68b6da663ac0cee9d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicScheduledActionProps(
             schedule=schedule,
@@ -16284,11 +16257,11 @@ class _IAutoScalingGroupProxy(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         target_value: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in in order to keep a metric around a target value.
 
@@ -16300,7 +16273,7 @@ class _IAutoScalingGroupProxy(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd36a1a3975c7f7d026736d8f092cfe64a3157a6aa6a77d171eec02dc392284c)
+            type_hints = cached_type_hints(_typecheckingstub__cd36a1a3975c7f7d026736d8f092cfe64a3157a6aa6a77d171eec02dc392284c)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MetricTargetTrackingProps(
             metric=metric,
@@ -16318,15 +16291,15 @@ typing.cast(typing.Any, IAutoScalingGroup).__jsii_proxy_class__ = lambda : _IAut
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_autoscaling.ILifecycleHook")
 class ILifecycleHook(
-    _ILifecycleHookRef_bb190400,
-    _IResource_c80c4260,
+    _aws_autoscaling_66012b8a.ILifecycleHookRef,
+    _aws_cdk_0cae9daa.IResource,
     typing_extensions.Protocol,
 ):
     '''A basic lifecycle hook object.'''
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The role for the lifecycle hook to execute.
 
         :default:
@@ -16338,8 +16311,8 @@ class ILifecycleHook(
 
 
 class _ILifecycleHookProxy(
-    jsii.proxy_for(_ILifecycleHookRef_bb190400), # type: ignore[misc]
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_aws_autoscaling_66012b8a.ILifecycleHookRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
 ):
     '''A basic lifecycle hook object.'''
 
@@ -16347,7 +16320,7 @@ class _ILifecycleHookProxy(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The role for the lifecycle hook to execute.
 
         :default:
@@ -16355,7 +16328,7 @@ class _ILifecycleHookProxy(
         - A default role is created if 'notificationTarget' is specified.
         Otherwise, no role is created.
         '''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ILifecycleHook).__jsii_proxy_class__ = lambda : _ILifecycleHookProxy
@@ -16371,7 +16344,7 @@ class ILifecycleHookTarget(typing_extensions.Protocol):
         scope: "_constructs_77d1e7e8.Construct",
         *,
         lifecycle_hook: "LifecycleHook",
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "LifecycleHookTargetConfig":
         '''Called when this object is used as the target of a lifecycle hook.
 
@@ -16393,7 +16366,7 @@ class _ILifecycleHookTargetProxy:
         scope: "_constructs_77d1e7e8.Construct",
         *,
         lifecycle_hook: "LifecycleHook",
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "LifecycleHookTargetConfig":
         '''Called when this object is used as the target of a lifecycle hook.
 
@@ -16402,7 +16375,7 @@ class _ILifecycleHookTargetProxy:
         :param role: The role to use when attaching to the lifecycle hook. [disable-awslint:ref-via-interface] Default: : a role is not created unless the target arn is specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9770cd60cfc69f2c7d108523545fc5de207bca98daae82701548d55bbefb0c5)
+            type_hints = cached_type_hints(_typecheckingstub__c9770cd60cfc69f2c7d108523545fc5de207bca98daae82701548d55bbefb0c5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = BindHookTargetOptions(lifecycle_hook=lifecycle_hook, role=role)
 
@@ -16457,7 +16430,7 @@ class InstanceLifecyclePolicy:
         if isinstance(retention_triggers, dict):
             retention_triggers = RetentionTriggers(**retention_triggers)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44a1f2a39b2e994eef7a02057de1095b1e5f225051ec596a66813a4371b7a98c)
+            type_hints = cached_type_hints(_typecheckingstub__44a1f2a39b2e994eef7a02057de1095b1e5f225051ec596a66813a4371b7a98c)
             check_type(argname="argument retention_triggers", value=retention_triggers, expected_type=type_hints["retention_triggers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if retention_triggers is not None:
@@ -16546,7 +16519,7 @@ class InstancesDistribution:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb58af418fe3e379a2f815054eedffadc45d19358b6956e7eb1f57e0c4b5ac09)
+            type_hints = cached_type_hints(_typecheckingstub__bb58af418fe3e379a2f815054eedffadc45d19358b6956e7eb1f57e0c4b5ac09)
             check_type(argname="argument on_demand_allocation_strategy", value=on_demand_allocation_strategy, expected_type=type_hints["on_demand_allocation_strategy"])
             check_type(argname="argument on_demand_base_capacity", value=on_demand_base_capacity, expected_type=type_hints["on_demand_base_capacity"])
             check_type(argname="argument on_demand_percentage_above_base_capacity", value=on_demand_percentage_above_base_capacity, expected_type=type_hints["on_demand_percentage_above_base_capacity"])
@@ -16678,8 +16651,8 @@ class LaunchTemplateOverrides:
         self,
         *,
         instance_requirements: typing.Optional[typing.Union["CfnAutoScalingGroup.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_type: typing.Optional["_InstanceType_f64915b9"] = None,
-        launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
+        instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
+        launch_template: typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"] = None,
         weighted_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''LaunchTemplateOverrides is a subproperty of LaunchTemplate that describes an override for a launch template.
@@ -16772,7 +16745,7 @@ class LaunchTemplateOverrides:
         if isinstance(instance_requirements, dict):
             instance_requirements = CfnAutoScalingGroup.InstanceRequirementsProperty(**instance_requirements)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9077816541cf5f9b60bf6bf1b1b1cd717f25358a3670bcbe5de6d00eef3687c)
+            type_hints = cached_type_hints(_typecheckingstub__f9077816541cf5f9b60bf6bf1b1b1cd717f25358a3670bcbe5de6d00eef3687c)
             check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
@@ -16809,7 +16782,7 @@ class LaunchTemplateOverrides:
         return typing.cast(typing.Optional["CfnAutoScalingGroup.InstanceRequirementsProperty"], result)
 
     @builtins.property
-    def instance_type(self) -> typing.Optional["_InstanceType_f64915b9"]:
+    def instance_type(self) -> typing.Optional["_aws_ec2_09840e12.InstanceType"]:
         '''The instance type, such as m3.xlarge. You must use an instance type that is supported in your requested Region and Availability Zones.
 
         You must specify one of instanceRequirements or instanceType.
@@ -16817,10 +16790,10 @@ class LaunchTemplateOverrides:
         :default: - Do not override instance type
         '''
         result = self._values.get("instance_type")
-        return typing.cast(typing.Optional["_InstanceType_f64915b9"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.InstanceType"], result)
 
     @builtins.property
-    def launch_template(self) -> typing.Optional["_ILaunchTemplate_f32c0fd7"]:
+    def launch_template(self) -> typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"]:
         '''Provides the launch template to be used when launching the instance type.
 
         For example, some instance types might
@@ -16830,7 +16803,7 @@ class LaunchTemplateOverrides:
         :default: - Do not override launch template
         '''
         result = self._values.get("launch_template")
-        return typing.cast(typing.Optional["_ILaunchTemplate_f32c0fd7"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[jsii.Number]:
@@ -16865,7 +16838,7 @@ class LaunchTemplateOverrides:
 
 @jsii.implements(ILifecycleHook)
 class LifecycleHook(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.LifecycleHook",
 ):
@@ -16905,14 +16878,14 @@ class LifecycleHook(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -16927,7 +16900,7 @@ class LifecycleHook(
         :param role: The role that allows publishing to the notification target. Default: - A role will be created if a target is provided. Otherwise, no role is created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4218ed2a73b3b937967fabbbf8d60e6130673b6215bff8f98266d8721fa7076)
+            type_hints = cached_type_hints(_typecheckingstub__a4218ed2a73b3b937967fabbbf8d60e6130673b6215bff8f98266d8721fa7076)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LifecycleHookProps(
@@ -16960,13 +16933,13 @@ class LifecycleHook(
 
     @builtins.property
     @jsii.member(jsii_name="lifecycleHookRef")
-    def lifecycle_hook_ref(self) -> "_LifecycleHookReference_9dbdb57d":
+    def lifecycle_hook_ref(self) -> "_aws_autoscaling_66012b8a.LifecycleHookReference":
         '''A reference to a LifecycleHook resource.'''
-        return typing.cast("_LifecycleHookReference_9dbdb57d", jsii.get(self, "lifecycleHookRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.LifecycleHookReference", jsii.get(self, "lifecycleHookRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The role that allows the ASG to publish to the notification target.
 
         :default:
@@ -16974,7 +16947,7 @@ class LifecycleHook(
         - A default role is created if 'notificationTarget' is specified.
         Otherwise, no role is created.
         '''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -16997,12 +16970,12 @@ class LifecycleHookProps(BasicLifecycleHookProps):
         *,
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> None:
         '''Properties for a Lifecycle hook.
 
@@ -17044,7 +17017,7 @@ class LifecycleHookProps(BasicLifecycleHookProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41e05893ecfc67dfb61215da4c71fe4cfc04cbf73d9aab65be153d28a281deb0)
+            type_hints = cached_type_hints(_typecheckingstub__41e05893ecfc67dfb61215da4c71fe4cfc04cbf73d9aab65be153d28a281deb0)
             check_type(argname="argument lifecycle_transition", value=lifecycle_transition, expected_type=type_hints["lifecycle_transition"])
             check_type(argname="argument default_result", value=default_result, expected_type=type_hints["default_result"])
             check_type(argname="argument heartbeat_timeout", value=heartbeat_timeout, expected_type=type_hints["heartbeat_timeout"])
@@ -17087,7 +17060,7 @@ class LifecycleHookProps(BasicLifecycleHookProps):
         return typing.cast(typing.Optional["DefaultResult"], result)
 
     @builtins.property
-    def heartbeat_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def heartbeat_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Maximum time between calls to RecordLifecycleActionHeartbeat for the hook.
 
         If the lifecycle hook times out, perform the action in DefaultResult.
@@ -17095,7 +17068,7 @@ class LifecycleHookProps(BasicLifecycleHookProps):
         :default: - No heartbeat timeout.
         '''
         result = self._values.get("heartbeat_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def lifecycle_hook_name(self) -> typing.Optional[builtins.str]:
@@ -17125,20 +17098,20 @@ class LifecycleHookProps(BasicLifecycleHookProps):
         return typing.cast(typing.Optional["ILifecycleHookTarget"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role that allows publishing to the notification target.
 
         :default: - A role will be created if a target is provided. Otherwise, no role is created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         '''The AutoScalingGroup to add the lifecycle hook to.'''
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17164,7 +17137,7 @@ class LifecycleHookTargetConfig:
     def __init__(
         self,
         *,
-        created_role: "_IRole_235f5d8e",
+        created_role: "_aws_iam_1f54b5e8.IRole",
         notification_target_arn: builtins.str,
     ) -> None:
         '''Result of binding a lifecycle hook to a target.
@@ -17189,7 +17162,7 @@ class LifecycleHookTargetConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6408c457e5d18cb530f3e735fde171aee4fc61344aa2a2d8868d67c1ea89d172)
+            type_hints = cached_type_hints(_typecheckingstub__6408c457e5d18cb530f3e735fde171aee4fc61344aa2a2d8868d67c1ea89d172)
             check_type(argname="argument created_role", value=created_role, expected_type=type_hints["created_role"])
             check_type(argname="argument notification_target_arn", value=notification_target_arn, expected_type=type_hints["notification_target_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -17198,11 +17171,11 @@ class LifecycleHookTargetConfig:
         }
 
     @builtins.property
-    def created_role(self) -> "_IRole_235f5d8e":
+    def created_role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The IRole that was used to bind the lifecycle hook to the target.'''
         result = self._values.get("created_role")
         assert result is not None, "Required property 'created_role' is missing"
-        return typing.cast("_IRole_235f5d8e", result)
+        return typing.cast("_aws_iam_1f54b5e8.IRole", result)
 
     @builtins.property
     def notification_target_arn(self) -> builtins.str:
@@ -17288,10 +17261,10 @@ class MetricTargetTrackingProps(BaseTargetTrackingProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
-        metric: "_IMetric_c7fd29de",
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         target_value: jsii.Number,
     ) -> None:
         '''Properties for enabling tracking of an arbitrary metric.
@@ -17325,7 +17298,7 @@ class MetricTargetTrackingProps(BaseTargetTrackingProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a189761f9bc0664f3982cc0fdb871012e608cd41eee835f94a198fff2550144d)
+            type_hints = cached_type_hints(_typecheckingstub__a189761f9bc0664f3982cc0fdb871012e608cd41eee835f94a198fff2550144d)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -17343,13 +17316,13 @@ class MetricTargetTrackingProps(BaseTargetTrackingProps):
             self._values["estimated_instance_warmup"] = estimated_instance_warmup
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -17366,16 +17339,18 @@ class MetricTargetTrackingProps(BaseTargetTrackingProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def metric(self) -> "_IMetric_c7fd29de":
+    def metric(self) -> "_aws_cloudwatch_386c5543.IMetric":
         '''Metric to track.
 
         The metric must represent a utilization, so that if it's higher than the
@@ -17384,7 +17359,7 @@ class MetricTargetTrackingProps(BaseTargetTrackingProps):
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
-        return typing.cast("_IMetric_c7fd29de", result)
+        return typing.cast("_aws_cloudwatch_386c5543.IMetric", result)
 
     @builtins.property
     def target_value(self) -> jsii.Number:
@@ -17418,7 +17393,7 @@ class MixedInstancesPolicy:
     def __init__(
         self,
         *,
-        launch_template: "_ILaunchTemplate_f32c0fd7",
+        launch_template: "_aws_ec2_09840e12.ILaunchTemplate",
         instances_distribution: typing.Optional[typing.Union["InstancesDistribution", typing.Dict[builtins.str, typing.Any]]] = None,
         launch_template_overrides: typing.Optional[typing.Sequence[typing.Union["LaunchTemplateOverrides", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -17456,7 +17431,7 @@ class MixedInstancesPolicy:
         if isinstance(instances_distribution, dict):
             instances_distribution = InstancesDistribution(**instances_distribution)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d30527dded57fb0bc5326004b541ba9a6346091141cc92b30b0eebf2b8d55c70)
+            type_hints = cached_type_hints(_typecheckingstub__d30527dded57fb0bc5326004b541ba9a6346091141cc92b30b0eebf2b8d55c70)
             check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
             check_type(argname="argument instances_distribution", value=instances_distribution, expected_type=type_hints["instances_distribution"])
             check_type(argname="argument launch_template_overrides", value=launch_template_overrides, expected_type=type_hints["launch_template_overrides"])
@@ -17469,11 +17444,11 @@ class MixedInstancesPolicy:
             self._values["launch_template_overrides"] = launch_template_overrides
 
     @builtins.property
-    def launch_template(self) -> "_ILaunchTemplate_f32c0fd7":
+    def launch_template(self) -> "_aws_ec2_09840e12.ILaunchTemplate":
         '''Launch template to use.'''
         result = self._values.get("launch_template")
         assert result is not None, "Required property 'launch_template' is missing"
-        return typing.cast("_ILaunchTemplate_f32c0fd7", result)
+        return typing.cast("_aws_ec2_09840e12.ILaunchTemplate", result)
 
     @builtins.property
     def instances_distribution(self) -> typing.Optional["InstancesDistribution"]:
@@ -17535,9 +17510,9 @@ class NetworkUtilizationScalingProps(BaseTargetTrackingProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         target_bytes_per_second: jsii.Number,
     ) -> None:
         '''Properties for enabling scaling based on network utilization.
@@ -17562,7 +17537,7 @@ class NetworkUtilizationScalingProps(BaseTargetTrackingProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4fb0ff49aadc6c65288ae7dbd1487df187b610d8d237b5fee3b7e0edd2d2995)
+            type_hints = cached_type_hints(_typecheckingstub__d4fb0ff49aadc6c65288ae7dbd1487df187b610d8d237b5fee3b7e0edd2d2995)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -17578,13 +17553,13 @@ class NetworkUtilizationScalingProps(BaseTargetTrackingProps):
             self._values["estimated_instance_warmup"] = estimated_instance_warmup
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -17601,13 +17576,15 @@ class NetworkUtilizationScalingProps(BaseTargetTrackingProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def target_bytes_per_second(self) -> jsii.Number:
@@ -17637,7 +17614,7 @@ class NotificationConfiguration:
     def __init__(
         self,
         *,
-        topic: "_ITopic_9eca4852",
+        topic: "_aws_sns_07ffc8ab.ITopic",
         scaling_events: typing.Optional["ScalingEvents"] = None,
     ) -> None:
         '''AutoScalingGroup fleet change notifications configurations.
@@ -17667,7 +17644,7 @@ class NotificationConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4737cff733fdd5e81936c884477a23c2ee8c2b2a87eb7c80eb0fcd470532d675)
+            type_hints = cached_type_hints(_typecheckingstub__4737cff733fdd5e81936c884477a23c2ee8c2b2a87eb7c80eb0fcd470532d675)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
             check_type(argname="argument scaling_events", value=scaling_events, expected_type=type_hints["scaling_events"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -17677,11 +17654,11 @@ class NotificationConfiguration:
             self._values["scaling_events"] = scaling_events
 
     @builtins.property
-    def topic(self) -> "_ITopic_9eca4852":
+    def topic(self) -> "_aws_sns_07ffc8ab.ITopic":
         '''SNS topic to send notifications about fleet scaling events.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
-        return typing.cast("_ITopic_9eca4852", result)
+        return typing.cast("_aws_sns_07ffc8ab.ITopic", result)
 
     @builtins.property
     def scaling_events(self) -> typing.Optional["ScalingEvents"]:
@@ -17792,7 +17769,7 @@ class RenderSignalsOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__090c95318bc265c8f26c28b8e4acc8be1056a9012ba59b537db4bc3dd26bc436)
+            type_hints = cached_type_hints(_typecheckingstub__090c95318bc265c8f26c28b8e4acc8be1056a9012ba59b537db4bc3dd26bc436)
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -17845,9 +17822,9 @@ class RequestCountScalingProps(BaseTargetTrackingProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         target_requests_per_minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for enabling scaling based on request/second.
@@ -17869,7 +17846,7 @@ class RequestCountScalingProps(BaseTargetTrackingProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775d27074efc25014f9d47b49e64941b878e6dd1129f5eb7c675a5e5c1b50432)
+            type_hints = cached_type_hints(_typecheckingstub__775d27074efc25014f9d47b49e64941b878e6dd1129f5eb7c675a5e5c1b50432)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -17885,13 +17862,13 @@ class RequestCountScalingProps(BaseTargetTrackingProps):
             self._values["target_requests_per_minute"] = target_requests_per_minute
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -17908,13 +17885,15 @@ class RequestCountScalingProps(BaseTargetTrackingProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def target_requests_per_minute(self) -> typing.Optional[jsii.Number]:
@@ -17984,7 +17963,7 @@ class RetentionTriggers:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__135926276f82011124fe8276aab16da02c2b206355c2770985d2df1628f3e254)
+            type_hints = cached_type_hints(_typecheckingstub__135926276f82011124fe8276aab16da02c2b206355c2770985d2df1628f3e254)
             check_type(argname="argument terminate_hook_abandon", value=terminate_hook_abandon, expected_type=type_hints["terminate_hook_abandon"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if terminate_hook_abandon is not None:
@@ -18035,7 +18014,7 @@ class RollingUpdateOptions:
         max_batch_size: typing.Optional[jsii.Number] = None,
         min_instances_in_service: typing.Optional[jsii.Number] = None,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        pause_time: typing.Optional["_Duration_4839e8c3"] = None,
+        pause_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         suspend_processes: typing.Optional[typing.Sequence["ScalingProcess"]] = None,
         wait_on_resource_signals: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -18067,7 +18046,7 @@ class RollingUpdateOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dba85a906170b46d411e476ef5bc0b166e1b32acff9d41d326761c193522424f)
+            type_hints = cached_type_hints(_typecheckingstub__dba85a906170b46d411e476ef5bc0b166e1b32acff9d41d326761c193522424f)
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
             check_type(argname="argument min_instances_in_service", value=min_instances_in_service, expected_type=type_hints["min_instances_in_service"])
             check_type(argname="argument min_success_percentage", value=min_success_percentage, expected_type=type_hints["min_success_percentage"])
@@ -18120,13 +18099,13 @@ class RollingUpdateOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def pause_time(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def pause_time(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The pause time after making a change to a batch of instances.
 
         :default: - The ``timeout`` configured for ``signals`` on the AutoScalingGroup
         '''
         result = self._values.get("pause_time")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def suspend_processes(self) -> typing.Optional[typing.List["ScalingProcess"]]:
@@ -18199,7 +18178,7 @@ class ScalingEvents(
         :param types: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59a1f6e5c4bdeaea04fe231d617fe9c85e0856a08352d2ea8f913e7ac33d0d84)
+            type_hints = cached_type_hints(_typecheckingstub__59a1f6e5c4bdeaea04fe231d617fe9c85e0856a08352d2ea8f913e7ac33d0d84)
             check_type(argname="argument types", value=types, expected_type=typing.Tuple[type_hints["types"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*types])
 
@@ -18264,7 +18243,7 @@ class ScalingInterval:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b560eae9332d2a2b0774bea52aea5a16c19db15d41968c9f1bcfba58f9345ff1)
+            type_hints = cached_type_hints(_typecheckingstub__b560eae9332d2a2b0774bea52aea5a16c19db15d41968c9f1bcfba58f9345ff1)
             check_type(argname="argument change", value=change, expected_type=type_hints["change"])
             check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
             check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])
@@ -18402,7 +18381,7 @@ class Schedule(
         :see: http://crontab.org/
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a472ca2650776afb4c410eee0e25a484de0070b51e7dfc154b5506f87b8a6994)
+            type_hints = cached_type_hints(_typecheckingstub__a472ca2650776afb4c410eee0e25a484de0070b51e7dfc154b5506f87b8a6994)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
 
@@ -18426,7 +18405,7 @@ typing.cast(typing.Any, Schedule).__jsii_proxy_class__ = lambda : _ScheduleProxy
 
 
 class ScheduledAction(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.ScheduledAction",
 ):
@@ -18463,7 +18442,7 @@ class ScheduledAction(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         schedule: "Schedule",
         desired_capacity: typing.Optional[jsii.Number] = None,
         end_time: typing.Optional[datetime.datetime] = None,
@@ -18485,7 +18464,7 @@ class ScheduledAction(
         :param time_zone: Specifies the time zone for a cron expression. If a time zone is not provided, UTC is used by default. Valid values are the canonical names of the IANA time zones, derived from the IANA Time Zone Database (such as Etc/GMT+9 or Pacific/Tahiti). For more information, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones. Default: - UTC
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74b3b8cb09553edb86fdacb4ea37f2427f0041f519ffb8025514989ca3a7ea4c)
+            type_hints = cached_type_hints(_typecheckingstub__74b3b8cb09553edb86fdacb4ea37f2427f0041f519ffb8025514989ca3a7ea4c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ScheduledActionProps(
@@ -18542,7 +18521,7 @@ class ScheduledActionProps(BasicScheduledActionProps):
         min_capacity: typing.Optional[jsii.Number] = None,
         start_time: typing.Optional[datetime.datetime] = None,
         time_zone: typing.Optional[builtins.str] = None,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> None:
         '''Properties for a scheduled action on an AutoScalingGroup.
 
@@ -18581,7 +18560,7 @@ class ScheduledActionProps(BasicScheduledActionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b96efb9d6e83028fe8f913de37e12991ddcd1c9b905f945ec06666919aecc6)
+            type_hints = cached_type_hints(_typecheckingstub__32b96efb9d6e83028fe8f913de37e12991ddcd1c9b905f945ec06666919aecc6)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
@@ -18696,11 +18675,11 @@ class ScheduledActionProps(BasicScheduledActionProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         '''The AutoScalingGroup to apply the scheduled actions to.'''
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18759,7 +18738,7 @@ class Signals(
         cls,
         *,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Signals":
         '''Wait for the desiredCapacity of the AutoScalingGroup amount of signals to have been received.
 
@@ -18784,7 +18763,7 @@ class Signals(
         count: jsii.Number,
         *,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Signals":
         '''Wait for a specific amount of signals to have been received.
 
@@ -18799,7 +18778,7 @@ class Signals(
         :param timeout: How long to wait for the signals to be sent. This should reflect how long it takes your instances to start up (including instance start time and instance initialization time). Default: Duration.minutes(5)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae8cd20997fe3f570d309ce263568430957611d2fa82c5b72982de8187e57ee)
+            type_hints = cached_type_hints(_typecheckingstub__1ae8cd20997fe3f570d309ce263568430957611d2fa82c5b72982de8187e57ee)
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
         options = SignalsOptions(
             min_success_percentage=min_success_percentage, timeout=timeout
@@ -18813,7 +18792,7 @@ class Signals(
         cls,
         *,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "Signals":
         '''Wait for the minCapacity of the AutoScalingGroup amount of signals to have been received.
 
@@ -18834,17 +18813,17 @@ class Signals(
         self,
         options: typing.Union["SignalsOptions", typing.Dict[builtins.str, typing.Any]],
         count: typing.Optional[jsii.Number] = None,
-    ) -> "_CfnCreationPolicy_d904f690":
+    ) -> "_aws_cdk_0cae9daa.CfnCreationPolicy":
         '''Helper to render the actual creation policy, as the logic between them is quite similar.
 
         :param options: -
         :param count: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__396126a6b5062bb7e41dd20b4b29fdf1ea21d824daf9e8e1f51808c34cdcaacb)
+            type_hints = cached_type_hints(_typecheckingstub__396126a6b5062bb7e41dd20b4b29fdf1ea21d824daf9e8e1f51808c34cdcaacb)
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
-        return typing.cast("_CfnCreationPolicy_d904f690", jsii.invoke(self, "doRender", [options, count]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnCreationPolicy", jsii.invoke(self, "doRender", [options, count]))
 
     @jsii.member(jsii_name="renderCreationPolicy")
     @abc.abstractmethod
@@ -18853,7 +18832,7 @@ class Signals(
         *,
         desired_capacity: typing.Optional[jsii.Number] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
-    ) -> "_CfnCreationPolicy_d904f690":
+    ) -> "_aws_cdk_0cae9daa.CfnCreationPolicy":
         '''Render the ASG's CreationPolicy.
 
         :param desired_capacity: The desiredCapacity of the ASG. Default: - desired capacity not configured
@@ -18869,7 +18848,7 @@ class _SignalsProxy(Signals):
         *,
         desired_capacity: typing.Optional[jsii.Number] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
-    ) -> "_CfnCreationPolicy_d904f690":
+    ) -> "_aws_cdk_0cae9daa.CfnCreationPolicy":
         '''Render the ASG's CreationPolicy.
 
         :param desired_capacity: The desiredCapacity of the ASG. Default: - desired capacity not configured
@@ -18879,7 +18858,7 @@ class _SignalsProxy(Signals):
             desired_capacity=desired_capacity, min_capacity=min_capacity
         )
 
-        return typing.cast("_CfnCreationPolicy_d904f690", jsii.invoke(self, "renderCreationPolicy", [render_options]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnCreationPolicy", jsii.invoke(self, "renderCreationPolicy", [render_options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, Signals).__jsii_proxy_class__ = lambda : _SignalsProxy
@@ -18898,7 +18877,7 @@ class SignalsOptions:
         self,
         *,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Customization options for Signal handling.
 
@@ -18929,7 +18908,7 @@ class SignalsOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7f7a9dc73c47b7dc32e559e38629c11dfe39ea3c3b870aff1c55c507ce4574e)
+            type_hints = cached_type_hints(_typecheckingstub__d7f7a9dc73c47b7dc32e559e38629c11dfe39ea3c3b870aff1c55c507ce4574e)
             check_type(argname="argument min_success_percentage", value=min_success_percentage, expected_type=type_hints["min_success_percentage"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -18951,7 +18930,7 @@ class SignalsOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''How long to wait for the signals to be sent.
 
         This should reflect how long it takes your instances to start up
@@ -18960,7 +18939,7 @@ class SignalsOptions:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19037,10 +19016,10 @@ class StepScalingAction(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -19055,7 +19034,7 @@ class StepScalingAction(
         :param min_adjustment_magnitude: Minimum absolute number to adjust capacity with as result of percentage scaling. Only when using AdjustmentType = PercentChangeInCapacity, this number controls the minimum absolute effect size. Default: No minimum scaling effect
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffa6df0b2f6132cf5774ac6f2d9a2386d0086ac8fb2e1099ce3e2d1e80502b72)
+            type_hints = cached_type_hints(_typecheckingstub__ffa6df0b2f6132cf5774ac6f2d9a2386d0086ac8fb2e1099ce3e2d1e80502b72)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StepScalingActionProps(
@@ -19112,10 +19091,10 @@ class StepScalingActionProps:
     def __init__(
         self,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -19152,7 +19131,7 @@ class StepScalingActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dc30b71654db9e1496b3decd98d591ff6b33ab944cb8fc3598af41487daa5d7)
+            type_hints = cached_type_hints(_typecheckingstub__0dc30b71654db9e1496b3decd98d591ff6b33ab944cb8fc3598af41487daa5d7)
             check_type(argname="argument auto_scaling_group", value=auto_scaling_group, expected_type=type_hints["auto_scaling_group"])
             check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
@@ -19174,11 +19153,11 @@ class StepScalingActionProps:
             self._values["min_adjustment_magnitude"] = min_adjustment_magnitude
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         '''The auto scaling group.'''
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     @builtins.property
     def adjustment_type(self) -> typing.Optional["AdjustmentType"]:
@@ -19190,7 +19169,7 @@ class StepScalingActionProps:
         return typing.cast(typing.Optional["AdjustmentType"], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) Period after a scaling completes before another scaling activity can start.
 
         :default: The default cooldown configured on the AutoScalingGroup
@@ -19200,16 +19179,18 @@ class StepScalingActionProps:
         :stability: deprecated
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: Same as the cooldown
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def metric_aggregation_type(self) -> typing.Optional["MetricAggregationType"]:
@@ -19296,13 +19277,13 @@ class StepScalingPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
-        metric: "_IMetric_c7fd29de",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -19322,7 +19303,7 @@ class StepScalingPolicy(
         :param min_adjustment_magnitude: Minimum absolute number to adjust capacity with as result of percentage scaling. Only when using AdjustmentType = PercentChangeInCapacity, this number controls the minimum absolute effect size. Default: No minimum scaling effect
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0005ce4226fc9248b4204e8c5ff1cd051d01ead018243acaa3ababccc56b88da)
+            type_hints = cached_type_hints(_typecheckingstub__0005ce4226fc9248b4204e8c5ff1cd051d01ead018243acaa3ababccc56b88da)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StepScalingPolicyProps(
@@ -19347,8 +19328,8 @@ class StepScalingPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="lowerAlarm")
-    def lower_alarm(self) -> typing.Optional["_Alarm_9fbab1f1"]:
-        return typing.cast(typing.Optional["_Alarm_9fbab1f1"], jsii.get(self, "lowerAlarm"))
+    def lower_alarm(self) -> typing.Optional["_aws_cloudwatch_386c5543.Alarm"]:
+        return typing.cast(typing.Optional["_aws_cloudwatch_386c5543.Alarm"], jsii.get(self, "lowerAlarm"))
 
     @builtins.property
     @jsii.member(jsii_name="upperAction")
@@ -19357,8 +19338,8 @@ class StepScalingPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="upperAlarm")
-    def upper_alarm(self) -> typing.Optional["_Alarm_9fbab1f1"]:
-        return typing.cast(typing.Optional["_Alarm_9fbab1f1"], jsii.get(self, "upperAlarm"))
+    def upper_alarm(self) -> typing.Optional["_aws_cloudwatch_386c5543.Alarm"]:
+        return typing.cast(typing.Optional["_aws_cloudwatch_386c5543.Alarm"], jsii.get(self, "upperAlarm"))
 
 
 @jsii.data_type(
@@ -19381,16 +19362,16 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
     def __init__(
         self,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> None:
         '''
         :param metric: Metric to scale on.
@@ -19440,7 +19421,7 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8819b1ea5c3198634a59e8e3f9d800de84f84dbc3832a9e409edba9666a0f87)
+            type_hints = cached_type_hints(_typecheckingstub__b8819b1ea5c3198634a59e8e3f9d800de84f84dbc3832a9e409edba9666a0f87)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument scaling_steps", value=scaling_steps, expected_type=type_hints["scaling_steps"])
             check_type(argname="argument adjustment_type", value=adjustment_type, expected_type=type_hints["adjustment_type"])
@@ -19472,11 +19453,11 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
             self._values["min_adjustment_magnitude"] = min_adjustment_magnitude
 
     @builtins.property
-    def metric(self) -> "_IMetric_c7fd29de":
+    def metric(self) -> "_aws_cloudwatch_386c5543.IMetric":
         '''Metric to scale on.'''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
-        return typing.cast("_IMetric_c7fd29de", result)
+        return typing.cast("_aws_cloudwatch_386c5543.IMetric", result)
 
     @builtins.property
     def scaling_steps(self) -> typing.List["ScalingInterval"]:
@@ -19500,13 +19481,13 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
         return typing.cast(typing.Optional["AdjustmentType"], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Grace period after scaling activity.
 
         :default: Default cooldown period on your AutoScalingGroup
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
@@ -19524,13 +19505,15 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: Same as the cooldown
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def evaluation_periods(self) -> typing.Optional[jsii.Number]:
@@ -19571,11 +19554,11 @@ class StepScalingPolicyProps(BasicStepScalingPolicyProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         '''The auto scaling group.'''
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19628,14 +19611,14 @@ class TargetTrackingScalingPolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         target_value: jsii.Number,
-        custom_metric: typing.Optional["_IMetric_c7fd29de"] = None,
+        custom_metric: typing.Optional["_aws_cloudwatch_386c5543.IMetric"] = None,
         predefined_metric: typing.Optional["PredefinedMetric"] = None,
         resource_label: typing.Optional[builtins.str] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19650,7 +19633,7 @@ class TargetTrackingScalingPolicy(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ffdd471947ceb35f245e265947f285493e633fcdc345bb463654f4699390716)
+            type_hints = cached_type_hints(_typecheckingstub__0ffdd471947ceb35f245e265947f285493e633fcdc345bb463654f4699390716)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TargetTrackingScalingPolicyProps(
@@ -19691,14 +19674,14 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
     def __init__(
         self,
         *,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         target_value: jsii.Number,
-        custom_metric: typing.Optional["_IMetric_c7fd29de"] = None,
+        custom_metric: typing.Optional["_aws_cloudwatch_386c5543.IMetric"] = None,
         predefined_metric: typing.Optional["PredefinedMetric"] = None,
         resource_label: typing.Optional[builtins.str] = None,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> None:
         '''Properties for a concrete TargetTrackingPolicy.
 
@@ -19741,7 +19724,7 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dc39a4cce7891e4e5f8f914025bdc81fde69988d7b5eb053a0842acee168695)
+            type_hints = cached_type_hints(_typecheckingstub__1dc39a4cce7891e4e5f8f914025bdc81fde69988d7b5eb053a0842acee168695)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
             check_type(argname="argument estimated_instance_warmup", value=estimated_instance_warmup, expected_type=type_hints["estimated_instance_warmup"])
@@ -19768,13 +19751,13 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
             self._values["resource_label"] = resource_label
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Period after a scaling completes before another scaling activity can start.
 
         :default: - The default cooldown configured on the AutoScalingGroup.
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_scale_in(self) -> typing.Optional[builtins.bool]:
@@ -19791,13 +19774,15 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def estimated_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def estimated_instance_warmup(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Estimated time until a newly launched instance can send metrics to CloudWatch.
 
         :default: - Same as the cooldown.
         '''
         result = self._values.get("estimated_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def target_value(self) -> jsii.Number:
@@ -19807,7 +19792,7 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def custom_metric(self) -> typing.Optional["_IMetric_c7fd29de"]:
+    def custom_metric(self) -> typing.Optional["_aws_cloudwatch_386c5543.IMetric"]:
         '''A custom metric for application autoscaling.
 
         The metric must track utilization. Scaling out will happen if the metric is higher than
@@ -19818,7 +19803,7 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
         :default: - No custom metric.
         '''
         result = self._values.get("custom_metric")
-        return typing.cast(typing.Optional["_IMetric_c7fd29de"], result)
+        return typing.cast(typing.Optional["_aws_cloudwatch_386c5543.IMetric"], result)
 
     @builtins.property
     def predefined_metric(self) -> typing.Optional["PredefinedMetric"]:
@@ -19849,10 +19834,10 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19994,7 +19979,7 @@ class UpdatePolicy(
         max_batch_size: typing.Optional[jsii.Number] = None,
         min_instances_in_service: typing.Optional[jsii.Number] = None,
         min_success_percentage: typing.Optional[jsii.Number] = None,
-        pause_time: typing.Optional["_Duration_4839e8c3"] = None,
+        pause_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         suspend_processes: typing.Optional[typing.Sequence["ScalingProcess"]] = None,
         wait_on_resource_signals: typing.Optional[builtins.bool] = None,
     ) -> "UpdatePolicy":
@@ -20027,7 +20012,7 @@ typing.cast(typing.Any, UpdatePolicy).__jsii_proxy_class__ = lambda : _UpdatePol
 
 
 class WarmPool(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.WarmPool",
 ):
@@ -20060,7 +20045,7 @@ class WarmPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
         max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         pool_state: typing.Optional["PoolState"] = None,
@@ -20076,7 +20061,7 @@ class WarmPool(
         :param reuse_on_scale_in: Indicates whether instances in the Auto Scaling group can be returned to the warm pool on scale in. If the value is not specified, instances in the Auto Scaling group will be terminated when the group scales in. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5941a55bc5215a8436958d1edd768fe089e0e6229de15632ea23ef8e7eeed4c7)
+            type_hints = cached_type_hints(_typecheckingstub__5941a55bc5215a8436958d1edd768fe089e0e6229de15632ea23ef8e7eeed4c7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WarmPoolProps(
@@ -20135,7 +20120,7 @@ class WarmPoolOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d43ccf03edd6dd5b138f11944a2fb5e6e9700863db83420e8036f0d217eb9a33)
+            type_hints = cached_type_hints(_typecheckingstub__d43ccf03edd6dd5b138f11944a2fb5e6e9700863db83420e8036f0d217eb9a33)
             check_type(argname="argument max_group_prepared_capacity", value=max_group_prepared_capacity, expected_type=type_hints["max_group_prepared_capacity"])
             check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             check_type(argname="argument pool_state", value=pool_state, expected_type=type_hints["pool_state"])
@@ -20223,7 +20208,7 @@ class WarmPoolProps(WarmPoolOptions):
         min_size: typing.Optional[jsii.Number] = None,
         pool_state: typing.Optional["PoolState"] = None,
         reuse_on_scale_in: typing.Optional[builtins.bool] = None,
-        auto_scaling_group: "_IAutoScalingGroupRef_2f9e9183",
+        auto_scaling_group: "_aws_autoscaling_66012b8a.IAutoScalingGroupRef",
     ) -> None:
         '''Properties for a warm pool.
 
@@ -20255,7 +20240,7 @@ class WarmPoolProps(WarmPoolOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86354b238a84c6099dfe2a6f5018ad085f646c3809aa9f4c1c2716374563c378)
+            type_hints = cached_type_hints(_typecheckingstub__86354b238a84c6099dfe2a6f5018ad085f646c3809aa9f4c1c2716374563c378)
             check_type(argname="argument max_group_prepared_capacity", value=max_group_prepared_capacity, expected_type=type_hints["max_group_prepared_capacity"])
             check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             check_type(argname="argument pool_state", value=pool_state, expected_type=type_hints["pool_state"])
@@ -20316,11 +20301,11 @@ class WarmPoolProps(WarmPoolOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_scaling_group(self) -> "_IAutoScalingGroupRef_2f9e9183":
+    def auto_scaling_group(self) -> "_aws_autoscaling_66012b8a.IAutoScalingGroupRef":
         '''The Auto Scaling group to add the warm pool to.'''
         result = self._values.get("auto_scaling_group")
         assert result is not None, "Required property 'auto_scaling_group' is missing"
-        return typing.cast("_IAutoScalingGroupRef_2f9e9183", result)
+        return typing.cast("_aws_autoscaling_66012b8a.IAutoScalingGroupRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20334,9 +20319,9 @@ class WarmPoolProps(WarmPoolOptions):
         )
 
 
-@jsii.implements(_ILoadBalancerTarget_2e052b5c, _IConnectable_10015a05, _IApplicationLoadBalancerTarget_fabf9003, _INetworkLoadBalancerTarget_688b169f, IAutoScalingGroup)
+@jsii.implements(_aws_elasticloadbalancing_199dfa00.ILoadBalancerTarget, _aws_ec2_09840e12.IConnectable, _aws_elasticloadbalancingv2_1d9af53a.IApplicationLoadBalancerTarget, _aws_elasticloadbalancingv2_1d9af53a.INetworkLoadBalancerTarget, IAutoScalingGroup)
 class AutoScalingGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_autoscaling.AutoScalingGroup",
 ):
@@ -20372,28 +20357,28 @@ class AutoScalingGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: "_IVpc_f30d5663",
-        init: typing.Optional["_CloudFormationInit_2bb1d1b2"] = None,
+        vpc: "_aws_ec2_09840e12.IVpc",
+        init: typing.Optional["_aws_ec2_09840e12.CloudFormationInit"] = None,
         init_options: typing.Optional[typing.Union["ApplyCloudFormationInitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_type: typing.Optional["_InstanceType_f64915b9"] = None,
-        launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
-        machine_image: typing.Optional["_IMachineImage_0e8bd50b"] = None,
+        instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
+        launch_template: typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"] = None,
+        machine_image: typing.Optional["_aws_ec2_09840e12.IMachineImage"] = None,
         max_healthy_percentage: typing.Optional[jsii.Number] = None,
         migrate_to_launch_template: typing.Optional[builtins.bool] = None,
         min_healthy_percentage: typing.Optional[jsii.Number] = None,
         mixed_instances_policy: typing.Optional[typing.Union["MixedInstancesPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         require_imdsv2: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        user_data: typing.Optional["_UserData_b8b32b5e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        user_data: typing.Optional["_aws_ec2_09840e12.UserData"] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
         associate_public_ip_address: typing.Optional[builtins.bool] = None,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
         az_capacity_distribution_strategy: typing.Optional["CapacityDistributionStrategy"] = None,
         block_devices: typing.Optional[typing.Sequence[typing.Union["BlockDevice", typing.Dict[builtins.str, typing.Any]]]] = None,
         capacity_rebalance: typing.Optional[builtins.bool] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        default_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         deletion_protection: typing.Optional["DeletionProtection"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["GroupMetrics"]] = None,
@@ -20403,9 +20388,9 @@ class AutoScalingGroup(
         instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
+        key_pair: typing.Optional["_aws_ec2_09840e12.IKeyPair"] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
-        max_instance_lifetime: typing.Optional["_Duration_4839e8c3"] = None,
+        max_instance_lifetime: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
         notifications: typing.Optional[typing.Sequence[typing.Union["NotificationConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20415,7 +20400,7 @@ class AutoScalingGroup(
         termination_policies: typing.Optional[typing.Sequence["TerminationPolicy"]] = None,
         termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
         update_policy: typing.Optional["UpdatePolicy"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -20466,7 +20451,7 @@ class AutoScalingGroup(
         :param vpc_subnets: Where to place instances within the VPC. Default: - All Private subnets.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c6b29e18)
+            type_hints = cached_type_hints(_typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c6b29e18)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AutoScalingGroupProps(
@@ -20532,7 +20517,7 @@ class AutoScalingGroup(
         :param auto_scaling_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08b76e1a0a1f5c2699534b7d3fbfa442a0432a020c34ef32bec9fab654ca8e2a)
+            type_hints = cached_type_hints(_typecheckingstub__08b76e1a0a1f5c2699534b7d3fbfa442a0432a020c34ef32bec9fab654ca8e2a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
@@ -20545,11 +20530,11 @@ class AutoScalingGroup(
         *,
         lifecycle_transition: "LifecycleTransition",
         default_result: typing.Optional["DefaultResult"] = None,
-        heartbeat_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        heartbeat_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         lifecycle_hook_name: typing.Optional[builtins.str] = None,
         notification_metadata: typing.Optional[builtins.str] = None,
         notification_target: typing.Optional["ILifecycleHookTarget"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "LifecycleHook":
         '''Send a message to either an SQS queue or SNS topic when instances launch or terminate.
 
@@ -20563,7 +20548,7 @@ class AutoScalingGroup(
         :param role: The role that allows publishing to the notification target. Default: - A role will be created if a target is provided. Otherwise, no role is created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda6da69761897907510043c8038c2e85f303c1806bd56cda73bb9e4255f80e4)
+            type_hints = cached_type_hints(_typecheckingstub__cda6da69761897907510043c8038c2e85f303c1806bd56cda73bb9e4255f80e4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicLifecycleHookProps(
             lifecycle_transition=lifecycle_transition,
@@ -20578,24 +20563,30 @@ class AutoScalingGroup(
         return typing.cast("LifecycleHook", jsii.invoke(self, "addLifecycleHook", [id, props]))
 
     @jsii.member(jsii_name="addSecurityGroup")
-    def add_security_group(self, security_group: "_ISecurityGroup_acf8a799") -> None:
+    def add_security_group(
+        self,
+        security_group: "_aws_ec2_09840e12.ISecurityGroup",
+    ) -> None:
         '''Add the security group to all instances via the launch template security groups array.
 
         :param security_group: : The security group to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e28d9e26085163f0b24ac816182898f734baa3c473b01cb16e483fd36d21e6c4)
+            type_hints = cached_type_hints(_typecheckingstub__e28d9e26085163f0b24ac816182898f734baa3c473b01cb16e483fd36d21e6c4)
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
         return typing.cast(None, jsii.invoke(self, "addSecurityGroup", [security_group]))
 
     @jsii.member(jsii_name="addToRolePolicy")
-    def add_to_role_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
         '''Adds a statement to the IAM role assumed by instances of this fleet.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf9f51cca638590afcd0f1f7f7c444b20c8d6f2f62e7a882b1b9bc9b40cfcb87)
+            type_hints = cached_type_hints(_typecheckingstub__cf9f51cca638590afcd0f1f7f7c444b20c8d6f2f62e7a882b1b9bc9b40cfcb87)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -20609,7 +20600,7 @@ class AutoScalingGroup(
         :param commands: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2e1b014dc41f74da8f5511808a2db6aaadc783e7b2a13207da37cbd6061ec2b)
+            type_hints = cached_type_hints(_typecheckingstub__c2e1b014dc41f74da8f5511808a2db6aaadc783e7b2a13207da37cbd6061ec2b)
             check_type(argname="argument commands", value=commands, expected_type=typing.Tuple[type_hints["commands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addUserData", [*commands]))
 
@@ -20641,7 +20632,7 @@ class AutoScalingGroup(
     @jsii.member(jsii_name="applyCloudFormationInit")
     def apply_cloud_formation_init(
         self,
-        init: "_CloudFormationInit_2bb1d1b2",
+        init: "_aws_ec2_09840e12.CloudFormationInit",
         *,
         config_sets: typing.Optional[typing.Sequence[builtins.str]] = None,
         embed_fingerprint: typing.Optional[builtins.bool] = None,
@@ -20668,7 +20659,7 @@ class AutoScalingGroup(
         :param print_log: Print the results of running cfn-init to the Instance System Log. By default, the output of running cfn-init is written to a log file on the instance. Set this to ``true`` to print it to the System Log (visible from the EC2 Console), ``false`` to not print it. (Be aware that the system log is refreshed at certain points in time of the instance life cycle, and successful execution may not always show up). Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fe57f0132e9174478afc7af49f1367b20c481fff98f6d5c56bcca1193edb096)
+            type_hints = cached_type_hints(_typecheckingstub__0fe57f0132e9174478afc7af49f1367b20c481fff98f6d5c56bcca1193edb096)
             check_type(argname="argument init", value=init, expected_type=type_hints["init"])
         options = ApplyCloudFormationInitOptions(
             config_sets=config_sets,
@@ -20689,41 +20680,44 @@ class AutoScalingGroup(
     @jsii.member(jsii_name="attachToApplicationTargetGroup")
     def attach_to_application_target_group(
         self,
-        target_group: "_IApplicationTargetGroup_57799827",
-    ) -> "_LoadBalancerTargetProps_4c30a73c":
+        target_group: "_aws_elasticloadbalancingv2_1d9af53a.IApplicationTargetGroup",
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.LoadBalancerTargetProps":
         '''Attach to ELBv2 Application Target Group.
 
         :param target_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d04cef7f8a91f01f0fd2e44016cbc781543685cd948b2fd2bb86c764c0394174)
+            type_hints = cached_type_hints(_typecheckingstub__d04cef7f8a91f01f0fd2e44016cbc781543685cd948b2fd2bb86c764c0394174)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.LoadBalancerTargetProps", jsii.invoke(self, "attachToApplicationTargetGroup", [target_group]))
 
     @jsii.member(jsii_name="attachToClassicLB")
-    def attach_to_classic_lb(self, load_balancer: "_LoadBalancer_a894d40e") -> None:
+    def attach_to_classic_lb(
+        self,
+        load_balancer: "_aws_elasticloadbalancing_199dfa00.LoadBalancer",
+    ) -> None:
         '''Attach to a classic load balancer.
 
         :param load_balancer: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3961677348dd3d088e59dc64fd1c66e834bde513aba697d6c3903c5d043c484c)
+            type_hints = cached_type_hints(_typecheckingstub__3961677348dd3d088e59dc64fd1c66e834bde513aba697d6c3903c5d043c484c)
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
         return typing.cast(None, jsii.invoke(self, "attachToClassicLB", [load_balancer]))
 
     @jsii.member(jsii_name="attachToNetworkTargetGroup")
     def attach_to_network_target_group(
         self,
-        target_group: "_INetworkTargetGroup_abca2df7",
-    ) -> "_LoadBalancerTargetProps_4c30a73c":
+        target_group: "_aws_elasticloadbalancingv2_1d9af53a.INetworkTargetGroup",
+    ) -> "_aws_elasticloadbalancingv2_1d9af53a.LoadBalancerTargetProps":
         '''Attach to ELBv2 Application Target Group.
 
         :param target_group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cdcb828d3a1eb4681059df0d650b7e5fcea6fe6dd1400b666fc7d2e4a36f722)
+            type_hints = cached_type_hints(_typecheckingstub__7cdcb828d3a1eb4681059df0d650b7e5fcea6fe6dd1400b666fc7d2e4a36f722)
             check_type(argname="argument target_group", value=target_group, expected_type=type_hints["target_group"])
-        return typing.cast("_LoadBalancerTargetProps_4c30a73c", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.LoadBalancerTargetProps", jsii.invoke(self, "attachToNetworkTargetGroup", [target_group]))
 
     @jsii.member(jsii_name="protectNewInstancesFromScaleIn")
     def protect_new_instances_from_scale_in(self) -> None:
@@ -20736,9 +20730,9 @@ class AutoScalingGroup(
         id: builtins.str,
         *,
         target_utilization_percent: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target CPU utilization.
 
@@ -20749,7 +20743,7 @@ class AutoScalingGroup(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__300825eea40f1c1cf25d9228c3a5ce3dcafe5682a5698821b735712061acac03)
+            type_hints = cached_type_hints(_typecheckingstub__300825eea40f1c1cf25d9228c3a5ce3dcafe5682a5698821b735712061acac03)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CpuUtilizationScalingProps(
             target_utilization_percent=target_utilization_percent,
@@ -20766,9 +20760,9 @@ class AutoScalingGroup(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network ingress rate.
 
@@ -20779,7 +20773,7 @@ class AutoScalingGroup(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc305d219c1c57020fd06d5b8c9a1e56a9d9ae2ddec173f88fabf533c70425f3)
+            type_hints = cached_type_hints(_typecheckingstub__fc305d219c1c57020fd06d5b8c9a1e56a9d9ae2ddec173f88fabf533c70425f3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkUtilizationScalingProps(
             target_bytes_per_second=target_bytes_per_second,
@@ -20795,12 +20789,12 @@ class AutoScalingGroup(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         scaling_steps: typing.Sequence[typing.Union["ScalingInterval", typing.Dict[builtins.str, typing.Any]]],
         adjustment_type: typing.Optional["AdjustmentType"] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         metric_aggregation_type: typing.Optional["MetricAggregationType"] = None,
         min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -20819,7 +20813,7 @@ class AutoScalingGroup(
         :param min_adjustment_magnitude: Minimum absolute number to adjust capacity with as result of percentage scaling. Only when using AdjustmentType = PercentChangeInCapacity, this number controls the minimum absolute effect size. Default: No minimum scaling effect
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c82dff24a9cf557720de153b5c953f130eb89af3120ed1e757aab87c92a99ab9)
+            type_hints = cached_type_hints(_typecheckingstub__c82dff24a9cf557720de153b5c953f130eb89af3120ed1e757aab87c92a99ab9)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicStepScalingPolicyProps(
             metric=metric,
@@ -20841,9 +20835,9 @@ class AutoScalingGroup(
         id: builtins.str,
         *,
         target_bytes_per_second: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target network egress rate.
 
@@ -20854,7 +20848,7 @@ class AutoScalingGroup(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa64424f339e9b024ff03f02d1f1f60d00143928dd8abc50bdc78359fb029dbd)
+            type_hints = cached_type_hints(_typecheckingstub__fa64424f339e9b024ff03f02d1f1f60d00143928dd8abc50bdc78359fb029dbd)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NetworkUtilizationScalingProps(
             target_bytes_per_second=target_bytes_per_second,
@@ -20871,9 +20865,9 @@ class AutoScalingGroup(
         id: builtins.str,
         *,
         target_requests_per_minute: typing.Optional[jsii.Number] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in to achieve a target request handling rate.
 
@@ -20887,7 +20881,7 @@ class AutoScalingGroup(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74d0718f9ef1ea98070235f3a793a1107b1717d3c2311148f0638410492c324f)
+            type_hints = cached_type_hints(_typecheckingstub__74d0718f9ef1ea98070235f3a793a1107b1717d3c2311148f0638410492c324f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RequestCountScalingProps(
             target_requests_per_minute=target_requests_per_minute,
@@ -20923,7 +20917,7 @@ class AutoScalingGroup(
         :param time_zone: Specifies the time zone for a cron expression. If a time zone is not provided, UTC is used by default. Valid values are the canonical names of the IANA time zones, derived from the IANA Time Zone Database (such as Etc/GMT+9 or Pacific/Tahiti). For more information, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones. Default: - UTC
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__182512f6d585e187d1c3b075cba4994f259ac9adb6292cfbe68f8a73530920ad)
+            type_hints = cached_type_hints(_typecheckingstub__182512f6d585e187d1c3b075cba4994f259ac9adb6292cfbe68f8a73530920ad)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BasicScheduledActionProps(
             schedule=schedule,
@@ -20942,11 +20936,11 @@ class AutoScalingGroup(
         self,
         id: builtins.str,
         *,
-        metric: "_IMetric_c7fd29de",
+        metric: "_aws_cloudwatch_386c5543.IMetric",
         target_value: jsii.Number,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_scale_in: typing.Optional[builtins.bool] = None,
-        estimated_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        estimated_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> "TargetTrackingScalingPolicy":
         '''Scale out or in in order to keep a metric around a target value.
 
@@ -20958,7 +20952,7 @@ class AutoScalingGroup(
         :param estimated_instance_warmup: Estimated time until a newly launched instance can send metrics to CloudWatch. Default: - Same as the cooldown.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f33bd9b8e9444ed90d36b72abe1a5202d44724242d3828374b2182a8875e400b)
+            type_hints = cached_type_hints(_typecheckingstub__f33bd9b8e9444ed90d36b72abe1a5202d44724242d3828374b2182a8875e400b)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MetricTargetTrackingProps(
             metric=metric,
@@ -20990,51 +20984,53 @@ class AutoScalingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroupRef")
-    def auto_scaling_group_ref(self) -> "_AutoScalingGroupReference_6a7b8e35":
+    def auto_scaling_group_ref(
+        self,
+    ) -> "_aws_autoscaling_66012b8a.AutoScalingGroupReference":
         '''A reference to a AutoScalingGroup resource.'''
-        return typing.cast("_AutoScalingGroupReference_6a7b8e35", jsii.get(self, "autoScalingGroupRef"))
+        return typing.cast("_aws_autoscaling_66012b8a.AutoScalingGroupReference", jsii.get(self, "autoScalingGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''The network connections associated with this resource.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="osType")
-    def os_type(self) -> "_OperatingSystemType_9224a1fe":
+    def os_type(self) -> "_aws_ec2_09840e12.OperatingSystemType":
         '''The type of OS instances of this fleet are running.'''
-        return typing.cast("_OperatingSystemType_9224a1fe", jsii.get(self, "osType"))
+        return typing.cast("_aws_ec2_09840e12.OperatingSystemType", jsii.get(self, "osType"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The IAM Role in the instance profile.
 
         :throws: an error if a launch template is given
         '''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="userData")
-    def user_data(self) -> "_UserData_b8b32b5e":
+    def user_data(self) -> "_aws_ec2_09840e12.UserData":
         '''The Base64-encoded user data to make available to the launched EC2 instances.
 
         :throws: an error if a launch template is given and it does not provide a non-null ``userData``
         '''
-        return typing.cast("_UserData_b8b32b5e", jsii.get(self, "userData"))
+        return typing.cast("_aws_ec2_09840e12.UserData", jsii.get(self, "userData"))
 
     @builtins.property
     @jsii.member(jsii_name="maxInstanceLifetime")
-    def max_instance_lifetime(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_instance_lifetime(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time that an instance can be in service.'''
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], jsii.get(self, "maxInstanceLifetime"))
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], jsii.get(self, "maxInstanceLifetime"))
 
     @builtins.property
     @jsii.member(jsii_name="spotPrice")
@@ -21054,22 +21050,24 @@ class AutoScalingGroup(
     @_has_called_scale_on_request_count.setter
     def _has_called_scale_on_request_count(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92eda90b7be43ba447c6beb437862e7faff830464a764579c99d399d0496785e)
+            type_hints = cached_type_hints(_typecheckingstub__92eda90b7be43ba447c6beb437862e7faff830464a764579c99d399d0496785e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hasCalledScaleOnRequestCount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="albTargetGroup")
-    def _alb_target_group(self) -> typing.Optional["_ApplicationTargetGroup_906fe365"]:
-        return typing.cast(typing.Optional["_ApplicationTargetGroup_906fe365"], jsii.get(self, "albTargetGroup"))
+    def _alb_target_group(
+        self,
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup"]:
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup"], jsii.get(self, "albTargetGroup"))
 
     @_alb_target_group.setter
     def _alb_target_group(
         self,
-        value: typing.Optional["_ApplicationTargetGroup_906fe365"],
+        value: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7de0231c352aaed28bc53e165922207af33bfe9db50ebeba675b18e0b381d2d)
+            type_hints = cached_type_hints(_typecheckingstub__a7de0231c352aaed28bc53e165922207af33bfe9db50ebeba675b18e0b381d2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "albTargetGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -21084,7 +21082,7 @@ class AutoScalingGroup(
         value: typing.Optional[builtins.bool],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a38173119357066ed55dad42375965fbbf043fbf802ae0b6a845e9d2dacf3106)
+            type_hints = cached_type_hints(_typecheckingstub__a38173119357066ed55dad42375965fbbf043fbf802ae0b6a845e9d2dacf3106)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "newInstancesProtectedFromScaleIn", value) # pyright: ignore[reportArgumentType]
 
@@ -21149,8 +21147,8 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         az_capacity_distribution_strategy: typing.Optional["CapacityDistributionStrategy"] = None,
         block_devices: typing.Optional[typing.Sequence[typing.Union["BlockDevice", typing.Dict[builtins.str, typing.Any]]]] = None,
         capacity_rebalance: typing.Optional[builtins.bool] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        default_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         deletion_protection: typing.Optional["DeletionProtection"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["GroupMetrics"]] = None,
@@ -21160,9 +21158,9 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
+        key_pair: typing.Optional["_aws_ec2_09840e12.IKeyPair"] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
-        max_instance_lifetime: typing.Optional["_Duration_4839e8c3"] = None,
+        max_instance_lifetime: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
         notifications: typing.Optional[typing.Sequence[typing.Union["NotificationConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21172,21 +21170,21 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         termination_policies: typing.Optional[typing.Sequence["TerminationPolicy"]] = None,
         termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
         update_policy: typing.Optional["UpdatePolicy"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: "_IVpc_f30d5663",
-        init: typing.Optional["_CloudFormationInit_2bb1d1b2"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: "_aws_ec2_09840e12.IVpc",
+        init: typing.Optional["_aws_ec2_09840e12.CloudFormationInit"] = None,
         init_options: typing.Optional[typing.Union["ApplyCloudFormationInitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_type: typing.Optional["_InstanceType_f64915b9"] = None,
-        launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
-        machine_image: typing.Optional["_IMachineImage_0e8bd50b"] = None,
+        instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
+        launch_template: typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"] = None,
+        machine_image: typing.Optional["_aws_ec2_09840e12.IMachineImage"] = None,
         max_healthy_percentage: typing.Optional[jsii.Number] = None,
         migrate_to_launch_template: typing.Optional[builtins.bool] = None,
         min_healthy_percentage: typing.Optional[jsii.Number] = None,
         mixed_instances_policy: typing.Optional[typing.Union["MixedInstancesPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         require_imdsv2: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        user_data: typing.Optional["_UserData_b8b32b5e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        user_data: typing.Optional["_aws_ec2_09840e12.UserData"] = None,
     ) -> None:
         '''Properties of a Fleet.
 
@@ -21253,13 +21251,13 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         if isinstance(instance_lifecycle_policy, dict):
             instance_lifecycle_policy = InstanceLifecyclePolicy(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if isinstance(init_options, dict):
             init_options = ApplyCloudFormationInitOptions(**init_options)
         if isinstance(mixed_instances_policy, dict):
             mixed_instances_policy = MixedInstancesPolicy(**mixed_instances_policy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e20be855)
+            type_hints = cached_type_hints(_typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e20be855)
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument associate_public_ip_address", value=associate_public_ip_address, expected_type=type_hints["associate_public_ip_address"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
@@ -21470,16 +21468,16 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Default scaling cooldown for this AutoScalingGroup.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def default_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def default_instance_warmup(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics.
 
         This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics,
@@ -21496,7 +21494,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html
         '''
         result = self._values.get("default_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional["DeletionProtection"]:
@@ -21621,7 +21619,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def key_pair(self) -> typing.Optional["_IKeyPair_bc344eda"]:
+    def key_pair(self) -> typing.Optional["_aws_ec2_09840e12.IKeyPair"]:
         '''The SSH keypair to grant access to the instance.
 
         Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property.
@@ -21633,7 +21631,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - No SSH access will be possible.
         '''
         result = self._values.get("key_pair")
-        return typing.cast(typing.Optional["_IKeyPair_bc344eda"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IKeyPair"], result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
@@ -21645,7 +21643,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def max_instance_lifetime(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_instance_lifetime(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time that an instance can be in service.
 
         The maximum duration applies
@@ -21660,7 +21658,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-max-instance-lifetime.html
         '''
         result = self._values.get("max_instance_lifetime")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def min_capacity(self) -> typing.Optional[jsii.Number]:
@@ -21805,23 +21803,23 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional["UpdatePolicy"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Where to place instances within the VPC.
 
         :default: - All Private subnets.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''VPC to launch these instances in.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
-    def init(self) -> typing.Optional["_CloudFormationInit_2bb1d1b2"]:
+    def init(self) -> typing.Optional["_aws_ec2_09840e12.CloudFormationInit"]:
         '''Apply the given CloudFormation Init configuration to the instances in the AutoScalingGroup at startup.
 
         If you specify ``init``, you must also specify ``signals`` to configure
@@ -21831,7 +21829,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - no CloudFormation init
         '''
         result = self._values.get("init")
-        return typing.cast(typing.Optional["_CloudFormationInit_2bb1d1b2"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.CloudFormationInit"], result)
 
     @builtins.property
     def init_options(self) -> typing.Optional["ApplyCloudFormationInitOptions"]:
@@ -21845,7 +21843,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional["ApplyCloudFormationInitOptions"], result)
 
     @builtins.property
-    def instance_type(self) -> typing.Optional["_InstanceType_f64915b9"]:
+    def instance_type(self) -> typing.Optional["_aws_ec2_09840e12.InstanceType"]:
         '''Type of instance to launch.
 
         ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified
@@ -21853,10 +21851,10 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - Do not provide any instance type
         '''
         result = self._values.get("instance_type")
-        return typing.cast(typing.Optional["_InstanceType_f64915b9"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.InstanceType"], result)
 
     @builtins.property
-    def launch_template(self) -> typing.Optional["_ILaunchTemplate_f32c0fd7"]:
+    def launch_template(self) -> typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"]:
         '''Launch template to use.
 
         Launch configuration related settings and MixedInstancesPolicy must not be specified when a
@@ -21865,10 +21863,10 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - Do not provide any launch template
         '''
         result = self._values.get("launch_template")
-        return typing.cast(typing.Optional["_ILaunchTemplate_f32c0fd7"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ILaunchTemplate"], result)
 
     @builtins.property
-    def machine_image(self) -> typing.Optional["_IMachineImage_0e8bd50b"]:
+    def machine_image(self) -> typing.Optional["_aws_ec2_09840e12.IMachineImage"]:
         '''AMI to launch.
 
         ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified
@@ -21876,7 +21874,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - Do not provide any machine image
         '''
         result = self._values.get("machine_image")
-        return typing.cast(typing.Optional["_IMachineImage_0e8bd50b"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IMachineImage"], result)
 
     @builtins.property
     def max_healthy_percentage(self) -> typing.Optional[jsii.Number]:
@@ -21951,7 +21949,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role to associate with the instance profile assigned to this Auto Scaling Group.
 
         The role must be assumable by the service principal ``ec2.amazonaws.com``:
@@ -21967,10 +21965,10 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
             )
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security group to launch the instances in.
 
         ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified
@@ -21978,10 +21976,10 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :default: - A SecurityGroup will be created if none is specified.
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
-    def user_data(self) -> typing.Optional["_UserData_b8b32b5e"]:
+    def user_data(self) -> typing.Optional["_aws_ec2_09840e12.UserData"]:
         '''Specific UserData to use.
 
         The UserData may still be mutated after creation.
@@ -21994,7 +21992,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         Operating System is created.
         '''
         result = self._values.get("user_data")
-        return typing.cast(typing.Optional["_UserData_b8b32b5e"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.UserData"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22061,7 +22059,7 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc5c9b569db054bb55687b82eb42179a33c2eddb0d55a31d772a6f269be7a56c)
+            type_hints = cached_type_hints(_typecheckingstub__dc5c9b569db054bb55687b82eb42179a33c2eddb0d55a31d772a6f269be7a56c)
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -22201,7 +22199,7 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ff963496b9575bed65676b74f3ced132fbbe3f66d21d3cf47ce3313d77272eb)
+            type_hints = cached_type_hints(_typecheckingstub__6ff963496b9575bed65676b74f3ced132fbbe3f66d21d3cf47ce3313d77272eb)
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
@@ -22400,7 +22398,7 @@ publication.publish()
 def _typecheckingstub__6dfdb943aaf85e88b43ad8c01d86d258ceb66c969e34e34611883dcd70953268(
     *,
     additional_types: typing.Sequence[AdditionalHealthCheckType],
-    grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22441,9 +22439,9 @@ def _typecheckingstub__54a78dfb222929608a2bea5f551c7a098f071edae832093abb6c4b784
 
 def _typecheckingstub__87ecdc767b167c69d3a5c4b6b757c48cd8dd03a0f2ae1a31f296e3efafee3021(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22452,11 +22450,11 @@ def _typecheckingstub__f991436277d817beb78dbe6f8ee4371d5ba57465042ba2251e4893d5e
     *,
     lifecycle_transition: LifecycleTransition,
     default_result: typing.Optional[DefaultResult] = None,
-    heartbeat_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
     notification_target: typing.Optional[ILifecycleHookTarget] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22476,12 +22474,12 @@ def _typecheckingstub__79c9acc50460f89e855de5b2c3b0541c5a6bba8e2a534460115ae251f
 
 def _typecheckingstub__8cdae3b81f3c040b82cde443a53388281dab2a51aeefc2c4d0d901151ff7b8fd(
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     scaling_steps: typing.Sequence[typing.Union[ScalingInterval, typing.Dict[builtins.str, typing.Any]]],
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -22491,11 +22489,11 @@ def _typecheckingstub__8cdae3b81f3c040b82cde443a53388281dab2a51aeefc2c4d0d901151
 
 def _typecheckingstub__c32994c9e0f386560e7512b5d8f97eef97db085bd1a2900db6b87ce79f1b935e(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     target_value: jsii.Number,
-    custom_metric: typing.Optional[_IMetric_c7fd29de] = None,
+    custom_metric: typing.Optional[_aws_cloudwatch_386c5543.IMetric] = None,
     predefined_metric: typing.Optional[PredefinedMetric] = None,
     resource_label: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22505,7 +22503,7 @@ def _typecheckingstub__c32994c9e0f386560e7512b5d8f97eef97db085bd1a2900db6b87ce79
 def _typecheckingstub__9c16c9108bca19be619521f14265d509dcdf939cfae6bef31656843832552c6a(
     *,
     lifecycle_hook: LifecycleHook,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22562,12 +22560,12 @@ def _typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35
     max_size: builtins.str,
     min_size: builtins.str,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
-    availability_zone_distribution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_distribution: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    availability_zone_impairment_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_impairment_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    capacity_reservation_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.CapacityReservationSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    capacity_reservation_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.CapacityReservationSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     context: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     default_instance_warmup: typing.Optional[jsii.Number] = None,
@@ -22577,32 +22575,32 @@ def _typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35
     health_check_grace_period: typing.Optional[jsii.Number] = None,
     health_check_type: typing.Optional[builtins.str] = None,
     instance_id: typing.Optional[builtins.str] = None,
-    instance_lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstanceLifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_maintenance_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstanceMaintenancePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    launch_configuration_name: typing.Optional[typing.Union[builtins.str, _ILaunchConfigurationRef_9c2fc9c2]] = None,
-    launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lifecycle_hook_specification_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LifecycleHookSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstanceLifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_maintenance_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstanceMaintenancePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_configuration_name: typing.Optional[typing.Union[builtins.str, _aws_autoscaling_66012b8a.ILaunchConfigurationRef]] = None,
+    launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_hook_specification_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LifecycleHookSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     load_balancer_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     max_instance_lifetime: typing.Optional[jsii.Number] = None,
-    metrics_collection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MetricsCollectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mixed_instances_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MixedInstancesPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notification_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics_collection: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MetricsCollectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mixed_instances_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MixedInstancesPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notification_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     placement_group: typing.Optional[builtins.str] = None,
-    service_linked_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    service_linked_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnAutoScalingGroup.TagPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITargetGroupRef_9ed19d5e]]] = None,
+    target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef]]] = None,
     termination_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-    traffic_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.TrafficSourceIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
+    traffic_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.TrafficSourceIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8ff7704acc34c0fac0d523a31d651e485e9b2739f4254707b7b8e32db9bc98a0(
-    resource: _IAutoScalingGroupRef_2f9e9183,
+    resource: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22614,7 +22612,7 @@ def _typecheckingstub__36d843e9c959c75f6196f6565b6fbc2d5e5cf2165328f43deede89813
     pass
 
 def _typecheckingstub__f312dd276d3d70252809e3c5a9da0474186c12a2776c57e7811b571df6d42b9a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22644,7 +22642,7 @@ def _typecheckingstub__40e8fdc97369d7f8797e7a890acf4c16f1c2a2166b1ca6d1644eaba12
     pass
 
 def _typecheckingstub__d5e9ae536cfa6650d411381d31454774f7e8c68d105e3c7f7476fcbdbc86ab9f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.AvailabilityZoneDistributionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.AvailabilityZoneDistributionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22656,7 +22654,7 @@ def _typecheckingstub__d74bd611a0b69222e5917c10f0879143bf217472e5d432a3f1b38a764
     pass
 
 def _typecheckingstub__2a3fb95d9da967f9a1c48b970739b4471d5c5eee0beaf61d14960348810f297e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22668,13 +22666,13 @@ def _typecheckingstub__ba79ccc6a2a627119d2b42e5f2c3b0c8a81580a2589535c8255f0eb95
     pass
 
 def _typecheckingstub__fcd7ade02eab7516c3be5872ef46340937bca4fb38ec4eea0d8119ee5b20247b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6a3669b72eed49c81bef887851936a8d3e62cc7ebbf7d0596c044449b0caa478(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.CapacityReservationSpecificationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.CapacityReservationSpecificationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22734,13 +22732,13 @@ def _typecheckingstub__807d7a9adb0f9c2f26a711c97bd951df6ae3487de3147ae199953db4f
     pass
 
 def _typecheckingstub__1f7a525b4874074df11e419554e3e95ea275cf2a58e689d7dd665c65c102989b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.InstanceLifecyclePolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.InstanceLifecyclePolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2384de22435f68950e9a800e1e5c7e2adab6fbec1cb01fd379e44fd362d2a64e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.InstanceMaintenancePolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.InstanceMaintenancePolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22752,13 +22750,13 @@ def _typecheckingstub__ce1aedc9a7f8ec0ad90dfafceb72240ca56e12323bde67a3ca70fa168
     pass
 
 def _typecheckingstub__e46a8ef6a1e77f37bd575625d13f34004ddf8d2ce4be91a94dd0bcc391e07a78(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.LaunchTemplateSpecificationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.LaunchTemplateSpecificationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd6e8b42fa69a0df75799ee782ceadb17a838c01878e0eb9ff09ae058b90c9d8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.LifecycleHookSpecificationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.LifecycleHookSpecificationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22776,31 +22774,31 @@ def _typecheckingstub__0c72588d4e6113052b7a3848095a560964c8d8d37e8ba3d61cbbb2e7b
     pass
 
 def _typecheckingstub__d32a051ae8368000fa35ee4a51495330fedacfcacf365fe8a1e42d21ee86ff2d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.MetricsCollectionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.MetricsCollectionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2eeb991d1cd003adb697e60e6dec4d4ee0b29f9758fba65cdeda2e67e810d031(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.MixedInstancesPolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.MixedInstancesPolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__91b500624d150b98c66fcf098662c0a1fc6935e0d9cd154eff3d3691f9a107e1(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__53f4e347c23deb1526103c233b67461fb33a29754d803fa4f1212f02241ece08(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.NotificationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.NotificationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5c3fc9c42371a5f5fe97a5d3fb16d41213e13982291eb878e27d22e968f4e6e8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.NotificationConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.NotificationConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22818,7 +22816,7 @@ def _typecheckingstub__ed363ed16309e150caf7f0bbc1a1a1fc2c8bd1ddf6ae299fa1540076f
     pass
 
 def _typecheckingstub__1db1d7f33e11c93324444162bf80d7f4a9c258e18704f896714722a1d73e9792(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22842,7 +22840,7 @@ def _typecheckingstub__5daca53bfde511b5f5ae7f0521ed2bd70a9a3cd0feaf10ef8bbf6e9cf
     pass
 
 def _typecheckingstub__ce984ad35c9e174516e1fc0b8d3b4af0ddc300eb6a07cae978f741bc4351ef04(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.TrafficSourceIdentifierProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutoScalingGroup.TrafficSourceIdentifierProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22879,7 +22877,7 @@ def _typecheckingstub__d355d9c2c42bbc544e31b115eb7cc171b2e1dc63696c81872c62b9256
 def _typecheckingstub__0c859c5dc62959b2f82b88ba908b264057d44a144ac184fa0a7793e433657185(
     *,
     impaired_zone_health_check_behavior: builtins.str,
-    zonal_shift_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    zonal_shift_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22894,7 +22892,7 @@ def _typecheckingstub__36b0ab4a571aa009a65070b38b6f4e5ef64fa1f94d861b2083c70c2ca
 
 def _typecheckingstub__d201229bbf8df0493f8005eab4878dceaf3ea5d9ead6d07f5daa203e74d566d1(
     *,
-    cpu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cpu: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.CpuPerformanceFactorRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22902,7 +22900,7 @@ def _typecheckingstub__d201229bbf8df0493f8005eab4878dceaf3ea5d9ead6d07f5daa203e7
 def _typecheckingstub__1bde97582584c247c2d01a5e0b6cd47064999134f62912522c05bd0ba4e73870(
     *,
     capacity_reservation_preference: builtins.str,
-    capacity_reservation_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.CapacityReservationTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_reservation_target: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.CapacityReservationTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22917,14 +22915,14 @@ def _typecheckingstub__008068c103b32f4f1d9358960d48d71e416dc2ffebeb79a29b94777a9
 
 def _typecheckingstub__b278b9a78a0f65790afbe45f65bd99528e1b9698a5e94af246191f9dfe4787e1(
     *,
-    references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.PerformanceFactorReferenceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9d96fe458e80aaf00a4442837403f8e7cf4bb412c4f78c80d10226c0e992fcc6(
     *,
-    retention_triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.RetentionTriggersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention_triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.RetentionTriggersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22939,17 +22937,17 @@ def _typecheckingstub__87d530b3532712626606d828a108a8ef6e07c752060995be5ad0caf95
 
 def _typecheckingstub__e22358c3d5577020d9106a247f13fb06a2cf3668a83ede597e2b41db7bac111f(
     *,
-    memory_mib: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MemoryMiBRequestProperty, typing.Dict[builtins.str, typing.Any]]],
-    v_cpu_count: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.VCpuCountRequestProperty, typing.Dict[builtins.str, typing.Any]]],
-    accelerator_count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AcceleratorCountRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    memory_mib: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MemoryMiBRequestProperty, typing.Dict[builtins.str, typing.Any]]],
+    v_cpu_count: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.VCpuCountRequestProperty, typing.Dict[builtins.str, typing.Any]]],
+    accelerator_count: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AcceleratorCountRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     accelerator_manufacturers: typing.Optional[typing.Sequence[builtins.str]] = None,
     accelerator_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    accelerator_total_memory_mib: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    accelerator_total_memory_mib: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AcceleratorTotalMemoryMiBRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     accelerator_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     bare_metal: typing.Optional[builtins.str] = None,
-    baseline_ebs_bandwidth_mbps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    baseline_performance_factors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    baseline_ebs_bandwidth_mbps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.BaselineEbsBandwidthMbpsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    baseline_performance_factors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.BaselinePerformanceFactorsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     burstable_performance: typing.Optional[builtins.str] = None,
     cpu_manufacturers: typing.Optional[typing.Sequence[builtins.str]] = None,
     excluded_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -22957,13 +22955,13 @@ def _typecheckingstub__e22358c3d5577020d9106a247f13fb06a2cf3668a83ede597e2b41db7
     local_storage: typing.Optional[builtins.str] = None,
     local_storage_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     max_spot_price_as_percentage_of_optimal_on_demand_price: typing.Optional[jsii.Number] = None,
-    memory_gib_per_v_cpu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_bandwidth_gbps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_interface_count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    memory_gib_per_v_cpu: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MemoryGiBPerVCpuRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_bandwidth_gbps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NetworkBandwidthGbpsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_interface_count: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NetworkInterfaceCountRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     on_demand_max_price_percentage_over_lowest_price: typing.Optional[jsii.Number] = None,
-    require_hibernate_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    require_hibernate_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     spot_max_price_percentage_over_lowest_price: typing.Optional[jsii.Number] = None,
-    total_local_storage_gb: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    total_local_storage_gb: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.TotalLocalStorageGBRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22983,9 +22981,9 @@ def _typecheckingstub__ca530211324712c4b14f117ed8b0d0dc0ab47386d30a812f8497ab80b
 def _typecheckingstub__86885fea78f6e876794cae723fc0484932c1c7ba5727a1abf14f45861dbdb3d9(
     *,
     image_id: typing.Optional[builtins.str] = None,
-    instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_type: typing.Optional[builtins.str] = None,
-    launch_template_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_template_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     weighted_capacity: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22993,8 +22991,8 @@ def _typecheckingstub__86885fea78f6e876794cae723fc0484932c1c7ba5727a1abf14f45861
 
 def _typecheckingstub__058746461420956b542c7acb437dc8b0041e30c6486c094342adb80b393afe5d(
     *,
-    launch_template_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateOverridesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    launch_template_specification: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateOverridesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23047,8 +23045,8 @@ def _typecheckingstub__11d67f55b88e32b71a73d39b67ec573e08571c2264ca36d4a9c9e62c7
 
 def _typecheckingstub__a4e1c1acb02ba7d86e2ea0004ef9019d45d3f8ed06dbe7671e059b17f5d38c71(
     *,
-    launch_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
-    instances_distribution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstancesDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_template: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
+    instances_distribution: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstancesDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23094,7 +23092,7 @@ def _typecheckingstub__ba15afb26ce6ae6d75de65156ed4f337bde04597d374405a0dacafb3c
 def _typecheckingstub__fbe45b876c171c89a71ab1315093a8b32d7ef922f5c3986e220789bfa73f9633(
     *,
     key: builtins.str,
-    propagate_at_launch: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    propagate_at_launch: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -23129,12 +23127,12 @@ def _typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2
     max_size: builtins.str,
     min_size: builtins.str,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
-    availability_zone_distribution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_distribution: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    availability_zone_impairment_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_impairment_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    capacity_reservation_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.CapacityReservationSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    capacity_reservation_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.CapacityReservationSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     context: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     default_instance_warmup: typing.Optional[jsii.Number] = None,
@@ -23144,26 +23142,26 @@ def _typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2
     health_check_grace_period: typing.Optional[jsii.Number] = None,
     health_check_type: typing.Optional[builtins.str] = None,
     instance_id: typing.Optional[builtins.str] = None,
-    instance_lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstanceLifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_maintenance_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.InstanceMaintenancePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    launch_configuration_name: typing.Optional[typing.Union[builtins.str, _ILaunchConfigurationRef_9c2fc9c2]] = None,
-    launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lifecycle_hook_specification_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.LifecycleHookSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstanceLifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_maintenance_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.InstanceMaintenancePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_configuration_name: typing.Optional[typing.Union[builtins.str, _aws_autoscaling_66012b8a.ILaunchConfigurationRef]] = None,
+    launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_hook_specification_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.LifecycleHookSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     load_balancer_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     max_instance_lifetime: typing.Optional[jsii.Number] = None,
-    metrics_collection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MetricsCollectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mixed_instances_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.MixedInstancesPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notification_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics_collection: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MetricsCollectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mixed_instances_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.MixedInstancesPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    new_instances_protected_from_scale_in: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    notification_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     placement_group: typing.Optional[builtins.str] = None,
-    service_linked_role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
-    skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    service_linked_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    skip_zonal_shift_validation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnAutoScalingGroup.TagPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITargetGroupRef_9ed19d5e]]] = None,
+    target_group_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_elasticloadbalancingv2_1283aa87.ITargetGroupRef]]] = None,
     termination_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-    traffic_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.TrafficSourceIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]]] = None,
+    traffic_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutoScalingGroup.TrafficSourceIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_zone_identifier: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23174,21 +23172,21 @@ def _typecheckingstub__c1b7dfa85ece494c51470fc8949ac83f44a43e14933517668759ff3c3
     *,
     image_id: builtins.str,
     instance_type: builtins.str,
-    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchConfiguration.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    block_device_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLaunchConfiguration.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     classic_link_vpc_id: typing.Optional[builtins.str] = None,
     classic_link_vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iam_instance_profile: typing.Optional[typing.Union[builtins.str, _IInstanceProfileRef_d6832c90]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    iam_instance_profile: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IInstanceProfileRef]] = None,
     instance_id: typing.Optional[builtins.str] = None,
-    instance_monitoring: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    instance_monitoring: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kernel_id: typing.Optional[builtins.str] = None,
     key_name: typing.Optional[builtins.str] = None,
     launch_configuration_name: typing.Optional[builtins.str] = None,
-    metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchConfiguration.MetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLaunchConfiguration.MetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement_tenancy: typing.Optional[builtins.str] = None,
     ram_disk_id: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     spot_price: typing.Optional[builtins.str] = None,
     user_data: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23202,7 +23200,7 @@ def _typecheckingstub__3b91f839f38b5f888513d3d01f63410df9415a1b7ad1bd4df5e349bd9
     pass
 
 def _typecheckingstub__f6d1dd362dede4d9e5d99e0867ba1c4a0a20293d42e613770137063dfbe8db7c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23226,13 +23224,13 @@ def _typecheckingstub__8ebc70aaf3294dda2fcb78ecb12433a976f0a814e8b594582e5a49879
     pass
 
 def _typecheckingstub__674455b1254ecaf087af554d10d231002edb13b7fc7f1388a3fc37f4a56965e8(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bdc5f0729f20281d7b5dff9761abbab3b051c02184dbf4917feabace61ee2667(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunchConfiguration.BlockDeviceMappingProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLaunchConfiguration.BlockDeviceMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23250,7 +23248,7 @@ def _typecheckingstub__8fa4a3aa74644d10d77a099a33b3f970c24ddc0fd7ff782d932f948a2
     pass
 
 def _typecheckingstub__f092d7a962971bba208cb655827dc32c385bf989c109ae62f8e956ab07a0c8ce(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23268,7 +23266,7 @@ def _typecheckingstub__18e4df9fb2d7ef59c38687c0726cc07c2e349b85efc5335bcf75ca13e
     pass
 
 def _typecheckingstub__e5ba316c82fe73e99e7f86ec88228cea720950bd4d3d42a8780880ce964b5593(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23292,7 +23290,7 @@ def _typecheckingstub__6f8bba7d570f8c476d61963ecd52300e6f67e1f6d8cac7a67b19fd3c7
     pass
 
 def _typecheckingstub__9f7c6bb8da29baa11401340e2a6d03aef0bf5f521da31f4ea3631d00c07e61ac(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLaunchConfiguration.MetadataOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLaunchConfiguration.MetadataOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23330,8 +23328,8 @@ def _typecheckingstub__7568c3d28d0b73eade97e8b9e92d322f8d322e9f9c73d44b4fe5e2ddf
 def _typecheckingstub__28cc3ae48c0185c32554edba8688366b44d110b2707329683cc7a64163c2b0bf(
     *,
     device_name: builtins.str,
-    ebs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchConfiguration.BlockDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    no_device: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ebs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLaunchConfiguration.BlockDeviceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    no_device: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     virtual_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -23339,8 +23337,8 @@ def _typecheckingstub__28cc3ae48c0185c32554edba8688366b44d110b2707329683cc7a6416
 
 def _typecheckingstub__cb46621b8247621ce8684de7d0b8d40deb45a021b4eebaa84336924a1a9f478a(
     *,
-    delete_on_termination: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    delete_on_termination: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    encrypted: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     iops: typing.Optional[jsii.Number] = None,
     snapshot_id: typing.Optional[builtins.str] = None,
     throughput: typing.Optional[jsii.Number] = None,
@@ -23363,21 +23361,21 @@ def _typecheckingstub__437aca81a1a333c2908320df15fa11c3acd609bc0ca76c62d631e3efe
     *,
     image_id: builtins.str,
     instance_type: builtins.str,
-    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchConfiguration.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    associate_public_ip_address: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    block_device_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLaunchConfiguration.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     classic_link_vpc_id: typing.Optional[builtins.str] = None,
     classic_link_vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iam_instance_profile: typing.Optional[typing.Union[builtins.str, _IInstanceProfileRef_d6832c90]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    iam_instance_profile: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IInstanceProfileRef]] = None,
     instance_id: typing.Optional[builtins.str] = None,
-    instance_monitoring: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    instance_monitoring: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kernel_id: typing.Optional[builtins.str] = None,
     key_name: typing.Optional[builtins.str] = None,
     launch_configuration_name: typing.Optional[builtins.str] = None,
-    metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchConfiguration.MetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLaunchConfiguration.MetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement_tenancy: typing.Optional[builtins.str] = None,
     ram_disk_id: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    security_groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
     spot_price: typing.Optional[builtins.str] = None,
     user_data: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23388,14 +23386,14 @@ def _typecheckingstub__dabd61d8a949732e25b3952a106099c905072c82cee5882a062635906
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     lifecycle_transition: builtins.str,
     default_result: typing.Optional[builtins.str] = None,
     heartbeat_timeout: typing.Optional[jsii.Number] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
-    notification_target_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    notification_target_arn: typing.Optional[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23407,7 +23405,7 @@ def _typecheckingstub__df2a0b1541001b5f4bc8251dfa14d969e9e24726543644a65efa50644
     pass
 
 def _typecheckingstub__dcd6cbadd1cca7e18a403680449778d0e0a8e19fb670a40420c3b3f21fe301b9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23468,14 +23466,14 @@ def _typecheckingstub__b3efe05ccb204a2f5b10e050508641230c374dcfa8454a54ed2b9fa3d
 
 def _typecheckingstub__55ab7935babae2422463a7df532373822bd3f50d204a6ecf63bb4ac285894a64(
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     lifecycle_transition: builtins.str,
     default_result: typing.Optional[builtins.str] = None,
     heartbeat_timeout: typing.Optional[jsii.Number] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
-    notification_target_arn: typing.Optional[typing.Union[builtins.str, _ITopicRef_29aa9a88, _IQueueRef_fa8b2198]] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    notification_target_arn: typing.Optional[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23484,23 +23482,23 @@ def _typecheckingstub__fe327b42a12b9ac1620a18cf03d5ab48d4b5a074b39f9d0b743895a53
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     adjustment_type: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     estimated_instance_warmup: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[builtins.str] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
     policy_type: typing.Optional[builtins.str] = None,
-    predictive_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predictive_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scaling_adjustment: typing.Optional[jsii.Number] = None,
-    step_adjustments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.StepAdjustmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_tracking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.TargetTrackingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    step_adjustments: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.StepAdjustmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_tracking_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.TargetTrackingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__73b6cc04b132e188b1685254181901ce522dcda6da5f77ce913be1496395a902(
-    resource: _IScalingPolicyRef_fcca0de5,
+    resource: _aws_autoscaling_66012b8a.IScalingPolicyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23512,7 +23510,7 @@ def _typecheckingstub__96edb6e5bf6fe5007a81085db7d69e2fb281ff03439aba6426740c7e9
     pass
 
 def _typecheckingstub__ca9407810c7f1b646f3d1a65c71021ff839d9aaa29cf9dbf8c38fc97672a50e6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23566,7 +23564,7 @@ def _typecheckingstub__bd4329445b62cbb417ca024062e90be3235f901236445dcfca9b96824
     pass
 
 def _typecheckingstub__76cc30a2e0064b6d652232bc49d285ce28467a34c2bd8ec66a130a61970781c6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScalingPolicy.PredictiveScalingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnScalingPolicy.PredictiveScalingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23578,22 +23576,22 @@ def _typecheckingstub__e99a67829ea1191e8cb588be191baca3b10d1c95451c6bab05472cfb3
     pass
 
 def _typecheckingstub__38dfdb6c2b6aee9f0b1cb3e26e4e9f1c58dab8c3cf6013c4ca258d3702647ac8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnScalingPolicy.StepAdjustmentProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnScalingPolicy.StepAdjustmentProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7edad0553749ec58702ad72a2bc68104268b76221c11cb19d8dd477ac531d53(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScalingPolicy.TargetTrackingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnScalingPolicy.TargetTrackingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8e7031340719d237d3182678de0dc2931e386340d37c2dd60e36be75ada41bb3(
     *,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
-    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.TargetTrackingMetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.TargetTrackingMetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
     period: typing.Optional[jsii.Number] = None,
     statistic: typing.Optional[builtins.str] = None,
@@ -23607,8 +23605,8 @@ def _typecheckingstub__9e93e050292033868470978d9a82575b6db041f741e699dbbabdfe6b0
     id: builtins.str,
     expression: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    metric_stat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23625,14 +23623,14 @@ def _typecheckingstub__d8123e387ec06ce553c8d5d5c99d355f1458989604b38309f3039cb3d
     *,
     metric_name: builtins.str,
     namespace: builtins.str,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ef713283f2f2a6c305bbd7e03d73709deada07fe9d07055c2a3fee4205c3af39(
     *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
     stat: builtins.str,
     unit: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23649,7 +23647,7 @@ def _typecheckingstub__b547b62a61eb66aa5b42bed1a05a0a926d9bf446e9c904183bbbaa9ce
 
 def _typecheckingstub__c835136b3008eece31e060ed2f94a66aed36a8978c41ac0fc35df358edc49040(
     *,
-    metric_specifications: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metric_specifications: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     max_capacity_breach_behavior: typing.Optional[builtins.str] = None,
     max_capacity_buffer: typing.Optional[jsii.Number] = None,
     mode: typing.Optional[builtins.str] = None,
@@ -23660,21 +23658,21 @@ def _typecheckingstub__c835136b3008eece31e060ed2f94a66aed36a8978c41ac0fc35df358e
 
 def _typecheckingstub__6b8c4cdce70a16ebd1a5c2fe31cc7225458c86f82990f0ffe13403efa5cb6d2d(
     *,
-    metric_data_queries: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metric_data_queries: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6f8df7fe95ed69a9fd3f50a28eda7de1e674e48f774cc9150d21b2a0fcba8125(
     *,
-    metric_data_queries: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metric_data_queries: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__458a6ff3cadf721184c4e8bf120a87ac6a614c9bc06677c31d2f914a3d3bf080(
     *,
-    metric_data_queries: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    metric_data_queries: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23682,12 +23680,12 @@ def _typecheckingstub__458a6ff3cadf721184c4e8bf120a87ac6a614c9bc06677c31d2f914a3
 def _typecheckingstub__012dc12dc1d9459ee13271aaed0c024f3ab9f083799f0ba98220ebc8754e7f33(
     *,
     target_value: jsii.Number,
-    customized_capacity_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    customized_load_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    customized_scaling_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    predefined_load_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    predefined_metric_pair_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    predefined_scaling_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customized_capacity_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedCapacityMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customized_load_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedLoadMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customized_scaling_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingCustomizedScalingMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predefined_load_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedLoadMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predefined_metric_pair_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedMetricPairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predefined_scaling_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingPredefinedScalingMetricProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23728,9 +23726,9 @@ def _typecheckingstub__7db0ee8d4961a22cdf58fd616c6c93f16a89862d95627b09d3ccbf3f7
 def _typecheckingstub__406f504322f9bf5761a5c07083390725c370252fcf12bd54230e1f02878b2da1(
     *,
     target_value: jsii.Number,
-    customized_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.CustomizedMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    predefined_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredefinedMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customized_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.CustomizedMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disable_scale_in: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    predefined_metric_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredefinedMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23740,16 +23738,16 @@ def _typecheckingstub__db2b2d9653863b1d1b8f67347857edde6d9dc3f6f755a593d8da143f9
     id: builtins.str,
     expression: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.TargetTrackingMetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_stat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.TargetTrackingMetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     period: typing.Optional[jsii.Number] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__75bb120fe0d7723abf802e828deb5b42b75d441e35d1a2974ff03b0a094adfb2(
     *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
     stat: builtins.str,
     period: typing.Optional[jsii.Number] = None,
     unit: typing.Optional[builtins.str] = None,
@@ -23759,17 +23757,17 @@ def _typecheckingstub__75bb120fe0d7723abf802e828deb5b42b75d441e35d1a2974ff03b0a0
 
 def _typecheckingstub__fa1549144f025fb75ca19967d6520b5eaada79209726c0ec131f1146e087fc7d(
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     adjustment_type: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     estimated_instance_warmup: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[builtins.str] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
     policy_type: typing.Optional[builtins.str] = None,
-    predictive_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.PredictiveScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    predictive_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.PredictiveScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scaling_adjustment: typing.Optional[jsii.Number] = None,
-    step_adjustments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.StepAdjustmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_tracking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPolicy.TargetTrackingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    step_adjustments: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.StepAdjustmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_tracking_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPolicy.TargetTrackingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23778,7 +23776,7 @@ def _typecheckingstub__74bd532ea628d3cbc35d12b83c73435431c2df43d44c4873521366de3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     desired_capacity: typing.Optional[jsii.Number] = None,
     end_time: typing.Optional[builtins.str] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -23797,7 +23795,7 @@ def _typecheckingstub__dc0066114d873ac8fb162314847075d4a867f0c8a9bae8167cfd10e79
     pass
 
 def _typecheckingstub__6f00bf537ece7b967f35535b2f323e100a7b8276d49a9a48375e63ea4640bdaa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23858,7 +23856,7 @@ def _typecheckingstub__8a8884960cdb0544ac67e0139227014617c99358bb79d7312ecf1d7ab
 
 def _typecheckingstub__8337f4190404f5d486535d4fb3527dc3a0756a9c610753786846ddda210ebb1b(
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
     desired_capacity: typing.Optional[jsii.Number] = None,
     end_time: typing.Optional[builtins.str] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -23874,8 +23872,8 @@ def _typecheckingstub__11b655705f40e648d013ae07051251b8272b9b017ab829c80340f5640
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
-    instance_reuse_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWarmPool.InstanceReusePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
+    instance_reuse_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWarmPool.InstanceReusePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     pool_state: typing.Optional[builtins.str] = None,
@@ -23890,7 +23888,7 @@ def _typecheckingstub__3f99d313114561b1e086d857bdc8baea5abc0d6f7a29074591346b361
     pass
 
 def _typecheckingstub__336e12b82b2e6721e49ed5add717ba97e08d6de95f9768ee47c57cd39f9567ac(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23908,7 +23906,7 @@ def _typecheckingstub__5fe7145b34e7b316830787a695baac4a9044eb1ab01b142ea8cfa75e7
     pass
 
 def _typecheckingstub__0e282eb0fff0146c783a0a0cf3c1a6bfd7c1638906a490e7da16a58d31f63e70(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWarmPool.InstanceReusePolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWarmPool.InstanceReusePolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23933,15 +23931,15 @@ def _typecheckingstub__24bb436b66554232b9c70552368d17246634059370b0dbc27a1029d73
 
 def _typecheckingstub__53e0e158b9df1836e1187a74efd57221a6a3d593283d041862ad0fad1f8bbe41(
     *,
-    reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__648cf8c58fe1c3cd5125c280b61fa42684c7000ce58e8cff5213ddb0d0547be0(
     *,
-    auto_scaling_group_name: typing.Union[builtins.str, _IAutoScalingGroupRef_2f9e9183],
-    instance_reuse_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWarmPool.InstanceReusePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling_group_name: typing.Union[builtins.str, _aws_autoscaling_66012b8a.IAutoScalingGroupRef],
+    instance_reuse_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWarmPool.InstanceReusePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     pool_state: typing.Optional[builtins.str] = None,
@@ -23957,8 +23955,8 @@ def _typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d
     az_capacity_distribution_strategy: typing.Optional[CapacityDistributionStrategy] = None,
     block_devices: typing.Optional[typing.Sequence[typing.Union[BlockDevice, typing.Dict[builtins.str, typing.Any]]]] = None,
     capacity_rebalance: typing.Optional[builtins.bool] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    default_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     deletion_protection: typing.Optional[DeletionProtection] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[GroupMetrics]] = None,
@@ -23968,9 +23966,9 @@ def _typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d
     instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
-    key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
+    key_pair: typing.Optional[_aws_ec2_09840e12.IKeyPair] = None,
     max_capacity: typing.Optional[jsii.Number] = None,
-    max_instance_lifetime: typing.Optional[_Duration_4839e8c3] = None,
+    max_instance_lifetime: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     min_capacity: typing.Optional[jsii.Number] = None,
     new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
     notifications: typing.Optional[typing.Sequence[typing.Union[NotificationConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23980,16 +23978,16 @@ def _typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d
     termination_policies: typing.Optional[typing.Sequence[TerminationPolicy]] = None,
     termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
     update_policy: typing.Optional[UpdatePolicy] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9ab1197c14846ec6b5c20ba6ac3608b3f3b01ef6d827a983ae1e3534837dd92c(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     target_utilization_percent: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -24029,21 +24027,21 @@ def _typecheckingstub__19e899c50f45e1e93ed8e6ceab2c1abd8b33cbf64c181c33cde0635f2
 
 def _typecheckingstub__7ed1c4902bffca62eb69df85375bd1cbc0221879fd972e2805b0341949af215f(
     *,
-    grace: typing.Optional[_Duration_4839e8c3] = None,
+    grace: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3300c8476638604e0d967ab62e760b25293214d044a8acec0c9d8bd70eecb3f9(
     *,
-    grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ff6ee0031db4237a2d504a88db32c061b20545da01d54dbae951f9d5b57a3eb3(
     *,
-    grace: _Duration_4839e8c3,
+    grace: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24065,11 +24063,11 @@ def _typecheckingstub__ab9f01a9b271d7397ec179829698e896314a3ff91d8c9925ce60c1a7e
     *,
     lifecycle_transition: LifecycleTransition,
     default_result: typing.Optional[DefaultResult] = None,
-    heartbeat_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
     notification_target: typing.Optional[ILifecycleHookTarget] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24084,9 +24082,9 @@ def _typecheckingstub__77f448e75ef9c561d8a2e618f3a5836428850eb489fd269f4be00725e
     id: builtins.str,
     *,
     target_utilization_percent: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24095,9 +24093,9 @@ def _typecheckingstub__4fa88e81790fc7fec6dc0adb813f1c6a5f164cf91d6ae5c166cf58053
     id: builtins.str,
     *,
     target_bytes_per_second: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24105,12 +24103,12 @@ def _typecheckingstub__4fa88e81790fc7fec6dc0adb813f1c6a5f164cf91d6ae5c166cf58053
 def _typecheckingstub__cfc7f1f455e355ca47e5ecb7405720cfd89dade7e0863a60891f859107bd9c7f(
     id: builtins.str,
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     scaling_steps: typing.Sequence[typing.Union[ScalingInterval, typing.Dict[builtins.str, typing.Any]]],
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -24122,9 +24120,9 @@ def _typecheckingstub__c99749922be06a8e6a6ae56f9ba82fc31a391c7432ef7609a9997fb4b
     id: builtins.str,
     *,
     target_bytes_per_second: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24146,11 +24144,11 @@ def _typecheckingstub__fb399691f6facd38db7c6fafc541af1753d52ff948133ce68b6da663a
 def _typecheckingstub__cd36a1a3975c7f7d026736d8f092cfe64a3157a6aa6a77d171eec02dc392284c(
     id: builtins.str,
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     target_value: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24159,7 +24157,7 @@ def _typecheckingstub__c9770cd60cfc69f2c7d108523545fc5de207bca98daae82701548d55b
     scope: _constructs_77d1e7e8.Construct,
     *,
     lifecycle_hook: LifecycleHook,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24186,8 +24184,8 @@ def _typecheckingstub__bb58af418fe3e379a2f815054eedffadc45d19358b6956e7eb1f57e0c
 def _typecheckingstub__f9077816541cf5f9b60bf6bf1b1b1cd717f25358a3670bcbe5de6d00eef3687c(
     *,
     instance_requirements: typing.Optional[typing.Union[CfnAutoScalingGroup.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_type: typing.Optional[_InstanceType_f64915b9] = None,
-    launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
+    instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
+    launch_template: typing.Optional[_aws_ec2_09840e12.ILaunchTemplate] = None,
     weighted_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24197,14 +24195,14 @@ def _typecheckingstub__a4218ed2a73b3b937967fabbbf8d60e6130673b6215bff8f98266d872
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     lifecycle_transition: LifecycleTransition,
     default_result: typing.Optional[DefaultResult] = None,
-    heartbeat_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
     notification_target: typing.Optional[ILifecycleHookTarget] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24213,19 +24211,19 @@ def _typecheckingstub__41e05893ecfc67dfb61215da4c71fe4cfc04cbf73d9aab65be153d28a
     *,
     lifecycle_transition: LifecycleTransition,
     default_result: typing.Optional[DefaultResult] = None,
-    heartbeat_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
     notification_target: typing.Optional[ILifecycleHookTarget] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6408c457e5d18cb530f3e735fde171aee4fc61344aa2a2d8868d67c1ea89d172(
     *,
-    created_role: _IRole_235f5d8e,
+    created_role: _aws_iam_1f54b5e8.IRole,
     notification_target_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -24233,10 +24231,10 @@ def _typecheckingstub__6408c457e5d18cb530f3e735fde171aee4fc61344aa2a2d8868d67c1e
 
 def _typecheckingstub__a189761f9bc0664f3982cc0fdb871012e608cd41eee835f94a198fff2550144d(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
-    metric: _IMetric_c7fd29de,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     target_value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -24244,7 +24242,7 @@ def _typecheckingstub__a189761f9bc0664f3982cc0fdb871012e608cd41eee835f94a198fff2
 
 def _typecheckingstub__d30527dded57fb0bc5326004b541ba9a6346091141cc92b30b0eebf2b8d55c70(
     *,
-    launch_template: _ILaunchTemplate_f32c0fd7,
+    launch_template: _aws_ec2_09840e12.ILaunchTemplate,
     instances_distribution: typing.Optional[typing.Union[InstancesDistribution, typing.Dict[builtins.str, typing.Any]]] = None,
     launch_template_overrides: typing.Optional[typing.Sequence[typing.Union[LaunchTemplateOverrides, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -24253,9 +24251,9 @@ def _typecheckingstub__d30527dded57fb0bc5326004b541ba9a6346091141cc92b30b0eebf2b
 
 def _typecheckingstub__d4fb0ff49aadc6c65288ae7dbd1487df187b610d8d237b5fee3b7e0edd2d2995(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     target_bytes_per_second: jsii.Number,
 ) -> None:
     """Type checking stubs"""
@@ -24263,7 +24261,7 @@ def _typecheckingstub__d4fb0ff49aadc6c65288ae7dbd1487df187b610d8d237b5fee3b7e0ed
 
 def _typecheckingstub__4737cff733fdd5e81936c884477a23c2ee8c2b2a87eb7c80eb0fcd470532d675(
     *,
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
     scaling_events: typing.Optional[ScalingEvents] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24279,9 +24277,9 @@ def _typecheckingstub__090c95318bc265c8f26c28b8e4acc8be1056a9012ba59b537db4bc3dd
 
 def _typecheckingstub__775d27074efc25014f9d47b49e64941b878e6dd1129f5eb7c675a5e5c1b50432(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     target_requests_per_minute: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24299,7 +24297,7 @@ def _typecheckingstub__dba85a906170b46d411e476ef5bc0b166e1b32acff9d41d326761c193
     max_batch_size: typing.Optional[jsii.Number] = None,
     min_instances_in_service: typing.Optional[jsii.Number] = None,
     min_success_percentage: typing.Optional[jsii.Number] = None,
-    pause_time: typing.Optional[_Duration_4839e8c3] = None,
+    pause_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     suspend_processes: typing.Optional[typing.Sequence[ScalingProcess]] = None,
     wait_on_resource_signals: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -24331,7 +24329,7 @@ def _typecheckingstub__74b3b8cb09553edb86fdacb4ea37f2427f0041f519ffb8025514989ca
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     schedule: Schedule,
     desired_capacity: typing.Optional[jsii.Number] = None,
     end_time: typing.Optional[datetime.datetime] = None,
@@ -24352,7 +24350,7 @@ def _typecheckingstub__32b96efb9d6e83028fe8f913de37e12991ddcd1c9b905f945ec066669
     min_capacity: typing.Optional[jsii.Number] = None,
     start_time: typing.Optional[datetime.datetime] = None,
     time_zone: typing.Optional[builtins.str] = None,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24361,7 +24359,7 @@ def _typecheckingstub__1ae8cd20997fe3f570d309ce263568430957611d2fa82c5b72982de81
     count: jsii.Number,
     *,
     min_success_percentage: typing.Optional[jsii.Number] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24376,7 +24374,7 @@ def _typecheckingstub__396126a6b5062bb7e41dd20b4b29fdf1ea21d824daf9e8e1f51808c34
 def _typecheckingstub__d7f7a9dc73c47b7dc32e559e38629c11dfe39ea3c3b870aff1c55c507ce4574e(
     *,
     min_success_percentage: typing.Optional[jsii.Number] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24385,10 +24383,10 @@ def _typecheckingstub__ffa6df0b2f6132cf5774ac6f2d9a2386d0086ac8fb2e1099ce3e2d1e8
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -24397,10 +24395,10 @@ def _typecheckingstub__ffa6df0b2f6132cf5774ac6f2d9a2386d0086ac8fb2e1099ce3e2d1e8
 
 def _typecheckingstub__0dc30b71654db9e1496b3decd98d591ff6b33ab944cb8fc3598af41487daa5d7(
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -24411,13 +24409,13 @@ def _typecheckingstub__0005ce4226fc9248b4204e8c5ff1cd051d01ead018243acaa3ababccc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
-    metric: _IMetric_c7fd29de,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     scaling_steps: typing.Sequence[typing.Union[ScalingInterval, typing.Dict[builtins.str, typing.Any]]],
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -24427,16 +24425,16 @@ def _typecheckingstub__0005ce4226fc9248b4204e8c5ff1cd051d01ead018243acaa3ababccc
 
 def _typecheckingstub__b8819b1ea5c3198634a59e8e3f9d800de84f84dbc3832a9e409edba9666a0f87(
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     scaling_steps: typing.Sequence[typing.Union[ScalingInterval, typing.Dict[builtins.str, typing.Any]]],
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24445,28 +24443,28 @@ def _typecheckingstub__0ffdd471947ceb35f245e265947f285493e633fcdc345bb463654f469
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     target_value: jsii.Number,
-    custom_metric: typing.Optional[_IMetric_c7fd29de] = None,
+    custom_metric: typing.Optional[_aws_cloudwatch_386c5543.IMetric] = None,
     predefined_metric: typing.Optional[PredefinedMetric] = None,
     resource_label: typing.Optional[builtins.str] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1dc39a4cce7891e4e5f8f914025bdc81fde69988d7b5eb053a0842acee168695(
     *,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     target_value: jsii.Number,
-    custom_metric: typing.Optional[_IMetric_c7fd29de] = None,
+    custom_metric: typing.Optional[_aws_cloudwatch_386c5543.IMetric] = None,
     predefined_metric: typing.Optional[PredefinedMetric] = None,
     resource_label: typing.Optional[builtins.str] = None,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24475,7 +24473,7 @@ def _typecheckingstub__5941a55bc5215a8436958d1edd768fe089e0e6229de15632ea23ef8e7
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
     max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     pool_state: typing.Optional[PoolState] = None,
@@ -24500,7 +24498,7 @@ def _typecheckingstub__86354b238a84c6099dfe2a6f5018ad085f646c3809aa9f4c1c2716374
     min_size: typing.Optional[jsii.Number] = None,
     pool_state: typing.Optional[PoolState] = None,
     reuse_on_scale_in: typing.Optional[builtins.bool] = None,
-    auto_scaling_group: _IAutoScalingGroupRef_2f9e9183,
+    auto_scaling_group: _aws_autoscaling_66012b8a.IAutoScalingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24509,28 +24507,28 @@ def _typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    vpc: _IVpc_f30d5663,
-    init: typing.Optional[_CloudFormationInit_2bb1d1b2] = None,
+    vpc: _aws_ec2_09840e12.IVpc,
+    init: typing.Optional[_aws_ec2_09840e12.CloudFormationInit] = None,
     init_options: typing.Optional[typing.Union[ApplyCloudFormationInitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_type: typing.Optional[_InstanceType_f64915b9] = None,
-    launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
-    machine_image: typing.Optional[_IMachineImage_0e8bd50b] = None,
+    instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
+    launch_template: typing.Optional[_aws_ec2_09840e12.ILaunchTemplate] = None,
+    machine_image: typing.Optional[_aws_ec2_09840e12.IMachineImage] = None,
     max_healthy_percentage: typing.Optional[jsii.Number] = None,
     migrate_to_launch_template: typing.Optional[builtins.bool] = None,
     min_healthy_percentage: typing.Optional[jsii.Number] = None,
     mixed_instances_policy: typing.Optional[typing.Union[MixedInstancesPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     require_imdsv2: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    user_data: typing.Optional[_UserData_b8b32b5e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    user_data: typing.Optional[_aws_ec2_09840e12.UserData] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
     associate_public_ip_address: typing.Optional[builtins.bool] = None,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
     az_capacity_distribution_strategy: typing.Optional[CapacityDistributionStrategy] = None,
     block_devices: typing.Optional[typing.Sequence[typing.Union[BlockDevice, typing.Dict[builtins.str, typing.Any]]]] = None,
     capacity_rebalance: typing.Optional[builtins.bool] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    default_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     deletion_protection: typing.Optional[DeletionProtection] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[GroupMetrics]] = None,
@@ -24540,9 +24538,9 @@ def _typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c
     instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
-    key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
+    key_pair: typing.Optional[_aws_ec2_09840e12.IKeyPair] = None,
     max_capacity: typing.Optional[jsii.Number] = None,
-    max_instance_lifetime: typing.Optional[_Duration_4839e8c3] = None,
+    max_instance_lifetime: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     min_capacity: typing.Optional[jsii.Number] = None,
     new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
     notifications: typing.Optional[typing.Sequence[typing.Union[NotificationConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -24552,7 +24550,7 @@ def _typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c
     termination_policies: typing.Optional[typing.Sequence[TerminationPolicy]] = None,
     termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
     update_policy: typing.Optional[UpdatePolicy] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24570,23 +24568,23 @@ def _typecheckingstub__cda6da69761897907510043c8038c2e85f303c1806bd56cda73bb9e42
     *,
     lifecycle_transition: LifecycleTransition,
     default_result: typing.Optional[DefaultResult] = None,
-    heartbeat_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    heartbeat_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     lifecycle_hook_name: typing.Optional[builtins.str] = None,
     notification_metadata: typing.Optional[builtins.str] = None,
     notification_target: typing.Optional[ILifecycleHookTarget] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e28d9e26085163f0b24ac816182898f734baa3c473b01cb16e483fd36d21e6c4(
-    security_group: _ISecurityGroup_acf8a799,
+    security_group: _aws_ec2_09840e12.ISecurityGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf9f51cca638590afcd0f1f7f7c444b20c8d6f2f62e7a882b1b9bc9b40cfcb87(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24598,7 +24596,7 @@ def _typecheckingstub__c2e1b014dc41f74da8f5511808a2db6aaadc783e7b2a13207da37cbd6
     pass
 
 def _typecheckingstub__0fe57f0132e9174478afc7af49f1367b20c481fff98f6d5c56bcca1193edb096(
-    init: _CloudFormationInit_2bb1d1b2,
+    init: _aws_ec2_09840e12.CloudFormationInit,
     *,
     config_sets: typing.Optional[typing.Sequence[builtins.str]] = None,
     embed_fingerprint: typing.Optional[builtins.bool] = None,
@@ -24611,19 +24609,19 @@ def _typecheckingstub__0fe57f0132e9174478afc7af49f1367b20c481fff98f6d5c56bcca119
     pass
 
 def _typecheckingstub__d04cef7f8a91f01f0fd2e44016cbc781543685cd948b2fd2bb86c764c0394174(
-    target_group: _IApplicationTargetGroup_57799827,
+    target_group: _aws_elasticloadbalancingv2_1d9af53a.IApplicationTargetGroup,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3961677348dd3d088e59dc64fd1c66e834bde513aba697d6c3903c5d043c484c(
-    load_balancer: _LoadBalancer_a894d40e,
+    load_balancer: _aws_elasticloadbalancing_199dfa00.LoadBalancer,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7cdcb828d3a1eb4681059df0d650b7e5fcea6fe6dd1400b666fc7d2e4a36f722(
-    target_group: _INetworkTargetGroup_abca2df7,
+    target_group: _aws_elasticloadbalancingv2_1d9af53a.INetworkTargetGroup,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24632,9 +24630,9 @@ def _typecheckingstub__300825eea40f1c1cf25d9228c3a5ce3dcafe5682a5698821b73571206
     id: builtins.str,
     *,
     target_utilization_percent: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24643,9 +24641,9 @@ def _typecheckingstub__fc305d219c1c57020fd06d5b8c9a1e56a9d9ae2ddec173f88fabf533c
     id: builtins.str,
     *,
     target_bytes_per_second: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24653,12 +24651,12 @@ def _typecheckingstub__fc305d219c1c57020fd06d5b8c9a1e56a9d9ae2ddec173f88fabf533c
 def _typecheckingstub__c82dff24a9cf557720de153b5c953f130eb89af3120ed1e757aab87c92a99ab9(
     id: builtins.str,
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     scaling_steps: typing.Sequence[typing.Union[ScalingInterval, typing.Dict[builtins.str, typing.Any]]],
     adjustment_type: typing.Optional[AdjustmentType] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     metric_aggregation_type: typing.Optional[MetricAggregationType] = None,
     min_adjustment_magnitude: typing.Optional[jsii.Number] = None,
@@ -24670,9 +24668,9 @@ def _typecheckingstub__fa64424f339e9b024ff03f02d1f1f60d00143928dd8abc50bdc78359f
     id: builtins.str,
     *,
     target_bytes_per_second: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24681,9 +24679,9 @@ def _typecheckingstub__74d0718f9ef1ea98070235f3a793a1107b1717d3c2311148f06384104
     id: builtins.str,
     *,
     target_requests_per_minute: typing.Optional[jsii.Number] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24705,11 +24703,11 @@ def _typecheckingstub__182512f6d585e187d1c3b075cba4994f259ac9adb6292cfbe68f8a735
 def _typecheckingstub__f33bd9b8e9444ed90d36b72abe1a5202d44724242d3828374b2182a8875e400b(
     id: builtins.str,
     *,
-    metric: _IMetric_c7fd29de,
+    metric: _aws_cloudwatch_386c5543.IMetric,
     target_value: jsii.Number,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_scale_in: typing.Optional[builtins.bool] = None,
-    estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    estimated_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24721,7 +24719,7 @@ def _typecheckingstub__92eda90b7be43ba447c6beb437862e7faff830464a764579c99d399d0
     pass
 
 def _typecheckingstub__a7de0231c352aaed28bc53e165922207af33bfe9db50ebeba675b18e0b381d2d(
-    value: typing.Optional[_ApplicationTargetGroup_906fe365],
+    value: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.ApplicationTargetGroup],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24740,8 +24738,8 @@ def _typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e
     az_capacity_distribution_strategy: typing.Optional[CapacityDistributionStrategy] = None,
     block_devices: typing.Optional[typing.Sequence[typing.Union[BlockDevice, typing.Dict[builtins.str, typing.Any]]]] = None,
     capacity_rebalance: typing.Optional[builtins.bool] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    default_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     deletion_protection: typing.Optional[DeletionProtection] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[GroupMetrics]] = None,
@@ -24751,9 +24749,9 @@ def _typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e
     instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
-    key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
+    key_pair: typing.Optional[_aws_ec2_09840e12.IKeyPair] = None,
     max_capacity: typing.Optional[jsii.Number] = None,
-    max_instance_lifetime: typing.Optional[_Duration_4839e8c3] = None,
+    max_instance_lifetime: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     min_capacity: typing.Optional[jsii.Number] = None,
     new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
     notifications: typing.Optional[typing.Sequence[typing.Union[NotificationConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -24763,21 +24761,21 @@ def _typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e
     termination_policies: typing.Optional[typing.Sequence[TerminationPolicy]] = None,
     termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
     update_policy: typing.Optional[UpdatePolicy] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: _IVpc_f30d5663,
-    init: typing.Optional[_CloudFormationInit_2bb1d1b2] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: _aws_ec2_09840e12.IVpc,
+    init: typing.Optional[_aws_ec2_09840e12.CloudFormationInit] = None,
     init_options: typing.Optional[typing.Union[ApplyCloudFormationInitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_type: typing.Optional[_InstanceType_f64915b9] = None,
-    launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
-    machine_image: typing.Optional[_IMachineImage_0e8bd50b] = None,
+    instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
+    launch_template: typing.Optional[_aws_ec2_09840e12.ILaunchTemplate] = None,
+    machine_image: typing.Optional[_aws_ec2_09840e12.IMachineImage] = None,
     max_healthy_percentage: typing.Optional[jsii.Number] = None,
     migrate_to_launch_template: typing.Optional[builtins.bool] = None,
     min_healthy_percentage: typing.Optional[jsii.Number] = None,
     mixed_instances_policy: typing.Optional[typing.Union[MixedInstancesPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     require_imdsv2: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    user_data: typing.Optional[_UserData_b8b32b5e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    user_data: typing.Optional[_aws_ec2_09840e12.UserData] = None,
 ) -> None:
     """Type checking stubs"""
     pass

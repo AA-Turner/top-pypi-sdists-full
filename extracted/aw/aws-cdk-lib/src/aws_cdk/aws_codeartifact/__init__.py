@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,49 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_codeartifact import (
-    DomainReference as _DomainReference_849dc1a8,
-    IDomainRef as _IDomainRef_aef09168,
-    IPackageGroupRef as _IPackageGroupRef_40192e09,
-    IRepositoryRef as _IRepositoryRef_1a1f36b6,
-    PackageGroupReference as _PackageGroupReference_5209cebc,
-    RepositoryReference as _RepositoryReference_9f961dc0,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_codeartifact as _aws_codeartifact_78520058
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codeartifact_78520058 = _LazyImport("aws_cdk.interfaces.aws_codeartifact")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDomainRef_aef09168, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IDomainRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDomain(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeartifact.CfnDomain",
 ):
@@ -122,7 +111,7 @@ class CfnDomain(
         domain_name: builtins.str,
         encryption_key: typing.Optional[builtins.str] = None,
         permissions_policy_document: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeArtifact::Domain``.
 
@@ -134,7 +123,7 @@ class CfnDomain(
         :param tags: A list of tags to be applied to the domain.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fb789fedc85855c1509949f2cf10c2dd0562b804efa5820bf00577753b9d8b7)
+            type_hints = cached_type_hints(_typecheckingstub__1fb789fedc85855c1509949f2cf10c2dd0562b804efa5820bf00577753b9d8b7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(
@@ -148,12 +137,15 @@ class CfnDomain(
 
     @jsii.member(jsii_name="arnForDomain")
     @builtins.classmethod
-    def arn_for_domain(cls, resource: "_IDomainRef_aef09168") -> builtins.str:
+    def arn_for_domain(
+        cls,
+        resource: "_aws_codeartifact_78520058.IDomainRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72f1237a156ab052644fdb8396b68449f4257a2a95ca468b9ccb341bd324035b)
+            type_hints = cached_type_hints(_typecheckingstub__72f1237a156ab052644fdb8396b68449f4257a2a95ca468b9ccb341bd324035b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomain", [resource]))
 
@@ -165,18 +157,18 @@ class CfnDomain(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4134f117c4ec1c32284608b10489eb73838044d48af8fc849c822bb6b4e23b01)
+            type_hints = cached_type_hints(_typecheckingstub__4134f117c4ec1c32284608b10489eb73838044d48af8fc849c822bb6b4e23b01)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46d9fe40fc43e31cea0a6a2e9dfd751eb16b8a46da32d7dccd9603f803712f90)
+            type_hints = cached_type_hints(_typecheckingstub__46d9fe40fc43e31cea0a6a2e9dfd751eb16b8a46da32d7dccd9603f803712f90)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -189,7 +181,7 @@ class CfnDomain(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2a99c05ff9a326ace2300aa6eea08d05c5801006bd439dac683557fc824f972)
+            type_hints = cached_type_hints(_typecheckingstub__a2a99c05ff9a326ace2300aa6eea08d05c5801006bd439dac683557fc824f972)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -247,15 +239,15 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> "_DomainReference_849dc1a8":
+    def domain_ref(self) -> "_aws_codeartifact_78520058.DomainReference":
         '''A reference to a Domain resource.'''
-        return typing.cast("_DomainReference_849dc1a8", jsii.get(self, "domainRef"))
+        return typing.cast("_aws_codeartifact_78520058.DomainReference", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -266,7 +258,7 @@ class CfnDomain(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__020dc2753ebcfeb3fc3126169a639eb6863967fddf54f8990d248b3c17684e90)
+            type_hints = cached_type_hints(_typecheckingstub__020dc2753ebcfeb3fc3126169a639eb6863967fddf54f8990d248b3c17684e90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -279,7 +271,7 @@ class CfnDomain(
     @permissions_policy_document.setter
     def permissions_policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__912eada525b5990b51696702eabe0044019487d7cefa00a70be77c94c889c313)
+            type_hints = cached_type_hints(_typecheckingstub__912eada525b5990b51696702eabe0044019487d7cefa00a70be77c94c889c313)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsPolicyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -292,20 +284,23 @@ class CfnDomain(
     @encryption_key.setter
     def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8)
+            type_hints = cached_type_hints(_typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the domain.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3d141e3a88261a459532756257673073502431714e2b0bae8c140a9b055f07b)
+            type_hints = cached_type_hints(_typecheckingstub__c3d141e3a88261a459532756257673073502431714e2b0bae8c140a9b055f07b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -327,7 +322,7 @@ class CfnDomainProps:
         domain_name: builtins.str,
         encryption_key: typing.Optional[builtins.str] = None,
         permissions_policy_document: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
@@ -361,7 +356,7 @@ class CfnDomainProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed4a67a72fcc7050f3a4ea650fb97fc3375ca5e90727251a483297144826487d)
+            type_hints = cached_type_hints(_typecheckingstub__ed4a67a72fcc7050f3a4ea650fb97fc3375ca5e90727251a483297144826487d)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument permissions_policy_document", value=permissions_policy_document, expected_type=type_hints["permissions_policy_document"])
@@ -405,13 +400,13 @@ class CfnDomainProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-domain.html#cfn-codeartifact-domain-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -425,9 +420,9 @@ class CfnDomainProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPackageGroupRef_40192e09, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IPackageGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPackageGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeartifact.CfnPackageGroup",
 ):
@@ -493,8 +488,8 @@ class CfnPackageGroup(
         contact_info: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_owner: typing.Optional[builtins.str] = None,
-        origin_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.OriginConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        origin_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.OriginConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeArtifact::PackageGroup``.
 
@@ -509,7 +504,7 @@ class CfnPackageGroup(
         :param tags: An array of key-value pairs to apply to the package group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a8aaa0852b2af2f8381bac18421469d96d102aa57d00f002433c862966b5603)
+            type_hints = cached_type_hints(_typecheckingstub__7a8aaa0852b2af2f8381bac18421469d96d102aa57d00f002433c862966b5603)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPackageGroupProps(
@@ -528,13 +523,13 @@ class CfnPackageGroup(
     @builtins.classmethod
     def arn_for_package_group(
         cls,
-        resource: "_IPackageGroupRef_40192e09",
+        resource: "_aws_codeartifact_78520058.IPackageGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9b1858a9aa65807408fe18516f285ca8bde61e9752449299e57cc64a35abaa9)
+            type_hints = cached_type_hints(_typecheckingstub__d9b1858a9aa65807408fe18516f285ca8bde61e9752449299e57cc64a35abaa9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPackageGroup", [resource]))
 
@@ -546,18 +541,18 @@ class CfnPackageGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd4c998aa62f603813e08abd6e8b358bc007f1e9b1b7616b5cdda5b667dcbdb6)
+            type_hints = cached_type_hints(_typecheckingstub__dd4c998aa62f603813e08abd6e8b358bc007f1e9b1b7616b5cdda5b667dcbdb6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackageGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ce81570371704a4089ff9d234920c939ca57e8078fae0ed77580614455f254b)
+            type_hints = cached_type_hints(_typecheckingstub__7ce81570371704a4089ff9d234920c939ca57e8078fae0ed77580614455f254b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -570,7 +565,7 @@ class CfnPackageGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73902d03882d362546bad830a7e307a86e67195728c52e0a2837b7a05804b314)
+            type_hints = cached_type_hints(_typecheckingstub__73902d03882d362546bad830a7e307a86e67195728c52e0a2837b7a05804b314)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -591,9 +586,9 @@ class CfnPackageGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -607,9 +602,9 @@ class CfnPackageGroup(
 
     @builtins.property
     @jsii.member(jsii_name="packageGroupRef")
-    def package_group_ref(self) -> "_PackageGroupReference_5209cebc":
+    def package_group_ref(self) -> "_aws_codeartifact_78520058.PackageGroupReference":
         '''A reference to a PackageGroup resource.'''
-        return typing.cast("_PackageGroupReference_5209cebc", jsii.get(self, "packageGroupRef"))
+        return typing.cast("_aws_codeartifact_78520058.PackageGroupReference", jsii.get(self, "packageGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -620,7 +615,7 @@ class CfnPackageGroup(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa73b50d995f7005fa2ec82631d018ef1849c9ffebef0125fbb6a4ee774b2163)
+            type_hints = cached_type_hints(_typecheckingstub__fa73b50d995f7005fa2ec82631d018ef1849c9ffebef0125fbb6a4ee774b2163)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -633,7 +628,7 @@ class CfnPackageGroup(
     @pattern.setter
     def pattern(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2718281da222f54ccce3c7a3bf6ded0f2b7a3bdcd9d30fbeea35abc3e153fd1)
+            type_hints = cached_type_hints(_typecheckingstub__f2718281da222f54ccce3c7a3bf6ded0f2b7a3bdcd9d30fbeea35abc3e153fd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pattern", value) # pyright: ignore[reportArgumentType]
 
@@ -646,7 +641,7 @@ class CfnPackageGroup(
     @contact_info.setter
     def contact_info(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26fdce972c6efcbdd12712f2d1406046a1aaf63a8d0f3da99813e261e4029f97)
+            type_hints = cached_type_hints(_typecheckingstub__26fdce972c6efcbdd12712f2d1406046a1aaf63a8d0f3da99813e261e4029f97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactInfo", value) # pyright: ignore[reportArgumentType]
 
@@ -659,7 +654,7 @@ class CfnPackageGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b9671c9b67b0351b5842cb8cda895b5db7d8202b0617a306719b29c79b2309d)
+            type_hints = cached_type_hints(_typecheckingstub__3b9671c9b67b0351b5842cb8cda895b5db7d8202b0617a306719b29c79b2309d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -672,7 +667,7 @@ class CfnPackageGroup(
     @domain_owner.setter
     def domain_owner(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15d889231b62e097fa73baf944ef89bab375256fa4ae0bdb93c27049076c51c7)
+            type_hints = cached_type_hints(_typecheckingstub__15d889231b62e097fa73baf944ef89bab375256fa4ae0bdb93c27049076c51c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainOwner", value) # pyright: ignore[reportArgumentType]
 
@@ -680,30 +675,33 @@ class CfnPackageGroup(
     @jsii.member(jsii_name="originConfiguration")
     def origin_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.OriginConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.OriginConfigurationProperty"]]:
         '''Details about the package origin configuration of a package group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.OriginConfigurationProperty"]], jsii.get(self, "originConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.OriginConfigurationProperty"]], jsii.get(self, "originConfiguration"))
 
     @origin_configuration.setter
     def origin_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.OriginConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.OriginConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63bcaafc797c7b557351ce8e1bfa571001310be1e41896261bec63105e81cae6)
+            type_hints = cached_type_hints(_typecheckingstub__63bcaafc797c7b557351ce8e1bfa571001310be1e41896261bec63105e81cae6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "originConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to the package group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e756db6ce537f9d80da313912b16eef0c2a610ee05772d30b4df98a4ddebee96)
+            type_hints = cached_type_hints(_typecheckingstub__e756db6ce537f9d80da313912b16eef0c2a610ee05772d30b4df98a4ddebee96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -716,7 +714,7 @@ class CfnPackageGroup(
         def __init__(
             self,
             *,
-            restrictions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.RestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            restrictions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.RestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param restrictions: 
@@ -754,7 +752,7 @@ class CfnPackageGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__46aa889310dd45252527135dfe1c0e1137811a871c8d0978ef0c8c7dcf8636fa)
+                type_hints = cached_type_hints(_typecheckingstub__46aa889310dd45252527135dfe1c0e1137811a871c8d0978ef0c8c7dcf8636fa)
                 check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "restrictions": restrictions,
@@ -763,13 +761,13 @@ class CfnPackageGroup(
         @builtins.property
         def restrictions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-packagegroup-originconfiguration.html#cfn-codeartifact-packagegroup-originconfiguration-restrictions
             '''
             result = self._values.get("restrictions")
             assert result is not None, "Required property 'restrictions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -818,7 +816,7 @@ class CfnPackageGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b33f9d054f35f5ec68410c8313f2ffd1872a95e319e44f40a0c6992c3455211a)
+                type_hints = cached_type_hints(_typecheckingstub__b33f9d054f35f5ec68410c8313f2ffd1872a95e319e44f40a0c6992c3455211a)
                 check_type(argname="argument restriction_mode", value=restriction_mode, expected_type=type_hints["restriction_mode"])
                 check_type(argname="argument repositories", value=repositories, expected_type=type_hints["repositories"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -868,9 +866,9 @@ class CfnPackageGroup(
         def __init__(
             self,
             *,
-            external_upstream: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            internal_upstream: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            publish: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            external_upstream: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            internal_upstream: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            publish: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.RestrictionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param external_upstream: 
@@ -908,7 +906,7 @@ class CfnPackageGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c52406159408ff95f368a7de422beb3ef5a838a22e051fd0602f67aab0b1299d)
+                type_hints = cached_type_hints(_typecheckingstub__c52406159408ff95f368a7de422beb3ef5a838a22e051fd0602f67aab0b1299d)
                 check_type(argname="argument external_upstream", value=external_upstream, expected_type=type_hints["external_upstream"])
                 check_type(argname="argument internal_upstream", value=internal_upstream, expected_type=type_hints["internal_upstream"])
                 check_type(argname="argument publish", value=publish, expected_type=type_hints["publish"])
@@ -923,32 +921,32 @@ class CfnPackageGroup(
         @builtins.property
         def external_upstream(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-packagegroup-restrictions.html#cfn-codeartifact-packagegroup-restrictions-externalupstream
             '''
             result = self._values.get("external_upstream")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]], result)
 
         @builtins.property
         def internal_upstream(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-packagegroup-restrictions.html#cfn-codeartifact-packagegroup-restrictions-internalupstream
             '''
             result = self._values.get("internal_upstream")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]], result)
 
         @builtins.property
         def publish(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-packagegroup-restrictions.html#cfn-codeartifact-packagegroup-restrictions-publish
             '''
             result = self._values.get("publish")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.RestrictionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.RestrictionTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -984,8 +982,8 @@ class CfnPackageGroupProps:
         contact_info: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_owner: typing.Optional[builtins.str] = None,
-        origin_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackageGroup.OriginConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        origin_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackageGroup.OriginConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPackageGroup``.
 
@@ -1044,7 +1042,7 @@ class CfnPackageGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25201ca742777c6bda1acf009c5a015a6a51866eef1a9bc32a2ebf1a5352ecf3)
+            type_hints = cached_type_hints(_typecheckingstub__25201ca742777c6bda1acf009c5a015a6a51866eef1a9bc32a2ebf1a5352ecf3)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             check_type(argname="argument contact_info", value=contact_info, expected_type=type_hints["contact_info"])
@@ -1121,22 +1119,22 @@ class CfnPackageGroupProps:
     @builtins.property
     def origin_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.OriginConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.OriginConfigurationProperty"]]:
         '''Details about the package origin configuration of a package group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-packagegroup.html#cfn-codeartifact-packagegroup-originconfiguration
         '''
         result = self._values.get("origin_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackageGroup.OriginConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackageGroup.OriginConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to the package group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-packagegroup.html#cfn-codeartifact-packagegroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1150,9 +1148,9 @@ class CfnPackageGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRepositoryRef_1a1f36b6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IRepositoryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRepository(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeartifact.CfnRepository",
 ):
@@ -1201,7 +1199,7 @@ class CfnRepository(
         domain_owner: typing.Optional[builtins.str] = None,
         external_connections: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions_policy_document: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         upstreams: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeArtifact::Repository``.
@@ -1218,7 +1216,7 @@ class CfnRepository(
         :param upstreams: A list of upstream repositories to associate with the repository. The order of the upstream repositories in the list determines their priority order when AWS CodeArtifact looks for a requested package version. For more information, see `Working with upstream repositories <https://docs.aws.amazon.com/codeartifact/latest/ug/repos-upstream.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4fb8e90c9d866f1bfe7bd9bf2e46e1f97b3f66247b8086423fecb6029b669e4)
+            type_hints = cached_type_hints(_typecheckingstub__f4fb8e90c9d866f1bfe7bd9bf2e46e1f97b3f66247b8086423fecb6029b669e4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRepositoryProps(
@@ -1236,12 +1234,15 @@ class CfnRepository(
 
     @jsii.member(jsii_name="arnForRepository")
     @builtins.classmethod
-    def arn_for_repository(cls, resource: "_IRepositoryRef_1a1f36b6") -> builtins.str:
+    def arn_for_repository(
+        cls,
+        resource: "_aws_codeartifact_78520058.IRepositoryRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e1b7189270c68cac17aab3b7dc4952b1c5749131e4bad2fb6819d2c0c98a3b4)
+            type_hints = cached_type_hints(_typecheckingstub__3e1b7189270c68cac17aab3b7dc4952b1c5749131e4bad2fb6819d2c0c98a3b4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRepository", [resource]))
 
@@ -1253,18 +1254,18 @@ class CfnRepository(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__693de9cac53fe99c12995645e71ade33cc6eff7d5174f91c36d2e6a191562fd2)
+            type_hints = cached_type_hints(_typecheckingstub__693de9cac53fe99c12995645e71ade33cc6eff7d5174f91c36d2e6a191562fd2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRepository", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14419efb740b55005573cc7f534a273bf2f02fe55f2b8b0a1a7c3e547e53cf17)
+            type_hints = cached_type_hints(_typecheckingstub__14419efb740b55005573cc7f534a273bf2f02fe55f2b8b0a1a7c3e547e53cf17)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1277,7 +1278,7 @@ class CfnRepository(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dea27ea8112a8554ed16a2ab68f5975c90735183eed4a308f91074201e1d3a11)
+            type_hints = cached_type_hints(_typecheckingstub__dea27ea8112a8554ed16a2ab68f5975c90735183eed4a308f91074201e1d3a11)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1335,15 +1336,15 @@ class CfnRepository(
 
     @builtins.property
     @jsii.member(jsii_name="repositoryRef")
-    def repository_ref(self) -> "_RepositoryReference_9f961dc0":
+    def repository_ref(self) -> "_aws_codeartifact_78520058.RepositoryReference":
         '''A reference to a Repository resource.'''
-        return typing.cast("_RepositoryReference_9f961dc0", jsii.get(self, "repositoryRef"))
+        return typing.cast("_aws_codeartifact_78520058.RepositoryReference", jsii.get(self, "repositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -1354,7 +1355,7 @@ class CfnRepository(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00ba74acfa0c33c4fae675e1b25d2be0f71988064b24926c12199963df7fc78e)
+            type_hints = cached_type_hints(_typecheckingstub__00ba74acfa0c33c4fae675e1b25d2be0f71988064b24926c12199963df7fc78e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -1367,7 +1368,7 @@ class CfnRepository(
     @permissions_policy_document.setter
     def permissions_policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab)
+            type_hints = cached_type_hints(_typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsPolicyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -1380,7 +1381,7 @@ class CfnRepository(
     @repository_name.setter
     def repository_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a83fb63b6e2c7629433d470d902d70a3909aadfa55f55d4269da462d63250ad9)
+            type_hints = cached_type_hints(_typecheckingstub__a83fb63b6e2c7629433d470d902d70a3909aadfa55f55d4269da462d63250ad9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
@@ -1393,7 +1394,7 @@ class CfnRepository(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7c0e7def7c7bbb9ff13c896e62e115981ffb1f862a86a71803aae85f136b05f)
+            type_hints = cached_type_hints(_typecheckingstub__f7c0e7def7c7bbb9ff13c896e62e115981ffb1f862a86a71803aae85f136b05f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1406,7 +1407,7 @@ class CfnRepository(
     @domain_owner.setter
     def domain_owner(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d28afb901607f9ab6b3fe057b5807de7e3feeb54a77c448871ba10210b88ca6)
+            type_hints = cached_type_hints(_typecheckingstub__0d28afb901607f9ab6b3fe057b5807de7e3feeb54a77c448871ba10210b88ca6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainOwner", value) # pyright: ignore[reportArgumentType]
 
@@ -1422,20 +1423,23 @@ class CfnRepository(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b57d3ca6e53363d4e96e0ea3b4abadc4b325c54502d845d394fe93954e1440d9)
+            type_hints = cached_type_hints(_typecheckingstub__b57d3ca6e53363d4e96e0ea3b4abadc4b325c54502d845d394fe93954e1440d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "externalConnections", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the repository.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de95686b67ad4abe694cdd668a988205994b9ad92dcd587a4ebff7a0ceac3e74)
+            type_hints = cached_type_hints(_typecheckingstub__de95686b67ad4abe694cdd668a988205994b9ad92dcd587a4ebff7a0ceac3e74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1448,7 +1452,7 @@ class CfnRepository(
     @upstreams.setter
     def upstreams(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea3cff06cb396a8c85d4d848e533286b31b4698444335eba208a18cfa179936b)
+            type_hints = cached_type_hints(_typecheckingstub__ea3cff06cb396a8c85d4d848e533286b31b4698444335eba208a18cfa179936b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "upstreams", value) # pyright: ignore[reportArgumentType]
 
@@ -1477,7 +1481,7 @@ class CfnRepositoryProps:
         domain_owner: typing.Optional[builtins.str] = None,
         external_connections: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions_policy_document: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         upstreams: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepository``.
@@ -1520,7 +1524,7 @@ class CfnRepositoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f500688c503a5f634dfec2094e49169b45632084082b87918656c86e67748c46)
+            type_hints = cached_type_hints(_typecheckingstub__f500688c503a5f634dfec2094e49169b45632084082b87918656c86e67748c46)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1607,13 +1611,13 @@ class CfnRepositoryProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to be applied to the repository.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-repository.html#cfn-codeartifact-repository-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def upstreams(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1656,13 +1660,13 @@ def _typecheckingstub__1fb789fedc85855c1509949f2cf10c2dd0562b804efa5820bf0057775
     domain_name: builtins.str,
     encryption_key: typing.Optional[builtins.str] = None,
     permissions_policy_document: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__72f1237a156ab052644fdb8396b68449f4257a2a95ca468b9ccb341bd324035b(
-    resource: _IDomainRef_aef09168,
+    resource: _aws_codeartifact_78520058.IDomainRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1674,7 +1678,7 @@ def _typecheckingstub__4134f117c4ec1c32284608b10489eb73838044d48af8fc849c822bb6b
     pass
 
 def _typecheckingstub__46d9fe40fc43e31cea0a6a2e9dfd751eb16b8a46da32d7dccd9603f803712f90(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1704,7 +1708,7 @@ def _typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b8711
     pass
 
 def _typecheckingstub__c3d141e3a88261a459532756257673073502431714e2b0bae8c140a9b055f07b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1714,7 +1718,7 @@ def _typecheckingstub__ed4a67a72fcc7050f3a4ea650fb97fc3375ca5e90727251a483297144
     domain_name: builtins.str,
     encryption_key: typing.Optional[builtins.str] = None,
     permissions_policy_document: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1728,14 +1732,14 @@ def _typecheckingstub__7a8aaa0852b2af2f8381bac18421469d96d102aa57d00f002433c8629
     contact_info: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_owner: typing.Optional[builtins.str] = None,
-    origin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.OriginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    origin_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.OriginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d9b1858a9aa65807408fe18516f285ca8bde61e9752449299e57cc64a35abaa9(
-    resource: _IPackageGroupRef_40192e09,
+    resource: _aws_codeartifact_78520058.IPackageGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1747,7 +1751,7 @@ def _typecheckingstub__dd4c998aa62f603813e08abd6e8b358bc007f1e9b1b7616b5cdda5b66
     pass
 
 def _typecheckingstub__7ce81570371704a4089ff9d234920c939ca57e8078fae0ed77580614455f254b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1789,20 +1793,20 @@ def _typecheckingstub__15d889231b62e097fa73baf944ef89bab375256fa4ae0bdb93c270490
     pass
 
 def _typecheckingstub__63bcaafc797c7b557351ce8e1bfa571001310be1e41896261bec63105e81cae6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPackageGroup.OriginConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPackageGroup.OriginConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e756db6ce537f9d80da313912b16eef0c2a610ee05772d30b4df98a4ddebee96(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__46aa889310dd45252527135dfe1c0e1137811a871c8d0978ef0c8c7dcf8636fa(
     *,
-    restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.RestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    restrictions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.RestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1817,9 +1821,9 @@ def _typecheckingstub__b33f9d054f35f5ec68410c8313f2ffd1872a95e319e44f40a0c6992c3
 
 def _typecheckingstub__c52406159408ff95f368a7de422beb3ef5a838a22e051fd0602f67aab0b1299d(
     *,
-    external_upstream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    internal_upstream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publish: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    external_upstream: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    internal_upstream: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publish: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.RestrictionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1831,8 +1835,8 @@ def _typecheckingstub__25201ca742777c6bda1acf009c5a015a6a51866eef1a9bc32a2ebf1a5
     contact_info: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_owner: typing.Optional[builtins.str] = None,
-    origin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackageGroup.OriginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    origin_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.OriginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1847,14 +1851,14 @@ def _typecheckingstub__f4fb8e90c9d866f1bfe7bd9bf2e46e1f97b3f66247b8086423fecb602
     domain_owner: typing.Optional[builtins.str] = None,
     external_connections: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions_policy_document: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     upstreams: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3e1b7189270c68cac17aab3b7dc4952b1c5749131e4bad2fb6819d2c0c98a3b4(
-    resource: _IRepositoryRef_1a1f36b6,
+    resource: _aws_codeartifact_78520058.IRepositoryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1866,7 +1870,7 @@ def _typecheckingstub__693de9cac53fe99c12995645e71ade33cc6eff7d5174f91c36d2e6a19
     pass
 
 def _typecheckingstub__14419efb740b55005573cc7f534a273bf2f02fe55f2b8b0a1a7c3e547e53cf17(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1914,7 +1918,7 @@ def _typecheckingstub__b57d3ca6e53363d4e96e0ea3b4abadc4b325c54502d845d394fe93954
     pass
 
 def _typecheckingstub__de95686b67ad4abe694cdd668a988205994b9ad92dcd587a4ebff7a0ceac3e74(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1933,7 +1937,7 @@ def _typecheckingstub__f500688c503a5f634dfec2094e49169b45632084082b87918656c86e6
     domain_owner: typing.Optional[builtins.str] = None,
     external_connections: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions_policy_document: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     upstreams: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

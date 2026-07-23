@@ -6,7 +6,6 @@ Supports both REAL and COMPLEX fields via `isComplexSMatrix` flag.
 Supports both CPU (NumPy) and GPU (CuPy/CUDA) implementations.
 """
 
-import warnings
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union
@@ -108,8 +107,6 @@ class SMatrix_DENSE(SMatrix):
                 field = self.experiment.AcousticFields[n].field
                 for t in range(self.T):
                     self.dense_matrix[t, n] = field[t].astype(dtype)
-
-        self.compute_norm_factor()
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """
@@ -236,7 +233,7 @@ class SMatrix_DENSE(SMatrix):
                         gpu_mem.free()
                     del gpu_mem
                 except Exception as e:
-                    warnings.warn(f"[AOT-biomaps] Error freeing {attr}: {e}")
+                    print(f"[AOT-biomaps] Warning: Error freeing {attr}: {e}")
 
         if CUPY_AVAILABLE:
             cp._default_memory_pool.free_all_blocks()
@@ -270,10 +267,39 @@ class SMatrix_DENSE(SMatrix):
             if max_val > 0:
                 self.dense_matrix /= max_val
         else:
-            warnings.warn("[AOT-biomaps] DENSE Matrix not allocated, normalization impossible.")
+            print(f"[AOT-biomaps] Warning: DENSE Matrix not allocated, normalization impossible.")
             return
-
+        self.normalization_factor = max_val
+        
         print(f"[AOT-biomaps] DENSE Matrix normalized (Original absolute max: {max_val:.2e})")
         
         # Critical update of the normalization factors (preconditioners)
         self.compute_norm_factor()
+    
+    def compute_absolute_row_col_sums(self):
+        """
+        Computes row and column sums of absolute values (|A| * 1 and |A|^T * 1) 
+        without phase cancellation for complex matrices in DENSE format.
+        """
+        is_gpu = check_gpu_available(self) and self.dense_matrix_gpu is not None
+        
+        if is_gpu:
+            abs_dense = cp.abs(self.dense_matrix_gpu)
+            # Layout shape is (T, N, Z, X). Reshape to (N * T, Z * X)
+            abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(int(self.N * self.T), int(self.Z * self.X))
+            
+            row_sums = cp.sum(abs_2d, axis=1)
+            col_sums = cp.sum(abs_2d, axis=0)
+            
+            return row_sums, col_sums
+        else:
+            if self.dense_matrix is None:
+                raise RuntimeError("[AOT-biomaps] DENSE matrix not allocated on CPU.")
+            
+            abs_dense = np.abs(self.dense_matrix)
+            abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(int(self.N * self.T), int(self.Z * self.X))
+            
+            row_sums = np.sum(abs_2d, axis=1).astype(np.float32)
+            col_sums = np.sum(abs_2d, axis=0).astype(np.float32)
+            
+            return row_sums, col_sums

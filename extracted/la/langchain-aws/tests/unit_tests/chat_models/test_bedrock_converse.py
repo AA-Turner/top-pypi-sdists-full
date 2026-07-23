@@ -2,6 +2,7 @@
 
 import base64
 import json
+import logging
 import os
 import warnings
 from typing import (
@@ -228,14 +229,14 @@ def test_anthropic_adaptive_thinking_bind_tools_tool_choice(
     assert cast(RunnableBinding, chat_model_with_tools).kwargs["tool_choice"] == {
         "auto": {}
     }
-    with pytest.raises(ValueError):
-        chat_model.bind_tools([GetWeather], tool_choice="any")
-    with pytest.raises(ValueError):
-        chat_model.bind_tools([GetWeather], tool_choice="GetWeather")
-    with pytest.raises(ValueError):
-        chat_model.bind_tools(
-            [GetWeather], tool_choice={"tool": {"name": "GetWeather"}}
-        )
+    for tool_choice in ("any", "GetWeather", {"tool": {"name": "GetWeather"}}):
+        with pytest.warns(UserWarning, match="Downgrading to tool_choice='auto'"):
+            chat_model_with_tools = chat_model.bind_tools(
+                [GetWeather], tool_choice=tool_choice
+            )
+        assert cast(RunnableBinding, chat_model_with_tools).kwargs["tool_choice"] == {
+            "auto": {}
+        }
 
 
 @pytest.mark.parametrize(
@@ -817,6 +818,30 @@ def test_set_disable_streaming(
 ) -> None:
     llm = ChatBedrockConverse(model=model_id, region_name="us-west-2")
     assert llm.disable_streaming == disable_streaming
+
+
+@pytest.mark.parametrize(
+    "model_id, model_kwargs, expect_warning",
+    [
+        ("us.amazon.nonstreaming-model-v1:0", {}, True),
+        ("us.anthropic.claude-sonnet-5", {}, False),
+        ("us.amazon.nonstreaming-model-v1:0", {"disable_streaming": False}, False),
+    ],
+)
+def test_set_disable_streaming_warning(
+    model_id: str,
+    model_kwargs: dict,
+    expect_warning: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="langchain_aws"):
+        ChatBedrockConverse(model=model_id, region_name="us-west-2", **model_kwargs)
+    warnings_emitted = [
+        r
+        for r in caplog.records
+        if "Streaming disabled" in r.message and "disable_streaming=False" in r.message
+    ]
+    assert bool(warnings_emitted) == expect_warning
 
 
 def test_streaming_init_param() -> None:
@@ -2012,6 +2037,88 @@ def test__lc_content_to_bedrock_reasoning_content_signature() -> None:
     assert expected_system == actual_system
 
 
+def test__lc_content_to_bedrock_search_result() -> None:
+    content: list[str | dict[str, Any]] = [
+        {
+            "type": "search_result",
+            "source": "https://wiki.example.com/policy",
+            "title": "Vacation Policy",
+            "content": [
+                {"type": "text", "text": "Annual leave is 15 days."},
+                {"type": "text", "text": "Carryover is capped at 5 days."},
+            ],
+            "citations": {"enabled": True},
+        }
+    ]
+
+    bedrock_content = _lc_content_to_bedrock(content)
+
+    assert bedrock_content == [
+        {
+            "searchResult": {
+                "source": "https://wiki.example.com/policy",
+                "title": "Vacation Policy",
+                "content": [
+                    {"text": "Annual leave is 15 days."},
+                    {"text": "Carryover is capped at 5 days."},
+                ],
+                "citations": {"enabled": True},
+            }
+        }
+    ]
+
+
+def test__messages_to_bedrock_search_result_in_tool_message() -> None:
+    messages = [
+        HumanMessage("What is the vacation policy?"),
+        AIMessage("", tool_calls=[{"name": "retrieval", "args": {}, "id": "c1"}]),
+        ToolMessage(
+            content=[
+                {
+                    "type": "search_result",
+                    "source": "https://wiki.example.com/policy",
+                    "title": "Vacation Policy",
+                    "content": [{"type": "text", "text": "Annual leave is 15 days."}],
+                    "citations": {"enabled": True},
+                }
+            ],
+            tool_call_id="c1",
+        ),
+    ]
+
+    bedrock_messages, _ = _messages_to_bedrock(messages)
+
+    tool_result = bedrock_messages[-1]["content"][0]["toolResult"]
+    assert tool_result["toolUseId"] == "c1"
+    assert tool_result["content"] == [
+        {
+            "searchResult": {
+                "source": "https://wiki.example.com/policy",
+                "title": "Vacation Policy",
+                "content": [{"text": "Annual leave is 15 days."}],
+                "citations": {"enabled": True},
+            }
+        }
+    ]
+
+
+def test__lc_content_to_bedrock_search_result_rejects_non_text() -> None:
+    content: list[str | dict[str, Any]] = [
+        {
+            "type": "search_result",
+            "source": "kb://doc-1",
+            "title": "Doc",
+            "content": [
+                {"type": "text", "text": "ok"},
+                {"type": "image", "source": {"mediaType": "image/png", "data": ""}},
+            ],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="must be text blocks"):
+        _lc_content_to_bedrock(content)
+
+
 def test__lc_content_to_bedrock_reasoning_content_snake_case() -> None:
     """Test that reasoning_content blocks with snake case are
     handled correctly.
@@ -2305,6 +2412,16 @@ def test__get_provider() -> None:
     )
 
     assert llm.provider == "anthropic"
+
+    llm = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-5", region_name="us-west-2"
+    )
+
+    assert llm.provider == "anthropic"
+
+    llm = ChatBedrockConverse(model="us.openai.gpt-5.6-sol", region_name="us-west-2")
+
+    assert llm.provider == "openai"
 
     llm = ChatBedrockConverse(
         model="arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
@@ -3002,6 +3119,7 @@ def test_configure_streaming_for_resolved_model_no_tools(
 @mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
 def test_configure_streaming_for_resolved_model_no_streaming(
     mock_create_client: mock.Mock,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test _configure_streaming_for_resolved_model method with no streaming support."""
     mock_bedrock_client = mock.Mock()
@@ -3028,14 +3146,20 @@ def test_configure_streaming_for_resolved_model_no_streaming(
 
     mock_create_client.side_effect = side_effect
 
-    chat_model = ChatBedrockConverse(
-        model="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/test-profile",
-        region_name="us-west-2",
-        provider="stability",
-    )
+    with caplog.at_level(logging.WARNING, logger="langchain_aws"):
+        chat_model = ChatBedrockConverse(
+            model="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/test-profile",
+            region_name="us-west-2",
+            provider="stability",
+        )
 
     # The streaming should be disabled for models with no streaming support
     assert chat_model.disable_streaming is True
+
+    # Also check that the no-streaming warning uses the base model, not the raw AIP ARN
+    warnings_emitted = [r for r in caplog.records if "Streaming disabled" in r.message]
+    assert len(warnings_emitted) == 1
+    assert "stability.stable-image-core-v1:0" in warnings_emitted[0].message
 
 
 def test_nova_provider_extraction() -> None:

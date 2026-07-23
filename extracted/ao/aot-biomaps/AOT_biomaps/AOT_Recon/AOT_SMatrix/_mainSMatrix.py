@@ -229,3 +229,13 @@ class SMatrix(ABC):
         Normalize the matrix by its maximum absolute value.
         """
         pass
+    
+    @abstractmethod
+    def compute_absolute_row_col_sums(self):
+        """
+        Compute the absolute row and column sums of the matrix.
+        Returns:
+            row_sums: 1D array of size (N*T,) containing the sum of absolute values for each row.
+            col_sums: 1D array of size (Z*X,) containing the sum of absolute values for each column.
+        """
+        pass

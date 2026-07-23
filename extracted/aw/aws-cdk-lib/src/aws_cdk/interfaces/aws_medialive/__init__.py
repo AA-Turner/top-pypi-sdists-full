@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class ChannelPlacementGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2594b5679b696601793eabfd9a92b876df7ce2e10561dab10dc2df738a901103)
+            type_hints = cached_type_hints(_typecheckingstub__2594b5679b696601793eabfd9a92b876df7ce2e10561dab10dc2df738a901103)
             check_type(argname="argument channel_placement_group_arn", value=channel_placement_group_arn, expected_type=type_hints["channel_placement_group_arn"])
             check_type(argname="argument channel_placement_group_id", value=channel_placement_group_id, expected_type=type_hints["channel_placement_group_id"])
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
@@ -141,7 +145,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3424c9ee02b610e364190527124edc268cdd6c9efaa9da647a18f8aadb89b182)
+            type_hints = cached_type_hints(_typecheckingstub__3424c9ee02b610e364190527124edc268cdd6c9efaa9da647a18f8aadb89b182)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -209,7 +213,7 @@ class CloudWatchAlarmTemplateGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2237a7176b9f7f8fece68e5e003c85f152fb677bf9a604533f5352200070295d)
+            type_hints = cached_type_hints(_typecheckingstub__2237a7176b9f7f8fece68e5e003c85f152fb677bf9a604533f5352200070295d)
             check_type(argname="argument cloud_watch_alarm_template_group_arn", value=cloud_watch_alarm_template_group_arn, expected_type=type_hints["cloud_watch_alarm_template_group_arn"])
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -277,7 +281,7 @@ class CloudWatchAlarmTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0e6e463bc22e2a0a7e51c0c5d7f822d7b6d34e1671b47ff9d1c0a484d8af701)
+            type_hints = cached_type_hints(_typecheckingstub__e0e6e463bc22e2a0a7e51c0c5d7f822d7b6d34e1671b47ff9d1c0a484d8af701)
             check_type(argname="argument cloud_watch_alarm_template_arn", value=cloud_watch_alarm_template_arn, expected_type=type_hints["cloud_watch_alarm_template_arn"])
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -337,7 +341,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea04f54c56889a507377738279e129f40a6ec5128a64229bc7e18bc36df2bb0e)
+            type_hints = cached_type_hints(_typecheckingstub__ea04f54c56889a507377738279e129f40a6ec5128a64229bc7e18bc36df2bb0e)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -405,7 +409,7 @@ class EventBridgeRuleTemplateGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d44b8b3e7eb345036043cd9e7fcf1dd0d1b52371d7cdd71e6c635e44a0f1cdf)
+            type_hints = cached_type_hints(_typecheckingstub__4d44b8b3e7eb345036043cd9e7fcf1dd0d1b52371d7cdd71e6c635e44a0f1cdf)
             check_type(argname="argument event_bridge_rule_template_group_arn", value=event_bridge_rule_template_group_arn, expected_type=type_hints["event_bridge_rule_template_group_arn"])
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -473,7 +477,7 @@ class EventBridgeRuleTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a411db26e5fd25aebb1257aec9f28a79a2215ef5c86d4a423fd6ce7007ae088a)
+            type_hints = cached_type_hints(_typecheckingstub__a411db26e5fd25aebb1257aec9f28a79a2215ef5c86d4a423fd6ce7007ae088a)
             check_type(argname="argument event_bridge_rule_template_arn", value=event_bridge_rule_template_arn, expected_type=type_hints["event_bridge_rule_template_arn"])
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -512,7 +516,7 @@ class EventBridgeRuleTemplateReference:
 )
 class IChannelPlacementGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelPlacementGroup.
@@ -532,7 +536,7 @@ class IChannelPlacementGroupRef(
 
 class _IChannelPlacementGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelPlacementGroup.
 
@@ -557,7 +561,7 @@ typing.cast(typing.Any, IChannelPlacementGroupRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -577,7 +581,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -604,7 +608,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 )
 class ICloudWatchAlarmTemplateGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplateGroup.
@@ -626,7 +630,7 @@ class ICloudWatchAlarmTemplateGroupRef(
 
 class _ICloudWatchAlarmTemplateGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplateGroup.
 
@@ -655,7 +659,7 @@ typing.cast(typing.Any, ICloudWatchAlarmTemplateGroupRef).__jsii_proxy_class__ =
 )
 class ICloudWatchAlarmTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplate.
@@ -675,7 +679,7 @@ class ICloudWatchAlarmTemplateRef(
 
 class _ICloudWatchAlarmTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplate.
 
@@ -700,7 +704,7 @@ typing.cast(typing.Any, ICloudWatchAlarmTemplateRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -720,7 +724,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -747,7 +751,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 )
 class IEventBridgeRuleTemplateGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplateGroup.
@@ -769,7 +773,7 @@ class IEventBridgeRuleTemplateGroupRef(
 
 class _IEventBridgeRuleTemplateGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplateGroup.
 
@@ -798,7 +802,7 @@ typing.cast(typing.Any, IEventBridgeRuleTemplateGroupRef).__jsii_proxy_class__ =
 )
 class IEventBridgeRuleTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplate.
@@ -818,7 +822,7 @@ class IEventBridgeRuleTemplateRef(
 
 class _IEventBridgeRuleTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplate.
 
@@ -843,7 +847,7 @@ typing.cast(typing.Any, IEventBridgeRuleTemplateRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IInputRef")
 class IInputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Input.
@@ -863,7 +867,7 @@ class IInputRef(
 
 class _IInputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Input.
 
@@ -890,7 +894,7 @@ typing.cast(typing.Any, IInputRef).__jsii_proxy_class__ = lambda : _IInputRefPro
 )
 class IInputSecurityGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InputSecurityGroup.
@@ -910,7 +914,7 @@ class IInputSecurityGroupRef(
 
 class _IInputSecurityGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InputSecurityGroup.
 
@@ -935,7 +939,7 @@ typing.cast(typing.Any, IInputSecurityGroupRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IMultiplexRef")
 class IMultiplexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Multiplex.
@@ -955,7 +959,7 @@ class IMultiplexRef(
 
 class _IMultiplexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Multiplex.
 
@@ -980,7 +984,7 @@ typing.cast(typing.Any, IMultiplexRef).__jsii_proxy_class__ = lambda : _IMultipl
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IMultiplexprogramRef")
 class IMultiplexprogramRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Multiplexprogram.
@@ -1000,7 +1004,7 @@ class IMultiplexprogramRef(
 
 class _IMultiplexprogramRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Multiplexprogram.
 
@@ -1025,7 +1029,7 @@ typing.cast(typing.Any, IMultiplexprogramRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.INetworkRef")
 class INetworkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Network.
@@ -1045,7 +1049,7 @@ class INetworkRef(
 
 class _INetworkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Network.
 
@@ -1067,10 +1071,55 @@ class _INetworkRefProxy(
 typing.cast(typing.Any, INetworkRef).__jsii_proxy_class__ = lambda : _INetworkRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.INodeRef")
+class INodeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Node.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeRef")
+    def node_ref(self) -> "NodeReference":
+        '''(experimental) A reference to a Node resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INodeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Node.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_medialive.INodeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeRef")
+    def node_ref(self) -> "NodeReference":
+        '''(experimental) A reference to a Node resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NodeReference", jsii.get(self, "nodeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INodeRef).__jsii_proxy_class__ = lambda : _INodeRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.ISdiSourceRef")
 class ISdiSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SdiSource.
@@ -1090,7 +1139,7 @@ class ISdiSourceRef(
 
 class _ISdiSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SdiSource.
 
@@ -1115,7 +1164,7 @@ typing.cast(typing.Any, ISdiSourceRef).__jsii_proxy_class__ = lambda : _ISdiSour
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.ISignalMapRef")
 class ISignalMapRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SignalMap.
@@ -1135,7 +1184,7 @@ class ISignalMapRef(
 
 class _ISignalMapRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SignalMap.
 
@@ -1183,7 +1232,7 @@ class InputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0420ad5d30bc8a7593b1aae5d5e3cfa6012530ba66b985625a2cfdefb9868319)
+            type_hints = cached_type_hints(_typecheckingstub__0420ad5d30bc8a7593b1aae5d5e3cfa6012530ba66b985625a2cfdefb9868319)
             check_type(argname="argument input_arn", value=input_arn, expected_type=type_hints["input_arn"])
             check_type(argname="argument input_id", value=input_id, expected_type=type_hints["input_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1251,7 +1300,7 @@ class InputSecurityGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfbe88aef6243ace17125340ec34385482c350fc3764bb70d213586419bb55fd)
+            type_hints = cached_type_hints(_typecheckingstub__dfbe88aef6243ace17125340ec34385482c350fc3764bb70d213586419bb55fd)
             check_type(argname="argument input_security_group_arn", value=input_security_group_arn, expected_type=type_hints["input_security_group_arn"])
             check_type(argname="argument input_security_group_id", value=input_security_group_id, expected_type=type_hints["input_security_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1316,7 +1365,7 @@ class MultiplexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f2c089e4eff55785f2b294bd33efb3d92e81ea7d1b30f5308cc5d4a8950524d)
+            type_hints = cached_type_hints(_typecheckingstub__8f2c089e4eff55785f2b294bd33efb3d92e81ea7d1b30f5308cc5d4a8950524d)
             check_type(argname="argument multiplex_arn", value=multiplex_arn, expected_type=type_hints["multiplex_arn"])
             check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1381,7 +1430,7 @@ class MultiplexprogramReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcaa0c6f668b17a435397d563e8885f40fe151588d065268e06d594f2ee1c18f)
+            type_hints = cached_type_hints(_typecheckingstub__fcaa0c6f668b17a435397d563e8885f40fe151588d065268e06d594f2ee1c18f)
             check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
             check_type(argname="argument program_name", value=program_name, expected_type=type_hints["program_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1441,7 +1490,7 @@ class NetworkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf8824f54434f31b2fdbb5c0467b07d8f1dab750d26e38b7b446af20b711745)
+            type_hints = cached_type_hints(_typecheckingstub__2bf8824f54434f31b2fdbb5c0467b07d8f1dab750d26e38b7b446af20b711745)
             check_type(argname="argument network_arn", value=network_arn, expected_type=type_hints["network_arn"])
             check_type(argname="argument network_id", value=network_id, expected_type=type_hints["network_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1471,6 +1520,55 @@ class NetworkReference:
 
     def __repr__(self) -> str:
         return "NetworkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_medialive.NodeReference",
+    jsii_struct_bases=[],
+    name_mapping={"node_arn": "nodeArn"},
+)
+class NodeReference:
+    def __init__(self, *, node_arn: builtins.str) -> None:
+        '''A reference to a Node resource.
+
+        :param node_arn: The Arn of the Node resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_medialive as interfaces_medialive
+            
+            node_reference = interfaces_medialive.NodeReference(
+                node_arn="nodeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d18d86aae940476ad5c80c1453221ac5e6de9038bc060dc7a9be4a9f15fd77dd)
+            check_type(argname="argument node_arn", value=node_arn, expected_type=type_hints["node_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "node_arn": node_arn,
+        }
+
+    @builtins.property
+    def node_arn(self) -> builtins.str:
+        '''The Arn of the Node resource.'''
+        result = self._values.get("node_arn")
+        assert result is not None, "Required property 'node_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1506,7 +1604,7 @@ class SdiSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f600af46c39ab21e65823f674665253250ef9cc92b937fb0aaf7db85de0951f8)
+            type_hints = cached_type_hints(_typecheckingstub__f600af46c39ab21e65823f674665253250ef9cc92b937fb0aaf7db85de0951f8)
             check_type(argname="argument sdi_source_arn", value=sdi_source_arn, expected_type=type_hints["sdi_source_arn"])
             check_type(argname="argument sdi_source_id", value=sdi_source_id, expected_type=type_hints["sdi_source_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1571,7 +1669,7 @@ class SignalMapReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c643daeb09c2839c551125ac2e17246f1f3168fd4c3d255cb37734413af90f)
+            type_hints = cached_type_hints(_typecheckingstub__99c643daeb09c2839c551125ac2e17246f1f3168fd4c3d255cb37734413af90f)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument signal_map_arn", value=signal_map_arn, expected_type=type_hints["signal_map_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1625,6 +1723,7 @@ __all__ = [
     "IMultiplexRef",
     "IMultiplexprogramRef",
     "INetworkRef",
+    "INodeRef",
     "ISdiSourceRef",
     "ISignalMapRef",
     "InputReference",
@@ -1632,6 +1731,7 @@ __all__ = [
     "MultiplexReference",
     "MultiplexprogramReference",
     "NetworkReference",
+    "NodeReference",
     "SdiSourceReference",
     "SignalMapReference",
 ]
@@ -1735,6 +1835,13 @@ def _typecheckingstub__2bf8824f54434f31b2fdbb5c0467b07d8f1dab750d26e38b7b446af20
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d18d86aae940476ad5c80c1453221ac5e6de9038bc060dc7a9be4a9f15fd77dd(
+    *,
+    node_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f600af46c39ab21e65823f674665253250ef9cc92b937fb0aaf7db85de0951f8(
     *,
     sdi_source_arn: builtins.str,
@@ -1751,5 +1858,5 @@ def _typecheckingstub__99c643daeb09c2839c551125ac2e17246f1f3168fd4c3d255cb377344
     """Type checking stubs"""
     pass
 
-for cls in [IChannelPlacementGroupRef, IChannelRef, ICloudWatchAlarmTemplateGroupRef, ICloudWatchAlarmTemplateRef, IClusterRef, IEventBridgeRuleTemplateGroupRef, IEventBridgeRuleTemplateRef, IInputRef, IInputSecurityGroupRef, IMultiplexRef, IMultiplexprogramRef, INetworkRef, ISdiSourceRef, ISignalMapRef]:
+for cls in [IChannelPlacementGroupRef, IChannelRef, ICloudWatchAlarmTemplateGroupRef, ICloudWatchAlarmTemplateRef, IClusterRef, IEventBridgeRuleTemplateGroupRef, IEventBridgeRuleTemplateRef, IInputRef, IInputSecurityGroupRef, IMultiplexRef, IMultiplexprogramRef, INetworkRef, INodeRef, ISdiSourceRef, ISignalMapRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

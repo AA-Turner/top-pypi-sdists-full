@@ -925,7 +925,8 @@ def push_data(
     replace_options=None,
     concurrency: int = 1,
     silent: bool = False,
-):
+    use_v1: bool = False,
+) -> Optional[list[str]]:
     if url and type(url) is tuple:
         url = url[0]
 
@@ -962,6 +963,8 @@ def push_data(
         datasource_name: str, url: str, mode: str, sql_condition: Optional[str], replace_options: Optional[Set[str]]
     ):
         parsed = urlparse(url)
+        if use_v1 and parsed.scheme in ("http", "https"):
+            raise CLIException("--experimental=use_v1 only supports local files.")
         # poor man's format detection
         _format = get_format_from_filename_or_url(url)
         if parsed.scheme in ("http", "https"):
@@ -982,7 +985,14 @@ def push_data(
                 sql_condition=sql_condition,
                 format=_format,
                 replace_options=replace_options,
+                use_v1=use_v1,
             )
+
+        if use_v1:
+            job_id = res.get("id") or res.get("import_id")
+            if not isinstance(job_id, str):
+                raise CLIException("The v1 import response did not include a job ID.")
+            return job_id
 
         datasource_name = res["datasource"]["name"]
         try:
@@ -1014,6 +1024,8 @@ def push_data(
     try:
         tasks = [process_url(datasource_name, url, mode, sql_condition, replace_options) for url in urls]
         output = gather_with_concurrency(concurrency, *tasks)
+        if use_v1:
+            return list(output)
         parser, total_rows, appended_rows = list(output)[-1]
     except AuthNoTokenException:
         raise
@@ -1030,6 +1042,8 @@ def push_data(
                 click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
 
             click.echo(FeedbackManager.success_progress_blocks())
+
+    return None
 
 
 def sync_data(ctx, datasource_name: str, yes: bool):

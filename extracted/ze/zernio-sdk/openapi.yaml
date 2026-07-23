@@ -177,6 +177,8 @@ x-documentation:
     - `whatsapp.number.suspended` - An active number was suspended (e.g. failed payment); carries a `reason`
     - `whatsapp.number.reactivated` - A suspended number is usable again
     - `whatsapp.number.released` - A number was released and is no longer usable (terminal); carries a `reason`
+    - `verification.approved` - A managed-OTP verification was approved (the user submitted the correct code)
+    - `verification.failed` - A managed-OTP verification was exhausted after too many wrong code attempts
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Webhook payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header.
@@ -363,7 +365,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
   - name: Webhook Events
     description: |
@@ -398,6 +400,13 @@ tags:
       inventory, complete country KYC, and release numbers here; turn features on
       via the per-number sub-resources (`/v1/phone-numbers/{id}/voice`, `/sms`,
       `/whatsapp/...`). Requires a paid plan.
+  - name: Verify
+    description: |
+      Managed one-time passcodes (OTP) for phone verification. Two calls
+      handle the whole lifecycle: create a verification (we generate the
+      code, deliver it by SMS from a phone number on your account, and store
+      only its hash) and check the code the user typed. Usage-based billing
+      only.
   - name: WhatsApp Phone Numbers
     description: |
       Deprecated namespace: phone numbers moved to `/v1/phone-numbers` (a number is
@@ -483,6 +492,22 @@ components:
               error:
                 type: string
                 example: Not found
+    RateLimited:
+      description: |
+        The connected account's upstream platform quota is exhausted.
+
+        Reddit rate-limits per connected Reddit user (1000 requests per
+        10-minute window), and that budget is shared by every operation using
+        that account. Retry after the window resets rather than retrying
+        immediately; repeated calls while exhausted do not succeed and keep the
+        budget spent.
+      headers:
+        Retry-After:
+          description: 'Seconds remaining until the upstream quota resets.'
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     PaymentRequired:
       description: |
         Payment method or enterprise contract required. The authenticated
@@ -605,6 +630,21 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    Verification:
+      type: object
+      description: 'A managed OTP verification. The code itself is never returned or stored (hash only).'
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [pending, approved, expired, max_attempts_reached, canceled, delivery_failed] }
+        channel: { type: string, enum: [sms] }
+        to: { type: string }
+        expiresAt: { type: string, format: date-time }
+        attempts: { type: integer }
+        maxAttempts: { type: integer }
+        sendCount: { type: integer, description: 'Accepted deliveries (initial send + resends); each bills one verification fee.' }
+        lastSentAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        resend: { type: boolean, description: 'Present on create responses: true when an active verification was resent instead of created.' }
     RfPrediction:
       type: object
       description: A Meta Reach & Frequency prediction. Money values in whole units of the ad account currency.
@@ -1335,6 +1375,8 @@ components:
         - $ref: '#/components/schemas/WhatsAppBodyComponent'
         - $ref: '#/components/schemas/WhatsAppFooterComponent'
         - $ref: '#/components/schemas/WhatsAppButtonsComponent'
+        - $ref: '#/components/schemas/WhatsAppCarouselComponent'
+        - $ref: '#/components/schemas/WhatsAppLimitedTimeOfferComponent'
       discriminator:
         propertyName: type
         mapping:
@@ -1342,6 +1384,8 @@ components:
           body: '#/components/schemas/WhatsAppBodyComponent'
           footer: '#/components/schemas/WhatsAppFooterComponent'
           buttons: '#/components/schemas/WhatsAppButtonsComponent'
+          carousel: '#/components/schemas/WhatsAppCarouselComponent'
+          limited_time_offer: '#/components/schemas/WhatsAppLimitedTimeOfferComponent'
     WhatsAppHeaderComponent:
       type: object
       required: [type, format]
@@ -1418,6 +1462,58 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/WhatsAppTemplateButton'
+    WhatsAppCarouselComponent:
+      type: object
+      required: [type, cards]
+      properties:
+        type:
+          type: string
+          enum: [carousel]
+        cards:
+          type: array
+          minItems: 2
+          maxItems: 10
+          description: '2-10 cards. Meta requires all cards to share the same component structure; a mismatch surfaces as a rejected_reason. MARKETING category only.'
+          items:
+            type: object
+            required: [components]
+            properties:
+              components:
+                type: array
+                minItems: 1
+                description: 'Per-card components. Each card carries its own media header + optional body + up to 2 buttons. Footer and nested carousel are not allowed inside cards.'
+                items:
+                  $ref: '#/components/schemas/WhatsAppCarouselCardComponent'
+    WhatsAppCarouselCardComponent:
+      oneOf:
+        - $ref: '#/components/schemas/WhatsAppHeaderComponent'
+        - $ref: '#/components/schemas/WhatsAppBodyComponent'
+        - $ref: '#/components/schemas/WhatsAppButtonsComponent'
+      discriminator:
+        propertyName: type
+        mapping:
+          header: '#/components/schemas/WhatsAppHeaderComponent'
+          body: '#/components/schemas/WhatsAppBodyComponent'
+          buttons: '#/components/schemas/WhatsAppButtonsComponent'
+    WhatsAppLimitedTimeOfferComponent:
+      type: object
+      required: [type, limited_time_offer]
+      properties:
+        type:
+          type: string
+          enum: [limited_time_offer]
+        limited_time_offer:
+          type: object
+          required: [text]
+          properties:
+            text:
+              type: string
+              minLength: 1
+              maxLength: 16
+              description: 'Short offer label (<=16 chars). MARKETING only.'
+            has_expiration:
+              type: boolean
+              description: 'Toggles the countdown timer. The actual coupon code + expiry are bound at SEND time, not here.'
     WhatsAppSandboxSession:
       type: object
       description: |
@@ -1864,7 +1960,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -2640,7 +2736,13 @@ components:
                 description: Attachment type (image, video, file, sticker, audio)
               url:
                 type: string
-                description: Attachment URL (may expire for Meta platforms)
+                description: |
+                  Where to fetch the attachment. The contract depends on direction and
+                  platform: inbound WhatsApp media points at the authenticated
+                  `GET /v1/whatsapp/media/{mediaId}` and requires
+                  `Authorization: Bearer <your API key>`, while outgoing media carries the
+                  URL originally supplied and Instagram / Facebook / Telegram carry direct
+                  platform CDN links that need no authentication.
               payload:
                 type: object
                 description: Additional attachment metadata
@@ -2854,7 +2956,19 @@ components:
                     description: Attachment type (image, video, file, sticker, audio)
                   url:
                     type: string
-                    description: Attachment URL (may expire for Meta platforms)
+                    description: |
+                      Where to fetch the attachment. **The contract differs by platform.**
+
+                      - **WhatsApp**: points at `GET /v1/whatsapp/media/{mediaId}`, an
+                        authenticated Zernio endpoint. You MUST send
+                        `Authorization: Bearer <your API key>`; fetching it without that
+                        header returns `401`. Download and store the bytes when this
+                        webhook arrives: Meta drops inbound media after a limited
+                        retention window, after which the endpoint answers `400`
+                        permanently and the media is unrecoverable.
+                      - **Instagram / Facebook / Telegram**: a direct platform CDN link
+                        that needs no authentication and expires on the platform's own
+                        schedule.
                   payload:
                     type: object
                     description: Additional attachment metadata
@@ -3166,7 +3280,13 @@ components:
                     description: Attachment type (image, video, file, sticker, audio)
                   url:
                     type: string
-                    description: Attachment URL (may expire for Meta platforms)
+                    description: |
+                      Where to fetch the attachment. For outgoing messages this is the
+                      media URL as sent, so for WhatsApp it is the URL you supplied when
+                      publishing (WhatsApp sends media by link), not a Zernio endpoint,
+                      and it needs no Zernio credentials. Contrast the inbound direction:
+                      `message.received` attachment URLs on WhatsApp point at the
+                      authenticated `GET /v1/whatsapp/media/{mediaId}`.
                   payload:
                     type: object
                     description: Additional attachment metadata
@@ -3727,6 +3847,22 @@ components:
         timestamp:
           type: string
           format: date-time
+    DiscordGuildMember:
+      type: object
+      description: A Discord guild member, returned verbatim from Discord's API.
+      properties:
+        user:
+          type: object
+          properties:
+            id: { type: string, description: User snowflake }
+            username: { type: string }
+            discriminator: { type: string }
+            avatar: { type: [string, "null"] }
+            global_name: { type: [string, "null"], description: "User's display name (post-2023 Discord rebrand)" }
+        nick: { type: [string, "null"], description: Guild-specific nickname }
+        roles: { type: array, items: { type: string }, description: Snowflake IDs of roles assigned to this member }
+        joined_at: { type: string, format: date-time }
+        premium_since: { type: [string, "null"], format: date-time, description: When the user started boosting the server }
     DiscordRole:
       type: object
       description: A Discord guild role, returned verbatim from Discord's API.
@@ -5253,7 +5389,7 @@ components:
           description: |
             Platform-specific metadata. Fields vary by platform. For WhatsApp accounts, includes:
             - qualityRating: Phone number quality rating from Meta (GREEN, YELLOW, RED, or UNKNOWN)
-            - nameStatus: Display name review status (APPROVED, PENDING_REVIEW, DECLINED, or NONE). Messages cannot be sent until the display name is approved by Meta.
+            - nameStatus: Display name review status (APPROVED, PENDING_REVIEW, DECLINED, or NONE). A declined or pending display name does not by itself block sending; sendability is reported separately via health_status (can_send_message).
             - messagingLimitTier: Maximum unique business-initiated conversations per 24h rolling window (TIER_250, TIER_1K, TIER_10K, TIER_100K, or TIER_UNLIMITED). Scales automatically as quality rating improves.
             - verifiedName: Meta-verified business display name
             - displayPhoneNumber: Formatted phone number (e.g., "+1 555-123-4567")
@@ -7910,7 +8046,7 @@ webhooks:
               type: object
               properties:
                 id: { type: string }
-                event: { type: string, enum: [whatsapp.number.kyc_submitted] }
+                event: { type: string, enum: [whatsapp.number.kyc_submitted, verification.approved, verification.failed] }
                 timestamp: { type: string, format: date-time }
                 number:
                   type: object
@@ -7919,6 +8055,61 @@ webhooks:
                     phoneNumber: { type: string }
                     country: { type: string }
                     profileId: { type: string }
+      responses:
+        '200':
+          description: Webhook received successfully
+  verification.approved:
+    post:
+      operationId: onVerificationApproved
+      summary: Verification approved event
+      description: |
+        Fired when a managed-OTP verification is approved (the user submitted
+        the correct code to POST /v1/verify/verifications/{verificationId}/check).
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [verification.approved] }
+                timestamp: { type: string, format: date-time }
+                verification:
+                  type: object
+                  properties:
+                    verificationId: { type: string }
+                    channel: { type: string, enum: [sms] }
+                    to: { type: string }
+      responses:
+        '200':
+          description: Webhook received successfully
+  verification.failed:
+    post:
+      operationId: onVerificationFailed
+      summary: Verification failed event
+      description: |
+        Fired when a managed-OTP verification is exhausted (the maximum number
+        of wrong code attempts was reached).
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [verification.failed] }
+                timestamp: { type: string, format: date-time }
+                verification:
+                  type: object
+                  properties:
+                    verificationId: { type: string }
+                    channel: { type: string, enum: [sms] }
+                    to: { type: string }
+                reason: { type: string, enum: [max_attempts_reached] }
       responses:
         '200':
           description: Webhook received successfully
@@ -9176,7 +9367,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  error: { type: string }
               examples:
                 invalidMetric:
                   value:
@@ -11103,20 +11296,10 @@ paths:
                 key: "temp/1234567890_abc123_my-video.mp4"
                 expiresIn: 3600
         '400':
-          description: Invalid request (missing filename, contentType, or unsupported content type)
+          description: 'Invalid request (missing filename, unsupported contentType, or size out of range)'
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  error: { type: string }
-              examples:
-                missing_filename:
-                  value: { error: "Missing required fields: filename and contentType" }
-                invalid_type:
-                  value: { error: "Content type not allowed: text/plain" }
-                file_too_large:
-                  value: { error: "File too large. Maximum size is 5GB." }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
   /v1/reddit/search:
     get:
@@ -11181,9 +11364,18 @@ paths:
                     isGallery: false
                 after: "t3_1abc234"
                 before: null
-        '400': { description: Missing params }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: Account not found }
+        '404':
+          description: |
+            No active Reddit account with this ID is available to the API key.
+            It may have been disconnected or deleted, or it belongs to a profile
+            the key cannot access. Re-connecting an account issues a NEW account
+            ID, so an ID stored from before a reconnect will not resolve.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/reddit/feed:
     get:
       operationId: getRedditFeed
@@ -11259,9 +11451,18 @@ paths:
                       - "https://i.redd.it/def456.jpg"
                 after: "t3_1def456"
                 before: null
-        '400': { description: Missing params }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: Account not found }
+        '404':
+          description: |
+            No active Reddit account with this ID is available to the API key.
+            It may have been disconnected or deleted, or it belongs to a profile
+            the key cannot access. Re-connecting an account issues a NEW account
+            ID, so an ID stored from before a reconnect will not resolve.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/billing:
     get:
       operationId: getBilling
@@ -13086,6 +13287,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { description: Profile limit exceeded }
+        '409': { description: "A profile with this name already exists (code: profile_name_conflict)." }
   /v1/profiles/{profileId}:
     get:
       operationId: getProfile
@@ -13160,6 +13362,7 @@ paths:
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: "A profile with this name already exists (code: profile_name_conflict)." }
     delete:
       operationId: deleteProfile
       tags: [Profiles]
@@ -19873,10 +20076,10 @@ paths:
         to all members joined in the last 7 days") on the actual platform shape.
 
         **Important:** this endpoint requires the privileged "Server Members
-        Intent" enabled on the Discord app (Developer Portal → Bot tab → toggle
-        "Server Members Intent" ON, then Save). Without it, Discord returns an
-        empty array with no error. Verify the intent is enabled before relying
-        on this endpoint.
+        Intent" on the Discord application. If the intent is not enabled,
+        Discord rejects the call and this endpoint returns **403**. Single
+        member lookup and prefix search (see the sibling endpoints) do not
+        need the intent.
 
         Pagination: pass `after` = the last `user.id` from the previous page.
         Omit on the first call. Response includes a `nextCursor` and `hasMore`
@@ -19896,21 +20099,7 @@ paths:
                 properties:
                   data:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        user:
-                          type: object
-                          properties:
-                            id: { type: string, description: User snowflake }
-                            username: { type: string }
-                            discriminator: { type: string }
-                            avatar: { type: [string, "null"] }
-                            global_name: { type: [string, "null"], description: User's display name (post-2023 Discord rebrand) }
-                        nick: { type: [string, "null"], description: Guild-specific nickname }
-                        roles: { type: array, items: { type: string }, description: Snowflake IDs of roles assigned to this member }
-                        joined_at: { type: string, format: date-time }
-                        premium_since: { type: [string, "null"], format: date-time, description: When the user started boosting the server }
+                    items: { $ref: '#/components/schemas/DiscordGuildMember' }
                   pagination:
                     type: object
                     properties:
@@ -19918,7 +20107,66 @@ paths:
                       hasMore: { type: boolean }
         '400': { description: Invalid query params. }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: The Server Members Intent is not enabled on the Discord application. }
         '404': { description: Discord account not found or not in this guild. }
+
+  /v1/discord/guilds/{guildId}/members/search:
+    get:
+      operationId: searchDiscordGuildMembers
+      tags: [Discord]
+      summary: Search Discord guild members
+      description: |
+        Search guild members whose username or nickname **starts with** the
+        query (Discord matches prefixes only, not substrings).
+
+        Does not require the privileged Server Members Intent, so this works
+        even where the full member listing returns 403.
+      parameters:
+        - { name: guildId, in: path, required: true, schema: { type: string } }
+        - { name: accountId, in: query, required: true, schema: { type: string } }
+        - { name: query, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 100 }, description: Username or nickname prefix to match. }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000, default: 25 } }
+      responses:
+        '200':
+          description: Matching guild members.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiscordGuildMember' }
+        '400': { description: Invalid query params. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Discord account not found or not in this guild. }
+
+  /v1/discord/guilds/{guildId}/members/{userId}:
+    get:
+      operationId: getDiscordGuildMember
+      tags: [Discord]
+      summary: Get a Discord guild member
+      description: |
+        Fetch a single guild member by Discord user id.
+
+        Does not require the privileged Server Members Intent, so this works
+        even where the full member listing returns 403.
+      parameters:
+        - { name: guildId, in: path, required: true, schema: { type: string } }
+        - { name: userId, in: path, required: true, schema: { type: string }, description: Discord user snowflake. }
+        - { name: accountId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The guild member.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/DiscordGuildMember' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Discord account not found, or the user is not a member of this guild.' }
 
   /v1/discord/guilds/{guildId}/members/{userId}/roles/{roleId}:
     put:
@@ -20818,7 +21066,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -20892,7 +21140,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -22494,6 +22742,49 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
+
+  /v1/whatsapp/media/{mediaId}:
+    get:
+      operationId: getWhatsAppMedia
+      tags: [WhatsApp]
+      summary: Download WhatsApp media
+      description: |
+        Streams the binary for a WhatsApp attachment. This is the endpoint the
+        `url` on a WhatsApp `attachments[]` entry points at, in both the
+        `message.received` webhook and the List messages response.
+
+        **This is an authenticated endpoint, not a public link.** Send
+        `Authorization: Bearer <your API key>` exactly as you would for any other
+        call. Passing the URL straight to a browser, an LLM vision API, or a
+        no-code "download file" step without the header returns `401`. This is
+        the most common integration mistake on this endpoint, and it differs from
+        Instagram, Facebook and Telegram, whose `attachments[].url` is a direct
+        CDN link that needs no header.
+
+        **Fetch on receipt, not lazily.** WhatsApp media lives in Meta's media
+        store, not ours, and it is removed after a limited retention window
+        (currently 7 days, and Meta has been dropping some inbound media sooner).
+        Once Meta drops it the media is unrecoverable and this endpoint answers
+        `400` permanently, so retrying will never succeed. Download and store the
+        bytes when the webhook arrives.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: mediaId, in: path, required: true, schema: { type: string }, description: 'The media id from `attachments[].payload.id`.' }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: 'The WhatsApp account that received the media.' }
+      responses:
+        '200':
+          description: The media binary, streamed with its original content type.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '400':
+          description: 'Media is no longer available on WhatsApp servers (expired or deleted by Meta). Permanent, do not retry.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: 'Account not found, not accessible to the caller, or the media does not belong to it.'
+        '502':
+          description: Meta could not be reached or returned an unexpected error.
 
   /v1/inbox/conversations/{conversationId}/messages/{messageId}:
     patch:
@@ -24530,7 +24821,7 @@ paths:
                   description: Template language code (e.g., en_US)
                 components:
                   type: array
-                  description: "Template components (header, body, footer, buttons). Required for custom templates, omit when using library_template_name."
+                  description: "Template components (header, body, footer, buttons, carousel, limited_time_offer). Required for custom templates, omit when using library_template_name."
                   minItems: 1
                   items:
                     $ref: '#/components/schemas/WhatsAppTemplateComponent'
@@ -25658,18 +25949,12 @@ paths:
       summary: Send an SMS/MMS
       description: |
         Sends an SMS (or MMS when `mediaUrls` is set) from one of your
-        SMS-enabled numbers, or from an approved alphanumeric sender ID
-        (`/v1/sms/sender-ids`). At least one of `text` / `mediaUrls` is
-        required. Numbers are normalized to E.164, so `from` matches regardless
-        of formatting and replies thread into the same inbox conversation.
+        SMS-enabled numbers. At least one of `text` / `mediaUrls` is required.
+        Both numbers are normalized to E.164, so `from` matches regardless of
+        formatting and replies thread into the same inbox conversation.
 
         US numbers must have an approved carrier registration
         (`/v1/sms/registrations`) before messages deliver.
-
-        **Alphanumeric sender IDs** are one-way and international only: they
-        cannot reach the US, Canada, or Puerto Rico (403), are text-only (no
-        MMS), and recipients cannot reply. Some destination countries
-        substitute a numeric sender to ensure delivery.
 
         **Idempotency:** send an `Idempotency-Key` header to make retries safe:
         same key + same body replays the original response instead of sending a
@@ -25694,7 +25979,7 @@ paths:
               type: object
               required: [from, to]
               properties:
-                from: { type: string, description: 'One of your SMS-enabled numbers (E.164; formatting is normalized), or an approved alphanumeric sender ID (3-11 letters/digits/spaces, created via `/v1/sms/sender-ids`).' }
+                from: { type: string, description: One of your SMS-enabled numbers (E.164; formatting is normalized). }
                 to: { type: string, description: Recipient number (E.164). }
                 text: { type: string, description: "Message body. Required unless `mediaUrls` is set. Max 10 SMS segments (1530 GSM-7 or 670 unicode characters)." }
                 mediaUrls:
@@ -25717,13 +26002,10 @@ paths:
                   id: { type: string, description: Message ID }
                   conversationId: { type: string, description: Inbox conversation the message was threaded into. }
                   status: { type: string, enum: [sent] }
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'Send refused by a gate: US registration missing/pending, MMS not supported by this sender, or an alphanumeric sender ID addressed to the US, Canada or Puerto Rico.' }
-        '404': { description: "No SMS-enabled number or sender ID matches `from`" }
+        '404': { description: "No SMS-enabled number matches `from`" }
         '409': { description: Same Idempotency-Key still processing; retry after a short backoff }
         '422': { description: Idempotency-Key reused with a different body }
-        '429': { description: 'Daily sender ID message limit reached for the workspace (alphanumeric sends only, code `alpha_daily_limit_reached`; resets midnight UTC, raisable via support).' }
         '502': { description: Carrier-side send failed }
 
   /v1/sms/lookup:
@@ -26121,6 +26403,7 @@ paths:
                         brandId: { type: [string, "null"], description: "TCR brand id, useful when referencing the brand in carrier support threads." }
                         campaignId: { type: [string, "null"], description: TCR campaign id. }
                         declineReason: { type: [string, "null"] }
+                        tfActionRequiredAt: { type: [string, "null"], format: date-time, description: 'Toll-free only: when the carrier requested changes ("Waiting For Customer"). The request must be resubmitted within 7 days of this timestamp or it expires.' }
                         phoneNumbers: { type: array, items: { type: string } }
                         awaitingOtp: { type: boolean, description: Sole-prop 10DLC only; the OTP step is still pending. }
                         trustScore: { type: [number, "null"], description: Carrier-assigned brand trust score; drives throughput. }
@@ -27445,6 +27728,18 @@ paths:
                     can actually text (see also GET /v1/phone-numbers/available
                     with sms=true, and smsAvailable on GET
                     /v1/phone-numbers/countries).
+                wantsWhatsapp:
+                  type: boolean
+                  default: false
+                  description: >
+                    Declare WhatsApp intent on a STANDALONE purchase
+                    (connectWhatsapp:false). The number still activates and
+                    bills immediately, but if WhatsApp's buy-time check rejects
+                    the assigned number, it is automatically swapped for a
+                    WhatsApp-eligible one during the purchase instead of being
+                    delivered with WhatsApp unavailable. Ignored on the WhatsApp
+                    provisioning path (connectWhatsapp omitted or true), which
+                    always delivers a WhatsApp-verified number.
                 purchaseIntentId:
                   type: string
                   maxLength: 100
@@ -32989,6 +33284,7 @@ paths:
                   pagination: { $ref: '#/components/schemas/Pagination' }
         '202':
           description: "Part of the requested date range predates the ingested history; a background backfill job has been queued. The body has the same shape as the 200 response, carries the currently-available data, and includes `backfillPending: true`. A `Retry-After` header carries the recommended poll interval in seconds. Allow the job a short time to run (typically 1-3 minutes) and submit the request again; once ingestion completes the same request returns 200 with the full range."
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -33030,6 +33326,55 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+
+    post:
+      operationId: createAdCampaign
+      tags: [Ad Campaigns]
+      summary: Create a standalone campaign (Meta)
+      description: |-
+        Creates a campaign WITHOUT its first ad set / ad (the ODAX shell only). Ad sets join it
+        later via `existingCampaignId` on the create endpoints. A budget here is campaign-level
+        (CBO) by definition; omit it for ABO (each ad set carries its own budget). Created
+        `PAUSED` unless `status: ACTIVE`. The campaign materializes in `/v1/ads/tree` via the
+        next sync discovery pass. Meta only.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId, name, goal]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+                adAccountId: { type: string, description: "Meta ad account id (act_<n>)." }
+                name: { type: string, maxLength: 255 }
+                goal:
+                  type: string
+                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, job_applicants, conversions, app_promotion, catalog_sales]
+                  description: Mapped to the ODAX objective (same mapping as POST /v1/ads/create).
+                specialAdCategories:
+                  type: array
+                  items: { type: string, enum: [HOUSING, EMPLOYMENT, CREDIT, ISSUES_ELECTIONS_POLITICS, FINANCIAL_PRODUCTS_SERVICES, ONLINE_GAMBLING_AND_GAMING] }
+                budgetAmount: { type: number, description: "Campaign-level (CBO) budget in whole currency units. Requires budgetType." }
+                budgetType: { type: string, enum: [daily, lifetime] }
+                status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
+      responses:
+        '201':
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  campaignId: { type: string, description: Platform id of the new campaign }
+                  objective: { type: string, description: "Resolved ODAX objective (e.g. OUTCOME_SALES)." }
+                  status: { type: string, enum: [ACTIVE, PAUSED] }
+        '400': { description: "Invalid input, or Meta rejected the create" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/campaigns/{campaignId}/status:
     put:
@@ -33318,6 +33663,98 @@ paths:
         '404': { description: Source campaign not found }
         '501': { description: Operation not supported on this platform }
 
+  /v1/ads/ad-sets/{adSetId}/duplicate:
+    post:
+      operationId: duplicateAdSet
+      tags: [Ad Campaigns]
+      summary: Duplicate an ad set (Meta)
+      description: |-
+        Duplicates an ad set, including its ads and creatives by default (`deepCopy: true`),
+        via Meta's native `POST /{adset-id}/copies`. The copy is created paused so callers can
+        review before launching. `campaignId` retargets the copy into another campaign; omitted
+        = the source's own campaign. The new hierarchy materializes asynchronously — sync
+        discovery is triggered automatically (`syncAfter: false` to skip). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adSetId, in: path, required: true, schema: { type: string }, description: Source platform ad set ID }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform]
+              properties:
+                platform: { type: string, enum: [facebook, instagram] }
+                campaignId: { type: string, description: Destination platform campaign id (defaults to the source's campaign) }
+                deepCopy: { type: boolean, default: true, description: Copy child ads + creatives }
+                statusOption: { type: string, enum: [ACTIVE, PAUSED, INHERITED_FROM_SOURCE], default: PAUSED }
+                startTime: { type: string, format: date-time, description: Reschedule the copy's start time }
+                endTime: { type: string, format: date-time }
+                renameStrategy: { type: string, enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME] }
+                renamePrefix: { type: string }
+                renameSuffix: { type: string }
+                syncAfter: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Ad set duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  copiedAdSetId: { type: string, description: Platform ID of the new ad set }
+                  discovery: { type: string, enum: [triggered, skipped, failed] }
+                  raw: { type: object, description: Meta's native copy response (includes ad_object_ids for child copies) }
+        '400': { description: Invalid input }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Source ad set not found }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/{adId}/duplicate:
+    post:
+      operationId: duplicateAd
+      tags: [Ads]
+      summary: Duplicate an ad (Meta)
+      description: |-
+        Duplicates a single ad via Meta's native `POST /{ad-id}/copies`. The copy is created
+        paused. `adSetId` retargets the copy into another ad set; omitted = the source's own ad
+        set. Accepts the Zernio ad id or the platform ad id. Sync discovery is triggered
+        automatically (`syncAfter: false` to skip). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string }, description: Zernio ad ID or platform ad ID }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adSetId: { type: string, description: Destination platform ad set id (defaults to the source's ad set) }
+                statusOption: { type: string, enum: [ACTIVE, PAUSED, INHERITED_FROM_SOURCE], default: PAUSED }
+                renameStrategy: { type: string, enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME] }
+                renamePrefix: { type: string }
+                renameSuffix: { type: string }
+                syncAfter: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Ad duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  copiedAdId: { type: string, description: Platform ID of the new ad }
+                  discovery: { type: string, enum: [triggered, skipped, failed] }
+                  raw: { type: object }
+        '400': { description: Invalid input }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Ad not found }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
   /v1/ads/ad-sets/{adSetId}:
     get:
       operationId: getAdSetDetails
@@ -33421,7 +33858,7 @@ paths:
                     endDate: { type: string, description: "Ad set end_time (ISO 8601)." }
                     promotedObject:
                       type: object
-                      description: "Meta ad-set promoted_object, forwarded verbatim (same shape as /v1/ads/create)."
+                      description: "Meta ad-set promoted_object, forwarded verbatim (same shape as /v1/ads/create). Unknown keys are rejected with 400."
                       properties:
                         pixelId: { type: string }
                         customEventType: { type: string }
@@ -33431,6 +33868,9 @@ paths:
                         customConversionId: { type: string }
                         productCatalogId: { type: string }
                         productSetId: { type: string }
+                        offlineConversionDataSetId: { type: string }
+                        whatsappPhoneNumber: { type: string }
+                      additionalProperties: false
       responses:
         '200':
           description: Ad set updated
@@ -34640,6 +35080,302 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/businesses:
+    get:
+      operationId: listMetaBusinesses
+      tags: [Ads]
+      summary: Businesses list (Meta)
+      description: |-
+        Business Manager portfolios the connected Meta user belongs to (Meta's `/me/businesses`),
+        rows returned verbatim (id, name, verification_status, created_time). Token-scoped, so no
+        `adAccountId` is needed. Meta only; for TikTok Business Centers use
+        `GET /v1/ads/business-centers`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Businesses (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta business row (id, name, verification_status, created_time)." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/labels:
+    get:
+      operationId: listAdLabels
+      tags: [Ads]
+      summary: Ad labels (Meta)
+      description: |-
+        Lists the ad account's organizational labels (Meta's `/act_X/adlabels`), rows returned
+        verbatim (id, name, created/updated time). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Ad labels (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta ad label row (id, name, created_time, updated_time)." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/high-demand-periods:
+    get:
+      operationId: listHighDemandPeriods
+      tags: [Ads]
+      summary: High demand periods / budget schedules (Meta)
+      description: |-
+        Scheduled budget increases (Meta's budget-scheduling API). The Graph edge lives on the
+        campaign and ad-set nodes only, so exactly one of `campaignId` / `adSetId` (platform
+        ids) is required. Rows returned verbatim (budget_value, budget_value_type, time window,
+        recurrence). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: campaignId, in: query, schema: { type: string }, description: "Platform campaign id. Exactly one of campaignId / adSetId." }
+        - { name: adSetId, in: query, schema: { type: string }, description: "Platform ad set id. Exactly one of campaignId / adSetId." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Budget schedules (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  objectId: { type: string, description: "The campaign / ad set id the schedules belong to." }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta high-demand-period row." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/creatives:
+    get:
+      operationId: listAdCreatives
+      tags: [Ads]
+      summary: Creative library (Meta)
+      description: |-
+        Lists the ad account's creative library (Meta's `/act_X/adcreatives`), rows returned
+        verbatim. The default projection covers id, name, status, object type, thumbnail,
+        object_story_spec / asset_feed_spec and url_tags; `fields` is a raw-passthrough
+        override. Any creative id here is reusable on the create endpoints via
+        `existingCreativeId`. Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph field override (supports nested {} projections)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Creatives (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta creative row." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+    post:
+      operationId: createAdCreative
+      tags: [Ads]
+      summary: Create a standalone creative (Meta)
+      description: |-
+        Creates a creative in the library WITHOUT an ad, reusable on the create endpoints via
+        `existingCreativeId`. Provide exactly one of `imageUrl` (uploaded server-side),
+        `imageHash` (from POST /v1/ads/images or the library list), or `carouselCards` (2-10
+        hand-built cards). The Page (and linked Instagram account, when present) is resolved
+        from `accountId` as the story actor. Meta only.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId, headline, body, linkUrl]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token and Page." }
+                adAccountId: { type: string, description: "Meta ad account id (act_<n>)." }
+                headline: { type: string, maxLength: 255 }
+                body: { type: string, description: Primary text }
+                description: { type: string, maxLength: 255, description: "Link description below the headline; omitted = Meta scrapes the destination's OG description." }
+                callToAction: { type: string, default: LEARN_MORE, description: "CTA type (same whitelist as POST /v1/ads/create)." }
+                linkUrl: { type: string, format: uri }
+                imageUrl: { type: string, format: uri, description: "Publicly reachable image; uploaded to the account's library server-side." }
+                imageHash: { type: string, description: "Existing library image hash (POST /v1/ads/images or GET /v1/ads/images)." }
+                carouselCards:
+                  type: array
+                  minItems: 2
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [imageUrl, linkUrl]
+                    properties:
+                      imageUrl: { type: string, format: uri }
+                      linkUrl: { type: string, format: uri }
+                      headline: { type: string, maxLength: 255 }
+                      description: { type: string, maxLength: 255 }
+                      callToAction: { type: string }
+                urlTags: { type: string, description: "Appended to every outbound URL (e.g. utm_source=fb)." }
+                creativeFeatures:
+                  type: object
+                  additionalProperties: { type: string, enum: [OPT_IN, OPT_OUT] }
+                  description: 'Advantage+ creative enhancements: partial map of Meta creative feature keys (snake_case) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Unspecified features default to OPT_OUT.'
+      responses:
+        '201':
+          description: Creative created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  creativeId: { type: string, description: "Platform creative id, reusable via existingCreativeId." }
+        '400': { description: "Invalid input, or Meta rejected the create" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { description: No Facebook Page found to act as the story actor }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/creatives/{creativeId}:
+    get:
+      operationId: getAdCreative
+      tags: [Ads]
+      summary: Creative details (Meta)
+      description: |-
+        One creative's details, verbatim from Meta. `fields` is a raw-passthrough override of
+        the default projection. Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: creativeId, in: path, required: true, schema: { type: string }, description: Platform creative id }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph field override (supports nested {} projections)." }
+      responses:
+        '200':
+          description: Creative details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  creative: { type: object, description: Raw Meta creative node }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+    put:
+      operationId: updateAdCreative
+      tags: [Ads]
+      summary: Rename a creative (Meta)
+      description: |-
+        Renames a creative. Creatives are immutable on Meta beyond `name` — for content changes
+        create a new creative (POST /v1/ads/creatives) and swap it onto the ad
+        (PUT /v1/ads/{adId} with `creative`). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: creativeId, in: path, required: true, schema: { type: string }, description: Platform creative id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+                name: { type: string, maxLength: 255 }
+      responses:
+        '200':
+          description: Creative renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  creativeId: { type: string }
+                  name: { type: string }
+                  message: { type: string }
+        '400': { description: "Invalid input, or Meta rejected the update" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+    delete:
+      operationId: deleteAdCreative
+      tags: [Ads]
+      summary: Delete a creative (Meta)
+      description: |-
+        Deletes a creative from the library. Meta only allows deleting creatives not referenced
+        by any ad — otherwise its 400 surfaces verbatim.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: creativeId, in: path, required: true, schema: { type: string }, description: Platform creative id }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+      responses:
+        '200':
+          description: Creative deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  creativeId: { type: string }
+                  message: { type: string }
+        '400': { description: "Invalid input, the creative is in use, or Meta rejected the delete" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
   /v1/ads/accounts/finance:
     get:
       operationId: getAdAccountFinance
@@ -35000,6 +35736,10 @@ paths:
                   type: array
                   description: "Meta only. Required for housing, employment, credit, or political ads."
                   items: { type: string, enum: [HOUSING, EMPLOYMENT, CREDIT, FINANCIAL_PRODUCTS_SERVICES, ISSUES_ELECTIONS_POLITICS, ONLINE_GAMBLING_AND_GAMING] }
+                specialAdCategoryCountry:
+                  type: array
+                  description: 'Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).'
+                  items: { type: string }
                 linkUrl:
                   type: string
                   format: uri
@@ -35157,6 +35897,13 @@ paths:
                 billingEvent: { type: string, description: "Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal." }
                 buyingType: { type: string, enum: [AUCTION, RESERVED], description: "Meta only. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative)." }
                 rfPredictionId: { type: string, description: "Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id — pass that one). Requires buyingType RESERVED." }
+                creativeFeatures:
+                  type: object
+                  additionalProperties: { type: string, enum: [OPT_IN, OPT_OUT] }
+                  description: 'Meta only. Advantage+ creative enhancements: a partial map of Meta creative feature keys (snake_case, e.g. enhance_cta, image_brightness_and_contrast, text_optimizations) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Meta validates the keys; unspecified features default to OPT_OUT. The legacy standard_enhancements bundle is deprecated by Meta and rejected.'
+                validateOnly:
+                  type: boolean
+                  description: 'Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta''s execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.'
                 budgetAmount: { type: number, description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 status:
@@ -35438,6 +36185,13 @@ paths:
                     political/social-issue ads (Meta enforces restricted targeting for these). Note: setting a special
                     category disables income/zip targeting on Meta.
                   items: { type: string, enum: [HOUSING, EMPLOYMENT, CREDIT, FINANCIAL_PRODUCTS_SERVICES, ISSUES_ELECTIONS_POLITICS, ONLINE_GAMBLING_AND_GAMING] }
+                specialAdCategoryCountry:
+                  type: array
+                  description: |
+                    Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires
+                    specialAdCategories to be set (400 otherwise). Ignored when joining an existing campaign via
+                    existingCampaignId (the existing campaign's category/country already governs it).
+                  items: { type: string }
                 endDate: { type: string, format: date-time, description: Required for lifetime budgets }
                 startDate:
                   type: string
@@ -35785,7 +36539,31 @@ paths:
                     productSetId:
                       type: string
                       description: Product Set ID inside the catalog.
+                    offlineConversionDataSetId:
+                      type: string
+                      description: 'Meta only. Offline event set (dataset) to optimise toward. Post-merger these are datasets: the id is the dataset id (for pixel-backed datasets, the pixel id).'
+                    whatsappPhoneNumber:
+                      type: string
+                      description: 'Meta only. WhatsApp number on messaging-destination ad sets.'
+                  additionalProperties: false
       responses:
+        '200':
+          description: 'validateOnly dry-run passed — nothing was created'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  validateOnly: { type: boolean, enum: [true] }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        node: { type: string, enum: [campaign, adSet, creative, ad] }
+                        status: { type: string, enum: [validated, skipped] }
+                        reason: { type: string, description: "Why the node could not be validated (only on skipped)." }
+                  message: { type: string }
         '201':
           description: Ad(s) created
           content:
@@ -35807,7 +36585,7 @@ paths:
                       platformAdSetId: { type: string }
                       message: { type: string }
         '400':
-          description: Missing required fields, invalid values, or non-Meta platform used with creatives[] / adSetId
+          description: 'Missing required fields, invalid values, non-Meta platform used with creatives[] / adSetId, or a Meta validateOnly validation failure (verbatim)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -36084,6 +36862,43 @@ paths:
                       hash: { type: string, description: "Meta image hash, reusable wherever image_hash is accepted." }
                       url: { type: string, description: "Meta-hosted image URL; usable as imageUrl on the create endpoints." }
         '400': { description: "Invalid input, or Meta rejected the image" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+    get:
+      operationId: listAdImages
+      tags: [Ads]
+      summary: Ad image library (Meta)
+      description: |-
+        Lists the ad account's image library (Meta's `/act_X/adimages`), rows returned verbatim.
+        The default projection covers hash, url, name, dimensions and status; `fields` is a
+        raw-passthrough override. Any `hash` here is reusable wherever Meta accepts
+        `image_hash` (e.g. `imageHash` on POST /v1/ads/creatives). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph field override (supports nested {} projections)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Ad images (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta ad image row (hash, url, name, width, height, status)." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
@@ -36421,6 +37236,7 @@ paths:
                         name: { type: string }
                         vertical: { type: [string, "null"], description: "Catalog vertical (e.g. commerce, vehicles, hotels)" }
                         productCount: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -36451,6 +37267,7 @@ paths:
                         id: { type: string }
                         name: { type: string }
                         productCount: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -36466,7 +37283,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: Social account ID }
         - { name: adAccountId, in: query, required: true, schema: { type: string }, description: Platform ad account ID }
         - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, googleads, tiktok, tiktokads, pinterest, linkedin, linkedinads, twitter, xads] } }
-        - { name: type, in: query, required: false, schema: { type: string, enum: [customer_list, company_list, engagement, website, website_retargeting, lookalike, saved_targeting] }, description: "Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences; the other types return uploaded/derived audiences." }
+        - { name: type, in: query, required: false, schema: { type: string, enum: [customer_list, company_list, engagement, meta_engagement, website, website_retargeting, lookalike, saved_targeting] }, description: "Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences; the other types return uploaded/derived audiences." }
       responses:
         '200':
           description: Audiences
@@ -36485,7 +37302,7 @@ paths:
                         platformAudienceId: { type: string }
                         name: { type: string }
                         description: { type: string }
-                        type: { type: string, enum: [customer_list, company_list, engagement, website, website_retargeting, lookalike, saved_targeting] }
+                        type: { type: string, enum: [customer_list, company_list, engagement, meta_engagement, website, website_retargeting, lookalike, saved_targeting] }
                         spec:
                           anyOf:
                             - $ref: '#/components/schemas/TargetingSpec'
@@ -36525,7 +37342,7 @@ paths:
                     adAccountId: { type: string, description: "Platform ad account ID. Must start with act_ for Meta; bare platform id for others (Google customer id, X/TikTok/LinkedIn/Pinterest account id)." }
                     name: { type: string, maxLength: 255 }
                     description: { type: string }
-                    type: { type: string, enum: [customer_list, company_list, engagement, website, website_retargeting, lookalike] }
+                    type: { type: string, enum: [customer_list, company_list, engagement, meta_engagement, website, website_retargeting, lookalike] }
                     matchRules:
                       type: array
                       minItems: 1
@@ -36596,11 +37413,27 @@ paths:
                           website: { type: string, maxLength: 100 }
                           linkedinPageUrl: { type: string }
                     pixelId: { type: string, description: Required for website audiences }
-                    retentionDays: { type: integer, minimum: 1, maximum: 180, description: Required for website audiences }
+                    retentionDays: { type: integer, minimum: 1, maximum: 365, description: "Required for website (max 180) and meta_engagement (max 365) audiences." }
+                    engagementSource:
+                      type: string
+                      enum: [page, instagram, video]
+                      description: |
+                        Required for meta_engagement audiences (Meta only): what people
+                        engaged with. `page` = a Facebook Page, `instagram` = an IG
+                        professional account, `video` = a video. The source object must be
+                        eligible for engagement audiences or Meta rejects with subcode
+                        1713151 ("Invalid Event Name"), surfaced verbatim.
+                    sourceId: { type: string, description: "Required for meta_engagement: the Page / IG account / video id." }
+                    event:
+                      type: string
+                      description: |
+                        meta_engagement only. The engagement event; defaults per source
+                        (page → page_engaged, instagram → ig_business_profile_all,
+                        video → video_watched). Ignored when `rule` is provided.
                     sourceAudienceId: { type: string, description: Required for lookalike audiences }
                     country: { type: string, description: "2-letter code, required for lookalike audiences" }
                     ratio: { type: number, minimum: 0.01, maximum: 0.20, description: Required for lookalike audiences }
-                    rule: { type: object, description: "Pixel event rule for website audiences (optional)" }
+                    rule: { type: object, description: "Optional raw Meta rule, forwarded verbatim: pixel event rule for website audiences, or the engagement rule for meta_engagement (overrides the built rule, e.g. for event/canvas/lead-form sources)." }
                     customerFileSource: { type: string, description: "Data source declaration for GDPR compliance (customer_list only)" }
                 - type: object
                   title: SavedTargetingAudience
@@ -36657,12 +37490,15 @@ paths:
     put:
       operationId: updateAdAudience
       tags: [Ad Audiences]
-      summary: Update saved targeting audience
+      summary: Update an audience
       description: |
-        Update a `saved_targeting` audience's name, description, or spec. Only `saved_targeting` audiences are
-        updatable (they exist only on Zernio); uploaded/derived audiences return 422, delete and recreate those
-        instead. `spec` replaces the stored spec wholesale (no merge). Ads already created from this audience are
-        unaffected, they snapshot the targeting at creation.
+        Update an audience. `saved_targeting` audiences accept `name`, `description`, and `spec`
+        (full replacement, no merge, Zernio-only, no platform call). Platform audiences
+        (uploaded/website/lookalike) accept `name` and `description` only, updated on the
+        platform first and then mirrored locally; their rules are immutable, so `spec` returns
+        400 for them. Platform audience updates are Meta-only for now (other platforms return
+        501). Ads already created from a saved_targeting audience are unaffected, they snapshot
+        the targeting at creation.
       security:
         - bearerAuth: []
       parameters:
@@ -36691,13 +37527,15 @@ paths:
                   audience: { type: object }
                   message: { type: string }
         '400':
-          description: Invalid body (no fields provided or malformed spec)
+          description: 'Invalid body (no fields provided, malformed spec, or spec on a platform audience)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
-          description: The audience is not saved_targeting (uploaded/derived audiences are managed on the platform)
+          description: The audience has no platform counterpart to update
+        '501':
+          description: Platform audience updates are only supported on Meta
     delete:
       operationId: deleteAdAudience
       tags: [Ad Audiences]
@@ -36809,6 +37647,7 @@ paths:
                               identifier: { type: string }
                               coveragePercentage: { type: number }
                         eventCoveragePercentage: { type: number, description: "Pixel↔CAPI coverage rate for this event." }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '405': { description: "Platform does not expose Event Match Quality (non-Meta)." }
   /v1/ads/conversions:
@@ -38372,3 +39211,124 @@ paths:
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { description: Account or tracking tag not found. }
         '405': { description: Platform does not support tracking-tag stats. }
+
+  /v1/verify/verifications:
+    post:
+      operationId: createVerification
+      tags: [Verify]
+      summary: Send a verification code
+      description: |
+        Generate a one-time code, deliver it to the recipient, and store only
+        its hash. Check the user-typed code with
+        POST /v1/verify/verifications/{verificationId}/check.
+
+        Re-POSTing for the same (channel, to) while a verification is active
+        RESENDS a fresh code on the existing verification (200 with
+        `resend: true`) instead of creating a new one; resends are limited to
+        one per 60 seconds (429 with `retryAfterSeconds` inside the cooldown).
+        The stored brandName/codeLength/ttlMinutes win on a resend.
+
+        Codes deliver by SMS from a phone number on your account (`from`
+        optional when you own exactly one SMS-enabled number) and the message
+        uses a fixed template. Each accepted send bills one verification fee
+        plus the standard message rate.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, to]
+              properties:
+                channel: { type: string, enum: [sms], description: 'SMS-only for now.' }
+                to: { type: string, description: "E.164 phone number." }
+                from: { type: string, description: "The SMS-enabled number on your account to send from. Defaults to your only SMS number." }
+                brandName: { type: string, maxLength: 30, description: "Your app or business name, rendered in the message. Defaults to your account name. Letters, numbers, and basic punctuation only." }
+                codeLength: { type: integer, minimum: 4, maximum: 8, default: 6 }
+                ttlMinutes: { type: integer, minimum: 1, maximum: 15, default: 10 }
+      responses:
+        '201':
+          description: Verification created and the code sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+        '200':
+          description: 'Active verification found: a fresh code was resent (`resend: true`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Verifications require usage-based billing. }
+        '404': { description: "The 'from' number is not an SMS-enabled number on this account." }
+        '409': { description: The recipient has opted out of messages from your number. }
+        '422': { description: "Verifications need an SMS-enabled number on your account; add one first." }
+        '429': { description: 'Resend cooldown or a send cap was hit; `retryAfterSeconds` says when to retry.' }
+
+  /v1/verify/verifications/{verificationId}:
+    get:
+      operationId: getVerification
+      tags: [Verify]
+      summary: Get a verification
+      description: |
+        Current state of a verification. `status` is effective (a pending code
+        past its expiry reads as `expired`). Verification records are deleted
+        24 hours after creation, after which this returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: verificationId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Verification not found (or already reaped). }
+
+  /v1/verify/verifications/{verificationId}/check:
+    post:
+      operationId: checkVerification
+      tags: [Verify]
+      summary: Check a verification code
+      description: |
+        Verify the code the user typed. Wrong, expired, and exhausted codes
+        answer 200 with `valid: false` and the settled `status` — only an
+        unknown id is a 404. A correct code consumes the verification
+        (single-use, `status: approved`) and fires the `verification.approved`
+        webhook; the 5th wrong attempt settles it as `max_attempts_reached`
+        and fires `verification.failed`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: verificationId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^\d{4,8}$' }
+      responses:
+        '200':
+          description: 'Check result: the verification plus `valid`.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Verification'
+                  - type: object
+                    properties:
+                      valid: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Verification not found (or already reaped). }

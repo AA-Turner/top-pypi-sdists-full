@@ -30,9 +30,9 @@ def _fetch_cloud_registry() -> dict:
     processes (CLI, cron) will fetch once; the long-running webapp
     automatically picks up registry updates after the TTL expires.
 
-    Wraps `requests.RequestException` (timeouts, DNS failures, etc.) and
-    non-200 responses in a `PyAirbyteInputError` so callers receive a
-    consistent error type.
+    Wraps `requests.RequestException` (timeouts, DNS failures, etc.), non-200
+    responses, and a malformed (non-JSON) body in a `PyAirbyteInputError` so
+    callers receive a consistent error type.
     """
     try:
         response = requests.get(CLOUD_REGISTRY_URL, timeout=60)
@@ -48,7 +48,13 @@ def _fetch_cloud_registry() -> dict:
             context={"response": response.text},
         )
 
-    return response.json()
+    try:
+        return response.json()
+    except ValueError as e:
+        raise PyAirbyteInputError(
+            message="Cloud connector registry returned a malformed JSON response.",
+            context={"url": CLOUD_REGISTRY_URL, "error": str(e)},
+        ) from e
 
 
 def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:

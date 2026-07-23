@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.2.1
+Version: 3.3.0
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey
@@ -14,8 +14,12 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: backends
 Requires-Dist: redis>=3.0.0; extra == "backends"
+Provides-Extra: redis
+Requires-Dist: redis>=3.0.0; extra == "redis"
 Provides-Extra: postgres
 Requires-Dist: psycopg>=3.2; extra == "postgres"
+Provides-Extra: cysqlite
+Requires-Dist: cysqlite>=0.3.5; extra == "cysqlite"
 Dynamic: license-file
 
 .. image:: https://media.charlesleifer.com/blog/photos/huey3-logo.png
@@ -34,7 +38,7 @@ huey has:
 * zero dependencies (``redis-py`` required to use redis-like brokers,
   ``psycopg`` for postgres).
 * `example code <https://github.com/coleifer/huey/tree/master/examples/>`_.
-* `django <https://huey.readthedocs.io/en/latest/django.html>`_ integration (native or via django.tasks)
+* `django <https://huey.readthedocs.io/en/latest/contrib.html#django>`_ integration (native or via django.tasks)
   with admin integration for visibility and management.
 * `documentation <https://huey.readthedocs.io/>`_.
 

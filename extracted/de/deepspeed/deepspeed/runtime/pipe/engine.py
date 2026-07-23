@@ -534,6 +534,12 @@ class PipelineEngine(DeepSpeedEngine):
         """True if this process is in the last stage in the pipeline."""
         return self.stage_id == self.num_stages - 1
 
+    def _backward_prologue_per_tensor(self, grad):
+        # The last stage applies GAS scaling before sending gradients upstream.
+        if self.is_last_stage():
+            return super()._backward_prologue_per_tensor(grad)
+        return grad
+
     def get_pipeline_parallel_rank(self):
         return self.stage_id
 
@@ -1325,7 +1331,13 @@ class PipelineEngine(DeepSpeedEngine):
                                     exclude_frozen_params=exclude_frozen_parameters)
         return None
 
-    def load_module_state_dict(self, checkpoint, strict=True, custom_load_fn=None, fetch_z3_params=False):
+    def load_module_state_dict(self,
+                               checkpoint,
+                               strict=True,
+                               custom_load_fn=None,
+                               fetch_z3_params=False,
+                               z3_params_to_fetch=None,
+                               allowed_missing_keys=None):
         """Override hack to instead use a directory path.
 
         This is important because pipeline models checkpoint by layer instead of rank.
@@ -1339,7 +1351,11 @@ class PipelineEngine(DeepSpeedEngine):
         assert custom_load_fn is None, "custom_load_fn not supported w. pipeline parallelism"
         state_dict = checkpoint if self.has_moe_layers else checkpoint['module']
         if (state_dict is not None) and (not isinstance(state_dict, str)):
-            super().load_module_state_dict(state_dict, strict)
+            super().load_module_state_dict(state_dict,
+                                           strict,
+                                           fetch_z3_params=fetch_z3_params,
+                                           z3_params_to_fetch=z3_params_to_fetch,
+                                           allowed_missing_keys=allowed_missing_keys)
             return
 
         self.module.load_state_dir(load_dir=self._curr_ckpt_path,

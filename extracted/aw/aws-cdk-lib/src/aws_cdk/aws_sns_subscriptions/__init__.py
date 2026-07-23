@@ -173,6 +173,8 @@ my_topic.add_subscription(subscriptions.FirehoseSubscription(stream,
 ))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -186,41 +188,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-from ..aws_iam import IRole as _IRole_235f5d8e
-from ..aws_kinesisfirehose import IDeliveryStream as _IDeliveryStream_8f118861
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_sns import (
-    DeliveryPolicy as _DeliveryPolicy_76b14b4e,
-    FilterOrPolicy as _FilterOrPolicy_ad79be59,
-    ITopic as _ITopic_9eca4852,
-    ITopicSubscription as _ITopicSubscription_363a9426,
-    SubscriptionFilter as _SubscriptionFilter_8e774360,
-    SubscriptionProtocol as _SubscriptionProtocol_0df4af69,
-    TopicSubscriptionConfig as _TopicSubscriptionConfig_3a01016e,
-)
-from ..aws_sqs import IQueue as _IQueue_7ed6f679
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kinesisfirehose as _aws_kinesisfirehose_7262737d
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
+else:
+
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kinesisfirehose_7262737d = _LazyImport("aws_cdk.aws_kinesisfirehose")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class EmailSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.EmailSubscription",
@@ -244,9 +243,9 @@ class EmailSubscription(
         email_address: builtins.str,
         *,
         json: typing.Optional[builtins.bool] = None,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param email_address: -
@@ -256,7 +255,7 @@ class EmailSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a82616a80e8cb255f10c290c6973dc00aa57e3134cc5dc533357bb5f9a90695)
+            type_hints = cached_type_hints(_typecheckingstub__1a82616a80e8cb255f10c290c6973dc00aa57e3134cc5dc533357bb5f9a90695)
             check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
         props = EmailSubscriptionProps(
             json=json,
@@ -268,18 +267,21 @@ class EmailSubscription(
         jsii.create(self.__class__, self, [email_address, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        _topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration for an email address to subscribe to an SNS topic.
 
         :param _topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8196047448e43839102a9b8698847e0dced23efba9bc4c3183517832ea7a337e)
+            type_hints = cached_type_hints(_typecheckingstub__8196047448e43839102a9b8698847e0dced23efba9bc4c3183517832ea7a337e)
             check_type(argname="argument _topic", value=_topic, expected_type=type_hints["_topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [_topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [_topic]))
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class FirehoseSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.FirehoseSubscription",
@@ -302,13 +304,13 @@ class FirehoseSubscription(
 
     def __init__(
         self,
-        delivery_stream: "_IDeliveryStream_8f118861",
+        delivery_stream: "_aws_kinesisfirehose_7262737d.IDeliveryStream",
         *,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param delivery_stream: -
@@ -319,7 +321,7 @@ class FirehoseSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb284a753df4f96d68b5336d14cffbd9183054fb6ebd06d8ae9d19e34dadca66)
+            type_hints = cached_type_hints(_typecheckingstub__eb284a753df4f96d68b5336d14cffbd9183054fb6ebd06d8ae9d19e34dadca66)
             check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
         props = FirehoseSubscriptionProps(
             raw_message_delivery=raw_message_delivery,
@@ -332,18 +334,21 @@ class FirehoseSubscription(
         jsii.create(self.__class__, self, [delivery_stream, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration for a Lambda function to subscribe to an SNS topic.
 
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4451ffe60ee55af18e7cd4f32871e3dcb229ecdc56cfab772a77a55ca36a43d2)
+            type_hints = cached_type_hints(_typecheckingstub__4451ffe60ee55af18e7cd4f32871e3dcb229ecdc56cfab772a77a55ca36a43d2)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [topic]))
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class LambdaSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.LambdaSubscription",
@@ -377,11 +382,11 @@ class LambdaSubscription(
 
     def __init__(
         self,
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param fn: -
@@ -390,7 +395,7 @@ class LambdaSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6c58b72bfa1ffbf274b6dab576c34931fb67721a57d2059607f1e3269d774cc)
+            type_hints = cached_type_hints(_typecheckingstub__c6c58b72bfa1ffbf274b6dab576c34931fb67721a57d2059607f1e3269d774cc)
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         props = LambdaSubscriptionProps(
             dead_letter_queue=dead_letter_queue,
@@ -401,18 +406,21 @@ class LambdaSubscription(
         jsii.create(self.__class__, self, [fn, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration for a Lambda function to subscribe to an SNS topic.
 
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c74a4a7ee6c789de81819b10c186707565592423ffbfce90f325ecb42ea9660b)
+            type_hints = cached_type_hints(_typecheckingstub__c74a4a7ee6c789de81819b10c186707565592423ffbfce90f325ecb42ea9660b)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [topic]))
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class SmsSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.SmsSubscription",
@@ -432,9 +440,9 @@ class SmsSubscription(
         self,
         phone_number: builtins.str,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param phone_number: -
@@ -443,7 +451,7 @@ class SmsSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2d2d80745672ed8fea4be3ee0528d1fafd95d1295c1ccaae0a9ac0121e052b9)
+            type_hints = cached_type_hints(_typecheckingstub__c2d2d80745672ed8fea4be3ee0528d1fafd95d1295c1ccaae0a9ac0121e052b9)
             check_type(argname="argument phone_number", value=phone_number, expected_type=type_hints["phone_number"])
         props = SmsSubscriptionProps(
             dead_letter_queue=dead_letter_queue,
@@ -454,18 +462,21 @@ class SmsSubscription(
         jsii.create(self.__class__, self, [phone_number, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        _topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration used to subscribe to an SNS topic.
 
         :param _topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad95062c26a9e1173f59db80d43004d3cd582677e7e6211595db1ac44940aeeb)
+            type_hints = cached_type_hints(_typecheckingstub__ad95062c26a9e1173f59db80d43004d3cd582677e7e6211595db1ac44940aeeb)
             check_type(argname="argument _topic", value=_topic, expected_type=type_hints["_topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [_topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [_topic]))
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class SqsSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.SqsSubscription",
@@ -485,12 +496,12 @@ class SqsSubscription(
 
     def __init__(
         self,
-        queue: "_IQueue_7ed6f679",
+        queue: "_aws_sqs_24ab9de4.IQueue",
         *,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param queue: -
@@ -500,7 +511,7 @@ class SqsSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1fb1d07b2466c785eb4d613099f84cb5aec8abe3ab3ef6953872286f6b6b6eb)
+            type_hints = cached_type_hints(_typecheckingstub__b1fb1d07b2466c785eb4d613099f84cb5aec8abe3ab3ef6953872286f6b6b6eb)
             check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
         props = SqsSubscriptionProps(
             raw_message_delivery=raw_message_delivery,
@@ -512,15 +523,18 @@ class SqsSubscription(
         jsii.create(self.__class__, self, [queue, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration for an SQS queue to subscribe to an SNS topic.
 
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d393bcd5e0b8910200d6e6371a5a3f981e7c1e2160cc3e7fc5ab75cdca89c99c)
+            type_hints = cached_type_hints(_typecheckingstub__d393bcd5e0b8910200d6e6371a5a3f981e7c1e2160cc3e7fc5ab75cdca89c99c)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [topic]))
 
 
 @jsii.data_type(
@@ -536,9 +550,9 @@ class SubscriptionProps:
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''Options to subscribing to an SNS topic.
 
@@ -571,7 +585,7 @@ class SubscriptionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cd177765ba71e4e5ee7174b2edc60b767a4303c5d9db2cdd1e6a1925a5ba213)
+            type_hints = cached_type_hints(_typecheckingstub__8cd177765ba71e4e5ee7174b2edc60b767a4303c5d9db2cdd1e6a1925a5ba213)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -584,7 +598,7 @@ class SubscriptionProps:
             self._values["filter_policy_with_message_body"] = filter_policy_with_message_body
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -592,23 +606,23 @@ class SubscriptionProps:
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -616,7 +630,7 @@ class SubscriptionProps:
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -630,7 +644,7 @@ class SubscriptionProps:
         )
 
 
-@jsii.implements(_ITopicSubscription_363a9426)
+@jsii.implements(_aws_sns_07ffc8ab.ITopicSubscription)
 class UrlSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sns_subscriptions.UrlSubscription",
@@ -654,12 +668,12 @@ class UrlSubscription(
         self,
         url: builtins.str,
         *,
-        delivery_policy: typing.Optional[typing.Union["_DeliveryPolicy_76b14b4e", typing.Dict[builtins.str, typing.Any]]] = None,
-        protocol: typing.Optional["_SubscriptionProtocol_0df4af69"] = None,
+        delivery_policy: typing.Optional[typing.Union["_aws_sns_07ffc8ab.DeliveryPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
+        protocol: typing.Optional["_aws_sns_07ffc8ab.SubscriptionProtocol"] = None,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''
         :param url: -
@@ -671,7 +685,7 @@ class UrlSubscription(
         :param filter_policy_with_message_body: The filter policy that is applied on the message body. To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used. Default: - all messages are delivered
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb20fb5ebe87494e3bac5aa1faafa0ee8b89a54b69e6bd2c759c374b193a6dfc)
+            type_hints = cached_type_hints(_typecheckingstub__fb20fb5ebe87494e3bac5aa1faafa0ee8b89a54b69e6bd2c759c374b193a6dfc)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         props = UrlSubscriptionProps(
             delivery_policy=delivery_policy,
@@ -685,15 +699,18 @@ class UrlSubscription(
         jsii.create(self.__class__, self, [url, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _topic: "_ITopic_9eca4852") -> "_TopicSubscriptionConfig_3a01016e":
+    def bind(
+        self,
+        _topic: "_aws_sns_07ffc8ab.ITopic",
+    ) -> "_aws_sns_07ffc8ab.TopicSubscriptionConfig":
         '''Returns a configuration for a URL to subscribe to an SNS topic.
 
         :param _topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd92aadeb4993c9c89443044ed067b13c5ba8d3e6272fafd3efb9a1d01d49d45)
+            type_hints = cached_type_hints(_typecheckingstub__fd92aadeb4993c9c89443044ed067b13c5ba8d3e6272fafd3efb9a1d01d49d45)
             check_type(argname="argument _topic", value=_topic, expected_type=type_hints["_topic"])
-        return typing.cast("_TopicSubscriptionConfig_3a01016e", jsii.invoke(self, "bind", [_topic]))
+        return typing.cast("_aws_sns_07ffc8ab.TopicSubscriptionConfig", jsii.invoke(self, "bind", [_topic]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -718,11 +735,11 @@ class UrlSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
-        delivery_policy: typing.Optional[typing.Union["_DeliveryPolicy_76b14b4e", typing.Dict[builtins.str, typing.Any]]] = None,
-        protocol: typing.Optional["_SubscriptionProtocol_0df4af69"] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
+        delivery_policy: typing.Optional[typing.Union["_aws_sns_07ffc8ab.DeliveryPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
+        protocol: typing.Optional["_aws_sns_07ffc8ab.SubscriptionProtocol"] = None,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for URL subscriptions.
@@ -759,9 +776,9 @@ class UrlSubscriptionProps(SubscriptionProps):
                 ))
         '''
         if isinstance(delivery_policy, dict):
-            delivery_policy = _DeliveryPolicy_76b14b4e(**delivery_policy)
+            delivery_policy = _aws_sns_07ffc8ab.DeliveryPolicy(**delivery_policy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abe65add18291230d30a8771d08cd51f9f4eb89c5f1844a384570386c2c534ed)
+            type_hints = cached_type_hints(_typecheckingstub__abe65add18291230d30a8771d08cd51f9f4eb89c5f1844a384570386c2c534ed)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -783,7 +800,7 @@ class UrlSubscriptionProps(SubscriptionProps):
             self._values["raw_message_delivery"] = raw_message_delivery
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -791,23 +808,23 @@ class UrlSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -815,25 +832,25 @@ class UrlSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     @builtins.property
-    def delivery_policy(self) -> typing.Optional["_DeliveryPolicy_76b14b4e"]:
+    def delivery_policy(self) -> typing.Optional["_aws_sns_07ffc8ab.DeliveryPolicy"]:
         '''The delivery policy.
 
         :default: - if the initial delivery of the message fails, three retries with a delay between failed attempts set at 20 seconds
         '''
         result = self._values.get("delivery_policy")
-        return typing.cast(typing.Optional["_DeliveryPolicy_76b14b4e"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.DeliveryPolicy"], result)
 
     @builtins.property
-    def protocol(self) -> typing.Optional["_SubscriptionProtocol_0df4af69"]:
+    def protocol(self) -> typing.Optional["_aws_sns_07ffc8ab.SubscriptionProtocol"]:
         '''The subscription's protocol.
 
         :default: - Protocol is derived from url
         '''
         result = self._values.get("protocol")
-        return typing.cast(typing.Optional["_SubscriptionProtocol_0df4af69"], result)
+        return typing.cast(typing.Optional["_aws_sns_07ffc8ab.SubscriptionProtocol"], result)
 
     @builtins.property
     def raw_message_delivery(self) -> typing.Optional[builtins.bool]:
@@ -872,9 +889,9 @@ class EmailSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
         json: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for email subscriptions.
@@ -910,7 +927,7 @@ class EmailSubscriptionProps(SubscriptionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a78d2c696d1babec6ccfebac17827b1b6ba6f90d62674866fc5b2df7b5df3d9)
+            type_hints = cached_type_hints(_typecheckingstub__4a78d2c696d1babec6ccfebac17827b1b6ba6f90d62674866fc5b2df7b5df3d9)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -926,7 +943,7 @@ class EmailSubscriptionProps(SubscriptionProps):
             self._values["json"] = json
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -934,23 +951,23 @@ class EmailSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -958,7 +975,7 @@ class EmailSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     @builtins.property
     def json(self) -> typing.Optional[builtins.bool]:
@@ -996,11 +1013,11 @@ class FirehoseSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Properties for an Amazon Data Firehose subscription.
 
@@ -1025,7 +1042,7 @@ class FirehoseSubscriptionProps(SubscriptionProps):
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__985141d3216aa767af7319f266fa3eda68db2fc5132677f99b8aeb05d240609c)
+            type_hints = cached_type_hints(_typecheckingstub__985141d3216aa767af7319f266fa3eda68db2fc5132677f99b8aeb05d240609c)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -1044,7 +1061,7 @@ class FirehoseSubscriptionProps(SubscriptionProps):
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -1052,23 +1069,23 @@ class FirehoseSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -1076,7 +1093,7 @@ class FirehoseSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     @builtins.property
     def raw_message_delivery(self) -> typing.Optional[builtins.bool]:
@@ -1090,13 +1107,13 @@ class FirehoseSubscriptionProps(SubscriptionProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role to assume to write messages to the Amazon Data Firehose delivery stream.
 
         :default: - A new Role is created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1123,9 +1140,9 @@ class LambdaSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''Properties for a Lambda subscription.
 
@@ -1167,7 +1184,7 @@ class LambdaSubscriptionProps(SubscriptionProps):
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38ecc690db1f9c84ad1bee66614e7fd336ee231d47fb11fd9782c269149d5b19)
+            type_hints = cached_type_hints(_typecheckingstub__38ecc690db1f9c84ad1bee66614e7fd336ee231d47fb11fd9782c269149d5b19)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -1180,7 +1197,7 @@ class LambdaSubscriptionProps(SubscriptionProps):
             self._values["filter_policy_with_message_body"] = filter_policy_with_message_body
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -1188,23 +1205,23 @@ class LambdaSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -1212,7 +1229,7 @@ class LambdaSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1239,9 +1256,9 @@ class SmsSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
     ) -> None:
         '''Options for SMS subscriptions.
 
@@ -1274,7 +1291,7 @@ class SmsSubscriptionProps(SubscriptionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99bb02fbcdff56a4213aeeaebfee0a11c1aaf31e49426e34489a56274562df35)
+            type_hints = cached_type_hints(_typecheckingstub__99bb02fbcdff56a4213aeeaebfee0a11c1aaf31e49426e34489a56274562df35)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -1287,7 +1304,7 @@ class SmsSubscriptionProps(SubscriptionProps):
             self._values["filter_policy_with_message_body"] = filter_policy_with_message_body
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -1295,23 +1312,23 @@ class SmsSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -1319,7 +1336,7 @@ class SmsSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1347,9 +1364,9 @@ class SqsSubscriptionProps(SubscriptionProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
+        dead_letter_queue: typing.Optional["_aws_sqs_24ab9de4.IQueue"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]] = None,
         raw_message_delivery: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties for an SQS subscription.
@@ -1385,7 +1402,7 @@ class SqsSubscriptionProps(SubscriptionProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98925d4313aced10536cb11cc2fdf78fd27796f3de056153e756a0db06c594c8)
+            type_hints = cached_type_hints(_typecheckingstub__98925d4313aced10536cb11cc2fdf78fd27796f3de056153e756a0db06c594c8)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
             check_type(argname="argument filter_policy", value=filter_policy, expected_type=type_hints["filter_policy"])
             check_type(argname="argument filter_policy_with_message_body", value=filter_policy_with_message_body, expected_type=type_hints["filter_policy_with_message_body"])
@@ -1401,7 +1418,7 @@ class SqsSubscriptionProps(SubscriptionProps):
             self._values["raw_message_delivery"] = raw_message_delivery
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_sqs_24ab9de4.IQueue"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -1409,23 +1426,23 @@ class SqsSubscriptionProps(SubscriptionProps):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
+        return typing.cast(typing.Optional["_aws_sqs_24ab9de4.IQueue"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.SubscriptionFilter"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -1433,7 +1450,7 @@ class SqsSubscriptionProps(SubscriptionProps):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_sns_07ffc8ab.FilterOrPolicy"]], result)
 
     @builtins.property
     def raw_message_delivery(self) -> typing.Optional[builtins.bool]:
@@ -1480,49 +1497,49 @@ def _typecheckingstub__1a82616a80e8cb255f10c290c6973dc00aa57e3134cc5dc533357bb5f
     email_address: builtins.str,
     *,
     json: typing.Optional[builtins.bool] = None,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8196047448e43839102a9b8698847e0dced23efba9bc4c3183517832ea7a337e(
-    _topic: _ITopic_9eca4852,
+    _topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eb284a753df4f96d68b5336d14cffbd9183054fb6ebd06d8ae9d19e34dadca66(
-    delivery_stream: _IDeliveryStream_8f118861,
+    delivery_stream: _aws_kinesisfirehose_7262737d.IDeliveryStream,
     *,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4451ffe60ee55af18e7cd4f32871e3dcb229ecdc56cfab772a77a55ca36a43d2(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c6c58b72bfa1ffbf274b6dab576c34931fb67721a57d2059607f1e3269d774cc(
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c74a4a7ee6c789de81819b10c186707565592423ffbfce90f325ecb42ea9660b(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1530,41 +1547,41 @@ def _typecheckingstub__c74a4a7ee6c789de81819b10c186707565592423ffbfce90f325ecb42
 def _typecheckingstub__c2d2d80745672ed8fea4be3ee0528d1fafd95d1295c1ccaae0a9ac0121e052b9(
     phone_number: builtins.str,
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ad95062c26a9e1173f59db80d43004d3cd582677e7e6211595db1ac44940aeeb(
-    _topic: _ITopic_9eca4852,
+    _topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b1fb1d07b2466c785eb4d613099f84cb5aec8abe3ab3ef6953872286f6b6b6eb(
-    queue: _IQueue_7ed6f679,
+    queue: _aws_sqs_24ab9de4.IQueue,
     *,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d393bcd5e0b8910200d6e6371a5a3f981e7c1e2160cc3e7fc5ab75cdca89c99c(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8cd177765ba71e4e5ee7174b2edc60b767a4303c5d9db2cdd1e6a1925a5ba213(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1572,29 +1589,29 @@ def _typecheckingstub__8cd177765ba71e4e5ee7174b2edc60b767a4303c5d9db2cdd1e6a1925
 def _typecheckingstub__fb20fb5ebe87494e3bac5aa1faafa0ee8b89a54b69e6bd2c759c374b193a6dfc(
     url: builtins.str,
     *,
-    delivery_policy: typing.Optional[typing.Union[_DeliveryPolicy_76b14b4e, typing.Dict[builtins.str, typing.Any]]] = None,
-    protocol: typing.Optional[_SubscriptionProtocol_0df4af69] = None,
+    delivery_policy: typing.Optional[typing.Union[_aws_sns_07ffc8ab.DeliveryPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
+    protocol: typing.Optional[_aws_sns_07ffc8ab.SubscriptionProtocol] = None,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fd92aadeb4993c9c89443044ed067b13c5ba8d3e6272fafd3efb9a1d01d49d45(
-    _topic: _ITopic_9eca4852,
+    _topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__abe65add18291230d30a8771d08cd51f9f4eb89c5f1844a384570386c2c534ed(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
-    delivery_policy: typing.Optional[typing.Union[_DeliveryPolicy_76b14b4e, typing.Dict[builtins.str, typing.Any]]] = None,
-    protocol: typing.Optional[_SubscriptionProtocol_0df4af69] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
+    delivery_policy: typing.Optional[typing.Union[_aws_sns_07ffc8ab.DeliveryPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
+    protocol: typing.Optional[_aws_sns_07ffc8ab.SubscriptionProtocol] = None,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1602,9 +1619,9 @@ def _typecheckingstub__abe65add18291230d30a8771d08cd51f9f4eb89c5f1844a384570386c
 
 def _typecheckingstub__4a78d2c696d1babec6ccfebac17827b1b6ba6f90d62674866fc5b2df7b5df3d9(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
     json: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1612,38 +1629,38 @@ def _typecheckingstub__4a78d2c696d1babec6ccfebac17827b1b6ba6f90d62674866fc5b2df7
 
 def _typecheckingstub__985141d3216aa767af7319f266fa3eda68db2fc5132677f99b8aeb05d240609c(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__38ecc690db1f9c84ad1bee66614e7fd336ee231d47fb11fd9782c269149d5b19(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__99bb02fbcdff56a4213aeeaebfee0a11c1aaf31e49426e34489a56274562df35(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__98925d4313aced10536cb11cc2fdf78fd27796f3de056153e756a0db06c594c8(
     *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+    dead_letter_queue: typing.Optional[_aws_sqs_24ab9de4.IQueue] = None,
+    filter_policy: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.SubscriptionFilter]] = None,
+    filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _aws_sns_07ffc8ab.FilterOrPolicy]] = None,
     raw_message_delivery: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

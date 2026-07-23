@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AppInstanceBotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d94314e184ef238bc15359652813db5a17decbc7880453c10eebfdb5aee1574b)
+            type_hints = cached_type_hints(_typecheckingstub__d94314e184ef238bc15359652813db5a17decbc7880453c10eebfdb5aee1574b)
             check_type(argname="argument app_instance_bot_arn", value=app_instance_bot_arn, expected_type=type_hints["app_instance_bot_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_instance_bot_arn": app_instance_bot_arn,
@@ -107,7 +111,7 @@ class AppInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce7a63f08f74043f81dd278aff7af9a1fbed0722dd9d181168266b0223b7dd9a)
+            type_hints = cached_type_hints(_typecheckingstub__ce7a63f08f74043f81dd278aff7af9a1fbed0722dd9d181168266b0223b7dd9a)
             check_type(argname="argument app_instance_arn", value=app_instance_arn, expected_type=type_hints["app_instance_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_instance_arn": app_instance_arn,
@@ -132,10 +136,59 @@ class AppInstanceReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_chime.AppInstanceUserReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_instance_user_arn": "appInstanceUserArn"},
+)
+class AppInstanceUserReference:
+    def __init__(self, *, app_instance_user_arn: builtins.str) -> None:
+        '''A reference to a AppInstanceUser resource.
+
+        :param app_instance_user_arn: The AppInstanceUserArn of the AppInstanceUser resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_chime as interfaces_chime
+            
+            app_instance_user_reference = interfaces_chime.AppInstanceUserReference(
+                app_instance_user_arn="appInstanceUserArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a21d6b54c1a60d27402b1eed938ae67bfee72c94f33036fdd030210620f2b08)
+            check_type(argname="argument app_instance_user_arn", value=app_instance_user_arn, expected_type=type_hints["app_instance_user_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_instance_user_arn": app_instance_user_arn,
+        }
+
+    @builtins.property
+    def app_instance_user_arn(self) -> builtins.str:
+        '''The AppInstanceUserArn of the AppInstanceUser resource.'''
+        result = self._values.get("app_instance_user_arn")
+        assert result is not None, "Required property 'app_instance_user_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppInstanceUserReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_chime.IAppInstanceBotRef")
 class IAppInstanceBotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppInstanceBot.
@@ -155,7 +208,7 @@ class IAppInstanceBotRef(
 
 class _IAppInstanceBotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppInstanceBot.
 
@@ -180,7 +233,7 @@ typing.cast(typing.Any, IAppInstanceBotRef).__jsii_proxy_class__ = lambda : _IAp
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_chime.IAppInstanceRef")
 class IAppInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppInstance.
@@ -200,7 +253,7 @@ class IAppInstanceRef(
 
 class _IAppInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AppInstance.
 
@@ -222,11 +275,58 @@ class _IAppInstanceRefProxy(
 typing.cast(typing.Any, IAppInstanceRef).__jsii_proxy_class__ = lambda : _IAppInstanceRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_chime.IAppInstanceUserRef")
+class IAppInstanceUserRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppInstanceUser.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceUserRef")
+    def app_instance_user_ref(self) -> "AppInstanceUserReference":
+        '''(experimental) A reference to a AppInstanceUser resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppInstanceUserRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppInstanceUser.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_chime.IAppInstanceUserRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceUserRef")
+    def app_instance_user_ref(self) -> "AppInstanceUserReference":
+        '''(experimental) A reference to a AppInstanceUser resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AppInstanceUserReference", jsii.get(self, "appInstanceUserRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppInstanceUserRef).__jsii_proxy_class__ = lambda : _IAppInstanceUserRefProxy
+
+
 __all__ = [
     "AppInstanceBotReference",
     "AppInstanceReference",
+    "AppInstanceUserReference",
     "IAppInstanceBotRef",
     "IAppInstanceRef",
+    "IAppInstanceUserRef",
 ]
 
 publication.publish()
@@ -245,5 +345,12 @@ def _typecheckingstub__ce7a63f08f74043f81dd278aff7af9a1fbed0722dd9d181168266b022
     """Type checking stubs"""
     pass
 
-for cls in [IAppInstanceBotRef, IAppInstanceRef]:
+def _typecheckingstub__0a21d6b54c1a60d27402b1eed938ae67bfee72c94f33036fdd030210620f2b08(
+    *,
+    app_instance_user_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAppInstanceBotRef, IAppInstanceRef, IAppInstanceUserRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

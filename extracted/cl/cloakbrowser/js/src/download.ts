@@ -40,11 +40,11 @@ const DOWNLOAD_TIMEOUT_MS = 600_000; // 10 minutes
 // Seconds, matching the Python/.NET `.last_update_check` marker format so the
 // three wrappers share one cache dir without corrupting each other's rate limit.
 const UPDATE_CHECK_INTERVAL_SEC = 3600; // 1 hour
-// Free-tier welcome banner re-show interval (3 days, in seconds). Free users see
-// the Pro upsell again after this gap; Pro users see it only once (see showWelcome).
+// Free-tier welcome banner re-show interval (1 day, in seconds). Free users see
+// the upsell again after this gap; Pro users see it only once (see showWelcome).
 // Seconds (not ms) so the shared marker is consistent with the Python/.NET wrappers.
 // @internal Exported for testing only.
-export const WELCOME_FREE_INTERVAL_SEC = 3 * 24 * 60 * 60;
+export const WELCOME_FREE_INTERVAL_SEC = 1 * 24 * 60 * 60;
 // Pro Chromium major shown in the welcome banner. Bump at each Pro major release
 // (no local constant to derive it from — the live Pro version comes from the
 // network, which we don't call just to print a banner). Mirrors download.py.
@@ -93,12 +93,17 @@ export async function ensureBinary(licenseKey?: string, browserVersion?: string)
   if (effectiveKey) {
     const info = await validateLicense(effectiveKey);
     if (info?.valid) {
+      // Free tier always gets the latest build. Drop any version pin: the server
+      // force-serves latest to free keys, so fetching a pinned version's signed
+      // manifest would mismatch the served bytes and fail checksum verification.
+      // Paid keys keep pinning/rollback.
+      const proVersion = info.plan === "free" ? undefined : requestedVersion;
       // A valid license is entitled to Pro, so Pro failures surface loudly
       // rather than silently substituting the older free binary. (A blip during
       // a routine update never reaches here: ensureProBinary returns the cached
       // Pro binary and updates in the background.)
       try {
-        return await ensureProBinary(effectiveKey, requestedVersion);
+        return await ensureProBinary(effectiveKey, proVersion, info.plan);
       } catch (e) {
         // Authenticity could not be confirmed — surface verbatim.
         if (e instanceof BinaryVerificationError) throw e;
@@ -294,26 +299,46 @@ export function welcomeDue(marker: string, pro: boolean): boolean {
   }
 }
 
-function showWelcome(pro = false): void {
+/**
+ * Show welcome message on launch. A marker file gates the cadence: a paid (Pro)
+ * key shows once ever; free (keyless or a free GitHub key) re-shows every
+ * WELCOME_FREE_INTERVAL_SEC.
+ *
+ * tier:
+ *   "pro"     — a paid license key (Pro banner + support address)
+ *   "free"    — a free GitHub key (latest binary, one concurrent session)
+ *   "keyless" — no key, running the older free binary (invite the free login)
+ */
+function showWelcome(tier = "keyless"): void {
   const marker = path.join(getCacheDir(), ".welcome_shown");
-  if (!welcomeDue(marker, pro)) return;
+  if (!welcomeDue(marker, tier === "pro")) return;
   console.error();
   console.error("  CloakBrowser — stealth Chromium for automation");
   console.error("  https://github.com/CloakHQ/CloakBrowser");
   console.error();
-  if (pro) {
+  if (tier === "pro") {
     console.error(
       `  CloakBrowser Pro active (v${PRO_MAJOR}) — latest binary, newest patches.`,
     );
     console.error("  Pro support → support@cloakbrowser.dev");
+  } else if (tier === "free") {
+    console.error(
+      `  CloakBrowser free (v${PRO_MAJOR}): the latest binary, 1 concurrent session.`,
+    );
+    console.error(
+      "  For more than one concurrent session → https://cloakbrowser.dev",
+    );
   } else {
     const freeMajor = CHROMIUM_VERSION.split(".")[0];
     console.error(
-      `  Running free tier (v${freeMajor}). ` +
-        `Pro = latest binary (v${PRO_MAJOR}) + newest anti-bot patches.`,
+      `  Running the free binary (v${freeMajor}). ` +
+        `The latest binary (v${PRO_MAJOR}) is free too, with 1 concurrent session.`,
     );
     console.error(
-      "  Get Pro for the latest binary + newest patches → https://cloakbrowser.dev",
+      "  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free",
+    );
+    console.error(
+      "  For more than one concurrent session → https://cloakbrowser.dev",
     );
   }
   console.error("  Star us if CloakBrowser helps your project!");
@@ -708,13 +733,17 @@ function writeProVersionMarker(version: string): void {
 // thrown rather than silently launching the free tier.
 async function ensureProBinary(
   licenseKey: string,
-  requestedVersion?: string
+  requestedVersion?: string,
+  plan?: string
 ): Promise<string> {
+  // Banner tier: a free GitHub key gets the free banner, paid keys the Pro one.
+  const welcomeTier = plan === "free" ? "free" : "pro";
+
   // Pinned: launch the exact requested version, no server cross-check, no marker
   // write (a rollback pin must not stick future unpinned launches).
   if (requestedVersion) {
     if (proBinaryReady(requestedVersion)) {
-      showWelcome(true);
+      showWelcome(welcomeTier);
       return getBinaryPath(requestedVersion, true);
     }
     console.log(
@@ -725,7 +754,7 @@ async function ensureProBinary(
     if (!fs.existsSync(p)) {
       throw new Error(`Pro download completed but binary not found at: ${p}`);
     }
-    showWelcome(true);
+    showWelcome(welcomeTier);
     return p;
   }
 
@@ -739,7 +768,7 @@ async function ensureProBinary(
   const frozen =
     (process.env.CLOAKBROWSER_AUTO_UPDATE ?? "").toLowerCase() === "false";
   if (frozen && proBinaryReady(effective)) {
-    showWelcome(true);
+    showWelcome(welcomeTier);
     return getBinaryPath(effective, true);
   }
 
@@ -777,7 +806,7 @@ async function ensureProBinary(
         // Non-fatal
       }
     }
-    showWelcome(true);
+    showWelcome(welcomeTier);
     return getBinaryPath(version, true);
   }
 
@@ -796,7 +825,7 @@ async function ensureProBinary(
       console.log(
         `[cloakbrowser] Pro update to ${version} failed; launching cached Pro binary ${effective}`
       );
-      showWelcome(true);
+      showWelcome(welcomeTier);
       return getBinaryPath(effective, true);
     }
     throw err;
@@ -816,7 +845,7 @@ async function ensureProBinary(
     // Non-fatal
   }
 
-  showWelcome(true);
+  showWelcome(welcomeTier);
   return downloadedPath;
 }
 

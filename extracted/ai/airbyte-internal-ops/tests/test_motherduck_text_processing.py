@@ -10,10 +10,28 @@ from airbyte_ops_mcp.motherduck_diagnostics.text_processing import (
     apply_query_text_treatment,
     compute_query_hash,
     detect_query_subtype,
+    extract_database_name,
     extract_metadata,
     normalize_query,
+    parse_source_id_from_database_name,
     redact_string_constants,
 )
+
+# A real source UUID and the Sonar database name that embeds it (hyphens ->
+# underscores). Tests derive their expectations from these two known values, not
+# from strings restated inline at each assertion.
+_SOURCE_ID = "2b1a9c40-5f3e-4c21-9d7a-8e6b0f1c2d3e"
+_SOURCE_ID_UNDERSCORED = _SOURCE_ID.replace("-", "_")
+_DATABASE_NAME = f"postgres__{_SOURCE_ID_UNDERSCORED}"
+
+
+def _full_reload_ddl(database_name: str, *, table: str = "users") -> str:
+    """Build a full-reload DDL that scans `database_name`'s iceberg S3 path."""
+    return (
+        f'CREATE OR REPLACE TABLE "{table}" AS '
+        f"SELECT * FROM iceberg_scan("
+        f"'s3://ab-cloud-bucket/data/{database_name}.db/{table}/metadata/v1.json')"
+    )
 
 
 @pytest.mark.unit
@@ -348,3 +366,86 @@ def test_apply_query_text_treatment(
         redact_strings=redact_strings,
     )
     assert result == expected
+
+
+# --- extract_database_name ---
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "query_text, expected",
+    [
+        pytest.param(
+            _full_reload_ddl(_DATABASE_NAME),
+            _DATABASE_NAME,
+            id="full_reload_ddl",
+        ),
+        pytest.param(
+            _full_reload_ddl(_DATABASE_NAME, table="daily_active_users"),
+            _DATABASE_NAME,
+            id="ignores_unqualified_create_target",
+        ),
+        pytest.param("SELECT * FROM users WHERE id = 1", None, id="plain_select"),
+        pytest.param("", None, id="empty"),
+        pytest.param(
+            "COPY events FROM 's3://bucket/data/events.parquet'",
+            None,
+            id="s3_path_without_iceberg_scan",
+        ),
+        pytest.param(
+            "SELECT * FROM iceberg_scan('s3://bucket/warehouse/users/meta.json')",
+            None,
+            id="iceberg_scan_without_data_db_segment",
+        ),
+    ],
+)
+def test_extract_database_name(query_text: str, expected: str | None) -> None:
+    """Extraction reads the `data/<db>.db/` segment of the iceberg_scan path.
+
+    It uses only that S3 path (never the unqualified `CREATE ... TABLE
+    "<table>"` write target) and returns `None` when there is no clean match.
+    """
+    assert extract_database_name(query_text) == expected
+
+
+# --- parse_source_id_from_database_name ---
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "database_name, expected",
+    [
+        pytest.param(_DATABASE_NAME, _SOURCE_ID, id="plain"),
+        pytest.param(f"stg_{_DATABASE_NAME}", _SOURCE_ID, id="env_prefixed"),
+        pytest.param(
+            f"google_ads__{_SOURCE_ID_UNDERSCORED}",
+            _SOURCE_ID,
+            id="slug_with_single_underscore",
+        ),
+        pytest.param("postgres_no_delimiter", None, id="no_double_underscore"),
+        pytest.param("postgres__not_a_uuid", None, id="trailing_not_uuid"),
+        pytest.param("postgres__", None, id="empty_trailing"),
+        pytest.param(
+            f"postgres__{_SOURCE_ID_UNDERSCORED}_extra",
+            None,
+            id="trailing_has_extra_chars",
+        ),
+        pytest.param(
+            f"postgres__{_SOURCE_ID.replace('-', '')}",
+            None,
+            id="hyphenless_hex_not_canonical",
+        ),
+        pytest.param("", None, id="empty"),
+    ],
+)
+def test_parse_source_id_from_database_name(
+    database_name: str,
+    expected: str | None,
+) -> None:
+    """The trailing `__`-delimited segment maps back to the canonical UUID.
+
+    The split is on the final double-underscore boundary, so an env prefix and
+    single underscores in the slug don't disturb the parse. Anything without a
+    canonical UUID trailing segment fails closed to `None`.
+    """
+    assert parse_source_id_from_database_name(database_name) == expected

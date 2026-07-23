@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class ChannelAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6010b83c0e961b495968bf982b1b332200c1ef952cd03723212c88e8566ff20c)
+            type_hints = cached_type_hints(_typecheckingstub__6010b83c0e961b495968bf982b1b332200c1ef952cd03723212c88e8566ff20c)
             check_type(argname="argument channel_association_arn", value=channel_association_arn, expected_type=type_hints["channel_association_arn"])
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class EventRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d554d222f11444ec376e8b5910505d101ae7fa862f804905ac07fa8a8ae874b2)
+            type_hints = cached_type_hints(_typecheckingstub__d554d222f11444ec376e8b5910505d101ae7fa862f804905ac07fa8a8ae874b2)
             check_type(argname="argument event_rule_arn", value=event_rule_arn, expected_type=type_hints["event_rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_rule_arn": event_rule_arn,
@@ -156,7 +160,7 @@ class EventRuleReference:
 )
 class IChannelAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelAssociation.
@@ -176,7 +180,7 @@ class IChannelAssociationRef(
 
 class _IChannelAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelAssociation.
 
@@ -201,7 +205,7 @@ typing.cast(typing.Any, IChannelAssociationRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_notifications.IEventRuleRef")
 class IEventRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventRule.
@@ -221,7 +225,7 @@ class IEventRuleRef(
 
 class _IEventRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventRule.
 
@@ -248,7 +252,7 @@ typing.cast(typing.Any, IEventRuleRef).__jsii_proxy_class__ = lambda : _IEventRu
 )
 class IManagedNotificationAccountContactAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAccountContactAssociation.
@@ -270,7 +274,7 @@ class IManagedNotificationAccountContactAssociationRef(
 
 class _IManagedNotificationAccountContactAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAccountContactAssociation.
 
@@ -299,7 +303,7 @@ typing.cast(typing.Any, IManagedNotificationAccountContactAssociationRef).__jsii
 )
 class IManagedNotificationAdditionalChannelAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAdditionalChannelAssociation.
@@ -321,7 +325,7 @@ class IManagedNotificationAdditionalChannelAssociationRef(
 
 class _IManagedNotificationAdditionalChannelAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAdditionalChannelAssociation.
 
@@ -350,7 +354,7 @@ typing.cast(typing.Any, IManagedNotificationAdditionalChannelAssociationRef).__j
 )
 class INotificationConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NotificationConfiguration.
@@ -370,7 +374,7 @@ class INotificationConfigurationRef(
 
 class _INotificationConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NotificationConfiguration.
 
@@ -397,7 +401,7 @@ typing.cast(typing.Any, INotificationConfigurationRef).__jsii_proxy_class__ = la
 )
 class INotificationHubRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NotificationHub.
@@ -417,7 +421,7 @@ class INotificationHubRef(
 
 class _INotificationHubRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NotificationHub.
 
@@ -444,7 +448,7 @@ typing.cast(typing.Any, INotificationHubRef).__jsii_proxy_class__ = lambda : _IN
 )
 class IOrganizationalUnitAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnitAssociation.
@@ -466,7 +470,7 @@ class IOrganizationalUnitAssociationRef(
 
 class _IOrganizationalUnitAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnitAssociation.
 
@@ -524,7 +528,7 @@ class ManagedNotificationAccountContactAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__205eda7b62484f9f0ee487c4bfac941cc581fb66dd709b17aa1b1985e72e951b)
+            type_hints = cached_type_hints(_typecheckingstub__205eda7b62484f9f0ee487c4bfac941cc581fb66dd709b17aa1b1985e72e951b)
             check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -592,7 +596,7 @@ class ManagedNotificationAdditionalChannelAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4afedf31a01cbe5df87d942fb09a8752930c429a86620292d1777d1879c2b6e)
+            type_hints = cached_type_hints(_typecheckingstub__c4afedf31a01cbe5df87d942fb09a8752930c429a86620292d1777d1879c2b6e)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -650,7 +654,7 @@ class NotificationConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32d95bddb5a77a8a242a3cc12774adf022463c8a08bc89038e822748db2124f8)
+            type_hints = cached_type_hints(_typecheckingstub__32d95bddb5a77a8a242a3cc12774adf022463c8a08bc89038e822748db2124f8)
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "notification_configuration_arn": notification_configuration_arn,
@@ -699,7 +703,7 @@ class NotificationHubReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1f95e96b3dcd9198f5f6ea848cc9f5a988a94228b6fca344796f1f7c36f0cb9)
+            type_hints = cached_type_hints(_typecheckingstub__c1f95e96b3dcd9198f5f6ea848cc9f5a988a94228b6fca344796f1f7c36f0cb9)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "region": region,
@@ -758,7 +762,7 @@ class OrganizationalUnitAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcaff237a7248361a31927e9a4f9c14ade302aab28c6800b2db503a071b3af2a)
+            type_hints = cached_type_hints(_typecheckingstub__dcaff237a7248361a31927e9a4f9c14ade302aab28c6800b2db503a071b3af2a)
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
             check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

@@ -227,6 +227,8 @@ certificate.metric_days_to_expiry().create_alarm(self, "Alarm",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -240,55 +242,39 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_iam import IRole as _IRole_235f5d8e
-from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
-from ..interfaces.aws_acmpca import (
-    ICertificateAuthorityRef as _ICertificateAuthorityRef_240f71c8
-)
-from ..interfaces.aws_certificatemanager import (
-    AccountReference as _AccountReference_2fb6748e,
-    CertificateReference as _CertificateReference_6d6c82cf,
-    IAccountRef as _IAccountRef_dbc6fc0d,
-    ICertificateRef as _ICertificateRef_1878d79b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.interfaces.aws_acmpca as _aws_acmpca_b1f9cb51
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_acmpca_b1f9cb51 = _LazyImport("aws_cdk.interfaces.aws_acmpca")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -348,7 +334,7 @@ class CertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0454180af2ed6575d11cf361cd5374f722ba32d4007970472aca57751d85258f)
+            type_hints = cached_type_hints(_typecheckingstub__0454180af2ed6575d11cf361cd5374f722ba32d4007970472aca57751d85258f)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
@@ -497,7 +483,7 @@ class CertificateValidation(
     @builtins.classmethod
     def from_dns(
         cls,
-        hosted_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
+        hosted_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
     ) -> "CertificateValidation":
         '''Validate the certificate with DNS.
 
@@ -508,7 +494,7 @@ class CertificateValidation(
         :param hosted_zone: the hosted zone where DNS records must be created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d311e81288c218c157a69a30ff08393bdbd454a8fc61208beab60d43ceb0d073)
+            type_hints = cached_type_hints(_typecheckingstub__d311e81288c218c157a69a30ff08393bdbd454a8fc61208beab60d43ceb0d073)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
         return typing.cast("CertificateValidation", jsii.sinvoke(cls, "fromDns", [hosted_zone]))
 
@@ -516,14 +502,14 @@ class CertificateValidation(
     @builtins.classmethod
     def from_dns_multi_zone(
         cls,
-        hosted_zones: typing.Mapping[builtins.str, "_IHostedZone_9a6907ad"],
+        hosted_zones: typing.Mapping[builtins.str, "_aws_route53_ea3eecac.IHostedZone"],
     ) -> "CertificateValidation":
         '''Validate the certificate with automatically created DNS records in multiple Amazon Route 53 hosted zones.
 
         :param hosted_zones: a map of hosted zones where DNS records must be created for the domains in the certificate.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9e19a57c59056b6522867e062779dfe13086b375805e7484ac5b3b16e1288bc)
+            type_hints = cached_type_hints(_typecheckingstub__e9e19a57c59056b6522867e062779dfe13086b375805e7484ac5b3b16e1288bc)
             check_type(argname="argument hosted_zones", value=hosted_zones, expected_type=type_hints["hosted_zones"])
         return typing.cast("CertificateValidation", jsii.sinvoke(cls, "fromDnsMultiZone", [hosted_zones]))
 
@@ -552,7 +538,7 @@ class CertificateValidation(
         :param validation_domains: a map of validation domains to use for domains in the certificate.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e646dcc4d629169bb4daf43ef7ab70c779d7251a8c4a7997d32b8bd3627adc32)
+            type_hints = cached_type_hints(_typecheckingstub__e646dcc4d629169bb4daf43ef7ab70c779d7251a8c4a7997d32b8bd3627adc32)
             check_type(argname="argument validation_domains", value=validation_domains, expected_type=type_hints["validation_domains"])
         return typing.cast("CertificateValidation", jsii.sinvoke(cls, "fromEmail", [validation_domains]))
 
@@ -583,8 +569,8 @@ class CertificationValidationProps:
     def __init__(
         self,
         *,
-        hosted_zone: typing.Optional["_IHostedZone_9a6907ad"] = None,
-        hosted_zones: typing.Optional[typing.Mapping[builtins.str, "_IHostedZone_9a6907ad"]] = None,
+        hosted_zone: typing.Optional["_aws_route53_ea3eecac.IHostedZone"] = None,
+        hosted_zones: typing.Optional[typing.Mapping[builtins.str, "_aws_route53_ea3eecac.IHostedZone"]] = None,
         method: typing.Optional["ValidationMethod"] = None,
         validation_domains: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -618,7 +604,7 @@ class CertificationValidationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e752fd91fd754625f454d3983095bf28bb2a1e1fbd5d307a0d1662659800154)
+            type_hints = cached_type_hints(_typecheckingstub__4e752fd91fd754625f454d3983095bf28bb2a1e1fbd5d307a0d1662659800154)
             check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
             check_type(argname="argument hosted_zones", value=hosted_zones, expected_type=type_hints["hosted_zones"])
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
@@ -634,24 +620,24 @@ class CertificationValidationProps:
             self._values["validation_domains"] = validation_domains
 
     @builtins.property
-    def hosted_zone(self) -> typing.Optional["_IHostedZone_9a6907ad"]:
+    def hosted_zone(self) -> typing.Optional["_aws_route53_ea3eecac.IHostedZone"]:
         '''Hosted zone to use for DNS validation.
 
         :default: - use email validation
         '''
         result = self._values.get("hosted_zone")
-        return typing.cast(typing.Optional["_IHostedZone_9a6907ad"], result)
+        return typing.cast(typing.Optional["_aws_route53_ea3eecac.IHostedZone"], result)
 
     @builtins.property
     def hosted_zones(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_IHostedZone_9a6907ad"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_route53_ea3eecac.IHostedZone"]]:
         '''A map of hosted zones to use for DNS validation.
 
         :default: - use ``hostedZone``
         '''
         result = self._values.get("hosted_zones")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_IHostedZone_9a6907ad"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_route53_ea3eecac.IHostedZone"]], result)
 
     @builtins.property
     def method(self) -> typing.Optional["ValidationMethod"]:
@@ -685,9 +671,9 @@ class CertificationValidationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccountRef_dbc6fc0d)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_certificatemanager_7969630d.IAccountRef)
 class CfnAccount(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAccount",
 ):
@@ -715,7 +701,7 @@ class CfnAccount(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        expiry_events_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccount.ExpiryEventsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        expiry_events_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccount.ExpiryEventsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::CertificateManager::Account``.
 
@@ -724,7 +710,7 @@ class CfnAccount(
         :param expiry_events_configuration: Object containing expiration events options associated with an AWS account . For more information, see `ExpiryEventsConfiguration <https://docs.aws.amazon.com/acm/latest/APIReference/API_ExpiryEventsConfiguration.html>`_ in the API reference.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db4f656c3005938d36870ee742d58c361b2595cfa8e6518fe38589b36fa0255d)
+            type_hints = cached_type_hints(_typecheckingstub__db4f656c3005938d36870ee742d58c361b2595cfa8e6518fe38589b36fa0255d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccountProps(
@@ -741,18 +727,18 @@ class CfnAccount(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61fd5de06341925c40778b787ce88467bb7adedb9df72e931719142c29b68603)
+            type_hints = cached_type_hints(_typecheckingstub__61fd5de06341925c40778b787ce88467bb7adedb9df72e931719142c29b68603)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccount", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb75c7a5c08bac926fc28e0787cb2048b7cf11214a8eb2398e88170bf00af154)
+            type_hints = cached_type_hints(_typecheckingstub__cb75c7a5c08bac926fc28e0787cb2048b7cf11214a8eb2398e88170bf00af154)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -765,7 +751,7 @@ class CfnAccount(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8ba0fa95f8656708a4d80a6f060f0f04c7d3ec6e81e8476b2d640250b079a7e)
+            type_hints = cached_type_hints(_typecheckingstub__c8ba0fa95f8656708a4d80a6f060f0f04c7d3ec6e81e8476b2d640250b079a7e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -777,9 +763,9 @@ class CfnAccount(
 
     @builtins.property
     @jsii.member(jsii_name="accountRef")
-    def account_ref(self) -> "_AccountReference_2fb6748e":
+    def account_ref(self) -> "_aws_certificatemanager_7969630d.AccountReference":
         '''A reference to a Account resource.'''
-        return typing.cast("_AccountReference_2fb6748e", jsii.get(self, "accountRef"))
+        return typing.cast("_aws_certificatemanager_7969630d.AccountReference", jsii.get(self, "accountRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
@@ -804,17 +790,17 @@ class CfnAccount(
     @jsii.member(jsii_name="expiryEventsConfiguration")
     def expiry_events_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccount.ExpiryEventsConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccount.ExpiryEventsConfigurationProperty"]:
         '''Object containing expiration events options associated with an AWS account .'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccount.ExpiryEventsConfigurationProperty"], jsii.get(self, "expiryEventsConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccount.ExpiryEventsConfigurationProperty"], jsii.get(self, "expiryEventsConfiguration"))
 
     @expiry_events_configuration.setter
     def expiry_events_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAccount.ExpiryEventsConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccount.ExpiryEventsConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c44e33adc270e269d609b1c233392549a56a49e07e3459a57e1ecdb35bebeba3)
+            type_hints = cached_type_hints(_typecheckingstub__c44e33adc270e269d609b1c233392549a56a49e07e3459a57e1ecdb35bebeba3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expiryEventsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -849,7 +835,7 @@ class CfnAccount(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ad7aae0c4eae9319d3ebf2aff5a7a88275d784bac367f81cdc0d088e05e5a1fa)
+                type_hints = cached_type_hints(_typecheckingstub__ad7aae0c4eae9319d3ebf2aff5a7a88275d784bac367f81cdc0d088e05e5a1fa)
                 check_type(argname="argument days_before_expiry", value=days_before_expiry, expected_type=type_hints["days_before_expiry"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if days_before_expiry is not None:
@@ -887,7 +873,7 @@ class CfnAccountProps:
     def __init__(
         self,
         *,
-        expiry_events_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAccount.ExpiryEventsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        expiry_events_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccount.ExpiryEventsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnAccount``.
 
@@ -909,7 +895,7 @@ class CfnAccountProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9591bf61584c328c9d03002934487f830e54f9aa231b003bcd4999ac2d265c5e)
+            type_hints = cached_type_hints(_typecheckingstub__9591bf61584c328c9d03002934487f830e54f9aa231b003bcd4999ac2d265c5e)
             check_type(argname="argument expiry_events_configuration", value=expiry_events_configuration, expected_type=type_hints["expiry_events_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "expiry_events_configuration": expiry_events_configuration,
@@ -918,7 +904,7 @@ class CfnAccountProps:
     @builtins.property
     def expiry_events_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAccount.ExpiryEventsConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccount.ExpiryEventsConfigurationProperty"]:
         '''Object containing expiration events options associated with an AWS account .
 
         For more information, see `ExpiryEventsConfiguration <https://docs.aws.amazon.com/acm/latest/APIReference/API_ExpiryEventsConfiguration.html>`_ in the API reference.
@@ -927,7 +913,7 @@ class CfnAccountProps:
         '''
         result = self._values.get("expiry_events_configuration")
         assert result is not None, "Required property 'expiry_events_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAccount.ExpiryEventsConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccount.ExpiryEventsConfigurationProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -941,9 +927,1699 @@ class CfnAccountProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICertificateRef_1878d79b, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_certificatemanager_7969630d.IAcmeDomainValidationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAcmeDomainValidation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidation",
+):
+    '''Resource Type definition for AWS::CertificateManager::AcmeDomainValidation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html
+    :cloudformationResource: AWS::CertificateManager::AcmeDomainValidation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_certificatemanager as certificatemanager
+        
+        cfn_acme_domain_validation = certificatemanager.CfnAcmeDomainValidation(self, "MyCfnAcmeDomainValidation",
+            acme_endpoint_arn="acmeEndpointArn",
+            domain_name="domainName",
+            prevalidation_options=certificatemanager.CfnAcmeDomainValidation.PrevalidationOptionsProperty(
+                dns_prevalidation=certificatemanager.CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty(
+                    domain_scope=certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty(
+                        exact_domain="exactDomain",
+                        subdomains="subdomains",
+                        wildcards="wildcards"
+                    ),
+                    hosted_zone_id="hostedZoneId"
+                )
+            ),
+        
+            # the properties below are optional
+            tags=[certificatemanager.CfnAcmeDomainValidation.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        acme_endpoint_arn: builtins.str,
+        domain_name: builtins.str,
+        prevalidation_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeDomainValidation.PrevalidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeDomainValidation.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CertificateManager::AcmeDomainValidation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param acme_endpoint_arn: The ARN of the ACME endpoint this domain validation is associated with.
+        :param domain_name: The domain name to validate.
+        :param prevalidation_options: Prevalidation method configuration. Currently only DNS-based prevalidation is supported.
+        :param tags: Tags associated with the domain validation.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9757f1e18052103a75a249e025e4e9e3643e0327bfd0da1430e06091be661a09)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAcmeDomainValidationProps(
+            acme_endpoint_arn=acme_endpoint_arn,
+            domain_name=domain_name,
+            prevalidation_options=prevalidation_options,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAcmeDomainValidation")
+    @builtins.classmethod
+    def arn_for_acme_domain_validation(
+        cls,
+        resource: "_aws_certificatemanager_7969630d.IAcmeDomainValidationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3ae6c259d9a8d9b5cdd8a22c2b61681b2cd3dad184f27c699e9f42fee4ca6b5a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAcmeDomainValidation", [resource]))
+
+    @jsii.member(jsii_name="isCfnAcmeDomainValidation")
+    @builtins.classmethod
+    def is_cfn_acme_domain_validation(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAcmeDomainValidation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bcb435ddb7f51c005a27e2390f2372641693efd2645aa45a7e39b897d9bfab5a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAcmeDomainValidation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__646b9a43e9e70f531d1ebbb469c5a268ca8137132e5dcfd693bc6f553825700d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a306f12b9fb39b24efb1bc35d8fc4a80167b49e2577199bd4f560b3ccdc6eb7d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeDomainValidationRef")
+    def acme_domain_validation_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.AcmeDomainValidationReference":
+        '''A reference to a AcmeDomainValidation resource.'''
+        return typing.cast("_aws_certificatemanager_7969630d.AcmeDomainValidationReference", jsii.get(self, "acmeDomainValidationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the domain validation.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeEndpointArn")
+    def acme_endpoint_arn(self) -> builtins.str:
+        '''The ARN of the ACME endpoint this domain validation is associated with.'''
+        return typing.cast(builtins.str, jsii.get(self, "acmeEndpointArn"))
+
+    @acme_endpoint_arn.setter
+    def acme_endpoint_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__376d751535d3916c3655b03b3aff7cd959c4f094a816814bed772a137273f3a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acmeEndpointArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The domain name to validate.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f320ed23734a1c6915a89e47d23eaa0d2e496fb7dc8f0f0f765e05cdda0aa2e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="prevalidationOptions")
+    def prevalidation_options(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.PrevalidationOptionsProperty"]:
+        '''Prevalidation method configuration.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.PrevalidationOptionsProperty"], jsii.get(self, "prevalidationOptions"))
+
+    @prevalidation_options.setter
+    def prevalidation_options(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.PrevalidationOptionsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1c2d31fa5f1c9b9a2d89580b2d2f6e42c07822d2c0139e053489219068c977dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "prevalidationOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAcmeDomainValidation.TagsItemsProperty"]]:
+        '''Tags associated with the domain validation.'''
+        return typing.cast(typing.Optional[typing.List["CfnAcmeDomainValidation.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnAcmeDomainValidation.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__df9c666abb75e1fe36c64c29286df27a1a16bd352080b99e6b1822b7071ff362)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain_scope": "domainScope", "hosted_zone_id": "hostedZoneId"},
+    )
+    class DnsPrevalidationOptionsProperty:
+        def __init__(
+            self,
+            *,
+            domain_scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeDomainValidation.DomainScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hosted_zone_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''DNS-based prevalidation options for the domain validation.
+
+            :param domain_scope: Controls which certificate types are authorized to be issued for the domain via the ACME endpoint.
+            :param hosted_zone_id: The Route 53 hosted zone ID for automatic DNS record management. When provided, the service creates the validation DNS record on the customer's behalf.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-dnsprevalidationoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                dns_prevalidation_options_property = certificatemanager.CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty(
+                    domain_scope=certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty(
+                        exact_domain="exactDomain",
+                        subdomains="subdomains",
+                        wildcards="wildcards"
+                    ),
+                    hosted_zone_id="hostedZoneId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6050fbd0721ffc128eac3693a969cd1bf2e96fb369c9bb7a67c5e68519bdd66c)
+                check_type(argname="argument domain_scope", value=domain_scope, expected_type=type_hints["domain_scope"])
+                check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_scope is not None:
+                self._values["domain_scope"] = domain_scope
+            if hosted_zone_id is not None:
+                self._values["hosted_zone_id"] = hosted_zone_id
+
+        @builtins.property
+        def domain_scope(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.DomainScopeProperty"]]:
+            '''Controls which certificate types are authorized to be issued for the domain via the ACME endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-dnsprevalidationoptions.html#cfn-certificatemanager-acmedomainvalidation-dnsprevalidationoptions-domainscope
+            '''
+            result = self._values.get("domain_scope")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.DomainScopeProperty"]], result)
+
+        @builtins.property
+        def hosted_zone_id(self) -> typing.Optional[builtins.str]:
+            '''The Route 53 hosted zone ID for automatic DNS record management.
+
+            When provided, the service creates the validation DNS record on the customer's behalf.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-dnsprevalidationoptions.html#cfn-certificatemanager-acmedomainvalidation-dnsprevalidationoptions-hostedzoneid
+            '''
+            result = self._values.get("hosted_zone_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DnsPrevalidationOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exact_domain": "exactDomain",
+            "subdomains": "subdomains",
+            "wildcards": "wildcards",
+        },
+    )
+    class DomainScopeProperty:
+        def __init__(
+            self,
+            *,
+            exact_domain: typing.Optional[builtins.str] = None,
+            subdomains: typing.Optional[builtins.str] = None,
+            wildcards: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Controls which certificate types are authorized to be issued for the domain via the ACME endpoint.
+
+            :param exact_domain: Whether certificates may be issued for the exact domain.
+            :param subdomains: Whether certificates may be issued for subdomains of the domain.
+            :param wildcards: Whether wildcard certificates may be issued for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-domainscope.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                domain_scope_property = certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty(
+                    exact_domain="exactDomain",
+                    subdomains="subdomains",
+                    wildcards="wildcards"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__96894bd853b4e20eaba434fe413d7702e86c224dac0823586d95e723440525f4)
+                check_type(argname="argument exact_domain", value=exact_domain, expected_type=type_hints["exact_domain"])
+                check_type(argname="argument subdomains", value=subdomains, expected_type=type_hints["subdomains"])
+                check_type(argname="argument wildcards", value=wildcards, expected_type=type_hints["wildcards"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exact_domain is not None:
+                self._values["exact_domain"] = exact_domain
+            if subdomains is not None:
+                self._values["subdomains"] = subdomains
+            if wildcards is not None:
+                self._values["wildcards"] = wildcards
+
+        @builtins.property
+        def exact_domain(self) -> typing.Optional[builtins.str]:
+            '''Whether certificates may be issued for the exact domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-domainscope.html#cfn-certificatemanager-acmedomainvalidation-domainscope-exactdomain
+            '''
+            result = self._values.get("exact_domain")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subdomains(self) -> typing.Optional[builtins.str]:
+            '''Whether certificates may be issued for subdomains of the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-domainscope.html#cfn-certificatemanager-acmedomainvalidation-domainscope-subdomains
+            '''
+            result = self._values.get("subdomains")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def wildcards(self) -> typing.Optional[builtins.str]:
+            '''Whether wildcard certificates may be issued for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-domainscope.html#cfn-certificatemanager-acmedomainvalidation-domainscope-wildcards
+            '''
+            result = self._values.get("wildcards")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainScopeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidation.PrevalidationOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dns_prevalidation": "dnsPrevalidation"},
+    )
+    class PrevalidationOptionsProperty:
+        def __init__(
+            self,
+            *,
+            dns_prevalidation: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Prevalidation method configuration.
+
+            Currently only DNS-based prevalidation is supported.
+
+            :param dns_prevalidation: DNS-based prevalidation options for the domain validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-prevalidationoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                prevalidation_options_property = certificatemanager.CfnAcmeDomainValidation.PrevalidationOptionsProperty(
+                    dns_prevalidation=certificatemanager.CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty(
+                        domain_scope=certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty(
+                            exact_domain="exactDomain",
+                            subdomains="subdomains",
+                            wildcards="wildcards"
+                        ),
+                        hosted_zone_id="hostedZoneId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4041df9b848420fbd849670fc25f1071d556e556e3b04c6126b03b41c832d170)
+                check_type(argname="argument dns_prevalidation", value=dns_prevalidation, expected_type=type_hints["dns_prevalidation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dns_prevalidation": dns_prevalidation,
+            }
+
+        @builtins.property
+        def dns_prevalidation(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty"]:
+            '''DNS-based prevalidation options for the domain validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-prevalidationoptions.html#cfn-certificatemanager-acmedomainvalidation-prevalidationoptions-dnsprevalidation
+            '''
+            result = self._values.get("dns_prevalidation")
+            assert result is not None, "Required property 'dns_prevalidation' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrevalidationOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidation.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: The key name of the tag.
+            :param value: The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                tags_items_property = certificatemanager.CfnAcmeDomainValidation.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a1b8c33be7aeb0b09abdf2014751f814ac0e5991bef8f55c97af0e81ace15351)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key name of the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-tagsitems.html#cfn-certificatemanager-acmedomainvalidation-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmedomainvalidation-tagsitems.html#cfn-certificatemanager-acmedomainvalidation-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeDomainValidationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "acme_endpoint_arn": "acmeEndpointArn",
+        "domain_name": "domainName",
+        "prevalidation_options": "prevalidationOptions",
+        "tags": "tags",
+    },
+)
+class CfnAcmeDomainValidationProps:
+    def __init__(
+        self,
+        *,
+        acme_endpoint_arn: builtins.str,
+        domain_name: builtins.str,
+        prevalidation_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeDomainValidation.PrevalidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeDomainValidation.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAcmeDomainValidation``.
+
+        :param acme_endpoint_arn: The ARN of the ACME endpoint this domain validation is associated with.
+        :param domain_name: The domain name to validate.
+        :param prevalidation_options: Prevalidation method configuration. Currently only DNS-based prevalidation is supported.
+        :param tags: Tags associated with the domain validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_certificatemanager as certificatemanager
+            
+            cfn_acme_domain_validation_props = certificatemanager.CfnAcmeDomainValidationProps(
+                acme_endpoint_arn="acmeEndpointArn",
+                domain_name="domainName",
+                prevalidation_options=certificatemanager.CfnAcmeDomainValidation.PrevalidationOptionsProperty(
+                    dns_prevalidation=certificatemanager.CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty(
+                        domain_scope=certificatemanager.CfnAcmeDomainValidation.DomainScopeProperty(
+                            exact_domain="exactDomain",
+                            subdomains="subdomains",
+                            wildcards="wildcards"
+                        ),
+                        hosted_zone_id="hostedZoneId"
+                    )
+                ),
+            
+                # the properties below are optional
+                tags=[certificatemanager.CfnAcmeDomainValidation.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e464e6c1d118ff3c78f00542082a6414221d33d6c510ce91a13699edb49abb91)
+            check_type(argname="argument acme_endpoint_arn", value=acme_endpoint_arn, expected_type=type_hints["acme_endpoint_arn"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument prevalidation_options", value=prevalidation_options, expected_type=type_hints["prevalidation_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acme_endpoint_arn": acme_endpoint_arn,
+            "domain_name": domain_name,
+            "prevalidation_options": prevalidation_options,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def acme_endpoint_arn(self) -> builtins.str:
+        '''The ARN of the ACME endpoint this domain validation is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html#cfn-certificatemanager-acmedomainvalidation-acmeendpointarn
+        '''
+        result = self._values.get("acme_endpoint_arn")
+        assert result is not None, "Required property 'acme_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The domain name to validate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html#cfn-certificatemanager-acmedomainvalidation-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def prevalidation_options(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.PrevalidationOptionsProperty"]:
+        '''Prevalidation method configuration.
+
+        Currently only DNS-based prevalidation is supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html#cfn-certificatemanager-acmedomainvalidation-prevalidationoptions
+        '''
+        result = self._values.get("prevalidation_options")
+        assert result is not None, "Required property 'prevalidation_options' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeDomainValidation.PrevalidationOptionsProperty"], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAcmeDomainValidation.TagsItemsProperty"]]:
+        '''Tags associated with the domain validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmedomainvalidation.html#cfn-certificatemanager-acmedomainvalidation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnAcmeDomainValidation.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAcmeDomainValidationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_certificatemanager_7969630d.IAcmeEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAcmeEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpoint",
+):
+    '''Resource Type definition for AWS::CertificateManager::AcmeEndpoint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html
+    :cloudformationResource: AWS::CertificateManager::AcmeEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_certificatemanager as certificatemanager
+        
+        cfn_acme_endpoint = certificatemanager.CfnAcmeEndpoint(self, "MyCfnAcmeEndpoint",
+            authorization_behavior="authorizationBehavior",
+            certificate_authority=certificatemanager.CfnAcmeEndpoint.CertificateAuthorityProperty(
+                public_certificate_authority=certificatemanager.CfnAcmeEndpoint.PublicCertificateAuthorityProperty(
+                    allowed_key_algorithms=["allowedKeyAlgorithms"]
+                )
+            ),
+        
+            # the properties below are optional
+            certificate_tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            contact="contact",
+            tags=[certificatemanager.CfnAcmeEndpoint.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_behavior: builtins.str,
+        certificate_authority: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeEndpoint.CertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]],
+        certificate_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        contact: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeEndpoint.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CertificateManager::AcmeEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param authorization_behavior: The authorization behavior for the ACME endpoint.
+        :param certificate_authority: The certificate authority configuration for the ACME endpoint.
+        :param certificate_tags: Tags applied to certificates issued via this endpoint.
+        :param contact: Whether contact information is required for the ACME endpoint.
+        :param tags: Tags associated with the ACME endpoint.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__82a5dd6dbdd8bbb7d2bf315958f3dbeb29516abe76d55dce4c689858414ab3ec)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAcmeEndpointProps(
+            authorization_behavior=authorization_behavior,
+            certificate_authority=certificate_authority,
+            certificate_tags=certificate_tags,
+            contact=contact,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAcmeEndpoint")
+    @builtins.classmethod
+    def arn_for_acme_endpoint(
+        cls,
+        resource: "_aws_certificatemanager_7969630d.IAcmeEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26c7760d48a5cbeba874aed4c38e963d58d9c53752f3ed4ffd195d56c3b682c3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAcmeEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnAcmeEndpoint")
+    @builtins.classmethod
+    def is_cfn_acme_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAcmeEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4367017f00f5b4feb6ef1839b5c2f043d8dd3790740ada3df93075f536de7d43)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAcmeEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d937ef216e43f3d87f9e1fd413dc3b51715ef5c2dc7a3bbc3d2a49ffdd7c9a58)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5ea912e3ee6c7e3060a3bd42ed9d29493ae3d0c6aa279329da8c6674e15fbbc2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeEndpointRef")
+    def acme_endpoint_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.AcmeEndpointReference":
+        '''A reference to a AcmeEndpoint resource.'''
+        return typing.cast("_aws_certificatemanager_7969630d.AcmeEndpointReference", jsii.get(self, "acmeEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAcmeEndpointArn")
+    def attr_acme_endpoint_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the ACME endpoint.
+
+        :cloudformationAttribute: AcmeEndpointArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAcmeEndpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointUrl")
+    def attr_endpoint_url(self) -> builtins.str:
+        '''The ACME directory URL for the endpoint.
+
+        :cloudformationAttribute: EndpointUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizationBehavior")
+    def authorization_behavior(self) -> builtins.str:
+        '''The authorization behavior for the ACME endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "authorizationBehavior"))
+
+    @authorization_behavior.setter
+    def authorization_behavior(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__558b62105db16c3097de203fdd0d34498ffbe8869067626c248db571a27df7c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authorizationBehavior", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthority")
+    def certificate_authority(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.CertificateAuthorityProperty"]:
+        '''The certificate authority configuration for the ACME endpoint.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.CertificateAuthorityProperty"], jsii.get(self, "certificateAuthority"))
+
+    @certificate_authority.setter
+    def certificate_authority(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.CertificateAuthorityProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e5337ff75b5830d947a620a774c6f5dbeb0b6817c5f4aadb5b462b6e6135757)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateAuthority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateTags")
+    def certificate_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]]:
+        '''Tags applied to certificates issued via this endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], jsii.get(self, "certificateTags"))
+
+    @certificate_tags.setter
+    def certificate_tags(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e33b51187f8666a9dc02f74a731588740bb7e1d6f225ba656c245497d4e3bfe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contact")
+    def contact(self) -> typing.Optional[builtins.str]:
+        '''Whether contact information is required for the ACME endpoint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "contact"))
+
+    @contact.setter
+    def contact(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc5b79532f00c6f4fb600a3aa95de0e910ac7df076adf7cd725a4c22a42c6063)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contact", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnAcmeEndpoint.TagsItemsProperty"]]:
+        '''Tags associated with the ACME endpoint.'''
+        return typing.cast(typing.Optional[typing.List["CfnAcmeEndpoint.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnAcmeEndpoint.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__52081f7e1fd9ff1cbbac1df3f8d0855cd1c20841fc75df87de1bf1998589f9f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpoint.CertificateAuthorityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"public_certificate_authority": "publicCertificateAuthority"},
+    )
+    class CertificateAuthorityProperty:
+        def __init__(
+            self,
+            *,
+            public_certificate_authority: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeEndpoint.PublicCertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The certificate authority configuration for the ACME endpoint.
+
+            :param public_certificate_authority: Configuration for the public certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-certificateauthority.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                certificate_authority_property = certificatemanager.CfnAcmeEndpoint.CertificateAuthorityProperty(
+                    public_certificate_authority=certificatemanager.CfnAcmeEndpoint.PublicCertificateAuthorityProperty(
+                        allowed_key_algorithms=["allowedKeyAlgorithms"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f7d4f18f9b5027784d36dbc0f1aa1a34eb17d9ed076774ee131fb5c600ad76cf)
+                check_type(argname="argument public_certificate_authority", value=public_certificate_authority, expected_type=type_hints["public_certificate_authority"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "public_certificate_authority": public_certificate_authority,
+            }
+
+        @builtins.property
+        def public_certificate_authority(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.PublicCertificateAuthorityProperty"]:
+            '''Configuration for the public certificate authority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-certificateauthority.html#cfn-certificatemanager-acmeendpoint-certificateauthority-publiccertificateauthority
+            '''
+            result = self._values.get("public_certificate_authority")
+            assert result is not None, "Required property 'public_certificate_authority' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.PublicCertificateAuthorityProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateAuthorityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpoint.PublicCertificateAuthorityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"allowed_key_algorithms": "allowedKeyAlgorithms"},
+    )
+    class PublicCertificateAuthorityProperty:
+        def __init__(
+            self,
+            *,
+            allowed_key_algorithms: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration for the public certificate authority.
+
+            :param allowed_key_algorithms: The allowed key algorithms for certificates issued via this endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-publiccertificateauthority.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                public_certificate_authority_property = certificatemanager.CfnAcmeEndpoint.PublicCertificateAuthorityProperty(
+                    allowed_key_algorithms=["allowedKeyAlgorithms"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e0b852b5aed29aaf54ca110a709532bf82309edbf4ea09b26b76d9a3fa0f01bf)
+                check_type(argname="argument allowed_key_algorithms", value=allowed_key_algorithms, expected_type=type_hints["allowed_key_algorithms"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allowed_key_algorithms is not None:
+                self._values["allowed_key_algorithms"] = allowed_key_algorithms
+
+        @builtins.property
+        def allowed_key_algorithms(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The allowed key algorithms for certificates issued via this endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-publiccertificateauthority.html#cfn-certificatemanager-acmeendpoint-publiccertificateauthority-allowedkeyalgorithms
+            '''
+            result = self._values.get("allowed_key_algorithms")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PublicCertificateAuthorityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpoint.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: The key name of the tag.
+            :param value: The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                tags_items_property = certificatemanager.CfnAcmeEndpoint.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__80c3a8cca0db3d236f54917ed139c97f6c13e14963af1b62451ee64bf3ef610d)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key name of the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-tagsitems.html#cfn-certificatemanager-acmeendpoint-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeendpoint-tagsitems.html#cfn-certificatemanager-acmeendpoint-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization_behavior": "authorizationBehavior",
+        "certificate_authority": "certificateAuthority",
+        "certificate_tags": "certificateTags",
+        "contact": "contact",
+        "tags": "tags",
+    },
+)
+class CfnAcmeEndpointProps:
+    def __init__(
+        self,
+        *,
+        authorization_behavior: builtins.str,
+        certificate_authority: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeEndpoint.CertificateAuthorityProperty", typing.Dict[builtins.str, typing.Any]]],
+        certificate_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        contact: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeEndpoint.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAcmeEndpoint``.
+
+        :param authorization_behavior: The authorization behavior for the ACME endpoint.
+        :param certificate_authority: The certificate authority configuration for the ACME endpoint.
+        :param certificate_tags: Tags applied to certificates issued via this endpoint.
+        :param contact: Whether contact information is required for the ACME endpoint.
+        :param tags: Tags associated with the ACME endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_certificatemanager as certificatemanager
+            
+            cfn_acme_endpoint_props = certificatemanager.CfnAcmeEndpointProps(
+                authorization_behavior="authorizationBehavior",
+                certificate_authority=certificatemanager.CfnAcmeEndpoint.CertificateAuthorityProperty(
+                    public_certificate_authority=certificatemanager.CfnAcmeEndpoint.PublicCertificateAuthorityProperty(
+                        allowed_key_algorithms=["allowedKeyAlgorithms"]
+                    )
+                ),
+            
+                # the properties below are optional
+                certificate_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                contact="contact",
+                tags=[certificatemanager.CfnAcmeEndpoint.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5cb353a4ed2a693b0f06dca019a6de99cc4ca6224f7d9d2bb0500937532f0413)
+            check_type(argname="argument authorization_behavior", value=authorization_behavior, expected_type=type_hints["authorization_behavior"])
+            check_type(argname="argument certificate_authority", value=certificate_authority, expected_type=type_hints["certificate_authority"])
+            check_type(argname="argument certificate_tags", value=certificate_tags, expected_type=type_hints["certificate_tags"])
+            check_type(argname="argument contact", value=contact, expected_type=type_hints["contact"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorization_behavior": authorization_behavior,
+            "certificate_authority": certificate_authority,
+        }
+        if certificate_tags is not None:
+            self._values["certificate_tags"] = certificate_tags
+        if contact is not None:
+            self._values["contact"] = contact
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def authorization_behavior(self) -> builtins.str:
+        '''The authorization behavior for the ACME endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html#cfn-certificatemanager-acmeendpoint-authorizationbehavior
+        '''
+        result = self._values.get("authorization_behavior")
+        assert result is not None, "Required property 'authorization_behavior' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_authority(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.CertificateAuthorityProperty"]:
+        '''The certificate authority configuration for the ACME endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html#cfn-certificatemanager-acmeendpoint-certificateauthority
+        '''
+        result = self._values.get("certificate_authority")
+        assert result is not None, "Required property 'certificate_authority' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeEndpoint.CertificateAuthorityProperty"], result)
+
+    @builtins.property
+    def certificate_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]]:
+        '''Tags applied to certificates issued via this endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html#cfn-certificatemanager-acmeendpoint-certificatetags
+        '''
+        result = self._values.get("certificate_tags")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], result)
+
+    @builtins.property
+    def contact(self) -> typing.Optional[builtins.str]:
+        '''Whether contact information is required for the ACME endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html#cfn-certificatemanager-acmeendpoint-contact
+        '''
+        result = self._values.get("contact")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnAcmeEndpoint.TagsItemsProperty"]]:
+        '''Tags associated with the ACME endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html#cfn-certificatemanager-acmeendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnAcmeEndpoint.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAcmeEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_certificatemanager_7969630d.IAcmeExternalAccountBindingRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAcmeExternalAccountBinding(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeExternalAccountBinding",
+):
+    '''Resource Type definition for AWS::CertificateManager::AcmeExternalAccountBinding.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html
+    :cloudformationResource: AWS::CertificateManager::AcmeExternalAccountBinding
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_certificatemanager as certificatemanager
+        
+        cfn_acme_external_account_binding = certificatemanager.CfnAcmeExternalAccountBinding(self, "MyCfnAcmeExternalAccountBinding",
+            acme_endpoint_arn="acmeEndpointArn",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            expiration=certificatemanager.CfnAcmeExternalAccountBinding.ExpirationProperty(
+                type="type",
+                value=123
+            ),
+            tags=[certificatemanager.CfnAcmeExternalAccountBinding.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        acme_endpoint_arn: builtins.str,
+        role_arn: builtins.str,
+        expiration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeExternalAccountBinding.ExpirationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeExternalAccountBinding.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CertificateManager::AcmeExternalAccountBinding``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param acme_endpoint_arn: The ARN of the ACME endpoint this binding is associated with.
+        :param role_arn: The IAM role ARN for cross-account access.
+        :param expiration: The expiration configuration for the external account binding.
+        :param tags: Tags associated with the external account binding.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e46fa5326ed1bd41a6b1b4b4770d3371b91d68c307e314dbfbf6c17cda332dc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAcmeExternalAccountBindingProps(
+            acme_endpoint_arn=acme_endpoint_arn,
+            role_arn=role_arn,
+            expiration=expiration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAcmeExternalAccountBinding")
+    @builtins.classmethod
+    def arn_for_acme_external_account_binding(
+        cls,
+        resource: "_aws_certificatemanager_7969630d.IAcmeExternalAccountBindingRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ba551e4ccd7e34331d9ff492c65f7aaa101f4dcf3759df5543cb85543917434)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAcmeExternalAccountBinding", [resource]))
+
+    @jsii.member(jsii_name="isCfnAcmeExternalAccountBinding")
+    @builtins.classmethod
+    def is_cfn_acme_external_account_binding(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAcmeExternalAccountBinding.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7e249738ddf05d3642465942c8d44ed65a8eed0937e6f31ecb4f00e84be06b0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAcmeExternalAccountBinding", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a4cb9f8b77dddd3d3d9a36ec9dcff848561d1b8a925a20576aaac962dc42a4e5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fcae17de8d4d6530cd6568cf1dad7695610d6ff0ecb3c61d5ad58311d76dc85e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeExternalAccountBindingRef")
+    def acme_external_account_binding_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.AcmeExternalAccountBindingReference":
+        '''A reference to a AcmeExternalAccountBinding resource.'''
+        return typing.cast("_aws_certificatemanager_7969630d.AcmeExternalAccountBindingReference", jsii.get(self, "acmeExternalAccountBindingRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAcmeExternalAccountBindingArn")
+    def attr_acme_external_account_binding_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the external account binding.
+
+        :cloudformationAttribute: AcmeExternalAccountBindingArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAcmeExternalAccountBindingArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acmeEndpointArn")
+    def acme_endpoint_arn(self) -> builtins.str:
+        '''The ARN of the ACME endpoint this binding is associated with.'''
+        return typing.cast(builtins.str, jsii.get(self, "acmeEndpointArn"))
+
+    @acme_endpoint_arn.setter
+    def acme_endpoint_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27a4a2067951aa34daeae063a5eb69044ed2aa91d8365c25aa4c55ea32e2722a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acmeEndpointArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN for cross-account access.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee12fe66d6e38003484278daec1a2056069e81bba4d149a4c1f3d67da47bee25)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expiration")
+    def expiration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeExternalAccountBinding.ExpirationProperty"]]:
+        '''The expiration configuration for the external account binding.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeExternalAccountBinding.ExpirationProperty"]], jsii.get(self, "expiration"))
+
+    @expiration.setter
+    def expiration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeExternalAccountBinding.ExpirationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7298beec3240a4b2ddb77d69f5cbfa3c716d88c32a4bda48257a6010f9b9930d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expiration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAcmeExternalAccountBinding.TagsItemsProperty"]]:
+        '''Tags associated with the external account binding.'''
+        return typing.cast(typing.Optional[typing.List["CfnAcmeExternalAccountBinding.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnAcmeExternalAccountBinding.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__334363552b06dd75bb9d8e033b27db72ea1f71452f467fb68d566b7a0476d8e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeExternalAccountBinding.ExpirationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "value": "value"},
+    )
+    class ExpirationProperty:
+        def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
+            '''The expiration configuration for the external account binding.
+
+            :param type: The time unit for the expiration value.
+            :param value: The expiration value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-expiration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                expiration_property = certificatemanager.CfnAcmeExternalAccountBinding.ExpirationProperty(
+                    type="type",
+                    value=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__641166e6dda411891a3b3c400e5282c6fe663b4a3b4cb813a579a8988428ae86)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+                "value": value,
+            }
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The time unit for the expiration value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-expiration.html#cfn-certificatemanager-acmeexternalaccountbinding-expiration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> jsii.Number:
+            '''The expiration value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-expiration.html#cfn-certificatemanager-acmeexternalaccountbinding-expiration-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExpirationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeExternalAccountBinding.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: The key name of the tag.
+            :param value: The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_certificatemanager as certificatemanager
+                
+                tags_items_property = certificatemanager.CfnAcmeExternalAccountBinding.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__855044dde4e41495cf87e0ddfd1dbdcb353085ae19b55f9cda5d4b3a8e2f57a2)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key name of the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-tagsitems.html#cfn-certificatemanager-acmeexternalaccountbinding-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-acmeexternalaccountbinding-tagsitems.html#cfn-certificatemanager-acmeexternalaccountbinding-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeExternalAccountBindingProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "acme_endpoint_arn": "acmeEndpointArn",
+        "role_arn": "roleArn",
+        "expiration": "expiration",
+        "tags": "tags",
+    },
+)
+class CfnAcmeExternalAccountBindingProps:
+    def __init__(
+        self,
+        *,
+        acme_endpoint_arn: builtins.str,
+        role_arn: builtins.str,
+        expiration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAcmeExternalAccountBinding.ExpirationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnAcmeExternalAccountBinding.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAcmeExternalAccountBinding``.
+
+        :param acme_endpoint_arn: The ARN of the ACME endpoint this binding is associated with.
+        :param role_arn: The IAM role ARN for cross-account access.
+        :param expiration: The expiration configuration for the external account binding.
+        :param tags: Tags associated with the external account binding.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_certificatemanager as certificatemanager
+            
+            cfn_acme_external_account_binding_props = certificatemanager.CfnAcmeExternalAccountBindingProps(
+                acme_endpoint_arn="acmeEndpointArn",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                expiration=certificatemanager.CfnAcmeExternalAccountBinding.ExpirationProperty(
+                    type="type",
+                    value=123
+                ),
+                tags=[certificatemanager.CfnAcmeExternalAccountBinding.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce12085510d67462f268ba154e52f4df347ba7a2dee9a94642cc8991fe62bf2a)
+            check_type(argname="argument acme_endpoint_arn", value=acme_endpoint_arn, expected_type=type_hints["acme_endpoint_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument expiration", value=expiration, expected_type=type_hints["expiration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acme_endpoint_arn": acme_endpoint_arn,
+            "role_arn": role_arn,
+        }
+        if expiration is not None:
+            self._values["expiration"] = expiration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def acme_endpoint_arn(self) -> builtins.str:
+        '''The ARN of the ACME endpoint this binding is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html#cfn-certificatemanager-acmeexternalaccountbinding-acmeendpointarn
+        '''
+        result = self._values.get("acme_endpoint_arn")
+        assert result is not None, "Required property 'acme_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN for cross-account access.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html#cfn-certificatemanager-acmeexternalaccountbinding-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def expiration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeExternalAccountBinding.ExpirationProperty"]]:
+        '''The expiration configuration for the external account binding.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html#cfn-certificatemanager-acmeexternalaccountbinding-expiration
+        '''
+        result = self._values.get("expiration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAcmeExternalAccountBinding.ExpirationProperty"]], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAcmeExternalAccountBinding.TagsItemsProperty"]]:
+        '''Tags associated with the external account binding.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeexternalaccountbinding.html#cfn-certificatemanager-acmeexternalaccountbinding-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnAcmeExternalAccountBinding.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAcmeExternalAccountBindingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_certificatemanager_7969630d.ICertificateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCertificate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.CfnCertificate",
 ):
@@ -1000,10 +2676,10 @@ class CfnCertificate(
         certificate_authority_arn: typing.Optional[builtins.str] = None,
         certificate_export: typing.Optional[builtins.str] = None,
         certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
-        domain_validation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.DomainValidationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        domain_validation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCertificate.DomainValidationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         key_algorithm: typing.Optional[builtins.str] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         validation_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::CertificateManager::Certificate``.
@@ -1021,7 +2697,7 @@ class CfnCertificate(
         :param validation_method: The method you want to use to validate that you own or control the domain associated with a public certificate. You can `validate with DNS <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate-dns.html>`_ or `validate with email <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate-email.html>`_ . We recommend that you use DNS validation. If not specified, this property defaults to email validation.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f094b3f6a318b9501162c46d45eaf42466c16a9c333dd4021dc90258cf9f035)
+            type_hints = cached_type_hints(_typecheckingstub__6f094b3f6a318b9501162c46d45eaf42466c16a9c333dd4021dc90258cf9f035)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCertificateProps(
@@ -1040,12 +2716,15 @@ class CfnCertificate(
 
     @jsii.member(jsii_name="arnForCertificate")
     @builtins.classmethod
-    def arn_for_certificate(cls, resource: "_ICertificateRef_1878d79b") -> builtins.str:
+    def arn_for_certificate(
+        cls,
+        resource: "_aws_certificatemanager_7969630d.ICertificateRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__263afa57a98fb4b01e4f59aef3b2fc7273885bdf051ae65bfd7b734db0113b48)
+            type_hints = cached_type_hints(_typecheckingstub__263afa57a98fb4b01e4f59aef3b2fc7273885bdf051ae65bfd7b734db0113b48)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificate", [resource]))
 
@@ -1056,7 +2735,7 @@ class CfnCertificate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         certificate_id: builtins.str,
-    ) -> "_ICertificateRef_1878d79b":
+    ) -> "_aws_certificatemanager_7969630d.ICertificateRef":
         '''Creates a new ICertificateRef from a certificateId.
 
         :param scope: -
@@ -1064,11 +2743,11 @@ class CfnCertificate(
         :param certificate_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74ad5174285b28bb947e64c6319be4642c1bb37681ea5d0d736a58181c45689e)
+            type_hints = cached_type_hints(_typecheckingstub__74ad5174285b28bb947e64c6319be4642c1bb37681ea5d0d736a58181c45689e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
-        return typing.cast("_ICertificateRef_1878d79b", jsii.sinvoke(cls, "fromCertificateId", [scope, id, certificate_id]))
+        return typing.cast("_aws_certificatemanager_7969630d.ICertificateRef", jsii.sinvoke(cls, "fromCertificateId", [scope, id, certificate_id]))
 
     @jsii.member(jsii_name="isCfnCertificate")
     @builtins.classmethod
@@ -1078,18 +2757,18 @@ class CfnCertificate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7bf367e1e5fef77d7fe49eb5b807bb1245882802d067ab41913b92999222fcf)
+            type_hints = cached_type_hints(_typecheckingstub__a7bf367e1e5fef77d7fe49eb5b807bb1245882802d067ab41913b92999222fcf)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cc2233ca7729f72437c57a4d626536c7b9150faa120045db48045a6b05d1e2a)
+            type_hints = cached_type_hints(_typecheckingstub__6cc2233ca7729f72437c57a4d626536c7b9150faa120045db48045a6b05d1e2a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1102,7 +2781,7 @@ class CfnCertificate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__faa3f6cb4a71f233ceb715be42dc7e73f8cafc61728bc988a89693de4a66c690)
+            type_hints = cached_type_hints(_typecheckingstub__faa3f6cb4a71f233ceb715be42dc7e73f8cafc61728bc988a89693de4a66c690)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1122,9 +2801,11 @@ class CfnCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> "_CertificateReference_6d6c82cf":
+    def certificate_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.CertificateReference":
         '''A reference to a Certificate resource.'''
-        return typing.cast("_CertificateReference_6d6c82cf", jsii.get(self, "certificateRef"))
+        return typing.cast("_aws_certificatemanager_7969630d.CertificateReference", jsii.get(self, "certificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1138,9 +2819,9 @@ class CfnCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -1151,7 +2832,7 @@ class CfnCertificate(
     @domain_name.setter
     def domain_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ecc9a53026b3797b0ea9be214e046e5e413153b784ae59d56029cc943cad72d)
+            type_hints = cached_type_hints(_typecheckingstub__1ecc9a53026b3797b0ea9be214e046e5e413153b784ae59d56029cc943cad72d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
@@ -1164,7 +2845,7 @@ class CfnCertificate(
     @certificate_authority_arn.setter
     def certificate_authority_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58a46e864da863431c56823a56fc6f403857fef239765fe1b0400f623ed3493c)
+            type_hints = cached_type_hints(_typecheckingstub__58a46e864da863431c56823a56fc6f403857fef239765fe1b0400f623ed3493c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1177,7 +2858,7 @@ class CfnCertificate(
     @certificate_export.setter
     def certificate_export(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d950c422d5c6ee00cbcc4b8b9fb7d0b251571a9084cb4b6e68065e797e461b4a)
+            type_hints = cached_type_hints(_typecheckingstub__d950c422d5c6ee00cbcc4b8b9fb7d0b251571a9084cb4b6e68065e797e461b4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateExport", value) # pyright: ignore[reportArgumentType]
 
@@ -1195,7 +2876,7 @@ class CfnCertificate(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6946e1448636db36ed5e4ce9c801fc6db4c58d0f89d88789b24f93a2628abc0)
+            type_hints = cached_type_hints(_typecheckingstub__f6946e1448636db36ed5e4ce9c801fc6db4c58d0f89d88789b24f93a2628abc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateTransparencyLoggingPreference", value) # pyright: ignore[reportArgumentType]
 
@@ -1203,17 +2884,17 @@ class CfnCertificate(
     @jsii.member(jsii_name="domainValidationOptions")
     def domain_validation_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.DomainValidationOptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCertificate.DomainValidationOptionProperty"]]]]:
         '''Domain information that domain name registrars use to verify your identity.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.DomainValidationOptionProperty"]]]], jsii.get(self, "domainValidationOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCertificate.DomainValidationOptionProperty"]]]], jsii.get(self, "domainValidationOptions"))
 
     @domain_validation_options.setter
     def domain_validation_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.DomainValidationOptionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCertificate.DomainValidationOptionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56d2ab51aeb5167d471668b88dc595eaa9bda575e9837a78ce2083f388a77963)
+            type_hints = cached_type_hints(_typecheckingstub__56d2ab51aeb5167d471668b88dc595eaa9bda575e9837a78ce2083f388a77963)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainValidationOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1226,7 +2907,7 @@ class CfnCertificate(
     @key_algorithm.setter
     def key_algorithm(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f976aa6e608ce4d5147cacebbe2f5d9a9585636c73462d403fcc81233f3bbd6)
+            type_hints = cached_type_hints(_typecheckingstub__7f976aa6e608ce4d5147cacebbe2f5d9a9585636c73462d403fcc81233f3bbd6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyAlgorithm", value) # pyright: ignore[reportArgumentType]
 
@@ -1242,20 +2923,23 @@ class CfnCertificate(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91f98018864a0f9c4b1051b73b5346df1e3dc533c89e840a02c7184c60f56d3a)
+            type_hints = cached_type_hints(_typecheckingstub__91f98018864a0f9c4b1051b73b5346df1e3dc533c89e840a02c7184c60f56d3a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subjectAlternativeNames", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can identify the certificate.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42ebedfc2551a20aee372ba1bddbbd7ce73218848ab3d71aad89b1d372061b64)
+            type_hints = cached_type_hints(_typecheckingstub__42ebedfc2551a20aee372ba1bddbbd7ce73218848ab3d71aad89b1d372061b64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1268,7 +2952,7 @@ class CfnCertificate(
     @validation_method.setter
     def validation_method(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__234f3afa18fce0171662dad033e06d37b968d809b62314c6e62f4c1a4817ad7c)
+            type_hints = cached_type_hints(_typecheckingstub__234f3afa18fce0171662dad033e06d37b968d809b62314c6e62f4c1a4817ad7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "validationMethod", value) # pyright: ignore[reportArgumentType]
 
@@ -1313,7 +2997,7 @@ class CfnCertificate(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c300d5c33d86322345b2adb8237375463f7f5ab1e486b11b34f49a04524807a3)
+                type_hints = cached_type_hints(_typecheckingstub__c300d5c33d86322345b2adb8237375463f7f5ab1e486b11b34f49a04524807a3)
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
                 check_type(argname="argument validation_domain", value=validation_domain, expected_type=type_hints["validation_domain"])
@@ -1407,10 +3091,10 @@ class CfnCertificateProps:
         certificate_authority_arn: typing.Optional[builtins.str] = None,
         certificate_export: typing.Optional[builtins.str] = None,
         certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
-        domain_validation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.DomainValidationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        domain_validation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCertificate.DomainValidationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         key_algorithm: typing.Optional[builtins.str] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         validation_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnCertificate``.
@@ -1459,7 +3143,7 @@ class CfnCertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e42a641d895acaee35ba9ec88335a357b8cbfb64b98867f1792ccd63242a79d)
+            type_hints = cached_type_hints(_typecheckingstub__0e42a641d895acaee35ba9ec88335a357b8cbfb64b98867f1792ccd63242a79d)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
             check_type(argname="argument certificate_export", value=certificate_export, expected_type=type_hints["certificate_export"])
@@ -1545,7 +3229,7 @@ class CfnCertificateProps:
     @builtins.property
     def domain_validation_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.DomainValidationOptionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCertificate.DomainValidationOptionProperty"]]]]:
         '''Domain information that domain name registrars use to verify your identity.
 
         .. epigraph::
@@ -1555,7 +3239,7 @@ class CfnCertificateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-certificate.html#cfn-certificatemanager-certificate-domainvalidationoptions
         '''
         result = self._values.get("domain_validation_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.DomainValidationOptionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCertificate.DomainValidationOptionProperty"]]]], result)
 
     @builtins.property
     def key_algorithm(self) -> typing.Optional[builtins.str]:
@@ -1591,13 +3275,13 @@ class CfnCertificateProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can identify the certificate.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-certificate.html#cfn-certificatemanager-certificate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def validation_method(self) -> typing.Optional[builtins.str]:
@@ -1653,9 +3337,9 @@ class DnsValidatedCertificateProps(CertificateProps):
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         transparency_logging_enabled: typing.Optional[builtins.bool] = None,
         validation: typing.Optional["CertificateValidation"] = None,
-        hosted_zone: "_IHostedZone_9a6907ad",
+        hosted_zone: "_aws_route53_ea3eecac.IHostedZone",
         cleanup_route53_records: typing.Optional[builtins.bool] = None,
-        custom_resource_role: typing.Optional["_IRole_235f5d8e"] = None,
+        custom_resource_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         region: typing.Optional[builtins.str] = None,
         route53_endpoint: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1707,7 +3391,7 @@ class DnsValidatedCertificateProps(CertificateProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8749c95da859ba878861eff7c4231de11fa86681f0df8dbe02a3b4e4f5128b6)
+            type_hints = cached_type_hints(_typecheckingstub__f8749c95da859ba878861eff7c4231de11fa86681f0df8dbe02a3b4e4f5128b6)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
@@ -1827,7 +3511,7 @@ class DnsValidatedCertificateProps(CertificateProps):
         return typing.cast(typing.Optional["CertificateValidation"], result)
 
     @builtins.property
-    def hosted_zone(self) -> "_IHostedZone_9a6907ad":
+    def hosted_zone(self) -> "_aws_route53_ea3eecac.IHostedZone":
         '''Route 53 Hosted Zone used to perform DNS validation of the request.
 
         The zone
@@ -1835,7 +3519,7 @@ class DnsValidatedCertificateProps(CertificateProps):
         '''
         result = self._values.get("hosted_zone")
         assert result is not None, "Required property 'hosted_zone' is missing"
-        return typing.cast("_IHostedZone_9a6907ad", result)
+        return typing.cast("_aws_route53_ea3eecac.IHostedZone", result)
 
     @builtins.property
     def cleanup_route53_records(self) -> typing.Optional[builtins.bool]:
@@ -1851,13 +3535,13 @@ class DnsValidatedCertificateProps(CertificateProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def custom_resource_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def custom_resource_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role to use for the custom resource that creates the validated certificate.
 
         :default: - A new role will be created
         '''
         result = self._values.get("custom_resource_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
@@ -1899,8 +3583,8 @@ class DnsValidatedCertificateProps(CertificateProps):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_certificatemanager.ICertificate")
 class ICertificate(
-    _IResource_c80c4260,
-    _ICertificateRef_1878d79b,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_certificatemanager_7969630d.ICertificateRef,
     typing_extensions.Protocol,
 ):
     '''Represents a certificate in AWS Certificate Manager.'''
@@ -1923,14 +3607,14 @@ class ICertificate(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the DaysToExpiry metric for this AWS Certificate Manager Certificate. By default, this is the minimum value over 1 day.
 
         This metric is no longer emitted once the certificate has effectively
@@ -1954,8 +3638,8 @@ class ICertificate(
 
 
 class _ICertificateProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ICertificateRef_1878d79b), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_certificatemanager_7969630d.ICertificateRef), # type: ignore[misc]
 ):
     '''Represents a certificate in AWS Certificate Manager.'''
 
@@ -1979,14 +3663,14 @@ class _ICertificateProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the DaysToExpiry metric for this AWS Certificate Manager Certificate. By default, this is the minimum value over 1 day.
 
         This metric is no longer emitted once the certificate has effectively
@@ -2006,7 +3690,7 @@ class _ICertificateProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2021,7 +3705,7 @@ class _ICertificateProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDaysToExpiry", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDaysToExpiry", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICertificate).__jsii_proxy_class__ = lambda : _ICertificateProxy
@@ -2057,7 +3741,7 @@ class KeyAlgorithm(
         :param name: The name of the algorithm.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cad5e05f7974be056d9b0af63d73115399c3a158fbaae8fc08f093bd54934b5b)
+            type_hints = cached_type_hints(_typecheckingstub__cad5e05f7974be056d9b0af63d73115399c3a158fbaae8fc08f093bd54934b5b)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         jsii.create(self.__class__, self, [name])
 
@@ -2112,7 +3796,7 @@ class KeyAlgorithm(
 
 @jsii.implements(ICertificate)
 class PrivateCertificate(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.PrivateCertificate",
 ):
@@ -2139,7 +3823,7 @@ class PrivateCertificate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        certificate_authority: "_ICertificateAuthorityRef_240f71c8",
+        certificate_authority: "_aws_acmpca_b1f9cb51.ICertificateAuthorityRef",
         domain_name: builtins.str,
         allow_export: typing.Optional[builtins.bool] = None,
         key_algorithm: typing.Optional["KeyAlgorithm"] = None,
@@ -2155,7 +3839,7 @@ class PrivateCertificate(
         :param subject_alternative_names: Alternative domain names on your private certificate. Use this to register alternative domain names that represent the same site. Default: - No additional FQDNs will be included as alternative domain names.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f15cee4bdac8e70000027c8ca1386d49408a399d3919aa965c46bb68facc21a4)
+            type_hints = cached_type_hints(_typecheckingstub__f15cee4bdac8e70000027c8ca1386d49408a399d3919aa965c46bb68facc21a4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PrivateCertificateProps(
@@ -2183,7 +3867,7 @@ class PrivateCertificate(
         :param certificate_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eafcf5967e32f6f738871dd474ec031ff15891454da458a2b6e15d1b85b72b9d)
+            type_hints = cached_type_hints(_typecheckingstub__eafcf5967e32f6f738871dd474ec031ff15891454da458a2b6e15d1b85b72b9d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
@@ -2198,14 +3882,14 @@ class PrivateCertificate(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the DaysToExpiry metric for this AWS Certificate Manager Certificate. By default, this is the minimum value over 1 day.
 
         This metric is no longer emitted once the certificate has effectively
@@ -2225,7 +3909,7 @@ class PrivateCertificate(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2240,7 +3924,7 @@ class PrivateCertificate(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDaysToExpiry", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDaysToExpiry", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2256,9 +3940,11 @@ class PrivateCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> "_CertificateReference_6d6c82cf":
+    def certificate_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.CertificateReference":
         '''A reference to a Certificate resource.'''
-        return typing.cast("_CertificateReference_6d6c82cf", jsii.get(self, "certificateRef"))
+        return typing.cast("_aws_certificatemanager_7969630d.CertificateReference", jsii.get(self, "certificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -2282,7 +3968,7 @@ class PrivateCertificateProps:
     def __init__(
         self,
         *,
-        certificate_authority: "_ICertificateAuthorityRef_240f71c8",
+        certificate_authority: "_aws_acmpca_b1f9cb51.ICertificateAuthorityRef",
         domain_name: builtins.str,
         allow_export: typing.Optional[builtins.bool] = None,
         key_algorithm: typing.Optional["KeyAlgorithm"] = None,
@@ -2311,7 +3997,7 @@ class PrivateCertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74588c43933e5f34a3203601cc823ca974676f71701280dcd43e9f037bba43e3)
+            type_hints = cached_type_hints(_typecheckingstub__74588c43933e5f34a3203601cc823ca974676f71701280dcd43e9f037bba43e3)
             check_type(argname="argument certificate_authority", value=certificate_authority, expected_type=type_hints["certificate_authority"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument allow_export", value=allow_export, expected_type=type_hints["allow_export"])
@@ -2329,11 +4015,11 @@ class PrivateCertificateProps:
             self._values["subject_alternative_names"] = subject_alternative_names
 
     @builtins.property
-    def certificate_authority(self) -> "_ICertificateAuthorityRef_240f71c8":
+    def certificate_authority(self) -> "_aws_acmpca_b1f9cb51.ICertificateAuthorityRef":
         '''Private certificate authority (CA) that will be used to issue the certificate.'''
         result = self._values.get("certificate_authority")
         assert result is not None, "Required property 'certificate_authority' is missing"
-        return typing.cast("_ICertificateAuthorityRef_240f71c8", result)
+        return typing.cast("_aws_acmpca_b1f9cb51.ICertificateAuthorityRef", result)
 
     @builtins.property
     def domain_name(self) -> builtins.str:
@@ -2412,7 +4098,7 @@ class ValidationMethod(enum.Enum):
 
 @jsii.implements(ICertificate)
 class Certificate(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.Certificate",
 ):
@@ -2466,7 +4152,7 @@ class Certificate(
         :param validation: How to validate this certificate. Default: CertificateValidation.fromEmail()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64139efa4ed87482ec95b7e38ad6cf94c6873d02b05ba33c374316868eb40e3e)
+            type_hints = cached_type_hints(_typecheckingstub__64139efa4ed87482ec95b7e38ad6cf94c6873d02b05ba33c374316868eb40e3e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CertificateProps(
@@ -2496,7 +4182,7 @@ class Certificate(
         :param certificate_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ba32788b9a2bfc34b86b3a3dcc7804b0e9dd3af66d552dc97e35c49bf2c959e)
+            type_hints = cached_type_hints(_typecheckingstub__5ba32788b9a2bfc34b86b3a3dcc7804b0e9dd3af66d552dc97e35c49bf2c959e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
@@ -2511,14 +4197,14 @@ class Certificate(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return the DaysToExpiry metric for this AWS Certificate Manager Certificate. By default, this is the minimum value over 1 day.
 
         This metric is no longer emitted once the certificate has effectively
@@ -2538,7 +4224,7 @@ class Certificate(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2553,7 +4239,7 @@ class Certificate(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDaysToExpiry", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDaysToExpiry", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2569,9 +4255,11 @@ class Certificate(
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> "_CertificateReference_6d6c82cf":
+    def certificate_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.CertificateReference":
         '''A reference to a Certificate resource.'''
-        return typing.cast("_CertificateReference_6d6c82cf", jsii.get(self, "certificateRef"))
+        return typing.cast("_aws_certificatemanager_7969630d.CertificateReference", jsii.get(self, "certificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -2580,9 +4268,9 @@ class Certificate(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "region"))
 
 
-@jsii.implements(ICertificate, _ITaggable_36806126)
+@jsii.implements(ICertificate, _aws_cdk_0cae9daa.ITaggable)
 class DnsValidatedCertificate(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.DnsValidatedCertificate",
 ):
@@ -2633,9 +4321,9 @@ class DnsValidatedCertificate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        hosted_zone: "_IHostedZone_9a6907ad",
+        hosted_zone: "_aws_route53_ea3eecac.IHostedZone",
         cleanup_route53_records: typing.Optional[builtins.bool] = None,
-        custom_resource_role: typing.Optional["_IRole_235f5d8e"] = None,
+        custom_resource_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         region: typing.Optional[builtins.str] = None,
         route53_endpoint: typing.Optional[builtins.str] = None,
         domain_name: builtins.str,
@@ -2665,7 +4353,7 @@ class DnsValidatedCertificate(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ce11c00a812f11e5a7783956e3e90d7c684153bef62852779a324183af0e49b)
+            type_hints = cached_type_hints(_typecheckingstub__9ce11c00a812f11e5a7783956e3e90d7c684153bef62852779a324183af0e49b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DnsValidatedCertificateProps(
@@ -2686,7 +4374,7 @@ class DnsValidatedCertificate(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, policy: "_RemovalPolicy_9f93c814") -> None:
+    def apply_removal_policy(self, policy: "_aws_cdk_0cae9daa.RemovalPolicy") -> None:
         '''(deprecated) Apply the given removal policy to this resource.
 
         The Removal Policy controls what happens to this resource when it stops
@@ -2702,7 +4390,7 @@ class DnsValidatedCertificate(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba22afa55d26d44bc7ab216beab4c3cde2bb1d3e614622e603aa02f7a0682b65)
+            type_hints = cached_type_hints(_typecheckingstub__ba22afa55d26d44bc7ab216beab4c3cde2bb1d3e614622e603aa02f7a0682b65)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
@@ -2715,14 +4403,14 @@ class DnsValidatedCertificate(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''(deprecated) Return the DaysToExpiry metric for this AWS Certificate Manager Certificate. By default, this is the minimum value over 1 day.
 
         This metric is no longer emitted once the certificate has effectively
@@ -2744,7 +4432,7 @@ class DnsValidatedCertificate(
 
         :stability: deprecated
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2759,7 +4447,7 @@ class DnsValidatedCertificate(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDaysToExpiry", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricDaysToExpiry", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2781,22 +4469,24 @@ class DnsValidatedCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> "_CertificateReference_6d6c82cf":
+    def certificate_ref(
+        self,
+    ) -> "_aws_certificatemanager_7969630d.CertificateReference":
         '''(deprecated) A reference to a Certificate resource.
 
         :stability: deprecated
         '''
-        return typing.cast("_CertificateReference_6d6c82cf", jsii.get(self, "certificateRef"))
+        return typing.cast("_aws_certificatemanager_7969630d.CertificateReference", jsii.get(self, "certificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''(deprecated) Resource Tags.
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-certificate.html#cfn-certificatemanager-certificate-tags
         :stability: deprecated
         '''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -2815,6 +4505,12 @@ __all__ = [
     "CertificationValidationProps",
     "CfnAccount",
     "CfnAccountProps",
+    "CfnAcmeDomainValidation",
+    "CfnAcmeDomainValidationProps",
+    "CfnAcmeEndpoint",
+    "CfnAcmeEndpointProps",
+    "CfnAcmeExternalAccountBinding",
+    "CfnAcmeExternalAccountBindingProps",
     "CfnCertificate",
     "CfnCertificateProps",
     "DnsValidatedCertificate",
@@ -2842,13 +4538,13 @@ def _typecheckingstub__0454180af2ed6575d11cf361cd5374f722ba32d4007970472aca57751
     pass
 
 def _typecheckingstub__d311e81288c218c157a69a30ff08393bdbd454a8fc61208beab60d43ceb0d073(
-    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    hosted_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e9e19a57c59056b6522867e062779dfe13086b375805e7484ac5b3b16e1288bc(
-    hosted_zones: typing.Mapping[builtins.str, _IHostedZone_9a6907ad],
+    hosted_zones: typing.Mapping[builtins.str, _aws_route53_ea3eecac.IHostedZone],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2861,8 +4557,8 @@ def _typecheckingstub__e646dcc4d629169bb4daf43ef7ab70c779d7251a8c4a7997d32b8bd36
 
 def _typecheckingstub__4e752fd91fd754625f454d3983095bf28bb2a1e1fbd5d307a0d1662659800154(
     *,
-    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
-    hosted_zones: typing.Optional[typing.Mapping[builtins.str, _IHostedZone_9a6907ad]] = None,
+    hosted_zone: typing.Optional[_aws_route53_ea3eecac.IHostedZone] = None,
+    hosted_zones: typing.Optional[typing.Mapping[builtins.str, _aws_route53_ea3eecac.IHostedZone]] = None,
     method: typing.Optional[ValidationMethod] = None,
     validation_domains: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -2873,7 +4569,7 @@ def _typecheckingstub__db4f656c3005938d36870ee742d58c361b2595cfa8e6518fe38589b36
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    expiry_events_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccount.ExpiryEventsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    expiry_events_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccount.ExpiryEventsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2885,7 +4581,7 @@ def _typecheckingstub__61fd5de06341925c40778b787ce88467bb7adedb9df72e931719142c2
     pass
 
 def _typecheckingstub__cb75c7a5c08bac926fc28e0787cb2048b7cf11214a8eb2398e88170bf00af154(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2897,7 +4593,7 @@ def _typecheckingstub__c8ba0fa95f8656708a4d80a6f060f0f04c7d3ec6e81e8476b2d640250
     pass
 
 def _typecheckingstub__c44e33adc270e269d609b1c233392549a56a49e07e3459a57e1ecdb35bebeba3(
-    value: typing.Union[_IResolvable_da3f097b, CfnAccount.ExpiryEventsConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAccount.ExpiryEventsConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2911,7 +4607,295 @@ def _typecheckingstub__ad7aae0c4eae9319d3ebf2aff5a7a88275d784bac367f81cdc0d088e0
 
 def _typecheckingstub__9591bf61584c328c9d03002934487f830e54f9aa231b003bcd4999ac2d265c5e(
     *,
-    expiry_events_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccount.ExpiryEventsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    expiry_events_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccount.ExpiryEventsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9757f1e18052103a75a249e025e4e9e3643e0327bfd0da1430e06091be661a09(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    acme_endpoint_arn: builtins.str,
+    domain_name: builtins.str,
+    prevalidation_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeDomainValidation.PrevalidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeDomainValidation.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ae6c259d9a8d9b5cdd8a22c2b61681b2cd3dad184f27c699e9f42fee4ca6b5a(
+    resource: _aws_certificatemanager_7969630d.IAcmeDomainValidationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcb435ddb7f51c005a27e2390f2372641693efd2645aa45a7e39b897d9bfab5a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__646b9a43e9e70f531d1ebbb469c5a268ca8137132e5dcfd693bc6f553825700d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a306f12b9fb39b24efb1bc35d8fc4a80167b49e2577199bd4f560b3ccdc6eb7d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__376d751535d3916c3655b03b3aff7cd959c4f094a816814bed772a137273f3a6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f320ed23734a1c6915a89e47d23eaa0d2e496fb7dc8f0f0f765e05cdda0aa2e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c2d31fa5f1c9b9a2d89580b2d2f6e42c07822d2c0139e053489219068c977dc(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAcmeDomainValidation.PrevalidationOptionsProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df9c666abb75e1fe36c64c29286df27a1a16bd352080b99e6b1822b7071ff362(
+    value: typing.Optional[typing.List[CfnAcmeDomainValidation.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6050fbd0721ffc128eac3693a969cd1bf2e96fb369c9bb7a67c5e68519bdd66c(
+    *,
+    domain_scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeDomainValidation.DomainScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosted_zone_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96894bd853b4e20eaba434fe413d7702e86c224dac0823586d95e723440525f4(
+    *,
+    exact_domain: typing.Optional[builtins.str] = None,
+    subdomains: typing.Optional[builtins.str] = None,
+    wildcards: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4041df9b848420fbd849670fc25f1071d556e556e3b04c6126b03b41c832d170(
+    *,
+    dns_prevalidation: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeDomainValidation.DnsPrevalidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1b8c33be7aeb0b09abdf2014751f814ac0e5991bef8f55c97af0e81ace15351(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e464e6c1d118ff3c78f00542082a6414221d33d6c510ce91a13699edb49abb91(
+    *,
+    acme_endpoint_arn: builtins.str,
+    domain_name: builtins.str,
+    prevalidation_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeDomainValidation.PrevalidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeDomainValidation.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82a5dd6dbdd8bbb7d2bf315958f3dbeb29516abe76d55dce4c689858414ab3ec(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_behavior: builtins.str,
+    certificate_authority: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeEndpoint.CertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]],
+    certificate_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    contact: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeEndpoint.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26c7760d48a5cbeba874aed4c38e963d58d9c53752f3ed4ffd195d56c3b682c3(
+    resource: _aws_certificatemanager_7969630d.IAcmeEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4367017f00f5b4feb6ef1839b5c2f043d8dd3790740ada3df93075f536de7d43(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d937ef216e43f3d87f9e1fd413dc3b51715ef5c2dc7a3bbc3d2a49ffdd7c9a58(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ea912e3ee6c7e3060a3bd42ed9d29493ae3d0c6aa279329da8c6674e15fbbc2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__558b62105db16c3097de203fdd0d34498ffbe8869067626c248db571a27df7c2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e5337ff75b5830d947a620a774c6f5dbeb0b6817c5f4aadb5b462b6e6135757(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAcmeEndpoint.CertificateAuthorityProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e33b51187f8666a9dc02f74a731588740bb7e1d6f225ba656c245497d4e3bfe(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, _aws_cdk_0cae9daa.CfnTag]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc5b79532f00c6f4fb600a3aa95de0e910ac7df076adf7cd725a4c22a42c6063(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52081f7e1fd9ff1cbbac1df3f8d0855cd1c20841fc75df87de1bf1998589f9f6(
+    value: typing.Optional[typing.List[CfnAcmeEndpoint.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7d4f18f9b5027784d36dbc0f1aa1a34eb17d9ed076774ee131fb5c600ad76cf(
+    *,
+    public_certificate_authority: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeEndpoint.PublicCertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0b852b5aed29aaf54ca110a709532bf82309edbf4ea09b26b76d9a3fa0f01bf(
+    *,
+    allowed_key_algorithms: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80c3a8cca0db3d236f54917ed139c97f6c13e14963af1b62451ee64bf3ef610d(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cb353a4ed2a693b0f06dca019a6de99cc4ca6224f7d9d2bb0500937532f0413(
+    *,
+    authorization_behavior: builtins.str,
+    certificate_authority: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeEndpoint.CertificateAuthorityProperty, typing.Dict[builtins.str, typing.Any]]],
+    certificate_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    contact: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeEndpoint.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e46fa5326ed1bd41a6b1b4b4770d3371b91d68c307e314dbfbf6c17cda332dc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    acme_endpoint_arn: builtins.str,
+    role_arn: builtins.str,
+    expiration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeExternalAccountBinding.ExpirationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeExternalAccountBinding.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ba551e4ccd7e34331d9ff492c65f7aaa101f4dcf3759df5543cb85543917434(
+    resource: _aws_certificatemanager_7969630d.IAcmeExternalAccountBindingRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7e249738ddf05d3642465942c8d44ed65a8eed0937e6f31ecb4f00e84be06b0(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4cb9f8b77dddd3d3d9a36ec9dcff848561d1b8a925a20576aaac962dc42a4e5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcae17de8d4d6530cd6568cf1dad7695610d6ff0ecb3c61d5ad58311d76dc85e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27a4a2067951aa34daeae063a5eb69044ed2aa91d8365c25aa4c55ea32e2722a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee12fe66d6e38003484278daec1a2056069e81bba4d149a4c1f3d67da47bee25(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7298beec3240a4b2ddb77d69f5cbfa3c716d88c32a4bda48257a6010f9b9930d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAcmeExternalAccountBinding.ExpirationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__334363552b06dd75bb9d8e033b27db72ea1f71452f467fb68d566b7a0476d8e8(
+    value: typing.Optional[typing.List[CfnAcmeExternalAccountBinding.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__641166e6dda411891a3b3c400e5282c6fe663b4a3b4cb813a579a8988428ae86(
+    *,
+    type: builtins.str,
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__855044dde4e41495cf87e0ddfd1dbdcb353085ae19b55f9cda5d4b3a8e2f57a2(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce12085510d67462f268ba154e52f4df347ba7a2dee9a94642cc8991fe62bf2a(
+    *,
+    acme_endpoint_arn: builtins.str,
+    role_arn: builtins.str,
+    expiration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAcmeExternalAccountBinding.ExpirationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnAcmeExternalAccountBinding.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2924,17 +4908,17 @@ def _typecheckingstub__6f094b3f6a318b9501162c46d45eaf42466c16a9c333dd4021dc90258
     certificate_authority_arn: typing.Optional[builtins.str] = None,
     certificate_export: typing.Optional[builtins.str] = None,
     certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
-    domain_validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.DomainValidationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    domain_validation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCertificate.DomainValidationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     key_algorithm: typing.Optional[builtins.str] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     validation_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__263afa57a98fb4b01e4f59aef3b2fc7273885bdf051ae65bfd7b734db0113b48(
-    resource: _ICertificateRef_1878d79b,
+    resource: _aws_certificatemanager_7969630d.ICertificateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2954,7 +4938,7 @@ def _typecheckingstub__a7bf367e1e5fef77d7fe49eb5b807bb1245882802d067ab41913b9299
     pass
 
 def _typecheckingstub__6cc2233ca7729f72437c57a4d626536c7b9150faa120045db48045a6b05d1e2a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2990,7 +4974,7 @@ def _typecheckingstub__f6946e1448636db36ed5e4ce9c801fc6db4c58d0f89d88789b24f93a2
     pass
 
 def _typecheckingstub__56d2ab51aeb5167d471668b88dc595eaa9bda575e9837a78ce2083f388a77963(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCertificate.DomainValidationOptionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCertificate.DomainValidationOptionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3008,7 +4992,7 @@ def _typecheckingstub__91f98018864a0f9c4b1051b73b5346df1e3dc533c89e840a02c7184c6
     pass
 
 def _typecheckingstub__42ebedfc2551a20aee372ba1bddbbd7ce73218848ab3d71aad89b1d372061b64(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3034,10 +5018,10 @@ def _typecheckingstub__0e42a641d895acaee35ba9ec88335a357b8cbfb64b98867f1792ccd63
     certificate_authority_arn: typing.Optional[builtins.str] = None,
     certificate_export: typing.Optional[builtins.str] = None,
     certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
-    domain_validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.DomainValidationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    domain_validation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCertificate.DomainValidationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     key_algorithm: typing.Optional[builtins.str] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     validation_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3052,9 +5036,9 @@ def _typecheckingstub__f8749c95da859ba878861eff7c4231de11fa86681f0df8dbe02a3b4e4
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     transparency_logging_enabled: typing.Optional[builtins.bool] = None,
     validation: typing.Optional[CertificateValidation] = None,
-    hosted_zone: _IHostedZone_9a6907ad,
+    hosted_zone: _aws_route53_ea3eecac.IHostedZone,
     cleanup_route53_records: typing.Optional[builtins.bool] = None,
-    custom_resource_role: typing.Optional[_IRole_235f5d8e] = None,
+    custom_resource_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     region: typing.Optional[builtins.str] = None,
     route53_endpoint: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3071,7 +5055,7 @@ def _typecheckingstub__f15cee4bdac8e70000027c8ca1386d49408a399d3919aa965c46bb68f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    certificate_authority: _ICertificateAuthorityRef_240f71c8,
+    certificate_authority: _aws_acmpca_b1f9cb51.ICertificateAuthorityRef,
     domain_name: builtins.str,
     allow_export: typing.Optional[builtins.bool] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
@@ -3090,7 +5074,7 @@ def _typecheckingstub__eafcf5967e32f6f738871dd474ec031ff15891454da458a2b6e15d1b8
 
 def _typecheckingstub__74588c43933e5f34a3203601cc823ca974676f71701280dcd43e9f037bba43e3(
     *,
-    certificate_authority: _ICertificateAuthorityRef_240f71c8,
+    certificate_authority: _aws_acmpca_b1f9cb51.ICertificateAuthorityRef,
     domain_name: builtins.str,
     allow_export: typing.Optional[builtins.bool] = None,
     key_algorithm: typing.Optional[KeyAlgorithm] = None,
@@ -3126,9 +5110,9 @@ def _typecheckingstub__9ce11c00a812f11e5a7783956e3e90d7c684153bef62852779a324183
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    hosted_zone: _IHostedZone_9a6907ad,
+    hosted_zone: _aws_route53_ea3eecac.IHostedZone,
     cleanup_route53_records: typing.Optional[builtins.bool] = None,
-    custom_resource_role: typing.Optional[_IRole_235f5d8e] = None,
+    custom_resource_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     region: typing.Optional[builtins.str] = None,
     route53_endpoint: typing.Optional[builtins.str] = None,
     domain_name: builtins.str,
@@ -3143,7 +5127,7 @@ def _typecheckingstub__9ce11c00a812f11e5a7783956e3e90d7c684153bef62852779a324183
     pass
 
 def _typecheckingstub__ba22afa55d26d44bc7ab216beab4c3cde2bb1d3e614622e603aa02f7a0682b65(
-    policy: _RemovalPolicy_9f93c814,
+    policy: _aws_cdk_0cae9daa.RemovalPolicy,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -26,6 +26,7 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
     VersionOverrideTarget,
     set_version_override,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_tier_gcs_ro
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_actor_population_by_org,
@@ -974,7 +975,14 @@ class OpsMcpAdapter:
 
     @staticmethod
     def _tier_from_filters(raw: object) -> str:
-        """Extract the customer tier from a rollout's `filters` JSON column."""
+        """Extract the customer tier from a rollout's `filters` JSON column.
+
+        The terminal rollout stage targets the `TIER_0` cohort. Older rollouts
+        modeled that stage as `ALL` (an empty/absent tier filter), so both an
+        explicit `ALL` and no filter at all normalize to `TIER_0` here — they
+        must never be mistaken for `TIER_2`, which would collide with the real
+        `TIER_2` stage on the display cards.
+        """
         filters: dict | None = None
         if isinstance(raw, str):
             with contextlib.suppress(json.JSONDecodeError, TypeError):
@@ -988,14 +996,27 @@ class OpsMcpAdapter:
                 for entry in tier_filters:
                     if isinstance(entry, dict) and entry.get("name") == "TIER":
                         values = entry.get("value")
-                        if isinstance(values, list) and len(values) == 1:
-                            return str(values[0])
+                        if isinstance(values, list) and values:
+                            # A multi-tier filter is a real, distinct cohort — join
+                            # it (like `_extract_tier_from_filters` in
+                            # `registry/progressive_rollout_status.py`) rather than
+                            # falling through to the terminal `TIER_0` default.
+                            return ", ".join(
+                                OpsMcpAdapter._normalize_tier(str(v)) for v in values
+                            )
             # Legacy format: tierFilter dict
             tier_filter = filters.get("tierFilter") or {}
             tier = tier_filter.get("tier")
             if tier:
-                return str(tier)
-        return "TIER_2"
+                return OpsMcpAdapter._normalize_tier(str(tier))
+        return CustomerTier.TIER_0.value
+
+    @staticmethod
+    def _normalize_tier(tier: str) -> str:
+        """Map a legacy `ALL` stage onto the `TIER_0` cohort it rolls out to."""
+        if tier == CustomerTier.ALL.value:
+            return CustomerTier.TIER_0.value
+        return tier
 
     @staticmethod
     def _rollout_from_row(row: Mapping[str, object]) -> ConnectorRollout:

@@ -272,6 +272,7 @@ from bernstein.cli.helpers import (
     SDD_PID_WATCHDOG,
     SERVER_URL,
     STATUS_COLORS,
+    adapter_cli_choice,
     auth_headers,
     console,
     find_seed_file,
@@ -295,6 +296,7 @@ from bernstein.cli.run_cmd import (
     detect_available_adapter,
     init,
     run,
+    serve,
     setup_demo_project,
     start,
 )
@@ -404,6 +406,7 @@ def print_rich_help() -> None:
                 ("bernstein", "run from bernstein.yaml or backlog"),
                 ("run [dim]plan.yaml[/dim]", "execute a plan file (stages + steps)"),
                 ("init", "initialize project (.sdd/ + bernstein.yaml)"),
+                ("serve", "run the task server in the foreground (container / node)"),
                 ("stop", "graceful stop (agents save work first)"),
                 ("stop --force", "hard stop (kill immediately)"),
                 ("checkpoint", "save progress for later resume"),
@@ -615,7 +618,7 @@ def _validate_evolve_mode(evolve: bool, budget: float, max_cycles: int, yes: boo
 @click.option(
     "--cli",
     "cli_override",
-    type=click.Choice(["claude", "codex", "gemini", "qwen", "auto"]),
+    type=adapter_cli_choice(),
     default=None,
     help="Force a specific agent (overrides auto-detection).",
 )
@@ -1024,6 +1027,7 @@ cli.add_command(cook, "cook")
 cli.add_command(init)
 cli.add_command(run, "run")
 cli.add_command(start)
+cli.add_command(serve)  # foreground task server for containers / central node (#2803)
 cli.add_command(demo)
 cli.add_command(checkpoint_cmd, "checkpoint")
 cli.add_command(resume_cmd, "resume")

@@ -54,6 +54,16 @@ Image adversarial attacks:
 
 Multimodal attacks:
 - multimodal_attack: Transform-based multimodal probing (vision, audio, text)
+
+Traditional-ML attacks (query a classifier predict API via PredictionTargetSpec):
+- equation_solving_extraction: linear-model weight recovery (Tramèr'16)
+- jacobian_extraction: Jacobian dataset augmentation (Papernot'17)
+- copycat_extraction: hard-label distillation (CopycatCNN)
+- knockoff_extraction: soft-label transfer-set extraction (Knockoff Nets)
+- threshold_membership: confidence/entropy/loss-threshold membership inference (Yeom'18)
+- label_only_membership: label-only membership inference (Choquette-Choo'21)
+- confidence_inversion: MI-Face confidence-maximizing model inversion (Fredrikson'15)
+- nes_inversion: NES-based confidence-maximizing model inversion
 """
 
 from dreadnode.airt.adversarial_reasoning import adversarial_reasoning_attack
@@ -72,6 +82,27 @@ from dreadnode.airt.crescendo import crescendo_attack
 from dreadnode.airt.deep_inception import deep_inception_attack
 from dreadnode.airt.drattack import drattack
 from dreadnode.airt.echo_chamber import echo_chamber_attack
+from dreadnode.airt.evasion import (
+    bae_evasion,
+    boundary_evasion,
+    deepwordbug_evasion,
+    hopskipjump_evasion,
+    pwws_evasion,
+    simba_evasion,
+    square_evasion,
+    text_evasion,
+    textbugger_evasion,
+    textfooler_evasion,
+    zoo_evasion,
+)
+from dreadnode.airt.extraction import (
+    activethief_extraction,
+    copycat_extraction,
+    distillation_extraction,
+    equation_solving_extraction,
+    jacobian_extraction,
+    knockoff_extraction,
+)
 from dreadnode.airt.genetic_persona import genetic_persona_attack
 from dreadnode.airt.goat import goat_attack
 from dreadnode.airt.goat_v2 import goat_v2_attack
@@ -83,11 +114,23 @@ from dreadnode.airt.image import (
     simba_attack,
     zoo_attack,
 )
+from dreadnode.airt.inversion import (
+    confidence_inversion,
+    nes_inversion,
+)
 from dreadnode.airt.j2_meta import j2_meta_attack
 from dreadnode.airt.jbdistill import jbdistill_attack
 from dreadnode.airt.jbfuzz import jbfuzz_attack
 from dreadnode.airt.lrm_autonomous import lrm_autonomous_attack
 from dreadnode.airt.mapf import mapf_attack
+from dreadnode.airt.membership import (
+    entropy_membership,
+    label_only_membership,
+    lira_membership,
+    loss_membership,
+    shadow_model_membership,
+    threshold_membership,
+)
 from dreadnode.airt.multimodal import multimodal_attack
 from dreadnode.airt.nexus import nexus_attack
 from dreadnode.airt.pair import pair_attack
@@ -104,8 +147,11 @@ from dreadnode.airt.siren import siren_attack
 from dreadnode.airt.tap import tap_attack
 from dreadnode.airt.target import extract_response_text, extract_tool_calls
 from dreadnode.airt.targets import (
+    Prediction,
+    PredictionTargetSpec,
     TargetAuth,
     TargetSpec,
+    build_prediction_target,
     build_target,
     nova_sonic_target,
 )
@@ -116,8 +162,11 @@ from dreadnode.airt.watermark_removal import watermark_removal_attack
 
 __all__ = [
     "Assessment",
+    "Prediction",
+    "PredictionTargetSpec",
     "TargetAuth",
     "TargetSpec",
+    "activethief_extraction",
     "adversarial_reasoning_attack",
     "advpromptier_attack",
     "alignment_faking_attack",
@@ -127,13 +176,22 @@ __all__ = [
     "attention_shifting_attack",
     "autodan_turbo_attack",
     "autoredteamer_attack",
+    "bae_evasion",
     "beast_attack",
+    "boundary_evasion",
+    "build_prediction_target",
     "build_target",
+    "confidence_inversion",
+    "copycat_extraction",
     "cot_jailbreak_attack",
     "crescendo_attack",
     "deep_inception_attack",
+    "deepwordbug_evasion",
+    "distillation_extraction",
     "drattack",
     "echo_chamber_attack",
+    "entropy_membership",
+    "equation_solving_extraction",
     "extract_response_text",
     "extract_tool_calls",
     "genetic_persona_attack",
@@ -141,19 +199,27 @@ __all__ = [
     "goat_v2_attack",
     "gptfuzzer_attack",
     "hopskipjump_attack",
+    "hopskipjump_evasion",
     "humor_bypass_attack",
     "j2_meta_attack",
+    "jacobian_extraction",
     "jbdistill_attack",
     "jbfuzz_attack",
+    "knockoff_extraction",
+    "label_only_membership",
+    "lira_membership",
+    "loss_membership",
     "lrm_autonomous_attack",
     "mapf_attack",
     "multimodal_attack",
     "nes_attack",
+    "nes_inversion",
     "nexus_attack",
     "nova_sonic_target",
     "pair_attack",
     "persona_hijack_attack",
     "prompt_attack",
+    "pwws_evasion",
     "quantization_safety_attack",
     "rainbow_attack",
     "refusal_aware_attack",
@@ -161,12 +227,20 @@ __all__ = [
     "reward_hacking_attack",
     "salami_slicing_attack",
     "self_persuasion_attack",
+    "shadow_model_membership",
     "simba_attack",
+    "simba_evasion",
     "siren_attack",
+    "square_evasion",
     "tap_attack",
     "templatefuzz_attack",
+    "text_evasion",
+    "textbugger_evasion",
+    "textfooler_evasion",
+    "threshold_membership",
     "tmap_trajectory_attack",
     "trojail_attack",
     "watermark_removal_attack",
     "zoo_attack",
+    "zoo_evasion",
 ]

@@ -1396,7 +1396,7 @@ _namespace = {
 }
 
 
-reserved_vars = set(["_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *list(vars(builtins))])
+reserved_vars = {"_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *list(vars(builtins))}
 for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
     reserved_vars.discard(p)  # `format` is part of builtins
 # Allow 'id' to be used as a template parameter - https://gitlab.com/tinybird/analytics/-/issues/19119
@@ -2263,7 +2263,12 @@ def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[
             vars_out.extend(
                 parse_statement_code_if_new_vars(statement_code, skip_names=typed_names | statement_expr_names)
             )
-            return vars_out
+            # Inside a {% %} statement a type function with a literal first arg
+            # (e.g. {% set x = Float32(1.5) %}) is a plain value cast: the
+            # assigned variable is the parameter, the literal is not. Drop
+            # these artifacts so they don't surface as bogus params nor get
+            # rejected by validate_template_parameter_names.
+            return [vd for vd in vars_out if isinstance(vd["name"], str) and vd["name"]]
 
         def _n(chunks: list, vars_out: list[dict[str, Any]]) -> None:
             for x in chunks:
@@ -2308,6 +2313,43 @@ def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[
 @lru_cache(maxsize=2**10)
 def get_var_names_and_types_cached(t: Template):
     return get_var_names_and_types(t)
+
+
+def validate_template_parameter_names(sql: str, node_id: Optional[str] = None) -> None:
+    """Reject template parameters that don't have a usable name.
+
+    Type functions such as ``{{Float32(x)}}`` double as casts, so a literal
+    first argument (e.g. ``{{Float32(1682892000.0)}}`` or ``{{String('')}}``)
+    is parsed as a parameter whose name is a number or an empty string instead
+    of an identifier. Such a "parameter" can never be supplied by a caller and
+    breaks parameter metadata consumers, so it must be rejected at write time.
+
+    Raises ``ValueError`` with the same wording used elsewhere for invalid names.
+
+    Templates that fail to parse are left untouched: there are no parameters to
+    validate, and reporting/deferring those errors is the job of the existing
+    render/validation flow (some paths, e.g. ``ignore_sql_errors``, tolerate
+    unparseable SQL on purpose). This keeps the check strictly additive. The
+    only exception is the invalid-name ``ValueError`` that extraction itself
+    raises (e.g. for a list literal used as first argument), which is exactly
+    what this validator exists to report.
+    """
+    try:
+        params = get_var_names_and_types(Template(sql), node_id=node_id)
+    except SQLTemplateException:
+        # Template-level problem (e.g. a SecurityException converted by
+        # get_var_names_and_types), not an invalid parameter name.
+        return
+    except ValueError:
+        # Extraction itself rejects some invalid names (e.g. a list literal
+        # as first argument) with the same ValueError this function raises.
+        raise
+    except Exception:
+        return
+    for param in params:
+        name = param.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f'"{name}" can not be used as a variable name')
 
 
 def wrap_vars(t, escape_arrays: bool = False):
